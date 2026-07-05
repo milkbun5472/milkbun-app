@@ -157,7 +157,7 @@ function App() {
   const [offlines, setOfflines] = useState({}); // charId -> [session,...] newest-first
   // 线下模式设置 { [charId 或 "g_"+groupId]: {selfP,userP,describeMe,maxTokens} }
   const [offlineSettings, setOfflineSettings] = useState({});
-  const osFor = id => offlineSettings[id] || { maxTokens: 1400 };
+  const osFor = id => offlineSettings[id] || { maxTokens: String(id).startsWith("g_") ? 3200 : 1400 };
   const osNarr = id => { const s = osFor(id); return { selfP: s.selfP, userP: s.userP, describeMe: s.describeMe }; };
   const saveOfflineSettings = (id, patch) => setOfflineSettings(p => { const n = { ...p, [id]: { ...osFor(id), ...patch } }; saveJSON("x_offlineSettings", n); return n; });
   const offlinesRef = useRef({});
@@ -769,7 +769,7 @@ function App() {
     }
     setSending(true);
     try {
-      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...workSess, narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 1900, minWords: osFor("g_" + group.id).minWords });
+      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...workSess, narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords });
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
         if (i > 0) await new Promise(r => setTimeout(r, 420));
@@ -844,6 +844,26 @@ function App() {
   const groupOfflineAddNote = (groupId, note) => {
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), note] } : s));
     toast("已加入提示");
+  };
+  // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
+  const groupOfflineOOC = async (groupId, text) => {
+    if (sending || !text || !text.trim()) return;
+    const group = groups.find(g => g.id === groupId);
+    const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
+    if (!group || !sess) return;
+    pushGOffMsg(groupId, { id: "oocu_" + Date.now(), role: "user", kind: "ooc", content: text.trim(), ts: Date.now() });
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setSending(true);
+    try {
+      const members = groupMembers(group);
+      const histText = (sess.msgs || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【场景】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
+      const answer = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook, historyText: histText }, text.trim());
+      pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: answer, ts: Date.now() });
+    } catch (e) {
+      toast("OOC 失败：" + (e.message || "重试"));
+    } finally {
+      setSending(false);
+    }
   };
   const endGroupOffline = async groupId => {
     const group = groups.find(g => g.id === groupId);
@@ -1225,10 +1245,13 @@ function App() {
     spectate: false,
     memoryInterop: false,
     privateCtxN: 0,
+    preJoinN: 0,
     ctxN: 30,
     sumThresh: 150,
     sumBuffer: 20
   };
+  // 群创建时间：优先用显式 createdTs，老群回落到 id 里的时间戳
+  const groupCreatedTs = group => (group && group.createdTs) || (group && /^g_\d+$/.test(group.id) ? Number(group.id.slice(2)) : 0);
   const saveGroupSettings = (id, patch) => setGroupSettings(p => {
     const n = {
       ...p,
@@ -1268,7 +1291,19 @@ function App() {
     try {
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
-      const hist = gchat.slice(-(gs.ctxN || 30)).map(m => m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包]" + (m.message || "") : m.content)).join("\n");
+      const hist = gchat.filter(m => m.kind !== "ooc").slice(-(gs.ctxN || 30)).map(m => m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包]" + (m.message || "") : m.content)).join("\n");
+      // 补充上文：每位成员入群前的私聊（不接记忆库时用作背景），按群创建时间截断
+      let preJoin = "";
+      if (gs.preJoinN > 0) {
+        const cutTs = groupCreatedTs(group);
+        const pj = members.map(c => {
+          const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-gs.preJoinN);
+          if (!before.length) return "";
+          const lines = before.map(m => (m.role === "user" ? profile.name || "用户" : c.name) + "：" + m.content).join("\n");
+          return "『" + c.name + "』入群前的私聊：\n" + lines;
+        }).filter(Boolean).join("\n\n");
+        if (pj) preJoin = "\n\n【成员入群前和用户的私聊（作为背景，别生硬复述）】\n" + pj;
+      }
       const memberDesc = members.map(c => { const ph = (phones || {})[c.id] || {}; const pn = ph.music && ph.music.songs && ph.music.songs.length ? "（TA 最近在听：" + ph.music.songs.slice(0, 4).map(s => s.name).join("、") + "，对上了能认出来）" : ""; return "【" + c.name + "】" + (c.persona || "").slice(0, 200) + pn; }).join("\n\n");
       const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
       let interop = "";
@@ -1290,10 +1325,14 @@ function App() {
       const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言，一次产出 2-5 条。";
       const gEmotes = emotesForGroup(group.memberIds);
       const gEmoteHint = gEmotes.length ? "\n【表情包】成员可以在情绪合适时偶尔甩一张表情（别频繁）。可用关键词：" + gEmotes.map(e => e.keyword).join(" / ") + "。要发就在该成员那条发言对象里加 emote 字段填一个关键词（与列出的完全一致）。" : "";
-      const system = ANTI_CLICHE + (worldbook && worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gEmoteHint + "\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (worldbook ? "\n\n【世界书】\n" + worldbook : "") + interop + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须是成员之一。";
+      // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：每条普通发言可另加 \"thought\"（这个成员此刻没说出口的真实心声，一句话，可省略）、\"mood\"（此刻心情词，如「愉快」「烦躁」）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。" : "";
+      const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻心情词\",\"affinityDelta\":\"（可选）整数-5到5\"" : "";
+      const system = ANTI_CLICHE + (worldbook && worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gEmoteHint + thoughtHint + "\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (worldbook ? "\n\n【世界书】\n" + worldbook : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须是成员之一。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
+        if (gchat[i].kind === "ooc") continue; // OOC 不算发言，跳过
         if (gchat[i].role === "assistant") break;
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
@@ -1323,6 +1362,8 @@ function App() {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
             const gLines = String(arr[i].text || "").split(/\n+/).map(x => x.trim()).filter(Boolean);
             const gBubbles = gLines.length ? gLines : [String(arr[i].text || "")];
+            // 记忆互通时把心声挂在末条气泡上显示
+            const gThought = gs.memoryInterop && arr[i].thought && String(arr[i].thought).toLowerCase() !== "null" ? String(arr[i].thought).trim() : null;
             for (let j = 0; j < gBubbles.length; j++) {
               if (j > 0) await new Promise(r => setTimeout(r, 380));
               pGChat(groupId, p => [...p, {
@@ -1331,9 +1372,17 @@ function App() {
                 senderName: spk.name,
                 content: gBubbles[j],
                 replyTo: j === 0 ? (arr[i].quote || null) : null,
+                thought: j === gBubbles.length - 1 ? gThought : null,
                 ts: Date.now()
               }]);
             }
+          }
+          // 记忆互通：这次发言影响该成员对用户的实时好感与心情
+          if (gs.memoryInterop) {
+            const moodLabel = arr[i].mood && String(arr[i].mood).toLowerCase() !== "null" ? String(arr[i].mood).trim() : null;
+            const aDelta = typeof arr[i].affinityDelta === "number" ? arr[i].affinityDelta : Number(arr[i].affinityDelta);
+            if (spk && !isNaN(aDelta)) bumpAff(spk.id, aDelta || 0, moodLabel);
+            if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
           }
           // 成员主动发起通话邀请
           const gcm = arr[i].call && ["voice", "video"].includes(String(arr[i].call).toLowerCase()) ? String(arr[i].call).toLowerCase() : null;
@@ -1365,6 +1414,50 @@ function App() {
       setSending(false);
       maybeSummarizeGroup(groupId);
     }
+  };
+  // 群聊 OOC：跳出所有角色直接问模型；不进角色扮演上下文
+  const oocGroup = async (groupId, text) => {
+    if (sending || !text || !text.trim()) return;
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    pGChat(groupId, p => [...p, { role: "user", kind: "ooc", content: text.trim(), ts: Date.now() }]);
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setSending(true);
+    try {
+      const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
+      const histText = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
+      const answer = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook, historyText: histText }, text.trim());
+      pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: answer, ts: Date.now() }]);
+    } catch (e) {
+      toast("OOC 失败：" + (e.message || "重试"));
+    } finally {
+      setSending(false);
+    }
+  };
+  // 群聊消息长按操作：复制/收藏/编辑/撤回/重Roll（引用、多选在组件内处理）
+  const handleGroupMsgAction = (groupId, act, idx) => {
+    const msgs = groupChatsRef.current[groupId] || [];
+    const m = msgs[idx];
+    if (!m) return;
+    if (act === "fav") { addFavorite(m.senderId || null, m); return; }
+    if (act === "copy") {
+      navigator.clipboard && navigator.clipboard.writeText(m.content || "");
+      toast("已复制");
+    } else if (act === "recall") {
+      pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, origText: x.content, reason: x.reason || "" } : x));
+    } else if (act === "edit") {
+      const nv = prompt("编辑消息", m.content || "");
+      if (nv != null) pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x));
+    } else if (act === "reroll") {
+      if (m.role !== "assistant") { toast("只能重Roll成员的消息"); return; }
+      // 删掉这条及其之后的内容，从这里重新让成员回应
+      pGChat(groupId, p => p.slice(0, idx));
+      setTimeout(() => replyGroup(groupId), 200);
+    }
+  };
+  const deleteGroupMsgs = (groupId, indices) => {
+    const set = new Set(indices);
+    pGChat(groupId, p => p.filter((_, i) => !set.has(i)));
   };
   // ---- 群投票 ----
   const startPoll = (groupId, title, options, anon) => {
@@ -1577,7 +1670,8 @@ function App() {
     const g = {
       id: "g_" + Date.now(),
       name,
-      memberIds
+      memberIds,
+      createdTs: Date.now()
     };
     setGroups(p => {
       const n = [...p, g];
@@ -4377,6 +4471,9 @@ function App() {
     onSend: txt => pushGroupUser(activeGroup.id, txt),
     onReply: () => replyGroup(activeGroup.id),
     onContinue: () => replyGroup(activeGroup.id),
+    onOOC: txt => oocGroup(activeGroup.id, txt),
+    onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
+    onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     onSaveSettings: patch => saveGroupSettings(activeGroup.id, patch),
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
@@ -4834,6 +4931,7 @@ function App() {
     onEditMsg: (mid, txt) => groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => groupOfflineRerollMsg(offlineGroup.id, mid),
     onDelMsg: mid => groupOfflineDelMsg(offlineGroup.id, mid),
+    onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),
     onEnd: () => endGroupOffline(offlineGroup.id),
     onClose: () => setOfflineGroup(null),
     settings: osFor("g_" + offlineGroup.id),

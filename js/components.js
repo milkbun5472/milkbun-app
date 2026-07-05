@@ -3792,10 +3792,11 @@ function MsgMenu({
   message,
   idx,
   onClose,
-  onAction
+  onAction,
+  items
 }) {
   const t = useTheme();
-  const items = [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["edit", "编辑", "Edit"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"], ["reroll", "重Roll", "Reroll"]];
+  if (!items) items = [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["edit", "编辑", "Edit"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"], ["reroll", "重Roll", "Reroll"]];
   return /*#__PURE__*/React.createElement("div", {
     className: "absolute inset-0 z-50 flex items-center justify-center",
     style: {
@@ -4229,6 +4230,11 @@ function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, e
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   useEffect(() => { setTxt(m.content || ""); }, [m.content]);
+  if (m.kind === "ooc") {
+    const isU = m.role === "user";
+    return h("div", { className: "my-2 flex " + (isU ? "justify-end" : "justify-start") },
+      h("div", { style: { maxWidth: "84%", padding: "8px 12px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.fog, background: t.bg, border: "1px dashed " + t.line, borderRadius: 10, whiteSpace: "pre-wrap" } }, "OOC · " + m.content));
+  }
   const isUser = m.role === "user";
   const isNarr = m.role === "narration";
   const spk = isNarr || isUser ? null : (members && m.senderId ? members.find(x => x.id === m.senderId) : char);
@@ -4295,6 +4301,7 @@ function GroupOfflineMode({
   onEditMsg,
   onRerollMsg,
   onDelMsg,
+  onOOC,
   onEnd,
   onClose,
   settings,
@@ -4305,6 +4312,9 @@ function GroupOfflineMode({
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
   const [sBg, setSBg] = useState(os.bg || "");
+  const [sMax, setSMax] = useState(os.maxTokens || 3200);
+  const [sMinW, setSMinW] = useState(os.minWords || 0);
+  const [oocMode, setOocMode] = useState(false);
   const bgFileRef = useRef(null);
   const [view, setView] = useState(activeSession ? "live" : "setup");
   const [opening, setOpening] = useState("");
@@ -4355,8 +4365,10 @@ function GroupOfflineMode({
   };
   const send = () => {
     if (!input.trim() || sending) return;
-    onSend(input.trim());
+    const v = input.trim();
     setInput("");
+    if (oocMode) { onOOC && onOOC(v); return; }
+    onSend(v);
   };
   const reply = () => {
     if (sending) return;
@@ -4424,14 +4436,30 @@ function GroupOfflineMode({
 
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
-  const gBgSheet = setOpen && h(Sheet, { onClose: () => setSetOpen(false) },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 4 } }, "场景背景图"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 14, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
+  const gBgSheet = setOpen && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
+    h("div", { className: "flex items-center justify-between mb-4" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "线下设置"),
+      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ maxTokens: sMax, minWords: sMinW, bg: sBg }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "场景背景图"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
     h("div", { className: "flex items-center gap-3" },
       sBg ? h("div", { style: { width: 52, height: 52, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
       h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, sBg ? "更换" : "选择"),
       sBg ? h("button", { onClick: () => { setSBg(""); onSaveSettings && onSaveSettings({ bg: "" }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "清除") : null,
-      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } })));
+      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } })),
+    h("div", { className: "pt-6", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。"),
+      h(Slider, { value: sMax, min: 800, max: 12000, step: 200, onChange: setSMax })),
+    h("div", { className: "pt-5" },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "输出下限（约字数）"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "让每次至少写这么多字（>0 生效）。"),
+      h(Slider, { value: sMinW, min: 0, max: 1200, step: 50, onChange: setSMinW })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + os.bg + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", paddingTop: "env(safe-area-inset-top)" } : { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
     h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: onClose, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
@@ -4439,17 +4467,18 @@ function GroupOfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, gName),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "OFFLINE · 多人线下")),
       h("button", { onClick: () => setNoteOpen(true), className: "active:opacity-50", title: "给他们一个提示" }, h(IPlus, { size: 20, color: t.fog })),
-      onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "场景背景", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
+      onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
     gBgSheet,
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
       msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg })),
       sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
-    h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)" } },
-      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${t.line}` } }),
+    h("div", { className: "flex items-center gap-2 px-3 py-2 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 4px)" } },
+      onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.08)" : "transparent" } }, "OOC"),
+      h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：直接和模型说，可让它调整或问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: "#95d16f" } }, h(ISend, { size: 16, color: "#16330a" })),
-      h("button", { onClick: reply, disabled: sending, title: "让他们演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
+      !oocMode && h("button", { onClick: reply, disabled: sending, title: "让他们演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
     noteOpen && sheet("给他们一个提示（临时导演）", h("div", null,
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 让某人挑起话题 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
       h("button", { onClick: saveNote, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "加入提示"))),
@@ -4473,6 +4502,9 @@ function GroupThread({
   onSend,
   onReply,
   onContinue,
+  onOOC,
+  onMsgAction,
+  onDeleteMessages,
   onSaveSettings,
   onStartPoll,
   onVote,
@@ -4502,6 +4534,12 @@ function GroupThread({
   const [input, setInput] = useState("");
   const [panel, setPanel] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
+  const [chatMode, setChatMode] = useState("chat"); // chat | ooc
+  const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
+  const [menu, setMenu] = useState(null); // 长按弹出的消息下标
+  const [selMode, setSelMode] = useState(false);
+  const [selIds, setSelIds] = useState([]);
+  const pressTimer = useRef(null);
   const [gRecallView, setGRecallView] = useState(null);
   const [sheet, setSheet] = useState(null); // "settings"|"poll"|"rp"
   const [rpView, setRpView] = useState(null); // index of redpacket detail
@@ -4531,9 +4569,17 @@ function GroupThread({
   }, [messages.length, sending]);
   const send = () => {
     if (!input.trim() || sending) return;
-    onSend(input.trim());
+    const v = input.trim();
     setInput("");
+    if (chatMode === "ooc") { onOOC && onOOC(v); return; }
+    if (quoted) { onSendRich && onSendRich({ role: "user", senderName: meName, content: v, replyTo: quoted }); setQuoted(null); return; }
+    onSend(v);
   };
+  const startPress = idx => { pressTimer.current = setTimeout(() => setMenu(idx), 450); };
+  const endPress = () => { if (pressTimer.current) clearTimeout(pressTimer.current); };
+  const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
+  const exitSel = () => { setSelMode(false); setSelIds([]); };
+  const doDelete = () => { if (selIds.length) onDeleteMessages && onDeleteMessages(selIds); exitSel(); };
   const memberById = id => characters.find(c => c.id === id);
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
   const openRp = i => {
@@ -4610,16 +4656,16 @@ function GroupThread({
     }
   }, h("span", {
     style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, group.name, gs.spectate ? " · 旁观中" : ""), h(IChevD, { size: 14, color: t.fog })), h("div", {
+  }, group.name, gs.spectate ? " · 旁观中" : "", chatMode === "ooc" ? " · OOC" : ""), h(IChevD, { size: 14, color: t.fog })), h("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 10.5,
-      color: t.fog,
+      color: chatMode === "ooc" ? t.accent : t.fog,
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
     }
-  }, members.map(c => c.name).join("、") + " · 轻触切换")), h("button", {
+  }, chatMode === "ooc" ? "OOC 指令 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换")), h("button", {
     onClick: () => setSheet("settings"),
     className: "active:opacity-50"
   }, h(GConfig, {
@@ -4632,6 +4678,23 @@ function GroupThread({
     text: "群聊已创建",
     sub: gs.spectate ? "用旁白（下方输入）推动，成员们会互动" : "发条消息，成员们会陆续回应"
   }), messages.map((m, i) => {
+    if (m.kind === "ooc") return h("div", {
+      key: i,
+      className: "flex my-2 " + (m.role === "user" ? "justify-end" : "justify-start")
+    }, h("div", {
+      className: "px-3 py-1.5",
+      style: {
+        fontFamily: F_BODY,
+        fontSize: 12.5,
+        lineHeight: 1.5,
+        color: t.fog,
+        background: t.bg,
+        border: "1px dashed " + t.line,
+        borderRadius: 10,
+        maxWidth: "82%",
+        whiteSpace: "pre-wrap"
+      }
+    }, "OOC · " + m.content));
     if (m.role === "narration") return h("div", {
       key: i,
       className: "flex justify-center py-1"
@@ -4691,9 +4754,12 @@ function GroupThread({
       m: m,
       isU: m.role === "user"
     });
-    if (m.kind === "emote") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
-      m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-      h("img", { src: m.url, alt: m.keyword || "", style: { maxWidth: 112, maxHeight: 112, borderRadius: 12, display: "block", objectFit: "contain" }, onError: e => { e.target.style.display = "none"; } }));
+    if (m.kind === "emote") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && h(Avatar, { character: memberById(m.senderId) || { name: m.senderName, color: t.tint }, size: 34, radius: 8 }),
+      h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
+        m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        h("img", { src: m.url, alt: m.keyword || "", style: { maxWidth: 112, maxHeight: 112, borderRadius: 12, display: "block", objectFit: "contain" }, onError: e => { e.target.style.display = "none"; } })),
+      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
       m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
       h(ForumShareCard, { m: m, isU: m.role === "user" }));
@@ -4792,6 +4858,12 @@ function GroupThread({
         whiteSpace: "nowrap"
       }
     }, "❝ " + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
+      onTouchStart: selMode ? undefined : () => startPress(i),
+      onTouchEnd: endPress,
+      onMouseDown: selMode ? undefined : () => startPress(i),
+      onMouseUp: endPress,
+      onMouseLeave: endPress,
+      onClick: selMode ? () => toggleSel(i) : undefined,
       style: {
         padding: "9px 13px",
         fontFamily: F_BODY,
@@ -4802,11 +4874,16 @@ function GroupThread({
         color: isU ? "#16330a" : t.ink,
         borderRadius: 14,
         boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+        outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
+        outlineOffset: 2,
+        cursor: "pointer",
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }
-    }, m.content), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+    }, m.content), !m.recalled && m.thought && h("div", { className: "mt-1 pl-2.5", style: { borderLeft: "2px solid " + t.line, maxWidth: "100%" } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1, color: t.fog } }, "心声 "),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", lineHeight: 1.5, color: t.fog } }, m.thought)), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
   }), sending && h("div", {
     className: "flex items-center gap-2"
   }, h("div", {
@@ -4855,11 +4932,23 @@ function GroupThread({
       fontSize: 11,
       color: t.fog
     }
-  }, zh)))), h("div", {
+  }, zh)))), selMode && h("div", {
+    className: "flex items-center justify-between px-4 py-3 shrink-0",
+    style: { background: t.bg2, borderTop: "1px solid " + t.line }
+  }, h("button", { onClick: exitSel, style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"),
+    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "已选 " + selIds.length),
+    h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "删除")),
+  !selMode && quoted && h("div", {
+    className: "shrink-0",
+    style: { background: t.bg2, borderTop: "1px solid " + t.line, padding: "6px 12px 0", display: "flex", alignItems: "center" }
+  }, h("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px", background: t.bg, borderRadius: 7, borderLeft: "2px solid " + t.accent } },
+    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "❝ " + quoted),
+    h("button", { onClick: () => setQuoted(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px" } }, "×"))),
+  !selMode && h("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     style: {
       background: t.bg2,
-      borderTop: "1px solid " + t.line,
+      borderTop: (!selMode && quoted) ? "none" : "1px solid " + t.line,
       paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)"
     }
   }, h("button", {
@@ -4878,14 +4967,15 @@ function GroupThread({
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),
-    placeholder: gs.spectate ? "写一句旁白，推动剧情…" : "在群里说…",
+    placeholder: chatMode === "ooc" ? "OOC：直接和模型说，可让它调整或问状态…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里说…",
     className: "flex-1 outline-none px-4 py-2.5 rounded-full",
     style: {
       fontFamily: F_BODY,
       fontSize: 14,
       color: t.ink,
       background: "#fff",
-      border: "1px solid " + t.line
+      border: "1px solid " + t.line,
+      minWidth: 0
     }
   }), h("button", {
     onClick: send,
@@ -4900,7 +4990,7 @@ function GroupThread({
   }, h(ISend, {
     size: 16,
     color: "#16330a"
-  })), h("button", {
+  })), chatMode !== "ooc" && h("button", {
     onClick: onReply,
     disabled: sending,
     title: gs.spectate ? "让他们继续" : "让他们回复",
@@ -5039,24 +5129,36 @@ function GroupThread({
     onClose: () => setModeOpen(false)
   }, h("div", {
     style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog, marginBottom: 10 }
-  }, "输入模式"), [["chat", "群聊", "在群里正常收发消息"], ["offline", "赴约", "进入多人线下模式"]].map(([mk, mzh, mdesc]) => h("button", {
+  }, "输入模式"), [["chat", "群聊", "在群里正常收发消息"], ["ooc", "OOC 指令", "越过所有角色直接和模型说"], ["offline", "赴约", "进入多人线下模式"]].map(([mk, mzh, mdesc]) => h("button", {
     key: mk,
     onClick: () => {
       setModeOpen(false);
       if (mk === "offline") onOffline && onOffline();
+      else setChatMode(mk);
     },
     className: "w-full flex items-center py-3 px-3 active:opacity-60 text-left",
-    style: { borderRadius: 12, background: mk === "chat" ? t.bg : "transparent", marginBottom: 4 }
+    style: { borderRadius: 12, background: mk === chatMode ? t.bg : "transparent", marginBottom: 4 }
   }, h("div", {
     className: "flex-1"
   }, h("div", {
     style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink }
   }, mzh), h("div", {
     style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 }
-  }, mdesc)), mk === "chat" && h(ICheck, {
+  }, mdesc)), mk === chatMode && h(ICheck, {
     size: 18,
     color: t.tint
-  })))));
+  })))), menu != null && h(MsgMenu, {
+    message: messages[menu],
+    idx: menu,
+    items: [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["edit", "编辑", "Edit"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"], ["reroll", "重Roll", "Reroll"]],
+    onClose: () => setMenu(null),
+    onAction: act => {
+      if (act === "multi") { setSelMode(true); setSelIds([menu]); }
+      else if (act === "quote") { const mm = messages[menu]; if (mm && mm.content) setQuoted(String(mm.content)); }
+      else onMsgAction && onMsgAction(act, menu);
+      setMenu(null);
+    }
+  }));
 }
 function PollCard({
   poll,
@@ -5185,6 +5287,7 @@ function GroupSettingsSheet({ gs, group, characters, onSave, onSummarize, onAddM
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
+  const [preJoinN, setPreJoinN] = useState(gs.preJoinN || 0);
   const [ctxN, setCtxN] = useState(gs.ctxN || 30);
   const [sumThresh, setSumThresh] = useState(gs.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(gs.sumBuffer || 20);
@@ -5227,7 +5330,7 @@ function GroupSettingsSheet({ gs, group, characters, onSave, onSummarize, onAddM
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
-      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
 
     // 成员管理
     h("div", { className: "pt-5" },
@@ -5248,8 +5351,9 @@ function GroupSettingsSheet({ gs, group, characters, onSave, onSummarize, onAddM
         h("button", { onClick: () => onKickMember(c.id), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px" } }, "移出")))),
 
     h("div", { className: "pt-4", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "旁观模式：" + (spec ? "开（建群时设定，角色不知你在看）" : "关")),
-    row("记忆互通", "群里可提及成员与你的私聊；私聊也记得群聊", interop, setInterop),
+    row("记忆互通", "群里可提及成员与你的私聊；私聊也记得群聊；成员会带出心声，并影响实时好感与心情", interop, setInterop),
     interop && sliderRow("带入私聊条数", "每位成员最近多少条私聊会被带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条"),
+    sliderRow("入群前上文条数", "抓取每位成员『入群前』和你的私聊各最近多少条，作为背景补充上文（0＝不带；不依赖记忆互通）。", preJoinN, setPreJoinN, 0, 20, 1, " 条"),
 
     // 记忆库
     h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },

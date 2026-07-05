@@ -420,6 +420,7 @@ function offlineStyleText(key) {
 function offlineHistory(msgs, userName, charName) {
   const g = [];
   (msgs || []).forEach(m => {
+    if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     if (m.role === "char") {
       const l = g[g.length - 1];
       const c = m.content || "";
@@ -471,6 +472,7 @@ async function summarizeOffline(p, ctx, session) {
 function offlineGroupHistory(msgs, userName) {
   const g = [];
   (msgs || []).forEach(m => {
+    if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     if (m.role === "char") {
       const c = (m.senderName ? m.senderName + "：" : "") + (m.content || "");
       const l = g[g.length - 1];
@@ -533,7 +535,7 @@ async function generateOfflineGroup(p, ctx, session) {
 async function summarizeOfflineGroup(p, ctx, session) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const names = (ctx.members || []).map(c => c.name).join("、");
-  const text = (session.msgs || []).map(m => {
+  const text = (session.msgs || []).filter(m => m.kind !== "ooc").map(m => {
     if (m.role === "char") return (m.senderName || "某人") + "：" + (m.content || "");
     if (m.role === "narration") return "【场景】" + (m.content || "");
     return userName + "：" + (m.content || "");
@@ -560,6 +562,15 @@ const SILENT_WAV = typeof btoa !== "undefined" ? makeSilentWav(1) : "";
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过角色本身）。你了解当前角色与剧情背景，可以：说明角色此刻的状态/动机/心理、剧情走向；或按用户的要求调整接下来的演绎方式并简短确认。语气是助手而非角色，简洁直接、不扮演。\n\n" + buildBundle(ctx, { ooc: true });
+  return (await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 900 })).trim();
+}
+// OOC（群聊 / 群聊线下）：跳出所有角色，直接和模型对话
+async function oocAskGroup(p, ctx, question) {
+  const members = ctx.members || [];
+  const userName = (ctx.profile && ctx.profile.name) || "用户";
+  const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 220)).join("\n\n");
+  const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
+  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展，可以：说明某个角色此刻的状态/动机/心理、群里的关系张力、剧情走向；或按用户的要求调整接下来这些角色的演绎方式并简短确认。语气是助手而非角色，简洁直接、不扮演。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "");
   return (await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 900 })).trim();
 }
 async function runProbe(p, ctx, probe) {
