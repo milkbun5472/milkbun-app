@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v38";
+const APP_VERSION = "v39";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -148,6 +148,7 @@ function App() {
   // 一起听（展示型，不真放声音）：{ disc:封面/唱片图 dataURL, songs:[{id,title,artist,cover,ts}] }；正在听=songs[0]
   const [listen, setListen] = useState({ disc: null, songs: [] });
   const [neteaseApi, setNeteaseApi] = useState("");
+  const [neteaseCookie, setNeteaseCookie] = useState(""); // 可选：网易云账号 Cookie（MUSIC_U=…），填了能放 VIP
   const listenRef = useRef(listen); listenRef.current = listen;
   // 全局播放器：<audio> 挂在根节点 → 退出「一起听」界面也继续播（后台播放）
   const [player, setPlayer] = useState({ songId: null, playing: false, t: 0, dur: 0, loading: false, err: null });
@@ -306,6 +307,7 @@ function App() {
     setCoupleLetterCfg(loadJSON("x_coupleLetterCfg", {}));
     { const L = loadJSON("x_listen", { disc: null, songs: [] }); setListen(L); setPlayer(p => ({ ...p, songId: L.nowId || (L.songs && L.songs[0] && L.songs[0].id) || null })); }
     setNeteaseApi(loadJSON("x_neteaseApi", ""));
+    setNeteaseCookie(loadJSON("x_neteaseCookie", ""));
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleBreakup(loadJSON("x_coupleBreakup", {}));
@@ -3950,7 +3952,9 @@ function App() {
     if (song.source === "local") { const blob = await idbAudioGet(song.id); return blob ? URL.createObjectURL(blob) : null; }
     if (song.source === "netease") {
       if (!neteaseApi) return null;
-      try { const r = await fetch(neteaseApi + "/song/url?id=" + song.neteaseId); const d = await r.json(); const u = d && d.data && d.data[0] && d.data[0].url; return u ? String(u).replace(/^http:/, "https:") : null; } catch (e) { return null; }
+      // 带上账号 Cookie（若填了）→ 后端转发给网易云 → 能拿到 VIP 歌的真链接；没填就走匿名（免费/无版权歌）
+      const ck = neteaseCookie ? "&cookie=" + encodeURIComponent(neteaseCookie) : "";
+      try { const r = await fetch(neteaseApi + "/song/url/v1?level=exhigh&id=" + song.neteaseId + ck + "&timestamp=" + Date.now()); const d = await r.json(); let u = d && d.data && d.data[0] && d.data[0].url; if (!u) { const r2 = await fetch(neteaseApi + "/song/url?id=" + song.neteaseId + ck + "&timestamp=" + Date.now()); const d2 = await r2.json(); u = d2 && d2.data && d2.data[0] && d2.data[0].url; } return u ? String(u).replace(/^http:/, "https:") : null; } catch (e) { return null; }
     }
     return null;
   };
@@ -4070,6 +4074,18 @@ function App() {
   };
   const setListenPartner = charId => saveListen(p => ({ ...p, partnerId: charId }));
   const saveNeteaseApi = url => { const u = (url || "").trim().replace(/\/+$/, ""); setNeteaseApi(u); saveJSON("x_neteaseApi", u); toast(u ? "已连搜索接口" : "已清空"); };
+  const saveNeteaseCookie = ck => { const c = (ck || "").trim(); setNeteaseCookie(c); saveJSON("x_neteaseCookie", c); toast(c ? "已保存 Cookie（可放 VIP 了）" : "已清空 Cookie"); };
+  // 测试网易云登录/VIP 状态
+  const testNeteaseLogin = async () => {
+    if (!neteaseApi) { toast("先填接口地址"); return; }
+    try {
+      const r = await fetch(neteaseApi + "/login/status?" + (neteaseCookie ? "cookie=" + encodeURIComponent(neteaseCookie) + "&" : "") + "timestamp=" + Date.now());
+      const d = await r.json();
+      const prof = (d && d.data && d.data.profile) || (d && d.profile) || null;
+      if (prof && prof.nickname) { const vip = (d.data && d.data.account && d.data.account.vipType) || 0; toast("已登录：" + prof.nickname + (vip ? " · VIP" : " · 非VIP")); }
+      else toast("未登录（Cookie 空/失效）");
+    } catch (e) { toast("测试失败：接口没响应"); }
+  };
   // 网易云搜索结果 → 播放器歌对象
   const resultToSong = s => ({ id: "sg_" + Date.now() + "_" + s.id + "_" + Math.random().toString(36).slice(2, 5), source: "netease", neteaseId: String(s.id), title: s.name || ("网易云 " + s.id), artist: s.artist || "", cover: s.cover || null, ts: Date.now() });
   // 搜索结果：直接现在播放（临时，不塞进「全部」）/ 加进「全部」库 / 加进某个歌单
@@ -5095,6 +5111,9 @@ function App() {
     onSetPartner: setListenPartner,
     apiBase: neteaseApi,
     onSetApiBase: saveNeteaseApi,
+    cookie: neteaseCookie,
+    onSetCookie: saveNeteaseCookie,
+    onTestLogin: testNeteaseLogin,
     onAddNeteaseResult: addNeteaseResult,
     onPlayResult: playNeteaseResult,
     onAddResultToPlaylist: addResultToPlaylist,
