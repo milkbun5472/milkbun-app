@@ -22,49 +22,36 @@ function Cast({
       size: 20,
       color: t.ink
     }))
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto px-6 pb-8"
-  }, characters.length === 0 ? /*#__PURE__*/React.createElement(Empty, {
+  }), h("div", {
+    className: "flex-1 overflow-y-auto px-5 pb-8 pt-1"
+  }, characters.length === 0 ? h(Empty, {
     text: "名录中还没有角色",
     sub: "点右上角 + 录入第一位"
-  }) : characters.map((c, i) => /*#__PURE__*/React.createElement("div", {
+  }) : characters.map((c, i) => h("button", {
     key: c.id,
-    className: "flex items-center gap-4 py-4",
-    style: {
-      borderBottom: `1px solid ${t.line}`
-    }
-  }, /*#__PURE__*/React.createElement("button", {
     onClick: () => onOpenChar(c),
-    className: "active:opacity-70"
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    character: c,
-    size: 60,
-    radius: 12
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onOpenChar(c),
-    className: "flex-1 text-left min-w-0"
-  }, /*#__PURE__*/React.createElement(Eyebrow, null, "No.", String(i + 1).padStart(2, "0")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 21,
-      lineHeight: 1.1,
-      color: t.ink,
-      marginTop: 2
-    }
-  }, c.name), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.fog
-    },
-    className: "truncate"
-  }, c.tagline || c.persona || "暂无设定")), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onEdit(c),
-    className: "active:opacity-50 p-2"
-  }, /*#__PURE__*/React.createElement(IPencil, {
-    size: 15,
-    color: t.fog
-  }))))));
+    className: "w-full block active:opacity-95",
+    style: { position: "relative", height: 108, marginBottom: 18, textAlign: "left" }
+  },
+    // 信封主体（开口朝右）
+    h("div", { style: { position: "absolute", inset: 0, borderRadius: 16, background: "linear-gradient(135deg,#f7f3ec 0%,#ece5d8 100%)", border: "1px solid " + t.line, boxShadow: "0 5px 16px rgba(0,0,0,0.07)", overflow: "hidden" } },
+      // 左上编号（挪到竖排右侧，避免叠字）
+      h("div", { style: { position: "absolute", left: 40, top: 14 } }, h(Eyebrow, null, "No." + String(i + 1).padStart(2, "0"))),
+      // 左侧竖排 INVITE（竖向居中，短词不超出卡片高度）
+      h("div", { style: { position: "absolute", left: 15, top: 0, bottom: 0, display: "flex", alignItems: "center" } },
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.3em", color: t.fog, writingMode: "vertical-rl", transform: "rotate(180deg)" } }, "INVITE")),
+      // 右侧朝右开口的封盖（V 形）
+      h("svg", { width: 80, height: "100%", viewBox: "0 0 80 108", preserveAspectRatio: "none", style: { position: "absolute", right: 0, top: 0 } },
+        h("path", { d: "M0 0 L80 54 L0 108 Z", fill: "rgba(120,100,70,0.05)" }),
+        h("path", { d: "M2 2 L78 54 L2 106", fill: "none", stroke: t.line, strokeWidth: 1.3 }))),
+    // 从右开口探出的角色名片
+    h("div", { style: { position: "absolute", right: 12, top: 12, bottom: 12, width: "60%", background: "#fff", borderRadius: 12, border: "1px solid " + t.line, boxShadow: "-9px 0 22px rgba(0,0,0,0.10)", display: "flex", alignItems: "center", gap: 12, padding: "0 14px" } },
+      h(Avatar, { character: c, size: 58, radius: 13 }),
+      h("div", { style: { minWidth: 0, flex: 1 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.1, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, c.tagline || c.persona || "暂无设定"))),
+    // 编辑铅笔（阻止冒泡，不触发打开）
+    h("span", { onClick: e => { e.stopPropagation(); onEdit(c); }, className: "active:opacity-50", style: { position: "absolute", right: 13, top: 7, padding: 5, zIndex: 3 } }, h(IPencil, { size: 14, color: t.fog }))))));
 }
 function CastForm({
   initial,

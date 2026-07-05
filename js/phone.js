@@ -901,7 +901,8 @@ function PhoneCarry({
   onBack,
   onSel,
   onGenApp,
-  onGenAll
+  onGenAll,
+  profile
 }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
@@ -923,19 +924,32 @@ function PhoneCarry({
     text: "还没有角色",
     sub: "先去群像录入一位"
   }));
-  // 通讯录列表：进查手机先看这个，点某人才进 Ta 的手机
-  if (inList) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "查手机", en: "Whose Phone", onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
-      characters.map(c => h("button", {
-        key: c.id, onClick: () => { onSel(c.id); setOpen(null); setInList(false); },
-        className: "w-full flex items-center gap-3 py-3 active:opacity-60", style: { borderBottom: "1px solid " + t.line }
-      },
-        h(Avatar, { character: c, size: 46, radius: 13 }),
-        h("div", { className: "flex-1 min-w-0 text-left" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 1 } }, "翻翻 Ta 的手机")),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "›")))));
+  // 通讯录列表：做成一块「手机屏」——顶部我的头像+通讯录，下面角色列表在屏内下滑；点某人才进 Ta 的手机
+  if (inList) {
+    const p = profile || {};
+    const meAv = { name: p.name || "我", avatarImage: p.avatarImage, color: p.color || t.accent };
+    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+      h(Head, { zh: "查手机", en: "Whose Phone", onBack }),
+      h("div", { className: "flex-1 min-h-0 px-4 pb-6" },
+        h("div", { className: "h-full flex flex-col rounded-[30px] overflow-hidden", style: { background: "linear-gradient(180deg,#fbfaf7,#f1eee7)", border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,0.10)" } },
+          // 手机顶栏：我的头像 + 通讯录
+          h("div", { className: "shrink-0 flex items-center gap-3 px-5 pt-6 pb-4", style: { borderBottom: "1px solid " + t.line } },
+            h(Avatar, { character: meAv, size: 50, radius: 999 }),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1.1 } }, "通讯录"),
+              h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.18em", color: t.fog, marginTop: 3 } }, "CONTACTS · " + characters.length))),
+          // 角色列表：在手机屏内下滑
+          h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-1" },
+            characters.map(c => h("button", {
+              key: c.id, onClick: () => { onSel(c.id); setOpen(null); setInList(false); },
+              className: "w-full flex items-center gap-3 py-3 active:opacity-60", style: { borderBottom: "1px solid " + t.line }
+            },
+              h(Avatar, { character: c, size: 44, radius: 13 }),
+              h("div", { className: "flex-1 min-w-0 text-left" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 1 } }, "翻翻 Ta 的手机")),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "›")))))));
+  }
   const data = phones[char.id] || {};
   const hasData = a => a.key === "video" ? data.video_day || data.video_night : data[a.key];
   if (open) return h(PhoneApp, {

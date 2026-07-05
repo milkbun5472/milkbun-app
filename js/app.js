@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.01";
+const APP_VERSION = "v46.02";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -4097,8 +4097,10 @@ function App() {
     saveListen(p => {
       const hist = [{ id: song.id, title: song.title, artist: song.artist || "", partnerId: p.partnerId || null, ts: Date.now() }, ...(p.history || []).filter(x => x.id !== song.id)].slice(0, 30);
       const patch = { ...p, nowId: songId, history: hist };
-      // 播放队列：显式传了就用；否则从「全部」库放就整库当队列；再否则(搜索结果单曲)就只这一首
+      // 播放队列：①显式传了就用；②没传但当前歌本就在已存队列里（如退出小手机再回来续播歌单）→ 保留原队列，
+      // 别塌成单曲；③从「全部」库放就整库当队列；④再否则(搜索结果单曲)就只这一首
       if (queueIds && queueIds.length) patch.nowQueue = queueIds;
+      else if (p.nowQueue && p.nowQueue.length > 1 && p.nowQueue.includes(songId)) patch.nowQueue = p.nowQueue;
       else if (inLib) patch.nowQueue = (p.songs || []).map(s => s.id);
       else patch.nowQueue = [songId];
       // 不在库/歌单里的（搜索结果直接播放）→ 暂存为 nowSong，供 resolveSong 找到，但不进「全部」
@@ -4115,7 +4117,7 @@ function App() {
   const togglePlay = () => {
     const el = audioElRef.current; if (!el) return;
     if (!player.songId) { const q = listenRef.current.songs || []; if (q.length) playSong(q[0].id); return; }
-    if (el.paused) { if (!el.getAttribute("src")) return playSong(player.songId); el.play(); setPlayer(p => ({ ...p, playing: true })); }
+    if (el.paused) { if (!el.getAttribute("src")) return playSong(player.songId, listenRef.current.nowQueue); el.play(); setPlayer(p => ({ ...p, playing: true })); }
     else { el.pause(); setPlayer(p => ({ ...p, playing: false })); }
   };
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。
@@ -4131,10 +4133,50 @@ function App() {
     const i = Math.max(0, q.indexOf(player.songId));
     playSong(q[(i + dir + q.length) % q.length], q);
   };
-  // 播放结束自动下一首：单曲循环则重播，随机则随机，否则顺序下一首
+  // ---- 下一首预取：iOS 锁屏/后台时，onEnded 里若还要 await 解析地址，那次 play() 会被当成
+  // 「非用户续播」拦掉 → 卡住不换歌。所以提前把下一首地址备好，ended 时同步换 src+play() 才放得出。
+  const nextUpRef = useRef({ id: null, url: null, song: null });
+  const computeNextId = () => {
+    const L = listenRef.current || {};
+    const all = L.songs || [];
+    const q = (L.nowQueue && L.nowQueue.length ? L.nowQueue : all.map(s => s.id)).filter(id => !!resolveSong(id));
+    if (!q.length) return null;
+    const mode = L.playMode || "order";
+    if (mode === "one") return player.songId || q[0];
+    if (mode === "shuffle" && q.length > 1) { let n; do { n = q[Math.floor(Math.random() * q.length)]; } while (n === player.songId); return n; }
+    const i = Math.max(0, q.indexOf(player.songId));
+    return q[(i + 1 + q.length) % q.length];
+  };
+  const preloadNext = async () => {
+    const id = computeNextId();
+    if (!id) { nextUpRef.current = { id: null, url: null, song: null }; return; }
+    if (nextUpRef.current.id === id && nextUpRef.current.url) return; // 已备好
+    const song = resolveSong(id);
+    if (!song) return;
+    const url = await resolvePlayUrl(song);
+    if (url) nextUpRef.current = { id, url, song };
+  };
+  // 播放结束自动下一首：单曲循环重播；否则用预取好的地址同步续播（后台/锁屏也能切），没预取到才退回异步路径
   const advanceSong = () => {
-    const L = listenRef.current;
-    if ((L.playMode || "order") === "one" && player.songId) { playSong(player.songId, L.nowQueue); return; }
+    const L = listenRef.current || {};
+    const mode = L.playMode || "order";
+    const el = audioElRef.current;
+    if (mode === "one" && player.songId && el) { try { el.currentTime = 0; const pr = el.play(); if (pr && pr.catch) pr.catch(() => {}); setPlayer(p => ({ ...p, playing: true })); return; } catch (e) {} }
+    const nu = nextUpRef.current;
+    if (el && nu && nu.url && nu.song) {
+      const song = nu.song, songId = nu.id;
+      if (song.source === "local") { if (playUrlRef.current) URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = nu.url; }
+      el.src = nu.url;
+      const pr = el.play(); if (pr && pr.then) pr.then(() => setPlayer(p => ({ ...p, playing: true, loading: false }))).catch(() => setPlayer(p => ({ ...p, loading: false })));
+      setPlayer(p => ({ ...p, songId, playing: true, loading: false, err: null, t: 0 }));
+      saveListen(p => {
+        const hist = [{ id: song.id, title: song.title, artist: song.artist || "", partnerId: p.partnerId || null, ts: Date.now() }, ...(p.history || []).filter(x => x.id !== song.id)].slice(0, 30);
+        return { ...p, nowId: songId, history: hist };
+      });
+      nextUpRef.current = { id: null, url: null, song: null };
+      setTimeout(preloadNext, 400);
+      return;
+    }
     stepSong(1);
   };
   // 顺序 → 单曲循环 → 随机 → 顺序
@@ -4184,6 +4226,13 @@ function App() {
       } catch (e) {}
     }
     try { navigator.mediaSession.playbackState = player.songId ? (player.playing ? "playing" : "paused") : "none"; } catch (e) {}
+  }, [player.songId, player.playing]);
+  // 歌一开始放就预取下一首地址，供 onEnded 后台同步续播（见 advanceSong / preloadNext）
+  useEffect(() => {
+    if (!player.songId || !player.playing) return;
+    nextUpRef.current = { id: null, url: null, song: null };
+    const tid = setTimeout(() => { preloadNext(); }, 600);
+    return () => clearTimeout(tid);
   }, [player.songId, player.playing]);
   // fav / 封面 / 改名：在「全部」库、所有歌单、nowSong 里凡是同 id 的都改（保持各处一份数据一致）
   const patchSongEverywhere = (id, patch) => saveListen(p => ({
@@ -5106,7 +5155,8 @@ function App() {
     onBack: goHome,
     onSel: setSelPhone,
     onGenApp: genPhoneApp,
-    onGenAll: genPhoneAll
+    onGenAll: genPhoneAll,
+    profile: profile
   });else if (screen === "carry") body = h(Carry, {
     characters: characters,
     carry: carry,

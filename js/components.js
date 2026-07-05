@@ -47,6 +47,21 @@ function Eyebrow({
     }
   }, children);
 }
+// 跑马灯文字：内容宽于容器时来回滚动，否则静止（用于聊天顶栏日程等一行放不下的地方）
+function Marquee({ children, style, className }) {
+  const box = React.useRef(null), inner = React.useRef(null);
+  const [dist, setDist] = React.useState(0);
+  React.useEffect(() => {
+    const b = box.current, i = inner.current;
+    if (!b || !i) return;
+    const over = i.scrollWidth - b.clientWidth;
+    setDist(over > 4 ? over + 6 : 0);
+  });
+  return h("div", { ref: box, className, style: Object.assign({ overflow: "hidden", whiteSpace: "nowrap" }, style) },
+    h("span", { ref: inner, style: dist
+      ? { display: "inline-block", "--mq": (-dist) + "px", animation: "wk-marquee " + Math.max(6, Math.round(dist / 14)) + "s ease-in-out infinite" }
+      : { display: "inline-block" } }, children));
+}
 function Empty({
   text,
   sub
@@ -2371,7 +2386,7 @@ function ChatThread({
     h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
     h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
     schedNow.time && h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, flexShrink: 0 } }, schedNow.time),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
+    h(Marquee, { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
     schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, flexShrink: 0 } }, "改"),
     h(IChevR, { size: 13, color: t.fog, style: { marginLeft: "auto", flexShrink: 0 } })),
   (bk.iBlocked || bk.theyBlocked) && h("div", {
