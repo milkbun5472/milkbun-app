@@ -1,6 +1,41 @@
 // ============================================================
 // ROOT
 // ============================================================
+// 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
+const APP_VERSION = "v30";
+// 右上角电池：尽力用 Battery Status API 显示真实电量；iOS Safari/PWA 不支持该 API → 显示「—」。
+function BatteryBadge() {
+  const [b, setB] = React.useState(null);
+  React.useEffect(function () {
+    let bat = null, upd = null;
+    if (navigator.getBattery) {
+      navigator.getBattery().then(function (x) {
+        bat = x;
+        upd = function () { setB({ level: Math.round(x.level * 100), charging: x.charging }); };
+        upd();
+        x.addEventListener("levelchange", upd);
+        x.addEventListener("chargingchange", upd);
+      }).catch(function () { setB({ na: true }); });
+    } else setB({ na: true });
+    return function () { if (bat && upd) { bat.removeEventListener("levelchange", upd); bat.removeEventListener("chargingchange", upd); } };
+  }, []);
+  const lvl = b && !b.na ? b.level : null;
+  const col = "#fff", fill = lvl != null && lvl <= 20 ? "#ff6b5e" : "#8fe08a";
+  return h("div", { style: { display: "flex", alignItems: "center", gap: 3 } },
+    h("svg", { width: 22, height: 11, viewBox: "0 0 24 12" },
+      h("rect", { x: 0.5, y: 0.5, width: 20, height: 11, rx: 2.5, fill: "none", stroke: col, strokeWidth: 1, opacity: 0.8 }),
+      h("rect", { x: 21.5, y: 3.5, width: 2, height: 5, rx: 1, fill: col, opacity: 0.8 }),
+      lvl != null ? h("rect", { x: 2, y: 2, width: Math.max(0, 17 * lvl / 100), height: 8, rx: 1.5, fill: fill }) : null,
+      b && b.charging ? h("path", { d: "M12 2 L8 7 L11 7 L10 11 L15 5 L12 5 Z", fill: col }) : null),
+    h("span", { style: { fontFamily: "monospace", fontSize: 9.5, color: col, opacity: 0.9 } }, lvl != null ? lvl + "%" : "—"));
+}
+// 左上版本 / 右上电池：绝对定位浮在最顶，pointerEvents:none 不挡任何点击。每一页都在。
+function DevBadges() {
+  const pill = { position: "absolute", top: "calc(env(safe-area-inset-top) + 1px)", zIndex: 60, pointerEvents: "none", background: "rgba(20,19,15,0.34)", borderRadius: 8, padding: "2px 6px", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" };
+  return h(React.Fragment, null,
+    h("div", { style: Object.assign({ left: 6 }, pill) }, h("span", { style: { fontFamily: "monospace", fontSize: 10, color: "#fff", letterSpacing: 0.5 } }, APP_VERSION)),
+    h("div", { style: Object.assign({ right: 6 }, pill) }, h(BatteryBadge, null)));
+}
 // 内置默认表情：手画 SVG 表情脸，编码成 data URI（不依赖图床，开箱即用）
 function buildDefaultEmotes() {
   const face = inner => "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='#F4C64B' stroke='#1b1a17' stroke-width='3'/>" + inner + "</svg>");
@@ -4808,7 +4843,7 @@ function App() {
     className: "shrink-0"
   }) : null, /*#__PURE__*/React.createElement("div", {
     className: "flex-1 min-h-0 relative"
-  }, body), stateCardOpen && activeChar && /*#__PURE__*/React.createElement(StateCard, {
+  }, body), /*#__PURE__*/React.createElement(DevBadges, null), stateCardOpen && activeChar && /*#__PURE__*/React.createElement(StateCard, {
     character: activeChar,
     affinity: Math.round(affOf(activeChar.id)),
     mood: moods[activeChar.id],

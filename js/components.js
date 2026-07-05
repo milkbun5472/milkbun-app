@@ -712,7 +712,8 @@ function Home({
   // 文件夹每个最多 4 个。一起学已单独放外面；把还没做的实验 App 按主题分两个文件夹
   const folderCreate = { key: "f_create", zh: "共创", apps: [
     { key: "dream", zh: "梦境", G: GSoon, soon: true },
-    { key: "readtog", zh: "一起读", G: GSoon, soon: true }
+    { key: "readtog", zh: "一起读", G: GSoon, soon: true },
+    { key: "listen", zh: "一起听", G: GSoon, soon: true }
   ] };
   const folderPlay = { key: "f_play", zh: "玩法", apps: [
     { key: "debate", zh: "辩论", G: GSoon, soon: true },
@@ -733,6 +734,7 @@ function Home({
     lore: { kind: "app", zh: "世界书", G: GLore },
     memlib: { kind: "app", zh: "记忆库", G: GMem },
     diary: { kind: "app", zh: "日记", G: GDiary },
+    ledger: { kind: "app", zh: "记账", G: GSoon, soon: true },
     study: { kind: "app", zh: "一起学", G: GStudy },
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
@@ -742,7 +744,7 @@ function Home({
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music"],
-    ["w_cal", "shop", "carry", "cwallet"],
+    ["w_cal", "shop", "carry", "cwallet", "ledger"],
     ["lore", "memlib", "diary", "study", "fanfic", "weekly", "f_create", "f_play"]
   ];
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
@@ -5319,6 +5321,70 @@ function RedPacketCard({
       marginTop: 1
     }
   }, done ? "已被领完" : "领取红包")));
+}
+// 发起投票（群聊 +面板 → 投票）——原来被引用却从没实现，导致点投票直接崩
+function PollComposeSheet({ onSubmit, onClose }) {
+  const t = useTheme();
+  const [title, setTitle] = useState("");
+  const [opts, setOpts] = useState(["", ""]);
+  const [anon, setAnon] = useState(false);
+  const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
+  const setOpt = (i, v) => setOpts(p => p.map((x, j) => j === i ? v : x));
+  const okOpts = opts.map(o => o.trim()).filter(Boolean);
+  const canSend = title.trim() && okOpts.length >= 2;
+  return h(Sheet, { onClose: onClose, tall: true },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog, marginBottom: 12 } }, "发起投票"),
+    h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "投票主题，如：周末去哪玩", style: field }),
+    h("div", { className: "space-y-2", style: { marginTop: 12 } }, opts.map((o, i) => h("div", { key: i, className: "flex items-center gap-2" },
+      h("input", { value: o, onChange: e => setOpt(i, e.target.value), placeholder: "选项 " + (i + 1), style: field }),
+      opts.length > 2 ? h("button", { onClick: () => setOpts(p => p.filter((_, j) => j !== i)), className: "shrink-0 active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.fog, padding: "2px 8px" } }, "×") : null))),
+    opts.length < 6 ? h("button", { onClick: () => setOpts(p => p.concat([""])), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint, marginTop: 8 } }, "＋ 加选项") : null,
+    h("button", { onClick: () => setAnon(a => !a), className: "flex items-center justify-between w-full active:opacity-70", style: { marginTop: 16 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub } }, "匿名投票"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: anon ? t.accent : t.fog } }, anon ? "开（不显示谁投谁）" : "关")),
+    h("button", { onClick: () => { if (canSend) onSubmit(title.trim(), okOpts, anon); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: t.ink, color: t.bg2, borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "发起投票"));
+}
+// 发红包（群聊 +面板 → 红包）——同样原来缺实现
+function RedPacketComposeSheet({ memberCount, myBalance, onSubmit, onClose }) {
+  const t = useTheme();
+  const [total, setTotal] = useState("");
+  const [count, setCount] = useState(String(Math.max(1, memberCount || 1)));
+  const [message, setMessage] = useState("");
+  const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 11px", width: "100%", outline: "none" };
+  const a = Math.round(Number(total) * 100) / 100;
+  const c = Math.max(1, parseInt(count, 10) || 1);
+  const insufficient = a > (myBalance || 0);
+  const canSend = a > 0 && !insufficient;
+  const lbl = { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, margin: "14px 0 5px" };
+  return h(Sheet, { onClose: onClose, tall: true },
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.2, color: t.fog } }, "发红包"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "钱包余额 ¥" + (myBalance || 0))),
+    h("div", { style: lbl }, "总金额（¥）"),
+    h("input", { value: total, onChange: e => setTotal(e.target.value.replace(/[^0-9.]/g, "")), inputMode: "decimal", placeholder: "0.00", style: field }),
+    h("div", { style: lbl }, "个数（拼手气，随机分）"),
+    h("input", { value: count, onChange: e => setCount(e.target.value.replace(/[^0-9]/g, "")), inputMode: "numeric", placeholder: String(memberCount || 1), style: field }),
+    h("div", { style: lbl }, "祝福语（可选）"),
+    h("input", { value: message, onChange: e => setMessage(e.target.value), placeholder: "恭喜发财，大吉大利", style: field }),
+    insufficient ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 10 } }, "余额不足") : null,
+    h("button", { onClick: () => { if (canSend) onSubmit(a, c, message.trim()); }, disabled: !canSend, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, background: "#f5a623", color: "#fff", borderRadius: 12, padding: "11px 0", marginTop: 20, opacity: canSend ? 1 : 0.5 } }, "塞进红包 " + (a > 0 ? "¥" + a : "")));
+}
+// 打开红包 / 看领取详情
+function RedPacketOpenSheet({ rp, meName, onClose }) {
+  const t = useTheme();
+  const claims = rp.claims || [];
+  const done = claims.length >= rp.count;
+  return h(Sheet, { onClose: onClose },
+    h("div", { className: "flex flex-col items-center", style: { padding: "6px 0 14px" } },
+      h("div", { style: { fontSize: 30 } }, "🧧"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 6, textAlign: "center" } }, rp.message || "恭喜发财，大吉大利"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, "来自 " + (rp.by || "某人") + " · 共 ¥" + rp.total + " · " + rp.count + " 个")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, borderTop: "1px solid " + t.line, paddingTop: 10, marginBottom: 6 } }, done ? "已被领完" : "已领 " + claims.length + " / " + rp.count),
+    claims.length === 0
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "12px 0" } }, "还没人领")
+      : h("div", { className: "space-y-2", style: { maxHeight: "40vh", overflowY: "auto" } }, claims.map((cl, i) => h("div", { key: i, className: "flex items-center justify-between" },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
 function GroupSettingsSheet({ gs, group, characters, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClose }) {
   const t = useTheme();
