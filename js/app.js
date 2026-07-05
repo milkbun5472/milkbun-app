@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v39";
+const APP_VERSION = "v40";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -3947,13 +3947,20 @@ function App() {
   };
   const removeListenSong = id => { idbAudioDel(id); saveListen(p => ({ ...p, songs: (p.songs || []).filter(x => x.id !== id) })); };
   // ---- 全局播放器 handlers ----
+  // 规整 Cookie：用户常只粘 MUSIC_U 的值、忘了前缀 → 自动补 "MUSIC_U="；去引号/结尾分号
+  const normCookie = () => {
+    let c = (neteaseCookie || "").trim().replace(/^["']|["']$/g, "").trim();
+    if (!c) return "";
+    if (!/MUSIC_U\s*=/i.test(c)) c = "MUSIC_U=" + c.replace(/;+\s*$/, "");
+    return c;
+  };
   const resolvePlayUrl = async song => {
     if (!song) return null;
     if (song.source === "local") { const blob = await idbAudioGet(song.id); return blob ? URL.createObjectURL(blob) : null; }
     if (song.source === "netease") {
       if (!neteaseApi) return null;
       // 带上账号 Cookie（若填了）→ 后端转发给网易云 → 能拿到 VIP 歌的真链接；没填就走匿名（免费/无版权歌）
-      const ck = neteaseCookie ? "&cookie=" + encodeURIComponent(neteaseCookie) : "";
+      const cval = normCookie(); const ck = cval ? "&cookie=" + encodeURIComponent(cval) : "";
       try { const r = await fetch(neteaseApi + "/song/url/v1?level=exhigh&id=" + song.neteaseId + ck + "&timestamp=" + Date.now()); const d = await r.json(); let u = d && d.data && d.data[0] && d.data[0].url; if (!u) { const r2 = await fetch(neteaseApi + "/song/url?id=" + song.neteaseId + ck + "&timestamp=" + Date.now()); const d2 = await r2.json(); u = d2 && d2.data && d2.data[0] && d2.data[0].url; } return u ? String(u).replace(/^http:/, "https:") : null; } catch (e) { return null; }
     }
     return null;
@@ -4078,12 +4085,16 @@ function App() {
   // 测试网易云登录/VIP 状态
   const testNeteaseLogin = async () => {
     if (!neteaseApi) { toast("先填接口地址"); return; }
+    const cval = normCookie();
+    if (!cval) { toast("先填 Cookie"); return; }
     try {
-      const r = await fetch(neteaseApi + "/login/status?" + (neteaseCookie ? "cookie=" + encodeURIComponent(neteaseCookie) + "&" : "") + "timestamp=" + Date.now());
+      // 用 /user/account 更可靠地反映登录态（/login/status 在 serverless 偶尔认不出）
+      const r = await fetch(neteaseApi + "/user/account?cookie=" + encodeURIComponent(cval) + "&timestamp=" + Date.now());
       const d = await r.json();
-      const prof = (d && d.data && d.data.profile) || (d && d.profile) || null;
-      if (prof && prof.nickname) { const vip = (d.data && d.data.account && d.data.account.vipType) || 0; toast("已登录：" + prof.nickname + (vip ? " · VIP" : " · 非VIP")); }
-      else toast("未登录（Cookie 空/失效）");
+      const prof = (d && d.profile) || (d && d.data && d.data.profile) || null;
+      const vip = (d && d.account && d.account.vipType) || 0;
+      if (prof && prof.nickname) toast("已登录：" + prof.nickname + (vip ? " · VIP" : " · 非VIP"));
+      else toast("未登录（Cookie 失效或没粘全，重抓一份 MUSIC_U）");
     } catch (e) { toast("测试失败：接口没响应"); }
   };
   // 网易云搜索结果 → 播放器歌对象
