@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v45.01";
+const APP_VERSION = "v46";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -557,6 +557,16 @@ function App() {
     else out += "\n\n此刻还没到今天第一项，Ta 大概刚开始一天 / 还没起。";
     if (next) out += "\n待会儿：" + (next.time || "") + " " + next.title;
     return out;
+  };
+  // 结构化「此刻在做什么/在哪」——给聊天顶栏用（联动今日日程）。没今日日程就返回 null。
+  const schedNowBriefFor = char => {
+    if (!char) return null;
+    const s = (schedulesRef.current[char.id] || {})[schedDayKey(new Date())];
+    if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return null;
+    const idx = schedCurrentSeqIdx(s.seqs, true);
+    const cur = idx >= 0 ? s.seqs[idx] : null;
+    if (!cur) return { time: "", title: "还没开始今天的安排", location: "", dev: false };
+    return { time: cur.time || "", title: cur.title || "", location: cur.location || "", type: cur.type || "other", dev: !!cur.deviation };
   };
   const ctxFor = char => ({
     char,
@@ -4943,6 +4953,8 @@ function App() {
     profile: profile,
     disp: { myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => setStateCardOpen(true),
+    schedNow: schedNowBriefFor(activeChar),
+    onOpenSched: () => { setSelSched(activeChar.id); setScreen("lifestyle"); },
     onLongPress: handleMsgAction,
     onOpenSettings: () => setChatSettingsOpen(true),
     toast: toast,

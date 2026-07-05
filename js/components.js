@@ -2114,6 +2114,8 @@ function ChatThread({
   onBack,
   onSend,
   onOpenState,
+  schedNow,
+  onOpenSched,
   onLongPress,
   onOpenSettings,
   onRecall,
@@ -2359,7 +2361,20 @@ function ChatThread({
   }, /*#__PURE__*/React.createElement(IDots, {
     size: 20,
     color: t.ink
-  }))), (bk.iBlocked || bk.theyBlocked) && h("div", {
+  }))),
+  // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
+  schedNow && h("button", {
+    onClick: onOpenSched,
+    className: "shrink-0 w-full flex items-center gap-2 active:opacity-70",
+    style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (dsp.chatBg ? "rgba(255,255,255,0.45)" : t.bg), borderBottom: "1px solid " + t.line, padding: "6px 16px" }
+  },
+    h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
+    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
+    schedNow.time && h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, flexShrink: 0 } }, schedNow.time),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
+    schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, flexShrink: 0 } }, "改"),
+    h(IChevR, { size: 13, color: t.fog, style: { marginLeft: "auto", flexShrink: 0 } })),
+  (bk.iBlocked || bk.theyBlocked) && h("div", {
     style: { flexShrink: 0, background: "rgba(194,90,74,0.1)", borderBottom: "1px solid " + t.line, padding: "7px 16px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, textAlign: "center", lineHeight: 1.5 }
   }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 发送解除申请" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
     ref: ref,
