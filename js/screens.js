@@ -2184,6 +2184,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onAddNetease, o
   const [artist, setArtist] = useState("");
   const [localFile, setLocalFile] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
+  const [netErr, setNetErr] = useState("");
   const [q, setQ] = useState("");
   const [results, setResults] = useState(null);
   const [searching, setSearching] = useState(false);
@@ -2207,14 +2208,22 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onAddNetease, o
     finally { setSearching(false); }
   };
 
-  // 当前歌是本地文件 → 从 IDB 取 blob 建 objectURL；切歌/卸载时回收
+  // 拿当前歌的可播放地址：本地→IDB objectURL；网易云+已配API→ /song/url 取真实音频（url 会过期，切到这首时现取）
   useEffect(() => {
     let url = null, alive = true;
+    setAudioUrl(null); setNetErr("");
     if (now && now.source === "local" && getAudio) {
       getAudio(now.id).then(function (blob) { if (alive && blob) { url = URL.createObjectURL(blob); setAudioUrl(url); } });
-    } else setAudioUrl(null);
+    } else if (now && now.source === "netease" && apiBase) {
+      fetch(apiBase + "/song/url?id=" + now.neteaseId).then(function (r) { return r.json(); }).then(function (d) {
+        if (!alive) return;
+        const u = d && d.data && d.data[0] && d.data[0].url;
+        if (u) setAudioUrl(String(u).replace(/^http:/, "https:")); // http 会被 https 站拦成混合内容，转 https（网易云 CDN 支持）
+        else setNetErr("这首拿不到播放地址（多半 VIP/无版权），换一首试试");
+      }).catch(function () { if (alive) setNetErr("取播放地址失败，检查下 API 地址通不通"); });
+    }
     return function () { alive = false; if (url) URL.revokeObjectURL(url); };
-  }, [now && now.id]);
+  }, [now && now.id, apiBase]);
 
   const addNet = () => { if (link.trim()) { onAddNetease(link, title, artist); setLink(""); setTitle(""); setArtist(""); } };
   const addLoc = () => { if (localFile) { onAddLocal(localFile, title, artist); setLocalFile(null); setTitle(""); setArtist(""); } };
@@ -2238,11 +2247,16 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onAddNetease, o
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, now ? (now.artist || (now.source === "netease" ? "网易云" : "本地")) : "在下面加一首")),
       // 播放器 + 角色反应
       now ? h("div", { style: { marginTop: 8 } },
-        now.source === "netease"
-          ? h("iframe", { title: "netease", frameBorder: "no", width: "100%", height: 86, src: "https://music.163.com/outchain/player?type=2&id=" + now.neteaseId + "&auto=0&height=66", style: { borderRadius: 12, border: "1px solid " + t.line } })
-          : (audioUrl
-            ? h("audio", { src: audioUrl, controls: true, style: { width: "100%" }, onEnded: () => onReact && onReact("play") })
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "10px 0" } }, "载入音频…")),
+        (now.source === "netease" && !apiBase)
+          // 没配 API 只能退回网易云外链 iframe（iOS 常放不出，提示去配 API）
+          ? h("div", null,
+              h("iframe", { title: "netease", frameBorder: "no", width: "100%", height: 86, src: "https://music.163.com/outchain/player?type=2&id=" + now.neteaseId + "&auto=0&height=66", style: { borderRadius: 12, border: "1px solid " + t.line } }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "手机上外链播放器常放不出——配了下面的网易云 API 就能用自带播放器直接放。"))
+          : netErr
+            ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, textAlign: "center", padding: "10px 0" } }, netErr)
+            : audioUrl
+              ? h("audio", { src: audioUrl, controls: true, autoPlay: true, style: { width: "100%" }, onEnded: () => onReact && onReact("play") })
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "10px 0" } }, "载入音频…"),
         h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
           h("button", { onClick: () => onReact && onReact("play"), disabled: gen || !partner, className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, background: partner ? (t.accent || "#8a6d3b") : t.line, color: "#fff", borderRadius: 999, padding: "6px 14px" } }, gen ? "…" : partner ? "让 " + partner.name + " 说说这首" : "先选个一起听的人")),
         (now.reactions || []).length ? h("div", { className: "space-y-1.5", style: { marginTop: 10 } }, now.reactions.map((r, i) => h("div", { key: i, className: "flex items-start gap-2" },
