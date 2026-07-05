@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46";
+const APP_VERSION = "v46.01";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -4147,6 +4147,44 @@ function App() {
     if (playUrlRef.current) { URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = null; }
     setPlayer(p => ({ ...p, songId: null, playing: false, t: 0, dur: 0, loading: false, err: null }));
   };
+  // ---- Media Session：锁屏/后台控制 + 让 iOS 把这当正经播放器 ----
+  // 关键：不接 Media Session 时，锁屏/切到后台后 iOS 会挂起页面 JS，一首放完 onEnded 不跑、
+  // 也不让程序化续播 → 就卡在原地不换下一首。接上 metadata + 动作句柄后系统才会持续给它跑，能后台自动切歌。
+  // 句柄只注册一次，内部走 ref 调最新的控制函数，避免闭包过期。
+  const mediaCtlRef = useRef({});
+  mediaCtlRef.current = {
+    play: () => { const el = audioElRef.current; if (el && el.paused) togglePlay(); },
+    pause: () => { const el = audioElRef.current; if (el && !el.paused) togglePlay(); },
+    next: () => stepSong(1),
+    prev: () => stepSong(-1),
+    seekTo: sec => { const el = audioElRef.current; if (el && el.duration) seekPlayer(sec / el.duration); }
+  };
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const ms = navigator.mediaSession;
+    const set = (a, fn) => { try { ms.setActionHandler(a, fn); } catch (e) {} };
+    set("play", () => mediaCtlRef.current.play());
+    set("pause", () => mediaCtlRef.current.pause());
+    set("previoustrack", () => mediaCtlRef.current.prev());
+    set("nexttrack", () => mediaCtlRef.current.next());
+    set("seekto", d => { if (d && typeof d.seekTime === "number") mediaCtlRef.current.seekTo(d.seekTime); });
+    return () => ["play", "pause", "previoustrack", "nexttrack", "seekto"].forEach(a => set(a, null));
+  }, []);
+  // 当前曲目信息 + 播放态同步给系统（锁屏显示 + 维持后台会话）
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const cur = resolveSong(player.songId);
+    if (cur && typeof MediaMetadata !== "undefined") {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: cur.title || "未知",
+          artist: cur.artist || "",
+          artwork: cur.cover ? [{ src: cur.cover, sizes: "512x512", type: "image/png" }] : []
+        });
+      } catch (e) {}
+    }
+    try { navigator.mediaSession.playbackState = player.songId ? (player.playing ? "playing" : "paused") : "none"; } catch (e) {}
+  }, [player.songId, player.playing]);
   // fav / 封面 / 改名：在「全部」库、所有歌单、nowSong 里凡是同 id 的都改（保持各处一份数据一致）
   const patchSongEverywhere = (id, patch) => saveListen(p => ({
     ...p,
