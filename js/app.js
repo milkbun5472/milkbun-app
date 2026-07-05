@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v45";
+const APP_VERSION = "v45.01";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1093,7 +1093,8 @@ function App() {
       const tctr = (thoughtCtrRef.current[charId] || 0) + 1;
       thoughtCtrRef.current[charId] = tctr;
       try { saveJSON("x_thoughtCtr", thoughtCtrRef.current); } catch (e) {}
-      const wantThought = tctr % 3 === 0;
+      // 第 1 轮也写一次（否则新角色前两轮心声/历史全空，看着像坏了），之后每 3 轮一次
+      const wantThought = tctr === 1 || tctr % 3 === 0;
       const thoughtSpec = wantThought
         ? "此刻没说出口的真实心声——写一句此刻脑子里真实的念头（对刚聊的/对 TA/对当下处境的想法、情绪、吐槽、小心思都行），贴合当下、别照抄之前；情绪复杂或有心事时可更长更细腻"
         : "这一轮不写心声，直接填 null（把精力放在把话聊好上）";
@@ -1985,6 +1986,11 @@ function App() {
   const clearChat = (charId, wipeMem) => {
     pChat(charId, () => []);
     setChatSettings(p => { const n = { ...p, [charId]: { ...(p[charId] || {}), lastSummarizedCount: 0 } }; saveJSON("x_chatSettings", n); return n; });
+    // 清聊天=这个角色重新开始：实时状态/心声历史/心声计数都清掉，资产档案也重置（下次进钱包重新推演生成）
+    setStates(p => { const n = { ...p }; delete n[charId]; saveJSON("x_states", n); return n; });
+    setStateHist(p => { const n = { ...p }; delete n[charId]; saveJSON("x_stateHist", n); return n; });
+    if (thoughtCtrRef.current[charId]) { delete thoughtCtrRef.current[charId]; try { saveJSON("x_thoughtCtr", thoughtCtrRef.current); } catch (e) {} }
+    setCharWallet(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_charWallet", n); charWalletRef.current = n; return n; });
     if (wipeMem) {
       setMemFor(charId, "");
       const next = memLibRef.current.map(e => {
@@ -2110,18 +2116,20 @@ function App() {
       setGen(g => ({ ...g, sched: null }));
     }
   };
-  // 当天第一次打开：给所有人生成今天（每天只跑一次）
+  // 当天首次打开小手机：给所有还没有今日行程的角色自动生成（不用手动点进去）。
+  // 按「谁缺今天的行程」来补，而不是每天只跑一整轮——这样当天新加进来的角色也会自动补上。
   const schedGenAllToday = async () => {
-    if (schedRunRef.current) return;
-    schedRunRef.current = true;
-    const today = schedDayKey(new Date());
-    if (loadJSON("x_schedGenDay", "") === today) return;
+    if (schedRunRef.current) return; // 防并发：同一次生成过程里别重复触发
     if (!active) return;
-    for (const c of characters) {
-      if ((schedulesRef.current[c.id] || {})[today]) continue;
-      await genScheduleDay(c, today);
+    const today = schedDayKey(new Date());
+    const todo = characters.filter(c => !(schedulesRef.current[c.id] || {})[today]);
+    if (!todo.length) return;
+    schedRunRef.current = true;
+    try {
+      for (const c of todo) await genScheduleDay(c, today);
+    } finally {
+      schedRunRef.current = false;
     }
-    saveJSON("x_schedGenDay", today);
   };
   const genSnoop = async char => {
     setGen(g => ({
@@ -2511,21 +2519,33 @@ function App() {
       setGen(g => ({ ...g, cwallet: null }));
     }
   };
-  // 重新生成资产档案（只更新收入/存款批注等静态档案，保留 running balance 与流水）
+  // 重新生成资产档案：收入/固定支出/理财/批注全部重推，并把存款（baseBalance）也重新推演——
+  // 之前只更新静态档案、不动余额，所以「刷新」看起来资产没完全变。这里连初始存款一起重置，
+  // 把已发生的转账等流水 rebase 到新的初始存款上（保留流水，只换起点）。
   const refreshCharAssets = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, cwallet: char.id }));
     try {
-      const prof = await genWalletProfile(char);
+      let prof = await genWalletProfile(char);
       if (!prof) return;
+      let base = numClean(prof.baseBalance);
+      if (!base) { const prof2 = await genWalletProfile(char); if (prof2 && numClean(prof2.baseBalance)) { prof = prof2; base = numClean(prof2.baseBalance); } }
+      if (!base) { const mi = numClean(prof.monthlyIncome); base = mi ? Math.round(mi * (1.5 + Math.random() * 3)) : CHAR_DEFAULT_BAL + Math.floor(Math.random() * 9000); }
       setCharWallet(p => {
         const cur = p[char.id]; if (!cur) return p;
+        const prior = (cur.ledger || []).filter(e => e.kind !== "init"); // 保留转账等已发生流水
+        const initEntry = { id: "cw_init_" + Date.now(), ts: cur.createdTs || Date.now(), delta: base, after: base, label: "初始资产 · 存款", kind: "init" };
+        const asc = [initEntry, ...prior.slice().reverse()];
+        let bal = 0;
+        const reflow = asc.map(e => { bal = r2(bal + e.delta); return { ...e, after: bal }; });
         const n = { ...p, [char.id]: { ...cur,
+          balance: bal,
           incomes: (prof.incomes ? prof.incomes.map(x => ({ ...x, amount: numClean(x.amount) })) : cur.incomes) || [],
           monthlyIncome: numClean(prof.monthlyIncome),
           fixedMonthly: numClean(prof.fixedMonthly),
           investAssets: numClean(prof.investAssets),
-          notes: prof.notes || cur.notes || {}
+          notes: prof.notes || cur.notes || {},
+          ledger: reflow.reverse()
         } };
         saveJSON("x_charWallet", n);
         charWalletRef.current = n;

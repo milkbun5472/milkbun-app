@@ -557,8 +557,17 @@ function schedActIcon(type) { return { coffee: GCoffee, work: GBrief, create: GP
 function schedCurrentSeqIdx(seqs, isToday) {
   if (!isToday) return -1;
   const now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
-  let idx = -1;
-  (seqs || []).forEach((s, i) => { const m = /(\d{1,2}):(\d{2})/.exec(s.time || ""); if (m) { const tm = (+m[1]) * 60 + (+m[2]); if (tm <= cur) idx = i; } });
+  let idx = -1, prev = -1;
+  // 单调化时间：某段时间早于上一段=跨过午夜（凌晨），+24h 保持递增，
+  // 否则末尾的「00:00 睡觉」会被算成 tm=0 抢走 curIdx，把真正在进行的时段错误地灰掉。
+  (seqs || []).forEach((s, i) => {
+    const m = /(\d{1,2}):(\d{2})/.exec(s.time || "");
+    if (!m) return;
+    let tm = (+m[1]) * 60 + (+m[2]);
+    while (tm < prev) tm += 1440;
+    prev = tm;
+    if (tm <= cur) idx = i;
+  });
   return idx;
 }
 
