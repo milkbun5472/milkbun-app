@@ -18,6 +18,10 @@
     "\n【输出格式】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。" +
     "say 里放你这一轮说出口的话，可拆成 1~4 个气泡（像即时通讯那样分条），" +
     "不要加名字前缀、不要旁白括号、不要 markdown、不要把 JSON 以外的东西吐出来。";
+  // 教学进度信号（只给 teach / nv1-teacher）：让进度条随对话自然前进，不必用户手动点
+  const STUDY_PROGRESS_FMT =
+    "\n【进度信号（可选，接在同一个 JSON 里）】当你判断【当前小节】的要点这一轮已经讲清、且用户表现出基本跟上时，加 \"done\":true —— 进度条会自动推进到下一小节；还没到位就别加（或 false）。" +
+    "可另加 \"mastery\":{\"要点id\":0-3}（0新学/1待复习/2基本会/3稳）标注用户对当前小节各要点的掌握。别为了推进硬给 done：没讲到位、用户没跟上、才刚开头，就老老实实留着继续教。";
 
   function sceneFor(mode, subject, extra) {
     if (mode === "teach")
@@ -228,6 +232,8 @@
       }
       const mem = curriculumMemoryText(cur);
       if (mem) parts.push(mem);
+      // 对话式推进：老师这轮把当前小节讲透、用户也跟上了，就在 JSON 里标 done 让进度条自己前进
+      if (mode === "teach" || mode === "nv1-teacher") parts.push(STUDY_PROGRESS_FMT);
     }
     parts.push(OUT_FMT);
     return parts.join("\n\n");
@@ -262,11 +268,16 @@
   }
 
   // ---- 一次生成 = 一个角色一个回合（§5）------------------------------
+  // 返回 { says:[...], done:bool, mastery:{}|null }——done/mastery 是老师回合可选的进度信号
   async function genTurn(active, session, char, ctx, role) {
     const sys = buildStudyPrompt(session, char, ctx, role);
     const msgs = toMessages(session.transcript, char.id, (ctx.profile && ctx.profile.name) || "用户");
     const raw = await callAI(active, sys, msgs, { maxTokens: 3200 });
-    return parseSay(raw);
+    const says = parseSay(raw);
+    const d = extractJSON(raw) || {};
+    const done = d.done === true || String(d.done).toLowerCase() === "true";
+    const mastery = d.mastery && typeof d.mastery === "object" ? d.mastery : null;
+    return { says: says, done: done, mastery: mastery };
   }
 
   // ---- nv1 轮次导演（§8）：模型决定这一轮谁开口、按什么顺序 -----------------
@@ -747,11 +758,33 @@
     }
 
     async function runChar(char, role) {
-      const says = await genTurn(props.active, sessRef.current, char, ctx, role);
+      const res = await genTurn(props.active, sessRef.current, char, ctx, role);
+      const says = (res && res.says) || [];
       for (let i = 0; i < says.length; i++) {
         if (i > 0) await new Promise(function (r) { return setTimeout(r, 400); });
         pushEntry({ id: "c_" + Date.now() + "_" + i, role: "char", speakerId: char.id, name: char.name, content: says[i], ts: Date.now() });
       }
+      // 对话式推进：老师这轮判定当前小节讲透（done）→ 进度条自动前进一格；也顺手记 mastery
+      if (units.length && (role === "teach" || role === "nv1-teacher")) autoAdvance(res);
+    }
+
+    // 随对话前进（与手动「这节学完」并存，都写 session.progress）
+    function autoAdvance(res) {
+      if (!res || (!res.done && !res.mastery)) return;
+      const s = sessRef.current;
+      const cp = Object.assign({ completed: [], mastery: {} }, s.progress);
+      if (res.mastery) cp.mastery = Object.assign({}, cp.mastery, res.mastery);
+      if (res.done) {
+        const idx = units.findIndex(function (u) { return u.id === cp.current_unit; });
+        if (idx >= 0) {
+          if (!cp.completed.includes(cp.current_unit)) cp.completed = cp.completed.concat([cp.current_unit]);
+          const nextU = units[idx + 1];
+          if (nextU) { cp.current_unit = nextU.id; props.toast("小节推进：" + nextU.title); }
+          else props.toast("本节都学完啦 🎉 回课程可开下一节");
+        }
+      }
+      cp.review_queue = Object.keys(cp.mastery).filter(function (k) { return cp.mastery[k] <= 1; });
+      commit(Object.assign({}, s, { progress: cp }));
     }
 
     // 发送：只把用户这条加进对话，不触发角色（可连发多条），像主聊天一样

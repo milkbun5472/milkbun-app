@@ -712,8 +712,7 @@ function Home({
   // 文件夹每个最多 4 个。一起学已单独放外面；把还没做的实验 App 按主题分两个文件夹
   const folderCreate = { key: "f_create", zh: "共创", apps: [
     { key: "dream", zh: "梦境", G: GSoon, soon: true },
-    { key: "readtog", zh: "一起读", G: GSoon, soon: true },
-    { key: "listen", zh: "一起听", G: GSoon, soon: true }
+    { key: "readtog", zh: "一起读", G: GSoon, soon: true }
   ] };
   const folderPlay = { key: "f_play", zh: "玩法", apps: [
     { key: "debate", zh: "辩论", G: GSoon, soon: true },
