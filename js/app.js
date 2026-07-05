@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v31";
+const APP_VERSION = "v32";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1029,7 +1029,17 @@ function App() {
       const aff = Math.round(affOf(charId));
       const kinHint = hasKinship(charId) ? "\n你已经给过用户一张亲属卡了，不要再发（加额度是另一回事，由 Ta 主动申请）。kinshipcard 一律填 null。" : "\n【亲属卡】仅当此刻非常贴合你的人设、你对用户的好感足够高（约≥70，当前 " + aff + "）、且是自然贴切的时机（如宠溺、想让 Ta 花你的钱、彰显身份），你才可以主动给用户一张「亲属卡」——Ta 以后刷卡花的是你的钱。要给就填 kinshipcard:{\"limit\":额度数字(按你的人设与财力自定),\"note\":\"一句话（发卡时说的话）\"}；否则一律 null。不要轻易发，多数情况下 null。";
       const uName = profile && profile.name ? profile.name : "对方";
-      const system = bundle + ("\n\n【任务】完全代入「" + char.name + "」通过手机即时通讯和用户聊天。**必须把话拆成多条短气泡：word 数组给多个元素，每条只放一两句，像真人发微信那样一句一条连着发；绝不要把一大段话塞进一个气泡。**语气自然，不要旁白/动作/括号小动作。依据关系网与好感度把握亲密度，不提前暴露未发生的剧情。若开启了时间/位置感知，可自然回应但别生硬报数据。" + callHint + proactiveHint + "\n【引用】大多数情况 quote 填 null。只有当用户一次发了好几条、你明确针对其中较早的某一句作答、需要指明是哪句时，才在 quote 放那句原文；正常顺着对话回复不要引用，别每条都引用。\n若此刻你想主动转账给用户（如还钱、给心意、打赏），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。若你想把自己所在的位置发给用户（如提到你在哪），填 location:{\"name\":\"地点名\"}，否则 null。\n若此刻你想主动买一件东西送给用户（贴合人设与好感的心意/惊喜，别频繁），填 gift:{\"name\":\"礼物名\"}，否则 null。它会像快递一样过段时间送到用户手上。" + kinHint + emoteHint + "\n【语音】若你想发语音消息（懒得打字、唱一句、语气/情绪很重要、亲密时想让 Ta 听见），把要说的话放进 voice 数组——每个元素是一条语音的「转文字」内容（会显示成语音气泡＋下面转文字）；多数时候还是用文字 word，voice 只偶尔用，不发就给 []。\n【通话】若此刻你很想直接跟对方通话（想听声音、有急事、撒娇、煲电话粥），可以主动发起：call 填 \"voice\"（语音）或 \"video\"（视频），会给对方弹一张来电邀请卡；不想就 null，别频繁、偶尔为之。\n【拉黑】仅当用户言行让你极度愤怒/被深深冒犯/彻底寒心、且以你的人设你真的会「拉黑」对方时，才填 block:true 并在 blockreason 写一句原因——要非常罕见、有充分理由，绝大多数情况 block 为 false。\n【撤回】若你发出后又后悔某句、说漏了嘴、或不想让 Ta 看到，可以撤回那一句：填 recall:{\"text\":\"要撤回的那句原文（要和你 word 里的某句一致或另说一句）\",\"reason\":\"你撤回它的心里想法/原因\"}，否则一律 null，别频繁撤回。\n【朋友圈】若聊到用户的朋友圈、或你此刻想去 Ta 某条朋友圈下补一条评论/点赞（尤其你之前没评论、现在说要去评），把评论内容填进 momentComment（会真的发到 Ta 最新那条朋友圈下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"thought\":\"此刻内心想法（一般一句；情绪复杂或有心事时可以更长、更细腻地写，没有就填null）\",\"moment\":\"想发的动态或null\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻心情词\",\"baseline\":\"平复后的心情词\",\"softened\":\"半衰后的心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻在做的动作（一般一句；情境需要时可写两三句更具体）\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null}").replace(/用户/g, uName);
+      // #2 时间流逝：隔了几个小时/几天再让 TA 回复，要意识到时间过去了，别当刚聊过
+      const lastTs = history.length ? (history[history.length - 1].ts || 0) : 0;
+      const gapMs = lastTs ? Date.now() - lastTs : 0;
+      const gapHrs = Math.round(gapMs / 3600000);
+      const gapHint = gapMs > 2 * 3600000
+        ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。别当作刚刚才聊过——自然体现这段时间流逝：接上之前没做完/说要去做的事（如说了熬夜跑代码，第二天就『我真去跑了，不然真要睡实验室』）、问对方这段时间干嘛了、或顺势换个话题，贴合此刻时间点（深夜/清晨/工作时间/饭点）和你的人设。"
+        : "";
+      // #3 着装连贯：把当前已知穿着喂回去，除非有理由别每条都换新装
+      const curWear = (states[charId] && states[charId].wearing) || "";
+      const wearHint = curWear ? "\n【着装连贯】你现在穿着：" + curWear + "。除非距上次过了很久、场景变了、或你明确换了衣服，否则 wearing 就保持这一套别变——别每条消息都随手换一套新衣服。" : "";
+      const system = bundle + ("\n\n【任务】完全代入「" + char.name + "」通过手机即时通讯和用户聊天。**必须把话拆成多条短气泡：word 数组给多个元素，每条只放一两句，像真人发微信那样一句一条连着发；绝不要把一大段话塞进一个气泡。**语气自然，不要旁白/动作/括号小动作。依据关系网与好感度把握亲密度，不提前暴露未发生的剧情。若开启了时间/位置感知，可自然回应但别生硬报数据。" + callHint + proactiveHint + gapHint + wearHint + "\n【引用】大多数情况 quote 填 null。只有当用户一次发了好几条、你明确针对其中较早的某一句作答、需要指明是哪句时，才在 quote 放那句原文；正常顺着对话回复不要引用，别每条都引用。\n若此刻你想主动转账给用户（如还钱、给心意、打赏），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。若你想把自己所在的位置发给用户（如提到你在哪），填 location:{\"name\":\"地点名\"}，否则 null。\n若此刻你想主动买一件东西送给用户（贴合人设与好感的心意/惊喜，别频繁），填 gift:{\"name\":\"礼物名\"}，否则 null。它会像快递一样过段时间送到用户手上。" + kinHint + emoteHint + "\n【语音】若你想发语音消息（懒得打字、唱一句、语气/情绪很重要、亲密时想让 Ta 听见），把要说的话放进 voice 数组——每个元素是一条语音的「转文字」内容（会显示成语音气泡＋下面转文字）；多数时候还是用文字 word，voice 只偶尔用，不发就给 []。\n【通话】若此刻你很想直接跟对方通话（想听声音、有急事、撒娇、煲电话粥），可以主动发起：call 填 \"voice\"（语音）或 \"video\"（视频），会给对方弹一张来电邀请卡；不想就 null，别频繁、偶尔为之。\n【拉黑】仅当用户言行让你极度愤怒/被深深冒犯/彻底寒心、且以你的人设你真的会「拉黑」对方时，才填 block:true 并在 blockreason 写一句原因——要非常罕见、有充分理由，绝大多数情况 block 为 false。\n【撤回】若你发出后又后悔某句、说漏了嘴、或不想让 Ta 看到，可以撤回那一句：填 recall:{\"text\":\"要撤回的那句原文（要和你 word 里的某句一致或另说一句）\",\"reason\":\"你撤回它的心里想法/原因\"}，否则一律 null，别频繁撤回。\n【朋友圈】若聊到用户的朋友圈、或你此刻想去 Ta 某条朋友圈下补一条评论/点赞（尤其你之前没评论、现在说要去评），把评论内容填进 momentComment（会真的发到 Ta 最新那条朋友圈下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"thought\":\"此刻内心想法（一般一句；情绪复杂或有心事时可以更长、更细腻地写，没有就填null）\",\"moment\":\"想发的动态或null\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻心情词\",\"baseline\":\"平复后的心情词\",\"softened\":\"半衰后的心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻在做的动作（一般一句；情境需要时可写两三句更具体）\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null}").replace(/用户/g, uName);
       const g = [];
       for (const m of history) {
         if (m.role === "user") {
@@ -1274,9 +1284,19 @@ function App() {
         toast("只能重Roll角色的消息");
         return;
       }
-      // 只删掉这一轮 AI 回复，保留用户最后一条，直接重新生成
       const turnId = m.turnId;
-      pChat(activeChar.id, p => p.filter(x => x.turnId !== turnId));
+      if (turnId) {
+        // 正常回合：删掉这一轮 AI 回复（保留用户最后一条）重生成
+        pChat(activeChar.id, p => p.filter(x => x.turnId !== turnId));
+      } else {
+        // 无 turnId 的角色消息（如同人文读后感）：只删「从这条起、连续的无 turnId 角色气泡」这一组，
+        // 绝不能按 turnId===undefined 批量过滤——那会连我发的同人文卡和别的消息一起删掉。
+        pChat(activeChar.id, p => {
+          let end = idx;
+          while (end < p.length && p[end].role === "assistant" && !p[end].turnId) end++;
+          return p.slice(0, idx).concat(p.slice(end));
+        });
+      }
       setTimeout(() => replyNow(activeChar.id), 200);
     }
   };
@@ -2155,6 +2175,25 @@ function App() {
   useEffect(() => {
     if (screen === "diary") autoDiaryRun();
     else diaryRunRef.current = false; // 离开后下次再进重新判定
+  }, [screen]);
+  // #5 论坛/朋友圈/悄悄话「刷不出来」：打开对应屏时自动补一条（4h 冷却，既首访即有内容、又不每次进都轰 API）
+  const ambientRunRef = useRef({});
+  const autoAmbientRun = async kind => {
+    if (!active || ambientRunRef.current[kind]) return;
+    ambientRunRef.current[kind] = true;
+    const ts = loadJSON("x_ambientTs", {});
+    if (Date.now() - (ts[kind] || 0) < 4 * 3600000) return;
+    ts[kind] = Date.now(); saveJSON("x_ambientTs", ts);
+    try {
+      if (kind === "forum") { const bs = ["吐槽", "日常", "求助"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
+      else if (kind === "moments") { if (characters.length) await genMoment(characters[Math.floor(Math.random() * characters.length)]); }
+      else if (kind === "whisper") { const ps = characters.filter(c => couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
+    } catch (e) {/* 静默 */}
+  };
+  useEffect(() => {
+    if (screen === "forum") autoAmbientRun("forum"); else ambientRunRef.current.forum = false;
+    if (screen === "us") autoAmbientRun("whisper"); else ambientRunRef.current.whisper = false;
+    if (screen === "messages") autoAmbientRun("moments"); else ambientRunRef.current.moments = false;
   }, [screen]);
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）
   useEffect(() => {
@@ -3076,17 +3115,19 @@ function App() {
     }]);
     toast("已转发到群聊");
   };
+  // ficshare 卡片的 content：让这篇文的 title/CP/作者/节选落进聊天历史，角色以后回看/重roll 才认得出是同一篇
+  const ficShareContent = (s, note) => "[分享了一篇同人文]《" + s.title + "》｜CP：" + (s.cpText || "原创") + "｜作者：" + (s.author || "佚名") + (note ? "｜" + note : "") + (s.excerpt ? "｜开头：" + s.excerpt : "");
   // 转发同人文到私聊：push 一张 ficshare 卡片 + 角色随口读后感（Phase 2 才把新章 context 喂给角色）
   const forwardFicToChat = async (fic, toChar) => {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
     const cpNames = (fic.cp || []).map(id => id === "me" ? (profile.name || "我") : (function () { const c = characters.find(x => x.id === id); return c ? c.name : null; })()).filter(Boolean);
     const share = { title: fic.title, author: fic.author || "佚名", tags: fic.tags || [], excerpt: String(excerpt).slice(0, 120), cpText: cpNames.length ? cpNames.join(" × ") : "原创" };
-    pChat(toChar.id, p => [...p, { role: "user", kind: "ficshare", fic: share, ts: Date.now(), read: false }]);
-    toast("已转发给 " + (toChar.remark || toChar.name));
-    if (!active) return;
     // 元认知：这篇是不是以 TA 为主角写的；TA 认不认识文里配对的另一位
     const cpIds = fic.cp || [];
     const isStar = cpIds.indexOf(toChar.id) >= 0;
+    pChat(toChar.id, p => [...p, { role: "user", kind: "ficshare", fic: share, content: ficShareContent(share, isStar ? "这篇是写你的" : ""), ts: Date.now(), read: false }]);
+    toast("已转发给 " + (toChar.remark || toChar.name));
+    if (!active) return;
     let instruction;
     if (isStar) {
       const partnerTok = cpIds.find(id => id !== toChar.id);
@@ -3119,7 +3160,7 @@ function App() {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
     const cpNames = (fic.cp || []).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
     const share = { title: fic.title, author: fic.author || "佚名", tags: fic.tags || [], excerpt: String(excerpt).slice(0, 120), cpText: cpNames.length ? cpNames.join(" × ") : "原创" };
-    pGChat(group.id, p => [...p, { role: "user", kind: "ficshare", senderName: profile.name || "我", fic: share, ts: Date.now() }]);
+    pGChat(group.id, p => [...p, { role: "user", kind: "ficshare", senderName: profile.name || "我", fic: share, content: ficShareContent(share), ts: Date.now() }]);
     toast("已转发到群聊");
   };
   // 追更：把新章推给曾被转发看过这篇的角色，让 Ta 读后随口反应
@@ -3127,7 +3168,7 @@ function App() {
     const chs = (charIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
     if (!chs.length) return;
     const excerpt = String((chapter && chapter.content) || "").slice(0, 120);
-    chs.forEach(ch => pChat(ch.id, p => [...p, { role: "user", kind: "ficshare", fic: { title: fic.title + "（更新·第" + chapNo + "章）", author: fic.author || "佚名", excerpt: excerpt, cpText: "" }, ts: Date.now(), read: false }]));
+    chs.forEach(ch => { const ufShare = { title: fic.title + "（更新·第" + chapNo + "章）", author: fic.author || "佚名", excerpt: excerpt, cpText: "" }; pChat(ch.id, p => [...p, { role: "user", kind: "ficshare", fic: ufShare, content: ficShareContent(ufShare, "你之前看过这篇"), ts: Date.now(), read: false }]); });
     toast("新章已同步给读过的角色");
     if (!active) return;
     const starIds = fic.cp || [];
