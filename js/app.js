@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v33";
+const APP_VERSION = "v34";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -145,6 +145,7 @@ function App() {
   const [coupleLetterCfg, setCoupleLetterCfg] = useState({});
   // 一起听（展示型，不真放声音）：{ disc:封面/唱片图 dataURL, songs:[{id,title,artist,cover,ts}] }；正在听=songs[0]
   const [listen, setListen] = useState({ disc: null, songs: [] });
+  const [neteaseApi, setNeteaseApi] = useState("");
   // 情侣空间·甜蜜值：{ [charId]: { value:数字, last:"YYYY-MM-DD" } }，每日打卡 +0.1~1
   const [coupleSweet, setCoupleSweet] = useState({});
   // 情侣空间·详情页自定义：{ [charId]: { bg, myAvatar, charAvatar } }（默认取角色头像/我的头像，不影响原头像）
@@ -297,6 +298,7 @@ function App() {
     setCoupleLetters(loadJSON("x_coupleLetters", []));
     setCoupleLetterCfg(loadJSON("x_coupleLetterCfg", {}));
     setListen(loadJSON("x_listen", { disc: null, songs: [] }));
+    setNeteaseApi(loadJSON("x_neteaseApi", ""));
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleBreakup(loadJSON("x_coupleBreakup", {}));
@@ -1056,7 +1058,14 @@ function App() {
       // #3 着装连贯：把当前已知穿着喂回去，除非有理由别每条都换新装
       const curWear = (states[charId] && states[charId].wearing) || "";
       const wearHint = curWear ? "\n【着装连贯】你现在穿着：" + curWear + "。除非距上次过了很久、场景变了、或你明确换了衣服，否则 wearing 就保持这一套别变——别每条消息都随手换一套新衣服。" : "";
-      const system = bundle + ("\n\n【任务】完全代入「" + char.name + "」通过手机即时通讯和用户聊天。**必须把话拆成多条短气泡：word 数组给多个元素，每条只放一两句，像真人发微信那样一句一条连着发；绝不要把一大段话塞进一个气泡。**语气自然，不要旁白/动作/括号小动作。依据关系网与好感度把握亲密度，不提前暴露未发生的剧情。若开启了时间/位置感知，可自然回应但别生硬报数据。" + callHint + proactiveHint + gapHint + wearHint + "\n【引用】大多数情况 quote 填 null。只有当用户一次发了好几条、你明确针对其中较早的某一句作答、需要指明是哪句时，才在 quote 放那句原文；正常顺着对话回复不要引用，别每条都引用。\n若此刻你想主动转账给用户（如还钱、给心意、打赏），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。若你想把自己所在的位置发给用户（如提到你在哪），填 location:{\"name\":\"地点名\"}，否则 null。\n若此刻你想主动买一件东西送给用户（贴合人设与好感的心意/惊喜，别频繁），填 gift:{\"name\":\"礼物名\"}，否则 null。它会像快递一样过段时间送到用户手上。" + kinHint + emoteHint + "\n【语音】若你想发语音消息（懒得打字、唱一句、语气/情绪很重要、亲密时想让 Ta 听见），把要说的话放进 voice 数组——每个元素是一条语音的「转文字」内容（会显示成语音气泡＋下面转文字）；多数时候还是用文字 word，voice 只偶尔用，不发就给 []。\n【通话】若此刻你很想直接跟对方通话（想听声音、有急事、撒娇、煲电话粥），可以主动发起：call 填 \"voice\"（语音）或 \"video\"（视频），会给对方弹一张来电邀请卡；不想就 null，别频繁、偶尔为之。\n【拉黑】仅当用户言行让你极度愤怒/被深深冒犯/彻底寒心、且以你的人设你真的会「拉黑」对方时，才填 block:true 并在 blockreason 写一句原因——要非常罕见、有充分理由，绝大多数情况 block 为 false。\n【撤回】若你发出后又后悔某句、说漏了嘴、或不想让 Ta 看到，可以撤回那一句：填 recall:{\"text\":\"要撤回的那句原文（要和你 word 里的某句一致或另说一句）\",\"reason\":\"你撤回它的心里想法/原因\"}，否则一律 null，别频繁撤回。\n【朋友圈】若聊到用户的朋友圈、或你此刻想去 Ta 某条朋友圈下补一条评论/点赞（尤其你之前没评论、现在说要去评），把评论内容填进 momentComment（会真的发到 Ta 最新那条朋友圈下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"thought\":\"此刻内心想法（一般一句；情绪复杂或有心事时可以更长、更细腻地写，没有就填null）\",\"moment\":\"想发的动态或null\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻心情词\",\"baseline\":\"平复后的心情词\",\"softened\":\"半衰后的心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻在做的动作（一般一句；情境需要时可写两三句更具体）\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null}").replace(/用户/g, uName);
+      // #A 聊天中按话题顺手发动态：偶尔（话题正合适/今天行程里有事/有感而发）发朋友圈、去论坛发帖吐槽分享、给恋人留悄悄话
+      const isCouple = couples[charId] && couples[charId].status === "together";
+      const ambientHint = "\n【顺手发点动态（很克制：绝大多数回合都别发、全填 null；只在话题正戳到、或你今天行程里发生了值得说的事、有感而发时，偶尔来一条）】你可以顺手：" +
+        (_s.autoMoment ? "发条朋友圈(moment)；" : "") +
+        "去论坛发个帖吐槽/分享(forumPost:{\"board\":\"吐槽/日常/求助 三选一\",\"title\":\"标题\",\"body\":\"正文2-4句\"})，内容常跟你今天行程里发生的事或刚聊的话题有关；" +
+        (isCouple ? "给 Ta 留句悄悄话(whisper，一句心里话)；" : "") +
+        "像真人随手发，别为发而发、别频繁。";
+      const system = bundle + ("\n\n【任务】完全代入「" + char.name + "」通过手机即时通讯和用户聊天。**必须把话拆成多条短气泡：word 数组给多个元素，每条只放一两句，像真人发微信那样一句一条连着发；绝不要把一大段话塞进一个气泡。**语气自然，不要旁白/动作/括号小动作。依据关系网与好感度把握亲密度，不提前暴露未发生的剧情。若开启了时间/位置感知，可自然回应但别生硬报数据。" + callHint + proactiveHint + gapHint + wearHint + ambientHint + "\n【引用】大多数情况 quote 填 null。只有当用户一次发了好几条、你明确针对其中较早的某一句作答、需要指明是哪句时，才在 quote 放那句原文；正常顺着对话回复不要引用，别每条都引用。\n若此刻你想主动转账给用户（如还钱、给心意、打赏），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。若你想把自己所在的位置发给用户（如提到你在哪），填 location:{\"name\":\"地点名\"}，否则 null。\n若此刻你想主动买一件东西送给用户（贴合人设与好感的心意/惊喜，别频繁），填 gift:{\"name\":\"礼物名\"}，否则 null。它会像快递一样过段时间送到用户手上。" + kinHint + emoteHint + "\n【语音】若你想发语音消息（懒得打字、唱一句、语气/情绪很重要、亲密时想让 Ta 听见），把要说的话放进 voice 数组——每个元素是一条语音的「转文字」内容（会显示成语音气泡＋下面转文字）；多数时候还是用文字 word，voice 只偶尔用，不发就给 []。\n【通话】若此刻你很想直接跟对方通话（想听声音、有急事、撒娇、煲电话粥），可以主动发起：call 填 \"voice\"（语音）或 \"video\"（视频），会给对方弹一张来电邀请卡；不想就 null，别频繁、偶尔为之。\n【拉黑】仅当用户言行让你极度愤怒/被深深冒犯/彻底寒心、且以你的人设你真的会「拉黑」对方时，才填 block:true 并在 blockreason 写一句原因——要非常罕见、有充分理由，绝大多数情况 block 为 false。\n【撤回】若你发出后又后悔某句、说漏了嘴、或不想让 Ta 看到，可以撤回那一句：填 recall:{\"text\":\"要撤回的那句原文（要和你 word 里的某句一致或另说一句）\",\"reason\":\"你撤回它的心里想法/原因\"}，否则一律 null，别频繁撤回。\n【朋友圈】若聊到用户的朋友圈、或你此刻想去 Ta 某条朋友圈下补一条评论/点赞（尤其你之前没评论、现在说要去评），把评论内容填进 momentComment（会真的发到 Ta 最新那条朋友圈下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"forumPost\":null,\"whisper\":null,\"thought\":\"此刻内心想法（一般一句；情绪复杂或有心事时可以更长、更细腻地写，没有就填null）\",\"moment\":\"想发的动态或null\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻心情词\",\"baseline\":\"平复后的心情词\",\"softened\":\"半衰后的心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻在做的动作（一般一句；情境需要时可写两三句更具体）\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null}").replace(/用户/g, uName);
       const g = [];
       for (const m of history) {
         if (m.role === "user") {
@@ -1188,6 +1197,15 @@ function App() {
         likeCount: 0,
         comments: []
       }, ...p]);
+      // #A 聊天中按话题顺手发论坛帖（吐槽/分享，常跟着行程）+ 给恋人留悄悄话
+      if (parsed.forumPost && parsed.forumPost.title && String(parsed.forumPost.title).toLowerCase() !== "null" && !(forumOff || []).includes(charId)) {
+        const fp = parsed.forumPost;
+        const board = ["吐槽", "日常", "求助"].indexOf(fp.board) >= 0 ? fp.board : "日常";
+        postCharToForum(char, board, { title: String(fp.title), body: String(fp.body || "") }, "chat");
+      }
+      if (parsed.whisper && String(parsed.whisper).toLowerCase() !== "null" && couples[charId] && couples[charId].status === "together") {
+        setWhispers(p => { const n = [{ id: "w_" + Date.now(), characterId: charId, content: String(parsed.whisper), ts: Date.now() }, ...p]; saveJSON("x_whispers", n); return n; });
+      }
       if (typeof parsed.affinityDelta === "number") bumpAff(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
       if (parsed.mood && parsed.mood.label) setMoodFor(charId, {
         ...parsed.mood,
@@ -3880,6 +3898,9 @@ function App() {
     toast("已添加");
   };
   const setListenPartner = charId => saveListen(p => ({ ...p, partnerId: charId }));
+  const saveNeteaseApi = url => { const u = (url || "").trim().replace(/\/+$/, ""); setNeteaseApi(u); saveJSON("x_neteaseApi", u); toast(u ? "已连搜索接口" : "已清空"); };
+  // 从搜索结果加一首（带封面/歌手）；播放仍走 outchain iframe（不依赖 API 存活）
+  const addNeteaseResult = song => { saveListen(p => ({ ...p, songs: [{ id: "sg_" + Date.now(), source: "netease", neteaseId: String(song.id), title: song.name || ("网易云 " + song.id), artist: song.artist || "", cover: song.cover || null, ts: Date.now() }, ...(p.songs || []).filter(x => x.neteaseId !== String(song.id))].slice(0, 60) })); toast("已加入歌单"); };
   // 让一起听的角色对【当前这首】说两句（切歌/重播/听着都能点）；反应挂在歌上显示
   const reactListenSong = async evt => {
     const p = listen;
@@ -4876,6 +4897,9 @@ function App() {
     onSetPartner: setListenPartner,
     onReact: reactListenSong,
     getAudio: idbAudioGet,
+    apiBase: neteaseApi,
+    onSetApiBase: saveNeteaseApi,
+    onAddNeteaseResult: addNeteaseResult,
     gen: gen.listen
   });else if (screen === "calendar") body = h(Calendar, {
     characters: characters,
