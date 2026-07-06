@@ -80,7 +80,9 @@
       (prior && prior.length ? "\n\n【你之前已经批注过的（别重复这些）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
       "\n\n【正文（按段落编号，可能跨好几页）】\n" + numbered +
       "\n\n请就上面这段，写**正好 " + n + " 条**批注，可以分布在不同段落、也可多条落在同一段。\n【输出格式·务必严格遵守】只输出 " + n + " 行，每行一条批注，格式为 `段<段号>：<批注>`。示例：\n段3：这人嘴上硬，心里早就软了。\n段3：换我早翻脸走人了。\n段8：一碗黄酒二两黄豆，写得我都馋了。\n不要写 JSON、不要总起语、不要空行、不要任何多余的话——就这 " + n + " 行，一行都不能少。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: Math.min(4000, 500 + n * 180) });
+    // 放宽 token 预算：Gemini 等「思考型」模型会先想再答、思考也吃输出 token，预算太紧会想到一半就停（只出一两条）。
+    // 中转站按次计费、输出长短不额外收费，所以给足空间不心疼。
+    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: Math.min(8000, 1500 + n * 400) });
     // 先把「段N：」标记前都断行——兼容弱模型把多条挤在一行/一段的情况
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
