@@ -2432,7 +2432,7 @@ function ChatThread({
         onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { borderRadius: 12, cursor: "pointer", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
-      }, h("img", { src: m.url, alt: m.keyword || "", title: m.keyword || "", style: { maxWidth: 118, maxHeight: 118, borderRadius: 12, display: "block", objectFit: "contain" }, onError: e => { e.target.style.display = "none"; } })),
+      }, h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 118 })),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
@@ -3823,6 +3823,24 @@ function GeoStampSheet({
 }
 // 按消息类型给出可用的长按菜单项：纯文本/图片/位置给全套；表情/语音/转账/红包等
 // 卡片类只给能用的（收藏/多选删除/撤回）——复制/编辑/引用/重Roll 对它们没意义。
+// 表情图：加载失败时【不要】塌成 0 尺寸（那样气泡看不见、也没法长按/多选删除），
+// 改显一个带关键词的占位框，保持尺寸 + 可长按，用户能认出是哪张、也删得掉。
+function EmoteBubble({ url, keyword, max }) {
+  const t = useTheme();
+  const [broken, setBroken] = useState(!url);
+  const kw = keyword || "表情";
+  max = max || 116;
+  if (broken) return h("div", {
+    style: { width: max, height: max, borderRadius: 12, background: t.bg2, border: "1px dashed " + t.line,
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: 8, boxSizing: "border-box" }
+  },
+    h("div", { style: { fontSize: 22, opacity: 0.45, lineHeight: 1 } }, "🖼"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, textAlign: "center", lineHeight: 1.3, wordBreak: "break-all", maxHeight: 30, overflow: "hidden" } }, kw),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog } }, "图裂了"));
+  return h("img", { src: url, alt: kw, title: kw,
+    style: { maxWidth: max, maxHeight: max, borderRadius: 12, display: "block", objectFit: "contain" },
+    onError: () => setBroken(true) });
+}
 function menuItemsForKind(m) {
   const full = [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["edit", "编辑", "Edit"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"], ["reroll", "重Roll", "Reroll"]];
   const k = m && m.kind;
@@ -4810,7 +4828,7 @@ function GroupThread({
         style: { outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 12 }
       },
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-        h("img", { src: m.url, alt: m.keyword || "", style: { maxWidth: 112, maxHeight: 112, borderRadius: 12, display: "block", objectFit: "contain" }, onError: e => { e.target.style.display = "none"; } })),
+        h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 112 })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
       m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
