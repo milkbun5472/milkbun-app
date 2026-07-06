@@ -2052,6 +2052,11 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   const bgRef = useRef(null); const myAvRef = useRef(null); const chAvRef = useRef(null);
   const [unlinkChar, setUnlinkChar] = useState(null); // 待确认解除的角色
   const cp = couples || {};
+  // 每段情侣「有没有你没看的东西」——用来在名册和功能格上点红点、指明是谁+哪个功能在提醒
+  const noteSeen = (function () { try { return JSON.parse(localStorage.getItem("x_coupleNoteSeen") || "{}"); } catch (e) { return {}; } })();
+  const unreadNotesFor = cid => (coupleNotes || []).some(n => n.characterId === cid && (n.authorId === cid || (n.replies || []).some(r => r.authorId === cid)) && !noteSeen[n.id]);
+  const unreadLettersFor = cid => (coupleLetters || []).some(l => l.characterId === cid && !l.isRead);
+  const unreadTagsFor = cid => { const a = []; if (unreadNotesFor(cid)) a.push("悄悄话"); if (unreadLettersFor(cid)) a.push("情书"); return a; };
   const entries = Object.keys(cp)
     .map(id => ({ char: characters.find(c => c.id === id), st: cp[id] }))
     .filter(e => e.char)
@@ -2103,9 +2108,9 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     const paChar = cprof.charAvatar ? { name: partner.name, avatarImage: cprof.charAvatar } : partner;
     const feats = [
       { k: "timeline", e: "📅", zh: "我们的日子", s: "时间轴 · 纪念日" },
-      { k: "letters", e: "💌", zh: "情书", s: "写给彼此", dot: (coupleLetters || []).some(l => l.characterId === partner.id && !l.isRead) },
+      { k: "letters", e: "💌", zh: "情书", s: "写给彼此", dot: unreadLettersFor(partner.id) },
       { k: "mood", e: "🗓️", zh: "心情日历", s: "交换心情" },
-      { k: "notes", e: "📝", zh: "便签墙", s: "悄悄话" },
+      { k: "notes", e: "📝", zh: "便签墙", s: "悄悄话", dot: unreadNotesFor(partner.id) },
       { k: "qa", e: "📖", zh: "问答小本", s: "关于我们" }
     ];
     const imgRow = (label, ref, field, has) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
@@ -2171,14 +2176,18 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
             entries.map(e => {
               const tog = e.st.status === "together";
               const meChar = { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: (profile && profile.color) || t.accent };
-              return h("div", { key: e.char.id, className: "relative mb-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 20, padding: "20px 16px 18px", opacity: tog ? 1 : 0.75 } },
+              const tags = tog ? unreadTagsFor(e.char.id) : [];
+              return h("div", { key: e.char.id, className: "relative mb-3", style: { background: t.bg2, border: "1px solid " + (tags.length ? "#ee8aa2" : t.line), borderRadius: 20, padding: "20px 16px 18px", opacity: tog ? 1 : 0.75 } },
+                tags.length ? h("span", { style: { position: "absolute", top: 12, left: 14, width: 9, height: 9, borderRadius: 999, background: "#e0524a" } }) : null,
                 tog && onUnlink ? h("button", { onClick: ev => { ev.stopPropagation(); setUnlinkChar(e.char); }, className: "active:opacity-60", style: { position: "absolute", top: 12, right: 12, width: 30, height: 30, borderRadius: 999, background: t.bg, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 } }, "💔") : null,
                 h("button", { onClick: () => tog && setView(e.char.id), className: "w-full active:opacity-80" },
                   h("div", { className: "flex items-center justify-center gap-3" },
                     h("div", { style: { borderRadius: 999, overflow: "hidden", border: "2px solid #f4c6d4" } }, h(Avatar, { character: meChar, size: 58, radius: 999 })),
                     h(IHeart, { size: 26, color: tog ? "#ee6a8a" : t.line, filled: true }),
                     h("div", { style: { borderRadius: 999, overflow: "hidden", border: "2px solid #f4c6d4" } }, h(Avatar, { character: e.char, size: 58, radius: 999 }))),
-                  h("div", { style: { textAlign: "center", marginTop: 12, fontFamily: F_DISPLAY, fontSize: 16, color: tog ? "#d16a86" : t.fog } }, tog ? "与 " + e.char.name + " 恋爱中 · " + daysWith(e.st.since) + " 天" : "与 " + e.char.name + " · 邀请待回应…")));
+                  h("div", { style: { textAlign: "center", marginTop: 12, fontFamily: F_DISPLAY, fontSize: 16, color: tog ? "#d16a86" : t.fog } }, tog ? "与 " + e.char.name + " 恋爱中 · " + daysWith(e.st.since) + " 天" : "与 " + e.char.name + " · 邀请待回应…"),
+                  tags.length ? h("div", { style: { textAlign: "center", marginTop: 5 } },
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c02a52", background: "#ffe1ea", borderRadius: 999, padding: "2px 11px" } }, "有新的" + tags.join("、") + " · 点进去看")) : null));
             }))),
     unlinkChar && onUnlink ? h(Sheet, { onClose: () => setUnlinkChar(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "解除和 " + unlinkChar.name + " 的情侣关系"),

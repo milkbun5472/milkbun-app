@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.34";
+const APP_VERSION = "v46.35";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -322,7 +322,16 @@ function App() {
     setWhispers(loadJSON("x_whispers", []));
     setCoupleQA(loadJSON("x_coupleQA", []));
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
-    setCoupleNotes(loadJSON("x_coupleNotes", []));
+    // 迁移：旧「悄悄话」一直存在无处显示的 x_whispers 里 → 一次性搬进便签墙，让积压的悄悄话终于露出来
+    let _cnotes = loadJSON("x_coupleNotes", []);
+    const _oldW = loadJSON("x_whispers", []);
+    if (_oldW.length && !loadJSON("x_whispersMigrated", false)) {
+      const migrated = _oldW.map(w => ({ id: "note_mig_" + w.id, characterId: w.characterId, authorId: w.characterId, content: String(w.content || "").trim(), style: Math.floor(Math.random() * 5), createdAt: w.ts || Date.now(), replies: [] })).filter(n => n.content);
+      _cnotes = migrated.concat(_cnotes).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      saveJSON("x_coupleNotes", _cnotes);
+      saveJSON("x_whispersMigrated", true);
+    }
+    setCoupleNotes(_cnotes);
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
     setCoupleMood(loadJSON("x_coupleMood", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
@@ -1367,7 +1376,9 @@ function App() {
       // #A 给恋人留悄悄话（论坛发帖已移除每轮自发，改由 tickAmbient 计数器按 50轮/3天 定时发）
       let ambForum = false, ambWhisper = false;
       if (parsed.whisper && String(parsed.whisper).toLowerCase() !== "null" && couples[charId] && couples[charId].status === "together") {
-        setWhispers(p => { const n = [{ id: "w_" + Date.now(), characterId: charId, content: String(parsed.whisper), ts: Date.now() }, ...p]; saveJSON("x_whispers", n); return n; });
+        // 悄悄话 = 贴到你俩的「便签墙」上（authorId=角色，默认盖着，点开才看得到）——不再进无处显示的 whispers 数组
+        const wtext = String(parsed.whisper).trim();
+        setCoupleNotes(p => { const n = [{ id: "note_" + Date.now(), characterId: charId, authorId: charId, content: wtext, style: Math.floor(Math.random() * 5), createdAt: Date.now(), replies: [] }, ...p]; saveJSON("x_coupleNotes", n); return n; });
         notifyApp("whisper"); ambWhisper = true;
       }
       // 动态保底：每轮回复计数，很久没发就强制补一条（不影响本轮已自发的）
@@ -3810,17 +3821,21 @@ function App() {
     }));
     try {
       const d = await runProbe(active, ctxFor(char), {
-        instruction: "你们已是恋人。以「" + char.name + "」身份私下写给用户一段心里话，真挚贴合人设，1-3句。",
+        instruction: "你们已是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张给用户的小纸条——一句心里话/此刻的念头，真挚贴合人设，1-2句、别太长。",
         schemaHint: "{\"whisper\":\"心里话\"}"
       });
-      setWhispers(p => {
+      // 贴到便签墙（authorId=角色，默认盖着，点开才看得到），不再进无处可见的 whispers 数组
+      setCoupleNotes(p => {
         const n = [{
-          id: "w_" + Date.now(),
+          id: "note_" + Date.now(),
           characterId: char.id,
-          content: d.whisper,
-          ts: Date.now()
+          authorId: char.id,
+          content: String(d.whisper || "").trim(),
+          style: Math.floor(Math.random() * 5),
+          createdAt: Date.now(),
+          replies: []
         }, ...p];
-        saveJSON("x_whispers", n);
+        saveJSON("x_coupleNotes", n);
         return n;
       });
     } catch (e) {
