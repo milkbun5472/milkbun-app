@@ -785,8 +785,8 @@ function Home({
   const goPage = function (np) { setPage(np); try { localStorage.setItem("x_homePage", String(np)); } catch (e) {} };
   // 文件夹每个最多 4 个。一起学已单独放外面；把还没做的实验 App 按主题分两个文件夹
   const folderCreate = { key: "f_create", zh: "共创", apps: [
-    { key: "dream", zh: "梦境", G: GSoon, soon: true },
-    { key: "readtog", zh: "一起读", G: GSoon, soon: true }
+    { key: "read", zh: "一起读", G: IShelf },
+    { key: "dream", zh: "梦境", G: GSoon, soon: true }
   ] };
   const folderPlay = { key: "f_play", zh: "玩法", apps: [
     { key: "debate", zh: "辩论", G: GSoon, soon: true },
@@ -5634,7 +5634,9 @@ function ContactDetail({
   onBack,
   onChat,
   onSaveRemark,
-  onOpenState
+  onOpenState,
+  directives = [],
+  onRemoveDirective
 }) {
   const t = useTheme();
   const [remark, setRemark] = useState(character.remark || "");
@@ -5684,7 +5686,15 @@ function ContactDetail({
       fontSize: 18,
       color: t.tint
     }
-  }, affinity, " / 100")), /*#__PURE__*/React.createElement("div", {
+  }, affinity, " / 100")), directives.length > 0 && h("div", {
+    className: "pt-6"
+  }, h(Eyebrow, { style: { marginBottom: 8 } }, "长期准则 · 你经 OOC 立下"), h("div", { className: "space-y-2" }, directives.map(d => h("div", {
+    key: d.id,
+    style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+  }, h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, d.text), onRemoveDirective && h("button", {
+    onClick: () => onRemoveDirective(d.id),
+    style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "0 2px" }
+  }, "删除")))), h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } }, "这些会作为高优先要求注入 " + character.name + " 的每轮对话；在聊天里用 OOC 说「以后…」即可新增。")), /*#__PURE__*/React.createElement("div", {
     className: "mt-8 space-y-2.5"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: onChat,

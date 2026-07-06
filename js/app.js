@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.04";
+const APP_VERSION = "v46.05";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -108,6 +108,7 @@ function App() {
   const [moods, setMoods] = useState({});
   const [states, setStates] = useState({});
   const [stateHist, setStateHist] = useState({});
+  const [directives, setDirectives] = useState({}); // {charId:[{id,text,ts}]} 用户经 OOC 立的长期行为准则
   const [memories, setMemories] = useState({});
   const [memLib, setMemLib] = useState([]);
   const memLibRef = useRef(memLib);
@@ -297,6 +298,7 @@ function App() {
     setAffinities(loadJSON("x_affinities", {}));
     setMoods(loadJSON("x_moods", {}));
     setStates(loadJSON("x_states", {}));
+    setDirectives(loadJSON("x_directives", {}));
     setMemories(loadJSON("x_memories", {}));
     setMemLib(loadJSON("x_memLib", []));
     setChatSettings(loadJSON("x_chatSettings", {}));
@@ -487,6 +489,23 @@ function App() {
       return n;
     });
   };
+  // 用户经 OOC 立下的长期行为准则
+  const addDirective = (id, text) => {
+    const t = (text || "").trim();
+    if (!t) return;
+    setDirectives(p => {
+      const list = p[id] || [];
+      if (list.some(d => d.text === t)) return p; // 完全相同不重复
+      const n = { ...p, [id]: [...list, { id: "dir_" + Date.now(), text: t, ts: Date.now() }] };
+      saveJSON("x_directives", n);
+      return n;
+    });
+  };
+  const removeDirective = (id, dirId) => setDirectives(p => {
+    const n = { ...p, [id]: (p[id] || []).filter(d => d.id !== dirId) };
+    saveJSON("x_directives", n);
+    return n;
+  });
   const setMemFor = (id, m) => setMemories(p => {
     const n = {
       ...p,
@@ -608,6 +627,8 @@ function App() {
     worldbook,
     profile,
     affinity: Math.round(affOf(char.id)),
+    moodLabel: (moods[char.id] || {}).label || null,
+    directives: directives[char.id] || [],
     memory: memories[char.id],
     memLib: retrieveMemories(memLibRef.current, char.id, (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-8).map(m => m.content).join("\n"), {
       limit: 6
@@ -1371,11 +1392,13 @@ function App() {
     }
     setSending(true);
     try {
-      const answer = await oocAsk(active, ctxFor(char), text.trim());
+      const res = await oocAsk(active, ctxFor(char), text.trim());
+      // 合理的调整要求 → 存成长期准则（refused 时不存）
+      if (res.directive && !res.refused) addDirective(charId, res.directive);
       pChat(charId, p => [...p, {
         role: "assistant",
         kind: "system",
-        content: answer,
+        content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没有照做——会破坏 " + char.name + " 的人设〕" : ""),
         ts: Date.now(),
         turnId: "ooc_" + Date.now()
       }]);
@@ -5187,7 +5210,9 @@ function App() {
       setScreen("thread");
     },
     onSaveRemark: saveRemark,
-    onOpenState: () => setStateCardOpen(true)
+    onOpenState: () => setStateCardOpen(true),
+    directives: directives[activeChar.id] || [],
+    onRemoveDirective: dirId => removeDirective(activeChar.id, dirId)
   });else if (screen === "ties") body = /*#__PURE__*/React.createElement(Ties, {
     characters: characters,
     rels: rels,
@@ -5364,6 +5389,14 @@ function App() {
     profile: profile,
     worldbook: worldbook,
     toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "read") body = h(ReadTogether, {
+    active: active,
+    characters: characters,
+    profile: profile,
+    worldbook: worldbook,
+    toast: toast,
+    onAddMemory: (text, charId) => addMemEntry({ text: text, charIds: charId ? [charId] : [], source: "read", tags: ["一起读"] }),
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {
     active: active,
