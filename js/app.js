@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.05";
+const APP_VERSION = "v46.06";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1150,7 +1150,22 @@ function App() {
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const proactiveHint = (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
       const aff = Math.round(affOf(charId));
-      const kinHint = hasKinship(charId) ? "\n你已经给过用户一张亲属卡了，不要再发（加额度是另一回事，由 Ta 主动申请）。kinshipcard 一律填 null。" : "\n【亲属卡】仅当此刻非常贴合你的人设、你对用户的好感足够高（约≥70，当前 " + aff + "）、且是自然贴切的时机（如宠溺、想让 Ta 花你的钱、彰显身份），你才可以主动给用户一张「亲属卡」——Ta 以后刷卡花的是你的钱。要给就填 kinshipcard:{\"limit\":额度数字(按你的人设与财力自定),\"note\":\"一句话（发卡时说的话）\"}；否则一律 null。不要轻易发，多数情况下 null。";
+      // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
+      const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
+      const moneyAsk = /穷|没钱|缺钱|差钱|借点|借我|借钱|给我钱|买不起|破产|吃土|月光|房租|还款|还不起|信用卡|养我|包养|花你的|花你钱|要钱|打钱|转点|接济|周转|手头紧|发不出|工资还没/.test(recentUserText);
+      const kinHint = (!hasKinship(charId) && moneyAsk)
+        ? "\n【亲属卡·按需】用户这会儿在跟你哭穷/或张口想要钱花。你**不必**给——先掂量你的人设、此刻心情、以及对 Ta 的好感（当前 " + aff + "）：真心疼、也舍得、且这符合你会做的事，才给 Ta 一张「亲属卡」（Ta 以后刷卡花你的钱）：填 kinshipcard:{\"limit\":额度数字(按你人设财力自定),\"note\":\"发卡时说的一句话\"}。不情愿、觉得 Ta 得寸进尺、或人设本就不是会给钱的人，就 null（该拒绝就拒绝、别硬给）。"
+        : "";
+      // 拉黑按需注入：只在「有张力」时才给这个能力，happy 高好感的太平轮次就别让模型每轮盘算拉黑。
+      // 命门：踩雷/说错话与拉黑发生在同一轮，而建 prompt 时只拿得到「本轮用户这句 + 上一刻心情」，
+      //   所以用「本轮这句是否带火药味 or 心情已负 or 好感不高 or 人设本就有雷点/暴脾气」四个信号任一命中就开放。
+      const _mLabel = (moods[charId] || {}).label || "";
+      const _moodNeg = /怒|气|烦|厌|恶|冷|寒|失望|委屈|难过|伤心|不满|警惕|受伤|心寒|无语/.test(_mLabel);
+      const _landmine = /雷|底线|原则|脾气|易怒|暴躁|记仇|翻脸|绝情|冷酷|狠|不容|强势|占有|控制|洁癖/.test(char.persona || "");
+      const _harsh = /滚|分手|去死|恶心|讨厌你|烦你|闭嘴|傻|蠢|骗子|渣男|渣女|贱|婊|操你|草你|艹|恨你|出轨|劈腿|备胎|玩玩而已|绿了|绿我/.test(recentUserText);
+      const blockHint = (_moodNeg || aff < 70 || _landmine || _harsh)
+        ? "\n【block 拉黑】仅当此刻用户踩中你雷点/说错话、让你以你的人设真的动了「拉黑」的念头，才 block:true 并在 blockreason 写一句原因——极罕见、要有充分理由；否则 block:false、blockreason:null。"
+        : "";
       const uName = profile && profile.name ? profile.name : "对方";
       // 心声每 3 轮写一次（恒定）——其余轮次填 null，别费笔墨稀释回复
       const tctr = (thoughtCtrRef.current[charId] || 0) + 1;
@@ -1171,13 +1186,15 @@ function App() {
       // #3 着装连贯：把当前已知穿着喂回去，除非有理由别每条都换新装
       const curWear = (states[charId] && states[charId].wearing) || "";
       const wearHint = curWear ? "\n【着装连贯】你现在穿着：" + curWear + "。除非距上次过了很久、场景变了、或你明确换了衣服，否则 wearing 就保持这一套别变——别每条消息都随手换一套新衣服。" : "";
-      // #A 聊天中按话题顺手发动态：偶尔（话题正合适/今天行程里有事/有感而发）发朋友圈、去论坛发帖吐槽分享、给恋人留悄悄话
+      // #A 聊天中按话题顺手发动态：偶尔（话题正合适/今天行程里有事/有感而发）发朋友圈、给恋人留悄悄话。
+      //   论坛发帖不在此处——它由 tickAmbient 的计数器按「50轮/3天」定时触发（见 forceAmbient），别在每轮聊天里重复问，省 token。
       const isCouple = couples[charId] && couples[charId].status === "together";
-      const ambientHint = "\n【顺手发点动态（很克制：绝大多数回合都别发、全填 null；只在话题正戳到、或你今天行程里发生了值得说的事、有感而发时，偶尔来一条）】你可以顺手：" +
-        (_s.autoMoment ? "发条朋友圈(moment)；" : "") +
-        "去论坛发个帖吐槽/分享(forumPost:{\"board\":\"吐槽/日常/求助 三选一\",\"title\":\"标题\",\"body\":\"正文2-4句\"})，内容常跟你今天行程里发生的事或刚聊的话题有关；" +
-        (isCouple ? "给 Ta 留句悄悄话(whisper，一句心里话)；" : "") +
-        "像真人随手发，别为发而发、别频繁。";
+      const ambientBits = [];
+      if (_s.autoMoment) ambientBits.push("发条朋友圈(moment)");
+      if (isCouple) ambientBits.push("给 Ta 留句悄悄话(whisper，一句心里话)");
+      const ambientHint = ambientBits.length
+        ? "\n【顺手发点动态（很克制：绝大多数回合都别发、全填 null；只在话题正戳到、或你今天行程里发生了值得说的事、有感而发时，偶尔来一条）】你可以顺手：" + ambientBits.join("；") + "；像真人随手发，别为发而发、别频繁。"
+        : "";
       // 一起听联动：若你是 TA 当前"一起听"的人，可在聊天里直接切歌/点歌（消耗这次回复）
       const listenData = listenRef.current || {};
       const isListenPartner = listenData.partnerId === charId;
@@ -1187,7 +1204,7 @@ function App() {
         : "";
       // 一起听邀请：偶尔主动约对方一起听歌
       const inviteHint = isListenPartner ? "" : "\n【邀你一起听歌】偶尔（想跟 " + uName + " 分享一首歌、此刻在听到好歌、或气氛正好时，很克制、别频繁、绝大多数回合都 null），你可以主动邀请一起听歌：listenInvite 填 {\"song\":\"想一起听的歌名（可留空）\",\"say\":\"邀请的话，一句\"}；不邀请就 null。";
-      const system = bundle + ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + callHint + proactiveHint + gapHint + wearHint + ambientHint + listenHint + inviteHint + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组，每个元素是一条语音的转文字；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。\n【block 拉黑】仅当用户让你极度愤怒/被深深冒犯、且以人设你真会拉黑时，才 block:true 并在 blockreason 写一句原因——极罕见，绝大多数 false。\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"forumPost\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻心情词\",\"baseline\":\"平复后的心情词\",\"softened\":\"半衰后的心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻在做的动作（一般一句；情境需要时可写两三句更具体）\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null}").replace(/用户/g, uName);
+      const system = bundle + ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。" + callHint + proactiveHint + gapHint + wearHint + ambientHint + listenHint + inviteHint + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组，每个元素是一条语音的转文字；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻心情词\",\"baseline\":\"平复后的心情词\",\"softened\":\"半衰后的心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻在做的动作（一般一句；情境需要时可写两三句更具体）\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null}").replace(/用户/g, uName);
       const g = [];
       for (const m of history) {
         if (m.role === "user") {
@@ -1335,14 +1352,8 @@ function App() {
         likeCount: 0,
         comments: []
       }, ...p]); notifyApp("moments"); }
-      // #A 聊天中按话题顺手发论坛帖（吐槽/分享，常跟着行程）+ 给恋人留悄悄话
+      // #A 给恋人留悄悄话（论坛发帖已移除每轮自发，改由 tickAmbient 计数器按 50轮/3天 定时发）
       let ambForum = false, ambWhisper = false;
-      if (parsed.forumPost && parsed.forumPost.title && String(parsed.forumPost.title).toLowerCase() !== "null" && !(forumOff || []).includes(charId)) {
-        const fp = parsed.forumPost;
-        const board = ["吐槽", "日常", "求助"].indexOf(fp.board) >= 0 ? fp.board : "日常";
-        postCharToForum(char, board, { title: String(fp.title), body: String(fp.body || "") }, "chat");
-        notifyApp("forum"); ambForum = true;
-      }
       if (parsed.whisper && String(parsed.whisper).toLowerCase() !== "null" && couples[charId] && couples[charId].status === "together") {
         setWhispers(p => { const n = [{ id: "w_" + Date.now(), characterId: charId, content: String(parsed.whisper), ts: Date.now() }, ...p]; saveJSON("x_whispers", n); return n; });
         notifyApp("whisper"); ambWhisper = true;
@@ -2396,8 +2407,13 @@ function App() {
   const autoForumForChar = async char => {
     if (!active || (forumOffRef.current || []).includes(char.id)) return;
     try {
+      // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
+      const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
+      const sinceChat = (chatsRef.current[char.id] || [])
+        .filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.content && (m.ts || 0) > lastForumTs)
+        .slice(-12).map(m => (m.role === "user" ? (profile.name || "用户") : char.name) + "：" + m.content).join("\n");
       const d = await runProbe(active, ctxFor(char), {
-        instruction: "以「" + char.name + "」的身份，按你的人设和最近状态，去论坛随手发一个帖（吐槽/日常/求助 三选一），像真人发帖，别客服腔、别报流水账。",
+        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助 三选一）。内容写你**最近（上次发帖之后）真实发生或萦绕心头的事**——今天行程里的事、最近和用户聊到/经历的、心情起伏都行；实在没有值得说的，就按你的人设编一件贴合的小事。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你和用户最近的往来（可当素材，别照抄原话）】\n" + sinceChat : ""),
         schemaHint: "{\"board\":\"吐槽/日常/求助 之一\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
       const board = ["吐槽", "日常", "求助"].indexOf(d && d.board) >= 0 ? d.board : "日常";
