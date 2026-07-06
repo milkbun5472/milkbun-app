@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.30";
+const APP_VERSION = "v46.31";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2566,7 +2566,8 @@ function App() {
       return await runProbe(active, ctxFor(char), {
         instruction: "推演「" + char.name + "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。",
         schemaHint: "{\"incomes\":[{\"name\":\"公司月薪\",\"category\":\"工资\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}",
-        maxTokens: 2000
+        // notes(4段批注)在 JSON 最后，思考型模型截断先丢它→放宽 token 防「刷新后批注没了」
+        maxTokens: 4000
       });
     } catch (e) {
       toast(char.name + " 资产生成失败：" + e.message);
@@ -2634,13 +2635,16 @@ function App() {
         const asc = [initEntry, ...prior.slice().reverse()];
         let bal = 0;
         const reflow = asc.map(e => { bal = r2(bal + e.delta); return { ...e, after: bal }; });
+        // 刷新时：新生成为空（截断/没给）就保留原来的，别用空覆盖掉好的批注/收入
+        const newIncomes = (prof.incomes && prof.incomes.length) ? prof.incomes.map(x => ({ ...x, amount: numClean(x.amount) })) : (cur.incomes || []);
+        const newNotes = (prof.notes && Object.keys(prof.notes).length) ? prof.notes : (cur.notes || {});
         const n = { ...p, [char.id]: { ...cur,
           balance: bal,
-          incomes: (prof.incomes ? prof.incomes.map(x => ({ ...x, amount: numClean(x.amount) })) : cur.incomes) || [],
-          monthlyIncome: numClean(prof.monthlyIncome),
-          fixedMonthly: numClean(prof.fixedMonthly),
-          investAssets: numClean(prof.investAssets),
-          notes: prof.notes || cur.notes || {},
+          incomes: newIncomes,
+          monthlyIncome: numClean(prof.monthlyIncome) || cur.monthlyIncome || 0,
+          fixedMonthly: numClean(prof.fixedMonthly) || cur.fixedMonthly || 0,
+          investAssets: numClean(prof.investAssets) || cur.investAssets || 0,
+          notes: newNotes,
           ledger: reflow.reverse()
         } };
         saveJSON("x_charWallet", n);
