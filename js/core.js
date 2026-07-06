@@ -283,4 +283,6 @@ const IShelf = p => h(Svg, p, h("path", { d: "M4 4v16M8 6v14M12 5v15" }), h("pat
 const IPortal = p => h(Svg, p, h("path", { d: "M5 21V8a7 4 0 0114 0v13" }), h("path", { d: "M9 21v-9a3 2.2 0 016 0v9" }));
 // 辩论：天平（论辩 + 判定）
 const GDebate = p => h(Svg, p, h("path", { d: "M12 3v18M6 21h12M4 7h16M12 4l-7 3M12 4l7 3" }), h("path", { d: "M1.6 11a3.4 3.4 0 006.8 0" }), h("path", { d: "M15.6 11a3.4 3.4 0 006.8 0" }));
+// 梦境：弯月 + 星
+const GDream = p => h(Svg, p, h("path", { d: "M20 14.5A8 8 0 019.5 4 7 7 0 1020 14.5z" }), h("path", { d: "M16.5 3.6l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5z" }));
 

@@ -812,6 +812,7 @@ function Home({
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
     read: { kind: "app", zh: "一起读", G: IShelf },
     debate: { kind: "app", zh: "辩论", G: GDebate },
+    dream: { kind: "app", zh: "梦境", G: GDream },
     f_create: { kind: "folder", folder: folderCreate },
     f_play: { kind: "folder", folder: folderPlay }
   };
@@ -819,7 +820,7 @@ function Home({
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music"],
     ["w_cal", "shop", "carry", "cwallet", "ledger"],
-    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "f_create", "f_play"]
+    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "f_create", "f_play"]
   ];
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   function buildLayout(saved) {
