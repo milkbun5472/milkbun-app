@@ -38,16 +38,16 @@
     });
     return lines.join("\n").slice(-8000);
   }
-  // 本轮 + 上一轮（喂角色发言用，控制 token）
-  function ctxTranscript(session) {
-    const rs = session.rounds || [];
-    const take = rs.slice(-2);
+  // 已完成的前几轮实录（喂本轮批量生成用；当前这轮我刚发的言另作 myText 传，不含在内）
+  function prevTranscript(session) {
+    const rs = (session.rounds || []).slice(0, -1);
+    const take = rs.slice(-3);
     const lines = [];
     take.forEach((r, k) => {
       lines.push("〔第" + (rs.length - take.length + k + 1) + "轮〕");
       (r.turns || []).forEach(tn => { if (!tn.skipped) lines.push(tn.name + "：" + tn.text); });
     });
-    return lines.join("\n").slice(-2800);
+    return lines.join("\n").slice(-3200);
   }
 
   // ---- 模型：按人设给每个角色分配立场 + 给我几个可选立场 ----
@@ -74,47 +74,49 @@
     return (await callAI(active, sys, [{ role: "user", content: "拟一个。" }], { maxTokens: 200 })).replace(/^["「『]|["」』]$/g, "").trim();
   }
 
-  // ---- 模型：一个角色上台发言 ----
-  async function genTurn(active, char, uName, worldbook, o) {
-    const casual = o.mode === "free";
+  // ---- 模型：一轮一次调用 —— 同时生成【所有角色发言(按序)】+【场下观众弹幕】 ----
+  //   我(用户)本轮已先发言，这里让台上角色依次接话、彼此也能对线，再刷观众席。
+  //   按次计费 → 一轮一发省钱；输出免费 + 思考型模型 → maxTokens 给足，避免长发言被截断。
+  //   为防「一次扮太多变笨」：每个角色单独成块列清人设/立场，强命令保持各自独立口吻、别串味别雷同。
+  async function genRound(active, meta, uName, worldbook, o) {
+    const casual = meta.mode === "free";
+    const chars = o.chars; // 按发言顺序
+    const rosterBlocks = chars.map(function (c, i) {
+      return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + (c.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 500) +
+        (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
+    }).join("\n\n");
+    const benchBlock = (o.bench || []).map(function (c) { return "· " + c.name + "（" + (c.persona || "").replace(/\s+/g, " ").slice(0, 90) + "）"; }).join("\n");
     const sys = AC() +
-      "这是一场辩论，你要完全代入下面这个角色上台发言。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
-      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 600) : "") +
-      "\n\n【辩题】" + o.topic +
-      "\n【你的立场】" + (o.stance || "自行把握") +
-      (o.oppLine ? "\n【场上其他人的立场】\n" + o.oppLine : "") +
+      "这是一场辩论。你要在这一次里【同时扮演台上这几个角色，按给定顺序依次发言】，然后再生成场下观众席的弹幕。\n" +
+      "⚠最重要：每个角色是不同的人，必须各自保持独立的立场、口吻、脾气、用词习惯——想象他们在抢麦互怼，别把他们写成一个腔调、别串味、别互相客气到失真。后发言的人要能接住前面的人和 " + uName + " 刚说的话。\n\n" +
+      "【辩题】" + meta.topic +
       (casual
-        ? "\n\n【放飞模式】你不必死守辩论规矩：可以顺着你的性格跑题、抬杠、翻旧账、拿场上某人开玩笑、突然感性或耍无赖、把话题往你在意的地方带——只要像你这个人。但别彻底忘了辩题。"
-        : "\n\n【认真辩论】维持人设的同时认真论辩：亮出你的论点和理由，针对上文对手的话正面反驳或追问，讲逻辑也讲你立场的底气。别人身攻击、别空喊口号。") +
-      (o.injection ? "\n\n【你和" + uName + "最近的聊天（只用来把握你俩关系/近况/语气，别照搬别复述内容）】\n" + o.injection : "") +
-      "\n\n【场上到目前为止】\n" + (o.transcript || "（你是本轮第一个发言，先开个场）") +
-      "\n\n轮到你了。说你这一轮要讲的话，像真站在台上开口——针对具体的人和话，别念稿、别客套。2~5 句，口语，带你的脾气，可以点名回应某人。\n" +
-      "【输出】只输出 JSON：{\"say\":\"你的发言\",\"at\":\"你主要在回应谁（名字，没有就留空）\"}。别加旁白别 markdown。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "发言。" }], { maxTokens: 1200 });
-    const p = extractJSON(raw);
-    let text = p && p.say ? String(p.say).trim() : String(raw || "").replace(/```/g, "").replace(/^\{[\s\S]*?"say"\s*:\s*"/, "").replace(/"[\s\S]*$/, "").trim();
-    if (!text) text = String(raw || "").trim() || "……（没说出话）";
-    return { text: text, at: p && p.at ? String(p.at).trim() : "" };
-  }
-
-  // ---- 模型：场下观众席对这一轮的弹幕 ----
-  async function genAudience(active, o) {
-    const count = o.count;
-    const bench = (o.bench || []).map(c => "· " + c.name + "（" + (c.persona || "").replace(/\s+/g, " ").slice(0, 90) + "）").join("\n");
-    const sys = AC() +
-      "你是一场辩论的『场下观众席』，像直播弹幕区一样七嘴八舌。台上在辩：「" + o.topic + "」。\n" +
-      "现在要针对【这一轮】台上说的话，生成正好 " + count + " 条观众弹幕。要求：\n" +
-      "· 有人揪住这一轮某句话吐槽/叫好/拆台；有人 @别的观众 接话或吵起来；有人跳出这轮、点评台上某个人的【整体表现】（例：『X 全程在偷换概念』『Y 气场稳但没说到点上』）。\n" +
-      "· 观众里有几位是【认识台上这些人的熟人】（下面列出），弹幕要带他们自己的偏袒/私人恩怨，用本名署名，口吻贴人设；其余是路人，起个有网感的昵称。\n" +
-      "· 每条一句话，短，毒舌俏皮随意，别复述原话别客套。\n" +
-      (bench ? "\n【在场熟人观众（用本名署名，带人设味）】\n" + bench + "\n" : "") +
-      "\n【这一轮台上的发言】\n" + o.roundText +
-      "\n\n【输出】只输出 JSON：{\"crowd\":[{\"name\":\"昵称或熟人本名\",\"text\":\"弹幕\",\"known\":true或false}]}，正好 " + count + " 条。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "刷 " + count + " 条弹幕。" }], { maxTokens: Math.min(6000, 1500 + count * 260) });
-    const p = extractJSON(raw);
-    let crowd = p && Array.isArray(p.crowd) ? p.crowd : [];
-    crowd = crowd.map(c => ({ name: String((c && c.name) || "路人").trim().slice(0, 16), text: String((c && c.text) || "").trim(), known: !!(c && c.known) })).filter(c => c.text);
-    return crowd.slice(0, count);
+        ? "\n【放飞模式】各角色不必死守辩论规矩：可顺着自己性格跑题、抬杠、翻旧账、拿场上某人开玩笑、突然感性或耍无赖、把话题往自己在意处带——只要像 Ta 这个人。但别彻底离题。"
+        : "\n【认真辩论】各角色维持人设的同时认真论辩：亮论点给理由，针对 " + uName + " 和彼此的话正面反驳或追问，讲逻辑也讲立场底气。别人身攻击、别空喊口号。") +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 700) : "") +
+      "\n\n【台上角色（就按这个顺序发言）】\n" + rosterBlocks +
+      "\n\n【" + uName + "（你们的对手，本轮已先开口）刚说】\n" + (o.myText ? o.myText : "（" + uName + " 这一轮跳过没说话，你们自己往下推进/开场）") +
+      (o.transcript ? "\n\n【前几轮实录】\n" + o.transcript : "") +
+      (benchBlock ? "\n\n【观众里有这些熟人（认识台上的人，弹幕要带各自偏袒/私人恩怨，用本名署名、贴人设）】\n" + benchBlock : "") +
+      "\n\n【本次任务】\n" +
+      "1）让上面每个角色各发一段言（顺序同上，共 " + chars.length + " 段），充分展开别水，2~6 句，口语带脾气，可点名回应某人。\n" +
+      "2）再生成正好 " + o.count + " 条观众弹幕：有人揪某句吐槽/叫好，有人 @别的观众 接话吵起来，有人跳出本轮点评台上某人【整体表现】；熟人用本名带立场，其余起有网感的昵称，每条一句话短而毒。\n\n" +
+      "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}],\"crowd\":[{\"name\":\"昵称或熟人本名\",\"text\":\"弹幕\",\"known\":true或false}]}。turns 顺序同上、每个角色一条；crowd 正好 " + o.count + " 条。别加旁白别 markdown。";
+    // 慷慨给 token：多角色长发言 + 思考型模型思考也吃 token
+    const budget = Math.min(20000, 4000 + chars.length * 2200 + o.count * 220);
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始：先按序各角色发言，再刷 " + o.count + " 条观众弹幕。" }], { maxTokens: budget });
+    const p = extractJSON(raw) || {};
+    const rawTurns = Array.isArray(p.turns) ? p.turns : [];
+    // 回填到角色（先按名字匹配，匹配不上就按顺序兜底）
+    const turns = chars.map(function (c, i) {
+      let hit = rawTurns.find(function (x) { return x && x.name && String(x.name).trim() === c.name; });
+      if (!hit) hit = rawTurns[i];
+      const text = hit && hit.say ? String(hit.say).trim() : (hit && hit.text ? String(hit.text).trim() : "……");
+      return { name: c.name, id: c.id, stance: c.stance, color: c.color, text: text || "……", at: hit && hit.at ? String(hit.at).trim() : "" };
+    });
+    let crowd = Array.isArray(p.crowd) ? p.crowd : [];
+    crowd = crowd.map(function (c) { return { name: String((c && c.name) || "路人").trim().slice(0, 16), text: String((c && c.text) || "").trim(), known: !!(c && c.known) }; }).filter(function (c) { return c.text; }).slice(0, o.count);
+    return { turns: turns, crowd: crowd };
   }
 
   // ---- 模型：结束时的胜负判定 ----
@@ -250,19 +252,13 @@
           injection: inject ? recentChatSnippet(c.id, uName, c.name) : ""
         }));
         const me = { kind: "me", id: "__me__", name: uName, stance: "", color: ME_COLOR };
-        parts.push(me);
-        // 发言顺序：多人=角色乱序+我最后；1v1=随机先手
-        let order;
-        if (chars.length === 1) {
-          order = Math.random() < 0.5 ? [{ kind: "char", id: chars[0].id }, { kind: "me" }] : [{ kind: "me" }, { kind: "char", id: chars[0].id }];
-        } else {
-          order = shuffle(chars).map(c => ({ kind: "char", id: c.id })).concat([{ kind: "me" }]);
-        }
+        // 我固定每轮第一个发言；角色发言顺序：多人=乱序，1v1=就那一个。parts 里我排最前（台上榜也我在先）
+        const order = shuffle(chars).map(c => ({ kind: "char", id: c.id }));
         const session = {
           id: "db_" + Date.now(), topic: topic.trim(), mode: mode,
           winCond: mode === "free" ? (winCond.trim() || "") : "",
-          parts: parts, order: order, myOptions: assigned.myOptions, mySet: false,
-          rounds: [{ turns: [], audience: [] }], ptr: 0, audienceDone: false,
+          parts: [me].concat(parts), order: order, myOptions: assigned.myOptions, mySet: false,
+          rounds: [{ turns: [], audience: [], myDone: false, gen: false }],
           status: "ongoing", verdict: null, closings: [], createdTs: Date.now(), lastTs: Date.now()
         };
         props.onCreate(session);
@@ -330,76 +326,69 @@
     const [phaseMsg, setPhaseMsg] = useState("");
     const [draft, setDraft] = useState("");
     const feedRef = useRef(null);
-    const partById = id => s.parts.find(p => (id === "__me__" || id == null) ? p.kind === "me" : p.id === id) || {};
     const curRound = () => (s.rounds[s.rounds.length - 1] || { turns: [], audience: [] });
-    const oppLineFor = meOrId => s.parts.filter(p => p.kind === "char" && p.id !== meOrId).map(p => p.name + "：" + (p.stance || "—")).join("\n") + (s.parts.some(p => p.kind === "me" && p.name) ? "\n" + uName + "（你的对手/队友）" : "");
 
     useEffect(() => { const el = feedRef.current; if (el) el.scrollTop = el.scrollHeight; }, [s.rounds, busy, phaseMsg]);
 
     // 保存补丁：始终基于最新 session 做，避免闭包过期
     const patch = obj => props.onPatch(prev => Object.assign({}, prev, typeof obj === "function" ? obj(prev) : obj, { lastTs: Date.now() }));
 
-    const nextEntry = () => s.ptr < s.order.length ? s.order[s.ptr] : null;
-    const entry = nextEntry();
-    const myTurnNow = entry && entry.kind === "me" && !s.audienceDone;
+    // 每轮阶段：我先发言(myDone) → 一次批量生成全部角色+观众(gen) → 下一轮
+    const roundMyDone = r => !!(r && (r.myDone || (r.turns || []).some(x => x.who === "me")));
+    const roundGen = r => !!(r && (r.gen || (r.audience && r.audience.length) || (r.turns || []).some(x => x.who === "char")));
+    const cr = curRound();
+    const myTurnNow = s.mySet && !roundMyDone(cr);   // 该我(固定先手)发言
+    const needGen = roundMyDone(cr) && !roundGen(cr); // 我说完/跳过了，等这一次批量生成（失败可重试）
+    const roundDone = roundMyDone(cr) && roundGen(cr);
     const roundNo = s.rounds.length;
 
-    // 角色发言
-    const doCharTurn = async () => {
-      const ent = nextEntry(); if (!ent || ent.kind !== "char") return;
-      const part = partById(ent.id);
-      setBusy(true); setPhaseMsg(part.name + " 正在组织语言…");
+    // 一次调用批量生成【全部角色发言(按序) + 观众弹幕】
+    const runGen = async (myText, skip) => {
+      setBusy(true); setPhaseMsg("台上依次接话、场下开始起哄…");
       try {
-        const r = await genTurn(props.active, { name: part.name, persona: part.persona }, uName, props.worldbook, {
-          topic: s.topic, mode: s.mode, stance: part.stance, oppLine: oppLineFor(part.id),
-          injection: part.injection, transcript: ctxTranscript(s)
+        const charParts = s.parts.filter(p => p.kind === "char");
+        const onIds = charParts.map(c => c.id);
+        const bench = props.characters.filter(c => !onIds.includes(c.id)).slice(0, 6).map(c => ({ name: c.name, persona: c.persona || "" }));
+        const orderedChars = (s.order || []).map(o => charParts.find(c => c.id === o.id)).filter(Boolean);
+        const count = ri(7, 10);
+        const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, props.worldbook, {
+          chars: orderedChars.map(c => ({ name: c.name, id: c.id, persona: c.persona, stance: c.stance, color: c.color, injection: c.injection })),
+          myText: skip ? "" : myText, transcript: prevTranscript(s), bench: bench, count: count
         });
         patch(prev => {
           const rounds = prev.rounds.slice();
           const last = Object.assign({}, rounds[rounds.length - 1]);
-          last.turns = last.turns.concat([{ who: "char", id: part.id, name: part.name, stance: part.stance, color: part.color, text: r.text, at: r.at }]);
+          last.turns = last.turns.concat(r.turns.map(tn => ({ who: "char", id: tn.id, name: tn.name, stance: tn.stance, color: tn.color, text: tn.text, at: tn.at })));
+          last.audience = r.crowd;
+          last.gen = true;
           rounds[rounds.length - 1] = last;
-          return { rounds: rounds, ptr: prev.ptr + 1 };
+          return { rounds: rounds };
         });
-      } catch (e) { props.toast && props.toast("发言失败：" + (e.message || "重试")); }
+      } catch (e) { props.toast && props.toast("生成失败：" + (e.message || "重试")); }
       setBusy(false); setPhaseMsg("");
     };
 
-    // 我发言
-    const doMyTurn = skip => {
+    // 我先发言（或跳过）→ 立刻触发本轮批量生成
+    const submitRound = async skip => {
+      const myText = skip ? "" : draft.trim();
+      if (!skip && !myText) { props.toast && props.toast("说点什么，或点跳过"); return; }
       const mePart = s.parts.find(p => p.kind === "me");
       patch(prev => {
         const rounds = prev.rounds.slice();
         const last = Object.assign({}, rounds[rounds.length - 1]);
-        if (skip) last.turns = last.turns.concat([{ who: "me", id: "__me__", name: uName, stance: mePart.stance, color: ME_COLOR, skipped: true, text: "（跳过了这一回合）" }]);
-        else last.turns = last.turns.concat([{ who: "me", id: "__me__", name: uName, stance: mePart.stance, color: ME_COLOR, text: draft.trim() }]);
+        last.turns = last.turns.concat([{ who: "me", id: "__me__", name: uName, stance: mePart.stance, color: ME_COLOR, skipped: skip, text: skip ? "（跳过了这一回合）" : myText }]);
+        last.myDone = true;
         rounds[rounds.length - 1] = last;
-        return { rounds: rounds, ptr: prev.ptr + 1 };
+        return { rounds: rounds };
       });
       setDraft("");
+      await runGen(myText, skip);
     };
 
-    // 观众席
-    const doAudience = async () => {
-      setBusy(true); setPhaseMsg("场下观众炸开了锅…");
-      try {
-        const onIds = s.parts.filter(p => p.kind === "char").map(p => p.id);
-        const bench = props.characters.filter(c => !onIds.includes(c.id)).slice(0, 6).map(c => ({ name: c.name, persona: c.persona || "" }));
-        const roundText = curRound().turns.filter(x => !x.skipped).map(x => x.name + "：" + x.text).join("\n") || "（这一轮没人正经说话）";
-        const count = ri(7, 10);
-        const crowd = await genAudience(props.active, { topic: s.topic, roundText: roundText, bench: bench, count: count });
-        patch(prev => {
-          const rounds = prev.rounds.slice();
-          const last = Object.assign({}, rounds[rounds.length - 1]);
-          last.audience = crowd;
-          rounds[rounds.length - 1] = last;
-          return { rounds: rounds, audienceDone: true };
-        });
-      } catch (e) { props.toast && props.toast("观众席生成失败：" + (e.message || "重试")); }
-      setBusy(false); setPhaseMsg("");
-    };
+    // 生成失败后的重试：找回本轮我说的话再跑一次
+    const retryGen = () => { const t2 = (cr.turns || []).find(x => x.who === "me"); runGen(t2 && !t2.skipped ? t2.text : "", !!(t2 && t2.skipped)); };
 
-    const nextRound = () => patch({ rounds: (s.rounds || []).concat([{ turns: [], audience: [] }]), ptr: 0, audienceDone: false });
+    const nextRound = () => patch(prev => ({ rounds: (prev.rounds || []).concat([{ turns: [], audience: [], myDone: false, gen: false }]) }));
 
     // 我的立场未定 → 先选边
     const setMySide = st => patch(prev => {
@@ -447,7 +436,7 @@
             : h("div", { style: { width: 18, height: 18, borderRadius: 999, background: ME_COLOR, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 9 } }, "我"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: tn.color } }, tn.name),
           tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "→ " + tn.at) : null),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap", maxHeight: 300, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, tn.text));
 
     // 观众席块
     const audienceBlock = (crowd, k) => h("div", { key: "aud" + k, style: { background: "#2b2a27", borderRadius: 12, padding: "10px 12px", margin: "4px 0 12px" } },
@@ -492,32 +481,37 @@
             })) : null) : null),
       // 底部操作
       ended ? null : h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom))", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
-        // 我的立场未定
-        !s.mySet ? h("div", null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 7, textAlign: "center" } }, "选你的立场"),
-          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
-            (s.myOptions || ["支持", "反对"]).map((op, i) => h("button", { key: i, onClick: () => setMySide(op), className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: ME_COLOR, borderRadius: 999, padding: "8px 15px" } }, op)),
-            h("button", { onClick: () => { const v = window.prompt("自定义你的立场"); if (v && v.trim()) setMySide(v.trim()); }, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 15px" } }, "自定义")))
-          // 我发言
+        busy
+          ? h("button", { disabled: true, className: "w-full", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.fog, borderRadius: 11, padding: "12px 0" } }, phaseMsg || "生成中…")
+          // 我的立场未定 → 先选边
+          : !s.mySet ? h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 7, textAlign: "center" } }, "选你的立场（你每轮固定第一个发言）"),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
+              (s.myOptions || ["支持", "反对"]).map((op, i) => h("button", { key: i, onClick: () => setMySide(op), className: "active:opacity-70",
+                style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: ME_COLOR, borderRadius: 999, padding: "8px 15px" } }, op)),
+              h("button", { onClick: () => { const v = window.prompt("自定义你的立场"); if (v && v.trim()) setMySide(v.trim()); }, className: "active:opacity-70",
+                style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 15px" } }, "自定义")))
+          // 我先发言（含跳过）
           : myTurnNow ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-            h("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: "轮到你了，说点什么…", rows: 2,
+            h("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: roundNo === 1 ? "你先开场，抛出你的观点…" : "轮到你先说，接着往下辩…", rows: 2,
               style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "none", outline: "none" } }),
             h("div", { style: { display: "flex", gap: 8 } },
-              h("button", { onClick: () => doMyTurn(true), className: "active:opacity-70",
+              h("button", { onClick: () => submitRound(true), className: "active:opacity-70",
                 style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 16px" } }, "跳过本回合"),
-              h("button", { onClick: () => draft.trim() ? doMyTurn(false) : (props.toast && props.toast("说点什么，或点跳过")), className: "flex-1 active:opacity-80",
-                style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 0" } }, "发言")))
-            // 角色发言 / 观众 / 下一轮
-            : h("div", { style: { display: "flex", gap: 8 } },
-              h("button", { onClick: endDebate, disabled: busy, className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "⚖ 结束判定"),
-              h("button", {
-                onClick: entry ? doCharTurn : (s.audienceDone ? nextRound : doAudience), disabled: busy,
-                className: "flex-1 active:opacity-80",
-                style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: busy ? t.fog : t.ink, borderRadius: 11, padding: "11px 0" }
-              }, busy ? "…" : entry ? "▶ 让 " + partById(entry.id).name + " 发言" : s.audienceDone ? "下一轮 →" : "🗣 观众席点评这一轮"))));
+              h("button", { onClick: () => submitRound(false), className: "flex-1 active:opacity-80",
+                style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 0" } }, "发言，让他们回应")))
+          // 生成失败兜底：重试
+          : needGen ? h("div", { style: { display: "flex", gap: 8 } },
+            h("button", { onClick: endDebate, className: "active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "⚖ 结束判定"),
+            h("button", { onClick: retryGen, className: "flex-1 active:opacity-80",
+              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "↻ 重新生成本轮回应"))
+          // 本轮已完成 → 结束 / 下一轮
+          : h("div", { style: { display: "flex", gap: 8 } },
+            h("button", { onClick: endDebate, className: "active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "⚖ 结束判定"),
+            h("button", { onClick: nextRound, className: "flex-1 active:opacity-80",
+              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "下一轮 →"))));
   }
 
   window.Debate = Debate;

@@ -783,13 +783,11 @@ function Home({
   }, []);
   const flipRef = useRef(0); // 跨页拖拽翻页节流时间戳
   const goPage = function (np) { setPage(np); try { localStorage.setItem("x_homePage", String(np)); } catch (e) {} };
-  // 文件夹每个最多 4 个。一起学已单独放外面；把还没做的实验 App 按主题分两个文件夹
+  // 文件夹只当「还没做」的 SOON 占位holder；功能一旦做完就搬出文件夹放到主屏顶层
   const folderCreate = { key: "f_create", zh: "共创", apps: [
-    { key: "read", zh: "一起读", G: IShelf },
     { key: "dream", zh: "梦境", G: GSoon, soon: true }
   ] };
   const folderPlay = { key: "f_play", zh: "玩法", apps: [
-    { key: "debate", zh: "辩论", G: GDebate },
     { key: "pomodoro", zh: "番茄钟", G: GSoon, soon: true },
     { key: "tarot", zh: "塔罗", G: GSoon, soon: true }
   ] };
@@ -812,6 +810,8 @@ function Home({
     study: { kind: "app", zh: "一起学", G: GStudy },
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
+    read: { kind: "app", zh: "一起读", G: IShelf },
+    debate: { kind: "app", zh: "辩论", G: GDebate },
     f_create: { kind: "folder", folder: folderCreate },
     f_play: { kind: "folder", folder: folderPlay }
   };
@@ -819,7 +819,7 @@ function Home({
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music"],
     ["w_cal", "shop", "carry", "cwallet", "ledger"],
-    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "f_create", "f_play"]
+    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "f_create", "f_play"]
   ];
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   function buildLayout(saved) {
