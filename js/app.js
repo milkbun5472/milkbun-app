@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.25";
+const APP_VERSION = "v46.26";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -226,7 +226,14 @@ function App() {
   const [editingChar, setEditingChar] = useState(null);
   const [selSched, setSelSched] = useState(null);
   const [selPhone, setSelPhone] = useState(null);
-  const [sending, setSending] = useState(false);
+  const [busyLanes, setBusyLanes] = useState({});
+  const busyLanesRef = useRef({});
+  const laneBusy = key => !!busyLanesRef.current[key];
+  const anyLaneBusy = () => Object.keys(busyLanesRef.current).length > 0;
+  const startLane = key => { busyLanesRef.current = { ...busyLanesRef.current, [key]: true }; setBusyLanes(busyLanesRef.current); };
+  const endLane = key => { const n = { ...busyLanesRef.current }; delete n[key]; busyLanesRef.current = n; setBusyLanes(n); };
+  const _curLane = (screen === "gthread" && activeGroup) ? "g:" + activeGroup.id : (activeChar ? "c:" + activeChar.id : null);
+  const sending = _curLane ? !!busyLanes[_curLane] : false;
   const [gen, setGen] = useState({});
   const [stateCardOpen, setStateCardOpen] = useState(false);
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
@@ -243,7 +250,6 @@ function App() {
   const [offlineGroup, setOfflineGroup] = useState(null);
   const [groupOfflines, setGroupOfflines] = useState({}); // groupId -> [session,...] newest-first
   const groupOfflinesRef = useRef({});
-  const sendingRef = useRef(false);
   const keepAliveRef = useRef(null);
   const [anon, setAnon] = useState({});
   const [anonChar, setAnonChar] = useState(null);
@@ -554,7 +560,7 @@ function App() {
       toast("对话太少，先多聊几句");
       return;
     }
-    setSending(true);
+    startLane("c:" + charId);
     try {
       const items = await extractMemories(active, ctxFor(char), msgs);
       if (items.length === 0) {
@@ -576,7 +582,7 @@ function App() {
     } catch (e) {
       toast("抽取失败：" + e.message);
     } finally {
-      setSending(false);
+      endLane("c:" + charId);
     }
   };
   const clearUnread = id => setUnreadMap(p => {
@@ -752,16 +758,13 @@ function App() {
   }, [prefs.keepAlive]);
   // ---- 主动发消息（仅前台，app 打开该聊天且闲置到间隔后触发）----
   useEffect(() => {
-    sendingRef.current = sending;
-  }, [sending]);
-  useEffect(() => {
     if (screen !== "thread" || !activeChar) return;
     const s = settingsFor(activeChar.id);
     if (!s.proactive) return;
     const mins = Math.max(1, s.proactiveMin || 5);
     const cid = activeChar.id;
     const timer = setInterval(() => {
-      if (sendingRef.current) return;
+      if (laneBusy("c:" + cid)) return;
       const msgs = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
       if (!msgs.length) return;
       const lastTs = msgs[msgs.length - 1].ts || 0;
@@ -797,7 +800,7 @@ function App() {
       toast("先说点什么，或写一句开场");
       return;
     }
-    setSending(true);
+    startLane("c:" + charId);
     try {
       const oCtx = ctxFor(char);
       const oMemN = osFor(charId).memN;
@@ -816,7 +819,7 @@ function App() {
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
-      setSending(false);
+      endLane("c:" + charId);
     }
   };
   const startOffline = async (charId, opts) => {
@@ -840,7 +843,7 @@ function App() {
     ts: Date.now()
   });
   const offlineReply = async (charId, extraText) => {
-    if (sending) return;
+    if (laneBusy("c:" + charId)) return;
     const sess = (offlinesRef.current[charId] || []).find(s => !s.endTs);
     if (!sess) return;
     let msgs = sess.msgs;
@@ -854,7 +857,7 @@ function App() {
   const offlineEditMsg = (charId, msgId, text) => pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.map(m => m.id === msgId ? { ...m, content: text } : m) } : s));
   const offlineDelMsg = (charId, msgId) => pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.filter(m => m.id !== msgId) } : s));
   const offlineRerollMsg = async (charId, msgId) => {
-    if (sending) return;
+    if (laneBusy("c:" + charId)) return;
     const sess = (offlinesRef.current[charId] || []).find(s => !s.endTs);
     if (!sess) return;
     const idx = sess.msgs.findIndex(m => m.id === msgId);
@@ -881,7 +884,7 @@ function App() {
       setOfflineChar(null);
       return;
     }
-    setSending(true);
+    startLane("c:" + charId);
     let summary = "";
     try {
       if (active) summary = await summarizeOffline(active, ctxFor(char), sess);
@@ -889,7 +892,7 @@ function App() {
     pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     if (summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], source: "auto" });
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
-    setSending(false);
+    endLane("c:" + charId);
     toast(summary ? "已记入记忆库" : "已结束");
     setOfflineChar(null);
   };
@@ -930,7 +933,7 @@ function App() {
       toast("先说点什么，或写一句开场");
       return;
     }
-    setSending(true);
+    startLane("g:" + group.id);
     try {
       const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...workSess, narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords });
       for (let i = 0; i < beats.length; i++) {
@@ -952,7 +955,7 @@ function App() {
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
-      setSending(false);
+      endLane("g:" + group.id);
     }
   };
   const startGroupOffline = async (groupId, opts) => {
@@ -978,7 +981,7 @@ function App() {
     ts: Date.now()
   });
   const groupOfflineReply = async (groupId, extraText) => {
-    if (sending) return;
+    if (laneBusy("g:" + groupId)) return;
     const group = groups.find(g => g.id === groupId);
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
     if (!group || !sess) return;
@@ -993,7 +996,7 @@ function App() {
   const groupOfflineEditMsg = (groupId, msgId, text) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.map(m => m.id === msgId ? { ...m, content: text } : m) } : s));
   const groupOfflineDelMsg = (groupId, msgId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.filter(m => m.id !== msgId) } : s));
   const groupOfflineRerollMsg = async (groupId, msgId) => {
-    if (sending) return;
+    if (laneBusy("g:" + groupId)) return;
     const group = groups.find(g => g.id === groupId);
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
     if (!group || !sess) return;
@@ -1010,13 +1013,13 @@ function App() {
   };
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
   const groupOfflineOOC = async (groupId, text) => {
-    if (sending || !text || !text.trim()) return;
+    if (laneBusy("g:" + groupId) || !text || !text.trim()) return;
     const group = groups.find(g => g.id === groupId);
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
     if (!group || !sess) return;
     pushGOffMsg(groupId, { id: "oocu_" + Date.now(), role: "user", kind: "ooc", content: text.trim(), ts: Date.now() });
     if (!active) { toast("请先到设置配置 API"); return; }
-    setSending(true);
+    startLane("g:" + groupId);
     try {
       const members = groupMembers(group);
       const histText = (sess.msgs || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【场景】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
@@ -1025,7 +1028,7 @@ function App() {
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
-      setSending(false);
+      endLane("g:" + groupId);
     }
   };
   const endGroupOffline = async groupId => {
@@ -1040,7 +1043,7 @@ function App() {
       setOfflineGroup(null);
       return;
     }
-    setSending(true);
+    startLane("g:" + groupId);
     let summary = "";
     try {
       if (active && group) summary = await summarizeOfflineGroup(active, ctxForGroupOffline(group), sess);
@@ -1051,7 +1054,7 @@ function App() {
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     if (summary && group && interopOn) addMemEntry({ text: summary, tags: ["线下", "群聊"], charIds: group.memberIds || [], source: "auto" });
     // TODO(日程覆盖，用户说后面再弄)：把本次群聊线下时间段的日程覆盖成这段经过 + 各角色想法。
-    setSending(false);
+    endLane("g:" + groupId);
     toast(summary ? (interopOn ? "已记入记忆库" : "已结束（记忆只留在本群）") : "已结束");
     setOfflineGroup(null);
   };
@@ -1126,7 +1129,7 @@ function App() {
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
   const replyNow = async (charId, extraText, mode, opts) => {
     opts = opts || {};
-    if (sending) return;
+    if (laneBusy("c:" + charId)) return;
     const char = characters.find(c => c.id === charId);
     let base = chatsRef.current[charId] || [];
     if (extraText != null && extraText !== "") {
@@ -1146,7 +1149,7 @@ function App() {
     }
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && history[history.length - 1] && history[history.length - 1].role !== "user";
-    setSending(true);
+    startLane("c:" + charId);
     try {
       if (!active) throw new Error("请先到设置配置 API");
       const _s = settingsFor(charId);
@@ -1389,12 +1392,12 @@ function App() {
         turnId: "e_" + Date.now()
       }]);
     } finally {
-      setSending(false);
+      endLane("c:" + charId);
     }
   };
   // OOC：跳出角色直接问模型（调整/问状态）。my ooc + system 回复都不进角色扮演上下文。
   const oocReply = async (charId, text) => {
-    if (sending || !text || !text.trim()) return;
+    if (laneBusy("c:" + charId) || !text || !text.trim()) return;
     const char = characters.find(c => c.id === charId);
     pChat(charId, p => [...p, {
       role: "user",
@@ -1407,7 +1410,7 @@ function App() {
       toast("请先到设置配置 API");
       return;
     }
-    setSending(true);
+    startLane("c:" + charId);
     try {
       const res = await oocAsk(active, ctxFor(char), text.trim());
       // 合理的调整要求 → 存成长期准则（refused 时不存）
@@ -1422,7 +1425,7 @@ function App() {
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
-      setSending(false);
+      endLane("c:" + charId);
     }
   };
 
@@ -1430,13 +1433,13 @@ function App() {
   const reactToMyRecall = async (charId, text) => {
     if (!active || sending) return;
     const char = characters.find(c => c.id === charId); if (!char) return;
-    setSending(true);
+    startLane("c:" + charId);
     try {
       const raw = await callAI(active, buildBundle(ctxFor(char)) + "\n\n【场景】用户刚刚撤回了一条发给你的消息，那条原本的内容是：「" + text + "」。完全代入「" + char.name + "」，按你的人设、注意力和此刻心情，决定：你有没有『看到』那条被撤回的消息（saw）；看到了的话会不会追问/调侃/在意。有人眼疾手快都看到了、会追问「你刚撤回了啥」；有人根本没注意、就当没发生。用即时通讯口吻，短句。\n【输出】只输出 JSON：{\"saw\":true或false,\"say\":[\"气泡1\"]}（没看到或不在意时 say 给空数组）", [{ role: "user", content: "（用户撤回了一条消息）" }], { maxTokens: 700 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       says.forEach((w, i) => setTimeout(() => pChat(charId, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), 500 + i * 650));
-    } catch (e) {/* silent */} finally { setSending(false); }
+    } catch (e) {/* silent */} finally { endLane("c:" + charId); }
   };
 
   // ---- long-press actions ----
@@ -1541,11 +1544,11 @@ function App() {
   };
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async groupId => {
-    if (sending) return;
+    if (laneBusy("g:" + groupId)) return;
     const group = groups.find(g => g.id === groupId);
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     const gs = gsFor(groupId);
-    setSending(true);
+    startLane("g:" + groupId);
     try {
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
@@ -1670,18 +1673,18 @@ function App() {
         ts: Date.now()
       }]);
     } finally {
-      setSending(false);
+      endLane("g:" + groupId);
       maybeSummarizeGroup(groupId);
     }
   };
   // 群聊 OOC：跳出所有角色直接问模型；不进角色扮演上下文
   const oocGroup = async (groupId, text) => {
-    if (sending || !text || !text.trim()) return;
+    if (laneBusy("g:" + groupId) || !text || !text.trim()) return;
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
     pGChat(groupId, p => [...p, { role: "user", kind: "ooc", content: text.trim(), ts: Date.now() }]);
     if (!active) { toast("请先到设置配置 API"); return; }
-    setSending(true);
+    startLane("g:" + groupId);
     try {
       const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
       const histText = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
@@ -1690,7 +1693,7 @@ function App() {
     } catch (e) {
       toast("OOC 失败：" + (e.message || "重试"));
     } finally {
-      setSending(false);
+      endLane("g:" + groupId);
     }
   };
   // 群聊消息长按操作：复制/收藏/编辑/撤回/重Roll（引用、多选在组件内处理）
@@ -1914,7 +1917,7 @@ function App() {
       toast("群聊太少");
       return;
     }
-    setSending(true);
+    startLane("g:" + groupId);
     try {
       const summary = await summarizeGroup(active, {
         profile
@@ -1931,7 +1934,7 @@ function App() {
     } catch (e) {
       toast("总结失败：" + e.message);
     } finally {
-      setSending(false);
+      endLane("g:" + groupId);
     }
   };
   const createGroup = (name, memberIds, spectate) => {
@@ -2028,9 +2031,9 @@ function App() {
   };
   // 我拉黑 TA 后按「回复」：TA 依人设/心情 碎碎念 / 生气 / 发解除申请
   const blockedReaction = async charId => {
-    if (sending || !active) { if (!active) toast("请先配置 API"); return; }
+    if (laneBusy("c:" + charId) || !active) { if (!active) toast("请先配置 API"); return; }
     const char = characters.find(c => c.id === charId); if (!char) return;
-    setSending(true);
+    startLane("c:" + charId);
     try {
       const raw = await callAI(active, buildBundle(ctxFor(char)) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"}", [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 500 });
       const d = extractJSON(raw) || {};
@@ -2038,7 +2041,7 @@ function App() {
       const tag = d.mode === "angry" ? char.name + "（气愤）：" : char.name + "（自言自语）：";
       says.forEach((w, i) => setTimeout(() => pChat(charId, p => [...p, { role: "system", kind: "system", content: tag + w, ts: Date.now() }]), 250 + i * 650));
       if (d.mode === "appeal") setTimeout(() => pChat(charId, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
-    } catch (e) { toast("失败：" + e.message); } finally { setSending(false); }
+    } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + charId); }
   };
   // 我处理 TA 发来的解除申请
   const respondUnblockFromChar = (charId, cid, accept) => {
@@ -2052,7 +2055,7 @@ function App() {
     if (!active) { toast("请先配置 API"); return; }
     const cid = "ubm_" + Date.now();
     pChat(charId, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
-    setSending(true);
+    startLane("c:" + charId);
     try {
       const raw = await callAI(active, buildBundle(ctxFor(char)) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。完全代入「" + char.name + "」，依据人设、你当初为何拉黑、以及这段诉说是否打动你，决定接不接受。气量大/被说动就 accept；还在气头上/理由不够就拒绝。用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 800 });
       const d = extractJSON(raw) || {};
@@ -2063,7 +2066,7 @@ function App() {
       says.forEach((w, i) => setTimeout(() => pChat(charId, p => d.accept
         ? [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]
         : [...p, { role: "system", kind: "system", content: char.name + "：" + w, ts: Date.now() }]), 300 + i * 650));
-    } catch (e) { toast("失败：" + e.message); } finally { setSending(false); }
+    } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + charId); }
   };
   const clearChat = (charId, wipeMem) => {
     pChat(charId, () => []);
@@ -2835,7 +2838,7 @@ function App() {
   const callSend = async text => {
     const cur = callRef.current;
     if (!cur || !text || !text.trim()) return;
-    if (sending) return;
+    if (laneBusy("call")) return;
     const um = { role: "user", content: text.trim() };
     const withUser = [...cur.msgs, um];
     setCall(c => c ? { ...c, msgs: withUser } : c);
@@ -2844,7 +2847,7 @@ function App() {
       toast("请先到设置配置 API");
       return;
     }
-    setSending(true);
+    startLane("call");
     try {
       const people = cur.participants;
       const isVideo = cur.mode === "video";
@@ -2895,7 +2898,7 @@ function App() {
     } catch (e) {
       toast("通话回复失败：" + (e.message || "重试"));
     } finally {
-      setSending(false);
+      endLane("call");
     }
   };
   const endCall = sec => {
@@ -3942,22 +3945,34 @@ function App() {
     if (!active) { toast(syncIds.length > 1 ? "已打卡并同步到 " + syncIds.length + " 个情侣空间（配置 API 后 TA 会选心情）" : "已打卡（配置 API 后 TA 也会选心情）"); return true; }
     setGen(g => ({ ...g, coupleMood: true }));
     try {
-      const d = await runProbe(active, ctxFor(char), {
-        instruction: "你们是恋人。今天用户在你俩的「心情打卡」里选了心情「" + moodLabelOf(myMood) + "」。现在你也为今天选一个心情，并留一句 ≤20 字的话（贴人设与此刻状态/行程，可自然呼应 TA 的心情，别喊口号）。心情只能从这些里挑一个（在 mood 字段填对应英文 key）：" + COUPLE_MOOD_KEYS.join("、"),
-        schemaHint: "{\"mood\":\"英文key\",\"text\":\"一句话\"}",
-        maxTokens: 600
-      });
-      const valid = COUPLE_MOOD_KEYS.map(s => s.split(":")[0]);
-      const cm = valid.includes(d.mood) ? d.mood : "relax";
+      // 一次调用生成【所有在一起的恋人】今天的心情（省次数：N 位一次出，别每个空间各刷一次）
+      const partners = syncIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
+      const validKeys = COUPLE_MOOD_KEYS.map(s => s.split(":")[0]);
+      const roster = partners.map((c, i) => (i + 1) + ". 「" + c.name + "」人设：" + (c.persona || "（无设定）").replace(/\s+/g, " ").slice(0, 260)).join("\n");
+      const sys = ANTI_CLICHE +
+        "\n\n今天用户在 TA 各位恋人的「心情打卡」里都选了心情「" + moodLabelOf(myMood) + "」。请【为下面每一位恋人】各自今天选一个心情、并各留一句【≤20 字】的话——各贴各自人设与此刻状态，可自然呼应用户的心情，别喊口号、别几位写成一个腔调。心情只能从这些英文 key 里挑一个：" + validKeys.join("、") +
+        "\n\n【恋人们（按此顺序，各写各的）】\n" + roster +
+        "\n\n【输出】只输出 JSON：{\"moods\":[{\"name\":\"恋人名\",\"mood\":\"英文key\",\"text\":\"一句≤20字的话\"}]}，每位恋人一条，顺序同上。";
+      const raw = await callAI(active, sys, [{ role: "user", content: "各自选今天的心情，写满每一位。" }], { maxTokens: Math.min(8000, 2000 + partners.length * 700) });
+      const parsed = extractJSON(raw) || {};
+      const arr = Array.isArray(parsed.moods) ? parsed.moods : [];
+      const byName = {};
+      arr.forEach(m => { if (m && m.name) byName[String(m.name).trim()] = m; });
       setCoupleMood(p => {
-        const n = p.map(m => (m.characterId === char.id && m.date === today) ? { ...m, charMood: cm, charText: (d.text || "").trim() } : m);
+        let n = p;
+        partners.forEach((c, i) => {
+          const hit = byName[c.name] || arr[i]; // 先按名字配，配不上按顺序兜底
+          if (!hit) return;
+          const cm = validKeys.includes(hit.mood) ? hit.mood : "relax";
+          n = n.map(m => (m.characterId === c.id && m.date === today) ? { ...m, charMood: cm, charText: String(hit.text || "").trim() } : m);
+        });
         saveJSON("x_coupleMood", n);
         return n;
       });
-      if (syncIds.length > 1) toast("已同步我的心情到 " + syncIds.length + " 个情侣空间（仅当前 TA 回应，省 API）");
+      toast(partners.length > 1 ? "已打卡，" + partners.length + " 位恋人的心情一次都生成好了" : "已打卡");
       return true;
     } catch (e) {
-      toast("TA 的心情没选上：" + e.message);
+      toast("心情生成失败：" + e.message);
       return false;
     } finally {
       setGen(g => ({ ...g, coupleMood: false }));
@@ -4338,7 +4353,22 @@ function App() {
     playlists: (p.playlists || []).map(pl => ({ ...pl, songs: (pl.songs || []).map(s => s.id === id ? { ...s, ...patch } : s) })),
     nowSong: p.nowSong && p.nowSong.id === id ? { ...p.nowSong, ...patch } : p.nowSong
   }));
-  const toggleFav = id => { const s = resolveSong(id); patchSongEverywhere(id, { fav: !(s && s.fav) }); };
+  const toggleFav = id => {
+    const s = resolveSong(id);
+    const nowFav = !(s && s.fav);
+    const inLib = (listenRef.current.songs || []).some(x => x.id === id);
+    // 收藏一首还没进库的歌（搜索结果直接播的只暂存在 nowSong、不在 songs 里）→ 顺手加进「全部」，
+    // 否则收藏列表(favs=songs.filter(fav))看不到它、且 nowSong 是临时的换首歌就丢了
+    if (nowFav && !inLib && s) {
+      saveListen(p => ({
+        ...p,
+        songs: [{ ...s, fav: true }, ...(p.songs || [])],
+        nowSong: (p.nowSong && p.nowSong.id === id) ? { ...p.nowSong, fav: true } : p.nowSong
+      }));
+      return;
+    }
+    patchSongEverywhere(id, { fav: nowFav });
+  };
   const renameSong = (id, title) => { const tt = (title || "").trim(); if (tt) patchSongEverywhere(id, { title: tt }); };
   const setSongCover = async (songId, file) => {
     if (!file) return;
@@ -4378,7 +4408,7 @@ function App() {
     if (prev == null) return; // 首次加载不触发
     if (screen === "thread" && activeChar && activeChar.id === L.partnerId) {
       const cid = activeChar.id;
-      setTimeout(() => { if (!sendingRef.current) replyNow(cid, null, null, { proactive: true }); }, 900);
+      setTimeout(() => { if (!laneBusy("c:" + cid)) replyNow(cid, null, null, { proactive: true }); }, 900);
     }
   }, [player.songId]);
   // 网易云外链：贴链接/分享文案/裸ID → 抠 id，用官方 outchain iframe 播放（无需登陆；VIP/版权歌可能放不了）
