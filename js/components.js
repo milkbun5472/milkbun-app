@@ -929,6 +929,7 @@ function Home({
     if (lpRef.current && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) clearLP();
     if (r.dir == null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) r.dir = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
     if (r.dir !== "h") return;
+    if (e.cancelable) e.preventDefault(); // 抢下横向手势，别让安卓浏览器/系统当成滚动或前进后退
     let d = dx;
     // 到头/到尾继续拉时加阻尼（橡皮筋）
     if ((page === 0 && d > 0) || (page === curLayout.length - 1 && d < 0)) d *= 0.32;
@@ -1009,6 +1010,8 @@ function Home({
     }
   }), /*#__PURE__*/React.createElement("div", {
     className: "relative flex-1 min-h-0 overflow-hidden pt-3 flex flex-col",
+    // touchAction:pan-y 把横向手势交给我们自己处理（安卓比 iOS 严：不锁就把横滑当浏览器滚动/导航抢走→翻页难）
+    style: { touchAction: "pan-y" },
     onTouchStart: onTS,
     onTouchMove: onTM,
     onTouchEnd: onTE
