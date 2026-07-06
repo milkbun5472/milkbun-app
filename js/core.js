@@ -281,4 +281,6 @@ const GFanfic = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React
 // 同人文底 nav 用：书架（三本书）、穿越（拱门/传送门）
 const IShelf = p => h(Svg, p, h("path", { d: "M4 4v16M8 6v14M12 5v15" }), h("path", { d: "M15.5 6.2l4.4 1.2-3.8 13.6-4.4-1.2" }), h("path", { d: "M4 20h16" }));
 const IPortal = p => h(Svg, p, h("path", { d: "M5 21V8a7 4 0 0114 0v13" }), h("path", { d: "M9 21v-9a3 2.2 0 016 0v9" }));
+// 辩论：天平（论辩 + 判定）
+const GDebate = p => h(Svg, p, h("path", { d: "M12 3v18M6 21h12M4 7h16M12 4l-7 3M12 4l7 3" }), h("path", { d: "M1.6 11a3.4 3.4 0 006.8 0" }), h("path", { d: "M15.6 11a3.4 3.4 0 006.8 0" }));
 

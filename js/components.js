@@ -789,7 +789,7 @@ function Home({
     { key: "dream", zh: "梦境", G: GSoon, soon: true }
   ] };
   const folderPlay = { key: "f_play", zh: "玩法", apps: [
-    { key: "debate", zh: "辩论", G: GSoon, soon: true },
+    { key: "debate", zh: "辩论", G: GDebate },
     { key: "pomodoro", zh: "番茄钟", G: GSoon, soon: true },
     { key: "tarot", zh: "塔罗", G: GSoon, soon: true }
   ] };
