@@ -40,7 +40,18 @@
 
   const PAGE_CHARS = 1600; // 每页目标字数（按段落边界切）
   function paginate(text) {
-    const paras = String(text || "").replace(/\r\n/g, "\n").split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    const raw = String(text || "").replace(/\r\n/g, "\n").split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    // 把「没换行的超长大段」按句末标点切成 ~500 字的小块，保证有足够段落锚点、也能正常翻页；正常段落不动
+    const paras = [];
+    raw.forEach(function (p) {
+      if (p.length <= PAGE_CHARS) { paras.push(p); return; }
+      const sents = p.match(/[^。！？!?…]*[。！？!?…]+|[^。！？!?…]+$/g) || [p];
+      let buf = "";
+      sents.forEach(function (s) {
+        if (buf && (buf + s).length > 500) { paras.push(buf); buf = s; } else buf += s;
+      });
+      if (buf) paras.push(buf);
+    });
     if (!paras.length) return [[""]];
     const pages = []; let cur = []; let len = 0;
     paras.forEach(function (p) {
@@ -65,12 +76,19 @@
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (prior && prior.length ? "\n\n【你之前已经批注过的（别重复）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
       "\n\n【这一页的正文（按段落编号）】\n" + numbered +
-      "\n\n请挑最有话可说的段落，写 " + n + " 条批注。每条锚定到一个段落编号。\n【输出】只输出 JSON，不要代码块：{\"notes\":[{\"para\":段落编号数字,\"note\":\"你的批注（一两句，你的口吻）\"}]}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注这一页。" }], { maxTokens: 1200 });
+      "\n\n**务必写满 " + n + " 条批注，一条都不能少（notes 数组正好 " + n + " 个元素）。** 每条用 para 锚定到一个段落编号；同一段可以写多条（针对段里不同的句子），段落不够多就把多条落在同一段——别因为段落少就偷懒少写。\n【输出】只输出 JSON，不要代码块：{\"notes\":[{\"para\":段落编号数字,\"note\":\"你的批注（一两句，你的口吻）\"}]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注这一页，写满 " + n + " 条。" }], { maxTokens: Math.min(4000, 600 + n * 260) });
     const parsed = extractJSON(raw);
     const arr = (parsed && Array.isArray(parsed.notes)) ? parsed.notes : [];
-    return arr.filter(function (x) { return x && x.note && Number(x.para) >= 1 && Number(x.para) <= paras.length; })
-      .slice(0, n).map(function (x) { return { para: Number(x.para) - 1, note: String(x.note).trim() }; });
+    const maxPara = paras.length;
+    // 只要有 note 就保留；para 越界/缺失就夹到有效范围，别把整条丢掉
+    return arr.filter(function (x) { return x && x.note && String(x.note).trim(); })
+      .slice(0, n).map(function (x) {
+        let p = Math.round(Number(x.para));
+        if (!(p >= 1)) p = 1;
+        if (p > maxPara) p = maxPara;
+        return { para: p - 1, note: String(x.note).trim() };
+      });
   }
 
   // ---- 模型：半屏讨论 ----
