@@ -540,7 +540,7 @@ function schedWeek(today) {
     return { key, date: dd, dowL: SCHED_DOW_EN[dd.getDay()][0], dateNum: String(dd.getDate()).padStart(2, "0"), isToday: key === tk, isPast: key < tk, isFuture: key > tk };
   });
 }
-function schedActIcon(type) { return { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GMoon, social: GChat, out: GWalk }[type] || GBrief; }
+function schedActIcon(type) { return { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GMoon, sleep: GMoon, social: GChat, out: GWalk }[type] || GBrief; }
 // 角色本地时区 - 我本地 的分钟差（char.tz 如 "+8"/"-5"/"+5.5"/""跟随系统）。异地恋用。
 function schedTzShiftMin(char) {
   const raw = char && char.tz != null ? String(char.tz) : "";
@@ -3610,7 +3610,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
               }
             }, p.text);
           }),
-          entry.signature && h("div", { style: { marginTop: 22, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 19, color: t.sub, textAlign: "right" } }, "— " + entry.signature))),
+          (char && char.name) ? h("div", { style: { marginTop: 22, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 19, color: t.sub, textAlign: "right" } }, "— " + char.name) : null)),
       // 角色评论（只在「我的日记」显示）
       isMe && h("div", { className: "mt-12" },
         h("div", { className: "flex items-baseline justify-between mb-1" },

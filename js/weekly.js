@@ -194,7 +194,7 @@
       '{"interview":{"qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）","action":"（可选）回答时的神态/小动作一句，没有就空字符串"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
     for (let i = 0; i < 2; i++) {
       try {
-        const d = await genJSON(active, sys + (i ? "\n\n（上次输出解析失败，请严格只输出合法 JSON。）" : ""), "开始采访并写花边。", 3200);
+        const d = await genJSON(active, sys + (i ? "\n\n（上次输出解析失败，请严格只输出合法 JSON。）" : ""), "开始采访并写花边。", 6000);
         if (d && d.interview && Array.isArray(d.interview.qa)) {
           const qa = d.interview.qa.filter(function (x) { return x && (x.q || x.a); })
             .map(function (x) { return { q: String(x.q || "").trim(), a: String(x.a || "").trim(), action: String(x.action || "").trim() }; });
@@ -216,12 +216,15 @@
       "\n\n【本周 RP 聊天记录（把这些真实发生过的事，用上面的媒体腔重新叙事化、报道出来；不得虚构没发生的事）】\n" +
       (empty ? "（本周素材几乎为空。）" : material) +
       (empty ? "\n\n【空周处理】本周几乎没有素材。不要报错、也不要硬编剧情。请按你这种腔调，把「无人可报／集体缺席」本身写成一两篇像模像样的报道。参考方向：" + voice.absent : "") +
-      "\n\n【任务】用这种媒体腔写 3~4 篇【各自独立】的小报文章：每篇聚焦本周里【不同的人或一对关系】（从【本周出场人物】里挑，别几篇都写同一个人），每篇是一则短报道、各有各的标题。不要写成一篇长文，也不要每篇都同一个主角。\n" +
+      "\n\n【任务】用这种媒体腔写 3~4 篇【各自独立】的小报文章：\n" +
+      "· 每篇聚焦本周【不同的一件小事 / 不同的人或一对关系】，各有各的标题，别几篇写同一个人、也别写成一篇长文。\n" +
+      "· 【不必覆盖每个角色】：只挑本周你这个腔调觉得最有戏、最好玩的几件小事来报，冷落谁都行，宁缺毋滥。\n" +
+      "· 出场人物清单只是声纹参考，【别按它的顺序】决定先写谁——打乱来，谁最有料谁上，别老让同一个人当头条。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
       '{"articles":[{"title":"这篇的标题","body":"这篇正文（严格遵守上面的声纹与禁止项；只用该腔调，别串味）"},{"title":"第二篇标题","body":"第二篇正文"}]}';
     for (let i = 0; i < 2; i++) {
       try {
-        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本版 3~4 篇小报。", 4200);
+        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本版 3~4 篇小报。", 7000);
         const arr = d && Array.isArray(d.articles) ? d.articles : (d && (d.title || d.body) ? [d] : null);
         if (arr && arr.length) {
           const out = arr.filter(function (a) { return a && (a.title || a.body); })
@@ -253,7 +256,7 @@
       '{"headline":"主标题","lead":"导语一段","highlights":["看点一","看点二"],"editorNote":"编者按一句"}';
     for (let i = 0; i < 2; i++) {
       try {
-        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本期封面头版。", 2200);
+        const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本期封面头版。", 6000);
         if (d && (d.headline || d.lead)) return {
           headline: String(d.headline || "").trim(), lead: String(d.lead || "").trim(),
           highlights: (Array.isArray(d.highlights) ? d.highlights : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean),
@@ -264,8 +267,11 @@
     throw new Error("头版生成失败，可单独重刷");
   }
 
+  // 打乱数组（不改原数组）：喂给媒体腔/头版的人物清单每版都洗一次，避免模型总按角色创建顺序把第一个角色写头一篇
+  function shuffled(a) { a = (a || []).slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const tmp = a[i]; a[i] = a[j]; a[j] = tmp; } return a; }
+  // 只给头版/媒体腔用：内部洗牌，避免模型总把「第一个创建的角色」写头一篇（采访版不走这里，保持 per-char）
   function personasFor(charsWithMat, userName) {
-    const blocks = (charsWithMat || []).map(function (c) {
+    const blocks = shuffled(charsWithMat).map(function (c) {
       return "【" + c.name + "】" + (c.persona || "（暂无设定）").trim().slice(0, 240);
     });
     blocks.push("【" + (userName || "我") + "】被报道的当事人之一（用户本人）。");
@@ -278,16 +284,15 @@
     const charsWithMat = (characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
     const globalText = linesToText(mat.global, 8000);
     const empty = mat.global.length === 0;
-    const personasBlock = personasFor(charsWithMat, userName);
     const total = 1 + charsWithMat.length + VOICES.length;
     let done = 0;
     const tick = function (label) { if (onProgress) onProgress(done, total, label); };
 
-    // 头版（首页头条）
+    // 头版（首页头条）——人物清单洗过再喂，别锚定创建顺序
     tick("头版头条");
     let cover;
     try {
-      const cv = await genCover(active, personasBlock, globalText, empty);
+      const cv = await genCover(active, personasFor(charsWithMat, userName), globalText, empty);
       cover = Object.assign({ id: uid("cv"), type: "cover" }, cv);
     } catch (e) {
       cover = { id: uid("cv"), type: "cover", headline: "本周风平浪静", lead: "（头版生成失败，请点右上角单独重刷。）", highlights: [], editorNote: "" };
@@ -309,7 +314,7 @@
     for (const v of VOICES) {
       tick(v.name);
       try {
-        const articles = await genMedia(active, v, personasBlock, globalText, empty);
+        const articles = await genMedia(active, v, personasFor(charsWithMat, userName), globalText, empty);
         media.push({ id: uid("md"), type: "media", voiceId: v.id, articles: articles });
       } catch (e) {
         media.push({ id: uid("md"), type: "media", voiceId: v.id, articles: [{ title: v.name, body: "（本版生成失败，请点进去单独重刷。）" }] });

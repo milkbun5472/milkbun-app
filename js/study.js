@@ -525,6 +525,7 @@
     const [level, setLevel] = useState("");
     const [picked, setPicked] = useState([]);
     const [busy, setBusy] = useState(false);
+    const [confirmUnfit, setConfirmUnfit] = useState(null); // 认真教判定不够格时的弹窗 {ability, teacher}
     const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "10px 12px", width: "100%" };
 
     function toggle(id) {
@@ -535,15 +536,22 @@
       });
     }
 
+    function createCur(teacherId) {
+      const cur = {
+        id: "cur_" + Date.now(), subject: subject.trim(), level: level.trim(), mode: mode,
+        character_ids: picked.slice(), teacher_id: teacherId, memory: { summaries: [] },
+        created_at: Date.now(), updated_at: Date.now()
+      };
+      saveCurriculum(cur);
+      props.onCreated(cur); // 上层落到控制台，让用户自己开第一节
+    }
+
     async function begin() {
       if (!subject.trim()) { props.toast("先填个大目标"); return; }
       if (picked.length < want) { props.toast(want === 2 ? "挑 2 个角色" : "挑 1 个角色"); return; }
       try {
         const chars = picked.map(function (id) { return props.characters.find(function (c) { return c.id === id; }); });
-        let teacherId;
-        if (mode === "teach") {
-          teacherId = chars[0].id; // 认真教：你已明确要教，选中角色即老师
-        } else {
+        if (mode === "nv1") {
           if (!props.active) { props.toast("请先到设置配置 API"); return; }
           setBusy(true);
           const abil = [];
@@ -551,15 +559,20 @@
           const idx = abil.findIndex(function (a) { return a.canTeach; });
           setBusy(false);
           if (idx < 0) { props.toast("这俩谁都不太教得了「" + subject.trim() + "」——换个会的角色，或去『一起研究』一起摸索"); return; }
-          teacherId = chars[idx].id;
+          createCur(chars[idx].id);
+          return;
         }
-        const cur = {
-          id: "cur_" + Date.now(), subject: subject.trim(), level: level.trim(), mode: mode,
-          character_ids: picked.slice(), teacher_id: teacherId, memory: { summaries: [] },
-          created_at: Date.now(), updated_at: Date.now()
-        };
-        saveCurriculum(cur);
-        props.onCreated(cur); // 上层落到控制台，让用户自己开第一节
+        // 认真教：先判定 TA 会不会（仅在配了 API 时判）。不够格→弹窗让用户定夺，防系统误判；判定失败/无 API 直接放行
+        const teacher = chars[0];
+        if (props.active) {
+          setBusy(true);
+          let ab;
+          try { ab = await inferAbility(props.active, teacher, subject.trim(), props.worldbook); }
+          catch (e) { ab = { canTeach: true }; }
+          setBusy(false);
+          if (ab && !ab.canTeach) { setConfirmUnfit({ ability: ab, teacher: teacher }); return; }
+        }
+        createCur(teacher.id);
       } catch (e) { props.toast("出错了：" + (e.message || "重试")); setBusy(false); }
     }
 
@@ -583,7 +596,15 @@
         mode === "nv1" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 10, lineHeight: 1.7 } }, "会自动判两位谁能教这门——能教的当老师，另一个当同学陪你学。") : null),
       h("div", { className: "shrink-0 px-5 py-3", style: { borderTop: "1px solid " + t.line } },
         h("button", { onClick: begin, disabled: busy, className: "w-full py-3", style: { fontFamily: F_BODY, fontSize: 15, background: t.ink, color: t.bg2, borderRadius: 12, opacity: busy ? 0.6 : 1 } },
-          busy ? "判定角色能力中…" : "建课程")));
+          busy ? "判定角色能力中…" : "建课程")),
+      confirmUnfit ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(20,19,15,0.55)" }, onClick: function () { setConfirmUnfit(null); } },
+        h("div", { onClick: function (e) { e.stopPropagation(); }, style: { width: "84%", maxWidth: 340, background: t.bg, borderRadius: 16, padding: "20px 20px 16px" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 8 } }, confirmUnfit.teacher.name + " 可能教不了这个"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.7, marginBottom: 16, whiteSpace: "pre-line" } },
+            "系统判定 " + confirmUnfit.teacher.name + " 的人设跟『" + subject.trim() + "』不太搭" + (confirmUnfit.ability.posture ? "——" + confirmUnfit.ability.posture : "。") + "\n可能是误判。你可以坚持让 TA 认真教，或改成不设老师的「一起研究」，你俩一起摸索。"),
+          h("button", { onClick: function () { var tch = confirmUnfit.teacher; setConfirmUnfit(null); createCur(tch.id); }, className: "w-full py-2.5 mb-2 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 10 } }, "坚持让 TA 认真教"),
+          h("button", { onClick: function () { var tch = confirmUnfit.teacher; setConfirmUnfit(null); props.onCostudyInstead && props.onCostudyInstead(subject.trim(), tch.id); }, className: "w-full py-2.5 mb-2 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, background: "#7c5cbf", color: "#fff", borderRadius: 10 } }, "改为「一起研究」"),
+          h("button", { onClick: function () { setConfirmUnfit(null); }, className: "w-full py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))) : null);
   }
 
   // ---- 开一节课：为本节生成小大纲（承接往期 session 摘要+进度）→ 审核 → 落地 ----
@@ -946,7 +967,19 @@
       return h(NewCurriculum, {
         mode: tab, active: props.active, characters: props.characters, worldbook: props.worldbook, toast: props.toast,
         onBack: function () { setView("home"); },
-        onCreated: function (cur) { setCurId(cur.id); setView("console"); } // 落到控制台，自己开第一节
+        onCreated: function (cur) { setCurId(cur.id); setView("console"); }, // 落到控制台，自己开第一节
+        // 认真教判定不够格→用户选「改为一起研究」：建 costudy session 直接进聊天
+        onCostudyInstead: function (subject, charId) {
+          const chars = avatarsFor([charId], props.characters);
+          const sess = {
+            id: "st_" + Date.now(), curriculum_id: null, mode: "costudy",
+            character_ids: [charId], teacher_id: null, subject: subject,
+            title: subject + " · " + chars.map(function (c) { return c.name; }).join("&"),
+            updated_at: Date.now(), progress: newProgress("costudy"), transcript: []
+          };
+          saveSessions(loadSessions().concat([sess]));
+          setOpenId(sess.id); setView("thread");
+        }
       });
     }
     if (view === "newSession") {

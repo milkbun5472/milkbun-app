@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.24";
+const APP_VERSION = "v46.25";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2182,8 +2182,8 @@ function App() {
         ? "【偏差 deviation】其中 0-2 段可以是「偏差」：原计划被打断或改变，尤其受最近和用户的对话、用户的要求、或 Ta 那天的心情影响。"
         : "【偏差 deviation】偏差=计划被实际打断/改变，只可能发生在【时间已过去（早于此刻 " + nowStr + "）】的时段；此刻之后（未来）还没发生的时段，deviation 一律必须为 null，绝不要给未来时段编造偏差。已过去的时段里最多 0-2 段是偏差，尤其受最近和用户的对话/心情影响（如用户抱怨犯困，Ta 提前收工去做饭）。";
       const d = await runProbe(active, ctxFor(char), {
-        instruction: "推演「" + char.name + "」一天的行程时间线。" + when + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。每段 type 从 [coffee,work,create,meal,rest,social,out,other] 里选最贴切的一个。load 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。\n【碎碎念 murmurs】另给 2-4 条第一人称、当下的碎碎念，各带一个 time，像随手记下的念头，可回看。",
-        schemaHint: "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null}],\"murmurs\":[{\"time\":\"11:20\",\"text\":\"碎碎念一句\"}]}",
+        instruction: "推演「" + char.name + "」一天的行程时间线。" + when + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。\n【碎碎念 murmurs】另给 2-4 条第一人称、当下的碎碎念，各带一个 time，像随手记下的念头，可回看。",
+        schemaHint: "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"title\":\"洗漱后睡了\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}],\"murmurs\":[{\"time\":\"11:20\",\"text\":\"碎碎念一句\"}]}",
         maxTokens: 4000
       });
       const plan = {
