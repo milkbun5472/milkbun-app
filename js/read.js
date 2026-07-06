@@ -67,28 +67,39 @@
     return pal[s];
   };
 
-  // ---- 模型：让角色对本页批注若干条 ----
+  // ---- 模型：让角色对给定段落（可跨多页）批注若干条 ----
+  //   paras 是一段扁平的段落文本数组（可能跨好几页）；返回 [{i, note}]，i 是 paras 里的 0 基下标。
+  //   输出走「逐行」而非 JSON 数组——弱模型逐行写「正好 N 条」比塞 JSON 数组可靠得多。
   async function genAnnotations(active, char, profile, worldbook, paras, n, prior) {
     const uName = (profile && profile.name) || "对方";
+    const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
     const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") +
-      "你在和「" + uName + "」一起读一本书，现在轮到你在这一页上写批注（像在书页边上随手写的旁批）。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——可以是共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、或和作者较劲。别写读后感八股、别复述剧情，要短、要有你这个人的味道。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
-      (prior && prior.length ? "\n\n【你之前已经批注过的（别重复）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
-      "\n\n【这一页的正文（按段落编号）】\n" + numbered +
-      "\n\n**务必写满 " + n + " 条批注，一条都不能少（notes 数组正好 " + n + " 个元素）。** 每条用 para 锚定到一个段落编号；同一段可以写多条（针对段里不同的句子），段落不够多就把多条落在同一段——别因为段落少就偷懒少写。\n【输出】只输出 JSON，不要代码块：{\"notes\":[{\"para\":段落编号数字,\"note\":\"你的批注（一两句，你的口吻）\"}]}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始批注这一页，写满 " + n + " 条。" }], { maxTokens: Math.min(4000, 600 + n * 260) });
-    const parsed = extractJSON(raw);
-    const arr = (parsed && Array.isArray(parsed.notes)) ? parsed.notes : [];
-    const maxPara = paras.length;
-    // 只要有 note 就保留；para 越界/缺失就夹到有效范围，别把整条丢掉
-    return arr.filter(function (x) { return x && x.note && String(x.note).trim(); })
-      .slice(0, n).map(function (x) {
-        let p = Math.round(Number(x.para));
-        if (!(p >= 1)) p = 1;
-        if (p > maxPara) p = maxPara;
-        return { para: p - 1, note: String(x.note).trim() };
-      });
+      (prior && prior.length ? "\n\n【你之前已经批注过的（别重复这些）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
+      "\n\n【正文（按段落编号，可能跨好几页）】\n" + numbered +
+      "\n\n请就上面这段，写**正好 " + n + " 条**批注，可以分布在不同段落、也可多条落在同一段。\n【输出格式·务必严格遵守】只输出 " + n + " 行，每行一条批注，格式为 `段<段号>：<批注>`。示例：\n段3：这人嘴上硬，心里早就软了。\n段3：换我早翻脸走人了。\n段8：一碗黄酒二两黄豆，写得我都馋了。\n不要写 JSON、不要总起语、不要空行、不要任何多余的话——就这 " + n + " 行，一行都不能少。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: Math.min(4000, 500 + n * 180) });
+    // 先把「段N：」标记前都断行——兼容弱模型把多条挤在一行/一段的情况
+    const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1");
+    const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    const out = [];
+    let spread = 0;
+    lines.forEach(function (line) {
+      if (/[：:]\s*$/.test(line)) return;                        // 以冒号结尾的开场白（如「好的，这就来：」）
+      if (/^(好的|没问题|以下|如下|这就|收到|明白|ok|okay)/i.test(line) && line.length < 14) return; // 短套话
+      const m = line.match(/^\s*(?:段|第)?\s*\[?\s*(\d+)\s*\]?\s*[：:.、)\-\s]+(.+)$/);
+      let para, note;
+      if (m) { para = Number(m[1]); note = m[2].trim(); }
+      else { note = line.replace(/^[\s\d.、)\]［］【】\[\-—·•]+/, "").trim(); para = null; } // 没给段号，稍后铺开
+      if (!note || note.length < 2) return;
+      if (para == null) { para = Math.min(maxPara, 1 + Math.floor(spread * maxPara / Math.max(1, n))); spread++; }
+      if (!(para >= 1)) para = 1;
+      if (para > maxPara) para = maxPara;
+      out.push({ i: para - 1, note: note });
+    });
+    return out.slice(0, n);
   }
 
   // ---- 模型：半屏讨论 ----
@@ -252,12 +263,23 @@
       if (!partner) { setPickOpen(true); return; }
       setBusy(true);
       try {
-        const prior = (book.annotations || []).filter(function (a) { return a.page === pageIdx && a.charId === partner.id; });
-        const notes = await genAnnotations(props.active, partner, props.profile, props.worldbook, curParas, book.perPass || 3, prior);
-        if (!notes.length) { props.toast && props.toast("这页 Ta 没批出新东西，翻一页再试"); return; }
-        const add = notes.map(function (nn) { return { id: "an_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), page: pageIdx, para: nn.para, note: nn.note, charId: partner.id, charName: partner.name, ts: Date.now() }; });
+        // 批注范围：从当前页起、跨 span 页（span=1 就是本页）。把这些页的段落拍平成一串，让 TA 批。
+        const span = book.annSpan || 1;
+        const endP = Math.min(totalPages - 1, pageIdx + span - 1);
+        const flat = [];
+        for (let pg = pageIdx; pg <= endP; pg++) {
+          (pages[pg] || []).forEach(function (txt, pi) { flat.push({ page: pg, para: pi, text: txt }); });
+        }
+        if (!flat.length) { props.toast && props.toast("这一段没有正文"); return; }
+        const prior = (book.annotations || []).filter(function (a) { return a.page >= pageIdx && a.page <= endP && a.charId === partner.id; });
+        const notes = await genAnnotations(props.active, partner, props.profile, props.worldbook, flat.map(function (f) { return f.text; }), book.perPass || 3, prior);
+        if (!notes.length) { props.toast && props.toast("Ta 没批出新东西，换一段再试"); return; }
+        const add = notes.map(function (nn) {
+          const f = flat[nn.i] || flat[0];
+          return { id: "an_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), page: f.page, para: f.para, note: nn.note, charId: partner.id, charName: partner.name, ts: Date.now() };
+        });
         props.onPatch(function (b) { return { annotations: (b.annotations || []).concat(add), lastReadTs: Date.now() }; });
-        props.toast && props.toast(partner.name + " 批了 " + add.length + " 条");
+        props.toast && props.toast(partner.name + " 批了 " + add.length + " 条" + (span > 1 ? "（跨 " + (endP - pageIdx + 1) + " 页）" : ""));
       } catch (e) { props.toast && props.toast("批注失败：" + (e.message || "重试")); }
       finally { setBusy(false); }
     };
@@ -294,6 +316,7 @@
     };
 
     // ---- 顶栏 ----
+    const span = book.annSpan || 1;
     const topbar = h("div", { className: "shrink-0", style: { padding: "6px 16px 10px", borderBottom: "1px solid " + t.line } },
       h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
         partner
@@ -301,12 +324,19 @@
               h(Avatar, { character: partner, size: 24, radius: 7 }),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "和 " + partner.name + " 一起读"),
               h("button", { onClick: function () { setPickOpen(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "换人"))
-          : h("button", { onClick: function () { setPickOpen(true); }, style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "＋ 邀一个角色一起读"),
-        // 一次批几条
-        partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 4 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "每次批"),
-          h(Stepper, { value: book.perPass || 3, min: 1, max: 8, onChange: function (v) { props.onPatch({ perPass: v }); } })) : null
-      ));
+          : h("button", { onClick: function () { setPickOpen(true); }, style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "＋ 邀一个角色一起读")),
+      // 批注控制：一次批几条 + 覆盖几页
+      partner ? h("div", { style: { display: "flex", alignItems: "center", gap: 16, marginTop: 8 } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "每次批"),
+          h(Stepper, { value: book.perPass || 3, min: 1, max: 12, onChange: function (v) { props.onPatch({ perPass: v }); } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "条")),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 5 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "范围"),
+          h(Stepper, { value: span, min: 1, max: 8, onChange: function (v) { props.onPatch({ annSpan: v }); } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, span > 1 ? "页(从当前起)" : "页")),
+        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, "本页~第" + Math.min(totalPages, pageIdx + span) + "页") : null
+      ) : null);
 
     // ---- 正文页 ----
     const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "18px 20px 90px" } },
