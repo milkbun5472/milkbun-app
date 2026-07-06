@@ -130,23 +130,28 @@
       "\n\n【全程实录】\n" + fullTranscript(session, uName) +
       "\n\n给出唯一胜者（可以是台上任何一方，包括「" + uName + "」）和判词。判词要具体点到谁的哪些发言、对着评判标准说，别和稀泥。\n" +
       "【输出】只输出 JSON：{\"winner\":\"胜者名字\",\"reason\":\"判词，2~4句\"}。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "宣布结果。" }], { maxTokens: 1400 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "宣布结果。" }], { maxTokens: 4000 });
     const p = extractJSON(raw) || {};
     return { winner: String(p.winner || "").trim() || "平局", reason: String(p.reason || raw || "").trim() };
   }
 
-  // ---- 模型：判定后角色各自发表感言 ----
-  async function genClosings(active, session, verdict) {
+  // ---- 模型：判定后【只有角色】各自发表感言（我/用户不生成） ----
+  async function genClosings(active, session, verdict, uName) {
     const chars = session.parts.filter(p => p.kind === "char");
     const roster = chars.map(c => "「" + c.name + "」（立场：" + (c.stance || "—") + "；人设：" + (c.persona || "").replace(/\s+/g, " ").slice(0, 120) + "）").join("\n");
     const sys = AC() +
       "一场辩论刚出结果。辩题：「" + session.topic + "」。判定结果——胜者：" + verdict.winner + "；判词：" + verdict.reason + "。\n" +
-      "现在请台上每个角色各发表一句赛后感言，【完全按各自人设反应】：赢的人可能得意/谦逊/意犹未尽，输的人可能不服/服气/找补/摆烂，取决于 Ta 的性格和这场表现。别都写成一个腔调。\n\n【台上角色】\n" + roster +
-      "\n\n【输出】只输出 JSON：{\"closings\":[{\"name\":\"角色名\",\"text\":\"感言，1~2句\"}]}，每个上场角色一条。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "各自说一句。" }], { maxTokens: Math.min(4000, 800 + chars.length * 400) });
+      "现在请台上每个角色各发表一句赛后感言，【完全按各自人设反应】：赢的人可能得意/谦逊/意犹未尽，输的人可能不服/服气/找补/摆烂，取决于 Ta 的性格和这场表现。别都写成一个腔调。\n" +
+      "⚠只给下面列出的角色写，【绝对不要】给「" + uName + "」（那是真人玩家，不用 Ta 的感言）写任何东西。\n\n【台上角色】\n" + roster +
+      "\n\n【输出】只输出 JSON：{\"closings\":[{\"name\":\"角色名\",\"text\":\"感言，1~3句\"}]}，只含上面这些角色、每个一条。";
+    // 放宽 token：思考型模型 + 多角色，别让感言写一半被截断（输出免费）
+    const raw = await callAI(active, sys, [{ role: "user", content: "各角色各说一句（别写玩家的）。" }], { maxTokens: Math.min(8000, 1600 + chars.length * 700) });
     const p = extractJSON(raw);
     const arr = p && Array.isArray(p.closings) ? p.closings : [];
-    return arr.map(c => ({ name: String((c && c.name) || "").trim(), text: String((c && c.text) || "").trim() })).filter(c => c.text);
+    const charNames = chars.map(c => c.name);
+    // 兜底：即便模型手滑给玩家写了，也过滤掉——只保留台上角色的
+    return arr.map(c => ({ name: String((c && c.name) || "").trim(), text: String((c && c.text) || "").trim() }))
+      .filter(c => c.text && c.name !== uName && charNames.indexOf(c.name) >= 0);
   }
 
   // ============================================================
@@ -162,6 +167,10 @@
       persist(list);
     };
     const delSession = id => { if (window.confirm("删除这场辩论存档？")) { persist(loadSaves().filter(s => s.id !== id)); if (view === id) setView("home"); } };
+    // 长按删除（onContextMenu 在手机上不触发，得自己起计时器）
+    const lpTimer = useRef(null), lpFired = useRef(false);
+    const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
+    const startLP = id => { lpFired.current = false; cancelLP(); lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 500); };
 
     if (view === "setup") {
       return h(Setup, {
@@ -197,8 +206,10 @@
               const ended = s.status === "ended";
               return h("div", {
                 key: s.id,
-                onClick: () => setView(s.id),
+                onClick: () => { if (lpFired.current) { lpFired.current = false; return; } setView(s.id); },
                 onContextMenu: e => { e.preventDefault(); delSession(s.id); },
+                onTouchStart: () => startLP(s.id), onTouchEnd: cancelLP, onTouchMove: cancelLP, onTouchCancel: cancelLP,
+                onMouseDown: () => startLP(s.id), onMouseUp: cancelLP, onMouseLeave: cancelLP,
                 className: "active:opacity-70",
                 style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 13, padding: "13px 15px", cursor: "pointer" }
               },
@@ -322,6 +333,8 @@
     const t = useTheme();
     const s = props.session;
     const uName = (props.profile && props.profile.name) || "我";
+    // 我在擂台上的头像：用真实资料卡头像，没有再退回底色首字
+    const meAv = { name: uName, avatarImage: props.profile && props.profile.avatarImage, avatarEmoji: props.profile && props.profile.avatarEmoji, color: (props.profile && props.profile.color) || ME_COLOR };
     const [busy, setBusy] = useState(false);
     const [phaseMsg, setPhaseMsg] = useState("");
     const [draft, setDraft] = useState("");
@@ -404,7 +417,7 @@
         const verdict = await genVerdict(props.active, s, uName);
         setPhaseMsg("选手准备赛后感言…");
         let closings = [];
-        try { closings = await genClosings(props.active, s, verdict); } catch (e) {}
+        try { closings = await genClosings(props.active, s, verdict, uName); } catch (e) {}
         patch({ status: "ended", verdict: verdict, closings: closings });
       } catch (e) { props.toast && props.toast("判定失败：" + (e.message || "重试")); }
       setBusy(false); setPhaseMsg("");
@@ -422,7 +435,7 @@
           h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", width: 62 } },
             p.kind === "char"
               ? h(Avatar, { character: props.characters.find(c => c.id === p.id) || { name: p.name }, size: 30, radius: 999 })
-              : h("div", { style: { width: 30, height: 30, borderRadius: 999, background: ME_COLOR, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 13 } }, "我"),
+              : h(Avatar, { character: meAv, size: 30, radius: 999 }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: 62, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.kind === "me" ? uName : p.name),
             h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.25, color: "#fff", background: p.color, borderRadius: 5, padding: "1px 5px", marginTop: 3, maxWidth: 62, textAlign: "center", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.stance || (p.kind === "me" ? "待定" : "—"))))))
     );
@@ -433,7 +446,7 @@
       : h("div", { key: k, style: { background: t.bg2, borderRadius: 12, borderLeft: "3px solid " + tn.color, padding: "9px 12px", marginBottom: 9 } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
           tn.who === "char" ? h(Avatar, { character: props.characters.find(c => c.id === tn.id) || { name: tn.name }, size: 18, radius: 999 })
-            : h("div", { style: { width: 18, height: 18, borderRadius: 999, background: ME_COLOR, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 9 } }, "我"),
+            : h(Avatar, { character: meAv, size: 18, radius: 999 }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: tn.color } }, tn.name),
           tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "→ " + tn.at) : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap", maxHeight: 300, overflowY: "auto", WebkitOverflowScrolling: "touch" } }, tn.text));
@@ -469,9 +482,9 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: 1, color: t.accent, marginBottom: 6 } }, "⚖ 裁判判定"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 7 } }, "胜者：" + s.verdict.winner),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap" } }, s.verdict.reason)),
-          (s.closings && s.closings.length) ? h("div", null,
+          (s.closings && s.closings.some(c => c.name !== uName)) ? h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: 1, color: t.fog, marginBottom: 9 } }, "赛后感言"),
-            s.closings.map((c, i) => {
+            s.closings.filter(c => c.name !== uName).map((c, i) => {
               const cp = s.parts.find(p => p.name === c.name && p.kind === "char");
               return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 } },
                 cp ? h(Avatar, { character: props.characters.find(x => x.id === cp.id) || { name: c.name }, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
