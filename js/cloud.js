@@ -10,6 +10,7 @@
 
   let client = null;
   let suspend = false; // apply() 期间挂起，避免写回触发反向 push
+  let frozen = false;  // 云端恢复写回后锁死本地 x_ 写入：等重载期间，旧 React 状态再 saveJSON 也覆盖不了刚恢复的数据（防「恢复到一半」竞态）
   let pushTimer = null; // 防抖计时器
   const MARK = "cloud_pushed_at"; // 本机最后一次成功 push 的时间戳（无 x_ 前缀，不进存档）
 
@@ -47,6 +48,10 @@
       } finally {
         suspend = false;
       }
+      // 写回完成后冻结本地 x_ 写入，直到调用方 location.reload()。
+      // 目的：apply 与 reload 之间那几百毫秒里，登录前那份旧 React 状态可能 saveJSON，
+      // 会把刚恢复的键覆盖回旧值（甚至反向 push 污染云端）→「恢复一半」竞态。冻结后这些写入直接丢弃，重载后自然解除。
+      frozen = true;
     },
 
     async getUser() {
@@ -175,10 +180,13 @@
     const _set = localStorage.setItem.bind(localStorage);
     const _rm = localStorage.removeItem.bind(localStorage);
     localStorage.setItem = function (k, v) {
+      // 冻结期（云端恢复后等重载）：丢弃旧 React 状态对 x_ 键的写入，别覆盖刚恢复的数据
+      if (frozen && typeof k === "string" && k.startsWith("x_")) return;
       _set(k, v);
       if (!suspend && typeof k === "string" && k.startsWith("x_")) window.Cloud.markDirty();
     };
     localStorage.removeItem = function (k) {
+      if (frozen && typeof k === "string" && k.startsWith("x_")) return;
       _rm(k);
       if (!suspend && typeof k === "string" && k.startsWith("x_")) window.Cloud.markDirty();
     };
