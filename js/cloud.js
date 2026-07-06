@@ -13,6 +13,9 @@
   let frozen = false;  // 云端恢复写回后锁死本地 x_ 写入：等重载期间，旧 React 状态再 saveJSON 也覆盖不了刚恢复的数据（防「恢复到一半」竞态）
   let pushTimer = null; // 防抖计时器
   const MARK = "cloud_pushed_at"; // 本机最后一次成功 push 的时间戳（无 x_ 前缀，不进存档）
+  // 开机快照：本脚本执行(app 之前)时本地是否已有存档。localStorage 跨刷新持久，
+  // 只有真·新设备/新网址首次打开才空。用它守 autoPull：本地已有数据=老设备回来，本地权威，绝不自动拿云端覆盖。
+  const bootHadLocal = (function () { try { return Object.keys(localStorage).some(function (k) { return k.indexOf("x_") === 0; }); } catch (e) { return false; } })();
 
   try {
     if (window.supabase && window.supabase.createClient) {
@@ -148,26 +151,31 @@
       }
     },
 
-    // 登录/启动时调用：云端比本机新则覆盖本地。返回 { applied }
-    // - 云端为空（首次登录）：把本机存档推上去当作首份备份
-    // - 云端更新时间 > 本机最后 push 时间：云端胜，apply 后需 reload
+    // 登录/启动时调用。返回 { applied }（applied=true 表示已用云端覆盖本地、调用方需 reload）。
+    // ⚠核心安全原则（2026-07-06 大改，修「回来数据没了」）：**本地已有存档就绝不自动拿云端覆盖**。
+    //   localStorage 跨刷新持久，老设备回来时本地就是最新的、权威的；原来靠 updated_at 时间戳比较判「云端更新」
+    //   极不可靠（Supabase 常服务端自己盖 updated_at → 云端永远显得更新 → 每次加载都拿云端半份盖掉本地好数据）。
+    //   现在：① 本地有数据 = 本地权威，只把本地推上云当备份，绝不 apply；② 本地空（真·新设备/首次登录）才安全地拉云恢复。
+    //   想主动用云端覆盖，走设置里手动「从云端恢复」(doPull)。
     async autoPull() {
       if (!client) return { applied: false };
       try {
         const user = await this.getUser();
         if (!user) return { applied: false };
-        const row = await this.pull();
-        if (!row || !row.data) {
-          await this.autoPush(); // 云端还没存档：先备份本机
+        if (bootHadLocal) {
+          // 老设备/刷新回来：本地权威，顺手把本地推上云备份，绝不拉云覆盖
+          this.autoPush();
           return { applied: false };
         }
-        const localTs = localStorage.getItem(MARK);
-        if (!localTs || (row.updated_at && row.updated_at > localTs)) {
-          this.apply(row.data);
-          localStorage.setItem(MARK, row.updated_at || new Date().toISOString());
-          return { applied: true };
+        // 本地空 = 真·新设备/首次登录：安全地拉云端恢复
+        const row = await this.pull();
+        if (!row || !row.data) {
+          await this.autoPush(); // 云端也空：先把本机（空）占位备份
+          return { applied: false };
         }
-        return { applied: false };
+        this.apply(row.data);
+        localStorage.setItem(MARK, row.updated_at || new Date().toISOString());
+        return { applied: true };
       } catch (e) {
         return { applied: false };
       }
