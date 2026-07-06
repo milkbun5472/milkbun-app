@@ -922,7 +922,7 @@ function PhoneCarry({
     onBack
   }), h(Empty, {
     text: "还没有角色",
-    sub: "先去群像录入一位"
+    sub: "先去名录录入一位"
   }));
   // 通讯录列表：做成一块「手机屏」——顶部我的头像+通讯录，下面角色列表在屏内下滑；点某人才进 Ta 的手机
   if (inList) {

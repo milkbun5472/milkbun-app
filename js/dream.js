@@ -169,7 +169,7 @@
       h(Head, { zh: "梦境", en: "Dream", onBack: props.onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         h("button", {
-          onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『群像』建个角色"); return; } setView("setup"); },
+          onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『名录』建个角色"); return; } setView("setup"); },
           className: "w-full py-3 mb-5 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
         }, "＋ 编织一场梦"),

@@ -789,14 +789,14 @@ function Home({
   ] };
   const folderPlay = { key: "f_play", zh: "玩法", apps: [
     { key: "pomodoro", zh: "番茄钟", G: GSoon, soon: true },
-    { key: "tarot", zh: "塔罗", G: GSoon, soon: true }
+    { key: "minigame", zh: "小游戏", G: GSoon, soon: true }
   ] };
   // 注册表：所有可摆放的项（组件 w_ / app 图标 / 文件夹），供布局按 key 查
   const REG = {
     w_card: { kind: "widget", which: "card" },
     w_cal: { kind: "widget", which: "cal" },
     w_music: { kind: "widget", which: "music" },
-    cast: { kind: "app", zh: "群像", G: GCast },
+    cast: { kind: "app", zh: "名录", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     lifestyle: { kind: "app", zh: "行程", G: GLife },
     phone: { kind: "app", zh: "查手机", G: GPhone },
@@ -813,6 +813,7 @@ function Home({
     read: { kind: "app", zh: "一起读", G: IShelf },
     debate: { kind: "app", zh: "辩论", G: GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
+    tarot: { kind: "app", zh: "塔罗", G: GTarot },
     f_create: { kind: "folder", folder: folderCreate },
     f_play: { kind: "folder", folder: folderPlay }
   };
@@ -820,7 +821,7 @@ function Home({
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music"],
     ["w_cal", "shop", "carry", "cwallet", "ledger"],
-    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "f_create", "f_play"]
+    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "f_create", "f_play"]
   ];
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   function buildLayout(saved) {
@@ -1291,7 +1292,7 @@ function Messages({
   })) : null)), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto"
   }, tab === "chats" && /*#__PURE__*/React.createElement("div", null,
-    characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或群像录入角色" }),
+    characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或名录录入角色" }),
     chatItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it))
   ), tab === "contacts" && /*#__PURE__*/React.createElement("div", {
     className: "py-1"
@@ -1334,7 +1335,7 @@ function Messages({
     color: t.line
   })), characters.length === 0 ? /*#__PURE__*/React.createElement(Empty, {
     text: "通讯录是空的",
-    sub: "去群像录入角色"
+    sub: "去名录录入角色"
   }) : characters.map(c => /*#__PURE__*/React.createElement("button", {
     key: c.id,
     onClick: () => onOpenContact(c),

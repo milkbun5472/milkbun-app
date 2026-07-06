@@ -12,8 +12,8 @@ function Cast({
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col"
   }, /*#__PURE__*/React.createElement(Head, {
-    zh: "群像",
-    en: "Cast / The Muses",
+    zh: "名录",
+    en: "Guest List",
     onBack: onBack,
     right: /*#__PURE__*/React.createElement("button", {
       onClick: onAdd,
@@ -395,7 +395,7 @@ function Ties({
     }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
       characters.length === 0
-        ? h(Empty, { text: "还没有角色", sub: "先去群像录入" })
+        ? h(Empty, { text: "还没有角色", sub: "先去名录录入" })
         : h(Fragment, null,
             h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, "点角色查看 TA 的关系")),
             participants.map(p => h(RosterRow, { key: p.id, id: p.id })))),
@@ -655,7 +655,7 @@ function Lifestyle({ characters, schedules, selId, busyKey, onBack, onSel, onGen
   const tp = useRef(null);
   const idx = Math.max(0, characters.findIndex(c => c.id === selId));
   const char = characters[idx] || characters[0];
-  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "行程", en: "Lifestyle", onBack }), h(Empty, { text: "还没有角色", sub: "先去群像录入一位" }));
+  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "行程", en: "Lifestyle", onBack }), h(Empty, { text: "还没有角色", sub: "先去名录录入一位" }));
   const todayKey = schedDayKey(new Date());
   const plans = schedules[char.id] || {};
   const todayPlan = plans[todayKey];
@@ -2504,7 +2504,7 @@ function CoupleQAConfig({ characters, custom, onSave, toast }) {
   const cur = chars.find(c => c.id === selId);
   const count = text.split("\n").filter(s => s.trim()).length;
   const save = () => { onSave(selId, text.split("\n")); toast("已保存 " + count + " 题"); };
-  if (!chars.length) return h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingTop: 8 } }, "还没有角色，先去群像录入一位。");
+  if (!chars.length) return h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingTop: 8 } }, "还没有角色，先去名录录入一位。");
   return h("div", null,
     h(Eyebrow, { style: { marginBottom: 8 } }, "情侣问答 · 自定义题库"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog, marginBottom: 12 } }, "为某个角色添加只属于你俩的问题——一行一题。内置 60 题所有角色共用；这里加的题只出现在你和该角色的问答小本，各角色之间不互通。"),
@@ -3812,7 +3812,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
 
   if (!authors.length) return h("div", { className: "h-full flex flex-col" },
     h(Head, { zh: "日记", en: "Diary", onBack }),
-    h(Empty, { text: "还没有角色", sub: "先去群像录入" }));
+    h(Empty, { text: "还没有角色", sub: "先去名录录入" }));
 
   // ---- 我写日记 ----
   if (view === "compose") return h(MyDiaryCompose, { onBack: () => setView("entries"), onSave: saveMyEntry });
@@ -4016,7 +4016,7 @@ function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, on
     // eslint-disable-next-line
   }, [selId]);
 
-  if (!chars.length) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "钱包", en: "Wallet", onBack }), h(Empty, { text: "还没有角色", sub: "先去群像录入一位" }));
+  if (!chars.length) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "钱包", en: "Wallet", onBack }), h(Empty, { text: "还没有角色", sub: "先去名录录入一位" }));
 
   // —— 花名册（未选角色）——
   if (!char) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
@@ -4379,7 +4379,7 @@ function Carry({ characters, carry, carryGifts, selId, busyKey, giftBusy, onBack
   const markSeen = (cid, k) => setSeen(p => { const n = { ...p, [cid]: { ...(p[cid] || {}), [k]: true } }; saveJSON("x_carrySeen", n); return n; });
   const clearSeen = cid => setSeen(p => { const n = { ...p }; delete n[cid]; saveJSON("x_carrySeen", n); return n; });
   const char = characters.find(c => c.id === selId) || characters[0];
-  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "随身物", en: "Carry", onBack }), h(Empty, { text: "还没有角色", sub: "先去群像录入一位" }));
+  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "随身物", en: "Carry", onBack }), h(Empty, { text: "还没有角色", sub: "先去名录录入一位" }));
   // 盒子首页：点开盒子 → 角色头像跳出来 → 点头像才进 Ta 的随身物
   if (inBox) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
     h(Head, { zh: "随身物", en: "Carry", onBack }),
