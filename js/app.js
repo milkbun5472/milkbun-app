@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.39";
+const APP_VERSION = "v46.40";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1257,16 +1257,29 @@ function App() {
       }) => ({
         role,
         content
-      })), { maxTokens: 4000 });
-      const parsed = extractJSON(raw) || {
-        word: [raw]
+      })), { maxTokens: 6000 });
+      // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
+      const salvageWords = () => {
+        const s = String(raw || "");
+        const mm = s.match(/"word"\s*:\s*\[([\s\S]*?)\]/);
+        if (mm) {
+          try { const a = JSON.parse("[" + mm[1] + "]"); if (Array.isArray(a)) return a.filter(x => typeof x === "string" && x.trim()); } catch (e) {}
+          const strs = mm[1].match(/"((?:[^"\\]|\\.)*)"/g);
+          if (strs) return strs.map(x => { try { return JSON.parse(x); } catch (e) { return x.replace(/^"|"$/g, ""); } }).filter(x => x && String(x).trim());
+        }
+        return [];
       };
+      // raw 看起来是（可能坏掉的）JSON——含这些内部字段就别当纯文本直接展示，免得把心声等泄漏进聊天框
+      const looksLikeJSON = /"(word|thought|mood|wearing|action|affinityDelta|whisper|moment)"\s*:/.test(String(raw));
+      let parsed = extractJSON(raw);
+      if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
+      if (!parsed) parsed = { word: salvageWords() };
       // mark user msg read
       pChat(charId, p => p.map(m => m.role === "user" ? {
         ...m,
         read: true
       } : m));
-      let words = Array.isArray(parsed.word) ? parsed.word.filter(Boolean) : [String(parsed.word || raw)];
+      let words = Array.isArray(parsed.word) ? parsed.word.filter(Boolean) : (typeof parsed.word === "string" && parsed.word.trim() ? [parsed.word] : []);
       // 先按换行拆：模型有时把本该分成多条气泡的内容塞进一个字符串、用换行分隔，
       // 结果整段挤在一个气泡里像「掉格式」。这里按换行还原成多条气泡。
       words = words.reduce((acc, w) => acc.concat(String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
@@ -1279,7 +1292,8 @@ function App() {
         }
         return acc.concat([s]);
       }, []);
-      if (!words.length && String(raw).trim()) words = [String(raw).trim()];
+      // 兜底：气泡为空时——能从坏 JSON 抠出 word 就用；否则只有当 raw 是纯文本（不像 JSON）才用它，绝不把含心声的原始 JSON 泄漏成气泡
+      if (!words.length) { const sal = salvageWords(); if (sal.length) words = sal; else if (!looksLikeJSON && String(raw).trim()) words = [String(raw).trim()]; }
       const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
       const turnId = "t_" + Date.now();
       // 角色自行撤回一句：先正常显示 ~1s，再变成「已撤回」（点开看内容+撤回想法）
