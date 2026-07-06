@@ -60,7 +60,8 @@
       "\n\n" + roster +
       "\n\n【输出】只输出 JSON：{\"stances\":[{\"name\":\"角色名\",\"stance\":\"一句话概括Ta的立场\"}],\"myOptions\":[\"我方可选立场1\",\"我方可选立场2\"]}。" +
       "stances 每个角色一条；myOptions 给我 2~3 个可选立场（要包含和场上主要立场对立的那一个），短。别加解释。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "分配立场。" }], { maxTokens: 1500 });
+    // 放宽 token：思考型模型思考也吃额度，给太紧会把立场串写一半就停（输出免费）
+    const raw = await callAI(active, sys, [{ role: "user", content: "分配立场。" }], { maxTokens: 4000 });
     const p = extractJSON(raw) || {};
     const out = {};
     (Array.isArray(p.stances) ? p.stances : []).forEach(s => { if (s && s.name) out[s.name] = String(s.stance || "").trim(); });
@@ -71,7 +72,8 @@
   // ---- 模型：随机生成一个（放飞局的）获胜条件 ----
   async function genWinCondition(active, topic) {
     const sys = AC() + "给下面这场『放飞辩论』随机拟一个有点意外、好玩、但能判的获胜条件（不是比谁对，而是比某种表现）。比如『谁把对方逗笑谁赢』『谁最后成功把话题带跑偏谁赢』『谁的歪理最自洽谁赢』这种。\n【辩题】" + topic + "\n只输出这一句获胜条件本身，别加引号别解释。";
-    return (await callAI(active, sys, [{ role: "user", content: "拟一个。" }], { maxTokens: 200 })).replace(/^["「『]|["」』]$/g, "").trim();
+    // 思考型模型给 200 会被想没了正文，放宽（输出免费）
+    return (await callAI(active, sys, [{ role: "user", content: "拟一个。" }], { maxTokens: 2000 })).replace(/```/g, "").replace(/^["「『]|["」』]$/g, "").trim();
   }
 
   // ---- 模型：一轮一次调用 —— 同时生成【所有角色发言(按序)】+【场下观众弹幕】 ----
@@ -432,12 +434,12 @@
       h("div", { style: { display: "flex", justifyContent: "center", alignItems: "flex-start", flexWrap: "wrap", gap: 4 } },
         s.parts.map((p, i) => h(React.Fragment, { key: p.kind === "me" ? "me" : p.id },
           i > 0 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, alignSelf: "center", margin: "0 3px" } }, s.parts.length === 2 ? "VS" : "·") : null,
-          h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", width: 62 } },
+          h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", width: 74 } },
             p.kind === "char"
               ? h(Avatar, { character: props.characters.find(c => c.id === p.id) || { name: p.name }, size: 30, radius: 999 })
               : h(Avatar, { character: meAv, size: 30, radius: 999 }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: 62, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.kind === "me" ? uName : p.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.25, color: "#fff", background: p.color, borderRadius: 5, padding: "1px 5px", marginTop: 3, maxWidth: 62, textAlign: "center", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.stance || (p.kind === "me" ? "待定" : "—"))))))
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, marginTop: 3, maxWidth: 74, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.kind === "me" ? uName : p.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.3, color: "#fff", background: p.color, borderRadius: 5, padding: "2px 5px", marginTop: 3, maxWidth: 74, textAlign: "center", wordBreak: "break-word", display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, p.stance || (p.kind === "me" ? "待定" : "—"))))))
     );
 
     // 发言卡
