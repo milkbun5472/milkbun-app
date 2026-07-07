@@ -51,6 +51,16 @@
         h("span", { style: { position: "absolute", top: 3, left: props.on ? 24 : 3, width: 23, height: 23, borderRadius: 999, background: "#fff", transition: "left .2s" } })));
   }
 
+  // ---- 通用：步进器 ----
+  function Stepper(props) {
+    const t = props.t;
+    const btn = function (label, fn, dis) { return h("button", { onClick: fn, disabled: dis, style: { width: 26, height: 26, borderRadius: 7, border: "1px solid " + t.line, color: dis ? t.line : t.sub, fontFamily: F_BODY, fontSize: 16, lineHeight: "22px", background: t.bg2 } }, label); };
+    return h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
+      btn("−", function () { props.onChange(Math.max(props.min, props.value - 1)); }, props.value <= props.min),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, minWidth: 18, textAlign: "center" } }, props.value),
+      btn("+", function () { props.onChange(Math.min(props.max, props.value + 1)); }, props.value >= props.max));
+  }
+
   // ============================================================
   // 中枢（书架式游戏卡）
   // ============================================================
@@ -101,12 +111,16 @@
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState([]);        // 选中的角色 id
     const [npcFill, setNpcFill] = useState(true);
+    const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
 
     const spectate = mode === "spectate";
     const humanPlays = !spectate;                    // 观战时用户不算玩家
-    const base = picked.length + (humanPlays ? 1 : 0);
-    const needNpc = npcFill && base < game.min ? game.min - base : 0;
+    const base = picked.length + (humanPlays ? 1 : 0); // 真人参与者
+    const minNpc = npcFill ? Math.max(0, game.min - base) : 0;      // 补到最低所需
+    const maxNpc = npcFill ? Math.max(minNpc, game.max - base) : 0; // 加满到 max 的上限
+    // npcWant=-1 默认贴着「补到最低」；用户调过就用调后的值，随选人上下夹住
+    const needNpc = npcFill ? (npcWant < 0 ? minNpc : Math.min(maxNpc, Math.max(minNpc, npcWant))) : 0;
     const total = base + needNpc;
     const overMax = total > game.max;
     // 观战至少要 2 个 AI 玩家才有的看；否则至少 1 个角色
@@ -120,7 +134,7 @@
 
     let countMsg;
     if (overMax) countMsg = "人太多了，" + game.zh + "最多 " + game.max + " 人（现在 " + total + "）";
-    else if (tooFew) countMsg = spectate ? "观战至少要 2 个角色下场" : "还差人——至少 " + game.min + " 人" + (npcFill ? "（可开 NPC 凑数）" : "，或开 NPC 凑数");
+    else if (tooFew) countMsg = spectate ? "观战至少要 2 个角色下场" : "还差人——至少 " + game.min + " 人" + (npcFill ? "（可加 NPC 凑数）" : "，或开 NPC 凑数");
     else countMsg = "共 " + total + " 人" + (humanPlays ? "（含你）" : "（你观战）") + (needNpc ? " · 含 " + needNpc + " 个 NPC" : "");
 
     return h("div", { className: "h-full flex flex-col" },
@@ -158,7 +172,13 @@
 
         // 选项
         h("div", { style: { marginTop: 14, borderTop: "1px solid " + t.line } },
-          h(ToggleRow, { t: t, label: "NPC 凑数", sub: "人不够时自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
+          h(ToggleRow, { t: t, label: "NPC 凑数", sub: "自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
+          // NPC 数量步进：默认补到最低，可继续加到 max（人多局更长、更看得出博弈）
+          (npcFill && maxNpc > 0) ? h("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0 12px" } },
+            h("div", { style: { flex: 1 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "NPC 数量"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "最少 " + minNpc + " 个补到 " + game.min + " 人，最多可加到 " + game.max + " 人（局更长、更看得出门道）。")),
+            h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }))),
 
@@ -210,7 +230,7 @@
       "3. 给【每一个真实玩家】各写一句 skill「牌桌能力小传」：按上面的能力与性格分开原则，点出 TA 玩这种推理游戏时——藏词、听别人描述抓破绽、被怀疑时嘴硬博弈——的【真实强弱】（由职业背景推，别被性格带偏）。NPC 的 skill 也一并给。\n\n" +
       "【真实玩家】\n" + (lines || "（无）") +
       "\n\n【输出】只输出 JSON：{\"pair\":{\"civ\":\"\",\"spy\":\"\"},\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"能力小传\"}]}";
-    const raw = await callAI(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 4000 });
+    const raw = await callAI(api, sys, [{ role: "user", content: "发牌：给词、" + npcCount + " 个 NPC、每个人的能力小传。" }], { maxTokens: 4500 });
     return extractJSON(raw) || {};
   }
 
@@ -222,7 +242,7 @@
     const sys = AC + SKILL_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。规则：每人用【一句话】描述自己的词，不能直接说出这个词、也别露骨到一秒被猜穿，但要具体到能自证不是瞎编。各人只知道自己的词、不知道谁和自己不同；若发现别人描述和你的词对不上，说明你可能是少数派（卧底），要沉住气往大家方向靠、别自曝。按每个人的真实水平决定发挥：强的更会藏、更精准，弱的更容易露。" + easy +
       "\n\n【本轮已说过的】\n" + prior + "\n\n【现在这些人各说一句（按顺序）】\n" + who +
       "\n\n【输出】只输出 JSON：{\"clues\":[{\"name\":\"玩家名\",\"text\":\"一句描述\"}]}，顺序照上面。";
-    const raw = await callAI(api, sys, [{ role: "user", content: "各说一句。" }], { maxTokens: 2600 });
+    const raw = await callAI(api, sys, [{ role: "user", content: "各说一句。" }], { maxTokens: 4000 });
     const p = extractJSON(raw);
     return (p && Array.isArray(p.clues)) ? p.clues : [];
   }
@@ -232,10 +252,10 @@
     const clues = allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通"); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别精准锁定真人「" + userName + "」，就算怀疑 TA 也可以手下留情、投别人或说再看看。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。理由别露上帝视角（别说“我是卧底所以…”）。" + easy +
+    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
-      "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"投票人\",\"target\":\"被投的人\",\"reason\":\"一句理由\"}]}";
-    const raw = await callAI(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 2200 });
+      "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"投票人\",\"target\":\"被投的人，或「弃票」\",\"reason\":\"一句理由\"}]}";
+    const raw = await callAI(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 3500 });
     const p = extractJSON(raw);
     return (p && Array.isArray(p.votes)) ? p.votes : [];
   }
@@ -286,7 +306,7 @@
           // 组装玩家
           const list = [];
           realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: skillOf[p.name] || "" }); });
-          if (cfg.mode !== "spectate") list.push({ key: "user", name: (props.profile && props.profile.name) || "你", char: null, isUser: true, isNpc: false, skill: "" });
+          if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) {
             const n = npcs[i] || {};
@@ -388,13 +408,14 @@
         const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "");
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
-          let target = hit && hit.target;
-          // 容错：目标名对齐到存活玩家；对不上就随机投一个非自己的存活者
-          let tp = target && alive.find(function (p) { return p.name === target || (target.indexOf(p.name) >= 0); });
-          if (!tp) { const others = alive.filter(function (p) { return p.name !== v.name; }); tp = others[Math.floor(Math.random() * others.length)]; }
-          return { voter: v.name, target: tp ? tp.name : null, reason: (hit && hit.reason) || "" };
+          const target = hit && hit.target ? String(hit.target) : "";
+          const abstain = !target || /弃票|弃权|不投|放弃|abstain|pass|none|null/i.test(target);
+          // 对齐到存活玩家；弃票或对不上名字都算弃票（不再随机硬投）
+          const tp = abstain ? null : alive.find(function (p) { return p.name === target || target.indexOf(p.name) >= 0; });
+          return { voter: v.name, target: tp ? tp.name : null, reason: (hit && hit.reason) || (abstain ? "弃票" : "") };
         });
-        if (me && me.alive && userTarget) votes.push({ voter: me.name, target: userTarget, reason: "（你的一票）" });
+        if (me && me.alive && userTarget && userTarget !== "__abstain__") votes.push({ voter: me.name, target: userTarget, reason: "（你的一票）" });
+        else if (me && me.alive && userTarget === "__abstain__") votes.push({ voter: me.name, target: null, reason: "弃票" });
         tallyAndEliminate(votes);
       } catch (e) { props.toast && props.toast("投票失败：" + ((e && e.message) || "重试")); setBusy(false); }
     };
@@ -443,7 +464,7 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
               h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text)));
         }
-        if (it.type === "vote") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + " → 投 " + it.target + (it.reason ? "：" + it.reason : ""));
+        if (it.type === "vote") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         return null;
       }));
 
@@ -470,7 +491,7 @@
             targets.map(function (p) {
               const on = userVote === p.name;
               return h("button", { key: p.key, onClick: function () { setUserVote(p.name); }, style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 12px 6px 6px" } }, pAvatar(p, 22), p.name);
-            })),
+            }).concat([h("button", { key: "abstain", onClick: function () { setUserVote("__abstain__"); }, style: { fontFamily: F_BODY, fontSize: 13, color: userVote === "__abstain__" ? "#fff" : t.sub, background: userVote === "__abstain__" ? t.fog : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "弃票")])),
           h("button", { onClick: function () { if (userVote) runVote(userVote); }, disabled: !userVote, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: userVote ? t.ink : t.line, borderRadius: 13, padding: "12px" } }, "投票"));
       } else {
         action = h("button", { onClick: function () { runVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
@@ -502,7 +523,7 @@
       "2. 给【每一个真实玩家】各写一句 skill「牌桌能力小传」：按能力与性格分开的原则，点出 TA 玩狼人杀时——伪装/悍跳、听发言抓逻辑漏洞、带节奏说服人、被架时嘴硬翻盘——的【真实强弱】（由职业背景推，别被性格带偏）。NPC 的 skill 也给。\n\n" +
       "【真实玩家】\n" + (lines || "（无）") +
       "\n\n【输出】只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"能力小传\"}]}";
-    const raw = await callAI(api, sys, [{ role: "user", content: "生成 " + npcCount + " 个 NPC + 每人能力小传。" }], { maxTokens: 3500 });
+    const raw = await callAI(api, sys, [{ role: "user", content: "生成 " + npcCount + " 个 NPC + 每人能力小传。" }], { maxTokens: 4500 });
     return extractJSON(raw) || {};
   }
 
@@ -515,7 +536,7 @@
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你是法官，替 AI 玩家做今晚的决定。" + need.join("") +
       "\n\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【目前局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：" + JSON.stringify(schema);
-    const raw = await callAI(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 1200 });
+    const raw = await callAI(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 1600 });
     return extractJSON(raw) || {};
   }
 
@@ -527,7 +548,7 @@
     const sys = AC + SKILL_RULE + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人轮流发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证。狼要伪装/悍跳预言家/带偏好人/护队友；预言家可跳身份报验人建信任；平民靠逻辑找狼。**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + easy +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}]}，顺序照上面。";
-    const raw = await callAI(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 3200 });
+    const raw = await callAI(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 6000 });
     const r = extractJSON(raw); return (r && Array.isArray(r.speeches)) ? r.speeches : [];
   }
 
@@ -536,10 +557,10 @@
     const sp = allSpeeches.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通"); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
-    const sys = AC + SKILL_RULE + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼要放逐好人/护队友、别投同伙；好人投真心怀疑的狼。理由别露上帝视角。" + easy +
+    const sys = AC + SKILL_RULE + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼要放逐好人/护队友、别投同伙；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
-      "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"\",\"reason\":\"\"}]}";
-    const raw = await callAI(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 2200 });
+      "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
+    const raw = await callAI(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 4500 });
     const r = extractJSON(raw); return (r && Array.isArray(r.votes)) ? r.votes : [];
   }
 
@@ -595,7 +616,7 @@
           const skillOf = {}; (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           const list = [];
           realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: skillOf[p.name] || "" }); });
-          if (cfg.mode !== "spectate") list.push({ key: "user", name: (props.profile && props.profile.name) || "你", char: null, isUser: true, skill: "" });
+          if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) { const n = npcs[i] || {}; list.push({ key: "npc_" + i, name: n.name || ("玩家" + (i + 1)), char: null, isNpc: true, skill: n.skill || "普通", persona: n.persona || "" }); }
           // 派身份：wolfCount 狼 + 1 预言家 + 其余平民
@@ -699,11 +720,14 @@
         const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "");
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
-          let tp = hit && hit.target && al.find(function (p) { return p.name === hit.target || (hit.target || "").indexOf(p.name) >= 0; });
-          if (!tp) { const others = al.filter(function (p) { return p.name !== v.name; }); tp = others[Math.floor(Math.random() * others.length)]; }
-          return { voter: v.name, target: tp ? tp.name : null, reason: (hit && hit.reason) || "" };
+          const target = hit && hit.target ? String(hit.target) : "";
+          const abstain = !target || /弃票|弃权|不投|放弃|abstain|pass|none|null/i.test(target);
+          // 弃票或对不上名字都算弃票（不再随机硬投）
+          const tp = abstain ? null : al.find(function (p) { return p.name === target || target.indexOf(p.name) >= 0; });
+          return { voter: v.name, target: tp ? tp.name : null, reason: (hit && hit.reason) || (abstain ? "弃票" : "") };
         });
-        if (me && me.alive && userTarget) votes.push({ voter: me.name, target: userTarget, reason: "（你的一票）" });
+        if (me && me.alive && userTarget && userTarget !== "__abstain__") votes.push({ voter: me.name, target: userTarget, reason: "（你的一票）" });
+        else if (me && me.alive && userTarget === "__abstain__") votes.push({ voter: me.name, target: null, reason: "弃票" });
         // 计票
         pushLog([{ type: "sep", text: "—— 投票放逐 ——" }].concat(votes.map(function (v) { return { type: "vote", name: v.voter, target: v.target, reason: v.reason }; })));
         const cnt = {}; votes.forEach(function (v) { if (v.target) cnt[v.target] = (cnt[v.target] || 0) + 1; });
@@ -757,7 +781,7 @@
         if (it.type === "speech") { const p = pByName(it.name); return h("div", { key: i, style: { display: "flex", gap: 8, margin: "8px 0" } }, pAvatar(p, 30),
           h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
             h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text))); }
-        if (it.type === "vote") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + " → 投 " + it.target + (it.reason ? "：" + it.reason : ""));
+        if (it.type === "vote") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         return null;
       }));
 
@@ -797,6 +821,8 @@
       else if (me && me.alive) action = h("div", null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "投票放逐谁？"),
         pickRow(alive.filter(function (p) { return p.name !== me.name; }), userVote, setUserVote),
+        h("div", { style: { display: "flex", justifyContent: "center", marginBottom: 10 } },
+          h("button", { onClick: function () { setUserVote("__abstain__"); }, style: { fontFamily: F_BODY, fontSize: 13, color: userVote === "__abstain__" ? "#fff" : t.sub, background: userVote === "__abstain__" ? t.fog : t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "弃票")),
         h("button", { onClick: function () { if (userVote) runDayVote(userVote); }, disabled: !userVote, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: userVote ? t.ink : t.line, borderRadius: 13, padding: "12px" } }, "投票"));
       else action = h("button", { onClick: function () { runDayVote(null); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "12px" } }, "看他们投票");
     } else if (phase === "result") {
