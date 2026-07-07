@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.68";
+const APP_VERSION = "v46.69";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -218,6 +218,13 @@ function App() {
   const appNotifRef = useRef({ moments: 0, forum: 0, whisper: 0 }); appNotifRef.current = appNotif;
   const [profile, setProfile] = useState({});
   const [worldbook, setWorldbook] = useState("");
+  // 世界书结构化词条（第1步：能录能看能存 + 旧blob迁移；注入仍先按"启用的全局词条拼起来"，关键词/绑角色/适用范围的精细注入是第2步）
+  const [loreEntries, setLoreEntries] = useState([]);
+  const loreRef = useRef(loreEntries); loreRef.current = loreEntries;
+  const saveLore = list => { setLoreEntries(list); loreRef.current = list; saveJSON("x_loreEntries", list); };
+  // 由词条派生出注入用的 worldbook 字符串（第1步：启用的全局词条；第2步再做 per角色/关键词/scope）
+  const deriveWorldbook = list => (list || []).filter(e => e && e.enabled !== false && (!e.charIds || e.charIds.length === 0) && (e.payload || "").trim()).map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n");
+  useEffect(() => { setWorldbook(deriveWorldbook(loreEntries)); }, [loreEntries]);
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [wallpaper, setWallpaper] = useState("");
   const [prefs, setPrefs] = useState({
@@ -394,7 +401,14 @@ function App() {
     setAppNotif(loadJSON("x_appNotif", { moments: 0, forum: 0, whisper: 0 }));
     setProfile(loadJSON("x_profile", {}));
     setHomeCard(loadJSON("x_homeCard", { name: "", sign: "", tags: [] }));
-    setWorldbook(loadJSON("x_worldbook", ""));
+    // 世界书：加载结构化词条；老用户只有整团 blob（x_worldbook）就一次性迁成一条「常驻·全局」词条
+    let _lore = loadJSON("x_loreEntries", null);
+    if (!Array.isArray(_lore)) {
+      const _blob = String(loadJSON("x_worldbook", "") || "").trim();
+      _lore = _blob ? [{ id: "le_mig_" + Date.now(), title: "旧世界书", keyword: "", category: "默认", charIds: [], payload: _blob, regex: false, enabled: true, alwaysOn: true, ensemble: false, priority: 3, scope: { chat: true, subjects: true, debate: true, lifestyle: true, diary: true }, ts: Date.now() }] : [];
+      saveJSON("x_loreEntries", _lore);
+    }
+    setLoreEntries(_lore);
     setTheme({
       ...DEFAULT_THEME,
       ...loadJSON("x_theme", {})
@@ -5749,14 +5763,12 @@ function App() {
     letterGen: gen.coupleLetter,
     coupleSweet: coupleSweet,
     onCheckinSweet: checkinSweet
-  });else if (screen === "lore") body = /*#__PURE__*/React.createElement(Lore, {
-    text: worldbook,
+  });else if (screen === "lore") body = h(WorldBook, {
+    entries: loreEntries,
+    characters: characters,
     onBack: goHome,
-    onSave: v => {
-      setWorldbook(v);
-      saveJSON("x_worldbook", v);
-      setScreen("home");
-    }
+    onSave: e => saveLore([e].concat(loreRef.current.filter(x => x.id !== e.id))),
+    onDelete: id => saveLore(loreRef.current.filter(x => x.id !== id))
   });else if (screen === "study") body = h(StudyApp, {
     active: active,
     characters: characters,

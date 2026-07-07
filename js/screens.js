@@ -787,38 +787,74 @@ function Lifestyle({ characters, schedules, selId, busyKey, onBack, onSel, onGen
           h("div", { className: "flex gap-1.5" }, characters.map((c, i) => h("span", { key: c.id, style: { width: i === idx ? 16 : 5, height: 5, borderRadius: 999, background: "#efe9df", opacity: i === idx ? 0.9 : 0.35, transition: "width .2s" } }))),
           h("button", { onClick: () => go(1), disabled: idx === characters.length - 1, className: "active:opacity-50", style: { opacity: idx === characters.length - 1 ? 0.2 : 0.7, padding: 6, transform: "scaleX(-1)" } }, h(IArrow, { size: 20, color: "#efe9df" }))))));
 }
-function Lore({
-  text,
-  onBack,
-  onSave
-}) {
+// 世界书 · 书架：全局通用 + 各角色个人，词条像书排列，点开编辑（结构化词条：关键词/常驻/绑角色/优先级/适用范围）
+function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
   const t = useTheme();
-  const [v, setV] = useState(text || "");
-  return /*#__PURE__*/React.createElement("div", {
-    className: "h-full flex flex-col"
-  }, /*#__PURE__*/React.createElement(Head, {
-    zh: "世界书",
-    en: "Lore",
-    onBack: onBack,
-    right: /*#__PURE__*/React.createElement("button", {
-      onClick: () => onSave(v),
-      style: {
-        fontFamily: "'Archivo',sans-serif",
-        fontSize: 12,
-        letterSpacing: "0.1em",
-        color: t.ink
-      }
-    }, "SAVE")
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto px-6 pb-8"
-  }, /*#__PURE__*/React.createElement(LineArea, {
-    value: v,
-    onChange: e => setV(e.target.value),
-    placeholder: "世界观、地图、势力关系、时间线……会注入所有对话与推演。",
-    style: {
-      minHeight: 440
-    }
-  })));
+  const [editing, setEditing] = useState(null); // "new" | entry
+  const list = entries || [];
+  const global = list.filter(e => !e.charIds || e.charIds.length === 0);
+  const bookCard = e => h("button", { key: e.id, onClick: () => setEditing(e), className: "w-full text-left active:opacity-85",
+    style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px 14px", opacity: e.enabled === false ? 0.5 : 1 } },
+    h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginBottom: 4, flexWrap: "wrap" } },
+      e.alwaysOn ? h("span", { style: { fontFamily: F_BODY, fontSize: 9, fontWeight: 700, color: "#fff", background: t.accent, borderRadius: 5, padding: "1px 6px" } }, "常驻") : (e.keyword ? h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.sub, border: "1px solid " + t.line, borderRadius: 5, padding: "1px 6px" } }, "🔑 " + String(e.keyword).slice(0, 12)) : null),
+      e.category && e.category !== "默认" ? h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog } }, e.category) : null,
+      e.enabled === false ? h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog } }, "· 已停用") : null),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "无题词条"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, e.payload || "（空）"));
+  const section = (title, arr) => arr.length ? h("div", { key: title, style: { marginBottom: 22 } },
+    h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, title),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, arr.length + " 本")),
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, arr.map(bookCard))) : null;
+  return h("div", { className: "h-full flex flex-col" },
+    h(Head, { zh: "世界书", en: "Lore · " + list.length + " 本", onBack: onBack,
+      right: h("button", { onClick: () => setEditing("new"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) }),
+    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+      list.length === 0 ? h(Empty, { text: "书架还空着", sub: "点右上角 + 新建词条，设定世界观 / 背景 / 规则" }) : null,
+      section("全局通用 · GLOBAL", global),
+      characters.map(c => section((c.remark || c.name) + " · 个人", list.filter(e => (e.charIds || []).includes(c.id))))),
+    editing && h(WorldBookEntrySheet, {
+      entry: editing === "new" ? null : editing, characters: characters, onClose: () => setEditing(null),
+      onSave: data => { onSave(data); setEditing(null); },
+      onDelete: editing === "new" ? null : () => { onDelete(editing.id); setEditing(null); }
+    }));
+}
+function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
+  const t = useTheme();
+  const [f, setF] = useState(() => Object.assign({ title: "", keyword: "", category: "默认", charIds: [], payload: "", regex: false, enabled: true, alwaysOn: false, ensemble: false, priority: 3, scope: { chat: true, subjects: false, debate: false, lifestyle: false, diary: false } }, entry || {}));
+  const set = p => setF(x => Object.assign({}, x, p));
+  const toggleChar = id => setF(x => { const has = (x.charIds || []).includes(id); return Object.assign({}, x, { charIds: has ? x.charIds.filter(i => i !== id) : [...(x.charIds || []), id] }); });
+  const setScope = k => setF(x => Object.assign({}, x, { scope: Object.assign({ chat: true }, x.scope, { [k]: !(x.scope && x.scope[k]) }) }));
+  const save = () => { if (!(f.payload || "").trim()) { return; } onSave(Object.assign({}, f, { id: entry ? entry.id : "le_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now() })); };
+  const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", width: "100%", outline: "none" };
+  const lbl = s => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, fontWeight: 700, color: t.sub, margin: "14px 0 6px", letterSpacing: .3 } }, s);
+  const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "10px 0" } },
+    h("div", { style: { flex: 1, paddingRight: 10 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, label), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.4 } }, sub) : null),
+    h("button", { onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: val ? t.ink : t.line, position: "relative" } }, h("span", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff" } })));
+  const SCOPES = [["chat", "聊天"], ["subjects", "查手机"], ["debate", "辩论"], ["lifestyle", "行程"], ["diary", "日记"]];
+  return h(Sheet, { onClose: onClose, tall: true },
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, entry ? "编辑词条" : "新建词条"),
+      onDelete ? h("button", { onClick: onDelete, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "删除") : null),
+    lbl("词条名称"),
+    h("input", { value: f.title, onChange: e => set({ title: e.target.value }), placeholder: "Title…", style: field }),
+    lbl("触发关键词（留空+常驻=永远注入；填了则聊到才注入）"),
+    h("input", { value: f.keyword, onChange: e => set({ keyword: e.target.value }), placeholder: "多个用逗号隔开", style: field }),
+    lbl("绑定角色（不选＝全局通用，所有角色可见）"),
+    h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, (characters || []).map(c => { const on = (f.charIds || []).includes(c.id); return h("button", { key: c.id, onClick: () => toggleChar(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "5px 12px" } }, c.remark || c.name); })),
+    lbl("注入内容 · PAYLOAD"),
+    h("textarea", { value: f.payload, onChange: e => set({ payload: e.target.value }), rows: 5, placeholder: "这条要注入给模型的设定 / 背景 / 规则…", style: Object.assign({}, field, { resize: "vertical", minHeight: 110, lineHeight: 1.6 }) }),
+    h("div", { style: { height: 8 } }),
+    toggle("启用", "关掉则该词条不参与注入", f.enabled !== false, () => set({ enabled: f.enabled === false })),
+    toggle("常驻模式", "无视关键词，对话时强制注入", !!f.alwaysOn, () => set({ alwaysOn: !f.alwaysOn })),
+    toggle("正则模式", "把关键词当正则表达式匹配", !!f.regex, () => set({ regex: !f.regex })),
+    toggle("群像注入", "让该词条出现在群像剧情选书列表", !!f.ensemble, () => set({ ensemble: !f.ensemble })),
+    h("div", { className: "flex items-center justify-between", style: { padding: "12px 0" } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "注入优先级"),
+      h("div", { className: "flex items-center", style: { gap: 8 } }, [1, 2, 3, 4, 5].map(n => h("button", { key: n, onClick: () => set({ priority: n }), className: "active:opacity-70", style: { width: 30, height: 30, borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, color: (f.priority || 3) === n ? "#fff" : t.sub, background: (f.priority || 3) === n ? t.ink : "transparent", border: "1px solid " + ((f.priority || 3) === n ? t.ink : t.line) } }, n)))),
+    lbl("适用范围（这条参与哪些功能的注入）"),
+    h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, SCOPES.map(([k, label]) => { const on = k === "chat" ? (f.scope ? f.scope.chat !== false : true) : !!(f.scope && f.scope[k]); return h("button", { key: k, onClick: () => setScope(k), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.sub, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "5px 12px" } }, label); })),
+    h("button", { onClick: save, className: "w-full active:opacity-80", style: { marginTop: 20, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"));
 }
 // ============================================================
 // FORUM —— 仿贴吧/推特：底部四 tab（主页/搜索/私信/我）
