@@ -177,11 +177,14 @@
     const [histType, setHistType] = useState("all"); // 历史类型筛选
     const [histExp, setHistExp] = useState({});   // 各类别是否已展开全部
     const lpTimer = useRef(null), lpFired = useRef(false);
+    const [confirmDel, setConfirmDel] = useState(null); // 待确认删除的占卜 id
 
     const persist = list => { setSaves(list); saveSaves(list); };
-    const delSession = id => { if (window.confirm("撕掉这次占卜？")) { persist(loadSaves().filter(s => s.id !== id)); if (view === "s:" + id) setView("home"); } };
+    const doDel = id => { persist(loadSaves().filter(s => s.id !== id)); if (view === "s:" + id) setView("home"); setConfirmDel(null); };
+    const delSession = id => setConfirmDel(id);   // 长按/右键 → 弹风格统一的确认框
     const startLP = id => { lpFired.current = false; lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 550); };
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
+    const confirmNode = confirmDel ? h(ConfirmDialog, { title: "撕掉这次占卜？", body: "删掉后就找不回来了。", confirmLabel: "撕掉", danger: true, onConfirm: () => doDel(confirmDel), onCancel: () => setConfirmDel(null) }) : null;
 
     if (view.indexOf("mode:") === 0) {
       return h(Setup, {
@@ -273,7 +276,8 @@
                 }),
             h("div", { style: { marginTop: 10, textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "长按一条可撕掉"));
         })() : null
-      ));
+      ),
+      confirmNode);
   }
 
   // ============================================================

@@ -196,7 +196,8 @@ function AvatarPicker({
 function Sheet({
   children,
   onClose,
-  tall
+  tall,
+  lift
 }) {
   const t = useTheme();
   return /*#__PURE__*/React.createElement("div", {
@@ -214,7 +215,9 @@ function Sheet({
       borderRadius: "26px 26px 0 0",
       animation: "fadeUp .3s ease both",
       maxHeight: tall ? "88%" : "72%",
-      overflowY: "auto"
+      overflowY: "auto",
+      marginBottom: lift ? lift : 0,
+      transition: "margin-bottom .18s ease"
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-9 h-1 rounded-full mx-auto mb-5",
@@ -222,6 +225,30 @@ function Sheet({
       background: t.line
     }
   }), children));
+}
+// iOS 软键盘弹出时可视视口会缩短，但底部弹层是 absolute 定位（相对 100vh 容器）不会自动上移、被键盘挡住。
+// 这个 hook 返回键盘当前遮住的高度（px），底部弹层拿去做 marginBottom/位移，把自己顶到键盘上方。
+function useKbLift() {
+  const [lift, setLift] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onR = () => { setLift(Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))); };
+    vv.addEventListener("resize", onR); vv.addEventListener("scroll", onR); onR();
+    return () => { vv.removeEventListener("resize", onR); vv.removeEventListener("scroll", onR); };
+  }, []);
+  return lift;
+}
+// 风格统一的确认弹窗（替掉难看的原生 confirm）。danger=true 时确认键用强调色。
+function ConfirmDialog({ title, body, confirmLabel, cancelLabel, danger, onConfirm, onCancel }) {
+  const t = useTheme();
+  return h("div", { className: "absolute inset-0 z-[60] flex items-center justify-center", style: { background: "rgba(20,19,15,0.5)", backdropFilter: "blur(3px)", padding: 24 }, onClick: onCancel },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 300, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginBottom: body ? 8 : 18, textAlign: "center" } }, title),
+      body ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.6, textAlign: "center", marginBottom: 18 } }, body) : null,
+      h("div", { className: "flex gap-3" },
+        h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "transparent" } }, cancelLabel || "取消"),
+        h("button", { onClick: onConfirm, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: danger ? t.accent : t.ink, padding: "12px 0", borderRadius: 12, border: "none" } }, confirmLabel || "确定"))));
 }
 function Toast({
   msg
@@ -3864,9 +3891,16 @@ function MsgEditSheet({ init, onCancel, onSave }) {
   const t = useTheme();
   const [txt, setTxt] = useState(init || "");
   const ref = useRef(null);
+  const lift = useKbLift();
   const grow = () => { const el = ref.current; if (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, Math.round(window.innerHeight * 0.5)) + "px"; } };
-  useEffect(() => { const el = ref.current; if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} grow(); } }, []);
-  return h(Sheet, { onClose: onCancel, tall: true },
+  // 弹层挂载后聚焦拉起键盘；聚焦前先 grow。用两次 rAF 让 Sheet 的进场动画先落定，聚焦更稳（避免 iOS 首次不弹）
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    grow();
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => { el.focus({ preventScroll: true }); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return h(Sheet, { onClose: onCancel, tall: true, lift: lift },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
       h(Eyebrow, null, "编辑消息"),
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "可拖右下角放大")),
