@@ -222,8 +222,9 @@ function App() {
   const [loreEntries, setLoreEntries] = useState([]);
   const loreRef = useRef(loreEntries); loreRef.current = loreEntries;
   const saveLore = list => { setLoreEntries(list); loreRef.current = list; saveJSON("x_loreEntries", list); };
-  // 由词条派生出注入用的 worldbook 字符串（第1步：启用的全局词条；第2步再做 per角色/关键词/scope）
-  const deriveWorldbook = list => (list || []).filter(e => e && e.enabled !== false && (!e.charIds || e.charIds.length === 0) && (e.payload || "").trim()).map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n");
+  // 扁平 baseline：只含「全局 + 启用 + 常驻或无关键词」的词条，给次要功能（群聊/通话/朋友圈/论坛/各App）兜底用；
+  // 主聊天走 ctxFor 里的 loreText 引擎做 per角色/关键词/scope/优先级检索，不用这个。
+  const deriveWorldbook = list => (list || []).filter(e => e && e.enabled !== false && (!e.charIds || e.charIds.length === 0) && (e.payload || "").trim() && (e.alwaysOn || !((e.keyword || "").trim()))).map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n");
   useEffect(() => { setWorldbook(deriveWorldbook(loreEntries)); }, [loreEntries]);
   const [theme, setTheme] = useState(DEFAULT_THEME);
   const [wallpaper, setWallpaper] = useState("");
@@ -720,6 +721,10 @@ function App() {
     if (!cur) return { time: "", title: "还没开始今天的安排", location: "", dev: false };
     return { time: cur._myLabel || cur.time || "", title: cur.title || "", location: cur.location || "", type: cur.type || "other", dev: !!cur.deviation };
   };
+  // 近期对话文本（供世界书关键词命中）
+  const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-8).map(m => m.content).join("\n");
+  // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
+  const loreFor = (char, scope) => loreText(loreRef.current, { charIds: char ? [char.id] : [], scope: scope || "chat", text: char ? recentChatText(char) : "" });
   const ctxFor = char => ({
     char,
     chars: characters,
@@ -733,7 +738,8 @@ function App() {
       if (cp.status === "pending") return "pending";
       return "";
     })(),
-    worldbook,
+    // 世界书：按当前角色 + 近期对话做关键词/绑定/范围/优先级检索式注入（第2步引擎），不再是一整团
+    worldbook: loreFor(char, "chat"),
     profile,
     affinity: Math.round(affOf(char.id)),
     moodLabel: (moods[char.id] || {}).label || null,
@@ -1756,8 +1762,10 @@ function App() {
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条都要是贴合当下、和这个成员上一条心声不一样的新念头，别重复、别原地打转、别套话**；没什么内心活动的成员可省略。另可加 \"mood\"（此刻心情词，如「愉快」「烦躁」）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻心情词\",\"affinityDelta\":\"（可选）整数-5到5\"" : "";
+      // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
+      const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist });
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
-      const system = ANTI_CLICHE + "\n\n" + NARRATIVE_ANTI_CLICHE + (worldbook && worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gEmoteHint + thoughtHint + "\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (worldbook ? "\n\n【世界书】\n" + worldbook : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须是成员之一。";
+      const system = ANTI_CLICHE + "\n\n" + NARRATIVE_ANTI_CLICHE + (gWorld && gWorld.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gEmoteHint + thoughtHint + "\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须是成员之一。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -2374,7 +2382,7 @@ function App() {
       const murmurSchema = retro
         ? ",\"murmurs\":[{\"time\":\"11:20\",\"text\":\"碎碎念一句\"}]"
         : (needY ? ",\"yesterdayMurmurs\":[{\"time\":\"11:20\",\"text\":\"昨天的碎碎念\"}]" : "");
-      const d = await runProbe(bgActive, ctxFor(char), {
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: "推演「" + char.name + "」一天的行程时间线。" + when + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule,
         schemaHint: "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"title\":\"洗漱后睡了\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}",
         maxTokens: 4000
@@ -2423,7 +2431,7 @@ function App() {
     }));
     setSelPhone(char.id);
     try {
-      const d = await runProbe(bgActive, ctxFor(char), {
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, {
         instruction: "推演此刻「" + char.name + "」手机屏幕的真实状态，依据当下对话与心境，分模块。通知可带 detail 字段供点开细看。",
         schemaHint: "{\"notifications\":[{\"from\":\"来源\",\"preview\":\"摘要\",\"time\":\"14:20\",\"detail\":\"点开后的完整内容(可选)\"}],\"searches\":[\"搜索1\"],\"apps\":[{\"name\":\"应用\",\"detail\":\"在做什么\"}],\"wallpaper\":\"锁屏壁纸一句话\"}"
       });
@@ -2500,7 +2508,7 @@ function App() {
     setDiaryBusy(b => ({ ...b, [charId]: true }));
     try {
       const mood = moods[charId];
-      const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null };
+      const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null, worldbook: loreFor(char, "diary") };
       const dateStr = new Date(targetTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
       const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char, targetKey), dateStr: dateStr });
       const entry = {
@@ -3097,7 +3105,8 @@ function App() {
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + m.content }));
         const memberDesc = people.map(c => "【" + c.name + "】" + (c.persona || "").slice(0, 160)).join("\n\n");
         const relLines = people.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
-        const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (worldbook ? "\n\n【世界书】\n" + worldbook : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+        const cWorld = loreText(loreRef.current, { charIds: people.map(c => c.id), scope: "chat", text: hist.map(m => m.content).join("\n") });
+        const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys, hist, { maxTokens: 2400 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -3248,7 +3257,7 @@ function App() {
       phoneApp: key
     }));
     try {
-      const d = await runProbe(bgActive, ctxFor(char), phoneProbeSpec(key, char, relatedNames(char)));
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char)));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -3276,7 +3285,7 @@ function App() {
     let ok = 0;
     for (const key of keys) {
       try {
-        const d = await runProbe(bgActive, ctxFor(char), phoneProbeSpec(key, char, relatedNames(char)));
+        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char)));
         savePhoneApp(char.id, key, d);
         ok++;
       } catch (e) {/* 单个失败不中断其余 */}
@@ -5788,7 +5797,7 @@ function App() {
     active: active,
     characters: characters,
     profile: profile,
-    worldbook: worldbook,
+    worldbook: loreText(loreEntries, { scope: "debate" }),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "dream") body = h(Dream, {
