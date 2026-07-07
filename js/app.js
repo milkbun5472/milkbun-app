@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.41";
+const APP_VERSION = "v46.42";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2898,10 +2898,11 @@ function App() {
   useEffect(() => {
     callRef.current = call;
   }, [call]);
-  const startCall = (participants, mode, groupId) => {
+  const startCall = (participants, mode, groupId, caller) => {
     const people = (participants || []).filter(Boolean);
     if (!people.length) return;
-    setCall({ participants: people, mode: mode || "voice", groupId: groupId || null, msgs: [], startTs: Date.now() });
+    // caller="me"（用户拨的）或某 charId（该角色主动打来、用户接听）——用于在通话里告诉角色是谁打的，别搞反
+    setCall({ participants: people, mode: mode || "voice", groupId: groupId || null, caller: caller || "me", msgs: [], startTs: Date.now() });
   };
   const callSend = async text => {
     const cur = callRef.current;
@@ -2931,11 +2932,15 @@ function App() {
         return arr;
       };
       const pushMsg = line => setCall(c => c ? { ...c, msgs: [...c.msgs, line] } : c);
+      const uName = profile.name || "用户";
+      const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
+      const callerName = callerIsChar ? ((people.find(p => p.id === cur.caller) || {}).name || "") : "";
       if (people.length <= 1) {
         // 1:1：口语化对话，可一次多说几句把话说完；视频另给动作/神态
         const char = people[0];
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
-        const sys = buildBundle(ctxFor(char)) + "\n\n【当前场景：" + modeZh + "中】你正和" + (profile.name || "用户") + "打电话。用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + "}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
+        const whoCalled = callerIsChar ? "【谁打的这通电话】是【你】主动拨给 " + uName + " 的、Ta 接起来了——是你想找 Ta，别搞反成 Ta 打给你、更别问 Ta『不是你打给我的吗』。" : "【谁打的这通电话】是 " + uName + " 打给你的、你接了。";
+        const sys = buildBundle(ctxFor(char)) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + "}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
         const raw = await callAI(active, sys, hist, { maxTokens: 2400 });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
@@ -2951,7 +2956,7 @@ function App() {
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + m.content }));
         const memberDesc = people.map(c => "【" + c.name + "】" + (c.persona || "").slice(0, 160)).join("\n\n");
         const relLines = people.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
-        const sys = "这是一个多人" + modeZh + "，用户" + (profile.name || "用户") + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (worldbook ? "\n\n【世界书】\n" + worldbook : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+        const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (worldbook ? "\n\n【世界书】\n" + worldbook : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys, hist, { maxTokens: 2400 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -5294,8 +5299,8 @@ function App() {
     onOpenSettings: () => setChatSettingsOpen(true),
     toast: toast,
     onSendRich: msg => pChat(activeChar.id, p => [...p, msg]),
-    onStartCall: m => startCall([activeChar], m, null),
-    onAcceptCall: m => { pChat(activeChar.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); startCall([activeChar], m.mode, null); },
+    onStartCall: m => startCall([activeChar], m, null, "me"),
+    onAcceptCall: m => { pChat(activeChar.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); startCall([activeChar], m.mode, null, activeChar.id); },
     onDeclineCall: m => { pChat(activeChar.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了 TA 的" + (m.mode === "video" ? "视频" : "语音") + "通话邀请", ts: Date.now() }]); },
     onAcceptListen: acceptListenInvite,
     emotes: emotesForCharMine(activeChar.id),
@@ -5364,9 +5369,9 @@ function App() {
     onStartCall: (mode, memberIds) => {
       const ids = Array.isArray(memberIds) ? memberIds : [memberIds];
       const people = ids.map(id => characters.find(c => c.id === id)).filter(Boolean);
-      startCall(people, mode, activeGroup.id);
+      startCall(people, mode, activeGroup.id, "me");
     },
-    onAcceptCall: m => { pGChat(activeGroup.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); const inv = characters.find(c => c.id === m.senderId); startCall(inv ? [inv] : groupMembers(activeGroup), m.mode, activeGroup.id); },
+    onAcceptCall: m => { pGChat(activeGroup.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); const inv = characters.find(c => c.id === m.senderId); startCall(inv ? [inv] : groupMembers(activeGroup), m.mode, activeGroup.id, m.senderId || "me"); },
     onDeclineCall: m => { pGChat(activeGroup.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了" + (m.senderName || "TA") + "的通话邀请", ts: Date.now() }]); },
     onSendTransfer: (memberId, amount, note) => sendGroupTransfer(activeGroup.id, memberId, amount, note),
     onRespondTransfer: (tid, accept) => respondGroupTransfer(activeGroup.id, tid, accept),

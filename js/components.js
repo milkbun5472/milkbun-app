@@ -3855,6 +3855,8 @@ function menuItemsForKind(m) {
   const k = m && m.kind;
   const textLike = !k || k === "photo" || k === "location";
   if (textLike) return full;
+  // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除
+  if (k === "voice") return [["copy", "复制", "Copy"], ["fav", "收藏", "Save"], ["quote", "引用", "Quote"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"]];
   return [["fav", "收藏", "Save"], ["multi", "多选", "Select"], ["recall", "撤回", "Recall"]];
 }
 function MsgMenu({
