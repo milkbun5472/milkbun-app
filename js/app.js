@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.72";
+const APP_VERSION = "v46.73";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -5859,6 +5859,17 @@ function App() {
     profile: profile,
     worldbook: worldbook,
     moods: moods,
+    toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "games") body = h(Games, {
+    active: active,
+    bgActive: bgActive,
+    characters: characters,
+    profile: profile,
+    worldbook: worldbook,
+    moods: moods,
+    // 注入最近聊天抓人设用（只读，不写回记忆）
+    recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content).slice(-16).map(m => (m.role === "user" ? (profile.name || "用户") : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {

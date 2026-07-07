@@ -291,4 +291,6 @@ const GTarot = p => h(Svg, p, h("rect", { x: 4, y: 6, width: 9, height: 13, rx: 
 const GLedger = p => h(Svg, p, h("rect", { x: 4, y: 3, width: 12, height: 18, rx: 2 }), h("path", { d: "M7 7h6M7 11h6M7 15h3" }), h("circle", { cx: 17, cy: 16, r: 4 }), h("path", { d: "M17 14.4v3.2M15.7 15.2h2.2" }));
 // 番茄钟：计时器（表身 + 顶钮 + 指针）
 const GFocus = p => h(Svg, p, h("circle", { cx: 12, cy: 14, r: 7.5 }), h("path", { d: "M12 14V9.5" }), h("path", { d: "M12 3.5v2.4M9.6 4.2h4.8" }), h("path", { d: "M17.8 7.6l1.3-1.3" }));
+// 小游戏：游戏手柄（机身 + 十字键 + 两个圆钮）
+const GGame = p => h(Svg, p, h("rect", { x: 3, y: 8, width: 18, height: 9, rx: 4.5 }), h("path", { d: "M7.5 10.8v3.4M5.8 12.5h3.4" }), h("circle", { cx: 16, cy: 11.8, r: 1 }), h("circle", { cx: 18, cy: 14, r: 1 }));
 
