@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.65";
+const APP_VERSION = "v46.66";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -3226,7 +3226,7 @@ function App() {
       phoneApp: key
     }));
     try {
-      const d = await runProbe(active, ctxFor(char), phoneProbeSpec(key, char, relatedNames(char)));
+      const d = await runProbe(bgActive, ctxFor(char), phoneProbeSpec(key, char, relatedNames(char)));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -3254,7 +3254,7 @@ function App() {
     let ok = 0;
     for (const key of keys) {
       try {
-        const d = await runProbe(active, ctxFor(char), phoneProbeSpec(key, char, relatedNames(char)));
+        const d = await runProbe(bgActive, ctxFor(char), phoneProbeSpec(key, char, relatedNames(char)));
         savePhoneApp(char.id, key, d);
         ok++;
       } catch (e) {/* 单个失败不中断其余 */}
