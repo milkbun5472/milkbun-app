@@ -806,7 +806,7 @@ function Home({
     lore: { kind: "app", zh: "世界书", G: GLore },
     memlib: { kind: "app", zh: "记忆库", G: GMem },
     diary: { kind: "app", zh: "日记", G: GDiary },
-    ledger: { kind: "app", zh: "记账", G: GSoon, soon: true },
+    ledger: { kind: "app", zh: "记账", G: GLedger },
     study: { kind: "app", zh: "一起学", G: GStudy },
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },

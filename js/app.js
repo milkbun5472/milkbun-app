@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.43";
+const APP_VERSION = "v46.44";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -727,6 +727,7 @@ function App() {
       else phase = "处于相对安全期";
       return "用户此刻的生理期状态：" + phase + "。（这是用户允许你看到的私密信息。可依你的人设与关系自然地关心、提醒注意事项，或选择不提；别生硬报数据、别越界。）";
     })(),
+    financeNote: (typeof ledgerNoteFor === "function" ? ledgerNoteFor(char.id) : ""),
     listenLog: (() => {
       const L = listenRef.current || {};
       const uName = profile && profile.name ? profile.name : "对方";
@@ -5596,6 +5597,15 @@ function App() {
     moods: moods,
     toast: toast,
     onForwardToChat: forwardTarotToChat,
+    onBack: () => setScreen("home")
+  });else if (screen === "ledger") body = h(Ledger, {
+    active: active,
+    characters: characters,
+    profile: profile,
+    worldbook: worldbook,
+    moods: moods,
+    affinities: affinities,
+    toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {
     active: active,
