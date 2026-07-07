@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.63";
+const APP_VERSION = "v46.64";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2432,7 +2432,7 @@ function App() {
     }));
     setSelPhone(char.id);
     try {
-      const d = await runProbe(active, ctxFor(char), {
+      const d = await runProbe(bgActive, ctxFor(char), {
         instruction: "推演此刻「" + char.name + "」随身携带的物品（4-7 件），反映身份、习惯与心境，可有透露心事的小物。物品可带 detail 供点开细看。",
         schemaHint: "{\"items\":[{\"name\":\"物品\",\"note\":\"简述\",\"detail\":\"点开后的细节(可选)\"}]}"
       });
@@ -4119,7 +4119,7 @@ function App() {
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleNote: true }));
     try {
-      const d = await runProbe(active, ctxFor(char), {
+      const d = await runProbe(bgActive, ctxFor(char), {
         instruction: "你们是恋人，在只属于你俩的私密便签墙上一来一回写悄悄话。顺着下面的对话，以「" + char.name + "」身份回**最新一句**，短、贴人设、有温度，别超过 30 字，别喊口号、别复述。\n【便签对话】\n" + (threadText || ""),
         schemaHint: "{\"note\":\"你的回复\"}"
       });
@@ -4201,7 +4201,7 @@ function App() {
         "\n\n今天用户在 TA 各位恋人的「心情打卡」里都选了心情「" + moodLabelOf(myMood) + "」。请【为下面每一位恋人】各自今天选一个心情、并各留一句【≤20 字】的话——各贴各自人设与此刻状态，可自然呼应用户的心情，别喊口号、别几位写成一个腔调。心情只能从这些英文 key 里挑一个：" + validKeys.join("、") +
         "\n\n【恋人们（按此顺序，各写各的）】\n" + roster +
         "\n\n【输出】只输出 JSON：{\"moods\":[{\"name\":\"恋人名\",\"mood\":\"英文key\",\"text\":\"一句≤20字的话\"}]}，每位恋人一条，顺序同上。";
-      const raw = await callAI(active, sys, [{ role: "user", content: "各自选今天的心情，写满每一位。" }], { maxTokens: Math.min(8000, 2000 + partners.length * 700) });
+      const raw = await callAI(bgActive, sys, [{ role: "user", content: "各自选今天的心情，写满每一位。" }], { maxTokens: Math.min(8000, 2000 + partners.length * 700) });
       const parsed = extractJSON(raw) || {};
       const arr = Array.isArray(parsed.moods) ? parsed.moods : [];
       const byName = {};
@@ -4785,7 +4785,7 @@ function App() {
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleNote: true }));
     try {
-      const d = await runProbe(active, ctxFor(char), {
+      const d = await runProbe(bgActive, ctxFor(char), {
         instruction: "你们是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张小纸条给用户——一句恋爱向、藏着心意、想对 TA 说却没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 TA 悄悄收到的情话/在乎），贴合人设与此刻心情，别喊口号，别超过 25 字。",
         schemaHint: "{\"note\":\"给 TA 的悄悄情话\"}"
       });
@@ -4871,7 +4871,7 @@ function App() {
     try {
       const label = (typeof SHOP_CATS !== "undefined" ? SHOP_CATS.find(c => c.key === cat) : null);
       const topic = keyword && keyword.trim() ? "用户搜索关键词「" + keyword.trim() + "」" : "「" + (label ? label.zh : cat) + "」分类";
-      const d = await runProbe(active, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
+      const d = await runProbe(bgActive, { char: { id: "__shop", name: "购物", persona: "" }, chars: characters, rels, profile, timeAware: false }, {
         instruction: "你是一个综合购物 App 的推荐引擎（类似淘宝）。围绕" + topic + "，**务必推荐正好 6 件商品（items 数组必须有 6 个元素，缺一不可）**。每件：name(有画面感的具体商品名) / price(纯数字人民币，符合该品类的合理价位，有高有低) / desc(一句卖点或描述) / sales(销量文案，如「2万+人付款」「8000+人付款」)。要贴合该分类，别跑题。",
         schemaHint: "{\"items\":[{\"name\":\"川味经典红油抄手\",\"price\":38,\"desc\":\"地道成都风味\",\"sales\":\"2万+人付款\"}]}",
         maxTokens: 3500
@@ -5218,7 +5218,7 @@ function App() {
     setSelCarry(char.id);
     setGen(g => ({ ...g, carrySec: key }));
     try {
-      const d = await runProbe(active, ctxFor(char), carryProbeSpec(key, char));
+      const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char));
       saveCarrySection(char.id, key, d);
       return true;
     } catch (e) {
@@ -5255,7 +5255,7 @@ function App() {
     const keys = CARRY_SECTIONS.filter(s => !s.gifts).map(s => s.key);
     for (const key of keys) {
       try {
-        const d = await runProbe(active, ctxFor(char), carryProbeSpec(key, char));
+        const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char));
         saveCarrySection(char.id, key, d);
       } catch (e) {/* skip */}
     }
