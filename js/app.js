@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.47";
+const APP_VERSION = "v46.48";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -311,7 +311,14 @@ function App() {
     setMemories(loadJSON("x_memories", {}));
     setMemLib(loadJSON("x_memLib", []));
     setChatSettings(loadJSON("x_chatSettings", {}));
-    setForumPosts(loadJSON("x_forumPosts", []));
+    // 迁移：早期角色自动发帖存的是「吐槽/日常/求助」短名，不在 FORUM_BOARDS，会导致版块/关注页筛不到 → 补成正式吧名
+    (() => {
+      const bmap = { "吐槽": "吐槽吧", "日常": "日常吧", "求助": "求助吧", "匿名": "匿名吧" };
+      const fp = loadJSON("x_forumPosts", []); let fixed = false;
+      fp.forEach(p => { if (p && bmap[p.board]) { p.board = bmap[p.board]; fixed = true; } });
+      if (fixed) saveJSON("x_forumPosts", fp);
+      setForumPosts(fp);
+    })();
     setForumComments(loadJSON("x_forumComments", {}));
     setForumFollows(loadJSON("x_forumFollows", []));
     setForumPMs(loadJSON("x_forumPMs", []));
@@ -2497,7 +2504,9 @@ function App() {
         instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助 三选一）。内容写你**最近（上次发帖之后）真实发生或萦绕心头的事**——今天行程里的事、最近和用户聊到/经历的、心情起伏都行；实在没有值得说的，就按你的人设编一件贴合的小事。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你和用户最近的往来（可当素材，别照抄原话）】\n" + sinceChat : ""),
         schemaHint: "{\"board\":\"吐槽/日常/求助 之一\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
-      const board = ["吐槽", "日常", "求助"].indexOf(d && d.board) >= 0 ? d.board : "日常";
+      // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
+      const bmap = { "吐槽": "吐槽吧", "日常": "日常吧", "求助": "求助吧" };
+      const board = bmap[String((d && d.board) || "").replace(/吧$/, "")] || "日常吧";
       if (d && d.title) { postCharToForum(char, board, { title: String(d.title), body: String(d.body || "") }, "auto"); notifyApp("forum"); toast(char.name + " 在论坛发了帖"); }
     } catch (e) {}
   };
@@ -3382,7 +3391,14 @@ function App() {
     finally { setGen(g => ({ ...g, forum: null })); }
   };
   // 一条原始评论 → 楼层对象（回复者随机 NPC 或某个符合人设的角色，x.char=角色名则归到该角色）
-  const buildForumFloor = (x, floorNo, base, idx) => {
+  // post 传入时用于识别「楼主」：楼主不另开楼自问自答（顶楼命中→丢弃），楼主的追评正确署名+标记 isOp
+  const buildForumFloor = (x, floorNo, base, idx, post) => {
+    const opChar = post && post.authorType === "character" && !post.anon ? (characters || []).find(c => c.id === post.authorId) : null;
+    const opName = opChar ? opChar.name : (post ? (post.authorName || "") : "");
+    const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz"; };
+    const isOpOf = obj => obj.is_op === true || (opName && obj.char === opName) || looksOp(obj.char) || looksOp(obj.authorName);
+    // 顶楼若是楼主本人（自问自答）→ 丢弃，让别的楼补位
+    if (isOpOf(x)) return null;
     const cc = (characters || []).find(c => c.name === x.char);
     const meta = cc ? charForumMeta(cc) : null;
     return {
@@ -3393,6 +3409,11 @@ function App() {
       authorHandle: cc ? meta.handle : (x.handle || x.authorName || "user"),
       floor: floorNo, content: x.content, ts: base + idx, likeCount: forumHash((x.content || "") + idx) % 300,
       replies: (Array.isArray(x.replies) ? x.replies : []).filter(r => r && r.content).map(r => {
+        if (isOpOf(r)) {
+          // 楼主本人回某条评论：正确署名（角色→真名，否则楼主网名），并打上「楼主」小标
+          if (opChar) return { authorName: opChar.name, authorHandle: charForumMeta(opChar).handle, authorType: "character", authorId: opChar.id, content: r.content, isOp: true };
+          return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: r.content, isOp: true };
+        }
         const rc = (characters || []).find(c => c.name === r.char);
         return { authorName: rc ? rc.name : (r.authorName || "匿名网友"), authorHandle: rc ? charForumMeta(rc).handle : (r.handle || r.authorName || "user"), authorType: rc ? "character" : "npc", authorId: rc ? rc.id : null, content: r.content };
       })
@@ -3400,12 +3421,21 @@ function App() {
   };
   const forumCommentProbe = (post, n) => {
     const isSearch = /^搜索/.test(post.triggerSource || "");
+    const opChar = post.authorType === "character" && !post.anon ? (characters || []).find(c => c.id === post.authorId) : null;
+    const opName = opChar ? opChar.name : (post.authorType === "me" ? (forumMe.handle || profile.name || "我") : (post.authorName || "楼主"));
+    // 逛论坛的角色池要排除楼主本人——楼主不会在自己帖下冒泡回复自己
+    const poolChars = forumActiveChars().filter(c => !opChar || c.id !== opChar.id);
+    const poolStr = poolChars.map(c => "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "）").join("；");
+    // 楼主规则：别自问自答、别把谁的名字写成「楼主」
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。"
+      + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
+      + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**";
     const who = isSearch
       ? "**楼里全是路人网友**（每条给 authorName 网名马甲 + handle 有趣 id），**不要出现你认识的任何角色**——这是搜来的陌生话题吧，角色未必关心、也不该全知全能地冒出来。"
-      : "**大多数楼是路人网友**（给 authorName 网名马甲 + handle 有趣 id）；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠，符合人设与心情；**若没有角色会真正关心这个话题，就全用路人、别硬塞角色**（角色不是全知的，不该出现在 Ta 不关心的话题里）：" + (forumCharList() || "（暂无角色）") + "。若某楼是某角色发的，就在该楼填 char=角色名（不要再填 authorName）。";
+      : "**大多数楼是路人网友**（给 authorName 网名马甲 + handle 有趣 id）；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠，符合人设与心情；**若没有角色会真正关心这个话题，就全用路人、别硬塞角色**（角色不是全知的，不该出现在 Ta 不关心的话题里）：" + (poolStr || "（暂无其他角色）") + "。若某楼是某角色发的，就在该楼填 char=角色名（不要再填 authorName）。";
     return {
-      instruction: forumBoardVoice(post.board) + " 有个网友发了帖：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是路人" : "，同样可以是路人或角色 char") + "），大多数楼 replies 留空。",
-      schemaHint: "{\"comments\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（若是角色发的填角色名，否则省略）\",\"content\":\"回复\",\"replies\":[{\"authorName\":\"网名\",\"content\":\"追评\"}]}]}",
+      instruction: forumBoardVoice(post.board) + " " + opRule + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是路人" : "，可以是路人或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
+      schemaHint: "{\"comments\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（若是某角色发的填角色名，否则省略）\",\"content\":\"回复\",\"replies\":[{\"authorName\":\"网名\",\"char\":\"（角色名或省略）\",\"is_op\":false,\"content\":\"追评\"}]}]}",
       maxTokens: 5200
     };
   };
@@ -3419,7 +3449,7 @@ function App() {
       let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
       if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
       const base = Date.now();
-      const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i));
+      const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({ ...f, floor: i + 2 }));
       setForumComments(prev => { const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n; });
     } catch (e) { toast("加载评论失败：" + e.message); }
     finally { setGen(g => ({ ...g, forumC: null })); }
@@ -3434,7 +3464,8 @@ function App() {
       if (!cs.length) throw new Error("没有更多");
       const base = Date.now();
       const start = (forumCommentsRef.current[post.id] || []).length + 2;
-      const more = cs.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i));
+      const more = cs.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean).map((f, i) => ({ ...f, floor: start + i }));
+      if (!more.length) throw new Error("没有更多");
       setForumComments(prev => { const n = { ...prev, [post.id]: [...(prev[post.id] || []), ...more] }; saveJSON("x_forumComments", n); return n; });
       bumpReplyBy(post.id, more.length);
     } catch (e) { toast(e.message); }
@@ -3698,8 +3729,9 @@ function App() {
       });
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.content);
       if (!items.length) return;
+      const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz"; };
       const reps = items.map(x => {
-        if (x.is_op) {
+        if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
           if (oc) return { authorName: oc.name, authorHandle: charForumMeta(oc).handle, authorType: "character", authorId: oc.id, content: x.content, isOp: true };
           return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: post.authorType === "me" ? "me" : "npc", authorId: post.authorType === "me" ? "me" : null, content: x.content, isOp: true };
         }
