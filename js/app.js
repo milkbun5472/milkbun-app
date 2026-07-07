@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.52";
+const APP_VERSION = "v46.53";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -825,6 +825,7 @@ function App() {
     startLane("c:" + charId);
     try {
       const oCtx = ctxFor(char);
+      oCtx.curWear = (states[charId] && states[charId].wearing) || ""; // 着装连贯：把当前穿着喂回去
       const oMemN = osFor(charId).memN;
       if (oMemN != null) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
       const res = await generateOffline(active, oCtx, { ...workSess, narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords });
@@ -838,6 +839,12 @@ function App() {
       // 线下相处也影响好感与心情（跟私聊一样）
       if (typeof res.affinityDelta === "number") bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
       if (res.mood && res.mood.label) setMoodFor(charId, { ...res.mood, ts: Date.now() });
+      // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
+      const ost = {};
+      if (res.wearing) ost.wearing = res.wearing;
+      if (res.action) ost.action = res.action;
+      if (res.thought) ost.thought = res.thought;
+      if (Object.keys(ost).length) { const ns = { ...(states[charId] || {}), ...ost, mood: res.mood && res.mood.label ? res.mood.label : (states[charId] || {}).mood, ts: Date.now() }; setStateFor(charId, ns); pushStateHist(charId, ns); }
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
@@ -1301,6 +1308,13 @@ function App() {
       let parsed = extractJSON(raw);
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
+      // 状态卡就【冻住不变】（动作一直不改、衣服换场景也不换）。逐个从 raw 里正则抠回来，别只救气泡。
+      const salvageStr = key => { const m = String(raw || "").match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')); if (m) { try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return m[1]; } } return null; };
+      if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
+      if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
+      if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
+      if (!parsed.mood || !parsed.mood.label) { const v = salvageStr("label"); if (v) parsed.mood = { ...(parsed.mood || {}), label: v }; }
       // mark user msg read
       pChat(charId, p => p.map(m => m.role === "user" ? {
         ...m,

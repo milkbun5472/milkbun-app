@@ -462,14 +462,18 @@ async function generateOffline(p, ctx, session) {
     narrativeDirective(session.narr) +
     (session.minWords ? "\n【篇幅要求】scene 正文至少写约 " + session.minWords + " 字，充分展开描写，别写得太短。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻心情词\"},\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)}";
+    (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻心情词\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)}";
   const hist = offlineHistory(session.msgs, userName, char.name);
   const raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1400 });
   const parsed = extractJSON(raw) || { scene: raw };
+  const cln = v => v && String(v).toLowerCase() !== "null" ? String(v).trim() : null;
   return {
     scene: String(parsed.scene || raw || "").trim(),
-    thought: parsed.thought && String(parsed.thought).toLowerCase() !== "null" ? String(parsed.thought).trim() : null,
+    thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
+    wearing: cln(parsed.wearing),
+    action: cln(parsed.action),
     affinityDelta: typeof parsed.affinityDelta === "number" ? parsed.affinityDelta : 0
   };
 }
