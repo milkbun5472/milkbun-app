@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.67";
+const APP_VERSION = "v46.68";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -711,6 +711,14 @@ function App() {
     chars: characters,
     schedNow: schedNowFor(char),
     rels,
+    // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
+    coupleStatus: (() => {
+      const cp = couples[char.id];
+      if (!cp) return "";
+      if (cp.status === "together") { const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null; return "together" + (days ? "|" + days : ""); }
+      if (cp.status === "pending") return "pending";
+      return "";
+    })(),
     worldbook,
     profile,
     affinity: Math.round(affOf(char.id)),
