@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.51";
+const APP_VERSION = "v46.52";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -3302,9 +3302,11 @@ function App() {
         role: "user",
         content: "开始"
       }], {
-        maxTokens: 900
+        // 900 太小：多个好友各评论+互相回复时 JSON 会被截断，导致最后的评论/回复缺半截。放宽 + 坏 JSON 修复兜底
+        maxTokens: 3000
       });
-      const d = extractJSON(raw);
+      let d = extractJSON(raw);
+      if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (d) {
         const likers = (d.reactions || []).filter(r => r.liked).map(r => r.name);
         const comments = [];
