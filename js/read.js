@@ -267,7 +267,7 @@
       const bk = books.find(function (b) { return b.id === openId; });
       if (!bk) { setOpenId(null); return null; }
       return h(Reader, {
-        book: bk, characters: props.characters, profile: props.profile, worldbook: props.worldbook, active: props.active, toast: props.toast,
+        book: bk, characters: props.characters, profile: props.profile, worldbook: props.worldbook, active: props.active, bgActive: props.bgActive || props.active, toast: props.toast,
         onBack: function () { setOpenId(null); },
         onPatch: function (patch) { patchBook(bk.id, patch); },
         onAddMemory: props.onAddMemory
@@ -331,6 +331,7 @@
     const scrollRef = useRef(null);
 
     const partner = props.characters.find(function (c) { return c.id === book.partnerId; });
+    const bg = props.bgActive || props.active; // 批注/讲解/总结走便宜后台池；讨论仍用主 active
     const chOf = function (id) { return props.characters.find(function (c) { return c.id === id; }); };
     const explainOn = book.showExplains !== false; // 逐段讲解卡片是否显示（默认开）
     const explainAt = function (pg, i) { return (book.explains || {})[pg + "_" + i] || null; };
@@ -365,7 +366,7 @@
       if (!curParas.length) { props.toast && props.toast("这一页没有正文"); return; }
       setBusy(true);
       try {
-        const res = await genExplains(props.active, partner, props.profile, props.worldbook, curParas, book.synopsis || "");
+        const res = await genExplains(bg, partner, props.profile, props.worldbook, curParas, book.synopsis || "");
         if (!res.explains.length) { props.toast && props.toast("Ta 没讲出来，换一页再试"); return; }
         const now = Date.now();
         props.onPatch(function (b) {
@@ -386,7 +387,7 @@
       if (!partner) { setPickOpen(true); return; }
       setBusy(true);
       try {
-        const txt = await genExplainSnippet(props.active, partner, props.profile, props.worldbook, curParas[i], curParas[i], book.synopsis || "");
+        const txt = await genExplainSnippet(bg, partner, props.profile, props.worldbook, curParas[i], curParas[i], book.synopsis || "");
         if (txt) props.onPatch(function (b) { const ex = Object.assign({}, b.explains || {}); ex[pageIdx + "_" + i] = { text: txt, charId: partner.id, charName: partner.name, ts: Date.now() }; return { explains: ex, showExplains: true, lastReadTs: Date.now() }; });
         else props.toast && props.toast("Ta 没讲出来，再试试");
       } catch (e) { props.toast && props.toast("讲解失败：" + (e.message || "重试")); }
@@ -410,7 +411,7 @@
       try { window.getSelection && window.getSelection().removeAllRanges(); } catch (e) {}
       setSelResult({ q: q, a: "", busy: true });
       try {
-        const a = await genExplainSnippet(props.active, partner, props.profile, props.worldbook, q, curParas.join("\n"), book.synopsis || "");
+        const a = await genExplainSnippet(bg, partner, props.profile, props.worldbook, q, curParas.join("\n"), book.synopsis || "");
         setSelResult({ q: q, a: a || "（没讲出来，再试试）", busy: false });
       } catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
     };
@@ -437,7 +438,7 @@
         let notes = [];
         for (let round = 0; round < 3 && notes.length < want; round++) {
           const need = want - notes.length;
-          const got = await genAnnotations(props.active, partner, props.profile, props.worldbook, texts, need, priorNotes.concat(notes));
+          const got = await genAnnotations(bg, partner, props.profile, props.worldbook, texts, need, priorNotes.concat(notes));
           if (!got.length) break; // 这轮一条都没补出来，别再空转
           notes = notes.concat(got);
         }
@@ -474,7 +475,7 @@
       if (!props.active || !partner) { setChatOpen(false); setChat([]); return; }
       setEnding(true);
       try {
-        const summary = await summarizeSession(props.active, partner, props.profile, book, (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), chat);
+        const summary = await summarizeSession(bg, partner, props.profile, book, (book.annotations || []).filter(function (a) { return a.charId === partner.id; }), chat);
         if (summary) {
           props.onAddMemory && props.onAddMemory(summary, partner.id);
           props.toast && props.toast("已记入记忆库");
