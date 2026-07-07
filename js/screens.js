@@ -568,15 +568,16 @@ function schedCurrentSeqIdx(seqs, isToday) {
   if (!isToday) return -1;
   const now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
   let idx = -1, prev = -1;
-  // 单调化时间：某段时间早于上一段=跨过午夜（凌晨），+24h 保持递增，
-  // 否则末尾的「00:00 睡觉」会被算成 tm=0 抢走 curIdx，把真正在进行的时段错误地灰掉。
+  // 单调化时间：**只有真正跨过午夜**（深夜→凌晨、回退超过 12h）才 +24h，保证末尾的「00:20 睡觉」排在最后。
+  // 关键修复：模型偶尔给的【小幅乱序】（如 14:00 后冒出 13:30）绝不当跨天——否则会把乱序之后的整串时段误推到「明天」，
+  // 导致 tm 永远 > cur、该灰的灰不掉、聊天顶栏 live 还错显「还没开始今天的安排」。
   // 若 seq 带了 _myMin（已换算成我这边时间），就用它比对。
   (seqs || []).forEach((s, i) => {
     let tm;
     if (s._myMin != null) tm = s._myMin;
     else { const m = /(\d{1,2}):(\d{2})/.exec(s.time || ""); if (!m) return; tm = (+m[1]) * 60 + (+m[2]); }
-    while (tm < prev) tm += 1440;
-    prev = tm;
+    if (prev >= 0 && tm < prev && (prev - tm) > 720) tm += 1440; // 只在深夜→凌晨这种真跨天时进位
+    if (tm > prev) prev = tm;                                    // 只在前进时更新 prev，别被小幅乱序带偏
     if (tm <= cur) idx = i;
   });
   return idx;
@@ -3810,7 +3811,8 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   const curAuthor = authors.find(c => c.id === curId) || authors[0];
   const isMe = curAuthor && curAuthor.isMe;
   const entriesOf = id => diaries[id] || [];
-  const wroteToday = id => entriesOf(id).some(e => diarySameDay(e.ts, Date.now()));
+  // 日记写的是【昨天】的，所以按钮/去重都按昨天判定
+  const wroteToday = id => entriesOf(id).some(e => diarySameDay(e.ts, Date.now() - 86400000));
 
   const openEntries = id => { setCurId(id); setView("entries"); };
   const openArchive = id => { setCurId(id); setView("archive"); };
@@ -3877,13 +3879,13 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         right: isMe
           ? h("button", { onClick: () => setView("compose"), className: "active:opacity-50" }, h(IPencil, { size: 18, color: t.ink }))
           : h("button", {
-              onClick: () => { if (gb) return; if (done) { toast && toast("今天已经写过了"); return; } onGen(curId, { manual: true }); },
+              onClick: () => { if (gb) return; if (done) { toast && toast("昨天的日记已经写过了"); return; } onGen(curId, { manual: true }); },
               disabled: gb, className: "active:opacity-50 disabled:opacity-40",
               style: { opacity: done && !gb ? 0.35 : 1 }
             }, gb ? h(IPulse, { size: 18, color: t.ink }) : h(IPencil, { size: 18, color: t.ink }))
       }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-10", onTouchStart: onTS, onTouchEnd: onTE },
-        gb && h(Spinner, { label: curAuthor.name + " 正在记录今天…" }),
+        gb && h(Spinner, { label: curAuthor.name + " 正在记录昨天…" }),
         !gb && !list.length && h(Empty, { text: "还没有日记", sub: isMe ? "点右上角铅笔写一篇" : "点右上角，或等 Ta 自己写" }),
         list.map((e, i) => {
           const d = new Date(e.ts);

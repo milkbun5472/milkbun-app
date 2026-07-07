@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.54";
+const APP_VERSION = "v46.55";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2383,27 +2383,32 @@ function App() {
     }
   };
   // ---- 日记（Diary）----
-  const scheduleTextFor = char => {
-    const today = schedDayKey(new Date());
-    const s = (schedules[char.id] || {})[today];
+  const scheduleTextFor = (char, dayKey) => {
+    const key = dayKey || schedDayKey(new Date());
+    const s = (schedules[char.id] || {})[key];
     if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return "";
     return s.seqs.map(it => (it.time || "") + " " + (it.title || "") + (it.location ? "（" + it.location + "）" : "") + (it.deviation ? "［偏差：" + (it.deviation.reason || "") + "］" : "")).join("\n");
   };
-  const diaryWroteToday = id => (diariesRef.current[id] || []).some(e => diarySameDay(e.ts, Date.now()));
+  // 日记写的是【昨天】（那天已经过完，回顾着写），永远不会以未来视角把还没过的今天写掉。一天一篇，按目标日去重。
+  const diaryTargetTs = () => Date.now() - 86400000;
+  const diaryWroteFor = (id, dayTs) => (diariesRef.current[id] || []).some(e => diarySameDay(e.ts, dayTs));
   const genDiary = async (charId, opts = {}) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
     if (diaryBusy[charId]) return;
     if (!active) { if (opts.manual) toast("请先到设置配置 API"); return; }
-    if (diaryWroteToday(charId)) { if (opts.manual) toast("今天已经写过了"); return; }
+    const targetTs = diaryTargetTs();
+    const targetKey = schedDayKey(new Date(targetTs));
+    if (diaryWroteFor(charId, targetTs)) { if (opts.manual) toast("昨天的日记已经写过了"); return; }
     setDiaryBusy(b => ({ ...b, [charId]: true }));
     try {
       const mood = moods[charId];
       const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null };
-      const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char) });
+      const dateStr = new Date(targetTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+      const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char, targetKey), dateStr: dateStr });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
-        ts: Date.now(),
+        ts: targetTs,
         no: Math.floor(Math.random() * 9000) + 1000,
         titleEn: d.titleEn || "Untitled",
         titleZh: d.titleZh || "",
@@ -2481,14 +2486,15 @@ function App() {
       setDiaryCommenting(null);
     }
   };
-  // 打开日记 app 时：当天没写的角色按概率自动补写（顺序执行，避免并发轰炸 API）
+  // 打开日记 app 时：给还没写【昨天】日记的角色补上（每个角色一次 API，顺序执行避免并发轰炸）。
+  // 相当于「每天刷新前一天的」——当时不在线也没关系，下次进来自动补齐；一天一篇，写过就跳过。
   const autoDiaryRun = async () => {
     if (diaryRunRef.current) return;
     diaryRunRef.current = true;
     if (!active) return;
+    const targetTs = diaryTargetTs();
     for (const c of characters) {
-      if (diaryWroteToday(c.id)) continue;
-      if (Math.random() > 0.5) continue; // 概率补写
+      if (diaryWroteFor(c.id, targetTs)) continue;
       await genDiary(c.id, { manual: false });
     }
   };
