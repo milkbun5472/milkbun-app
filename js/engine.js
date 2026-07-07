@@ -661,15 +661,19 @@ async function generateDiary(p, ctx, opts = {}) {
   // retro=写【昨天】：那天已经过完，是第二天回顾着写，绝不能以未来视角把还没过的今天写掉
   const retro = !!opts.dateStr;
   if (opts.scheduleText && opts.scheduleText.trim()) {
-    parts.push("【" + (retro ? "那一天" : "今天") + "的行程（用来回顾你这天在哪、做了什么、经历了什么）】\n" + opts.scheduleText.trim());
+    parts.push("【今天的行程（用来回顾你这天在哪、做了什么、经历了什么）】\n" + opts.scheduleText.trim());
   }
   if (ctx.moodLabel) parts.push("【此刻心情】" + ctx.moodLabel);
-  if (retro) parts.push("【要写的是这一天：" + opts.dateStr + "】这一整天【已经完整过完了】，你是在回顾它、把它写成日记——以「回顾一整天」的口吻，写这天从早到晚发生了什么、你的心情起伏。**绝不能写成还没过完、未来视角的今天**；上面的近期聊天若有属于今天的内容，只作背景，别把今天的事写进这篇昨天的日记。");
+  if (retro) parts.push("【现在是这一天的晚上，睡前：" + opts.dateStr + "】你刚把这一整天过完，正坐下来写【今天】的日记。\n" +
+    "· **用「今天」称呼这一天**（今天早上／今天下午／今晚……），**绝对不要用「昨天」**——对此刻在写日记的你来说，这一天就是今天。\n" +
+    "· 从早到晚回顾今天发生的事、心情起伏，因为一天已过完，可以一直写到今晚睡前。\n" +
+    "· timeStr 必须填一个【今晚睡前】的时刻（如 22:40 / 23:15），不要填白天或别的时段。\n" +
+    "· 上面近期聊天里若有属于【这一天之后】（更晚）的内容，别写进这篇日记——这是今天的日记，只写到今晚为止。");
   else { const now = new Date(); parts.push("【今天的日期时间】" + now.toLocaleString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" })); }
   parts.push("【输出】只输出一个合法 JSON，无 markdown 无多余文字：\n" +
     "{\"titleEn\":\"英文斜体标题\",\"titleZh\":\"中文副标题\",\"location\":\"SHANGHAI, CN 或 家里/工作室 等\",\"coords\":\"经纬度串或 null\",\"weather\":\"OVERCAST 28°C\",\"timeStr\":\"HH:MM 写这篇的时刻\",\"paras\":[{\"text\":\"段落正文\",\"secret\":false}],\"signature\":\"底部签名一句\",\"mood\":\"此刻心情词\"}");
   const system = "你现在完全代入这个角色，用 Ta 的口吻和内心写一篇私人日记。不是旁观推演，是 Ta 亲手写下的。\n\n" + parts.join("\n\n");
-  const raw = await callAI(p, system, [{ role: "user", content: retro ? "回顾昨天，把这一整天写成一篇日记。" : "开始写今天的日记。" }], { maxTokens: opts.maxTokens || 6000 });
+  const raw = await callAI(p, system, [{ role: "user", content: retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。" }], { maxTokens: opts.maxTokens || 6000 });
   const parsed = extractJSON(raw);
   if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
   return parsed;

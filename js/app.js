@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.55";
+const APP_VERSION = "v46.56";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2389,8 +2389,9 @@ function App() {
     if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return "";
     return s.seqs.map(it => (it.time || "") + " " + (it.title || "") + (it.location ? "（" + it.location + "）" : "") + (it.deviation ? "［偏差：" + (it.deviation.reason || "") + "］" : "")).join("\n");
   };
-  // 日记写的是【昨天】（那天已经过完，回顾着写），永远不会以未来视角把还没过的今天写掉。一天一篇，按目标日去重。
-  const diaryTargetTs = () => Date.now() - 86400000;
+  // 日记写的是【昨天】——那天已经过完，角色在【那天晚上睡前】写下当天的日记（对写的人来说那天就是"今天"）。
+  // 时刻定在那晚 22:xx，别沿用手动刷新的当前时刻（否则会显示成 6号7:20 这种刷新时间）。一天一篇，按目标日去重。
+  const diaryTargetTs = () => { const d = new Date(Date.now() - 86400000); d.setHours(22, Math.floor(Math.random() * 50), 0, 0); return d.getTime(); };
   const diaryWroteFor = (id, dayTs) => (diariesRef.current[id] || []).some(e => diarySameDay(e.ts, dayTs));
   const genDiary = async (charId, opts = {}) => {
     const char = characters.find(c => c.id === charId);
