@@ -426,6 +426,18 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
   const parsed = extractJSON(raw);
   return Array.isArray(parsed) ? parsed.filter(x => x && x.text) : [];
 }
+// 把一整团旧「长期记忆总结」拆成一条条离散事实（导入记忆库用）——同样强制主语真名、别张冠李戴
+async function splitMemoryToEntries(p, ctx, blob) {
+  const uName = (ctx.profile && ctx.profile.name) || "用户";
+  const charName = ctx.char.name;
+  const system = "下面是「" + charName + "」积累下来的一整段长期记忆。把它【拆成一条条独立、可长期检索的事实】。\n" +
+    "· 每条一句话、具体；**开头用真名点明主语**（关于用户「" + uName + "」的 / 关于角色「" + charName + "」自己的 / 关于他俩之间的），别把用户的事写成角色自己的。\n" +
+    "· 同一件事只留一条，别拆重复。为每条配 1~3 个中文标签。\n" +
+    "【输出】只输出合法 JSON 数组：[{\"text\":\"一句话事实（带主语真名）\",\"tags\":[\"标签\"]}]，没有可拆的就 []。";
+  const raw = await callAI(p, system, [{ role: "user", content: "【长期记忆】\n" + String(blob).slice(0, 8000) }], { maxTokens: 4000 });
+  const parsed = extractJSON(raw);
+  return Array.isArray(parsed) ? parsed.filter(x => x && x.text) : [];
+}
 // ============================================================
 // 线下模式（offline / 赴约）—— 面对面叙事，带动作/心理/旁白 + 心声
 // ============================================================
@@ -741,6 +753,12 @@ async function summarizeChat(p, ctx, olderMsgs) {
     // 记忆库是累积合并旧+新的整份记忆，越攒越长；2600 会把旧记忆截断丢掉——放宽到 8000（思考型模型还要留思考预算）
     maxTokens: 8000
   });
+}
+// 止摘要漂移：只浓缩【这段新对话】成一小段，不重炼旧记忆（旧记忆由调用方原样保留、追加这段带日期的新段）
+async function summarizeChatBlock(p, ctx, newMsgs) {
+  const text = newMsgs.map(m => (m.role === "user" ? ctx.profile.name || "用户" : ctx.char.name) + ": " + m.content).join("\n");
+  const system = "把下面这【一段新对话】浓缩成一小段第三人称记忆——只写这段里的关键事件、情绪变化、承诺约定、身份背景、未完成的事，具体可回看。这是要【追加】到长期记忆末尾的一段，别复述早前已知的旧事、别升华总结。只输出这一段正文，别加标题。";
+  return (await callAI(p, system, [{ role: "user", content: "【新对话】\n" + text }], { maxTokens: 2600 })).trim();
 }
 // ============================================================
 // storage / utils / geo / mood

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.61";
+const APP_VERSION = "v46.62";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -116,6 +116,12 @@ function App() {
   const [memLib, setMemLib] = useState([]);
   const memLibRef = useRef(memLib);
   memLibRef.current = memLib; // 始终指向最新记忆库
+  // 记忆库设置：topK 每轮召回条数；autoExtract 每轮后台自动抽取；extractInterval 每几轮抽一次；recentDays 短期窗至少覆盖最近几天（消死区）
+  const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3 };
+  const [memCfg, setMemCfg] = useState(MEM_CFG_DEFAULT);
+  const memCfgRef = useRef(memCfg); memCfgRef.current = memCfg;
+  const memExtractCtrRef = useRef({}); // 每角色自动抽取轮次计数
+  const saveMemCfg = patch => setMemCfg(p => { const n = { ...p, ...patch }; memCfgRef.current = n; saveJSON("x_memCfg", n); return n; });
   const ordersRef = useRef([]);
   const kinshipCardsRef = useRef([]);
   const groupChatsRef = useRef(groupChats);
@@ -314,6 +320,7 @@ function App() {
     setDirectives(loadJSON("x_directives", {}));
     setMemories(loadJSON("x_memories", {}));
     setMemLib(loadJSON("x_memLib", []));
+    setMemCfg(Object.assign({}, MEM_CFG_DEFAULT, loadJSON("x_memCfg", {})));
     setChatSettings(loadJSON("x_chatSettings", {}));
     // 迁移：早期角色自动发帖存的是「吐槽/日常/求助」短名，不在 FORUM_BOARDS，会导致版块/关注页筛不到 → 补成正式吧名
     (() => {
@@ -586,49 +593,66 @@ function App() {
     ...patch
   } : x));
   const deleteMemEntry = id => saveMemLib(memLibRef.current.filter(x => x.id !== id));
-  const extractMemForChar = async charId => {
-    if (!active) {
-      toast("请先到设置配置 API");
-      return;
-    }
+  // 共享抽取：把 msgs 抽成记忆条、双重去重后入库，返回实际新增条数（手动/自动共用）
+  const extractAndAddForChar = async (charId, msgs) => {
     const char = characters.find(c => c.id === charId);
+    if (!char || !msgs || !msgs.length) return 0;
+    const existing = memLibRef.current.filter(e => memShareChar([charId], e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+    const items = await extractMemories(active, ctxFor(char), msgs, { existing: existing });
+    const now = Date.now();
+    const batchSeen = [];
+    const entries = items.map((it, i) => ({
+      id: "m_" + now + "_" + i, text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false
+    })).filter(x => x.text).filter(x => {
+      if (isDupMem(x.text, [charId])) return false;            // 和库里已有重复
+      if (isDupMem(x.text, [charId], batchSeen)) return false; // 和本批已收的重复
+      batchSeen.push(x); return true;
+    });
+    if (entries.length) saveMemLib([...entries, ...memLibRef.current]);
+    return entries.length;
+  };
+  const extractMemForChar = async charId => {
+    if (!active) { toast("请先到设置配置 API"); return; }
     const msgs = (chatsRef.current[charId] || []).filter(m => !m.recalled).slice(-40);
-    if (msgs.length < 2) {
-      toast("对话太少，先多聊几句");
-      return;
-    }
+    if (msgs.length < 2) { toast("对话太少，先多聊几句"); return; }
+    startLane("c:" + charId);
+    try { const n = await extractAndAddForChar(charId, msgs); toast(n ? "已抽取 " + n + " 条记忆" : "没有抽到新的记忆点（都已经记过了）"); }
+    catch (e) { toast("抽取失败：" + e.message); }
+    finally { endLane("c:" + charId); }
+  };
+  // 自动抽取：每轮聊天后按 extractInterval 节拍静默跑一次（开关在记忆库·召回设置）
+  const maybeAutoExtract = async charId => {
+    const cfg = memCfgRef.current;
+    if (!cfg.autoExtract || !active) return;
+    const interval = Math.max(1, cfg.extractInterval || 1);
+    const cnt = (memExtractCtrRef.current[charId] || 0) + 1;
+    memExtractCtrRef.current[charId] = cnt;
+    if (cnt % interval !== 0) return;
+    const msgs = (chatsRef.current[charId] || []).filter(m => !m.recalled).slice(-24);
+    if (msgs.length < 4) return;
+    try { await extractAndAddForChar(charId, msgs); } catch (e) {/* 静默 */}
+  };
+  // 从旧的「长期记忆总结」一次性拆成离散条目导入记忆库（去重）；不删旧总结
+  const importOldMemoryToLib = async charId => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const blob = (memories[charId] || "").trim();
+    if (!blob) { toast("这个角色没有旧的长期记忆可导入"); return; }
+    const char = characters.find(c => c.id === charId);
     startLane("c:" + charId);
     try {
-      // 把这个角色已有的记忆喂给抽取器，让它别再重复抽同一件事
-      const existing = memLibRef.current.filter(e => memShareChar([charId], e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
-      const items = await extractMemories(active, ctxFor(char), msgs, { existing: existing });
-      const now = Date.now();
-      // 双重去重：跳过和库里已有的重复的 + 本批内部重复的
-      const batchSeen = [];
-      const entries = items.map((it, i) => ({
-        id: "m_" + now + "_" + i,
-        text: String(it.text).trim(),
-        tags: Array.isArray(it.tags) ? it.tags : [],
-        charIds: [charId],
-        ts: now,
-        source: "auto",
-        pinned: false
+      const items = await splitMemoryToEntries(active, ctxFor(char), blob);
+      const now = Date.now(); const batchSeen = [];
+      const entries = (items || []).map((it, i) => ({
+        id: "m_imp_" + now + "_" + i, text: String(it.text || "").trim(), tags: Array.isArray(it.tags) ? it.tags : ["导入"], charIds: [charId], ts: now, source: "import", pinned: false
       })).filter(x => x.text).filter(x => {
-        if (isDupMem(x.text, [charId])) return false;              // 和库里已有重复
-        if (isDupMem(x.text, [charId], batchSeen)) return false;   // 和本批已收的重复
+        if (isDupMem(x.text, [charId])) return false;
+        if (isDupMem(x.text, [charId], batchSeen)) return false;
         batchSeen.push(x); return true;
       });
-      if (entries.length === 0) {
-        toast("没有抽到新的记忆点（都已经记过了）");
-        return;
-      }
-      saveMemLib([...entries, ...memLibRef.current]);
-      toast("已抽取 " + entries.length + " 条记忆");
-    } catch (e) {
-      toast("抽取失败：" + e.message);
-    } finally {
-      endLane("c:" + charId);
-    }
+      if (entries.length) saveMemLib([...entries, ...memLibRef.current]);
+      toast(entries.length ? "已从旧记忆导入 " + entries.length + " 条" : "旧记忆里的事都已经在库里了");
+    } catch (e) { toast("导入失败：" + (e.message || "重试")); }
+    finally { endLane("c:" + charId); }
   };
   const clearUnread = id => setUnreadMap(p => {
     const n = {
@@ -687,9 +711,7 @@ function App() {
     moodLabel: (moods[char.id] || {}).label || null,
     directives: directives[char.id] || [],
     memory: memories[char.id],
-    memLib: retrieveMemories(memLibRef.current, char.id, (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-8).map(m => m.content).join("\n"), {
-      limit: 6
-    }),
+    memLib: retrieveMemories(memLibRef.current, char.id, (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-8).map(m => m.content).join("\n"), { limit: memCfgRef.current.topK || 5 }),
     geo: prefs.geoAware ? geo : null,
     timeAware: prefs.timeAware,
     giftLog: (() => {
@@ -787,7 +809,18 @@ function App() {
       const lines = msgs.slice(-14).map(m => (m.role === "narration" ? "【旁白】" : (m.role === "user" ? (profile.name || "用户") : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 60)).join("\n");
       return "『群「" + g.name + "」" + (others.length ? "（群里还有 " + others.join("、") + "）" : "") + " 最近聊的』\n" + lines;
     }).filter(Boolean).slice(0, 2).join("\n\n"),
-    recentChat: (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-(settingsFor(char.id).ctxN || 50)).map(m => (m.role === "user" ? profile.name || "用户" : char.name) + ": " + m.content).join("\n")
+    // 短期原文窗 = 最近 ctxN 条 ∪ 最近 recentDays 天（消死区：只要是这几天说的一定带上），封顶 160 条防爆
+    recentChat: (() => {
+      const all = (chatsRef.current[char.id] || []).filter(m => !m.recalled && m.content);
+      if (!all.length) return "";
+      const ctxN = settingsFor(char.id).ctxN || 50;
+      const days = memCfgRef.current.recentDays || 3;
+      const cutoff = Date.now() - days * 86400000;
+      const firstRecent = all.findIndex(m => (m.ts || 0) >= cutoff);
+      const byTimeCount = firstRecent >= 0 ? (all.length - firstRecent) : 0;
+      const take = Math.min(160, Math.max(ctxN, byTimeCount)); // 两者取更早的起点、封顶 160
+      return all.slice(-take).map(m => (m.role === "user" ? profile.name || "用户" : char.name) + ": " + m.content).join("\n");
+    })()
   });
   // ---- 后台保活（尽力而为：循环播放静音音频占住 iOS 音频会话）----
   useEffect(() => {
@@ -1161,8 +1194,16 @@ function App() {
       const toSummarize = msgs.slice(lastSum, msgs.length - s.sumBuffer);
       if (toSummarize.length > 0) {
         try {
-          const newMem = await summarizeChat(active, ctxFor(char), toSummarize);
-          setMemFor(charId, newMem);
+          // 止漂移：只浓缩这段新对话成一段带日期的记忆，【追加】到旧记忆末尾，不重炼整团（避免老细节被反复压糊）。封顶 8000 字，超了从头截、保最近。
+          const block = await summarizeChatBlock(active, ctxFor(char), toSummarize);
+          if (block && block.trim()) {
+            const d = new Date();
+            const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日】" + block.trim();
+            const prev = (memories[charId] || "").trim();
+            let merged = prev ? prev + "\n\n" + seg : seg;
+            if (merged.length > 8000) merged = merged.slice(merged.length - 8000);
+            setMemFor(charId, merged);
+          }
           setChatSettings(p => {
             const n = {
               ...p,
@@ -1480,6 +1521,7 @@ function App() {
         pushStateHist(charId, ns);
       }
       setTimeout(() => maybeSummarize(charId), 100);
+      setTimeout(() => maybeAutoExtract(charId), 300);
     } catch (e) {
       pChat(charId, p => [...p, {
         role: "assistant",
@@ -1670,7 +1712,7 @@ function App() {
           return seg ? "『" + c.name + "』\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const groupMem = formatMemLib(retrieveMemories(memLibRef.current, members[0] && members[0].id, hist, {
-          limit: 6
+          limit: memCfgRef.current.topK || 5
         }));
         interop = (memLines ? "\n\n【成员与用户的私下往来（可自然提及，别生硬复述）】\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem : "");
       }
@@ -5783,11 +5825,15 @@ function App() {
     characters: characters,
     focusChar: activeChar,
     busy: sending,
+    cfg: memCfg,
+    oldMemories: memories,
     onBack: () => setScreen(activeChar ? "thread" : "home"),
     onAdd: addMemEntry,
     onUpdate: updateMemEntry,
     onDelete: deleteMemEntry,
-    onExtract: activeChar ? () => extractMemForChar(activeChar.id) : null
+    onExtract: activeChar ? () => extractMemForChar(activeChar.id) : null,
+    onSaveCfg: saveMemCfg,
+    onImportOld: importOldMemoryToLib
   });else if (screen === "diary") body = h(Diary, {
     characters: characters,
     diaries: diaries,

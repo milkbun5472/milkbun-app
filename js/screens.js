@@ -3306,34 +3306,41 @@ function MemoryLib({
   characters,
   focusChar,
   busy,
+  cfg,
+  oldMemories,
   onBack,
   onAdd,
   onUpdate,
   onDelete,
-  onExtract
+  onExtract,
+  onSaveCfg,
+  onImportOld
 }) {
   const t = useTheme();
   const [filter, setFilter] = useState(focusChar ? focusChar.id : "all");
   const [editing, setEditing] = useState(null); // "new" | entry
+  const [cfgOpen, setCfgOpen] = useState(false); // 召回设置弹层
+  const [q, setQ] = useState(""); // 搜索
   const nameOf = id => {
     const c = characters.find(x => x.id === id);
     return c ? c.remark || c.name : "未知";
   };
-  const list = (entries || []).filter(e => filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter)).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  const qlc = q.trim().toLowerCase();
+  const list = (entries || []).filter(e => (filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter)) && (!qlc || (String(e.text || "") + " " + (e.tags || []).join(" ") + " " + (e.charIds || []).map(nameOf).join(" ")).toLowerCase().indexOf(qlc) >= 0)).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  const importable = focusChar && oldMemories && (oldMemories[focusChar.id] || "").trim();
   return h("div", {
     className: "h-full flex flex-col"
   }, h(Head, {
     zh: "记忆库",
-    en: "Memory Library",
+    en: "Memory · " + ((entries || []).length) + " 条",
     onBack: onBack,
-    right: h("button", {
-      onClick: () => setEditing("new"),
-      className: "active:opacity-50"
-    }, h(IPlus, {
-      size: 20,
-      color: t.ink
-    }))
+    right: h("div", { className: "flex items-center", style: { gap: 14 } },
+      onSaveCfg ? h("button", { onClick: () => setCfgOpen(true), className: "active:opacity-50", title: "召回设置" }, h(GConfig, { size: 19, color: t.ink })) : null,
+      h("button", { onClick: () => setEditing("new"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })))
   }), h("div", {
+    className: "shrink-0 px-6 pb-2"
+  }, h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索记忆内容 / 标签 / 角色…",
+    className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px" } })), h("div", {
     className: "shrink-0 px-6 pb-2 flex gap-2 overflow-x-auto"
   }, [["all", "全部"]].concat(characters.map(c => [c.id, c.remark || c.name])).map(([id, label]) => h("button", {
     key: id,
@@ -3358,8 +3365,11 @@ function MemoryLib({
       fontFamily: F_BODY,
       fontSize: 13
     }
-  }, busy ? "抽取中…" : "＋ 从与 " + (focusChar.remark || focusChar.name) + " 的对话自动提取"), list.length === 0 && h(Empty, {
-    text: "还没有记忆",
+  }, busy ? "抽取中…" : "＋ 从与 " + (focusChar.remark || focusChar.name) + " 的对话自动提取"), importable && onImportOld ? h("button", {
+    onClick: () => onImportOld(focusChar.id), disabled: busy, className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
+    style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 }
+  }, "↧ 把 " + (focusChar.remark || focusChar.name) + " 的旧长期记忆拆成条目导入") : null, list.length === 0 && h(Empty, {
+    text: qlc ? "没找到相关记忆" : "还没有记忆",
     sub: "点右上角 + 手动添加，或从对话自动提取"
   }), list.map(e => h("button", {
     key: e.id,
@@ -3410,7 +3420,9 @@ function MemoryLib({
       fontSize: 10,
       color: t.line
     }
-  }, "· " + new Date(e.ts || Date.now()).toLocaleDateString("zh-CN"), e.source === "auto" ? " · 自动" : ""))))), editing && h(MemEntrySheet, {
+  }, "· " + new Date(e.ts || Date.now()).toLocaleDateString("zh-CN"), (e.source === "import" ? " · 导入" : e.source === "manual" ? " · 手动" : (e.tags || []).includes("群聊") ? " · 群聊" : (e.tags || []).includes("线下") ? " · 线下" : e.source === "auto" ? " · 自动" : "")))))), cfgOpen && onSaveCfg && h(MemCfgSheet, {
+    cfg: cfg || {}, onSave: onSaveCfg, onClose: () => setCfgOpen(false)
+  }), editing && h(MemEntrySheet, {
     entry: editing === "new" ? null : editing,
     characters: characters,
     focusChar: focusChar,
@@ -3424,6 +3436,32 @@ function MemoryLib({
       setEditing(null);
     }
   }));
+}
+// 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
+function MemCfgSheet({ cfg, onSave, onClose }) {
+  const t = useTheme();
+  const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3 }, cfg || {}));
+  const set = patch => setC(p => Object.assign({}, p, patch));
+  const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
+    h("div", { style: { flex: 1, paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, label),
+      sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
+    h("button", { onClick: onT, className: "active:opacity-70 shrink-0", style: { width: 50, height: 29, borderRadius: 999, background: val ? t.ink : t.line, position: "relative", transition: "background .2s" } },
+      h("span", { style: { position: "absolute", top: 3, left: val ? 24 : 3, width: 23, height: 23, borderRadius: 999, background: "#fff", transition: "left .2s" } })));
+  const slider = (label, val, min, max, step, unit, onCh, note) => h("div", { style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, label),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent } }, val + (unit || ""))),
+    h("input", { type: "range", min: min, max: max, step: step, value: val, onChange: e => onCh(Number(e.target.value)), className: "w-full" }),
+    note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, note) : null);
+  return h(Sheet, { onClose: onClose, tall: true },
+    h(Eyebrow, { style: { marginBottom: 2 } }, "召回设置"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "每轮往上下文塞几条 + 自动抽取的节拍 — token 封顶的旋钮"),
+    toggle("自动抽取", "每轮聊天后后台静默把值得记的事拆成记忆入库（自带去重）", c.autoExtract !== false, () => set({ autoExtract: c.autoExtract === false })),
+    slider("每轮召回条数 (top-k)", c.topK || 5, 2, 12, 1, " 条", v => set({ topK: v }), "不管库里存多少，每轮只取这么多 → token 恒定。"),
+    slider("自动抽取间隔", c.extractInterval || 1, 1, 5, 1, " 轮", v => set({ extractInterval: v }), (c.extractInterval || 1) > 1 ? "每 " + c.extractInterval + " 轮抽一次，省抽取 API。" : "每轮都抽，记得最全、最费 API。日常设 2~3 轮够用。"),
+    slider("短期窗覆盖天数", c.recentDays || 3, 1, 7, 1, " 天", v => set({ recentDays: v }), "最近这些天说的话一定带进上下文（消死区，不忘最近几天）；封顶 160 条防爆。"),
+    h("button", { onClick: () => { onSave(c); onClose(); }, className: "w-full active:opacity-80", style: { marginTop: 18, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"));
 }
 function MemEntrySheet({
   entry,
