@@ -3501,7 +3501,7 @@ function MemoryLib({
 // 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
 function MemCfgSheet({ cfg, onSave, onClose }) {
   const t = useTheme();
-  const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3 }, cfg || {}));
+  const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000 }, cfg || {}));
   const set = patch => setC(p => Object.assign({}, p, patch));
   const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
     h("div", { style: { flex: 1, paddingRight: 12 } },
@@ -3521,7 +3521,8 @@ function MemCfgSheet({ cfg, onSave, onClose }) {
     toggle("自动抽取", "每轮聊天后后台静默把值得记的事拆成记忆入库（自带去重）", c.autoExtract !== false, () => set({ autoExtract: c.autoExtract === false })),
     slider("每轮召回条数 (top-k)", c.topK || 5, 2, 12, 1, " 条", v => set({ topK: v }), "不管库里存多少，每轮只取这么多 → token 恒定。"),
     slider("自动抽取间隔", c.extractInterval || 1, 1, 5, 1, " 轮", v => set({ extractInterval: v }), (c.extractInterval || 1) > 1 ? "每 " + c.extractInterval + " 轮抽一次，省抽取 API。" : "每轮都抽，记得最全、最费 API。日常设 2~3 轮够用。"),
-    slider("短期窗覆盖天数", c.recentDays || 3, 1, 7, 1, " 天", v => set({ recentDays: v }), "最近这些天说的话一定带进上下文（消死区，不忘最近几天）；封顶 160 条防爆。"),
+    slider("短期窗覆盖天数", c.recentDays || 3, 1, 7, 1, " 天", v => set({ recentDays: v }), "最近这些天说的话一定带进上下文（消死区，不忘最近几天）。"),
+    slider("短期窗字符预算", c.recentBudget || 8000, 3000, 16000, 1000, " 字", v => set({ recentBudget: v }), "上面那些原文最多带这么多字进上下文——长消息少带几条、短消息多带几条，token 有上限。调大记得更全、更费；调小更省。超出的老内容由自动抽取+摘要兜底。"),
     h("button", { onClick: () => { onSave(c); onClose(); }, className: "w-full active:opacity-80", style: { marginTop: 18, fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "保存"));
 }
 function MemEntrySheet({

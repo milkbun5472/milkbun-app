@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.70";
+const APP_VERSION = "v46.71";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -120,7 +120,7 @@ function App() {
   memLibRef.current = memLib; // 始终指向最新记忆库
   const memExtractInflightRef = useRef({}); // 每角色抽取进行中标志，防并发重复抽取
   // 记忆库设置：topK 每轮召回条数；autoExtract 每轮后台自动抽取；extractInterval 每几轮抽一次；recentDays 短期窗至少覆盖最近几天（消死区）
-  const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3 };
+  const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000 };
   const [memCfg, setMemCfg] = useState(MEM_CFG_DEFAULT);
   const memCfgRef = useRef(memCfg); memCfgRef.current = memCfg;
   const memExtractCtrRef = useRef({}); // 每角色自动抽取轮次计数
@@ -868,13 +868,13 @@ function App() {
       const wantStart = all.length - Math.max(ctxN, byTimeCount); // 条数窗与时间窗取更早的起点
       const lines = [];
       const uName = profile.name || "用户";
-      const MEM_CHAR_BUDGET = 8000; // 字符预算：从最近往回收，攒够就停（老而仍在窗内的事由自动抽取+摘要兜底）
+      const budget = memCfgRef.current.recentBudget || 8000; // 字符预算(召回设置可调)：从最近往回收，攒够就停（老而仍在窗内的事由自动抽取+摘要兜底）
       let used = 0;
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
         const m = all[i];
         const line = (m.role === "user" ? uName : char.name) + ": " + m.content;
         used += line.length + 1;
-        if (used > MEM_CHAR_BUDGET && lines.length) break; // 超预算就停，但至少保底一条
+        if (used > budget && lines.length) break; // 超预算就停，但至少保底一条
         lines.push(line);
       }
       return lines.reverse().join("\n");

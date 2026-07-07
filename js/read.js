@@ -134,6 +134,90 @@
     return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 400 })).trim();
   }
 
+  // ---- 模型：中译中·逐段讲解（每段都给大白话解释 + 角色看法），并回一句本页梗概续到已读脉络 ----
+  async function genExplains(active, char, profile, worldbook, paras, synopsis) {
+    const uName = (profile && profile.name) || "对方";
+    const maxPara = paras.length;
+    const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
+    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") +
+      "你在和「" + uName + "」一起读一本书。Ta 常常看不太懂原文，需要你【逐段讲给 Ta 听】——像给朋友中译中那样，把每一段【在讲什么】用大白话说清楚：谁做了什么、难懂的词/典故/文言/背景点破，藏在字面下的意思也挑明；再顺带一句你自己（按人设）的看法或反应。别复述原句、别掉书袋、别写读后感八股。每段 1~3 句，说人话。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
+      (synopsis && synopsis.trim() ? "\n\n【前情脉络（你俩之前已经读到这儿，接着往下讲、别自相矛盾）】\n" + synopsis.trim() : "") +
+      "\n\n【本页正文（按段落编号）】\n" + numbered +
+      "\n\n请给【每一段都写一条讲解】，从第 1 段到第 " + maxPara + " 段，一段都不能漏。\n【输出格式·务必严格遵守】先逐段输出，每行 `段<段号>：<讲解>`；最后单独一行 `梗概：<用一句话概括本页发生了什么，接前情往下>`。示例：\n段1：他嘴上说不在乎，其实是怕先被拒绝，才把话说死。\n段2：这里的『黄粱』是个典故，指一场到头来空欢喜的梦。\n梗概：他赌气离了家，半路遇上old友。\n不要写 JSON、不要总起语、不要空行、别的话一句都别加。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: Math.min(8000, 1200 + maxPara * 280) });
+    const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1").replace(/\s*(梗概\s*[：:])/g, "\n$1");
+    const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    const explains = [];
+    let gist = "";
+    lines.forEach(function (line) {
+      const gm = line.match(/^梗概\s*[：:]\s*(.+)$/);
+      if (gm) { gist = gm[1].trim(); return; }
+      const m = line.match(/^\s*(?:段|第)?\s*\[?\s*(\d+)\s*\]?\s*[：:.、)\-\s]+(.+)$/);
+      if (!m) return;
+      const para = Number(m[1]), text = m[2].trim();
+      if (!(para >= 1) || para > maxPara || text.length < 2) return;
+      explains.push({ i: para - 1, text: text });
+    });
+    return { explains: explains, gist: gist };
+  }
+
+  // ---- 模型：就划线/单段的一小截，讲清是什么意思（中译中）----
+  async function genExplainSnippet(active, char, profile, worldbook, snippet, context, synopsis) {
+    const uName = (profile && profile.name) || "对方";
+    const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") +
+      "「" + uName + "」在和你一起读书时划出了下面这句/这段，说没太看懂，要你讲讲。把它【什么意思、为什么这么说、藏着什么言外之意】用大白话讲清楚（该点破的典故/文言/背景都点破），再加一句你按自己人设的看法。别复述原文、别掉书袋，2~4 句说人话。\n\n【你的人设】\n" + (char.persona || "（暂无设定）") +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
+      (synopsis && synopsis.trim() ? "\n\n【前情脉络】\n" + synopsis.trim() : "") +
+      (context && String(context).trim() ? "\n\n【这句所在的上下文】\n" + String(context).slice(0, 600) : "") +
+      "\n\n只输出讲解本身，别加前缀、别加引号、别写「好的」之类。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 1200 });
+    return String(raw || "").replace(/```/g, "").trim();
+  }
+
+  // ---- 懒加载 pdf.js（仅在导入 PDF 时才拉），抽取含文本层 / 已 OCR 的 PDF 文字 ----
+  let _pdfjsP = null;
+  function loadPdfjs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (_pdfjsP) return _pdfjsP;
+    _pdfjsP = new Promise(function (res, rej) {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+      s.onload = function () {
+        try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; } catch (e) {}
+        res(window.pdfjsLib);
+      };
+      s.onerror = function () { _pdfjsP = null; rej(new Error("pdf.js 加载失败（需要联网）")); };
+      document.head.appendChild(s);
+    });
+    return _pdfjsP;
+  }
+  async function extractPdfText(file, onProg) {
+    const lib = await loadPdfjs();
+    const buf = await file.arrayBuffer();
+    const pdf = await lib.getDocument({ data: buf }).promise;
+    const pages = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      let line = "", lastY = null;
+      const rows = [];
+      tc.items.forEach(function (it) {
+        if (typeof it.str !== "string") return;
+        const y = it.transform ? it.transform[5] : null;
+        // 换行：pdf.js 给了 EOL，或 y 坐标跳了一行
+        if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && line) { rows.push(line); line = ""; }
+        line += it.str;
+        if (it.hasEOL) { rows.push(line); line = ""; }
+        lastY = y;
+      });
+      if (line) rows.push(line);
+      pages.push(rows.join("\n"));
+      if (onProg) onProg(p, pdf.numPages);
+    }
+    return pages.join("\n\n");
+  }
+
   // ============================================================
   // 组件
   // ============================================================
@@ -152,14 +236,23 @@
       const f = e.target.files && e.target.files[0];
       e.target.value = "";
       if (!f) return;
-      if (!/\.txt$/i.test(f.name) && f.type && f.type.indexOf("text") < 0) { props.toast && props.toast("目前只支持 .txt 文本"); return; }
+      const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
+      const isTxt = /\.txt$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
+      if (!isPdf && !isTxt) { props.toast && props.toast("支持 .txt 或已 OCR 的 .pdf"); return; }
       try {
-        const text = await f.text();
-        if (!text.trim()) { props.toast && props.toast("这个文件是空的"); return; }
+        let text;
+        if (isPdf) {
+          props.toast && props.toast("解析 PDF 中…");
+          text = await extractPdfText(f, function (p, n) { if (p === 1 || p % 20 === 0 || p === n) props.toast && props.toast("解析 PDF " + p + "/" + n + " 页…"); });
+          if (!text || !text.trim()) { props.toast && props.toast("没读到文字——这份 PDF 可能是没 OCR 的扫描图，先 OCR 成带文本层的 PDF 再传"); return; }
+        } else {
+          text = await f.text();
+          if (!text.trim()) { props.toast && props.toast("这个文件是空的"); return; }
+        }
         const id = "bk_" + Date.now();
         await idbPut(id, text);
-        const title = f.name.replace(/\.txt$/i, "").slice(0, 40);
-        persist([{ id: id, title: title, addedTs: Date.now(), lastReadTs: Date.now(), size: text.length, page: 0, partnerId: null, perPass: 3, annotations: [] }].concat(loadBooks()));
+        const title = f.name.replace(/\.(txt|pdf)$/i, "").slice(0, 40);
+        persist([{ id: id, title: title, addedTs: Date.now(), lastReadTs: Date.now(), size: text.length, page: 0, partnerId: null, perPass: 3, annotations: [], explains: {}, synopsis: "", showExplains: true }].concat(loadBooks()));
         props.toast && props.toast("《" + title + "》已上架");
       } catch (err) { props.toast && props.toast("读取失败：" + (err.message || "重试")); }
     };
@@ -184,15 +277,15 @@
     // ---- 书架 ----
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "一起读", en: "Read", onBack: props.onBack }),
-      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain", style: { display: "none" }, onChange: onFile }),
+      h("input", { ref: fileRef, type: "file", accept: ".txt,text/plain,.pdf,application/pdf", style: { display: "none" }, onChange: onFile }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         h("button", {
           onClick: function () { fileRef.current && fileRef.current.click(); },
           className: "w-full py-3 mb-5 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 14, borderRadius: 11, border: "1px dashed " + t.line, color: t.sub, background: t.bg2 }
-        }, "＋ 上传一本书（.txt）"),
+        }, "＋ 上传一本书（.txt / 已 OCR 的 .pdf）"),
         books.length === 0
-          ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "书架还是空的。\n上传一个 txt，点开就能邀角色一起读、写批注、聊剧情。")
+          ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "书架还是空的。\n上传 txt 或已 OCR 的 pdf，点开就能邀角色一起读、逐段讲给你听、写批注、聊剧情。")
           : h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 } },
               books.slice().sort(function (a, b) { return (b.lastReadTs || 0) - (a.lastReadTs || 0); }).map(function (b) {
                 const partner = props.characters.find(function (c) { return c.id === b.partnerId; });
@@ -233,9 +326,14 @@
     const [chat, setChat] = useState([]);
     const [draft, setDraft] = useState("");
     const [ending, setEnding] = useState(false);
+    const [sel, setSel] = useState(null);          // 划线选中的文字 {text}
+    const [selResult, setSelResult] = useState(null); // {q, a, busy} 划线讲解弹层
     const scrollRef = useRef(null);
 
     const partner = props.characters.find(function (c) { return c.id === book.partnerId; });
+    const chOf = function (id) { return props.characters.find(function (c) { return c.id === id; }); };
+    const explainOn = book.showExplains !== false; // 逐段讲解卡片是否显示（默认开）
+    const explainAt = function (pg, i) { return (book.explains || {})[pg + "_" + i] || null; };
 
     useEffect(function () {
       let alive = true;
@@ -256,7 +354,65 @@
 
     const gotoPage = function (idx) {
       const n = Math.max(0, Math.min(totalPages - 1, idx));
-      setPageIdx(n); props.onPatch({ page: n, lastReadTs: Date.now() });
+      setPageIdx(n); setSel(null); props.onPatch({ page: n, lastReadTs: Date.now() });
+    };
+
+    // ---- 逐段讲解：让 Ta 把这一页每段都用大白话讲给你听（中译中），并把本页梗概续进已读脉络 ----
+    const doExplainPage = async function () {
+      if (busy) return;
+      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      if (!partner) { setPickOpen(true); return; }
+      if (!curParas.length) { props.toast && props.toast("这一页没有正文"); return; }
+      setBusy(true);
+      try {
+        const res = await genExplains(props.active, partner, props.profile, props.worldbook, curParas, book.synopsis || "");
+        if (!res.explains.length) { props.toast && props.toast("Ta 没讲出来，换一页再试"); return; }
+        const now = Date.now();
+        props.onPatch(function (b) {
+          const ex = Object.assign({}, b.explains || {});
+          res.explains.forEach(function (e) { if (e.i >= 0 && e.i < curParas.length) ex[pageIdx + "_" + e.i] = { text: e.text, charId: partner.id, charName: partner.name, ts: now }; });
+          const syn = res.gist ? ((b.synopsis ? b.synopsis + " " : "") + res.gist).slice(-1200) : (b.synopsis || "");
+          return { explains: ex, synopsis: syn, showExplains: true, lastReadTs: now };
+        });
+        props.toast && props.toast(partner.name + " 讲了这页 " + res.explains.length + " 段");
+      } catch (e) { props.toast && props.toast("讲解失败：" + (e.message || "重试")); }
+      finally { setBusy(false); }
+    };
+
+    // ---- 只讲某一段（点段末「讲讲这段」）----
+    const explainOne = async function (i) {
+      if (busy) return;
+      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      if (!partner) { setPickOpen(true); return; }
+      setBusy(true);
+      try {
+        const txt = await genExplainSnippet(props.active, partner, props.profile, props.worldbook, curParas[i], curParas[i], book.synopsis || "");
+        if (txt) props.onPatch(function (b) { const ex = Object.assign({}, b.explains || {}); ex[pageIdx + "_" + i] = { text: txt, charId: partner.id, charName: partner.name, ts: Date.now() }; return { explains: ex, showExplains: true, lastReadTs: Date.now() }; });
+        else props.toast && props.toast("Ta 没讲出来，再试试");
+      } catch (e) { props.toast && props.toast("讲解失败：" + (e.message || "重试")); }
+      finally { setBusy(false); }
+    };
+
+    // ---- 划线：捕捉选中的文字，浮出「让 Ta 讲这句」----
+    const catchSel = function () {
+      try {
+        const s = window.getSelection ? String(window.getSelection()) : "";
+        const tx = s.replace(/\s+/g, " ").trim();
+        setSel(tx.length >= 2 && tx.length <= 500 ? { text: tx } : null);
+      } catch (e) { setSel(null); }
+    };
+    const doExplainSel = async function () {
+      if (!sel) return;
+      if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
+      if (!partner) { setPickOpen(true); return; }
+      const q = sel.text;
+      setSel(null);
+      try { window.getSelection && window.getSelection().removeAllRanges(); } catch (e) {}
+      setSelResult({ q: q, a: "", busy: true });
+      try {
+        const a = await genExplainSnippet(props.active, partner, props.profile, props.worldbook, q, curParas.join("\n"), book.synopsis || "");
+        setSelResult({ q: q, a: a || "（没讲出来，再试试）", busy: false });
+      } catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
     };
 
     const doAnnotate = async function () {
@@ -348,18 +504,33 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "范围"),
           h(Stepper, { value: span, min: 1, max: 8, onChange: function (v) { props.onPatch({ annSpan: v }); } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, span > 1 ? "页(从当前起)" : "页")),
-        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, "本页~第" + Math.min(totalPages, pageIdx + span) + "页") : null
+        span > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, "本页~第" + Math.min(totalPages, pageIdx + span) + "页") : null,
+        // 逐段讲解卡片显示/隐藏（读累了可收起，只留原文）
+        h("button", { onClick: function () { props.onPatch({ showExplains: !explainOn }); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: explainOn ? t.tint : t.fog, border: "1px solid " + (explainOn ? t.tint : t.line), borderRadius: 999, padding: "3px 10px" } }, explainOn ? "讲解 显示中" : "讲解 已隐藏")
       ) : null);
 
     // ---- 正文页 ----
-    const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "18px 20px 90px" } },
+    const reader = h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "18px 20px 90px" }, onMouseUp: catchSel, onTouchEnd: catchSel },
       loading ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, paddingTop: 40 } }, "翻开中…")
         : curParas.map(function (p, i) {
             const anns = annsForPara(i);
+            const ex = explainOn ? explainAt(pageIdx, i) : null;
+            const hot = anns.length || ex;
+            const exCh = ex ? chOf(ex.charId) : null;
             return h(Fragment, { key: pageIdx + "_" + i },
-              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink, margin: "0 0 14px", textIndent: "2em", background: anns.length ? (t.tint + "12") : "transparent", borderRadius: anns.length ? 6 : 0, padding: anns.length ? "2px 6px" : 0 } }, p),
+              // 正文段落：允许划线选中（覆盖全局 user-select:none）
+              h("p", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.95, color: t.ink, margin: "0 0 14px", textIndent: "2em", background: hot ? (t.tint + "12") : "transparent", borderRadius: hot ? 6 : 0, padding: hot ? "2px 6px" : 0, WebkitUserSelect: "text", userSelect: "text" } }, p),
+              // 中译中·逐段讲解卡片
+              ex ? h("div", { key: "ex_" + i, style: { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "9px 12px", background: t.tint + "16", borderRadius: 10 } },
+                exCh ? h(Avatar, { character: exCh, size: 18, radius: 6 }) : null,
+                h("div", { style: { flex: 1 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.tint, marginBottom: 3, letterSpacing: .3 } }, (ex.charName || "") + " · 讲解"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.72, color: t.ink } }, ex.text))) : null,
+              // 还没讲的段落：给个「讲讲这段」入口
+              (!ex && explainOn && partner) ? h("button", { key: "one_" + i, onClick: function () { explainOne(i); }, disabled: busy, style: { margin: "-8px 0 14px", fontFamily: F_BODY, fontSize: 11, color: t.fog, opacity: busy ? .5 : 1 } }, "▸ 让 " + partner.name + " 讲讲这段") : null,
+              // 批注卡片
               anns.map(function (a) {
-                const ch = props.characters.find(function (c) { return c.id === a.charId; });
+                const ch = chOf(a.charId);
                 return h("div", { key: a.id, style: { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "8px 11px", background: t.bg2, borderLeft: "2px solid " + t.tint, borderRadius: "0 8px 8px 0" } },
                   ch ? h(Avatar, { character: ch, size: 18, radius: 6 }) : null,
                   h("div", { style: { flex: 1 } },
@@ -374,19 +545,42 @@
       h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (pageIdx + 1) + " / " + totalPages),
       h("button", { onClick: function () { gotoPage(pageIdx + 1); }, disabled: pageIdx >= totalPages - 1, style: { fontFamily: F_BODY, fontSize: 13, color: pageIdx >= totalPages - 1 ? t.line : t.sub, padding: "6px 8px" } }, "下一页 ›"));
 
-    const actionBar = h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 54, display: "flex", justifyContent: "center", gap: 10, pointerEvents: "none" } },
-      h("button", { onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 16px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 } }, busy ? "批注中…" : "✎ 让 Ta 批注"),
-      h("button", { onClick: function () { if (!partner) { setPickOpen(true); return; } setChatOpen(true); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 16px", boxShadow: "0 3px 12px rgba(0,0,0,.14)" } }, "💬 讨论剧情"));
+    const actionBar = h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 54, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, padding: "0 10px", pointerEvents: "none" } },
+      h("button", { onClick: doExplainPage, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.tint, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 } }, busy ? "讲解中…" : "📖 讲这页"),
+      h("button", { onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 } }, "✎ 批注"),
+      h("button", { onClick: function () { if (!partner) { setPickOpen(true); return; } setChatOpen(true); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.14)" } }, "💬 讨论"));
+
+    // ---- 划线后浮出的「让 Ta 讲这句」----
+    const selBar = sel ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 100, display: "flex", justifyContent: "center", zIndex: 30, pointerEvents: "none" } },
+      h("button", { onClick: doExplainSel, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(0,0,0,.28)" } }, "❓ 让 " + (partner ? partner.name : "Ta") + " 讲这句")) : null;
 
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
       h(Head, { zh: book.title, en: "Reading", onBack: props.onBack }),
-      topbar, reader, actionBar, footer,
+      topbar, reader, selBar, actionBar, footer,
       pickOpen ? h(PartnerPicker, { characters: props.characters, currentId: book.partnerId, t: t,
         onPick: function (id) { props.onPatch({ partnerId: id }); setPickOpen(false); },
         onClose: function () { setPickOpen(false); } }) : null,
+      selResult ? h(SelExplainSheet, { partner: partner, data: selResult, t: t, onClose: function () { setSelResult(null); } }) : null,
       chatOpen ? h(DiscussSheet, { partner: partner, chat: chat, draft: draft, busy: busy, ending: ending, t: t,
         onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); } }) : null
     );
+  }
+
+  // ---- 划线讲解弹层 ----
+  function SelExplainSheet(props) {
+    const t = props.t;
+    const d = props.data;
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 50, display: "flex", flexDirection: "column", justifyContent: "flex-end" } },
+      h("div", { onClick: props.onClose, style: { flex: 1, background: "rgba(0,0,0,.3)" } }),
+      h("div", { style: { background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px 26px", maxHeight: "70%", overflowY: "auto", boxShadow: "0 -6px 20px rgba(0,0,0,.18)" } },
+        h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
+          props.partner ? h(Avatar, { character: props.partner, size: 22, radius: 7 }) : null,
+          h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, (props.partner ? props.partner.name : "Ta") + " 讲讲这句"),
+          h("button", { onClick: props.onClose, style: { fontFamily: F_BODY, fontSize: 18, color: t.fog } }, "×")),
+        h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, lineHeight: 1.7, color: t.sub, padding: "8px 11px", background: t.bg2, borderLeft: "2px solid " + t.line, borderRadius: "0 8px 8px 0", marginBottom: 12 } }, "「" + d.q + "」"),
+        d.busy
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "6px 2px" } }, (props.partner ? props.partner.name : "Ta") + " 在想怎么讲…")
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, d.a)));
   }
 
   // ---- 步进器 ----
