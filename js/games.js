@@ -1741,11 +1741,11 @@
   }
   async function genTDDiscuss(api, chars, recentText, userMsg, hot) {
     const who = chars.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；");
-    const sys = AC + "「真心话大冒险」的自由聊天时间——大家围着刚才的事继续瞎聊、起哄、追问、跑题打闹都行。在场角色（只有这些角色开口，【绝不替真人玩家说话】）：" + who +
-      "\n\n最近发生：\n" + (recentText || "（刚开场）") +
-      (userMsg ? "\n\n真人玩家刚说：「" + userMsg + "」——让相关的角色自然接话、别冷场、别答非所问。" : "\n\n没人特别开口，让几个角色自然地你一言我一语聊起来（接着刚才的话题或跑题都行）。") +
-      "\n每人一句、符合各自人设。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "给 " + (userMsg ? "2~4" : "3~5") + " 条。\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "聊起来。" }], { maxTokens: 3000 });
+    const sys = AC + "「真心话大冒险」的自由聊天时间——大家围着刚才的事继续瞎聊、起哄、追问、翻旧账、跑题打闹都行。在场角色（只有这些角色开口，【绝不替真人玩家说话】）：" + who +
+      "\n\n刚才这些话你们都听见了，【接着往下聊】、互相搭话点名回应，别重复已经说过的、别把上面的话再说一遍：\n" + (recentText || "（刚开场，随便起个话头）") +
+      (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住这句往下说，别冷场、别答非所问。" : "\n\n真人玩家这轮没开口、把话筒交给你们——让几个角色自然地你一言我一语聊下去（可以互相拱火、追问上一个人、或顺势跑题），像一群人真在聊天那样有来有回。") +
+      "\n每条一句、符合各自人设、彼此能接上。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "给 " + (userMsg ? "2~4" : "4~6") + " 条。\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "接着聊。" }], { maxTokens: 3000 });
     const p = extractJSON(raw); return (p && Array.isArray(p.chat)) ? p.chat : [];
   }
 
@@ -1937,7 +1937,7 @@
           h("input", { value: chatInput, onChange: function (e) { setChatInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendChat(); }, placeholder: spun ? "自由聊天…插句嘴 / 追问 / 起哄" : "先聊两句热热场，或直接转瓶子", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
           h("button", { onClick: sendChat, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 16px" } }, "说")),
         h("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
-          h("button", { onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让大家接着聊"),
+          h("button", { onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让他们接着聊（你不用发）"),
           h("button", { onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "🍾 转下一轮" : "🍾 转瓶子")),
         h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }));
     }
