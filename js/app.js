@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.91";
+const APP_VERSION = "v46.92";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -214,6 +214,10 @@ function App() {
   // 角色动态保底计数：每次私聊回复给每个角色的三类动态 +1；到阈值就强制发一条（悄悄话≥15轮、朋友圈≥30轮、论坛≥50轮或3天）
   const [ambientCount, setAmbientCount] = useState({});
   const ambientCountRef = useRef({}); ambientCountRef.current = ambientCount;
+  // 角色主动早晚安去重：{ cid: { m:dayKey, n:dayKey } }，一天各一次
+  const [greetLog, setGreetLog] = useState({});
+  const greetLogRef = useRef({}); greetLogRef.current = greetLog;
+  const markGreet = (cid, slot, key) => { const n = { ...greetLogRef.current, [cid]: { ...(greetLogRef.current[cid] || {}), [slot]: key } }; greetLogRef.current = n; setGreetLog(n); saveJSON("x_greetLog", n); };
   // 心声每 3 轮才写一次（每条都写会稀释回复质量）——per角色回合计数
   const thoughtCtrRef = useRef(loadJSON("x_thoughtCtr", {}));
   // 主屏红点：角色发了朋友圈/论坛/悄悄话没看的数量，进对应界面清零
@@ -402,6 +406,7 @@ function App() {
     setCarryGifts(loadJSON("x_carryGifts", {}));
     setUnreadMap(loadJSON("x_unread", {}));
     setAmbientCount(loadJSON("x_ambientCount", {}));
+    setGreetLog(loadJSON("x_greetLog", {}));
     setAppNotif(loadJSON("x_appNotif", { moments: 0, forum: 0, whisper: 0 }));
     setProfile(loadJSON("x_profile", {}));
     setHomeCard(loadJSON("x_homeCard", { name: "", sign: "", tags: [] }));
@@ -912,6 +917,37 @@ function App() {
     }, 20000);
     return () => clearInterval(timer);
   }, [screen, activeChar, chatSettings, sending]);
+  // ---- 角色主动早晚安：扫所有【在聊的】角色，到各自作息的早/晚，主动发一句问候，落成未读红点，你随缘回 ----
+  // 只在 app 打开时跑（静态站无后台推送）；一次只发一个错峰；一天早/晚各一次；刚聊完/正在看的不打扰。
+  const charLocalHour = char => {
+    const raw = char && char.tz;
+    if (raw !== undefined && raw !== null && String(raw).trim() !== "") { const off = parseFloat(raw); if (!isNaN(off)) return (new Date(Date.now() + off * 3600000)).getUTCHours(); }
+    return new Date().getHours();
+  };
+  useEffect(() => {
+    const tick = () => {
+      if (!active) return;
+      const dayKey = schedDayKey(new Date());
+      for (const c of characters) {
+        const cid = c.id;
+        if (laneBusy("c:" + cid)) continue;
+        if (viewRef.current.charId === cid) continue;         // 正在看这个聊天就不用主动问候
+        const msgs = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+        if (msgs.length < 2) continue;                        // 只问候真在聊的角色，新角色不打扰
+        const hr = charLocalHour(c);
+        const slot = (hr >= 6 && hr <= 10) ? "m" : ((hr >= 21 && hr <= 23) || hr <= 1) ? "n" : null;
+        if (!slot) continue;
+        if ((greetLogRef.current[cid] || {})[slot] === dayKey) continue; // 这个时段今天已问候过
+        if (Date.now() - (msgs[msgs.length - 1].ts || 0) < 90 * 60000) continue; // 刚聊完 90 分钟内先不打扰
+        markGreet(cid, slot, dayKey);
+        replyNow(cid, "", null, { proactive: true, greet: slot === "m" ? "morning" : "night" });
+        break;                                                // 一次只发一个，错峰
+      }
+    };
+    const kick = setTimeout(tick, 6000);                      // 开 app 几秒后先扫一次
+    const timer = setInterval(tick, 45000);
+    return () => { clearTimeout(kick); clearInterval(timer); };
+  }, [characters, active]);
   // ---- 线下模式（赴约）----
   useEffect(() => {
     offlinesRef.current = offlines;
@@ -1322,7 +1358,8 @@ function App() {
       const emotes = emotesForChar(charId);
       const emoteHint = emotes.length ? "\n【表情包】你有一组表情图可以发，像真人发微信表情那样，只在情绪合适时偶尔甩一张（别每条都发，多数时候不发）。可用关键词：" + emotes.map(e => e.keyword).join(" / ") + "。想发就把 emote 填成其中一个关键词（与上面列的完全一致），否则 null。" : "";
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
-      const proactiveHint = (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
+      const greetHint = opts.greet ? "\n\n【此刻·你主动问候】现在是" + (opts.greet === "morning" ? "早上" : "晚上") + "，你【主动】给 Ta 发一句" + (opts.greet === "morning" ? "问早/早安" : "道晚安") + "——结合你此刻的作息、行程、心情，自然又简短（1~2 条），像真人随手发的，别只干巴巴一句『早安』。**很重要：Ta 有自己的生活、可能在忙、可能没空回，这完全正常。语气要轻松不粘人——不许用『怎么不理我』『是不是不想理我』『冷落我』这类质问或愧疚绑架，也别摆被冷落的委屈脸。就是单纯想到 Ta、顺手送个问候，Ta 回不回都没关系。**" : "";
+      const proactiveHint = opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
       const aff = Math.round(affOf(charId));
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -1358,7 +1395,7 @@ function App() {
         : "这一轮不写心声，直接填 null（把精力放在把话聊好上）";
       // #2 时间流逝：隔了几个小时/几天再让 TA 回复，要意识到时间过去了，别当刚聊过（gapMs 已按角色上次开口算好）
       const gapHint = gapMs > 2 * 3600000
-        ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。别当作刚刚才聊过——自然体现这段时间流逝：接上之前没做完/说要去做的事（如说了熬夜跑代码，第二天就『我真去跑了，不然真要睡实验室』）、问对方这段时间干嘛了、或顺势换个话题，贴合此刻时间点（深夜/清晨/工作时间/饭点）和你的人设。"
+        ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。别当作刚刚才聊过——自然体现这段时间流逝：接上之前没做完/说要去做的事（如说了熬夜跑代码，第二天就『我真去跑了，不然真要睡实验室』）、问对方这段时间干嘛了、或顺势换个话题，贴合此刻时间点（深夜/清晨/工作时间/饭点）和你的人设。**Ta 同时要顾着生活和别的人、不是随时都能回你，这很正常：重逢就自然温温地接上，别质问『怎么才回我』『是不是把我忘了』、别甩脸子摆委屈闹脾气搞愧疚绑架（除非你人设本就是会撒娇/傲娇的那种，也点到为止、软下来快）。**"
         : "";
       // #3 着装连贯：把当前已知穿着喂回去，除非有理由别每条都换新装
       const curWear = (states[charId] && states[charId].wearing) || "";
