@@ -23,7 +23,7 @@
       desc: "转瓶子，指到谁就选真心话或大冒险，题目由在场的人出。", rule: "2~10 人" },
     { key: "werewolf", emoji: "🐺", zh: "狼人杀", en: "Werewolf", min: 5, max: 12, ready: true,
       desc: "狼人夜里行凶，好人白天靠推理投票放逐。当前板子：狼人 + 预言家 + 平民。", rule: "5~12 人 · 预言家局 · 不翻牌" },
-    { key: "avalon", emoji: "⚔️", zh: "阿瓦隆", en: "Avalon", min: 5, max: 10, ready: false,
+    { key: "avalon", emoji: "⚔️", zh: "阿瓦隆", en: "Avalon", min: 5, max: 10, ready: true,
       desc: "正义与邪恶的任务对抗，梅林认得坏人、刺客要在结局刺杀梅林。", rule: "5~10 人 · 任务制" }
   ];
   // 游戏生成统一走这个：更长超时 + 失败重试（人多时单次请求大、思考型模型慢，别一次超时就崩）
@@ -120,6 +120,7 @@
       if (session.game.key === "werewolf") return h(WolfGame, Object.assign({}, engineProps, { resume: !!session.resume, savedState: session.saved }));
       if (session.game.key === "haigui" || session.game.key === "q25") return h(GuessGame, Object.assign({}, engineProps, { kind: session.game.key }));
       if (session.game.key === "tod") return h(TruthDareGame, engineProps);
+      if (session.game.key === "avalon") return h(AvalonGame, engineProps);
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
     if (game) return h(GameSetup, {
@@ -172,6 +173,7 @@
     const [godSel, setGodSel] = useState(null);      // 狼人杀神职选择；null=跟随标准板
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
+    const [avOpts, setAvOpts] = useState({ percival: true, mordred: false, oberon: false }); // 阿瓦隆特殊角色
 
     const spectate = mode === "spectate";
     const humanPlays = !spectate;                    // 观战时用户不算玩家
@@ -186,6 +188,7 @@
     const tooFew = spectate ? (picked.length + needNpc) < 2 : total < game.min;
     // 狼人杀神职：effGods = 选中的(或标准板)；至少留 1 民
     const isWolfGame = game.key === "werewolf";
+    const isAvalonGame = game.key === "avalon";
     const effGods = isWolfGame ? (godSel || standardBoard(total)) : [];
     const godRoom = isWolfGame ? Math.max(1, total - wolfCount(total) - 1) : 0;
     const godOverflow = isWolfGame && effGods.length > godRoom;
@@ -270,11 +273,21 @@
             h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 12 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "胜负"),
               h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: winMode, options: [{ key: "side", zh: "屠边" }, { key: "all", zh: "屠城" }], onChange: setWinMode }))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, winMode === "side" ? "屠边：狼把「神营」或「民营」杀绝即胜（标准竞技规则）。" : "屠城：场上剩余好人 ≤ 狼数（打平）时狼就赢。")) : null)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, winMode === "side" ? "屠边：狼把「神营」或「民营」杀绝即胜（标准竞技规则）。" : "屠城：场上剩余好人 ≤ 狼数（打平）时狼就赢。")) : null,
+          // 阿瓦隆·特殊角色
+          isAvalonGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, marginBottom: 2 } }, "特殊角色"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginBottom: 4 } }, "梅林 + 刺客固定在场，其余按人数配忠臣 / 爪牙。加特殊角色让博弈更深。"),
+            [{ k: "percival", zh: "派西维尔 + 莫甘娜", d: "派西维尔认得梅林，但莫甘娜伪装成梅林混淆 TA（成对加入）" },
+             { k: "mordred", zh: "莫德雷德", d: "坏人，且【梅林看不见 TA】——好人更难" },
+             { k: "oberon", zh: "奥伯伦", d: "坏人，但和其他坏人互不相识、不知彼此" }].map(function (o) {
+              return h(ToggleRow, { key: o.k, t: t, label: o.zh, sub: o.d, on: !!avOpts[o.k], onToggle: function () { setAvOpts(function (s) { const n = Object.assign({}, s); n[o.k] = !s[o.k]; return n; }); } });
+            }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "任务队伍规模按人数自动配，第 4 个任务在 7 人以上需 2 张失败票。3 个任务成功后刺客还有终局刺杀。")) : null)),
 
       // 底部开始
       h("div", { className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined }); },
+        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -1829,6 +1842,400 @@
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } }, header, roster, logView,
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "44vh", overflowY: "auto" } }, action),
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), onClose: function () { setDetail(null); } }) : null);
+  }
+
+  // ============================================================
+  // 阿瓦隆 · 引擎（任务制：组队→投票→出任务，3成功好人赢/3失败坏人赢/刺客终局刺梅林）
+  // ============================================================
+  const AV_QUEST = { 5: [2, 3, 2, 3, 3], 6: [2, 3, 4, 3, 4], 7: [2, 3, 3, 4, 4], 8: [3, 4, 4, 5, 5], 9: [3, 4, 4, 5, 5], 10: [3, 4, 4, 5, 5] };
+  const AV_EVIL = { 5: 2, 6: 2, 7: 3, 8: 3, 9: 3, 10: 4 };
+  const AV_ROLE_ZH = { merlin: "梅林", percival: "派西维尔", loyal: "亚瑟的忠臣", assassin: "刺客", morgana: "莫甘娜", mordred: "莫德雷德", oberon: "奥伯伦", minion: "爪牙" };
+  const AV_EVIL_ROLES = ["assassin", "morgana", "mordred", "oberon", "minion"];
+  function avSide(r) { return AV_EVIL_ROLES.indexOf(r) >= 0 ? "evil" : "good"; }
+  function avFailsReq(total, qi) { return (total >= 7 && qi === 3) ? 2 : 1; }
+  function avalonBoard(total, opts) {
+    opts = opts || {};
+    const evilN = AV_EVIL[total] || 2;
+    const evil = ["assassin"];
+    if (opts.mordred && evil.length < evilN) evil.push("mordred");
+    if (opts.percival && evil.length < evilN) evil.push("morgana");
+    if (opts.oberon && evil.length < evilN) evil.push("oberon");
+    while (evil.length < evilN) evil.push("minion");
+    const goodN = total - evilN;
+    const good = ["merlin"];
+    if (opts.percival && good.length < goodN) good.push("percival");
+    while (good.length < goodN) good.push("loyal");
+    return shuffle(good.concat(evil));
+  }
+  // 给「主持人视角」的一句身份+已知信息（用于喂 AI 让每人按自己掌握的信息行动）
+  function avSecretFor(p, players) {
+    const others = players.filter(function (x) { return x !== p; });
+    if (p.role === "merlin") return "梅林——看得见坏人：" + (others.filter(function (x) { return x.side === "evil" && x.role !== "mordred"; }).map(function (x) { return x.name; }).join("、") || "（无）") + "（但不知谁是刺客，必须藏好自己别暴露）";
+    if (p.role === "percival") { const s = others.filter(function (x) { return x.role === "merlin" || x.role === "morgana"; }).map(function (x) { return x.name; }); return "派西维尔——看到 " + (s.join("、") || "—") + (s.length >= 2 ? " 里一个是梅林、一个是莫甘娜（伪装梅林）但分不清，要护住真梅林" : " 是梅林"); }
+    if (p.side === "evil" && p.role !== "oberon") { const m = others.filter(function (x) { return x.side === "evil" && x.role !== "oberon"; }).map(function (x) { return x.name; }); return AV_ROLE_ZH[p.role] + "（坏人）——同伙：" + (m.join("、") || "只有自己") + "；任务里可出『失败』"; }
+    if (p.role === "oberon") return "奥伯伦（坏人，但和其他坏人互不相识、也不认识彼此）；任务里可出『失败』";
+    return "亚瑟的忠臣（好人）——不知任何人身份，靠推理找坏人";
+  }
+  // 给「玩家自己」看的第二人称身份提示
+  function avRevealFor(me, players) {
+    const others = players.filter(function (x) { return x !== me; });
+    if (me.role === "merlin") return "你是【梅林】。你能看见的坏人：" + (others.filter(function (x) { return x.side === "evil" && x.role !== "mordred"; }).map(function (x) { return x.name; }).join("、") || "（本局没有你能看见的坏人）") + "。但你不知道谁是刺客——别暴露自己，否则终局会被一击刺杀。";
+    if (me.role === "percival") { const s = shuffle(others.filter(function (x) { return x.role === "merlin" || x.role === "morgana"; }).map(function (x) { return x.name; })); return "你是【派西维尔】。" + (s.length >= 2 ? s.join(" 和 ") + " 之中一个是梅林、一个是莫甘娜（伪装成梅林），但你分不清谁是谁——保护真梅林。" : "你看到梅林是 " + (s.join("、") || "—") + "。"); }
+    if (me.side === "evil" && me.role !== "oberon") { const m = others.filter(function (x) { return x.side === "evil" && x.role !== "oberon"; }).map(function (x) { return x.name; }); return "你是【" + AV_ROLE_ZH[me.role] + "】（坏人）。你的同伙（奥伯伦除外，互不相识）：" + (m.join("、") || "只有你一个") + "。任务里你可以出『失败』，别暴露。" + (me.role === "assassin" ? "终局你有一次刺杀：3 个任务失守后，指认梅林，猜中坏人翻盘赢。" : ""); }
+    if (me.role === "oberon") return "你是【奥伯伦】——虽属坏人阵营，但你不认识其他坏人，其他坏人也不认识你。任务里可出『失败』。";
+    return "你是【亚瑟的忠臣】（好人）。你不知道任何人的身份，只能靠组队与投票的蛛丝马迹推理，把 3 个任务做成功。";
+  }
+
+  async function setupAvalon(api, realPlayers, npcCount) {
+    const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n你是「阿瓦隆」的 NPC 生成器 + 能力评估器。\n" +
+      "1. 生成 " + npcCount + " 个 NPC：name 中文名 + persona 一句人设（含【职业】与性格，多样别雷同）。\n" +
+      "2. 给【每个真实玩家】和每个 NPC 各写一句 skill「牌桌能力小传」：点出 TA 玩阿瓦隆时——从组队与投票里读心找坏人、伪装隐身份、带节奏说服人——的【真实强弱】（由职业背景推，别被性格带偏）。\n\n" +
+      "【真实玩家】\n" + (lines || "（只有 NPC）") +
+      "\n\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"真实玩家名\",\"skill\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 " + npcCount + " 个 NPC + 每人能力小传。" }], { maxTokens: 4000 });
+    return extractJSON(raw) || {};
+  }
+  async function genProposal(api, leader, players, needSize, qn, failsReq, hist, names) {
+    const sys = AC + SKILL_RULE + "\n\n你在主持「阿瓦隆」，替队长做组队决定。队长【" + leader.name + "】：" + avSecretFor(leader, players) + "，真实水平：" + (leader.skill || "普通") +
+      "\n第 " + (qn + 1) + " 个任务要选【" + needSize + "】人上场" + (failsReq === 2 ? "（此任务需 2 张失败票才失败）" : "") + "。按队长身份立场选人：好人凑一支可信、没坏人的队（通常带上自己）；坏人想把自己或同伙塞进去又不能太明显。给 team（正好 " + needSize + " 个在场的名字）+ 一句公开理由（别暴露隐藏身份）。" +
+      "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") +
+      "\n\n只输出 JSON：{\"team\":[\"\"],\"reason\":\"\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 700 });
+    return extractJSON(raw) || {};
+  }
+  async function genVotes(api, voters, team, leaderName, players, qn, hist) {
+    const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通"); }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") +
+      "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 3000 });
+    const p = extractJSON(raw); return (p && Array.isArray(p.votes)) ? p.votes : [];
+  }
+  async function genQuest(api, evilOnTeam, players, qn, failsReq, score) {
+    const who = evilOnTeam.map(function (p) { return "■ " + p.name + "（" + AV_ROLE_ZH[p.role] + "）水平" + (p.skill || "普通"); }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务执行。目前 好人成功 " + score.good + " 次 / 任务失败 " + score.evil + " 次。" + (failsReq === 2 ? "这个任务需【2 张】失败票才会失败。" : "这个任务【1 张】失败票就失败。") +
+      "\n以下坏人在队里，各自决定这次出【成功】还是【失败】（好人只能出成功）。出失败能推进坏人取胜、但会暴露队里有坏人；有时藏一手出成功更稳。按各人水平与局面权衡：\n" + who +
+      "\n\n只输出 JSON：{\"plays\":[{\"name\":\"\",\"play\":\"成功\"或\"失败\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "出任务。" }], { maxTokens: 600 });
+    const p = extractJSON(raw); return (p && Array.isArray(p.plays)) ? p.plays : [];
+  }
+  async function genAssassin(api, assassin, players, hist) {
+    const goods = players.filter(function (p) { return p.side === "good"; }).map(function (p) { return p.name; });
+    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·好人已完成 3 个任务，进入终局刺杀。你替【刺客 " + assassin.name + "】判断：好人里谁最像梅林？猜中则坏人翻盘获胜。\n回顾全程——谁的组队 / 投票像是『早就知道坏人是谁』（梅林会不自觉地精准避开坏人）。候选：" + goods.join("、") + "\n【局面】\n" + (hist || "") +
+      "\n\n只输出 JSON：{\"target\":\"你认定是梅林的人\",\"reason\":\"\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "刺谁？" }], { maxTokens: 700 });
+    return extractJSON(raw) || {};
+  }
+
+  function AvalonGame(props) {
+    const t = props.t, cfg = props.config, api = props.active;
+    const total = cfg.total;
+    const [phase, setPhase] = useState("loading"); // loading|reveal|propose|vote|quest|assassin|result|error
+    const [players, setPlayers] = useState([]);
+    const [questNum, setQuestNum] = useState(0);     // 0-based
+    const [leaderIdx, setLeaderIdx] = useState(0);
+    const [voteTrack, setVoteTrack] = useState(0);   // 连续否决次数
+    const [results, setResults] = useState([]);      // [{success,fails}]
+    const [team, setTeam] = useState([]);            // 当前提议队伍（名字）
+    const [teamSel, setTeamSel] = useState([]);      // 你组队时的多选
+    const [userVote, setUserVote] = useState(null);  // 你的赞成/反对
+    const [userPlay, setUserPlay] = useState(null);  // 你在任务里出的成功/失败
+    const [pickerOpen, setPickerOpen] = useState(true);
+    const [log, setLog] = useState([]);
+    const [busy, setBusy] = useState(false);
+    const [winner, setWinner] = useState(null);
+    const [assassinPick, setAssassinPick] = useState(null); // 刺客锁定的人（终局揭示）
+    const [errMsg, setErrMsg] = useState("");
+    const [detail, setDetail] = useState(null);
+    const logRef = useRef(null);
+    const histRef = useRef([]);     // 喂 AI 的公开局面（同步）
+    const started = useRef(false);
+    const pAvatar = avatarFor(t);
+    const me = players.find(function (p) { return p.isUser; });
+    const leader = players[leaderIdx];
+    const needSize = players.length ? (AV_QUEST[players.length] || AV_QUEST[5])[questNum] : 0;
+    const failsReq = players.length ? avFailsReq(players.length, questNum) : 1;
+    const score = { good: results.filter(function (r) { return r.success; }).length, evil: results.filter(function (r) { return !r.success; }).length };
+    const pByName = function (nm) { return players.find(function (p) { return p.name === nm || (nm && String(nm).indexOf(p.name) >= 0); }); };
+    const pushLog = function (items) { setLog(function (L) { return L.concat(items); }); };
+    const pushHist = function (line) { histRef.current = histRef.current.concat([line]); };
+    const histText = function () { return histRef.current.slice(-22).map(function (s) { return "· " + s; }).join("\n"); };
+    useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy]);
+    useEffect(function () { setPickerOpen(true); }, [phase, questNum, leaderIdx]);
+
+    // ---- 开局 ----
+    useEffect(function () {
+      if (started.current) return; started.current = true;
+      (async function () {
+        try {
+          if (!api) { setErrMsg("请先到设置配置 API"); setPhase("error"); return; }
+          const rp = realPlayerLines(cfg, props);
+          const data = await setupAvalon(api, rp, cfg.npcCount || 0);
+          const list = buildRoster(cfg, props, t, data.npcs, data.skills);
+          const n = list.length;
+          const roles = avalonBoard(n, cfg.av || {});
+          const order = shuffle(list.map(function (_, i) { return i; }));
+          order.forEach(function (pi, k) { list[pi].role = roles[k]; list[pi].side = avSide(roles[k]); });
+          setPlayers(list);
+          const li = Math.floor(Math.random() * n);
+          setLeaderIdx(li);
+          const board = roles.map(function (r) { return AV_ROLE_ZH[r]; });
+          pushLog([{ type: "info", text: "本局 " + n + " 人。阵营配置：好人 " + roles.filter(function (r) { return avSide(r) === "good"; }).length + " · 坏人 " + roles.filter(function (r) { return avSide(r) === "evil"; }).length + "。身份：" + board.join("、") + "（谁是谁保密）。" }]);
+          setPhase("reveal");
+        } catch (e) { setErrMsg((e && e.message) || "开局失败，重试"); setPhase("error"); }
+      })();
+    }, []);
+
+    // ---- 组队提议 ----
+    const startQuest = function (qn, li, vt) {
+      setPhase("propose"); setTeam([]); setTeamSel([]); setUserVote(null); setUserPlay(null);
+      const ld = players[li];
+      pushLog([{ type: "phase", text: "第 " + (qn + 1) + " 个任务 · 队长 " + ld.name + (ld.isUser ? "(你)" : "") + " 组队（需 " + (AV_QUEST[players.length] || AV_QUEST[5])[qn] + " 人" + (avFailsReq(players.length, qn) === 2 ? "，双失败任务" : "") + "）" }]);
+      if (ld.isUser && cfg.mode !== "spectate") { /* 等你在弹框里选 */ }
+      else aiPropose(qn, li);
+    };
+    const aiPropose = async function (qn, li) {
+      setBusy(true);
+      try {
+        const ld = players[li];
+        const need = (AV_QUEST[players.length] || AV_QUEST[5])[qn];
+        const r = await genProposal(api, ld, players, need, qn, avFailsReq(players.length, qn), histText(), players.map(function (p) { return p.name; }));
+        let tm = (r.team || []).map(function (nm) { const p = pByName(nm); return p ? p.name : null; }).filter(Boolean);
+        tm = tm.filter(function (v, i) { return tm.indexOf(v) === i; }).slice(0, need);
+        // 补足/去重后不够就随机补（含队长优先）
+        if (tm.length < need) { const pool = shuffle(players.map(function (p) { return p.name; }).filter(function (nm) { return tm.indexOf(nm) < 0; })); while (tm.length < need && pool.length) tm.push(pool.shift()); }
+        commitProposal(tm, ld, qn, li, r.reason || "");
+      } catch (e) { props.toast && props.toast("组队出错：" + ((e && e.message) || "重试")); setBusy(false); }
+    };
+    const commitProposal = function (tm, ld, qn, li, reason) {
+      setTeam(tm); setBusy(false);
+      pushHist("任务" + (qn + 1) + " 队长" + ld.name + "组队[" + tm.join("、") + "]" + (reason ? "，称:" + reason : ""));
+      pushLog([{ type: "propose", leader: ld.name, isUser: ld.isUser, team: tm, reason: reason }]);
+      setPhase("vote"); setUserVote(null);
+      // 观战 / 队长非你时也要收 AI 票；你在场则等你先投
+      if (!(me && cfg.mode !== "spectate")) runVotes(tm, qn, li, null);
+    };
+    const submitUserTeam = function () {
+      if (teamSel.length !== needSize) return;
+      commitProposal(teamSel.slice(), leader, questNum, leaderIdx, "");
+    };
+
+    // ---- 投票 ----
+    const runVotes = async function (tm, qn, li, uVote) {
+      setBusy(true);
+      try {
+        const voters = players.filter(function (p) { return !(p.isUser && cfg.mode !== "spectate"); });
+        const raw = await genVotes(api, voters, tm, players[li].name, players, qn, histText());
+        const votes = voters.map(function (v) {
+          const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
+          const approve = hit ? !/反对|拒绝|否|reject|no/i.test(String(hit.vote)) && /赞成|同意|通过|approve|yes/i.test(String(hit.vote)) : (Math.random() < 0.5);
+          return { name: v.name, approve: approve, reason: (hit && hit.reason) || "" };
+        });
+        if (me && cfg.mode !== "spectate" && uVote != null) votes.push({ name: me.name, approve: uVote === "approve", reason: "（你的一票）", mine: true });
+        const yes = votes.filter(function (v) { return v.approve; }).length;
+        const no = votes.length - yes;
+        const approved = yes > no;
+        pushHist("投票 赞成" + yes + ":反对" + no + " → " + (approved ? "通过" : "否决"));
+        pushLog([{ type: "votes", votes: votes, yes: yes, no: no, approved: approved }]);
+        if (approved) { setBusy(false); goQuest(tm, qn, li); }
+        else {
+          const vt2 = (voteTrackFor(qn, li)) + 1;
+          if (vt2 >= 5) { setBusy(false); pushLog([{ type: "info", text: "连续 5 次组队被否决——坏人不战而胜。" }]); finish("evil"); return; }
+          setVoteTrack(vt2);
+          pushLog([{ type: "info", text: "队伍被否决（第 " + vt2 + "/5 次），换下一位队长重组。" }]);
+          const nli = (li + 1) % players.length;
+          setLeaderIdx(nli); setBusy(false);
+          setTimeout(function () { startQuest(qn, nli, vt2); }, 30);
+        }
+      } catch (e) { props.toast && props.toast("投票出错：" + ((e && e.message) || "重试")); setBusy(false); }
+    };
+    // voteTrack 用 state，但连否时闭包可能过期——从 log 里推不方便，这里用一个 ref 兜底
+    const vtRef = useRef(0);
+    const voteTrackFor = function () { return vtRef.current; };
+    useEffect(function () { vtRef.current = voteTrack; }, [voteTrack]);
+
+    // ---- 任务执行 ----
+    const goQuest = function (tm, qn, li) {
+      setPhase("quest"); setUserPlay(null);
+      const teamP = tm.map(pByName).filter(Boolean);
+      const evilOnTeam = teamP.filter(function (p) { return p.side === "evil" && !(p.isUser && cfg.mode !== "spectate"); });
+      const meOnTeam = me && cfg.mode !== "spectate" && tm.indexOf(me.name) >= 0;
+      // 你在队里且是坏人 → 等你选；否则（你是好人或不在队）直接处理 AI
+      if (meOnTeam && me.side === "evil") { /* 等你在弹框选成功/失败 */ }
+      else resolveWithAI(tm, qn, li, evilOnTeam, meOnTeam && me.side === "good" ? 0 : 0);
+    };
+    const submitUserPlay = function (play) {
+      setUserPlay(play);
+      const tm = team;
+      const teamP = tm.map(pByName).filter(Boolean);
+      const evilOnTeam = teamP.filter(function (p) { return p.side === "evil" && !(p.isUser); });
+      resolveWithAI(tm, questNum, leaderIdx, evilOnTeam, play === "失败" ? 1 : 0);
+    };
+    const resolveWithAI = async function (tm, qn, li, evilOnTeam, userFails) {
+      setBusy(true);
+      try {
+        let fails = userFails || 0;
+        if (evilOnTeam.length) {
+          const plays = await genQuest(api, evilOnTeam, players, qn, avFailsReq(players.length, qn), { good: results.filter(function (r) { return r.success; }).length, evil: results.filter(function (r) { return !r.success; }).length });
+          evilOnTeam.forEach(function (p) { const hit = plays.find(function (x) { return x.name && (x.name.indexOf(p.name) >= 0 || p.name.indexOf(x.name) >= 0); }); if (hit && /失败|fail/i.test(String(hit.play))) fails++; });
+        }
+        resolveQuest(tm, qn, li, fails);
+      } catch (e) { props.toast && props.toast("任务出错：" + ((e && e.message) || "重试")); setBusy(false); }
+    };
+    const resolveQuest = function (tm, qn, li, fails) {
+      const req = avFailsReq(players.length, qn);
+      const success = fails < req;
+      const newResults = results.concat([{ success: success, fails: fails }]);
+      setResults(newResults); setBusy(false);
+      pushHist("任务" + (qn + 1) + "结果：" + (success ? "成功" : "失败") + "（" + fails + "张失败票）");
+      pushLog([{ type: "questresult", n: qn + 1, success: success, fails: fails }]);
+      const good = newResults.filter(function (r) { return r.success; }).length;
+      const evil = newResults.length - good;
+      if (good >= 3) { setTimeout(function () { enterAssassin(); }, 40); return; }
+      if (evil >= 3) { finish("evil"); return; }
+      const nli = (li + 1) % players.length;
+      setQuestNum(qn + 1); setLeaderIdx(nli); setVoteTrack(0); vtRef.current = 0;
+      setTimeout(function () { startQuest(qn + 1, nli, 0); }, 40);
+    };
+
+    // ---- 终局刺杀 ----
+    const enterAssassin = function () {
+      setPhase("assassin");
+      pushLog([{ type: "info", text: "好人完成了 3 个任务！但坏人还有最后一击——刺客要指认梅林。" }]);
+      const assassin = players.find(function (p) { return p.role === "assassin"; });
+      if (assassin && assassin.isUser && cfg.mode !== "spectate") { /* 等你选 */ }
+      else aiAssassin(assassin);
+    };
+    const aiAssassin = async function (assassin) {
+      if (!assassin) { finish("good"); return; }
+      setBusy(true);
+      try {
+        const r = await genAssassin(api, assassin, players, histText());
+        const tp = pByName(r.target);
+        settleAssassin(assassin, tp, r.reason || "");
+      } catch (e) { props.toast && props.toast("刺杀出错：" + ((e && e.message) || "重试")); setBusy(false); }
+    };
+    const settleAssassin = function (assassin, targetP, reason) {
+      setBusy(false);
+      setAssassinPick(targetP ? targetP.name : null);
+      const hit = targetP && targetP.role === "merlin";
+      pushLog([{ type: "assassin", by: assassin.name, target: targetP ? targetP.name : "（没锁定）", reason: reason, hit: hit }]);
+      finish(hit ? "evil" : "good");
+    };
+    const finish = function (w) { setWinner(w); setPhase("result"); };
+
+    // ---- 渲染 ----
+    const header = h(Head, { zh: "阿瓦隆", en: "Avalon", onBack: props.onBack });
+    if (phase === "error") return h("div", { className: "h-full flex flex-col" }, header,
+      h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 30 } },
+        h("div", { style: { fontSize: 40 } }, "⚔️"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.sub, textAlign: "center", lineHeight: 1.6 } }, errMsg),
+        h("button", { onClick: props.onBack, style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 24px" } }, "返回")));
+    if (phase === "loading") return h("div", { className: "h-full flex flex-col" }, header,
+      h("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 } },
+        h("div", { style: { fontSize: 40 } }, "⚔️"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "发牌·分配阵营与身份…")));
+
+    // 头像条：标出当前队长 + 被提议进队的人
+    const roster = h("div", { className: "shrink-0", style: { display: "flex", gap: 10, overflowX: "auto", padding: "10px 16px", borderBottom: "1px solid " + t.line } },
+      players.map(function (p) {
+        const isLd = leader && p.name === leader.name && phase !== "result";
+        const onTeam = (phase === "vote" || phase === "quest") && team.indexOf(p.name) >= 0;
+        return h("button", { key: p.key, onClick: function () { setDetail(p); }, className: "active:opacity-70", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0, width: 48 } },
+          h("div", { style: { borderRadius: 13, padding: 2, border: "2px solid " + (onTeam ? t.tint : "transparent"), position: "relative" } }, pAvatar(p, 34),
+            isLd ? h("div", { style: { position: "absolute", top: -6, right: -4, fontSize: 13 } }, "👑") : null),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, maxWidth: 48, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "center" } }, p.name + (p.isUser ? "(你)" : "")));
+      }));
+
+    // 任务进度条：5 个圆
+    const track = h("div", { className: "shrink-0", style: { display: "flex", gap: 8, justifyContent: "center", padding: "10px 16px 4px" } },
+      [0, 1, 2, 3, 4].map(function (i) {
+        const r = results[i];
+        const cur = i === questNum && (phase === "propose" || phase === "vote" || phase === "quest");
+        const dbl = players.length >= 7 && i === 3;
+        const bg = r ? (r.success ? "#3f6d5a" : "#c0553f") : (cur ? t.tint : t.bg2);
+        return h("div", { key: i, style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 } },
+          h("div", { style: { width: 30, height: 30, borderRadius: 999, background: bg, border: "1px solid " + (r || cur ? "transparent" : t.line), color: r || cur ? "#fff" : t.fog, fontFamily: F_DISPLAY, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" } }, r ? (r.success ? "✓" : "✗") : (players.length ? (AV_QUEST[players.length] || AV_QUEST[5])[i] : "")),
+          dbl ? h("div", { style: { fontSize: 8, color: t.fog } }, "2失败") : h("div", { style: { fontSize: 8, color: "transparent" } }, "·"));
+      }));
+
+    const logView = h("div", { ref: logRef, className: "flex-1 overflow-y-auto", style: { padding: "8px 16px 16px" } },
+      log.map(function (it, i) {
+        if (it.type === "info") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.65, margin: "8px 0", textAlign: "center" } }, it.text);
+        if (it.type === "phase") return h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.tint, margin: "12px 0 4px", letterSpacing: .5 } }, "· " + it.text + " ·");
+        if (it.type === "propose") return h("div", { key: i, style: { margin: "6px 0" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "👑 " + it.leader + (it.isUser ? "(你)" : "") + " 提议：" + it.team.join("、")),
+          it.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 2, lineHeight: 1.5 } }, "“" + it.reason + "”") : null);
+        if (it.type === "votes") return h("div", { key: i, style: { margin: "6px 0", background: t.bg2, borderRadius: 10, padding: "8px 11px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: it.approved ? "#3f6d5a" : "#c0553f", marginBottom: 4 } }, (it.approved ? "✓ 通过" : "✗ 否决") + "（赞成 " + it.yes + " · 反对 " + it.no + "）"),
+          it.votes.map(function (v, k) { return h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.5 } }, (v.approve ? "✔ " : "✘ ") + v.name + (v.mine ? "(你)" : "") + (v.reason ? "：" + v.reason : "")); }));
+        if (it.type === "questresult") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_DISPLAY, fontSize: 15, color: it.success ? "#3f6d5a" : "#c0553f" } }, "任务 " + it.n + (it.success ? " 成功 ✓" : " 失败 ✗") + "　（" + it.fails + " 张失败票）");
+        if (it.type === "assassin") return h("div", { key: i, style: { textAlign: "center", margin: "10px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.6 } }, "🗡 刺客 " + it.by + " 指认梅林 → " + it.target + (it.reason ? "\n“" + it.reason + "”" : ""));
+        return null;
+      }));
+
+    // ---- 底部动作 ----
+    let inline = null, pick = null;
+    const roleBanner = me ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, textAlign: "center", marginBottom: 8, lineHeight: 1.6 } }, avRevealFor(me, players)) : null;
+    const teamChip = function (p, on, onTap) { return h("button", { key: p.key, onClick: onTap, style: { display: "flex", alignItems: "center", gap: 5, fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "4px 11px 4px 4px" } }, pAvatar(p, 20), p.name + (p.isUser ? "(你)" : "")); };
+
+    if (phase === "reveal") {
+      inline = h("div", null, roleBanner,
+        h("button", { onClick: function () { startQuest(0, leaderIdx, 0); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（观战）" : "记住身份 · 开始"));
+    } else if (busy) {
+      inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…桌上正在博弈");
+    } else if (phase === "propose") {
+      if (leader && leader.isUser && cfg.mode !== "spectate") {
+        pick = { title: "你是队长 · 选 " + needSize + " 人上场", sub: "第 " + (questNum + 1) + " 个任务" + (failsReq === 2 ? "（需 2 张失败票才失败）" : "") + "。点头像加入 / 移除。",
+          body: h("div", null,
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginBottom: 12 } },
+              players.map(function (p) { const on = teamSel.indexOf(p.name) >= 0; return teamChip(p, on, function () { setTeamSel(function (s) { return on ? s.filter(function (x) { return x !== p.name; }) : (s.length < needSize ? s.concat([p.name]) : s); }); }); })),
+            h("button", { onClick: submitUserTeam, disabled: teamSel.length !== needSize, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: teamSel.length === needSize ? t.ink : t.line, borderRadius: 12, padding: "12px" } }, "提议这支队伍（" + teamSel.length + "/" + needSize + "）")) };
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "队长 " + (leader ? leader.name : "") + " 在组队…");
+    } else if (phase === "vote") {
+      if (me && cfg.mode !== "spectate") {
+        pick = { title: "对这支队伍投票", sub: "队长 " + (leader ? leader.name : "") + " 提议：" + team.join("、"),
+          body: h("div", { style: { display: "flex", gap: 12 } },
+            h("button", { onClick: function () { setPickerOpen(false); runVotes(team, questNum, leaderIdx, "approve"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "13px" } }, "✔ 赞成"),
+            h("button", { onClick: function () { setPickerOpen(false); runVotes(team, questNum, leaderIdx, "reject"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "13px" } }, "✘ 反对")) };
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "大家在投票…");
+    } else if (phase === "quest") {
+      const meOnTeam = me && cfg.mode !== "spectate" && team.indexOf(me.name) >= 0;
+      if (meOnTeam && me.side === "evil") {
+        pick = { title: "你在任务队里 · 你是坏人", sub: "第 " + (questNum + 1) + " 个任务。出『失败』推进坏人取胜，但会暴露队里有内鬼。",
+          body: h("div", { style: { display: "flex", gap: 12 } },
+            h("button", { onClick: function () { setPickerOpen(false); submitUserPlay("成功"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 12, padding: "13px" } }, "让任务成功"),
+            h("button", { onClick: function () { setPickerOpen(false); submitUserPlay("失败"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 12, padding: "13px" } }, "破坏任务")) };
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, meOnTeam ? "你是好人，只能让任务成功——出任务中…" : "队伍在执行任务…");
+    } else if (phase === "assassin") {
+      const assassin = players.find(function (p) { return p.role === "assassin"; });
+      if (assassin && assassin.isUser && cfg.mode !== "spectate") {
+        const cands = players.filter(function (p) { return p.side === "good"; });
+        pick = { title: "你是刺客 · 指认梅林", sub: "好人赢了 3 个任务，但你猜中梅林就能翻盘。回想谁的组队 / 投票像早就知道坏人。",
+          body: h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
+            cands.map(function (p) { return teamChip(p, false, function () { setPickerOpen(false); settleAssassin(assassin, p, "（你的直觉）"); }); })) };
+      } else inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "刺客在锁定梅林…");
+    } else if (phase === "result") {
+      const goodWin = winner === "good";
+      inline = h("div", null,
+        h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: goodWin ? "#3f6d5a" : "#c0553f", marginBottom: 8 } }, goodWin ? "⚔️ 亚瑟的忠臣获胜" : "🗡 莫德雷德的爪牙获胜"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + AV_ROLE_ZH[p.role] + (p.side === "evil" ? "🗡" : ""); }).join("　") + (assassinPick ? "　｜ 刺客指认了 " + assassinPick : "")),
+        h("div", { style: { display: "flex", gap: 10 } },
+          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
+          h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")));
+    }
+
+    const bottom = pick
+      ? (pickerOpen
+        ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "在弹框里操作 · 也可先关掉回看局面")
+        : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里操作"))
+      : inline;
+
+    return h("div", { className: "h-full flex flex-col", style: { position: "relative" } }, header, roster,
+      phase !== "reveal" && phase !== "result" ? track : null, logView,
+      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "50vh", overflowY: "auto" } }, bottom),
+      (pick && pickerOpen) ? h(PickerModal, { t: t, title: pick.title, sub: pick.sub, onClose: function () { setPickerOpen(false); } }, roleBanner, pick.body) : null,
+      detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
   }
 
   window.Games = Games;
