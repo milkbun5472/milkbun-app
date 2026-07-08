@@ -156,6 +156,7 @@
     const [npcFill, setNpcFill] = useState(true);
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
+    const [godSel, setGodSel] = useState(null);      // 狼人杀神职选择；null=跟随标准板
 
     const spectate = mode === "spectate";
     const humanPlays = !spectate;                    // 观战时用户不算玩家
@@ -168,7 +169,12 @@
     const overMax = total > game.max;
     // 观战至少要 2 个 AI 玩家才有的看；否则至少 1 个角色
     const tooFew = spectate ? (picked.length + needNpc) < 2 : total < game.min;
-    const canStart = !overMax && !tooFew && picked.length + needNpc > 0;
+    // 狼人杀神职：effGods = 选中的(或标准板)；至少留 1 民
+    const isWolfGame = game.key === "werewolf";
+    const effGods = isWolfGame ? (godSel || standardBoard(total)) : [];
+    const godRoom = isWolfGame ? Math.max(1, total - wolfCount(total) - 1) : 0;
+    const godOverflow = isWolfGame && effGods.length > godRoom;
+    const canStart = !overMax && !tooFew && picked.length + needNpc > 0 && !godOverflow;
 
     const toggle = function (id) {
       setPicked(function (p) { return p.indexOf(id) >= 0 ? p.filter(function (x) { return x !== id; }) : p.concat([id]); });
@@ -223,11 +229,24 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "最少 " + minNpc + " 个补到 " + game.min + " 人，最多可加到 " + game.max + " 人（局更长、更看得出门道）。")),
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
-          h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }))),
+          h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
+          // 狼人杀·神职配置（自选 + 随机 + 标准板）
+          isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
+            h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "神职配置"),
+              h("button", { onClick: function () { setGodSel(randomBoard(total)); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: t.tint, border: "1px solid " + t.tint, borderRadius: 999, padding: "3px 12px" } }, "🎲 随机"),
+              h("button", { onClick: function () { setGodSel(null); }, style: { marginLeft: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "3px 4px" } }, "标准板")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: godOverflow ? "#c0553f" : t.fog, lineHeight: 1.5, marginBottom: 8 } }, godOverflow ? ("神职太多，最多 " + godRoom + " 个（至少留 1 民）") : "勾选想要的神职，其余是平民。屠边局：狼把神营或民营杀绝即胜。"),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+              GODS.map(function (g) {
+                const on = effGods.indexOf(g.key) >= 0;
+                return h("button", { key: g.key, onClick: function () { const cur = effGods.slice(); const i = cur.indexOf(g.key); if (i >= 0) cur.splice(i, 1); else cur.push(g.key); setGodSel(cur); }, style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? t.tint : t.bg2, border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, g.zh);
+              })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "（目前有预言家、女巫，其余神职陆续加）")) : null)),
 
       // 底部开始
       h("div", { className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, total: total }); },
+        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, total: total, gods: isWolfGame ? effGods.slice() : undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -559,8 +578,29 @@
   // 狼人杀 · 引擎（最简板子：狼人 + 预言家 + 平民；完整夜晚交互；不翻牌）
   // ============================================================
   function wolfCount(n) { return n >= 9 ? 3 : n >= 6 ? 2 : 1; }
-  // 身份铁律：只有这三种，别自创第四种。以后加神职时改这一处即可。
-  const BOARD_LINE = "【身份铁律】本局只有【狼人 / 预言家 / 平民】三种身份，谁都别自创或声称第四种身份——没有女巫、警长、警官、猎人、守卫、白痴等任何神职或头衔；能跳的身份只有『预言家』，狼人也只能悍跳预言家。";
+  // 神职（逐个加引擎；只有引擎做好的才放进选择框）
+  const GODS = [
+    { key: "seer", zh: "预言家", desc: "每晚验一个人的好 / 坏" },
+    { key: "witch", zh: "女巫", desc: "解药救人 + 毒药毒人，各一次" }
+  ];
+  const GOD_KEYS = GODS.map(function (g) { return g.key; });
+  function isGodRole(r) { return GOD_KEYS.indexOf(r) >= 0; }
+  function roleName(r) { if (r === "wolf") return "狼人"; if (r === "villager") return "平民"; const g = GODS.find(function (x) { return x.key === r; }); return g ? g.zh : r; }
+  // 标准板：按人数给默认神职（只在已实现的神里选）
+  function standardBoard(n) {
+    const g = ["seer"];
+    if (n >= 6) g.push("witch");
+    const maxGods = Math.max(1, n - wolfCount(n) - 1); // 至少留 1 民
+    return g.slice(0, maxGods);
+  }
+  function randomBoard(n) { return shuffle(GOD_KEYS.slice()).slice(0, standardBoard(n).length); }
+  // 身份铁律（按本局实际身份动态生成）：别自创没有的身份。以后加神职自动纳入。
+  function boardLine(godKeys) {
+    const gods = (godKeys && godKeys.length ? godKeys : ["seer"]).map(roleName);
+    const all = ["狼人", "平民"].concat(gods);
+    const absent = GODS.filter(function (g) { return (godKeys || []).indexOf(g.key) < 0; }).map(function (g) { return g.zh; });
+    return "【身份铁律】本局身份只有：【" + all.join(" / ") + "】。谁都别自创或声称本局没有的身份——" + (absent.length ? "本局没有 " + absent.join("、") + "，也" : "") + "没有警长、警官等任何头衔。能跳的身份只有『预言家』，狼人也只能悍跳预言家。";
+  }
   // 战术参考：让 AI 打出真套路/反套路（按各人水平自然运用，别生搬术语、别人人都用）
   const WOLF_TACTICS = "【狼人杀常见套路（按各人真实水平自然运用；水平高的会用、会拆，水平低的只会朴素发言——别生搬术语、别每个人都套路满满）】\n" +
     "· 预言家跳身份后报【查杀】(验出来的狼，直接带票投)或【金水】(验出来的好人，帮 TA 洗清)；\n" +
@@ -593,6 +633,14 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 1600 });
     return extractJSON(raw) || {};
   }
+  // 夜晚：替 AI 女巫决定用不用药（一晚最多一瓶）
+  async function genWitch(api, opts) {
+    const bottles = []; if (opts.hasHeal) bottles.push("解药(救今晚被刀的人)"); if (opts.hasPoison) bottles.push("毒药(毒死一人)");
+    const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你替 AI 女巫做决定。女巫有解药和毒药、【一晚最多用一瓶】、别乱用。\n今晚被狼刀的是：" + (opts.victim || "（没人被刀，平安夜）") + "。\n你手上还有：" + (bottles.length ? bottles.join("、") : "（药都用完了）") + "。\n按你的水平决定：值不值得用解药救 TA（是不是关键神/好人？是不是首刀骗药？）？要不要用毒药毒一个明显的狼？没把握就都别用、留着更值钱。\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : "") +
+      "\n\n【输出】只输出 JSON：{\"save\":true/false,\"poison\":\"要毒的人名，或 null\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "用不用药？" }], { maxTokens: 800 });
+    return extractJSON(raw) || {};
+  }
   // 狼刀投票计票：多数决，平票随机；对齐到存活玩家
   function tallyKill(votes, list) {
     const cnt = {};
@@ -608,12 +656,12 @@
     return "\n\n【目前各人的立场纪要（每个人的身份声称/站谁/怀疑谁——**发言务必和自己这条保持连贯，别无缘无故改口、前后矛盾**，除非确有新信息把 TA 说服才转向，转向也要说清为什么）】\n" + keys.map(function (k) { return "· " + k + "：" + stances[k]; }).join("\n");
   }
   // 白天发言：存活 AI 依次发一段（带各自身份/私密信息）；同时回一份立场纪要供后续保持一致
-  async function genSpeeches(api, speakers, dayNum, prior, deaths, mode, userName, stances) {
+  async function genSpeeches(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods) {
     const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv; }).join("\n");
     const p = prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你们最先发言）";
     const easy = mode === "easy" ? "\n【放水局】狼别演得滴水不漏，给真人留点破绽。" : "";
     const day1 = dayNum <= 1 ? "\n【第一天·信息很少】刚死一个人、还没任何验人公开，别硬咬死谁是狼；多给方向、贴印象、定策略。真预言家自己判断要不要今天就跳——要跳就直接报验人结果，别光在那催『预言家快跳』。" : "";
-    const sys = AC + SKILL_RULE + "\n\n" + BOARD_LINE + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) +
+    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods) + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"stance\":\"一句话概括 TA 现在的身份声称/站谁/怀疑谁（用于之后保持一致）\"}]}，speeches 顺序照上面。";
     const raw = await callRetry(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 6000 });
@@ -622,11 +670,11 @@
   }
 
   // 白天投票放逐
-  async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances) {
+  async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances, gods) {
     const sp = allSpeeches.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通"); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
-    const sys = AC + SKILL_RULE + "\n\n" + BOARD_LINE + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + stanceText(stances) + easy +
+    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods) + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + stanceText(stances) + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 4500 });
@@ -635,7 +683,7 @@
 
   // 全场 MVP + 一句赛后感言（不一定是胜方）
   async function genMVP(api, players, log, winnerZh) {
-    const roleZh = function (r) { return r === "wolf" ? "狼人" : r === "seer" ? "预言家" : "平民"; };
+    const roleZh = roleName;
     const roster = players.map(function (p) { return "· " + p.name + (p.isUser ? "(你)" : "") + "（" + roleZh(p.role) + "，" + (p.alive ? "存活到终局" : "中途出局") + "）水平：" + (p.skill || "—"); }).join("\n");
     const logText = log.filter(function (it) { return it.type === "speech" || it.type === "death" || it.type === "out" || it.type === "vote"; }).map(function (it) { return it.type === "speech" ? (it.name + "：" + it.text) : it.text; }).slice(-40).join("\n");
     const sys = AC + "这局狼人杀刚结束，" + winnerZh + "。从全体玩家里评一个【全场 MVP】——**不一定是获胜方**，谁打得最精彩 / 最关键 / 最有观赏性都算（虽败犹荣的狼、看穿全场的预言家、搅动风向的平民都行）。给：name（务必是下面名单里的玩家名）、reason（一句话客观点评为什么是 TA）、quote（以 TA 本人口吻、贴 TA 性格说一句赛后感言）。\n\n【全体身份 + 结局 + 水平】\n" + roster + "\n\n【赛况回放】\n" + logText + "\n\n【输出】只输出 JSON：{\"name\":\"\",\"reason\":\"\",\"quote\":\"\"}";
@@ -661,10 +709,13 @@
     const [lastDeath, setLastDeath] = useState("");
     const [detail, setDetail] = useState(null);     // 点头像看的玩家详情
     const [mvp, setMvp] = useState(null);           // 全场 MVP + 感言
+    const [witchCtx, setWitchCtx] = useState(null); // 用户女巫夜晚决策上下文
+    const [poisonPick, setPoisonPick] = useState(false); // 女巫选毒目标中
     const logRef = useRef(null);
     const started = useRef(false);
     const seerKnowRef = useRef({});                 // { seerName: [{name,isWolf}] }
     const stanceRef = useRef({});                   // { name: 立场一句话 } 内部纪要，防前后矛盾，不显示
+    const witchPotRef = useRef({ heal: true, poison: true }); // 女巫药剂状态（全程一份）
 
     const me = players.find(function (p) { return p.isUser; });
     const alive = players.filter(function (p) { return p.alive; });
@@ -685,7 +736,7 @@
     useEffect(function () {
       if (phase === "result") { clearWolf(); return; }
       if (phase === "reveal" || phase === "night" || phase === "day") {
-        saveWolf({ v: 1, config: cfg, phase: phase, cycle: cycle, players: serializePlayers(players), log: log, seerKnow: seerKnowRef.current, lastDeath: lastDeath, ts: Date.now() });
+        saveWolf({ v: 1, config: cfg, phase: phase, cycle: cycle, players: serializePlayers(players), log: log, seerKnow: seerKnowRef.current, witchPot: witchPotRef.current, lastDeath: lastDeath, ts: Date.now() });
       }
     }, [phase, cycle]);
     // 结束后评全场 MVP + 感言
@@ -694,15 +745,21 @@
       (async function () { try { const m = await genMVP(api, players, log, winner === "wolf" ? "狼人获胜" : "好人获胜"); if (m && m.name) setMvp(m); } catch (e) {} })();
     }, [phase]);
 
+    // 屠边：好人=狼全灭胜；狼=把神营 或 民营 杀绝胜（该营原本存在才算）
     const computeWin = function (list) {
+      const godsTotal = list.filter(function (p) { return isGodRole(p.role); }).length;
+      const villTotal = list.filter(function (p) { return p.role === "villager"; }).length;
       const al = list.filter(function (p) { return p.alive; });
-      const w = al.filter(function (p) { return p.role === "wolf"; }).length;
-      const g = al.length - w;
-      if (w === 0) return "good"; if (w >= g) return "wolf"; return null;
+      if (al.filter(function (p) { return p.role === "wolf"; }).length === 0) return "good";
+      const godsAlive = al.filter(function (p) { return isGodRole(p.role); }).length;
+      const villAlive = al.filter(function (p) { return p.role === "villager"; }).length;
+      if ((godsTotal > 0 && godsAlive === 0) || (villTotal > 0 && villAlive === 0)) return "wolf";
+      return null;
     };
     const privateFor = function (p, list) {
       if (p.role === "wolf") { const team = list.filter(function (x) { return x.role === "wolf" && x.name !== p.name && x.alive; }).map(function (x) { return x.name; }); return "你是狼人。" + (team.length ? "狼队友：" + team.join("、") + "。" : "只剩你一头狼。") + "目标：伪装好人、必要时悍跳预言家、带偏好人。护队友——但当某个队友已经被架住、明显保不住时，**按你的水平决定要不要弃车保帅**：可以切割、甚至顺水推舟投掉这个队友，保住自己的身份和信任，别为一个救不回的同伙陪葬（水平越高越懂止损；讲义气或水平低的才死保到底）。"; }
       if (p.role === "seer") { const k = seerKnowRef.current[p.name] || []; return "你是预言家。查验记录：" + (k.length ? k.map(function (x) { return x.name + "=" + (x.isWolf ? "狼人" : "好人"); }).join("、") : "还没查过") + "。可跳预言家报验人建信任，或视情况隐藏。"; }
+      if (p.role === "witch") { const pot = witchPotRef.current; return "你是女巫（神职）。解药" + (pot.heal ? "还在" : "已用掉") + "、毒药" + (pot.poison ? "还在" : "已用掉") + "。白天你知道自己是神，可以隐藏，也可在合适时机跳出来、用救人/毒人的信息建立信任或指认狼。"; }
       return "你是平民，没有夜晚技能，靠逻辑站边找狼。";
     };
     const shortLog = function () { return log.filter(function (it) { return it.type === "death" || it.type === "out"; }).slice(-6).map(function (it) { return it.text; }).join("\n"); };
@@ -714,6 +771,7 @@
       if (props.resume && props.savedState) {
         const s = props.savedState;
         seerKnowRef.current = s.seerKnow || {};
+        witchPotRef.current = s.witchPot || { heal: true, poison: true };
         const list = hydratePlayers(s.players || []);
         setPlayers(list); setCycle(s.cycle || 1); setLog(s.log || []); setLastDeath(s.lastDeath || "");
         if (s.phase === "night") enterNight(list, s.cycle || 1);
@@ -735,18 +793,20 @@
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) { const n = npcs[i] || {}; list.push({ key: "npc_" + i, name: n.name || ("玩家" + (i + 1)), char: null, isNpc: true, skill: n.skill || "普通", persona: n.persona || "" }); }
-          // 派身份：wolfCount 狼 + 1 预言家 + 其余平民
-          const nW = Math.min(wolfCount(list.length), list.length - 2);
+          // 派身份：wolfCount 狼 + 选定的神职各一 + 其余平民
+          const nW = wolfCount(list.length);
+          const maxG = Math.max(1, list.length - nW - 1); // 至少留 1 民
+          const godList = (cfg.gods && cfg.gods.length ? cfg.gods : ["seer"]).slice(0, maxG);
           const idx = shuffle(list.map(function (_, i) { return i; }));
           const roleAt = {}; let k = 0;
           for (let i = 0; i < nW; i++) roleAt[idx[k++]] = "wolf";
-          roleAt[idx[k++]] = "seer";
+          godList.forEach(function (g) { if (k < list.length) roleAt[idx[k++]] = g; });
           list.forEach(function (p, i) { p.role = roleAt[i] || "villager"; p.alive = true; });
           // 定座位：所有人(含你)随机排一次、全程固定；第 r 轮从第 r 号座位起发言、绕圈跳过死人（你也在队列里按座位轮，不再固定第一个）
           const seatArr = shuffle(list.slice());
           seatArr.forEach(function (p, i) { p.seat = i; });
           setPlayers(list);
-          pushLog([{ type: "info", text: "本局 " + list.length + " 人：" + nW + " 狼、1 预言家、" + (list.length - nW - 1) + " 平民。不翻牌。已随机排座，发言按座位、每轮开头向后轮一位（你也在队列里）。" }]);
+          pushLog([{ type: "info", text: "本局 " + list.length + " 人：" + nW + " 狼、神职【" + godList.map(roleName).join("、") + "】、" + (list.length - nW - godList.length) + " 平民。屠边局——狼把神营或民营杀绝即胜。不翻牌，已随机排座、发言每轮向后轮一位。" }]);
           setPhase("reveal");
         } catch (e) { setErrMsg((e && e.message) || "开局失败，重试"); setPhase("error"); }
       })();
@@ -774,23 +834,52 @@
       const seerInfo = (seer && !userSeer) ? { seer: seer.name, target: ai.seerCheck } : null;
       if (userWolf) setNightStage("wolf");       // 用户狼：等你投刀，再和队友合票
       else if (userSeer) setNightStage("seer");
-      else resolveNight(list, tallyKill(wolfVotes, list), seerInfo, n, wolfVotes, false);
+      else finishNight(list, tallyKill(wolfVotes, list), seerInfo, n, wolfVotes, false);
     };
-    const resolveNight = function (list, wolfTarget, seerInfo, n, wolfVotes, showKillLog) {
+    // 狼刀 + 预言家定好后走这里：处理女巫（用户或 AI），再结算
+    const finishNight = async function (list, wolfTarget, seerInfo, n, wolfVotes, showKillLog) {
+      const witch = list.find(function (p) { return p.alive && p.role === "witch"; });
+      if (witch && witch.isUser) { // 用户女巫：展示被刀者，给救/毒
+        setWitchCtx({ list: list, wolfTarget: wolfTarget, seerInfo: seerInfo, n: n, wolfVotes: wolfVotes, showKillLog: showKillLog });
+        setPoisonPick(false); setNightStage("witch");
+        return;
+      }
+      let witchAction = null;
+      if (witch) { // AI 女巫决定
+        setBusy(true);
+        try {
+          const pot = witchPotRef.current;
+          const al = list.filter(function (p) { return p.alive; });
+          const victim = wolfTarget && (al.find(function (p) { return p.name === wolfTarget || (wolfTarget || "").indexOf(p.name) >= 0; }) || {}).name;
+          const res = await genWitch(api, { witchName: witch.name, skill: witch.skill, victim: victim, hasHeal: pot.heal, hasPoison: pot.poison, aliveNames: al.map(function (p) { return p.name; }), log: shortLog() });
+          const save = !!res.save && pot.heal && !!victim;
+          const poison = (!save && res.poison && pot.poison) ? res.poison : null; // 一晚一瓶：救了就不毒
+          witchAction = { save: save, poison: poison };
+        } catch (e) {}
+        setBusy(false);
+      }
+      resolveNight(list, wolfTarget, seerInfo, n, wolfVotes, showKillLog, witchAction);
+    };
+    const resolveNight = function (list, wolfTarget, seerInfo, n, wolfVotes, showKillLog, witchAction) {
       // AI 预言家的查验入知识库
       if (seerInfo && seerInfo.seer && seerInfo.target) {
         const tp0 = list.find(function (p) { return p.name === seerInfo.target || (seerInfo.target || "").indexOf(p.name) >= 0; });
         if (tp0) { const km = Object.assign({}, seerKnowRef.current); km[seerInfo.seer] = (km[seerInfo.seer] || []).concat([{ name: tp0.name, isWolf: tp0.role === "wolf" }]); seerKnowRef.current = km; }
       }
-      let tp = wolfTarget && list.find(function (p) { return p.alive && (p.name === wolfTarget || (wolfTarget || "").indexOf(p.name) >= 0); });
-      let next = list, deadName = null, deadUser = false;
-      if (tp) { next = list.map(function (p) { return p === tp ? Object.assign({}, p, { alive: false }) : p; }); deadName = tp.name; deadUser = !!tp.isUser; }
+      const saved = !!(witchAction && witchAction.save);
+      const poisonName = witchAction && witchAction.poison;
+      if (witchAction) { const np = Object.assign({}, witchPotRef.current); if (witchAction.save) np.heal = false; if (poisonName) np.poison = false; witchPotRef.current = np; }
+      const deadSet = {};
+      if (!saved && wolfTarget) { const wv = list.find(function (p) { return p.alive && (p.name === wolfTarget || (wolfTarget || "").indexOf(p.name) >= 0); }); if (wv) deadSet[wv.name] = 1; }
+      if (poisonName) { const pv = list.find(function (p) { return p.alive && (p.name === poisonName || (poisonName || "").indexOf(p.name) >= 0); }); if (pv) deadSet[pv.name] = 1; }
+      const deadNames = Object.keys(deadSet);
+      const deadUser = deadNames.some(function (nm) { const pp = list.find(function (p) { return p.name === nm; }); return pp && pp.isUser; });
+      const next = list.map(function (p) { return deadSet[p.name] ? Object.assign({}, p, { alive: false }) : p; });
       setPlayers(next);
       const nightItems = [{ type: "night", n: n }];
-      // 用户是狼时，把狼队刀人的投票明细摆给 TA 看（villager 用户看不到、免泄底）
-      if (showKillLog && wolfVotes && wolfVotes.length) nightItems.push({ type: "info", text: "🐺 狼队刀人投票：" + wolfVotes.map(function (v) { return v.name + "→" + v.target; }).join("、") + "　最终刀：" + (deadName || "（无）") });
-      const deathText = deadName ? ("天亮了，昨晚 " + deadName + (deadUser ? "(你)" : "") + " 倒下了。" + (deadUser ? "你出局了，接下来看他们博弈。" : "")) : "天亮了，是个平安夜。";
-      setLastDeath(deadName ? (deadName + " 昨晚倒下") : "平安夜（没人死）");
+      if (showKillLog && wolfVotes && wolfVotes.length) nightItems.push({ type: "info", text: "🐺 狼队刀人投票：" + wolfVotes.map(function (v) { return v.name + "→" + v.target; }).join("、") + "　最终刀：" + (wolfTarget || "（无）") + (saved ? "（被女巫解药救回）" : "") });
+      const deathText = deadNames.length ? ("天亮了，昨晚 " + deadNames.map(function (nm) { const pp = list.find(function (p) { return p.name === nm; }); return nm + (pp && pp.isUser ? "(你)" : ""); }).join("、") + " 倒下了。" + (deadUser ? "你出局了，接下来看他们博弈。" : "")) : "天亮了，是个平安夜。";
+      setLastDeath(deadNames.length ? (deadNames.join("、") + " 昨晚倒下") : "平安夜（没人死）");
       nightItems.push({ type: "death", text: deathText });
       pushLog(nightItems);
       const w = computeWin(next);
@@ -803,18 +892,23 @@
       const info = nightAI;
       const allVotes = (info.wolfVotes || []).concat([{ name: (info.list.find(function (p) { return p.isUser; }) || {}).name || "你", target: name }]);
       const finalKill = tallyKill(allVotes, info.list);
-      resolveNight(info.list, finalKill, info.seerName ? { seer: info.seerName, target: info.seerCheck } : null, info.n, allVotes, true);
+      finishNight(info.list, finalKill, info.seerName ? { seer: info.seerName, target: info.seerCheck } : null, info.n, allVotes, true);
     };
     // 用户预言家查验
     const submitSeerCheck = function (name) {
       const info = nightAI; const tp = info.list.find(function (p) { return p.name === name; });
       const isWolf = tp && tp.role === "wolf";
-      // 记入用户预言家自己的知识（虽然用户不靠它发言，但保持一致 + 展示）
       const seerNm = (info.list.find(function (p) { return p.isUser; }) || {}).name;
       if (seerNm && tp) { const km = Object.assign({}, seerKnowRef.current); km[seerNm] = (km[seerNm] || []).concat([{ name: tp.name, isWolf: isWolf }]); seerKnowRef.current = km; }
       setSeerResult({ name: name, isWolf: isWolf });
     };
-    const seerDone = function () { const info = nightAI; resolveNight(info.list, tallyKill(info.wolfVotes, info.list), null, info.n, info.wolfVotes, false); };
+    const seerDone = function () { const info = nightAI; finishNight(info.list, tallyKill(info.wolfVotes, info.list), null, info.n, info.wolfVotes, false); };
+    // 用户女巫：救 / 毒 / 都不用
+    const submitWitch = function (action) {
+      const c = witchCtx; if (!c) return;
+      setNightStage("run"); setWitchCtx(null); setPoisonPick(false);
+      resolveNight(c.list, c.wolfTarget, c.seerInfo, c.n, c.wolfVotes, c.showKillLog, action);
+    };
 
     // ---- 白天 ----
     // 固定座位 → 每轮起始向后轮一位：存活玩家按座位号、从本轮起始座位起绕圈排
@@ -840,7 +934,7 @@
       setBusy(true);
       try {
         const speakers = ai.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, list) }; });
-        const res = await genSpeeches(api, speakers, n, prior, lastDeath, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current);
+        const res = await genSpeeches(api, speakers, n, prior, lastDeath, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods);
         const sp = res.speeches;
         (res.stances || []).forEach(function (s) { if (s && s.name && s.stance) { const hit = speakers.find(function (x) { return s.name.indexOf(x.name) >= 0 || x.name.indexOf(s.name) >= 0; }); if (hit) stanceRef.current[hit.name] = s.stance; } });
         const norm = speakers.map(function (s) { const hit = sp.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……（沉默了一下，没多说）" }; });
@@ -871,7 +965,7 @@
         const al = players.filter(function (p) { return p.alive; });
         const aiV = al.filter(function (p) { return !p.isUser; });
         const voters = aiV.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, players) }; });
-        const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current);
+        const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods);
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";
@@ -905,7 +999,7 @@
       return h("div", { style: { width: size, height: size, borderRadius: Math.round(size * 0.3), flexShrink: 0, background: p && p.isUser ? t.tint : t.line, color: "#fff", fontFamily: F_DISPLAY, fontSize: Math.round(size * 0.46), display: "flex", alignItems: "center", justifyContent: "center" } }, ((p && p.name) || "?").slice(0, 1));
     };
     const pByName = function (nm) { return players.find(function (p) { return p.name === nm; }); };
-    const roleZh = function (r) { return r === "wolf" ? "狼人" : r === "seer" ? "预言家" : "平民"; };
+    const roleZh = roleName;
     const header = h(Head, { zh: "狼人杀", en: "Werewolf", onBack: props.onBack });
 
     if (phase === "error") return h("div", { className: "h-full flex flex-col" }, header,
@@ -965,6 +1059,20 @@
         else action = h("div", null, roleBanner,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "选一个人查验身份"),
           pickRow(alive.filter(function (p) { return !p.isUser; }), null, function (nm) { submitSeerCheck(nm); }));
+      }
+      else if (nightStage === "witch") {
+        const pot = witchPotRef.current;
+        const victim = witchCtx && witchCtx.wolfTarget;
+        if (poisonPick) action = h("div", null, roleBanner,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, textAlign: "center", marginBottom: 8 } }, "选一个人下毒（毒药只有一瓶）"),
+          pickRow(alive.filter(function (p) { return !p.isUser; }), null, function (nm) { submitWitch({ save: false, poison: nm }); }),
+          h("button", { onClick: function () { setPoisonPick(false); }, style: { display: "block", margin: "0 auto", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "6px" } }, "← 返回"));
+        else action = h("div", null, roleBanner,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, textAlign: "center", marginBottom: 10, lineHeight: 1.6 } }, victim ? h("span", null, "今晚 ", h("b", null, victim), " 被狼刀了。") : "今晚是平安夜，没人被狼刀。"),
+          h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+            (pot.heal && victim) ? h("button", { onClick: function () { submitWitch({ save: true, poison: null }); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: "#3f6d5a", borderRadius: 12, padding: "12px" } }, "💊 用解药救 " + victim) : null,
+            pot.poison ? h("button", { onClick: function () { setPoisonPick(true); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: "#c0553f", borderRadius: 12, padding: "12px" } }, "☠️ 用毒药毒一个人") : null,
+            h("button", { onClick: function () { submitWitch({ save: false, poison: null }); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "都不用（留着）")));
       }
     } else if (phase === "day") {
       if (busy) action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在发言");
