@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.89";
+const APP_VERSION = "v46.90";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2532,9 +2532,17 @@ function App() {
     setDiaryBusy(b => ({ ...b, [charId]: true }));
     try {
       const mood = moods[charId];
-      const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null, worldbook: loreFor(char, "diary") };
+      // 素材只截【目标那一天】的聊天（0点~24点），别让最近3天的旧事跨天被反复回炉
+      const dayStart = new Date(targetTs); dayStart.setHours(0, 0, 0, 0);
+      const ds = dayStart.getTime(), de = ds + 86400000;
+      const dayMsgs = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && (m.ts || 0) >= ds && (m.ts || 0) < de);
+      const dayChatText = dayMsgs.map(m => (m.role === "user" ? (profile.name || "用户") : char.name) + ": " + m.content).join("\n");
+      // 上一篇日记（目标日之前最近的一篇）——喂给模型当「别重复」参照
+      const prevD = (diariesRef.current[charId] || []).filter(e => (e.ts || 0) < targetTs).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+      const prevDiary = prevD ? ((prevD.titleZh || prevD.titleEn || "") + "｜" + (prevD.paras || []).map(p => p.text).join(" ").slice(0, 220)) : "";
+      const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null, worldbook: loreFor(char, "diary"), recentChat: dayChatText };
       const dateStr = new Date(targetTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
-      const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char, targetKey), dateStr: dateStr });
+      const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char, targetKey), dateStr: dateStr, noChatMaterial: dayMsgs.length < 2, prevDiary: prevDiary });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
