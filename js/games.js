@@ -105,19 +105,20 @@
   }
   function PlayerCard(props) {
     const t = props.t, p = props.p;
-    // 真人角色只显一句 tagline，别把名录里整份人设档案搬进来；NPC 用生成的一句人设
-    const persona = p.isUser ? "" : (p.isNpc ? (p.persona || "") : ((p.char && p.char.tagline) || ""));
+    // personaText 传入时用它（真心话喂完整人设）；否则真人角色只显一句 tagline、NPC 显生成的一句人设
+    const persona = props.personaText != null ? props.personaText : (p.isUser ? "" : (p.isNpc ? (p.persona || "") : ((p.char && p.char.tagline) || "")));
     return h("div", { onClick: props.onClose, style: { position: "absolute", inset: 0, zIndex: 60, background: "rgba(0,0,0,.42)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 } },
       h("div", { onClick: function (e) { e.stopPropagation(); }, style: { background: t.bg, borderRadius: 16, padding: "18px 18px 20px", width: "100%", maxWidth: 320, maxHeight: "76%", overflowY: "auto", boxShadow: "0 10px 40px rgba(0,0,0,.3)" } },
         h("div", { style: { display: "flex", alignItems: "center", gap: 12, marginBottom: 14 } }, props.avatar,
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, p.name + (p.isUser ? "（你）" : "")),
             props.roleText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: props.roleBad ? "#c0553f" : t.tint, marginTop: 2 } }, props.roleText) : (p.alive === false ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, "已出局（身份不公开）") : null))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, letterSpacing: .5, marginBottom: 5 } }, "牌桌能力小传（系统评估）"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, marginBottom: persona ? 14 : 0 } }, p.isUser ? "这是你本人，系统没有替你评估水平——你自己发挥。" : (p.skill || "（没评估到）")),
+        // hideSkill：派对游戏（真心话）没有「牌桌能力」概念，直接看人设，不显空的能力评估
+        props.hideSkill ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, letterSpacing: .5, marginBottom: 5 } }, "牌桌能力小传（系统评估）"),
+        props.hideSkill ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, marginBottom: persona ? 14 : 0 } }, p.isUser ? "这是你本人，系统没有替你评估水平——你自己发挥。" : (p.skill || "（没评估到）")),
         persona ? h("div", null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: .5, marginBottom: 5 } }, "人设 / 补充"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: t.sub } }, persona)) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: .5, marginBottom: 5 } }, props.hideSkill ? "人设" : "人设 / 补充"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: t.sub, whiteSpace: "pre-line" } }, persona)) : null,
         h("button", { onClick: props.onClose, style: { marginTop: 16, width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px" } }, "关了")));
   }
 
@@ -1707,53 +1708,50 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 2500 });
     return extractJSON(raw) || { npcs: [] };
   }
-  // AI 被指到：一次拿全整段（选真话/大冒险 + 谁出题 + 题 + TA 的回应 + 全场反应）
-  // others 只含【角色/NPC】、不含真人——出题人和起哄的人都不能是真人，绝不替真人写话
-  async function genTDForAI(api, target, others, mode, hot) {
-    const who = others.length ? tdRoster(others, 700) : "（没有别的角色，出题人写「大家」）";
+  const TD_GENERIC = "题目可以【贴人设定制】，也可以是【经典款真心话 / 大冒险或其变体】（真心话如：最近一次心动 / 手机最近一张照片 / 最丢脸的事 / 给在场某人打分 / 最想删掉的记忆 / 偷偷喜欢过谁；大冒险如：模仿在场某人 / 给某人发一条消息 / 用夸张语气念一句话 / 和左手边的人对视十秒 / 学一种动物叫）。两类混着来、每轮换花样，别老一个路数。";
+  // AI 被指到：出题人由外部（JS 轮换）指定，避免总是同一个人问
+  async function genTDForAI(api, target, asker, mode, hot, memText) {
+    const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可以暧昧 / 大胆一点，什么都可以问，挖出角色最深的欲望。" : "保持轻松好玩、朋友聚会的尺度。";
     const easy = mode === "easy" ? "整体轻松、别太为难人。" : "";
-    const sys = AC + TD_IC + "\n\n你在主持一局「真心话大冒险」。当前瓶子指到了【" + target.name + "】，TA 的完整人设：\n" + tdDesc(target) +
-      "\n\n在场其他角色（出题人和起哄的人【只能】从这里选，【绝不能】是真人玩家、也不要替真人玩家写任何话）：\n" + who +
-      "\n\n请把这一次完整演出来，放开写、别怕长，但每个人都要【严格贴自己的人设】：\n1. choice：" + target.name + "会选「真心话」还是「大冒险」（按 TA 性格，别每次都一样）。\n2. asker：从上面的角色里选一个来出题的人。\n3. prompt：asker 出的题（真心话=一个够劲的问题；大冒险=一个具体可执行的动作），符合 asker 口吻。" + spice + easy +
-      "\n4. response：" + target.name + "怎么回应／完成（带 TA 的语气和小动作、贴 TA 人设，写足 3~5 句、有戏，别草草收尾）。\n5. reactions：在场 2~4 个角色的即时起哄 / 吐槽 / 追问，每条 {name,text} 一句，各说各人设该说的话。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"asker\":\"\",\"prompt\":\"\",\"response\":\"\",\"reactions\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const sys = AC + TD_IC + "\n\n你在主持一局「真心话大冒险」。这一轮由【" + askerName + "】给【" + target.name + "】出题，两人都要严格贴人设。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场一起起哄）") +
+      "\n被指到的 " + target.name + "（完整人设）：\n" + tdDesc(target) +
+      (memText ? "\n\n【之前发生过的（可以拿来玩梗 / 追问，但别硬凑）】\n" + memText : "") +
+      "\n\n完整演出这一轮：\n1. choice：" + target.name + " 选「真心话」还是「大冒险」（按 TA 性格，别每次都一样）。\n2. prompt：" + askerName + " 出的题，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + easy +
+      "\n3. response：" + target.name + " 怎么回应 / 完成，带 TA 的语气小动作、贴人设，写足 3~5 句、别草收。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"prompt\":\"\",\"response\":\"\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 4000 });
     return extractJSON(raw) || {};
   }
-  // 用户被指到并选了 真话/大冒险：由一个角色给 TA 出题（出题人绝不是真人自己）
-  async function genTDPrompt(api, choice, others, hot, mode) {
-    const who = others.length ? tdRoster(others, 700) : "（没有别的角色，出题人写「大家」）";
+  // 用户被指到并选了 真话/大冒险：出题人也由 JS 指定，只生成题目
+  async function genTDPrompt(api, choice, asker, hot, mode, memText) {
+    const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
-    const sys = AC + TD_IC + "\n\n「真心话大冒险」里轮到真人玩家了，TA 选了【" + choice + "】。从在场这些【角色】里选一个来给 TA 出题（出题人只能是这里的角色，不是真人自己），出的题要符合这个角色的人设口吻：\n" + who +
-      "\n\n出一道" + (choice === "真心话" ? "够味的真心话问题" : "具体可执行的大冒险动作") + "，符合出题人口吻。" + spice + (mode === "easy" ? "别太为难。" : "") +
-      "\n只输出 JSON：{\"asker\":\"\",\"prompt\":\"\"}";
+    const sys = AC + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
+      (memText ? "\n\n【之前发生过的】\n" + memText : "") +
+      "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
+      "\n只输出 JSON：{\"prompt\":\"\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 1200 });
     return extractJSON(raw) || {};
   }
-  // 用户回应后的全场反应（起哄的只有角色，不含真人）
-  async function genTDReactions(api, choice, prompt, userResp, others) {
-    const who = tdRoster(others, 700);
-    const sys = AC + TD_IC + "\n\n「真心话大冒险」里真人玩家刚完成了 TA 的【" + choice + "】。\n题目：" + prompt + "\nTA 的回应：" + userResp +
-      "\n\n在场角色（只有这些角色起哄，别替真人写话）：\n" + who + "\n\n让其中 2~4 个角色即时起哄 / 调侃 / 追问，每条一句，各按自己人设的口吻反应。\n只输出 JSON：{\"reactions\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "起哄。" }], { maxTokens: 2500 });
-    return extractJSON(raw) || { reactions: [] };
+  // 跨轮记忆：把每一轮 + 最近插话压成文本，喂给生成 → 角色能翻旧账 / cue 之前的题和回答
+  function tdMemoryText(log) {
+    const rounds = []; let n = 0;
+    (log || []).forEach(function (it) {
+      if (it.type === "td") { n++; rounds.push("第" + n + "轮 " + it.name + " 的" + it.choice + "：题「" + (it.prompt || "") + "」答「" + ((it.response || "").slice(0, 90)) + "」"); }
+    });
+    const chatty = (log || []).filter(function (it) { return it.type === "chat" || it.type === "react"; }).slice(-10).map(function (it) { return it.name + "：" + it.text; });
+    const parts = rounds.slice(-10);
+    if (chatty.length) parts.push("—最近的插话 / 群聊—", chatty.join("\n"));
+    return parts.join("\n");
   }
-  // 自由讨论时间：一轮做完后大家围着刚才的事瞎聊，用户可插话、可让他们接着聊
-  function tdRecentText(log) {
-    return (log || []).slice(-12).map(function (it) {
-      if (it.type === "td") return it.name + " 的" + it.choice + "：" + (it.prompt || "") + " —— " + (it.response || "");
-      if (it.type === "react" || it.type === "chat") return it.name + "：" + it.text;
-      if (it.type === "spin") return "（瓶子指向 " + it.name + "）";
-      return "";
-    }).filter(Boolean).join("\n");
-  }
-  async function genTDDiscuss(api, chars, recentText, userMsg, hot) {
+  // 自由发言：像群聊一样，谁想说就说、一人可多条、互相接话、cue 题目和回答、翻旧账
+  async function genTDDiscuss(api, chars, memText, userMsg, hot) {
     const who = tdRoster(chars, 700);
-    const sys = AC + TD_IC + "\n\n「真心话大冒险」的自由聊天时间——大家围着刚才的事继续瞎聊、起哄、追问、翻旧账、跑题打闹都行。在场角色（只有这些角色开口，【绝不替真人玩家说话】，每人都要贴自己人设）：\n" + who +
-      "\n\n刚才这些话你们都听见了，【接着往下聊】、互相搭话点名回应，别重复已经说过的、别把上面的话再说一遍：\n" + (recentText || "（刚开场，随便起个话头）") +
-      (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住这句往下说，别冷场、别答非所问。" : "\n\n真人玩家这轮没开口、把话筒交给你们——让几个角色自然地你一言我一语聊下去（可以互相拱火、追问上一个人、或顺势跑题），像一群人真在聊天那样有来有回。") +
-      "\n每条一句、符合各自人设、彼此能接上。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "给 " + (userMsg ? "2~4" : "4~6") + " 条。\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "接着聊。" }], { maxTokens: 3000 });
+    const sys = AC + TD_IC + "\n\n「真心话大冒险」的自由发言时间——【不是排队每人一句评论】，是【像微信群聊那样】：谁想插话就插、同一个人可以连着说好几句、可以打断 / 接住 / 反驳别人、可以专门 cue 刚才那道题或那个回答、翻之前几轮的旧账、拱火、跑题都行，要有你来我往的层次。只有下面这些角色开口（【绝不替真人玩家说话】，每人严格贴自己人设、口吻各不相同）：\n" + who +
+      "\n\n【最近发生 & 之前几轮（随便 cue）】\n" + (memText || "（刚开场，随便起个话头）") +
+      (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住往下聊、别冷场、别答非所问。" : "\n\n真人这轮没开口、把话筒交给你们——自己热闹起来，你一句我一句聊下去。") +
+      "\n输出 6~10 条（允许同一人多条、顺序自然、彼此能接上），像真的群聊在刷屏。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "群聊起来。" }], { maxTokens: 3500 });
     const p = extractJSON(raw); return (p && Array.isArray(p.chat)) ? p.chat : [];
   }
 
@@ -1773,16 +1771,37 @@
     const [spinName, setSpinName] = useState("");   // 转动动画显示的名字
     const [chatInput, setChatInput] = useState(""); // 自由讨论输入
     const logRef = useRef(null);
+    const logDataRef = useRef(sv ? (sv.log || []) : []); // log 同步镜像（喂记忆用，避开 setState 异步）
+    const lastTargetRef = useRef(sv ? (sv.lastTarget || "") : ""); // 上一轮被指到的人（防连续指同一人）
+    const lastAskerRef = useRef("");   // 上一个出题人（轮换、别老同一个）
     const started = useRef(false);
     const pAvatar = avatarFor(t);
     const pByName = function (nm) { return players.find(function (p) { return p.name === nm || (nm && nm.indexOf(p.name) >= 0); }); };
-    const pushLog = function (items) { setLog(function (L) { return L.concat(items); }); };
+    const pushLog = function (items) { logDataRef.current = logDataRef.current.concat(items); setLog(function (L) { return L.concat(items); }); };
+    // 出题人：随机挑一个【角色】（非真人、非被指到的人），尽量避开上一个出题人 → 别固定一个人问
+    const pickAsker = function (targetName) {
+      const pool = players.filter(function (p) { return !p.isUser && p.name !== targetName; });
+      if (!pool.length) return null;
+      let cands = pool.filter(function (p) { return p.name !== lastAskerRef.current; });
+      if (!cands.length) cands = pool;
+      const a = cands[Math.floor(Math.random() * cands.length)];
+      lastAskerRef.current = a.name;
+      return a;
+    };
+    // 一轮做完后的群聊反应（自由发言，不排队）
+    const roundChat = async function () {
+      try {
+        const chars = players.filter(function (p) { return !p.isUser; });
+        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), null, hot);
+        if (c.length) pushLog(c.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
+      } catch (e) { /* 反应可有可无 */ }
+    };
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy]);
     // 存档：只在两轮之间的 idle 静止点存（真心话没有终局，靠顶部横幅弃掉）
     useEffect(function () {
       if (!started.current) return;
       if (busy || phase !== "idle") return;
-      saveGameSnap("tod", { config: cfg, players: serPlayers(players), log: log, hot: hot, ts: Date.now(), label: "转了 " + log.filter(function (x) { return x.type === "spin"; }).length + " 次" });
+      saveGameSnap("tod", { config: cfg, players: serPlayers(players), log: log, hot: hot, lastTarget: lastTargetRef.current, ts: Date.now(), label: "转了 " + log.filter(function (x) { return x.type === "spin"; }).length + " 次" });
     }, [phase, log, busy]);
 
     useEffect(function () {
@@ -1804,21 +1823,23 @@
     const doAITurn = async function (tgt) {
       setBusy(true);
       try {
-        const others = players.filter(function (p) { return p.name !== tgt.name && !p.isUser; });
-        const r = await genTDForAI(api, tgt, others, cfg.mode, hot);
-        pushLog([{ type: "td", name: tgt.name, choice: r.choice || "真心话", asker: r.asker, prompt: r.prompt || "", response: r.response || "" }]
-          .concat((r.reactions || []).map(function (x) { return { type: "react", name: x.name, text: x.text }; })));
+        const asker = pickAsker(tgt.name);
+        const r = await genTDForAI(api, tgt, asker, cfg.mode, hot, tdMemoryText(logDataRef.current));
+        pushLog([{ type: "td", name: tgt.name, choice: r.choice || "真心话", asker: asker ? asker.name : "大家", prompt: r.prompt || "", response: r.response || "" }]);
+        await roundChat();
         setPhase("idle");
       } catch (e) { props.toast && props.toast("出错：" + ((e && e.message) || "重试")); setPhase("idle"); }
       finally { setBusy(false); }
     };
 
-    // 转瓶子：随机指一人（观战时只在 AI 里指）
+    // 转瓶子：随机指一人，尽量别连着指同一个人（观战时只在 AI 里指）
     const spin = function () {
       if (busy) return;
       const pool = cfg.mode === "spectate" ? players.filter(function (p) { return !p.isUser; }) : players;
       if (!pool.length) return;
-      const tgt = pool[Math.floor(Math.random() * pool.length)];
+      const fresh = pool.filter(function (p) { return p.name !== lastTargetRef.current; });
+      const choosePool = fresh.length ? fresh : pool;
+      const tgt = choosePool[Math.floor(Math.random() * choosePool.length)];
       setPhase("spinning");
       // 简单转动动画：快速轮换名字
       let ticks = 0;
@@ -1829,6 +1850,7 @@
         if (ticks > 12) {
           clearInterval(iv);
           setSpinName("");
+          lastTargetRef.current = tgt.name;
           setTarget(tgt);
           pushLog([{ type: "spin", name: tgt.name, isUser: tgt.isUser }]);
           if (tgt.isUser) setPhase("userChoose");
@@ -1839,11 +1861,11 @@
 
     const userChoose = async function (choice) {
       setBusy(true); setPhase("userAnswer");
+      const asker = pickAsker((props.profile && props.profile.name) || "你");
       try {
-        const others = players.filter(function (p) { return !p.isUser; });
-        const r = await genTDPrompt(api, choice, others, hot, cfg.mode);
-        setUserPrompt({ choice: choice, asker: r.asker || (others[0] && others[0].name) || "大家", prompt: r.prompt || (choice === "真心话" ? "说说你最近最上头的一件事。" : "学一个你最不擅长的动物叫。") });
-      } catch (e) { props.toast && props.toast("出题出错：" + ((e && e.message) || "重试")); setUserPrompt({ choice: choice, asker: "大家", prompt: choice === "真心话" ? "说一件你没跟人讲过的小事。" : "原地转三圈再坐下。" }); }
+        const r = await genTDPrompt(api, choice, asker, hot, cfg.mode, tdMemoryText(logDataRef.current));
+        setUserPrompt({ choice: choice, asker: asker ? asker.name : "大家", prompt: r.prompt || (choice === "真心话" ? "说说你最近最上头的一件事。" : "学一个你最不擅长的动物叫。") });
+      } catch (e) { props.toast && props.toast("出题出错：" + ((e && e.message) || "重试")); setUserPrompt({ choice: choice, asker: asker ? asker.name : "大家", prompt: choice === "真心话" ? "说一件你没跟人讲过的小事。" : "原地转三圈再坐下。" }); }
       finally { setBusy(false); }
     };
     const submitUserResp = async function () {
@@ -1852,12 +1874,8 @@
       const up = userPrompt;
       pushLog([{ type: "td", name: (props.profile && props.profile.name) || "你", mine: true, choice: up.choice, asker: up.asker, prompt: up.prompt, response: v }]);
       setUserResp(""); setUserPrompt(null); setPhase("idle");
-      try {
-        const others = players.filter(function (p) { return !p.isUser; });
-        const r = await genTDReactions(api, up.choice, up.prompt, v, others);
-        if (r.reactions && r.reactions.length) pushLog(r.reactions.map(function (x) { return { type: "react", name: x.name, text: x.text }; }));
-      } catch (e) { /* 反应可有可无 */ }
-      finally { setBusy(false); }
+      await roundChat();
+      setBusy(false);
     };
     // 自由讨论：可以一直聊，直到你手动转下一轮
     const doDiscuss = async function (userMsg) {
@@ -1866,7 +1884,7 @@
       if (userMsg) pushLog([{ type: "chat", name: (props.profile && props.profile.name) || "你", text: userMsg, mine: true }]);
       try {
         const chars = players.filter(function (p) { return !p.isUser; });
-        const c = await genTDDiscuss(api, chars, tdRecentText(log), userMsg, hot);
+        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), userMsg, hot);
         if (c.length) pushLog(c.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
         else if (!userMsg) props.toast && props.toast("大家没接话，再点一次试试");
       } catch (e) { props.toast && props.toast("聊天出错：" + ((e && e.message) || "重试")); }
@@ -1952,7 +1970,7 @@
 
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } }, header, roster, logView,
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "44vh", overflowY: "auto" } }, action),
-      detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), onClose: function () { setDetail(null); } }) : null);
+      detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), hideSkill: true, personaText: detail.isUser ? "这是你本人，真人玩家。" : tdDesc(detail), onClose: function () { setDetail(null); } }) : null);
   }
 
   // ============================================================
