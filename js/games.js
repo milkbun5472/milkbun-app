@@ -450,6 +450,8 @@
     // ---- 投票阶段 ----
     const tallyAndEliminate = function (votes) {
       // votes: [{voter, target}]
+      // runVote 开头置了 busy=true，这里先收掉——否则轮到用户描述时 describe 阶段一直卡在 busy 提示、输入框不出现（下一轮的 AI 描述会各自重新置 busy）
+      setBusy(false);
       pushLog([{ type: "sep", text: "—— 投票 ——" }].concat(votes.map(function (v) { return { type: "vote", name: v.voter, target: v.target, reason: v.reason }; })));
       const count = {};
       votes.forEach(function (v) { if (v.target) count[v.target] = (count[v.target] || 0) + 1; });
