@@ -98,14 +98,17 @@
     return h("div", { ref: elRef, className: className, style: Object.assign({ background: "#dfe6ea" }, style || {}) });
   }
 
+  // 蓝点 HTML（你自己的实时位置）
+  function meDotHtml(size) { const s = size || 18; return "<div style='width:" + s + "px;height:" + s + "px;border-radius:50%;background:#3f6d8c;border:3px solid #fff;box-shadow:0 0 0 4px rgba(63,109,140,.28)'></div>"; }
   // 主屏 2×2 实时小组件：迷你好友地图 + 顶部标题 + 在线人数
-  function MapWidget({ characters, status, onOpen }) {
+  function MapWidget({ characters, status, userGeo, onOpen }) {
     const t = (typeof useTheme === "function") ? useTheme() : { ink: "#2b2823", fog: "#9a9082" };
     const withHome = (characters || []).filter(charHome);
     const pins = withHome.map(function (c) {
       const st = (status || {})[c.id];
       return { pos: charPos(c, st), html: avatarHtml(c, 28), size: 28 };
     }).filter(function (p) { return p.pos; });
+    if (userGeo && typeof userGeo.lat === "number") pins.push({ pos: [userGeo.lat, userGeo.lng], size: 16, html: meDotHtml(14) });
     return h("button", { onClick: onOpen, className: "active:opacity-90 text-left",
       style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 24, overflow: "hidden", isolation: "isolate", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 8px 30px rgba(30,28,24,0.12)", background: "#dfe6ea" } },
       h(MapCanvas, { pins: pins, opts: { static: true, zoom: 9 }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
@@ -122,16 +125,23 @@
     const t = useTheme();
     const [sel, setSel] = useState(null);   // 选中要设城市的角色 id
     const [q, setQ] = useState("");
+    // 你自己的实时位置（像苹果地图蓝点）：进地图就持续 watchPosition，离开清掉。仅前台生效。
+    const [livePos, setLivePos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
+    useEffect(function () {
+      if (!navigator.geolocation) return;
+      const id = navigator.geolocation.watchPosition(
+        function (p) { setLivePos([p.coords.latitude, p.coords.longitude]); },
+        function () {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
+      return function () { try { navigator.geolocation.clearWatch(id); } catch (e) {} };
+    }, []);
     const withHome = (characters || []).filter(charHome);
     const pins = withHome.map(function (c) {
       const st = (status || {})[c.id];
       const label = st && st.title ? (c.name + " · " + st.title) : c.name;
       return { pos: charPos(c, st), html: avatarHtml(c, 40), size: 40, tooltip: label, onClick: function () { setSel(c.id); } };
     }).filter(function (p) { return p.pos; });
-    // 用户自己的位置（若开了定位）
-    if (userGeo && typeof userGeo.lat === "number") {
-      pins.push({ pos: [userGeo.lat, userGeo.lng], size: 22, html: "<div style='width:22px;height:22px;border-radius:50%;background:#3f6d8c;border:3px solid #fff;box-shadow:0 0 0 4px rgba(63,109,140,.25)'></div>", tooltip: (profile && profile.name || "我") + "（你）" });
-    }
+    // 你自己的实时蓝点
+    if (livePos) pins.push({ pos: livePos, size: 22, html: meDotHtml(20), tooltip: (profile && profile.name || "我") + "（你 · 实时）" });
     const cityList = CITY_NAMES.filter(function (n) { return !q.trim() || n.indexOf(q.trim()) >= 0; });
     const selChar = sel ? (characters || []).find(function (c) { return c.id === sel; }) : null;
     return h("div", { className: "h-full flex flex-col" },

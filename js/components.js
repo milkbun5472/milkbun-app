@@ -783,6 +783,7 @@ function Home({
   homeCard,
   notif,
   mapStatus,
+  userGeo,
   onOpenApp,
   onOpenChar,
   onEditProfile,
@@ -985,7 +986,7 @@ function Home({
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, onEditCard: onEditCard, onEditProfile: onEditProfile });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, onOpen: function () { return onOpenApp("listen"); } });
-    else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, onOpen: function () { return onOpenApp("map"); } }) : null);
+    else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } }) : null);
     return h("div", {
       key: key, "data-appkey": key,
       style: {
