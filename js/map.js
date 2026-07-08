@@ -100,6 +100,7 @@
       // 修 flex 里初始 0 高只加载一格瓦片：先 invalidateSize，容器真正有尺寸(sized)才 fit 并标记 fitted
       const fit = function () {
         try { map.invalidateSize(); } catch (e) {}
+        if (o.noFit) return; // 视角完全由外部控制（对准你/飞到角色/看全部）
         const sized = map.getSize && map.getSize().x > 60 && map.getSize().y > 60;
         const doFit = o.fitOnce ? !fittedRef.current : true;
         if (doFit && sized && pts.length) {
@@ -165,6 +166,11 @@
     }, []);
     const mapRef = useRef(null);
     const allPtsRef = useRef([]);
+    const centeredRef = useRef(false);
+    // 进地图默认对准你（不是看全部）；GPS 到了再精确对准一次
+    useEffect(function () {
+      if (mapRef.current && livePos && !centeredRef.current) { try { mapRef.current.setView(livePos, 12); centeredRef.current = true; } catch (e) {} }
+    }, [livePos]);
     const anchor = livePos ? { lat: livePos[0], lng: livePos[1] } : (userGeo && typeof userGeo.lat === "number" ? userGeo : null);
     const pins = (characters || []).map(function (c) {
       const st = (status || {})[c.id];
@@ -190,7 +196,7 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 6 } }, "架空世界地图"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6 } }, "这里将放你自己的世界地图图片，把角色钉在剧情地点上。\n（下一步做上传+图钉，先占位）")))
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
-            h(MapCanvas, { pins: pins, opts: { fitOnce: true, zoomControl: true, zoom: 11, onReady: function (m) { mapRef.current = m; } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
+            h(MapCanvas, { pins: pins, opts: { noFit: true, zoomControl: true, zoom: 11, onReady: function (m) { mapRef.current = m; const c = livePos || (anchor ? [anchor.lat, anchor.lng] : allPtsRef.current[0]); if (c) { try { m.setView(c, livePos ? 12 : 11); } catch (e) {} if (livePos) centeredRef.current = true; } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
             // 底部角色条（z-index 压过 Leaflet 图层）：点头像=飞到 TA；右侧「设/改」=设城市；最前「全部」=看全部
             h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto", alignItems: "center" } },
               h("button", { key: "__all", onClick: fitAll, className: "shrink-0 active:opacity-80", style: { display: "flex", alignItems: "center", gap: 5, background: "#fff", border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
