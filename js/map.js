@@ -107,7 +107,7 @@
       return { pos: charPos(c, st), html: avatarHtml(c, 28), size: 28 };
     }).filter(function (p) { return p.pos; });
     return h("button", { onClick: onOpen, className: "active:opacity-90 text-left",
-      style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 24, overflow: "hidden", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 8px 30px rgba(30,28,24,0.12)", background: "#dfe6ea" } },
+      style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 24, overflow: "hidden", isolation: "isolate", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 8px 30px rgba(30,28,24,0.12)", background: "#dfe6ea" } },
       h(MapCanvas, { pins: pins, opts: { static: true, zoom: 9 }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
       // 顶部渐变 + 标题
       h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, padding: "10px 12px 18px", background: "linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0))", pointerEvents: "none" } },
@@ -146,7 +146,7 @@
             h("div", null, h("div", { style: { fontSize: 34, marginBottom: 10 } }, "🏰"),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 6 } }, "架空世界地图"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6 } }, "这里将放你自己的世界地图图片，把角色钉在剧情地点上。\n（下一步做上传+图钉，先占位）")))
-        : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0 } },
+        : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
             h(MapCanvas, { pins: pins, opts: { fitOnce: true, zoomControl: true, zoom: 11 }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
             // 底部角色条（z-index 压过 Leaflet 图层，否则会被地图盖住）
             h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto" } },
