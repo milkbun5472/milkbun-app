@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.98";
+const APP_VERSION = "v46.99";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -241,6 +241,7 @@ function App() {
     geoAware: false
   });
   const [geo, setGeo] = useState(null);
+  const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
   const [apiProfiles, setApiProfiles] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [bgApiId, setBgApiId] = useState(null); // 后台任务(抽取/日程/钱包/查手机)专用便宜 API；空=回退主 API
@@ -429,6 +430,7 @@ function App() {
       geoAware: false
     }));
     setGeo(loadJSON("x_geo", null));
+    setMapMode(loadJSON("x_mapMode", "real"));
     const aps = loadJSON("x_api", []);
     setApiProfiles(aps);
     setActiveId(loadJSON("x_activeApi", aps[0] && aps[0].id || null));
@@ -774,6 +776,8 @@ function App() {
     if (!cur) return { time: "", title: "还没开始今天的安排", location: "", dev: false };
     return { time: cur._myLabel || cur.time || "", title: cur.title || "", location: cur.location || "", type: cur.type || "other", dev: !!cur.deviation };
   };
+  // 好友地图：所有角色此刻在做什么（供 pin 定位偏移 + 标签）
+  const mapStatusAll = () => { const m = {}; characters.forEach(c => { const b = schedNowBriefFor(c); if (b) m[c.id] = b; }); return m; };
   // 近期对话文本（供世界书关键词命中）
   const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-8).map(m => m.content).join("\n");
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
@@ -5536,6 +5540,7 @@ function App() {
     player: player,
     homeCard: homeCard,
     notif: appNotif,
+    mapStatus: mapStatusAll(),
     onOpenApp: k => k === "listen" ? goListen() : setScreen(k),
     onOpenChar: c => {
       setActiveChar(c);
@@ -5545,7 +5550,16 @@ function App() {
     onEditProfile: () => setProfileOpen(true),
     onEditCard: () => setCardOpen(true),
     onSoon: zh => toast("「" + zh + "」还在施工中 · 敬请期待 🚧")
-  });else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
+  });else if (screen === "map") body = (window.MapKit ? h(window.MapKit.CharMap, {
+    characters: characters,
+    status: mapStatusAll(),
+    profile: profile,
+    userGeo: prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null,
+    mode: mapMode,
+    onSetMode: m => { setMapMode(m); saveJSON("x_mapMode", m); },
+    onSetHome: (charId, home) => pC(p => p.map(c => c.id === charId ? { ...c, home: home || undefined } : c)),
+    onBack: goHome
+  }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: characters,
     onBack: goHome,
     onEdit: c => {
