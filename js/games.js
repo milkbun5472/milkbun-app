@@ -1702,7 +1702,7 @@
   // AI 被指到：一次拿全整段（选真话/大冒险 + 谁出题 + 题 + TA 的回应 + 全场反应）
   async function genTDForAI(api, target, others, mode, hot) {
     const who = others.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；");
-    const spice = hot ? "尺度可以暧昧 / 大胆一点（但不露骨、不涉违法），朋友间那种起哄的度。" : "保持轻松好玩、朋友聚会的尺度。";
+    const spice = hot ? "尺度可以暧昧 / 大胆一点，什么都可以问，挖出角色最深的欲望。" : "保持轻松好玩、朋友聚会的尺度。";
     const easy = mode === "easy" ? "整体轻松、别太为难人。" : "";
     const sys = AC + "你在主持一局「真心话大冒险」。当前瓶子指到了【" + target.name + "】：" + (target.persona || (target.char && target.char.tagline) || "（照 TA 人设来）") +
       "\n在场其他人：" + who +
@@ -1714,7 +1714,7 @@
   // 用户被指到并选了 真话/大冒险：生成出题人 + 题
   async function genTDPrompt(api, choice, others, hot, mode) {
     const who = others.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；");
-    const spice = hot ? "尺度可暧昧 / 大胆些（不露骨、不违法）。" : "轻松好玩的尺度。";
+    const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
     const sys = AC + "「真心话大冒险」里轮到真人玩家了，TA 选了【" + choice + "】。从在场这些人里选一个来给 TA 出题：" + who +
       "\n出一道" + (choice === "真心话" ? "够味的真心话问题" : "具体可执行的大冒险动作") + "，一句话，符合出题人口吻。" + spice + (mode === "easy" ? "别太为难。" : "") +
       "\n只输出 JSON：{\"asker\":\"\",\"prompt\":\"\"}";
@@ -1891,7 +1891,7 @@
             h("input", { value: userResp, autoFocus: true, onChange: function (e) { setUserResp(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserResp(); }, placeholder: userPrompt && userPrompt.choice === "真心话" ? "老实交代…" : "描述你怎么完成…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
             h("button", { onClick: submitUserResp, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "交")));
     else action = h("div", null,
-      h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆（仍不露骨、不涉违法）。", on: hot, onToggle: function () { setHot(!hot); } }),
+      h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }),
       h("button", { onClick: spin, className: "w-full active:opacity-80", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 16, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "14px" } }, "🍾 转瓶子"));
 
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } }, header, roster, logView,
