@@ -148,8 +148,8 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6 } }, "这里将放你自己的世界地图图片，把角色钉在剧情地点上。\n（下一步做上传+图钉，先占位）")))
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0 } },
             h(MapCanvas, { pins: pins, opts: { fitOnce: true, zoomControl: true, zoom: 11 }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
-            // 底部角色条
-            h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.92),rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto" } },
+            // 底部角色条（z-index 压过 Leaflet 图层，否则会被地图盖住）
+            h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto" } },
               (characters || []).map(function (c) {
                 const hm = charHome(c); const st = (status || {})[c.id];
                 return h("button", { key: c.id, onClick: function () { setSel(c.id); }, className: "shrink-0 active:opacity-80",
