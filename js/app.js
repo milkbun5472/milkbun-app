@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.93";
+const APP_VERSION = "v46.94";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1840,7 +1840,9 @@ function App() {
         content: userContent
       }], {
         // token 随人数放宽：人多一轮更长，别被 3000 截断（封顶 10000）
-        maxTokens: Math.min(10000, 3200 + members.length * 900)
+        maxTokens: Math.min(10000, 3200 + members.length * 900),
+        // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
+        timeout: 180000
       });
       const arr = extractJSON(raw);
       if (Array.isArray(arr)) {

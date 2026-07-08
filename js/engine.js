@@ -45,7 +45,7 @@ async function fetchModelList(p) {
 // 带超时的 fetch：超时/卡死时中断并抛出可读错误，避免无限转圈
 async function fetchT(url, options, ms) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms || 45000);
+  const timer = setTimeout(() => ctrl.abort(), ms || 120000);
   try {
     return await fetch(url, { ...options, signal: ctrl.signal });
   } catch (e) {
@@ -57,7 +57,7 @@ async function fetchT(url, options, ms) {
 }
 async function callAI(p, system, messages, opts) {
   opts = opts || {};
-  const reqTimeout = opts.timeout || 45000;
+  const reqTimeout = opts.timeout || 120000;
   const base = (p.baseUrl || "").replace(/\/$/, "");
   const fmt = detectFormat(base);
   const model = p.model;
