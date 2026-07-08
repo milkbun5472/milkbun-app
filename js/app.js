@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v46.95";
+const APP_VERSION = "v46.96";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -919,10 +919,34 @@ function App() {
   }, [screen, activeChar, chatSettings, sending]);
   // ---- 角色主动早晚安：扫所有【在聊的】角色，到各自作息的早/晚，主动发一句问候，落成未读红点，你随缘回 ----
   // 只在 app 打开时跑（静态站无后台推送）；一次只发一个错峰；一天早/晚各一次；刚聊完/正在看的不打扰。
-  const charLocalHour = char => {
+  // 角色当地"此刻几点几分"（分钟数）——按 tz 偏移，无 tz 用设备本地
+  const charLocalMin = char => {
     const raw = char && char.tz;
-    if (raw !== undefined && raw !== null && String(raw).trim() !== "") { const off = parseFloat(raw); if (!isNaN(off)) return (new Date(Date.now() + off * 3600000)).getUTCHours(); }
-    return new Date().getHours();
+    if (raw !== undefined && raw !== null && String(raw).trim() !== "") { const off = parseFloat(raw); if (!isNaN(off)) { const d = new Date(Date.now() + off * 3600000); return d.getUTCHours() * 60 + d.getUTCMinutes(); } }
+    const d = new Date(); return d.getHours() * 60 + d.getMinutes();
+  };
+  // 从今日日程取起床/就寝时刻（角色本地，分钟）；没日程返回 null
+  const schedWakeSleep = char => {
+    const s = (schedulesRef.current[char.id] || {})[schedDayKey(new Date())];
+    if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return null;
+    const toMin = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+    let sleep = null;
+    for (let i = s.seqs.length - 1; i >= 0; i--) { if (s.seqs[i].type === "sleep") { sleep = toMin(s.seqs[i].time); break; } }
+    if (sleep == null) sleep = toMin(s.seqs[s.seqs.length - 1].time);
+    return { wake: toMin(s.seqs[0].time), sleep: sleep };
+  };
+  const nearMin = (a, b, tol) => { let d = Math.abs(a - b); d = Math.min(d, 1440 - d); return d <= tol; };
+  // 要不要问候、问早还是问晚：优先按日程（起床后3h内问早、就寝前后1.5h问晚安），没日程回退固定窗口
+  const greetSlotFor = char => {
+    const nowMin = charLocalMin(char);
+    const ws = schedWakeSleep(char);
+    if (ws) {
+      if (ws.wake != null && nowMin >= ws.wake && nowMin <= ws.wake + 180) return "m";
+      if (ws.sleep != null && nearMin(nowMin, ws.sleep, 90)) return "n";
+      return null; // 有日程但不在起床/就寝附近 → 此刻不问候
+    }
+    const hr = Math.floor(nowMin / 60); // 没今日日程 → 回退固定窗口
+    return (hr >= 7 && hr <= 10) ? "m" : ((hr >= 21 && hr <= 23) || hr <= 1) ? "n" : null;
   };
   useEffect(() => {
     const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
@@ -941,8 +965,7 @@ function App() {
         const cid = c.id;
         if (laneBusy("c:" + cid)) continue;
         if (viewRef.current.charId === cid) continue;         // 正在看这个聊天就不用主动问候
-        const hr = charLocalHour(c);
-        const slot = (hr >= 6 && hr <= 10) ? "m" : ((hr >= 21 && hr <= 23) || hr <= 1) ? "n" : null;
+        const slot = greetSlotFor(c);
         if (!slot) continue;
         if ((greetLogRef.current[cid] || {})[slot] === dayKey) continue; // 这个时段今天已问候过
         if (doneInSlot(slot) >= cap) continue;                // 这个时段今天问候名额已满
