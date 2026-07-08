@@ -74,6 +74,23 @@
   function saveWolf(s) { try { localStorage.setItem(WOLF_SAVE, JSON.stringify(s)); } catch (e) {} }
   function clearWolf() { try { localStorage.removeItem(WOLF_SAVE); } catch (e) {} }
 
+  // ---- 通用对局存档（每种游戏一个槽；退出即存、打完即清；狼人杀走上面自己那套）----
+  const GS_SAVE = "games_save";  // { [gameKey]: snapshot }
+  function loadGamesSaves() { try { return JSON.parse(localStorage.getItem(GS_SAVE) || "{}") || {}; } catch (e) { return {}; } }
+  function loadGameSave(k) { return loadGamesSaves()[k] || null; }
+  function saveGameSnap(k, snap) { try { const all = loadGamesSaves(); all[k] = snap; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
+  function clearGameSave(k) { try { const all = loadGamesSaves(); delete all[k]; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
+  // 玩家名单存/取：剥离不可靠的 char（React 元素/整份档案），续局按 key 从 characters/profile 重挂
+  function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive }; }); }
+  function hydPlayers(saved, props, t) {
+    return (saved || []).map(function (s) {
+      let char = null;
+      if (s.isUser) { const pf = props.profile || {}; char = { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }; }
+      else if (!s.isNpc) { char = (props.characters || []).find(function (c) { return c.id === s.key; }) || null; }
+      return Object.assign({}, s, { char: char });
+    });
+  }
+
   // ---- 玩家详情卡：点头像回看系统分配的「能力小传」+人设（结束时也给身份）----
   // 居中弹框：需要选择时跳出来，可关掉回看发言（防底部按钮被截断）
   function PickerModal(props) {
@@ -113,9 +130,10 @@
     const [session, setSession] = useState(null);  // {game, config, resume, saved} 进入对局
     const [saveTick, setSaveTick] = useState(0);   // 存档变动后强刷横幅
     const wolfSave = loadWolfSave();
+    const gSaves = loadGamesSaves();               // 通用存档（卧底/海龟汤/25问/真心话/阿瓦隆）
 
     if (session) {
-      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, recentChatFor: props.recentChatFor, t: t, toast: props.toast, onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
+      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, recentChatFor: props.recentChatFor, t: t, toast: props.toast, savedState: session.saved, onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
       if (session.game.key === "spy") return h(SpyGame, engineProps);
       if (session.game.key === "werewolf") return h(WolfGame, Object.assign({}, engineProps, { resume: !!session.resume, savedState: session.saved }));
       if (session.game.key === "haigui" || session.game.key === "q25") return h(GuessGame, Object.assign({}, engineProps, { kind: session.game.key }));
@@ -142,6 +160,18 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, "第 " + (wolfSave.cycle || 1) + " 个昼夜 · " + ((wolfSave.players || []).filter(function (p) { return p.alive; }).length) + " 人存活")),
           h("button", { onClick: function () { setSession({ game: wolfGameDef, config: wolfSave.config, resume: true, saved: wolfSave }); }, style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "7px 15px" } }, "继续"),
           h("button", { onClick: function () { clearWolf(); setSaveTick(function (x) { return x + 1; }); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 4px" } }, "弃掉")) : null,
+        // 通用存档条：每种没打完的游戏各一条
+        Object.keys(gSaves).map(function (k) {
+          const snap = gSaves[k]; if (!snap) return null;
+          const def = GAMES.find(function (g) { return g.key === k; }); if (!def) return null;
+          return h("div", { key: "gs_" + k, style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 13, background: t.tint + "16", border: "1px solid " + t.tint, margin: "2px 0 14px" } },
+            h("div", { style: { fontSize: 22 } }, def.emoji),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, def.zh + " · 上一局没打完"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, snap.label || "点继续接着玩")),
+            h("button", { onClick: function () { setSession({ game: def, config: snap.config, resume: true, saved: snap }); }, style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "7px 15px" } }, "继续"),
+            h("button", { onClick: function () { clearGameSave(k); setSaveTick(function (x) { return x + 1; }); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 4px" } }, "弃掉"));
+        }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 14px" } }, "邀角色开一局派对游戏。每局可选正常 / 放水 / 观战，人不够能拉 NPC 凑数。（不写进聊天记忆）"),
         h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
           GAMES.map(function (g) {
@@ -372,13 +402,14 @@
   function SpyGame(props) {
     const t = props.t, cfg = props.config;
     const api = props.active;
-    const [phase, setPhase] = useState("loading");   // loading|reveal|describe|vote|result|error
-    const [players, setPlayers] = useState([]);
-    const [round, setRound] = useState(1);
-    const [log, setLog] = useState([]);
-    const [roundClues, setRoundClues] = useState([]); // 本轮已收集的描述（含用户）
-    const [allClues, setAllClues] = useState([]);     // 全场描述（喂投票）
-    const [userFirst, setUserFirst] = useState(true); // 你这轮排最先(true)还是最后(false)——每轮随机
+    const sv = props.savedState;
+    const [phase, setPhase] = useState(sv ? sv.phase : "loading");   // loading|reveal|describe|vote|result|error
+    const [players, setPlayers] = useState(sv ? hydPlayers(sv.players, props, t) : []);
+    const [round, setRound] = useState(sv ? (sv.round || 1) : 1);
+    const [log, setLog] = useState(sv ? (sv.log || []) : []);
+    const [roundClues, setRoundClues] = useState(sv ? (sv.roundClues || []) : []); // 本轮已收集的描述（含用户）
+    const [allClues, setAllClues] = useState(sv ? (sv.allClues || []) : []);     // 全场描述（喂投票）
+    const [userFirst, setUserFirst] = useState(sv ? !!sv.userFirst : true); // 你这轮排最先(true)还是最后(false)——每轮随机
     const [userClue, setUserClue] = useState("");
     const [userVote, setUserVote] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -393,10 +424,18 @@
     const aliveAI = alive.filter(function (p) { return !p.isUser; });
     const pushLog = function (items) { setLog(function (L) { return L.concat(items); }); };
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy]);
+    // 存档：静止的决策点(非 loading/busy)就存一份；打完清掉
+    useEffect(function () {
+      if (!started.current) return;
+      if (phase === "result") { clearGameSave("spy"); return; }
+      if (busy || phase === "loading" || phase === "error") return;
+      saveGameSnap("spy", { config: cfg, phase: phase, players: serPlayers(players), round: round, log: log, roundClues: roundClues, allClues: allClues, userFirst: userFirst, ts: Date.now(), label: "第 " + round + " 轮 · " + alive.length + " 人存活" });
+    }, [phase, log, busy]);
 
     // ---- 开局 ----
     useEffect(function () {
       if (started.current) return; started.current = true;
+      if (sv) return; // 续局：状态已从存档水合，直接进原阶段（reveal/describe/vote 都能续）
       (async function () {
         try {
           if (!api) { setErrMsg("请先到设置配置 API"); setPhase("error"); return; }
@@ -1448,12 +1487,13 @@
   function GuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active, kind = props.kind;
     const K = GUESS_KINDS[kind];
-    const [phase, setPhase] = useState("loading"); // loading|play|result|error
-    const [players, setPlayers] = useState([]);
-    const [ctx, setCtx] = useState(null);          // {surface,truth} | {secret,category}
-    const [log, setLog] = useState([]);
-    const [history, setHistory] = useState([]);    // 问过的问题（防重复）
-    const [qCount, setQCount] = useState(0);        // 已问总数（25问用）
+    const sv = props.savedState;
+    const [phase, setPhase] = useState(sv ? sv.phase : "loading"); // loading|play|result|error
+    const [players, setPlayers] = useState(sv ? hydPlayers(sv.players, props, t) : []);
+    const [ctx, setCtx] = useState(sv ? sv.ctx : null);          // {surface,truth} | {secret,category}
+    const [log, setLog] = useState(sv ? (sv.log || []) : []);
+    const [history, setHistory] = useState(sv ? (sv.history || []) : []);    // 问过的问题（防重复）
+    const [qCount, setQCount] = useState(sv ? (sv.qCount || 0) : 0);        // 已问总数（25问用）
     const [userQ, setUserQ] = useState("");
     const [guessing, setGuessing] = useState(false); // 猜答案输入框开着
     const [guessText, setGuessText] = useState("");
@@ -1471,9 +1511,17 @@
     const pByName = function (nm) { return players.find(function (p) { return p.name === nm || (nm && nm.indexOf(p.name) >= 0); }); };
     const pushLog = function (items) { setLog(function (L) { return L.concat(items); }); };
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy, guessing]);
+    // 存档：静止时存（猜谜类 AI 只在你出手时才动，续局无需重触发）
+    useEffect(function () {
+      if (!started.current) return;
+      if (phase === "result") { clearGameSave(kind); return; }
+      if (busy || phase === "loading" || phase === "error") return;
+      saveGameSnap(kind, { config: cfg, phase: phase, players: serPlayers(players), ctx: ctx, log: log, history: history, qCount: qCount, ts: Date.now(), label: kind === "q25" ? ("已问 " + qCount + "/25") : ("已问 " + history.length + " 个问题") });
+    }, [phase, log, busy]);
 
     useEffect(function () {
       if (started.current) return; started.current = true;
+      if (sv) return; // 续局：状态已水合
       (async function () {
         try {
           if (!api) { setErrMsg("请先到设置配置 API"); setPhase("error"); return; }
@@ -1684,13 +1732,14 @@
 
   function TruthDareGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
-    const [phase, setPhase] = useState("loading"); // loading|idle|spinning|userChoose|userAnswer|error
-    const [players, setPlayers] = useState([]);
-    const [log, setLog] = useState([]);
+    const sv = props.savedState;
+    const [phase, setPhase] = useState(sv ? "idle" : "loading"); // loading|idle|spinning|userChoose|userAnswer|error
+    const [players, setPlayers] = useState(sv ? hydPlayers(sv.players, props, t) : []);
+    const [log, setLog] = useState(sv ? (sv.log || []) : []);
     const [busy, setBusy] = useState(false);
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
-    const [hot, setHot] = useState(false);          // 尺度开关
+    const [hot, setHot] = useState(sv ? !!sv.hot : false);          // 尺度开关
     const [target, setTarget] = useState(null);     // 当前被指到的人
     const [userPrompt, setUserPrompt] = useState(null); // {choice,asker,prompt}
     const [userResp, setUserResp] = useState("");
@@ -1701,9 +1750,16 @@
     const pByName = function (nm) { return players.find(function (p) { return p.name === nm || (nm && nm.indexOf(p.name) >= 0); }); };
     const pushLog = function (items) { setLog(function (L) { return L.concat(items); }); };
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy]);
+    // 存档：只在两轮之间的 idle 静止点存（真心话没有终局，靠顶部横幅弃掉）
+    useEffect(function () {
+      if (!started.current) return;
+      if (busy || phase !== "idle") return;
+      saveGameSnap("tod", { config: cfg, players: serPlayers(players), log: log, hot: hot, ts: Date.now(), label: "转了 " + log.filter(function (x) { return x.type === "spin"; }).length + " 次" });
+    }, [phase, log, busy]);
 
     useEffect(function () {
       if (started.current) return; started.current = true;
+      if (sv) return; // 续局：回到 idle 继续转
       (async function () {
         try {
           if (!api) { setErrMsg("请先到设置配置 API"); setPhase("error"); return; }
@@ -1929,25 +1985,28 @@
   function AvalonGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
     const total = cfg.total;
+    const sv = props.savedState;
     const [phase, setPhase] = useState("loading"); // loading|reveal|propose|vote|quest|assassin|result|error
-    const [players, setPlayers] = useState([]);
-    const [questNum, setQuestNum] = useState(0);     // 0-based
-    const [leaderIdx, setLeaderIdx] = useState(0);
-    const [voteTrack, setVoteTrack] = useState(0);   // 连续否决次数
-    const [results, setResults] = useState([]);      // [{success,fails}]
+    const [players, setPlayers] = useState(sv ? hydPlayers(sv.players, props, t) : []);
+    const [questNum, setQuestNum] = useState(sv ? (sv.questNum || 0) : 0);     // 0-based
+    const [leaderIdx, setLeaderIdx] = useState(sv ? (sv.leaderIdx || 0) : 0);
+    const [voteTrack, setVoteTrack] = useState(sv ? (sv.voteTrack || 0) : 0);   // 连续否决次数
+    const [results, setResults] = useState(sv ? (sv.results || []) : []);      // [{success,fails}]
     const [team, setTeam] = useState([]);            // 当前提议队伍（名字）
     const [teamSel, setTeamSel] = useState([]);      // 你组队时的多选
     const [userVote, setUserVote] = useState(null);  // 你的赞成/反对
     const [userPlay, setUserPlay] = useState(null);  // 你在任务里出的成功/失败
     const [pickerOpen, setPickerOpen] = useState(true);
-    const [log, setLog] = useState([]);
+    const [log, setLog] = useState(sv ? (sv.log || []) : []);
     const [busy, setBusy] = useState(false);
     const [winner, setWinner] = useState(null);
     const [assassinPick, setAssassinPick] = useState(null); // 刺客锁定的人（终局揭示）
     const [errMsg, setErrMsg] = useState("");
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
-    const histRef = useRef([]);     // 喂 AI 的公开局面（同步）
+    const histRef = useRef(sv ? (sv.hist || []) : []);     // 喂 AI 的公开局面（同步）
+    const logDataRef = useRef(sv ? (sv.log || []) : []);   // log 的同步镜像（存档用，避开 setState 异步）
+    const vtRef = useRef(sv ? (sv.voteTrack || 0) : 0);
     const started = useRef(false);
     const pAvatar = avatarFor(t);
     const me = players.find(function (p) { return p.isUser; });
@@ -1956,15 +2015,26 @@
     const failsReq = players.length ? avFailsReq(players.length, questNum) : 1;
     const score = { good: results.filter(function (r) { return r.success; }).length, evil: results.filter(function (r) { return !r.success; }).length };
     const pByName = function (nm) { return players.find(function (p) { return p.name === nm || (nm && String(nm).indexOf(p.name) >= 0); }); };
-    const pushLog = function (items) { setLog(function (L) { return L.concat(items); }); };
+    const pushLog = function (items) { logDataRef.current = logDataRef.current.concat(items); setLog(function (L) { return L.concat(items); }); };
     const pushHist = function (line) { histRef.current = histRef.current.concat([line]); };
     const histText = function () { return histRef.current.slice(-22).map(function (s) { return "· " + s; }).join("\n"); };
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy]);
     useEffect(function () { setPickerOpen(true); }, [phase, questNum, leaderIdx]);
+    useEffect(function () { if (phase === "result") clearGameSave("avalon"); }, [phase]);
+    // 存档：在每次「进入某个任务的组队」前存一份干净断点（续局从 startQuest 重进该轮，不复读已发生的）
+    const saveCkpt = function (qn, li, vt, resultsArr, playersArr) {
+      const ld = playersArr[li];
+      saveGameSnap("avalon", { config: cfg, questNum: qn, leaderIdx: li, voteTrack: vt, results: resultsArr, players: serPlayers(playersArr), log: logDataRef.current, hist: histRef.current, ts: Date.now(), label: "任务 " + (qn + 1) + "/5 · " + score.good + " 成 " + score.evil + " 败 · 队长 " + (ld ? ld.name : "?") });
+    };
 
     // ---- 开局 ----
     useEffect(function () {
       if (started.current) return; started.current = true;
+      if (sv) { // 续局：状态已水合，重进当前任务的组队
+        vtRef.current = sv.voteTrack || 0;
+        setTimeout(function () { startQuest(sv.questNum || 0, sv.leaderIdx || 0, sv.voteTrack || 0); }, 20);
+        return;
+      }
       (async function () {
         try {
           if (!api) { setErrMsg("请先到设置配置 API"); setPhase("error"); return; }
@@ -2044,12 +2114,12 @@
           pushLog([{ type: "info", text: "队伍被否决（第 " + vt2 + "/5 次），换下一位队长重组。" }]);
           const nli = (li + 1) % players.length;
           setLeaderIdx(nli); setBusy(false);
+          saveCkpt(qn, nli, vt2, results, players);
           setTimeout(function () { startQuest(qn, nli, vt2); }, 30);
         }
       } catch (e) { props.toast && props.toast("投票出错：" + ((e && e.message) || "重试")); setBusy(false); }
     };
     // voteTrack 用 state，但连否时闭包可能过期——从 log 里推不方便，这里用一个 ref 兜底
-    const vtRef = useRef(0);
     const voteTrackFor = function () { return vtRef.current; };
     useEffect(function () { vtRef.current = voteTrack; }, [voteTrack]);
 
@@ -2094,6 +2164,7 @@
       if (evil >= 3) { finish("evil"); return; }
       const nli = (li + 1) % players.length;
       setQuestNum(qn + 1); setLeaderIdx(nli); setVoteTrack(0); vtRef.current = 0;
+      saveCkpt(qn + 1, nli, 0, newResults, players);
       setTimeout(function () { startQuest(qn + 1, nli, 0); }, 40);
     };
 
@@ -2189,7 +2260,7 @@
           h("br"), "好人赢满 3 任务后，坏人里的刺客还有最后一击——指认谁是梅林，猜中就坏人翻盘。",
           h("br"), h("b", { style: { color: t.ink } }, "队长"), "开局随机第一个，之后按顺序轮流当。"),
         roleBanner,
-        h("button", { onClick: function () { startQuest(0, leaderIdx, 0); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（观战）" : "记住身份 · 开始"));
+        h("button", { onClick: function () { saveCkpt(0, leaderIdx, 0, results, players); startQuest(0, leaderIdx, 0); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, cfg.mode === "spectate" ? "开始（观战）" : "记住身份 · 开始"));
     } else if (busy) {
       inline = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…桌上正在博弈");
     } else if (phase === "propose") {
