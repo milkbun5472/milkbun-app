@@ -721,7 +721,17 @@
   function stanceText(stances) {
     const keys = Object.keys(stances || {});
     if (!keys.length) return "";
-    return "\n\n【目前各人的立场纪要（每个人的身份声称/站谁/怀疑谁——**发言务必和自己这条保持连贯，别无缘无故改口、前后矛盾**，除非确有新信息把 TA 说服才转向，转向也要说清为什么）】\n" + keys.map(function (k) { return "· " + k + "：" + stances[k]; }).join("\n");
+    const line = function (s) {
+      if (!s) return "（暂无）";
+      if (typeof s === "string") return s; // 兼容旧存档/用户的一句话
+      return [s.claim ? "声称:" + s.claim : "", s.reads ? "读牌:" + s.reads : "", s.plan ? "打算:" + s.plan : ""].filter(Boolean).join(" ｜ ") || "（暂无）";
+    };
+    return "\n\n【目前各人的立场纪要（各人的身份声称 / 怎么读别人 / 打算怎么打——**发言与投票务必和自己这条保持连贯，别无缘无故改口、前后矛盾**，除非确有新信息把 TA 说服才转向，转向也要说清为什么）】\n" + keys.map(function (k) { return "· " + k + "：" + line(stances[k]); }).join("\n");
+  }
+  // 全场公开声明台账（跨天累积）——谁跳过预言家、谁被报过查杀/金水，让多天发言/投票保持一致，不"集体失忆"
+  function claimsText(claims) {
+    if (!claims || !claims.length) return "";
+    return "\n\n【全场公开声明台账（跨天累积·全场都听见了，务必和这些保持一致：别装作没人跳过预言家、别忘了谁被报过查杀/金水、别再声称已被别人占掉的身份、别把已对跳的两方混为一谈）】\n" + claims.slice(-24).map(function (c) { return "· 第" + c.day + "天 " + c.name + "：" + c.text; }).join("\n");
   }
   // 牌局状态：当前天数 + 存活/出局名单（防 AI 对着出局的人喊话、搞错天数）
   function boardState(list, dayNum) {
@@ -732,27 +742,27 @@
     return "\n\n【★牌局状态·务必严格按这个来】\n· 现在是【第 " + dayNum + " 天】白天。\n· 【还在场（只有这些人能被讨论、被怀疑、被投票）】：" + (alive.join("、") || "无") + "\n· 【已出局——这些人已经退出游戏！绝对别再叫他们发言、别要求他们解释、别说要把他们投出去/放逐、别把他们当活人分析或站队】：" + (out.length ? out.join("、") : "无") + idiotLine + "\n· 投票和点名只能针对【还在场】的人。别搞错第几天、别提已出局的人还在场、别把早已结算过的旧事当成新消息重新推。";
   }
   // 白天发言：存活 AI 依次发一段（带各自身份/私密信息）；同时回一份立场纪要供后续保持一致
-  async function genSpeeches(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole) {
+  async function genSpeeches(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims) {
     const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv; }).join("\n");
     const p = prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你们最先发言）";
     const easy = mode === "easy" ? "\n【放水局】狼别演得滴水不漏，给真人留点破绽。" : "";
     const peaceful = /平安夜|没人死|没人被/.test(deaths || "");
     const day1 = dayNum <= 1 ? "\n【第一天·信息极少·别当中间夜打】现在才第 1 天，几乎没有可靠信息。**别过度脑补**——" + (peaceful ? "尤其今天是【平安夜】，别去推演『是不是女巫救了预言家验的人、还是预言家自刀被救』这类没影的可能，本局神职有限，别硬套这些高级推理。" : "") + "别硬咬死谁是狼、别全场催『预言家快跳』。就简短说第一印象、初步站位或表个态就行。预言家要不要跳、什么时候跳，由真预言家自己决定，别逼 TA。" : "";
-    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) +
+    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
-      "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"stance\":\"一句话概括 TA 现在的身份声称/站谁/怀疑谁（用于之后保持一致）\"}]}，speeches 顺序照上面。";
+      "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"claim\":\"你此刻声称的身份（平民/预言家/我查杀了X/我金水了X 等，隐藏身份就写 装平民 之类）\",\"reads\":\"你怎么读别人：疑谁信谁+简短理由\",\"plan\":\"你接下来打算怎么打：归票谁/自证/隐藏/带节奏\"}],\"claims\":[{\"name\":\"发言人\",\"text\":\"TA这轮做出的【硬公开声明】——跳预言家/报X查杀/给X金水/自曝身份/起跳对跳，才需要列；只是表态怀疑、没有硬声明就【别列进 claims】\"}]}，speeches 顺序照上面，stances 每个发言人一条。";
     const raw = await callRetry(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 6000 });
     const r = extractJSON(raw);
-    return { speeches: (r && Array.isArray(r.speeches)) ? r.speeches : [], stances: (r && Array.isArray(r.stances)) ? r.stances : [] };
+    return { speeches: (r && Array.isArray(r.speeches)) ? r.speeches : [], stances: (r && Array.isArray(r.stances)) ? r.stances : [], claims: (r && Array.isArray(r.claims)) ? r.claims : [] };
   }
 
   // 白天投票放逐
-  async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances, gods, board, wolfRole) {
+  async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances, gods, board, wolfRole, claims) {
     const sp = allSpeeches.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通"); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
     const fair = "\n【别无端集火·很重要】" + (userName ? "「" + userName + "」是真人玩家。**别只因为 TA 是真人、发言短、或你自己没头绪，就默认投 TA 或带节奏投 TA**——只在真有逻辑依据时才投 TA（被查杀、发言明显矛盾、狼味很重）。真人发言少≠划水。" : "") + "也别全场一窝蜂集火同一个人，除非证据确凿；没实锤就各投各的怀疑对象。";
-    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + easy +
+    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 4500 });
@@ -795,7 +805,8 @@
     const logRef = useRef(null);
     const started = useRef(false);
     const seerKnowRef = useRef({});                 // { seerName: [{name,isWolf}] }
-    const stanceRef = useRef({});                   // { name: 立场一句话 } 内部纪要，防前后矛盾，不显示
+    const stanceRef = useRef({});                   // { name: {claim,reads,plan} } 立场纪要(模型自写)，防前后矛盾，不显示
+    const claimsRef = useRef([]);                    // [{day,name,text}] 全场公开声明台账，跨天累积防集体失忆
     const witchPotRef = useRef({ heal: true, poison: true }); // 女巫药剂状态（全程一份）
     const guardLastRef = useRef(null);              // 守卫上一晚守的人（不能连守）
     const graveKnowRef = useRef({});                // 守墓人验尸记录 { 守墓人名: [{name,isWolf}] }
@@ -819,7 +830,7 @@
     useEffect(function () {
       if (phase === "result") { clearWolf(); return; }
       if (phase === "reveal" || phase === "night" || phase === "day") {
-        saveWolf({ v: 1, config: cfg, phase: phase, cycle: cycle, players: serializePlayers(players), log: log, seerKnow: seerKnowRef.current, witchPot: witchPotRef.current, guardLast: guardLastRef.current, graveKnow: graveKnowRef.current, lastDeath: lastDeath, ts: Date.now() });
+        saveWolf({ v: 1, config: cfg, phase: phase, cycle: cycle, players: serializePlayers(players), log: log, seerKnow: seerKnowRef.current, witchPot: witchPotRef.current, guardLast: guardLastRef.current, graveKnow: graveKnowRef.current, stance: stanceRef.current, claims: claimsRef.current, lastDeath: lastDeath, ts: Date.now() });
       }
     }, [phase, cycle]);
     // 结束后评全场 MVP + 感言
@@ -866,6 +877,8 @@
         witchPotRef.current = s.witchPot || { heal: true, poison: true };
         guardLastRef.current = s.guardLast || null;
         graveKnowRef.current = s.graveKnow || {};
+        stanceRef.current = s.stance || {};
+        claimsRef.current = s.claims || [];
         const list = hydratePlayers(s.players || []);
         setPlayers(list); setCycle(s.cycle || 1); setLog(s.log || []); setLastDeath(s.lastDeath || "");
         if (s.phase === "night") enterNight(list, s.cycle || 1);
@@ -1105,9 +1118,11 @@
       setBusy(true);
       try {
         const speakers = ai.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, list) }; });
-        const res = await genSpeeches(api, speakers, n, prior, lastDeath, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole);
+        const res = await genSpeeches(api, speakers, n, prior, lastDeath, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current);
         const sp = res.speeches;
-        (res.stances || []).forEach(function (s) { if (s && s.name && s.stance) { const hit = speakers.find(function (x) { return s.name.indexOf(x.name) >= 0 || x.name.indexOf(s.name) >= 0; }); if (hit) stanceRef.current[hit.name] = s.stance; } });
+        (res.stances || []).forEach(function (s) { if (s && s.name) { const hit = speakers.find(function (x) { return s.name.indexOf(x.name) >= 0 || x.name.indexOf(s.name) >= 0; }); if (hit && (s.claim || s.reads || s.plan || s.stance)) stanceRef.current[hit.name] = s.stance ? s.stance : { claim: s.claim || "", reads: s.reads || "", plan: s.plan || "" }; } });
+        // 新增的硬公开声明入台账（跨天累积）
+        (res.claims || []).forEach(function (c) { if (c && c.name && c.text && String(c.text).trim()) { const hit = speakers.find(function (x) { return c.name.indexOf(x.name) >= 0 || x.name.indexOf(c.name) >= 0; }); if (hit) claimsRef.current = claimsRef.current.concat([{ day: n, name: hit.name, text: String(c.text).trim() }]); } });
         const norm = speakers.map(function (s) { const hit = sp.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……（沉默了一下，没多说）" }; });
         setDaySpeeches(function (D) { return D.concat(norm); });
         pushLog(norm.map(function (c) { return { type: "speech", name: c.name, text: c.text }; }));
@@ -1136,7 +1151,7 @@
         const al = players.filter(function (p) { return p.alive; });
         const aiV = al.filter(function (p) { return !p.isUser && !p.noVote; }); // 翻牌白痴等失去投票权者不参与投票
         const voters = aiV.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, players) }; });
-        const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods, boardState(players, cycle), cfg.wolfRole);
+        const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods, boardState(players, cycle), cfg.wolfRole, claimsRef.current);
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";
