@@ -77,13 +77,14 @@
       lgRef.current = L.layerGroup().addTo(map);
       // 容器尺寸稳定后修正
       setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 120);
+      if (o.onReady) o.onReady(map); // 把地图实例交出去，供外部飞到某点/看全部
       return function () { try { map.remove(); } catch (e) {} mapRef.current = null; lgRef.current = null; fittedRef.current = false; };
     }, []);
     useEffect(function () {
       const L = window.L, map = mapRef.current, lg = lgRef.current;
       if (!L || !map || !lg) return;
       // 位置签名：没变就不重建 marker（主屏时钟每秒刷新时别让 Leaflet 空转→卡）
-      const sig = (pins || []).map(function (p) { return (p.pos ? p.pos[0].toFixed(4) + "," + p.pos[1].toFixed(4) : "-") + "|" + (p.tooltip || ""); }).join(";");
+      const sig = (o.center ? o.center[0].toFixed(4) + "," + o.center[1].toFixed(4) : "") + "::" + (pins || []).map(function (p) { return (p.pos ? p.pos[0].toFixed(4) + "," + p.pos[1].toFixed(4) : "-") + "|" + (p.tooltip || ""); }).join(";");
       if (sig === sigRef.current) return;
       sigRef.current = sig;
       lg.clearLayers();
@@ -122,14 +123,24 @@
   function MapWidget({ characters, status, userGeo, onOpen }) {
     const t = (typeof useTheme === "function") ? useTheme() : { ink: "#2b2823", fog: "#9a9082" };
     const list = characters || [];
+    const mapRef = useRef(null);
+    // 组件自己取一次实时定位（像苹果地图 widget 对准你），失败就退回传入的 userGeo
+    const [myPos, setMyPos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
+    useEffect(function () {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(function (p) { setMyPos([p.coords.latitude, p.coords.longitude]); }, function () {}, { enableHighAccuracy: false, maximumAge: 120000, timeout: 12000 });
+    }, []);
+    // 拿到定位就把组件地图对准你
+    useEffect(function () { if (mapRef.current && myPos) { try { mapRef.current.setView(myPos, 12); } catch (e) {} } }, [myPos]);
+    const anchor = myPos ? { lat: myPos[0], lng: myPos[1] } : (userGeo && typeof userGeo.lat === "number" ? userGeo : null);
     const pins = list.map(function (c) {
       const st = (status || {})[c.id];
-      return { pos: charPos(c, st, userGeo), html: avatarHtml(c, 28), size: 28 };
+      return { pos: charPos(c, st, anchor), html: avatarHtml(c, 26), size: 26 };
     }).filter(function (p) { return p.pos; });
-    if (userGeo && typeof userGeo.lat === "number") pins.push({ pos: [userGeo.lat, userGeo.lng], size: 16, html: meDotHtml(14) });
+    if (myPos) pins.push({ pos: myPos, size: 16, html: meDotHtml(14) });
     return h("button", { onClick: onOpen, className: "active:opacity-90 text-left",
       style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 24, overflow: "hidden", isolation: "isolate", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 8px 30px rgba(30,28,24,0.12)", background: "#dfe6ea" } },
-      h(MapCanvas, { pins: pins, opts: { static: true, zoom: 9 }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
+      h(MapCanvas, { pins: pins, opts: { static: true, zoom: 12, onReady: function (m) { mapRef.current = m; if (myPos) { try { m.setView(myPos, 12); } catch (e) {} } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
       // 顶部渐变 + 标题
       h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, padding: "10px 12px 18px", background: "linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0))", pointerEvents: "none" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "好友地图"),
@@ -152,13 +163,18 @@
         function () {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
       return function () { try { navigator.geolocation.clearWatch(id); } catch (e) {} };
     }, []);
+    const mapRef = useRef(null);
+    const allPtsRef = useRef([]);
+    const anchor = livePos ? { lat: livePos[0], lng: livePos[1] } : (userGeo && typeof userGeo.lat === "number" ? userGeo : null);
     const pins = (characters || []).map(function (c) {
       const st = (status || {})[c.id];
       const label = st && st.title ? (c.name + " · " + st.title) : c.name;
-      return { pos: charPos(c, st, userGeo), html: avatarHtml(c, 40), size: 40, tooltip: label, onClick: function () { setSel(c.id); } };
+      return { pos: charPos(c, st, anchor), html: avatarHtml(c, 40), size: 40, tooltip: label, onClick: function () { setSel(c.id); } };
     }).filter(function (p) { return p.pos; });
-    // 你自己的实时蓝点
     if (livePos) pins.push({ pos: livePos, size: 22, html: meDotHtml(20), tooltip: (profile && profile.name || "我") + "（你 · 实时）" });
+    allPtsRef.current = pins.map(function (p) { return p.pos; });
+    const flyTo = function (pos) { if (mapRef.current && pos) { try { mapRef.current.setView(pos, 13, { animate: true }); } catch (e) {} } };
+    const fitAll = function () { if (mapRef.current && allPtsRef.current.length) { try { mapRef.current.fitBounds(allPtsRef.current, { padding: [30, 30], maxZoom: 12 }); } catch (e) {} } };
     const cityList = CITY_NAMES.filter(function (n) { return !q.trim() || n.indexOf(q.trim()) >= 0; });
     const selChar = sel ? (characters || []).find(function (c) { return c.id === sel; }) : null;
     return h("div", { className: "h-full flex flex-col" },
@@ -174,17 +190,20 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 6 } }, "架空世界地图"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6 } }, "这里将放你自己的世界地图图片，把角色钉在剧情地点上。\n（下一步做上传+图钉，先占位）")))
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
-            h(MapCanvas, { pins: pins, opts: { fitOnce: true, zoomControl: true, zoom: 11 }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
-            // 底部角色条（z-index 压过 Leaflet 图层，否则会被地图盖住）
-            h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto" } },
+            h(MapCanvas, { pins: pins, opts: { fitOnce: true, zoomControl: true, zoom: 11, onReady: function (m) { mapRef.current = m; } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
+            // 底部角色条（z-index 压过 Leaflet 图层）：点头像=飞到 TA；右侧「设/改」=设城市；最前「全部」=看全部
+            h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto", alignItems: "center" } },
+              h("button", { key: "__all", onClick: fitAll, className: "shrink-0 active:opacity-80", style: { display: "flex", alignItems: "center", gap: 5, background: "#fff", border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
+                h("span", { style: { fontSize: 13 } }, "🗺️"), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "全部")),
               (characters || []).map(function (c) {
-                const hm = charHome(c); const st = (status || {})[c.id];
-                return h("button", { key: c.id, onClick: function () { setSel(c.id); }, className: "shrink-0 active:opacity-80",
-                  style: { display: "flex", alignItems: "center", gap: 7, background: "#fff", border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px 5px 6px", boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
-                  h("div", { style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0, background: c.avatarImage ? "center/cover no-repeat url(" + c.avatarImage + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 12 } }, c.avatarImage ? "" : String(c.name || "?").slice(0, 1)),
-                  h("div", { style: { textAlign: "left" } },
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.1 } }, c.remark || c.name),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: hm ? t.tint : t.accent } }, hm ? (hm.city + (st && st.title ? " · " + String(st.title).slice(0, 8) : "")) : "点我设城市")));
+                const hm = charHome(c); const st = (status || {})[c.id]; const pos = charPos(c, st, anchor);
+                return h("div", { key: c.id, className: "shrink-0", style: { display: "flex", alignItems: "stretch", background: "#fff", border: "1px solid " + t.line, borderRadius: 999, boxShadow: "0 2px 8px rgba(0,0,0,.08)", overflow: "hidden" } },
+                  h("button", { onClick: function () { flyTo(pos); }, className: "active:opacity-70", style: { display: "flex", alignItems: "center", gap: 7, padding: "5px 6px 5px 6px" } },
+                    h("div", { style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0, background: c.avatarImage ? "center/cover no-repeat url(" + c.avatarImage + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 12 } }, c.avatarImage ? "" : String(c.name || "?").slice(0, 1)),
+                    h("div", { style: { textAlign: "left" } },
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.1 } }, c.remark || c.name),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: hm ? t.tint : t.fog } }, hm ? (hm.city + (st && st.title ? " · " + String(st.title).slice(0, 6) : "")) : "在你附近"))),
+                  h("button", { onClick: function () { setSel(c.id); }, className: "active:opacity-60", title: "设城市", style: { display: "flex", alignItems: "center", padding: "0 11px", borderLeft: "1px solid " + t.line, color: hm ? t.sub : t.accent, fontFamily: F_BODY, fontSize: 11 } }, hm ? "改" : "设"));
               }))),
       // 设城市弹层
       sel && h(Sheet, { onClose: function () { setSel(null); setQ(""); }, tall: true },
