@@ -1696,38 +1696,57 @@
     const sys = AC + "你是「真心话大冒险」的主持。生成 " + npcCount + " 个 NPC 玩家（name 中文名 + persona 一句含职业与性格的人设，多样别雷同）。\n" +
       "【已有真实玩家】\n" + (lines || "（只有 NPC）") + "\n\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\"}]}";
     if (!npcCount) return { npcs: [] };
-    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 1500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 2500 });
     return extractJSON(raw) || { npcs: [] };
   }
   // AI 被指到：一次拿全整段（选真话/大冒险 + 谁出题 + 题 + TA 的回应 + 全场反应）
+  // others 只含【角色/NPC】、不含真人——出题人和起哄的人都不能是真人，绝不替真人写话
   async function genTDForAI(api, target, others, mode, hot) {
-    const who = others.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；");
+    const who = others.length ? others.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；") : "（没有别的角色，出题人写「大家」）";
     const spice = hot ? "尺度可以暧昧 / 大胆一点，什么都可以问，挖出角色最深的欲望。" : "保持轻松好玩、朋友聚会的尺度。";
     const easy = mode === "easy" ? "整体轻松、别太为难人。" : "";
     const sys = AC + "你在主持一局「真心话大冒险」。当前瓶子指到了【" + target.name + "】：" + (target.persona || (target.char && target.char.tagline) || "（照 TA 人设来）") +
-      "\n在场其他人：" + who +
-      "\n\n请把这一次完整演出来：\n1. choice：" + target.name + "会选「真心话」还是「大冒险」（按 TA 性格，别每次都一样）。\n2. asker：从在场其他人里选一个来出题的人。\n3. prompt：asker 出的题（真心话=一个够劲的问题；大冒险=一个具体可执行的动作），一句话，符合 asker 口吻。" + spice + easy +
-      "\n4. response：" + target.name + "怎么回应／完成（带 TA 的语气和小动作，2~4 句，真实有戏）。\n5. reactions：在场 1~3 个人的即时起哄 / 吐槽，每条 {name,text} 一句。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"asker\":\"\",\"prompt\":\"\",\"response\":\"\",\"reactions\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 1600 });
+      "\n在场其他角色（出题人和起哄的人【只能】从这里选，【绝不能】是真人玩家、也不要替真人玩家写任何话）：" + who +
+      "\n\n请把这一次完整演出来，放开写、别怕长：\n1. choice：" + target.name + "会选「真心话」还是「大冒险」（按 TA 性格，别每次都一样）。\n2. asker：从上面的角色里选一个来出题的人。\n3. prompt：asker 出的题（真心话=一个够劲的问题；大冒险=一个具体可执行的动作），符合 asker 口吻。" + spice + easy +
+      "\n4. response：" + target.name + "怎么回应／完成（带 TA 的语气和小动作，写足 3~5 句、有戏，别草草收尾）。\n5. reactions：在场 2~4 个角色的即时起哄 / 吐槽 / 追问，每条 {name,text} 一句，符合各自人设。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"asker\":\"\",\"prompt\":\"\",\"response\":\"\",\"reactions\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 4000 });
     return extractJSON(raw) || {};
   }
-  // 用户被指到并选了 真话/大冒险：生成出题人 + 题
+  // 用户被指到并选了 真话/大冒险：由一个角色给 TA 出题（出题人绝不是真人自己）
   async function genTDPrompt(api, choice, others, hot, mode) {
-    const who = others.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；");
+    const who = others.length ? others.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；") : "（没有别的角色，出题人写「大家」）";
     const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
-    const sys = AC + "「真心话大冒险」里轮到真人玩家了，TA 选了【" + choice + "】。从在场这些人里选一个来给 TA 出题：" + who +
-      "\n出一道" + (choice === "真心话" ? "够味的真心话问题" : "具体可执行的大冒险动作") + "，一句话，符合出题人口吻。" + spice + (mode === "easy" ? "别太为难。" : "") +
+    const sys = AC + "「真心话大冒险」里轮到真人玩家了，TA 选了【" + choice + "】。从在场这些【角色】里选一个来给 TA 出题（出题人只能是这里的角色，不是真人自己）：" + who +
+      "\n出一道" + (choice === "真心话" ? "够味的真心话问题" : "具体可执行的大冒险动作") + "，符合出题人口吻。" + spice + (mode === "easy" ? "别太为难。" : "") +
       "\n只输出 JSON：{\"asker\":\"\",\"prompt\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 700 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 1200 });
     return extractJSON(raw) || {};
   }
-  // 用户回应后的全场反应
+  // 用户回应后的全场反应（起哄的只有角色，不含真人）
   async function genTDReactions(api, choice, prompt, userResp, others) {
     const who = others.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；");
     const sys = AC + "「真心话大冒险」里真人玩家刚完成了 TA 的【" + choice + "】。\n题目：" + prompt + "\nTA 的回应：" + userResp +
-      "\n在场其他人：" + who + "\n让其中 2~4 个人即时起哄 / 调侃 / 追问，每条一句，符合各自人设。\n只输出 JSON：{\"reactions\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "起哄。" }], { maxTokens: 1000 });
+      "\n在场角色（只有这些角色起哄，别替真人写话）：" + who + "\n让其中 2~4 个角色即时起哄 / 调侃 / 追问，每条一句，符合各自人设。\n只输出 JSON：{\"reactions\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "起哄。" }], { maxTokens: 2500 });
     return extractJSON(raw) || { reactions: [] };
+  }
+  // 自由讨论时间：一轮做完后大家围着刚才的事瞎聊，用户可插话、可让他们接着聊
+  function tdRecentText(log) {
+    return (log || []).slice(-12).map(function (it) {
+      if (it.type === "td") return it.name + " 的" + it.choice + "：" + (it.prompt || "") + " —— " + (it.response || "");
+      if (it.type === "react" || it.type === "chat") return it.name + "：" + it.text;
+      if (it.type === "spin") return "（瓶子指向 " + it.name + "）";
+      return "";
+    }).filter(Boolean).join("\n");
+  }
+  async function genTDDiscuss(api, chars, recentText, userMsg, hot) {
+    const who = chars.map(function (p) { return p.name + "（" + (p.persona || (p.char && p.char.tagline) || "") + "）"; }).join("；");
+    const sys = AC + "「真心话大冒险」的自由聊天时间——大家围着刚才的事继续瞎聊、起哄、追问、跑题打闹都行。在场角色（只有这些角色开口，【绝不替真人玩家说话】）：" + who +
+      "\n\n最近发生：\n" + (recentText || "（刚开场）") +
+      (userMsg ? "\n\n真人玩家刚说：「" + userMsg + "」——让相关的角色自然接话、别冷场、别答非所问。" : "\n\n没人特别开口，让几个角色自然地你一言我一语聊起来（接着刚才的话题或跑题都行）。") +
+      "\n每人一句、符合各自人设。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "给 " + (userMsg ? "2~4" : "3~5") + " 条。\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "聊起来。" }], { maxTokens: 3000 });
+    const p = extractJSON(raw); return (p && Array.isArray(p.chat)) ? p.chat : [];
   }
 
   function TruthDareGame(props) {
@@ -1744,6 +1763,7 @@
     const [userPrompt, setUserPrompt] = useState(null); // {choice,asker,prompt}
     const [userResp, setUserResp] = useState("");
     const [spinName, setSpinName] = useState("");   // 转动动画显示的名字
+    const [chatInput, setChatInput] = useState(""); // 自由讨论输入
     const logRef = useRef(null);
     const started = useRef(false);
     const pAvatar = avatarFor(t);
@@ -1776,7 +1796,7 @@
     const doAITurn = async function (tgt) {
       setBusy(true);
       try {
-        const others = players.filter(function (p) { return p.name !== tgt.name; });
+        const others = players.filter(function (p) { return p.name !== tgt.name && !p.isUser; });
         const r = await genTDForAI(api, tgt, others, cfg.mode, hot);
         pushLog([{ type: "td", name: tgt.name, choice: r.choice || "真心话", asker: r.asker, prompt: r.prompt || "", response: r.response || "" }]
           .concat((r.reactions || []).map(function (x) { return { type: "react", name: x.name, text: x.text }; })));
@@ -1831,6 +1851,21 @@
       } catch (e) { /* 反应可有可无 */ }
       finally { setBusy(false); }
     };
+    // 自由讨论：可以一直聊，直到你手动转下一轮
+    const doDiscuss = async function (userMsg) {
+      if (busy) return;
+      setBusy(true);
+      if (userMsg) pushLog([{ type: "chat", name: (props.profile && props.profile.name) || "你", text: userMsg, mine: true }]);
+      try {
+        const chars = players.filter(function (p) { return !p.isUser; });
+        const c = await genTDDiscuss(api, chars, tdRecentText(log), userMsg, hot);
+        if (c.length) pushLog(c.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
+        else if (!userMsg) props.toast && props.toast("大家没接话，再点一次试试");
+      } catch (e) { props.toast && props.toast("聊天出错：" + ((e && e.message) || "重试")); }
+      finally { setBusy(false); }
+    };
+    const sendChat = function () { const v = chatInput.trim(); if (!v || busy) return; setChatInput(""); doDiscuss(v); };
+    const keepChatting = function () { doDiscuss(""); };
 
     const header = h(Head, { zh: "真心话大冒险", en: "Truth or Dare", onBack: props.onBack });
 
@@ -1859,6 +1894,10 @@
         if (it.type === "info") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "6px 0", textAlign: "center" } }, it.text);
         if (it.type === "spin") return h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.tint, margin: "12px 0 4px" } }, "🍾 瓶子指向了 " + it.name + (it.isUser ? "(你)" : ""));
         if (it.type === "react") { const p = pByName(it.name); return h("div", { key: i, style: { display: "flex", gap: 7, margin: "4px 0 4px 14px", alignItems: "flex-start" } }, pAvatar(p, 22), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.5 } }, h("b", { style: { color: t.fog, fontWeight: 400 } }, it.name + "："), it.text)); }
+        if (it.type === "chat") { const p = pByName(it.name); return h("div", { key: i, style: { display: "flex", gap: 7, margin: "5px 0", alignItems: "flex-start", flexDirection: it.mine ? "row-reverse" : "row" } }, pAvatar(p, 24),
+          h("div", { style: { maxWidth: "78%" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
+            h("div", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text))); }
         if (it.type === "td") {
           const p = pByName(it.name);
           return h("div", { key: i, style: { background: it.mine ? (t.tint + "10") : t.bg2, border: "1px solid " + (it.mine ? t.tint + "44" : t.line), borderRadius: 13, padding: "11px 13px", margin: "8px 0" } },
@@ -1890,9 +1929,18 @@
           h("div", { style: { display: "flex", gap: 8 } },
             h("input", { value: userResp, autoFocus: true, onChange: function (e) { setUserResp(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserResp(); }, placeholder: userPrompt && userPrompt.choice === "真心话" ? "老实交代…" : "描述你怎么完成…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
             h("button", { onClick: submitUserResp, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 18px" } }, "交")));
-    else action = h("div", null,
-      h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }),
-      h("button", { onClick: spin, className: "w-full active:opacity-80", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 16, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "14px" } }, "🍾 转瓶子"));
+    else {
+      const spun = log.some(function (x) { return x.type === "td"; });
+      action = h("div", null,
+        // 自由讨论输入：一轮做完后想聊多久聊多久
+        h("div", { style: { display: "flex", gap: 8, marginBottom: 9 } },
+          h("input", { value: chatInput, onChange: function (e) { setChatInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendChat(); }, placeholder: spun ? "自由聊天…插句嘴 / 追问 / 起哄" : "先聊两句热热场，或直接转瓶子", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { onClick: sendChat, style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "0 16px" } }, "说")),
+        h("div", { style: { display: "flex", gap: 8, marginBottom: 10 } },
+          h("button", { onClick: keepChatting, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px" } }, "让大家接着聊"),
+          h("button", { onClick: spin, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "11px" } }, spun ? "🍾 转下一轮" : "🍾 转瓶子")),
+        h(ToggleRow, { t: t, label: "尺度放开点", sub: "真心话 / 大冒险 会更暧昧大胆。", on: hot, onToggle: function () { setHot(!hot); } }));
+    }
 
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } }, header, roster, logView,
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "44vh", overflowY: "auto" } }, action),
