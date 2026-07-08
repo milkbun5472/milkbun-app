@@ -742,11 +742,11 @@
           for (let i = 0; i < nW; i++) roleAt[idx[k++]] = "wolf";
           roleAt[idx[k++]] = "seer";
           list.forEach(function (p, i) { p.role = roleAt[i] || "villager"; p.alive = true; });
-          // 定座位：你固定 1 号；发言顺序固定，每轮起始向后轮一位（仿真实狼人杀）
-          const seatArr = list.filter(function (p) { return p.isUser; }).concat(list.filter(function (p) { return !p.isUser; }));
+          // 定座位：所有人(含你)随机排一次、全程固定；第 r 轮从第 r 号座位起发言、绕圈跳过死人（你也在队列里按座位轮，不再固定第一个）
+          const seatArr = shuffle(list.slice());
           seatArr.forEach(function (p, i) { p.seat = i; });
           setPlayers(list);
-          pushLog([{ type: "info", text: "本局 " + list.length + " 人：" + nW + " 狼、1 预言家、" + (list.length - nW - 1) + " 平民。不翻牌。发言按固定座位、每轮开头向后轮一位。" }]);
+          pushLog([{ type: "info", text: "本局 " + list.length + " 人：" + nW + " 狼、1 预言家、" + (list.length - nW - 1) + " 平民。不翻牌。已随机排座，发言按座位、每轮开头向后轮一位（你也在队列里）。" }]);
           setPhase("reveal");
         } catch (e) { setErrMsg((e && e.message) || "开局失败，重试"); setPhase("error"); }
       })();
