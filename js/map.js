@@ -35,15 +35,14 @@
     const a = Math.abs(hh);
     return [((a % 24) - 12) / 500, ((Math.floor(a / 24) % 24) - 12) / 500];
   }
-  // pos：优先家乡城市；没设就落在锚点(userGeo 或温尼伯)附近；再叠日程活动偏移
+  // pos：锚点=设的家乡城市 / 没设则你的定位(或温尼伯)；一律叠 per-char jitter(同城/同点也不重叠)+日程活动偏移
   function charPos(char, st, userGeo) {
     const hm = charHome(char);
-    let lat, lng;
-    if (hm) { lat = hm.lat; lng = hm.lng; }
-    else {
-      const anc = (userGeo && typeof userGeo.lat === "number") ? userGeo : { lat: CITY_DB["温尼伯"][0], lng: CITY_DB["温尼伯"][1] };
-      const j = charJitter(char); lat = anc.lat + j[0]; lng = anc.lng + j[1];
-    }
+    const anc = hm ? { lat: hm.lat, lng: hm.lng }
+      : (userGeo && typeof userGeo.lat === "number") ? userGeo
+        : { lat: CITY_DB["温尼伯"][0], lng: CITY_DB["温尼伯"][1] };
+    const j = charJitter(char);
+    let lat = anc.lat + j[0], lng = anc.lng + j[1];
     const off = st && ACT_OFFSET[st.type]; if (off) { lat += off[0]; lng += off[1]; }
     return [lat, lng];
   }
