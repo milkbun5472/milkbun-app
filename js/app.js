@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.22";
+const APP_VERSION = "v47.23";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1150,6 +1150,7 @@ function App() {
       endLane("c:" + charId);
     }
   };
+  const offlineDelSession = (charId, sessId) => { if (window.confirm("删除这条线下记录？删了不可恢复。")) pOffline(charId, list => list.filter(s => s.id !== sessId)); };
   const offlineEditMsg = (charId, msgId, text) => pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.map(m => m.id === msgId ? { ...m, content: text } : m) } : s));
   const offlineDelMsg = (charId, msgId) => pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.filter(m => m.id !== msgId) } : s));
   const offlineRerollMsg = async (charId, msgId) => {
@@ -1224,6 +1225,7 @@ function App() {
     return n;
   });
   const pushGOffMsg = (groupId, msg) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s));
+  const groupOfflineDelSession = (groupId, sessId) => { if (window.confirm("删除这条线下记录？删了不可恢复。")) pGOffline(groupId, list => list.filter(s => s.id !== sessId)); };
   const openGroupOffline = group => {
     const list = loadJSON("x_goffline:" + group.id, []);
     setGroupOfflines(prev => ({ ...prev, [group.id]: list }));
@@ -6372,6 +6374,7 @@ function App() {
     onEditMsg: (mid, txt) => offlineEditMsg(offlineChar.id, mid, txt),
     onRerollMsg: mid => offlineRerollMsg(offlineChar.id, mid),
     onDelMsg: mid => offlineDelMsg(offlineChar.id, mid),
+    onDelSession: sid => offlineDelSession(offlineChar.id, sid),
     onEnd: () => endOffline(offlineChar.id),
     onClose: () => setOfflineChar(null)
   }), offlineGroup && h(GroupOfflineMode, {
@@ -6389,6 +6392,7 @@ function App() {
     onEditMsg: (mid, txt) => groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => groupOfflineRerollMsg(offlineGroup.id, mid),
     onDelMsg: mid => groupOfflineDelMsg(offlineGroup.id, mid),
+    onDelSession: sid => groupOfflineDelSession(offlineGroup.id, sid),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),
     onEnd: () => endGroupOffline(offlineGroup.id),
     onClose: () => setOfflineGroup(null),
