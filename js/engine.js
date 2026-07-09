@@ -607,11 +607,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       fd.append("prompt", prompt);
       fd.append("size", size);
       fd.append("n", "1");
+      fd.append("response_format", "b64_json"); // 要纯 base64，绕开「url 里塞 data: 链接、iOS 不能 fetch」的坑
       if (a.quality) fd.append("quality", a.quality);
       fd.append("image", b64ToBlob(refPhotoDataUrl, "image/png"), "ref.png");
       r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
     } else {
-      const body = { model: a.model || "gpt-image-1", prompt, size, n: 1 };
+      const body = { model: a.model || "gpt-image-1", prompt, size, n: 1, response_format: "b64_json" };
       if (a.quality) body.quality = a.quality;
       r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
     }
@@ -624,6 +625,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const cand = (d && d.data && d.data[0]) || (d && d.images && d.images[0]) || (d && d.output && (Array.isArray(d.output) ? d.output[0] : d.output)) || d || {};
   let b64 = cand.b64_json || cand.b64 || (typeof cand === "string" && /^data:image/i.test(cand) ? cand.replace(/^data:image\/\w+;base64,/i, "") : null);
   let url = cand.url || (cand.image && cand.image.url) || (typeof cand === "string" && /^https?:\/\//i.test(cand) ? cand : null);
+  // foxapi 等把图当 data:image;base64 塞在 url 里 → 直接当 b64 处理，别 fetch（iOS Safari 不支持 fetch data: 链接）
+  if (!b64 && url && /^data:image/i.test(url)) { b64 = url.replace(/^data:image\/\w+;base64,/i, ""); url = null; }
+  if (!b64 && !url) { const mk = String(rawTxt).match(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/i); if (mk) b64 = mk[0].replace(/^data:image\/\w+;base64,/i, ""); }
   if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp)/i); if (mk) url = mk[0]; }
   if (b64) return { blob: b64ToBlob(b64, "image/png"), dataUrl: "data:image/png;base64," + b64 };
   if (url) {
