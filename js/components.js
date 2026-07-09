@@ -799,6 +799,7 @@ function Home({
   player,
   homeCard,
   notif,
+  memoDue,
   mapStatus,
   userGeo,
   onOpenApp,
@@ -846,6 +847,7 @@ function Home({
     memlib: { kind: "app", zh: "记忆库", G: GMem },
     diary: { kind: "app", zh: "日记", G: GDiary },
     ledger: { kind: "app", zh: "记账", G: GLedger },
+    memo: { kind: "app", zh: "备忘录", G: GMemo },
     study: { kind: "app", zh: "一起学", G: GStudy },
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
@@ -859,7 +861,7 @@ function Home({
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
-    ["w_cal", "shop", "carry", "cwallet", "ledger"],
+    ["w_cal", "shop", "carry", "cwallet", "ledger", "memo"],
     ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games"]
   ];
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
@@ -998,7 +1000,7 @@ function Home({
     let gCol = "span 1", gRow = "auto";
     if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
     let inner;
-    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
+    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (it.kind === "folder") inner = h(FolderIcon, { apps: it.folder.apps, label: it.folder.zh, onOpen: function () { if (!editMode) setOpenFolder(it.folder); } });
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, onEditCard: onEditCard, onEditProfile: onEditProfile });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });

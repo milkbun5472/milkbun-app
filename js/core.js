@@ -293,4 +293,6 @@ const GLedger = p => h(Svg, p, h("rect", { x: 4, y: 3, width: 12, height: 18, rx
 const GFocus = p => h(Svg, p, h("circle", { cx: 12, cy: 14, r: 7.5 }), h("path", { d: "M12 14V9.5" }), h("path", { d: "M12 3.5v2.4M9.6 4.2h4.8" }), h("path", { d: "M17.8 7.6l1.3-1.3" }));
 // 小游戏：游戏手柄（机身 + 十字键 + 两个圆钮）
 const GGame = p => h(Svg, p, h("rect", { x: 3, y: 8, width: 18, height: 9, rx: 4.5 }), h("path", { d: "M7.5 10.8v3.4M5.8 12.5h3.4" }), h("circle", { cx: 16, cy: 11.8, r: 1 }), h("circle", { cx: 18, cy: 14, r: 1 }));
+// 备忘录：便签清单（板身 + 顶夹 + 两行勾选）
+const GMemo = p => h(Svg, p, h("rect", { x: 5, y: 4, width: 14, height: 17, rx: 2 }), h("path", { d: "M9 3.5h6v2.4H9z" }), h("path", { d: "M8.4 10l1.2 1.2 2.1-2.3M8.4 15l1.2 1.2 2.1-2.3" }), h("path", { d: "M14 9.6h2.6M14 14.6h2.6" }));
 

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.26";
+const APP_VERSION = "v47.27";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -939,6 +939,7 @@ function App() {
       return lines.join("\n");
     })(),
     financeNote: (typeof ledgerNoteFor === "function" ? ledgerNoteFor(char.id) : ""),
+    memoNote: (typeof memoNoteFor === "function" ? memoNoteFor(char.id) : ""),
     listenLog: (() => {
       const L = listenRef.current || {};
       const uName = profile && profile.name ? profile.name : "对方";
@@ -1062,6 +1063,24 @@ function App() {
           return;                                                    // 一次一个，错峰
         }
       }
+      // —— 备忘录·到期提醒主动：今天到期(未完成)、且有可见角色在聊 → 其中一位主动提醒一次（每条每天一次）——
+      try {
+        const memo = loadJSON("x_memo", null);
+        if (memo && Array.isArray(memo.reminders) && typeof window.memoNextDays === "function") {
+          const rlog = loadJSON("x_memoRemindLog", {});
+          for (const r of memo.reminders) {
+            if (r.done || !(r.visibleTo || []).length) continue;
+            if (window.memoNextDays(r) !== 0) continue;           // 只在到期当天
+            if (rlog[r.id] === dayKey) continue;                  // 今天这条已提醒过
+            const cand = characters.find(c => r.visibleTo.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id && !laneBusy("c:" + c.id));
+            if (!cand) continue;
+            const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 8 || hr > 23) continue;
+            rlog[r.id] = dayKey; saveJSON("x_memoRemindLog", rlog);
+            replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "" } });
+            return;                                               // 一次一个，错峰
+          }
+        }
+      } catch (e) {}
       // 池 = 真在聊的角色（≥2条历史）；每个时段最多问候 ceil(池/2) 个，别全员打卡把你淹了
       const pool = characters.filter(c => hist(c).length >= 2);
       if (!pool.length) return;
@@ -1541,7 +1560,8 @@ function App() {
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const greetHint = opts.greet ? "\n\n【此刻·你主动问候】现在是" + (opts.greet === "morning" ? "早上" : "晚上") + "，你【主动】给 Ta 发一句" + (opts.greet === "morning" ? "问早/早安" : "道晚安") + "——结合你此刻的作息、行程、心情，自然又简短（1~2 条），像真人随手发的，别只干巴巴一句『早安』。**很重要：Ta 有自己的生活、可能在忙、可能没空回，这完全正常。语气要轻松不粘人——不许用『怎么不理我』『是不是不想理我』『冷落我』这类质问或愧疚绑架，也别摆被冷落的委屈脸。就是单纯想到 Ta、顺手送个问候，Ta 回不回都没关系。**" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
-      const proactiveHint = opts.bday ? bdayHint : opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
+      const remindHint = opts.remind ? "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。" : "";
+      const proactiveHint = opts.remind ? remindHint : opts.bday ? bdayHint : opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
       const aff = Math.round(affOf(charId));
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -5711,6 +5731,7 @@ function App() {
     player: player,
     homeCard: homeCard,
     notif: appNotif,
+    memoDue: (typeof window !== "undefined" && window.memoDueToday) ? window.memoDueToday() : 0,
     mapStatus: mapStatusAll(),
     userGeo: prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null,
     onOpenApp: k => k === "listen" ? goListen() : setScreen(k),
@@ -6152,6 +6173,14 @@ function App() {
     worldbook: worldbook,
     moods: moods,
     affinities: affinities,
+    toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "memo") body = h(window.Memo, {
+    active: bgActive,
+    characters: characters,
+    profile: profile,
+    worldbook: worldbook,
+    moods: moods,
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "pomodoro") body = h(Pomodoro, {
