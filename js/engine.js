@@ -584,6 +584,7 @@ function buildSelfiePrompt(char, sceneDesc, st) {
   if (st && st.wearing) parts.push("此刻穿着：" + st.wearing + "。");
   if (sceneDesc && String(sceneDesc).trim()) parts.push("此刻的场景/在做什么：" + String(sceneDesc).trim() + "。");
   if (st && st.mood) parts.push("神情情绪：" + st.mood + "。");
+  parts.push("【必须是能看到人脸的自拍】TA 的脸要清楚出现在画面里（正脸或半侧脸，五官清晰可辨、对着镜头），这是一张自拍人像，不是纯风景/纯物品照——就算在描述某个场景，也要把 TA 本人带脸拍进去。");
   parts.push("前置摄像头随手拍的生活质感、自然光、真实不摆拍，画面里只有 TA 一个人，不要任何文字/水印/logo/相框。");
   return parts.join("");
 }
@@ -814,6 +815,18 @@ const SILENT_WAV = typeof btoa !== "undefined" ? makeSilentWav(1) : "";
 const KEEPALIVE_ID = "__keepalive__";
 const KEEPALIVE_WAV = typeof btoa !== "undefined" ? makeSilentWav(30) : "";
 const KEEPALIVE_SONG = { id: KEEPALIVE_ID, source: "keepalive", title: "静音保活", artist: "让手机后台醒着 · 无声", cover: null };
+// 紧凑时间戳（给群聊/记忆互通标时间，让模型理解消息的真实先后顺序）
+function fmtStamp(ts) {
+  if (!ts) return "";
+  try { return new Date(ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; }
+}
+// 两个时间点之间的间隔口语（给群聊插时间断点用）
+function gapPhrase(ms) {
+  const h = ms / 3600000;
+  if (h < 1) return Math.max(1, Math.round(ms / 60000)) + " 分钟";
+  if (h < 24) return Math.round(h) + " 小时";
+  return Math.round(h / 24) + " 天";
+}
 // 解析生日/月-日字符串 → {mo,d}；容「3-15 / 1998-3-15(年忽略) / 3月15日 / 3/15」，非法返回 null
 function parseMonthDay(s) {
   const m = String(s || "").match(/(?:\d{4}[-/.年])?\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
@@ -846,8 +859,12 @@ async function oocAskGroup(p, ctx, question) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 220)).join("\n\n");
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
-  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展，可以：说明某个角色此刻的状态/动机/心理、群里的关系张力、剧情走向；或按用户的要求调整接下来这些角色的演绎方式并简短确认。语气是助手而非角色，简洁直接、不扮演。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "");
-  return (await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 6000 })).trim();
+  const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
+  const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那锅牛腩了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着买牛腩这件事、翻篇往前聊』）。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次要取消/修改其中某条，也在 reply 说明，directive 可填修正后的新表述）" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"refused\":false}";
+  const raw = await callAI(p, system, [{ role: "user", content: question }], { maxTokens: 6000 });
+  const parsed = extractJSON(raw);
+  if (parsed && typeof parsed.reply === "string") return { reply: parsed.reply.trim(), directive: (parsed.directive && String(parsed.directive).trim()) || null, refused: !!parsed.refused };
+  return { reply: String(raw || "").trim(), directive: null, refused: false };
 }
 async function runProbe(p, ctx, probe) {
   const system = "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。\n\n" + buildBundle(ctx) + "\n\n【推演任务】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;

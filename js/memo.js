@@ -22,30 +22,45 @@
   function uid(p) { return (p || "m") + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
 
   // ---- 时间工具 ----
+  // 提醒统一用「锚点日 anchor(YYYY-MM-DD) + repeat」表示，anchor 决定星期几/几号/月-日：
+  // none 不重复 · weekly 每周(同星期) · biweekly 每两周 · monthly 每月(同号,短月压到月底) · monthlyEnd 每月最后一天 · yearly 每年(同月日)
+  const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
+  function pad(n) { return String(n).padStart(2, "0"); }
   function todayMid() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
-  function clampDay(y, m1, d) { const last = new Date(y, m1, 0).getDate(); return Math.min(d, last); } // m1 1-based
+  function ymdStr(dt) { return dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()); }
+  function parseYmd(s) { const p = String(s || "").split("-").map(Number); return (p.length === 3 && p[0]) ? new Date(p[0], p[1] - 1, p[2]) : null; }
   function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
-  // 下一次发生 → { dt, days }（days<0 = 逾期，仅「不重复」会出现）
+  function lastDayOfMonth(y, m1) { return new Date(y, m1, 0).getDate(); }
+  // 兼容旧数据（年/月/日字段）→ 锚点日
+  function getAnchor(r) {
+    if (r.anchor) return r.anchor;
+    if (r.year && r.month && r.day) return r.year + "-" + pad(r.month) + "-" + pad(r.day);
+    const now = new Date();
+    if (r.month && r.day) return now.getFullYear() + "-" + pad(r.month) + "-" + pad(r.day);
+    if (r.day) return now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(r.day);
+    return null;
+  }
+  // 某提醒是否落在 dateObj 这天
+  function occursOn(r, dateObj) {
+    const a = parseYmd(getAnchor(r)); if (!a) return false; a.setHours(0, 0, 0, 0);
+    const d = new Date(dateObj); d.setHours(0, 0, 0, 0);
+    const rp = r.repeat || "none";
+    if (rp === "none") return d.getTime() === a.getTime();
+    if (rp === "monthlyEnd") return d.getDate() === lastDayOfMonth(d.getFullYear(), d.getMonth() + 1);
+    if (rp === "monthly") { const day = Math.min(a.getDate(), lastDayOfMonth(d.getFullYear(), d.getMonth() + 1)); return d.getDate() === day; }
+    if (rp === "yearly") { const day = Math.min(a.getDate(), lastDayOfMonth(d.getFullYear(), d.getMonth() + 1)); return d.getMonth() === a.getMonth() && d.getDate() === day; }
+    if (d < a) return false; // 每周/每两周：锚点日之前不算
+    if (rp === "weekly") return d.getDay() === a.getDay();
+    if (rp === "biweekly") return Math.round((d - a) / 86400000) % 14 === 0;
+    return false;
+  }
+  // 下次发生（从今天起）→ {dt, days}；none 可能 days<0（逾期）
   function nextOccur(r, today) {
     today = today || todayMid();
-    if (!r || !r.day) return null;
-    if (r.repeat === "monthly") {
-      let y = today.getFullYear(), m = today.getMonth() + 1;
-      let dt = new Date(y, m - 1, clampDay(y, m, r.day)); dt.setHours(0, 0, 0, 0);
-      if (dt < today) { m++; if (m > 12) { m = 1; y++; } dt = new Date(y, m - 1, clampDay(y, m, r.day)); dt.setHours(0, 0, 0, 0); }
-      return { dt: dt, days: daysBetween(today, dt) };
-    }
-    if (r.repeat === "yearly") {
-      if (!r.month) return null;
-      let y = today.getFullYear();
-      let dt = new Date(y, r.month - 1, clampDay(y, r.month, r.day)); dt.setHours(0, 0, 0, 0);
-      if (dt < today) { y++; dt = new Date(y, r.month - 1, clampDay(y, r.month, r.day)); dt.setHours(0, 0, 0, 0); }
-      return { dt: dt, days: daysBetween(today, dt) };
-    }
-    // 不重复
-    if (!r.year || !r.month) return null;
-    const dt = new Date(r.year, r.month - 1, r.day); dt.setHours(0, 0, 0, 0);
-    return { dt: dt, days: daysBetween(today, dt) };
+    const a = parseYmd(getAnchor(r)); if (!a) return null; a.setHours(0, 0, 0, 0);
+    if ((r.repeat || "none") === "none") return { dt: a, days: daysBetween(today, a) };
+    for (let i = 0; i < 400; i++) { const d = new Date(today.getTime() + i * 86400000); if (occursOn(r, d)) return { dt: d, days: i }; }
+    return null;
   }
   function cdLabel(days) {
     if (days === 0) return "今天";
@@ -59,11 +74,15 @@
     if (days <= 3) return "#b89150";        // 临近
     return t.fog;
   }
-  function repeatLabel(rp) { return rp === "yearly" ? "每年" : rp === "monthly" ? "每月" : "一次"; }
+  function repeatLabel(rp) { return { weekly: "每周", biweekly: "每两周", monthly: "每月", monthlyEnd: "月底", yearly: "每年" }[rp] || "一次"; }
   function reminderDateText(r) {
-    if (r.repeat === "monthly") return "每月 " + r.day + " 号";
-    if (r.repeat === "yearly") return "每年 " + r.month + " 月 " + r.day + " 日";
-    return (r.year ? r.year + " 年 " : "") + (r.month || "?") + " 月 " + (r.day || "?") + " 日";
+    const a = parseYmd(getAnchor(r)); const rp = r.repeat || "none";
+    if (rp === "weekly") return "每周" + (a ? WEEK[a.getDay()] : "");
+    if (rp === "biweekly") return "每两周（周" + (a ? WEEK[a.getDay()] : "") + "）";
+    if (rp === "monthly") return "每月 " + (a ? a.getDate() : "?") + " 号";
+    if (rp === "monthlyEnd") return "每月最后一天";
+    if (rp === "yearly") return "每年 " + (a ? (a.getMonth() + 1) + " 月 " + a.getDate() + " 日" : "");
+    return a ? (a.getFullYear() + " 年 " + (a.getMonth() + 1) + " 月 " + a.getDate() + " 日") : "?";
   }
 
   // ============================================================
@@ -100,6 +119,11 @@
     try { const d = loadData(); return (d.reminders || []).filter(r => !r.done && window.memoNextDays(r) === 0).length; }
     catch (e) { return 0; }
   };
+  // 某天(y, m1一based, d)落在其上的提醒 —— 供日历显示（item 7）
+  window.memoRemindersOnDay = function (y, m1, d) {
+    try { const dt = new Date(y, m1 - 1, d); const data = loadData(); return (data.reminders || []).filter(r => occursOn(r, dt)); }
+    catch (e) { return []; }
+  };
 
   // ============================================================
   // 批注：一次 API 让多个角色各对这条备忘/提醒说一句（走后台便宜池 active=bgActive）
@@ -133,17 +157,20 @@
     const t = useTheme();
     const [sel, setSel] = useState([]);
     const avail = (props.characters || []).filter(c => !(props.existing || []).includes(c.id));
+    const allSel = avail.length > 0 && sel.length === avail.length;
     const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-    return h("div", { className: "absolute inset-0 z-[70] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "72vh", overflowY: "auto", animation: "fadeUp .2s ease both" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "让谁来批注"),
+    return h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "82vh", display: "flex", flexDirection: "column", animation: "fadeUp .2s ease both" } },
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "让谁来批注"),
+          avail.length > 1 && h("button", { onClick: () => setSel(allSel ? [] : avail.map(c => c.id)), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACCENT } }, allSel ? "全不选" : "全选")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "选中的角色会各说一句（一次生成，走便宜后台池）"),
         avail.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "没有可批注的角色了。")
-          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, avail.map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "7px 4px", textAlign: "left" } },
+          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1, minHeight: 0, margin: "0 -4px", padding: "0 4px" } }, avail.map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70 shrink-0", style: { padding: "7px 4px", textAlign: "left" } },
             h(Avatar, { character: c, size: 34, radius: 999 }),
             h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
-            h("span", { style: { width: 22, height: 22, borderRadius: 999, border: "2px solid " + (sel.includes(c.id) ? ACCENT : t.line), background: sel.includes(c.id) ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 } }, sel.includes(c.id) ? "✓" : "")))),
-        h("div", { className: "flex gap-2", style: { marginTop: 14 } },
+            h("span", { style: { width: 22, height: 22, borderRadius: 999, border: "2px solid " + (sel.includes(c.id) ? ACCENT : t.line), background: sel.includes(c.id) ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, flexShrink: 0 } }, sel.includes(c.id) ? "✓" : "")))),
+        h("div", { className: "flex gap-2 shrink-0", style: { marginTop: 14 } },
           h("button", { onClick: props.onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 0" } }, "取消"),
           h("button", { onClick: () => sel.length && props.onPick(sel), disabled: !sel.length || props.busy, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: ACCENT, borderRadius: 14, padding: "11px 0" } }, props.busy ? "生成中…" : "让 TA 们说 (" + sel.length + ")"))));
   }
@@ -153,16 +180,16 @@
     const t = useTheme();
     const [sel, setSel] = useState((props.value || []).slice());
     const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-    return h("div", { className: "absolute inset-0 z-[70] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "72vh", overflowY: "auto", animation: "fadeUp .2s ease both" } },
+    return h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "82vh", display: "flex", flexDirection: "column", animation: "fadeUp .2s ease both" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到 / 提醒你"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "选中的角色：临近时会在聊天里自然提起；到期当天可能主动发消息提醒你。"),
         (props.characters || []).length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有角色。")
-          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, (props.characters || []).map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "7px 4px", textAlign: "left" } },
+          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1, minHeight: 0, margin: "0 -4px", padding: "0 4px" } }, (props.characters || []).map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70 shrink-0", style: { padding: "7px 4px", textAlign: "left" } },
             h(Avatar, { character: c, size: 34, radius: 999 }),
             h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: sel.includes(c.id) ? ACCENT : t.fog } }, sel.includes(c.id) ? "✓ 可见" : "不可见")))),
-        h("button", { onClick: () => props.onSave(sel), className: "w-full active:opacity-80", style: { marginTop: 14, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#fff", background: t.ink, borderRadius: 14, padding: "12px 0" } }, "保存")));
+        h("button", { onClick: () => props.onSave(sel), className: "w-full active:opacity-80 shrink-0", style: { marginTop: 14, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#fff", background: t.ink, borderRadius: 14, padding: "12px 0" } }, "保存")));
   }
 
   // ---- 批注区块（备忘/提醒详情共用）----
@@ -205,36 +232,35 @@
     const [title, setTitle] = useState(r.title || "");
     const [note, setNote] = useState(r.note || "");
     const [repeat, setRepeat] = useState(r.repeat || "none");
-    const today = new Date();
-    const [ymd, setYmd] = useState(r.year ? (r.year + "-" + String(r.month).padStart(2, "0") + "-" + String(r.day).padStart(2, "0")) : (today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0")));
-    const [mon, setMon] = useState(r.month || today.getMonth() + 1);
-    const [day, setDay] = useState(r.day || today.getDate());
+    const [anchor, setAnchor] = useState(getAnchor(r) || ymdStr(new Date()));
+    const aDate = parseYmd(anchor);
     const save = () => {
       if (!title.trim()) { props.toast && props.toast("写点要提醒的事"); return; }
-      let year = null, month = null, dd = null;
-      if (repeat === "none") { const p = ymd.split("-").map(Number); if (p.length !== 3) { props.toast && props.toast("选个日期"); return; } year = p[0]; month = p[1]; dd = p[2]; }
-      else if (repeat === "yearly") { month = Math.max(1, Math.min(12, +mon || 1)); dd = Math.max(1, Math.min(31, +day || 1)); }
-      else { dd = Math.max(1, Math.min(31, +day || 1)); }
-      props.onSave(Object.assign({}, r, { id: r.id || uid("r"), title: title.trim(), note: note.trim(), repeat: repeat, year: year, month: month, day: dd, done: !!r.done, visibleTo: r.visibleTo || [], comments: r.comments || [], createdTs: r.createdTs || Date.now() }));
+      if (!parseYmd(anchor)) { props.toast && props.toast("选个日期"); return; }
+      // 只存 anchor+repeat；清掉旧的 year/month/day 字段免得歧义
+      const clean = Object.assign({}, r); delete clean.year; delete clean.month; delete clean.day;
+      props.onSave(Object.assign(clean, { id: r.id || uid("r"), title: title.trim(), note: note.trim(), repeat: repeat, anchor: anchor, done: !!r.done, visibleTo: r.visibleTo || [], comments: r.comments || [], createdTs: r.createdTs || Date.now() }));
     };
     const inp = { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14.5, color: t.ink, outline: "none" };
-    const rchip = (v, lbl) => h("button", { onClick: () => setRepeat(v), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 14px", borderRadius: 999, background: repeat === v ? ACCENT : "transparent", color: repeat === v ? "#fff" : t.sub, border: "1px solid " + (repeat === v ? ACCENT : t.line) } }, lbl);
+    const rchip = (v, lbl) => h("button", { onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, background: repeat === v ? ACCENT : "transparent", color: repeat === v ? "#fff" : t.sub, border: "1px solid " + (repeat === v ? ACCENT : t.line) } }, lbl);
+    // 选中日期 + 重复方式 → 一句人话解释这条会什么时候提醒
+    const explain = !aDate ? "" : repeat === "none" ? "只在这一天提醒一次。"
+      : repeat === "weekly" ? "每周" + WEEK[aDate.getDay()] + "提醒。"
+      : repeat === "biweekly" ? "从这天起，每两周的周" + WEEK[aDate.getDay()] + "提醒一次。"
+      : repeat === "monthly" ? "每月 " + aDate.getDate() + " 号提醒" + (aDate.getDate() >= 29 ? "（碰上没这天的短月，自动落到当月最后一天）" : "") + "。"
+      : repeat === "monthlyEnd" ? "每月最后一天提醒（自动适配 28/29/30/31）。"
+      : "每年 " + (aDate.getMonth() + 1) + " 月 " + aDate.getDate() + " 日提醒。";
     return h(Sheet, { onClose: props.onClose, tall: true },
       h("div", { className: "flex items-center justify-between mb-3" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, props.initial ? "编辑提醒" : "新提醒"),
         h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT } }, "保存")),
       h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "要提醒的事（如 交房租 / 妈妈生日 / 复诊）", style: Object.assign({}, inp, { marginBottom: 10 }) }),
       h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注（可空）", style: Object.assign({}, inp, { marginBottom: 14 }) }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, repeat === "monthlyEnd" ? "日期（月底模式下只用来定从哪个月起）" : "日期"),
+      h("input", { type: "date", value: anchor, onChange: e => setAnchor(e.target.value), style: Object.assign({}, inp, { marginBottom: 14 }) }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "重复"),
-      h("div", { className: "flex gap-2", style: { marginBottom: 14 } }, rchip("none", "不重复"), rchip("yearly", "每年"), rchip("monthly", "每月")),
-      repeat === "none" ? h("div", null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "日期"),
-        h("input", { type: "date", value: ymd, onChange: e => setYmd(e.target.value), style: inp }))
-        : repeat === "yearly" ? h("div", { className: "flex gap-2 items-center" },
-          h("input", { type: "number", value: mon, onChange: e => setMon(e.target.value), min: 1, max: 12, style: Object.assign({}, inp, { width: 90 }) }), h("span", { style: { fontFamily: F_BODY, color: t.sub } }, "月"),
-          h("input", { type: "number", value: day, onChange: e => setDay(e.target.value), min: 1, max: 31, style: Object.assign({}, inp, { width: 90 }) }), h("span", { style: { fontFamily: F_BODY, color: t.sub } }, "日"))
-          : h("div", { className: "flex gap-2 items-center" }, h("span", { style: { fontFamily: F_BODY, color: t.sub } }, "每月"),
-            h("input", { type: "number", value: day, onChange: e => setDay(e.target.value), min: 1, max: 31, style: Object.assign({}, inp, { width: 90 }) }), h("span", { style: { fontFamily: F_BODY, color: t.sub } }, "号")),
+      h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, rchip("none", "不重复"), rchip("weekly", "每周"), rchip("biweekly", "每两周"), rchip("monthly", "每月"), rchip("monthlyEnd", "每月最后一天"), rchip("yearly", "每年")),
+      explain && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, lineHeight: 1.5, background: ACCENT + "10", borderRadius: 10, padding: "8px 11px" } }, explain),
       props.initial && h("button", { onClick: () => props.onDelete(r.id), className: "w-full active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a" } }, "删除这条提醒"));
   }
 

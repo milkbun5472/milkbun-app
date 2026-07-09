@@ -2689,6 +2689,15 @@ function ImageApiConfig({ toast }) {
   const t = useTheme();
   const [c, setC] = useState(() => (typeof loadImgApi === "function" ? loadImgApi() : { baseUrl: "", apiKey: "", model: "gpt-image-1", size: "1024x1536", quality: "medium", enabled: false }));
   const set = patch => { const n = Object.assign({}, c, patch); setC(n); if (typeof saveImgApi === "function") saveImgApi(n); };
+  const [models, setModels] = useState([]);
+  const [fetching, setFetching] = useState(false);
+  const pull = async () => {
+    if (!c.baseUrl || !c.apiKey) { toast && toast("先填接口地址和密钥"); return; }
+    setFetching(true);
+    try { const ms = await fetchModelList(c); setModels(ms || []); toast && toast((ms || []).length + " 个模型（挑含 image/dall-e/flux 的）"); }
+    catch (e) { toast && toast("拉取失败：" + (e.message || e)); }
+    finally { setFetching(false); }
+  };
   const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
@@ -2700,7 +2709,12 @@ function ImageApiConfig({ toast }) {
     c.enabled ? h("div", { className: "pt-3" },
       row("接口地址 Base URL", h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "如 https://xxx.com（会自动补 /v1/images）", style: inSt })),
       row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "sk-…", type: "password", style: inSt })),
-      row("模型", h("input", { value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "gpt-image-1", style: inSt })),
+      row("模型", h("div", null,
+        h("div", { className: "flex gap-2" },
+          h("input", { value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "gpt-image-1", style: Object.assign({}, inSt, { flex: 1 }) }),
+          h("button", { onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
+        models.length > 0 ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "拉取后从上面挑一个【图像】模型（名字通常含 image / dall-e / flux）。自动填的默认是 gpt-image-1，不一定你的接口商支持——拉一下看有没有更保险。"))),
       h("div", { className: "flex gap-3" },
         h("div", { className: "flex-1" }, row("尺寸", h("select", { value: c.size || "1024x1536", onChange: e => set({ size: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
           h("option", { value: "1024x1536" }, "竖 1024×1536（自拍推荐）"),
