@@ -592,7 +592,9 @@ function buildSelfiePrompt(char, sceneDesc, st) {
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const a = loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
-  const base = (a.baseUrl || "").replace(/\/$/, "");
+  // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
+  let base = (a.baseUrl || "").trim().replace(/\/+$/, "");
+  base = base.replace(/\/(v1\/)?images\/(generations|edits)\/?$/i, "").replace(/\/chat\/completions\/?$/i, "").replace(/\/+$/, "");
   const root = base.endsWith("/v1") ? base : base + "/v1";
   const size = (opts && opts.size) || a.size || "1024x1536";
   const ctrl = new AbortController();
@@ -614,13 +616,22 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
     }
   } finally { clearTimeout(to); }
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message || "图像生成失败");
-  const item = d.data && d.data[0];
-  if (!item) throw new Error("图像返回为空");
-  if (item.b64_json) return { blob: b64ToBlob(item.b64_json, "image/png"), dataUrl: "data:image/png;base64," + item.b64_json };
-  if (item.url) { const resp = await fetch(item.url); const blob = await resp.blob(); return { blob, dataUrl: null }; }
-  throw new Error("图像返回格式不认识");
+  const rawTxt = await r.text();
+  let d;
+  try { d = JSON.parse(rawTxt); } catch (e) { throw new Error("接口没返回 JSON：" + rawTxt.slice(0, 140)); }
+  if (d && d.error) throw new Error((d.error.message || d.error.msg || JSON.stringify(d.error)) + "");
+  // 稳健取图：b64 可能叫 b64_json/b64；url 可能在 data[0]/images[0]/output/顶层；再兜底从整段里抠图片链接
+  const cand = (d && d.data && d.data[0]) || (d && d.images && d.images[0]) || (d && d.output && (Array.isArray(d.output) ? d.output[0] : d.output)) || d || {};
+  let b64 = cand.b64_json || cand.b64 || (typeof cand === "string" && /^data:image/i.test(cand) ? cand.replace(/^data:image\/\w+;base64,/i, "") : null);
+  let url = cand.url || (cand.image && cand.image.url) || (typeof cand === "string" && /^https?:\/\//i.test(cand) ? cand : null);
+  if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp)/i); if (mk) url = mk[0]; }
+  if (b64) return { blob: b64ToBlob(b64, "image/png"), dataUrl: "data:image/png;base64," + b64 };
+  if (url) {
+    // 优先取成 blob 存本地；跨域取不到就直接把 URL 当图源(能显示，但不进 IndexedDB、URL 失效就没了)
+    try { const resp = await fetch(url); if (resp.ok) { const blob = await resp.blob(); if (blob && blob.size > 0) return { blob, dataUrl: null }; } } catch (e) {}
+    return { blob: null, url: url };
+  }
+  throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 180));
 }
 // ============================================================
 // 线下模式（offline / 赴约）—— 面对面叙事，带动作/心理/旁白 + 心声

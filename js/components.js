@@ -4545,16 +4545,17 @@ function SelfieBubble({ m }) {
     }
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
   }, [m.imgKey]);
+  const shown = url || m.imgUrl || null; // imgUrl = 跨域取不到 blob 时直接用的图片链接
   const box = { maxWidth: 200, borderRadius: 14, overflow: "hidden", border: "1px solid " + t.line, background: t.bg2 };
   if (m.pending) return h("div", { style: Object.assign({}, box, { padding: "24px 30px", display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }) },
     h("div", { style: { fontSize: 22 } }, "📷"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "拍照中…"));
   if (m.failed) return h("div", { style: Object.assign({}, box, { padding: "16px 20px" }) }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "📷 自拍没拍成"));
-  if (url) return h(React.Fragment, null,
+  if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: box },
-      h("img", { src: url, style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } })),
+      h("img", { src: shown, style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } })),
     zoom && h("div", { onClick: () => setZoom(false), className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(0,0,0,0.85)" } },
-      h("img", { src: url, style: { maxWidth: "94%", maxHeight: "90%", borderRadius: 10 } })));
+      h("img", { src: shown, style: { maxWidth: "94%", maxHeight: "90%", borderRadius: 10 } })));
   return h("div", { style: Object.assign({}, box, { padding: "24px 30px" }) }, h("div", { style: { fontSize: 22, textAlign: "center" } }, "📷"));
 }
 function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, editable, sending }) {
