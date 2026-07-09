@@ -56,13 +56,29 @@
     return shuffle(opts);
   }
 
-  function sceneRules(cotT) {
+  // stage: open 入梦 / rise 渐深 / deep 临近梦核；canFinal 允许模型标可收束；forceFinal 本幕必须逼到梦核边缘
+  function sceneRules(cotT, opts) {
+    opts = opts || {};
+    const nm = opts.charName || "做梦人";
+    const stage = opts.stage || "open";
+    const stageLine = stage === "open"
+      ? "· 【这一幕的位置：入梦】把梦的门推开、把客人放进去，先立起一个【具体、抓得住】的场景（有地点、有在场的人或物、有正在发生的事），一眼看得出这是「" + nm + "」的梦。"
+      : stage === "deep"
+      ? "· 【这一幕的位置：临近梦核】梦该收拢了：朝这场梦真正围着转的那个东西（" + nm + " 心里最深的渴望，或最怕、最不愿面对的真相）逼近，让它快浮出水面——别再横向铺无关的新枝节。"
+      : "· 【这一幕的位置：渐深】让上一幕的场景/人/意象【变形、复现或被推翻升级】，把情绪与张力往上顶一档、推出新的情节转折，别平移、别复读上一幕。";
+    const finalLine = opts.forceFinal
+      ? "\n· 【这场梦已经够深了】这一幕写成「就差最后一步就能抵达梦核」的临界感，并把 final 设为 true。"
+      : opts.canFinal
+      ? "\n· 若你判断梦已经走到了它核心的边缘、再顺一步就该抵达并揭开那个最深的东西，就把 final 设为 true（否则 false）——抵达与否交给客人下一次选择。"
+      : "";
     return "\n\n【怎么写这一幕】\n" +
-      "· 用第二人称『你』，把闯梦的客人放进场景里，写一幕梦境（130~280字）。氛围要像梦：细节鲜明却又哪里不对劲，逻辑会打滑，情绪被放大——而这整场梦是顺着做梦人内心最想要（或最怕）的东西长出来的。\n" +
-      "· 然后给『你』三个可做的回应/行动。其中【两个】是这场梦所期待、能让梦顺着做梦人的渴望继续走下去的；【剩一个】是做梦人内心抗拒的——它戳到了 Ta 不愿面对、不愿被打破的东西，一旦选中梦就会碎。\n" +
-      "· 三个选项字面上都要像合理选择，别露出哪个安全哪个危险，别用语气暗示。抗拒项不是「明显的坏选项」，而是「看起来无害、却恰好碰了逆鳞」。\n" +
+      stageLine + "\n" +
+      "· 用第二人称『你』，130~280 字。氛围要像梦：细节鲜明却哪里不对劲、逻辑会打滑、情绪被放大——但【必须有具体发生的情节】（场景＋对象＋动作/对话/事件），不能是纯情绪、纯意识流的漂浮描写。梦可以怪诞，但始终要有抓得住的东西在推进，别越写越虚。\n" +
+      "· 【角色色彩·硬要求】这一幕的场景、出现的人、反复的意象，都要从「" + nm + "」自己的人设、Ta 和你的关系、Ta 的近况里长出来，是【只有 Ta 会做的梦】——把人物、地点、心结换成别人就不成立。绝不写放之四海皆准的通用梦意象堆砌。\n" +
+      "· 然后给『你』三个可做的回应/行动：其中【两个】顺着这场梦、能让它继续往下走；【剩一个】戳到 " + nm + " 内心抗拒、不愿被打破的东西，一旦选中梦就碎。三个字面上都像合理选择，别露出哪个安全哪个危险、别用语气暗示；抗拒项是「看着无害、却恰好碰了逆鳞」。" +
+      finalLine +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
-      "\n【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"scene\":\"梦境叙事\",\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
+      "\n【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"scene\":\"梦境叙事\"," + ((opts.canFinal || opts.forceFinal) ? "\"final\":true或false," : "") + "\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
   }
 
   function charBlock(session) {
@@ -93,7 +109,7 @@
       (worldbook && worldbook.trim() ? (typeof WORLDBOOK_RULE !== "undefined" ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n【世界书】\n" + worldbook.trim() : "") +
       (kw.length ? "\n\n【" + uName + "递来的关键词，把它们自然编进这场梦】" + kw.join("、") : "") +
       "\n\n这是开场第一幕：把梦的门推开，让 " + uName + " 落进 " + session.charName + " 的梦里。" +
-      sceneRules(cotT);
+      sceneRules(cotT, { stage: "open", charName: session.charName });
     const raw = await callAI(active, sys, [{ role: "user", content: "开始做梦。" }], { maxTokens: 4000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
@@ -103,21 +119,44 @@
   }
 
   // ---- 模型：顺着选择往下做（续写下一幕） ----
+  // 阶段随已走幕数推进：3 幕后模型可标 final、5 幕后强制逼近梦核 → 梦有弧线、不无限飘
   async function weaveNext(active, session, worldbook, uName) {
+    const done = (session.scenes || []).length;
+    const canFinal = done >= 3;
+    const forceFinal = done >= 5;
+    const stage = (canFinal || forceFinal) ? "deep" : "rise";
     const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
     const sys = AC() + NAC() +
       "你在继续为「" + session.charName + "」编织同一场梦。" + uName + " 是闯梦的客人，刚在上一幕做了选择，且这个选择是这场梦所接纳的——梦没有碎，顺着做梦人的心愿往更深处走。\n\n" +
       charBlock(session) +
       (worldbook && worldbook.trim() ? (typeof WORLDBOOK_RULE !== "undefined" ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n【世界书】\n" + worldbook.trim() : "") +
       "\n\n【梦到目前为止】\n" + transcript(session, uName) +
-      "\n\n接着上一幕 " + uName + " 的选择往下写新的一幕：让梦更深、更贴近 " + session.charName + " 藏着的东西，别原地打转，别复读上一幕。" +
-      sceneRules(cotT);
+      "\n\n接着上一幕 " + uName + " 的选择往下写新的一幕：推进新情节、让梦更贴近 " + session.charName + " 藏着的东西，别原地打转、别复读上一幕。" +
+      sceneRules(cotT, { stage: stage, canFinal: canFinal && !forceFinal, forceFinal: forceFinal, charName: session.charName });
     const raw = await callAI(active, sys, [{ role: "user", content: "继续做梦。" }], { maxTokens: 4000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
     const opts = normOptions(p.options);
     if (!p.scene || !opts) throw new Error("梦没接上，重试");
-    return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot };
+    return { text: String(p.scene).trim(), options: opts, chosen: null, cot: sp.cot, final: forceFinal || !!p.final };
+  }
+
+  // ---- 模型：抵达梦核（一路选对、够深了、再顺一步 → 圆满收束，第三种结局） ----
+  async function weaveEnding(active, session, worldbook, uName, chosenText) {
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
+    const sys = AC() + NAC() +
+      "你在收束「" + session.charName + "」的这场梦——这次不是梦碎。" + uName + " 一路都选对了，梦没有崩，反而顺着做梦人的心一直走到了它的核心。" + uName + " 刚选择了「" + chosenText + "」，这一步把梦带到了它真正围着转的那个东西面前。\n\n" +
+      charBlock(session) +
+      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
+      "\n\n【梦到目前为止】\n" + transcript(session, uName) +
+      "\n\n① 写抵达梦核的这一幕（arrive，160~320字，第二人称『你』）：让整场梦收束到它最深处那个【具体的渴望/执念/恐惧】上——把它揭开，让它成真、或让 " + session.charName + " 终于直面它。这是全梦的情绪高点，顺着这一路走来的基调与 Ta 的人设去写：可以温柔、可以酸楚、可以释然、可以惊心，但要有具体的画面和落点，不是抽象升华、不是空转的意识流。最后梦【温和地、走完了地】合上——不是被赶出去，是抵达终点后自然醒来。\n" +
+      "② 再抽离出来，点破这场梦到底关于什么（core，40~90字，旁白口吻）：这场梦一路在绕的，其实是 " + session.charName + " 心里的什么。具体、贴人设，别空泛。\n" +
+      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
+      "【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"arrive\":\"抵达梦核的叙事\",\"core\":\"这场梦其实是关于什么\"}。别加别的。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "抵达梦核。" }], { maxTokens: 3500 });
+    const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
+    const p = extractJSON(sp.clean) || {};
+    return { arrive: String(p.arrive || sp.clean || "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。").trim(), core: String(p.core || "").trim(), cot: sp.cot };
   }
 
   // ---- 模型：梦碎（选到抗拒项） ----
@@ -186,8 +225,8 @@
           ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "还没有梦。\n挑一个人，递三个关键词，\n看你能在 Ta 的梦里走多深。")
           : h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },
             saves.slice().sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0)).map(s => {
-              const broken = s.status === "broken", left = s.status === "left";
-              const badge = broken ? { txt: "已碎", bg: "#a24a4a" } : left ? { txt: "已醒", bg: t.fog } : { txt: "梦中", bg: ACCENT };
+              const broken = s.status === "broken", left = s.status === "left", done = s.status === "fulfilled";
+              const badge = broken ? { txt: "已碎", bg: "#a24a4a" } : done ? { txt: "抵达", bg: "#4f8a6a" } : left ? { txt: "已醒", bg: t.fog } : { txt: "梦中", bg: ACCENT };
               return h("div", {
                 key: s.id,
                 onClick: () => { if (lpFired.current) { lpFired.current = false; return; } setView(s.id); },
@@ -354,6 +393,17 @@
         setBusy(false); setPhaseMsg("");
         return;
       }
+      // 顺应且这一幕已到梦核边缘（final）→ 抵达梦核，圆满收束（第三种结局）
+      if (cur.final) {
+        setBusy(true); setPhaseMsg("梦走到了最深处…");
+        try {
+          const r = await weaveEnding(props.active, sess2, props.worldbook, uName(), chosen.text);
+          props.onPatch({ scenes: marked, status: "fulfilled", ending: r.arrive, dreamCore: r.core, endCot: r.cot || null });
+        } catch (e) {
+          props.onPatch({ scenes: marked, status: "fulfilled", ending: "梦走到了最深处，然后温柔地合上。你缓缓醒来，胸口还留着余温。", dreamCore: "" });
+        }
+        setBusy(false); setPhaseMsg(""); return;
+      }
       // 顺应 → 续写下一幕
       setBusy(true); setPhaseMsg("梦在往深处走…");
       try {
@@ -429,8 +479,22 @@
                   style: { marginTop: 4, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "↩ 从这里重选"))
               : null);
         }),
-        // 梦碎 / 醒来 结局
-        s.status === "broken"
+        // 抵达梦核（圆满收束）结局
+        s.status === "fulfilled"
+          ? h("div", { style: { marginTop: 4, marginBottom: 20 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#4f8a6a", marginBottom: 8 } }, "梦　核"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
+            (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
+            s.dreamCore
+              ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(79,138,106,0.08)", border: "1px solid rgba(79,138,106,0.28)", borderRadius: 12 } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: "#4f8a6a", marginBottom: 6 } }, "这场梦其实是关于"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink } }, s.dreamCore))
+              : null,
+            h("div", { style: { marginTop: 16, textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14, fontStyle: "italic", color: t.fog } }, "你走到了梦的尽头，它温柔地合上。"),
+            scenes.length ? h("button", { onClick: () => rewindTo(scenes.length - 1), className: "w-full active:opacity-80",
+              style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "12px 0" } }, "↩ 回到刚才的决策点，走另一条路") : null)
+          // 梦碎 / 醒来 结局
+          : s.status === "broken"
           ? h("div", { style: { marginTop: 4, marginBottom: 20 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#a24a4a", marginBottom: 8 } }, "梦　碎"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
