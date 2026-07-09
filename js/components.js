@@ -648,7 +648,7 @@ function periodMap(period) {
   }
   return map;
 }
-function Calendar({ characters, calendar, period, busy, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod }) {
+function Calendar({ characters, calendar, profile, period, busy, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod }) {
   const t = useTheme();
   const today = new Date();
   const cal = calendar || { world: {}, chars: {}, mine: {} };
@@ -671,6 +671,14 @@ function Calendar({ characters, calendar, period, busy, onBack, onSaveEvent, onD
   const views = [{ id: "mine", name: "我的" }, { id: "world", name: "世界" }].concat((characters || []).map(c => ({ id: c.id, name: c.remark || c.name })));
   const curCharView = (characters || []).find(c => c.id === view);
   const isCharView = !!curCharView;
+  // 生日显示在日历上（每年重复，按月-日匹配当前月）：我的视角=用户生日；某角色视角=该角色生日
+  const parseBd = s => { const m = String(s || "").match(/(?:\d{4}[-/.年])?\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/); if (!m) return null; const mo = +m[1], dd = +m[2]; return (mo >= 1 && mo <= 12 && dd >= 1 && dd <= 31) ? { mo: mo, dd: dd } : null; };
+  const bdaysOn = d => {
+    const hits = [];
+    if (view === "mine") { const b = parseBd(profile && profile.birthday); if (b && b.mo === ym.m + 1 && b.dd === d) hits.push("🎂 我的生日"); }
+    if (isCharView && curCharView) { const b = parseBd(curCharView.birthday); if (b && b.mo === ym.m + 1 && b.dd === d) hits.push("🎂 " + (curCharView.remark || curCharView.name) + " 生日"); }
+    return hits;
+  };
   const chip = active => ({ fontFamily: F_BODY, fontSize: 12.5, padding: "5px 13px", borderRadius: 999, background: active ? t.ink : "transparent", color: active ? t.bg2 : t.fog, border: "1px solid " + (active ? t.ink : t.line) });
   const cells = calCells(ym.y, ym.m);
   const weeks = Math.max(1, Math.ceil(cells.length / 7));
@@ -708,18 +716,21 @@ function Calendar({ characters, calendar, period, busy, onBack, onSaveEvent, onD
         const pd = pmap[pk];
         const col = pd ? PERIOD_COLORS[pd.t] : null;
         const evs = evOf(d);
+        const bds = bdaysOn(d);
         return h("button", {
           key: i, onClick: () => { setDaySel(pk); setEvTitle(""); },
           className: "active:opacity-60",
           style: { position: "relative", minHeight: 46, borderRadius: 12, border: "1px solid " + (isToday(d) ? t.accent : t.line), background: col ? col + "22" : t.bg2, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 5, overflow: "hidden" }
         },
           h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: isToday(d) ? "#fff" : t.ink, background: isToday(d) ? t.accent : "transparent" } }, d),
+          bds.length ? h("span", { style: { marginTop: 1, fontSize: 10, lineHeight: 1 } }, "🎂") : null,
           pd && h("span", { style: { marginTop: 1, fontFamily: F_BODY, fontSize: 8, color: col, fontWeight: pd.actual ? 700 : 400 } }, PERIOD_LABELS[pd.t]),
           evs.slice(0, 2).map((ev, ei) => h("span", { key: ei, style: { maxWidth: "94%", marginTop: 1, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2, color: t.tint, textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" } }, ev.title)),
           evs.length > 2 && h("span", { style: { fontFamily: F_BODY, fontSize: 7.5, color: t.fog, marginTop: 1 } }, "+" + (evs.length - 2)));
       }))),
     daySel && h(Sheet, { onClose: () => setDaySel(null) },
       h(Eyebrow, { style: { marginBottom: 8 } }, (ym.m + 1) + "月" + dayNum + "日 · " + (view === "mine" ? "我的" : view === "world" ? "世界" : (views.find(v => v.id === view) || {}).name)),
+      (daySel ? bdaysOn(dayNum) : []).map((b, bi) => h("div", { key: "bd" + bi, style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent, marginBottom: 8 } }, b)),
       view === "mine" && daySel && (() => {
         const pl = periodList(per);
         const selStart = pl.find(x => x.start === daySel);
@@ -1135,6 +1146,7 @@ function ProfileSheet({
   const [persona, setPersona] = useState(profile.persona || "");
   const [avatarImage, setAvatarImage] = useState(profile.avatarImage || null);
   const [color, setColor] = useState(profile.color || AV_COLORS[0]);
+  const [birthday, setBirthday] = useState(profile.birthday || "");
   return /*#__PURE__*/React.createElement(Sheet, {
     onClose: onClose,
     tall: true
@@ -1147,13 +1159,14 @@ function ProfileSheet({
       color: t.ink
     }
   }, "我的面具"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onSave({
+    onClick: () => onSave(Object.assign({}, profile, {
       name,
       tagline,
       persona,
       avatarImage,
-      color
-    })
+      color,
+      birthday: birthday.trim()
+    }))
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
     color: t.ink
@@ -1183,6 +1196,17 @@ function ProfileSheet({
     value: tagline,
     onChange: e => setTagline(e.target.value),
     placeholder: "一句话签名",
+    style: {
+      fontSize: 15,
+      fontFamily: F_BODY
+    }
+  })), /*#__PURE__*/React.createElement(LineField, {
+    zh: "生日",
+    en: "Birthday"
+  }, /*#__PURE__*/React.createElement(LineInput, {
+    value: birthday,
+    onChange: e => setBirthday(e.target.value),
+    placeholder: "如 3-15 或 1998-3-15（可留空）",
     style: {
       fontSize: 15,
       fontFamily: F_BODY

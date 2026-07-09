@@ -69,6 +69,7 @@ function CastForm({
   const [tz, setTz] = useState(initial && initial.tz != null ? String(initial.tz) : "");
   const [appearance, setAppearance] = useState(initial && initial.appearance || "");
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
+  const [birthday, setBirthday] = useState(initial && initial.birthday || "");
   const save = () => {
     if (!name.trim()) return;
     onSave(Object.assign({}, initial || {}, {
@@ -82,6 +83,7 @@ function CastForm({
       tz: tz,
       appearance: appearance.trim(),
       refPhoto: refPhoto,
+      birthday: birthday.trim(),
       remark: initial && initial.remark || ""
     }));
   };
@@ -172,6 +174,17 @@ function CastForm({
   }, /*#__PURE__*/React.createElement("option", { value: "" }, "跟随系统（默认）"), TZ_OPTS.map(o => /*#__PURE__*/React.createElement("option", { key: o[0], value: o[0] }, "UTC" + (o[0][0] === "-" ? o[0] : "+" + o[0].replace("+", "")) + " · " + o[1]))), /*#__PURE__*/React.createElement("div", {
     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
   }, "开时间感知后，Ta 会按自己所在时区报时间（可搞异地恋）。日程仍按你本地日期。"))), /*#__PURE__*/React.createElement(LineField, {
+    zh: "生日",
+    en: "Birthday"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
+    value: birthday,
+    onChange: e => setBirthday(e.target.value),
+    placeholder: "如 3-15 或 1998-3-15（可留空）",
+    className: "w-full bg-transparent outline-none",
+    style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
+  }, "到生日当天/临近，Ta 会自己惦记着；填了世界书/人设里的设定也行。"))), /*#__PURE__*/React.createElement(LineField, {
     zh: "人设",
     en: "Persona"
   }, /*#__PURE__*/React.createElement(LineArea, {

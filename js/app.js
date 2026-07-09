@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.24";
+const APP_VERSION = "v47.25";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -882,6 +882,48 @@ function App() {
       else if (dic >= cyc - 4) phase = "经前期，接近下次经期";
       else phase = "处于相对安全期";
       return "用户此刻的生理期状态：" + phase + "。（这是用户允许你看到的私密信息。可依你的人设与关系自然地关心、提醒注意事项，或选择不提；别生硬报数据、别越界。）";
+    })(),
+    // 日期感知：只有【今天/临近】真有事时才出内容，平时空字符串 → 不进 prompt、零 token（守聊天预算铁律）。
+    // 生日（用户/角色自己）+ 日历三视角（世界事件人人知、我的日历按可见名单、角色自己视角）。dateKey 与 calKey 同格式：年-月-日，月 1-based 不补零。
+    dateNote: (() => {
+      const cal = calendar || {};
+      const uName = profile && profile.name ? profile.name : "对方";
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const tK = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
+      // 复用「我的日历/经期」可见名单：只有被允许的角色才知道用户的生日 / 私人日历
+      const canSeeMine = !!(period && period.visibleTo && period.visibleTo.includes(char.id));
+      const parseBday = s => {
+        const m = String(s || "").match(/(?:\d{4}[-/.年])?\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
+        if (!m) return null;
+        const mo = +m[1], d = +m[2];
+        return (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) ? { mo, d } : null;
+      };
+      const daysUntil = bd => {
+        if (!bd) return null;
+        const y = today.getFullYear();
+        let next = new Date(y, bd.mo - 1, bd.d); next.setHours(0, 0, 0, 0);
+        if (next < today) next = new Date(y + 1, bd.mo - 1, bd.d);
+        return Math.round((next - today) / 86400000);
+      };
+      const evTitles = arr => (arr || []).map(e => e && e.title).filter(Boolean).slice(0, 4).join("、");
+      const lines = [];
+      // —— 用户生日（仅对可见角色）——
+      if (canSeeMine) {
+        const du = daysUntil(parseBday(profile && profile.birthday));
+        if (du === 0) lines.push("🎂 今天是 " + uName + " 的生日。若合你的人设和你俩的关系，可以自然地记得、表达心意，别硬邦邦报日期、别客服腔。");
+        else if (du != null && du <= 7) lines.push("再过 " + du + " 天就是 " + uName + " 的生日，你心里记着（想的话可提前张罗，但别每句念叨）。");
+      }
+      // —— 角色自己的生日 ——
+      const cdu = daysUntil(parseBday(char && char.birthday));
+      if (cdu === 0) lines.push("🎂 今天是你自己的生日。按你的性格自然流露就好（期待被记得、感慨、或故作不在意都行）。");
+      else if (cdu != null && cdu <= 5) lines.push("再过 " + cdu + " 天就是你自己的生日。");
+      // —— 今日日历三视角 ——
+      const w = evTitles(cal.world && cal.world[tK]);
+      if (w) lines.push("今天这个世界里：" + w + "（大家都知道的公共事件，聊到可自然带出）。");
+      if (canSeeMine) { const mn = evTitles(cal.mine && cal.mine[tK]); if (mn) lines.push("今天 " + uName + " 的日历上有：" + mn + "（Ta 让你能看到，可自然关心/问起，别生硬报）。"); }
+      const cn = evTitles(cal.chars && cal.chars[char.id] && cal.chars[char.id][tK]);
+      if (cn) lines.push("你自己今天的安排：" + cn + "（你清楚，自然反映到状态和语气里）。");
+      return lines.join("\n");
     })(),
     financeNote: (typeof ledgerNoteFor === "function" ? ledgerNoteFor(char.id) : ""),
     listenLog: (() => {
@@ -6184,6 +6226,7 @@ function App() {
   });else if (screen === "calendar") body = h(Calendar, {
     characters: characters,
     calendar: calendar,
+    profile: profile,
     period: period,
     busy: !!gen.calendar,
     onBack: goHome,
