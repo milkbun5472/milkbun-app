@@ -608,14 +608,29 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     if (!b64 && url && /^data:image/i.test(url)) { b64 = url.replace(/^data:image\/\w+;base64,/i, ""); url = null; }
     if (!b64 && !url) { const mk = String(rawTxt).match(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/i); if (mk) b64 = mk[0].replace(/^data:image\/\w+;base64,/i, ""); }
     if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp)/i); if (mk) url = mk[0]; }
-    if (b64) return { blob: b64ToBlob(b64, "image/png"), dataUrl: "data:image/png;base64," + b64 };
+    if (b64) {
+      // 验真：base64 得解得开、且开头是真图片的魔数（PNG/JPEG/WebP/GIF）——
+      // 不然坏数据会被当成图存进图库，聊天里就是一个加载不出来的空白框、还不报错
+      const pure = String(b64).includes(",") ? String(b64).split(",")[1] : String(b64);
+      let bin;
+      try { bin = atob(pure.replace(/\s+/g, "")); } catch (e) { throw new Error("返回的 base64 解不开（不是有效图片数据）。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200)); }
+      const c0 = bin.charCodeAt(0), c1 = bin.charCodeAt(1);
+      const mime = (c0 === 0x89 && bin.slice(1, 4) === "PNG") ? "image/png"
+        : (c0 === 0xff && c1 === 0xd8) ? "image/jpeg"
+        : (bin.slice(0, 4) === "RIFF" && bin.slice(8, 12) === "WEBP") ? "image/webp"
+        : bin.slice(0, 4) === "GIF8" ? "image/gif" : null;
+      if (!mime) throw new Error("返回的数据不是图片。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return { blob: new Blob([arr], { type: mime }), dataUrl: "data:" + mime + ";base64," + pure.replace(/\s+/g, "") };
+    }
     if (url) {
       try { const resp = await fetch(url); if (resp.ok) { const blob = await resp.blob(); if (blob && blob.size > 0) return { blob, dataUrl: null }; } } catch (e) {}
       return { blob: null, url: url };
     }
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
   };
-  const attempt = async useRef => {
+  const attempt = async (useRef, slim) => {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 180000);
     let r;
@@ -627,12 +642,19 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         fd.append("image", b64ToBlob(refPhotoDataUrl, "image/png"), "ref.png");
         r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
       } else {
-        const body = { model: a.model || "gpt-image-1", prompt, size, n: 1, response_format: "b64_json" };
-        if (a.quality) body.quality = a.quality;
+        // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
+        const body = { model: a.model || "gpt-image-1", prompt, size, n: 1 };
+        if (!slim) { body.response_format = "b64_json"; if (a.quality) body.quality = a.quality; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
     } finally { clearTimeout(to); }
-    return await parseOut(r, await r.text());
+    const rawTxt = await r.text();
+    // 4xx 且报错像是在挑剔某个可选参数 → 裸参数自动再试一次（gpt-image-1 的 quality 值域
+    // 是 low/medium/high，别家可能只认 standard/hd；response_format 也有接口不认）
+    if (!useRef && !slim && r.status >= 400 && r.status < 500 && ![401, 402, 403, 429].includes(r.status) && /param|quality|response_format|invalid\s+value|不支持|参数/i.test(rawTxt)) {
+      try { return await attempt(false, true); } catch (e) {}
+    }
+    return await parseOut(r, rawTxt);
   };
   // 有参考照：先 edits(保长相)，挂了退回 generations；没参考照直接 generations
   if (refPhotoDataUrl) { try { return await attempt(true); } catch (e) { return await attempt(false); } }

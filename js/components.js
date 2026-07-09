@@ -4538,25 +4538,42 @@ function SelfieBubble({ m }) {
   const t = useTheme();
   const [url, setUrl] = useState(null);
   const [zoom, setZoom] = useState(false);
+  const [imgErr, setImgErr] = useState(false);   // <img> 加载失败（坏数据/过期链接）
+  const [idbMiss, setIdbMiss] = useState(false); // IndexedDB 里读不到（没存住/被清理）
   useEffect(() => {
     let alive = true, obj = null;
     if (m.imgKey && typeof idbImgGet === "function") {
-      idbImgGet(m.imgKey).then(blob => { if (alive && blob) { obj = URL.createObjectURL(blob); setUrl(obj); } }).catch(() => {});
+      idbImgGet(m.imgKey).then(blob => {
+        if (!alive) return;
+        if (blob && blob.size > 0) { obj = URL.createObjectURL(blob); setUrl(obj); }
+        else setIdbMiss(true);
+      }).catch(() => { if (alive) setIdbMiss(true); });
     }
     return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
   }, [m.imgKey]);
-  const shown = url || m.imgUrl || null; // imgUrl = 跨域取不到 blob 时直接用的图片链接
+  const shown = imgErr ? null : (url || m.imgUrl || null); // imgUrl = 跨域取不到 blob 时直接用的图片链接
   const box = { maxWidth: 200, borderRadius: 14, overflow: "hidden", border: "1px solid " + t.line, background: t.bg2 };
-  if (m.pending) return h("div", { style: Object.assign({}, box, { padding: "24px 30px", display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }) },
-    h("div", { style: { fontSize: 22 } }, "📷"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "拍照中…"));
-  if (m.failed) return h("div", { style: Object.assign({}, box, { padding: "16px 20px" }) }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "📷 自拍没拍成"));
+  // 所有非正常态都用这个卡片：说清人话原因 + 带上这张图本来拍的是什么
+  const note = txt => h("div", { style: Object.assign({}, box, { padding: "14px 16px" }) },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.fog } }, "📷 " + txt),
+    m.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, opacity: 0.65, marginTop: 5 } }, "（本来想拍：" + m.desc + "）") : null);
+  if (m.pending) {
+    // 卡「拍照中」超 6 分钟 = 生成时页面被 iOS 杀了/断线，别永远转下去
+    if (m.ts && Date.now() - m.ts > 360000) return note("图没等回来（可能切了后台断线），让 TA 重拍一张吧");
+    return h("div", { style: Object.assign({}, box, { padding: "24px 30px", display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }) },
+      h("div", { style: { fontSize: 22 } }, "📷"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "拍照中…"));
+  }
+  if (m.failed) return note("自拍没拍成");
+  if (imgErr) return note(m.imgUrl && !url ? "图的临时链接已过期，看过就没啦" : "图数据坏了，显示不出来");
   if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: box },
-      h("img", { src: shown, style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } })),
+      h("img", { src: shown, onError: () => setImgErr(true), style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } })),
     zoom && h("div", { onClick: () => setZoom(false), className: "fixed inset-0 z-50 flex items-center justify-center", style: { background: "rgba(0,0,0,0.85)" } },
       h("img", { src: shown, style: { maxWidth: "94%", maxHeight: "90%", borderRadius: 10 } })));
-  return h("div", { style: Object.assign({}, box, { padding: "24px 30px" }) }, h("div", { style: { fontSize: 22, textAlign: "center" } }, "📷"));
+  if (idbMiss) return note("图没能存进本机图库（存储被系统清了或 iOS 抽风）");
+  if (m.imgKey) return note("图加载中…还看不到就是没存住");
+  return note("没拿到图");
 }
 function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, editable, sending }) {
   const [editing, setEditing] = useState(false);

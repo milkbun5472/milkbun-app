@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.35";
+const APP_VERSION = "v47.36";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1774,6 +1774,9 @@ function App() {
             if (out.blob) {
               const key = "img_" + charId + "_" + sid;
               await idbImgPut(key, out.blob);
+              // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
+              const back = await idbImgGet(key).catch(() => null);
+              if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
               pChat(charId, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
             } else if (out.url) {
               // 跨域取不到 blob，直接用图片 URL 显示
