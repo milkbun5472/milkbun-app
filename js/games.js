@@ -1705,7 +1705,7 @@
     const sys = AC + "你是「真心话大冒险」的主持。生成 " + npcCount + " 个 NPC 玩家（name 中文名 + persona 一句含职业与性格的人设，多样别雷同）。\n" +
       "【已有真实玩家】\n" + (lines || "（只有 NPC）") + "\n\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\"}]}";
     if (!npcCount) return { npcs: [] };
-    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 2500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 3500 });
     return extractJSON(raw) || { npcs: [] };
   }
   const TD_GENERIC = "题目可以【贴人设定制】，也可以是【经典款真心话 / 大冒险或其变体】（真心话如：最近一次心动 / 手机最近一张照片 / 最丢脸的事 / 给在场某人打分 / 最想删掉的记忆 / 偷偷喜欢过谁；大冒险如：模仿在场某人 / 给某人发一条消息 / 用夸张语气念一句话 / 和左手边的人对视十秒 / 学一种动物叫）。两类混着来、每轮换花样，别老一个路数。";
@@ -1719,7 +1719,7 @@
       (memText ? "\n\n【之前发生过的（可以拿来玩梗 / 追问，但别硬凑）】\n" + memText : "") +
       "\n\n完整演出这一轮：\n1. choice：" + target.name + " 选「真心话」还是「大冒险」（按 TA 性格，别每次都一样）。\n2. prompt：" + askerName + " 出的题，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + easy +
       "\n3. response：" + target.name + " 怎么回应 / 完成，带 TA 的语气小动作、贴人设，写足 3~5 句、别草收。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"prompt\":\"\",\"response\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 4000 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 6000 });
     return extractJSON(raw) || {};
   }
   // 用户被指到并选了 真话/大冒险：出题人也由 JS 指定，只生成题目
@@ -1730,7 +1730,7 @@
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
       "\n只输出 JSON：{\"prompt\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 1200 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 4000 });
     return extractJSON(raw) || {};
   }
   // 跨轮记忆：把每一轮 + 最近插话压成文本，喂给生成 → 角色能翻旧账 / cue 之前的题和回答
@@ -1751,7 +1751,7 @@
       "\n\n【最近发生 & 之前几轮（随便 cue）】\n" + (memText || "（刚开场，随便起个话头）") +
       (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住往下聊、别冷场、别答非所问。" : "\n\n真人这轮没开口、把话筒交给你们——自己热闹起来，你一句我一句聊下去。") +
       "\n输出 6~10 条（允许同一人多条、顺序自然、彼此能接上），像真的群聊在刷屏。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "群聊起来。" }], { maxTokens: 3500 });
+    const raw = await callRetry(api, sys, [{ role: "user", content: "群聊起来。" }], { maxTokens: 5000 });
     const p = extractJSON(raw); return (p && Array.isArray(p.chat)) ? p.chat : [];
   }
 
