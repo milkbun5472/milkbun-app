@@ -1698,8 +1698,9 @@
     return (cap && s.length > cap) ? s.slice(0, cap) + "…" : (s || "（没写人设）");
   }
   function tdRoster(list, cap) { return list.map(function (p) { return "【" + p.name + "】" + tdDesc(p, cap); }).join("\n\n"); }
-  // 贴人设铁律：焊进真心话每个生成，治 OOC + 性别/关系搞错
-  const TD_IC = "【严格贴人设 · 别 OOC】每个角色的语气、态度、会问什么、敢做什么，都必须符合 TA 的人设与身份；性别、年龄、和别人的关系、称呼一律按人设来别搞错（例：双胞胎哥哥的弟弟就是弟弟、别写成妹妹；冷淡的人别写成话痨）。宁可克制也别为了效果让角色崩人设、或编造人设里没有的关系/身份。";
+  // 贴人设铁律：焊进真心话每个生成，治 OOC + 性别/关系搞错 + 乱配 CP
+  const TD_IC = "【严格贴人设 · 别 OOC】每个角色的语气、态度、会问什么、敢做什么，都必须符合 TA 的人设与身份；性别、年龄、称呼一律按人设来别搞错（例：双胞胎哥哥的弟弟就是弟弟、别写成妹妹；冷淡的人别写成话痨）。宁可克制也别为了效果让角色崩人设。" +
+    "\n【关系铁律·重要】除非某个角色【自己的人设里明确写了】和在场另一个人的关系（如双胞胎、恋人、朋友），否则在场各人【互不相识】，只是被这局游戏临时凑到一起——【绝对不要】凭空给他们编交情、配对凑 CP、发展暧昧、开只有熟人才懂的玩笑、或写得像认识很久的老朋友。谁跟谁是什么关系，只认人设里白纸黑字写明的；没写就是陌生人，客客气气、边玩边熟。";
   async function setupTD(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
     const sys = AC + "你是「真心话大冒险」的主持。生成 " + npcCount + " 个 NPC 玩家（name 中文名 + persona 一句含职业与性格的人设，多样别雷同）。\n" +
@@ -1745,11 +1746,13 @@
     return parts.join("\n");
   }
   // 自由发言：像群聊一样，谁想说就说、一人可多条、互相接话、cue 题目和回答、翻旧账
-  async function genTDDiscuss(api, chars, memText, userMsg, hot) {
+  // focus = 刚发生的这一轮 {name,choice,prompt,response}，有它就让大家【针对它】反应（含真人的回答）
+  async function genTDDiscuss(api, chars, memText, userMsg, hot, focus) {
     const who = tdRoster(chars, 700);
-    const sys = AC + TD_IC + "\n\n「真心话大冒险」的自由发言时间——【不是排队每人一句评论】，是【像微信群聊那样】：谁想插话就插、同一个人可以连着说好几句、可以打断 / 接住 / 反驳别人、可以专门 cue 刚才那道题或那个回答、翻之前几轮的旧账、拱火、跑题都行，要有你来我往的层次。只有下面这些角色开口（【绝不替真人玩家说话】，每人严格贴自己人设、口吻各不相同）：\n" + who +
-      "\n\n【最近发生 & 之前几轮（随便 cue）】\n" + (memText || "（刚开场，随便起个话头）") +
-      (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住往下聊、别冷场、别答非所问。" : "\n\n真人这轮没开口、把话筒交给你们——自己热闹起来，你一句我一句聊下去。") +
+    const focusLine = focus ? "\n\n【★ 刚刚这一轮·大家务必【针对这个】起哄 / 追问 / 调侃 / 接话，别当没看见、别自顾自跳过它去聊别的】\n" + focus.name + " 刚做了【" + focus.choice + "】——题目是「" + (focus.prompt || "") + "」，" + focus.name + " 的回答 / 表现是：「" + (focus.response || "（没细说）") + "」" : "";
+    const sys = AC + TD_IC + "\n\n「真心话大冒险」的自由发言时间——【不是排队每人一句评论】，是【像微信群聊那样】：谁想插话就插、同一个人可以连着说好几句、可以打断 / 接住 / 反驳别人、可以专门 cue 刚才那道题或那个回答、翻之前几轮的旧账、拱火、跑题都行，要有你来我往的层次。只有下面这些角色开口（【绝不替真人玩家说话】，每人严格贴自己人设、口吻各不相同）：\n" + who + focusLine +
+      "\n\n【之前几轮（可随便 cue 翻旧账）】\n" + (memText || "（刚开场，随便起个话头）") +
+      (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住这句往下聊、别冷场、别答非所问。" : focus ? "\n\n真人玩家没有额外插话，你们就【冲着上面刚发生的那轮】聊起来（尤其要有人回应 " + focus.name + " 的回答）。" : "\n\n真人这轮没开口、把话筒交给你们——自己热闹起来，你一句我一句聊下去。") +
       "\n输出 6~10 条（允许同一人多条、顺序自然、彼此能接上），像真的群聊在刷屏。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "群聊起来。" }], { maxTokens: 5000 });
     const p = extractJSON(raw); return (p && Array.isArray(p.chat)) ? p.chat : [];
@@ -1788,11 +1791,11 @@
       lastAskerRef.current = a.name;
       return a;
     };
-    // 一轮做完后的群聊反应（自由发言，不排队）
-    const roundChat = async function () {
+    // 一轮做完后的群聊反应（自由发言，不排队）；focus=刚发生的这轮，让大家针对它（含你的回答）反应
+    const roundChat = async function (focus) {
       try {
         const chars = players.filter(function (p) { return !p.isUser; });
-        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), null, hot);
+        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), null, hot, focus || null);
         if (c.length) pushLog(c.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
       } catch (e) { /* 反应可有可无 */ }
     };
@@ -1826,7 +1829,7 @@
         const asker = pickAsker(tgt.name);
         const r = await genTDForAI(api, tgt, asker, cfg.mode, hot, tdMemoryText(logDataRef.current));
         pushLog([{ type: "td", name: tgt.name, choice: r.choice || "真心话", asker: asker ? asker.name : "大家", prompt: r.prompt || "", response: r.response || "" }]);
-        await roundChat();
+        await roundChat({ name: tgt.name, choice: r.choice || "真心话", prompt: r.prompt || "", response: r.response || "" });
         setPhase("idle");
       } catch (e) { props.toast && props.toast("出错：" + ((e && e.message) || "重试")); setPhase("idle"); }
       finally { setBusy(false); }
@@ -1874,7 +1877,7 @@
       const up = userPrompt;
       pushLog([{ type: "td", name: (props.profile && props.profile.name) || "你", mine: true, choice: up.choice, asker: up.asker, prompt: up.prompt, response: v }]);
       setUserResp(""); setUserPrompt(null); setPhase("idle");
-      await roundChat();
+      await roundChat({ name: (props.profile && props.profile.name) || "你", choice: up.choice, prompt: up.prompt, response: v });
       setBusy(false);
     };
     // 自由讨论：可以一直聊，直到你手动转下一轮
