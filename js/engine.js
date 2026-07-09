@@ -813,6 +813,19 @@ const SILENT_WAV = typeof btoa !== "undefined" ? makeSilentWav(1) : "";
 const KEEPALIVE_ID = "__keepalive__";
 const KEEPALIVE_WAV = typeof btoa !== "undefined" ? makeSilentWav(30) : "";
 const KEEPALIVE_SONG = { id: KEEPALIVE_ID, source: "keepalive", title: "静音保活", artist: "让手机后台醒着 · 无声", cover: null };
+// 解析生日/月-日字符串 → {mo,d}；容「3-15 / 1998-3-15(年忽略) / 3月15日 / 3/15」，非法返回 null
+function parseMonthDay(s) {
+  const m = String(s || "").match(/(?:\d{4}[-/.年])?\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
+  if (!m) return null;
+  const mo = +m[1], d = +m[2];
+  return (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) ? { mo: mo, d: d } : null;
+}
+// 常见公历固定节日（月-日 → 名字）；农历(春节/中秋/端午)要额外算，暂不含
+const FIXED_FESTIVALS = {
+  "1-1": "元旦", "2-14": "情人节", "3-8": "妇女节", "4-1": "愚人节",
+  "5-1": "劳动节", "6-1": "儿童节", "10-31": "万圣夜", "11-11": "光棍节",
+  "12-24": "平安夜", "12-25": "圣诞节", "12-31": "跨年夜"
+};
 // OOC：跳出角色，直接和模型对话（调整/问状态/问剧情）
 async function oocAsk(p, ctx, question) {
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.25";
+const APP_VERSION = "v47.26";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -290,6 +290,11 @@ function App() {
   const [calendar, setCalendar] = useState({ world: {}, chars: {}, mine: {} });
   // 经期：周期/经期长度、实际记录的开始日、可见范围
   const [period, setPeriod] = useState({ cycleLen: 28, periodLen: 5, starts: [], visibleTo: null });
+  // 给「生日主动祝福」等定时扫描用的最新引用（那个 effect 只依赖 [characters, active]，直接闭包会读到旧值）
+  const profileRef = useRef(profile); profileRef.current = profile;
+  const periodRef = useRef(period); periodRef.current = period;
+  const couplesRef = useRef(couples); couplesRef.current = couples;
+  const coupleAnnivRef = useRef(coupleAnniv); coupleAnnivRef.current = coupleAnniv;
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   // 主页名片：与聊天「我」的人设解耦，单独一份 { name, sign, tags:[] }
@@ -890,14 +895,9 @@ function App() {
       const uName = profile && profile.name ? profile.name : "对方";
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const tK = today.getFullYear() + "-" + (today.getMonth() + 1) + "-" + today.getDate();
+      const mdK = (today.getMonth() + 1) + "-" + today.getDate();
       // 复用「我的日历/经期」可见名单：只有被允许的角色才知道用户的生日 / 私人日历
       const canSeeMine = !!(period && period.visibleTo && period.visibleTo.includes(char.id));
-      const parseBday = s => {
-        const m = String(s || "").match(/(?:\d{4}[-/.年])?\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
-        if (!m) return null;
-        const mo = +m[1], d = +m[2];
-        return (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) ? { mo, d } : null;
-      };
       const daysUntil = bd => {
         if (!bd) return null;
         const y = today.getFullYear();
@@ -909,14 +909,27 @@ function App() {
       const lines = [];
       // —— 用户生日（仅对可见角色）——
       if (canSeeMine) {
-        const du = daysUntil(parseBday(profile && profile.birthday));
+        const du = daysUntil(parseMonthDay(profile && profile.birthday));
         if (du === 0) lines.push("🎂 今天是 " + uName + " 的生日。若合你的人设和你俩的关系，可以自然地记得、表达心意，别硬邦邦报日期、别客服腔。");
-        else if (du != null && du <= 7) lines.push("再过 " + du + " 天就是 " + uName + " 的生日，你心里记着（想的话可提前张罗，但别每句念叨）。");
+        else if (du != null && du <= 7) lines.push("再过 " + du + " 天就是 " + uName + " 的生日，你心里记着（想的话可提前张罗、准备点小惊喜，但别每句念叨）。");
       }
       // —— 角色自己的生日 ——
-      const cdu = daysUntil(parseBday(char && char.birthday));
+      const cdu = daysUntil(parseMonthDay(char && char.birthday));
       if (cdu === 0) lines.push("🎂 今天是你自己的生日。按你的性格自然流露就好（期待被记得、感慨、或故作不在意都行）。");
       else if (cdu != null && cdu <= 5) lines.push("再过 " + cdu + " 天就是你自己的生日。");
+      // —— 纪念日：和这个角色在一起满几周年 ——
+      const cp = couples[char.id];
+      if (cp && cp.status === "together" && cp.since) {
+        const s = new Date(cp.since);
+        if (s.getMonth() === today.getMonth() && s.getDate() === today.getDate()) {
+          const yrs = today.getFullYear() - s.getFullYear();
+          lines.push("🎉 今天是你和 " + uName + (yrs >= 1 ? " 在一起满 " + yrs + " 周年" : " 在一起的纪念日") + "。这天对你俩有意义，若合你的性子可以自然提起、纪念一下，别当没这回事、也别硬煽情。");
+        }
+      }
+      // —— 自定义纪念日（属于这个角色的）——
+      (coupleAnniv || []).forEach(a => { if (a && a.characterId === char.id && a.month === today.getMonth() + 1 && a.day === today.getDate()) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。"); });
+      // —— 公历节日（大家都知道）——
+      if (FIXED_FESTIVALS[mdK]) lines.push("今天是" + FIXED_FESTIVALS[mdK] + "（大家都知道的日子，若情境合适可自然应个景，别硬凹节日气氛）。");
       // —— 今日日历三视角 ——
       const w = evTitles(cal.world && cal.world[tK]);
       if (w) lines.push("今天这个世界里：" + w + "（大家都知道的公共事件，聊到可自然带出）。");
@@ -1029,6 +1042,26 @@ function App() {
     const tick = () => {
       if (!active) return;
       const dayKey = schedDayKey(new Date());
+      // —— 生日主动祝福：今天是用户生日 → 能看到你日历、真在聊的角色主动祝一次（每年每人一次，只白天发）——
+      const ubd = parseMonthDay((profileRef.current || {}).birthday);
+      const nowD = new Date();
+      if (ubd && ubd.mo === nowD.getMonth() + 1 && ubd.d === nowD.getDate()) {
+        const year = String(nowD.getFullYear());
+        const vis = (periodRef.current && periodRef.current.visibleTo) || [];
+        for (const c of characters) {
+          const cid = c.id;
+          if (!vis.includes(cid)) continue;                          // 只有你允许看日历的角色才知道你生日
+          if (laneBusy("c:" + cid)) continue;
+          if (viewRef.current.charId === cid) continue;              // 正在看这个聊天就不用主动
+          if (hist(c).length < 2) continue;                          // 真在聊的
+          if ((greetLogRef.current[cid] || {}).b === year) continue; // 今年已祝过
+          const hr = Math.floor(charLocalMin(c) / 60);
+          if (hr < 8 || hr > 23) continue;                           // 别半夜发
+          markGreet(cid, "b", year);
+          replyNow(cid, "", null, { proactive: true, bday: true });
+          return;                                                    // 一次一个，错峰
+        }
+      }
       // 池 = 真在聊的角色（≥2条历史）；每个时段最多问候 ceil(池/2) 个，别全员打卡把你淹了
       const pool = characters.filter(c => hist(c).length >= 2);
       if (!pool.length) return;
@@ -1507,7 +1540,8 @@ function App() {
       const emoteHint = emotes.length ? "\n【表情包】你有一组表情图可以发，像真人发微信表情那样，只在情绪合适时偶尔甩一张（别每条都发，多数时候不发）。可用关键词：" + emotes.map(e => e.keyword).join(" / ") + "。想发就把 emote 填成其中一个关键词（与上面列的完全一致），否则 null。" : "";
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const greetHint = opts.greet ? "\n\n【此刻·你主动问候】现在是" + (opts.greet === "morning" ? "早上" : "晚上") + "，你【主动】给 Ta 发一句" + (opts.greet === "morning" ? "问早/早安" : "道晚安") + "——结合你此刻的作息、行程、心情，自然又简短（1~2 条），像真人随手发的，别只干巴巴一句『早安』。**很重要：Ta 有自己的生活、可能在忙、可能没空回，这完全正常。语气要轻松不粘人——不许用『怎么不理我』『是不是不想理我』『冷落我』这类质问或愧疚绑架，也别摆被冷落的委屈脸。就是单纯想到 Ta、顺手送个问候，Ta 回不回都没关系。**" : "";
-      const proactiveHint = opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
+      const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
+      const proactiveHint = opts.bday ? bdayHint : opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
       const aff = Math.round(affOf(charId));
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");

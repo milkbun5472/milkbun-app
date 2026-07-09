@@ -679,6 +679,8 @@ function Calendar({ characters, calendar, profile, period, busy, onBack, onSaveE
     if (isCharView && curCharView) { const b = parseBd(curCharView.birthday); if (b && b.mo === ym.m + 1 && b.dd === d) hits.push("🎂 " + (curCharView.remark || curCharView.name) + " 生日"); }
     return hits;
   };
+  // 公历节日只在「世界」视角显示（是公共大事）；FIXED_FESTIVALS 在 engine.js
+  const festOn = d => (view === "world" && typeof FIXED_FESTIVALS !== "undefined") ? (FIXED_FESTIVALS[(ym.m + 1) + "-" + d] || null) : null;
   const chip = active => ({ fontFamily: F_BODY, fontSize: 12.5, padding: "5px 13px", borderRadius: 999, background: active ? t.ink : "transparent", color: active ? t.bg2 : t.fog, border: "1px solid " + (active ? t.ink : t.line) });
   const cells = calCells(ym.y, ym.m);
   const weeks = Math.max(1, Math.ceil(cells.length / 7));
@@ -717,6 +719,7 @@ function Calendar({ characters, calendar, profile, period, busy, onBack, onSaveE
         const col = pd ? PERIOD_COLORS[pd.t] : null;
         const evs = evOf(d);
         const bds = bdaysOn(d);
+        const fest = festOn(d);
         return h("button", {
           key: i, onClick: () => { setDaySel(pk); setEvTitle(""); },
           className: "active:opacity-60",
@@ -724,6 +727,7 @@ function Calendar({ characters, calendar, profile, period, busy, onBack, onSaveE
         },
           h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: isToday(d) ? "#fff" : t.ink, background: isToday(d) ? t.accent : "transparent" } }, d),
           bds.length ? h("span", { style: { marginTop: 1, fontSize: 10, lineHeight: 1 } }, "🎂") : null,
+          fest ? h("span", { style: { maxWidth: "94%", marginTop: 1, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2, color: t.accent, textAlign: "center", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" } }, fest) : null,
           pd && h("span", { style: { marginTop: 1, fontFamily: F_BODY, fontSize: 8, color: col, fontWeight: pd.actual ? 700 : 400 } }, PERIOD_LABELS[pd.t]),
           evs.slice(0, 2).map((ev, ei) => h("span", { key: ei, style: { maxWidth: "94%", marginTop: 1, fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.2, color: t.tint, textAlign: "center", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" } }, ev.title)),
           evs.length > 2 && h("span", { style: { fontFamily: F_BODY, fontSize: 7.5, color: t.fog, marginTop: 1 } }, "+" + (evs.length - 2)));
@@ -731,6 +735,7 @@ function Calendar({ characters, calendar, profile, period, busy, onBack, onSaveE
     daySel && h(Sheet, { onClose: () => setDaySel(null) },
       h(Eyebrow, { style: { marginBottom: 8 } }, (ym.m + 1) + "月" + dayNum + "日 · " + (view === "mine" ? "我的" : view === "world" ? "世界" : (views.find(v => v.id === view) || {}).name)),
       (daySel ? bdaysOn(dayNum) : []).map((b, bi) => h("div", { key: "bd" + bi, style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent, marginBottom: 8 } }, b)),
+      daySel && festOn(dayNum) ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent, marginBottom: 8 } }, "🎊 " + festOn(dayNum)) : null,
       view === "mine" && daySel && (() => {
         const pl = periodList(per);
         const selStart = pl.find(x => x.start === daySel);
