@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.37";
+const APP_VERSION = "v47.38";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2087,6 +2087,9 @@ function App() {
       const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言，一次产出 " + nMin + "~" + nMax + " 条；现在群里在场 " + members.length + " 人，人多就多聊几个来回、让在场的人都有戏，别三两句就收场。";
       const gEmotes = emotesForGroup(group.memberIds);
       const gEmoteHint = gEmotes.length ? "\n【表情包】成员可以在情绪合适时偶尔甩一张表情（别频繁）。可用关键词：" + gEmotes.map(e => e.keyword).join(" / ") + "。要发就在该成员那条发言对象里加 emote 字段填一个关键词（与列出的完全一致）。" : "";
+      // 群自拍：只有配了图像API且成员填了外貌/参考照才开放（按需注入，平时零 token）
+      const gSelfieMembers = (typeof imgApiReady === "function" && imgApiReady()) ? members.filter(c => c.appearance || c.refPhoto) : [];
+      const gSelfieHint = gSelfieMembers.length ? "\n【selfie 发自拍】这些成员能发真实自拍照：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"selfie\" 字段=一句【这张自拍拍到了什么】的画面描述（TA 在哪、在干嘛、表情、光线氛围；别描写长相——长相已知；这是自拍，画面里一定有 TA 本人的脸）。一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 selfie 字段，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。" : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条都要是贴合当下、和这个成员上一条心声不一样的新念头，别重复、别原地打转、别套话**；没什么内心活动的成员可省略。另可加 \"mood\"（此刻心情词，如「愉快」「烦躁」）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻心情词\",\"affinityDelta\":\"（可选）整数-5到5\"" : "";
@@ -2096,7 +2099,7 @@ function App() {
       const gDirs = (directives[groupId] || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
       const gDirHint = gDirs.length ? "\n\n【群里的长期准则（用户先前 OOC 立下的，全体成员都要记住并一直遵守，别装不知道、别明说答应了又照旧）】\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") : "";
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
-      const system = ANTI_CLICHE + "\n\n" + NARRATIVE_ANTI_CLICHE + (gWorld && gWorld.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + thoughtHint + "\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须是成员之一。";
+      const system = ANTI_CLICHE + "\n\n" + NARRATIVE_ANTI_CLICHE + (gWorld && gWorld.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + thoughtHint + "\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须是成员之一。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -2147,6 +2150,32 @@ function App() {
                 ts: Date.now()
               }]);
             }
+          }
+          // 群自拍：该成员这条发言带了 selfie 画面描述 → 挂占位气泡 + 异步生成（复用私聊那套）
+          const gSelfieDesc = arr[i].selfie && String(arr[i].selfie).toLowerCase() !== "null" ? String(arr[i].selfie).trim() : null;
+          if (gSelfieDesc && typeof imgApiReady === "function" && imgApiReady() && (spk.appearance || spk.refPhoto)) {
+            const gsid = "gsf_" + Date.now() + "_" + i;
+            await new Promise(r => setTimeout(r, 420));
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "selfie", sid: gsid, imgKey: null, pending: true, desc: gSelfieDesc, ts: Date.now() }]);
+            (async () => {
+              try {
+                const st = states[spk.id] || {};
+                const prompt = buildSelfiePrompt(spk, gSelfieDesc, st);
+                const out = await generateSelfieImage(prompt, spk.refPhoto || null);
+                if (out.blob) {
+                  const key = "img_" + spk.id + "_" + gsid;
+                  await idbImgPut(key, out.blob);
+                  const back = await idbImgGet(key).catch(() => null);
+                  if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
+                  pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key } : m));
+                } else if (out.url) {
+                  pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
+                } else { throw new Error("没拿到图"); }
+              } catch (e) {
+                pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, failed: true } : m));
+                toast("自拍没生成：" + (e.message || "重试"));
+              }
+            })();
           }
           // 记忆互通：这次发言影响该成员对用户的实时好感与心情，并把心声写进【和私聊同一套】的实时状态里（双向影响、可变化）
           if (gs.memoryInterop) {

@@ -5219,10 +5219,11 @@ function GroupThread({
       isU: m.role === "user",
       onRespond: onRespondTransfer
     }));
-    if (m.kind === "selfie") return h("div", {
-      key: i,
-      className: "flex justify-start py-1"
-    }, h(SelfieBubble, { m: m }));
+    if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
+      mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+      h("div", { className: "flex flex-col items-start", style: { maxWidth: "72%" } },
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        h(SelfieBubble, { m: m })));
     if (m.kind === "photo") return h("div", {
       key: i,
       className: "flex justify-end py-1"
