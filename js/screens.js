@@ -2572,6 +2572,82 @@ function CoupleQAConfig({ characters, custom, onSave, toast }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, count + " 题 · " + (cur ? cur.name : "")),
       h("button", { onClick: save, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "保存")));
 }
+// 思维链 COT（全局通用）设置：开关 + 思考方式 + 预设存取。线下/同人文/梦境共用一套。
+const COT_TEMPLATE =
+  "· 此刻{{char}}的情绪与身体状态：TA现在最在意什么、身上什么感觉最强？\n" +
+  "· 上一幕/上一句的张力：{{user}}刚才的话或动作，对{{char}}意味着什么？别答非所问。\n" +
+  "· 这一步往哪推：顺着上面的情绪，{{char}}接下来最自然会做/说什么？只推进一点点，别跳戏、别提前写没发生的剧情。\n" +
+  "· 落笔前自检：有没有八股翻译腔（如「空气中弥漫着」「嘴角勾起一抹弧度」「不易察觉的」）、超雄爹味、说教、OOC？有就换成贴人设的具体写法再落笔。";
+function CotConfig({ toast }) {
+  const t = useTheme();
+  const [cfg, setCfg] = useState(() => loadCotConfig());
+  const [sel, setSel] = useState("");
+  const taRef = React.useRef(null);
+  const save = next => { const c = saveCotConfig(next); setCfg(c); return c; };
+  const setThink = v => save({ ...cfg, think: v });
+  const insertVar = tok => {
+    const el = taRef.current;
+    if (el && typeof el.selectionStart === "number") {
+      const s = el.selectionStart, e = el.selectionEnd, val = cfg.think || "";
+      setThink(val.slice(0, s) + tok + val.slice(e));
+      setTimeout(() => { try { el.focus(); el.selectionStart = el.selectionEnd = s + tok.length; } catch (x) {} }, 0);
+    } else setThink((cfg.think || "") + tok);
+  };
+  const loadPreset = name => {
+    const pr = (cfg.presets || []).find(x => x.name === name);
+    setSel(name);
+    if (pr) { save({ ...cfg, think: pr.think }); toast && toast("已载入预设「" + name + "」"); }
+  };
+  const saveAsPreset = () => {
+    const name = (window.prompt("给这套思考方式起个名字（如：温柔向 / 高张力 / 专治八股）") || "").trim();
+    if (!name) return;
+    if (!(cfg.think || "").trim()) { toast && toast("思考方式是空的，先写点内容再存"); return; }
+    const others = (cfg.presets || []).filter(x => x.name !== name);
+    save({ ...cfg, presets: [...others, { name, think: cfg.think }] });
+    setSel(name);
+    toast && toast("已存为预设「" + name + "」");
+  };
+  const delPreset = () => {
+    if (!sel) { toast && toast("先在上面选一个要删的预设"); return; }
+    if (!window.confirm("删除预设「" + sel + "」？")) return;
+    save({ ...cfg, presets: (cfg.presets || []).filter(x => x.name !== sel) });
+    setSel("");
+    toast && toast("已删除");
+  };
+  const inputSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 11, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  const chip = (label, onClick) => h("button", { onClick, className: "active:opacity-60", style: { fontFamily: "monospace", fontSize: 12, padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, color: t.sub, background: "transparent" } }, label);
+  return h("div", { className: "pt-4 pb-4" },
+    // 总开关
+    h("div", { className: "flex items-center justify-between py-4", style: { borderBottom: "1px solid " + t.line } },
+      h("div", { style: { paddingRight: 12 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用自定义思维链"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "线下 / 同人文 / 梦境：AI 先按你写的思路想一遍再落笔。思考不进正文，每条正文旁能点开「看TA怎么想的」。留空 = 不启用，一切照旧。")),
+      h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启思维链" : "已关闭"); } })),
+    // 预设
+    h("div", { className: "pt-5" },
+      h("div", { className: "flex items-baseline gap-2 mb-2" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "预设"),
+        h("span", { style: { fontFamily: "monospace", fontSize: 10, letterSpacing: 1, color: t.fog } }, "PRESETS"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "存好几套，换着用不用重填")),
+      h("div", { className: "flex gap-2" },
+        h("select", { value: sel, onChange: e => loadPreset(e.target.value), style: { ...inputSt, flex: 1, appearance: "none", WebkitAppearance: "none" } },
+          h("option", { value: "" }, (cfg.presets || []).length ? "选择预设载入…" : "（还没有预设）"),
+          (cfg.presets || []).map(pr => h("option", { key: pr.name, value: pr.name }, pr.name))),
+        h("button", { onClick: saveAsPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 11, border: "1px solid " + t.line, color: t.ink } }, "存为"),
+        h("button", { onClick: delPreset, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, padding: "0 14px", borderRadius: 11, border: "1px solid " + t.line, color: "#a24a4a" } }, "删除"))),
+    // 思考方式
+    h("div", { className: "pt-5" },
+      h("div", { className: "flex items-baseline justify-between mb-2" },
+        h("div", { className: "flex items-baseline gap-2" },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "思考方式"),
+          h("span", { style: { fontFamily: "monospace", fontSize: 10, letterSpacing: 1, color: t.fog } }, "HOW TO THINK")),
+        h("button", { onClick: () => { if (!(cfg.think || "").trim() || window.confirm("用示例模板替换当前内容？")) setThink(COT_TEMPLATE); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "插入示例模板")),
+      h("div", { className: "flex gap-2 mb-2" }, chip("{{char}}", () => insertVar("{{char}}")), chip("{{user}}", () => insertVar("{{user}}"))),
+      h("textarea", { ref: taRef, value: cfg.think || "", onChange: e => setThink(e.target.value), rows: 9,
+        placeholder: "写下你希望角色在动笔前思考的步骤，一行一条。\n\n· {{char}} 会替换成角色名，{{user}} 替换成你的名字\n· 留空 = 不启用，剧情走默认方式\n· 思考不进正文，想看点每条正文旁的「看TA怎么想的」\n· 想治八股词/超雄/OOC？在这里写「落笔前自检」，示例模板里有现成的",
+        style: { width: "100%", outline: "none", resize: "vertical", padding: "11px 13px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "改动即时保存，全部角色通用。思考越细，正文越贴——但也会多花一点点生成。")));
+}
 function Config({
   apiProfiles,
   activeId,
@@ -2597,7 +2673,7 @@ function Config({
 }) {
   const t = useTheme();
   const [tab, setTab] = useState("api");
-  const tabs = [["api", "API"], ["sense", "感知"], ["qa", "问答"], ["theme", "主题"], ["data", "数据"]];
+  const tabs = [["api", "API"], ["sense", "感知"], ["cot", "思维链"], ["qa", "问答"], ["theme", "主题"], ["data", "数据"]];
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col"
   }, /*#__PURE__*/React.createElement(Head, {
@@ -2641,6 +2717,8 @@ function Config({
     onSave: onSavePrefs,
     geo: geo,
     onRequestGeo: onRequestGeo,
+    toast: toast
+  }), tab === "cot" && /*#__PURE__*/React.createElement(CotConfig, {
     toast: toast
   }), tab === "qa" && /*#__PURE__*/React.createElement(CoupleQAConfig, {
     characters: characters,

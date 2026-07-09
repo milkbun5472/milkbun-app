@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.16";
+const APP_VERSION = "v47.17";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1075,6 +1075,7 @@ function App() {
         role: "char",
         content: res.scene,
         thought: res.thought,
+        cot: res.cot || null,
         ts: Date.now()
       });
       // 线下相处也影响好感与心情（跟私聊一样）
@@ -1226,6 +1227,7 @@ function App() {
           senderName: b.senderName,
           content: b.scene,
           thought: b.thought,
+          cot: b.cot || null,
           ts: Date.now()
         });
         // 多人线下也影响各角色对用户的好感与心情

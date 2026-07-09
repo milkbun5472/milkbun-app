@@ -491,6 +491,46 @@ async function splitMemoryToEntries(p, ctx, blob) {
   return Array.isArray(parsed) ? parsed.filter(x => x && x.text) : [];
 }
 // ============================================================
+// 思维链 COT（全局通用）——线下 / 同人文 / 梦境共用一套「落笔前先想」
+// 存 localStorage x_cot_config（x_ 前缀自动云同步）：{enabled, think, presets:[{name,think}]}
+// 启用且思考方式非空时：给 system 追加思考步骤 + 在输出 JSON 最前面塞一个 cot 字段
+// （思考不进正文，只随消息存一份，供「看TA怎么想的」展开查看）
+// ============================================================
+function loadCotConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem("x_cot_config") || "null");
+    if (c && typeof c === "object") return { enabled: !!c.enabled, think: c.think || "", presets: Array.isArray(c.presets) ? c.presets : [] };
+  } catch (e) {}
+  return { enabled: false, think: "", presets: [] };
+}
+function saveCotConfig(c) {
+  const clean = { enabled: !!(c && c.enabled), think: (c && c.think) || "", presets: (c && Array.isArray(c.presets)) ? c.presets : [] };
+  try { localStorage.setItem("x_cot_config", JSON.stringify(clean)); } catch (e) {}
+  return clean;
+}
+// 解析出本次要用的思考方式文本（禁用/留空 → ""）；names: {char, user}
+function cotThink(names) {
+  const c = loadCotConfig();
+  if (!c.enabled || !c.think || !c.think.trim()) return "";
+  const charN = (names && names.char) || "角色";
+  const userN = (names && names.user) || "用户";
+  return c.think.replace(/\{\{char\}\}/g, charN).replace(/\{\{user\}\}/g, userN).trim();
+}
+// 给 system 追加的「落笔前先想」指令（think 为空 → ""）
+function cotSystemBlock(think) {
+  if (!think) return "";
+  return "\n\n【落笔前先想 · 思维链（务必遵循）】动笔写正文之前，先严格按下面这套思考步骤在心里过一遍，把思考写进输出 JSON 的 \"cot\" 字段。cot 只写给创作者看，绝不出现在正文里、也不改变正文口吻：\n" + think + "\n想完再落笔。cot 用简洁要点即可（可用『·』分行），别长篇大论、别把正文提前写进去。";
+}
+// 拼在输出 JSON 的 { 之后的 cot 字段前缀（think 为空 → ""）
+function cotJsonField(think) {
+  return think ? "\"cot\":\"落笔前按上面思维链的简要思考（要点式，不进正文）\"," : "";
+}
+// 从解析结果里取出 cot（无/空/"null" → null）
+function pickCot(parsed) {
+  const v = parsed && parsed.cot;
+  return v && String(v).toLowerCase() !== "null" && String(v).trim() ? String(v).trim() : null;
+}
+// ============================================================
 // 线下模式（offline / 赴约）—— 面对面叙事，带动作/心理/旁白 + 心声
 // ============================================================
 const OFFLINE_STYLES = [
@@ -527,9 +567,11 @@ async function generateOffline(p, ctx, session) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = session.stylePrompt != null ? session.stylePrompt : offlineStyleText(session.styleKey);
   const notes = (session.customNotes || []).filter(Boolean);
+  const cotT = cotThink({ char: char.name, user: userName });
   const system = buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
     "\n\n" + INTIMATE_ANTI_CLICHE +
+    cotSystemBlock(cotT) +
     "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事：融合【动作描写】【神态与心理描写】【环境旁白】与【对话】，写成一小段（约2到6句）。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (styleText ? "\n【文风要求】" + styleText : "") +
@@ -537,13 +579,14 @@ async function generateOffline(p, ctx, session) {
     (session.minWords ? "\n【篇幅要求】scene 正文至少写约 " + session.minWords + " 字，充分展开描写，别写得太短。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻心情词\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)}";
+    "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻心情词\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)}";
   const hist = offlineHistory(session.msgs, userName, char.name);
   const raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1400 });
   const parsed = extractJSON(raw) || { scene: raw };
   const cln = v => v && String(v).toLowerCase() !== "null" ? String(v).trim() : null;
   return {
     scene: String(parsed.scene || raw || "").trim(),
+    cot: pickCot(parsed),
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
@@ -586,6 +629,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = session.stylePrompt != null ? session.stylePrompt : offlineStyleText(session.styleKey);
   const notes = (session.customNotes || []).filter(Boolean);
+  const cotT = cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
   const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 260)).join("\n\n");
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");
@@ -620,13 +664,14 @@ async function generateOfflineGroup(p, ctx, session) {
     narrativeDirective(session.narr) +
     (session.minWords ? "\n【篇幅要求】每个 beat 的 scene 都充分展开，整段总字数至少约 " + session.minWords + " 字，别写太短。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻心情词\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须是在场角色之一或『旁白』。";
+    cotSystemBlock(cotT) +
+    "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻心情词\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须是在场角色之一或『旁白』。";
   const hist = offlineGroupHistory(session.msgs, userName);
   const raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1900 });
   const parsed = extractJSON(raw);
   let beats = parsed && Array.isArray(parsed.beats) ? parsed.beats : (Array.isArray(parsed) ? parsed : null);
   if (!beats) beats = [{ name: "旁白", scene: String(raw || "").trim() }];
-  return beats.map(b => {
+  const out = beats.map(b => {
     const nm = String(b.name || "").trim();
     const isNarr = !nm || nm === "旁白" || nm === "narration" || nm === "__narration";
     const spk = isNarr ? null : (members.find(c => c.name === nm) || null);
@@ -640,6 +685,10 @@ async function generateOfflineGroup(p, ctx, session) {
       affinityDelta: !isNarr && typeof b.affinityDelta === "number" ? b.affinityDelta : 0
     };
   }).filter(b => b.scene);
+  // 群聊线下：整批只想一次，把这次思考挂在第一个 beat 上（供「看TA怎么想的」展开）
+  const gc = pickCot(parsed);
+  if (out.length && gc) out[0].cot = gc;
+  return out;
 }
 async function summarizeOfflineGroup(p, ctx, session) {
   const userName = (ctx.profile && ctx.profile.name) || "用户";

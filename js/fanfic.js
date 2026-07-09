@@ -213,19 +213,22 @@
     const priorHooks = chapters.map(function (c, i) {
       return "第" + (i + 1) + "章结束在：" + (c.endHook || "（无锚点）");
     }).join("\n");
+    const cotChar = (cpChars && cpChars[0] && cpChars[0].name) || (fic.title || "主角");
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }) : "";
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
       "【当前任务：给一篇已在连载的同人文续写下一章】\n" +
       "篇名《" + fic.title + "》，标签：" + (fic.tags || []).join("、") + "。\n" +
       "【前情摘要（历章锚点，不含全文，你据此自然接续、保持人物与线索一致）】\n" + (priorHooks || "（这是第一章）") + "\n" +
       "【上一章的结尾锚点（从这里直接往下写）】\n" + (last.endHook || "（无，请自然开新章）") + "\n\n" +
+      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
-      "{\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"本章新的结尾锚点，供再下一章接续\"}" +
+      "{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"本章新的结尾锚点，供再下一章接续\"}" +
       FANFIC_ANTI_CLICHE_TAIL;
     const raw = await callAI(active, sys, [{ role: "user", content: "续写《" + fic.title + "》的下一章。" }], { maxTokens: Math.min(12000, perFic + 1500) });
     let d = extractJSON(raw);
     if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(raw)); } catch (e) {} }
     if (!d || !d.content) throw new Error("续写失败，可重试");
-    return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim() };
+    return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(), cot: (typeof pickCot === "function" ? pickCot(d) : null) };
   }
 
   // ---- 书评：一次生成 N 条（NPC 泛读者 + 作者至少下场一次）------------
@@ -709,6 +712,7 @@
           },
             pager(true),
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.9, color: t.ink, whiteSpace: "pre-wrap" } }, ch.content || ""),
+            (ch.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: ch.cot }) : null,
             pager(false));
         })(),
 

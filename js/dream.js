@@ -56,12 +56,14 @@
     return shuffle(opts);
   }
 
-  const sceneRules =
-    "\n\n【怎么写这一幕】\n" +
-    "· 用第二人称『你』，把闯梦的客人放进场景里，写一幕梦境（130~280字）。氛围要像梦：细节鲜明却又哪里不对劲，逻辑会打滑，情绪被放大——而这整场梦是顺着做梦人内心最想要（或最怕）的东西长出来的。\n" +
-    "· 然后给『你』三个可做的回应/行动。其中【两个】是这场梦所期待、能让梦顺着做梦人的渴望继续走下去的；【剩一个】是做梦人内心抗拒的——它戳到了 Ta 不愿面对、不愿被打破的东西，一旦选中梦就会碎。\n" +
-    "· 三个选项字面上都要像合理选择，别露出哪个安全哪个危险，别用语气暗示。抗拒项不是「明显的坏选项」，而是「看起来无害、却恰好碰了逆鳞」。\n" +
-    "【输出】只输出 JSON：{\"scene\":\"梦境叙事\",\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
+  function sceneRules(cotT) {
+    return "\n\n【怎么写这一幕】\n" +
+      "· 用第二人称『你』，把闯梦的客人放进场景里，写一幕梦境（130~280字）。氛围要像梦：细节鲜明却又哪里不对劲，逻辑会打滑，情绪被放大——而这整场梦是顺着做梦人内心最想要（或最怕）的东西长出来的。\n" +
+      "· 然后给『你』三个可做的回应/行动。其中【两个】是这场梦所期待、能让梦顺着做梦人的渴望继续走下去的；【剩一个】是做梦人内心抗拒的——它戳到了 Ta 不愿面对、不愿被打破的东西，一旦选中梦就会碎。\n" +
+      "· 三个选项字面上都要像合理选择，别露出哪个安全哪个危险，别用语气暗示。抗拒项不是「明显的坏选项」，而是「看起来无害、却恰好碰了逆鳞」。\n" +
+      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
+      "\n【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"scene\":\"梦境叙事\",\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
+  }
 
   function charBlock(session) {
     let s = "【做这场梦的人是「" + session.charName + "」】\n· 人设：" + (session.charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 900) +
@@ -83,6 +85,7 @@
   // ---- 模型：编织第一幕 ----
   async function weaveFirst(active, session, worldbook, uName) {
     const kw = (session.keywords || []).filter(Boolean);
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
     const sys = AC() + NAC() +
       "你在为「" + session.charName + "」编织一场梦。这场梦属于 Ta、为 Ta 而做——梦境顺着 Ta 内心最深的渴望、执念与恐惧铺展。" +
       uName + " 是闯进这场梦的客人，无法自由行动，只能在你给出的选项里选择怎么回应。\n\n" +
@@ -90,42 +93,45 @@
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 700) : "") +
       (kw.length ? "\n\n【" + uName + "递来的关键词，把它们自然编进这场梦】" + kw.join("、") : "") +
       "\n\n这是开场第一幕：把梦的门推开，让 " + uName + " 落进 " + session.charName + " 的梦里。" +
-      sceneRules;
+      sceneRules(cotT);
     const raw = await callAI(active, sys, [{ role: "user", content: "开始做梦。" }], { maxTokens: 4000 });
     const p = extractJSON(raw) || {};
     const opts = normOptions(p.options);
     if (!p.scene || !opts) throw new Error("梦没成形，重试");
-    return { text: String(p.scene).trim(), options: opts, chosen: null };
+    return { text: String(p.scene).trim(), options: opts, chosen: null, cot: (typeof pickCot === "function" ? pickCot(p) : null) };
   }
 
   // ---- 模型：顺着选择往下做（续写下一幕） ----
   async function weaveNext(active, session, worldbook, uName) {
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
     const sys = AC() + NAC() +
       "你在继续为「" + session.charName + "」编织同一场梦。" + uName + " 是闯梦的客人，刚在上一幕做了选择，且这个选择是这场梦所接纳的——梦没有碎，顺着做梦人的心愿往更深处走。\n\n" +
       charBlock(session) +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 700) : "") +
       "\n\n【梦到目前为止】\n" + transcript(session, uName) +
       "\n\n接着上一幕 " + uName + " 的选择往下写新的一幕：让梦更深、更贴近 " + session.charName + " 藏着的东西，别原地打转，别复读上一幕。" +
-      sceneRules;
+      sceneRules(cotT);
     const raw = await callAI(active, sys, [{ role: "user", content: "继续做梦。" }], { maxTokens: 4000 });
     const p = extractJSON(raw) || {};
     const opts = normOptions(p.options);
     if (!p.scene || !opts) throw new Error("梦没接上，重试");
-    return { text: String(p.scene).trim(), options: opts, chosen: null };
+    return { text: String(p.scene).trim(), options: opts, chosen: null, cot: (typeof pickCot === "function" ? pickCot(p) : null) };
   }
 
   // ---- 模型：梦碎（选到抗拒项） ----
   async function weaveShatter(active, session, worldbook, uName, resistText) {
+    const cotT = (typeof cotThink === "function") ? cotThink({ char: session.charName, user: uName }) : "";
     const sys = AC() + NAC() +
       "你在收束「" + session.charName + "」的这场梦。" + uName + " 刚做了一个选择——「" + resistText + "」——它恰好触到了 " + session.charName + " 内心最抗拒、不愿被戳破的东西。梦承受不住，开始碎裂。\n\n" +
       charBlock(session) +
       "\n\n【梦到破碎前】\n" + transcript(session, uName) +
       "\n\n① 写梦碎的这一幕（collapse，120~240字，第二人称『你』）：从那个选择的瞬间起，梦境如何变质、扭曲、崩塌；" + session.charName + " 的潜意识如何反应（退缩、失控、痛楚或愤怒，看人设）；最后 " + uName + " 被逐出梦、猛地惊醒。\n" +
       "② 再抽离出来，说清这个选择为什么是错的（why，40~90字，跳出梦、用旁白口吻）：「" + resistText + "」触到了 " + session.charName + " 的什么逆鳞/软肋/不愿面对的真相，为什么在 Ta 的梦里这条路走不通。要具体贴人设，别空泛。\n" +
-      "【输出】只输出 JSON：{\"collapse\":\"梦碎叙事\",\"why\":\"为什么这个选择戳破了梦\"}。别加别的。";
+      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
+      "【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"collapse\":\"梦碎叙事\",\"why\":\"为什么这个选择戳破了梦\"}。别加别的。";
     const raw = await callAI(active, sys, [{ role: "user", content: "梦碎。" }], { maxTokens: 3000 });
     const p = extractJSON(raw) || {};
-    return { collapse: String(p.collapse || raw || "梦在你眼前碎成光斑，你猛地醒来。").trim(), why: String(p.why || "").trim() };
+    return { collapse: String(p.collapse || raw || "梦在你眼前碎成光斑，你猛地醒来。").trim(), why: String(p.why || "").trim(), cot: (typeof pickCot === "function" ? pickCot(p) : null) };
   }
 
   // ============================================================
@@ -338,7 +344,7 @@
         setBusy(true); setPhaseMsg("有什么裂开了…");
         try {
           const r = await weaveShatter(props.active, sess2, props.worldbook, uName(), chosen.text);
-          props.onPatch({ scenes: marked, status: "broken", ending: r.collapse, whyWrong: r.why, wrongText: chosen.text });
+          props.onPatch({ scenes: marked, status: "broken", ending: r.collapse, whyWrong: r.why, wrongText: chosen.text, endCot: r.cot || null });
         } catch (e) {
           props.onPatch({ scenes: marked, status: "broken", ending: "梦在你眼前碎成光斑，你猛地醒来，心还在跳。", whyWrong: "", wrongText: chosen.text });
         }
@@ -410,6 +416,7 @@
           return h("div", { key: i, style: { marginBottom: 22 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: t.fog, marginBottom: 8 } }, "第 " + (i + 1) + " 幕"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sc.text),
+            (sc.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: sc.cot }) : null,
             // 已做出的选择回显 + 回档
             decided
               ? h("div", { style: { marginTop: 12, paddingLeft: 12, borderLeft: "2px solid " + ACCENT },
@@ -424,6 +431,7 @@
           ? h("div", { style: { marginTop: 4, marginBottom: 20 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#a24a4a", marginBottom: 8 } }, "梦　碎"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.ending),
+            (s.endCot && typeof CotReveal === "function") ? h(CotReveal, { cot: s.endCot }) : null,
             // 为什么这个选项是错的
             s.whyWrong
               ? h("div", { style: { marginTop: 14, padding: "12px 14px", background: "rgba(162,74,74,0.07)", border: "1px solid rgba(162,74,74,0.25)", borderRadius: 12 } },
