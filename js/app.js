@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.49";
+const APP_VERSION = "v47.50";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -803,6 +803,15 @@ function App() {
   };
   // 好友地图：所有角色此刻在做什么（供 pin 定位偏移 + 标签）
   const mapStatusAll = () => { const m = {}; characters.forEach(c => { const b = schedNowBriefFor(c); if (b) m[c.id] = b; }); return m; };
+  // 有没有一场还没散的线下（供聊天感知：别把正在进行的线下当「还没开始」催用户）
+  const offlineActiveFor = charId => {
+    let list = offlinesRef.current[charId];
+    if (!list) { list = loadJSON("x_offline:" + charId, []); offlinesRef.current = { ...offlinesRef.current, [charId]: list }; }
+    const s = (list || []).find(x => x && !x.endTs && (x.msgs || []).length > 0);
+    if (!s) return "";
+    const narr = (s.msgs.find(m => m.role === "narration") || {}).content || "";
+    return "【线下进行中】你和" + (profile.name || "用户") + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——**绝不许问「怎么还不开始」或催 Ta 去做你们正在做的事**；此刻的消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档）。";
+  };
   // 近期对话文本（供世界书关键词命中）
   const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-8).map(m => m.content).join("\n");
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
@@ -811,6 +820,7 @@ function App() {
     char,
     chars: characters,
     schedNow: schedNowFor(char),
+    offlineNow: offlineActiveFor(char.id),
     rels,
     // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
     coupleStatus: (() => {
