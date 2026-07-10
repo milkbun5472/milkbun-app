@@ -2701,6 +2701,20 @@ function TtsApiConfig({ toast }) {
   const [testing, setTesting] = useState(false);
   const [testErr, setTestErr] = useState(null);
   const testAudRef = useRef(null);
+  // 克隆音色
+  const [cloneFile, setCloneFile] = useState(null);
+  const [cloneId, setCloneId] = useState("");
+  const [cloning, setCloning] = useState(false);
+  const [cloneMsg, setCloneMsg] = useState(null);
+  const runClone = async () => {
+    if (!cloneFile || !cloneId.trim() || cloning) return;
+    setCloning(true); setCloneMsg(null);
+    try {
+      const vid = await ttsCloneVoice(cloneFile, cloneId);
+      setCloneMsg({ ok: true, text: "✅ 克隆成功！voice_id = " + vid + "\n现在去【名录 → 角色档案 → 音色】，把这个 id 粘进输入框保存，TA 的语音就是这个声音了。可以回来点「试听」前先在档案里给某个角色配上、发条语音听听效果。" });
+    } catch (e) { setCloneMsg({ ok: false, text: "❌ " + String((e && e.message) || e) }); }
+    finally { setCloning(false); }
+  };
   const runTest = async () => {
     if (!ttsReady(c)) { toast && toast("先填 GroupId 和密钥"); return; }
     const aud = new Audio();
@@ -2735,6 +2749,14 @@ function TtsApiConfig({ toast }) {
         h("option", { value: "speech-01-turbo" }, "speech-01-turbo"))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。"),
       h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
+      // ---- 克隆音色：传人声样本 → 得到专属 voice_id → 填进角色档案 ----
+      h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "🎤 克隆音色"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "传一段【只有一个人说话、没背景音乐】的干净人声（10 秒~5 分钟，mp3/wav/m4a），起一个专属 voice_id——克隆好后去角色档案把「音色」填成这个 id 就是 TA 的声音了。⚠️ 克隆按次收费（比合成贵），確認样本干净再点；只克隆你有权使用的声音。"),
+        h("input", { type: "file", accept: "audio/*", onChange: e => { setCloneFile(e.target.files && e.target.files[0] || null); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8, display: "block", width: "100%" } }),
+        h("input", { value: cloneId, onChange: e => setCloneId(e.target.value), placeholder: "起个 voice_id（字母开头≥8位，如 GuChao2026）", style: Object.assign({}, inSt, { marginBottom: 8 }) }),
+        h("button", { onClick: runClone, disabled: cloning || !cloneFile || !cloneId.trim(), className: "w-full active:opacity-80 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 10, padding: "10px 0" } }, cloning ? "上传克隆中…（可能要一会儿）" : "上传并克隆"),
+        cloneMsg ? h("div", { style: { marginTop: 10, padding: "10px 12px", background: cloneMsg.ok ? "rgba(63,109,90,0.08)" : "rgba(194,90,74,0.08)", border: "1px solid " + (cloneMsg.ok ? "rgba(63,109,90,0.3)" : "rgba(194,90,74,0.3)"), borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: cloneMsg.ok ? "#3f6d5a" : "#c25a4a", userSelect: "text", WebkitUserSelect: "text", wordBreak: "break-all" } }, cloneMsg.text) : null),
       testErr ? h("div", { style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
         h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);

@@ -744,6 +744,56 @@ async function ttsSpeak(text, voiceId) {
   idbAudPut(key, blob).catch(() => {});
   return blob;
 }
+// 克隆音色：①上传一段干净人声（10s~5min，mp3/wav/m4a）→ file_id ②/v1/voice_clone 绑到自定 voice_id
+// 克隆成功后把 voice_id 填进角色档案「音色」即可用（按 MiniMax 规则克隆按次收费，具体看你账户计费页）
+async function ttsCloneVoice(fileBlob, customVoiceId) {
+  const a = loadTtsApi();
+  if (!ttsReady(a)) throw new Error("先在设置里配置语音 API");
+  const vid = String(customVoiceId || "").trim();
+  if (!/^[A-Za-z][A-Za-z0-9_-]{7,}$/.test(vid)) throw new Error("voice_id 需以字母开头、8 位以上字母/数字（如 GuChao2026）");
+  const base = (a.baseUrl || "https://api.minimax.chat").trim().replace(/\/+$/, "");
+  const fd = new FormData();
+  fd.append("purpose", "voice_clone");
+  fd.append("file", fileBlob, fileBlob.name || "voice.mp3");
+  const r1 = await fetch(base + "/v1/files/upload?GroupId=" + encodeURIComponent(a.groupId), { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd });
+  let d1; try { d1 = JSON.parse(await r1.text()); } catch (e) { throw new Error("上传接口没返回 JSON"); }
+  if (d1.base_resp && d1.base_resp.status_code !== 0) throw new Error("上传失败：" + (d1.base_resp.status_msg || d1.base_resp.status_code));
+  const fileId = d1.file && (d1.file.file_id || d1.file.id);
+  if (!fileId) throw new Error("上传没拿到 file_id。原始返回：" + JSON.stringify(d1).slice(0, 120));
+  const r2 = await fetch(base + "/v1/voice_clone?GroupId=" + encodeURIComponent(a.groupId), { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ file_id: fileId, voice_id: vid }) });
+  let d2; try { d2 = JSON.parse(await r2.text()); } catch (e) { throw new Error("克隆接口没返回 JSON"); }
+  if (d2.base_resp && d2.base_resp.status_code !== 0) throw new Error("克隆失败：" + (d2.base_resp.status_msg || d2.base_resp.status_code));
+  return vid;
+}
+// ============================================================
+// 实时天气（Open-Meteo，免费无 key、支持 CORS）——⭐进日程不进聊天：
+// 天气写进日程推演，角色照着天气过日子；聊天经 schedNow 顺带看到，零新增常驻
+// 缓存 wx_cache（故意不带 x_ 前缀：设备本地的时效数据，不值得进云同步）
+// ============================================================
+const WMO_ZH = { 0: "晴", 1: "大致晴", 2: "多云", 3: "阴", 45: "雾", 48: "雾凇", 51: "毛毛雨", 53: "小雨", 55: "细雨", 56: "冻毛毛雨", 57: "冻雨", 61: "小雨", 63: "中雨", 65: "大雨", 66: "冻雨", 67: "强冻雨", 71: "小雪", 73: "中雪", 75: "大雪", 77: "米雪", 80: "阵雨", 81: "阵雨", 82: "强阵雨", 85: "阵雪", 86: "大阵雪", 95: "雷雨", 96: "雷雨带雹", 99: "强雷暴" };
+function wmoZh(c) { return WMO_ZH[c] != null ? WMO_ZH[c] : "多云"; }
+function wmoEmoji(c) { if (c === 0 || c === 1) return "☀️"; if (c === 2) return "⛅️"; if (c === 3) return "☁️"; if (c === 45 || c === 48) return "🌫"; if (c >= 95) return "⛈"; if (c >= 71 && c <= 86 && c !== 80 && c !== 81 && c !== 82) return "❄️"; if (c >= 51) return "🌧"; return "🌤"; }
+function weatherCacheKey(lat, lng) { return Number(lat).toFixed(1) + "," + Number(lng).toFixed(1); }
+// 只读缓存（同步，给 schedNow/组件即时用；由 weatherFor 填充）
+function weatherCached(lat, lng) {
+  try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); const hit = c[weatherCacheKey(lat, lng)]; return hit && hit.day === new Date().toDateString() ? hit : null; } catch (e) { return null; }
+}
+async function weatherFor(lat, lng) {
+  if (typeof lat !== "number" || typeof lng !== "number") return null;
+  const hit = weatherCached(lat, lng);
+  if (hit && Date.now() - hit.ts < 2 * 3600000) return hit; // 2 小时内不重取
+  const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
+  let d;
+  try {
+    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=1", { signal: ctrl.signal });
+    d = await r.json();
+  } catch (e) { return hit || null; } finally { clearTimeout(to); }
+  if (!d || !d.current) return hit || null;
+  const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(d.current.temperature_2m), code: d.current.weather_code, hi: Math.round(d.daily.temperature_2m_max[0]), lo: Math.round(d.daily.temperature_2m_min[0]), dayCode: d.daily.weather_code[0] };
+  try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); c[weatherCacheKey(lat, lng)] = out; const ks = Object.keys(c); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete c[k]); localStorage.setItem("wx_cache", JSON.stringify(c)); } catch (e) {}
+  return out;
+}
+function weatherLine(w) { return w && isFinite(w.t) ? wmoEmoji(w.dayCode != null ? w.dayCode : w.code) + wmoZh(w.dayCode != null ? w.dayCode : w.code) + "，现在 " + w.t + "°C（今天 " + w.lo + "~" + w.hi + "°）" : ""; }
 // ============================================================
 // 线下模式（offline / 赴约）—— 面对面叙事，带动作/心理/旁白 + 心声
 // ============================================================

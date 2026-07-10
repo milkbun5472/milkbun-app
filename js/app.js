@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.50";
+const APP_VERSION = "v47.51";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -788,6 +788,12 @@ function App() {
     if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
     else out += "\n\n此刻还没到今天第一项，Ta 大概刚开始一天 / 还没起。";
     if (next) out += "\n待会儿：" + (next._charTime || next.time || "") + " " + next.title;
+    // 天气搭日程便车进聊天（读缓存，零请求零新增常驻）：TA 家乡的天气，没设家乡用用户所在地
+    try {
+      const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
+      const w = hm && typeof weatherCached === "function" ? weatherCached(hm.lat, hm.lng) : null;
+      if (w) out += "\n今天 Ta 那边的天气：" + weatherLine(w) + "（可自然影响穿着、心情、要不要出门，别播报腔）";
+    } catch (e) {}
     return out;
   };
   // 结构化「此刻在做什么/在哪」——给聊天顶栏用（联动今日日程）。没今日日程就返回 null。顶栏在我这边，用我这边时刻。
@@ -2769,8 +2775,18 @@ function App() {
       const murmurSchema = retro
         ? ",\"murmurs\":[{\"time\":\"11:20\",\"text\":\"碎碎念一句\"}]"
         : (needY ? ",\"yesterdayMurmurs\":[{\"time\":\"11:20\",\"text\":\"昨天的碎碎念\"}]" : "");
+      // ⭐真实天气进日程（角色家乡城市优先，没设就用用户所在地）：角色照天气过日子；
+      // 聊天经 schedNow 顺带看到，不另加聊天注入（Lisa 的减负思路：少一个常驻）
+      let wline = "";
+      if (!retro) {
+        try {
+          const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
+          if (hm) wline = weatherLine(await weatherFor(hm.lat, hm.lng));
+        } catch (e) {}
+      }
+      const wRule = wline ? "\n【今天 TA 所在地的真实天气】" + wline + "——安排要顺着天气走：下雨大雪少排户外、好天气可能想遛弯晒太阳、闷热严寒影响穿着与心情；天气也可以自然引起偏差（如暴雨取消晨跑）。别播报腔。" : "";
       const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
-        instruction: "推演「" + char.name + "」一天的行程时间线。" + when + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule,
+        instruction: "推演「" + char.name + "」一天的行程时间线。" + when + wRule + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule,
         schemaHint: "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"title\":\"洗漱后睡了\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}",
         maxTokens: 4000
       });

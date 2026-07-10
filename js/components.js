@@ -549,6 +549,24 @@ function CalWidget({ now, calendar, onOpen, period }) {
       })));
 }
 // 一起听·主屏音乐组件（展示型，不真放声音）：左唱片 + 正在听的歌 + 装饰进度条
+// 天气小组件（Open-Meteo 免费无 key）：你所在地实时天气，2 小时缓存；点开进好友地图
+function WeatherWidget({ userGeo, onOpen }) {
+  const t = useTheme();
+  const [w, setW] = useState(function () { return userGeo && typeof weatherCached === "function" ? weatherCached(userGeo.lat, userGeo.lng) : null; });
+  useEffect(() => {
+    let alive = true;
+    if (userGeo && typeof weatherFor === "function") weatherFor(userGeo.lat, userGeo.lng).then(x => { if (alive && x) setW(x); }).catch(() => {});
+    return () => { alive = false; };
+  }, [userGeo && userGeo.lat, userGeo && userGeo.lng]);
+  return h(GlassCard, { onClick: onOpen, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
+    w ? h("div", null,
+      h("div", { className: "flex items-center gap-1.5" },
+        h("span", { style: { fontSize: 21, lineHeight: 1 } }, wmoEmoji(w.code)),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1 } }, w.t + "°")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginTop: 4 } }, wmoZh(w.code) + " · " + w.lo + "~" + w.hi + "°"),
+      userGeo && userGeo.label ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(userGeo.label).slice(0, 12)) : null)
+    : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-line" } }, "🌤 天气\n" + (userGeo ? "获取中…" : "设置里开定位后显示")));
+}
 // 备忘录小组件：最近 3 条未完成提醒（逾期红字优先），点开进备忘录
 function MemoWidget({ onOpen }) {
   const t = useTheme();
@@ -918,6 +936,7 @@ function Home({
     w_map: { kind: "widget", which: "map" },
     w_us: { kind: "widget", which: "us" },
     w_memo: { kind: "widget", which: "memo" },
+    w_weather: { kind: "widget", which: "weather" },
     cast: { kind: "app", zh: "名录", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     lifestyle: { kind: "app", zh: "行程", G: GLife },
@@ -942,7 +961,7 @@ function Home({
   };
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   const DEFAULT_LAYOUT = [
-    ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
+    ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map", "w_weather"],
     ["w_cal", "shop", "carry", "cwallet", "ledger", "memo", "w_us", "w_memo"],
     ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games"]
   ];
@@ -954,7 +973,7 @@ function Home({
     var it = key && key.slice(0, 2) === "f_" ? { kind: "folder" } : REG[key];
     if (!it) return 0;
     if (it.kind !== "widget") return 1;
-    return it.which === "cal" ? 9 : 4;
+    return it.which === "cal" ? 9 : it.which === "weather" ? 2 : 4;
   };
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   // 文件夹（f_ 开头）也是合法项；躺在文件夹里的 app 视作已放置，不再回填到页面
@@ -1226,7 +1245,7 @@ function Home({
     const isHoverTgt = hoverKey === key; // 有 app 悬停在我头上蓄力合并
     // 组件占格：日历 3 宽 3 高（右边留一列放 app），名片/音乐整行宽
     let gCol = "span 1", gRow = "auto";
-    if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
+    if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather") { gCol = "span 2"; } else gCol = "span 4"; }
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
@@ -1238,6 +1257,7 @@ function Home({
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, onOpen: function () { return onOpenApp("listen"); } });
     else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "memo") inner = h(MemoWidget, { onOpen: function () { return onOpenApp("memo"); } });
+    else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } });
     else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } }) : null);
     return h("div", {
       key: key, "data-appkey": key,
