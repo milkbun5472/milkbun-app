@@ -549,6 +549,38 @@ function CalWidget({ now, calendar, onOpen, period }) {
       })));
 }
 // 一起听·主屏音乐组件（展示型，不真放声音）：左唱片 + 正在听的歌 + 装饰进度条
+// 情侣空间轮播组件：多位正式在一起的 TA 轮流展示（每 6s 换一位），显示在一起天数+甜蜜值；点开进情侣空间
+function UsWidget({ characters, couples, sweet, onOpen }) {
+  const t = useTheme();
+  const partners = (characters || []).filter(c => couples && couples[c.id] && couples[c.id].status === "together");
+  const [ix, setIx] = useState(0);
+  useEffect(() => {
+    if (partners.length < 2) return;
+    const iv = setInterval(() => setIx(i => (i + 1) % partners.length), 6000);
+    return () => clearInterval(iv);
+  }, [partners.length]);
+  const p = partners.length ? partners[ix % partners.length] : null;
+  const cp = p ? couples[p.id] : null;
+  const days = cp && cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null;
+  const svRaw = p && sweet && sweet[p.id] ? Number(sweet[p.id].value) : null;
+  const sv = svRaw != null && isFinite(svRaw) ? Math.round(svRaw * 10) / 10 : null;
+  return h(GlassCard, { onClick: onOpen, style: { padding: "12px 16px", cursor: "pointer" } },
+    p ? h("div", { key: p.id, className: "flex items-center gap-3", style: { animation: "fadeUp .35s ease both" } },
+      h(Avatar, { character: p, size: 44, radius: 999 }),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { className: "flex items-baseline gap-2" },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, p.remark || p.name),
+          days ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "在一起第 " + days + " 天") : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 2 } },
+          sv != null ? "💗 甜蜜值 " + sv : "点开去看看你们的小空间")),
+      partners.length > 1 ? h("div", { className: "flex gap-1", style: { flexShrink: 0 } },
+        partners.map((x, i) => h("span", { key: x.id, style: { width: i === ix % partners.length ? 10 : 4, height: 4, borderRadius: 999, background: i === ix % partners.length ? t.accent : t.line, transition: "all .3s" } }))) : h("span", { style: { fontSize: 15 } }, "💗"))
+    : h("div", { className: "flex items-center gap-3" },
+        h("div", { className: "flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 999, background: "rgba(255,255,255,0.6)", fontSize: 19 } }, "💗"),
+        h("div", { className: "flex-1" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "情侣空间"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, "还没有正式在一起的 TA"))));
+}
 function MusicWidget({ listen, player, onOpen }) {
   const t = useTheme();
   const data = listen || {};
@@ -822,6 +854,8 @@ function Home({
   memoDue,
   mapStatus,
   userGeo,
+  couples,
+  coupleSweet,
   onOpenApp,
   onOpenChar,
   onEditProfile,
@@ -862,6 +896,7 @@ function Home({
     w_cal: { kind: "widget", which: "cal" },
     w_music: { kind: "widget", which: "music" },
     w_map: { kind: "widget", which: "map" },
+    w_us: { kind: "widget", which: "us" },
     cast: { kind: "app", zh: "名录", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     lifestyle: { kind: "app", zh: "行程", G: GLife },
@@ -887,7 +922,7 @@ function Home({
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
-    ["w_cal", "shop", "carry", "cwallet", "ledger", "memo"],
+    ["w_cal", "shop", "carry", "cwallet", "ledger", "memo", "w_us"],
     ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games"]
   ];
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
@@ -1123,6 +1158,7 @@ function Home({
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, onEditCard: onEditCard, onEditProfile: onEditProfile });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, onOpen: function () { return onOpenApp("listen"); } });
+    else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, onOpen: function () { return onOpenApp("us"); } });
     else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } }) : null);
     return h("div", {
       key: key, "data-appkey": key,

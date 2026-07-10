@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.41";
+const APP_VERSION = "v47.42";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -785,7 +785,7 @@ function App() {
     const cur = idx >= 0 ? disp[idx] : null;
     const next = disp[idx + 1];
     let out = "今日安排（负荷 " + (s.load || "") + "）：\n" + disp.map(x => (x._charTime || x.time || "") + " " + x.title + (x.location ? "（" + x.location + "）" : "") + (x.deviation ? "［临时改动：" + (x.deviation.reason || "") + "］" : "")).join("\n");
-    if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "，多半和用户有关）" : "");
+    if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
     else out += "\n\n此刻还没到今天第一项，Ta 大概刚开始一天 / 还没起。";
     if (next) out += "\n待会儿：" + (next._charTime || next.time || "") + " " + next.title;
     return out;
@@ -2801,6 +2801,40 @@ function App() {
       schedRunRef.current = false;
     }
   };
+  // 角色白天自发改计划（人不是排好日程就照办的）：每角色每天最多检查一次、约三成概率真改；
+  // 只动「此刻之后」的时段；走便宜后台池；挂在与 schedGenAllToday 相同的前台/跨天 tick 上
+  const schedSelfRevRef = useRef(false);
+  const schedMaybeSelfRevise = async () => {
+    if (schedSelfRevRef.current || !active || !characters.length) return;
+    const today = schedDayKey(new Date());
+    schedSelfRevRef.current = true;
+    try {
+      for (const c of characters) {
+        const plan = (schedulesRef.current[c.id] || {})[today];
+        if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.length || plan.selfRevCheck) continue;
+        const tzShiftMin = schedTzShiftMin(c);
+        const charNow = new Date(Date.now() + tzShiftMin * 60000);
+        const hr = charNow.getHours();
+        if (hr < 10 || hr >= 21) continue; // TA 当地白天才会临时起意
+        saveSchedDay(c.id, today, { ...plan, selfRevCheck: true }); // 先记「查过」，防重复烧 api
+        if (Math.random() > 0.3) continue; // 七成日子照计划过
+        const nowStr = String(charNow.getHours()).padStart(2, "0") + ":" + String(charNow.getMinutes()).padStart(2, "0");
+        const seqText = plan.seqs.map(s => (s.time || "") + " " + (s.title || "") + (s.location ? "（" + s.location + "）" : "")).join("\n");
+        try {
+          const d = await runProbe(bgActive, { ...ctxFor(c), worldbook: loreFor(c, "lifestyle") }, {
+            instruction: "「" + c.name + "」今天原本的计划：\n" + seqText + "\n现在 TA 当地约 " + nowStr + "。TA 此刻临时起意，想改一下今天【还没到的】安排——人之常情：不想去了、朋友临时约、兴致来了想干别的、换个地方、临时多办一件事……原因要贴 TA 的人设和此刻心情，是日常的小变动，别硬编狗血事件。输出修改后的当天完整 seqs：【早于 " + nowStr + " 的时段一律原样保留】，只动之后的 1~2 段（就寝段保留或按需微调）；被改动的段 deviation 填 {\"plan\":\"原计划一句\",\"reason\":\"TA 自己起意的原因（TA 视角的念头，一句）\",\"actual\":\"实际改成什么\"}，没改的段 deviation 为 null。若 TA 今天就是会照计划走（负荷太高/性格自律/没由头），changed 填 false、seqs 给 []。",
+            schemaHint: "{\"changed\":true,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床\",\"location\":\"家\",\"type\":\"coffee\",\"deviation\":null}]}",
+            maxTokens: 3000
+          });
+          if (d && d.changed && Array.isArray(d.seqs) && d.seqs.length >= 3) {
+            const seqs = d.seqs.map((s, i) => ({ seq: i + 1, time: s.time || "", title: s.title || "", location: s.location || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }));
+            const cur = (schedulesRef.current[c.id] || {})[today] || plan;
+            saveSchedDay(c.id, today, { ...cur, seqs: seqs, selfRevCheck: true, selfRevisedAt: Date.now() });
+          }
+        } catch (e) {/* 改失败就算了，不重试不打扰 */}
+      }
+    } finally { schedSelfRevRef.current = false; }
+  };
   const genSnoop = async char => {
     setGen(g => ({
       ...g,
@@ -3064,15 +3098,15 @@ function App() {
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
     if (screen === "messages") { autoAmbientRun("moments"); clearAppNotif("moments"); } else ambientRunRef.current.moments = false;
   }, [screen]);
-  // 打开 app 当天第一次就给所有人生成今日行程（每天一次）
+  // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
   useEffect(() => {
-    if (active && characters.length) schedGenAllToday();
+    if (active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise());
   }, [active, characters.length]);
   // 回到前台 / 重新聚焦：也自动补今日行程。PWA 常驻不重载页面时，光靠上面的首次加载不够——
   // 切回来那一下补一次。schedGenAllToday 只补【缺今天】的角色、已有则空跑，安全省 api。
   useEffect(() => {
     if (!loaded) return;
-    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) schedGenAllToday(); };
+    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()); };
     document.addEventListener("visibilitychange", kick);
     window.addEventListener("focus", kick);
     return () => { document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); };
@@ -3081,7 +3115,7 @@ function App() {
   const schedDayRef = useRef(schedDayKey(new Date()));
   useEffect(() => {
     const k = schedDayKey(new Date());
-    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) schedGenAllToday(); }
+    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()); }
   }, [now]);
 
   // ---- 查手机：每个 app 独立生成/刷新 ----
@@ -5849,6 +5883,8 @@ function App() {
     memoDue: (typeof window !== "undefined" && window.memoDueToday) ? window.memoDueToday() : 0,
     mapStatus: mapStatusAll(),
     userGeo: prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null,
+    couples: couples,
+    coupleSweet: coupleSweet,
     onOpenApp: k => k === "listen" ? goListen() : setScreen(k),
     onOpenChar: c => {
       setActiveChar(c);
