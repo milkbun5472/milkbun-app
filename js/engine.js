@@ -691,8 +691,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
 // ============================================================
 function loadTtsApi() {
   const def = { baseUrl: "https://api.minimax.chat", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false };
-  try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") return Object.assign({}, def, c); } catch (e) {}
-  return def;
+  let a = def;
+  try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
+  // 粘贴时容易带进首尾空格/换行，key 里混一个空白字符接口就报 invalid api key——读的时候统一清干净
+  a.baseUrl = String(a.baseUrl || "").trim();
+  a.groupId = String(a.groupId || "").trim();
+  a.apiKey = String(a.apiKey || "").replace(/\s+/g, "");
+  return a;
 }
 function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try { localStorage.setItem("x_ttsApi", JSON.stringify(clean)); } catch (e) {} return clean; }
 function ttsReady(a) { a = a || loadTtsApi(); return !!(a.enabled && a.groupId && a.apiKey); }
@@ -735,7 +740,12 @@ async function ttsSpeak(text, voiceId) {
   } finally { clearTimeout(to); }
   const raw = await r.text();
   let d; try { d = JSON.parse(raw); } catch (e) { throw new Error("语音接口没返回 JSON：" + raw.slice(0, 120)); }
-  if (d.base_resp && d.base_resp.status_code !== 0) throw new Error(d.base_resp.status_msg || ("错误码 " + d.base_resp.status_code));
+  if (d.base_resp && d.base_resp.status_code !== 0) {
+    let msg = d.base_resp.status_msg || ("错误码 " + d.base_resp.status_code);
+    // key 无效最常见的根因是国内站/海外版不匹配：key 是哪个平台发的，接口地址就得填哪边
+    if (/api key|apikey|token|auth/i.test(msg)) msg += "（key 和站点要配对：在 minimaxi.com 海外版注册的，接口地址填 https://api.minimaxi.com；国内 minimax.chat 注册的用默认地址。另外确认复制的是「接口密钥」页那串很长的完整 key）";
+    throw new Error(msg);
+  }
   const hex = d.data && (d.data.audio || d.audio);
   if (!hex || typeof hex !== "string") throw new Error("返回里没有音频数据。原始返回：" + raw.replace(/\s+/g, " ").slice(0, 120));
   // hex → bytes（MiniMax 音频是十六进制串）
