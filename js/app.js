@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.55";
+const APP_VERSION = "v47.56";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -614,6 +614,9 @@ function App() {
   });
   // ---- 记忆库（memory library）----
   const saveMemLib = next => {
+    // ref 必须在这里同步更新：同一轮里连续多次保存（逐条 addMemEntry / 先了结旧约定再入新条）之间不会重渲染，
+    // 若只等渲染期赋值，后一次保存会拿旧数组把前一次覆盖掉（lost write，v47.55 细节逐条入库曾因此只存活最后一条）
+    memLibRef.current = next;
     setMemLib(next);
     saveJSON("x_memLib", next);
   };
@@ -1344,6 +1347,8 @@ function App() {
     chars: characters,
     worldbook,
     timeAware: prefs.timeAware,
+    // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
+    directives: directives[group.id] || [],
     // 记忆分区：不互通的群是封闭空间，线下也不读全局记忆库（不让外部记忆流入）
     memLib: gsFor(group.id).memoryInterop ? memLibRef.current : null
   });
@@ -1488,15 +1493,20 @@ function App() {
       return;
     }
     startLane("g:" + groupId);
-    let summary = "";
+    let summary = "", details = [], opens = [];
     try {
-      if (active && group) summary = await summarizeOfflineGroup(active, ctxForGroupOffline(group), sess);
+      if (active && group) { const r = await summarizeOfflineGroup(active, ctxForGroupOffline(group), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     // 记忆分区：只有开了「记忆互通」的群才把线下总结写进全局记忆库；
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     if (summary && group && interopOn) addMemEntry({ text: summary, tags: ["线下", "群聊"], charIds: group.memberIds || [], source: "auto" });
+    // 群线下细节/约定逐条入库（与单人 v47.55 平权），同样只在互通群才进全局记忆库
+    if (group && interopOn) {
+      details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "群聊", "细节"], charIds: group.memberIds || [], source: "auto" }));
+      opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], charIds: group.memberIds || [], source: "auto", open: true }));
+    }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
     pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次群聊线下时间段的日程覆盖成这段经过 + 各角色想法。
