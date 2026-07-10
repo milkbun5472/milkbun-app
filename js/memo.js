@@ -139,16 +139,25 @@
   // ============================================================
   // 批注：一次 API 让多个角色各对这条备忘/提醒说一句（走后台便宜池 active=bgActive）
   // ============================================================
-  async function genComments(active, itemDesc, list, uName, worldbook) {
+  async function genComments(active, itemDesc, list, uName, worldbook, opts) {
+    // 防复读素材（本地零 API）：该角色最近对别的备忘/提醒说过什么 → 逼 Ta 换新说法
+    const d0 = loadData();
+    const allItems = (d0.notes || []).concat(d0.reminders || []);
+    const prevOf = id => allItems.filter(x => x.id !== (opts && opts.excludeId)).flatMap(x => (x.comments || []).filter(cm => cm.charId === id).map(cm => String(cm.text || ""))).filter(Boolean).slice(0, 2);
     const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")
-      + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气的亲疏和上不上心的程度）" : "")).join("\n\n");
+      + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气的亲疏和上不上心的程度）" : "")
+      + (prevOf(it.id).length ? "\n  Ta 最近对别的备忘说过：" + prevOf(it.id).map(s => "「" + s.slice(0, 40) + "」").join("、") + "——这次必须换新的说法和角度，别复读同样的梗和句式" : "")).join("\n\n");
+    // 事件驱动模式：不是用户请 Ta 来看，而是 Ta 自己注意到这条提醒被办完了、主动开口的第一反应
+    const evIntro = opts && opts.event
+      ? "下面这条是 " + uName + " 备忘录里的提醒，Ta 刚把它标为完成——" + opts.event.desc + "。下面每位角色恰好【自己注意到】了这事。请【分别以每位角色本人的口吻】，各说一句 Ta 主动开口的第一反应：夸一句、松口气、打趣 Ta 拖延、心疼 Ta 辛苦都行，按各自人设来。\n"
+      : "下面是 " + uName + " 在自己备忘录里记下的一条东西。请【分别以下面每位角色本人的口吻】，各说一句 Ta 看到 " + uName + " 记的这条时会真实说出口的话。\n";
     const sys = AC() + NAC() +
-      "下面是 " + uName + " 在自己备忘录里记下的一条东西。请【分别以下面每位角色本人的口吻】，各说一句 Ta 看到 " + uName + " 记的这条时会真实说出口的话。\n" +
+      evIntro +
       "【硬性要求】\n" +
       "· 真的进入角色、说出有内容有态度的一句，结合人设＋此刻心情＋这条的内容。严禁敷衍成『看了一眼没说什么』『随你』这类空话。\n" +
       "· 人称必须对：从人设判断性别，男用「他」女用「她」，判断不出就叫名字或不用第三人称。绝不许写『Ta』『TA』占位符。\n" +
       "· 每人一句、口语、像随手发的消息；几个人语气各不相同，别一个腔调，别说教别客套。\n" +
-      "· 反应可多样：提醒你别忘、催你、心疼、调侃、替你操心、或只是顺口关心——按各自人设来。\n\n" +
+      (opts && opts.event ? "" : "· 反应可多样：提醒你别忘、催你、心疼、调侃、替你操心、或只是顺口关心——按各自人设来。\n") + "\n" +
       "【这条备忘】" + itemDesc + "\n\n" +
       "【要批注的角色】\n" + block +
       (worldbook && worldbook.trim() ? "\n\n【世界书（仅参考）】\n" + worldbook.trim().slice(0, 400) : "") +
@@ -215,7 +224,7 @@
       try {
         const list = ids.map(id => (props.characters || []).find(c => c.id === id)).filter(Boolean)
           .map(c => ({ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: props.affinities ? props.affinities[c.id] : null }));
-        const outs = await genComments(props.active, props.itemDesc, list, props.uName, props.worldbook);
+        const outs = await genComments(props.active, props.itemDesc, list, props.uName, props.worldbook, { excludeId: props.itemId });
         if (outs.length) props.onAdd(outs);
         else props.toast && props.toast("没生成出来，再试试");
       } catch (e) { props.toast && props.toast("批注失败：" + (e.message || e)); }
@@ -230,7 +239,8 @@
         return h("div", { key: i, className: "flex items-start gap-2.5" },
           h(Avatar, { character: c, size: 30, radius: 999 }),
           h("div", { style: { flex: 1, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "9px 12px" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.sub, marginBottom: 2 } }, c.remark || c.name || cm.name),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.sub, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 } }, c.remark || c.name || cm.name,
+              cm.auto ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: ACCENT, border: "1px solid " + ACCENT + "55", borderRadius: 999, padding: "1px 7px" } }, "自己注意到 · 办完了") : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.5 } }, cm.text),
             h("button", { onClick: () => props.onDel(i), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "删除")));
       })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色批注。"),
@@ -309,6 +319,36 @@
     const persist = updater => setData(prev => { const n = typeof updater === "function" ? updater(prev) : updater; saveData(n); return n; });
 
     const upReminder = (id, patch) => persist(d => ({ ...d, reminders: (d.reminders || []).map(r => r.id === id ? Object.assign({}, r, typeof patch === "function" ? patch(r) : patch) : r) }));
+    const uName = (props.profile && props.profile.name) || "用户";
+    // 事件驱动一次性反应：勾掉一条「可见」的到期/逾期提醒 → 好感最高的可见角色自己注意到、留一句批注
+    // 本地判定零常驻：提前完成不吱声，没可见角色/今天已反应过=零 API；反应只留在批注区，不进聊天 prompt
+    const autoReactDone = r => {
+      try {
+        if (!props.active || r.done) return;   // r 是勾之前的快照，勾完才算完成
+        const vis = (r.visibleTo || []).filter(id => (props.characters || []).some(c => c.id === id));
+        if (!vis.length) return;
+        const nd = window.memoNextDays(r);
+        if (nd == null || nd > 0) return;      // 到期当天办完 / 拖了几天补办 才有戏
+        const dayK = ymdStr(todayMid());
+        const log = loadJSON("x_memoDoneReactLog", {});
+        if (log[r.id] === dayK) return;        // 同一天反复勾/取消不重复反应
+        log[r.id] = dayK; saveJSON("x_memoDoneReactLog", log);
+        const aff = props.affinities || {};
+        const cid = vis.slice().sort((x, y) => (aff[y] != null ? aff[y] : 50) - (aff[x] != null ? aff[x] : 50))[0];
+        const c = (props.characters || []).find(x => x.id === cid);
+        if (!c) return;
+        const hour = new Date().getHours();
+        const desc = (nd < 0 ? "这件事拖了 " + (-nd) + " 天，Ta 今天终于办完勾掉了" : "Ta 今天按时把这事办完勾掉了") + (hour < 5 ? "（还是深夜 " + (hour === 0 ? "十二" : hour) + " 点多勾掉的）" : "");
+        const list = [{ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: aff[c.id] }];
+        genComments(props.active, "提醒 · " + r.title + "（" + reminderDateText(r) + "）" + (r.note ? " · 备注：" + r.note : ""), list, uName, props.worldbook, { event: { key: "done", desc }, excludeId: r.id }).then(outs => {
+          const cmts = (outs || []).filter(o => o && o.text).map(o => Object.assign({}, o, { auto: true, event: "done" }));
+          if (!cmts.length) return;
+          if (!loadData().reminders.some(x => x.id === r.id)) return; // 用户已把这条删了就算了
+          upReminder(r.id, x => ({ comments: (x.comments || []).concat(cmts) }));
+          props.toast && props.toast(c.name + " 注意到你办完了「" + r.title + "」");
+        }).catch(() => {/* 静默：主动反应失败不打扰勾选本身 */});
+      } catch (e) {}
+    };
     const upNote = (id, patch) => persist(d => ({ ...d, notes: (d.notes || []).map(n => n.id === id ? Object.assign({}, n, typeof patch === "function" ? patch(n) : patch) : n) }));
     const saveReminder = r => persist(d => ({ ...d, reminders: (d.reminders || []).some(x => x.id === r.id) ? d.reminders.map(x => x.id === r.id ? r : x) : [r, ...(d.reminders || [])] }));
     const saveNote = n => persist(d => ({ ...d, notes: (d.notes || []).some(x => x.id === n.id) ? d.notes.map(x => x.id === n.id ? n : x) : [n, ...(d.notes || [])] }));
@@ -330,7 +370,7 @@
       const days = window.memoNextDays(r);
       const done = !!r.done;
       return h("button", { key: r.id, onClick: () => setDetail({ kind: "reminder", id: r.id }), className: "w-full active:opacity-70 flex items-center gap-3", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", opacity: done ? 0.55 : 1 } },
-        h("button", { onClick: e => { e.stopPropagation(); upReminder(r.id, { done: !r.done }); }, className: "shrink-0 active:opacity-60", style: { width: 24, height: 24, borderRadius: 999, border: "2px solid " + (done ? ACCENT : t.line), background: done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 } }, done ? "✓" : ""),
+        h("button", { onClick: e => { e.stopPropagation(); autoReactDone(r); upReminder(r.id, { done: !r.done }); }, className: "shrink-0 active:opacity-60", style: { width: 24, height: 24, borderRadius: 999, border: "2px solid " + (done ? ACCENT : t.line), background: done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 } }, done ? "✓" : ""),
         h("div", { style: { flex: 1, minWidth: 0 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, reminderDateText(r) + " · " + repeatLabel(r.repeat) + ((r.comments || []).length ? " · 💬" + r.comments.length : "") + ((r.visibleTo || []).length ? " · 👁" + r.visibleTo.length : ""))),
@@ -373,9 +413,9 @@
           h("button", { onClick: () => { setForm({ kind: "reminder", item: curReminder }); setDetail(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "编辑")),
         curReminder.note && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 8, lineHeight: 1.6 } }, curReminder.note),
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
-          h("button", { onClick: () => upReminder(curReminder.id, { done: !curReminder.done }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curReminder.done ? t.sub : "#fff", background: curReminder.done ? t.bg2 : ACCENT, border: "1px solid " + (curReminder.done ? t.line : ACCENT), borderRadius: 12, padding: "10px 0" } }, curReminder.done ? "标为未完成" : "标为已完成"),
+          h("button", { onClick: () => { autoReactDone(curReminder); upReminder(curReminder.id, { done: !curReminder.done }); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curReminder.done ? t.sub : "#fff", background: curReminder.done ? t.bg2 : ACCENT, border: "1px solid " + (curReminder.done ? t.line : ACCENT), borderRadius: 12, padding: "10px 0" } }, curReminder.done ? "标为未完成" : "标为已完成"),
           h("button", { onClick: () => setVisFor({ kind: "reminder", id: curReminder.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curReminder.visibleTo || []).length + ")")),
-        h(CommentBlock, { comments: curReminder.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: (props.profile && props.profile.name) || "用户", toast: props.toast,
+        h(CommentBlock, { comments: curReminder.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: uName, toast: props.toast, itemId: curReminder.id,
           itemDesc: "提醒 · " + curReminder.title + "（" + reminderDateText(curReminder) + "）" + (curReminder.note ? " · 备注：" + curReminder.note : ""),
           onAdd: cs => upReminder(curReminder.id, r => ({ comments: (r.comments || []).concat(cs) })),
           onDel: i => upReminder(curReminder.id, r => ({ comments: (r.comments || []).filter((_, idx) => idx !== i) })) })),
@@ -389,7 +429,7 @@
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => upNote(curNote.id, { pinned: !curNote.pinned }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curNote.pinned ? "#fff" : t.sub, background: curNote.pinned ? ACCENT : t.bg2, border: "1px solid " + (curNote.pinned ? ACCENT : t.line), borderRadius: 12, padding: "10px 0" } }, curNote.pinned ? "取消置顶" : "📌 置顶"),
           h("button", { onClick: () => setVisFor({ kind: "note", id: curNote.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curNote.visibleTo || []).length + ")")),
-        h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: (props.profile && props.profile.name) || "用户", toast: props.toast,
+        h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: uName, toast: props.toast, itemId: curNote.id,
           itemDesc: "备忘 · " + (curNote.title || "") + (curNote.body ? "：" + curNote.body.slice(0, 120) : ""),
           onAdd: cs => upNote(curNote.id, n => ({ comments: (n.comments || []).concat(cs) })),
           onDel: i => upNote(curNote.id, n => ({ comments: (n.comments || []).filter((_, idx) => idx !== i) })) })),

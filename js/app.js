@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.70";
+const APP_VERSION = "v47.71";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1130,13 +1130,16 @@ function App() {
           const rlog = loadJSON("x_memoRemindLog", {});
           for (const r of memo.reminders) {
             if (r.done || !(r.visibleTo || []).length) continue;
-            if (window.memoNextDays(r) !== 0) continue;           // 只在到期当天
-            if (rlog[r.id] === dayKey) continue;                  // 今天这条已提醒过
+            const nd = window.memoNextDays(r);
+            let overdue = 0;
+            if (nd === 0) { if (rlog[r.id] === dayKey) continue; }                            // 到期当天提醒（每天一次）
+            else if (nd != null && nd <= -3) { if (rlog[r.id + ":od"]) continue; overdue = -nd; } // 拖了3天还没勾 → 催一次（一条一生只催一回）
+            else continue;
             const cand = characters.find(c => r.visibleTo.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id && !laneBusy("c:" + c.id));
             if (!cand) continue;
             const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 8 || hr > 23) continue;
-            rlog[r.id] = dayKey; saveJSON("x_memoRemindLog", rlog);
-            replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "" } });
+            rlog[overdue ? r.id + ":od" : r.id] = dayKey; saveJSON("x_memoRemindLog", rlog);
+            replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "", overdue } });
             return;                                               // 一次一个，错峰
           }
         }
@@ -1651,7 +1654,9 @@ function App() {
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const greetHint = opts.greet ? "\n\n【此刻·你主动问候】现在是" + (opts.greet === "morning" ? "早上" : "晚上") + "，你【主动】给 Ta 发一句" + (opts.greet === "morning" ? "问早/早安" : "道晚安") + "——结合你此刻的作息、行程、心情，自然又简短（1~2 条），像真人随手发的，别只干巴巴一句『早安』。**很重要：Ta 有自己的生活、可能在忙、可能没空回，这完全正常。语气要轻松不粘人——不许用『怎么不理我』『是不是不想理我』『冷落我』这类质问或愧疚绑架，也别摆被冷落的委屈脸。就是单纯想到 Ta、顺手送个问候，Ta 回不回都没关系。**" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
-      const remindHint = opts.remind ? "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。" : "";
+      const remindHint = opts.remind ? (opts.remind.overdue
+        ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
+        : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
       const wxHint = opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发 1~2 条消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
       const proactiveHint = opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
       const aff = Math.round(affOf(charId));
@@ -3095,8 +3100,11 @@ function App() {
         if (!char) continue;
         const mood = moods[cid];
         const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null };
+        // 防复读：这位角色最近评论我别的日记说过什么 → 逼 Ta 换角度（读本地，零 API）
+        const prevSaid = (diariesRef.current.__me || []).filter(e => e.id !== entryId)
+          .flatMap(e => (e.comments || []).filter(cm => cm.charId === cid).map(cm => cm.text)).filter(Boolean).slice(0, 2);
         let text;
-        try { text = await generateDiaryComment(active, ctx, entryText); } catch (e) { toast(char.name + " 评论失败"); continue; }
+        try { text = await generateDiaryComment(active, ctx, entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败"); continue; }
         if (!text) continue;
         const comment = { id: "cm_" + Date.now() + "_" + cid, charId: cid, name: char.name, text, ts: Date.now() };
         setDiaries(p => {
@@ -5938,7 +5946,9 @@ function App() {
     setGen(g => ({ ...g, giftThought: giftId }));
     try {
       const bundle = buildBundle(ctxFor(char));
-      const system = bundle + "\n\n【任务】用户之前送了你一份礼物「" + name + "」，你收下了、一直随身留着。完全代入「" + char.name + "」，写一段你对这份礼物的私人想法/批注：它对你意味着什么、你怎么看送礼的人、平时怎么对待它。1~3 句，真挚贴人设，纯文本不要 JSON。";
+      // 防复读：Ta 给别的礼物写过的想法 → 这件必须换角度（读本地，零 API）
+      const prevTh = (carryGiftsRef.current[charId] || []).filter(g => g.id !== giftId && g.thought).slice(-2).map(g => "「" + g.name + "」你写过：「" + String(g.thought).replace(/\s+/g, " ").slice(0, 44) + "」");
+      const system = bundle + "\n\n【任务】用户之前送了你一份礼物「" + name + "」，你收下了、一直随身留着。完全代入「" + char.name + "」，写一段你对这份礼物的私人想法/批注：它对你意味着什么、你怎么看送礼的人、平时怎么对待它。1~3 句，真挚贴人设、贴这件东西本身（好感高的更珍视，好感淡的可以随意些），纯文本不要 JSON。" + (prevTh.length ? "\n【你对别的礼物写过】" + prevTh.join("；") + "——这件的想法必须是新的角度和写法，别和之前的句式、开头、梗重样。" : "");
       const raw = await callAI(active, system, [{ role: "user", content: "[礼物：" + name + "]" }], { maxTokens: 900 });
       const thought = String(raw || "").replace(/^["'\s]+|["'\s]+$/g, "");
       if (thought) setCarryGifts(prev => {

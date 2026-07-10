@@ -2261,14 +2261,22 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     const sweetDone = sweet.last === todayK;
     const myChar = cprof.myAvatar ? { name: (profile && profile.name) || "我", avatarImage: cprof.myAvatar } : { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: (profile && profile.color) || t.accent };
     const paChar = cprof.charAvatar ? { name: partner.name, avatarImage: cprof.charAvatar } : partner;
-    const feats = [
-      { k: "timeline", e: "📅", zh: "我们的日子", s: "时间轴 · 纪念日" },
-      { k: "letters", e: "💌", zh: "情书", s: "写给彼此", dot: unreadLettersFor(partner.id) },
-      { k: "mood", e: "🗓️", zh: "心情日历", s: "交换心情" },
-      { k: "notes", e: "📝", zh: "便签墙", s: "悄悄话", dot: unreadNotesFor(partner.id) },
-      { k: "qa", e: "📖", zh: "问答小本", s: "关于我们" },
-      { k: "sync", e: "🎯", zh: "同频测试", s: "TA 有多懂你" }
-    ];
+    // —— bento 拼贴素材：每格露一点自己的活内容（全本地算，零 API）——
+    const bCid = partner.id;
+    const bLetters = (coupleLetters || []).filter(l => l.characterId === bCid);
+    const bUnread = bLetters.filter(l => !l.isRead).length;
+    const bMood = (coupleMood || []).find(m => m.characterId === bCid && m.date === todayK);
+    const bNote = (coupleNotes || []).filter(n => n.characterId === bCid)[0];
+    const bQaN = (coupleQA || []).filter(e => e.characterId === bCid).length;
+    const bSync = (coupleSync || []).filter(r => r.characterId === bCid && r.status === "done")[0];
+    const bTlN = (coupleTimeline || []).filter(e => e.characterId === bCid).length;
+    const bAnn = (coupleAnniv || []).filter(a => a.characterId === bCid).map(a => {
+      const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      let d = new Date(t0.getFullYear(), a.month - 1, a.day);
+      if (d < t0) d = new Date(t0.getFullYear() + 1, a.month - 1, a.day);
+      return { name: a.name, days: Math.round((d - t0) / 86400000) };
+    }).sort((x, y) => x.days - y.days)[0];
+    const bSyncTag = r => { const p = r.qs.length ? r.score / r.qs.length : 0; return p >= 1 ? "心有灵犀" : p >= 0.8 ? "同频共振" : p >= 0.6 ? "还算合拍" : p >= 0.4 ? "偶尔跑频" : "平行世界"; };
     const imgRow = (label, ref, field, has) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, label),
       h("div", { className: "flex items-center gap-3" },
@@ -2299,12 +2307,50 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
             h("input", { type: "date", value: sinceVal, onChange: e => setSinceVal(e.target.value), className: "outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
             h("button", { onClick: () => { if (sinceVal) { onSetSince(partner.id, sinceVal); setSinceEdit(false); } }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5, padding: "8px 18px", borderRadius: 10 } }, "保存"),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "第几天 / 时间轴起点跟着变")) : null,
-          h("div", { className: "grid grid-cols-3 gap-3", style: { marginTop: 20 } },
-            feats.map(f => h("button", { key: f.k, onClick: () => setSub(f.k), className: "active:opacity-70", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "16px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 } },
-              f.dot ? h("span", { style: { position: "absolute", top: 9, right: 11, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
-              h("div", { style: { fontSize: 26, lineHeight: 1 } }, f.e),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, f.zh),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, f.s)))),
+          // —— bento 拼贴入口：不同形状大小，每格露一点活内容 ——
+          (() => {
+            const tile = (k, o) => h("button", { key: k, onClick: () => setSub(k), className: "active:opacity-70", style: { position: "relative", textAlign: "left", gridColumn: "span " + (o.w || 2), gridRow: o.tall ? "span 2" : undefined, background: o.bg, border: "1px solid " + o.bd, borderRadius: 18, padding: "11px 13px", display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minHeight: 0, minWidth: 0 } },
+              o.dot ? h("span", { style: { position: "absolute", top: 9, right: 11, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: o.ink, flexShrink: 0 } }, o.e + " " + o.zh),
+              o.body);
+            const sub2 = (txt, c) => h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: c, marginTop: 2 } }, txt);
+            return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gridAutoRows: 72, gap: 10, marginTop: 20 } },
+              // 我们的日子（2x2 大格）：最近的纪念日倒计时
+              tile("timeline", { w: 2, tall: true, e: "📅", zh: "我们的日子", bg: "linear-gradient(150deg,#fdeef2,#f6e0ec)", bd: "#f0d2de", ink: "#b0708a",
+                body: h("div", null,
+                  bAnn ? h(Fragment, null,
+                    h("div", { className: "flex items-baseline gap-1" },
+                      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 34, lineHeight: 1, color: "#c65a7e" } }, bAnn.days === 0 ? "今天" : bAnn.days),
+                      bAnn.days > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#b0708a" } }, "天") : null),
+                    sub2("距「" + bAnn.name + "」", "#b0708a"))
+                  : h(Fragment, null,
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#c65a7e", lineHeight: 1.3 } }, bTlN ? "记了 " + bTlN + " 个瞬间" : "从这里开始"),
+                    sub2("时间轴 · 纪念日", "#b0708a"))) }),
+              // 情书（2x1）
+              tile("letters", { e: "💌", zh: "情书", bg: "#fdf6ec", bd: "#eee0c6", ink: "#b08d52", dot: bUnread > 0,
+                body: h("div", null,
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#a5793a", lineHeight: 1.2 } }, bLetters.length ? bLetters.length + " 封" : "写给彼此"),
+                  bUnread ? sub2(bUnread + " 封没拆", "#c65a4a") : null) }),
+              // 心情日历（2x1）：今天俩人的心情脸
+              tile("mood", { e: "🗓️", zh: "心情日历", bg: "#eef4fc", bd: "#d6e2f0", ink: "#6d88ad",
+                body: bMood ? h("div", { className: "flex items-center gap-1.5" },
+                    bMood.myMood ? h(MoodGlyph, { mood: bMood.myMood, size: 26 }) : null,
+                    bMood.charMood ? h(MoodGlyph, { mood: bMood.charMood, size: 26 }) : null,
+                    !bMood.charMood ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#6d88ad" } }, "等 TA…") : null)
+                  : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#5b7fb0" } }, "今天还没打卡") }),
+              // 便签墙（4x1 长条）：最新一张
+              tile("notes", { w: 4, e: "📝", zh: "便签墙", bg: "#f3f0fa", bd: "#ded7ee", ink: "#8a7ab0", dot: unreadNotesFor(bCid),
+                body: h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6f5f9a", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                  bNote ? (bNote.authorId === "user" ? "我：" : partner.name + "：") + String((bNote.replies || []).length ? bNote.replies[bNote.replies.length - 1].content : bNote.content).replace(/\s+/g, " ") : "贴一张只有你俩看的悄悄话") }),
+              // 问答小本（2x1）
+              tile("qa", { e: "📖", zh: "问答小本", bg: "#eef6ef", bd: "#d4e6d8", ink: "#6a9a74",
+                body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#4f8a5e", lineHeight: 1.2 } }, bQaN ? "已答 " + bQaN + " 题" : "关于我们") }),
+              // 同频测试（2x1）
+              tile("sync", { e: "🎯", zh: "同频测试", bg: "#eef2f8", bd: "#d3ddec", ink: "#6d80a8",
+                body: h("div", null,
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#5b73a3", lineHeight: 1.2 } }, bSync ? bSync.score + "/" + bSync.qs.length + " " + bSyncTag(bSync) : "TA 有多懂你"),
+                  bSync ? sub2("上一局", "#6d80a8") : null) }));
+          })(),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14 } }, "只属于你俩的私密层。"))),
       cpEdit && h(Sheet, { onClose: () => setCpEdit(false), tall: true },
         h(Eyebrow, { style: { marginBottom: 16 } }, "自定义情侣空间"),
