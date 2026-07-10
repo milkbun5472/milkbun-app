@@ -3677,6 +3677,7 @@ function MemoryLib({
   const [editing, setEditing] = useState(null); // "new" | entry
   const [cfgOpen, setCfgOpen] = useState(false); // 召回设置弹层
   const [q, setQ] = useState(""); // 搜索
+  const [openOnly, setOpenOnly] = useState(false); // 只看未了结的约定/心事
   const nameOf = id => {
     const c = characters.find(x => x.id === id);
     return c ? c.remark || c.name : "未知";
@@ -3691,7 +3692,7 @@ function MemoryLib({
   };
   const unrated = (entries || []).filter(e => e && typeof e.a !== "number").length;
   const qlc = q.trim().toLowerCase();
-  const list = (entries || []).filter(e => (filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter)) && (!qlc || (String(e.text || "") + " " + (e.tags || []).join(" ") + " " + (e.charIds || []).map(nameOf).join(" ")).toLowerCase().indexOf(qlc) >= 0)).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  const list = (entries || []).filter(e => (!openOnly || e.open) && (filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter)) && (!qlc || (String(e.text || "") + " " + (e.tags || []).join(" ") + " " + (e.charIds || []).map(nameOf).join(" ")).toLowerCase().indexOf(qlc) >= 0)).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
   const importable = focusChar && oldMemories && (oldMemories[focusChar.id] || "").trim();
   return h("div", {
     className: "h-full flex flex-col"
@@ -3707,7 +3708,12 @@ function MemoryLib({
   }, h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索记忆内容 / 标签 / 角色…",
     className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px" } })), h("div", {
     className: "shrink-0 px-6 pb-2 flex gap-2 overflow-x-auto"
-  }, [["all", "全部"]].concat(characters.map(c => [c.id, c.remark || c.name])).map(([id, label]) => h("button", {
+  }, h("button", {
+    key: "_open",
+    onClick: () => setOpenOnly(o => !o),
+    className: "px-3 py-1 rounded-full whitespace-nowrap",
+    style: { fontFamily: F_BODY, fontSize: 12, background: openOnly ? "#b8860b" : "transparent", color: openOnly ? "#fff" : t.fog, border: "1px solid " + (openOnly ? "#b8860b" : t.line) }
+  }, "⏳未了结"), [["all", "全部"]].concat(characters.map(c => [c.id, c.remark || c.name])).map(([id, label]) => h("button", {
     key: id,
     onClick: () => setFilter(id),
     className: "px-3 py-1 rounded-full whitespace-nowrap",

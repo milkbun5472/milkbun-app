@@ -498,6 +498,9 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
     "· **绝对不许张冠李戴**：用户的经历/喜好/身份/计划，就记在用户「" + uName + "」名下，【不要写成角色自己的】；角色的就记在「" + charName + "」名下。分不清是谁的就别记这条。\n" +
     "· 同一件事【只记一条】，别把一件事拆成好几条重复的；忽略寒暄和没信息量的闲聊。为每条配 1~3 个中文标签。" + avoid + "\n" +
     "· 每条再标注情绪与状态：**v**=这件事的情绪愉悦度（整数 -5~5，负=难过/生气/难堪/委屈，0=中性事实，正=开心/温暖/心动）；**a**=情绪强度（整数 0~5，0=平淡的事实，5=强烈动情/激烈冲突/刻骨铭心）；**open**=是不是【还没了结的开环】（true=没兑现的约定/没和好的争执/悬着的心事/在等的结果这类还惦记着、还没画句号的；false=已了结的、或本来就是静态事实/偏好/背景）。\n" +
+    (Array.isArray(opts.openList) && opts.openList.length
+      ? "\n\n【当前还没了结的约定/心事】若下面对话显示某条【已经完成/兑现/解决/明确不了了之】，就在输出数组里加一个 {\"resolveOpen\":\"抄该条原文开头10字\"} 元素（别改写原文）；没发生就别加：\n" + opts.openList.slice(0, 12).map(s => "· " + s).join("\n")
+      : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false}]\n没有值得记的、或全都已记过，就输出 []。";
   const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 3500 });
   const parsed = extractJSON(raw);
@@ -872,8 +875,14 @@ async function summarizeOffline(p, ctx, session) {
     if (m.role === "narration") return "【场景】" + (m.content || "");
     return userName + "：" + (m.content || "");
   }).join("\n");
-  const system = "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处，浓缩成1~3句第三人称记忆：他们在哪、一起做了什么、关键互动或情绪转折、达成的约定。具体、可复用。只输出正文，不要多余解释。";
-  return (await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 3000 })).trim();
+  const system = "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" +
+    "{\"summary\":\"1~3句第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
+    "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
+    "\"open\":[\"这次线下里【新约好、还没兑现】的事（下次去哪/答应对方什么），每条一句；没有就 []\"]}";
+  const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 4000 });
+  const d = extractJSON(raw);
+  if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };
+  return { summary: String(raw || "").trim(), details: [], open: [] };
 }
 // ------- 群聊线下模式（多角色同处一地的面对面叙事）-------
 // 把群聊线下 msgs 映射成 API 对话：char beat 归 assistant（带发言人名），narration/user 归 user，合并连发

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.54";
+const APP_VERSION = "v47.55";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -695,10 +695,16 @@ function App() {
     memExtractInflightRef.current[charId] = true;
     try {
       const existing = memLibRef.current.filter(e => memShareChar([charId], e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
-      const items = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing });
+      const openList = memLibRef.current.filter(e => e.open && memShareChar([charId], e.charIds)).slice(0, 12).map(e => e.text).filter(Boolean);
+      const items = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing, openList: openList });
+      // 自动了结开环：模型判定某条约定已完成 → open 置 false（约定完成系统自己勾掉）
+      const resolves = items.filter(it => it && it.resolveOpen).map(it => String(it.resolveOpen).slice(0, 10)).filter(Boolean);
+      if (resolves.length) {
+        saveMemLib(memLibRef.current.map(e => (e.open && resolves.some(r => String(e.text || "").indexOf(r.slice(0, 8)) === 0)) ? { ...e, open: false } : e));
+      }
       const now = Date.now();
       const batchSeen = [];
-      const entries = items.map((it, i) => ({
+      const entries = items.filter(it => it && !it.resolveOpen).map((it, i) => ({
         id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
         v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open
       })).filter(x => x.text).filter(x => {
@@ -1308,12 +1314,15 @@ function App() {
       return;
     }
     startLane("c:" + charId);
-    let summary = "";
+    let summary = "", details = [], opens = [];
     try {
-      if (active) summary = await summarizeOffline(active, ctxFor(char), sess);
+      if (active) { const r = await summarizeOffline(active, ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     if (summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], source: "auto" });
+    // 谈话细节逐条入库（她要的：总结之外，具体聊过什么也记得住）；新约定标未了结
+    details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], source: "auto" }));
+    opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], source: "auto", open: true }));
     // 把这段线下经过回写进线上聊天记录，接上线上/线下的连贯：否则线上角色读不到刚才线下发生了什么，
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
