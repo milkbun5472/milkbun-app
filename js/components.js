@@ -478,14 +478,29 @@ function FolderIcon({ apps, label, onOpen }) {
       Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i }))),
     h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, textShadow: "0 1px 2px rgba(255,255,255,0.6)" } }, label));
 }
-// 文件夹展开层：半透明背景 + 内部 app 网格
-function FolderOverlay({ apps, label, onPick, onClose }) {
+// 文件夹展开层：半透明背景 + 内部 app 网格 + 改名 + 整理模式（✕ 移回主屏）
+function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
   const t = useTheme();
+  const [arrange, setArrange] = useState(false);
+  const [editName, setEditName] = useState(false);
+  const [nm, setNm] = useState(label || "文件夹");
+  const saveName = () => { onRename && onRename(nm); setEditName(false); };
   return h("div", { onClick: onClose, className: "absolute inset-0 z-40 flex items-center justify-center px-8", style: { background: "rgba(40,36,30,0.32)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } },
     h("div", { onClick: e => e.stopPropagation(), className: "w-full", style: { background: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 28, padding: "22px 20px", boxShadow: "0 20px 50px rgba(30,28,24,0.25)" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, textAlign: "center", marginBottom: 18 } }, label),
+      editName
+        ? h("div", { className: "flex items-center gap-2 justify-center", style: { marginBottom: 18 } },
+            h("input", { value: nm, onChange: e => setNm(e.target.value), autoFocus: true, onKeyDown: e => { if (e.key === "Enter") saveName(); }, style: { width: 150, textAlign: "center", outline: "none", fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, background: "rgba(255,255,255,0.7)", border: "1px solid " + t.line, borderRadius: 10, padding: "5px 10px" } }),
+            h("button", { onClick: saveName, style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 600, color: t.ink } }, "好"))
+        : h("button", { onClick: () => { if (onRename) { setNm(label || "文件夹"); setEditName(true); } }, className: "w-full flex items-center justify-center gap-1.5 active:opacity-70", style: { marginBottom: 18 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, label),
+            onRename ? h(IPencil, { size: 13, color: t.fog }) : null),
       h("div", { className: "grid grid-cols-4 gap-y-5 gap-x-2" },
-        (apps || []).map(a => h(GlassIcon, { key: a.key, G: a.G, label: a.zh, soon: a.soon, onClick: () => onPick(a) })))));
+        (apps || []).map(a => h("div", { key: a.key, className: "relative", style: { animation: arrange ? "wk-jiggle .32s ease-in-out infinite" : "none" } },
+          h(GlassIcon, { G: a.G, label: a.zh, soon: a.soon, onClick: () => { if (!arrange) onPick(a); } }),
+          arrange && h("button", { onClick: () => onRemove && onRemove(a.key), className: "absolute flex items-center justify-center active:opacity-70", style: { top: -7, left: 2, width: 21, height: 21, borderRadius: 999, background: t.ink, color: "#fff", fontSize: 12, lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 3 } }, "✕")))),
+      onRemove ? h("div", { className: "flex justify-center", style: { marginTop: 18 } },
+        h("button", { onClick: () => setArrange(a => !a), style: { fontFamily: F_BODY, fontSize: 12.5, color: arrange ? t.ink : t.fog, fontWeight: arrange ? 700 : 400, padding: "5px 16px", borderRadius: 999, background: "rgba(255,255,255,0.55)", border: "1px solid " + t.line } }, arrange ? "完成" : "整理（取出 app）")) : null,
+      arrange ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 8 } }, "点 ✕ 把 app 放回主屏；取空了文件夹自动消失") : null));
 }
 // ============================================================
 // 日历 CALENDAR —— 首页组件 + 全屏月历（世界/角色多视角、AI 生成、事件编辑）
@@ -824,6 +839,12 @@ function Home({
   const [editMode, setEditMode] = useState(false);
   const [dragKey, setDragKey] = useState(null);
   const [layout, setLayout] = useState(function () { return loadJSON("x_homeLayout", {}); });
+  // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
+  const [folders, setFolders] = useState(function () { return loadJSON("x_homeFolders", {}); });
+  const foldersRef = useRef(folders); foldersRef.current = folders;
+  const [hoverKey, setHoverKey] = useState(null); // 拖拽悬停的合并目标（放大提示）
+  const hoverRef = useRef({ key: null, timer: null });
+  const ghostRef = useRef(null); // 跟手浮影（直接改 DOM 位置，不走 setState 防卡）
   const lpRef = useRef(null);       // 长按计时器
   const dragKeyRef = useRef(null);  // 当前拖起的 key（事件闭包里读，避免过期）
   dragKeyRef.current = dragKey;
@@ -870,14 +891,19 @@ function Home({
     ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games"]
   ];
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
+  // 文件夹（f_ 开头）也是合法项；躺在文件夹里的 app 视作已放置，不再回填到页面
   function buildLayout(saved) {
     saved = saved || {};
-    if (!Object.keys(saved).length) return DEFAULT_LAYOUT.map(function (p) { return p.slice(); });
+    var F = foldersRef.current || {};
+    var seen = {};
+    Object.keys(F).forEach(function (fid) { (F[fid].keys || []).forEach(function (k) { seen[k] = true; }); });
+    var valid = function (key) { return key && key.slice(0, 2) === "f_" ? !!(F[key] && (F[key].keys || []).length) : !!REG[key]; };
+    if (!Object.keys(saved).length) return DEFAULT_LAYOUT.map(function (p) { return p.filter(function (k) { return !seen[k]; }); });
     var maxPage = DEFAULT_LAYOUT.length - 1;
     Object.keys(saved).forEach(function (k) { var n = parseInt(k, 10); if (!isNaN(n)) maxPage = Math.max(maxPage, n); });
-    var out = [], seen = {};
+    var out = [];
     for (var i = 0; i <= maxPage; i++) {
-      out[i] = (saved[i] || []).filter(function (key) { if (REG[key] && !seen[key]) { seen[key] = true; return true; } return false; });
+      out[i] = (saved[i] || []).filter(function (key) { if (valid(key) && !seen[key]) { seen[key] = true; return true; } return false; });
     }
     DEFAULT_LAYOUT.forEach(function (p, dp) {
       p.forEach(function (key) { if (!seen[key]) { if (!out[dp]) out[dp] = []; out[dp].push(key); seen[key] = true; } });
@@ -885,6 +911,61 @@ function Home({
     return out;
   }
   function persistLayout(L) { var o = {}; L.forEach(function (arr, i) { o[i] = arr; }); saveJSON("x_homeLayout", o); return o; }
+  function persistFolders(nf) { foldersRef.current = nf; saveJSON("x_homeFolders", nf); setFolders(nf); }
+  const kindOf = function (key) { if (key && key.slice(0, 2) === "f_") return "folder"; var it = REG[key]; return it ? it.kind : null; };
+  // 拖 A 叠到 B 上（B 是 app）→ 新建文件夹装下两个；B 的位置换成文件夹，A 从页面消失
+  function makeFolder(targetKey, draggedKey) {
+    var fid = "f_" + Date.now();
+    var nf = Object.assign({}, foldersRef.current);
+    nf[fid] = { name: "文件夹", keys: [targetKey, draggedKey] };
+    persistFolders(nf);
+    setLayout(function (prev) {
+      var L = buildLayout(prev); // folders 已更新：两个 app 都被 seen 滤掉了，先把 fid 放回目标位
+      var arr = (L[page] || []).slice();
+      var raw = (prev && prev[page]) || DEFAULT_LAYOUT[page] || [];
+      var ti = raw.indexOf(targetKey);
+      arr.splice(ti >= 0 ? Math.min(ti, arr.length) : arr.length, 0, fid);
+      L[page] = arr;
+      return persistLayout(L);
+    });
+  }
+  function addToFolder(fid, key) {
+    var nf = Object.assign({}, foldersRef.current);
+    var f = nf[fid];
+    if (!f || (f.keys || []).indexOf(key) >= 0) return;
+    nf[fid] = { name: f.name, keys: (f.keys || []).concat([key]) };
+    persistFolders(nf);
+    setLayout(function (prev) { return persistLayout(buildLayout(prev)); }); // key 被 seen 滤掉即从页面消失
+  }
+  // 从文件夹取出：app 回到文件夹所在页；文件夹空了自动解散（位置还给最后取出的 app）
+  function removeFromFolder(fid, key) {
+    setLayout(function (prev) {
+      var L = buildLayout(prev);
+      var pi = -1;
+      for (var i = 0; i < L.length; i++) { if ((L[i] || []).indexOf(fid) >= 0) { pi = i; break; } }
+      if (pi < 0) pi = page;
+      var nf = Object.assign({}, foldersRef.current);
+      var f = nf[fid];
+      if (!f) return prev;
+      var nk = (f.keys || []).filter(function (k) { return k !== key; });
+      if (nk.length) nf[fid] = { name: f.name, keys: nk }; else delete nf[fid];
+      persistFolders(nf);
+      var arr = (L[pi] || []).slice();
+      var fi = arr.indexOf(fid);
+      if (!nf[fid]) { if (fi >= 0) arr[fi] = key; else arr.push(key); }
+      else arr.splice(fi >= 0 ? fi + 1 : arr.length, 0, key);
+      L[pi] = arr;
+      return persistLayout(L);
+    });
+  }
+  function renameFolder(fid, name) {
+    var nf = Object.assign({}, foldersRef.current);
+    if (!nf[fid]) return;
+    nf[fid] = { name: String(name || "").trim() || "文件夹", keys: nf[fid].keys };
+    persistFolders(nf);
+  }
+  const clearHover = function () { if (hoverRef.current.timer) clearTimeout(hoverRef.current.timer); hoverRef.current = { key: null, timer: null }; setHoverKey(null); };
+  const moveGhost = function (x, y) { var g = ghostRef.current; if (g) { g.style.left = x - 34 + "px"; g.style.top = y - 74 + "px"; } };
   // 同页内把 fromKey 挪到 toKey 位置
   function reorderInPage(pi, fromKey, toKey) {
     setLayout(function (prev) {
@@ -934,39 +1015,64 @@ function Home({
   const onTS = e => {
     const tch = e.touches[0];
     dragRef.current = { x: tch.clientX, y: tch.clientY, w: e.currentTarget.offsetWidth || 360, dir: null, d: 0 };
-    // 长按某个图标/组件 → 进入编辑并把它「拿起」
+    // 长按某个图标/组件 → 进入编辑并把它「拿起」；已在编辑态则摸到就拿起（跟 iOS 一样）
     clearLP();
     const startEl = document.elementFromPoint(tch.clientX, tch.clientY);
     const iconEl = startEl && startEl.closest && startEl.closest("[data-appkey]");
     if (iconEl) {
       const key = iconEl.getAttribute("data-appkey");
-      lpRef.current = setTimeout(function () {
-        lpRef.current = null;
+      const pickUp = function () {
         setEditMode(true); setDragKey(key); dragKeyRef.current = key;
         dragRef.current = null; // 取消翻页手势
+        requestAnimationFrame(function () { moveGhost(tch.clientX, tch.clientY); });
         if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
-      }, 420);
+      };
+      if (editMode) pickUp();
+      else lpRef.current = setTimeout(function () { lpRef.current = null; pickUp(); }, 320);
     }
   };
   const onTM = e => {
     const tch = e.touches[0];
-    // 正在拖：先看是否拖到左右边缘 → 翻页并把它挪到相邻页；否则页内实时重排
+    // 正在拖：浮影跟手；边缘翻页；中心悬停≥600ms 合并成文件夹；否则页内实时重排
     if (dragKeyRef.current) {
       if (e.cancelable) e.preventDefault();
+      moveGhost(tch.clientX, tch.clientY);
       const cw = (dragRef.current && dragRef.current.w) || e.currentTarget.offsetWidth || 375;
       const x = tch.clientX, nowT = Date.now();
       if (x < 34 && page > 0 && nowT - flipRef.current > 650) {
-        flipRef.current = nowT; moveKeyToPage(page, page - 1, dragKeyRef.current); goPage(page - 1); return;
+        clearHover(); flipRef.current = nowT; moveKeyToPage(page, page - 1, dragKeyRef.current); goPage(page - 1); return;
       }
       if (x > cw - 34 && page < curLayout.length - 1 && nowT - flipRef.current > 650) {
-        flipRef.current = nowT; moveKeyToPage(page, page + 1, dragKeyRef.current); goPage(page + 1); return;
+        clearHover(); flipRef.current = nowT; moveKeyToPage(page, page + 1, dragKeyRef.current); goPage(page + 1); return;
       }
       const el = document.elementFromPoint(x, tch.clientY);
       const overEl = el && el.closest && el.closest("[data-appkey]");
-      if (overEl) {
-        const overKey = overEl.getAttribute("data-appkey");
-        if (overKey && overKey !== dragKeyRef.current) reorderInPage(page, dragKeyRef.current, overKey);
-      }
+      const overKey = overEl ? overEl.getAttribute("data-appkey") : null;
+      const dragged = dragKeyRef.current;
+      if (overKey && overKey !== dragged) {
+        // 拖 app 悬停在另一个 app/文件夹的中间区域 → 蓄力合并；边缘区域/组件 → 直接重排
+        const rect = overEl.getBoundingClientRect();
+        const rx = (x - rect.left) / Math.max(1, rect.width);
+        const canMerge = kindOf(dragged) === "app" && (kindOf(overKey) === "app" || kindOf(overKey) === "folder");
+        if (canMerge && rx > 0.25 && rx < 0.75) {
+          if (hoverRef.current.key !== overKey) {
+            clearHover();
+            hoverRef.current.key = overKey; setHoverKey(overKey);
+            hoverRef.current.timer = setTimeout(function () {
+              const tgt = hoverRef.current.key;
+              clearHover();
+              const dk = dragKeyRef.current;
+              if (!dk || !tgt) return;
+              if (tgt.slice(0, 2) === "f_") addToFolder(tgt, dk); else makeFolder(tgt, dk);
+              if (navigator.vibrate) try { navigator.vibrate(24); } catch (x2) {}
+              setDragKey(null); dragKeyRef.current = null; // 合并即放手
+            }, 600);
+          }
+          return; // 蓄力期间不重排
+        }
+        clearHover();
+        reorderInPage(page, dragged, overKey);
+      } else if (!overKey) clearHover();
       return;
     }
     const r = dragRef.current;
@@ -985,6 +1091,7 @@ function Home({
   };
   const onTE = () => {
     clearLP();
+    clearHover();
     if (dragKeyRef.current) { setDragKey(null); dragKeyRef.current = null; setDrag(0); return; } // 放下
     const r = dragRef.current;
     if (!r) { setDrag(0); return; }
@@ -996,17 +1103,23 @@ function Home({
     goPage(np);
     setDrag(0);
   };
-  // 渲染单个可摆放项（app / 文件夹 / 组件），带 data-appkey + 抖动/拖起样式；编辑态下禁点
+  // 渲染单个可摆放项（app / 用户文件夹 / 组件），带 data-appkey + 抖动/拖起/合并目标样式；编辑态下禁点
   function renderItem(key) {
-    const it = REG[key];
+    const isFolder = key && key.slice(0, 2) === "f_";
+    const it = isFolder ? { kind: "folder" } : REG[key];
     if (!it) return null;
+    if (isFolder && !folders[key]) return null;
     const isDrag = dragKey === key;
+    const isHoverTgt = hoverKey === key; // 有 app 悬停在我头上蓄力合并
     // 组件占格：日历 3 宽 3 高（右边留一列放 app），名片/音乐整行宽
     let gCol = "span 1", gRow = "auto";
     if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
-    else if (it.kind === "folder") inner = h(FolderIcon, { apps: it.folder.apps, label: it.folder.zh, onOpen: function () { if (!editMode) setOpenFolder(it.folder); } });
+    else if (isFolder) {
+      const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
+      inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onOpen: function () { if (!editMode) setOpenFolder(key); } });
+    }
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, onEditCard: onEditCard, onEditProfile: onEditProfile });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
     else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, onOpen: function () { return onOpenApp("listen"); } });
@@ -1015,12 +1128,12 @@ function Home({
       key: key, "data-appkey": key,
       style: {
         gridColumn: gCol, gridRow: gRow,
-        animation: editMode && !isDrag ? "wk-jiggle .32s ease-in-out infinite" : "none",
-        transform: isDrag ? "scale(1.08)" : "none",
-        opacity: isDrag ? 0.82 : 1,
+        animation: editMode && !isDrag && !isHoverTgt ? "wk-jiggle .32s ease-in-out infinite" : "none",
+        transform: isDrag ? "scale(1.08)" : (isHoverTgt ? "scale(1.2)" : "none"),
+        opacity: isDrag ? 0.28 : 1,
         pointerEvents: isDrag ? "none" : "auto",
         zIndex: isDrag ? 5 : "auto",
-        transition: "transform .12s ease"
+        transition: "transform .15s ease"
       }
     }, h("div", { style: { pointerEvents: editMode ? "none" : "auto", height: "100%" } }, inner));
   }
@@ -1105,9 +1218,20 @@ function Home({
     }
   }, "完成"), editMode && h("div", {
     style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) + 150px)", textAlign: "center", zIndex: 40, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, pointerEvents: "none" }
-  }, "拖动排序 · 拖到屏幕边缘换页 · 组件也能拖"), openFolder && h(FolderOverlay, {
-    apps: openFolder.apps,
-    label: openFolder.zh,
+  }, "拖动排序 · 叠到另一个图标上停一下＝合成文件夹 · 拖到屏幕边缘换页"), dragKey && h("div", {
+    ref: ghostRef,
+    style: { position: "fixed", left: -120, top: -120, zIndex: 60, width: 68, height: 68, borderRadius: 19, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.78)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,0.85)", boxShadow: "0 14px 34px rgba(30,28,24,0.32)", transform: "scale(1.1)" }
+  }, (function () {
+    if (dragKey.slice(0, 2) === "f_") return h("span", { style: { fontSize: 24 } }, "📁");
+    const gi = REG[dragKey];
+    if (!gi) return null;
+    if (gi.kind === "app") return h(gi.G, { size: 32, color: t.ink, sw: 1.6 });
+    return h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, { card: "名片", cal: "日历", music: "音乐", map: "地图" }[gi.which] || "组件");
+  })()), openFolder && folders[openFolder] && h(FolderOverlay, {
+    apps: (folders[openFolder].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; }),
+    label: folders[openFolder].name || "文件夹",
+    onRename: function (nm) { renameFolder(openFolder, nm); },
+    onRemove: function (k) { removeFromFolder(openFolder, k); },
     onClose: function () { return setOpenFolder(null); },
     onPick: function (a) { setOpenFolder(null); if (a.soon) { onSoon && onSoon(a.zh); } else { onOpenApp(a.key); } }
   }));

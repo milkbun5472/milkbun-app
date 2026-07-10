@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.40";
+const APP_VERSION = "v47.41";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2895,7 +2895,10 @@ function App() {
       const prevDiary = prevD ? ((prevD.titleZh || prevD.titleEn || "") + "｜" + (prevD.paras || []).map(p => p.text).join(" ").slice(0, 220)) : "";
       const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null, worldbook: loreFor(char, "diary"), recentChat: dayChatText };
       const dateStr = new Date(targetTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
-      const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char, targetKey), dateStr: dateStr, noChatMaterial: dayMsgs.length < 2, prevDiary: prevDiary });
+      // 当天钱包流水（日常购物/转账/礼物）喂给日记当素材——日程/钱包/日记三联动的最后一环
+      const wRec = charWalletRef.current[charId];
+      const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
+      const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayMsgs.length < 2, prevDiary: prevDiary });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
@@ -3267,25 +3270,24 @@ function App() {
       setGen(g => ({ ...g, cwallet: null }));
     }
   };
-  // 生成某天的日常消费（按当天日程），无 API/失败则用固定支出估算兜底
+  // 生成某天的日常消费（按当天日程+人设，逐笔列具体买了什么），无 API/失败则用固定支出估算兜底
   const genDailySpend = async (char, dayKey, rec) => {
     const plan = (schedulesRef.current[char.id] || {})[dayKey];
     const schedText = plan && Array.isArray(plan.seqs) ? plan.seqs.map(s => (s.time || "") + " " + s.title + (s.location ? "（" + s.location + "）" : "")).join("；") : "";
     const fallback = () => {
       const est = Math.max(8, Math.round(((Number(rec.fixedMonthly) || 1800) / 30) * (0.5 + Math.random())));
-      return { items: schedText ? "当日日常开销" : "日常开销", amount: est };
+      return [{ item: "日常开销", amount: est }];
     };
     if (!active) return fallback();
     try {
       const dp = schedDateParts(dayKey);
-      const d = await runProbe(active, ctxFor(char), {
-        instruction: "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天的【日常消费】。" + (schedText ? "这天 TA 的行程是：" + schedText + "。根据这些活动（吃饭/交通/买东西/娱乐/日用等）推算 TA 这天实际花了哪些钱。" : "根据 TA 的人设与生活水平推算这天的日常花销。") + " 给 items（一句话概括这天买了啥/花在哪，如「地铁+便利店午饭+咖啡」）和 amount（这天总花销，纯数字，贴合 TA 的收入与消费习惯，普通日子别太夸张，也可能是几乎没花钱的一天）。",
-        schemaHint: "{\"items\":\"地铁+午饭+咖啡\",\"amount\":86}",
-        maxTokens: 400
+      const d = await runProbe(bgActive, ctxFor(char), {
+        instruction: "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）。",
+        schemaHint: "{\"buys\":[{\"item\":\"楼下便利店饭团+冰美式\",\"amount\":18},{\"item\":\"地铁通勤往返\",\"amount\":8}]}",
+        maxTokens: 800
       });
-      const amt = Number(d.amount);
-      if (!isFinite(amt) || amt < 0) return fallback();
-      return { items: String(d.items || "日常开销").slice(0, 40), amount: Math.abs(amt) };
+      const buys = (Array.isArray(d.buys) ? d.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0) })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
+      return buys; // 空数组=这天没花钱，合法
     } catch (e) {
       return fallback();
     }
@@ -3294,7 +3296,7 @@ function App() {
   const applyWalletDay = async (char, dayKey) => {
     const rec = charWalletRef.current[char.id];
     if (!rec || !rec.init) return;
-    const spend = await genDailySpend(char, dayKey, rec);
+    const buys = await genDailySpend(char, dayKey, rec);
     const parts = schedParseKey(dayKey);
     const isFirst = parts.getDate() === 1;
     const dayTs = new Date(parts); dayTs.setHours(23, 0, 0, 0);
@@ -3307,7 +3309,11 @@ function App() {
         const inc = r2((Number(cur.monthlyIncome) || 0) - (Number(cur.fixedMonthly) || 0));
         if (inc) { bal = r2(bal + inc); chron.push(mk(inc, "月度收支 · 工资到账 − 固定支出", "monthly", dayTs.getTime() - 1000, bal)); }
       }
-      if (spend && spend.amount) { bal = r2(bal - Math.abs(spend.amount)); chron.push(mk(-Math.abs(spend.amount), "日常消费 · " + spend.items, "daily", dayTs.getTime(), bal)); }
+      (buys || []).forEach((b, i) => {
+        if (!b || !b.amount) return;
+        bal = r2(bal - Math.abs(b.amount));
+        chron.push(mk(-Math.abs(b.amount), b.item, "daily", dayTs.getTime() + i * 60000, bal));
+      });
       const n = { ...p, [char.id]: { ...cur, balance: bal, lastDailyKey: dayKey, ledger: [...chron.reverse(), ...(cur.ledger || [])] } };
       saveJSON("x_charWallet", n);
       charWalletRef.current = n;

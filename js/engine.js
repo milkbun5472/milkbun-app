@@ -1013,6 +1013,9 @@ async function generateDiary(p, ctx, opts = {}) {
   if (opts.scheduleText && opts.scheduleText.trim()) {
     parts.push("【今天的行程（用来回顾你这天在哪、做了什么、经历了什么）】\n" + opts.scheduleText.trim());
   }
+  if (opts.walletText && opts.walletText.trim()) {
+    parts.push("【今天花的钱（真实流水，可当素材）】\n" + opts.walletText.trim() + "\n——不必逐笔罗列进日记，但如果哪笔买得开心/肉疼/是给谁买的，可以自然写进去。");
+  }
   if (ctx.moodLabel) parts.push("【此刻心情】" + ctx.moodLabel);
   if (retro) parts.push("【现在是这一天的晚上，睡前：" + opts.dateStr + "】你刚把这一整天过完，正坐下来写【今天】的日记。\n" +
     "· **用「今天」称呼这一天**（今天早上／今天下午／今晚……），**绝对不要用「昨天」**——对此刻在写日记的你来说，这一天就是今天。\n" +
