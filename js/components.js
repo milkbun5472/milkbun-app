@@ -1047,6 +1047,19 @@ function Home({
         p.forEach(function (key) { if (!seen[key]) { if (!out[dp]) out[dp] = []; out[dp].push(key); seen[key] = true; } });
       });
     }
+    // 页容量界限（一页最多 24 格 ≈ 6 行）：她自定义过布局后，新 app 补到满页末尾会渲染到屏幕外拿不到——
+    // 超出容量的项按原顺序整体溢到下一页开头（连锁下去，最后一页放不下就自动开新页）；空格不搬、下一页会重新补
+    var CAP = 24;
+    for (var ci = 0; ci < out.length; ci++) {
+      var cw = 0, ckeep = [], cspill = [];
+      (out[ci] || []).forEach(function (k) {
+        var wk = wOf(k);
+        if (!cspill.length && cw + wk <= CAP) { ckeep.push(k); cw += wk; }
+        else if (!SP_RE.test(k)) cspill.push(k);
+      });
+      out[ci] = ckeep;
+      if (cspill.length) out[ci + 1] = cspill.concat(out[ci + 1] || []);
+    }
     return out.map(function (arr, pi) {
       arr = (arr || []).slice();
       while (arr.length && SP_RE.test(arr[arr.length - 1])) arr.pop();
