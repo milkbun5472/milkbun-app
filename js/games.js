@@ -2036,7 +2036,8 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 1500 });
     return extractJSON(raw) || {};
   }
-  async function genVotes(api, voters, team, leaderName, players, qn, hist) {
+  // ⚠️曾叫 genVotes——和卧底的 genVotes 顶层重名，后者被这个覆盖导致卧底投票错调（v47.49 修复改名）
+  async function genAvVotes(api, voters, team, leaderName, players, qn, hist) {
     const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") +
       "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
@@ -2193,7 +2194,7 @@
       setBusy(true);
       try {
         const voters = players.filter(function (p) { return !(p.isUser && cfg.mode !== "spectate"); });
-        const raw = await genVotes(api, voters, tm, players[li].name, players, qn, histText());
+        const raw = await genAvVotes(api, voters, tm, players[li].name, players, qn, histText());
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const approve = hit ? !/反对|拒绝|否|reject|no/i.test(String(hit.vote)) && /赞成|同意|通过|approve|yes/i.test(String(hit.vote)) : (Math.random() < 0.5);

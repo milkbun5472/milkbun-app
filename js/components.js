@@ -1011,7 +1011,9 @@ function Home({
       var L = buildLayout(prev).map(function (a) { return a.slice(); });
       var f = findSlot(L, fromKey), t2 = findSlot(L, toKey);
       if (!f || !t2) return prev;
-      L[f.p][f.i] = toKey;
+      // 空格换过去时给个全新 id：补位生成器的 id 是「页内确定性」的（sp_<页>_<n>），
+      // 原 id 跨页迁移后原页会再生成同名补位 → 两个页出现重复 data-appkey，命中就乱了
+      L[f.p][f.i] = SP_RE.test(toKey) ? "sp_x" + Date.now().toString(36) + Math.floor(Math.random() * 100) : toKey;
       L[t2.p][t2.i] = fromKey;
       return persistLayout(L);
     });

@@ -944,11 +944,7 @@ const SILENT_WAV = typeof btoa !== "undefined" ? makeSilentWav(1) : "";
 const KEEPALIVE_ID = "__keepalive__";
 const KEEPALIVE_WAV = typeof btoa !== "undefined" ? makeSilentWav(30) : "";
 const KEEPALIVE_SONG = { id: KEEPALIVE_ID, source: "keepalive", title: "静音保活", artist: "让手机后台醒着 · 无声", cover: null };
-// 紧凑时间戳（给群聊/记忆互通标时间，让模型理解消息的真实先后顺序）
-function fmtStamp(ts) {
-  if (!ts) return "";
-  try { return new Date(ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; }
-}
+// （原本这里有个 fmtStamp，被 1200 行附近的同名函数覆盖成了死代码——已删，真身在下面：同天只显时刻、跨天带月/日）
 // 两个时间点之间的间隔口语（给群聊插时间断点用）
 function gapPhrase(ms) {
   const h = ms / 3600000;
