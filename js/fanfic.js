@@ -121,20 +121,25 @@
     opts = opts || {};
     if (!cpChars || !cpChars.length)
       return "【CP】未指定具体 CP——写原创向/群像向短篇，主角自拟，别硬凑现有角色。";
+    // 左右位铁律（v47.78 她点名修）：CP 的书写顺序=左右位，同性 CP 严格左攻右受，
+    // 绝不许按「谁人设强势谁当攻」自行对调——人设强势的右位就是「强势受」，反差才是萌点
+    const posRule = function (l, r) {
+      return "\n【左右位铁律（最高优先，凌驾于人设气场之上）】这个 CP 的顺序就是左右位：「" + l + "」是左位，「" + r + "」是右位。若两人是同性 CP，写亲密关系时严格执行【左攻右受】：主导/进攻的一方永远是「" + l + "」，承受/被动的一方永远是「" + r + "」——**绝对禁止因为谁人设更强势、更年长、更冷、更有钱、体格更壮就自行把位置调换**。人设强势的右位就写成气场强但在这段关系里是受的那一方；性格软的左位就写成温柔但主动的攻。若是异性 CP，顺序代表叙事重心先后即可。";
+    };
     if (cpChars.length === 1) {
       const c = cpChars[0];
-      return "【CP：" + c.name + " × 原创对象】\n主角一方：" + sideDesc(c) + "\n另一方是一个由你设定的原创角色（自由发挥，贴合本世界观基调）。";
+      return "【CP：" + c.name + " × 原创对象】\n主角一方：" + sideDesc(c) + "\n另一方是一个由你设定的原创角色（自由发挥，贴合本世界观基调）。" + posRule(c.name, "原创对象");
     }
     const a = cpChars[0], b = cpChars[1];
     const bothChars = !a.isMe && !b.isMe; // 两个都是角色（没有「我」）
     // 带上我：写成 A × 我 × B 三人同框
     if (bothChars && opts.includeMe) {
       const meName = opts.meName || "我";
-      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格") + "\n· " + sideDesc(b);
+      return "【CP：" + a.name + " × " + meName + "（读者本人/我） × " + b.name + "】\n这是三人同框：把『我』作为真正的第三方写进去，三个人彼此之间都有关系张力，别把『我』写成旁观者或工具人。\n· " + sideDesc(a) + "\n· 「" + meName + "」是读者本人（我）" + (opts.mePersona && opts.mePersona.trim() ? "，按这份面具人设来写：\n" + opts.mePersona.trim() : "，没填人设就自由发挥其性格") + "\n· " + sideDesc(b) + posRule(a.name, b.name);
     }
     // 只他俩 CP：即便角色卡写了「我男朋友」，也不把「我」带进文里
     const soloTail = bothChars ? "\n【只写这两人】这是 " + a.name + " × " + b.name + " 的双人同人文，读者/『我』不出场、不作为角色写进去；就算某人的设定里写了 TA 是「我的男朋友/恋人」，本篇也只聚焦他们两人彼此，别把「我」拉进来凑三人。" : "";
-    return "【CP：" + a.name + " × " + b.name + "】\n两位主角各自守住各自设定、别互相同化。\n· " + sideDesc(a) + "\n· " + sideDesc(b) + soloTail;
+    return "【CP：" + a.name + " × " + b.name + "】\n两位主角各自守住各自设定、别互相同化。\n· " + sideDesc(a) + "\n· " + sideDesc(b) + soloTail + posRule(a.name, b.name);
   }
 
   // 素材来源：把 CP 角色的私聊记录抽尾巴当写作素材（item 6：生成素材来源人设聊天）
@@ -191,7 +196,7 @@
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
-      "[{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"}]\n" +
+      "[{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：两人的关系设定（如 前未婚夫妻/宿敌/上下级）+身份+世界观要点——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"}]\n" +
       "每篇 title 别重复、别都一个套路；author 每篇各不同；tags 2-4 个（如『破镜重圆』『HE』『pwp』『情有独钟』等同人圈标签）。别为了凑数量把正文压短——宁可写满。" +
       FANFIC_ANTI_CLICHE_TAIL;
     const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
@@ -215,6 +220,7 @@
         title: String(x.title || "无题").slice(0, 60),
         author: String(x.author || "佚名").slice(0, 20),
         tags: Array.isArray(x.tags) ? x.tags.filter(Boolean).slice(0, 6).map(String) : [],
+        premise: String(x.premise || "").trim().slice(0, 200),  // 核心设定锚（续写防改设）
         body: String(x.body || "").trim(),
         endHook: String(x.endHook || "").trim(),
         cot: i === 0 ? batchCot : null
@@ -238,9 +244,15 @@
     const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }) : "";
     // 上一章结尾原文（最后一段现场）：只给锚点一句话时模型爱跳时间线（上一章还暧昧、下一章直接事后）
     const lastTail = String(last.content || fic.body || "").trim().slice(-600);
+    // 基本设定锚（v47.78 她点名修「第一章前未婚夫妻、第二章变青梅竹马」）：
+    // 优先用生成时自报的 premise；老文没有就拿第一章开头当设定依据
+    const premise = (fic.premise && String(fic.premise).trim()) || "";
+    const ch1Head = String(((chapters[0] || {}).content || fic.body || "")).trim().slice(0, 500);
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
       "【当前任务：给一篇已在连载的同人文续写下一章】\n" +
       "篇名《" + fic.title + "》，标签：" + (fic.tags || []).join("、") + "。\n" +
+      "【本篇基本设定（地基·每一章都不许动）】\n" + (premise ? premise + "\n" : "") + (ch1Head ? "第一章开头（设定以此为准）：" + ch1Head + "……\n" : "") +
+      "【改设禁令（比剧情更优先）】第一章确立的东西一个字不许变：两人的关系设定（开篇是前未婚夫妻就全程是前未婚夫妻，绝不许写成青梅竹马/前同事/初次见面）、双方身份职业、称呼、世界观、已发生的事实和时间线；tags 里的关系标签同样是铁律。写之前先对着上面的基本设定自查一遍，若你记忆中的前情与第一章开头冲突，一律以第一章开头为准。\n" +
       "【前情摘要（历章锚点，不含全文，你据此自然接续、保持人物与线索一致）】\n" + (priorHooks || "（这是第一章）") + "\n" +
       (lastTail ? "【上一章结尾原文（新章从这个现场往下写）】\n……" + lastTail + "\n" : "") +
       "【上一章的结尾锚点】\n" + (last.endHook || "（无，请自然开新章）") + "\n" +
@@ -1275,7 +1287,7 @@
         const now = Date.now();
         const made = arr.map(function (x, i) {
           return {
-            id: uid("fic"), tabId: curTab.id, cp: cp || [], title: x.title, author: x.author, tags: x.tags,
+            id: uid("fic"), tabId: curTab.id, cp: cp || [], title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null }], source: "npc", onShelf: false, sharedTo: [],
             stats: ficHeat(x.title + now + i), reviews: [], createdAt: now - i, updatedAt: now - i
           };
