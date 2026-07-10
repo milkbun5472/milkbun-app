@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.71";
+const APP_VERSION = "v47.72";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -4804,9 +4804,9 @@ function App() {
       // 出题要吃更宽的记忆（不按近期聊天检索，按权重多捞几条），touch:false 别把「被出题想起」算成复习
       const ctx = { ...ctxFor(char), memLib: retrieveMemories(memLibRef.current, char.id, "", { limit: 14, touch: false }) };
       const d = await runProbe(active, ctx, {
-        instruction: "你们是恋人，正在情侣空间玩「同频测试」：现在出 5 道关于用户本人的选择题，稍后用户自己作答、你来猜 TA 的选择，比默契（纯娱乐）。\n【出题要求】\n- 题目全部围绕【用户】：TA 的偏好、习惯、在具体情境下会怎么选（如「周五晚上 TA 更想…」「吵架冷战后 TA 通常会…」）。\n- 优先出从上面的记忆、你们相处细节里长出来的题（有依据可猜），再补一两道日常趣味题；别出知识题、别出关于你自己的题、别出没法猜的开放题。\n- 每题 3~4 个具体选项，都要像 TA 可能选的、别放明显凑数项；题干不超过 30 字，选项不超过 15 字。",
-        schemaHint: "{\"qs\":[{\"q\":\"题目\",\"opts\":[\"选项1\",\"选项2\",\"选项3\"]},…共5题]}",
-        maxTokens: 2200
+        instruction: "你们是恋人，正在情侣空间玩「同频测试」：现在出 5 道关于用户本人的选择题，稍后用户自己作答、你来猜 TA 的选择，比默契（纯娱乐）。\n【出题要求】\n- 题目全部围绕【用户】：TA 的偏好、习惯、在具体情境下会怎么选（如「周五晚上 TA 更想…」「吵架冷战后 TA 通常会…」）。\n- 优先出从上面的记忆、你们相处细节里长出来的题（有依据可猜），再补一两道日常趣味题；别出知识题、别出关于你自己的题、别出没法猜的开放题。\n- 每题 3~4 个具体选项，都要像 TA 可能选的、别放明显凑数项；题干不超过 30 字，选项不超过 15 字。\n- 必须一次性出满 5 题：qs 数组要有 5 个元素，一个都不能少、别中途停笔。",
+        schemaHint: "{\"qs\":[{\"q\":\"题目1\",\"opts\":[\"选项1\",\"选项2\",\"选项3\"]},{\"q\":\"题目2\",\"opts\":[\"…\"]},{\"q\":\"题目3\",\"opts\":[\"…\"]},{\"q\":\"题目4\",\"opts\":[\"…\"]},{\"q\":\"题目5\",\"opts\":[\"…\"]}]}",
+        maxTokens: 8000   // 思考型模型的思考预算也从这里扣，给紧了只出一两题就停（v47.72 修「题没出够」）；她按次计费输出免费，别抠
       });
       const qs = (d.qs || []).filter(x => x && x.q && Array.isArray(x.opts) && x.opts.length >= 2).slice(0, 5).map(x => ({ q: String(x.q), opts: x.opts.slice(0, 4).map(String), my: -1, ta: -1, reason: "" }));
       if (qs.length < 3) throw new Error("题没出够，再试一次");
@@ -4830,8 +4830,8 @@ function App() {
       const ctx = { ...ctxFor(char), memLib: retrieveMemories(memLibRef.current, char.id, rec.qs.map(x => x.q).join(" "), { limit: 10, touch: false }) };
       const d = await runProbe(active, ctx, {
         instruction: "你们是恋人，正在玩「同频测试」：下面 " + rec.qs.length + " 道关于用户的题，TA 已经自己作答（答案对你保密），现在你以「" + char.name + "」的身份【认真猜】TA 每题选了哪个——凭你对 TA 的了解、记忆和相处细节判断，不是随便蒙。每题配一句你为什么这么猜，口吻自然像在跟 TA 说话，别写分析报告。\n【题目】\n" + qText,
-        schemaHint: "{\"guesses\":[{\"pick\":\"A/B/C/D 之一\",\"why\":\"一句理由\"},…按题目顺序共" + rec.qs.length + "个]}",
-        maxTokens: 1800
+        schemaHint: "{\"guesses\":[{\"pick\":\"A/B/C/D 之一\",\"why\":\"一句理由\"},…按题目顺序共" + rec.qs.length + "个，一个不能少]}",
+        maxTokens: 6000   // 思考型模型预算别抠
       });
       const gs = Array.isArray(d.guesses) ? d.guesses : [];
       const qs = rec.qs.map((x, i) => {
@@ -4847,7 +4847,7 @@ function App() {
         const r2 = await runProbe(active, ctxFor(char), {
           instruction: "「同频测试」揭晓：你猜用户的选择，" + qs.length + " 题猜中 " + score + " 题。对照：\n" + table + "\n以「" + char.name + "」的身份对结果说一段感想（2~4 句）——按人设和你俩的关系来：猜得准可以得意、感慨很懂 TA；猜错的题可以惊讶、辩解、或悄悄记下「原来你是这样的」。像聊天不像总结，别喊口号。",
           schemaHint: "{\"remark\":\"感想\"}",
-          maxTokens: 900
+          maxTokens: 3000   // 思考型模型预算别抠
         });
         remark = String(r2.remark || "").trim();
       } catch (e2) {}
