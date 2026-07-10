@@ -2741,7 +2741,12 @@ function TtsApiConfig({ toast }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax 语音合成。开了之后，选了音色的角色发的语音消息能点 ▶ 真听。⭐按字符计费，但只有你点开那条才合成；合成过的存在本机、重播免费。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启语音合成（点开才收费）" : "已关闭"); } })),
     c.enabled ? h("div", { className: "pt-3" },
-      row("接口地址（默认 MiniMax 国内站，海外版填 https://api.minimaxi.com）", h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.chat", style: inSt })),
+      row("接口地址（key 在哪个平台申请的就点哪个，别混）", h("div", null,
+        h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } },
+          [["国际版 platform.minimax.io", "https://api.minimax.io"], ["国内 minimaxi.com", "https://api.minimaxi.com"], ["老国内站", "https://api.minimax.chat"]].map(pair =>
+            h("button", { key: pair[1], onClick: () => set({ baseUrl: pair[1] }), className: "active:opacity-70",
+              style: { flex: 1, fontFamily: F_BODY, fontSize: 10, padding: "7px 2px", borderRadius: 8, background: t.bg2, border: "1px solid " + ((c.baseUrl || "").trim() === pair[1] ? t.tint : t.line), color: (c.baseUrl || "").trim() === pair[1] ? t.tint : t.sub } }, pair[0]))),
+        h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: inSt }))),
       row("GroupId（MiniMax 控制台·账户信息里）", h("input", { value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
       row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "eyJ…", type: "password", style: inSt })),
       row("模型", h("select", { value: c.model || "speech-02-hd", onChange: e => set({ model: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },

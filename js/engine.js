@@ -690,7 +690,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
 // 配置存 x_ttsApi（可云同步）；每角色音色在角色档案 voiceId 字段
 // ============================================================
 function loadTtsApi() {
-  const def = { baseUrl: "https://api.minimax.chat", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false };
+  const def = { baseUrl: "https://api.minimax.io", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false };
   let a = def;
   try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
   // 粘贴时容易带进首尾空格/换行，key 里混一个空白字符接口就报 invalid api key——读的时候统一清干净
@@ -726,7 +726,7 @@ async function ttsSpeak(text, voiceId) {
   const key = ttsCacheKey(vid, txt);
   const hit = await idbAudGet(key).catch(() => null);
   if (hit && hit.size > 0) return hit;
-  const base = (a.baseUrl || "https://api.minimax.chat").trim().replace(/\/+$/, "");
+  const base = (a.baseUrl || "https://api.minimax.io").trim().replace(/\/+$/, "");
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 60000);
   let r;
@@ -743,7 +743,7 @@ async function ttsSpeak(text, voiceId) {
   if (d.base_resp && d.base_resp.status_code !== 0) {
     let msg = d.base_resp.status_msg || ("错误码 " + d.base_resp.status_code);
     // key 无效最常见的根因是国内站/海外版不匹配：key 是哪个平台发的，接口地址就得填哪边
-    if (/api key|apikey|token|auth/i.test(msg)) msg += "（key 和站点要配对：在 minimaxi.com 海外版注册的，接口地址填 https://api.minimaxi.com；国内 minimax.chat 注册的用默认地址。另外确认复制的是「接口密钥」页那串很长的完整 key）";
+    if (/api key|apikey|token|auth/i.test(msg)) msg += "（key 和站点要配对：在 platform.minimax.io 国际版申请的 → 接口地址填 https://api.minimax.io；minimaxi.com → https://api.minimaxi.com；国内 minimax.chat 用默认地址。设置里有一键选站点。另外 key 生成时只完整显示一次，确认复制的是那串完整的）";
     throw new Error(msg);
   }
   const hex = d.data && (d.data.audio || d.audio);
@@ -764,7 +764,7 @@ async function ttsCloneVoice(fileBlob, customVoiceId) {
   if (!ttsReady(a)) throw new Error("先在设置里配置语音 API");
   const vid = String(customVoiceId || "").trim();
   if (!/^[A-Za-z][A-Za-z0-9_-]{7,}$/.test(vid)) throw new Error("voice_id 需以字母开头、8 位以上字母/数字（如 GuChao2026）");
-  const base = (a.baseUrl || "https://api.minimax.chat").trim().replace(/\/+$/, "");
+  const base = (a.baseUrl || "https://api.minimax.io").trim().replace(/\/+$/, "");
   const fd = new FormData();
   fd.append("purpose", "voice_clone");
   fd.append("file", fileBlob, fileBlob.name || "voice.mp3");
