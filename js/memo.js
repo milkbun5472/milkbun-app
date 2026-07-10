@@ -124,6 +124,17 @@
     try { const dt = new Date(y, m1 - 1, d); const data = loadData(); return (data.reminders || []).filter(r => occursOn(r, dt)); }
     catch (e) { return []; }
   };
+  // 最近的 n 条未完成提醒（逾期在前，按临近排）—— 供主屏备忘录小组件
+  window.memoUpcoming = function (n) {
+    try {
+      const d = loadData();
+      return (d.reminders || []).filter(r => !r.done)
+        .map(r => ({ title: r.title || "提醒", days: window.memoNextDays(r) }))
+        .filter(x => x.days != null)
+        .sort((a, b) => a.days - b.days)
+        .slice(0, n || 3);
+    } catch (e) { return []; }
+  };
 
   // ============================================================
   // 批注：一次 API 让多个角色各对这条备忘/提醒说一句（走后台便宜池 active=bgActive）
