@@ -1636,6 +1636,75 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onEdit
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14, lineHeight: 1.6 } }, "想加只属于你俩的专属题？设置 → 「问答」→ 选 " + partner.name)));
 }
 
+// 情侣空间·同频测试（纯娱乐不动好感）：AI 按记忆出 5 题→我选→TA 盲猜我的选择+理由→默契分+TA 感想，整局存档
+function CoupleSyncTest({ partner, records, onStart, onSubmit, onRemove, gen, onBack }) {
+  const t = useTheme();
+  const mine = (records || []).filter(r => r.characterId === partner.id);
+  const draft = mine.find(r => r.status === "quiz");
+  const done = mine.filter(r => r.status === "done");
+  const [view, setView] = useState(null);   // null=首页 / 'quiz'=作答中 / 某局id=看结果
+  const [picks, setPicks] = useState({});   // 作答选择 {题idx: 选项idx}
+  const scoreTag = (s, n) => { const r = n ? s / n : 0; return r >= 1 ? "心有灵犀" : r >= 0.8 ? "同频共振" : r >= 0.6 ? "还算合拍" : r >= 0.4 ? "偶尔跑频" : "平行世界"; };
+  const fmtD = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+
+  // —— 作答中 ——
+  if (view === "quiz" && draft) {
+    const allPicked = draft.qs.every((x, i) => picks[i] != null);
+    return h("div", { className: "h-full flex flex-col" },
+      h(Head, { zh: "同频测试", en: "作答中", onBack: () => setView(null) }),
+      h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginTop: 6, marginBottom: 12 } }, "凭直觉选，答案暂时不给 " + partner.name + " 看——你提交后 TA 才开始猜。"),
+        draft.qs.map((x, i) => h("div", { key: i, style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px", marginBottom: 12 } },
+          h(Eyebrow, { style: { marginBottom: 6 } }, "第 " + (i + 1) + " 题"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: t.ink, marginBottom: 10 } }, x.q),
+          x.opts.map((o, j) => h("button", { key: j, onClick: () => setPicks(p => ({ ...p, [i]: j })), className: "w-full text-left active:opacity-70", style: { display: "block", padding: "9px 12px", borderRadius: 11, marginBottom: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, background: picks[i] === j ? t.ink : t.bg, color: picks[i] === j ? t.bg2 : t.ink, border: "1px solid " + (picks[i] === j ? t.ink : t.line) } }, "ABCD"[j] + ". " + o)))),
+        h("button", { onClick: async () => { if (!allPicked || gen) return; const ok = await onSubmit(partner, draft, draft.qs.map((x, i) => picks[i])); if (ok) { setView(draft.id); setPicks({}); } }, disabled: !allPicked || gen, className: "w-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, gen ? partner.name + " 正在猜你的选择…" : allPicked ? "提交 · 让 TA 猜" : "还有题没选"),
+        h("button", { onClick: () => { onRemove(draft.id); setPicks({}); setView(null); }, disabled: gen, className: "w-full active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0 0" } }, "放弃这局")));
+  }
+
+  // —— 看某局结果 ——
+  const rec = view && view !== "quiz" ? done.find(r => r.id === view) : null;
+  if (rec) {
+    return h("div", { className: "h-full flex flex-col" },
+      h(Head, { zh: "同频测试", en: fmtD(rec.doneAt || rec.ts), onBack: () => setView(null) }),
+      h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+        h("div", { style: { textAlign: "center", padding: "22px 0 18px" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 44, color: t.accent, lineHeight: 1 } }, rec.score + " / " + rec.qs.length),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 8 } }, scoreTag(rec.score, rec.qs.length)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "纯娱乐 · 不影响好感")),
+        rec.qs.map((x, i) => { const hit = x.my === x.ta; return h("div", { key: i, style: { background: t.bg2, border: "1px solid " + (hit ? "#bcd8bc" : t.line), borderRadius: 16, padding: "13px 15px", marginBottom: 12 } },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+            h(Eyebrow, null, "第 " + (i + 1) + " 题"),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: hit ? "#4a8a4a" : t.accent } }, hit ? "✓ 猜中" : "✗ 没猜中")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, marginBottom: 9 } }, x.q),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } },
+            h("div", null, h("span", { style: { color: t.tint } }, "我选："), x.opts[x.my] != null ? x.opts[x.my] : "—"),
+            h("div", null, h("span", { style: { color: t.accent } }, "TA 猜："), x.opts[x.ta] != null ? x.opts[x.ta] : "—"),
+            x.reason ? h("div", { style: { marginTop: 5, paddingTop: 6, borderTop: "1px dashed " + t.line, color: t.fog } }, "“" + x.reason + "”") : null)); }),
+        rec.remark ? h("div", { style: { background: "linear-gradient(135deg,#fdf0f3,#f6ecf8)", border: "1px solid #eed4dc", borderRadius: 16, padding: "14px 16px", marginBottom: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", marginBottom: 5 } }, partner.name + " 的感想"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, whiteSpace: "pre-wrap" } }, rec.remark)) : null,
+        h("button", { onClick: () => { onRemove(rec.id); setView(null); }, className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#c26", padding: "8px 0" } }, "删除这局存档")));
+  }
+
+  // —— 首页：介绍 + 开始 + 往期存档 ——
+  return h("div", { className: "h-full flex flex-col" },
+    h(Head, { zh: "同频测试", en: "Sync · " + partner.name, onBack }),
+    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
+      h("div", { style: { position: "relative", marginTop: 18, borderRadius: 16, padding: "26px 22px", background: "linear-gradient(135deg,#8fb6c9,#6e86b5)", boxShadow: "0 12px 34px rgba(80,100,140,0.28)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.22em", color: "rgba(255,255,255,0.7)", marginBottom: 10 } }, "SYNC TEST"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: "#fff", lineHeight: 1.3 } }, "TA 有多懂你？"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: "rgba(255,255,255,0.85)", marginTop: 10 } }, partner.name + " 会按你们的记忆出 5 道关于你的题。你先答，TA 再认真猜你选了什么——比比默契。纯娱乐，不影响好感。"),
+        h("button", { onClick: async () => { if (gen) return; if (draft) { setPicks({}); setView("quiz"); return; } const ok = await onStart(partner); if (ok) { setPicks({}); setView("quiz"); } }, disabled: gen, className: "active:opacity-80 disabled:opacity-60", style: { marginTop: 16, background: "#fff", color: "#5b73a3", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "10px 22px", borderRadius: 999, boxShadow: "0 4px 12px rgba(0,0,0,0.18)" } }, gen ? partner.name + " 出题中…" : draft ? "继续上次的作答" : "开始一局")),
+      done.length ? h("div", { style: { marginTop: 18 } },
+        h(Eyebrow, { style: { marginBottom: 10 } }, "往期 · " + done.length + " 局"),
+        done.map(r => h("button", { key: r.id, onClick: () => setView(r.id), className: "w-full text-left active:opacity-70", style: { display: "flex", alignItems: "center", justifyContent: "space-between", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 15px", marginBottom: 8 } },
+          h("div", null,
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, scoreTag(r.score, r.qs.length)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtD(r.doneAt || r.ts))),
+          h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 20, color: t.accent } }, r.score + "/" + r.qs.length)))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginTop: 20 } }, "还没玩过——点上面开始第一局。")));
+}
+
 // 情侣空间·双向便签墙（悄悄话串）：我贴→TA 自动回；TA 的要点一下才看得到，再点开全屏留言互动
 // 便签纸张样式：纯色 / 横线 / 格纹 / 圆点 / 带粉角，可爱多样
 const COUPLE_NOTE_STYLES = [
@@ -2119,7 +2188,7 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
       h(CoupleLetterSettings, { partner, cfg, onSave: onSaveCfg })));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet }) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -2176,6 +2245,10 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   if (partner && cp[view] && cp[view].status === "together" && (sub === "timeline" || sub === "anniv")) {
     return h(CoupleDays, { partner, since: cp[view].since, events: coupleTimeline, annivs: coupleAnniv, onAdd: onAddTimeline, onRemove: onRemoveTimeline, onGen: onGenTimeline, onAddAnniv: onAddAnniv, onRemoveAnniv: onRemoveAnniv, gen: tlGen, onBack: () => setSub(null) });
   }
+  // 情侣空间子模块：同频测试
+  if (partner && cp[view] && cp[view].status === "together" && sub === "sync") {
+    return h(CoupleSyncTest, { partner, records: coupleSync, onStart: onSyncStart, onSubmit: onSyncSubmit, onRemove: onSyncRemove, gen: syncGen, onBack: () => setSub(null) });
+  }
   // 情侣空间子模块：情书
   if (partner && cp[view] && cp[view].status === "together" && sub === "letters") {
     return h(CoupleLetters, { partner, letters: coupleLetters, cfg: (coupleLetterCfg || {})[partner.id], onGen: onGenLetter, onAddMy: onAddMyLetter, onReply: onReplyLetter, onRead: onReadLetter, onRemove: onRemoveLetter, onSaveCfg: onSaveLetterCfg, gen: letterGen, onBack: () => setSub(null) });
@@ -2193,7 +2266,8 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
       { k: "letters", e: "💌", zh: "情书", s: "写给彼此", dot: unreadLettersFor(partner.id) },
       { k: "mood", e: "🗓️", zh: "心情日历", s: "交换心情" },
       { k: "notes", e: "📝", zh: "便签墙", s: "悄悄话", dot: unreadNotesFor(partner.id) },
-      { k: "qa", e: "📖", zh: "问答小本", s: "关于我们" }
+      { k: "qa", e: "📖", zh: "问答小本", s: "关于我们" },
+      { k: "sync", e: "🎯", zh: "同频测试", s: "TA 有多懂你" }
     ];
     const imgRow = (label, ref, field, has) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, label),

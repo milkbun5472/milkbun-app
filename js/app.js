@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.69";
+const APP_VERSION = "v47.70";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -156,6 +156,8 @@ function App() {
   const [coupleQACustom, setCoupleQACustom] = useState({});
   // 情侣空间·心情打卡：角色留下的心情流 {id,characterId,moodTag,text,createdAt}
   const [coupleMood, setCoupleMood] = useState([]);
+  // 情侣空间·同频测试：整局存档流 {id,characterId,ts,status:'quiz'|'done',qs:[{q,opts,my,ta,reason}],score,remark}
+  const [coupleSync, setCoupleSync] = useState([]);
   // 情侣空间·恋爱时间轴 {id,characterId,date,type,title,content,byCharacter,createdAt}
   const [coupleTimeline, setCoupleTimeline] = useState([]);
   // 情侣空间·纪念日倒计时 {id,characterId,name,month,day,yearlyRepeat,createdAt}
@@ -376,6 +378,7 @@ function App() {
     setCoupleNotes(_cnotes);
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
     setCoupleMood(loadJSON("x_coupleMood", []));
+    setCoupleSync(loadJSON("x_coupleSync", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
     setCoupleAnniv(loadJSON("x_coupleAnniv", []));
     setCoupleLetters(loadJSON("x_coupleLetters", []));
@@ -802,7 +805,11 @@ function App() {
     try {
       const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
       const w = hm && typeof weatherCached === "function" ? weatherCached(hm.lat, hm.lng) : null;
-      if (w) out += "\n今天 Ta 那边的天气：" + weatherLine(w) + "（可自然影响穿着、心情、要不要出门，别播报腔）";
+      if (w) {
+        const sp = typeof wxSpecial === "function" ? wxSpecial(w) : null;
+        // 特殊天气（雨雪雷雾/极端温度）→ 加压：要在互动里真有反应，不许当没看见
+        out += "\n今天 Ta 那边的天气：" + weatherLine(w) + (sp ? "——今天" + sp + "，这对你有【实际影响】：出门计划可能改、穿着心情都被牵动，聊天/互动里要自然带出来（抱怨两句、说计划变了、想赖着不动、看雪的兴奋都行），别当没看见、也别播报腔" : "（可自然影响穿着、心情、要不要出门，别播报腔）");
+      }
     } catch (e) {}
     return out;
   };
@@ -1131,6 +1138,26 @@ function App() {
             rlog[r.id] = dayKey; saveJSON("x_memoRemindLog", rlog);
             replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "" } });
             return;                                               // 一次一个，错峰
+          }
+        }
+      } catch (e) {}
+      // —— 特殊天气主动：TA 那边雨/雪/雷雾/极端温度 → 一位在聊的角色主动发条被天气牵动的消息（全局每天最多一条，读天气缓存零请求）——
+      try {
+        if (loadJSON("x_wxReactDay", "") !== dayKey && typeof wxSpecial === "function") {
+          const wpool = characters.filter(c => hist(c).length >= 2);
+          const wrot = wpool.length ? Math.floor(Date.now() / 86400000) % wpool.length : 0;
+          const _prefs = loadJSON("x_prefs", {});
+          const _geo = _prefs.geoAware ? loadJSON("x_geo", null) : null;
+          for (const c of wpool.slice(wrot).concat(wpool.slice(0, wrot))) {
+            if (laneBusy("c:" + c.id) || viewRef.current.charId === c.id) continue;
+            const hr = Math.floor(charLocalMin(c) / 60); if (hr < 8 || hr > 23) continue;
+            const hm = c.home && typeof c.home.lat === "number" ? c.home : (_geo && typeof _geo.lat === "number" ? _geo : null);
+            const w = hm ? weatherCached(hm.lat, hm.lng) : null;
+            const sp = wxSpecial(w);
+            if (!sp) continue;
+            saveJSON("x_wxReactDay", dayKey);
+            replyNow(c.id, "", null, { proactive: true, wx: { kind: sp, line: weatherLine(w) } });
+            return;                                             // 一次一个，错峰
           }
         }
       } catch (e) {}
@@ -1625,7 +1652,8 @@ function App() {
       const greetHint = opts.greet ? "\n\n【此刻·你主动问候】现在是" + (opts.greet === "morning" ? "早上" : "晚上") + "，你【主动】给 Ta 发一句" + (opts.greet === "morning" ? "问早/早安" : "道晚安") + "——结合你此刻的作息、行程、心情，自然又简短（1~2 条），像真人随手发的，别只干巴巴一句『早安』。**很重要：Ta 有自己的生活、可能在忙、可能没空回，这完全正常。语气要轻松不粘人——不许用『怎么不理我』『是不是不想理我』『冷落我』这类质问或愧疚绑架，也别摆被冷落的委屈脸。就是单纯想到 Ta、顺手送个问候，Ta 回不回都没关系。**" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。" : "";
-      const proactiveHint = opts.remind ? remindHint : opts.bday ? bdayHint : opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
+      const wxHint = opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发 1~2 条消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
+      const proactiveHint = opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
       const aff = Math.round(affOf(charId));
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -4758,6 +4786,77 @@ function App() {
     saveJSON("x_coupleQACustom", n);
     return n;
   });
+
+  // ---- 情侣空间·同频测试（纯娱乐，不动好感）----
+  // AI 按记忆出 5 道关于用户的选择题→我作答→TA 认真猜我选了什么+理由→算默契分+TA 感想，整局存档
+  const startCoupleSync = async char => {
+    if (!active) { toast("请先到设置配置 API"); return false; }
+    setGen(g => ({ ...g, coupleSync: true }));
+    try {
+      // 出题要吃更宽的记忆（不按近期聊天检索，按权重多捞几条），touch:false 别把「被出题想起」算成复习
+      const ctx = { ...ctxFor(char), memLib: retrieveMemories(memLibRef.current, char.id, "", { limit: 14, touch: false }) };
+      const d = await runProbe(active, ctx, {
+        instruction: "你们是恋人，正在情侣空间玩「同频测试」：现在出 5 道关于用户本人的选择题，稍后用户自己作答、你来猜 TA 的选择，比默契（纯娱乐）。\n【出题要求】\n- 题目全部围绕【用户】：TA 的偏好、习惯、在具体情境下会怎么选（如「周五晚上 TA 更想…」「吵架冷战后 TA 通常会…」）。\n- 优先出从上面的记忆、你们相处细节里长出来的题（有依据可猜），再补一两道日常趣味题；别出知识题、别出关于你自己的题、别出没法猜的开放题。\n- 每题 3~4 个具体选项，都要像 TA 可能选的、别放明显凑数项；题干不超过 30 字，选项不超过 15 字。",
+        schemaHint: "{\"qs\":[{\"q\":\"题目\",\"opts\":[\"选项1\",\"选项2\",\"选项3\"]},…共5题]}",
+        maxTokens: 2200
+      });
+      const qs = (d.qs || []).filter(x => x && x.q && Array.isArray(x.opts) && x.opts.length >= 2).slice(0, 5).map(x => ({ q: String(x.q), opts: x.opts.slice(0, 4).map(String), my: -1, ta: -1, reason: "" }));
+      if (qs.length < 3) throw new Error("题没出够，再试一次");
+      setCoupleSync(p => {
+        // 同一角色只留一局未答草稿（旧草稿丢弃）
+        const n = [{ id: "sync_" + Date.now(), characterId: char.id, ts: Date.now(), status: "quiz", qs, score: 0, remark: "" }, ...p.filter(r => !(r.characterId === char.id && r.status === "quiz"))];
+        saveJSON("x_coupleSync", n);
+        return n;
+      });
+      return true;
+    } catch (e) { toast("失败：" + e.message); return false; }
+    finally { setGen(g => ({ ...g, coupleSync: false })); }
+  };
+  // 我答完 → TA 盲猜（不给 TA 看我的答案，真判断）→ 本地算分 → 揭晓后 TA 写感想
+  const submitCoupleSync = async (char, rec, myPicks) => {
+    if (!active) { toast("请先到设置配置 API"); return false; }
+    setGen(g => ({ ...g, coupleSync: true }));
+    try {
+      const L = "ABCD";
+      const qText = rec.qs.map((x, i) => (i + 1) + ". " + x.q + "\n" + x.opts.map((o, j) => "   " + L[j] + ". " + o).join("\n")).join("\n");
+      const ctx = { ...ctxFor(char), memLib: retrieveMemories(memLibRef.current, char.id, rec.qs.map(x => x.q).join(" "), { limit: 10, touch: false }) };
+      const d = await runProbe(active, ctx, {
+        instruction: "你们是恋人，正在玩「同频测试」：下面 " + rec.qs.length + " 道关于用户的题，TA 已经自己作答（答案对你保密），现在你以「" + char.name + "」的身份【认真猜】TA 每题选了哪个——凭你对 TA 的了解、记忆和相处细节判断，不是随便蒙。每题配一句你为什么这么猜，口吻自然像在跟 TA 说话，别写分析报告。\n【题目】\n" + qText,
+        schemaHint: "{\"guesses\":[{\"pick\":\"A/B/C/D 之一\",\"why\":\"一句理由\"},…按题目顺序共" + rec.qs.length + "个]}",
+        maxTokens: 1800
+      });
+      const gs = Array.isArray(d.guesses) ? d.guesses : [];
+      const qs = rec.qs.map((x, i) => {
+        const g = gs[i] || {};
+        const ta = Math.max(0, Math.min(L.indexOf(String(g.pick || "A").trim().toUpperCase().charAt(0)), x.opts.length - 1));
+        return { ...x, my: myPicks[i], ta, reason: String(g.why || "").trim() };
+      });
+      const score = qs.filter(x => x.my === x.ta).length;
+      // 揭晓感想：拿全对照表让 TA 说几句（失败不影响整局，感想留空）
+      let remark = "";
+      try {
+        const table = qs.map((x, i) => (i + 1) + ". " + x.q + "｜TA 选了「" + x.opts[x.my] + "」，你猜的是「" + x.opts[x.ta] + "」" + (x.my === x.ta ? "（猜中✓）" : "（没猜中）")).join("\n");
+        const r2 = await runProbe(active, ctxFor(char), {
+          instruction: "「同频测试」揭晓：你猜用户的选择，" + qs.length + " 题猜中 " + score + " 题。对照：\n" + table + "\n以「" + char.name + "」的身份对结果说一段感想（2~4 句）——按人设和你俩的关系来：猜得准可以得意、感慨很懂 TA；猜错的题可以惊讶、辩解、或悄悄记下「原来你是这样的」。像聊天不像总结，别喊口号。",
+          schemaHint: "{\"remark\":\"感想\"}",
+          maxTokens: 900
+        });
+        remark = String(r2.remark || "").trim();
+      } catch (e2) {}
+      setCoupleSync(p => {
+        const n = p.map(r => r.id === rec.id ? { ...r, status: "done", qs, score, remark, doneAt: Date.now() } : r);
+        saveJSON("x_coupleSync", n);
+        return n;
+      });
+      return true;
+    } catch (e) { toast("失败：" + e.message); return false; }
+    finally { setGen(g => ({ ...g, coupleSync: false })); }
+  };
+  const removeCoupleSync = id => setCoupleSync(p => {
+    const n = p.filter(r => r.id !== id);
+    saveJSON("x_coupleSync", n);
+    return n;
+  });
   // 情侣空间·心情打卡：让角色留一条此刻心情（右上刷新触发；未来接调度器每日/随机）
   // 心情打卡：每天一次，我选一个心情 → TA 也为今天选一个心情 + 一句话；一天一条 {date,myMood,charMood,charText}
   const COUPLE_MOOD_KEYS = ["relax:轻松", "surprise:惊喜", "gloomy:郁闷", "sad:难过", "happy:开心", "irritated:烦躁", "proud:骄傲", "cozy:舒畅", "amazed:惊讶"];
@@ -6357,7 +6456,12 @@ function App() {
     onSaveLetterCfg: saveLetterCfg,
     letterGen: gen.coupleLetter,
     coupleSweet: coupleSweet,
-    onCheckinSweet: checkinSweet
+    onCheckinSweet: checkinSweet,
+    coupleSync: coupleSync,
+    onSyncStart: startCoupleSync,
+    onSyncSubmit: submitCoupleSync,
+    onSyncRemove: removeCoupleSync,
+    syncGen: gen.coupleSync
   });else if (screen === "lore") body = h(WorldBook, {
     entries: loreEntries,
     characters: characters,

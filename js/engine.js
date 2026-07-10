@@ -822,6 +822,18 @@ async function weatherFor(lat, lng) {
   return out;
 }
 function weatherLine(w) { return w && isFinite(w.t) ? wmoEmoji(w.dayCode != null ? w.dayCode : w.code) + wmoZh(w.dayCode != null ? w.dayCode : w.code) + "，现在 " + w.t + "°C（今天 " + w.lo + "~" + w.hi + "°）" : ""; }
+// 特殊天气判定（给「角色对天气有反应」用）：雨/雪/雷雨/大雾/高温/严寒才算，晴阴多云返回 null
+function wxSpecial(w) {
+  if (!w || !isFinite(w.t)) return null;
+  const c = w.dayCode != null ? w.dayCode : w.code;
+  if (c >= 95) return "雷雨";
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "下雪";
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return "下雨";
+  if (c === 45 || c === 48) return "大雾";
+  if (isFinite(w.hi) && w.hi >= 33) return "高温";
+  if (isFinite(w.lo) && w.lo <= -10) return "严寒";
+  return null;
+}
 // ============================================================
 // 线下模式（offline / 赴约）—— 面对面叙事，带动作/心理/旁白 + 心声
 // ============================================================
