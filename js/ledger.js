@@ -81,6 +81,19 @@
     return { exp, inc, net: inc - exp, catList, count: txns.filter(t => t.currency === code && monthKey(t.date) === mk).length };
   }
 
+  // 主屏记账小组件数据（纯本地零 API）：本月各币种 支出/收入/最大分类
+  window.ledgerWidgetData = function () {
+    try {
+      const d = loadData();
+      const curs = d.settings.currencies || DEFAULT_CURS;
+      const mk = thisMonthKey();
+      return curs.map(c => {
+        const s = summarize(d.txns || [], c.code, mk);
+        return { code: c.code, symbol: c.symbol || "", label: c.label || c.code, exp: s.exp, inc: s.inc, count: s.count, topCat: s.catList[0] ? (s.catList[0].emoji ? s.catList[0].emoji + s.catList[0].name : s.catList[0].name) : "" };
+      }).filter(r => r.count > 0);
+    } catch (e) { return []; }
+  };
+
   // ============================================================
   // 事件判定（纯本地、零 API）：这笔账值不值得角色「自己注意到、主动开口」
   // 命中返回 {key,desc}，没命中返回 null——绝大多数账没事件，一分钱 API 不花

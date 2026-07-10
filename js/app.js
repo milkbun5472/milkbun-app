@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.76";
+const APP_VERSION = "v47.77";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -158,6 +158,9 @@ function App() {
   const [coupleMood, setCoupleMood] = useState([]);
   // 情侣空间·同频测试：整局存档流 {id,characterId,ts,status:'quiz'|'done',qs:[{q,opts,my,ta,reason}],score,remark}
   const [coupleSync, setCoupleSync] = useState([]);
+  // 情侣空间·交换日记：一本两人轮流写的本子 {id,characterId,author:'user'|charId,content,mood,weather,date,ts,dueTs?,replied?,replyToId?,unread?}
+  const [coupleExDiary, setCoupleExDiary] = useState([]);
+  const coupleExDiaryRef = useRef([]); coupleExDiaryRef.current = coupleExDiary;
   // 情侣空间·恋爱时间轴 {id,characterId,date,type,title,content,byCharacter,createdAt}
   const [coupleTimeline, setCoupleTimeline] = useState([]);
   // 情侣空间·纪念日倒计时 {id,characterId,name,month,day,yearlyRepeat,createdAt}
@@ -379,6 +382,7 @@ function App() {
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
     setCoupleMood(loadJSON("x_coupleMood", []));
     setCoupleSync(loadJSON("x_coupleSync", []));
+    setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
     setCoupleAnniv(loadJSON("x_coupleAnniv", []));
     setCoupleLetters(loadJSON("x_coupleLetters", []));
@@ -1161,6 +1165,20 @@ function App() {
             saveJSON("x_wxReactDay", dayKey);
             replyNow(c.id, "", null, { proactive: true, wx: { kind: sp, line: weatherLine(w) } });
             return;                                             // 一次一个，错峰
+          }
+        }
+      } catch (e) {}
+      // —— 交换日记到期回页：TA 三天内挑个时候写回页（一次一页错峰；只在白天写；失败退避在生成函数里）——
+      try {
+        const cps = loadJSON("x_couples", {});
+        const hrNow = new Date().getHours();
+        if (hrNow >= 8 && hrNow <= 23) {
+          for (const pg of coupleExDiaryRef.current || []) {
+            if (!pg || pg.author !== "user" || pg.replied || !pg.dueTs || Date.now() < pg.dueTs) continue;
+            if (!cps[pg.characterId] || cps[pg.characterId].status !== "together") continue;
+            if (exDiaryGenRef.current[pg.id]) continue;
+            genExDiaryReply(pg.characterId, pg.id);
+            break;                                            // 一次一页
           }
         }
       } catch (e) {}
@@ -4884,6 +4902,54 @@ function App() {
     saveJSON("x_coupleSync", n);
     return n;
   });
+
+  // ---- 情侣空间·交换日记（v47.77 借 LNChat）----
+  // 一本两人轮流写的本子：我随时写一页 → TA 三天内挑个时候回一页（按 TA【回复当天】的处境写，
+  // 呼应我那页 + 写没说出口的潜台词）。写页零 API；TA 回页=tick 到期触发一次调用
+  const saveExDiary = updater => setCoupleExDiary(p => {
+    const n = typeof updater === "function" ? updater(p) : updater;
+    coupleExDiaryRef.current = n;               // 同步 ref（saveMemLib 血泪教训：连续保存别互相覆盖）
+    saveJSON("x_coupleExDiary", n);
+    return n;
+  });
+  const addExDiaryPage = (char, content, moodWord) => {
+    const c = (content || "").trim();
+    if (!c) return;
+    let wline = "";
+    try { const g = prefs.geoAware && geo; const w = g && typeof g.lat === "number" ? weatherCached(g.lat, g.lng) : null; if (w) wline = wmoZh(w.dayCode != null ? w.dayCode : w.code) + " " + w.t + "°C"; } catch (e) {}
+    const due = Date.now() + (4 + Math.random() * 56) * 3600000; // TA 4~60 小时内挑个时候回（三天内）
+    saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: char.id, author: "user", content: c, mood: (moodWord || "").trim(), weather: wline, date: ymd(new Date()), ts: Date.now(), dueTs: due, replied: false }, ...p]);
+    toast("写好了，TA 这几天会回你一页");
+  };
+  const exDiaryGenRef = useRef({});
+  const genExDiaryReply = async (cid, pageId) => {
+    if (!active || exDiaryGenRef.current[pageId]) return;
+    exDiaryGenRef.current[pageId] = 1;
+    try {
+      const char = characters.find(c => c.id === cid);
+      const page = coupleExDiaryRef.current.find(x => x.id === pageId);
+      if (!char || !page) return;
+      const uN = profile.name || "对方";
+      const d = await runProbe(active, ctxFor(char), {
+        instruction: "你们是恋人，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
+        schemaHint: "{\"content\":\"日记正文\",\"mood\":\"心情短词\",\"weather\":\"天气短语\"}",
+        maxTokens: 6000
+      });
+      if (d && d.content) {
+        saveExDiary(p => [{ id: "exd_" + Date.now(), characterId: cid, author: cid, content: String(d.content).trim(), mood: String(d.mood || "").trim(), weather: String(d.weather || "").trim(), date: ymd(new Date()), ts: Date.now(), replyToId: pageId, unread: true }, ...p.map(x => x.id === pageId ? { ...x, replied: true } : x)]);
+        toast(char.name + " 回了你一页交换日记");
+      }
+    } catch (e) {
+      // 失败退避 1 小时再试，别每 45s 的 tick 反复撞同一个错
+      saveExDiary(p => p.map(x => x.id === pageId ? { ...x, dueTs: Date.now() + 3600000 } : x));
+    }
+    finally { delete exDiaryGenRef.current[pageId]; }
+  };
+  // 打开交换日记：TA 的未读页标已读
+  const markExDiaryRead = cid => {
+    if (!(coupleExDiaryRef.current || []).some(x => x.characterId === cid && x.author !== "user" && x.unread)) return;
+    saveExDiary(p => p.map(x => x.characterId === cid && x.author !== "user" && x.unread ? { ...x, unread: false } : x));
+  };
   // 情侣空间·心情打卡：让角色留一条此刻心情（右上刷新触发；未来接调度器每日/随机）
   // 心情打卡：每天一次，我选一个心情 → TA 也为今天选一个心情 + 一句话；一天一条 {date,myMood,charMood,charText}
   const COUPLE_MOOD_KEYS = ["relax:轻松", "surprise:惊喜", "gloomy:郁闷", "sad:难过", "happy:开心", "irritated:烦躁", "proud:骄傲", "cozy:舒畅", "amazed:惊讶"];
@@ -6490,7 +6556,10 @@ function App() {
     onSyncStart: startCoupleSync,
     onSyncSubmit: submitCoupleSync,
     onSyncRemove: removeCoupleSync,
-    syncGen: gen.coupleSync
+    syncGen: gen.coupleSync,
+    coupleExDiary: coupleExDiary,
+    onAddExDiary: addExDiaryPage,
+    onReadExDiary: markExDiaryRead
   });else if (screen === "lore") body = h(WorldBook, {
     entries: loreEntries,
     characters: characters,

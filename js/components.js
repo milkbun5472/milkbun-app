@@ -569,6 +569,20 @@ function WeatherWidget({ userGeo, onOpen }) {
       userGeo && userGeo.label ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(userGeo.label).slice(0, 12)) : null)
     : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-line" } }, "🌤 天气\n" + (userGeo ? "获取中…" : "设置里开定位后显示")));
 }
+// 记账小组件（2 格宽）：本月各币种支出一眼看（数据走 ledger.js 的 window.ledgerWidgetData，纯本地零 API）
+function LedgerWidget({ onOpen }) {
+  const t = useTheme();
+  const rows = (typeof window !== "undefined" && typeof window.ledgerWidgetData === "function" ? window.ledgerWidgetData() : []) || [];
+  const fmt = n => { const v = Math.round((Number(n) || 0) * 100) / 100; return v >= 10000 ? (Math.round(v / 100) / 100) + "w" : v.toLocaleString("en-US", { maximumFractionDigits: v >= 100 ? 0 : 2 }); };
+  return h(GlassCard, { onClick: onOpen, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
+    rows.length ? h("div", null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: t.fog, marginBottom: 3 } }, "本月支出"),
+      rows.slice(0, 2).map(r => h("div", { key: r.code, className: "flex items-baseline gap-1", style: { minWidth: 0 } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: rows.length > 1 ? 16 : 20, color: t.ink, lineHeight: 1.25, whiteSpace: "nowrap" } }, r.symbol + fmt(r.exp)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.code + (r.inc > 0 ? " · 入" + fmt(r.inc) : "")))),
+      rows[0] && rows[0].topCat ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "花最多：" + rows[0].topCat) : null)
+    : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-line" } }, "📒 记账\n本月还没记账"));
+}
 // 备忘录小组件：最近 3 条未完成提醒（逾期红字优先），点开进备忘录
 function MemoWidget({ onOpen }) {
   const t = useTheme();
@@ -986,6 +1000,7 @@ function Home({
     w_memo: { kind: "widget", which: "memo" },
     w_weather: { kind: "widget", which: "weather" },
     w_muyu: { kind: "widget", which: "muyu" },
+    w_ledger: { kind: "widget", which: "ledger" },
     cast: { kind: "app", zh: "名录", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     lifestyle: { kind: "app", zh: "行程", G: GLife },
@@ -1013,7 +1028,7 @@ function Home({
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
-    ["w_cal", "shop", "carry", "cwallet", "ledger", "w_us", "w_memo"],
+    ["w_cal", "shop", "carry", "cwallet", "ledger", "w_ledger", "w_us", "w_memo"],
     ["lore", "memlib", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games"],
     ["capsule", "w_muyu", "w_weather"]
   ];
@@ -1025,7 +1040,7 @@ function Home({
     var it = key && key.slice(0, 2) === "f_" ? { kind: "folder" } : REG[key];
     if (!it) return 0;
     if (it.kind !== "widget") return 1;
-    return it.which === "cal" ? 9 : it.which === "muyu" ? 4 : it.which === "weather" ? 2 : 4;
+    return it.which === "cal" ? 9 : it.which === "muyu" ? 4 : it.which === "weather" || it.which === "ledger" ? 2 : 4;
   };
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   // 文件夹（f_ 开头）也是合法项；躺在文件夹里的 app 视作已放置，不再回填到页面
@@ -1334,7 +1349,7 @@ function Home({
     const isHoverTgt = hoverKey === key; // 有 app 悬停在我头上蓄力合并
     // 组件占格：日历 3 宽 3 高（右边留一列放 app），名片/音乐整行宽
     let gCol = "span 1", gRow = "auto";
-    if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather") { gCol = "span 2"; } else if (it.which === "muyu") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
+    if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather" || it.which === "ledger") { gCol = "span 2"; } else if (it.which === "muyu") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
@@ -1348,6 +1363,7 @@ function Home({
     else if (it.which === "memo") inner = h(MemoWidget, { onOpen: function () { return onOpenApp("memo"); } });
     else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode });
     else if (it.which === "weather") inner = h(WeatherWidget, { userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } });
+    else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
     else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } }) : null);
     return h("div", {
       key: key, "data-appkey": key,
