@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.51";
+const APP_VERSION = "v47.52";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -962,6 +962,9 @@ function App() {
       (coupleAnniv || []).forEach(a => { if (a && a.characterId === char.id && a.month === today.getMonth() + 1 && a.day === today.getDate()) lines.push("🎉 今天是你和 " + uName + " 的「" + (a.name || "纪念日") + "」。"); });
       // —— 公历节日（大家都知道）——
       if (FIXED_FESTIVALS[mdK]) lines.push("今天是" + FIXED_FESTIVALS[mdK] + "（大家都知道的日子，若情境合适可自然应个景，别硬凹节日气氛）。");
+      // —— 农历节日（春节/中秋/端午…含除夕）——
+      const lf = typeof lunarFestivalOn === "function" ? lunarFestivalOn(today) : null;
+      if (lf) lines.push("今天是农历的【" + lf + "】（若情境合适可自然应景：问候、聊吃食习俗、约着过节都行，别硬凹）。");
       // —— 今日日历三视角 ——
       const w = evTitles(cal.world && cal.world[tK]);
       if (w) lines.push("今天这个世界里：" + w + "（大家都知道的公共事件，聊到可自然带出）。");
@@ -3342,7 +3345,7 @@ function App() {
     try {
       const dp = schedDateParts(dayKey);
       const d = await runProbe(bgActive, ctxFor(char), {
-        instruction: "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）。",
+        instruction: "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。",
         schemaHint: "{\"buys\":[{\"item\":\"楼下便利店饭团+冰美式\",\"amount\":18},{\"item\":\"地铁通勤往返\",\"amount\":8}]}",
         maxTokens: 800
       });

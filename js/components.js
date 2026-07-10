@@ -763,7 +763,7 @@ function Calendar({ characters, calendar, profile, period, busy, onBack, onSaveE
     return hits;
   };
   // 公历节日只在「世界」视角显示（是公共大事）；FIXED_FESTIVALS 在 engine.js
-  const festOn = d => (view === "world" && typeof FIXED_FESTIVALS !== "undefined") ? (FIXED_FESTIVALS[(ym.m + 1) + "-" + d] || null) : null;
+  const festOn = d => (view === "world" && typeof FIXED_FESTIVALS !== "undefined") ? (FIXED_FESTIVALS[(ym.m + 1) + "-" + d] || (typeof lunarFestivalOn === "function" ? lunarFestivalOn(new Date(ym.y, ym.m, d)) : null) || null) : null;
   // 备忘录提醒落在「我的」视角对应日（item 7）：读 memo.js 的 window.memoRemindersOnDay
   const remindOn = d => (view === "mine" && window.memoRemindersOnDay) ? window.memoRemindersOnDay(ym.y, ym.m + 1, d) : [];
   const chip = active => ({ fontFamily: F_BODY, fontSize: 12.5, padding: "5px 13px", borderRadius: 999, background: active ? t.ink : "transparent", color: active ? t.bg2 : t.fog, border: "1px solid " + (active ? t.ink : t.line) });
