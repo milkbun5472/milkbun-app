@@ -741,7 +741,8 @@ async function ttsSpeak(text, voiceId) {
   const txt = String(text || "").trim().slice(0, 800);
   if (!txt) throw new Error("这条语音没有文字内容");
   const emo = ttsEmotionOf(txt);
-  const key = ttsCacheKey(vid + ":" + emo, txt);
+  // 缓存键带 :lb 标记：language_boost 上线前的旧缓存是带口音的老发音，别再命中（旧条目留着不碍事，只是不再用）
+  const key = ttsCacheKey(vid + ":" + emo + ":lb", txt);
   const hit = await idbAudGet(key).catch(() => null);
   if (hit && hit.size > 0) return hit;
   const base = (a.baseUrl || "https://api.minimax.io").trim().replace(/\/+$/, "");
@@ -752,7 +753,8 @@ async function ttsSpeak(text, voiceId) {
     r = await fetch(base + "/v1/t2a_v2?GroupId=" + encodeURIComponent(a.groupId), {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey },
-      body: JSON.stringify({ model: a.model || "speech-02-hd", text: txt, stream: false, voice_setting: { voice_id: vid, speed: 1.0, vol: 1.0, pitch: 0, emotion: emo }, audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 } }),
+      // language_boost:"Chinese"（v47.79）：把发音往标准普通话拉——外语素材克隆的音色（如日本声优）说中文带口音，这是官方唯一的矫正旋钮
+      body: JSON.stringify({ model: a.model || "speech-02-hd", text: txt, stream: false, language_boost: "Chinese", voice_setting: { voice_id: vid, speed: 1.0, vol: 1.0, pitch: 0, emotion: emo }, audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 } }),
       signal: ctrl.signal
     });
   } finally { clearTimeout(to); }
