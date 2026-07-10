@@ -531,12 +531,13 @@ function CalWidget({ now, calendar, onOpen, period }) {
   return h("button", {
     onClick: onOpen,
     className: "col-span-3 row-span-3 active:opacity-80 text-left",
-    style: { background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.65)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.1)" }
+    // height:100% + flex 列：日历撑满 3 行格高、日期行均匀铺开，下沿和旁边的 app 对齐（之前内容矮一截、底下空一块）
+    style: { height: "100%", display: "flex", flexDirection: "column", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.65)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.1)" }
   },
-    h("div", { className: "flex items-baseline justify-between mb-2" },
+    h("div", { className: "flex items-baseline justify-between mb-2", style: { flexShrink: 0 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, (m + 1) + "月"),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, y)),
-    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 } },
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, flex: 1, alignContent: "space-between", minHeight: 0 } },
       CAL_DOW.map((w, i) => h("div", { key: "h" + i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 2 } }, w)),
       calCells(y, m).map((d, i) => {
         if (d === null) return h("div", { key: i });
