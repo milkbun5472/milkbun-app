@@ -70,6 +70,7 @@ function CastForm({
   const [appearance, setAppearance] = useState(initial && initial.appearance || "");
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
+  const [voiceId, setVoiceId] = useState(initial && initial.voiceId || "");
   const save = () => {
     if (!name.trim()) return;
     onSave(Object.assign({}, initial || {}, {
@@ -84,6 +85,7 @@ function CastForm({
       appearance: appearance.trim(),
       refPhoto: refPhoto,
       birthday: birthday.trim(),
+      voiceId: voiceId.trim(),
       remark: initial && initial.remark || ""
     }));
   };
@@ -198,6 +200,12 @@ function CastForm({
         h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张参考照(可选)固定长相；接了图像 API 后，TA 聊天里会偶尔发自拍")),
       h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相/发型/身材/气质/常穿风格……越具体，自拍越像本人。" }))),
+  h(LineField, { zh: "音色 · 语音消息用", en: "Voice" },
+    h("div", null,
+      h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v =>
+        h("button", { key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg2, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
+      h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: "或直接填 voice_id（含克隆音色）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接了语音 API（设置 · 语音 TTS）并选了音色后，TA 的语音消息就能点开真听。不选=这个角色不发声。"))),
   initial && /*#__PURE__*/React.createElement("button", {
     onClick: () => onDelete(initial.id),
     className: "mt-8 w-full flex items-center justify-center gap-2 py-3",
@@ -2685,6 +2693,52 @@ function CotConfig({ toast }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "改动即时保存，全部角色通用。思考越细，正文越贴——但也会多花一点点生成。")));
 }
 // 图像 API（角色自拍）设置：开关 + 端点/密钥/模型/尺寸/质量。存 x_imgApi（图本身进 IndexedDB 不在这）。
+// MiniMax 语音 TTS 配置：懒生成（点开语音那条才合成收费），成品缓存在本机重播免费
+function TtsApiConfig({ toast }) {
+  const t = useTheme();
+  const [c, setC] = useState(loadTtsApi());
+  const set = patch => setC(saveTtsApi(patch));
+  const [testing, setTesting] = useState(false);
+  const [testErr, setTestErr] = useState(null);
+  const testAudRef = useRef(null);
+  const runTest = async () => {
+    if (!ttsReady(c)) { toast && toast("先填 GroupId 和密钥"); return; }
+    const aud = new Audio();
+    testAudRef.current = aud;
+    aud.play().catch(() => {});
+    setTesting(true); setTestErr(null);
+    try {
+      const blob = await ttsSpeak("你好呀，听听我的声音合不合适？", "female-shaonv");
+      const url = URL.createObjectURL(blob);
+      aud.src = url; aud.onended = () => URL.revokeObjectURL(url);
+      await aud.play();
+      toast && toast("✅ 接口通了，正在播放试听");
+    } catch (e) { setTestErr(String((e && e.message) || e)); }
+    finally { setTesting(false); }
+  };
+  const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+  const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
+  return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
+    h("div", { className: "flex items-center justify-between py-2" },
+      h("div", { style: { paddingRight: 12 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "语音 TTS · 角色真发声"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax 语音合成。开了之后，选了音色的角色发的语音消息能点 ▶ 真听。⭐按字符计费，但只有你点开那条才合成；合成过的存在本机、重播免费。")),
+      h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启语音合成（点开才收费）" : "已关闭"); } })),
+    c.enabled ? h("div", { className: "pt-3" },
+      row("接口地址（默认 MiniMax 国内站，海外版填 https://api.minimaxi.com）", h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.chat", style: inSt })),
+      row("GroupId（MiniMax 控制台·账户信息里）", h("input", { value: c.groupId || "", onChange: e => set({ groupId: e.target.value }), placeholder: "17xxxxxxxxxxxx", style: inSt })),
+      row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "eyJ…", type: "password", style: inSt })),
+      row("模型", h("select", { value: c.model || "speech-02-hd", onChange: e => set({ model: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
+        h("option", { value: "speech-02-hd" }, "speech-02-hd（音质好·推荐）"),
+        h("option", { value: "speech-02-turbo" }, "speech-02-turbo（快·便宜）"),
+        h("option", { value: "speech-01-hd" }, "speech-01-hd"),
+        h("option", { value: "speech-01-turbo" }, "speech-01-turbo"))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。"),
+      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
+      testErr ? h("div", { style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
+        h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
+}
 function ImageApiConfig({ toast }) {
   const t = useTheme();
   const [c, setC] = useState(() => (typeof loadImgApi === "function" ? loadImgApi() : { baseUrl: "", apiKey: "", model: "gpt-image-1", size: "1024x1536", quality: "medium", enabled: false }));
@@ -2813,6 +2867,8 @@ function Config({
     onSave: onSaveApi,
     toast: toast
   }), /*#__PURE__*/React.createElement(ImageApiConfig, {
+    toast: toast
+  }), /*#__PURE__*/React.createElement(TtsApiConfig, {
     toast: toast
   })), tab === "sense" && /*#__PURE__*/React.createElement(SenseConfig, {
     prefs: prefs,

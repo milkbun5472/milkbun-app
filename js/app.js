@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.39";
+const APP_VERSION = "v47.40";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -839,17 +839,22 @@ function App() {
       return parts.join("；");
     })(),
     momentLog: (() => {
-      const mine = (moments || []).filter(m => m.mine).slice(0, 3);
-      if (!mine.length) return "";
-      return mine.map(m => {
+      const out = [];
+      (moments || []).filter(m => m.mine).slice(0, 3).forEach(m => {
         const liked = (m.likers || []).includes(char.name);
         const myC = (m.comments || []).filter(cm => cm.author === char.name).map(cm => cm.text);
         const acts = [];
         if (liked) acts.push("你点了赞");
         if (myC.length) acts.push("你评论了「" + myC.join("；") + "」");
         if (!acts.length) acts.push("你没点赞也没评论");
-        return "· 用户发的「" + String(m.content || "").slice(0, 40) + "」：" + acts.join("，");
-      }).join("\n");
+        out.push("· 用户发的「" + String(m.content || "").slice(0, 40) + "」：" + acts.join("，"));
+      });
+      // 你自己发过的动态 + 评论区摘要（不然用户在你帖子下回了你、聊天里你却一脸茫然）
+      (moments || []).filter(m => !m.mine && m.characterId === char.id).slice(0, 2).forEach(m => {
+        const cs = (m.comments || []).slice(-4).map(cm => (cm.author || "某人") + "说「" + String(cm.text || "").slice(0, 30) + "」").join("；");
+        out.push("· 你自己发的「" + String(m.content || "").slice(0, 40) + "」" + (cs ? "，评论区：" + cs : "，还没人评论"));
+      });
+      return out.join("\n");
     })(),
     forumEcho: (() => {
       const posts = forumPostsRef.current || [];

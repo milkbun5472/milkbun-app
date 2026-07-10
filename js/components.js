@@ -2623,7 +2623,7 @@ function ChatThread({
         onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 18 }
-      }, h(VoiceMsg, { m: m, isU: m.role === "user" })),
+      }, h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : character })),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "callinvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
@@ -3517,19 +3517,47 @@ function giftFmtLeft(ms) {
   return m > 0 ? m + "分" + (s % 60) + "秒" : (s % 60) + "秒";
 }
 // 语音消息：默认只显示语音条（波形+文件名+时长），点一下才展开转文字（TRANSCRIPT）
-function VoiceMsg({ m, isU }) {
+function VoiceMsg({ m, isU, speaker }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  const [pSt, setPSt] = useState("idle"); // idle | gen | playing
+  const [pErr, setPErr] = useState(null);
+  const audRef = useRef(null);
+  useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
   const dur = m.dur || Math.max(1, Math.round(String(m.content || "").replace(/\s/g, "").length / 3));
   const mmss = Math.floor(dur / 60) + ":" + String(dur % 60).padStart(2, "0");
   const fg = isU ? "#16330a" : t.ink;
   const MONO = "'Archivo','SF Mono',ui-monospace,monospace";
+  // 有配语音 API + 这个角色选了音色 → 才显示播放按钮（懒生成：点了才合成收费，缓存后重播免费）
+  const canTts = !isU && speaker && speaker.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
+  const playTts = async e => {
+    e.stopPropagation();
+    if (pSt === "gen") return;
+    if (pSt === "playing") { try { audRef.current && audRef.current.pause(); } catch (x) {} setPSt("idle"); return; }
+    const aud = new Audio();
+    audRef.current = aud;
+    aud.play().catch(() => {}); // 在用户手势里先解锁 iOS 音频，真数据到了才播
+    setPErr(null); setPSt("gen");
+    try {
+      const blob = await ttsSpeak(m.content, speaker.voiceId);
+      const url = URL.createObjectURL(blob);
+      aud.src = url;
+      aud.onended = () => { setPSt("idle"); URL.revokeObjectURL(url); };
+      aud.onerror = () => { setPSt("idle"); setPErr("音频播放失败"); URL.revokeObjectURL(url); };
+      await aud.play();
+      setPSt("playing");
+    } catch (err) {
+      setPSt("idle"); setPErr(String((err && err.message) || err)); setOpen(true);
+    }
+  };
   return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", minWidth: 208, borderRadius: 15, overflow: "hidden", background: isU ? "#95d16f" : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
     h("div", { className: "flex items-center gap-2.5 px-3.5", style: { height: 42 } },
-      h("div", { className: "flex items-center gap-0.5", style: { height: 15 } }, [4, 9, 6, 12, 7, 10, 5].map((hh, j) => h("span", { key: j, style: { width: 2, height: hh, borderRadius: 2, background: fg, opacity: 0.55 } }))),
-      h("span", { className: "flex-1", style: { fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", color: fg, opacity: 0.8 } }, "AUDIO_MEMO.WAV"),
+      canTts ? h("button", { onClick: playTts, className: "active:opacity-60 shrink-0", style: { width: 26, height: 26, borderRadius: 999, border: "1.5px solid " + fg, display: "flex", alignItems: "center", justifyContent: "center", color: fg, fontSize: pSt === "gen" ? 10 : 11, background: "transparent" } }, pSt === "gen" ? "…" : (pSt === "playing" ? "⏸" : "▶")) : null,
+      h("div", { className: "flex items-center gap-0.5", style: { height: 15 } }, [4, 9, 6, 12, 7, 10, 5].map((hh, j) => h("span", { key: j, style: { width: 2, height: hh, borderRadius: 2, background: fg, opacity: pSt === "playing" ? 0.95 : 0.55 } }))),
+      h("span", { className: "flex-1", style: { fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em", color: fg, opacity: 0.8 } }, pSt === "gen" ? "SYNTH…" : "AUDIO_MEMO.WAV"),
       h("span", { style: { fontFamily: MONO, fontSize: 11, color: fg, opacity: 0.7 } }, mmss)),
     open && h("div", { className: "px-3.5 pb-3", style: { borderTop: `1px solid ${isU ? "rgba(0,0,0,0.13)" : t.line}` } },
+      pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "🔇 " + pErr) : null,
       h("div", { style: { fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, margin: "8px 0 5px" } }, "TRANSCRIPT"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, m.content || "")));
 }
@@ -5204,7 +5232,7 @@ function GroupThread({
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 18 }
       },
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-        h(VoiceMsg, { m: m, isU: m.role === "user" })),
+        h(VoiceMsg, { m: m, isU: m.role === "user", speaker: m.role === "user" ? null : memberById(m.senderId) })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "callinvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),

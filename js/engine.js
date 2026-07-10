@@ -365,7 +365,7 @@ function buildBundle(ctx, opts) {
   if (ctx.groupEcho && ctx.groupEcho.trim()) parts.push("【你也在这些群里·群里最近发生的事（真实发生过，你在场、都知道）】\n下面是你所在群聊最近的对话，你都亲历、记得。\n**关键：群记录里那个发言的「" + uName + "」，就是【此刻正在跟你单独聊天的这个人（TA）】——不是别的谁。** 所以 TA 刚在群里说过/做过的事（比如说要去上班、说了什么计划），你【当然知道】，现在跟 TA 单聊时要接得上，别自相矛盾（比如 TA 群里刚说去上班、你却在私聊里问 TA『醒啦睡得好吗』这种明显没在听的话）。聊到相关的自然想起、回应、调侃即可，但别没头没脑硬把群聊内容整段倒出来。\n" + ctx.groupEcho.trim());
   if (ctx.schedNow && ctx.schedNow.trim()) parts.push("【" + char.name + " 今天的行程 / 此刻在做什么】（据此自然反映到语气、状态和心情：在忙就可能回得短，被你打断了行程可能会提，累/闲会影响情绪。别生硬报行程表）\n" + ctx.schedNow.trim());
   if (ctx.giftLog && ctx.giftLog.trim()) parts.push("【你们之间的礼物往来】（这些礼物真实发生过，你记得。聊到相关话题、或 " + uName + " 提起时可自然想起、回应、道谢或调侃，别生硬罗列）\n" + ctx.giftLog.trim());
-  if (ctx.momentLog && ctx.momentLog.trim()) parts.push("【" + uName + " 最近的朋友圈 & 你的互动】（你清楚自己在每条下点没点赞、评没评论。" + uName + " 问起时如实回答；若你此刻决定去补一条评论/点赞，就把评论内容填进输出的 momentComment 字段）\n" + ctx.momentLog.trim());
+  if (ctx.momentLog && ctx.momentLog.trim()) parts.push("【朋友圈动态（" + uName + " 发的 & 你自己发的）】（你清楚自己在 " + uName + " 每条下点没点赞、评没评论，也记得自己发过什么、谁在你帖子下说了什么——聊到时自然接得上、别一脸茫然。若你此刻决定去 " + uName + " 最新那条下补评论/点赞，把评论内容填进输出的 momentComment 字段）\n" + ctx.momentLog.trim());
   if (ctx.forumEcho && ctx.forumEcho.trim()) parts.push("【你在论坛（贴吧）的动态 & 有人回你】（这些真实发生过、你都看到了：" + uName + " 在你帖子下的评论、别人对你评论的回复等。" + uName + " 聊到或提起时可自然回应、追问、辩解或调侃，别生硬罗列、别自曝上帝视角）\n" + ctx.forumEcho.trim());
   if (ctx.phoneNote && ctx.phoneNote.trim()) parts.push("【你手机上的近况（你自己清楚这些：在听的歌、刷的视频、记的备忘等。别主动报清单，但当 " + uName + " 提起、或内容对上了——比如发来你正在听的那首歌的一句歌词——你要能自然认出来、接住话、反应过来）】\n" + ctx.phoneNote.trim());
   if (ctx.listenLog && ctx.listenLog.trim()) parts.push("【一起听 · 歌】\n" + ctx.listenLog.trim());
@@ -659,6 +659,69 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // 有参考照：先 edits(保长相)，挂了退回 generations；没参考照直接 generations
   if (refPhotoDataUrl) { try { return await attempt(true); } catch (e) { return await attempt(false); } }
   return await attempt(false);
+}
+// ============================================================
+// MiniMax 语音 TTS —— 角色语音消息真发声
+// ⭐懒生成：点开那条才合成（按字符计费，没人点就不花钱）；成品存 IndexedDB(x_tts) 缓存，重播免费
+// 配置存 x_ttsApi（可云同步）；每角色音色在角色档案 voiceId 字段
+// ============================================================
+function loadTtsApi() {
+  const def = { baseUrl: "https://api.minimax.chat", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false };
+  try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") return Object.assign({}, def, c); } catch (e) {}
+  return def;
+}
+function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try { localStorage.setItem("x_ttsApi", JSON.stringify(clean)); } catch (e) {} return clean; }
+function ttsReady(a) { a = a || loadTtsApi(); return !!(a.enabled && a.groupId && a.apiKey); }
+// MiniMax 系统预置音色（先用预置，克隆音色以后再接——克隆出的 voice_id 也能直接填）
+const TTS_VOICES = [
+  { id: "male-qn-qingse", name: "青涩青年·男" }, { id: "male-qn-jingying", name: "精英青年·男" },
+  { id: "male-qn-badao", name: "霸道青年·男" }, { id: "male-qn-daxuesheng", name: "大学生·男" },
+  { id: "audiobook_male_1", name: "磁性低音·男" }, { id: "audiobook_male_2", name: "沉稳叙述·男" },
+  { id: "presenter_male", name: "男主播" }, { id: "clever_boy", name: "机灵少年" }, { id: "cute_boy", name: "可爱男孩" },
+  { id: "female-shaonv", name: "少女·女" }, { id: "female-yujie", name: "御姐·女" },
+  { id: "female-chengshu", name: "成熟·女" }, { id: "female-tianmei", name: "甜美·女" },
+  { id: "audiobook_female_1", name: "温柔叙述·女" }, { id: "presenter_female", name: "女主播" }, { id: "lovely_girl", name: "俏皮女孩" }
+];
+// ---- 音频缓存 IndexedDB（大二进制不进 localStorage/云同步）----
+function idbAudOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_tts", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("aud")) r.result.createObjectStore("aud"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbAudPut(k, blob) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readwrite"); tx.objectStore("aud").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+async function idbAudGet(k) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readonly"); const rq = tx.objectStore("aud").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
+function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + text; for (let i = 0; i < s.length; i++) hsh = (hsh * 33 + s.charCodeAt(i)) >>> 0; return "tts_" + voiceId + "_" + hsh.toString(36) + "_" + s.length; }
+// 合成一段语音：先查缓存，没有才真调 MiniMax（t2a_v2，hex 音频 → mp3 blob）
+async function ttsSpeak(text, voiceId) {
+  const a = loadTtsApi();
+  if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
+  const vid = voiceId || "female-shaonv";
+  const txt = String(text || "").trim().slice(0, 800);
+  if (!txt) throw new Error("这条语音没有文字内容");
+  const key = ttsCacheKey(vid, txt);
+  const hit = await idbAudGet(key).catch(() => null);
+  if (hit && hit.size > 0) return hit;
+  const base = (a.baseUrl || "https://api.minimax.chat").trim().replace(/\/+$/, "");
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 60000);
+  let r;
+  try {
+    r = await fetch(base + "/v1/t2a_v2?GroupId=" + encodeURIComponent(a.groupId), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey },
+      body: JSON.stringify({ model: a.model || "speech-02-hd", text: txt, stream: false, voice_setting: { voice_id: vid, speed: 1.0, vol: 1.0, pitch: 0 }, audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 } }),
+      signal: ctrl.signal
+    });
+  } finally { clearTimeout(to); }
+  const raw = await r.text();
+  let d; try { d = JSON.parse(raw); } catch (e) { throw new Error("语音接口没返回 JSON：" + raw.slice(0, 120)); }
+  if (d.base_resp && d.base_resp.status_code !== 0) throw new Error(d.base_resp.status_msg || ("错误码 " + d.base_resp.status_code));
+  const hex = d.data && (d.data.audio || d.audio);
+  if (!hex || typeof hex !== "string") throw new Error("返回里没有音频数据。原始返回：" + raw.replace(/\s+/g, " ").slice(0, 120));
+  // hex → bytes（MiniMax 音频是十六进制串）
+  const clean2 = hex.replace(/[^0-9a-f]/gi, "");
+  const arr = new Uint8Array(clean2.length >> 1);
+  for (let i = 0; i < arr.length; i++) arr[i] = parseInt(clean2.substr(i * 2, 2), 16);
+  if (arr.length < 200) throw new Error("音频数据异常（太短）");
+  const blob = new Blob([arr], { type: "audio/mpeg" });
+  idbAudPut(key, blob).catch(() => {});
+  return blob;
 }
 // ============================================================
 // 线下模式（offline / 赴约）—— 面对面叙事，带动作/心理/旁白 + 心声
