@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.59";
+const APP_VERSION = "v47.60";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1699,6 +1699,11 @@ function App() {
           g.push({ role: "user", content: "【你和" + uName + "刚刚在线下见了一面，经过如下——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，别再停留在线下前的状态】\n" + m.content });
           continue;
         }
+        if (m.kind === "callend") {
+          // 通话记录：让线上接得上电话里聊过的（有摘要给摘要，没有至少知道打过、多久）
+          g.push({ role: "user", content: "【这个位置你们通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "——别当没打过这通电话】" });
+          continue;
+        }
         if (m.role === "user") {
           const lu = g[g.length - 1];
           const qpfx = m.replyTo ? "（我在回应你说的「" + String(m.replyTo).slice(0, 40) + "」）" : "";
@@ -2093,7 +2098,7 @@ function App() {
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
       const _graw = gchat.filter(m => m.kind !== "ooc").slice(-(gs.ctxN || 30));
-      const fmtGLine = m => m.kind === "offlinelog" ? "【你们刚刚线下见了一面，经过如下（发生在上面之后、现已回到线上群聊，据此接话）】" + m.content : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : m.content);
+      const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面，经过如下（发生在上面之后、现已回到线上群聊，据此接话）】" + m.content : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : m.content);
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
       for (const m of _graw) { const ts = m.ts || 0; if (_gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + "，到 " + fmtStamp(ts) + " ——〕"); _gparts.push((gs.memoryInterop && ts ? "[" + fmtStamp(ts) + "] " : "") + fmtGLine(m)); if (ts) _gprev = ts; }
@@ -3602,7 +3607,11 @@ function App() {
         const memberDesc = people.map(c => "【" + c.name + "】" + (c.persona || "").slice(0, 160)).join("\n\n");
         const relLines = people.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
         const cWorld = loreText(loreRef.current, { charIds: people.map(c => c.id), scope: "chat", text: hist.map(m => m.content).join("\n") });
-        const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
+        // 群通话补记忆：群 OOC 规矩 + 记忆库检索（不互通的群守封闭分区，不读全局记忆库）——之前群通话两样都没接
+        const cgs = cur.groupId ? gsFor(cur.groupId) : null;
+        const cDirs = cur.groupId ? (directives[cur.groupId] || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(x => x.trim()) : [];
+        const cMem = (!cur.groupId || (cgs && cgs.memoryInterop)) ? formatMemLib(retrieveMemories(memLibRef.current, people[0] && people[0].id, hist.slice(-8).map(m => m.content).join("\n"), { limit: 5 })) : "";
+        const sys = "这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + "\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\"" + (isVideo ? ",\"action\":\"该角色此刻动作神态(视频可见,可选)\"" : "") + "}]，text 不要带名字前缀，一次 3~7 条，name 必须是在场角色之一。";
         const raw = await callAI(active, sys, hist, { maxTokens: 2400 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
@@ -3626,9 +3635,28 @@ function App() {
       const s = Math.max(0, Math.round(Number(sec) || 0));
       const dur = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
       const label = (cur.mode === "video" ? "视频通话" : "语音通话") + " 已结束 · 时长 " + dur;
-      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, content: label, ts: Date.now() };
+      const callId = "call_" + Date.now();
+      // 整通转录存进气泡（点开可回看）；act=视频里的动作行
+      const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content }));
+      const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, content: label, ts: Date.now(), id: callId, log };
       if (cur.groupId) pGChat(cur.groupId, p => [...p, bubble]);
       else if (cur.participants[0]) pChat(cur.participants[0].id, p => [...p, bubble]);
+      // 挂断后走后台便宜池出 1~2 句摘要：补进气泡（回看小结+线上聊天接得上）+ 入记忆库；太短的通话不折腾
+      const said = log.filter(m => !m.act && m.content && String(m.content).trim());
+      if (said.length >= 3 && bgActiveRef.current) (async () => {
+        try {
+          const uN = profile.name || "用户";
+          const text = log.map(m => m.role === "user" ? uN + "：" + m.content : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n");
+          const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话浓缩成1~2句第三人称记忆：聊了什么关键内容、情绪转折或达成的约定。具体、可复用。只输出正文，不要多余解释。";
+          const sum = (await callAI(bgActiveRef.current, sys, [{ role: "user", content: "【通话内容】\n" + text }], { maxTokens: 2000 })).trim();
+          if (!sum) return;
+          const patch = list => list.map(x => x.id === callId ? { ...x, sum } : x);
+          if (cur.groupId) pGChat(cur.groupId, patch);
+          else if (cur.participants[0]) pChat(cur.participants[0].id, patch);
+          // 记忆分区：群里打的通话，只有互通群才写进全局记忆库（同群线下的规矩）
+          if (!cur.groupId || gsFor(cur.groupId).memoryInterop) addMemEntry({ text: sum, tags: ["通话"], charIds: cur.participants.map(c => c.id), source: "auto" });
+        } catch (e) {/* 静默：摘要失败不影响通话记录本身 */}
+      })();
     }
     setCall(null);
   };

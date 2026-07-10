@@ -2788,21 +2788,7 @@ function ChatThread({
         maxWidth: "78%"
       }
     }, "OOC · " + m.content));
-    if (m.kind === "callend") return h("div", {
-      key: i,
-      className: "flex justify-center my-2"
-    }, h("span", {
-      className: "flex items-center gap-1.5",
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 11,
-        color: t.fog,
-        background: t.bg2,
-        padding: "4px 12px",
-        borderRadius: 999,
-        border: "1px solid " + t.line
-      }
-    }, h(PGlyph, { k: m.callMode === "video" ? "video" : "calls", size: 13, color: t.fog }), m.content));
+    if (m.kind === "callend") return h(CallEndPill, { key: i, m });
     if (m.kind === "offlinelog") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -3393,6 +3379,28 @@ function CallScreen({
   const secRef = useRef(0);
   const [pos, setPos] = useState(null); // PiP 小屏拖动位置（null=默认右上）
   const dragRef = useRef({ dragging: false, moved: false, grabX: 0, grabY: 0 });
+  // 通话台词懒 TTS：点那条才合成（缓存在 ttsSpeak 里，重播免费）；一次只放一条
+  const [play, setPlay] = useState(null); // {i, st:"gen"|"playing"}
+  const playAudRef = useRef(null);
+  useEffect(() => () => { if (playAudRef.current) { try { playAudRef.current.pause(); } catch (e) {} } }, []);
+  const playLine = async (i, m, spk) => {
+    if (play && play.st === "gen") return;
+    if (play && play.i === i && play.st === "playing") { try { playAudRef.current && playAudRef.current.pause(); } catch (e) {} setPlay(null); return; }
+    if (playAudRef.current) { try { playAudRef.current.pause(); } catch (e) {} }
+    const aud = new Audio();
+    playAudRef.current = aud;
+    aud.play().catch(() => {}); // 用户手势里先解锁 iOS 音频
+    setPlay({ i, st: "gen" });
+    try {
+      const blob = await ttsSpeak(m.content, spk.voiceId);
+      const url = URL.createObjectURL(blob);
+      aud.src = url;
+      aud.onended = () => { setPlay(p => p && p.i === i ? null : p); URL.revokeObjectURL(url); };
+      aud.onerror = () => { setPlay(p => p && p.i === i ? null : p); URL.revokeObjectURL(url); };
+      await aud.play();
+      setPlay({ i, st: "playing" });
+    } catch (e) { setPlay(null); }
+  };
   useEffect(() => {
     const i = setInterval(() => setSec(s => { secRef.current = s + 1; return s + 1; }), 1000);
     return () => clearInterval(i);
@@ -3492,14 +3500,18 @@ function CallScreen({
     if (m.act) return h("div", { key: i, className: "flex justify-center py-0.5" }, h("div", {
       style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }
     }, (isGroup && m.senderName ? m.senderName + " " : "") + "（" + m.content + "）"));
+    // 台词可点听：这条的说话人配了音色 + TTS 开着才显示 ▶（点了才合成收费）
+    const spk = m.senderId ? people.find(c => c.id === m.senderId) : (!isU && !isGroup ? primary : null);
+    const canT = !isU && spk && spk.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
+    const meP = play && play.i === i;
     return h("div", {
       key: i,
       className: "flex flex-col " + (isU ? "items-end" : "items-start")
     }, !isU && isGroup && m.senderName && h("span", {
       style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(255,255,255,0.5)", marginBottom: 1, marginLeft: 2 }
-    }, m.senderName), h("div", {
+    }, m.senderName), h("div", { className: "flex items-center gap-1.5", style: { maxWidth: "88%" } }, h("div", {
       style: {
-        maxWidth: "78%",
+        maxWidth: canT ? "100%" : "78vw",
         padding: "7px 12px",
         borderRadius: 14,
         fontFamily: F_BODY,
@@ -3509,7 +3521,11 @@ function CallScreen({
         background: isU ? "rgba(149,209,111,0.92)" : "rgba(255,255,255,0.14)",
         color: isU ? "#16330a" : "#fff"
       }
-    }, m.content));
+    }, m.content), canT ? h("button", {
+      onClick: () => playLine(i, m, spk),
+      className: "active:opacity-60 shrink-0",
+      style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && play.st === "gen" ? 9 : 10, background: "transparent" }
+    }, meP ? (play.st === "gen" ? "…" : "⏸") : "▶") : null));
   })), sending && h("div", {
     className: "px-6 pb-1",
     style: {
@@ -3826,6 +3842,26 @@ function VoiceMsg({ m, isU, speaker }) {
       pErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#c25a4a", margin: "8px 0 2px" } }, "🔇 " + pErr) : null,
       h("div", { style: { fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, margin: "8px 0 5px" } }, "TRANSCRIPT"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, m.content || "")));
+}
+// 通话结束气泡：点开回看整通转录（log 由 endCall 存进消息；老消息没 log 就是纯提示条）；sum=挂断后生成的摘要
+function CallEndPill({ m }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const log = Array.isArray(m.log) ? m.log : [];
+  const label = m.dur ? (m.callMode === "video" ? "视频通话" : "语音通话") + " 已结束 · 时长 " + m.dur : String(m.content || "").split("\n")[0];
+  return h("div", { className: "flex flex-col items-center my-2" },
+    h("span", {
+      onClick: log.length ? () => setOpen(o => !o) : undefined,
+      className: "flex items-center gap-1.5" + (log.length ? " active:opacity-60" : ""),
+      style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, background: t.bg2, padding: "4px 12px", borderRadius: 999, border: "1px solid " + t.line, maxWidth: "88%" }
+    }, h(PGlyph, { k: m.callMode === "video" ? "video" : "calls", size: 13, color: t.fog }), label + (log.length ? (open ? " · 收起" : " · 回看") : "")),
+    m.sum && !open ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, maxWidth: "76%", textAlign: "center", lineHeight: 1.5 } }, m.sum) : null,
+    open ? h("div", { style: { marginTop: 8, width: "88%", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", maxHeight: 300, overflowY: "auto" } },
+      log.map((l, j) => l.act
+        ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
+        : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
+            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content)),
+      m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
 }
 // 来电邀请卡（角色主动打来）：接听→进通话；拒绝→系统提示
 function CallInviteCard({ m, isU, onAccept, onDecline }) {
@@ -5416,21 +5452,7 @@ function GroupThread({
         lineHeight: 1.5
       }
     }, "— " + m.content + " —"));
-    if (m.kind === "callend") return h("div", {
-      key: i,
-      className: "flex justify-center py-1"
-    }, h("span", {
-      className: "flex items-center gap-1.5",
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 11,
-        color: t.fog,
-        background: t.bg2,
-        padding: "4px 12px",
-        borderRadius: 999,
-        border: "1px solid " + t.line
-      }
-    }, h(PGlyph, { k: m.callMode === "video" ? "video" : "calls", size: 13, color: t.fog }), m.content));
+    if (m.kind === "callend") return h(CallEndPill, { key: i, m });
     if (m.role === "system") return h("div", {
       key: i,
       className: "flex justify-center py-1"
