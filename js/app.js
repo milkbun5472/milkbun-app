@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.64";
+const APP_VERSION = "v47.65";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -142,6 +142,7 @@ function App() {
   const forumOffRef = useRef([]); forumOffRef.current = forumOff;
   const forumPostsRef = useRef([]); forumPostsRef.current = forumPosts;
   const forumCommentsRef = useRef({}); forumCommentsRef.current = forumComments;
+  const forumCInflightRef = useRef({}); // 每帖评论生成的进行中锁（防重入覆盖）
   const forumPMsRef = useRef([]); forumPMsRef.current = forumPMs;
   const forumCharMetaRef = useRef({}); forumCharMetaRef.current = forumCharMeta;
   const [whispers, setWhispers] = useState([]);
@@ -4133,14 +4134,14 @@ function App() {
     const opName = opChar ? opChar.name : (post.authorType === "me" ? (forumMe.handle || profile.name || "我") : (post.authorName || "楼主"));
     // 逛论坛的角色池要排除楼主本人——楼主不会在自己帖下冒泡回复自己
     const poolChars = forumActiveChars().filter(c => !opChar || c.id !== opChar.id);
-    const poolStr = poolChars.map(c => "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "）").join("；");
+    const poolStr = poolChars.map(c => "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 80) + (moods[c.id] && moods[c.id].label ? "｜此刻心情：" + moods[c.id].label : "") + "）").join("；");
     // 楼主规则：别自问自答、别把谁的名字写成「楼主」
     const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。"
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**";
     const who = isSearch
       ? "**楼里全是路人网友**（每条给 authorName 网名马甲 + handle 有趣 id），**不要出现你认识的任何角色**——这是搜来的陌生话题吧，角色未必关心、也不该全知全能地冒出来。"
-      : "**大多数楼是路人网友**（给 authorName 网名马甲 + handle 有趣 id）；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠，符合人设与心情；**若没有角色会真正关心这个话题，就全用路人、别硬塞角色**（角色不是全知的，不该出现在 Ta 不关心的话题里）：" + (poolStr || "（暂无其他角色）") + "。若某楼是某角色发的，就在该楼填 char=角色名（不要再填 authorName）。";
+      : "**大多数楼是路人网友**（给 authorName 网名马甲 + handle 有趣 id）；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠；**角色的评论必须是 Ta 真会说的话——口吻、用词、立场、关心范围都严格贴人设与此刻心情，写不出贴人设的评论就干脆别让 Ta 出现，宁可全路人、绝不 OOC**（角色不是全知的，不该出现在 Ta 不关心的话题里）：" + (poolStr || "（暂无其他角色）") + "。若某楼是某角色发的，就在该楼填 char=角色名（不要再填 authorName）。";
     return {
       instruction: forumBoardVoice(post.board) + " " + opRule + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是路人" : "，可以是路人或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
       schemaHint: "{\"comments\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（若是某角色发的填角色名，否则省略）\",\"content\":\"回复\",\"replies\":[{\"authorName\":\"网名\",\"char\":\"（角色名或省略）\",\"is_op\":false,\"content\":\"追评\"}]}]}",
@@ -4151,16 +4152,22 @@ function App() {
   const loadForumComments = async post => {
     if (forumCommentsRef.current[post.id]) return; // 已缓存
     if (!active) return;
+    // 进行中锁：生成要十几秒，期间退出再进会绕过缓存守卫又发一次——两份结果先后落盘、后到的把先到的整个盖掉
+    // （用户读过的一楼会凭空变内容，钱包覆盖事故同款）。锁住 + 完成时再查缓存，双保险。
+    if (forumCInflightRef.current[post.id]) return;
+    forumCInflightRef.current[post.id] = true;
     setGen(g => ({ ...g, forumC: post.id }));
     try {
       const d = await runProbeRetry(active, forumWorldCtx(), forumCommentProbe(post, "8-12"));
-      let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
-      if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
-      const base = Date.now();
-      const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({ ...f, floor: i + 2 }));
-      setForumComments(prev => { const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n; });
+      if (!forumCommentsRef.current[post.id]) { // 等待期间别处已写入 → 保留先到的，绝不覆盖
+        let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
+        if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
+        const base = Date.now();
+        const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({ ...f, floor: i + 2 }));
+        setForumComments(prev => prev[post.id] ? prev : (() => { const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n; })());
+      }
     } catch (e) { toast("加载评论失败：" + e.message); }
-    finally { setGen(g => ({ ...g, forumC: null })); }
+    finally { forumCInflightRef.current[post.id] = false; setGen(g => ({ ...g, forumC: null })); }
   };
   // 更多回复：追加 5-8 楼（同样随机 NPC/角色），append 不覆盖
   const genMoreComments = async post => {
@@ -4381,27 +4388,45 @@ function App() {
     bumpReplyBy(post.id, 1);
     genRepliesToMe(post, floorId, text);
   };
-  // 生成 4-6 条回复「我这条评论」的（务必含楼主本人；其余路人或在逛论坛的角色），挂到 floorId 的楼中楼
+  // 生成回复「我这条评论」的楼中楼：【层主（这层楼的作者）必回我】；【发帖的帖主看情况】——
+  // 这层 TA 回过且没新话就不许再出现（治「帖主重复评论」）；其余 0-3 条路人/真关心的角色。
   const genRepliesToMe = async (post, floorId, myText) => {
     if (!active) return;
     setGen(g => ({ ...g, forumReplyMe: floorId }));
     try {
       const oc = post.authorType === "character" && !post.anon ? (characters || []).find(c => c.id === post.authorId) : null;
       const opName = oc ? oc.name : post.authorName;
-      const opDesc = oc ? ("楼主是角色「" + opName + "」本人（Ta 会以自己的人设回应）") : ("楼主网名「" + opName + "」");
+      const opDesc = oc ? ("发这个帖的帖主是角色「" + opName + "」本人（Ta 会以自己的人设回应）") : ("发这个帖的帖主网名「" + opName + "」");
+      // 这层楼的现场：层主是谁、楼里已经有谁说过什么（含帖主是否已回过）
+      const floor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId) || {};
+      const ownerName = floor.authorName || "层主";
+      const ownerChar = floor.authorType === "character" && floor.authorId ? (characters || []).find(c => c.id === floor.authorId) : null;
+      const priorLines = ["层主「" + ownerName + "」的原评论：「" + String(floor.content || "").replace(/\s+/g, " ").slice(0, 80) + "」"]
+        .concat((floor.replies || []).slice(-6).map(r => "· " + (r.isOp ? "【帖主】" : "") + (r.authorName || "某人") + "：" + String(r.content || "").replace(/\s+/g, " ").slice(0, 60)));
+      const opReplied = (floor.replies || []).some(r => r.isOp);
       const isSearch = /^搜索/.test(post.triggerSource || "");
       const others = isSearch
         ? "其余全是路人网友（authorName+handle），**不要出现你认识的任何角色**——搜来的陌生话题，角色未必关心、不该全知全能地冒出来。"
-        : "其余是路人网友，或下面这些正在逛论坛的角色里、此刻**真的会关心这个话题**的一位（用 char 字段填角色名，符合 Ta 人设/心情；**没有角色会关心就全用路人、别硬塞**）：" + (forumCharList() || "（暂无角色）") + "。";
+        : "其余是路人网友，或此刻**真的会关心这个话题**的角色（char 填角色名；**角色的话必须是 Ta 真会说的，写不出贴人设的就别塞，宁可全路人**）：" + (forumCharList() || "（暂无角色）") + "。";
       const d = await runProbeRetry(active, forumWorldCtx(), {
-        instruction: forumBoardVoice(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚在楼里回复了一条：「" + myText + "」。楼下 4-6 个人来回复 TA 这条（items 务必 4-6 条）。**其中必须恰有一条是楼主本人的回复**（那条 is_op 设 true）。" + others + "每条含 content，以及（路人给 authorName+handle／角色给 char），is_op 只有楼主那条为 true。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
-        schemaHint: "{\"items\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（角色名或省略）\",\"is_op\":false,\"content\":\"回复\"}]}",
+        instruction: forumBoardVoice(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n【这层楼的现场】\n" + priorLines.join("\n") +
+          "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚回复了层主这条：「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
+          "① **必须恰有一条是层主「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n" +
+          "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n" +
+          "③ " + others + "\n每条含 content；路人给 authorName+handle，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
+        schemaHint: "{\"items\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（角色名或省略）\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
         maxTokens: 2800
       });
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.content);
       if (!items.length) return;
-      const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz"; };
+      const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz" || s === "帖主"; };
+      const looksOwner = s => { s = String(s || "").trim(); return s === "层主" || (ownerName && s === ownerName); };
       const reps = items.map(x => {
+        // 层主回我：还原成这层楼作者本人的身份（角色→真名档案，路人→沿用层主的马甲）
+        if (x.is_owner === true || looksOwner(x.char) || looksOwner(x.authorName)) {
+          if (ownerChar) return { authorName: ownerChar.name, authorHandle: charForumMeta(ownerChar).handle, authorType: "character", authorId: ownerChar.id, content: x.content, isOwner: true };
+          return { authorName: ownerName, authorHandle: floor.authorHandle || ownerName, authorType: floor.authorType || "npc", authorId: floor.authorId || null, content: x.content, isOwner: true };
+        }
         if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
           if (oc) return { authorName: oc.name, authorHandle: charForumMeta(oc).handle, authorType: "character", authorId: oc.id, content: x.content, isOp: true };
           return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: post.authorType === "me" ? "me" : "npc", authorId: post.authorType === "me" ? "me" : null, content: x.content, isOp: true };
