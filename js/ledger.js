@@ -81,6 +81,36 @@
   }
 
   // ============================================================
+  // 事件判定（纯本地、零 API）：这笔账值不值得角色「自己注意到、主动开口」
+  // 命中返回 {key,desc}，没命中返回 null——绝大多数账没事件，一分钱 API 不花
+  // ============================================================
+  function detectTxnEvent(txns, txn, cur) {
+    const a = Number(txn.amount) || 0;
+    if (!(a > 0)) return null;
+    const hist = txns.filter(x => x.id !== txn.id && x.currency === txn.currency && x.type === txn.type);
+    if (txn.type === "expense") {
+      // 大额：比 Ta 平时单笔支出的均值高出 3 倍以上（至少 5 笔历史才有「平时」可言）
+      if (hist.length >= 5) {
+        const avg = hist.reduce((s, x) => s + (Number(x.amount) || 0), 0) / hist.length;
+        if (avg > 0 && a >= avg * 3) return { key: "big", desc: "这笔（" + fmtAmt(a, cur) + "）比 Ta 平时一笔的水平（约 " + fmtAmt(avg, cur) + "）大出好几倍" };
+      }
+      // 高频：本月同分类第 5、10、15…笔（每满 5 提一次，不然天天唠叨）
+      const catN = txns.filter(x => x.type === "expense" && x.currency === txn.currency && x.category === txn.category && monthKey(x.date) === monthKey(txn.date)).length;
+      if (catN >= 5 && catN % 5 === 0) return { key: "freq", desc: "这已经是 Ta 这个月第 " + catN + " 笔『" + txn.category + "』了" };
+      // 深夜：0~5 点当天记的支出（熬夜花钱最容易被逮到）
+      const hour = new Date().getHours();
+      if (hour < 5 && txn.date === todayStr()) return { key: "night", desc: "现在是深夜" + (hour === 0 ? "十二" : hour) + "点多，Ta 深更半夜还在花钱" };
+    } else {
+      // 大进账：比平时收入的均值高出 2 倍以上（至少 2 笔历史）
+      if (hist.length >= 2) {
+        const avg = hist.reduce((s, x) => s + (Number(x.amount) || 0), 0) / hist.length;
+        if (avg > 0 && a >= avg * 2) return { key: "income", desc: "这是笔难得的大进账（" + fmtAmt(a, cur) + "）" };
+      }
+    }
+    return null;
+  }
+
+  // ============================================================
   // 供聊天引擎调用：把「被授权角色能看到的记账动态」拼成一段（financeNote）
   // 只读、只感知，绝不碰钱包/角色余额。app.js 的 ctxFor 会调用它。
   // ============================================================
@@ -116,18 +146,35 @@
   // 模型：多个角色一次性批注同一笔账（一次调用，省 API）
   // 返回按传入顺序对齐的 [{text}]；text 为空串表示这一位没生成出来（上层不入库、提示重试）
   // ============================================================
-  async function genComments(active, txn, cur, list, uName, worldbook) {
+  async function genComments(active, txn, cur, list, uName, worldbook, opts) {
     const typeZh = txn.type === "income" ? "进账" : "花销";
     const amt = fmtAmt(txn.amount, cur) + "（" + cur.label + "）";
-    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")).join("\n\n");
+    // 性格升级素材（全部本地算，零额外 API）：
+    // ① 该角色最近对别的账说过什么 → 逼 Ta 换新说法，治「每次都同一个梗」
+    const allTxns = (loadData().txns || []);
+    const prevOf = id => allTxns.filter(x => x.id !== txn.id).flatMap(x => (x.comments || []).filter(cm => cm.charId === id).map(cm => String(cm.text || ""))).filter(Boolean).slice(0, 2);
+    // ② 本月同分类的频率/累计 → 角色能说出「这个月第几次了」这种真看过账本的话
+    let bgLine = "";
+    if (txn.type === "expense") {
+      const same = allTxns.filter(x => x.type === "expense" && x.currency === txn.currency && x.category === txn.category && monthKey(x.date) === monthKey(txn.date));
+      const tot = same.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      if (same.length > 1) bgLine = "\n【背景】这个月『" + txn.category + "』连这笔已是第 " + same.length + " 笔、共 " + fmtAmt(tot, cur) + "。角色可以自然联系这个频率或累计来说话，但别报账式复述数字。";
+    }
+    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")
+      + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气的亲疏和上不上心的程度）" : "")
+      + (prevOf(it.id).length ? "\n  Ta 最近对别的账说过：" + prevOf(it.id).map(s => "「" + s.slice(0, 40) + "」").join("、") + "——这次必须换新的说法和角度，别复读同样的梗和句式" : "")).join("\n\n");
+    // 事件驱动模式：不是用户请 Ta 来看，而是 Ta 自己刷到了这笔账、主动开口的第一反应
+    const evIntro = opts && opts.event
+      ? uName + " 刚记下一笔" + typeZh + "，下面每位角色恰好【自己注意到】了它——" + opts.event.desc + "。请【分别以每位角色本人的口吻】，各说一句 Ta 主动开口的第一反应：惊讶、皱眉、心疼、打趣、盘问都行，按各自人设来，像 Ta 忍不住先开口的那句。\n"
+      : "下面是 " + uName + " 刚记下的一笔真实的" + typeZh + "。请【分别以下面每位角色本人的口吻】，各说一句 Ta 看到 " + uName + " 这笔账时会真实说出口的话。\n";
     const sys = AC() + NAC() +
-      "下面是 " + uName + " 刚记下的一笔真实的" + typeZh + "。请【分别以下面每位角色本人的口吻】，各说一句 Ta 看到 " + uName + " 这笔账时会真实说出口的话。\n" +
+      evIntro +
       "【硬性要求，必须做到】\n" +
       "· 真的进入角色、说出有内容有态度的一句，结合人设＋此刻心情＋这笔账的分类和金额。严禁敷衍成『看了一眼没说什么』『无所谓』『随你』这类空话——那是偷懒。\n" +
       "· 人称必须对：从人设判断角色的性别，男用「他」女用「她」；判断不出就直接叫名字或干脆不用第三人称。绝对不许写成『Ta』『TA』这种占位符。\n" +
       "· 每人一句、口语、像随手发的消息；几个人语气各不相同，别写成同一个腔调，别说教别客套别报流水账。\n" +
       "· 反应可以多样：心疼你乱花、笑你手松、替你算账、酸一下、担心、或只是顺口关心——按各自人设来。\n\n" +
-      "【这笔账】" + fmtDay(txn.date) + " · " + typeZh + " · " + txn.category + " · " + amt + (txn.note ? " · 备注：" + txn.note : "") + "\n\n" +
+      "【这笔账】" + fmtDay(txn.date) + " · " + typeZh + " · " + txn.category + " · " + amt + (txn.note ? " · 备注：" + txn.note : "") + bgLine + "\n\n" +
       "【要批注的角色】\n" + block +
       (worldbook && worldbook.trim() ? "\n\n【世界书（仅参考）】\n" + worldbook.trim().slice(0, 400) : "") +
       "\n\n【输出】只输出 JSON，comments 数组和上面角色顺序【一一对应、数量一致】：{\"comments\":[{\"name\":\"角色名\",\"text\":\"这位角色的一句话\"}...]}。别加解释、别加代码块。";
@@ -186,6 +233,33 @@
     const curs = data.settings.currencies || DEFAULT_CURS;
     const curOf = code => curs.find(c => c.code === code) || { code: code, symbol: "", label: code };
 
+    // 事件驱动一次性反应：记完账本地判定事件（大额/高频/深夜/大进账），命中且有可见角色时，
+    // 让好感最高的一位「自己注意到」这笔账、主动留一句批注。没事件=零 API；反应只留在账本里，不进聊天 prompt。
+    const autoReact = async txn => {
+      try {
+        if (!props.active) return;
+        const d = loadData();
+        const vis = (d.settings.visibleTo || []).filter(id => (props.characters || []).some(c => c.id === id));
+        if (!vis.length) return;
+        const cur = curOf(txn.currency);
+        const ev = detectTxnEvent(d.txns, txn, cur);
+        if (!ev) return;
+        const aff = props.affinities || {};
+        const cid = vis.slice().sort((x, y) => (aff[y] != null ? aff[y] : 50) - (aff[x] != null ? aff[x] : 50))[0];
+        const c = (props.characters || []).find(x => x.id === cid);
+        if (!c) return;
+        const mo = props.moods && props.moods[c.id];
+        const list = [{ id: c.id, name: c.name, persona: c.persona || "", mood: mo && mo.label ? String(mo.label) : "", aff: aff[c.id] }];
+        const outs = await genComments(props.active, txn, cur, list, uName, props.worldbook, { event: ev });
+        const cmts = (outs || []).filter(o => o && o.text).map(o => ({ charId: c.id, charName: c.name, text: o.text, ts: Date.now(), auto: true, event: ev.key }));
+        if (!cmts.length) return;
+        const now = loadData().txns.find(x => x.id === txn.id);
+        if (!now) return; // 用户已把这笔删了就算了
+        updTxn(txn.id, { comments: (now.comments || []).concat(cmts) });
+        props.toast && props.toast(c.name + " 注意到了这笔账");
+      } catch (e) {/* 静默：主动反应失败不打扰记账本身 */}
+    };
+
     // ---- 视图主体 ----
     let body;
     if (view.indexOf("cur:") === 0) {
@@ -196,7 +270,7 @@
       const txn = data.txns.find(x => x.id === id);
       if (!txn) { setView("home"); return null; }
       body = h(TxnView, {
-        txn, cur: curOf(txn.currency), characters: props.characters, moods: props.moods,
+        txn, cur: curOf(txn.currency), characters: props.characters, moods: props.moods, affinities: props.affinities,
         active: props.active, worldbook: props.worldbook, uName, toast: props.toast,
         onBack: () => setView("home"),
         onEdit: () => setAddState({ edit: txn }),
@@ -224,7 +298,7 @@
         onAddCat: (type, cat) => { const d = loadData(); d.settings.cats[type] = (d.settings.cats[type] || []).concat([cat]); persist(d); },
         onSave: txn => {
           if (addState.edit) { updTxn(addState.edit.id, txn); setAddState(null); props.toast && props.toast("改好了"); }
-          else { addTxn(txn); setAddState(null); if (props.characters && props.characters.length) setView("txn:" + txn.id); else props.toast && props.toast("记好了"); }
+          else { addTxn(txn); setAddState(null); autoReact(txn); if (props.characters && props.characters.length) setView("txn:" + txn.id); else props.toast && props.toast("记好了"); }
         }
       }) : null,
       showSet ? h(SettingsSheet, {
@@ -401,13 +475,15 @@
               ch ? h(Avatar, { character: ch, size: 34, radius: 10 })
                  : h("div", { style: { width: 34, height: 34, borderRadius: 10, background: "#c2bdb1", flexShrink: 0 } }),
               h("div", { style: { flex: 1, minWidth: 0 } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 3 } }, cm.charName),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 3, display: "flex", alignItems: "center", gap: 6 } }, cm.charName,
+                  cm.auto ? h("span", { style: { fontSize: 9.5, color: GOLD, border: "1px solid " + GOLD + "55", borderRadius: 999, padding: "1px 7px" } },
+                    cm.event === "big" ? "自己注意到 · 大额" : cm.event === "freq" ? "自己注意到 · 频率" : cm.event === "night" ? "自己注意到 · 深夜" : cm.event === "income" ? "自己注意到 · 进账" : "自己注意到") : null),
                 h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, borderTopLeftRadius: 3, padding: "9px 12px", fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.55 } }, cm.text)));
           }))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "20px 0" } },
               (props.characters && props.characters.length) ? "还没人看过这笔账，点上面让 TA 们说说" : "先去『名录』建个角色")),
       pick ? h(CommentPicker, {
-        characters: props.characters, moods: props.moods, existing: comments.map(c => c.charId),
+        characters: props.characters, moods: props.moods, affinities: props.affinities, existing: comments.map(c => c.charId),
         txn, cur, active: props.active, worldbook: props.worldbook, uName: props.uName, toast: props.toast,
         onClose: () => setPick(false),
         onDone: cmts => { props.onAddComments(cmts); setPick(false); }
@@ -433,7 +509,7 @@
       if (!sel.length || busy) return;
       setBusy(true);
       try {
-        const list = sel.map(id => { const c = chars.find(x => x.id === id); return { id, name: c.name, persona: c.persona || "", mood: moodOf(id) }; });
+        const list = sel.map(id => { const c = chars.find(x => x.id === id); return { id, name: c.name, persona: c.persona || "", mood: moodOf(id), aff: props.affinities ? props.affinities[id] : null }; });
         const outs = await genComments(props.active, props.txn, props.cur, list, props.uName, props.worldbook);
         const cmts = list.map((it, i) => ({ charId: it.id, charName: it.name, text: outs[i].text, ts: Date.now() })).filter(c => c.text);
         if (!cmts.length) { props.toast && props.toast("这次没生成出来，再试一次"); setBusy(false); return; }

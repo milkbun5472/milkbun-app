@@ -140,7 +140,8 @@
   // 批注：一次 API 让多个角色各对这条备忘/提醒说一句（走后台便宜池 active=bgActive）
   // ============================================================
   async function genComments(active, itemDesc, list, uName, worldbook) {
-    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")).join("\n\n");
+    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 320) + (it.mood ? "\n  此刻心情：" + it.mood : "")
+      + (it.aff != null ? "\n  对 " + uName + " 的好感度：" + Math.round(it.aff) + "/100（据此把握语气的亲疏和上不上心的程度）" : "")).join("\n\n");
     const sys = AC() + NAC() +
       "下面是 " + uName + " 在自己备忘录里记下的一条东西。请【分别以下面每位角色本人的口吻】，各说一句 Ta 看到 " + uName + " 记的这条时会真实说出口的话。\n" +
       "【硬性要求】\n" +
@@ -213,7 +214,7 @@
       setBusy(true);
       try {
         const list = ids.map(id => (props.characters || []).find(c => c.id === id)).filter(Boolean)
-          .map(c => ({ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "" }));
+          .map(c => ({ id: c.id, name: c.name, persona: c.persona || "", mood: (props.moods && props.moods[c.id] && props.moods[c.id].label) || "", aff: props.affinities ? props.affinities[c.id] : null }));
         const outs = await genComments(props.active, props.itemDesc, list, props.uName, props.worldbook);
         if (outs.length) props.onAdd(outs);
         else props.toast && props.toast("没生成出来，再试试");
@@ -374,7 +375,7 @@
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => upReminder(curReminder.id, { done: !curReminder.done }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curReminder.done ? t.sub : "#fff", background: curReminder.done ? t.bg2 : ACCENT, border: "1px solid " + (curReminder.done ? t.line : ACCENT), borderRadius: 12, padding: "10px 0" } }, curReminder.done ? "标为未完成" : "标为已完成"),
           h("button", { onClick: () => setVisFor({ kind: "reminder", id: curReminder.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curReminder.visibleTo || []).length + ")")),
-        h(CommentBlock, { comments: curReminder.comments, characters: props.characters, moods: props.moods, active: props.active, worldbook: props.worldbook, uName: (props.profile && props.profile.name) || "用户", toast: props.toast,
+        h(CommentBlock, { comments: curReminder.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: (props.profile && props.profile.name) || "用户", toast: props.toast,
           itemDesc: "提醒 · " + curReminder.title + "（" + reminderDateText(curReminder) + "）" + (curReminder.note ? " · 备注：" + curReminder.note : ""),
           onAdd: cs => upReminder(curReminder.id, r => ({ comments: (r.comments || []).concat(cs) })),
           onDel: i => upReminder(curReminder.id, r => ({ comments: (r.comments || []).filter((_, idx) => idx !== i) })) })),
@@ -388,7 +389,7 @@
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => upNote(curNote.id, { pinned: !curNote.pinned }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curNote.pinned ? "#fff" : t.sub, background: curNote.pinned ? ACCENT : t.bg2, border: "1px solid " + (curNote.pinned ? ACCENT : t.line), borderRadius: 12, padding: "10px 0" } }, curNote.pinned ? "取消置顶" : "📌 置顶"),
           h("button", { onClick: () => setVisFor({ kind: "note", id: curNote.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curNote.visibleTo || []).length + ")")),
-        h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, active: props.active, worldbook: props.worldbook, uName: (props.profile && props.profile.name) || "用户", toast: props.toast,
+        h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, uName: (props.profile && props.profile.name) || "用户", toast: props.toast,
           itemDesc: "备忘 · " + (curNote.title || "") + (curNote.body ? "：" + curNote.body.slice(0, 120) : ""),
           onAdd: cs => upNote(curNote.id, n => ({ comments: (n.comments || []).concat(cs) })),
           onDel: i => upNote(curNote.id, n => ({ comments: (n.comments || []).filter((_, idx) => idx !== i) })) })),
