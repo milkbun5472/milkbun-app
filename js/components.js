@@ -1008,7 +1008,8 @@ function Home({
       var wsum = 0;
       arr.forEach(function (k) { wsum += wOf(k); });
       var target = Math.ceil(wsum / 4) * 4;
-      if (target === wsum && wsum > 0 && wsum <= 20) target += 4;
+      // 保证每页至少 2 个空格（页排满时一个洞都没有→根本没法自由摆放）；超载页除外
+      if (target - wsum < 2 && wsum > 0 && wsum <= 24) target += 4;
       var n = 0;
       var have = {};
       arr.forEach(function (k) { have[k] = 1; });
@@ -1313,7 +1314,8 @@ function Home({
     style: { touchAction: "pan-y" },
     onTouchStart: onTS,
     onTouchMove: onTM,
-    onTouchEnd: onTE
+    onTouchEnd: onTE,
+    onTouchCancel: onTE
   }, h("div", {
     className: "flex-1 min-h-0",
     style: {

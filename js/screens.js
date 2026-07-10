@@ -633,7 +633,9 @@ function LifeDay({ char, dayKey, plan, busy, onGen, onBack }) {
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 13, letterSpacing: "0.15em", color: t.ink } }, "BACK")),
     h("div", { className: "text-right" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, dp.dowEn + ", " + dp.dateNum),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, dp.md + " " + dp.dowZh)));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, dp.md + " " + dp.dowZh),
+      // 兜底刷新：模型偶尔给乱序时间导致灰不掉/进度错乱——一键按「此刻」重推这天
+      plan && !busy ? h("button", { onClick: () => onGen(char, dayKey), className: "active:opacity-60", style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 10px" } }, "🔄 重新推演") : null));
   if (busy || !plan) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } }, head, h("div", { className: "flex-1 flex items-center justify-center" }, h(Spinner, { label: "正在推演 " + char.name + " 的这天…" })));
   // 异地：把角色本地日程换算到我这边的时间轴并重排（框架=我的时间）
   const seqs = schedDisplaySeqs(char, plan.seqs || []);

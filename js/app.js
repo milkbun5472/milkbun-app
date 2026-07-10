@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.53";
+const APP_VERSION = "v47.54";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -814,9 +814,17 @@ function App() {
     let list = offlinesRef.current[charId];
     if (!list) { list = loadJSON("x_offline:" + charId, []); offlinesRef.current = { ...offlinesRef.current, [charId]: list }; }
     const s = (list || []).find(x => x && !x.endTs && (x.msgs || []).length > 0);
-    if (!s) return "";
-    const narr = (s.msgs.find(m => m.role === "narration") || {}).content || "";
-    return "【线下进行中】你和" + (profile.name || "用户") + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——**绝不许问「怎么还不开始」或催 Ta 去做你们正在做的事**；此刻的消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档）。";
+    if (s) {
+      const narr = (s.msgs.find(m => m.role === "narration") || {}).content || "";
+      return "【线下进行中】你和" + (profile.name || "用户") + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——**绝不许问「怎么还不开始」或催 Ta 去做你们正在做的事**；此刻的消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档）。";
+    }
+    // 72h 内刚结束的线下：硬提示（不依赖聊天窗口里那条 offlinelog 沉没在多少楼）
+    const done = (list || []).filter(x => x && x.endTs && Date.now() - x.endTs < 72 * 3600000).sort((a, b) => b.endTs - a.endTs)[0];
+    if (done) {
+      const hrs = Math.max(1, Math.round((Date.now() - done.endTs) / 3600000));
+      return "【最近线下·已发生】你们约 " + (hrs >= 24 ? Math.round(hrs / 24) + " 天" : hrs + " 小时") + "前刚线下见过面，这件事【已经发生并结束了】" + (done.summary ? "（经过：" + String(done.summary).replace(/\s+/g, " ").slice(0, 90) + "）" : "") + "——之前聊天里约的/计划的就是这件事，它做完了。**绝不许再问「什么时候做」、说「等了好久」或把它当成还没发生**；要聊就聊感受和回味。";
+    }
+    return "";
   };
   // 近期对话文本（供世界书关键词命中）
   const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled).slice(-8).map(m => m.content).join("\n");
