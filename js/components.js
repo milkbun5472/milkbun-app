@@ -2792,7 +2792,7 @@ function ChatThread({
         maxWidth: "78%"
       }
     }, "OOC · " + m.content));
-    if (m.kind === "callend") return h(CallEndPill, { key: i, m });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character] });
     if (m.kind === "offlinelog") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -3293,7 +3293,7 @@ function ChatThread({
       ? h("div", { className: "text-center", style: { padding: "30px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情。\n点右上「管理表情库」批量导入。")
       : h("div", { className: "grid grid-cols-4 gap-2", style: { maxHeight: "46vh", overflowY: "auto" } }, (emotes || []).map(em => h("button", { key: em.id, onClick: () => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }, className: "active:opacity-70", style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
         h("div", { style: { width: "100%", aspectRatio: "1" } }, h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })))))
-  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), onClose: () => setCallLogOpen(false) }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(Eyebrow, { style: { marginBottom: 8 } }, "发一条语音"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "写下你要「说」的话，会发成语音气泡，下面自动显示转文字。"),
     h("textarea", { value: voiceMsgText, onChange: e => setVoiceMsgText(e.target.value), rows: 3, autoFocus: true, placeholder: "想说的话…", className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.ink, background: t.bg2, border: `1px solid ${t.line}`, resize: "none" } }),
@@ -3383,28 +3383,8 @@ function CallScreen({
   const secRef = useRef(0);
   const [pos, setPos] = useState(null); // PiP 小屏拖动位置（null=默认右上）
   const dragRef = useRef({ dragging: false, moved: false, grabX: 0, grabY: 0 });
-  // 通话台词懒 TTS：点那条才合成（缓存在 ttsSpeak 里，重播免费）；一次只放一条
-  const [play, setPlay] = useState(null); // {i, st:"gen"|"playing"}
-  const playAudRef = useRef(null);
-  useEffect(() => () => { if (playAudRef.current) { try { playAudRef.current.pause(); } catch (e) {} } }, []);
-  const playLine = async (i, m, spk) => {
-    if (play && play.st === "gen") return;
-    if (play && play.i === i && play.st === "playing") { try { playAudRef.current && playAudRef.current.pause(); } catch (e) {} setPlay(null); return; }
-    if (playAudRef.current) { try { playAudRef.current.pause(); } catch (e) {} }
-    const aud = new Audio();
-    playAudRef.current = aud;
-    aud.play().catch(() => {}); // 用户手势里先解锁 iOS 音频
-    setPlay({ i, st: "gen" });
-    try {
-      const blob = await ttsSpeak(m.content, spk.voiceId);
-      const url = URL.createObjectURL(blob);
-      aud.src = url;
-      aud.onended = () => { setPlay(p => p && p.i === i ? null : p); URL.revokeObjectURL(url); };
-      aud.onerror = () => { setPlay(p => p && p.i === i ? null : p); URL.revokeObjectURL(url); };
-      await aud.play();
-      setPlay({ i, st: "playing" });
-    } catch (e) { setPlay(null); }
-  };
+  // 通话台词懒 TTS：点那条才合成（缓存在 ttsSpeak 里，重播免费）；一次只放一条（共用 useTtsPlayer）
+  const tp = useTtsPlayer();
   useEffect(() => {
     const i = setInterval(() => setSec(s => { secRef.current = s + 1; return s + 1; }), 1000);
     return () => clearInterval(i);
@@ -3507,7 +3487,7 @@ function CallScreen({
     // 台词可点听：这条的说话人配了音色 + TTS 开着才显示 ▶（点了才合成收费）
     const spk = m.senderId ? people.find(c => c.id === m.senderId) : (!isU && !isGroup ? primary : null);
     const canT = !isU && spk && spk.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
-    const meP = play && play.i === i;
+    const meP = tp.play && tp.play.k === i;
     return h("div", {
       key: i,
       className: "flex flex-col " + (isU ? "items-end" : "items-start")
@@ -3526,10 +3506,10 @@ function CallScreen({
         color: isU ? "#16330a" : "#fff"
       }
     }, m.content), canT ? h("button", {
-      onClick: () => playLine(i, m, spk),
+      onClick: () => tp.toggle(i, m.content, spk.voiceId),
       className: "active:opacity-60 shrink-0",
-      style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && play.st === "gen" ? 9 : 10, background: "transparent" }
-    }, meP ? (play.st === "gen" ? "…" : "⏸") : "▶") : null));
+      style: { width: 24, height: 24, borderRadius: 999, border: "1.5px solid rgba(255,255,255,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: meP && tp.play.st === "gen" ? 9 : 10, background: "transparent" }
+    }, meP ? (tp.play.st === "gen" ? "…" : "⏸") : "▶") : null));
   })), sending && h("div", {
     className: "px-6 pb-1",
     style: {
@@ -3847,10 +3827,49 @@ function VoiceMsg({ m, isU, speaker }) {
       h("div", { style: { fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, margin: "8px 0 5px" } }, "TRANSCRIPT"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg } }, m.content || "")));
 }
+// 懒 TTS 小播放器（通话台词/转录回听共用）：一次只放一条，点了才合成收费；放过的在 ttsSpeak 缓存里，回听免费
+function useTtsPlayer() {
+  const [play, setPlay] = useState(null); // {k, st:"gen"|"playing"}
+  const audRef = useRef(null);
+  useEffect(() => () => { if (audRef.current) { try { audRef.current.pause(); } catch (e) {} } }, []);
+  const toggle = async (k, text, voiceId) => {
+    if (play && play.st === "gen") return;
+    if (play && play.k === k && play.st === "playing") { try { audRef.current && audRef.current.pause(); } catch (e) {} setPlay(null); return; }
+    if (audRef.current) { try { audRef.current.pause(); } catch (e) {} }
+    const aud = new Audio();
+    audRef.current = aud;
+    aud.play().catch(() => {}); // 用户手势里先解锁 iOS 音频
+    setPlay({ k, st: "gen" });
+    try {
+      const blob = await ttsSpeak(text, voiceId);
+      const url = URL.createObjectURL(blob);
+      aud.src = url;
+      aud.onended = () => { setPlay(p => p && p.k === k ? null : p); URL.revokeObjectURL(url); };
+      aud.onerror = () => { setPlay(p => p && p.k === k ? null : p); URL.revokeObjectURL(url); };
+      await aud.play();
+      setPlay({ k, st: "playing" });
+    } catch (e) { setPlay(null); }
+  };
+  return { play, toggle };
+}
+// 转录行的回听小按钮（角色台词旁）：spk 配了音色 + TTS 开着才显示
+function TtsDot({ k, text, spk, tp, dark }) {
+  const canT = spk && spk.voiceId && text && typeof ttsReady === "function" && ttsReady();
+  if (!canT) return null;
+  const me = tp.play && tp.play.k === k;
+  const c = dark ? "rgba(255,255,255,0.55)" : "currentColor";
+  return h("button", {
+    onClick: e => { e.stopPropagation(); tp.toggle(k, text, spk.voiceId); },
+    className: "active:opacity-60 shrink-0",
+    style: { width: 20, height: 20, borderRadius: 999, border: "1.2px solid " + c, display: "inline-flex", alignItems: "center", justifyContent: "center", color: c, fontSize: me && tp.play.st === "gen" ? 8 : 9, background: "transparent", verticalAlign: "middle", marginLeft: 6, opacity: 0.75 }
+  }, me ? (tp.play.st === "gen" ? "…" : "⏸") : "▶");
+}
 // 通话结束气泡：点开回看整通转录（log 由 endCall 存进消息；老消息没 log 就是纯提示条）；sum=挂断后生成的摘要
-function CallEndPill({ m }) {
+function CallEndPill({ m, chars }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  const tp = useTtsPlayer();
+  const spkOf = l => l.senderId && chars ? (chars.find(c => c.id === l.senderId) || null) : null;
   const log = Array.isArray(m.log) ? m.log : [];
   const label = m.dur ? (m.callMode === "video" ? "视频通话" : "语音通话") + " 已结束 · 时长 " + m.dur : String(m.content || "").split("\n")[0];
   return h("div", { className: "flex flex-col items-center my-2" },
@@ -3865,13 +3884,16 @@ function CallEndPill({ m }) {
         ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
         : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
             l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, String(new Date(l.ts).getHours()).padStart(2, "0") + ":" + String(new Date(l.ts).getMinutes()).padStart(2, "0")) : null,
-            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content)),
+            h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content,
+            l.role !== "user" ? h(TtsDot, { k: "pill" + j, text: l.content, spk: spkOf(l), tp }) : null)),
       m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
 }
 // 通话记录中心（+面板入口）：这个聊天里所有语音/视频通话按时间列出，点一通回看整通转录——不用回聊天里翻楼
-function CallLogSheet({ calls, onClose }) {
+function CallLogSheet({ calls, chars, onClose }) {
   const t = useTheme();
   const [openId, setOpenId] = useState(null);
+  const tp = useTtsPlayer();
+  const spkOf = l => l.senderId && chars ? (chars.find(c => c.id === l.senderId) || null) : null;
   const list = (calls || []).slice().reverse(); // 最新在前
   const fmtFull = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const fmtHM = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
@@ -3896,7 +3918,8 @@ function CallLogSheet({ calls, onClose }) {
                 ? h("div", { key: j, style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11.5, color: t.fog, textAlign: "center", margin: "5px 0" } }, (l.senderName ? l.senderName + " " : "") + "（" + l.content + "）")
                 : h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, margin: "3px 0" } },
                     l.ts ? h("span", { style: { fontFamily: "'Archivo','SF Mono',ui-monospace,monospace", fontSize: 9.5, color: t.fog, marginRight: 6 } }, fmtHM(l.ts)) : null,
-                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content)),
+                    h("span", { style: { color: l.role === "user" ? t.tint : t.sub, fontWeight: 600 } }, (l.role === "user" ? "我" : (l.senderName || "TA")) + "："), l.content,
+                    l.role !== "user" ? h(TtsDot, { k: key + "_" + j, text: l.content, spk: spkOf(l), tp }) : null)),
               m.sum ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, "小结：" + m.sum) : null) : null);
         })));
 }
@@ -5491,7 +5514,7 @@ function GroupThread({
         lineHeight: 1.5
       }
     }, "— " + m.content + " —"));
-    if (m.kind === "callend") return h(CallEndPill, { key: i, m });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters });
     if (m.role === "system") return h("div", {
       key: i,
       className: "flex justify-center py-1"
@@ -5868,7 +5891,7 @@ function GroupThread({
     placeholder: "描述这张照片的内容…",
     className: "w-full outline-none px-4 py-3 rounded-xl",
     style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line }
-  })), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), onClose: () => setCallLogOpen(false) }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  })), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(Eyebrow, { style: { marginBottom: 8 } }, "发一条语音"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "写下你要「说」的话，会发成语音气泡，下面自动显示转文字。"),
     h("textarea", { value: voiceMsgText, onChange: e => setVoiceMsgText(e.target.value), rows: 3, autoFocus: true, placeholder: "想说的话…", className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, resize: "none" } }),
