@@ -181,6 +181,9 @@
         return (label[k] || k) + ":" + tag;
       });
       lines.push("掌握情况：" + parts.join("，"));
+      // 薄弱点（0新学/1待复习）→ 开场先带着复习，学过的东西才会牢（艾宾浩斯同款思路）
+      const weak = keys.filter(function (k) { return m[k] <= 1; }).map(function (k) { return label[k] || k; });
+      if (weak.length) lines.push("【开场先复习】这些点用户还不稳，这节开头先自然带 Ta 过一遍（提问/造句/小翻译均可，别照本宣科），确认接住了再进新内容：" + weak.join("、"));
     }
     if (progress.notes) lines.push("备注：" + progress.notes);
     return lines.join("\n");
@@ -816,6 +819,13 @@
       pushEntry({ id: "u_" + Date.now(), role: "user", content: txt, ts: Date.now() });
     }
 
+    // 考我：主动请老师就本节要点出题（一题一题来，答完批改讲解 + 顺手更新掌握度）
+    function quizMe() {
+      if (busy) return;
+      pushEntry({ id: "u_" + Date.now(), role: "user", content: "（考考我吧：就这节讲过的要点出 3 道小题——难度贴我现在的水平，形式混着来（翻译/填空/改错/问答都行），优先考我还不稳的点。一题一题出，等我答完你批改讲解，最后告诉我哪个点还得再练。）", ts: Date.now() });
+      setTimeout(function () { replyNow(); }, 60);
+    }
+
     // 让角色回复（手动触发）：teach/costudy 单角色回复；nv1 走导演
     async function replyNow() {
       if (busy) return;
@@ -928,6 +938,7 @@
         zh: sess.subject, en: modeTag(sess.mode), onBack: props.onBack,
         right: sess.mode !== "costudy" ? h("div", { className: "flex items-center gap-1.5" },
           h("button", { onClick: prevUnit, disabled: busy || !units.length || (units.findIndex(function (u) { return u.id === prog.current_unit; }) <= 0), className: "active:opacity-60 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 9px" } }, "上一小节"),
+          h("button", { onClick: quizMe, disabled: busy, className: "active:opacity-60 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 10px" } }, "🎯考我"),
           h("button", { onClick: checkpoint, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: accent, border: "1px solid " + accent, borderRadius: 8, padding: "4px 10px" } }, "这节学完")) : null
       }),
       topBar,
