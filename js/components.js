@@ -588,7 +588,9 @@ function MemoWidget({ onOpen }) {
 // 电子木鱼小组件：点一下功德+1（纯本地零 API），飘 +1、右下角连击数（2 秒不敲就断）。点不进任何页面，只为敲。
 function MuyuWidget({ editMode }) {
   const t = useTheme();
-  const [total, setTotal] = useState(() => { try { return JSON.parse(localStorage.getItem("x_muyu") || "{}").total || 0; } catch (e) { return 0; } });
+  // 一阵子（5 分钟）不敲就清零，功德重新积——她要的「过期作废」型木鱼
+  const MUYU_IDLE = 300000;
+  const [total, setTotal] = useState(() => { try { const v = JSON.parse(localStorage.getItem("x_muyu") || "{}"); return (v.last && Date.now() - v.last > MUYU_IDLE) ? 0 : (v.total || 0); } catch (e) { return 0; } });
   const [combo, setCombo] = useState(0);
   const [pops, setPops] = useState([]);
   const [pressed, setPressed] = useState(false);
@@ -604,7 +606,7 @@ function MuyuWidget({ editMode }) {
   const knock = () => {
     if (editMode) return;
     // 函数式更新：快速连敲会在同一渲染批次里触发多次，读闭包旧值会丢计数
-    setTotal(prev => { const nt = prev + 1; try { localStorage.setItem("x_muyu", JSON.stringify({ total: nt })); } catch (e) {} return nt; });
+    setTotal(prev => { const nt = prev + 1; try { localStorage.setItem("x_muyu", JSON.stringify({ total: nt, last: Date.now() })); } catch (e) {} return nt; });
     setCombo(c => c + 1);
     if (comboT.current) clearTimeout(comboT.current);
     comboT.current = setTimeout(() => setCombo(0), 2000);
@@ -614,23 +616,16 @@ function MuyuWidget({ editMode }) {
     setPressed(true); setTimeout(() => setPressed(false), 90);
     try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
   };
-  return h("div", { className: "flex flex-col items-center gap-1.5", style: { userSelect: "none", WebkitUserSelect: "none" } },
-    h("div", { onClick: knock, className: "relative flex items-center justify-center", style: {
-      width: 62, height: 62, borderRadius: 17, cursor: "pointer",
-      background: "linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.45))",
-      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-      border: "1px solid rgba(255,255,255,0.7)",
-      boxShadow: "0 4px 14px rgba(30,28,24,0.1), inset 0 1px 1px rgba(255,255,255,0.9)",
-      transform: pressed ? "scale(0.86)" : "scale(1)", transition: "transform .09s ease"
-    } },
-      // 木鱼本鱼（简笔）：圆身+鱼嘴缝+敲点
-      h(Svg, { size: 30, color: "#8a6a3f", sw: 1.6 },
-        h("path", { d: "M12 4.5c-4.8 0-8.3 3-8.3 6.9 0 4.2 3.9 7.3 8.3 7.3s8.3-3.1 8.3-7.3c0-3.9-3.5-6.9-8.3-6.9z" }),
+  // 透明大件（2x2）：没有玻璃底、没有标签，就一只大木鱼摆在桌面上
+  return h("div", { onClick: knock, className: "relative flex flex-col items-center justify-center h-full", style: { userSelect: "none", WebkitUserSelect: "none", cursor: "pointer" } },
+    h("div", { style: { transform: pressed ? "scale(0.9)" : "scale(1)", transition: "transform .09s ease", filter: "drop-shadow(0 6px 10px rgba(60,45,25,0.25))" } },
+      h(Svg, { size: 92, color: "#8a6a3f", sw: 1.4 },
+        h("path", { d: "M12 4.5c-4.8 0-8.3 3-8.3 6.9 0 4.2 3.9 7.3 8.3 7.3s8.3-3.1 8.3-7.3c0-3.9-3.5-6.9-8.3-6.9z", fill: "rgba(178,138,88,0.9)" }),
         h("path", { d: "M7.2 13.2c1.8 1.5 7.8 1.5 9.6 0" }),
-        h("circle", { cx: 12, cy: 9, r: 0.7 })),
-      pops.map(pid => h("span", { key: pid, style: { position: "absolute", left: "50%", top: 2, fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: "#a8743f", pointerEvents: "none", animation: "wk-pop .65s ease-out forwards" } }, "+1")),
-      combo > 1 ? h("span", { style: { position: "absolute", right: 4, bottom: 3, fontFamily: "'Archivo',sans-serif", fontSize: 9, fontWeight: 700, color: "#a8743f" } }, "x" + combo) : null),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, maxWidth: 70, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, total > 0 ? "功德 " + (total > 9999 ? Math.floor(total / 1000) + "k" : total) : "木鱼"));
+        h("circle", { cx: 12, cy: 9, r: 0.7 }))),
+    pops.map(pid => h("span", { key: pid, style: { position: "absolute", left: "50%", top: 8, fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#8a6a3f", pointerEvents: "none", animation: "wk-pop .65s ease-out forwards" } }, "功德 +1")),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6 } }, total > 0 ? "功德 × " + (total > 99999 ? Math.floor(total / 1000) + "k" : total) : "敲一敲"),
+    combo > 1 ? h("span", { style: { position: "absolute", right: 8, bottom: 6, fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 700, color: "#a8743f" } }, "连击 x" + combo) : null);
 }
 // 情侣空间轮播组件：多位正式在一起的 TA 轮流展示（每 6s 换一位），显示在一起天数+甜蜜值；点开进情侣空间
 function UsWidget({ characters, couples, sweet, onOpen }) {
@@ -1012,7 +1007,8 @@ function Home({
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map", "w_weather"],
     ["w_cal", "shop", "carry", "cwallet", "ledger", "memo", "w_us", "w_memo"],
-    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "capsule", "w_muyu"]
+    ["lore", "memlib", "diary", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games"],
+    ["capsule", "w_muyu"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
@@ -1022,7 +1018,7 @@ function Home({
     var it = key && key.slice(0, 2) === "f_" ? { kind: "folder" } : REG[key];
     if (!it) return 0;
     if (it.kind !== "widget") return 1;
-    return it.which === "cal" ? 9 : it.which === "muyu" ? 1 : it.which === "weather" ? 2 : 4;
+    return it.which === "cal" ? 9 : it.which === "muyu" ? 4 : it.which === "weather" ? 2 : 4;
   };
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   // 文件夹（f_ 开头）也是合法项；躺在文件夹里的 app 视作已放置，不再回填到页面
@@ -1057,6 +1053,7 @@ function Home({
       var wsum = 0;
       arr.forEach(function (k) { wsum += wOf(k); });
       var target = Math.ceil(wsum / 4) * 4;
+      if (!arr.length) target = 4; // 空页也给一行空格：新开的第四页能直接拖东西进来
       // 保证每页至少 2 个空格（页排满时一个洞都没有→根本没法自由摆放）；超载页除外
       if (target - wsum < 2 && wsum > 0 && wsum <= 24) target += 4;
       var n = 0;
@@ -1295,7 +1292,7 @@ function Home({
     const isHoverTgt = hoverKey === key; // 有 app 悬停在我头上蓄力合并
     // 组件占格：日历 3 宽 3 高（右边留一列放 app），名片/音乐整行宽
     let gCol = "span 1", gRow = "auto";
-    if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather") { gCol = "span 2"; } else if (it.which === "muyu") { gCol = "span 1"; } else gCol = "span 4"; }
+    if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather") { gCol = "span 2"; } else if (it.which === "muyu") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
