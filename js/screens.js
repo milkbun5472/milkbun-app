@@ -3902,7 +3902,7 @@ const STORAGE_KEY_LABELS = [
   ["x_forumPosts", "论坛帖子"], ["x_forumComments", "论坛评论"], ["x_fanfic", "同人文"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],
   ["x_capsule", "时光胶囊"], ["x_schedules", "角色日程"], ["x_couple", "情侣空间"],
-  ["x_ledger", "记账"], ["x_memo", "备忘录"], ["x_read", "一起读"], ["x_study", "一起学"],
+  ["x_ledger", "记账"], ["x_memo", "备忘录"], ["x_read", "一起读"], ["x_study", "一起学"], ["x_desires", "欲望盒子"],
   ["x_lore", "世界书"], ["x_geo", "定位"], ["x_wx", "天气缓存"]
 ];
 function storageBreakdown() {

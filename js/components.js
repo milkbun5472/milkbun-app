@@ -6867,7 +6867,9 @@ function ContactDetail({
   onSaveRemark,
   onOpenState,
   directives = [],
-  onRemoveDirective
+  onRemoveDirective,
+  desireCount,
+  onOpenDesires
 }) {
   const t = useTheme();
   const [remark, setRemark] = useState(character.remark || "");
@@ -6957,7 +6959,14 @@ function ContactDetail({
   }, "查看实时状态"), /*#__PURE__*/React.createElement(IChevR, {
     size: 16,
     color: t.fog
-  })))));
+  })), onOpenDesires && h("button", {
+    onClick: onOpenDesires,
+    className: "w-full flex items-center justify-between py-4",
+    style: { borderTop: `1px solid ${t.line}` }
+  },
+    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "欲望盒子",
+      desireCount > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginLeft: 8 } }, desireCount + " 条念想")),
+    h(IChevR, { size: 16, color: t.fog })))));
 }
 
 // ---- chat settings (memory) ----
