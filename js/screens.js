@@ -3645,6 +3645,15 @@ function BubbleSkinConfig({ toast }) {
     row("我的气泡底色（可渐变）", "myBg", "#f7b6c2"),
     row("TA 的气泡底色（可渐变）", "charBg", "#a8c8e8"),
     numRow("圆角", "radius", 0, 30),
+    row("我的文字色", "myText", "#16330a"),
+    row("我的描边", "myBorder", "2px solid #f56a91"),
+    row("我的贴纸", "mySticker", ""), // 这个留空给放url嘿嘿
+    row("TA文字色", "charText", "#16330a"), // 写这里你会看见吗小克
+    row("TA描边", "charBorder", "2px solid #75b0eb"),
+    row("TA的贴纸", "charSticker", ""), //这里也是url嘿嘿
+    row("投影", "shadow", "0 6px 18px rgba(141,189,255,0.3)"),
+    row("聊天背景", "chatBg", "#dadbc9"),
+    numRow("贴纸大小", "stickerSize", 32,72),
     // 🎓Lisa 的作业区：照上面 row / numRow 的格式把剩下的字段补上——
     // myText（我的文字色）、myBorder（我的描边）、mySticker（我的贴纸）、
     // charText（TA文字色）、charBorder（TA描边）、charSticker（TA贴纸）、
