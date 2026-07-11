@@ -3562,7 +3562,7 @@ function ChatThread({
       ? h("div", { className: "text-center", style: { padding: "30px 0", fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.9 } }, "还没有表情。\n点右上「管理表情库」批量导入。")
       : h("div", { className: "grid grid-cols-4 gap-2", style: { maxHeight: "46vh", overflowY: "auto" } }, (emotes || []).map(em => h("button", { key: em.id, onClick: () => { sendRich({ role: "user", kind: "emote", url: em.url, keyword: em.keyword, content: "[表情] " + em.keyword }); setStickerOpen(false); }, className: "active:opacity-70", style: { border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
         h("div", { style: { width: "100%", aspectRatio: "1" } }, h("img", { src: em.url, referrerPolicy: "no-referrer", loading: "lazy", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" }, onError: e => { e.target.style.display = "none"; } })))))
-  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(Eyebrow, { style: { marginBottom: 8 } }, "发一条语音"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "写下你要「说」的话，会发成语音气泡，下面自动显示转文字。"),
     h("textarea", { value: voiceMsgText, onChange: e => setVoiceMsgText(e.target.value), rows: 3, autoFocus: true, placeholder: "想说的话…", className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.ink, background: t.bg2, border: `1px solid ${t.line}`, resize: "none" } }),
@@ -4206,14 +4206,24 @@ function locateMsgIn(container, i) {
     setTimeout(() => { node.style.background = "transparent"; setTimeout(() => { node.style.transition = oldT; node.style.borderRadius = oldR; }, 400); }, 1600);
   } catch (e) {}
 }
-function ChatSearchSheet({ messages, chars, meName, onClose, onLocate }) {
+function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount, loadArch }) {
   const t = useTheme();
   const [q, setQ] = useState("");
   const [typeF, setTypeF] = useState(null);
   const [day, setDay] = useState(null);
   const [focusTs, setFocusTs] = useState(null);
   const hitRef = useRef(null);
-  const msgs = (messages || []).map((m, i) => ({ m, i })).filter(x => !x.m.recalled && x.m.kind !== "ooc");
+  // 云端归档并入搜索（v48.12 她要搜 200 条之外的旧聊天）：点按钮拉一次、缓存住，
+  // 归档消息标 cloud=true——搜索/按天浏览都包含，但不能「定位到聊天原位」（本地已经没有那条了）
+  const [arch, setArch] = useState(null); // null | "loading" | "error" | [归档消息]
+  const pullArch = async () => {
+    if (arch === "loading" || Array.isArray(arch)) return;
+    setArch("loading");
+    try { const arr = loadArch ? await loadArch() : null; setArch(Array.isArray(arr) ? arr : "error"); } catch (e) { setArch("error"); }
+  };
+  const archMsgs = Array.isArray(arch) ? arch.map(m => ({ m, i: -1, cloud: true })).filter(x => x.m && !x.m.recalled && x.m.kind !== "ooc") : [];
+  // 归档在前（时间更早），整体仍按时间先后排
+  const msgs = archMsgs.concat((messages || []).map((m, i) => ({ m, i })).filter(x => !x.m.recalled && x.m.kind !== "ooc"));
   const nameOf = m => m.role === "user" ? (meName || "我") : (m.senderName || (chars && chars[0] && (chars[0].remark || chars[0].name)) || "TA");
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
@@ -4223,7 +4233,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate }) {
   const kw = q.trim();
   const hits = (kw || typeF) ? msgs.filter(x => matchType(x.m) && (!kw || String(textOf(x.m)).indexOf(kw) >= 0)) : [];
   const dayGroups = [];
-  { const seen = {}; msgs.forEach(x => { if (!x.m.ts) return; const d = dayOf(x.m.ts); if (!seen[d]) { seen[d] = { day: d, n: 0 }; dayGroups.push(seen[d]); } seen[d].n++; }); dayGroups.reverse(); }
+  { const seen = {}; msgs.forEach(x => { if (!x.m.ts) return; const d = dayOf(x.m.ts); if (!seen[d]) { seen[d] = { day: d, n: 0 }; dayGroups.push(seen[d]); } seen[d].n++; if (x.cloud) seen[d].cloud = true; }); dayGroups.reverse(); }
   useEffect(() => { if (day && hitRef.current) setTimeout(() => { try { hitRef.current.scrollIntoView({ block: "center" }); } catch (e) {} }, 80); }, [day, focusTs]);
   const openDay = (d, ts) => { setDay(d); setFocusTs(ts || null); };
   const dayMsgs = day ? msgs.filter(x => x.m.ts && dayOf(x.m.ts) === day) : [];
@@ -4237,14 +4247,15 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate }) {
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, dayMsgs.length + " 条"),
             onLocate ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: "auto" } }, "点条目跳到聊天原位") : null),
           h("div", { style: { flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" } },
-            dayMsgs.map(x => {
+            dayMsgs.map((x, di) => {
               const m = x.m; const tag = kindTag(m); const txt = String(textOf(m));
               const isHit = !focused && focusTs && m.ts === focusTs ? (focused = true) : false;
-              return h("div", { key: x.i, ref: isHit ? hitRef : null,
-                onClick: onLocate ? () => onLocate(x.i) : undefined,
-                className: onLocate ? "active:opacity-70" : "",
-                style: { padding: "7px 10px", borderRadius: 10, marginBottom: 2, background: isHit ? "rgba(184,145,80,0.16)" : "transparent", cursor: onLocate ? "pointer" : "default" } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 2 } }, hm(m.ts) + " · " + (m.role === "system" && !tag ? "系统" : nameOf(m)) + (tag ? " · " + tag : "") + (onLocate ? " · 定位 ›" : "")),
+              const canLoc = onLocate && !x.cloud; // 归档消息本地没有原位，只读
+              return h("div", { key: (x.cloud ? "a" + di : "l" + x.i), ref: isHit ? hitRef : null,
+                onClick: canLoc ? () => onLocate(x.i) : undefined,
+                className: canLoc ? "active:opacity-70" : "",
+                style: { padding: "7px 10px", borderRadius: 10, marginBottom: 2, background: isHit ? "rgba(184,145,80,0.16)" : "transparent", cursor: canLoc ? "pointer" : "default" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 2 } }, hm(m.ts) + " · " + (m.role === "system" && !tag ? "系统" : nameOf(m)) + (tag ? " · " + tag : "") + (x.cloud ? " · ☁ 云端归档" : (onLocate ? " · 定位 ›" : ""))),
                 // 自拍带真图（v47.81 她点名「只看到描述看不到图」）：有 imgKey 直接渲染 SelfieBubble
                 m.kind === "selfie" && m.imgKey ? h("div", { onClick: e => e.stopPropagation(), style: { margin: "4px 0" } }, h(SelfieBubble, { m: m })) : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, txt.slice(0, 300) || "（无文字）"));
@@ -4256,24 +4267,32 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate }) {
             h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 12 } },
               [[null, "全部"], ["voice", "🎤语音"], ["image", "📷图片"], ["transfer", "💸转账"], ["callend", "📞通话"], ["geo", "📍位置"], ["redpacket", "🧧红包"]].map(p =>
                 h("button", { key: String(p[0]), onClick: () => setTypeF(p[0]), className: "active:opacity-70",
-                  style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999, background: typeF === p[0] ? t.ink : t.bg, color: typeF === p[0] ? t.bg2 : t.sub, border: "1px solid " + (typeF === p[0] ? t.ink : t.line) } }, p[1])))),
+                  style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999, background: typeF === p[0] ? t.ink : t.bg, color: typeF === p[0] ? t.bg2 : t.sub, border: "1px solid " + (typeF === p[0] ? t.ink : t.line) } }, p[1]))),
+            archCount > 0 && loadArch ? h("button", { onClick: pullArch, className: "w-full active:opacity-70", disabled: arch === "loading",
+              style: { fontFamily: F_BODY, fontSize: 11.5, padding: "8px 11px", borderRadius: 10, marginBottom: 12, textAlign: "center",
+                background: Array.isArray(arch) ? "rgba(90,150,90,0.1)" : t.bg, color: Array.isArray(arch) ? "#4a7a4a" : (arch === "error" ? "#b0503f" : t.sub),
+                border: "1px dashed " + (Array.isArray(arch) ? "#8ab88a88" : (arch === "error" ? "#c25a4a88" : t.line)) } },
+              arch === "loading" ? "☁ 正在拉取云端归档…"
+                : Array.isArray(arch) ? ("✓ 已连云端归档一起搜（含更早的 " + arch.length + " 条）")
+                : arch === "error" ? "☁ 拉取云端归档失败 · 点击重试"
+                : ("☁ 本地只有最近的记录 · 点击连云端归档的 " + archCount + " 条一起搜")) : null),
           h("div", { style: { flex: "1 1 auto", minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" } },
             (kw || typeF)
               ? (hits.length === 0
                 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "26px 0" } }, "没搜到。")
-                : hits.slice(-200).reverse().map(x => {
+                : hits.slice(-200).reverse().map((x, hi) => {
                     const m = x.m; const tag = kindTag(m); const txt = String(textOf(m));
                     const pos = kw ? txt.indexOf(kw) : -1;
                     const snip = pos > 12 ? "…" + txt.slice(pos - 10, pos + 60) : txt.slice(0, 70);
-                    return h("button", { key: x.i, onClick: () => openDay(dayOf(m.ts), m.ts), className: "w-full active:opacity-70", style: { textAlign: "left", padding: "9px 10px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
-                      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 2 } }, dayOf(m.ts) + " " + hm(m.ts) + " · " + nameOf(m) + (tag ? " · " + tag : "")),
+                    return h("button", { key: (x.cloud ? "a" + hi : "l" + x.i), onClick: () => openDay(dayOf(m.ts), m.ts), className: "w-full active:opacity-70", style: { textAlign: "left", padding: "9px 10px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 2 } }, dayOf(m.ts) + " " + hm(m.ts) + " · " + nameOf(m) + (tag ? " · " + tag : "") + (x.cloud ? " · ☁ 云端" : "")),
                       h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, snip || "（无文字）"));
                   }))
               : h(Fragment, null,
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "或按日期定位（点一天看当天完整记录）"),
                   dayGroups.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "还没聊过。") :
                   dayGroups.map(g => h("button", { key: g.day, onClick: () => openDay(g.day, null), className: "w-full active:opacity-70 flex items-center", style: { textAlign: "left", padding: "11px 10px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
-                    h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, g.day),
+                    h("span", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, g.day + (g.cloud ? " ☁" : "")),
                     h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, g.n + " 条")))))));
 }
 // 来电邀请卡（角色主动打来）：接听→进通话；拒绝→系统提示
@@ -6287,7 +6306,7 @@ function GroupThread({
     placeholder: "描述这张照片的内容…",
     className: "w-full outline-none px-4 py-3 rounded-xl",
     style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line }
-  })), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  })), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(Eyebrow, { style: { marginBottom: 8 } }, "发一条语音"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "写下你要「说」的话，会发成语音气泡，下面自动显示转文字。"),
     h("textarea", { value: voiceMsgText, onChange: e => setVoiceMsgText(e.target.value), rows: 3, autoFocus: true, placeholder: "想说的话…", className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, resize: "none" } }),
