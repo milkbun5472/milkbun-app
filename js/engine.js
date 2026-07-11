@@ -494,6 +494,8 @@ function buildBundle(ctx, opts) {
   const uName = profile && profile.name ? profile.name : "对方";
   if (geo && geo.label) parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）");
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+  // 欲望盒子毕业念想凝成的人格档案（角色亲笔，人设的活体延伸；空=零注入，ctxFor 侧已封顶 400 字）
+  if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push("【你长出来的自我】这些是这段日子里你自己亲笔写下的自我认知——是你当下真实的一部分，和人设同等分量，自然体现在言行里，别当台词复述：\n" + ctx.personaGrown.trim());
   if (profile && (profile.name || profile.persona)) parts.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
   parts.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
   // 情侣状态：以此为准，覆盖上面关系网里可能过时的标签（表白在一起后自动生效）

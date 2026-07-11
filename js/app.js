@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.22";
+const APP_VERSION = "v48.23";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -702,14 +702,16 @@ function App() {
       return n;
     });
   };
-  // 欲望盒子写回：mut 拿到浅拷贝的新映射就地改；state+ref+localStorage 三处同步（save 必须同步更 ref 的铁律）
-  const saveDesires = mut => setDesires(p => {
-    const n = { ...p };
+  // 欲望盒子写回：mut 拿到浅拷贝的新映射就地改。⚠️必须【立刻同步】以 ref 为底更新 ref+localStorage，再 setState——
+  // 若把 ref 更新塞进 setState 的 updater（渲染时才跑、不同步），同一条 tick 链里连续两次保存（发呆→小满）
+  // 第二次会读到旧 ref、整盒覆盖丢掉第一次的写入（v48.23 实测踩过）。
+  const saveDesires = mut => {
+    const n = { ...desiresRef.current };
     mut(n);
     desiresRef.current = n;
     saveJSON("x_desires", n);
-    return n;
-  });
+    setDesires(n);
+  };
   // 用户经 OOC 立下的长期行为准则
   const addDirective = (id, text) => {
     const t = (text || "").trim();
@@ -1004,6 +1006,8 @@ function App() {
     })(),
     // 世界书：按当前角色 + 近期对话做关键词/绑定/范围/优先级检索式注入（第2步引擎），不再是一整团
     worldbook: loreFor(char, "chat"),
+    // 人格档案（欲望盒子毕业念想凝成的自我认知，她拍板常驻当人设活体延伸）：多数角色为空=零成本，引擎里封顶400字
+    personaGrown: (window.DesireKit && desiresRef.current[char.id]) ? DesireKit.personaText(desiresRef.current[char.id]) : "",
     profile,
     affinity: Math.round(affOf(char.id)),
     moodLabel: (moods[char.id] || {}).label || null,
@@ -3431,6 +3435,29 @@ function App() {
     desireRunRef.current = true;
     try { for (const c of todo) await desireMuseFor(c); } finally { desireRunRef.current = false; }
   };
+  // P2 三节奏后两拍（v48.23）：小满日=每10天盘盒子（校准js钳±0.15/毕业蜕变诗入人格档案/枯萎），冬至日=每90天季度自述。
+  // 同样只有角色落笔、走便宜池；首次见到的盒子只记基准日不当天跑（防连环烧）；失败不记基准日、下个 tick 重试。
+  const desireTendRef = useRef(false);
+  const desireTendAllToday = async () => {
+    if (desireTendRef.current || !active || !window.DesireKit || !characters.length) return;
+    desireTendRef.current = true;
+    const today = schedDayKey(new Date());
+    try {
+      for (const c of characters) {
+        if (!desiresRef.current[c.id]) continue;
+        const box = DesireKit.boxOf(desiresRef.current, c.id);
+        const r = DesireKit.tendDue(box, today);
+        if (r.inited) { saveDesires(n => { n[c.id] = box; }); continue; }
+        if (!r.due) continue;
+        try {
+          const spec = r.due === "solstice" ? DesireKit.solsticeSpec(c, box) : DesireKit.mellowSpec(c, box);
+          const d = await runProbe(bgActive, ctxFor(c), spec);
+          if (r.due === "solstice") DesireKit.applySolstice(box, d, today); else DesireKit.applyMellow(box, d, today);
+          saveDesires(n => { n[c.id] = box; });
+        } catch (e) {}
+      }
+    } finally { desireTendRef.current = false; }
+  };
   useEffect(() => {
     if (screen === "forum") { autoAmbientRun("forum"); clearAppNotif("forum"); } else ambientRunRef.current.forum = false;
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
@@ -3438,13 +3465,13 @@ function App() {
   }, [screen]);
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
   useEffect(() => {
-    if (active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday());
+    if (active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday());
   }, [active, characters.length]);
   // 回到前台 / 重新聚焦：也自动补今日行程。PWA 常驻不重载页面时，光靠上面的首次加载不够——
   // 切回来那一下补一次。schedGenAllToday 只补【缺今天】的角色、已有则空跑，安全省 api。
   useEffect(() => {
     if (!loaded) return;
-    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()); };
+    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); };
     document.addEventListener("visibilitychange", kick);
     window.addEventListener("focus", kick);
     return () => { document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); };
@@ -3453,7 +3480,7 @@ function App() {
   const schedDayRef = useRef(schedDayKey(new Date()));
   useEffect(() => {
     const k = schedDayKey(new Date());
-    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()); }
+    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }
   }, [now]);
 
   // ---- 查手机：每个 app 独立生成/刷新 ----
@@ -7095,6 +7122,7 @@ function App() {
     busy: desireBusy,
     onMuse: async () => { if (desireBusy) return; setDesireBusy(true); try { await desireMuseFor(activeChar, { manual: true }); } finally { setDesireBusy(false); } },
     onRemove: id => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.list = b.list.filter(e => e.id !== id); n[activeChar.id] = b; }),
+    onRemovePersona: id => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.persona = b.persona.filter(e => e.id !== id); n[activeChar.id] = b; }),
     onClose: () => setDesireBoxOpen(false)
   }) : null, editMsg && /*#__PURE__*/React.createElement(MsgEditSheet, {
     init: editMsg.content,
