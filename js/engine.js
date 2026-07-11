@@ -952,22 +952,25 @@ async function generateOffline(p, ctx, session) {
   const styleText = session.stylePrompt != null ? session.stylePrompt : offlineStyleText(session.styleKey);
   const notes = (session.customNotes || []).filter(Boolean);
   const cotT = cotThink({ char: char.name, user: userName });
+  // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
+  const wantLong = session.minWords && session.minWords >= 150;
+  const lenGuide = wantLong ? "充分展开写足这一段——把动作、神态、心理、环境、对话都写够，别省笔墨" : "写成一小段（约2到6句）";
   const system = buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
     "\n\n" + INTIMATE_ANTI_CLICHE +
     cotSystemBlock(cotT) +
-    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事：融合【动作描写】【神态与心理描写】【环境旁白】与【对话】，写成一小段（约2到6句）。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
+    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事：融合【动作描写】【神态与心理描写】【环境旁白】与【对话】，" + lenGuide + "。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (styleText ? "\n【文风要求】" + styleText : "") +
     narrativeDirective(session.narr) +
-    (session.minWords ? "\n【篇幅要求】scene 正文至少写约 " + session.minWords + " 字，充分展开描写，别写得太短。" : "") +
+    (session.minWords ? "\n【篇幅要求·硬性，优先级高于「简短」的一般习惯】scene 正文至少写 " + session.minWords + " 字，务必写足——宁可多不可少，把这一刻的动作、心理、环境、对话都展开写透。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
     "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻心情词\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)}";
   const hist = offlineHistory(session.msgs, userName, char.name);
   // ⭐尾部重申（治「越写越八股」）：长对话里开头的规矩会被稀释，模型还会模仿自己前文的油腻输出——
   // 把关键约束追加到上下文最尾（模型对结尾最敏感），每轮都在
-  const tailNudge = "\n\n〔幕后提醒，绝不出现在正文里：①反陈词滥调清单全程生效——尤其禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；②这一段的【句式、开头方式、意象、节奏】不许和你上一段雷同——上一段用过的比喻和小动作这段一律换新的，长短句结构也换着来；③宁可短而准，别长而油；" + (cotT ? "④cot 字段必填，先想后写。" : "") + "〕";
+  const tailNudge = "\n\n〔幕后提醒，绝不出现在正文里：①反陈词滥调清单全程生效——尤其禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；②这一段的【句式、开头方式、意象、节奏】不许和你上一段雷同——上一段用过的比喻和小动作这段一律换新的，长短句结构也换着来；③" + (wantLong ? "写够上面要求的篇幅，把这段写足写透，别注水凑字、也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "④cot 字段必填，先想后写。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tailNudge };
   else hist.push({ role: "user", content: "（继续）" + tailNudge });
   const raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1400 });
@@ -1061,13 +1064,14 @@ async function generateOfflineGroup(p, ctx, session) {
     "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻：融合【动作描写】【神态与心理】【环境旁白】与【对话】。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (styleText ? "\n【文风要求】" + styleText : "") +
     narrativeDirective(session.narr) +
-    (session.minWords ? "\n【篇幅要求】每个 beat 的 scene 都充分展开，整段总字数至少约 " + session.minWords + " 字，别写太短。" : "") +
+    (session.minWords ? "\n【篇幅要求·硬性，优先级高于「简短」的一般习惯】每个 beat 的 scene 都充分展开，整段总字数至少 " + session.minWords + " 字，务必写足——宁可多不可少。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     cotSystemBlock(cotT) +
     "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻心情词\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须是在场角色之一或『旁白』。";
   const hist = offlineGroupHistory(session.msgs, userName);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
-  const gTail = "\n\n〔幕后提醒，绝不出现在正文里：①反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；②各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；③宁可短而准，别长而油；" + (cotT ? "④cot 字段必填，先想后写。" : "") + "〕";
+  const gWantLong = session.minWords && session.minWords >= 150;
+  const gTail = "\n\n〔幕后提醒，绝不出现在正文里：①反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；②各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；③" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "④cot 字段必填，先想后写。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gTail };
   else hist.push({ role: "user", content: "（继续）" + gTail });
   const raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1900 });
