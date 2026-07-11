@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.81";
+const APP_VERSION = "v47.82";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -6186,11 +6186,11 @@ function App() {
       const c = pool.length ? pool[Math.floor(Math.random() * pool.length)] : characters[0];
       if (!c) return null;
       const d = await runProbe(bgActive, ctxFor(c), {
-        instruction: "用户选择困难，把决定交给了手机主屏上的「命运转盘」" + (title ? "（转盘主题：" + title + "）" : "") + "。转盘上的选项：" + items.join("、") + "。刚刚指针停在了【" + result + "】。以「" + c.name + "」的口吻对这个结果说一句话——起哄、拍板、吐槽 Ta 的选择困难、或者对结果本身发表意见都行，按你的人设和此刻心情来，像随口说的一句，不超过 20 字。",
-        schemaHint: "{\"say\":\"一句话\"}",
-        maxTokens: 800
+        instruction: "用户选择困难，把决定交给了手机主屏上的「命运转盘」" + (title ? "（转盘主题：" + title + "）" : "") + "。转盘上的选项：" + items.join("、") + "。刚刚指针停在了【" + result + "】。以「" + c.name + "」的口吻对这个结果说一两句话——起哄、拍板、吐槽 Ta 的选择困难、或者对结果本身发表意见都行，按你的人设和此刻心情来，像随口说的，加起来别超过 40 字。",
+        schemaHint: "{\"say\":\"一两句话\"}",
+        maxTokens: 6000   // 思考型模型兜底也够（后台池没配时 bgActive=主模型）
       });
-      return d && d.say ? { name: c.remark || c.name, text: String(d.say).slice(0, 40) } : null;
+      return d && d.say ? { name: c.remark || c.name, text: String(d.say).trim().slice(0, 120), char: c } : null;
     }
   });else if (screen === "map") body = (window.MapKit ? h(window.MapKit.CharMap, {
     characters: characters,
