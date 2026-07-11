@@ -3061,15 +3061,30 @@ function CtxDebug({ characters, getBundle }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } }, "看看此刻和 TA 聊天时，到底喂了什么给模型（人设 / 记忆 / 世界书 / 行程…按段拆开）。角色变笨、OOC、忘事时来这里排查是哪一段出了问题。"),
     h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, (characters || []).map(c =>
       h("button", { key: c.id, onClick: () => load(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: cid === c.id ? t.ink : t.bg2, color: cid === c.id ? t.bg2 : t.ink, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
-    cid ? h("div", null,
-      h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, secs.length + " 段 · 共 " + text.length + " 字 · 点标题展开"),
-        h("button", { onClick: () => load(cid), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "刷新")),
-      secs.map((s, i) => h("div", { key: i, style: { border: "1px solid " + t.line, borderRadius: 12, marginBottom: 8, overflow: "hidden" } },
-        h("button", { onClick: () => setOpen(o => ({ ...o, [i]: !o[i] })), className: "w-full flex items-center justify-between gap-2 active:opacity-70", style: { padding: "9px 12px", background: t.bg2, textAlign: "left" } },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.title),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flexShrink: 0 } }, s.body.length + " 字 " + (open[i] ? "▾" : "▸"))),
-        open[i] ? h("div", { style: { padding: "10px 12px", fontFamily: "monospace", fontSize: 11, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 300, overflowY: "auto", background: t.bg } }, s.body) : null))) : null);
+    cid ? (() => {
+      // 每段占比 + 肥度条（v47.84 她要的「谁肥一眼看穿」）：≥20% 红、≥10% 金、其余灰
+      const total = Math.max(1, text.length);
+      const pctOf = s => Math.round(s.body.length / total * 100);
+      const top3 = secs.slice().sort((a, b) => b.body.length - a.body.length).slice(0, 3).filter(s => s.body.length > 0);
+      const barColor = p => p >= 20 ? "#c25a4a" : p >= 10 ? "#b89150" : t.line;
+      return h("div", null,
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, secs.length + " 段 · 共 " + text.length + " 字 · 点标题展开"),
+          h("button", { onClick: () => load(cid), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "刷新")),
+        top3.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.7, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 11px", marginBottom: 10 } },
+          "最肥三段：" + top3.map(s => s.title.replace(/[【】]/g, "") + " " + pctOf(s) + "%").join(" · ") + "——变笨先查它们") : null,
+        secs.map((s, i) => {
+          const pct = pctOf(s);
+          return h("div", { key: i, style: { border: "1px solid " + t.line, borderRadius: 12, marginBottom: 8, overflow: "hidden" } },
+            h("button", { onClick: () => setOpen(o => ({ ...o, [i]: !o[i] })), className: "w-full active:opacity-70", style: { padding: "9px 12px 7px", background: t.bg2, textAlign: "left", display: "block" } },
+              h("div", { className: "flex items-center justify-between gap-2" },
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.title),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pct >= 20 ? "#c25a4a" : t.fog, flexShrink: 0 } }, s.body.length + " 字 · " + pct + "% " + (open[i] ? "▾" : "▸"))),
+              h("div", { style: { height: 3, borderRadius: 999, background: t.bg, marginTop: 6, overflow: "hidden" } },
+                h("div", { style: { height: "100%", width: Math.max(2, pct) + "%", borderRadius: 999, background: barColor(pct) } }))),
+            open[i] ? h("div", { style: { padding: "10px 12px", fontFamily: "monospace", fontSize: 11, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 300, overflowY: "auto", background: t.bg } }, s.body) : null);
+        }));
+    })() : null);
 }
 function Config({
   apiProfiles,
