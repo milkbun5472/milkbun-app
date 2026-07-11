@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.13";
+const APP_VERSION = "v48.14";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -580,6 +580,10 @@ function App() {
       await window.Cloud.chatArchiveAppend(charId, older); // 先上云，抛错就不往下走
       pChat(charId, () => keep);                            // 云端确认后才裁本地
       const marks = loadJSON("x_chatArch", {}); marks[charId] = (marks[charId] || 0) + older.length; saveJSON("x_chatArch", marks); setChatArch(marks);
+      // ⭐长期记忆浓缩进度跟着回调（v48.14 修）：lastSummarizedCount 是按本地列表位置数的，
+      // 裁掉 older 后不回调会错位——浓缩要么停摆、要么跳过一段永远没进记忆的消息。按 maybeSummarize 同口径(!recalled)折算。
+      const cut = older.filter(m => !m.recalled).length;
+      if (cut > 0) setChatSettings(p => { const s = p[charId] || {}; const n = { ...p, [charId]: { ...s, lastSummarizedCount: Math.max(0, (s.lastSummarizedCount || 0) - cut) } }; saveJSON("x_chatSettings", n); return n; });
       return { ok: true, moved: older.length };
     } catch (e) { return { ok: false, msg: e.message || String(e) }; }
   };
@@ -595,6 +599,9 @@ function App() {
       await window.Cloud.chatArchiveAppend(archKey, older); // 先上云
       pGChat(groupId, () => keep);                           // 成功才裁本地
       const marks = loadJSON("x_chatArch", {}); marks[archKey] = (marks[archKey] || 0) + older.length; saveJSON("x_chatArch", marks); setChatArch(marks);
+      // ⭐群记忆浓缩进度同样回调（v48.14 修）：按群 maybeSummarize 同口径（user/assistant/narration）折算裁掉的条数
+      const cut = older.filter(m => m.role === "user" || m.role === "assistant" || m.role === "narration").length;
+      if (cut > 0) saveGroupSettings(groupId, { lastSummarizedCount: Math.max(0, ((groupSettings[groupId] || {}).lastSummarizedCount || 0) - cut) });
       return { ok: true, moved: older.length };
     } catch (e) { return { ok: false, msg: e.message || String(e) }; }
   };
