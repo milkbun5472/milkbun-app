@@ -767,9 +767,15 @@ async function ttsSpeak(text, voiceId) {
   const vid = voiceId || "female-shaonv";
   const txt = String(text || "").trim().slice(0, 800);
   if (!txt) throw new Error("这条语音没有文字内容");
-  const emo = ttsEmotionOf(txt);
-  // 缓存键带 :lb 标记：language_boost 上线前的旧缓存是带口音的老发音，别再命中（旧条目留着不碍事，只是不再用）
-  const key = ttsCacheKey(vid + ":" + emo + ":lb", txt);
+  // per-voice 沉稳调校（v47.86）：克隆音色若素材本身亢奋（如杨昕燃配的挏马酒），在音色库开「沉稳」——
+  // 降语速+降音调+锁 neutral 情绪，把那股端着的兴奋劲压下去；只影响这一个音色
+  const ve = (loadVoiceLib() || []).find(x => x && x.id === vid) || {};
+  const calm = !!ve.calm;
+  const emo = calm ? "neutral" : ttsEmotionOf(txt);
+  const spd = calm ? 0.85 : 1.0;
+  const pit = calm ? -2 : 0;
+  // 缓存键带 :lb（口音矫正代次）+ 沉稳标记：调校变了别命中旧发音
+  const key = ttsCacheKey(vid + ":" + emo + ":lb" + (calm ? ":cm" : ""), txt);
   const hit = await idbAudGet(key).catch(() => null);
   if (hit && hit.size > 0) return hit;
   const base = (a.baseUrl || "https://api.minimax.io").trim().replace(/\/+$/, "");
@@ -781,7 +787,7 @@ async function ttsSpeak(text, voiceId) {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey },
       // language_boost:"Chinese"（v47.79）：把发音往标准普通话拉——外语素材克隆的音色（如日本声优）说中文带口音，这是官方唯一的矫正旋钮
-      body: JSON.stringify({ model: a.model || "speech-02-hd", text: txt, stream: false, language_boost: "Chinese", voice_setting: { voice_id: vid, speed: 1.0, vol: 1.0, pitch: 0, emotion: emo }, audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 } }),
+      body: JSON.stringify({ model: a.model || "speech-02-hd", text: txt, stream: false, language_boost: "Chinese", voice_setting: { voice_id: vid, speed: spd, vol: 1.0, pitch: pit, emotion: emo }, audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 } }),
       signal: ctrl.signal
     });
   } finally { clearTimeout(to); }

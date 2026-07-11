@@ -2969,6 +2969,12 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
               h("button", { onClick: () => setAssignFor(assignFor === v.id ? null : v.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: t.tint, border: "none", borderRadius: 999, padding: "6px 12px" } }, "指派"),
               h("button", { onClick: () => { if (window.confirm("从清单移除这个音色？（不影响 MiniMax 账号）")) saveVlib(vlib.filter(x => x.id !== v.id)); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, border: "none", background: "transparent", padding: "2px 4px" } }, "✕")),
             h("input", { value: v.note || "", onChange: e => saveVlib(vlib.map(x => x.id === v.id ? { ...x, note: e.target.value } : x)), placeholder: "备注（谁的声音 / 什么感觉）", style: { width: "100%", outline: "none", marginTop: 8, padding: "7px 10px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12, background: t.bg, color: t.sub, border: "1px solid " + t.line } }),
+            // 沉稳开关：克隆素材本身太亢奋（如杨昕燃配的挏马酒）时打开——降语速+降音调+锁平静情绪，把端着的兴奋压下去
+            h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
+              h("div", { style: { paddingRight: 10 } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "沉稳一点"),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 6 } }, "音色太亢奋就开")),
+              h(Toggle, { on: !!v.calm, onChange: on => { saveVlib(vlib.map(x => x.id === v.id ? { ...x, calm: on } : x)); toast && toast(on ? "已压稳这个音色，试听听听" : "恢复原始语气"); } })),
             assignFor === v.id ? h("div", { className: "flex flex-wrap gap-2", style: { marginTop: 8 } },
               (characters || []).length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色，先去名录建一个。") :
               (characters || []).map(ch => h("button", { key: ch.id, onClick: () => { onAssignVoice && onAssignVoice(ch.id, v.id); setAssignFor(null); }, className: "active:opacity-70",
