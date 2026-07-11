@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v47.97";
+const APP_VERSION = "v47.98";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1065,7 +1065,8 @@ function App() {
     const timer = setInterval(() => {
       if (laneBusy("c:" + cid)) return;
       // 线下进行中：角色此刻正跟你面对面相处，绝不能在线上主动催「怎么还不来」——直接掐掉这轮主动（浮层开着时 screen 仍是 thread，定时器还在转）
-      if ((offlinesRef.current[cid] || []).some(s => s && !s.endTs && (s.msgs || []).length > 0)) return;
+      // 内存 ref 没加载就从本地兜底（上次没结束线下就关 app、这次直接进线上的情况）
+      if ((offlinesRef.current[cid] || loadJSON("x_offline:" + cid, [])).some(s => s && !s.endTs && (s.msgs || []).length > 0)) return;
       const msgs = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
       if (!msgs.length) return;
       const lastTs = msgs[msgs.length - 1].ts || 0;

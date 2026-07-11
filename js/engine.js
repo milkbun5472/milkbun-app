@@ -50,9 +50,11 @@ async function testEmbedding(p) {
   if (fmt === "anthropic") return { ok: false, msg: "Anthropic 原生不提供 embedding。若你用的是中转站，把地址换成它的 OpenAI 兼容端点(通常 .../v1)再测。" };
   if (fmt === "gemini") return { ok: false, msg: "Gemini 的 embedding 端点是 :embedContent，和这里不同。多数中转站有 OpenAI 兼容的 /v1/embeddings，把地址换成那个再测。" };
   const root = base.endsWith("/v1") ? base : base + "/v1";
-  const candidates = [p.embedModel, "text-embedding-3-small", "text-embedding-ada-002", "bge-m3", "text-embedding-v3"].filter(Boolean);
-  let lastErr = "";
+  // 手填的排最前（优先试你指定的）；后面是各家常见 embedding 模型名，尽量多撞几个
+  const candidates = [p.embedModel, "text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002", "bge-m3", "text-embedding-v3", "text-embedding-v2", "embedding-2", "doubao-embedding"].filter(Boolean);
+  const tried = [];   // 逐个记下失败原因，别只留最后一个（否则会误以为只是那一个模型的问题）
   for (const model of candidates) {
+    let why = "";
     try {
       const r = await fetchT(root + "/embeddings", {
         method: "POST",
@@ -60,14 +62,14 @@ async function testEmbedding(p) {
         body: JSON.stringify({ model: model, input: "测试向量" })
       }, 20000);
       const raw = await r.text();
-      let d; try { d = JSON.parse(raw); } catch (e) { lastErr = "返回非 JSON：" + raw.slice(0, 80); continue; }
-      if (d && d.error) { lastErr = (d.error.message || JSON.stringify(d.error)).slice(0, 120); continue; }
+      let d; try { d = JSON.parse(raw); } catch (e) { why = "返回非 JSON：" + raw.slice(0, 60); tried.push(model + " → " + why); continue; }
+      if (d && d.error) { why = (d.error.message || JSON.stringify(d.error)).slice(0, 100); tried.push(model + " → " + why); continue; }
       const vec = d && d.data && d.data[0] && d.data[0].embedding;
       if (Array.isArray(vec) && vec.length) return { ok: true, dim: vec.length, model: model };
-      lastErr = "返回里没找到向量：" + raw.slice(0, 80);
-    } catch (e) { lastErr = e.message || String(e); }
+      why = "返回里没找到向量：" + raw.slice(0, 60); tried.push(model + " → " + why);
+    } catch (e) { why = e.message || String(e); tried.push(model + " → " + why); }
   }
-  return { ok: false, msg: lastErr || "都试过了，没有可用的 embedding 模型" };
+  return { ok: false, msg: "试了这些 embedding 模型都没通（多半是这家中转站压根没开 embedding 渠道）：\n" + tried.join("\n") + "\n\n办法：①去中转站后台看它到底有没有 embedding 模型、把确切的模型名手填进下面的框再测；②换一家有 OpenAI 兼容 /v1/embeddings 的 key（如支持 text-embedding-3-small 的）。测不通也没关系——向量记忆只是锦上添花，现在的关键词记忆照常工作。" };
 }
 // 带超时的 fetch：超时/卡死时中断并抛出可读错误，避免无限转圈
 async function fetchT(url, options, ms) {
