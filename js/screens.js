@@ -3878,7 +3878,7 @@ function CloudSync({ toast }) {
 // 存储 key → 人话名称（谁占地方一眼看懂）；前缀匹配，最长优先
 const STORAGE_KEY_LABELS = [
   ["x_chat:", "聊天记录"], ["x_gchat:", "群聊记录"], ["x_emojiPacks", "表情包"], ["x_emoji", "表情包"],
-  ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案(含头像)"],
+  ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案·人设(头像已迁图库)"],
   ["x_memLib", "记忆库"], ["x_memories", "长期记忆"], ["x_diaries", "日记"],
   ["x_forumPosts", "论坛帖子"], ["x_forumComments", "论坛评论"], ["x_fanfic", "同人文"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],
@@ -3927,8 +3927,8 @@ function StorageMeter() {
     h("div", { style: { height: 8, borderRadius: 999, background: t.line, overflow: "hidden" } },
       h("div", { style: { width: pct + "%", height: "100%", borderRadius: 999, background: near ? "#c25a4a" : (pct >= 60 ? "#b89150" : t.tint), transition: "width .3s" } })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } },
-      near ? "⚠️ 快满了！点下面「看谁占地方」找出大头——通常是壁纸/表情包/头像/朋友圈图。删掉用不到的、或导出备份后清理。满了新消息会存不进、可能丢。"
-        : "文字＋图片都存这里（上限约 5MB），图片占大头。快满时 app 会提前弹警告。"),
+      near ? "⚠️ 快满了！点下面「看谁占地方」找出大头。图片(头像/壁纸/朋友圈/聊天图)已自动迁到 IndexedDB 图库、不占这 5MB；剩下占地方的多是文字（聊天记录/同人文/人设）。可删旧聊天、或导出备份后清理。满了新消息会存不进、可能丢。"
+        : "这里只存文字（上限约 5MB）——图片已自动迁到浏览器图库、不占这里。占大头的是聊天记录和文本内容。快满时 app 会提前弹警告。"),
     // 明细：谁占地方一眼看穿
     h("button", { onClick: () => { setDetail(d => !d); refresh(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 8 } }, detail ? "收起明细 ▴" : "看谁占地方 ▾"),
     detail ? h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
