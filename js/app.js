@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.02";
+const APP_VERSION = "v48.03";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -455,6 +455,32 @@ function App() {
     setChats(cm);
     setGroupChats(gm);
     setLoaded(true);
+  }, []);
+  // ⭐图片迁 IndexedDB · 阶段2迁移引擎：开机把【头像 + 壁纸】的 base64 挪进图库、localStorage 只留 iv_ 键（腾 5MB）。
+  // 只迁 avatarImage / wallpaper 这两类纯展示图；refPhoto（喂给自拍 API 的参考照）绝不碰、留 base64。
+  // imgToVault 幂等（iv_/http/空原样返回），且当场把图缓存成 objectURL，所以迁完立刻 resolveImg 得到、不闪空。
+  // 迁完同时更新 React state（否则后续从 state 存回又把 iv_ 覆盖成 base64）。
+  useEffect(() => {
+    if (typeof imgToVault !== "function") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const isB64 = v => typeof v === "string" && v.slice(0, 5) === "data:";
+        // 角色头像
+        const chars = loadJSON("x_characters", []);
+        let chChanged = false;
+        for (const ch of chars) { if (ch && isB64(ch.avatarImage)) { ch.avatarImage = await imgToVault(ch.avatarImage); chChanged = true; } }
+        if (cancelled) return;
+        if (chChanged) { saveJSON("x_characters", chars); setCharacters(chars); }
+        // 我的头像
+        const prof = loadJSON("x_profile", {});
+        if (prof && isB64(prof.avatarImage)) { prof.avatarImage = await imgToVault(prof.avatarImage); if (!cancelled) { saveJSON("x_profile", prof); setProfile(prof); } }
+        // 主屏壁纸
+        const wp = loadJSON("x_wallpaper", "");
+        if (isB64(wp)) { const iv = await imgToVault(wp); if (!cancelled) { saveJSON("x_wallpaper", iv); setWallpaper(iv); } }
+      } catch (e) {}
+    })();
+    return () => { cancelled = true; };
   }, []);
   // 点锁屏通知回到 app：打开对应角色的私聊（index.html 的 SW 监听里会调这个）
   useEffect(() => {
@@ -6843,7 +6869,7 @@ function App() {
     className: "w-full flex flex-col relative overflow-hidden",
     style: {
       // 主屏时把壁纸铺到根节点（含顶部 safe-area 刘海区），Home 自身透明 → 壁纸一路遮到顶，无白边
-      background: (screen === "home" && wallpaper) ? "center/cover no-repeat url(" + wallpaper + ")" : theme.bg,
+      background: (screen === "home" && wallpaper) ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) + ")" : theme.bg,
       height: "100vh" // 100vh=large viewport，撑到物理屏底（不用 100dvh/fixed，dvh 只到 WebKit 可视区会露白）
     }
   }, isStandalone ? /*#__PURE__*/React.createElement("div", {
@@ -7018,7 +7044,12 @@ function App() {
     msg: toastMsg
   })));
 }
-ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+// 挂载前先把图片仓库 hydrate 进内存缓存（iv_ 键→objectURL），首帧头像/壁纸就能直接显示、不闪空。
+// hydrate 只是读一遍 IndexedDB，几毫秒；失败也照常挂载（resolveImg 对未命中的 iv_ 返回空、落首字母兜底）。
+(function () {
+  const mount = () => ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
+  if (typeof hydrateImgVault === "function") { hydrateImgVault().then(mount, mount); } else { mount(); }
+})();
 
 // 启动时：若已登录且云端存档更新，静默拉回并重载（换设备场景）
 if (window.Cloud && window.Cloud.ready()) {

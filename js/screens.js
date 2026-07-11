@@ -721,7 +721,7 @@ function Lifestyle({ characters, schedules, selId, busyKey, onBack, onSel, onGen
     const dev0 = todayPlan && (todayPlan.seqs || []).map(s => s.deviation).find(Boolean);
     const weekLabel = weekOff === 0 ? "本周" : weekOff === -1 ? "上一周" : Math.abs(weekOff) + " 周前";
     const bandBg = char.avatarImage
-      ? `linear-gradient(180deg, rgba(10,9,8,0.05) 0%, rgba(10,9,8,0.35) 60%, rgba(10,9,8,0.78) 100%), center 25%/cover no-repeat url(${char.avatarImage})`
+      ? `linear-gradient(180deg, rgba(10,9,8,0.05) 0%, rgba(10,9,8,0.35) 60%, rgba(10,9,8,0.78) 100%), center 25%/cover no-repeat url(${typeof resolveImg==="function"?resolveImg(char.avatarImage):char.avatarImage})`
       : `linear-gradient(180deg, ${char.color || "#3a3730"} 0%, #6b6459 100%)`;
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
       h("div", { className: "shrink-0 relative", style: { height: 190, background: bandBg, color: "#efe9df" } },
@@ -780,7 +780,7 @@ function Lifestyle({ characters, schedules, selId, busyKey, onBack, onSel, onGen
 
   // —— browser（默认）：仿日记大图 · swipe + 箭头 + 圆点换角色，点进去看日程 ——
   const bg = char.avatarImage
-    ? `linear-gradient(180deg, rgba(10,9,8,0.1) 0%, rgba(10,9,8,0.45) 55%, #0c0b0a 94%), center 22%/cover no-repeat url(${char.avatarImage})`
+    ? `linear-gradient(180deg, rgba(10,9,8,0.1) 0%, rgba(10,9,8,0.45) 55%, #0c0b0a 94%), center 22%/cover no-repeat url(${typeof resolveImg==="function"?resolveImg(char.avatarImage):char.avatarImage})`
     : `linear-gradient(180deg, ${char.color || "#3a3730"} 0%, #0c0b0a 84%)`;
   return h("div", { className: "h-full flex flex-col", style: { background: "#0c0b0a", color: "#efe9df", touchAction: "pan-y" }, onTouchStart: onTS, onTouchEnd: onTE },
     h("div", { className: "flex-1 min-h-0 flex flex-col relative", style: { background: bg } },
@@ -4488,7 +4488,7 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
   };
   const bg = char.avatarImage
-    ? `linear-gradient(180deg, rgba(10,9,8,0.15) 0%, rgba(10,9,8,0.55) 55%, #0c0b0a 92%), center/cover no-repeat url(${char.avatarImage})`
+    ? `linear-gradient(180deg, rgba(10,9,8,0.15) 0%, rgba(10,9,8,0.55) 55%, #0c0b0a 92%), center/cover no-repeat url(${typeof resolveImg==="function"?resolveImg(char.avatarImage):char.avatarImage})`
     : `linear-gradient(180deg, ${char.color || "#3a3730"} 0%, #0c0b0a 82%)`;
   return h("div", { className: "h-full flex flex-col", style: { background: "#0c0b0a", color: "#efe9df", touchAction: "pan-y" }, onTouchStart: onTS, onTouchEnd: onTE },
     h("div", { className: "flex-1 min-h-0 flex flex-col relative", style: { background: bg } },

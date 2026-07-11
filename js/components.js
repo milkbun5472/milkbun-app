@@ -7,8 +7,11 @@ function Avatar({
   radius
 }) {
   const rad = radius != null ? radius : size / 2;
-  if (character && character.avatarImage) return /*#__PURE__*/React.createElement("img", {
-    src: character.avatarImage,
+  // 图片仓库：avatarImage 可能是 iv_ 键（IndexedDB）→ resolveImg 换成 objectURL；base64/http 原样。
+  // 缓存没命中（iv_ 键但库里没图）→ src 为空 → 落到下面首字母兜底，不显示破图。
+  const src = character && character.avatarImage ? (typeof resolveImg === "function" ? resolveImg(character.avatarImage) : character.avatarImage) : "";
+  if (src) return /*#__PURE__*/React.createElement("img", {
+    src: src,
     alt: "",
     className: "object-cover shrink-0",
     style: {
@@ -3628,7 +3631,7 @@ function CallScreen({
     onSend(input.trim());
     setInput("");
   };
-  const avatarNode = (c, size) => c.avatarImage ? h("img", { src: c.avatarImage, style: { width: size, height: size, borderRadius: 999, objectFit: "cover" } }) : h("div", { style: { width: size, height: size, borderRadius: 999, background: c.color || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42, color: "#fff" } }, (c.name || "?")[0]);
+  const avatarNode = (c, size) => { const av = c.avatarImage ? (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage) : ""; return av ? h("img", { src: av, style: { width: size, height: size, borderRadius: 999, objectFit: "cover" } }) : h("div", { style: { width: size, height: size, borderRadius: 999, background: c.color || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42, color: "#fff" } }, (c.name || "?")[0]); };
   // —— PiP 小屏：悬浮在其它界面上，点一下回全屏，可拖动；计时/消息不中断 ——
   if (minimized) {
     const onTS = e => { const r = e.currentTarget.getBoundingClientRect(); const tt = e.touches[0]; dragRef.current = { dragging: true, moved: false, grabX: tt.clientX - r.left, grabY: tt.clientY - r.top }; };
@@ -3681,8 +3684,8 @@ function CallScreen({
       overflow: "hidden",
       boxShadow: "0 8px 30px rgba(0,0,0,0.4)"
     }
-  }, c.avatarImage ? h("img", {
-    src: c.avatarImage,
+  }, (c.avatarImage && (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage)) ? h("img", {
+    src: (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage),
     style: {
       width: "100%",
       height: "100%",
