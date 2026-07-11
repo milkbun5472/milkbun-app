@@ -1,6 +1,13 @@
 // ============================================================
 // atoms
 // ============================================================
+// 气泡皮肤：聊天气泡的样子全在这一个盒子里改（Lisa v1）
+const BUBBLE_SKIN = {
+  myBg: "#f7b6c2", //我的气泡底色
+  myText: "#16330a", //我的气泡文字色
+  charBg: "#a8c8e8", //TA 的气泡底色
+  radius: 20 //圆角（数字不用引号）
+};
 function Avatar({
   character,
   size = 40,
@@ -3215,9 +3222,9 @@ function ChatThread({
         fontSize: 14.5,
         lineHeight: 1.5,
         whiteSpace: "pre-wrap",
-        background: isU ? "#f7b6c2" : "#a8c8e8",
-        color: isU ? "#16330a" : t.ink,
-        borderRadius: 20,
+        background: isU ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
+        color: isU ? BUBBLE_SKIN.myText : t.ink,
+        borderRadius: BUBBLE_SKIN.radius,
         boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
         outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none",
         outlineOffset: 2,
@@ -5664,6 +5671,8 @@ function GroupThread({
   meName,
   myBalance,
   settings,
+  directives,
+  onRemoveDirective,
   onBack,
   onSend,
   onReply,
@@ -6102,9 +6111,9 @@ function GroupThread({
         fontSize: 14.5,
         lineHeight: 1.5,
         whiteSpace: "pre-wrap",
-        background: isU ? "#95d16f" : "#fff",
-        color: isU ? "#16330a" : t.ink,
-        borderRadius: 14,
+        background: isU ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
+        color: isU ? BUBBLE_SKIN.myText : t.ink,
+        borderRadius: BUBBLE_SKIN.radius,
         boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
         outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
         outlineOffset: 2,
@@ -6251,6 +6260,8 @@ function GroupThread({
     gs: gs,
     group: group,
     characters: characters,
+    directives: directives,
+    onRemoveDirective: onRemoveDirective,
     onSave: patch => onSaveSettings(patch),
     onSummarize: onSummarize,
     onAddMember: onAddMember,
@@ -6577,7 +6588,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
-function GroupSettingsSheet({ gs, group, characters, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClose }) {
+function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirective, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -6673,6 +6684,17 @@ function GroupSettingsSheet({ gs, group, characters, onSave, onSummarize, onAddM
     dispRow("显示已读", showRead, setShowRead),
 
     h("button", { onClick: onSummarize, className: "w-full rounded-xl py-3 mt-7", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15 } }, "立即总结群聊并存入记忆库"),
+
+    // 群规矩管理（v48.17 补缺件）：OOC 立的群规矩之前存了就没法删——它会注入之后【每一轮】群聊和群 OOC 的 prompt，
+    // 若规矩原文里有触审词（如未成年词汇×魅惑词汇同框），会导致后续所有请求被 Gemini 硬拦、OOC 取消也发不出去（死循环）。
+    (directives && directives.length > 0) ? h("div", { className: "pt-6" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "群规矩 · 你经 OOC 立下"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "这些会注入之后每一轮群聊。若某条立完后 AI 开始报「内容被拦截」，多半是那条的措辞触了审核——删掉它就能恢复。"),
+      h("div", { className: "space-y-2" }, directives.map(d => h("div", {
+        key: d.id,
+        style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+      }, h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, d.text),
+        onRemoveDirective && h("button", { onClick: () => onRemoveDirective(d.id), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除"))))) : null,
 
     // 删除群聊
     confirmDel
