@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.09";
+const APP_VERSION = "v48.10";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -583,13 +583,28 @@ function App() {
       return { ok: true, moved: older.length };
     } catch (e) { return { ok: false, msg: e.message || String(e) }; }
   };
-  // 一键归档所有角色的旧聊天
+  // 群聊归档（同一张 chat_archive 表，char_id 用 "g_"+群id 区分单聊/群聊）
+  const offloadGChatOne = async groupId => {
+    if (!(window.Cloud && window.Cloud.ready())) return { ok: false, msg: "云同步未就绪" };
+    const all = groupChatsRef.current[groupId] || [];
+    if (all.length <= CHAT_KEEP_LOCAL + 30) return { ok: true, moved: 0 };
+    const older = all.slice(0, all.length - CHAT_KEEP_LOCAL);
+    const keep = all.slice(all.length - CHAT_KEEP_LOCAL);
+    const archKey = "g_" + groupId;
+    try {
+      await window.Cloud.chatArchiveAppend(archKey, older); // 先上云
+      pGChat(groupId, () => keep);                           // 成功才裁本地
+      const marks = loadJSON("x_chatArch", {}); marks[archKey] = (marks[archKey] || 0) + older.length; saveJSON("x_chatArch", marks); setChatArch(marks);
+      return { ok: true, moved: older.length };
+    } catch (e) { return { ok: false, msg: e.message || String(e) }; }
+  };
+  // 一键归档所有角色 + 群聊的旧聊天
   const offloadAllChats = async () => {
     if (!(window.Cloud && window.Cloud.ready())) { toast("需要先登录云同步（设置·数据）"); return; }
-    const ids = Object.keys(chatsRef.current || {});
     let moved = 0, fails = 0;
-    for (const id of ids) { const r = await offloadChatOne(id); if (r.ok) moved += r.moved || 0; else fails++; }
-    toast(moved ? ("已把 " + moved + " 条旧聊天归档到云端、释放了本地空间" + (fails ? "（" + fails + " 个没成功，多半没网）" : "")) : (fails ? "归档失败：" + fails + " 个（检查网络/建表）" : "没有需要归档的旧聊天"));
+    for (const id of Object.keys(chatsRef.current || {})) { const r = await offloadChatOne(id); if (r.ok) moved += r.moved || 0; else fails++; }
+    for (const gid of Object.keys(groupChatsRef.current || {})) { const r = await offloadGChatOne(gid); if (r.ok) moved += r.moved || 0; else fails++; }
+    toast(moved ? ("已把 " + moved + " 条旧聊天（含群聊）归档到云端、释放了本地空间" + (fails ? "（" + fails + " 个没成功，多半没网）" : "")) : (fails ? "归档失败：" + fails + " 个（检查网络/建表）" : "没有需要归档的旧聊天"));
   };
   // 拉某角色的云端归档（完整旧消息，供聊天页「加载更早」查看，不写回本地）
   const loadChatArchive = async charId => {
@@ -6498,6 +6513,8 @@ function App() {
     onOffline: () => openGroupOffline(activeGroup),
     emotes: emotesForGroupMine(activeGroup.memberIds),
     onManageEmotes: () => setScreen("emotes"),
+    archCount: chatArch["g_" + activeGroup.id] || 0,
+    onLoadOlder: loadChatArchive,
     onSendRich: msg => pushGroupRich(activeGroup.id, { read: false, ...msg }),
     onStartCall: (mode, memberIds) => {
       const ids = Array.isArray(memberIds) ? memberIds : [memberIds];
