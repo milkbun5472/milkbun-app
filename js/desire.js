@@ -16,20 +16,25 @@
   const ACCENT = "#a8763e"; // 盒子主色（旧木盒的暖棕）
 
   // ---- 数据形状 ----
-  // x_desires = { [charId]: { list:[entry], log:[{ts,text}], lastMuse, lastMellow, lastSolstice,
-  //                           persona:[{id,text,poem,from,ts}], milestones:[{ts,text}] } }
-  // entry = { id, text, root, source:'echo'|'spark', weight, touches, lastTouch, born,
-  //           status:'active'|'ash'|'graduated'|'withered', poem?, gradTs?, witherTs? }
+  // x_desires = { [charId]: { list:[entry], log:[{ts,text}], lastMuse, lastMellow, lastSolstice, lastObserve,
+  //                           persona:[{id,text,poem,from,ts}], milestones:[{ts,text}],
+  //                           briefs:[{ts,type,target,note}], avoid:[{topic,level,ts}], echoPending } }
+  // entry = { id, text, root, source:'echo'|'spark'|'vine', parentId?, weight, touches, lastTouch, born,
+  //           tracks:[{ts,text}], status:'active'|'ash'|'graduated'|'withered', poem?, gradTs?, witherTs? }
   function boxOf(all, charId) {
     const b = (all || {})[charId] || {};
     return {
-      list: Array.isArray(b.list) ? b.list.map(e => ({ ...e })) : [],
+      list: Array.isArray(b.list) ? b.list.map(e => ({ ...e, tracks: Array.isArray(e.tracks) ? e.tracks.slice() : [] })) : [],
       log: Array.isArray(b.log) ? b.log.slice() : [],
       lastMuse: b.lastMuse || "",
       lastMellow: b.lastMellow || "",   // 小满日（每 10 天权重小校准+毕业判定）
       lastSolstice: b.lastSolstice || "", // 冬至日（每 90 天季度自述）
+      lastObserve: b.lastObserve || "",   // 观测者（每 7 天递一次纸条）
       persona: Array.isArray(b.persona) ? b.persona.map(e => ({ ...e })) : [], // 人格档案（只有角色落笔）
-      milestones: Array.isArray(b.milestones) ? b.milestones.slice() : []      // 季度自述存档
+      milestones: Array.isArray(b.milestones) ? b.milestones.slice() : [],     // 季度自述存档
+      briefs: Array.isArray(b.briefs) ? b.briefs.slice() : [],  // 观测者纸条（外部工具可写=体力活，角色可采可弃）
+      avoid: Array.isArray(b.avoid) ? b.avoid.slice() : [],     // 痕避：TA 回避的话题（反向铁网）
+      echoPending: b.echoPending || null // 成长回响：刚毕业待 TA 在聊天里今昔对比一次
     };
   }
   // 还在心上的（发呆/显灵只看这些；毕业的已成为 TA、枯萎的已放下）
@@ -62,20 +67,30 @@
 
   // ---- 每日灵光独白的 probe 规格（内容全由角色落笔）----
   function dayN(e) { return Math.max(1, Math.round((Date.now() - (e.born || Date.now())) / 86400000)); }
+  // 观测者纸条 + 痕避——递给发呆/盘点 prompt 的两小段（空则零注入）
+  function briefsTxt(box) {
+    const bs = (box.briefs || []).slice(0, 4);
+    return bs.length ? "\n【观测者递来的纸条】（一个只摘录事实、绝不下结论的旁观者写的。信不信、用不用全由 TA 自己定夺，觉得不对就当没看见）\n" + bs.map(b => "- [" + (b.type || "印证") + "] " + b.note).join("\n") : "";
+  }
+  function avoidTxt(box) {
+    const av = (box.avoid || []).slice(0, 5);
+    return av.length ? "\n【TA 在回避的（痕避）】" + av.map(a => "「" + a.topic + "」").join("、") + "——这些是 TA 不想碰的领域：新念想绝不许长在这些雷区上，独白想到相关的也会绕开。" : "";
+  }
   function museSpec(char, box) {
     const AC = typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "";
     const living = livingList(box);
     const listTxt = living.length
-      ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次").join("\n")
+      ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜上次刻痕：" + e.tracks[0].text : "")).join("\n")
       : "（盒子还是空的——TA 还没有攒下念想）";
     return {
       instruction: AC + "今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「欲望盒子」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
+        briefsTxt(box) + avoidTxt(box) +
         "\n\n以 TA 的第一人称推演这次发呆：" +
         "\nmonologue：一段 60~140 字的内心独白——今天的处境、最近聊过的事、记忆里的旧影，怎么把思绪带到（或者根本没带到）某个念想上。要像脑子里真实飘过的念头：带 TA 自己的性格口吻，可以琐碎、走神、自嘲，别写成抒情散文、别升华、别总结。" +
-        "\ntouch：这次发呆里【真正被想起】的既有念想的 id（0~2 个，一个没想起就给空数组）。" +
-        "\nsprout：这次发呆有没有冒出【一条新念想】——多数日子没有，没有就填 null。若有：text 写想做的事（第一人称一句话，如「想学会…」「想带 Ta 去…」）；root 写它从哪长出来（引用记忆库或最近对话里的具体依据）——若纯属白日梦一闪念、说不出依据，root 填 null。" +
+        "\ntouch：这次发呆里【真正被想起】的既有念想（0~2 个，一个没想起就给空数组）。每个元素 {id, note}：note 是这条念想今天的「行动刻痕」——TA 为它做了什么/有什么进展/此刻怎么想它，一句话（如「水流还是不稳，换了更细的滤纸」）；只是路过想了一下没有实质进展，note 给 null。" +
+        "\nsprout：这次发呆有没有冒出【一条新念想】——多数日子没有，没有就填 null。若有：text 写想做的事（第一人称一句话）；root 写它从哪长出来（引用记忆/最近对话/观测者纸条里的具体依据），纯属白日梦一闪念就填 null；parent——若它是从盒子里某条旧念想的进展里【岔出来】的（如做手冲做多了想换个更好的壶），填那条母念想的 id，否则 null。" +
         "\n【铁网】新念想必须长在 TA 的人设、记忆和最近生活的土壤上：记忆/对话里反复出现、或带强烈情绪的事，才配长出扎根的念想（root 必须写得出依据）；毫无来由的突发奇想偶尔可以有（root=null，它若之后没再被想起会自己消散）。绝不许冒出和 TA 的生活完全不搭界的怪念头，盒子里已有的也别换个说法重复冒。另外：【已经和对方说好/约好的事不算念想】（那是你们的约定，记忆里自会记着）——盒子里只放 TA 自己私藏的、还没成形的想头。",
-      schemaHint: "{\"monologue\":\"一段内心独白\",\"touch\":[\"念想id\"],\"sprout\":{\"text\":\"想做的事一句\",\"root\":\"依据一句或null\"}}（没有新念想时 sprout 填 null）",
+      schemaHint: "{\"monologue\":\"一段内心独白\",\"touch\":[{\"id\":\"念想id\",\"note\":\"行动刻痕一句或null\"}],\"sprout\":{\"text\":\"想做的事一句\",\"root\":\"依据一句或null\",\"parent\":\"母念想id或null\"}}（没有新念想时 sprout 填 null）",
       maxTokens: 6000 // 后台池没配时 bgActive=主思考型模型，思考预算从这里扣，不能小
     };
   }
@@ -85,20 +100,35 @@
     box.lastMuse = todayKey;
     const mono = d && d.monologue ? String(d.monologue).trim() : "";
     if (mono) box.log = [{ ts: Date.now(), text: mono }, ...box.log].slice(0, 30);
-    (Array.isArray(d && d.touch) ? d.touch : []).slice(0, 3).forEach(id => touch(box, String(id)));
+    // touch 兼容两代形态：["id"]（v48.22）和 [{id, note}]（v48.24 起，note=行动刻痕）
+    (Array.isArray(d && d.touch) ? d.touch : []).slice(0, 3).forEach(t => {
+      const id = typeof t === "string" ? t : t && t.id;
+      if (!id) return;
+      touch(box, String(id));
+      const note = t && typeof t === "object" && t.note && !/^null$/i.test(String(t.note).trim()) ? String(t.note).trim().slice(0, 60) : "";
+      if (note) {
+        const e = box.list.find(x => x.id === String(id));
+        if (e) e.tracks = [{ ts: Date.now(), text: note }, ...(e.tracks || [])].slice(0, 5);
+      }
+    });
     const sp = d && d.sprout;
     if (sp && sp.text) {
       const txt = String(sp.text).trim().slice(0, 80);
       const dup = txt && box.list.some(e => e.text === txt);
       if (txt && !dup) {
-        const rooted = sp.root && String(sp.root).trim() && !/^null$/i.test(String(sp.root).trim());
+        const clean = v => v && String(v).trim() && !/^null$/i.test(String(v).trim()) ? String(v).trim() : "";
+        const rooted = clean(sp.root);
+        const parentId = clean(sp.parent);
+        const parent = parentId && box.list.find(e => e.id === parentId);
         box.list = [...box.list, {
           id: "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36),
           text: txt,
-          root: rooted ? String(sp.root).trim().slice(0, 120) : null,
-          source: rooted ? "echo" : "spark",
-          weight: rooted ? 0.5 : 0.05,
-          touches: 0, lastTouch: 0, born: Date.now(), status: "active"
+          root: rooted ? rooted.slice(0, 120) : (parent ? "从「" + parent.text + "」的进展里岔出来" : null),
+          // 心念藤蔓：从母念想岔出的子念想（带母 id，天生有根 0.4）；否则按有无依据分 echo/spark
+          source: parent ? "vine" : (rooted ? "echo" : "spark"),
+          parentId: parent ? parent.id : undefined,
+          weight: parent ? 0.4 : (rooted ? 0.5 : 0.05),
+          touches: 0, lastTouch: 0, born: Date.now(), tracks: [], status: "active"
         }];
       }
     }
@@ -118,26 +148,66 @@
     let inited = false;
     if (!box.lastMellow) { box.lastMellow = todayKey; inited = true; }
     if (!box.lastSolstice) { box.lastSolstice = todayKey; inited = true; }
+    if (!box.lastObserve) { box.lastObserve = todayKey; inited = true; }
     if (inited) return { due: null, inited: true };
     if (daysBetweenKeys(box.lastSolstice, todayKey) >= SOLSTICE_DAYS && (box.list.length || box.log.length)) return { due: "solstice", inited: false };
     if (daysBetweenKeys(box.lastMellow, todayKey) >= MELLOW_DAYS && livingList(box).length) return { due: "mellow", inited: false };
     return { due: null, inited: false };
+  }
+  // 观测者到期单独判（和小满/冬至互不排队，可同天各跑各的）
+  const OBSERVE_DAYS = 7;
+  function observeDue(box, todayKey) {
+    return !!box.lastObserve && daysBetweenKeys(box.lastObserve, todayKey) >= OBSERVE_DAYS;
+  }
+
+  // ---- 观测者 probe（P3）：一个便宜的旁观者，只摘录「我注意到…」，绝不下结论 ----
+  // 【落笔权】纸条和痕避属于「外部工具可写」阵营（PDF 权限表）：js 把产出直接入库；
+  // 角色在下次发呆/盘点时看到纸条，可采可弃——采了才会变成 TA 自己的念想/权重判断。
+  function observerSpec(char, box) {
+    const living = livingList(box);
+    const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜最近刻痕：" + e.tracks[0].text : "")).join("\n") || "（盒子是空的）";
+    const persTxt = box.persona.map(p => "· " + p.text).join("\n") || "（还没有档案）";
+    return {
+      instruction: "你现在【不是】这个角色，而是一位安静的旁观「观测者」：只看事实、只摘录，【绝不下结论、绝不评价人格】。对照上面背景里的最近对话，和下面这两份材料：\n【" + char.name + " 的欲望盒子】\n" + listTxt + "\n【" + char.name + " 的人格档案】\n" + persTxt +
+        "\n\n写 0~3 张观测纸条 briefs，每张 {type, target, note}：" +
+        "\n- type=印证：某条念想/档案和 TA 最近言行对得上（note 例：「我注意到 TA 这周三次提到练拉花」）；target 填那条念想 id 或 null。" +
+        "\n- type=对立：写着的和实际做的相反（只摘事实，不评判）。" +
+        "\n- type=根系确认：某条念想被反复碰、刻痕扎实，看起来长熟了（是否毕业仍由 TA 自己在盘点日定）。" +
+        "\n- type=萌发：对话里 TA 或对方有某个反复出现/情绪强烈、但盒子里还没有的兴趣或状态（note 例：「我注意到对方连续几天说累、失眠」）——只摘录，不替 TA 断言想做什么。" +
+        "\n每张 note 都以「我注意到」开头、一句话、只写看得到的事实。没什么可写就给空数组，别硬凑。" +
+        "\navoid：0~2 条 TA 明显【回避】的话题（TA 说过不想聊/明显岔开/表现不适的），{topic:\"话题两三个字\", level:1~3}；没有就 []。别把只是没聊到的当回避。",
+      schemaHint: "{\"briefs\":[{\"type\":\"印证|对立|根系确认|萌发\",\"target\":\"念想id或null\",\"note\":\"我注意到…\"}],\"avoid\":[{\"topic\":\"话题\",\"level\":2}]}",
+      maxTokens: 6000
+    };
+  }
+  function applyObserver(box, d, todayKey) {
+    box.lastObserve = todayKey;
+    const bs = (Array.isArray(d && d.briefs) ? d.briefs : []).filter(b => b && b.note).slice(0, 3)
+      .map(b => ({ ts: Date.now(), type: String(b.type || "印证").slice(0, 6), target: b.target && !/^null$/i.test(String(b.target)) ? String(b.target) : null, note: String(b.note).trim().slice(0, 80) }));
+    if (bs.length) box.briefs = [...bs, ...box.briefs].slice(0, 6);
+    (Array.isArray(d && d.avoid) ? d.avoid : []).filter(a => a && a.topic).slice(0, 2).forEach(a => {
+      const topic = String(a.topic).trim().slice(0, 20);
+      const cur = box.avoid.find(x => x.topic === topic);
+      if (cur) { cur.level = Math.max(cur.level || 1, Number(a.level) || 1); cur.ts = Date.now(); }
+      else box.avoid = [{ topic, level: Math.min(3, Math.max(1, Number(a.level) || 1)), ts: Date.now() }, ...box.avoid].slice(0, 6);
+    });
+    return box;
   }
 
   // ---- 小满日 probe：权重小校准 + 毕业（蜕变诗+人格行）+ 枯萎（内容全由角色落笔）----
   function mellowSpec(char, box) {
     const AC = typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "";
     const living = livingList(box);
-    const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜当前分量" + (e.weight || 0).toFixed(2) + "｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次").join("\n");
+    const listTxt = living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜当前分量" + (e.weight || 0).toFixed(2) + "｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "\n    行动刻痕：" + e.tracks.map(tk => tk.text).join("→") : "")).join("\n");
     const recentMono = box.log.slice(0, 3).map(l => "· " + l.text).join("\n");
     return {
       instruction: AC + "每隔一阵子，「" + char.name + "」会在心里把那只欲望盒子盘一盘——哪些念想更重了、哪些淡了、哪些已经做到了、哪些想明白了不要了。这不是大扫除，是小校准。\n【盒子现状】\n" + listTxt +
-        (recentMono ? "\n【TA 最近发呆时想的】\n" + recentMono : "") +
+        (recentMono ? "\n【TA 最近发呆时想的】\n" + recentMono : "") + briefsTxt(box) + avoidTxt(box) +
         "\n\n以 TA 的第一人称推演这次盘点：" +
-        "\ntune：分量微调 [{id, weight}]——【只校准不大改】，每条相对现在最多上下浮动 0.15，依据是最近它被想起的频率、聊天里的热度、TA 现在的生活重心。没变化的不用列，多数日子只微动一两条。" +
-        "\ngraduate：真正【已经做到、或已内化成 TA 习惯/日常】的念想（最多 1 条，宁缺毋滥——大多数盘点日没有毕业，没有就 null）。若有：{id, poem:\"60字以内的小诗，TA 给这段念想的告别与纪念，用 TA 自己的口吻不许升华\", persona:\"这段经历让 TA 长成了什么样的人——一句『我是一个…的人』式自我认知，25字内\"}" +
+        "\ntune：分量微调 [{id, weight}]——【只校准不大改】，每条相对现在最多上下浮动 0.15，依据是最近它被想起的频率、行动刻痕、聊天里的热度、TA 现在的生活重心（观测者若递了「对立」纸条——写着的和做的相反——通常该降）。没变化的不用列，多数日子只微动一两条。" +
+        "\ngraduate：真正【已经做到、或已内化成 TA 习惯/日常】的念想（最多 1 条，宁缺毋滥——大多数盘点日没有毕业，没有就 null）。**只有被想起多次、行动刻痕扎实的才够资格申请**；还没动手的绝不许毕业。若有：{id, poem:\"60字以内的小诗，TA 给这段念想的告别与纪念——可以自然带上它攒了多久、被碰过多少次这样的真实数字，用 TA 自己的口吻不许升华\", persona:\"这段经历让 TA 长成了什么样的人——一句『我是一个…的人』式自我认知，25字内\"}" +
         "\nwither：TA 想明白了【彻底不想要了】的念想 id 数组（最多 1 条，罕见；不是没空做，是不要了；没有给 []）。" +
-        "\n【铁律】毕业要有真凭实据（最近对话/独白里真的做到了），别把还没动手的念想强行毕业；诗和自我认知都是 TA 的手笔，要有 TA 的性格。",
+        "\n【铁律】毕业要有真凭实据（刻痕/对话/独白里真的做了），诗和自我认知都是 TA 的手笔，要有 TA 的性格。",
       schemaHint: "{\"tune\":[{\"id\":\"念想id\",\"weight\":0.6}],\"graduate\":{\"id\":\"念想id\",\"poem\":\"小诗\",\"persona\":\"我是一个…的人\"},\"wither\":[\"念想id\"]}（graduate 没有时填 null，wither 没有时 []）",
       maxTokens: 6000
     };
@@ -165,6 +235,8 @@
           text: String(g.persona).trim().slice(0, 40),
           poem: e.poem, from: e.text, ts: Date.now()
         }];
+        // 成长回响（P3）：毕业后下次单聊，TA 有一次「今昔对比」的自然流露机会（一次性，用掉即清）
+        box.echoPending = { text: e.text, persona: String(g.persona).trim().slice(0, 40), ts: Date.now() };
       }
     }
     // 枯萎：留在盒子里（不删），发呆/显灵不再看它
@@ -187,8 +259,9 @@
         (persTxt ? "【TA 亲笔攒下的自我认知】\n" + persTxt + "\n" : "") +
         (grads ? "【这段日子毕业的念想】\n" + grads + "\n" : "") +
         (listTxt ? "【还搁在心上的】\n" + listTxt + "\n" : "") +
-        "\n以 TA 的第一人称写一段 80~150 字的季度自述：这一季我变成了什么样的人、什么留下了、什么放下了。要有 TA 自己的口吻和性格，像写给自己看的，不许升华成鸡汤、不许总结陈词。",
-      schemaHint: "{\"reflection\":\"一段季度自述\"}",
+        "\n以 TA 的第一人称写一段 80~150 字的季度自述 reflection：这一季我变成了什么样的人、什么留下了、什么放下了。要有 TA 自己的口吻和性格，像写给自己看的，不许升华成鸡汤、不许总结陈词。" +
+        "\n另外 persona：回望这一季，若有一条【新的自我认知】值得正式写进人格档案（一句『我是一个…的人』，25字内，和已有档案不重复），就写；多数季度没有，没有填 null。",
+      schemaHint: "{\"reflection\":\"一段季度自述\",\"persona\":\"我是一个…的人 或 null\"}",
       maxTokens: 6000
     };
   }
@@ -196,6 +269,11 @@
     box.lastSolstice = todayKey;
     const txt = d && d.reflection ? String(d.reflection).trim() : "";
     if (txt) box.milestones = [{ ts: Date.now(), text: txt }, ...box.milestones].slice(0, 8);
+    // 冬至也可落一笔档案（PDF 原文：季度自述输出的新人格特征由 AI 执笔写入档案）
+    const pl = d && d.persona && !/^null$/i.test(String(d.persona).trim()) ? String(d.persona).trim().slice(0, 40) : "";
+    if (pl && !box.persona.some(p => p.text === pl)) {
+      box.persona = [...box.persona, { id: "p" + Date.now().toString(36), text: pl, poem: "", from: "季度回望", ts: Date.now() }];
+    }
     return box;
   }
 
@@ -225,18 +303,31 @@
     return cands[cands.length - 1];
   }
 
-  window.DesireKit = { boxOf, housekeep, touch, museSpec, applyMuse, pickEpiphany, tendDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, personaText };
+  window.DesireKit = { boxOf, housekeep, touch, museSpec, applyMuse, pickEpiphany, tendDue, observeDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, observerSpec, applyObserver, personaText };
 
   // ============================================================
   // UI：欲望盒子（tall Sheet，从资料卡进）
   // ============================================================
-  const SRC_LABEL = { echo: "旧日回响", spark: "一闪念" };
+  const SRC_LABEL = { echo: "旧日回响", spark: "一闪念", vine: "心念藤蔓" };
   function fmtDay(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; }
+  // 蜕变轴：把盒子里所有带时间的事件铺成一条时间线（P3，纯现有数据零调用）
+  function timelineOf(b) {
+    const ev = [];
+    b.list.forEach(e => {
+      ev.push({ ts: e.born, icon: e.source === "vine" ? "🌿" : e.source === "spark" ? "✨" : "🌱", text: "「" + e.text + "」冒了出来" + (e.source === "vine" ? "（从旧念想岔出的藤蔓）" : "") });
+      if (e.gradTs) ev.push({ ts: e.gradTs, icon: "🎓", text: "「" + e.text + "」毕业，长成了 TA 的一部分" });
+      if (e.witherTs) ev.push({ ts: e.witherTs, icon: "🥀", text: "「" + e.text + "」枯萎了——TA 想明白了不要了" });
+    });
+    b.persona.forEach(p => { if (p.from === "季度回望") ev.push({ ts: p.ts, icon: "🪞", text: "季度回望里写下：" + p.text }); });
+    b.milestones.forEach(m => ev.push({ ts: m.ts, icon: "🕯️", text: "写下季度自述" }));
+    return ev.sort((a, x) => x.ts - a.ts);
+  }
 
-  window.DesireBoxSheet = function ({ char, box, busy, onMuse, onRemove, onRemovePersona, onClose }) {
+  window.DesireBoxSheet = function ({ char, box, busy, onMuse, onRemove, onRemovePersona, onRemoveAvoid, onClose }) {
     const t = useTheme();
     const [showLog, setShowLog] = useState(false);
     const [showMile, setShowMile] = useState(false);
+    const [showAxis, setShowAxis] = useState(false);
     const [confirmId, setConfirmId] = useState(null);
     const b = boxOf({ x: box }, "x"); // 复用克隆逻辑做展示排序，不动原数据
     const todayKey = new Date().toDateString();
@@ -297,6 +388,7 @@
                     e.text, statusTag(e) ? h("span", { style: { fontSize: 11, color: t.fog } }, statusTag(e)) : null),
                   e.status === "graduated" && e.poem ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, e.poem) : null,
                   e.root ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "根：" + e.root) : null,
+                  e.tracks && e.tracks.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, lineHeight: 1.5 } }, "刻痕：" + e.tracks[0].text + (e.tracks.length > 1 ? "（共 " + e.tracks.length + " 道）" : "")) : null,
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } },
                     (SRC_LABEL[e.source] || "念想") + " · " + fmtDay(e.born) + "生 · 被想起 " + (e.touches || 0) + " 次" + (e.status === "graduated" ? " · " + fmtDay(e.gradTs || e.born) + "毕业" : ""))),
                 h("div", { className: "shrink-0 text-right" },
@@ -304,6 +396,34 @@
                   confirmId === e.id
                     ? h("button", { onClick: () => { onRemove(e.id); setConfirmId(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "#c25a4a", marginTop: 6 } }, "确定拿走")
                     : h("button", { onClick: () => setConfirmId(e.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, "拿走"))))))),
+      // 痕避：TA 在回避的话题（观测者记的，反向铁网；可拿走）
+      b.avoid.length ? h("div", { style: { marginTop: 18 } },
+        h(Eyebrow, { style: { marginBottom: 8 } }, "TA 在回避的 · 痕避"),
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, b.avoid.map(a => h("span", {
+          key: a.topic,
+          style: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 11px", borderRadius: 999, background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub }
+        }, "🚫 " + a.topic,
+          onRemoveAvoid && h("button", { onClick: () => onRemoveAvoid(a.topic), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "✕")))),
+        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } }, "TA 明显不想聊的领域——新念想不会长在这些雷区上。观测者记的，记错了就 ✕ 掉。")) : null,
+      // 观测者纸条（旁观的便宜小模型，只摘录不下结论；TA 发呆/盘点时会看到）
+      b.briefs.length ? h("div", { style: { marginTop: 18 } },
+        h(Eyebrow, { style: { marginBottom: 8 } }, "观测者的纸条"),
+        h("div", { className: "space-y-1.5" }, b.briefs.slice(0, 4).map((br, i) => h("div", {
+          key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 }
+        }, "· [" + br.type + "] " + br.note)))) : null,
+      // 蜕变轴：TA 的人格生长时间线
+      (() => {
+        const axis = timelineOf(b);
+        return axis.length >= 2 ? h("div", { style: { marginTop: 18 } },
+          h("button", { onClick: () => setShowAxis(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+            (showAxis ? "收起" : "展开") + "蜕变轴 · TA 的生长时间线（" + axis.length + "）"),
+          showAxis ? h("div", { style: { marginTop: 10, borderLeft: "2px solid " + ACCENT + "55", paddingLeft: 14 } }, axis.map((ev, i) => h("div", {
+            key: i, style: { position: "relative", paddingBottom: i === axis.length - 1 ? 0 : 12 }
+          },
+            h("span", { style: { position: "absolute", left: -23, top: 1, fontSize: 11 } }, ev.icon),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, ev.text),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, fmtDay(ev.ts))))) : null) : null;
+      })(),
       // 季度自述（冬至日，每 90 天一段）
       b.milestones.length ? h("div", { style: { marginTop: 18 } },
         h("button", { onClick: () => setShowMile(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },

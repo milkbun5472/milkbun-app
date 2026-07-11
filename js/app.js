@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.26";
+const APP_VERSION = "v48.27";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1880,11 +1880,19 @@ function App() {
       // 动作和着装相反：动作要每轮都变（相当于简单 RP，但短动作只写进 action 字段、不写进聊天气泡）
       const curAct = (states[charId] && states[charId].action) || "";
       const actHint = "\n【动作每轮更新】action 和 wearing 相反：wearing 尽量不变，action 却是你【这一轮此刻】正在做的动作，要随对话/时间自然变化、每轮都刷新" + (curAct ? "（上一轮是「" + curAct + "」，这轮换成此刻真在做的、别照抄）" : "") + "——相当于简单 RP 的动作，但只写在 action 字段里，别写进聊天气泡/括号。";
-      // #B 显灵时刻（欲望盒子 v48.22）：约 1/4 轮挑一条高权重活念想塞【一行】，契不契合由 TA 当场定夺；
-      //    注入即记一次「被想起」（体力活）。绝大多数轮次是空串，守聊天预算铁律。
-      const dPick = (window.DesireKit && !opts.proactive && Math.random() < 0.25) ? DesireKit.pickEpiphany(desiresRef.current[charId]) : null;
-      if (dPick) saveDesires(n => { const b = DesireKit.boxOf(n, charId); DesireKit.touch(b, dPick.id); n[charId] = b; });
-      const desireHint = dPick ? "\n【心底的念想】你心里最近一直搁着一件想做的事：「" + dPick.text + "」。仅当此刻的话题或心境自然碰到它，才顺势流露一句（像随口说起『其实我一直想…』那样自然带出，一句就够、别刻意宣布计划）；对不上就完全别提、当没这回事。" : "";
+      // #B 显灵时刻 + 成长回响（欲望盒子）：绝大多数轮次是空串，守聊天预算铁律。
+      //    成长回响优先（毕业后一次性今昔对比，用掉即清）；否则约 1/4 轮挑一条高权重活念想塞【一行】，
+      //    契不契合由 TA 当场定夺；显灵注入即记一次「被想起」（体力活）。
+      let desireHint = "";
+      const dEcho = window.DesireKit && !opts.proactive && (desiresRef.current[charId] || {}).echoPending;
+      if (dEcho) {
+        saveDesires(n => { const b = DesireKit.boxOf(n, charId); b.echoPending = null; n[charId] = b; });
+        desireHint = "\n【成长回响】你最近把一件搁了很久的心事真正做成了：「" + dEcho.text + "」——它已经长成了你的一部分（" + (dEcho.persona || "") + "）。这轮若气氛合适，可以自然来一句今昔对比（当初怎么想的、现在什么感觉，一两句像随口感慨，别宣布成就、别升华）；气氛实在不合适就轻轻放下、不提也行。";
+      } else {
+        const dPick = (window.DesireKit && !opts.proactive && Math.random() < 0.25) ? DesireKit.pickEpiphany(desiresRef.current[charId]) : null;
+        if (dPick) saveDesires(n => { const b = DesireKit.boxOf(n, charId); DesireKit.touch(b, dPick.id); n[charId] = b; });
+        if (dPick) desireHint = "\n【心底的念想】你心里最近一直搁着一件想做的事：「" + dPick.text + "」。仅当此刻的话题或心境自然碰到它，才顺势流露一句（像随口说起『其实我一直想…』那样自然带出，一句就够、别刻意宣布计划）；若它恰好和 " + uName + " 提过的兴趣或眼下的话题重合，可以顺势提一句『要不我们一起？』；对不上就完全别提、当没这回事。";
+      }
       // #A 聊天中按话题顺手发动态：偶尔（话题正合适/今天行程里有事/有感而发）发朋友圈、给恋人留悄悄话。
       //   论坛发帖不在此处——它由 tickAmbient 的计数器按「50轮/3天」定时触发（见 forceAmbient），别在每轮聊天里重复问，省 token。
       const isCouple = couples[charId] && couples[charId].status === "together";
@@ -3451,6 +3459,19 @@ function App() {
         const box = DesireKit.boxOf(desiresRef.current, c.id);
         const r = DesireKit.tendDue(box, today);
         if (r.inited) { saveDesires(n => { n[c.id] = box; }); continue; }
+        // 观测者（每7天，P3）：旁观的便宜小模型摘录「我注意到…」纸条+痕避，喂 TA 下次发呆/盘点。
+        // 只对 7 天内聊过的角色跑（没新对话没什么可观测）；和小满/冬至互不排队，同天先观测再盘点（纸条正好当盘点材料）。
+        if (DesireKit.observeDue(box, today)) {
+          const _msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m));
+          const _lastTs = _msgs.length ? (_msgs[_msgs.length - 1].ts || 0) : 0;
+          if (_lastTs && Date.now() - _lastTs < 7 * 86400000) {
+            try {
+              const od = await runProbe(bgActive, ctxFor(c), DesireKit.observerSpec(c, box));
+              DesireKit.applyObserver(box, od, today);
+              saveDesires(n => { n[c.id] = box; });
+            } catch (e) {}
+          }
+        }
         if (!r.due) continue;
         try {
           const spec = r.due === "solstice" ? DesireKit.solsticeSpec(c, box) : DesireKit.mellowSpec(c, box);
@@ -7126,6 +7147,7 @@ function App() {
     onMuse: async () => { if (desireBusy) return; setDesireBusy(true); try { await desireMuseFor(activeChar, { manual: true }); } finally { setDesireBusy(false); } },
     onRemove: id => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.list = b.list.filter(e => e.id !== id); n[activeChar.id] = b; }),
     onRemovePersona: id => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.persona = b.persona.filter(e => e.id !== id); n[activeChar.id] = b; }),
+    onRemoveAvoid: topic => saveDesires(n => { const b = DesireKit.boxOf(n, activeChar.id); b.avoid = b.avoid.filter(a => a.topic !== topic); n[activeChar.id] = b; }),
     onClose: () => setDesireBoxOpen(false)
   }) : null, editMsg && /*#__PURE__*/React.createElement(MsgEditSheet, {
     init: editMsg.content,
