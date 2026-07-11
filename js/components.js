@@ -1,13 +1,33 @@
 // ============================================================
 // atoms
 // ============================================================
-// 气泡皮肤：聊天气泡的样子全在这一个盒子里改（Lisa v1）
+// 气泡皮肤：聊天气泡的样子全在这一个盒子里改（Lisa v1 → v2：渐变/描边/阴影/角落贴纸）
+// 底色字段可以填纯色 "#f7b6c2"，也可以填一整段渐变 "linear-gradient(180deg, #CDE2F8 0%, #E4EFFB 100%)"
+// ⚠️渐变没法用「hex+两位透明度」那招——所以带透明度的取值处一律走 skinAlpha()（非六位 #hex 原样返回）
 const BUBBLE_SKIN = {
-  myBg: "#f7b6c2", //我的气泡底色
-  myText: "#16330a", //我的气泡文字色
-  charBg: "#a8c8e8", //TA 的气泡底色
-  radius: 20 //圆角（数字不用引号）
+  myBg: "#f7b6c2",    //我的气泡底色（可渐变）
+  myText: "#16330a",  //我的气泡文字色
+  myBorder: "",       //我的气泡描边，如 "2px solid rgba(170,200,235,0.55)"；留空=无
+  mySticker: "",      //我的气泡右上角贴纸图 URL；留空=无
+  charBg: "#a8c8e8",  //TA 的气泡底色（可渐变）
+  charText: "",       //TA 的气泡文字色；留空=跟随主题墨色
+  charBorder: "",     //TA 的气泡描边；留空=无
+  charSticker: "",    //TA 的气泡左上角贴纸图 URL；留空=无
+  stickerSize: 52,    //贴纸边长(px)
+  radius: 20,         //圆角
+  shadow: "0 1px 2px rgba(0,0,0,0.05)" //气泡投影
 };
+// 给皮肤底色追加两位透明度（如 "eb"≈92%）：只有六位 #hex 能拼，渐变/rgba 原样返回
+function skinAlpha(c, a) { return (typeof c === "string" && c[0] === "#" && c.length === 7) ? c + a : c; }
+// 气泡角落贴纸：绝对定位悬在气泡外沿（我的在右上、TA 的在左上并水平翻转），不挡点击
+function bubbleSticker(isU) {
+  const src = isU ? BUBBLE_SKIN.mySticker : BUBBLE_SKIN.charSticker;
+  if (!src) return null;
+  const sz = BUBBLE_SKIN.stickerSize || 52;
+  const pos = { position: "absolute", top: -sz / 2, width: sz, height: sz, objectFit: "contain", pointerEvents: "none", zIndex: 2 };
+  if (isU) pos.right = -10; else { pos.left = -10; pos.transform = "scaleX(-1)"; }
+  return h("img", { src: src, alt: "", style: pos });
+}
 function Avatar({
   character,
   size = 40,
@@ -3227,15 +3247,17 @@ function ChatThread({
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : m.kind === "photo" ? () => setDescView(m.desc) : undefined,
       style: {
+        position: "relative", // 贴纸的锚点：贴纸对着气泡自己定位
         padding: m.kind === "photo" ? "8px 10px" : "9px 13px",
         fontFamily: F_BODY,
         fontSize: 14.5,
         lineHeight: 1.5,
         whiteSpace: "pre-wrap",
         background: isU ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
-        color: isU ? BUBBLE_SKIN.myText : t.ink,
+        color: isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink),
+        border: (isU ? BUBBLE_SKIN.myBorder : BUBBLE_SKIN.charBorder) || "none",
         borderRadius: BUBBLE_SKIN.radius,
-        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+        boxShadow: BUBBLE_SKIN.shadow || "none",
         outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none",
         outlineOffset: 2,
         cursor: "pointer",
@@ -3243,7 +3265,7 @@ function ChatThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }
-    }, m.kind === "location" ? h("span", {
+    }, bubbleSticker(isU), m.kind === "location" ? h("span", {
       className: "flex items-center gap-1.5"
     }, h(Svg, {
       size: 15,
@@ -3419,7 +3441,7 @@ function ChatThread({
       width: 40,
       height: 40,
       borderRadius: 999,
-      background: "#95d16f"
+      background: BUBBLE_SKIN.myBg
     }
   }, /*#__PURE__*/React.createElement(ISend, {
     size: 16,
@@ -3788,7 +3810,7 @@ function CallScreen({
         fontSize: 13.5,
         lineHeight: 1.5,
         whiteSpace: "pre-wrap",
-        background: isU ? "rgba(149,209,111,0.92)" : "rgba(255,255,255,0.14)",
+        background: isU ? skinAlpha(BUBBLE_SKIN.myBg, "eb") : skinAlpha(BUBBLE_SKIN.charBg, "24"),
         color: isU ? "#16330a" : "#fff"
       }
     }, m.content), canT ? h("button", {
@@ -4102,7 +4124,7 @@ function VoiceMsg({ m, isU, speaker }) {
       setPSt("idle"); setPErr(String((err && err.message) || err)); setOpen(true);
     }
   };
-  return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", minWidth: 208, borderRadius: 15, overflow: "hidden", background: isU ? "#95d16f" : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
+  return h("div", { onClick: () => setOpen(o => !o), className: "active:opacity-80 cursor-pointer", style: { maxWidth: "100%", minWidth: 208, borderRadius: 15, overflow: "hidden", background: isU ? BUBBLE_SKIN.myBg : t.bg2, border: isU ? "none" : `1px solid ${t.line}` } },
     h("div", { className: "flex items-center gap-2.5 px-3.5", style: { height: 42 } },
       canTts ? h("button", { onClick: playTts, className: "active:opacity-60 shrink-0", style: { width: 26, height: 26, borderRadius: 999, border: "1.5px solid " + fg, display: "flex", alignItems: "center", justifyContent: "center", color: fg, fontSize: pSt === "gen" ? 10 : 11, background: "transparent" } }, pSt === "gen" ? "…" : (pSt === "playing" ? "⏸" : "▶")) : null,
       h("div", { className: "flex items-center gap-0.5", style: { height: 15 } }, [4, 9, 6, 12, 7, 10, 5].map((hh, j) => h("span", { key: j, style: { width: 2, height: hh, borderRadius: 2, background: fg, opacity: pSt === "playing" ? 0.95 : 0.55 } }))),
@@ -5304,7 +5326,7 @@ function OfflineMode({
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)", marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说 / 立长期准则", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.10)" : "transparent" } }, "OOC"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
-      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : "#95d16f" } }, h(ISend, { size: 16, color: oocMode ? "#fff" : "#16330a" })),
+      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : "#16330a" })),
       !oocMode && h("button", { onClick: reply, disabled: sending, title: "让 Ta 演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
     noteOpen && sheet("给 Ta 一个提示（临时导演）", h("div", null,
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 你其实在生气 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
@@ -5660,7 +5682,7 @@ function GroupOfflineMode({
     h("div", { className: "flex items-center gap-2 px-3 py-2 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 4px)", marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.08)" : "transparent" } }, "OOC"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：直接和模型说，可让它调整或问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
-      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: "#95d16f" } }, h(ISend, { size: 16, color: "#16330a" })),
+      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: "#16330a" })),
       !oocMode && h("button", { onClick: reply, disabled: sending, title: "让他们演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
     noteOpen && sheet("给他们一个提示（临时导演）", h("div", null,
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 让某人挑起话题 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),
@@ -6051,7 +6073,7 @@ function GroupThread({
       onClick: selMode ? () => toggleSel(i) : undefined,
       style: {
         padding: "8px 10px",
-        background: "#95d16f",
+        background: BUBBLE_SKIN.myBg,
         borderRadius: 14,
         maxWidth: "72%",
         boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
@@ -6120,15 +6142,17 @@ function GroupThread({
       onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
       style: {
+        position: "relative", // 贴纸锚点
         padding: "9px 13px",
         fontFamily: F_BODY,
         fontSize: 14.5,
         lineHeight: 1.5,
         whiteSpace: "pre-wrap",
         background: isU ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg,
-        color: isU ? BUBBLE_SKIN.myText : t.ink,
+        color: isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink),
+        border: (isU ? BUBBLE_SKIN.myBorder : BUBBLE_SKIN.charBorder) || "none",
         borderRadius: BUBBLE_SKIN.radius,
-        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+        boxShadow: BUBBLE_SKIN.shadow || "none",
         outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
         outlineOffset: 2,
         cursor: "pointer",
@@ -6136,7 +6160,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }
-    }, m.content), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+    }, bubbleSticker(isU), m.content), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
   }), sending && h("div", {
     className: "flex items-center gap-2"
   }, h("div", {
@@ -6238,7 +6262,7 @@ function GroupThread({
       width: 40,
       height: 40,
       borderRadius: 999,
-      background: "#95d16f"
+      background: BUBBLE_SKIN.myBg
     }
   }, h(ISend, {
     size: 16,
@@ -6459,7 +6483,7 @@ function PollCard({
       onClick: () => onVote(oi),
       className: "w-full text-left rounded-lg relative overflow-hidden active:opacity-80",
       style: {
-        border: "1px solid " + (mine ? "#95d16f" : t.line),
+        border: "1px solid " + (mine ? BUBBLE_SKIN.myBg : t.line),
         padding: "8px 10px"
       }
     }, h("div", {
@@ -6469,7 +6493,7 @@ function PollCard({
         top: 0,
         bottom: 0,
         width: pct + "%",
-        background: mine ? "rgba(149,209,111,0.28)" : t.bg,
+        background: mine ? skinAlpha(BUBBLE_SKIN.myBg, "47") : t.bg,
         transition: "width .3s"
       }
     }), h("div", {
