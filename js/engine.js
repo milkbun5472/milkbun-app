@@ -749,6 +749,19 @@ function idbAudOpen() { return new Promise((res, rej) => { const r = indexedDB.o
 async function idbAudPut(k, blob) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readwrite"); tx.objectStore("aud").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbAudGet(k) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readonly"); const rq = tx.objectStore("aud").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
 function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + text; for (let i = 0; i < s.length; i++) hsh = (hsh * 33 + s.charCodeAt(i)) >>> 0; return "tts_" + voiceId + "_" + hsh.toString(36) + "_" + s.length; }
+// 从叙事散文里只抠出【引号内的台词】，旁白/动作/心理全丢——线下、同人文这类「一大段旁白+偶尔一句台词」的语音只念角色真正说出口的话。
+// 支持中文「」『』、全角“”、直角双引号 "。多句台词按换行拼接（让 TTS 自然停顿）。整段没引号台词就返回空串（调用方据此不显示 ▶）。
+function extractSpeech(text) {
+  const s = String(text || "");
+  const out = [];
+  const re = /「([^」]*)」|『([^』]*)』|“([^”]*)”|"([^"]*)"/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const seg = (m[1] || m[2] || m[3] || m[4] || "").trim();
+    if (seg) out.push(seg);
+  }
+  return out.join("\n");
+}
 // 按台词内容粗判语气 → MiniMax emotion 参数（本地零成本）。治「开朗音色念正经话还是很夸张」：
 // 正经/平静的话显式传 neutral 压住克隆样本自带的亢奋，情绪句才放开。
 function ttsEmotionOf(text) {

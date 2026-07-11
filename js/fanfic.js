@@ -1199,10 +1199,12 @@
           const paras = e.text.split(/\n{2,}/).map(function (x) { return x.trim(); }).filter(Boolean);
           const showN = (i === lastIdx) ? Math.min(reveal, paras.length) : paras.length;
           const fullyShown = showN >= paras.length;
+          // 只念台词：抠出这拍里引号内的对白，纯旁白就不出 ▶
+          const say = typeof extractSpeech === "function" ? extractSpeech(e.text) : e.text;
           return h("div", { key: i },
             (showN ? paras.slice(0, showN) : [e.text]).map(function (p, j) { return para(p, j); }),
-            (fullyShown && rtp && narVoice && typeof TtsDot === "function") ? h("div", { style: { marginTop: -6, marginBottom: 12 } },
-              h(TtsDot, { k: "rp" + i, text: e.text, spk: narVoice, tp: rtp })) : null);
+            (fullyShown && say && rtp && narVoice && typeof TtsDot === "function") ? h("div", { style: { marginTop: -6, marginBottom: 12 } },
+              h(TtsDot, { k: "rp" + i, text: say, spk: narVoice, tp: rtp })) : null);
         }),
         busy ? h(Spinner, { label: trans.length ? "剧情推进中…" : "开场中…" }) : null,
         // 逐段展开
