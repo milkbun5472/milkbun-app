@@ -655,11 +655,13 @@ function WheelFull({ data, items, onSave, onReact, onClose }) {
     onSave({ title: eTitle.trim(), items: its });
     setResult(null); setQuip(null); setEdit(false);
   };
-  return ReactDOM.createPortal(h("div", { className: "fixed inset-0 z-[85] flex flex-col items-center", style: { background: "linear-gradient(170deg,#2a2532 0%,#1c1a22 55%,#241f1c 100%)" } },
-    // 顶栏
-    h("div", { className: "w-full flex items-center justify-between shrink-0", style: { padding: "16px 18px 4px" } },
-      h("button", { onClick: onClose, className: "active:opacity-60", style: { color: "rgba(255,255,255,0.75)", fontSize: 22, lineHeight: 1, padding: 4 } }, "✕"),
-      h("button", { onClick: openEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: "rgba(255,255,255,0.7)", padding: 4 } }, "✎ 编辑")),
+  // ⚠根节点必须 stopPropagation：portal 的点击沿 React 树冒泡回小组件的 onClick=setOpen(true)，
+  // 否则点 ✕ 关掉的瞬间又被重新打开（表现=「点不了叉」）
+  return ReactDOM.createPortal(h("div", { onClick: e => e.stopPropagation(), className: "fixed inset-0 z-[85] flex flex-col items-center", style: { background: "linear-gradient(170deg,#2a2532 0%,#1c1a22 55%,#241f1c 100%)" } },
+    // 顶栏：避开刘海/灵动岛（safe-area）+ 大热区（她报「点不到」）
+    h("div", { className: "w-full flex items-center justify-between shrink-0", style: { padding: "calc(env(safe-area-inset-top, 0px) + 22px) 10px 4px" } },
+      h("button", { onClick: onClose, className: "active:opacity-60", style: { color: "rgba(255,255,255,0.85)", fontSize: 24, lineHeight: 1, padding: "12px 16px", whiteSpace: "nowrap" } }, "✕"),
+      h("button", { onClick: openEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: "rgba(255,255,255,0.8)", padding: "12px 16px", whiteSpace: "nowrap" } }, "✎ 编辑")),
     h("div", { className: "flex-1 min-h-0 w-full overflow-y-auto flex flex-col items-center", style: { padding: "0 24px 30px" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fff", marginTop: 6 } }, data.title || "命运转盘"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,0.45)", marginTop: 3, letterSpacing: "0.15em" } }, "FATE DECIDES"),
