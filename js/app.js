@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.01";
+const APP_VERSION = "v48.02";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -706,12 +706,22 @@ function App() {
     memExtractInflightRef.current[charId] = true;
     try {
       const existing = memLibRef.current.filter(e => memShareChar([charId], e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
-      const openList = memLibRef.current.filter(e => e.open && memShareChar([charId], e.charIds)).slice(0, 12).map(e => e.text).filter(Boolean);
+      // openEntries 保序，编号即下标+1；喂给模型的是带编号的文本
+      const openEntries = memLibRef.current.filter(e => e.open && memShareChar([charId], e.charIds)).slice(0, 12);
+      const openList = openEntries.map(e => e.text).filter(Boolean);
       const items = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing, openList: openList });
-      // 自动了结开环：模型判定某条约定已完成 → open 置 false（约定完成系统自己勾掉）
-      const resolves = items.filter(it => it && it.resolveOpen).map(it => String(it.resolveOpen).slice(0, 10)).filter(Boolean);
-      if (resolves.length) {
-        saveMemLib(memLibRef.current.map(e => (e.open && resolves.some(r => String(e.text || "").indexOf(r.slice(0, 8)) === 0)) ? { ...e, open: false } : e));
+      // 自动了结开环：模型返回已完成开环的【编号】(1-based) → 按下标直接闭环。
+      // 老式（返回原文前缀）也兜住。用 id/原文双匹配，防 await 期间 memLib 被别处替换成新数组导致对象引用失效。
+      const closeTargets = [];
+      items.filter(it => it && it.resolveOpen != null && it.resolveOpen !== "").forEach(it => {
+        const digits = String(it.resolveOpen).replace(/[^0-9]/g, "");
+        const n = digits ? parseInt(digits, 10) : NaN;
+        if (n >= 1 && n <= openEntries.length && openEntries[n - 1]) { closeTargets.push(openEntries[n - 1]); return; }
+        const rs = String(it.resolveOpen).trim().slice(0, 8); // 兜底：模型给了文字而非编号
+        if (rs.length >= 4) { const hit = openEntries.find(e => String(e.text || "").indexOf(rs) === 0); if (hit) closeTargets.push(hit); }
+      });
+      if (closeTargets.length) {
+        saveMemLib(memLibRef.current.map(e => closeTargets.some(t => (t.id && e.id && t.id === e.id) || (t.text && e.text === t.text)) ? { ...e, open: false } : e));
       }
       const now = Date.now();
       const batchSeen = [];
@@ -2875,6 +2885,8 @@ function App() {
       const devRule = retro
         ? "【偏差 deviation】其中 0-2 段可以是「偏差」：原计划被打断或改变，尤其受最近和用户的对话、用户的要求、或 Ta 那天的心情影响。"
         : "【偏差 deviation】偏差=计划被实际打断/改变，只可能发生在【时间已过去（早于此刻 " + nowStr + "）】的时段；此刻之后（未来）还没发生的时段，deviation 一律必须为 null，绝不要给未来时段编造偏差。已过去的时段里最多 0-2 段是偏差，尤其受最近和用户的对话/心情影响（如用户抱怨犯困，Ta 提前收工去做饭）。";
+      // 别把昨天已发生结束的事复读进今天（治「昨天办完的事、凌晨刷新又排到今晚」）
+      const carryRule = retro ? "" : "\n【别复读昨天·重要】昨天或更早【已经发生并结束】的事——尤其你和用户之间【已经做过的经历、已兑现的约定】——绝不要当成今天还没做、还要再来一遍，排进今天的时间线或未来时段。今天的安排只基于 Ta【今天】的身份作息与此刻处境，不是重演昨天发生过的事。";
       // 碎碎念改成【回溯】：今天还没过完，不写今天的（否则像能看到未来）。
       // 生成今天日程的同时，顺手根据聊天记录把【昨天】的碎碎念补上——一次调用搞定，不进聊天prompt、也不多花 api。
       const yKey = schedDayKey(new Date(Date.now() - 86400000));
@@ -2900,7 +2912,7 @@ function App() {
       }
       const wRule = wline ? "\n【今天 TA 所在地的真实天气】" + wline + "——安排要顺着天气走：下雨大雪少排户外、好天气可能想遛弯晒太阳、闷热严寒影响穿着与心情；天气也可以自然引起偏差（如暴雨取消晨跑）。别播报腔。" : "";
       const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
-        instruction: "推演「" + char.name + "」一天的行程时间线。" + when + wRule + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule,
+        instruction: "推演「" + char.name + "」一天的行程时间线。" + when + wRule + carryRule + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule,
         schemaHint: "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"title\":\"洗漱后睡了\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}",
         maxTokens: 4000
       });
@@ -3497,13 +3509,14 @@ function App() {
       return n;
     });
   };
-  // 补账：把 lastDailyKey 之后、到「今天23点已过则含今天否则到昨天」之间漏掉的每天日常消费补上（最多补 14 天）
+  // 补账：把 lastDailyKey 之后、到【昨天】为止漏掉的每天日常消费补上（最多补 14 天）
   const catchUpWallet = async char => {
     const rec = charWalletRef.current[char.id];
     if (!rec || !rec.init) return;
     const now = new Date();
-    // 补到今天（含今天）——每天的日常消费当天就结算显示，不再等到 23 点后
-    const cutoffKey = schedDayKey(now);
+    // ⭐只补到【昨天】——一天的开销要等这天真正过完（进入次日凌晨）才结算显示，绝不提前生成/扣除今天还没发生的花销。
+    // 例：11 号凌晨只结算到 10 号，11 号自己的开销等 12 号凌晨再补。（她要的「别像能看到未来一样把今天的钱先花了」）
+    const cutoffKey = schedDayKey(new Date(now.getTime() - 86400000));
     const lastKey = rec.lastDailyKey || schedDayKey(now);
     if (lastKey >= cutoffKey) return;
     const cursor = schedParseKey(lastKey);
