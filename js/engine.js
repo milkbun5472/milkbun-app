@@ -759,6 +759,27 @@ function idbAudOpen() { return new Promise((res, rej) => { const r = indexedDB.o
 async function idbAudPut(k, blob) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readwrite"); tx.objectStore("aud").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbAudGet(k) { const db = await idbAudOpen(); return new Promise((res, rej) => { const tx = db.transaction("aud", "readonly"); const rq = tx.objectStore("aud").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
 function ttsCacheKey(voiceId, text) { let hsh = 5381; const s = voiceId + "|" + text; for (let i = 0; i < s.length; i++) hsh = (hsh * 33 + s.charCodeAt(i)) >>> 0; return "tts_" + voiceId + "_" + hsh.toString(36) + "_" + s.length; }
+
+// ============================================================
+// 图片仓库（IndexedDB）· 阶段1基建 —— 把大 base64 图从 5MB 的 localStorage 挪进空间大得多的 IndexedDB
+// localStorage 只留 iv_<hash> 引用键；渲染前用 resolveImg() 换成 objectURL（开机 hydrateImgVault 一次性把
+// 图库全读进内存缓存，Avatar 等同步组件可直接同步取用，不用每处改成异步）。此阶段纯新增、无处调用、零行为改动。
+// ============================================================
+function idbVaultOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_imgvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbVaultPut(k, blob) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+async function idbVaultGet(k) { const db = await idbVaultOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
+async function idbVaultDel(k) { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+async function idbVaultEntries() { const db = await idbVaultOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const st = tx.objectStore("img"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
+// data:URL → Blob（base64 或 URI 编码都支持）
+function dataUrlToBlob(dataUrl) { const m = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/.exec(String(dataUrl || "")); if (!m) return null; const mime = m[1] || "image/png"; if (m[2]) { const bin = atob(m[3]); const arr = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i); return new Blob([arr], { type: mime }); } return new Blob([decodeURIComponent(m[3])], { type: mime }); }
+function imgVaultHash(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0; return h.toString(36) + "_" + s.length; }
+// 内存缓存：iv_ 键 -> objectURL（挂 window 便于跨脚本共享；开机 hydrate 一次）
+function _imgCache() { if (typeof window === "undefined") return new Map(); return window.__imgUrlCache || (window.__imgUrlCache = new Map()); }
+async function hydrateImgVault() { try { const entries = await idbVaultEntries(); const c = _imgCache(); entries.forEach(([k, blob]) => { if (k && blob && !c.has(k)) { try { c.set(k, URL.createObjectURL(blob)); } catch (e) {} } }); return entries.length; } catch (e) { return 0; } }
+// 把一张 base64/dataURL 存进图库，返回 iv_ 键（同图幂等：同 hash 复用）。非 data: 的（http/已是 iv_）原样返回。
+async function imgToVault(dataUrl) { if (!dataUrl || typeof dataUrl !== "string") return dataUrl; if (dataUrl.indexOf("iv_") === 0) return dataUrl; if (dataUrl.slice(0, 5) !== "data:") return dataUrl; const key = "iv_" + imgVaultHash(dataUrl); const c = _imgCache(); if (!c.has(key)) { const blob = dataUrlToBlob(dataUrl); if (!blob) return dataUrl; try { await idbVaultPut(key, blob); c.set(key, URL.createObjectURL(blob)); } catch (e) { return dataUrl; } } return key; }
+// 渲染用：iv_ 键 -> objectURL（缓存里没有就返回空串，图不显示但不崩）；其它（base64/http/空）原样返回。向后兼容旧存档。
+function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) return _imgCache().get(v) || ""; return v; }
 // 从叙事散文里只抠出【引号内的台词】，旁白/动作/心理全丢——线下、同人文这类「一大段旁白+偶尔一句台词」的语音只念角色真正说出口的话。
 // 支持中文「」『』、全角“”、直角双引号 "。多句台词按换行拼接（让 TTS 自然停顿）。整段没引号台词就返回空串（调用方据此不显示 ▶）。
 function extractSpeech(text) {
