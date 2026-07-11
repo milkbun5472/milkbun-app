@@ -2958,7 +2958,8 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
           h("input", { value: manualId, onChange: e => setManualId(e.target.value), placeholder: "补录已有的 voice_id", style: Object.assign({}, inSt, { flex: 1, width: "auto" }) }),
           h("button", { onClick: () => { addVoice(manualId); setManualId(""); }, disabled: !manualId.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.ink, border: "none", borderRadius: 10, padding: "0 16px", flexShrink: 0 } }, "补录")),
         vlib.length === 0 ? null : h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, vlib.map(v => {
-          const users = (characters || []).filter(ch => ch.voiceId === v.id);
+          // trim 匹配：手填 voiceId 多打空格也算在用（和 ttsSpeak 的沉稳匹配保持一致）
+          const users = (characters || []).filter(ch => String(ch.voiceId || "").trim() === String(v.id).trim());
           const meP = vtp.play && vtp.play.k === v.id;
           return h("div", { key: v.id, style: { border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", background: t.bg2 } },
             h("div", { className: "flex items-center gap-2" },
@@ -2975,6 +2976,8 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
                 h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "沉稳一点"),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 6 } }, "音色太亢奋就开")),
               h(Toggle, { on: !!v.calm, onChange: on => { saveVlib(vlib.map(x => x.id === v.id ? { ...x, calm: on } : x)); toast && toast(on ? "已压稳这个音色，试听听听" : "恢复原始语气"); } })),
+            // 开了沉稳却没角色在用 → 警告：实际聊天语音不会生效（voiceId 对不上）
+            v.calm && users.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#c25a4a", marginTop: 6, lineHeight: 1.6, background: "rgba(194,90,74,0.08)", borderRadius: 8, padding: "6px 9px" } }, "⚠️ 沉稳只对试听生效——没有角色在用这个 voice_id。去角色档案把「音色」填成上面这个 id（一字不差、别多空格），实际聊天里 TA 的语音才会跟着变稳。") : null,
             assignFor === v.id ? h("div", { className: "flex flex-wrap gap-2", style: { marginTop: 8 } },
               (characters || []).length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色，先去名录建一个。") :
               (characters || []).map(ch => h("button", { key: ch.id, onClick: () => { onAssignVoice && onAssignVoice(ch.id, v.id); setAssignFor(null); }, className: "active:opacity-70",

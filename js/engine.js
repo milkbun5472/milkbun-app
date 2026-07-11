@@ -769,7 +769,9 @@ async function ttsSpeak(text, voiceId) {
   if (!txt) throw new Error("这条语音没有文字内容");
   // per-voice 沉稳调校（v47.86）：克隆音色若素材本身亢奋（如杨昕燃配的挏马酒），在音色库开「沉稳」——
   // 降语速+降音调+锁 neutral 情绪，把那股端着的兴奋劲压下去；只影响这一个音色
-  const ve = (loadVoiceLib() || []).find(x => x && x.id === vid) || {};
+  // trim 匹配（v47.88）：角色档案手填 voiceId 常多打首尾空格→精确匹配对不上→沉稳失效
+  const vidN = String(vid).trim();
+  const ve = (loadVoiceLib() || []).find(x => x && String(x.id).trim() === vidN) || {};
   const calm = !!ve.calm;
   // 沉稳靠「锁 neutral 情绪 + 稍降语速」——绝不动 pitch（一压音调就变声=猪八戒）。v47.87 修
   const emo = calm ? "neutral" : ttsEmotionOf(txt);
