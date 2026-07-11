@@ -771,11 +771,12 @@ async function ttsSpeak(text, voiceId) {
   // 降语速+降音调+锁 neutral 情绪，把那股端着的兴奋劲压下去；只影响这一个音色
   const ve = (loadVoiceLib() || []).find(x => x && x.id === vid) || {};
   const calm = !!ve.calm;
+  // 沉稳靠「锁 neutral 情绪 + 稍降语速」——绝不动 pitch（一压音调就变声=猪八戒）。v47.87 修
   const emo = calm ? "neutral" : ttsEmotionOf(txt);
-  const spd = calm ? 0.85 : 1.0;
-  const pit = calm ? -2 : 0;
-  // 缓存键带 :lb（口音矫正代次）+ 沉稳标记：调校变了别命中旧发音
-  const key = ttsCacheKey(vid + ":" + emo + ":lb" + (calm ? ":cm" : ""), txt);
+  const spd = calm ? 0.92 : 1.0;
+  const pit = 0;
+  // 缓存键带 :lb（口音矫正代次）+ 沉稳标记 :cm2（换代作废 v47.86 的猪八戒缓存）
+  const key = ttsCacheKey(vid + ":" + emo + ":lb" + (calm ? ":cm2" : ""), txt);
   const hit = await idbAudGet(key).catch(() => null);
   if (hit && hit.size > 0) return hit;
   const base = (a.baseUrl || "https://api.minimax.io").trim().replace(/\/+$/, "");
