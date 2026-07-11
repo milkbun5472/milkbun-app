@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.04";
+const APP_VERSION = "v48.05";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -6131,16 +6131,27 @@ function App() {
     if (g.error) toast("定位失败：" + g.error);else toast("已定位：" + g.label);
   };
 
-  // ---- export / import ----
-  const doExport = () => {
+  // ---- export / import ----（整包：localStorage 的 x_ 数据 + IndexedDB 图片仓库 x_imgvault）
+  const doExport = async () => {
     const dump = {};
     Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => {
       dump[k] = localStorage.getItem(k);
     });
+    // ⭐阶段4：图片仓库也打进备份——头像/壁纸迁进 IndexedDB 后，localStorage 只剩 iv_ 引用键，
+    // 图本身在 vault 里、不随普通备份走；这里把 vault 里每张图 base64 化装进 JSON，换设备导入后图才不丢。
+    let vault = {}, vaultCount = 0;
+    try {
+      if (typeof idbVaultEntries === "function" && typeof blobToDataUrl === "function") {
+        const entries = await idbVaultEntries();
+        for (const [k, b] of entries) { try { vault[k] = await blobToDataUrl(b); vaultCount++; } catch (e) {} }
+      }
+    } catch (e) {}
     const blob = new Blob([JSON.stringify({
       __archive: 1,
+      version: 2,
       exportedAt: Date.now(),
-      data: dump
+      data: dump,
+      vault: vault
     }, null, 2)], {
       type: "application/json"
     });
@@ -6150,11 +6161,11 @@ function App() {
     a.download = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
     a.click();
     URL.revokeObjectURL(url);
-    toast("已导出备份");
+    toast("已导出备份（含 " + vaultCount + " 张图片）");
   };
   const doImport = file => {
     const r = new FileReader();
-    r.onload = e => {
+    r.onload = async e => {
       let parsed;
       try {
         parsed = JSON.parse(e.target.result);
@@ -6174,6 +6185,12 @@ function App() {
         try { localStorage.setItem(k, v); }
         catch (err) { failed.push({ k, size: (v || "").length }); }
       });
+      // ⭐阶段4：恢复图片仓库（v2 备份含 vault）——把 base64 写回 IndexedDB，头像/壁纸的 iv_ 键才能 resolve。
+      if (parsed.vault && typeof idbVaultPut === "function" && typeof dataUrlToBlob === "function") {
+        for (const [k, durl] of Object.entries(parsed.vault)) {
+          try { const b = dataUrlToBlob(durl); if (b) await idbVaultPut(k, b); } catch (e2) {}
+        }
+      }
       if (failed.length) {
         // 按占用从大到小，方便一眼看出是谁把空间撑爆（多半是含大量图片的键）
         failed.sort((a, b) => b.size - a.size);
@@ -6183,7 +6200,7 @@ function App() {
           "已尽量恢复，但有 " + failed.length + " 项没装下——这台设备/这个网址的浏览器本地存储约 5MB 上限，这份备份超了。\n\n" +
           "没恢复的（占用最大的几项）：\n" + list +
           (failed.length > 6 ? "\n…等共 " + failed.length + " 项" : "") +
-          "\n\n这些多半是含大量图片的数据（头像/壁纸/朋友圈图/表情包）。要全恢复，需在这台设备上清掉图片或分批导入。\n（注意：一起读的书正文、语音音频存在浏览器 IndexedDB，本就不进备份文件，换设备要重传。）"
+          "\n\n这些多半是还没迁进图库的图（聊天图/朋友圈图/表情包）。头像和壁纸已迁进 IndexedDB 图库、随备份的图片仓库单独恢复、不占这 5MB。要全恢复，可在这台设备清掉这类图或分批导入。\n（注意：一起读的书正文、语音音频存在 IndexedDB，本就不进备份文件，换设备要重传。）"
         );
         setTimeout(() => location.reload(), 400);
       } else {

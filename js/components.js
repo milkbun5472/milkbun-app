@@ -1124,7 +1124,8 @@ function Home({
     lore: { kind: "app", zh: "世界书", G: GLore },
     memlib: { kind: "app", zh: "记忆库", G: GMem },
     diary: { kind: "app", zh: "日记", G: GDiary },
-    ledger: { kind: "app", zh: "记账", G: GLedger },
+    // 记账 app 图标退场：已有 w_ledger 记账组件，点组件即可进记账（onOpenApp("ledger")）。从 REG 删掉后，
+    // 存档里残留的 "ledger" key 会被 valid() 判无效丢弃、安全网也不会回填。ledger 路由本身还在，不影响功能。
     memo: { kind: "app", zh: "备忘录", G: GMemo },
     study: { kind: "app", zh: "一起学", G: GStudy },
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
@@ -1141,7 +1142,7 @@ function Home({
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
-    ["w_cal", "shop", "carry", "cwallet", "ledger", "w_ledger", "w_us", "w_memo"],
+    ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
     ["lore", "memlib", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games"],
     ["capsule", "w_muyu", "w_weather", "w_wheel"]
   ];
