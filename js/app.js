@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.19";
+const APP_VERSION = "v48.20";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1649,7 +1649,10 @@ function App() {
     try {
       const members = groupMembers(group);
       const histText = (sess.msgs || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【场景】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
-      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook, historyText: histText, directives: directives[groupId] || [] }, text.trim());
+      // 世界书走和正戏同一个筛选引擎（v48.20）：之前塞的是 deriveWorldbook 全量拼接（无视 scope/关键词），
+      // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
+      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
+      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
       if (res.directive && !res.refused) addDirective(groupId, res.directive);
       pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
     } catch (e) {
@@ -2514,7 +2517,9 @@ function App() {
     try {
       const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
       const histText = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
-      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook, historyText: histText, directives: directives[groupId] || [] }, text.trim());
+      // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
+      const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
+      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
       if (res.directive && !res.refused) addDirective(groupId, res.directive); // 群准则复用 directives[groupId]，注入 replyGroup
       pGChat(groupId, p => [...p, { role: "assistant", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() }]);
     } catch (e) {
