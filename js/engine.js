@@ -897,6 +897,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   parts.push("【手脚必须解剖正确】correct human hands, exactly five fingers per hand, anatomically correct fingers——每只手正好五根手指、每只脚五根脚趾；比耶(V手势)/比心/挥手/竖大拇指/握东西/十指相扣时，手指的数目、长短、朝向和关节都要正确自然，**绝对不许多指、少指、断指、并指融合、手指扭曲畸形或长度诡异**。手若入镜就照实画对，拿不准就让手自然下垂/插兜/被遮挡，也别画错。");
   // 身材硬约束（v47.74）：edits 模式参考照主导身材，文字要顶在前面才有话语权
   parts.push("【身材硬性要求，凌驾于参考图的身体】healthy body weight, realistic anatomy, not underweight, not emaciated, natural muscle definition——健康体重、真实自然的人体：头身比正常、肩颈躯干四肢比例正确，有自然的肌肉与皮下脂肪，绝不许瘦脱相（不许肋骨锁骨根根凸出、不许胳膊细如柴、不许病态苍白消瘦），也不许肢体拉长扭曲。若参考图中的身体过瘦，按健康匀称的体型重画身体、只保留脸部长相。");
+  // 体态·治「驼背」和「偷感」（v48.52）：抓拍质感不等于畏缩——人要挺拔松弛
+  parts.push("【体态自然挺拔，别驼背别『偷感』】good posture, upright relaxed natural stance, straight back, shoulders relaxed and open, confident at ease——脊背基本挺直、肩膀自然打开别缩着、脖子别前伸、下巴别往里缩；**绝不许含胸驼背、缩肩弓背、佝偻畏缩**。神态松弛自在、大方自然，像很自在地在自拍/被拍，**绝不要躲闪、拘谨、猥琐、鬼鬼祟祟、偷拍似的那种『偷感』**。哪怕是随手抓拍，人也站得/坐得舒展从容。");
   // 参考照只锁脸别锁衣服（治「穿着永远和参考照一样」）：edits 会连衣服背景一起复制，必须明说只保留身份
   parts.push("【参考照只用来锁长相、不锁穿着】给到的参考照/参考图只用于固定人物的脸、五官、发型和身份特征；**不要照搬参考照里的那身衣服、姿势和背景**——穿着按下面每个人的『此刻穿着』或当前场景/天气/氛围自然搭配，每次可以不一样。");
   // —— 主体人物 ——
