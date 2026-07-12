@@ -259,6 +259,18 @@ async function callAI(p, system, messages, opts) {
   if (!p.apiKey) throw new Error("尚未填写密钥，去设置里补上");
   if (!model) throw new Error("尚未指定模型");
   if (fmt === "anthropic") {
+    // ⭐prompt 缓存降房租（v48.34，小克两步方案只做第①步；第②步「重排稳定段」她拍板不做——现在的顺序活人感对，不动）：
+    // system 在【当前真实时间】处切成两块（时间行起每轮都变，是缓存的天然断点），前块打 cache_control ephemeral。
+    // 多块 system 等价于拼接——模型看到的文本【一个字、一个顺序都没变】，只是稳定前缀（反八股/世界书守则/角色卡守则/长期准则）
+    // 五分钟内连续聊天可命中缓存（读约一折）。前块太短（<800字，不够 1024 token 起缓门槛）就不切，行为与旧版完全一致。
+    let sysPayload = system;
+    try {
+      const cut = typeof system === "string" ? system.indexOf("【当前真实时间】") : -1;
+      if (cut >= 800) sysPayload = [
+        { type: "text", text: system.slice(0, cut), cache_control: { type: "ephemeral" } },
+        { type: "text", text: system.slice(cut) }
+      ];
+    } catch (e) {}
     const r = await fetchT(base + "/v1/messages", {
       method: "POST",
       headers: {
@@ -271,7 +283,7 @@ async function callAI(p, system, messages, opts) {
         model,
         max_tokens: maxTokens,
         temperature: temp,
-        system,
+        system: sysPayload,
         messages
       })
     }, reqTimeout);

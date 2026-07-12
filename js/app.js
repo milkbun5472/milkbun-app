@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.33";
+const APP_VERSION = "v48.34";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -656,6 +656,7 @@ function App() {
           const ts = new Date(L.created_at).getTime() || Date.now();
           pChat(char.id, p => [...p, { role: "assistant", content: L.content, ts, read: false, serverNight: true }]);
           if (L.kind === "morning") markGreet(char.id, "m", schedDayKey(new Date()));
+          if (L.kind === "night") markGreet(char.id, "n", schedDayKey(new Date())); // 晚安班握手（v48.34）：夜巡道过晚安，app 自己的晚安闸门当天让位
           // 夜巡体征（v48.33）：记「上次收到夜巡信」的时刻——appVitals 靠它答「夜巡还活着吗」，断粮几天工程师看得见
           try { localStorage.setItem("x_inboxLastTs", String(ts)); } catch (e2) {}
         }
