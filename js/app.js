@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.41";
+const APP_VERSION = "v48.42";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1124,26 +1124,19 @@ function App() {
         (cmts[p.id] || []).forEach(f => { if (f.authorType === "me") myOn.push(f.content); (f.replies || []).forEach(r => { if (r.authorType === "me") myOn.push(r.content); }); });
         if (myOn.length) lines.push("你发的帖「" + p.title + "」下，" + meName + "评论了：" + myOn.slice(0, 3).map(x => "“" + String(x).slice(0, 40) + "”").join("；"));
       });
-      // 别人（含 NPC/我）回复了 TA 在论坛的评论
-      posts.forEach(p => { (cmts[p.id] || []).forEach(f => {
-        if (f.authorId === char.id && f.authorType === "character" && (f.replies || []).length) {
+      // 楼下回复：只认【你自己发的帖】下的动静（v48.42 她点名）——你回过的【路人/NPC 帖】不再灌进聊天 prompt，
+      //   你在论坛只该知道「自己发的帖」和「用户转发给你的帖」（后者本就作为 forumshare 卡进了聊天历史，天然可见）。
+      posts.filter(p => p.authorId === char.id && p.authorType === "character").forEach(p => { (cmts[p.id] || []).forEach(f => {
+        if ((f.replies || []).length) {
           const rs = f.replies.slice(0, 3).map(r => (r.authorType === "me" ? meName : r.authorName) + "：" + String(r.content).slice(0, 30));
-          lines.push("你在「" + p.title + "」回的那条（“" + String(f.content).slice(0, 24) + "”），楼下有人回你：" + rs.join("；"));
+          lines.push("你的帖「" + p.title + "」下，" + (f.authorType === "me" ? meName + "评论的那条" : (f.authorName || "有人") + "评论的那条") + "（“" + String(f.content).slice(0, 24) + "”）又有人回：" + rs.join("；"));
         }
       }); });
       return lines.slice(0, 5).join("\n");
     })(),
-    phoneNote: (() => {
-      const ph = (phones || {})[char.id] || {};
-      const out = [];
-      if (ph.music && Array.isArray(ph.music.songs) && ph.music.songs.length) out.push("你歌单「" + (ph.music.playlist || "") + "」最近在听：" + ph.music.songs.slice(0, 8).map(s => s.name + (s.artist ? "（" + s.artist + "）" : "")).join("、"));
-      const sum = (key, label, fn) => { const it = ph[key] && ph[key].items; if (Array.isArray(it) && it.length) { const s = it.slice(0, 4).map(fn).filter(Boolean); if (s.length) out.push(label + "：" + s.join("；")); } };
-      sum("browser", "浏览器最近看的", x => x.title);
-      sum("video_day", "刷的视频", x => x.title);
-      sum("notes", "备忘录里记的", x => x.title);
-      sum("recordings", "录音里", x => x.name);
-      return out.join("\n");
-    })(),
+    // 查手机内容（歌单/浏览器/视频/备忘/录音）不再喂进聊天 prompt（v48.42 她点名）——
+    // 那些是「查手机」推演出来给你偷看的，不该占聊天上下文。查手机 App 里照常显示，数据(phones)一点没动。
+    phoneNote: "",
     periodNote: (() => {
       if (!period || !period.visibleTo || !period.visibleTo.includes(char.id)) return "";
       const list = periodList(period);
