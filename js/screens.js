@@ -3275,6 +3275,15 @@ function Config({
 }) {
   const t = useTheme();
   const [tab, setTab] = useState("api");
+  // 配件 UI 隐身：在「数据」tab 上连点 7 下解锁/隐藏（x_toyUnlocked，只存本机；没人会去连点这个）
+  const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });
+  const toyKnockRef = React.useRef({ n: 0, ts: 0 });
+  const toyKnock = k => {
+    if (k !== "data") return;
+    const now = Date.now(), kk = toyKnockRef.current;
+    kk.n = (now - kk.ts < 1500) ? kk.n + 1 : 1; kk.ts = now;
+    if (kk.n >= 7) { kk.n = 0; const nx = !toyUnlocked; setToyUnlocked(nx); try { localStorage.setItem("x_toyUnlocked", nx ? "1" : "0"); } catch (e) {} toast && toast(nx ? "已解锁配件" : "已隐藏配件"); }
+  };
   const tabs = [["api", "API"], ["sense", "感知"], ["cot", "思维链"], ["qa", "问答"], ["theme", "主题"], ["data", "数据"]];
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col"
@@ -3289,7 +3298,7 @@ function Config({
     }
   }, tabs.map(([k, l]) => /*#__PURE__*/React.createElement("button", {
     key: k,
-    onClick: () => setTab(k),
+    onClick: () => { setTab(k); toyKnock(k); },
     className: "pb-2",
     style: {
       borderBottom: tab === k ? `2px solid ${t.ink}` : "2px solid transparent"
@@ -3349,6 +3358,8 @@ function Config({
   }), /*#__PURE__*/React.createElement(CtxDebug, {
     characters: characters,
     getBundle: debugBundleFor
+  }), toyUnlocked && typeof ToyConfig === "function" && /*#__PURE__*/React.createElement(ToyConfig, {
+    toast: toast
   }))));
 }
 function ApiConfig({
