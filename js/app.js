@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.46";
+const APP_VERSION = "v48.47";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1511,6 +1511,68 @@ function App() {
     const timer = setInterval(tick, 45000);
     return () => { clearTimeout(kick); clearInterval(timer); };
   }, [characters, active]);
+  // ── 积温·活人感引擎（jiwen，v48.47 阶段一：引擎+接线）──
+  // 五轴连续状态随时间漂移（思念/傲娇/愉悦/唤醒/沉浸），到阈值产生「想联系」的触发。
+  // ⚠️阶段一【只推进状态+观测，触发不真发消息】——结果 stash 到 window.__jiwen 供调参；阶段二再放开去驱动主动消息。
+  const jiwenRef = useRef({});          // charId -> 引擎实例（缓存，保住闭包内 valence 边际递减记录）
+  const jiwenTickRef = useRef({});      // charId -> 上次 tick 毫秒
+  const jiwenLastUserRef = useRef({});  // charId -> 上次已知用户最新消息 ts（对方回话→思念清零）
+  const getJiwen = char => {
+    if (!char || typeof createJiwen !== "function") return null;
+    if (jiwenRef.current[char.id]) return jiwenRef.current[char.id];
+    const uName = (profile && profile.name) || "她";
+    const eng = createJiwen({
+      persona: { subjectName: uName, selfName: char.name, subjectPronoun: "ta" },
+      getLastMessage: () => {
+        const arr = chatsRef.current[char.id] || [];
+        for (let i = arr.length - 1; i >= 0; i--) { const m = arr[i]; if (m && m.content && !m.recalled) return { id: m.ts || i, role: m.role, content: String(m.content), timestamp: new Date(m.ts || Date.now()).toISOString() }; }
+        return null;
+      },
+      connectionRateFn: lastMsg => {
+        if (!lastMsg) return 0.0007;
+        const c = lastMsg.content || "";
+        if (/晚安|睡了|去睡|睡觉/.test(c)) return 0.0003;          // 好好道过晚安 → 思念涨得慢
+        if (/出门|上班|开会|上课|忙|有事/.test(c)) return 0.0005;   // 知道对方在忙 → 慢一点
+        if (c.length < 8) return 0.0010;                          // 敷衍短句 → 涨得快
+        return 0.0007;
+      },
+      onLoad: async () => { try { return (loadJSON("x_jiwen", {}) || {})[char.id] || null; } catch (e) { return null; } },
+      onSave: async st => { try { const m = loadJSON("x_jiwen", {}) || {}; m[char.id] = st; saveJSON("x_jiwen", m); } catch (e) {} }
+    });
+    jiwenRef.current[char.id] = eng;
+    return eng;
+  };
+  useEffect(() => {
+    if (typeof createJiwen !== "function") return;
+    window.__jiwen = window.__jiwen || {};
+    const step = async () => {
+      const now = Date.now();
+      for (const char of characters) {
+        const arr = chatsRef.current[char.id] || [];
+        if (!arr.length) continue;                                // 没聊过的不跑
+        const eng = getJiwen(char); if (!eng) continue;
+        // 对方（用户）最新消息比上次记录的新 → 思念清零（闭环，不碰任何发送路径）
+        let lastUserTs = 0;
+        for (let i = arr.length - 1; i >= 0; i--) { if (arr[i] && arr[i].role === "user") { lastUserTs = arr[i].ts || 0; break; } }
+        if (lastUserTs && lastUserTs > (jiwenLastUserRef.current[char.id] || 0)) {
+          jiwenLastUserRef.current[char.id] = lastUserTs;
+          try { await eng.resetConnection(); } catch (e) {}
+        }
+        // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，jiwen 内部封顶 60 分钟）
+        let baseTs = jiwenTickRef.current[char.id];
+        if (baseTs == null) { try { const s0 = await eng.getState(); baseTs = s0.lastTick ? new Date(s0.lastTick).getTime() : now; } catch (e) { baseTs = now; } }
+        const mins = (now - baseTs) / 60000;
+        jiwenTickRef.current[char.id] = now;
+        try {
+          const triggers = mins >= 0.2 ? await eng.tick(mins) : eng.checkThresholds();
+          window.__jiwen[char.id] = { name: char.name, summary: eng.getStateSummary(), triggers, state: await eng.getState() };
+        } catch (e) {}
+      }
+    };
+    const kick = setTimeout(step, 8000);
+    const timer = setInterval(step, 120000);
+    return () => { clearTimeout(kick); clearInterval(timer); };
+  }, [characters]);
   // 打开好友地图时刷新一次真实 GPS（让你的蓝点跳到现在的位置，别停在上次定位的旧点）
   useEffect(() => {
     if (screen !== "map" || !prefs.geoAware) return;
