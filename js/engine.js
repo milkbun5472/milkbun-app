@@ -673,7 +673,7 @@ function scoreMemEntry(entry, qTokens, now, qVec) {
 }
 function retrieveMemories(lib, charId, queryText, opts = {}) {
   const limit = opts.limit || 6;
-  const list = (lib || []).filter(e => e && e.text && (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId)));
+  const list = (lib || []).filter(e => e && e.text && !e.archived && (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId)));
   if (list.length === 0) return [];
   const qTokens = memTokens(queryText);
   // 向量：只有发送前 primeQueryVec 预热过、缓存命中才拿得到；没有就 null=纯关键词，行为同旧版
@@ -705,6 +705,24 @@ function formatMemLib(entries) {
     const openMark = e.open ? "〔还没了结·你心里还惦记着〕" : "";
     return "· " + e.text + openMark + tags;
   }).join("\n");
+}
+// 月度精炼（SullyOS 借鉴）：把一批【已了结的旧记忆】浓缩成尽量少的「月度精炼摘要」，保住长期精华、丢琐碎。
+// 返回 [{text,tags,v,a}]。原件由调用方归档(archived)不删除。
+async function refineMemories(p, ctx, entries) {
+  const uName = (ctx.profile && ctx.profile.name) || "用户";
+  const cName = (ctx.char && ctx.char.name) || "角色";
+  const listText = (entries || []).map((e, i) => (i + 1) + ". " + String(e.text || "").replace(/\s+/g, " ").slice(0, 120)).join("\n");
+  const maxOut = Math.max(2, Math.min(5, Math.ceil((entries || []).length / 8)));
+  const system = "你是记忆整理助手。下面是「" + uName + "」和「" + cName + "」之间攒下的一批【已了结的旧记忆】，偏零碎、有重复。请把它们浓缩成【尽量少】的『月度精炼摘要』（最多 " + maxOut + " 条）。\n" +
+    "【原则】\n" +
+    "· 只保留会【长期影响你俩关系】的：稳定的偏好/习惯、身份与背景、达成过的重要约定或转折、反复出现的相处模式与默契。\n" +
+    "· 丢掉一次性的琐碎细节、寒暄、已经不重要的旧事、以及互相重复的内容。\n" +
+    "· 每条一句话、具体、第三人称，**开头点明是关于谁的**（关于「" + uName + "」／关于「" + cName + "」／关于他俩之间），绝不张冠李戴。为每条配 1~3 个中文标签。\n" +
+    "· 每条标 v（情绪愉悦度整数 -5~5）与 a（情绪强度整数 0~5，摘要通常给 1~2）。\n" +
+    "【输出】只输出 JSON 数组，别加解释/代码块：[{\"text\":\"…\",\"tags\":[\"…\"],\"v\":0,\"a\":1}]";
+  const raw = await callAI(p, system, [{ role: "user", content: listText }], { maxTokens: Math.min(6000, 800 + (entries || []).length * 40) });
+  const arr = extractJSON(raw);
+  return Array.isArray(arr) ? arr.filter(o => o && o.text && String(o.text).trim()) : [];
 }
 // 微信式随机红包拆分：total(元)拆成 count 份，每份 >=0.01，和为 total
 function splitRedPacket(total, count) {

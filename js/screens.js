@@ -4282,9 +4282,12 @@ function MemoryLib({
   onImportOld,
   onBackfillEmotion,
   onPurgeWithered,
+  onRefine,
+  onRestoreArchived,
   emoBusy
 }) {
   const t = useTheme();
+  const [showArchived, setShowArchived] = useState(false);
   // 落灰记忆数量（和 app.js purgeWithered 同判定）：非置顶/非开环/情绪弱(a≤1)/120天没被想起/几乎没被召回(hits<2)
   const witheredCount = (entries || []).filter(e => { const now = Date.now(); return e && !e.pinned && !e.open && (e.a || 0) <= 1 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 120 * 86400000; }).length;
   const [filter, setFilter] = useState(focusChar ? focusChar.id : "all");
@@ -4305,8 +4308,12 @@ function MemoryLib({
       (v > 0 ? "＋" : v < 0 ? "－" : "") + Math.abs(v), h("span", { style: { opacity: 0.7 } }, "·"), "🔥" + a);
   };
   const unrated = (entries || []).filter(e => e && typeof e.a !== "number").length;
+  // 可精炼旧记忆数（和 app.js isRefinable 同判定）：已了结/非置顶/情绪弱(a≤2)/放了 60+ 天/未归档；按当前筛选范围算
+  const inScope = e => filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter);
+  const refinableCount = (entries || []).filter(e => { const now = Date.now(); return e && e.text && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= 60 * 86400000 && inScope(e); }).length;
+  const archived = (entries || []).filter(e => e && e.archived && inScope(e)).slice().sort((a, b) => (b.archivedTs || 0) - (a.archivedTs || 0));
   const qlc = q.trim().toLowerCase();
-  const list = (entries || []).filter(e => (!openOnly || e.open) && (filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter)) && (!qlc || (String(e.text || "") + " " + (e.tags || []).join(" ") + " " + (e.charIds || []).map(nameOf).join(" ")).toLowerCase().indexOf(qlc) >= 0)).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
+  const list = (entries || []).filter(e => !e.archived && (!openOnly || e.open) && (filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter)) && (!qlc || (String(e.text || "") + " " + (e.tags || []).join(" ") + " " + (e.charIds || []).map(nameOf).join(" ")).toLowerCase().indexOf(qlc) >= 0)).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
   const importable = focusChar && oldMemories && (oldMemories[focusChar.id] || "").trim();
   return h("div", {
     className: "h-full flex flex-col"
@@ -4344,7 +4351,11 @@ function MemoryLib({
     onClick: onBackfillEmotion, disabled: emoBusy,
     className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
     style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 13 }
-  }, emoBusy ? "评估中…" : "✨ 给 " + unrated + " 条旧记忆补上情绪评估（点亮色标）") : null, focusChar && onExtract && h("button", {
+  }, emoBusy ? "评估中…" : "✨ 给 " + unrated + " 条旧记忆补上情绪评估（点亮色标）") : null, onRefine && refinableCount >= 8 ? h("button", {
+    onClick: () => onRefine(filter), disabled: emoBusy,
+    className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
+    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 13 }
+  }, emoBusy ? "精炼中…" : "🗂 精炼 " + refinableCount + " 条已了结的旧记忆 → 月度摘要（原件归档可恢复）") : null, focusChar && onExtract && h("button", {
     onClick: onExtract,
     disabled: busy,
     className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
@@ -4409,7 +4420,20 @@ function MemoryLib({
       fontSize: 10,
       color: t.line
     }
-  }, "· " + new Date(e.ts || Date.now()).toLocaleDateString("zh-CN"), (e.source === "import" ? " · 导入" : e.source === "manual" ? " · 手动" : (e.tags || []).includes("群聊") ? " · 群聊" : (e.tags || []).includes("线下") ? " · 线下" : e.source === "auto" ? " · 自动" : "")))))), cfgOpen && onSaveCfg && h(MemCfgSheet, {
+  }, "· " + new Date(e.ts || Date.now()).toLocaleDateString("zh-CN"), (e.source === "import" ? " · 导入" : e.source === "manual" ? " · 手动" : (e.tags || []).includes("群聊") ? " · 群聊" : (e.tags || []).includes("线下") ? " · 线下" : e.source === "auto" ? " · 自动" : ""))))), archived.length ? h("div", {
+    style: { marginTop: 12, paddingTop: 12, borderTop: "1px dashed " + t.line }
+  }, h("button", {
+    onClick: () => setShowArchived(s => !s), className: "w-full text-left active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 12, color: t.fog }
+  }, (showArchived ? "▾ " : "▸ ") + "已精炼归档 " + archived.length + " 条" + (showArchived ? "（收起）" : "（展开 · 可恢复）")),
+    showArchived ? h("div", { className: "mt-2" },
+      onRestoreArchived ? h("button", {
+        onClick: () => onRestoreArchived(), className: "mb-2 active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.line, borderRadius: 8, padding: "6px 12px" }
+      }, "↺ 全部恢复（撤除精炼摘要）") : null,
+      archived.slice(0, 100).map(e => h("div", {
+        key: e.id, style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, padding: "4px 0", borderTop: "1px solid " + t.bg2, whiteSpace: "pre-wrap" }
+      }, e.text))) : null) : null), cfgOpen && onSaveCfg && h(MemCfgSheet, {
     onPurgeWithered: onPurgeWithered,
     witheredCount: witheredCount,
     cfg: cfg || {}, onSave: onSaveCfg, onClose: () => setCfgOpen(false)

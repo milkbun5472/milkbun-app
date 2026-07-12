@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.45";
+const APP_VERSION = "v48.46";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -896,6 +896,59 @@ function App() {
       toast("已点亮 " + n + " 条情绪" + (left > 0 ? "，还剩 " + left + " 条·再点一次" : ""));
     } catch (e) { toast("评估失败：" + ((e && e.message) || "重试")); }
     finally { setEmoBusy(false); }
+  };
+  // 月度精炼（#1，SullyOS 借鉴）：把【已了结·非置顶·情绪弱·放了 60+ 天】的旧记忆按【关系分组】浓缩成月度摘要，
+  // 原件归档(archived)【不删除、可一键恢复】。你的未了约定(open)/置顶/动情大事(a≥3)一条不碰。
+  const REFINE_OLD_DAYS = 60, REFINE_MIN = 8;
+  const isRefinable = e => { const now = Date.now(); return e && e.text && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= REFINE_OLD_DAYS * 86400000; };
+  const refineOldMemories = async (scopeCharId, opts = {}) => {
+    if (!bgActive && !active) { if (!opts.auto) toast("请先到设置配置 API"); return 0; }
+    const now = Date.now();
+    let pool = memLibRef.current.filter(isRefinable);
+    if (scopeCharId && scopeCharId !== "all") pool = pool.filter(e => memShareChar([scopeCharId], e.charIds));
+    if (!pool.length) { if (!opts.auto) toast("没有可精炼的旧记忆（约定/心事/置顶/动情大事都不动）"); return 0; }
+    // 按 charIds 签名分组，别把不同人的记忆混进一条摘要
+    const groups = {};
+    pool.forEach(e => { const k = (e.charIds && e.charIds.length ? e.charIds.slice().sort() : ["__global"]).join("|"); (groups[k] = groups[k] || []).push(e); });
+    setEmoBusy(true);
+    const batchId = "rf_" + now;
+    let working = memLibRef.current.slice();
+    let foldedTotal = 0, summaryTotal = 0;
+    try {
+      for (const k of Object.keys(groups)) {
+        const g = groups[k].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        if (g.length < REFINE_MIN) continue;              // 单个关系攒够 8 条才值得精炼
+        const take = g.slice(0, 40);                        // 一次最多喂 40 条
+        const charIds = k === "__global" ? [] : k.split("|");
+        const anchor = characters.find(c => c.id === charIds[0]) || { name: "角色" };
+        let summaries;
+        try { summaries = await refineMemories(bgActive, ctxFor(anchor), take); } catch (e) { continue; }
+        if (!summaries || !summaries.length) continue;
+        const takeIds = new Set(take.map(e => e.id));
+        working = working.map(e => takeIds.has(e.id) ? { ...e, archived: true, archivedBatch: batchId, archivedTs: now } : e);
+        const newOnes = summaries.slice(0, 5).map((s, i) => ({
+          id: "m_" + now + "_" + i + "_" + Math.floor(Math.random() * 1000),
+          text: String(s.text).trim(), tags: (Array.isArray(s.tags) ? s.tags : []).concat(["月度精炼"]),
+          charIds, ts: now, source: "monthly", refineBatch: batchId,
+          v: clampInt(s.v, -5, 5, 0), a: clampInt(s.a, 0, 5, 1), open: false
+        }));
+        working = newOnes.concat(working);
+        foldedTotal += take.length; summaryTotal += newOnes.length;
+      }
+      if (foldedTotal) { saveMemLib(working); toast("已把 " + foldedTotal + " 条旧记忆精炼成 " + summaryTotal + " 条摘要（原件已归档，可在记忆库恢复）"); }
+      else if (!opts.auto) toast("每段关系的旧记忆还不够多（满 8 条才精炼）");
+    } catch (e) { if (!opts.auto) toast("精炼失败：" + ((e && e.message) || "重试")); }
+    finally { setEmoBusy(false); }
+    return foldedTotal;
+  };
+  // 恢复归档：把某批（或全部）精炼归档的原件放回，并撤掉对应的月度摘要
+  const restoreArchived = (batchId) => {
+    const batches = batchId ? new Set([batchId]) : new Set(memLibRef.current.filter(e => e.archived).map(e => e.archivedBatch));
+    if (!batches.size) { toast("没有可恢复的归档记忆"); return; }
+    const kept = memLibRef.current.filter(e => !(e.source === "monthly" && batches.has(e.refineBatch)));
+    const restored = kept.map(e => (e.archived && batches.has(e.archivedBatch)) ? { ...e, archived: false, archivedBatch: undefined, archivedTs: undefined } : e);
+    saveMemLib(restored);
+    toast("已恢复归档记忆、撤除对应精炼摘要");
   };
   // 共享抽取：把 msgs 抽成记忆条、双重去重后入库，返回实际新增条数（手动/自动共用）
   const extractAndAddForChar = async (charId, msgs) => {
@@ -7169,6 +7222,8 @@ function App() {
     onImportOld: importOldMemoryToLib,
     onBackfillEmotion: backfillMemEmotion,
     onPurgeWithered: purgeWithered,
+    onRefine: refineOldMemories,
+    onRestoreArchived: restoreArchived,
     emoBusy: emoBusy
   });else if (screen === "diary") body = h(Diary, {
     characters: characters,
