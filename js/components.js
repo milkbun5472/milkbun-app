@@ -6983,6 +6983,7 @@ function ChatSettings({
   onSave,
   onClose,
   onClearMemory,
+  onSaveMemory,
   onClearChat,
   iBlocked,
   onToggleBlock,
@@ -7011,6 +7012,7 @@ function ChatSettings({
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [apiId, setApiId] = useState(settings.apiId || null); // 这个角色专属的 API 线路；null=跟随全局
+  const [memEdit, setMemEdit] = useState(null); // 长期记忆手术刀（v48.35）：null=浏览，字符串=编辑中的草稿
   const bgFileRef = useRef(null);
   const cNm = character.remark || character.name;
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
@@ -7302,14 +7304,18 @@ function ChatSettings({
       color: t.sub,
       whiteSpace: "pre-wrap"
     }
-  }, memory || "还没有积累长期记忆。对话足够多后会自动生成。")), memory && /*#__PURE__*/React.createElement("button", {
-    onClick: onClearMemory,
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.accent
-    }
-  }, "清空这段记忆")),
+  }, memEdit == null ? (memory || "还没有积累长期记忆。对话足够多后会自动生成。") : h("textarea", {
+    value: memEdit,
+    onChange: e => setMemEdit(e.target.value),
+    rows: 10,
+    style: { width: "100%", outline: "none", border: "none", resize: "vertical", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, whiteSpace: "pre-wrap" }
+  }))), memEdit == null
+    ? h("div", { className: "flex items-center gap-4" },
+        onSaveMemory && h("button", { onClick: () => setMemEdit(memory || ""), style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "✏️ 编辑记忆"),
+        memory && h("button", { onClick: onClearMemory, style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "清空这段记忆"))
+    : h("div", { className: "flex items-center gap-2" },
+        h("button", { onClick: () => { onSaveMemory && onSaveMemory(memEdit.trim()); setMemEdit(null); }, className: "active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 9, padding: "8px 18px" } }, "保存记忆"),
+        h("button", { onClick: () => setMemEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "8px 10px" } }, "取消"))),
   onToggleBlock && h("div", { className: "pt-6" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "拉黑"),
     h("div", { className: "flex items-center justify-between" },

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.34";
+const APP_VERSION = "v48.35";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -7269,6 +7269,7 @@ function App() {
     settings: settingsFor(activeChar.id),
     apiProfiles: apiProfiles,
     memory: memories[activeChar.id],
+    onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);
       pC(p => p.map(c => c.id === activeChar.id ? {
