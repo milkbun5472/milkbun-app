@@ -4040,12 +4040,28 @@ function PushCard({ loggedIn }) {
   const [st, setSt] = useState("…");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [priv, setPriv] = useState(""); // 生成出来的私钥（只在本地显示、供复制到 Supabase secrets，绝不落盘不上云）
   useEffect(() => {
     let al = true;
     if (window.Cloud && window.Cloud.pushStatus) window.Cloud.pushStatus().then(s => { if (al) setSt(s); });
     return () => { al = false; };
   }, []);
   const saveKey = v => { setVapid(v); saveJSON("x_pushVapid", v.trim()); };
+  // 本地生成一对 VAPID 密钥（Web Crypto，ECDSA P-256）——不用装 node、私钥从不离开你这台机器（v48.40，她没装 npx）。
+  // 公钥自动填进上面输入框；私钥显示出来供你复制进 Supabase 函数的 secrets（VAPID_PRIVATE）。
+  const genKeys = async () => {
+    setMsg("");
+    try {
+      if (!(window.crypto && crypto.subtle)) { setMsg("❌ 这个环境不支持本地生成，换个浏览器或用 npx web-push generate-vapid-keys"); return; }
+      const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+      const raw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey)); // 65 字节未压缩公钥点
+      const jwk = await crypto.subtle.exportKey("jwk", kp.privateKey); // jwk.d 已是 base64url 私钥
+      const b64u = u8 => btoa(String.fromCharCode.apply(null, u8)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      saveKey(b64u(raw));
+      setPriv(jwk.d || "");
+      setMsg("✅ 生成好了。公钥已自动填进上面（也会随云同步）。下面是私钥——去 Supabase 那个推送函数的 Secrets 里加两条：VAPID_PUBLIC=上面的公钥、VAPID_PRIVATE=下面的私钥。私钥只在这显示这一次，复制走、别泄露、别进 git。");
+    } catch (e) { setMsg("❌ 生成失败：" + String((e && e.message) || e)); }
+  };
   const turnOn = async () => {
     setBusy(true); setMsg("");
     try {
@@ -4069,7 +4085,11 @@ function PushCard({ loggedIn }) {
     st === "unsupported"
       ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "这个浏览器环境不支持推送。iPhone 要先「添加到主屏幕」、再从主屏图标打开（iOS 16.4+）才有这能力。")
       : h("div", { style: { marginTop: 10 } },
-          h("input", { value: vapid, onChange: e => saveKey(e.target.value), placeholder: "粘贴 VAPID 公钥（生成方法见 lisa-practice/推送小抄.md）", style: { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: "monospace", fontSize: 11, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          h("input", { value: vapid, onChange: e => saveKey(e.target.value), placeholder: "VAPID 公钥（没有就点下面「生成一对」）", style: { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: "monospace", fontSize: 11, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          h("button", { onClick: genKeys, className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "🔑 没有公钥？点这本地生成一对（不用装任何东西）"),
+          priv ? h("div", { style: { marginTop: 8, padding: "9px 11px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, "私钥（复制进 Supabase secrets 的 VAPID_PRIVATE，别泄露、别进 git）："),
+            h("div", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", lineHeight: 1.5 } }, priv)) : null,
           h("div", { className: "flex gap-3", style: { marginTop: 8 } },
             st === "on"
               ? h("button", { onClick: turnOff, disabled: busy, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, busy ? "…" : "关闭这台设备的推送")

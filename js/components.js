@@ -1803,10 +1803,15 @@ function Messages({
   walletBalance,
   friendGroups,
   onSaveGroups,
-  onPostMoment
+  onPostMoment,
+  tab: tabProp,
+  onTab
 }) {
   const t = useTheme();
-  const [tab, setTab] = useState("chats");
+  // tab 提到 App 层受控（v48.40）：进角色资料卡再返回时不丢，还回原来的通讯录/朋友圈 tab。无 prop 时回退内部 state（旧行为）
+  const [tabInner, setTabInner] = useState("chats");
+  const tab = tabProp != null ? tabProp : tabInner;
+  const setTab = onTab || setTabInner;
   const [composeOpen, setComposeOpen] = useState(false);
   const [groupMgr, setGroupMgr] = useState(false);
   const TITLES = {

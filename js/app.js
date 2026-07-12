@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.39";
+const APP_VERSION = "v48.40";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -279,6 +279,7 @@ function App() {
   const _curLane = (screen === "gthread" && activeGroup) ? "g:" + activeGroup.id : (activeChar ? "c:" + activeChar.id : null);
   const sending = _curLane ? !!busyLanes[_curLane] : false;
   const [gen, setGen] = useState({});
+  const [msgTab, setMsgTab] = useState("chats"); // 信息页内部 tab（聊天/通讯录/朋友圈/我）提到 App 层，进角色详情返回时不丢（v48.40）
   const [stateCardOpen, setStateCardOpen] = useState(false);
   const [stateCardChar, setStateCardChar] = useState(null); // 心声卡要显示谁（群聊点头像时=该成员；私聊=null→用 activeChar）
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
@@ -6635,6 +6636,8 @@ function App() {
     moments: moments,
     profile: profile,
     unreadMap: unreadMap,
+    tab: msgTab,
+    onTab: setMsgTab,
     onBack: goHome,
     onOpenThread: c => {
       setActiveChar(c);
