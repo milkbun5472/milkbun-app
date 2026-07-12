@@ -288,8 +288,14 @@ async function callAI(p, system, messages, opts) {
       }, reqTimeout);
       return await r.json();
     };
-    let d = await postAnthropic(true);
-    if (d.error && /temperature/i.test(d.error.message || "")) d = await postAnthropic(false);
+    // ⚠️按次计费防双扣：某线路一旦被记过「不吃 temperature」就直接裸发，不再白扣一次
+    const _ntKey = base + "|" + model;
+    let _skipT = false; try { _skipT = (JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []).indexOf(_ntKey) >= 0; } catch (e) {}
+    let d = await postAnthropic(!_skipT);
+    if (!_skipT && d.error && /temperature/i.test(d.error.message || "")) {
+      try { const a = JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []; if (a.indexOf(_ntKey) < 0) { a.push(_ntKey); localStorage.setItem("x_noTemp", JSON.stringify(a)); } } catch (e) {}
+      d = await postAnthropic(false);
+    }
     if (d.error) throw new Error(d.error.message);
     const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
     if (!t) throw new Error("模型返回为空");
@@ -339,8 +345,13 @@ async function callAI(p, system, messages, opts) {
     }, reqTimeout);
     return await r.json();
   };
-  let d = await postOpenAI(true);
-  if (d.error && /temperature/i.test(d.error.message || "")) d = await postOpenAI(false);
+  const _ntKey2 = base + "|" + model;
+  let _skipT2 = false; try { _skipT2 = (JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []).indexOf(_ntKey2) >= 0; } catch (e) {}
+  let d = await postOpenAI(!_skipT2);
+  if (!_skipT2 && d.error && /temperature/i.test(d.error.message || "")) {
+    try { const a = JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []; if (a.indexOf(_ntKey2) < 0) { a.push(_ntKey2); localStorage.setItem("x_noTemp", JSON.stringify(a)); } } catch (e) {}
+    d = await postOpenAI(false);
+  }
   if (d.error) throw new Error(d.error.message);
   const t = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content || "").trim();
   if (!t) throw new Error("模型返回为空");
