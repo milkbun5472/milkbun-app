@@ -271,23 +271,25 @@ async function callAI(p, system, messages, opts) {
         { type: "text", text: system.slice(cut) }
       ];
     } catch (e) {}
-    const r = await fetchT(base + "/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": p.apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        temperature: temp,
-        system: sysPayload,
-        messages
-      })
-    }, reqTimeout);
-    const d = await r.json();
+    // 有些新模型（如带思考的 Claude 5/fable）不接受自定义 temperature（只允许 1 或直接不支持）→
+    // 报 temperature 相关错就【去掉 temperature 裸参重试一次】，通用兜底、不用硬编每个模型的规则。
+    const postAnthropic = async withTemp => {
+      const body = { model, max_tokens: maxTokens, system: sysPayload, messages };
+      if (withTemp) body.temperature = temp;
+      const r = await fetchT(base + "/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": p.apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify(body)
+      }, reqTimeout);
+      return await r.json();
+    };
+    let d = await postAnthropic(true);
+    if (d.error && /temperature/i.test(d.error.message || "")) d = await postAnthropic(false);
     if (d.error) throw new Error(d.error.message);
     const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
     if (!t) throw new Error("模型返回为空");
@@ -326,23 +328,19 @@ async function callAI(p, system, messages, opts) {
     return t;
   }
   const root = base.endsWith("/v1") ? base : base + "/v1";
-  const r = await fetchT(root + "/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "Bearer " + p.apiKey
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      temperature: temp,
-      messages: [{
-        role: "system",
-        content: system
-      }, ...messages]
-    })
-  }, reqTimeout);
-  const d = await r.json();
+  // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
+  const postOpenAI = async withTemp => {
+    const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...messages] };
+    if (withTemp) body.temperature = temp;
+    const r = await fetchT(root + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + p.apiKey },
+      body: JSON.stringify(body)
+    }, reqTimeout);
+    return await r.json();
+  };
+  let d = await postOpenAI(true);
+  if (d.error && /temperature/i.test(d.error.message || "")) d = await postOpenAI(false);
   if (d.error) throw new Error(d.error.message);
   const t = (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content || "").trim();
   if (!t) throw new Error("模型返回为空");
@@ -1297,6 +1295,9 @@ async function generateOffline(p, ctx, session) {
   // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
   const wantLong = session.minWords && session.minWords >= 150;
   const lenGuide = wantLong ? "充分展开写足这一段——把动作、神态、心理、环境、对话都写够，别省笔墨" : "写成一小段（约2到6句）";
+  // 配件（线下·授权门在 app 侧算好传进 session.toyOn；线下天然是用户在场当面，无后台顾虑）
+  const toyHint = session.toyOn ? "\n【toy 配件·此刻已授权】你和" + userName + "此刻线下面对面、且开了「配件」——你的动作和话能【真的作用到 Ta 身上】。这一段情境到了（亲密、挑逗、想让 Ta 有反应、按住 Ta 别乱动）你可以填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":1到20整数,\"duration\":秒数1到30,\"reason\":\"配合这段的哪个动作/哪句话\"}，否则 toy:null。**节奏跟叙事走**：推进升温→intensity 渐强；故意吊着/停下→pattern 用 edge 或压到 1；一个命令/一个动作点到 Ta→pattern 用 pulse 短脉冲。pattern：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降。先有叙事、动作配合叙事，别每段都发。强度我这边有上限，超了会被压到上限。" : "";
+  const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":整数1-20,\"duration\":秒1-30,\"reason\":\"配合哪句/哪个动作\"}" : "";
   const system = buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
     "\n\n" + INTIMATE_ANTI_CLICHE +
@@ -1308,7 +1309,8 @@ async function generateOffline(p, ctx, session) {
     (session.minWords ? "\n【篇幅要求·硬性，优先级高于「简短」的一般习惯】scene 正文至少写 " + session.minWords + " 字，务必写足——宁可多不可少，把这一刻的动作、心理、环境、对话都展开写透。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻心情词\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)}";
+    toyHint +
+    "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻心情词\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)" + toyField + "}";
   const hist = offlineHistory(session.msgs, userName, char.name);
   // ⭐尾部重申（治「越写越八股」）：长对话里开头的规矩会被稀释，模型还会模仿自己前文的油腻输出——
   // 把关键约束追加到上下文最尾（模型对结尾最敏感），每轮都在
@@ -1326,7 +1328,8 @@ async function generateOffline(p, ctx, session) {
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
     action: cln(parsed.action),
-    affinityDelta: typeof parsed.affinityDelta === "number" ? parsed.affinityDelta : 0
+    affinityDelta: typeof parsed.affinityDelta === "number" ? parsed.affinityDelta : 0,
+    toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null
   };
 }
 // 结束线下时把整段浓缩成一条记忆（第三人称，供存入记忆库）

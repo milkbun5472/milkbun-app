@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.49";
+const APP_VERSION = "v48.50";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1623,7 +1623,11 @@ function App() {
       // 向量记忆：预热线下这段的查询向量，让下面的同步检索走语义相似度（失败自动纯关键词）
       if (typeof primeQueryVec === "function" && (oMemN == null || oMemN > 0)) await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
       if (oMemN != null) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
-      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords });
+      // 配件·授权门（线下）：线下天然是用户当面在场，只需 已连+已激活给本角色+该角色 opt-in+已解锁
+      const offToyOn = !!(typeof toyReady === "function" && toyReady() && toyArmedRef.current && toyArmedForRef.current === charId
+        && settingsFor(charId) && settingsFor(charId).toyEnabled
+        && (() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } })());
+      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn });
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
         role: "char",
@@ -1632,6 +1636,11 @@ function App() {
         cot: res.cot || null,
         ts: Date.now()
       });
+      // 配件·触发（线下）：再核一遍激活态才下发（她可能刚按急停）
+      if (offToyOn && res.toy && typeof toyPlay === "function" && toyArmedRef.current && toyArmedForRef.current === charId) {
+        const s = { pattern: res.toy.pattern, intensity: parseInt(res.toy.intensity, 10), duration: parseInt(res.toy.duration, 10) };
+        if (s.intensity > 0) toyPlay(s).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
+      }
       // 线下相处也影响好感与心情（跟私聊一样）
       if (typeof res.affinityDelta === "number") bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
       if (res.mood && res.mood.label) setMoodFor(charId, { ...res.mood, ts: Date.now() });
@@ -7442,14 +7451,15 @@ function App() {
     },
     className: "shrink-0"
   }) : null, /*#__PURE__*/React.createElement(DevBadges, null), (function () {
-    // 配件·常驻激活/急停浮层（安全铁律①③）：仅在解锁+已连+进了某个 opt-in 角色的聊天里出现
+    // 配件·常驻激活/急停浮层（安全铁律①③）：仅在解锁+已连+进了某个 opt-in 角色的【单聊 或 线下】里出现
     let unlocked = false; try { unlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
-    if (!(unlocked && typeof toyReady === "function" && toyReady() && activeChar && screen === "thread" && settingsFor(activeChar.id) && settingsFor(activeChar.id).toyEnabled)) return null;
-    const armedHere = toyArmed && toyArmedFor === activeChar.id;
-    return h("div", { style: { position: "fixed", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 88px)", zIndex: 80 } },
+    const tc = offlineChar || (screen === "thread" ? activeChar : null);
+    if (!(unlocked && typeof toyReady === "function" && toyReady() && tc && settingsFor(tc.id) && settingsFor(tc.id).toyEnabled)) return null;
+    const armedHere = toyArmed && toyArmedFor === tc.id;
+    return h("div", { style: { position: "fixed", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 88px)", zIndex: 999 } },
       armedHere
         ? h("button", { onClick: disarmToy, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#fff", background: "#c0392b", borderRadius: 999, padding: "11px 18px", boxShadow: "0 4px 14px rgba(0,0,0,.28)" } }, "■ 急停")
-        : h("button", { onClick: () => { setToyArmed(true); setToyArmedFor(activeChar.id); toast("配件已激活 · 仅本次会话本对话"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "rgba(35,35,35,.82)", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 10px rgba(0,0,0,.22)" } }, "▷ 激活配件"));
+        : h("button", { onClick: () => { setToyArmed(true); setToyArmedFor(tc.id); toast("配件已激活 · 仅本次会话本对话"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "rgba(35,35,35,.82)", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 10px rgba(0,0,0,.22)" } }, "▷ 激活配件"));
   })(), /*#__PURE__*/React.createElement("audio", {
     ref: audioElRef,
     style: { display: "none" },
