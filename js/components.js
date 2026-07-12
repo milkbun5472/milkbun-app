@@ -6975,6 +6975,15 @@ function ContactDetail({
 }
 
 // ---- chat settings (memory) ----
+// 折叠分区（v48.35）：聊天设置太长往下翻难找——按主题收起，点标题才展开需要改的那块（手风琴，一次一个）
+function SettingSection({ title, open, onToggle, danger, children }) {
+  const t = useTheme();
+  return h("div", { style: { borderTop: "1px solid " + t.line } },
+    h("button", { onClick: onToggle, className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "13px 0" } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: danger ? t.accent : t.ink } }, title),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
+    open ? h("div", { className: "pb-3" }, children) : null);
+}
 function ChatSettings({
   character,
   settings,
@@ -6992,6 +7001,9 @@ function ChatSettings({
   onExtractMem
 }) {
   const t = useTheme();
+  // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
+  const [openSec, setOpenSec] = useState("");
+  const sec = key => ({ open: openSec === key, onToggle: () => setOpenSec(v => v === key ? "" : key) });
   const [remark, setRemark] = useState(character.remark || "");
   const [patSig, setPatSig] = useState(character.patSig || "");
   const [ctxN, setCtxN] = useState(settings.ctxN || 50);
@@ -7056,7 +7068,7 @@ function ChatSettings({
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
     color: t.ink
-  }))), (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
+  }))), h(SettingSection, { title: "线路与身份", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "API 线路"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 4 } }, cNm + " 开口的场合（单聊/1:1通话/线下/OOC）用哪条线路。可以给特别的人配特别的模型；群聊多人同台仍走全局。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
@@ -7070,8 +7082,8 @@ function ChatSettings({
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "驻场工程师的眼睛"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "让 " + cNm + " 看得见这台 app 的体征：版本、存储占用、今日消息量、最近报错。适合住进项目的工程师角色。")),
-      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) }))),
-  h("div", { className: "pt-2" },
+      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) })))),
+  h(SettingSection, { title: "外观 · 气泡 / 背景 / 备注", ...sec("look") }, h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "气泡显示"),
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
@@ -7100,7 +7112,7 @@ function ChatSettings({
     value: patSig,
     onChange: e => setPatSig(e.target.value),
     placeholder: "如：的脑袋、的猫耳朵"
-  })), h("div", {
+  }))), h(SettingSection, { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
     style: {
@@ -7190,7 +7202,7 @@ function ChatSettings({
     max: 24,
     step: 1,
     onChange: setProactiveHr
-  })), /*#__PURE__*/React.createElement("div", {
+  }))), h(SettingSection, { title: "记忆与上下文", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"
@@ -7315,8 +7327,7 @@ function ChatSettings({
         memory && h("button", { onClick: onClearMemory, style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "清空这段记忆"))
     : h("div", { className: "flex items-center gap-2" },
         h("button", { onClick: () => { onSaveMemory && onSaveMemory(memEdit.trim()); setMemEdit(null); }, className: "active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 9, padding: "8px 18px" } }, "保存记忆"),
-        h("button", { onClick: () => setMemEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "8px 10px" } }, "取消"))),
-  onToggleBlock && h("div", { className: "pt-6" },
+        h("button", { onClick: () => setMemEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "8px 10px" } }, "取消")))), h(SettingSection, { title: "危险区 · 拉黑 / 清除", danger: true, ...sec("danger") }, onToggleBlock && h("div", { className: "pt-6" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "拉黑"),
     h("div", { className: "flex items-center justify-between" },
       h("div", { className: "pr-3" },
@@ -7335,8 +7346,7 @@ function ChatSettings({
       ? h("div", { className: "flex gap-2" },
           h("button", { onClick: () => setConfirmClear(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
           h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除聊天+记忆" : "确认清除聊天"))
-      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除聊天记录")),
-  onOpenMemLib && h("div", {
+      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除聊天记录"))), h(SettingSection, { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
     className: "pt-6"
   }, h(Eyebrow, {
     style: {
@@ -7370,7 +7380,7 @@ function ChatSettings({
       fontFamily: F_DISPLAY,
       fontSize: 15
     }
-  }, "从对话提取"))));
+  }, "从对话提取")))));
 }
 // 通用「点此生成」入口（行程等处复用）
 function GenPrompt({

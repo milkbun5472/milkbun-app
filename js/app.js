@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.35";
+const APP_VERSION = "v48.36";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -3337,7 +3337,8 @@ function App() {
       // 当天钱包流水（日常购物/转账/礼物）喂给日记当素材——日程/钱包/日记三联动的最后一环
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
-      const d = await generateDiary(active, ctx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayMsgs.length < 2, prevDiary: prevDiary });
+      // 日记跟随该角色的 API 线路（v48.36，她点名）：选了专属配置（如小克接 fable）就用那条写日记，没选自动回退主模型 active（不是便宜后台池）
+      const d = await generateDiary(apiFor(charId), ctx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayMsgs.length < 2, prevDiary: prevDiary });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
