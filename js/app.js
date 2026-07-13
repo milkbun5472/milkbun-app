@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.72";
+const APP_VERSION = "v48.73";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2348,7 +2348,12 @@ function App() {
       const emoteWordKws = [];
       if (emotes.length) {
         const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
+        // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
+        const TAG_RE = /^\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
         words = words.filter(w => {
+          const s = String(w == null ? "" : w);
+          const mTag = s.match(TAG_RE);
+          if (mTag && mTag[1].trim()) { emoteWordKws.push(mTag[1].trim()); return false; }
           const n = emoteNorm(w);
           if (!n) return true;
           if (/^(\u8868\u60c5|\u8868\u60c5\u5305|emoji|sticker|\u56fe\u7247|\u8d34\u56fe|gif)$/.test(n)) return false; // \u7a7a\u8868\u60c5\u6807\u8bb0\uff0c\u4e22
@@ -2393,9 +2398,12 @@ function App() {
       // parsed.emote（正规渠道）+ 从文字气泡里抽出来的表情，一并发出
       const allEmoteKws = (emoteKw ? [emoteKw] : []).concat(emoteWordKws);
       if (allEmoteKws.length && emotes.length) {
+        // 去重（v48.73）：emote 字段和「[表情] xxx」文字气泡可能指向同一张表情→只发一次，别一文一图两条
+        const _seenEmote = new Set();
         for (const kw of allEmoteKws) {
           const match = emoteMatch(emotes, kw);
-          if (match) {
+          if (match && !_seenEmote.has(match.id || match.keyword)) {
+            _seenEmote.add(match.id || match.keyword);
             await new Promise(r => setTimeout(r, 420));
             pChat(charId, p => [...p, { role: "assistant", kind: "emote", url: match.url, keyword: match.keyword, content: "[表情] " + match.keyword, ts: Date.now(), turnId }]);
           }
