@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.81";
+const APP_VERSION = "v48.82";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1709,6 +1709,7 @@ function App() {
       }
       // 线下相处也影响好感与心情（跟私聊一样）
       if (typeof res.affinityDelta === "number") bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
+      tickAmbient(charId, {}); // 线下也计动态保底（她 2026-07-13 点名）——在线下泡久了，动态计数不冻结
       if (res.mood && res.mood.label) setMoodFor(charId, { ...res.mood, ts: Date.now() });
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
       const ost = {};
@@ -1882,8 +1883,10 @@ function App() {
     startLane("g:" + group.id);
     try {
       const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...workSess, narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords });
+      const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
+        if (b.senderId) _spoke.add(b.senderId);
         if (i > 0) await new Promise(r => setTimeout(r, 420));
         pushGOffMsg(group.id, {
           id: "gc_" + Date.now() + "_" + i,
@@ -1899,6 +1902,7 @@ function App() {
         if (b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
         if (b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
       }
+      _spoke.forEach(id => tickAmbient(id, {}));
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
@@ -2856,8 +2860,10 @@ function App() {
       });
       const arr = extractJSON(raw);
       if (Array.isArray(arr)) {
+        const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
         for (let i = 0; i < arr.length; i++) {
           const spk = members.find(c => c.name === arr[i].name) || members[0];
+          if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 450));
           if (arr[i].redpacket && Number(arr[i].redpacket.total) > 0) {
             const rp = arr[i].redpacket;
@@ -2958,6 +2964,7 @@ function App() {
             }
           }
         }
+        _gspoke.forEach(id => tickAmbient(id, {}));
       }
     } catch (e) {
       pGChat(groupId, p => [...p, {
