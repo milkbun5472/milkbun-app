@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.67";
+const APP_VERSION = "v48.68";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2118,6 +2118,7 @@ function App() {
       const emotes = emotesForChar(charId);
       const emoteHint = emotes.length ? "\n【表情包】你有一组表情图可以发，像真人发微信表情那样，只在情绪合适时偶尔甩一张（别每条都发，多数时候不发）。可用关键词：" + emotes.map(e => e.keyword).join(" / ") + "。想发就把 emote 填成其中一个关键词（与上面列的完全一致），否则 null。" : "";
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
+      const uName = profile && profile.name ? profile.name : "对方"; // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
       const greetHint = opts.greet ? "\n\n【此刻·你主动问候】现在是" + (opts.greet === "morning" ? "早上" : "晚上") + "，你【主动】给 Ta 发一句" + (opts.greet === "morning" ? "问早/早安" : "道晚安") + "——结合你此刻的作息、行程、心情，自然又简短（1~2 条），像真人随手发的，别只干巴巴一句『早安』。**很重要：Ta 有自己的生活、可能在忙、可能没空回，这完全正常。语气要轻松不粘人——不许用『怎么不理我』『是不是不想理我』『冷落我』这类质问或愧疚绑架，也别摆被冷落的委屈脸。就是单纯想到 Ta、顺手送个问候，Ta 回不回都没关系。**" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
@@ -2149,7 +2150,6 @@ function App() {
       const blockHint = (_moodNeg || aff < 70 || _landmine || _harsh)
         ? "\n【block 拉黑】仅当此刻用户踩中你雷点/说错话、让你以你的人设真的动了「拉黑」的念头，才 block:true 并在 blockreason 写一句原因——极罕见、要有充分理由；否则 block:false、blockreason:null。"
         : "";
-      const uName = profile && profile.name ? profile.name : "对方";
       // 时间流逝以「角色上次开口」为基准算间隔（用户回来连发几条也算得准，不会被自己刚发的消息归零）
       const lastAsstTs = (function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })();
       const gapMs = lastAsstTs ? Date.now() - lastAsstTs : 0;
