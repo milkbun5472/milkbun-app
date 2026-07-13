@@ -2766,6 +2766,7 @@ function ChatThread({
   onForward,
   onDeleteMessages,
   onSendRich,
+  onPat,
   onStartCall,
   onAcceptCall,
   onDeclineCall,
@@ -2840,11 +2841,10 @@ function ChatThread({
       setSpecialText("");
       setPanelOpen(false);
     } else if (k === "pat") {
-      sendRich({
-        role: "user",
-        kind: "pat",
-        content: "你拍了拍 " + cName + (character.patSig ? " " + character.patSig : "")
-      });
+      // 拍一拍：交给 app 侧 onPat（追加消息 + 触发角色真反应）；没接就退回只显示一行
+      setPanelOpen(false);
+      if (onPat) onPat();
+      else sendRich({ role: "user", kind: "pat", content: "你拍了拍 " + cName + (character.patSig ? " " + character.patSig : "") });
     } else if (k === "voice" || k === "video") {
       setPanelOpen(false);
       onStartCall && onStartCall(k);

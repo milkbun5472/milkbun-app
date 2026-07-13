@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.53";
+const APP_VERSION = "v48.54";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2040,6 +2040,16 @@ function App() {
       read: false
     }]);
   };
+  // 拍一拍：追加那行灰字 + 让角色【真的对被拍做出反应】（不是只显示）
+  const patChar = charId => {
+    const char = characters.find(c => c.id === charId);
+    if (!char) return;
+    const b = blocksRef.current[charId] || {};
+    pChat(charId, p => [...p, { role: "user", kind: "pat", content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now(), read: false, blocked: !!(b.iBlocked || b.theyBlocked) }]);
+    if (b.iBlocked) { setTimeout(() => blockedReaction(charId), 220); return; }  // 拉黑了照样有（被拉黑式）反应
+    if (b.theyBlocked) return;
+    setTimeout(() => { if (!laneBusy("c:" + charId)) replyNow(charId, "", null, { pat: true }); }, 220);
+  };
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
   const replyNow = async (charId, extraText, mode, opts) => {
     opts = opts || {};
@@ -2207,6 +2217,7 @@ function App() {
           const uc = stp + (m.kind === "narration" ? "【旁白/场景设定】" + m.content
             : m.kind === "voice" ? qpfx + "【这条是语音消息，对方说的】" + m.content
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + (m.delivered ? "（已送到你手上）" : "（外卖/快递还在路上）") + "]"
+            : m.kind === "pat" ? "【对方刚用微信「拍一拍」戳了你一下（一个隔着屏幕逗你/求关注/打招呼的小动作，不是说话）——按你的人设和此刻心情自然反应就好：调侃回怼、害羞、回拍 Ta 一下、嫌 Ta 闹、明知故问「干嘛戳我」、或懒得理都行，1~2 句短的，别太隆重也别忽视】"
             : qpfx + m.content);
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
           if (lu && lu.role === "user") lu.content += "\n" + uc;else g.push({
@@ -6919,6 +6930,7 @@ function App() {
     onOpenSettings: () => setChatSettingsOpen(true),
     toast: toast,
     onSendRich: msg => pChat(activeChar.id, p => [...p, msg]),
+    onPat: () => patChar(activeChar.id),
     onStartCall: m => startCall([activeChar], m, null, "me"),
     onAcceptCall: m => { pChat(activeChar.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); startCall([activeChar], m.mode, null, activeChar.id); },
     onDeclineCall: m => { pChat(activeChar.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了 TA 的" + (m.mode === "video" ? "视频" : "语音") + "通话邀请", ts: Date.now() }]); },
