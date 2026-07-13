@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.85";
+const APP_VERSION = "v48.86";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -2286,7 +2286,9 @@ function App() {
       // 一起听联动：若你是 TA 当前"一起听"的人，可在聊天里直接切歌/点歌（消耗这次回复）
       const listenData = listenRef.current || {};
       const isListenPartner = listenData.partnerId === charId;
-      const libSongs = listenData.songs || [];
+      // 可切的歌 = 主曲库 + 所有歌单(她可能在听「小克歌单」里的歌，那些不在主库→原来切不到，她 2026-07-13 报)。去重
+      const _seenSong = new Set();
+      const libSongs = (listenData.songs || []).concat((listenData.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])).filter(s => s && s.id && !_seenSong.has(s.id) && _seenSong.add(s.id));
       const listenHint = isListenPartner
         ? "\n【一起听·切歌】你正和 " + uName + " 一起听歌。Ta 让你切歌/点歌、或你自己想放某首时，把 songSwitch 填成要放的那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换歌就 null，别频繁乱切。" + (libSongs.length ? "歌单里可放的歌：" + libSongs.slice(0, 30).map(s => s.title).join(" / ") + "。" : "（歌单里暂时没存别的歌，可以用「下一首/上一首」跳，或直接说出想放的歌名。）")
         : "";
@@ -2569,9 +2571,10 @@ function App() {
         if (/下一首|下首|next/i.test(want)) stepSong(1);
         else if (/上一首|上首|prev/i.test(want)) stepSong(-1);
         else {
-          const lib = listenRef.current.songs || [];
+          const _L = listenRef.current || {};
+          const lib = (_L.songs || []).concat((_L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])); // 搜主库+所有歌单
           const hit = lib.find(s => s.title && (s.title === want || s.title.includes(want) || want.includes(s.title))) || null;
-          if (hit) playSong(hit.id);
+          if (hit) playSong(hit.id); else toast("没找到《" + want + "》这首歌");
         }
       }
       // TA 主动邀请一起听 → 在聊天里发一张「一起听邀请」卡
