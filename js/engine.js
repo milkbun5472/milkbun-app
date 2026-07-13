@@ -583,12 +583,15 @@ function buildBundle(ctx, opts) {
   // 用户通过 OOC 立下的长期行为准则：高优先，凌驾于日常演绎习惯，但不得违背核心人设
   const dirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   if (dirs.length) parts.push("【用户对你说话/行为方式的长期要求（高优先·务必长期保持）】\n这些是用户明确要求你保持的准则，优先级高于一般演绎习惯；在不违背核心人设的前提下务必遵守：\n" + dirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n"));
+  // ⭐时间块（易变·每分钟变）先在这算好，但【推迟到人设/关系之后再拼入 system】——让缓存切点(【当前真实时间】)下移、
+  //   前缀能一路缓住 反八股+守则+整个人设+关系网(大头)，命中时省得多。她 2026-07-13 授权移时间；活人感影响忽略不计。
+  const timeBlock = [];
   if (timeAware !== false) {
     const fmt = { year: "numeric", month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" };
     const uNm = (profile && profile.name) ? profile.name : "对方";
     // ⚠️【当前真实时间】= 用户设备的当地时间，也就是【对方那边此刻的真实时间】。点破这一点，
     //   否则设了时区的角色会脑补一个不存在的大时差（如日本角色在你早上发「你那边是晚上了吧」）。
-    parts.push("【当前真实时间】" + now.toLocaleString("zh-CN", fmt) + "——这【就是 " + uNm + "（对方）此刻所在地的当地时间】。Ta 那边现在几点、是清晨还是深夜，直接照这个，绝不许自己臆测 Ta 的时间。");
+    timeBlock.push("【当前真实时间】" + now.toLocaleString("zh-CN", fmt) + "——这【就是 " + uNm + "（对方）此刻所在地的当地时间】。Ta 那边现在几点、是清晨还是深夜，直接照这个，绝不许自己臆测 Ta 的时间。");
     // 角色若设了时区（UTC 偏移），额外给出 Ta 自己所在地的当地时间（异地恋用）
     const tzRaw = char && char.tz;
     if (tzRaw !== undefined && tzRaw !== null && String(tzRaw).trim() !== "") {
@@ -597,7 +600,7 @@ function buildBundle(ctx, opts) {
         // getTime() 是 UTC 纪元毫秒；加上目标偏移后按 UTC 字段读，即得该时区的墙钟时间
         const charLocal = new Date(now.getTime() + off * 3600000);
         const cf = { year: "numeric", month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "UTC" };
-        parts.push("【你（" + char.name + "）自己所在地的当前时间（UTC" + (off >= 0 ? "+" + off : off) + "）】" + charLocal.toLocaleString("zh-CN", cf) + "——这是【你自己】那边的时间，你按自己这边的时间与作息说话。**你和 " + uNm + " 的时差 = 上面这两个时间的差，仅此而已**：可能几乎同步、也可能差几个小时，一切以这两个给定时间为准；**绝不要凭『我在某国』就脑补出昼夜颠倒的大时差**——比如你这边是早上、看到 " + uNm + " 那边（当前真实时间）也才刚过早上，就别说『你那边是深夜吧』。");
+        timeBlock.push("【你（" + char.name + "）自己所在地的当前时间（UTC" + (off >= 0 ? "+" + off : off) + "）】" + charLocal.toLocaleString("zh-CN", cf) + "——这是【你自己】那边的时间，你按自己这边的时间与作息说话。**你和 " + uNm + " 的时差 = 上面这两个时间的差，仅此而已**：可能几乎同步、也可能差几个小时，一切以这两个给定时间为准；**绝不要凭『我在某国』就脑补出昼夜颠倒的大时差**——比如你这边是早上、看到 " + uNm + " 那边（当前真实时间）也才刚过早上，就别说『你那边是深夜吧』。");
       }
     }
   }
@@ -614,6 +617,9 @@ function buildBundle(ctx, opts) {
     if (cs[0] === "together") parts.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
     else if (cs[0] === "pending") parts.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
   }
+  // ⭐时间块在此拼入：稳定的人设/关系之后、易变的心情/好感/记忆/近况之前——缓存切点(【当前真实时间】)落在这，
+  //   前缀缓住上面全部稳定内容(反八股+守则+人设+关系网)，下面易变的不缓、每轮照旧。
+  if (timeBlock.length) parts.push(...timeBlock);
   if (typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
   if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）");
   if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
