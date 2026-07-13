@@ -79,14 +79,17 @@
   function museSpec(char, box) {
     const AC = typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "";
     const living = livingList(box);
+    const _now = Date.now();
+    // 时间相对词（治「几天前的事被连着好几天念成昨天」，她 2026-07-13 报）
+    const _ago = ts => { if (!ts) return "不久前"; const d = Math.floor((_now - ts) / 86400000); return d <= 0 ? "今天" : d === 1 ? "昨天" : d < 7 ? d + "天前" : d < 30 ? "约" + Math.round(d / 7) + "周前" : "约" + Math.round(d / 30) + "个月前"; };
     const listTxt = living.length
-      ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜上次刻痕：" + e.tracks[0].text : "")).join("\n")
+      ? living.map(e => "- id:" + e.id + "｜「" + e.text + "」｜" + (e.status === "ash" ? "落灰已久" : "搁在心上") + "｜攒了" + dayN(e) + "天｜被想起" + (e.touches || 0) + "次" + (e.tracks && e.tracks.length ? "｜上次刻痕（" + _ago(e.tracks[0].ts) + "）：" + e.tracks[0].text : "")).join("\n")
       : "（盒子还是空的——TA 还没有攒下念想）";
     return {
-      instruction: AC + "今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「欲望盒子」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
+      instruction: AC + "今天是 " + new Date(_now).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) + "。今天的某个安静时刻，「" + char.name + "」独自发了一会儿呆。下面是 TA 心里的「欲望盒子」——TA 自己攒下的、想做的事（不是待办清单，是搁在心上的念想）：\n" + listTxt +
         briefsTxt(box) + avoidTxt(box) +
         "\n\n以 TA 的第一人称推演这次发呆：" +
-        "\nmonologue：一段 60~140 字的内心独白——今天的处境、最近聊过的事、记忆里的旧影，怎么把思绪带到（或者根本没带到）某个念想上。要像脑子里真实飘过的念头：带 TA 自己的性格口吻，可以琐碎、走神、自嘲，别写成抒情散文、别升华、别总结。" +
+        "\nmonologue：一段 60~140 字的内心独白——今天的处境、最近聊过的事、记忆里的旧影，怎么把思绪带到（或者根本没带到）某个念想上。要像脑子里真实飘过的念头：带 TA 自己的性格口吻，可以琐碎、走神、自嘲，别写成抒情散文、别升华、别总结。\n【时间别乱安·重要】回想过去的事时，别不管过了几天都一律说『昨天』——只有真发生在昨天的才说昨天。上面每条念想的『上次刻痕』都标了是几天前/几周前，严格照那个来；拿不准具体哪天的事，就用『前阵子／那天／上次／最近』这类模糊说法，绝不硬安一个『昨天』。" +
         "\ntouch：这次发呆里【真正被想起】的既有念想（0~2 个，一个没想起就给空数组）。每个元素 {id, note}：note 是这条念想今天的「行动刻痕」——TA 为它做了什么/有什么进展/此刻怎么想它，一句话（如「水流还是不稳，换了更细的滤纸」）；只是路过想了一下没有实质进展，note 给 null。" +
         "\nsprout：这次发呆有没有冒出【一条新念想】——多数日子没有，没有就填 null。若有：text 写想做的事（第一人称一句话）；root 写它从哪长出来（引用记忆/最近对话/观测者纸条里的具体依据），纯属白日梦一闪念就填 null；parent——若它是从盒子里某条旧念想的进展里【岔出来】的（如做手冲做多了想换个更好的壶），填那条母念想的 id，否则 null。" +
         "\n【铁网】新念想必须长在 TA 的人设、记忆和最近生活的土壤上：记忆/对话里反复出现、或带强烈情绪的事，才配长出扎根的念想（root 必须写得出依据）；毫无来由的突发奇想偶尔可以有（root=null，它若之后没再被想起会自己消散）。绝不许冒出和 TA 的生活完全不搭界的怪念头，盒子里已有的也别换个说法重复冒。另外：【已经和对方说好/约好的事不算念想】（那是你们的约定，记忆里自会记着）——盒子里只放 TA 自己私藏的、还没成形的想头。",
