@@ -48,7 +48,8 @@
   }
   function avatarHtml(char, size) {
     const s = size || 34;
-    const img = char.avatarImage;
+    // 头像迁到 IndexedDB 图库后是 iv_ 引用，必须 resolveImg 换成可显示的 objectURL；没解析出来就落回底色首字（别塞 iv_ 进 url 变白圈）
+    const img = char.avatarImage ? (typeof resolveImg === "function" ? resolveImg(char.avatarImage) : char.avatarImage) : "";
     const inner = img
       ? "<div style='width:100%;height:100%;border-radius:50%;background:center/cover no-repeat url(\"" + img + "\")'></div>"
       : "<div style='width:100%;height:100%;border-radius:50%;background:" + (char.color || "#7c5c4e") + ";display:flex;align-items:center;justify-content:center;color:#fff;font-size:" + Math.round(s * 0.42) + "px;font-family:serif'>" + String(char.name || "?").slice(0, 1) + "</div>";
@@ -205,7 +206,7 @@
                 const hm = charHome(c); const st = (status || {})[c.id]; const pos = charPos(c, st, anchor);
                 return h("div", { key: c.id, className: "shrink-0", style: { display: "flex", alignItems: "stretch", background: "#fff", border: "1px solid " + t.line, borderRadius: 999, boxShadow: "0 2px 8px rgba(0,0,0,.08)", overflow: "hidden" } },
                   h("button", { onClick: function () { flyTo(pos); }, className: "active:opacity-70", style: { display: "flex", alignItems: "center", gap: 7, padding: "5px 6px 5px 6px" } },
-                    h("div", { style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0, background: c.avatarImage ? "center/cover no-repeat url(" + c.avatarImage + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 12 } }, c.avatarImage ? "" : String(c.name || "?").slice(0, 1)),
+                    (function () { const av = c.avatarImage ? (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage) : ""; return h("div", { style: { width: 26, height: 26, borderRadius: 999, flexShrink: 0, background: av ? "center/cover no-repeat url(" + av + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 12 } }, av ? "" : String(c.name || "?").slice(0, 1)); })(),
                     h("div", { style: { textAlign: "left" } },
                       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.1 } }, c.remark || c.name),
                       h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: hm ? t.tint : t.fog } }, hm ? (hm.city + (st && st.title ? " · " + String(st.title).slice(0, 6) : "")) : "在你附近"))),
