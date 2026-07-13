@@ -7206,20 +7206,10 @@ function ChatSettings({
       boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
     }
   }))), proactive && h("div", {
-    className: "pt-4"
+    className: "pt-3"
   }, h("div", {
-    className: "flex items-baseline justify-between mb-1"
-  }, h("span", {
-    style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub }
-  }, "主动发消息间隔"), h("span", {
-    style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink }
-  }, proactiveHr, " 小时")), h(Slider, {
-    value: proactiveHr,
-    min: 1,
-    max: 24,
-    step: 1,
-    onChange: setProactiveHr
-  }))), h(SettingSection, { title: "记忆与上下文", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
+    style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 }
+  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), h(SettingSection, { title: "记忆与上下文", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.80";
+const APP_VERSION = "v48.81";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1534,10 +1534,11 @@ function App() {
           if (laneBusy("c:" + cid) || viewRef.current.charId === cid) continue;
           const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
           if (!ms.length) continue;
-          if (Date.now() - (ms[ms.length - 1].ts || 0) < Math.max(1, s.proactiveMin || 120) * 60000) continue; // 最短间隔硬门槛(两套都守，防话痨)
-          // ⭐jiwen 阶段二（v48.80）：有 jiwen 状态就【由心理动机决定开口】——思念漂到 contact 阈值才发，替掉「过了闲置时间就掷点」；
-          //   没 jiwen(引擎没载/该角色还没攒状态)退回老的闲置时间逻辑。发过一次 25min 内不再发(防同一波思念反复触发)。
+          // ⭐jiwen 阶段二（v48.80/81）：有 jiwen 就【由心理动机决定开口】——思念漂到 contact 阈值才发，时机全交给它；
+          //   固定间隔滑块已去掉(v48.81 她点名)，这里只留防刷屏底线：有 jiwen=45min 底线(真时机 jiwen 说了算)，没 jiwen(引擎没载)兜底 3h。
           const jw = (typeof window !== "undefined" && window.__jiwen && window.__jiwen[cid]) || null;
+          const floorMin = jw ? 45 : 180;
+          if (Date.now() - (ms[ms.length - 1].ts || 0) < floorMin * 60000) continue;
           if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) continue; // jiwen 说「还没想到要联系」→ 不发
           if (Date.now() - (jiwenFiredRef.current[cid] || 0) < 25 * 60000) continue;
           const hr = Math.floor(charLocalMin(c) / 60); if (hr < 8 || hr > 23) continue;
@@ -1629,7 +1630,13 @@ function App() {
         const mins = (now - baseTs) / 60000;
         jiwenTickRef.current[char.id] = now;
         try {
-          const triggers = mins >= 0.2 ? await eng.tick(mins) : eng.checkThresholds();
+          let triggers;
+          if (mins >= 0.2) {
+            // 后台补记（v48.81，她点名）：eng.tick 单次内部封顶 60min，长时间关 app 会算不足→重开该想你也不想。
+            //   按 60min 分块喂满真实离开时间，总量封顶 12h（防离开一周回来直接「崩溃级」思念，那样太粘）。
+            let credit = Math.min(mins, 720);
+            do { const chunk = Math.min(credit, 60); triggers = await eng.tick(chunk); credit -= chunk; } while (credit > 0.2);
+          } else triggers = eng.checkThresholds();
           window.__jiwen[char.id] = { name: char.name, summary: eng.getStateSummary(), triggers, state: await eng.getState() };
         } catch (e) {}
       }
