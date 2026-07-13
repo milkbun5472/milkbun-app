@@ -52,6 +52,32 @@ function CardImportSheet({ onImport, onClose }) {
       style: { background: p && p.persona ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 }
     }, "导入并建档"));
 }
+// 长文导入记忆库（v48.83，她要「把总结的一切存进记忆库、能被 app 小克搜到」）：粘长文→切条目→绑角色→建向量索引
+function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
+  const t = useTheme();
+  const [txt, setTxt] = useState("");
+  const [cid, setCid] = useState(defaultCharId || (characters[0] && characters[0].id) || "");
+  const estN = (() => {
+    const raw = txt.trim(); if (!raw) return 0;
+    return raw.split(/\n\s*\n+/).map(s => s.trim()).filter(s => {
+      if (!s || /^#{1,6}\s/.test(s)) return false;
+      const b = s.replace(/^[-*>]\s+/, "").replace(/`/g, "");
+      if (/^[-─—*=_>·\s]{3,}$/.test(b)) return false;
+      return b.length >= 6 || /[「『"]/.test(b);
+    }).length;
+  })();
+  const curName = (characters.find(c => c.id === cid) || {}).name || "—";
+  return h(Sheet, { onClose, tall: true },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 4 } }, "导入长文进记忆库"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（小克的回忆录、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
+    h("div", { className: "flex gap-2 overflow-x-auto", style: { marginBottom: 10, paddingBottom: 2 } },
+      (characters || []).map(c => h("button", { key: c.id, onClick: () => setCid(c.id), className: "px-3 py-1 rounded-full whitespace-nowrap active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: 12, background: cid === c.id ? t.ink : "transparent", color: cid === c.id ? t.bg2 : t.fog, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
+    h("textarea", { value: txt, onChange: e => setTxt(e.target.value), rows: 12, placeholder: "在这里粘贴长文…", style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
+    txt.trim() ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "预计导入约 " + estN + " 条，绑给「" + curName + "」") : null,
+    h("button", { onClick: () => { if (txt.trim() && cid) { onImport(cid, txt); onClose(); } }, className: "w-full mt-3 active:opacity-70",
+      style: { background: txt.trim() && cid ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, "导入并建索引"));
+}
 function Cast({
   characters,
   onBack,
@@ -4375,10 +4401,12 @@ function MemoryLib({
   onPurgeWithered,
   onRefine,
   onRestoreArchived,
+  onBulkImport,
   emoBusy
 }) {
   const t = useTheme();
   const [showArchived, setShowArchived] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // 落灰记忆数量（和 app.js purgeWithered 同判定）：非置顶/非开环/情绪弱(a≤1)/120天没被想起/几乎没被召回(hits<2)
   const witheredCount = (entries || []).filter(e => { const now = Date.now(); return e && !e.pinned && !e.open && (e.a || 0) <= 1 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 120 * 86400000; }).length;
   const [filter, setFilter] = useState(focusChar ? focusChar.id : "all");
@@ -4413,9 +4441,10 @@ function MemoryLib({
     en: "Memory · " + ((entries || []).length) + " 条",
     onBack: onBack,
     right: h("div", { className: "flex items-center", style: { gap: 14 } },
+      onBulkImport ? h("button", { onClick: () => setImportOpen(true), className: "active:opacity-50", title: "导入长文进记忆库", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "导入长文") : null,
       onSaveCfg ? h("button", { onClick: () => setCfgOpen(true), className: "active:opacity-50", title: "召回设置" }, h(GConfig, { size: 19, color: t.ink })) : null,
       h("button", { onClick: () => setEditing("new"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })))
-  }), h("div", {
+  }), importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2"
   }, h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索记忆内容 / 标签 / 角色…",
     className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px" } })), h("div", {

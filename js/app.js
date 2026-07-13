@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.82";
+const APP_VERSION = "v48.83";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -896,6 +896,41 @@ function App() {
     // 自动来源（抽取/总结）去重，别把同一件事塞好几条；手动记的放行（用户自己要加就加）
     if (entry.source !== "manual" && isDupMem(entry.text, entry.charIds)) return;
     saveMemLib([entry, ...pruneSubsumed(memLibRef.current, [entry])]);
+  };
+  // 长文导入（v48.83，她要「把总结的一切放进记忆库、能被 app 小克搜到」）：把一大段文本切成离散条目、绑角色、
+  //   批量存一次(触发 ensureMemVecs 自动建向量)→ retrieveMemories 就能语义命中回放。跳过标题/分隔线/meta，长段按句拆，去重。
+  const bulkImportMemories = (charId, text) => {
+    const raw = String(text || "").trim();
+    if (!raw) return 0;
+    const paras = raw.split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+    const chunks = [];
+    for (const p of paras) {
+      if (/^#{1,6}\s/.test(p)) continue;                       // markdown 标题
+      let s = p.replace(/^[-*>]\s+/, "").replace(/`/g, "").trim(); // 去列表/引用前缀 + 反引号
+      if (/^[-─—*=_>·\s]{3,}$/.test(s)) continue;               // 分隔线
+      if (/^(来源|用途|注|opts)[:：]/.test(s)) continue;          // meta 行
+      const isQuote = /[「『""]/.test(s);
+      if (!s || (s.length < 6 && !isQuote)) continue;           // 太短噪音(非引用)
+      if (s.length > 300) {
+        const sents = s.match(/[^。！？!?\n]+[。！？!?]?/g) || [s];
+        let buf = "";
+        for (const x of sents) { if ((buf + x).length > 300 && buf) { chunks.push(buf.trim()); buf = x; } else buf += x; }
+        if (buf.trim()) chunks.push(buf.trim());
+      } else chunks.push(s);
+    }
+    const existing = new Set((memLibRef.current || []).map(e => (e.text || "").trim()));
+    const now = Date.now(); const entries = [];
+    chunks.forEach((c, i) => {
+      const pinned = /置顶/.test(c);
+      let txt = c.replace(/（\s*v-?\d[^）]*）\s*$/, "").replace(/〔置顶〕/g, "").replace(/^\d+[.、]\s*/, "").trim(); // 去尾部情绪标注(（v5 a5…）)/置顶符/列表序号
+      if (!txt || txt.length < 4 || existing.has(txt)) return;
+      existing.add(txt);
+      entries.push({ id: "m_" + now + "_" + i + "_" + Math.floor(Math.random() * 1000), text: txt.slice(0, 500), tags: ["导入"], charIds: charId ? [charId] : [], ts: now - i, source: "import", pinned, v: 0, a: 2, open: false });
+    });
+    if (!entries.length) { toast("没解析出可导入的内容"); return 0; }
+    saveMemLib([...entries, ...memLibRef.current]);
+    toast("已导入 " + entries.length + " 条记忆，正在后台建语义索引");
+    return entries.length;
   };
   const updateMemEntry = (id, patch) => saveMemLib(memLibRef.current.map(x => x.id === id ? {
     ...x,
@@ -7502,6 +7537,7 @@ function App() {
     onPurgeWithered: purgeWithered,
     onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
+    onBulkImport: bulkImportMemories,
     emoBusy: emoBusy
   });else if (screen === "diary") body = h(Diary, {
     characters: characters,
