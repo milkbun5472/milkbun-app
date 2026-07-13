@@ -268,15 +268,30 @@ async function callAI(p, system, messages, opts) {
     //   线路不支持 1h 就自动记 x_noExtCache 回退 5min，绝不搞崩小克。
     const _extKey = base;
     let _noExt = false; try { _noExt = (JSON.parse(localStorage.getItem("x_noExtCache") || "[]") || []).indexOf(_extKey) >= 0; } catch (e) {}
+    const _cc = () => _noExt ? { type: "ephemeral" } : { type: "ephemeral", ttl: "1h" };
+    // 历史缓存模式（Phase 1，小克蓝图）：调用方保证 system 已【全稳定】（易变料挪到最后一条消息上）→ 整个 system 缓一块，
+    //   再在 messages 里最后一条 assistant 上挂第二个断点，把【系统提示+整段历史】都缓住。命中天花板从 ~36% 抬到 80%+。
+    const cacheHist = !!(opts && opts.cacheHistory);
     const buildSys = () => {
       if (typeof system !== "string") return system;
+      if (cacheHist) return system.length > 40 ? [{ type: "text", text: system, cache_control: _cc() }] : system;
       const cut = system.indexOf("【当前真实时间】");
       if (cut < 800) return system;
-      const cc = _noExt ? { type: "ephemeral" } : { type: "ephemeral", ttl: "1h" };
       return [
-        { type: "text", text: system.slice(0, cut), cache_control: cc },
+        { type: "text", text: system.slice(0, cut), cache_control: _cc() },
         { type: "text", text: system.slice(cut) }
       ];
+    };
+    // 历史断点：最后一条 assistant 消息挂 cache_control（它之前的整段历史都稳定、可缓）。content 转成块结构才能挂标记。
+    const buildMsgs = () => {
+      if (!cacheHist || !Array.isArray(messages) || !messages.length) return messages;
+      let li = -1; for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === "assistant") { li = i; break; }
+      if (li < 0) return messages;
+      return messages.map((m, i) => {
+        if (i !== li) return m;
+        const txt = typeof m.content === "string" ? m.content : (Array.isArray(m.content) ? m.content.map(b => b.text || "").join("") : String(m.content || ""));
+        return { role: m.role, content: [{ type: "text", text: txt, cache_control: _cc() }] };
+      });
     };
     // 有些新模型（如带思考的 Claude 5/fable）不接受自定义 temperature（只允许 1 或直接不支持）→
     // 报 temperature 相关错就【去掉 temperature 裸参重试一次】，通用兜底、不用硬编每个模型的规则。
@@ -284,7 +299,7 @@ async function callAI(p, system, messages, opts) {
       // ⚠️不用顶层自动缓存（v48.62 试过、v48.64 撤）：它「一路缓到最后一条消息」，把每轮都变的记忆/近期对话全写进缓存→
       // 每轮狂写(1.25倍)只读回一点点，写远大于读、反而更贵(她真机实测 写40149/读3961)。
       // 只留【手动块级切块】：cache_control 只打在「守则+人设+关系」稳定前缀那块(见 buildSys)——写一次、之后每轮只读(一折)。
-      const body = { model, max_tokens: maxTokens, system: buildSys(), messages };
+      const body = { model, max_tokens: maxTokens, system: buildSys(), messages: buildMsgs() };
       if (withTemp) body.temperature = temp;
       const headers = {
         "Content-Type": "application/json",
@@ -319,7 +334,8 @@ async function callAI(p, system, messages, opts) {
       // 前缀指纹（诊断「连着聊也不命中」，她 2026-07-13 抓的）：缓存的稳定前缀每轮该完全一样；
       // 指纹每轮都变=前缀被某处每轮污染了，那才是没命中的真因（而非有效期/线路）。plen=前缀字符数。
       try {
-        const _cut = typeof system === "string" ? system.indexOf("【当前真实时间】") : -1;
+        // 历史缓存模式下 system 已全稳定(无时间标记)→整块算指纹；老模式取时间标记前的稳定前缀
+        const _cut = typeof system === "string" ? (cacheHist ? system.length : system.indexOf("【当前真实时间】")) : -1;
         if (_cut >= 800) { const _pfx = system.slice(0, _cut); let _hh = 5381; for (let _i = 0; _i < _pfx.length; _i++) _hh = ((_hh << 5) + _hh + _pfx.charCodeAt(_i)) | 0; rec.ph = _hh >>> 0; rec.plen = _pfx.length; }
       } catch (e) {}
       if (typeof window !== "undefined") {
