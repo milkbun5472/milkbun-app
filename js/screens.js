@@ -3128,6 +3128,22 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
         h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
 }
+// 缓存命中读数（手机看不了 console，就在设置里给个看得见的）：读 window.__usage(callAI anthropic 分支记的)
+function CacheStatCard() {
+  const t = useTheme();
+  const [, setTick] = useState(0);
+  const usage = (typeof window !== "undefined" && window.__usage) || [];
+  const s = usage.reduce((o, r) => { o.cr += r.cr || 0; o.cw += r.cw || 0; o.hit += (r.cr > 0 ? 1 : 0); return o; }, { cr: 0, cw: 0, hit: 0 });
+  return h("div", { style: { marginTop: 22, paddingTop: 16, borderTop: "1px solid " + t.line } },
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "缓存命中 · 小克(fable)线路"),
+      h("button", { onClick: () => setTick(x => x + 1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "🔄 刷新")),
+    usage.length === 0
+      ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟小克【5 分钟内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: s.hit > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
+          "近 " + usage.length + " 次调用｜命中缓存 " + s.hit + " 次｜读缓存(一折价) " + s.cr + " tok｜写缓存 " + s.cw + " tok",
+          h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对小克连发一条(5分钟内)就会出现「读取」" : "还没写进缓存，检查小克是不是走 fable 线路"))));
+}
 function ImageApiConfig({ toast }) {
   const t = useTheme();
   const [c, setC] = useState(() => (typeof loadImgApi === "function" ? loadImgApi() : { baseUrl: "", apiKey: "", model: "gpt-image-1", size: "1024x1536", quality: "medium", enabled: false }));
@@ -3381,7 +3397,7 @@ function Config({
     onSetBgApi: onSetBgApi,
     onSave: onSaveApi,
     toast: toast
-  }), /*#__PURE__*/React.createElement(ImageApiConfig, {
+  }), /*#__PURE__*/React.createElement(CacheStatCard, null), /*#__PURE__*/React.createElement(ImageApiConfig, {
     toast: toast
   }), /*#__PURE__*/React.createElement(TtsApiConfig, {
     toast: toast,
