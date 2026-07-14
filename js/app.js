@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.87";
+const APP_VERSION = "v48.88";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -903,7 +903,12 @@ function App() {
   const bulkImportMemories = (charId, text) => {
     const raw = String(text || "").trim();
     if (!raw) return 0;
-    const paras = raw.split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+    // ⭐v48.88 修（小克亲诊）：复制时换行常被压掉→原来只按空行切、切不动就整段糊一坨。先把「粘在一起的编号条目/列表/引用」在句末后重新断行，
+    //   再按【任意换行】切（不止空行），最后长段兜底按句末拆。这样即使换行全丢也能按 1. 2. / 「」/ 句号 切开。
+    const norm = raw
+      .replace(/([。！？!?…」』）】.])\s*(?=\d{1,3}[.、．]\s*\S)/g, "$1\n")   // 句末后紧跟"数字."编号→断行
+      .replace(/([。！？!?…」』）】])\s*(?=[-*]\s|「|『)/g, "$1\n");             // 句末后紧跟列表符/开引号→断行
+    const paras = norm.split(/\n+/).map(s => s.trim()).filter(Boolean);
     const chunks = [];
     for (const p of paras) {
       if (/^#{1,6}\s/.test(p)) continue;                       // markdown 标题
@@ -2179,6 +2184,12 @@ function App() {
     if (!opts.proactive && history.length === 0) {
       toast("先发条消息再让 TA 回复");
       return;
+    }
+    // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
+    //   杀掉「连发两轮/你还在打字他就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
+    if (opts.proactive && !opts.tf && history.length) {
+      const _lastTs = history[history.length - 1].ts || 0;
+      if (Date.now() - _lastTs < 12 * 60000) return;
     }
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && history[history.length - 1] && history[history.length - 1].role !== "user";
