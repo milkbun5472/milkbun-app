@@ -330,16 +330,19 @@ async function callAI(p, system, messages, opts) {
     // 存 window.__usage（最近 30 条）+ 命中/写入时打一行 console；window.__cacheStat() 看汇总。
     try {
       const u = d.usage || {};
-      const rec = { t: Date.now(), model, in: u.input_tokens || 0, out: u.output_tokens || 0, cr: u.cache_read_input_tokens || 0, cw: u.cache_creation_input_tokens || 0 };
+      const rec = { t: Date.now(), model, ch: cacheHist, in: u.input_tokens || 0, out: u.output_tokens || 0, cr: u.cache_read_input_tokens || 0, cw: u.cache_creation_input_tokens || 0 };
       // 前缀指纹（诊断「连着聊也不命中」，她 2026-07-13 抓的）：缓存的稳定前缀每轮该完全一样；
       // 指纹每轮都变=前缀被某处每轮污染了，那才是没命中的真因（而非有效期/线路）。plen=前缀字符数。
-      try {
-        // 历史缓存模式下 system 已全稳定(无时间标记)→整块算指纹；老模式取时间标记前的稳定前缀
-        const _cut = typeof system === "string" ? (cacheHist ? system.length : system.indexOf("【当前真实时间】")) : -1;
-        if (_cut >= 800) { const _pfx = system.slice(0, _cut); let _hh = 5381; for (let _i = 0; _i < _pfx.length; _i++) _hh = ((_hh << 5) + _hh + _pfx.charCodeAt(_i)) | 0; rec.ph = _hh >>> 0; rec.plen = _pfx.length; }
-      } catch (e) {}
-      // 前缀和上一次(同为缓存前缀的)调用比：pfxSame=false 就是这轮前缀变了。一次性变=只 1 处 false；每轮 churn=处处 false。区分「一次性」vs「真churn」
-      if (typeof window !== "undefined" && rec.ph != null) { rec.pfxSame = (window.__ljph != null ? window.__ljph === rec.ph : null); window.__ljph = rec.ph; }
+      // ⭐只诊断【主聊天(cacheHist)】那类调用：日记/交换日记等后台生成 prompt 完全不同，若也参与就会污染指纹种类，
+      //   还会用它们的前缀覆盖 window.__ljph、把夹在中间的下一条聊天误判成「前缀变了」（她 2026-07-14 抓的 12 刀真凶之一）。
+      if (cacheHist) {
+        try {
+          const _cut = typeof system === "string" ? system.length : -1; // 历史缓存模式 system 已全稳定→整块算指纹
+          if (_cut >= 800) { const _pfx = system.slice(0, _cut); let _hh = 5381; for (let _i = 0; _i < _pfx.length; _i++) _hh = ((_hh << 5) + _hh + _pfx.charCodeAt(_i)) | 0; rec.ph = _hh >>> 0; rec.plen = _pfx.length; }
+        } catch (e) {}
+        // 前缀和上一次(同为缓存前缀的)聊天比：pfxSame=false 就是这轮前缀变了。一次性变=只 1 处 false；每轮 churn=处处 false。
+        if (typeof window !== "undefined" && rec.ph != null) { rec.pfxSame = (window.__ljph != null ? window.__ljph === rec.ph : null); window.__ljph = rec.ph; }
+      }
       if (typeof window !== "undefined") {
         (window.__usage = window.__usage || []).push(rec); if (window.__usage.length > 30) window.__usage.shift();
         if (!window.__cacheStat) window.__cacheStat = () => { const a = window.__usage || []; const s = a.reduce((o, r) => { o.cr += r.cr; o.cw += r.cw; o.in += r.in; o.hit += r.cr > 0 ? 1 : 0; return o; }, { cr: 0, cw: 0, in: 0, hit: 0 }); const _phs = new Set(a.map(r => r.ph).filter(x => x != null)); return "近" + a.length + "次 anthropic 调用：命中缓存 " + s.hit + " 次｜累计 读缓存(一折)" + s.cr + " 写缓存" + s.cw + " 新输入" + s.in + " tok｜前缀指纹 " + _phs.size + " 种(越少越稳)"; };
@@ -684,6 +687,16 @@ function buildBundle(ctx, opts) {
   if (ctx.financeNote && ctx.financeNote.trim()) parts.push("【" + uName + " 允许你看到的记账动态】（这是 " + uName + " 真实的个人开销与收入，Ta 特意让你能看到。可按你的人设自然反应——心疼 Ta 乱花、调侃、陪 Ta 心疼氪金、或体贴地不点破；别报流水账、别说教、别越界。这钱是 " + uName + " 自己的、与你无关，只是让你知道并能有反应）\n" + ctx.financeNote.trim());
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   return parts.join("\n\n");
+}
+// 写作类后台生成(日记/交换日记/日记评论)专用的【精简 ctx】：只留人设/自我/对方/关系/心情/行程/最近对话，
+// 砍掉世界书·记忆库·朋友圈·论坛·群·礼物·记账·备忘·歌单等重块——写一页日记用不上，却每次满价重塞小克贵线。省钱不改口吻。
+function leanWriteCtx(ctx) {
+  if (!ctx) return ctx;
+  return Object.assign({}, ctx, {
+    worldbook: "", memLib: [], groupEcho: "", giftLog: "",
+    momentLog: "", forumEcho: "", phoneNote: "", listenLog: "",
+    financeNote: "", memoNote: "", dateNote: "", periodNote: ""
+  });
 }
 
 // ============================================================

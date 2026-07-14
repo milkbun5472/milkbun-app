@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.91";
+const APP_VERSION = "v48.92";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -3762,7 +3762,7 @@ function App() {
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
       // 日记跟随该角色的 API 线路（v48.36，她点名）：选了专属配置（如小克接 fable）就用那条写日记，没选自动回退主模型 active（不是便宜后台池）
-      const d = await generateDiary(apiFor(charId), ctx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayMsgs.length < 2, prevDiary: prevDiary, digital: !!settingsFor(charId).engineerEyes });
+      const d = await generateDiary(apiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayMsgs.length < 2, prevDiary: prevDiary, digital: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
@@ -3832,7 +3832,7 @@ function App() {
         const prevSaid = (diariesRef.current.__me || []).filter(e => e.id !== entryId)
           .flatMap(e => (e.comments || []).filter(cm => cm.charId === cid).map(cm => cm.text)).filter(Boolean).slice(0, 2);
         let text;
-        try { text = await generateDiaryComment(active, ctx, entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败"); continue; }
+        try { text = await generateDiaryComment(active, leanWriteCtx(ctx), entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败"); continue; }
         if (!text) continue;
         const comment = { id: "cm_" + Date.now() + "_" + cid, charId: cid, name: char.name, text, ts: Date.now() };
         setDiaries(p => {
@@ -5731,7 +5731,7 @@ function App() {
       const page = coupleExDiaryRef.current.find(x => x.id === pageId);
       if (!char || !page) return;
       const uN = profile.name || "对方";
-      const d = await runProbe(apiFor(char.id), ctxFor(char), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）
+      const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 交换日记回页=TA 亲笔，跟随专线（v48.37）；瘦身省贵线（v48.92）
         instruction: "你们是恋人，共用一本【交换日记】——一人一页轮流写、只给彼此看，比聊天更松弛、更没防备。\n【" + uN + " 在 " + page.date + " 写给你的那页】" + (page.mood ? "（Ta 当时心情：" + page.mood + "）" : "") + "\n" + page.content + "\n\n现在轮到你写你这一页（今天是 " + ymd(new Date()) + (page.date !== ymd(new Date()) ? "，你隔了几天才提笔，可以自然提到为什么现在才回" : "") + "）。要求：\n· 以「" + char.name + "」第一人称手写日记的口吻，文风完全按你的人设来——可以写脆弱、别扭、矫情、只给 Ta 看的真心话。\n· 必须回应 Ta 那页写的东西（呼应、回答、心疼、反驳都行），再写你【今天】的真实处境（结合上面你今天的行程与心情），以及你们最近相处里【没说出口的潜台词】（比如「那天其实我…」）。\n· 不许写成聊天记录摘要或汇报体；不用括号动作；像手写的字，100~300 字。\n· mood 填你写这页时的心情短词；weather 按你那边今天的天气写个短语（上面行程里有真实天气就用它）。",
         schemaHint: "{\"content\":\"日记正文\",\"mood\":\"心情短词\",\"weather\":\"天气短语\"}",
         maxTokens: 6000

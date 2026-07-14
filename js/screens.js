@@ -3158,7 +3158,10 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
 function CacheStatCard() {
   const t = useTheme();
   const [, setTick] = useState(0);
-  const usage = (typeof window !== "undefined" && window.__usage) || [];
+  const _all = (typeof window !== "undefined" && window.__usage) || [];
+  // 只统计【主聊天(ch=cacheHist)】：日记/交换日记等后台生成走同一贵线但 prompt 全然不同，混进来会拉低命中率、乱指纹（她 2026-07-14 抓的）。
+  const _chat = _all.filter(r => r.ch);
+  const usage = _chat.length ? _chat : _all; // 没有新格式记录时退回全部(旧记录兼容)
   const s = usage.reduce((o, r) => { o.cr += r.cr || 0; o.cw += r.cw || 0; o.hit += (r.cr > 0 ? 1 : 0); return o; }, { cr: 0, cw: 0, hit: 0 });
   // 前缀指纹诊断（她 2026-07-13「连着聊也断」）：稳定前缀每轮该一样→指纹种类应该很少。接近调用次数=前缀每轮在变=没命中的真因
   const phList = usage.map(r => r.ph).filter(x => x != null);
