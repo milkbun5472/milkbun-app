@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.90";
+const APP_VERSION = "v48.91";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -605,15 +605,19 @@ function App() {
     if (all.length <= CHAT_KEEP_LOCAL + 30) return { ok: true, moved: 0 }; // 不够多，不用归档
     const older = all.slice(0, all.length - CHAT_KEEP_LOCAL);
     const keep = all.slice(all.length - CHAT_KEEP_LOCAL);
+    // ⭐合照(duo自拍)永不裁本地（她 2026-07-13 报「上传云端后合照墙没了」）：合照墙是从本地聊天现捞的，裁掉旧合照消息相册就丢；
+    //   图在IDB、消息小，留着不占空间。只归档+裁掉【非合照】的旧消息，合照按原序留在本地。
+    const isDuoPhoto = m => m && m.kind === "selfie" && m.photoKind === "duo";
+    const drop = older.filter(m => !isDuoPhoto(m));
+    if (!drop.length) return { ok: true, moved: 0 }; // older 里全是合照，没啥可裁
     try {
-      await window.Cloud.chatArchiveAppend(charId, older); // 先上云，抛错就不往下走
-      pChat(charId, () => keep);                            // 云端确认后才裁本地
-      const marks = loadJSON("x_chatArch", {}); marks[charId] = (marks[charId] || 0) + older.length; saveJSON("x_chatArch", marks); setChatArch(marks);
-      // ⭐长期记忆浓缩进度跟着回调（v48.14 修）：lastSummarizedCount 是按本地列表位置数的，
-      // 裁掉 older 后不回调会错位——浓缩要么停摆、要么跳过一段永远没进记忆的消息。按 maybeSummarize 同口径(!recalled)折算。
-      const cut = older.filter(m => !m.recalled).length;
+      await window.Cloud.chatArchiveAppend(charId, drop); // 只归档非合照的；先上云，抛错就不往下走
+      pChat(charId, () => [...older.filter(isDuoPhoto), ...keep]); // 云端确认后裁本地：合照(原序)+最近的
+      const marks = loadJSON("x_chatArch", {}); marks[charId] = (marks[charId] || 0) + drop.length; saveJSON("x_chatArch", marks); setChatArch(marks);
+      // ⭐长期记忆浓缩进度跟着回调（v48.14 修）：lastSummarizedCount 按本地列表位置数；只按【真正裁掉的 drop】折算(!recalled)。
+      const cut = drop.filter(m => !m.recalled).length;
       if (cut > 0) setChatSettings(p => { const s = p[charId] || {}; const n = { ...p, [charId]: { ...s, lastSummarizedCount: Math.max(0, (s.lastSummarizedCount || 0) - cut) } }; saveJSON("x_chatSettings", n); return n; });
-      return { ok: true, moved: older.length };
+      return { ok: true, moved: drop.length };
     } catch (e) { return { ok: false, msg: e.message || String(e) }; }
   };
   // 群聊归档（同一张 chat_archive 表，char_id 用 "g_"+群id 区分单聊/群聊）
