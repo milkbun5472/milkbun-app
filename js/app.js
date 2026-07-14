@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.89";
+const APP_VERSION = "v48.90";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -1579,6 +1579,8 @@ function App() {
           const s = settingsFor(cid);
           if (!s.proactive) continue;
           if (laneBusy("c:" + cid) || viewRef.current.charId === cid) continue;
+          const _offL = offlinesRef.current[cid] || [];
+          if (_offL.some(sess => !sess.endTs && Date.now() - (sess.startTs || 0) < 8 * 3600000)) continue; // ⭐线下进行中别发线上(她 2026-07-13 报：jiwen 路径漏了这道硬闸)；8h 封顶防忘关的旧场次永远压制
           const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
           if (!ms.length) continue;
           // ⭐jiwen 阶段二（v48.80/81）：有 jiwen 就【由心理动机决定开口】——思念漂到 contact 阈值才发，时机全交给它；
@@ -1608,6 +1610,7 @@ function App() {
         const cid = c.id;
         if (laneBusy("c:" + cid)) continue;
         if (viewRef.current.charId === cid) continue;         // 正在看这个聊天就不用主动问候
+        if ((offlinesRef.current[cid] || []).some(sess => !sess.endTs && Date.now() - (sess.startTs || 0) < 8 * 3600000)) continue; // 线下进行中也别发线上问候(同上)
         const slot = greetSlotFor(c);
         if (!slot) continue;
         if ((greetLogRef.current[cid] || {})[slot] === dayKey) continue; // 这个时段今天已问候过
