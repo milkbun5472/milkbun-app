@@ -21,9 +21,10 @@
   const QUIZ_CARD_FMT =
     "\n【可交互题卡】需要用户作答时，优先不要把题目只写成聊天文字；在同一个 JSON 里加 quiz。每轮最多 1 张：" +
     "{\"type\":\"choice|true_false|fill_blank\",\"prompt\":\"题目\",\"point_id\":\"当前要点id\"," +
-    "\"options\":[{\"id\":\"A\",\"label\":\"选项文字\"}],\"answer\":\"标准答案或选项id\",\"aliases\":[\"可接受别名\"],\"explanation\":\"答对后的简短解释\"}。" +
+    "\"options\":[{\"id\":\"A\",\"label\":\"选项文字\"}],\"answer\":\"标准答案或选项id\",\"aliases\":[\"可接受别名\"]," +
+    "\"hints\":[\"一级：只提醒方向\",\"二级：指出关键步骤\",\"三级：给相似例子但仍不直接给答案\"],\"explanation\":\"答对后的简短解释\"}。" +
     "choice 必须有 2~5 个 options；true_false 的 answer 只能是 true/false 且不需要 options；fill_blank 可给 aliases（大小写不用重复列，系统会自动忽略）。" +
-    "题面不要泄露答案，别在 say 里再重复整道题。只依据当前小节出题。";
+    "每题尽量给 2~3 级递进 hints；前两级绝不能直接泄露答案，最后一级也优先给相似例子。题面不要泄露答案，别在 say 里再重复整道题。只依据当前小节出题。";
   // 学习证据信号（只给 teach / nv1-teacher）：老师只能报告用户刚才真实作答的表现，不能自行宣布学会/推进。
   const STUDY_PROGRESS_FMT =
     "\n【学习证据（可选，接在同一个 JSON 里）】只有当用户刚刚真的回答了一道题、完成了练习或亲口复述时，才可加 " +
@@ -300,6 +301,8 @@
       type: type, prompt: prompt.slice(0, 600), pointId: pointId,
       options: options, answer: answer,
       aliases: Array.isArray(q.aliases) ? q.aliases.map(String).filter(Boolean).slice(0, 12) : [],
+      hints: Array.isArray(q.hints) ? q.hints.map(String).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 3) : [],
+      hintsUsed: 0,
       explanation: String(q.explanation || "").trim().slice(0, 500),
       attempts: [], status: "open"
     };
@@ -923,7 +926,8 @@
         }
         const now = Date.now();
         const attempts = entry.quiz.attempts || [];
-        const support = attempts.length ? "hinted" : "none";
+        const hintsUsed = Number(entry.quiz.hintsUsed) || 0;
+        const support = hintsUsed >= 3 ? "guided" : ((hintsUsed > 0 || attempts.length > 0) ? "hinted" : "none");
         const level = grade.result === "correct" ? (support === "none" ? 2 : 1) : (grade.result === "partial" ? 1 : 0);
         const attempt = { answer: answer, result: grade.result, feedback: grade.feedback, support: support, ts: now };
         const answerId = "u_qa_" + now;
@@ -963,6 +967,20 @@
         setQuizDrafts(function (old) { return Object.assign({}, old, { [entry.id]: "" }); });
         props.toast(grade.result === "correct" ? "答对了，已记成学习证据" : (grade.result === "partial" ? "基本方向对，再修一下" : "这题还不对，已经放进薄弱点"));
       } finally { setBusy(false); }
+    }
+
+    function revealQuizHint(entry) {
+      if (busy || !entry || !entry.quiz || entry.quiz.status === "correct") return;
+      const hints = entry.quiz.hints || [];
+      const used = Number(entry.quiz.hintsUsed) || 0;
+      if (!hints.length) { props.toast("这道题没有额外提示，先按自己的理解试试"); return; }
+      if (used >= hints.length) { props.toast("提示已经全部给你啦"); return; }
+      const s = sessRef.current;
+      const nextTranscript = (s.transcript || []).map(function (m) {
+        return m.id === entry.id ? Object.assign({}, m, { quiz: Object.assign({}, m.quiz, { hintsUsed: used + 1 }) }) : m;
+      });
+      commit(Object.assign({}, s, { transcript: nextTranscript }));
+      props.toast("打开第 " + (used + 1) + " 级提示");
     }
 
     // 考我：主动请老师就本节要点出题（一题一题来，答完批改讲解 + 顺手更新掌握度）
@@ -1127,6 +1145,8 @@
       const last = attempts[attempts.length - 1];
       const solved = q.status === "correct";
       const draft = quizDrafts[m.id] || "";
+      const hints = q.hints || [];
+      const hintsUsed = Math.min(Number(q.hintsUsed) || 0, hints.length);
       const baseButton = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg,
         border: "1px solid " + t.line, borderRadius: 9, padding: "9px 10px", textAlign: "left" };
       let answerUI;
@@ -1154,6 +1174,15 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, attempts.length ? "已答 " + attempts.length + " 次" : "未作答")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: t.ink, marginBottom: 11, whiteSpace: "pre-wrap" } }, q.prompt),
         answerUI,
+        hintsUsed ? h("div", { style: { marginTop: 9, padding: "8px 9px", background: accent + "0d", borderRadius: 8 } },
+          hints.slice(0, hintsUsed).map(function (hint, i) {
+            return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog,
+              marginTop: i ? 5 : 0 } }, "提示 " + (i + 1) + "：" + hint);
+          })) : null,
+        !solved && hints.length ? h("button", { disabled: busy || hintsUsed >= hints.length, onClick: function () { revealQuizHint(m); },
+          className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5,
+            color: accent, border: "1px solid " + accent + "66", borderRadius: 8, padding: "5px 9px" } },
+          hintsUsed >= hints.length ? "提示已全部展开" : "给我一点提示 · " + hintsUsed + "/" + hints.length) : null,
         last ? h("div", { style: { marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6,
           color: last.result === "correct" ? "#4a9e5c" : last.result === "partial" ? "#b18428" : "#c45353" } },
           (last.result === "correct" ? "✓ " : last.result === "partial" ? "△ " : "× ") + last.feedback) : null,
