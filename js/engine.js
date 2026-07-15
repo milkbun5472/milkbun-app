@@ -651,7 +651,6 @@ function buildBundle(ctx, opts) {
     }
   }
   const uName = profile && profile.name ? profile.name : "对方";
-  if (geo && geo.label) parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）");
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
   // 欲望盒子毕业念想凝成的人格档案（角色亲笔，人设的活体延伸；空=零注入，ctxFor 侧已封顶 400 字）
   if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push("【你长出来的自我】这些是这段日子里你自己亲笔写下的自我认知——是你当下真实的一部分，和人设同等分量，自然体现在言行里，别当台词复述：\n" + ctx.personaGrown.trim());
@@ -666,6 +665,8 @@ function buildBundle(ctx, opts) {
   // ⭐时间块在此拼入：稳定的人设/关系之后、易变的心情/好感/记忆/近况之前——缓存切点(【当前真实时间】)落在这，
   //   前缀缓住上面全部稳定内容(反八股+守则+人设+关系网)，下面易变的不缓、每轮照旧。
   if (timeBlock.length) parts.push(...timeBlock);
+  // 位置=易变近况，移到时间切点之后（v48.95，Codex 指出：放稳定前缀里、一移动就破小克缓存）
+  if (geo && geo.label) parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）");
   if (typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
   if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）");
   if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());

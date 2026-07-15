@@ -145,7 +145,10 @@
       const user = await this.getUser();
       if (!user) throw new Error("未登录");
       const cur = await this.chatArchiveGet(charId);
-      const merged = cur.concat(Array.isArray(older) ? older : []);
+      // 去重（v48.95，Codex 指出：读-合并-写无并发保护，双触发/并发可能把同批旧消息重复追加）：按消息 id 滤掉云端已有的
+      const seen = new Set(cur.map(m => m && m.id).filter(Boolean));
+      const add = (Array.isArray(older) ? older : []).filter(m => !(m && m.id && seen.has(m.id)));
+      const merged = cur.concat(add);
       const { error } = await client.from("chat_archive").upsert({
         user_id: user.id,
         char_id: String(charId),
