@@ -206,6 +206,66 @@
       if (error) throw error;
     },
 
+    // ---- 记忆独立表·影子期（v48.98）：只做逐行 upsert / 软删 / 只读核对 ----
+    // ⚠️旧 x_memLib 仍是当前读取权威；这里绝不整份覆盖，也没有物理 delete。
+    async memoryRowsUpsert(entries) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const rows = (entries || []).filter(e => e && e.id && String(e.text || "").trim()).map(e => ({
+        user_id: user.id,
+        id: String(e.id),
+        text: String(e.text),
+        tags: Array.isArray(e.tags) ? e.tags.map(String) : [],
+        char_ids: Array.isArray(e.charIds) ? e.charIds.map(String) : [],
+        v: typeof e.v === "number" ? Math.max(-5, Math.min(5, Math.round(e.v))) : 0,
+        a: typeof e.a === "number" ? Math.max(0, Math.min(5, Math.round(e.a))) : 1,
+        open: !!e.open,
+        pinned: !!e.pinned,
+        ts: Number(e.ts) || Date.now(),
+        archived: !!e.archived,
+        archived_batch: e.archivedBatch == null ? null : String(e.archivedBatch),
+        archived_ts: e.archivedTs == null ? null : Number(e.archivedTs),
+        source: e.source == null ? null : String(e.source),
+        deleted: false
+      }));
+      if (!rows.length) return 0;
+      const { error } = await client.from("memories").upsert(rows, { onConflict: "user_id,id" });
+      if (error) throw error;
+      return rows.length;
+    },
+    async memoryRowsSoftDelete(ids) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const clean = [...new Set((ids || []).map(String).filter(Boolean))];
+      if (!clean.length) return 0;
+      const { error } = await client.from("memories")
+        .update({ deleted: true })
+        .eq("user_id", user.id)
+        .in("id", clean);
+      if (error) throw error;
+      return clean.length;
+    },
+    async memoryRowsFetchAll() {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const all = [], pageSize = 500;
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await client.from("memories")
+          .select("id,text,tags,char_ids,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,revision,updated_at")
+          .eq("user_id", user.id)
+          .order("id", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        const rows = data || [];
+        all.push(...rows);
+        if (rows.length < pageSize) break;
+      }
+      return all;
+    },
+
     // ---- 桌面对话回流（desk_log 表，Stack-chan 实体：见 [[lisa-phone-next-window]] 图纸）----
     // stackchan-relay 每轮把「用户说的话 user_text + 角色回复 reply_text + 时刻」insert 进 desk_log；
     // app 开机/tick 拉走未消费的，投进 x_chat:小克（两具身体一条记忆流）。表不存在=安静报错、整块 dormant。

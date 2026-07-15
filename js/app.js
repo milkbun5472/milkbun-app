@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v48.97";
+const APP_VERSION = "v48.98";
 // 右上电池：干净的 iOS 风电池图标（只图标不数字）。Battery API 拿得到就按真实电量画填充，
 // iOS Safari/PWA 拿不到 → 画一个饱满的装饰电池（不显示假数字）。
 function BatteryBadge() {
@@ -125,6 +125,7 @@ function App() {
   const memLibRef = useRef(memLib);
   memLibRef.current = memLib; // 始终指向最新记忆库
   const [emoBusy, setEmoBusy] = useState(false); // 情绪补评估中
+  const [memMigrationBusy, setMemMigrationBusy] = useState(false); // 独立表影子迁移中
   const memExtractInflightRef = useRef({}); // 每角色抽取进行中标志，防并发重复抽取
   // 记忆库设置：topK 每轮召回条数；autoExtract 每轮后台自动抽取；extractInterval 每几轮抽一次；recentDays 短期窗至少覆盖最近几天（消死区）
   const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000 };
@@ -873,12 +874,63 @@ function App() {
   });
   // ---- 记忆库（memory library）----
   const memVecTimer = useRef(null);
+  const memShadowTimerRef = useRef(null);
+  const memShadowQueueRef = useRef({ upserts: new Map(), deletes: new Set() });
+  const memorySharedShape = e => ({
+    id: e && e.id, text: e && e.text,
+    tags: Array.isArray(e && e.tags) ? e.tags : [],
+    charIds: Array.isArray(e && e.charIds) ? e.charIds : [],
+    v: typeof (e && e.v) === "number" ? e.v : 0,
+    a: typeof (e && e.a) === "number" ? e.a : 1,
+    open: !!(e && e.open), pinned: !!(e && e.pinned),
+    ts: Number(e && e.ts) || 0, archived: !!(e && e.archived),
+    archivedBatch: e && e.archivedBatch != null ? e.archivedBatch : null,
+    archivedTs: e && e.archivedTs != null ? Number(e.archivedTs) : null,
+    source: e && e.source != null ? e.source : null
+  });
+  const scheduleMemoryShadowFlush = (delay = 1200) => {
+    clearTimeout(memShadowTimerRef.current);
+    memShadowTimerRef.current = setTimeout(flushMemoryShadow, delay);
+  };
+  const flushMemoryShadow = async () => {
+    const q = memShadowQueueRef.current;
+    if (!q.upserts.size && !q.deletes.size) return;
+    const upserts = [...q.upserts.values()], deletes = [...q.deletes];
+    q.upserts.clear(); q.deletes.clear();
+    try {
+      if (!(window.Cloud && typeof window.Cloud.memoryRowsUpsert === "function")) throw new Error("影子写接口未就绪");
+      for (let i = 0; i < upserts.length; i += 50) await window.Cloud.memoryRowsUpsert(upserts.slice(i, i + 50));
+      for (let i = 0; i < deletes.length; i += 100) await window.Cloud.memoryRowsSoftDelete(deletes.slice(i, i + 100));
+    } catch (e) {
+      // 第4步才会上持久 outbox；影子期先在本次会话内保留并安静重试，绝不影响本地权威。
+      upserts.forEach(x => { q.upserts.set(String(x.id), x); q.deletes.delete(String(x.id)); });
+      deletes.forEach(id => { if (!q.upserts.has(String(id))) q.deletes.add(String(id)); });
+      scheduleMemoryShadowFlush(30000);
+    }
+  };
+  const queueMemoryShadowDiff = (prev, next) => {
+    const before = new Map((prev || []).filter(x => x && x.id).map(x => [String(x.id), x]));
+    const after = new Map((next || []).filter(x => x && x.id).map(x => [String(x.id), x]));
+    const q = memShadowQueueRef.current;
+    after.forEach((entry, id) => {
+      const old = before.get(id);
+      if (!old || JSON.stringify(memorySharedShape(old)) !== JSON.stringify(memorySharedShape(entry))) {
+        q.upserts.set(id, entry); q.deletes.delete(id);
+      }
+    });
+    before.forEach((entry, id) => {
+      if (!after.has(id)) { q.upserts.delete(id); q.deletes.add(id); }
+    });
+    if (q.upserts.size || q.deletes.size) scheduleMemoryShadowFlush();
+  };
   const saveMemLib = next => {
     // ref 必须在这里同步更新：同一轮里连续多次保存（逐条 addMemEntry / 先了结旧约定再入新条）之间不会重渲染，
     // 若只等渲染期赋值，后一次保存会拿旧数组把前一次覆盖掉（lost write，v47.55 细节逐条入库曾因此只存活最后一条）
+    const prev = memLibRef.current || [];
     memLibRef.current = next;
     setMemLib(next);
     saveJSON("x_memLib", next);
+    queueMemoryShadowDiff(prev, next); // 新表只收变化行；旧 blob 双写仅作7天影子期回滚副本
     // 向量增量维护（v48.11）：新增/编辑/删除后台补嵌+清孤儿。防抖 4s——批量逐条入库只嵌一次；没配 embedding API 时内部直接返回
     clearTimeout(memVecTimer.current);
     memVecTimer.current = setTimeout(() => { if (typeof ensureMemVecs === "function") ensureMemVecs(memLibRef.current).catch(() => {}); }, 4000);
@@ -911,6 +963,43 @@ function App() {
         (d && d.comparable ? (" · 本机独有 " + d.missingInCloud.length + " · 云端独有 " + d.missingInLocal.length + " · 同ID内容不同 " + d.changedSharedRows.length) : "");
       toast("审计报告已导出：" + summary);
     } catch (e) { toast("审计失败（没有改动数据）：" + String((e && e.message) || e)); }
+  };
+  const MEM_MIGRATION_BASELINE = {
+    count: 390,
+    sharedSha256: "1615714a430e323c4c88596fb21ac6d651fdb008d2af9bd592427b58ded3dd7b"
+  };
+  const migrateMemoriesShadow = async () => {
+    if (memMigrationBusy) return;
+    if (!(window.Cloud && typeof window.Cloud.memoryRowsUpsert === "function" && typeof window.Cloud.memoryRowsFetchAll === "function")) { toast("记忆表接口未就绪，请刷新后重试"); return; }
+    setMemMigrationBusy(true);
+    try {
+      const localRaw = localStorage.getItem("x_memLib");
+      const audit = await window.MemoryAudit.auditRaw(localRaw, "locked-primary-device-baseline");
+      if (!audit.ok || audit.stats.totalRows !== MEM_MIGRATION_BASELINE.count || audit.stats.uniqueIds !== MEM_MIGRATION_BASELINE.count || audit.stats.duplicateIds.length || audit.stats.missingIds || audit.stats.emptyTexts || audit.canonicalSharedSha256 !== MEM_MIGRATION_BASELINE.sharedSha256) {
+        throw new Error("主设备记忆已偏离锁定的390条基线；没有写表，请重新做只读审计");
+      }
+      const rows = JSON.parse(localRaw);
+      for (let i = 0; i < rows.length; i += 50) await window.Cloud.memoryRowsUpsert(rows.slice(i, i + 50));
+
+      const tableRows = await window.Cloud.memoryRowsFetchAll();
+      const live = tableRows.filter(r => !r.deleted).map(r => ({
+        id: r.id, text: r.text, tags: r.tags || [], charIds: r.char_ids || [],
+        v: r.v, a: r.a, open: r.open, pinned: r.pinned, ts: r.ts,
+        archived: r.archived, archivedBatch: r.archived_batch, archivedTs: r.archived_ts, source: r.source
+      }));
+      const verify = await window.MemoryAudit.build(localRaw, JSON.stringify(live), {
+        reportType: "shadow-migration-verify",
+        appVersion: APP_VERSION,
+        lockedBaselineCount: MEM_MIGRATION_BASELINE.count,
+        tableTotalRows: tableRows.length,
+        tableDeletedRows: tableRows.filter(r => r.deleted).length
+      });
+      const pass = tableRows.length === MEM_MIGRATION_BASELINE.count && !tableRows.some(r => r.deleted) && verify.diff.comparable && verify.diff.exactSharedMatch;
+      window.MemoryAudit.download(verify);
+      if (!pass) throw new Error("表已保持影子状态，但逐ID验证未全绿；已导出报告，读取权威没有切换");
+      toast("影子迁移验证通过：390/390 条逐ID一致 · 新表已开始行级影子写 · 读取仍走旧记忆库");
+    } catch (e) { toast("影子迁移停止：" + String((e && e.message) || e)); }
+    finally { setMemMigrationBusy(false); }
   };
   // 向量记忆开机：把 IDB 里的向量读进内存缓存 → 后台给缺向量的条目补嵌（换设备导入存档后会在这里自动重建索引）
   // v48.29 世界书向量同款开机流程（词条向量也在 IDB 不进云，导入存档后自动重建）
@@ -7649,6 +7738,8 @@ function App() {
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,
     onAudit: exportMemoryAudit,
+    onShadowMigrate: migrateMemoriesShadow,
+    migrationBusy: memMigrationBusy,
     emoBusy: emoBusy
   });else if (screen === "diary") body = h(Diary, {
     characters: characters,

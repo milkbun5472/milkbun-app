@@ -36,6 +36,7 @@
       ts: Number(m && m.ts) || 0,
       archived: !!(m && m.archived),
       archivedBatch: m && m.archivedBatch != null ? m.archivedBatch : null,
+      archivedTs: m && m.archivedTs != null ? Number(m.archivedTs) : null,
       source: m && m.source != null ? m.source : null
     };
   }
@@ -143,6 +144,5 @@
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
-  window.MemoryAudit = { build: buildMemoryAuditBundle, download: downloadMemoryAudit };
+  window.MemoryAudit = { build: buildMemoryAuditBundle, auditRaw: auditSide, download: downloadMemoryAudit };
 })();
-

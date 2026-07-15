@@ -15,6 +15,7 @@ create table if not exists public.memories (
   ts bigint not null,
   archived boolean not null default false,
   archived_batch text,
+  archived_ts bigint,
   source text,
   deleted boolean not null default false,
   revision bigint not null default 1 check (revision > 0),
@@ -23,6 +24,9 @@ create table if not exists public.memories (
   updated_at timestamptz not null default now(),
   primary key (user_id, id)
 );
+
+-- Idempotent amendment for projects that created the v1 table before archived_ts was noticed.
+alter table public.memories add column if not exists archived_ts bigint;
 
 comment on table public.memories is
   'Authoritative row-level memory store. x_memLib remains an offline mirror; deletes are tombstones.';
@@ -130,4 +134,3 @@ drop policy if exists memory_conflicts_insert_own on public.memory_conflicts;
 create policy memory_conflicts_insert_own
 on public.memory_conflicts for insert to authenticated
 with check ((select auth.uid()) = user_id);
-
