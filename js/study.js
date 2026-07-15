@@ -81,7 +81,8 @@
 
   function newProgress(mode) {
     if (mode === "costudy") return { running_summary: "", loose_vocab: [] };
-    return { current_unit: null, completed: [], mastery: {}, review_queue: [], notes: "", evidence: [], mistakes: [], exit_ticket: null };
+    return { current_unit: null, completed: [], mastery: {}, review_queue: [], notes: "", evidence: [], mistakes: [], exit_ticket: null,
+      warmup_queue: [], warmup_started: false };
   }
   // 从本节 outline 起一份 session 进度（第一小节起步）
   function initSessionProgress(outline) {
@@ -110,7 +111,8 @@
       }
     });
     curs.forEach(function (c) {
-      if (!c.memory) { c.memory = { summaries: [] }; cChanged = true; }
+      if (!c.memory) { c.memory = { summaries: [], review_items: [] }; cChanged = true; }
+      else if (!Array.isArray(c.memory.review_items)) { c.memory.review_items = []; cChanged = true; }
       if (!c.mode || !c.character_ids) {
         const refs = sess.filter(function (s) { return s.curriculum_id === c.id; });
         const recent = refs.slice().sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); })[0];
@@ -344,6 +346,58 @@
     }
   }
 
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  function quizMasteryLevel(quiz, result, support, confidence) {
+    const independent = result === "correct" && support === "none" && confidence !== "guess";
+    if (independent) return quiz && quiz.isReview ? 3 : 2;
+    return result === "correct" || result === "partial" ? 1 : 0;
+  }
+  function updateCurriculumReview(curId, session, quiz, outcome) {
+    if (!curId || !quiz || !quiz.pointId) return null;
+    const all = loadCurricula();
+    const idx = all.findIndex(function (c) { return c.id === curId; });
+    if (idx < 0) return null;
+    const cur = all[idx], mem = Object.assign({ summaries: [], review_items: [] }, cur.memory || {});
+    const items = (mem.review_items || []).slice();
+    const key = String(quiz.reviewKey || quiz.pointId);
+    const oldIdx = items.findIndex(function (x) { return x.key === key; });
+    const old = oldIdx >= 0 ? items[oldIdx] : null;
+    const independent = outcome.result === "correct" && outcome.support === "none" && outcome.confidence !== "guess";
+    let stage, nextReviewAt;
+    if (independent) {
+      const oldStage = old && Number.isFinite(Number(old.stage)) ? Number(old.stage) : -1;
+      stage = quiz.isReview ? Math.min(3, Math.max(-1, oldStage) + 1) : Math.max(0, oldStage);
+      nextReviewAt = outcome.ts + [1, 3, 7, 14][stage] * DAY_MS;
+    } else {
+      stage = -1;
+      nextReviewAt = outcome.ts + 4 * 60 * 60 * 1000;
+    }
+    const item = {
+      key: key, pointId: quiz.pointId, sourceSessionId: session.id,
+      type: quiz.type, prompt: quiz.prompt, options: (quiz.options || []).slice(), answer: quiz.answer,
+      aliases: (quiz.aliases || []).slice(), hints: (quiz.hints || []).slice(), explanation: quiz.explanation || "",
+      stage: stage, nextReviewAt: nextReviewAt, lastResult: outcome.result,
+      lastConfidence: outcome.confidence, lastSupport: outcome.support, updatedAt: outcome.ts
+    };
+    if (oldIdx >= 0) items[oldIdx] = item; else items.push(item);
+    mem.review_items = items.slice(-120);
+    all[idx] = Object.assign({}, cur, { memory: mem, updated_at: Date.now() });
+    saveCurricula(all);
+    return item;
+  }
+
+  function dueReviewCards(cur, now) {
+    const items = cur && cur.memory && cur.memory.review_items;
+    return (Array.isArray(items) ? items : []).filter(function (x) { return x && Number(x.nextReviewAt) <= now; })
+      .sort(function (a, b) { return Number(a.nextReviewAt) - Number(b.nextReviewAt); }).slice(0, 2).map(function (x) {
+        return {
+          type: x.type, prompt: x.prompt, pointId: x.pointId, options: (x.options || []).slice(), answer: x.answer,
+          aliases: (x.aliases || []).slice(), hints: (x.hints || []).slice(), hintsUsed: 0,
+          explanation: x.explanation || "", attempts: [], status: "open", isReview: true, reviewKey: x.key
+        };
+      });
+  }
+
   // ---- nv1 轮次导演（§8）：模型决定这一轮谁开口、按什么顺序 -----------------
   // 返回 ['teacher'|'peer', ...]（1~3 个）；失败兜底 ['teacher']
   async function directNv1(active, session, teacher, peer, ctx) {
@@ -456,7 +510,8 @@
     newProgress: newProgress, initSessionProgress: initSessionProgress, curriculumMemoryText: curriculumMemoryText,
     genTurn: genTurn, inferAbility: inferAbility, draftSessionOutline: draftSessionOutline,
     summarizeStudySession: summarizeStudySession, runCheckpoint: runCheckpoint, tail: tail,
-    normalizeQuizAnswer: normalizeQuizAnswer, gradeQuizAnswer: gradeQuizAnswer, parseQuiz: parseQuiz
+    normalizeQuizAnswer: normalizeQuizAnswer, gradeQuizAnswer: gradeQuizAnswer, parseQuiz: parseQuiz,
+    updateCurriculumReview: updateCurriculumReview, dueReviewCards: dueReviewCards, quizMasteryLevel: quizMasteryLevel
   };
 
   // ============================================================
@@ -544,6 +599,7 @@
     const accent = t.accent || "#8a6d3b";
     const cur = props.curriculum;
     const summaries = (cur.memory && cur.memory.summaries) || [];
+    const dueCount = ((cur.memory && cur.memory.review_items) || []).filter(function (x) { return Number(x.nextReviewAt) <= Date.now(); }).length;
     const sess = (props.sessions || []).filter(function (s) { return s.curriculum_id === cur.id; })
       .sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
     const chars = avatarsFor(cur.character_ids, props.characters);
@@ -556,7 +612,7 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-6" },
         h("div", { className: "flex items-center gap-2", style: { marginTop: 2, marginBottom: 2 } },
           cur.level ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent, border: "1px solid " + accent, borderRadius: 4, padding: "0px 6px" } }, cur.level) : null,
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, chars.map(function (ch) { return ch.name; }).join("、") + " · 已上 " + sess.length + " 节")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, chars.map(function (ch) { return ch.name; }).join("、") + " · 已上 " + sess.length + " 节" + (dueCount ? " · " + dueCount + " 个待复习" : ""))),
         // 跨-session 记忆（学到哪了）
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "16px 0 8px" } }, "这门课学到哪了"),
         summaries.length === 0
@@ -606,7 +662,7 @@
     function createCur(teacherId) {
       const cur = {
         id: "cur_" + Date.now(), subject: subject.trim(), level: level.trim(), mode: mode,
-        character_ids: picked.slice(), teacher_id: teacherId, memory: { summaries: [] },
+        character_ids: picked.slice(), teacher_id: teacherId, memory: { summaries: [], review_items: [] },
         created_at: Date.now(), updated_at: Date.now()
       };
       saveCurriculum(cur);
@@ -730,11 +786,13 @@
 
     function confirm(outline) {
       const chars = avatarsFor(cur.character_ids, props.characters);
+      const progress = initSessionProgress(outline);
+      progress.warmup_queue = dueReviewCards(findCurriculum(cur.id) || cur, Date.now());
       const sess = {
         id: "st_" + Date.now(), curriculum_id: cur.id, mode: cur.mode,
         character_ids: (cur.character_ids || []).slice(), teacher_id: cur.teacher_id || null,
         subject: cur.subject, title: cur.subject + " · " + chars.map(function (c) { return c.name; }).join("&"),
-        outline: outline, progress: initSessionProgress(outline),
+        outline: outline, progress: progress,
         created_at: Date.now(), updated_at: Date.now(), transcript: []
       };
       saveSessions(loadSessions().concat([sess]));
@@ -808,6 +866,7 @@
     const [busy, setBusy] = useState(false);
     const [expand, setExpand] = useState(false);
     const [quizDrafts, setQuizDrafts] = useState({});
+    const [quizConfidence, setQuizConfidence] = useState({});
     const scrollRef = useRef(null);
     const sessRef = useRef(props.session);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 台词朗读（懒合成，重听免费）
@@ -913,10 +972,11 @@
       pushEntry({ id: "u_" + Date.now(), role: "user", content: txt, ts: Date.now() });
     }
 
-    async function submitQuiz(entry, value) {
+    async function submitQuiz(entry, value, confidence) {
       if (busy || !entry || !entry.quiz || entry.quiz.status === "correct") return;
       const answer = String(value == null ? "" : value).trim();
       if (!answer) { props.toast("先填答案"); return; }
+      if (!["sure", "unsure", "guess"].includes(confidence)) { props.toast("提交前选一下你有多确定"); return; }
       setBusy(true);
       try {
         const grade = await gradeQuizAnswer(props.active, entry.quiz, answer);
@@ -928,8 +988,8 @@
         const attempts = entry.quiz.attempts || [];
         const hintsUsed = Number(entry.quiz.hintsUsed) || 0;
         const support = hintsUsed >= 3 ? "guided" : ((hintsUsed > 0 || attempts.length > 0) ? "hinted" : "none");
-        const level = grade.result === "correct" ? (support === "none" ? 2 : 1) : (grade.result === "partial" ? 1 : 0);
-        const attempt = { answer: answer, result: grade.result, feedback: grade.feedback, support: support, ts: now };
+        const level = quizMasteryLevel(entry.quiz, grade.result, support, confidence);
+        const attempt = { answer: answer, result: grade.result, feedback: grade.feedback, support: support, confidence: confidence, ts: now };
         const answerId = "u_qa_" + now;
         const s = sessRef.current;
         const nextTranscript = (s.transcript || []).map(function (m) {
@@ -942,20 +1002,20 @@
           ? ((entry.quiz.options || []).find(function (o) { return o.id === answer; }) || {}).label || answer
           : (entry.quiz.type === "true_false" ? (answer === "true" ? "正确" : "错误") : answer);
         nextTranscript.push({ id: answerId, role: "user", studyAction: "quiz_answer", hidden: true,
-          content: "（答题卡作答｜题目：" + entry.quiz.prompt + "｜我的答案：" + selected + "｜判定：" + grade.result + "）", ts: now });
+          content: "（答题卡作答｜题目：" + entry.quiz.prompt + "｜我的答案：" + selected + "｜自信：" + confidence + "｜判定：" + grade.result + "）", ts: now });
 
         const cp = Object.assign({ completed: [], mastery: {}, review_queue: [], evidence: [], mistakes: [] }, s.progress);
         const pointId = entry.quiz.pointId;
         cp.mastery = Object.assign({}, cp.mastery, { [pointId]: level });
         cp.evidence = (cp.evidence || []).concat([{
           key: entry.id + ":" + (attempts.length + 1), pointId: pointId, userEntryId: answerId,
-          quizId: entry.id, result: grade.result, support: support, level: level,
+          quizId: entry.id, result: grade.result, support: support, confidence: confidence, level: level,
           note: grade.feedback, ts: now
         }]).slice(-80);
         if (level <= 1) {
           cp.mistakes = (cp.mistakes || []).concat([{
             id: "mist_" + now, pointId: pointId, userEntryId: answerId, quizId: entry.id,
-            note: grade.feedback || "需要再练", resolved: false, ts: now
+            note: (grade.result === "incorrect" && confidence === "sure" ? "高置信误解：" : "") + (grade.feedback || "需要再练"), resolved: false, ts: now
           }]).slice(-50);
         } else {
           cp.mistakes = (cp.mistakes || []).map(function (m) {
@@ -964,7 +1024,9 @@
         }
         cp.review_queue = Object.keys(cp.mastery).filter(function (k) { return cp.mastery[k] <= 1; });
         commit(Object.assign({}, s, { transcript: nextTranscript, progress: cp }));
+        updateCurriculumReview(s.curriculum_id, s, entry.quiz, { result: grade.result, support: support, confidence: confidence, ts: now });
         setQuizDrafts(function (old) { return Object.assign({}, old, { [entry.id]: "" }); });
+        setQuizConfidence(function (old) { return Object.assign({}, old, { [entry.id]: "" }); });
         props.toast(grade.result === "correct" ? "答对了，已记成学习证据" : (grade.result === "partial" ? "基本方向对，再修一下" : "这题还不对，已经放进薄弱点"));
       } finally { setBusy(false); }
     }
@@ -981,6 +1043,23 @@
       });
       commit(Object.assign({}, s, { transcript: nextTranscript }));
       props.toast("打开第 " + (used + 1) + " 级提示");
+    }
+
+    function startWarmup() {
+      if (busy) return;
+      const s = sessRef.current;
+      const cp = Object.assign({ warmup_queue: [], warmup_started: false }, s.progress);
+      const queue = (cp.warmup_queue || []).slice(0, 2);
+      if (!queue.length || cp.warmup_started) return;
+      const now = Date.now();
+      const cards = queue.map(function (q, i) {
+        return { id: "q_review_" + now + "_" + i, role: "char", speakerId: teacher && teacher.id,
+          name: teacher && teacher.name || "老师", content: q.prompt,
+          quiz: Object.assign({}, q, { attempts: [], hintsUsed: 0, status: "open", isReview: true }), ts: now + i };
+      });
+      cp.warmup_started = true;
+      commit(Object.assign({}, s, { transcript: (s.transcript || []).concat(cards), progress: cp }));
+      props.toast("先用 " + cards.length + " 道到期题热热身，再开始新内容");
     }
 
     // 考我：主动请老师就本节要点出题（一题一题来，答完批改讲解 + 顺手更新掌握度）
@@ -1145,6 +1224,7 @@
       const last = attempts[attempts.length - 1];
       const solved = q.status === "correct";
       const draft = quizDrafts[m.id] || "";
+      const confidence = quizConfidence[m.id] || "";
       const hints = q.hints || [];
       const hintsUsed = Math.min(Number(q.hintsUsed) || 0, hints.length);
       const baseButton = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg,
@@ -1152,21 +1232,19 @@
       let answerUI;
       if (q.type === "choice") {
         answerUI = h("div", { className: "flex flex-col gap-2" }, (q.options || []).map(function (o) {
-          return h("button", { key: o.id, disabled: busy || solved, onClick: function () { submitQuiz(m, o.id); },
-            className: "active:opacity-70 disabled:opacity-60", style: baseButton },
+          const on = draft === o.id;
+          return h("button", { key: o.id, disabled: busy || solved, onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: o.id }); }); },
+            className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, on ? { borderColor: accent, background: accent + "12" } : {}) },
             h("span", { style: { color: accent, marginRight: 7 } }, o.id), o.label);
         }));
       } else if (q.type === "true_false") {
         answerUI = h("div", { className: "grid grid-cols-2 gap-2" },
-          h("button", { disabled: busy || solved, onClick: function () { submitQuiz(m, "true"); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }) }, "正确"),
-          h("button", { disabled: busy || solved, onClick: function () { submitQuiz(m, "false"); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }) }, "错误"));
+          h("button", { disabled: busy || solved, onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: "true" }); }); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }, draft === "true" ? { borderColor: accent, background: accent + "12" } : {}) }, "正确"),
+          h("button", { disabled: busy || solved, onClick: function () { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: "false" }); }); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }, draft === "false" ? { borderColor: accent, background: accent + "12" } : {}) }, "错误"));
       } else {
-        answerUI = h("div", { className: "flex gap-2" },
+        answerUI = h("div", null,
           h("input", { value: draft, disabled: busy || solved, onChange: function (e) { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: e.target.value }); }); },
-            onKeyDown: function (e) { if (e.key === "Enter") { e.preventDefault(); submitQuiz(m, draft); } }, placeholder: "填入答案…",
-            style: { minWidth: 0, flex: 1, fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: "9px 10px" } }),
-          h("button", { disabled: busy || solved || !draft.trim(), onClick: function () { submitQuiz(m, draft); }, className: "active:opacity-70 disabled:opacity-40",
-            style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: accent, borderRadius: 9, padding: "9px 13px" } }, busy ? "判定中" : "提交"));
+            placeholder: "填入答案…", style: { width: "100%", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: "9px 10px" } }));
       }
       return h("div", { style: { width: "min(100%, 430px)", background: t.bg2, border: "1px solid " + accent + "55", borderRadius: 14, padding: 13 } },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
@@ -1174,6 +1252,17 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, attempts.length ? "已答 " + attempts.length + " 次" : "未作答")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: t.ink, marginBottom: 11, whiteSpace: "pre-wrap" } }, q.prompt),
         answerUI,
+        !solved ? h("div", { style: { marginTop: 9 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } }, "提交前，你有多确定？"),
+          h("div", { className: "grid grid-cols-3 gap-1.5" }, [["sure", "很确定"], ["unsure", "有点犹豫"], ["guess", "我在猜"]].map(function (x) {
+            const on = confidence === x[0];
+            return h("button", { key: x[0], disabled: busy, onClick: function () { setQuizConfidence(function (old) { return Object.assign({}, old, { [m.id]: x[0] }); }); },
+              className: "active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 11, color: on ? "#fff" : t.fog,
+                background: on ? accent : t.bg, border: "1px solid " + (on ? accent : t.line), borderRadius: 7, padding: "6px 3px" } }, x[1]);
+          })),
+          h("button", { disabled: busy || !String(draft).trim() || !confidence, onClick: function () { submitQuiz(m, draft, confidence); },
+            className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 7, fontFamily: F_BODY, fontSize: 12.5,
+              color: "#fff", background: accent, borderRadius: 8, padding: "8px 0" } }, busy ? "判定中…" : "提交答案")) : null,
         hintsUsed ? h("div", { style: { marginTop: 9, padding: "8px 9px", background: accent + "0d", borderRadius: 8 } },
           hints.slice(0, hintsUsed).map(function (hint, i) {
             return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog,
@@ -1224,8 +1313,14 @@
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5 py-3" },
         bubbles.length === 0
           ? h("div", { className: "flex flex-col items-center gap-3", style: { marginTop: 30 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.8 } }, "开始吧——先说几句，或直接让 " + (teacher ? teacher.name : "对方") + " 开个头"),
-              h("button", { onClick: replyNow, disabled: busy, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 10 } }, busy ? "…" : "让 " + (teacher ? teacher.name : "对方") + " 开场"))
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.8 } },
+                (prog.warmup_queue || []).length && !prog.warmup_started
+                  ? "有 " + (prog.warmup_queue || []).length + " 个知识点到复习时间了。先看看今天还记不记得。"
+                  : "开始吧——先说几句，或直接让 " + (teacher ? teacher.name : "对方") + " 开个头"),
+              (prog.warmup_queue || []).length && !prog.warmup_started
+                ? h("button", { onClick: startWarmup, disabled: busy, className: "px-4 py-2 active:opacity-70",
+                    style: { fontFamily: F_BODY, fontSize: 13, background: accent, color: "#fff", borderRadius: 10 } }, "先做课前热身")
+                : h("button", { onClick: replyNow, disabled: busy, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 10 } }, busy ? "…" : "让 " + (teacher ? teacher.name : "对方") + " 开场"))
           : bubbles,
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 2px" } }, "…") : null),
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, background: t.bg } },
