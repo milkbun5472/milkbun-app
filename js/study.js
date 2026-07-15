@@ -18,6 +18,12 @@
     "\n【输出格式】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。" +
     "say 里放你这一轮说出口的话，可拆成 1~4 个气泡（像即时通讯那样分条），" +
     "不要加名字前缀、不要旁白括号、不要 markdown、不要把 JSON 以外的东西吐出来。";
+  const QUIZ_CARD_FMT =
+    "\n【可交互题卡】需要用户作答时，优先不要把题目只写成聊天文字；在同一个 JSON 里加 quiz。每轮最多 1 张：" +
+    "{\"type\":\"choice|true_false|fill_blank\",\"prompt\":\"题目\",\"point_id\":\"当前要点id\"," +
+    "\"options\":[{\"id\":\"A\",\"label\":\"选项文字\"}],\"answer\":\"标准答案或选项id\",\"aliases\":[\"可接受别名\"],\"explanation\":\"答对后的简短解释\"}。" +
+    "choice 必须有 2~5 个 options；true_false 的 answer 只能是 true/false 且不需要 options；fill_blank 可给 aliases（大小写不用重复列，系统会自动忽略）。" +
+    "题面不要泄露答案，别在 say 里再重复整道题。只依据当前小节出题。";
   // 学习证据信号（只给 teach / nv1-teacher）：老师只能报告用户刚才真实作答的表现，不能自行宣布学会/推进。
   const STUDY_PROGRESS_FMT =
     "\n【学习证据（可选，接在同一个 JSON 里）】只有当用户刚刚真的回答了一道题、完成了练习或亲口复述时，才可加 " +
@@ -243,6 +249,7 @@
       // 对话式推进：老师这轮把当前小节讲透、用户也跟上了，就在 JSON 里标 done 让进度条自己前进
       if (mode === "teach" || mode === "nv1-teacher") parts.push(STUDY_PROGRESS_FMT);
     }
+    if (mode === "teach" || mode === "nv1-teacher") parts.push(QUIZ_CARD_FMT);
     parts.push(OUT_FMT);
     return parts.join("\n\n");
   }
@@ -275,6 +282,29 @@
     return says;
   }
 
+  function parseQuiz(raw) {
+    const d = extractJSON(raw) || {};
+    const q = d.quiz;
+    if (!q || typeof q !== "object") return null;
+    const type = ["choice", "true_false", "fill_blank"].includes(q.type) ? q.type : "";
+    const prompt = String(q.prompt || "").trim();
+    const pointId = String(q.point_id || "").trim();
+    if (!type || !prompt || !pointId) return null;
+    const options = type === "choice" && Array.isArray(q.options) ? q.options.slice(0, 5).map(function (o, i) {
+      return { id: String(o && o.id || String.fromCharCode(65 + i)), label: String(o && o.label || "").trim() };
+    }).filter(function (o) { return o.label; }) : [];
+    if (type === "choice" && options.length < 2) return null;
+    const answer = type === "true_false" ? String(q.answer).toLowerCase() : String(q.answer || "").trim();
+    if (!answer || (type === "true_false" && !["true", "false"].includes(answer))) return null;
+    return {
+      type: type, prompt: prompt.slice(0, 600), pointId: pointId,
+      options: options, answer: answer,
+      aliases: Array.isArray(q.aliases) ? q.aliases.map(String).filter(Boolean).slice(0, 12) : [],
+      explanation: String(q.explanation || "").trim().slice(0, 500),
+      attempts: [], status: "open"
+    };
+  }
+
   // ---- 一次生成 = 一个角色一个回合（§5）------------------------------
   // 返回 { says:[...], evidence:null|{} }——老师只能报告刚刚真实发生的作答证据，不能自行推进。
   async function genTurn(active, session, char, ctx, role) {
@@ -284,7 +314,31 @@
     const says = parseSay(raw);
     const d = extractJSON(raw) || {};
     const evidence = d.evidence && typeof d.evidence === "object" ? d.evidence : null;
-    return { says: says, evidence: evidence };
+    return { says: says, evidence: evidence, quiz: parseQuiz(raw) };
+  }
+
+  function normalizeQuizAnswer(value) {
+    return String(value == null ? "" : value).normalize("NFKC").trim().toLocaleLowerCase()
+      .replace(/\s+/g, " ").replace(/[。.!！?？]+$/g, "").trim();
+  }
+
+  async function gradeQuizAnswer(active, quiz, userAnswer) {
+    const actual = normalizeQuizAnswer(userAnswer);
+    const accepted = [quiz.answer].concat(quiz.aliases || []).map(normalizeQuizAnswer);
+    if (accepted.includes(actual)) return { result: "correct", feedback: "答对了", local: true };
+    if (quiz.type !== "fill_blank") return { result: "incorrect", feedback: "这次还不对，再想想", local: true };
+    const sys = "你只负责复核一道填空题的答案是否语义等价。忽略大小写、无关标点和不影响含义的措辞差异，但不能把反义、关键数字错误或事实错误放过。" +
+      "只输出 JSON：{\"result\":\"correct|partial|incorrect\",\"feedback\":\"一句具体反馈，不泄露额外隐私\"}。";
+    const u = "题目：" + quiz.prompt + "\n标准答案：" + quiz.answer +
+      ((quiz.aliases || []).length ? "\n可接受别名：" + quiz.aliases.join("；") : "") + "\n用户答案：" + String(userAnswer || "");
+    try {
+      const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 300 });
+      const d = extractJSON(raw) || {};
+      const result = ["correct", "partial", "incorrect"].includes(d.result) ? d.result : "incorrect";
+      return { result: result, feedback: String(d.feedback || (result === "correct" ? "意思对了" : "还需要再想想")).slice(0, 240), local: false };
+    } catch (e) {
+      return { result: "incorrect", feedback: "暂时没法复核这个表达，可以换一种写法再试", local: false, reviewFailed: true };
+    }
   }
 
   // ---- nv1 轮次导演（§8）：模型决定这一轮谁开口、按什么顺序 -----------------
@@ -398,7 +452,8 @@
     saveCurricula: saveCurricula, saveCurriculum: saveCurriculum, pushCurriculumSummary: pushCurriculumSummary,
     newProgress: newProgress, initSessionProgress: initSessionProgress, curriculumMemoryText: curriculumMemoryText,
     genTurn: genTurn, inferAbility: inferAbility, draftSessionOutline: draftSessionOutline,
-    summarizeStudySession: summarizeStudySession, runCheckpoint: runCheckpoint, tail: tail
+    summarizeStudySession: summarizeStudySession, runCheckpoint: runCheckpoint, tail: tail,
+    normalizeQuizAnswer: normalizeQuizAnswer, gradeQuizAnswer: gradeQuizAnswer, parseQuiz: parseQuiz
   };
 
   // ============================================================
@@ -749,6 +804,7 @@
     const [input, setInput] = useState("");
     const [busy, setBusy] = useState(false);
     const [expand, setExpand] = useState(false);
+    const [quizDrafts, setQuizDrafts] = useState({});
     const scrollRef = useRef(null);
     const sessRef = useRef(props.session);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 台词朗读（懒合成，重听免费）
@@ -798,6 +854,16 @@
         if (i > 0) await new Promise(function (r) { return setTimeout(r, 400); });
         pushEntry({ id: "c_" + Date.now() + "_" + i, role: "char", speakerId: char.id, name: char.name, content: says[i], ts: Date.now() });
       }
+      if (res && res.quiz) {
+        const s = sessRef.current;
+        const cp = s.progress || {};
+        const cu = units.find(function (u) { return u.id === cp.current_unit; });
+        const allowed = (cu && cu.grammar || []).map(function (g) { return g.id; });
+        if (allowed.includes(res.quiz.pointId)) {
+          pushEntry({ id: "q_" + Date.now(), role: "char", speakerId: char.id, name: char.name,
+            content: res.quiz.prompt, quiz: res.quiz, ts: Date.now() });
+        }
+      }
       // 老师只能把用户刚刚真实作答的表现记成证据；任何模型信号都不能自动推进小节。
       if (units.length && (role === "teach" || role === "nv1-teacher")) recordEvidence(res && res.evidence, answerEntry);
     }
@@ -844,10 +910,65 @@
       pushEntry({ id: "u_" + Date.now(), role: "user", content: txt, ts: Date.now() });
     }
 
+    async function submitQuiz(entry, value) {
+      if (busy || !entry || !entry.quiz || entry.quiz.status === "correct") return;
+      const answer = String(value == null ? "" : value).trim();
+      if (!answer) { props.toast("先填答案"); return; }
+      setBusy(true);
+      try {
+        const grade = await gradeQuizAnswer(props.active, entry.quiz, answer);
+        if (grade.reviewFailed) {
+          props.toast("这次没能完成语义复核，没有判错也没有改掌握度；稍后再试");
+          return;
+        }
+        const now = Date.now();
+        const attempts = entry.quiz.attempts || [];
+        const support = attempts.length ? "hinted" : "none";
+        const level = grade.result === "correct" ? (support === "none" ? 2 : 1) : (grade.result === "partial" ? 1 : 0);
+        const attempt = { answer: answer, result: grade.result, feedback: grade.feedback, support: support, ts: now };
+        const answerId = "u_qa_" + now;
+        const s = sessRef.current;
+        const nextTranscript = (s.transcript || []).map(function (m) {
+          if (m.id !== entry.id) return m;
+          return Object.assign({}, m, { quiz: Object.assign({}, m.quiz, {
+            attempts: attempts.concat([attempt]), status: grade.result === "correct" ? "correct" : "open"
+          }) });
+        });
+        const selected = entry.quiz.type === "choice"
+          ? ((entry.quiz.options || []).find(function (o) { return o.id === answer; }) || {}).label || answer
+          : (entry.quiz.type === "true_false" ? (answer === "true" ? "正确" : "错误") : answer);
+        nextTranscript.push({ id: answerId, role: "user", studyAction: "quiz_answer", hidden: true,
+          content: "（答题卡作答｜题目：" + entry.quiz.prompt + "｜我的答案：" + selected + "｜判定：" + grade.result + "）", ts: now });
+
+        const cp = Object.assign({ completed: [], mastery: {}, review_queue: [], evidence: [], mistakes: [] }, s.progress);
+        const pointId = entry.quiz.pointId;
+        cp.mastery = Object.assign({}, cp.mastery, { [pointId]: level });
+        cp.evidence = (cp.evidence || []).concat([{
+          key: entry.id + ":" + (attempts.length + 1), pointId: pointId, userEntryId: answerId,
+          quizId: entry.id, result: grade.result, support: support, level: level,
+          note: grade.feedback, ts: now
+        }]).slice(-80);
+        if (level <= 1) {
+          cp.mistakes = (cp.mistakes || []).concat([{
+            id: "mist_" + now, pointId: pointId, userEntryId: answerId, quizId: entry.id,
+            note: grade.feedback || "需要再练", resolved: false, ts: now
+          }]).slice(-50);
+        } else {
+          cp.mistakes = (cp.mistakes || []).map(function (m) {
+            return m.pointId === pointId && !m.resolved ? Object.assign({}, m, { resolved: true, resolvedTs: now }) : m;
+          });
+        }
+        cp.review_queue = Object.keys(cp.mastery).filter(function (k) { return cp.mastery[k] <= 1; });
+        commit(Object.assign({}, s, { transcript: nextTranscript, progress: cp }));
+        setQuizDrafts(function (old) { return Object.assign({}, old, { [entry.id]: "" }); });
+        props.toast(grade.result === "correct" ? "答对了，已记成学习证据" : (grade.result === "partial" ? "基本方向对，再修一下" : "这题还不对，已经放进薄弱点"));
+      } finally { setBusy(false); }
+    }
+
     // 考我：主动请老师就本节要点出题（一题一题来，答完批改讲解 + 顺手更新掌握度）
     function quizMe() {
       if (busy) return;
-      pushEntry({ id: "u_" + Date.now(), role: "user", content: "（考考我吧：就这节讲过的要点出 3 道小题——难度贴我现在的水平，形式混着来（翻译/填空/改错/问答都行），优先考我还不稳的点。一题一题出，等我答完你批改讲解，最后告诉我哪个点还得再练。）", ts: Date.now() });
+      pushEntry({ id: "u_" + Date.now(), role: "user", content: "（考考我吧：就这节讲过的要点出 3 道小题——用可交互题卡，难度贴我现在的水平，单选/判断/填空混着来，优先考我还不稳的点。一题一题出，等我答完再出下一题，最后告诉我哪个点还得再练。）", ts: Date.now() });
       setTimeout(function () { replyNow(); }, 60);
     }
 
@@ -880,7 +1001,7 @@
 
     function hasExitAnswer(s, ticket) {
       return !!ticket && (s.transcript || []).some(function (m) {
-        return m.role === "user" && !m.studyAction && (m.ts || 0) > (ticket.askedAt || 0);
+        return m.role === "user" && (!m.studyAction || m.studyAction === "quiz_answer") && (m.ts || 0) > (ticket.askedAt || 0);
       });
     }
 
@@ -894,7 +1015,7 @@
       commit(Object.assign({}, s, { progress: cp }));
       pushEntry({
         id: "u_" + Date.now(), role: "user", studyAction: "exit_request",
-        content: "（【结课小测】请针对当前小节最核心、最好也是我还不稳的点，只出 1 道需要我亲自作答的小题。先不要公布答案，也不要替我回答。）", ts: askedAt
+        content: "（【结课小测】请针对当前小节最核心、最好也是我还不稳的点，只发 1 张需要我亲自作答的可交互题卡。先不要公布答案，也不要替我回答。）", ts: askedAt
       });
       await replyNow();
       props.toast("先答完这道小测，再点“提交结课”");
@@ -1000,8 +1121,49 @@
             return h("span", { key: g.id, style: { fontFamily: F_BODY, fontSize: 11, color: "#fff", background: col, borderRadius: 4, padding: "1px 7px" } }, g.label);
           })) : null);
 
+    function quizCard(m) {
+      const q = m.quiz;
+      const attempts = q.attempts || [];
+      const last = attempts[attempts.length - 1];
+      const solved = q.status === "correct";
+      const draft = quizDrafts[m.id] || "";
+      const baseButton = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg,
+        border: "1px solid " + t.line, borderRadius: 9, padding: "9px 10px", textAlign: "left" };
+      let answerUI;
+      if (q.type === "choice") {
+        answerUI = h("div", { className: "flex flex-col gap-2" }, (q.options || []).map(function (o) {
+          return h("button", { key: o.id, disabled: busy || solved, onClick: function () { submitQuiz(m, o.id); },
+            className: "active:opacity-70 disabled:opacity-60", style: baseButton },
+            h("span", { style: { color: accent, marginRight: 7 } }, o.id), o.label);
+        }));
+      } else if (q.type === "true_false") {
+        answerUI = h("div", { className: "grid grid-cols-2 gap-2" },
+          h("button", { disabled: busy || solved, onClick: function () { submitQuiz(m, "true"); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }) }, "正确"),
+          h("button", { disabled: busy || solved, onClick: function () { submitQuiz(m, "false"); }, className: "active:opacity-70 disabled:opacity-60", style: Object.assign({}, baseButton, { textAlign: "center" }) }, "错误"));
+      } else {
+        answerUI = h("div", { className: "flex gap-2" },
+          h("input", { value: draft, disabled: busy || solved, onChange: function (e) { setQuizDrafts(function (old) { return Object.assign({}, old, { [m.id]: e.target.value }); }); },
+            onKeyDown: function (e) { if (e.key === "Enter") { e.preventDefault(); submitQuiz(m, draft); } }, placeholder: "填入答案…",
+            style: { minWidth: 0, flex: 1, fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: "9px 10px" } }),
+          h("button", { disabled: busy || solved || !draft.trim(), onClick: function () { submitQuiz(m, draft); }, className: "active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: accent, borderRadius: 9, padding: "9px 13px" } }, busy ? "判定中" : "提交"));
+      }
+      return h("div", { style: { width: "min(100%, 430px)", background: t.bg2, border: "1px solid " + accent + "55", borderRadius: 14, padding: 13 } },
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: accent } }, q.type === "choice" ? "单选题" : q.type === "true_false" ? "判断题" : "填空题"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, attempts.length ? "已答 " + attempts.length + " 次" : "未作答")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: t.ink, marginBottom: 11, whiteSpace: "pre-wrap" } }, q.prompt),
+        answerUI,
+        last ? h("div", { style: { marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6,
+          color: last.result === "correct" ? "#4a9e5c" : last.result === "partial" ? "#b18428" : "#c45353" } },
+          (last.result === "correct" ? "✓ " : last.result === "partial" ? "△ " : "× ") + last.feedback) : null,
+        solved && q.explanation ? h("div", { style: { marginTop: 7, paddingTop: 7, borderTop: "1px solid " + t.line,
+          fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog } }, q.explanation) : null);
+    }
+
     // 气泡渲染
     const bubbles = sess.transcript.map(function (m) {
+      if (m.hidden) return null;
       if (m.role === "user") {
         return h("div", { key: m.id, className: "flex justify-end mb-2" },
           h("div", { style: { maxWidth: "76%", background: accent, color: "#fff", borderRadius: "14px 14px 4px 14px", padding: "8px 12px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content));
@@ -1015,7 +1177,7 @@
           (sess.mode === "nv1" || (char && char.voiceId && typeof ttsReady === "function" && ttsReady())) ? h("div", { className: "flex items-center gap-1", style: { marginBottom: 2 } },
             sess.mode === "nv1" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.name + (isTeacher ? "（老师）" : "（同学）")) : null,
             (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: m.content, spk: char, tp: tp }) : null) : null,
-          h("div", { style: { display: "inline-block", maxWidth: "100%", background: indent ? "#7c5cbf1a" : t.bg2, border: "1px solid " + t.line, color: t.ink, borderRadius: "4px 14px 14px 14px", padding: "8px 12px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content)));
+          m.quiz ? quizCard(m) : h("div", { style: { display: "inline-block", maxWidth: "100%", background: indent ? "#7c5cbf1a" : t.bg2, border: "1px solid " + t.line, color: t.ink, borderRadius: "4px 14px 14px 14px", padding: "8px 12px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content)));
     });
 
     return h("div", { className: "h-full flex flex-col" },
