@@ -4635,6 +4635,7 @@ function EventShelfSection({ characters, entries }) {
   const [composeOpen, setComposeOpen] = useState(false);
   const [reviewId, setReviewId] = useState(null); // 打开过目台的候选 id
   const [showRejected, setShowRejected] = useState(false);
+  const [evQ, setEvQ] = useState(""); // ⑥第7步：书架搜索（标题/梗概/主题，本地过滤）
   const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : "？"; };
   const fmtD = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "/" + d.getDate(); };
   const load = async () => {
@@ -4672,7 +4673,8 @@ function EventShelfSection({ characters, entries }) {
       showRejected ? rej.map(c => h("button", { key: c.id, onClick: () => setReviewId(c.id), className: "w-full rounded-lg py-1.5 mb-1 active:opacity-70", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, "🗂 " + nameOf(c.requested_char_id) + " · " + (c.source_memory_ids || []).length + " 条 · " + String(c.updated_at || "").slice(0, 10))) : null) : null; })(),
     !events.length && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "14px 0", lineHeight: 1.7 } },
       "还没有事件。", h("br"), "点上面那行，挑几条记忆碎片请他写成第一件。"),
-    events.map(ev => h("button", {
+    events.length > 3 ? h("input", { value: evQ, onChange: e => setEvQ(e.target.value), placeholder: "搜事件：标题 / 梗概 / 主题…", className: "w-full outline-none px-3 py-2 rounded-lg mb-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }) : null,
+    events.filter(ev => { const q = evQ.trim().toLowerCase(); if (!q) return true; return (String(ev.title || "") + " " + String(ev.synopsis || "") + " " + (ev.themes || []).join(" ")).toLowerCase().indexOf(q) >= 0; }).map(ev => h("button", {
       key: ev.id,
       onClick: async () => { const d = window.MemoryEvents ? await window.MemoryEvents.getEvent(ev.id) : null; if (d) setDetail(d); },
       className: "w-full text-left rounded-xl p-3 mb-2 active:opacity-70",
