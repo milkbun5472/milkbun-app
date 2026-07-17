@@ -9,6 +9,7 @@
 - P0-3：95% 同分窗口只做旁路统计，尚未随机实际返回。
 - P1-1：分类与证据逐字核验 shadow 已运行；真实入库仍走旧规则，temperature 尚未拦截。
 - P1-2：`memory_surface_state_*.sql` 仅为 dormant 设计/测试包，**未部署**；App 也没有状态写入口。
+- P1-3：`memory_corrections_*.sql` 已形成候选/双行原子决定/审计/回滚测试 dormant 包，**未部署**；`pruneSubsumed` 仍未替换。
 - 07-22 纪律复核：`memory_post_cutover_audit.sql` 与 App“权威表纪律复核”只读导出已备好。
 
 ## 1. P0-1：召回质量旁路仪表
