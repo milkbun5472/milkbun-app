@@ -786,9 +786,15 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
       const baseIds = relevant.map(e => e.id), propIds = proposed.map(e => e.id);
       const repeats = relevant.filter(e => e !== top1 && !e.open && RS.isCooling(charId, e.id)).length;
       const replaced = baseIds.filter(id => propIds.indexOf(id) < 0).length;
+      // P0-3 前置统计：top2~topK 的「95% 同分窗口」有多宽（施工图 §3：窗口普遍≤1 就不上随机；先统计再定阈值）
+      let wsize = 0;
+      if (pool.length > 1) {
+        const winMax = pool[1].s;
+        wsize = pool.slice(1, Math.max(1, limit)).filter(x => x.s >= winMax * 0.95).length;
+      }
       RS.observe({ c: RS.charHash(charId), turn, k: baseIds.length, b: baseIds, p: propIds,
         bkt: pool.slice(0, limit).map(x => Math.round(x.s * 10) / 10),
-        repeats, replaced, cooled, empty: relevant.length === 0, touch: opts.touch !== false });
+        repeats, replaced, cooled, wsize, empty: relevant.length === 0, touch: opts.touch !== false });
       if (opts.touch !== false && relevant.length) RS.noteSurfaced(charId, relevant.map(e => e.id));
     }
   } catch (eShadow) {/* 旁路绝不影响召回 */}

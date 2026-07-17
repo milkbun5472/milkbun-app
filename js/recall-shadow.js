@@ -123,13 +123,14 @@
       const all = await rq(tx.objectStore("diag").getAll());
       await done(tx);
       const recent = all.slice(-(n || 200));
-      const agg = { observations: recent.length, empty: 0, repeatSum: 0, replaceSum: 0, cooledSum: 0, kSum: 0 };
+      const agg = { observations: recent.length, empty: 0, repeatSum: 0, replaceSum: 0, cooledSum: 0, kSum: 0, wSum: 0, wNarrow: 0, wN: 0 };
       recent.forEach(r => {
         if (r.empty) agg.empty++;
         agg.repeatSum += r.repeats || 0;
         agg.replaceSum += r.replaced || 0;
         agg.cooledSum += (r.cooled || []).length;
         agg.kSum += r.k || 0;
+        if (typeof r.wsize === "number") { agg.wN++; agg.wSum += r.wsize; if (r.wsize <= 1) agg.wNarrow++; }
       });
       const denom = Math.max(1, agg.kSum);
       return {
@@ -139,6 +140,9 @@
         repeatRate: +(agg.repeatSum / denom).toFixed(3),      // 连续重复率：topK 里 4 轮内刚浮现过的占比
         proposedReplaceRate: +(agg.replaceSum / denom).toFixed(3), // 冷却版会换掉的比例（旁路预测）
         avgCooledPerCall: recent.length ? +(agg.cooledSum / recent.length).toFixed(2) : 0,
+        // P0-3 决策数据：95% 同分窗口平均宽度 + 窗口≤1 的占比（占比高=随机没意义，保持确定排序）
+        avgWindowSize: agg.wN ? +(agg.wSum / agg.wN).toFixed(2) : 0,
+        narrowWindowRate: agg.wN ? +(agg.wNarrow / agg.wN).toFixed(3) : 0,
         rings: [...rings.entries()].map(([k, v]) => ({ char: charHash(k), ring: v.length, turn: turnOf(k) })),
         last: recent.slice(-5)
       };

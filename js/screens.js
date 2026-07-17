@@ -3329,6 +3329,7 @@ function RecallShadowPanel() {
         "· 连续重复率 " + Math.round(rep.repeatRate * 100) + "%（topK 里 4 轮内刚说过的占比——机械感来源）", h("br"),
         "· 冷却版预计替换率 " + Math.round(rep.proposedReplaceRate * 100) + "%（若开冷却会换掉的条目比例）", h("br"),
         "· 空召回率 " + Math.round(rep.emptyRate * 100) + "% · 平均每次被冷却 " + rep.avgCooledPerCall + " 条", h("br"),
+        "· 同分窗口均宽 " + rep.avgWindowSize + " · 窄窗(≤1)占 " + Math.round(rep.narrowWindowRate * 100) + "%（P0-3 随机值不值得开看这行）", h("br"),
         "· 活跃角色环：" + (rep.rings || []).map(r => r.char + "(" + r.ring + "条/第" + r.turn + "轮)").join("、"),
         h("div", { className: "flex", style: { gap: 10, marginTop: 6 } },
           h("button", { onClick: load, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "刷新"),
