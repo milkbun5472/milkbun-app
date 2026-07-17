@@ -115,6 +115,8 @@
         localStorage.removeItem(MARK);
         localStorage.removeItem("memory_table_authority_v1"); // 切表批准只属于当前账号在当前设备；退出后不带给下一个账号
       } finally { suspend = false; }
+      // 事件书架镜像立即清空（不等下次 ensureOwner）——未登录不许看到上一个账号的事件标题/梗概
+      try { if (window.MemoryEvents && window.MemoryEvents.clearAll) await window.MemoryEvents.clearAll(); } catch (e) {}
     },
 
     // 把本地存档推到云端（覆盖该用户那一行）

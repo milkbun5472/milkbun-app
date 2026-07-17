@@ -96,6 +96,13 @@
     if (!(window.Cloud && window.Cloud.ready() && typeof window.Cloud.eventGet === "function")) return null;
     try { return await window.Cloud.eventGet(id); } catch (e) { return null; }
   }
+  // 退出登录立即清空镜像（不等下次 ensureOwner）——未登录状态不许看到上一个账号的标题/梗概
+  async function clearAll() {
+    const db = await openDB();
+    const tx = db.transaction(["events", "candidates", "links", "meta"], "readwrite");
+    ["events", "candidates", "links", "meta"].forEach(s => tx.objectStore(s).clear());
+    await done(tx);
+  }
   async function status() {
     const db = await openDB(), tx = db.transaction(["events", "candidates", "meta"], "readonly");
     const events = await request(tx.objectStore("events").count());
@@ -105,5 +112,5 @@
     return { events, candidates, lastRefresh: last ? last.value : null, mode: "read-only" };
   }
 
-  window.MemoryEvents = { refresh, listEvents, listCandidates, getEvent, status };
+  window.MemoryEvents = { refresh, listEvents, listCandidates, getEvent, status, clearAll };
 })();

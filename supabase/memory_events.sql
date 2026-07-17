@@ -172,7 +172,10 @@ revoke all on table public.memory_event_candidates from anon, authenticated;
 revoke all on table public.memory_event_links from anon, authenticated;
 
 grant select on table public.memory_events to authenticated;
-grant select, insert, update on table public.memory_event_candidates to authenticated;
+grant select, insert on table public.memory_event_candidates to authenticated;
+-- App 对候选行只允许动这三列（退回/拒绝写 status+feedback、确认前标记"你改过"）；
+-- 来源ID/执笔人/幂等键/基线revision/draft 对登录客户端锁死，draft 只有 CC（service role）能写。
+grant update (status, feedback, edited_by_user) on table public.memory_event_candidates to authenticated;
 grant select on table public.memory_event_links to authenticated;
 
 drop policy if exists memory_events_select_own on public.memory_events;
