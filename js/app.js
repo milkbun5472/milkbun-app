@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.42";
+const APP_VERSION = "v49.43";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -312,6 +312,7 @@ function App() {
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
   const [temperamentDraft, setTemperamentDraft] = useState(null);
   const [temperamentBusy, setTemperamentBusy] = useState(false);
+  const [aShadowPanel, setAShadowPanel] = useState(null);
   // 配件·会话级总开关（安全铁律③：默认关、刷新即关；只有当次会话在某角色处明示激活才生效）。armedFor=激活给了哪个角色
   const [toyArmed, setToyArmed] = useState(false);
   const [toyArmedFor, setToyArmedFor] = useState(null);
@@ -590,7 +591,8 @@ function App() {
     (async () => {
       const ownerId = await aShadowOwnerId();
       const row = await window.InnerLifeAShadow.get(ownerId, activeChar.id);
-      if (alive) setTemperamentDraft(row && row.emotion ? row.emotion.temperament : null);
+      const report = await window.InnerLifeAShadow.report(ownerId, activeChar.id);
+      if (alive) { setTemperamentDraft(row && row.emotion ? row.emotion.temperament : null); setAShadowPanel({ state: row, projection: row && window.JiwenEmotionA ? window.JiwenEmotionA.displayProjection(row) : null, report }); }
     })();
     return () => { alive = false; };
   }, [chatSettingsOpen, activeChar && activeChar.id]);
@@ -600,7 +602,7 @@ function App() {
     setTemperamentBusy(true);
     try {
       const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`;
-      const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【Lisa 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 300 });
+      const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【Lisa 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 6000 });
       const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
       const next = window.JiwenEmotionA.temperamentFromAnchors(words, false);
       if (!next.anchors.length) throw new Error("没有提取到可用的性情词");
@@ -618,7 +620,26 @@ function App() {
     state.revision = Number(state.revision || 0) + 1; state.updatedTs = Date.now();
     const saved = await window.InnerLifeAShadow.put(ownerId, activeChar.id, state);
     if (!saved) { toast("性情锚点保存失败"); return false; }
-    setTemperamentDraft(saved.emotion.temperament); toast("性情锚点已由你确认 · 只存 A 影子库"); return true;
+    setTemperamentDraft(saved.emotion.temperament); setAShadowPanel(p => ({ ...(p || {}), state: saved, projection: window.JiwenEmotionA.displayProjection(saved) })); toast("性情锚点已由你确认 · 只存 A 影子库"); return true;
+  };
+  const observeEmotionAShadow = (charId, affinityDelta, moodLabel) => {
+    try {
+      if (!window.InnerLifeAShadow || !window.JiwenEmotionA || !charId) return;
+      setTimeout(async () => {
+        try {
+          const ownerId = await aShadowOwnerId(), now = Date.now();
+          let state = await window.InnerLifeAShadow.get(ownerId, charId);
+          if (!state) state = window.JiwenEmotionA.createState(window.InnerLifeAShadow.hash(charId), now);
+          const elapsed = Math.max(0, Math.min(720, (now - Number(state.updatedTs || now)) / 60000));
+          if (elapsed > 0) state = window.JiwenEmotionA.regress(state, elapsed, now);
+          const result = window.JiwenEmotionA.applyEvent(state, { affinityDelta: Number.isFinite(Number(affinityDelta)) ? Number(affinityDelta) : 0, moodLabel: moodLabel || "" }, now);
+          const saved = await window.InnerLifeAShadow.put(ownerId, charId, result.state); if (!saved) return;
+          const projection = window.JiwenEmotionA.displayProjection(saved);
+          await window.InnerLifeAShadow.addDiagnostic(ownerId, charId, { t: now, items: projection.items, tokenEstimate: projection.tokenEstimate, moodMatched: result.audit.moodMatched, clippedAxis: result.audit.clippedAxis, scaledTotal: result.audit.scaledTotal });
+          if (activeChar && activeChar.id === charId) { const report = await window.InnerLifeAShadow.report(ownerId, charId); setAShadowPanel({ state: saved, projection, report }); }
+        } catch (e) {}
+      }, 0);
+    } catch (e) {}
   };
   const setBgApi = id => { setBgApiId(id); saveJSON("x_bgApi", id); };
   const settingsFor = id => chatSettings[id] || {
@@ -3015,6 +3036,8 @@ function App() {
         ...parsed.mood,
         ts: Date.now()
       });
+      // A 情绪立体化 shadow：只算十维与 display 候选，写独立 IDB 诊断；绝不注入本轮/下轮 prompt。
+      observeEmotionAShadow(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
       const st = {};
       if (parsed.wearing) st.wearing = parsed.wearing;
       if (parsed.action) st.action = parsed.action;
@@ -8164,6 +8187,7 @@ function App() {
     temperamentBusy: temperamentBusy,
     onGenerateTemperament: generateTemperamentDraft,
     onSaveTemperament: saveTemperamentAnchors,
+    aShadowPanel: aShadowPanel,
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);

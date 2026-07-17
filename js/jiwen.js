@@ -895,7 +895,25 @@ function regressEmotionA(rawState,minutesValue,nowValue) {
   }catch(_){return rawState;}
 }
 
-const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA});
+const A_DISPLAY_LABELS=Object.freeze({connection:"想靠近",pride:"防御感",valence:"愉悦",arousal:"激动",immersion:"沉浸",hurt:"受伤",anger:"愤怒",anxiety:"不安",warmth:"柔软",fatigue:"疲惫"});
+function displayProjectionA(rawState,options){
+  try{
+    const emotion=rawState&&rawState.emotion,base=emotion&&emotion.baseline,current=emotion&&emotion.current;
+    if(!base||!current)return {items:[],bottomLine:"",text:"",tokenEstimate:0};
+    const threshold=Math.max(.02,aFinite(options&&options.threshold,.08)),maxItems=Math.max(1,Math.min(4,Math.round(aFinite(options&&options.maxItems,4))));
+    const ranked=Object.keys(A_AXES).map(key=>{
+      const span=A_AXES[key][1]-A_AXES[key][0],delta=aFinite(current[key],base[key])-aFinite(base[key],A_DEFAULT_BASELINE[key]);
+      return {key,label:A_DISPLAY_LABELS[key],delta,score:Math.abs(delta)/span};
+    }).filter(x=>x.score>=threshold).sort((a,b)=>b.score-a.score||a.key.localeCompare(b.key)).slice(0,maxItems);
+    const anchors=emotion.temperament&&Array.isArray(emotion.temperament.anchors)?emotion.temperament.anchors.slice(0,3):[];
+    const bottomLine=anchors.length?"底色："+anchors.join("、"):"底色：按自己的常态感受";
+    const items=ranked.map(x=>({key:x.key,label:x.label,direction:x.delta>0?"偏高":"偏低",delta:Number(x.delta.toFixed(3))}));
+    const text=items.length?bottomLine+"；此刻偏离："+items.map(x=>x.label+x.direction).join("、"):"";
+    return {items,bottomLine,text,tokenEstimate:text?Math.ceil(text.length/2):0};
+  }catch(_){return {items:[],bottomLine:"",text:"",tokenEstimate:0,error:"display_projection_failed"};}
+}
+
+const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA});
 
 if (typeof window !== "undefined") { window.createJiwen = createJiwen; window.JiwenEmotionA=JiwenEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createJiwen,JiwenEmotionA};

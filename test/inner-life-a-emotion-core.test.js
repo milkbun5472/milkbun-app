@@ -93,3 +93,21 @@ test("未知性情词保留为身份锚点但没有数值权限", () => {
   assert.deepEqual(t.unmatched,["像雨后的玻璃"]);
   assert.equal(t.approved,false);
 });
+
+test("display 只选偏离 baseline 最大的至多四维", () => {
+  const state=A.createState("char",T0);
+  state.emotion.temperament=A.temperamentFromAnchors(["敏感","嘴硬"],true);
+  Object.assign(state.emotion.current,{hurt:.8,anger:.7,anxiety:.65,warmth:.8,fatigue:.9,valence:.1});
+  const out=A.displayProjection(state);
+  assert.equal(out.items.length,4);
+  assert.ok(out.items.some(x=>x.key==="fatigue"));
+  assert.ok(out.text.includes("底色：敏感、嘴硬"));
+  assert.ok(out.tokenEstimate>0);
+});
+
+test("接近 baseline 时 display 零增量，不硬塞十维", () => {
+  const state=A.createState("char",T0),out=A.displayProjection(state);
+  assert.deepEqual(out.items,[]);
+  assert.equal(out.text,"");
+  assert.equal(out.tokenEstimate,0);
+});
