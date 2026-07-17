@@ -4388,14 +4388,104 @@ function DataConfig({
 // ============================================================
 // MEMORY LIBRARY 记忆库
 // ============================================================
+// ⑥事件层 · 第3步：挑碎片 → 创建候选（status=requested）。
+// 铁律（施工图 §3）：创建前从权威行表重读所选 ID（不用本地卡片快照）；2~30 条；
+// 缺失/软删/revision 漂移=红灯停下告知，不偷偷跳过；离线不排队。
+async function evSha256Hex(s) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+function EventComposeSheet({ entries, characters, onClose, onCreated, toast }) {
+  const t = useTheme();
+  const [stage, setStage] = useState("pick"); // pick → verify
+  const [selChar, setSelChar] = useState(null);
+  const [selIds, setSelIds] = useState([]); // 保留勾选顺序
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState(null);   // 核对页：权威行表重读结果
+  const [problems, setProblems] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : "？"; };
+  const toggle = id => setSelIds(p => p.includes(id) ? p.filter(x => x !== id) : (p.length >= 30 ? p : p.concat([id])));
+  const qlc = q.trim().toLowerCase();
+  const list = (entries || []).filter(e => e && e.id && e.text && (!qlc || String(e.text).toLowerCase().indexOf(qlc) >= 0));
+  const verify = async () => {
+    if (!(window.Cloud && window.Cloud.ready())) { toast && toast("云服务未就绪，登录后再来"); return; }
+    setBusy(true); setProblems([]);
+    try {
+      const fetched = await window.Cloud.memoryRowsFetchByIds(selIds);
+      const byId = new Map(fetched.map(r => [r.id, r]));
+      const probs = [];
+      selIds.forEach(id => {
+        const r = byId.get(id);
+        if (!r) probs.push("云端找不到这条：" + String((entries.find(e => e.id === id) || {}).text || id).slice(0, 30));
+        else if (r.deleted) probs.push("这条已被撤回（软删）：" + String(r.text).slice(0, 30));
+      });
+      setRows(selIds.map(id => byId.get(id)).filter(Boolean));
+      setProblems(probs);
+      setStage("verify");
+    } catch (e) { toast && toast("没连上云端：" + ((e && e.message) || "稍后再试")); }
+    finally { setBusy(false); }
+  };
+  const create = async () => {
+    if (problems.length) return;
+    setBusy(true);
+    try {
+      const user = await window.Cloud.getUser();
+      if (!user) throw new Error("未登录");
+      const revs = {};
+      rows.forEach(r => { revs[r.id] = Number(r.revision); });
+      const sortedIds = selIds.slice().sort();
+      const key = await evSha256Hex(user.id + "|" + selChar + "|" + sortedIds.join(",") + "|" + sortedIds.map(i => i + ":" + revs[i]).join(","));
+      const res = await window.Cloud.eventCandidateRequest({
+        id: "evc_" + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "_" + Math.random().toString(16).slice(2)),
+        sourceMemoryIds: selIds,
+        requestedCharId: selChar,
+        baseMemoryRevisions: revs,
+        idempotencyKey: key
+      });
+      toast && toast(res.existed ? "这批选择之前就交过了，沿用原候选" : "已交给 " + nameOf(selChar) + " 执笔，写好会回到这里等你过目");
+      onCreated && onCreated();
+      onClose();
+    } catch (e) { toast && toast("创建没成功：" + ((e && e.message) || "表可能还没部署")); }
+    finally { setBusy(false); }
+  };
+  return h(Sheet, { onClose: onClose },
+    h(Eyebrow, { style: { marginBottom: 8 } }, stage === "pick" ? "挑 2~30 条碎片，整理成一件事" : "核对后交给执笔人"),
+    stage === "pick" && h(React.Fragment, null,
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, (characters || []).map(c =>
+        h("button", { key: c.id, onClick: () => setSelChar(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, border: "1px solid " + (selChar === c.id ? t.tint : t.line), color: selChar === c.id ? t.tint : t.sub, background: t.bg2 } }, "执笔·" + (c.remark || c.name)))),
+      h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜正文…", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, marginBottom: 8 } }),
+      h("div", { style: { maxHeight: "42vh", overflowY: "auto" } }, list.map(e => {
+        const on = selIds.includes(e.id);
+        return h("button", { key: e.id, onClick: () => toggle(e.id), className: "w-full text-left rounded-lg p-2.5 mb-1.5 active:opacity-70", style: { border: "1px solid " + (on ? t.tint : t.line), background: on ? "rgba(158,130,96,.07)" : t.bg2 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, (on ? "☑ " : "☐ ") + String(e.text).slice(0, 80) + (String(e.text).length > 80 ? "…" : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+            new Date(e.ts || 0).toLocaleDateString(), e.open ? " · ⏳未了结" : "", e.archived ? " · 🗂已归档" : "", e.pinned ? " · 📌" : ""));
+      })),
+      h("button", { onClick: verify, disabled: busy || !selChar || selIds.length < 2 || selIds.length > 30, className: "w-full mt-2 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } },
+        busy ? "正在跟云端对账…" : "核对这 " + selIds.length + " 条（需 2~30 条" + (selChar ? "" : "，先选执笔人") + "）")),
+    stage === "verify" && h(React.Fragment, null,
+      problems.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8, lineHeight: 1.6 } },
+        "🔴 有问题的条目，请返回处理：", h("br"), problems.join("；")) : null,
+      h("div", { style: { maxHeight: "40vh", overflowY: "auto", marginBottom: 8 } }, (rows || []).map(r =>
+        h("div", { key: r.id, className: "rounded-lg p-2.5 mb-1.5", style: { border: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.55 } }, r.text),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+            new Date(r.ts || 0).toLocaleDateString(), " · rev " + r.revision, (r.tags || []).length ? " · " + r.tags.join("/") : "", r.open ? " · ⏳未了结" : "", r.archived ? " · 🗂已归档" : "")))),
+      h("div", { className: "flex", style: { gap: 8 } },
+        h("button", { onClick: () => { setStage("pick"); setRows(null); setProblems([]); }, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "返回改选"),
+        h("button", { onClick: create, disabled: busy || !!problems.length, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, busy ? "提交中…" : "创建请求，交给执笔人"))));
+}
+
 // ⑥事件层 · 第2步：事件书架（只读）。自包含读 window.MemoryEvents 的 IDB 镜像；
 // 未登录/表未建=空态不报错；本步没有任何写入口（施工图 §2）。
-function EventShelfSection({ characters }) {
+function EventShelfSection({ characters, entries }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const [events, setEvents] = useState([]);
   const [cands, setCands] = useState([]);
   const [detail, setDetail] = useState(null); // { event, links }
+  const [composeOpen, setComposeOpen] = useState(false);
   const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : "？"; };
   const fmtD = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "/" + d.getDate(); };
   const load = async () => {
@@ -4422,8 +4512,11 @@ function EventShelfSection({ characters }) {
   }, h("span", null, "📚 事件书架 · " + events.length + " 件" + (pendingCands.length ? "（候选 " + pendingCands.length + "）" : "")),
     h("span", { style: { color: t.fog, fontSize: 11 } }, open ? "收起" : "展开")),
   open && h("div", { style: { maxHeight: "38vh", overflowY: "auto", marginBottom: 8 } },
+    h("button", { onClick: () => setComposeOpen(true), className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, "＋ 挑碎片整理成事件"),
+    pendingCands.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6, textAlign: "center" } },
+      pendingCands.map(c => (c.status === "requested" ? "🕐等执笔" : "✍️已起草待你过目") + "·" + nameOf(c.requested_char_id) + "·" + (c.source_memory_ids || []).length + "条").join("　")) : null,
     !events.length && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "14px 0", lineHeight: 1.7 } },
-      "还没有事件。", h("br"), "等整理功能上线，挑几条记忆碎片就能请小克写成第一件。"),
+      "还没有事件。", h("br"), "点上面那行，挑几条记忆碎片请他写成第一件。"),
     events.map(ev => h("button", {
       key: ev.id,
       onClick: async () => { const d = window.MemoryEvents ? await window.MemoryEvents.getEvent(ev.id) : null; if (d) setDetail(d); },
@@ -4438,6 +4531,7 @@ function EventShelfSection({ characters }) {
         (ev.char_ids || []).map(nameOf).join("、"),
         " · ", fmtD(ev.started_ts), ev.ended_ts ? "–" + fmtD(ev.ended_ts) : "起",
         ev.edited_by_user ? " · 你改过" : "")))),
+  composeOpen && h(EventComposeSheet, { entries: entries, characters: characters, toast: window.__toast, onCreated: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => setComposeOpen(false) }),
   detail && h(Sheet, { onClose: () => setDetail(null) },
     h(Eyebrow, { style: { marginBottom: 6 } }, detail.event.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } },
@@ -4535,7 +4629,7 @@ function MemoryLib({
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60 disabled:opacity-40",
     style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, migrationBusy ? "正在逐 ID 验收…" : "🛟 逐 ID 验收并启用新记忆表") : null,
-  h(EventShelfSection, { characters: characters }),
+  h(EventShelfSection, { characters: characters, entries: entries }),
   memoryTableMode && onUseLegacyMemory ? h("button", {
     onClick: () => { if (confirm("紧急改回本机旧镜像读取？不会删除新表或任何记忆；重新启用前不要在两边同时修改。")) onUseLegacyMemory(); },
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",

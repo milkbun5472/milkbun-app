@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.09";
+const APP_VERSION = "v49.10";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -357,6 +357,8 @@ function App() {
     setToastMsg(m);
     setTimeout(() => setToastMsg(null), 2200);
   };
+  // 自包含子组件（如事件书架）不走 props 也能弹提示
+  useEffect(() => { window.__toast = toast; return () => { delete window.__toast; }; });
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(i);

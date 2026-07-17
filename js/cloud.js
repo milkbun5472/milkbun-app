@@ -350,6 +350,49 @@
       if (error) throw error;
       return data || [];
     },
+    // ⑥第3步：按 ID 从权威行表重读所选碎片（创建候选前必须用这个，不用 React 卡片快照）
+    async memoryRowsFetchByIds(ids) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const clean = [...new Set((ids || []).map(String).filter(Boolean))];
+      if (!clean.length) return [];
+      const { data, error } = await client.from("memories")
+        .select("id,text,tags,char_ids,v,a,open,pinned,ts,archived,source,deleted,revision")
+        .eq("user_id", user.id).in("id", clean);
+      if (error) throw error;
+      return data || [];
+    },
+    // ⑥第3步：创建事件候选（status=requested）。同 idempotency_key 已存在 → 返回已有候选不重复建
+    async eventCandidateRequest(row) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const payload = {
+        user_id: user.id,
+        id: row.id,
+        status: "requested",
+        source_memory_ids: row.sourceMemoryIds,
+        requested_char_id: row.requestedCharId,
+        draft: null,
+        base_memory_revisions: row.baseMemoryRevisions,
+        idempotency_key: row.idempotencyKey,
+        accepted_event_id: null
+      };
+      const { data, error } = await client.from("memory_event_candidates")
+        .insert(payload).select("id,status,updated_at").maybeSingle();
+      if (error) {
+        if (String(error.code) === "23505") { // 幂等：同一批选择已经建过
+          const { data: existing, error: e2 } = await client.from("memory_event_candidates")
+            .select("id,status,updated_at").eq("user_id", user.id)
+            .eq("idempotency_key", row.idempotencyKey).maybeSingle();
+          if (e2) throw e2;
+          if (existing) return { ...existing, existed: true };
+        }
+        throw error;
+      }
+      return { ...data, existed: false };
+    },
     async eventGet(id) {
       if (!client) throw new Error("云服务未就绪");
       const user = await this.getUser();
