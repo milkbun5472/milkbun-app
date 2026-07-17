@@ -19,7 +19,7 @@ declare
   result1 jsonb;
   result2 jsonb;
   failed boolean;
-  event_id text;
+  accepted_event_id text;
   before_events bigint;
   before_links bigint;
 begin
@@ -151,10 +151,10 @@ begin
   if result1->'event'->>'id' <> result2->'event'->>'id' or coalesce((result2->>'idempotent')::boolean,false) is not true then
     raise exception 'same mutation did not return the same event';
   end if;
-  event_id := result1->'event'->>'id';
-  if (select count(*) from public.memory_events where user_id=uid and id=event_id) <> 1
-     or (select count(*) from public.memory_event_links where user_id=uid and event_id=event_id) <> 2
-     or (select status from public.memory_event_candidates where user_id=uid and id=c_id) <> 'accepted' then
+  accepted_event_id := result1->'event'->>'id';
+  if (select count(*) from public.memory_events e where e.user_id=uid and e.id=accepted_event_id) <> 1
+     or (select count(*) from public.memory_event_links l where l.user_id=uid and l.event_id=accepted_event_id) <> 2
+     or (select c.status from public.memory_event_candidates c where c.user_id=uid and c.id=c_id) <> 'accepted' then
     raise exception 'successful acceptance did not create exactly 1 event + 2 links + accepted candidate';
   end if;
   failed := false;
