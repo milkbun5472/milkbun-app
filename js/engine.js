@@ -768,6 +768,30 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   scored.sort((a, b) => b.s - a.s);
   const relevant = scored.filter(x => x.s > 0.9).slice(0, limit).map(x => x.e);
   const picked = pinned.concat(relevant);
+  // ⑤后·记忆质量线 P0-1/P0-2 旁路（v49.15，施工图 §1-2）：同时算一版「4轮冷却」的 proposed 并记诊断，
+  // 但【永远返回 baseline】。豁免：pinned（本就另开一路）/open/top-1。诊断关或模块缺=零写入；异常全吞不碰聊天。
+  try {
+    const RS = window.RecallShadow;
+    if (RS && RS.enabled() && list.length) {
+      const turn = RS.turnOf(charId);
+      const top1 = relevant[0] || null;
+      const cooled = [];
+      const pool = scored.filter(x => x.s > 0.9);
+      const proposedScored = pool.map(x => {
+        if (x.e !== top1 && !x.e.open && RS.isCooling(charId, x.e.id)) { cooled.push({ id: x.e.id, reason: "cooldown" }); return { e: x.e, s: x.s * 0.25 }; }
+        return x;
+      }).slice().sort((a, b) => b.s - a.s);
+      let proposed = proposedScored.slice(0, limit).map(x => x.e);
+      if (top1 && proposed[0] !== top1) proposed = [top1].concat(proposed.filter(e => e !== top1)).slice(0, limit); // top-1 不因冷却被更低相关顶掉
+      const baseIds = relevant.map(e => e.id), propIds = proposed.map(e => e.id);
+      const repeats = relevant.filter(e => e !== top1 && !e.open && RS.isCooling(charId, e.id)).length;
+      const replaced = baseIds.filter(id => propIds.indexOf(id) < 0).length;
+      RS.observe({ c: RS.charHash(charId), turn, k: baseIds.length, b: baseIds, p: propIds,
+        bkt: pool.slice(0, limit).map(x => Math.round(x.s * 10) / 10),
+        repeats, replaced, cooled, empty: relevant.length === 0, touch: opts.touch !== false });
+      if (opts.touch !== false && relevant.length) RS.noteSurfaced(charId, relevant.map(e => e.id));
+    }
+  } catch (eShadow) {/* 旁路绝不影响召回 */}
   // ⭐检索即复习：被想起的条目刷新 lastHit、hits+1（就地改 entry 对象——lib 就是 memLibRef.current 那份）。
   // 节流持久化：只有当有条目超过 6 小时没被摸过时才写盘，防每轮聊天都重写整个记忆库
   if (opts.touch !== false && picked.length) {

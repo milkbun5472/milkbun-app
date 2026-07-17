@@ -3311,6 +3311,32 @@ function EmbedApiConfig({ toast }) {
 }
 // 上下文透视（v47.75 借汪汪机的调试页思路）：把「此刻和 TA 聊天会喂给模型的完整 system prompt」
 // 按【段落】拆开展示。角色变笨/OOC/忘事时来这里一眼定位是哪一段的问题。只读、零 API。
+// P0-1 召回旁路仪表（只读折叠区，v49.15）：展示 shadow 观测聚合，不改任何召回行为。
+function RecallShadowPanel() {
+  const t = useTheme();
+  const [folded, setFolded] = useState(true);
+  const [rep, setRep] = useState(null);
+  const load = async () => { if (window.RecallShadow) setRep(await window.RecallShadow.report(200)); };
+  useEffect(() => { if (!folded) load(); }, [folded]);
+  if (!window.RecallShadow) return null;
+  return h("div", { style: { marginTop: 10, border: "1px dashed " + t.line, borderRadius: 12, padding: "8px 12px" } },
+    h("button", { onClick: () => setFolded(f => !f), className: "w-full flex items-center justify-between active:opacity-60" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "🔬 召回旁路仪表（P0-1 · 只观测不干预）"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, folded ? "▸" : "▾")),
+    folded ? null : (rep ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.9, marginTop: 6 } },
+      rep.error ? rep.error : h(React.Fragment, null,
+        "近 " + rep.observations + " 次召回观测（含后台）：", h("br"),
+        "· 连续重复率 " + Math.round(rep.repeatRate * 100) + "%（topK 里 4 轮内刚说过的占比——机械感来源）", h("br"),
+        "· 冷却版预计替换率 " + Math.round(rep.proposedReplaceRate * 100) + "%（若开冷却会换掉的条目比例）", h("br"),
+        "· 空召回率 " + Math.round(rep.emptyRate * 100) + "% · 平均每次被冷却 " + rep.avgCooledPerCall + " 条", h("br"),
+        "· 活跃角色环：" + (rep.rings || []).map(r => r.char + "(" + r.ring + "条/第" + r.turn + "轮)").join("、"),
+        h("div", { className: "flex", style: { gap: 10, marginTop: 6 } },
+          h("button", { onClick: load, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "刷新"),
+          h("button", { onClick: () => { window.RecallShadow.setEnabled(!rep.enabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.enabled ? "#9f5149" : t.tint } }, rep.enabled ? "暂停观测" : "恢复观测（当前已停·零写入）"),
+          h("button", { onClick: () => { if (confirm("清空旁路诊断和冷却环？不影响任何记忆数据。")) { window.RecallShadow.clearAll().then(load); } }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "清空")))) :
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "读取中…")));
+}
+
 function CtxDebug({ characters, getBundle }) {
   const t = useTheme();
   const [cid, setCid] = useState(null);
@@ -3331,6 +3357,7 @@ function CtxDebug({ characters, getBundle }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: folded ? "none" : "rotate(90deg)", display: "inline-block" } }, "›")),
     folded ? null : h(React.Fragment, null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } }, "看看此刻和 TA 聊天时，到底喂了什么给模型（人设 / 记忆 / 世界书 / 行程…按段拆开）。角色变笨、OOC、忘事时来这里排查是哪一段出了问题。"),
+    h(RecallShadowPanel, null),
     h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, (characters || []).map(c =>
       h("button", { key: c.id, onClick: () => load(c.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 13px", borderRadius: 999, background: cid === c.id ? t.ink : t.bg2, color: cid === c.id ? t.bg2 : t.ink, border: "1px solid " + (cid === c.id ? t.ink : t.line) } }, c.remark || c.name))),
     cid ? (() => {
