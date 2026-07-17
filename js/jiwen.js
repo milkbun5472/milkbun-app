@@ -783,6 +783,43 @@ function createEmotionAState(charHash, nowValue) {
     relationAxes:{},sleep:{},openThreads:[],drives:{},migrations:{} };
 }
 
+// 性情锚点只允许模型提议「词」，数值全部由本地固定词典推导。
+// 未命中的词仍作为角色自述保留，但不会获得隐式数值权限。
+const A_TEMPERAMENT_RULES=Object.freeze([
+  [/(?:敏感|易感|细腻|多心)/,{hurt:1.24,anxiety:1.16}],
+  [/(?:嘴硬|傲娇|逞强)/,{pride:1.25,hurt:1.10,warmth:.90}],
+  [/(?:黏人|依恋|恋家|需要陪伴)/,{connection:1.24,warmth:1.10,socialBias:.68}],
+  [/(?:温柔|柔软|心软|体贴)/,{warmth:1.25,anger:.86}],
+  [/(?:克制|冷静|沉稳|内敛)/,{arousal:.86,anger:.90,reflectionBias:.64}],
+  [/(?:慢热|疏离|清冷)/,{warmth:.88,socialBias:.28}],
+  [/(?:急躁|易怒|暴躁|火爆)/,{anger:1.25,arousal:1.14}],
+  [/(?:焦虑|多虑|警觉|胆小)/,{anxiety:1.25,arousal:1.08}],
+  [/(?:钝感|稳定|稳重|豁达)/,{hurt:.84,anxiety:.84}],
+  [/(?:活泼|外向|热烈|元气)/,{arousal:1.16,warmth:1.12,socialBias:.68}],
+  [/(?:好奇|求知|探索)/,{curiosityBias:.72}],
+  [/(?:负责|责任感|守诺|可靠)/,{dutyBias:.72}],
+  [/(?:爱反思|自省|深思)/,{reflectionBias:.74}]
+]);
+function temperamentFromAnchorsA(rawAnchors,approvedValue){
+  const anchors=[],seen=new Set();
+  (Array.isArray(rawAnchors)?rawAnchors:[]).forEach(value=>{
+    const word=String(value==null?"":value).trim().replace(/^[#\s、，,;；]+|[#\s、，,;；]+$/g,"").slice(0,18);
+    if(word&&!seen.has(word)){seen.add(word);anchors.push(word);}
+  });
+  const sensitivity={},biases={curiosityBias:.45,reflectionBias:.40,dutyBias:.45,socialBias:.40},matched=[],unmatched=[];
+  anchors.forEach(word=>{
+    let hit=false;
+    A_TEMPERAMENT_RULES.forEach(([re,part],idx)=>{if(re.test(word)){hit=true;matched.push({anchor:word,rule:idx});Object.entries(part).forEach(([key,value])=>{
+      if(key.endsWith("Bias"))biases[key]=Math.max(biases[key],value);
+      else sensitivity[key]=Math.max(sensitivity[key]||1,value>1?value:0)||value;
+      if(!key.endsWith("Bias")&&value<1)sensitivity[key]=Math.min(sensitivity[key]||1,value);
+    });}});
+    if(!hit)unmatched.push(word);
+  });
+  Object.keys(sensitivity).forEach(key=>{sensitivity[key]=clamp(sensitivity[key],.75,1.35);});
+  return {anchors,sensitivity,regressScale:{},...biases,approved:approvedValue===true,matched,unmatched};
+}
+
 function migrateLegacyFiveA(raw,charHash,nowValue) {
   const next=createEmotionAState(charHash,nowValue), source=raw&&raw.current?raw.current:(raw||{});
   ["connection","pride","valence","arousal","immersion"].forEach(k=>{ if(Number.isFinite(Number(source[k]))) next.emotion.current[k]=aClampAxis(k,source[k]); });
@@ -858,7 +895,7 @@ function regressEmotionA(rawState,minutesValue,nowValue) {
   }catch(_){return rawState;}
 }
 
-const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA});
+const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA});
 
 if (typeof window !== "undefined") { window.createJiwen = createJiwen; window.JiwenEmotionA=JiwenEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createJiwen,JiwenEmotionA};

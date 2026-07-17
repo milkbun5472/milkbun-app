@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.41";
+const APP_VERSION = "v49.42";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -310,6 +310,8 @@ function App() {
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
   const [editMsg, setEditMsg] = useState(null); // 编辑消息弹层 {content, onSave}
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
+  const [temperamentDraft, setTemperamentDraft] = useState(null);
+  const [temperamentBusy, setTemperamentBusy] = useState(false);
   // 配件·会话级总开关（安全铁律③：默认关、刷新即关；只有当次会话在某角色处明示激活才生效）。armedFor=激活给了哪个角色
   const [toyArmed, setToyArmed] = useState(false);
   const [toyArmedFor, setToyArmedFor] = useState(null);
@@ -577,6 +579,47 @@ function App() {
   // 后台任务(抽取/日程/钱包/查手机)用的 API：选了便宜的就用它，没选就回退主 API（默认，不改变现状）
   const bgActive = (bgApiId && apiProfiles.find(p => p.id === bgApiId)) || active;
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
+
+  const aShadowOwnerId = async () => {
+    try { const user = window.Cloud && await window.Cloud.getUser(); if (user && user.id) return user.id; } catch (e) {}
+    return "local-device";
+  };
+  useEffect(() => {
+    let alive = true;
+    if (!chatSettingsOpen || !activeChar || !window.InnerLifeAShadow) return undefined;
+    (async () => {
+      const ownerId = await aShadowOwnerId();
+      const row = await window.InnerLifeAShadow.get(ownerId, activeChar.id);
+      if (alive) setTemperamentDraft(row && row.emotion ? row.emotion.temperament : null);
+    })();
+    return () => { alive = false; };
+  }, [chatSettingsOpen, activeChar && activeChar.id]);
+  const generateTemperamentDraft = async anchorsNow => {
+    if (!activeChar || temperamentBusy) return;
+    if (!bgActive) { toast("请先到设置配置后台 API"); return; }
+    setTemperamentBusy(true);
+    try {
+      const sys = `你只做角色性情词提取，不评价、不续写、不扮演。根据角色设定提炼 3~6 个短性情锚点，每个 2~6 个汉字。只返回 JSON：{"anchors":["词1","词2"]}。不要输出数字，不要把外貌、职业、技能、经历当性情。`;
+      const raw = await callAI(bgActive, sys, [{ role: "user", content: "【角色设定】\n" + String(activeChar.persona || activeChar.prompt || "") + (anchorsNow && anchorsNow.length ? "\n【Lisa 当前保留的词】\n" + anchorsNow.join("、") : "") }], { maxTokens: 300 });
+      const parsed = extractJSON(raw) || {}, words = Array.isArray(parsed.anchors) ? parsed.anchors : [];
+      const next = window.JiwenEmotionA.temperamentFromAnchors(words, false);
+      if (!next.anchors.length) throw new Error("没有提取到可用的性情词");
+      setTemperamentDraft(next);
+      toast("性情草稿已生成 · 还没有保存");
+    } catch (e) { toast("性情草稿失败：" + (e.message || e)); }
+    finally { setTemperamentBusy(false); }
+  };
+  const saveTemperamentAnchors = async words => {
+    if (!activeChar || !window.InnerLifeAShadow || !window.JiwenEmotionA) return false;
+    const ownerId = await aShadowOwnerId(), charHash = window.InnerLifeAShadow.hash(activeChar.id);
+    let state = await window.InnerLifeAShadow.get(ownerId, activeChar.id);
+    if (!state) state = window.JiwenEmotionA.createState(charHash, Date.now());
+    state.emotion.temperament = window.JiwenEmotionA.temperamentFromAnchors(words, true);
+    state.revision = Number(state.revision || 0) + 1; state.updatedTs = Date.now();
+    const saved = await window.InnerLifeAShadow.put(ownerId, activeChar.id, state);
+    if (!saved) { toast("性情锚点保存失败"); return false; }
+    setTemperamentDraft(saved.emotion.temperament); toast("性情锚点已由你确认 · 只存 A 影子库"); return true;
+  };
   const setBgApi = id => { setBgApiId(id); saveJSON("x_bgApi", id); };
   const settingsFor = id => chatSettings[id] || {
     ctxN: 50,
@@ -8117,6 +8160,10 @@ function App() {
     settings: settingsFor(activeChar.id),
     apiProfiles: apiProfiles,
     memory: memories[activeChar.id],
+    temperament: temperamentDraft,
+    temperamentBusy: temperamentBusy,
+    onGenerateTemperament: generateTemperamentDraft,
+    onSaveTemperament: saveTemperamentAnchors,
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);

@@ -76,3 +76,20 @@ test("坏事件和坏时间不抛错、不破坏原状态", () => {
   assert.doesNotThrow(()=>A.regress(state,"坏时间",T0));
   assert.equal(A.applyEvent(null,{delta:{anger:1}},T0).state,null);
 });
+
+test("性情锚点去重并只由固定词典生成受控数字", () => {
+  const t=A.temperamentFromAnchors([" 敏感 ","敏感","嘴硬","温柔"],true);
+  assert.deepEqual(t.anchors,["敏感","嘴硬","温柔"]);
+  assert.equal(t.approved,true);
+  assert.ok(t.sensitivity.hurt>1&&t.sensitivity.hurt<=1.35);
+  assert.ok(t.sensitivity.pride>1&&t.sensitivity.warmth>1);
+  assert.deepEqual(t.unmatched,[]);
+});
+
+test("未知性情词保留为身份锚点但没有数值权限", () => {
+  const t=A.temperamentFromAnchors(["像雨后的玻璃"],false);
+  assert.deepEqual(t.anchors,["像雨后的玻璃"]);
+  assert.deepEqual(t.sensitivity,{});
+  assert.deepEqual(t.unmatched,["像雨后的玻璃"]);
+  assert.equal(t.approved,false);
+});
