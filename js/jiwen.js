@@ -913,7 +913,56 @@ function displayProjectionA(rawState,options){
   }catch(_){return {items:[],bottomLine:"",text:"",tokenEstimate:0,error:"display_projection_failed"};}
 }
 
-const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA});
+// ── B 关系轴纯状态机（shadow 基础；不负责检测、不注入）────────────
+const B_AXIS_KEYS=Object.freeze(["identity","continuity","seriousness","boundary","neglect","repairFailure"]);
+const B_FAKE_REPAIRS=Object.freeze(["apology_only","silence","elapsed","mood_softened"]);
+const bHash=value=>{let h=5381,s=String(value==null?"":value);for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))>>>0;return h.toString(36);};
+function bAxisDefault(){return {pressure:0,active:false,repairLocked:false,episodeId:null,enteredAt:null,lastHarmAt:null,lastTransitionAt:null,repairEvidenceCount:0,repairUnlockedAt:null,triggerEvidenceHash:null,seenEvidenceHashes:[]};}
+function createRelationAxesB(enabledAxes,nowValue){
+  const enabled=B_AXIS_KEYS.filter(key=>(Array.isArray(enabledAxes)?enabledAxes:B_AXIS_KEYS).includes(key)),axes={};
+  enabled.forEach(key=>{axes[key]=bAxisDefault();});
+  return {schemaVersion:1,enabledAxes:enabled,axes,lastDetectionTs:null,revision:1,updatedTs:aFinite(nowValue,Date.now())};
+}
+function bEvidenceHash(event){const ids=Array.isArray(event&&event.evidenceMessageIds)?event.evidenceMessageIds:[];return bHash(ids.join("|")+"|"+String(event&&event.axis||"")+"|"+String(event&&event.kind||""));}
+function applyRelationEventB(rawState,event,nowValue){
+  try{
+    const state=aClone(rawState),at=aFinite(event&&event.at,aFinite(nowValue,Date.now())),axis=event&&event.axis,kind=event&&event.kind,confidence=clamp(aFinite(event&&event.confidence,0),0,1),slot=state&&state.axes&&state.axes[axis];
+    const audit={axis,kind,accepted:false,duplicate:false,transition:"none",blockedReason:null,pressureBefore:slot?aFinite(slot.pressure,0):null,pressureAfter:null};
+    if(!slot||!state.enabledAxes.includes(axis)){audit.blockedReason="axis_not_enabled";return {state:rawState,audit};}
+    const evHash=bEvidenceHash(event),seen=Array.isArray(slot.seenEvidenceHashes)?slot.seenEvidenceHashes:[];
+    if(seen.includes(evHash)){audit.duplicate=true;audit.blockedReason="duplicate_evidence";audit.pressureAfter=slot.pressure;return {state,audit};}
+    if(kind==="harm"){
+      if(event.explicitRelationMeaning!==true){audit.blockedReason="relation_meaning_missing";return {state:rawState,audit};}
+      if(event.playfulContext===true){audit.blockedReason="playful_context";return {state:rawState,audit};}
+      if(confidence<.55){audit.blockedReason="low_confidence";return {state:rawState,audit};}
+      const increment=Math.min(.35,.12+.23*confidence),before=clamp(aFinite(slot.pressure,0),0,1);slot.pressure=clamp(before+increment,0,1);slot.lastHarmAt=at;
+      if(!slot.triggerEvidenceHash)slot.triggerEvidenceHash=evHash;
+      if(!slot.active&&slot.pressure>=.60){slot.active=true;slot.repairLocked=true;slot.enteredAt=at;slot.lastTransitionAt=at;slot.episodeId="b_"+axis+"_"+at+"_"+evHash;audit.transition="entered";}
+      else if(slot.active)audit.transition="stayed";
+      audit.accepted=true;
+    }else if(kind==="repair_progress"){
+      if(!slot.active||!slot.repairLocked){audit.blockedReason="no_locked_episode";return {state:rawState,audit};}
+      const repairKind=String(event.repairKind||"");
+      if(B_FAKE_REPAIRS.includes(repairKind)){audit.blockedReason="fake_repair_"+repairKind;return {state:rawState,audit};}
+      if(repairKind!=="behavior_changed"){audit.blockedReason="repair_kind_invalid";return {state:rawState,audit};}
+      if(at<=aFinite(slot.lastHarmAt,0)){audit.blockedReason="repair_not_after_harm";return {state:rawState,audit};}
+      if(confidence<.65){audit.blockedReason="repair_confidence_low";return {state:rawState,audit};}
+      slot.repairEvidenceCount=Math.max(0,Math.round(aFinite(slot.repairEvidenceCount,0)))+1;
+      if(confidence>=.85||slot.repairEvidenceCount>=2){slot.repairLocked=false;slot.repairUnlockedAt=at;slot.lastTransitionAt=at;slot.pressure=Math.max(.35,slot.pressure-.12);audit.transition="repair_unlocked";}
+      audit.accepted=true;
+    }else{audit.blockedReason="event_kind_invalid";return {state:rawState,audit};}
+    slot.seenEvidenceHashes=seen.concat(evHash).slice(-50);state.lastDetectionTs=at;state.updatedTs=at;state.revision=Math.max(1,Math.round(aFinite(state.revision,1)))+1;audit.pressureAfter=slot.pressure;return {state,audit};
+  }catch(_){return {state:rawState,audit:{accepted:false,transition:"none",blockedReason:"relation_event_failed"}};}
+}
+function regressRelationAxesB(rawState,minutesValue,nowValue){
+  try{
+    const state=aClone(rawState),mins=clamp(aFinite(minutesValue,0),0,7*24*60),at=aFinite(nowValue,Date.now()),transitions=[];
+    state.enabledAxes.forEach(key=>{const slot=state.axes[key];if(!slot)return;const floor=(slot.active&&slot.repairLocked) ? 0.35 : 0,rate=(slot.active&&!slot.repairLocked) ? 0.003 : 0.001;slot.pressure=Math.max(floor,clamp(aFinite(slot.pressure,0),0,1)-rate*mins);if(slot.active&&!slot.repairLocked&&slot.pressure<=.22){slot.active=false;slot.lastTransitionAt=at;transitions.push({axis:key,transition:"exited"});}});
+    state.updatedTs=at;state.revision=Math.max(1,Math.round(aFinite(state.revision,1)))+1;return {state,transitions};
+  }catch(_){return {state:rawState,transitions:[]};}
+}
+
+const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
 
 if (typeof window !== "undefined") { window.createJiwen = createJiwen; window.JiwenEmotionA=JiwenEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createJiwen,JiwenEmotionA};
