@@ -4734,6 +4734,36 @@ function EventShelfSection({ characters, entries }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.9, whiteSpace: "pre-wrap", maxHeight: "52vh", overflowY: "auto" } }, detail.event.narrative)));
 }
 
+// P1-3 DORMANT 只读过目台：没有确认/拒绝按钮，不调用决定 RPC。
+// 只有未来部署验收后显式写入 memory_corrections_preview_v1=1 才会出现。
+function MemoryCorrectionPreviewSheet({ candidate, onClose }) {
+  const t = useTheme();
+  const [pair, setPair] = useState(null);
+  useEffect(() => { let alive=true; window.Cloud.memoryRowsFetchByIds([candidate.old_memory_id,candidate.new_memory_id]).then(rows => { if (alive) setPair(rows || []); }).catch(() => { if (alive) setPair([]); }); return () => { alive=false; }; }, [candidate.id]);
+  const oldRow = pair && pair.find(e => e && e.id === candidate.old_memory_id);
+  const newRow = pair && pair.find(e => e && e.id === candidate.new_memory_id);
+  const issues = [];
+  if (pair && !oldRow) issues.push("旧条在权威表中缺失");
+  if (pair && !newRow) issues.push("新条在权威表中缺失");
+  if (oldRow && oldRow.deleted) issues.push("旧条已软删");
+  if (newRow && newRow.deleted) issues.push("新条已软删");
+  if (oldRow && oldRow.revision != null && Number(oldRow.revision) !== Number(candidate.old_base_revision)) issues.push("旧条 revision 已变化");
+  if (newRow && newRow.revision != null && Number(newRow.revision) !== Number(candidate.new_base_revision)) issues.push("新条 revision 已变化");
+  const reason = ({ more_detailed: "新条更详细", contradiction: "新事实纠正旧说法", manual: "手动提出纠正" })[candidate.reason] || candidate.reason;
+  const card = (label, row, baseRevision, color) => h("div", { style: { border: "1px solid " + t.line, borderRadius: 11, padding: 11, marginBottom: 8, background: t.bg2 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color, marginBottom: 5 } }, label + " · 提案时 rev " + baseRevision),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, row ? row.text : "（本机未读到这条）"),
+    row && (row.pinned || row.open) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b06a4f", marginTop: 5 } }, (row.pinned ? "📌 置顶 " : "") + (row.open ? "⏳ 未了结" : "")) : null);
+  return h(Sheet, { onClose },
+    h(Eyebrow, null, "纠错候选 · 只读预览"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 10px" } }, reason),
+    !pair ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "14px 0" } }, "正在从权威表重读新旧两条…") : h(React.Fragment, null,
+      issues.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8 } }, "🔴 " + issues.join("；") + "。未来正式确认时必须重新生成候选。") : null,
+      card("旧说法（确认后只留档，不删除）", oldRow, candidate.old_base_revision, "#9f5149"),
+      card("新说法（确认后保持主动浮现）", newRow, candidate.new_base_revision, t.tint)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 8 } }, "当前是 dormant 预览：没有确认按钮，也不会修改两条记忆。正式启用必须先部署并跑完全套回滚测试。"));
+}
+
 function MemoryLib({
   entries,
   characters,
@@ -4766,6 +4796,15 @@ function MemoryLib({
   const t = useTheme();
   const [showArchived, setShowArchived] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const correctionPreviewOn = (() => { try { return localStorage.getItem("memory_corrections_preview_v1") === "1"; } catch (e) { return false; } })();
+  const [corrections, setCorrections] = useState([]);
+  const [correctionOpen, setCorrectionOpen] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    if (!correctionPreviewOn || !(window.Cloud && window.Cloud.memoryCorrectionCandidatesList)) return () => { alive = false; };
+    window.Cloud.memoryCorrectionCandidatesList().then(rows => { if (alive) setCorrections(rows || []); }).catch(() => { if (alive) setCorrections([]); });
+    return () => { alive = false; };
+  }, [correctionPreviewOn]);
   // 落灰记忆数量（和 app.js purgeWithered 同判定）：非置顶/非开环/情绪弱(a≤1)/120天没被想起/几乎没被召回(hits<2)
   const witheredCount = (entries || []).filter(e => { const now = Date.now(); return e && !e.pinned && !e.open && (e.a || 0) <= 1 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 120 * 86400000; }).length;
   const [filter, setFilter] = useState(focusChar ? focusChar.id : "all");
@@ -4813,7 +4852,8 @@ function MemoryLib({
       onBulkImport ? h("button", { onClick: () => setImportOpen(true), className: "active:opacity-50", title: "导入长文进记忆库", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "导入长文") : null,
       onSaveCfg ? h("button", { onClick: () => setCfgOpen(true), className: "active:opacity-50", title: "召回设置" }, h(GConfig, { size: 19, color: t.ink })) : null,
       h("button", { onClick: () => setEditing("new"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })))
-  }), importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null, h("div", {
+  }), importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
+  correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2"
   }, onAudit ? h("button", {
     onClick: onAudit,
@@ -4834,6 +4874,10 @@ function MemoryLib({
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, "🧪 权威表纪律复核 · 逐 ID 只读导出") : null,
+  corrections.length ? h("div", { style: { border: "1px dashed " + t.tint, borderRadius: 11, padding: "8px 10px", marginBottom: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5 } }, "🧷 待过目的纠错候选 " + corrections.length + " 条（只读）"),
+    corrections.slice(0, 5).map(c => h("button", { key: c.id, onClick: () => setCorrectionOpen(c), className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, padding: "5px 0", borderTop: "1px dashed " + t.line } },
+      ({ more_detailed: "更详细", contradiction: "事实纠正", manual: "手动纠正" })[c.reason] || c.reason, " · ", String(c.updated_at || "").slice(0,10)))) : null,
   !memoryTableMode && onEnableTableMemory ? h("button", {
     onClick: () => { if (confirm("会先把本机旧库与新表逐 ID 核对；全部一致、待发送为 0 才会启用。旧镜像和回退闸都会保留。现在验收并启用吗？")) onEnableTableMemory(); },
     disabled: migrationBusy,

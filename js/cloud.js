@@ -456,6 +456,20 @@
       return { event: data, links: links || [] };
     },
 
+    // ---- P1-3 纠错留环 DORMANT：只读预览接口 ----
+    // App 只有在本机 memory_corrections_preview_v1 闸明确开启后才调用；当前没有开闸 UI。
+    async memoryCorrectionCandidatesList() {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const { data, error } = await client.from("memory_correction_candidates")
+        .select("id,old_memory_id,new_memory_id,old_base_revision,new_base_revision,reason,status,revision,created_at,updated_at")
+        .eq("user_id", user.id).eq("status", "proposed")
+        .order("updated_at", { ascending: false }).limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+
     // ---- 桌面对话回流（desk_log 表，Stack-chan 实体：见 [[lisa-phone-next-window]] 图纸）----
     // stackchan-relay 每轮把「用户说的话 user_text + 角色回复 reply_text + 时刻」insert 进 desk_log；
     // app 开机/tick 拉走未消费的，投进 x_chat:小克（两具身体一条记忆流）。表不存在=安静报错、整块 dormant。
