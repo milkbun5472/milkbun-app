@@ -7,7 +7,7 @@
 
 begin;
 
-do $$
+do $accept_test$
 declare
   uid uuid;
   c_id text;
@@ -117,7 +117,9 @@ begin
   -- 故障注入：event insert / 任一 link insert / candidate 回填分别炸掉；每次都必须整笔回滚。
   insert into public.memory_event_candidates(user_id,id,status,source_memory_ids,requested_char_id,draft,base_memory_revisions,idempotency_key)
   values(uid,'__accept_rpc_event_fail','drafted',array[m1,m2],'小克',draft,jsonb_build_object(m1,1,m2,1),'test-event-fail');
-  execute 'create function public.__accept_rpc_fail_event() returns trigger language plpgsql as ''begin raise exception ''''injected event failure''''; end''';
+  execute $ddl$create function public.__accept_rpc_fail_event() returns trigger language plpgsql as $fn$
+    begin raise exception 'injected event failure'; end;
+  $fn$$ddl$;
   execute 'create trigger __accept_rpc_fail_event before insert on public.memory_events for each row execute function public.__accept_rpc_fail_event()';
   failed := false;
   begin perform public.accept_memory_event_candidate('__accept_rpc_event_fail',1,gen_random_uuid(),null); exception when others then failed := true; end;
@@ -126,7 +128,9 @@ begin
 
   insert into public.memory_event_candidates(user_id,id,status,source_memory_ids,requested_char_id,draft,base_memory_revisions,idempotency_key)
   values(uid,'__accept_rpc_link_fail','drafted',array[m1,m2],'小克',draft,jsonb_build_object(m1,1,m2,1),'test-link-fail');
-  execute 'create function public.__accept_rpc_fail_link() returns trigger language plpgsql as ''begin raise exception ''''injected link failure''''; end''';
+  execute $ddl$create function public.__accept_rpc_fail_link() returns trigger language plpgsql as $fn$
+    begin raise exception 'injected link failure'; end;
+  $fn$$ddl$;
   execute 'create trigger __accept_rpc_fail_link before insert on public.memory_event_links for each row execute function public.__accept_rpc_fail_link()';
   failed := false;
   begin perform public.accept_memory_event_candidate('__accept_rpc_link_fail',1,gen_random_uuid(),null); exception when others then failed := true; end;
@@ -135,7 +139,12 @@ begin
 
   insert into public.memory_event_candidates(user_id,id,status,source_memory_ids,requested_char_id,draft,base_memory_revisions,idempotency_key)
   values(uid,'__accept_rpc_candidate_fail','drafted',array[m1,m2],'小克',draft,jsonb_build_object(m1,1,m2,1),'test-candidate-fail');
-  execute 'create function public.__accept_rpc_fail_candidate() returns trigger language plpgsql as ''begin if new.status=''''accepted'''' then raise exception ''''injected candidate failure''''; end if; return new; end''';
+  execute $ddl$create function public.__accept_rpc_fail_candidate() returns trigger language plpgsql as $fn$
+    begin
+      if new.status='accepted' then raise exception 'injected candidate failure'; end if;
+      return new;
+    end;
+  $fn$$ddl$;
   execute 'create trigger __accept_rpc_fail_candidate before update on public.memory_event_candidates for each row execute function public.__accept_rpc_fail_candidate()';
   failed := false;
   begin perform public.accept_memory_event_candidate('__accept_rpc_candidate_fail',1,gen_random_uuid(),null); exception when others then failed := true; end;
@@ -177,7 +186,8 @@ begin
     raise exception 'RPC execute grants are unsafe';
   end if;
   raise notice 'accept_memory_event_candidate rollback/idempotency tests passed';
-end $$;
+end;
+$accept_test$;
 
 -- 真并发验收需两个 SQL Editor 标签同时调用同一 drafted candidate、不同 mutation。
 -- 预期：一个成功；另一个在候选行锁释放后看到 accepted 并失败；最终仍仅 1 event。
