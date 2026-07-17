@@ -164,10 +164,29 @@
     } catch (_) { return null; }
   }
 
+  async function putTidalState(ownerId, state, indexedDBImpl) {
+    try {
+      if (!state || !["awake", "maybe_sleeping", "uncertain"].includes(state.state)) return null;
+      const db = await openDB(indexedDBImpl), ownerHash = await ensureOwner(db, ownerId);
+      const row = { ...state, ownerHash, schemaVersion: 1 };
+      const tx = db.transaction("tidal_state", "readwrite"), txDone = transactionDone(tx);
+      tx.objectStore("tidal_state").put(row); await txDone; return row;
+    } catch (_) { return null; }
+  }
+
+  async function getTidalState(ownerId, indexedDBImpl) {
+    try {
+      const db = await openDB(indexedDBImpl), ownerHash = await ensureOwner(db, ownerId);
+      const tx = db.transaction("tidal_state", "readonly"), txDone = transactionDone(tx);
+      const row = await requestResult(tx.objectStore("tidal_state").get(ownerHash));
+      await txDone; return row || null;
+    } catch (_) { return null; }
+  }
+
   return Object.freeze({
     DB_NAME, DB_VERSION, EXPIRES_MS, MAX_THREADS, DIAGNOSTIC_CAP, DIAGNOSTIC_MAX_AGE,
     hash, storageKey, anchorFor, moodSketch, collectThreads, deriveAfterglow,
-    mergePacket, isValid, markShadowWouldSurface, putPacket, getPacket,
+    mergePacket, isValid, markShadowWouldSurface, putPacket, getPacket, putTidalState, getTidalState,
     _resetDBForTests: () => { dbPromise = null; }
   });
 });

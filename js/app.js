@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.38";
+const APP_VERSION = "v49.39";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -583,6 +583,18 @@ function App() {
     sumThresh: 150,
     sumBuffer: 20
   };
+  // E 潮汐 shadow：旁路记状态，任何失败都不能影响消息落盘或角色回复。
+  const noteTidalUser = (text, ts) => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onUserMessage(text, ts); } catch (e) {} };
+  useEffect(() => {
+    const foreground = () => { try { if (document.visibilityState === "visible") window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onForegroundNoMessage(Date.now()); } catch (e) {} };
+    window.addEventListener("focus", foreground); document.addEventListener("visibilitychange", foreground);
+    return () => { window.removeEventListener("focus", foreground); document.removeEventListener("visibilitychange", foreground); };
+  }, []);
+  useEffect(() => {
+    if (screen === "thread" || screen === "gthread" || offlineChar || offlineGroup || call) {
+      try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onSessionOpenNoMessage(Date.now()); } catch (e) {}
+    }
+  }, [screen, activeChar && activeChar.id, activeGroup && activeGroup.id, offlineChar && offlineChar.id, offlineGroup && offlineGroup.id, call && call.startTs]);
   // 剥掉模型偶尔照抄的历史时间标注：〔今天07:57〕/〔昨天20:11〕/〔7/13 07:57〕/〔07:57〕（system 已明令禁止但拦不住，输出侧兜底，她 2026-07-13 截图）
   const stripAiStamp = w => String(w == null ? "" : w).replace(/^\s*[〔【\[(（]\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "").trim();
   // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定跟随全局。
@@ -612,6 +624,7 @@ function App() {
     saveJSON("x_chat:" + id, n);
     // 未读红点：新增的角色消息若此刻没在看这个聊天，累加未读条数（推到微任务里，别在 reducer 里改别的 state）
     if (n.length > pl.length) {
+      n.slice(pl.length).filter(m => m && m.role === "user" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
       const added = n.slice(pl.length).filter(m => m && m.role === "assistant" && m.kind !== "system" && m.kind !== "silence").length;
       const viewing = viewRef.current.screen === "thread" && viewRef.current.charId === id;
       if (added > 0 && !viewing) setTimeout(() => bumpUnread(id, added), 0);
@@ -803,6 +816,7 @@ function App() {
     const n = typeof u === "function" ? u(pl) : u;
     saveJSON("x_gchat:" + id, n);
     if (n.length > pl.length) {
+      n.slice(pl.length).filter(m => m && m.role === "user" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
       const added = n.slice(pl.length).filter(m => m && m.role !== "user" && m.kind !== "system").length;
       const viewing = viewRef.current.screen === "gthread" && viewRef.current.charId === id;
       if (added > 0 && !viewing) setTimeout(() => bumpUnread(id, added), 0);
@@ -2003,7 +2017,7 @@ function App() {
     offlinesRef.current = n;
     return n;
   });
-  const pushOffMsg = (charId, msg) => pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s));
+  const pushOffMsg = (charId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
   const openOffline = char => {
     const list = loadJSON("x_offline:" + char.id, []);
     setOfflines(prev => ({ ...prev, [char.id]: list }));
@@ -2216,7 +2230,7 @@ function App() {
     groupOfflinesRef.current = n;
     return n;
   });
-  const pushGOffMsg = (groupId, msg) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s));
+  const pushGOffMsg = (groupId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
   const groupOfflineDelSession = (groupId, sessId) => { if (window.confirm("删除这条线下记录？删了不可恢复。")) pGOffline(groupId, list => list.filter(s => s.id !== sessId)); };
   const openGroupOffline = group => {
     const list = loadJSON("x_goffline:" + group.id, []);
@@ -4745,6 +4759,7 @@ function App() {
     if (!cur || !text || !text.trim()) return;
     if (laneBusy("call")) return;
     const um = { role: "user", content: text.trim(), ts: Date.now() };
+    noteTidalUser(um.content, um.ts);
     const withUser = [...cur.msgs, um];
     setCall(c => c ? { ...c, msgs: withUser } : c);
     callRef.current = { ...cur, msgs: withUser };
