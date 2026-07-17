@@ -395,6 +395,31 @@
       }
       return { ...data, existed: false };
     },
+    // ⑥第5步：取单条候选全文（含 draft/base_memory_revisions，红灯检查要用）
+    async eventCandidateGet(id) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const { data, error } = await client.from("memory_event_candidates")
+        .select("*").eq("user_id", user.id).eq("id", String(id)).maybeSingle();
+      if (error) throw error;
+      return data || null;
+    },
+    // ⑥第5步：退回（requested+feedback，旧 draft 保留供审计）/ 拒绝（rejected）。
+    // 列级 grant 只放行 status/feedback/edited_by_user；accepted 由 RLS with check 挡死。
+    async eventCandidateSetStatus(id, status, feedback) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      if (!["requested", "rejected"].includes(status)) throw new Error("App 只能退回或拒绝");
+      const body = { status };
+      if (feedback !== undefined) body.feedback = feedback == null ? null : String(feedback).slice(0, 500);
+      const { data, error } = await client.from("memory_event_candidates")
+        .update(body).eq("user_id", user.id).eq("id", String(id)).neq("status", "accepted")
+        .select("id,status,revision").maybeSingle();
+      if (error) throw error;
+      return data;
+    },
     async eventGet(id) {
       if (!client) throw new Error("云服务未就绪");
       const user = await this.getUser();

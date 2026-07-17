@@ -4477,6 +4477,126 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast }) {
         h("button", { onClick: create, disabled: busy || !!problems.length, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, busy ? "提交中…" : "创建请求，交给执笔人"))));
 }
 
+// ⑥事件层 · 第5步：候选过目台——预览草稿/编辑（存本地确认载荷）/退回/拒绝。
+// 红灯规则（施工图 §5）：来源缺失/软删/revision 漂移、状态不是 drafted、草稿引用候选外 ID
+// → 确认按钮禁用，没有"仍然继续"。正式确认走第 6 步原子 RPC（未部署时按钮同样禁用）。
+const K_EVC_EDITS = "x_evcEdits"; // { [candidateId]: {title,synopsis,narrative,editedAt} } —— 你的修改稿，确认时才随 RPC 落库
+function CandidateReviewSheet({ candidateId, characters, onClose, onChanged, toast }) {
+  const t = useTheme();
+  const [cand, setCand] = useState(null);
+  const [srcRows, setSrcRows] = useState([]);
+  const [lights, setLights] = useState(null); // null=加载中
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const edits = loadJSON(K_EVC_EDITS, {})[candidateId] || null;
+  const [eTitle, setETitle] = useState("");
+  const [eSyn, setESyn] = useState("");
+  const [eNarr, setENarr] = useState("");
+  const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : "？"; };
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const c = await window.Cloud.eventCandidateGet(candidateId);
+        if (!alive) return;
+        if (!c) { setLights(["候选不存在或不属于当前账号"]); return; }
+        setCand(c);
+        const d = c.draft;
+        const cur = loadJSON(K_EVC_EDITS, {})[candidateId];
+        setETitle((cur && cur.title) || (d && d.title) || "");
+        setESyn((cur && cur.synopsis) || (d && d.synopsis) || "");
+        setENarr((cur && cur.narrative) || (d && d.narrative) || "");
+        const ids = c.source_memory_ids || [];
+        const rows = await window.Cloud.memoryRowsFetchByIds(ids);
+        if (!alive) return;
+        const byId = new Map(rows.map(r => [r.id, r]));
+        setSrcRows(ids.map(id => byId.get(id)).filter(Boolean));
+        const base = c.base_memory_revisions || {};
+        const L = [];
+        if (c.status !== "drafted") L.push(c.status === "requested" ? "还在等执笔（requested）" : "候选状态是 " + c.status);
+        if (!d) L.push("还没有草稿");
+        ids.forEach(id => {
+          const r = byId.get(id);
+          if (!r) L.push("来源碎片在云端缺失：" + id);
+          else if (r.deleted) L.push("来源碎片已被软删：" + String(r.text || id).slice(0, 24));
+          else if (base[id] != null && Number(base[id]) !== Number(r.revision)) L.push("来源碎片被改过（revision 漂移）：" + String(r.text || id).slice(0, 24));
+        });
+        if (d && Array.isArray(d.links) && d.links.some(l => !ids.includes(l.memory_id))) L.push("草稿引用了候选之外的碎片");
+        setLights(L);
+      } catch (e) { if (alive) setLights(["读取失败：" + ((e && e.message) || "稍后再试")]); }
+    })();
+    return () => { alive = false; };
+  }, [candidateId]);
+  const saveEdits = () => {
+    const all = loadJSON(K_EVC_EDITS, {});
+    all[candidateId] = { title: eTitle, synopsis: eSyn, narrative: eNarr, editedAt: Date.now() };
+    saveJSON(K_EVC_EDITS, all);
+    setEditing(false);
+    toast && toast("修改稿已存好，确认入册时会带上「你改过」的标记");
+  };
+  const revertEdits = () => {
+    const all = loadJSON(K_EVC_EDITS, {});
+    delete all[candidateId];
+    saveJSON(K_EVC_EDITS, all);
+    const d = cand && cand.draft;
+    setETitle((d && d.title) || ""); setESyn((d && d.synopsis) || ""); setENarr((d && d.narrative) || "");
+    setEditing(false);
+    toast && toast("已还原成执笔人原稿");
+  };
+  const doReturn = async () => {
+    const fb = prompt("退回给执笔人，说说要改哪里（他下次起草能看到）：");
+    if (fb == null) return;
+    setBusy(true);
+    try { await window.Cloud.eventCandidateSetStatus(candidateId, "requested", fb.trim() || "退回重写"); toast && toast("已退回，等他重新起草"); onChanged && onChanged(); onClose(); }
+    catch (e) { toast && toast("退回失败：" + ((e && e.message) || "")); }
+    finally { setBusy(false); }
+  };
+  const doReject = async () => {
+    if (!confirm("拒绝这份候选？候选和草稿都会留档（不删除），只是不再推进。")) return;
+    setBusy(true);
+    try { await window.Cloud.eventCandidateSetStatus(candidateId, "rejected"); toast && toast("已拒绝，留档可查"); onChanged && onChanged(); onClose(); }
+    catch (e) { toast && toast("拒绝失败：" + ((e && e.message) || "")); }
+    finally { setBusy(false); }
+  };
+  const d = cand && cand.draft;
+  const canConfirm = lights && !lights.length && typeof (window.Cloud && window.Cloud.eventCandidateAccept) === "function";
+  const edited = !!edits || eTitle !== ((d && d.title) || "") || eNarr !== ((d && d.narrative) || "") || eSyn !== ((d && d.synopsis) || "");
+  return h(Sheet, { onClose: onClose },
+    h(Eyebrow, { style: { marginBottom: 6 } }, "候选过目 · " + (cand ? nameOf(cand.requested_char_id) + " 执笔" : "加载中…")),
+    lights == null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0" } }, "正在跟云端核对来源与草稿…") : h(React.Fragment, null,
+      lights.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8, lineHeight: 1.6 } }, "🔴 " + lights.join("；")) : null,
+      cand && cand.feedback ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, background: t.bg, borderRadius: 9, padding: "6px 10px", marginBottom: 8 } }, "上次留言：" + cand.feedback) : null,
+      d && h("div", { style: { maxHeight: "46vh", overflowY: "auto", marginBottom: 8 } },
+        editing
+          ? h(React.Fragment, null,
+              h("input", { value: eTitle, onChange: e => setETitle(e.target.value), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.ink, background: t.bg2, border: "1px solid " + t.line, marginBottom: 6 } }),
+              h("textarea", { value: eSyn, onChange: e => setESyn(e.target.value), rows: 2, className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, background: t.bg2, border: "1px solid " + t.line, resize: "none", marginBottom: 6 } }),
+              h("textarea", { value: eNarr, onChange: e => setENarr(e.target.value), rows: 12, className: "w-full outline-none p-3 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.ink, background: t.bg2, border: "1px solid " + t.line, resize: "none" } }))
+          : h(React.Fragment, null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: t.ink, marginBottom: 4 } }, eTitle, edited ? h("span", { style: { fontSize: 10, color: "#c98a3c", marginLeft: 6 } }, "你改过") : null),
+              eSyn ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 8, lineHeight: 1.6 } }, eSyn) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, eNarr),
+              (d.state_before || d.turning_point || d.state_after) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 10, lineHeight: 1.7, borderTop: "1px dashed " + t.line, paddingTop: 8 } },
+                d.state_before ? "起：" + d.state_before : null, d.state_before ? h("br") : null,
+                d.turning_point ? "转：" + d.turning_point : null, d.turning_point ? h("br") : null,
+                d.state_after ? "落：" + d.state_after : null) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 10, borderTop: "1px dashed " + t.line, paddingTop: 8 } }, "来源碎片 " + srcRows.length + " 条："),
+              srcRows.map(r => h("div", { key: r.id, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginTop: 4, lineHeight: 1.5 } },
+                "· " + String(r.text || "").slice(0, 46) + (String(r.text || "").length > 46 ? "…" : ""))))),
+      h("div", { className: "flex", style: { gap: 8, marginBottom: 8 } },
+        editing
+          ? h(React.Fragment, null,
+              h("button", { onClick: saveEdits, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "保存修改稿"),
+              h("button", { onClick: () => setEditing(false), className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "先不改了"))
+          : h(React.Fragment, null,
+              d ? h("button", { onClick: () => setEditing(true), className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5 } }, "✏️ 修改") : null,
+              edited ? h("button", { onClick: revertEdits, className: "flex-1 py-2.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "还原原稿") : null)),
+      cand && cand.status !== "rejected" && cand.status !== "accepted" ? h("div", { className: "flex", style: { gap: 8 } },
+        h("button", { onClick: doReturn, disabled: busy, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "↩︎ 退回重写"),
+        h("button", { onClick: doReject, disabled: busy, className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, border: "1px solid #9f5149", color: "#9f5149", fontFamily: F_BODY, fontSize: 12.5 } }, "✕ 拒绝"),
+        h("button", { disabled: !canConfirm || busy, title: canConfirm ? "" : lights && lights.length ? "红灯未清不能确认" : "确认通道（原子 RPC）施工中", className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "✓ 确认入册")) : null));
+}
+
 // ⑥事件层 · 第2步：事件书架（只读）。自包含读 window.MemoryEvents 的 IDB 镜像；
 // 未登录/表未建=空态不报错；本步没有任何写入口（施工图 §2）。
 function EventShelfSection({ characters, entries }) {
@@ -4486,6 +4606,8 @@ function EventShelfSection({ characters, entries }) {
   const [cands, setCands] = useState([]);
   const [detail, setDetail] = useState(null); // { event, links }
   const [composeOpen, setComposeOpen] = useState(false);
+  const [reviewId, setReviewId] = useState(null); // 打开过目台的候选 id
+  const [showRejected, setShowRejected] = useState(false);
   const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : "？"; };
   const fmtD = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "/" + d.getDate(); };
   const load = async () => {
@@ -4513,8 +4635,14 @@ function EventShelfSection({ characters, entries }) {
     h("span", { style: { color: t.fog, fontSize: 11 } }, open ? "收起" : "展开")),
   open && h("div", { style: { maxHeight: "38vh", overflowY: "auto", marginBottom: 8 } },
     h("button", { onClick: () => setComposeOpen(true), className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12 } }, "＋ 挑碎片整理成事件"),
-    pendingCands.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6, textAlign: "center" } },
-      pendingCands.map(c => (c.status === "requested" ? "🕐等执笔" : "✍️已起草待你过目") + "·" + nameOf(c.requested_char_id) + "·" + (c.source_memory_ids || []).length + "条").join("　")) : null,
+    pendingCands.map(c => h("button", {
+      key: c.id, onClick: () => setReviewId(c.id),
+      className: "w-full rounded-lg py-2 mb-1.5 active:opacity-70",
+      style: { border: "1px solid " + (c.status === "drafted" ? t.tint : t.line), color: c.status === "drafted" ? t.tint : t.sub, fontFamily: F_BODY, fontSize: 11.5 }
+    }, (c.status === "requested" ? "🕐 等执笔 · " : "✍️ 已起草，点开过目 · ") + nameOf(c.requested_char_id) + " · " + (c.source_memory_ids || []).length + " 条碎片")),
+    (() => { const rej = cands.filter(c => c.status === "rejected"); return rej.length ? h(React.Fragment, null,
+      h("button", { onClick: () => setShowRejected(!showRejected), className: "w-full py-1 mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, (showRejected ? "▾" : "▸") + " 废弃候选 " + rej.length + " 份（留档可查）"),
+      showRejected ? rej.map(c => h("button", { key: c.id, onClick: () => setReviewId(c.id), className: "w-full rounded-lg py-1.5 mb-1 active:opacity-70", style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 10.5 } }, "🗂 " + nameOf(c.requested_char_id) + " · " + (c.source_memory_ids || []).length + " 条 · " + String(c.updated_at || "").slice(0, 10))) : null) : null; })(),
     !events.length && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "14px 0", lineHeight: 1.7 } },
       "还没有事件。", h("br"), "点上面那行，挑几条记忆碎片请他写成第一件。"),
     events.map(ev => h("button", {
@@ -4532,6 +4660,7 @@ function EventShelfSection({ characters, entries }) {
         " · ", fmtD(ev.started_ts), ev.ended_ts ? "–" + fmtD(ev.ended_ts) : "起",
         ev.edited_by_user ? " · 你改过" : "")))),
   composeOpen && h(EventComposeSheet, { entries: entries, characters: characters, toast: window.__toast, onCreated: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => setComposeOpen(false) }),
+  reviewId && h(CandidateReviewSheet, { candidateId: reviewId, characters: characters, toast: window.__toast, onChanged: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => setReviewId(null) }),
   detail && h(Sheet, { onClose: () => setDetail(null) },
     h(Eyebrow, { style: { marginBottom: 6 } }, detail.event.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } },
