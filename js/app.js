@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.36";
+const APP_VERSION = "v49.37";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -697,7 +697,20 @@ function App() {
         const msgs = chatsRef.current[char.id] || [];
         if (!msgs.slice(-12).some(m => m && m.content === L.content)) {
           const ts = new Date(L.created_at).getTime() || Date.now();
-          pChat(char.id, p => [...p, { role: "assistant", content: L.content, ts, read: false, serverNight: true }]);
+          // 信拆成聊天气泡（她要的：夜巡信像平时聊天一样几句几个泡）——
+          // 有换行按换行拆（夜巡 v2 天生分行）；单坨长信按句末标点拆再把碎句并拢；最多 6 泡
+          let parts = String(L.content || "").trim().split(/\n+/).map(s => s.trim()).filter(Boolean);
+          if (parts.length === 1 && parts[0].length > 40) {
+            const raw = parts[0].split(/([。！？!?…~♪]+)/);
+            const segs = [];
+            for (let i2 = 0; i2 < raw.length; i2 += 2) { const seg = ((raw[i2] || "") + (raw[i2 + 1] || "")).trim(); if (seg) segs.push(seg); }
+            const merged = [];
+            segs.forEach(s => { if (merged.length && (merged[merged.length - 1].length < 6 || s.length < 4)) merged[merged.length - 1] += s; else merged.push(s); });
+            if (merged.length > 1) parts = merged;
+          }
+          parts = parts.slice(0, 6);
+          const tid = "srv_" + (L.id || ts);
+          pChat(char.id, p => [...p, ...parts.map((txt, i2) => ({ role: "assistant", content: txt, ts: ts + i2, read: false, serverNight: true, turnId: tid }))]);
           if (L.kind === "morning") markGreet(char.id, "m", schedDayKey(new Date()));
           if (L.kind === "night") markGreet(char.id, "n", schedDayKey(new Date())); // 晚安班握手（v48.34）：夜巡道过晚安，app 自己的晚安闸门当天让位
           // 夜巡体征（v48.33）：记「上次收到夜巡信」的时刻——appVitals 靠它答「夜巡还活着吗」，断粮几天工程师看得见
