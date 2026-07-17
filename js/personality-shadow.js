@@ -17,7 +17,7 @@
 
   function evidenceMessages(messages) {
     return (Array.isArray(messages) ? messages : []).filter(m => m && m.content && (m.role === "assistant" || m.role === "user") && !m.recalled && !["ooc", "system", "offlinelog", "thought", "thinking"].includes(m.kind))
-      .slice(-24).map((m, i) => ({ id: messageId(m, i), role: m.role === "assistant" ? "角色" : "Lisa", text: String(m.content) }));
+      .slice(-24).map((m, i) => ({ id: messageId(m, i), role: m.role === "assistant" ? "角色" : "对方", text: String(m.content) }));
   }
 
   function spec(char, box, messages) {
@@ -100,7 +100,14 @@
         last: rows.sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)).slice(0, 20) };
     } catch (e) { return { error: "人格旁路报表读取失败" }; }
   }
+  async function listForChar(charId) {
+    try {
+      const db = await openDB(), tx = db.transaction("cards", "readonly"), rows = await rq(tx.objectStore("cards").getAll()); await done(tx);
+      const wanted = hash(charId);
+      return rows.filter(x => x.charHash === wanted).sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0));
+    } catch (e) { return []; }
+  }
   async function clearAll() { try { const db = await openDB(), tx = db.transaction("cards", "readwrite"); tx.objectStore("cards").clear(); await done(tx); } catch (e) {} }
 
-  window.PersonalityShadow = { spec, observe, report, clearAll, evidenceMessages };
+  window.PersonalityShadow = { spec, observe, report, listForChar, clearAll, evidenceMessages };
 })();

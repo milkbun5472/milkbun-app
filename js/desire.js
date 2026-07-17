@@ -331,7 +331,16 @@
     const [showLog, setShowLog] = useState(false);
     const [showMile, setShowMile] = useState(false);
     const [showAxis, setShowAxis] = useState(false);
+    const [showPersonalityNotes, setShowPersonalityNotes] = useState(false);
+    const [personalityNotes, setPersonalityNotes] = useState([]);
     const [confirmId, setConfirmId] = useState(null);
+    useEffect(() => {
+      let alive = true;
+      if (window.PersonalityShadow && window.PersonalityShadow.listForChar) {
+        window.PersonalityShadow.listForChar(char.id).then(rows => { if (alive) setPersonalityNotes(rows || []); }).catch(() => {});
+      }
+      return () => { alive = false; };
+    }, [char.id]);
     const b = boxOf({ x: box }, "x"); // 复用克隆逻辑做展示排序，不动原数据
     const todayKey = new Date().toDateString();
     const latest = b.log[0];
@@ -414,6 +423,23 @@
         h("div", { className: "space-y-1.5" }, b.briefs.slice(0, 4).map((br, i) => h("div", {
           key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 }
         }, "· [" + br.type + "] " + br.note)))) : null,
+      // P3-1：本机人格四卡 shadow 的只读观察册。没有采纳/拒绝按钮，不会改人格档案。
+      personalityNotes.length ? h("div", { style: { marginTop: 18 } },
+        h("button", { onClick: () => setShowPersonalityNotes(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+          (showPersonalityNotes ? "收起" : "翻看") + "人格观察草稿（" + personalityNotes.length + "）"),
+        h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } }, "只读旁路 · 有逐字证据也不代表人格已经改变"),
+        showPersonalityNotes ? h("div", { className: "space-y-2.5", style: { marginTop: 9 } }, personalityNotes.map(card => h("div", {
+          key: card.fingerprint, style: { padding: "10px 12px", borderRadius: 11, background: t.bg, border: "1px dashed " + ACCENT + "66" }
+        },
+          h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: ACCENT } }, "[" + card.type + "] " + card.dimension + " · " + card.traitKey),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, whiteSpace: "nowrap" } }, "见过 " + (card.seenCount || 1) + " 次 · " + (card.spanDays || 0) + " 天")),
+          card.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.6, marginTop: 5 } }, card.note) : null,
+          (card.evidence || []).map((ev, i) => h("div", { key: i, style: { marginTop: 5, paddingLeft: 8, borderLeft: "2px solid " + t.line, fontFamily: "'Noto Serif SC',serif", fontSize: 11, color: t.sub, lineHeight: 1.55 } },
+            (ev.role === "角色" ? "TA：" : "对方：") + "“" + ev.quote + "”")),
+          card.type === "对不上" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: card.eligibleAfterTenDays ? ACCENT : t.fog, marginTop: 6 } },
+            card.eligibleAfterTenDays ? "已跨 10 天，仍然只是待审候选" : "未跨满 10 天，不具备改档案资格") : null
+        ))) : null) : null,
       // 蜕变轴：TA 的人格生长时间线
       (() => {
         const axis = timelineOf(b);
