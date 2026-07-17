@@ -8,7 +8,7 @@
   const DB_NAME = "lisa_personality_shadow_v1", DB_VERSION = 1;
   const CAP = 500, MAX_AGE = 90 * 86400000;
   const TYPES = ["印证", "对不上", "毕业候选", "萌芽"];
-  const DIMS = ["价值", "边界", "偏好", "习惯", "能力", "关系方式", "欲望"];
+  const DIMS = ["价值", "边界", "偏好", "习惯", "能力", "关系方式", "欲望", "决策方式", "情绪应对", "冲突修复", "表达方式"];
   let dbPromise = null;
 
   const hash = value => { let h = 5381; const s = String(value == null ? "" : value); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
@@ -28,9 +28,9 @@
     const persona = (box && Array.isArray(box.persona) ? box.persona : []).slice(-12).map(x => "- " + x.text).join("\n") || "（空）";
     return {
       instruction: "你是一名人格成长记录员，只提出候选，不扮演角色、不改人设。根据下列带 id 的原话，观察「" + char.name + "」自身长期可能形成的倾向。\n【现有人格档案】\n" + persona + "\n【现有念想】\n" + desires + "\n【可引用原话】\n" + transcript +
-        "\n\n输出 0~4 张 cards。type 只能是：印证、对不上、毕业候选、萌芽。dimension 只能是：价值、边界、偏好、习惯、能力、关系方式、欲望。trait_key 是一个稳定、短小的倾向名（以后同一倾向继续用同一个名字）。note 只描述这次看见的具体行为，不能直接宣布人格已经改变。target 是对应念想 id，没有则 null。" +
+        "\n\n输出 0~4 张 cards。type 只能是：印证、对不上、毕业候选、萌芽。dimension 只能是：价值、边界、偏好、习惯、能力、关系方式、欲望、决策方式、情绪应对、冲突修复、表达方式。决策方式看 TA 如何取舍；情绪应对看 TA 如何容纳或处理自己的情绪；冲突修复只看发生分歧后 TA 实际怎么面对和修复；表达方式只记跨场景反复出现的表达习惯，不把一句口头禅直接写成人格。trait_key 是一个稳定、短小的倾向名（以后同一倾向继续用同一个名字）。note 只描述这次看见的具体行为，不能直接宣布人格已经改变。target 是对应念想 id，没有则 null。" +
         "\n每张必须有 evidence，含 1~3 个 {message_id,quote}。quote 必须逐字复制上面的原话，message_id 必须对应；至少一条必须来自角色本人。thinking、隐藏推理、系统描述不能当证据。一次情绪、一次撒娇或一次争吵通常不够形成卡片；没证据就给空数组，严禁脑补。",
-      schemaHint: "{\"cards\":[{\"type\":\"印证|对不上|毕业候选|萌芽\",\"dimension\":\"价值|边界|偏好|习惯|能力|关系方式|欲望\",\"trait_key\":\"短倾向名\",\"target\":\"念想id或null\",\"note\":\"这次观察到的事实\",\"evidence\":[{\"message_id\":\"原话id\",\"quote\":\"逐字引用\"}]}]}",
+      schemaHint: "{\"cards\":[{\"type\":\"印证|对不上|毕业候选|萌芽\",\"dimension\":\"价值|边界|偏好|习惯|能力|关系方式|欲望|决策方式|情绪应对|冲突修复|表达方式\",\"trait_key\":\"短倾向名\",\"target\":\"念想id或null\",\"note\":\"这次观察到的事实\",\"evidence\":[{\"message_id\":\"原话id\",\"quote\":\"逐字引用\"}]}]}",
       maxTokens: 4000
     };
   }
