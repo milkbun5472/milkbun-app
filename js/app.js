@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.26";
+const APP_VERSION = "v49.27";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1332,19 +1332,11 @@ function App() {
       const openEntries = memLibRef.current.filter(e => e.open && memShareChar([charId], e.charIds)).slice(0, 30); // v48.41：她开环多，12→30，让更多约定能被自动闭环
       const openList = openEntries.map(e => e.text).filter(Boolean);
       const items = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing, openList: openList });
-      // 自动了结开环：模型返回已完成开环的【编号】(1-based) → 按下标直接闭环。
-      // 老式（返回原文前缀）也兜住。用 id/原文双匹配，防 await 期间 memLib 被别处替换成新数组导致对象引用失效。
-      const closeTargets = [];
-      items.filter(it => it && it.resolveOpen != null && it.resolveOpen !== "").forEach(it => {
-        const digits = String(it.resolveOpen).replace(/[^0-9]/g, "");
-        const n = digits ? parseInt(digits, 10) : NaN;
-        if (n >= 1 && n <= openEntries.length && openEntries[n - 1]) { closeTargets.push(openEntries[n - 1]); return; }
-        const rs = String(it.resolveOpen).trim().slice(0, 8); // 兜底：模型给了文字而非编号
-        if (rs.length >= 4) { const hit = openEntries.find(e => String(e.text || "").indexOf(rs) === 0); if (hit) closeTargets.push(hit); }
-      });
-      if (closeTargets.length) {
-        saveMemLib(memLibRef.current.map(e => closeTargets.some(t => (t.id && e.id && t.id === e.id) || (t.text && e.text === t.text)) ? { ...e, open: false } : e));
-      }
+      // v49.27 RepairGate shadow：旧解析器曾把 resolveOpen 全过滤掉，因此真实闭环实际未发生。
+      // 现在只保留并机械核验证据、写入独立本机候选账本；绝不在这里改 open 或调用云写路。
+      try { if (window.OpenRepairShadow) await window.OpenRepairShadow.observe({
+        charId, candidates: items.filter(it => it && it.resolveOpen != null), openEntries, messages: msgs
+      }); } catch (e) {}
       const now = Date.now();
       const batchSeen = [];
       const entries = items.filter(it => it && !it.resolveOpen).map((it, i) => ({

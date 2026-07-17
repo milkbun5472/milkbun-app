@@ -886,12 +886,13 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
     "【证据】每条给 evidence_message_ids 和 evidence_quotes，两数组一一对应且至少 1 项；ID 必须照抄上面的消息ID，quote 必须是该消息正文中逐字存在的短句。找不到就别造这条。\n" +
     "· 每条再标注情绪与状态：**v**=这件事的情绪愉悦度（整数 -5~5，负=难过/生气/难堪/委屈，0=中性事实，正=开心/温暖/心动）；**a**=情绪强度（整数 0~5，0=平淡的事实，5=强烈动情/激烈冲突/刻骨铭心）；**open**=是不是【还没了结的开环】（true=没兑现的约定/没和好的争执/悬着的心事/在等的结果这类还惦记着、还没画句号的；false=已了结的、或本来就是静态事实/偏好/背景）。\n" +
     (Array.isArray(opts.openList) && opts.openList.length
-      ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条【已经完成/兑现/做过了/解决/明确不了了之】，就在输出数组里加一个 {\"resolveOpen\":编号} 元素（**填那条的数字编号**，不是原文；能确定哪几条完成就各加一个，没完成的别加）：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
+      ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。**这只是候选，不会自动关闭 open**。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
   const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 4200 });
   const parsed = extractJSON(raw);
-  return Array.isArray(parsed) ? parsed.filter(x => x && x.text) : [];
+  // resolveOpen 没有 text；旧过滤会在到达 App 前把它静默丢掉。v49.27 起保留给 RepairGate shadow，仍不执行闭环写入。
+  return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
 // 把一整团旧「长期记忆总结」拆成一条条离散事实（导入记忆库用）——同样强制主语真名、别张冠李戴
 async function splitMemoryToEntries(p, ctx, blob) {
