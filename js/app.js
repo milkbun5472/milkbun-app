@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.21";
+const APP_VERSION = "v49.22";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1140,14 +1140,23 @@ function App() {
       return n.length >= 6 && en.length > n.length && en.indexOf(n) >= 0 && n.length / en.length > 0.72;
     });
   };
-  // 升级替换（v48.41）：新的更详细条目进库时，淘汰被它「完全包含」的旧含糊版——但【置顶、开环、太短的一律保留】（尤其别误删她的未了约定）
+  // v49.22：真实删留仍完整沿用 v48.41；同时把命中的新旧 ID 写入独立本机 shadow，
+  // 供 P1-3 上线前核对。旁路不存正文、不上传，失败也不影响这里的同步返回。
   const pruneSubsumed = (existing, newEntries) => existing.filter(old => {
-    const on = normMemText(old.text); if (on.length < 6 || old.pinned || old.open) return true;
-    return !newEntries.some(ne => {
+    const on = normMemText(old.text);
+    const match = newEntries.find(ne => {
       if (!ne || !ne.text || !memShareChar(ne.charIds, old.charIds)) return false;
       const nn = normMemText(ne.text);
       return nn.length > on.length && nn.indexOf(on) >= 0 && on.length / nn.length > 0.72;
     });
+    const protectedOld = on.length < 6 || old.pinned || old.open;
+    if (match) {
+      try { window.MemoryCorrectionShadow && window.MemoryCorrectionShadow.observePair({
+        oldId: old.id, newId: match.id, oldPinned: !!old.pinned, oldOpen: !!old.open,
+        oldTooShort: on.length < 6, currentWouldPrune: !protectedOld, source: match.source || "unknown"
+      }); } catch (e) {}
+    }
+    return protectedOld || !match;
   });
   const clampInt = (x, lo, hi, dflt) => typeof x === "number" && !isNaN(x) ? Math.max(lo, Math.min(hi, Math.round(x))) : dflt;
   const addMemEntry = e => {
