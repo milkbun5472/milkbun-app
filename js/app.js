@@ -2,7 +2,16 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.06";
+const APP_VERSION = "v49.07";
+const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
+const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
+const memoryRowFromCloud = r => ({
+  id: String(r.id), text: String(r.text || ""), tags: Array.isArray(r.tags) ? r.tags.map(String) : [],
+  charIds: Array.isArray(r.char_ids) ? r.char_ids.map(String) : [], v: typeof r.v === "number" ? r.v : 0,
+  a: typeof r.a === "number" ? r.a : 1, open: !!r.open, pinned: !!r.pinned, ts: Number(r.ts) || 0,
+  archived: !!r.archived, archivedBatch: r.archived_batch == null ? null : String(r.archived_batch),
+  archivedTs: r.archived_ts == null ? null : Number(r.archived_ts), source: r.source == null ? null : String(r.source)
+});
 
 const voiceToneForPrompt = m => {
   if (!m || !m.voiceTone) return "";
@@ -136,6 +145,7 @@ function App() {
   memLibRef.current = memLib; // 始终指向最新记忆库
   const [emoBusy, setEmoBusy] = useState(false); // 情绪补评估中
   const [memMigrationBusy, setMemMigrationBusy] = useState(false); // 独立表影子迁移中
+  const [memTableMode, setMemTableMode] = useState(memoryTableAuthorityOn); // 每账号/设备单独验收后才开，不波及其他用户
   const memExtractInflightRef = useRef({}); // 每角色抽取进行中标志，防并发重复抽取
   // 记忆库设置：topK 每轮召回条数；autoExtract 每轮后台自动抽取；extractInterval 每几轮抽一次；recentDays 短期窗至少覆盖最近几天（消死区）
   const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000 };
@@ -917,6 +927,23 @@ function App() {
 
       const cursor2 = await window.MemorySync.getCursor();
       await window.MemorySync.storePulledRows(await window.Cloud.memoryRowsFetchUpdatedSince(cursor2));
+
+      // 权威切换后：服务端行合成完整本机镜像；hits/lastHit 是设备私有统计，只从本机同 ID 继承。
+      if (memoryTableAuthorityOn()) {
+        const tableRows = await window.Cloud.memoryRowsFetchAll();
+        await window.MemorySync.storePulledRows(tableRows);
+        const localById = new Map((memLibRef.current || []).filter(x => x && x.id).map(x => [String(x.id), x]));
+        const authoritative = tableRows.filter(r => r && !r.deleted).map(r => {
+          const row = memoryRowFromCloud(r), local = localById.get(row.id);
+          if (local && typeof local.hits === "number") row.hits = local.hits;
+          if (local && typeof local.lastHit === "number") row.lastHit = local.lastHit;
+          return row;
+        });
+        memLibRef.current = authoritative;
+        setMemLib(authoritative);
+        saveJSON("x_memLib", authoritative); // 现在只是离线镜像；Cloud.collect 已明确排除它
+        await window.MemorySync.replaceLocalSnapshot(authoritative);
+      }
     } catch (e) {
       // 断网/临时错误：outbox 已落 IndexedDB，下次启动、回前台或联网会继续；不影响当前旧库。
     } finally { memRowSyncInflightRef.current = false; }
@@ -951,8 +978,44 @@ function App() {
   const showMemorySyncStatus = async () => {
     try {
       const s = await window.MemorySync.status();
-      toast("影子镜像 " + s.shadowRows + " 行 · 离线待发送 " + s.outbox + " 条 · 当前仍读旧记忆库");
+      toast((memoryTableAuthorityOn() ? "新表权威" : "影子镜像") + " " + s.shadowRows + " 行 · 离线待发送 " + s.outbox + " 条 · " + (memoryTableAuthorityOn() ? "本机镜像负责离线" : "当前仍读旧记忆库"));
     } catch (e) { toast("影子同步尚未初始化，稍后再看"); }
+  };
+  const enableMemoryTableAuthority = async () => {
+    if (memMigrationBusy) return;
+    setMemMigrationBusy(true);
+    try {
+      if (!(window.MemoryAudit && window.MemorySync && window.Cloud)) throw new Error("记忆验收模块未就绪，请刷新后重试");
+      await runMemoryRowSync();
+      const sync = await window.MemorySync.status();
+      if (sync.outbox !== 0) throw new Error("还有 " + sync.outbox + " 条离线变更没送完，已停止切换");
+      const localRaw = localStorage.getItem("x_memLib");
+      const tableRows = await window.Cloud.memoryRowsFetchAll();
+      const live = tableRows.filter(r => r && !r.deleted).map(memoryRowFromCloud);
+      const verify = await window.MemoryAudit.build(localRaw, JSON.stringify(live), {
+        reportType: "early-table-authority-cutover",
+        appVersion: APP_VERSION,
+        observationDays: 1,
+        tableTotalRows: tableRows.length,
+        tableLiveRows: live.length,
+        tableDeletedRows: tableRows.filter(r => r && r.deleted).length,
+        outbox: sync.outbox
+      });
+      window.MemoryAudit.download(verify);
+      const ls = verify.local && verify.local.stats;
+      const pass = ls && ls.totalRows === live.length && ls.uniqueIds === live.length && !ls.duplicateIds.length && !ls.missingIds && !ls.emptyTexts && verify.diff && verify.diff.exactSharedMatch;
+      if (!pass) throw new Error("新表与本机旧库没有逐 ID 全绿；报告已导出，仍保持旧读取");
+      localStorage.setItem(MEMORY_TABLE_AUTHORITY_KEY, "1");
+      setMemTableMode(true);
+      toast("逐 ID 验收通过：" + live.length + "/" + live.length + " · 正在启用新表权威");
+      setTimeout(() => location.reload(), 900);
+    } catch (e) { toast("没有切换：" + String((e && e.message) || e)); }
+    finally { setMemMigrationBusy(false); }
+  };
+  const useLegacyMemoryMirror = () => {
+    localStorage.removeItem(MEMORY_TABLE_AUTHORITY_KEY);
+    setMemTableMode(false);
+    location.reload();
   };
   // 记忆迁移第2步：只读审计本机镜像与旧云 blob，下载原始备份+逐 ID SHA-256+差异报告。
   // 不调用 saveMemLib/saveJSON，不碰 memories 表；云端不可读时仍导出本机报告。
@@ -7759,6 +7822,9 @@ function App() {
     onBulkImport: bulkImportMemories,
     onAudit: exportMemoryAudit,
     onSyncStatus: showMemorySyncStatus,
+    memoryTableMode: memTableMode,
+    onEnableTableMemory: enableMemoryTableAuthority,
+    onUseLegacyMemory: useLegacyMemoryMirror,
     emoBusy: emoBusy
   });else if (screen === "diary") body = h(Diary, {
     characters: characters,

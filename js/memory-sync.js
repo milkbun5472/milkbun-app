@@ -180,8 +180,15 @@
     return { shadowRows: rowCount, outbox: outboxCount, cursor: cursor ? cursor.value : null, mode: "shadow-only" };
   }
 
+  // 表权威拉回后把本机快照推进同一版本，避免下轮把“权威水合”误判成 474 条本地新写入。
+  async function replaceLocalSnapshot(current) {
+    const db = await openDB(), tx = db.transaction("meta", "readwrite");
+    tx.objectStore("meta").put({ key: "local_snapshot", value: (current || []).filter(x => x && x.id).map(sharedRow) });
+    await done(tx);
+  }
+
   window.MemorySync = {
     ensureOwner, bootstrapLocalSnapshot, enqueueDiff, storePulledRows,
-    getCursor: () => metaValue("cursor"), listOutbox, markAttempt, acknowledge, status
+    getCursor: () => metaValue("cursor"), listOutbox, markAttempt, acknowledge, status, replaceLocalSnapshot
   };
 })();

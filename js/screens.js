@@ -4411,6 +4411,9 @@ function MemoryLib({
   onShadowMigrate,
   migrationBusy,
   onSyncStatus,
+  memoryTableMode,
+  onEnableTableMemory,
+  onUseLegacyMemory,
   emoBusy
 }) {
   const t = useTheme();
@@ -4468,7 +4471,19 @@ function MemoryLib({
     onClick: onSyncStatus,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12.5 }
-  }, "🔄 查看行级影子同步状态") : null, h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索记忆内容 / 标签 / 角色…",
+  }, memoryTableMode ? "✅ 新记忆表是当前权威 · 查看同步状态" : "🔄 查看行级影子同步状态") : null,
+  !memoryTableMode && onEnableTableMemory ? h("button", {
+    onClick: () => { if (confirm("会先把本机旧库与新表逐 ID 核对；全部一致、待发送为 0 才会启用。旧镜像和回退闸都会保留。现在验收并启用吗？")) onEnableTableMemory(); },
+    disabled: migrationBusy,
+    className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60 disabled:opacity-40",
+    style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
+  }, migrationBusy ? "正在逐 ID 验收…" : "🛟 逐 ID 验收并启用新记忆表") : null,
+  memoryTableMode && onUseLegacyMemory ? h("button", {
+    onClick: () => { if (confirm("紧急改回本机旧镜像读取？不会删除新表或任何记忆；重新启用前不要在两边同时修改。")) onUseLegacyMemory(); },
+    className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
+    style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 }
+  }, "紧急回退：改读本机镜像") : null,
+  h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索记忆内容 / 标签 / 角色…",
     className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px" } })), h("div", {
     className: "shrink-0 px-6 pb-2 flex gap-2 overflow-x-auto"
   }, h("button", {

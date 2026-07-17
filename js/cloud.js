@@ -13,6 +13,7 @@
   let frozen = false;  // 云端恢复写回后锁死本地 x_ 写入：等重载期间，旧 React 状态再 saveJSON 也覆盖不了刚恢复的数据（防「恢复到一半」竞态）
   let pushTimer = null; // 防抖计时器
   const MARK = "cloud_pushed_at"; // 本机最后一次成功 push 的时间戳（无 x_ 前缀，不进存档）
+  const tableMemoryMode = () => { try { return localStorage.getItem("memory_table_authority_v1") === "1"; } catch (e) { return false; } };
   // 开机快照：本脚本执行(app 之前)时本地是否已有存档。localStorage 跨刷新持久，
   // 只有真·新设备/新网址首次打开才空。用它守 autoPull：本地已有数据=老设备回来，本地权威，绝不自动拿云端覆盖。
   const bootHadLocal = (function () { try { return Object.keys(localStorage).some(function (k) { return k.indexOf("x_") === 0; }); } catch (e) { return false; } })();
@@ -32,10 +33,21 @@
     collect() {
       const dump = {};
       Object.keys(localStorage)
-        .filter((k) => k.startsWith("x_"))
+        .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
         .forEach((k) => {
           dump[k] = localStorage.getItem(k);
         });
+      return dump;
+    },
+
+    // saves 仍整行 upsert。切表后不采集当前 x_memLib，但把云端那份切换前冻结副本原样带回，
+    // 否则一次普通 push 会因 JSON 整体替换而意外删掉回滚材料。
+    async collectForSave(userId) {
+      const dump = this.collect();
+      if (!tableMemoryMode()) return dump;
+      const { data, error } = await client.from("saves").select("data").eq("user_id", userId).maybeSingle();
+      if (error) throw error; // 宁可这次不备份，也不带着未知状态覆盖并删掉旧记忆副本
+      if (data && data.data && data.data.x_memLib != null) dump.x_memLib = data.data.x_memLib;
       return dump;
     },
 
@@ -44,10 +56,15 @@
     apply(data) {
       suspend = true;
       try {
+        // 行表权威开启后，旧 saves blob 无权再覆盖/清空本机记忆镜像。
+        const keepMemLib = tableMemoryMode() ? localStorage.getItem("x_memLib") : null;
         Object.keys(localStorage)
-          .filter((k) => k.startsWith("x_"))
+          .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
           .forEach((k) => localStorage.removeItem(k));
-        Object.entries(data || {}).forEach(([k, v]) => localStorage.setItem(k, v));
+        Object.entries(data || {}).forEach(([k, v]) => {
+          if (!(tableMemoryMode() && k === "x_memLib")) localStorage.setItem(k, v);
+        });
+        if (tableMemoryMode() && keepMemLib != null) localStorage.setItem("x_memLib", keepMemLib);
       } finally {
         suspend = false;
       }
@@ -70,6 +87,7 @@
     // 返回 { user, session }。若开启了邮箱验证，session 可能为 null。
     async signUp(email, password) {
       if (!client) throw new Error("云服务未就绪");
+      localStorage.removeItem("memory_table_authority_v1");
       const { data, error } = await client.auth.signUp({ email, password });
       if (error) throw error;
       return data;
@@ -77,6 +95,7 @@
 
     async signIn(email, password) {
       if (!client) throw new Error("云服务未就绪");
+      localStorage.removeItem("memory_table_authority_v1"); // 登录可能换账号；新账号必须自己重新逐 ID 验收
       const { data, error } = await client.auth.signInWithPassword({
         email,
         password,
@@ -94,6 +113,7 @@
       try {
         Object.keys(localStorage).filter(function (k) { return k.startsWith("x_"); }).forEach(function (k) { localStorage.removeItem(k); });
         localStorage.removeItem(MARK);
+        localStorage.removeItem("memory_table_authority_v1"); // 切表批准只属于当前账号在当前设备；退出后不带给下一个账号
       } finally { suspend = false; }
     },
 
@@ -102,9 +122,10 @@
       if (!client) throw new Error("云服务未就绪");
       const user = await this.getUser();
       if (!user) throw new Error("未登录");
+      const saveData = await this.collectForSave(user.id);
       const { error } = await client.from("saves").upsert({
         user_id: user.id,
-        data: this.collect(),
+        data: saveData,
         updated_at: new Date().toISOString(),
       });
       if (error) throw error;
@@ -400,9 +421,10 @@
         const user = await this.getUser();
         if (!user) return; // 访客模式：纯本地
         const ts = new Date().toISOString();
+        const saveData = await this.collectForSave(user.id);
         const { error } = await client.from("saves").upsert({
           user_id: user.id,
-          data: this.collect(),
+          data: saveData,
           updated_at: ts,
         });
         if (!error) localStorage.setItem(MARK, ts);
