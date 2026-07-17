@@ -4783,7 +4783,9 @@ function MemoryLib({
     return b ? h("span", { key: "src", title: "记忆来源", style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: b[1], padding: "1px 7px", borderRadius: 999, opacity: 0.9 } }, b[0]) : null;
   };
   // 精炼摘要可回溯（玄参#6）：refineBatch ↔ 原件 archivedBatch 同号，数一下有几条原件
-  const refineSrcCount = e => e.source === "monthly" && e.refineBatch ? (entries || []).filter(x => x && x.archived && x.archivedBatch === e.refineBatch).length : 0;
+  const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
+    : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
+  const refineSrcCount = e => { const batch = refineBatchOf(e); return batch ? (entries || []).filter(x => x && x.archived && x.archivedBatch === batch).length : 0; };
   // 可精炼旧记忆数（和 app.js isRefinable 同判定）：已了结/非置顶/情绪弱(a≤2)/放了 60+ 天/未归档；按当前筛选范围算
   const inScope = e => filter === "all" || !e.charIds || e.charIds.length === 0 || e.charIds.includes(filter);
   const refinableCount = (entries || []).filter(e => { const now = Date.now(); return e && e.text && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= 60 * 86400000 && inScope(e); }).length;

@@ -117,6 +117,9 @@
       } finally { suspend = false; }
       // 事件书架镜像立即清空（不等下次 ensureOwner）——未登录不许看到上一个账号的事件标题/梗概
       try { if (window.MemoryEvents && window.MemoryEvents.clearAll) await window.MemoryEvents.clearAll(); } catch (e) {}
+      // 召回冷却环/旁路诊断只属于当前账号。本机换号时必须清掉，不能让相同 charId
+      // 的另一个账号继承上一人的「刚想起过」状态。
+      try { if (window.RecallShadow && window.RecallShadow.clearAll) await window.RecallShadow.clearAll(); } catch (e) {}
     },
 
     // 把本地存档推到云端（覆盖该用户那一行）

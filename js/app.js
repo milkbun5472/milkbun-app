@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.17";
+const APP_VERSION = "v49.18";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1232,6 +1232,10 @@ function App() {
   // 月度精炼（#1，SullyOS 借鉴）：把【已了结·非置顶·情绪弱·放了 60+ 天】的旧记忆按【关系分组】浓缩成月度摘要，
   // 原件归档(archived)【不删除、可一键恢复】。你的未了约定(open)/置顶/动情大事(a≥3)一条不碰。
   const REFINE_OLD_DAYS = 60, REFINE_MIN = 8;
+  // refineBatch 是旧本地字段，没有进共享行表；但精炼批次本来就固定为 rf_<摘要ts>。
+  // 从云端/新设备回来时用这个稳定规则复原批次关系，恢复原件时才能一并撤掉摘要。
+  const refineBatchOf = e => e && e.refineBatch ? String(e.refineBatch)
+    : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
   const isRefinable = e => { const now = Date.now(); return e && e.text && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= REFINE_OLD_DAYS * 86400000; };
   const refineOldMemories = async (scopeCharId, opts = {}) => {
     if (!bgActive && !active) { if (!opts.auto) toast("请先到设置配置 API"); return 0; }
@@ -1277,7 +1281,7 @@ function App() {
   const restoreArchived = (batchId) => {
     const batches = batchId ? new Set([batchId]) : new Set(memLibRef.current.filter(e => e.archived).map(e => e.archivedBatch));
     if (!batches.size) { toast("没有可恢复的归档记忆"); return; }
-    const kept = memLibRef.current.filter(e => !(e.source === "monthly" && batches.has(e.refineBatch)));
+    const kept = memLibRef.current.filter(e => !(e.source === "monthly" && batches.has(refineBatchOf(e))));
     const restored = kept.map(e => (e.archived && batches.has(e.archivedBatch)) ? { ...e, archived: false, archivedBatch: undefined, archivedTs: undefined } : e);
     saveMemLib(restored);
     toast("已恢复归档记忆、撤除对应精炼摘要");
