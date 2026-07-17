@@ -757,5 +757,109 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-if (typeof window !== "undefined") window.createJiwen = createJiwen;
+// ─── A 情绪立体化 · 十维纯逻辑核（DORMANT / shadow only）─────────────
+// 与 createJiwen 同文件、复用同一脊柱；现役实例尚未接入，不改 prompt/主动行为。
+const A_AXES = Object.freeze({
+  connection:[0,1], pride:[-1,1], valence:[-1,1], arousal:[-1,1], immersion:[0,1],
+  hurt:[0,1], anger:[0,1], anxiety:[0,1], warmth:[0,1], fatigue:[0,1]
+});
+const A_DEFAULT_BASELINE = Object.freeze({ connection:0,pride:0,valence:0,arousal:0,immersion:0,hurt:0,anger:0,anxiety:0,warmth:.35,fatigue:.25 });
+const A_REGRESS_PER_MIN = Object.freeze({ connection:0,pride:.003,valence:.005,arousal:.005,immersion:.010,hurt:.001,anger:.004,anxiety:.002,warmth:.0015,fatigue:.001 });
+const A_MOOD_RULES = Object.freeze([
+  ["hurt",/(?:委屈|受伤|失落|难过|伤心|低落|沮丧|心碎|孤独)/,{hurt:.18,valence:-.10,warmth:-.04}],
+  ["anger",/(?:生气|愤怒|恼火|烦躁|火大|气恼|无语|厌烦)/,{anger:.18,arousal:.12,valence:-.08}],
+  ["anxiety",/(?:焦虑|害怕|不安|担心|紧张|恐惧|忐忑|慌)/,{anxiety:.18,arousal:.10,valence:-.06}],
+  ["warmth",/(?:温柔|心软|安心|柔软|甜|幸福|感动|暖|亲昵|宠溺)/,{warmth:.18,valence:.10,anxiety:-.06}],
+  ["fatigue",/(?:累|疲惫|困倦|乏力|倦|没精神|精疲力尽)/,{fatigue:.18,arousal:-.10,immersion:-.05}]
+]);
+const aClone = value => JSON.parse(JSON.stringify(value));
+const aFinite = (value,fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+const aClampAxis = (key,value) => clamp(aFinite(value,A_DEFAULT_BASELINE[key]),A_AXES[key][0],A_AXES[key][1]);
+
+function createEmotionAState(charHash, nowValue) {
+  const now=aFinite(nowValue,Date.now()), base={...A_DEFAULT_BASELINE};
+  return { schemaVersion:1,charHash:String(charHash||""),revision:1,updatedTs:now,
+    emotion:{temperament:{anchors:[],sensitivity:{},regressScale:{},curiosityBias:.45,reflectionBias:.40,dutyBias:.45,socialBias:.40,approved:false},baseline:base,current:{...base},lastMoodLabel:"",lastEventTs:null},
+    relationAxes:{},sleep:{},openThreads:[],drives:{},migrations:{} };
+}
+
+function migrateLegacyFiveA(raw,charHash,nowValue) {
+  const next=createEmotionAState(charHash,nowValue), source=raw&&raw.current?raw.current:(raw||{});
+  ["connection","pride","valence","arousal","immersion"].forEach(k=>{ if(Number.isFinite(Number(source[k]))) next.emotion.current[k]=aClampAxis(k,source[k]); });
+  next.migrations.legacyFiveAt=aFinite(nowValue,Date.now());
+  next.legacyMeta={lastTick:raw&&raw.lastTick||null,lastActivity:raw&&raw.lastActivity||null};
+  return next;
+}
+
+function aSeedAround(key,rawValue,oldCenter) {
+  const base=A_DEFAULT_BASELINE[key], normalized=(aFinite(rawValue,oldCenter)-oldCenter)/100;
+  return aClampAxis(key,base+clamp(normalized,-.15,.15));
+}
+
+function migrateDesireDriveA(rawState,driveShadow,nowValue) {
+  const state=aClone(rawState||createEmotionAState("",nowValue));
+  state.migrations=state.migrations||{};
+  if(state.migrations.desireDriveAt) return {state,migrated:false};
+  const d=driveShadow&&driveShadow.drives||{};
+  const seeds={
+    connection:aSeedAround("connection",d.attachment,35),
+    valence:aSeedAround("valence",d.joy,35),
+    anxiety:aSeedAround("anxiety",d.stress,25),
+    fatigue:aSeedAround("fatigue",d.fatigue,25),
+    warmth:aSeedAround("warmth",d.intimacy,35)
+  };
+  Object.entries(seeds).forEach(([k,v])=>{ state.emotion.baseline[k]=v; state.emotion.current[k]=v; });
+  const t=state.emotion.temperament;
+  t.curiosityBias=clamp(aFinite(d.curiosity,45)/100,0,1); t.reflectionBias=clamp(aFinite(d.reflection,40)/100,0,1);
+  t.dutyBias=clamp(aFinite(d.duty,45)/100,0,1); t.socialBias=clamp(aFinite(d.social,40)/100,0,1);
+  state.migrations.desireDriveAt=aFinite(nowValue,Date.now()); state.revision=aFinite(state.revision,1)+1; state.updatedTs=state.migrations.desireDriveAt;
+  return {state,migrated:true};
+}
+
+function moodEvidenceA(label) {
+  const text=String(label==null?"":label).trim(), delta={},rules=[];
+  A_MOOD_RULES.forEach(([name,re,part])=>{ if(re.test(text)){rules.push(name);Object.entries(part).forEach(([k,v])=>{delta[k]=(delta[k]||0)+v;});} });
+  return {label:text.slice(0,40),matched:rules.length>0,rules,delta};
+}
+
+function capEmotionDeltasA(sources,perAxisValue,totalValue) {
+  const perAxis=Math.max(0,aFinite(perAxisValue,.25)),total=Math.max(0,aFinite(totalValue,.55)),summed={};
+  (Array.isArray(sources)?sources:[]).forEach(src=>Object.entries(src&&src.delta||{}).forEach(([k,v])=>{if(A_AXES[k]&&Number.isFinite(Number(v)))summed[k]=(summed[k]||0)+Number(v);}));
+  const axisCapped={}; let clippedAxis=false;
+  Object.entries(summed).forEach(([k,v])=>{axisCapped[k]=clamp(v,-perAxis,perAxis);if(axisCapped[k]!==v)clippedAxis=true;});
+  const l1=Object.values(axisCapped).reduce((n,v)=>n+Math.abs(v),0),scale=l1>total&&l1>0?total/l1:1,applied={};
+  Object.entries(axisCapped).forEach(([k,v])=>{applied[k]=v*scale;});
+  return {summed,axisCapped,applied,clippedAxis,scaledTotal:scale<1,scale,l1BeforeScale:l1};
+}
+
+function applyEmotionAEvent(rawState,event,nowValue) {
+  try{
+    const state=aClone(rawState),mood=moodEvidenceA(event&&event.moodLabel),sources=[];
+    if(event&&Number.isFinite(Number(event.affinityDelta)))sources.push({name:"affinity",delta:{valence:Number(event.affinityDelta)*.05}});
+    if(mood.matched)sources.push({name:"mood",delta:mood.delta});
+    if(event&&event.delta)sources.push({name:"event",delta:event.delta});
+    const capped=capEmotionDeltasA(sources,.25,.55),before={...state.emotion.current},after={...before};
+    Object.entries(capped.applied).forEach(([k,v])=>{
+      const min=A_AXES[k][0],max=A_AXES[k][1],cur=aClampAxis(k,after[k]);
+      const proximity=v>0?(cur-min)/(max-min):(max-cur)/(max-min),edgeScale=Math.max(.25,1-.5*clamp(proximity,0,1));
+      const headroom=v>0?max-cur:cur-min,move=Math.sign(v)*Math.min(Math.abs(v)*edgeScale,Math.max(0,headroom)*.8);
+      after[k]=aClampAxis(k,cur+move);
+    });
+    const at=aFinite(nowValue,Date.now()); state.emotion.current=after;state.emotion.lastMoodLabel=mood.label;state.emotion.lastEventTs=at;state.updatedTs=at;state.revision=aFinite(state.revision,1)+1;
+    return {state,audit:{sources,summed:capped.summed,applied:Object.fromEntries(Object.keys(after).filter(k=>after[k]!==before[k]).map(k=>[k,after[k]-before[k]])),clippedAxis:capped.clippedAxis,scaledTotal:capped.scaledTotal,totalScale:capped.scale,moodMatched:mood.matched,moodRules:mood.rules}};
+  }catch(_){return {state:rawState,audit:{error:"emotion_event_failed",moodMatched:false,moodRules:[]}};}
+}
+
+function regressEmotionA(rawState,minutesValue,nowValue) {
+  try{
+    const state=aClone(rawState),mins=clamp(aFinite(minutesValue,0),0,720),base=state.emotion.baseline,current=state.emotion.current,scale=state.emotion.temperament.regressScale||{};
+    Object.keys(A_AXES).forEach(k=>{const cur=aClampAxis(k,current[k]),target=aClampAxis(k,base[k]),step=A_REGRESS_PER_MIN[k]*aFinite(scale[k],1)*mins;current[k]=cur>target?Math.max(target,cur-step):cur<target?Math.min(target,cur+step):cur;});
+    state.updatedTs=aFinite(nowValue,Date.now());state.revision=aFinite(state.revision,1)+1;return state;
+  }catch(_){return rawState;}
+}
+
+const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA});
+
+if (typeof window !== "undefined") { window.createJiwen = createJiwen; window.JiwenEmotionA=JiwenEmotionA; }
+if (typeof module === "object" && module.exports) module.exports={createJiwen,JiwenEmotionA};
 })();
