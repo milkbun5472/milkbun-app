@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.45";
+const APP_VERSION = "v49.46";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -592,7 +592,8 @@ function App() {
       const ownerId = await aShadowOwnerId();
       const row = await window.InnerLifeAShadow.get(ownerId, activeChar.id);
       const report = await window.InnerLifeAShadow.report(ownerId, activeChar.id);
-      if (alive) { setTemperamentDraft(row && row.emotion ? row.emotion.temperament : null); setAShadowPanel({ state: row, projection: row && window.JiwenEmotionA ? window.JiwenEmotionA.displayProjection(row) : null, report }); }
+      const bReport = window.InnerLifeBShadow ? await window.InnerLifeBShadow.report(ownerId, activeChar) : null;
+      if (alive) { setTemperamentDraft(row && row.emotion ? row.emotion.temperament : null); setAShadowPanel({ state: row, projection: row && window.JiwenEmotionA ? window.JiwenEmotionA.displayProjection(row) : null, report, bReport }); }
     })();
     return () => { alive = false; };
   }, [chatSettingsOpen, activeChar && activeChar.id]);
@@ -654,6 +655,7 @@ function App() {
             const raw = await callAI(bg, spec.system, spec.messages, { maxTokens: spec.maxTokens || 6000 });
             return extractJSON(raw) || {};
           }});
+          if (activeChar && activeChar.id === char.id) { const bReport = await window.InnerLifeBShadow.report(ownerId, char); setAShadowPanel(p => ({ ...(p || {}), bReport })); }
         } catch (e) {}
       }, 0);
     } catch (e) {}
