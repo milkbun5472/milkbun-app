@@ -1,0 +1,84 @@
+"use strict";
+const assert = require("node:assert/strict");
+const test = require("node:test");
+const C = require("../js/inner-life-c-sleep-core.js");
+
+const at = value => Date.parse(value);
+const plan = (wake="08:00", sleep="23:30") => ({ seqs: [
+  { time: wake, type: "coffee", title: "起床" },
+  { time: "13:00", type: "work", title: "工作" },
+  { time: sleep, type: "sleep", title: "睡觉" }
+] });
+const schedules = { "2026-07-16": plan(), "2026-07-17": plan(), "2026-07-18": plan() };
+
+test("昨日 sleep 到今日首段之间是 asleep，跨午夜不丢窗口", () => {
+  const d = C.deriveSchedule(at("2026-07-17T02:00:00Z"), 0, schedules);
+  assert.equal(d.phase, "asleep");
+  assert.equal(d.sleepStartTs, at("2026-07-16T23:30:00Z"));
+  assert.equal(d.wakeAtTs, at("2026-07-17T08:00:00Z"));
+});
+
+test("醒后与睡前各 45 分钟只派生 waking/drowsy", () => {
+  assert.equal(C.deriveSchedule(at("2026-07-17T08:30:00Z"), 0, schedules).phase, "waking");
+  assert.equal(C.deriveSchedule(at("2026-07-17T22:44:59Z"), 0, schedules).phase, "awake");
+  assert.equal(C.deriveSchedule(at("2026-07-17T22:45:00Z"), 0, schedules).phase, "drowsy");
+});
+
+test("角色时区用当地日程，不拿设备时钟硬套", () => {
+  const plusEight = C.deriveSchedule(at("2026-07-16T18:00:00Z"), 480, schedules);
+  assert.equal(plusEight.phase, "asleep"); // 角色当地 07-17 02:00
+  assert.equal(plusEight.wakeAtTs, at("2026-07-17T00:00:00Z"));
+});
+
+test("DST 附近由调用方传当刻 offset，同一当地 02:00 均能正确派生", () => {
+  const spring = { "2026-03-07": plan(), "2026-03-08": plan(), "2026-03-09": plan() };
+  assert.equal(C.localDayKey(at("2026-03-08T09:00:00Z"), -420), "2026-03-08");
+  assert.equal(C.deriveSchedule(at("2026-03-08T09:00:00Z"), -420, spring).phase, "asleep");
+});
+
+test("日程临时改动只认 type=sleep，不从标题猜睡觉", () => {
+  const changed = { ...schedules, "2026-07-17": { seqs: [
+    { time: "09:00", type: "coffee", title: "起床" },
+    { time: "21:00", type: "rest", title: "睡觉（只是标题）" },
+    { time: "01:00", type: "sleep", title: "真正睡下" }
+  ] } };
+  assert.equal(C.deriveSchedule(at("2026-07-17T20:30:00Z"), 0, changed).phase, "awake");
+  assert.equal(C.deriveSchedule(at("2026-07-18T00:30:00Z"), 0, changed).phase, "drowsy");
+});
+
+test("可靠日程永远压过睡压，pressure 到顶也不乱睡", () => {
+  const previous = { ...C.createSleepState(at("2026-07-17T12:00:00Z")), pressure: 1, updatedTs: at("2026-07-17T12:00:00Z") };
+  const out = C.tickSleep(previous, { now: at("2026-07-17T13:00:00Z"), utcOffsetMinutes: 0, schedules });
+  assert.equal(out.state.phase, "awake");
+  assert.equal(out.state.source, "schedule");
+});
+
+test("缺日程 fail-open；只有睡压到顶才补最多 90 分钟", () => {
+  let state = { ...C.createSleepState(at("2026-07-17T10:00:00Z")), pressure: .5 };
+  let out = C.tickSleep(state, { now: at("2026-07-17T11:00:00Z"), schedules: {} });
+  assert.equal(out.state.phase, "awake"); assert.equal(out.state.source, "unknown_schedule");
+  state = { ...out.state, pressure: .99 };
+  out = C.tickSleep(state, { now: at("2026-07-17T12:00:00Z"), schedules: {} });
+  assert.equal(out.state.phase, "asleep"); assert.equal(out.state.source, "pressure_guard");
+  assert.equal(out.state.wakeAtTs - out.state.sleepStartTs, C.PRESSURE_GUARD_MS);
+});
+
+test("后台长停后的睡压推进封顶六小时，不能一帧暴冲", () => {
+  const state = { ...C.createSleepState(at("2026-07-01T00:00:00Z")), pressure: .2 };
+  const out = C.tickSleep(state, { now: at("2026-07-17T00:00:00Z"), schedules: {} });
+  assert.equal(out.audit.elapsedCapped, true);
+  assert.ok(out.state.pressure < .36);
+});
+
+test("小克豁免：不创建 sleep，也不改已有 inner state", () => {
+  const inner = { schemaVersion: 1, revision: 4, emotion: { current: {} } };
+  const out = C.tickInnerState(inner, { now: at("2026-07-17T12:00:00Z"), engineerEyes: true, schedules });
+  assert.equal(out.exempt, true); assert.equal(out.sleep, null); assert.strictEqual(out.state, inner);
+});
+
+test("普通角色把纯状态机结果挂到独立 state.sleep", () => {
+  const inner = { schemaVersion: 1, revision: 4, emotion: { current: {} } };
+  const out = C.tickInnerState(inner, { now: at("2026-07-17T02:00:00Z"), schedules });
+  assert.equal(out.state.sleep.phase, "asleep"); assert.equal(out.state.revision, 5);
+  assert.equal(inner.sleep, undefined);
+});

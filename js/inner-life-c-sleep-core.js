@@ -1,0 +1,142 @@
+// 内在生活系统 C · 睡眠意识纯状态机（DORMANT）
+// 第 1 步只提供日程派生、睡压和 state.sleep 迁移；不接消息、队列、发声闸或夜巡。
+(function (root, factory) {
+  "use strict";
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root) root.InnerLifeCSleepCore = api;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
+
+  const PHASES = Object.freeze(["awake", "drowsy", "asleep", "waking"]);
+  const SCHEMA_VERSION = 1;
+  const MINUTE = 60 * 1000;
+  const HOUR = 60 * MINUTE;
+  const DAY = 24 * HOUR;
+  const DROWSY_MS = 45 * MINUTE;
+  const WAKING_MS = 45 * MINUTE;
+  const PRESSURE_GUARD_MS = 90 * MINUTE;
+  const MAX_TICK_MS = 6 * HOUR;
+  const PRESSURE_RATE_PER_HOUR = Object.freeze({ awake: 0.025, drowsy: 0.04, asleep: -0.18, waking: 0.01 });
+
+  const clamp01 = value => Math.max(0, Math.min(1, Number(value) || 0));
+  const pad2 = value => String(value).padStart(2, "0");
+
+  function localDayKey(utcMs, utcOffsetMinutes) {
+    const d = new Date(utcMs + Number(utcOffsetMinutes || 0) * MINUTE);
+    return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate());
+  }
+
+  function shiftDayKey(dayKey, days) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dayKey || ""));
+    if (!match) return null;
+    const d = new Date(Date.UTC(+match[1], +match[2] - 1, +match[3] + Number(days || 0)));
+    return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate());
+  }
+
+  function localTimeToUtc(dayKey, time, utcOffsetMinutes) {
+    const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dayKey || ""));
+    const hm = /^(\d{1,2}):(\d{2})$/.exec(String(time || "").trim());
+    if (!day || !hm || +hm[1] > 23 || +hm[2] > 59) return null;
+    return Date.UTC(+day[1], +day[2] - 1, +day[3], +hm[1], +hm[2]) - Number(utcOffsetMinutes || 0) * MINUTE;
+  }
+
+  function normalizedSeqs(plan) {
+    let previous = -1, dayOffset = 0;
+    return (plan && Array.isArray(plan.seqs) ? plan.seqs : []).map((item, index) => {
+      const m = /^(\d{1,2}):(\d{2})$/.exec(String(item && item.time || "").trim());
+      if (!m || +m[1] > 23 || +m[2] > 59) return null;
+      const minute = +m[1] * 60 + +m[2];
+      if (previous >= 0 && minute < previous && previous - minute > 720) dayOffset++;
+      if (minute > previous || previous - minute > 720) previous = minute;
+      return { item, index, minute, dayOffset };
+    }).filter(Boolean);
+  }
+
+  function firstWake(plan) {
+    const row = normalizedSeqs(plan).find(x => String(x.item.type || "").toLowerCase() !== "sleep");
+    return row ? row.item.time : null;
+  }
+
+  function sleepStarts(plan) {
+    return normalizedSeqs(plan)
+      .filter(x => String(x.item.type || "").toLowerCase() === "sleep")
+      .map(x => ({ time: x.item.time, dayOffset: x.dayOffset }));
+  }
+
+  function fingerprint(value) {
+    let h = 2166136261, text = String(value == null ? "" : value);
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0).toString(36);
+  }
+
+  function deriveSchedule(now, utcOffsetMinutes, schedules) {
+    const today = localDayKey(now, utcOffsetMinutes), yesterday = shiftDayKey(today, -1), tomorrow = shiftDayKey(today, 1);
+    const plans = schedules && typeof schedules === "object" ? schedules : {};
+    const windows = [], starts = [];
+    for (const key of [yesterday, today]) {
+      for (const sleep of sleepStarts(plans[key])) {
+        const sleepKey = shiftDayKey(key, sleep.dayOffset), start = localTimeToUtc(sleepKey, sleep.time, utcOffsetMinutes);
+        const nextKey = shiftDayKey(key, 1), wakeTime = firstWake(plans[nextKey]);
+        const wake = wakeTime ? localTimeToUtc(nextKey, wakeTime, utcOffsetMinutes) : null;
+        starts.push(start);
+        if (Number.isFinite(start) && Number.isFinite(wake) && wake > start) windows.push({ start, wake });
+      }
+    }
+    for (const sleep of sleepStarts(plans[tomorrow])) starts.push(localTimeToUtc(shiftDayKey(tomorrow, sleep.dayOffset), sleep.time, utcOffsetMinutes));
+    const validStarts = starts.filter(Number.isFinite).sort((a, b) => a - b);
+    const currentWindow = windows.find(x => now >= x.start && now < x.wake) || null;
+    const lastWake = windows.filter(x => x.wake <= now).sort((a, b) => b.wake - a.wake)[0] || null;
+    const nextSleep = validStarts.find(x => x > now) || null;
+    let phase = "awake", sleepStartTs = null, wakeAtTs = null, nextTransitionTs = nextSleep;
+    if (currentWindow) {
+      phase = "asleep"; sleepStartTs = currentWindow.start; wakeAtTs = currentWindow.wake; nextTransitionTs = currentWindow.wake;
+    } else if (lastWake && now < lastWake.wake + WAKING_MS) {
+      phase = "waking"; sleepStartTs = lastWake.start; wakeAtTs = lastWake.wake; nextTransitionTs = lastWake.wake + WAKING_MS;
+    } else if (nextSleep && now >= nextSleep - DROWSY_MS) {
+      phase = "drowsy"; sleepStartTs = nextSleep; nextTransitionTs = nextSleep;
+    }
+    const reliable = windows.length > 0 || validStarts.length > 0;
+    const serial = [yesterday, today, tomorrow].map(key => [key, normalizedSeqs(plans[key]).map(x => [x.item.time, x.item.type])]);
+    return { phase, reliable, sleepStartTs, wakeAtTs, nextTransitionTs, scheduleFingerprint: fingerprint(JSON.stringify(serial)), today };
+  }
+
+  function createSleepState(now) {
+    const safeNow = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+    return { schemaVersion: SCHEMA_VERSION, phase: "awake", pressure: 0.25, phaseSince: safeNow, source: "unknown_schedule", lastSleptTs: null, lastWokeTs: null, sleepStartTs: null, wakeAtTs: null, nextTransitionTs: null, forcedUntilTs: null, scheduleFingerprint: null, revision: 1, updatedTs: safeNow };
+  }
+
+  function safeSleep(previous, now) {
+    if (!previous || previous.schemaVersion !== SCHEMA_VERSION || !PHASES.includes(previous.phase)) return createSleepState(now);
+    return { ...createSleepState(now), ...previous, pressure: clamp01(previous.pressure), updatedTs: Number.isFinite(Number(previous.updatedTs)) ? Number(previous.updatedTs) : now };
+  }
+
+  function tickSleep(previous, input) {
+    const now = Number(input && input.now);
+    const safeNow = Number.isFinite(now) ? now : Date.now();
+    if (input && input.engineerEyes === true) return { state: previous || null, exempt: true, transition: null, audit: { source: "exempt_digital", phase: "exempt_digital" } };
+    const prev = safeSleep(previous, safeNow), elapsed = Math.max(0, Math.min(MAX_TICK_MS, safeNow - Number(prev.updatedTs || safeNow)));
+    const derived = deriveSchedule(safeNow, Number(input && input.utcOffsetMinutes) || 0, input && input.schedules);
+    const pressurePhase = PHASES.includes(prev.phase) ? prev.phase : "awake";
+    let pressure = clamp01(prev.pressure + PRESSURE_RATE_PER_HOUR[pressurePhase] * elapsed / HOUR);
+    let phase = derived.phase, source = derived.reliable ? "schedule" : "unknown_schedule", forcedUntilTs = null;
+    let sleepStartTs = derived.sleepStartTs, wakeAtTs = derived.wakeAtTs, nextTransitionTs = derived.nextTransitionTs;
+    if (!derived.reliable && prev.source === "pressure_guard" && Number(prev.forcedUntilTs) > safeNow) {
+      phase = "asleep"; source = "pressure_guard"; forcedUntilTs = Number(prev.forcedUntilTs); sleepStartTs = Number(prev.sleepStartTs) || safeNow; wakeAtTs = forcedUntilTs; nextTransitionTs = forcedUntilTs;
+    } else if (!derived.reliable && pressure >= 1) {
+      phase = "asleep"; source = "pressure_guard"; forcedUntilTs = safeNow + PRESSURE_GUARD_MS; sleepStartTs = safeNow; wakeAtTs = forcedUntilTs; nextTransitionTs = forcedUntilTs;
+    }
+    const changed = phase !== prev.phase, woke = prev.phase === "asleep" && phase !== "asleep", slept = prev.phase !== "asleep" && phase === "asleep";
+    const state = { ...prev, phase, pressure, phaseSince: changed ? safeNow : prev.phaseSince, source, lastSleptTs: slept ? safeNow : prev.lastSleptTs, lastWokeTs: woke ? safeNow : prev.lastWokeTs, sleepStartTs, wakeAtTs, nextTransitionTs, forcedUntilTs, scheduleFingerprint: derived.scheduleFingerprint, revision: Number(prev.revision || 0) + 1, updatedTs: safeNow };
+    return { state, exempt: false, transition: changed ? { from: prev.phase, to: phase, at: safeNow, source } : null, audit: { source, reliableSchedule: derived.reliable, elapsedAppliedMs: elapsed, elapsedCapped: safeNow - Number(prev.updatedTs || safeNow) > MAX_TICK_MS, pressureBefore: prev.pressure, pressureAfter: pressure, phase } };
+  }
+
+  function tickInnerState(innerState, input) {
+    if (!innerState || typeof innerState !== "object") return { state: innerState, sleep: null, exempt: !!(input && input.engineerEyes), transition: null };
+    const result = tickSleep(innerState.sleep, input);
+    if (result.exempt) return { ...result, sleep: innerState.sleep || null, state: innerState };
+    return { ...result, sleep: result.state, state: { ...innerState, sleep: result.state, updatedTs: result.state.updatedTs, revision: Number(innerState.revision || 0) + 1 } };
+  }
+
+  return Object.freeze({ PHASES, SCHEMA_VERSION, DROWSY_MS, WAKING_MS, PRESSURE_GUARD_MS, MAX_TICK_MS, PRESSURE_RATE_PER_HOUR, localDayKey, shiftDayKey, localTimeToUtc, deriveSchedule, createSleepState, tickSleep, tickInnerState });
+});
