@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.31";
+const APP_VERSION = "v49.32";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1349,6 +1349,8 @@ function App() {
       });
       // P1-1 shadow：传入内存做机械证据核验，只落类别/计数/hash；真实 entries 与旧版完全同路。
       try { window.MemoryQualityShadow && window.MemoryQualityShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
+      // InsightCapture shadow：复用本次已经产出的 insight 分类，不另叫 AI；只评估独立洞察四段结构是否够格。
+      try { window.InsightCandidateShadow && window.InsightCandidateShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
       if (entries.length) saveMemLib([...entries, ...pruneSubsumed(memLibRef.current, entries)]);
       return entries.length;
     } finally {
