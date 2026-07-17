@@ -1,5 +1,5 @@
 // 内在生活系统 C · 睡眠意识纯状态机（DORMANT）
-// 第 1 步只提供日程派生、睡压和 state.sleep 迁移；不接消息、队列、发声闸或夜巡。
+// 第 2 步提供日程派生、睡压、state.sleep 与意识队列纯逻辑；仍不接消息入口、发声闸或夜巡。
 (function (root, factory) {
   "use strict";
   const api = factory();
@@ -103,12 +103,58 @@
 
   function createSleepState(now) {
     const safeNow = Number.isFinite(Number(now)) ? Number(now) : Date.now();
-    return { schemaVersion: SCHEMA_VERSION, phase: "awake", pressure: 0.25, phaseSince: safeNow, source: "unknown_schedule", lastSleptTs: null, lastWokeTs: null, sleepStartTs: null, wakeAtTs: null, nextTransitionTs: null, forcedUntilTs: null, scheduleFingerprint: null, revision: 1, updatedTs: safeNow };
+    return { schemaVersion: SCHEMA_VERSION, phase: "awake", pressure: 0.25, phaseSince: safeNow, source: "unknown_schedule", lastSleptTs: null, lastWokeTs: null, sleepStartTs: null, wakeAtTs: null, nextTransitionTs: null, forcedUntilTs: null, scheduleFingerprint: null, queue: [], queueOrder: 0, revision: 1, updatedTs: safeNow };
   }
 
   function safeSleep(previous, now) {
     if (!previous || previous.schemaVersion !== SCHEMA_VERSION || !PHASES.includes(previous.phase)) return createSleepState(now);
-    return { ...createSleepState(now), ...previous, pressure: clamp01(previous.pressure), updatedTs: Number.isFinite(Number(previous.updatedTs)) ? Number(previous.updatedTs) : now };
+    const seen = new Set(), queue = (Array.isArray(previous.queue) ? previous.queue : []).filter(item => {
+      const id = String(item && item.messageId || "");
+      if (!id || seen.has(id)) return false;
+      seen.add(id); return true;
+    }).map((item, index) => ({ messageId: String(item.messageId), arrivedTs: Number(item.arrivedTs) || now, order: Number.isFinite(Number(item.order)) ? Number(item.order) : index + 1, perceived: false, perceivedTs: null }));
+    return { ...createSleepState(now), ...previous, pressure: clamp01(previous.pressure), queue, queueOrder: Math.max(Number(previous.queueOrder) || 0, ...queue.map(x => x.order), 0), updatedTs: Number.isFinite(Number(previous.updatedTs)) ? Number(previous.updatedTs) : now };
+  }
+
+  function messageHash(messageId) { return fingerprint("message|" + String(messageId || "")); }
+  function arrivalBucket(ts) { return Math.floor((Number(ts) || 0) / (15 * MINUTE)) * 15 * MINUTE; }
+
+  function receiveMessage(sleepState, message, input) {
+    const now = Number(input && input.now), arrivedTs = Number.isFinite(now) ? now : Date.now();
+    const mode = input && input.mode === "live" ? "live" : "shadow";
+    if (input && input.engineerEyes === true) return { state: sleepState || null, message, decision: "exempt", diagnostic: null };
+    const state = safeSleep(sleepState, arrivedTs), messageId = String(message && message.id || "");
+    if (!message || message.role !== "user" || !messageId) return { state, message, decision: "ignored", diagnostic: null };
+    if (state.phase !== "asleep") {
+      const nextMessage = mode === "live" ? { ...message, perceived: true, perceivedTs: arrivedTs, sleepQueued: false } : message;
+      return { state, message: nextMessage, decision: "perceived_now", diagnostic: null };
+    }
+    const duplicate = state.queue.some(item => item.messageId === messageId);
+    const projectedDepth = state.queue.length + (duplicate ? 0 : 1);
+    const diagnostic = { kind: "would_queue", messageIdHash: messageHash(messageId), arrivalBucketTs: arrivalBucket(arrivedTs), projectedDepth, duplicate };
+    if (mode === "shadow") return { state: sleepState || state, message, decision: "would_queue", diagnostic };
+    if (duplicate) return { state, message: { ...message, perceived: false, perceivedTs: null, sleepQueued: true }, decision: "queued_duplicate", diagnostic };
+    const order = Number(state.queueOrder || 0) + 1;
+    const queued = { messageId, arrivedTs, order, perceived: false, perceivedTs: null };
+    return { state: { ...state, queue: [...state.queue, queued], queueOrder: order, revision: Number(state.revision || 0) + 1, updatedTs: arrivedTs }, message: { ...message, perceived: false, perceivedTs: null, sleepQueued: true }, decision: "queued", diagnostic };
+  }
+
+  function planRelease(sleepState, messages, wakeTsValue) {
+    const wakeTs = Number.isFinite(Number(wakeTsValue)) ? Number(wakeTsValue) : Date.now(), state = safeSleep(sleepState, wakeTs);
+    const byId = new Map((Array.isArray(messages) ? messages : []).filter(Boolean).map(message => [String(message.id || ""), message]));
+    const ordered = [...state.queue].sort((a, b) => a.order - b.order || a.arrivedTs - b.arrivedTs), releasable = [], missing = [];
+    for (const item of ordered) {
+      if (!byId.has(item.messageId)) { missing.push(item.messageId); continue; }
+      releasable.push({ messageId: item.messageId, arrivedTs: item.arrivedTs, perceivedTs: wakeTs, order: item.order });
+    }
+    return { wakeTs, releasable, missing, releaseIds: releasable.map(x => x.messageId), diagnostic: { kind: "would_release", count: releasable.length, orderHashes: releasable.map(x => messageHash(x.messageId)), missingCount: missing.length } };
+  }
+
+  function commitRelease(sleepState, messages, plan, succeeded) {
+    if (!succeeded || !plan || !Array.isArray(plan.releaseIds)) return { state: sleepState, messages, committed: false };
+    const ids = new Set(plan.releaseIds.map(String)), wakeTs = Number(plan.wakeTs) || Date.now(), state = safeSleep(sleepState, wakeTs);
+    const nextMessages = (Array.isArray(messages) ? messages : []).map(message => ids.has(String(message && message.id || "")) ? { ...message, perceived: true, perceivedTs: wakeTs, sleepQueued: false } : message);
+    return { state: { ...state, queue: state.queue.filter(item => !ids.has(item.messageId)), revision: Number(state.revision || 0) + 1, updatedTs: wakeTs }, messages: nextMessages, committed: true };
   }
 
   function tickSleep(previous, input) {
@@ -138,5 +184,5 @@
     return { ...result, sleep: result.state, state: { ...innerState, sleep: result.state, updatedTs: result.state.updatedTs, revision: Number(innerState.revision || 0) + 1 } };
   }
 
-  return Object.freeze({ PHASES, SCHEMA_VERSION, DROWSY_MS, WAKING_MS, PRESSURE_GUARD_MS, MAX_TICK_MS, PRESSURE_RATE_PER_HOUR, localDayKey, shiftDayKey, localTimeToUtc, deriveSchedule, createSleepState, tickSleep, tickInnerState });
+  return Object.freeze({ PHASES, SCHEMA_VERSION, DROWSY_MS, WAKING_MS, PRESSURE_GUARD_MS, MAX_TICK_MS, PRESSURE_RATE_PER_HOUR, localDayKey, shiftDayKey, localTimeToUtc, deriveSchedule, createSleepState, tickSleep, tickInnerState, messageHash, arrivalBucket, receiveMessage, planRelease, commitRelease });
 });

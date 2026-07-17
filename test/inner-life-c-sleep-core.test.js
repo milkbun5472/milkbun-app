@@ -82,3 +82,60 @@ test("普通角色把纯状态机结果挂到独立 state.sleep", () => {
   assert.equal(out.state.sleep.phase, "asleep"); assert.equal(out.state.revision, 5);
   assert.equal(inner.sleep, undefined);
 });
+
+test("shadow 睡中只记 would_queue，不改消息、不真入队", () => {
+  const sleep = { ...C.createSleepState(at("2026-07-17T01:00:00Z")), phase: "asleep" };
+  const message = { id: "m1", role: "user", content: "半夜的一句话", ts: at("2026-07-17T02:00:00Z") };
+  const out = C.receiveMessage(sleep, message, { now: message.ts, mode: "shadow" });
+  assert.equal(out.decision, "would_queue"); assert.strictEqual(out.message, message); assert.strictEqual(out.state, sleep);
+  assert.deepEqual(out.state.queue, []); assert.equal(out.diagnostic.projectedDepth, 1);
+  assert.equal(JSON.stringify(out.diagnostic).includes(message.content), false);
+});
+
+test("纯 live 能力按 id 幂等入队，队列绝不复制正文", () => {
+  let sleep = { ...C.createSleepState(at("2026-07-17T01:00:00Z")), phase: "asleep" };
+  const message = { id: "m1", role: "user", content: "正文只在聊天里", ts: at("2026-07-17T02:00:00Z") };
+  let out = C.receiveMessage(sleep, message, { now: message.ts, mode: "live" }); sleep = out.state;
+  assert.equal(out.decision, "queued"); assert.equal(out.message.perceived, false); assert.equal(sleep.queue.length, 1);
+  assert.deepEqual(Object.keys(sleep.queue[0]).sort(), ["arrivedTs","messageId","order","perceived","perceivedTs"].sort());
+  out = C.receiveMessage(sleep, message, { now: message.ts + 1000, mode: "live" });
+  assert.equal(out.decision, "queued_duplicate"); assert.equal(out.state.queue.length, 1);
+});
+
+test("醒来按 arrival 顺序规划汇入，诊断只留 id hash", () => {
+  let sleep = { ...C.createSleepState(at("2026-07-17T01:00:00Z")), phase: "asleep" };
+  const messages = [
+    { id: "m2", role: "user", content: "第二条" },
+    { id: "m1", role: "user", content: "第一条" }
+  ];
+  sleep = C.receiveMessage(sleep, messages[1], { now: 1000, mode: "live" }).state;
+  sleep = C.receiveMessage(sleep, messages[0], { now: 2000, mode: "live" }).state;
+  const release = C.planRelease(sleep, messages, 3000);
+  assert.deepEqual(release.releaseIds, ["m1", "m2"]); assert.equal(release.diagnostic.count, 2);
+  assert.equal(JSON.stringify(release.diagnostic).includes("第一条"), false);
+});
+
+test("回复失败不清队列也不盖已感知，成功后才一次提交", () => {
+  let sleep = { ...C.createSleepState(0), phase: "asleep" };
+  const messages = [{ id: "m1", role: "user", content: "别丢我" }];
+  sleep = C.receiveMessage(sleep, messages[0], { now: 1000, mode: "live" }).state;
+  const plan = C.planRelease(sleep, messages, 2000);
+  const failed = C.commitRelease(sleep, messages, plan, false);
+  assert.strictEqual(failed.state, sleep); assert.strictEqual(failed.messages, messages); assert.equal(failed.state.queue.length, 1);
+  const done = C.commitRelease(sleep, messages, plan, true);
+  assert.equal(done.state.queue.length, 0); assert.equal(done.messages[0].perceived, true); assert.equal(done.messages[0].perceivedTs, 2000);
+});
+
+test("原聊天缺行时保留队列项，不能静默当成释放成功", () => {
+  const sleep = { ...C.createSleepState(0), phase: "asleep", queue: [{ messageId: "lost", arrivedTs: 1000, order: 1, perceived: false, perceivedTs: null }], queueOrder: 1 };
+  const plan = C.planRelease(sleep, [], 2000), done = C.commitRelease(sleep, [], plan, true);
+  assert.deepEqual(plan.missing, ["lost"]); assert.equal(done.state.queue.length, 1);
+});
+
+test("清醒消息立即感知；小克在队列层也完整豁免", () => {
+  const awake = C.createSleepState(0), message = { id: "m1", role: "user", content: "早" };
+  const seen = C.receiveMessage(awake, message, { now: 1000, mode: "live" });
+  assert.equal(seen.message.perceived, true); assert.equal(seen.message.sleepQueued, false);
+  const exempt = C.receiveMessage({ ...awake, phase: "asleep" }, message, { now: 1000, mode: "live", engineerEyes: true });
+  assert.equal(exempt.decision, "exempt"); assert.strictEqual(exempt.message, message);
+});
