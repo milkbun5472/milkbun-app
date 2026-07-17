@@ -48,6 +48,23 @@
   const rq = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
   const done = tx => new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error); });
 
+  function mergeObservation(previous, card, charHash, fingerprint, now) {
+    const firstSeenAt = previous && previous.firstSeenAt || now;
+    const typeCounts = previous && previous.typeCounts ? { ...previous.typeCounts } : {};
+    if (previous && !previous.typeCounts && previous.type) typeCounts[previous.type] = Math.max(1, Number(previous.seenCount || 1));
+    typeCounts[card.type] = Math.min(999, Number(typeCounts[card.type] || 0) + 1);
+    const observations = [...(previous && Array.isArray(previous.observations) ? previous.observations : []), {
+      at: now, type: card.type, note: card.note, target: card.target, evidence: card.evidence
+    }].slice(-8);
+    const spanDays = Math.max(0, Math.floor((now - firstSeenAt) / 86400000));
+    const hasConflict = !!typeCounts["印证"] && !!typeCounts["对不上"];
+    return { ...card, fingerprint, charHash, firstSeenAt, lastSeenAt: now,
+      seenCount: Math.min(999, Number(previous && previous.seenCount || 0) + 1),
+      spanDays, typeCounts, observations, hasConflict,
+      eligibleAfterTenDays: Number(typeCounts["对不上"] || 0) >= 2 && spanDays >= 10 && !hasConflict
+    };
+  }
+
   async function observe(input) {
     try {
       const messages = evidenceMessages(input && input.messages), byId = new Map(messages.map(m => [m.id, m]));
@@ -68,12 +85,7 @@
       for (const card of valid) {
         const fingerprint = charHash + "|" + card.dimension + "|" + card.traitKey;
         const tx = db.transaction("cards", "readwrite"), store = tx.objectStore("cards"), previous = await rq(store.get(fingerprint));
-        const firstSeenAt = previous && previous.firstSeenAt || now;
-        store.put({ ...card, fingerprint, charHash, firstSeenAt, lastSeenAt: now,
-          seenCount: Math.min(999, Number(previous && previous.seenCount || 0) + 1),
-          spanDays: Math.max(0, Math.floor((now - firstSeenAt) / 86400000)),
-          eligibleAfterTenDays: card.type === "对不上" && !!previous && now - firstSeenAt >= 10 * 86400000
-        });
+        store.put(mergeObservation(previous, card, charHash, fingerprint, now));
         await done(tx);
       }
       if (Math.random() < 0.1) await trim();
@@ -95,8 +107,13 @@
   async function report() {
     try {
       const db = await openDB(), tx = db.transaction("cards", "readonly"), rows = await rq(tx.objectStore("cards").getAll()); await done(tx);
-      const types = {}, dimensions = {}; rows.forEach(x => { types[x.type] = (types[x.type] || 0) + 1; dimensions[x.dimension] = (dimensions[x.dimension] || 0) + 1; });
+      const types = {}, dimensions = {}; rows.forEach(x => {
+        const counts = x.typeCounts || { [x.type]: 1 };
+        Object.entries(counts).forEach(([k, v]) => { types[k] = (types[k] || 0) + Number(v || 0); });
+        dimensions[x.dimension] = (dimensions[x.dimension] || 0) + 1;
+      });
       return { cards: rows.length, types, dimensions, tenDayMismatches: rows.filter(x => x.eligibleAfterTenDays).length,
+        conflictingTraits: rows.filter(x => x.hasConflict).length,
         last: rows.sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)).slice(0, 20) };
     } catch (e) { return { error: "人格旁路报表读取失败" }; }
   }
@@ -109,5 +126,5 @@
   }
   async function clearAll() { try { const db = await openDB(), tx = db.transaction("cards", "readwrite"); tx.objectStore("cards").clear(); await done(tx); } catch (e) {} }
 
-  window.PersonalityShadow = { spec, observe, report, listForChar, clearAll, evidenceMessages };
+  window.PersonalityShadow = { spec, observe, report, listForChar, clearAll, evidenceMessages, _mergeObservation: mergeObservation };
 })();

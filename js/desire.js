@@ -434,11 +434,15 @@
           h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: ACCENT } }, "[" + card.type + "] " + card.dimension + " · " + card.traitKey),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, whiteSpace: "nowrap" } }, "见过 " + (card.seenCount || 1) + " 次 · " + (card.spanDays || 0) + " 天")),
+          card.typeCounts ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 4 } },
+            Object.entries(card.typeCounts).filter(([, n]) => n).map(([k, n]) => k + " " + n).join(" · ")) : null,
+          card.hasConflict ? h("div", { style: { marginTop: 6, padding: "5px 7px", borderRadius: 7, background: "#b54b3d14", fontFamily: F_BODY, fontSize: 10.5, color: "#b54b3d", lineHeight: 1.5 } },
+            "出现过相反证据：保留两边，不具备成熟资格") : null,
           card.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.6, marginTop: 5 } }, card.note) : null,
           (card.evidence || []).map((ev, i) => h("div", { key: i, style: { marginTop: 5, paddingLeft: 8, borderLeft: "2px solid " + t.line, fontFamily: "'Noto Serif SC',serif", fontSize: 11, color: t.sub, lineHeight: 1.55 } },
             (ev.role === "角色" ? "TA：" : "对方：") + "“" + ev.quote + "”")),
           card.type === "对不上" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: card.eligibleAfterTenDays ? ACCENT : t.fog, marginTop: 6 } },
-            card.eligibleAfterTenDays ? "已跨 10 天，仍然只是待审候选" : "未跨满 10 天，不具备改档案资格") : null
+            card.eligibleAfterTenDays ? "至少两次且已跨 10 天，仍然只是待审候选" : "需至少两次、跨满 10 天且没有相反证据") : null
         ))) : null) : null,
       // 蜕变轴：TA 的人格生长时间线
       (() => {
