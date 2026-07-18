@@ -25,9 +25,26 @@ test("醒后与睡前各 45 分钟只派生 waking/drowsy", () => {
 });
 
 test("角色时区用当地日程，不拿设备时钟硬套", () => {
-  const plusEight = C.deriveSchedule(at("2026-07-16T18:00:00Z"), 480, schedules);
+  const devicePlans = { "2026-07-15": plan(), ...schedules };
+  const plusEight = C.deriveSchedule(at("2026-07-16T18:00:00Z"), 480, devicePlans, 0);
   assert.equal(plusEight.phase, "asleep"); // 角色当地 07-17 02:00
   assert.equal(plusEight.wakeAtTs, at("2026-07-17T00:00:00Z"));
+});
+
+test("设备日键与角色当地日期分开：有时差仍能找到 x_schedules", () => {
+  const devicePlans = { "2026-07-15": plan(), "2026-07-16": plan(), "2026-07-17": plan() };
+  const d = C.deriveSchedule(at("2026-07-16T18:00:00Z"), 480, devicePlans, 0);
+  assert.equal(d.scheduleDayKey, "2026-07-16"); assert.equal(d.today, "2026-07-17"); assert.equal(d.phase, "asleep");
+});
+
+test("日程中段小睡只睡到同日下一段，不吞掉整个下午", () => {
+  const naps = {
+    "2026-07-16": plan(),
+    "2026-07-17": { seqs: [{ time: "08:00", type: "coffee" }, { time: "13:00", type: "sleep" }, { time: "14:00", type: "work" }, { time: "23:30", type: "sleep" }] },
+    "2026-07-18": plan()
+  };
+  assert.equal(C.deriveSchedule(at("2026-07-17T13:30:00Z"), 0, naps, 0).phase, "asleep");
+  assert.equal(C.deriveSchedule(at("2026-07-17T15:00:00Z"), 0, naps, 0).phase, "awake");
 });
 
 test("DST 附近由调用方传当刻 offset，同一当地 02:00 均能正确派生", () => {
@@ -74,6 +91,12 @@ test("小克豁免：不创建 sleep，也不改已有 inner state", () => {
   const inner = { schemaVersion: 1, revision: 4, emotion: { current: {} } };
   const out = C.tickInnerState(inner, { now: at("2026-07-17T12:00:00Z"), engineerEyes: true, schedules });
   assert.equal(out.exempt, true); assert.equal(out.sleep, null); assert.strictEqual(out.state, inner);
+});
+
+test("敲门 waking 在 45 分钟内不会被日程 tick 按回床上", () => {
+  const prev = { ...C.createSleepState(at("2026-07-17T02:00:00Z")), phase: "waking", source: "knock", wakeAtTs: at("2026-07-17T02:00:00Z"), nextTransitionTs: at("2026-07-17T02:45:00Z") };
+  const out = C.tickSleep(prev, { now: at("2026-07-17T02:05:00Z"), schedules });
+  assert.equal(out.state.phase, "waking"); assert.equal(out.state.source, "knock");
 });
 
 test("普通角色把纯状态机结果挂到独立 state.sleep", () => {

@@ -208,16 +208,16 @@
       if (!row) return null;
       const tx = db.transaction("diagnostics", "readwrite"), txDone = transactionDone(tx);
       tx.objectStore("diagnostics").add(row); await txDone;
-      if (Math.random() < 0.1) await trimDiagnostics(ownerId, indexedDBImpl);
+      await trimDiagnostics(ownerId, indexedDBImpl, Number(input && input.t) || Date.now());
       return row;
     } catch (_) { return null; }
   }
 
-  async function trimDiagnostics(ownerId, indexedDBImpl) {
+  async function trimDiagnostics(ownerId, indexedDBImpl, nowValue) {
     try {
       const db = await openDB(indexedDBImpl), ownerHash = await ensureOwner(db, ownerId);
       const tx = db.transaction("diagnostics", "readwrite"), txDone = transactionDone(tx), store = tx.objectStore("diagnostics");
-      const rows = await requestResult(store.getAll()), cutoff = Date.now() - DIAGNOSTIC_MAX_AGE;
+      const rows = await requestResult(store.getAll()), cutoff = (Number(nowValue) || Date.now()) - DIAGNOSTIC_MAX_AGE;
       rows.sort((a, b) => Number(a.t || 0) - Number(b.t || 0));
       const survivors = rows.filter(r => r.ownerHash === ownerHash && Number(r.t || 0) >= cutoff);
       rows.filter(r => r.ownerHash !== ownerHash || Number(r.t || 0) < cutoff).forEach(r => store.delete(r.id));

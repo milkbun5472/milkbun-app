@@ -3321,7 +3321,7 @@ function RecallShadowPanel() {
   const load = async () => {
     if (window.RecallShadow) setRep(await window.RecallShadow.report(200));
     if (window.MemoryQualityShadow) setQrep(await window.MemoryQualityShadow.report(200));
-    const defs = [["repair", window.OpenRepairShadow], ["experience", window.ExperienceGateShadow],
+    const defs = [["repair", window.OpenRepairShadow], ["correction", window.MemoryCorrectionShadow], ["experience", window.ExperienceGateShadow],
       ["resolution", window.TwoResolutionShadow], ["budget", window.ContextBudgetShadow],
       ["branch", window.MessageBranchShadow], ["insight", window.InsightCandidateShadow]];
     const vals = await Promise.all(defs.map(async ([key, mod]) => [key, mod && mod.report ? await mod.report(200) : null]));
@@ -3348,6 +3348,8 @@ function RecallShadowPanel() {
           "· 里程碑误降温度 " + qrep.milestoneViolations + " · 日常温度仍被旧路入库 " + qrep.temperatureAccepted + " · 建议拒绝但旧路入库 " + qrep.proposedRejectButAccepted) : null,
         more.repair && !more.repair.error ? h("div", { style: { marginTop: 7, paddingTop: 7, borderTop: "1px dashed " + t.line } },
           "🩹 RepairGate：" + more.repair.candidates + " 个合格关闭候选 · 兑现 " + more.repair.fulfilled + " · 修复 " + more.repair.resolved + " · 放弃 " + more.repair.abandoned) : null,
+        more.correction && !more.correction.error ? h("div", { style: { marginTop: 7, paddingTop: 7, borderTop: "1px dashed " + t.line } },
+          "🪡 纠错留环：" + more.correction.pairs + " 组包含配对 · 旧规则本会硬删 " + more.correction.currentWouldPrune) : null,
         more.experience && !more.experience.error ? h("div", { style: { marginTop: 7, paddingTop: 7, borderTop: "1px dashed " + t.line } },
           "🏝️ 来源诚实性：" + more.experience.audits + " 次上下文 · " + more.experience.callsWithRisk + " 次含真假宣称风险", h("br"),
           "· 风险块 " + (Object.entries(more.experience.riskyBlocks || {}).map(([k,v]) => k + " " + v).join(" · ") || "暂无")) : null,
@@ -3366,7 +3368,7 @@ function RecallShadowPanel() {
         h("div", { className: "flex", style: { gap: 10, marginTop: 6 } },
           h("button", { onClick: load, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "刷新"),
           h("button", { onClick: () => { window.RecallShadow.setEnabled(!rep.enabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.enabled ? "#9f5149" : t.tint } }, rep.enabled ? "暂停观测" : "恢复观测（当前已停·零写入）"),
-          h("button", { onClick: () => { if (confirm("清空召回与抽取质量旁路诊断？不影响任何记忆数据。")) { Promise.all([window.RecallShadow.clearAll(), window.MemoryQualityShadow ? window.MemoryQualityShadow.clearAll() : null]).then(load); } }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "清空")))) :
+          h("button", { onClick: () => { if (confirm("清空召回与抽取质量旁路诊断？不影响任何记忆数据。")) { Promise.all([window.RecallShadow.clearAll(), window.MemoryQualityShadow ? window.MemoryQualityShadow.clearAll() : null, window.MemoryCorrectionShadow ? window.MemoryCorrectionShadow.clearAll() : null]).then(load); } }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "清空")))) :
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "读取中…")));
 }
 

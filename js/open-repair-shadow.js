@@ -5,7 +5,7 @@
 // ============================================================
 (function () {
   "use strict";
-  const DB_NAME = "lisa_open_repair_shadow_v1", DB_VERSION = 1;
+  const DB_NAME = "lisa_open_repair_shadow_v1", DB_VERSION = 2, CAP = 500, MAX_AGE = 14 * 86400000;
   const KINDS = ["fulfilled", "resolved", "abandoned"];
   let dbPromise = null;
   const clean = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
@@ -19,7 +19,11 @@
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains("candidates")) req.result.createObjectStore("candidates", { keyPath: "key" }); };
+      req.onupgradeneeded = event => {
+        // v1 曾存逐字 quote；诊断可重建，升级时直接销毁旧候选，确保正文不残留。
+        if (event.oldVersion < 2 && req.result.objectStoreNames.contains("candidates")) req.result.deleteObjectStore("candidates");
+        if (!req.result.objectStoreNames.contains("candidates")) req.result.createObjectStore("candidates", { keyPath: "key" });
+      };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error || new Error("repair shadow open failed"));
     });
@@ -54,11 +58,21 @@
       for (const c of valid) {
         const key = charHash + "|" + c.oldMemoryId + "|" + hash(c.evidence.map(e => e.messageId + e.quote).join("|"));
         const tx = db.transaction("candidates", "readwrite"), store = tx.objectStore("candidates"), prev = await rq(store.get(key));
-        store.put({ ...c, key, charHash, firstSeenAt: prev && prev.firstSeenAt || now, lastSeenAt: now, seenCount: Number(prev && prev.seenCount || 0) + 1, status: "shadow_only" });
+        const safeEvidence = c.evidence.map(e => ({ messageIdHash: hash(e.messageId), quoteHash: hash(e.quote), quoteLength: e.quote.length, role: e.role }));
+        store.put({ oldMemoryId: c.oldMemoryId, kind: c.kind, evidence: safeEvidence, key, charHash, firstSeenAt: prev && prev.firstSeenAt || now, lastSeenAt: now, seenCount: Number(prev && prev.seenCount || 0) + 1, status: "shadow_only" });
         await done(tx);
       }
+      await trim(now);
       return { accepted: valid.length, rejected: Math.max(0, raw.length - valid.length) };
     } catch (e) { return { accepted: 0, error: "RepairGate shadow failed" }; }
+  }
+  async function trim(nowValue) {
+    try {
+      const db = await openDB(), tx = db.transaction("candidates", "readwrite"), store = tx.objectStore("candidates"), rows = await rq(store.getAll());
+      const cutoff = (Number(nowValue) || Date.now()) - MAX_AGE; rows.sort((a,b)=>Number(a.lastSeenAt||0)-Number(b.lastSeenAt||0));
+      rows.filter(x=>Number(x.lastSeenAt||0)<cutoff).forEach(x=>store.delete(x.key));
+      const live=rows.filter(x=>Number(x.lastSeenAt||0)>=cutoff); live.slice(0,Math.max(0,live.length-CAP)).forEach(x=>store.delete(x.key)); await done(tx);
+    } catch (e) {}
   }
   async function report() {
     try {

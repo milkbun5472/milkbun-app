@@ -94,6 +94,12 @@ test("未知性情词保留为身份锚点但没有数值权限", () => {
   assert.equal(t.approved,false);
 });
 
+test("性情升敏与降敏确定性合成，不受锚点词序影响", () => {
+  const a=A.temperamentFromAnchors(["温柔","急躁"],true),b=A.temperamentFromAnchors(["急躁","温柔"],true);
+  assert.deepEqual(a.sensitivity,b.sensitivity);
+  assert.equal(a.sensitivity.anger,b.sensitivity.anger);
+});
+
 test("display 只选偏离 baseline 最大的至多四维", () => {
   const state=A.createState("char",T0);
   state.emotion.temperament=A.temperamentFromAnchors(["敏感","嘴硬"],true);

@@ -32,5 +32,4 @@ comment on column public.memories.supersedes_id is 'On the newer active row, poi
 -- 普通 App 仍可同步旧字段，但不能绕过专用 RPC 改 surface_state/supersedes_id。
 revoke insert, update on table public.memories from authenticated;
 grant insert (user_id,id,text,tags,char_ids,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,last_mutation_id) on public.memories to authenticated;
-grant update (text,tags,char_ids,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,last_mutation_id) on public.memories to authenticated;
-
+grant update (user_id,id,text,tags,char_ids,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,last_mutation_id) on public.memories to authenticated;

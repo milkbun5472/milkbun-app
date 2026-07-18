@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.48";
+const APP_VERSION = "v49.49";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -582,7 +582,7 @@ function App() {
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
 
   const aShadowOwnerId = async () => {
-    try { const user = window.Cloud && await window.Cloud.getUser(); if (user && user.id) return user.id; } catch (e) {}
+    try { const user = window.Cloud && window.Cloud.getSessionUser && await window.Cloud.getSessionUser(); if (user && user.id) return user.id; } catch (e) {}
     return "local-device";
   };
   useEffect(() => {
@@ -1444,8 +1444,8 @@ function App() {
     try {
       const existing = memLibRef.current.filter(e => memShareChar([charId], e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
       // openEntries 保序，编号即下标+1；喂给模型的是带编号的文本
-      const openEntries = memLibRef.current.filter(e => e.open && memShareChar([charId], e.charIds)).slice(0, 30); // v48.41：她开环多，12→30，让更多约定能被自动闭环
-      const openList = openEntries.map(e => e.text).filter(Boolean);
+      const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar([charId], e.charIds)).slice(0, 30); // 编号必须与 RepairGate 的 openEntries 严格同序
+      const openList = openEntries.map(e => e.text);
       const items = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing, openList: openList });
       // v49.27 RepairGate shadow：旧解析器曾把 resolveOpen 全过滤掉，因此真实闭环实际未发生。
       // 现在只保留并机械核验证据、写入独立本机候选账本；绝不在这里改 open 或调用云写路。
@@ -1464,7 +1464,7 @@ function App() {
         if (isDupMem(x.text, [charId], batchSeen)) return false; // 和本批已收的重复
         batchSeen.push(x); return true;
       });
-      // P1-1 shadow：传入内存做机械证据核验，只落类别/计数/hash；真实 entries 与旧版完全同路。
+      // P1-1 shadow：传入内存做机械证据核验，只落类别/计数/hash；真实采纳仍走旧路，但抽取 prompt 已带证据闸，评审基线并非纯旧版。
       try { window.MemoryQualityShadow && window.MemoryQualityShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
       // InsightCapture shadow：复用本次已经产出的 insight 分类，不另叫 AI；只评估独立洞察四段结构是否够格。
       try { window.InsightCandidateShadow && window.InsightCandidateShadow.observeBatch({ charId, candidates: items, acceptedTexts: entries.map(e => e.text), messages: msgs }); } catch (e) {}
@@ -1607,7 +1607,7 @@ function App() {
   const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled && !isOocMsg(m)).slice(-8).map(m => m.content).join("\n");
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
   const loreFor = (char, scope) => loreText(loreRef.current, { charIds: char ? [char.id] : [], scope: scope || "chat", text: char ? recentChatText(char) : "" });
-  const ctxFor = char => ({
+  const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
     schedNow: schedNowFor(char),
@@ -1631,7 +1631,7 @@ function App() {
     moodLabel: (moods[char.id] || {}).label || null,
     directives: directives[char.id] || [],
     memory: memories[char.id],
-    memLib: retrieveMemories(memLibRef.current, char.id, recentChatText(char), { limit: memCfgRef.current.topK || 5 }),
+    memLib: retrieveMemories(memLibRef.current, char.id, recentChatText(char), { limit: memCfgRef.current.topK || 5, source: ctxOpts && ctxOpts.chat === true ? "chat" : "background" }),
     geo: prefs.geoAware ? geo : null,
     timeAware: prefs.timeAware,
     giftLog: (() => {
@@ -2600,13 +2600,13 @@ function App() {
       toast("先发条消息再让 TA 回复");
       return;
     }
-    try { window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
     //   杀掉「连发两轮/你还在打字他就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
     if (opts.proactive && !opts.tf && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return;
     }
+    try { window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && history[history.length - 1] && history[history.length - 1].role !== "user";
     startLane("c:" + charId);
@@ -2619,7 +2619,7 @@ function App() {
       // Phase 1 历史缓存（小克蓝图，v48.77 重做）：只对 anthropic 线路(小克)。要缓整段历史 system 必须全稳定——
       //   把 bundle 的易变尾 + 整个详细任务串(含所有动态 hint/thoughtSpec)都挪到最后一条用户消息上；system 只留稳定前缀+一句总纲。
       const _histCache = (typeof detectFormat === "function" ? detectFormat(apiFor(charId).baseUrl || "") : "openai") === "anthropic";
-      const _bundleFull = buildBundle(_histCache ? { ...ctxFor(char), recentChat: "" } : ctxFor(char));
+      const _bundleFull = buildBundle(_histCache ? { ...ctxFor(char, { chat: true }), recentChat: "" } : ctxFor(char, { chat: true }));
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
       if (_histCache) {
         const _cutTime = _bundleFull.indexOf("【当前真实时间】");

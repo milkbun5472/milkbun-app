@@ -76,7 +76,7 @@
       const proposal = propose(mode, input && input.pinned, input && input.relevant, event);
       const baselineDetails = (input && input.relevant || []).map(e => e.id);
       const db = await openDB(), tx = db.transaction("audits", "readwrite"), store = tx.objectStore("audits");
-      store.add({ t: now, c, mode, baselineDetailCount: baselineDetails.length, proposedDetailCount: proposal.detailIds.length,
+      store.add({ t: now, c, source: input && input.source === "chat" ? "chat" : "unknown", mode, baselineDetailCount: baselineDetails.length, proposedDetailCount: proposal.detailIds.length,
         baselineIds: baselineDetails, proposedIds: proposal.detailIds, eventIds: proposal.eventIds, eventAvailable: !!event });
       await done(tx);
       if (Math.random() < 0.08) {
@@ -89,10 +89,10 @@
   async function report(n) {
     try {
       const db = await openDB(), tx = db.transaction("audits", "readonly"), all = await rq(tx.objectStore("audits").getAll()); await done(tx);
-      const rows = all.slice(-(n || 200)), modes = {};
+      const rows = all.filter(x => x.source === "chat").slice(-(n || 200)), modes = {};
       rows.forEach(x => { modes[x.mode] = (modes[x.mode] || 0) + 1; });
       const avg = key => rows.length ? Math.round(rows.reduce((sum, x) => sum + (x[key] || 0), 0) * 10 / rows.length) / 10 : 0;
-      return { audits: rows.length, modes, avgBaselineDetails: avg("baselineDetailCount"), avgProposedDetails: avg("proposedDetailCount"),
+      return { audits: rows.length, modes, resetReason: "v49.49 起只统计真实聊天，旧后台污染样本已排除", avgBaselineDetails: avg("baselineDetailCount"), avgProposedDetails: avg("proposedDetailCount"),
         eventCoverage: rows.length ? Math.round(rows.filter(x => x.eventAvailable).length * 100 / rows.length) / 100 : 0, last: rows.slice(-5) };
     } catch (e) { return { error: "两分辨率召回审计读取失败" }; }
   }

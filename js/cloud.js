@@ -84,6 +84,16 @@
       }
     },
 
+    // 只读本机持久 session，不发网络请求。影子库归属判断必须用它，断网不能伪装成换号。
+    async getSessionUser() {
+      if (!client) return null;
+      try {
+        const { data, error } = await client.auth.getSession();
+        if (error) return null;
+        return data && data.session ? data.session.user : null;
+      } catch { return null; }
+    },
+
     // 返回 { user, session }。若开启了邮箱验证，session 可能为 null。
     async signUp(email, password) {
       if (!client) throw new Error("云服务未就绪");
@@ -121,6 +131,7 @@
       // 的另一个账号继承上一人的「刚想起过」状态。
       try { if (window.RecallShadow && window.RecallShadow.clearAll) await window.RecallShadow.clearAll(); } catch (e) {}
       try { if (window.MemoryQualityShadow && window.MemoryQualityShadow.clearAll) await window.MemoryQualityShadow.clearAll(); } catch (e) {}
+      try { if (window.MemoryCorrectionShadow && window.MemoryCorrectionShadow.clearAll) await window.MemoryCorrectionShadow.clearAll(); } catch (e) {}
     },
 
     // 把本地存档推到云端（覆盖该用户那一行）

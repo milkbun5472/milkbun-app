@@ -2,7 +2,7 @@
 // 只在本机推演连续状态；不注入 prompt、不生成念头、不改变角色回复。
 (function () {
   "use strict";
-  const DB = "lisa_desire_drive_shadow_v1", VER = 1;
+  const DB = "lisa_desire_drive_shadow_v1", VER = 1, AUDIT_CAP = 500, AUDIT_MAX_AGE = 14 * 86400000;
   const CFG = {
     attachment:[35,.5,.3], curiosity:[45,.2,.1], reflection:[40,.15,.2], duty:[45,.1,.2], social:[40,.1,.15],
     fatigue:[25,0,.3], intimacy:[35,.3,.1], stress:[25,0,.2], joy:[35,0,.15]
@@ -31,7 +31,7 @@
   }
   let dbp; function open(){ if(dbp)return dbp; dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB,VER);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains("states"))d.createObjectStore("states",{keyPath:"c"});if(!d.objectStoreNames.contains("audits"))d.createObjectStore("audits",{keyPath:"id",autoIncrement:true});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});return dbp; }
   const rq=r=>new Promise((res,rej)=>{r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
-  async function observe(charId,event){try{const c=hash(charId),db=await open(),tx=db.transaction(["states","audits"],"readwrite"),ss=tx.objectStore("states"),prev=await rq(ss.get(c)),next=step(prev||fresh(c),event||"time",Date.now());next.c=c;ss.put(next);tx.objectStore("audits").add({t:next.t,c,event:event||"time",top:next.top,warnings:next.warnings});}catch(e){}}
+  async function observe(charId,event){try{const c=hash(charId),db=await open(),tx=db.transaction(["states","audits"],"readwrite"),ss=tx.objectStore("states"),aud=tx.objectStore("audits"),prev=await rq(ss.get(c)),next=step(prev||fresh(c),event||"time",Date.now());next.c=c;ss.put(next);aud.add({t:next.t,c,event:event||"time",top:next.top,warnings:next.warnings});const rows=await rq(aud.getAll()),cutoff=next.t-AUDIT_MAX_AGE;rows.filter(x=>Number(x.t||0)<cutoff).forEach(x=>aud.delete(x.id));rows.filter(x=>Number(x.t||0)>=cutoff).slice(0,Math.max(0,rows.filter(x=>Number(x.t||0)>=cutoff).length-AUDIT_CAP)).forEach(x=>aud.delete(x.id));}catch(e){}}
   async function status(charId){try{const db=await open(),tx=db.transaction("states","readonly"),s=await rq(tx.objectStore("states").get(hash(charId)));return s||fresh(hash(charId));}catch(e){return null;}}
   async function report(){try{const db=await open(),tx=db.transaction("states","readonly"),all=await rq(tx.objectStore("states").getAll());return{characters:all.length,states:all.map(s=>({c:s.c,ticks:s.ticks,top:s.top,warnings:s.warnings,suppressed:s.suppressed}))};}catch(e){return{error:"驱动力 shadow 读取失败"};}}
   window.DesireDriveShadow={step,observe,status,report,labels:{attachment:"依恋",curiosity:"好奇",reflection:"内省",duty:"责任",social:"社交",fatigue:"疲劳",intimacy:"亲密",stress:"压力",joy:"快乐"}};

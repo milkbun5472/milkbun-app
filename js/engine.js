@@ -785,8 +785,8 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   // Tidal 两分辨率旁路（v49.29）：比较「事件印象 + 少量碎片」与现有精确碎片；永远不改 picked。
   // 只在真实聊天触发，后台预取不记；模块异常/镜像离线全部吞掉。
   try {
-    if (opts.touch !== false && window.TwoResolutionShadow) {
-      window.TwoResolutionShadow.observe({ charId, queryText, pinned, relevant, picked });
+    if (opts.touch !== false && opts.source === "chat" && window.TwoResolutionShadow) {
+      window.TwoResolutionShadow.observe({ charId, queryText, pinned, relevant, picked, source: "chat" });
     }
   } catch (eResolutionShadow) {/* 旁路绝不影响召回 */}
   // ⑤后·记忆质量线 P0-1/P0-2 旁路（v49.15，施工图 §1-2）：同时算一版「4轮冷却」的 proposed 并记诊断，
@@ -910,7 +910,7 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
       ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。**这只是候选，不会自动关闭 open**。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
-  const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 4200 });
+  const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 6000 });
   const parsed = extractJSON(raw);
   // resolveOpen 没有 text；旧过滤会在到达 App 前把它静默丢掉。v49.27 起保留给 RepairGate shadow，仍不执行闭环写入。
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];

@@ -28,6 +28,11 @@ test("否定句不会误判成睡眠", () => {
   }
 });
 
+test("同句晚安优先于早上好，别睡太晚不误伤晚安", () => {
+  assert.equal(Tidal.classifyTidalMessage("晚安，明天早上好好休息").event, Tidal.EVENTS.SLEEP_SIGNAL);
+  assert.equal(Tidal.classifyTidalMessage("晚安，别睡太晚").event, Tidal.EVENTS.SLEEP_SIGNAL);
+});
+
 test("90 分钟边界内不醒也不转 uncertain，超过才转", () => {
   const sleeping = state("maybe_sleeping", T0);
   assert.equal(Tidal.reduceTidal(sleeping, Tidal.EVENTS.SESSION_OPEN_NO_MESSAGE, T0 + Tidal.SLEEP_WINDOW_MS).next.state, "maybe_sleeping");

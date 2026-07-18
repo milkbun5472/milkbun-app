@@ -28,7 +28,8 @@
     ["wake_morning", /(?:早安|早上好)/]
   ]);
   const SLEEP_NEGATIONS = Object.freeze([
-    /(?:没睡|没有睡|还没睡|不睡|别睡|不能睡|睡不着|不想睡|不用睡|不困)/
+    /(?:没睡|没有睡|不睡|不能睡|睡不着|不想睡|不用睡|不困)/,
+    /别睡/
   ]);
 
   function normalizeText(value) {
@@ -46,11 +47,13 @@
   function classifyTidalMessage(value) {
     const normalized = normalizeText(value);
     if (!normalized) return { event: null, rule: "empty", normalized: "" };
+    const negationScope = normalized.replace(/别睡太晚/g, "");
+    const sleepNegated = SLEEP_NEGATIONS.some(rule => rule.test(negationScope));
+    const rawSleepRule = matchRule(normalized, SLEEP_RULES);
+    const sleepRule = sleepNegated ? null : rawSleepRule;
+    if (sleepRule) return { event: EVENTS.SLEEP_SIGNAL, rule: sleepRule, normalized };
     const wakeRule = matchRule(normalized, WAKE_RULES);
     if (wakeRule) return { event: EVENTS.WAKE_SIGNAL, rule: wakeRule, normalized };
-    const sleepNegated = SLEEP_NEGATIONS.some(rule => rule.test(normalized));
-    const sleepRule = sleepNegated ? null : matchRule(normalized, SLEEP_RULES);
-    if (sleepRule) return { event: EVENTS.SLEEP_SIGNAL, rule: sleepRule, normalized };
     return { event: EVENTS.USER_TYPED_MESSAGE, rule: sleepNegated ? "sleep_negated" : "ordinary_message", normalized };
   }
 

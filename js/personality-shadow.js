@@ -31,7 +31,7 @@
         "\n\n输出 0~4 张 cards。type 只能是：印证、对不上、毕业候选、萌芽。dimension 只能是：价值、边界、偏好、习惯、能力、关系方式、欲望、决策方式、情绪应对、冲突修复、表达方式。决策方式看 TA 如何取舍；情绪应对看 TA 如何容纳或处理自己的情绪；冲突修复只看发生分歧后 TA 实际怎么面对和修复；表达方式只记跨场景反复出现的表达习惯，不把一句口头禅直接写成人格。trait_key 是一个稳定、短小的倾向名（以后同一倾向继续用同一个名字）。note 只描述这次看见的具体行为，不能直接宣布人格已经改变。target 是对应念想 id，没有则 null。" +
         "\n每张必须有 evidence，含 1~3 个 {message_id,quote}。quote 必须逐字复制上面的原话，message_id 必须对应；至少一条必须来自角色本人。thinking、隐藏推理、系统描述不能当证据。一次情绪、一次撒娇或一次争吵通常不够形成卡片；没证据就给空数组，严禁脑补。",
       schemaHint: "{\"cards\":[{\"type\":\"印证|对不上|毕业候选|萌芽\",\"dimension\":\"价值|边界|偏好|习惯|能力|关系方式|欲望|决策方式|情绪应对|冲突修复|表达方式\",\"trait_key\":\"短倾向名\",\"target\":\"念想id或null\",\"note\":\"这次观察到的事实\",\"evidence\":[{\"message_id\":\"原话id\",\"quote\":\"逐字引用\"}]}]}",
-      maxTokens: 4000
+      maxTokens: 6000
     };
   }
 
@@ -52,16 +52,22 @@
     const firstSeenAt = previous && previous.firstSeenAt || now;
     const typeCounts = previous && previous.typeCounts ? { ...previous.typeCounts } : {};
     if (previous && !previous.typeCounts && previous.type) typeCounts[previous.type] = Math.max(1, Number(previous.seenCount || 1));
-    typeCounts[card.type] = Math.min(999, Number(typeCounts[card.type] || 0) + 1);
-    const observations = [...(previous && Array.isArray(previous.observations) ? previous.observations : []), {
+    const seenEvidence = new Set((previous && Array.isArray(previous.observations) ? previous.observations : []).flatMap(o => o.evidence || []).map(e => e.messageId));
+    const novelEvidence = card.evidence.filter(e => !seenEvidence.has(e.messageId));
+    const duplicateObservation = novelEvidence.length === 0;
+    const observations = duplicateObservation ? (previous && previous.observations || []) : [...(previous && Array.isArray(previous.observations) ? previous.observations : []), {
       at: now, type: card.type, note: card.note, target: card.target, evidence: card.evidence
     }].slice(-8);
-    const spanDays = Math.max(0, Math.floor((now - firstSeenAt) / 86400000));
+    const typeFirstAt = { ...(previous && previous.typeFirstAt || {}) }, typeLastAt = { ...(previous && previous.typeLastAt || {}) };
+    if (!duplicateObservation) { if (!typeFirstAt[card.type]) typeFirstAt[card.type] = now; typeLastAt[card.type] = now; }
+    if (!duplicateObservation) typeCounts[card.type] = Math.min(999, Number(typeCounts[card.type] || 0) + 1);
+    else typeCounts[card.type] = Number(typeCounts[card.type] || 0);
+    const mismatchSpanDays = typeFirstAt["对不上"] && typeLastAt["对不上"] ? Math.max(0, Math.floor((typeLastAt["对不上"] - typeFirstAt["对不上"]) / 86400000)) : 0;
     const hasConflict = !!typeCounts["印证"] && !!typeCounts["对不上"];
     return { ...card, fingerprint, charHash, firstSeenAt, lastSeenAt: now,
-      seenCount: Math.min(999, Number(previous && previous.seenCount || 0) + 1),
-      spanDays, typeCounts, observations, hasConflict,
-      eligibleAfterTenDays: Number(typeCounts["对不上"] || 0) >= 2 && spanDays >= 10 && !hasConflict
+      seenCount: Math.min(999, Number(previous && previous.seenCount || 0) + (duplicateObservation ? 0 : 1)),
+      spanDays: mismatchSpanDays, mismatchSpanDays, typeFirstAt, typeLastAt, typeCounts, observations, hasConflict,
+      eligibleAfterTenDays: Number(typeCounts["对不上"] || 0) >= 2 && mismatchSpanDays >= 10 && !hasConflict
     };
   }
 
@@ -70,7 +76,7 @@
       const messages = evidenceMessages(input && input.messages), byId = new Map(messages.map(m => [m.id, m]));
       const raw = Array.isArray(input && input.result && input.result.cards) ? input.result.cards : [];
       const valid = raw.slice(0, 4).map(card => {
-        const type = clean(card && card.type, 12), dimension = clean(card && card.dimension, 12), traitKey = clean(card && card.trait_key, 24);
+        const type = clean(card && card.type, 12), dimension = clean(card && card.dimension, 12), traitKey = clean(card && card.trait_key, 24).normalize("NFKC").toLocaleLowerCase().replace(/[\s_\-—]+/g, "");
         if (!TYPES.includes(type) || !DIMS.includes(dimension) || !traitKey) return null;
         const evidence = (Array.isArray(card.evidence) ? card.evidence : []).slice(0, 3).map(e => {
           const id = clean(e && e.message_id, 160), quote = clean(e && e.quote, 180), source = byId.get(id);

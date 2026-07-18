@@ -13,8 +13,9 @@
     const tailCount = Math.max(0, before.length - idx - 1);
     let oldBranchGone = true, tailSurvived = false, valid = true;
     if (input.kind === "edit") {
-      tailSurvived = tailCount > 0 && after.some(m => before.slice(idx + 1).includes(m));
-      valid = before.length === after.length && !tailSurvived;
+      // 原位编辑本就应保留后文；这里只验结构长度，不把正常保留误报成悬空分支。
+      tailSurvived = false;
+      valid = before.length === after.length;
     }
     else if (input.kind === "recall") valid = !!(after[idx] && after[idx].recalled);
     else if (input.kind === "reroll") {
@@ -47,7 +48,7 @@
     try {
       const row = inspectMutation(input || {}), now = Date.now();
       const db = await openDB(), tx = db.transaction("audits", "readwrite"), store = tx.objectStore("audits");
-      store.add(Object.assign({ t: now, c: hash(input && input.charId) }, row));
+      store.add(Object.assign({ t: now, auditVersion: 2, c: hash(input && input.charId) }, row));
       await done(tx);
       if (Math.random() < 0.08) {
         const tx2 = db.transaction("audits", "readwrite"), s2 = tx2.objectStore("audits"), rows = await rq(s2.getAll());
@@ -59,9 +60,10 @@
   async function report(n) {
     try {
       const db = await openDB(), tx = db.transaction("audits", "readonly"), all = await rq(tx.objectStore("audits").getAll()); await done(tx);
-      const rows = all.slice(-(n || 200)), actions = {};
+      const rows = all.filter(x => x.auditVersion === 2).slice(-(n || 200)), actions = {};
       rows.forEach(x => { actions[x.kind] = (actions[x.kind] || 0) + 1; });
-      return { audits: rows.length, actions, invalid: rows.filter(x => !x.valid).length,
+      const invalidByKind = {}; rows.filter(x => !x.valid).forEach(x => { invalidByKind[x.kind] = (invalidByKind[x.kind] || 0) + 1; });
+      return { audits: rows.length, actions, resetReason: "v2 起正常编辑不再算异常，旧样本已排除", invalid: rows.filter(x => !x.valid).length, invalidByKind,
         danglingTail: rows.filter(x => x.tailSurvived).length, last: rows.slice(-10) };
     } catch (e) { return { error: "有效消息分支审计读取失败" }; }
   }

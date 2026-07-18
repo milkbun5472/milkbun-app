@@ -10,7 +10,7 @@
 
   async function ownerId() {
     if (!ownerPromise) ownerPromise = Promise.resolve().then(async () => {
-      const user = window.Cloud && window.Cloud.getUser ? await window.Cloud.getUser() : null;
+      const user = window.Cloud && window.Cloud.getSessionUser ? await window.Cloud.getSessionUser() : null;
       return user && user.id ? String(user.id) : "local-device";
     }).catch(() => "local-device");
     return ownerPromise;

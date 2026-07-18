@@ -42,3 +42,28 @@
 - dreamjournal.js addEntry：以盘上 loadLog() 合并防云 pull 覆盖。
 
 > 通过项不再列（各线报告已确认：只读铁律/OOC 隔离/逐字核验/隐私零正文/幂等/封顶顺序/一次性迁移等全数成立）。
+
+## Codex 回销（2026-07-18）
+
+1. ✅ E/A 账号归属改读本机 `getSession()`；断网不再走网络身份探测，只有明确出现另一具体账号才触发原有隔离清仓。
+2. ✅ C 拆开设备日键与角色当地时间坐标，并新增有时差固定时钟回归。
+3. ✅ `knock → waking` 在 45 分钟窗口内优先于日程 tick，不会五分钟后被按回 asleep。
+4. ✅ E 改为睡眠信号优先于同句 wake 词。
+5. ✅ 否定保护缩到真实否定短语；“晚安，别睡太晚”回归通过。
+6. ✅ 人格“跨十天”改量两次「对不上」证据之间；按 messageId 去重，重复 probe 不加次数。
+7. ✅ P1-1 文档/代码均如实标注“证据闸后的非纯基线”；抽取预算升至 6000。
+8. ✅ signOut 补清 `MemoryCorrectionShadow`。
+9. ✅ 人格四卡 probe 升至 6000。
+10. ✅ 两分辨率只收 `source=chat`；旧后台污染样本从报表排除，仪表从 v49.49 重新观测。
+11. ✅ edit 只验结构长度；审计升 v2、按 kind 报异常，旧误报样本排除。
+12. ✅ 驱动力 observe 移到 12 分钟闸之后；audits 增 500 条/14 天硬裁剪。
+13. ✅ E 每次 add 后确定性执行 500 条/时效裁剪，裁剪时钟可注入。
+14. ✅ RepairGate IDB 升 v2 清除旧逐字引文；新行只存 message/quote hash、长度与角色，且 500 条/14 天封顶。
+15. ✅ C 中段 sleep 优先找同日后续非 sleep 段作为 wake；午睡不再吞下午。
+16. ✅ A 性情升敏/降敏分开累计后确定合成，锚点词序不再影响结果。
+17. ✅ trait_key 做 NFKC/lowercase/分隔符归一化；RepairGate openEntries 编号与 prompt 完全同序。E 的 DST spanDays 属工单标注“可不修”项，本轮保持不动。
+18. ✅ dormant migration 补齐 `user_id,id` 列级 update grant，`memoryRowsUpsert` 不再埋 42501 地雷；仍未部署。
+19. ✅ 纠错留环接入只读观察台与清空按钮。
+20. ✅ 施工台账注明：RepairGate 转正前 open 持续堆积是预期，不当异常。
+
+验证：相关 JS 全部 `node --check` 通过；全库 75 项 Node 测试通过；`git diff --check` 通过。C 第 4 步仍未开始。

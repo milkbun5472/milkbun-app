@@ -806,17 +806,17 @@ function temperamentFromAnchorsA(rawAnchors,approvedValue){
     const word=String(value==null?"":value).trim().replace(/^[#\s、，,;；]+|[#\s、，,;；]+$/g,"").slice(0,18);
     if(word&&!seen.has(word)){seen.add(word);anchors.push(word);}
   });
-  const sensitivity={},biases={curiosityBias:.45,reflectionBias:.40,dutyBias:.45,socialBias:.40},matched=[],unmatched=[];
+  const sensitivity={},up={},down={},biases={curiosityBias:.45,reflectionBias:.40,dutyBias:.45,socialBias:.40},matched=[],unmatched=[];
   anchors.forEach(word=>{
     let hit=false;
     A_TEMPERAMENT_RULES.forEach(([re,part],idx)=>{if(re.test(word)){hit=true;matched.push({anchor:word,rule:idx});Object.entries(part).forEach(([key,value])=>{
       if(key.endsWith("Bias"))biases[key]=Math.max(biases[key],value);
-      else sensitivity[key]=Math.max(sensitivity[key]||1,value>1?value:0)||value;
-      if(!key.endsWith("Bias")&&value<1)sensitivity[key]=Math.min(sensitivity[key]||1,value);
+      else if(value>=1)up[key]=Math.max(up[key]||1,value);
+      else down[key]=Math.min(down[key]||1,value);
     });}});
     if(!hit)unmatched.push(word);
   });
-  Object.keys(sensitivity).forEach(key=>{sensitivity[key]=clamp(sensitivity[key],.75,1.35);});
+  new Set([...Object.keys(up),...Object.keys(down)]).forEach(key=>{sensitivity[key]=clamp(1+((up[key]||1)-1)+((down[key]||1)-1),.75,1.35);});
   return {anchors,sensitivity,regressScale:{},...biases,approved:approvedValue===true,matched,unmatched};
 }
 
