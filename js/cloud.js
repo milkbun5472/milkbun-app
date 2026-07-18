@@ -133,6 +133,7 @@
       try { if (window.MemoryQualityShadow && window.MemoryQualityShadow.clearAll) await window.MemoryQualityShadow.clearAll(); } catch (e) {}
       try { if (window.MemoryCorrectionShadow && window.MemoryCorrectionShadow.clearAll) await window.MemoryCorrectionShadow.clearAll(); } catch (e) {}
       try { if (window.SleepShadow && window.SleepShadow.clearAll) await window.SleepShadow.clearAll(); } catch (e) {}
+      try { if (window.DreamLoop && window.DreamLoop.clearAll) await window.DreamLoop.clearAll(); } catch (e) {}
     },
 
     // 把本地存档推到云端（覆盖该用户那一行）

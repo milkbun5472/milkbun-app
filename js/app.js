@@ -1101,7 +1101,11 @@ function App() {
   // C 第4步：睡眠影子 tick（纯本地计算，5 分钟一轮 + 回前台刷新；shadow 不改任何真实行为）
   useEffect(() => {
     if (!loaded) return;
-    const tickAll = () => { try { if (window.SleepShadow) characters.forEach(c => window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true)); } catch (e) {} };
+    const tickAll = () => { try { if (window.SleepShadow) characters.forEach(c => {
+      const r = window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true);
+      // D 梦回路胶水：只读 C 的 tick 返回值，REM 窗到点由 DreamLoop 自判并入队（零 API 不展示）
+      try { if (r && !r.exempt && r.state && window.DreamLoop) window.DreamLoop.observe(c, r.state); } catch (eD) {}
+    }); } catch (e) {} };
     tickAll();
     const iv = setInterval(tickAll, 300000);
     const onVis = () => { if (document.visibilityState !== "hidden") tickAll(); };
