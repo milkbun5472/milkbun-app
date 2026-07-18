@@ -4888,6 +4888,45 @@ function InnerLifeBDiagnosticSheet({ characters, onClose }) {
     h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
 }
 
+// C 第5步：睡眠与发声闸影子诊断台（只读；hashId 把诊断里的角色哈希映射回名字）
+function InnerLifeCDiagnosticSheet({ characters, onClose }) {
+  const t = useTheme();
+  const [r, setR] = useState(null);
+  const PHASE_ZH = { awake: "醒着", drowsy: "犯困", asleep: "睡着", waking: "将醒", exempt_digital: "数字生命豁免" };
+  const OUTLET_ZH = { chat: "聊天", moments: "朋友圈", forum: "论坛", whisper: "悄悄话", proactive: "主动消息", "?": "未知口" };
+  const load = async () => {
+    setR(null);
+    try {
+      const S = window.SleepShadow;
+      if (!S) { setR({ error: "C 影子模块未载入" }); return; }
+      const agg = await S.report(300);
+      if (agg && !agg.error && S.hashId) {
+        const nameByHash = {};
+        (characters || []).forEach(c => { nameByHash[S.hashId(c.id)] = c.remark || c.name; });
+        agg.phases = (agg.phases || []).map(p => ({ ...p, name: nameByHash[p.c] || "已清仓角色" }));
+      }
+      setR(agg);
+    } catch (e) { setR({ error: "C 影子诊断读取失败" }); }
+  };
+  useEffect(() => { load(); }, []);
+  const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
+  return h(Sheet, { onClose },
+    h(Eyebrow, null, "C · 睡眠与发声闸 · 纯影子诊断"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只记不拦：角色睡着时发声只登记 would_hold，实际永远放行。评审看三件事：would_hold 分布合不合作息、fail_open 多不多（多=状态老丢）、相位转换是否闪烁。"),
+    !r ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
+    r.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, String(r.error)) :
+    h(React.Fragment, null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.ink, marginBottom: 2 } }, "当前相位"),
+      (r.phases || []).length ? r.phases.map(p => line(p.name, (PHASE_ZH[p.phase] || p.phase) + " · 压力 " + p.pressure + (p.source ? " · " + (p.source === "plan" ? "按日程" : "缺日程兜底") : ""))) :
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "6px 0" } }, "还没有任何角色的睡眠状态（tick 一次都没跑过）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.ink, margin: "10px 0 2px" } }, "近 " + (r.observations || 0) + " 条诊断"),
+      Object.keys(r.wouldHold || {}).length ? Object.entries(r.wouldHold).map(([o, n]) => line("😴 睡着时想说话（" + (OUTLET_ZH[o] || o) + "）", String(n))) : line("😴 睡着时想说话", "0 次"),
+      line("相位转换", String(r.transitions || 0)),
+      line("fail_open（状态缺失放行）", String(r.failOpen || 0)),
+      line("数字生命豁免", String(r.exempt || 0))),
+    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
+}
+
 function MemoryLib({
   entries,
   characters,
@@ -4922,6 +4961,7 @@ function MemoryLib({
   const [importOpen, setImportOpen] = useState(false);
   const [innerLifeOpen, setInnerLifeOpen] = useState(false);
   const [bAxesOpen, setBAxesOpen] = useState(false);
+  const [cSleepOpen, setCSleepOpen] = useState(false);
   const correctionPreviewOn = (() => { try { return localStorage.getItem("memory_corrections_preview_v1") === "1"; } catch (e) { return false; } })();
   const [corrections, setCorrections] = useState([]);
   const [correctionOpen, setCorrectionOpen] = useState(null);
@@ -4981,9 +5021,10 @@ function MemoryLib({
   }), importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
   innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { onClose: () => setInnerLifeOpen(false) }) : null,
   bAxesOpen ? h(InnerLifeBDiagnosticSheet, { characters, onClose: () => setBAxesOpen(false) }) : null,
+  cSleepOpen ? h(InnerLifeCDiagnosticSheet, { characters, onClose: () => setCSleepOpen(false) }) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2"
-  }, h("button", { onClick: () => setInnerLifeOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 查看纯影子诊断"), h("button", { onClick: () => setBAxesOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), onAudit ? h("button", {
+  }, h("button", { onClick: () => setInnerLifeOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 查看纯影子诊断"), h("button", { onClick: () => setBAxesOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), h("button", { onClick: () => setCSleepOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "😴 C 睡眠与发声闸 · 查看纯影子诊断"), onAudit ? h("button", {
     onClick: onAudit,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 }

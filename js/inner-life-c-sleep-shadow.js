@@ -146,5 +146,5 @@
   }
 
   hydrate();
-  window.SleepShadow = { tick, gateCheck, report, clearAll, projectPresence };
+  window.SleepShadow = { tick, gateCheck, report, clearAll, projectPresence, hashId: chash };
 })();
