@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.49";
+const APP_VERSION = "v49.50";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -791,6 +791,8 @@ function App() {
         inboxSeenRef.current.add(L.id);
         const char = characters.find(c => c.id === L.char_id);
         if (!char) { done.push(L.id); continue; } // 角色已删，信作废
+        // C 第4步：收信口二道 shadow 核对（合同 §5.2）——只记 would_hold，不影响投递
+        try { window.SleepShadow && window.SleepShadow.gateCheck(char, "night_watch_delivery", settingsFor(char.id).engineerEyes === true); } catch (eSg) {}
         const msgs = chatsRef.current[char.id] || [];
         const tidGuard = "srv_" + L.id;
         // 防重双口径（审查修）：拆泡后聊天里不再有等于整信的气泡——旧的整信匹配在多泡场景失守
@@ -1096,6 +1098,16 @@ function App() {
       document.removeEventListener("visibilitychange", kick); delete window.__memorySyncStatus;
     };
   }, [loaded]);
+  // C 第4步：睡眠影子 tick（纯本地计算，5 分钟一轮 + 回前台刷新；shadow 不改任何真实行为）
+  useEffect(() => {
+    if (!loaded) return;
+    const tickAll = () => { try { if (window.SleepShadow) characters.forEach(c => window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true)); } catch (e) {} };
+    tickAll();
+    const iv = setInterval(tickAll, 300000);
+    const onVis = () => { if (document.visibilityState !== "hidden") tickAll(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
+  }, [loaded, characters]);
   const showMemorySyncStatus = async () => {
     try {
       const s = await window.MemorySync.status();
@@ -2582,6 +2594,8 @@ function App() {
     if (opts.proactive) {
       const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : opts.greet ? "greeting" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
+      // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
+      try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
     }
     const char = characters.find(c => c.id === charId);
     let base = chatsRef.current[charId] || [];

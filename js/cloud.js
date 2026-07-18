@@ -132,6 +132,7 @@
       try { if (window.RecallShadow && window.RecallShadow.clearAll) await window.RecallShadow.clearAll(); } catch (e) {}
       try { if (window.MemoryQualityShadow && window.MemoryQualityShadow.clearAll) await window.MemoryQualityShadow.clearAll(); } catch (e) {}
       try { if (window.MemoryCorrectionShadow && window.MemoryCorrectionShadow.clearAll) await window.MemoryCorrectionShadow.clearAll(); } catch (e) {}
+      try { if (window.SleepShadow && window.SleepShadow.clearAll) await window.SleepShadow.clearAll(); } catch (e) {}
     },
 
     // 把本地存档推到云端（覆盖该用户那一行）
@@ -479,6 +480,22 @@
         .order("updated_at", { ascending: false }).limit(100);
       if (error) throw error;
       return data || [];
+    },
+
+    // ---- C 第4步：睡眠 presence 投影（character_sleep_presence 表；表未建=报错由调用方吞，dormant）----
+    async sleepPresenceUpsert(row) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getSessionUser();
+      if (!user) throw new Error("未登录");
+      const { error } = await client.from("character_sleep_presence").upsert({
+        user_id: user.id, char_id: String(row.char_id),
+        sleep_start_at: row.sleep_start_at, wake_at: row.wake_at,
+        observed_phase: String(row.observed_phase || "awake"),
+        next_transition_at: row.next_transition_at,
+        schedule_fingerprint: String(row.schedule_fingerprint || ""),
+        valid_until: row.valid_until, updated_at: new Date().toISOString()
+      }, { onConflict: "user_id,char_id" });
+      if (error) throw error;
     },
 
     // ---- 桌面对话回流（desk_log 表，Stack-chan 实体：见 [[lisa-phone-next-window]] 图纸）----
