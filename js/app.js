@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.47";
+const APP_VERSION = "v49.48";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -792,7 +792,10 @@ function App() {
         const char = characters.find(c => c.id === L.char_id);
         if (!char) { done.push(L.id); continue; } // 角色已删，信作废
         const msgs = chatsRef.current[char.id] || [];
-        if (!msgs.slice(-12).some(m => m && m.content === L.content)) {
+        const tidGuard = "srv_" + L.id;
+        // 防重双口径（审查修）：拆泡后聊天里不再有等于整信的气泡——旧的整信匹配在多泡场景失守
+        // （consume 失败后刷新/双设备并发时会整套重复投递）；补 turnId 对账
+        if (!msgs.slice(-30).some(m => m && (m.content === L.content || m.turnId === tidGuard))) {
           const ts = new Date(L.created_at).getTime() || Date.now();
           // 信拆成聊天气泡（她要的：夜巡信像平时聊天一样几句几个泡）——
           // 有换行按换行拆（夜巡 v2 天生分行）；单坨长信按句末标点拆再把碎句并拢；最多 6 泡
@@ -805,8 +808,9 @@ function App() {
             segs.forEach(s => { if (merged.length && (merged[merged.length - 1].length < 6 || s.length < 4)) merged[merged.length - 1] += s; else merged.push(s); });
             if (merged.length > 1) parts = merged;
           }
-          parts = parts.slice(0, 6);
-          const tid = "srv_" + (L.id || ts);
+          // 超过 6 段并拢尾段而不是截断（审查修：旧 slice 会把第 7 行起的信件内容静默扔掉）
+          if (parts.length > 6) parts = parts.slice(0, 5).concat([parts.slice(5).join("\n")]);
+          const tid = tidGuard;
           pChat(char.id, p => [...p, ...parts.map((txt, i2) => ({ role: "assistant", content: txt, ts: ts + i2, read: false, serverNight: true, turnId: tid }))]);
           if (L.kind === "morning") markGreet(char.id, "m", schedDayKey(new Date()));
           if (L.kind === "night") markGreet(char.id, "n", schedDayKey(new Date())); // 晚安班握手（v48.34）：夜巡道过晚安，app 自己的晚安闸门当天让位
@@ -1450,7 +1454,9 @@ function App() {
       }); } catch (e) {}
       const now = Date.now();
       const batchSeen = [];
-      const entries = items.filter(it => it && !it.resolveOpen).map((it, i) => ({
+      // 审查修：resolveOpen 用 == null 判（空串/0 也是 resolveOpen 元素），且必须真有 text——
+      // 否则 {"resolveOpen":""} 会漏进来变成一条 text="undefined" 的垃圾记忆入库上云
+      const entries = items.filter(it => it && it.resolveOpen == null && it.text).map((it, i) => ({
         id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
         v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open
       })).filter(x => x.text).filter(x => {

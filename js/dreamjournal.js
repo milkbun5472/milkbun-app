@@ -82,7 +82,7 @@
       const v = text.trim();
       if (kind !== "none" && !v) { props.toast && props.toast("先说点什么——一个画面、一种颜色都行"); return; }
       const entry = { id: uid(), ts: Date.now(), day: dayKey(Date.now()), kind: kind, text: kind === "none" ? "" : v, interpretations: [] };
-      commit([entry, ...log]);
+      commit([entry, ...loadLog()]); // 审查修：以盘上为准合并，防云同步 pull 后被旧 state 覆盖
       setText("");
       props.toast && props.toast(kind === "none" ? "记下了：今晚无梦，睡得像块干净的硬盘" : "梦收进馆了");
     };
