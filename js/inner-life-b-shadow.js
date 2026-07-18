@@ -2,10 +2,11 @@
 // 只对批准试点在回复落地后调用 bg；只写 A 独立 IDB 的 relationAxes，不诊断、不注入、不喂 A 情绪。
 (function(root,factory){"use strict";const api=factory(root);if(typeof module==="object"&&module.exports)module.exports=api;if(root)root.InnerLifeBShadow=api;})(typeof globalThis!=="undefined"?globalThis:this,function(root){
   "use strict";
-  const PILOTS=Object.freeze({"阿屿":["continuity","neglect","boundary","seriousness"],"顾暮":["identity","continuity","boundary","neglect"]});
+  // 试点身份按角色稳定 ID 锁定；昵称/正式名变化不再让整条 shadow 悄悄停摆。
+  const PILOTS=Object.freeze({"char_1783061729716":["continuity","neglect","boundary","seriousness"],"char_1783354607122":["identity","continuity","boundary","neglect"]});
   const DENY_NAMES=Object.freeze(["小克"]),AXES=["identity","continuity","seriousness","boundary","neglect","repairFailure"],KINDS=["harm","repair_progress","neutral"],REPAIRS=["behavior_changed","apology_only","silence","elapsed","mood_softened",null];
   const queues=new Map(),clean=(v,n)=>String(v==null?"":v).trim().replace(/\s+/g," ").slice(0,n),nameOf=char=>clean(char&&char.name,40);
-  function pilotFor(char){const name=nameOf(char);if(!name||DENY_NAMES.some(x=>name===x||name.includes(x)))return null;const enabled=PILOTS[name];return enabled?{charId:String(char.id||""),name,enabledAxes:enabled.slice(),phase:"shadow",approvedBy:"lisa"}:null;}
+  function pilotFor(char){const name=nameOf(char),charId=String(char&&char.id||"");if(!name||!charId||DENY_NAMES.some(x=>name===x||name.includes(x)))return null;const enabled=PILOTS[charId];return enabled?{charId,name,enabledAxes:enabled.slice(),phase:"shadow",approvedBy:"lisa"}:null;}
   function messageRows(messages){return (Array.isArray(messages)?messages:[]).filter(m=>m&&["user","assistant"].includes(m.role)&&clean(m.content,1)&&!m.recalled&&!(["system","ooc","thought","thinking","offlinelog"].includes(m.kind))).slice(-10).map((m,i)=>({id:clean(m.id||m.mid||(m.ts?"ts_"+m.ts:"b_idx_"+i),160),role:m.role,text:clean(m.content,500)}));}
   function detectorSpec(char,pilot,state,messages){
     const rows=messageRows(messages),active=state&&state.relationAxes&&state.relationAxes.axes?Object.entries(state.relationAxes.axes).filter(([,v])=>v&&v.active).map(([axis,v])=>({axis,enteredAt:v.enteredAt,lastHarmAt:v.lastHarmAt,repairLocked:v.repairLocked})):[],anchors=state&&state.emotion&&state.emotion.temperament&&state.emotion.temperament.anchors||[];

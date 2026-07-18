@@ -10,15 +10,15 @@ const msgs=[
   {role:"user",mid:"u2",content:"我会认真听完你的边界，不再继续推你"}
 ];
 
-test("试点只认阿屿和顾暮，小克与近似名字都不接",()=>{
-  assert.deepEqual(B.pilotFor({id:"1",name:"阿屿"}).enabledAxes,["continuity","neglect","boundary","seriousness"]);
-  assert.deepEqual(B.pilotFor({id:"2",name:"顾暮"}).enabledAxes,["identity","continuity","boundary","neglect"]);
+test("试点按稳定角色 ID 锁定，改昵称不掉线，小克不接",()=>{
+  assert.deepEqual(B.pilotFor({id:"char_1783061729716",name:"沈屿白"}).enabledAxes,["continuity","neglect","boundary","seriousness"]);
+  assert.deepEqual(B.pilotFor({id:"char_1783354607122",name:"顾暮的新备注"}).enabledAxes,["identity","continuity","boundary","neglect"]);
   assert.equal(B.pilotFor({id:"3",name:"小克"}),null);
-  assert.equal(B.pilotFor({id:"4",name:"阿屿老师"}),null);
+  assert.equal(B.pilotFor({id:"4",name:"阿屿"}),null);
 });
 
 test("检测请求只带最近真实消息、试点轴和已批准性情",()=>{
-  const char={id:"1",name:"阿屿"},pilot=B.pilotFor(char),state=Core.createState("h",1);
+  const char={id:"char_1783061729716",name:"沈屿白"},pilot=B.pilotFor(char),state=Core.createState("h",1);
   state.emotion.temperament=Core.temperamentFromAnchors(["黏人","敏感"],true);
   const spec=B.detectorSpec(char,pilot,state,msgs.concat({role:"system",content:"内部提示"}));
   const payload=JSON.parse(spec.messages[0].content);
@@ -42,7 +42,7 @@ test("observe 串行写进同一 A 状态行，但不改十维情绪",async()=>{
   let row=null,calls=0,diagnostics=0;
   globalThis.JiwenEmotionA=Core;
   globalThis.InnerLifeAShadow={hash:x=>"h_"+x,get:async()=>row,put:async(_o,_c,next)=>(row=structuredClone(next)),addRelationDiagnostic:async()=>{diagnostics++;}};
-  const char={id:"ayu",name:"阿屿"},before=Core.createState("h_ayu",1).emotion.current;
+  const char={id:"char_1783061729716",name:"沈屿白"},before=Core.createState("h_ayu",1).emotion.current;
   const result=await B.observe({ownerId:"owner",char,messages:msgs,runDetector:async()=>{calls++;return {events:[{axis:"boundary",kind:"harm",confidence:1,explicitRelationMeaning:true,playfulContext:false,repairKind:null,evidenceMessageIds:["u2"],evidenceQuotes:["不再继续推你"]}]};}});
   assert.equal(calls,1);assert.equal(diagnostics,1);assert.equal(result.saved,true);assert.ok(row.relationAxes);assert.deepEqual(row.emotion.current,before);
 });
@@ -57,6 +57,6 @@ test("detector 失败只记无正文失败诊断，不向外抛错",async()=>{
   let diagnostic=null;
   globalThis.JiwenEmotionA=Core;
   globalThis.InnerLifeAShadow={hash:x=>"h_"+x,get:async()=>null,put:async()=>null,addRelationDiagnostic:async(_o,_c,input)=>{diagnostic=input;}};
-  const out=await B.observe({ownerId:"owner",char:{id:"gm",name:"顾暮"},messages:msgs,runDetector:async()=>{throw new Error("secret raw response");}});
+  const out=await B.observe({ownerId:"owner",char:{id:"char_1783354607122",name:"顾暮"},messages:msgs,runDetector:async()=>{throw new Error("secret raw response");}});
   assert.equal(out.saved,false);assert.equal(out.error,"B shadow detector failed");assert.equal(diagnostic.detectorFailed,true);assert.equal(JSON.stringify(diagnostic).includes("secret raw response"),false);
 });

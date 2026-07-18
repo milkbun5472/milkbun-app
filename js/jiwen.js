@@ -765,12 +765,17 @@ const A_AXES = Object.freeze({
 });
 const A_DEFAULT_BASELINE = Object.freeze({ connection:0,pride:0,valence:0,arousal:0,immersion:0,hurt:0,anger:0,anxiety:0,warmth:.35,fatigue:.25 });
 const A_REGRESS_PER_MIN = Object.freeze({ connection:0,pride:.003,valence:.005,arousal:.005,immersion:.010,hurt:.001,anger:.004,anxiety:.002,warmth:.0015,fatigue:.001 });
+const A_MOOD_DICTIONARY_VERSION = 2;
 const A_MOOD_RULES = Object.freeze([
   ["hurt",/(?:委屈|受伤|失落|难过|伤心|低落|沮丧|心碎|孤独)/,{hurt:.18,valence:-.10,warmth:-.04}],
   ["anger",/(?:生气|愤怒|恼火|烦躁|火大|气恼|无语|厌烦)/,{anger:.18,arousal:.12,valence:-.08}],
-  ["anxiety",/(?:焦虑|害怕|不安|担心|紧张|恐惧|忐忑|慌)/,{anxiety:.18,arousal:.10,valence:-.06}],
+  ["anxiety",/(?:焦虑|害怕|不安|担心|紧张|恐惧|忐忑|慌|动摇|動揺)/,{anxiety:.18,arousal:.10,valence:-.06}],
   ["warmth",/(?:温柔|心软|安心|柔软|甜|幸福|感动|暖|亲昵|宠溺)/,{warmth:.18,valence:.10,anxiety:-.06}],
-  ["fatigue",/(?:累|疲惫|困倦|乏力|倦|没精神|精疲力尽)/,{fatigue:.18,arousal:-.10,immersion:-.05}]
+  ["fatigue",/(?:累|疲惫|困倦|乏力|倦|没精神|精疲力尽)/,{fatigue:.18,arousal:-.10,immersion:-.05}],
+  ["positive_valence",/(?:松快|轻松|放松|舒畅|愉快|开心|高兴|快乐|满足|欣慰|雀跃|窃喜|欢喜)/,{valence:.14,warmth:.05,anxiety:-.04}],
+  ["low_valence",/(?:郁闷|鬱悶|压抑|消沉|闷闷不乐)/,{valence:-.14,arousal:-.04,hurt:.05}],
+  ["high_arousal",/(?:激动|兴奋|振奋|亢奋|热血)/,{arousal:.16,valence:.06}],
+  ["cold",/(?:冷酷|冷淡|冷漠|疏冷)/,{warmth:-.14,valence:-.06}]
 ]);
 const aClone = value => JSON.parse(JSON.stringify(value));
 const aFinite = (value,fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -883,8 +888,8 @@ function applyEmotionAEvent(rawState,event,nowValue) {
       after[k]=aClampAxis(k,cur+move);
     });
     const at=aFinite(nowValue,Date.now()); state.emotion.current=after;state.emotion.lastMoodLabel=mood.label;state.emotion.lastEventTs=at;state.updatedTs=at;state.revision=aFinite(state.revision,1)+1;
-    return {state,audit:{sources,summed:capped.summed,applied:Object.fromEntries(Object.keys(after).filter(k=>after[k]!==before[k]).map(k=>[k,after[k]-before[k]])),clippedAxis:capped.clippedAxis,scaledTotal:capped.scaledTotal,totalScale:capped.scale,moodMatched:mood.matched,moodRules:mood.rules}};
-  }catch(_){return {state:rawState,audit:{error:"emotion_event_failed",moodMatched:false,moodRules:[]}};}
+    return {state,audit:{sources,summed:capped.summed,applied:Object.fromEntries(Object.keys(after).filter(k=>after[k]!==before[k]).map(k=>[k,after[k]-before[k]])),clippedAxis:capped.clippedAxis,scaledTotal:capped.scaledTotal,totalScale:capped.scale,moodMatched:mood.matched,moodRules:mood.rules,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION}};
+  }catch(_){return {state:rawState,audit:{error:"emotion_event_failed",moodMatched:false,moodRules:[],moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION}};}
 }
 
 function regressEmotionA(rawState,minutesValue,nowValue) {
@@ -962,7 +967,7 @@ function regressRelationAxesB(rawState,minutesValue,nowValue){
   }catch(_){return {state:rawState,transitions:[]};}
 }
 
-const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
+const JiwenEmotionA=Object.freeze({axes:A_AXES,defaultBaseline:A_DEFAULT_BASELINE,regressPerMin:A_REGRESS_PER_MIN,moodDictionaryVersion:A_MOOD_DICTIONARY_VERSION,createState:createEmotionAState,temperamentFromAnchors:temperamentFromAnchorsA,migrateLegacyFive:migrateLegacyFiveA,migrateDesireDrive:migrateDesireDriveA,moodEvidence:moodEvidenceA,capDeltas:capEmotionDeltasA,applyEvent:applyEmotionAEvent,regress:regressEmotionA,displayProjection:displayProjectionA,relationAxisKeys:B_AXIS_KEYS,createRelationAxes:createRelationAxesB,applyRelationEvent:applyRelationEventB,regressRelationAxes:regressRelationAxesB});
 
 if (typeof window !== "undefined") { window.createJiwen = createJiwen; window.JiwenEmotionA=JiwenEmotionA; }
 if (typeof module === "object" && module.exports) module.exports={createJiwen,JiwenEmotionA};
