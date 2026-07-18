@@ -4739,6 +4739,13 @@ function EventShelfSection({ characters, entries }) {
     })();
     return () => { alive = false; };
   }, []);
+  // 记忆在本页被归档/软删或候选状态变化时，立即重算，避免旧建议继续显示。
+  useEffect(() => {
+    if (!window.Consolidate) return;
+    const used = new Set();
+    cands.forEach(c => { if (c.status !== "rejected" && c.status !== "expired") (c.source_memory_ids || []).forEach(id => used.add(id)); });
+    setSugs(window.Consolidate.suggestClusters(entries || [], { usedIds: used }));
+  }, [entries, cands]);
   const pendingCands = cands.filter(c => c.status === "requested" || c.status === "drafted");
   return h(React.Fragment, null, h("button", {
     onClick: () => setOpen(!open),
@@ -4956,7 +4963,7 @@ function InnerLifeCDiagnosticSheet({ characters, onClose }) {
     r.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, String(r.error)) :
     h(React.Fragment, null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.ink, marginBottom: 2 } }, "当前相位"),
-      (r.phases || []).length ? r.phases.map(p => line(p.name, (PHASE_ZH[p.phase] || p.phase) + " · 压力 " + p.pressure + (p.source ? " · " + (p.source === "plan" ? "按日程" : "缺日程兜底") : ""))) :
+      (r.phases || []).length ? r.phases.map(p => line(p.name, (PHASE_ZH[p.phase] || p.phase) + " · 压力 " + p.pressure + (p.source ? " · " + ({ schedule: "按日程", pressure_guard: "睡压保底", knock: "被敲醒", unknown_schedule: "缺日程放行" }[p.source] || p.source) : ""))) :
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "6px 0" } }, "还没有任何角色的睡眠状态（tick 一次都没跑过）"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.ink, margin: "10px 0 2px" } }, "近 " + (r.observations || 0) + " 条诊断"),
       Object.keys(r.wouldHold || {}).length ? Object.entries(r.wouldHold).map(([o, n]) => line("😴 睡着时想说话（" + (OUTLET_ZH[o] || o) + "）", String(n))) : line("😴 睡着时想说话", "0 次"),

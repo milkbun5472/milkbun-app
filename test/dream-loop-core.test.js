@@ -47,6 +47,23 @@ test("夜键：凌晨入睡归前一晚；幂等键一角色一夜唯一", () =>
   assert.notEqual(D.dreamKey("c1", "2026-07-18"), D.dreamKey("c2", "2026-07-18"));
 });
 
+test("入梦材料窗覆盖前一白天到凌晨入睡，不被午夜截断", () => {
+  const sleep = Date.UTC(2026, 6, 18, 8, 0, 0); // 温哥华 07-18 01:00，归 07-17 夜
+  const offset = -7 * 60;
+  const night = D.nightKeyOf(sleep, offset);
+  const w = D.nightWindow(night, offset, sleep);
+  assert.equal(night, "2026-07-17");
+  assert.equal(w.startTs, Date.UTC(2026, 6, 17, 7, 0, 0));
+  assert.equal(w.endTs, sleep);
+  assert.ok(Date.UTC(2026, 6, 17, 20, 0, 0) >= w.startTs);
+});
+
+test("材料重建同时核验 hash，编辑后的同 ID 消息不可冒充", () => {
+  const ref = D.buildMaterial({ chatItems: [{ id: "m1", content: "原话" }] }).refs[0];
+  assert.equal(D.refMatches(ref, "原话"), true);
+  assert.equal(D.refMatches(ref, "改过的话"), false);
+});
+
 test("决定论：同输入两次结果逐位一致（不掷骰子）", () => {
   const input = { chatItems: [{ id: "a", content: "x" }, { id: "b", content: "y" }], emotionCurrent: { hurt: 0.5, warmth: 0.3 }, relationActiveAxes: ["identity"], afterglowLevel: 0.4 };
   assert.deepEqual(D.buildMaterial(input), D.buildMaterial(input));

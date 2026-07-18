@@ -45,7 +45,7 @@
     const topN = Number(opts.topN) > 0 ? Number(opts.topN) : TOP_N;
     const used = opts.usedIds instanceof Set ? opts.usedIds : new Set(Array.isArray(opts.usedIds) ? opts.usedIds : []);
     const rows = (Array.isArray(entries) ? entries : []).filter(e =>
-      e && e.id && e.text && Number.isFinite(Number(e.ts)) && !e.deleted && !used.has(e.id));
+      e && e.id && e.text && Number.isFinite(Number(e.ts)) && !e.deleted && !e.archived && !used.has(e.id));
     const byChar = new Map();
     rows.forEach(e => {
       const c = Array.isArray(e.charIds) && e.charIds.length ? String(e.charIds[0]) : "_misc";

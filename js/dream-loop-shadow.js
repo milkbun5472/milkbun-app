@@ -54,13 +54,13 @@
   }
 
   // 材料采集（全部 best-effort 只读；正文只就地哈希不出函数）
-  async function gatherSources(char) {
+  async function gatherSources(char, windowRange) {
     const src = { chatItems: [], emotionCurrent: null, relationActiveAxes: [], afterglowLevel: 0, calendarEvents: [] };
     try {
-      const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
       const msgs = (typeof loadJSON === "function" ? loadJSON("x_chat:" + char.id, []) : []) || [];
-      src.chatItems = msgs.filter(m => m && !m.recalled && Number(m.ts || 0) >= dayStart.getTime())
-        .map((m, i) => ({ id: m.id || m.turnId || (String(m.ts || 0) + ":" + i), content: m.content }));
+      src.chatItems = msgs.map((m, i) => m && ({ m, i }))
+        .filter(x => x && x.m && !x.m.recalled && Number(x.m.ts || 0) >= windowRange.startTs && Number(x.m.ts || 0) < windowRange.endTs)
+        .map(x => ({ id: x.m.id || x.m.turnId || (String(x.m.ts || 0) + ":" + x.i), content: x.m.content }));
     } catch (e) {}
     try {
       const u = window.Cloud && window.Cloud.getSessionUser ? await window.Cloud.getSessionUser() : null;
@@ -78,17 +78,22 @@
       const C = core();
       if (!C || !char || !char.id || !sleepState) return null;
       if (!C.remDue(sleepState, Date.now())) return null;
-      const night = C.nightKeyOf(sleepState.sleepStartTs, 0);
+      const deviceOffsetMinutes = -new Date().getTimezoneOffset();
+      const shift = typeof schedTzShiftMin === "function" ? (schedTzShiftMin(char) || 0) : 0;
+      const roleOffsetMinutes = deviceOffsetMinutes + shift;
+      const night = C.nightKeyOf(sleepState.sleepStartTs, roleOffsetMinutes);
+      const windowRange = C.nightWindow(night, roleOffsetMinutes, sleepState.sleepStartTs);
+      if (!windowRange) return null;
       const key = C.dreamKey(char.id, night);
       await ensureOwner();
       const db = await openDB();
       const existed = await rq(db.transaction("dreams", "readonly").objectStore("dreams").get(key));
       if (existed) return null; // 一夜一梦幂等（含已记录的无梦夜）
-      const material = C.buildMaterial(await gatherSources(char));
+      const material = C.buildMaterial(await gatherSources(char, windowRange));
       const verdict = C.shouldDream(material, {});
       const row = { key, charId: char.id, nightKey: night, status: verdict.dream ? "queued" : "no_dream",
         materialRefs: material.refs, peaks: material.peaks, relationActiveAxes: material.relationActiveAxes,
-        intensity: material.intensity, source: "dream", createdAt: Date.now() };
+        intensity: material.intensity, reason: verdict.reason, source: "dream", createdAt: Date.now() };
       const tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").put(row); await done(tx);
       addDiag({ charId: char.id, kind: verdict.dream ? "enqueued" : "skipped_no_dream", reason: verdict.reason, night, intensity: material.intensity });
       return row.status;

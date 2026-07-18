@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.58";
+const APP_VERSION = "v49.59";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1101,14 +1101,16 @@ function App() {
   // C 第4步：睡眠影子 tick（纯本地计算，5 分钟一轮 + 回前台刷新；shadow 不改任何真实行为）
   useEffect(() => {
     if (!loaded) return;
-    const tickAll = () => { try { if (window.SleepShadow) characters.forEach(c => {
-      const r = window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true);
+    const tickAll = async (forcePresence) => { try { if (window.SleepShadow) {
+      if (window.SleepShadow.ready) await window.SleepShadow.ready();
+      characters.forEach(c => {
+      const r = window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true, { forcePresence: !!forcePresence });
       // D 梦回路胶水：只读 C 的 tick 返回值，REM 窗到点由 DreamLoop 自判并入队（零 API 不展示）
       try { if (r && !r.exempt && r.state && window.DreamLoop) window.DreamLoop.observe(c, r.state); } catch (eD) {}
-    }); } catch (e) {} };
-    tickAll();
-    const iv = setInterval(tickAll, 300000);
-    const onVis = () => { if (document.visibilityState !== "hidden") tickAll(); };
+    }); } } catch (e) {} };
+    tickAll(true);
+    const iv = setInterval(() => tickAll(false), 300000);
+    const onVis = () => { if (document.visibilityState !== "hidden") tickAll(true); };
     document.addEventListener("visibilitychange", onVis);
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); };
   }, [loaded, characters]);
@@ -7956,6 +7958,7 @@ function App() {
   });else if (screen === "dreamjournal") body = h(window.DreamJournalApp, {
     characters: characters,
     profile: profile,
+    couples: couples,
     toast: toast,
     apiFor: apiFor,
     bgApi: bgActive,

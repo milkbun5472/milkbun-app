@@ -9,8 +9,9 @@
   "use strict";
   const DB_NAME = "lisa_inner_life_c_shadow_v1", DB_VERSION = 1;
   const DIAG_CAP = 500, DIAG_MAX_AGE = 14 * 86400000, STALE_MS = 30 * 60000;
-  let dbPromise = null, owner = null, hydrated = false;
+  let dbPromise = null, owner = null, hydrated = false, hydratePromise = null;
   const states = new Map(); // charId -> sleepState（内存权威，IDB 持久）
+  const presenceMeta = new Map(); // charId -> 最近一次云投影摘要（不持久，重启必刷新）
   const core = () => window.InnerLifeCSleepCore;
   const chash = id => { let h = 5381; const s = String(id || ""); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
 
@@ -47,13 +48,14 @@
   }
   async function hydrate() {
     if (hydrated) return;
-    hydrated = true;
-    try {
+    if (hydratePromise) return hydratePromise;
+    hydratePromise = (async () => { try {
       await ensureOwner();
       const db = await openDB(), tx = db.transaction("states", "readonly");
       (await rq(tx.objectStore("states").getAll())).forEach(r => { if (r && r.charId) states.set(r.charId, r.state); });
       await done(tx);
-    } catch (e) {}
+    } catch (e) {} finally { hydrated = true; } })();
+    return hydratePromise;
   }
   function persistState(charId) {
     openDB().then(db => { const tx = db.transaction("states", "readwrite"); tx.objectStore("states").put({ charId, state: states.get(charId) }); return done(tx); }).catch(() => {});
@@ -65,17 +67,20 @@
         pressureBucket: typeof row.pressure === "number" ? Math.round(row.pressure * 10) / 10 : null, reliable: row.reliable === undefined ? null : !!row.reliable };
       const db = await openDB(), tx = db.transaction("diag", "readwrite"), s = tx.objectStore("diag");
       s.add(clean);
-      const n = await rq(s.count());
-      if (n > DIAG_CAP) { // 确定性裁剪（学工单#13：不用概率）
-        const keys = await rq(s.getAllKeys());
-        keys.slice(0, n - DIAG_CAP).forEach(k => s.delete(k));
-      }
+      const allReq = s.getAll(), keysReq = s.getAllKeys();
+      const [all, keys] = await Promise.all([rq(allReq), rq(keysReq)]);
+      const cutoff = Date.now() - DIAG_MAX_AGE;
+      const expired = [];
+      all.forEach((r, i) => { if (Number(r && r.t || 0) < cutoff) expired.push(keys[i]); });
+      expired.forEach(k => s.delete(k));
+      const survivors = keys.filter(k => !expired.includes(k));
+      if (survivors.length > DIAG_CAP) survivors.slice(0, survivors.length - DIAG_CAP).forEach(k => s.delete(k));
       await done(tx);
     } catch (e) {}
   }
 
   // ---- tick：纯同步计算（core 纯函数 + loadJSON 同步），持久化异步 ----
-  function tick(char, engineerEyes) {
+  function tick(char, engineerEyes, opts) {
     const C = core();
     if (!C || !char || !char.id) return null;
     if (engineerEyes === true) return { exempt: true, phase: "exempt_digital" };
@@ -83,14 +88,17 @@
     const deviceOffsetMinutes = -new Date().getTimezoneOffset();
     const shift = typeof schedTzShiftMin === "function" ? (schedTzShiftMin(char) || 0) : 0;
     const schedules = (loadJSON("x_schedules", {}) || {})[char.id] || {};
+    const hadPrev = states.has(char.id);
     const prev = states.get(char.id) || C.createSleepState(now);
     const r = C.tickSleep(prev, { now, utcOffsetMinutes: deviceOffsetMinutes + shift, deviceOffsetMinutes, schedules, engineerEyes: false });
     states.set(char.id, r.state);
     persistState(char.id);
     if (r.transition) {
       addDiag({ charId: char.id, kind: "tidal_transition", fromState: r.transition.from, toState: r.transition.to, source: r.state.source, pressure: r.state.pressure, reliable: r.audit.reliableSchedule });
-      projectPresence(char, r.state); // 相位变化时投影云端（dormant-safe）
     }
+    const pm = presenceMeta.get(char.id);
+    const presenceChanged = !pm || pm.phase !== r.state.phase || pm.fingerprint !== String(r.state.scheduleFingerprint || "");
+    if (!hadPrev || r.transition || presenceChanged || (opts && opts.forcePresence) || !pm || now - pm.at >= STALE_MS) projectPresence(char, r.state);
     return { exempt: false, state: r.state };
   }
 
@@ -98,6 +106,7 @@
   function gateCheck(char, outlet, engineerEyes) {
     try {
       if (engineerEyes === true) { addDiag({ charId: char && char.id, kind: "exempt", outlet }); return { allow: true, exempt: true, phase: "exempt_digital", reason: "engineer_eyes" }; }
+      if (!hydrated) { hydrate(); addDiag({ charId: char && char.id, kind: "fail_open", outlet }); return { allow: true, exempt: false, phase: null, reason: "state_hydrating" }; }
       const cur = states.get(char && char.id);
       if (!cur || Date.now() - Number(cur.updatedTs || 0) > STALE_MS) tick(char, false); // 发声前按需刷新
       const st = states.get(char && char.id);
@@ -112,14 +121,16 @@
   function projectPresence(char, st) {
     try {
       if (!(window.Cloud && window.Cloud.sleepPresenceUpsert) || !st) return;
-      const validUntil = new Date((Number(st.wakeAtTs) || Date.now() + 6 * 3600000) + 3600000).toISOString();
+      const now = Date.now();
+      const validBase = st.phase === "asleep" && Number(st.wakeAtTs) > now ? Number(st.wakeAtTs) + 3600000 : now + 2 * 3600000;
+      const validUntil = new Date(validBase).toISOString();
       window.Cloud.sleepPresenceUpsert({
         char_id: char.id,
         sleep_start_at: st.sleepStartTs ? new Date(st.sleepStartTs).toISOString() : null,
         wake_at: st.wakeAtTs ? new Date(st.wakeAtTs).toISOString() : null,
         observed_phase: st.phase, next_transition_at: st.nextTransitionTs ? new Date(st.nextTransitionTs).toISOString() : null,
         schedule_fingerprint: String(st.scheduleFingerprint || ""), valid_until: validUntil
-      }).catch(() => {});
+      }).then(() => presenceMeta.set(char.id, { phase: st.phase, fingerprint: String(st.scheduleFingerprint || ""), at: Date.now() })).catch(() => {});
     } catch (e) {}
   }
 
@@ -142,9 +153,9 @@
     } catch (e) { return { error: "report_failed" }; }
   }
   async function clearAll() {
-    try { states.clear(); const db = await openDB(), tx = db.transaction(["states", "diag", "meta"], "readwrite"); ["states", "diag", "meta"].forEach(s => tx.objectStore(s).clear()); await done(tx); } catch (e) {}
+    try { states.clear(); presenceMeta.clear(); const db = await openDB(), tx = db.transaction(["states", "diag", "meta"], "readwrite"); ["states", "diag", "meta"].forEach(s => tx.objectStore(s).clear()); await done(tx); } catch (e) {}
   }
 
   hydrate();
-  window.SleepShadow = { tick, gateCheck, report, clearAll, projectPresence, hashId: chash };
+  window.SleepShadow = { tick, gateCheck, report, clearAll, projectPresence, ready: hydrate, hashId: chash };
 })();

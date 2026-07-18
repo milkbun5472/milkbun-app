@@ -68,11 +68,14 @@
   }
 
   // ---- D 步骤 2：TA们的梦 · 懒生成 prompt（拍板：后台池模型；梦≠记忆；剧情主权）----
-  function dreamGenSys(char, row, excerpts) {
+  function dreamGenSys(char, row, excerpts, reality) {
+    const r = reality || {};
     return "你是「" + char.name + "」。人设：" + String(char.persona || "").slice(0, 300) + "\n\n" +
       "你昨晚睡着后做了一场梦。下面是入梦材料——你昨天真实经历的对话片段和情绪状态。请把它们揉成一场【你的梦】。\n" +
       "【当日对话片段】\n" + (excerpts.length ? excerpts.map(x => "· " + x).join("\n") : "（昨天没什么对话，梦从情绪里长出来）") + "\n" +
       "【情绪残渣】" + (row.peaks || []).map(p => p.axis + "=" + p.value).join("、") + (row.relationActiveAxes && row.relationActiveAxes.length ? "｜关系张力：" + row.relationActiveAxes.join("、") : "") + "\n\n" +
+      "【现实关系边界】" + (r.relationship || "现实中没有已确认的恋人关系") + "\n" +
+      "【人名铁律】梦里允许具名的人只有：" + (r.allowedNames || "无") + "。其他人物一律写成『一个人』『看不清的人』，不得创造名字。\n\n" +
       "【梦的规则】\n" +
       "· 梦逻辑：允许扭曲、拼贴、时空错乱，白天的细节可以变形出现（雨伞变成船、对话发生在不存在的房间）；不要写成白天的复述。\n" +
       "· 第一人称，你在梦里。120~220 字。\n" +
@@ -115,13 +118,17 @@
         const p = props.bgApi || (props.apiFor ? props.apiFor(char.id) : null);
         if (!p) throw new Error("没有可用的 API 线路");
         const msgs = loadJSON("x_chat:" + row.charId, []) || [];
-        const ids = new Set((row.materialRefs || []).filter(r => r.kind === "chat").map(r => r.refId));
+        const refs = new Map((row.materialRefs || []).filter(r => r.kind === "chat").map(r => [String(r.refId), r]));
         const excerpts = [];
         msgs.forEach((m, i) => {
           const mid = m.id || m.turnId || (String(m.ts || 0) + ":" + i);
-          if (ids.has(String(mid)) && m.content && excerpts.length < 12) excerpts.push(String(m.content).slice(0, 80));
+          const ref = refs.get(String(mid));
+          if (ref && m.content && window.DreamLoopCore && window.DreamLoopCore.refMatches(ref, m.content) && excerpts.length < 12) excerpts.push(String(m.content).slice(0, 80));
         });
-        const raw = await callAI(p, dreamGenSys(char, row, excerpts), [{ role: "user", content: "开始做梦。" }], { maxTokens: 6400 });
+        const cp = props.couples && props.couples[char.id];
+        const relationship = cp && cp.status === "together" ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
+        const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
+        const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }), [{ role: "user", content: "开始做梦。" }], { maxTokens: 6400 });
         const gen = parseDreamJSON(raw);
         if (!gen) throw new Error("梦没成形，再试一次");
         await window.DreamLoop.saveGenerated(row.key, gen);

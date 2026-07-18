@@ -28,6 +28,22 @@
     return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0") + "-" + String(d.getUTCDate()).padStart(2, "0");
   }
 
+  // 入梦材料窗：从角色当地「入睡那晚」的 00:00 起，到真实入睡时刻止。
+  // 例如凌晨 01:00 入睡归前一晚，会自然覆盖前一天白天到次日凌晨，避免午夜清空材料。
+  function nightWindow(nightKey, utcOffsetMinutes, sleepStartTs) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(nightKey || ""));
+    const endTs = Number(sleepStartTs);
+    if (!m || !Number.isFinite(endTs)) return null;
+    const offsetMs = (Number(utcOffsetMinutes) || 0) * 60000;
+    const startTs = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) - offsetMs;
+    return { startTs, endTs };
+  }
+
+  // 引用重建时必须同时对 ID 与 hash；原消息被编辑后不可冒充当夜材料。
+  function refMatches(ref, content) {
+    return !!(ref && ref.hash && String(ref.hash) === hash(content));
+  }
+
   // 材料包：只收引用与哈希，绝不携带正文。
   // chatItems: [{id, content}]（content 只用于就地哈希，不出函数）
   // emotionCurrent: A线十维当前值；relationActiveAxes: B线 active 轴名数组；
@@ -74,5 +90,5 @@
   // 队列幂等键：一角色一夜最多一场梦
   const dreamKey = (charId, nightKey) => hash(String(charId)) + "|" + String(nightKey);
 
-  return Object.freeze({ REM_DELAY_MS, DREAM_INTENSITY_MIN, hash, nightKeyOf, buildMaterial, shouldDream, remDue, dreamKey });
+  return Object.freeze({ REM_DELAY_MS, DREAM_INTENSITY_MIN, hash, nightKeyOf, nightWindow, refMatches, buildMaterial, shouldDream, remDue, dreamKey });
 });
