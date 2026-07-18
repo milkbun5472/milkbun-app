@@ -4962,6 +4962,7 @@ function MemoryLib({
   const [innerLifeOpen, setInnerLifeOpen] = useState(false);
   const [bAxesOpen, setBAxesOpen] = useState(false);
   const [cSleepOpen, setCSleepOpen] = useState(false);
+  const [diagOpen, setDiagOpen] = useState(false); // 工程仪表抽屉：默认合拢，别压着记忆
   const correctionPreviewOn = (() => { try { return localStorage.getItem("memory_corrections_preview_v1") === "1"; } catch (e) { return false; } })();
   const [corrections, setCorrections] = useState([]);
   const [correctionOpen, setCorrectionOpen] = useState(null);
@@ -5024,7 +5025,10 @@ function MemoryLib({
   cSleepOpen ? h(InnerLifeCDiagnosticSheet, { characters, onClose: () => setCSleepOpen(false) }) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2"
-  }, h("button", { onClick: () => setInnerLifeOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 查看纯影子诊断"), h("button", { onClick: () => setBAxesOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), h("button", { onClick: () => setCSleepOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "😴 C 睡眠与发声闸 · 查看纯影子诊断"), onAudit ? h("button", {
+  }, h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
+    h("span", null, "🔬 诊断与审计 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: 10.5 } }, diagOpen ? "收起 ▾" : "展开 ▸")),
+  diagOpen ? h(React.Fragment, null,
+  h("button", { onClick: () => setInnerLifeOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 查看纯影子诊断"), h("button", { onClick: () => setBAxesOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), h("button", { onClick: () => setCSleepOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "😴 C 睡眠与发声闸 · 查看纯影子诊断"), onAudit ? h("button", {
     onClick: onAudit,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12.5 }
@@ -5043,22 +5047,22 @@ function MemoryLib({
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, "🧪 权威表纪律复核 · 逐 ID 只读导出") : null,
-  corrections.length ? h("div", { style: { border: "1px dashed " + t.tint, borderRadius: 11, padding: "8px 10px", marginBottom: 8 } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5 } }, "🧷 待过目的纠错候选 " + corrections.length + " 条（只读）"),
-    corrections.slice(0, 5).map(c => h("button", { key: c.id, onClick: () => setCorrectionOpen(c), className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, padding: "5px 0", borderTop: "1px dashed " + t.line } },
-      ({ more_detailed: "更详细", contradiction: "事实纠正", manual: "手动纠正" })[c.reason] || c.reason, " · ", String(c.updated_at || "").slice(0,10)))) : null,
   !memoryTableMode && onEnableTableMemory ? h("button", {
     onClick: () => { if (confirm("会先把本机旧库与新表逐 ID 核对；全部一致、待发送为 0 才会启用。旧镜像和回退闸都会保留。现在验收并启用吗？")) onEnableTableMemory(); },
     disabled: migrationBusy,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60 disabled:opacity-40",
     style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, migrationBusy ? "正在逐 ID 验收…" : "🛟 逐 ID 验收并启用新记忆表") : null,
-  h(EventShelfSection, { characters: characters, entries: entries }),
   memoryTableMode && onUseLegacyMemory ? h("button", {
     onClick: () => { if (confirm("紧急改回本机旧镜像读取？不会删除新表或任何记忆；重新启用前不要在两边同时修改。")) onUseLegacyMemory(); },
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",
     style: { border: "1px dashed " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 }
-  }, "紧急回退：改读本机镜像") : null,
+  }, "紧急回退：改读本机镜像") : null) : null,
+  corrections.length ? h("div", { style: { border: "1px dashed " + t.tint, borderRadius: 11, padding: "8px 10px", marginBottom: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 5 } }, "🧷 待过目的纠错候选 " + corrections.length + " 条（只读）"),
+    corrections.slice(0, 5).map(c => h("button", { key: c.id, onClick: () => setCorrectionOpen(c), className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, padding: "5px 0", borderTop: "1px dashed " + t.line } },
+      ({ more_detailed: "更详细", contradiction: "事实纠正", manual: "手动纠正" })[c.reason] || c.reason, " · ", String(c.updated_at || "").slice(0,10)))) : null,
+  h(EventShelfSection, { characters: characters, entries: entries }),
   h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索记忆内容 / 标签 / 角色…",
     className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px" } })), h("div", {
     className: "shrink-0 px-6 pb-2 flex gap-2 overflow-x-auto"
