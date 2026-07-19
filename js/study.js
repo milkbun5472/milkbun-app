@@ -1018,13 +1018,12 @@
       commit(Object.assign({}, s, { progress: cp }));
     }
 
-    // 发送即回复：符合普通聊天直觉。旧版还要再点一次“让 TA 回复”，会让人误以为题卡和进度坏了。
+    // 发送只入对话、不触发角色：用户可以连续补充几条，再手动让老师统一回复。
     function send() {
       const txt = input.trim();
-      if (!txt || busy) return;
+      if (!txt) return;
       setInput("");
       pushEntry({ id: "u_" + Date.now(), role: "user", content: txt, ts: Date.now() });
-      setTimeout(function () { replyNow(); }, 60);
     }
 
     async function submitQuiz(entry, value, confidence) {
@@ -1423,9 +1422,9 @@
           h("button", { onClick: replyNow, disabled: busy, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: busy ? t.line : accent, color: "#fff", borderRadius: 10, padding: "8px 0", opacity: busy ? 0.8 : 1 } },
             busy ? "生成中…" : (sess.mode === "nv1" ? "让 " + (teacher ? teacher.name : "老师") + " / 同学接话" : "让 " + (chars[0] ? chars[0].name : "对方") + " 回复"))) : null,
         h("div", { className: "px-4 py-3 flex items-end gap-2", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)" } },
-          h("textarea", { value: input, onChange: function (e) { return setInput(e.target.value); }, rows: 1, placeholder: "说点什么…发送后老师会直接回复", style: { flex: 1, resize: "none", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, padding: "9px 14px", maxHeight: 100 },
+          h("textarea", { value: input, onChange: function (e) { return setInput(e.target.value); }, rows: 1, placeholder: "说点什么…（可连发几条，再点上面让 TA 回复）", style: { flex: 1, resize: "none", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, padding: "9px 14px", maxHeight: 100 },
             onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } } }),
-          h("button", { onClick: send, disabled: busy || !input.trim(), className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 18, padding: "9px 16px", opacity: busy || !input.trim() ? 0.5 : 1 } }, busy ? "回复中…" : "发送"))));
+          h("button", { onClick: send, disabled: !input.trim(), className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 18, padding: "9px 16px", opacity: !input.trim() ? 0.5 : 1 } }, "发送"))));
   }
 
   // 顶层：三板分区 + 三级导航
