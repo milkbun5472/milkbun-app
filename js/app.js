@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.70";
+const APP_VERSION = "v49.71";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1677,6 +1677,20 @@ function App() {
   };
   // 近期对话文本（供世界书关键词命中）
   const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled && !isOocMsg(m)).slice(-8).map(m => m.content).join("\n");
+  // 论坛/朋友圈/悄悄话共用的近期生活素材：不再只看私聊，角色亲历的群聊与线上/线下相处全部按时间混排。
+  const ambientMaterialFor = (char, opts) => {
+    if (!window.AmbientMaterial || !char) return "";
+    const go = {};
+    (groups || []).filter(g => (g.memberIds || []).includes(char.id)).forEach(g => {
+      go[g.id] = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []);
+    });
+    const rows = window.AmbientMaterial.collect(char.id, {
+      chats: chatsRef.current,
+      offlines: { [char.id]: offlinesRef.current[char.id] || loadJSON("x_offline:" + char.id, []) },
+      groups, groupChats: groupChatsRef.current, groupOfflines: go
+    }, { ...opts, userName: profile.name || "用户", charName: char.name, limit: (opts && opts.limit) || 20 });
+    return window.AmbientMaterial.format(rows);
+  };
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
   const loreFor = (char, scope) => loreText(loreRef.current, { charIds: char ? [char.id] : [], scope: scope || "chat", text: char ? recentChatText(char) : "" });
   const ctxFor = (char, ctxOpts) => ({
@@ -4387,11 +4401,9 @@ function App() {
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
       const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
-      const sinceChat = (chatsRef.current[char.id] || [])
-        .filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.content && (m.ts || 0) > lastForumTs)
-        .slice(-12).map(m => (m.role === "user" ? (profile.name || "用户") : char.name) + "：" + m.content).join("\n");
+      const sinceChat = ambientMaterialFor(char, { sinceTs: lastForumTs, limit: 20 });
       const d = await runProbe(active, ctxFor(char), {
-        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助 三选一）。内容写你**最近（上次发帖之后）真实发生或萦绕心头的事**——今天行程里的事、最近和用户聊到/经历的、心情起伏都行；实在没有值得说的，就按你的人设编一件贴合的小事。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你和用户最近的往来（可当素材，别照抄原话）】\n" + sinceChat : ""),
+        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助 三选一）。内容写你**最近（上次发帖之后）真实发生或萦绕心头的事**——今天行程里的事、最近和用户聊到/经历的、心情起伏都行；实在没有值得说的，就按你的人设编一件贴合的小事。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可当素材，别照抄原话）】\n" + sinceChat : ""),
         schemaHint: "{\"board\":\"吐槽/日常/求助 之一\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
@@ -5237,8 +5249,9 @@ function App() {
       const noRepeat = recentPosts.length
         ? "\n\n**【不许复读】TA 最近已经发过下面这些朋友圈，这一条【绝对不要】再写同一件事、同一种心情或雷同句式，换一件全新的事、一个新角度：**\n" + recentPosts.map((c, i) => (i + 1) + "、" + c.slice(0, 60)).join("\n")
         : "";
+      const livedMaterial = ambientMaterialFor(char, { limit: 20 });
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
-        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。**大约一半概率配一张图**——如果这条适合配图，就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），不配图就填 null。再生成认识的其他角色对这条的 0-3 条评论（评论者从关系网里挑）。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + noRepeat,
+        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。**大约一半概率配一张图**——如果这条适合配图，就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），不配图就填 null。再生成认识的其他角色对这条的 0-3 条评论（评论者从关系网里挑）。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
         schemaHint: "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
       });
       pMom(p => [{
@@ -5989,8 +6002,9 @@ function App() {
       whisper: true
     }));
     try {
+      const livedMaterial = ambientMaterialFor(char, { limit: 20 });
       const d = await runProbe(active, ctxFor(char), {
-        instruction: "你们已是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张给用户的小纸条——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。",
+        instruction: "你们已是恋人。以「" + char.name + "」身份，在你俩私密的「便签墙」上悄悄贴一张给用户的小纸条——写一句恋爱向、藏着心意、想对 Ta 说却又没在聊天里直接说出口的悄悄话（不是脑内碎碎念的心声，是想让 Ta 悄悄收到的情话/在乎），真挚贴人设，1-2句、别太长。可以从你真正参与的近期相处里生长出来，但别照抄原话。" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : ""),
         schemaHint: "{\"whisper\":\"给 Ta 的悄悄情话\"}"
       });
       // 贴到便签墙（authorId=角色，默认盖着，点开才看得到），不再进无处可见的 whispers 数组
