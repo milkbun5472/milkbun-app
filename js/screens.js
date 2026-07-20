@@ -4301,13 +4301,14 @@ function PushCard({ loggedIn }) {
 // 本地存储占用条：localStorage 约 5MB 上限（图片吃大头），快满时红色预警——防「悄悄写满丢数据」
 // 存储 key → 人话名称（谁占地方一眼看懂）；前缀匹配，最长优先
 const STORAGE_KEY_LABELS = [
-  ["x_chat:", "聊天记录"], ["x_gchat:", "群聊记录"], ["x_emojiPacks", "表情包"], ["x_emoji", "表情包"],
+  ["x_goffline:", "群聊线下记录"], ["x_offline:", "单人线下记录"], ["x_chat:", "聊天记录"], ["x_gchat:", "群聊记录"], ["x_emojiPacks", "表情包"], ["x_emoji", "表情包"],
   ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案·人设(头像已迁图库)"],
   ["x_memLib", "记忆库"], ["x_memories", "长期记忆"], ["x_diaries", "日记"],
   ["x_forumPosts", "论坛帖子"], ["x_forumComments", "论坛评论"], ["x_fanfic", "同人文"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],
   ["x_capsule", "时光胶囊"], ["x_schedules", "角色日程"], ["x_couple", "情侣空间"],
   ["x_ledger", "记账"], ["x_memo", "备忘录"], ["x_read", "一起读"], ["x_study", "一起学"], ["x_desires", "欲望盒子"],
+  ["x_stateHist", "心声·状态历史"], ["x_states", "当前状态"], ["x_desires", "欲望盒子"],
   ["x_lore", "世界书"], ["x_geo", "定位"], ["x_wx", "天气缓存"]
 ];
 function storageBreakdown() {
@@ -4360,7 +4361,7 @@ function StorageMeter({ onOffloadChats }) {
       disabled: offloading, className: "w-full active:opacity-80 disabled:opacity-50",
       style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.tint, borderRadius: 10, padding: "9px 0", marginTop: 12 }
     }, offloading ? "归档中…" : "☁️ 归档旧聊天到云端 · 释放本地空间") : null,
-    onOffloadChats ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "每个角色本地只留最近 200 条，更早的存到云端（一条不丢，聊天页往上翻可「加载更早」）。需先登录云同步。") : null,
+    onOffloadChats ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "普通云同步只是备份，不会腾本机；这个按钮才会在云端确认后裁本机。低占用每个会话留 200 条，≥80% 留 120 条，≥90% 留 80 条；聊天页仍可「加载更早」。") : null,
     // 明细：谁占地方一眼看穿
     h("button", { onClick: () => { setDetail(d => !d); refresh(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 10 } }, detail ? "收起明细 ▴" : "看谁占地方 ▾"),
     detail ? h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } },

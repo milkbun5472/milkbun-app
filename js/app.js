@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.78";
+const APP_VERSION = "v49.79";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -765,12 +765,12 @@ function App() {
   // ---- 聊天云归档：本地只留最近 N 条，更早的存云端（一条不丢 + 省本地空间）----
   const CHAT_KEEP_LOCAL = 200; // 每个角色本地保留的最近条数
   // 把某角色本地超出保留窗口的旧消息归档到云端、再从本地裁掉。⭐先确认云端写成功，才裁本地——任何失败都不裁、零丢失。
-  const offloadChatOne = async charId => {
+  const offloadChatOne = async (charId, keepLocal = CHAT_KEEP_LOCAL) => {
     if (!(window.Cloud && window.Cloud.ready())) return { ok: false, msg: "云同步未就绪" };
     const all = chatsRef.current[charId] || [];
-    if (all.length <= CHAT_KEEP_LOCAL + 30) return { ok: true, moved: 0 }; // 不够多，不用归档
-    const older = all.slice(0, all.length - CHAT_KEEP_LOCAL);
-    const keep = all.slice(all.length - CHAT_KEEP_LOCAL);
+    if (all.length <= keepLocal + 10) return { ok: true, moved: 0 }; // 不够多，不用归档
+    const older = all.slice(0, all.length - keepLocal);
+    const keep = all.slice(all.length - keepLocal);
     // ⭐合照(duo自拍)永不裁本地（她 2026-07-13 报「上传云端后合照墙没了」）：合照墙是从本地聊天现捞的，裁掉旧合照消息相册就丢；
     //   图在IDB、消息小，留着不占空间。只归档+裁掉【非合照】的旧消息，合照按原序留在本地。
     const isDuoPhoto = m => m && m.kind === "selfie" && m.photoKind === "duo";
@@ -787,12 +787,12 @@ function App() {
     } catch (e) { return { ok: false, msg: e.message || String(e) }; }
   };
   // 群聊归档（同一张 chat_archive 表，char_id 用 "g_"+群id 区分单聊/群聊）
-  const offloadGChatOne = async groupId => {
+  const offloadGChatOne = async (groupId, keepLocal = CHAT_KEEP_LOCAL) => {
     if (!(window.Cloud && window.Cloud.ready())) return { ok: false, msg: "云同步未就绪" };
     const all = groupChatsRef.current[groupId] || [];
-    if (all.length <= CHAT_KEEP_LOCAL + 30) return { ok: true, moved: 0 };
-    const older = all.slice(0, all.length - CHAT_KEEP_LOCAL);
-    const keep = all.slice(all.length - CHAT_KEEP_LOCAL);
+    if (all.length <= keepLocal + 10) return { ok: true, moved: 0 };
+    const older = all.slice(0, all.length - keepLocal);
+    const keep = all.slice(all.length - keepLocal);
     const archKey = "g_" + groupId;
     try {
       await window.Cloud.chatArchiveAppend(archKey, older); // 先上云
@@ -807,10 +807,11 @@ function App() {
   // 一键归档所有角色 + 群聊的旧聊天
   const offloadAllChats = async () => {
     if (!(window.Cloud && window.Cloud.ready())) { toast("需要先登录云同步（设置·数据）"); return; }
+    const keepLocal = window.StoragePolicy ? window.StoragePolicy.chatKeep(typeof localStorageBytes === "function" ? localStorageBytes() : 0) : CHAT_KEEP_LOCAL;
     let moved = 0, fails = 0;
-    for (const id of Object.keys(chatsRef.current || {})) { const r = await offloadChatOne(id); if (r.ok) moved += r.moved || 0; else fails++; }
-    for (const gid of Object.keys(groupChatsRef.current || {})) { const r = await offloadGChatOne(gid); if (r.ok) moved += r.moved || 0; else fails++; }
-    toast(moved ? ("已把 " + moved + " 条旧聊天（含群聊）归档到云端、释放了本地空间" + (fails ? "（" + fails + " 个没成功，多半没网）" : "")) : (fails ? "归档失败：" + fails + " 个（检查网络/建表）" : "没有需要归档的旧聊天"));
+    for (const id of Object.keys(chatsRef.current || {})) { const r = await offloadChatOne(id, keepLocal); if (r.ok) moved += r.moved || 0; else fails++; }
+    for (const gid of Object.keys(groupChatsRef.current || {})) { const r = await offloadGChatOne(gid, keepLocal); if (r.ok) moved += r.moved || 0; else fails++; }
+    toast(moved ? ("已把 " + moved + " 条旧聊天（含群聊）归档到云端，本机每个会话留最近 " + keepLocal + " 条" + (fails ? "（" + fails + " 个没成功，多半没网）" : "")) : (fails ? "归档失败：" + fails + " 个（检查网络/建表）" : "没有需要归档的旧聊天（当前保留线是每个会话 " + keepLocal + " 条）"));
   };
   // 拉某角色的云端归档（完整旧消息，供聊天页「加载更早」查看，不写回本地）
   const loadChatArchive = async charId => {
