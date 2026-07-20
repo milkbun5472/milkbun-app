@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.83";
+const APP_VERSION = "v49.84";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -530,8 +530,8 @@ function App() {
     setGroupChats(gm);
     setLoaded(true);
   }, []);
-  // ⭐图片迁 IndexedDB · 阶段2迁移引擎：开机把【头像 + 壁纸】的 base64 挪进图库、localStorage 只留 iv_ 键（腾 5MB）。
-  // 只迁 avatarImage / wallpaper 这两类纯展示图；refPhoto（喂给自拍 API 的参考照）绝不碰、留 base64。
+  // ⭐图片迁 IndexedDB：头像/壁纸/参考照的 base64 挪进图库，localStorage 只留 iv_ 键（腾 5MB）。
+  // refPhoto 使用时由 generateSelfieImage 直接从 vault 取 Blob；云 push 会临时还原 base64，跨设备备份不丢。
   // imgToVault 幂等（iv_/http/空原样返回），且当场把图缓存成 objectURL，所以迁完立刻 resolveImg 得到、不闪空。
   // 迁完同时更新 React state（否则后续从 state 存回又把 iv_ 覆盖成 base64）。
   useEffect(() => {
@@ -543,12 +543,12 @@ function App() {
         // 角色头像
         const chars = loadJSON("x_characters", []);
         let chChanged = false;
-        for (const ch of chars) { if (ch && isB64(ch.avatarImage)) { ch.avatarImage = await imgToVault(ch.avatarImage); chChanged = true; } }
+        for (const ch of chars) { if (!ch) continue; for (const f of ["avatarImage", "refPhoto"]) { if (isB64(ch[f])) { ch[f] = await imgToVault(ch[f]); chChanged = true; } } }
         if (cancelled) return;
         if (chChanged) { saveJSON("x_characters", chars); setCharacters(chars); }
         // 我的头像
         const prof = loadJSON("x_profile", {});
-        if (prof && isB64(prof.avatarImage)) { prof.avatarImage = await imgToVault(prof.avatarImage); if (!cancelled) { saveJSON("x_profile", prof); setProfile(prof); } }
+        if (prof) { let profChanged = false; for (const f of ["avatarImage", "refPhoto"]) { if (isB64(prof[f])) { prof[f] = await imgToVault(prof[f]); profChanged = true; } } if (profChanged && !cancelled) { saveJSON("x_profile", prof); setProfile(prof); } }
         // 主屏壁纸
         const wp = loadJSON("x_wallpaper", "");
         if (isB64(wp)) { const iv = await imgToVault(wp); if (!cancelled) { saveJSON("x_wallpaper", iv); setWallpaper(iv); } }

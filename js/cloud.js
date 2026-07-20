@@ -44,10 +44,23 @@
     // 否则一次普通 push 会因 JSON 整体替换而意外删掉回滚材料。
     async collectForSave(userId) {
       const dump = this.collect();
-      if (!tableMemoryMode()) return dump;
-      const { data, error } = await client.from("saves").select("data").eq("user_id", userId).maybeSingle();
-      if (error) throw error; // 宁可这次不备份，也不带着未知状态覆盖并删掉旧记忆副本
-      if (data && data.data && data.data.x_memLib != null) dump.x_memLib = data.data.x_memLib;
+      // 本机参考照只存 iv_ 短引用；云存档临时嵌回 base64，换设备恢复后开机迁移器会再放回 IndexedDB。
+      // 任一图库读取失败就保留 iv_（不阻断其他数据备份），但正常情况下角色/用户参考照可跨设备恢复。
+      const embedRefs = async key => {
+        try {
+          const value = JSON.parse(dump[key] || (key === "x_characters" ? "[]" : "{}")), list = Array.isArray(value) ? value : [value];
+          for (const row of list) if (row && typeof row.refPhoto === "string" && row.refPhoto.indexOf("iv_") === 0 && typeof idbVaultGet === "function" && typeof blobToDataUrl === "function") {
+            const blob = await idbVaultGet(row.refPhoto); if (blob) row.refPhoto = await blobToDataUrl(blob);
+          }
+          dump[key] = JSON.stringify(value);
+        } catch (e) {}
+      };
+      await embedRefs("x_characters"); await embedRefs("x_profile");
+      if (tableMemoryMode()) {
+        const { data, error } = await client.from("saves").select("data").eq("user_id", userId).maybeSingle();
+        if (error) throw error; // 宁可这次不备份，也不带着未知状态覆盖并删掉旧记忆副本
+        if (data && data.data && data.data.x_memLib != null) dump.x_memLib = data.data.x_memLib;
+      }
       return dump;
     },
 

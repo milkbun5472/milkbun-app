@@ -1081,6 +1081,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
   // refPhotoDataUrl 可以是单张 base64、也可以是数组（合照时传两张：角色+用户）；归一成数组
   const refs = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).filter(x => x && typeof x === "string");
+  // 参考照已迁入 x_imgvault 时直接取 Blob；旧 data: 仍兼容。这样 localStorage 不再为每张参考照背几百 KB。
+  const refBlobs = (await Promise.all(refs.map(async rp => {
+    try { if (rp.indexOf("iv_") === 0) return await idbVaultGet(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
+  }))).filter(Boolean);
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
   let base = (a.baseUrl || "").trim().replace(/\/+$/, "");
   base = base.replace(/\/(v1\/)?images\/(generations|edits)\/?$/i, "").replace(/\/chat\/completions\/?$/i, "").replace(/\/+$/, "");
@@ -1123,13 +1127,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const to = setTimeout(() => ctrl.abort(), 180000);
     let r;
     try {
-      if (useRef && refs.length) {
+      if (useRef && refBlobs.length) {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-1"); fd.append("prompt", prompt); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
         if (a.quality) fd.append("quality", a.quality);
         // 单张走 image（沿用验证过的路径）；多张（合照）走 image[]（gpt-image-1 支持多参考图同框）
-        if (refs.length === 1) fd.append("image", b64ToBlob(refs[0], "image/png"), "ref.png");
-        else refs.forEach((rp, i) => fd.append("image[]", b64ToBlob(rp, "image/png"), "ref" + i + ".png"));
+        if (refBlobs.length === 1) fd.append("image", refBlobs[0], "ref.png");
+        else refBlobs.forEach((blob, i) => fd.append("image[]", blob, "ref" + i + ".png"));
         r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的

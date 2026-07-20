@@ -4301,8 +4301,8 @@ function PushCard({ loggedIn }) {
 // 本地存储占用条：localStorage 约 5MB 上限（图片吃大头），快满时红色预警——防「悄悄写满丢数据」
 // 存储 key → 人话名称（谁占地方一眼看懂）；前缀匹配，最长优先
 const STORAGE_KEY_LABELS = [
-  ["x_goffline:", "群聊线下记录"], ["x_offline:", "单人线下记录"], ["x_chat:", "聊天记录"], ["x_gchat:", "群聊记录"], ["x_emojiPacks", "表情包"], ["x_emoji", "表情包"],
-  ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案·人设(头像已迁图库)"],
+  ["x_goffline:", "群聊线下记录"], ["x_offline:", "单人线下记录"], ["x_chat:", "聊天记录"], ["x_gchat:", "群聊记录"], ["x_emotePacks", "表情包"], ["x_emojiPacks", "表情包"], ["x_emoji", "表情包"],
+  ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案·人设(图片已迁图库)"], ["x_profile", "我的档案(图片已迁图库)"],
   ["x_memLib", "记忆库"], ["x_memories", "长期记忆"], ["x_diaries", "日记"],
   ["x_forumPosts", "论坛帖子"], ["x_forumComments", "论坛评论"], ["x_fanfic", "同人文"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],
@@ -4319,7 +4319,7 @@ function storageBreakdown() {
       const bytes = (k.length + (localStorage.getItem(k) || "").length) * 2;
       let label = null;
       for (const [pfx, name] of STORAGE_KEY_LABELS) { if (k.indexOf(pfx) === 0) { label = name; break; } }
-      if (!label) label = k.indexOf("x_") === 0 ? "其他数据" : "系统/其他";
+      if (!label) label = k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统/其他";
       rows[label] = (rows[label] || 0) + bytes;
     }
   } catch (e) {}
