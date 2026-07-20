@@ -33,8 +33,14 @@
     return out;
   }
 
-  function rollbackState(current, history, turnId) {
+  function rollbackState(current, history, turnId, options) {
     const clean = arr(history).filter(row => String(row && row.turnId || "") !== String(turnId || ""));
+    const legacyLatest = options && options.legacyLatest && current && !current.turnId;
+    if (legacyLatest) {
+      // v49.75 前历史没有 turnId：只允许“最新角色回合”退一格，绝不猜更早分支。
+      const legacyHistory = arr(history).slice(1), prevLegacy = legacyHistory[0];
+      return { state: prevLegacy ? { thought: prevLegacy.thought, mood: prevLegacy.mood, wearing: prevLegacy.wearing, action: prevLegacy.action, ts: prevLegacy.ts, turnId: prevLegacy.turnId || null, affinityBefore: prevLegacy.affinityBefore } : null, history: legacyHistory };
+    }
     if (!current || String(current.turnId || "") !== String(turnId || "")) return { state: current || null, history: clean };
     const prev = clean[0];
     if (!prev) return { state: null, history: clean };

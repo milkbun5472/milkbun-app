@@ -3366,7 +3366,8 @@ function App() {
         // 心声/心情/动作/穿着恢复到该 turn 之前；新回复随后从这份真实状态继续。
         if (window.RerollBranch) {
           const stateBeforeReroll = statesRef.current[activeChar.id];
-          const rolled = window.RerollBranch.rollbackState(stateBeforeReroll, stateHistRef.current[activeChar.id] || [], turnId);
+          const latestAssistant = [...msgs].reverse().find(x => x && x.role === "assistant" && x.turnId);
+          const rolled = window.RerollBranch.rollbackState(stateBeforeReroll, stateHistRef.current[activeChar.id] || [], turnId, { legacyLatest: !!(latestAssistant && latestAssistant.turnId === turnId) });
           setStateHist(p => { const n = { ...p, [activeChar.id]: rolled.history }; stateHistRef.current = n; saveJSON("x_stateHist", n); return n; });
           setStates(p => { const n = { ...p }; if (rolled.state) n[activeChar.id] = rolled.state; else delete n[activeChar.id]; statesRef.current = n; saveJSON("x_states", n); return n; });
           setMoods(p => { const n = { ...p }; if (rolled.state && rolled.state.mood) n[activeChar.id] = { label: rolled.state.mood, ts: Date.now() }; else delete n[activeChar.id]; saveJSON("x_moods", n); return n; });

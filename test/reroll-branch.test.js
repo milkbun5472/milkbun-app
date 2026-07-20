@@ -25,3 +25,10 @@ test("reroll 恢复上一份心声状态并清掉旧 turn 历史", () => {
   assert.equal(r.state.thought, "此前心声");
   assert.equal(r.history.some(x => x.turnId === "bad"), false);
 });
+
+test("升级前无 turnId 的心声只允许最新回合安全退一格", () => {
+  const current = { thought: "旧版当前心声", mood: "得意" };
+  const history = [current, { thought: "上一条", mood: "平静", ts: 1 }];
+  assert.equal(R.rollbackState(current, history, "t", { legacyLatest: true }).state.thought, "上一条");
+  assert.equal(R.rollbackState(current, history, "t", { legacyLatest: false }).state.thought, "旧版当前心声");
+});
