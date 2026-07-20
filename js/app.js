@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.82";
+const APP_VERSION = "v49.83";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -3595,7 +3595,7 @@ function App() {
           const gTurnId = "gt_" + Date.now() + "_" + i;
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
-          if (i > 0) await new Promise(r => setTimeout(r, 450));
+          if (i > 0) await new Promise(r => setTimeout(r, 780));
           if (item.redpacket && Number(item.redpacket.total) > 0) {
             const rp = item.redpacket;
             postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利");
@@ -3609,13 +3609,14 @@ function App() {
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), replyTo: item.quote || null, ts: Date.now(), turnId: gTurnId }]);
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
-            const gLines = String(item.text || "").split(/\n+/).map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean);
+            const rawLines = window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/);
+            const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean);
             const gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             for (let j = 0; j < gBubbles.length; j++) {
-              if (j > 0) await new Promise(r => setTimeout(r, 380));
-              pGChat(groupId, p => [...p, {
+              if (j > 0) await new Promise(r => setTimeout(r, 620));
+              const reveal = () => pGChat(groupId, p => [...p, {
                 role: "assistant",
                 senderId: spk.id,
                 senderName: spk.name,
@@ -3625,6 +3626,8 @@ function App() {
                 ts: Date.now(),
                 turnId: gTurnId
               }]);
+              // iOS/React 可能把短间隔内的 functional updates 合并到同一帧；逐泡强制提交，才真是一条条冒出来。
+              if (ReactDOM && typeof ReactDOM.flushSync === "function") ReactDOM.flushSync(reveal); else reveal();
             }
           }
           // 群照片：该成员这条发言带了 photo 对象（或旧版 selfie 字符串）→ 挂占位气泡 + 异步生成（复用私聊那套）

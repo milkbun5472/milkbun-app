@@ -19,4 +19,8 @@ assert.equal(out.items[0].thought, undefined, "仅 thought 串线时保留正常
 assert.equal(out.dropped.length, 3, "用户、陌生名字、自称呼三种串线都不落盘");
 assert.equal(out.thoughtsDropped.length, 1);
 
+assert.deepEqual(G.splitBubbles("第一句。第二句！\n第三句？"), ["第一句。", "第二句！", "第三句？"]);
+assert.deepEqual(G.splitBubbles("一句里有逗号，但仍然完整"), ["一句里有逗号，但仍然完整"]);
+assert.deepEqual(G.splitBubbles("先等等……我想想。"), ["先等等……", "我想想。"]);
+
 console.log("group identity guard tests passed");
