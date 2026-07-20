@@ -32,6 +32,16 @@ test("同一消息重试键相同，同文不同时刻不会撞键", async () =>
   assert.notEqual(a[0].message_key, later[0].message_key);
 });
 
+test("同轮拆出的多个气泡共享 turnId 也逐条入账", async () => {
+  const rows = await Ledger.rowsFor({ charId: "y", threadType: "private", threadId: "y" }, [
+    { role: "assistant", content: "第一泡", ts: 100, turnId: "turn_same" },
+    { role: "assistant", content: "第二泡", ts: 101, turnId: "turn_same" },
+    { role: "assistant", content: "第三泡", ts: 102, turnId: "turn_same" }
+  ]);
+  assert.equal(new Set(rows.map(r => r.message_key)).size, 3);
+  assert.deepEqual(rows.map(r => r.source_message_id), ["turn_same", "turn_same", "turn_same"]);
+});
+
 test("线下嵌套会话只找真正新增消息", () => {
   const m1 = { role: "user", content: "一", ts: 1 }, m2 = { role: "char", content: "二", ts: 2 };
   assert.deepEqual(Ledger.addedSessionMessages([{ id: 1, msgs: [m1] }], [{ id: 1, msgs: [m1, m2] }]), [m2]);

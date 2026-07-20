@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.73";
+const APP_VERSION = "v49.74";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -367,6 +367,26 @@ function App() {
     const i = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(i);
   }, []);
+  // v49.74 拆泡漏账一次性修复：旧实现误把同轮共享 turnId 当单条消息 ID，云端只留下首泡。
+  // 只重扫言秋最近 7 天、同 turnId 的多条纯文字回复；已入账行由 message_key 幂等挡住，只补缺口。
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        if (cancelled || !window.ChatLedgerShadow || !window.Cloud) return;
+        const user = await window.Cloud.getSessionUser(); if (!user) return;
+        const mark = "chat_ledger_split_backfill_v1:" + user.id;
+        if (localStorage.getItem(mark) === "1") return;
+        const y = ledgerYanqiu(); if (!y) return;
+        const recent = (chatsRef.current[y.id] || []).filter(m => m && m.role === "assistant" && !m.kind && m.turnId && Number(m.ts || 0) >= Date.now() - 7 * 86400000);
+        const counts = new Map(); recent.forEach(m => counts.set(String(m.turnId), (counts.get(String(m.turnId)) || 0) + 1));
+        const split = recent.filter(m => (counts.get(String(m.turnId)) || 0) > 1);
+        const result = await window.ChatLedgerShadow.enqueue({ charId: y.id, threadType: "private", threadId: y.id }, split);
+        if (!result.error && Number(result.pending || 0) === 0) localStorage.setItem(mark, "1");
+      } catch (e) {}
+    }, 6000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [characters.length, chatSettings]);
   // 让 html/body 背景跟随主题底色，避免下拉回弹时露出白边
   useEffect(() => {
     document.documentElement.style.background = theme.bg;

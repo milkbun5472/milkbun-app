@@ -67,8 +67,12 @@
     return (h >>> 0).toString(16).padStart(8, "0");
   }
 
+  function strongSourceId(message) {
+    return message.id || message.mid || message.messageId || message.cid || null;
+  }
+
   function sourceId(message) {
-    return message.id || message.mid || message.messageId || message.turnId || message.cid || null;
+    return strongSourceId(message) || message.turnId || null;
   }
 
   async function rowsFor(context, messages, nowValue) {
@@ -79,10 +83,12 @@
       if (!isRealMessage(message)) continue;
       const speaker = speakerFor(message, context);
       const occurredAt = iso(message.ts || message.created_at, now);
-      const sid = sourceId(message);
-      const material = ["app", context.threadType, context.threadId, speaker.type, speaker.id || "", occurredAt, text(message.content)].join("|");
-      const key = sid
-        ? ["app", context.threadType, context.threadId, String(sid)].join(":")
+      const sid = sourceId(message), strongId = strongSourceId(message);
+      // turnId 是“一轮”的 ID，多泡会共用，不能拿它单独当“一条消息”的幂等键。
+      // 只有真正逐消息 ID 才可直用；否则把 turnId 作为材料，再叠时间/说话者/正文指纹。
+      const material = ["app", context.threadType, context.threadId, sid || "", speaker.type, speaker.id || "", occurredAt, text(message.content)].join("|");
+      const key = strongId
+        ? ["app", context.threadType, context.threadId, String(strongId)].join(":")
         : "app:" + context.threadType + ":" + context.threadId + ":sha256:" + await sha256(material);
       rows.push({
         message_key: key,
