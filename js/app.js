@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.81";
+const APP_VERSION = "v49.82";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -3556,7 +3556,7 @@ function App() {
       const gUName = (profile && profile.name) || "用户";
       const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"self｜other" + (gDuoMembers.length ? "｜duo" : "") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + "一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。" : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条都要是贴合当下、和这个成员上一条心声不一样的新念头，别重复、别原地打转、别套话**；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。" : "";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\"" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
       const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist });
@@ -3564,7 +3564,7 @@ function App() {
       const gDirs = (directives[groupId] || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
       const gDirHint = gDirs.length ? "\n\n【⚠️群规矩·最高优先级，压过下面的对话惯性】这些是用户之前（场外）跟你们立好、你们已经答应了的长期约定，每一条【现在就生效、永久有效】：\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n——就算上面的聊天记录里大家还在聊相关话题，也从这一轮起严格照约定来（惯性不是理由）；用户若问「是不是说好了」，大方承认记得并已经在做，绝不许一脸茫然装不知道。" : "";
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
-      const system = ANTI_CLICHE + "\n\n" + NARRATIVE_ANTI_CLICHE + (gWorld && gWorld.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + thoughtHint + "\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须是成员之一。";
+      const system = ANTI_CLICHE + "\n\n" + NARRATIVE_ANTI_CLICHE + (gWorld && gWorld.trim() ? "\n\n" + WORLDBOOK_RULE : "") + "\n\n" + CHARCARD_RULE + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + thoughtHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -3584,30 +3584,35 @@ function App() {
       });
       const arr = extractJSON(raw);
       if (Array.isArray(arr)) {
+        const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, profile.name || "用户") : { items: arr, dropped: [], thoughtsDropped: [] };
+        const safeArr = guarded.items;
+        if ((guarded.dropped || []).length || (guarded.thoughtsDropped || []).length) toast("拦住了 " + ((guarded.dropped || []).length + (guarded.thoughtsDropped || []).length) + " 条群聊身份串线");
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
-        for (let i = 0; i < arr.length; i++) {
-          const spk = members.find(c => c.name === arr[i].name) || members[0];
+        for (let i = 0; i < safeArr.length; i++) {
+          const item = safeArr[i];
+          const spk = members.find(c => c.name === item.name);
+          if (!spk) continue;
           const gTurnId = "gt_" + Date.now() + "_" + i;
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 450));
-          if (arr[i].redpacket && Number(arr[i].redpacket.total) > 0) {
-            const rp = arr[i].redpacket;
+          if (item.redpacket && Number(item.redpacket.total) > 0) {
+            const rp = item.redpacket;
             postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利");
-          } else if (arr[i].recall === true && arr[i].text) {
+          } else if (item.recall === true && item.text) {
             const mid = "grc_" + Date.now() + "_" + i;
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: arr[i].text, mid, ts: Date.now(), turnId: gTurnId }]);
-            setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: arr[i].text, reason: arr[i].recallReason || "" } : m)), 1100);
-          } else if (arr[i].voice === true && arr[i].text) {
-            const vt = String(arr[i].text);
-            const gEmo = arr[i].voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(arr[i].voiceEmo)) ? String(arr[i].voiceEmo) : undefined;
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), replyTo: arr[i].quote || null, ts: Date.now(), turnId: gTurnId }]);
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: item.text, mid, ts: Date.now(), turnId: gTurnId }]);
+            setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: item.text, reason: item.recallReason || "" } : m)), 1100);
+          } else if (item.voice === true && item.text) {
+            const vt = String(item.text);
+            const gEmo = item.voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(item.voiceEmo)) ? String(item.voiceEmo) : undefined;
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), replyTo: item.quote || null, ts: Date.now(), turnId: gTurnId }]);
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
-            const gLines = String(arr[i].text || "").split(/\n+/).map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean);
-            const gBubbles = gLines.length ? gLines : [stripAiStamp(arr[i].text || "")].filter(Boolean);
+            const gLines = String(item.text || "").split(/\n+/).map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean);
+            const gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
             // 记忆互通时把心声挂在末条气泡上显示
-            const gThought = gs.memoryInterop && arr[i].thought && String(arr[i].thought).toLowerCase() !== "null" ? String(arr[i].thought).trim() : null;
+            const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             for (let j = 0; j < gBubbles.length; j++) {
               if (j > 0) await new Promise(r => setTimeout(r, 380));
               pGChat(groupId, p => [...p, {
@@ -3615,7 +3620,7 @@ function App() {
                 senderId: spk.id,
                 senderName: spk.name,
                 content: gBubbles[j],
-                replyTo: j === 0 ? (arr[i].quote || null) : null,
+                replyTo: j === 0 ? (item.quote || null) : null,
                 thought: j === gBubbles.length - 1 ? gThought : null,
                 ts: Date.now(),
                 turnId: gTurnId
@@ -3624,11 +3629,11 @@ function App() {
           }
           // 群照片：该成员这条发言带了 photo 对象（或旧版 selfie 字符串）→ 挂占位气泡 + 异步生成（复用私聊那套）
           let gPhotoKind = null, gPhotoScene = null;
-          if (arr[i].photo && typeof arr[i].photo === "object") {
-            gPhotoScene = String(arr[i].photo.scene || arr[i].photo.desc || "").trim();
-            gPhotoKind = ["self", "other", "duo"].includes(String(arr[i].photo.kind || "").toLowerCase()) ? String(arr[i].photo.kind).toLowerCase() : "self";
-          } else if (arr[i].selfie && String(arr[i].selfie).toLowerCase() !== "null") {
-            gPhotoScene = String(arr[i].selfie).trim(); gPhotoKind = "self";
+          if (item.photo && typeof item.photo === "object") {
+            gPhotoScene = String(item.photo.scene || item.photo.desc || "").trim();
+            gPhotoKind = ["self", "other", "duo"].includes(String(item.photo.kind || "").toLowerCase()) ? String(item.photo.kind).toLowerCase() : "self";
+          } else if (item.selfie && String(item.selfie).toLowerCase() !== "null") {
+            gPhotoScene = String(item.selfie).trim(); gPhotoKind = "self";
           }
           // 合照必须两张参考照都在（用户 + 该成员），否则降级为「别人拍的单人照」
           if (gPhotoKind === "duo" && !(spk.refPhoto && profile && profile.refPhoto)) gPhotoKind = "other";
@@ -3660,12 +3665,12 @@ function App() {
           }
           // 记忆互通：这次发言影响该成员对用户的实时好感与心情，并把心声写进【和私聊同一套】的实时状态里（双向影响、可变化）
           if (gs.memoryInterop) {
-            const moodLabel = arr[i].mood && String(arr[i].mood).toLowerCase() !== "null" ? String(arr[i].mood).trim() : null;
-            const aDelta = typeof arr[i].affinityDelta === "number" ? arr[i].affinityDelta : Number(arr[i].affinityDelta);
+            const moodLabel = item.mood && String(item.mood).toLowerCase() !== "null" ? String(item.mood).trim() : null;
+            const aDelta = typeof item.affinityDelta === "number" ? item.affinityDelta : Number(item.affinityDelta);
             if (spk && !isNaN(aDelta)) bumpAff(spk.id, aDelta || 0, moodLabel);
             if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
-            const gThink = arr[i].thought && String(arr[i].thought).toLowerCase() !== "null" ? String(arr[i].thought).trim() : null;
+            const gThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             if (spk && gThink) {
               const liveState = statesRef.current[spk.id] || {};
               const ns = { ...liveState, thought: gThink, mood: moodLabel || liveState.mood, ts: Date.now(), turnId: gTurnId, affinityBefore };
@@ -3678,13 +3683,13 @@ function App() {
             }
           }
           // 成员主动发起通话邀请
-          const gcm = arr[i].call && ["voice", "video"].includes(String(arr[i].call).toLowerCase()) ? String(arr[i].call).toLowerCase() : null;
+          const gcm = item.call && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
           if (gcm) {
             await new Promise(r => setTimeout(r, 300));
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "callinvite", mode: gcm, content: "[" + (gcm === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId: gTurnId }]);
           }
           // 成员甩表情：按关键词匹配 TA 可用的表情
-          const ekw = arr[i].emote && String(arr[i].emote).toLowerCase() !== "null" ? String(arr[i].emote).trim() : null;
+          const ekw = item.emote && String(item.emote).toLowerCase() !== "null" ? String(item.emote).trim() : null;
           if (ekw) {
             const av = emotesForChar(spk.id);
             const mt = emoteMatch(av, ekw);
