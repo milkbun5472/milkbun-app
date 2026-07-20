@@ -32,3 +32,13 @@ test("升级前无 turnId 的心声只允许最新回合安全退一格", () => 
   assert.equal(R.rollbackState(current, history, "t", { legacyLatest: true }).state.thought, "上一条");
   assert.equal(R.rollbackState(current, history, "t", { legacyLatest: false }).state.thought, "旧版当前心声");
 });
+
+test("群聊尾部连续两轮按倒序回滚后回到最早轮之前", () => {
+  const before = { thought: "之前", mood: "平静", turnId: "base", affinityBefore: 50 };
+  const one = { thought: "第一轮", mood: "开心", turnId: "g1", affinityBefore: 50 };
+  const two = { thought: "第二轮", mood: "紧张", turnId: "g2", affinityBefore: 51 };
+  let current = two, history = [two, one, before];
+  for (const turn of ["g2", "g1"]) { const r = R.rollbackState(current, history, turn); current = r.state; history = r.history; }
+  assert.equal(current.thought, "之前");
+  assert.deepEqual(history.map(x => x.turnId), ["base"]);
+});

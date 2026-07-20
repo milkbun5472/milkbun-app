@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.75";
+const APP_VERSION = "v49.76";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -949,6 +949,7 @@ function App() {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
     saveJSON("x_gchat:" + id, n);
+    groupChatsRef.current = { ...p, [id]: n };
     if (n.length > pl.length) {
       const ledgerAdded = n.slice(pl.length), group = groups.find(g => String(g.id) === String(id));
       if (group) queueLedger("group", id, ledgerAdded, group);
@@ -1030,6 +1031,24 @@ function App() {
       saveJSON("x_stateHist", n);
       return n;
     });
+  };
+  const rollbackCharTurns = (charId, turns, legacyLatest) => {
+    if (!window.RerollBranch) return;
+    let current = statesRef.current[charId] || null, history = stateHistRef.current[charId] || [], affinityRestore;
+    const ordered = [...new Set((turns || []).filter(Boolean).map(String))];
+    for (let i = ordered.length - 1; i >= 0; i--) {
+      if (current && String(current.turnId || "") === ordered[i] && typeof current.affinityBefore === "number") affinityRestore = current.affinityBefore;
+      const rolled = window.RerollBranch.rollbackState(current, history, ordered[i], { legacyLatest: false });
+      current = rolled.state; history = rolled.history;
+    }
+    if (!ordered.length && legacyLatest) {
+      const rolled = window.RerollBranch.rollbackState(current, history, "", { legacyLatest: true });
+      current = rolled.state; history = rolled.history;
+    }
+    const histMap = { ...stateHistRef.current, [charId]: history }; stateHistRef.current = histMap; setStateHist(histMap); saveJSON("x_stateHist", histMap);
+    const stateMap = { ...statesRef.current }; if (current) stateMap[charId] = current; else delete stateMap[charId]; statesRef.current = stateMap; setStates(stateMap); saveJSON("x_states", stateMap);
+    setMoods(p => { const n = { ...p }; if (current && current.mood) n[charId] = { label: current.mood, ts: Date.now() }; else delete n[charId]; saveJSON("x_moods", n); return n; });
+    if (typeof affinityRestore === "number") setAff(charId, affinityRestore);
   };
   // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、jiwen 思念和断档提示共用这一只钟。
   const latestSharedInteractionTs = charId => {
@@ -2295,13 +2314,15 @@ function App() {
         && settingsFor(charId) && settingsFor(charId).toyEnabled
         && (() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } })());
       const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn });
+      const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
         role: "char",
         content: res.scene,
         thought: res.thought,
         cot: res.cot || null,
-        ts: Date.now()
+        ts: Date.now(),
+        turnId: offTurnId
       });
       // 配件·触发（线下）：再核一遍激活态才下发（她可能刚按急停）
       if (offToyOn && res.toy && typeof toyPlay === "function" && toyArmedRef.current && toyArmedForRef.current === charId) {
@@ -2317,7 +2338,7 @@ function App() {
       if (res.wearing) ost.wearing = res.wearing;
       if (res.action) ost.action = res.action;
       if (res.thought) ost.thought = res.thought;
-      if (Object.keys(ost).length) { const ns = { ...(states[charId] || {}), ...ost, mood: res.mood && res.mood.label ? res.mood.label : (states[charId] || {}).mood, ts: Date.now() }; setStateFor(charId, ns); pushStateHist(charId, ns); }
+      if (Object.keys(ost).length) { const liveState = statesRef.current[charId] || {}; const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
@@ -2398,6 +2419,11 @@ function App() {
     const idx = sess.msgs.findIndex(m => m.id === msgId);
     if (idx < 0) return;
     const truncated = sess.msgs.slice(0, idx); // 去掉这条及之后，重新生成
+    const removed = sess.msgs.slice(idx), turns = removed.map(m => m && m.turnId).filter(Boolean);
+    const y = ledgerYanqiu(); if (y && String(y.id) === String(charId) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "offline", threadId: y.id }, removed);
+    const legacyLatest = !turns.length && idx === sess.msgs.map(m => m.role === "char" ? 1 : 0).lastIndexOf(1)
+      && !!(sess.msgs[idx] && sess.msgs[idx].thought && statesRef.current[charId] && statesRef.current[charId].thought === sess.msgs[idx].thought);
+    rollbackCharTurns(charId, turns, legacyLatest);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
     pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
@@ -2501,6 +2527,8 @@ function App() {
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
+        const goTurnId = "got_" + Date.now() + "_" + i;
+        const affinityBefore = b.senderId ? affOf(b.senderId) : null;
         if (b.senderId) _spoke.add(b.senderId);
         if (i > 0) await new Promise(r => setTimeout(r, 420));
         pushGOffMsg(group.id, {
@@ -2511,11 +2539,17 @@ function App() {
           content: b.scene,
           thought: b.thought,
           cot: b.cot || null,
-          ts: Date.now()
+          ts: Date.now(),
+          turnId: goTurnId
         });
         // 多人线下也影响各角色对用户的好感与心情
         if (b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
         if (b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
+        if (b.senderId && (b.thought || (b.mood && b.mood.label))) {
+          const liveState = statesRef.current[b.senderId] || {};
+          const ns = { ...liveState, ...(b.thought ? { thought: b.thought } : {}), mood: b.mood && b.mood.label ? b.mood.label : liveState.mood, ts: Date.now(), turnId: goTurnId, affinityBefore };
+          setStateFor(b.senderId, ns); pushStateHist(b.senderId, ns);
+        }
       }
       _spoke.forEach(id => tickAmbient(id, {}));
     } catch (e) {
@@ -2569,6 +2603,11 @@ function App() {
     const idx = sess.msgs.findIndex(m => m.id === msgId);
     if (idx < 0) return;
     const truncated = sess.msgs.slice(0, idx);
+    const removed = sess.msgs.slice(idx);
+    const y = ledgerYanqiu(); if (y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group_offline", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
+    const byChar = new Map();
+    removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
+    byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     await genGroupOfflineFrom(group, { ...sess, msgs: truncated });
@@ -3542,6 +3581,8 @@ function App() {
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
         for (let i = 0; i < arr.length; i++) {
           const spk = members.find(c => c.name === arr[i].name) || members[0];
+          const gTurnId = "gt_" + Date.now() + "_" + i;
+          const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 450));
           if (arr[i].redpacket && Number(arr[i].redpacket.total) > 0) {
@@ -3549,12 +3590,12 @@ function App() {
             postRedPacket(groupId, spk, Number(rp.total), Math.max(1, Math.round(Number(rp.count) || 1)), rp.message || "恭喜发财，大吉大利");
           } else if (arr[i].recall === true && arr[i].text) {
             const mid = "grc_" + Date.now() + "_" + i;
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: arr[i].text, mid, ts: Date.now() }]);
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, content: arr[i].text, mid, ts: Date.now(), turnId: gTurnId }]);
             setTimeout(() => pGChat(groupId, p => p.map(m => m.mid === mid ? { ...m, recalled: true, origText: arr[i].text, reason: arr[i].recallReason || "" } : m)), 1100);
           } else if (arr[i].voice === true && arr[i].text) {
             const vt = String(arr[i].text);
             const gEmo = arr[i].voiceEmo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(arr[i].voiceEmo)) ? String(arr[i].voiceEmo) : undefined;
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), replyTo: arr[i].quote || null, ts: Date.now() }]);
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "voice", content: vt, emo: gEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), replyTo: arr[i].quote || null, ts: Date.now(), turnId: gTurnId }]);
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
             const gLines = String(arr[i].text || "").split(/\n+/).map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean);
@@ -3570,7 +3611,8 @@ function App() {
                 content: gBubbles[j],
                 replyTo: j === 0 ? (arr[i].quote || null) : null,
                 thought: j === gBubbles.length - 1 ? gThought : null,
-                ts: Date.now()
+                ts: Date.now(),
+                turnId: gTurnId
               }]);
             }
           }
@@ -3587,7 +3629,7 @@ function App() {
           if (gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady() && (spk.appearance || spk.refPhoto)) {
             const gsid = "gsf_" + Date.now() + "_" + i;
             await new Promise(r => setTimeout(r, 420));
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "selfie", sid: gsid, imgKey: null, pending: true, desc: gPhotoScene, photoKind: gPhotoKind, ts: Date.now() }]);
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "selfie", sid: gsid, imgKey: null, pending: true, desc: gPhotoScene, photoKind: gPhotoKind, ts: Date.now(), turnId: gTurnId }]);
             (async () => {
               try {
                 const st = states[spk.id] || {};
@@ -3619,18 +3661,21 @@ function App() {
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
             const gThink = arr[i].thought && String(arr[i].thought).toLowerCase() !== "null" ? String(arr[i].thought).trim() : null;
             if (spk && gThink) {
-              const ns = { ...(states[spk.id] || {}), thought: gThink, mood: moodLabel || (states[spk.id] || {}).mood, ts: Date.now() };
+              const liveState = statesRef.current[spk.id] || {};
+              const ns = { ...liveState, thought: gThink, mood: moodLabel || liveState.mood, ts: Date.now(), turnId: gTurnId, affinityBefore };
               setStateFor(spk.id, ns);
               pushStateHist(spk.id, ns);
             } else if (spk && moodLabel) {
-              setStateFor(spk.id, { ...(states[spk.id] || {}), mood: moodLabel, ts: Date.now() });
+              const liveState = statesRef.current[spk.id] || {};
+              const ns = { ...liveState, mood: moodLabel, ts: Date.now(), turnId: gTurnId, affinityBefore };
+              setStateFor(spk.id, ns); pushStateHist(spk.id, ns);
             }
           }
           // 成员主动发起通话邀请
           const gcm = arr[i].call && ["voice", "video"].includes(String(arr[i].call).toLowerCase()) ? String(arr[i].call).toLowerCase() : null;
           if (gcm) {
             await new Promise(r => setTimeout(r, 300));
-            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "callinvite", mode: gcm, content: "[" + (gcm === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now() }]);
+            pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "callinvite", mode: gcm, content: "[" + (gcm === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId: gTurnId }]);
           }
           // 成员甩表情：按关键词匹配 TA 可用的表情
           const ekw = arr[i].emote && String(arr[i].emote).toLowerCase() !== "null" ? String(arr[i].emote).trim() : null;
@@ -3639,7 +3684,7 @@ function App() {
             const mt = emoteMatch(av, ekw);
             if (mt) {
               await new Promise(r => setTimeout(r, 300));
-              pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "emote", url: mt.url, keyword: mt.keyword, content: "[表情] " + mt.keyword, ts: Date.now() }]);
+              pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name, kind: "emote", url: mt.url, keyword: mt.keyword, content: "[表情] " + mt.keyword, ts: Date.now(), turnId: gTurnId }]);
             }
           }
         }
@@ -3694,8 +3739,15 @@ function App() {
       setEditMsg({ content: m.content || "", onSave: nv => pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x)) });
     } else if (act === "reroll") {
       if (m.role !== "assistant") { toast("只能重Roll成员的消息"); return; }
-      // 删掉这条及其之后的内容，从这里重新让成员回应
-      pGChat(groupId, p => p.slice(0, idx));
+      // 新版同一成员拆泡共享 turnId：从这一组的首泡起删，避免半条旧回答残留。
+      let start = idx;
+      if (m.turnId) while (start > 0 && msgs[start - 1] && msgs[start - 1].turnId === m.turnId) start--;
+      const removed = msgs.slice(start), group = groups.find(g => g.id === groupId);
+      const y = ledgerYanqiu(); if (group && y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
+      const byChar = new Map();
+      removed.filter(x => x && x.senderId).forEach(x => { const rec = byChar.get(x.senderId) || { turns: [], legacyThoughts: [] }; if (x.turnId) rec.turns.push(x.turnId); if (!x.turnId && x.thought) rec.legacyThoughts.push(x.thought); byChar.set(x.senderId, rec); });
+      byChar.forEach((rec, charId) => rollbackCharTurns(charId, rec.turns, !rec.turns.length && !!(statesRef.current[charId] && rec.legacyThoughts.includes(statesRef.current[charId].thought))));
+      pGChat(groupId, p => p.slice(0, start));
       setTimeout(() => replyGroup(groupId), 200);
     }
   };
