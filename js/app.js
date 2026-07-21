@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.97";
+const APP_VERSION = "v49.98";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -3047,7 +3047,7 @@ function App() {
       }) => ({
         role,
         content
-      })), { maxTokens: 6000, cacheHistory: _histCache });
+      })), { maxTokens: 6000, cacheHistory: _histCache, timeout: 180000 });
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
         const s = String(raw || "");
@@ -7518,15 +7518,34 @@ function App() {
     return n;
   });
   // ---- 表情包字典 ----
-  const saveEmotePacks = next => { emotePacksRef.current = next; saveJSON("x_emotePacks", next); return next; };
-  const addEmotePack = name => setEmotePacks(p => saveEmotePacks([...p, { id: "ep_" + Date.now(), name: name || ("新字典 " + (p.length + 1)), global: false, charIds: [], emotes: [] }]));
-  const updateEmotePack = (id, patch) => setEmotePacks(p => saveEmotePacks(p.map(x => x.id === id ? { ...x, ...patch } : x)));
-  const deleteEmotePack = id => setEmotePacks(p => saveEmotePacks(p.filter(x => x.id !== id)));
-  const toggleEmotePackChar = (id, charId) => setEmotePacks(p => saveEmotePacks(p.map(x => {
+  // 先确认落盘成功、再更新页面。旧逻辑反过来：localStorage 写满时页面会假装导入成功，
+  // 一刷新整套消失。表情包属于用户资产，绝不能用「看起来成功」掩盖持久化失败。
+  const commitEmotePacks = next => {
+    if (!saveJSON("x_emotePacks", next)) {
+      toast("表情包没有保存成功：本地空间可能已满。先去 设置·数据 归档/导出，再重试");
+      return false;
+    }
+    emotePacksRef.current = next;
+    setEmotePacks(next);
+    return true;
+  };
+  const addEmotePack = name => {
+    const p = emotePacksRef.current || [];
+    commitEmotePacks([...p, { id: "ep_" + Date.now(), name: name || ("新字典 " + (p.length + 1)), global: false, charIds: [], emotes: [] }]);
+  };
+  const updateEmotePack = (id, patch) => {
+    const p = emotePacksRef.current || [];
+    commitEmotePacks(p.map(x => x.id === id ? { ...x, ...patch } : x));
+  };
+  const deleteEmotePack = id => commitEmotePacks((emotePacksRef.current || []).filter(x => x.id !== id));
+  const toggleEmotePackChar = (id, charId) => {
+    const p = emotePacksRef.current || [];
+    commitEmotePacks(p.map(x => {
     if (x.id !== id) return x;
     const has = (x.charIds || []).includes(charId);
     return { ...x, charIds: has ? x.charIds.filter(c => c !== charId) : [...(x.charIds || []), charId] };
-  })));
+    }));
+  };
   // 解析批量导入：支持「关键词: url」「关键词 url」同行，也支持关键词一行、url 下一行
   const parseEmoteImport = text => {
     const urlRe = /(https?:\/\/\S+)/;
@@ -7546,14 +7565,15 @@ function App() {
   const importEmotes = (packId, text) => {
     const items = parseEmoteImport(text);
     if (!items.length) { toast("没解析到「关键词 + 链接」，检查格式"); return 0; }
-    setEmotePacks(p => saveEmotePacks(p.map(x => x.id === packId ? { ...x, emotes: [...(x.emotes || []), ...items] } : x)));
+    const next = (emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: [...(x.emotes || []), ...items] } : x);
+    if (!commitEmotePacks(next)) return 0;
     toast("导入了 " + items.length + " 个表情");
     return items.length;
   };
-  const deleteEmotes = (packId, ids) => setEmotePacks(p => {
+  const deleteEmotes = (packId, ids) => {
     const set = new Set(ids);
-    return saveEmotePacks(p.map(x => x.id === packId ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) } : x));
-  });
+    return commitEmotePacks((emotePacksRef.current || []).map(x => x.id === packId ? { ...x, emotes: (x.emotes || []).filter(e => !set.has(e.id)) } : x));
+  };
   // 某角色可用的表情（全局包 + 绑定了 TA 的包），供聊天注入与用户选择器
   const emotesForChar = charId => {
     const out = [];
