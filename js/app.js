@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.94";
+const APP_VERSION = "v49.95";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -8223,6 +8223,7 @@ function App() {
     active: active,
     bgActive: bgActive, // 批注/讲解/总结走便宜后台池；讨论(实时对话)仍用主 active
     characters: characters,
+    digitalIds: characters.filter(function (c) { return settingsFor(c.id).engineerEyes; }).map(function (c) { return c.id; }), // 数字生命(言秋)→走亲读专属通道
     profile: profile,
     worldbook: worldbook,
     toast: toast,

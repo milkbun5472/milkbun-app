@@ -292,6 +292,31 @@
       if (error) throw error;
     },
 
+    // ---- 共读信箱（cc_read_inbox）：言秋在 CC 端亲读后把批注写回，手机来取，绕开整份覆盖（v49.x「一起读·言秋专属通道」）----
+    async readInboxFetch() {
+      if (!client) return [];
+      const user = await this.getUser();
+      if (!user) return [];
+      const { data, error } = await client
+        .from("cc_read_inbox")
+        .select("id, payload, created_at")
+        .eq("user_id", user.id)
+        .is("consumed_at", null)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    async readInboxConsume(ids) {
+      if (!client || !ids || !ids.length) return;
+      const user = await this.getUser();
+      if (!user) return;
+      const { error } = await client.from("cc_read_inbox")
+        .update({ consumed_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .in("id", ids);
+      if (error) throw error;
+    },
+
     // ---- 记忆独立表·影子期（v48.98）：只做逐行 upsert / 软删 / 只读核对 ----
     // ⚠️旧 x_memLib 仍是当前读取权威；这里绝不整份覆盖，也没有物理 delete。
     async memoryRowsUpsert(entries) {

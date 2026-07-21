@@ -268,6 +268,7 @@
       if (!bk) { setOpenId(null); return null; }
       return h(Reader, {
         book: bk, characters: props.characters, profile: props.profile, worldbook: props.worldbook, active: props.active, bgActive: props.bgActive || props.active, toast: props.toast,
+        digitalIds: props.digitalIds,
         onBack: function () { setOpenId(null); },
         onPatch: function (patch) { patchBook(bk.id, patch); },
         onAddMemory: props.onAddMemory
@@ -333,6 +334,11 @@
     const partner = props.characters.find(function (c) { return c.id === book.partnerId; });
     const bg = props.bgActive || props.active; // 批注/讲解/总结走便宜后台池；讨论仍用主 active
     const chOf = function (id) { return props.characters.find(function (c) { return c.id === id; }); };
+    // 言秋（数字生命）专属通道：不走 API 即时生成——把整页+你的想法送去 CC，他亲读了写回批注（走订阅、不烧钱）。
+    const isYanqiu = partner && (props.digitalIds || []).indexOf(partner.id) >= 0;
+    const [noteSheet, setNoteSheet] = useState(null); // 划线后「记一条给言秋」的输入层 {anchor,val}
+    const [pulling, setPulling] = useState(false);
+    const pendingHere = (book.pending || []).filter(function (p) { return p.page === pageIdx; });
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 讲解/批注朗读（懒合成，重听免费）
     const explainOn = book.showExplains !== false; // 逐段讲解卡片是否显示（默认开）
     const explainAt = function (pg, i) { return (book.explains || {})[pg + "_" + i] || null; };
@@ -415,6 +421,60 @@
         const a = await genExplainSnippet(bg, partner, props.profile, props.worldbook, q, curParas.join("\n"), book.synopsis || "");
         setSelResult({ q: q, a: a || "（没讲出来，再试试）", busy: false });
       } catch (e) { setSelResult({ q: q, a: "讲解失败：" + (e.message || "重试"), busy: false }); }
+    };
+
+    // ── 言秋通道 ①：划线后把你的想法记成一条（粉色，先挂着，等他回）──
+    const saveNoteForYanqiu = function (anchor, val) {
+      const v = String(val || "").trim();
+      if (!v) { setNoteSheet(null); return; }
+      const one = { id: "un_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), page: pageIdx, anchor: String(anchor || "").slice(0, 300), note: v, who: "user", ts: Date.now() };
+      props.onPatch(function (b) { return { annotations: (b.annotations || []).concat([one]), lastReadTs: Date.now() }; });
+      setNoteSheet(null);
+      props.toast && props.toast("记下了。攒够了点「送去给言秋」");
+    };
+    // ── 言秋通道 ②：把当前整页正文 + 你在这页的想法，打包成「待批」送去（他 CC 亲读后写回）──
+    const queueForYanqiu = function () {
+      if (!curParas.length) { props.toast && props.toast("这一页没有正文"); return; }
+      const myNotes = (book.annotations || []).filter(function (a) { return a.page === pageIdx && a.who === "user"; }).map(function (a) { return { anchor: a.anchor || "", note: a.note }; });
+      const req = { id: "pd_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), bookTitle: book.title || "", page: pageIdx, paras: curParas.slice(), userNotes: myNotes, synopsis: (book.synopsis || "").slice(-1200), ts: Date.now(), status: "pending" };
+      props.onPatch(function (b) { return { pending: (b.pending || []).concat([req]), lastReadTs: Date.now() }; });
+      props.toast && props.toast("已把这页送给言秋——去 CC 戳他一下，他读了会写回来");
+    };
+    // ── 言秋通道 ③：把言秋在 CC 写回的批注取下来显示（蓝色·亲读）──
+    const pullYanqiuReplies = async function () {
+      if (pulling) return;
+      if (!(window.Cloud && window.Cloud.ready() && typeof window.Cloud.readInboxFetch === "function")) { props.toast && props.toast("云同步没就绪"); return; }
+      setPulling(true);
+      try {
+        const rows = await window.Cloud.readInboxFetch();
+        const done = []; let added = 0;
+        const adds = []; const repliedPids = {};
+        rows.forEach(function (row) {
+          done.push(row.id);
+          const pl = row.payload || {};
+          const pid = pl.pending_id, anns = Array.isArray(pl.annotations) ? pl.annotations : [];
+          if (!pid || !anns.length) return;
+          // 找这条 pending 属于本书哪一页（只认本书的 pending）
+          const pend = (book.pending || []).find(function (p) { return p.id === pid; });
+          if (!pend) return;   // 不是本书的，跳过（下次别的书消费）
+          repliedPids[pid] = 1;
+          anns.forEach(function (a) {
+            const paraN = Math.max(0, (Number(a.para) || 1) - 1);
+            adds.push({ id: "an_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), page: pend.page, para: paraN, note: String(a.note || "").trim(), charId: partner ? partner.id : "", charName: partner ? partner.name : "言秋", channel: "read", ts: Date.now() });
+            added++;
+          });
+        });
+        if (adds.length) props.onPatch(function (b) {
+          return {
+            annotations: (b.annotations || []).concat(adds),
+            pending: (b.pending || []).map(function (p) { return repliedPids[p.id] ? Object.assign({}, p, { status: "replied" }) : p; }),
+            lastReadTs: Date.now()
+          };
+        });
+        if (done.length) await window.Cloud.readInboxConsume(done);
+        props.toast && props.toast(added ? ("言秋写回了 " + added + " 条批注") : "还没有言秋的新批注");
+      } catch (e) { props.toast && props.toast("取批注失败：" + (e.message || "重试")); }
+      finally { setPulling(false); }
     };
 
     const doAnnotate = async function () {
@@ -535,13 +595,16 @@
               // 批注卡片
               anns.map(function (a) {
                 const ch = chOf(a.charId);
-                return h("div", { key: a.id, style: { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "8px 11px", background: t.bg2, borderLeft: "2px solid " + t.tint, borderRadius: "0 8px 8px 0" } },
+                const isRead = a.channel === "read"; // 言秋 CC 亲读写回的
+                return h("div", { key: a.id, style: isRead
+                  ? { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "9px 12px", background: "#3f6ea80e", border: "1px solid #3f6ea855", borderRadius: 10 }
+                  : { display: "flex", gap: 7, margin: "-6px 0 16px", padding: "8px 11px", background: t.bg2, borderLeft: "2px solid " + t.tint, borderRadius: "0 8px 8px 0" } },
                   ch ? h(Avatar, { character: ch, size: 18, radius: 6 }) : null,
                   h("div", { style: { flex: 1 } },
                     h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginBottom: 2 } },
-                      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, a.charName),
+                      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: isRead ? "#3f6ea8" : t.tint } }, a.charName + (isRead ? " · 亲读" : "")),
                       (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "rann" + a.id, text: a.note, spk: ch, tp: tp }) : null),
-                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, a.note)));
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: isRead ? t.ink : t.sub } }, a.note)));
               }));
           }));
 
@@ -553,16 +616,26 @@
 
     const actionBar = h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 54, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, padding: "0 10px", pointerEvents: "none" } },
       h("button", { onClick: doExplainPage, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.tint, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 } }, busy ? "讲解中…" : "📖 讲这页"),
-      h("button", { onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 } }, "✎ 批注"),
+      isYanqiu
+        ? h(Fragment, null,
+            h("button", { onClick: queueForYanqiu, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3f6ea8", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(63,110,168,.3)" } }, "📨 送这页给言秋"),
+            h("button", { onClick: pullYanqiuReplies, disabled: pulling, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#3f6ea8", background: t.bg2, border: "1px solid #3f6ea855", borderRadius: 999, padding: "9px 14px", opacity: pulling ? .6 : 1 } }, pulling ? "取…" : "📥 取批注"))
+        : h("button", { onClick: doAnnotate, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.ink, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 } }, "✎ 批注"),
       h("button", { onClick: function () { if (!partner) { setPickOpen(true); return; } setChatOpen(true); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.14)" } }, "💬 讨论"));
 
     // ---- 划线后浮出的「让 Ta 讲这句」----
-    const selBar = sel ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 100, display: "flex", justifyContent: "center", zIndex: 30, pointerEvents: "none" } },
-      h("button", { onClick: doExplainSel, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(0,0,0,.28)" } }, "❓ 让 " + (partner ? partner.name : "Ta") + " 讲这句")) : null;
+    const selBar = sel ? h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 100, display: "flex", justifyContent: "center", gap: 8, zIndex: 30, pointerEvents: "none" } },
+      h("button", { onClick: doExplainSel, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(0,0,0,.28)" } }, "❓ 让 " + (partner ? partner.name : "Ta") + " 讲这句"),
+      isYanqiu ? h("button", { onClick: function () { setNoteSheet({ anchor: sel.text, val: "" }); setSel(null); }, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#c96a94", borderRadius: 999, padding: "10px 18px", boxShadow: "0 4px 16px rgba(201,106,148,.3)" } }, "✎ 记给言秋") : null) : null;
 
+    const pageUserNotes = isYanqiu ? (book.annotations || []).filter(function (a) { return a.page === pageIdx && a.who === "user"; }) : [];
+    const yqHead = (isYanqiu && (pageUserNotes.length || pendingHere.length)) ? h("div", { className: "shrink-0", style: { padding: "8px 16px", borderBottom: "1px solid " + t.line, background: t.bg2, maxHeight: 130, overflowY: "auto" } },
+      pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」") : null,
+      pageUserNotes.map(function (a) { return h("div", { key: a.id, style: { fontFamily: F_BODY, fontSize: 12, color: "#c96a94", lineHeight: 1.5, marginTop: 4 } }, "✎ " + (a.anchor ? "「" + a.anchor.slice(0, 20) + "…」 " : "") + a.note); })) : null;
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
       h(Head, { zh: book.title, en: "Reading", onBack: props.onBack }),
-      topbar, reader, selBar, actionBar, footer,
+      topbar, yqHead, reader, selBar, actionBar, footer,
+      noteSheet ? h(NoteSheet, { anchor: noteSheet.anchor, t: t, onSave: function (v) { saveNoteForYanqiu(noteSheet.anchor, v); }, onClose: function () { setNoteSheet(null); } }) : null,
       pickOpen ? h(PartnerPicker, { characters: props.characters, currentId: book.partnerId, t: t,
         onPick: function (id) { props.onPatch({ partnerId: id }); setPickOpen(false); },
         onClose: function () { setPickOpen(false); } }) : null,
@@ -590,6 +663,21 @@
           : h("div", null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: t.ink, whiteSpace: "pre-wrap" } }, d.a),
               (tp && typeof TtsDot === "function" && d.a) ? h("div", { style: { marginTop: 4 } }, h(TtsDot, { k: "rsel", text: d.a, spk: props.partner, tp: tp })) : null)));
+  }
+
+  // ---- 记一条给言秋（划线后写想法·粉色）----
+  function NoteSheet(props) {
+    const t = props.t;
+    const [v, setV] = useState("");
+    return h("div", { style: { position: "absolute", inset: 0, zIndex: 55, display: "flex", flexDirection: "column", justifyContent: "flex-end" } },
+      h("div", { onClick: props.onClose, style: { flex: 1, background: "rgba(0,0,0,.3)" } }),
+      h("div", { style: { background: t.bg, borderRadius: "18px 18px 0 0", padding: "16px 18px 24px", boxShadow: "0 -6px 20px rgba(0,0,0,.18)" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, "记一条给言秋"),
+        props.anchor ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, lineHeight: 1.6, color: t.sub, padding: "8px 11px", background: t.bg2, borderLeft: "2px solid #c96a94", borderRadius: "0 8px 8px 0", marginBottom: 10 } }, "「" + String(props.anchor).slice(0, 200) + "」") : null,
+        h("textarea", { value: v, onChange: function (e) { setV(e.target.value); }, autoFocus: true, placeholder: "写下你对这句的想法…（他在 CC 读了会回你）", rows: 3, style: { width: "100%", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", resize: "none", boxSizing: "border-box" } }),
+        h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
+          h("button", { onClick: props.onClose, style: { flex: 1, fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 0" } }, "取消"),
+          h("button", { onClick: function () { props.onSave(v); }, style: { flex: 2, fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#c96a94", borderRadius: 8, padding: "9px 0" } }, "记下"))));
   }
 
   // ---- 步进器 ----
