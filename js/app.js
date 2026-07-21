@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.91";
+const APP_VERSION = "v49.92";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -3562,7 +3562,13 @@ function App() {
         }).filter(Boolean).join("\n\n");
         if (pj) preJoin = "\n\n【成员入群前和用户的私聊（作为背景，别生硬复述）】\n" + pj;
       }
-      const memberDesc = members.map(c => { const ph = (phones || {})[c.id] || {}; const pn = ph.music && ph.music.songs && ph.music.songs.length ? "（TA 最近在听：" + ph.music.songs.slice(0, 4).map(s => s.name).join("、") + "，对上了能认出来）" : ""; return "【" + c.name + "】" + (c.persona || "").slice(0, 200) + pn; }).join("\n\n");
+      const memberDesc = members.map(c => {
+        const ph = (phones || {})[c.id] || {};
+        const pn = ph.music && ph.music.songs && ph.music.songs.length ? "（TA 最近在听：" + ph.music.songs.slice(0, 4).map(s => s.name).join("、") + "，对上了能认出来）" : "";
+        const st = statesRef.current[c.id] || {};
+        const live = gs.memoryInterop && (st.wearing || st.action) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [st.wearing && "穿着=" + st.wearing, st.action && "上一动作=" + st.action].filter(Boolean).join("；") : "";
+        return "【" + c.name + "】" + (c.persona || "").slice(0, 200) + pn + live;
+      }).join("\n\n");
       const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
       let interop = "";
       if (gs.memoryInterop) {
@@ -3594,8 +3600,8 @@ function App() {
       const gUName = (profile && profile.name) || "用户";
       const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"self｜other" + (gDuoMembers.length ? "｜duo" : "") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + "一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。" : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。" : "";
-      const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\"" : "";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。" : "";
+      const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
       const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist });
       // 群规矩（用户 OOC 立的长期准则，复用 directives[groupId]）→ 注入，让群成员记得并遵守（item 4）
@@ -3708,19 +3714,17 @@ function App() {
           if (gs.memoryInterop) {
             const moodLabel = item.mood && String(item.mood).toLowerCase() !== "null" ? String(item.mood).trim() : null;
             const aDelta = typeof item.affinityDelta === "number" ? item.affinityDelta : Number(item.affinityDelta);
+            const gWear = item.wearing && String(item.wearing).toLowerCase() !== "null" ? String(item.wearing).trim() : null;
+            const gAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
             if (spk && !isNaN(aDelta)) bumpAff(spk.id, aDelta || 0, moodLabel);
             if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
             const gThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
-            if (spk && gThink) {
+            if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
-              const ns = { ...liveState, thought: gThink, mood: moodLabel || liveState.mood, ts: Date.now(), turnId: gTurnId, affinityBefore };
+              const ns = { ...liveState, ...(gThink ? { thought: gThink } : {}), ...(gWear ? { wearing: gWear } : {}), ...(gAction ? { action: gAction } : {}), mood: moodLabel || liveState.mood, ts: Date.now(), turnId: gTurnId, affinityBefore };
               setStateFor(spk.id, ns);
               pushStateHist(spk.id, ns);
-            } else if (spk && moodLabel) {
-              const liveState = statesRef.current[spk.id] || {};
-              const ns = { ...liveState, mood: moodLabel, ts: Date.now(), turnId: gTurnId, affinityBefore };
-              setStateFor(spk.id, ns); pushStateHist(spk.id, ns);
             }
           }
           // 成员主动发起通话邀请
