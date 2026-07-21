@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.84";
+const APP_VERSION = "v49.85";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2492,10 +2492,23 @@ function App() {
     // 互通群也【只召回相关 topK】，绝不把整个记忆库全量灌进 prompt（v48.41 修：预算炸弹 + 和 v48.20 同类的线上筛/线下裸灌触审不对称，对齐线上 replyGroup 的 retrieveMemories）。
     memLib: (() => {
       if (!gsFor(group.id).memoryInterop) return null;
+      const limit = osFor("g_" + group.id).memN != null ? Number(osFor("g_" + group.id).memN) : 6;
+      if (!Number.isFinite(limit) || limit <= 0) return [];
       const sess = (groupOfflinesRef.current[group.id] || []).find(s => !s.endTs);
       const qtext = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-6).map(m => m.content || "").join("\n") : "";
-      const anchor = (group.memberIds || [])[0];
-      return anchor ? retrieveMemories(memLibRef.current, anchor, qtext, { limit: 6, touch: false }) : [];
+      // 每位成员各取相关结果后按名次轮流合并，避免群成员顺序决定谁有记忆、谁失忆。
+      const pools = (group.memberIds || []).map(charId => retrieveMemories(memLibRef.current, charId, qtext, { limit, touch: false }));
+      const picked = [], seen = new Set();
+      for (let rank = 0; picked.length < limit && pools.some(pool => rank < pool.length); rank++) {
+        for (const pool of pools) {
+          const entry = pool[rank];
+          if (!entry || seen.has(entry.id)) continue;
+          seen.add(entry.id);
+          picked.push(entry);
+          if (picked.length >= limit) break;
+        }
+      }
+      return picked;
     })()
   });
   const pGOffline = (groupId, updater) => setGroupOfflines(prev => {
