@@ -5957,6 +5957,8 @@ function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, on
   const char = chars.find(c => c.id === selId) || null;
   const [editing, setEditing] = useState(false);
   const [amt, setAmt] = useState("");
+  const [dailyOpen, setDailyOpen] = useState(false);
+  const [dailyDate, setDailyDate] = useState("");
   const profEmpty = r => !r || ((!r.incomes || !r.incomes.length) && !r.monthlyIncome && !r.investAssets && !(r.notes && Object.keys(r.notes).length));
   // 打开某角色：没建档就生成资产；已建档但档案是空的（首开时没 API/生成失败）且现在有 API 就补生成；否则补账
   useEffect(() => {
@@ -5965,6 +5967,7 @@ function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, on
     if (!rec || !rec.init) onInit(char);
     else { if (profEmpty(rec) && hasApi) onRefresh(char); onCatchUp(char); }
     setEditing(false); setAmt("");
+    setDailyOpen(false); setDailyDate("");
     // eslint-disable-next-line
   }, [selId]);
 
@@ -6005,6 +6008,7 @@ function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, on
   const monthSpend = Math.round((fixedMonthly + monthDaily) * 100) / 100;
   const monthRemain = Math.round((monthlyIncome - monthSpend) * 100) / 100;
   const dailyEntries = ledger.filter(e => e.kind === "daily");
+  const visibleDailyEntries = dailyDate ? dailyEntries.filter(e => schedDayKey(new Date(e.ts)) === dailyDate) : dailyEntries;
   const flowEntries = ledger.filter(e => ["transfer", "redpacket", "kinship", "gift"].indexOf(e.kind) >= 0);
   const sumRow = (label, value, color, sub) => h("div", { key: label, className: "flex items-center justify-between py-2.5", style: { borderTop: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label, sub ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 6 } }, sub) : null),
@@ -6068,15 +6072,33 @@ function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, on
       ]) : null,
       // 日常消费（按日程每天扣的那笔）
       cardBox([
-        secTitle("日常消费"),
-        dailyEntries.length === 0
-          ? h("div", { key: "e", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "10px 0" } }, "每天晚上按当日行程结算，暂时还没有记录")
-          : dailyEntries.map((e, i) => h("div", { key: e.id, className: "py-2.5", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
-            h("div", { className: "flex items-baseline justify-between gap-3" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent, whiteSpace: "nowrap" } }, "−" + fmtMoney(Math.abs(e.delta)))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, marginTop: 2, lineHeight: 1.5 } }, (e.label || "").replace(/^日常消费 · /, "")))),
-        note(notes.spending)
+        h("button", {
+          key: "daily-head", onClick: () => setDailyOpen(v => !v),
+          className: "w-full flex items-center text-left active:opacity-60",
+          style: { marginBottom: dailyOpen ? 12 : 0 }
+        },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, "日常消费"),
+          h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, dailyEntries.length + " 条"),
+          h("span", { style: { marginLeft: "auto", transform: dailyOpen ? "rotate(180deg)" : "none", transition: "transform .18s ease" } }, h(IChevD, { size: 16, color: t.fog }))),
+        dailyOpen ? h("div", { key: "daily-body" },
+          h("div", { className: "flex items-center gap-2", style: { marginBottom: 10 } },
+            h("input", {
+              type: "date", value: dailyDate, onChange: e => setDailyDate(e.target.value),
+              "aria-label": "按日期筛选日常消费",
+              style: { flex: 1, minWidth: 0, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 9px", fontFamily: F_BODY, fontSize: 12 }
+            }),
+            dailyDate ? h("button", { onClick: () => setDailyDate(""), className: "active:opacity-60", style: { color: t.tint, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, "全部日期") : null),
+          dailyEntries.length === 0
+            ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "10px 0" } }, "每天晚上按当日行程结算，暂时还没有记录")
+            : visibleDailyEntries.length === 0
+              ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "12px 0" } }, "这一天没有日常消费记录")
+              : visibleDailyEntries.map((e, i) => h("div", { key: e.id, className: "py-2.5", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
+                h("div", { className: "flex items-baseline justify-between gap-3" },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent, whiteSpace: "nowrap" } }, "−" + fmtMoney(Math.abs(e.delta)))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, marginTop: 2, lineHeight: 1.5 } }, (e.label || "").replace(/^日常消费 · /, ""))))
+        ) : null,
+        dailyOpen ? note(notes.spending) : null
       ]),
       // 送礼与转账
       cardBox([
