@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v49.89";
+const APP_VERSION = "v49.90";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2479,6 +2479,15 @@ function App() {
     groupOfflinesRef.current = groupOfflines;
   }, [groupOfflines]);
   const groupMembers = group => (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
+  const groupOnlinePrelude = groupId => {
+    const rawN = osFor("g_" + groupId).onlineCtxN;
+    const n = rawN == null ? 10 : Math.max(0, Math.min(30, Number(rawN) || 0));
+    if (!n) return [];
+    return (groupChatsRef.current[groupId] || [])
+      .filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.content)
+      .slice(-n)
+      .map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, content: String(m.content), ts: m.ts || 0 }));
+  };
   const ctxForGroupOffline = group => ({
     members: groupMembers(group),
     profile,
@@ -2549,7 +2558,13 @@ function App() {
     }
     startLane("g:" + group.id);
     try {
-      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...workSess, narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords });
+      let effectiveSess = workSess;
+      if (!Array.isArray(workSess.onlinePrelude)) {
+        effectiveSess = { ...workSess, onlinePrelude: groupOnlinePrelude(group.id) };
+        // 升级前已经进行中的线下也只补抓一次，随后冻结，不能每轮追着线上记录变化。
+        pGOffline(group.id, list => list.map(s => s.id === workSess.id ? { ...s, onlinePrelude: effectiveSess.onlinePrelude } : s));
+      }
+      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...effectiveSess, narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords });
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -2596,6 +2611,7 @@ function App() {
       styleKey: opts.styleKey || "default",
       stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
       customNotes: [],
+      onlinePrelude: groupOnlinePrelude(groupId),
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pGOffline(groupId, list => [sess, ...list.filter(s => s.endTs)]);
