@@ -5231,7 +5231,6 @@ function OfflineMode({
   const [sMax, setSMax] = useState(os.maxTokens || 1400);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
-  const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
   const [sSelf, setSSelf] = useState(os.selfP || "first");
   const [sUser, setSUser] = useState(os.userP || "second");
   const [sDesc, setSDesc] = useState(!!os.describeMe);
@@ -5595,6 +5594,7 @@ function GroupOfflineMode({
   const [sMax, setSMax] = useState(os.maxTokens || 3200);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
+  const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
   const [oocMode, setOocMode] = useState(false);
   const bgFileRef = useRef(null);
   const [view, setView] = useState(activeSession ? "live" : "setup");
