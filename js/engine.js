@@ -1518,7 +1518,7 @@ async function generateOffline(p, ctx, session) {
   let raw;
   let usedCot = !!cotT;
   try {
-    raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1400 });
+    raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1400, timeout: 180000 });
   } catch (e) {
     if (!cotT || !isOfflineEmptyStop(e)) throw e;
     rememberOfflineNoCotModel(cotModelKey);
@@ -1526,7 +1526,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；④cot 字段必填，先想后写。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 1400 });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 1400, timeout: 180000 });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -1642,7 +1642,7 @@ async function generateOfflineGroup(p, ctx, session) {
   let raw;
   let usedCot = !!cotT;
   try {
-    raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1900 });
+    raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1900, timeout: 180000 });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -1652,7 +1652,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；④cot 字段必填，先想后写。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 1900 });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 1900, timeout: 180000 });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);

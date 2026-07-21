@@ -687,6 +687,13 @@
           body: JSON.stringify({ ref: ref, url: url, body: body, extraHeaders: extraHeaders || {} }),
           signal: ctrl.signal
         });
+      } catch (e) {
+        // Safari/WebKit 有时不会给标准 AbortError，而只报「fetch is aborted」。
+        // 以我们自己的 signal 为准，别把浏览器英文底层错误直接漏给用户。
+        if (ctrl.signal.aborted || (e && e.name === "AbortError") || /fetch.*abort/i.test(String(e && e.message || ""))) {
+          throw new Error("请求超时，请重试（模型或云端桥响应太慢）");
+        }
+        throw e;
       } finally { clearTimeout(tm); }
     },
 
