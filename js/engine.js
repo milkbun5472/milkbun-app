@@ -1467,19 +1467,26 @@ function offlineStyleText(key) {
 // 把线下 msgs 映射成 API 的对话（narration/user 归 user，char 归 assistant，合并连发）
 function offlineHistory(msgs, userName, charName) {
   const g = [];
+  let prevTs = 0;
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
+    const ts = Number(m.ts) || 0;
+    const gap = prevTs && ts && ts - prevTs > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+      : "";
+    const stamp = ts ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
       const l = g[g.length - 1];
-      const c = m.content || "";
+      const c = gap + stamp + (m.content || "");
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
       const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(raw, m.ts) : "";
-      const c = (m.role === "narration" ? "【场景设定】" + raw : raw) + (dateAnchor ? dateAnchor : "");
+      const c = gap + stamp + (m.role === "narration" ? "【场景设定】" + raw : raw) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
     }
+    if (ts) prevTs = ts;
   });
   return g;
 }
@@ -1565,19 +1572,26 @@ async function summarizeOffline(p, ctx, session) {
 // 把群聊线下 msgs 映射成 API 对话：char beat 归 assistant（带发言人名），narration/user 归 user，合并连发
 function offlineGroupHistory(msgs, userName) {
   const g = [];
+  let prevTs = 0;
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
+    const ts = Number(m.ts) || 0;
+    const gap = prevTs && ts && ts - prevTs > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
+      : "";
+    const stamp = ts ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
-      const c = (m.senderName ? m.senderName + "：" : "") + (m.content || "");
+      const c = gap + stamp + (m.senderName ? m.senderName + "：" : "") + (m.content || "");
       const l = g[g.length - 1];
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
       const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(raw, m.ts) : "";
-      const c = (m.role === "narration" ? "【场景设定】" + raw : userName + "：" + raw) + (dateAnchor ? dateAnchor : "");
+      const c = gap + stamp + (m.role === "narration" ? "【场景设定】" + raw : userName + "：" + raw) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
     }
+    if (ts) prevTs = ts;
   });
   return g;
 }

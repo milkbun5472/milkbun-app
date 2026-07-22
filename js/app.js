@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.17";
+const APP_VERSION = "v50.18";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2288,6 +2288,21 @@ function App() {
     (async () => { try { const g = await requestGeo(); if (g && !g.error && typeof g.lat === "number") { setGeo(g); saveJSON("x_geo", g); } } catch (e) {} })();
   }, [screen]);
   // ---- 线下模式（赴约）----
+  // 结束线下回到线上：界面仍只展示 summary，但给模型另存一份逐字尾段用于真实衔接。
+  // 从后往前按完整消息取，最多 6000 字；不截半句、不含 OOC，也不改变线下档案原文。
+  const offlineTranscriptForOnline = (msgs, groupMode, charName) => {
+    const lines = (msgs || []).filter(m => m && m.kind !== "ooc" && m.content).map(m => {
+      const who = m.role === "narration" ? "【场景】" : m.role === "user" ? (profile.name || "用户") : (groupMode ? (m.senderName || "某人") : charName);
+      return (m.ts ? "〔" + fmtStampAI(m.ts) + "〕" : "") + who + "：" + String(m.content);
+    });
+    const picked = []; let used = 0;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const n = lines[i].length + 1;
+      if (picked.length && used + n > 6000) break;
+      picked.unshift(lines[i]); used += n;
+    }
+    return picked.join("\n");
+  };
   useEffect(() => {
     offlinesRef.current = offlines;
   }, [offlines]);
@@ -2486,7 +2501,7 @@ function App() {
     // 把这段线下经过回写进线上聊天记录，接上线上/线下的连贯：否则线上角色读不到刚才线下发生了什么，
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
-    pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", ts: Date.now() }]);
+    pChat(charId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, false, char.name), ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次线下时间段的日程覆盖成这段经过 + 角色想法。
     endLane("c:" + charId);
     toast(summary ? "已记入记忆库" : "已结束");
@@ -2749,7 +2764,7 @@ function App() {
       opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], charIds: group.memberIds || [], source: "auto", open: true }));
     }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
-    pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", ts: Date.now() }]);
+    pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ts: Date.now() }]);
     // TODO(日程覆盖，用户说后面再弄)：把本次群聊线下时间段的日程覆盖成这段经过 + 各角色想法。
     endLane("g:" + groupId);
     toast(summary ? (interopOn ? "已记入记忆库" : "已结束（记忆只留在本群）") : "已结束");
@@ -3034,7 +3049,7 @@ function App() {
         const stp = m.ts && typeof fmtStampAI === "function" ? "〔" + fmtStampAI(m.ts) + "〕" : "";
         if (m.kind === "offlinelog") {
           // 线下经过：既不算用户发言也不算角色发言，作为「刚发生的场景」注入，让线上接得上线下
-          g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面，经过如下——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，别再停留在线下前的状态】\n" + m.content });
+          g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，别再停留在线下前的状态】\n归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") });
           continue;
         }
         if (m.kind === "callend") {
@@ -3587,7 +3602,7 @@ function App() {
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
       const _graw = gchat.filter(m => m.kind !== "ooc").slice(-(gs.ctxN || 30));
-      const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面，经过如下（发生在上面之后、现已回到线上群聊，据此接话）】" + m.content : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? "[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : (m.content || "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : m.content);
+      const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? "[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : (m.content || "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : m.content);
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
       for (const m of _graw) { const ts = m.ts || 0; if (_gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + "，到 " + fmtStampAI(ts) + " ——〕"); const ta = (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, ts) : ""; _gparts.push((gs.memoryInterop && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
