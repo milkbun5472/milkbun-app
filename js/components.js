@@ -6278,10 +6278,11 @@ function GroupThread({
     })();
     const prevTimed = window.ChatTimeSeparator && window.ChatTimeSeparator.previousTimed(messages, i);
     const showTimeBreak = window.ChatTimeSeparator && window.ChatTimeSeparator.shouldShow(prevTimed, m);
-    return h(React.Fragment, { key: "gmsg_" + (m.id || m.cid || i) },
-      showTimeBreak && h("div", { className: "flex justify-center", style: { margin: "13px 0 8px" } },
+    return [
+      showTimeBreak && h("div", { key: "gtime_" + (m.id || m.cid || i), className: "flex justify-center", style: { margin: "13px 0 8px" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, letterSpacing: "0.02em" } }, window.ChatTimeSeparator.label(m.ts, Date.now()))),
-      messageBody);
+      messageBody
+    ];
   }), sending && h("div", {
     className: "flex items-center gap-2"
   }, h("div", {
