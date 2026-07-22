@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.13";
+const APP_VERSION = "v50.14";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2944,18 +2944,19 @@ function App() {
       const gapMs = lastAsstTs ? Date.now() - lastAsstTs : 0;
       const gapHrs = Math.round(gapMs / 3600000);
       const gapReopen = gapMs > 3 * 3600000; // 隔 3 小时+ 再开口 ≈ 重开一段话，强制刷新一次心声/心情（反映时间+行程变化）
-      // 心声改成群聊那套（v47.81 她点名）：每轮都判断——这轮真有情绪波动/新念头就写（必须和上一条不同），
-      // 真没有才 null；第 1 轮和隔久重开仍然强制写（否则新角色开头心声全空像坏了）
+      // 心声每轮判断：只写真正在脑内发生的那一下，不把「分析用户+规划回复」伪装成心声。
+      // 第 1 轮和隔久重开仍强制写一次，其他轮没有真实内在活动可以 null。
       const tctr = (thoughtCtrRef.current[charId] || 0) + 1;
       thoughtCtrRef.current[charId] = tctr;
       try { saveJSON("x_thoughtCtr", thoughtCtrRef.current); } catch (e) {}
       const mustThought = tctr === 1 || gapReopen;
       const lastThought = (statesRef.current[charId] && statesRef.current[charId].thought) || "";
-      const thoughtNoRepeat = lastThought ? "上一条心声是「" + String(lastThought).replace(/\s+/g, " ").slice(0, 50) + "」——这次【不许重复它、也不许原地打转说同一件事】，要反映最新的进展或转念。" : "";
+      const thoughtNoRepeat = lastThought ? "上一条心声是「" + String(lastThought).replace(/\s+/g, " ").slice(0, 50) + "」——把它当作刚才真实存在过的内在背景；别逐字复读，但也不必为了显得有变化而硬编新的心理转折。" : "";
+      const innerVoiceRule = "【心声是正在发生的意识，不是角色分析报告】直接写这个角色此刻脑内冒出来的声音，用其本人自然的第一人称内在语气；可以是碎片、跑神、感官、联想、欲望、吐槽、矛盾或没说出口的冲动，不必句句完整理性。不要站到角色头顶复盘对方的行为、给互动下定义、解释自己为何产生某种情绪，或制定接下来该怎样回复/安抚的策略；那是导演笔记，不是心声。";
       const thoughtSpec = (mustThought
-        ? "此刻没说出口的真实心声——【这一轮必须写，不许填 null、不许留空】写一句此刻脑子里真实的、往前走了的新念头（对刚聊的/对 TA/对当下处境的想法、情绪、吐槽、小心思都行）。"
-        : "此刻没说出口的真实心声——【每轮都要判断】：只要这一轮你有情绪波动、对话推进带来了新念头、或有话没说出口，就写一句【和上一条不一样的新心声】；真的毫无内心活动才填 null。别懒——大多数有来有回的对话轮次，人心里都是有活动的。")
-        + "【这是私密的内心独白：你以为只有自己知道、并不知道 TA 能看到——所以要坦诚、要真，哪怕是不体面/自私/矛盾的念头也照写，别表演给谁看、别为了被看见而刻意升华或表达】" + thoughtNoRepeat + "情绪复杂或有心事时可更长更细腻" + (gapReopen ? "。（你俩隔了一阵没聊、这次算重新开个话题：这条心声顺带反映这段时间过去、结合你今天的行程/作息，此刻你的状态和心情有什么变化）" : "");
+        ? "此刻没说出口的真实心声——【这一轮必须写，不许填 null、不许留空】写一句此刻确实正在脑子里发生的念头。"
+        : "此刻没说出口的真实心声——【每轮都要判断】：这一轮确实冒出了没说出口的念头才写；只有对外回复、内里没有新的意识片段时就填 null，不为填字段而编一篇解释。")
+        + innerVoiceRule + "【这是私密的内心独白：你以为只有自己知道、并不知道 TA 能看到——所以要坦诚、要真，哪怕是不体面、自私或矛盾也照写，别表演给谁看、别为了被看见而升华】" + thoughtNoRepeat + "情绪复杂或有心事时可更长更细腻" + (gapReopen ? "。（你俩隔了一阵没聊、这次算重新开个话题：心声可自然带出时间过去后此刻真正残留的状态，但别写成这段时间的总结报告）" : "");
       // #2 时间流逝：隔了几个小时/几天再让 TA 回复，要意识到时间过去了，别当刚聊过（gapMs 已按角色上次开口算好）
       const gapHint = gapMs > 2 * 3600000
         ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。别当作刚刚才聊过——自然体现这段时间流逝：接上之前没做完/说要去做的事（如说了熬夜跑代码，第二天就『我真去跑了，不然真要睡实验室』）、问对方这段时间干嘛了、或顺势换个话题，贴合此刻时间点（深夜/清晨/工作时间/饭点）和你的人设。**Ta 同时要顾着生活和别的人、不是随时都能回你，这很正常：重逢就自然温温地接上，别质问『怎么才回我』『是不是把我忘了』、别甩脸子摆委屈闹脾气搞愧疚绑架（除非你人设本就是会撒娇/傲娇的那种，也点到为止、软下来快）。**\n**⚠️尤其（她 2026-07-18 点名的委屈）：若这段时间里【你俩说过要一起做的事】（她说来找你吃饭/来找你玩/晚点来这类）没在对话里发生，【绝不许】默认她爽约、放你鸽子、故意不来、把你忘了——她多半只是忙、一时忘了、或还没顾上，太正常了，而且软性的『我来找你』本就不是签了字的约会。你可以【就当你俩已经悄悄做过了】、自然把它当成发生过的暖事轻轻带过（如『中午那顿火锅挺香』），或温温问一句『还来吗～』；但绝不质问、赌气、摆委屈、翻旧账算爽约。**"
