@@ -7,6 +7,9 @@
   const MAX_SAMPLES = 40;
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // iOS/Safari 的 SpeechRecognition.stop() 只是“请求停止”，并不代表识别器已经退场。
+  // 留一把模块级门闩，避免下一次录音撞上上一只仍在收尾的识别器。
+  let activeSession = null;
 
   const median = values => {
     const a = (values || []).filter(Number.isFinite).slice().sort((x, y) => x - y);
@@ -105,6 +108,7 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !AudioCtx) {
       throw new Error("这个浏览器暂时不能读取麦克风声学信息");
     }
+    if (activeSession) await activeSession.cancel();
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false } });
     const ctx = new AudioCtx();
     await ctx.resume();
@@ -149,26 +153,51 @@
       } catch (_) { recognition = null; }
     } else opts.onSpeechError && opts.onSpeechError("unsupported");
 
-    const cleanup = async () => {
-      clearTimeout(timer);
-      if (recognition) {
-        recognition.onresult = null;
-        recognition.onerror = null;
-      }
-      try { recognition && recognition.stop(); } catch (_) {}
-      stream.getTracks().forEach(t => t.stop());
-      try { source.disconnect(); analyser.disconnect(); await ctx.close(); } catch (_) {}
+    let cleanupPromise = null;
+    const cleanup = () => {
+      if (cleanupPromise) return cleanupPromise;
+      cleanupPromise = (async () => {
+        clearTimeout(timer);
+        if (recognition) {
+          // 等 onend 才算真正释放。保留 onresult 到最后一刻，免得吞掉停下前的尾字。
+          await new Promise(resolve => {
+            let done = false;
+            let fallbackTimer = null;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              if (fallbackTimer) clearTimeout(fallbackTimer);
+              recognition.onend = null;
+              resolve();
+            };
+            recognition.onend = finish;
+            try { recognition.stop(); } catch (_) { finish(); return; }
+            if (done) return;
+            fallbackTimer = setTimeout(() => {
+              try { recognition.abort(); } catch (_) {}
+              finish();
+            }, 900);
+          });
+          recognition.onresult = null;
+          recognition.onerror = null;
+        }
+        stream.getTracks().forEach(t => t.stop());
+        try { source.disconnect(); analyser.disconnect(); await ctx.close(); } catch (_) {}
+      })();
+      return cleanupPromise;
     };
-    return {
+    const session = {
       async cancel() {
-        if (stopped) return;
+        if (stopped) return cleanupPromise;
         stopped = true;
-        await cleanup();
+        try { await cleanup(); }
+        finally { if (activeSession === session) activeSession = null; }
       },
       async stop() {
         if (stopped) return null;
         stopped = true;
-        await cleanup();
+        try { await cleanup(); }
+        finally { if (activeSession === session) activeSession = null; }
         const duration = (performance.now() - startedAt) / 1000;
         if (duration < 0.5) throw new Error("太短啦，至少说半秒钟");
         const features = summarize(frames, duration);
@@ -196,6 +225,8 @@
         };
       }
     };
+    activeSession = session;
+    return session;
   }
 
   window.Ears = {
