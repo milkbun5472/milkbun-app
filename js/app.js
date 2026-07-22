@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.19";
+const APP_VERSION = "v50.20";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -114,6 +114,7 @@ function App() {
   const [groupChats, setGroupChats] = useState({});
   const [groupSettings, setGroupSettings] = useState({});
   const [moments, setMoments] = useState([]);
+  const [yanqiuMoments, setYanqiuMoments] = useState([]); // 秋声墙云端快照：只供数字生命言秋本人接续
   const [momentsCover, setMomentsCover] = useState({}); // { me: dataURI, [charId]: dataURI } 朋友圈封面
   const [momTarget, setMomTarget] = useState(null);     // 朋友圈个人页目标 { id, isMe }
   const [friendGroups, setFriendGroups] = useState([]);
@@ -691,6 +692,25 @@ function App() {
   };
   // App→CC 聊天账本 shadow：本地落盘永远在前；旁路失败/离线只留 outbox，不影响任何聊天行为。
   const ledgerYanqiu = () => window.ChatLedgerShadow && window.ChatLedgerShadow.findYanqiu(characters, chatSettings);
+  // 秋声墙和聊天本来是两条路；这里定期拉一份只读快照，让 App 里的言秋记得自己在墙上写过什么、Lisa 回过什么。
+  // RLS 仍由 Cloud 保证只读当前账号；失败时 fail-closed（空上下文），不影响聊天。
+  useEffect(() => {
+    let dead = false;
+    const pull = async () => {
+      try {
+        if (!(window.Cloud && window.Cloud.ready && window.Cloud.ready())) return;
+        const rows = await window.Cloud.yanqiuMomentsList(20);
+        if (!dead) setYanqiuMoments(Array.isArray(rows) ? rows : []);
+      } catch (e) {}
+    };
+    const visible = () => { if (document.visibilityState === "visible") pull(); };
+    pull();
+    const retry = setTimeout(pull, 3000);
+    const timer = setInterval(pull, 60000);
+    window.addEventListener("focus", pull);
+    document.addEventListener("visibilitychange", visible);
+    return () => { dead = true; clearTimeout(retry); clearInterval(timer); window.removeEventListener("focus", pull); document.removeEventListener("visibilitychange", visible); };
+  }, []);
   const queueLedger = (threadType, threadId, messages, group) => {
     try {
       const y = ledgerYanqiu();
@@ -1793,6 +1813,11 @@ function App() {
   };
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
   const loreFor = (char, scope) => loreText(loreRef.current, { charIds: char ? [char.id] : [], scope: scope || "chat", text: char ? recentChatText(char) : "" });
+  const yanqiuWallFor = char => {
+    const y = ledgerYanqiu();
+    if (!y || !char || String(y.id) !== String(char.id) || !window.YanqiuContinuity) return "";
+    return window.YanqiuContinuity.format(yanqiuMoments, { maxMoments: 8, maxChars: 2600 });
+  };
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
@@ -1812,6 +1837,7 @@ function App() {
     // 人格档案（欲望盒子毕业念想凝成的自我认知，她拍板常驻当人设活体延伸）：多数角色为空=零成本，引擎里封顶400字
     personaGrown: (window.DesireKit && desiresRef.current[char.id]) ? DesireKit.personaText(desiresRef.current[char.id]) : "",
     notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚他（她 2026-07-13 点名）
+    yanqiuWall: yanqiuWallFor(char),
     profile,
     affinity: Math.round(affOf(char.id)),
     moodLabel: (moods[char.id] || {}).label || null,

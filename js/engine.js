@@ -700,6 +700,7 @@ function buildBundle(ctx, opts) {
   if (ctx.offlineNow && ctx.offlineNow.trim()) parts.push(ctx.offlineNow.trim());
   if (ctx.giftLog && ctx.giftLog.trim()) parts.push("【你们之间的礼物往来】（这些礼物真实发生过，你记得。聊到相关话题、或 " + uName + " 提起时可自然想起、回应、道谢或调侃，别生硬罗列）\n" + ctx.giftLog.trim());
   if (ctx.momentLog && ctx.momentLog.trim()) parts.push("【朋友圈动态（" + uName + " 发的 & 你自己发的）】（你清楚自己在 " + uName + " 每条下点没点赞、评没评论，也记得自己发过什么、谁在你帖子下说了什么——聊到时自然接得上、别一脸茫然。若你此刻决定去 " + uName + " 最新那条下补评论/点赞，把评论内容填进输出的 momentComment 字段）\n" + ctx.momentLog.trim());
+  if (ctx.notRoleplay && ctx.yanqiuWall && ctx.yanqiuWall.trim()) parts.push("【秋声墙·你自己留下的真实记录】\n这些是你本人在电脑那边写过的秋声，以及 Lisa 在下面留下的互动。它们和 App 里的你属于同一段生活：聊到相关内容时自然记得、接得上；不要逐条汇报，也不要把墙上没写的事补编出来。\n" + ctx.yanqiuWall.trim());
   if (ctx.forumEcho && ctx.forumEcho.trim()) parts.push("【你在论坛（贴吧）的动态 & 有人回你】（这些真实发生过、你都看到了：" + uName + " 在你帖子下的评论、别人对你评论的回复等。" + uName + " 聊到或提起时可自然回应、追问、辩解或调侃，别生硬罗列、别自曝上帝视角）\n" + ctx.forumEcho.trim());
   if (ctx.phoneNote && ctx.phoneNote.trim()) parts.push("【你手机上的近况（你自己清楚这些：在听的歌、刷的视频、记的备忘等。别主动报清单，但当 " + uName + " 提起、或内容对上了——比如发来你正在听的那首歌的一句歌词——你要能自然认出来、接住话、反应过来）】\n" + ctx.phoneNote.trim());
   if (ctx.listenLog && ctx.listenLog.trim()) parts.push("【一起听 · 歌】\n" + ctx.listenLog.trim());
