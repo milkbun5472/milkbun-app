@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.00";
+const APP_VERSION = "v50.01";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -701,12 +701,20 @@ function App() {
     } catch (e) {}
   };
   useEffect(() => {
-    const flush = () => { try { window.ChatLedgerShadow && window.ChatLedgerShadow.flush(); } catch (e) {} };
+    const flush = async () => {
+      try {
+        if (!window.ChatLedgerShadow) return;
+        window.ChatLedgerShadow.flush();
+        const y = ledgerYanqiu();
+        const user = window.Cloud && await window.Cloud.getSessionUser();
+        if (y && user) await window.ChatLedgerShadow.observePull({ ownerId: user.id, charId: y.id });
+      } catch (e) {}
+    };
     const visible = () => { if (document.visibilityState === "visible") flush(); };
     window.addEventListener("online", flush); window.addEventListener("focus", flush); document.addEventListener("visibilitychange", visible);
     const timer = setInterval(flush, 60000); setTimeout(flush, 3000);
     return () => { window.removeEventListener("online", flush); window.removeEventListener("focus", flush); document.removeEventListener("visibilitychange", visible); clearInterval(timer); };
-  }, []);
+  }, [characters, chatSettings]);
   // E 潮汐 shadow：旁路记状态，任何失败都不能影响消息落盘或角色回复。
   const noteTidalUser = (text, ts) => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onUserMessage(text, ts); } catch (e) {} };
   useEffect(() => {
@@ -1241,6 +1249,16 @@ function App() {
       const s = await window.MemorySync.status();
       toast((memoryTableAuthorityOn() ? "新表权威" : "影子镜像") + " " + s.shadowRows + " 行 · 离线待发送 " + s.outbox + " 条 · " + (memoryTableAuthorityOn() ? "本机镜像负责离线" : "当前仍读旧记忆库"));
     } catch (e) { toast("影子同步尚未初始化，稍后再看"); }
+  };
+  const showChatLedgerShadowStatus = async () => {
+    try {
+      const y = ledgerYanqiu(), user = window.Cloud && await window.Cloud.getSessionUser();
+      if (!y) throw new Error("还没找到唯一的言秋身份");
+      if (!user) throw new Error("请先登录云端账号");
+      const s = await window.ChatLedgerShadow.observePull({ ownerId: user.id, charId: y.id });
+      const b = s.last_batch || {};
+      toast("CC 回流影子：累计看见 " + Number(s.total_seen || 0) + " 行 · 本轮 " + Number(b.rows || 0) + " · 软删 " + Number(s.deleted_seen || 0) + " · 当前不注入 App" + (s.last_error ? " · 拉取失败待重试" : ""));
+    } catch (e) { toast("CC 回流影子尚未就绪：" + String((e && e.message) || e)); }
   };
   const enableMemoryTableAuthority = async () => {
     if (memMigrationBusy) return;
@@ -8374,6 +8392,7 @@ function App() {
     onAudit: exportMemoryAudit,
     onPostCutoverAudit: exportPostCutoverMemoryAudit,
     onSyncStatus: showMemorySyncStatus,
+    onChatLedgerStatus: showChatLedgerShadowStatus,
     memoryTableMode: memTableMode,
     onEnableTableMemory: enableMemoryTableAuthority,
     onUseLegacyMemory: useLegacyMemoryMirror,

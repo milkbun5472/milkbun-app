@@ -76,3 +76,39 @@ test("reroll 软删离线排队，恢复后只提交幂等键", async () => {
   assert.equal(removed.length, 1);
   assert.equal(uploaded.length, 0);
 });
+
+test("CC 入站影子只记无正文诊断，乱序、同文不同轮和软删都能观察", async () => {
+  const s = storage();
+  const observer = Ledger.createPullObserver({ storage: s, now: () => 5000, fetchPage: async () => ({
+    rows: [
+      { id: "1", message_key: "cc:s:t1:user", content: "同一句", occurred_at: "2026-07-21T10:00:00Z", updated_at: "2026-07-21T10:00:00Z" },
+      { id: "2", message_key: "cc:s:t2:user", content: "同一句", occurred_at: "2026-07-21T09:00:00Z", updated_at: "2026-07-21T10:01:00Z" },
+      { id: "3", message_key: "cc:s:t3:assistant", content: "旧回复", occurred_at: "2026-07-21T11:00:00Z", updated_at: "2026-07-21T12:00:00Z", deleted_at: "2026-07-21T12:00:00Z" }
+    ],
+    nextCursor: { updated_at: "2026-07-21T12:00:00Z", id: "3" }
+  }) });
+  const result = await observer.observe({ ownerId: "u1", charId: "y" });
+  assert.equal(result.total_seen, 3);
+  assert.equal(result.deleted_seen, 1);
+  assert.equal(result.same_text_distinct_turns, 1);
+  assert.equal(result.out_of_order_rows, 1);
+  assert.doesNotMatch(JSON.stringify(observer.status()), /同一句|旧回复/);
+});
+
+test("CC 入站拉取失败不推进游标，换账号不继承上一户诊断", async () => {
+  const s = storage(); let fail = false, cursors = [];
+  const observer = Ledger.createPullObserver({ storage: s, fetchPage: async (_charId, cursor) => {
+    cursors.push(cursor);
+    if (fail) throw new Error("offline");
+    return { rows: [{ id: "1", message_key: "cc:s:t:user", content: "原话", occurred_at: "2026-07-21T10:00:00Z" }], nextCursor: { updated_at: "2026-07-21T10:00:00Z", id: "1" } };
+  } });
+  const first = await observer.observe({ ownerId: "u1", charId: "y" });
+  fail = true;
+  const failed = await observer.observe({ ownerId: "u1", charId: "y" });
+  assert.deepEqual(failed.cursor, first.cursor);
+  fail = false;
+  const other = await observer.observe({ ownerId: "u2", charId: "y" });
+  assert.equal(other.owner_id, "u2");
+  assert.equal(other.total_seen, 1);
+  assert.equal(cursors[cursors.length - 1], null);
+});

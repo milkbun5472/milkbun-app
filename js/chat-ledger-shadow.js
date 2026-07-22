@@ -1,5 +1,5 @@
-// App → CC 共享聊天账本（第 3 步 shadow）
-// 只在本地消息已经落盘后异步追加云端；本模块不提供任何回读入口。
+// App ↔ CC 共享聊天账本（第 4 步 shadow）
+// App 写出照旧；CC 入站目前只做无正文诊断，不合并真实聊天、不注入 prompt。
 (function (root, factory) {
   const api = factory(root || {});
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -10,6 +10,7 @@
   const OUTBOX_KEY = "chat_ledger_outbox_v1"; // 无 x_ 前缀：不混进整份 saves
   const DELETE_OUTBOX_KEY = "chat_ledger_delete_outbox_v1";
   const DIAG_KEY = "chat_ledger_shadow_diag_v1";
+  const PULL_KEY = "chat_ledger_pull_shadow_v1";
   const THREAD_TYPES = new Set(["private", "offline", "group", "group_offline"]);
   const BLOCKED_KINDS = new Set(["system", "ooc", "thought", "thinking", "cot", "silence", "offlinelog"]);
 
@@ -211,14 +212,85 @@
     return { enqueue, invalidate, flush, status, clearLocal };
   }
 
+  // 第 4 步：只观察 CC/Stack-chan 入站，不保存正文、更不写进真实聊天。
+  function createPullObserver(options) {
+    options = options || {};
+    const storage = options.storage || root.localStorage;
+    const clock = options.now || (() => Date.now());
+    const fetchPage = options.fetchPage || (async (charId, cursor, limit) => {
+      if (!root.Cloud || typeof root.Cloud.chatMessagesPullShadow !== "function") throw new Error("chat ledger pull unavailable");
+      return root.Cloud.chatMessagesPullShadow(charId, cursor, limit);
+    });
+    let chain = Promise.resolve();
+    const empty = ownerId => ({ owner_id: String(ownerId), cursor: null, total_seen: 0, live_seen: 0, deleted_seen: 0, duplicate_keys: 0, same_text_distinct_turns: 0, out_of_order_rows: 0 });
+    const ownerState = ownerId => {
+      const id = String(ownerId || "");
+      const old = parse(storage, PULL_KEY, null);
+      return old && old.owner_id === id ? old : empty(id);
+    };
+    const observe = ({ ownerId, charId }) => {
+      chain = chain.catch(() => {}).then(async () => {
+        if (!ownerId || !charId) return { skipped: true };
+        const before = ownerState(ownerId);
+        let cursor = before.cursor || null, total = 0, live = 0, deleted = 0, duplicate = 0, sameText = 0, outOfOrder = 0;
+        const keys = new Set(), texts = new Map();
+        let previousOccurred = null;
+        try {
+          for (let pageNo = 0; pageNo < 5; pageNo++) {
+            const page = await fetchPage(String(charId), cursor, 100);
+            const rows = asArray(page && page.rows);
+            for (const row of rows) {
+              total++;
+              const key = text(row && row.message_key);
+              if (keys.has(key)) duplicate++; else keys.add(key);
+              const body = text(row && row.content);
+              if (body && texts.has(body) && texts.get(body) !== key) sameText++;
+              else if (body) texts.set(body, key);
+              const occurred = Date.parse(row && row.occurred_at);
+              if (Number.isFinite(previousOccurred) && Number.isFinite(occurred) && occurred < previousOccurred) outOfOrder++;
+              if (Number.isFinite(occurred)) previousOccurred = occurred;
+              if (row && row.deleted_at) deleted++; else live++;
+            }
+            cursor = page && page.nextCursor ? page.nextCursor : cursor;
+            if (rows.length < 100) break;
+          }
+          const next = {
+            ...before, cursor,
+            total_seen: Number(before.total_seen || 0) + total,
+            live_seen: Number(before.live_seen || 0) + live,
+            deleted_seen: Number(before.deleted_seen || 0) + deleted,
+            duplicate_keys: Number(before.duplicate_keys || 0) + duplicate,
+            same_text_distinct_turns: Number(before.same_text_distinct_turns || 0) + sameText,
+            out_of_order_rows: Number(before.out_of_order_rows || 0) + outOfOrder,
+            last_batch: { rows: total, live, deleted, duplicate_keys: duplicate, same_text_distinct_turns: sameText, out_of_order_rows: outOfOrder },
+            last_success_at: new Date(clock()).toISOString(), last_error: null, char_id: String(charId)
+          };
+          write(storage, PULL_KEY, next);
+          return next;
+        } catch (error) {
+          // 失败绝不推进游标；下次从 before.cursor 原位安全重试。
+          const failed = { ...before, last_error: String(error && error.message || error), last_attempt_at: new Date(clock()).toISOString(), char_id: String(charId) };
+          write(storage, PULL_KEY, failed);
+          return failed;
+        }
+      });
+      return chain;
+    };
+    const status = () => parse(storage, PULL_KEY, null);
+    const clear = () => storage.removeItem(PULL_KEY);
+    return { observe, status, clear };
+  }
+
   const manager = root.localStorage ? createManager() : null;
+  const pullObserver = root.localStorage ? createPullObserver() : null;
   return {
-    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
-    rowsFor, addedSessionMessages, createManager,
+    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, PULL_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
+    rowsFor, addedSessionMessages, createManager, createPullObserver,
     enqueue: manager ? manager.enqueue : async () => ({ queued: 0, pending: 0 }),
     invalidate: manager ? manager.invalidate : async () => ({ sent: 0, pending: 0 }),
     flush: manager ? manager.flush : async () => ({ sent: 0, pending: 0 }),
-    status: manager ? manager.status : () => ({ outbox: [], diagnostic: {} }),
-    clearLocal: manager ? manager.clearLocal : () => {}
+    observePull: pullObserver ? pullObserver.observe : async () => ({ skipped: true }),
+    status: () => ({ ...(manager ? manager.status() : { outbox: [], diagnostic: {} }), pull: pullObserver ? pullObserver.status() : null }),
+    clearLocal: () => { if (manager) manager.clearLocal(); if (pullObserver) pullObserver.clear(); }
   };
 });

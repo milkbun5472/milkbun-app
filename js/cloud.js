@@ -245,6 +245,27 @@
       return keys.length;
     },
 
+    // ---- CC/桌面 → App 第 4 步影子拉取：只返回给诊断观察器，不合并本地聊天 ----
+    // 用 updated_at + id 看变更，才能把后来盖上的软删戳也拉回来。
+    async chatMessagesPullShadow(charId, cursor, limit) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const max = Math.max(1, Math.min(200, Math.floor(Number(limit) || 100)));
+      let query = client.from("chat_messages")
+        .select("id,message_key,char_id,thread_type,thread_id,speaker_type,speaker_id,content,occurred_at,source,source_message_id,metadata,revision,updated_at,deleted_at")
+        .eq("user_id", user.id).eq("char_id", String(charId)).in("source", ["cc", "stackchan"])
+        .order("updated_at", { ascending: true }).order("id", { ascending: true }).limit(max);
+      if (cursor && cursor.updated_at && cursor.id) {
+        query = query.or(`updated_at.gt.${cursor.updated_at},and(updated_at.eq.${cursor.updated_at},id.gt.${cursor.id})`);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data : [];
+      const last = rows[rows.length - 1];
+      return { rows, nextCursor: last ? { updated_at: last.updated_at, id: last.id } : (cursor || null) };
+    },
+
     // ---- 服务器信箱（server_inbox 表，v48.32 第八课）：云端定时任务替角色写的信，app 开机取走投进聊天 ----
     // 取未消费的信（RLS 保证只取到自己的）；未登录/未就绪安静返回空
     async inboxFetch() {
