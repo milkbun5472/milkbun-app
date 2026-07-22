@@ -1581,6 +1581,37 @@ function offlineGroupHistory(msgs, userName) {
   });
   return g;
 }
+function offlineGroupSpeaker(members, rawName, scene) {
+  const name = String(rawName || "").trim();
+  if (/^(旁白|narration|__narration)$/i.test(name)) return null;
+  const compact = s => String(s || "").replace(/[\s【】\[\]（）()《》「」『』:：·—_-]/g, "").toLowerCase();
+  const wanted = compact(name);
+  let found = (members || []).find(c => compact(c.name) === wanted);
+  if (!found && wanted) found = (members || []).find(c => wanted.includes(compact(c.name)) || compact(c.name).includes(wanted));
+  if (!found) {
+    const body = String(scene || "");
+    const mentioned = (members || []).filter(c => c && c.name && body.includes(c.name));
+    if (mentioned.length === 1) found = mentioned[0];
+  }
+  return found || null;
+}
+function offlineGroupBeatList(parsed) {
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && Array.isArray(parsed.beats)) return parsed.beats;
+  if (parsed && parsed.beats && typeof parsed.beats === "object") return Object.values(parsed.beats);
+  if (parsed && parsed.output && Array.isArray(parsed.output.beats)) return parsed.output.beats;
+  return null;
+}
+function salvageOfflineGroupProse(raw, members) {
+  const clean = String(raw || "").replace(/```(?:json)?/gi, "").trim();
+  if (!clean) return [];
+  let chunks = clean.split(/\n\s*\n|\n(?=(?:【[^】]+】|[^\n：:]{1,16}[：:]))/).map(s => s.trim()).filter(Boolean);
+  if (chunks.length === 1) chunks = clean.split(/(?<=[。！？!?])\s*(?=(?:【[^】]+】|[^\s，。！？]{1,8}[：:]))/).map(s => s.trim()).filter(Boolean);
+  return chunks.slice(0, 8).map(scene => {
+    const named = (members || []).find(c => c && c.name && (scene.startsWith(c.name + "：") || scene.startsWith(c.name + ":") || scene.startsWith("【" + c.name + "】")));
+    return { name: named ? named.name : "旁白", scene: scene.replace(/^【[^】]+】\s*/, "").replace(/^[^\n：:]{1,16}[：:]\s*/, named ? "" : "$&") };
+  }).filter(b => b.scene);
+}
 // ctx: { members:[char..], profile, rels, chars, worldbook, memLib }
 async function generateOfflineGroup(p, ctx, session) {
   const members = ctx.members || [];
@@ -1633,7 +1664,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (session.minWords ? "\n【篇幅要求·硬性，优先级高于「简短」的一般习惯】每个 beat 的 scene 都充分展开，整段总字数至少 " + session.minWords + " 字，务必写足——宁可多不可少。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须是在场角色之一或『旁白』。";
+    "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
   const hist = offlineGroupHistory(session.msgs, userName);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -1658,21 +1689,30 @@ async function generateOfflineGroup(p, ctx, session) {
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
-  const parsed = extractJSON(sp.clean);
-  let beats = parsed && Array.isArray(parsed.beats) ? parsed.beats : (Array.isArray(parsed) ? parsed : null);
-  if (!beats) beats = [{ name: "旁白", scene: String(sp.clean || raw || "").trim() }];
+  let parsed = extractJSON(sp.clean);
+  let beats = offlineGroupBeatList(parsed);
+  if (!beats || !beats.length) {
+    const repairSystem = "你是格式修复器。把输入原文原字重排成合法 JSON，不续写、不润色、不删内容。只输出 {\"beats\":[{\"name\":\"角色名或旁白\",\"scene\":\"对应原文段落\"}]}。角色名只能逐字选自：" + members.map(c => c.name).join("、") + "；纯环境才用旁白。按原文中行动/说话的归属拆成 2~5 张卡，禁止整篇塞进一张旁白卡。";
+    try {
+      const repairedRaw = await callAI(p, repairSystem, [{ role: "user", content: String(sp.clean || raw || "").slice(0, 12000) }], { maxTokens: Math.min(session.maxTokens || 2200, 2200), timeout: 180000 });
+      parsed = extractJSON(repairedRaw);
+      beats = offlineGroupBeatList(parsed);
+    } catch (e) {}
+  }
+  if (!beats || !beats.length) beats = salvageOfflineGroupProse(sp.clean || raw, members);
   const out = beats.map(b => {
     const nm = String(b.name || "").trim();
-    const isNarr = !nm || nm === "旁白" || nm === "narration" || nm === "__narration";
-    const spk = isNarr ? null : (members.find(c => c.name === nm) || null);
+    const scene = String(b.scene || b.text || b.content || "").trim();
+    const explicitNarrator = /^(旁白|narration|__narration)$/i.test(nm);
+    const spk = explicitNarrator ? null : offlineGroupSpeaker(members, nm, scene);
     return {
       role: spk ? "char" : "narration",
       senderId: spk ? spk.id : null,
       senderName: spk ? spk.name : null,
-      scene: String(b.scene || "").trim(),
-      thought: !isNarr && b.thought && String(b.thought).toLowerCase() !== "null" ? String(b.thought).trim() : null,
-      mood: !isNarr && b.mood && b.mood.label ? b.mood : null,
-      affinityDelta: !isNarr && typeof b.affinityDelta === "number" ? b.affinityDelta : 0
+      scene,
+      thought: spk && b.thought && String(b.thought).toLowerCase() !== "null" ? String(b.thought).trim() : null,
+      mood: spk && b.mood && b.mood.label ? b.mood : null,
+      affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0
     };
   }).filter(b => b.scene);
   // 群聊线下：整批只想一次，把这次思考挂在第一个 beat 上（供「看TA怎么想的」展开）
