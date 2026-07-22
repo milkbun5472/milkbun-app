@@ -497,7 +497,8 @@ function directedRelationLines(char, rels, chars, profile) {
 // 叙事人称/代入方式指令（单聊/群聊/线下共用）：selfP/userP = "first|second|third"，describeMe = 是否让角色描写并推动用户的动作
 function narrativeDirective(s) {
   s = s || {};
-  if (!s.selfP && !s.userP && !s.describeMe) return "";
+  // describeMe=false 也是一条明确指令，不能被当成「没设置」吞掉；否则界面关着，模型仍可能顺手代写用户动作。
+  if (!s.selfP && !s.userP && !Object.prototype.hasOwnProperty.call(s, "describeMe")) return "";
   const selfMap = { first: "用第一人称『我』称呼你自己", second: "用第二人称『你』称呼你自己", third: "用第三人称称呼你自己（按你的性别用『她』或『他』，或直接用你的名字）" };
   const userMap = { first: "用第一人称『我』称呼对方", second: "用第二人称『你』称呼对方", third: "用第三人称称呼对方（按对方性别用『她』或『他』，或直接用对方名字）" };
   const parts = [];

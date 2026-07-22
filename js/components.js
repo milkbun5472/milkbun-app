@@ -5596,6 +5596,7 @@ function GroupOfflineMode({
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
+  const [sDesc, setSDesc] = useState(!!os.describeMe);
   const [oocMode, setOocMode] = useState(false);
   const bgFileRef = useRef(null);
   const [view, setView] = useState(activeSession ? "live" : "setup");
@@ -5750,7 +5751,7 @@ function GroupOfflineMode({
   const gBgSheet = setOpen && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-4" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "" }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "" }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "场景背景图"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
     h("div", { className: "flex items-center gap-3" },
@@ -5782,6 +5783,11 @@ function GroupOfflineMode({
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "让每次至少写这么多字（>0 生效）。"),
       h(Slider, { value: sMinW, min: 0, max: 1200, step: 50, onChange: setSMinW })),
+    h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：在场角色可以替你写动作、反应并推动剧情；关：只写他们自己和环境，不替你决定行动或台词。")),
+      h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
     styleSection,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
   const directorNotes = activeSession && (activeSession.customNotes || []).length > 0 && h("div", { className: "shrink-0 mx-3 mt-2 p-3", style: { background: "rgba(255,255,255,.86)", border: "1px solid " + t.line, borderRadius: 10, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", maxHeight: 150, overflowY: "auto" } },
