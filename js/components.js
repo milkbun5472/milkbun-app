@@ -6029,7 +6029,6 @@ function GroupThread({
     text: "群聊已创建",
     sub: gs.spectate ? "用旁白（下方输入）推动，成员们会互动" : "发条消息，成员们会陆续回应"
   }), messages.map((m, i) => {
-    const messageBody = (() => {
     if (m.kind === "ooc") return h("div", {
       key: i,
       className: "flex my-2 items-start gap-1.5 " + (m.role === "user" ? "justify-end" : "justify-start")
@@ -6275,14 +6274,6 @@ function GroupThread({
         WebkitTouchCallout: "none"
       }
     }, bubbleSticker(isU), m.content), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    })();
-    const prevTimed = window.ChatTimeSeparator && window.ChatTimeSeparator.previousTimed(messages, i);
-    const showTimeBreak = window.ChatTimeSeparator && window.ChatTimeSeparator.shouldShow(prevTimed, m);
-    return [
-      showTimeBreak && h("div", { key: "gtime_" + (m.id || m.cid || i), className: "flex justify-center", style: { margin: "13px 0 8px" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, letterSpacing: "0.02em" } }, window.ChatTimeSeparator.label(m.ts, Date.now()))),
-      messageBody
-    ];
   }), sending && h("div", {
     className: "flex items-center gap-2"
   }, h("div", {
