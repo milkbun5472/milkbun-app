@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.09";
+const APP_VERSION = "v50.10";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2547,16 +2547,18 @@ function App() {
       }).filter(Boolean);
     })()
   });
-  const pGOffline = (groupId, updater) => setGroupOfflines(prev => {
-    const before = prev[groupId] || [];
+  const pGOffline = (groupId, updater) => {
+    // 群线下会连续追加多个 beat、再消耗导演便签；ref 先同步推进，避免 React 批处理让下一步读到旧会话。
+    const before = groupOfflinesRef.current[groupId] || loadJSON("x_goffline:" + groupId, []);
     const next = updater(before);
     saveJSON("x_goffline:" + groupId, next);
     const group = groups.find(g => String(g.id) === String(groupId));
     if (group && window.ChatLedgerShadow) queueLedger("group_offline", groupId, window.ChatLedgerShadow.addedSessionMessages(before, next), group);
-    const n = { ...prev, [groupId]: next };
+    const n = { ...groupOfflinesRef.current, [groupId]: next };
     groupOfflinesRef.current = n;
-    return n;
-  });
+    setGroupOfflines(prev => ({ ...prev, [groupId]: next }));
+    return next;
+  };
   const pushGOffMsg = (groupId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
   const groupOfflineDelSession = (groupId, sessId) => { if (window.confirm("删除这条线下记录？删了不可恢复。")) pGOffline(groupId, list => list.filter(s => s.id !== sessId)); };
   const openGroupOffline = group => {
@@ -2617,6 +2619,10 @@ function App() {
         if (typeof n === "string") return { id: "legacy_note_" + memVecHash(n), text: n, remaining: 0, createdAt: s.startTs || Date.now() };
         return usedNoteIds.has(n.id) ? { ...n, remaining: Math.max(0, Number(n.remaining || 0) - 1) } : n;
       }) } : s));
+      if (usedNoteIds.size || (effectiveSess.customNotes || []).some(n => typeof n === "string")) {
+        const left = Math.max(0, ...(effectiveSess.customNotes || []).map(n => typeof n === "string" ? 0 : (usedNoteIds.has(n.id) ? Number(n.remaining || 0) - 1 : 0)));
+        toast(left ? "导演便签已落实 · 还剩 " + left + " 轮" : "导演便签已结束 · 下轮不再注入");
+      }
       _spoke.forEach(id => tickAmbient(id, {}));
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
@@ -2685,10 +2691,10 @@ function App() {
     toast("文风已切换 · 下次演绎生效");
   };
   const groupOfflineAddNote = (groupId, note) => {
-    const item = { id: "gonote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: String(note || "").trim(), remaining: 3, createdAt: Date.now() };
+    const item = { id: "gonote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: String(note || "").trim(), remaining: 2, createdAt: Date.now() };
     if (!item.text) return;
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
-    toast("已加入提示 · 接下来 3 轮生效");
+    toast("已加入提示 · 接下来 2 轮生效");
   };
   const groupOfflineDeleteNote = (groupId, noteId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
