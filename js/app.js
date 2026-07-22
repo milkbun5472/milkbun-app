@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.08";
+const APP_VERSION = "v50.09";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2611,6 +2611,12 @@ function App() {
           setStateFor(b.senderId, ns); pushStateHist(b.senderId, ns);
         }
       }
+      // 短期导演便签只在成功生成后消耗；失败/超时不扣。字符串是旧版遗留，只再生效这一轮。
+      const usedNoteIds = new Set((effectiveSess.customNotes || []).filter(n => n && typeof n === "object" && Number(n.remaining) > 0).map(n => n.id));
+      pGOffline(group.id, list => list.map(s => s.id === workSess.id ? { ...s, customNotes: (s.customNotes || []).map(n => {
+        if (typeof n === "string") return { id: "legacy_note_" + memVecHash(n), text: n, remaining: 0, createdAt: s.startTs || Date.now() };
+        return usedNoteIds.has(n.id) ? { ...n, remaining: Math.max(0, Number(n.remaining || 0) - 1) } : n;
+      }) } : s));
       _spoke.forEach(id => tickAmbient(id, {}));
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
@@ -2679,9 +2685,12 @@ function App() {
     toast("文风已切换 · 下次演绎生效");
   };
   const groupOfflineAddNote = (groupId, note) => {
-    pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), note] } : s));
-    toast("已加入提示");
+    const item = { id: "gonote_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: String(note || "").trim(), remaining: 3, createdAt: Date.now() };
+    if (!item.text) return;
+    pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
+    toast("已加入提示 · 接下来 3 轮生效");
   };
+  const groupOfflineDeleteNote = (groupId, noteId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
   const groupOfflineOOC = async (groupId, text) => {
     if (laneBusy("g:" + groupId) || !text || !text.trim()) return;
@@ -8711,6 +8720,7 @@ function App() {
     onSend: txt => groupOfflineSend(offlineGroup.id, txt),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
     onAddNote: n => groupOfflineAddNote(offlineGroup.id, n),
+    onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onEditMsg: (mid, txt) => groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => groupOfflineRerollMsg(offlineGroup.id, mid),

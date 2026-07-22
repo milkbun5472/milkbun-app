@@ -1487,7 +1487,7 @@ async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = session.stylePrompt != null ? session.stylePrompt : offlineStyleText(session.styleKey);
-  const notes = (session.customNotes || []).filter(Boolean);
+  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: char.name, user: userName });
   // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
@@ -1617,7 +1617,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const members = ctx.members || [];
   const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = session.stylePrompt != null ? session.stylePrompt : offlineStyleText(session.styleKey);
-  const notes = (session.customNotes || []).filter(Boolean);
+  const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
   const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 260)).join("\n\n");
@@ -1669,7 +1669,7 @@ async function generateOfflineGroup(p, ctx, session) {
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true) : "";
-  const gTail = gContinueCue + "\n\n〔幕后提醒，绝不出现在正文里：①反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；②各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；③" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "④cot 字段必填，先想后写。" : "") + "〕";
+  const gTail = gContinueCue + "\n\n〔幕后提醒，绝不出现在正文里：①反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；②各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；③" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "④cot 字段必填，先想后写。" : "") + (notes.length ? "⑤本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gTail };
   else hist.push({ role: "user", content: "（继续）" + gTail });
   let raw;
