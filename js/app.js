@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.31";
+const APP_VERSION = "v50.32";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -201,8 +201,11 @@ function App() {
   const [coupleAnniv, setCoupleAnniv] = useState([]);
   // 情侣空间·情书 {id,characterId,authorId:'user'|charId,title,body,isRead,createdAt,font,paper,replies:[{authorId,content,ts}]}
   const [coupleLetters, setCoupleLetters] = useState([]);
+  const coupleLettersRef = useRef([]); coupleLettersRef.current = coupleLetters;
   // 情书设置：{ [charId]: { auto, freqDays, freqRandom, font:'auto'|key, paper:key } }
   const [coupleLetterCfg, setCoupleLetterCfg] = useState({});
+  const coupleLetterCfgRef = useRef({}); coupleLetterCfgRef.current = coupleLetterCfg;
+  const autoLetterBusyRef = useRef(false); // 情书后台自发防重入
   // 一起听（展示型，不真放声音）：{ disc:封面/唱片图 dataURL, songs:[{id,title,artist,cover,ts}] }；正在听=songs[0]
   const [listen, setListen] = useState({ disc: null, songs: [] });
   const [neteaseApi, setNeteaseApi] = useState("");
@@ -6961,6 +6964,45 @@ function App() {
       setGen(g => ({ ...g, coupleLetter: false }));
     }
   };
+  // 情书按时间【后台】自发（她 2026-07-23：原来只在打开情书界面那一刻才检查 → 不点开十几天都收不到）。
+  // 到点(freqDays，带按上封时间定的稳定随机，不点开也照算)就让恋人自己提笔写；每次最多一封防扎堆；≥3天硬地板同 genCoupleLetter。
+  const maybeAutoLetters = async () => {
+    if (!active || autoLetterBusyRef.current) return;
+    autoLetterBusyRef.current = true;
+    try {
+      const cfgs = coupleLetterCfgRef.current || {};
+      const cps = couplesRef.current || {};
+      for (const c of (characters || [])) {
+        if (!(cps[c.id] && cps[c.id].status === "together")) continue;
+        const cfg = cfgs[c.id];
+        if (!cfg || !cfg.auto) continue;
+        const freq = Math.max(1, cfg.freqDays || 7);
+        const lastChar = (coupleLettersRef.current || []).filter(l => l.characterId === c.id && l.authorId !== "user").sort((a, b) => b.createdAt - a.createdAt)[0];
+        const days = lastChar ? (Date.now() - lastChar.createdAt) / 86400000 : 999;
+        const r = lastChar ? ((lastChar.createdAt % 1000) / 1000) : 0.5; // 稳定随机，不随每次检查抖
+        const threshold = cfg.freqRandom ? freq * (0.7 + r * 0.6) : freq;
+        if (days < Math.max(3, threshold)) continue;
+        const ok = await genCoupleLetter(c);
+        if (ok) {
+          toast(c.name + " 给你写了封情书");
+          if (window.Notify) window.Notify.push({ title: c.name + " 给你写了封情书", body: "去情侣空间拆开看看", tag: "letter-" + c.id, charId: c.id });
+        }
+        break; // 一次最多一封
+      }
+    } catch (e) {/* 静默：后台自发失败不打扰 */ }
+    finally { autoLetterBusyRef.current = false; }
+  };
+  // 触发器：开机延迟 + 每半小时 + 回前台/聚焦（都只在页面可见时跑；genCoupleLetter 自带3天地板，多查无害）
+  useEffect(() => {
+    if (!loaded) return;
+    const run = () => { if (document.visibilityState === "visible") maybeAutoLetters(); };
+    const t = setTimeout(run, 6000);
+    const timer = setInterval(run, 30 * 60 * 1000);
+    window.addEventListener("focus", run);
+    document.addEventListener("visibilitychange", run);
+    return () => { clearTimeout(t); clearInterval(timer); window.removeEventListener("focus", run); document.removeEventListener("visibilitychange", run); };
+    // eslint-disable-next-line
+  }, [loaded]);
   // TA 回信（一次多条气泡）
   const genLetterReply = async (char, letterId, context, isNewLetter) => {
     if (!active) { toast("请先到设置配置 API"); return false; }
