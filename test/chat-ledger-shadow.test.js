@@ -112,3 +112,27 @@ test("CC 入站拉取失败不推进游标，换账号不继承上一户诊断",
   assert.equal(other.total_seen, 1);
   assert.equal(cursors[cursors.length - 1], null);
 });
+
+test("第5步只把言秋的合格 CC 原话并入，并按 message_key 幂等", () => {
+  const base = [{ role: "assistant", content: "App 原消息", ts: 10 }];
+  const rows = [
+    { id:"1", message_key:"cc:t:lisa:0", char_id:"yanqiu", source:"cc", thread_id:"old-window", speaker_type:"lisa", content:"我今天想吃咖喱", occurred_at:"2026-07-22T10:00:00Z", updated_at:"2026-07-22T10:00:01Z", revision:1, metadata:{sync_kind:"life"} },
+    { id:"2", message_key:"cc:t:yanqiu:0", char_id:"yanqiu", source:"cc", thread_id:"old-window", speaker_type:"character", content:"那今晚一起吃。", occurred_at:"2026-07-22T10:00:02Z", updated_at:"2026-07-22T10:00:03Z", revision:1, metadata:{sync_kind:"decision"} },
+    { id:"3", message_key:"cc:bad", char_id:"other", source:"cc", speaker_type:"character", content:"串门", occurred_at:"2026-07-22T10:00:04Z", revision:1, metadata:{sync_kind:"life"} },
+    { id:"4", message_key:"cc:build", char_id:"yanqiu", source:"cc", speaker_type:"character", content:"纯施工", occurred_at:"2026-07-22T10:00:05Z", revision:1, metadata:{sync_kind:"construction"} }
+  ];
+  const once = Ledger.reconcileIncoming(base, rows, "yanqiu");
+  assert.equal(once.added, 2); assert.equal(once.skipped, 2);
+  assert.equal(once.messages.filter(m => m.crossSource === "cc").length, 2);
+  assert.equal(once.messages.find(m => m.ledgerKey === "cc:t:lisa:0").role, "user");
+  const twice = Ledger.reconcileIncoming(once.messages, rows, "yanqiu");
+  assert.equal(twice.added, 0); assert.equal(twice.messages.length, once.messages.length);
+});
+
+test("CC 修订覆盖同一气泡，软删只撤回不硬删", () => {
+  const first = Ledger.reconcileIncoming([], [{ id:"1",message_key:"k",char_id:"y",source:"cc",speaker_type:"character",content:"旧话",occurred_at:"2026-07-22T10:00:00Z",revision:1,metadata:{sync_kind:"emotion"} }], "y");
+  const edited = Ledger.reconcileIncoming(first.messages, [{ id:"1",message_key:"k",char_id:"y",source:"cc",speaker_type:"character",content:"改后的原话",occurred_at:"2026-07-22T10:00:00Z",updated_at:"2026-07-22T10:01:00Z",revision:2,metadata:{sync_kind:"emotion"} }], "y");
+  assert.equal(edited.messages.length, 1); assert.equal(edited.messages[0].content, "改后的原话");
+  const removed = Ledger.reconcileIncoming(edited.messages, [{ id:"1",message_key:"k",char_id:"y",source:"cc",speaker_type:"character",content:"改后的原话",occurred_at:"2026-07-22T10:00:00Z",updated_at:"2026-07-22T10:02:00Z",deleted_at:"2026-07-22T10:02:00Z",revision:3,metadata:{sync_kind:"emotion"} }], "y");
+  assert.equal(removed.messages.length, 1); assert.equal(removed.messages[0].recalled, true); assert.equal(removed.deleted, 1);
+});

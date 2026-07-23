@@ -11,6 +11,7 @@
   const DELETE_OUTBOX_KEY = "chat_ledger_delete_outbox_v1";
   const DIAG_KEY = "chat_ledger_shadow_diag_v1";
   const PULL_KEY = "chat_ledger_pull_shadow_v1";
+  const LIVE_CURSOR_KEY = "chat_ledger_live_cursor_v1";
   const THREAD_TYPES = new Set(["private", "offline", "group", "group_offline"]);
   const BLOCKED_KINDS = new Set(["system", "ooc", "thought", "thinking", "cot", "silence", "offlinelog"]);
 
@@ -130,6 +131,42 @@
     return added;
   }
 
+  // 第 5 步：把 CC/Stack-chan 的合格逐字句段投影成 App 私聊消息。
+  // 纯函数只负责核验、幂等、修订与软删；真正落盘和游标提交由 App 按“先消息、后游标”完成。
+  function reconcileIncoming(existing, incoming, charId) {
+    const allowedKinds = new Set(["life", "emotion", "decision", "joke"]);
+    const cid = String(charId || ""), list = asArray(existing).slice();
+    const byKey = new Map();
+    list.forEach((m, index) => { if (m && m.ledgerKey) byKey.set(String(m.ledgerKey), index); });
+    let added = 0, updated = 0, deleted = 0, skipped = 0;
+    asArray(incoming).forEach(row => {
+      const meta = row && row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+      const key = text(row && row.message_key), source = text(row && row.source);
+      const kind = text(meta.sync_kind), speaker = text(row && row.speaker_type);
+      if (!key || String(row && row.char_id || "") !== cid || !["cc", "stackchan"].includes(source)
+        || !allowedKinds.has(kind) || !["lisa", "character"].includes(speaker)) { skipped++; return; }
+      const ts = Date.parse(row.occurred_at), safeTs = Number.isFinite(ts) ? ts : Date.now();
+      const revision = Math.max(1, Number(row.revision) || 1), isDeleted = !!row.deleted_at;
+      const next = {
+        id: "ledger:" + String(row.id || key), ledgerKey: key, ledgerRevision: revision,
+        ledgerUpdatedAt: row.updated_at || null, ledgerImported: true, crossSource: source,
+        crossThreadId: row.thread_id || null, syncKind: kind,
+        role: speaker === "lisa" ? "user" : "assistant", content: text(row.content),
+        ts: safeTs, read: speaker === "lisa", recalled: isDeleted
+      };
+      if (!byKey.has(key)) {
+        list.push(next); byKey.set(key, list.length - 1); added++; if (isDeleted) deleted++;
+        return;
+      }
+      const index = byKey.get(key), prev = list[index] || {};
+      if (revision <= Number(prev.ledgerRevision || 0) && !!prev.recalled === isDeleted) return;
+      list[index] = { ...prev, ...next };
+      updated++; if (isDeleted && !prev.recalled) deleted++;
+    });
+    list.sort((a, b) => Number(a && a.ts || 0) - Number(b && b.ts || 0));
+    return { messages: list, added, updated, deleted, skipped };
+  }
+
   function createManager(options) {
     options = options || {};
     const storage = options.storage || root.localStorage;
@@ -208,7 +245,7 @@
     };
     const flush = () => { chain = chain.catch(() => {}).then(internalFlush); return chain; };
     const status = () => ({ outbox: parse(storage, OUTBOX_KEY, []), deleteOutbox: parse(storage, DELETE_OUTBOX_KEY, []), diagnostic: parse(storage, DIAG_KEY, {}) });
-    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(DIAG_KEY); };
+    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(DIAG_KEY); storage.removeItem(LIVE_CURSOR_KEY); };
     return { enqueue, invalidate, flush, status, clearLocal };
   }
 
@@ -284,8 +321,8 @@
   const manager = root.localStorage ? createManager() : null;
   const pullObserver = root.localStorage ? createPullObserver() : null;
   return {
-    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, PULL_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
-    rowsFor, addedSessionMessages, createManager, createPullObserver,
+    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, PULL_KEY, LIVE_CURSOR_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
+    rowsFor, addedSessionMessages, reconcileIncoming, createManager, createPullObserver,
     enqueue: manager ? manager.enqueue : async () => ({ queued: 0, pending: 0 }),
     invalidate: manager ? manager.invalidate : async () => ({ sent: 0, pending: 0 }),
     flush: manager ? manager.flush : async () => ({ sent: 0, pending: 0 }),

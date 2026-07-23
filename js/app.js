@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.20";
+const APP_VERSION = "v50.21";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -735,6 +735,54 @@ function App() {
     const timer = setInterval(flush, 60000); setTimeout(flush, 3000);
     return () => { window.removeEventListener("online", flush); window.removeEventListener("focus", flush); document.removeEventListener("visibilitychange", visible); clearInterval(timer); };
   }, [characters, chatSettings]);
+  // 第 5 步 live：CC 原话只合并进唯一言秋私聊。先把完整新时间线写入本地，再提交独立游标；
+  // 任一步失败都原位重拉，reconcileIncoming 以 message_key 幂等，不会重复气泡。
+  useEffect(() => {
+    if (!loaded || !window.ChatLedgerShadow || localStorage.getItem("chat_ledger_live_off") === "1") return;
+    let dead = false, busy = false;
+    const sync = async () => {
+      if (dead || busy) return;
+      busy = true;
+      try {
+        const y = ledgerYanqiu(), user = window.Cloud && await window.Cloud.getSessionUser();
+        if (!y || !user) return;
+        const key = window.ChatLedgerShadow.LIVE_CURSOR_KEY;
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+        const owner = String(user.id), before = saved && saved.owner_id === owner && String(saved.char_id) === String(y.id) ? saved : { owner_id: owner, char_id: String(y.id), cursor: null };
+        let cursor = before.cursor || null, rows = [];
+        for (let pageNo = 0; pageNo < 5; pageNo++) {
+          const page = await window.Cloud.chatMessagesPullShadow(y.id, cursor, 100);
+          const batch = Array.isArray(page && page.rows) ? page.rows : [];
+          rows = rows.concat(batch); cursor = page && page.nextCursor ? page.nextCursor : cursor;
+          if (batch.length < 100) break;
+        }
+        if (!rows.length) {
+          localStorage.setItem(key, JSON.stringify({ ...before, cursor, last_success_at: new Date().toISOString(), last_error: null }));
+          return;
+        }
+        const current = chatsRef.current[y.id] || [];
+        const result = window.ChatLedgerShadow.reconcileIncoming(current, rows, y.id);
+        // saveJSON 抛错时下面游标绝不执行；下一次仍从旧 cursor 重试。
+        saveJSON("x_chat:" + y.id, result.messages);
+        chatsRef.current = { ...chatsRef.current, [y.id]: result.messages };
+        if (!dead) setChats(p => ({ ...p, [y.id]: result.messages }));
+        localStorage.setItem(key, JSON.stringify({ owner_id: owner, char_id: String(y.id), cursor, last_success_at: new Date().toISOString(), imported: Number(before.imported || 0) + result.added, updated: Number(before.updated || 0) + result.updated, deleted: Number(before.deleted || 0) + result.deleted }));
+        const newUnread = rows.filter(r => r && !r.deleted_at && r.speaker_type === "character").filter(r => !current.some(m => m && m.ledgerKey === r.message_key)).length;
+        const viewing = viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(y.id);
+        if (newUnread && !viewing) bumpUnread(y.id, newUnread);
+      } catch (e) {
+        try {
+          const key = window.ChatLedgerShadow.LIVE_CURSOR_KEY, old = JSON.parse(localStorage.getItem(key) || "null") || {};
+          localStorage.setItem(key, JSON.stringify({ ...old, last_error: String((e && e.message) || e), last_attempt_at: new Date().toISOString() }));
+        } catch (_) {}
+      } finally { busy = false; }
+    };
+    const visible = () => { if (document.visibilityState === "visible") sync(); };
+    sync(); const retry = setTimeout(sync, 3000), timer = setInterval(sync, 60000);
+    window.addEventListener("online", sync); window.addEventListener("focus", sync); document.addEventListener("visibilitychange", visible);
+    return () => { dead = true; clearTimeout(retry); clearInterval(timer); window.removeEventListener("online", sync); window.removeEventListener("focus", sync); document.removeEventListener("visibilitychange", visible); };
+  }, [loaded, characters, chatSettings]);
   // E 潮汐 shadow：旁路记状态，任何失败都不能影响消息落盘或角色回复。
   const noteTidalUser = (text, ts) => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onUserMessage(text, ts); } catch (e) {} };
   useEffect(() => {
@@ -1277,7 +1325,8 @@ function App() {
       if (!user) throw new Error("请先登录云端账号");
       const s = await window.ChatLedgerShadow.observePull({ ownerId: user.id, charId: y.id });
       const b = s.last_batch || {};
-      toast("CC 回流影子：累计看见 " + Number(s.total_seen || 0) + " 行 · 本轮 " + Number(b.rows || 0) + " · 软删 " + Number(s.deleted_seen || 0) + " · 当前不注入 App" + (s.last_error ? " · 拉取失败待重试" : ""));
+      let live = null; try { live = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.LIVE_CURSOR_KEY) || "null"); } catch (e) {}
+      toast("CC 回流：影子累计 " + Number(s.total_seen || 0) + " 行 · 已并入 App " + Number(live && live.imported || 0) + " 条 · 修订 " + Number(live && live.updated || 0) + " · 软删 " + Number(live && live.deleted || 0) + (live && live.last_error ? " · 合并失败待重试" : " · 言秋专属已开阀"));
     } catch (e) { toast("CC 回流影子尚未就绪：" + String((e && e.message) || e)); }
   };
   const enableMemoryTableAuthority = async () => {
@@ -8070,7 +8119,15 @@ function App() {
     onOOC: text => oocReply(activeChar.id, text),
     onDeleteMessages: indices => {
       const set = new Set(indices);
-      pChat(activeChar.id, p => p.filter((_, i) => !set.has(i)));
+      const picked = (chatsRef.current[activeChar.id] || []).filter((_, i) => set.has(i));
+      const imported = picked.filter(m => m && m.ledgerImported && m.ledgerKey);
+      // 跨端原话只能软删：本地先变成撤回占位，云端再盖 tombstone；普通本地消息保持原来的本机删除行为。
+      pChat(activeChar.id, p => p.map((m, i) => set.has(i) && m && m.ledgerImported ? { ...m, recalled: true } : m).filter((m, i) => !set.has(i) || (m && m.ledgerImported)));
+      if (imported.length && window.Cloud) window.Cloud.chatMessagesSoftDelete(imported.map(m => m.ledgerKey)).catch(e => {
+        const failed = new Set(imported.map(m => m.ledgerKey));
+        pChat(activeChar.id, p => p.map(m => m && failed.has(m.ledgerKey) ? { ...m, recalled: false } : m));
+        toast("跨端消息云端没删成，已恢复，请联网后重试：" + String((e && e.message) || e));
+      });
       toast("已删除 " + indices.length + " 条");
     },
     onForward: (msgs, toChar) => {
