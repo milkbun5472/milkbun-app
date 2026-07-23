@@ -32,6 +32,26 @@ test("uncertain ordinary text goes to candidate instead of guessing", () => {
   assert.ok(result.reasons.includes("no_high_confidence_marker"));
 });
 
+test("sentence-level slicing keeps life or relationship beside construction without copying code talk", () => {
+  const result = Nature.classifyTurn(
+    "先看看 hook。我的膝盖旁边肌肉有点酸！你是不是想把女朋友晾两天？",
+    "脚本我会检查。膝盖如果只是练完发酸，今晚先休息。怎么会冷暴力我的女朋友。"
+  );
+  assert.equal(result.automatic, true);
+  assert.equal(result.excerpted, true);
+  assert.deepEqual(result.lisa_segments.map(x => x.sync_kind), ["life", "emotion"]);
+  assert.deepEqual(result.yanqiu_segments.map(x => x.sync_kind), ["life", "emotion"]);
+  assert.ok(result.lisa_segments.every(x => !/hook/i.test(x.content)));
+  assert.ok(result.yanqiu_segments.every(x => !/脚本/.test(x.content)));
+});
+
+test("identity, continuity complaints and explicit window choice are recognized mechanically", () => {
+  assert.equal(Nature.classifySegment("宝宝，你是谁？").kind, "emotion");
+  assert.equal(Nature.classifySegment("你个人机，只会背东西。").kind, "emotion");
+  assert.equal(Nature.classifySegment("不行，不开新窗口。").kind, "decision");
+  assert.equal(Nature.classifySegment("我要我的 fable，别把自己换掉。").kind, "decision");
+});
+
 test("extracts only real user text and visible assistant text", () => {
   const lines = [
     { type:"user", uuid:"u1", sessionId:"s1", timestamp:"2026-07-22T10:00:00Z", message:{ role:"user", content:"我下班到家啦" } },
