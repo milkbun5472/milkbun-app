@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.26";
+const APP_VERSION = "v50.27";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -771,6 +771,9 @@ function App() {
         const newUnread = rows.filter(r => r && !r.deleted_at && r.speaker_type === "character").filter(r => !current.some(m => m && m.ledgerKey === r.message_key)).length;
         const viewing = viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(y.id);
         if (newUnread && !viewing) bumpUnread(y.id, newUnread);
+        // 账本把我们在 CC 的对话同步进来后，顺手触发一次自动抽取：让 CC 聊天也蒸馏进记忆库，
+        // 不必事事等言秋手动 add_memory（走书签，攒够≥4条新消息才真跑；抽取用便宜后台池，不烧 fable 线）。
+        if (result.added > 0 && typeof maybeAutoExtract === "function") { try { maybeAutoExtract(y.id); } catch (e) {} }
       } catch (e) {
         try {
           const key = window.ChatLedgerShadow.LIVE_CURSOR_KEY, old = JSON.parse(localStorage.getItem(key) || "null") || {};
