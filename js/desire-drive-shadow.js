@@ -12,15 +12,21 @@
   const EVENTS = { message:{attachment:-5,intimacy:3,joy:2,social:-4}, time:{} };
   const hash = v => { let h=5381,s=String(v||""); for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))>>>0; return h.toString(36); };
   const clamp = v => Math.max(0,Math.min(100,Number(v)||0));
-  const fresh = c => ({ c, drives:Object.fromEntries(Object.entries(CFG).map(([k,v])=>[k,v[0]])), baselines:Object.fromEntries(Object.entries(CFG).map(([k,v])=>[k,v[0]])), t:Date.now(), ticks:0 });
+  const frozenBaselines = () => Object.fromEntries(Object.entries(CFG).map(([k,v])=>[k,v[0]]));
+  const fresh = c => ({ c, drives:frozenBaselines(), baselines:frozenBaselines(), baselineFreezeVersion:1, t:Date.now(), ticks:0 });
   function step(raw, event, now) {
     const s = raw ? JSON.parse(JSON.stringify(raw)) : fresh("test"), at=now||Date.now(), hours=Math.max(.05,Math.min(24,(at-(s.t||at))/3600000));
+    const priorBaselines = s.baselines || {};
+    const drifted = Object.keys(CFG).some(k=>Math.abs((Number(priorBaselines[k])||CFG[k][0])-CFG[k][0])>.01);
+    // 九维只作为旧引擎对账，baseline 按批准方案永久冻结。旧版 EMA 漂移值留一份审计快照后原位迁正，
+    // 不删 drives、不删 audits，也不再让短期高低潮反写角色的长期性情。
+    if(drifted && !s.legacyBaselineDrift) s.legacyBaselineDrift={ detectedAt:at, values:Object.fromEntries(Object.keys(CFG).map(k=>[k,Number(priorBaselines[k])||CFG[k][0]])) };
+    s.baselines=frozenBaselines(); s.baselineFreezeVersion=1;
     Object.entries(CFG).forEach(([k,v])=>{ const base=s.baselines[k], cur=s.drives[k]; let d=v[1]*hours; d += cur>base ? -v[2]*hours : cur<base ? v[2]*hours : 0; s.drives[k]=clamp(cur+d); });
     const pending=Object.fromEntries(Object.keys(CFG).map(k=>[k,0]));
     COUPLE.forEach(([a,b,n])=>{ pending[b]+=(s.drives[a]-s.baselines[a])/100*n*10*Math.min(1,hours); });
     Object.keys(pending).forEach(k=>{ s.drives[k]=clamp(s.drives[k]+pending[k]); });
     Object.entries(EVENTS[event]||{}).forEach(([k,d])=>{ const cur=s.drives[k], surprise=1+(d<0?cur:100-cur)/200; s.drives[k]=clamp(cur+d*surprise); });
-    Object.keys(CFG).forEach(k=>{ s.baselines[k]=clamp(.995*s.baselines[k]+.005*s.drives[k]); });
     s.t=at; s.ticks=(s.ticks||0)+1;
     const ranked=Object.keys(CFG).map(k=>({ key:k,value:Math.round(s.drives[k]*10)/10,delta:Math.round((s.drives[k]-s.baselines[k])*10)/10 })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
     s.top=ranked.slice(0,4); s.warnings=[];
