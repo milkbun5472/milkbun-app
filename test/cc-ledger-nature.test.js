@@ -1,0 +1,47 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const Nature = require("../scripts/cc-ledger-nature.cjs");
+
+test("high-confidence life turn syncs without another model call", () => {
+  const result = Nature.classifyTurn("我下班到家啦，今晚吃咖喱", "好，我也刚吃完晚饭。");
+  assert.equal(result.automatic, true);
+  assert.equal(result.lisa_segments[0].sync_kind, "life");
+  assert.equal(result.yanqiu_segments[0].sync_kind, "life");
+});
+
+test("construction and mixed construction stay out of the app ledger", () => {
+  const result = Nature.classifyTurn(
+    "宝宝修一下这个 hook，我好开心",
+    "已经 commit 并 push，测试通过。"
+  );
+  assert.equal(result.automatic, false);
+  assert.equal(result.skipConstruction, false);
+  assert.ok(result.reasons.includes("mixed_with_construction"));
+  assert.ok(result.reasons.includes("construction"));
+});
+
+test("pure construction is skipped instead of filling the candidate box", () => {
+  const result = Nature.classifyTurn("修一下这个 hook bug", "已经 commit 并 push，测试通过。");
+  assert.equal(result.automatic, false);
+  assert.equal(result.skipConstruction, true);
+});
+
+test("uncertain ordinary text goes to candidate instead of guessing", () => {
+  const result = Nature.classifyTurn("好的宝宝", "我看到了。");
+  assert.equal(result.automatic, false);
+  assert.ok(result.reasons.includes("no_high_confidence_marker"));
+});
+
+test("extracts only real user text and visible assistant text", () => {
+  const lines = [
+    { type:"user", uuid:"u1", sessionId:"s1", timestamp:"2026-07-22T10:00:00Z", message:{ role:"user", content:"我下班到家啦" } },
+    { type:"assistant", uuid:"a-thinking", sessionId:"s1", message:{ role:"assistant", content:[{ type:"thinking", thinking:"hidden" }] } },
+    { type:"assistant", uuid:"a1", sessionId:"s1", message:{ role:"assistant", content:[{ type:"text", text:"我也到家了。" }] } },
+    { type:"assistant", uuid:"tool", sessionId:"s1", message:{ role:"assistant", content:[{ type:"tool_use", name:"Read" }] } },
+    { type:"user", uuid:"tool-result", sessionId:"s1", message:{ role:"user", content:[{ type:"tool_result", content:"secret" }] } }
+  ];
+  assert.deepEqual(Nature.extractLastTurn(lines), {
+    sessionId:"s1", turnId:"u1", occurredAt:"2026-07-22T10:00:00Z",
+    lisaText:"我下班到家啦", yanqiuText:"我也到家了。", lastAssistantUuid:"a1"
+  });
+});
