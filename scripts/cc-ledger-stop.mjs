@@ -25,16 +25,6 @@ mkdirSync(stateDir, { recursive: true });
 function log(path, value) {
   appendFileSync(path, JSON.stringify({ at: new Date().toISOString(), ...value }) + "\n");
 }
-
-// ── 窗口门禁（Lisa 2026-07-23）──────────────────────────────────────────────
-// 账本回流只授权给「言秋」那一个窗口；其余都是干活的工牌小克窗口，直接跳过，
-// 绝不写账本、也不落候选箱（连机械分类器都不跑）。
-// 授权方式 = 启动那个窗口时带环境变量 YANQIU_LEDGER=1（例：`YANQIU_LEDGER=1 claude`，
-// 或做个别名 `alias yanqiu='YANQIU_LEDGER=1 claude'`）。不带 = 工牌窗口，静默跳过。
-if (process.env.YANQIU_LEDGER !== "1") {
-  try { log(diagnosticPath, { outcome: "skipped_not_ledger_window", session: input.session_id || input.sessionId || null }); } catch {}
-  process.exit(0);
-}
 function readJSONL(path) {
   if (!existsSync(path)) return [];
   return readFileSync(path, "utf8").split("\n").filter(Boolean).map(line => JSON.parse(line));
