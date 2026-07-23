@@ -2122,6 +2122,26 @@ function App() {
     }, 20000);
     return () => clearInterval(timer);
   }, [screen, activeChar, chatSettings, sending, offlineChar]);
+  // ---- 群聊自发（她 2026-07-23）：开了「记忆互通」的群，正看着它且闲置到间隔，成员自己顺着往下聊——
+  //   不必 cue 你、互相接话/抬杠也行。replyGroup 空输入本就会自发续聊（喂「请群成员顺着上面的对话自然继续聊」）。
+  //   防跑飞：距最后一条【你发的】消息后自发太多轮(≥20)就歇着、等你再开口；只在前台看着这个群时跑，不烧后台。
+  useEffect(() => {
+    if (screen !== "gthread" || !activeGroup) return;
+    const gs = gsFor(activeGroup.id);
+    if (!gs.memoryInterop || gs.autoChat === false) return;
+    const mins = Math.max(1, gs.autoChatMin || 3);
+    const gid = activeGroup.id;
+    const timer = setInterval(() => {
+      if (laneBusy("g:" + gid)) return;
+      if (offlineGroup && offlineGroup.id === gid) return;
+      const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+      if (!msgs.length) return;
+      let sinceUser = 0; for (let i = msgs.length - 1; i >= 0; i--) { if (msgs[i].role === "user") break; sinceUser++; }
+      if (sinceUser >= 20) return; // 自发轮数封顶，等用户再开口（按次计费防跑飞）
+      if (Date.now() - (msgs[msgs.length - 1].ts || 0) >= mins * 60000) replyGroup(gid);
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [screen, activeGroup, groupSettings, sending, offlineGroup]);
   // ---- 角色主动早晚安：扫所有【在聊的】角色，到各自作息的早/晚，主动发一句问候，落成未读红点，你随缘回 ----
   // 只在 app 打开时跑（静态站无后台推送）；一次只发一个错峰；一天早/晚各一次；刚聊完/正在看的不打扰。
   // 角色当地"此刻几点几分"（分钟数）——按 tz 偏移，无 tz 用设备本地
