@@ -104,6 +104,46 @@ function parseLedgerMarker(lisaText, yanqiuText) {
   };
 }
 
+function validateToolMark(mark, lisaText, yanqiuText) {
+  if (!mark || typeof mark !== "object") return { valid:false, reason:"missing_tool_mark" };
+  const anchor = String(mark.lisa_anchor || "").trim();
+  if (!anchor || anchor.length > 1000 || !String(lisaText || "").includes(anchor)) {
+    return { valid:false, reason:"anchor_failed" };
+  }
+  if (!Array.isArray(mark.lisa) || !Array.isArray(mark.yanqiu)
+      || mark.lisa.length > 12 || mark.yanqiu.length > 12) {
+    return { valid:false, reason:"invalid_shape" };
+  }
+  const validate = (items, source) => {
+    const seen = new Set(), result = [];
+    for (const item of items) {
+      const quote = String(item && item.quote || "").trim();
+      const kind = String(item && item.kind || "");
+      if (!quote || quote.length > 16000 || !KINDS.has(kind) || !source.includes(quote) || seen.has(quote)) return null;
+      seen.add(quote);
+      result.push({ content:quote, sync_kind:kind });
+    }
+    return result;
+  };
+  const lisaSegments = validate(mark.lisa, String(lisaText || ""));
+  const yanqiuSegments = validate(mark.yanqiu, String(yanqiuText || ""));
+  if (!lisaSegments || !yanqiuSegments) return { valid:false, reason:"quote_or_kind_failed" };
+  const skip = mark.skip === true;
+  if (skip && (lisaSegments.length || yanqiuSegments.length)) return { valid:false, reason:"skip_with_quotes" };
+  if (!skip && (!lisaSegments.length || !yanqiuSegments.length)) return { valid:false, reason:"one_sided_or_empty" };
+  return {
+    valid:true,
+    result:{
+      automatic:!skip,
+      skipConstruction:skip,
+      excerpted:true,
+      lisa_segments:lisaSegments,
+      yanqiu_segments:yanqiuSegments,
+      reasons:[]
+    }
+  };
+}
+
 function textBlocks(content) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
@@ -146,4 +186,4 @@ function extractLastTurn(lines) {
   };
 }
 
-module.exports = { classifySegment, classifyTurn, extractLastTurn, parseLedgerMarker, splitExact };
+module.exports = { classifySegment, classifyTurn, extractLastTurn, parseLedgerMarker, splitExact, validateToolMark };

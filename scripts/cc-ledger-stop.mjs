@@ -5,7 +5,7 @@ import { createHash } from "crypto";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const { classifyTurn, extractLastTurn, parseLedgerMarker } = require("./cc-ledger-nature.cjs");
+const { classifyTurn, extractLastTurn, parseLedgerMarker, validateToolMark } = require("./cc-ledger-nature.cjs");
 
 const input = await new Promise(resolve => {
   let body = "";
@@ -19,6 +19,7 @@ const stateDir = join(projectDir, ".claude", "cc-ledger-state");
 const outboxPath = join(stateDir, "outbox.jsonl");
 const candidatePath = join(stateDir, "candidates.jsonl");
 const diagnosticPath = join(stateDir, "diagnostic.jsonl");
+const toolMarksPath = join(stateDir, "tool-marks.jsonl");
 mkdirSync(stateDir, { recursive: true });
 
 function log(path, value) {
@@ -119,15 +120,37 @@ async function flushOutbox() {
   replaceJSONL(outboxPath, remaining);
 }
 
+function consumeToolMark(turn) {
+  const now = Date.now();
+  const rows = readJSONL(toolMarksPath);
+  const fresh = rows.filter(x => Number.isFinite(Date.parse(x.created_at)) && now - Date.parse(x.created_at) < 30 * 60000);
+  let picked = -1, validation = null;
+  for (let i = fresh.length - 1; i >= 0; i--) {
+    const anchor = String(fresh[i] && fresh[i].lisa_anchor || "").trim();
+    if (!anchor || !turn.lisaText.includes(anchor)) continue;
+    picked = i;
+    validation = validateToolMark(fresh[i], turn.lisaText, turn.yanqiuText);
+    break;
+  }
+  if (picked >= 0) fresh.splice(picked, 1);
+  replaceJSONL(toolMarksPath, fresh);
+  return validation;
+}
+
 try {
   await flushOutbox();
   const transcriptPath = String(input.transcript_path || "");
   if (!transcriptPath || !existsSync(transcriptPath)) throw new Error("transcript missing");
   const turn = extractLastTurn(readFileSync(transcriptPath, "utf8").split("\n").filter(Boolean));
   if (!turn || !turn.sessionId || !turn.turnId) throw new Error("complete visible turn missing");
+  const toolMark = consumeToolMark(turn);
   const marker = parseLedgerMarker(turn.lisaText, turn.yanqiuText);
-  const result = marker.valid ? marker.result : classifyTurn(turn.lisaText, marker.cleanYanqiuText);
-  const decisionSource = marker.valid ? "yanqiu_marker" : "mechanical_fallback";
+  const result = toolMark && toolMark.valid
+    ? toolMark.result
+    : marker.valid ? marker.result : classifyTurn(turn.lisaText, marker.cleanYanqiuText);
+  const decisionSource = toolMark && toolMark.valid
+    ? "yanqiu_tool"
+    : marker.valid ? "legacy_yanqiu_marker" : "mechanical_fallback";
   const job = {
     session_id: turn.sessionId,
     turn_id: turn.turnId,
@@ -166,6 +189,7 @@ try {
       outcome: "candidate",
       decision_source: decisionSource,
       marker_error: marker.present && !marker.valid ? marker.reason : undefined,
+      tool_error: toolMark && !toolMark.valid ? toolMark.reason : undefined,
       reasons: result.reasons
     });
   }

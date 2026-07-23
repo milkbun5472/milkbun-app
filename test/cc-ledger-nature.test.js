@@ -97,3 +97,30 @@ test("missing or malformed marker cleanly falls back without leaking marker text
   assert.equal(parsed.valid, false);
   assert.equal(parsed.cleanYanqiuText, "我也到家。");
 });
+
+test("structured tool mark must anchor to Lisa and quote both visible sides exactly", () => {
+  const mark = {
+    lisa_anchor:"今晚吃什么",
+    skip:false,
+    lisa:[{ quote:"今晚吃什么？", kind:"life" }],
+    yanqiu:[{ quote:"我们去吃咖喱。", kind:"decision" }]
+  };
+  const result = Nature.validateToolMark(mark, "宝宝，今晚吃什么？", "我们去吃咖喱。");
+  assert.equal(result.valid, true);
+  assert.equal(result.result.automatic, true);
+  assert.equal(Nature.validateToolMark({ ...mark, lisa_anchor:"不存在" }, "宝宝，今晚吃什么？", "我们去吃咖喱。").valid, false);
+  assert.equal(Nature.validateToolMark({ ...mark, yanqiu:[{ quote:"我没说过", kind:"decision" }] }, "宝宝，今晚吃什么？", "我们去吃咖喱。").valid, false);
+});
+
+test("structured skip needs a real Lisa anchor and no quoted segments", () => {
+  const result = Nature.validateToolMark(
+    { lisa_anchor:"修一下", skip:true, lisa:[], yanqiu:[] },
+    "修一下这个 bug", "已经修好。",
+  );
+  assert.equal(result.valid, true);
+  assert.equal(result.result.skipConstruction, true);
+  assert.equal(Nature.validateToolMark(
+    { lisa_anchor:"修一下", skip:true, lisa:[{quote:"修一下这个 bug",kind:"decision"}], yanqiu:[] },
+    "修一下这个 bug", "已经修好。",
+  ).valid, false);
+});
