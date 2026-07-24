@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.41";
+const APP_VERSION = "v50.42";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1690,7 +1690,7 @@ function App() {
     toast("已恢复归档记忆、撤除对应精炼摘要");
   };
   // 共享抽取：把 msgs 抽成记忆条、双重去重后入库，返回实际新增条数（手动/自动共用）
-  const extractAndAddForChar = async (charId, msgs) => {
+  const extractAndAddForChar = async (charId, msgs, exOpts = {}) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !msgs || !msgs.length) return 0;
     // 防并发：同一角色的抽取在跑就直接跳过（省一次 API，也避免 lost-write 竞态）
@@ -1712,7 +1712,7 @@ function App() {
       // 审查修：resolveOpen 用 == null 判（空串/0 也是 resolveOpen 元素），且必须真有 text——
       // 否则 {"resolveOpen":""} 会漏进来变成一条 text="undefined" 的垃圾记忆入库上云
       // 抽取期间若用户 reroll 掉旧分支，旧结果即使稍后返回也不得落库。
-      const liveMessages = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m));
+      const liveMessages = exOpts.liveMessages || (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m));
       const entries = items.filter(it => it && it.resolveOpen == null && it.text && window.RerollBranch && window.RerollBranch.candidateStillLive(it, liveMessages)).map((it, i) => ({
         id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
         v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
@@ -2509,6 +2509,31 @@ function App() {
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
     finally { offSumBusyRef.current[charId] = false; }
   };
+  // 线下自动抽取（她 2026-07-23：自动抽取也加进线下）：仿线上 maybeAutoExtract，但读【进行中线下 session】的 msgs，
+  //   走独立书签/计数，liveMessages 传线下自己这段（否则线上核验会把线下证据全过滤掉）。与滚动总结并行、各抽各的粒度。
+  const memExtractCtrOffRef = useRef({});
+  const memExtractMarkOffRef = useRef({});
+  const maybeAutoExtractOffline = async charId => {
+    const cfg = memCfgRef.current;
+    if (!cfg.autoExtract || !active) return;
+    const sess = (offlinesRef.current[charId] || []).find(s => s && !s.endTs);
+    if (!sess) return;
+    const interval = Math.max(1, cfg.extractInterval || 1);
+    const cnt = (memExtractCtrOffRef.current[charId] || 0) + 1;
+    memExtractCtrOffRef.current[charId] = cnt;
+    if (cnt % interval !== 0) return;
+    const all = (sess.msgs || []).filter(m => m && m.kind !== "ooc");
+    if (all.length < 4) return;
+    const mark = memExtractMarkOffRef.current[charId] || 0;
+    const newCount = all.filter(m => (m.ts || 0) > mark).length;
+    if (mark && newCount < 4) return;
+    const take = Math.min(120, Math.max(24, newCount + 4));
+    const msgs = all.slice(-take);
+    try {
+      await extractAndAddForChar(charId, msgs, { liveMessages: all });
+      memExtractMarkOffRef.current[charId] = all[all.length - 1].ts || Date.now();
+    } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
+  };
   const genOfflineFrom = async (charId, workSess) => {
     const char = characters.find(c => c.id === charId);
     if (!active) {
@@ -2565,6 +2590,7 @@ function App() {
       if (res.thought) ost.thought = res.thought;
       if (Object.keys(ost).length) { const liveState = statesRef.current[charId] || {}; const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       setTimeout(() => maybeSummarizeOffline(charId), 120); // 长线下防失忆：攒够就把早段滚动总结进记忆库（仿线上）
+      setTimeout(() => maybeAutoExtractOffline(charId), 200); // 线下也自动抽取离散记忆（她 2026-07-23）
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
