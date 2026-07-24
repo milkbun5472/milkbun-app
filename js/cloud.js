@@ -17,6 +17,12 @@
   // 开机快照：本脚本执行(app 之前)时本地是否已有存档。localStorage 跨刷新持久，
   // 只有真·新设备/新网址首次打开才空。用它守 autoPull：本地已有数据=老设备回来，本地权威，绝不自动拿云端覆盖。
   const bootHadLocal = (function () { try { return Object.keys(localStorage).some(function (k) { return k.indexOf("x_") === 0; }); } catch (e) { return false; } })();
+  // 世界书防呆（她 2026-07-24 报「世界书被同步清空」）：判断一份 x_loreEntries 原始字符串里是不是真有词条。
+  // 空数组 []、缺失、坏 JSON 都算「空」。防呆闸只在「本机非空 vs 对端空」时护本机、绝不让空覆盖非空。
+  const loreNonEmpty = function (raw) {
+    if (raw == null) return false;
+    try { const a = JSON.parse(raw); return Array.isArray(a) && a.length > 0; } catch (e) { return false; }
+  };
 
   try {
     if (window.supabase && window.supabase.createClient) {
@@ -61,6 +67,15 @@
         if (error) throw error; // 宁可这次不备份，也不带着未知状态覆盖并删掉旧记忆副本
         if (data && data.data && data.data.x_memLib != null) dump.x_memLib = data.data.x_memLib;
       }
+      // 世界书防呆（本地→推云方向）：本机世界书是空的、但云端那份还有词条 → 别用空的盖掉云端，把云端那份原样带回。
+      // 只在本机空时才多读一次云（正常有词条时零额外开销）。
+      if (!loreNonEmpty(dump.x_loreEntries)) {
+        try {
+          const { data } = await client.from("saves").select("data").eq("user_id", userId).maybeSingle();
+          const cloudLore = data && data.data && data.data.x_loreEntries;
+          if (loreNonEmpty(cloudLore)) { dump.x_loreEntries = cloudLore; try { console.warn("[Cloud] 世界书防呆：本机为空，保留云端词条，未被覆盖"); } catch (e) {} }
+        } catch (e) {/* 读云失败就照常推，不阻断整次备份 */}
+      }
       return dump;
     },
 
@@ -71,6 +86,9 @@
       try {
         // 行表权威开启后，旧 saves blob 无权再覆盖/清空本机记忆镜像。
         const keepMemLib = tableMemoryMode() ? localStorage.getItem("x_memLib") : null;
+        // 世界书防呆（拉云→本地方向）：云端这份世界书是空的、而本机还有词条 → 保留本机，绝不让空覆盖非空。
+        const localLore = localStorage.getItem("x_loreEntries");
+        const keepLore = (loreNonEmpty(localLore) && !loreNonEmpty(data && data.x_loreEntries)) ? localLore : null;
         Object.keys(localStorage)
           .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
           .forEach((k) => localStorage.removeItem(k));
@@ -78,6 +96,7 @@
           if (!(tableMemoryMode() && k === "x_memLib")) localStorage.setItem(k, v);
         });
         if (tableMemoryMode() && keepMemLib != null) localStorage.setItem("x_memLib", keepMemLib);
+        if (keepLore != null) { localStorage.setItem("x_loreEntries", keepLore); try { console.warn("[Cloud] 世界书防呆：云端为空，保留本机词条，未被覆盖"); } catch (e) {} }
       } finally {
         suspend = false;
       }
