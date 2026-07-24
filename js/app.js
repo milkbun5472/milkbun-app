@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.44";
+const APP_VERSION = "v50.45";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2152,7 +2152,16 @@ function App() {
       const totalCap = Math.max(1, gs.autoChatMaxMsg || 50);
       if (rounds >= roundCap || msgsSoFar >= totalCap) return; // 先到【轮数上限】或先到【总条数上限】——都停、等你发消息/按回复键重置
       const gap = mins * 60000 * (1 + Math.random() * 0.5); // 抖动 1~1.5×，别死板每 N 分钟一次
-      if (Date.now() - (msgs[msgs.length - 1].ts || 0) >= gap) { autoChatRoundsRef.current[gid] = rounds + 1; replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar }); } // 这轮上限 = 剩余总预算
+      if (Date.now() - (msgs[msgs.length - 1].ts || 0) < gap) return;
+      // ⭐人格/欲望驱动起聊（她 2026-07-23：角色根据人格盒子突然想聊）：载了 jiwen 的成员里得有人此刻「想联系/想聊」
+      //   (jiwen contact 触发)才起一段——不是干等计时。没有任何成员载 jiwen，就退回纯闲置触发（保证没配 jiwen 的群也自发）。
+      const gm = (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
+      let anyJiwen = false; const urgeChars = [];
+      gm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urgeChars.push(c); } });
+      if (anyJiwen && !urgeChars.length) return; // 有 jiwen 但此刻没人动念 → 不硬起，等谁真想聊
+      urgeChars.forEach(c => { try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {} }); // 泄一点，别下一tick又触发
+      autoChatRoundsRef.current[gid] = rounds + 1;
+      replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar }); // 这轮上限 = 剩余总预算
     }, 20000);
     return () => clearInterval(timer);
   }, [screen, activeGroup, groupSettings, sending, offlineGroup]);
