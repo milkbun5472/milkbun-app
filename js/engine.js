@@ -1001,6 +1001,28 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
   // resolveOpen 没有 text；旧过滤会在到达 App 前把它静默丢掉。v49.27 起保留给 RepairGate shadow，仍不执行闭环写入。
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
+// 群线下多发言人离散抽取（v50.64）：一次调用抽出离散记忆点，每点用 who 归属到正确的发言人——
+// 避免单人视角 extractMemories 把别人的话误记到一个人头上（群线下多人同台的坑）。
+async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
+  const uName = (ctx.profile && ctx.profile.name) || "用户";
+  const roster = (members || []).map(m => m && m.name).filter(Boolean);
+  const messageIdOf = (m, i) => String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i));
+  const nameOf = m => m.role === "user" ? uName : (m.role === "narration" ? "【场景】" : (m.senderName || "某人"));
+  const text = (msgs || []).map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + nameOf(m) + ": " + (m.content || "")).join("\n");
+  const avoid = Array.isArray(opts.existing) && opts.existing.length
+    ? "\n\n【这些事实已经记过了，别再抽取——换个说法也算重复，一律跳过】\n" + opts.existing.slice(0, 40).map(t => "· " + String(t).replace(/\s+/g, " ").slice(0, 60)).join("\n")
+    : "";
+  const system = "你是记忆整理助手。下面是一场【多人线下相处】的记录，在场的有用户「" + uName + "」和这些角色：" + roster.join("、") + "。抽取值得长期记住的关键事实：约定、偏好、身份/背景、重要事件、情感承诺、未完成的事。\n" +
+    "【每条怎么写】\n" +
+    "· 一句话、具体可复用；**开头用真名点明主语**（关于用户「" + uName + "」、关于某个角色自己、还是关于某两人之间）。\n" +
+    "· **每条必须给 who**：一个数组，列出这条记忆【是关于谁的】，只能从这些名字里选：" + [uName].concat(roster).join("、") + "。关于两人之间就把两个名字都放进去。\n" +
+    "· **绝对不许张冠李戴**：谁说的话、谁的经历，就记在谁名下；在场不代表相关，别把某人的事按到别人头上。分不清是谁的就别记这条。\n" +
+    "· 同一件事只记一条，忽略寒暄闲聊；每条配 1~3 个中文标签。每条标注 v（情绪愉悦度 -5~5）、a（强度 0~5）、open（是否还没了结的开环 true/false）。" + avoid + "\n" +
+    "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false}]\n没有值得记的、或都已记过，就输出 []。";
+  const raw = await callAI(p, system, [{ role: "user", content: "【多人线下记录】\n" + text }], { maxTokens: 5000 });
+  const parsed = extractJSON(raw);
+  return Array.isArray(parsed) ? parsed.filter(x => x && x.text) : [];
+}
 // 把一整团旧「长期记忆总结」拆成一条条离散事实（导入记忆库用）——同样强制主语真名、别张冠李戴
 async function splitMemoryToEntries(p, ctx, blob) {
   const uName = (ctx.profile && ctx.profile.name) || "用户";

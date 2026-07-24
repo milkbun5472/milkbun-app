@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.63";
+const APP_VERSION = "v50.64";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2921,6 +2921,50 @@ function App() {
     } catch (e) {/* 静默 */ }
     finally { gOffSumBusyRef.current[groupId] = false; }
   };
+  // 群线下多发言人自动抽取（v50.64，她 2026-07-24 点名收尾）：和单聊线下 maybeAutoExtractOffline 对齐，
+  //   但用群专用 extractGroupMemories 一次抽出离散点、每点按 who 归属到正确的成员（不误记到一个人头上）。
+  //   与滚动总结并行、各抽各的粒度；只互通群进全局记忆库（记忆分区）。走 bg 池省额度。
+  const memExtractCtrGOffRef = useRef({});
+  const memExtractMarkGOffRef = useRef({});
+  const maybeAutoExtractGroupOffline = async groupId => {
+    const cfg = memCfgRef.current;
+    if (!cfg.autoExtract || !active) return;
+    if (!gsFor(groupId).memoryInterop) return; // 记忆分区：不互通群不往全局记忆库抽
+    const group = groups.find(g => g.id === groupId); if (!group) return;
+    const sess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs);
+    if (!sess) return;
+    const interval = Math.max(1, cfg.extractInterval || 1);
+    const cnt = (memExtractCtrGOffRef.current[groupId] || 0) + 1;
+    memExtractCtrGOffRef.current[groupId] = cnt;
+    if (cnt % interval !== 0) return;
+    const all = (sess.msgs || []).filter(m => m && m.kind !== "ooc");
+    if (all.length < 4) return;
+    const mark = memExtractMarkGOffRef.current[groupId] || 0;
+    const newCount = all.filter(m => (m.ts || 0) > mark).length;
+    if (mark && newCount < 4) return;
+    const take = Math.min(120, Math.max(24, newCount + 4));
+    const win = all.slice(-take);
+    const memberIds = (group.memberIds || []).slice();
+    const members = memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
+    const nameToId = {}; members.forEach(m => { nameToId[String(m.name || "").trim()] = m.id; });
+    try {
+      const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
+      const items = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing });
+      const now = Date.now();
+      const added = [], batchSeen = [];
+      (items || []).filter(it => it && it.text).forEach((it, i) => {
+        let ids = (Array.isArray(it.who) ? it.who : []).map(n => nameToId[String(n).trim()]).filter(Boolean);
+        ids = [...new Set(ids)];
+        if (!ids.length) ids = memberIds.slice(); // who 没对上任何成员（多半只关于用户/场景）→ 宽 tag 到全体，别丢
+        const txt = String(it.text).trim();
+        if (isDupMem(txt, ids) || isDupMem(txt, ids, batchSeen)) return;
+        const entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(["线下", "群聊"]), charIds: ids, ts: now, source: "auto", pinned: false, v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open };
+        batchSeen.push(entry); added.push(entry);
+      });
+      if (added.length) saveMemLib([...added, ...pruneSubsumed(memLibRef.current, added)]);
+      memExtractMarkGOffRef.current[groupId] = all[all.length - 1].ts || Date.now();
+    } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
+  };
   const genGroupOfflineFrom = async (group, workSess) => {
     if (!active) {
       toast("请先到设置配置 API");
@@ -2984,6 +3028,7 @@ function App() {
       const _gCharBeats = (beats || []).filter(b => b && b.senderId).length;
       if (_gCharBeats && !(offlineGroup && offlineGroup.id === group.id) && viewRef.current.charId !== group.id) bumpUnread(group.id, _gCharBeats);
       setTimeout(() => maybeSummarizeGroupOffline(group.id), 120); // 群线下防失忆：攒够就滚动总结
+      setTimeout(() => maybeAutoExtractGroupOffline(group.id), 240); // 群线下多发言人离散抽取（各点按 who 归属）
     } catch (e) {
       toast("生成失败：" + (e.message || "重试"));
     } finally {
