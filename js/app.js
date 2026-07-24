@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.52";
+const APP_VERSION = "v50.53";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2179,6 +2179,29 @@ function App() {
     }, 20000);
     return () => clearInterval(timer);
   }, [screen, activeGroup, groupSettings, sending, offlineGroup]);
+  // ---- 群线下 jiwen 驱动自发（她 2026-07-23）：开着群线下浮层、闲置、群里有成员此刻「想动/想聊」(jiwen contact 触发)，
+  //   成员就自己往下演一拍（groupOfflineReply 空输入=自主续演）。没成员载 jiwen 就不自动（她手动「让他们演绎」）。
+  //   防跑飞：距你最后一句自发≥12拍就歇；泄一点思念别连发；只前台浮层开着时跑。
+  useEffect(() => {
+    if (!offlineGroup) return;
+    const gid = offlineGroup.id;
+    const timer = setInterval(() => {
+      if (laneBusy("g:" + gid)) return;
+      const sess = (groupOfflinesRef.current[gid] || []).find(s => s && !s.endTs);
+      if (!sess || !(sess.msgs || []).length) return;
+      let sinceUser = 0; for (let i = sess.msgs.length - 1; i >= 0; i--) { if (sess.msgs[i].role === "user") break; sinceUser++; }
+      if (sinceUser >= 12) return;
+      const gmm = (offlineGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
+      let anyJiwen = false; const urge = [];
+      gmm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urge.push(c); } });
+      if (!anyJiwen || !urge.length) return; // 没 jiwen 或 此刻没人动念 → 不自发（手动演绎照旧）
+      const lastTs = sess.msgs[sess.msgs.length - 1].ts || 0;
+      if (Date.now() - lastTs < 150000 * (1 + Math.random() * 0.5)) return; // 闲置约 2.5~3.75 分钟才推进一拍
+      urge.forEach(c => { try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.2 }); } catch (e) {} }); // 泄一点，别下tick又触发
+      groupOfflineReply(gid);
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [offlineGroup, chatSettings, sending]);
   // ---- 默认进线下（她 2026-07-23，方便同居/常在一起的角色：默认基本上都在一起）----
   // 点进开了「默认进线下」的单聊，直接进线下相处；随时可「离开」跳回线上。只在【进入这个聊天】那一下
   // 触发一次——跳回线上后不再自动弹（尊重你主动离开）；下次从列表重新进这个聊天才会再默认开。
