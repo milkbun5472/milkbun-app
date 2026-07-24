@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.51";
+const APP_VERSION = "v50.52";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2166,10 +2166,9 @@ function App() {
       if (Date.now() - (msgs[msgs.length - 1].ts || 0) < gap) return;
       // ⭐人格/欲望驱动起聊（她 2026-07-23：角色根据人格盒子突然想聊）：载了 jiwen 的成员里得有人此刻「想联系/想聊」
       //   (jiwen contact 触发)才起一段——不是干等计时。没有任何成员载 jiwen，就退回纯闲置触发（保证没配 jiwen 的群也自发）。
-      const gmAll = (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-      // 正和用户线下面对面进行中的成员算「忙」——群自发只让【没忙线下】的成员聊（她 2026-07-23 更正：你和A线下、B没线下，群里该让B照发，只是别拽A分身）。
-      // 全员都在忙线下时才整个跳过（没人能聊）。忙的成员由 replyGroup 的 gBusyHint 排除、别分身。
-      const gm = gmAll.filter(c => !offlineTogetherNow(c.id));
+      // 正和用户面对面的成员【也能在群里聊】（人陪朋友也会掏手机回别人）——不再排除，只在 replyGroup 里注入「处境一致」提示
+      //   （发言要符合正在外面陪人、别出现在矛盾场景，如同时在家煮饭）。她 2026-07-23 再更正。
+      const gm = (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
       if (!gm.length) return;
       let anyJiwen = false; const urgeChars = [];
       gm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urgeChars.push(c); } });
@@ -3885,8 +3884,8 @@ function App() {
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     const gs = gsFor(groupId);
     // 有成员此刻正和用户在别处【线下面对面】进行中：别让 TA 在群里分身、别出现在和那场线下矛盾的场景（她报：顾朝线下购物、群里却煮汤给两人）
-    const gBusyOff = members.filter(c => offlineTogetherNow(c.id)); // 只排除【此刻真和用户面对面】的；线下挂着但已散的成员照常在群里聊
-    const gBusyHint = gBusyOff.length ? "\n\n【在场状态·重要】" + gBusyOff.map(c => c.name).join("、") + " 此刻正【和用户在别处线下面对面相处（进行中）】——在群里别给 " + gBusyOff.map(c => c.name).join("、") + " 新增当下的发言，也【绝不许让 TA 出现在和那场线下矛盾的场景/地点/动作里】（例：线下正一起逛街，就绝不能在群里说自己在家煮汤）。这一轮让【没在忙线下的其他成员】来聊；实在只剩忙线下的成员，就别硬生成。" : "";
+    const gBusyOff = members.filter(c => offlineTogetherNow(c.id)); // 此刻正和用户面对面的成员：不排除，但要处境一致
+    const gBusyHint = gBusyOff.length ? "\n\n【在场状态·重要】" + gBusyOff.map(c => c.name).join("、") + " 此刻正【在外面和人面对面相处中】（不在家/不在电脑前）——TA 在群里【可以照常发消息】（人陪着朋友也会掏手机回别人/群），但发言内容【必须符合 TA 此刻正在外面、忙着的处境】（例：『在外头呢，抽空回你一句』『稍后细说』），**绝不许让 TA 出现在和那处境矛盾的地点/活动里**（如同时说自己在家煮饭/在公司加班）。TA 不必也别主动说出自己正和谁在一起（关系隐私）。" : "";
     startLane("g:" + groupId);
     try {
       if (!active) throw new Error("请先配置 API");
