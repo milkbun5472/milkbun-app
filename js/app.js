@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.62";
+const APP_VERSION = "v50.63";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -9317,7 +9317,8 @@ function App() {
     onDelMsg: mid => offlineDelMsg(offlineChar.id, mid),
     onDelSession: sid => offlineDelSession(offlineChar.id, sid),
     onEnd: () => endOffline(offlineChar.id),
-    onClose: () => setOfflineChar(null),
+    onClose: () => setOfflineChar(null),                       // 下拉「对话（回线上）」：只收线下浮层，露出线上聊天
+    onExit: () => { setOfflineChar(null); setScreen("messages"); }, // 顶栏「离开」：直接退回聊天列表（她要的：别再退两次）
     onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: schedNowBriefFor(offlineChar),
     onOpenSched: () => { setSelSched(offlineChar.id); setOfflineChar(null); setScreen("lifestyle"); } // 离开线下浮层→跳到日程（线下浮层是 z-20 会盖住日程屏，得先离开）
@@ -9340,7 +9341,8 @@ function App() {
     onDelSession: sid => groupOfflineDelSession(offlineGroup.id, sid),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),
     onEnd: () => endGroupOffline(offlineGroup.id),
-    onClose: () => setOfflineGroup(null),
+    onClose: () => setOfflineGroup(null),                        // 下拉「群聊（回线上群）」：只收线下浮层
+    onExit: () => { setOfflineGroup(null); setScreen("messages"); }, // 顶栏「离开」：直接退回聊天列表
     settings: osFor("g_" + offlineGroup.id),
     onSaveSettings: patch => saveOfflineSettings("g_" + offlineGroup.id, patch),
     // 群线下点头像看心声：和线上群一样，只有开了互通(states 才共享/会变)才可点

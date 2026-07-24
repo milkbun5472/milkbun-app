@@ -5224,11 +5224,13 @@ function OfflineMode({
   onDelSession,
   onEnd,
   onClose,
+  onExit,
   onOpenState,
   schedNow,
   onOpenSched
 }) {
   const t = useTheme();
+  const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传 onExit 就退回线上（兜底）
   const kbLift = useKbLift(); // iOS 键盘弹起时把底部输入栏顶上来，别被键盘挡住（v47.91）
   const cName = char.remark || char.name;
   const [view, setView] = useState(activeSession ? "live" : "setup");
@@ -5394,7 +5396,7 @@ function OfflineMode({
   if (view === "setup") {
     return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
-        h("button", { onClick: onClose, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
+        h("button", { onClick: exit, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "赴约 · " + cName),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: "auto" } }, "线下面对面")),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
@@ -5432,7 +5434,7 @@ function OfflineMode({
   const msgs = activeSession ? activeSession.msgs : [];
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", paddingTop: "env(safe-area-inset-top)" } : { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
     h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
-      h("button", { onClick: onClose, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
+      h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cName + " ⌄"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "OFFLINE · 线下 · 轻触切换")),
@@ -5621,11 +5623,13 @@ function GroupOfflineMode({
   onOOC,
   onEnd,
   onClose,
+  onExit,
   settings,
   onSaveSettings,
   onOpenMemberState
 }) {
   const t = useTheme();
+  const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传就退回线上群（兜底）
   const kbLift = useKbLift(); // iOS 键盘弹起时把底部输入栏顶上来（v47.91）
   const gName = group.name;
   // 群线下：点成员头像看心声（和线上群一样，由 app 决定开不开互通时才传 onOpenMemberState）
@@ -5756,7 +5760,7 @@ function GroupOfflineMode({
   if (view === "setup") {
     return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
-        h("button", { onClick: onClose, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
+        h("button", { onClick: exit, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "赴约 · " + gName),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: "auto" } }, "多人线下")),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
@@ -5846,7 +5850,7 @@ function GroupOfflineMode({
     }));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", paddingTop: "env(safe-area-inset-top)" } : { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
     h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
-      h("button", { onClick: onClose, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
+      h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, gName + " ⌄"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "OFFLINE · 多人线下 · 轻触切换")),
