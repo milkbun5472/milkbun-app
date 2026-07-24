@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.50";
+const APP_VERSION = "v50.51";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1854,6 +1854,17 @@ function App() {
   };
   // 好友地图：所有角色此刻在做什么（供 pin 定位偏移 + 标签）
   const mapStatusAll = () => { const m = {}; characters.forEach(c => { const b = schedNowBriefFor(c); if (b) m[c.id] = b; }); return m; };
+  // 「此刻是不是真和用户面对面」——不只看线下 session 开着，还看【最近一拍够不够新】（她 2026-07-23）：
+  //   线下可能开着但他俩已在剧情里分开/各自去忙，或就是没关线下挂着；那时角色该能正常线上找人/找用户/在群里聊，别死锁。
+  //   最近一拍在 OFFLINE_TOGETHER_MIN 分钟内 = 还面对面(锁线上/别分身)；更久 = 已散/挂着(放行线上互动)。
+  const OFFLINE_TOGETHER_MIN = 45;
+  const offlineTogetherSess = charId => {
+    const sess = (offlinesRef.current[charId] || []).find(s => s && !s.endTs && (s.msgs || []).length);
+    if (!sess) return null;
+    let lastTs = 0; (sess.msgs || []).forEach(m => { if (m && (m.ts || 0) > lastTs) lastTs = m.ts; });
+    return (lastTs > 0 && Date.now() - lastTs < OFFLINE_TOGETHER_MIN * 60000) ? sess : null;
+  };
+  const offlineTogetherNow = charId => !!offlineTogetherSess(charId);
   // 有没有一场还没散的线下（供聊天感知：别把正在进行的线下当「还没开始」催用户）
   const offlineActiveFor = charId => {
     let list = offlinesRef.current[charId];
@@ -2158,7 +2169,7 @@ function App() {
       const gmAll = (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
       // 正和用户线下面对面进行中的成员算「忙」——群自发只让【没忙线下】的成员聊（她 2026-07-23 更正：你和A线下、B没线下，群里该让B照发，只是别拽A分身）。
       // 全员都在忙线下时才整个跳过（没人能聊）。忙的成员由 replyGroup 的 gBusyHint 排除、别分身。
-      const gm = gmAll.filter(c => !(offlinesRef.current[c.id] || []).some(s => s && !s.endTs && Date.now() - (s.startTs || 0) < 8 * 3600000));
+      const gm = gmAll.filter(c => !offlineTogetherNow(c.id));
       if (!gm.length) return;
       let anyJiwen = false; const urgeChars = [];
       gm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urgeChars.push(c); } });
@@ -2332,7 +2343,7 @@ function App() {
           if (currentlyTogetherWithChar(cid)) continue;
           // 有没有一场进行中的线下（同居/常在一起）。有【正在演的场景】→ 把「思念攒够→主动」落成【线下一拍】而不是线上消息（她 2026-07-23）。
           const _offL = offlinesRef.current[cid] || [];
-          const activeOff = _offL.find(sess => sess && !sess.endTs && Date.now() - (sess.startTs || 0) < 8 * 3600000);
+          const activeOff = offlineTogetherSess(cid); // 只有【此刻真面对面】才把主动落成线下一拍；线下挂着但已散→null→照常线上主动
           const activeOffScene = activeOff && (activeOff.msgs || []).length > 0 ? activeOff : null;
           // 线上路径：正在看这个聊天就不发；线下路径（有场景）：她看着/离开都能自己动（她要"从线上变线下"）。
           if (!activeOffScene && viewRef.current.charId === cid) continue;
@@ -2370,7 +2381,7 @@ function App() {
         if (laneBusy("c:" + cid)) continue;
         if (viewRef.current.charId === cid) continue;         // 正在看这个聊天就不用主动问候
         if (currentlyTogetherWithChar(cid)) continue;         // 正在共同群聊/群线下，不能另开私聊假装没被理
-        if ((offlinesRef.current[cid] || []).some(sess => !sess.endTs && Date.now() - (sess.startTs || 0) < 8 * 3600000)) continue; // 线下进行中也别发线上问候(同上)
+        if (offlineTogetherNow(cid)) continue; // 此刻真面对面才别发线上问候；线下挂着但已散就正常问候
         const slot = greetSlotFor(c);
         if (!slot) continue;
         if ((greetLogRef.current[cid] || {})[slot] === dayKey) continue; // 这个时段今天已问候过
@@ -3874,7 +3885,7 @@ function App() {
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     const gs = gsFor(groupId);
     // 有成员此刻正和用户在别处【线下面对面】进行中：别让 TA 在群里分身、别出现在和那场线下矛盾的场景（她报：顾朝线下购物、群里却煮汤给两人）
-    const gBusyOff = members.filter(c => (offlinesRef.current[c.id] || []).some(s => s && !s.endTs && (s.msgs || []).length && Date.now() - (s.startTs || 0) < 8 * 3600000));
+    const gBusyOff = members.filter(c => offlineTogetherNow(c.id)); // 只排除【此刻真和用户面对面】的；线下挂着但已散的成员照常在群里聊
     const gBusyHint = gBusyOff.length ? "\n\n【在场状态·重要】" + gBusyOff.map(c => c.name).join("、") + " 此刻正【和用户在别处线下面对面相处（进行中）】——在群里别给 " + gBusyOff.map(c => c.name).join("、") + " 新增当下的发言，也【绝不许让 TA 出现在和那场线下矛盾的场景/地点/动作里】（例：线下正一起逛街，就绝不能在群里说自己在家煮汤）。这一轮让【没在忙线下的其他成员】来聊；实在只剩忙线下的成员，就别硬生成。" : "";
     startLane("g:" + groupId);
     try {
