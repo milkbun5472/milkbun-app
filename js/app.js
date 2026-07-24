@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.43";
+const APP_VERSION = "v50.44";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2133,22 +2133,26 @@ function App() {
   //   不必 cue 你、互相接话/抬杠也行。replyGroup 空输入本就会自发续聊（喂「请群成员顺着上面的对话自然继续聊」）。
   //   防跑飞：自主生成到「自发轮数上限」(gs.autoChatRounds，拉条)就歇；你发消息 或 按黑色回复键 重置轮数。只前台跑。
   const autoChatRoundsRef = useRef({}); // 每群：距上次你开口/按回复键以来，已自主生成了几轮
+  const autoChatMsgsRef = useRef({});   // 每群：这一段自发累计已生成多少条（总条数上限用，跨轮累加、递减预算）
   useEffect(() => {
     if (screen !== "gthread" || !activeGroup) return;
     const gs = gsFor(activeGroup.id);
     if (!gs.memoryInterop || gs.autoChat === false) return;
-    const mins = Math.max(1, gs.autoChatMin || 3);
+    const mins = Math.max(1, gs.autoChatMin || 8);
     const gid = activeGroup.id;
     const timer = setInterval(() => {
       if (laneBusy("g:" + gid)) return;
       if (offlineGroup && offlineGroup.id === gid) return;
       const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
       if (!msgs.length) return;
-      if (msgs[msgs.length - 1].role === "user") autoChatRoundsRef.current[gid] = 0; // 你刚发过话 → 重置自主轮数
+      if (msgs[msgs.length - 1].role === "user") { autoChatRoundsRef.current[gid] = 0; autoChatMsgsRef.current[gid] = 0; } // 你刚发过话 → 轮数+总条数双清零
       const rounds = autoChatRoundsRef.current[gid] || 0;
-      if (rounds >= Math.max(1, gs.autoChatRounds || 5)) return; // 到自发轮数上限就歇，等你发消息/按回复键重置
+      const msgsSoFar = autoChatMsgsRef.current[gid] || 0;
+      const roundCap = Math.max(1, gs.autoChatRounds || 5);
+      const totalCap = Math.max(1, gs.autoChatMaxMsg || 50);
+      if (rounds >= roundCap || msgsSoFar >= totalCap) return; // 先到【轮数上限】或先到【总条数上限】——都停、等你发消息/按回复键重置
       const gap = mins * 60000 * (1 + Math.random() * 0.5); // 抖动 1~1.5×，别死板每 N 分钟一次
-      if (Date.now() - (msgs[msgs.length - 1].ts || 0) >= gap) { autoChatRoundsRef.current[gid] = rounds + 1; replyGroup(gid, { auto: true }); }
+      if (Date.now() - (msgs[msgs.length - 1].ts || 0) >= gap) { autoChatRoundsRef.current[gid] = rounds + 1; replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar }); } // 这轮上限 = 剩余总预算
     }, 20000);
     return () => clearInterval(timer);
   }, [screen, activeGroup, groupSettings, sending, offlineGroup]);
@@ -3817,7 +3821,7 @@ function App() {
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
     if (laneBusy("g:" + groupId)) return;
-    if (!rgOpts.auto) autoChatRoundsRef.current[groupId] = 0; // 你按黑色回复键/让他们继续 = 重置自主轮数，给一段新预算
+    if (!rgOpts.auto) { autoChatRoundsRef.current[groupId] = 0; autoChatMsgsRef.current[groupId] = 0; } // 你按黑色回复键/让他们继续 = 轮数+总条数双清零，给一段全新预算
     const group = groups.find(g => g.id === groupId);
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     const gs = gsFor(groupId);
@@ -3870,22 +3874,21 @@ function App() {
           const mem = memories[c.id];
           const priv = gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
           const seg = [mem && "长期记忆：" + mem, priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv].filter(Boolean).join("\n");
-          return seg ? "『" + c.name + "』\n" + seg : "";
+          return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         if (typeof primeQueryVec === "function") await primeQueryVec(hist); // 向量记忆预热（失败自动纯关键词）
         const groupMem = formatMemLib(retrieveMemories(memLibRef.current, members[0] && members[0].id, hist, {
           limit: memCfgRef.current.topK || 5
         }));
-        interop = (memLines ? "\n\n【成员与用户的私下往来（可自然提及，别生硬复述）】\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem : "");
+        interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem : "");
       }
       const asPrivate = gs.spectate && members.length === 2;
       let dir;
       if (asPrivate) dir = "这是「" + members[0].name + "」和「" + members[1].name + "」之间的私下对话（不是群聊，他们也不知道有任何外人在旁观）。用户以【旁白】推动场景。让两人自然地你来我往、多轮对话。";else if (gs.spectate) dir = "这是一个群聊，成员们并不知道有任何外人在旁观。用户以【旁白】推动剧情。让成员们围绕旁白与彼此的关系自然互动。";else dir = "你在导演一个群聊，用户也是群里的一员。";
       // 一轮的条数随人数放宽：人少几条就够，人多（拉了一堆人）要多聊几个来回、别草草收场
-      const _gsAuto = gsFor(groupId);
       let nMax = Math.min(14, Math.max(5, members.length * 2));
-      // 自发轮：用群设置里「每轮最多条」拉条封顶（她要放宽/收紧一轮总条数）
-      if (rgOpts.auto && _gsAuto.autoChatMaxMsg) nMax = Math.max(1, _gsAuto.autoChatMaxMsg);
+      // 自发轮：这一轮条数上限 = 剩余总预算（50-已发x，跨轮递减），不超过自然上限
+      if (rgOpts.auto && rgOpts.msgBudget) nMax = Math.max(1, Math.min(nMax, rgOpts.msgBudget));
       const nMin = Math.min(Math.min(3, members.length), nMax);
       const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言，一次产出 " + nMin + "~" + nMax + " 条；现在群里在场 " + members.length + " 人，人多就多聊几个来回、让在场的人都有戏，别三两句就收场。";
       const gEmotes = emotesForGroup(group.memberIds);
@@ -3927,6 +3930,7 @@ function App() {
       if (Array.isArray(arr)) {
         const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, profile.name || "用户") : { items: arr, dropped: [], thoughtsDropped: [] };
         const safeArr = guarded.items;
+        if (rgOpts.auto) autoChatMsgsRef.current[groupId] = (autoChatMsgsRef.current[groupId] || 0) + safeArr.length; // 自发累计条数（总条数上限用）
         if ((guarded.dropped || []).length || (guarded.thoughtsDropped || []).length) toast("拦住了 " + ((guarded.dropped || []).length + (guarded.thoughtsDropped || []).length) + " 条群聊身份串线");
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
         for (let i = 0; i < safeArr.length; i++) {

@@ -6819,9 +6819,9 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
   const [showRead, setShowRead] = useState(!!gs.showRead);
   const [chatBg, setChatBg] = useState(gs.chatBg || "");
   const [autoChat, setAutoChat] = useState(gs.autoChat !== false);
-  const [autoChatMin, setAutoChatMin] = useState(gs.autoChatMin || 3);
+  const [autoChatMin, setAutoChatMin] = useState(gs.autoChatMin || 8);
   const [autoChatRounds, setAutoChatRounds] = useState(gs.autoChatRounds || 5);
-  const [autoChatMaxMsg, setAutoChatMaxMsg] = useState(gs.autoChatMaxMsg || 0);
+  const [autoChatMaxMsg, setAutoChatMaxMsg] = useState(gs.autoChatMaxMsg || 50);
   const bgFileRef = useRef(null);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -6879,9 +6879,9 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条")
       : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 20, 1, " 条"),
     interop && row("群里自己聊起来", "开互通后，你晾着不说话时群成员会自己顺着往下聊（不必 cue 你，互相接梗/抬杠也行）。只在你正看着这个群时；距你上次发言自发够多轮会自动歇、等你再开口。", autoChat, setAutoChat),
-    interop && autoChat && sliderRow("自发间隔", "晾多久没人说话，群里就自己接上一轮（带点随机、不死板）。", autoChatMin, setAutoChatMin, 1, 15, 1, " 分钟"),
-    interop && autoChat && sliderRow("自发轮数上限", "你不出声，群里最多自己聊几轮就停下等你——按黑色回复键或你发消息会重置，给一段新预算。", autoChatRounds, setAutoChatRounds, 1, 30, 1, " 轮"),
-    interop && autoChat && sliderRow("每轮最多条", "每一轮自发最多生成几条（0＝按人数自动）。想让他们一轮多聊几句就往上拉。", autoChatMaxMsg, setAutoChatMaxMsg, 0, 30, 1, autoChatMaxMsg === 0 ? "（自动）" : " 条"),
+    interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（带点随机、不死板）。嫌太闹就往大调。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
+    interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 30, 1, " 轮"),
+    interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 100, 5, " 条"),
 
     // 记忆库
     h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },
