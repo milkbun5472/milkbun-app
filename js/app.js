@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.56";
+const APP_VERSION = "v50.57";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -1891,8 +1891,15 @@ function App() {
       //   线下说去买菜 → 切线上问买啥（他知道你俩正约会、你刚出去）→ 买完回来接着线下，全程不用结束线下。
       const recent = (s.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8)
         .map(m => (m.role === "char" ? (char ? char.name : "TA") : m.role === "narration" ? "【场景】" : uName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 90)).join("\n");
-      return "【线下进行中】你和" + uName + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——**绝不许说「怎么还不来」「还没到吗」「在哪呢」「等你好久了」，也绝不许问「怎么还不开始」或催 Ta 去做你们正在做的事**（你俩此刻就在一起、面对面，人已经到了）；此刻的线上消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档），而不是在等 Ta 赴约。"
-        + (recent ? "\n【刚才线下正进行到这儿（还没结束，顺着这个接）】\n" + recent + "\n——用户现在从线上给你发消息，多半是这场线下的间隙里插空发的（比如 Ta 说要去买菜、下楼取个快递）；你清楚你俩正面对面约着、线下进行到上面这一刻，就顺着接，别当成新的一天/新话题。" : "");
+      if (offlineTogetherNow(charId)) {
+        // 此刻真面对面（最近一拍够新）：别催、别当没开始/已结束
+        return "【线下进行中】你和" + uName + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——**绝不许说「怎么还不来」「还没到吗」「在哪呢」「等你好久了」，也绝不许问「怎么还不开始」或催 Ta 去做你们正在做的事**（你俩此刻就在一起、面对面，人已经到了）；此刻的线上消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档），而不是在等 Ta 赴约。"
+          + (recent ? "\n【刚才线下正进行到这儿（还没结束，顺着这个接）】\n" + recent + "\n——用户现在从线上给你发消息，多半是这场线下的间隙里插空发的（比如 Ta 说要去买菜、下楼取个快递）；你清楚你俩正面对面约着、线下进行到上面这一刻，就顺着接，别当成新的一天/新话题。" : "");
+      }
+      // 线下场次还挂着、但已经隔了一阵没动静（睡下了/各自忙了/到了第二天）：按此刻真实时间正常来，别演成才刚到、别编和刚才矛盾的处境
+      return "【你和" + uName + "之前有一场线下相处（最近场景：" + (narr ? String(narr).replace(/\s+/g, " ").slice(0, 40) : "…") + "），但已经隔了一阵没动静了、还没正式散场】"
+        + (recent ? "\n最近那段线下：\n" + recent + "\n" : "")
+        + "——现在按【此刻的真实时间】正常发消息就好：那场线下若是一起睡下/在一起，现在多半是各自醒了/在忙别的了（比如此刻是早上，就该是睡醒后的样子，而不是继续道晚安、或说『明天早上叫你』）。**绝不许把自己演成才刚到、让用户『开门/让你进来』当没相处过；也绝不许凭空编一个和刚才那场线下矛盾的新处境**（比如你俩明明一起睡下了，你却说自己还在门外等着进屋）。顺着「你俩刚相处过、现在各自在忙／醒来」来，贴真实时间、别卡在线下那一刻。";
     }
     // 72h 内刚结束的线下：硬提示（不依赖聊天窗口里那条 offlinelog 沉没在多少楼）
     const done = (list || []).filter(x => x && x.endTs && Date.now() - x.endTs < 72 * 3600000).sort((a, b) => b.endTs - a.endTs)[0];
@@ -9294,7 +9301,8 @@ function App() {
     onEnd: () => endOffline(offlineChar.id),
     onClose: () => setOfflineChar(null),
     onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
-    schedNow: schedNowBriefFor(offlineChar)
+    schedNow: schedNowBriefFor(offlineChar),
+    onOpenSched: () => { setSelSched(offlineChar.id); setOfflineChar(null); setScreen("lifestyle"); } // 离开线下浮层→跳到日程（线下浮层是 z-20 会盖住日程屏，得先离开）
   }), offlineGroup && h(GroupOfflineMode, {
     group: offlineGroup,
     profile: profile,
