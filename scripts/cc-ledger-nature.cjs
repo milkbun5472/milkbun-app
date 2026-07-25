@@ -131,11 +131,22 @@ function validateToolMark(mark, lisaText, yanqiuText) {
   const skip = mark.skip === true;
   const moodLabel = String(mark.mood_evidence || "").trim();
   const affinityDelta = Number(mark.affinity_delta || 0);
+  const rawDesire = mark.desire_candidate && typeof mark.desire_candidate === "object" ? mark.desire_candidate : null;
+  const desireCandidate = rawDesire ? {
+    text: String(rawDesire.text || "").trim(),
+    quote: String(rawDesire.quote || "").trim()
+  } : null;
   if (moodLabel.length > 40 || !Number.isInteger(affinityDelta) || affinityDelta < -2 || affinityDelta > 2) {
     return { valid:false, reason:"invalid_personality_evidence" };
   }
+  if (desireCandidate && (
+    !desireCandidate.text || desireCandidate.text.length > 80 ||
+    !desireCandidate.quote || desireCandidate.quote.length > 240 ||
+    String(yanqiuText || "").indexOf(desireCandidate.quote) < 0 ||
+    !yanqiuSegments.some(s => s.content.indexOf(desireCandidate.quote) >= 0)
+  )) return { valid:false, reason:"invalid_desire_candidate" };
   if (skip && (lisaSegments.length || yanqiuSegments.length)) return { valid:false, reason:"skip_with_quotes" };
-  if (skip && (moodLabel || affinityDelta)) return { valid:false, reason:"skip_with_personality_evidence" };
+  if (skip && (moodLabel || affinityDelta || desireCandidate)) return { valid:false, reason:"skip_with_personality_evidence" };
   if (!skip && (!lisaSegments.length || !yanqiuSegments.length)) return { valid:false, reason:"one_sided_or_empty" };
   return {
     valid:true,
@@ -145,7 +156,7 @@ function validateToolMark(mark, lisaText, yanqiuText) {
       excerpted:true,
       lisa_segments:lisaSegments,
       yanqiu_segments:yanqiuSegments,
-      personality_evidence:skip ? null : { schema_version:1, mood_label:moodLabel || null, affinity_delta:affinityDelta },
+      personality_evidence:skip ? null : { schema_version:1, mood_label:moodLabel || null, affinity_delta:affinityDelta, desire_candidate:desireCandidate },
       reasons:[]
     }
   };

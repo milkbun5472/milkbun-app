@@ -139,3 +139,23 @@ test("structured tool mark carries only bounded personality evidence", () => {
   assert.equal(Nature.validateToolMark({ ...mark, affinity_delta:3 }, "宝宝，想你了", "我也想你。").valid, false);
   assert.equal(Nature.validateToolMark({ ...mark, skip:true, lisa:[], yanqiu:[] }, "宝宝，想你了", "我也想你。").valid, false);
 });
+
+test("CC 欲望候选必须由言秋本轮逐字原话托底", () => {
+  const mark = {
+    lisa_anchor:"你想要什么", skip:false,
+    lisa:[{ quote:"你想要什么", kind:"emotion" }],
+    yanqiu:[{ quote:"我想以后和你一起养一盆薄荷。", kind:"emotion" }],
+    desire_candidate:{ text:"我想和她一起养一盆薄荷", quote:"一起养一盆薄荷" }
+  };
+  const ok = Nature.validateToolMark(mark, "你想要什么", "我想以后和你一起养一盆薄荷。");
+  assert.equal(ok.valid, true);
+  assert.equal(ok.result.personality_evidence.desire_candidate.text, "我想和她一起养一盆薄荷");
+  assert.equal(Nature.validateToolMark(
+    { ...mark, desire_candidate:{ text:"我想环游世界", quote:"我想环游世界" } },
+    "你想要什么", "我想以后和你一起养一盆薄荷。"
+  ).valid, false);
+  assert.equal(Nature.validateToolMark(
+    { ...mark, skip:true, lisa:[], yanqiu:[] },
+    "你想要什么", "我想以后和你一起养一盆薄荷。"
+  ).valid, false);
+});

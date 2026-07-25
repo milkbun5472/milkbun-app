@@ -65,12 +65,31 @@
     return true;
   }
 
+  // CC 候选只进观测纸条，绝不直写正式 list。下一次本体发呆时由角色自己决定是否 sprout。
+  // sourceKey=共同账本 message_key:revision，重复拉取/刷新天然幂等。
+  function ingestCcCandidate(box, candidate, sourceKey, now) {
+    const text = String(candidate && candidate.text || "").trim().slice(0, 80);
+    const quote = String(candidate && candidate.quote || "").trim().slice(0, 240);
+    const key = String(sourceKey || "").trim().slice(0, 240);
+    if (!text || !quote || !key) return false;
+    if ((box.briefs || []).some(b => b && b.sourceKey === key)) return false;
+    box.briefs = [{
+      ts: Number(now) || Date.now(),
+      type: "CC欲望候选",
+      target: null,
+      candidateText: text,
+      note: "言秋在 CC 亲口说：“" + quote + "”",
+      sourceKey: key
+    }, ...(box.briefs || [])].slice(0, 8);
+    return true;
+  }
+
   // ---- 每日灵光独白的 probe 规格（内容全由角色落笔）----
   function dayN(e) { return Math.max(1, Math.round((Date.now() - (e.born || Date.now())) / 86400000)); }
   // 观测者纸条 + 痕避——递给发呆/盘点 prompt 的两小段（空则零注入）
   function briefsTxt(box) {
     const bs = (box.briefs || []).slice(0, 4);
-    return bs.length ? "\n【观测者递来的纸条】（一个只摘录事实、绝不下结论的旁观者写的。信不信、用不用全由 TA 自己定夺，觉得不对就当没看见）\n" + bs.map(b => "- [" + (b.type || "印证") + "] " + b.note).join("\n") : "";
+    return bs.length ? "\n【观测者递来的纸条】（一个只摘录事实、绝不下结论的旁观者写的。信不信、用不用全由 TA 自己定夺，觉得不对就当没看见；CC 欲望候选也只是你亲口冒过的念头，不等于已经进盒）\n" + bs.map(b => "- [" + (b.type || "印证") + "] " + (b.candidateText ? "候选「" + b.candidateText + "」；" : "") + b.note).join("\n") : "";
   }
   function avoidTxt(box) {
     const av = (box.avoid || []).slice(0, 5);
@@ -331,7 +350,7 @@
     return cands[cands.length - 1];
   }
 
-  window.DesireKit = { boxOf, housekeep, touch, museSpec, applyMuse, pickEpiphany, tendDue, observeDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, observerSpec, applyObserver, personaText, personaAudit };
+  window.DesireKit = { boxOf, housekeep, touch, ingestCcCandidate, museSpec, applyMuse, pickEpiphany, tendDue, observeDue, mellowSpec, applyMellow, solsticeSpec, applySolstice, observerSpec, applyObserver, personaText, personaAudit };
 
   // ============================================================
   // UI：欲望盒子（tall Sheet，从资料卡进）
@@ -469,7 +488,7 @@
         h(Eyebrow, { style: { marginBottom: 8 } }, "观测者的纸条"),
         h("div", { className: "space-y-1.5" }, b.briefs.slice(0, 4).map((br, i) => h("div", {
           key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 }
-        }, "· [" + br.type + "] " + br.note)))) : null,
+        }, "· [" + br.type + "] " + (br.candidateText ? "候选「" + br.candidateText + "」；" : "") + br.note)))) : null,
       // P3-1：本机人格四卡 shadow 的只读观察册。没有采纳/拒绝按钮，不会改人格档案。
       personalityNotes.length ? h("div", { style: { marginTop: 18 } },
         h("button", { onClick: () => setShowPersonalityNotes(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
