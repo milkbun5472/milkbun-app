@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.73";
+const APP_VERSION = "v50.74";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2919,7 +2919,13 @@ function App() {
     profile,
     rels,
     chars: characters,
-    worldbook,
+    // 世界书走和单人线下/线上群同一套筛选引擎（v50.74）：之前群线下用 deriveWorldbook 全量拼接——只认没绑角色的全局词条、还无视 scope、绑了角色的一律看不见。
+    //   改成 loreText 检索式：在场成员绑定的 + 全局的，聊天 scope，用本场近段做关键词命中；常驻/无关键词照常进。
+    worldbook: (() => {
+      const sess = (groupOfflinesRef.current[group.id] || []).find(s => s && !s.endTs);
+      const offText = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-8).map(m => m.content || "").join("\n") : "";
+      return loreText(loreRef.current, { charIds: (group.memberIds || []), scope: "chat", text: offText });
+    })(),
     timeAware: prefs.timeAware,
     // 群 OOC 立的长期规矩（directives[groupId]）线下也要遵守——线上 replyGroup 早就注入了，线下之前漏了
     directives: directives[group.id] || [],
