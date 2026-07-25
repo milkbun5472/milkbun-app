@@ -34,12 +34,14 @@ Install PlatformIO Core, then:
 
 ```bash
 cd /Users/lisa/Desktop/Lisa-phone/firmware/stackchan-cores3
-cp include/config.example.h include/config.local.h
+python3 scripts/configure_local.py
 pio run
 ```
 
-Edit only `config.local.h` for the two Wi-Fi networks, device ID, token,
-Funnel URL and root CA. This file is ignored by Git.
+The configurator prompts for Wi-Fi passwords without echoing them, reads the
+device token from the relay's private `.env`, downloads and pins the public
+ISRG Root X1 certificate, and writes mode-0600 `config.local.h`. The generated
+file is ignored by Git.
 
 ## Backup and flash
 
