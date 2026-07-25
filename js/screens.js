@@ -3447,6 +3447,7 @@ function Config({
   onExport,
   onImport,
   onOffloadChats,
+  onPruneOld,
   onClearAll,
   debugBundleFor,
   toast
@@ -3531,6 +3532,7 @@ function Config({
     onExport: onExport,
     onImport: onImport,
     onOffloadChats: onOffloadChats,
+    onPruneOld: onPruneOld,
     onClearAll: onClearAll,
     toast: toast
   }), /*#__PURE__*/React.createElement(CtxDebug, {
@@ -4325,7 +4327,7 @@ function storageBreakdown() {
   } catch (e) {}
   return Object.keys(rows).map(name => ({ name, bytes: rows[name] })).sort((a, b) => b.bytes - a.bytes);
 }
-function StorageMeter({ onOffloadChats }) {
+function StorageMeter({ onOffloadChats, onPruneOld }) {
   const t = useTheme();
   const [info, setInfo] = useState(null);
   const [detail, setDetail] = useState(false);
@@ -4362,6 +4364,13 @@ function StorageMeter({ onOffloadChats }) {
       style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.tint, borderRadius: 10, padding: "9px 0", marginTop: 12 }
     }, offloading ? "归档中…" : "☁️ 归档旧聊天到云端 · 释放本地空间") : null,
     onOffloadChats ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "普通云同步只是备份，不会腾本机；这个按钮才会在云端确认后裁本机。低占用每个会话留 200 条，≥80% 留 120 条，≥90% 留 80 条；聊天页仍可「加载更早」。") : null,
+    // 一键清理可再生旧数据（旧日程点开自动重生、旧论坛帖）——绝不碰聊天/线下/记忆库/同人文
+    onPruneOld ? h("button", {
+      onClick: () => { onPruneOld(); setTimeout(refresh, 300); },
+      className: "w-full active:opacity-80",
+      style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: "transparent", border: "1px solid " + t.line, borderRadius: 10, padding: "9px 0", marginTop: 8 }
+    }, "🧹 清理可再生旧数据（旧日程 + 旧论坛）") : null,
+    onPruneOld ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "只清超过 14 天的旧日程（点开自动重新生成）和最旧的论坛帖；你的聊天、线下记录、记忆库、同人文一个都不动。") : null,
     // 明细：谁占地方一眼看穿
     h("button", { onClick: () => { setDetail(d => !d); refresh(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 10 } }, detail ? "收起明细 ▴" : "看谁占地方 ▾"),
     detail ? h("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 } },
@@ -4378,6 +4387,7 @@ function DataConfig({
   onExport,
   onImport,
   onOffloadChats,
+  onPruneOld,
   onClearAll,
   toast
 }) {
@@ -4386,7 +4396,7 @@ function DataConfig({
   const ref = useRef(null);
   return /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
-  }, h(StorageMeter, { onOffloadChats: onOffloadChats }), h(CloudSync, { toast: toast }), /*#__PURE__*/React.createElement("div", {
+  }, h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld }), h(CloudSync, { toast: toast }), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 13,

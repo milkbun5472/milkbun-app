@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.87";
+const APP_VERSION = "v50.88";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -966,6 +966,26 @@ function App() {
     } catch (e) { return { ok: false, msg: e.message || String(e) }; }
   };
   // 一键归档所有角色 + 群聊的旧聊天
+  // 一键清理「可再生」旧数据（她 2026-07-25 本地满 98%）：只清旧日程(点开自动重生)+旧论坛帖，绝不碰聊天/线下/记忆库/同人文
+  const pruneRegenerables = () => {
+    try {
+      const dk = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const cutoff = dk(new Date(Date.now() - 14 * 86400000)); // 只留最近14天日程（"YYYY-MM-DD" 字符串可直接比大小）
+      const sch = loadJSON("x_schedules", {});
+      Object.keys(sch).forEach(cid => { const days = sch[cid] || {}; Object.keys(days).forEach(day => { if (day < cutoff) delete days[day]; }); });
+      saveJSON("x_schedules", sch); setSchedules(sch);
+      let fp = loadJSON("x_forumPosts", []);
+      if (Array.isArray(fp) && fp.length > 60) {
+        fp = fp.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 60);
+        const ids = new Set(fp.map(p => p && p.id));
+        saveJSON("x_forumPosts", fp); setForumPosts(fp); forumPostsRef.current = fp;
+        const fc = loadJSON("x_forumComments", {});
+        Object.keys(fc).forEach(pid => { if (!ids.has(pid)) delete fc[pid]; });
+        saveJSON("x_forumComments", fc); setForumComments(fc);
+      }
+      toast("已清理可再生旧数据（旧日程+旧论坛）");
+    } catch (e) { toast("清理失败：" + (e.message || "")); }
+  };
   const offloadAllChats = async () => {
     if (!(window.Cloud && window.Cloud.ready())) { toast("需要先登录云同步（设置·数据）"); return; }
     const keepLocal = window.StoragePolicy ? window.StoragePolicy.chatKeep(typeof localStorageBytes === "function" ? localStorageBytes() : 0) : CHAT_KEEP_LOCAL;
@@ -9304,6 +9324,7 @@ function App() {
     onExport: doExport,
     onImport: doImport,
     onOffloadChats: offloadAllChats,
+    onPruneOld: pruneRegenerables,
     onClearAll: () => {
       Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
       location.reload();
