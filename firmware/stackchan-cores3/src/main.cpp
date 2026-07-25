@@ -4,25 +4,44 @@
 #include <M5StackChan.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
 #include <time.h>
 #include "config.local.h"
 
 namespace {
-unsigned long lastPollAt = 0;
 unsigned long lastWifiAttemptAt = 0;
 String lastCommandId;
-bool clockReady = false;
+volatile bool clockReady = false;
+bool screenWasTouched = false;
+unsigned long lastTapAt = 0;
+QueueHandle_t eventQueue = nullptr;
+SemaphoreHandle_t displayMutex = nullptr;
+bool faceDrawn = false;
+String currentFace = "neutral";
+String faceBeforeTap = "neutral";
+volatile unsigned long restoreFaceAt = 0;
+
+struct PendingEvent {
+  char json[1024];
+};
 
 int clampInt(int value, int low, int high) {
   return value < low ? low : (value > high ? high : value);
 }
 
-void face(const char* label) {
+void drawFace(const char* label) {
+  if (displayMutex) xSemaphoreTake(displayMutex, portMAX_DELAY);
   auto& display = M5StackChan.Display();
-  display.fillScreen(TFT_BLACK);
+  if (!faceDrawn) {
+    display.fillScreen(TFT_BLACK);
+    faceDrawn = true;
+  }
   display.setTextDatum(middle_center);
   display.setTextColor(TFT_WHITE, TFT_BLACK);
-  display.setTextSize(2);
+  display.setTextSize(5);
   String eyes = "^  ^";
   String mouth = "  w  ";
   const String mood(label ? label : "neutral");
@@ -31,8 +50,21 @@ void face(const char* label) {
   else if (mood == "angry") { eyes = ">  <"; mouth = "  ~  "; }
   else if (mood == "sleepy") { eyes = "-  -"; mouth = "  o  "; }
   else if (mood == "surprised") { eyes = "O  O"; mouth = "  o  "; }
-  display.drawString(eyes, display.width() / 2, 85);
-  display.drawString(mouth, display.width() / 2, 135);
+  // The built-in font is fixed-width and every face row has the same number
+  // of cells. Opaque text rendering therefore replaces the previous row in
+  // one pass; clearing first would create a visible blank-face frame.
+  display.startWrite();
+  display.drawString(eyes, display.width() / 2, 75);
+  display.drawString(mouth, display.width() / 2, 155);
+  display.endWrite();
+  currentFace = mood;
+  if (displayMutex) xSemaphoreGive(displayMutex);
+}
+
+void face(const char* label) {
+  // A real command or lifecycle state supersedes any pending tap animation.
+  restoreFaceAt = 0;
+  drawFace(label);
 }
 
 void auth(HTTPClient& http) {
@@ -67,12 +99,7 @@ bool syncClock() {
 }
 
 bool postEvent(const char* eventType, JsonDocument* details = nullptr) {
-  if (WiFi.status() != WL_CONNECTED) return false;
-  WiFiClientSecure client;
-  HTTPClient http;
-  if (!beginHttps(http, client, String(RELAY_BASE_URL) + "/event")) return false;
-  auth(http);
-  http.addHeader("Content-Type", "application/json");
+  if (!eventQueue) return false;
   JsonDocument body;
   body["device_id"] = DEVICE_ID;
   body["event_id"] = String(DEVICE_ID) + "-" + String(millis()) + "-" + String(esp_random(), HEX);
@@ -82,6 +109,19 @@ bool postEvent(const char* eventType, JsonDocument* details = nullptr) {
   if (details) body["payload"] = details->as<JsonVariant>();
   String json;
   serializeJson(body, json);
+  if (json.length() >= sizeof(PendingEvent::json)) return false;
+  PendingEvent pending = {};
+  memcpy(pending.json, json.c_str(), json.length() + 1);
+  return xQueueSendToBack(eventQueue, &pending, 0) == pdTRUE;
+}
+
+bool sendEventNow(const char* json) {
+  if (WiFi.status() != WL_CONNECTED) return false;
+  WiFiClientSecure client;
+  HTTPClient http;
+  if (!beginHttps(http, client, String(RELAY_BASE_URL) + "/event")) return false;
+  auth(http);
+  http.addHeader("Content-Type", "application/json");
   const int status = http.POST(json);
   http.end();
   return status >= 200 && status < 300;
@@ -156,7 +196,6 @@ bool playPcmWav(const uint8_t* wav, size_t wavBytes) {
   // before the first sample is consumed.
   const unsigned long startDeadline = millis() + 500;
   while (!M5.Speaker.isPlaying() && millis() < startDeadline) {
-    M5.update();
     delay(5);
   }
   if (!M5.Speaker.isPlaying()) {
@@ -164,7 +203,6 @@ bool playPcmWav(const uint8_t* wav, size_t wavBytes) {
     return false;
   }
   while (M5.Speaker.isPlaying()) {
-    M5.update();
     delay(5);
   }
   return true;
@@ -204,6 +242,23 @@ bool playWavUrl(const String& url, int volume) {
   return ok;
 }
 
+void reportTap(const char* source) {
+  // The screen and the three-zone sensor can occasionally overlap in the same
+  // update cycle. Treat that as one human gesture instead of two messages.
+  if (millis() - lastTapAt < 500) return;
+  lastTapAt = millis();
+  if (!restoreFaceAt) {
+    if (displayMutex) xSemaphoreTake(displayMutex, portMAX_DELAY);
+    faceBeforeTap = currentFace;
+    if (displayMutex) xSemaphoreGive(displayMutex);
+  }
+  restoreFaceAt = millis() + 1200;
+  drawFace("surprised");
+  JsonDocument detail;
+  detail["source"] = source;
+  postEvent("tap", &detail);
+}
+
 void moveTo(int yaw, int pitch, int durationMs) {
   if (!SERVOS_ENABLED) return;
   yaw = clampInt(yaw, SERVO_YAW_MIN, SERVO_YAW_MAX);
@@ -237,7 +292,9 @@ bool executeCommand(JsonObject command) {
   return false;
 }
 
-void pollOnce() {
+void executePendingCommand(const char* raw);
+
+void pollOnceInBackground() {
   WiFiClientSecure client;
   HTTPClient http;
   String url = String(RELAY_BASE_URL) + "/poll?device_id=" + DEVICE_ID;
@@ -252,6 +309,31 @@ void pollOnce() {
   }
   const String raw = http.getString();
   http.end();
+  if (raw.length() >= 2048) {
+    Serial.printf("[poll] command too large: %u\n", static_cast<unsigned>(raw.length()));
+    return;
+  }
+  executePendingCommand(raw.c_str());
+}
+
+void pollTask(void*) {
+  for (;;) {
+    if (WiFi.status() == WL_CONNECTED && clockReady) {
+      PendingEvent pending = {};
+      while (eventQueue && xQueueReceive(eventQueue, &pending, 0) == pdTRUE) {
+        if (!sendEventNow(pending.json)) {
+          // Preserve the event and retry after the current network hiccup.
+          xQueueSendToFront(eventQueue, &pending, 0);
+          break;
+        }
+      }
+      pollOnceInBackground();
+    }
+    vTaskDelay(pdMS_TO_TICKS(POLL_INTERVAL_MS));
+  }
+}
+
+void executePendingCommand(const char* raw) {
   JsonDocument doc;
   if (deserializeJson(doc, raw)) return;
   const String id = doc["id"] | "";
@@ -276,7 +358,9 @@ void connectWifi() {
     }
     return;
   }
-  if (millis() - lastWifiAttemptAt < WIFI_RETRY_MS) return;
+  // A zero timestamp means "never attempted". Do not make a fresh boot sit in
+  // the sleepy face for an entire retry interval before its first Wi-Fi try.
+  if (lastWifiAttemptAt && millis() - lastWifiAttemptAt < WIFI_RETRY_MS) return;
   lastWifiAttemptAt = millis();
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
@@ -308,23 +392,42 @@ void setup() {
   Serial.begin(115200);
   M5StackChan.begin();
   Serial.begin(115200);
+  Serial.printf("[touch] display=%s\n", M5StackChan.Display().touch() ? "enabled" : "disabled");
   M5StackChan.Display().setRotation(1);
+  displayMutex = xSemaphoreCreateMutex();
+  eventQueue = xQueueCreate(8, sizeof(PendingEvent));
   face("sleepy");
   M5StackChan.setServoPowerEnabled(SERVOS_ENABLED);
   if (SERVOS_ENABLED) M5StackChan.Motion.goHome(300);
+  if (eventQueue) {
+    xTaskCreatePinnedToCore(pollTask, "relay-poll", 8192, nullptr, 1, nullptr, 0);
+  }
   connectWifi();
 }
 
 void loop() {
   M5StackChan.update();
   connectWifi();
+
+  if (restoreFaceAt && static_cast<int32_t>(millis() - restoreFaceAt) >= 0) {
+    restoreFaceAt = 0;
+    drawFace(faceBeforeTap.c_str());
+  }
+
+  // Read through M5Unified's event layer. Direct display.getTouch() stays at
+  // zero with some CoreS3 + StackChan-BSP combinations even though the GT911
+  // controller is active.
+  const bool screenTouched = M5.Touch.getCount() > 0;
+  if (screenTouched && !screenWasTouched) {
+    const auto& touch = M5.Touch.getDetail(0);
+    Serial.printf("[touch] screen x=%d y=%d\n", touch.x, touch.y);
+    reportTap("screen");
+  }
+  screenWasTouched = screenTouched;
+
   if (M5StackChan.TouchSensor.wasPressed()) {
-    face("surprised");
-    postEvent("tap");
+    reportTap("top_sensor");
   }
-  if (WiFi.status() == WL_CONNECTED && millis() - lastPollAt >= POLL_INTERVAL_MS) {
-    lastPollAt = millis();
-    pollOnce();
-  }
+
   delay(10);
 }
