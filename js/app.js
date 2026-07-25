@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.86";
+const APP_VERSION = "v50.87";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -2717,7 +2717,7 @@ function App() {
       // 长线下防失忆：已滚动总结的早段不再逐条喂模型，只喂「前情提要 + 近窗明细」，早段内容早已入记忆库（maybeSummarizeOffline）
       const _lastSum = Math.min(workSess.lastSummarizedCount || 0, (workSess.msgs || []).length);
       const _windowMsgs = _lastSum > 0 ? (workSess.msgs || []).slice(_lastSum) : (workSess.msgs || []);
-      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, priorSummary: workSess.summary || "", narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn });
+      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, priorSummary: workSess.summary || "", narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
@@ -2837,7 +2837,9 @@ function App() {
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
     pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
-    await genOfflineFrom(charId, { ...sess, msgs: truncated });
+    // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去，逼模型给一个明显不同的版本（她 2026-07-25：reroll 出来和原文差不多）
+    const rerollAvoid = removed.filter(m => m && m.role === "char" && m.content).map(m => String(m.content)).join("\n---\n");
+    await genOfflineFrom(charId, { ...sess, msgs: truncated, rerollAvoid });
   };
   const offlineAddNote = (charId, note) => {
     pOffline(charId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), note] } : s));
@@ -3109,7 +3111,7 @@ function App() {
       }
       const _gLastSum = Math.min(effectiveSess.lastSummarizedCount || 0, (effectiveSess.msgs || []).length);
       const _gWindow = _gLastSum > 0 ? (effectiveSess.msgs || []).slice(_gLastSum) : (effectiveSess.msgs || []); // 长群线下防失忆：早段用前情提要，只喂近窗明细
-      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...effectiveSess, msgs: _gWindow, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords });
+      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...effectiveSess, msgs: _gWindow, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -3214,7 +3216,9 @@ function App() {
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
-    await genGroupOfflineFrom(group, { ...sess, msgs: truncated });
+    // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去（她 2026-07-25）
+    const rerollAvoid = removed.filter(m => m && (m.role === "char" || m.senderId) && m.content).map(m => (m.senderName ? m.senderName + "：" : "") + String(m.content)).join("\n---\n");
+    await genGroupOfflineFrom(group, { ...sess, msgs: truncated, rerollAvoid });
   };
   const groupOfflineSetStyle = (groupId, patch) => {
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "" } : s));
