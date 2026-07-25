@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.77";
+const APP_VERSION = "v50.78";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -2919,6 +2919,15 @@ function App() {
     profile,
     rels,
     chars: characters,
+    // A（v50.78）：群线下补上每个成员「长出来的自我」（欲望盒子毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
+    memberGrown: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const g = (window.DesireKit && desiresRef.current[id]) ? window.DesireKit.personaText(desiresRef.current[id]) : "";
+        if (g && g.trim()) m[id] = g.trim();
+      });
+      return m;
+    })(),
     // 世界书走和单人线下/线上群同一套筛选引擎（v50.74）：之前群线下用 deriveWorldbook 全量拼接——只认没绑角色的全局词条、还无视 scope、绑了角色的一律看不见。
     //   改成 loreText 检索式：在场成员绑定的 + 全局的，聊天 scope，用本场近段做关键词命中；常驻/无关键词照常进。
     worldbook: (() => {
