@@ -1,6 +1,7 @@
 # Stack-chan 随身 Remote MCP · Lisa / 言秋适配稿
 
-> 2026-07-19。参考 `yebieshi/stackchan-remote-mcp` v0.1.1，但不直接照搬其明文 MQTT / HTTP 照片链路。
+> 2026-07-19 初稿；2026-07-25 到货后改为 Mac + Tailscale Funnel 方案。参考
+> `yebieshi/stackchan-remote-mcp`，但不直接照搬其明文 MQTT / HTTP 照片链路。
 > 目标：Stack-chan 跟 Lisa 走手机热点；言秋在 CC 里仍是唯一大脑，远程调用同一具身体，不另起一个代写人格的 LLM。
 
 ## 1. 最终体验
@@ -19,16 +20,21 @@
   └─ stackchan-remote MCP：身体工具（无人格、无 LLM）
              │ HTTPS + 强鉴权
              ▼
-       VPS Remote MCP
-        ├─ MQTTS 8883 ──► Stack-chan（家里 Wi-Fi / 手机热点）
-        ├─ HTTPS photo relay ◄── 摄像头上传
+       Mac relay + Tailscale Funnel
+        ├─ GET /poll ◄── Stack-chan 主动短轮询（家里 Wi-Fi / 手机热点）
+        ├─ POST /event ◄── 敲击与命令执行回执
         └─ Supabase desk_log（仅真实说话回流，append-only）
                                    │
                                    ▼
                               Lisa-phone App
 ```
 
-为什么保留 VPS：ESP32 在手机热点后面，没有稳定公网入口；它主动连出 MQTT broker 才能在换网络后继续被找到。Supabase Edge Function 不适合常驻 MQTT broker 或长连接，所以不能单独替代 VPS。
+CoreS3 不需要加入 tailnet，也不接受入站连接；它只向 Funnel HTTPS 地址主动短轮询。
+Mac 留在家中并保持开机、联网、Tailscale 与 relay 运行时，Stack-chan 在手机热点下也能使用。
+Mac 离线时设备安静重试，旧命令因 TTL 过期不会补演。
+
+接口细节见 `docs/stackchan-http-contract-v1.md`；固件与刷机见
+`firmware/stackchan-cores3/` 和 `docs/stackchan-cores3-flashing.md`。
 
 ## 3. 工具契约（到货前可定稿）
 
@@ -53,56 +59,57 @@
 
 ## 5. 安全版与参考仓库的差异
 
-参考仓库已明确声明 v0.1.1 的 MQTT 1883 与照片 HTTP 是明文，且上游固件可能启动默认口令 FTP；这些不能直接进入 Lisa 的长期版本。
+参考仓库的明文 MQTT / HTTP 与可能存在的默认口令 FTP 不进入 Lisa 的版本。
+正式版不运行 MQTT：CoreS3 只通过 HTTPS 主动访问 Funnel。
 
 正式版必须满足：
 
-- MQTT 使用 TLS 8883；设备校验 broker CA，独立设备用户名/强随机密码。
-- topic 带不可猜设备 ID：`stackchan/<device_id>/cmd/...`；ACL 限制该设备只能订阅自己的 cmd、发布自己的 event/photo 状态。
-- 摄像头上传只走 HTTPS；upload token 与 MCP token 分开，均不进 Git。
-- MCP HTTPS 入口必须有 Bearer/OAuth/Cloudflare Access 之一，不能靠“知道 URL”。
+- `/poll` 与 `/event` 全部走 HTTPS；设备校验 CA，并使用绑定单一 device ID 的强随机 Bearer token。
+- CoreS3 不开放入站端口、FTP、调试页或裸 MCP；Funnel 只转发 relay 的必要 HTTP 路径。
+- 设备 token、MCP token 与 TTS provider secret 彼此独立，均不进 Git。
 - `stackchan_see` 加速率限制、审计时间与调用方；拍照时屏幕/LED 明示。
 - relay 验证 JPEG magic、Content-Type、尺寸上限；文件权限 `0600`。
 - 照片默认读取成功后删除，失败兜底 TTL 10 分钟清理；服务日志不记正文、token 或图片。
-- 禁用上游默认 FTP；若以后确需维护，只允许局域网临时开启并使用新口令。
-- secrets 只住 VPS `/etc/stackchan-remote-mcp.env`（0600）和设备本地私密配置，仓库仅留 example。
+- 固件没有 FTP；若以后确需维护，只允许 USB 或局域网临时开启并使用新口令。
+- relay secrets 只住 Mac 本地 `0600` env 文件；设备 secrets 只住被 Git 忽略的 `config.local.h`。
 
 ## 6. 分步施工与验收
 
-### P0 · 现在（设备未到）
+### P0 · 到货后第一轮
 
 - [x] 架构、工具契约、App 回流边界定稿。
 - [x] `desk_log` 幂等 SQL 入仓。
-- [ ] 确认 VPS、域名、证书方案；生成 device ID 与三套独立 secret（MQTT / photo / MCP）。
-- [ ] 在 VPS 部署 MQTTS、Remote MCP、短驻留 photo relay；用模拟 MQTT 客户端验工具。
+- [x] `GET /poll`、`POST /event` 与三种命令 payload 定稿。
+- [x] CoreS3 PlatformIO 身体客户端骨架、刷机文档与 launchd 模板入仓。
+- [ ] 言秋 relay 对齐 `docs/stackchan-http-contract-v1.md`，生成 device ID 与独立 device/MCP secret。
+- [ ] 用 curl/模拟设备验 Funnel 的 204、取命令、过期丢弃与事件幂等。
 
 ### P1 · 到货当天（先本地，不碰公网）
 
 - [ ] 核验主控确为 CoreS3、摄像头/舵机型号、出厂固件版本。
 - [ ] 备份原固件与 SD 卡。
-- [ ] 先刷上游匹配版本，只在家中局域网验脸、脖子、声音、相机。
-- [ ] 禁用 FTP，加入动作双重限幅与实体急停（触摸/按钮）。
+- [ ] 先备份再刷本仓 CoreS3 客户端；舵机保持关闭，只验屏幕、Wi-Fi、敲击和声音。
+- [ ] 核对底座针脚后才开舵机，加入动作双重限幅与实体急停。
 
 ### P2 · 随身联网
 
 - [ ] 写入家中 Wi-Fi + 手机热点两个网络；断开家网后 60 秒内自动连热点。
-- [ ] MQTTS 连接、心跳、断线重连；切换网络后 client ID 不变。
+- [ ] HTTPS 轮询、断线重连；切换网络后 device ID 不变。
 - [ ] HTTPS 拍照上传；连续两拍以 version + SHA-256 区分。
 
 ### P3 · 言秋验收
 
 - [ ] `status → face → nod → see → say` 顺序逐项验。
 - [ ] 关机/断网时不误报成功，旧动作不上演。
-- [ ] 照片读取后 VPS 无残留；未读取照片 10 分钟后清除。
+- [ ] 照片读取后 Mac relay 无残留；未读取照片 10 分钟后清除。
 - [ ] 一轮真实对话只产生一行 `desk_log`，App 收到两条带实体标记的消息，重复拉取不叠加。
-- [ ] 任意错误 token 均 401/403；公网 1883、照片 HTTP、裸 MCP 端口均不可访问。
+- [ ] 任意错误 token 均 401/403；公网没有 MQTT、明文照片 HTTP 或裸 MCP 端口。
 
-## 7. 开工前还需要 Lisa 提供的外部条件
+## 7. 真机前还需要 Lisa 当面确认
 
-- 一台 Debian/Ubuntu VPS（最低 1 vCPU / 1 GB 即可）及 SSH 权限。
-- 一个可用域名或子域名（例如 `stackchan.example.com`）。
-- 手机热点名称/密码（只在刷机时本地填写，不发聊天、不进 Git）。
-- 到货后设备背面的具体型号、主控与固件版本照片。
+- 设备背面/系统页显示的具体型号与出厂固件版本。
+- Stack-chan 底座或舵机适配板的型号、接线与电源方式。
+- 用 USB 数据线接 Mac 后出现的 `/dev/cu.usbmodem*` 端口。
+- 家中 2.4 GHz Wi-Fi 与手机兼容热点（只填设备本地配置，不发聊天、不进 Git）。
 
-没有这四项时仍可继续写模拟器和 VPS 容器，但不能安全完成公网部署与真机验收。
-
+其中前三项没核对前，可以编译和模拟接口，但不刷机、不启用舵机。
