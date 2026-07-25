@@ -4,12 +4,14 @@
 #include <M5StackChan.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <time.h>
 #include "config.local.h"
 
 namespace {
 unsigned long lastPollAt = 0;
 unsigned long lastWifiAttemptAt = 0;
 String lastCommandId;
+bool clockReady = false;
 
 int clampInt(int value, int low, int high) {
   return value < low ? low : (value > high ? high : value);
@@ -49,6 +51,21 @@ bool beginHttps(HTTPClient& http, WiFiClientSecure& client, const String& url) {
   return http.begin(client, url);
 }
 
+bool syncClock() {
+  if (clockReady) return true;
+  configTime(0, 0, "time.cloudflare.com", "pool.ntp.org");
+  const unsigned long deadline = millis() + 12000;
+  time_t now = time(nullptr);
+  while (now < 1704067200 && millis() < deadline) {
+    M5StackChan.update();
+    delay(100);
+    now = time(nullptr);
+  }
+  clockReady = now >= 1704067200;
+  Serial.printf("[clock] %s\n", clockReady ? "synced" : "timeout");
+  return clockReady;
+}
+
 bool postEvent(const char* eventType, JsonDocument* details = nullptr) {
   if (WiFi.status() != WL_CONNECTED) return false;
   WiFiClientSecure client;
@@ -68,6 +85,89 @@ bool postEvent(const char* eventType, JsonDocument* details = nullptr) {
   const int status = http.POST(json);
   http.end();
   return status >= 200 && status < 300;
+}
+
+uint16_t readLe16(const uint8_t* data) {
+  return static_cast<uint16_t>(data[0])
+       | (static_cast<uint16_t>(data[1]) << 8);
+}
+
+uint32_t readLe32(const uint8_t* data) {
+  return static_cast<uint32_t>(data[0])
+       | (static_cast<uint32_t>(data[1]) << 8)
+       | (static_cast<uint32_t>(data[2]) << 16)
+       | (static_cast<uint32_t>(data[3]) << 24);
+}
+
+bool playPcmWav(const uint8_t* wav, size_t wavBytes) {
+  if (!wav || wavBytes < 12 || memcmp(wav, "RIFF", 4) || memcmp(wav + 8, "WAVE", 4)) {
+    Serial.println("[audio] invalid RIFF/WAVE header");
+    return false;
+  }
+
+  uint16_t audioFormat = 0;
+  uint16_t channels = 0;
+  uint16_t bitsPerSample = 0;
+  uint32_t sampleRate = 0;
+  const uint8_t* pcm = nullptr;
+  size_t pcmBytes = 0;
+  size_t offset = 12;
+  while (offset + 8 <= wavBytes) {
+    const uint8_t* chunk = wav + offset;
+    const uint32_t chunkBytes = readLe32(chunk + 4);
+    const size_t dataOffset = offset + 8;
+    if (dataOffset > wavBytes || chunkBytes > wavBytes - dataOffset) {
+      Serial.println("[audio] truncated WAV chunk");
+      return false;
+    }
+    if (!memcmp(chunk, "fmt ", 4) && chunkBytes >= 16) {
+      audioFormat = readLe16(wav + dataOffset);
+      channels = readLe16(wav + dataOffset + 2);
+      sampleRate = readLe32(wav + dataOffset + 4);
+      bitsPerSample = readLe16(wav + dataOffset + 14);
+    } else if (!memcmp(chunk, "data", 4)) {
+      pcm = wav + dataOffset;
+      pcmBytes = chunkBytes;
+    }
+    // RIFF chunks are word-aligned; macOS say currently inserts a large JUNK
+    // chunk before the PCM data, so padding must be honored.
+    offset = dataOffset + chunkBytes + (chunkBytes & 1U);
+  }
+
+  if (audioFormat != 1 || channels != 1 || bitsPerSample != 16
+      || sampleRate == 0 || !pcm || pcmBytes < 2 || (pcmBytes & 1U)) {
+    Serial.printf("[audio] unsupported WAV fmt=%u ch=%u bits=%u rate=%lu bytes=%u\n",
+                  audioFormat, channels, bitsPerSample,
+                  static_cast<unsigned long>(sampleRate),
+                  static_cast<unsigned>(pcmBytes));
+    return false;
+  }
+
+  const bool queued = M5.Speaker.playRaw(
+      reinterpret_cast<const int16_t*>(pcm), pcmBytes / sizeof(int16_t),
+      sampleRate, false, 1, -1, true);
+  if (!queued) {
+    Serial.println("[audio] speaker queue rejected PCM");
+    return false;
+  }
+
+  // Playback is asynchronous. Give the speaker task time to claim the buffer
+  // before checking isPlaying(), otherwise the PSRAM backing it can be freed
+  // before the first sample is consumed.
+  const unsigned long startDeadline = millis() + 500;
+  while (!M5.Speaker.isPlaying() && millis() < startDeadline) {
+    M5.update();
+    delay(5);
+  }
+  if (!M5.Speaker.isPlaying()) {
+    Serial.println("[audio] speaker never started");
+    return false;
+  }
+  while (M5.Speaker.isPlaying()) {
+    M5.update();
+    delay(5);
+  }
+  return true;
 }
 
 bool playWavUrl(const String& url, int volume) {
@@ -99,8 +199,7 @@ bool playWavUrl(const String& url, int volume) {
   http.end();
   if (got != static_cast<size_t>(announced)) { free(wav); return false; }
   M5.Speaker.setVolume(clampInt(volume, 0, 255));
-  const bool ok = M5.Speaker.playWav(wav, got, 1);
-  while (M5.Speaker.isPlaying()) { M5.update(); delay(5); }
+  const bool ok = playPcmWav(wav, got);
   free(wav);
   return ok;
 }
@@ -170,7 +269,13 @@ void pollOnce() {
 }
 
 void connectWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!clockReady && syncClock()) {
+      face("happy");
+      postEvent("online");
+    }
+    return;
+  }
   if (millis() - lastWifiAttemptAt < WIFI_RETRY_MS) return;
   lastWifiAttemptAt = millis();
   WiFi.mode(WIFI_STA);
@@ -186,7 +291,12 @@ void connectWifi() {
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("[wifi] connected %s, %s\n", network.ssid, WiFi.localIP().toString().c_str());
       face("neutral");
-      postEvent("online");
+      if (syncClock()) {
+        face("happy");
+        postEvent("online");
+      } else {
+        face("sad");
+      }
       return;
     }
     WiFi.disconnect(true);
@@ -197,6 +307,7 @@ void connectWifi() {
 void setup() {
   Serial.begin(115200);
   M5StackChan.begin();
+  Serial.begin(115200);
   M5StackChan.Display().setRotation(1);
   face("sleepy");
   M5StackChan.setServoPowerEnabled(SERVOS_ENABLED);

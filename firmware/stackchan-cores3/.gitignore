@@ -2,3 +2,4 @@ include/config.local.h
 .pio/
 .vscode/
 backups/
+scripts/__pycache__/
