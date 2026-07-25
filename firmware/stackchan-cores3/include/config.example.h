@@ -32,9 +32,11 @@ static constexpr size_t MAX_AUDIO_BYTES = 1536 * 1024;
 // The official M5STACKCHAN base uses two feedback TTL servos. Its BSP owns the
 // UART, servo IDs and calibration; never drive these as generic PWM servos.
 // Keep disabled for the first network/audio smoke test, then enable only after
-// the factory calibration values have been recorded.
+// the factory calibration values have been recorded. Relay angles are centered
+// at 90/90 and translated to the BSP's calibrated home-relative coordinates.
 static constexpr bool SERVOS_ENABLED = false;
 static constexpr int SERVO_YAW_MIN = 45;
 static constexpr int SERVO_YAW_MAX = 135;
-static constexpr int SERVO_PITCH_MIN = 60;
+// The factory pitch zero is the lowest safe pose; larger values look upward.
+static constexpr int SERVO_PITCH_MIN = 90;
 static constexpr int SERVO_PITCH_MAX = 120;

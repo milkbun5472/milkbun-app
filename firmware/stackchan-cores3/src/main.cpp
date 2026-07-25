@@ -23,6 +23,7 @@ bool faceDrawn = false;
 String currentFace = "neutral";
 String faceBeforeTap = "neutral";
 volatile unsigned long restoreFaceAt = 0;
+volatile unsigned long servoTorqueReleaseAt = 0;
 
 struct PendingEvent {
   char json[1024];
@@ -264,13 +265,16 @@ void moveTo(int yaw, int pitch, int durationMs) {
   yaw = clampInt(yaw, SERVO_YAW_MIN, SERVO_YAW_MAX);
   pitch = clampInt(pitch, SERVO_PITCH_MIN, SERVO_PITCH_MAX);
   // Relay uses conventional centered degrees. The official StackChan BSP uses
-  // 0.1-degree units: X is centered at 0, while Y's safe physical range is
-  // 5..85 degrees. Thus relay pitch 90 maps to the physical 45-degree center.
+  // calibrated, home-relative 0.1-degree units on both axes, so 90/90 must map
+  // to 0/0. Keep the relay-side limits deliberately narrower than the BSP's
+  // mechanical limits.
   const int stackYaw = clampInt((yaw - 90) * 10, -1280, 1280);
-  const int stackPitch = clampInt((pitch - 45) * 10, 50, 850);
+  const int stackPitch = clampInt((pitch - 90) * 10, 0, 900);
   durationMs = clampInt(durationMs, 100, 3000);
   const int speed = clampInt(250000 / durationMs, 100, 1000);
+  M5StackChan.Motion.setTorqueEnabled(true);
   M5StackChan.Motion.move(stackYaw, stackPitch, speed);
+  servoTorqueReleaseAt = millis() + durationMs + 500;
 }
 
 bool executeCommand(JsonObject command) {
@@ -398,7 +402,16 @@ void setup() {
   eventQueue = xQueueCreate(8, sizeof(PendingEvent));
   face("sleepy");
   M5StackChan.setServoPowerEnabled(SERVOS_ENABLED);
-  if (SERVOS_ENABLED) M5StackChan.Motion.goHome(300);
+  if (SERVOS_ENABLED) {
+    // Start from the feedback servos' measured position. Do not snap to home
+    // at boot; the first explicit command will move gently from the real pose.
+    // Feedback reads from these two serial servos are comparatively slow and
+    // can starve the relay task after a move. The BSP already sampled their
+    // actual position during initialization, so animate from that snapshot and
+    // release torque on our own timer without continuously polling feedback.
+    M5StackChan.Motion.setAutoAngleSyncEnabled(false);
+    M5StackChan.Motion.setAutoTorqueReleaseEnabled(false);
+  }
   if (eventQueue) {
     xTaskCreatePinnedToCore(pollTask, "relay-poll", 8192, nullptr, 1, nullptr, 0);
   }
@@ -412,6 +425,12 @@ void loop() {
   if (restoreFaceAt && static_cast<int32_t>(millis() - restoreFaceAt) >= 0) {
     restoreFaceAt = 0;
     drawFace(faceBeforeTap.c_str());
+  }
+
+  if (servoTorqueReleaseAt &&
+      static_cast<int32_t>(millis() - servoTorqueReleaseAt) >= 0) {
+    servoTorqueReleaseAt = 0;
+    M5StackChan.Motion.setTorqueEnabled(false);
   }
 
   // Read through M5Unified's event layer. Direct display.getTouch() stays at
