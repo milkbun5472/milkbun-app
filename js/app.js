@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.83";
+const APP_VERSION = "v50.84";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -335,7 +335,7 @@ function App() {
   const [offlines, setOfflines] = useState({}); // charId -> [session,...] newest-first
   // 线下模式设置 { [charId 或 "g_"+groupId]: {selfP,userP,describeMe,maxTokens} }
   const [offlineSettings, setOfflineSettings] = useState({});
-  const osFor = id => offlineSettings[id] || { maxTokens: String(id).startsWith("g_") ? 3200 : 1400 };
+  const osFor = id => offlineSettings[id] || { maxTokens: String(id).startsWith("g_") ? 3200 : 4000 }; // 单人线下默认 1400→4000（1400 太紧、思考型模型长场景会截断掉格式）；想更长拉条到 10000
   const osNarr = id => { const s = osFor(id); return { selfP: s.selfP, userP: s.userP, describeMe: s.describeMe }; };
   const saveOfflineSettings = (id, patch) => setOfflineSettings(p => { const n = { ...p, [id]: { ...osFor(id), ...patch } }; saveJSON("x_offlineSettings", n); return n; });
   const offlinesRef = useRef({});
@@ -423,7 +423,16 @@ function App() {
     setStateHist(loadJSON("x_stateHist", {}));
     setCalendar(loadJSON("x_calendar", { world: {}, chars: {}, mine: {} }));
     setPeriod(loadJSON("x_period", { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null }));
-    setOfflineSettings(loadJSON("x_offlineSettings", {}));
+    // 一次性迁移：把之前存成 ≤1400 的单人线下输出上限抬到 4000（旧默认 1400 太紧会截断掉格式；群 g_ 的不动）
+    (() => {
+      const os = loadJSON("x_offlineSettings", {});
+      if (localStorage.getItem("x_offMaxMig") === "1") { setOfflineSettings(os); return; }
+      let changed = false;
+      Object.keys(os).forEach(k => { const e = os[k]; if (e && !String(k).startsWith("g_") && typeof e.maxTokens === "number" && e.maxTokens > 0 && e.maxTokens <= 1400) { os[k] = { ...e, maxTokens: 4000 }; changed = true; } });
+      if (changed) saveJSON("x_offlineSettings", os);
+      try { localStorage.setItem("x_offMaxMig", "1"); } catch (e) {}
+      setOfflineSettings(os);
+    })();
     setRels(loadJSON("x_rels", {}));
     setAffinities(loadJSON("x_affinities", {}));
     setMoods(loadJSON("x_moods", {}));
