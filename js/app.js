@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.88";
+const APP_VERSION = "v50.89";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -8524,6 +8524,8 @@ function App() {
     Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => {
       dump[k] = localStorage.getItem(k);
     });
+    // 已迁进 IDB 文字库的键(同人文)不在 localStorage，从内存镜像补进备份，否则导出会漏、换设备就丢。
+    try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null) dump[k] = v; }); } catch (e) {}
     // ⭐阶段4：图片仓库也打进备份——头像/壁纸迁进 IndexedDB 后，localStorage 只剩 iv_ 引用键，
     // 图本身在 vault 里、不随普通备份走；这里把 vault 里每张图 base64 化装进 JSON，换设备导入后图才不丢。
     let vault = {}, vaultCount = 0;
@@ -8581,6 +8583,11 @@ function App() {
       // 逐键写入：单键失败（多半是超了浏览器单站点 ~5MB 上限）不整体中断，记下漏掉的，尽量恢复其余
       const failed = [];
       Object.entries(parsed.data).forEach(([k, v]) => {
+        // 文字库键(同人文)：写进 IDB + 镜像，不进 localStorage(否则又占回 5MB、还可能超限)
+        if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
+          try { window.__txtMirror && window.__txtMirror.set(k, v); if (typeof idbTxtPut === "function") idbTxtPut(k, v).catch(() => {}); } catch (e) {}
+          return;
+        }
         try { localStorage.setItem(k, v); }
         catch (err) { failed.push({ k, size: (v || "").length }); }
       });
@@ -9561,7 +9568,11 @@ function App() {
 // hydrate 只是读一遍 IndexedDB，几毫秒；失败也照常挂载（resolveImg 对未命中的 iv_ 返回空、落首字母兜底）。
 (function () {
   const mount = () => ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
-  if (typeof hydrateImgVault === "function") { hydrateImgVault().then(mount, mount); } else { mount(); }
+  // 挂载前先灌好图库 + 文字库(同人文迁 IDB)镜像，首帧就能同步读到；失败也照常挂载(loadJSON 会回落 localStorage)。
+  const hyd = [];
+  if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());
+  if (typeof hydrateTxtVault === "function") hyd.push(hydrateTxtVault());
+  if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
 })();
 
 // 启动时：若已登录且云端存档更新，静默拉回并重载（换设备场景）

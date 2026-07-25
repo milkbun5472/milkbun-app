@@ -43,6 +43,8 @@
         .forEach((k) => {
           dump[k] = localStorage.getItem(k);
         });
+      // 已迁进 IDB 文字库的键(同人文等)不在 localStorage，从内存镜像补进存档，否则云端备份会漏掉。
+      try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null) dump[k] = v; }); } catch (e) {}
       return dump;
     },
 
@@ -93,6 +95,11 @@
           .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
           .forEach((k) => localStorage.removeItem(k));
         Object.entries(data || {}).forEach(([k, v]) => {
+          // 文字库键(同人文等)：写进 IDB + 内存镜像，绝不进 localStorage(否则又占回 5MB)。apply 后调用方会 reload，hydrateTxtVault 再兜一遍。
+          if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
+            try { window.__txtMirror && window.__txtMirror.set(k, v); if (typeof idbTxtPut === "function") idbTxtPut(k, v).catch(() => {}); } catch (e) {}
+            return;
+          }
           if (!(tableMemoryMode() && k === "x_memLib")) localStorage.setItem(k, v);
         });
         if (tableMemoryMode() && keepMemLib != null) localStorage.setItem("x_memLib", keepMemLib);
@@ -162,6 +169,8 @@
         localStorage.removeItem("memory_table_authority_v1"); // 切表批准只属于当前账号在当前设备；退出后不带给下一个账号
         try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
       } finally { suspend = false; }
+      // 文字库(同人文迁 IDB)也清——退出后不许下一个账号看到上一个账号的同人文
+      try { if (typeof idbTxtClear === "function") await idbTxtClear(); } catch (e) {}
       // 事件书架镜像立即清空（不等下次 ensureOwner）——未登录不许看到上一个账号的事件标题/梗概
       try { if (window.MemoryEvents && window.MemoryEvents.clearAll) await window.MemoryEvents.clearAll(); } catch (e) {}
       // 召回冷却环/旁路诊断只属于当前账号。本机换号时必须清掉，不能让相同 charId
