@@ -29,13 +29,12 @@ static constexpr unsigned long POLL_INTERVAL_MS = 1500;
 static constexpr unsigned long WIFI_RETRY_MS = 10000;
 static constexpr size_t MAX_AUDIO_BYTES = 1536 * 1024;
 
-// Servo pins depend on the exact Stack-chan base/adapter. Do not enable until
-// the wiring has been checked against the arrived unit.
+// The official M5STACKCHAN base uses two feedback TTL servos. Its BSP owns the
+// UART, servo IDs and calibration; never drive these as generic PWM servos.
+// Keep disabled for the first network/audio smoke test, then enable only after
+// the factory calibration values have been recorded.
 static constexpr bool SERVOS_ENABLED = false;
-static constexpr int SERVO_YAW_PIN = -1;
-static constexpr int SERVO_PITCH_PIN = -1;
-static constexpr int SERVO_YAW_MIN = 35;
-static constexpr int SERVO_YAW_MAX = 145;
-static constexpr int SERVO_PITCH_MIN = 55;
-static constexpr int SERVO_PITCH_MAX = 125;
-
+static constexpr int SERVO_YAW_MIN = 45;
+static constexpr int SERVO_YAW_MAX = 135;
+static constexpr int SERVO_PITCH_MIN = 60;
+static constexpr int SERVO_PITCH_MAX = 120;

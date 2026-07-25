@@ -1,31 +1,26 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
-#include <M5Unified.h>
-#include <ESP32Servo.h>
+#include <M5StackChan.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include "config.local.h"
 
 namespace {
-Servo yawServo;
-Servo pitchServo;
 unsigned long lastPollAt = 0;
 unsigned long lastWifiAttemptAt = 0;
-bool touchWasDown = false;
 String lastCommandId;
-int yawNow = 90;
-int pitchNow = 90;
 
 int clampInt(int value, int low, int high) {
   return value < low ? low : (value > high ? high : value);
 }
 
 void face(const char* label) {
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextDatum(middle_center);
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setTextSize(2);
+  auto& display = M5StackChan.Display();
+  display.fillScreen(TFT_BLACK);
+  display.setTextDatum(middle_center);
+  display.setTextColor(TFT_WHITE, TFT_BLACK);
+  display.setTextSize(2);
   String eyes = "^  ^";
   String mouth = "  w  ";
   const String mood(label ? label : "neutral");
@@ -34,8 +29,8 @@ void face(const char* label) {
   else if (mood == "angry") { eyes = ">  <"; mouth = "  ~  "; }
   else if (mood == "sleepy") { eyes = "-  -"; mouth = "  o  "; }
   else if (mood == "surprised") { eyes = "O  O"; mouth = "  o  "; }
-  M5.Display.drawString(eyes, M5.Display.width() / 2, 85);
-  M5.Display.drawString(mouth, M5.Display.width() / 2, 135);
+  display.drawString(eyes, display.width() / 2, 85);
+  display.drawString(mouth, display.width() / 2, 135);
 }
 
 void auth(HTTPClient& http) {
@@ -80,6 +75,7 @@ bool playWavUrl(const String& url, int volume) {
   WiFiClientSecure client;
   HTTPClient http;
   if (!beginHttps(http, client, url)) return false;
+  auth(http);
   const int status = http.GET();
   if (status != HTTP_CODE_OK) { http.end(); return false; }
   const int announced = http.getSize();
@@ -113,17 +109,14 @@ void moveTo(int yaw, int pitch, int durationMs) {
   if (!SERVOS_ENABLED) return;
   yaw = clampInt(yaw, SERVO_YAW_MIN, SERVO_YAW_MAX);
   pitch = clampInt(pitch, SERVO_PITCH_MIN, SERVO_PITCH_MAX);
-  durationMs = clampInt(durationMs, 100, 2500);
-  const int steps = max(1, durationMs / 20);
-  const int yawStart = yawNow;
-  const int pitchStart = pitchNow;
-  for (int i = 1; i <= steps; ++i) {
-    yawServo.write(yawStart + (yaw - yawStart) * i / steps);
-    pitchServo.write(pitchStart + (pitch - pitchStart) * i / steps);
-    delay(20);
-  }
-  yawNow = yaw;
-  pitchNow = pitch;
+  // Relay uses conventional centered degrees. The official StackChan BSP uses
+  // 0.1-degree units: X is centered at 0, while Y's safe physical range is
+  // 5..85 degrees. Thus relay pitch 90 maps to the physical 45-degree center.
+  const int stackYaw = clampInt((yaw - 90) * 10, -1280, 1280);
+  const int stackPitch = clampInt((pitch - 45) * 10, 50, 850);
+  durationMs = clampInt(durationMs, 100, 3000);
+  const int speed = clampInt(250000 / durationMs, 100, 1000);
+  M5StackChan.Motion.move(stackYaw, stackPitch, speed);
 }
 
 bool executeCommand(JsonObject command) {
@@ -203,36 +196,24 @@ void connectWifi() {
 
 void setup() {
   Serial.begin(115200);
-  auto cfg = M5.config();
-  cfg.internal_spk = true;
-  cfg.internal_mic = false;
-  M5.begin(cfg);
-  M5.Display.setRotation(1);
+  M5StackChan.begin();
+  M5StackChan.Display().setRotation(1);
   face("sleepy");
-  if (SERVOS_ENABLED && SERVO_YAW_PIN >= 0 && SERVO_PITCH_PIN >= 0) {
-    yawServo.setPeriodHertz(50);
-    pitchServo.setPeriodHertz(50);
-    yawServo.attach(SERVO_YAW_PIN, 500, 2500);
-    pitchServo.attach(SERVO_PITCH_PIN, 500, 2500);
-    moveTo(90, 90, 500);
-  }
+  M5StackChan.setServoPowerEnabled(SERVOS_ENABLED);
+  if (SERVOS_ENABLED) M5StackChan.Motion.goHome(300);
   connectWifi();
 }
 
 void loop() {
-  M5.update();
+  M5StackChan.update();
   connectWifi();
-  const auto touch = M5.Touch.getDetail();
-  const bool touchDown = touch.isPressed();
-  if (touchDown && !touchWasDown) {
+  if (M5StackChan.TouchSensor.wasPressed()) {
     face("surprised");
     postEvent("tap");
   }
-  touchWasDown = touchDown;
   if (WiFi.status() == WL_CONNECTED && millis() - lastPollAt >= POLL_INTERVAL_MS) {
     lastPollAt = millis();
     pollOnce();
   }
   delay(10);
 }
-

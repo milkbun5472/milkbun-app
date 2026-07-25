@@ -1,15 +1,14 @@
 # Stack-chan relay under launchd
 
-This template belongs to the Mac relay Yanqiu is implementing. It does not
-expose anything by itself; Tailscale Funnel remains a separate, explicit
-configuration.
+This plist runs Yanqiu's standard-library Python relay on Lisa's Mac. It does
+not expose anything by itself; Tailscale Funnel remains a separate,
+explicit configuration.
 
-After the relay entry point and env-file format are final:
-
-1. Copy `launchd/com.lisa.stackchan-relay.plist.example`.
-2. Replace every `REPLACE_WITH_...` value with an absolute path.
-3. Keep secrets in the relay env file, mode `0600`; never put them in the plist.
-4. Validate and load:
+1. Copy `launchd/com.lisa.stackchan-relay.plist.example` to
+   `~/Library/LaunchAgents/com.lisa.stackchan-relay.plist`.
+2. Keep secrets in the relay's adjacent `.env`, mode `0600`; never put them in
+   the plist or Git.
+3. Validate and load:
 
 ```bash
 plutil -lint ~/Library/LaunchAgents/com.lisa.stackchan-relay.plist
@@ -21,7 +20,7 @@ Inspect:
 
 ```bash
 launchctl print gui/$(id -u)/com.lisa.stackchan-relay
-tail -n 100 /path/to/logs/stackchan-relay.err.log
+tail -n 100 ~/Library/Logs/stackchan-relay.err.log
 ```
 
 Unload before replacing the file:
@@ -30,7 +29,6 @@ Unload before replacing the file:
 launchctl bootout gui/$(id -u)/com.lisa.stackchan-relay
 ```
 
-Do not load the example unchanged. We will produce the concrete plist only
-after Yanqiu gives the relay's absolute entry point, working directory and
-health-check behavior.
-
+The checked-in example contains Lisa's concrete non-secret paths. If Python is
+upgraded, update the absolute interpreter path before reloading the job;
+launchd must not depend on an interactive shell's `PATH`.

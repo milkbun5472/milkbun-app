@@ -6,19 +6,11 @@
   <string>com.lisa.stackchan-relay</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/env</string>
-    <string>node</string>
-    <string>REPLACE_WITH_ABSOLUTE_RELAY_ENTRYPOINT</string>
+    <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+    <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/server.py</string>
   </array>
   <key>WorkingDirectory</key>
-  <string>REPLACE_WITH_ABSOLUTE_RELAY_DIRECTORY</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>NODE_ENV</key>
-    <string>production</string>
-    <key>STACKCHAN_ENV_FILE</key>
-    <string>REPLACE_WITH_ABSOLUTE_ENV_FILE</string>
-  </dict>
+  <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay</string>
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -31,9 +23,8 @@
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
-  <string>REPLACE_WITH_ABSOLUTE_LOG_DIRECTORY/stackchan-relay.out.log</string>
+  <string>/Users/lisa/Library/Logs/stackchan-relay.out.log</string>
   <key>StandardErrorPath</key>
-  <string>REPLACE_WITH_ABSOLUTE_LOG_DIRECTORY/stackchan-relay.err.log</string>
+  <string>/Users/lisa/Library/Logs/stackchan-relay.err.log</string>
 </dict>
 </plist>
-
