@@ -5251,7 +5251,7 @@ function OfflineMode({
   const [cPrompt, setCPrompt] = useState("");
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
-  const [sMax, setSMax] = useState(os.maxTokens || 1400);
+  const [sMax, setSMax] = useState(os.maxTokens || 4000);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sSelf, setSSelf] = useState(os.selfP || "first");
