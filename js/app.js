@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.76";
+const APP_VERSION = "v50.77";
 const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
@@ -5219,9 +5219,12 @@ function App() {
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
       const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
-      const sinceChat = ambientMaterialFor(char, { sinceTs: lastForumTs, limit: 20 });
+      const sinceChat = ambientMaterialFor(char, { sinceTs: lastForumTs, limit: 30 });
+      // 别重复上一贴（她 2026-07-24：都在线下、发的帖和上次一样）：把 TA 自己最近那贴喂进去当"要避开的"，逼它写新事
+      const myLast = (forumPostsRef.current || []).filter(p => p.authorId === char.id).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
+      const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(active, ctxFor(char), {
-        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助 三选一）。内容写你**最近（上次发帖之后）真实发生或萦绕心头的事**——今天行程里的事、最近和用户聊到/经历的、心情起伏都行；实在没有值得说的，就按你的人设编一件贴合的小事。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可当素材，别照抄原话）】\n" + sinceChat : ""),
+        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助 三选一）。**优先写你【最近这段】真实新发生的事——尤其下面那段共同相处（很可能是刚在线下经历的）里冒出来的新鲜事、新心情**；今天行程里的事、心情起伏也行；实在没有才按人设编一件贴合的小事。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；这就是你此刻最该拿来发帖的新料，别照抄原话、要提炼成一件事）】\n" + sinceChat : "") + avoidRepeat,
         schemaHint: "{\"board\":\"吐槽/日常/求助 之一\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
