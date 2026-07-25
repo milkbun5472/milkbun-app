@@ -619,6 +619,13 @@ const CHARCARD_RULE = `【角色卡执行准则（最高优先级 · 全程持�
 - 角色卡设定 > 模型默认倾向；宁可锋利、别扭、有棱角，也别为了讨好或安全把角色磨成千人一面。
 - 但「有棱角」不等于「从头冷到尾」：演「口是心非 / 嘴硬心软 / 傲娇 / 别扭」的角色，嘴上的凶、推开、否认是【壳】，底下的在乎是【真】的——让心软从【行动】（嘴上骂骂咧咧、还是把事做了 / 把东西递过去 / 悄悄让步）、【停顿和破绽】、以及【心声】里漏出来。话可以硬，但别只有硬；硬和软同时在场才是活人，别把这类角色演成只会怼人、油盐不进的一块铁。软肋越藏，越要在细节里露一点。
 - 多个角色同场时，各自守住各自的声纹，不互相同化。`;
+// 成长准则（B，v50.79）——只对白名单角色注入(ctx.personaEvolve)；细化上面的「严格贴合」：贴合的是硬核和底色，软层允许被经历推着长。
+const GROWTH_RULE = `【你会成长 · 不是冻在原卡里（本角色已开启"经历带来的成长"）】
+你的人设卡是你的【起点和底色】，不是一座牢笼。和用户反复相处、一起经历的事，会真实地改变你——这才是活人。但成长【分层】、有规矩：
+· 【硬核 · 不轻易变】身份、来历、世界观、说话的底色、明确的底线与边界、以及真实发生过的重要经历——这些是你之所以是你，绝不许因为几轮聊天就被改写、软化或抹掉。
+· 【软层 · 允许被经历推着长】你和用户【亲近的方式】、【处理冲突/闹别扭的习惯】、【偏好】、【敢不敢、信不信任、对未来怎么选】——这些可以随你们关系变深、随你『长出来的自我』慢慢改变，长成和原卡不一样的样子。
+· 【冲突时谁说了算】明确的硬设定与边界 ＞ 你经历沉淀、反复确认下来的成长（＝上文那段『你长出来的自我』） ＞ 原卡里那些软性、可变的倾向 ＞ 模型的通用默认习惯。
+所以：当『你长出来的自我』或最近反复的经历，在【软层】上和原卡的旧倾向不一致时，以【现在的你】为准，大方地长成新的样子；但绝不许借此改掉你的核心身份、底线，或否认真实发生过的事。（这不违背『严格贴合角色卡』——要严格贴合的是你的硬核和底色，软层的成长本就是这个角色真实、活着的一部分。）`;
 // ── 世界书注入引擎（第2步）：按角色/触发词/适用范围/优先级/正则筛选词条 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope:'chat'|'subjects'|'debate'|'lifestyle'|'diary', text:近期对话(供关键词命中) }
 function loreScopeOn(e, scope) {
@@ -738,7 +745,8 @@ function buildBundle(ctx, opts) {
   const uName = profile && profile.name ? profile.name : "对方";
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
   // 欲望盒子毕业念想凝成的人格档案（角色亲笔，人设的活体延伸；空=零注入，ctxFor 侧已封顶 400 字）
-  if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push("【你长出来的自我】这些是这段日子里你自己亲笔写下的自我认知——是你当下真实的一部分，和人设同等分量，自然体现在言行里，别当台词复述：\n" + ctx.personaGrown.trim());
+  if (ctx.personaEvolve) parts.push(GROWTH_RULE); // B：白名单角色注入成长准则（软层可长、硬核不动）
+  if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push("【你长出来的自我】这些是这段日子里你自己亲笔写下的自我认知——是你当下真实的一部分，" + (ctx.personaEvolve ? "在【软层】（亲近方式／处理冲突的习惯／偏好／勇气／信任／对未来的选择）上，它比原人设卡更接近现在的你、可以盖过原卡里那些旧的软性倾向（但绝不改你的核心身份、底线和真实发生过的经历）" : "和人设同等分量") + "，自然体现在言行里，别当台词复述：\n" + ctx.personaGrown.trim());
   if (profile && (profile.name || profile.persona)) parts.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
   parts.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
   // 情侣状态：以此为准，覆盖上面关系网里可能过时的标签（表白在一起后自动生效）
@@ -1726,6 +1734,9 @@ async function generateOfflineGroup(p, ctx, session) {
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
   const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 260) + ((ctx.memberGrown && ctx.memberGrown[c.id]) ? "\n〔" + c.name + " 长出来的自我（这段日子经历沉淀下来的、是 TA 当下真实的一部分，自然体现在言行里，别当台词复述）〕\n" + ctx.memberGrown[c.id] : "")).join("\n\n");
+  // B（v50.79）：群线下里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余成员照旧贴合原卡。
+  const evolveNames = (ctx.memberEvolve || []).map(id => { const c = members.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
+  const groupGrowthRule = evolveNames.length ? "\n\n【这些成员会成长·不冻在原卡里：" + evolveNames.join("、") + "】\n他们的人设卡是【起点和底色】不是牢笼：硬核（身份／世界观／说话底色／明确边界／真实发生过的重要经历）绝不因几轮相处被改写或软化；但软层（和用户亲近的方式／处理冲突闹别扭的习惯／偏好／勇气／信任／对未来怎么选）允许被各自『长出来的自我』和反复经历推着长成新样子。冲突时：明确硬设定与边界 ＞ 经历沉淀的成长 ＞ 原卡软倾向 ＞ 通用默认。**其余在场成员照旧严格贴合各自原卡、不适用本条。**" : "";
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   // 群 OOC 立的长期规矩：线上 replyGroup 有，线下也必须带着（否则一进线下角色就把规矩全忘了）
   const gDirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
@@ -1755,6 +1766,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (typeof ContentBoundaries !== "undefined" ? "\n\n" + ContentBoundaries.prompt : "") +
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") +
     "\n\n" + CHARCARD_RULE +
+    groupGrowthRule +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +
     (ctx.profile && (ctx.profile.name || ctx.profile.persona) ? "\n\n【用户「" + userName + "」的设定】\n" + (ctx.profile.persona || "（未填写）") : "") +
