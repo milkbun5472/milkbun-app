@@ -26,6 +26,7 @@ function blocks(record) {
 
 function isExternalUserTurn(record) {
   if (record?.type !== "user") return false;
+  if (record?.isMeta === true) return false;
   const content = record?.message?.content;
   if (typeof content === "string") return content.trim().length > 0;
   if (!Array.isArray(content)) return false;
@@ -67,15 +68,19 @@ for (let index = records.length - 1; index >= 0; index--) {
 
 if (wakeIndex < 0) process.exit(0);
 
-// Only judge the active conversational turn. Tool-result "user" records are not
-// real user turns, so they deliberately do not reset the window.
+// Pin the check to the current conversational turn, not merely the most recent
+// ScheduleWakeup in the whole transcript. Tool results and hook feedback are
+// deliberately not considered real user-turn boundaries.
 let turnStart = 0;
-for (let index = wakeIndex - 1; index >= 0; index--) {
+for (let index = records.length - 1; index >= 0; index--) {
   if (isExternalUserTurn(records[index])) {
     turnStart = index + 1;
     break;
   }
 }
+
+// The latest wakeup belongs to an older turn: there is nothing to police now.
+if (wakeIndex < turnStart) process.exit(0);
 
 const hasVisibleReply = records
   .slice(turnStart, wakeIndex + 1)
