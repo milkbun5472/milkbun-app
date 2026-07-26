@@ -58,8 +58,11 @@ function classifyCodexJsonl(text, expectedThreadId) {
   if (seenThread && expectedThreadId && seenThread !== expectedThreadId) {
     return { state: 'intrusion', reason: 'thread_mismatch' };
   }
-  if (failed) return { state: 'error', reason: 'turn_failed' };
-  if (processExit && processExit.exit_code !== 0) return { state: 'error', reason: 'process_failed' };
+  // CLI 会在流重连时先写 error，但随后仍可能成功吐出最终正文并正常完成。
+  // 一旦同一 spool 已有 turn.completed，就以最终封包为准；中途网络告警只作诊断，
+  // 不能盖掉已经完成的可见回复。
+  if (!completed && failed) return { state: 'error', reason: 'turn_failed' };
+  if (!completed && processExit && processExit.exit_code !== 0) return { state: 'error', reason: 'process_failed' };
   if (processExit && !completed) return { state: 'error', reason: 'process_exited_without_completion' };
   if (!completed) return { state: 'pending' };
   if (!visible.length) return { state: 'empty' };

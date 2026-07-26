@@ -62,6 +62,19 @@ test('JSONL 未 completed 一律 pending；completed 无可见正文为 empty；
   assert.equal(classifyCodexJsonl(lines(started(), { type: 'process.exited', exit_code: 0 }), 'thread_old').reason, 'process_exited_without_completion');
 });
 
+test('CLI 中途重连报错但最终完成 → 以完成封包为准，不误判 needs_attention', () => {
+  const r = classifyCodexJsonl(lines(
+    started(), turnStarted(),
+    { type: 'error', message: 'Reconnecting... 2/5' },
+    { type: 'error', message: 'Reconnecting... 3/5' },
+    item('agent_message', '重连后完整生成的最终正文'),
+    completed({ input_tokens: 321, output_tokens: 18 }),
+    { type: 'process.exited', exit_code: 0 },
+  ), 'thread_old');
+  assert.equal(r.state, 'replied');
+  assert.equal(r.reply.content, '重连后完整生成的最终正文');
+});
+
 test('thread.started 不等于绑定旧任务 → intrusion，绝不接错任务', () => {
   const r = classifyCodexJsonl(lines(started('thread_new'), turnStarted(), item('agent_message', '错任务回复'), completed()), 'thread_old');
   assert.equal(r.state, 'intrusion');

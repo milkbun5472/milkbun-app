@@ -31,6 +31,7 @@ const state = {
   selectedMessageId: null,
   busy: false,
   stream: null,
+  timelineSignature: null,
 };
 
 const STATUS = {
@@ -119,7 +120,16 @@ function render(snapshot) {
   ui.callMeter.style.width = `${ratioWidth(room.calls_today, room.daily_call_cap)}%`;
   ui.charMeter.style.width = `${ratioWidth(room.usage_today, room.daily_char_cap)}%`;
   ui.budgetButton.dataset.level = snapshot.budget.level;
-  renderMessages(snapshot.messages);
+  // 等待回复时服务端会连续发进度快照。消息和状态没变就不要拆掉整条
+  // 时间线重建，否则输入框和页面布局会跟着每次进度快照抖一下。
+  const timelineSignature = JSON.stringify({
+    status: room.status,
+    messages: snapshot.messages.map((m) => [m.message_id, m.content, m.created_at, m.automatic]),
+  });
+  if (timelineSignature !== state.timelineSignature) {
+    state.timelineSignature = timelineSignature;
+    renderMessages(snapshot.messages);
+  }
   const latest = latestLisaMessage(snapshot);
   const already = latest && snapshot.dispatches.some((d) => d.message_id === latest.message_id);
   if (!state.busy && latest && !already && room.status !== 'stopped') {

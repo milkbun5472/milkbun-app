@@ -113,7 +113,8 @@ function createLoungeServer({
 
   async function withProgress(roomId, operation) {
     snapshot(roomId);
-    const ticker = setInterval(() => snapshot(roomId), 250);
+    // 进度只用于让页面知道仍在等待；不需要以动画帧级频率重发整份房间。
+    const ticker = setInterval(() => snapshot(roomId), 750);
     try { return await operation(); }
     finally {
       clearInterval(ticker);
