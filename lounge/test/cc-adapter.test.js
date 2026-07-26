@@ -31,16 +31,26 @@ function writeJ(f, objs) { fs.writeFileSync(f, objs.map((o) => JSON.stringify(o)
 function appendJ(f, objs) { fs.appendFileSync(f, objs.map((o) => JSON.stringify(o)).join('\n') + '\n'); }
 function cleanup(...files) { for (const f of files) for (const suf of ['', '-wal', '-shm']) { try { fs.unlinkSync(f + suf); } catch {} } }
 
-function mkAdapter(file, { now = 5000, silenceMs = 1500, db } = {}) {
+// 纯分类单元测试：显式 ephemeral（不需持久化）
+function mkAdapter(file, { now = 5000, silenceMs = 1500 } = {}) {
   const clock = fakeClock(now);
   const sent = [];
   const adapter = new CCAdapter({
     sender: async (sessionId, text) => { sent.push({ sessionId, text }); },  // 绝不真实投递
     resolve: () => ({ transcriptPath: file }),
-    clock, silenceMs, db,
+    clock, silenceMs, ephemeral: true,
   });
   return { adapter, sent, clock };
 }
+
+test('构造：未传 db 且未声明 ephemeral → 立即报错', () => {
+  assert.throws(
+    () => new CCAdapter({ sender: async () => {}, resolve: () => ({ transcriptPath: 'x' }) }),
+    /同一个 db|ephemeral/,
+  );
+  // 显式 ephemeral 允许
+  assert.doesNotThrow(() => new CCAdapter({ sender: async () => {}, resolve: () => ({}), ephemeral: true }));
+});
 
 // deliver 本次正文 → 手动往 fixture 追加"投递后"内容。
 // prependOurs=true 时自动补一条与本次正文匹配的跨会话行(模拟 send_message 落地)。
@@ -183,6 +193,19 @@ test('并发-b：我们投递后、回复前被别的窗口 cross-session 插队
   });
 });
 
+test('并发-d：子串误吞防护——我们=“在吗”，别人=“宝宝你在吗” → intrusion，不误绑', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 5000 });
+    const dispatch_id = `dispatch_${rid()}`;
+    await adapter.deliver({ dispatch_id, cc_session_id: 'local_TARGET', content: '在吗' });
+    // 别人的正文包含"在吗"作子串；裸 includes 会误判为我们的 → 完整匹配必须判 foreign
+    appendJ(f, [uCross('宝宝你在吗'), aText('这是给别人的回复')]);
+    const r = await adapter.poll(dispatch_id);
+    assert.equal(r.state, 'intrusion');
+    assert.ok(!r.reply);
+  });
+});
+
 test('并发-c：我们的回复正常收到后，别的窗口再来不影响本轮绑定', async () => {
   await withFixture([uHuman('x')], async (f) => {
     const { adapter } = mkAdapter(f, { now: 5000 });
@@ -232,11 +255,11 @@ test('集成：Orchestrator + 真实 CCAdapter（sender 追加回复）→ 状�
   try {
     const clock = fakeClock(0);
     const sent = [];
+    const db = openDb(':memory:');                 // 集成测试：Orchestrator 与 CCAdapter 共用同一 db
     const cc = new CCAdapter({
       sender: async (sessionId, text) => { sent.push({ sessionId, text }); appendJ(tf, [uCross(text), aText('宝宝，收到了')]); },
-      resolve: () => ({ transcriptPath: tf }), clock, silenceMs: 1500,
+      resolve: () => ({ transcriptPath: tf }), clock, silenceMs: 1500, db,
     });
-    const db = openDb(':memory:');
     const orch = new Orchestrator({ db, cc, codex: new FakeAdapter('codex'), clock, pollInterval: 500, defaultTimeoutMs: 60000 });
     const room = orch.createRoom({ cc_session_id: 'local_TARGET' });
     const msg = orch.postLisaMessage(room.room_id, '在吗宝宝');

@@ -8,9 +8,9 @@
 
 ## 0. 结论
 
-真实 CC Adapter 三件套完成，接进 orchestrator 的 `deliver/poll/getHealth` 契约，跑的是将来活测要用的**真实读取/可见闸/精确匹配分类/可恢复投递态**逻辑。**离线测试 16/16 全绿**（全程 spy sender + 临时 fixture transcript/DB，**零真实投递、零触碰真会话**）；接线后全套 **39/39**（23 状态机 + 16 adapter）。
+真实 CC Adapter 三件套完成，接进 orchestrator 的 `deliver/poll/getHealth` 契约，跑的是将来活测要用的**真实读取/可见闸/精确匹配分类/可恢复投递态**逻辑。**离线测试 18/18 全绿**（全程 spy sender + 临时 fixture transcript/DB，**零真实投递、零触碰真会话**）；接线后全套 **41/41**（23 状态机 + 18 adapter）。
 
-初审抓到的两个生产级缺口已修（见 §2bis）。
+初审抓到的两个生产级缺口已修（§2bis），并按最终收口意见硬化（§2ter）。
 
 ---
 
@@ -45,7 +45,13 @@
 - 修：外呼前先 `prepare`（解析会话 + transcript 路径 + 投前 **byte** 游标）→ **外呼前**把可恢复态持久化到新表 `cc_dispatch_state`（目标会话 / 投前 byte 游标 / 本次自然正文）→ 才调 `sender`。`poll` 内存 miss 时从 DB 重建态再只读 transcript。**recover 绝不 deliver**。
 - 测：`真·关库重开`——旧 adapter/Orchestrator 全销毁、对方回复已落 fixture，新实例 `recover()` 收敛 `replied`，`sender` 调用次数仍为 **1**（不重投）。
 
-## 3. 离线测试（`node --test`，16/16）
+## 2ter. 最终收口（2026-07-26，仍全 fake sender）
+
+- **`db` 默认强制**：`CCAdapter` 无 `db` 且未显式 `ephemeral:true` → 构造即报错；真实/集成一律传 **Orchestrator 使用的同一个 db**。测：`构造：未传 db 且未声明 ephemeral → 立即报错`；集成/重启测试均传 db。
+- **cross-session 正文完整匹配**：先从 `<cross-session-message …>\n{正文}` 去壳提取正文，再与本次自然正文**完整相等**比较（不再用裸 `includes`）。测：`并发-d`——我们=“在吗”、别人=“宝宝你在吗”（含子串）→ `intrusion`，不误绑。
+- 文档/README 接线示例已修正为「Orchestrator 与 CCAdapter 共用同一 db」。
+
+## 3. 离线测试（`node --test`，18/18）
 
 全程 spy sender + 临时 fixture transcript：
 
@@ -54,7 +60,9 @@
 - **缺口②可恢复态**：真·关库重开 recover → replied、sender 仍只 1 次。
 - 集成：Orchestrator + 真实 CCAdapter（sender 追加回复）→ 状态机收敛 replied。
 
-跑法：`cd lounge && npm test`（两个测试文件共 **39/39**）。完整用例见 `lounge/test/cc-adapter.test.js`。
+- **收口**：db 强制(构造报错)、cross-session 完整匹配(并发-d 子串防护)。
+
+跑法：`cd lounge && npm test`（两个测试文件共 **41/41**）。完整用例见 `lounge/test/cc-adapter.test.js`。
 
 ## 4. 明确未做
 
@@ -65,13 +73,16 @@
 
 ## 5. 活测接线（仅供审阅，未执行）
 
-真实活测时由 CC 会话侧提供 `sender`：
+真实活测时由 CC 会话侧提供 `sender`，并把 **Orchestrator 使用的同一个 db** 传给 CCAdapter（否则重启无法恢复）：
 
 ```js
-new CCAdapter({
+const db = openDb('<lounge.db>');
+const cc = new CCAdapter({
   sender: (sessionId, text) => send_message(sessionId, text),  // 唯一真实投递点
   projectDir: '<HOME>/.claude/projects/<project-slug>',
+  db,                                                          // 必须与 Orchestrator 同一个 db
 });
+const orch = new Orchestrator({ db, cc, /* codex, clock */ });
 ```
 
 绑定 `room.cc_session_id = local_<宝宝克>`。活测流程沿用 probe-0 §2bis 的单飞锁+投前游标+时序绑定。

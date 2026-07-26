@@ -43,9 +43,16 @@ function normalize(o) {
     if (Array.isArray(content)) isToolResult = content.some((p) => p && p.type === 'tool_result');
     else if (typeof content === 'string') { str = content; cross = str.startsWith('<cross-session-message'); }
     n.isToolResult = isToolResult; n.isCrossSession = cross; n.userText = str;
+    n.crossBody = cross ? extractCrossBody(str) : null;         // 提取跨会话信封内的自然正文
     n.humanUser = type === 'user' && !isToolResult && !cross;   // 真实用户直接输入
   }
   return n;
+}
+
+// 从 <cross-session-message ...>\n{正文}</cross-session-message> 里提取正文(去壳)
+function extractCrossBody(raw) {
+  const m = raw.match(/^<cross-session-message\b[^>]*>\n?([\s\S]*?)(?:\n?<\/cross-session-message>)?$/);
+  return m ? m[1].trim() : null;
 }
 
 function replied(bubbles) {
@@ -59,8 +66,8 @@ function replied(bubbles) {
   };
 }
 
-// 是否"我们本次投递"的那条跨会话消息 = 跨会话 且 正文含本次自然正文
-function isOurCross(e, ourText) { return e.type === 'user' && e.isCrossSession && !!ourText && e.userText.includes(ourText); }
+// 是否"我们本次投递"的那条跨会话消息 = 跨会话 且 去壳正文【完整等于】本次自然正文(非裸 includes)
+function isOurCross(e, ourText) { return e.type === 'user' && e.isCrossSession && !!ourText && e.crossBody != null && e.crossBody === ourText.trim(); }
 // 异物 user 投递 = 别的窗口的跨会话 或 真人直接输入（工具回执除外）
 function isForeignUser(e, ourText) {
   if (e.type !== 'user' || e.isToolResult) return false;

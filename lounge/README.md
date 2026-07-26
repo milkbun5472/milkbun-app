@@ -58,17 +58,21 @@ npm test          # = node --test test/*.test.js
 | `adapters/cc-transcript.js` | append-only JSONL 字节游标增量读 + 可见正文白名单 + 分包 → `replied/empty/intrusion/pending` |
 | `adapters/cc.js` | `CCAdapter`：实现 orchestrator 的 `deliver/poll/getHealth` 契约 |
 
-**红线：`cc.js` 绝不直接调用 `send_message`。** 外呼口 `sender(sessionId, text)` 依赖注入：
+**红线：`cc.js` 绝不直接调用 `send_message`。** 外呼口 `sender(sessionId, text)` 依赖注入。
+**默认强制传 `db`**（且必须是 Orchestrator 用的同一个 db，否则重启无法恢复）；仅纯分类单元测试可显式 `ephemeral:true`：
 
 ```js
-// 离线测试：spy，绝不投递
-new CCAdapter({ sender: async () => {}, resolve: () => ({ transcriptPath }), clock });
+// 纯分类单元测试：显式 ephemeral（无需持久化）
+new CCAdapter({ sender: async () => {}, resolve: () => ({ transcriptPath }), clock, ephemeral: true });
 
 // 真实活测接线（仅当 Lisa 明确同意后，由 CC 会话侧提供）：
-new CCAdapter({
-  sender: (sessionId, text) => mcp.send_message(sessionId, text),  // 唯一真实投递点
-  projectDir: '~/.claude/projects/<project-slug>',                 // 解析 cliSessionId.jsonl
+const db = openDb('<lounge.db>');
+const cc = new CCAdapter({
+  sender: (sessionId, text) => send_message(sessionId, text),  // 唯一真实投递点
+  projectDir: '<HOME>/.claude/projects/<project-slug>',        // 解析 cliSessionId.jsonl
+  db,                                                          // 必须与 Orchestrator 同一个 db
 });
+const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 ```
 
 - **deliver**：`prepare`(解析会话+transcript 路径+投前 byte 游标) → **外呼前**把可恢复态持久化到 `cc_dispatch_state`(会话/byte 游标/本次自然正文) → 才调 `sender`。

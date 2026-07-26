@@ -14,8 +14,11 @@ const { resolvePointer } = require('./cc-sessions');
 const { readNewEvents, classify } = require('./cc-transcript');
 
 class CCAdapter {
-  constructor({ sender, resolve, readNew, clock = realClock(), silenceMs = 1500, projectDir, appSupportDir, db } = {}) {
+  constructor({ sender, resolve, readNew, clock = realClock(), silenceMs = 1500, projectDir, appSupportDir, db, ephemeral = false } = {}) {
     if (typeof sender !== 'function') throw new Error('CCAdapter 需要注入 sender(sessionId, text) —— 本模块不直接调用 send_message');
+    // 默认强制持久化：必须传入 Orchestrator 使用的【同一个】db，否则重启无法恢复投递态。
+    // 仅当显式 ephemeral:true 才允许纯内存(单元测试分类逻辑用)。
+    if (!db && !ephemeral) throw new Error('CCAdapter 需要传入 Orchestrator 使用的同一个 db；纯内存测试请显式 ephemeral:true');
     this.name = 'cc';
     this.sender = sender;
     this.resolve = resolve || ((id) => resolvePointer(id, { projectDir, appSupportDir }));
