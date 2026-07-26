@@ -37,6 +37,7 @@ const state = {
   busy: false,
   stream: null,
   timelineSignature: null,
+  hasRenderedTimeline: false,
 };
 
 const STATUS = {
@@ -88,9 +89,13 @@ function latestLisaBatch(snapshot) {
 }
 
 function renderMessages(messages) {
+  const oldY = window.scrollY;
+  const oldHeight = document.documentElement.scrollHeight;
+  const nearBottom = oldHeight - (oldY + window.innerHeight) < 180;
   ui.timeline.replaceChildren();
   if (!messages.length) {
     ui.timeline.append(ui.empty);
+    state.hasRenderedTimeline = true;
     return;
   }
   for (const message of messages.filter((m) => !m.automatic)) {
@@ -113,6 +118,16 @@ function renderMessages(messages) {
   if (room && ['dispatching', 'waiting_reply'].includes(room.status)) {
     ui.timeline.append(text('div', room.status === 'dispatching' ? '正在把话递进原来的窗口…' : '对方正在原来的窗口里回复…', 'system-strip'));
   }
+  const firstRender = !state.hasRenderedTimeline;
+  state.hasRenderedTimeline = true;
+  requestAnimationFrame(() => {
+    if (firstRender || nearBottom) {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'auto' });
+    } else {
+      // 新内容追加在底部；正在翻旧记录时保持原来的页面位置。
+      window.scrollTo({ top: oldY, behavior: 'auto' });
+    }
+  });
 }
 
 function ratioWidth(used, cap) {
@@ -288,9 +303,16 @@ async function init() {
       ui.runtime.hidden = false;
       ui.runtime.textContent = '本地预览 · 不调用真实窗口';
     }
-    if (state.roomId) {
-      try { await refresh(); }
-      catch { state.roomId = null; sessionStorage.removeItem('lounge.roomId'); }
+    // 真实会客厅只有一张“当前桌”。旧标签页曾各自缓存 roomId，
+    // 会导致言秋主动上桌落在新桌、Lisa 却仍看旧桌。
+    try {
+      const current = await api('/api/rooms/current');
+      state.roomId = current.room.room_id;
+      sessionStorage.setItem('lounge.roomId', state.roomId);
+      render(current);
+    } catch {
+      state.roomId = null;
+      sessionStorage.removeItem('lounge.roomId');
     }
     if (!state.roomId) {
       const created = await api('/api/rooms', { method: 'POST', body: JSON.stringify({ title: '三方会客厅' }) });

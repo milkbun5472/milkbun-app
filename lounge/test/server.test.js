@@ -91,6 +91,17 @@ test('Step 4: 创建房间→Lisa 发言→请言秋说，时间线完整收回'
   assert.equal(sent.data.state.room.status, 'paused');
 });
 
+test('current-room 始终把旧标签带回最近活动的当前桌', async () => {
+  const oldRoom = await request('/api/rooms', { method: 'POST', body: { title: '旧桌' } });
+  const currentRoom = await request('/api/rooms', { method: 'POST', body: { title: '当前桌' } });
+  orch.postLisaMessage(currentRoom.data.room.room_id, '当前桌上的新话');
+  const current = await request('/api/rooms/current');
+  assert.equal(current.response.status, 200);
+  assert.equal(current.data.room.room_id, currentRoom.data.room.room_id);
+  assert.notEqual(current.data.room.room_id, oldRoom.data.room.room_id);
+  assert.equal(current.data.messages.at(-1).content, '当前桌上的新话');
+});
+
 test('无需先发消息也能单独呼叫；邀请不伪造成 Lisa 可见气泡', async () => {
   const created = await request('/api/rooms', { method: 'POST', body: {} });
   const roomId = created.data.room.room_id;

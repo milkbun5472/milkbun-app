@@ -185,6 +185,13 @@ function createLoungeServer({
       return json(res, 201, safeRoom(orch, room.room_id));
     }
 
+    if (method === 'GET' && url.pathname === '/api/rooms/current') {
+      const room = orch.db.prepare(`SELECT room_id FROM rooms WHERE status != 'stopped'
+        ORDER BY updated_at DESC, created_at DESC, rowid DESC LIMIT 1`).get();
+      if (!room) return fail(res, 404, 'ROOM_NOT_FOUND', '当前还没有会客厅');
+      return json(res, 200, safeRoom(orch, room.room_id));
+    }
+
     if (parts[0] === 'api' && parts[1] === 'rooms' && parts[2]) {
       const roomId = parts[2];
       if (!orch.getRoom(roomId)) return fail(res, 404, 'ROOM_NOT_FOUND', '这间会客厅不存在');
