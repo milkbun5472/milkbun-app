@@ -1,7 +1,7 @@
-# 三方会客厅 · Orchestrator（Step 1）
+# 三方会客厅 · Orchestrator 与 Adapter
 
-对应施工图 `docs/three-party-lounge-plan.md` 第 1 步：**只做本地数据层 + 状态机**。
-Adapter 一律用 fake，**不调用 `send_message` / `codex exec resume` / 任何真实模型**，**不含前端**。
+已完成 Step 1 本地状态机、Step 2 CC Adapter、Step 3 Codex Adapter 的离线实现。
+测试默认使用 fake sender/runner；真实入口必须经过 Lisa 单次明确授权。当前仍**不含前端**。
 
 ## 运行
 
@@ -23,6 +23,9 @@ npm test          # = node --test test/*.test.js
 | `adapters/fake.js` | Fake CC/Codex adapter：`deliver` 计数 + `poll` 脚本化，绝不碰真实接口 |
 | `orchestrator.js` | 状态机唯一写入者：投递(begin/resolve 两段)、幂等、超时、预算、单飞锁、立即暂停、重启恢复 |
 | `test/orchestrator.test.js` | §12 第1步 + §13 必测的 12 条验收 |
+| `adapters/codex-runner.js` | 官方 `codex exec resume --json` 无 shell运行器，输出落本地 spool |
+| `adapters/codex-jsonl.js` | Codex JSONL 可见正文闸与完成边界 |
+| `adapters/codex.js` | Codex 确认闸、任务状态闸、持久化恢复与 usage 诊断 |
 
 ## 状态机（§5）
 
@@ -83,9 +86,17 @@ const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 - **分类**：并发/真人插队→`intrusion`；只有 thinking/工具→`empty`；静默或边界收 `replied`；否则 `pending`。
 - ⚠️ **活测前必须先问 Lisa**，且只用言秋老窗口做一次受控活测。
 
-## 边界（Step 1 明确不做）
+## Step 3 · Codex Adapter
+
+- 每次真实 Codex 调用都要求 `codex_confirmed:true`；未确认时零落库、零扣费、零调用。
+- 生产模式强制同一 DB 与 `threadHealth(threadId)`，目标任务运行中禁止并发续接。
+- 官方 CLI stdout/stderr 落单次本地 JSONL spool；必须出现 `turn.completed` 才发布最终 `agent_message`。
+- thinking/commentary/工具不进正文；usage 仅落本机诊断表。
+- thread id 不一致、CLI 异常退出或空回复一律进入 `needs_attention`，不自动重试。
+- 详见 `docs/step-3-report.md`。
+
+## 仍未做
 
 - 不写前端 / HTTP / SSE（第 4 步）。
-- 不接真实 CC/Codex（CC Adapter 第 2 步、Codex Adapter 第 3 步）。
+- 测试默认不接真实 CC/Codex；真实调用必须单次授权。
 - 不写记忆 / 欲望盒 / 生活账本。
-- Codex 半边契约见施工图 §7.2，等 Codex 五问后接线。

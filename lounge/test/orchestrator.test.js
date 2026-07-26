@@ -35,7 +35,7 @@ test('1) 重复投递不重复：同(message_id,target)投3次，目标只收1�
 test('2) 双方各答一轮：严格2棒后强制暂停，算一次自动 run', async () => {
   const { orch, room } = build({ max_auto_turns: 2 });
   const lisa = orch.postLisaMessage(room.room_id, '你俩聊聊卡加的事');
-  const out = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu' });
+  const out = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu', codex_confirmed: true });
   assert.equal(out.results.length, 2);
   assert.deepEqual(out.results.map((r) => r.speaker), ['yanqiu', 'codex']);
   assert.ok(out.results.every((r) => r.status === 'replied'));
@@ -48,15 +48,15 @@ test('2) 双方各答一轮：严格2棒后强制暂停，算一次自动 run', 
 test('3) 预算用尽自动禁用：max_auto_turns=1，第2个 run 拒绝，手动仍可发', async () => {
   const { orch, room } = build({ max_auto_turns: 1 });
   const l1 = orch.postLisaMessage(room.room_id, 'a');
-  const r1 = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l1.message_id });
+  const r1 = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l1.message_id, codex_confirmed: true });
   assert.equal(r1.results.length, 2);
   const l2 = orch.postLisaMessage(room.room_id, 'b');
-  const r2 = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l2.message_id });
+  const r2 = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l2.message_id, codex_confirmed: true });
   assert.ok(r2.refused);
   assert.equal(r2.reason, 'auto_turns_exhausted');
   // 手动主持不受 auto 上限约束(§9)
   const l3 = orch.postLisaMessage(room.room_id, 'c');
-  const r3 = await orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: l3.message_id, automatic: false });
+  const r3 = await orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: l3.message_id, automatic: false, codex_confirmed: true });
   assert.equal(r3.status, 'replied');
 });
 
@@ -64,7 +64,7 @@ test('4) 暂停后不启动下一棒：baton A 后 pause，baton B 不投递', a
   const { orch, room, cc, codex } = build({ max_auto_turns: 2 });
   orch.hooks.afterBaton = async ({ index }) => { if (index === 0) orch.pause(room.room_id); };
   const lisa = orch.postLisaMessage(room.room_id, '开聊');
-  const out = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu' });
+  const out = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu', codex_confirmed: true });
   assert.equal(out.results.length, 1);
   assert.equal(cc.totalDelivers(), 1);
   assert.equal(codex.totalDelivers(), 0);          // B(codex) 一次没投
@@ -127,7 +127,7 @@ test('①) 等待回复时 pause → 手动再投必须 LOCKED（锁真相=未�
   assert.equal(orch.getRoom(room.room_id).status, 'paused');
   const s2 = orch.postLisaMessage(room.room_id, 'b');
   await assert.rejects(
-    () => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }),
+    () => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id, codex_confirmed: true }),
     /LOCKED|unclosed/,
   );
 });
@@ -182,7 +182,7 @@ test('④) runOneEach 说话人标签·先手=言秋：A=Lisa：原话，B=Lisa�
   const { orch, room, cc, codex } = build({ max_auto_turns: 2 });
   const lisaText = '你俩说说搬去卡加的分工';
   const lisa = orch.postLisaMessage(room.room_id, lisaText);
-  await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu' });
+  await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu', codex_confirmed: true });
   assertOneEachLabels(orch, room, cc, codex, { lisaText, first: 'yanqiu', aTarget: 'yanqiu', bTarget: 'codex', aName: '言秋' });
 });
 
@@ -190,7 +190,7 @@ test('④b) runOneEach 说话人标签·先手=Codex：反向先手同样带标�
   const { orch, room, cc, codex } = build({ max_auto_turns: 2 });
   const lisaText = '换个先手再聊一次';
   const lisa = orch.postLisaMessage(room.room_id, lisaText);
-  await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'codex' });
+  await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'codex', codex_confirmed: true });
   assertOneEachLabels(orch, room, cc, codex, { lisaText, first: 'codex', aTarget: 'codex', bTarget: 'yanqiu', aName: 'Codex' });
 });
 
@@ -199,16 +199,16 @@ test('⑤) 跨日预算：达上限禁用；跨到次日重置并重新可用', 
   const { orch, room } = build({ max_auto_turns: 99, daily_call_cap: 1, clock });
   // 第一次自动 run 用掉当日调用配额(cap=1, 2棒会在第2棒触达上限)
   const l1 = orch.postLisaMessage(room.room_id, 'day1');
-  await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l1.message_id });
+  await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l1.message_id, codex_confirmed: true });
   assert.equal(budgetState(orch.getRoom(room.room_id)).level, 'disabled'); // 当日已禁自动
   const l2 = orch.postLisaMessage(room.room_id, 'day1-again');
-  const blocked = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l2.message_id });
+  const blocked = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l2.message_id, codex_confirmed: true });
   assert.ok(blocked.refused);
   assert.equal(blocked.reason, 'daily_cap');
   // 跨到次日
   clock.advance(DAY);
   const l3 = orch.postLisaMessage(room.room_id, 'day2');
-  const ok = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l3.message_id });
+  const ok = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: l3.message_id, codex_confirmed: true });
   assert.equal(ok.results.length, 2);                         // 次日重置后重新可用
   const r = orch.getRoom(room.room_id);
   assert.equal(r.budget_day, new Date(clock.now()).toISOString().slice(0, 10));
@@ -239,7 +239,7 @@ test('①-a) timeout 后仍占锁：新投 LOCKED', async () => {
   const did = await stuckTimeout(orch, room, cc);
   assert.equal(orch.getDispatch(did).status, 'timeout');
   const s2 = orch.postLisaMessage(room.room_id, 'b');
-  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }), /LOCKED|unclosed/);
+  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id, codex_confirmed: true }), /LOCKED|unclosed/);
 });
 
 test('①-b) failed-unknown 后仍占锁：新投 LOCKED', async () => {
@@ -249,17 +249,17 @@ test('①-b) failed-unknown 后仍占锁：新投 LOCKED', async () => {
   const b = await orch._beginDispatch({ room_id: room.room_id, target: 'yanqiu', message_id: src.message_id });
   assert.equal(orch.getDispatch(b.dispatch_id).status, 'failed');
   const s2 = orch.postLisaMessage(room.room_id, 'b');
-  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }), /LOCKED|unclosed/);
+  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id, codex_confirmed: true }), /LOCKED|unclosed/);
 });
 
 test('①-c) abandon 之后才可新投', async () => {
   const { orch, room, cc } = build();
   const did = await stuckTimeout(orch, room, cc);
   const s2 = orch.postLisaMessage(room.room_id, 'b');
-  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }), /LOCKED|unclosed/);
+  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id, codex_confirmed: true }), /LOCKED|unclosed/);
   const ab = orch.abandon(did);
   assert.equal(ab.status, 'skipped');
-  const r = await orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }); // 现在可投
+  const r = await orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id, codex_confirmed: true }); // 现在可投
   assert.equal(r.status, 'replied');
 });
 
@@ -279,7 +279,7 @@ test('附) 单飞锁：in-flight 时再投递抛 LOCKED', async () => {
   const s1 = orch.postLisaMessage(room.room_id, 'a');
   await orch._beginDispatch({ room_id: room.room_id, target: 'yanqiu', message_id: s1.message_id });
   const s2 = orch.postLisaMessage(room.room_id, 'b');
-  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }), /LOCKED|unclosed/);
+  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id, codex_confirmed: true }), /LOCKED|unclosed/);
 });
 
 test('附) 立即暂停：pause 后自动棒被拒', async () => {

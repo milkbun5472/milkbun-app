@@ -141,6 +141,24 @@ class Orchestrator {
     const existing = this._dispatchByMsgTarget(message_id, target);                  // 幂等①(红线⑤)
     if (existing) return { status: existing.status, dispatch_id: existing.dispatch_id, idempotent: true };
 
+    if (target === 'codex' && opts.codex_confirmed !== true) {
+      return { status: 'refused', reason: 'codex_confirmation_required' };
+    }
+
+    // Codex 的额度/状态闸必须先于预算预留与任何 dispatch 落库。
+    const targetAdapter = this._adapter(target);
+    if (target === 'codex' && typeof targetAdapter.preflight === 'function') {
+      try {
+        await targetAdapter.preflight({
+          codex_thread_id: room.codex_thread_id,
+          codex_confirmed: true,
+          content: src.content,
+        });
+      } catch (e) {
+        return { status: 'refused', reason: (e && e.code) || 'codex_preflight_failed' };
+      }
+    }
+
     // ① 单飞真相 = 未闭合 dispatch 查询（覆盖 waiting→pause→手动再投 必须 LOCKED）
     if (!this.lock.acquire(room_id, this._hasOpenDispatch(room_id))) throw new LockedError(room_id);
     try {
@@ -184,6 +202,7 @@ class Orchestrator {
         dispatch_id, room_id, round_id, target, speaker: src.speaker, message_id,
         content: src.content, expects_reply: true, reply_limit: 1,
         cc_session_id: room.cc_session_id, codex_thread_id: room.codex_thread_id, // 目标会话绑定(供真实 adapter 定位)
+        codex_confirmed: opts.codex_confirmed === true, // Codex 每次真实调用必须由 Lisa 明确确认
       });
     } catch (e) {
       this.db.prepare('UPDATE dispatches SET status=?, resolved_at=? WHERE dispatch_id=?').run('failed', this._iso(), dispatch_id);
@@ -206,6 +225,7 @@ class Orchestrator {
       if (p.state === 'replied') return this._bindReply(room_id, dispatch_id, target, p.reply);
       if (p.state === 'empty') return this._stall(room_id, dispatch_id, 'empty');
       if (p.state === 'intrusion') return this._stall(room_id, dispatch_id, 'intrusion');   // 真实用户插队→不猜绑
+      if (p.state === 'error') return this._stall(room_id, dispatch_id, p.reason || 'adapter_error');
       if (this.clock.now() - deliveredAt > timeout_ms) return this._stall(room_id, dispatch_id, 'timeout');
       await this.clock.sleep(this.pollInterval);
     }
@@ -227,6 +247,10 @@ class Orchestrator {
       this._setRoom(room_id, { usage_today: room.usage_today + reply.content.length, status: 'paused' });
       this.db.prepare('INSERT OR REPLACE INTO adapter_cursors(room_id,target,cursor,updated_at) VALUES(?,?,?,?)')
         .run(room_id, target, reply.cursor_end, this._iso());
+      if (reply.usage) {
+        this.db.prepare('INSERT OR REPLACE INTO adapter_usage(dispatch_id,target,usage_json,recorded_at) VALUES(?,?,?,?)')
+          .run(dispatch_id, target, JSON.stringify(reply.usage), this._iso());
+      }
       return { status: 'replied', dispatch_id, message_id: msg.message_id, reply };
     });
   }
@@ -240,11 +264,12 @@ class Orchestrator {
   }
 
   // ---------- 双方各答一轮（§5.2；④真实正文 ⑤两棒=一次run）----------
-  async runOneEach({ room_id, lisa_message_id, first_speaker = 'yanqiu', timeout_ms } = {}) {
+  async runOneEach({ room_id, lisa_message_id, first_speaker = 'yanqiu', timeout_ms, codex_confirmed = false } = {}) {
     if (!this.getRoom(room_id)) throw new Error(`no room ${room_id}`);
     const lisa = this.getMessage(lisa_message_id);
     if (!lisa || lisa.speaker !== 'lisa') throw new Error('runOneEach 需要一条 Lisa 自然正文消息');
     if (lisa.room_id !== room_id) throw new CrossRoomError(lisa_message_id, room_id);
+    if (!codex_confirmed) return { refused: true, reason: 'codex_confirmation_required', results: [] };
     this._setRoom(room_id, { mode: 'one_each' });
     const runId = this._uuid('run');
 
@@ -272,7 +297,10 @@ class Orchestrator {
         const bMsg = this._insertMessage({ room_id, speaker: 'lisa', content: composed, origin: 'lounge', origin_message_id: `${runId}:b`, round_id: runId, automatic: true });
         srcId = bMsg.message_id;
       }
-      const r = await this.dispatch({ room_id, target: speaker, message_id: srcId, automatic: true, reserveTurn: false, round_id: runId, timeout_ms });
+      const r = await this.dispatch({
+        room_id, target: speaker, message_id: srcId, automatic: true, reserveTurn: false,
+        round_id: runId, timeout_ms, codex_confirmed: speaker === 'codex' ? codex_confirmed : false,
+      });
       results.push({ ...r, speaker });
       if (this.hooks.afterBaton) await this.hooks.afterBaton({ room_id, index: idx, speaker, result: r });
       if (r.status !== 'replied') break;                   // 任一异常立即停(§5.2)

@@ -88,6 +88,26 @@ CREATE TABLE IF NOT EXISTS cc_dispatch_state (
   our_text        TEXT NOT NULL,      -- 本次自然正文(用于精确匹配我们的跨会话消息)
   created_at      TEXT
 );
+
+-- Codex Adapter 的单次 CLI 调用状态。stdout JSONL 落本地 spool，重启后只读恢复、绝不重跑。
+CREATE TABLE IF NOT EXISTS codex_dispatch_state (
+  dispatch_id   TEXT PRIMARY KEY REFERENCES dispatches(dispatch_id),
+  thread_id     TEXT NOT NULL,
+  spool_path    TEXT NOT NULL,
+  pid           INTEGER,
+  state         TEXT NOT NULL DEFAULT 'prepared'
+                  CHECK (state IN ('prepared','running','completed','failed')),
+  started_at    TEXT,
+  updated_at    TEXT
+);
+
+-- Adapter 原始用量诊断只留本机；不混入会客厅正文。
+CREATE TABLE IF NOT EXISTS adapter_usage (
+  dispatch_id TEXT PRIMARY KEY REFERENCES dispatches(dispatch_id),
+  target      TEXT NOT NULL,
+  usage_json  TEXT NOT NULL,
+  recorded_at TEXT NOT NULL
+);
 `;
 
 function openDb(path = ':memory:') {

@@ -2,7 +2,7 @@
   "name": "lounge-orchestrator",
   "version": "0.1.0",
   "private": true,
-  "description": "三方会客厅 Step 1：本地数据层 + 状态机（fake adapter，无前端、无真实模型）",
+  "description": "三方会客厅本地编排器与 CC/Codex Adapter（测试默认 fake，无前端）",
   "type": "commonjs",
   "engines": { "node": ">=22" },
   "scripts": {
