@@ -28,6 +28,12 @@ function fail(res, status, code, message) {
   json(res, status, { error: code, message });
 }
 
+function safeHealth(value) {
+  if (!value || typeof value !== 'object') return value;
+  const allowed = ['online', 'running', 'lastActivityAt', 'isArchived', 'error', 'transport'];
+  return Object.fromEntries(allowed.filter((key) => value[key] !== undefined).map((key) => [key, value[key]]));
+}
+
 async function bodyOf(req) {
   const chunks = [];
   let size = 0;
@@ -93,6 +99,7 @@ function createLoungeServer({
   orch,
   roomDefaults = {},
   runtime = { mode: 'preview', cc: 'preview', codex: 'preview' },
+  healthTargets = {},
   staticRoot = STATIC_ROOT,
 } = {}) {
   if (!orch) throw new Error('createLoungeServer requires orchestrator');
@@ -120,10 +127,15 @@ function createLoungeServer({
 
     if (method === 'GET' && url.pathname === '/api/health') {
       const [cc, codex] = await Promise.all([
-        orch.adapters.cc.getHealth(),
-        orch.adapters.codex.getHealth(),
+        orch.adapters.cc.getHealth(healthTargets.cc),
+        orch.adapters.codex.getHealth(healthTargets.codex),
       ]);
-      return json(res, 200, { ok: true, bind: '127.0.0.1', runtime, adapters: { cc, codex } });
+      return json(res, 200, {
+        ok: true,
+        bind: '127.0.0.1',
+        runtime,
+        adapters: { cc: safeHealth(cc), codex: safeHealth(codex) },
+      });
     }
 
     if (method === 'POST' && url.pathname === '/api/rooms') {
@@ -255,4 +267,4 @@ function createLoungeServer({
   return { server, events, snapshot };
 }
 
-module.exports = { createLoungeServer, safeRoom, bodyOf };
+module.exports = { createLoungeServer, safeRoom, safeHealth, bodyOf };

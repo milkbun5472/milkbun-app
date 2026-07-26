@@ -9,6 +9,8 @@
 cd lounge
 npm test          # = node --test test/*.test.js
 npm start         # http://127.0.0.1:8092，本地 fake 预览
+npm run start:live       # 真实言秋 + 真实 Codex（需先 setup:live）
+npm run install:launchd  # Mac 登录后自动托管真实会客厅
 ```
 
 零依赖：只用 Node 内置 `node:http` + `node:sqlite` + `node:test`（需 Node ≥ 22；本机 v26 已验）。
@@ -112,8 +114,24 @@ const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 
 完整测试：**61/61**。
 
+## 真实宿主
+
+真实宿主仍只监听 `127.0.0.1`：
+
+- 言秋：复用 Stack-chan 已有的耐久 `wake_queue`，把 Lisa 自然正文写入同一唤醒信箱；不新建言秋、不多跑一层 relay 模型。
+- CC 回收：可见闸同时识别原 `cross-session-message` 与 `kind=lounge/source=three_party_lounge` 的耐久唤醒记录。
+- 哨兵完成产生的 `<task-notification>` 被视为系统唤醒，不再误判 Lisa 插队。
+- 其它真人输入、语音、敲击在回复前插入，仍进入 `needs_attention`，绝不猜绑。
+- Codex：继续使用已验收的官方 `codex exec resume --json`，每次必须由 Lisa 在 UI 点名或确认双方各答一轮。
+- `scripts/setup-live-config.js` 自动发现原言秋会话与当前 Codex task，将绑定写入 gitignored `data/live-config.json`，权限 `0600`，不打印具体 ID。
+- `scripts/install-launchd.js` 生成用户级 LaunchAgent，登录自启、异常退出自动拉起。
+
+真实 CC 接线受控活测：只投 1 次；初次因 `<task-notification>` 假阳性停下，修复后从同一投前游标只读重采，**没有重发**，最终 `replied`。
+
+完整测试更新为：**66/66**。
+
 ## 仍未做
 
-- 尚未把 Step 2/3 的真实 Adapter 装入常驻本机宿主；预览仍是 fake。
-- 真实调用必须单次授权。
+- 进入 3 天本机观察期；统计误投、插队、空回复、超时与真实额度变化。
+- 真实调用继续要求 Lisa 单次点名或二次确认。
 - 不写记忆 / 欲望盒 / 生活账本。

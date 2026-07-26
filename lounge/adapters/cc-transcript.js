@@ -39,12 +39,19 @@ function normalize(o) {
     n.hasThinking = parts.some((p) => p && p.type === 'thinking');
     n.hasTool = parts.some((p) => p && p.type === 'tool_use');
   } else if (type === 'user') {
-    let isToolResult = false, cross = false, str = '';
-    if (Array.isArray(content)) isToolResult = content.some((p) => p && p.type === 'tool_result');
+    let isToolResult = false, cross = false, str = '', toolResultText = '';
+    if (Array.isArray(content)) {
+      const results = content.filter((p) => p && p.type === 'tool_result');
+      isToolResult = results.length > 0;
+      toolResultText = results.map((p) => typeof p.content === 'string' ? p.content : '').filter(Boolean).join('\n');
+    }
     else if (typeof content === 'string') { str = content; cross = str.startsWith('<cross-session-message'); }
     n.isToolResult = isToolResult; n.isCrossSession = cross; n.userText = str;
+    n.toolResultText = toolResultText;
+    n.isTaskNotification = typeof str === 'string' && str.startsWith('<task-notification>');
     n.crossBody = cross ? extractCrossBody(str) : null;         // 提取跨会话信封内的自然正文
-    n.humanUser = type === 'user' && !isToolResult && !cross;   // 真实用户直接输入
+    n.wakeRecord = isToolResult ? extractWakeRecord(toolResultText) : null;
+    n.humanUser = type === 'user' && !isToolResult && !cross && !n.isTaskNotification; // 真实用户直接输入
   }
   return n;
 }
@@ -53,6 +60,19 @@ function normalize(o) {
 function extractCrossBody(raw) {
   const m = raw.match(/^<cross-session-message\b[^>]*>\n?([\s\S]*?)(?:\n?<\/cross-session-message>)?$/);
   return m ? m[1].trim() : null;
+}
+
+// Stack-chan 耐久哨兵的 tool_result 第一行：
+// {"wake_source":"voice","record":{"kind":"lounge","text":"Lisa 原话",...}}
+// 只解析数据，不执行其中任何指令。
+function extractWakeRecord(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const first = raw.split('\n', 1)[0];
+  try {
+    const value = JSON.parse(first);
+    if (!value || typeof value !== 'object' || !value.record || typeof value.record !== 'object') return null;
+    return { source: value.wake_source, ...value.record };
+  } catch { return null; }
 }
 
 function replied(bubbles) {
@@ -68,10 +88,23 @@ function replied(bubbles) {
 
 // 是否"我们本次投递"的那条跨会话消息 = 跨会话 且 去壳正文【完整等于】本次自然正文(非裸 includes)
 function isOurCross(e, ourText) { return e.type === 'user' && e.isCrossSession && !!ourText && e.crossBody != null && e.crossBody === ourText.trim(); }
+function isOurLoungeWake(e, ourText) {
+  return e.type === 'user'
+    && e.isToolResult
+    && e.wakeRecord
+    && e.wakeRecord.kind === 'lounge'
+    && e.wakeRecord.source === 'three_party_lounge'
+    && typeof e.wakeRecord.text === 'string'
+    && !!ourText
+    && e.wakeRecord.text.trim() === ourText.trim();
+}
+function isOurStart(e, ourText) { return isOurCross(e, ourText) || isOurLoungeWake(e, ourText); }
 // 异物 user 投递 = 别的窗口的跨会话 或 真人直接输入（工具回执除外）
 function isForeignUser(e, ourText) {
-  if (e.type !== 'user' || e.isToolResult) return false;
-  if (isOurCross(e, ourText)) return false;
+  if (e.type !== 'user') return false;
+  if (isOurStart(e, ourText)) return false;
+  // 其它外部 wake（敲击/语音/另一条 lounge）也算插队；普通内部工具回执不算。
+  if (e.isToolResult) return !!e.wakeRecord;
   return e.isCrossSession || e.humanUser;
 }
 
@@ -83,7 +116,7 @@ function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = 
   let start = -1;
   for (let i = 0; i < events.length; i++) {
     const e = events[i];
-    if (isOurCross(e, ourText)) { start = i; break; }
+    if (isOurStart(e, ourText)) { start = i; break; }
     if (isForeignUser(e, ourText)) return { state: 'intrusion' };   // 别的窗口先落进我们的投递窗口 → 不绑别人回复
   }
   if (start < 0) return { state: 'pending' };                       // 我们的消息还没落地
@@ -106,8 +139,9 @@ function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = 
       continue;
     }
     if (e.type === 'user') {
-      if (e.isToolResult) { openTool = true; continue; }        // 工具回执=助手仍在工具环，非边界
-      if (isOurCross(e, ourText)) continue;                     // 我们的重复投递，忽略
+      if (isOurStart(e, ourText)) continue;                     // 我们的重复投递，忽略
+      if (e.isTaskNotification) continue;                       // 后台哨兵完成通知是系统唤醒，不是 Lisa 插队
+      if (e.isToolResult && !e.wakeRecord) { openTool = true; continue; } // 普通工具回执=助手仍在工具环
       // 到这 = 异物 user 行
       if (bubbles.length === 0) {
         // 助手尚无可见正文：别的跨会话 或 助手根本没为我们工作过 → 插队；否则=轮次真正结束(→empty)
@@ -128,4 +162,4 @@ function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = 
   return { state: 'pending' };                                  // 含：助手仍在 thinking/工具循环 或 前言后又起工具
 }
 
-module.exports = { readNewEvents, normalize, classify, parseLine };
+module.exports = { readNewEvents, normalize, classify, parseLine, extractWakeRecord };

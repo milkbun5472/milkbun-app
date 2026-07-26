@@ -7,6 +7,10 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "start": "node server-main.js",
+    "start:live": "node live-host.js",
+    "setup:live": "node scripts/setup-live-config.js",
+    "install:launchd": "node scripts/install-launchd.js",
+    "uninstall:launchd": "node scripts/install-launchd.js uninstall",
     "test": "node --test test/*.test.js"
   }
 }

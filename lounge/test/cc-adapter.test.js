@@ -13,6 +13,7 @@ const { openDb } = require('../db');
 const { Orchestrator } = require('../orchestrator');
 const { FakeAdapter } = require('../adapters/fake');
 const { fakeClock } = require('../clock');
+const { createWakeQueueSender } = require('../adapters/cc-wake-sender');
 
 const TS0 = new Date(0).toISOString();
 const rid = () => crypto.randomUUID();
@@ -20,7 +21,23 @@ const rid = () => crypto.randomUUID();
 // ---- JSONL 事件构造 ----
 const uCross = (text, ts = TS0) => ({ type: 'user', timestamp: ts, message: { role: 'user', content: `<cross-session-message from="local_SENDER" name="测试发送端" encoded="1">\n${text}` } });
 const uHuman = (text, ts = TS0) => ({ type: 'user', timestamp: ts, message: { role: 'user', content: text } });
+const uTaskNotification = (ts = TS0) => ({
+  type: 'user',
+  timestamp: ts,
+  message: { role: 'user', content: '<task-notification>\n<status>completed</status>\n</task-notification>' },
+});
 const uTool = (ts = TS0) => ({ type: 'user', timestamp: ts, message: { role: 'user', content: [{ type: 'tool_result', content: '' }] } });
+const uWake = (kind, text, ts = TS0) => ({
+  type: 'user',
+  timestamp: ts,
+  message: {
+    role: 'user',
+    content: [{
+      type: 'tool_result',
+      content: `${JSON.stringify({ wake_source: 'voice', record: { kind, source: 'three_party_lounge', text } })}\n\nSun Jul 26`,
+    }],
+  },
+});
 const aText = (text, ts = TS0, promptId = null) => ({ type: 'assistant', uuid: rid(), promptId, timestamp: ts, message: { role: 'assistant', content: [{ type: 'text', text }] } });
 const aThink = (ts = TS0) => ({ type: 'assistant', uuid: rid(), timestamp: ts, message: { role: 'assistant', content: [{ type: 'thinking', thinking: '…' }] } });
 const aTool = (ts = TS0) => ({ type: 'assistant', uuid: rid(), timestamp: ts, message: { role: 'assistant', content: [{ type: 'tool_use', name: 'x', input: {} }] } });
@@ -186,6 +203,69 @@ test('poll 工具回执不算边界：工具环后仍能收到回复', async () 
     assert.equal(r.state, 'replied');
     assert.equal(r.reply.content, '用完工具后的回复');
   });
+});
+
+test('耐久唤醒接线：精确 lounge wake 可作为本轮起点并收回公开回复', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 5000 });
+    const dispatch_id = `dispatch_${rid()}`;
+    await adapter.deliver({ dispatch_id, cc_session_id: 'local_TARGET', content: '宝宝，你怎么看？' });
+    appendJ(f, [uWake('lounge', '宝宝，你怎么看？'), aText('我觉得可以，先这样试。')]);
+    const r = await adapter.poll(dispatch_id);
+    assert.equal(r.state, 'replied');
+    assert.equal(r.reply.content, '我觉得可以，先这样试。');
+  });
+});
+
+test('耐久唤醒接线：哨兵完成 task-notification 不是 Lisa 插队', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 5000 });
+    const dispatch_id = `dispatch_${rid()}`;
+    await adapter.deliver({ dispatch_id, cc_session_id: 'local_TARGET', content: '会客厅原话' });
+    appendJ(f, [
+      uTaskNotification(),
+      aTool(),
+      uWake('lounge', '会客厅原话'),
+      aText('这是会客厅的公开回复'),
+    ]);
+    const r = await adapter.poll(dispatch_id);
+    assert.equal(r.state, 'replied');
+    assert.equal(r.reply.content, '这是会客厅的公开回复');
+  });
+});
+
+test('耐久唤醒接线：其它语音/敲击在回复前插队 → intrusion，不误绑', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 5000 });
+    const dispatch_id = `dispatch_${rid()}`;
+    await adapter.deliver({ dispatch_id, cc_session_id: 'local_TARGET', content: '这一句给会客厅' });
+    appendJ(f, [
+      uWake('lounge', '这一句给会客厅'),
+      uWake('voice', 'Stack-chan 同时收到的另一句话'),
+      aText('这不是会客厅那句的可靠回复'),
+    ]);
+    const r = await adapter.poll(dispatch_id);
+    assert.equal(r.state, 'intrusion');
+    assert.ok(!r.reply);
+  });
+});
+
+test('耐久唤醒 sender：只追加自然正文，不写 dispatch/room/session 元数据', async () => {
+  const inbox = tmpFile('lounge_wake') + '.jsonl';
+  try {
+    const sender = createWakeQueueSender({ inboxPath: inbox, now: () => 123 });
+    await sender('local_PRIVATE', '  宝宝，来会客厅说一句。  ');
+    const row = JSON.parse(fs.readFileSync(inbox, 'utf8').trim());
+    assert.deepEqual(row, {
+      kind: 'lounge',
+      source: 'three_party_lounge',
+      text: '宝宝，来会客厅说一句。',
+      received_at_ms: 123,
+    });
+    assert.equal(JSON.stringify(row).includes('local_PRIVATE'), false);
+    assert.equal(JSON.stringify(row).includes('dispatch'), false);
+    assert.equal(JSON.stringify(row).includes('room'), false);
+  } finally { cleanup(inbox); }
 });
 
 test('poll 我们的消息还没落地 → pending', async () => {

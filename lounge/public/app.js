@@ -215,7 +215,10 @@ function connectEvents() {
 async function init() {
   try {
     const health = await api('/api/health');
-    const onlineText = (healthInfo) => healthInfo.online ? '已连接' : '未连接';
+    const preview = health.runtime.mode === 'preview';
+    const onlineText = (healthInfo) => preview
+      ? (healthInfo.online ? '模拟连接' : '模拟离线')
+      : (healthInfo.online ? '已连接' : '未连接');
     ui.ccPresence.textContent = onlineText(health.adapters.cc);
     ui.codexPresence.textContent = onlineText(health.adapters.codex);
     if (health.runtime.mode === 'preview') {

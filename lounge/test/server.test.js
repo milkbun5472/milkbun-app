@@ -54,6 +54,21 @@ test('Step 4: health 只暴露本地状态，不暴露会话绑定', async () =>
   assert.equal(JSON.stringify(data).includes('thread_id'), false);
 });
 
+test('真实 Adapter 即使返回 thread/path 字段，health 也只保留白名单', async () => {
+  orch.adapters.codex.getHealth = async () => ({
+    online: true,
+    running: false,
+    threadId: 'PRIVATE_THREAD',
+    transcriptPath: '/private/transcript',
+    transport: 'official_cli',
+  });
+  const { data } = await request('/api/health');
+  assert.equal(data.adapters.codex.online, true);
+  assert.equal(data.adapters.codex.transport, 'official_cli');
+  assert.equal(JSON.stringify(data).includes('PRIVATE_THREAD'), false);
+  assert.equal(JSON.stringify(data).includes('/private/transcript'), false);
+});
+
 test('Step 4: 创建房间→Lisa 发言→请言秋说，时间线完整收回', async () => {
   const created = await request('/api/rooms', { method: 'POST', body: { title: '今晚的桌' } });
   assert.equal(created.response.status, 201);
