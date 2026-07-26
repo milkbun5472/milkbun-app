@@ -104,6 +104,7 @@ function createLoungeServer({
 } = {}) {
   if (!orch) throw new Error('createLoungeServer requires orchestrator');
   const events = createEventHub();
+  const lateWatchers = new Map();
 
   function snapshot(roomId) {
     const state = safeRoom(orch, roomId);
@@ -120,6 +121,27 @@ function createLoungeServer({
       clearInterval(ticker);
       snapshot(roomId);
     }
+  }
+
+  function watchLateReply(roomId, dispatchId) {
+    if (!dispatchId || lateWatchers.has(dispatchId)) return;
+    const started = Date.now();
+    const timer = setInterval(async () => {
+      try {
+        const result = await orch.collectExisting(dispatchId);
+        if (result.status === 'replied' || result.status === 'skipped'
+          || Date.now() - started > 30 * 60 * 1000) {
+          clearInterval(timer);
+          lateWatchers.delete(dispatchId);
+        }
+        snapshot(roomId);
+      } catch {
+        clearInterval(timer);
+        lateWatchers.delete(dispatchId);
+      }
+    }, 2000);
+    if (typeof timer.unref === 'function') timer.unref();
+    lateWatchers.set(dispatchId, timer);
   }
 
   async function route(req, res, url) {
@@ -193,6 +215,9 @@ function createLoungeServer({
           message_id: source.message_id,
           codex_confirmed: b.target === 'codex' ? b.codex_confirmed === true : false,
         }));
+        if (result.status === 'needs_attention' && result.reason === 'timeout') {
+          watchLateReply(roomId, result.dispatch_id);
+        }
         const state = snapshot(roomId);
         return json(res, result.status === 'refused' ? 409 : 200, { result, state });
       }
@@ -208,6 +233,11 @@ function createLoungeServer({
           first_speaker: b.first_speaker === 'codex' ? 'codex' : 'yanqiu',
           codex_confirmed: b.codex_confirmed === true,
         }));
+        for (const baton of result.results || []) {
+          if (baton.status === 'needs_attention' && baton.reason === 'timeout') {
+            watchLateReply(roomId, baton.dispatch_id);
+          }
+        }
         const state = snapshot(roomId);
         return json(res, result.refused ? 409 : 200, { result, state });
       }
@@ -270,7 +300,11 @@ function createLoungeServer({
       fail(res, status, code, status >= 500 ? '会客厅刚刚绊了一下，请看本机日志' : error.message);
     }
   });
-  return { server, events, snapshot };
+  server.on('close', () => {
+    for (const timer of lateWatchers.values()) clearInterval(timer);
+    lateWatchers.clear();
+  });
+  return { server, events, snapshot, watchLateReply };
 }
 
 module.exports = { createLoungeServer, safeRoom, safeHealth, bodyOf };

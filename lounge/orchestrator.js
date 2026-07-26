@@ -20,13 +20,17 @@ class CrossRoomError extends Error {
 }
 
 class Orchestrator {
-  constructor({ db, cc, codex, clock = realClock(), hooks = {}, pollInterval = 500, defaultTimeoutMs = 60000 }) {
+  constructor({
+    db, cc, codex, clock = realClock(), hooks = {}, pollInterval = 500,
+    defaultTimeoutMs = 60000, targetTimeoutMs = {},
+  }) {
     this.db = db;
     this.adapters = { cc, codex };
     this.clock = clock;
     this.hooks = hooks;
     this.pollInterval = pollInterval;
     this.defaultTimeoutMs = defaultTimeoutMs;
+    this.targetTimeoutMs = targetTimeoutMs;
     this.lock = new SingleFlight();
     this.MAX_POLLS = 10000;
   }
@@ -181,7 +185,8 @@ class Orchestrator {
       const b = await this._beginDispatch(opts);
       if (b.refused) return { status: 'refused', reason: b.reason };
       if (b.failed) return { status: 'needs_attention', reason: b.reason, dispatch_id: b.dispatch_id };
-      return await this._resolveReply(room_id, b.dispatch_id, target, opts.timeout_ms || this.defaultTimeoutMs);
+      const timeout = opts.timeout_ms || this.targetTimeoutMs[target] || this.defaultTimeoutMs;
+      return await this._resolveReply(room_id, b.dispatch_id, target, timeout);
     } finally {
       this.lock.release(room_id);
     }
@@ -340,6 +345,21 @@ class Orchestrator {
       this._setRoom(d.room_id, { status: 'waiting_reply' });
       return await this._resolveReply(d.room_id, dispatch_id, d.target, timeout_ms || this.defaultTimeoutMs);
     } finally { this.lock.release(d.room_id); }
+  }
+
+  // timeout 后的迟到回复只读补收：绝不 deliver、绝不新增调用。
+  async collectExisting(dispatch_id) {
+    const d = this.getDispatch(dispatch_id);
+    if (!d) throw new Error(`no dispatch ${dispatch_id}`);
+    if (d.status === 'replied') return { status: 'replied', dispatch_id, idempotent: true };
+    if (d.status === 'skipped') return { status: 'skipped', dispatch_id };
+    const p = await this._adapter(d.target).poll(dispatch_id);
+    if (p.state === 'replied') {
+      const result = this._bindReply(d.room_id, dispatch_id, d.target, p.reply);
+      this._attempt(dispatch_id, d.target, 'late_collected', 'existing reply after timeout');
+      return result;
+    }
+    return { status: d.status, dispatch_id, pending: p.state === 'pending' };
   }
 
   // Lisa 显式放弃一条卡住的投递 → skipped，释放单飞锁，房间可重新主持

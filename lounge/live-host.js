@@ -58,6 +58,10 @@ function createLiveHost({ configPath, port } = {}) {
     codex,
     pollInterval: Number(config.poll_interval_ms || 800),
     defaultTimeoutMs: Number(config.timeout_ms || 180000),
+    targetTimeoutMs: {
+      yanqiu: Number(config.cc_timeout_ms || config.timeout_ms || 180000),
+      codex: Number(config.codex_timeout_ms || 600000),
+    },
   });
   const built = createLoungeServer({
     orch,

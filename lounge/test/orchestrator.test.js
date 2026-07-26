@@ -318,6 +318,26 @@ test('附) 超时不自动重投 → timeout；手动重试可收回', async () 
   assert.equal(retry.status, 'replied');
 });
 
+test('附) timeout 后迟到回复只读补收，不产生第二次 deliver', async () => {
+  const { orch, room, cc } = build();
+  const src = orch.postLisaMessage(room.room_id, '慢慢答，不要重投');
+  const begun = await orch._beginDispatch({
+    room_id: room.room_id,
+    target: 'yanqiu',
+    message_id: src.message_id,
+  });
+  orch._stall(room.room_id, begun.dispatch_id, 'timeout');
+  cc.seedReply(begun.dispatch_id, {
+    content: '迟到但完整的原回复',
+    bubbles: 1,
+    cursor_end: 'cur_late',
+  });
+  const result = await orch.collectExisting(begun.dispatch_id);
+  assert.equal(result.status, 'replied');
+  assert.equal(orch.getMessage(result.message_id).content, '迟到但完整的原回复');
+  assert.equal(cc.targetDeliverCount(src.message_id, 'yanqiu'), 1);
+});
+
 test('附) 真·落盘重启：关库重开后 recover 只补采集、不重发', async () => {
   const os = require('node:os'); const path = require('node:path'); const fs = require('node:fs');
   const file = path.join(os.tmpdir(), `lounge_test_${process.pid}_${Date.now()}.db`);
