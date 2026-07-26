@@ -19,6 +19,7 @@ bool screenWasTouched = false;
 unsigned long lastTapAt = 0;
 QueueHandle_t eventQueue = nullptr;
 QueueHandle_t voiceQueue = nullptr;
+QueueHandle_t motionQueue = nullptr;
 SemaphoreHandle_t displayMutex = nullptr;
 bool faceDrawn = false;
 String currentFace = "neutral";
@@ -47,6 +48,21 @@ struct VoiceUpload {
   uint8_t* wav;
   size_t bytes;
   unsigned long durationMs;
+};
+
+struct MotionRequest {
+  char preset[24];
+  int yaw;
+  int pitch;
+  int durationMs;
+  uint8_t intensity;
+  bool direct;
+};
+
+struct MotionFrame {
+  int8_t yawOffset;
+  int8_t pitchOffset;
+  uint16_t durationMs;
 };
 
 int clampInt(int value, int low, int high) {
@@ -492,6 +508,104 @@ void moveTo(int yaw, int pitch, int durationMs) {
   servoTorqueReleaseAt = millis() + durationMs + 500;
 }
 
+template <size_t N>
+void playFrames(const MotionFrame (&frames)[N], uint8_t intensity) {
+  const int scale = clampInt(intensity, 25, 100);
+  for (const auto& frame : frames) {
+    const int yaw = 90 + frame.yawOffset * scale / 100;
+    const int pitch = 90 + frame.pitchOffset * scale / 100;
+    moveTo(yaw, pitch, frame.durationMs);
+    vTaskDelay(pdMS_TO_TICKS(frame.durationMs + 40));
+  }
+}
+
+bool isMotionPreset(const String& preset) {
+  return preset == "nod" || preset == "shake" ||
+         preset == "look_around" || preset == "happy_bounce" ||
+         preset == "shy" || preset == "wake_up" ||
+         preset == "listen";
+}
+
+void playMotionPreset(const char* rawPreset, uint8_t intensity) {
+  const String preset(rawPreset ? rawPreset : "");
+  // All poses are home-relative and pass through moveTo's final mechanical
+  // clamp. Each choreography returns home so later commands have a predictable
+  // starting pose and the servos can safely release torque.
+  if (preset == "nod") {
+    static constexpr MotionFrame frames[] = {
+      {0, 12, 260}, {0, 1, 240}, {0, 11, 240}, {0, 0, 300},
+    };
+    playFrames(frames, intensity);
+  } else if (preset == "shake") {
+    static constexpr MotionFrame frames[] = {
+      {-20, 4, 260}, {20, 4, 360}, {-16, 3, 320},
+      {13, 2, 280}, {0, 0, 320},
+    };
+    playFrames(frames, intensity);
+  } else if (preset == "look_around") {
+    static constexpr MotionFrame frames[] = {
+      {-27, 7, 520}, {-27, 15, 350}, {25, 12, 650},
+      {12, 3, 380}, {0, 0, 450},
+    };
+    playFrames(frames, intensity);
+  } else if (preset == "happy_bounce") {
+    static constexpr MotionFrame frames[] = {
+      {-11, 9, 190}, {11, 3, 190}, {-9, 10, 180},
+      {9, 3, 180}, {0, 0, 300},
+    };
+    playFrames(frames, intensity);
+  } else if (preset == "shy") {
+    static constexpr MotionFrame frames[] = {
+      {22, 2, 520}, {16, 8, 420}, {24, 4, 320},
+      {8, 2, 420}, {0, 0, 420},
+    };
+    playFrames(frames, intensity);
+  } else if (preset == "wake_up") {
+    static constexpr MotionFrame frames[] = {
+      {0, 2, 500}, {-8, 12, 360}, {8, 15, 340},
+      {0, 8, 300}, {0, 0, 380},
+    };
+    playFrames(frames, intensity);
+  } else if (preset == "listen") {
+    static constexpr MotionFrame frames[] = {
+      {-8, 12, 360}, {7, 13, 420}, {0, 10, 340}, {0, 0, 360},
+    };
+    playFrames(frames, intensity);
+  }
+}
+
+void motionTask(void*) {
+  MotionRequest request = {};
+  for (;;) {
+    if (motionQueue &&
+        xQueueReceive(motionQueue, &request, portMAX_DELAY) == pdTRUE) {
+      if (request.direct) {
+        moveTo(request.yaw, request.pitch, request.durationMs);
+      } else {
+        playMotionPreset(request.preset, request.intensity);
+      }
+    }
+  }
+}
+
+bool queueMotion(JsonObject payload) {
+  if (!SERVOS_ENABLED || !motionQueue) return false;
+  MotionRequest request = {};
+  const String preset = payload["preset"] | "";
+  if (preset.length()) {
+    if (!isMotionPreset(preset)) return false;
+    strncpy(request.preset, preset.c_str(), sizeof(request.preset) - 1);
+    request.intensity = clampInt(payload["intensity"] | 75, 25, 100);
+    request.direct = false;
+  } else {
+    request.yaw = payload["yaw"] | 90;
+    request.pitch = payload["pitch"] | 90;
+    request.durationMs = payload["duration_ms"] | 500;
+    request.direct = true;
+  }
+  return xQueueSendToBack(motionQueue, &request, 0) == pdTRUE;
+}
+
 bool executeCommand(JsonObject command) {
   const String type = command["type"] | "";
   JsonObject payload = command["payload"].as<JsonObject>();
@@ -501,8 +615,7 @@ bool executeCommand(JsonObject command) {
     return true;
   }
   if (type == "move") {
-    moveTo(payload["yaw"] | 90, payload["pitch"] | 90, payload["duration_ms"] | 500);
-    return SERVOS_ENABLED;
+    return queueMotion(payload);
   }
   if (type == "speak") {
     const String audioUrl = payload["audio_url"] | "";
@@ -645,6 +758,7 @@ void setup() {
   displayMutex = xSemaphoreCreateMutex();
   eventQueue = xQueueCreate(8, sizeof(PendingEvent));
   voiceQueue = xQueueCreate(1, sizeof(VoiceUpload));
+  motionQueue = xQueueCreate(4, sizeof(MotionRequest));
   face("sleepy");
   M5StackChan.setServoPowerEnabled(SERVOS_ENABLED);
   if (SERVOS_ENABLED) {
@@ -659,6 +773,9 @@ void setup() {
   }
   if (eventQueue) {
     xTaskCreatePinnedToCore(pollTask, "relay-poll", 8192, nullptr, 1, nullptr, 0);
+  }
+  if (motionQueue) {
+    xTaskCreatePinnedToCore(motionTask, "motion-player", 4096, nullptr, 1, nullptr, 1);
   }
   connectWifi();
 }
