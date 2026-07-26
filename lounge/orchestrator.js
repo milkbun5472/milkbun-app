@@ -178,10 +178,12 @@ class Orchestrator {
     if (!res.ok) return { refused: true, reason: res.reason };
 
     // 唯一外呼/副作用点。抛错=未知是否落地：不退预算、不自动重投(②)
+    const room = this.getRoom(room_id);
     try {
       await this._adapter(target).deliver({
         dispatch_id, room_id, round_id, target, speaker: src.speaker, message_id,
         content: src.content, expects_reply: true, reply_limit: 1,
+        cc_session_id: room.cc_session_id, codex_thread_id: room.codex_thread_id, // 目标会话绑定(供真实 adapter 定位)
       });
     } catch (e) {
       this.db.prepare('UPDATE dispatches SET status=?, resolved_at=? WHERE dispatch_id=?').run('failed', this._iso(), dispatch_id);

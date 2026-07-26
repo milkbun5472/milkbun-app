@@ -48,6 +48,35 @@ npm test          # = node --test test/*.test.js
 
 测试累积：初版 12 → 初审修补 18 → 收口 **23/23**。
 
+## Step 2 · 真实 CC Adapter（2026-07-26，仍未真实投递）
+
+只做「真实 CC Adapter 接线」——接现有言秋 CC 老会话，**不接 Codex、不做前端、不真实投递**。
+
+| 文件 | 职责 |
+|---|---|
+| `adapters/cc-sessions.js` | `local_<id>` → 桌面指针 json(`cliSessionId`) → 项目 `<uuid>.jsonl` 路径（probe-0 §1.1 映射链） |
+| `adapters/cc-transcript.js` | append-only JSONL 字节游标增量读 + 可见正文白名单 + 分包 → `replied/empty/intrusion/pending` |
+| `adapters/cc.js` | `CCAdapter`：实现 orchestrator 的 `deliver/poll/getHealth` 契约 |
+
+**红线：`cc.js` 绝不直接调用 `send_message`。** 外呼口 `sender(sessionId, text)` 依赖注入：
+
+```js
+// 离线测试：spy，绝不投递
+new CCAdapter({ sender: async () => {}, resolve: () => ({ transcriptPath }), clock });
+
+// 真实活测接线（仅当 Lisa 明确同意后，由 CC 会话侧提供）：
+new CCAdapter({
+  sender: (sessionId, text) => mcp.send_message(sessionId, text),  // 唯一真实投递点
+  projectDir: '~/.claude/projects/<project-slug>',                 // 解析 cliSessionId.jsonl
+});
+```
+
+- **deliver**：定位会话 → 记录投前字节游标 → 调 `sender` 唤醒。
+- **poll**：从投前游标重扫 transcript（不推进游标，保证多气泡收齐/不丢尾）→ 过可见闸 → 分类。
+- **可见闸**：只收 `assistant` 的 `text` part；弃 `thinking/tool_use/tool_result/isSidechain`。
+- **分类**：真人插队(助手未答前)→`intrusion`；只有 thinking/工具→`empty`；静默或边界收 `replied`；否则 `pending`。
+- ⚠️ **活测前必须先问 Lisa**，且只用宝宝克老窗口做一次受控活测。
+
 ## 边界（Step 1 明确不做）
 
 - 不写前端 / HTTP / SSE（第 4 步）。
