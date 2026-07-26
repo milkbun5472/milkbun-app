@@ -28,11 +28,14 @@ volatile unsigned long servoTorqueReleaseAt = 0;
 volatile bool voiceRecording = false;
 bool voiceAutoMode = false;
 bool voiceHeardSpeech = false;
+uint8_t voiceActiveChunks = 0;
 unsigned long voiceStartedAt = 0;
 unsigned long voiceSilenceStartedAt = 0;
 uint8_t* voiceWav = nullptr;
 size_t voiceSamplesRecorded = 0;
 bool voiceChunkInFlight = false;
+bool topVoiceArmed = true;
+unsigned long topReleasedAt = 0;
 static constexpr size_t VOICE_CHUNK_SAMPLES = 1600;  // 100 ms at 16 kHz.
 
 struct PendingEvent {
@@ -239,11 +242,12 @@ bool startVoiceRecording(bool autoMode = false) {
     return false;
   }
   memset(voiceWav, 0, capacity);
-  M5.Speaker.stop();
+  M5.Speaker.end();
   voiceSamplesRecorded = 0;
   voiceChunkInFlight = false;
   voiceAutoMode = autoMode;
   voiceHeardSpeech = false;
+  voiceActiveChunks = 0;
   voiceSilenceStartedAt = 0;
   if (!queueVoiceChunk()) {
     M5.Mic.end();
@@ -261,15 +265,28 @@ bool startVoiceRecording(bool autoMode = false) {
   return true;
 }
 
+void restoreSpeakerAfterRecording() {
+  // CoreS3's mic and speaker share the codec. Fully release the input task and
+  // restore one idle output task. Playback must reuse it instead of calling
+  // begin() twice, which can deadlock the codec.
+  M5.Mic.end();
+  delay(20);
+  if (!M5.Speaker.isRunning() && !M5.Speaker.begin()) {
+    Serial.println("[voice] speaker restore failed");
+  }
+}
+
 void cancelVoiceRecording(const char* reason) {
   if (voiceChunkInFlight) M5.Mic.end();
   voiceChunkInFlight = false;
   voiceRecording = false;
   voiceAutoMode = false;
   voiceHeardSpeech = false;
+  voiceActiveChunks = 0;
   voiceSilenceStartedAt = 0;
   if (voiceWav) free(voiceWav);
   voiceWav = nullptr;
+  restoreSpeakerAfterRecording();
   face("happy");
   Serial.printf("[voice] cancelled: %s\n", reason ? reason : "unknown");
 }
@@ -286,6 +303,7 @@ void finishVoiceRecording() {
   voiceRecording = false;
   voiceAutoMode = false;
   voiceHeardSpeech = false;
+  voiceActiveChunks = 0;
   voiceSilenceStartedAt = 0;
   const unsigned long durationMs =
       (voiceSamplesRecorded * 1000UL) / 16000UL;
@@ -302,10 +320,12 @@ void finishVoiceRecording() {
   voiceWav = nullptr;
   if (xQueueSendToBack(voiceQueue, &pending, 0) != pdTRUE) {
     free(pending.wav);
+    restoreSpeakerAfterRecording();
     face("sad");
     Serial.println("[voice] upload queue full");
     return;
   }
+  restoreSpeakerAfterRecording();
   face("thinking");
   Serial.printf("[voice] queued %lu ms\n", durationMs);
 }
@@ -381,6 +401,11 @@ bool playPcmWav(const uint8_t* wav, size_t wavBytes) {
 
 bool playWavUrl(const String& url, int volume) {
   if (!url.startsWith("https://")) return false;
+  // Fully release the input path before bringing the codec's output path up.
+  // Repeated stop-only switching eventually leaves CoreS3's audio tasks in a
+  // bad state and can reset the board on the next conversation turn.
+  M5.Mic.end();
+  if (!M5.Speaker.isRunning() && !M5.Speaker.begin()) return false;
   WiFiClientSecure client;
   HTTPClient http;
   if (!beginHttps(http, client, url)) return false;
@@ -461,7 +486,17 @@ bool executeCommand(JsonObject command) {
   }
   if (type == "speak") {
     const String audioUrl = payload["audio_url"] | "";
-    return playWavUrl(audioUrl, payload["volume"] | 150);
+    const bool ok = playWavUrl(audioUrl, payload["volume"] | 150);
+    if (ok && (payload["listen_after"] | false)) {
+      // Playback is fully stopped when playWavUrl returns, but the enclosure
+      // and room keep a short acoustic tail. CoreS3 also needs breathing room
+      // when switching the shared audio hardware from speaker back to mic.
+      // Show the listening face only after that gap so Lisa knows exactly when
+      // her next turn begins.
+      delay(1200);
+      startVoiceRecording(true);
+    }
+    return ok;
   }
   return false;
 }
@@ -635,12 +670,21 @@ void loop() {
   screenWasTouched = screenTouched;
 
   auto& top = M5StackChan.TouchSensor;
-  if (top.wasPressed() && !voiceRecording) {
+  const unsigned long now = millis();
+  if (!top.isPressed()) {
+    if (!topReleasedAt) topReleasedAt = now;
+    // A completed release, not the noisy trailing edge of the previous touch,
+    // is what arms the next physical voice turn.
+    if (now - topReleasedAt >= 700) topVoiceArmed = true;
+  } else {
+    topReleasedAt = 0;
+  }
+  if (topVoiceArmed && top.wasPressed() && !voiceRecording) {
     // The CoreS3 top sensor keeps reporting "pressed" for a variable tail
     // after the finger has left. Duration therefore cannot reliably
     // distinguish tap from hold. Start hands-free capture on the leading edge
     // and let voice activity, not touch release, decide when the turn ends.
-    startVoiceRecording(true);
+    if (startVoiceRecording(true)) topVoiceArmed = false;
   }
   if (voiceRecording && voiceChunkInFlight && !M5.Mic.isRecording()) {
     const uint32_t meanAbs =
@@ -653,15 +697,22 @@ void loop() {
     } else if (voiceAutoMode) {
       const unsigned long now = millis();
       if (meanAbs >= VOICE_ACTIVITY_THRESHOLD) {
-        voiceHeardSpeech = true;
-        voiceSilenceStartedAt = 0;
+        if (voiceActiveChunks < 255) ++voiceActiveChunks;
+        if (voiceActiveChunks >= 2) {
+          voiceHeardSpeech = true;
+          voiceSilenceStartedAt = 0;
+        }
       } else if (voiceHeardSpeech) {
+        voiceActiveChunks = 0;
         if (!voiceSilenceStartedAt) voiceSilenceStartedAt = now;
         if (now - voiceSilenceStartedAt >= VOICE_AUTO_SILENCE_MS) {
           finishVoiceRecording();
         }
-      } else if (now - voiceStartedAt >= VOICE_AUTO_WAIT_MS) {
-        cancelVoiceRecording("no speech");
+      } else {
+        voiceActiveChunks = 0;
+        if (now - voiceStartedAt >= VOICE_AUTO_WAIT_MS) {
+          cancelVoiceRecording("no speech");
+        }
       }
       if (voiceRecording && !queueVoiceChunk()) {
         finishVoiceRecording();

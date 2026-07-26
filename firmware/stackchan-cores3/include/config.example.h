@@ -33,7 +33,7 @@ static constexpr size_t MAX_AUDIO_BYTES = 1536 * 1024;
 // has a variable release tail, so recording deliberately ignores release and
 // ends from voice activity. Screen touch remains the explicit "knock" gesture.
 static constexpr unsigned long VOICE_MAX_RECORD_MS = 15000;
-static constexpr unsigned long VOICE_AUTO_WAIT_MS = 5000;
+static constexpr unsigned long VOICE_AUTO_WAIT_MS = 8000;
 static constexpr unsigned long VOICE_AUTO_SILENCE_MS = 900;
 // Mean absolute 16-bit PCM amplitude. Raise this in a noisy room; lower it if
 // quiet speech is not detected.
