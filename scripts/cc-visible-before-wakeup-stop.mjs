@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "fs";
+import {
+  inspectStop,
+  inspectWithRetry,
+  logGateDiagnostic,
+} from "./cc-visible-gate-lib.mjs";
 
 const input = await new Promise(resolve => {
   let body = "";
@@ -11,84 +15,18 @@ const input = await new Promise(resolve => {
   });
 });
 
-// A Stop hook may run again after its own block. Never create a retry loop.
+// Stop hook 被自己拦下后可能再跑一次，绝不能制造循环。
 if (input.stop_hook_active) process.exit(0);
-
 const transcriptPath = String(input.transcript_path || "");
-if (!transcriptPath || !existsSync(transcriptPath)) process.exit(0);
+if (!transcriptPath) process.exit(0);
 
-function blocks(record) {
-  const content = record?.message?.content;
-  if (Array.isArray(content)) return content;
-  if (typeof content === "string") return [{ type: "text", text: content }];
-  return [];
-}
+const result = await inspectWithRetry(transcriptPath, inspectStop);
+logGateDiagnostic("stop", result);
+if (result.relevant === false) process.exit(0);
 
-function isExternalUserTurn(record) {
-  if (record?.type !== "user") return false;
-  if (record?.isMeta === true) return false;
-  const content = record?.message?.content;
-  if (typeof content === "string") return content.trim().length > 0;
-  if (!Array.isArray(content)) return false;
-  return content.some(block =>
-    block?.type === "text" &&
-    String(block.text || "").trim().length > 0
-  );
-}
-
-function visibleText(record) {
-  if (record?.type !== "assistant") return "";
-  return blocks(record)
-    .filter(block => block?.type === "text")
-    .map(block => String(block.text || "").trim())
-    .filter(Boolean)
-    .join("\n");
-}
-
-let records;
-try {
-  records = readFileSync(transcriptPath, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .map(line => JSON.parse(line));
-} catch {
-  process.exit(0);
-}
-
-let wakeIndex = -1;
-for (let index = records.length - 1; index >= 0; index--) {
-  if (records[index]?.type !== "assistant") continue;
-  if (blocks(records[index]).some(block =>
-    block?.type === "tool_use" && block?.name === "ScheduleWakeup"
-  )) {
-    wakeIndex = index;
-    break;
-  }
-}
-
-if (wakeIndex < 0) process.exit(0);
-
-// Pin the check to the current conversational turn, not merely the most recent
-// ScheduleWakeup in the whole transcript. Tool results and hook feedback are
-// deliberately not considered real user-turn boundaries.
-let turnStart = 0;
-for (let index = records.length - 1; index >= 0; index--) {
-  if (isExternalUserTurn(records[index])) {
-    turnStart = index + 1;
-    break;
-  }
-}
-
-// The latest wakeup belongs to an older turn: there is nothing to police now.
-if (wakeIndex < turnStart) process.exit(0);
-
-const hasVisibleReply = records
-  .slice(turnStart, wakeIndex + 1)
-  .some(record => visibleText(record).length >= 2);
-
-if (!hasVisibleReply) {
+if (!result.visible) {
   process.stdout.write(JSON.stringify({
     decision: "block",
-    reason: "你刚调用了 ScheduleWakeup，但本轮在它之前没有任何真正发给 Lisa 的可见正文；thinking/narration 不算正文。现在不要再调用工具，只输出一段自然、完整、用户可见的回复，然后结束本轮。"
+    reason: `你刚调用了 ScheduleWakeup，但本轮在它之前没有任何真正发给 Lisa 的可见正文（诊断：${result.reason}）。thinking/narration 不算正文。现在不要再调用工具，只输出一段自然、完整、用户可见的回复，然后结束本轮。`,
   }));
 }
