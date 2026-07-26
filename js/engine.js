@@ -766,7 +766,7 @@ function buildBundle(ctx, opts) {
   if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
   if (memory && memory.trim()) parts.push("【长期记忆摘要（过往对话浓缩）】\n" + memory.trim());
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");
-  if (memLibText && memLibText.trim()) parts.push("【记忆库·相关条目（你和 " + uName + " 之间沉淀的关键事实，请自然记住并保持一致）】\n" + memLibText.trim());
+  if (memLibText && memLibText.trim()) parts.push("【记忆库·相关条目（你和 " + uName + " 之间沉淀的关键事实，请自然记住并保持一致）】\n" + memLibText.trim() + "\n⚠️这些是【背景】、不是要你照演一遍的剧本：记住它们只为【前后连贯】，绝不是要你去【复刻】里头那些具体的事——别因为记忆里做过某道菜、说过某句话、有过某个举动，就每次都重复同一道菜／同一句招牌话／同一个动作。生活是往前走的，这一刻该有这一刻新的、具体的内容；记忆用来「不忘」、不是用来「重演」。");
   if (ctx.groupEcho && ctx.groupEcho.trim()) parts.push("【你也在这些群里·群里最近发生的事（真实发生过，你在场、都知道）】\n下面是你所在群聊最近的对话，你都亲历、记得。\n**关键：群记录里那个发言的「" + uName + "」，就是【此刻正在跟你单独聊天的这个人（TA）】——不是别的谁。** 所以 TA 刚在群里说过/做过的事（比如说要去上班、说了什么计划），你【当然知道】，现在跟 TA 单聊时要接得上，别自相矛盾（比如 TA 群里刚说去上班、你却在私聊里问 TA『醒啦睡得好吗』这种明显没在听的话）。聊到相关的自然想起、回应、调侃即可，但别没头没脑硬把群聊内容整段倒出来。\n" + ctx.groupEcho.trim());
   if (ctx.groupOfflineEcho && ctx.groupOfflineEcho.trim()) parts.push("【你和大家最近的多人线下相处·带时间戳（真实发生过，你在场、都记得）】\n下面是你参加过的群线下（大家面对面相处）最近的片段，你亲历、记得。里头那个『" + uName + "』就是此刻跟你单聊的这个人。按方括号里的真实时间理解它和现在的先后顺序，聊到相关自然接得上、别自相矛盾（比如刚一起吃过饭、你却问 TA 吃了没）。\n" + ctx.groupOfflineEcho.trim());
   if (ctx.schedNow && ctx.schedNow.trim()) parts.push("【" + char.name + " 今天的行程 / 此刻在做什么】（据此自然反映到语气、状态和心情：在忙就可能回得短，被你打断了行程可能会提，累/闲会影响情绪。别生硬报行程表）\n" + ctx.schedNow.trim());
@@ -1808,7 +1808,7 @@ async function generateOfflineGroup(p, ctx, session) {
     "\n\n【在场角色间的关系（有方向）】\n" + relLines +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") +
-    (memLibText && memLibText.trim() ? "\n\n【记忆库·相关条目（请自然记住并保持一致）】\n" + memLibText.trim() : "") +
+    (memLibText && memLibText.trim() ? "\n\n【记忆库·相关条目（请自然记住并保持一致）】\n" + memLibText.trim() + "\n⚠️这些是【背景】、不是照演的剧本：记住只为连贯，别复刻里头的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作。生活往前走，这一刻要有新的具体。" : "") +
     (onlinePrelude ? "\n\n【刚刚在线上群聊的最后几句·入场衔接】\n" + onlinePrelude + "\n现在大家从线上转到线下面对面。上面的话真实发生过、所有在场成员都知道；从它自然接入当前场景，但不要逐句复述，也不要假装这些话刚在线下又说了一遍。" : "") +
     (session.priorSummary ? "\n\n【这场群线下的前情提要（早先发生的、已浓缩，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     ((Array.isArray(ctx.memberRecent) && ctx.memberRecent.length)
