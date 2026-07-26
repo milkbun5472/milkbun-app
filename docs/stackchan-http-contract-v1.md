@@ -19,7 +19,10 @@ turn normally. A continuation turn must contain an approved local wake name
 (`言秋` or `小克` by default) before it enters the voice inbox or earns another
 automatic listening turn. Ambient classroom/TV speech is logged as
 `ambient_dropped`, preventing an unattended listen/reply loop without adding
-an LLM classification call.
+an LLM classification call. The relay also creates a one-use continuation
+ticket whenever it delivers a `speak` command with `listen_after:true`; the
+next voice upload is treated as a continuation even if an older firmware or
+HTTP intermediary omits the device header.
 
 The Funnel endpoint must terminate HTTPS. A token is bound to one `device_id`;
 the relay rejects a header/query/body mismatch. Tokens, Wi-Fi passwords and the
