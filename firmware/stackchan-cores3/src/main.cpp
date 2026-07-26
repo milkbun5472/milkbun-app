@@ -393,19 +393,31 @@ bool playPcmWav(const uint8_t* wav, size_t wavBytes) {
     Serial.println("[audio] speaker never started");
     return false;
   }
-  while (M5.Speaker.isPlaying()) {
+  // M5Unified briefly clears isPlaying() while its internal DMA buffers swap.
+  // Releasing this runtime WAV at that instant produces only the first
+  // syllable. Keep the PSRAM buffer alive for the duration encoded by the WAV.
+  const unsigned long expectedMs =
+      (static_cast<uint64_t>(pcmBytes) * 1000ULL) /
+      (static_cast<uint64_t>(sampleRate) * sizeof(int16_t));
+  const unsigned long playbackStartedAt = millis();
+  while (millis() - playbackStartedAt < expectedMs + 150) {
     delay(5);
   }
+  const unsigned long drainDeadline = millis() + 1000;
+  while (M5.Speaker.isPlaying() && millis() < drainDeadline) delay(5);
   return true;
 }
 
 bool playWavUrl(const String& url, int volume) {
   if (!url.startsWith("https://")) return false;
   // Fully release the input path before bringing the codec's output path up.
-  // Repeated stop-only switching eventually leaves CoreS3's audio tasks in a
-  // bad state and can reset the board on the next conversation turn.
+  // A Speaker task may still be "running" after a mic turn while the physical
+  // codec remains routed to input. Reusing that task reports successful silent
+  // playback. End it first, then perform exactly one clean output begin.
   M5.Mic.end();
-  if (!M5.Speaker.isRunning() && !M5.Speaker.begin()) return false;
+  M5.Speaker.end();
+  delay(20);
+  if (!M5.Speaker.begin()) return false;
   WiFiClientSecure client;
   HTTPClient http;
   if (!beginHttps(http, client, url)) return false;
