@@ -8,7 +8,9 @@
 
 ## 0. 结论
 
-真实 CC Adapter 三件套完成，接进 orchestrator 的 `deliver/poll/getHealth` 契约，跑的是将来活测要用的**真实读取/可见闸/分类逻辑**。**离线测试 12/12 全绿**（全程 spy sender + 临时 fixture transcript，**零真实投递、零触碰真会话**）；接线后全套 **35/35**（23 状态机 + 12 adapter）。
+真实 CC Adapter 三件套完成，接进 orchestrator 的 `deliver/poll/getHealth` 契约，跑的是将来活测要用的**真实读取/可见闸/精确匹配分类/可恢复投递态**逻辑。**离线测试 16/16 全绿**（全程 spy sender + 临时 fixture transcript/DB，**零真实投递、零触碰真会话**）；接线后全套 **39/39**（23 状态机 + 16 adapter）。
+
+初审抓到的两个生产级缺口已修（见 §2bis）。
 
 ---
 
@@ -33,26 +35,26 @@
   - `pending`：还在冒泡 / 我们的消息还没落地 / 未知 dispatch。
 - **信封**：orchestrator 在 deliver 信封里带上 `cc_session_id`（供 adapter 定位）；正文仍只含自然内容（元数据不进正文，§2bis 由 Step 1 保证）。
 
-## 3. 离线测试（`node --test`，12/12）
+## 2bis. 初审两个生产级缺口修补（2026-07-26，仍全 fake sender）
+
+**缺口①：分类器把游标后"任意跨会话消息"当成我们的投递**（并发时可能把别人的回复绑进会客厅）。
+- 修：定位起点必须 **`跨会话 且 正文含本次自然正文(ourText)`** 双匹配；在我们的消息之前出现任何别的跨会话/真人投递 → 直接 `intrusion`；我们消息之后、收到回复前出现异物 → 也 `intrusion`，绝不绑别人回复。
+- 测：`并发-a`（别人先落我们后落→intrusion）、`并发-b`（回复前被别的窗口插队→intrusion，无 reply）、`并发-c`（我们先收到回复后别人再来不影响本轮绑定）。
+
+**缺口②：投前字节游标只在 `CCAdapter._st` 内存里**，重启后 `recover()→poll()` 只会 `pending`，无法"对方已回复就只补采集"；DB 里的 `after_cursor` 是 `cc@uuid` 逻辑游标，不能拿来读字节。
+- 修：外呼前先 `prepare`（解析会话 + transcript 路径 + 投前 **byte** 游标）→ **外呼前**把可恢复态持久化到新表 `cc_dispatch_state`（目标会话 / 投前 byte 游标 / 本次自然正文）→ 才调 `sender`。`poll` 内存 miss 时从 DB 重建态再只读 transcript。**recover 绝不 deliver**。
+- 测：`真·关库重开`——旧 adapter/Orchestrator 全销毁、对方回复已落 fixture，新实例 `recover()` 收敛 `replied`，`sender` 调用次数仍为 **1**（不重投）。
+
+## 3. 离线测试（`node --test`，16/16）
 
 全程 spy sender + 临时 fixture transcript：
 
-```
-✔ deliver：调 spy sender 一次、记录投前游标；不触真实投递
-✔ poll replied（静默收 turn）：可见正文取回，thinking/工具排除
-✔ poll replied（边界收 turn）：助手回完后出现真人下一轮 → 收本轮
-✔ poll 多气泡收齐：多段 assistant text → 一个包，bubbles 计数
-✔ poll empty：只有 thinking/工具 → empty（不造假气泡）
-✔ poll intrusion：助手还没答就被真人插队 → intrusion（不猜绑）
-✔ poll pending：还在冒泡、未静默未到边界
-✔ poll 子 agent(sidechain) 排除：只取主回复
-✔ poll 工具回执不算边界：工具环后仍能收到回复
-✔ poll 我们的消息还没落地 → pending
-✔ poll 未知 dispatch_id → pending（重启内存态丢失交 orchestrator 恢复）
-✔ 集成：Orchestrator + 真实 CCAdapter（spy sender 追加回复）→ 状态机收敛 replied
-```
+- 基础可见闸/游标：deliver 记投前游标不真投、replied(静默/边界)、多气泡收齐、thinking/工具/子agent 排除、empty、intrusion、pending、工具回执不算边界、消息未落地→pending、未知 dispatch→pending。
+- **缺口①并发精确匹配**：并发-a/b/c（见 §2bis）。
+- **缺口②可恢复态**：真·关库重开 recover → replied、sender 仍只 1 次。
+- 集成：Orchestrator + 真实 CCAdapter（sender 追加回复）→ 状态机收敛 replied。
 
-跑法：`cd lounge && npm test`（两个测试文件共 35/35）。
+跑法：`cd lounge && npm test`（两个测试文件共 **39/39**）。完整用例见 `lounge/test/cc-adapter.test.js`。
 
 ## 4. 明确未做
 

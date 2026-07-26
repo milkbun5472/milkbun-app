@@ -59,17 +59,27 @@ function replied(bubbles) {
   };
 }
 
-// events: readNewEvents 的原始对象数组。ourText/ourCross 定位我们投递的那条 user 行。
+// 是否"我们本次投递"的那条跨会话消息 = 跨会话 且 正文含本次自然正文
+function isOurCross(e, ourText) { return e.type === 'user' && e.isCrossSession && !!ourText && e.userText.includes(ourText); }
+// 异物 user 投递 = 别的窗口的跨会话 或 真人直接输入（工具回执除外）
+function isForeignUser(e, ourText) {
+  if (e.type !== 'user' || e.isToolResult) return false;
+  if (isOurCross(e, ourText)) return false;
+  return e.isCrossSession || e.humanUser;
+}
+
+// events: readNewEvents 的原始对象数组。必须用 ourText 精确定位我们本次投递。
 // 返回 { state:'replied'|'empty'|'intrusion'|'pending', reply? }
 function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = {}) {
   const events = rawEvents.map(normalize);
-  // 1) 定位我们投递的 user 行（cross-session 或含 ourText）；其后为响应区
+  // 1) 定位我们本次投递（跨会话 + 本次自然正文）。在此之前若出现任何异物 user 投递 → 并发插队 intrusion。
   let start = -1;
   for (let i = 0; i < events.length; i++) {
     const e = events[i];
-    if (e.type === 'user' && (e.isCrossSession || (ourText && e.userText && e.userText.includes(ourText)))) { start = i; break; }
+    if (isOurCross(e, ourText)) { start = i; break; }
+    if (isForeignUser(e, ourText)) return { state: 'intrusion' };   // 别的窗口先落进我们的投递窗口 → 不绑别人回复
   }
-  if (ourText && start < 0) return { state: 'pending' };        // 我们的消息还没落地
+  if (start < 0) return { state: 'pending' };                       // 我们的消息还没落地
   const region = events.slice(start + 1);
 
   // 2) 扫响应区
@@ -83,9 +93,10 @@ function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = 
     }
     if (e.type === 'user') {
       if (e.isToolResult) { if (e.ts) lastTs = e.ts; continue; } // 工具回执=助手工具环，非边界
-      // 非工具回执的 user 行 = 轮次边界
-      if (e.humanUser && !hadAssistant && bubbles.length === 0) return { state: 'intrusion' }; // 助手还没答就被真人插队
-      closedByBoundary = true; break;                           // 我们这轮到此为止
+      if (isOurCross(e, ourText)) continue;                      // 我们的重复投递，忽略
+      // 到这 = 异物(真人 or 别的跨会话)
+      if (bubbles.length === 0) return { state: 'intrusion' };   // 助手还没答就被插队 → 不猜绑
+      closedByBoundary = true; break;                            // 已收到我们的回复，此行为下一轮边界
     }
     // 其它类型(system/attachment/...)忽略
   }

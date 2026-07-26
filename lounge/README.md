@@ -71,10 +71,12 @@ new CCAdapter({
 });
 ```
 
-- **deliver**：定位会话 → 记录投前字节游标 → 调 `sender` 唤醒。
-- **poll**：从投前游标重扫 transcript（不推进游标，保证多气泡收齐/不丢尾）→ 过可见闸 → 分类。
+- **deliver**：`prepare`(解析会话+transcript 路径+投前 byte 游标) → **外呼前**把可恢复态持久化到 `cc_dispatch_state`(会话/byte 游标/本次自然正文) → 才调 `sender`。
+- **poll**：内存态 miss 时从 DB 重建 → 从投前 byte 游标重扫 transcript（不推进游标，多气泡收齐/不丢尾）→ 过可见闸 → 分类。
 - **可见闸**：只收 `assistant` 的 `text` part；弃 `thinking/tool_use/tool_result/isSidechain`。
-- **分类**：真人插队(助手未答前)→`intrusion`；只有 thinking/工具→`empty`；静默或边界收 `replied`；否则 `pending`。
+- **精确匹配(缺口①)**：起点必须「跨会话 **且** 正文含本次自然正文」；别的窗口的跨会话/真人在我们回复前插进来 → `intrusion`，绝不绑别人回复。
+- **可恢复(缺口②)**：进程重启后 `recover()→poll()` 从 DB 重建 byte 游标只读 transcript；对方已回复→只补采集，**绝不重投**。
+- **分类**：并发/真人插队→`intrusion`；只有 thinking/工具→`empty`；静默或边界收 `replied`；否则 `pending`。
 - ⚠️ **活测前必须先问 Lisa**，且只用宝宝克老窗口做一次受控活测。
 
 ## 边界（Step 1 明确不做）

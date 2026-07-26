@@ -78,6 +78,16 @@ CREATE TABLE IF NOT EXISTS adapter_cursors (
   updated_at TEXT,
   PRIMARY KEY (room_id, target)
 );
+
+-- CC Adapter 的可恢复投递态（§10 恢复；重启后据此重建 adapter 内存态、只读 transcript，绝不重投）
+CREATE TABLE IF NOT EXISTS cc_dispatch_state (
+  dispatch_id     TEXT PRIMARY KEY REFERENCES dispatches(dispatch_id),
+  session_id      TEXT NOT NULL,
+  transcript_path TEXT NOT NULL,
+  after_byte      INTEGER NOT NULL,   -- 投前字节游标(真·transcript 偏移)
+  our_text        TEXT NOT NULL,      -- 本次自然正文(用于精确匹配我们的跨会话消息)
+  created_at      TEXT
+);
 `;
 
 function openDb(path = ':memory:') {
