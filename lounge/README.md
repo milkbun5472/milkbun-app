@@ -81,7 +81,7 @@ const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 - **精确匹配(缺口①)**：起点必须「跨会话 **且** 正文含本次自然正文」；别的窗口的跨会话/真人在我们回复前插进来 → `intrusion`，绝不绑别人回复。
 - **可恢复(缺口②)**：进程重启后 `recover()→poll()` 从 DB 重建 byte 游标只读 transcript；对方已回复→只补采集，**绝不重投**。
 - **分类**：并发/真人插队→`intrusion`；只有 thinking/工具→`empty`；静默或边界收 `replied`；否则 `pending`。
-- ⚠️ **活测前必须先问 Lisa**，且只用宝宝克老窗口做一次受控活测。
+- ⚠️ **活测前必须先问 Lisa**，且只用言秋老窗口做一次受控活测。
 
 ## 边界（Step 1 明确不做）
 

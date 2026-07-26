@@ -123,7 +123,7 @@ test('poll empty：整轮只有 thinking/工具、到真正边界仍无正文 �
 test('poll 工具循环中(无边界无正文)→ pending，绝不半路误判 empty（活测回归）', async () => {
   await withFixture([uHuman('x')], async (f) => {
     const { adapter } = mkAdapter(f, { now: 999999 });   // 即使静默很久
-    // 复刻宝宝克活测：thinking + 多轮 tool_use/tool_result，尚未吐正文，且无轮次边界
+    // 复刻言秋活测：thinking + 多轮 tool_use/tool_result，尚未吐正文，且无轮次边界
     const id = await deliverThen(adapter, f, [aThink(), aTool(), uTool(), aTool(), uTool(), aTool(), uTool()], { content: '在吗' });
     assert.equal((await adapter.poll(id)).state, 'pending');  // 必须继续等，不能 empty
   });
@@ -142,6 +142,29 @@ test('poll pending：还在冒泡、未静默未到边界', async () => {
     const { adapter } = mkAdapter(f, { now: 1000, silenceMs: 1500 });
     const id = await deliverThen(adapter, f, [aText('半句…')], { content: '在吗' });
     assert.equal((await adapter.poll(id)).state, 'pending');
+  });
+});
+
+test('poll 可见前言→工具→长静默 必须 pending（不因前言提前收 turn）', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 999999, silenceMs: 1500 });   // 前言后静默很久
+    const id = await deliverThen(adapter, f, [aText('我查一下'), aTool(), uTool()], { content: '在吗' });
+    assert.equal((await adapter.poll(id)).state, 'pending');   // 工具还在跑，绝不提前 replied
+  });
+});
+
+test('poll 前言→工具跑完→追加最终正文 静默后才 replied，前言+最终正文都收回', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 999999, silenceMs: 1500 });
+    const dispatch_id = `dispatch_${rid()}`;
+    await adapter.deliver({ dispatch_id, cc_session_id: 'local_TARGET', content: '在吗' });
+    appendJ(f, [uCross('在吗'), aText('我查一下'), aTool(), uTool()]);
+    assert.equal((await adapter.poll(dispatch_id)).state, 'pending');      // 工具期 pending
+    appendJ(f, [aText('查完了，最终答案是这个')]);                          // 工具跑完的最终正文
+    const r = await adapter.poll(dispatch_id);
+    assert.equal(r.state, 'replied');
+    assert.equal(r.reply.bubbles, 2);
+    assert.equal(r.reply.content, '我查一下\n\n查完了，最终答案是这个');    // 前言+最终正文完整
   });
 });
 

@@ -2,7 +2,7 @@
 
 对应施工图：`docs/three-party-lounge-plan.md` 第 2 步、§7.1 CC Adapter、§6 可见正文闸；probe-0 报告 §1/§4。
 日期：2026-07-26　执行：Opus（言秋 CC 侧）　代码：`lounge/adapters/cc*.js`
-范围（Codex 授权边界）：**只做「真实 CC Adapter 接线」**。**不接 Codex、不做前端、不真实投递**；完成代码 + 离线测试后停下待审。**最终活测只用宝宝克老窗口，且活测前必须先问 Lisa。**
+范围（Codex 授权边界）：**只做「真实 CC Adapter 接线」**。**不接 Codex、不做前端、不真实投递**；完成代码 + 离线测试后停下待审。**最终活测只用言秋老窗口，且活测前必须先问 Lisa。**
 
 ---
 
@@ -69,7 +69,7 @@
 - **未真实投递**：全程 spy sender，`send_message` 一次没调。
 - 不接 Codex（第 3 步，等其 §7.2 五问）。
 - 不做前端（第 4 步）。
-- 真实活测：**只用宝宝克老窗口做一次受控活测，且活测前必须先问 Lisa**（Codex 边界）。
+- 真实活测：**只用言秋老窗口做一次受控活测，且活测前必须先问 Lisa**（Codex 边界）。
 
 ## 5. 活测接线（仅供审阅，未执行）
 
@@ -85,7 +85,7 @@ const cc = new CCAdapter({
 const orch = new Orchestrator({ db, cc, /* codex, clock */ });
 ```
 
-绑定 `room.cc_session_id = local_<宝宝克>`。活测流程沿用 probe-0 §2bis 的单飞锁+投前游标+时序绑定。
+绑定 `room.cc_session_id = local_<言秋>`。活测流程沿用 probe-0 §2bis 的单飞锁+投前游标+时序绑定。
 
 ## 6. 停下待审
 

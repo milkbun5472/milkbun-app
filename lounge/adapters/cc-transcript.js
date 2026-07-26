@@ -90,16 +90,23 @@ function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = 
   const region = events.slice(start + 1);
 
   // 2) 扫响应区
-  const bubbles = []; let hadAssistant = false, lastTextTs = null, closedByBoundary = false;
+  //    openTool = 末条可见文字之后是否仍有未闭合的工具活动。
+  //    工具活跃时即使已有可见文字且静默很久也保持 pending，直到最终正文或真正边界。
+  const bubbles = []; let hadAssistant = false, lastTextTs = null, closedByBoundary = false, openTool = false;
   for (const e of region) {
     if (e.type === 'assistant') {
       if (e.isSidechain) continue;                              // 子 agent 不算
       hadAssistant = true;
-      for (const t of e.textParts || []) { bubbles.push({ uuid: e.uuid, text: t }); if (e.ts) lastTextTs = e.ts; }
+      if (e.textParts && e.textParts.length) {
+        for (const t of e.textParts) bubbles.push({ uuid: e.uuid, text: t });
+        if (e.ts) lastTextTs = e.ts;
+        openTool = false;                                       // 出现可见文字 → 暂时闭合
+      }
+      if (e.hasTool) openTool = true;                           // 同一行/后续起了工具 → 又未闭合
       continue;
     }
     if (e.type === 'user') {
-      if (e.isToolResult) continue;                             // 工具回执=助手工具环，非边界
+      if (e.isToolResult) { openTool = true; continue; }        // 工具回执=助手仍在工具环，非边界
       if (isOurCross(e, ourText)) continue;                     // 我们的重复投递，忽略
       // 到这 = 异物 user 行
       if (bubbles.length === 0) {
@@ -112,12 +119,13 @@ function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = 
     // 其它类型(system/attachment/...)忽略
   }
   // 3) 收 turn 判定：
-  //    replied = 有可见正文 且(出现边界 或 末条正文已静默)；empty 只由"真正轮次边界且整轮无正文"触发，
-  //    工具循环中的静默间隙【不算】收 turn(否则会半路误判 empty)。
+  //    replied = 有可见正文 且(出现边界 或 末条正文之后无未闭合工具 且已静默)；
+  //    empty 只由"真正轮次边界且整轮无正文"触发；
+  //    工具循环活跃(openTool) 或 工具间隙静默 一律保持 pending，不半路收 turn。
   if (closedByBoundary) return bubbles.length > 0 ? replied(bubbles) : { state: 'empty' };
   const silentAfterText = nowMs != null && lastTextTs != null && (nowMs - Date.parse(lastTextTs) >= silenceMs);
-  if (bubbles.length > 0 && silentAfterText) return replied(bubbles);
-  return { state: 'pending' };                                  // 含：助手仍在 thinking/工具循环
+  if (bubbles.length > 0 && !openTool && silentAfterText) return replied(bubbles);
+  return { state: 'pending' };                                  // 含：助手仍在 thinking/工具循环 或 前言后又起工具
 }
 
 module.exports = { readNewEvents, normalize, classify, parseLine };
