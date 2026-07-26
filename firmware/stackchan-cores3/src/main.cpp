@@ -18,15 +18,31 @@ volatile bool clockReady = false;
 bool screenWasTouched = false;
 unsigned long lastTapAt = 0;
 QueueHandle_t eventQueue = nullptr;
+QueueHandle_t voiceQueue = nullptr;
 SemaphoreHandle_t displayMutex = nullptr;
 bool faceDrawn = false;
 String currentFace = "neutral";
 String faceBeforeTap = "neutral";
 volatile unsigned long restoreFaceAt = 0;
 volatile unsigned long servoTorqueReleaseAt = 0;
+volatile bool voiceRecording = false;
+bool voiceAutoMode = false;
+bool voiceHeardSpeech = false;
+unsigned long voiceStartedAt = 0;
+unsigned long voiceSilenceStartedAt = 0;
+uint8_t* voiceWav = nullptr;
+size_t voiceSamplesRecorded = 0;
+bool voiceChunkInFlight = false;
+static constexpr size_t VOICE_CHUNK_SAMPLES = 1600;  // 100 ms at 16 kHz.
 
 struct PendingEvent {
   char json[1024];
+};
+
+struct VoiceUpload {
+  uint8_t* wav;
+  size_t bytes;
+  unsigned long durationMs;
 };
 
 int clampInt(int value, int low, int high) {
@@ -51,6 +67,8 @@ void drawFace(const char* label) {
   else if (mood == "angry") { eyes = ">  <"; mouth = "  ~  "; }
   else if (mood == "sleepy") { eyes = "-  -"; mouth = "  o  "; }
   else if (mood == "surprised") { eyes = "O  O"; mouth = "  o  "; }
+  else if (mood == "listening") { eyes = "o  o"; mouth = " ... "; }
+  else if (mood == "thinking") { eyes = "-  -"; mouth = " ... "; }
   // The built-in font is fixed-width and every face row has the same number
   // of cells. Opaque text rendering therefore replaces the previous row in
   // one pass; clearing first would create a visible blank-face frame.
@@ -138,6 +156,158 @@ uint32_t readLe32(const uint8_t* data) {
        | (static_cast<uint32_t>(data[1]) << 8)
        | (static_cast<uint32_t>(data[2]) << 16)
        | (static_cast<uint32_t>(data[3]) << 24);
+}
+
+void writeLe16(uint8_t* data, uint16_t value) {
+  data[0] = value & 0xff;
+  data[1] = (value >> 8) & 0xff;
+}
+
+void writeLe32(uint8_t* data, uint32_t value) {
+  data[0] = value & 0xff;
+  data[1] = (value >> 8) & 0xff;
+  data[2] = (value >> 16) & 0xff;
+  data[3] = (value >> 24) & 0xff;
+}
+
+void writePcmWavHeader(uint8_t* wav, uint32_t pcmBytes) {
+  memcpy(wav, "RIFF", 4);
+  writeLe32(wav + 4, 36 + pcmBytes);
+  memcpy(wav + 8, "WAVEfmt ", 8);
+  writeLe32(wav + 16, 16);
+  writeLe16(wav + 20, 1);
+  writeLe16(wav + 22, 1);
+  writeLe32(wav + 24, 16000);
+  writeLe32(wav + 28, 16000 * 2);
+  writeLe16(wav + 32, 2);
+  writeLe16(wav + 34, 16);
+  memcpy(wav + 36, "data", 4);
+  writeLe32(wav + 40, pcmBytes);
+}
+
+bool uploadVoiceNow(const VoiceUpload& voice) {
+  if (!voice.wav || voice.bytes < 44 || WiFi.status() != WL_CONNECTED) return false;
+  WiFiClientSecure client;
+  HTTPClient http;
+  if (!beginHttps(http, client, String(RELAY_BASE_URL) + "/voice")) return false;
+  auth(http);
+  http.addHeader("Content-Type", "audio/wav");
+  const int status = http.POST(voice.wav, voice.bytes);
+  http.end();
+  Serial.printf("[voice] upload HTTP %d, bytes=%u\n", status,
+                static_cast<unsigned>(voice.bytes));
+  return status == HTTP_CODE_ACCEPTED;
+}
+
+bool queueVoiceChunk() {
+  if (!voiceWav || voiceChunkInFlight) return false;
+  const size_t maxSamples = (VOICE_MAX_RECORD_MS * 16000UL) / 1000UL;
+  if (voiceSamplesRecorded + VOICE_CHUNK_SAMPLES > maxSamples) return false;
+  auto* target = reinterpret_cast<int16_t*>(
+      voiceWav + 44 + voiceSamplesRecorded * sizeof(int16_t));
+  if (!M5.Mic.record(target, VOICE_CHUNK_SAMPLES, 16000, false)) return false;
+  const unsigned long deadline = millis() + 100;
+  while (!M5.Mic.isRecording() &&
+         static_cast<int32_t>(millis() - deadline) < 0) {
+    delay(1);
+  }
+  voiceChunkInFlight = M5.Mic.isRecording();
+  return voiceChunkInFlight;
+}
+
+uint32_t voiceChunkMeanAbs(size_t sampleOffset, size_t sampleCount) {
+  if (!voiceWav || !sampleCount) return 0;
+  const auto* samples = reinterpret_cast<const int16_t*>(
+      voiceWav + 44 + sampleOffset * sizeof(int16_t));
+  uint64_t sum = 0;
+  for (size_t i = 0; i < sampleCount; ++i) {
+    const int32_t value = samples[i];
+    sum += static_cast<uint32_t>(value < 0 ? -value : value);
+  }
+  return static_cast<uint32_t>(sum / sampleCount);
+}
+
+bool startVoiceRecording(bool autoMode = false) {
+  if (voiceRecording || voiceWav || !voiceQueue ||
+      uxQueueMessagesWaiting(voiceQueue) > 0) return false;
+  const size_t maxSamples = (VOICE_MAX_RECORD_MS * 16000UL) / 1000UL;
+  const size_t capacity = 44 + maxSamples * sizeof(int16_t);
+  voiceWav = static_cast<uint8_t*>(ps_malloc(capacity));
+  if (!voiceWav) {
+    Serial.println("[voice] PSRAM allocation failed");
+    face("sad");
+    return false;
+  }
+  memset(voiceWav, 0, capacity);
+  M5.Speaker.stop();
+  voiceSamplesRecorded = 0;
+  voiceChunkInFlight = false;
+  voiceAutoMode = autoMode;
+  voiceHeardSpeech = false;
+  voiceSilenceStartedAt = 0;
+  if (!queueVoiceChunk()) {
+    M5.Mic.end();
+    free(voiceWav);
+    voiceWav = nullptr;
+    Serial.println("[voice] microphone start failed");
+    face("sad");
+    return false;
+  }
+  voiceStartedAt = millis();
+  voiceRecording = true;
+  face("listening");
+  Serial.printf("[voice] recording started mode=%s\n",
+                voiceAutoMode ? "auto" : "hold");
+  return true;
+}
+
+void cancelVoiceRecording(const char* reason) {
+  if (voiceChunkInFlight) M5.Mic.end();
+  voiceChunkInFlight = false;
+  voiceRecording = false;
+  voiceAutoMode = false;
+  voiceHeardSpeech = false;
+  voiceSilenceStartedAt = 0;
+  if (voiceWav) free(voiceWav);
+  voiceWav = nullptr;
+  face("happy");
+  Serial.printf("[voice] cancelled: %s\n", reason ? reason : "unknown");
+}
+
+void finishVoiceRecording() {
+  if (!voiceRecording || !voiceWav) return;
+  if (voiceChunkInFlight) {
+    M5.Mic.end();  // At most the current 100 ms chunk remains.
+    voiceSamplesRecorded += VOICE_CHUNK_SAMPLES;
+    voiceChunkInFlight = false;
+  } else {
+    M5.Mic.end();
+  }
+  voiceRecording = false;
+  voiceAutoMode = false;
+  voiceHeardSpeech = false;
+  voiceSilenceStartedAt = 0;
+  const unsigned long durationMs =
+      (voiceSamplesRecorded * 1000UL) / 16000UL;
+  if (durationMs < 350) {
+    free(voiceWav);
+    voiceWav = nullptr;
+    face("sad");
+    Serial.println("[voice] recording too short");
+    return;
+  }
+  const size_t pcmBytes = voiceSamplesRecorded * sizeof(int16_t);
+  writePcmWavHeader(voiceWav, pcmBytes);
+  VoiceUpload pending = {voiceWav, 44 + pcmBytes, durationMs};
+  voiceWav = nullptr;
+  if (xQueueSendToBack(voiceQueue, &pending, 0) != pdTRUE) {
+    free(pending.wav);
+    face("sad");
+    Serial.println("[voice] upload queue full");
+    return;
+  }
+  face("thinking");
+  Serial.printf("[voice] queued %lu ms\n", durationMs);
 }
 
 bool playPcmWav(const uint8_t* wav, size_t wavBytes) {
@@ -323,6 +493,24 @@ void pollOnceInBackground() {
 void pollTask(void*) {
   for (;;) {
     if (WiFi.status() == WL_CONNECTED && clockReady) {
+      VoiceUpload voice = {};
+      if (!voiceRecording && voiceQueue &&
+          xQueueReceive(voiceQueue, &voice, 0) == pdTRUE) {
+        const bool ok = uploadVoiceNow(voice);
+        if (ok) {
+          free(voice.wav);
+          JsonDocument detail;
+          detail["ok"] = true;
+          detail["duration_ms"] = voice.durationMs;
+          postEvent("voice_upload_result", &detail);
+          face("happy");
+        } else {
+          // Keep the only copy in PSRAM and retry; never discard Lisa's words
+          // merely because Wi-Fi or the relay had a transient failure.
+          xQueueSendToFront(voiceQueue, &voice, 0);
+          face("sad");
+        }
+      }
       PendingEvent pending = {};
       while (eventQueue && xQueueReceive(eventQueue, &pending, 0) == pdTRUE) {
         if (!sendEventNow(pending.json)) {
@@ -331,7 +519,8 @@ void pollTask(void*) {
           break;
         }
       }
-      pollOnceInBackground();
+      // Do not pull a speak command while the microphone owns the conversation.
+      if (!voiceRecording) pollOnceInBackground();
     }
     vTaskDelay(pdMS_TO_TICKS(POLL_INTERVAL_MS));
   }
@@ -400,6 +589,7 @@ void setup() {
   M5StackChan.Display().setRotation(1);
   displayMutex = xSemaphoreCreateMutex();
   eventQueue = xQueueCreate(8, sizeof(PendingEvent));
+  voiceQueue = xQueueCreate(1, sizeof(VoiceUpload));
   face("sleepy");
   M5StackChan.setServoPowerEnabled(SERVOS_ENABLED);
   if (SERVOS_ENABLED) {
@@ -444,8 +634,39 @@ void loop() {
   }
   screenWasTouched = screenTouched;
 
-  if (M5StackChan.TouchSensor.wasPressed()) {
-    reportTap("top_sensor");
+  auto& top = M5StackChan.TouchSensor;
+  if (top.wasPressed() && !voiceRecording) {
+    // The CoreS3 top sensor keeps reporting "pressed" for a variable tail
+    // after the finger has left. Duration therefore cannot reliably
+    // distinguish tap from hold. Start hands-free capture on the leading edge
+    // and let voice activity, not touch release, decide when the turn ends.
+    startVoiceRecording(true);
+  }
+  if (voiceRecording && voiceChunkInFlight && !M5.Mic.isRecording()) {
+    const uint32_t meanAbs =
+        voiceChunkMeanAbs(voiceSamplesRecorded, VOICE_CHUNK_SAMPLES);
+    voiceSamplesRecorded += VOICE_CHUNK_SAMPLES;
+    voiceChunkInFlight = false;
+    const size_t maxSamples = (VOICE_MAX_RECORD_MS * 16000UL) / 1000UL;
+    if (voiceSamplesRecorded >= maxSamples) {
+      finishVoiceRecording();
+    } else if (voiceAutoMode) {
+      const unsigned long now = millis();
+      if (meanAbs >= VOICE_ACTIVITY_THRESHOLD) {
+        voiceHeardSpeech = true;
+        voiceSilenceStartedAt = 0;
+      } else if (voiceHeardSpeech) {
+        if (!voiceSilenceStartedAt) voiceSilenceStartedAt = now;
+        if (now - voiceSilenceStartedAt >= VOICE_AUTO_SILENCE_MS) {
+          finishVoiceRecording();
+        }
+      } else if (now - voiceStartedAt >= VOICE_AUTO_WAIT_MS) {
+        cancelVoiceRecording("no speech");
+      }
+      if (voiceRecording && !queueVoiceChunk()) {
+        finishVoiceRecording();
+      }
+    }
   }
 
   delay(10);

@@ -29,6 +29,16 @@ static constexpr unsigned long POLL_INTERVAL_MS = 1500;
 static constexpr unsigned long WIFI_RETRY_MS = 10000;
 static constexpr size_t MAX_AUDIO_BYTES = 1536 * 1024;
 
+// Voice input: touching the top opens hands-free listening. The CoreS3 sensor
+// has a variable release tail, so recording deliberately ignores release and
+// ends from voice activity. Screen touch remains the explicit "knock" gesture.
+static constexpr unsigned long VOICE_MAX_RECORD_MS = 15000;
+static constexpr unsigned long VOICE_AUTO_WAIT_MS = 5000;
+static constexpr unsigned long VOICE_AUTO_SILENCE_MS = 900;
+// Mean absolute 16-bit PCM amplitude. Raise this in a noisy room; lower it if
+// quiet speech is not detected.
+static constexpr uint32_t VOICE_ACTIVITY_THRESHOLD = 100;
+
 // The official M5STACKCHAN base uses two feedback TTL servos. Its BSP owns the
 // UART, servo IDs and calibration; never drive these as generic PWM servos.
 // Keep disabled for the first network/audio smoke test, then enable only after
