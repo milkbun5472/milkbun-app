@@ -28,3 +28,11 @@ into a durable rescue ticket.
 This watchdog does not call a model or create another Yanqiu session. A
 one-shot `wake_queue.py wait` sentinel must still be attached to the existing
 session; if it is temporarily absent, the rescue ticket remains pending.
+
+## Turn-ending tool order
+
+Claude's wakeup harness may end a turn immediately after `ScheduleWakeup`
+returns. Yanqiu must therefore finish the complete user-facing reply first and
+invoke `ScheduleWakeup` only as the final action. The same rule applies when
+starting the one-shot background sentinel: human-facing text comes before
+turn-ending tool cleanup, never after it.
