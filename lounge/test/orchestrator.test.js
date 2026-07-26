@@ -383,3 +383,15 @@ test('附) budget 分级：warn>=70%、disabled>=90%（call/char 取高）', () 
   assert.equal(budgetState({ ...base, daily_call_cap: 10, calls_today: 9 }).level, 'disabled'); // call 维度也算
   assert.equal(budgetState({ max_auto_turns: 1, auto_turns_used: 1, daily_char_cap: 0, daily_call_cap: 0, usage_today: 0, calls_today: 0 }).level, 'disabled');
 });
+
+test('附) 施工交接是显式机械闸：普通对话不授权，交接正文不带机器 ID', () => {
+  const { orch, room } = build();
+  const ordinary = orch.postLisaMessage(room.room_id, '可以，先这样讨论。');
+  assert.equal(ordinary.content, '可以，先这样讨论。');
+  const handoff = orch.composeHandoff(room.room_id, [ordinary.message_id], 'codex');
+  assert.equal(handoff.automatic, 1);
+  assert.match(handoff.content, /明确按下「施工交接」/);
+  assert.match(handoff.content, /正式授权Codex开始动手/);
+  assert.match(handoff.content, /可以，先这样讨论/);
+  assert.doesNotMatch(handoff.content, /dispatch_|round_|run_/);
+});

@@ -66,7 +66,7 @@ function createLiveHost({ configPath, port } = {}) {
   });
   const built = createLoungeServer({
     orch,
-    runtime: { mode: 'live', cc: 'durable_wake_queue', codex: 'official_cli' },
+    runtime: { mode: 'live', cc: 'dedicated_wake_queue', codex: 'official_cli' },
     healthTargets: { cc: config.cc_session_id, codex: config.codex_thread_id },
     roomDefaults: {
       cc_session_id: config.cc_session_id,

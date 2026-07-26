@@ -7,6 +7,7 @@ const ui = {
   input: $('#messageInput'),
   post: $('#postButton'),
   tray: $('#dispatchTray'),
+  batchPrompt: $('#batchPrompt'),
   pause: $('#pauseButton'),
   notice: $('#notice'),
   status: $('#roomStatus'),
@@ -23,6 +24,9 @@ const ui = {
   dialog: $('#confirmDialog'),
   firstSpeaker: $('#firstSpeaker'),
   confirmBoth: $('#confirmBoth'),
+  handoffDialog: $('#handoffDialog'),
+  handoffTarget: $('#handoffTarget'),
+  confirmHandoff: $('#confirmHandoff'),
 };
 
 const state = {
@@ -138,6 +142,11 @@ function render(snapshot) {
     renderMessages(snapshot.messages);
   }
   const batch = latestLisaBatch(snapshot);
+  if (batch.length) {
+    ui.batchPrompt.textContent = batch.length === 1
+      ? '本批共 1 条，要先递给谁？'
+      : `本批共 ${batch.length} 条，会合成一张票递出：`;
+  }
   const already = batch.length && batch.every((m) => snapshot.dispatches.some((d) => d.message_id === m.message_id));
   if (!state.busy && batch.length && !already && room.status !== 'stopped') {
     state.selectedMessageIds = batch.map((m) => m.message_id);
@@ -180,9 +189,31 @@ async function dispatch(target) {
     ui.dialog.showModal();
     return;
   }
+  if (target === 'handoff') {
+    ui.handoffDialog.showModal();
+    return;
+  }
   setBusy(true);
   try {
     const data = await api(`/api/rooms/${state.roomId}/dispatch`, {
+      method: 'POST',
+      body: JSON.stringify({
+        target,
+        message_ids: state.selectedMessageIds,
+        codex_confirmed: target === 'codex',
+      }),
+    });
+    render(data.state);
+  } catch (error) { showNotice(error.message); await refresh(); }
+  finally { setBusy(false); }
+}
+
+async function handoff() {
+  if (!state.selectedMessageIds.length || state.busy) return;
+  setBusy(true);
+  try {
+    const target = ui.handoffTarget.value;
+    const data = await api(`/api/rooms/${state.roomId}/handoff`, {
       method: 'POST',
       body: JSON.stringify({
         target,
@@ -283,6 +314,11 @@ ui.confirmBoth.addEventListener('click', (event) => {
   event.preventDefault();
   ui.dialog.close();
   runBoth();
+});
+ui.confirmHandoff.addEventListener('click', (event) => {
+  event.preventDefault();
+  ui.handoffDialog.close();
+  handoff();
 });
 
 init();

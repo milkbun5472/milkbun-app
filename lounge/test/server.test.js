@@ -108,6 +108,32 @@ test('连续两条 Lisa 消息作为同一批完整递出', async () => {
   assert.equal(orch.getMessage(dispatch.message_id).content, '第一条\n\n第二条');
 });
 
+test('施工交接必须走专属按钮语义，普通“可以”不会被改写成授权', async () => {
+  const created = await request('/api/rooms', { method: 'POST', body: {} });
+  const roomId = created.data.room.room_id;
+  const posted = await request(`/api/rooms/${roomId}/messages`, {
+    method: 'POST',
+    body: { content: '可以，先这样讨论。' },
+  });
+  assert.equal(posted.data.message.content, '可以，先这样讨论。');
+
+  const handed = await request(`/api/rooms/${roomId}/handoff`, {
+    method: 'POST',
+    body: {
+      target: 'codex',
+      message_ids: [posted.data.message.message_id],
+      codex_confirmed: true,
+    },
+  });
+  assert.equal(handed.response.status, 200);
+  const dispatch = handed.data.state.dispatches.at(-1);
+  const envelope = orch.getMessage(dispatch.message_id);
+  assert.match(envelope.content, /明确按下「施工交接」/);
+  assert.match(envelope.content, /正式授权Codex开始动手/);
+  assert.match(envelope.content, /可以，先这样讨论/);
+  assert.doesNotMatch(envelope.content, /dispatch_|round_|run_/);
+});
+
 test('本地前端资源禁用缓存，修复后刷新即取同版 JS/CSS', async () => {
   const response = await fetch(`${base}/app.js`);
   assert.equal(response.status, 200);

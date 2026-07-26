@@ -259,6 +259,7 @@ test('耐久唤醒 sender：只追加自然正文，不写 dispatch/room/session
     assert.deepEqual(row, {
       kind: 'lounge',
       source: 'three_party_lounge',
+      target: 'yanqiu',
       text: '宝宝，来会客厅说一句。',
       received_at_ms: 123,
     });

@@ -26,6 +26,7 @@ String faceBeforeTap = "neutral";
 volatile unsigned long restoreFaceAt = 0;
 volatile unsigned long servoTorqueReleaseAt = 0;
 volatile bool voiceRecording = false;
+volatile unsigned long micClosedFeedbackAt = 0;
 bool voiceAutoMode = false;
 bool voiceHeardSpeech = false;
 uint8_t voiceActiveChunks = 0;
@@ -287,7 +288,14 @@ void cancelVoiceRecording(const char* reason) {
   if (voiceWav) free(voiceWav);
   voiceWav = nullptr;
   restoreSpeakerAfterRecording();
-  face("happy");
+  // Hands-free listening closes itself when nobody speaks. Give Lisa an
+  // explicit visual "closed" beat before returning to the normal happy face.
+  if (reason && !strcmp(reason, "no speech")) {
+    face("sleepy");
+    micClosedFeedbackAt = millis() + 900;
+  } else {
+    face("happy");
+  }
   Serial.printf("[voice] cancelled: %s\n", reason ? reason : "unknown");
 }
 
@@ -658,6 +666,12 @@ void setup() {
 void loop() {
   M5StackChan.update();
   connectWifi();
+
+  if (micClosedFeedbackAt &&
+      static_cast<int32_t>(millis() - micClosedFeedbackAt) >= 0) {
+    micClosedFeedbackAt = 0;
+    face("happy");
+  }
 
   if (restoreFaceAt && static_cast<int32_t>(millis() - restoreFaceAt) >= 0) {
     restoreFaceAt = 0;

@@ -123,6 +123,22 @@ class Orchestrator {
     });
   }
 
+  composeHandoff(room_id, message_ids, target) {
+    if (!['yanqiu', 'codex'].includes(target)) throw new Error('施工交接目标不正确');
+    const source = this.composeLisaMessages(room_id, message_ids);
+    return this._insertMessage({
+      room_id,
+      speaker: 'lisa',
+      content: [
+        `Lisa 已明确按下「施工交接」，正式授权${NAME[target]}开始动手。`,
+        '以下内容已经从议事转为施工任务；请在原窗口执行，完成后把施工回执带回会客厅。普通讨论内容之外不要自行扩大范围。',
+        `交接内容：\n${source.content}`,
+      ].join('\n\n'),
+      origin: 'lounge',
+      automatic: true,
+    });
+  }
+
   // 给目标补齐“自从 TA 上次在桌上发言后新增的公开内容”。
   // 只取会客厅可见消息，不取 automatic 机器信封，也不重复目标自己的话。
   composeContextForTarget(room_id, target, { fallbackMessageId = null, alwaysLabel = false } = {}) {

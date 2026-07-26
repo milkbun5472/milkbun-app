@@ -304,7 +304,7 @@ textarea::placeholder { color: #aaa49a; }
   box-shadow: var(--shadow);
 }
 .dispatch-tray p { margin: 0 0 10px; font-size: 12px; }
-.dispatch-actions { display: grid; grid-template-columns: 1fr 1fr 1.25fr; gap: 8px; }
+.dispatch-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .dispatch-actions button {
   display: flex;
   align-items: center;
@@ -333,6 +333,13 @@ textarea::placeholder { color: #aaa49a; }
 }
 .dispatch-actions [data-action="codex"] span { background: var(--codex); }
 .dispatch-actions .both span { color: var(--ink); background: var(--lisa-pale); }
+.dispatch-actions .handoff {
+  color: #fff;
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.dispatch-actions .handoff:hover { color: var(--ink); }
+.dispatch-actions .handoff span { color: var(--ink); background: #fff; }
 .dispatch-tray small { display: block; margin-top: 9px; color: var(--muted); font-size: 9px; }
 .notice {
   margin: 0 0 8px;
@@ -377,7 +384,6 @@ select { padding: 7px 28px 7px 10px; border: 1px solid var(--rule); border-radiu
   .bubble { padding: 14px 16px; font-size: 14px; }
   .composer-wrap { padding: 10px 12px max(14px, env(safe-area-inset-bottom)); }
   .dispatch-actions { grid-template-columns: 1fr 1fr; }
-  .dispatch-actions .both { grid-column: 1 / -1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

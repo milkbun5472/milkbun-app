@@ -75,13 +75,14 @@
       </div>
 
       <div id="dispatchTray" class="dispatch-tray" hidden>
-        <p>这句话先递给谁？</p>
+        <p id="batchPrompt">这句话先递给谁？</p>
         <div class="dispatch-actions">
           <button type="button" data-action="yanqiu"><span>秋</span>请言秋说</button>
           <button type="button" data-action="codex"><span>C</span>请 Codex 说</button>
           <button type="button" data-action="both" class="both"><span>2</span>双方各答一轮</button>
+          <button type="button" data-action="handoff" class="handoff"><span>→</span>施工交接</button>
         </div>
-        <small>双方各答一轮预计调用 2 次；结束后自动停下。</small>
+        <small>普通递话只议事；只有点「施工交接」才代表你明确授权动手。</small>
       </div>
     </section>
   </main>
@@ -101,6 +102,25 @@
       <div class="dialog-actions">
         <button value="cancel">先不要</button>
         <button id="confirmBoth" value="default" class="primary">确认，最多 2 次调用</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="handoffDialog">
+    <form method="dialog">
+      <span class="dialog-kicker">从议事切到动工</span>
+      <h2>把这一批正式交给谁施工？</h2>
+      <p>只有确认这个按钮才算 Lisa 授权动手。普通聊天里的「可以」「赞成」仍只按对话理解，不会自动开工。</p>
+      <label class="speaker-choice">
+        <span>接手人</span>
+        <select id="handoffTarget">
+          <option value="codex">Codex</option>
+          <option value="yanqiu">言秋</option>
+        </select>
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel">继续议事</button>
+        <button id="confirmHandoff" value="default" class="primary">确认交接施工</button>
       </div>
     </form>
   </dialog>
