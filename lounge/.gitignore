@@ -1,0 +1,5 @@
+data/
+spool/
+*.db
+*.db-shm
+*.db-wal

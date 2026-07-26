@@ -1,0 +1,258 @@
+'use strict';
+
+const http = require('node:http');
+const fs = require('node:fs');
+const path = require('node:path');
+const { URL } = require('node:url');
+
+const STATIC_ROOT = path.join(__dirname, 'public');
+const MAX_BODY = 32 * 1024;
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+};
+
+function json(res, status, value) {
+  const body = JSON.stringify(value);
+  res.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': Buffer.byteLength(body),
+    'cache-control': 'no-store',
+  });
+  res.end(body);
+}
+
+function fail(res, status, code, message) {
+  json(res, status, { error: code, message });
+}
+
+async function bodyOf(req) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY) throw Object.assign(new Error('请求正文过大'), { status: 413, code: 'BODY_TOO_LARGE' });
+    chunks.push(chunk);
+  }
+  if (!chunks.length) return {};
+  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+  catch { throw Object.assign(new Error('JSON 格式不正确'), { status: 400, code: 'BAD_JSON' }); }
+}
+
+function safeRoom(orch, roomId) {
+  const room = orch.getRoom(roomId);
+  if (!room) return null;
+  const dispatches = orch.db.prepare(
+    'SELECT dispatch_id,room_id,target,message_id,status,automatic,created_at,delivered_at,resolved_at FROM dispatches WHERE room_id=? ORDER BY created_at,rowid',
+  ).all(roomId);
+  return {
+    room: {
+      room_id: room.room_id,
+      title: room.title,
+      mode: room.mode,
+      status: room.status,
+      max_auto_turns: room.max_auto_turns,
+      auto_turns_used: room.auto_turns_used,
+      calls_today: room.calls_today,
+      usage_today: room.usage_today,
+      daily_char_cap: room.daily_char_cap,
+      daily_call_cap: room.daily_call_cap,
+      pause_requested: room.pause_requested,
+      created_at: room.created_at,
+      updated_at: room.updated_at,
+    },
+    messages: orch.listMessages(roomId),
+    dispatches,
+    budget: orch.budget(roomId),
+  };
+}
+
+function createEventHub() {
+  const rooms = new Map();
+  return {
+    add(roomId, res) {
+      if (!rooms.has(roomId)) rooms.set(roomId, new Set());
+      rooms.get(roomId).add(res);
+    },
+    remove(roomId, res) {
+      const set = rooms.get(roomId);
+      if (!set) return;
+      set.delete(res);
+      if (!set.size) rooms.delete(roomId);
+    },
+    emit(roomId, event, data) {
+      const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+      for (const res of rooms.get(roomId) || []) res.write(payload);
+    },
+  };
+}
+
+function createLoungeServer({
+  orch,
+  roomDefaults = {},
+  runtime = { mode: 'preview', cc: 'preview', codex: 'preview' },
+  staticRoot = STATIC_ROOT,
+} = {}) {
+  if (!orch) throw new Error('createLoungeServer requires orchestrator');
+  const events = createEventHub();
+
+  function snapshot(roomId) {
+    const state = safeRoom(orch, roomId);
+    if (state) events.emit(roomId, 'snapshot', state);
+    return state;
+  }
+
+  async function withProgress(roomId, operation) {
+    snapshot(roomId);
+    const ticker = setInterval(() => snapshot(roomId), 250);
+    try { return await operation(); }
+    finally {
+      clearInterval(ticker);
+      snapshot(roomId);
+    }
+  }
+
+  async function route(req, res, url) {
+    const method = req.method || 'GET';
+    const parts = url.pathname.split('/').filter(Boolean);
+
+    if (method === 'GET' && url.pathname === '/api/health') {
+      const [cc, codex] = await Promise.all([
+        orch.adapters.cc.getHealth(),
+        orch.adapters.codex.getHealth(),
+      ]);
+      return json(res, 200, { ok: true, bind: '127.0.0.1', runtime, adapters: { cc, codex } });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/rooms') {
+      const b = await bodyOf(req);
+      const room = orch.createRoom({
+        ...roomDefaults,
+        title: typeof b.title === 'string' && b.title.trim() ? b.title.trim().slice(0, 80) : '三方会客厅',
+      });
+      return json(res, 201, safeRoom(orch, room.room_id));
+    }
+
+    if (parts[0] === 'api' && parts[1] === 'rooms' && parts[2]) {
+      const roomId = parts[2];
+      if (!orch.getRoom(roomId)) return fail(res, 404, 'ROOM_NOT_FOUND', '这间会客厅不存在');
+
+      if (method === 'GET' && parts.length === 3) return json(res, 200, safeRoom(orch, roomId));
+
+      if (method === 'GET' && parts[3] === 'events') {
+        res.writeHead(200, {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache, no-transform',
+          connection: 'keep-alive',
+          'x-accel-buffering': 'no',
+        });
+        events.add(roomId, res);
+        res.write(`event: snapshot\ndata: ${JSON.stringify(safeRoom(orch, roomId))}\n\n`);
+        const keepalive = setInterval(() => res.write(': keepalive\n\n'), 15000);
+        req.on('close', () => {
+          clearInterval(keepalive);
+          events.remove(roomId, res);
+        });
+        return;
+      }
+
+      if (method === 'POST' && parts[3] === 'messages') {
+        const b = await bodyOf(req);
+        const content = typeof b.content === 'string' ? b.content.trim() : '';
+        if (!content) return fail(res, 400, 'EMPTY_MESSAGE', '先写一句想说的话');
+        if (content.length > 6000) return fail(res, 400, 'MESSAGE_TOO_LONG', '单条消息最多 6000 字');
+        const message = orch.postLisaMessage(roomId, content);
+        snapshot(roomId);
+        return json(res, 201, { message, state: safeRoom(orch, roomId) });
+      }
+
+      if (method === 'POST' && parts[3] === 'dispatch') {
+        const b = await bodyOf(req);
+        if (!['yanqiu', 'codex'].includes(b.target)) return fail(res, 400, 'BAD_TARGET', '目标只能是言秋或 Codex');
+        if (!b.message_id) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要转交的消息');
+        const result = await withProgress(roomId, () => orch.dispatch({
+          room_id: roomId,
+          target: b.target,
+          message_id: b.message_id,
+          codex_confirmed: b.target === 'codex' ? b.codex_confirmed === true : false,
+        }));
+        const state = snapshot(roomId);
+        return json(res, result.status === 'refused' ? 409 : 200, { result, state });
+      }
+
+      if (method === 'POST' && parts[3] === 'run-one-each') {
+        const b = await bodyOf(req);
+        if (!b.message_id) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要讨论的消息');
+        const result = await withProgress(roomId, () => orch.runOneEach({
+          room_id: roomId,
+          lisa_message_id: b.message_id,
+          first_speaker: b.first_speaker === 'codex' ? 'codex' : 'yanqiu',
+          codex_confirmed: b.codex_confirmed === true,
+        }));
+        const state = snapshot(roomId);
+        return json(res, result.refused ? 409 : 200, { result, state });
+      }
+
+      if (method === 'POST' && parts[3] === 'pause') {
+        orch.pause(roomId);
+        const state = snapshot(roomId);
+        return json(res, 200, state);
+      }
+
+      if (method === 'POST' && parts[3] === 'stop') {
+        orch.stop(roomId);
+        const state = snapshot(roomId);
+        return json(res, 200, state);
+      }
+    }
+
+    if (parts[0] === 'api' && parts[1] === 'dispatch' && parts[2] && method === 'POST') {
+      const dispatchId = parts[2];
+      const dispatch = orch.getDispatch(dispatchId);
+      if (!dispatch) return fail(res, 404, 'DISPATCH_NOT_FOUND', '这次投递不存在');
+      let result;
+      if (parts[3] === 'retry') result = await orch.retry(dispatchId);
+      else if (parts[3] === 'abandon') result = orch.abandon(dispatchId);
+      else return fail(res, 404, 'NOT_FOUND', '接口不存在');
+      const state = snapshot(dispatch.room_id);
+      return json(res, 200, { result, state });
+    }
+
+    if (method === 'GET' && !url.pathname.startsWith('/api/')) {
+      const relative = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+      const file = path.resolve(staticRoot, relative);
+      if (file !== path.resolve(staticRoot) && !file.startsWith(`${path.resolve(staticRoot)}${path.sep}`)) {
+        return fail(res, 403, 'FORBIDDEN', '路径不可访问');
+      }
+      if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return fail(res, 404, 'NOT_FOUND', '页面不存在');
+      const ext = path.extname(file);
+      res.writeHead(200, {
+        'content-type': MIME[ext] || 'application/octet-stream',
+        'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=300',
+        'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'",
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+      });
+      fs.createReadStream(file).pipe(res);
+      return;
+    }
+
+    return fail(res, 404, 'NOT_FOUND', '接口不存在');
+  }
+
+  const server = http.createServer(async (req, res) => {
+    try {
+      const host = req.headers.host || '127.0.0.1';
+      await route(req, res, new URL(req.url || '/', `http://${host}`));
+    } catch (error) {
+      const status = error.status || (error.code === 'LOCKED' ? 409 : 500);
+      const code = error.code || 'INTERNAL_ERROR';
+      fail(res, status, code, status >= 500 ? '会客厅刚刚绊了一下，请看本机日志' : error.message);
+    }
+  });
+  return { server, events, snapshot };
+}
+
+module.exports = { createLoungeServer, safeRoom, bodyOf };

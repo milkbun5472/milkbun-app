@@ -2,10 +2,11 @@
   "name": "lounge-orchestrator",
   "version": "0.1.0",
   "private": true,
-  "description": "三方会客厅本地编排器与 CC/Codex Adapter（测试默认 fake，无前端）",
+  "description": "三方会客厅本地编排器、CC/Codex Adapter 与 localhost 主持界面",
   "type": "commonjs",
   "engines": { "node": ">=22" },
   "scripts": {
+    "start": "node server-main.js",
     "test": "node --test test/*.test.js"
   }
 }

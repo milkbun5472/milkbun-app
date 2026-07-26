@@ -1,16 +1,17 @@
 # 三方会客厅 · Orchestrator 与 Adapter
 
-已完成 Step 1 本地状态机、Step 2 CC Adapter、Step 3 Codex Adapter 的离线实现。
-测试默认使用 fake sender/runner；真实入口必须经过 Lisa 单次明确授权。当前仍**不含前端**。
+已完成 Step 1 本地状态机、Step 2 CC Adapter、Step 3 Codex Adapter，以及 Step 4 localhost 主持界面。
+测试与 `npm start` 预览默认使用 fake sender/runner；真实入口必须经过 Lisa 单次明确授权。
 
 ## 运行
 
 ```bash
 cd lounge
 npm test          # = node --test test/*.test.js
+npm start         # http://127.0.0.1:8092，本地 fake 预览
 ```
 
-零依赖：只用 Node 内置 `node:sqlite` + `node:test`（需 Node ≥ 22；本机 v26 已验）。
+零依赖：只用 Node 内置 `node:http` + `node:sqlite` + `node:test`（需 Node ≥ 22；本机 v26 已验）。
 
 ## 结构
 
@@ -26,6 +27,9 @@ npm test          # = node --test test/*.test.js
 | `adapters/codex-runner.js` | 官方 `codex exec resume --json` 无 shell运行器，输出落本地 spool |
 | `adapters/codex-jsonl.js` | Codex JSONL 可见正文闸与完成边界 |
 | `adapters/codex.js` | Codex 确认闸、任务状态闸、持久化恢复与 usage 诊断 |
+| `server.js` | 仅监听 localhost 的 HTTP/SSE API、脱敏快照与静态文件安全边界 |
+| `public/` | 三方会客厅主持界面（手机 / 桌面响应式） |
+| `test/server.test.js` | Step 4 HTTP/SSE 与浏览器写入边界测试 |
 
 ## 状态机（§5）
 
@@ -95,8 +99,21 @@ const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 - thread id 不一致、CLI 异常退出或空回复一律进入 `needs_attention`，不自动重试。
 - 详见 `docs/step-3-report.md`。
 
+## Step 4 · localhost 主持界面
+
+- Lisa 右侧粉色；言秋左侧灰蓝；Codex 左侧炭黑；系统状态只用窄灰条。
+- 支持“请言秋说 / 请 Codex 说 / 双方各答一轮 / 立即暂停”。
+- 双方各答一轮必须二次确认，严格两棒后暂停。
+- 预算详情折叠显示，保留 70% 提醒 / 90% 禁自动规则。
+- SSE 只推送脱敏房间快照；session id、thread id、transcript 路径和密钥均不进浏览器。
+- 浏览器不能提交伪造的 speaker/origin/历史消息 ID；消息入口一律由后端生成 Lisa 的新自然正文。
+- 服务固定绑定 `127.0.0.1`；`data/`、`spool/` 和 SQLite 文件不入 Git。
+- `npm start` 是明确标注的 fake preview，不会调用真实言秋或 Codex。生产宿主继续复用 Step 2/3 Adapter，并注入同一个 Orchestrator。
+
+完整测试：**61/61**。
+
 ## 仍未做
 
-- 不写前端 / HTTP / SSE（第 4 步）。
-- 测试默认不接真实 CC/Codex；真实调用必须单次授权。
+- 尚未把 Step 2/3 的真实 Adapter 装入常驻本机宿主；预览仍是 fake。
+- 真实调用必须单次授权。
 - 不写记忆 / 欲望盒 / 生活账本。

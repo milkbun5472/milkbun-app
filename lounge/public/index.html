@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ebe6dd">
+  <title>三方会客厅</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <main class="shell">
+    <header class="masthead">
+      <div class="eyebrow"><span class="live-dot"></span> LOCAL LOUNGE</div>
+      <div class="title-row">
+        <div>
+          <h1>会客厅</h1>
+          <p>你主持，言秋和 Codex 各自在原来的窗口里说话。</p>
+        </div>
+        <button id="pauseButton" class="pause-button" type="button">暂停</button>
+      </div>
+      <div class="presence" aria-label="参与者">
+        <div class="person lisa">
+          <span class="portrait">L</span>
+          <span><b>Lisa</b><small>主持人</small></span>
+        </div>
+        <div class="thread-line"></div>
+        <div class="person yanqiu">
+          <span class="portrait">秋</span>
+          <span><b>言秋</b><small id="ccPresence">等待连接</small></span>
+        </div>
+        <div class="thread-line"></div>
+        <div class="person codex">
+          <span class="portrait">C</span>
+          <span><b>Codex</b><small id="codexPresence">等待连接</small></span>
+        </div>
+      </div>
+    </header>
+
+    <section class="room-meta">
+      <div>
+        <span id="roomStatus" class="status-pill">准备中</span>
+        <span id="runtimeBadge" class="runtime-badge" hidden>本地预览</span>
+      </div>
+      <button id="budgetButton" class="budget-button" type="button" aria-expanded="false">
+        今日 <strong id="callCount">0</strong> 次调用
+        <span id="budgetChevron">⌄</span>
+      </button>
+      <div id="budgetPanel" class="budget-panel" hidden>
+        <div><span>调用</span><b id="callBudget">0 / 不限</b></div>
+        <div class="meter"><i id="callMeter"></i></div>
+        <div><span>回收正文</span><b id="charBudget">0 / 不限</b></div>
+        <div class="meter"><i id="charMeter"></i></div>
+        <p>达到 70% 会提醒；达到 90% 自动轮次停用。手动主持仍由你决定。</p>
+      </div>
+    </section>
+
+    <section id="timeline" class="timeline" aria-live="polite">
+      <div id="emptyState" class="empty-state">
+        <span class="table-mark">三</span>
+        <h2>桌上还没有话。</h2>
+        <p>写下一个问题，再决定先递给谁。这里不会让模型自己无限聊下去。</p>
+      </div>
+    </section>
+
+    <section class="composer-wrap">
+      <div id="notice" class="notice" hidden></div>
+      <div class="composer">
+        <label for="messageInput">你想让他们聊什么？</label>
+        <textarea id="messageInput" rows="2" maxlength="6000" placeholder="写一句自然的话……"></textarea>
+        <div class="composer-foot">
+          <span id="charCount">0 / 6000</span>
+          <button id="postButton" class="post-button" type="button">放到桌上</button>
+        </div>
+      </div>
+
+      <div id="dispatchTray" class="dispatch-tray" hidden>
+        <p>这句话先递给谁？</p>
+        <div class="dispatch-actions">
+          <button type="button" data-action="yanqiu"><span>秋</span>请言秋说</button>
+          <button type="button" data-action="codex"><span>C</span>请 Codex 说</button>
+          <button type="button" data-action="both" class="both"><span>2</span>双方各答一轮</button>
+        </div>
+        <small>双方各答一轮预计调用 2 次；结束后自动停下。</small>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="confirmDialog">
+    <form method="dialog">
+      <span class="dialog-kicker">一次有限讨论</span>
+      <h2>让双方各答一轮？</h2>
+      <p>言秋先答，Codex 会看到你的原话与言秋的可见回复。两棒结束后立即暂停，不会继续互聊。</p>
+      <label class="speaker-choice">
+        <span>先手</span>
+        <select id="firstSpeaker">
+          <option value="yanqiu">言秋</option>
+          <option value="codex">Codex</option>
+        </select>
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel">先不要</button>
+        <button id="confirmBoth" value="default" class="primary">确认，最多 2 次调用</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
