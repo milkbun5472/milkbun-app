@@ -29,6 +29,7 @@ volatile unsigned long servoTorqueReleaseAt = 0;
 volatile bool voiceRecording = false;
 volatile unsigned long micClosedFeedbackAt = 0;
 bool voiceAutoMode = false;
+bool voiceContinuation = false;
 bool voiceHeardSpeech = false;
 uint8_t voiceActiveChunks = 0;
 unsigned long voiceStartedAt = 0;
@@ -48,6 +49,7 @@ struct VoiceUpload {
   uint8_t* wav;
   size_t bytes;
   unsigned long durationMs;
+  bool continuation;
 };
 
 struct MotionRequest {
@@ -212,6 +214,8 @@ bool uploadVoiceNow(const VoiceUpload& voice) {
   if (!beginHttps(http, client, String(RELAY_BASE_URL) + "/voice")) return false;
   auth(http);
   http.addHeader("Content-Type", "audio/wav");
+  http.addHeader("X-Stackchan-Voice-Continuation",
+                 voice.continuation ? "1" : "0");
   const int status = http.POST(voice.wav, voice.bytes);
   http.end();
   Serial.printf("[voice] upload HTTP %d, bytes=%u\n", status,
@@ -247,7 +251,7 @@ uint32_t voiceChunkMeanAbs(size_t sampleOffset, size_t sampleCount) {
   return static_cast<uint32_t>(sum / sampleCount);
 }
 
-bool startVoiceRecording(bool autoMode = false) {
+bool startVoiceRecording(bool autoMode = false, bool continuation = false) {
   if (voiceRecording || voiceWav || !voiceQueue ||
       uxQueueMessagesWaiting(voiceQueue) > 0) return false;
   const size_t maxSamples = (VOICE_MAX_RECORD_MS * 16000UL) / 1000UL;
@@ -263,6 +267,7 @@ bool startVoiceRecording(bool autoMode = false) {
   voiceSamplesRecorded = 0;
   voiceChunkInFlight = false;
   voiceAutoMode = autoMode;
+  voiceContinuation = continuation;
   voiceHeardSpeech = false;
   voiceActiveChunks = 0;
   voiceSilenceStartedAt = 0;
@@ -298,6 +303,7 @@ void cancelVoiceRecording(const char* reason) {
   voiceChunkInFlight = false;
   voiceRecording = false;
   voiceAutoMode = false;
+  voiceContinuation = false;
   voiceHeardSpeech = false;
   voiceActiveChunks = 0;
   voiceSilenceStartedAt = 0;
@@ -325,7 +331,9 @@ void finishVoiceRecording() {
     M5.Mic.end();
   }
   voiceRecording = false;
+  const bool continuation = voiceContinuation;
   voiceAutoMode = false;
+  voiceContinuation = false;
   voiceHeardSpeech = false;
   voiceActiveChunks = 0;
   voiceSilenceStartedAt = 0;
@@ -340,7 +348,9 @@ void finishVoiceRecording() {
   }
   const size_t pcmBytes = voiceSamplesRecorded * sizeof(int16_t);
   writePcmWavHeader(voiceWav, pcmBytes);
-  VoiceUpload pending = {voiceWav, 44 + pcmBytes, durationMs};
+  VoiceUpload pending = {
+    voiceWav, 44 + pcmBytes, durationMs, continuation
+  };
   voiceWav = nullptr;
   if (xQueueSendToBack(voiceQueue, &pending, 0) != pdTRUE) {
     free(pending.wav);
@@ -627,7 +637,7 @@ bool executeCommand(JsonObject command) {
       // Show the listening face only after that gap so Lisa knows exactly when
       // her next turn begins.
       delay(1200);
-      startVoiceRecording(true);
+      startVoiceRecording(true, true);
     }
     return ok;
   }
@@ -827,7 +837,7 @@ void loop() {
     // after the finger has left. Duration therefore cannot reliably
     // distinguish tap from hold. Start hands-free capture on the leading edge
     // and let voice activity, not touch release, decide when the turn ends.
-    if (startVoiceRecording(true)) topVoiceArmed = false;
+    if (startVoiceRecording(true, false)) topVoiceArmed = false;
   }
   if (voiceRecording && voiceChunkInFlight && !M5.Mic.isRecording()) {
     const uint32_t meanAbs =

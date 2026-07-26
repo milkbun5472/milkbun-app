@@ -12,6 +12,15 @@ Authorization: Bearer <device-scoped random token>
 X-Stackchan-Device: <device_id>
 ```
 
+Voice uploads also send `X-Stackchan-Voice-Continuation: 0|1`. `0` means Lisa
+physically opened a voice turn on the device; `1` means the microphone opened
+automatically after Yanqiu finished speaking. The relay accepts a physical
+turn normally. A continuation turn must contain an approved local wake name
+(`言秋` or `小克` by default) before it enters the voice inbox or earns another
+automatic listening turn. Ambient classroom/TV speech is logged as
+`ambient_dropped`, preventing an unattended listen/reply loop without adding
+an LLM classification call.
+
 The Funnel endpoint must terminate HTTPS. A token is bound to one `device_id`;
 the relay rejects a header/query/body mismatch. Tokens, Wi-Fi passwords and the
 relay CA never enter Git.
