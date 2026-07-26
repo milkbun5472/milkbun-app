@@ -287,7 +287,7 @@ test('言秋 outbox：投递前历史不重放，投递后多行稳定后完整�
     await adapter.deliver({ dispatch_id: id, cc_session_id: 'local_TARGET', content: '请言秋回答' });
     appendJ(outbox, [
       { at: 2, from: 'yanqiu', kind: 'lounge_reply', text: '第一段' },
-      { at: 3, from: 'yanqiu', kind: 'lounge_reply', text: '第二段' },
+      { at: 3, from: 'yanqiu', kind: 'lounge', text: '第二段' },
     ]);
     fs.utimesSync(outbox, new Date(0), new Date(0));
     const result = await adapter.poll(id);

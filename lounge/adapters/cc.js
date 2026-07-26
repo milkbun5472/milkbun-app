@@ -99,7 +99,9 @@ class CCAdapter {
 
   _pollOutbox(st) {
     const { events } = readNewEvents(st.outboxPath, st.outboxCursor || 0);
-    const replies = events.filter((row) => row && row.kind === 'lounge_reply'
+    // 言秋最初使用 lounge_reply，后来统一成 lounge。两种都收，
+    // 但仍只读取投递前游标之后的新行，历史内容不会被重放。
+    const replies = events.filter((row) => row && (row.kind === 'lounge_reply' || row.kind === 'lounge')
       && row.from === 'yanqiu' && typeof row.text === 'string' && row.text.trim());
     if (!replies.length) return { state: 'pending' };
     let file;
