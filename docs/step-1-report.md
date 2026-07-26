@@ -8,7 +8,7 @@
 
 ## 0. 结论
 
-本地数据层与状态机完成并通过全部验收：**优先级①（额度预算 / 单飞锁 / 立即暂停）先落地，再补 Room/Message/Dispatch / 幂等 / 超时 / 重启恢复**。`node --test` **12/12 全绿**（7 必测 + 5 附加铁律，含真·落盘重启）。
+本地数据层与状态机完成并通过全部验收：**优先级①（额度预算 / 单飞锁 / 立即暂停）先落地，再补 Room/Message/Dispatch / 幂等 / 超时 / 重启恢复**，并经两轮 fake-only 收口。**最终 `node --test` 23/23 全绿**（原始 12 + 初审修补 6 + 收口 5）。历轮：初版 12 → 初审修补轮 18 → 收口轮 23。
 
 ---
 
@@ -40,26 +40,12 @@
 - 重启恢复（§10）：in-flight 投递先**只读**核实——已回复只补采集、未回复转 `needs_attention`，**绝不自动重投**。
 - 幂等（§1 红线⑤）：同 `(message_id,target)` 重复投递直接返回既有，**目标只收一次**。
 
-## 4. 验收结果（`node --test`，12/12）
+## 4. 验收结果（`node --test`，最终 23/23）
 
-```
-✔ 1) 重复投递不重复：同(message_id,target)投3次，目标只收1次
-✔ 2) 双方各答一轮：严格2棒后强制暂停，第3棒不自启动
-✔ 3) 预算用尽自动禁用：max_auto_turns=1，第2个自动棒拒绝，手动仍可发
-✔ 4) 暂停后不启动下一棒：baton A 后 pause，baton B 不投递
-✔ 5) 运行中重启：未回复的 in-flight → needs_attention，不擅自重发
-✔ 6) 已有回复只补采集：重启时对方已回复 → 收集，不重发
-✔ 7) 插队 → needs_attention，不猜绑
-✔ 附) 单飞锁：in-flight 时再投递抛 LOCKED
-✔ 附) 立即暂停：pause 后自动棒被拒
-✔ 附) 超时不自动重投 → needs_attention(timeout)，可手动重试收回
-✔ 附) 真·落盘重启：关库重开后 recover 只补采集、不重发
-✔ 附) budget 分级：warn>=70%、disabled>=90%
-ℹ tests 12  pass 12  fail 0
-```
+`cd lounge && npm test` → **tests 23 / pass 23 / fail 0**。分三轮累积（初版 12 → 初审修补 18 → 收口 23）；完整用例见 `lounge/test/orchestrator.test.js`。
 
 必测项 → 用例映射：
-| §13 必测 | 用例 |
+| §13 / 收口 必测 | 用例 |
 |---|---|
 | 重复投递只收一次(§13-6) | 1 |
 | 双方各答一轮严格两棒(§13-8) | 2 |
@@ -68,6 +54,9 @@
 | 重启不擅自重发(§10) | 5、附·真落盘 |
 | 已有回复只补采集(§13-7) | 6、附·真落盘 |
 | 插队/无格式→待处理(§6) | 7 |
+| 占锁扩到未闭合·timeout/failed 后新投 LOCKED | ①-a、①-b |
+| abandon 后才可新投 / retry 不自锁 | ①-c、①-d |
+| 说话人标签正反先手·正文无机器 ID | ④、④b |
 
 ## 5. 明确未做（留给后续步骤）
 
@@ -82,17 +71,25 @@
 
 | 初审意见 | 修补 | 覆盖用例 |
 |---|---|---|
-| ① 单飞真相=未闭合 dispatch，非 room.status | `lock.js` 改为查 `status IN (dispatching,delivered)`；`_hasOpenDispatch()` | 「等待回复时 pause→手动再投必须 LOCKED」①、附·单飞锁 |
+| ① 单飞真相=未闭合 dispatch，非 room.status | `lock.js`/`_hasOpenDispatch()` 查未闭合投递 | 「等待回复时 pause→手动再投必须 LOCKED」①、附·单飞锁 |
 | ② 外呼前事务内预留预算；崩溃 unknown 不退款/不重投 | `_reserve()` 在 `_beginDispatch` 的 tx 内先扣，`deliver` 在 tx 外；抛错→`failed`+不退不投 | ② 外呼失败=unknown |
 | ③ 回复落库/replied/记账/cursor 单事务且不重复扣费 | `_bindReply()` 全包进 `_tx`，`usage_charged` 幂等守卫 | ③ 重复绑定不重复扣费 |
 | ④ runOneEach 真实正文、无占位、无机器元数据 | A=Lisa 原话；B=Lisa 原话+A 可见回复（真实拼接）；元数据只在信封字段 | ④ 真实正文(精确等值) |
 | ⑤ 两棒=一次 run；另设日 budget_day/call/usage | run 起点预留 1 turn，batons 各扣 1 call；`_reserve` 跨日重置 | ⑤ 跨日预算、② calls_today |
 | ⑥ 外键/CHECK/跨房间拒绝 | schema 加 FK + CHECK；`dispatch()` 校验 `msg.room_id===room_id` | ⑥ 跨房间拒绝 |
 
-新增用例：崩溃点(外呼失败不退款不重投)、暂停绕锁(waiting→pause→LOCKED)、真实两棒内容(精确等值)、跨日预算重置、重复 bind 不重复扣费、跨房间拒绝。
+新增用例：崩溃点(外呼失败不退款不重投)、暂停绕锁(waiting→pause→LOCKED)、真实两棒内容(精确等值)、跨日预算重置、重复 bind 不重复扣费、跨房间拒绝。修补轮 **tests 18 / pass 18 / fail 0**。
 
-最终：**tests 18 / pass 18 / fail 0**。
+## 6bis. 收口轮（2026-07-26，仍全 fake adapter）
+
+| 收口意见 | 修补 | 覆盖用例 |
+|---|---|---|
+| ① 占锁扩到一切未闭合，直到 replied 或显式 abandon | `_hasOpenDispatch` 改为 `status NOT IN (replied,skipped)`；timeout/needs_attention/failed 继续占锁。新增 `abandon(dispatch_id)→skipped`；`retry` 锁查询 `exceptId` 排除自身 | ①-a timeout 后 LOCKED、①-b failed-unknown 后 LOCKED、①-c abandon 后可投、①-d retry 不自锁 |
+| ② Adapter 自然正文带说话人标签、仍无机器 ID | A=`Lisa：原话`；B=`Lisa：原话\n\n<先手名>：可见回复`（`言秋`/`Codex`），正反先手都测 | ④ 先手言秋、④b 先手 Codex |
+| ③ 报告顶部改最终测试数 | §0/§4 改为 23/23，标注历轮 12→18→23 | — |
+
+收口轮 **tests 23 / pass 23 / fail 0**。恢复重扫仍只针对 `dispatching/delivered`（真正外呼后中断态），不重扫 timeout/needs_attention/failed（那是已知待人工态）。
 
 ## 7. 停下待复审
 
-按 Lisa 指令：**修完 Step 1 修补轮后停下**，给 Lisa / Codex 复审，**不进 Step 2**。
+按 Lisa 指令：**修完 Step 1 收口轮后停下**，给 Lisa / Codex 复审，**不进 Step 2、不接真实 CC Adapter**。

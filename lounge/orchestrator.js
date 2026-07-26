@@ -9,7 +9,11 @@ const { SingleFlight, LockedError } = require('./lock');
 const { realClock } = require('./clock');
 
 const TARGETS = { yanqiu: 'cc', codex: 'codex' };
-const OPEN = ['dispatching', 'delivered'];
+const NAME = { lisa: 'Lisa', yanqiu: '言秋', codex: 'Codex' };
+// 崩溃恢复只重扫真正"外呼后中断"的两态；timeout/needs_attention/failed 是已知需人工态，不重扫。
+const RECOVER_SCAN = ['dispatching', 'delivered'];
+// 单飞锁"占用"集合 = 除已闭合(replied)与已放弃(skipped)外，一切未闭合投递都继续占锁。
+const CLOSED = ['replied', 'skipped'];
 
 class CrossRoomError extends Error {
   constructor(messageId, roomId) { super(`message ${messageId} 不属于房间 ${roomId}`); this.code = 'CROSS_ROOM'; }
@@ -46,8 +50,12 @@ class Orchestrator {
   getMessage(id) { return this.db.prepare('SELECT * FROM messages WHERE message_id=?').get(id); }
   listMessages(roomId) { return this.db.prepare('SELECT * FROM messages WHERE room_id=? ORDER BY created_at, rowid').all(roomId); }
   _dispatchByMsgTarget(mid, t) { return this.db.prepare('SELECT * FROM dispatches WHERE message_id=? AND target=?').get(mid, t); }
-  _hasOpenDispatch(roomId) {
-    const row = this.db.prepare(`SELECT COUNT(*) c FROM dispatches WHERE room_id=? AND status IN ('dispatching','delivered')`).get(roomId);
+  // 占锁真相：非 replied/skipped 的一切未闭合投递都继续占锁（含 timeout/needs_attention/failed）。
+  // exceptId：retry 时排除被重试的那条自身，避免自己锁死自己。
+  _hasOpenDispatch(roomId, exceptId = null) {
+    const sql = `SELECT COUNT(*) c FROM dispatches WHERE room_id=? AND status NOT IN ('replied','skipped')`
+      + (exceptId ? ' AND dispatch_id != ?' : '');
+    const row = exceptId ? this.db.prepare(sql).get(roomId, exceptId) : this.db.prepare(sql).get(roomId);
     return row.c > 0;
   }
   _cursorOf(roomId, target) {
@@ -252,10 +260,13 @@ class Orchestrator {
       if (room.pause_requested) break;                     // 立即暂停取消未开始的下一棒(④)
       let srcId;
       if (idx === 0) {
-        srcId = lisa.message_id;                           // A 收 Lisa 自然正文
+        // A 收「Lisa：原话」（带说话人标签，仍是自然正文，无机器 ID）
+        const aMsg = this._insertMessage({ room_id, speaker: 'lisa', content: `${NAME.lisa}：${lisa.content}`, origin: 'lounge', origin_message_id: `${runId}:a`, round_id: runId, automatic: true });
+        srcId = aMsg.message_id;
       } else {
-        const aReply = this.getMessage(prevReply.message_id); // B 收 Lisa 正文 + A 可见回复
-        const composed = `${lisa.content}\n\n${aReply.content}`;
+        // B 收「Lisa：原话\n\n<先手名>：可见回复」
+        const aReply = this.getMessage(prevReply.message_id);
+        const composed = `${NAME.lisa}：${lisa.content}\n\n${NAME[order[0]]}：${aReply.content}`;
         const bMsg = this._insertMessage({ room_id, speaker: 'lisa', content: composed, origin: 'lounge', origin_message_id: `${runId}:b`, round_id: runId, automatic: true });
         srcId = bMsg.message_id;
       }
@@ -275,16 +286,32 @@ class Orchestrator {
     const d = this.getDispatch(dispatch_id);
     if (!d) throw new Error(`no dispatch ${dispatch_id}`);
     if (d.status === 'replied') return { status: 'replied', dispatch_id, idempotent: true };
-    if (!this.lock.acquire(d.room_id, this._hasOpenDispatch(d.room_id))) throw new LockedError(d.room_id);
+    if (d.status === 'skipped') return { status: 'skipped', dispatch_id, abandoned: true };
+    // 排除自身：被重试的这条本就未闭合、占着锁，不能让它锁死自己
+    if (!this.lock.acquire(d.room_id, this._hasOpenDispatch(d.room_id, dispatch_id))) throw new LockedError(d.room_id);
     try {
+      this.db.prepare(`UPDATE dispatches SET status='delivered', resolved_at=NULL WHERE dispatch_id=?`).run(dispatch_id);
       this._setRoom(d.room_id, { status: 'waiting_reply' });
       return await this._resolveReply(d.room_id, dispatch_id, d.target, timeout_ms || this.defaultTimeoutMs);
     } finally { this.lock.release(d.room_id); }
   }
 
+  // Lisa 显式放弃一条卡住的投递 → skipped，释放单飞锁，房间可重新主持
+  abandon(dispatch_id) {
+    const d = this.getDispatch(dispatch_id);
+    if (!d) throw new Error(`no dispatch ${dispatch_id}`);
+    if (d.status === 'replied') return { status: 'replied', dispatch_id, idempotent: true };
+    if (d.status === 'skipped') return { status: 'skipped', dispatch_id, idempotent: true };
+    this.db.prepare('UPDATE dispatches SET status=?, resolved_at=? WHERE dispatch_id=?').run('skipped', this._iso(), dispatch_id);
+    this._attempt(dispatch_id, d.target, 'abandoned', 'lisa abandon');
+    const room = this.getRoom(d.room_id);
+    if (room.status !== 'stopped') this._setRoom(d.room_id, { status: 'paused' });
+    return { status: 'skipped', dispatch_id };
+  }
+
   // ---------- 重启恢复（§10；不退款、不重投）----------
   async recover() {
-    const rows = this.db.prepare(`SELECT * FROM dispatches WHERE status IN (${OPEN.map(() => '?').join(',')})`).all(...OPEN);
+    const rows = this.db.prepare(`SELECT * FROM dispatches WHERE status IN (${RECOVER_SCAN.map(() => '?').join(',')})`).all(...RECOVER_SCAN);
     const summary = { checked: rows.length, collected: 0, needs_attention: 0 };
     for (const d of rows) {
       const p = await this._adapter(d.target).poll(d.dispatch_id);   // 只读，绝不 deliver

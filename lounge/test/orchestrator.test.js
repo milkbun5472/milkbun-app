@@ -162,21 +162,36 @@ test('③) 重复绑定不重复扣费：bind 两次，用量只记一次', asyn
   assert.equal(orch.listMessages(room.room_id).filter((m) => m.speaker === 'yanqiu').length, 1);
 });
 
-test('④) runOneEach 真实正文：A=Lisa原话，B=Lisa原话+A可见回复，无机器元数据', async () => {
+function assertOneEachLabels(orch, room, cc, codex, { lisaText, first, aTarget, bTarget, aName }) {
+  const toA = (aTarget === 'yanqiu' ? cc : codex).delivered.at(-1);
+  const toB = (bTarget === 'yanqiu' ? cc : codex).delivered.at(-1);
+  const aReplyMsg = orch.listMessages(room.room_id).filter((m) => m.speaker === aTarget).at(-1);
+  // A 收「Lisa：原话」
+  assert.equal(toA.content, `Lisa：${lisaText}`);
+  // B 收「Lisa：原话\n\n<先手名>：A可见回复」
+  assert.equal(toB.content, `Lisa：${lisaText}\n\n${aName}：${aReplyMsg.content}`);
+  // 元数据只在信封字段，不进正文
+  for (const env of [toA, toB]) {
+    assert.ok(env.dispatch_id);
+    assert.ok(!env.content.includes(env.dispatch_id));
+    assert.ok(!/dispatch_|round_|run_/.test(env.content));
+  }
+}
+
+test('④) runOneEach 说话人标签·先手=言秋：A=Lisa：原话，B=Lisa：原话+言秋：回复，无机器ID', async () => {
   const { orch, room, cc, codex } = build({ max_auto_turns: 2 });
   const lisaText = '你俩说说搬去卡加的分工';
   const lisa = orch.postLisaMessage(room.room_id, lisaText);
   await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu' });
-  const toA = cc.delivered[0];       // 发给 yanqiu(A)
-  const toB = codex.delivered[0];    // 发给 codex(B)
-  const aReplyMsg = orch.listMessages(room.room_id).find((m) => m.speaker === 'yanqiu');
-  // 精确等值：A=Lisa原话；B=Lisa原话+A可见回复。等值即证明 orchestrator 没有向正文注入任何机器元数据
-  assert.equal(toA.content, lisaText);
-  assert.equal(toB.content, `${lisaText}\n\n${aReplyMsg.content}`);
-  // 元数据只在信封字段(out-of-band)，不在正文里
-  assert.ok(toA.dispatch_id && toB.dispatch_id);
-  assert.ok(!toA.content.includes(toA.dispatch_id) && !toB.content.includes(toB.dispatch_id));
-  assert.ok(!/dispatch_|round_|run_/.test(toA.content) && !/dispatch_|round_|run_/.test(toB.content));
+  assertOneEachLabels(orch, room, cc, codex, { lisaText, first: 'yanqiu', aTarget: 'yanqiu', bTarget: 'codex', aName: '言秋' });
+});
+
+test('④b) runOneEach 说话人标签·先手=Codex：反向先手同样带标签、无机器ID', async () => {
+  const { orch, room, cc, codex } = build({ max_auto_turns: 2 });
+  const lisaText = '换个先手再聊一次';
+  const lisa = orch.postLisaMessage(room.room_id, lisaText);
+  await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'codex' });
+  assertOneEachLabels(orch, room, cc, codex, { lisaText, first: 'codex', aTarget: 'codex', bTarget: 'yanqiu', aName: 'Codex' });
 });
 
 test('⑤) 跨日预算：达上限禁用；跨到次日重置并重新可用', async () => {
@@ -208,6 +223,54 @@ test('⑥) 跨房间消息拒绝', async () => {
     () => orch.dispatch({ room_id: roomA.room_id, target: 'yanqiu', message_id: msgB.message_id }),
     (e) => e instanceof CrossRoomError,
   );
+});
+
+// ---------------- ① 收口：占锁扩到一切未闭合，直到 replied / abandon ----------------
+async function stuckTimeout(orch, room, cc, text = 'hi') {
+  const src = orch.postLisaMessage(room.room_id, text);
+  const b = await orch._beginDispatch({ room_id: room.room_id, target: 'yanqiu', message_id: src.message_id });
+  cc.program(b.dispatch_id, Array(100).fill('pending'));
+  await orch._resolveReply(room.room_id, b.dispatch_id, 'yanqiu', 1000);
+  return b.dispatch_id;
+}
+
+test('①-a) timeout 后仍占锁：新投 LOCKED', async () => {
+  const { orch, room, cc } = build();
+  const did = await stuckTimeout(orch, room, cc);
+  assert.equal(orch.getDispatch(did).status, 'timeout');
+  const s2 = orch.postLisaMessage(room.room_id, 'b');
+  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }), /LOCKED|unclosed/);
+});
+
+test('①-b) failed-unknown 后仍占锁：新投 LOCKED', async () => {
+  const { orch, room, cc } = build();
+  const src = orch.postLisaMessage(room.room_id, 'hi');
+  cc.setHealth({ online: false });
+  const b = await orch._beginDispatch({ room_id: room.room_id, target: 'yanqiu', message_id: src.message_id });
+  assert.equal(orch.getDispatch(b.dispatch_id).status, 'failed');
+  const s2 = orch.postLisaMessage(room.room_id, 'b');
+  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }), /LOCKED|unclosed/);
+});
+
+test('①-c) abandon 之后才可新投', async () => {
+  const { orch, room, cc } = build();
+  const did = await stuckTimeout(orch, room, cc);
+  const s2 = orch.postLisaMessage(room.room_id, 'b');
+  await assert.rejects(() => orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }), /LOCKED|unclosed/);
+  const ab = orch.abandon(did);
+  assert.equal(ab.status, 'skipped');
+  const r = await orch.dispatch({ room_id: room.room_id, target: 'codex', message_id: s2.message_id }); // 现在可投
+  assert.equal(r.status, 'replied');
+});
+
+test('①-d) retry 自身不被自己锁死：timeout 的投递可被重试收回', async () => {
+  const { orch, room, cc } = build();
+  const did = await stuckTimeout(orch, room, cc);
+  cc._script.delete(did);                     // 这次对方会回
+  const r = await orch.retry(did);            // 不能因自身未闭合而 LOCKED
+  assert.equal(r.status, 'replied');
+  assert.equal(orch.getDispatch(did).status, 'replied');
+  assert.equal(orch._hasOpenDispatch(room.room_id), false); // 收回后锁释放
 });
 
 // ---------------- 附加铁律 ----------------

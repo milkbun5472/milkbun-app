@@ -40,6 +40,14 @@ npm test          # = node --test test/*.test.js
 5. auto 两棒按**一次明确启动的 run** 计数；另设 `budget_day`/`calls_today`/`usage_today` 当日累计，跨日自动重置。
 6. 补**外键 + CHECK 约束 + 跨房间消息拒绝**。
 
+## 收口轮（2026-07-26，仍全 fake adapter）
+
+- **占锁扩到一切未闭合**：`_hasOpenDispatch` = `status NOT IN (replied,skipped)`——timeout / needs_attention / failed(外呼未知) 都继续占单飞锁，直到 `replied` 或 Lisa 显式 `abandon(dispatch_id)→skipped`。`retry` 锁查询排除自身，不自锁死。
+- **自然正文带说话人标签**：A=`Lisa：原话`；B=`Lisa：原话\n\n<先手名>：可见回复`（`言秋`/`Codex`）；仍不含 dispatch/round/run ID。
+- 恢复重扫仍只针对 `dispatching/delivered`（真正外呼后中断），不重扫已知待人工态。
+
+测试累积：初版 12 → 初审修补 18 → 收口 **23/23**。
+
 ## 边界（Step 1 明确不做）
 
 - 不写前端 / HTTP / SSE（第 4 步）。
