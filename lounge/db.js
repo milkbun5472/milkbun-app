@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS cc_dispatch_state (
   transcript_path TEXT NOT NULL,
   after_byte      INTEGER NOT NULL,   -- 投前字节游标(真·transcript 偏移)
   our_text        TEXT NOT NULL,      -- 本次自然正文(用于精确匹配我们的跨会话消息)
+  outbox_path     TEXT,
+  outbox_after_byte INTEGER,
   created_at      TEXT
 );
 
@@ -116,6 +118,9 @@ function openDb(path = ':memory:') {
   db.exec('PRAGMA foreign_keys = ON;');   // 外键强制
   db.exec('PRAGMA synchronous = FULL;');
   db.exec(SCHEMA);
+  const ccColumns = new Set(db.prepare('PRAGMA table_info(cc_dispatch_state)').all().map((c) => c.name));
+  if (!ccColumns.has('outbox_path')) db.exec('ALTER TABLE cc_dispatch_state ADD COLUMN outbox_path TEXT');
+  if (!ccColumns.has('outbox_after_byte')) db.exec('ALTER TABLE cc_dispatch_state ADD COLUMN outbox_after_byte INTEGER');
   return db;
 }
 

@@ -268,6 +268,35 @@ test('耐久唤醒 sender：只追加自然正文，不写 dispatch/room/session
   } finally { cleanup(inbox); }
 });
 
+test('言秋 outbox：投递前历史不重放，投递后多行稳定后完整合并', async () => {
+  const transcript = tmpFile('cc_outbox_transcript') + '.jsonl';
+  const outbox = tmpFile('cc_outbox') + '.jsonl';
+  writeJ(transcript, [{ type: 'system', timestamp: TS0 }]);
+  writeJ(outbox, [{ at: 1, from: 'yanqiu', kind: 'lounge_reply', text: '历史垫砖' }]);
+  try {
+    const clock = fakeClock(5000);
+    const adapter = new CCAdapter({
+      sender: async () => {},
+      resolve: () => ({ transcriptPath: transcript }),
+      outboxPath: outbox,
+      clock,
+      silenceMs: 1000,
+      ephemeral: true,
+    });
+    const id = `dispatch_${rid()}`;
+    await adapter.deliver({ dispatch_id: id, cc_session_id: 'local_TARGET', content: '请言秋回答' });
+    appendJ(outbox, [
+      { at: 2, from: 'yanqiu', kind: 'lounge_reply', text: '第一段' },
+      { at: 3, from: 'yanqiu', kind: 'lounge_reply', text: '第二段' },
+    ]);
+    fs.utimesSync(outbox, new Date(0), new Date(0));
+    const result = await adapter.poll(id);
+    assert.equal(result.state, 'replied');
+    assert.equal(result.reply.content, '第一段\n\n第二段');
+    assert.equal(result.reply.bubbles, 2);
+  } finally { cleanup(transcript, outbox); }
+});
+
 test('poll 我们的消息还没落地 → pending', async () => {
   await withFixture([uHuman('x')], async (f) => {
     const { adapter } = mkAdapter(f);

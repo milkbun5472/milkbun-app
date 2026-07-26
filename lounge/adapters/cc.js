@@ -14,7 +14,10 @@ const { resolvePointer } = require('./cc-sessions');
 const { readNewEvents, classify } = require('./cc-transcript');
 
 class CCAdapter {
-  constructor({ sender, resolve, readNew, clock = realClock(), silenceMs = 1500, projectDir, appSupportDir, db, ephemeral = false } = {}) {
+  constructor({
+    sender, resolve, readNew, clock = realClock(), silenceMs = 1500,
+    projectDir, appSupportDir, outboxPath = null, db, ephemeral = false,
+  } = {}) {
     if (typeof sender !== 'function') throw new Error('CCAdapter 需要注入 sender(sessionId, text) —— 本模块不直接调用 send_message');
     // 默认强制持久化：必须传入 Orchestrator 使用的【同一个】db，否则重启无法恢复投递态。
     // 仅当显式 ephemeral:true 才允许纯内存(单元测试分类逻辑用)。
@@ -25,6 +28,7 @@ class CCAdapter {
     this.readNew = readNew || readNewEvents;
     this.clock = clock;
     this.silenceMs = silenceMs;
+    this.outboxPath = outboxPath;
     this.db = db || null;                 // 提供则持久化可恢复态；不提供则仅内存(纯单元测试)
     this._st = new Map();                 // dispatch_id -> { sessionId, transcriptPath, cursor, ourText, deliveredAt }
   }
@@ -36,14 +40,20 @@ class CCAdapter {
     const { transcriptPath } = this.resolve(sessionId);
     let cursor = 0;
     try { cursor = fs.statSync(transcriptPath).size; } catch { cursor = 0; }  // 尚无 transcript → 从 0
-    return { transcriptPath, cursor };
+    let outboxCursor = null;
+    if (this.outboxPath) {
+      try { outboxCursor = fs.statSync(this.outboxPath).size; } catch { outboxCursor = 0; }
+    }
+    return { transcriptPath, cursor, outboxCursor };
   }
 
   _persist(state) {
     if (!this.db) return;
     this.db.prepare(`INSERT OR REPLACE INTO cc_dispatch_state
-      (dispatch_id,session_id,transcript_path,after_byte,our_text,created_at) VALUES(?,?,?,?,?,?)`)
-      .run(state.dispatch_id, state.sessionId, state.transcriptPath, state.cursor, state.ourText, this._iso());
+      (dispatch_id,session_id,transcript_path,after_byte,our_text,outbox_path,outbox_after_byte,created_at)
+      VALUES(?,?,?,?,?,?,?,?)`)
+      .run(state.dispatch_id, state.sessionId, state.transcriptPath, state.cursor, state.ourText,
+        state.outboxPath || null, state.outboxCursor, this._iso());
   }
 
   // 取投递态：先内存，miss 则从 DB 重建(重启恢复关键路径)
@@ -52,7 +62,11 @@ class CCAdapter {
     if (!this.db) return null;
     const row = this.db.prepare('SELECT * FROM cc_dispatch_state WHERE dispatch_id=?').get(dispatch_id);
     if (!row) return null;
-    const st = { dispatch_id, sessionId: row.session_id, transcriptPath: row.transcript_path, cursor: row.after_byte, ourText: row.our_text };
+    const st = {
+      dispatch_id, sessionId: row.session_id, transcriptPath: row.transcript_path,
+      cursor: row.after_byte, ourText: row.our_text,
+      outboxPath: row.outbox_path, outboxCursor: row.outbox_after_byte,
+    };
     this._st.set(dispatch_id, st);
     return st;
   }
@@ -62,8 +76,12 @@ class CCAdapter {
   async deliver(envelope) {
     const sessionId = envelope.cc_session_id;
     if (!sessionId) throw Object.assign(new Error('deliver 缺 cc_session_id'), { code: 'NO_SESSION' });
-    const { transcriptPath, cursor } = this._prepare(sessionId);
-    const state = { dispatch_id: envelope.dispatch_id, sessionId, transcriptPath, cursor, ourText: envelope.content, deliveredAt: this.clock.now() };
+    const { transcriptPath, cursor, outboxCursor } = this._prepare(sessionId);
+    const state = {
+      dispatch_id: envelope.dispatch_id, sessionId, transcriptPath, cursor,
+      ourText: envelope.content, deliveredAt: this.clock.now(),
+      outboxPath: this.outboxPath, outboxCursor,
+    };
     this._persist(state);              // 先持久化(外呼前)——崩溃也能恢复
     this._st.set(envelope.dispatch_id, state);
     await this.sender(sessionId, envelope.content);   // 然后才外呼；离线为 spy
@@ -74,8 +92,29 @@ class CCAdapter {
   async poll(dispatch_id) {
     const st = this._load(dispatch_id);
     if (!st) return { state: 'pending' };            // 无态可依(既无内存又无 DB) → pending
+    if (st.outboxPath) return this._pollOutbox(st);
     const { events } = this.readNew(st.transcriptPath, st.cursor);
     return classify(events, { ourText: st.ourText, nowMs: this.clock.now(), silenceMs: this.silenceMs });
+  }
+
+  _pollOutbox(st) {
+    const { events } = readNewEvents(st.outboxPath, st.outboxCursor || 0);
+    const replies = events.filter((row) => row && row.kind === 'lounge_reply'
+      && row.from === 'yanqiu' && typeof row.text === 'string' && row.text.trim());
+    if (!replies.length) return { state: 'pending' };
+    let file;
+    try { file = fs.statSync(st.outboxPath); } catch { return { state: 'pending' }; }
+    if (this.clock.now() - file.mtimeMs < this.silenceMs) return { state: 'pending' };
+    const content = replies.map((row) => row.text.trim()).join('\n\n');
+    const last = replies[replies.length - 1];
+    return {
+      state: 'replied',
+      reply: {
+        content,
+        bubbles: replies.length,
+        cursor_end: `cc-outbox@${last.at || file.size}`,
+      },
+    };
   }
 
   async getHealth(ccSessionId) {

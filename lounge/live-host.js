@@ -40,6 +40,7 @@ function createLiveHost({ configPath, port } = {}) {
     projectDir: config.cc_project_dir,
     appSupportDir: config.cc_app_support_dir,
     sender: createWakeQueueSender({ inboxPath: config.wake_inbox }),
+    outboxPath: config.lounge_outbox,
     silenceMs: Number(config.cc_silence_ms || 4000),
   });
   const runner = createCodexCliRunner({ cliPath: config.codex_cli_path });
