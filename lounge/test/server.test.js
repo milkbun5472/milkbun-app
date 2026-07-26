@@ -91,6 +91,40 @@ test('Step 4: 创建房间→Lisa 发言→请言秋说，时间线完整收回'
   assert.equal(sent.data.state.room.status, 'paused');
 });
 
+test('无需先发消息也能单独呼叫；邀请不伪造成 Lisa 可见气泡', async () => {
+  const created = await request('/api/rooms', { method: 'POST', body: {} });
+  const roomId = created.data.room.room_id;
+  const called = await request(`/api/rooms/${roomId}/summon`, {
+    method: 'POST',
+    body: { target: 'yanqiu' },
+  });
+  assert.equal(called.response.status, 200);
+  assert.equal(called.data.result.status, 'replied');
+  const visible = called.data.state.messages.filter((m) => !m.automatic);
+  assert.deepEqual(visible.map((m) => m.speaker), ['yanqiu']);
+  const dispatch = called.data.state.dispatches.at(-1);
+  const invitation = orch.getMessage(dispatch.message_id);
+  assert.equal(invitation.automatic, 1);
+  assert.match(invitation.content, /按下呼叫/);
+  assert.match(invitation.content, /没有新的指定问题/);
+});
+
+test('直接呼叫会带上对方离桌后新增公开内容，不要求新增 Lisa 消息', async () => {
+  const created = await request('/api/rooms', { method: 'POST', body: {} });
+  const roomId = created.data.room.room_id;
+  orch.ingestExternalMessage(roomId, {
+    speaker: 'codex', content: '我补了一条公开意见。', origin: 'codex', origin_message_id: 'codex-public-1',
+  });
+  const called = await request(`/api/rooms/${roomId}/summon`, {
+    method: 'POST',
+    body: { target: 'yanqiu' },
+  });
+  assert.equal(called.response.status, 200);
+  const dispatch = called.data.state.dispatches.at(-1);
+  const invitation = orch.getMessage(dispatch.message_id);
+  assert.match(invitation.content, /Codex：我补了一条公开意见/);
+});
+
 test('连续两条 Lisa 消息作为同一批完整递出', async () => {
   const created = await request('/api/rooms', { method: 'POST', body: {} });
   const roomId = created.data.room.room_id;

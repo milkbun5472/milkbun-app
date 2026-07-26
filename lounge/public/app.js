@@ -7,6 +7,7 @@ const ui = {
   input: $('#messageInput'),
   post: $('#postButton'),
   tray: $('#dispatchTray'),
+  summon: $('#summonDock'),
   batchPrompt: $('#batchPrompt'),
   pause: $('#pauseButton'),
   notice: $('#notice'),
@@ -180,7 +181,21 @@ function setBusy(value) {
   ui.post.disabled = value;
   ui.input.disabled = value;
   for (const button of ui.tray.querySelectorAll('button')) button.disabled = value;
+  for (const button of ui.summon.querySelectorAll('button')) button.disabled = value;
   if (value) ui.tray.hidden = true;
+}
+
+async function summon(target) {
+  if (state.busy) return;
+  setBusy(true);
+  try {
+    const data = await api(`/api/rooms/${state.roomId}/summon`, {
+      method: 'POST',
+      body: JSON.stringify({ target, codex_confirmed: target === 'codex' }),
+    });
+    render(data.state);
+  } catch (error) { showNotice(error.message); await refresh(); }
+  finally { setBusy(false); }
 }
 
 async function dispatch(target) {
@@ -301,6 +316,10 @@ ui.input.addEventListener('keydown', (event) => {
 ui.tray.addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
   if (button) dispatch(button.dataset.action);
+});
+ui.summon.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-summon]');
+  if (button) summon(button.dataset.summon);
 });
 ui.pause.addEventListener('click', async () => {
   try { render(await api(`/api/rooms/${state.roomId}/pause`, { method: 'POST', body: '{}' })); }

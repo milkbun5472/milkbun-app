@@ -244,6 +244,27 @@ function createLoungeServer({
         });
       }
 
+      if (method === 'POST' && parts[3] === 'summon') {
+        const b = await bodyOf(req);
+        if (!['yanqiu', 'codex'].includes(b.target)) return fail(res, 400, 'BAD_TARGET', '目标只能是言秋或 Codex');
+        const invitation = orch.composeSummon(roomId, b.target);
+        const result = await withProgress(roomId, () => orch.dispatch({
+          room_id: roomId,
+          target: b.target,
+          message_id: invitation.message_id,
+          codex_confirmed: b.target === 'codex' ? b.codex_confirmed === true : false,
+        }));
+        if (result.status === 'needs_attention' && result.reason === 'timeout') {
+          watchLateReply(roomId, result.dispatch_id);
+        }
+        const state = snapshot(roomId);
+        return json(res, result.status === 'refused' ? 409 : 200, {
+          result,
+          state,
+          ...(result.status === 'refused' ? { message: refusalMessage(result.reason) } : {}),
+        });
+      }
+
       if (method === 'POST' && parts[3] === 'handoff') {
         const b = await bodyOf(req);
         if (!['yanqiu', 'codex'].includes(b.target)) return fail(res, 400, 'BAD_TARGET', '接手人只能是言秋或 Codex');

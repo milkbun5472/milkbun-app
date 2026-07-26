@@ -295,6 +295,47 @@ textarea::placeholder { color: #aaa49a; }
   cursor: pointer;
 }
 .post-button:disabled { opacity: .35; }
+.summon-dock {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(23,23,21,.09);
+  border-radius: 16px;
+  background: rgba(255,255,255,.38);
+}
+.summon-dock b { display: block; font-size: 11px; font-weight: 600; }
+.summon-dock small { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+.summon-actions { display: flex; gap: 7px; }
+.summon-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid rgba(23,23,21,.12);
+  border-radius: 999px;
+  background: rgba(255,255,255,.72);
+  color: var(--ink);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.summon-actions button:hover { background: #fff; border-color: rgba(23,23,21,.28); }
+.summon-actions button:disabled { opacity: .35; cursor: wait; }
+.summon-actions span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: white;
+  background: var(--yanqiu);
+  font-size: 9px;
+}
+.summon-actions [data-summon="codex"] span { background: var(--codex); }
 .dispatch-tray {
   margin: 9px 0 0;
   padding: 14px 15px 12px;
@@ -383,6 +424,9 @@ select { padding: 7px 28px 7px 10px; border: 1px solid var(--rule); border-radiu
   .message-body { max-width: 82%; }
   .bubble { padding: 14px 16px; font-size: 14px; }
   .composer-wrap { padding: 10px 12px max(14px, env(safe-area-inset-bottom)); }
+  .summon-dock { grid-template-columns: 1fr; }
+  .summon-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .summon-actions button { justify-content: center; }
   .dispatch-actions { grid-template-columns: 1fr 1fr; }
 }
 

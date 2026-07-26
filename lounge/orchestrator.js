@@ -148,6 +148,27 @@ class Orchestrator {
     });
   }
 
+  composeSummon(room_id, target) {
+    if (!['yanqiu', 'codex'].includes(target)) throw new Error('呼叫目标不正确');
+    const visible = this.listMessages(room_id).filter((m) => !m.automatic);
+    let lastOwn = -1;
+    for (let i = visible.length - 1; i >= 0; i--) {
+      if (visible[i].speaker === target) { lastOwn = i; break; }
+    }
+    const delta = visible.slice(lastOwn + 1).filter((m) => m.speaker !== target);
+    const lines = ['Lisa 刚刚按下呼叫，请你来会客厅坐坐。'];
+    if (delta.length) {
+      lines.push('你上次在桌上发言后，新增的公开内容如下：');
+      lines.push(delta.map((m) => `${NAME[m.speaker]}：${m.content}`).join('\n\n'));
+    } else {
+      lines.push('桌上暂时没有新的指定问题；你可以自然地打个招呼，或说一句此刻真正想说的话。');
+    }
+    return this._insertMessage({
+      room_id, speaker: 'lisa', content: lines.join('\n\n'),
+      origin: 'lounge', automatic: true,
+    });
+  }
+
   // 给目标补齐“自从 TA 上次在桌上发言后新增的公开内容”。
   // 只取会客厅可见消息，不取 automatic 机器信封，也不重复目标自己的话。
   composeContextForTarget(room_id, target, { fallbackMessageId = null, alwaysLabel = false } = {}) {
