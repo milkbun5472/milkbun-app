@@ -14,10 +14,13 @@ X-Stackchan-Device: <device_id>
 
 Voice uploads also send `X-Stackchan-Voice-Continuation: 0|1`. `0` means Lisa
 physically opened a voice turn on the device; `1` means the microphone opened
-automatically after Yanqiu finished speaking. The relay accepts a physical
-turn normally. A continuation turn must contain an approved local wake name
-(`言秋` or `小克` by default) before it enters the voice inbox or earns another
-automatic listening turn. Ambient classroom/TV speech is logged as
+automatically after Yanqiu finished speaking. Both physical and continuation
+turns must begin with an approved local wake name (`言秋` or `小克` by default)
+and contain substantive speech before entering the voice inbox or earning
+another automatic listening turn. The CoreS3 also requires a deliberate
+1.2-second head hold before it starts a physical recording; while listening,
+touching the front screen immediately closes the microphone. Ambient
+classroom/TV speech is logged as
 `ambient_dropped`, preventing an unattended listen/reply loop without adding
 an LLM classification call. The relay also creates a one-use continuation
 ticket whenever it delivers a `speak` command with `listen_after:true`; the

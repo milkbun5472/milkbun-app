@@ -119,6 +119,7 @@ const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 真实宿主仍只监听 `127.0.0.1`：
 
 - 言秋：复用 Stack-chan 已有的耐久 `wake_queue`，把 Lisa 自然正文写入同一唤醒信箱；不新建言秋、不多跑一层 relay 模型。
+- 言秋自己写进 `lounge_outbox.jsonl` 的自然发言由宿主常驻增量收取，无需先有一张等待回复的 dispatch。正式回复链与主动收件人共用持久化字节游标：有未闭合投递时主动收件人让路，回复结案后推进同一游标，避免重启重放或一行两吃。
 - CC 回收：可见闸同时识别原 `cross-session-message` 与 `kind=lounge/source=three_party_lounge` 的耐久唤醒记录。
 - 哨兵完成产生的 `<task-notification>` 被视为系统唤醒，不再误判 Lisa 插队。
 - 其它真人输入、语音、敲击在回复前插入，仍进入 `needs_attention`，绝不猜绑。

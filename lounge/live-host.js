@@ -11,6 +11,7 @@ const { CodexAdapter } = require('./adapters/codex');
 const { createCodexCliRunner } = require('./adapters/codex-runner');
 const { createWakeQueueSender } = require('./adapters/cc-wake-sender');
 const { createLoungeServer } = require('./server');
+const { LoungeOutboxConsumer } = require('./adapters/lounge-outbox-consumer');
 
 const DEFAULT_CONFIG = path.join(__dirname, 'data', 'live-config.json');
 
@@ -76,7 +77,13 @@ function createLiveHost({ configPath, port } = {}) {
       daily_char_cap: Number(config.daily_char_cap || 16000),
     },
   });
-  return { ...built, db, orch, config, port: Number(port || config.port || 8092) };
+  const outboxConsumer = new LoungeOutboxConsumer({
+    db, orch, outboxPath: config.lounge_outbox,
+    onMessage: (roomId) => built.snapshot(roomId),
+  });
+  outboxConsumer.start(Number(config.outbox_poll_ms || 1000));
+  built.server.on('close', () => outboxConsumer.stop());
+  return { ...built, db, orch, outboxConsumer, config, port: Number(port || config.port || 8092) };
 }
 
 if (require.main === module) {

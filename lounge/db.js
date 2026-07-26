@@ -110,6 +110,15 @@ CREATE TABLE IF NOT EXISTS adapter_usage (
   usage_json  TEXT NOT NULL,
   recorded_at TEXT NOT NULL
 );
+
+-- 外部自然发言流的全局消费游标。既供“主动上桌”收件人使用，也由
+-- 正式 dispatch 回复链推进，保证同一行不会同时变成回复和主动消息。
+CREATE TABLE IF NOT EXISTS external_stream_cursors (
+  stream_key TEXT PRIMARY KEY,
+  stream_path TEXT NOT NULL,
+  byte_cursor INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
 `;
 
 function openDb(path = ':memory:') {

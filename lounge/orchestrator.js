@@ -106,6 +106,15 @@ class Orchestrator {
   postLisaMessage(room_id, content, { reply_to = null, round_id = null } = {}) {
     return this._insertMessage({ room_id, speaker: 'lisa', content, origin: 'lounge', reply_to, round_id });
   }
+  ingestExternalMessage(room_id, { speaker, content, origin, origin_message_id }) {
+    if (!this.getRoom(room_id)) throw new Error(`no room ${room_id}`);
+    if (!['yanqiu', 'codex'].includes(speaker)) throw new Error('外部发言人不正确');
+    if (!['cc', 'codex'].includes(origin)) throw new Error('外部来源不正确');
+    if (!origin_message_id || !String(content || '').trim()) throw new Error('外部发言缺幂等键或正文');
+    return this._insertMessage({
+      room_id, speaker, content: String(content).trim(), origin, origin_message_id,
+    });
+  }
   composeLisaMessages(room_id, message_ids) {
     const ids = [...new Set(Array.isArray(message_ids) ? message_ids : [])];
     if (!ids.length) throw new Error('composeLisaMessages 需要至少一条消息');
@@ -317,6 +326,15 @@ class Orchestrator {
       if (reply.usage) {
         this.db.prepare('INSERT OR REPLACE INTO adapter_usage(dispatch_id,target,usage_json,recorded_at) VALUES(?,?,?,?)')
           .run(dispatch_id, target, JSON.stringify(reply.usage), this._iso());
+      }
+      if (target === 'yanqiu' && Number.isFinite(Number(reply.stream_cursor))) {
+        const st = this.db.prepare('SELECT outbox_path FROM cc_dispatch_state WHERE dispatch_id=?').get(dispatch_id);
+        if (st && st.outbox_path) {
+          this.db.prepare(`INSERT INTO external_stream_cursors(stream_key,stream_path,byte_cursor,updated_at)
+            VALUES('yanqiu:lounge_outbox',?,?,?) ON CONFLICT(stream_key) DO UPDATE SET
+            stream_path=excluded.stream_path,byte_cursor=MAX(byte_cursor,excluded.byte_cursor),updated_at=excluded.updated_at`)
+            .run(st.outbox_path, Number(reply.stream_cursor), this._iso());
+        }
       }
       return { status: 'replied', dispatch_id, message_id: msg.message_id, reply };
     });

@@ -39,6 +39,8 @@ size_t voiceSamplesRecorded = 0;
 bool voiceChunkInFlight = false;
 bool topVoiceArmed = true;
 unsigned long topReleasedAt = 0;
+unsigned long topPressedAt = 0;
+static constexpr unsigned long TOP_VOICE_HOLD_MS = 1200;
 static constexpr size_t VOICE_CHUNK_SAMPLES = 1600;  // 100 ms at 16 kHz.
 
 struct PendingEvent {
@@ -818,25 +820,32 @@ void loop() {
   if (screenTouched && !screenWasTouched) {
     const auto& touch = M5.Touch.getDetail(0);
     Serial.printf("[touch] screen x=%d y=%d\n", touch.x, touch.y);
-    reportTap("screen");
+    if (voiceRecording) {
+      // Front screen is the always-available physical mute button.
+      cancelVoiceRecording("screen mute");
+    } else {
+      reportTap("screen");
+    }
   }
   screenWasTouched = screenTouched;
 
   auto& top = M5StackChan.TouchSensor;
   const unsigned long now = millis();
   if (!top.isPressed()) {
+    topPressedAt = 0;
     if (!topReleasedAt) topReleasedAt = now;
     // A completed release, not the noisy trailing edge of the previous touch,
     // is what arms the next physical voice turn.
     if (now - topReleasedAt >= 700) topVoiceArmed = true;
   } else {
     topReleasedAt = 0;
+    if (!topPressedAt) topPressedAt = now;
   }
-  if (topVoiceArmed && top.wasPressed() && !voiceRecording) {
-    // The CoreS3 top sensor keeps reporting "pressed" for a variable tail
-    // after the finger has left. Duration therefore cannot reliably
-    // distinguish tap from hold. Start hands-free capture on the leading edge
-    // and let voice activity, not touch release, decide when the turn ends.
+  if (topVoiceArmed && top.isPressed() && topPressedAt &&
+      now - topPressedAt >= TOP_VOICE_HOLD_MS && !voiceRecording) {
+    // The head sensor is capacitive and can acquire short phantom presses from
+    // nearby movement/USB noise. A deliberate hold is the closed→listening
+    // gate; ambient sound alone can no longer open the microphone.
     if (startVoiceRecording(true, false)) topVoiceArmed = false;
   }
   if (voiceRecording && voiceChunkInFlight && !M5.Mic.isRecording()) {
