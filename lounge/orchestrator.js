@@ -102,6 +102,22 @@ class Orchestrator {
   postLisaMessage(room_id, content, { reply_to = null, round_id = null } = {}) {
     return this._insertMessage({ room_id, speaker: 'lisa', content, origin: 'lounge', reply_to, round_id });
   }
+  composeLisaMessages(room_id, message_ids) {
+    const ids = [...new Set(Array.isArray(message_ids) ? message_ids : [])];
+    if (!ids.length) throw new Error('composeLisaMessages 需要至少一条消息');
+    const messages = ids.map((id) => this.getMessage(id));
+    if (messages.some((m) => !m || m.room_id !== room_id || m.speaker !== 'lisa' || m.automatic)) {
+      throw new Error('只能合并本房间里 Lisa 亲自写的消息');
+    }
+    if (messages.length === 1) return messages[0];
+    return this._insertMessage({
+      room_id,
+      speaker: 'lisa',
+      content: messages.map((m) => m.content).join('\n\n'),
+      origin: 'lounge',
+      automatic: true,
+    });
+  }
 
   // ---------- 控制 ----------
   pause(room_id) { this._setRoom(room_id, { pause_requested: 1, status: 'paused' }); return this.getRoom(room_id); }

@@ -184,11 +184,13 @@ function createLoungeServer({
       if (method === 'POST' && parts[3] === 'dispatch') {
         const b = await bodyOf(req);
         if (!['yanqiu', 'codex'].includes(b.target)) return fail(res, 400, 'BAD_TARGET', '目标只能是言秋或 Codex');
-        if (!b.message_id) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要转交的消息');
+        const messageIds = Array.isArray(b.message_ids) && b.message_ids.length ? b.message_ids : [b.message_id].filter(Boolean);
+        if (!messageIds.length) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要转交的消息');
+        const source = orch.composeLisaMessages(roomId, messageIds);
         const result = await withProgress(roomId, () => orch.dispatch({
           room_id: roomId,
           target: b.target,
-          message_id: b.message_id,
+          message_id: source.message_id,
           codex_confirmed: b.target === 'codex' ? b.codex_confirmed === true : false,
         }));
         const state = snapshot(roomId);
@@ -197,10 +199,12 @@ function createLoungeServer({
 
       if (method === 'POST' && parts[3] === 'run-one-each') {
         const b = await bodyOf(req);
-        if (!b.message_id) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要讨论的消息');
+        const messageIds = Array.isArray(b.message_ids) && b.message_ids.length ? b.message_ids : [b.message_id].filter(Boolean);
+        if (!messageIds.length) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要讨论的消息');
+        const source = orch.composeLisaMessages(roomId, messageIds);
         const result = await withProgress(roomId, () => orch.runOneEach({
           room_id: roomId,
-          lisa_message_id: b.message_id,
+          lisa_message_id: source.message_id,
           first_speaker: b.first_speaker === 'codex' ? 'codex' : 'yanqiu',
           codex_confirmed: b.codex_confirmed === true,
         }));
@@ -243,7 +247,8 @@ function createLoungeServer({
       const ext = path.extname(file);
       res.writeHead(200, {
         'content-type': MIME[ext] || 'application/octet-stream',
-        'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=300',
+        // 本地工具更新后必须立刻拿到同版 JS/CSS；旧前端会继续全量重画并造成抖动。
+        'cache-control': 'no-store',
         'content-security-policy': "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'",
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',

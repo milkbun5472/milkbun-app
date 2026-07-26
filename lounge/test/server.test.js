@@ -91,6 +91,29 @@ test('Step 4: 创建房间→Lisa 发言→请言秋说，时间线完整收回'
   assert.equal(sent.data.state.room.status, 'paused');
 });
 
+test('连续两条 Lisa 消息作为同一批完整递出', async () => {
+  const created = await request('/api/rooms', { method: 'POST', body: {} });
+  const roomId = created.data.room.room_id;
+  const first = await request(`/api/rooms/${roomId}/messages`, { method: 'POST', body: { content: '第一条' } });
+  const second = await request(`/api/rooms/${roomId}/messages`, { method: 'POST', body: { content: '第二条' } });
+  const sent = await request(`/api/rooms/${roomId}/dispatch`, {
+    method: 'POST',
+    body: {
+      target: 'yanqiu',
+      message_ids: [first.data.message.message_id, second.data.message.message_id],
+    },
+  });
+  assert.equal(sent.response.status, 200);
+  const dispatch = sent.data.state.dispatches.at(-1);
+  assert.equal(orch.getMessage(dispatch.message_id).content, '第一条\n\n第二条');
+});
+
+test('本地前端资源禁用缓存，修复后刷新即取同版 JS/CSS', async () => {
+  const response = await fetch(`${base}/app.js`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+});
+
 test('Step 4: Codex 每次必须显式确认', async () => {
   const created = await request('/api/rooms', { method: 'POST', body: {} });
   const roomId = created.data.room.room_id;

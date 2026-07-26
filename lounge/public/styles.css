@@ -205,7 +205,6 @@ h1 {
   align-items: flex-end;
   gap: 12px;
   margin: 24px 0;
-  animation: arrive .28s ease both;
 }
 .message.lisa-message { flex-direction: row-reverse; }
 .message-avatar {
@@ -363,8 +362,6 @@ select { padding: 7px 28px 7px 10px; border: 1px solid var(--rule); border-radiu
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .dialog-actions button { padding: 10px 15px; border: 1px solid var(--rule); border-radius: 12px; background: transparent; cursor: pointer; }
 .dialog-actions .primary { color: white; border-color: var(--ink); background: var(--ink); }
-
-@keyframes arrive { from { opacity: 0; transform: translateY(7px); } }
 
 @media (max-width: 680px) {
   .shell { padding: 34px 16px 250px; }

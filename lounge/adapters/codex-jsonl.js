@@ -34,7 +34,7 @@ function classifyCodexJsonl(text, expectedThreadId) {
   let seenThread = null;
   let turnId = null;
   let completed = false;
-  let failed = false;
+  let turnFailed = false;
   let processExit = null;
   let usage = null;
   const visible = [];
@@ -51,7 +51,9 @@ function classifyCodexJsonl(text, expectedThreadId) {
       turnId = eventTurnId(e) || turnId;
       usage = e.usage || (e.turn && e.turn.usage) || (e.data && e.data.usage) || null;
     }
-    if (e.type === 'turn.failed' || e.type === 'error') failed = true;
+    // `error` 也会被 CLI 用来报告可自动恢复的 Reconnecting；不能在进程
+    // 尚未结束时把它当作本轮失败。只有 turn.failed 或失败退出才是终态。
+    if (e.type === 'turn.failed') turnFailed = true;
     if (e.type === 'process.exited') processExit = e;
   }
 
@@ -61,7 +63,7 @@ function classifyCodexJsonl(text, expectedThreadId) {
   // CLI 会在流重连时先写 error，但随后仍可能成功吐出最终正文并正常完成。
   // 一旦同一 spool 已有 turn.completed，就以最终封包为准；中途网络告警只作诊断，
   // 不能盖掉已经完成的可见回复。
-  if (!completed && failed) return { state: 'error', reason: 'turn_failed' };
+  if (!completed && turnFailed) return { state: 'error', reason: 'turn_failed' };
   if (!completed && processExit && processExit.exit_code !== 0) return { state: 'error', reason: 'process_failed' };
   if (processExit && !completed) return { state: 'error', reason: 'process_exited_without_completion' };
   if (!completed) return { state: 'pending' };

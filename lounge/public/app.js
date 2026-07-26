@@ -28,7 +28,7 @@ const ui = {
 const state = {
   roomId: sessionStorage.getItem('lounge.roomId'),
   snapshot: null,
-  selectedMessageId: null,
+  selectedMessageIds: [],
   busy: false,
   stream: null,
   timelineSignature: null,
@@ -71,8 +71,15 @@ async function api(url, options = {}) {
   return data;
 }
 
-function latestLisaMessage(snapshot) {
-  return [...snapshot.messages].reverse().find((m) => m.speaker === 'lisa' && m.origin === 'lounge' && !m.automatic);
+function latestLisaBatch(snapshot) {
+  const batch = [];
+  for (let i = snapshot.messages.length - 1; i >= 0; i -= 1) {
+    const message = snapshot.messages[i];
+    if (message.speaker !== 'lisa') break;
+    if (message.automatic) break; // 已合并递出的上一组消息是批次边界
+    if (message.origin === 'lounge') batch.unshift(message);
+  }
+  return batch;
 }
 
 function renderMessages(messages) {
@@ -130,10 +137,10 @@ function render(snapshot) {
     state.timelineSignature = timelineSignature;
     renderMessages(snapshot.messages);
   }
-  const latest = latestLisaMessage(snapshot);
-  const already = latest && snapshot.dispatches.some((d) => d.message_id === latest.message_id);
-  if (!state.busy && latest && !already && room.status !== 'stopped') {
-    state.selectedMessageId = latest.message_id;
+  const batch = latestLisaBatch(snapshot);
+  const already = batch.length && batch.every((m) => snapshot.dispatches.some((d) => d.message_id === m.message_id));
+  if (!state.busy && batch.length && !already && room.status !== 'stopped') {
+    state.selectedMessageIds = batch.map((m) => m.message_id);
     ui.tray.hidden = false;
   } else if (!state.busy) {
     ui.tray.hidden = true;
@@ -151,7 +158,7 @@ async function postMessage() {
     });
     ui.input.value = '';
     $('#charCount').textContent = '0 / 6000';
-    state.selectedMessageId = data.message.message_id;
+    state.selectedMessageIds = latestLisaBatch(data.state).map((m) => m.message_id);
     render(data.state);
     ui.tray.hidden = false;
     requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
@@ -168,7 +175,7 @@ function setBusy(value) {
 }
 
 async function dispatch(target) {
-  if (!state.selectedMessageId || state.busy) return;
+  if (!state.selectedMessageIds.length || state.busy) return;
   if (target === 'both') {
     ui.dialog.showModal();
     return;
@@ -179,7 +186,7 @@ async function dispatch(target) {
       method: 'POST',
       body: JSON.stringify({
         target,
-        message_id: state.selectedMessageId,
+        message_ids: state.selectedMessageIds,
         codex_confirmed: target === 'codex',
       }),
     });
@@ -189,13 +196,13 @@ async function dispatch(target) {
 }
 
 async function runBoth() {
-  if (!state.selectedMessageId || state.busy) return;
+  if (!state.selectedMessageIds.length || state.busy) return;
   setBusy(true);
   try {
     const data = await api(`/api/rooms/${state.roomId}/run-one-each`, {
       method: 'POST',
       body: JSON.stringify({
-        message_id: state.selectedMessageId,
+        message_ids: state.selectedMessageIds,
         first_speaker: ui.firstSpeaker.value,
         codex_confirmed: true,
       }),

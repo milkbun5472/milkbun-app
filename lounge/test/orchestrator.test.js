@@ -274,6 +274,16 @@ test('①-d) retry 自身不被自己锁死：timeout 的投递可被重试收�
 });
 
 // ---------------- 附加铁律 ----------------
+test('附) 连续写两条再递话：按原顺序完整合并，一个字不漏', () => {
+  const { orch, room } = build();
+  const first = orch.postLisaMessage(room.room_id, '第一条，先别急着回。');
+  const second = orch.postLisaMessage(room.room_id, '第二条，现在可以一起看。');
+  const source = orch.composeLisaMessages(room.room_id, [first.message_id, second.message_id]);
+  assert.equal(source.automatic, 1);
+  assert.equal(source.content, '第一条，先别急着回。\n\n第二条，现在可以一起看。');
+  assert.equal(orch.listMessages(room.room_id).filter((m) => !m.automatic).length, 2);
+});
+
 test('附) 单飞锁：in-flight 时再投递抛 LOCKED', async () => {
   const { orch, room } = build();
   const s1 = orch.postLisaMessage(room.room_id, 'a');
