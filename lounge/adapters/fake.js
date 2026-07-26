@@ -13,6 +13,7 @@ class FakeAdapter {
     this._seeded = new Map();            // dispatch_id -> reply (重启前对方已答/预置)
     this._online = true;
     this._running = false;
+    this.delivered = [];                 // 捕获收到的信封(验证正文=自然内容,无机器元数据)
   }
 
   // ---- 测试编排 ----
@@ -28,6 +29,7 @@ class FakeAdapter {
   // ---- Adapter 契约（§7.1 / §7.2 的 Step1 假实现）----
   async deliver(envelope) {
     if (!this._online) { throw Object.assign(new Error('adapter offline'), { code: 'OFFLINE' }); }
+    this.delivered.push(envelope);
     const id = envelope.dispatch_id;
     this._deliverByDispatch.set(id, (this._deliverByDispatch.get(id) || 0) + 1);
     const key = `${envelope.message_id}|${envelope.target}`;
@@ -47,7 +49,7 @@ class FakeAdapter {
       return {
         state,
         reply: {
-          content: `【fake:${this.name}:${dispatchId}】可见回复`,
+          content: `【fake:${this.name}】可见回复`,   // 不嵌 dispatch_id，避免与"正文无元数据"断言混淆
           bubbles: 1,
           cursor_end: `cur_${dispatchId}`,
         },

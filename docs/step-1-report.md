@@ -76,6 +76,23 @@
 - 真实 Codex Adapter → 第 3 步，等 Codex §7.2 五问。
 - 记忆 / 欲望盒 / 生活账本写路：一律不接。
 
-## 6. 停下待审
+## 6. 初审修补轮（2026-07-26，仍全 fake adapter）
 
-按 Lisa 指令：**提交 Step 1 报告与测试结果后停下**，给 Lisa / Codex 审，**不自动进入 Step 2**。
+按初审六条逐条修补，**`node --test` 18/18 全绿**（原 12 + 新 6）。
+
+| 初审意见 | 修补 | 覆盖用例 |
+|---|---|---|
+| ① 单飞真相=未闭合 dispatch，非 room.status | `lock.js` 改为查 `status IN (dispatching,delivered)`；`_hasOpenDispatch()` | 「等待回复时 pause→手动再投必须 LOCKED」①、附·单飞锁 |
+| ② 外呼前事务内预留预算；崩溃 unknown 不退款/不重投 | `_reserve()` 在 `_beginDispatch` 的 tx 内先扣，`deliver` 在 tx 外；抛错→`failed`+不退不投 | ② 外呼失败=unknown |
+| ③ 回复落库/replied/记账/cursor 单事务且不重复扣费 | `_bindReply()` 全包进 `_tx`，`usage_charged` 幂等守卫 | ③ 重复绑定不重复扣费 |
+| ④ runOneEach 真实正文、无占位、无机器元数据 | A=Lisa 原话；B=Lisa 原话+A 可见回复（真实拼接）；元数据只在信封字段 | ④ 真实正文(精确等值) |
+| ⑤ 两棒=一次 run；另设日 budget_day/call/usage | run 起点预留 1 turn，batons 各扣 1 call；`_reserve` 跨日重置 | ⑤ 跨日预算、② calls_today |
+| ⑥ 外键/CHECK/跨房间拒绝 | schema 加 FK + CHECK；`dispatch()` 校验 `msg.room_id===room_id` | ⑥ 跨房间拒绝 |
+
+新增用例：崩溃点(外呼失败不退款不重投)、暂停绕锁(waiting→pause→LOCKED)、真实两棒内容(精确等值)、跨日预算重置、重复 bind 不重复扣费、跨房间拒绝。
+
+最终：**tests 18 / pass 18 / fail 0**。
+
+## 7. 停下待复审
+
+按 Lisa 指令：**修完 Step 1 修补轮后停下**，给 Lisa / Codex 复审，**不进 Step 2**。
