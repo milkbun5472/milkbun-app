@@ -14,6 +14,21 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
 };
 
+const REFUSAL_MESSAGE = {
+  codex_confirmation_required: '这次 Codex 调用还没有得到你的明确确认',
+  daily_cap: '今天的会客厅调用预算已经到安全上限',
+  auto_turns_exhausted: '今天允许主动发起的双方讨论次数已经用完',
+  paused: '会客厅目前处于暂停状态',
+  room_stopped: '这次会客已经结束',
+  THREAD_BUSY: 'Codex 当前任务正在运行，请等这一轮结束再递话',
+  CODEX_CLI_MISSING: '本机没有找到 Codex 命令行桥',
+  THREAD_NOT_FOUND: '绑定的 Codex 任务已经找不到了',
+};
+
+function refusalMessage(reason) {
+  return REFUSAL_MESSAGE[reason] || `这次投递被安全闸拒绝：${reason || 'unknown'}`;
+}
+
 function json(res, status, value) {
   const body = JSON.stringify(value);
   res.writeHead(status, {
@@ -219,7 +234,11 @@ function createLoungeServer({
           watchLateReply(roomId, result.dispatch_id);
         }
         const state = snapshot(roomId);
-        return json(res, result.status === 'refused' ? 409 : 200, { result, state });
+        return json(res, result.status === 'refused' ? 409 : 200, {
+          result,
+          state,
+          ...(result.status === 'refused' ? { message: refusalMessage(result.reason) } : {}),
+        });
       }
 
       if (method === 'POST' && parts[3] === 'run-one-each') {
@@ -239,7 +258,11 @@ function createLoungeServer({
           }
         }
         const state = snapshot(roomId);
-        return json(res, result.refused ? 409 : 200, { result, state });
+        return json(res, result.refused ? 409 : 200, {
+          result,
+          state,
+          ...(result.refused ? { message: refusalMessage(result.reason) } : {}),
+        });
       }
 
       if (method === 'POST' && parts[3] === 'pause') {

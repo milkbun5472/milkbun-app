@@ -66,7 +66,9 @@ fs.writeFileSync(out, `${JSON.stringify({
   wake_inbox: DEFAULT_WAKE_INBOX,
   lounge_outbox: DEFAULT_LOUNGE_OUTBOX,
   port: 8092,
-  max_auto_turns: 2,
+  // 每次双方讨论仍严格两棒即停；这里限制的是 Lisa 一天可主动发起几轮。
+  // 总调用另受 daily_call_cap=20 约束，因此最多也只有 10 轮双方讨论。
+  max_auto_turns: 20,
   daily_call_cap: 20,
   daily_char_cap: 16000,
   timeout_ms: 180000,

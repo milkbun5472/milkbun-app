@@ -145,6 +145,27 @@ test('Step 4: 双方各答一轮严格两棒后暂停', async () => {
   assert.equal(run.data.state.room.calls_today, 2);
 });
 
+test('409 安全拒绝返回人话原因，不再只显示 HTTP 409', async () => {
+  const created = await request('/api/rooms', { method: 'POST', body: {} });
+  const roomId = created.data.room.room_id;
+  db.prepare('UPDATE rooms SET auto_turns_used=max_auto_turns WHERE room_id=?').run(roomId);
+  const posted = await request(`/api/rooms/${roomId}/messages`, {
+    method: 'POST',
+    body: { content: '再讨论一轮。' },
+  });
+  const refused = await request(`/api/rooms/${roomId}/run-one-each`, {
+    method: 'POST',
+    body: {
+      message_id: posted.data.message.message_id,
+      first_speaker: 'yanqiu',
+      codex_confirmed: true,
+    },
+  });
+  assert.equal(refused.response.status, 409);
+  assert.match(refused.data.message, /讨论次数|安全上限/);
+  assert.equal(refused.data.result.reason, 'auto_turns_exhausted');
+});
+
 test('Step 4: 浏览器不能伪造说话人、origin 或历史消息 ID', async () => {
   const created = await request('/api/rooms', { method: 'POST', body: {} });
   const roomId = created.data.room.room_id;
