@@ -4,18 +4,15 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>com.lisa.yanqiu-hourly-wake</string>
+  <string>com.lisa.yanqiu-heartbeat</string>
   <key>ProgramArguments</key>
   <array>
     <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
     <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/wake_queue.py</string>
-    <string>enqueue-hourly</string>
+    <string>watchdog</string>
   </array>
-  <key>StartCalendarInterval</key>
-  <dict>
-    <key>Minute</key>
-    <integer>0</integer>
-  </dict>
+  <key>StartInterval</key>
+  <integer>60</integer>
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
