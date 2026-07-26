@@ -123,6 +123,36 @@ class Orchestrator {
     });
   }
 
+  // 给目标补齐“自从 TA 上次在桌上发言后新增的公开内容”。
+  // 只取会客厅可见消息，不取 automatic 机器信封，也不重复目标自己的话。
+  composeContextForTarget(room_id, target, { fallbackMessageId = null, alwaysLabel = false } = {}) {
+    const visible = this.listMessages(room_id).filter((m) => !m.automatic);
+    let lastOwn = -1;
+    for (let i = visible.length - 1; i >= 0; i--) {
+      if (visible[i].speaker === target) { lastOwn = i; break; }
+    }
+    let delta = visible.slice(lastOwn + 1).filter((m) => m.speaker !== target);
+    if (!delta.length && fallbackMessageId) {
+      const fallback = this.getMessage(fallbackMessageId);
+      if (fallback) delta = [fallback];
+    }
+    if (!delta.length) throw new Error(`没有可递给 ${target} 的新公开内容`);
+    if (delta.length === 1 && delta[0].speaker === 'lisa' && !alwaysLabel) return delta[0];
+
+    const content = delta.map((m) => `${NAME[m.speaker]}：${m.content}`).join('\n\n');
+    const fingerprint = crypto.createHash('sha256')
+      .update(`${target}\0${delta.map((m) => m.message_id).join('\0')}`)
+      .digest('hex').slice(0, 24);
+    return this._insertMessage({
+      room_id,
+      speaker: 'lisa',
+      content,
+      origin: 'lounge',
+      origin_message_id: `context:${target}:${fingerprint}`,
+      automatic: true,
+    });
+  }
+
   // ---------- 控制 ----------
   pause(room_id) { this._setRoom(room_id, { pause_requested: 1, status: 'paused' }); return this.getRoom(room_id); }
   resume(room_id) { this._setRoom(room_id, { pause_requested: 0 }); return this.getRoom(room_id); }
@@ -308,14 +338,18 @@ class Orchestrator {
       if (room.pause_requested) break;                     // 立即暂停取消未开始的下一棒(④)
       let srcId;
       if (idx === 0) {
-        // A 收「Lisa：原话」（带说话人标签，仍是自然正文，无机器 ID）
-        const aMsg = this._insertMessage({ room_id, speaker: 'lisa', content: `${NAME.lisa}：${lisa.content}`, origin: 'lounge', origin_message_id: `${runId}:a`, round_id: runId, automatic: true });
+        // A 收自己上次发言之后的公开增量；首次至少含 Lisa 本轮原话。
+        const aMsg = this.composeContextForTarget(room_id, speaker, {
+          fallbackMessageId: lisa.message_id,
+          alwaysLabel: true,
+        });
         srcId = aMsg.message_id;
       } else {
-        // B 收「Lisa：原话\n\n<先手名>：可见回复」
-        const aReply = this.getMessage(prevReply.message_id);
-        const composed = `${NAME.lisa}：${lisa.content}\n\n${NAME[order[0]]}：${aReply.content}`;
-        const bMsg = this._insertMessage({ room_id, speaker: 'lisa', content: composed, origin: 'lounge', origin_message_id: `${runId}:b`, round_id: runId, automatic: true });
+        // B 同样收自己的未读公开增量，其中自然包含 A 刚刚的可见回复。
+        const bMsg = this.composeContextForTarget(room_id, speaker, {
+          fallbackMessageId: lisa.message_id,
+          alwaysLabel: true,
+        });
         srcId = bMsg.message_id;
       }
       const r = await this.dispatch({

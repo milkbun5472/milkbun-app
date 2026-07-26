@@ -224,10 +224,13 @@ function createLoungeServer({
         const messageIds = Array.isArray(b.message_ids) && b.message_ids.length ? b.message_ids : [b.message_id].filter(Boolean);
         if (!messageIds.length) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要转交的消息');
         const source = orch.composeLisaMessages(roomId, messageIds);
+        const context = orch.composeContextForTarget(roomId, b.target, {
+          fallbackMessageId: source.message_id,
+        });
         const result = await withProgress(roomId, () => orch.dispatch({
           room_id: roomId,
           target: b.target,
-          message_id: source.message_id,
+          message_id: context.message_id,
           codex_confirmed: b.target === 'codex' ? b.codex_confirmed === true : false,
         }));
         if (result.status === 'needs_attention' && result.reason === 'timeout') {

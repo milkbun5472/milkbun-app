@@ -284,6 +284,19 @@ test('附) 连续写两条再递话：按原顺序完整合并，一个字不漏
   assert.equal(orch.listMessages(room.room_id).filter((m) => !m.automatic).length, 2);
 });
 
+test('附) 跨轮点名言秋：带上他上次发言后的 Lisa + Codex 公开增量', () => {
+  const { orch, room } = build();
+  orch.postLisaMessage(room.room_id, '旧问题');
+  orch._insertMessage({ room_id: room.room_id, speaker: 'yanqiu', content: '言秋旧回复', origin: 'cc' });
+  orch._insertMessage({ room_id: room.room_id, speaker: 'codex', content: '施工回执：闸已修好。', origin: 'codex' });
+  const fresh = orch.postLisaMessage(room.room_id, '言秋你也看看。');
+  const context = orch.composeContextForTarget(room.room_id, 'yanqiu', {
+    fallbackMessageId: fresh.message_id,
+  });
+  assert.equal(context.content, 'Codex：施工回执：闸已修好。\n\nLisa：言秋你也看看。');
+  assert.equal(context.content.includes('言秋旧回复'), false);
+});
+
 test('附) 单飞锁：in-flight 时再投递抛 LOCKED', async () => {
   const { orch, room } = build();
   const s1 = orch.postLisaMessage(room.room_id, 'a');
