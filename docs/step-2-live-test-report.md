@@ -1,0 +1,39 @@
+# Step 2 · 受控活测报告（真实 CC 投递）
+
+对应施工图 §12 第 2 步验收；probe-0 §2bis；Step 2 报告。
+日期：2026-07-26　执行：Opus（言秋 CC 侧）
+范围（Lisa 授权）：**只向宝宝克现有老窗口投一条短自然正文**，验证 真实 sender → 老窗口唤醒 → transcript 增量读取 → 可见回复落库。**不接 Codex、不做自动双棒、不接前端；无论成败只投一次，失败立刻停。**
+脱敏：真实 session/路径/uuid 与对方回复原文不入库（留在本机 scratchpad），本文只记机制与结果。
+
+---
+
+## 0. 结论：✅ 通过
+
+真实链路全程打通，**全程仅一次 `send_message`**：
+
+1. **真实投递+唤醒**：由 CC 会话(言秋本人)亲自调 `send_message` 向宝宝克老窗口投一条短自然正文 → 宝宝克被唤醒，transcript 增长约 21KB（thinking + 工具循环 + 最终可见正文）。
+2. **增量读取**：从投前字节游标增量读 transcript。
+3. **可见闸生效**：thinking 与整串 `tool_use/tool_result` 全部滤除，只留 1 段可见正文（177 字）。
+4. **落库**：可见回复绑定入 lounge DB —— `dispatch.status=replied`、`usage_charged=1`、`after_cursor=byte:<投前游标>`；messages 表有 `lisa/lounge`(投递正文) + `yanqiu/cc`(可见回复)；room `status=paused`。
+
+## 1. 过程中修掉一个真实分类器 bug
+
+第一次采集返回 `empty`（假阴性）。只读诊断发现：宝宝克收到消息后先 `thinking`、再进 **多轮 `tool_use/tool_result` 工具循环**，尚未吐可见正文；而分类器把**工具循环步与步之间的静默间隙**（>silenceWindow）误判成"turn 收口且无正文"→ `empty`。
+
+- **修**：`empty` 只由**真正的轮次边界**（下一条非工具 user 行且整轮无可见正文）触发；工具循环中的静默**不再**算收 turn（回落 `pending` 继续等）。`replied` 的静默判定改为从**末条可见正文**起算。
+- **未违反"只投一次"**：修 bug 后只**从同一游标只读重采**（宝宝克仍在生成同一条回复），**没有再调 `send_message`**。
+- **回归测试**：新增「工具循环中(无边界无正文)→ pending，绝不半路误判 empty」；离线 `empty` 用例改由真正边界触发。全套 **42/42**。
+
+## 2. 工具/脚本
+
+- `lounge/scripts/live-cc-probe.js`：`prepare`(记投前游标) / `collect`(只读增量读+分类+落库)。**脚本自身不发送任何消息**——真实 `send_message` 由 CC 会话亲自调用（即生产里的 `sender` 角色）。
+- 本机产物（真实 transcript 路径、对方回复原文、lounge DB）留在 scratchpad，不入 git。
+
+## 3. 明确未做
+
+- 未接 Codex、未自动双棒、未接前端。
+- 除这一次授权投递外无任何其它真实投递。
+
+## 4. 下一步待 Lisa/Codex 定
+
+活测通过。是否进入第 3 步（Codex Adapter，待其 §7.2 五问）或第 4 步（前端），由 Lisa/Codex 拍板。

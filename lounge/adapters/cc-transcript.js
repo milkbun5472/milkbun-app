@@ -90,30 +90,34 @@ function classify(rawEvents, { ourText = '', nowMs = null, silenceMs = 1500 } = 
   const region = events.slice(start + 1);
 
   // 2) 扫响应区
-  const bubbles = []; let hadAssistant = false, lastTs = null, closedByBoundary = false;
+  const bubbles = []; let hadAssistant = false, lastTextTs = null, closedByBoundary = false;
   for (const e of region) {
     if (e.type === 'assistant') {
       if (e.isSidechain) continue;                              // 子 agent 不算
-      hadAssistant = true; if (e.ts) lastTs = e.ts;
-      for (const t of e.textParts || []) bubbles.push({ uuid: e.uuid, text: t });
+      hadAssistant = true;
+      for (const t of e.textParts || []) { bubbles.push({ uuid: e.uuid, text: t }); if (e.ts) lastTextTs = e.ts; }
       continue;
     }
     if (e.type === 'user') {
-      if (e.isToolResult) { if (e.ts) lastTs = e.ts; continue; } // 工具回执=助手工具环，非边界
-      if (isOurCross(e, ourText)) continue;                      // 我们的重复投递，忽略
-      // 到这 = 异物(真人 or 别的跨会话)
-      if (bubbles.length === 0) return { state: 'intrusion' };   // 助手还没答就被插队 → 不猜绑
-      closedByBoundary = true; break;                            // 已收到我们的回复，此行为下一轮边界
+      if (e.isToolResult) continue;                             // 工具回执=助手工具环，非边界
+      if (isOurCross(e, ourText)) continue;                     // 我们的重复投递，忽略
+      // 到这 = 异物 user 行
+      if (bubbles.length === 0) {
+        // 助手尚无可见正文：别的跨会话 或 助手根本没为我们工作过 → 插队；否则=轮次真正结束(→empty)
+        if (e.isCrossSession || !hadAssistant) return { state: 'intrusion' };
+        closedByBoundary = true; break;
+      }
+      closedByBoundary = true; break;                           // 已有可见正文 → 下一轮边界
     }
     // 其它类型(system/attachment/...)忽略
   }
-  // 3) 静默窗口 or 边界 → 判定收 turn
-  const silent = nowMs != null && lastTs != null && (nowMs - Date.parse(lastTs) >= silenceMs);
-  const closed = closedByBoundary || silent;
-  if (bubbles.length > 0 && closed) return replied(bubbles);
-  if (bubbles.length > 0) return { state: 'pending' };          // 还在冒泡，未静默未到边界
-  if (hadAssistant && closed) return { state: 'empty' };        // 只有 thinking/工具，无可见正文(§6)
-  return { state: 'pending' };
+  // 3) 收 turn 判定：
+  //    replied = 有可见正文 且(出现边界 或 末条正文已静默)；empty 只由"真正轮次边界且整轮无正文"触发，
+  //    工具循环中的静默间隙【不算】收 turn(否则会半路误判 empty)。
+  if (closedByBoundary) return bubbles.length > 0 ? replied(bubbles) : { state: 'empty' };
+  const silentAfterText = nowMs != null && lastTextTs != null && (nowMs - Date.parse(lastTextTs) >= silenceMs);
+  if (bubbles.length > 0 && silentAfterText) return replied(bubbles);
+  return { state: 'pending' };                                  // 含：助手仍在 thinking/工具循环
 }
 
 module.exports = { readNewEvents, normalize, classify, parseLine };

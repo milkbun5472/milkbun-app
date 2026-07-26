@@ -111,11 +111,21 @@ test('poll 多气泡收齐：多段 assistant text → 一个包，bubbles 计�
   });
 });
 
-test('poll empty：只有 thinking/工具 → empty（不造假气泡, §6）', async () => {
+test('poll empty：整轮只有 thinking/工具、到真正边界仍无正文 → empty（§6）', async () => {
   await withFixture([uHuman('x')], async (f) => {
     const { adapter } = mkAdapter(f, { now: 5000 });
-    const id = await deliverThen(adapter, f, [aThink(), aTool()], { content: '在吗' });
+    // 助手为我们工作(thinking/工具)后，出现真正的下一轮边界，整轮无可见正文 → empty
+    const id = await deliverThen(adapter, f, [aThink(), aTool(), uHuman('宝宝下一句')], { content: '在吗' });
     assert.equal((await adapter.poll(id)).state, 'empty');
+  });
+});
+
+test('poll 工具循环中(无边界无正文)→ pending，绝不半路误判 empty（活测回归）', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 999999 });   // 即使静默很久
+    // 复刻宝宝克活测：thinking + 多轮 tool_use/tool_result，尚未吐正文，且无轮次边界
+    const id = await deliverThen(adapter, f, [aThink(), aTool(), uTool(), aTool(), uTool(), aTool(), uTool()], { content: '在吗' });
+    assert.equal((await adapter.poll(id)).state, 'pending');  // 必须继续等，不能 empty
   });
 });
 
