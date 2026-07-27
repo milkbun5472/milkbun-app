@@ -83,13 +83,13 @@ inline constexpr MotionFrame kWilt[] = {
 // Study is a persistent mode. EnterStudy intentionally does not return home;
 // StudyPage returns to the reading pose; ExitStudy looks up and settles home.
 inline constexpr MotionFrame kStudyRead[] = {
-    {-5, 5, 420}, {4, 13, 420}, {-3, 18, 520},
+    {-5, 5, 360}, {4, 2, 360}, {-3, 0, 480},
 };
 inline constexpr MotionFrame kStudyPage[] = {
-    {-3, 18, 180}, {5, 20, 220}, {-6, 17, 240}, {-3, 18, 280},
+    {-3, 0, 180}, {5, 3, 220}, {-6, 1, 240}, {-3, 0, 280},
 };
 inline constexpr MotionFrame kStudyLookUp[] = {
-    {-3, 18, 180}, {0, 8, 360}, {0, 0, 420},
+    {-3, 0, 180}, {0, 10, 360}, {0, 18, 420},
 };
 
 #define MOTION_ENTRY(name, frames, mode) \
