@@ -636,7 +636,10 @@ void reportTap(const char* source) {
   }
   JsonDocument detail;
   detail["source"] = source;
-  postEvent("tap", &detail);
+  // The CoreS3 top capacitive strip develops short phantom presses while USB
+  // power and the servos are active. Keep a short head pat as a local study
+  // gesture, but only the deliberate front-screen tap may wake Yanqiu.
+  if (strcmp(source, "head")) postEvent("tap", &detail);
 }
 
 void moveTo(int yaw, int pitch, int durationMs) {
