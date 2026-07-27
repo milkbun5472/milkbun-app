@@ -34,7 +34,10 @@ static constexpr size_t MAX_AUDIO_BYTES = 1536 * 1024;
 // ends from voice activity. Screen touch remains the explicit "knock" gesture.
 static constexpr unsigned long VOICE_MAX_RECORD_MS = 15000;
 static constexpr unsigned long VOICE_AUTO_WAIT_MS = 8000;
-static constexpr unsigned long VOICE_AUTO_SILENCE_MS = 900;
+// Natural Mandarin often has a brief mid-sentence pause. 900 ms clipped Lisa
+// after only a few words; 1800 ms still closes promptly without behaving like
+// an always-open classroom microphone.
+static constexpr unsigned long VOICE_AUTO_SILENCE_MS = 1800;
 // Mean absolute 16-bit PCM amplitude. Raise this in a noisy room; lower it if
 // quiet speech is not detected.
 static constexpr uint32_t VOICE_ACTIVITY_THRESHOLD = 100;

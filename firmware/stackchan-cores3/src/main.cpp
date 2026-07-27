@@ -1062,8 +1062,16 @@ void loop() {
     } else if (voiceAutoMode) {
       const unsigned long now = millis();
       if (meanAbs >= VOICE_ACTIVITY_THRESHOLD) {
-        if (voiceActiveChunks < 255) ++voiceActiveChunks;
-        if (voiceActiveChunks >= 2) {
+        if (voiceHeardSpeech) {
+          // Once speech has been established, one active chunk is enough to
+          // prove Lisa resumed after a natural pause. The old two-chunk gate
+          // let the existing silence timer keep running into resumed speech.
+          voiceActiveChunks = 2;
+          voiceSilenceStartedAt = 0;
+        } else {
+          if (voiceActiveChunks < 255) ++voiceActiveChunks;
+        }
+        if (!voiceHeardSpeech && voiceActiveChunks >= 2) {
           voiceHeardSpeech = true;
           voiceSilenceStartedAt = 0;
         }
