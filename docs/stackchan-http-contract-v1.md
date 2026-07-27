@@ -58,7 +58,7 @@ Rules:
 
 - `id` is globally unique and idempotent.
 - The relay returns at most one command per poll.
-- Default TTL: `move`/`emote` 15 seconds, `speak` 30 seconds.
+- Default TTL: `move`/`emote`/`camera` 15 seconds, `speak` 30 seconds.
 - Expired commands are discarded, never replayed after reconnection.
 - The device records `id` before execution and sends a `command_result` event.
 
@@ -68,6 +68,7 @@ Command payloads:
 {"type":"speak","payload":{"audio_url":"https://...wav","volume":150,"listen_after":true,"mood":"soft"}}
 {"type":"emote","payload":{"name":"neutral|happy|sad|angry|sleepy|surprised"}}
 {"type":"move","payload":{"yaw":90,"pitch":90,"duration_ms":500}}
+{"type":"camera","payload":{"action":"capture","requested_by":"lisa","reason":"Lisa明确让我拍一张"}}
 ```
 
 The device also has a local choreography library. A preset is transmitted once
@@ -126,6 +127,18 @@ The nod is local-only: it adds no relay command, transcription, or model call.
 It happens after capture so feedback-servo noise cannot contaminate the WAV or
 hold the microphone open. True barge-in while Stack-chan is speaking requires
 full-duplex echo cancellation and remains a separate future capability.
+
+### Privacy-gated single photo
+
+`camera.capture` is single-shot only. The relay accepts it only when all three
+fields are present, `requested_by` is exactly `lisa`, and `reason` is nonempty.
+There is no schedule, motion trigger, face recognition, or stream command.
+
+Before the sensor is initialized, the whole device display turns red and shows
+`CAMERA ON`. The indicator remains until capture and upload finish. The JPEG is
+sent over the authenticated device channel to the Mac relay, saved mode-0600
+under its private `photos/` directory, and has no HTTP read endpoint or cloud
+sync path.
 
 Server and firmware both clamp movement. The relay must reject unknown command
 types or payload fields rather than pass arbitrary instructions through.

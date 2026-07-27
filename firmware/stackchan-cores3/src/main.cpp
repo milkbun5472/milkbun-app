@@ -4,6 +4,8 @@
 #include <M5StackChan.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <esp_camera.h>
+#include <img_converters.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
@@ -30,6 +32,8 @@ volatile unsigned long servoTorqueReleaseAt = 0;
 volatile bool studyMode = false;
 volatile unsigned long studyNextPageAt = 0;
 volatile unsigned long studyResumeAt = 0;
+bool cameraReady = false;
+bool cameraInitAttempted = false;
 volatile bool voiceRecording = false;
 volatile unsigned long micClosedFeedbackAt = 0;
 bool voiceAutoMode = false;
@@ -108,6 +112,111 @@ void face(const char* label) {
   // A real command or lifecycle state supersedes any pending tap animation.
   restoreFaceAt = 0;
   drawFace(label);
+}
+
+void auth(HTTPClient& http);
+bool beginHttps(HTTPClient& http, WiFiClientSecure& client,
+                const String& url);
+
+void showCameraIndicator() {
+  if (displayMutex) xSemaphoreTake(displayMutex, portMAX_DELAY);
+  auto& display = M5StackChan.Display();
+  display.fillScreen(TFT_RED);
+  display.setTextDatum(middle_center);
+  display.setTextColor(TFT_WHITE, TFT_RED);
+  display.setTextSize(3);
+  display.drawString("CAMERA ON", display.width() / 2, display.height() / 2);
+  if (displayMutex) xSemaphoreGive(displayMutex);
+}
+
+void restoreFaceAfterCamera() {
+  String savedFace;
+  if (displayMutex) xSemaphoreTake(displayMutex, portMAX_DELAY);
+  savedFace = currentFace;
+  M5StackChan.Display().fillScreen(TFT_BLACK);
+  faceDrawn = false;
+  if (displayMutex) xSemaphoreGive(displayMutex);
+  drawFace(savedFace.c_str());
+}
+
+bool ensureCameraReady() {
+  if (cameraReady) return true;
+  if (cameraInitAttempted) return false;
+  cameraInitAttempted = true;
+  // Official CoreS3 GC0308 wiring. Its SCCB bus shares the internal I2C pins;
+  // release M5Unified's owner exactly once before esp-camera takes the bus.
+  // This must run during setup, before relay/audio tasks can touch that bus.
+  M5.In_I2C.release();
+  camera_config_t config = {};
+  config.pin_pwdn = -1;
+  config.pin_reset = -1;
+  config.pin_xclk = -1;
+  config.pin_sccb_sda = 12;
+  config.pin_sccb_scl = 11;
+  config.pin_d7 = 47;
+  config.pin_d6 = 48;
+  config.pin_d5 = 16;
+  config.pin_d4 = 15;
+  config.pin_d3 = 42;
+  config.pin_d2 = 41;
+  config.pin_d1 = 40;
+  config.pin_d0 = 39;
+  config.pin_vsync = 46;
+  config.pin_href = 38;
+  config.pin_pclk = 45;
+  config.xclk_freq_hz = 20000000;
+  config.ledc_timer = LEDC_TIMER_0;
+  config.ledc_channel = LEDC_CHANNEL_0;
+  config.pixel_format = PIXFORMAT_RGB565;
+  config.frame_size = FRAMESIZE_QVGA;
+  config.jpeg_quality = 12;
+  config.fb_count = 1;
+  config.fb_location = CAMERA_FB_IN_PSRAM;
+  config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
+  config.sccb_i2c_port = -1;
+  const esp_err_t error = esp_camera_init(&config);
+  cameraReady = error == ESP_OK;
+  // GC0308 only needs SCCB while being configured. Give the shared internal
+  // bus back to M5Unified so touch/audio/power peripherals keep working.
+  M5.In_I2C.begin();
+  Serial.printf("[camera] init %s (0x%x)\n",
+                cameraReady ? "ok" : "failed", error);
+  return cameraReady;
+}
+
+bool captureAndUploadPhoto(const String& reason) {
+  showCameraIndicator();
+  bool ok = ensureCameraReady();
+  camera_fb_t* frame = ok ? esp_camera_fb_get() : nullptr;
+  uint8_t* jpeg = nullptr;
+  size_t jpegBytes = 0;
+  if (!frame) {
+    ok = false;
+  } else {
+    ok = frame2jpg(frame, 80, &jpeg, &jpegBytes);
+    esp_camera_fb_return(frame);
+  }
+  if (ok && jpeg && jpegBytes > 0 && jpegBytes <= 400000) {
+    WiFiClientSecure client;
+    HTTPClient http;
+    const String url = String(RELAY_BASE_URL) + "/photo";
+    ok = beginHttps(http, client, url);
+    if (ok) {
+      auth(http);
+      http.addHeader("Content-Type", "image/jpeg");
+      http.addHeader("X-Capture-Reason", reason);
+      const int status = http.POST(jpeg, jpegBytes);
+      Serial.printf("[camera] upload HTTP %d, bytes=%u\n", status,
+                    static_cast<unsigned>(jpegBytes));
+      ok = status == HTTP_CODE_CREATED;
+      http.end();
+    }
+  } else {
+    ok = false;
+  }
+  if (jpeg) free(jpeg);
+  restoreFaceAfterCamera();
+  return ok;
 }
 
 void auth(HTTPClient& http) {
@@ -684,6 +793,17 @@ bool executeCommand(JsonObject command) {
     }
     return ok;
   }
+  if (type == "camera") {
+    const String action = payload["action"] | "";
+    const String requestedBy = payload["requested_by"] | "";
+    const String reason = payload["reason"] | "";
+    if (action != "capture" || requestedBy != "lisa" ||
+        reason.isEmpty() || reason.indexOf('\r') >= 0 ||
+        reason.indexOf('\n') >= 0) {
+      return false;
+    }
+    return captureAndUploadPhoto(reason);
+  }
   return false;
 }
 
@@ -813,6 +933,9 @@ void setup() {
   voiceQueue = xQueueCreate(1, sizeof(VoiceUpload));
   motionQueue = xQueueCreate(4, sizeof(MotionRequest));
   face("sleepy");
+  // Initialize the camera before either background task starts. Lazy init from
+  // a relay command races M5Unified's internal-I2C users on CoreS3.
+  ensureCameraReady();
   M5StackChan.setServoPowerEnabled(SERVOS_ENABLED);
   if (SERVOS_ENABLED) {
     // Start from the feedback servos' measured position. Do not snap to home
