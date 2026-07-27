@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.94";
+const APP_VERSION = "v50.95";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -1683,6 +1683,17 @@ function App() {
     if (!removed) { toast("没有可清理的落灰记忆"); return; }
     saveMemLib(keep);
     toast("已清理 " + removed + " 条落灰记忆（约定/心事/置顶都留着）");
+  };
+  // 开环年检（她/言秋 2026-07-26：开环堆到 250 条=1/4，「未完成」信号就不亮了）：
+  //   超过 2 周没被想起、且情绪淡(a≤2)、几乎没被召回(hits<2)的开环 → 降级成普通记忆(open:false)，不删。
+  //   保守只降"淡而久无动静"的那批；情绪重的、常被想起的开环(多半是真约定/心事)留着不动。升格成约定的判断留给以后的后台小模型。
+  const staleOpenLoops = () => { const now = Date.now(); return memLibRef.current.filter(e => e && e.open && !e.pinned && (e.surfaceState || "active") === "active" && (e.a || 0) <= 2 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 14 * 86400000); };
+  const reviewOpenLoops = () => {
+    const now = Date.now();
+    const ids = new Set(staleOpenLoops().map(e => e.id));
+    if (!ids.size) { toast("没有需要降级的陈年开环"); return; }
+    saveMemLib(memLibRef.current.map(e => ids.has(e.id) ? { ...e, open: false, autoClosedTs: now } : e));
+    toast("开环年检：" + ids.size + " 条久无动静的开环已降级为普通记忆（情绪重/常想起的都留着）");
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
   const backfillMemEmotion = async () => {
@@ -9218,6 +9229,7 @@ function App() {
     onImportOld: importOldMemoryToLib,
     onBackfillEmotion: backfillMemEmotion,
     onPurgeWithered: purgeWithered,
+    onReviewOpenLoops: reviewOpenLoops,
     onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,

@@ -5021,6 +5021,7 @@ function MemoryLib({
   onImportOld,
   onBackfillEmotion,
   onPurgeWithered,
+  onReviewOpenLoops,
   onRefine,
   onRestoreArchived,
   onBulkImport,
@@ -5058,6 +5059,9 @@ function MemoryLib({
   }, [entries]);
   // 落灰记忆数量（和 app.js purgeWithered 同判定）：非置顶/非开环/情绪弱(a≤1)/120天没被想起/几乎没被召回(hits<2)
   const witheredCount = (entries || []).filter(e => { const now = Date.now(); return e && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && (e.a || 0) <= 1 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 120 * 86400000; }).length;
+  // 陈年开环数量（和 app.js staleOpenLoops 同判定）：open/非置顶/情绪淡 a≤2/几乎没被召回 hits<2/超2周没动静
+  const openTotal = (entries || []).filter(e => e && e.open && (e.surfaceState || "active") === "active").length;
+  const staleOpenCount = (entries || []).filter(e => { const now = Date.now(); return e && e.open && !e.pinned && (e.surfaceState || "active") === "active" && (e.a || 0) <= 2 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 14 * 86400000; }).length;
   const [filter, setFilter] = useState(focusChar ? focusChar.id : "all");
   const [editing, setEditing] = useState(null); // "new" | entry
   const [cfgOpen, setCfgOpen] = useState(false); // 召回设置弹层
@@ -5298,6 +5302,9 @@ function MemoryLib({
       }, e.text))) : null) : null), cfgOpen && onSaveCfg && h(MemCfgSheet, {
     onPurgeWithered: onPurgeWithered,
     witheredCount: witheredCount,
+    onReviewOpenLoops: onReviewOpenLoops,
+    openTotal: openTotal,
+    staleOpenCount: staleOpenCount,
     cfg: cfg || {}, onSave: onSaveCfg, onClose: () => setCfgOpen(false)
   }), editing && h(MemEntrySheet, {
     entry: editing === "new" ? null : editing,
@@ -5315,7 +5322,7 @@ function MemoryLib({
   }));
 }
 // 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
-function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount }) {
+function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onReviewOpenLoops, openTotal, staleOpenCount }) {
   const t = useTheme();
   const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800 }, cfg || {}));
   const [confirmPurge, setConfirmPurge] = useState(false);
@@ -5353,7 +5360,14 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount }) {
                 h("button", { onClick: () => setConfirmPurge(false), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "取消"),
                 h("button", { onClick: () => { onPurgeWithered(); setConfirmPurge(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认清理 " + witheredCount + " 条"))
             : h("button", { onClick: () => setConfirmPurge(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "🧹 清理落灰记忆（约 " + witheredCount + " 条）"))
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "8px 0" } }, "暂时没有落灰记忆，很干净 ✨")) : null);
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "8px 0" } }, "暂时没有落灰记忆，很干净 ✨")) : null,
+    // 开环年检：开环堆多了「未完成」信号就不亮了——把久无动静的淡开环降级成普通记忆（不删、可留证据）
+    onReviewOpenLoops ? h("div", { style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
+      h(Eyebrow, { style: { marginBottom: 4 } }, "开环年检"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "当前还有 " + openTotal + " 条开环（未完成）。开环太多，「未完成」这个信号就不亮了。把【超过 2 周没被想起、情绪也淡、几乎没被召回】的开环降级成普通记忆（不删除，只是不再当悬念惦记）；情绪重的、常想起的、置顶的都留着不动。"),
+      staleOpenCount > 0
+        ? h("button", { onClick: () => { onReviewOpenLoops(); onClose(); }, className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "🗂 给 " + staleOpenCount + " 条陈年开环降级")
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "8px 0" } }, "没有需要降级的陈年开环 ✨")) : null);
 }
 function MemEntrySheet({
   entry,

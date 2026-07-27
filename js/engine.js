@@ -822,13 +822,29 @@ function memTokens(text) {
   }
   return set;
 }
+// 标签别名族（她/言秋 2026-07-26：标签在自由生长，同义标签检索时互相看不见）——只在检索时归一，不动数据。
+const TAG_ALIASES = {
+  "身份/背景": "身份背景", "身份背景": "身份背景", "身份": "身份背景", "背景": "身份背景", "身世": "身份背景", "出身": "身份背景", "设定": "身份背景",
+  "日常": "日常", "日常生活": "日常", "日常互动": "日常", "生活": "日常", "日常琐事": "日常", "生活习惯": "日常",
+  "亲密": "亲密", "亲密关系": "亲密", "亲密互动": "亲密", "亲密接触": "亲密", "肢体接触": "亲密", "暧昧": "亲密",
+  "情感": "情感", "情感状态": "情感", "情绪": "情感", "心情": "情感", "情感表达": "情感", "感情": "情感",
+  "约定": "约定", "承诺": "约定", "约好": "约定", "计划": "约定", "打算": "约定",
+  "偏好": "偏好", "喜好": "偏好", "喜欢": "偏好", "习惯": "偏好", "口味": "偏好",
+  "食物": "食物", "饮食": "食物", "美食": "食物", "吃": "食物", "饮食偏好": "食物", "吃饭": "食物",
+  "关系": "关系", "关系状态": "关系", "感情线": "关系",
+  "工作": "工作", "职业": "工作", "事业": "工作", "学业": "工作", "学习": "工作"
+};
+function canonTag(t) { const k = String(t || "").trim(); return TAG_ALIASES[k] || TAG_ALIASES[k.toLowerCase()] || k; }
+function canonTags(tags) { const out = new Set(); (tags || []).forEach(t => { out.add(t); out.add(canonTag(t)); }); return [...out]; }
 function scoreMemEntry(entry, qTokens, now, qVec) {
-  const eTokens = memTokens((entry.text || "") + " " + (entry.tags || []).join(" "));
+  // 标签归一：原标签 + 别名族根一起进 token/命中，让「日常」「日常生活」「日常互动」互相认得
+  const allTags = canonTags(entry.tags);
+  const eTokens = memTokens((entry.text || "") + " " + allTags.join(" "));
   let overlap = 0;
   qTokens.forEach(tk => { if (eTokens.has(tk)) overlap += tk.length >= 2 ? 1.4 : 1; });
-  // 标签直接命中 query 额外加权
+  // 标签直接命中 query 额外加权（族根也算命中）
   let tagHit = 0;
-  (entry.tags || []).forEach(tag => { if (qTokens.has(tag.toLowerCase())) tagHit += 2; });
+  allTags.forEach(tag => { if (qTokens.has(String(tag).toLowerCase())) tagHit += 2; });
   let keyword = overlap + tagHit;
   // ⭐向量语义（v48.11）：查询向量预热过且该条目已嵌 → 语义相似度和关键词混合。
   // 关键词继续兜底精确名词命中（人名地名向量容易糊），向量管「换了说法也认得」。
