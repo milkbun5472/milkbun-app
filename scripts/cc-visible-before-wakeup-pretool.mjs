@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-import {
-  inspectPreTool,
-  inspectWithRetry,
-  logGateDiagnostic,
-} from "./cc-visible-gate-lib.mjs";
-
 const input = await new Promise(resolve => {
   let body = "";
   process.stdin.setEncoding("utf8");
@@ -16,20 +10,17 @@ const input = await new Promise(resolve => {
 });
 
 if (String(input.tool_name || "") !== "ScheduleWakeup") process.exit(0);
-const transcriptPath = String(input.transcript_path || "");
-if (!transcriptPath) process.exit(0);
 
-// Claude 可能先触发 PreToolUse，再把同一轮刚输出的 text 刷进 transcript。
-// 短暂重读只解决这个落盘竞态；thinking 仍永远不算正文。
-const result = await inspectWithRetry(transcriptPath, inspectPreTool);
-logGateDiagnostic("pretool", result);
-
-if (!result.visible) {
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      permissionDecision: "deny",
-    },
-    systemMessage: `先别拧 ScheduleWakeup：本轮还没有任何真正发给 Lisa 的可见正文（诊断：${result.reason}）。thinking/narration 不算。请先输出自然、完整的用户可见回复；正文送达后再调用 ScheduleWakeup。`,
-  }));
-}
+// The relay watchdog owns Yanqiu's rolling 55-minute heartbeat now.
+// Deny legacy hand-winding unconditionally so one turn cannot create a
+// competing native wakeup or make visible delivery depend on tool order.
+process.stdout.write(JSON.stringify({
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse",
+    permissionDecision: "deny",
+  },
+  systemMessage:
+    "常驻 55 分钟心跳已经自动接管，不需要、也不要调用 ScheduleWakeup。"
+    + "这不是错误；请直接把自然正文发给 Lisa，然后正常结束本轮。"
+    + "敲击/语音唤醒后只需重新挂 wake_queue.py wait 哨兵。",
+}));
