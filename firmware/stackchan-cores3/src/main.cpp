@@ -10,6 +10,7 @@
 #include <freertos/task.h>
 #include <time.h>
 #include "config.local.h"
+#include "motion_library.h"
 
 namespace {
 unsigned long lastWifiAttemptAt = 0;
@@ -26,6 +27,8 @@ String currentFace = "neutral";
 String faceBeforeTap = "neutral";
 volatile unsigned long restoreFaceAt = 0;
 volatile unsigned long servoTorqueReleaseAt = 0;
+volatile bool studyMode = false;
+volatile unsigned long studyNextPageAt = 0;
 volatile bool voiceRecording = false;
 volatile unsigned long micClosedFeedbackAt = 0;
 bool voiceAutoMode = false;
@@ -38,6 +41,7 @@ uint8_t* voiceWav = nullptr;
 size_t voiceSamplesRecorded = 0;
 bool voiceChunkInFlight = false;
 bool topVoiceArmed = true;
+bool topWasPressed = false;
 unsigned long topReleasedAt = 0;
 unsigned long topPressedAt = 0;
 static constexpr unsigned long TOP_VOICE_HOLD_MS = 1200;
@@ -61,12 +65,6 @@ struct MotionRequest {
   int durationMs;
   uint8_t intensity;
   bool direct;
-};
-
-struct MotionFrame {
-  int8_t yawOffset;
-  int8_t pitchOffset;
-  uint16_t durationMs;
 };
 
 int clampInt(int value, int low, int high) {
@@ -93,6 +91,7 @@ void drawFace(const char* label) {
   else if (mood == "surprised") { eyes = "O  O"; mouth = "  o  "; }
   else if (mood == "listening") { eyes = "o  o"; mouth = " ... "; }
   else if (mood == "thinking") { eyes = "-  -"; mouth = " ... "; }
+  else if (mood == "reading") { eyes = "v  v"; mouth = " /_\\ "; }
   // The built-in font is fixed-width and every face row has the same number
   // of cells. Opaque text rendering therefore replaces the previous row in
   // one pass; clearing first would create a visible blank-face frame.
@@ -491,13 +490,26 @@ void reportTap(const char* source) {
   // update cycle. Treat that as one human gesture instead of two messages.
   if (millis() - lastTapAt < 500) return;
   lastTapAt = millis();
-  if (!restoreFaceAt) {
+  const bool wasStudying = studyMode;
+  if (wasStudying) {
+    studyMode = false;
+    studyNextPageAt = 0;
+    MotionRequest request = {};
+    strncpy(request.preset, "study_lookup", sizeof(request.preset) - 1);
+    request.intensity = 75;
+    request.direct = false;
+    if (motionQueue) xQueueSendToFront(motionQueue, &request, 0);
+    restoreFaceAt = 0;
+    face("happy");
+  } else if (!restoreFaceAt) {
     if (displayMutex) xSemaphoreTake(displayMutex, portMAX_DELAY);
     faceBeforeTap = currentFace;
     if (displayMutex) xSemaphoreGive(displayMutex);
   }
-  restoreFaceAt = millis() + 1200;
-  drawFace("surprised");
+  if (!wasStudying) {
+    restoreFaceAt = millis() + 1200;
+    drawFace("surprised");
+  }
   JsonDocument detail;
   detail["source"] = source;
   postEvent("tap", &detail);
@@ -520,10 +532,11 @@ void moveTo(int yaw, int pitch, int durationMs) {
   servoTorqueReleaseAt = millis() + durationMs + 500;
 }
 
-template <size_t N>
-void playFrames(const MotionFrame (&frames)[N], uint8_t intensity) {
+void playFrames(const MotionFrame* frames, size_t frameCount,
+                uint8_t intensity) {
   const int scale = clampInt(intensity, 25, 100);
-  for (const auto& frame : frames) {
+  for (size_t index = 0; index < frameCount; ++index) {
+    const auto& frame = frames[index];
     const int yaw = 90 + frame.yawOffset * scale / 100;
     const int pitch = 90 + frame.pitchOffset * scale / 100;
     moveTo(yaw, pitch, frame.durationMs);
@@ -532,57 +545,29 @@ void playFrames(const MotionFrame (&frames)[N], uint8_t intensity) {
 }
 
 bool isMotionPreset(const String& preset) {
-  return preset == "nod" || preset == "shake" ||
-         preset == "look_around" || preset == "happy_bounce" ||
-         preset == "shy" || preset == "wake_up" ||
-         preset == "listen";
+  return MotionLibrary::find(preset.c_str()) != nullptr;
 }
 
 void playMotionPreset(const char* rawPreset, uint8_t intensity) {
-  const String preset(rawPreset ? rawPreset : "");
-  // All poses are home-relative and pass through moveTo's final mechanical
-  // clamp. Each choreography returns home so later commands have a predictable
-  // starting pose and the servos can safely release torque.
-  if (preset == "nod") {
-    static constexpr MotionFrame frames[] = {
-      {0, 12, 260}, {0, 1, 240}, {0, 11, 240}, {0, 0, 300},
-    };
-    playFrames(frames, intensity);
-  } else if (preset == "shake") {
-    static constexpr MotionFrame frames[] = {
-      {-20, 4, 260}, {20, 4, 360}, {-16, 3, 320},
-      {13, 2, 280}, {0, 0, 320},
-    };
-    playFrames(frames, intensity);
-  } else if (preset == "look_around") {
-    static constexpr MotionFrame frames[] = {
-      {-27, 7, 520}, {-27, 15, 350}, {25, 12, 650},
-      {12, 3, 380}, {0, 0, 450},
-    };
-    playFrames(frames, intensity);
-  } else if (preset == "happy_bounce") {
-    static constexpr MotionFrame frames[] = {
-      {-11, 9, 190}, {11, 3, 190}, {-9, 10, 180},
-      {9, 3, 180}, {0, 0, 300},
-    };
-    playFrames(frames, intensity);
-  } else if (preset == "shy") {
-    static constexpr MotionFrame frames[] = {
-      {22, 2, 520}, {16, 8, 420}, {24, 4, 320},
-      {8, 2, 420}, {0, 0, 420},
-    };
-    playFrames(frames, intensity);
-  } else if (preset == "wake_up") {
-    static constexpr MotionFrame frames[] = {
-      {0, 2, 500}, {-8, 12, 360}, {8, 15, 340},
-      {0, 8, 300}, {0, 0, 380},
-    };
-    playFrames(frames, intensity);
-  } else if (preset == "listen") {
-    static constexpr MotionFrame frames[] = {
-      {-8, 12, 360}, {7, 13, 420}, {0, 10, 340}, {0, 0, 360},
-    };
-    playFrames(frames, intensity);
+  const MotionSequence* sequence = MotionLibrary::find(rawPreset);
+  if (!sequence) return;
+  if (sequence->mode == MotionMode::EnterStudy) {
+    studyMode = true;
+    studyNextPageAt = millis() + 12000;
+    face("reading");
+  } else if (sequence->mode == MotionMode::ExitStudy) {
+    studyMode = false;
+    studyNextPageAt = 0;
+  } else if (sequence->mode == MotionMode::StudyPage && !studyMode) {
+    return;
+  } else if (sequence->mode == MotionMode::OneShot && studyMode) {
+    // An explicit action supersedes passive reading.
+    studyMode = false;
+    studyNextPageAt = 0;
+  }
+  playFrames(sequence->frames, sequence->frameCount, intensity);
+  if (sequence->mode == MotionMode::StudyPage && studyMode) {
+    face("reading");
   }
 }
 
@@ -592,6 +577,8 @@ void motionTask(void*) {
     if (motionQueue &&
         xQueueReceive(motionQueue, &request, portMAX_DELAY) == pdTRUE) {
       if (request.direct) {
+        studyMode = false;
+        studyNextPageAt = 0;
         moveTo(request.yaw, request.pitch, request.durationMs);
       } else {
         playMotionPreset(request.preset, request.intensity);
@@ -807,6 +794,22 @@ void loop() {
     drawFace(faceBeforeTap.c_str());
   }
 
+  if (studyMode && studyNextPageAt &&
+      static_cast<int32_t>(millis() - studyNextPageAt) >= 0) {
+    MotionRequest request = {};
+    strncpy(request.preset, "study_page", sizeof(request.preset) - 1);
+    request.intensity = 65;
+    request.direct = false;
+    if (motionQueue &&
+        xQueueSendToBack(motionQueue, &request, 0) == pdTRUE) {
+      // A small deterministic range avoids a robotic metronome without
+      // introducing another random state source.
+      studyNextPageAt = millis() + 14000 + (millis() % 9000);
+    } else {
+      studyNextPageAt = millis() + 1500;
+    }
+  }
+
   if (servoTorqueReleaseAt &&
       static_cast<int32_t>(millis() - servoTorqueReleaseAt) >= 0) {
     servoTorqueReleaseAt = 0;
@@ -831,7 +834,15 @@ void loop() {
 
   auto& top = M5StackChan.TouchSensor;
   const unsigned long now = millis();
-  if (!top.isPressed()) {
+  const bool topPressed = top.isPressed();
+  if (!topPressed) {
+    if (topWasPressed && topPressedAt && studyMode && !voiceRecording &&
+        now - topPressedAt >= 80 &&
+        now - topPressedAt < TOP_VOICE_HOLD_MS) {
+      // While reading, a light pat is the natural "look up" gesture. Long
+      // holds remain reserved for opening the microphone.
+      reportTap("head");
+    }
     topPressedAt = 0;
     if (!topReleasedAt) topReleasedAt = now;
     // A completed release, not the noisy trailing edge of the previous touch,
@@ -841,7 +852,8 @@ void loop() {
     topReleasedAt = 0;
     if (!topPressedAt) topPressedAt = now;
   }
-  if (topVoiceArmed && top.isPressed() && topPressedAt &&
+  topWasPressed = topPressed;
+  if (topVoiceArmed && topPressed && topPressedAt &&
       now - topPressedAt >= TOP_VOICE_HOLD_MS && !voiceRecording) {
     // The head sensor is capacitive and can acquire short phantom presses from
     // nearby movement/USB noise. A deliberate hold is the closed→listening

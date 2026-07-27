@@ -85,6 +85,23 @@ narrow limits while holding the robot clear of obstructions. Relay pitch
 `90` maps to the physical 45-degree center; firmware clamps the physical
 vertical servo to the official safe range of 5–85 degrees.
 
+## Local motion library and quiet study
+
+Motion choreography lives in `src/motion_library.h` as named, home-relative
+keyframe timelines. The relay sends one preset name; the CoreS3 plays all
+frames locally, so a dance does not turn into several network round trips.
+
+Quiet-study acceptance:
+
+1. Send `move.preset=study_read`: the face becomes a downcast reading face and
+   the head settles into the reading pose.
+2. Leave it untouched for at least 25 seconds: one or more small page-turn
+   motions play, and every one settles back into the reading pose.
+3. Lightly pat the head for less than 1.2 seconds, or tap the screen: it looks
+   up, returns home and leaves study mode.
+4. Hold the head for at least 1.2 seconds: voice recording opens instead of
+   treating the hold as a study-exit tap.
+
 ## Rollback
 
 With the saved image:
