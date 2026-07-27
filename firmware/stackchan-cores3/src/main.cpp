@@ -675,6 +675,9 @@ bool isMotionPreset(const String& preset) {
 void playMotionPreset(const char* rawPreset, uint8_t intensity) {
   const MotionSequence* sequence = MotionLibrary::find(rawPreset);
   if (!sequence) return;
+  const bool preserveStudy =
+      studyMode && sequence->mode == MotionMode::OneShot &&
+      !strcmp(rawPreset, "nod");
   if (sequence->mode == MotionMode::EnterStudy) {
     studyMode = true;
     studyNextPageAt = millis() + 12000;
@@ -686,13 +689,18 @@ void playMotionPreset(const char* rawPreset, uint8_t intensity) {
     // study_lookup command has no resume timer and ends study for real.
   } else if (sequence->mode == MotionMode::StudyPage && !studyMode) {
     return;
-  } else if (sequence->mode == MotionMode::OneShot && studyMode) {
+  } else if (sequence->mode == MotionMode::OneShot && studyMode &&
+             !preserveStudy) {
     // An explicit action supersedes passive reading.
     studyMode = false;
     studyNextPageAt = 0;
   }
   playFrames(sequence->frames, sequence->frameCount, intensity);
   if (sequence->mode == MotionMode::StudyPage && studyMode) {
+    face("reading");
+  } else if (preserveStudy && studyMode) {
+    // The post-recording acknowledgement is a tiny gesture inside the study
+    // session, not an instruction to put the book away.
     face("reading");
   }
 }
