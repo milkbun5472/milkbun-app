@@ -29,6 +29,7 @@ volatile unsigned long restoreFaceAt = 0;
 volatile unsigned long servoTorqueReleaseAt = 0;
 volatile bool studyMode = false;
 volatile unsigned long studyNextPageAt = 0;
+volatile unsigned long studyResumeAt = 0;
 volatile bool voiceRecording = false;
 volatile unsigned long micClosedFeedbackAt = 0;
 bool voiceAutoMode = false;
@@ -91,7 +92,7 @@ void drawFace(const char* label) {
   else if (mood == "surprised") { eyes = "O  O"; mouth = "  o  "; }
   else if (mood == "listening") { eyes = "o  o"; mouth = " ... "; }
   else if (mood == "thinking") { eyes = "-  -"; mouth = " ... "; }
-  else if (mood == "reading") { eyes = "v  v"; mouth = " /_\\ "; }
+  else if (mood == "reading") { eyes = "v  v"; mouth = "  .  "; }
   // The built-in font is fixed-width and every face row has the same number
   // of cells. Opaque text rendering therefore replaces the previous row in
   // one pass; clearing first would create a visible blank-face frame.
@@ -494,6 +495,7 @@ void reportTap(const char* source) {
   if (wasStudying) {
     studyMode = false;
     studyNextPageAt = 0;
+    studyResumeAt = millis() + 3200;
     MotionRequest request = {};
     strncpy(request.preset, "study_lookup", sizeof(request.preset) - 1);
     request.intensity = 75;
@@ -558,6 +560,8 @@ void playMotionPreset(const char* rawPreset, uint8_t intensity) {
   } else if (sequence->mode == MotionMode::ExitStudy) {
     studyMode = false;
     studyNextPageAt = 0;
+    // A human pat schedules a short look-up in reportTap(). An explicit
+    // study_lookup command has no resume timer and ends study for real.
   } else if (sequence->mode == MotionMode::StudyPage && !studyMode) {
     return;
   } else if (sequence->mode == MotionMode::OneShot && studyMode) {
@@ -579,6 +583,7 @@ void motionTask(void*) {
       if (request.direct) {
         studyMode = false;
         studyNextPageAt = 0;
+        studyResumeAt = 0;
         moveTo(request.yaw, request.pitch, request.durationMs);
       } else {
         playMotionPreset(request.preset, request.intensity);
@@ -593,6 +598,9 @@ bool queueMotion(JsonObject payload) {
   const String preset = payload["preset"] | "";
   if (preset.length()) {
     if (!isMotionPreset(preset)) return false;
+    // Network commands are intentional mode changes. Only the locally
+    // scheduled page-turn may preserve a pending return-to-reading timer.
+    if (preset != "study_page") studyResumeAt = 0;
     strncpy(request.preset, preset.c_str(), sizeof(request.preset) - 1);
     request.intensity = clampInt(payload["intensity"] | 75, 25, 100);
     request.direct = false;
@@ -792,6 +800,20 @@ void loop() {
   if (restoreFaceAt && static_cast<int32_t>(millis() - restoreFaceAt) >= 0) {
     restoreFaceAt = 0;
     drawFace(faceBeforeTap.c_str());
+  }
+
+  if (!studyMode && studyResumeAt &&
+      static_cast<int32_t>(millis() - studyResumeAt) >= 0) {
+    MotionRequest request = {};
+    strncpy(request.preset, "study_read", sizeof(request.preset) - 1);
+    request.intensity = 75;
+    request.direct = false;
+    if (motionQueue &&
+        xQueueSendToFront(motionQueue, &request, 0) == pdTRUE) {
+      studyResumeAt = 0;
+    } else {
+      studyResumeAt = millis() + 500;
+    }
   }
 
   if (studyMode && studyNextPageAt &&

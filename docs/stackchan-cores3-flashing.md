@@ -98,9 +98,11 @@ Quiet-study acceptance:
 2. Leave it untouched for at least 25 seconds: one or more small page-turn
    motions play, and every one settles back into the reading pose.
 3. Lightly pat the head for less than 1.2 seconds, or tap the screen: it looks
-   up, returns home and leaves study mode.
+   up and smiles, then returns to its reading face and pose after about three
+   seconds.
 4. Hold the head for at least 1.2 seconds: voice recording opens instead of
    treating the hold as a study-exit tap.
+5. Send `move.preset=study_lookup`: it looks up and leaves study mode for real.
 
 ## Rollback
 
