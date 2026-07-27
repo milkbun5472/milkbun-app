@@ -771,7 +771,10 @@ bool executeCommand(JsonObject command) {
   JsonObject payload = command["payload"].as<JsonObject>();
   if (type == "emote") {
     const String name = payload["name"] | "neutral";
-    face(name.c_str());
+    // Reading is a persistent body mode, not merely an expression. A stray
+    // companion emote must not leave Lisa staring at a happy face forever
+    // after Yanqiu has explicitly entered study mode.
+    face(studyMode ? "reading" : name.c_str());
     return true;
   }
   if (type == "move") {
@@ -780,8 +783,10 @@ bool executeCommand(JsonObject command) {
   if (type == "speak") {
     const String audioUrl = payload["audio_url"] | "";
     const String mood = payload["mood"] | "";
-    if (mood.length()) applyMoodCue(mood);
+    const bool resumeStudy = studyMode;
+    if (mood.length() && !resumeStudy) applyMoodCue(mood);
     const bool ok = playWavUrl(audioUrl, payload["volume"] | 150);
+    if (resumeStudy && !voiceRecording) face("reading");
     if (ok && (payload["listen_after"] | false)) {
       // Playback is fully stopped when playWavUrl returns, but the enclosure
       // and room keep a short acoustic tail. CoreS3 also needs breathing room
@@ -844,12 +849,23 @@ void pollTask(void*) {
           detail["ok"] = true;
           detail["duration_ms"] = voice.durationMs;
           postEvent("voice_upload_result", &detail);
-          face("happy");
+          // Upload and a new capture run on different tasks. Never let the
+          // previous upload's completion overwrite the listening face of the
+          // next voice turn. Persistent study likewise owns its idle face.
+          if (voiceRecording) {
+            face("listening");
+          } else {
+            face(studyMode ? "reading" : "happy");
+          }
         } else {
           // Keep the only copy in PSRAM and retry; never discard Lisa's words
           // merely because Wi-Fi or the relay had a transient failure.
           xQueueSendToFront(voiceQueue, &voice, 0);
-          face("sad");
+          if (voiceRecording) {
+            face("listening");
+          } else {
+            face(studyMode ? "reading" : "sad");
+          }
         }
       }
       PendingEvent pending = {};
