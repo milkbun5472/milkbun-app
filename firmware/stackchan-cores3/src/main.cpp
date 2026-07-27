@@ -613,6 +613,37 @@ bool queueMotion(JsonObject payload) {
   return xQueueSendToBack(motionQueue, &request, 0) == pdTRUE;
 }
 
+bool queuePreset(const char* preset, uint8_t intensity, bool front = false) {
+  if (!SERVOS_ENABLED || !motionQueue || !MotionLibrary::find(preset)) {
+    return false;
+  }
+  studyResumeAt = 0;
+  MotionRequest request = {};
+  strncpy(request.preset, preset, sizeof(request.preset) - 1);
+  request.intensity = clampInt(intensity, 25, 100);
+  request.direct = false;
+  return (front ? xQueueSendToFront(motionQueue, &request, 0)
+                : xQueueSendToBack(motionQueue, &request, 0)) == pdTRUE;
+}
+
+void applyMoodCue(const String& mood) {
+  // One speak command owns the whole cue. Face changes immediately while the
+  // motion task begins its choreography in parallel with WAV playback.
+  if (mood == "happy") {
+    face("happy");
+    queuePreset("happy_bounce", 60, true);
+  } else if (mood == "thinking") {
+    face("thinking");
+    queuePreset("thinking_tilt", 55, true);
+  } else if (mood == "soft") {
+    face("happy");
+    queuePreset("soft_sway", 45, true);
+  } else if (mood == "wilt") {
+    face("sad");
+    queuePreset("wilt", 50, true);
+  }
+}
+
 bool executeCommand(JsonObject command) {
   const String type = command["type"] | "";
   JsonObject payload = command["payload"].as<JsonObject>();
@@ -626,6 +657,8 @@ bool executeCommand(JsonObject command) {
   }
   if (type == "speak") {
     const String audioUrl = payload["audio_url"] | "";
+    const String mood = payload["mood"] | "";
+    if (mood.length()) applyMoodCue(mood);
     const bool ok = playWavUrl(audioUrl, payload["volume"] | 150);
     if (ok && (payload["listen_after"] | false)) {
       // Playback is fully stopped when playWavUrl returns, but the enclosure

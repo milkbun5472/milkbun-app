@@ -70,6 +70,15 @@ inline constexpr MotionFrame kPanic[] = {
     {-25, 15, 170}, {25, 7, 170}, {-22, 16, 160},
     {22, 6, 160}, {-12, 12, 150}, {12, 7, 150}, {0, 0, 360},
 };
+inline constexpr MotionFrame kThinkingTilt[] = {
+    {-10, 5, 420}, {-13, 9, 360}, {-8, 6, 420}, {0, 0, 360},
+};
+inline constexpr MotionFrame kSoftSway[] = {
+    {-8, 5, 440}, {8, 7, 520}, {-4, 4, 420}, {0, 0, 380},
+};
+inline constexpr MotionFrame kWilt[] = {
+    {4, 5, 360}, {7, 14, 520}, {4, 17, 460}, {0, 0, 520},
+};
 
 // Study is a persistent mode. EnterStudy intentionally does not return home;
 // StudyPage returns to the reading pose; ExitStudy looks up and settles home.
@@ -97,6 +106,9 @@ inline constexpr MotionSequence kSequences[] = {
     MOTION_ENTRY("happy_dance", kHappyDance, MotionMode::OneShot),
     MOTION_ENTRY("robot", kRobot, MotionMode::OneShot),
     MOTION_ENTRY("panic", kPanic, MotionMode::OneShot),
+    MOTION_ENTRY("thinking_tilt", kThinkingTilt, MotionMode::OneShot),
+    MOTION_ENTRY("soft_sway", kSoftSway, MotionMode::OneShot),
+    MOTION_ENTRY("wilt", kWilt, MotionMode::OneShot),
     MOTION_ENTRY("study_read", kStudyRead, MotionMode::EnterStudy),
     MOTION_ENTRY("study_page", kStudyPage, MotionMode::StudyPage),
     MOTION_ENTRY("study_lookup", kStudyLookUp, MotionMode::ExitStudy),

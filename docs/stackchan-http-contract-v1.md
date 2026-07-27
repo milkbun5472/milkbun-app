@@ -65,7 +65,7 @@ Rules:
 Command payloads:
 
 ```json
-{"type":"speak","payload":{"audio_url":"https://...wav","volume":150,"listen_after":true}}
+{"type":"speak","payload":{"audio_url":"https://...wav","volume":150,"listen_after":true,"mood":"soft"}}
 {"type":"emote","payload":{"name":"neutral|happy|sad|angry|sleepy|surprised"}}
 {"type":"move","payload":{"yaw":90,"pitch":90,"duration_ms":500}}
 ```
@@ -80,9 +80,10 @@ round trip per keyframe:
 
 Available one-shot presets are `nod`, `shake`, `look_around`,
 `happy_bounce`, `shy`, `wake_up`, `listen`, `happy_dance`, `robot`, and
-`panic`. `intensity` is optional and clamped to `25..100`; it scales pose
-offsets but never bypasses the firmware's final mechanical limits. One-shot
-presets return to the calibrated home position and then release servo torque.
+`panic`, plus the mood cues `thinking_tilt`, `soft_sway`, and `wilt`.
+`intensity` is optional and clamped to `25..100`; it scales pose offsets but
+never bypasses the firmware's final mechanical limits. One-shot presets return
+to the calibrated home position and then release servo torque.
 
 The persistent quiet-study mode has three presets:
 
@@ -105,6 +106,12 @@ device waits until playback has fully finished, leaves a short acoustic gap,
 then opens one hands-free voice turn. The relay applies it automatically only
 to the first spoken reply following a valid Stack-chan voice upload; the flag
 expires after two minutes so unrelated proactive speech cannot open the mic.
+
+`speak.mood` is optional and accepts exactly `happy`, `thinking`, `soft`, or
+`wilt`. It is an atomic presentation cue: the relay queues only the speak
+command, then the CoreS3 selects the matching face and local choreography as
+playback starts. It therefore cannot split one utterance into separately
+expiring emote/move/speak commands.
 
 Server and firmware both clamp movement. The relay must reject unknown command
 types or payload fields rather than pass arbitrary instructions through.
