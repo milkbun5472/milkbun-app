@@ -113,6 +113,20 @@ command, then the CoreS3 selects the matching face and local choreography as
 playback starts. It therefore cannot split one utterance into separately
 expiring emote/move/speak commands.
 
+### Listening acknowledgement
+
+CoreS3's microphone and speaker share the audio codec, so v1 is intentionally
+half-duplex: it never claims to hear Lisa while its own WAV is playing. During
+an open voice turn the device shows the listening face and uses its existing
+local activity threshold to confirm continuous human speech. Once silence
+closes the recording, it immediately plays two low-intensity nods while the
+captured WAV is queued for upload.
+
+The nod is local-only: it adds no relay command, transcription, or model call.
+It happens after capture so feedback-servo noise cannot contaminate the WAV or
+hold the microphone open. True barge-in while Stack-chan is speaking requires
+full-duplex echo cancellation and remains a separate future capability.
+
 Server and firmware both clamp movement. The relay must reject unknown command
 types or payload fields rather than pass arbitrary instructions through.
 

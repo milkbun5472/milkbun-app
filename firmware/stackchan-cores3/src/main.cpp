@@ -325,6 +325,7 @@ void cancelVoiceRecording(const char* reason) {
 
 void finishVoiceRecording() {
   if (!voiceRecording || !voiceWav) return;
+  const bool heardSpeech = voiceHeardSpeech;
   if (voiceChunkInFlight) {
     M5.Mic.end();  // At most the current 100 ms chunk remains.
     voiceSamplesRecorded += VOICE_CHUNK_SAMPLES;
@@ -362,6 +363,18 @@ void finishVoiceRecording() {
     return;
   }
   restoreSpeakerAfterRecording();
+  if (heardSpeech && motionQueue) {
+    // Acknowledge Lisa only after the microphone has closed. Moving the
+    // feedback servos during capture would put motor noise into her recording
+    // and could keep the silence detector open. The existing nod choreography
+    // contains two small nods; reduced intensity keeps it conversational.
+    MotionRequest acknowledgement = {};
+    strncpy(acknowledgement.preset, "nod",
+            sizeof(acknowledgement.preset) - 1);
+    acknowledgement.intensity = 45;
+    acknowledgement.direct = false;
+    xQueueSendToFront(motionQueue, &acknowledgement, 0);
+  }
   face("thinking");
   Serial.printf("[voice] queued %lu ms\n", durationMs);
 }
