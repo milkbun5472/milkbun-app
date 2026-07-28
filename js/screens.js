@@ -3340,6 +3340,7 @@ function RecallShadowPanel() {
       rep.error ? rep.error : h(React.Fragment, null,
         "近 " + rep.observations + " 次召回观测（含后台）：", h("br"),
         "· 当前状态：" + (rep.liveEnabled ? "已转正（pinned / open / top-1 永久豁免）" : "已回滚为旧召回"), h("br"),
+        "· 同分窗口：" + (rep.tieEnabled ? "已开启受控换序（同一轮稳定）" : "已关闭，保持固定排序"), h("br"),
         "· 连续重复率 " + Math.round(rep.repeatRate * 100) + "%（topK 里 4 轮内刚说过的占比——机械感来源）", h("br"),
         "· 冷却版预计替换率 " + Math.round(rep.proposedReplaceRate * 100) + "%（若开冷却会换掉的条目比例）", h("br"),
         "· 空召回率 " + Math.round(rep.emptyRate * 100) + "% · 平均每次被冷却 " + rep.avgCooledPerCall + " 条", h("br"),
@@ -3374,6 +3375,7 @@ function RecallShadowPanel() {
         h("div", { className: "flex", style: { gap: 10, marginTop: 6 } },
           h("button", { onClick: load, style: { fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "刷新"),
           h("button", { onClick: () => { window.RecallShadow.setLiveEnabled(!rep.liveEnabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.liveEnabled ? "#9f5149" : t.tint } }, rep.liveEnabled ? "关闭4轮冷却（立即回滚）" : "重新开启4轮冷却"),
+          h("button", { onClick: () => { window.RecallShadow.setTieEnabled(!rep.tieEnabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.tieEnabled ? "#9f5149" : t.tint } }, rep.tieEnabled ? "关闭同分换序" : "开启同分换序"),
           h("button", { onClick: () => { window.RecallShadow.setEnabled(!rep.enabled); load(); }, style: { fontFamily: F_BODY, fontSize: 11, color: rep.enabled ? "#9f5149" : t.tint } }, rep.enabled ? "暂停观测" : "恢复观测（当前已停·零写入）"),
           h("button", { onClick: () => { if (confirm("清空召回与抽取质量旁路诊断？不影响任何记忆数据。")) { Promise.all([window.RecallShadow.clearAll(), window.MemoryQualityShadow ? window.MemoryQualityShadow.clearAll() : null, window.MemoryCorrectionShadow ? window.MemoryCorrectionShadow.clearAll() : null]).then(load); } }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "清空")))) :
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "读取中…")));

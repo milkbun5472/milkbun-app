@@ -13,6 +13,7 @@
   const COOL_TURNS = 4, RING_CAP = 48;
   const OFF_KEY = "recall_shadow_off"; // 非 x_ 前缀：诊断开关是本机事，不上云
   const LIVE_OFF_KEY = "recall_cooling_live_off"; // 本机回滚闸：默认 live，设 1 立即恢复旧召回
+  const TIE_OFF_KEY = "recall_tie_shuffle_live_off"; // top-1 后 95% 同分窗受控换序；默认 live
   let dbPromise = null, persistTimer = null;
 
   // ---- 内存态（engine 同步读）----
@@ -22,6 +23,7 @@
 
   const off = () => { try { return localStorage.getItem(OFF_KEY) === "1"; } catch (e) { return false; } };
   const liveEnabled = () => { try { return localStorage.getItem(LIVE_OFF_KEY) !== "1"; } catch (e) { return true; } };
+  const tieEnabled = () => { try { return localStorage.getItem(TIE_OFF_KEY) !== "1"; } catch (e) { return true; } };
   const trackingEnabled = () => !off() || liveEnabled();
   const charHash = id => { // 不可逆短 hash（djb2），诊断里不落真实 charId
     let h = 5381; const s = String(id || "");
@@ -142,6 +144,7 @@
       return {
         enabled: !off(),
         liveEnabled: liveEnabled(),
+        tieEnabled: tieEnabled(),
         observations: recent.length,
         firstObservedAt,lastObservedAt,spanHours:firstObservedAt&&lastObservedAt?+((lastObservedAt-firstObservedAt)/3600000).toFixed(2):0,
         emptyRate: recent.length ? +(agg.empty / recent.length).toFixed(3) : 0,
@@ -167,7 +170,8 @@
   }
   function setEnabled(on) { try { on ? localStorage.removeItem(OFF_KEY) : localStorage.setItem(OFF_KEY, "1"); } catch (e) {} }
   function setLiveEnabled(on) { try { on ? localStorage.removeItem(LIVE_OFF_KEY) : localStorage.setItem(LIVE_OFF_KEY, "1"); } catch (e) {} }
+  function setTieEnabled(on) { try { on ? localStorage.removeItem(TIE_OFF_KEY) : localStorage.setItem(TIE_OFF_KEY, "1"); } catch (e) {} }
 
   hydrate();
-  window.RecallShadow = { ringFor, turnOf, noteSurfaced, turnDone, isCooling, observe, report, clearAll, setEnabled, setLiveEnabled, liveEnabled, charHash, enabled: () => !off() };
+  window.RecallShadow = { ringFor, turnOf, noteSurfaced, turnDone, isCooling, observe, report, clearAll, setEnabled, setLiveEnabled, liveEnabled, setTieEnabled, tieEnabled, charHash, enabled: () => !off() };
 })();

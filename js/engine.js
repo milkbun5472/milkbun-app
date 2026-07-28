@@ -900,7 +900,10 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
       const turn = RS.turnOf(charId);
       const top1 = relevant[0] || null;
       const pool = scored.filter(x => x.s > 0.9);
-      const cooling = window.RecallCooling.select({ pool, relevant, limit, isCooling: id => RS.isCooling(charId, id) });
+      const cooling = window.RecallCooling.select({
+        pool, relevant, limit,
+        isCooling: id => RS.isCooling(charId, id)
+      });
       const proposed = cooling.proposed, cooled = cooling.cooled;
       const baseIds = relevant.map(e => e.id), propIds = proposed.map(e => e.id);
       const repeats = cooling.repeats, replaced = cooling.replaced;
@@ -922,7 +925,14 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
           openCooledViolations: pool.filter(x => x.e.open && cooledIds.has(x.e.id)).length,
           top1CooledViolations: top1 && cooledIds.has(top1.id) ? 1 : 0
         } });
-      if (RS.liveEnabled()) picked = pinned.concat(proposed);
+      if (RS.liveEnabled() || RS.tieEnabled()) {
+        const liveSelection = window.RecallCooling.select({
+          pool, relevant, limit,
+          isCooling: RS.liveEnabled() ? id => RS.isCooling(charId, id) : () => false,
+          tieSeed: RS.tieEnabled() ? charId + "|" + turn + "|" + String(queryText || "") : null
+        });
+        picked = pinned.concat(liveSelection.proposed);
+      }
       if (opts.touch !== false && picked.length) RS.noteSurfaced(charId, picked.filter(e => !e.pinned).map(e => e.id));
     }
   } catch (eShadow) {/* 旁路绝不影响召回 */}
