@@ -884,7 +884,7 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   const scored = list.filter(e => !e.pinned).map(e => ({ e, s: scoreMemEntry(e, qTokens, Date.now(), qVec) }));
   scored.sort((a, b) => b.s - a.s);
   const relevant = scored.filter(x => x.s > 0.9).slice(0, limit).map(x => x.e);
-  const picked = pinned.concat(relevant);
+  let picked = pinned.concat(relevant);
   // Tidal 两分辨率旁路（v49.29）：比较「事件印象 + 少量碎片」与现有精确碎片；永远不改 picked。
   // 只在真实聊天触发，后台预取不记；模块异常/镜像离线全部吞掉。
   try {
@@ -892,24 +892,18 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
       window.TwoResolutionShadow.observe({ charId, queryText, pinned, relevant, picked, source: "chat" });
     }
   } catch (eResolutionShadow) {/* 旁路绝不影响召回 */}
-  // ⑤后·记忆质量线 P0-1/P0-2 旁路（v49.15，施工图 §1-2）：同时算一版「4轮冷却」的 proposed 并记诊断，
-  // 但【永远返回 baseline】。豁免：pinned（本就另开一路）/open/top-1。诊断关或模块缺=零写入；异常全吞不碰聊天。
+  // ⑤后·记忆质量线 P0-1/P0-2：4 轮冷却已通过 300 次 shadow 评审后转正。
+  // pinned（另开一路）/open/top-1 永久豁免；本机 live 闸可立即恢复 baseline，诊断可单独暂停。
   try {
     const RS = window.RecallShadow;
-    if (RS && RS.enabled() && list.length) {
+    if (RS && (RS.enabled() || RS.liveEnabled()) && list.length) {
       const turn = RS.turnOf(charId);
       const top1 = relevant[0] || null;
-      const cooled = [];
       const pool = scored.filter(x => x.s > 0.9);
-      const proposedScored = pool.map(x => {
-        if (x.e !== top1 && !x.e.open && RS.isCooling(charId, x.e.id)) { cooled.push({ id: x.e.id, reason: "cooldown" }); return { e: x.e, s: x.s * 0.25 }; }
-        return x;
-      }).slice().sort((a, b) => b.s - a.s);
-      let proposed = proposedScored.slice(0, limit).map(x => x.e);
-      if (top1 && proposed[0] !== top1) proposed = [top1].concat(proposed.filter(e => e !== top1)).slice(0, limit); // top-1 不因冷却被更低相关顶掉
+      const cooling = window.RecallCooling.select({ pool, relevant, limit, isCooling: id => RS.isCooling(charId, id) });
+      const proposed = cooling.proposed, cooled = cooling.cooled;
       const baseIds = relevant.map(e => e.id), propIds = proposed.map(e => e.id);
-      const repeats = relevant.filter(e => e !== top1 && !e.open && RS.isCooling(charId, e.id)).length;
-      const replaced = baseIds.filter(id => propIds.indexOf(id) < 0).length;
+      const repeats = cooling.repeats, replaced = cooling.replaced;
       // P0-3 前置统计：top2~topK 的「95% 同分窗口」有多宽（施工图 §3：窗口普遍≤1 就不上随机；先统计再定阈值）
       let wsize = 0;
       if (pool.length > 1) {
@@ -928,7 +922,8 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
           openCooledViolations: pool.filter(x => x.e.open && cooledIds.has(x.e.id)).length,
           top1CooledViolations: top1 && cooledIds.has(top1.id) ? 1 : 0
         } });
-      if (opts.touch !== false && relevant.length) RS.noteSurfaced(charId, relevant.map(e => e.id));
+      if (RS.liveEnabled()) picked = pinned.concat(proposed);
+      if (opts.touch !== false && picked.length) RS.noteSurfaced(charId, picked.filter(e => !e.pinned).map(e => e.id));
     }
   } catch (eShadow) {/* 旁路绝不影响召回 */}
   // ⭐检索即复习：被想起的条目刷新 lastHit、hits+1（就地改 entry 对象——lib 就是 memLibRef.current 那份）。

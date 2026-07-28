@@ -12,6 +12,7 @@
   const DIAG_CAP = 500, DIAG_MAX_AGE = 14 * 86400000;
   const COOL_TURNS = 4, RING_CAP = 48;
   const OFF_KEY = "recall_shadow_off"; // 非 x_ 前缀：诊断开关是本机事，不上云
+  const LIVE_OFF_KEY = "recall_cooling_live_off"; // 本机回滚闸：默认 live，设 1 立即恢复旧召回
   let dbPromise = null, persistTimer = null;
 
   // ---- 内存态（engine 同步读）----
@@ -20,6 +21,8 @@
   let hydrated = false;
 
   const off = () => { try { return localStorage.getItem(OFF_KEY) === "1"; } catch (e) { return false; } };
+  const liveEnabled = () => { try { return localStorage.getItem(LIVE_OFF_KEY) !== "1"; } catch (e) { return true; } };
+  const trackingEnabled = () => !off() || liveEnabled();
   const charHash = id => { // 不可逆短 hash（djb2），诊断里不落真实 charId
     let h = 5381; const s = String(id || "");
     for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
@@ -71,7 +74,7 @@
   function turnOf(charId) { return turns.get(charId) || 0; }
   // 只有「实际注入聊天且 touch!==false」的召回才写 ring（engine 调用处保证）；旁路计算不污染 ring
   function noteSurfaced(charId, ids) {
-    if (off() || !charId || !ids || !ids.length) return;
+    if (!trackingEnabled() || !charId || !ids || !ids.length) return;
     try {
       const t = turnOf(charId);
       const ring = (rings.get(charId) || []).filter(x => x && ids.indexOf(x.id) < 0);
@@ -82,7 +85,7 @@
   }
   // 该角色完成一次正常回复后 +1（app.js 回复成功处调用）；后台/预览/touch:false 不计
   function turnDone(charId) {
-    if (off() || !charId) return;
+    if (!trackingEnabled() || !charId) return;
     try { turns.set(charId, turnOf(charId) + 1); schedulePersist(); } catch (e) {}
   }
   // 冷却判定（P0-2 旁路用）：4 个该角色 turn 内浮现过=冷却中；pinned/open/top-1 由调用方豁免
@@ -138,6 +141,7 @@
       const firstObservedAt=recent.length?Number(recent[0].t)||null:null,lastObservedAt=recent.length?Number(recent[recent.length-1].t)||null:null;
       return {
         enabled: !off(),
+        liveEnabled: liveEnabled(),
         observations: recent.length,
         firstObservedAt,lastObservedAt,spanHours:firstObservedAt&&lastObservedAt?+((lastObservedAt-firstObservedAt)/3600000).toFixed(2):0,
         emptyRate: recent.length ? +(agg.empty / recent.length).toFixed(3) : 0,
@@ -162,7 +166,8 @@
     } catch (e) {}
   }
   function setEnabled(on) { try { on ? localStorage.removeItem(OFF_KEY) : localStorage.setItem(OFF_KEY, "1"); } catch (e) {} }
+  function setLiveEnabled(on) { try { on ? localStorage.removeItem(LIVE_OFF_KEY) : localStorage.setItem(LIVE_OFF_KEY, "1"); } catch (e) {} }
 
   hydrate();
-  window.RecallShadow = { ringFor, turnOf, noteSurfaced, turnDone, isCooling, observe, report, clearAll, setEnabled, charHash, enabled: () => !off() };
+  window.RecallShadow = { ringFor, turnOf, noteSurfaced, turnDone, isCooling, observe, report, clearAll, setEnabled, setLiveEnabled, liveEnabled, charHash, enabled: () => !off() };
 })();
