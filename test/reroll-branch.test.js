@@ -9,6 +9,28 @@ test("抽取结果引用已被 reroll 的消息时不得落库", () => {
   assert.equal(R.candidateStillLive(item, [{ role: "assistant", ts: 2 }]), true);
 });
 
+test("私聊重 Roll 较早回复时从该 turn 首泡起截断，后续依赖旧回答的尾巴不保留",()=>{
+  const rows=[
+    {role:"user",content:"第一问"},
+    {role:"assistant",content:"旧答一",turnId:"t1"},
+    {role:"assistant",content:"旧答二",turnId:"t1"},
+    {role:"user",content:"基于旧答追问",turnId:null},
+    {role:"assistant",content:"后续旧答",turnId:"t2"}
+  ];
+  const out=R.truncateChatBranch(rows,2,"t1");
+  assert.deepEqual(out.after,[rows[0]]);
+  assert.deepEqual(out.removed,rows.slice(1));
+  assert.deepEqual(out.turnIds,["t1","t2"]);
+  assert.equal(out.start,1);
+});
+
+test("无 turnId 的旧消息也从目标处截尾，不留下悬空后文",()=>{
+  const rows=[{role:"user"},{role:"assistant"},{role:"user"},{role:"assistant",turnId:"t2"}];
+  const out=R.truncateChatBranch(rows,1,null);
+  assert.deepEqual(out.after,[rows[0]]);
+  assert.deepEqual(out.removed,rows.slice(1));
+});
+
 test("只有纯角色旧分支证据才登记为可撤销记忆", () => {
   const msgs = [{ role: "user", ts: 1 }, { role: "assistant", ts: 2, turnId: "t" }, { role: "assistant", ts: 3, turnId: "t" }];
   const map = R.journalAssignments([

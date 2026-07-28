@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v50.99";
+const APP_VERSION = "v51.00";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -2865,7 +2865,7 @@ function App() {
     const legacyLatest = !turns.length && idx === sess.msgs.map(m => m.role === "char" ? 1 : 0).lastIndexOf(1)
       && !!(sess.msgs[idx] && sess.msgs[idx].thought && statesRef.current[charId] && statesRef.current[charId].thought === sess.msgs[idx].thought);
     rollbackCharTurns(charId, turns, legacyLatest);
-    try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
+    try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll",surface:"offline", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
     pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去，逼模型给一个明显不同的版本（她 2026-07-25：reroll 出来和原文差不多）
@@ -3245,6 +3245,7 @@ function App() {
     const byChar = new Map();
     removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
+    try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"offline_reroll",surface:"group_offline",charId:"g_"+groupId,before:sess.msgs,after:truncated,targetIndex:idx});}catch(e){}
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, msgs: truncated } : s));
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去（她 2026-07-25）
@@ -4066,44 +4067,49 @@ function App() {
       }
       const turnId = m.turnId;
       if (turnId) {
-        const removed = msgs.filter(x => x && x.turnId === turnId);
+        const branch=window.RerollBranch&&window.RerollBranch.truncateChatBranch
+          ?window.RerollBranch.truncateChatBranch(msgs,idx,turnId)
+          :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[turnId]};
+        const removed=branch.removed,removedTurns=branch.turnIds;
         // 共享账本也只做软删；离线时进入专用 outbox，联网后补盖 deleted_at。
         try {
           const y = ledgerYanqiu();
           if (y && String(y.id) === String(activeChar.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "private", threadId: y.id }, removed);
         } catch (e) {}
         // 旧分支副作用回滚：只撤销“证据全部来自该角色旧 turn”的自动记忆；数据库同步为软删。
-        const journal = loadJSON("x_rerollMemoryJournal", {}), journalKey = activeChar.id + "|" + turnId;
-        const doomed = new Set(journal[journalKey] || []);
+        const journal = loadJSON("x_rerollMemoryJournal", {}),doomed=new Set();
+        removedTurns.forEach(id=>(journal[activeChar.id+"|"+id]||[]).forEach(memId=>doomed.add(String(memId))));
         if (doomed.size) saveMemLib(memLibRef.current.filter(e => !doomed.has(String(e && e.id))));
-        if (journal[journalKey]) { delete journal[journalKey]; saveJSON("x_rerollMemoryJournal", journal); }
+        let journalChanged=false;removedTurns.forEach(id=>{const key=activeChar.id+"|"+id;if(journal[key]){delete journal[key];journalChanged=true;}});
+        if(journalChanged)saveJSON("x_rerollMemoryJournal",journal);
         // 心声/心情/动作/穿着恢复到该 turn 之前；新回复随后从这份真实状态继续。
-        if (window.RerollBranch) {
-          const stateBeforeReroll = statesRef.current[activeChar.id];
-          const latestAssistant = [...msgs].reverse().find(x => x && x.role === "assistant" && x.turnId);
-          const rolled = window.RerollBranch.rollbackState(stateBeforeReroll, stateHistRef.current[activeChar.id] || [], turnId, { legacyLatest: !!(latestAssistant && latestAssistant.turnId === turnId) });
-          setStateHist(p => { const n = { ...p, [activeChar.id]: rolled.history }; stateHistRef.current = n; saveJSON("x_stateHist", n); return n; });
-          setStates(p => { const n = { ...p }; if (rolled.state) n[activeChar.id] = rolled.state; else delete n[activeChar.id]; statesRef.current = n; saveJSON("x_states", n); return n; });
-          setMoods(p => { const n = { ...p }; if (rolled.state && rolled.state.mood) n[activeChar.id] = { label: rolled.state.mood, ts: Date.now() }; else delete n[activeChar.id]; saveJSON("x_moods", n); return n; });
-          if (stateBeforeReroll && typeof stateBeforeReroll.affinityBefore === "number") setAff(activeChar.id, stateBeforeReroll.affinityBefore);
-        }
+        rollbackCharTurns(activeChar.id,removedTurns,false);
         // 抽取书签退回旧分支之前，让新分支能重新参加自动抽取。
         const firstTs = Math.min(...removed.map(x => Number(x.ts) || Date.now()));
         if (Number.isFinite(firstTs)) memExtractMarkRef.current[activeChar.id] = Math.min(memExtractMarkRef.current[activeChar.id] || firstTs, firstTs - 1);
         // 正常回合：删掉这一轮 AI 回复（保留用户最后一条）重生成
         pChat(activeChar.id, p => {
-          const next = p.filter(x => x.turnId !== turnId);
-          try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll", charId: activeChar.id, before: p, after: next, targetIndex: idx, turnId }); } catch (e) {}
+          const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,turnId):branch;
+          const next=liveBranch.after;
+          try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll",surface:"private", charId: activeChar.id, before: p, after: next, targetIndex: liveBranch.start, turnId }); } catch (e) {}
           return next;
         });
       } else {
-        // 无 turnId 的角色消息（如同人文读后感）：只删「从这条起、连续的无 turnId 角色气泡」这一组，
-        // 绝不能按 turnId===undefined 批量过滤——那会连我发的同人文卡和别的消息一起删掉。
+        // 无 turnId 的旧消息也必须开新分支：从目标处截尾，不能留下基于旧回答的后文。
+        const branch=window.RerollBranch&&window.RerollBranch.truncateChatBranch
+          ?window.RerollBranch.truncateChatBranch(msgs,idx,null)
+          :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[]};
+        const removedTurns=branch.turnIds||[],journal=loadJSON("x_rerollMemoryJournal",{}),doomed=new Set();
+        removedTurns.forEach(id=>(journal[activeChar.id+"|"+id]||[]).forEach(memId=>doomed.add(String(memId))));
+        if(doomed.size)saveMemLib(memLibRef.current.filter(e=>!doomed.has(String(e&&e.id))));
+        let journalChanged=false;removedTurns.forEach(id=>{const key=activeChar.id+"|"+id;if(journal[key]){delete journal[key];journalChanged=true;}});
+        if(journalChanged)saveJSON("x_rerollMemoryJournal",journal);
+        rollbackCharTurns(activeChar.id,removedTurns,true);
+        try{const y=ledgerYanqiu();if(y&&String(y.id)===String(activeChar.id)&&window.ChatLedgerShadow)window.ChatLedgerShadow.invalidate({charId:y.id,threadType:"private",threadId:y.id},branch.removed);}catch(e){}
         pChat(activeChar.id, p => {
-          let end = idx;
-          while (end < p.length && p[end].role === "assistant" && !p[end].turnId) end++;
-          const next = p.slice(0, idx).concat(p.slice(end));
-          try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll", charId: activeChar.id, before: p, after: next, targetIndex: idx }); } catch (e) {}
+          const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,null):branch;
+          const next=liveBranch.after;
+          try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll",surface:"private_legacy", charId: activeChar.id, before: p, after: next, targetIndex: liveBranch.start }); } catch (e) {}
           return next;
         });
       }
@@ -4458,7 +4464,7 @@ function App() {
       const byChar = new Map();
       removed.filter(x => x && x.senderId).forEach(x => { const rec = byChar.get(x.senderId) || { turns: [], legacyThoughts: [] }; if (x.turnId) rec.turns.push(x.turnId); if (!x.turnId && x.thought) rec.legacyThoughts.push(x.thought); byChar.set(x.senderId, rec); });
       byChar.forEach((rec, charId) => rollbackCharTurns(charId, rec.turns, !rec.turns.length && !!(statesRef.current[charId] && rec.legacyThoughts.includes(statesRef.current[charId].thought))));
-      pGChat(groupId, p => p.slice(0, start));
+      pGChat(groupId,p=>{const next=p.slice(0,start);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
       setTimeout(() => replyGroup(groupId), 200);
     }
   };

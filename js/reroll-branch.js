@@ -16,6 +16,18 @@
     return ids.every(id => live.has(id));
   }
 
+  // 重 Roll 是开一条新分支：保留目标回复之前的历史，目标回复及其所有后文一起退出有效时间线。
+  // turnId 只用来向前找到同批拆泡的首泡，绝不能只删同 turn 而留下依赖旧回答的尾巴。
+  function truncateChatBranch(messages,targetIndex,turnId) {
+    const before=arr(messages),idx=Math.floor(Number(targetIndex));
+    if(idx<0||idx>=before.length)return {after:before.slice(),removed:[],start:-1,turnIds:[]};
+    let start=idx;
+    if(turnId)while(start>0&&String(before[start-1]&&before[start-1].turnId||"")===String(turnId))start--;
+    const removed=before.slice(start),turnIds=[];
+    removed.forEach(m=>{const id=String(m&&m.turnId||"");if(id&&!turnIds.includes(id))turnIds.push(id);});
+    return {after:before.slice(0,start),removed,start,turnIds};
+  }
+
   // 只有证据【全部】来自同一个角色回复 turn，才允许该 turn 的 reroll 撤销这条记忆。
   // 用户原话也参与证据的事实仍成立，不跟着角色旧说法一起消失。
   function journalAssignments(entries, sourceMessages) {
@@ -47,5 +59,5 @@
     return { state: { thought: prev.thought, mood: prev.mood, wearing: prev.wearing, action: prev.action, ts: prev.ts, turnId: prev.turnId || null, affinityBefore: prev.affinityBefore }, history: clean };
   }
 
-  return { evidenceId, evidenceIds, candidateStillLive, journalAssignments, rollbackState };
+  return { evidenceId, evidenceIds, candidateStillLive, truncateChatBranch,journalAssignments, rollbackState };
 });

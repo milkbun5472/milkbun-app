@@ -4,7 +4,7 @@
 // ============================================================
 (function () {
   "use strict";
-  const DB_NAME = "lisa_message_branch_shadow_v1", DB_VERSION = 1, CAP = 500, KEEP_MS = 14 * 86400000;
+  const DB_NAME = "lisa_message_branch_shadow_v1", DB_VERSION = 1, CAP = 500, KEEP_MS = 14 * 86400000, AUDIT_VERSION = 3;
   let dbPromise = null;
   const hash = value => { let h = 5381; const s = String(value == null ? "" : value); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
 
@@ -29,7 +29,7 @@
       tailSurvived = after.length > idx;
       valid = oldBranchGone;
     } else if (input.kind === "delete") valid = after.length === before.length - 1;
-    return { kind: input.kind, beforeCount: before.length, afterCount: after.length, targetRole: target.role || null,
+    return { kind: input.kind, surface:String(input.surface||"unknown").slice(0,24),beforeCount: before.length, afterCount: after.length, targetRole: target.role || null,
       hadTurnId: !!input.turnId, tailCount, oldBranchGone, tailSurvived, valid };
   }
   function openDB() {
@@ -48,7 +48,7 @@
     try {
       const row = inspectMutation(input || {}), now = Date.now();
       const db = await openDB(), tx = db.transaction("audits", "readwrite"), store = tx.objectStore("audits");
-      store.add(Object.assign({ t: now, auditVersion: 2, c: hash(input && input.charId) }, row));
+      store.add(Object.assign({ t: now, auditVersion:AUDIT_VERSION, c: hash(input && input.charId) }, row));
       await done(tx);
       if (Math.random() < 0.08) {
         const tx2 = db.transaction("audits", "readwrite"), s2 = tx2.objectStore("audits"), rows = await rq(s2.getAll());
@@ -60,14 +60,16 @@
   async function report(n) {
     try {
       const db = await openDB(), tx = db.transaction("audits", "readonly"), all = await rq(tx.objectStore("audits").getAll()); await done(tx);
-      const rows = all.filter(x => x.auditVersion === 2).slice(-(n || 200)), actions = {};
+      const selected=all.slice(-(n||200)),legacySamples=selected.filter(x=>Number(x.auditVersion||1)<AUDIT_VERSION).length,rows=selected.filter(x=>Number(x.auditVersion||1)===AUDIT_VERSION), actions = {},bySurface={};
       rows.forEach(x => { actions[x.kind] = (actions[x.kind] || 0) + 1; });
+      rows.forEach(x=>{const k=x.surface||"unknown";bySurface[k]=(bySurface[k]||0)+1;});
       const invalidByKind = {}; rows.filter(x => !x.valid).forEach(x => { invalidByKind[x.kind] = (invalidByKind[x.kind] || 0) + 1; });
+      const invalidBySurface={};rows.filter(x=>!x.valid).forEach(x=>{const k=x.surface||"unknown";invalidBySurface[k]=(invalidBySurface[k]||0)+1;});
       const firstObservedAt=rows.length?Number(rows[0].t)||null:null,lastObservedAt=rows.length?Number(rows[rows.length-1].t)||null:null;
-      return { audits: rows.length,firstObservedAt,lastObservedAt,spanHours:firstObservedAt&&lastObservedAt?Math.round((lastObservedAt-firstObservedAt)/36000)/100:0, actions, resetReason: "v2 起正常编辑不再算异常，旧样本已排除", invalid: rows.filter(x => !x.valid).length, invalidByKind,
+      return { auditVersion:AUDIT_VERSION,legacySamples,audits: rows.length,firstObservedAt,lastObservedAt,spanHours:firstObservedAt&&lastObservedAt?Math.round((lastObservedAt-firstObservedAt)/36000)/100:0, actions,bySurface,resetReason: "v3 起标记具体入口，并统一私聊 reroll 截尾；v1/v2 只留档", invalid: rows.filter(x => !x.valid).length, invalidByKind,invalidBySurface,
         danglingTail: rows.filter(x => x.tailSurvived).length, last: rows.slice(-10) };
     } catch (e) { return { error: "有效消息分支审计读取失败" }; }
   }
   async function clearAll() { try { const db = await openDB(), tx = db.transaction("audits", "readwrite"); tx.objectStore("audits").clear(); await done(tx); } catch (e) {} }
-  window.MessageBranchShadow = { inspectMutation, observeMutation, report, clearAll };
+  window.MessageBranchShadow = { AUDIT_VERSION,inspectMutation, observeMutation, report, clearAll };
 })();
