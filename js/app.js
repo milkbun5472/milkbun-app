@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.01";
+const APP_VERSION = "v51.02";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -1806,7 +1806,11 @@ function App() {
       // 否则 {"resolveOpen":""} 会漏进来变成一条 text="undefined" 的垃圾记忆入库上云
       // 抽取期间若用户 reroll 掉旧分支，旧结果即使稍后返回也不得落库。
       const liveMessages = exOpts.liveMessages || (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m));
-      const entries = items.filter(it => it && it.resolveOpen == null && it.text && window.RerollBranch && window.RerollBranch.candidateStillLive(it, liveMessages)).map((it, i) => ({
+      const entries = items.filter(it =>
+        it && it.resolveOpen == null && it.text &&
+        window.MemoryExtractionGate && window.MemoryExtractionGate.inspect(it, msgs).formal &&
+        window.RerollBranch && window.RerollBranch.candidateStillLive(it, liveMessages)
+      ).map((it, i) => ({
         id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
         v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
         evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : []

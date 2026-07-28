@@ -39,17 +39,21 @@
         else if (ids.some(id => !byId.has(id))) evidenceInvalidReason = "missing_message";
         else if (ids.some((id,i) => byId.get(id).indexOf(quotes[i]) < 0)) evidenceInvalidReason = "quote_mismatch";
         const evidenceValid = aligned && evidenceInvalidReason === null;
-        const kind = ["fact","promise","relationship","insight","temperature"].includes(x.kind) ? x.kind : "unknown";
+        const gate = window.MemoryExtractionGate ? window.MemoryExtractionGate.inspect(x, msgs) : null;
+        const kind = gate && gate.kind
+          ? gate.kind
+          : (["fact","promise","relationship","insight","temperature"].includes(x.kind) ? x.kind : "unknown");
         const proposed = ["accept","candidate","reject"].includes(x.proposed_action) ? x.proposed_action : "unknown";
         const milestoneViolation = kind === "temperature" && (milestone(x.text) || quotes.some(milestone));
         return {
           kind, proposed, confidenceBucket: typeof x.confidence === "number" ? Math.round(Math.max(0, Math.min(1, x.confidence)) * 10) / 10 : null,
-          auditVersion:2,evidenceCount: ids.length, evidenceValid,evidenceInvalidReason, milestoneViolation,
+          auditVersion:3,evidenceCount: ids.length, evidenceValid,evidenceInvalidReason, milestoneViolation,
+          formalGatePassed: gate ? gate.formal : null, formalGateReason: gate ? gate.reason : null,
           actualAccepted: accepted.has(String(x.text).trim()), messageIdHashes: ids.map(hash)
         };
       });
       const db = await openDB(), tx = db.transaction("diag", "readwrite"), store = tx.objectStore("diag");
-      store.add({ auditVersion:2,t: Date.now(), char: hash(input && input.charId), candidateCount: rows.length, rows });
+      store.add({ auditVersion:3,t: Date.now(), char: hash(input && input.charId), candidateCount: rows.length, rows });
       await done(tx);
       if (Math.random() < 0.1) {
         const tx2 = db.transaction("diag", "readwrite"), s = tx2.objectStore("diag");
@@ -63,11 +67,13 @@
   async function report(n) {
     try {
       const db = await openDB(), tx = db.transaction("diag", "readonly"), all = await rq(tx.objectStore("diag").getAll()); await done(tx);
-      const batches = all.slice(-(n || 200)), rows = batches.flatMap(b => b.rows || []), kinds = {}, proposed = {},invalidEvidenceReasons={};
+      const tail = all.slice(-(n || 200)), legacySamples = tail.filter(b => Number(b.auditVersion || 0) < 3).length;
+      const batches = tail.filter(b => Number(b.auditVersion || 0) >= 3);
+      const rows = batches.flatMap(b => b.rows || []), kinds = {}, proposed = {},invalidEvidenceReasons={};
       rows.forEach(r => { kinds[r.kind] = (kinds[r.kind] || 0) + 1; proposed[r.proposed] = (proposed[r.proposed] || 0) + 1; });
       rows.filter(r=>!r.evidenceValid).forEach(r=>{const reason=r.evidenceInvalidReason||"legacy_unknown";invalidEvidenceReasons[reason]=(invalidEvidenceReasons[reason]||0)+1;});
       const firstObservedAt=batches.length?Number(batches[0].t)||null:null,lastObservedAt=batches.length?Number(batches[batches.length-1].t)||null:null;
-      return { batches: batches.length, candidates: rows.length, kinds, proposed,
+      return { auditVersion: 3, legacySamples, batches: batches.length, candidates: rows.length, kinds, proposed,
         firstObservedAt,lastObservedAt,spanHours:firstObservedAt&&lastObservedAt?Math.round((lastObservedAt-firstObservedAt)/36000)/100:0,
         evidenceValidRate: rows.length ? rows.filter(r => r.evidenceValid).length / rows.length : 0,
         invalidEvidenceCount:rows.filter(r=>!r.evidenceValid).length,invalidEvidenceReasons,
