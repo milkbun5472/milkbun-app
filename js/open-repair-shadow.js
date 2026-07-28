@@ -74,14 +74,35 @@
       const live=rows.filter(x=>Number(x.lastSeenAt||0)>=cutoff); live.slice(0,Math.max(0,live.length-CAP)).forEach(x=>store.delete(x.key)); await done(tx);
     } catch (e) {}
   }
+  function summarizeRows(inputRows) {
+    const rows = Array.isArray(inputRows) ? inputRows : [];
+    const byMemory = new Map();
+    rows.forEach(row => {
+      const id = String(row && row.oldMemoryId || "");
+      if (!id) return;
+      const item = byMemory.get(id) || { rows: 0, kinds: new Set(), seen: 0 };
+      item.rows += 1;
+      if (KINDS.includes(row.kind)) item.kinds.add(row.kind);
+      item.seen += Math.max(1, Number(row.seenCount || 0));
+      byMemory.set(id, item);
+    });
+    const groups = [...byMemory.values()];
+    return {
+      uniqueOpenMemories: byMemory.size,
+      repeatedOpenMemories: groups.filter(x => x.rows > 1 || x.seen > 1).length,
+      duplicateEvidenceRows: Math.max(0, rows.length - byMemory.size),
+      repeatedObservations: Math.max(0, groups.reduce((n, x) => n + x.seen, 0) - rows.length),
+      outcomeConflicts: groups.filter(x => x.kinds.size > 1).length
+    };
+  }
   async function report() {
     try {
       const db = await openDB(), tx = db.transaction("candidates", "readonly"), rows = await rq(tx.objectStore("candidates").getAll()); await done(tx);
       const firstObservedAt=rows.length?Math.min(...rows.map(x=>Number(x.firstSeenAt)||Infinity)):null,lastObservedAt=rows.length?Math.max(...rows.map(x=>Number(x.lastSeenAt)||0)):null;
-      return { candidates: rows.length,firstObservedAt:Number.isFinite(firstObservedAt)?firstObservedAt:null,lastObservedAt:lastObservedAt||null,spanHours:Number.isFinite(firstObservedAt)&&lastObservedAt?Math.round((lastObservedAt-firstObservedAt)/36000)/100:0, fulfilled: rows.filter(x => x.kind === "fulfilled").length, resolved: rows.filter(x => x.kind === "resolved").length, abandoned: rows.filter(x => x.kind === "abandoned").length,
+      return { candidates: rows.length,...summarizeRows(rows),firstObservedAt:Number.isFinite(firstObservedAt)?firstObservedAt:null,lastObservedAt:lastObservedAt||null,spanHours:Number.isFinite(firstObservedAt)&&lastObservedAt?Math.round((lastObservedAt-firstObservedAt)/36000)/100:0, fulfilled: rows.filter(x => x.kind === "fulfilled").length, resolved: rows.filter(x => x.kind === "resolved").length, abandoned: rows.filter(x => x.kind === "abandoned").length,
         last: rows.sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)).slice(0, 20) };
     } catch (e) { return { error: "RepairGate 报表读取失败" }; }
   }
   async function clearAll() { try { const db = await openDB(), tx = db.transaction("candidates", "readwrite"); tx.objectStore("candidates").clear(); await done(tx); } catch (e) {} }
-  window.OpenRepairShadow = { observe, report, clearAll, evidenceMessages, _validateCandidates: validateCandidates };
+  window.OpenRepairShadow = { observe, report, clearAll, evidenceMessages, _validateCandidates: validateCandidates, _summarizeRows: summarizeRows };
 })();
