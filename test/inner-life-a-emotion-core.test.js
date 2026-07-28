@@ -52,14 +52,14 @@ test("固定词典能区分受伤/愤怒/焦虑/柔软/疲惫，未知词不脑�
 });
 
 test("固定词典覆盖既有真实未命中词，仍不调用模型解释", () => {
-  assert.equal(A.moodDictionaryVersion,4);
+  assert.equal(A.moodDictionaryVersion,5);
   const cases=[["松快","positive_valence"],["郁闷","low_valence"],["動揺","anxiety"],["激动","high_arousal"],["冷酷","cold"]];
   for(const [word,rule] of cases)assert.ok(A.moodEvidence(word).rules.includes(rule),word);
   const added=[["平静","calm"],["专注","calm"],["得意","positive_valence"],["调皮","playful"],["害羞","shy"],["落寞","hurt"],["心疼","warmth"],["慵懒","fatigue"]];
   for(const [word,rule] of added)assert.ok(A.moodEvidence(word).rules.includes(rule),word);
   assert.deepEqual(A.moodEvidence("平静").delta,{},"中性词只算识别，不硬改数字");
   const event=A.applyEvent(A.createState("char",T0),{moodLabel:"松快"},T0+1);
-  assert.equal(event.audit.moodDictionaryVersion,4);
+  assert.equal(event.audit.moodDictionaryVersion,5);
   assert.equal(event.audit.moodLabel,"松快");
 });
 
@@ -131,13 +131,25 @@ test("接近 baseline 时 display 零增量，不硬塞十维", () => {
 });
 
 test("v4 真实未命中词受控归轴，姿态词只识别不推数字", () => {
-  assert.equal(A.moodDictionaryVersion,4);
+  assert.equal(A.moodDictionaryVersion,5);
   const awkward=A.moodEvidence("局促");
   assert.equal(awkward.matched,true);
   assert.ok(awkward.delta.anxiety>0);
   const jealous=A.moodEvidence("酸溜溜的");
   assert.ok(jealous.delta.hurt>0&&jealous.delta.valence<0);
   const posture=A.moodEvidence("嘴硬又想掌控");
+  assert.equal(posture.matched,true);
+  assert.deepEqual(posture.delta,{});
+});
+
+test("v5 覆盖第三轮影子审计高频未命中，复合标签按词片机械命中", () => {
+  const driven=A.moodEvidence("更有干劲了");
+  assert.ok(driven.rules.includes("high_arousal"));
+  const overwhelmed=A.moodEvidence("崩溃");
+  assert.ok(overwhelmed.delta.hurt>0&&overwhelmed.delta.anxiety>0);
+  const mixed=A.moodEvidence("诚实 温软 打趣");
+  assert.ok(mixed.rules.includes("warmth")&&mixed.rules.includes("playful"));
+  const posture=A.moodEvidence("不为所动 审视");
   assert.equal(posture.matched,true);
   assert.deepEqual(posture.delta,{});
 });
