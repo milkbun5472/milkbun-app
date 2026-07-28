@@ -11,7 +11,7 @@ const base={kind:"insight",text:"陪伴的核心从持续说话变成了确认�
 
 test("严格洞察必须同时有综合结论、有效原话、推导和认知转折",()=>{
   const I=load(),out=I.structureCandidate(base,messages,[base.text]);
-  assert.equal(out.auditVersion,2);assert.equal(out.strictReady,true);assert.deepEqual(out.missing,[]);assert.equal(out.unsafeOrdinaryLeak,false);
+  assert.equal(out.auditVersion,3);assert.equal(out.strictReady,true);assert.deepEqual(out.missing,[]);assert.equal(out.unsafeOrdinaryLeak,false);
 });
 
 test("两条普通事实不再自动算推导，只有因果没有转折也不够",()=>{
@@ -24,4 +24,24 @@ test("两条普通事实不再自动算推导，只有因果没有转折也不�
 test("把逐字原话原封不动当结论会被综合门挡住",()=>{
   const I=load(),quote=messages[0].content,c={...base,text:quote,evidence_message_ids:["u1"],evidence_quotes:[quote]};
   const out=I.structureCandidate(c,messages,[quote]);assert.equal(out.conclusionSynthesized,false);assert.ok(out.missing.includes("synthesis"));assert.equal(out.strictReady,false);
+});
+
+test("模型不能只在生成结论里自带因果和转折，真实引文必须亲自作证",()=>{
+  const I=load(),c={...base,text:"原来陪伴之所以重要，是因为两个人终于理解了彼此",evidence_quotes:["安静地在场也算","真正让人安心"]};
+  const out=I.structureCandidate(c,messages,[c.text]);
+  assert.equal(out.quoteValid,true);
+  assert.equal(out.derivationPresent,false);
+  assert.equal(out.turningPointPresent,false);
+  assert.equal(out.strictReady,false);
+});
+
+test("普通客观变化不是认知转折，单块证据也不能冒充综合",()=>{
+  const I=load(),oneMessage=[{id:"u1",role:"user",content:"因为下雨，行程从步行变成了坐车。"}];
+  const c={kind:"insight",text:"天气变化会改变当天选择",evidence_message_ids:["u1"],evidence_quotes:["因为下雨，行程从步行变成了坐车。"]};
+  const out=I.structureCandidate(c,oneMessage,[c.text]);
+  assert.equal(out.derivationPresent,true);
+  assert.equal(out.turningPointPresent,false);
+  assert.equal(out.evidencePairPresent,false);
+  assert.ok(out.missing.includes("evidence_pair"));
+  assert.equal(out.strictReady,false);
 });

@@ -5,12 +5,12 @@
 // ============================================================
 (function () {
   "use strict";
-  const DB_NAME = "lisa_insight_candidate_shadow_v1", DB_VERSION = 1, CAP = 500, KEEP_MS = 14 * 86400000, AUDIT_VERSION = 2;
+  const DB_NAME = "lisa_insight_candidate_shadow_v1", DB_VERSION = 1, CAP = 500, KEEP_MS = 14 * 86400000, AUDIT_VERSION = 3;
   let dbPromise = null;
   const hash = value => { let h = 5381; const s = String(value == null ? "" : value); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
   const messageId = (m, i) => String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i));
-  // 转折必须是“理解发生了改变”，不能再拿普通因果词「所以/因此」冒充。
-  const turnCue = text => /原来|不是.{0,40}而是|才发现|后来才|直到.{0,40}才|起初.{0,80}后来|从.{0,40}变成|重新理解|改口|意识到|终于明白|这才明白|没想到/i.test(String(text || ""));
+  // 转折必须是“理解发生了改变”，不能拿普通因果、客观变化或一句「没想到」冒充。
+  const turnCue = text => /原来|不是.{0,40}而是|才发现|后来才|直到.{0,40}才(?:发现|明白|意识到)|(?:以前|起初).{0,60}(?:以为|认为|觉得).{0,80}(?:后来|现在|如今)|重新理解|改变了看法|不再认为|意识到|终于明白|这才明白/i.test(String(text || ""));
   const reasoningCue = text => /因为|所以|因此|意味着|说明|可见|之所以|源于|导致|推得|由此|让我明白|让.{0,40}意识到/i.test(String(text || ""));
   const normalized = text => String(text || "").trim().replace(/\s+/g," ").replace(/[。！？!?；;，,]/g,"");
 
@@ -21,18 +21,20 @@
     const aligned = ids.length > 0 && ids.length === quotes.length;
     const quoteValid = aligned && ids.every((id, i) => byId.has(id) && quotes[i].trim().length > 0 && String(byId.get(id).content || "").includes(quotes[i]));
     const roles = new Set(ids.map(id => byId.get(id) && byId.get(id).role).filter(Boolean));
-    const conclusion=String(candidate && candidate.text || "").trim(),combined = [conclusion].concat(quotes).join(" ");
+    const conclusion=String(candidate && candidate.text || "").trim(),evidenceText=quoteValid?quotes.join(" "):"";
     const conclusionPresent = conclusion.length >= 12;
     const conclusionSynthesized = conclusionPresent && !quotes.some(q=>normalized(q)===normalized(conclusion));
-    const derivationPresent = reasoningCue(combined);
-    const turningPointPresent = turnCue(combined);
+    // 生成结论没有证据权限：推导与转折都必须能在逐字引文中找到。
+    const derivationPresent = quoteValid && reasoningCue(evidenceText);
+    const turningPointPresent = quoteValid && turnCue(evidenceText);
     const originalQuotePresent = quoteValid && quotes.length > 0;
-    const strictReady = conclusionPresent && conclusionSynthesized && originalQuotePresent && derivationPresent && turningPointPresent;
+    const evidencePairPresent = quoteValid && new Set(ids).size >= 2 && quotes.length >= 2;
+    const strictReady = conclusionPresent && conclusionSynthesized && originalQuotePresent && evidencePairPresent && derivationPresent && turningPointPresent;
     const accepted = new Set((acceptedTexts || []).map(x => String(x || "").trim()));
     const leakedIntoMemory=accepted.has(conclusion),missing=[];
-    if(!conclusionPresent)missing.push("conclusion");if(conclusionPresent&&!conclusionSynthesized)missing.push("synthesis");if(!originalQuotePresent)missing.push("quote");if(!derivationPresent)missing.push("derivation");if(!turningPointPresent)missing.push("turning_point");
+    if(!conclusionPresent)missing.push("conclusion");if(conclusionPresent&&!conclusionSynthesized)missing.push("synthesis");if(!originalQuotePresent)missing.push("quote");if(originalQuotePresent&&!evidencePairPresent)missing.push("evidence_pair");if(!derivationPresent)missing.push("derivation");if(!turningPointPresent)missing.push("turning_point");
     return { auditVersion:AUDIT_VERSION,candidateHash: hash(candidate && candidate.text), conclusionPresent,conclusionSynthesized, derivationPresent, turningPointPresent,
-      originalQuotePresent, quoteValid, evidenceCount: ids.length, roleCount: roles.size, ready:strictReady,strictReady,missing,
+      originalQuotePresent, quoteValid, evidencePairPresent,evidenceCount: ids.length, roleCount: roles.size, ready:strictReady,strictReady,missing,
       leakedIntoMemory,unsafeOrdinaryLeak:leakedIntoMemory&&!strictReady,messageIdHashes: ids.map(hash) };
   }
   function openDB() {
