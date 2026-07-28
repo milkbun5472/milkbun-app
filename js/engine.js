@@ -1028,7 +1028,7 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
     "· 同一件事【只记一条】，别把一件事拆成好几条重复的；忽略寒暄和没信息量的闲聊。为每条配 1~3 个中文标签。" + avoid + "\n" +
     "【质量分类 shadow：只供诊断，不决定本次是否入库】每条同时给：kind=fact|promise|relationship|insight|temperature；confidence=0~1；proposed_action=accept|candidate|reject。没有新事实的日常甜话只能是 temperature/candidate；明确承诺、关系转折、边界与里程碑（如『做我的吧』『我爱你』、明确约定）必须是 promise 或 relationship/accept，绝不能降成 temperature。\n" +
     "【证据】每条给 evidence_message_ids 和 evidence_quotes，两数组一一对应且至少 1 项；ID 必须照抄上面的消息ID，quote 必须是该消息正文中逐字存在的短句。找不到就别造这条。\n" +
-    "· 每条再标注情绪与状态：**v**=这件事的情绪愉悦度（整数 -5~5，负=难过/生气/难堪/委屈，0=中性事实，正=开心/温暖/心动）；**a**=情绪强度（整数 0~5，0=平淡的事实，5=强烈动情/激烈冲突/刻骨铭心）；**open**=是不是【还没了结的开环】（true=没兑现的约定/没和好的争执/悬着的心事/在等的结果这类还惦记着、还没画句号的；false=已了结的、或本来就是静态事实/偏好/背景）。\n" +
+    "· 每条再标注情绪与状态：**v**=这件事的情绪愉悦度（整数 -5~5，负=难过/生气/难堪/委屈，0=中性事实，正=开心/温暖/心动）；**a**=情绪强度（整数 0~5，0=平淡的事实，5=强烈动情/激烈冲突/刻骨铭心）；**open**=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好而尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true。单纯的未来时态和普通生活安排（今晚吃什么、待会洗澡、明天上班/健身/做饭）一律 false；它们可以是事实，但不是开环。\n" +
     (Array.isArray(opts.openList) && opts.openList.length
       ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。**这只是候选，不会自动关闭 open**。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
@@ -1054,7 +1054,7 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
     "· 一句话、具体可复用；**开头用真名点明主语**（关于用户「" + uName + "」、关于某个角色自己、还是关于某两人之间）。\n" +
     "· **每条必须给 who**：一个数组，列出这条记忆【是关于谁的】，只能从这些名字里选：" + [uName].concat(roster).join("、") + "。关于两人之间就把两个名字都放进去。\n" +
     "· **绝对不许张冠李戴**：谁说的话、谁的经历，就记在谁名下；在场不代表相关，别把某人的事按到别人头上。分不清是谁的就别记这条。\n" +
-    "· 同一件事只记一条，忽略寒暄闲聊；每条配 1~3 个中文标签。每条标注 v（情绪愉悦度 -5~5）、a（强度 0~5）、open（是否还没了结的开环 true/false）。" + avoid + "\n" +
+    "· 同一件事只记一条，忽略寒暄闲聊；每条配 1~3 个中文标签。每条标注 v（情绪愉悦度 -5~5）、a（强度 0~5）、open。open=true 只用于明确答应对方/共同约好而尚未兑现、未解决的关系冲突、悬着的心事或重要结果；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。" + avoid + "\n" +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false}]\n没有值得记的、或都已记过，就输出 []。";
   const raw = await callAI(p, system, [{ role: "user", content: "【多人线下记录】\n" + text }], { maxTokens: 5000 });
   const parsed = extractJSON(raw);
@@ -1717,7 +1717,7 @@ async function summarizeOffline(p, ctx, session) {
   const system = "把下面这段『" + userName + "』与『" + ctx.char.name + "』的线下相处做记忆归档。只输出 JSON：\n" +
     "{\"summary\":\"1~3句第三人称总结：在哪、做了什么、关键互动或情绪转折\"," +
     "\"details\":[\"谈话中值得长期记住的【具体细节】：彼此透露的事/新知道的信息/说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + ctx.char.name + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【新约好、还没兑现】的事（下次去哪/答应对方什么），每条一句；没有就 []\"]}";
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
   const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 4000 });
   const d = extractJSON(raw);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };
@@ -1908,7 +1908,7 @@ async function summarizeOfflineGroup(p, ctx, session) {
   const system = "把下面『" + userName + "』与" + names + "的这段线下相处做记忆归档。只输出 JSON：\n" +
     "{\"summary\":\"1~3句第三人称总结：他们在哪、一起做了什么、谁和谁有关键互动或情绪转折、达成的约定。具体、可复用\"," +
     "\"details\":[\"值得长期记住的【具体细节】：谁透露的事/新知道的信息/谁说过的重要的话/吃了什么去了哪——每条一句、开头带主语真名（" + userName + "／" + names + "），2~6条，宁具体勿空泛；真没有就 []\"]," +
-    "\"open\":[\"这次线下里【新约好、还没兑现】的事（下次去哪/谁答应谁什么），每条一句；没有就 []\"]}";
+    "\"open\":[\"这次线下里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
   const raw = await callAI(p, system, [{ role: "user", content: "【线下经过】\n" + text }], { maxTokens: 4000 });
   const d = extractJSON(raw);
   if (d && d.summary) return { summary: String(d.summary).trim(), details: (Array.isArray(d.details) ? d.details : []).map(x => String(x).trim()).filter(Boolean).slice(0, 6), open: (Array.isArray(d.open) ? d.open : []).map(x => String(x).trim()).filter(Boolean).slice(0, 3) };

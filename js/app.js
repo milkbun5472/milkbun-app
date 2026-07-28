@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.06";
+const APP_VERSION = "v51.07";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -1612,7 +1612,7 @@ function App() {
   });
   const clampInt = (x, lo, hi, dflt) => typeof x === "number" && !isNaN(x) ? Math.max(lo, Math.min(hi, Math.round(x))) : dflt;
   const addMemEntry = e => {
-    const entry = {
+    let entry = {
       id: "m_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
       text: (e.text || "").trim(),
       tags: e.tags || [],
@@ -1624,6 +1624,9 @@ function App() {
       a: clampInt(e.a, 0, 5, 1),    // 情绪强度 0~5
       open: !!e.open                // 还没了结的开环
     };
+    // v51.07：模型把“今晚吃粥”一类普通未来安排也大量标成 open。
+    // 自动来源先过机械资格闸；手动勾选不干预。被挡的条目仍作为普通事实保存，不丢记忆。
+    if (entry.source !== "manual" && window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
     if (!entry.text) return;
     // 自动来源（抽取/总结）去重，别把同一件事塞好几条；手动记的放行（用户自己要加就加）
     if (entry.source !== "manual" && isDupMem(entry.text, entry.charIds)) return;
