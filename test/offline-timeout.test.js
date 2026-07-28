@@ -4,7 +4,7 @@ const assert = require("assert");
 const engine = fs.readFileSync("js/engine.js", "utf8");
 const cloud = fs.readFileSync("js/cloud.js", "utf8");
 
-assert((engine.match(/maxTokens: session\.maxTokens \|\| 1400, timeout: 180000/g) || []).length === 2,
+assert((engine.match(/maxTokens: session\.maxTokens \|\| 4000, timeout: 180000/g) || []).length === 2,
   "single offline and its no-cot fallback must both allow three minutes");
 assert((engine.match(/maxTokens: session\.maxTokens \|\| 1900, timeout: 180000/g) || []).length === 2,
   "group offline and its no-cot fallback must both allow three minutes");

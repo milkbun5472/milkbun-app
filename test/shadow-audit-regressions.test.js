@@ -27,3 +27,11 @@ test("Experience Gate 区分标题标签与正文冒充亲历",()=>{
   assert.equal(header.truthClaimRisk,true);assert.equal(header.riskReason,"header_label_only");
   assert.equal(body.truthClaimRisk,true);assert.equal(body.riskReason,"assertive_body");
 });
+
+test("A/B 影子只读审计遇到 owner 不匹配绝不获得清库权限",()=>{
+  const A=require("../js/inner-life-a-shadow.js"),owner="owner-a";
+  assert.equal(A._ownerDecision(null,owner,false),"missing");
+  assert.equal(A._ownerDecision({ownerHash:"owner-b"},owner,false),"mismatch");
+  assert.equal(A._ownerDecision({ownerHash:owner},owner,false),"match");
+  assert.equal(A._ownerDecision({ownerHash:"owner-b"},owner,true),"reset");
+});

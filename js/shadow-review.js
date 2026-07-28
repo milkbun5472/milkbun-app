@@ -52,13 +52,32 @@
       }
       if (window.DesireDriveShadow && window.DesireDriveShadow.status) {
         const state = await safe("drive", () => window.DesireDriveShadow.status(char.id));
-        if (state) drives.push({ charId: char.id, name: label, drives: state.drives, baselines: state.baselines, top: state.top, ticks: state.ticks, warnings: state.warnings, suppressed: state.suppressed, updatedAt: state.t });
+        if (state) drives.push({
+          charId: char.id, name: label, drives: state.drives, baselines: state.baselines,
+          baselineFreezeVersion: state.baselineFreezeVersion || null,
+          legacyBaselineDriftDetected: !!state.legacyBaselineDrift,
+          top: state.top, ticks: state.ticks, warnings: state.warnings,
+          suppressed: state.suppressed, updatedAt: state.t
+        });
       }
     }
+    const ownerMismatches = a.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name)
+      .concat(b.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name));
     return {
       schema: "lisa-shadow-promotion-review-v1",
       generatedAt: new Date().toISOString(), appVersion: appVersion || null,
-      safety: { readOnly: true, changedLiveBehavior: false, containsChatText: false, openedAnyGate: false },
+      safety: {
+        readOnly: true, changedLiveBehavior: false, containsChatText: false, openedAnyGate: false,
+        ownerMismatchCannotClearDiagnostics: true
+      },
+      comparisonIntegrity: {
+        purePreShadowBaseline: false,
+        reasons: [
+          "记忆抽取 prompt 已要求输出质量分类与逐字证据；真实采纳仍沿用旧写路，因此抽取质量只能评估当前系统，不能冒充上线前纯基线。",
+          "pruneSubsumed 已改为保留旧条并生成纠错候选；这是已批准的 live 安全修复，不属于纯 shadow。"
+        ],
+        ownerMismatches
+      },
       sampleWindow: { note: "各模块保留期不同；样本不足只能续观，不能自动转正。" },
       memory, innerLife: { E: e, A: a, B: b, C: c, legacyNineDrives: drives }, personality
     };
