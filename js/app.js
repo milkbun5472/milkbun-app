@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.08";
+const APP_VERSION = "v51.09";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -3153,7 +3153,9 @@ function App() {
         if (!ids.length) ids = memberIds.slice(); // who 没对上任何成员（多半只关于用户/场景）→ 宽 tag 到全体，别丢
         const txt = String(it.text).trim();
         if (isDupMem(txt, ids) || isDupMem(txt, ids, batchSeen)) return;
-        const entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(["线下", "群聊"]), charIds: ids, ts: now, source: "auto", pinned: false, v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open };
+        let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(["线下", "群聊"]), charIds: ids, ts: now, source: "auto", pinned: false, v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open };
+        // 群线下是批量直写，不经过 addMemEntry；必须在这里同样过开环资格闸。
+        if (window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
         batchSeen.push(entry); added.push(entry);
       });
       if (added.length) saveMemLib([...added, ...pruneSubsumed(memLibRef.current, added)]);
@@ -6031,7 +6033,7 @@ function App() {
           const text = log.map(m => m.role === "user" ? uN + "：" + m.content : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n");
           const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话做记忆归档。只输出 JSON：\n" +
             "{\"summary\":\"1~2句第三人称总结：聊了什么关键内容、情绪转折。具体、可复用\"," +
-            "\"open\":[\"这通电话里【新约好、还没兑现】的事（去哪/答应对方什么），每条一句；没有就 []\"]}";
+            "\"open\":[\"这通电话里【双方明确新约好或答应对方、尚未兑现且值得持续惦记】的事，每条一句；普通吃饭/洗澡/上班等生活安排不是开环，没有就 []\"]}";
           const raw = await callAI(bgActiveRef.current, sys, [{ role: "user", content: "【通话内容】\n" + text }], { maxTokens: 2400 });
           const d = extractJSON(raw);
           const sum = d && d.summary ? String(d.summary).trim() : String(raw || "").trim();
