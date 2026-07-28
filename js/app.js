@@ -2401,7 +2401,7 @@ function App() {
           if ((greetLogRef.current[cid] || {}).b === year) continue; // 今年已祝过
           const hr = Math.floor(charLocalMin(c) / 60);
           if (hr < 8 || hr > 23) continue;                           // 别半夜发
-          window.DeliveryCommit.afterDelivered(
+          window.DeliveryCommit.once("birthday:" + year,
             () => replyNow(cid, "", null, { proactive: true, bday: true }),
             () => markGreet(cid, "b", year)
           );
@@ -2424,7 +2424,7 @@ function App() {
             if (!cand) continue;
             const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 8 || hr > 23) continue;
             const remindLogKey = overdue ? r.id + ":od" : r.id;
-            window.DeliveryCommit.afterDelivered(
+            window.DeliveryCommit.once("reminder:" + dayKey,
               () => replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "", overdue } }),
               () => {
                 const latestLog = loadJSON("x_memoRemindLog", {});
@@ -2452,9 +2452,20 @@ function App() {
           const newErrs = errsAll.filter(e2 => e2.ts > (st.errTs || 0));
           const storageHigh = stPct >= 85 && st.stDay !== dayKey;
           if (newErrs.length < 2 && !storageHigh) continue;
-          eLog[cid] = { day: dayKey, errTs: errsAll.length ? errsAll[errsAll.length - 1].ts : (st.errTs || 0), stDay: storageHigh ? dayKey : st.stDay };
-          saveJSON("x_eyesAlertLog", eLog);
-          replyNow(cid, "", null, { proactive: true, eyesAlert: { errs: newErrs.slice(-3).map(e2 => e2.msg), pct: storageHigh ? stPct : 0 } });
+          window.DeliveryCommit.once(
+            "eyes:" + dayKey,
+            () => replyNow(cid, "", null, { proactive: true, eyesAlert: { errs: newErrs.slice(-3).map(e2 => e2.msg), pct: storageHigh ? stPct : 0 } }),
+            () => {
+              const latestLog = loadJSON("x_eyesAlertLog", {});
+              const latestState = latestLog[cid] || {};
+              latestLog[cid] = {
+                day: dayKey,
+                errTs: errsAll.length ? errsAll[errsAll.length - 1].ts : (latestState.errTs || 0),
+                stDay: storageHigh ? dayKey : latestState.stDay
+              };
+              saveJSON("x_eyesAlertLog", latestLog);
+            }
+          );
           return; // 一次一个，错峰
         }
       } catch (e) {}
@@ -2472,8 +2483,11 @@ function App() {
             const w = hm ? weatherCached(hm.lat, hm.lng) : null;
             const sp = wxSpecial(w);
             if (!sp) continue;
-            saveJSON("x_wxReactDay", dayKey);
-            replyNow(c.id, "", null, { proactive: true, wx: { kind: sp, line: weatherLine(w) } });
+            window.DeliveryCommit.once(
+              "weather:" + dayKey,
+              () => replyNow(c.id, "", null, { proactive: true, wx: { kind: sp, line: weatherLine(w) } }),
+              () => saveJSON("x_wxReactDay", dayKey)
+            );
             return;                                             // 一次一个，错峰
           }
         }
@@ -2553,8 +2567,11 @@ function App() {
         if (doneInSlot(slot) >= cap) continue;                // 这个时段今天问候名额已满
         const msgs = hist(c);
         if (Date.now() - Math.max(msgs[msgs.length - 1].ts || 0, latestSharedInteractionTs(cid)) < 90 * 60000) continue; // 单聊/群聊/线下刚互动过，90 分钟内先不打扰
-        markGreet(cid, slot, dayKey);
-        replyNow(cid, "", null, { proactive: true, greet: slot === "m" ? "morning" : "night" });
+        window.DeliveryCommit.once(
+          "greeting:" + dayKey + ":" + slot,
+          () => replyNow(cid, "", null, { proactive: true, greet: slot === "m" ? "morning" : "night" }),
+          () => markGreet(cid, slot, dayKey)
+        );
         break;                                                // 一次只发一个，错峰
       }
     };
