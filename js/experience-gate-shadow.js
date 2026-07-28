@@ -5,7 +5,7 @@
 // ============================================================
 (function () {
   "use strict";
-  const DB_NAME = "lisa_experience_gate_shadow_v1", DB_VERSION = 1, CAP = 500, AUDIT_VERSION = 2;
+  const DB_NAME = "lisa_experience_gate_shadow_v1", DB_VERSION = 1, CAP = 500, AUDIT_VERSION = 3;
   let dbPromise = null;
   const lastByChar = new Map();
   const hash = value => { let h = 5381; const s = String(value == null ? "" : value); for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36); };
@@ -36,9 +36,13 @@
     else if (has(first, "你是谁") || has(first, "准则") || has(first, "要求")) { key = "instruction"; source = "instruction"; }
     const body=s.split("\n").slice(1).join("\n").slice(0,500),claimRe=/真实发生|亲历|此刻在做|你都看到了|自己清楚|你记得/;
     const headerClaims=claimRe.test(first),bodyClaims=claimRe.test(body),claimsExperience=headerClaims||bodyClaims;
-    const truthClaimRisk = (source === "simulation" || source === "mixed_generated") && claimsExperience;
-    const riskReason=!truthClaimRisk?null:(bodyClaims?"assertive_body":"header_label_only");
-    return { auditVersion:AUDIT_VERSION,key,source,chars:s.length,claimsExperience,truthClaimRisk,riskReason };
+    // v3：标题是系统给模型看的来源标签，不是素材正文在冒充亲历。
+    // 旧口径把「此刻在做什么」「这些真实发生过」等标题本身算风险，造成 547/547 次假警报。
+    // 只有 simulation / mixed_generated 的【正文】主动声称亲历，才是真正需要拦的 Experience Gate 风险。
+    const provenanceLabelClaim = (source === "simulation" || source === "mixed_generated") && headerClaims;
+    const truthClaimRisk = (source === "simulation" || source === "mixed_generated") && bodyClaims;
+    const riskReason=truthClaimRisk?"assertive_body":null;
+    return { auditVersion:AUDIT_VERSION,key,source,chars:s.length,claimsExperience,provenanceLabelClaim,truthClaimRisk,riskReason };
   }
 
   function openDB() {
