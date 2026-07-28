@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.00";
+const APP_VERSION = "v51.01";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -2401,8 +2401,10 @@ function App() {
           if ((greetLogRef.current[cid] || {}).b === year) continue; // 今年已祝过
           const hr = Math.floor(charLocalMin(c) / 60);
           if (hr < 8 || hr > 23) continue;                           // 别半夜发
-          markGreet(cid, "b", year);
-          replyNow(cid, "", null, { proactive: true, bday: true });
+          window.DeliveryCommit.afterDelivered(
+            () => replyNow(cid, "", null, { proactive: true, bday: true }),
+            () => markGreet(cid, "b", year)
+          );
           return;                                                    // 一次一个，错峰
         }
       }
@@ -2421,8 +2423,15 @@ function App() {
             const cand = characters.find(c => r.visibleTo.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id && !laneBusy("c:" + c.id));
             if (!cand) continue;
             const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 8 || hr > 23) continue;
-            rlog[overdue ? r.id + ":od" : r.id] = dayKey; saveJSON("x_memoRemindLog", rlog);
-            replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "", overdue } });
+            const remindLogKey = overdue ? r.id + ":od" : r.id;
+            window.DeliveryCommit.afterDelivered(
+              () => replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "", overdue } }),
+              () => {
+                const latestLog = loadJSON("x_memoRemindLog", {});
+                latestLog[remindLogKey] = dayKey;
+                saveJSON("x_memoRemindLog", latestLog);
+              }
+            );
             return;                                               // 一次一个，错峰
           }
         }
@@ -3418,8 +3427,9 @@ function App() {
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
   const replyNow = async (charId, extraText, mode, opts) => {
     opts = opts || {};
-    if (laneBusy("c:" + charId)) return;
-    if (opts.proactive && currentlyTogetherWithChar(charId)) return;
+    let delivered = false;
+    if (laneBusy("c:" + charId)) return false;
+    if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
     if (opts.proactive) {
       const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : opts.greet ? "greeting" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
@@ -3446,13 +3456,13 @@ function App() {
       : history.slice(-80);
     if (!opts.proactive && history.length === 0) {
       toast("先发条消息再让 TA 回复");
-      return;
+      return false;
     }
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
     //   杀掉「连发两轮/你还在打字他就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
     if (opts.proactive && !opts.tf && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
-      if (Date.now() - _lastTs < 12 * 60000) return;
+      if (Date.now() - _lastTs < 12 * 60000) return false;
     }
     try { window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
@@ -3752,6 +3762,7 @@ function App() {
       // 留一条 silence 标记（灰字居中、不计未读），心情等状态照常更新；其余输出（表情/语音/礼物…）全部作废
       if (parsed.silent === true && !opts.proactive && !contMode) {
         pChat(charId, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
+        delivered = true;
         words = []; emoteWordKws.length = 0;
         parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null;
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
@@ -3762,6 +3773,7 @@ function App() {
       if (recall) {
         const mid = "rc_" + Date.now();
         pChat(charId, p => [...p, { role: "assistant", content: String(recall.text), mid, ts: Date.now(), turnId }]);
+        delivered = true;
         setTimeout(() => pChat(charId, p => p.map(m => m.mid === mid ? { role: "assistant", kind: "recalled", origText: String(recall.text), reason: recall.reason || "", mid, ts: m.ts, turnId } : m)), 1100);
       }
       for (let i = 0; i < words.length; i++) {
@@ -3774,6 +3786,7 @@ function App() {
           ts: Date.now(),
           turnId
         }]);
+        delivered = true;
       }
       // 切出去/锁屏时，把这条回复弹成锁屏通知（Notify 内部判是否开启 + 是否在前台）
       if (words.length && window.Notify) window.Notify.push({ title: char.name + " 发来消息", body: words.join(" "), tag: "chat-" + charId, charId: charId });
@@ -3790,6 +3803,7 @@ function App() {
             _seenEmote.add(match.id || match.keyword);
             await new Promise(r => setTimeout(r, 420));
             pChat(charId, p => [...p, { role: "assistant", kind: "emote", url: match.url, keyword: match.keyword, content: "[表情] " + match.keyword, ts: Date.now(), turnId }]);
+            delivered = true;
           }
         }
       }
@@ -3802,6 +3816,7 @@ function App() {
         if (!vt) continue;
         const vEmo = typeof raw === "object" && raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
         pChat(charId, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
+        delivered = true;
       }
       // TA 发来一张自拍（接了图像 API + 该角色填了外貌/参考照才有）：先占位「拍照中」，异步生成后替换成真图
       // 照片：新版 photo 对象 {kind,scene}；兼容旧版 selfie 字符串（=自拍）
@@ -3818,6 +3833,7 @@ function App() {
         const sid = "sf_" + Date.now();
         await new Promise(r => setTimeout(r, 420));
         pChat(charId, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
+        delivered = true;
         (async () => {
           try {
             const st = states[charId] || {};
@@ -3862,11 +3878,13 @@ function App() {
       if (callMode) {
         await new Promise(r => setTimeout(r, 420));
         pChat(charId, p => [...p, { role: "assistant", kind: "callinvite", mode: callMode, content: "[" + (callMode === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId, read: false }]);
+        delivered = true;
       }
       // TA 拉黑用户
       if (parsed.block === true) {
         setBlockFor(charId, { theyBlocked: true });
         pChat(charId, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), ts: Date.now() }]);
+        delivered = true;
       }
       // TA 说要去补朋友圈评论 → 真的发到我最新那条朋友圈下
       if (parsed.momentComment && String(parsed.momentComment).toLowerCase() !== "null") {
@@ -3893,12 +3911,14 @@ function App() {
       if (parsed.listenInvite && typeof parsed.listenInvite === "object" && (parsed.listenInvite.song || parsed.listenInvite.say)) {
         const inv = parsed.listenInvite;
         pChat(charId, p => [...p, { role: "assistant", kind: "listeninvite", turnId: "li_" + Date.now(), song: inv.song ? String(inv.song).trim() : "", say: inv.say ? String(inv.say).trim() : "", content: "[一起听邀请]" + (inv.say ? " " + inv.say : ""), ts: Date.now(), read: false }]);
+        delivered = true;
       }
       // TA 主动转账 / 发位置 / 给亲属卡
-      if (parsed.transfer && Number(parsed.transfer.amount) > 0) postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || "");
-      if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || "");
-      if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") postCharGift(charId, String(parsed.gift.name));
-      if (parsed.location && (parsed.location.name || parsed.location.coords)) pChat(charId, p => [...p, {
+      if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
+      if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
+      if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name)); delivered = true; }
+      if (parsed.location && (parsed.location.name || parsed.location.coords)) {
+        pChat(charId, p => [...p, {
         role: "assistant",
         turnId: "geo_" + Date.now(),
         kind: "geo",
@@ -3907,7 +3927,9 @@ function App() {
         content: "[位置] " + (parsed.location.name || "某处"),
         ts: Date.now(),
         read: false
-      }]);
+        }]);
+        delivered = true;
+      }
       // 仅当该角色开启了「自由发朋友圈」才把 Ta 想发的动态发出去
       const mo = settingsFor(charId).autoMoment && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
       if (mo) { pMom(p => [{
@@ -3955,6 +3977,7 @@ function App() {
       setTimeout(() => maybeAutoExtract(charId), 300);
       // P0-2 冷却的 turn 计数：只在该角色完成一次正常回复后 +1（后台/预览/touch:false 不计）
       try { window.RecallShadow && window.RecallShadow.turnDone(charId); } catch (e2) {}
+      return delivered;
     } catch (e) {
       pChat(charId, p => [...p, {
         role: "assistant",
@@ -3963,6 +3986,7 @@ function App() {
         ts: Date.now(),
         turnId: "e_" + Date.now()
       }]);
+      return false;
     } finally {
       endLane("c:" + charId);
     }
