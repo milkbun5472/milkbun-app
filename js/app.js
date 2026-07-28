@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.09";
+const APP_VERSION = "v51.10";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -1711,7 +1711,7 @@ function App() {
     try {
       const batch = todo.slice(0, 60); // 一次最多 60 条，多的再点一次
       const listText = batch.map((e, i) => (i + 1) + ". " + String(e.text || "").replace(/\s+/g, " ").slice(0, 90)).join("\n");
-      const sys = "下面是一批记忆条目，给每条标注情绪与状态：v=愉悦度(整数-5~5，负=难过/生气/难堪，0=中性事实，正=开心/温暖/心动)；a=情绪强度(整数0~5，0=平淡事实，5=强烈动情/激烈冲突/刻骨)；open=是不是【还没了结的开环】(true=没兑现的约定/没和好的争执/悬着的心事/在等的结果；false=已了结、或本就是静态事实/偏好/背景)。\n【输出】只输出 JSON 数组，按序号每条一个对象：[{\"i\":1,\"v\":0,\"a\":1,\"open\":false}]，i 对应上面的序号。";
+      const sys = "下面是一批记忆条目，给每条标注情绪与状态：v=愉悦度(整数-5~5，负=难过/生气/难堪，0=中性事实，正=开心/温暖/心动)；a=情绪强度(整数0~5，0=平淡事实，5=强烈动情/激烈冲突/刻骨)；open=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。\n【输出】只输出 JSON 数组，按序号每条一个对象：[{\"i\":1,\"v\":0,\"a\":1,\"open\":false}]，i 对应上面的序号。";
       const raw = await callAI(bgActive, sys, [{ role: "user", content: listText }], { maxTokens: Math.min(8000, 500 + batch.length * 60) });
       const arr = extractJSON(raw);
       if (!Array.isArray(arr)) throw new Error("解析失败，重试");
@@ -1724,7 +1724,11 @@ function App() {
         const o = byIdx[pos + 1];
         if (!o) return e;
         n++;
-        return { ...e, v: clampInt(o.v, -5, 5, 0), a: clampInt(o.a, 0, 5, 1), open: !!o.open };
+        const nextA = clampInt(o.a, 0, 5, 1);
+        // 已经由用户/旧记录明确标 open 的不反向关闭；模型新建议 open 时仍须过统一资格闸。
+        const proposed = { ...e, source: "auto", a: nextA, open: !!o.open };
+        const approvedOpen = !!e.open || !!(window.OpenLoopGate && window.OpenLoopGate.evaluate(proposed).open);
+        return { ...e, v: clampInt(o.v, -5, 5, 0), a: nextA, open: approvedOpen };
       });
       saveMemLib(updated);
       const left = todo.length - batch.length;
@@ -1817,11 +1821,14 @@ function App() {
         it && it.resolveOpen == null && it.text &&
         window.MemoryExtractionGate && window.MemoryExtractionGate.inspect(it, msgs).formal &&
         window.RerollBranch && window.RerollBranch.candidateStillLive(it, liveMessages)
-      ).map((it, i) => ({
-        id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
-        v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
-        evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : []
-      })).filter(x => x.text).filter(x => {
+      ).map((it, i) => {
+        const entry = {
+          id: uniqMemId(now, i), text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], charIds: [charId], ts: now, source: "auto", pinned: false,
+          v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
+          evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : []
+        };
+        return window.OpenLoopGate ? window.OpenLoopGate.normalize(entry) : entry;
+      }).filter(x => x.text).filter(x => {
         if (isDupMem(x.text, [charId])) return false;            // 和库里已有重复
         if (isDupMem(x.text, [charId], batchSeen)) return false; // 和本批已收的重复
         batchSeen.push(x); return true;
