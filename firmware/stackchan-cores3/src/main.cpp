@@ -45,6 +45,9 @@ unsigned long voiceSilenceStartedAt = 0;
 uint8_t* voiceWav = nullptr;
 size_t voiceSamplesRecorded = 0;
 bool voiceChunkInFlight = false;
+uint32_t voicePeakChunkAbs = 0;
+uint64_t voiceChunkMeanTotal = 0;
+uint16_t voiceMeasuredChunks = 0;
 bool topVoiceArmed = true;
 bool topWasPressed = false;
 unsigned long topReleasedAt = 0;
@@ -61,6 +64,8 @@ struct VoiceUpload {
   size_t bytes;
   unsigned long durationMs;
   bool continuation;
+  uint32_t peakChunkAbs;
+  uint32_t averageChunkAbs;
 };
 
 struct MotionRequest {
@@ -377,6 +382,9 @@ bool startVoiceRecording(bool autoMode = false, bool continuation = false) {
   M5.Speaker.end();
   voiceSamplesRecorded = 0;
   voiceChunkInFlight = false;
+  voicePeakChunkAbs = 0;
+  voiceChunkMeanTotal = 0;
+  voiceMeasuredChunks = 0;
   voiceAutoMode = autoMode;
   voiceContinuation = continuation;
   voiceHeardSpeech = false;
@@ -461,7 +469,14 @@ void finishVoiceRecording() {
   const size_t pcmBytes = voiceSamplesRecorded * sizeof(int16_t);
   writePcmWavHeader(voiceWav, pcmBytes);
   VoiceUpload pending = {
-    voiceWav, 44 + pcmBytes, durationMs, continuation
+    voiceWav,
+    44 + pcmBytes,
+    durationMs,
+    continuation,
+    voicePeakChunkAbs,
+    voiceMeasuredChunks
+        ? static_cast<uint32_t>(voiceChunkMeanTotal / voiceMeasuredChunks)
+        : 0,
   };
   voiceWav = nullptr;
   if (xQueueSendToBack(voiceQueue, &pending, 0) != pdTRUE) {
@@ -859,6 +874,8 @@ void pollTask(void*) {
           JsonDocument detail;
           detail["ok"] = true;
           detail["duration_ms"] = voice.durationMs;
+          detail["peak_chunk_abs"] = voice.peakChunkAbs;
+          detail["average_chunk_abs"] = voice.averageChunkAbs;
           postEvent("voice_upload_result", &detail);
           // Upload and a new capture run on different tasks. Never let the
           // previous upload's completion overwrite the listening face of the
@@ -953,6 +970,13 @@ void setup() {
   Serial.begin(115200);
   M5StackChan.begin();
   Serial.begin(115200);
+  // CoreS3 defaults to 2x input magnification, which proved too quiet inside
+  // the Stack-chan enclosure. A conservative 4x keeps consonants above the
+  // room floor without the clipping risk of the library's 16x generic default.
+  auto micConfig = M5.Mic.config();
+  micConfig.magnification = 4;
+  micConfig.noise_filter_level = 0;
+  M5.Mic.config(micConfig);
   Serial.printf("[touch] display=%s\n", M5StackChan.Display().touch() ? "enabled" : "disabled");
   M5StackChan.Display().setRotation(1);
   displayMutex = xSemaphoreCreateMutex();
@@ -1081,6 +1105,9 @@ void loop() {
   if (voiceRecording && voiceChunkInFlight && !M5.Mic.isRecording()) {
     const uint32_t meanAbs =
         voiceChunkMeanAbs(voiceSamplesRecorded, VOICE_CHUNK_SAMPLES);
+    voicePeakChunkAbs = max(voicePeakChunkAbs, meanAbs);
+    voiceChunkMeanTotal += meanAbs;
+    if (voiceMeasuredChunks < UINT16_MAX) ++voiceMeasuredChunks;
     voiceSamplesRecorded += VOICE_CHUNK_SAMPLES;
     voiceChunkInFlight = false;
     const size_t maxSamples = (VOICE_MAX_RECORD_MS * 16000UL) / 1000UL;
