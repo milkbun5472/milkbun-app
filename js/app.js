@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.07";
+const APP_VERSION = "v51.08";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -1686,6 +1686,21 @@ function App() {
     if (!removed) { toast("没有可清理的落灰记忆"); return; }
     saveMemLib(keep);
     toast("已清理 " + removed + " 条落灰记忆（约定/心事/置顶都留着）");
+  };
+  // 旧库清理只碰【明显日常安排】且必须由 Lisa 在设置页二次确认。
+  // 不是删除：正文、标签、时间和审计痕迹全保留，只撤掉误加的 open 标记。
+  const routineOpenCandidates = () => memLibRef.current.filter(e => {
+    if (!e || !e.open || e.source !== "auto" || !window.OpenLoopGate) return false;
+    return window.OpenLoopGate.evaluate(e).reason === "routine_plan";
+  });
+  const downgradeRoutineOpen = () => {
+    const ids = new Set(routineOpenCandidates().map(e => e.id));
+    if (!ids.size) { toast("没有识别到明显的日常伪开环"); return; }
+    const now = Date.now();
+    saveMemLib(memLibRef.current.map(e => ids.has(e.id) ? {
+      ...e, open: false, routineOpenDowngradedTs: now
+    } : e));
+    toast("已把 " + ids.size + " 条吃饭/洗澡/上班等日常安排降为普通记忆（正文都保留）");
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
   const backfillMemEmotion = async () => {
@@ -9272,6 +9287,8 @@ function App() {
     onImportOld: importOldMemoryToLib,
     onBackfillEmotion: backfillMemEmotion,
     onPurgeWithered: purgeWithered,
+    onDowngradeRoutineOpen: downgradeRoutineOpen,
+    routineOpenCount: routineOpenCandidates().length,
     onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,

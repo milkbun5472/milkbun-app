@@ -5025,6 +5025,8 @@ function MemoryLib({
   onImportOld,
   onBackfillEmotion,
   onPurgeWithered,
+  onDowngradeRoutineOpen,
+  routineOpenCount,
   onRefine,
   onRestoreArchived,
   onBulkImport,
@@ -5303,6 +5305,8 @@ function MemoryLib({
       }, e.text))) : null) : null), cfgOpen && onSaveCfg && h(MemCfgSheet, {
     onPurgeWithered: onPurgeWithered,
     witheredCount: witheredCount,
+    onDowngradeRoutineOpen: onDowngradeRoutineOpen,
+    routineOpenCount: routineOpenCount,
     openTotal: openTotal,
     cfg: cfg || {}, onSave: onSaveCfg, onClose: () => setCfgOpen(false)
   }), editing && h(MemEntrySheet, {
@@ -5321,10 +5325,11 @@ function MemoryLib({
   }));
 }
 // 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
-function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, openTotal }) {
+function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onDowngradeRoutineOpen, routineOpenCount, openTotal }) {
   const t = useTheme();
   const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800 }, cfg || {}));
   const [confirmPurge, setConfirmPurge] = useState(false);
+  const [confirmRoutine, setConfirmRoutine] = useState(false);
   const set = patch => setC(p => Object.assign({}, p, patch));
   const toggle = (label, sub, val, onT) => h("div", { className: "flex items-center justify-between", style: { padding: "12px 0", borderTop: "1px solid " + t.line } },
     h("div", { style: { flex: 1, paddingRight: 12 } },
@@ -5363,7 +5368,17 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, ope
     h("div", { style: { marginTop: 14, paddingTop: 14, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, { style: { marginBottom: 4 } }, "未了结开环"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } },
-        "当前还有 " + openTotal + " 条开环。时间过去、想起变少或情绪缓和都不算解决；这里只展示数量，不再按年龄批量降级。请回到记忆库点「⏳未了结」查看。")));
+        "当前还有 " + openTotal + " 条开环。时间过去、想起变少或情绪缓和都不算解决；绝不按年龄批量降级。"),
+      Number(routineOpenCount || 0) > 0 && onDowngradeRoutineOpen
+        ? h("div", { style: { marginTop: 9 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginBottom: 8 } },
+            "机械筛到 " + routineOpenCount + " 条明显日常安排（吃饭、洗澡、上班等）。只撤掉 ⏳，正文仍留在记忆库；不会碰约定、承诺、关系冲突或等待结果。"),
+          confirmRoutine
+            ? h("div", { className: "flex gap-2" },
+              h("button", { onClick: () => setConfirmRoutine(false), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "先不动"),
+              h("button", { onClick: () => { onDowngradeRoutineOpen(); setConfirmRoutine(false); onClose(); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#fff", background: t.accent, borderRadius: 10, padding: "10px 0" } }, "确认软降级 " + routineOpenCount + " 条"))
+            : h("button", { onClick: () => setConfirmRoutine(true), className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, border: "1px solid " + t.line, borderRadius: 10, padding: "11px 0" } }, "筛掉明显日常伪开环"))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", paddingTop: 8 } }, "没有识别到明显日常伪开环；其余请点「⏳未了结」查看。")));
 }
 function MemEntrySheet({
   entry,
