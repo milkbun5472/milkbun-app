@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.11";
+const APP_VERSION = "v51.12";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -5373,13 +5373,16 @@ function App() {
     if (!active) return;
     try {
       const openTs = Date.now() + (1 + Math.floor(Math.random() * 7)) * 86400000;
+      const cur = loadJSON("x_capsules", []); const list = Array.isArray(cur) ? cur : [];
+      // 别和之前埋的重复（她 2026-07-26：触发好几个都在说同一件事）：把这个角色最近埋过的胶囊当"要避开的"喂进去
+      const mine = list.filter(x => x && x.dir === "fromChar" && x.charId === char.id).slice(0, 5);
+      const avoid = mine.length ? "\n\n【你之前已经给 Ta 埋过下面这些胶囊——这次【绝不许再说同一件事/同一种心情】，换一件不一样的事、换个由头和角度写；哪怕换几个词说同一件也不行】\n" + mine.map((x, i) => (i + 1) + ". " + String(x.text || "").replace(/\s+/g, " ").slice(0, 90)).join("\n") : "";
       const sys = buildBundle(ctxFor(char)) +
-        "\n\n【任务】此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗时光胶囊——写下你【此刻】最想对「拆开它那天的 Ta」说的话（2-6 句，第一人称，贴你的人设与此刻心情，可以有没说出口过的话；别客套、别落款）。只输出 JSON：{\"letter\":\"信的正文\"}";
-      const raw = await callAI(apiFor(char.id), sys, [{ role: "user", content: "写吧。" }], { maxTokens: 1200 });
+        "\n\n【任务】此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗时光胶囊——写下你【此刻】最想对「拆开它那天的 Ta」说的话（2-6 句，第一人称，贴你的人设与此刻心情，可以有没说出口过的话；别客套、别落款）。" + avoid + "\n只输出 JSON：{\"letter\":\"信的正文\"}";
+      const raw = await callAI(apiFor(char.id), sys, [{ role: "user", content: "写吧。" }], { maxTokens: 4000 });
       const d = extractJSON(raw);
       if (!d || !d.letter) return;
       const entry = { id: "cap_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), dir: "fromChar", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
-      const cur = loadJSON("x_capsules", []); const list = Array.isArray(cur) ? cur : [];
       saveJSON("x_capsules", [entry, ...list]);
       toast(char.name + " 悄悄给你埋了一颗时光胶囊");
       if (window.Notify) window.Notify.push({ title: char.name + " 给你埋了一颗时光胶囊", body: "过些天就能拆开", tag: "cap-" + char.id, charId: char.id });
