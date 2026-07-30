@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>萌队内战模拟器 v1</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,"PingFang SC",sans-serif; background:#f6f1e8; color:#3a3a3a; padding:12px; max-width:760px; margin:0 auto; }
+  h1 { font-size:18px; margin:6px 0 2px; } .sub { font-size:12px; color:#999; margin-bottom:10px; }
+  .arena { display:flex; gap:10px; }
+  .side { flex:1; background:#fff; border-radius:14px; padding:10px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
+  .side h2 { font-size:14px; margin-bottom:6px; }
+  .pet { font-size:13px; line-height:1.5; }
+  .hpbar { height:10px; background:#eee; border-radius:5px; overflow:hidden; margin:3px 0; }
+  .hpfill { height:100%; background:#7bc47f; transition:width .3s; }
+  .frozen { background:#bcd9ee; }
+  .tags { font-size:11px; color:#8a7ca8; min-height:15px; }
+  .bench { font-size:11px; color:#999; margin-top:6px; line-height:1.7; }
+  .bench b.dead { color:#d66; text-decoration:line-through; }
+  .energy { font-size:12px; color:#c98a2d; margin-top:4px; }
+  .panel { background:#fff; border-radius:14px; padding:12px; margin-top:12px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
+  .panel h3 { font-size:14px; margin-bottom:8px; }
+  button { font-size:13px; padding:8px 10px; margin:3px; border:none; border-radius:10px; background:#e8eef7; cursor:pointer; }
+  button:disabled { opacity:.35; cursor:default; }
+  button.atk { background:#f7dede; } button.def { background:#dbeafe; } button.sta { background:#fbeecf; }
+  button.big { background:#4a7fb5; color:#fff; }
+  #log { background:#2e2a26; color:#e8e2d8; border-radius:14px; padding:12px; margin-top:12px; font-size:12.5px; line-height:1.8; max-height:300px; overflow-y:auto; white-space:pre-wrap; }
+  #log .t { color:#c9a44f; } .hide { display:none; }
+  .lock { text-align:center; padding:30px 10px; }
+  .lock button { font-size:16px; padding:12px 28px; }
+  .note { font-size:11px; color:#aaa; margin-top:6px; line-height:1.5; }
+</style>
+</head>
+<body>
+<h1>🌸 萌队内战模拟器 <span style="font-size:12px">v1</span></h1>
+<div class="sub">规则书：洛克威胁手册 7/30 版 · 双盲出招 · 传席位制（A=Lisa，B=言秋）</div>
+
+<div class="arena">
+  <div class="side" id="sideA"></div>
+  <div class="side" id="sideB"></div>
+</div>
+
+<div class="panel" id="pickPanel"></div>
+<div id="log"></div>
+<div class="note">已实现：伤害公式37/41·克制表·本系1.25·随机0.8~1.2·先手值→速度→随机·换人占行动且入场裸·防御技冷却1回合·应对状态先结算·聚能可被应对·冻结5%上限·捉迷藏能耗税·萌化层与各类骑手·传花整包过户·瞳中倒影换血·化茧两次免死·守护者入场折扣·拨浪鼓·首领化(一场一次)·愿力未做。未实现(TODO)：萌化降阶税·印记系统·困兽真实效果(占位威力70)·倾泻只清增益。</div>
+
+<script>
+'use strict';
+/* ===== 克制表（Virex 源码版）===== */
+const CHART = {
+'普通':{strong:[],resist:['地','幽','机械']},'草':{strong:['水','光','地'],resist:['火','龙','毒','虫','翼','机械']},
+'火':{strong:['草','冰','虫','机械'],resist:['水','地','龙']},'水':{strong:['火','地','机械'],resist:['草','冰','龙']},
+'光':{strong:['幽','恶'],resist:['草','冰']},'地':{strong:['火','冰','电','毒'],resist:['草','武']},
+'冰':{strong:['草','地','龙','翼'],resist:['火','冰','机械']},'龙':{strong:['龙'],resist:['机械']},
+'电':{strong:['水','翼'],resist:['草','地','龙','电']},'毒':{strong:['草','萌'],resist:['地','毒','幽','机械']},
+'虫':{strong:['草','恶','幻'],resist:['火','毒','武','翼','萌','幽','机械']},'武':{strong:['普通','地','冰','恶','机械'],resist:['毒','虫','翼','萌','幽','幻']},
+'翼':{strong:['草','虫','武'],resist:['地','龙','电','机械']},'萌':{strong:['龙','武','恶'],resist:['火','毒','机械']},
+'幽':{strong:['光','幽','幻'],resist:['普通','恶']},'恶':{strong:['毒','萌','幽'],resist:['光','武','恶']},
+'机械':{strong:['地','冰','萌'],resist:['火','水','电','机械']},'幻':{strong:['毒','武'],resist:['光','机械','幻']}};
+function typeEff(atk, defTypes){
+  let ms = defTypes.filter(Boolean).map(d => CHART[atk] ? (CHART[atk].strong.includes(d)?2 : CHART[atk].resist.includes(d)?0.5 : 1) : 1);
+  const n2 = ms.filter(m=>m===2).length, nh = ms.filter(m=>m===0.5).length;
+  if (n2===2) return 3; if (nh===2) return 0.25; if (n2===1&&nh===1) return 1;
+  return ms.reduce((a,b)=>a*b,1);
+}
+/* ===== 技能库 ===== */
+const SK = {
+  '击鼓传花':{cost:3,cls:'sta',attr:'萌',desc:'自己脱离，下个入场精灵继承全部增益（选人）'},
+  '超级糖果':{cost:3,cls:'phys',attr:'萌',pow:100,desc:'物伤；自获萌化：本技威力永久+60/层'},
+  '赤子之心':{cost:2,cls:'sta',attr:'萌',desc:'自获萌化：全技能能耗永久-3(最低1)'},
+  '冰墙':{cost:2,cls:'def',attr:'冰',reduce:.8,desc:'减伤80%；应对攻击：敌+2冻结'},
+  '示弱':{cost:1,cls:'sta',attr:'萌',desc:'自获萌化：速度永久+150'},
+  '倾泻':{cost:3,cls:'mag',attr:'萌',pow:70,desc:'魔伤；未被防御应对则清双方增益(简化)'},
+  '撒娇':{cost:3,cls:'mag',attr:'萌',pow:30,hits:3,desc:'魔伤3连击；自获萌化：本技威力永久+20/层'},
+  '生日蛋糕':{cost:4,cls:'sta',attr:'萌',desc:'驱散自身减益，自身增益全部翻倍'},
+  '月光合奏':{cost:3,cls:'phys',attr:'萌',pow:30,desc:'物伤；连击数=1+双方存活精灵萌化总层'},
+  '水波术':{cost:6,cls:'mag',attr:'水',pow:90,desc:'魔伤；每回合结束本技威力永久+20'},
+  '无畏之心':{cost:5,cls:'def',attr:'萌',reduce:1,desc:'减伤100%；应对攻击：减免伤害转为回血；本技能耗永久+2'},
+  '撕裂':{cost:3,cls:'phys',attr:'毒',pow:85,counterStatus:'lifesteal',desc:'物伤；应对状态：改为吸血100%'},
+  '有效预防':{cost:1,cls:'def',attr:'萌',reduce:.5,desc:'减伤50%；应对攻击：下次行动先手+1'},
+  '嗜痛':{cost:2,cls:'def',attr:'虫',reduce:.8,desc:'减伤80%；应对攻击：每挨1击双攻+40%'},
+  '退化':{cost:2,cls:'sta',attr:'萌',desc:'敌方获得1层萌化(计入合奏)'},
+  '晒太阳':{cost:1,cls:'sta',attr:'虫',desc:'驱散敌方在场精灵所有自增增益'},
+  '破罐破摔':{cost:3,cls:'mag',attr:'虫',pow:80,desc:'魔伤；自己有减益时威力+60'},
+  '困兽':{cost:3,cls:'phys',attr:'恶',pow:70,desc:'⚠️效果未知，占位为70威力物伤'},
+  '虫击':{cost:3,cls:'phys',attr:'虫',pow:90,counterStatus:'double',desc:'物伤；应对状态：威力×2且无视抵抗'},
+  '先发制人':{cost:2,cls:'phys',attr:'恶',pow:55,prio:1,desc:'物伤；先手+1'},
+  '吓退':{cost:2,cls:'def',attr:'萌',reduce:.6,desc:'减伤60%；应对攻击：攻击者被弹换下场'},
+};
+/* ===== 六卡（实测面板）===== */
+function mk(name,t1,t2,hp,pa,ma,pd,md,sp,skills,trait){
+  return {name,types:[t1,t2],maxhp:hp,base:{pa,ma,pd,md,sp},skills,trait};
+}
+const ROSTER = [
+  mk('雪影娃娃','冰','萌',442,173,156,166,273,159,['击鼓传花','超级糖果','赤子之心','冰墙'],'捉迷藏'),
+  mk('菊花梨','萌',null,425,122,200,185,267,118,['示弱','倾泻','撒娇','击鼓传花'],'无忧无虑'),
+  mk('卡洛儿','水','萌',364,249,175,192,207,192,['生日蛋糕','月光合奏','水波术','无畏之心'],'守护者'),
+  mk('寒音蛇','萌','毒',461,189,145,148,185,203,['月光合奏','示弱','撕裂','有效预防'],'拨浪鼓'),
+  mk('化蝶','虫','萌',260,105,163,166,133,203,['嗜痛','退化','晒太阳','破罐破摔'],'化茧'),
+  mk('邪眼巨魔','恶','虫',472,168,169,202,224,154,['困兽','虫击','先发制人','吓退'],'瞳中倒影'),
+];
+const BOSS_XUEYING = {pa:192, ma:173}; // 雪影冰灵：按公式重算的双攻，其余不变
+
+function newPet(t){ return {...t, hp:t.maxhp, meng:0, mengFromEnemy:0, spdBonus:0, atkMult:1,
+  candy:0, sajiao:0, shuibo:0, costDelta:0, costPenalty:0, freeze:0, wuweiExtra:0,
+  huajian: t.trait==='化茧'?2:0, defCD:0, prioNext:0, defending:null, boss:false}; }
+function newSide(label){ return {label, team:ROSTER.map(newPet), active:0, energy:10, bossUsed:false, statusUses:0}; }
+
+let A = newSide('Lisa'), B = newSide('言秋'), turn = 1, phase = 'A', pending = {};
+const $ = id => document.getElementById(id);
+function effMax(p){ return Math.floor(p.maxhp * (1 - 0.05*p.freeze)); }
+function alive(s){ return s.team.some(p=>p.hp>0); }
+function act(s){ return s.team[s.active]; }
+function totalMeng(){ return [...A.team,...B.team].filter(p=>p.hp>0).reduce((a,p)=>a+p.meng+p.mengFromEnemy,0); }
+function costOf(s,p,name){
+  let c = SK[name].cost + p.costDelta + p.costPenalty;
+  if (name==='无畏之心') c += p.wuweiExtra;
+  if (p.trait==='守护者' && p.guardDiscount) c -= p.guardDiscount;
+  return Math.max(1,c);
+}
+function log(msg){ const el=$('log'); el.innerHTML += msg+'\n'; el.scrollTop=el.scrollHeight; }
+
+/* ===== 渲染 ===== */
+function petHTML(p, s){
+  const em = effMax(p);
+  const pct = Math.max(0, Math.min(100, p.hp/p.maxhp*100));
+  const fz = p.freeze? `❄×${p.freeze}` : '';
+  const tags = [ p.meng+p.mengFromEnemy?`萌化${p.meng+p.mengFromEnemy}`:'', p.spdBonus?`速+${p.spdBonus}`:'',
+    p.atkMult>1?`双攻×${p.atkMult.toFixed(1)}`:'', p.huajian&&p.trait==='化茧'?`化茧${p.huajian}`:'',
+    p.defCD?'盾冷却':'', p.boss?'👑':'' , fz].filter(Boolean).join(' · ');
+  return `<div class="pet"><b>${p.name}</b> ${p.types.filter(Boolean).join('/')}
+    <div class="hpbar"><div class="hpfill ${p.freeze?'frozen':''}" style="width:${pct}%"></div></div>
+    HP ${p.hp}/${p.maxhp}${p.freeze?`（有效上限${em}）`:''}
+    <div class="tags">${tags}</div></div>`;
+}
+function render(){
+  for (const [s,el] of [[A,'sideA'],[B,'sideB']]){
+    const bench = s.team.map((p,i)=> i===s.active?null:`<b class="${p.hp<=0?'dead':''}">${p.name}</b>(${p.hp})`).filter(Boolean).join(' ');
+    $(el).innerHTML = `<h2>${s.label} 方</h2>` + petHTML(act(s),s) +
+      `<div class="energy">⚡能量 ${s.energy}</div><div class="bench">替补：${bench}</div>`;
+  }
+}
+/* ===== 选招 UI（传席位）===== */
+function pickUI(){
+  const s = phase==='A'?A:B;
+  if (!alive(A) || !alive(B)) return;
+  const p = act(s);
+  let html = `<h3>轮到 ${s.label} 秘密出招（回合 ${turn}）</h3>`;
+  html += p.skills.map((n,i)=>{
+    const sk=SK[n], c=costOf(s,p,n);
+    const dis = s.energy<c || (sk.cls==='def'&&p.defCD>0);
+    return `<button class="${sk.cls==='def'?'def':sk.cls==='sta'?'sta':'atk'}" ${dis?'disabled':''}
+      onclick="choose({type:'skill',name:'${n}'})">${n}·${c}⚡</button>`;
+  }).join('');
+  html += `<button class="sta" ${s.energy>=15?'disabled':''} onclick="choose({type:'charge'})">聚能+5⚡(状态)</button>`;
+  s.team.forEach((q,i)=>{ if(i!==s.active&&q.hp>0)
+    html += `<button onclick="choose({type:'switch',to:${i}})">换↔${q.name}</button>`; });
+  if (p.name==='雪影娃娃' && !s.bossUsed)
+    html += `<button class="big" onclick="choose({type:'boss'})">👑首领化(一场一次)</button>`;
+  html += `<div class="note">技能说明：`+p.skills.map(n=>`【${n}】${SK[n].desc}`).join('　')+`</div>`;
+  $('pickPanel').innerHTML = html;
+}
+function lockUI(next){
+  $('pickPanel').innerHTML = `<div class="lock">🙈 已锁定。请把设备交给 <b>${next}</b><br><br>
+    <button class="big" onclick="pickUI()">我是${next}，开始选招</button></div>`;
+}
+window.choose = function(action){
+  if (phase==='A'){ pending.A=action; phase='B'; lockUI(B.label); }
+  else { pending.B=action; phase='A'; resolve(pending.A, pending.B); pending={}; }
+};
+/* ===== 结算 ===== */
+function speedOf(p){ return p.base.sp + p.spdBonus; }
+function prioOf(p, action){
+  let pr = 0;
+  if (action.type==='skill' && SK[action.name].prio) pr += SK[action.name].prio;
+  pr += p.prioNext; return pr;
+}
+function isStatusAction(a){ return a.type==='charge' || (a.type==='skill' && SK[a.name].cls==='sta'); }
+function dmg(attacker, defender, name, opts){
+  const sk = SK[name]; let pow = sk.pow||0;
+  const p = attacker;
+  if (name==='超级糖果') pow += 60*p.candy;
+  if (name==='撒娇') pow += 20*p.sajiao;
+  if (name==='水波术') pow += 20*p.shuibo;
+  if (name==='破罐破摔' && p.hasDebuff) pow += 60;
+  if (p.trait==='拨浪鼓' && (sk.attr==='毒'||sk.attr==='萌')) pow += 10*(p.bolangu||0);
+  let hits = sk.hits||1;
+  if (name==='月光合奏') hits = 1 + totalMeng();
+  const phys = sk.cls==='phys';
+  const atkStat = (phys? p.base.pa : p.base.ma) * p.atkMult;
+  const defStat = phys? defender.base.pd : defender.base.md;
+  let eff = typeEff(sk.attr, defender.types);
+  let mult = 1;
+  if (opts.counterStatus && sk.counterStatus==='double'){ mult*=2; if (eff<1) eff=1; }
+  const stab = attacker.types.includes(sk.attr)? 1.25 : 1;
+  const rand = 0.8 + Math.random()*0.4;
+  let reduce = 1;
+  if (opts.defended){ reduce = 1 - opts.defended.reduce; }
+  const single = (atkStat/defStat) * (37/41) * pow * eff * stab * mult * reduce * rand;
+  const total = Math.floor(single * hits);
+  return {total, hits, eff, stab, rand, pow};
+}
+function applyDamage(side, oppSide, target, amount, srcName){
+  let final = amount;
+  if (target.hp - final <= 0 && target.trait==='化茧' && target.huajian>0){
+    target.huajian--; gainMeng(target,'self',1);
+    log(`🦋 化茧触发！${target.name} 免疫了致命一击（剩${target.huajian}次），并获得1层萌化`);
+    return;
+  }
+  target.hp = Math.max(0, target.hp - final);
+  if (target.hp===0){ log(`💀 ${target.name} 倒下了！`); onDeath(side, oppSide, target); }
+}
+function gainMeng(p, source, n){
+  if (!p.types.includes('萌') && source==='self') {} // 非萌系也可持有层数(简化)
+  if (source==='enemy') p.mengFromEnemy += n; else p.meng += n;
+}
+function onDeath(side, oppSide, p){
+  const idx = side.team.indexOf(p);
+  if (idx===side.active && alive(side)){
+    const next = side.team.findIndex(q=>q.hp>0);
+    side.active = next; onEntry(side, oppSide, true);
+    log(`🆓 ${side.label} 免费补上 ${act(side).name}（死亡补位不占行动）`);
+  }
+}
+function onEntry(side, oppSide, free){
+  const p = act(side);
+  if (p.trait==='守护者'){
+    p.guardDiscount = side.team.filter(q=>q!==p&&q.hp>0).reduce((a,q)=>a+q.meng,0);
+    if (p.guardDiscount) log(`🛡 守护者：队友萌化${p.guardDiscount}层 → ${p.name}技能能耗-${p.guardDiscount}`);
+  }
+  if (p.trait==='拨浪鼓'){ p.bolangu = side.statusUses; if(p.bolangu) log(`🪇 拨浪鼓：己方已用${p.bolangu}次状态技 → 毒/萌技威力+${p.bolangu*10}`); }
+}
+function doSwitch(side, oppSide, to, viaChuanhua){
+  const from = act(side); const incoming = side.team[to];
+  if (viaChuanhua){
+    incoming.meng += from.meng; from.meng = 0;
+    incoming.spdBonus += from.spdBonus; from.spdBonus = 0;
+    incoming.atkMult = Math.max(incoming.atkMult, from.atkMult);
+    log(`🌸 击鼓传花：${from.name} 把整包增益过户给 ${incoming.name}！`);
+  }
+  if (from.trait==='瞳中倒影' && from.hp>0){
+    const fp = from.hp/from.maxhp, ip = incoming.hp/incoming.maxhp;
+    from.hp = Math.max(1, Math.round(from.maxhp*ip));
+    incoming.hp = Math.max(1, Math.round(incoming.maxhp*fp));
+    log(`👁 瞳中倒影：${from.name}(${(fp*100).toFixed(0)}%) ↔ ${incoming.name}(${(ip*100).toFixed(0)}%) 血量百分比互换！`);
+  }
+  side.active = to; onEntry(side, oppSide, false);
+  log(`🔁 ${side.label} 换上 ${incoming.name}（入场回合无法行动）`);
+}
+function execAction(side, oppSide, action, oppAction){
+  const p = act(side), o = act(oppSide);
+  if (p.hp<=0) return;
+  if (p.prioNext) p.prioNext = 0;
+  if (action.type==='charge'){
+    side.energy = Math.min(15, side.energy+5); side.statusUses++;
+    log(`🔋 ${p.name} 聚能 +5 → ${side.energy}⚡`); return;
+  }
+  if (action.type==='boss'){
+    side.bossUsed = true; p.boss = true;
+    p.base.pa = BOSS_XUEYING.pa; p.base.ma = BOSS_XUEYING.ma;
+    o.freeze = Math.min(10, o.freeze+2); o.costPenalty += 2;
+    log(`👑 雪影娃娃 首领化 → 雪影冰灵！双攻更新(${p.base.pa}/${p.base.ma})，${o.name} +2冻结 +2能耗税（捉迷藏）`);
+    if (o.hp > effMax(o)) o.hp = effMax(o);
+    return;
+  }
+  if (action.type==='switch'){ doSwitch(side, oppSide, action.to, false); return; }
+  const name = action.name, sk = SK[name], cost = costOf(side,p,name);
+  if (side.energy < cost){ log(`❌ ${p.name} 能量不足，${name} 施放失败`); return; }
+  side.energy -= cost;
+  if (sk.cls==='sta') side.statusUses++;
+  log(`▶ ${p.name} 使用 ${name}（-${cost}⚡）`);
+  if (sk.cls==='def'){
+    p.defending = sk; p.defCD = 2; // 本回合生效，下回合冷却
+    if (name==='无畏之心') p.wuweiExtra += 2;
+    return;
+  }
+  if (sk.cls==='sta'){
+    if (name==='示弱'){ gainMeng(p,'self',1); p.spdBonus+=150; log(`  ✨ 萌化+1，速度永久+150（现在${speedOf(p)}）`); }
+    else if (name==='赤子之心'){ gainMeng(p,'self',1); p.costDelta-=3; log(`  ✨ 萌化+1，全技能能耗永久-3`); }
+    else if (name==='撒娇'){} // 撒娇是魔攻技，不会走到这
+    else if (name==='退化'){ gainMeng(o,'enemy',1); log(`  🍼 ${o.name} 被塞了1层萌化（喂给合奏）`); }
+    else if (name==='晒太阳'){
+      const cleared = o.meng + (o.spdBonus?1:0) + (o.atkMult>1?1:0) + o.candy + o.sajiao;
+      o.meng=0; o.spdBonus=0; o.atkMult=1; o.candy=0; o.sajiao=0; o.costDelta=Math.max(0,o.costDelta);
+      log(`  ☀️ 晒太阳：${o.name} 的自增增益全部驱散（清掉${cleared}项）`);
+    }
+    else if (name==='生日蛋糕'){
+      p.meng*=2; p.spdBonus*=2; if(p.atkMult>1) p.atkMult=1+(p.atkMult-1)*2;
+      p.hasDebuff=false; log(`  🎂 生日蛋糕：增益翻倍！萌化${p.meng} 速+${p.spdBonus}`);
+    }
+    else if (name==='击鼓传花'){
+      const to = side.team.findIndex((q,i)=>i!==side.active&&q.hp>0);
+      if (action.to!=null) doSwitch(side, oppSide, action.to, true);
+      else if (to>=0) doSwitch(side, oppSide, to, true);
+    }
+    return;
+  }
+  // 攻击技
+  const counterStatus = isStatusAction(oppAction) && sk.counterStatus;
+  const defended = (o.defending && o.hp>0) ? o.defending : null;
+  const r = dmg(p, o, name, {counterStatus, defended});
+  let line = `  💥 ${name} → ${o.name}：${r.total} 伤害`;
+  const bits = [];
+  if (r.eff!==1) bits.push(`克制×${r.eff}`); if (r.stab>1) bits.push('本系1.25');
+  if (counterStatus) bits.push(sk.counterStatus==='double'?'应对状态×2':'应对状态·吸血');
+  if (defended) bits.push(`对方减伤${defended.reduce*100}%`);
+  bits.push(`随机${r.rand.toFixed(2)}`); if (r.hits>1) bits.push(`${r.hits}连击`);
+  log(line + '（' + bits.join('·') + '）');
+  if (name==='超级糖果'){ gainMeng(p,'self',1); p.candy++; log(`  ✨ 糖果萌化+1（本技威力已+${60*p.candy}）`); }
+  if (name==='撒娇'){ gainMeng(p,'self',1); p.sajiao++; }
+  if (counterStatus && sk.counterStatus==='lifesteal'){
+    p.hp = Math.min(effMax(p), p.hp + r.total); log(`  🩸 撕裂吸血 ${r.total}`);
+  }
+  const preHP = o.hp;
+  applyDamage(oppSide, side, o, r.total, name);
+  // 防御技的应对效果
+  if (defended && preHP>0){
+    if (defended===SK['冰墙']){ p.freeze=Math.min(10,p.freeze+2); o2cost(p, oppSide, 2); log(`  ❄ 冰墙应对：${p.name} +2冻结`); if(p.hp>effMax(p)) p.hp=effMax(p); }
+    if (defended===SK['无畏之心']){ const blocked=Math.floor(r.total/( (1-defended.reduce)||1 )*(defended.reduce)); const heal=Math.min(effMax(o)-o.hp, Math.floor(r.total*4)); /*简化：按减免量回血*/ const h=Math.min(effMax(o)-o.hp, blocked); o.hp+=Math.max(0,h); log(`  💙 无畏之心：减免伤害转为回血+${Math.max(0,h)}`); }
+    if (defended===SK['有效预防']){ o.prioNext=1; log(`  ⚡ 有效预防：${o.name} 下次行动先手+1`); }
+    if (defended===SK['嗜痛']){ o.atkMult+=0.4; log(`  🗡 嗜痛：${o.name} 双攻+40%（现×${o.atkMult.toFixed(1)}）`); }
+    if (defended===SK['吓退']){
+      const others = side.team.map((q,i)=>[q,i]).filter(([q,i])=>i!==side.active&&q.hp>0);
+      if (others.length){ const [q,i]=others[Math.floor(Math.random()*others.length)];
+        log(`  😱 吓退：${p.name} 被弹下场！`); doSwitch(side, oppSide, i, false); }
+    }
+  }
+}
+function o2cost(p, oppSide, n){ p.costPenalty += n; } // 捉迷藏能耗税挂在被冻者身上
+function resolve(aAct, bAct){
+  log(`<span class="t">━━ 回合 ${turn} ━━</span>`);
+  // 换人先行（含传花之外的普通换人）
+  const order = [];
+  const aSwitch = aAct.type==='switch', bSwitch = bAct.type==='switch';
+  if (aSwitch) execAction(A,B,aAct,bAct);
+  if (bSwitch) execAction(B,A,bAct,aAct);
+  // 技能按先手→速度→随机
+  const items = [];
+  if (!aSwitch) items.push({s:A,o:B,a:aAct,oa:bAct});
+  if (!bSwitch) items.push({s:B,o:A,a:bAct,oa:aAct});
+  items.sort((x,y)=>{
+    const px = prioOf(act(x.s),x.a), py = prioOf(act(y.s),y.a);
+    if (px!==py) return py-px;
+    const sx = speedOf(act(x.s)), sy = speedOf(act(y.s));
+    if (sx!==sy) return sy-sx;
+    return Math.random()<0.5?-1:1;
+  });
+  // 应对状态类攻击优先于状态动作结算
+  items.sort((x,y)=>{
+    const xc = x.a.type==='skill'&&SK[x.a.name].counterStatus&&isStatusAction(y?.a||{})?1:0;
+    return 0; // 保持先手排序，counter 的"先结算伤害"已在 execAction 内隐含（状态效果在挨打后才结算的情形 v1 简化）
+  });
+  for (const it of items){ if (act(it.s).hp>0 && alive(it.s) && alive(it.o)) execAction(it.s,it.o,it.a,it.oa); }
+  // 回合末
+  for (const s of [A,B]){ for (const p of s.team){
+    if (p.defending) p.defending = null;
+    else if (p.defCD>0) p.defCD--;
+    if (p.hp>0 && p.skills.includes('水波术') && s.active===s.team.indexOf(p)) { p.shuibo++; }
+  }}
+  turn++;
+  render();
+  if (!alive(A) || !alive(B)){
+    const w = alive(A)? 'Lisa' : '言秋';
+    log(`\n🏆 ${w} 方胜利！`);
+    $('pickPanel').innerHTML = `<div class="lock"><h3>🏆 ${w} 获胜</h3><button class="big" onclick="location.reload()">再来一局</button></div>`;
+    return;
+  }
+  lockUI(A.label);
+}
+render();
+lockUI(A.label);
+log('🌸 萌队内战模拟器 v1 · 双方镜像六卡 · 开局各10⚡ · Lisa 先选');
+</script>
+</body>
+</html>
