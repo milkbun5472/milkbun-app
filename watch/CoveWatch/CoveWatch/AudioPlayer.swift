@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 
 @MainActor
-final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
+final class AudioPlayer: NSObject {
     private var player: AVAudioPlayer?
     var onFinish: (() -> Void)?
 
@@ -38,10 +38,12 @@ final class AudioPlayer: NSObject, AVAudioPlayerDelegate {
         return true
     }
 
+}
+
+extension AudioPlayer: @preconcurrency AVAudioPlayerDelegate {
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         self.player = nil
         try? AVAudioSession.sharedInstance().setActive(false)
         onFinish?()
     }
 }
-

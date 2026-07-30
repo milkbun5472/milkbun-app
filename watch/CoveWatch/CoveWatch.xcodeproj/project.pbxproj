@@ -1,0 +1,315 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		11EEEEBB428B93BF052C1360 /* ConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5248FE50C7C1F4C47009B368 /* ConversationViewModel.swift */; };
+		1F7411BB3F5787AAF08F46D7 /* CoveWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEAE520105D8BD02C5D2BDAC /* CoveWatchApp.swift */; };
+		5F518C8DCE343D0D9EC7F0AF /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98E196829BFC471C675944A /* Models.swift */; };
+		7CD5AD1659E7A67C3E946580 /* ConfigurationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3A73303E2846C02B0024AF /* ConfigurationView.swift */; };
+		8AD328E69F5A09860D5746D7 /* WatchAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D46B8AC4CE1FAF3140C905 /* WatchAPIClient.swift */; };
+		94B74E2ADE3A9CF110625C28 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B990DED7D435180BDC222F7E /* AudioPlayer.swift */; };
+		B40A59013E66A7EA58BA5E2F /* ServerConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5FC27F837E48B69D501C5CA /* ServerConfiguration.swift */; };
+		CC701D57DDF548E457114D8E /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A61CD1BBC1E5EFA31B79EC /* AudioRecorder.swift */; };
+		F8F51B70F86D7DA803F7D85E /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE6BA7A04E0BB51294FD0C30 /* ConversationView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		38D46B8AC4CE1FAF3140C905 /* WatchAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchAPIClient.swift; sourceTree = "<group>"; };
+		5248FE50C7C1F4C47009B368 /* ConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationViewModel.swift; sourceTree = "<group>"; };
+		5E3A73303E2846C02B0024AF /* ConfigurationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationView.swift; sourceTree = "<group>"; };
+		638D41B02C9A71477E9E8B5B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A98E196829BFC471C675944A /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		B990DED7D435180BDC222F7E /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
+		C1A61CD1BBC1E5EFA31B79EC /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		C7F77B5C1EA8205D0434356E /* CoveWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoveWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E5FC27F837E48B69D501C5CA /* ServerConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfiguration.swift; sourceTree = "<group>"; };
+		FE6BA7A04E0BB51294FD0C30 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
+		FEAE520105D8BD02C5D2BDAC /* CoveWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoveWatchApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		4A12776E07A97C108761E6CF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C7F77B5C1EA8205D0434356E /* CoveWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B7ACDB4DEA890A9471C1D78C = {
+			isa = PBXGroup;
+			children = (
+				C1E8895963C159AED0DE841B /* CoveWatch */,
+				4A12776E07A97C108761E6CF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		C1E8895963C159AED0DE841B /* CoveWatch */ = {
+			isa = PBXGroup;
+			children = (
+				B990DED7D435180BDC222F7E /* AudioPlayer.swift */,
+				C1A61CD1BBC1E5EFA31B79EC /* AudioRecorder.swift */,
+				5E3A73303E2846C02B0024AF /* ConfigurationView.swift */,
+				FE6BA7A04E0BB51294FD0C30 /* ConversationView.swift */,
+				5248FE50C7C1F4C47009B368 /* ConversationViewModel.swift */,
+				FEAE520105D8BD02C5D2BDAC /* CoveWatchApp.swift */,
+				638D41B02C9A71477E9E8B5B /* Info.plist */,
+				A98E196829BFC471C675944A /* Models.swift */,
+				E5FC27F837E48B69D501C5CA /* ServerConfiguration.swift */,
+				38D46B8AC4CE1FAF3140C905 /* WatchAPIClient.swift */,
+			);
+			path = CoveWatch;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8A042899C6AC30C6F293EED4 /* CoveWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 73E6268BA1D3D43A52E61A47 /* Build configuration list for PBXNativeTarget "CoveWatch" */;
+			buildPhases = (
+				F60F1FE44871533141A72B7D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CoveWatch;
+			packageProductDependencies = (
+			);
+			productName = CoveWatch;
+			productReference = C7F77B5C1EA8205D0434356E /* CoveWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F7719C6309E5AA13D25A871F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					8A042899C6AC30C6F293EED4 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = FB4D9AA5EE4BC6FADF096BBE /* Build configuration list for PBXProject "CoveWatch" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B7ACDB4DEA890A9471C1D78C;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4A12776E07A97C108761E6CF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8A042899C6AC30C6F293EED4 /* CoveWatch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		F60F1FE44871533141A72B7D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				94B74E2ADE3A9CF110625C28 /* AudioPlayer.swift in Sources */,
+				CC701D57DDF548E457114D8E /* AudioRecorder.swift in Sources */,
+				7CD5AD1659E7A67C3E946580 /* ConfigurationView.swift in Sources */,
+				F8F51B70F86D7DA803F7D85E /* ConversationView.swift in Sources */,
+				11EEEEBB428B93BF052C1360 /* ConversationViewModel.swift in Sources */,
+				1F7411BB3F5787AAF08F46D7 /* CoveWatchApp.swift in Sources */,
+				5F518C8DCE343D0D9EC7F0AF /* Models.swift in Sources */,
+				B40A59013E66A7EA58BA5E2F /* ServerConfiguration.swift in Sources */,
+				8AD328E69F5A09860D5746D7 /* WatchAPIClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		48EAE318FB8077F87056B40F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CoveWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lisa.covewatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
+		AA3A4900DEEB47D062250500 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = CoveWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lisa.covewatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
+		};
+		BB63955B6FD4922C2E06BC3C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		E3355B14F250F110C3368D44 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		73E6268BA1D3D43A52E61A47 /* Build configuration list for PBXNativeTarget "CoveWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				48EAE318FB8077F87056B40F /* Debug */,
+				AA3A4900DEEB47D062250500 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FB4D9AA5EE4BC6FADF096BBE /* Build configuration list for PBXProject "CoveWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BB63955B6FD4922C2E06BC3C /* Debug */,
+				E3355B14F250F110C3368D44 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F7719C6309E5AA13D25A871F /* Project object */;
+}

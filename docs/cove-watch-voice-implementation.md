@@ -13,7 +13,8 @@
 2. HTTPS 音频上传；
 3. 异步轮询一轮回复；
 4. 文字展示与可选 TTS 播放；
-5. 本地假后端协议验证。
+5. 本地假后端协议验证；
+6. relay transport-only 耐久 turn store 与 WAV 安全校验。
 
 本阶段明确不做：
 
@@ -22,6 +23,17 @@
 - 不接健康数据、位置、快捷指令或常驻监听；
 - 不复用 Stack-chan 的 `DEVICE_TOKEN`；
 - 不把原始音频或 Base64 放进模型上下文。
+
+## 2026-07-29 实现进度
+
+- `CoveWatch.xcodeproj` 已生成并纳入仓库；
+- Xcode 26.6 + watchOS SDK 通用设备构建通过；
+- Swift 6 actor isolation 警告已清零；
+- relay 核心支持按 `(watch device, request_id)` 幂等，重启后仍返回同一
+  `turn_id`；
+- turn 查询按 Watch 身份隔离，别的 token/设备不能横向读取；
+- 录音服务端复核大小、RIFF/WAVE、16 kHz、单声道、16-bit PCM 与 30 秒上限；
+- 当前只返回假言秋文字，明确不唤醒真实 CC。
 
 ## 接口契约 v0.1
 
@@ -108,4 +120,3 @@ GET /watch/turn/<turn_id>
 - 原始录音短期留存，转写完成后按策略删除；
 - Funnel 只公开 `/watch/voice`、`/watch/turn/*` 与受控音频路径；
 - 失败不自动重投 CC；由同 request ID 的人工重试恢复。
-

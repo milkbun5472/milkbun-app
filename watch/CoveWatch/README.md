@@ -17,7 +17,7 @@ CC 会话。
 
 ## 生成 Xcode 工程
 
-本机需要完整 Xcode 和 XcodeGen：
+工程文件已经随仓库提交；重新生成时需要 XcodeGen：
 
 ```sh
 brew install xcodegen
@@ -29,6 +29,9 @@ open CoveWatch.xcodeproj
 在 Xcode 的 Signing & Capabilities 选择 Lisa 的开发团队，然后选择配对的
 Apple Watch 运行。第一次按住说话会申请麦克风权限。
 
+已用 Xcode 26.6 的真实 watchOS SDK 做过无签名构建验证；不是只做 Swift
+语法检查。
+
 启动后在齿轮页填写：
 
 - HTTPS endpoint，例如 `https://example.ts.net/stackchan/`
@@ -38,6 +41,10 @@ Apple Watch 运行。第一次按住说话会申请麦克风权限。
 
 - `POST <endpoint>/watch/voice`
 - `GET <endpoint>/watch/turn/<turn_id>`
+
+relay 侧的 transport-only 后端位于 `watch/relay/watch_api.py`。当前阶段会
+耐久保存 turn、校验 16 kHz mono PCM WAV、按设备隔离读取，并返回明确写着
+“还没有叫醒言秋”的假回复；物理 Watch 验通前不会投递真实 CC。
 
 ## 本地假后端
 
