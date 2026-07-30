@@ -157,7 +157,7 @@ function pickUI(){
   s.team.forEach((q,i)=>{ if(i!==s.active&&q.hp>0)
     html += `<button onclick="choose({type:'switch',to:${i}})">换↔${q.name}</button>`; });
   if (p.name==='雪影娃娃' && !s.bossUsed)
-    html += `<button class="big" onclick="choose({type:'boss'})">👑首领化(一场一次)</button>`;
+    html += `<button class="big" onclick="bossNow()">👑首领化(不占行动，点完再选招)</button>`;
   html += `<div class="note">技能说明：`+p.skills.map(n=>`【${n}】${SK[n].desc}`).join('　')+`</div>`;
   $('pickPanel').innerHTML = html;
 }
@@ -165,6 +165,16 @@ function lockUI(next){
   $('pickPanel').innerHTML = `<div class="lock">🙈 已锁定。请把设备交给 <b>${next}</b><br><br>
     <button class="big" onclick="pickUI()">我是${next}，开始选招</button></div>`;
 }
+window.bossNow = function(){
+  const s = phase==='A'?A:B, oppSide = phase==='A'?B:A;
+  const p = act(s), o = act(oppSide);
+  s.bossUsed = true; p.boss = true;
+  p.base.pa = BOSS_XUEYING.pa; p.base.ma = BOSS_XUEYING.ma;
+  o.freeze = Math.min(10, o.freeze+2); o.costPenalty += 2;
+  if (o.hp > effMax(o)) o.hp = effMax(o);
+  log(`👑 雪影娃娃 首领化 → 雪影冰灵！双攻更新(${p.base.pa}/${p.base.ma})，${o.name} +2冻结 +2能耗税（不占行动）`);
+  render(); pickUI();
+};
 window.choose = function(action){
   if (phase==='A'){ pending.A=action; phase='B'; lockUI(B.label); }
   else { pending.B=action; phase='A'; resolve(pending.A, pending.B); pending={}; }
