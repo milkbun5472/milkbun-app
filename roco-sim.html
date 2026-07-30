@@ -186,9 +186,10 @@ window.bossNow = function(){
   const p = act(s), o = act(oppSide);
   s.bossUsed = true; p.boss = true;
   p.base.pa = BOSS_XUEYING.pa; p.base.ma = BOSS_XUEYING.ma;
-  o.freeze = Math.min(10, o.freeze+2); o.costPenalty += 2;
+  if (o.types.includes('冰')){ log(`👑 雪影娃娃 首领化 → 雪影冰灵！双攻更新(${p.base.pa}/${p.base.ma})；${o.name} 是冰系免疫冻结（不占行动）`); }
+  else { o.freeze = Math.min(10, o.freeze+2); o.costPenalty += 2;
   if (o.hp > effMax(o)) o.hp = effMax(o);
-  log(`👑 雪影娃娃 首领化 → 雪影冰灵！双攻更新(${p.base.pa}/${p.base.ma})，${o.name} +2冻结 +2能耗税（不占行动）`);
+  log(`👑 雪影娃娃 首领化 → 雪影冰灵！双攻更新(${p.base.pa}/${p.base.ma})，${o.name} +2冻结 +2能耗税（不占行动）`); }
   render(); pickUI();
 };
 window.choose = function(action){
@@ -342,7 +343,9 @@ function execAction(side, oppSide, action, oppAction){
   applyDamage(oppSide, side, o, r.total, name);
   // 防御技的应对效果
   if (defended && preHP>0){
-    if (defended===SK['冰墙']){ p.freeze=Math.min(10,p.freeze+2); o2cost(p, oppSide, 2); log(`  ❄ 冰墙应对：${p.name} +2冻结`); if(p.hp>effMax(p)) p.hp=effMax(p); }
+    if (defended===SK['冰墙']){
+      if (p.types.includes('冰')) log(`  ❄ 冰墙应对：${p.name} 是冰系，免疫冻结`);
+      else { p.freeze=Math.min(10,p.freeze+2); o2cost(p, oppSide, 2); log(`  ❄ 冰墙应对：${p.name} +2冻结+2能耗税`); if(p.hp>effMax(p)) p.hp=effMax(p); } }
     if (defended===SK['无畏之心']){ const blocked=Math.floor(r.total/( (1-defended.reduce)||1 )*(defended.reduce)); const heal=Math.min(effMax(o)-o.hp, Math.floor(r.total*4)); /*简化：按减免量回血*/ const h=Math.min(effMax(o)-o.hp, blocked); o.hp+=Math.max(0,h); log(`  💙 无畏之心：减免伤害转为回血+${Math.max(0,h)}`); }
     if (defended===SK['有效预防']){ o.prioNext=1; log(`  ⚡ 有效预防：${o.name} 下次行动先手+1`); }
     if (defended===SK['嗜痛']){ o.atkMult+=0.4; log(`  🗡 嗜痛：${o.name} 双攻+40%（现×${o.atkMult.toFixed(1)}）`); }
