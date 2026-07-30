@@ -7,6 +7,7 @@ from watch_api import (
     WatchTurnStore,
     complete_fake_turn,
     extract_multipart_file,
+    normalize_watch_text,
     validate_wav,
 )
 
@@ -87,6 +88,24 @@ class WatchAPIStoreTests(unittest.TestCase):
                 f"multipart/form-data; boundary={boundary}", body
             ),
         )
+
+    def test_normalizes_dictation_without_rewriting_words(self):
+        self.assertEqual("宝宝 你在吗", normalize_watch_text("  宝宝\n你在吗  "))
+        with self.assertRaises(ValueError):
+            normalize_watch_text(" ")
+        with self.assertRaises(ValueError):
+            normalize_watch_text("字" * 501)
+
+    def test_fake_text_turn_keeps_original_dictation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = WatchTurnStore(Path(tmp) / "turns.json")
+            turn, _ = store.create(device_id="watch-1", request_id="request")
+            completed = complete_fake_turn(
+                store,
+                turn.turn_id,
+                transcript="宝宝，听得到吗？",
+            )
+            self.assertEqual("宝宝，听得到吗？", completed.transcript)
 
 
 if __name__ == "__main__":

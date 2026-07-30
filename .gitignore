@@ -3,3 +3,6 @@
 # 参考文档/素材原稿不进公开仓库
 *.pdf
 index-debug.html
+__pycache__/
+*.pyc
+xcuserdata/

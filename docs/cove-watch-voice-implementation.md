@@ -35,6 +35,27 @@
 - 录音服务端复核大小、RIFF/WAVE、16 kHz、单声道、16-bit PCM 与 30 秒上限；
 - 当前只返回假言秋文字，明确不唤醒真实 CC。
 
+## Shortcut transport fallback
+
+Xcode 26 在第一代 Apple Watch SE / watchOS 10.6.2 上可能停在
+`Unable to copy shared cache files`。在原生 App 能完成真机准备前，可用
+Apple Watch 自带听写与快捷指令验证同一 relay：
+
+```http
+POST /watch/text
+Authorization: Bearer <WATCH_TOKEN>
+Content-Type: application/json
+
+{"request_id":"<unique value>","text":"听写原文"}
+```
+
+成功响应直接包含 `transcript`、`reply_text` 与耐久 `turn_id`。接口复用
+Watch 身份隔离和幂等账本，但 transport-only 阶段只返回明确的假回复，不会
+唤醒真实 CC。
+
+快捷指令可在 URL 追加 `?plain=1`，响应会直接变成 UTF-8 回复正文，从而不
+需要额外的“获取词典值”动作；JSON 默认行为保持不变，供原生客户端使用。
+
 ## 接口契约 v0.1
 
 所有请求：

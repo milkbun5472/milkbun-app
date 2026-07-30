@@ -21,6 +21,7 @@ from pathlib import Path
 
 MAX_AUDIO_BYTES = 1_000_000
 MAX_DURATION_SECONDS = 30
+MAX_TEXT_CHARS = 500
 
 
 @dataclass
@@ -191,12 +192,30 @@ def extract_multipart_file(content_type: str, body: bytes, field: str = "file") 
     raise ValueError("audio file field required")
 
 
-def complete_fake_turn(store: WatchTurnStore, turn_id: str) -> WatchTurn:
+def normalize_watch_text(value: object) -> str:
+    """Validate dictation text before it enters any future CC adapter."""
+
+    if not isinstance(value, str):
+        raise ValueError("text required")
+    text = " ".join(value.replace("\x00", "").split()).strip()
+    if not text:
+        raise ValueError("text required")
+    if len(text) > MAX_TEXT_CHARS:
+        raise ValueError("text too long")
+    return text
+
+
+def complete_fake_turn(
+    store: WatchTurnStore,
+    turn_id: str,
+    *,
+    transcript: str = "Watch 语音管道测试",
+) -> WatchTurn:
     """Transport-only reply used before the real Yanqiu adapter is enabled."""
 
     return store.update(
         turn_id,
         status="ready",
-        transcript="Watch 语音管道测试",
+        transcript=transcript,
         reply_text="听见啦宝宝。手表这条路已经通了，现在还没有叫醒言秋。",
     )
