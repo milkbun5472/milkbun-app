@@ -117,7 +117,7 @@ function costOf(s,p,name){
   let c = SK[name].cost + p.costDelta + p.costPenalty;
   if (name==='无畏之心') c += p.wuweiExtra;
   if (p.trait==='守护者' && p.guardDiscount) c -= p.guardDiscount;
-  return Math.max(1,c);
+  return Math.max(0,c);
 }
 function log(msg){ const el=$('log'); el.innerHTML += msg+'\n'; el.scrollTop=el.scrollHeight; }
 
@@ -147,11 +147,27 @@ function pickUI(){
   if (!alive(A) || !alive(B)) return;
   const p = act(s);
   let html = `<h3>轮到 ${s.label} 秘密出招（回合 ${turn}）</h3>`;
+  const opp = act(phase==='A'?B:A);
   html += p.skills.map((n,i)=>{
     const sk=SK[n], c=costOf(s,p,n);
     const dis = s.energy<c || (sk.cls==='def'&&p.defCD>0);
+    let est = '';
+    if (sk.cls==='phys'||sk.cls==='mag'){
+      let pow = sk.pow||0;
+      if (n==='超级糖果') pow += 60*p.candy;
+      if (n==='撒娇') pow += 20*p.sajiao;
+      if (n==='水波术') pow += 20*p.shuibo;
+      if (p.trait==='拨浪鼓' && (sk.attr==='毒'||sk.attr==='萌')) pow += 10*(p.bolangu||0);
+      let hits = sk.hits||1; if (n==='月光合奏') hits = 1 + totalMeng();
+      const atkStat=(sk.cls==='phys'?p.base.pa:p.base.ma)*p.atkMult;
+      const defStat=sk.cls==='phys'?opp.base.pd:opp.base.md;
+      const eff=typeEff(sk.attr,opp.types);
+      const stab=p.types.includes(sk.attr)?1.25:1;
+      const single=(atkStat/defStat)*(37/41)*pow*eff*stab;
+      est=`<br><small>预估${Math.floor(single*hits*0.8)}~${Math.floor(single*hits*1.2)}${eff!==1?`·克${eff}`:''}</small>`;
+    }
     return `<button class="${sk.cls==='def'?'def':sk.cls==='sta'?'sta':'atk'}" ${dis?'disabled':''}
-      onclick="choose({type:'skill',name:'${n}'})">${n}·${c}⚡</button>`;
+      onclick="choose({type:'skill',name:'${n}'})">${n}·${c}⚡${est}</button>`;
   }).join('');
   html += `<button class="sta" ${s.energy>=15?'disabled':''} onclick="choose({type:'charge'})">聚能+5⚡(状态)</button>`;
   s.team.forEach((q,i)=>{ if(i!==s.active&&q.hp>0)
