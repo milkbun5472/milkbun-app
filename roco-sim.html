@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>萌队竞技场 v2</title>
+<title>萌队竞技场 v3</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   :root { --ink:#4a4459; --paper:#fdf6f0; --card:#ffffff; --pink:#f7a8c4; --pink-d:#e57ba6;
@@ -58,7 +58,7 @@
 </style>
 </head>
 <body>
-<h1>🌸 萌队竞技场 <span style="font-size:12px">v2</span></h1>
+<h1>🌸 萌队竞技场 <span style="font-size:12px">v3 · 真公式版</span></h1>
 <div class="sub">规则书：洛克威胁手册 7/30 版 · 双盲出招 · 传席位制（A=Lisa，B=言秋）</div>
 
 <div class="arena">
@@ -387,11 +387,7 @@ function gainMeng(p, source, n){
 }
 function onDeath(side, oppSide, p){
   const idx = side.team.indexOf(p);
-  if (idx===side.active && alive(side)){
-    const next = side.team.findIndex(q=>q.hp>0);
-    side.active = next; onEntry(side, oppSide, true);
-    log(`🆓 ${side.label} 免费补上 ${act(side).name}（死亡补位不占行动）`);
-  }
+  if (idx===side.active && alive(side)) side.needPick = true;
 }
 function onEntry(side, oppSide, free){
   const p = act(side);
@@ -470,6 +466,7 @@ function execAction(side, oppSide, action, oppAction){
     return;
   }
   // 攻击技
+  if (o.hp<=0){ log(`  💨 ${name} 落空（对方正在补位）`); return; }
   const counterStatus = isStatusAction(oppAction) && sk.counterStatus;
   const defended = (o.defending && o.hp>0) ? o.defending : null;
   const r = dmg(p, o, name, {counterStatus, defended});
@@ -541,11 +538,83 @@ function resolve(aAct, bAct){
     $('pickPanel').innerHTML = `<div class="lock"><h3>🏆 ${w} 获胜</h3><button class="big" onclick="location.reload()">再来一局</button></div>`;
     return;
   }
+  processPicks();
+}
+function processPicks(){
+  if (A.needPick){
+    let html = `<h3>💀 Lisa 请选择补位精灵（免费）</h3>`;
+    A.team.forEach((q,i)=>{ if(q.hp>0) html += `<button class="big" onclick="doPick('A',${i})">${q.name}（HP${q.hp}/${q.maxhp}）</button>`; });
+    $('pickPanel').innerHTML = html; return;
+  }
+  if (B.needPick){
+    if (ARENA){
+      $('pickPanel').innerHTML = `<div class="lock">⏳ 等待言秋选择补位精灵…</div>`;
+      postState('yanqiu-pick').then(()=>pollYanqiuPick());
+    } else {
+      let html = `<h3>💀 言秋 请选择补位精灵（免费）</h3>`;
+      B.team.forEach((q,i)=>{ if(q.hp>0) html += `<button class="big" onclick="doPick('B',${i})">${q.name}（HP${q.hp}/${q.maxhp}）</button>`; });
+      $('pickPanel').innerHTML = html;
+    }
+    return;
+  }
   lockUI(A.label);
 }
+window.doPick = function(sideKey, i){
+  const s = sideKey==='A'?A:B, o = sideKey==='A'?B:A;
+  if (s.team[i].hp<=0) return;
+  s.active = i; s.needPick = false; onEntry(s, o, true);
+  log(`🆓 ${s.label} 补上 ${act(s).name}（死亡补位不占行动）`);
+  render(); processPicks();
+};
+function pollYanqiuPick(){
+  pollTimer = setInterval(async () => { try {
+    const r = await fetch('/api/yanqiu-move?t='+Date.now()); if (!r.ok) return;
+    const m = await r.json();
+    if (!m.action || m.action.type!=='pick' || m.consumedPickTurn===turn) return;
+    clearInterval(pollTimer); pollTimer = null;
+    m.consumedPickTurn = turn; fetch('/api/yanqiu-move',{method:'POST',body:JSON.stringify(m)}).catch(()=>{});
+    doPick('B', m.action.to);
+  } catch(e){} }, 1500);
+}
 render();
-lockUI(A.label);
-log('🌸 萌队内战模拟器 v1 · 双方镜像六卡 · 开局各10⚡ · Lisa 先选');
+function leadUI(){
+  let html = `<h3>🚩 Lisa 秘密选择首发精灵</h3>`;
+  A.team.forEach((q,i)=>{ html += `<button class="big" onclick="leadPick('A',${i})">${q.name}</button>`; });
+  $('pickPanel').innerHTML = html;
+}
+window.leadPick = function(sideKey, i){
+  const s = sideKey==='A'?A:B;
+  s.active = i;
+  if (sideKey==='A'){
+    if (ARENA){
+      $('pickPanel').innerHTML = `<div class="lock">⏳ 双方首发已封盘，等待言秋…</div>`;
+      postState('yanqiu-lead').then(()=>pollYanqiuLead());
+    } else {
+      $('pickPanel').innerHTML = `<div class="lock">🙈 已封盘。请把设备交给 <b>言秋</b><br><br>
+        <button class="big" onclick="leadUIB()">我是言秋，选首发</button></div>`;
+    }
+  } else {
+    log(`🚩 双方首发封盘完毕：${A.team[A.active].name} vs ${B.team[B.active].name}`);
+    render(); lockUI(A.label);
+  }
+};
+window.leadUIB = function(){
+  let html = `<h3>🚩 言秋 秘密选择首发精灵</h3>`;
+  B.team.forEach((q,i)=>{ html += `<button class="big" onclick="leadPick('B',${i})">${q.name}</button>`; });
+  $('pickPanel').innerHTML = html;
+};
+function pollYanqiuLead(){
+  pollTimer = setInterval(async () => { try {
+    const r = await fetch('/api/yanqiu-move?t='+Date.now()); if (!r.ok) return;
+    const m = await r.json();
+    if (!m.action || m.action.type!=='lead' || m.consumedLead) return;
+    clearInterval(pollTimer); pollTimer = null;
+    m.consumedLead = true; fetch('/api/yanqiu-move',{method:'POST',body:JSON.stringify(m)}).catch(()=>{});
+    leadPick('B', m.action.to);
+  } catch(e){} }, 1500);
+}
+leadUI();
+log('🌸 萌队竞技场 v3 · 真公式版 · 首发双盲自选 · 开局各10⚡');
 </script>
 </body>
 </html>
