@@ -100,7 +100,42 @@ const ROSTER = [
   mk('化蝶','虫','萌',260,105,163,166,133,203,['嗜痛','退化','晒太阳','破罐破摔'],'化茧'),
   mk('邪眼巨魔','恶','虫',472,168,169,202,224,154,['困兽','虫击','先发制人','吓退'],'瞳中倒影'),
 ];
-const BOSS_XUEYING = {pa:192, ma:173}; // 雪影冰灵：按公式重算的双攻，其余不变
+const BOSS_XUEYING = {pa:192, ma:173};
+const RACE = { // 60级5星拉平公式的原料；stages=形态数(null=待查)
+  '雪影娃娃':{hp:130,pa:103,ma:98,pd:66,md:130,sp:90,stages:3},
+  '菊花梨':{hp:120,pa:56,ma:127,pd:84,md:125,sp:60,stages:1},
+  '卡洛儿':{hp:114,pa:112,ma:117,pd:90,md:134,sp:90,stages:null},
+  '寒音蛇':{hp:106,pa:87,ma:87,pd:80,md:114,sp:100,stages:null},
+  '化蝶':{hp:53,pa:46,ma:46,pd:66,md:66,sp:100,stages:3},
+  '邪眼巨魔':{hp:111,pa:98,ma:99,pd:99,md:119,sp:95,stages:null}};
+const CONF = { // 资质三项 + 性格升降
+  '雪影娃娃':{q:['hp','pd','md'],up:'md',dn:'ma'}, '菊花梨':{q:['pd','hp','md'],up:'md',dn:'sp'},
+  '卡洛儿':{q:['pa','pd','sp'],up:'pa',dn:'ma'}, '寒音蛇':{q:['pa','hp','sp'],up:'hp',dn:'ma'},
+  '化蝶':{q:['pd','ma','sp'],up:'ma',dn:'pa'}, '邪眼巨魔':{q:['pd','hp','md'],up:'hp',dn:'sp'}};
+function panelStat(r, key, conf){
+  const qual = conf.q.includes(key), up = conf.up===key, dn = conf.dn===key;
+  if (key==='hp'){
+    if (qual && up) return Math.round(r*2.2 + 227.8);
+    if (qual) return Math.round(r*1.7 + 170) + 51;
+    return Math.round(r*1.7 + 170);
+  }
+  if (qual && up) return Math.round((r+30)*1.32 + 62);
+  if (qual) return Math.round(r*1.1 + 93);
+  if (dn) return Math.floor(Math.round(r*0.9)*1.1 + 60);
+  return Math.round(r*1.1 + 60);
+}
+const STAGE_FACTOR = [1, 0.8, 0.6];
+function applyStageDrop(p){ // 按当前非菊萌化层数重算面板（阶段降档）
+  const race = RACE[p.name], conf = CONF[p.name];
+  if (!race || race.stages===null || p.trait==='无忧无虑') return;
+  const drop = Math.min(p.meng + p.mengFromEnemy, race.stages - 1);
+  const f = STAGE_FACTOR[drop];
+  const ratio = p.hp / p.maxhp;
+  for (const k of ['pa','ma','pd','md','sp']) p.base[k===undefined?k:k] = panelStat(Math.round(race[k]*f), k, conf);
+  p.maxhp = panelStat(Math.round(race.hp*f), 'hp', conf);
+  p.hp = Math.max(1, Math.round(p.maxhp * ratio));
+  if (drop>0) log(`  🍼 ${p.name} 萌化降阶：面板按 ${['满阶','二阶(80%)','一阶(60%)'][drop]} 推算`);
+} // 雪影冰灵：按公式重算的双攻，其余不变
 
 function newPet(t){ return {...t, hp:t.maxhp, meng:0, mengFromEnemy:0, spdBonus:0, atkMult:1,
   energy:10, candy:0, sajiao:0, shuibo:0, costDelta:0, costPenalty:0, freeze:0, wuweiExtra:0,
@@ -110,7 +145,9 @@ function newSide(label){ return {label, team:ROSTER.map(newPet), active:0, energ
 let A = newSide('Lisa'), B = newSide('言秋'), turn = 1, phase = 'A', pending = {};
 const ARENA = new URLSearchParams(location.search).get('mode') === 'pvp';
 function pubState(waitingFor){
-  return JSON.stringify({turn, waitingFor, A, B, log: document.getElementById('log').innerText.slice(-1200)});
+  const fogA = JSON.parse(JSON.stringify(A));
+  fogA.team.forEach(q => { q.hpPct = Math.max(0, Math.round(q.hp/q.maxhp*100)); delete q.hp; delete q.maxhp; delete q.energy; });
+  return JSON.stringify({turn, waitingFor, A: fogA, B, log: document.getElementById('log').innerText.slice(-1200)});
 }
 async function postState(waitingFor){
   if (!ARENA) return;
@@ -163,20 +200,22 @@ function log(msg){ const el=$('log'); el.innerHTML += msg+'\n'; el.scrollTop=el.
 function petHTML(p, s){
   const em = effMax(p);
   const pct = Math.max(0, Math.min(100, p.hp/p.maxhp*100));
+  const foggy = ARENA && s === B; // 战雾：对面只给百分比
   const fz = p.freeze? `❄×${p.freeze}` : '';
   const tags = [ p.meng+p.mengFromEnemy?`萌化${p.meng+p.mengFromEnemy}`:'', p.spdBonus?`速+${p.spdBonus}`:'',
     p.atkMult>1?`双攻×${p.atkMult.toFixed(1)}`:'', p.huajian&&p.trait==='化茧'?`化茧${p.huajian}`:'',
     p.defCD?'盾冷却':'', p.boss?'👑':'' , fz].filter(Boolean).join(' · ');
+  const hpText = foggy ? `HP ${pct.toFixed(0)}%` : `HP ${p.hp}/${p.maxhp}${p.freeze?`（有效上限${em}）`:''}`;
   return `<div class="pet"><b>${p.name}</b> ${p.types.filter(Boolean).join('/')}
     <div class="hpbar"><div class="hpfill ${p.freeze?'frozen':''}" style="width:${pct}%"></div></div>
-    HP ${p.hp}/${p.maxhp}${p.freeze?`（有效上限${em}）`:''}
+    ${hpText}
     <div class="tags">${tags}</div></div>`;
 }
 function render(){
   for (const [s,el] of [[A,'sideA'],[B,'sideB']]){
     const bench = s.team.map((p,i)=> i===s.active?null:`<b class="${p.hp<=0?'dead':''}">${p.name}</b>(${p.hp})`).filter(Boolean).join(' ');
     $(el).innerHTML = `<h2>${s.label} 方</h2>` + petHTML(act(s),s) +
-      `<div class="energy">⚡能量 ${act(s).energy}（每只独立）</div><div class="bench">替补：${bench}</div>`;
+      `<div class="energy">⚡能量 ${(ARENA && s===B)?"??":act(s).energy}（每只独立）</div><div class="bench">替补：${bench}</div>`;
   }
 }
 /* ===== 选招 UI（传席位）===== */
@@ -292,8 +331,17 @@ function applyDamage(side, oppSide, target, amount, srcName){
   if (target.hp===0){ log(`💀 ${target.name} 倒下了！`); onDeath(side, oppSide, target); }
 }
 function gainMeng(p, source, n){
-  if (!p.types.includes('萌') && source==='self') {} // 非萌系也可持有层数(简化)
+  const race = RACE[p.name];
+  const unlimited = p.trait==='无忧无虑';
+  if (!unlimited && race && race.stages!==null){
+    const cap = race.stages - 1;
+    const cur = p.meng + p.mengFromEnemy;
+    if (cur >= cap){ log(`  🚫 ${p.name} 已到最低阶段，无法再被萌化`); return false; }
+    n = Math.min(n, cap - cur);
+  }
   if (source==='enemy') p.mengFromEnemy += n; else p.meng += n;
+  if (!unlimited) applyStageDrop(p);
+  return true;
 }
 function onDeath(side, oppSide, p){
   const idx = side.team.indexOf(p);
