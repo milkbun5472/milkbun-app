@@ -61,3 +61,12 @@ test("状态按角色 ID 创建，快照只暴露越过阈值的通道", () => {
   assert.equal(a.charId, "char-a");
   assert.equal(b.charId, "char-b");
 });
+
+test("CC 与 App 对同一获准回流内容生成同一身体事件指纹", () => {
+  const text = "宝宝，摸摸你的头发";
+  const cc = Core.detect({ text, role: "user", mode: "symbolic", source: "cc" });
+  const app = Core.detect({ text, role: "user", mode: "symbolic", source: "cc_ledger" });
+  const ccSignature = Core.eventSignature(cc), appSignature = Core.eventSignature(app);
+  assert.deepEqual(Core.compareEventSignatures(ccSignature, appSignature), { comparable: true, match: true, ccSignature, appSignature });
+  assert.notEqual(Core.eventSignature(cc), Core.eventSignature([]));
+});

@@ -4933,6 +4933,56 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
     h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
 }
 
+// 五感系统 v1：全角色只读影子仪表。正文不进诊断库，数值也不进 prompt。
+function SomaticDiagnosticSheet({ characters, onClose }) {
+  const t = useTheme();
+  const [rows, setRows] = useState(null);
+  const CHANNEL_ZH = { touch: "触觉", smell: "嗅觉", taste: "味觉", sound: "听觉" };
+  const SOURCE_ZH = { private: "私聊", cc_ledger: "CC 回流", group: "线上群聊", offline: "单人线下", group_offline: "群聊线下", voice: "真实语音", cc: "CC 本机" };
+  const MODE_ZH = { physical: "共同在场", symbolic: "文字象征" };
+  const load = async () => {
+    setRows(null);
+    try {
+      const S = window.SomaticShadow;
+      if (!S) { setRows({ error: "五感影子模块未载入" }); return; }
+      let ownerId = "local-device";
+      try { const u = window.Cloud && window.Cloud.getSessionUser && await window.Cloud.getSessionUser(); if (u && u.id) ownerId = u.id; } catch (e) {}
+      const out = [];
+      for (const c of (characters || [])) {
+        const st = await S.get(ownerId, c.id);
+        const report = await S.report(ownerId, c.id);
+        const status = await S.status(ownerId, c.id, Date.now());
+        if (st || (report && report.sampleCount)) out.push({ char: c, report: report || {}, status: status || {} });
+      }
+      setRows({ list: out });
+    } catch (e) { setRows({ error: "五感影子诊断读取失败" }); }
+  };
+  useEffect(() => { load(); }, []);
+  const line = (a, b) => h("div", { className: "flex justify-between", style: { gap: 12, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600, textAlign: "right" } }, b));
+  const fmtSources = surfaces => Object.entries(surfaces || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => (SOURCE_ZH[k] || k) + "×" + n).join(" · ") || "尚无";
+  return h(Sheet, { onClose },
+    h(Eyebrow, null, "五感系统 · 全角色纯影子诊断"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只看不注入：触觉、嗅觉、味觉、听觉只在独立影子库衰减演算，不会改变角色语气或决定。CC 与 App 共用同一套 somatic-core；App 只重放已获准回流的 CC 账本，不读取私人 CC transcript。"),
+    !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
+    rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, rows.error) :
+    !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0", lineHeight: 1.7 } }, "还没有五感样本。聊几轮后再来：线上只会形成低强度象征触觉，嗅觉/味觉必须来自共同在场，听觉必须来自真实语音。") :
+    rows.list.map(({ char, report, status }) => {
+      const channels = status && status.state && status.state.channels || {};
+      return h("div", { key: char.id, style: { marginBottom: 15 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700, color: t.ink, marginBottom: 5 } }, char.remark || char.name),
+        h("div", { className: "flex flex-wrap", style: { gap: 5, marginBottom: 6 } }, Object.keys(CHANNEL_ZH).map(key => {
+          const row = channels[key] || {}, value = Math.round((Number(row.value) || 0) * 100) / 100;
+          return h("span", { key, title: row.label || "尚无余感", style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 8px", borderRadius: 999, border: "1px solid " + t.line, color: value >= 0.15 ? t.tint : t.fog } }, CHANNEL_ZH[key] + " " + value);
+        })),
+        Object.keys(CHANNEL_ZH).map(key => { const row = channels[key]; return row && (row.value || row.label) ? line(CHANNEL_ZH[key] + "余感", (row.label || "无标签") + " · " + (MODE_ZH[row.mode] || row.mode || "—") + " · " + (SOURCE_ZH[row.source] || row.source || "—")) : null; }),
+        line("样本 / 身体事件", (report.sampleCount || 0) + " / " + Object.values(report.eventCounts || {}).reduce((a, b) => a + b, 0)),
+        line("来源分布", fmtSources(report.surfaces)),
+        report.surfaces && report.surfaces.cc_ledger ? line("CC→App 同引擎重放", report.surfaces.cc_ledger + " 轮（只含获准回流内容）") : null);
+    }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 8 } }, "对账规则：CC 与 App 都给每轮身体事件生成同一稳定指纹；来源字段不参与指纹，正文不进入诊断。审计时可逐轮比对，指纹不一致只报警、不自动修状态。"),
+    h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
+}
+
 // B 第3步：关系轴影子诊断台（只读；试点=阿屿/顾暮，小克硬拒在 pilotFor 里）
 function InnerLifeBDiagnosticSheet({ characters, onClose }) {
   const t = useTheme();
@@ -5051,6 +5101,7 @@ function MemoryLib({
   const [bAxesOpen, setBAxesOpen] = useState(false);
   const [cSleepOpen, setCSleepOpen] = useState(false);
   const [aEmoOpen, setAEmoOpen] = useState(false);
+  const [somaticOpen, setSomaticOpen] = useState(false);
   const [diagOpen, setDiagOpen] = useState(false); // 工程仪表抽屉：默认合拢，别压着记忆
   const [corrections, setCorrections] = useState([]);
   const [correctionOpen, setCorrectionOpen] = useState(null);
@@ -5136,6 +5187,7 @@ function MemoryLib({
   bAxesOpen ? h(InnerLifeBDiagnosticSheet, { characters, onClose: () => setBAxesOpen(false) }) : null,
   cSleepOpen ? h(InnerLifeCDiagnosticSheet, { characters, onClose: () => setCSleepOpen(false) }) : null,
   aEmoOpen ? h(InnerLifeADiagnosticSheet, { characters, onClose: () => setAEmoOpen(false) }) : null,
+  somaticOpen ? h(SomaticDiagnosticSheet, { characters, onClose: () => setSomaticOpen(false) }) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onDecided: () => setCorrections(p => p.filter(x => x.id !== correctionOpen.id)), onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2"
   }, h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
@@ -5147,6 +5199,7 @@ function MemoryLib({
     style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, "📋 一键导出 Shadow 转正评审包") : null,
   h("button", { onClick: () => setAEmoOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫀 A 情绪统一 · 查看纯影子诊断"),
+  h("button", { onClick: () => setSomaticOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫧 五感系统 · 查看全角色纯影子诊断"),
   h("button", { onClick: () => setInnerLifeOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 查看纯影子诊断"), h("button", { onClick: () => setBAxesOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), h("button", { onClick: () => setCSleepOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "😴 C 睡眠与发声闸 · 查看纯影子诊断"), onAudit ? h("button", {
     onClick: onAudit,
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",

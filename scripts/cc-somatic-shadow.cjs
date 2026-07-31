@@ -29,7 +29,7 @@ function observeTurn(projectDir, turn) {
     const snap = Core.snapshot(state, now);
     atomicJSON(statePath, state);
     atomicJSON(contextPath, { schemaVersion: 1, phase: "shadow", updatedAt: now, active: snap.active, count: snap.count });
-    log({ turnId: turn.turnId, textHash: hash(turn.lisaText), textLength: turn.lisaText.length, eventCodes: events.map(e => e.labelCode), activeChannels: Object.keys(snap.active), shadowOnly: true });
+    log({ turnId: turn.turnId, textHash: hash(turn.lisaText), textLength: turn.lisaText.length, eventCodes: events.map(e => e.labelCode), eventSignature: Core.eventSignature(events), activeChannels: Object.keys(snap.active), shadowOnly: true });
     return { events, snapshot: snap, shadowOnly: true };
   } catch (error) {
     log({ outcome: "ignored", error: String(error && error.message || error).slice(0, 160), shadowOnly: true });

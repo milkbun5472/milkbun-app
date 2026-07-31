@@ -144,5 +144,24 @@
     return detectText(opts.text, opts).concat(detectTone(opts.tone, opts));
   }
 
-  return { VERSION, CHANNELS, createState, decayValue, decayState, ignite, snapshot, detect, detectText, detectTone, cleanEntity };
+  // 同一段话在 CC 与 App 重放时，来源字段会不同；对账只比较引擎真正判出的
+  // 身体事件，不把运行表面(source)算进指纹，也不保存任何正文。
+  function eventSignature(events) {
+    const stable = (Array.isArray(events) ? events : []).map(event => ({
+      channel: String(event && event.channel || ""),
+      labelCode: String(event && event.labelCode || ""),
+      entity: String(event && event.entity || ""),
+      mode: String(event && event.mode || ""),
+      delta: Math.round((Number(event && event.delta) || 0) * 10000) / 10000
+    }));
+    let h = 2166136261, text = JSON.stringify(stable);
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return ("00000000" + (h >>> 0).toString(16)).slice(-8);
+  }
+  function compareEventSignatures(ccSignature, appSignature) {
+    const cc = String(ccSignature || ""), app = String(appSignature || "");
+    return { comparable: !!(cc && app), match: !!(cc && app && cc === app), ccSignature: cc, appSignature: app };
+  }
+
+  return { VERSION, CHANNELS, createState, decayValue, decayState, ignite, snapshot, detect, detectText, detectTone, cleanEntity, eventSignature, compareEventSignatures };
 });

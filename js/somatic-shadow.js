@@ -68,6 +68,7 @@
         charKey: queueKey, at: now, surface: String(input.source || "unknown"),
         role: String(input.role || ""), mode: String(input.mode || "symbolic"),
         eventCodes: events.map(e => e.labelCode), activeChannels: Object.keys(snap.active),
+        eventSignature: core.eventSignature(events),
         textHash: hash(String(input.text || "")), textLength: String(input.text || "").length,
         shadowOnly: true
       });
