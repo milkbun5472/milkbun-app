@@ -103,7 +103,7 @@ const ROSTER = [
 const BOSS_XUEYING = {pa:192, ma:173}; // 雪影冰灵：按公式重算的双攻，其余不变
 
 function newPet(t){ return {...t, hp:t.maxhp, meng:0, mengFromEnemy:0, spdBonus:0, atkMult:1,
-  candy:0, sajiao:0, shuibo:0, costDelta:0, costPenalty:0, freeze:0, wuweiExtra:0,
+  energy:10, candy:0, sajiao:0, shuibo:0, costDelta:0, costPenalty:0, freeze:0, wuweiExtra:0,
   huajian: t.trait==='化茧'?2:0, defCD:0, prioNext:0, defending:null, boss:false}; }
 function newSide(label){ return {label, team:ROSTER.map(newPet), active:0, energy:10, bossUsed:false, statusUses:0}; }
 
@@ -176,7 +176,7 @@ function render(){
   for (const [s,el] of [[A,'sideA'],[B,'sideB']]){
     const bench = s.team.map((p,i)=> i===s.active?null:`<b class="${p.hp<=0?'dead':''}">${p.name}</b>(${p.hp})`).filter(Boolean).join(' ');
     $(el).innerHTML = `<h2>${s.label} 方</h2>` + petHTML(act(s),s) +
-      `<div class="energy">⚡能量 ${s.energy}</div><div class="bench">替补：${bench}</div>`;
+      `<div class="energy">⚡能量 ${act(s).energy}（每只独立）</div><div class="bench">替补：${bench}</div>`;
   }
 }
 /* ===== 选招 UI（传席位）===== */
@@ -188,7 +188,7 @@ function pickUI(){
   const opp = act(phase==='A'?B:A);
   html += p.skills.map((n,i)=>{
     const sk=SK[n], c=costOf(s,p,n);
-    const dis = s.energy<c || (sk.cls==='def'&&p.defCD>0);
+    const dis = p.energy<c || (sk.cls==='def'&&p.defCD>0);
     let est = '';
     if (sk.cls==='phys'||sk.cls==='mag'){
       let pow = sk.pow||0;
@@ -208,7 +208,7 @@ function pickUI(){
     return `<button class="${sk.cls==='def'?'def':sk.cls==='sta'?'sta':'atk'}" ${dis?'disabled':''}
       onclick="${click}">${n}·${c}⚡${est}</button>`;
   }).join('');
-  html += `<button class="sta" ${s.energy>=15?'disabled':''} onclick="choose({type:'charge'})">聚能+5⚡(状态)</button>`;
+  html += `<button class="sta" ${p.energy>=15?'disabled':''} onclick="choose({type:'charge'})">聚能+5⚡(状态)</button>`;
   s.team.forEach((q,i)=>{ if(i!==s.active&&q.hp>0)
     html += `<button onclick="choose({type:'switch',to:${i}})">换↔${q.name}</button>`; });
   if (p.name==='雪影娃娃' && !s.bossUsed)
@@ -334,8 +334,8 @@ function execAction(side, oppSide, action, oppAction){
   if (p.hp<=0) return;
   if (p.prioNext) p.prioNext = 0;
   if (action.type==='charge'){
-    side.energy = Math.min(15, side.energy+5); side.statusUses++;
-    log(`🔋 ${p.name} 聚能 +5 → ${side.energy}⚡`); return;
+    p.energy = Math.min(15, p.energy+5); side.statusUses++;
+    log(`🔋 ${p.name} 聚能 +5 → ${p.energy}⚡`); return;
   }
   if (action.type==='boss'){
     side.bossUsed = true; p.boss = true;
@@ -347,8 +347,8 @@ function execAction(side, oppSide, action, oppAction){
   }
   if (action.type==='switch'){ doSwitch(side, oppSide, action.to, false); return; }
   const name = action.name, sk = SK[name], cost = costOf(side,p,name);
-  if (side.energy < cost){ log(`❌ ${p.name} 能量不足，${name} 施放失败`); return; }
-  side.energy -= cost;
+  if (p.energy < cost){ log(`❌ ${p.name} 能量不足，${name} 施放失败`); return; }
+  p.energy -= cost;
   if (sk.cls==='sta') side.statusUses++;
   log(`▶ ${p.name} 使用 ${name}（-${cost}⚡）`);
   if (sk.cls==='def'){
