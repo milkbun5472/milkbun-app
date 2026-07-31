@@ -3,37 +3,62 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>萌队内战模拟器 v1</title>
+<title>萌队竞技场 v2</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:-apple-system,"PingFang SC",sans-serif; background:#f6f1e8; color:#3a3a3a; padding:12px; max-width:760px; margin:0 auto; }
-  h1 { font-size:18px; margin:6px 0 2px; } .sub { font-size:12px; color:#999; margin-bottom:10px; }
-  .arena { display:flex; gap:10px; }
-  .side { flex:1; background:#fff; border-radius:14px; padding:10px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
-  .side h2 { font-size:14px; margin-bottom:6px; }
-  .pet { font-size:13px; line-height:1.5; }
-  .hpbar { height:10px; background:#eee; border-radius:5px; overflow:hidden; margin:3px 0; }
-  .hpfill { height:100%; background:#7bc47f; transition:width .3s; }
-  .frozen { background:#bcd9ee; }
-  .tags { font-size:11px; color:#8a7ca8; min-height:15px; }
-  .bench { font-size:11px; color:#999; margin-top:6px; line-height:1.7; }
-  .bench b.dead { color:#d66; text-decoration:line-through; }
-  .energy { font-size:12px; color:#c98a2d; margin-top:4px; }
-  .panel { background:#fff; border-radius:14px; padding:12px; margin-top:12px; box-shadow:0 2px 6px rgba(0,0,0,.06); }
-  .panel h3 { font-size:14px; margin-bottom:8px; }
-  button { font-size:13px; padding:8px 10px; margin:3px; border:none; border-radius:10px; background:#e8eef7; cursor:pointer; }
+  :root { --ink:#4a4459; --paper:#fdf6f0; --card:#ffffff; --pink:#f7a8c4; --pink-d:#e57ba6;
+          --blue:#a8d3f7; --gold:#f0c869; --mint:#a8e6c9; --lav:#cdbdf0; }
+  body { font-family:-apple-system,"PingFang SC",sans-serif; color:var(--ink); padding:12px; max-width:780px; margin:0 auto;
+         background:linear-gradient(160deg,#fdf3f7 0%,#f3f0fb 55%,#eef6fb 100%); min-height:100vh; }
+  h1 { font-size:20px; margin:8px 0 2px; letter-spacing:1px;
+       background:linear-gradient(90deg,var(--pink-d),#8b78d8); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .sub { font-size:11.5px; color:#a89bb5; margin-bottom:12px; }
+  .arena { display:flex; gap:12px; }
+  .side { flex:1; background:var(--card); border-radius:18px; padding:12px;
+          box-shadow:0 4px 14px rgba(180,140,200,.16); border:2px solid #f6e6ef; }
+  .side h2 { font-size:14px; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .side h2::after { content:""; flex:1; height:2px; border-radius:2px;
+       background:linear-gradient(90deg,var(--pink),transparent); }
+  .pet { font-size:13px; line-height:1.55; background:linear-gradient(135deg,#fff, #fdf4f9);
+         border-radius:14px; padding:9px 10px; border:1.5px solid #f3dcea; }
+  .pet b { font-size:14.5px; }
+  .typebadge { display:inline-block; font-size:10px; padding:1px 7px; border-radius:8px; color:#fff; margin-left:3px; vertical-align:1px; }
+  .hpbar { height:12px; background:#efe8f2; border-radius:7px; overflow:hidden; margin:5px 0 3px;
+           box-shadow:inset 0 1px 3px rgba(0,0,0,.08); }
+  .hpfill { height:100%; border-radius:7px; transition:width .45s cubic-bezier(.4,1.4,.6,1);
+            background:linear-gradient(90deg,#7fd6a0,#b9e88f); }
+  .hpfill.low { background:linear-gradient(90deg,#f2b06a,#f7d489); }
+  .hpfill.crit { background:linear-gradient(90deg,#ec7b8f,#f5a3b0); }
+  .frozen { background:linear-gradient(90deg,#8ec4e8,#c3e2f5) !important; }
+  .frozen::after { content:"❄"; float:right; font-size:9px; color:#fff; margin-right:2px; }
+  .tags { font-size:11px; color:#9d7fc0; min-height:16px; margin-top:2px; }
+  .bench { font-size:11px; color:#a99cb8; margin-top:8px; line-height:1.9; }
+  .bench b { background:#f6eef7; border-radius:7px; padding:1px 6px; font-weight:500; }
+  .bench b.dead { color:#d66; text-decoration:line-through; background:#f9e4e4; }
+  .energy { font-size:12px; color:#c98a2d; margin-top:6px; }
+  .panel { background:var(--card); border-radius:18px; padding:14px; margin-top:14px;
+           box-shadow:0 4px 14px rgba(180,140,200,.16); border:2px solid #f6e6ef; }
+  .panel h3 { font-size:14px; margin-bottom:10px; }
+  button { font-size:13px; padding:9px 12px; margin:3px; border:none; border-radius:12px;
+           background:#eef0f8; cursor:pointer; color:var(--ink); box-shadow:0 2px 0 rgba(0,0,0,.07);
+           transition:transform .08s; }
+  button:active { transform:translateY(1px); box-shadow:none; }
   button:disabled { opacity:.35; cursor:default; }
-  button.atk { background:#f7dede; } button.def { background:#dbeafe; } button.sta { background:#fbeecf; }
-  button.big { background:#4a7fb5; color:#fff; }
-  #log { background:#2e2a26; color:#e8e2d8; border-radius:14px; padding:12px; margin-top:12px; font-size:12.5px; line-height:1.8; max-height:300px; overflow-y:auto; white-space:pre-wrap; }
-  #log .t { color:#c9a44f; } .hide { display:none; }
+  button.atk { background:linear-gradient(135deg,#fbdde2,#f7c8d4); }
+  button.def { background:linear-gradient(135deg,#d7e9fb,#c4ddf6); }
+  button.sta { background:linear-gradient(135deg,#fdf0d3,#f8e3b8); }
+  button.big { background:linear-gradient(135deg,var(--pink-d),#8b78d8); color:#fff; font-weight:600; }
+  #log { background:#332e40; color:#efe9f5; border-radius:18px; padding:14px; margin-top:14px;
+         font-size:12.5px; line-height:1.85; max-height:300px; overflow-y:auto; white-space:pre-wrap;
+         box-shadow:inset 0 2px 8px rgba(0,0,0,.35); }
+  #log .t { color:#f0c869; } .hide { display:none; }
   .lock { text-align:center; padding:30px 10px; }
-  .lock button { font-size:16px; padding:12px 28px; }
-  .note { font-size:11px; color:#aaa; margin-top:6px; line-height:1.5; }
+  .lock button { font-size:16px; padding:13px 30px; }
+  .note { font-size:11px; color:#b3a8bf; margin-top:8px; line-height:1.6; }
 </style>
 </head>
 <body>
-<h1>🌸 萌队内战模拟器 <span style="font-size:12px">v1</span></h1>
+<h1>🌸 萌队竞技场 <span style="font-size:12px">v2</span></h1>
 <div class="sub">规则书：洛克威胁手册 7/30 版 · 双盲出招 · 传席位制（A=Lisa，B=言秋）</div>
 
 <div class="arena">
@@ -43,7 +68,7 @@
 
 <div class="panel" id="pickPanel"></div>
 <div id="log"></div>
-<div class="note">已实现：伤害公式37/41·克制表·本系1.25·随机0.8~1.2·先手值→速度→随机·换人占行动且入场裸·防御技冷却1回合·应对状态先结算·聚能可被应对·冻结5%上限·捉迷藏能耗税·萌化层与各类骑手·传花整包过户·瞳中倒影换血·化茧两次免死·守护者入场折扣·拨浪鼓·首领化(一场一次)·愿力未做。未实现(TODO)：萌化降阶税·印记系统·困兽真实效果(占位威力70)·倾泻只清增益。</div>
+<div class="note">已实现：伤害公式37/41·克制表·本系1.25·随机0.8~1.2·先手值→速度→随机·换人占行动且入场裸·防御技冷却1回合·应对状态先结算·聚能可被应对·冻结5%上限·捉迷藏能耗税·萌化层与各类骑手·传花整包过户·瞳中倒影换血·化茧两次免死·守护者入场折扣·拨浪鼓·首领化(一场一次)·愿力未做。v2 新增：每只独立能量·萌化降阶(80%/60%按公式重算)·萌化封顶(阶段数-1)·战雾(对面百分比血条)·传花选人·首领化不占行动。未实现(TODO)：印记系统·困兽真实效果(占位威力70)·倾泻只清增益·卡洛儿/寒音蛇/巨魔阶段数待查。</div>
 
 <script>
 'use strict';
@@ -206,8 +231,13 @@ function petHTML(p, s){
     p.atkMult>1?`双攻×${p.atkMult.toFixed(1)}`:'', p.huajian&&p.trait==='化茧'?`化茧${p.huajian}`:'',
     p.defCD?'盾冷却':'', p.boss?'👑':'' , fz].filter(Boolean).join(' · ');
   const hpText = foggy ? `HP ${pct.toFixed(0)}%` : `HP ${p.hp}/${p.maxhp}${p.freeze?`（有效上限${em}）`:''}`;
-  return `<div class="pet"><b>${p.name}</b> ${p.types.filter(Boolean).join('/')}
-    <div class="hpbar"><div class="hpfill ${p.freeze?'frozen':''}" style="width:${pct}%"></div></div>
+  const EMOJI = {'雪影娃娃':'🐰','菊花梨':'🍐','卡洛儿':'🐚','寒音蛇':'🐍','化蝶':'🦋','邪眼巨魔':'👁️'};
+  const TYPECOLOR = {'冰':'#7db9e8','萌':'#f191b6','水':'#5aa7e0','毒':'#a86bc9','虫':'#93c14e','恶':'#7a6a94'};
+  const badges = p.types.filter(Boolean).map(x=>`<span class="typebadge" style="background:${TYPECOLOR[x]||'#999'}">${x}</span>`).join('');
+  const hearts = (p.meng+p.mengFromEnemy)>0 ? ' ' + '💗'.repeat(Math.min(8,p.meng+p.mengFromEnemy)) + ((p.meng+p.mengFromEnemy)>8?`×${p.meng+p.mengFromEnemy}`:'') : '';
+  const hpCls = pct<=25?'crit':pct<=55?'low':'';
+  return `<div class="pet"><b>${EMOJI[p.name]||''}${p.name}</b>${badges}${hearts}
+    <div class="hpbar"><div class="hpfill ${hpCls} ${p.freeze?'frozen':''}" style="width:${pct}%"></div></div>
     ${hpText}
     <div class="tags">${tags}</div></div>`;
 }
