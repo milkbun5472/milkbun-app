@@ -5,8 +5,11 @@ from pathlib import Path
 
 from watch_api import (
     WatchTurnStore,
+    append_jsonl,
     complete_fake_turn,
+    enqueue_yanqiu_watch_turn,
     extract_multipart_file,
+    find_watch_reply,
     normalize_watch_text,
     validate_wav,
 )
@@ -106,6 +109,50 @@ class WatchAPIStoreTests(unittest.TestCase):
                 transcript="宝宝，听得到吗？",
             )
             self.assertEqual("宝宝，听得到吗？", completed.transcript)
+
+    def test_watch_turn_enters_yanqiu_dedicated_queue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            queue = Path(tmp) / "wake" / "yanqiu" / "inbox.jsonl"
+            store = WatchTurnStore(Path(tmp) / "turns.json")
+            turn, _ = store.create(device_id="watch-1", request_id="request")
+            turn = store.update(
+                turn.turn_id,
+                status="waiting_reply",
+                transcript="宝宝，你在干嘛？",
+            )
+            enqueue_yanqiu_watch_turn(queue, turn)
+            row = __import__("json").loads(queue.read_text(encoding="utf-8"))
+            self.assertEqual("watch_voice", row["kind"])
+            self.assertEqual(turn.turn_id, row["turn_id"])
+            self.assertEqual("宝宝，你在干嘛？", row["text"])
+            self.assertIn("watch-reply", row["prompt"])
+
+    def test_watch_reply_is_strictly_bound_to_turn(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outbox = Path(tmp) / "watch_outbox.jsonl"
+            append_jsonl(
+                outbox,
+                {
+                    "kind": "watch_reply",
+                    "target": "watch",
+                    "turn_id": "other-turn",
+                    "text": "不该串进来",
+                },
+            )
+            append_jsonl(
+                outbox,
+                {
+                    "kind": "watch_reply",
+                    "target": "watch",
+                    "turn_id": "wanted-turn",
+                    "text": "  听到了\n宝宝  ",
+                },
+            )
+            self.assertEqual(
+                "听到了 宝宝",
+                find_watch_reply(outbox, "wanted-turn"),
+            )
+            self.assertIsNone(find_watch_reply(outbox, "missing-turn"))
 
 
 if __name__ == "__main__":

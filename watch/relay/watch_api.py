@@ -205,6 +205,78 @@ def normalize_watch_text(value: object) -> str:
     return text
 
 
+def append_jsonl(path: str | os.PathLike[str], record: dict) -> None:
+    """Append one private durable record without rewriting the queue."""
+
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    payload = (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8")
+    descriptor = os.open(
+        destination,
+        os.O_WRONLY | os.O_CREAT | os.O_APPEND,
+        0o600,
+    )
+    try:
+        os.write(descriptor, payload)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def enqueue_yanqiu_watch_turn(
+    path: str | os.PathLike[str],
+    turn: WatchTurn,
+) -> None:
+    """Wake Yanqiu's existing CC session with one naturally worded Watch turn."""
+
+    append_jsonl(
+        path,
+        {
+            "kind": "watch_voice",
+            "source": "apple_watch",
+            "target": "yanqiu",
+            "turn_id": turn.turn_id,
+            "text": turn.transcript,
+            "received_at_ms": int(time.time() * 1000),
+            "prompt": (
+                f"Lisa 通过 Apple Watch 对你说：{turn.transcript}\n"
+                "请像平时一样直接回答她。定稿可见正文后，把同一份正文交回手表："
+                f"python3 relay_ctl.py watch-reply {turn.turn_id} "
+                "\"<把你的最终可见正文原样放这里>\"。"
+                "不要把机器编号念给 Lisa，也不要另开一个会话。"
+            ),
+        },
+    )
+
+
+def find_watch_reply(
+    path: str | os.PathLike[str],
+    turn_id: str,
+) -> str | None:
+    """Return only the reply explicitly bound to this Watch turn."""
+
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        try:
+            row = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if (
+            isinstance(row, dict)
+            and row.get("kind") == "watch_reply"
+            and row.get("target") == "watch"
+            and row.get("turn_id") == turn_id
+        ):
+            try:
+                return normalize_watch_text(row.get("text"))
+            except ValueError:
+                return None
+    return None
+
+
 def complete_fake_turn(
     store: WatchTurnStore,
     turn_id: str,

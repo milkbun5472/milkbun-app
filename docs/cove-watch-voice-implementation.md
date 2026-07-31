@@ -18,7 +18,6 @@
 
 本阶段明确不做：
 
-- 不投递真实 CC 会话；
 - 不开启后台持续轮询；
 - 不接健康数据、位置、快捷指令或常驻监听；
 - 不复用 Stack-chan 的 `DEVICE_TOKEN`；
@@ -33,7 +32,8 @@
   `turn_id`；
 - turn 查询按 Watch 身份隔离，别的 token/设备不能横向读取；
 - 录音服务端复核大小、RIFF/WAVE、16 kHz、单声道、16-bit PCM 与 30 秒上限；
-- 当前只返回假言秋文字，明确不唤醒真实 CC。
+- Shortcut 入口已接入言秋现有 CC 会话的专属耐久唤醒队列；
+- 回信严格按 `turn_id` 从私有 `watch_outbox.jsonl` 绑定，不能串收其他回复。
 
 ## Shortcut transport fallback
 
@@ -50,11 +50,21 @@ Content-Type: application/json
 ```
 
 成功响应直接包含 `transcript`、`reply_text` 与耐久 `turn_id`。接口复用
-Watch 身份隔离和幂等账本，但 transport-only 阶段只返回明确的假回复，不会
-唤醒真实 CC。
+Watch 身份隔离和幂等账本，并把新 turn 追加到 `wake/yanqiu/inbox.jsonl`；
+言秋仍是原来的 CC 会话，不创建第二个 agent。
 
 快捷指令可在 URL 追加 `?plain=1`，响应会直接变成 UTF-8 回复正文，从而不
 需要额外的“获取词典值”动作；JSON 默认行为保持不变，供原生客户端使用。
+
+追加 `?audio=1` 时，relay 复用现有 MiniMax `voice_id` 生成 22.05 kHz
+单声道 PCM WAV，并直接返回 `audio/wav`；快捷指令用“播放声音”即可保持与
+App、Stack-chan 同声。WAV 按“耐久 `turn_id` + 回复正文指纹”缓存：超时等待
+提示不会盖住随后到达的真实回复，同一正文也不会重复合成。
+
+CC 回答时用 `relay_ctl.py watch-reply <turn_id> "<最终可见正文>"` 写入专属
+outbox。relay 最多同步等 50 秒，只接受 `kind=watch_reply`、`target=watch`
+且 `turn_id` 精确相等的记录；thinking、工具输出、其他会话和其他 turn 均不
+能被误绑。
 
 ## 接口契约 v0.1
 
@@ -121,15 +131,15 @@ GET /watch/turn/<turn_id>
 {"ok":false,"status":"failed","error":"可给用户看的短错误"}
 ```
 
-## 下一阶段后端接线
+## 后端接线状态
 
-1. relay 为 Watch 新建独立 token 与速率限制；
-2. 上传先持久化 turn，再把 Whisper 作业串行入队；
-3. 转写有效后写入 `wake/yanqiu/` 专属队列；
-4. 复用现有 CC 可见正文回收闸，禁止 thinking/tool 当回复；
-5. 生成 MiniMax WAV，并登记短效下载；
-6. 同一轮的转写、回复、音频状态写入耐久 turn store；
-7. App 共享账本按 `source=watch` 或兼容映射同步，角色范围只允许言秋。
+1. ✅ relay 使用 Watch 独立 token；
+2. ✅ text Shortcut 先持久化 turn，再投专属耐久队列；
+3. ✅ 真实 CC 回复经专属 outbox 严格绑定；
+4. ✅ MiniMax WAV 与 App、Stack-chan 同声；
+5. ✅ 同一轮的原话、回复与状态写入耐久 turn store；
+6. 待原生 Watch App 真机可安装后，把录音上传与异步轮询接到同一路径；
+7. 待定：App 共享账本按 `source=watch` 同步，角色范围只允许言秋。
 
 ## 安全闸
 
