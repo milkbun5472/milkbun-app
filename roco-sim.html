@@ -68,7 +68,7 @@ function typeEff(atk, defTypes){
 const SK = {
   '击鼓传花':{cost:3,cls:'sta',attr:'萌',desc:'自己脱离，下个入场精灵继承全部增益（选人）'},
   '超级糖果':{cost:3,cls:'phys',attr:'萌',pow:100,desc:'物伤；自获萌化：本技威力永久+60/层'},
-  '赤子之心':{cost:2,cls:'sta',attr:'萌',desc:'自获萌化：全技能能耗永久-3(最低1)'},
+  '赤子之心':{cost:2,cls:'sta',attr:'萌',desc:'自获萌化：全技能能耗永久-3(随传花过户,最低0)'},
   '冰墙':{cost:2,cls:'def',attr:'冰',reduce:.8,desc:'减伤80%；应对攻击：敌+2冻结'},
   '示弱':{cost:1,cls:'sta',attr:'萌',desc:'自获萌化：速度永久+150'},
   '倾泻':{cost:3,cls:'mag',attr:'萌',pow:70,desc:'魔伤；未被防御应对则清双方增益(简化)'},
@@ -316,6 +316,7 @@ function doSwitch(side, oppSide, to, viaChuanhua){
   if (viaChuanhua){
     incoming.meng += from.meng; from.meng = 0;
     incoming.spdBonus += from.spdBonus; from.spdBonus = 0;
+    incoming.costDelta += from.costDelta; from.costDelta = 0;
     incoming.atkMult = Math.max(incoming.atkMult, from.atkMult);
     log(`🌸 击鼓传花：${from.name} 把整包增益过户给 ${incoming.name}！`);
   }
