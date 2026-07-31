@@ -108,6 +108,44 @@ function newPet(t){ return {...t, hp:t.maxhp, meng:0, mengFromEnemy:0, spdBonus:
 function newSide(label){ return {label, team:ROSTER.map(newPet), active:0, energy:10, bossUsed:false, statusUses:0}; }
 
 let A = newSide('Lisa'), B = newSide('言秋'), turn = 1, phase = 'A', pending = {};
+const ARENA = new URLSearchParams(location.search).get('mode') === 'pvp';
+function pubState(waitingFor){
+  return JSON.stringify({turn, waitingFor, A, B, log: document.getElementById('log').innerText.slice(-1200)});
+}
+async function postState(waitingFor){
+  if (!ARENA) return;
+  try { await fetch('/api/state', {method:'POST', body: pubState(waitingFor)}); } catch(e) {}
+}
+let pollTimer = null;
+function applyYanqiuBoss(){
+  const p = act(B), o = act(A);
+  if (B.bossUsed || p.name !== '雪影娃娃') return;
+  B.bossUsed = true; p.boss = true;
+  p.base.pa = BOSS_XUEYING.pa; p.base.ma = BOSS_XUEYING.ma;
+  if (o.types.includes('冰')) log(`👑 言秋的雪影娃娃 首领化 → 雪影冰灵！${o.name} 是冰系免疫冻结`);
+  else { o.freeze = Math.min(10, o.freeze+2); o.costPenalty += 2;
+    if (o.hp > effMax(o)) o.hp = effMax(o);
+    log(`👑 言秋的雪影娃娃 首领化 → 雪影冰灵！${o.name} +2冻结+2能耗税`); }
+}
+function waitYanqiu(){
+  document.getElementById('pick').innerHTML =
+    `<div style="text-align:center;padding:18px;color:#8aa">⏳ 等待言秋落子…（他在他那头看牌）</div>`;
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/api/yanqiu-move?t=' + Date.now());
+      if (!r.ok) return;
+      const m = await r.json();
+      if (m.turn !== turn || m.consumedTurn === turn) return;
+      clearInterval(pollTimer); pollTimer = null;
+      m.consumedTurn = turn;
+      fetch('/api/yanqiu-move', {method:'POST', body: JSON.stringify(m)}).catch(()=>{});
+      if (m.boss) applyYanqiuBoss();
+      pending.B = m.action; phase = 'A';
+      resolve(pending.A, pending.B); pending = {};
+      postState('lisa');
+    } catch(e) {}
+  }, 1500);
+}
 const $ = id => document.getElementById(id);
 function effMax(p){ return Math.floor(p.maxhp * (1 - 0.05*p.freeze)); }
 function alive(s){ return s.team.some(p=>p.hp>0); }
@@ -193,6 +231,12 @@ window.bossNow = function(){
   render(); pickUI();
 };
 window.choose = function(action){
+  if (ARENA){
+    if (phase!=='A') return;
+    pending.A = action; phase='B';
+    postState('yanqiu').then(()=>waitYanqiu());
+    return;
+  }
   if (phase==='A'){ pending.A=action; phase='B'; lockUI(B.label); }
   else { pending.B=action; phase='A'; resolve(pending.A, pending.B); pending={}; }
 };
