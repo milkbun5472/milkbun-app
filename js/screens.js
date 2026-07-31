@@ -4910,7 +4910,7 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
         const r = await S.report(ownerId, c.id);
         if (st || (r && r.sampleCount)) out.push({ char: c, st, r: r || {} });
       }
-      setRows({ list: out });
+      setRows({ list: out, summary: window.SomaticReviewCore ? window.SomaticReviewCore.summarize(out) : null });
     } catch (e) { setRows({ error: "A 影子诊断读取失败" }); }
   };
   useEffect(() => { load(); }, []);
@@ -4966,6 +4966,13 @@ function SomaticDiagnosticSheet({ characters, onClose }) {
     !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
     rows.error ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#9f5149", padding: "12px 0" } }, rows.error) :
     !rows.list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0", lineHeight: 1.7 } }, "还没有五感样本。聊几轮后再来：线上只会形成低强度象征触觉，嗅觉/味觉必须来自共同在场，听觉必须来自真实语音。") :
+    h(React.Fragment, null,
+    rows.summary ? h("div", { style: { border: "1px dashed " + t.line, borderRadius: 10, padding: "8px 10px", marginBottom: 12 } },
+      line("全角色样本 / 身体事件", rows.summary.sampleCount + " / " + rows.summary.eventCount),
+      line("CC 回流重放", rows.summary.ccReplaySamples + " 轮"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: rows.summary.enoughForHumanReview ? t.sub : "#b8860b", marginTop: 6, lineHeight: 1.6 } },
+        rows.summary.enoughForHumanReview ? "样本已够进入人工复核；仍不会自动开阀。" :
+        (rows.summary.warnings || []).map(x => ({ insufficient_samples: "样本还少，继续观察", no_detected_events: "长期零命中，请检查分类器", single_source_dominance: "来源太单一，结论可能偏科" }[x.code] || x.code)).join("；"))) : null,
     rows.list.map(({ char, report, status }) => {
       const channels = status && status.state && status.state.channels || {};
       return h("div", { key: char.id, style: { marginBottom: 15 } },
@@ -4978,7 +4985,7 @@ function SomaticDiagnosticSheet({ characters, onClose }) {
         line("样本 / 身体事件", (report.sampleCount || 0) + " / " + Object.values(report.eventCounts || {}).reduce((a, b) => a + b, 0)),
         line("来源分布", fmtSources(report.surfaces)),
         report.surfaces && report.surfaces.cc_ledger ? line("CC→App 同引擎重放", report.surfaces.cc_ledger + " 轮（只含获准回流内容）") : null);
-    }),
+    })),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 8 } }, "对账规则：CC 与 App 都给每轮身体事件生成同一稳定指纹；来源字段不参与指纹，正文不进入诊断。审计时可逐轮比对，指纹不一致只报警、不自动修状态。"),
     h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
 }

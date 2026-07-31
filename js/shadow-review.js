@@ -62,7 +62,18 @@
       }
       if (window.SomaticShadow && window.SomaticShadow.report) {
         const report = await safe("somatic", () => window.SomaticShadow.report(owner, char.id));
-        if (report && report.sampleCount) somatic.push({ charId: char.id, name: label, report });
+        if (report && report.sampleCount) {
+          const status = await safe("somatic status", () => window.SomaticShadow.status(owner, char.id, Date.now()));
+          const channels = status && status.state && status.state.channels || {};
+          somatic.push({
+            charId: char.id, name: label, report,
+            current: Object.fromEntries(Object.entries(channels).map(([key, row]) => [key, {
+              value: Math.round((Number(row && row.value) || 0) * 1000) / 1000,
+              labelCode: row && row.labelCode || "", entity: row && row.entity || "",
+              source: row && row.source || "", mode: row && row.mode || ""
+            }]))
+          });
+        }
       }
     }
     const ownerMismatches = a.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name)
@@ -83,7 +94,11 @@
         ownerMismatches
       },
       sampleWindow: { note: "各模块保留期不同；样本不足只能续观，不能自动转正。" },
-      memory, innerLife: { E: e, A: a, B: b, C: c, somatic, legacyNineDrives: drives }, personality
+      memory, innerLife: {
+        E: e, A: a, B: b, C: c, somatic,
+        somaticReview: window.SomaticReviewCore ? window.SomaticReviewCore.summarize(somatic) : { unavailable: true },
+        legacyNineDrives: drives
+      }, personality
     };
   }
   async function download(characters, appVersion) {
