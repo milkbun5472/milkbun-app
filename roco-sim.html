@@ -243,7 +243,8 @@ function petHTML(p, s){
 }
 function render(){
   for (const [s,el] of [[A,'sideA'],[B,'sideB']]){
-    const bench = s.team.map((p,i)=> i===s.active?null:`<b class="${p.hp<=0?'dead':''}">${p.name}</b>(${p.hp})`).filter(Boolean).join(' ');
+    const fogB = ARENA && s === B;
+    const bench = s.team.map((p,i)=> i===s.active?null:`<b class="${p.hp<=0?'dead':''}">${p.name}</b>(${fogB?Math.max(0,Math.round(p.hp/p.maxhp*100))+'%':p.hp})`).filter(Boolean).join(' ');
     $(el).innerHTML = `<h2>${s.label} 方</h2>` + petHTML(act(s),s) +
       `<div class="energy">⚡能量 ${(ARENA && s===B)?"??":act(s).energy}（每只独立）</div><div class="bench">替补：${bench}</div>`;
   }
