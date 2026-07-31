@@ -39,7 +39,7 @@
     const e = await safe("E", () => window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.report ? window.InnerLifeETidalShadow.report() : ({ unavailable: true }));
     const c = await safe("C", () => window.SleepShadow && window.SleepShadow.report ? window.SleepShadow.report(500) : ({ unavailable: true }));
     const personality = cleanPersonality(await safe("personality", () => window.PersonalityShadow && window.PersonalityShadow.report ? window.PersonalityShadow.report() : ({ unavailable: true })));
-    const a = [], b = [], drives = [];
+    const a = [], b = [], drives = [], somatic = [];
     for (const char of chars) {
       const label = char.remark || char.name || char.id;
       if (window.InnerLifeAShadow) {
@@ -60,6 +60,10 @@
           suppressed: state.suppressed, updatedAt: state.t
         });
       }
+      if (window.SomaticShadow && window.SomaticShadow.report) {
+        const report = await safe("somatic", () => window.SomaticShadow.report(owner, char.id));
+        if (report && report.sampleCount) somatic.push({ charId: char.id, name: label, report });
+      }
     }
     const ownerMismatches = a.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name)
       .concat(b.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name));
@@ -79,7 +83,7 @@
         ownerMismatches
       },
       sampleWindow: { note: "各模块保留期不同；样本不足只能续观，不能自动转正。" },
-      memory, innerLife: { E: e, A: a, B: b, C: c, legacyNineDrives: drives }, personality
+      memory, innerLife: { E: e, A: a, B: b, C: c, somatic, legacyNineDrives: drives }, personality
     };
   }
   async function download(characters, appVersion) {

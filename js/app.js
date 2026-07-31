@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.12";
+const APP_VERSION = "v51.13";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -644,6 +644,39 @@ function App() {
     try { const user = window.Cloud && window.Cloud.getSessionUser && await window.Cloud.getSessionUser(); if (user && user.id) return user.id; } catch (e) {}
     return "local-device";
   };
+  // 五感系统 v1 shadow：全角色共用同一套纯状态机，但每个角色独立一行。
+  // 只在消息已经落本地之后旁路计算；失败、离线、误判都不能影响聊天，更不会注入 prompt。
+  const observeSomatic = (charId, msg, source, mode) => {
+    try {
+      if (!charId || !msg || !msg.content || !window.SomaticShadow) return;
+      if (!["user", "narration"].includes(msg.role) || msg.kind === "ooc" || msg.kind === "system") return;
+      setTimeout(async () => {
+        try {
+          await window.SomaticShadow.observe({
+            ownerId: await aShadowOwnerId(), charId, text: msg.content,
+            tone: msg.voiceTone || null, role: msg.role, kind: msg.kind || "",
+            source, mode, now: msg.ts || Date.now()
+          });
+        } catch (e) {}
+      }, 0);
+    } catch (e) {}
+  };
+  const observeSomaticGroup = (group, msg, source, mode) => {
+    try {
+      if (!group || !msg || !msg.content || !window.SomaticShadow) return;
+      if (!["user", "narration"].includes(msg.role) || msg.kind === "ooc" || msg.kind === "system") return;
+      const members = (group.memberIds || []).map(id => characters.find(c => String(c.id) === String(id))).filter(Boolean);
+      setTimeout(async () => {
+        try {
+          await window.SomaticShadow.observeMany({
+            ownerId: await aShadowOwnerId(), characters: members, text: msg.content,
+            tone: msg.voiceTone || null, role: msg.role, kind: msg.kind || "",
+            source, mode, now: msg.ts || Date.now()
+          });
+        } catch (e) {}
+      }, 0);
+    } catch (e) {}
+  };
   useEffect(() => {
     let alive = true;
     if (!chatSettingsOpen || !activeChar || !window.InnerLifeAShadow) return undefined;
@@ -911,6 +944,7 @@ function App() {
     if (n.length > pl.length) {
       const ledgerAdded = n.slice(pl.length);
       const y = ledgerYanqiu(); if (y && String(y.id) === String(id)) queueLedger("private", id, ledgerAdded);
+      ledgerAdded.forEach(m => observeSomatic(id, m, m && m.ledgerKey ? "cc_ledger" : "private", "symbolic"));
       // 旁白是场景事实，不是 Lisa 亲口说的话；兼容旧版曾误存成 role=user+kind=narration 的记录。
       n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "narration" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
       if (n.slice(pl.length).some(m => m && (m.role === "user" || m.role === "assistant") && m.content)) setTimeout(() => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.scheduleAfterglow(id, n, moods[id], Date.now()); } catch (e) {} }, 0);
@@ -1135,6 +1169,7 @@ function App() {
     if (n.length > pl.length) {
       const ledgerAdded = n.slice(pl.length), group = groups.find(g => String(g.id) === String(id));
       if (group) queueLedger("group", id, ledgerAdded, group);
+      if (group) ledgerAdded.forEach(m => observeSomaticGroup(group, m, "group", "symbolic"));
       n.slice(pl.length).filter(m => m && m.role === "user" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
       const added = n.slice(pl.length).filter(m => m && m.role !== "user" && m.kind !== "system").length;
       const viewing = viewRef.current.screen === "gthread" && viewRef.current.charId === id;
@@ -2700,7 +2735,7 @@ function App() {
     offlinesRef.current = n;
     return n;
   });
-  const pushOffMsg = (charId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
+  const pushOffMsg = (charId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); observeSomatic(charId, msg, "offline", "physical"); pOffline(charId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
   const openOffline = char => {
     const list = loadJSON("x_offline:" + char.id, []);
     setOfflines(prev => ({ ...prev, [char.id]: list }));
@@ -3083,7 +3118,7 @@ function App() {
     setGroupOfflines(prev => ({ ...prev, [groupId]: next }));
     return next;
   };
-  const pushGOffMsg = (groupId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
+  const pushGOffMsg = (groupId, msg) => { if (msg && msg.role === "user" && msg.content) noteTidalUser(msg.content, msg.ts); const group = groups.find(g => String(g.id) === String(groupId)); if (group) observeSomaticGroup(group, msg, "group_offline", "physical"); pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: [...s.msgs, msg] } : s)); };
   const groupOfflineDelSession = (groupId, sessId) => { if (window.confirm("删除这条线下记录？删了不可恢复。")) pGOffline(groupId, list => list.filter(s => s.id !== sessId)); };
   const openGroupOffline = group => {
     const list = loadJSON("x_goffline:" + group.id, []);

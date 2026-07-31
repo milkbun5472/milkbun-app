@@ -6,6 +6,7 @@ import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
 const { classifyTurn, extractLastTurn, parseLedgerMarker, validateToolMark } = require("./cc-ledger-nature.cjs");
+const { observeTurn: observeSomaticTurn } = require("./cc-somatic-shadow.cjs");
 
 const input = await new Promise(resolve => {
   let body = "";
@@ -144,6 +145,9 @@ try {
   if (!transcriptPath || !existsSync(transcriptPath)) throw new Error("transcript missing");
   const turn = extractLastTurn(readFileSync(transcriptPath, "utf8").split("\n").filter(Boolean));
   if (!turn || !turn.sessionId || !turn.turnId) throw new Error("complete visible turn missing");
+  // 五感 shadow 复用已经稳定运行的 Stop hook：后台静默、无网络、无工具调用。
+  // 即使 CC 当前窗口没有热加载新的 hook 配置，这段也会从下一轮立即生效。
+  observeSomaticTurn(projectDir, turn);
   const toolMark = consumeToolMark(turn);
   const marker = parseLedgerMarker(turn.lisaText, turn.yanqiuText);
   const result = toolMark && toolMark.valid
