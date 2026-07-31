@@ -204,8 +204,9 @@ function pickUI(){
       const single=(atkStat/defStat)*(37/41)*pow*eff*stab;
       est=`<br><small>预估${Math.floor(single*hits*0.8)}~${Math.floor(single*hits*1.2)}${eff!==1?`·克${eff}`:''}</small>`;
     }
+    const click = n==='击鼓传花' ? `chuanhuaUI(${c})` : `choose({type:'skill',name:'${n}'})`;
     return `<button class="${sk.cls==='def'?'def':sk.cls==='sta'?'sta':'atk'}" ${dis?'disabled':''}
-      onclick="choose({type:'skill',name:'${n}'})">${n}·${c}⚡${est}</button>`;
+      onclick="${click}">${n}·${c}⚡${est}</button>`;
   }).join('');
   html += `<button class="sta" ${s.energy>=15?'disabled':''} onclick="choose({type:'charge'})">聚能+5⚡(状态)</button>`;
   s.team.forEach((q,i)=>{ if(i!==s.active&&q.hp>0)
@@ -215,6 +216,14 @@ function pickUI(){
   html += `<div class="note">技能说明：`+p.skills.map(n=>`【${n}】${SK[n].desc}`).join('　')+`</div>`;
   $('pickPanel').innerHTML = html;
 }
+window.chuanhuaUI = function(cost){
+  const s = phase==='A'?A:B;
+  let html = `<h3>🌸 击鼓传花：把增益整包传给谁？</h3>`;
+  s.team.forEach((q,i)=>{ if(i!==s.active && q.hp>0)
+    html += `<button class="big" onclick="choose({type:'skill',name:'击鼓传花',to:${i}})">传给 ${q.name}（HP${q.hp}/${q.maxhp}）</button>`; });
+  html += `<button onclick="pickUI()">↩ 不传了，重新选招</button>`;
+  $('pickPanel').innerHTML = html;
+};
 function lockUI(next){
   $('pickPanel').innerHTML = `<div class="lock">🙈 已锁定。请把设备交给 <b>${next}</b><br><br>
     <button class="big" onclick="pickUI()">我是${next}，开始选招</button></div>`;
