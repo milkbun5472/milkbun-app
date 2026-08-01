@@ -154,6 +154,17 @@ test("关注流同时接纳角色与公开网友，并把网友关注持久化",
   assert.match(screens, /following \? "已关注" : "关注"/);
 });
 
+test("普通网友主页展示可跳转的公开熟人关系网", () => {
+  assert.match(screens, /const publicNpcRelations = id =>/);
+  assert.match(screens, /x_forumNpcRelations/);
+  assert.match(screens, /x_forumNpcs/);
+  assert.match(screens, /经常一起出现 · /);
+  assert.match(screens, /onClick: \(\) => setNpcProfile\(x\.peer\)/);
+  const block = screens.match(/const publicNpcRelations = id => \{([\s\S]*?)\n  \};/);
+  assert.ok(block, "missing public relation reader");
+  assert.doesNotMatch(block[1], /memory|chat|pm|callAI|fetch/);
+});
+
 test("正在聊只用已经露出的楼层顶帖，未来排队楼层不会提前泄漏", () => {
   const activity = screens.match(/const postLastActivity = p =>([\s\S]*?)\n  const postHotScore/);
   assert.ok(activity, "missing activity sorter");

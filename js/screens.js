@@ -1151,8 +1151,23 @@ function Forum({
   });
   const knownNpcProfiles = () => {
     const map = new Map(), add = a => { if (a && !a.anon && a.authorType === "npc" && a.authorId && !map.has(a.authorId)) map.set(a.authorId, { id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" }); };
+    // 固定网友目录本身是公开论坛资料；即使 TA 暂时还没在本机帖子里露面，关系页也能认出名字。
+    try {
+      const saved = JSON.parse(localStorage.getItem("x_forumNpcs") || "{}");
+      (saved && Array.isArray(saved.items) ? saved.items : []).filter(n => !(n.boards || []).includes("匿名吧")).forEach(n => add({ authorType: "npc", authorId: n.id, authorName: n.name, authorHandle: n.handle }));
+    } catch (e) {}
     (posts || []).forEach(p => { add(p); (cmts[p.id] || []).forEach(f => { add(f); (f.replies || []).forEach(add); }); });
     return map;
+  };
+  const publicNpcRelations = id => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("x_forumNpcRelations") || "{}");
+      const directory = knownNpcProfiles();
+      return (saved && Array.isArray(saved.items) ? saved.items : []).filter(r => r.a === id || r.b === id).map(r => {
+        const peerId = r.a === id ? r.b : r.a, peer = directory.get(peerId);
+        return peer ? { peer, tone: String(r.tone || "论坛熟人") } : null;
+      }).filter(Boolean);
+    } catch (e) { return []; }
   };
   // 角色和有公开 id 的网友头像都能点进主页；匿名身份仍不留可追踪足迹。
   const avatarBtn = (a, size, anon) => {
@@ -1309,6 +1324,7 @@ function Forum({
     try { const x = JSON.parse(localStorage.getItem("x_forumPublicTies") || "{}"); encounters = Number(x && x.items && x.items[id] && x.items[id].encounters) || 0; } catch (e) {}
     const regular = /^npc_(regular|anon)_/.test(String(id));
     const following = npcFollowSet.has(id);
+    const relations = publicNpcRelations(id);
     const latest = Math.max(Number(authored[0] && authored[0].ts || 0), Number(traces[0] && traces[0].ts || 0));
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
@@ -1321,6 +1337,14 @@ function Forum({
           h("button", { onClick: () => toggleNpcFollow(id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: following ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: following ? t.bg2 : t.ink } }, following ? "已关注" : "关注")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog, marginTop: 11 } }, regular ? "这是会在不同帖子里再次出现的固定网友；主页只展示公开发言。" : "这位网友只在当时的公开帖子里路过，不会被系统硬写成常驻熟人。"),
         latest > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 7 } }, "最近活跃 · " + timeAgo(latest))),
+      relations.length > 0 && h("div", { className: "px-4 py-4", style: { borderBottom: `1px solid ${t.line}` } },
+        h(Eyebrow, null, "经常一起出现 · " + relations.length),
+        h("div", { className: "space-y-2 mt-2.5" }, relations.map(x => h("button", { key: x.peer.id, onClick: () => setNpcProfile(x.peer), className: "w-full flex items-center gap-3 text-left active:opacity-70", style: { padding: "9px 10px", borderRadius: 12, background: t.bg2 } },
+          h(NpcAvatar, { seed: x.peer.handle || x.peer.name, size: 38 }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, x.peer.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: t.fog, marginTop: 2 } }, x.tone)),
+          h(IChevR, { size: 15, color: t.fog }))))),
       authored.length > 0 && h(React.Fragment, null,
         h("div", { className: "px-4 pt-4 pb-1" }, h(Eyebrow, null, "公开发帖 · " + authored.length)),
         authored.map(p => postRow(p, true))),
