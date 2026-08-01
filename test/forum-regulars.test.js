@@ -144,6 +144,16 @@ test("普通网友头像可进入只含公开足迹的主页，匿名身份仍�
   assert.match(screens, /主页只展示公开发言/);
 });
 
+test("关注流同时接纳角色与公开网友，并把网友关注持久化", () => {
+  assert.match(screens, /x_forumNpcFollows/);
+  assert.match(screens, /toggleNpcFollow/);
+  assert.match(screens, /p\.authorType === "npc" && npcFollowSet\.has\(p\.authorId\)/);
+  assert.match(screens, /角色与普通网友共用这张公开关注名单/);
+  assert.match(screens, /const followedChars = .*flw\.includes\(c\.id\)/);
+  assert.match(screens, /following: followedChars\.length \+ npcFollows\.length/);
+  assert.match(screens, /following \? "已关注" : "关注"/);
+});
+
 test("正在聊只用已经露出的楼层顶帖，未来排队楼层不会提前泄漏", () => {
   const activity = screens.match(/const postLastActivity = p =>([\s\S]*?)\n  const postHotScore/);
   assert.ok(activity, "missing activity sorter");

@@ -1054,12 +1054,17 @@ function Forum({
   const [forumNoticeRead, setForumNoticeRead] = useState(() => {
     try { return JSON.parse(localStorage.getItem("x_forumNoticeRead") || "{}"); } catch (e) { return {}; }
   });
+  const [npcFollows, setNpcFollows] = useState(() => {
+    try { const x = JSON.parse(localStorage.getItem("x_forumNpcFollows") || "[]"); return Array.isArray(x) ? x : []; } catch (e) { return []; }
+  });
   const PAGE = 20;
   const charOf = id => (characters || []).find(c => c.id === id);
   const cmts = comments || {};
   const flw = follows || [];
   const unreadPM = (pms || []).filter(x => x.unread).length;
   const activeChars = (characters || []).filter(c => !(forumOff || []).includes(c.id)); // 在逛论坛的角色
+  const followedChars = (characters || []).filter(c => flw.includes(c.id));
+  const npcFollowSet = new Set(npcFollows);
   const forumVisible = x => !x || !x.visibleAt || Number(x.visibleAt) <= forumNow;
   const floorArrivedAt = x => Number((x && (x.visibleAt || x.ts)) || 0);
   const postLastActivity = p => (cmts[p.id] || []).filter(forumVisible).reduce((latest, f) => {
@@ -1139,6 +1144,16 @@ function Forum({
   const nameOf = a => a.anon ? a.authorName : (a.authorType === "character" && charOf(a.authorId) ? charOf(a.authorId).name : (a.authorType === "me" ? meChar.name : a.authorName));
   const goProfile = id => { setProfileId(id); setOpen(null); };
   const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" }); setOpen(null); };
+  const toggleNpcFollow = id => setNpcFollows(prev => {
+    const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+    try { localStorage.setItem("x_forumNpcFollows", JSON.stringify(next)); } catch (e) {}
+    return next;
+  });
+  const knownNpcProfiles = () => {
+    const map = new Map(), add = a => { if (a && !a.anon && a.authorType === "npc" && a.authorId && !map.has(a.authorId)) map.set(a.authorId, { id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" }); };
+    (posts || []).forEach(p => { add(p); (cmts[p.id] || []).forEach(f => { add(f); (f.replies || []).forEach(add); }); });
+    return map;
+  };
   // 角色和有公开 id 的网友头像都能点进主页；匿名身份仍不留可追踪足迹。
   const avatarBtn = (a, size, anon) => {
     const clickableChar = a.authorType === "character" && !anon && charOf(a.authorId);
@@ -1250,7 +1265,7 @@ function Forum({
   function profileView(isMe) {
     const c = isMe ? null : charOf(profileId);
     if (!isMe && !c) return null;
-    const meta = isMe ? { handle: (forumMe && forumMe.handle) || profile.name || "我", bio: (forumMe && forumMe.bio) || "", joinTs: forumMe && forumMe.joinTs, following: activeChars.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
+    const meta = isMe ? { handle: (forumMe && forumMe.handle) || profile.name || "我", bio: (forumMe && forumMe.bio) || "", joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
     const av = h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
     const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? p.authorType === "me" : (p.authorId === profileId && p.authorType === "character")) && !p.anon).sort((a, b) => b.ts - a.ts);
     return h("div", { className: "flex-1 overflow-y-auto" },
@@ -1293,6 +1308,7 @@ function Forum({
     let encounters = 0;
     try { const x = JSON.parse(localStorage.getItem("x_forumPublicTies") || "{}"); encounters = Number(x && x.items && x.items[id] && x.items[id].encounters) || 0; } catch (e) {}
     const regular = /^npc_(regular|anon)_/.test(String(id));
+    const following = npcFollowSet.has(id);
     const latest = Math.max(Number(authored[0] && authored[0].ts || 0), Number(traces[0] && traces[0].ts || 0));
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
@@ -1301,7 +1317,8 @@ function Forum({
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, npcProfile.name),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + npcProfile.handle),
-            h("div", { className: "flex gap-1.5 mt-2 flex-wrap" }, tag(regular ? "常驻熟面孔" : "路过网友"), encounters > 0 && tag("碰见过 " + encounters + " 次")))),
+            h("div", { className: "flex gap-1.5 mt-2 flex-wrap" }, tag(regular ? "常驻熟面孔" : "路过网友"), encounters > 0 && tag("碰见过 " + encounters + " 次"))),
+          h("button", { onClick: () => toggleNpcFollow(id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: following ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: following ? t.bg2 : t.ink } }, following ? "已关注" : "关注")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog, marginTop: 11 } }, regular ? "这是会在不同帖子里再次出现的固定网友；主页只展示公开发言。" : "这位网友只在当时的公开帖子里路过，不会被系统硬写成常驻熟人。"),
         latest > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 7 } }, "最近活跃 · " + timeAgo(latest))),
       authored.length > 0 && h(React.Fragment, null,
@@ -1362,7 +1379,7 @@ function Forum({
   // ---- 主页版块列表 ----
   function homeFeed() {
     let arr = (posts || []).filter(p => forumVisible(p) && FORUM_BOARDS.includes(p.board));
-    if (tab === "关注") arr = arr.filter(p => p.authorType === "character" && !p.anon && flw.includes(p.authorId));
+    if (tab === "关注") arr = arr.filter(p => !p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId))));
     else arr = arr.filter(p => p.board === tab);
     arr = arr.slice().sort((a, b) => {
       if (feedSort === "latest") return Number(b.ts || 0) - Number(a.ts || 0);
@@ -1373,8 +1390,8 @@ function Forum({
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
     return h("div", { className: "flex-1 overflow-y-auto" },
       arrived > 0 && h("div", { className: "mx-4 my-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 10, background: t.bg2, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.tint } }, h("span", null, "●"), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
-      tab === "关注" && flw.length === 0 && h(Empty, { text: "还没有关注任何角色", sub: "点进帖子或角色主页「关注 TA」" }),
-      tab === "关注" && flw.length > 0 && shown.length === 0 && h(Empty, { text: "关注的角色还没发过公开帖", sub: "" }),
+      tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
+      tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),
       tab !== "关注" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
       shown.map(p => postRow(p, false)),
@@ -1414,7 +1431,7 @@ function Forum({
       h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, title),
       h("div", { className: "flex items-center gap-3.5" }, (!inSub) && h("button", { onClick: () => setSettingsOpen(true), className: "active:opacity-50" }, h(GConfig, { size: 18, color: t.ink })), rightEl)),
     (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: `1px solid ${t.line}` } }, [...FORUM_BOARDS, "关注"].map(b => {
-      const count = (posts || []).filter(p => forumVisible(p) && (b === "关注" ? p.authorType === "character" && !p.anon && flw.includes(p.authorId) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
+      const count = (posts || []).filter(p => forumVisible(p) && (b === "关注" ? (!p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId)))) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     })),
     (!inSub && nav === "home") && h("div", { className: "shrink-0 flex items-center gap-1.5 px-4 py-2", style: { borderBottom: `1px solid ${t.line}`, background: t.bg2 } },
@@ -1457,12 +1474,14 @@ function Forum({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "关掉的角色不会在评论/回复里冒泡，也不会在论坛发帖"),
       (characters || []).length === 0 && h(Empty, { text: "还没有角色", sub: "" }),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); }))),
-    // 我关注的（=在逛论坛的角色）目录，点进各自主页
+    // 我关注的角色 + 公开网友目录，点进各自主页
     followListOpen && h(Sheet, { onClose: () => setFollowListOpen(false) },
-      h(Eyebrow, { style: { marginBottom: 6 } }, "在论坛的角色"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "点一个进 Ta 的主页"),
-      activeChars.length === 0 && h(Empty, { text: "还没有角色在逛论坛", sub: "去右上角齿轮打开角色" }),
-      h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, activeChars.map(c => h("button", { key: c.id, onClick: () => { setFollowListOpen(false); goProfile(c.id); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "@" + ((charMetaOf ? charMetaOf(c) : {}).handle || c.name))), h(IChevR, { size: 16, color: t.fog }))))));
+      h(Eyebrow, { style: { marginBottom: 6 } }, "我关注的"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色与普通网友共用这张公开关注名单"),
+      followedChars.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "去角色或网友主页点关注" }),
+      h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
+        followedChars.map(c => h("button", { key: c.id, onClick: () => { setFollowListOpen(false); goProfile(c.id); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "角色 · @" + ((charMetaOf ? charMetaOf(c) : {}).handle || c.name))), h(IChevR, { size: 16, color: t.fog }))),
+        npcFollows.map(id => knownNpcProfiles().get(id)).filter(Boolean).map(n => h("button", { key: n.id, onClick: () => { setFollowListOpen(false); setNpcProfile(n); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(NpcAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, n.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "网友 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))))));
 }
 
 // ============================================================
