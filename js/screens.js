@@ -989,7 +989,7 @@ function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
 //  搜索 = 随机刷到四版块之外的吧（据全局聊天）；私信 = NPC 私信；我 = 我的主页
 //  帖子只有一份，版块是筛选视图；评论懒加载（含楼中楼，回复者随机 NPC/角色）
 // ============================================================
-const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "匿名吧"];
+const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
 const FORUM_AV_EMOJI = ["🐧", "🐸", "🐱", "🦊", "🐰", "🐻", "🐨", "🦁", "🐯", "🐙", "🦈", "🌵", "🍥", "🌙", "⚡", "🎭", "👾", "🤖", "🍔", "🧋", "🪐", "🎧", "📎", "🧃", "🦖", "🫧", "🌻", "🍒", "🐳", "🦉"];
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function fmtNum(n) { n = Number(n) || 0; if (n >= 10000) return (n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, "") + "万"; return String(n); }
