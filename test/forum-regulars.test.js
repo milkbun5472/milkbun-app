@@ -133,6 +133,17 @@ test("论坛支持最新、正在聊与热榜三种纯本地时间线", () => {
   assert.match(screens, /if \(feedSort === "hot"\) return postHotScore/);
 });
 
+test("普通网友头像可进入只含公开足迹的主页，匿名身份仍不可追踪", () => {
+  assert.match(screens, /const \[npcProfile, setNpcProfile\]/);
+  assert.match(screens, /a\.authorType === "npc" && !anon && a\.authorId/);
+  assert.match(screens, /if \(!a \|\| a\.anon \|\| a\.authorType !== "npc"/);
+  assert.match(screens, /常驻熟面孔/);
+  assert.match(screens, /路过网友/);
+  assert.match(screens, /公开回帖足迹/);
+  assert.match(screens, /x_forumPublicTies/);
+  assert.match(screens, /主页只展示公开发言/);
+});
+
 test("正在聊只用已经露出的楼层顶帖，未来排队楼层不会提前泄漏", () => {
   const activity = screens.match(/const postLastActivity = p =>([\s\S]*?)\n  const postHotScore/);
   assert.ok(activity, "missing activity sorter");

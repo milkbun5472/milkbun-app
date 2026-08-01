@@ -1008,6 +1008,7 @@ function Forum({
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(null);            // 打开的帖子
   const [profileId, setProfileId] = useState(null);  // 角色主页 charId（"me" 走 nav）
+  const [npcProfile, setNpcProfile] = useState(null); // 普通网友公开足迹（不含匿名）
   const [pmId, setPmId] = useState(null);            // 打开的私信会话
   const [pmText, setPmText] = useState("");
   const [fwd, setFwd] = useState(null);              // 转发中的帖子
@@ -1137,8 +1138,15 @@ function Forum({
   const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size })));
   const nameOf = a => a.anon ? a.authorName : (a.authorType === "character" && charOf(a.authorId) ? charOf(a.authorId).name : (a.authorType === "me" ? meChar.name : a.authorName));
   const goProfile = id => { setProfileId(id); setOpen(null); };
-  // 角色（非匿名）头像可点进主页；NPC/匿名/我 头像不可点
-  const avatarBtn = (a, size, anon) => (a.authorType === "character" && !anon && charOf(a.authorId)) ? h("div", { onClick: e => { e.stopPropagation(); goProfile(a.authorId); }, className: "cursor-pointer active:opacity-70", style: { flexShrink: 0 } }, avatarFor(a, size, anon)) : avatarFor(a, size, anon);
+  const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" }); setOpen(null); };
+  // 角色和有公开 id 的网友头像都能点进主页；匿名身份仍不留可追踪足迹。
+  const avatarBtn = (a, size, anon) => {
+    const clickableChar = a.authorType === "character" && !anon && charOf(a.authorId);
+    const clickableNpc = a.authorType === "npc" && !anon && a.authorId;
+    return (clickableChar || clickableNpc)
+      ? h("div", { onClick: e => { e.stopPropagation(); clickableChar ? goProfile(a.authorId) : goNpcProfile(a); }, className: "cursor-pointer active:opacity-70", style: { flexShrink: 0 } }, avatarFor(a, size, anon))
+      : avatarFor(a, size, anon);
+  };
 
   // ---- 帖子底部操作条 ----
   function actBar(p) {
@@ -1216,8 +1224,8 @@ function Forum({
         h("div", { className: "px-4 pt-4 pb-3", style: { borderBottom: `1px solid ${t.line}` } },
           h("div", { className: "flex gap-3" },
             avatarBtn(p, 44, p.anon),
-            h("button", { onClick: () => { if (c) { setProfileId(c.id); setOpen(null); } }, className: "text-left flex-1 min-w-0 " + (c ? "active:opacity-60" : ""), style: { display: "block" } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, nameOf(p), c && " ›"),
+            h("button", { onClick: () => { if (c) goProfile(c.id); else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, nameOf(p), (c || (!p.anon && p.authorType === "npc" && p.authorId)) && " ›"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts)))),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.3, color: t.ink, marginTop: 10 } }, p.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.7, color: t.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
@@ -1269,6 +1277,42 @@ function Forum({
         !isMe && h("button", { onClick: () => onGenCharPost(c, "日常吧"), disabled: gen && gen.forum === "char_" + c.id, className: "mt-3 px-3.5 py-1.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, gen && gen.forum === "char_" + c.id ? "发帖中…" : "＋ 让 TA 发一条")),
       mine.length === 0 && h(Empty, { text: isMe ? "你还没发过帖" : "TA 还没有公开发帖", sub: "匿名吧的帖子不会显示在这里" }),
       mine.map(p => postRow(p, true)));
+  }
+
+  // ---- 常驻网友 / 一次性路人公开主页：只拼已有公开足迹，绝不读取私聊或角色记忆 ----
+  function npcProfileView() {
+    if (!npcProfile) return null;
+    const id = npcProfile.id;
+    const authored = (posts || []).filter(p => forumVisible(p) && !p.anon && p.authorType === "npc" && p.authorId === id).sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0));
+    const traces = [];
+    (posts || []).forEach(p => (cmts[p.id] || []).filter(forumVisible).forEach(f => {
+      if (!f.anon && f.authorType === "npc" && f.authorId === id) traces.push({ id: "f:" + p.id + ":" + f.id, post: p, text: f.content || "", ts: floorArrivedAt(f), kind: "回复" });
+      (f.replies || []).forEach((r, j) => { if (!r.anon && r.authorType === "npc" && r.authorId === id) traces.push({ id: "r:" + p.id + ":" + f.id + ":" + j, post: p, text: r.content || "", ts: Number(r.ts || f.ts || 0), kind: "楼中楼" }); });
+    }));
+    traces.sort((a, b) => b.ts - a.ts);
+    let encounters = 0;
+    try { const x = JSON.parse(localStorage.getItem("x_forumPublicTies") || "{}"); encounters = Number(x && x.items && x.items[id] && x.items[id].encounters) || 0; } catch (e) {}
+    const regular = /^npc_(regular|anon)_/.test(String(id));
+    const latest = Math.max(Number(authored[0] && authored[0].ts || 0), Number(traces[0] && traces[0].ts || 0));
+    return h("div", { className: "flex-1 overflow-y-auto" },
+      h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
+        h("div", { className: "flex items-start gap-3" },
+          h(NpcAvatar, { seed: npcProfile.handle || npcProfile.name, size: 62 }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, npcProfile.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + npcProfile.handle),
+            h("div", { className: "flex gap-1.5 mt-2 flex-wrap" }, tag(regular ? "常驻熟面孔" : "路过网友"), encounters > 0 && tag("碰见过 " + encounters + " 次")))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog, marginTop: 11 } }, regular ? "这是会在不同帖子里再次出现的固定网友；主页只展示公开发言。" : "这位网友只在当时的公开帖子里路过，不会被系统硬写成常驻熟人。"),
+        latest > 0 && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 7 } }, "最近活跃 · " + timeAgo(latest))),
+      authored.length > 0 && h(React.Fragment, null,
+        h("div", { className: "px-4 pt-4 pb-1" }, h(Eyebrow, null, "公开发帖 · " + authored.length)),
+        authored.map(p => postRow(p, true))),
+      h("div", { className: "px-4 pt-4 pb-1" }, h(Eyebrow, null, "公开回帖足迹 · " + traces.length)),
+      traces.length === 0 && h(Empty, { text: "暂时没有更多公开足迹", sub: "以后在别的楼碰见，足迹会接着长" }),
+      traces.slice(0, 80).map(x => h("button", { key: x.id, onClick: () => openPost(x.post), className: "w-full text-left px-4 py-3 active:opacity-70", style: { borderBottom: `1px solid ${t.line}` } },
+        h("div", { className: "flex items-center gap-2" }, tag(x.kind), h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, timeAgo(x.ts))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.sub, marginTop: 5 } }, x.text),
+        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "来自《" + (x.post.title || "帖子") + "》"))));
   }
 
   // ---- 私信列表 / 会话 ----
@@ -1352,9 +1396,10 @@ function Forum({
   }
 
   // ---- 主体分派 ----
-  const inSub = open || (profileId && profileId !== "me") || pmId;
+  const inSub = open || npcProfile || (profileId && profileId !== "me") || pmId;
   let title = "论坛", bodyEl, backFn = null, rightEl = null;
   if (open) { title = "帖子"; bodyEl = detail(); backFn = () => { setOpen(null); setReplyTo(null); }; }
+  else if (npcProfile) { title = "网友主页"; bodyEl = npcProfileView(); backFn = () => setNpcProfile(null); }
   else if (profileId && profileId !== "me") { title = "主页"; bodyEl = profileView(false); backFn = () => setProfileId(null); }
   else if (pmId) { title = ((pms || []).find(x => x.id === pmId) || {}).npcName || "私信"; bodyEl = pmThread(); backFn = () => setPmId(null); }
   else if (nav === "search") { title = "搜索"; bodyEl = searchView(); rightEl = h("button", { onClick: () => onGenSearch(searchQ.trim()), className: "active:opacity-50" }, h(IRefresh, { size: 19, color: t.ink })); }
