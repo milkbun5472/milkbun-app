@@ -2998,6 +2998,7 @@ function ChatThread({
     });else if (specialKind === "photo") {
       let imageRef = specialImg;
       try { if (typeof imgToVault === "function") imageRef = await imgToVault(specialImg); } catch (e) {}
+      await rememberRealPhoto(imageRef, v, "private-chat");
       sendRich({ role: "user", kind: "photo", imageRef, desc: v, content: v ? "[照片] " + v : "[照片]" });
     }
     setSpecialImg("");
@@ -5410,6 +5411,7 @@ function OfflineMode({
   const sendPhoto = async () => {
     if (!photoImg || sending || !onSendPhoto) return;
     const imageRef = await imgToVault(photoImg);
+    await rememberRealPhoto(imageRef, photoDesc.trim(), "offline");
     onSendPhoto({ kind: "photo", imageRef, desc: photoDesc.trim(), content: photoDesc.trim() ? "[照片] " + photoDesc.trim() : "[照片]" });
     setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false);
   };
@@ -5790,6 +5792,7 @@ function GroupOfflineMode({
   const sendPhoto = async () => {
     if (!photoImg || sending || !onSendPhoto) return;
     const imageRef = await imgToVault(photoImg);
+    await rememberRealPhoto(imageRef, photoDesc.trim(), "group-offline");
     onSendPhoto({ kind: "photo", imageRef, desc: photoDesc.trim(), content: photoDesc.trim() ? "[照片] " + photoDesc.trim() : "[照片]" });
     setPhotoImg(""); setPhotoDesc(""); setPhotoOpen(false);
   };
@@ -6103,6 +6106,7 @@ function GroupThread({
     if (!groupPhotoImg) { toast && toast("先从相册选一张，或直接拍一张"); return; }
     let imageRef = groupPhotoImg;
     try { if (typeof imgToVault === "function") imageRef = await imgToVault(groupPhotoImg); } catch (e) {}
+    await rememberRealPhoto(imageRef, v, "group-chat");
     sendRich({ role: "user", kind: "photo", imageRef, desc: v, content: v ? "[照片] " + v : "[照片]" });
     setGroupPhotoImg("");
     setPhotoOpen(false);

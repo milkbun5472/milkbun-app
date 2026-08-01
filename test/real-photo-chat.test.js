@@ -7,6 +7,18 @@ const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+
+test("本机照片库有独立索引且不删除聊天像素", () => {
+  assert.match(engine, /indexedDB\.open\("x_imgvault", 2\)/);
+  assert.match(engine, /createObjectStore\("album"\)/);
+  assert.match(engine, /async function idbAlbumEntries/);
+  assert.match(engine, /删除目录项不删像素/);
+  assert.match(screens, /function LocalPhotoLibrary/);
+  assert.match(screens, /仅移出本机照片库/);
+  assert.match(components, /rememberRealPhoto\(imageRef, v, "private-chat"\)/);
+  assert.match(components, /rememberRealPhoto\(imageRef, v, "group-chat"\)/);
+});
 
 test("真照片只把 iv_ 引用写进聊天，像素住 IndexedDB", () => {
   assert.match(components, /resizeImageFile\(f, 1600, 0\.86\)/);

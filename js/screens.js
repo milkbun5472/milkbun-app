@@ -4615,6 +4615,37 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=大头(≥0.5MB)。图片(头像/壁纸/朋友圈)已自动迁到浏览器图库、不占这里；剩下占地方的多是文字。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
     info.idbQuota ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "音频 / 自拍 / 书正文另存在 IndexedDB（已用 " + mb(info.idbUsed) + " MB，空间大得多、不占这 5MB）") : null);
 }
+function LocalPhotoLibrary({ toast }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [preview, setPreview] = useState(null);
+  const ref = useRef(null);
+  const refresh = async () => setRows(await idbAlbumEntries());
+  useEffect(() => { if (open) refresh(); }, [open]);
+  const add = async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+    try {
+      const dataUrl = await resizeImageFile(f, 1600, 0.86);
+      const imageRef = await imgToVault(dataUrl);
+      await rememberRealPhoto(imageRef, "", "album");
+      await refresh(); toast && toast("已放进本机照片库");
+    } catch (err) { toast && toast("这张照片没能读出来，换一张试试"); }
+  };
+  return h("div", { style: { margin: "18px 0", border: "1px solid " + t.line, borderRadius: 12, padding: 14 } },
+    h("div", { className: "flex items-center justify-between" },
+      h("button", { onClick: () => setOpen(v => !v), style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "本机照片库 · " + rows.length + (open ? " ▴" : " ▾")),
+      h("button", { onClick: () => ref.current && ref.current.click(), style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "＋ 添加照片")),
+    h("input", { ref, type: "file", accept: "image/*", className: "hidden", onChange: add }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "聊天里发过的真实照片会自动归到这里。像素只在本机图库，不会自动上传云端；移出照片库也不会删掉聊天里的图。"),
+    open ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginTop: 12 } },
+      rows.length ? rows.map(r => h("button", { key: r.imageRef, onClick: () => setPreview(r), style: { aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } }, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }))) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
+    preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: 20 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520 } },
+        h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 10 } }),
+        preview.caption ? h("div", { style: { color: "#fff", fontFamily: F_BODY, fontSize: 13, marginTop: 10, textAlign: "center" } }, preview.caption) : null,
+        h("button", { onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); }, className: "w-full", style: { color: "#fff", fontFamily: F_BODY, fontSize: 12, padding: 12, marginTop: 8 } }, "仅移出本机照片库"))) : null);
+}
 function DataConfig({
   onExport,
   onImport,
@@ -4628,7 +4659,7 @@ function DataConfig({
   const ref = useRef(null);
   return /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
-  }, h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld }), h(CloudSync, { toast: toast }), /*#__PURE__*/React.createElement("div", {
+  }, h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld }), h(LocalPhotoLibrary, { toast: toast }), h(CloudSync, { toast: toast }), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 13,
