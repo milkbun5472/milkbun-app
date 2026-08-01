@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.27";
+const APP_VERSION = "v51.28";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -660,6 +660,7 @@ function App() {
   }, [characters]);
   // 本地存储写满 → saveJSON 会调这个(engine.js)，弹警告防「悄悄丢数据」；20s 内只弹一次
   const storageWarnTs = useRef(0);
+  const chatAutoArchiveBusyRef = useRef(false);
   useEffect(() => {
     window.__storageFull = () => {
       const now = Date.now();
@@ -1054,14 +1055,41 @@ function App() {
       toast("已清理可再生旧数据（旧日程+旧论坛）");
     } catch (e) { toast("清理失败：" + (e.message || "")); }
   };
-  const offloadAllChats = async () => {
-    if (!(window.Cloud && window.Cloud.ready())) { toast("需要先登录云同步（设置·数据）"); return; }
+  const offloadAllChats = async (options = {}) => {
+    const silent = !!options.silent;
+    if (!(window.Cloud && window.Cloud.ready())) { if (!silent) toast("需要先登录云同步（设置·数据）"); return { moved: 0, fails: 1, ready: false }; }
     const keepLocal = window.StoragePolicy ? window.StoragePolicy.chatKeep(typeof localStorageBytes === "function" ? localStorageBytes() : 0) : CHAT_KEEP_LOCAL;
     let moved = 0, fails = 0;
     for (const id of Object.keys(chatsRef.current || {})) { const r = await offloadChatOne(id, keepLocal); if (r.ok) moved += r.moved || 0; else fails++; }
     for (const gid of Object.keys(groupChatsRef.current || {})) { const r = await offloadGChatOne(gid, keepLocal); if (r.ok) moved += r.moved || 0; else fails++; }
-    toast(moved ? ("已把 " + moved + " 条旧聊天（含群聊）归档到云端，本机每个会话留最近 " + keepLocal + " 条" + (fails ? "（" + fails + " 个没成功，多半没网）" : "")) : (fails ? "归档失败：" + fails + " 个（检查网络/建表）" : "没有需要归档的旧聊天（当前保留线是每个会话 " + keepLocal + " 条）"));
+    if (!silent) toast(moved ? ("已把 " + moved + " 条旧聊天（含群聊）归档到云端，本机每个会话留最近 " + keepLocal + " 条" + (fails ? "（" + fails + " 个没成功，多半没网）" : "")) : (fails ? "归档失败：" + fails + " 个（检查网络/建表）" : "没有需要归档的旧聊天（当前保留线是每个会话 " + keepLocal + " 条）"));
+    return { moved, fails, ready: true, keepLocal };
   };
+  // localStorage 到 80% 后自动做同一套「先云端确认、再裁本地」归档；每天最多成功跑一次。
+  // 断网/未登录/任一会话失败都不盖完成戳，下次前台仍会重试；不碰线下、记忆、日记或论坛。
+  useEffect(() => {
+    if (!loaded) return;
+    let stopped = false;
+    const check = async () => {
+      if (stopped || chatAutoArchiveBusyRef.current) return;
+      const used = typeof localStorageBytes === "function" ? localStorageBytes() : 0;
+      if (used < 0.8 * 5 * 1024 * 1024) return;
+      const day = new Date().toISOString().slice(0, 10);
+      try { if (localStorage.getItem("x_chatAutoArchiveDay") === day) return; } catch (e) {}
+      if (!(window.Cloud && window.Cloud.ready())) return;
+      chatAutoArchiveBusyRef.current = true;
+      try {
+        const result = await offloadAllChats({ silent: true });
+        if (!stopped && result && result.ready && result.fails === 0) {
+          try { localStorage.setItem("x_chatAutoArchiveDay", day); } catch (e) {}
+          if (result.moved > 0) toast("本地快满了：已安全归档 " + result.moved + " 条旧聊天到云端");
+        }
+      } finally { chatAutoArchiveBusyRef.current = false; }
+    };
+    const first = setTimeout(check, 15000);
+    const timer = setInterval(check, 5 * 60000);
+    return () => { stopped = true; clearTimeout(first); clearInterval(timer); };
+  }, [loaded]);
   // 拉某角色的云端归档（完整旧消息，供聊天页「加载更早」查看，不写回本地）
   const loadChatArchive = async charId => {
     if (!(window.Cloud && window.Cloud.ready())) return null;
