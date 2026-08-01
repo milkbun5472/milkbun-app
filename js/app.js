@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.20";
+const APP_VERSION = "v51.21";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -508,6 +508,8 @@ function App() {
     if (!npcRegistry || npcRegistry.version !== 1) saveJSON("x_forumNpcs", { version: 1, items: FORUM_NPC_REGISTRY });
     const npcRelations = loadJSON("x_forumNpcRelations", null);
     if (!npcRelations || npcRelations.version !== 1) saveJSON("x_forumNpcRelations", { version: 1, items: FORUM_NPC_RELATIONS });
+    const publicTies = loadJSON("x_forumPublicTies", null);
+    if (!publicTies || publicTies.version !== 1) saveJSON("x_forumPublicTies", { version: 1, items: {} });
     setWhispers(loadJSON("x_whispers", []));
     setCoupleQA(loadJSON("x_coupleQA", []));
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
@@ -6554,10 +6556,29 @@ function App() {
       return "· 「" + a.name + "」↔「" + b.name + "」：" + r.tone;
     });
   };
+  // Lisa 与熟面孔的「公开碰面账」：只存次数/时间，不存帖子正文，更不读取私聊。
+  // 作用只是让见过几次的网友下回认得她的公开账号；不是人物记忆，也不影响私聊角色。
+  const forumPublicTies = () => {
+    const raw = loadJSON("x_forumPublicTies", { version: 1, items: {} });
+    return raw && raw.version === 1 && raw.items && typeof raw.items === "object" ? raw : { version: 1, items: {} };
+  };
+  const touchForumPublicTie = npcId => {
+    if (!FORUM_NPC_REGISTRY.some(n => n.id === npcId && !(n.boards || []).includes("匿名吧"))) return;
+    const book = forumPublicTies(), old = book.items[npcId] || {};
+    book.items[npcId] = { encounters: Math.min(999, (Number(old.encounters) || 0) + 1), lastTs: Date.now() };
+    saveJSON("x_forumPublicTies", book);
+  };
+  const forumPublicTieLines = board => {
+    const book = forumPublicTies(), handle = forumMe.handle || profile.name || "Lisa";
+    return forumNpcPool(board).map(n => ({ n, tie: book.items[n.id] })).filter(x => x.tie && Number(x.tie.encounters) > 0)
+      .sort((a, b) => Number(b.tie.lastTs || 0) - Number(a.tie.lastTs || 0)).slice(0, 5)
+      .map(x => "· 「" + x.n.name + "」曾在公开楼里和 @" + handle + " 碰过 " + Math.min(9, Number(x.tie.encounters) || 1) + " 次；再次正面遇见时可以自然认出账号，但不能声称知道她的私生活");
+  };
   const forumNpcRule = board => {
-    const ties = forumNpcRelationLines(board);
+    const ties = forumNpcRelationLines(board), userTies = forumPublicTieLines(board);
     return "\n【论坛人口】约六成发言来自固定熟面孔（填 npcId）：" + forumNpcRoster(board) + "。同一 npcId 必须保持对应习惯；其余约四成可以是只在这一帖出现的普通路人（不填 npcId，改填 guestName、guestHandle，名字自然、不套用常驻名单）。同一批别让同一个熟面孔连续刷屏。"
-      + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "") + "\n";
+      + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "")
+      + (userTies.length ? "\n【与用户公开账号的既往碰面】\n" + userTies.join("\n") + "\n只承认公开见过，别凭空补共同经历。" : "") + "\n";
   };
   const forumNpcOf = (x, board, salt) => {
     const pool = forumNpcPool(board);
@@ -7018,11 +7039,14 @@ function App() {
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
     const floor = { id: fid, authorId: "me", authorType: "me", authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", floor: floorNo, content: text, ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: [...(prev[post.id] || []), floor] }; saveJSON("x_forumComments", n); return n; });
+    if (post.authorType === "npc") touchForumPublicTie(post.authorId);
     bumpReplyBy(post.id, 1);
     genRepliesToMe(post, fid, text);
   };
   // 我回复楼中楼 → 随后刷 4-6 条回我的（含楼主本人）挂到同一层
   const addForumSubReply = (post, floorId, text) => {
+    const targetFloor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId);
+    if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId);
     setForumComments(prev => {
       const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text }] } : f);
       const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;
@@ -7083,6 +7107,8 @@ function App() {
         const npc = forumPublicNpcOf(x, post.board, floorId + ":" + x.content);
         return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content };
       });
+      // 同一批里同一熟面孔即使连回两句也只算一次公开碰面，避免生成长度把熟悉度灌高。
+      [...new Set(reps.filter(r => r.authorType === "npc").map(r => r.authorId))].forEach(touchForumPublicTie);
       setForumComments(prev => {
         const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), ...reps] } : f);
         const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;

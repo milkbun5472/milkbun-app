@@ -81,3 +81,15 @@ test("常驻网友之间有稳定公开关系网，且明确不进入私聊记�
   assert.ok(block);
   assert.doesNotMatch(block[1], /私聊|memory|memLib/);
 });
+
+test("熟面孔能记住与用户公开账号碰过几次，但不保存正文或私生活", () => {
+  assert.match(app, /saveJSON\("x_forumPublicTies", \{ version: 1, items: \{\} \}\)/);
+  assert.match(app, /encounters: Math\.min\(999/);
+  assert.match(app, /【与用户公开账号的既往碰面】/);
+  assert.match(app, /不能声称知道她的私生活/);
+  const helper = app.match(/const touchForumPublicTie = npcId => \{([\s\S]*?)\n  \};/);
+  assert.ok(helper);
+  assert.doesNotMatch(helper[1], /content|body|私聊|memLib|memory/);
+  assert.match(app, /if \(post\.authorType === "npc"\) touchForumPublicTie\(post\.authorId\)/);
+  assert.match(app, /targetFloor && targetFloor\.authorType === "npc"/);
+});
