@@ -93,3 +93,19 @@ test("熟面孔能记住与用户公开账号碰过几次，但不保存正文�
   assert.match(app, /if \(post\.authorType === "npc"\) touchForumPublicTie\(post\.authorId\)/);
   assert.match(app, /targetFloor && targetFloor\.authorType === "npc"/);
 });
+
+test("论坛延迟楼层按帖子保存已读水位，不再每 30 秒全站误标已读", () => {
+  assert.match(screens, /x_forumReadCursors/);
+  assert.match(screens, /从旧版本升级时，把升级前已经露出的旧楼层当作读过/);
+  assert.match(screens, /Number\(x\.visibleAt\) <= Date\.now\(\)/);
+  assert.match(screens, /const unreadFloors = postId/);
+  assert.match(screens, /if \(open && open\.id\) markPostRead\(open\.id\)/);
+  assert.match(screens, /setInterval\(\(\) => setForumNow\(Date\.now\(\)\), 30000\)/);
+  assert.doesNotMatch(screens, /setInterval\(\(\) => \{ setForumNow\(Date\.now\(\)\); markSeen\(\); \}, 30000\)/);
+});
+
+test("论坛帖子卡、版块标签与页头展示到点的新回复数", () => {
+  assert.match(screens, /"\+" \+ unread \+ " 新回复"/);
+  assert.match(screens, /"论坛 · " \+ forumUnreadTotal \+ " 条新回复"/);
+  assert.match(screens, /b \+ \(count > 0 \? " · " \+ count : ""\)/);
+});

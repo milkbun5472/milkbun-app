@@ -1027,6 +1027,21 @@ function Forum({
   const [forumLastSeen] = useState(() => {
     try { return Number(localStorage.getItem("x_forumLastSeen")) || Date.now(); } catch (e) { return Date.now(); }
   });
+  const [forumReadCursors, setForumReadCursors] = useState(() => {
+    try {
+      const saved = localStorage.getItem("x_forumReadCursors");
+      if (saved) return JSON.parse(saved);
+      // 从旧版本升级时，把升级前已经露出的旧楼层当作读过，避免第一次打开突然冒出几百条红点。
+      // 尚未到 visibleAt 的排队楼层不写入水位，之后到点仍会正常成为新回复。
+      const seeded = {};
+      Object.entries(comments || {}).forEach(([postId, floors]) => {
+        const newest = (floors || []).filter(x => !x.visibleAt || Number(x.visibleAt) <= Date.now()).reduce((n, x) => Math.max(n, Number(x.visibleAt || x.ts || 0)), 0);
+        if (newest) seeded[postId] = newest;
+      });
+      localStorage.setItem("x_forumReadCursors", JSON.stringify(seeded));
+      return seeded;
+    } catch (e) { return {}; }
+  });
   const PAGE = 20;
   const charOf = id => (characters || []).find(c => c.id === id);
   const cmts = comments || {};
@@ -1034,14 +1049,32 @@ function Forum({
   const unreadPM = (pms || []).filter(x => x.unread).length;
   const activeChars = (characters || []).filter(c => !(forumOff || []).includes(c.id)); // 在逛论坛的角色
   const forumVisible = x => !x || !x.visibleAt || Number(x.visibleAt) <= forumNow;
+  const floorArrivedAt = x => Number((x && (x.visibleAt || x.ts)) || 0);
+  const unreadFloors = postId => (cmts[postId] || []).filter(x => forumVisible(x) && x.authorType !== "me" && floorArrivedAt(x) > Number(forumReadCursors[postId] || 0)).length;
+  const forumUnreadTotal = (posts || []).reduce((n, p) => n + unreadFloors(p.id), 0);
+  const markPostRead = postId => {
+    if (!postId) return;
+    const newest = (cmts[postId] || []).filter(forumVisible).reduce((n, x) => Math.max(n, floorArrivedAt(x)), 0);
+    if (!newest || newest <= Number(forumReadCursors[postId] || 0)) return;
+    setForumReadCursors(prev => {
+      if (newest <= Number(prev[postId] || 0)) return prev;
+      const next = { ...prev, [postId]: newest };
+      try { localStorage.setItem("x_forumReadCursors", JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+  };
+  const openPost = p => { setOpen(p); onLoadComments(p); };
   const meChar = { name: (forumMe && forumMe.handle) || profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || "#7a6cf0" };
   useEffect(() => { if (profileId && profileId !== "me" && onEnsureCharMeta) { const c = charOf(profileId); if (c) onEnsureCharMeta(c); } }, [profileId]);
   useEffect(() => {
     const markSeen = () => { try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} };
     markSeen();
-    const timer = setInterval(() => { setForumNow(Date.now()); markSeen(); }, 30000);
+    const timer = setInterval(() => setForumNow(Date.now()), 30000);
     return () => { clearInterval(timer); markSeen(); };
   }, []);
+  // 只有真的打开某个帖子，才把该帖此刻已经露出的楼层标为已读。
+  // 排队楼层在别的页面到点出现时不会被全站「已读」误吞；若人正看着帖子，则自然算看见了。
+  useEffect(() => { if (open && open.id) markPostRead(open.id); }, [open && open.id, forumNow, comments]);
   const tag = txt => h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.06em", padding: "2px 7px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, txt);
   const chip = (b, sel, on) => h("button", { key: b, onClick: on, className: "px-3 py-1.5 active:opacity-70 whitespace-nowrap", style: { borderRadius: 999, background: sel ? t.ink : "transparent", color: sel ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5, border: sel ? "none" : `1px solid ${t.line}` } }, b);
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -1056,7 +1089,7 @@ function Forum({
     const isL = liked.has(p.id);
     const bs = { fontFamily: F_BODY, fontSize: 12 };
     return h("div", { className: "flex items-center gap-5 mt-2.5", style: { color: t.fog } },
-      h("button", { onClick: e => { e.stopPropagation(); setOpen(p); onLoadComments(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: t.fog }), h("span", null, fmtNum(p.replyCount || 0))),
+      h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: t.fog }), h("span", null, fmtNum(p.replyCount || 0))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: t.fog }), h("span", null, fmtNum(p.rtCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#e0245e" : t.fog } }, h(IHeart, { size: 15, color: isL ? "#e0245e" : t.fog, filled: isL }), h("span", null, fmtNum((p.likeCount || 0) + (isL ? 1 : 0)))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: t.fog }), h("span", null, fmtNum(p.viewCount || 0))),
@@ -1065,7 +1098,8 @@ function Forum({
 
   // ---- 帖子行（推特式）----
   function postRow(p, showBoard) {
-    return h("div", { key: p.id, role: "button", onClick: () => { setOpen(p); onLoadComments(p); }, className: "w-full text-left px-4 py-3.5 active:opacity-80 cursor-pointer", style: { borderBottom: `1px solid ${t.line}` } },
+    const unread = unreadFloors(p.id);
+    return h("div", { key: p.id, role: "button", onClick: () => openPost(p), className: "w-full text-left px-4 py-3.5 active:opacity-80 cursor-pointer", style: { borderBottom: `1px solid ${t.line}` } },
       h("div", { className: "flex gap-3" },
         avatarBtn(p, 42, p.anon),
         h("div", { className: "flex-1 min-w-0" },
@@ -1073,7 +1107,8 @@ function Forum({
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, nameOf(p)),
             !p.anon && h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "@" + (p.authorHandle || p.authorName)),
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "· " + timeAgo(p.ts)),
-            showBoard && tag(p.board)),
+            showBoard && tag(p.board),
+            unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: t.accent, borderRadius: 999, padding: "2px 7px", marginLeft: "auto" } }, "+" + unread + " 新回复")),
           p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.35, color: t.ink, marginTop: 3 } }, p.title),
           p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.sub, marginTop: 2, whiteSpace: "pre-wrap" } }, p.body),
           actBar(p))));
@@ -1250,14 +1285,17 @@ function Forum({
   else if (nav === "search") { title = "搜索"; bodyEl = searchView(); rightEl = h("button", { onClick: () => onGenSearch(searchQ.trim()), className: "active:opacity-50" }, h(IRefresh, { size: 19, color: t.ink })); }
   else if (nav === "pm") { title = "私信"; bodyEl = pmList(); }
   else if (nav === "me") { title = "我"; bodyEl = profileView(true); }
-  else { title = "论坛"; bodyEl = homeFeed(); rightEl = h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
+  else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
 
   return h("div", { className: "h-full flex flex-col" },
     h("div", { className: "shrink-0 px-4 pt-4 pb-2 flex items-center gap-3", style: { borderBottom: (inSub || nav === "home") ? "none" : `1px solid ${t.line}` } },
       h("button", { onClick: backFn || onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
       h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, title),
       h("div", { className: "flex items-center gap-3.5" }, (!inSub) && h("button", { onClick: () => setSettingsOpen(true), className: "active:opacity-50" }, h(GConfig, { size: 18, color: t.ink })), rightEl)),
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: `1px solid ${t.line}` } }, [...FORUM_BOARDS, "关注"].map(b => chip(b, tab === b, () => { setTab(b); setPage(1); }))),
+    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: `1px solid ${t.line}` } }, [...FORUM_BOARDS, "关注"].map(b => {
+      const count = (posts || []).filter(p => forumVisible(p) && (b === "关注" ? p.authorType === "character" && !p.anon && flw.includes(p.authorId) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
+      return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
+    })),
     bodyEl,
     (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: `1px solid ${t.line}` } },
       [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; return h("button", { key: nx[0], onClick: () => setNav(nx[0]), className: "flex-1 py-2 flex flex-col items-center gap-1 active:opacity-60 relative", style: { color: nav === nx[0] ? t.ink : t.fog } },
