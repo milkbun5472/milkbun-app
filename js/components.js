@@ -5986,6 +5986,8 @@ function GroupThread({
   const [geoOpen, setGeoOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoText, setPhotoText] = useState("");
+  const [groupPhotoImg, setGroupPhotoImg] = useState("");
+  const groupPhotoFileRef = useRef(null);
   const [callPick, setCallPick] = useState(null); // "voice"|"video" 选打给谁
   const [callSel, setCallSel] = useState([]); // 多选成员 id
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
@@ -6039,7 +6041,7 @@ function GroupThread({
     if (typeof r === "number") toast && toast("领到 ¥" + r);
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "拍摄", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["poll", "投票", "forum"], ["transfer", "转账", "wallet"], ["rp", "红包", "redpacket"]];
+  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["poll", "投票", "forum"], ["transfer", "转账", "wallet"], ["rp", "红包", "redpacket"]];
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
@@ -6047,7 +6049,7 @@ function GroupThread({
   const onPanelTap = k => {
     setPanel(false);
     if (k === "location") setGeoOpen(true);
-    else if (k === "photo") { setPhotoText(""); setPhotoOpen(true); }
+    else if (k === "photo") { setPhotoText(""); setGroupPhotoImg(""); setPhotoOpen(true); }
     else if (k === "voicemsg") setVoiceMsgOpen(true);
     else if (k === "voice" || k === "video") { setCallSel([]); setCallPick(k); }
     else if (k === "calllog") setCallLogOpen(true);
@@ -6058,10 +6060,13 @@ function GroupThread({
     else if (k === "sticker") setSheet("sticker");
     else toast && toast("该功能即将上线");
   };
-  const submitPhoto = () => {
+  const submitPhoto = async () => {
     const v = photoText.trim();
-    if (!v) { setPhotoOpen(false); return; }
-    sendRich({ role: "user", kind: "photo", desc: v, content: "[我发了一张照片：" + v + "]" });
+    if (!groupPhotoImg) { toast && toast("先从相册选一张，或直接拍一张"); return; }
+    let imageRef = groupPhotoImg;
+    try { if (typeof imgToVault === "function") imageRef = await imgToVault(groupPhotoImg); } catch (e) {}
+    sendRich({ role: "user", kind: "photo", imageRef, desc: v, content: v ? "[照片] " + v : "[照片]" });
+    setGroupPhotoImg("");
     setPhotoOpen(false);
   };
   const gChatBg = settings && settings.chatBg;
@@ -6297,7 +6302,7 @@ function GroupThread({
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
       style: {
-        padding: "8px 10px",
+        padding: m.imageRef ? 0 : "8px 10px",
         background: BUBBLE_SKIN.myBg,
         borderRadius: 14,
         maxWidth: "72%",
@@ -6305,7 +6310,10 @@ function GroupThread({
         outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none",
         outlineOffset: 2
       }
-    }, h("div", {
+    }, m.imageRef ? h("div", null,
+      h("img", { src: resolveImg(m.imageRef), alt: m.desc || "照片", style: { display: "block", width: "100%", maxWidth: 260, maxHeight: 310, objectFit: "cover" } }),
+      m.desc ? h("div", { style: { padding: "7px 10px", fontFamily: F_BODY, fontSize: 13, color: "#16330a", lineHeight: 1.45 } }, m.desc) : null
+    ) : h("div", {
       className: "flex items-center gap-2"
     }, h("div", {
       style: {
@@ -6601,15 +6609,16 @@ function GroupThread({
     style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink }
   }, "发送照片"), h("button", {
     onClick: submitPhoto
-  }, h(ISend, { size: 18, color: t.ink }))), h("input", {
-    value: photoText,
-    onChange: e => setPhotoText(e.target.value),
-    onKeyDown: e => e.key === "Enter" && submitPhoto(),
-    autoFocus: true,
-    placeholder: "描述这张照片的内容…",
-    className: "w-full outline-none px-4 py-3 rounded-xl",
-    style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line }
-  })), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
+  }, h(ISend, { size: 18, color: t.ink }))),
+    h("input", { ref: groupPhotoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => {
+      const f = e.target.files && e.target.files[0];
+      if (f) resizeImageFile(f, 1600, 0.86).then(setGroupPhotoImg).catch(() => toast && toast("这张照片没能读出来，换一张试试"));
+      e.target.value = "";
+    } }),
+    h("button", { onClick: () => groupPhotoFileRef.current && groupPhotoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
+      groupPhotoImg ? h("img", { src: groupPhotoImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
+    h("input", { value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: "可以顺手说一句（选填）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line } })
+  ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), senderName: meName, ownerKey: profile && (profile.id || profile.name), toast })
   ), callPick && h(Sheet, {
     onClose: () => setCallPick(null)

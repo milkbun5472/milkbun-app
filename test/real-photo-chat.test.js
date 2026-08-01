@@ -30,3 +30,12 @@ test("Anthropic、Gemini、OpenAI 三种视觉协议都有明确翻译", () => {
   assert.match(engine, /type: "image_url", image_url:/);
   assert.match(engine, /const wireMessages = \(messages \|\| \[\]\)\.map/);
 });
+
+test("线上群聊也发送真图，并让本轮所有成员看到同一份视觉输入", () => {
+  assert.match(components, /const \[groupPhotoImg, setGroupPhotoImg\]/);
+  assert.match(components, /imageRef = await imgToVault\(groupPhotoImg\)/);
+  assert.match(components, /src: resolveImg\(m\.imageRef\)/);
+  assert.match(app, /const groupImageRefs = tail\.filter\(m => m\.kind === "photo" && m\.imageRef\)\.slice\(-2\)/);
+  assert.match(app, /groupImageDataUrls\.length \? \{ imageDataUrls: groupImageDataUrls \}/);
+  assert.match(app, /请所有在场成员直接看图后自然回应/);
+});
