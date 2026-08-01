@@ -71,3 +71,13 @@ test("角色主页只展示公开的常逛板块，不展示小号归属", () =>
   assert.ok(profileHabit, "missing public forum habit row");
   assert.doesNotMatch(profileHabit[0], /altName|altHandle|小号/);
 });
+
+test("常驻网友之间有稳定公开关系网，且明确不进入私聊记忆", () => {
+  assert.match(app, /const FORUM_NPC_RELATIONS = \[/);
+  assert.match(app, /saveJSON\("x_forumNpcRelations", \{ version: 1, items: FORUM_NPC_RELATIONS \}\)/);
+  assert.match(app, /【熟面孔之间已经存在的公开交情】/);
+  assert.match(app, /自然接旧梗、附和或抬杠/);
+  const block = app.match(/const FORUM_NPC_RELATIONS = \[([\s\S]*?)\n\];/);
+  assert.ok(block);
+  assert.doesNotMatch(block[1], /私聊|memory|memLib/);
+});

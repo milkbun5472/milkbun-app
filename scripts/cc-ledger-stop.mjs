@@ -150,12 +150,26 @@ try {
   observeSomaticTurn(projectDir, turn);
   const toolMark = consumeToolMark(turn);
   const marker = parseLedgerMarker(turn.lisaText, turn.yanqiuText);
+  // 言秋已经显式交过判词却逐字验真失败时，必须 fail closed：留下候选和诊断，
+  // 不能再让机械分类器猜一份“差不多”的内容写进 App，更不能诱发人工换路补投。
+  const invalidExplicitMark = toolMark && !toolMark.valid;
   const result = toolMark && toolMark.valid
     ? toolMark.result
-    : marker.valid ? marker.result : classifyTurn(turn.lisaText, marker.cleanYanqiuText);
+    : invalidExplicitMark
+      ? {
+          automatic: false,
+          skipConstruction: false,
+          excerpted: true,
+          lisa_segments: [],
+          yanqiu_segments: [],
+          personality_evidence: null,
+          reasons: ["explicit_tool_mark_failed:" + String(toolMark.reason || "unknown")]
+        }
+      : marker.valid ? marker.result : classifyTurn(turn.lisaText, marker.cleanYanqiuText);
   const decisionSource = toolMark && toolMark.valid
     ? "yanqiu_tool"
-    : marker.valid ? "legacy_yanqiu_marker" : "mechanical_fallback";
+    : invalidExplicitMark ? "yanqiu_tool_failed_closed"
+      : marker.valid ? "legacy_yanqiu_marker" : "mechanical_fallback";
   const job = {
     session_id: turn.sessionId,
     turn_id: turn.turnId,

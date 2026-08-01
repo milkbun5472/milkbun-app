@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.19";
+const APP_VERSION = "v51.20";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -20,6 +20,16 @@ const FORUM_NPC_REGISTRY = [
   { id: "npc_anon_nightbus", name: "末班车乘客", handle: "last_bus", boards: ["匿名吧"], voice: "深夜坦白型，懂得共情但不强行劝和" },
   { id: "npc_anon_blank", name: "id已隐藏", handle: "hidden_id", boards: ["匿名吧"], voice: "直接、现实，尊重隐私，不追问细节" },
   { id: "npc_anon_deleted", name: "注销前说一句", handle: "before_logout", boards: ["匿名吧"], voice: "偶尔尖锐，反感套话，习惯提醒风险和后果" }
+];
+// 论坛熟面孔之间的公开交情：只决定公开回帖时的接梗/抬杠方式，不进角色私聊或记忆库。
+// 固定 pair + 固定描述，让他们跨帖子认得彼此；不是每次让模型重新编一套关系。
+const FORUM_NPC_RELATIONS = [
+  { a: "npc_regular_moyu", b: "npc_regular_shafa", tone: "老接梗搭子：摸鱼办主任负责冷脸铺梗，沙发不是我的常抢着补刀；可以互损，但不会真翻脸" },
+  { a: "npc_regular_xiaoyu", b: "npc_regular_zuoye", tone: "深夜熟人：小雨不带伞会认真接住昨夜没关窗的感性话，后者也记得她容易忘带东西" },
+  { a: "npc_regular_bing", b: "npc_regular_lanbi", tone: "较真同行：大方向常同意，细节上总要互相挑一处漏洞；抬杠必须围绕事实，不做人身攻击" },
+  { a: "npc_regular_yidun", b: "npc_regular_mianbao", tone: "吃喝搭子：一个爱劝多吃一顿，一个习惯算性价比，经常从两个方向给出互补建议" },
+  { a: "npc_regular_houtui", b: "npc_regular_shafa", tone: "长期意见不合：后退半步嫌对方嘴快，沙发不是我的嫌对方扫兴；会抬杠，但遇到正事都知道收住" },
+  { a: "npc_regular_maomao", b: "npc_regular_xiaoyu", tone: "猫话题熟人：楼下猫保安提供观察，小雨不带伞负责实用照顾；见到对方会自然续上旧默契" }
 ];
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
@@ -496,6 +506,8 @@ function App() {
     setForumOff(loadJSON("x_forumOff", []));
     const npcRegistry = loadJSON("x_forumNpcs", null);
     if (!npcRegistry || npcRegistry.version !== 1) saveJSON("x_forumNpcs", { version: 1, items: FORUM_NPC_REGISTRY });
+    const npcRelations = loadJSON("x_forumNpcRelations", null);
+    if (!npcRelations || npcRelations.version !== 1) saveJSON("x_forumNpcRelations", { version: 1, items: FORUM_NPC_RELATIONS });
     setWhispers(loadJSON("x_whispers", []));
     setCoupleQA(loadJSON("x_coupleQA", []));
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
@@ -6535,7 +6547,18 @@ function App() {
     return exact.length ? exact : FORUM_NPC_REGISTRY.filter(n => !(n.boards || []).includes("匿名吧"));
   };
   const forumNpcRoster = board => forumNpcPool(board).map(n => n.id + "=「" + n.name + "」@" + n.handle + "（" + n.voice + "）").join("；");
-  const forumNpcRule = board => "\n【论坛人口】约六成发言来自固定熟面孔（填 npcId）：" + forumNpcRoster(board) + "。同一 npcId 必须保持对应习惯；其余约四成可以是只在这一帖出现的普通路人（不填 npcId，改填 guestName、guestHandle，名字自然、不套用常驻名单）。同一批别让同一个熟面孔连续刷屏。\n";
+  const forumNpcRelationLines = board => {
+    const ids = new Set(forumNpcPool(board).map(n => n.id));
+    return FORUM_NPC_RELATIONS.filter(r => ids.has(r.a) && ids.has(r.b)).map(r => {
+      const a = FORUM_NPC_REGISTRY.find(n => n.id === r.a), b = FORUM_NPC_REGISTRY.find(n => n.id === r.b);
+      return "· 「" + a.name + "」↔「" + b.name + "」：" + r.tone;
+    });
+  };
+  const forumNpcRule = board => {
+    const ties = forumNpcRelationLines(board);
+    return "\n【论坛人口】约六成发言来自固定熟面孔（填 npcId）：" + forumNpcRoster(board) + "。同一 npcId 必须保持对应习惯；其余约四成可以是只在这一帖出现的普通路人（不填 npcId，改填 guestName、guestHandle，名字自然、不套用常驻名单）。同一批别让同一个熟面孔连续刷屏。"
+      + (ties.length ? "\n【熟面孔之间已经存在的公开交情】\n" + ties.join("\n") + "\n同帖遇见时可以自然接旧梗、附和或抬杠；别每次重新自我介绍，也别把公开交情写成私密记忆。" : "") + "\n";
+  };
   const forumNpcOf = (x, board, salt) => {
     const pool = forumNpcPool(board);
     const wanted = String((x && (x.npcId || x.npc_id)) || "");
