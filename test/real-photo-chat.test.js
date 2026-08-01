@@ -39,3 +39,14 @@ test("线上群聊也发送真图，并让本轮所有成员看到同一份视�
   assert.match(app, /groupImageDataUrls\.length \? \{ imageDataUrls: groupImageDataUrls \}/);
   assert.match(app, /请所有在场成员直接看图后自然回应/);
 });
+
+test("单人和群线下都能展示真图，并只临时附最近两张给模型", () => {
+  assert.match(components, /onSendPhoto\(\{ kind: "photo", imageRef/);
+  assert.match(components, /给 Ta 看一张照片/);
+  assert.match(components, /给大家看一张照片/);
+  assert.match(app, /const offImageDataUrls = \[\]/);
+  assert.match(app, /const gOffImageDataUrls = \[\]/);
+  assert.match(app, /filter\(m => m && m\.kind === "photo" && m\.imageRef\)\.slice\(-2\)/);
+  assert.match(engine, /用户刚展示了真实照片/);
+  assert.match(engine, /用户刚给在场所有人展示了真实照片/);
+});

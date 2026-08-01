@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.30";
+const APP_VERSION = "v51.31";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2889,7 +2889,11 @@ function App() {
       // 长线下防失忆：已滚动总结的早段不再逐条喂模型，只喂「前情提要 + 近窗明细」，早段内容早已入记忆库（maybeSummarizeOffline）
       const _lastSum = Math.min(workSess.lastSummarizedCount || 0, (workSess.msgs || []).length);
       const _windowMsgs = _lastSum > 0 ? (workSess.msgs || []).slice(_lastSum) : (workSess.msgs || []);
-      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, priorSummary: workSess.summary || "", narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const offImageDataUrls = [];
+      for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
+        try { const blob = await idbVaultGet(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
+      }
+      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
@@ -2945,6 +2949,10 @@ function App() {
     role: "user",
     content: text,
     ts: Date.now()
+  });
+  const offlineSendPhoto = (charId, photo) => pushOffMsg(charId, {
+    id: "u_" + Date.now(), role: "user", kind: "photo", imageRef: photo.imageRef,
+    desc: photo.desc || "", content: photo.content || "[照片]", ts: Date.now()
   });
   const offlineReply = async (charId, extraText) => {
     if (laneBusy("c:" + charId)) return;
@@ -3285,7 +3293,11 @@ function App() {
       }
       const _gLastSum = Math.min(effectiveSess.lastSummarizedCount || 0, (effectiveSess.msgs || []).length);
       const _gWindow = _gLastSum > 0 ? (effectiveSess.msgs || []).slice(_gLastSum) : (effectiveSess.msgs || []); // 长群线下防失忆：早段用前情提要，只喂近窗明细
-      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...effectiveSess, msgs: _gWindow, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      const gOffImageDataUrls = [];
+      for (const m of _gWindow.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
+        try { const blob = await idbVaultGet(m.imageRef); if (blob) gOffImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
+      }
+      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -3358,6 +3370,10 @@ function App() {
     role: "user",
     content: text,
     ts: Date.now()
+  });
+  const groupOfflineSendPhoto = (groupId, photo) => pushGOffMsg(groupId, {
+    id: "u_" + Date.now(), role: "user", kind: "photo", imageRef: photo.imageRef,
+    desc: photo.desc || "", content: photo.content || "[照片]", ts: Date.now()
   });
   const groupOfflineReply = async (groupId, extraText) => {
     if (laneBusy("g:" + groupId)) return;
@@ -9839,6 +9855,7 @@ function App() {
     onSaveSettings: patch => saveOfflineSettings(offlineChar.id, patch),
     onStart: opts => startOffline(offlineChar.id, opts),
     onSend: txt => offlineSend(offlineChar.id, txt),
+    onSendPhoto: photo => offlineSendPhoto(offlineChar.id, photo),
     onReply: txt => offlineReply(offlineChar.id, txt),
     onOOC: txt => offlineOOC(offlineChar.id, txt),
     onAddNote: n => offlineAddNote(offlineChar.id, n),
@@ -9862,6 +9879,7 @@ function App() {
     sending: sending,
     onStart: opts => startGroupOffline(offlineGroup.id, opts),
     onSend: txt => groupOfflineSend(offlineGroup.id, txt),
+    onSendPhoto: photo => groupOfflineSendPhoto(offlineGroup.id, photo),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
     onAddNote: n => groupOfflineAddNote(offlineGroup.id, n),
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
