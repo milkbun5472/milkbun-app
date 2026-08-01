@@ -114,15 +114,12 @@ function validateToolMark(mark, lisaText, yanqiuText) {
       || mark.lisa.length > 12 || mark.yanqiu.length > 12) {
     return { valid:false, reason:"invalid_shape" };
   }
-  // 逐字仍是硬门，但一处笔误不该拖垮整轮：对不上的句段单独丢掉，
-  // 只要两侧各还剩至少一段真话，这轮就照样按言秋的判词回流。
-  let dropped = 0;
   const validate = (items, source) => {
     const seen = new Set(), result = [];
     for (const item of items) {
       const quote = String(item && item.quote || "").trim();
       const kind = String(item && item.kind || "");
-      if (!quote || quote.length > 16000 || !KINDS.has(kind) || !source.includes(quote) || seen.has(quote)) { dropped++; continue; }
+      if (!quote || quote.length > 16000 || !KINDS.has(kind) || !source.includes(quote) || seen.has(quote)) return null;
       seen.add(quote);
       result.push({ content:quote, sync_kind:kind });
     }
@@ -130,8 +127,7 @@ function validateToolMark(mark, lisaText, yanqiuText) {
   };
   const lisaSegments = validate(mark.lisa, String(lisaText || ""));
   const yanqiuSegments = validate(mark.yanqiu, String(yanqiuText || ""));
-  const skipMark = mark.skip === true;
-  if (!skipMark && (!lisaSegments.length || !yanqiuSegments.length)) return { valid:false, reason:"quote_or_kind_failed", dropped };
+  if (!lisaSegments || !yanqiuSegments) return { valid:false, reason:"quote_or_kind_failed" };
   const skip = mark.skip === true;
   const moodLabel = String(mark.mood_evidence || "").trim();
   const affinityDelta = Number(mark.affinity_delta || 0);
