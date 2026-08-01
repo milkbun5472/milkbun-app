@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.18";
+const APP_VERSION = "v51.19";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5412,9 +5412,10 @@ function App() {
       const myLast = (forumPostsRef.current || []).filter(p => p.authorId === char.id).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
       const myAutoPosts = (forumPostsRef.current || []).filter(p => p.authorId === char.id && p.triggerSource === "auto");
       const forceAnon = myAutoPosts.length >= 2 && (myAutoPosts.length % 5 === 2) && !myAutoPosts.slice(0, 5).some(p => p.board === "匿名吧");
+      const forumHabit = charForumMeta(char);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(active, ctxFor(char), {
-        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。大号适合愿意公开的内容，小号适合不想和主页绑在一起但长期保持同一马甲的兴趣/观点，匿名适合真正不愿留下身份线索的内容。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
+        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。【Ta 长期稳定的论坛习惯】常逛：" + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + "；通常偏向：" + (forumHabit.identityBias === "alt" ? "固定小号" : "大号") + "。优先按习惯行动，但遇到真正不适合常用身份的内容可以例外。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
         schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
@@ -6514,10 +6515,18 @@ function App() {
   // 兜底注册时间锚在固定过去点（不随 now 漂移，这样吧龄才会随真实时间增长）
   const FORUM_EPOCH = 1704067200000; // 2024-01-01
   const FORUM_ALT_NAMES = ["潮汐背面", "纸箱里的月亮", "低电量漫游", "未读草稿", "玻璃杯沿", "倒数第二排", "雨停再走", "临时观众", "不响的铃", "偏航一厘米", "凌晨便利店", "折叠地图"];
-  const charForumMeta = c => { const m = (forumCharMetaRef.current[c.id]) || {}; const hh = forumHash(c.id); const altName = m.altName || FORUM_ALT_NAMES[hh % FORUM_ALT_NAMES.length]; return { handle: m.handle || c.name, bio: m.bio != null ? m.bio : (c.motto || ""), joinTs: m.joinTs || (FORUM_EPOCH + (hh % 600) * 86400000), following: m.following != null ? m.following : (20 + hh % 380), followers: m.followers != null ? m.followers : (300 + (hh * 7) % 60000), altName, altHandle: m.altHandle || ("side_" + hh.toString(36).slice(0, 6)) }; };
+  const FORUM_HABIT_PRESETS = [
+    { boards: ["日常吧", "兴趣吧"], participation: "潜水为主，碰到真有兴趣的细节才回", replyStyle: "短评、偶尔分享自己的小经验", identityBias: "main" },
+    { boards: ["吐槽吧", "脑洞吧"], participation: "爱接梗和盖楼，较少认真开长帖", replyStyle: "嘴快、有梗，但正事会收", identityBias: "alt" },
+    { boards: ["求助吧", "兴趣吧"], participation: "更爱认真回复别人，自己发帖不频繁", replyStyle: "具体、分点、反感空话", identityBias: "main" },
+    { boards: ["匿名吧", "日常吧"], participation: "平时安静，积累到有话才发", replyStyle: "克制，只说自己确定的部分", identityBias: "alt" },
+    { boards: ["兴趣吧", "脑洞吧"], participation: "会主动开话题，也愿意跟熟楼", replyStyle: "好奇、会追问具体细节", identityBias: "alt" },
+    { boards: ["吐槽吧", "求助吧"], participation: "看得多回得少，遇到原则问题会开口", replyStyle: "直接、有边界、不跟风", identityBias: "main" }
+  ];
+  const charForumMeta = c => { const m = (forumCharMetaRef.current[c.id]) || {}; const hh = forumHash(c.id); const altName = m.altName || FORUM_ALT_NAMES[hh % FORUM_ALT_NAMES.length]; const habit = FORUM_HABIT_PRESETS[hh % FORUM_HABIT_PRESETS.length]; return { handle: m.handle || c.name, bio: m.bio != null ? m.bio : (c.motto || ""), joinTs: m.joinTs || (FORUM_EPOCH + (hh % 600) * 86400000), following: m.following != null ? m.following : (20 + hh % 380), followers: m.followers != null ? m.followers : (300 + (hh * 7) % 60000), altName, altHandle: m.altHandle || ("side_" + hh.toString(36).slice(0, 6)), boardPrefs: Array.isArray(m.boardPrefs) && m.boardPrefs.length ? m.boardPrefs : habit.boards, participation: m.participation || habit.participation, replyStyle: m.replyStyle || habit.replyStyle, identityBias: m.identityBias || habit.identityBias }; };
   // 在逛论坛的角色（默认全部；被 forumOff 关掉的不算）
   const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id));
-  const forumCharList = () => forumActiveChars().map(c => "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "）").join("；");
+  const forumCharList = () => forumActiveChars().map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜常用" + (m.identityBias === "alt" ? "小号" : "大号") + "）"; }).join("；");
   const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   const forumWorldCtx = () => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook, profile, timeAware: prefs.timeAware });
@@ -6545,7 +6554,7 @@ function App() {
   const forumCharIdentity = (char, mode, board) => {
     const m = charForumMeta(char);
     if (board === "匿名吧" || mode === "anonymous") return { authorType: "character_anon", authorName: "匿名用户", authorHandle: "anonymous" };
-    if (mode === "alt") return { authorType: "character_alt", authorName: m.altName, authorHandle: m.altHandle };
+    if ((mode || m.identityBias) === "alt") return { authorType: "character_alt", authorName: m.altName, authorHandle: m.altHandle };
     return { authorType: "character", authorName: char.name, authorHandle: m.handle };
   };
   const isForumCharAuthor = x => !!(x && String(x.authorType || "").startsWith("character"));
@@ -6677,7 +6686,7 @@ function App() {
     const opName = opChar ? opChar.name : (post.authorType === "me" ? (forumMe.handle || profile.name || "我") : (post.authorName || "楼主"));
     // 逛论坛的角色池要排除楼主本人——楼主不会在自己帖下冒泡回复自己
     const poolChars = forumActiveChars().filter(c => !opChar || c.id !== opChar.id);
-    const persona1 = c => "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 80) + (moods[c.id] && moods[c.id].label ? "｜此刻心情：" + moods[c.id].label : "") + "）";
+    const persona1 = c => { const fm = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 80) + (moods[c.id] && moods[c.id].label ? "｜此刻心情：" + moods[c.id].label : "") + "｜论坛习惯：常逛" + fm.boardPrefs.join("/") + "，" + fm.participation + "，" + fm.replyStyle + "，偏向" + (fm.identityBias === "alt" ? "小号" : "大号") + "）"; };
     const poolStr = poolChars.map(persona1).join("；");
     // 在场角色间关系（搜索吧是陌生话题、不注入关系）
     const relLines = isSearch ? [] : forumRelLines(poolChars, opChar);
@@ -7093,13 +7102,15 @@ function App() {
     if (!active) return;
     try {
       const d = await runProbe(active, ctxFor(c), {
-        instruction: "为「" + c.name + "」设计 Ta 的贴吧资料：handle（大号 id）、bio（一句话签名）、altName（固定小号昵称，不能直接暴露真名）、altHandle（固定小号 id）、followers、following。小号要像 Ta 自己会长期使用的马甲，但旁人不能一眼认出。",
-        schemaHint: "{\"handle\":\"id\",\"bio\":\"签名\",\"altName\":\"固定小号昵称\",\"altHandle\":\"固定小号id\",\"followers\":1234,\"following\":88}",
+        instruction: "为「" + c.name + "」设计 Ta 的贴吧资料：handle（大号 id）、bio（一句话签名）、altName（固定小号昵称，不能直接暴露真名）、altHandle（固定小号 id）、boardPrefs（最常逛的 2 个主页板块）、participation（稳定参与习惯，如潜水/回帖/开帖）、replyStyle（稳定回帖风格）、identityBias（main 或 alt）、followers、following。小号要像 Ta 自己会长期使用的马甲，但旁人不能一眼认出。",
+        schemaHint: "{\"handle\":\"id\",\"bio\":\"签名\",\"altName\":\"固定小号昵称\",\"altHandle\":\"固定小号id\",\"boardPrefs\":[\"兴趣吧\",\"日常吧\"],\"participation\":\"参与习惯\",\"replyStyle\":\"回帖风格\",\"identityBias\":\"main|alt\",\"followers\":1234,\"following\":88}",
         maxTokens: 500
       });
       const hh = forumHash(c.id);
       const fallback = charForumMeta(c);
-      const meta = { handle: d.handle || c.name, bio: d.bio != null ? d.bio : (c.motto || ""), altName: d.altName || fallback.altName, altHandle: String(d.altHandle || fallback.altHandle).replace(/^@/, ""), followers: Number(d.followers) || (300 + (hh * 7) % 60000), following: Number(d.following) || (20 + hh % 380), joinTs: (forumCharMetaRef.current[c.id] || {}).joinTs || (FORUM_EPOCH + (hh % 600) * 86400000) };
+      const allowedBoards = new Set(["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"]);
+      const boardPrefs = Array.isArray(d.boardPrefs) ? d.boardPrefs.filter(x => allowedBoards.has(x)).slice(0, 3) : [];
+      const meta = { handle: d.handle || c.name, bio: d.bio != null ? d.bio : (c.motto || ""), altName: d.altName || fallback.altName, altHandle: String(d.altHandle || fallback.altHandle).replace(/^@/, ""), boardPrefs: boardPrefs.length ? boardPrefs : fallback.boardPrefs, participation: String(d.participation || fallback.participation).slice(0, 60), replyStyle: String(d.replyStyle || fallback.replyStyle).slice(0, 60), identityBias: d.identityBias === "alt" ? "alt" : "main", followers: Number(d.followers) || (300 + (hh * 7) % 60000), following: Number(d.following) || (20 + hh % 380), joinTs: (forumCharMetaRef.current[c.id] || {}).joinTs || (FORUM_EPOCH + (hh % 600) * 86400000) };
       setForumCharMeta(prev => { const n = { ...prev, [c.id]: meta }; saveJSON("x_forumCharMeta", n); return n; });
     } catch (e) {/* silent, 用兜底 */ }
   };

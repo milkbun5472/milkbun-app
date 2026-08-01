@@ -1165,6 +1165,10 @@ function Forum({
             ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEditMe(true); }, className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
             : h("button", { onClick: () => onToggleFollow(c.id), className: "px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, background: flw.includes(c.id) ? t.ink : "transparent", border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注")),
         meta.bio && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 10, lineHeight: 1.5 } }, meta.bio),
+        !isMe && Array.isArray(meta.boardPrefs) && meta.boardPrefs.length > 0 && h("div", { className: "flex items-center gap-1.5 flex-wrap", style: { marginTop: 9 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "常逛"),
+          meta.boardPrefs.map(b => h("span", { key: b, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, border: `1px solid ${t.line}`, borderRadius: 999, padding: "2px 7px" } }, b)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "· " + (meta.participation || "随缘出现"))),
         h("div", { className: "flex items-center gap-4 mt-3" },
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, forumAge(meta.joinTs)),
           isMe

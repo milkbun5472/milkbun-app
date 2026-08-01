@@ -55,3 +55,19 @@ test("论坛批次允许常驻熟面孔与一次性路人混合", () => {
   assert.match(app, /const forumPublicNpcOf =/);
   assert.match(app, /同一批至少有 1 个一次性路人/);
 });
+
+test("每个角色有稳定论坛习惯，并参与发帖与评论决策", () => {
+  assert.match(app, /const FORUM_HABIT_PRESETS = \[/);
+  assert.match(app, /boardPrefs: Array\.isArray\(m\.boardPrefs\)/);
+  assert.match(app, /【Ta 长期稳定的论坛习惯】常逛：/);
+  assert.match(app, /论坛习惯：常逛/);
+  assert.match(app, /\(mode \|\| m\.identityBias\) === "alt"/);
+});
+
+test("角色主页只展示公开的常逛板块，不展示小号归属", () => {
+  assert.match(screens, /"常逛"/);
+  assert.match(screens, /meta\.boardPrefs\.map/);
+  const profileHabit = screens.match(/!isMe && Array\.isArray\(meta\.boardPrefs\)[\s\S]{0,900}?meta\.participation/);
+  assert.ok(profileHabit, "missing public forum habit row");
+  assert.doesNotMatch(profileHabit[0], /altName|altHandle|小号/);
+});
