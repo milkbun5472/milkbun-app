@@ -1004,6 +1004,7 @@ function Forum({
   const t = useTheme();
   const [nav, setNav] = useState("home");           // home | search | pm | me
   const [tab, setTab] = useState("吐槽吧");           // 主页版块 或 "关注"
+  const [feedSort, setFeedSort] = useState("active"); // active | latest | hot
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(null);            // 打开的帖子
   const [profileId, setProfileId] = useState(null);  // 角色主页 charId（"me" 走 nav）
@@ -1060,6 +1061,15 @@ function Forum({
   const activeChars = (characters || []).filter(c => !(forumOff || []).includes(c.id)); // 在逛论坛的角色
   const forumVisible = x => !x || !x.visibleAt || Number(x.visibleAt) <= forumNow;
   const floorArrivedAt = x => Number((x && (x.visibleAt || x.ts)) || 0);
+  const postLastActivity = p => (cmts[p.id] || []).filter(forumVisible).reduce((latest, f) => {
+    const replyLatest = (f.replies || []).reduce((n, r) => Math.max(n, Number(r.ts || 0)), 0);
+    return Math.max(latest, floorArrivedAt(f), replyLatest);
+  }, Number(p.ts || 0));
+  const postHotScore = p => {
+    const ageHours = Math.max(0, forumNow - postLastActivity(p)) / 3600000;
+    const interaction = (Number(p.replyCount) || 0) * 3 + (Number(p.likeCount) || 0) + (Number(p.rtCount) || 0) * 4 + Math.sqrt(Number(p.viewCount) || 0);
+    return interaction / Math.pow(ageHours + 2, 1.18);
+  };
   const unreadFloors = postId => (cmts[postId] || []).filter(x => forumVisible(x) && x.authorType !== "me" && floorArrivedAt(x) > Number(forumReadCursors[postId] || 0)).length;
   const forumUnreadTotal = (posts || []).reduce((n, p) => n + unreadFloors(p.id), 0);
   const forumNotices = [];
@@ -1310,7 +1320,11 @@ function Forum({
     let arr = (posts || []).filter(p => forumVisible(p) && FORUM_BOARDS.includes(p.board));
     if (tab === "关注") arr = arr.filter(p => p.authorType === "character" && !p.anon && flw.includes(p.authorId));
     else arr = arr.filter(p => p.board === tab);
-    arr = arr.slice().sort((a, b) => b.ts - a.ts);
+    arr = arr.slice().sort((a, b) => {
+      if (feedSort === "latest") return Number(b.ts || 0) - Number(a.ts || 0);
+      if (feedSort === "hot") return postHotScore(b) - postHotScore(a) || postLastActivity(b) - postLastActivity(a);
+      return postLastActivity(b) - postLastActivity(a);
+    });
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
     return h("div", { className: "flex-1 overflow-y-auto" },
@@ -1358,6 +1372,9 @@ function Forum({
       const count = (posts || []).filter(p => forumVisible(p) && (b === "关注" ? p.authorType === "character" && !p.anon && flw.includes(p.authorId) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     })),
+    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex items-center gap-1.5 px-4 py-2", style: { borderBottom: `1px solid ${t.line}`, background: t.bg2 } },
+      [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map(x => h("button", { key: x[0], onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "px-3 py-1 active:opacity-70", style: { borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, color: feedSort === x[0] ? t.bg2 : t.fog, background: feedSort === x[0] ? t.ink : "transparent", border: `1px solid ${feedSort === x[0] ? t.ink : t.line}` } }, x[1])),
+      h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, feedSort === "active" ? "新回复会把旧帖顶回来" : (feedSort === "hot" ? "热度会随时间降温" : "只按发帖时间"))),
     bodyEl,
     (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: `1px solid ${t.line}` } },
       [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; return h("button", { key: nx[0], onClick: () => setNav(nx[0]), className: "flex-1 py-2 flex flex-col items-center gap-1 active:opacity-60 relative", style: { color: nav === nx[0] ? t.ink : t.fog } },

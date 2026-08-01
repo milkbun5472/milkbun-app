@@ -125,3 +125,28 @@ test("回复通知有独立已读账本、红点和通知页，不会污染私�
   assert.match(screens, /title = "回复我的"/);
   assert.match(screens, /unreadNoticeCount > 99 \? "99\+" : unreadNoticeCount/);
 });
+
+test("论坛支持最新、正在聊与热榜三种纯本地时间线", () => {
+  assert.match(screens, /useState\("active"\).*active \| latest \| hot/);
+  assert.match(screens, /\[\["active", "正在聊"\], \["latest", "最新发帖"\], \["hot", "热榜"\]\]/);
+  assert.match(screens, /if \(feedSort === "latest"\)/);
+  assert.match(screens, /if \(feedSort === "hot"\) return postHotScore/);
+});
+
+test("正在聊只用已经露出的楼层顶帖，未来排队楼层不会提前泄漏", () => {
+  const activity = screens.match(/const postLastActivity = p =>([\s\S]*?)\n  const postHotScore/);
+  assert.ok(activity, "missing activity sorter");
+  assert.match(activity[1], /filter\(forumVisible\)/);
+  assert.match(activity[1], /floorArrivedAt\(f\)/);
+  assert.match(screens, /新回复会把旧帖顶回来/);
+});
+
+test("热榜由互动量与时间衰减机械计算，不新增模型调用", () => {
+  const hot = screens.match(/const postHotScore = p => \{([\s\S]*?)\n  \};/);
+  assert.ok(hot, "missing hot score");
+  assert.match(hot[1], /replyCount/);
+  assert.match(hot[1], /likeCount/);
+  assert.match(hot[1], /rtCount/);
+  assert.match(hot[1], /Math\.pow\(ageHours \+ 2, 1\.18\)/);
+  assert.doesNotMatch(hot[1], /callAI|runProbe|fetch/);
+});
