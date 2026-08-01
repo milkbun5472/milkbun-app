@@ -310,6 +310,29 @@ async function callAI(p, system, messages, opts) {
   const model = p.model;
   const temp = typeof p.temperature === "number" ? p.temperature : 0.75;
   const maxTokens = opts.maxTokens || 2400;
+  // App 内部统一用 imageDataUrls 携带真图；到这里才按各家协议翻译，避免聊天层绑定某一家 API。
+  // 图片只在本次请求中展开成 base64，不写回 localStorage。
+  const splitDataImage = v => {
+    const m = /^data:([^;,]+);base64,([\s\S]+)$/.exec(String(v || ""));
+    return m ? { mediaType: m[1] || "image/jpeg", data: m[2] } : null;
+  };
+  const wireMessages = (messages || []).map(m => {
+    const imgs = Array.isArray(m.imageDataUrls) ? m.imageDataUrls.map(splitDataImage).filter(Boolean) : [];
+    if (!imgs.length) return { role: m.role, content: m.content };
+    const text = String(m.content || "[照片]");
+    if (fmt === "anthropic") return { role: m.role, content: [
+      ...imgs.map(x => ({ type: "image", source: { type: "base64", media_type: x.mediaType, data: x.data } })),
+      { type: "text", text }
+    ] };
+    if (fmt === "gemini") return { role: m.role, content: text, _geminiParts: [
+      ...imgs.map(x => ({ inline_data: { mime_type: x.mediaType, data: x.data } })),
+      { text }
+    ] };
+    return { role: m.role, content: [
+      { type: "text", text },
+      ...imgs.map(x => ({ type: "image_url", image_url: { url: "data:" + x.mediaType + ";base64," + x.data } }))
+    ] };
+  });
   if (!p.apiKey && !p.proxyRef) throw new Error("尚未填写密钥，去设置里补上（或填云端代理引用名走保险柜）");
   if (!model) throw new Error("尚未指定模型");
   // baseUrl 没填对（空/没 http 前缀/残留中文占位或空格）时，浏览器 fetch 会抛天书 DOMException
@@ -347,13 +370,18 @@ async function callAI(p, system, messages, opts) {
     };
     // 历史断点：最后一条 assistant 消息挂 cache_control（它之前的整段历史都稳定、可缓）。content 转成块结构才能挂标记。
     const buildMsgs = () => {
-      if (!cacheHist || !Array.isArray(messages) || !messages.length) return messages;
-      let li = -1; for (let i = messages.length - 1; i >= 0; i--) if (messages[i].role === "assistant") { li = i; break; }
-      if (li < 0) return messages;
-      return messages.map((m, i) => {
+      if (!cacheHist || !wireMessages.length) return wireMessages;
+      let li = -1; for (let i = wireMessages.length - 1; i >= 0; i--) if (wireMessages[i].role === "assistant") { li = i; break; }
+      if (li < 0) return wireMessages;
+      return wireMessages.map((m, i) => {
         if (i !== li) return m;
-        const txt = typeof m.content === "string" ? m.content : (Array.isArray(m.content) ? m.content.map(b => b.text || "").join("") : String(m.content || ""));
-        return { role: m.role, content: [{ type: "text", text: txt, cache_control: _cc() }] };
+        if (Array.isArray(m.content)) {
+          const blocks = m.content.map(b => ({ ...b }));
+          const ti = blocks.map(b => b.type).lastIndexOf("text");
+          if (ti >= 0) blocks[ti].cache_control = _cc();
+          return { role: m.role, content: blocks };
+        }
+        return { role: m.role, content: [{ type: "text", text: String(m.content || ""), cache_control: _cc() }] };
       });
     };
     // 有些新模型（如带思考的 Claude 5/fable）不接受自定义 temperature（只允许 1 或直接不支持）→
@@ -425,11 +453,9 @@ async function callAI(p, system, messages, opts) {
           text: system
         }]
       },
-      contents: messages.map(m => ({
+      contents: wireMessages.map(m => ({
         role: m.role === "assistant" ? "model" : "user",
-        parts: [{
-          text: m.content
-        }]
+        parts: m._geminiParts || [{ text: m.content }]
       })),
       generationConfig: {
         temperature: temp,
@@ -459,7 +485,7 @@ async function callAI(p, system, messages, opts) {
   const root = base.endsWith("/v1") ? base : base + "/v1";
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
   const postOpenAI = async withTemp => {
-    const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...messages] };
+    const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages] };
     if (withTemp) body.temperature = temp;
     const r = viaProxy ? await viaProxy(root + "/chat/completions", body, {}) : await fetchT(root + "/chat/completions", {
       method: "POST",

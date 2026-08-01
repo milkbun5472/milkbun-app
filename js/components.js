@@ -2905,6 +2905,8 @@ function ChatThread({
   const [panelOpen, setPanelOpen] = useState(false);
   const [specialKind, setSpecialKind] = useState(null); // photo
   const [specialText, setSpecialText] = useState("");
+  const [specialImg, setSpecialImg] = useState("");
+  const photoFileRef = useRef(null);
   const [descView, setDescView] = useState(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [geoOpen, setGeoOpen] = useState(false);
@@ -2919,7 +2921,7 @@ function ChatThread({
   const inited = useRef(false); // 首次进入聊天：瞬间落底，不用 smooth（否则从顶部慢慢滚像跳到很上面）
   const pressTimer = useRef(null);
   const cName = character.remark || character.name;
-  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "拍摄", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["anon", "匿名箱", "forum"], ["moments", "朋友圈", "wechat"], ["transfer", "转账", "wallet"], ["pat", "拍一拍", "wechat"]];
+  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["anon", "匿名箱", "forum"], ["moments", "朋友圈", "wechat"], ["transfer", "转账", "wallet"], ["pat", "拍一拍", "wechat"]];
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -2935,6 +2937,7 @@ function ChatThread({
     } else if (k === "photo") {
       setSpecialKind(k);
       setSpecialText("");
+      setSpecialImg("");
       setPanelOpen(false);
     } else if (k === "pat") {
       // 拍一拍：交给 app 侧 onPat（追加消息 + 触发角色真反应）；没接就退回只显示一行
@@ -2977,9 +2980,13 @@ function ChatThread({
       setChatMode(mk);
     }
   };
-  const submitSpecial = () => {
+  const submitSpecial = async () => {
     const v = specialText.trim();
-    if (!v) {
+    if (specialKind === "photo" && !specialImg) {
+      toast && toast("先从相册选一张，或直接拍一张");
+      return;
+    }
+    if (specialKind !== "photo" && !v) {
       setSpecialKind(null);
       return;
     }
@@ -2988,12 +2995,12 @@ function ChatThread({
       kind: "location",
       place: v,
       content: "[位置] " + v
-    });else if (specialKind === "photo") sendRich({
-      role: "user",
-      kind: "photo",
-      desc: v,
-      content: "[我发了一张照片：" + v + "]"
-    });
+    });else if (specialKind === "photo") {
+      let imageRef = specialImg;
+      try { if (typeof imgToVault === "function") imageRef = await imgToVault(specialImg); } catch (e) {}
+      sendRich({ role: "user", kind: "photo", imageRef, desc: v, content: v ? "[照片] " + v : "[照片]" });
+    }
+    setSpecialImg("");
     setSpecialKind(null);
   };
   const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
@@ -3305,6 +3312,20 @@ function ChatThread({
         onClick: selMode ? () => toggleSel(i) : undefined,
         style: { maxWidth: "72%", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
       }, h(SelfieBubble, { m: m })));
+    if (m.kind === "photo" && m.imageRef) {
+      const mine = m.role === "user";
+      return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") },
+        !mine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        h("button", {
+          onClick: selMode ? () => toggleSel(i) : () => setDescView(m),
+          onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+          onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+          className: "active:opacity-80",
+          style: { display: "block", maxWidth: "72%", textAlign: "left", borderRadius: 14, overflow: "hidden", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
+        }, h("img", { src: resolveImg(m.imageRef), alt: m.desc || "照片", style: { display: "block", width: "100%", maxWidth: 260, maxHeight: 310, objectFit: "cover", background: t.bg2 } }),
+          m.desc ? h("div", { style: { padding: "7px 10px", background: mine ? BUBBLE_SKIN.myBg : BUBBLE_SKIN.charBg, color: mine ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink), fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5 } }, m.desc) : null),
+        mine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    }
     if (m.kind === "listeninvite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", { style: { maxWidth: "72%", background: "linear-gradient(135deg,#2b2b30,#17171b)", borderRadius: 16, padding: "12px 14px", boxShadow: "0 6px 18px rgba(0,0,0,0.22)" } },
@@ -3631,7 +3652,16 @@ function ChatThread({
   }, h(ISend, {
     size: 18,
     color: t.ink
-  }))), h("input", {
+  }))), specialKind === "photo" ? h("div", null,
+    h("input", { ref: photoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => {
+      const f = e.target.files && e.target.files[0];
+      if (f) resizeImageFile(f, 1600, 0.86).then(setSpecialImg).catch(() => toast && toast("这张照片没能读出来，换一张试试"));
+      e.target.value = "";
+    } }),
+    h("button", { onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
+      specialImg ? h("img", { src: specialImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
+    h("input", { value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: "可以顺手说一句（选填）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink, border: `1px solid ${t.line}` } })
+  ) : h("input", {
     value: specialText,
     onChange: e => setSpecialText(e.target.value),
     autoFocus: true,
@@ -3667,7 +3697,7 @@ function ChatThread({
     style: {
       marginBottom: 8
     }
-  }, "照片"), h("div", {
+  }, "照片"), !(typeof descView === "object" && descView.imageRef) && h("div", {
     style: {
       width: "100%",
       height: 140,
@@ -3690,7 +3720,11 @@ function ChatThread({
       color: t.ink,
       whiteSpace: "pre-wrap"
     }
-  }, descView)), transferOpen && h(TransferComposeSheet, {
+  }, typeof descView === "object" && descView.imageRef
+    ? h("div", null,
+        h("img", { src: resolveImg(descView.imageRef), style: { width: "100%", maxHeight: "68vh", objectFit: "contain", borderRadius: 12, display: "block" } }),
+        descView.desc ? h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, color: t.ink, whiteSpace: "pre-wrap" } }, descView.desc) : null)
+    : descView)), transferOpen && h(TransferComposeSheet, {
     cName: cName,
     myBalance: myBalance,
     onClose: () => setTransferOpen(false),

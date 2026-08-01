@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.28";
+const APP_VERSION = "v51.29";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3769,14 +3769,19 @@ function App() {
           const qpfx = m.replyTo ? "（我在回应你说的「" + String(m.replyTo).slice(0, 40) + "」）" : "";
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
+            : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "")
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + (m.delivered ? "（已送到你手上）" : "（外卖/快递还在路上）") + "]"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
           // 合并连发的多条用户消息，兼容 Anthropic 等不允许连续同角色的接口
-          if (lu && lu.role === "user") lu.content += "\n" + uc;else g.push({
+          if (lu && lu.role === "user") {
+            lu.content += "\n" + uc;
+            if (m.kind === "photo" && m.imageRef) (lu._imageRefs || (lu._imageRefs = [])).push(m.imageRef);
+          } else g.push({
             role: "user",
             content: uc,
-            _t: null
+            _t: null,
+            _imageRefs: m.kind === "photo" && m.imageRef ? [m.imageRef] : []
           });
         } else {
           const l = g[g.length - 1];
@@ -3799,12 +3804,27 @@ function App() {
         g[_i] = { role: "user", content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
         break;
       } } }
-      const aiMessages = g.map(({
-        role,
-        content
-      }) => ({
-        role,
-        content
+      // 真照片按需从 IndexedDB 临时展开，只附最近 2 张，避免旧照片反复吞上下文/流量。
+      // 聊天记录本身仍只存 iv_ 小引用；读图失败时保留文字标记，绝不让整轮崩掉。
+      const imageBudget = [];
+      for (let i = g.length - 1; i >= 0 && imageBudget.length < 2; i--) {
+        const refs = Array.isArray(g[i]._imageRefs) ? g[i]._imageRefs : [];
+        for (let j = refs.length - 1; j >= 0 && imageBudget.length < 2; j--) imageBudget.push(refs[j]);
+      }
+      const imageAllowed = new Set(imageBudget);
+      const aiMessages = await Promise.all(g.map(async ({ role, content, _imageRefs }) => {
+        const imageDataUrls = [];
+        for (const ref of (Array.isArray(_imageRefs) ? _imageRefs : [])) {
+          if (!imageAllowed.has(ref)) continue;
+          try {
+            if (String(ref).indexOf("data:") === 0) imageDataUrls.push(ref);
+            else if (String(ref).indexOf("iv_") === 0 && typeof idbVaultGet === "function" && typeof blobToDataUrl === "function") {
+              const blob = await idbVaultGet(ref);
+              if (blob) imageDataUrls.push(await blobToDataUrl(blob));
+            }
+          } catch (e) {}
+        }
+        return { role, content, ...(imageDataUrls.length ? { imageDataUrls } : {}) };
       }));
       let raw;
       try {
