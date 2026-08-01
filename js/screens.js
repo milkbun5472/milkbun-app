@@ -1023,14 +1023,25 @@ function Forum({
   const [searchQ, setSearchQ] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [followListOpen, setFollowListOpen] = useState(false);
+  const [forumNow, setForumNow] = useState(() => Date.now());
+  const [forumLastSeen] = useState(() => {
+    try { return Number(localStorage.getItem("x_forumLastSeen")) || Date.now(); } catch (e) { return Date.now(); }
+  });
   const PAGE = 20;
   const charOf = id => (characters || []).find(c => c.id === id);
   const cmts = comments || {};
   const flw = follows || [];
   const unreadPM = (pms || []).filter(x => x.unread).length;
   const activeChars = (characters || []).filter(c => !(forumOff || []).includes(c.id)); // 在逛论坛的角色
+  const forumVisible = x => !x || !x.visibleAt || Number(x.visibleAt) <= forumNow;
   const meChar = { name: (forumMe && forumMe.handle) || profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || "#7a6cf0" };
   useEffect(() => { if (profileId && profileId !== "me" && onEnsureCharMeta) { const c = charOf(profileId); if (c) onEnsureCharMeta(c); } }, [profileId]);
+  useEffect(() => {
+    const markSeen = () => { try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} };
+    markSeen();
+    const timer = setInterval(() => { setForumNow(Date.now()); markSeen(); }, 30000);
+    return () => { clearInterval(timer); markSeen(); };
+  }, []);
   const tag = txt => h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.06em", padding: "2px 7px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, txt);
   const chip = (b, sel, on) => h("button", { key: b, onClick: on, className: "px-3 py-1.5 active:opacity-70 whitespace-nowrap", style: { borderRadius: 999, background: sel ? t.ink : "transparent", color: sel ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5, border: sel ? "none" : `1px solid ${t.line}` } }, b);
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -1103,7 +1114,9 @@ function Forum({
   // ---- 帖子详情 ----
   function detail() {
     const p = open;
-    const list = cmts[p.id] || [];
+    const allFloors = cmts[p.id] || [];
+    const list = allFloors.filter(forumVisible);
+    const waitingFloors = Math.max(0, allFloors.length - list.length);
     const loadingC = gen && gen.forumC === p.id;
     const moreC = gen && gen.forumMore === p.id;
     const c = (!p.anon && p.authorType === "character") ? charOf(p.authorId) : null;
@@ -1124,6 +1137,7 @@ function Forum({
           h(Eyebrow, null, "全部回复 · " + (p.replyCount || 0)),
           h("button", { onClick: () => onMoreComments(p), disabled: moreC, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, moreC ? "生成中…" : "↻ 更多回复")),
         loadingC && h(Spinner, { label: "楼里的人正在赶来…" }),
+        !loadingC && waitingFloors > 0 && h("div", { className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还有 " + waitingFloors + " 条回帖会随着时间陆续出现"),
         !loadingC && list.length === 0 && h(Empty, { text: "还没有楼层", sub: "点上面「更多回复」让大家来" }),
         list.map((cm, i) => floorRow(p, cm, i))),
       h("div", { className: "shrink-0 px-3 py-2.5", style: { borderTop: `1px solid ${t.line}` } },
@@ -1139,7 +1153,7 @@ function Forum({
     if (!isMe && !c) return null;
     const meta = isMe ? { handle: (forumMe && forumMe.handle) || profile.name || "我", bio: (forumMe && forumMe.bio) || "", joinTs: forumMe && forumMe.joinTs, following: activeChars.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
     const av = h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
-    const mine = (posts || []).filter(p => (isMe ? p.authorType === "me" : (p.authorId === profileId && p.authorType === "character")) && !p.anon).sort((a, b) => b.ts - a.ts);
+    const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? p.authorType === "me" : (p.authorId === profileId && p.authorType === "character")) && !p.anon).sort((a, b) => b.ts - a.ts);
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
         h("div", { className: "flex items-start gap-3" },
@@ -1193,12 +1207,14 @@ function Forum({
 
   // ---- 主页版块列表 ----
   function homeFeed() {
-    let arr = (posts || []).filter(p => FORUM_BOARDS.includes(p.board));
+    let arr = (posts || []).filter(p => forumVisible(p) && FORUM_BOARDS.includes(p.board));
     if (tab === "关注") arr = arr.filter(p => p.authorType === "character" && !p.anon && flw.includes(p.authorId));
     else arr = arr.filter(p => p.board === tab);
     arr = arr.slice().sort((a, b) => b.ts - a.ts);
     const shown = arr.slice(0, page * PAGE);
+    const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
     return h("div", { className: "flex-1 overflow-y-auto" },
+      arrived > 0 && h("div", { className: "mx-4 my-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 10, background: t.bg2, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.tint } }, h("span", null, "●"), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
       tab === "关注" && flw.length === 0 && h(Empty, { text: "还没有关注任何角色", sub: "点进帖子或角色主页「关注 TA」" }),
       tab === "关注" && flw.length > 0 && shown.length === 0 && h(Empty, { text: "关注的角色还没发过公开帖", sub: "" }),
       tab !== "关注" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
@@ -1209,7 +1225,7 @@ function Forum({
 
   // ---- 搜索：四版块之外的吧 ----
   function searchView() {
-    const arr = (posts || []).filter(p => !FORUM_BOARDS.includes(p.board)).sort((a, b) => b.ts - a.ts);
+    const arr = (posts || []).filter(p => forumVisible(p) && !FORUM_BOARDS.includes(p.board)).sort((a, b) => b.ts - a.ts);
     const busy = gen && gen.forumSearch;
     const go = () => onGenSearch(searchQ.trim());
     return h("div", { className: "flex-1 overflow-y-auto" },

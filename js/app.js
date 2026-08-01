@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.15";
+const APP_VERSION = "v51.16";
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -5374,7 +5374,7 @@ function App() {
     if (Date.now() - (ts[kind] || 0) < 4 * 3600000) return;
     ts[kind] = Date.now(); saveJSON("x_ambientTs", ts);
     try {
-      if (kind === "forum") { const bs = ["吐槽", "日常", "求助"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
+      if (kind === "forum") { const bs = ["吐槽吧", "日常吧", "求助吧"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
       else if (kind === "moments") { if (characters.length) await genMoment(characters[Math.floor(Math.random() * characters.length)]); }
       else if (kind === "whisper") { const ps = characters.filter(c => couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
     } catch (e) {/* 静默 */}
@@ -6469,6 +6469,15 @@ function App() {
   // 帖子只有一份，躺在 forumPosts；版块页/关注页/角色主页都是对同一数组的筛选视图（见 FORUM_BOARDS）。
   // 刷新只 append，绝不覆盖已有帖。NPC 帖每版块有硬上限，角色帖永不清（authorType 区分）。
   const FORUM_NPC_CAP = 30;
+  // 一次生成仍只花一次调用，但不要把整批内容同一秒倒给 Lisa。
+  // 前两帖/前三楼立即出现，其余作为本地活动队列按真实时间陆续解锁；旧数据没有 visibleAt 时照常立即可见。
+  const FORUM_POST_STAGGER_MS = [0, 0, 20 * 60000, 65 * 60000, 150 * 60000];
+  const forumCommentVisibleAt = (base, index, salt) => {
+    if (index < 3) return base;
+    const steps = [8, 18, 35, 55, 80, 110, 145, 185, 230, 280, 335, 395, 460, 530, 605];
+    const minute = steps[Math.min(index - 3, steps.length - 1)] + ((Number(salt) || 0) % 5);
+    return base + minute * 60000;
+  };
   const forumBoardVoice = b => ({
     "吐槽吧": "「吐槽吧」：网友在这儿发牢骚、阴阳怪气、吐槽不爽。语气刻薄、损、带情绪、标题党，别正能量别说教。",
     "日常吧": "「日常吧」：网友分享兴趣、日常、和谁都无关的琐碎生活。语气松弛随意、有生活气，像随手一发。",
@@ -6514,13 +6523,17 @@ function App() {
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
       if (!items.length) throw new Error("没有生成内容");
       const base = Date.now();
-      const recs = items.map((x, i) => ({
+      const recs = items.map((x, i) => {
+        const stagger = FORUM_POST_STAGGER_MS[i] != null ? FORUM_POST_STAGGER_MS[i] : (150 + (i - 4) * 90) * 60000;
+        const visibleAt = base + stagger;
+        return ({
         id: "fp_" + base + "_" + i, authorId: "npc_" + base + "_" + i, authorType: "npc",
         authorName: x.authorName || "匿名网友", authorHandle: x.handle || x.authorName || "user",
         board, title: x.title, body: x.body || "",
-        anon: anonB, triggerSource: "", ts: base - i,
+        anon: anonB, triggerSource: "", ts: visibleAt, visibleAt,
         ...forumCounts((x.handle || x.title) + i, Number(x.replyCount))
-      }));
+        });
+      });
       appendForumPosts(recs, board);
     } catch (e) { toast("刷新失败：" + e.message); }
     finally { setGen(g => ({ ...g, forum: null })); }
@@ -6666,7 +6679,10 @@ function App() {
         let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
         if (!cs.length) cs = [{ authorName: "沙发", content: "（还没人接话）", replies: [] }];
         const base = Date.now();
-        const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({ ...f, floor: i + 2 }));
+        const salt = forumHash(post.id) % 5;
+        const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({
+          ...f, floor: i + 2, visibleAt: forumCommentVisibleAt(base, i, salt), ts: forumCommentVisibleAt(base, i, salt)
+        }));
         setForumComments(prev => prev[post.id] ? prev : (() => { const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n; })());
       }
     } catch (e) { toast("加载评论失败：" + e.message); }
@@ -6694,7 +6710,10 @@ function App() {
         } else newRaw.push(x);
       });
       const start = existing.length + 2;
-      const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean).map((f, i) => ({ ...f, floor: start + i }));
+      const salt = forumHash(post.id + ":more:" + existing.length) % 5;
+      const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean).map((f, i) => ({
+        ...f, floor: start + i, visibleAt: forumCommentVisibleAt(base, i, salt), ts: forumCommentVisibleAt(base, i, salt)
+      }));
       if (!more.length && !subInserts.length) throw new Error("没有更多");
       setForumComments(prev => {
         let list = prev[post.id] || [];
