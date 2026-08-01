@@ -99,7 +99,7 @@ test("论坛延迟楼层按帖子保存已读水位，不再每 30 秒全站误�
   assert.match(screens, /从旧版本升级时，把升级前已经露出的旧楼层当作读过/);
   assert.match(screens, /Number\(x\.visibleAt\) <= Date\.now\(\)/);
   assert.match(screens, /const unreadFloors = postId/);
-  assert.match(screens, /if \(open && open\.id\) markPostRead\(open\.id\)/);
+  assert.match(screens, /if \(!open \|\| !open\.id\) return;[\s\S]{0,80}?markPostRead\(open\.id\)/);
   assert.match(screens, /setInterval\(\(\) => setForumNow\(Date\.now\(\)\), 30000\)/);
   assert.doesNotMatch(screens, /setInterval\(\(\) => \{ setForumNow\(Date\.now\(\)\); markSeen\(\); \}, 30000\)/);
 });
@@ -108,4 +108,20 @@ test("论坛帖子卡、版块标签与页头展示到点的新回复数", () =>
   assert.match(screens, /"\+" \+ unread \+ " 新回复"/);
   assert.match(screens, /"论坛 · " \+ forumUnreadTotal \+ " 条新回复"/);
   assert.match(screens, /b \+ \(count > 0 \? " · " \+ count : ""\)/);
+});
+
+test("回复我的只认明确直达证据，并可逐条跳到原楼层", () => {
+  assert.match(app, /replyToMe: true/);
+  assert.match(app, /authorType: "me", authorId: "me", content: text, ts: Date\.now\(\)/);
+  assert.match(screens, /p\.authorType === "me" && f\.authorType !== "me"/);
+  assert.match(screens, /r\.replyToMe \|\| f\.authorType === "me"/);
+  assert.match(screens, /document\.getElementById\("forum-floor-" \+ n\.floorId\)/);
+});
+
+test("回复通知有独立已读账本、红点和通知页，不会污染私信", () => {
+  assert.match(screens, /x_forumNoticeEpoch/);
+  assert.match(screens, /x_forumNoticeRead/);
+  assert.match(screens, /\["notice", IPulse, "回复"\]/);
+  assert.match(screens, /title = "回复我的"/);
+  assert.match(screens, /unreadNoticeCount > 99 \? "99\+" : unreadNoticeCount/);
 });

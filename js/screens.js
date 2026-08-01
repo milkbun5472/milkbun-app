@@ -1042,6 +1042,16 @@ function Forum({
       return seeded;
     } catch (e) { return {}; }
   });
+  const [forumNoticeEpoch] = useState(() => {
+    try {
+      const old = Number(localStorage.getItem("x_forumNoticeEpoch"));
+      if (old) return old;
+      const now = Date.now(); localStorage.setItem("x_forumNoticeEpoch", String(now)); return now;
+    } catch (e) { return Date.now(); }
+  });
+  const [forumNoticeRead, setForumNoticeRead] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("x_forumNoticeRead") || "{}"); } catch (e) { return {}; }
+  });
   const PAGE = 20;
   const charOf = id => (characters || []).find(c => c.id === id);
   const cmts = comments || {};
@@ -1052,6 +1062,34 @@ function Forum({
   const floorArrivedAt = x => Number((x && (x.visibleAt || x.ts)) || 0);
   const unreadFloors = postId => (cmts[postId] || []).filter(x => forumVisible(x) && x.authorType !== "me" && floorArrivedAt(x) > Number(forumReadCursors[postId] || 0)).length;
   const forumUnreadTotal = (posts || []).reduce((n, p) => n + unreadFloors(p.id), 0);
+  const forumNotices = [];
+  (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
+    if (!forumVisible(f)) return;
+    const floorTs = floorArrivedAt(f);
+    if (p.authorType === "me" && f.authorType !== "me" && floorTs > forumNoticeEpoch) {
+      const id = "floor:" + p.id + ":" + (f.id || floorIndex);
+      forumNotices.push({ id, post: p, floorId: f.id, author: f, authorName: f.authorName || "网友", content: f.content || "", ts: floorTs, kind: "回复了你的帖子" });
+    }
+    (f.replies || []).forEach((r, replyIndex) => {
+      const ts = Math.max(floorTs, Number(r.ts || 0));
+      if (r.authorType === "me" || ts <= forumNoticeEpoch || !(r.replyToMe || f.authorType === "me")) return;
+      const id = "reply:" + p.id + ":" + (f.id || floorIndex) + ":" + (r.id || r.ts || replyIndex);
+      forumNotices.push({ id, post: p, floorId: f.id, author: r, authorName: r.authorName || "网友", content: r.content || "", ts, kind: "回复了你" });
+    });
+  }));
+  forumNotices.sort((a, b) => b.ts - a.ts);
+  const unreadNoticeCount = forumNotices.filter(n => !forumNoticeRead[n.id]).length;
+  const markNoticesRead = ids => {
+    const fresh = (ids || []).filter(id => id && !forumNoticeRead[id]);
+    if (!fresh.length) return;
+    setForumNoticeRead(prev => {
+      const next = { ...prev }; fresh.forEach(id => { next[id] = Date.now(); });
+      // 最多留最近 800 个已读键，防止本地小账本无限长。
+      const trimmed = Object.fromEntries(Object.entries(next).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 800));
+      try { localStorage.setItem("x_forumNoticeRead", JSON.stringify(trimmed)); } catch (e) {}
+      return trimmed;
+    });
+  };
   const markPostRead = postId => {
     if (!postId) return;
     const newest = (cmts[postId] || []).filter(forumVisible).reduce((n, x) => Math.max(n, floorArrivedAt(x)), 0);
@@ -1063,7 +1101,11 @@ function Forum({
       return next;
     });
   };
-  const openPost = p => { setOpen(p); onLoadComments(p); };
+  const openPost = p => { setOpen(p); onLoadComments(p); markNoticesRead(forumNotices.filter(n => n.post.id === p.id).map(n => n.id)); };
+  const openNotice = n => {
+    markNoticesRead([n.id]); openPost(n.post);
+    setTimeout(() => { const el = document.getElementById("forum-floor-" + n.floorId); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 180);
+  };
   const meChar = { name: (forumMe && forumMe.handle) || profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || "#7a6cf0" };
   useEffect(() => { if (profileId && profileId !== "me" && onEnsureCharMeta) { const c = charOf(profileId); if (c) onEnsureCharMeta(c); } }, [profileId]);
   useEffect(() => {
@@ -1074,7 +1116,11 @@ function Forum({
   }, []);
   // 只有真的打开某个帖子，才把该帖此刻已经露出的楼层标为已读。
   // 排队楼层在别的页面到点出现时不会被全站「已读」误吞；若人正看着帖子，则自然算看见了。
-  useEffect(() => { if (open && open.id) markPostRead(open.id); }, [open && open.id, forumNow, comments]);
+  useEffect(() => {
+    if (!open || !open.id) return;
+    markPostRead(open.id);
+    markNoticesRead(forumNotices.filter(n => n.post.id === open.id).map(n => n.id));
+  }, [open && open.id, forumNow, comments]);
   const tag = txt => h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.06em", padding: "2px 7px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, txt);
   const chip = (b, sel, on) => h("button", { key: b, onClick: on, className: "px-3 py-1.5 active:opacity-70 whitespace-nowrap", style: { borderRadius: 999, background: sel ? t.ink : "transparent", color: sel ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5, border: sel ? "none" : `1px solid ${t.line}` } }, b);
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -1119,7 +1165,7 @@ function Forum({
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
     const nm = cm.authorType === "me" ? meChar.name : (c ? c.name : cm.authorName);
-    return h("div", { key: cm.id || i, className: "px-4 py-3", style: { borderTop: i > 0 ? `1px solid ${t.line}` : "none" } },
+    return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), className: "px-4 py-3", style: { borderTop: i > 0 ? `1px solid ${t.line}` : "none" } },
       h("div", { className: "flex gap-2.5" },
         avatarBtn(cm, 34),
         h("div", { className: "flex-1 min-w-0" },
@@ -1229,6 +1275,21 @@ function Forum({
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (last.from === "me" ? "我：" : "") + last.text)));
       }));
   }
+
+  // ---- 回复我的：只列有明确本地证据的直达通知，不让模型猜谁在 @ 我 ----
+  function noticeList() {
+    return h("div", { className: "flex-1 overflow-y-auto" },
+      forumNotices.length === 0 && h(Empty, { text: "还没有人回复你", sub: "你发帖或在楼里说话后，新的直接回复会出现在这里" }),
+      forumNotices.map(n => h("button", { key: n.id, onClick: () => openNotice(n), className: "w-full text-left px-4 py-3.5 flex gap-3 active:opacity-70", style: { borderBottom: `1px solid ${t.line}`, background: forumNoticeRead[n.id] ? "transparent" : t.bg2 } },
+        avatarFor(n.author, 38, n.author && n.author.anon),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { className: "flex items-center gap-1.5" },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.authorName),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, n.kind + " · " + timeAgo(n.ts)),
+            !forumNoticeRead[n.id] && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent, marginLeft: "auto" } })),
+          h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 3 } }, n.content),
+          h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "来自《" + (n.post.title || "帖子") + "》")))));
+  }
   function pmThread() {
     const th = (pms || []).find(x => x.id === pmId);
     if (!th) return null;
@@ -1283,6 +1344,7 @@ function Forum({
   else if (profileId && profileId !== "me") { title = "主页"; bodyEl = profileView(false); backFn = () => setProfileId(null); }
   else if (pmId) { title = ((pms || []).find(x => x.id === pmId) || {}).npcName || "私信"; bodyEl = pmThread(); backFn = () => setPmId(null); }
   else if (nav === "search") { title = "搜索"; bodyEl = searchView(); rightEl = h("button", { onClick: () => onGenSearch(searchQ.trim()), className: "active:opacity-50" }, h(IRefresh, { size: 19, color: t.ink })); }
+  else if (nav === "notice") { title = "回复我的"; bodyEl = noticeList(); }
   else if (nav === "pm") { title = "私信"; bodyEl = pmList(); }
   else if (nav === "me") { title = "我"; bodyEl = profileView(true); }
   else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
@@ -1298,10 +1360,11 @@ function Forum({
     })),
     bodyEl,
     (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: `1px solid ${t.line}` } },
-      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; return h("button", { key: nx[0], onClick: () => setNav(nx[0]), className: "flex-1 py-2 flex flex-col items-center gap-1 active:opacity-60 relative", style: { color: nav === nx[0] ? t.ink : t.fog } },
+      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; return h("button", { key: nx[0], onClick: () => setNav(nx[0]), className: "flex-1 py-2 flex flex-col items-center gap-1 active:opacity-60 relative", style: { color: nav === nx[0] ? t.ink : t.fog } },
         h(Ic, { size: 20, color: nav === nx[0] ? t.ink : t.fog }),
         h("span", { style: { fontFamily: F_BODY, fontSize: 9.5 } }, nx[2]),
-        nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM)); })),
+        nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
+        nx[0] === "notice" && unreadNoticeCount > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -23, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadNoticeCount > 99 ? "99+" : unreadNoticeCount)); })),
     // 悬浮发帖按钮（主页/搜索）
     (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: 64, width: 52, height: 52, borderRadius: 999, background: t.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 12px rgba(0,0,0,0.25)", zIndex: 30 } }, h(IPlus, { size: 24, color: "#fff" })),
     // 转发 picker

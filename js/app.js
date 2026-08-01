@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.22";
+const APP_VERSION = "v51.23";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -6667,13 +6667,13 @@ function App() {
       replies: (Array.isArray(x.replies) ? x.replies : []).filter(r => r && r.content).map(r => {
         if (isOpOf(r)) {
           // 楼主本人回某条评论：正确署名（角色→真名，否则楼主网名），并打上「楼主」小标
-          if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: r.content, isOp: true };
-          return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: r.content, isOp: true };
+          if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: r.content, isOp: true, ts: base + idx };
+          return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: r.content, isOp: true, ts: base + idx };
         }
         const rc = (characters || []).find(c => c.name === r.char);
         const rn = rc ? null : forumPublicNpcOf(r, (post && post.board) || "日常吧", idx + ":reply");
         const ri = rc ? forumCharIdentity(rc, r.identity, (post && post.board) || "日常吧") : null;
-        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content };
+        return { authorName: rc ? ri.authorName : rn.name, authorHandle: rc ? ri.authorHandle : rn.handle, authorType: rc ? ri.authorType : "npc", authorId: rc ? rc.id : rn.id, content: r.content, ts: base + idx };
       })
     };
   };
@@ -6705,13 +6705,13 @@ function App() {
     const opName = opChar ? opChar.name : (post ? (post.authorName || "") : "");
     const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz" || s === "帖主"; };
     if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
-      if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: x.content, isOp: true };
-      return { authorName: opName || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: x.content, isOp: true };
+      if (opChar) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: opChar.id, content: x.content, isOp: true, ts: Date.now() };
+      return { authorName: opName || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: x.content, isOp: true, ts: Date.now() };
     }
     const cc = (characters || []).find(c => c.name === x.char);
-    if (cc) { const ci = forumCharIdentity(cc, x.identity, (post && post.board) || "日常吧"); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content }; }
+    if (cc) { const ci = forumCharIdentity(cc, x.identity, (post && post.board) || "日常吧"); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, ts: Date.now() }; }
     const npc = forumPublicNpcOf(x, (post && post.board) || "日常吧", "reply");
-    return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content };
+    return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, ts: Date.now() };
   };
   // 楼主是角色时的「真实背景」注入：人设 + 按帖子话题检索到的真实记忆——楼主回帖补细节时必须依据这些，别现编。
   // （根治「楼主回复细节时开始编而不是参考实际发生的事」：原来论坛全走通用「论坛网友」ctx，楼主没自己的记忆可依据。）
@@ -7048,7 +7048,7 @@ function App() {
     const targetFloor = (forumCommentsRef.current[post.id] || []).find(f => f.id === floorId);
     if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId);
     setForumComments(prev => {
-      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text }] } : f);
+      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", authorType: "me", authorId: "me", content: text, ts: Date.now() }] } : f);
       const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;
     });
     bumpReplyBy(post.id, 1);
@@ -7092,20 +7092,21 @@ function App() {
       if (!items.length) return;
       const looksOp = s => { s = String(s || "").trim().toLowerCase(); return s === "楼主" || s === "楼主本人" || s === "lz" || s === "帖主"; };
       const looksOwner = s => { s = String(s || "").trim(); return s === "层主" || (ownerName && s === ownerName); };
-      const reps = items.map(x => {
+      const replyBase = Date.now();
+      const reps = items.map((x, replyIndex) => {
         // 层主回我：还原成这层楼作者本人的身份（角色→真名档案，路人→沿用层主的马甲）
         if (x.is_owner === true || looksOwner(x.char) || looksOwner(x.authorName)) {
-          if (ownerChar) return { authorName: floor.authorName, authorHandle: floor.authorHandle, authorType: floor.authorType, authorId: ownerChar.id, content: x.content, isOwner: true };
-          return { authorName: ownerName, authorHandle: floor.authorHandle || ownerName, authorType: floor.authorType || "npc", authorId: floor.authorId || null, content: x.content, isOwner: true };
+          if (ownerChar) return { authorName: floor.authorName, authorHandle: floor.authorHandle, authorType: floor.authorType, authorId: ownerChar.id, content: x.content, isOwner: true, replyToMe: true, ts: replyBase + replyIndex };
+          return { authorName: ownerName, authorHandle: floor.authorHandle || ownerName, authorType: floor.authorType || "npc", authorId: floor.authorId || null, content: x.content, isOwner: true, replyToMe: true, ts: replyBase + replyIndex };
         }
         if (x.is_op === true || (opName && x.char === opName) || looksOp(x.char) || looksOp(x.authorName)) {
-          if (oc) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: oc.id, content: x.content, isOp: true };
-          return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: post.authorType === "me" ? "me" : "npc", authorId: post.authorType === "me" ? "me" : null, content: x.content, isOp: true };
+          if (oc) return { authorName: post.authorName, authorHandle: post.authorHandle, authorType: post.authorType, authorId: oc.id, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
+          return { authorName: post.authorName, authorHandle: post.authorHandle || post.authorName, authorType: post.authorType === "me" ? "me" : "npc", authorId: post.authorType === "me" ? "me" : null, content: x.content, isOp: true, replyToMe: true, ts: replyBase + replyIndex };
         }
         const cc = forumActiveChars().find(c => c.name === x.char);
-        if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content }; }
+        if (cc) { const ci = forumCharIdentity(cc, x.identity, post.board); return { authorName: ci.authorName, authorHandle: ci.authorHandle, authorType: ci.authorType, authorId: cc.id, content: x.content, replyToMe: true, ts: replyBase + replyIndex }; }
         const npc = forumPublicNpcOf(x, post.board, floorId + ":" + x.content);
-        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content };
+        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content, replyToMe: true, ts: replyBase + replyIndex };
       });
       // 同一批里同一熟面孔即使连回两句也只算一次公开碰面，避免生成长度把熟悉度灌高。
       [...new Set(reps.filter(r => r.authorType === "npc").map(r => r.authorId))].forEach(touchForumPublicTie);
