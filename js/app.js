@@ -2,7 +2,25 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.16";
+const APP_VERSION = "v51.17";
+// 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
+// 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
+const FORUM_NPC_REGISTRY = [
+  { id: "npc_regular_moyu", name: "摸鱼办主任", handle: "moyu_office", boards: ["吐槽吧", "日常吧"], voice: "上班族，短句冷幽默，爱吐槽流程但不刻薄人" },
+  { id: "npc_regular_xiaoyu", name: "小雨不带伞", handle: "raincheck", boards: ["日常吧", "求助吧"], voice: "温和细心，常分享生活小窍门，偶尔有点迷糊" },
+  { id: "npc_regular_maomao", name: "楼下猫保安", handle: "cat_guard", boards: ["日常吧", "吐槽吧"], voice: "爱观察邻里和猫，话少，偶尔一句很准" },
+  { id: "npc_regular_bing", name: "冰箱灯研究员", handle: "fridge_light", boards: ["吐槽吧", "求助吧"], voice: "较真派，擅长拆问题和给具体步骤，不讲空话" },
+  { id: "npc_regular_yidun", name: "今天也吃一顿", handle: "one_more_meal", boards: ["日常吧", "求助吧"], voice: "吃喝派，热心但容易把话题拐到食物" },
+  { id: "npc_regular_houtui", name: "后退半步", handle: "halfstepback", boards: ["吐槽吧", "求助吧"], voice: "先质疑再给建议，有边界感，不爱跟风" },
+  { id: "npc_regular_mianbao", name: "面包边也要吃", handle: "crust_club", boards: ["日常吧", "吐槽吧"], voice: "生活节俭派，爱讲亲身小事，语气朴素" },
+  { id: "npc_regular_zuoye", name: "昨夜没关窗", handle: "window_open", boards: ["日常吧", "求助吧"], voice: "夜猫子，感性但不灌鸡汤，回复常在深夜" },
+  { id: "npc_regular_shafa", name: "沙发不是我的", handle: "not_my_sofa", boards: ["吐槽吧", "日常吧"], voice: "抢前排接梗型，嘴快，遇到正事会收敛" },
+  { id: "npc_regular_lanbi", name: "蓝笔批注", handle: "blue_margin", boards: ["求助吧", "吐槽吧"], voice: "经验党，喜欢逐条回答，也会指出问题前提不成立" },
+  { id: "npc_anon_thirdcat", name: "三楼的猫", handle: "third_floor_cat", boards: ["匿名吧"], voice: "谨慎克制，只谈感受不猜身份" },
+  { id: "npc_anon_nightbus", name: "末班车乘客", handle: "last_bus", boards: ["匿名吧"], voice: "深夜坦白型，懂得共情但不强行劝和" },
+  { id: "npc_anon_blank", name: "id已隐藏", handle: "hidden_id", boards: ["匿名吧"], voice: "直接、现实，尊重隐私，不追问细节" },
+  { id: "npc_anon_deleted", name: "注销前说一句", handle: "before_logout", boards: ["匿名吧"], voice: "偶尔尖锐，反感套话，习惯提醒风险和后果" }
+];
 // B（v50.79，2026-07-24 试点）：允许「软层随经历成长」的角色白名单。先只开沈屿白(阿屿)、顾暮(阿暮)观察不漂移再全局。
 //   硬核(身份/世界观/说话底色/边界/重要经历)永不变；只软层(亲密方式/处理冲突习惯/偏好/勇气/信任/对未来的选择)可被 personaGrown+反复经历推着长。
 const PERSONA_EVOLVE_IDS = ["char_1783061729716", "char_1783354607122"];
@@ -476,6 +494,8 @@ function App() {
     setForumMe(fm);
     setForumCharMeta(loadJSON("x_forumCharMeta", {}));
     setForumOff(loadJSON("x_forumOff", []));
+    const npcRegistry = loadJSON("x_forumNpcs", null);
+    if (!npcRegistry || npcRegistry.version !== 1) saveJSON("x_forumNpcs", { version: 1, items: FORUM_NPC_REGISTRY });
     setWhispers(loadJSON("x_whispers", []));
     setCoupleQA(loadJSON("x_coupleQA", []));
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
@@ -6496,6 +6516,19 @@ function App() {
   const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   const forumWorldCtx = () => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook, profile, timeAware: prefs.timeAware });
+  const forumNpcPool = board => {
+    const exact = FORUM_NPC_REGISTRY.filter(n => (n.boards || []).includes(board));
+    return exact.length ? exact : FORUM_NPC_REGISTRY.filter(n => !(n.boards || []).includes("匿名吧"));
+  };
+  const forumNpcRoster = board => forumNpcPool(board).map(n => n.id + "=「" + n.name + "」@" + n.handle + "（" + n.voice + "）").join("；");
+  const forumNpcRule = board => "\n【常驻网友名单】论坛有固定熟面孔，不要临时编新网名。路人发言从下列名单选，填 npcId；同一 npcId 必须保持对应网名、账号和说话习惯：" + forumNpcRoster(board) + "。同一批里尽量别让同一人连续发多条。\n";
+  const forumNpcOf = (x, board, salt) => {
+    const pool = forumNpcPool(board);
+    const wanted = String((x && (x.npcId || x.npc_id)) || "");
+    const handle = String((x && x.handle) || "").replace(/^@/, "").toLowerCase();
+    const name = String((x && x.authorName) || "");
+    return pool.find(n => n.id === wanted) || pool.find(n => n.handle.toLowerCase() === handle) || pool.find(n => n.name === name) || pool[forumHash(String((x && (x.content || x.title)) || "") + ":" + salt) % pool.length];
+  };
   // runProbe 简单重试：单次结构化内容偶尔截断/解析失败，重试一次
   const runProbeRetry = async (p, ctx, probe) => { try { return await runProbe(p, ctx, probe); } catch (e) { return await runProbe(p, ctx, probe); } };
   // 写入帖子并对该版块做 NPC 硬上限清理（删最旧 NPC 帖，角色帖免疫）
@@ -6516,22 +6549,23 @@ function App() {
     const anonB = board === "匿名吧";
     try {
       const d = await runProbeRetry(active, forumWorldCtx(), {
-        instruction: forumBoardVoice(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条含 authorName（" + (anonB ? "匿名吧的中性马甲，如『匿名者』『三楼的猫』『id已隐藏』，别用真名" : "贴吧风格网名，风格各异") + "）、handle（一个和网名/说话风格搭的有趣英文或拼音短 id，别带 @ 符号）、title（标题）、body（楼主正文 2-4 句，贴合该吧语气）、replyCount（编一个几十到几千的回复数字，不必真实）。别所有帖一个腔调。",
-        schemaHint: "{\"items\":[{\"authorName\":\"网名\",\"handle\":\"funny_id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条从常驻名单选 npcId，并按那个人的习惯写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。别所有帖一个腔调。",
+        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128}]}",
         maxTokens: 3400
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.title ? [d] : []))).filter(x => x && x.title);
       if (!items.length) throw new Error("没有生成内容");
       const base = Date.now();
       const recs = items.map((x, i) => {
+        const npc = forumNpcOf(x, board, i);
         const stagger = FORUM_POST_STAGGER_MS[i] != null ? FORUM_POST_STAGGER_MS[i] : (150 + (i - 4) * 90) * 60000;
         const visibleAt = base + stagger;
         return ({
-        id: "fp_" + base + "_" + i, authorId: "npc_" + base + "_" + i, authorType: "npc",
-        authorName: x.authorName || "匿名网友", authorHandle: x.handle || x.authorName || "user",
+        id: "fp_" + base + "_" + i, authorId: npc.id, authorType: "npc",
+        authorName: npc.name, authorHandle: npc.handle,
         board, title: x.title, body: x.body || "",
         anon: anonB, triggerSource: "", ts: visibleAt, visibleAt,
-        ...forumCounts((x.handle || x.title) + i, Number(x.replyCount))
+        ...forumCounts(npc.id + ":" + x.title + i, Number(x.replyCount))
         });
       });
       appendForumPosts(recs, board);
@@ -6549,12 +6583,13 @@ function App() {
     if (isOpOf(x)) return null;
     const cc = (characters || []).find(c => c.name === x.char);
     const meta = cc ? charForumMeta(cc) : null;
+    const npc = cc ? null : forumNpcOf(x, (post && post.board) || "日常吧", idx);
     return {
       id: "fc_" + base + "_" + idx,
-      authorId: cc ? cc.id : ("npc_" + base + "_" + idx),
+      authorId: cc ? cc.id : npc.id,
       authorType: cc ? "character" : "npc",
-      authorName: cc ? cc.name : (x.authorName || "匿名网友"),
-      authorHandle: cc ? meta.handle : (x.handle || x.authorName || "user"),
+      authorName: cc ? cc.name : npc.name,
+      authorHandle: cc ? meta.handle : npc.handle,
       floor: floorNo, content: x.content, ts: base + idx, likeCount: forumHash((x.content || "") + idx) % 300,
       replies: (Array.isArray(x.replies) ? x.replies : []).filter(r => r && r.content).map(r => {
         if (isOpOf(r)) {
@@ -6563,7 +6598,8 @@ function App() {
           return { authorName: opName || (post && post.authorName) || "楼主", authorHandle: (post && post.authorHandle) || opName || "lz", authorType: post && post.authorType === "me" ? "me" : "npc", authorId: post && post.authorType === "me" ? "me" : null, content: r.content, isOp: true };
         }
         const rc = (characters || []).find(c => c.name === r.char);
-        return { authorName: rc ? rc.name : (r.authorName || "匿名网友"), authorHandle: rc ? charForumMeta(rc).handle : (r.handle || r.authorName || "user"), authorType: rc ? "character" : "npc", authorId: rc ? rc.id : null, content: r.content };
+        const rn = rc ? null : forumNpcOf(r, (post && post.board) || "日常吧", idx + ":reply");
+        return { authorName: rc ? rc.name : rn.name, authorHandle: rc ? charForumMeta(rc).handle : rn.handle, authorType: rc ? "character" : "npc", authorId: rc ? rc.id : rn.id, content: r.content };
       })
     };
   };
@@ -6600,7 +6636,8 @@ function App() {
     }
     const cc = (characters || []).find(c => c.name === x.char);
     if (cc) return { authorName: cc.name, authorHandle: charForumMeta(cc).handle, authorType: "character", authorId: cc.id, content: x.content };
-    return { authorName: x.authorName || "匿名网友", authorHandle: x.handle || x.authorName || "user", authorType: "npc", authorId: null, content: x.content };
+    const npc = forumNpcOf(x, (post && post.board) || "日常吧", "reply");
+    return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content };
   };
   // 楼主是角色时的「真实背景」注入：人设 + 按帖子话题检索到的真实记忆——楼主回帖补细节时必须依据这些，别现编。
   // （根治「楼主回复细节时开始编而不是参考实际发生的事」：原来论坛全走通用「论坛网友」ctx，楼主没自己的记忆可依据。）
@@ -6637,7 +6674,7 @@ function App() {
       const floors = opts.existingFloors || [];
       const floorLines = floors.slice(-14).map(f => f.floor + "楼 " + (f.authorName || "某人") + "：" + String(f.content || "").replace(/\s+/g, " ").slice(0, 60)).join("\n");
       const who2 = "这是同一个帖子的【继续刷楼、盖楼】，续着往下刷、别重开话题。下面是已经有的楼层：\n" + (floorLines || "（暂无）") + "\n\n"
-        + "**大多数新楼是路人网友**七嘴八舌盖楼（贴吧味儿：前排、顶、蹲一个、@楼上、抬杠、就这？、笑死、坐等后续），给 authorName 马甲 + handle，别一个腔调。\n"
+        + "**大多数新楼是常驻网友**七嘴八舌盖楼（贴吧味儿：前排、顶、蹲一个、@楼上、抬杠、就这？、笑死、坐等后续），从常驻名单选 npcId，别一个腔调。\n"
         + (isSearch ? "**全程只有路人**，不要出现任何你认识的角色。\n"
           : (notReplied.length ? "【这轮还没冒泡、可以新开一楼发表自己观点的角色】（真关心这话题才出现，严格贴人设与此刻心情，写不出贴人设的就别塞、宁可全路人）：" + notReplied.map(persona1).join("；") + "。\n" : "")
             + (replied.length ? "【已经在这帖回过的角色】：" + replied.map(c => "「" + c.name + "」").join("、") + "——**绝对别再让他们开一楼发表新的、和之前不相干的观点**（真实贴吧里没人对同一个帖前后连发两条无关的话）。他们这轮只有两种合法出场：① 在某一楼下用楼中楼接话（附和或反驳那层的人，把 reply_to_floor 设成那层的楼号）；② 开一楼，但必须是【明确接着上面某一楼的话往下说／盖楼／反驳】，reply_to_floor 设成所接的楼号——绝不能是凭空冒出的新观点。\n" : ""))
@@ -6649,18 +6686,18 @@ function App() {
           + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**";
       const opGround = forumOpGroundingFor(opChar, post);
       return {
-        instruction: forumBoardVoice(post.board) + " " + opRule2 + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
-        schemaHint: "{\"comments\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（若是某角色发的填角色名，否则省略）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复（reply_to_floor>0 = 这条是接/盖/回那一楼；0 或省略 = 新开一楼。楼主回帖时 is_op 设 true 且必须带 reply_to_floor）\",\"replies\":[{\"authorName\":\"网名\",\"char\":\"（角色名或省略）\",\"is_op\":false,\"content\":\"追评\"}]}]}",
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2 + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
+        schemaHint: "{\"comments\":[{\"npcId\":\"npc_regular_xxx\",\"char\":\"（若是某角色发的填角色名，否则省略）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复（reply_to_floor>0 = 这条是接/盖/回那一楼；0 或省略 = 新开一楼。楼主回帖时 is_op 设 true 且必须带 reply_to_floor）\",\"replies\":[{\"npcId\":\"npc_regular_xxx\",\"char\":\"（角色名或省略）\",\"is_op\":false,\"content\":\"追评\"}]}]}",
         maxTokens: 7200
       };
     }
     // ── 第一轮（首次点进帖）：不必全员回复，路人为主、真关心的角色偶尔冒泡 ──
     const who = isSearch
-      ? "**楼里全是路人网友**（每条给 authorName 网名马甲 + handle 有趣 id），**不要出现你认识的任何角色**——这是搜来的陌生话题吧，角色未必关心、也不该全知全能地冒出来。"
-      : "**大多数楼是路人网友**（给 authorName 网名马甲 + handle 有趣 id）；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠——**第一轮不必让所有角色都出现，没话说的角色这轮就别露面（下一轮刷新再补）**；**角色的评论必须是 Ta 真会说的话——口吻、用词、立场、关心范围都严格贴人设与此刻心情，写不出贴人设的评论就干脆别让 Ta 出现，宁可全路人、绝不 OOC**（角色不是全知的，不该出现在 Ta 不关心的话题里）：" + (poolStr || "（暂无其他角色）") + "。若某楼是某角色发的，就在该楼填 char=角色名（不要再填 authorName）。";
+      ? "**楼里全是常驻网友**（每条从名单选 npcId），**不要出现你认识的任何角色**——这是搜来的陌生话题吧，角色未必关心、也不该全知全能地冒出来。"
+      : "**大多数楼是常驻网友**（从名单选 npcId）；只有当下面某个角色**此刻真的会关心这个话题**时，才偶尔（约 1/4 的楼）让 Ta 冒泡回帖或抬杠——**第一轮不必让所有角色都出现，没话说的角色这轮就别露面（下一轮刷新再补）**；**角色的评论必须是 Ta 真会说的话——口吻、用词、立场、关心范围都严格贴人设与此刻心情，写不出贴人设的评论就干脆别让 Ta 出现，宁可全路人、绝不 OOC**（角色不是全知的，不该出现在 Ta 不关心的话题里）：" + (poolStr || "（暂无其他角色）") + "。若某楼是某角色发的，就在该楼填 char=角色名（不要再填 npcId）。";
     return {
-      instruction: forumBoardVoice(post.board) + " " + opRule + relBlock + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是路人" : "，可以是路人或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
-      schemaHint: "{\"comments\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（若是某角色发的填角色名，否则省略）\",\"content\":\"回复\",\"replies\":[{\"authorName\":\"网名\",\"char\":\"（角色名或省略）\",\"is_op\":false,\"content\":\"追评\"}]}]}",
+      instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule + relBlock + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。楼下网友陆续回复。生成 " + n + " 楼回复（comments 数组务必凑满 " + n + " 条，宁可每条精简），贴合该吧语气、七嘴八舌别一个腔调。" + who + "部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂" + (isSearch ? "，也全是常驻网友" : "，可以是常驻网友或角色 char，或楼主回某条评论时 is_op=true") + "），大多数楼 replies 留空。",
+      schemaHint: "{\"comments\":[{\"npcId\":\"npc_regular_xxx\",\"char\":\"（若是某角色发的填角色名，否则省略）\",\"content\":\"回复\",\"replies\":[{\"npcId\":\"npc_regular_xxx\",\"char\":\"（角色名或省略）\",\"is_op\":false,\"content\":\"追评\"}]}]}",
       maxTokens: 6000
     };
   };
@@ -6958,20 +6995,20 @@ function App() {
       const opReplied = (floor.replies || []).some(r => r.isOp);
       const isSearch = /^搜索/.test(post.triggerSource || "");
       const others = isSearch
-        ? "其余全是路人网友（authorName+handle），**不要出现你认识的任何角色**——搜来的陌生话题，角色未必关心、不该全知全能地冒出来。"
-        : "其余是路人网友，或此刻**真的会关心这个话题**的角色（char 填角色名；**角色的话必须是 Ta 真会说的，写不出贴人设的就别塞，宁可全路人**）：" + (forumCharList() || "（暂无角色）") + "。";
+        ? "其余全是常驻网友（从名单选 npcId），**不要出现你认识的任何角色**——搜来的陌生话题，角色未必关心、不该全知全能地冒出来。"
+        : "其余是常驻网友（从名单选 npcId），或此刻**真的会关心这个话题**的角色（char 填角色名；**角色的话必须是 Ta 真会说的，写不出贴人设的就别塞，宁可全路人**）：" + (forumCharList() || "（暂无角色）") + "。";
       // 在场角色关系：让层主/帖主/冒泡角色按真实身份接话（兄弟不当陌生人）
       const relLinesR = isSearch ? [] : forumRelLines(forumActiveChars().filter(c => !oc || c.id !== oc.id), oc);
       const relBlockR = relLinesR.length ? "【在场角色之间的关系（按真实身份接话，别当陌生人）】\n" + relLinesR.slice(0, 20).join("\n") + "\n" : "";
       // 帖主是角色时注入其真实背景，回复细节别现编
       const opGroundR = forumOpGroundingFor(oc, post);
       const d = await runProbeRetry(active, forumWorldCtx(), {
-        instruction: forumBoardVoice(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + (post.body || "") + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + (forumMe.handle || profile.name || "我") + "」）刚回复了层主这条：「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           "① **必须恰有一条是层主「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n" +
           "② 帖主「" + opName + "」**看情况**：只有 Ta 对这条真有话说才回一条（那条 is_op 设 true）" + (oc ? "；**帖主回复里涉及的任何细节都必须依据上方【楼主真实设定】里的真实经历与人设，绝不许现编、别捏造没发生过的事**" : "") + "；" + (opReplied ? "**Ta 在这层已经回过（见上面现场），除非有全新的内容要说，否则【不要】让 Ta 再出现，绝不重复之前说过的意思。**" : "可回可不回，别硬凑。") + "\n" +
-          "③ " + others + "\n每条含 content；路人给 authorName+handle，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
-        schemaHint: "{\"items\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"char\":\"（角色名或省略）\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
+          "③ " + others + "\n每条含 content；常驻网友给 npcId，角色给 char。语气各异，可搭话/抬杠/共鸣，别一个腔调。",
+        schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx\",\"char\":\"（角色名或省略）\",\"is_owner\":false,\"is_op\":false,\"content\":\"回复\"}]}",
         maxTokens: 2800
       });
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.content);
@@ -6990,7 +7027,8 @@ function App() {
         }
         const cc = forumActiveChars().find(c => c.name === x.char);
         if (cc) return { authorName: cc.name, authorHandle: charForumMeta(cc).handle, authorType: "character", authorId: cc.id, content: x.content };
-        return { authorName: x.authorName || "匿名网友", authorHandle: x.handle || x.authorName || "user", authorType: "npc", authorId: null, content: x.content };
+        const npc = forumNpcOf(x, post.board, floorId + ":" + x.content);
+        return { authorName: npc.name, authorHandle: npc.handle, authorType: "npc", authorId: npc.id, content: x.content };
       });
       setForumComments(prev => {
         const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), ...reps] } : f);
@@ -7015,15 +7053,15 @@ function App() {
     try {
       const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content).slice(-30).map(m => m.content).join(" ").slice(0, 300);
       const d = await runProbeRetry(active, forumWorldCtx(), {
-        instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用吐槽吧/日常吧/求助吧/匿名吧这四个）。在这个吧里生成 3-5 条网友主帖。每条含 authorName、handle（有趣 id）、title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
-        schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"authorName\":\"网名\",\"handle\":\"id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
+        instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用吐槽吧/日常吧/求助吧/匿名吧这四个）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖。每条从名单选 npcId，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
+        schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"npc_regular_xxx\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
         maxTokens: 3400
       });
       const board = (d && d.board) || (query ? query + "吧" : "水吧");
       let items = (d && Array.isArray(d.items) ? d.items : []).filter(x => x && x.title);
       if (!items.length) throw new Error("没搜到内容");
       const base = Date.now();
-      const recs = items.map((x, i) => ({ id: "fp_" + base + "_" + i, authorId: "npc_" + base + "_" + i, authorType: "npc", authorName: x.authorName || "匿名网友", authorHandle: x.handle || x.authorName || "user", board, title: x.title, body: x.body || "", anon: false, triggerSource: "搜索:" + (query || "随机"), ts: base - i, ...forumCounts((x.handle || x.title) + i, Number(x.replyCount)) }));
+      const recs = items.map((x, i) => { const npc = forumNpcOf(x, "搜索", i); return { id: "fp_" + base + "_" + i, authorId: npc.id, authorType: "npc", authorName: npc.name, authorHandle: npc.handle, board, title: x.title, body: x.body || "", anon: false, triggerSource: "搜索:" + (query || "随机"), ts: base - i, ...forumCounts(npc.id + ":" + x.title + i, Number(x.replyCount)) }; });
       setForumPosts(prev => { const n = [...recs, ...prev]; saveJSON("x_forumPosts", n); return n; });
     } catch (e) { toast(e.message); }
     finally { setGen(g => ({ ...g, forumSearch: false })); }
