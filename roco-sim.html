@@ -516,7 +516,7 @@ function execAction(side, oppSide, action, oppAction){
   if (sk.cls==='sta') side.statusUses++;
   log(`▶ ${p.name} 使用 ${name}（-${cost}⚡）`);
   if (sk.cls==='def'){
-    p.defending = sk; p.defCD = 2; // 本回合生效，下回合冷却
+    p.defending = sk; p.defCD = 1; // 本回合生效，下回合冷却，再下回合可用
     if (name==='无畏之心') p.wuweiExtra += 2;
     return;
   }
