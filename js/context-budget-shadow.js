@@ -1,13 +1,12 @@
 // ============================================================
-// 玄参 Persona Hub · 统一候选预算 shadow（v49.30）
-// 只丈量现有上下文各类材料的占位与挤压风险；不裁剪 prompt、不调用 AI。
+// 玄参 Persona Hub · 统一上下文预算（v51.51）
+// 先 shadow 丈量；通过观察期后只按原 bundle 顺序裁长度，不调用 AI。
 // ============================================================
 (function () {
   "use strict";
   const DB_NAME = "lisa_context_budget_shadow_v1", DB_VERSION = 1, CAP = 500, KEEP_MS = 14 * 86400000, AUDIT_VERSION = 2;
   const SOFT_BUDGET = 12000;
-  // 总和恰好 12k。只是压缩施工靶，不会在 shadow 阶段真的截 prompt。
-  // 身份根基获得最大份额；bundle 原顺序是铁律，绝不按类别重排。
+  // 总和恰好 12k。身份根基获得最大份额；bundle 原顺序是铁律，绝不按类别重排。
   const CATEGORY_CAPS = Object.freeze({
     rules:2200, identity_relation:3800, lore:1400, memory:1500,
     live_state:1100, shared_history:900, recent_chat:1100
@@ -37,7 +36,7 @@
     const largest = Object.keys(categories).sort((a, b) => categories[b] - categories[a])[0] || null;
     return { totalChars, categories, blocks: blocks.length, blockList:blocks, largest, pressure: totalChars > SOFT_BUDGET };
   }
-  // 仅用于比较的预算草案：按原 block 顺序消耗各类别额度，绝不重排。
+  // 按原 block 顺序消耗各类别额度，绝不重排。
   function propose(measured) {
     const c = measured.categories || {};
     const caps = {...CATEGORY_CAPS}, overflow = {}, proposed = {}, remaining={...caps};
@@ -54,6 +53,26 @@
     });
     const proposedTotal = blockPlan.reduce((n,x)=>n+x.proposedChars,0);
     return { caps, overflow, proposed, blockPlan, orderPreserved:blockPlan.every((x,i)=>x.index===(sourceBlocks[i]&&sourceBlocks[i].index)), proposedTotal, wouldStillPressure: proposedTotal > SOFT_BUDGET };
+  }
+  const TRIM_MARK = "…（已按上下文预算截短）";
+  function trimBlock(text, category, limit) {
+    const raw=String(text||""),max=Math.max(0,Math.floor(Number(limit)||0));
+    if (!max) return "";
+    if (raw.length<=max) return raw;
+    if (max<=TRIM_MARK.length+8) return raw.slice(0,max);
+    // 最近对话的时间方向和其他材料相反：标题留下，正文保留最新尾巴，不能只留下最旧几句。
+    if (category==="recent_chat") {
+      const cut=raw.indexOf("\n"),head=cut>=0?raw.slice(0,cut+1):"",room=max-head.length-TRIM_MARK.length-1;
+      if (room>8) return head+TRIM_MARK+"\n"+raw.slice(-room);
+    }
+    return raw.slice(0,max-TRIM_MARK.length)+TRIM_MARK;
+  }
+  function apply(parts) {
+    const source=(parts||[]).map(x=>String(x||"")),measured=measure(source);
+    // 没有总压时保持逐字一致，不为了“整齐”白白砍材料。
+    if (!measured.pressure) return source.slice();
+    const plan=propose(measured).blockPlan;
+    return source.map((text,i)=>trimBlock(text,plan[i]&&plan[i].category,plan[i]&&plan[i].proposedChars)).filter(Boolean);
   }
   function openDB() {
     if (dbPromise) return dbPromise;
@@ -104,5 +123,5 @@
     } catch (e) { return { error: "统一候选预算审计读取失败" }; }
   }
   async function clearAll() { try { const db = await openDB(), tx = db.transaction("audits", "readwrite"); tx.objectStore("audits").clear(); await done(tx); } catch (e) {} }
-  window.ContextBudgetShadow = { AUDIT_VERSION,SOFT_BUDGET,CATEGORY_CAPS,classify, measure, propose, observeBundle, report, clearAll };
+  window.ContextBudgetShadow = { AUDIT_VERSION,SOFT_BUDGET,CATEGORY_CAPS,classify, measure, propose, apply, observeBundle, report, clearAll };
 })();

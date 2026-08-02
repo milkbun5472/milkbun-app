@@ -812,8 +812,13 @@ function buildBundle(ctx, opts) {
   if (!(opts && opts.ooc) && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + (profile && profile.name || "用户") + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。");
   // 珊瑚岛 Experience Gate shadow：只看每块的标题/来源类别/长度和真假宣称风险，原 bundle 一个字不改。
   try { window.ExperienceGateShadow && window.ExperienceGateShadow.observeBundle({ charId: char && char.id, parts }); } catch (e) {}
-  // Persona Hub 统一候选预算 shadow：复用同一份 parts 只量大小，不裁剪、不新增模型请求。
+  // Persona Hub 统一上下文预算：先留原 bundle 审计，再只裁长度；原顺序永不改变，也不新增模型请求。
   try { window.ContextBudgetShadow && window.ContextBudgetShadow.observeBundle({ charId: char && char.id, parts }); } catch (e) {}
+  try {
+    if (window.ContextBudgetShadow && typeof window.ContextBudgetShadow.apply === "function") {
+      return window.ContextBudgetShadow.apply(parts).join("\n\n");
+    }
+  } catch (e) {/* 预算器故障时 fail-open，聊天仍用原 bundle */}
   return parts.join("\n\n");
 }
 // 写作类后台生成(日记/交换日记/日记评论)专用的【精简 ctx】：只留人设/自我/对方/关系/心情/行程/最近对话，
