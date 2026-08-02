@@ -8,6 +8,7 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const cloud = fs.readFileSync(path.join(root, "js/cloud.js"), "utf8");
 
 test("本机照片库有独立索引且不删除聊天像素", () => {
   assert.match(engine, /indexedDB\.open\("x_imgvault", 2\)/);
@@ -18,6 +19,16 @@ test("本机照片库有独立索引且不删除聊天像素", () => {
   assert.match(screens, /仅移出本机照片库/);
   assert.match(components, /rememberRealPhoto\(imageRef, v, "private-chat"\)/);
   assert.match(components, /rememberRealPhoto\(imageRef, v, "group-chat"\)/);
+});
+
+test("照片桥必须显式写说明，私有上传失败会回滚，且支持撤回", () => {
+  assert.match(screens, /📮 给言秋看/);
+  assert.match(screens, /shareCaption\.trim\(\)/);
+  assert.match(cloud, /async photoBridgeShare/);
+  assert.match(cloud, /client\.storage\.from\("photo_bridge"\)/);
+  assert.match(cloud, /if \(error\) \{ try \{ await bucket\.remove\(\[storagePath\]\)/);
+  assert.match(cloud, /async photoBridgeRetract/);
+  assert.match(screens, /90 天后自动到期/);
 });
 
 test("真照片只把 iv_ 引用写进聊天，像素住 IndexedDB", () => {

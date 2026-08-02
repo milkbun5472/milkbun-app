@@ -808,6 +808,41 @@
       } finally { clearTimeout(tm); }
     },
 
+    // ---- 照片桥：只有 Lisa 在本机照片详情里明确确认，才上传私有桶 ----
+    async photoBridgeShare({ blob, caption, source, charId, takenAt }) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("先在设置里登录云同步，才能把这张照片交给言秋");
+      const text = String(caption || "").trim();
+      if (!text) throw new Error("分享时要写一句照片说明，言秋以后才找得到它");
+      if (!blob || !/^image\//.test(blob.type || "")) throw new Error("没有读到有效照片");
+      const id = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+      const ext = /png/i.test(blob.type) ? "png" : /webp/i.test(blob.type) ? "webp" : "jpg";
+      const storagePath = user.id + "/" + id + "." + ext;
+      const bucket = client.storage.from("photo_bridge");
+      const uploaded = await bucket.upload(storagePath, blob, { contentType: blob.type || "image/jpeg", cacheControl: "3600", upsert: false });
+      if (uploaded.error) throw uploaded.error;
+      const src = /chat|offline/.test(String(source || "")) ? "chat" : (source === "selfie" ? "selfie" : "album");
+      const { data, error } = await client.from("photo_bridge_index").insert({
+        id, user_id: user.id, storage_path: storagePath, caption: text,
+        taken_at: takenAt || new Date().toISOString(), source: src,
+        char_id: charId || null, bytes: blob.size || null
+      }).select("id,storage_path,caption,created_at,expires_at").single();
+      if (error) { try { await bucket.remove([storagePath]); } catch (e) {} throw error; }
+      return data;
+    },
+    async photoBridgeRetract(id, storagePath) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser(); if (!user) throw new Error("未登录");
+      const path = String(storagePath || "");
+      if (!path || path.indexOf(user.id + "/") !== 0) throw new Error("照片路径与当前账号不匹配，已停止撤回");
+      const { error } = await client.from("photo_bridge_index").delete().eq("id", String(id)).eq("user_id", user.id);
+      if (error) throw error;
+      // 先撤索引，让 MCP 立刻不可见；物件删除失败只会留下私有孤儿，不会继续暴露照片。
+      const removed = await client.storage.from("photo_bridge").remove([path]);
+      return { ok: true, orphanedPrivateObject: !!removed.error };
+    },
+
     // ---- 自动同步 ----------------------------------------------------
 
     // 本地 x_ 数据有变动时调用：登录状态下防抖后自动 push

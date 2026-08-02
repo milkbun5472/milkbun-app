@@ -4620,9 +4620,12 @@ function LocalPhotoLibrary({ toast }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState([]);
   const [preview, setPreview] = useState(null);
+  const [shareCaption, setShareCaption] = useState("");
+  const [sharing, setSharing] = useState(false);
   const ref = useRef(null);
   const refresh = async () => setRows(await idbAlbumEntries());
   useEffect(() => { if (open) refresh(); }, [open]);
+  useEffect(() => { setShareCaption(preview && preview.caption || ""); }, [preview && preview.imageRef]);
   const add = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
     try {
@@ -4639,11 +4642,29 @@ function LocalPhotoLibrary({ toast }) {
     h("input", { ref, type: "file", accept: "image/*", className: "hidden", onChange: add }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "聊天里发过的真实照片会自动归到这里。像素只在本机图库，不会自动上传云端；移出照片库也不会删掉聊天里的图。"),
     open ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 7, marginTop: 12 } },
-      rows.length ? rows.map(r => h("button", { key: r.imageRef, onClick: () => setPreview(r), style: { aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } }, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }))) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
+      rows.length ? rows.map(r => h("button", { key: r.imageRef, onClick: () => setPreview(r), style: { position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden", background: t.line } }, h("img", { src: resolveImg(r.imageRef), alt: r.caption || "本机照片", style: { width: "100%", height: "100%", objectFit: "cover" } }), r.bridgeId ? h("span", { style: { position: "absolute", right: 4, bottom: 4, fontSize: 15, filter: "drop-shadow(0 1px 2px rgba(0,0,0,.45))" } }, "📮") : null)) : h("div", { style: { gridColumn: "1 / -1", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 0", textAlign: "center" } }, "还没有真实照片")) : null,
     preview ? h("div", { className: "fixed inset-0 z-50 flex items-center justify-center", onClick: () => setPreview(null), style: { background: "rgba(0,0,0,.82)", padding: 20 } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 520 } },
         h("img", { src: resolveImg(preview.imageRef), alt: preview.caption || "照片", style: { width: "100%", maxHeight: "70vh", objectFit: "contain", borderRadius: 10 } }),
-        preview.caption ? h("div", { style: { color: "#fff", fontFamily: F_BODY, fontSize: 13, marginTop: 10, textAlign: "center" } }, preview.caption) : null,
+        h("textarea", { value: shareCaption, onChange: e => setShareCaption(e.target.value), maxLength: 500, placeholder: "分享给言秋前，写一句这张照片是什么…", style: { width: "100%", minHeight: 66, marginTop: 10, borderRadius: 8, padding: 10, background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+        h("button", { disabled: sharing || (!preview.bridgeId && !shareCaption.trim()), onClick: async () => {
+          if (sharing) return; setSharing(true);
+          try {
+            if (preview.bridgeId) {
+              if (!(window.Cloud && window.Cloud.photoBridgeRetract)) throw new Error("照片桥还没加载好，请刷新后重试");
+              await window.Cloud.photoBridgeRetract(preview.bridgeId, preview.bridgePath);
+              await idbAlbumPut(Object.assign({}, preview, { bridgeId: null, bridgePath: null, bridgeExpiresAt: null }));
+              toast && toast("已撤回，言秋不能再从照片桥读取");
+            } else {
+              if (!(window.Cloud && window.Cloud.photoBridgeShare)) throw new Error("照片桥还没加载好，请刷新后重试");
+              const blob = await idbVaultGet(preview.imageRef); if (!blob) throw new Error("本机照片像素不存在");
+              const row = await window.Cloud.photoBridgeShare({ blob, caption: shareCaption.trim(), source: preview.source, takenAt: new Date(preview.createdAt || Date.now()).toISOString() });
+              await idbAlbumPut(Object.assign({}, preview, { caption: shareCaption.trim(), bridgeId: row.id, bridgePath: row.storage_path, bridgeExpiresAt: row.expires_at }));
+              toast && toast("📮 已交给言秋看，90 天后自动到期");
+            }
+            setPreview(null); await refresh();
+          } catch (e) { toast && toast("照片桥失败：" + (e.message || e)); } finally { setSharing(false); }
+        }, className: "w-full", style: { color: "#fff", background: preview.bridgeId ? "rgba(190,90,75,.75)" : "rgba(92,142,128,.9)", borderRadius: 8, fontFamily: F_BODY, fontSize: 13, padding: 11, marginTop: 8, opacity: sharing ? .55 : 1 } }, sharing ? "处理中…" : (preview.bridgeId ? "撤回给言秋看的照片" : "📮 给言秋看")),
         h("button", { onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); }, className: "w-full", style: { color: "#fff", fontFamily: F_BODY, fontSize: 12, padding: 12, marginTop: 8 } }, "仅移出本机照片库"))) : null);
 }
 function DataConfig({

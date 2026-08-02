@@ -40,6 +40,7 @@ create index if not exists photo_bridge_index_user_char_idx
   where expired_at is null;
 
 alter table public.photo_bridge_index enable row level security;
+alter table public.photo_bridge_index force row level security;
 
 drop policy if exists photo_bridge_index_select_own on public.photo_bridge_index;
 create policy photo_bridge_index_select_own on public.photo_bridge_index
@@ -100,4 +101,4 @@ $$;
 
 revoke all on function public.expire_photo_bridge() from public, anon, authenticated;
 grant execute on function public.expire_photo_bridge() to service_role;
-
+-- end photo bridge v1
