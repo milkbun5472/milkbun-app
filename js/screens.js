@@ -1018,7 +1018,12 @@ function Forum({
   const [cbBody, setCbBody] = useState("");
   const [rTxt, setRtxt] = useState("");
   const [replyTo, setReplyTo] = useState(null);      // {floorId,name} 楼中楼目标
-  const [liked, setLiked] = useState(() => new Set());
+  const [liked, setLiked] = useState(() => {
+    try { const x = JSON.parse(localStorage.getItem("x_forumLikes") || "[]"); return new Set(Array.isArray(x) ? x : []); } catch (e) { return new Set(); }
+  });
+  const [bookmarked, setBookmarked] = useState(() => {
+    try { const x = JSON.parse(localStorage.getItem("x_forumBookmarks") || "[]"); return new Set(Array.isArray(x) ? x : []); } catch (e) { return new Set(); }
+  });
   const [editMe, setEditMe] = useState(false);
   const [emHandle, setEmHandle] = useState("");
   const [emBio, setEmBio] = useState("");
@@ -1139,7 +1144,8 @@ function Forum({
   }, [open && open.id, forumNow, comments]);
   const tag = txt => h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.06em", padding: "2px 7px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, txt);
   const chip = (b, sel, on) => h("button", { key: b, onClick: on, className: "px-3 py-1.5 active:opacity-70 whitespace-nowrap", style: { borderRadius: 999, background: sel ? t.ink : "transparent", color: sel ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5, border: sel ? "none" : `1px solid ${t.line}` } }, b);
-  const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumLikes", JSON.stringify([...n])); } catch (e) {} return n; });
+  const toggleBookmark = id => setBookmarked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
   const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size })));
   const nameOf = a => a.anon ? a.authorName : (a.authorType === "character" && charOf(a.authorId) ? charOf(a.authorId).name : (a.authorType === "me" ? meChar.name : a.authorName));
   const goProfile = id => { setProfileId(id); setOpen(null); };
@@ -1181,12 +1187,14 @@ function Forum({
   // ---- 帖子底部操作条 ----
   function actBar(p) {
     const isL = liked.has(p.id);
+    const isB = bookmarked.has(p.id);
     const bs = { fontFamily: F_BODY, fontSize: 12 };
     return h("div", { className: "flex items-center gap-5 mt-2.5", style: { color: t.fog } },
       h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: t.fog }), h("span", null, fmtNum(p.replyCount || 0))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: t.fog }), h("span", null, fmtNum(p.rtCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#e0245e" : t.fog } }, h(IHeart, { size: 15, color: isL ? "#e0245e" : t.fog, filled: isL }), h("span", null, fmtNum((p.likeCount || 0) + (isL ? 1 : 0)))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IBars, { size: 15, color: t.fog }), h("span", null, fmtNum(p.viewCount || 0))),
+      h("button", { onClick: e => { e.stopPropagation(); toggleBookmark(p.id); }, title: isB ? "取消收藏" : "收藏", className: "active:opacity-60", style: { ...bs, color: isB ? t.tint : t.fog, fontSize: 17, lineHeight: 1 } }, isB ? "★" : "☆"),
       h("button", { onClick: e => { e.stopPropagation(); setFwd(p); }, className: "flex items-center active:opacity-60 ml-auto", style: bs }, h(ISend, { size: 15, color: t.fog })));
   }
 
@@ -1402,8 +1410,9 @@ function Forum({
 
   // ---- 主页版块列表 ----
   function homeFeed() {
-    let arr = (posts || []).filter(p => forumVisible(p) && FORUM_BOARDS.includes(p.board));
-    if (tab === "关注") arr = arr.filter(p => !p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId))));
+    let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || FORUM_BOARDS.includes(p.board)));
+    if (tab === "收藏") arr = arr.filter(p => bookmarked.has(p.id));
+    else if (tab === "关注") arr = arr.filter(p => !p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId))));
     else arr = arr.filter(p => p.board === tab);
     arr = arr.slice().sort((a, b) => {
       if (feedSort === "latest") return Number(b.ts || 0) - Number(a.ts || 0);
@@ -1416,7 +1425,8 @@ function Forum({
       arrived > 0 && h("div", { className: "mx-4 my-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 10, background: t.bg2, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.tint } }, h("span", null, "●"), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
       tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
       tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),
-      tab !== "关注" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
+      tab === "收藏" && shown.length === 0 && h(Empty, { text: "还没有收藏帖子", sub: "看到想留着的，点帖子下面的 ☆" }),
+      tab !== "关注" && tab !== "收藏" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
       shown.map(p => postRow(p, false)),
       arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"));
@@ -1447,15 +1457,15 @@ function Forum({
   else if (nav === "notice") { title = "回复我的"; bodyEl = noticeList(); }
   else if (nav === "pm") { title = "私信"; bodyEl = pmList(); }
   else if (nav === "me") { title = "我"; bodyEl = profileView(true); }
-  else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
+  else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = (tab === "收藏" || tab === "关注") ? null : h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
 
   return h("div", { className: "h-full flex flex-col" },
     h("div", { className: "shrink-0 px-4 pt-4 pb-2 flex items-center gap-3", style: { borderBottom: (inSub || nav === "home") ? "none" : `1px solid ${t.line}` } },
       h("button", { onClick: backFn || onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
       h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, title),
       h("div", { className: "flex items-center gap-3.5" }, (!inSub) && h("button", { onClick: () => setSettingsOpen(true), className: "active:opacity-50" }, h(GConfig, { size: 18, color: t.ink })), rightEl)),
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: `1px solid ${t.line}` } }, [...FORUM_BOARDS, "关注"].map(b => {
-      const count = (posts || []).filter(p => forumVisible(p) && (b === "关注" ? (!p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId)))) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
+    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: `1px solid ${t.line}` } }, [...FORUM_BOARDS, "关注", "收藏"].map(b => {
+      const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? (!p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId)))) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     })),
     (!inSub && nav === "home") && h("div", { className: "shrink-0 flex items-center gap-1.5 px-4 py-2", style: { borderBottom: `1px solid ${t.line}`, background: t.bg2 } },

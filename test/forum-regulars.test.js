@@ -182,3 +182,13 @@ test("热榜由互动量与时间衰减机械计算，不新增模型调用", ()
   assert.match(hot[1], /Math\.pow\(ageHours \+ 2, 1\.18\)/);
   assert.doesNotMatch(hot[1], /callAI|runProbe|fetch/);
 });
+
+test("论坛点赞与收藏跨刷新保留，收藏有独立时间线", () => {
+  assert.match(screens, /x_forumLikes/);
+  assert.match(screens, /x_forumBookmarks/);
+  assert.match(screens, /localStorage\.setItem\("x_forumLikes"/);
+  assert.match(screens, /localStorage\.setItem\("x_forumBookmarks"/);
+  assert.match(screens, /tab === "收藏".*bookmarked\.has\(p\.id\)/s);
+  assert.match(screens, /\[\.\.\.FORUM_BOARDS, "关注", "收藏"\]/);
+  assert.match(screens, /tab === "收藏" \|\| tab === "关注"/);
+});
