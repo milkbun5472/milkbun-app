@@ -42,3 +42,30 @@ test("只有泛用同标签、正文无共同事件锚点也不会合并",()=>{
   ]);
   assert.equal(groups.length,0);
 });
+
+test("自然口语的周末打算与后来完成也能进入人工预览",()=>{
+  const groups=Merge.scan([
+    row("plan","Lisa 周末想去新开的陶艺店做杯子",{tags:["陶艺"],ts:now-86400000}),
+    row("result","Lisa 后来去了新开的陶艺店，杯子做完了",{tags:["陶艺"],ts:now})
+  ]);
+  assert.equal(groups.length,1);
+  assert.equal(groups[0].keep.id,"result");
+});
+
+test("诊断会解释 open 安全闸，但绝不把 open 计划列为归档候选",()=>{
+  const report=Merge.analyze([
+    row("plan","Lisa 今晚要去吃海胆饭",{open:true,ts:now-1000}),
+    row("result","Lisa 后来吃了海胆饭",{ts:now})
+  ]);
+  assert.equal(report.groups.length,0);
+  assert.equal(report.stats.protectedOpen,1);
+  assert.equal(report.stats.resolved,1);
+});
+
+test("同角色同一天但不同主题仍不会因口语扩词误合并",()=>{
+  const groups=Merge.scan([
+    row("plan","Lisa 周末想去剪头发",{tags:["理发"],ts:now-1000}),
+    row("result","Lisa 后来买到了演唱会门票",{tags:["演唱会"],ts:now})
+  ]);
+  assert.equal(groups.length,0);
+});

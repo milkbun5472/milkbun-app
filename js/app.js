@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.52";
+const APP_VERSION = "v51.53";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1817,7 +1817,7 @@ function App() {
     toast("已把 " + ids.size + " 条日常安排/普通未来事实降为普通记忆（正文都保留）");
   };
   const scanDuplicateMemories = () => window.MemoryNearDuplicate ? window.MemoryNearDuplicate.scan(memLibRef.current || []) : [];
-  const scanEventMergeMemories = () => window.MemoryEventMerge ? window.MemoryEventMerge.scan(memLibRef.current || []) : [];
+  const scanEventMergeMemories = () => window.MemoryEventMerge ? window.MemoryEventMerge.analyze(memLibRef.current || []) : { groups: [], stats: {} };
   const archiveDuplicateGroups = groups => {
     const chosen = Array.isArray(groups) ? groups : [];
     const byId = new Map();

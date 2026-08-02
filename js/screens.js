@@ -5326,7 +5326,7 @@ function InnerLifeCDiagnosticSheet({ characters, onClose }) {
     h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
 }
 
-function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose, mode }) {
+function MemoryDuplicatePreviewSheet({ groups, stats, onConfirm, onClose, mode }) {
   const t = useTheme();
   const eventMode = mode === "event";
   const [selected, setSelected] = useState(() => new Set());
@@ -5339,7 +5339,10 @@ function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose, mode }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, eventMode ? "同一事件进展预览" : "重复记忆预览"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 3 } }, eventMode ? "只找同角色七天内的“计划/准备 → 已完成/取消/实际结果”。默认不选；确认后结果继续召回，过程只软归档。" : "同角色跨时间完全相同，或 72 小时内高度相似。默认一组都不选；确认后只软归档重复版本，不删除正文。")),
         h("button", { onClick: onClose, style: { color: t.fog, fontSize: 20 } }, "×")),
-      (groups || []).length === 0 ? h("div", { style: { padding: "28px 8px", textAlign: "center", fontFamily: F_BODY, color: t.fog } }, "没有找到高置信重复组") : h(React.Fragment, null,
+      eventMode && stats ? h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 11px", marginBottom: 10, fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.65 } },
+        "可检查 " + (stats.eligible || 0) + " 条 · 识别到计划 " + (stats.planned || 0) + " 条 · 结果 " + (stats.resolved || 0) + " 条",
+        (stats.protectedOpen || 0) ? h("div", { style: { color: "#9a7750" } }, "另有 " + stats.protectedOpen + " 条仍是未了 open：安全闸不会替你把它们归档。") : null) : null,
+      (groups || []).length === 0 ? h("div", { style: { padding: "28px 8px", textAlign: "center", fontFamily: F_BODY, color: t.fog } }, eventMode ? "没有找到能安全配成“计划 → 结果”的候选；上面的数字会告诉你是没识别到，还是仍被 open 安全保护。" : "没有找到高置信重复组") : h(React.Fragment, null,
         h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
           h("button", { onClick: () => setSelected(new Set((groups || []).filter(g => g.confidence === "high").map(g => g.id))), className: "rounded-full px-3 py-1.5", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, "只选高置信"),
           h("button", { onClick: () => setSelected(new Set()), className: "rounded-full px-3 py-1.5", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 11.5 } }, "全部取消")),
@@ -5550,7 +5553,7 @@ function MemoryLib({
   aEmoOpen ? h(InnerLifeADiagnosticSheet, { characters, onClose: () => setAEmoOpen(false) }) : null,
   somaticOpen ? h(SomaticDiagnosticSheet, { characters, onClose: () => setSomaticOpen(false) }) : null,
   duplicatePreview ? h(MemoryDuplicatePreviewSheet, { groups: duplicatePreview, onConfirm: onArchiveDuplicateGroups, onClose: () => setDuplicatePreview(null) }) : null,
-  eventMergePreview ? h(MemoryDuplicatePreviewSheet, { mode: "event", groups: eventMergePreview, onConfirm: onArchiveEventMergeGroups, onClose: () => setEventMergePreview(null) }) : null,
+  eventMergePreview ? h(MemoryDuplicatePreviewSheet, { mode: "event", groups: eventMergePreview.groups || [], stats: eventMergePreview.stats || {}, onConfirm: onArchiveEventMergeGroups, onClose: () => setEventMergePreview(null) }) : null,
   repairConflictOpen ? h(MemoryRepairConflictSheet,{entries,onList:onListRepairConflicts,onDecide:onDecideRepairConflict,onClose:()=>setRepairConflictOpen(false)}) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onDecided: () => setCorrections(p => p.filter(x => x.id !== correctionOpen.id)), onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2",
