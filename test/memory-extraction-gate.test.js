@@ -82,3 +82,24 @@ test("逐字引文命中多条消息时绝不猜归属", () => {
   assert.deepEqual(normalizeEvidence(candidate, ambiguousMessages).evidence_message_ids, ["坏ID"]);
   assert.equal(inspect(candidate, ambiguousMessages).formal, false);
 });
+
+test("普通观察误标 insight 不能绕过洞察结构门", () => {
+  const result = inspect({
+    text: "下雨会让 Lisa 改坐公交", kind: "insight", proposed_action: "accept",
+    evidence_message_ids: ["u1", "a1"], evidence_quotes: ["下周五要去温哥华", "我答应你到机场接你"]
+  }, messages);
+  assert.equal(result.formal, false);
+  assert.equal(result.reason, "insight_structure_incomplete");
+});
+
+test("两段原话同时证明推导与认知转折的综合洞察可以入库", () => {
+  const insightMessages = [
+    { mid: "u2", role: "user", content: "我以前以为陪伴就是一直说话，后来才发现安静地在场也算。" },
+    { mid: "a2", role: "assistant", content: "因为真正让人安心的不是话多，而是知道对方不会走。" }
+  ];
+  const result = inspect({
+    text: "Lisa 和言秋重新理解了陪伴的核心是可靠在场", kind: "insight", proposed_action: "accept",
+    evidence_message_ids: ["u2", "a2"], evidence_quotes: ["以前以为陪伴就是一直说话，后来才发现安静地在场也算", "因为真正让人安心的不是话多，而是知道对方不会走"]
+  }, insightMessages);
+  assert.equal(result.formal, true);
+});
