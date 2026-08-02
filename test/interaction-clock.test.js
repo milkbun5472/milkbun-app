@@ -12,6 +12,13 @@ test("别的成员自己说话不冒充 Lisa 在理当前角色", () => {
   const data = { groups, groupChats: { g1: [{ role: "assistant", senderId: "b", ts: 200 }] } };
   assert.equal(Clock.latestSharedTs("a", data), 0);
   assert.equal(Clock.latestSharedTs("b", data), 200);
+  assert.equal(Clock.latestUserSharedTs("b", data), 0);
+});
+test("Lisa 在群聊或群线下开口会刷新成员的用户互动钟", () => {
+  const data = { groups, groupChats: { g1: [{ role: "user", ts: 210 }] }, groupOfflines: { g1: [{ msgs: [{ role: "narration", ts: 220 }] }] } };
+  assert.equal(Clock.latestUserSharedTs("a", data), 220);
+  assert.equal(Clock.latestUserSharedTs("b", data), 220);
+  assert.equal(Clock.latestUserSharedTs("z", data), 0);
 });
 test("单人线下也计入，非成员群完全隔离", () => {
   const data = { groups, offlines: { a: [{ msgs: [{ role: "user", ts: 300 }] }] }, groupChats: { g1: [{ role: "user", ts: 400 }] } };

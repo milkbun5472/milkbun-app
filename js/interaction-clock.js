@@ -18,6 +18,18 @@
     });
     return best;
   }
+  // 只认 Lisa/用户真的开过口；角色自己在群里发言不能冒充“被 Lisa 理过”。
+  function latestUserSharedTs(charId, data) {
+    data = data || {};
+    const fromUser = function (m) { return m && m.kind !== "ooc" && (m.role === "user" || m.role === "narration"); };
+    let best = maxSessions((data.offlines || {})[charId], fromUser);
+    (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
+      if (!g || !(g.memberIds || []).includes(charId)) return;
+      best = Math.max(best, maxMsgs((data.groupChats || {})[g.id], fromUser));
+      best = Math.max(best, maxSessions((data.groupOfflines || {})[g.id], fromUser));
+    });
+    return best;
+  }
   function isTogetherNow(charId, data, now) {
     data = data || {}; now = Number(now) || Date.now();
     return (Array.isArray(data.groups) ? data.groups : []).some(function (g) {
@@ -28,5 +40,5 @@
       });
     });
   }
-  return { latestSharedTs: latestSharedTs, isTogetherNow: isTogetherNow };
+  return { latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow };
 });
