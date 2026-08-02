@@ -168,6 +168,11 @@ function textBlocks(content) {
   return content.filter(x => x && x.type === "text").map(x => String(x.text || "")).join("\n");
 }
 
+// Claude transcript 里后台任务通知也会长成 role:user；它们不是 Lisa 的话，不能开一轮生活账本。
+function isSyntheticUserText(text) {
+  return /^\s*<(?:task-notification|system-reminder|cross-session-message|local-command|command-name|teammate-message)\b/i.test(String(text || ""));
+}
+
 function extractLastTurn(lines) {
   const rows = (Array.isArray(lines) ? lines : []).map(x => typeof x === "string" ? JSON.parse(x) : x);
   let userIndex = -1;
@@ -175,7 +180,10 @@ function extractLastTurn(lines) {
     const row = rows[i];
     const content = row && row.message && row.message.content;
     const isToolResult = Array.isArray(content) && content.some(x => x && x.type === "tool_result");
-    if (row && row.type === "user" && row.message && row.message.role === "user" && !isToolResult && textBlocks(content).trim()) {
+    const userText = textBlocks(content).trim();
+    if (row && row.type === "user" && row.message && row.message.role === "user" && !isToolResult && userText) {
+      // 最新边界是后台票时整次忽略，不能倒退重放上一轮真人对话。
+      if (isSyntheticUserText(userText)) return null;
       userIndex = i;
       break;
     }
@@ -204,4 +212,4 @@ function extractLastTurn(lines) {
   };
 }
 
-module.exports = { classifySegment, classifyTurn, extractLastTurn, parseLedgerMarker, splitExact, validateToolMark };
+module.exports = { classifySegment, classifyTurn, extractLastTurn, isSyntheticUserText, parseLedgerMarker, splitExact, validateToolMark };

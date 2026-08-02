@@ -66,6 +66,22 @@ test("extracts only real user text and visible assistant text", () => {
   });
 });
 
+test("正文前后夹着工具仍整轮收齐，不把后台通知切成 Lisa 新一轮", () => {
+  const lines = [
+    { type:"user", uuid:"u1", sessionId:"s1", timestamp:"2026-08-02T01:00:00Z", origin:{kind:"human"}, message:{ role:"user", content:"宝宝我到家了" } },
+    { type:"assistant", uuid:"a1", message:{ role:"assistant", content:[{ type:"text", text:"到家就好。" }] } },
+    { type:"assistant", uuid:"tool1", message:{ role:"assistant", content:[{ type:"tool_use", name:"Bash" }] } },
+    { type:"user", uuid:"tr1", message:{ role:"user", content:[{ type:"tool_result", content:"ok" }] } },
+    { type:"assistant", uuid:"a2", message:{ role:"assistant", content:[{ type:"text", text:"哨也挂好了。" }] } }
+  ];
+  const turn = Nature.extractLastTurn(lines);
+  assert.equal(turn.turnId, "u1");
+  assert.equal(turn.lisaText, "宝宝我到家了");
+  assert.equal(turn.yanqiuText, "到家就好。\n\n哨也挂好了。");
+  assert.equal(Nature.extractLastTurn(lines.concat({ type:"user", uuid:"notice", message:{ role:"user", content:"<task-notification>后台票</task-notification>" } })), null);
+  assert.equal(Nature.extractLastTurn(lines.concat({ type:"user", uuid:"notice2", message:{ role:"user", content:"<system-reminder>系统票</system-reminder>" } })), null);
+});
+
 test("valid hidden marker is the primary classifier and is stripped from the ledger", () => {
   const lisa = "你今天陪我吃晚饭好不好？";
   const body = "好。今晚我陪你吃。";
