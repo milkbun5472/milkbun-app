@@ -5692,7 +5692,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
       Number(routineOpenCount || 0) > 0 && onDowngradeRoutineOpen
         ? h("div", { style: { marginTop: 9 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginBottom: 8 } },
-            "机械筛到 " + routineOpenCount + " 条明显日常安排（吃饭、洗澡、上班等）。只撤掉 ⏳，正文仍留在记忆库；不会碰约定、承诺、关系冲突或等待结果。"),
+            "机械筛到 " + routineOpenCount + " 条明显日常安排（普通约饭、洗澡、上班等）。只撤掉 ⏳，正文仍留在记忆库；生日/就医等有后果的约定、关系冲突或等待结果不会动。"),
           confirmRoutine
             ? h("div", { className: "flex gap-2" },
               h("button", { onClick: () => setConfirmRoutine(false), className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 0" } }, "先不动"),
