@@ -6,7 +6,10 @@
 
   const STRONG = /约好|说好|答应|承诺|保证|欠(?:你|他|她|对方)|等(?:你|他|她|对方)(?:回来|回复|回应|答复)|陪(?:你|他|她|对方)|给(?:你|他|她|对方)(?:做|带|买|送|写|打|回)|一起(?:去|做|看|吃|玩|见|过)|见面|赴约|兑现|没和好|还没和好|争执未解决|矛盾未解决|心结|悬着|等待.{0,8}(?:结果|答复|回应|决定|消息)|待确认|待决定|尚未决定|还没决定|没有结果/;
   const RELATION = /关系|恋人|分手|复合|边界|信任|道歉|原谅|释怀|冷战|争执|矛盾|心事|心结|承诺|约定/;
-  const ROUTINE = /(?:今天|今晚|今早|明天|明早|明晚|待会|一会儿|等会儿|稍后|下班后|放学后)?.{0,8}(?:吃|喝|煮|点|买)(?:粥|饭|面|早餐|午饭|晚饭|夜宵|咖啡|奶茶|水果)|洗澡|洗头|睡觉|起床|上班|下班|上课|下课|健身|跑步|散步|做饭|收拾|打扫|洗衣|看剧|刷视频|打游戏|回宿舍|回家/;
+  const ROUTINE = /(?:今天|今晚|今早|明天|明早|明晚|待会|一会儿|等会儿|稍后|下班后|放学后)?.{0,12}(?:想|要)?(?:吃|喝|煮|点|买)(?:什么|啥|粥|饭|面|早餐|午饭|晚饭|夜宵|咖啡|奶茶|水果|火锅|烧烤)|洗澡|洗头|睡觉|起床|上班|下班|上课|下课|健身|跑步|散步|做饭|收拾|打扫|洗衣|看剧|刷视频|打游戏|回宿舍|回家/;
+  // 日常里偶尔也真有不能漏的重约定，例如生日饭、接送/就医等有明确后果的安排。
+  // 只有正文自己带这些证据才允许越过日常闸；模型随手打的“约定”标签不算证据。
+  const ROUTINE_EXCEPTION = /生日|纪念日|婚礼|求婚|赴约|预约|医院|看医生|手术|接机|送机|航班|考试|面试|截止|deadline|过敏|忌口/;
 
   function evaluate(entry) {
     const e = entry || {};
@@ -15,9 +18,12 @@
     const text = String(e.text || "").replace(/\s+/g, " ").trim();
     const tags = (Array.isArray(e.tags) ? e.tags : []).join(" ");
     const hay = text + " " + tags;
-    if (STRONG.test(hay)) return { open: true, reason: "explicit_commitment_or_unresolved" };
+    // v51.39：必须先挡日常。真实抽取常把“今晚一起吃粥”写成“共同约定”，
+    // 若先测 STRONG，就会被“一起吃/约定”绕过，造成数百条伪开环。
+    if (ROUTINE.test(text) && !ROUTINE_EXCEPTION.test(text)) return { open: false, reason: "routine_plan" };
+    // 强证据只认正文，不认模型标签；标签只能辅助高情绪关系裂口，不能凭空制造承诺。
+    if (STRONG.test(text)) return { open: true, reason: "explicit_commitment_or_unresolved" };
     if (RELATION.test(hay) && Number(e.a || 0) >= 2) return { open: true, reason: "relationship_weight" };
-    if (ROUTINE.test(text)) return { open: false, reason: "routine_plan" };
     return { open: false, reason: "future_fact_without_open_loop_evidence" };
   }
 
