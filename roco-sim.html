@@ -395,7 +395,7 @@ function dmg(attacker, defender, name, opts){
   if (name==='超级糖果') pow += 60*p.candy;
   if (name==='撒娇') pow += 20*p.sajiao;
   if (name==='水波术') pow += 20*p.shuibo;
-  if (name==='破罐破摔' && p.hasDebuff) pow += 60;
+  if (name==='破罐破摔' && (p.freeze>0 || p.meng>0 || (p.mengFromEnemy||0)>0 || (p.costPenalty||0)>0)) pow += 60;
   if (p.trait==='拨浪鼓' && (sk.attr==='毒'||sk.attr==='萌')) pow += 10*(p.bolangu||0);
   if (name==='吹火') pow += 20*(p.chuihuo||0);
   if (sk.attr==='光' && p.lightBuff) pow *= p.lightBuff;
