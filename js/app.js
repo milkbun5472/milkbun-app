@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.53";
+const APP_VERSION = "v51.54";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1818,6 +1818,7 @@ function App() {
   };
   const scanDuplicateMemories = () => window.MemoryNearDuplicate ? window.MemoryNearDuplicate.scan(memLibRef.current || []) : [];
   const scanEventMergeMemories = () => window.MemoryEventMerge ? window.MemoryEventMerge.analyze(memLibRef.current || []) : { groups: [], stats: {} };
+  const scanRoutineMemories = () => window.MemoryRoutineCleanup ? window.MemoryRoutineCleanup.analyze(memLibRef.current || []) : { groups: [], stats: {} };
   const archiveDuplicateGroups = groups => {
     const chosen = Array.isArray(groups) ? groups : [];
     const byId = new Map();
@@ -1838,6 +1839,15 @@ function App() {
     saveMemLib(memLibRef.current.map(e=>{const hit=byId.get(String(e&&e.id));return hit?{...e,archived:true,archivedBatch:hit.batch,archivedTs:now,consolidatedInto:hit.keep,consolidationKind:"event_progression"}:e;}));
     toast("已把 "+byId.size+" 条事件过程软归档 · 结果条继续召回，全文仍可恢复");
     return byId.size;
+  };
+  const archiveRoutineGroups = groups => {
+    const chosen=Array.isArray(groups)?groups:[], ids=new Set();
+    chosen.forEach(g=>(g.archive||[]).forEach(row=>ids.add(String(row.id))));
+    if(!ids.size){toast("还没有勾选要归档的日常流水");return 0;}
+    const now=Date.now(),batch="routine_"+now;
+    saveMemLib(memLibRef.current.map(e=>ids.has(String(e&&e.id))?{...e,archived:true,archivedBatch:batch,archivedTs:now,consolidationKind:"routine_low_signal"}:e));
+    toast("已软归档 "+ids.size+" 条日常流水 · 正文仍在，可从归档恢复");
+    return ids.size;
   };
   const listRepairConflicts = () => window.OpenRepairShadow && window.OpenRepairShadow.listConflicts ? window.OpenRepairShadow.listConflicts() : Promise.resolve([]);
   const decideRepairConflict = async (conflict, decision) => {
@@ -9642,6 +9652,8 @@ function App() {
     onArchiveDuplicateGroups: archiveDuplicateGroups,
     onScanEventMerges: scanEventMergeMemories,
     onArchiveEventMergeGroups: archiveEventMergeGroups,
+    onScanRoutineMemories: scanRoutineMemories,
+    onArchiveRoutineGroups: archiveRoutineGroups,
     onListRepairConflicts: listRepairConflicts,
     onDecideRepairConflict: decideRepairConflict,
     onRefine: refineOldMemories,
