@@ -5354,6 +5354,52 @@ function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose, mode }) {
         h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; if (confirm((eventMode ? "确认收拢已勾选的 " : "确认软归档已勾选的 ") + picked.length + " 组？不会删除正文，可从已精炼归档区恢复。")) { onConfirm(picked); onClose(); } }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, picked.length ? (eventMode ? "确认收拢 " : "确认软归档 ") + picked.length + " 组" : "先勾选要处理的组"))));
 }
 
+/* Replaced below: the first draft is retained only as review history.
+function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
+  const t=useTheme(),[rows,setRows]=useState(null),[busy,setBusy]=useState(null);
+  const load=()=>{setRows(null);Promise.resolve(onList()).then(x=>setRows(x||[])).catch(()=>setRows([]));};useEffect(load,[]);
+  const byId=new Map((entries||[]).filter(x=>x&&x.id).map(x=>[String(x.id),x]));
+  const labels={fulfilled:"已兑现",resolved:"已解决",abandoned:"明确放弃"};
+  const decide=async(row,value)=>{if(busy)return;if(!confirm(value==="keep_open"?"确认保持这条未了？系统不会替你猜结局。":"确认真实结局是“"+labels[value]+"”？原正文不会删除。"))return;setBusy(row.oldMemoryId);try{await onDecide(row,value);setRows(p=>(p||[]).filter(x=>x.oldMemoryId!==row.oldMemoryId));}finally{setBusy(null);}};
+  return h(Sheet,{onClose},h(Eyebrow,null,"RepairGate · 结局冲突过目"),
+    h("div",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"}},"旧诊断为保护隐私只保存证据哈希，无法还原逐字引文。请只处理你确定真实结果的条目；拿不准就保持未了。"),
+    rows===null?h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"16px 0"}},"正在读取冲突…"):!rows.length?h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"18px 0",textAlign:"center"}},"没有待处理的结局冲突"):rows.map(row=>{const mem=byId.get(String(row.oldMemoryId));return h("div",{key:row.oldMemoryId,style:{background:t.bg2,border:"1px solid "+t.line,borderRadius:12,padding:11,marginBottom:9}},
+      h("div",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink,lineHeight:1.65}},mem?mem.text:"（这条记忆已不在本机镜像中）"),
+      h("div",{style:{fontFamily:F_BODY,fontSize:10.5,color:"#9f5149",margin:"6px 0"}},Object.entries(row.kinds||{}).map(([k,n])=>(labels[k]||k)+" ×"+n).join(" · ")),
+      h("div",{className:"flex flex-wrap",style:{gap:6}},h("button",{disabled:!!busy,onClick:()=>decide(row,"keep_open"),style:{border:"1px solid "+t.line,borderRadius:999,padding:"5px 9px",fontFamily:F_BODY,fontSize:10.5,color:t.sub}},"保持未了"),...["fulfilled","resolved","abandoned"].map(k=>h("button",{key:k,disabled:!!busy,onClick:()=>decide(row,k),style:{border:"1px solid "+t.tint,borderRadius:999,padding:"5px 9px",fontFamily:F_BODY,fontSize:10.5,color:t.tint}},labels[k])));})));
+}
+
+*/
+function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
+  const t = useTheme(), [rows, setRows] = useState(null), [busy, setBusy] = useState(null);
+  const load = () => { setRows(null); Promise.resolve(onList()).then(x => setRows(x || [])).catch(() => setRows([])); };
+  useEffect(load, []);
+  const byId = new Map((entries || []).filter(x => x && x.id).map(x => [String(x.id), x]));
+  const labels = { fulfilled: "已兑现", resolved: "已解决", abandoned: "明确放弃" };
+  const decide = async (row, value) => {
+    if (busy) return;
+    if (!confirm(value === "keep_open" ? "确认保持这条未了？系统不会替你猜结局。" : "确认真实结局是“" + labels[value] + "”？原正文不会删除。")) return;
+    setBusy(row.oldMemoryId);
+    try { await onDecide(row, value); setRows(p => (p || []).filter(x => x.oldMemoryId !== row.oldMemoryId)); }
+    finally { setBusy(null); }
+  };
+  return h(Sheet, { onClose },
+    h(Eyebrow, null, "RepairGate · 结局冲突过目"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "旧诊断为保护隐私只保存证据哈希，无法还原逐字引文。请只处理你确定真实结果的条目；拿不准就保持未了。"),
+    rows === null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读取冲突…") :
+      !rows.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "18px 0", textAlign: "center" } }, "没有待处理的结局冲突") :
+        rows.map(row => {
+          const mem = byId.get(String(row.oldMemoryId));
+          return h("div", { key: row.oldMemoryId, style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: 11, marginBottom: 9 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.65 } }, mem ? mem.text : "（这条记忆已不在本机镜像中）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9f5149", margin: "6px 0" } }, Object.entries(row.kinds || {}).map(([k, n]) => (labels[k] || k) + " ×" + n).join(" · ")),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+              h("button", { disabled: !!busy || !mem, onClick: () => decide(row, "keep_open"), style: { border: "1px solid " + t.line, borderRadius: 999, padding: "5px 9px", fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, "保持未了"),
+              ...["fulfilled", "resolved", "abandoned"].map(k => h("button", { key: k, disabled: !!busy || !mem, onClick: () => decide(row, k), style: { border: "1px solid " + t.tint, borderRadius: 999, padding: "5px 9px", fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, labels[k]))
+            ));
+        }));
+}
+
 function MemoryLib({
   entries,
   characters,
@@ -5376,6 +5422,8 @@ function MemoryLib({
   onArchiveDuplicateGroups,
   onScanEventMerges,
   onArchiveEventMergeGroups,
+  onListRepairConflicts,
+  onDecideRepairConflict,
   onRefine,
   onRestoreArchived,
   onBulkImport,
@@ -5402,6 +5450,7 @@ function MemoryLib({
   const [diagOpen, setDiagOpen] = useState(false); // 工程仪表抽屉：默认合拢，别压着记忆
   const [duplicatePreview, setDuplicatePreview] = useState(null);
   const [eventMergePreview, setEventMergePreview] = useState(null);
+  const [repairConflictOpen, setRepairConflictOpen] = useState(false);
   const [corrections, setCorrections] = useState([]);
   const [correctionOpen, setCorrectionOpen] = useState(null);
   const [correctionPicking, setCorrectionPicking] = useState(null); // null=关闭；{oldId:null|string}=正在挑旧→新
@@ -5502,6 +5551,7 @@ function MemoryLib({
   somaticOpen ? h(SomaticDiagnosticSheet, { characters, onClose: () => setSomaticOpen(false) }) : null,
   duplicatePreview ? h(MemoryDuplicatePreviewSheet, { groups: duplicatePreview, onConfirm: onArchiveDuplicateGroups, onClose: () => setDuplicatePreview(null) }) : null,
   eventMergePreview ? h(MemoryDuplicatePreviewSheet, { mode: "event", groups: eventMergePreview, onConfirm: onArchiveEventMergeGroups, onClose: () => setEventMergePreview(null) }) : null,
+  repairConflictOpen ? h(MemoryRepairConflictSheet,{entries,onList:onListRepairConflicts,onDecide:onDecideRepairConflict,onClose:()=>setRepairConflictOpen(false)}) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onDecided: () => setCorrections(p => p.filter(x => x.id !== correctionOpen.id)), onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2",
     style: diagOpen ? { maxHeight: "58vh", overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } : null
@@ -5520,6 +5570,7 @@ function MemoryLib({
   }, "📋 一键导出 Shadow 转正评审包") : null,
   onScanDuplicates ? h("button", { onClick: () => setDuplicatePreview(onScanDuplicates()), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧹 扫描重复记忆 · 先预览再软归档") : null,
   onScanEventMerges ? h("button", { onClick: () => setEventMergePreview(onScanEventMerges()), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 收拢同一事件进展 · 先预览再确认") : null,
+  onListRepairConflicts ? h("button",{onClick:()=>setRepairConflictOpen(true),className:"w-full rounded-xl py-2.5 mb-2 active:opacity-60",style:{border:"1px dashed #9f5149",color:"#9f5149",fontFamily:F_BODY,fontSize:12.5}},"⚖️ RepairGate 结局冲突 · 人工过目") : null,
   h("button", { onClick: () => setAEmoOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫀 A 情绪统一 · 查看纯影子诊断"),
   h("button", { onClick: () => setSomaticOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫧 五感系统 · 查看全角色纯影子诊断"),
   h("button", { onClick: () => setInnerLifeOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 查看纯影子诊断"), h("button", { onClick: () => setBAxesOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), h("button", { onClick: () => setCSleepOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "😴 C 睡眠与发声闸 · 查看纯影子诊断"), onAudit ? h("button", {

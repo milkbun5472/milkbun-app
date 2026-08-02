@@ -77,3 +77,13 @@ test("软闭环只改命中的 open，原条目与其他开环全部保留", () 
   assert.equal(out.entries[1], before[1]);
   assert.equal(out.entries[2], before[2]);
 });
+
+test("同一开环同轮出现不同结局时一条也不能自动闭环", () => {
+  const safe = load()._safeResolutions([
+    { oldMemoryId: "m1", kind: "fulfilled" },
+    { oldMemoryId: "m1", kind: "abandoned" },
+    { oldMemoryId: "m2", kind: "resolved" },
+    { oldMemoryId: "m2", kind: "resolved" }
+  ]);
+  assert.deepEqual(safe, [{ oldMemoryId: "m2", kind: "resolved" }]);
+});

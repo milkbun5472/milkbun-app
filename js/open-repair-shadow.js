@@ -1,11 +1,11 @@
 // ============================================================
-// Ecosystem · RepairGate（v51.40 live）
+// Ecosystem · RepairGate（v51.48 live）
 // 机械核验“某条 open 已完成/解决/明确放弃”的逐字证据。
 // 候选账本继续只存 hash；核验通过的 memory id + 结局交给 App 做行级软闭环。
 // ============================================================
 (function () {
   "use strict";
-  const DB_NAME = "lisa_open_repair_shadow_v1", DB_VERSION = 2, CAP = 500, MAX_AGE = 14 * 86400000;
+  const DB_NAME = "lisa_open_repair_shadow_v1", DB_VERSION = 3, CAP = 500, MAX_AGE = 14 * 86400000;
   const KINDS = ["fulfilled", "resolved", "abandoned"];
   let dbPromise = null;
   const clean = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
@@ -23,6 +23,7 @@
         // v1 曾存逐字 quote；诊断可重建，升级时直接销毁旧候选，确保正文不残留。
         if (event.oldVersion < 2 && req.result.objectStoreNames.contains("candidates")) req.result.deleteObjectStore("candidates");
         if (!req.result.objectStoreNames.contains("candidates")) req.result.createObjectStore("candidates", { keyPath: "key" });
+        if (!req.result.objectStoreNames.contains("decisions")) req.result.createObjectStore("decisions", { keyPath: "oldMemoryId" });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error || new Error("repair shadow open failed"));
@@ -49,6 +50,14 @@
       return { oldMemoryId: String(old.id), kind, evidence };
     }).filter(Boolean);
   }
+  function safeResolutions(valid) {
+    const grouped = new Map();
+    (Array.isArray(valid) ? valid : []).forEach(x => {
+      if (!x || !x.oldMemoryId || !KINDS.includes(x.kind)) return;
+      const id=String(x.oldMemoryId), set=grouped.get(id)||new Set(); set.add(x.kind); grouped.set(id,set);
+    });
+    return [...grouped.entries()].filter(([,set])=>set.size===1).map(([oldMemoryId,set])=>({oldMemoryId,kind:[...set][0]}));
+  }
   async function observe(input) {
     try {
       const opens = Array.isArray(input && input.openEntries) ? input.openEntries : [];
@@ -66,7 +75,8 @@
       return {
         accepted: valid.length,
         rejected: Math.max(0, raw.length - valid.length),
-        resolutions: valid.map(x => ({ oldMemoryId: x.oldMemoryId, kind: x.kind }))
+        // 同一条在本轮出现两个不同结局时绝不“最后一个获胜”；留给人工冲突台。
+        resolutions: safeResolutions(valid)
       };
     } catch (e) { return { accepted: 0, resolutions: [], error: "RepairGate failed" }; }
   }
@@ -125,6 +135,19 @@
         last: rows.sort((a, b) => Number(b.lastSeenAt || 0) - Number(a.lastSeenAt || 0)).slice(0, 20) };
     } catch (e) { return { error: "RepairGate 报表读取失败" }; }
   }
-  async function clearAll() { try { const db = await openDB(), tx = db.transaction("candidates", "readwrite"); tx.objectStore("candidates").clear(); await done(tx); } catch (e) {} }
-  window.OpenRepairShadow = { observe, report, clearAll, evidenceMessages, applyResolutions, _validateCandidates: validateCandidates, _summarizeRows: summarizeRows };
+  async function listConflicts() {
+    try {
+      const db=await openDB(),tx=db.transaction(["candidates","decisions"],"readonly");
+      const rows=await rq(tx.objectStore("candidates").getAll()),decisions=await rq(tx.objectStore("decisions").getAll());await done(tx);
+      const decided=new Set(decisions.map(x=>String(x.oldMemoryId))),groups=new Map();
+      rows.forEach(row=>{const id=String(row&&row.oldMemoryId||"");if(!id||decided.has(id)||!KINDS.includes(row.kind))return;const g=groups.get(id)||{oldMemoryId:id,kinds:{},observations:0,firstSeenAt:null,lastSeenAt:null};g.kinds[row.kind]=(g.kinds[row.kind]||0)+Math.max(1,Number(row.seenCount||0));g.observations+=Math.max(1,Number(row.seenCount||0));const f=Number(row.firstSeenAt||0),l=Number(row.lastSeenAt||0);g.firstSeenAt=!g.firstSeenAt||f<g.firstSeenAt?f:g.firstSeenAt;g.lastSeenAt=!g.lastSeenAt||l>g.lastSeenAt?l:g.lastSeenAt;groups.set(id,g);});
+      return [...groups.values()].filter(g=>Object.keys(g.kinds).length>1).sort((a,b)=>b.lastSeenAt-a.lastSeenAt);
+    } catch(e){return [];}
+  }
+  async function decideConflict(oldMemoryId, decision) {
+    const allowed=["keep_open",...KINDS];if(!allowed.includes(decision))throw new Error("invalid repair conflict decision");
+    const db=await openDB(),tx=db.transaction("decisions","readwrite");tx.objectStore("decisions").put({oldMemoryId:String(oldMemoryId),decision,decidedAt:Date.now()});await done(tx);return true;
+  }
+  async function clearAll() { try { const db = await openDB(), tx = db.transaction(["candidates","decisions"], "readwrite"); tx.objectStore("candidates").clear(); tx.objectStore("decisions").clear(); await done(tx); } catch (e) {} }
+  window.OpenRepairShadow = { observe, report, listConflicts, decideConflict, clearAll, evidenceMessages, applyResolutions, _validateCandidates: validateCandidates, _summarizeRows: summarizeRows, _safeResolutions: safeResolutions };
 })();

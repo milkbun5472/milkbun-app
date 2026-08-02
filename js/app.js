@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.47";
+const APP_VERSION = "v51.48";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1838,6 +1838,15 @@ function App() {
     saveMemLib(memLibRef.current.map(e=>{const hit=byId.get(String(e&&e.id));return hit?{...e,archived:true,archivedBatch:hit.batch,archivedTs:now,consolidatedInto:hit.keep,consolidationKind:"event_progression"}:e;}));
     toast("已把 "+byId.size+" 条事件过程软归档 · 结果条继续召回，全文仍可恢复");
     return byId.size;
+  };
+  const listRepairConflicts = () => window.OpenRepairShadow && window.OpenRepairShadow.listConflicts ? window.OpenRepairShadow.listConflicts() : Promise.resolve([]);
+  const decideRepairConflict = async (conflict, decision) => {
+    if(!conflict||!conflict.oldMemoryId||!window.OpenRepairShadow)return false;
+    const now=Date.now(),id=String(conflict.oldMemoryId);
+    if(!memLibRef.current.some(e=>String(e&&e.id)===id)){toast("这条记忆已不在本机镜像中，未写入任何决定");return false;}
+    const next=memLibRef.current.map(e=>String(e&&e.id)!==id?e:(decision==="keep_open"?{...e,open:true,openResolvedTs:undefined,openResolutionKind:undefined,openResolvedBy:undefined}:{...e,open:false,openResolvedTs:now,openResolutionKind:decision,openResolvedBy:"manual_conflict_review"}));
+    await window.OpenRepairShadow.decideConflict(id,decision);saveMemLib(next);
+    toast(decision==="keep_open"?"已保持未了 · 没有替系统猜结局":"已按你确认的真实结局软闭环 · 正文仍保留");return true;
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
   const backfillMemEmotion = async () => {
@@ -9631,6 +9640,8 @@ function App() {
     onArchiveDuplicateGroups: archiveDuplicateGroups,
     onScanEventMerges: scanEventMergeMemories,
     onArchiveEventMergeGroups: archiveEventMergeGroups,
+    onListRepairConflicts: listRepairConflicts,
+    onDecideRepairConflict: decideRepairConflict,
     onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,
