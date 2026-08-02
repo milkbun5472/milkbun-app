@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.43";
+const APP_VERSION = "v51.44";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1815,6 +1815,20 @@ function App() {
       ...e, open: false, routineOpenDowngradedTs: now
     } : e));
     toast("已把 " + ids.size + " 条日常安排/普通未来事实降为普通记忆（正文都保留）");
+  };
+  const scanDuplicateMemories = () => window.MemoryNearDuplicate ? window.MemoryNearDuplicate.scan(memLibRef.current || []) : [];
+  const archiveDuplicateGroups = groups => {
+    const chosen = Array.isArray(groups) ? groups : [];
+    const byId = new Map();
+    chosen.forEach(g => (g.archive || []).forEach(row => byId.set(String(row.id), String(g.keep && g.keep.id || ""))));
+    if (!byId.size) { toast("还没有勾选要归档的重复组"); return 0; }
+    const now = Date.now(), batch = "dup_" + now;
+    saveMemLib(memLibRef.current.map(e => byId.has(String(e && e.id)) ? {
+      ...e, archived: true, archivedBatch: batch, archivedTs: now,
+      duplicateOf: byId.get(String(e.id)), duplicateArchivedTs: now
+    } : e));
+    toast("已软归档 " + byId.size + " 条重复记忆 · 正文仍在，可从归档恢复");
+    return byId.size;
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
   const backfillMemEmotion = async () => {
@@ -9604,6 +9618,8 @@ function App() {
     onPurgeWithered: purgeWithered,
     onDowngradeRoutineOpen: downgradeRoutineOpen,
     routineOpenCount: routineOpenCandidates().length,
+    onScanDuplicates: scanDuplicateMemories,
+    onArchiveDuplicateGroups: archiveDuplicateGroups,
     onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,

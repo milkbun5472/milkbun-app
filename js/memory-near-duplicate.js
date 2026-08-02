@@ -62,8 +62,32 @@
   function find(candidate, pool, now) {
     return (pool || []).find(row => evaluate(candidate, row, now).duplicate) || null;
   }
+  function scan(rows) {
+    const source = (rows || []).filter(x => x && x.id && x.source === "auto" && x.text && !x.archived && !x.pinned && !x.open && !x.supersedesId && !x.supersedes_id && (x.surfaceState || "active") === "active");
+    const parent = new Map(source.map(x => [String(x.id), String(x.id)]));
+    const rootOf = id => { let p = parent.get(id); while (p && p !== parent.get(p)) p = parent.get(p); return p || id; };
+    const join = (a, b) => { const x = rootOf(a), y = rootOf(b); if (x !== y) parent.set(y, x); };
+    const sorted = source.slice().sort((a, b) => Number(a.ts || 0) - Number(b.ts || 0));
+    for (let i = 0; i < sorted.length; i++) {
+      for (let k = i - 1; k >= 0; k--) {
+        if (Number(sorted[i].ts || 0) - Number(sorted[k].ts || 0) > WINDOW_MS) break;
+        if (evaluate(sorted[i], sorted[k], sorted[i].ts).duplicate) join(String(sorted[i].id), String(sorted[k].id));
+      }
+    }
+    const buckets = new Map();
+    source.forEach(x => { const r = rootOf(String(x.id)); if (!buckets.has(r)) buckets.set(r, []); buckets.get(r).push(x); });
+    return [...buckets.values()].filter(g => g.length > 1).map(g => {
+      const ordered = g.slice().sort((a, b) => {
+        const ae = (a.evidenceMessageIds || []).length, be = (b.evidenceMessageIds || []).length;
+        return (String(b.text).length + be * 16 + Number(b.a || 0) * 2) - (String(a.text).length + ae * 16 + Number(a.a || 0) * 2) || Number(b.ts || 0) - Number(a.ts || 0);
+      });
+      const keep = ordered[0], archive = ordered.slice(1);
+      const scores = archive.map(x => evaluate(x, keep, x.ts)).filter(x => x.duplicate);
+      return { id: ordered.map(x => String(x.id)).sort().join("|"), keep, archive, confidence: scores.some(x => x.reason === "near_text" && x.score >= 0.85) ? "high" : "review" };
+    }).sort((a, b) => Number(b.keep.ts || 0) - Number(a.keep.ts || 0));
+  }
 
-  const api = Object.freeze({ WINDOW_MS, normalize, similarity, evaluate, find });
+  const api = Object.freeze({ WINDOW_MS, normalize, similarity, evaluate, find, scan });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.MemoryNearDuplicate = api;
 })(typeof window !== "undefined" ? window : globalThis);

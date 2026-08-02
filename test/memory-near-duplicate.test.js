@@ -31,3 +31,16 @@ test("计划后来完成、取消和数字变化都是新进展，不能吞", ()
   assert.equal(Gate.evaluate(row("Lisa 和陆衍已经完成超市采购", { ts: now }), row("Lisa 和陆衍约好下午去超市采购"), now).duplicate, false);
   assert.equal(Gate.evaluate(row("本地存储已达到95%", { ts: now }), row("本地存储已达到85%"), now).duplicate, false);
 });
+
+test("旧库扫描只给自动普通记忆分组，并保留信息最完整的一条", () => {
+  const rows = [
+    row("沈屿白最喜欢的关东煮食材是萝卜和魔芋丝", { id: "short", ts: now - 1000, evidenceMessageIds: ["same-turn"] }),
+    row("沈屿白最喜欢的关东煮配料是萝卜和魔芋丝，而且这两样最先吃", { id: "rich", ts: now, evidenceMessageIds: ["same-turn"] }),
+    row("沈屿白最喜欢的关东煮食材是萝卜和魔芋丝", { id: "manual", source: "manual", ts: now }),
+    row("沈屿白最喜欢的关东煮食材是萝卜和魔芋丝", { id: "open", open: true, ts: now })
+  ];
+  const groups = Gate.scan(rows);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].keep.id, "rich");
+  assert.deepEqual(groups[0].archive.map(x => x.id), ["short"]);
+});
