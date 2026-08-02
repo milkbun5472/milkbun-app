@@ -3667,6 +3667,22 @@ function CtxDebug({ characters, getBundle }) {
         }));
     })() : null));
 }
+function ConfigFold({ title, sub, open, onToggle, children, danger }) {
+  const t = useTheme();
+  return h("section", { style: { borderBottom: "1px solid " + t.line } },
+    h("button", {
+      onClick: onToggle,
+      className: "w-full active:opacity-60",
+      style: { padding: "15px 2px", textAlign: "left" }
+    },
+      h("div", { className: "flex items-center justify-between", style: { gap: 12 } },
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: danger ? t.accent : t.ink } }, title),
+          sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, sub) : null),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, open ? "收起 －" : "展开 ＋"))),
+    open ? h("div", { style: { paddingBottom: 18 } }, children) : null);
+}
+
 function Config({
   apiProfiles,
   activeId,
@@ -3696,6 +3712,12 @@ function Config({
 }) {
   const t = useTheme();
   const [tab, setTab] = useState("api");
+  const [openSection, setOpenSection] = useState("");
+  const fold = (id, title, sub, child, danger) => h(ConfigFold, {
+    key: id, title: title, sub: sub, danger: danger,
+    open: openSection === id,
+    onToggle: () => setOpenSection(v => v === id ? "" : id)
+  }, child);
   // 配件 UI 隐身：在「数据」tab 上连点 7 下解锁/隐藏（x_toyUnlocked，只存本机；没人会去连点这个）
   const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });
   const toyKnockRef = React.useRef({ n: 0, ts: 0 });
@@ -3719,7 +3741,7 @@ function Config({
     }
   }, tabs.map(([k, l]) => /*#__PURE__*/React.createElement("button", {
     key: k,
-    onClick: () => { setTab(k); toyKnock(k); },
+    onClick: () => { setTab(k); setOpenSection(""); toyKnock(k); },
     className: "pb-2",
     style: {
       borderBottom: tab === k ? `2px solid ${t.ink}` : "2px solid transparent"
@@ -3737,52 +3759,53 @@ function Config({
     }
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto px-6 pb-10"
-  }, tab === "api" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(ApiConfig, {
+  }, tab === "api" && h("div", null,
+  fold("api-main", "聊天与后台模型", "主模型、备用线路、Embedding 与后台省钱模型", /*#__PURE__*/React.createElement(ApiConfig, {
     profiles: apiProfiles,
     activeId: activeId,
     bgApiId: bgApiId,
     onSetBgApi: onSetBgApi,
     onSave: onSaveApi,
     toast: toast
-  }), /*#__PURE__*/React.createElement(CacheStatCard, null), /*#__PURE__*/React.createElement(ImageApiConfig, {
+  })), fold("api-cache", "额度与缓存", "查看缓存命中和调用读数", /*#__PURE__*/React.createElement(CacheStatCard, null)), fold("api-image", "图像生成", "自拍、合照与图像模型配置", /*#__PURE__*/React.createElement(ImageApiConfig, {
     toast: toast
-  }), /*#__PURE__*/React.createElement(TtsApiConfig, {
+  })), fold("api-tts", "语音 TTS", "声音接口、音色和角色分配", /*#__PURE__*/React.createElement(TtsApiConfig, {
     toast: toast,
     characters: characters,
     onAssignVoice: onAssignVoice
-  })), tab === "sense" && /*#__PURE__*/React.createElement(SenseConfig, {
+  }))), tab === "sense" && fold("sense-main", "时间、位置与通知", "角色感知与锁屏通知", /*#__PURE__*/React.createElement(SenseConfig, {
     prefs: prefs,
     onSave: onSavePrefs,
     geo: geo,
     onRequestGeo: onRequestGeo,
     toast: toast
-  }), tab === "cot" && /*#__PURE__*/React.createElement(CotConfig, {
+  })), tab === "cot" && fold("cot-main", "思维链设置", "思考方式、预设与开关", /*#__PURE__*/React.createElement(CotConfig, {
     toast: toast
-  }), tab === "qa" && /*#__PURE__*/React.createElement(CoupleQAConfig, {
+  })), tab === "qa" && fold("qa-main", "情侣问答题库", "按角色管理自定义题目", /*#__PURE__*/React.createElement(CoupleQAConfig, {
     characters: characters,
     custom: coupleQACustom,
     onSave: onSaveCustomQA,
     toast: toast
-  }), tab === "theme" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(ThemeConfig, {
+  })), tab === "theme" && h("div", null, fold("theme-main", "外观与壁纸", "颜色、字体和主屏背景", /*#__PURE__*/React.createElement(ThemeConfig, {
     theme: theme,
     onSave: onSaveTheme,
     wallpaper: wallpaper,
     onSaveWallpaper: onSaveWallpaper
-  }), /*#__PURE__*/React.createElement(BubbleSkinConfig, {
+  })), fold("theme-bubble", "聊天气泡皮肤", "气泡尺寸、圆角、颜色与阴影", /*#__PURE__*/React.createElement(BubbleSkinConfig, {
     toast: toast
-  })), tab === "data" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(DataConfig, {
+  }))), tab === "data" && h("div", null, /*#__PURE__*/React.createElement(DataConfig, {
     onExport: onExport,
     onImport: onImport,
     onOffloadChats: onOffloadChats,
     onPruneOld: onPruneOld,
     onClearAll: onClearAll,
     toast: toast
-  }), /*#__PURE__*/React.createElement(CtxDebug, {
+  }), fold("data-debug", "上下文诊断", "只读查看模型实际收到的内容", /*#__PURE__*/React.createElement(CtxDebug, {
     characters: characters,
     getBundle: debugBundleFor
-  }), toyUnlocked && typeof ToyConfig === "function" && /*#__PURE__*/React.createElement(ToyConfig, {
+  })), toyUnlocked && typeof ToyConfig === "function" && fold("data-toy", "本地配件", "仅本机的隐藏配件设置", /*#__PURE__*/React.createElement(ToyConfig, {
     toast: toast
-  }))));
+  })))));
 }
 function ApiConfig({
   profiles,
@@ -4687,88 +4710,35 @@ function DataConfig({
 }) {
   const t = useTheme();
   const [c, setC] = useState(false);
+  const [part, setPart] = useState("");
   const ref = useRef(null);
-  return /*#__PURE__*/React.createElement("div", {
-    className: "pt-6"
-  }, h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld }), h(LocalPhotoLibrary, { toast: toast }), h(CloudSync, { toast: toast }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      lineHeight: 1.7,
-      color: t.fog
-    }
-  }, "本地备份：数据保存在本机浏览器。换设备或清缓存前，也可导出为文件。"), /*#__PURE__*/React.createElement("button", {
-    onClick: onExport,
-    className: "mt-6 w-full py-3",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      background: t.ink,
-      color: t.bg2,
-      borderRadius: 6
-    }
-  }, "导出全部数据（.json）"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => ref.current && ref.current.click(),
-    className: "mt-3 w-full py-3",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      color: t.ink,
-      border: `1px solid ${t.line}`,
-      borderRadius: 6
-    }
-  }, "导入备份恢复"), /*#__PURE__*/React.createElement("input", {
-    ref: ref,
-    type: "file",
-    accept: "application/json,.json",
-    className: "hidden",
-    onChange: e => {
-      const f = e.target.files && e.target.files[0];
-      if (f) onImport(f);
-      e.target.value = "";
-    }
-  }), !c ? /*#__PURE__*/React.createElement("button", {
-    onClick: () => setC(true),
-    className: "mt-8 w-full py-3",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      color: t.fog,
-      border: `1px solid ${t.line}`,
-      borderRadius: 6
-    }
-  }, "清空所有数据") : /*#__PURE__*/React.createElement("div", {
-    className: "mt-8"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink,
-      marginBottom: 12
-    }
-  }, "确定清空全部数据？无法撤销。建议先导出。"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-3"
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setC(false),
-    className: "flex-1 py-3",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      border: `1px solid ${t.line}`,
-      color: t.ink,
-      borderRadius: 6
-    }
-  }, "取消"), /*#__PURE__*/React.createElement("button", {
-    onClick: onClearAll,
-    className: "flex-1 py-3",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      background: t.accent,
-      color: "#fff",
-      borderRadius: 6
-    }
-  }, "确定"))));
+  const fold = (id, title, sub, child, danger) => h(ConfigFold, {
+    title: title, sub: sub, danger: danger, open: part === id,
+    onToggle: () => setPart(v => v === id ? "" : id)
+  }, child);
+  const button = (label, onClick, primary) => h("button", {
+    onClick: onClick, className: "w-full py-3 active:opacity-70",
+    style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, borderRadius: 7,
+      color: primary ? t.bg2 : t.ink, background: primary ? t.ink : "transparent",
+      border: primary ? "none" : "1px solid " + t.line }
+  }, label);
+  return h("div", { style: { paddingTop: 4 } },
+    fold("storage", "本地空间", "查看占用、归档聊天和清理可再生数据", h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld })),
+    fold("photos", "本机照片库", "聊天照片、相册导入与给言秋看的照片桥", h(LocalPhotoLibrary, { toast: toast })),
+    fold("cloud", "云同步", "账号、云端存档与同步状态", h(CloudSync, { toast: toast })),
+    fold("backup", "导入与导出", "换设备或清缓存前备份全部数据", h("div", { style: { paddingTop: 8 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
+      button("导出全部数据（.json）", onExport, true),
+      button("导入备份恢复", () => ref.current && ref.current.click(), false),
+      h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
+        const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
+      } }))),
+    fold("danger", "危险操作", "清空全部本机数据（不可撤销）", h("div", { style: { paddingTop: 8 } },
+      !c ? button("清空所有数据", () => setC(true), false) : h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 12 } }, "确定清空全部数据？无法撤销。建议先导出。"),
+        h("div", { className: "flex gap-3" },
+          h("button", { onClick: () => setC(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.line, color: t.ink, borderRadius: 6 } }, "取消"),
+          h("button", { onClick: onClearAll, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, background: t.accent, color: "#fff", borderRadius: 6 } }, "确定")))), true));
 }
 // ============================================================
 // MEMORY LIBRARY 记忆库
