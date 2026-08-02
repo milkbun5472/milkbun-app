@@ -1,7 +1,7 @@
 // ============================================================
-// Ecosystem · RepairGate P2-1（v49.27）
-// 只收集“某条 open 可能已完成/解决/明确放弃”的逐字证据候选。
-// 不关闭 open、不写云表、不注入聊天；候选仅存本机 IndexedDB。
+// Ecosystem · RepairGate（v51.40 live）
+// 机械核验“某条 open 已完成/解决/明确放弃”的逐字证据。
+// 候选账本继续只存 hash；核验通过的 memory id + 结局交给 App 做行级软闭环。
 // ============================================================
 (function () {
   "use strict";
@@ -63,8 +63,12 @@
         await done(tx);
       }
       await trim(now);
-      return { accepted: valid.length, rejected: Math.max(0, raw.length - valid.length) };
-    } catch (e) { return { accepted: 0, error: "RepairGate shadow failed" }; }
+      return {
+        accepted: valid.length,
+        rejected: Math.max(0, raw.length - valid.length),
+        resolutions: valid.map(x => ({ oldMemoryId: x.oldMemoryId, kind: x.kind }))
+      };
+    } catch (e) { return { accepted: 0, resolutions: [], error: "RepairGate failed" }; }
   }
   async function trim(nowValue) {
     try {
@@ -95,6 +99,24 @@
       outcomeConflicts: groups.filter(x => x.kinds.size > 1).length
     };
   }
+  function applyResolutions(entries, resolutions, nowValue) {
+    const outcomes = new Map((Array.isArray(resolutions) ? resolutions : [])
+      .filter(x => x && x.oldMemoryId && KINDS.includes(x.kind))
+      .map(x => [String(x.oldMemoryId), x.kind]));
+    const resolvedAt = Number(nowValue) || Date.now(); let closed = 0;
+    const next = (Array.isArray(entries) ? entries : []).map(e => {
+      const kind = e && outcomes.get(String(e.id));
+      if (!kind || !e.open) return e;
+      closed++;
+      return Object.assign({}, e, {
+        open: false,
+        openResolvedTs: resolvedAt,
+        openResolutionKind: kind,
+        openResolvedBy: "repair_gate"
+      });
+    });
+    return { entries: next, closed };
+  }
   async function report() {
     try {
       const db = await openDB(), tx = db.transaction("candidates", "readonly"), rows = await rq(tx.objectStore("candidates").getAll()); await done(tx);
@@ -104,5 +126,5 @@
     } catch (e) { return { error: "RepairGate 报表读取失败" }; }
   }
   async function clearAll() { try { const db = await openDB(), tx = db.transaction("candidates", "readwrite"); tx.objectStore("candidates").clear(); await done(tx); } catch (e) {} }
-  window.OpenRepairShadow = { observe, report, clearAll, evidenceMessages, _validateCandidates: validateCandidates, _summarizeRows: summarizeRows };
+  window.OpenRepairShadow = { observe, report, clearAll, evidenceMessages, applyResolutions, _validateCandidates: validateCandidates, _summarizeRows: summarizeRows };
 })();

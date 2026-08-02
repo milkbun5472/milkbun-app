@@ -1056,12 +1056,12 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
     "【证据】每条给 evidence_message_ids 和 evidence_quotes，两数组一一对应且至少 1 项；ID 必须照抄上面的消息ID，quote 必须是该消息正文中逐字存在的短句。找不到就别造这条。\n" +
     "· 每条再标注情绪与状态：**v**=这件事的情绪愉悦度（整数 -5~5，负=难过/生气/难堪/委屈，0=中性事实，正=开心/温暖/心动）；**a**=情绪强度（整数 0~5，0=平淡的事实，5=强烈动情/激烈冲突/刻骨铭心）；**open**=是不是【还没了结且值得持续惦记的开环】。只有明确答应对方/共同约好而尚未兑现、没和好的争执、悬着的关系心事、在等的重要结果才是 true。单纯的未来时态和普通生活安排（今晚吃什么、待会洗澡、明天上班/健身/做饭）一律 false；它们可以是事实，但不是开环。\n" +
     (Array.isArray(opts.openList) && opts.openList.length
-      ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。**这只是候选，不会自动关闭 open**。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
+      ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。候选还会由本机逐字核验，通过后才软关闭旧条；正文和审计记录永远保留。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
   const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 6000 });
   const parsed = extractJSON(raw);
-  // resolveOpen 没有 text；旧过滤会在到达 App 前把它静默丢掉。v49.27 起保留给 RepairGate shadow，仍不执行闭环写入。
+  // resolveOpen 没有 text；必须保留给 RepairGate 做逐字证据核验与软闭环。
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
 // 群线下多发言人离散抽取（v50.64）：一次调用抽出离散记忆点，每点用 who 归属到正确的发言人——
@@ -1081,10 +1081,13 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
     "· **每条必须给 who**：一个数组，列出这条记忆【是关于谁的】，只能从这些名字里选：" + [uName].concat(roster).join("、") + "。关于两人之间就把两个名字都放进去。\n" +
     "· **绝对不许张冠李戴**：谁说的话、谁的经历，就记在谁名下；在场不代表相关，别把某人的事按到别人头上。分不清是谁的就别记这条。\n" +
     "· 同一件事只记一条，忽略寒暄闲聊；每条配 1~3 个中文标签。每条标注 v（情绪愉悦度 -5~5）、a（强度 0~5）、open。open=true 只用于明确答应对方/共同约好而尚未兑现、未解决的关系冲突、悬着的心事或重要结果；普通未来安排（吃饭、洗澡、上班、健身等）一律 false。" + avoid + "\n" +
-    "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false}]\n没有值得记的、或都已记过，就输出 []。";
+    (Array.isArray(opts.openList) && opts.openList.length
+      ? "\n【当前还没了结的约定/心事】若本段记录逐字证明某条已经兑现/实质解决/明确放弃，另加 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。道歉、暂时安静、时间过去或情绪缓和不算解决。本机还会逐字核验，通过后只软关闭、绝不删旧条：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n") + "\n"
+      : "") +
+    "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}]\n没有值得记的、或都已记过，就输出 []。";
   const raw = await callAI(p, system, [{ role: "user", content: "【多人线下记录】\n" + text }], { maxTokens: 5000 });
   const parsed = extractJSON(raw);
-  return Array.isArray(parsed) ? parsed.filter(x => x && x.text) : [];
+  return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
 // 把一整团旧「长期记忆总结」拆成一条条离散事实（导入记忆库用）——同样强制主语真名、别张冠李戴
 async function splitMemoryToEntries(p, ctx, blob) {

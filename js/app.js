@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.39";
+const APP_VERSION = "v51.40";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1916,11 +1916,18 @@ function App() {
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar([charId], e.charIds)).slice(0, 30); // 编号必须与 RepairGate 的 openEntries 严格同序
       const openList = openEntries.map(e => e.text);
       const items = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing, openList: openList });
-      // v49.27 RepairGate shadow：旧解析器曾把 resolveOpen 全过滤掉，因此真实闭环实际未发生。
-      // 现在只保留并机械核验证据、写入独立本机候选账本；绝不在这里改 open 或调用云写路。
-      try { if (window.OpenRepairShadow) await window.OpenRepairShadow.observe({
-        charId, candidates: items.filter(it => it && it.resolveOpen != null), openEntries, messages: msgs
-      }); } catch (e) {}
+      // v51.40 RepairGate live：模型只提候选；本机逐项核验“旧 open 编号 + 消息 ID + 逐字引文”。
+      // 通过后只把旧行 open=false，正文与旧条原位留档；行级同步会把这一次软闭环送上权威表。
+      try { if (window.OpenRepairShadow) {
+        const repair = await window.OpenRepairShadow.observe({
+          charId, candidates: items.filter(it => it && it.resolveOpen != null), openEntries, messages: msgs
+        });
+        const applied = window.OpenRepairShadow.applyResolutions(memLibRef.current, repair && repair.resolutions, Date.now());
+        if (applied.closed) {
+          saveMemLib(applied.entries);
+          toast("已自动了结 " + applied.closed + " 条完成的约定/心事（旧记录仍保留）");
+        }
+      } } catch (e) {}
       const now = Date.now();
       const batchSeen = [];
       // 审查修：resolveOpen 用 == null 判（空串/0 也是 resolveOpen 元素），且必须真有 text——
@@ -3269,7 +3276,22 @@ function App() {
     const nameToId = {}; members.forEach(m => { nameToId[String(m.name || "").trim()] = m.id; });
     try {
       const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
-      const items = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing });
+      const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
+      const items = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing, openList: openEntries.map(e => e.text) });
+      // 群线下发生的兑现也必须能关掉原来的开环；和私聊共用同一逐字证据闸。
+      if (window.OpenRepairShadow) {
+        const repair = await window.OpenRepairShadow.observe({
+          charId: "group:" + groupId,
+          candidates: (items || []).filter(it => it && it.resolveOpen != null),
+          openEntries,
+          messages: win
+        });
+        const applied = window.OpenRepairShadow.applyResolutions(memLibRef.current, repair && repair.resolutions, Date.now());
+        if (applied.closed) {
+          saveMemLib(applied.entries);
+          toast("已自动了结 " + applied.closed + " 条完成的约定/心事（旧记录仍保留）");
+        }
+      }
       const now = Date.now();
       const added = [], batchSeen = [];
       (items || []).filter(it => it && it.text).forEach((it, i) => {
