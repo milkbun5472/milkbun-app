@@ -83,7 +83,7 @@
 
     // 用云端数据覆盖本地：先清掉本地 x_ 键，再写回
     // 期间挂起自动同步，避免写入触发反向 push
-    apply(data) {
+    async apply(data) {
       suspend = true;
       try {
         // 行表权威开启后，旧 saves blob 无权再覆盖/清空本机记忆镜像。
@@ -91,6 +91,7 @@
         // 世界书防呆（拉云→本地方向）：云端这份世界书是空的、而本机还有词条 → 保留本机，绝不让空覆盖非空。
         const localLore = localStorage.getItem("x_loreEntries");
         const keepLore = (loreNonEmpty(localLore) && !loreNonEmpty(data && data.x_loreEntries)) ? localLore : null;
+        if (typeof idbTxtApplySnapshot === "function") await idbTxtApplySnapshot(data || {}, tableMemoryMode() ? ["x_memLib"] : []);
         Object.keys(localStorage)
           .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
           .forEach((k) => localStorage.removeItem(k));
@@ -99,7 +100,8 @@
           if (tableMemoryMode() && k === "x_memLib") return;
           // 文字库键(同人文等)：写进 IDB + 内存镜像，绝不进 localStorage(否则又占回 5MB)。apply 后调用方会 reload，hydrateTxtVault 再兜一遍。
           if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
-            try { window.__txtMirror && window.__txtMirror.set(k, v); if (typeof idbTxtPut === "function") idbTxtPut(k, v).catch(() => {}); } catch (e) {}
+            // idbTxtApplySnapshot 已逐字写入并核对；旧环境才走兼容回落。
+            if (typeof idbTxtApplySnapshot !== "function") { try { window.__txtMirror && window.__txtMirror.set(k, v); if (typeof idbTxtPut === "function") idbTxtPut(k, v).catch(() => {}); } catch (e) {} }
             return;
           }
           if (!(tableMemoryMode() && k === "x_memLib")) localStorage.setItem(k, v);
@@ -907,7 +909,7 @@
           await this.autoPush(); // 云端也空：先把本机（空）占位备份
           return { applied: false };
         }
-        this.apply(row.data);
+        await this.apply(row.data);
         localStorage.setItem(MARK, row.updated_at || new Date().toISOString());
         return { applied: true };
       } catch (e) {

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.36";
+const APP_VERSION = "v51.37";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -476,7 +476,9 @@ function App() {
     (() => {
       const seed = {};
       try {
-        Object.keys(localStorage).forEach(k => {
+        const offlineKeys = new Set(Object.keys(localStorage));
+        try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => offlineKeys.add(k)); } catch (e) {}
+        offlineKeys.forEach(k => {
           const isOff = k.indexOf("x_offline:") === 0, isGOff = k.indexOf("x_goffline:") === 0;
           if (!isOff && !isGOff) return;
           const id = k.slice(isOff ? "x_offline:".length : "x_goffline:".length);
@@ -8927,19 +8929,24 @@ function App() {
         toast("文件格式不对");
         return;
       }
+      // 完整备份导入是“替换本机”：先清文字仓，避免备份里已删除的旧线下/同人文从 IDB 残留回来。
+      try { if (typeof idbTxtClear === "function") await idbTxtClear(); } catch (e) {}
       // 先清本地 x_ 键
       Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
       // 逐键写入：单键失败（多半是超了浏览器单站点 ~5MB 上限）不整体中断，记下漏掉的，尽量恢复其余
       const failed = [];
-      Object.entries(parsed.data).forEach(([k, v]) => {
+      for (const [k, v] of Object.entries(parsed.data)) {
         // 文字库键(同人文)：写进 IDB + 镜像，不进 localStorage(否则又占回 5MB、还可能超限)
         if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
-          try { window.__txtMirror && window.__txtMirror.set(k, v); if (typeof idbTxtPut === "function") idbTxtPut(k, v).catch(() => {}); } catch (e) {}
-          return;
+          try {
+            if (typeof idbTxtPut === "function") { await idbTxtPut(k, v); const back = await idbTxtGet(k); if (back !== v) throw new Error("文字仓恢复核对失败: " + k); }
+            window.__txtMirror && window.__txtMirror.set(k, v);
+          } catch (e) { failed.push({ k, size: (v || "").length }); }
+          continue;
         }
         try { localStorage.setItem(k, v); }
         catch (err) { failed.push({ k, size: (v || "").length }); }
-      });
+      }
       // ⭐阶段4：恢复图片仓库（v2+ 备份含 vault）——把 base64 写回 IndexedDB，头像/壁纸的 iv_ 键才能 resolve。
       // v48.29：先整仓清空再写入（backlog：旧机器攒的孤儿 blob 不再一代代带着走，防止图库越导越肥）。
       // 只在备份自带 vault 时才清——v1 老备份图是 base64 直存 data 里，本地图库与它无关，不动。

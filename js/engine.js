@@ -1400,7 +1400,7 @@ async function hydrateImgVault() { try { const entries = await idbVaultEntries()
 //   开机仍先 hydrate 完再挂载，所以同步读路径不变，又不再挤占 localStorage 的 5MB。
 //   机制同图库：开机 hydrateTxtVault() 把 IDB 里的值一次性灌进内存镜像 __txtMirror；此后 loadJSON/saveJSON
 //   对这些键读写镜像(同步)+异步落 IDB，绝不进 localStorage。云端同步靠 collect 补镜像、apply 回写 IDB。
-const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib"];
+const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:"];
 function isIdbTextKey(k) { return typeof k === "string" && IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0); }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
 function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
@@ -1409,6 +1409,17 @@ async function idbTxtGet(k) { const db = await idbTxtOpen(); return new Promise(
 async function idbTxtDel(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbTxtClear() { try { const db = await idbTxtOpen(); await new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); } catch (e) {} try { _txtMirror().clear(); } catch (e) {} }
 async function idbTxtAll() { const db = await idbTxtOpen(); return new Promise(res => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
+// 云恢复用：只替换备份里归文字仓管理的键；preserveKeys（如行表权威的 x_memLib）原样保留。
+// 完成后调用方才允许 reload，避免大线下记录异步写到一半被刷新截断。
+async function idbTxtApplySnapshot(data, preserveKeys) {
+  const src = data && typeof data === "object" ? data : {};
+  const keep = new Set(Array.isArray(preserveKeys) ? preserveKeys : []);
+  const desired = new Map(Object.entries(src).filter(([k, v]) => isIdbTextKey(k) && v != null && !keep.has(k)).map(([k, v]) => [k, String(v)]));
+  const current = await idbTxtAll();
+  for (const [k] of current) if (isIdbTextKey(k) && !keep.has(k) && !desired.has(k)) { await idbTxtDel(k); _txtMirror().delete(k); }
+  for (const [k, v] of desired) { await idbTxtPut(k, v); const back = await idbTxtGet(k); if (back !== v) throw new Error("文字仓恢复核对失败: " + k); _txtMirror().set(k, v); }
+  return desired.size;
+}
 // 开机：IDB→内存镜像，并把还赖在 localStorage 的同人文键搬进 IDB（复制+验证一致，才删本地——绝不先删）。幂等。
 async function hydrateTxtVault() {
   const mir = _txtMirror();
@@ -2268,8 +2279,8 @@ function saveJSON(k, v) {
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const s = JSON.stringify(v);
       _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
-      if (k === "x_memLib") {
-        // 记忆是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
+      if (k === "x_memLib" || k.indexOf("x_offline:") === 0 || k.indexOf("x_goffline:") === 0) {
+        // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
         // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
         try { localStorage.setItem(k, s); } catch (e) {}
         try {
