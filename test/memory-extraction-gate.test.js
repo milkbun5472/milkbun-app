@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { inspect } = require("../js/memory-extraction-gate.js");
+const { inspect, normalizeEvidence } = require("../js/memory-extraction-gate.js");
 
 const messages = [
   { mid: "u1", role: "user", content: "我下周五要去温哥华。" },
@@ -61,4 +61,24 @@ test("明确承诺或关系里程碑不会因误标 temperature 被漏掉", () =
   assert.equal(result.formal, true);
   assert.equal(result.kind, "relationship");
   assert.equal(result.milestone, true);
+});
+
+test("消息 ID 抄坏但逐字引文唯一命中时可机械纠正", () => {
+  const candidate = {
+    text: "Lisa 下周五要去温哥华", kind: "fact", proposed_action: "accept",
+    evidence_message_ids: ["模型抄坏的ID"], evidence_quotes: ["下周五要去温哥华"]
+  };
+  const fixed = normalizeEvidence(candidate, messages);
+  assert.deepEqual(fixed.evidence_message_ids, ["u1"]);
+  assert.equal(inspect(candidate, messages).formal, true);
+});
+
+test("逐字引文命中多条消息时绝不猜归属", () => {
+  const ambiguousMessages = messages.concat({ mid: "u2", role: "user", content: "对，我下周五要去温哥华。" });
+  const candidate = {
+    text: "Lisa 下周五要去温哥华", kind: "fact", proposed_action: "accept",
+    evidence_message_ids: ["坏ID"], evidence_quotes: ["下周五要去温哥华"]
+  };
+  assert.deepEqual(normalizeEvidence(candidate, ambiguousMessages).evidence_message_ids, ["坏ID"]);
+  assert.equal(inspect(candidate, ambiguousMessages).formal, false);
 });

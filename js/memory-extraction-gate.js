@@ -5,8 +5,28 @@
   const MILESTONE_RE = /(我爱你|爱上你|做我的|在一起|结婚|订婚|分手|复合|成为恋人|正式交往|答应你|约好|约定|承诺|边界)/i;
   const messageId = (m, i) => String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i));
 
+  // 模型偶尔会抄坏消息 ID，但逐字 quote 仍真实存在。仅当 quote 在本轮
+  // 恰好唯一命中一条消息时机械纠正 ID；零命中/多命中都维持原样交给闸拒绝。
+  function normalizeEvidence(candidate, messages) {
+    const x = candidate || {}, msgs = Array.isArray(messages) ? messages : [];
+    const ids = Array.isArray(x.evidence_message_ids) ? x.evidence_message_ids.map(String) : [];
+    const quotes = Array.isArray(x.evidence_quotes) ? x.evidence_quotes.map(v => String(v || "")) : [];
+    if (!ids.length || ids.length !== quotes.length || quotes.some(q => !q.trim())) return x;
+    const rows = msgs.map((m, i) => ({ id: messageId(m, i), text: String(m && m.content || "") }));
+    const byId = new Map(rows.map(r => [r.id, r.text]));
+    let changed = false;
+    const repaired = ids.map((id, i) => {
+      if (byId.has(id) && byId.get(id).includes(quotes[i])) return id;
+      const hits = rows.filter(r => r.text.includes(quotes[i]));
+      if (hits.length !== 1) return id;
+      changed = true;
+      return hits[0].id;
+    });
+    return changed ? Object.assign({}, x, { evidence_message_ids: repaired }) : x;
+  }
+
   function inspect(candidate, messages) {
-    const x = candidate || {};
+    const x = normalizeEvidence(candidate, messages);
     const msgs = Array.isArray(messages) ? messages : [];
     const ids = Array.isArray(x.evidence_message_ids) ? x.evidence_message_ids.map(String) : [];
     const quotes = Array.isArray(x.evidence_quotes) ? x.evidence_quotes.map(v => String(v || "")) : [];
@@ -28,7 +48,7 @@
     return { formal: true, reason: null, kind, milestone };
   }
 
-  const api = { inspect, messageId };
+  const api = { inspect, messageId, normalizeEvidence };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.MemoryExtractionGate = api;
 })(typeof window !== "undefined" ? window : globalThis);

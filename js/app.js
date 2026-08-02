@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.48";
+const APP_VERSION = "v51.49";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1951,7 +1951,8 @@ function App() {
       // openEntries 保序，编号即下标+1；喂给模型的是带编号的文本
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar([charId], e.charIds)).slice(0, 30); // 编号必须与 RepairGate 的 openEntries 严格同序
       const openList = openEntries.map(e => e.text);
-      const items = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing, openList: openList });
+      const rawItems = await extractMemories(bgActive, ctxFor(char), msgs, { existing: existing, openList: openList });
+      const items = (rawItems || []).map(it => window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence ? window.MemoryExtractionGate.normalizeEvidence(it, msgs) : it);
       // v51.40 RepairGate live：模型只提候选；本机逐项核验“旧 open 编号 + 消息 ID + 逐字引文”。
       // 通过后只把旧行 open=false，正文与旧条原位留档；行级同步会把这一次软闭环送上权威表。
       try { if (window.OpenRepairShadow) {
@@ -3313,7 +3314,8 @@ function App() {
     try {
       const existing = memLibRef.current.filter(e => memShareChar(memberIds, e.charIds)).slice(0, 40).map(e => e.text).filter(Boolean);
       const openEntries = memLibRef.current.filter(e => e.open && e.text && memShareChar(memberIds, e.charIds)).slice(0, 30);
-      const items = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing, openList: openEntries.map(e => e.text) });
+      const rawItems = await extractGroupMemories(bgActiveRef.current, ctxForGroupOffline(group), win, members, { existing, openList: openEntries.map(e => e.text) });
+      const items = (rawItems || []).map(it => window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence ? window.MemoryExtractionGate.normalizeEvidence(it, win) : it);
       // 群线下发生的兑现也必须能关掉原来的开环；和私聊共用同一逐字证据闸。
       if (window.OpenRepairShadow) {
         const repair = await window.OpenRepairShadow.observe({
