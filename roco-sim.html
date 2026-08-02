@@ -463,6 +463,13 @@ function onEntry(side, oppSide, free){
     if (p.guardDiscount) log(`🛡 守护者：队友萌化${p.guardDiscount}层 → ${p.name}技能能耗-${p.guardDiscount}`);
   }
   if (p.trait==='拨浪鼓'){ p.bolangu = side.statusUses; if(p.bolangu) log(`🪇 拨浪鼓：己方已用${p.bolangu}次状态技 → 毒/萌技威力+${p.bolangu*10}`); }
+  if (p.boss && p.name==='雪影娃娃'){
+    const o = act(oppSide);
+    if (o.types.includes('冰')) log(`👑 雪影冰灵 再入场：${o.name} 是冰系免疫冻结`);
+    else { o.freeze = Math.min(10, o.freeze+2); o.costPenalty += 2;
+      if (o.hp > effMax(o)) o.hp = effMax(o);
+      log(`👑 雪影冰灵 再入场：${o.name} +2冻结 +2能耗税`); }
+  }
 }
 function doSwitch(side, oppSide, to, viaChuanhua){
   const from = act(side); const incoming = side.team[to];
