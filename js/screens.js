@@ -5503,7 +5503,8 @@ function MemoryLib({
   duplicatePreview ? h(MemoryDuplicatePreviewSheet, { groups: duplicatePreview, onConfirm: onArchiveDuplicateGroups, onClose: () => setDuplicatePreview(null) }) : null,
   eventMergePreview ? h(MemoryDuplicatePreviewSheet, { mode: "event", groups: eventMergePreview, onConfirm: onArchiveEventMergeGroups, onClose: () => setEventMergePreview(null) }) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onDecided: () => setCorrections(p => p.filter(x => x.id !== correctionOpen.id)), onClose: () => setCorrectionOpen(null) }) : null, h("div", {
-    className: "shrink-0 px-6 pb-2"
+    className: "shrink-0 px-6 pb-2",
+    style: diagOpen ? { maxHeight: "58vh", overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } : null
   }, h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
     h("span", null, "🔬 诊断与审计 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: 10.5 } }, diagOpen ? "收起 ▾" : "展开 ▸")),
   diagOpen ? h(React.Fragment, null,
