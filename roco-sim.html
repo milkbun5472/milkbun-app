@@ -68,7 +68,7 @@
 
 <div class="panel" id="pickPanel"></div>
 <div id="log"></div>
-<div class="note">已实现：伤害公式37/41(内层floor外层round·RocoDiviner卡②口径)·克制表·本系1.25·随机0.8~1.2·先手值→速度→随机·换人占行动且入场裸·防御技冷却1回合·应对状态先结算·聚能可被应对·冻结5%上限·捉迷藏能耗税·萌化层与各类骑手·传花整包过户·瞳中倒影换血·化茧两次免死·守护者入场折扣·拨浪鼓·首领化(一场一次)·愿力未做。v2 新增：每只独立能量·萌化降阶(80%/60%按公式重算)·萌化封顶(阶段数-1)·战雾(对面百分比血条)·传花选人·首领化不占行动。未实现(TODO)：印记系统·困兽真实效果(占位威力70)·倾泻只清增益·卡洛儿/寒音蛇/巨魔阶段数待查。</div>
+<div class="note">已实现：伤害公式37/41(内层floor外层round·RocoDiviner卡②口径)·克制表·本系1.25·伤害无随机数(公式卡口径)·出手顺序:先手值→速度→随机·换人占行动且入场裸·防御技冷却1回合·应对状态先结算·聚能可被应对·冻结5%上限·捉迷藏能耗税·萌化层与各类骑手·传花整包过户·瞳中倒影换血·化茧两次免死·守护者入场折扣·拨浪鼓·首领化(一场一次)·愿力未做。v2 新增：每只独立能量·萌化降阶(80%/60%按公式重算)·萌化封顶(阶段数-1)·战雾(对面百分比血条)·传花选人·首领化不占行动。未实现(TODO)：印记系统·困兽真实效果(占位威力70)·倾泻只清增益·卡洛儿/寒音蛇/巨魔阶段数待查。</div>
 
 <script>
 'use strict';
@@ -334,7 +334,7 @@ function pickUI(){
       const eff=typeEff(sk.attr,opp.types);
       const stab=p.types.includes(sk.attr)?1.25:1;
       const single=(atkStat/defStat)*(37/41)*pow*eff*stab;
-      est=`<br><small>预估${Math.floor(single*hits*0.8)}~${Math.floor(single*hits*1.2)}${eff!==1?`·克${eff}`:''}</small>`;
+      est=`<br><small>预估${Math.floor(single*hits)}${eff!==1?`·克${eff}`:''}</small>`;
     }
     const click = n==='击鼓传花' ? `chuanhuaUI(${c})` : `choose({type:'skill',name:'${n}'})`;
     return `<button class="${sk.cls==='def'?'def':sk.cls==='sta'?'sta':'atk'}" ${dis?'disabled':''}
