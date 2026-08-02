@@ -126,7 +126,14 @@ function validateToolMark(mark, lisaText, yanqiuText) {
     return result;
   };
   const lisaSegments = validate(mark.lisa, String(lisaText || ""));
-  const yanqiuSegments = validate(mark.yanqiu, String(yanqiuText || ""));
+  const captureVisibleReply = mark.capture_visible_reply === true;
+  const visibleKind = String(mark.yanqiu_kind || "");
+  const visibleReply = String(yanqiuText || "").trim();
+  if (captureVisibleReply && mark.yanqiu.length) return { valid:false, reason:"capture_with_prequoted_reply" };
+  if (captureVisibleReply && (!visibleReply || !KINDS.has(visibleKind))) return { valid:false, reason:"invalid_visible_reply_capture" };
+  const yanqiuSegments = captureVisibleReply
+    ? [{ content:visibleReply, sync_kind:visibleKind }]
+    : validate(mark.yanqiu, visibleReply);
   if (!lisaSegments || !yanqiuSegments) return { valid:false, reason:"quote_or_kind_failed" };
   const skip = mark.skip === true;
   const moodLabel = String(mark.mood_evidence || "").trim();

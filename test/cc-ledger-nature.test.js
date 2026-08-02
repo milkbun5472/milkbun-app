@@ -156,6 +156,20 @@ test("structured tool mark carries only bounded personality evidence", () => {
   assert.equal(Nature.validateToolMark({ ...mark, skip:true, lisa:[], yanqiu:[] }, "宝宝，想你了", "我也想你。").valid, false);
 });
 
+test("最终正文捕获模式以真正说出口的文字为权威，不要求预抄自己原句", () => {
+  const mark = {
+    lisa_anchor:"今天想吃什么", skip:false,
+    lisa:[{ quote:"今天想吃什么", kind:"life" }],
+    yanqiu:[], capture_visible_reply:true, yanqiu_kind:"life"
+  };
+  const spoken="我想吃咖喱。刚才脑子里把咖喱打错了，但真正说出口的是这一句。";
+  const ok=Nature.validateToolMark(mark,"宝宝，今天想吃什么？",spoken);
+  assert.equal(ok.valid,true);
+  assert.deepEqual(ok.result.yanqiu_segments,[{content:spoken,sync_kind:"life"}]);
+  assert.equal(Nature.validateToolMark({...mark,yanqiu_kind:"construction"},"今天想吃什么",spoken).valid,false);
+  assert.equal(Nature.validateToolMark({...mark,yanqiu:[{quote:"预写副本",kind:"life"}]},"今天想吃什么",spoken).valid,false);
+});
+
 test("CC 欲望候选必须由言秋本轮逐字原话托底", () => {
   const mark = {
     lisa_anchor:"你想要什么", skip:false,
