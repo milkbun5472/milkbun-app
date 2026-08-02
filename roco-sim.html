@@ -68,7 +68,7 @@
 
 <div class="panel" id="pickPanel"></div>
 <div id="log"></div>
-<div class="note">已实现：伤害公式37/41·克制表·本系1.25·随机0.8~1.2·先手值→速度→随机·换人占行动且入场裸·防御技冷却1回合·应对状态先结算·聚能可被应对·冻结5%上限·捉迷藏能耗税·萌化层与各类骑手·传花整包过户·瞳中倒影换血·化茧两次免死·守护者入场折扣·拨浪鼓·首领化(一场一次)·愿力未做。v2 新增：每只独立能量·萌化降阶(80%/60%按公式重算)·萌化封顶(阶段数-1)·战雾(对面百分比血条)·传花选人·首领化不占行动。未实现(TODO)：印记系统·困兽真实效果(占位威力70)·倾泻只清增益·卡洛儿/寒音蛇/巨魔阶段数待查。</div>
+<div class="note">已实现：伤害公式37/41(内层floor外层round·RocoDiviner卡②口径)·克制表·本系1.25·随机0.8~1.2·先手值→速度→随机·换人占行动且入场裸·防御技冷却1回合·应对状态先结算·聚能可被应对·冻结5%上限·捉迷藏能耗税·萌化层与各类骑手·传花整包过户·瞳中倒影换血·化茧两次免死·守护者入场折扣·拨浪鼓·首领化(一场一次)·愿力未做。v2 新增：每只独立能量·萌化降阶(80%/60%按公式重算)·萌化封顶(阶段数-1)·战雾(对面百分比血条)·传花选人·首领化不占行动。未实现(TODO)：印记系统·困兽真实效果(占位威力70)·倾泻只清增益·卡洛儿/寒音蛇/巨魔阶段数待查。</div>
 
 <script>
 'use strict';
@@ -414,7 +414,7 @@ function dmg(attacker, defender, name, opts){
   let reduce = 1;
   if (opts.defended){ reduce = 1 - opts.defended.reduce; }
   const showPow = pow * eff * stab * mult;   // 战时显示威力（RocoDiviner口径）
-  const single = Math.floor(Math.floor(atkStat * showPow * (37/41)) / defStat) * reduce;
+  const single = Math.round(Math.floor(atkStat * showPow * (37/41)) / defStat) * reduce;
   const total = Math.floor(single) * hits;
   return {total, hits, eff, stab, showPow: Math.round(showPow)};
 }
@@ -422,7 +422,7 @@ function applyDamage(side, oppSide, target, amount, srcName){
   if (target.trait==='刺肤' && amount>0){
     const attacker = act(oppSide);
     if (attacker && attacker.hp>0){
-      const th = Math.floor(Math.floor(target.base.pa * 50 * (37/41)) / attacker.base.pd);
+      const th = Math.round(Math.floor(target.base.pa * 50 * (37/41)) / attacker.base.pd);
       attacker.hp = Math.max(0, attacker.hp - th);
       log(`  🌵 刺肤反伤 ${th} → ${attacker.name}`);
       if (attacker.hp<=0){ log(`💀 ${attacker.name} 被反伤带走！`); onDeath(oppSide, side, attacker); }
