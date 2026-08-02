@@ -1,0 +1,33 @@
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const Gate = require("../js/memory-near-duplicate.js");
+
+const now = Date.UTC(2026, 7, 2, 12);
+const row = (text, extra = {}) => ({ text, charIds: ["a"], ts: now - 3600000, source: "auto", ...extra });
+
+test("同角色近时段换句话说的同一事实被拦", () => {
+  assert.equal(Gate.evaluate(row("沈屿白最喜欢的关东煮食材是萝卜和魔芋丝", { ts: now }), row("沈屿白最喜欢的关东煮配料是萝卜和魔芋丝"), now).duplicate, true);
+});
+
+test("不同角色、超过窗口或只有泛泛主题相似都不拦", () => {
+  assert.equal(Gate.evaluate(row("今晚一起去吃饭", { ts: now }), row("今晚一起去吃饭", { charIds: ["b"] }), now).duplicate, false);
+  assert.equal(Gate.evaluate(row("今晚一起去吃饭", { ts: now }), row("今晚一起去吃饭", { ts: now - Gate.WINDOW_MS - 1 }), now).duplicate, false);
+  assert.equal(Gate.evaluate(row("Lisa 今天去温哥华出差", { ts: now }), row("Lisa 喜欢温哥华的海鲜"), now).duplicate, false);
+});
+
+test("同一批原消息产生的高度重叠版本被拦，证据碰巧重叠但事实不同不拦", () => {
+  assert.equal(Gate.evaluate(
+    row("Lisa 的父母徒步时捡回一只死猫头鹰，后来在许言秋劝阻下放弃食用", { ts: now, evidenceMessageIds: ["1", "2"] }),
+    row("Lisa 父母徒步捡回一只死猫头鹰，许言秋说明风险后劝阻他们食用", { evidenceMessageIds: ["2", "3"] }), now
+  ).duplicate, true);
+  assert.equal(Gate.evaluate(
+    row("Lisa 主动结清了超市账单", { ts: now, evidenceMessageIds: ["1"] }),
+    row("陆衍已经把衣服搬进 Lisa 的衣柜", { evidenceMessageIds: ["1"] }), now
+  ).duplicate, false);
+});
+
+test("计划后来完成、取消和数字变化都是新进展，不能吞", () => {
+  assert.equal(Gate.evaluate(row("Lisa 和陆衍已经完成超市采购", { ts: now }), row("Lisa 和陆衍约好下午去超市采购"), now).duplicate, false);
+  assert.equal(Gate.evaluate(row("本地存储已达到95%", { ts: now }), row("本地存储已达到85%"), now).duplicate, false);
+});

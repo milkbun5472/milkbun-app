@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.42";
+const APP_VERSION = "v51.43";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1691,9 +1691,10 @@ function App() {
   const memShareChar = (aIds, bIds) => { const a = aIds || [], b = bIds || []; if (!a.length || !b.length) return true; return a.some(x => b.includes(x)); };
   // 是否重复（跳过新的）：v48.41 改成【不对称】——只有「新文本没添新信息」才算重复，即新的 ⊆ 已有（被已有包含）或完全相同。
   // 若新的更长、反而包含了旧的（是更详细版），不算重复：放它进来，交给 pruneSubsumed 淘汰旧的含糊版，别再丢细节。
-  const isDupMem = (text, charIds, pool) => {
+  const isDupMem = (text, charIds, pool, meta = {}) => {
     const n = normMemText(text); if (n.length < 4) return false;
-    return (pool || memLibRef.current).some(e => {
+    const rows = pool || memLibRef.current;
+    const exact = rows.some(e => {
       if ((e.surfaceState || "active") !== "active") return false;
       if (!memShareChar(charIds, e.charIds)) return false;
       const en = normMemText(e.text); if (!en) return false;
@@ -1701,6 +1702,9 @@ function App() {
       // 已有 en 更长且完全包含新的 n（n ⊆ en）→ 新的没添信息 → 重复
       return n.length >= 6 && en.length > n.length && en.indexOf(n) >= 0 && n.length / en.length > 0.72;
     });
+    if (exact) return true;
+    if (!window.MemoryNearDuplicate) return false;
+    return !!window.MemoryNearDuplicate.find({ text, charIds, ts: meta.ts || Date.now(), evidenceMessageIds: meta.evidenceMessageIds || [] }, rows);
   };
   // P1-3 LIVE：命中只生成纠错候选，旧条原位保留；Lisa 确认后由原子 RPC 标 superseded。
   // 这里永不 filter 掉旧条，open/pinned 也同样保留且不会自动提“更详细替代”候选。
@@ -1739,7 +1743,7 @@ function App() {
     if (entry.source !== "manual" && window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
     if (!entry.text) return;
     // 自动来源（抽取/总结）去重，别把同一件事塞好几条；手动记的放行（用户自己要加就加）
-    if (entry.source !== "manual" && isDupMem(entry.text, entry.charIds)) return;
+    if (entry.source !== "manual" && isDupMem(entry.text, entry.charIds, null, entry)) return;
     saveMemLib([entry, ...pruneSubsumed(memLibRef.current, [entry])]);
   };
   // 长文导入（v48.83，她要「把总结的一切放进记忆库、能被 app 小克搜到」）：把一大段文本切成离散条目、绑角色、
@@ -1946,8 +1950,8 @@ function App() {
         };
         return window.OpenLoopGate ? window.OpenLoopGate.normalize(entry) : entry;
       }).filter(x => x.text).filter(x => {
-        if (isDupMem(x.text, [charId])) return false;            // 和库里已有重复
-        if (isDupMem(x.text, [charId], batchSeen)) return false; // 和本批已收的重复
+        if (isDupMem(x.text, [charId], null, x)) return false;            // 和库里已有重复
+        if (isDupMem(x.text, [charId], batchSeen, x)) return false; // 和本批已收的重复
         batchSeen.push(x); return true;
       });
       // P1-1 shadow：传入内存做机械证据核验，只落类别/计数/hash；真实采纳仍走旧路，但抽取 prompt 已带证据闸，评审基线并非纯旧版。
@@ -2013,8 +2017,8 @@ function App() {
       const entries = (items || []).map((it, i) => ({
         id: uniqMemId(now, "imp" + i), text: String(it.text || "").trim(), tags: Array.isArray(it.tags) ? it.tags : ["导入"], charIds: [charId], ts: now, source: "import", pinned: false
       })).filter(x => x.text).filter(x => {
-        if (isDupMem(x.text, [charId])) return false;
-        if (isDupMem(x.text, [charId], batchSeen)) return false;
+        if (isDupMem(x.text, [charId], null, x)) return false;
+        if (isDupMem(x.text, [charId], batchSeen, x)) return false;
         batchSeen.push(x); return true;
       });
       if (entries.length) saveMemLib([...entries, ...pruneSubsumed(memLibRef.current, entries)]);
@@ -3299,8 +3303,10 @@ function App() {
         ids = [...new Set(ids)];
         if (!ids.length) ids = memberIds.slice(); // who 没对上任何成员（多半只关于用户/场景）→ 宽 tag 到全体，别丢
         const txt = String(it.text).trim();
-        if (isDupMem(txt, ids) || isDupMem(txt, ids, batchSeen)) return;
-        let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(["线下", "群聊"]), charIds: ids, ts: now, source: "auto", pinned: false, v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open };
+        const evidenceMessageIds = Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : [];
+        const duplicateMeta = { ts: now, evidenceMessageIds };
+        if (isDupMem(txt, ids, null, duplicateMeta) || isDupMem(txt, ids, batchSeen, duplicateMeta)) return;
+        let entry = { id: uniqMemId(now, i), text: txt, tags: (Array.isArray(it.tags) ? it.tags : []).concat(["线下", "群聊"]), charIds: ids, ts: now, source: "auto", pinned: false, v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open, evidenceMessageIds };
         // 群线下是批量直写，不经过 addMemEntry；必须在这里同样过开环资格闸。
         if (window.OpenLoopGate) entry = window.OpenLoopGate.normalize(entry);
         batchSeen.push(entry); added.push(entry);
