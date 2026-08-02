@@ -67,6 +67,14 @@
     const parent = new Map(source.map(x => [String(x.id), String(x.id)]));
     const rootOf = id => { let p = parent.get(id); while (p && p !== parent.get(p)) p = parent.get(p); return p || id; };
     const join = (a, b) => { const x = rootOf(a), y = rootOf(b); if (x !== y) parent.set(y, x); };
+    // 完全相同的自动记忆不受 72 小时限制；这是最机械、最安全的一层。
+    const exact = new Map();
+    source.forEach(x => {
+      const roles = (Array.isArray(x.charIds) ? x.charIds.map(String).sort() : []).join("|");
+      const key = roles + "\n" + normalize(x.text);
+      if (exact.has(key)) join(String(exact.get(key).id), String(x.id));
+      else exact.set(key, x);
+    });
     const sorted = source.slice().sort((a, b) => Number(a.ts || 0) - Number(b.ts || 0));
     for (let i = 0; i < sorted.length; i++) {
       for (let k = i - 1; k >= 0; k--) {
@@ -82,8 +90,9 @@
         return (String(b.text).length + be * 16 + Number(b.a || 0) * 2) - (String(a.text).length + ae * 16 + Number(a.a || 0) * 2) || Number(b.ts || 0) - Number(a.ts || 0);
       });
       const keep = ordered[0], archive = ordered.slice(1);
+      const allExact = archive.every(x => normalize(x.text) === normalize(keep.text));
       const scores = archive.map(x => evaluate(x, keep, x.ts)).filter(x => x.duplicate);
-      return { id: ordered.map(x => String(x.id)).sort().join("|"), keep, archive, confidence: scores.some(x => x.reason === "near_text" && x.score >= 0.85) ? "high" : "review" };
+      return { id: ordered.map(x => String(x.id)).sort().join("|"), keep, archive, matchKind: allExact ? "exact_all_time" : "near_72h", confidence: allExact || scores.some(x => x.reason === "near_text" && x.score >= 0.85) ? "high" : "review" };
     }).sort((a, b) => Number(b.keep.ts || 0) - Number(a.keep.ts || 0));
   }
 

@@ -5336,7 +5336,7 @@ function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose }) {
       h("div", { className: "flex items-start justify-between gap-3", style: { marginBottom: 10 } },
         h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "重复记忆预览"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 3 } }, "同角色 · 72 小时内 · 高度相似。默认一组都不选；确认后只软归档重复版本，不删除正文。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 3 } }, "同角色跨时间完全相同，或 72 小时内高度相似。默认一组都不选；确认后只软归档重复版本，不删除正文。")),
         h("button", { onClick: onClose, style: { color: t.fog, fontSize: 20 } }, "×")),
       (groups || []).length === 0 ? h("div", { style: { padding: "28px 8px", textAlign: "center", fontFamily: F_BODY, color: t.fog } }, "没有找到高置信重复组") : h(React.Fragment, null,
         h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
@@ -5345,7 +5345,7 @@ function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose }) {
         (groups || []).map((g, i) => h("button", { key: g.id, onClick: () => toggle(g.id), className: "w-full text-left rounded-2xl p-3 mb-2 active:opacity-75", style: { background: t.bg2, border: "1px solid " + (selected.has(g.id) ? t.tint : t.line) } },
           h("div", { className: "flex items-center justify-between", style: { marginBottom: 7 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: selected.has(g.id) ? t.tint : t.sub } }, (selected.has(g.id) ? "✓ " : "○ ") + "第 " + (i + 1) + " 组 · " + (g.archive || []).length + " 条待归档"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: g.confidence === "high" ? "#4f7b61" : t.fog } }, g.confidence === "high" ? "高置信" : "请复核")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: g.confidence === "high" ? "#4f7b61" : t.fog } }, g.matchKind === "exact_all_time" ? "全文相同" : (g.confidence === "high" ? "高置信" : "请复核"))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#4f7b61", marginBottom: 4 } }, "保留信息最多的一条"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, g.keep.text),
           h("div", { style: { borderTop: "1px dashed " + t.line, marginTop: 8, paddingTop: 7, fontFamily: F_BODY, fontSize: 11, color: "#a06455" } }, "软归档"),
@@ -5413,6 +5413,18 @@ function MemoryLib({
   // 落灰记忆数量（和 app.js purgeWithered 同判定）：非置顶/非开环/情绪弱(a≤1)/120天没被想起/几乎没被召回(hits<2)
   const witheredCount = (entries || []).filter(e => { const now = Date.now(); return e && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && (e.a || 0) <= 1 && (e.hits || 0) < 2 && now - (Math.max(e.ts || 0, e.lastHit || 0) || now) >= 120 * 86400000; }).length;
   const openTotal = (entries || []).filter(e => e && e.open && (e.surfaceState || "active") === "active").length;
+  const cleanupSummary = (() => {
+    const rows = entries || [];
+    return {
+      total: rows.length,
+      active: rows.filter(e => e && !e.archived && (e.surfaceState || "active") === "active").length,
+      open: rows.filter(e => e && !e.archived && e.open && (e.surfaceState || "active") === "active").length,
+      superseded: rows.filter(e => e && (e.surfaceState || "active") === "superseded").length,
+      duplicateArchived: rows.filter(e => e && e.archived && String(e.archivedBatch || "").startsWith("dup_")).length,
+      otherArchived: rows.filter(e => e && e.archived && !String(e.archivedBatch || "").startsWith("dup_")).length,
+      routine: rows.filter(e => e && e.routineOpenDowngradedTs).length
+    };
+  })();
   const [filter, setFilter] = useState(focusChar ? focusChar.id : "all");
   const [editing, setEditing] = useState(null); // "new" | entry
   const [cfgOpen, setCfgOpen] = useState(false); // 召回设置弹层
@@ -5489,6 +5501,11 @@ function MemoryLib({
   }, h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
     h("span", null, "🔬 诊断与审计 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: 10.5 } }, diagOpen ? "收起 ▾" : "展开 ▸")),
   diagOpen ? h(React.Fragment, null,
+  h("div", { className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 8 } }, "记忆清理总览"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "7px 12px" } },
+      [["总记忆", cleanupSummary.total], ["活跃可召回", cleanupSummary.active], ["未了开环", cleanupSummary.open], ["已被替代", cleanupSummary.superseded], ["重复软归档", cleanupSummary.duplicateArchived], ["其他归档", cleanupSummary.otherArchived], ["生活流水（已降级）", cleanupSummary.routine]].map(([label, value]) => h("div", { key: label, className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, h("span", null, label), h("span", { style: { color: t.ink, fontWeight: 700 } }, String(value))))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 8 } }, "数字只做盘点，不会自动删除或改写任何记忆。")),
   window.ShadowReview ? h("button", {
     onClick: async () => { try { await window.ShadowReview.download(characters, typeof APP_VERSION !== "undefined" ? APP_VERSION : null); window.__toast && window.__toast("转正评审包已导出：只含影子数字与状态"); } catch (e) { window.__toast && window.__toast("评审包导出失败：" + (e.message || e)); } },
     className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60",

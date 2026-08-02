@@ -44,3 +44,19 @@ test("旧库扫描只给自动普通记忆分组，并保留信息最完整的�
   assert.equal(groups[0].keep.id, "rich");
   assert.deepEqual(groups[0].archive.map(x => x.id), ["short"]);
 });
+
+test("跨很久的完全相同自动记忆仍进候选，但不同角色和受保护条目不混入", () => {
+  const old = now - 400 * 86400000;
+  const rows = [
+    row("Lisa 和沈屿白第一次一起吃了关东煮。", { id: "old", ts: old }),
+    row("Lisa和沈屿白第一次一起吃了关东煮", { id: "new", ts: now }),
+    row("Lisa和沈屿白第一次一起吃了关东煮", { id: "other-role", charIds: ["b"], ts: now }),
+    row("Lisa和沈屿白第一次一起吃了关东煮", { id: "pinned", pinned: true, ts: now }),
+    row("Lisa和沈屿白第一次一起吃了关东煮", { id: "manual", source: "manual", ts: now })
+  ];
+  const groups = Gate.scan(rows);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].matchKind, "exact_all_time");
+  assert.equal(groups[0].confidence, "high");
+  assert.deepEqual(new Set([groups[0].keep.id, ...groups[0].archive.map(x => x.id)]), new Set(["old", "new"]));
+});
