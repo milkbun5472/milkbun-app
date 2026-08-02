@@ -414,9 +414,11 @@ function dmg(attacker, defender, name, opts){
   let reduce = 1;
   if (opts.defended){ reduce = 1 - opts.defended.reduce; }
   const showPow = pow * eff * stab * mult;   // 战时显示威力（RocoDiviner口径）
-  const single = Math.round(Math.floor(atkStat * showPow * (37/41)) / defStat) * reduce;
+  const singleRaw = Math.round(Math.floor(atkStat * showPow * (37/41)) / defStat);
+  const single = singleRaw * reduce;
   const total = Math.floor(single) * hits;
-  return {total, hits, eff, stab, showPow: Math.round(showPow)};
+  const rawTotal = singleRaw * hits;
+  return {total, rawTotal, hits, eff, stab, showPow: Math.round(showPow)};
 }
 function applyDamage(side, oppSide, target, amount, srcName){
   if (target.trait==='刺肤' && amount>0){
@@ -572,7 +574,7 @@ function execAction(side, oppSide, action, oppAction){
     if (defended===SK['冰墙']){
       if (p.types.includes('冰')) log(`  ❄ 冰墙应对：${p.name} 是冰系，免疫冻结`);
       else { p.freeze=Math.min(10,p.freeze+2); o2cost(p, oppSide, 2); log(`  ❄ 冰墙应对：${p.name} +2冻结+2能耗税`); if(p.hp>effMax(p)) p.hp=effMax(p); } }
-    if (defended===SK['无畏之心']){ const blocked=Math.floor(r.total/( (1-defended.reduce)||1 )*(defended.reduce)); const heal=Math.min(effMax(o)-o.hp, Math.floor(r.total*4)); /*简化：按减免量回血*/ const h=Math.min(effMax(o)-o.hp, blocked); o.hp+=Math.max(0,h); log(`  💙 无畏之心：减免伤害转为回血+${Math.max(0,h)}`); }
+    if (defended===SK['无畏之心']){ const blocked=Math.max(0,(r.rawTotal||0)-r.total); const h=Math.min(effMax(o)-o.hp, blocked); o.hp+=Math.max(0,h); log(`  💙 无畏之心：减免伤害转为回血+${Math.max(0,h)}`); }
     if (defended===SK['有效预防']){ o.prioNext=1; log(`  ⚡ 有效预防：${o.name} 下次行动先手+1`); }
     if (defended===SK['嗜痛']){ o.atkMult+=0.4; log(`  🗡 嗜痛：${o.name} 双攻+40%（现×${o.atkMult.toFixed(1)}）`); }
     if (defended===SK['吓退']){
