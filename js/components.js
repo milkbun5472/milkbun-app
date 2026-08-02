@@ -2906,6 +2906,7 @@ function ChatThread({
   const [specialKind, setSpecialKind] = useState(null); // photo
   const [specialText, setSpecialText] = useState("");
   const [specialImg, setSpecialImg] = useState("");
+  const [photoSendMode, setPhotoSendMode] = useState("real"); // real | describe
   const photoFileRef = useRef(null);
   const [descView, setDescView] = useState(null);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -2938,6 +2939,7 @@ function ChatThread({
       setSpecialKind(k);
       setSpecialText("");
       setSpecialImg("");
+      setPhotoSendMode("real");
       setPanelOpen(false);
     } else if (k === "pat") {
       // 拍一拍：交给 app 侧 onPat（追加消息 + 触发角色真反应）；没接就退回只显示一行
@@ -2982,8 +2984,12 @@ function ChatThread({
   };
   const submitSpecial = async () => {
     const v = specialText.trim();
-    if (specialKind === "photo" && !specialImg) {
+    if (specialKind === "photo" && photoSendMode === "real" && !specialImg) {
       toast && toast("先从相册选一张，或直接拍一张");
+      return;
+    }
+    if (specialKind === "photo" && photoSendMode === "describe" && !v) {
+      toast && toast("写一句照片里有什么，角色才看得见");
       return;
     }
     if (specialKind !== "photo" && !v) {
@@ -2995,11 +3001,13 @@ function ChatThread({
       kind: "location",
       place: v,
       content: "[位置] " + v
-    });else if (specialKind === "photo") {
+    });else if (specialKind === "photo" && photoSendMode === "describe") {
+      sendRich({ role: "user", kind: "photo", desc: v, photoMode: "describe", content: "[照片] " + v });
+    }else if (specialKind === "photo") {
       let imageRef = specialImg;
       try { if (typeof imgToVault === "function") imageRef = await imgToVault(specialImg); } catch (e) {}
       await rememberRealPhoto(imageRef, v, "private-chat");
-      sendRich({ role: "user", kind: "photo", imageRef, desc: v, content: v ? "[照片] " + v : "[照片]" });
+      sendRich({ role: "user", kind: "photo", imageRef, desc: v, photoMode: "real", content: v ? "[照片] " + v : "[照片]" });
     }
     setSpecialImg("");
     setSpecialKind(null);
@@ -3654,14 +3662,20 @@ function ChatThread({
     size: 18,
     color: t.ink
   }))), specialKind === "photo" ? h("div", null,
+    h("div", { className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
+      [["real", "发送真照片"], ["describe", "只发文字描述"]].map(([id, label]) => h("button", {
+        key: id, onClick: () => setPhotoSendMode(id), className: "flex-1 active:opacity-75",
+        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, color: photoSendMode === id ? t.bg2 : t.fog, background: photoSendMode === id ? t.ink : "transparent" }
+      }, label))),
     h("input", { ref: photoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => {
       const f = e.target.files && e.target.files[0];
       if (f) resizeImageFile(f, 1600, 0.86).then(setSpecialImg).catch(() => toast && toast("这张照片没能读出来，换一张试试"));
       e.target.value = "";
     } }),
-    h("button", { onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
+    photoSendMode === "real" && h("button", { onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
       specialImg ? h("img", { src: specialImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
-    h("input", { value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: "可以顺手说一句（选填）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink, border: `1px solid ${t.line}` } })
+    h("input", { value: specialText, onChange: e => setSpecialText(e.target.value), placeholder: photoSendMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+    photoSendMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "角色只会收到你的文字描述；不会读取相册，也不会上传真实照片。")
   ) : h("input", {
     value: specialText,
     onChange: e => setSpecialText(e.target.value),
@@ -6028,6 +6042,7 @@ function GroupThread({
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoText, setPhotoText] = useState("");
   const [groupPhotoImg, setGroupPhotoImg] = useState("");
+  const [groupPhotoMode, setGroupPhotoMode] = useState("real"); // real | describe
   const groupPhotoFileRef = useRef(null);
   const [callPick, setCallPick] = useState(null); // "voice"|"video" 选打给谁
   const [callSel, setCallSel] = useState([]); // 多选成员 id
@@ -6090,7 +6105,7 @@ function GroupThread({
   const onPanelTap = k => {
     setPanel(false);
     if (k === "location") setGeoOpen(true);
-    else if (k === "photo") { setPhotoText(""); setGroupPhotoImg(""); setPhotoOpen(true); }
+    else if (k === "photo") { setPhotoText(""); setGroupPhotoImg(""); setGroupPhotoMode("real"); setPhotoOpen(true); }
     else if (k === "voicemsg") setVoiceMsgOpen(true);
     else if (k === "voice" || k === "video") { setCallSel([]); setCallPick(k); }
     else if (k === "calllog") setCallLogOpen(true);
@@ -6103,11 +6118,17 @@ function GroupThread({
   };
   const submitPhoto = async () => {
     const v = photoText.trim();
+    if (groupPhotoMode === "describe") {
+      if (!v) { toast && toast("写一句照片里有什么，大家才看得见"); return; }
+      sendRich({ role: "user", kind: "photo", desc: v, photoMode: "describe", content: "[照片] " + v });
+      setPhotoOpen(false);
+      return;
+    }
     if (!groupPhotoImg) { toast && toast("先从相册选一张，或直接拍一张"); return; }
     let imageRef = groupPhotoImg;
     try { if (typeof imgToVault === "function") imageRef = await imgToVault(groupPhotoImg); } catch (e) {}
     await rememberRealPhoto(imageRef, v, "group-chat");
-    sendRich({ role: "user", kind: "photo", imageRef, desc: v, content: v ? "[照片] " + v : "[照片]" });
+    sendRich({ role: "user", kind: "photo", imageRef, desc: v, photoMode: "real", content: v ? "[照片] " + v : "[照片]" });
     setGroupPhotoImg("");
     setPhotoOpen(false);
   };
@@ -6652,14 +6673,20 @@ function GroupThread({
   }, "发送照片"), h("button", {
     onClick: submitPhoto
   }, h(ISend, { size: 18, color: t.ink }))),
+    h("div", { className: "flex gap-2 mb-3", style: { background: t.bg, borderRadius: 11, padding: 4 } },
+      [["real", "发送真照片"], ["describe", "只发文字描述"]].map(([id, label]) => h("button", {
+        key: id, onClick: () => setGroupPhotoMode(id), className: "flex-1 active:opacity-75",
+        style: { padding: "8px 5px", borderRadius: 8, fontFamily: F_BODY, fontSize: 12.5, color: groupPhotoMode === id ? t.bg2 : t.fog, background: groupPhotoMode === id ? t.ink : "transparent" }
+      }, label))),
     h("input", { ref: groupPhotoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => {
       const f = e.target.files && e.target.files[0];
       if (f) resizeImageFile(f, 1600, 0.86).then(setGroupPhotoImg).catch(() => toast && toast("这张照片没能读出来，换一张试试"));
       e.target.value = "";
     } }),
-    h("button", { onClick: () => groupPhotoFileRef.current && groupPhotoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
+    groupPhotoMode === "real" && h("button", { onClick: () => groupPhotoFileRef.current && groupPhotoFileRef.current.click(), className: "w-full active:opacity-75", style: { minHeight: 150, borderRadius: 12, overflow: "hidden", background: t.bg, border: `1px dashed ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 } },
       groupPhotoImg ? h("img", { src: groupPhotoImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
-    h("input", { value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: "可以顺手说一句（选填）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line } })
+    h("input", { value: photoText, onChange: e => setPhotoText(e.target.value), placeholder: groupPhotoMode === "real" ? "可以顺手说一句（选填）" : "描述照片里有什么（必填，不会上传图片）", className: "w-full outline-none px-4 py-3 rounded-xl", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: "1px solid " + t.line } }),
+    groupPhotoMode === "describe" && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 7 } }, "群成员只会收到文字描述；不会读取或上传真实照片。")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: characters, onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: characters, archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder("g_" + group.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); setTimeout(() => locateMsgIn(ref.current, i), 130); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), senderName: meName, ownerKey: profile && (profile.id || profile.name), toast })
   ), callPick && h(Sheet, {
