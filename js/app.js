@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.45";
+const APP_VERSION = "v51.46";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1817,6 +1817,7 @@ function App() {
     toast("已把 " + ids.size + " 条日常安排/普通未来事实降为普通记忆（正文都保留）");
   };
   const scanDuplicateMemories = () => window.MemoryNearDuplicate ? window.MemoryNearDuplicate.scan(memLibRef.current || []) : [];
+  const scanEventMergeMemories = () => window.MemoryEventMerge ? window.MemoryEventMerge.scan(memLibRef.current || []) : [];
   const archiveDuplicateGroups = groups => {
     const chosen = Array.isArray(groups) ? groups : [];
     const byId = new Map();
@@ -1828,6 +1829,14 @@ function App() {
       duplicateOf: byId.get(String(e.id)), duplicateArchivedTs: now
     } : e));
     toast("已软归档 " + byId.size + " 条重复记忆 · 正文仍在，可从归档恢复");
+    return byId.size;
+  };
+  const archiveEventMergeGroups = groups => {
+    const chosen=Array.isArray(groups)?groups:[], byId=new Map(), now=Date.now();
+    chosen.forEach((g,index)=>{const keep=String(g.keep&&g.keep.id||"");const batch="eventmerge_"+now+"_"+index+"_"+keep;(g.archive||[]).forEach(row=>byId.set(String(row.id),{keep,batch}));});
+    if(!byId.size){toast("还没有勾选要收拢的事件组");return 0;}
+    saveMemLib(memLibRef.current.map(e=>{const hit=byId.get(String(e&&e.id));return hit?{...e,archived:true,archivedBatch:hit.batch,archivedTs:now,consolidatedInto:hit.keep,consolidationKind:"event_progression"}:e;}));
+    toast("已把 "+byId.size+" 条事件过程软归档 · 结果条继续召回，全文仍可恢复");
     return byId.size;
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
@@ -1917,7 +1926,7 @@ function App() {
     const batches = batchId ? new Set([batchId]) : new Set(memLibRef.current.filter(e => e.archived).map(e => e.archivedBatch));
     if (!batches.size) { toast("没有可恢复的归档记忆"); return; }
     const kept = memLibRef.current.filter(e => !(e.source === "monthly" && batches.has(refineBatchOf(e))));
-    const restored = kept.map(e => (e.archived && batches.has(e.archivedBatch)) ? { ...e, archived: false, archivedBatch: undefined, archivedTs: undefined } : e);
+    const restored = kept.map(e => (e.archived && batches.has(e.archivedBatch)) ? { ...e, archived: false, archivedBatch: undefined, archivedTs: undefined, duplicateOf: undefined, duplicateArchivedTs: undefined, consolidatedInto: undefined, consolidationKind: undefined } : e);
     saveMemLib(restored);
     toast("已恢复归档记忆、撤除对应精炼摘要");
   };
@@ -9620,6 +9629,8 @@ function App() {
     routineOpenCount: routineOpenCandidates().length,
     onScanDuplicates: scanDuplicateMemories,
     onArchiveDuplicateGroups: archiveDuplicateGroups,
+    onScanEventMerges: scanEventMergeMemories,
+    onArchiveEventMergeGroups: archiveEventMergeGroups,
     onRefine: refineOldMemories,
     onRestoreArchived: restoreArchived,
     onBulkImport: bulkImportMemories,

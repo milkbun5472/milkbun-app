@@ -5326,8 +5326,9 @@ function InnerLifeCDiagnosticSheet({ characters, onClose }) {
     h("button", { onClick: load, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 9, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "刷新诊断"));
 }
 
-function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose }) {
+function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose, mode }) {
   const t = useTheme();
+  const eventMode = mode === "event";
   const [selected, setSelected] = useState(() => new Set());
   const toggle = id => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const picked = (groups || []).filter(g => selected.has(g.id));
@@ -5335,8 +5336,8 @@ function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose }) {
     h("div", { className: "w-full rounded-t-3xl px-5 pt-5 pb-8", style: { background: t.bg, maxHeight: "88vh", overflowY: "auto" }, onClick: e => e.stopPropagation() },
       h("div", { className: "flex items-start justify-between gap-3", style: { marginBottom: 10 } },
         h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "重复记忆预览"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 3 } }, "同角色跨时间完全相同，或 72 小时内高度相似。默认一组都不选；确认后只软归档重复版本，不删除正文。")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, eventMode ? "同一事件进展预览" : "重复记忆预览"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 3 } }, eventMode ? "只找同角色七天内的“计划/准备 → 已完成/取消/实际结果”。默认不选；确认后结果继续召回，过程只软归档。" : "同角色跨时间完全相同，或 72 小时内高度相似。默认一组都不选；确认后只软归档重复版本，不删除正文。")),
         h("button", { onClick: onClose, style: { color: t.fog, fontSize: 20 } }, "×")),
       (groups || []).length === 0 ? h("div", { style: { padding: "28px 8px", textAlign: "center", fontFamily: F_BODY, color: t.fog } }, "没有找到高置信重复组") : h(React.Fragment, null,
         h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
@@ -5345,12 +5346,12 @@ function MemoryDuplicatePreviewSheet({ groups, onConfirm, onClose }) {
         (groups || []).map((g, i) => h("button", { key: g.id, onClick: () => toggle(g.id), className: "w-full text-left rounded-2xl p-3 mb-2 active:opacity-75", style: { background: t.bg2, border: "1px solid " + (selected.has(g.id) ? t.tint : t.line) } },
           h("div", { className: "flex items-center justify-between", style: { marginBottom: 7 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: selected.has(g.id) ? t.tint : t.sub } }, (selected.has(g.id) ? "✓ " : "○ ") + "第 " + (i + 1) + " 组 · " + (g.archive || []).length + " 条待归档"),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: g.confidence === "high" ? "#4f7b61" : t.fog } }, g.matchKind === "exact_all_time" ? "全文相同" : (g.confidence === "high" ? "高置信" : "请复核"))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#4f7b61", marginBottom: 4 } }, "保留信息最多的一条"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: g.confidence === "high" ? "#4f7b61" : t.fog } }, eventMode ? "进展候选 · 请复核" : (g.matchKind === "exact_all_time" ? "全文相同" : (g.confidence === "high" ? "高置信" : "请复核")))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#4f7b61", marginBottom: 4 } }, eventMode ? "保留结果条继续召回" : "保留信息最多的一条"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, g.keep.text),
-          h("div", { style: { borderTop: "1px dashed " + t.line, marginTop: 8, paddingTop: 7, fontFamily: F_BODY, fontSize: 11, color: "#a06455" } }, "软归档"),
+          h("div", { style: { borderTop: "1px dashed " + t.line, marginTop: 8, paddingTop: 7, fontFamily: F_BODY, fontSize: 11, color: "#a06455" } }, eventMode ? "事件过程 · 确认后软归档" : "软归档"),
           (g.archive || []).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, "· " + x.text)))),
-        h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; if (confirm("确认软归档已勾选的 " + picked.length + " 组？不会删除正文，可从已精炼归档区恢复。")) { onConfirm(picked); onClose(); } }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, picked.length ? "确认软归档 " + picked.length + " 组" : "先勾选要处理的组"))));
+        h("button", { disabled: !picked.length, onClick: () => { if (!picked.length) return; if (confirm((eventMode ? "确认收拢已勾选的 " : "确认软归档已勾选的 ") + picked.length + " 组？不会删除正文，可从已精炼归档区恢复。")) { onConfirm(picked); onClose(); } }, className: "w-full rounded-xl py-3 mt-2 disabled:opacity-35", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, picked.length ? (eventMode ? "确认收拢 " : "确认软归档 ") + picked.length + " 组" : "先勾选要处理的组"))));
 }
 
 function MemoryLib({
@@ -5373,6 +5374,8 @@ function MemoryLib({
   routineOpenCount,
   onScanDuplicates,
   onArchiveDuplicateGroups,
+  onScanEventMerges,
+  onArchiveEventMergeGroups,
   onRefine,
   onRestoreArchived,
   onBulkImport,
@@ -5398,6 +5401,7 @@ function MemoryLib({
   const [somaticOpen, setSomaticOpen] = useState(false);
   const [diagOpen, setDiagOpen] = useState(false); // 工程仪表抽屉：默认合拢，别压着记忆
   const [duplicatePreview, setDuplicatePreview] = useState(null);
+  const [eventMergePreview, setEventMergePreview] = useState(null);
   const [corrections, setCorrections] = useState([]);
   const [correctionOpen, setCorrectionOpen] = useState(null);
   const [correctionPicking, setCorrectionPicking] = useState(null); // null=关闭；{oldId:null|string}=正在挑旧→新
@@ -5421,7 +5425,8 @@ function MemoryLib({
       open: rows.filter(e => e && !e.archived && e.open && (e.surfaceState || "active") === "active").length,
       superseded: rows.filter(e => e && (e.surfaceState || "active") === "superseded").length,
       duplicateArchived: rows.filter(e => e && e.archived && String(e.archivedBatch || "").startsWith("dup_")).length,
-      otherArchived: rows.filter(e => e && e.archived && !String(e.archivedBatch || "").startsWith("dup_")).length,
+      eventArchived: rows.filter(e => e && e.archived && String(e.archivedBatch || "").startsWith("eventmerge_")).length,
+      otherArchived: rows.filter(e => { const b=String(e&&e.archivedBatch||""); return e&&e.archived&&!b.startsWith("dup_")&&!b.startsWith("eventmerge_"); }).length,
       routine: rows.filter(e => e && e.routineOpenDowngradedTs).length
     };
   })();
@@ -5496,6 +5501,7 @@ function MemoryLib({
   aEmoOpen ? h(InnerLifeADiagnosticSheet, { characters, onClose: () => setAEmoOpen(false) }) : null,
   somaticOpen ? h(SomaticDiagnosticSheet, { characters, onClose: () => setSomaticOpen(false) }) : null,
   duplicatePreview ? h(MemoryDuplicatePreviewSheet, { groups: duplicatePreview, onConfirm: onArchiveDuplicateGroups, onClose: () => setDuplicatePreview(null) }) : null,
+  eventMergePreview ? h(MemoryDuplicatePreviewSheet, { mode: "event", groups: eventMergePreview, onConfirm: onArchiveEventMergeGroups, onClose: () => setEventMergePreview(null) }) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onDecided: () => setCorrections(p => p.filter(x => x.id !== correctionOpen.id)), onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2"
   }, h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
@@ -5504,7 +5510,7 @@ function MemoryLib({
   h("div", { className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginBottom: 8 } }, "记忆清理总览"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: "7px 12px" } },
-      [["总记忆", cleanupSummary.total], ["活跃可召回", cleanupSummary.active], ["未了开环", cleanupSummary.open], ["已被替代", cleanupSummary.superseded], ["重复软归档", cleanupSummary.duplicateArchived], ["其他归档", cleanupSummary.otherArchived], ["生活流水（已降级）", cleanupSummary.routine]].map(([label, value]) => h("div", { key: label, className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, h("span", null, label), h("span", { style: { color: t.ink, fontWeight: 700 } }, String(value))))),
+      [["总记忆", cleanupSummary.total], ["活跃可召回", cleanupSummary.active], ["未了开环", cleanupSummary.open], ["已被替代", cleanupSummary.superseded], ["重复软归档", cleanupSummary.duplicateArchived], ["事件过程归档", cleanupSummary.eventArchived], ["其他归档", cleanupSummary.otherArchived], ["生活流水（已降级）", cleanupSummary.routine]].map(([label, value]) => h("div", { key: label, className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, h("span", null, label), h("span", { style: { color: t.ink, fontWeight: 700 } }, String(value))))),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 8 } }, "数字只做盘点，不会自动删除或改写任何记忆。")),
   window.ShadowReview ? h("button", {
     onClick: async () => { try { await window.ShadowReview.download(characters, typeof APP_VERSION !== "undefined" ? APP_VERSION : null); window.__toast && window.__toast("转正评审包已导出：只含影子数字与状态"); } catch (e) { window.__toast && window.__toast("评审包导出失败：" + (e.message || e)); } },
@@ -5512,6 +5518,7 @@ function MemoryLib({
     style: { border: "1px solid " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 }
   }, "📋 一键导出 Shadow 转正评审包") : null,
   onScanDuplicates ? h("button", { onClick: () => setDuplicatePreview(onScanDuplicates()), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧹 扫描重复记忆 · 先预览再软归档") : null,
+  onScanEventMerges ? h("button", { onClick: () => setEventMergePreview(onScanEventMerges()), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 收拢同一事件进展 · 先预览再确认") : null,
   h("button", { onClick: () => setAEmoOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫀 A 情绪统一 · 查看纯影子诊断"),
   h("button", { onClick: () => setSomaticOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🫧 五感系统 · 查看全角色纯影子诊断"),
   h("button", { onClick: () => setInnerLifeOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🌙 E 余温与潮汐 · 查看纯影子诊断"), h("button", { onClick: () => setBAxesOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "🧵 B 关系轴 · 查看纯影子诊断"), h("button", { onClick: () => setCSleepOpen(true), className: "w-full rounded-xl py-2.5 mb-2 active:opacity-60", style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 12.5 } }, "😴 C 睡眠与发声闸 · 查看纯影子诊断"), onAudit ? h("button", {
