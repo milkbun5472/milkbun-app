@@ -44,7 +44,7 @@
           dump[k] = localStorage.getItem(k);
         });
       // 已迁进 IDB 文字库的键(同人文等)不在 localStorage，从内存镜像补进存档，否则云端备份会漏掉。
-      try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null) dump[k] = v; }); } catch (e) {}
+      try { if (window.__txtMirror) window.__txtMirror.forEach((v, k) => { if (v != null && !(tableMemoryMode() && k === "x_memLib")) dump[k] = v; }); } catch (e) {}
       return dump;
     },
 
@@ -87,7 +87,7 @@
       suspend = true;
       try {
         // 行表权威开启后，旧 saves blob 无权再覆盖/清空本机记忆镜像。
-        const keepMemLib = tableMemoryMode() ? localStorage.getItem("x_memLib") : null;
+        const keepMemLib = tableMemoryMode() && typeof storedJSONText === "function" ? storedJSONText("x_memLib") : (tableMemoryMode() ? localStorage.getItem("x_memLib") : null);
         // 世界书防呆（拉云→本地方向）：云端这份世界书是空的、而本机还有词条 → 保留本机，绝不让空覆盖非空。
         const localLore = localStorage.getItem("x_loreEntries");
         const keepLore = (loreNonEmpty(localLore) && !loreNonEmpty(data && data.x_loreEntries)) ? localLore : null;
@@ -95,6 +95,8 @@
           .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
           .forEach((k) => localStorage.removeItem(k));
         Object.entries(data || {}).forEach(([k, v]) => {
+          // memories 行表已经权威时，旧 saves 里的冻结 x_memLib 只供灾备，不能覆盖当前离线镜像。
+          if (tableMemoryMode() && k === "x_memLib") return;
           // 文字库键(同人文等)：写进 IDB + 内存镜像，绝不进 localStorage(否则又占回 5MB)。apply 后调用方会 reload，hydrateTxtVault 再兜一遍。
           if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
             try { window.__txtMirror && window.__txtMirror.set(k, v); if (typeof idbTxtPut === "function") idbTxtPut(k, v).catch(() => {}); } catch (e) {}
@@ -102,7 +104,11 @@
           }
           if (!(tableMemoryMode() && k === "x_memLib")) localStorage.setItem(k, v);
         });
-        if (tableMemoryMode() && keepMemLib != null) localStorage.setItem("x_memLib", keepMemLib);
+        if (tableMemoryMode() && keepMemLib != null) {
+          if (typeof isIdbTextKey === "function" && isIdbTextKey("x_memLib")) {
+            try { window.__txtMirror && window.__txtMirror.set("x_memLib", keepMemLib); if (typeof idbTxtPut === "function") idbTxtPut("x_memLib", keepMemLib).catch(() => {}); } catch (e) {}
+          } else localStorage.setItem("x_memLib", keepMemLib);
+        }
         if (keepLore != null) { localStorage.setItem("x_loreEntries", keepLore); try { console.warn("[Cloud] 世界书防呆：云端为空，保留本机词条，未被覆盖"); } catch (e) {} }
       } finally {
         suspend = false;

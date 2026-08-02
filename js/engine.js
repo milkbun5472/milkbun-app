@@ -1396,10 +1396,11 @@ function isImgRef(v) { v = String(v || ""); return v.slice(0, 5) === "data:" || 
 function _imgCache() { if (typeof window === "undefined") return new Map(); return window.__imgUrlCache || (window.__imgUrlCache = new Map()); }
 async function hydrateImgVault() { try { const entries = await idbVaultEntries(); const c = _imgCache(); entries.forEach(([k, blob]) => { if (k && blob && !c.has(k)) { try { c.set(k, URL.createObjectURL(blob)); } catch (e) {} } }); return entries.length; } catch (e) { return 0; } }
 // ── 文字库（IDB）：把大块文字键搬出 localStorage(5MB)、存进 IndexedDB（她 2026-07-25 本地满）。──
-//   先只搬同人文(x_fanfic_*)：自成一体、只在同人文 App 里读、不碰核心聊天回路，最安全。
+//   同人文 + 记忆离线镜像搬进来。x_memLib 在 memories 行表转正后只是离线镜像；
+//   开机仍先 hydrate 完再挂载，所以同步读路径不变，又不再挤占 localStorage 的 5MB。
 //   机制同图库：开机 hydrateTxtVault() 把 IDB 里的值一次性灌进内存镜像 __txtMirror；此后 loadJSON/saveJSON
 //   对这些键读写镜像(同步)+异步落 IDB，绝不进 localStorage。云端同步靠 collect 补镜像、apply 回写 IDB。
-const IDB_TEXT_PREFIXES = ["x_fanfic_"];
+const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib"];
 function isIdbTextKey(k) { return typeof k === "string" && IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0); }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
 function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
@@ -1422,6 +1423,18 @@ async function hydrateTxtVault() {
     }
     return mir.size;
   } catch (e) { return 0; }
+}
+// 取得某个 JSON 键的原始字符串。审计/导出需要原文做逐字指纹，不能只走解析后的 loadJSON。
+// IDB 键优先读已经在挂载前灌好的镜像；迁移尚未完成时回落 localStorage。
+function storedJSONText(k) {
+  try {
+    if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
+      const mv = _txtMirror().get(k);
+      if (mv != null) return String(mv);
+    }
+    const v = localStorage.getItem(k);
+    return v == null ? null : String(v);
+  } catch (e) { return null; }
 }
 // 把一张 base64/dataURL 存进图库，返回 iv_ 键（同图幂等：同 hash 复用）。非 data: 的（http/已是 iv_）原样返回。
 async function imgToVault(dataUrl) { if (!dataUrl || typeof dataUrl !== "string") return dataUrl; if (dataUrl.indexOf("iv_") === 0) return dataUrl; if (dataUrl.slice(0, 5) !== "data:") return dataUrl; const key = "iv_" + imgVaultHash(dataUrl); const c = _imgCache(); if (!c.has(key)) { const blob = dataUrlToBlob(dataUrl); if (!blob) return dataUrl; try { await idbVaultPut(key, blob); c.set(key, URL.createObjectURL(blob)); } catch (e) { return dataUrl; } } return key; }
@@ -2255,8 +2268,19 @@ function saveJSON(k, v) {
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const s = JSON.stringify(v);
       _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
-      try { idbTxtPut(k, s).catch(e => console.error("idbTxtPut failed:", k, e)); } catch (e) {}  // 异步落 IDB
-      try { localStorage.removeItem(k); } catch (e) {} // 顺手清掉可能残留的 localStorage 旧副本（腾 5MB）
+      if (k === "x_memLib") {
+        // 记忆是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
+        // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
+        try { localStorage.setItem(k, s); } catch (e) {}
+        try {
+          idbTxtPut(k, s).then(() => idbTxtGet(k)).then(back => {
+            if (back === s && localStorage.getItem(k) === s) localStorage.removeItem(k);
+          }).catch(e => console.error("idbTxtPut failed:", k, e));
+        } catch (e) {}
+      } else {
+        try { idbTxtPut(k, s).catch(e => console.error("idbTxtPut failed:", k, e)); } catch (e) {}  // 异步落 IDB
+        try { localStorage.removeItem(k); } catch (e) {} // 顺手清掉可能残留的 localStorage 旧副本（腾 5MB）
+      }
       return true;
     }
     localStorage.setItem(k, JSON.stringify(v));

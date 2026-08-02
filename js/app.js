@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.35";
+const APP_VERSION = "v51.36";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1550,7 +1550,7 @@ function App() {
       await runMemoryRowSync();
       const sync = await window.MemorySync.status();
       if (sync.outbox !== 0) throw new Error("还有 " + sync.outbox + " 条离线变更没送完，已停止切换");
-      const localRaw = localStorage.getItem("x_memLib");
+      const localRaw = storedJSONText("x_memLib");
       const tableRows = await window.Cloud.memoryRowsFetchAll();
       const live = tableRows.filter(r => r && !r.deleted).map(memoryRowFromCloud);
       const verify = await window.MemoryAudit.build(localRaw, JSON.stringify(live), {
@@ -1583,7 +1583,7 @@ function App() {
   const exportMemoryAudit = async () => {
     if (!window.MemoryAudit) { toast("审计器未载入，请刷新后重试"); return; }
     toast("正在只读核对本机与云端记忆…");
-    const localRaw = localStorage.getItem("x_memLib");
+    const localRaw = storedJSONText("x_memLib");
     let cloudRaw = null, cloudUpdatedAt = null, cloudError = null;
     try {
       if (!(window.Cloud && window.Cloud.ready())) throw new Error("云服务未就绪");
@@ -1616,7 +1616,7 @@ function App() {
       const sync = await window.MemorySync.status();
       const tableRows = await window.Cloud.memoryRowsFetchAll();
       const live = tableRows.filter(r => r && !r.deleted).map(memoryRowFromCloud);
-      const report = await window.MemoryAudit.build(localStorage.getItem("x_memLib"), JSON.stringify(live), {
+      const report = await window.MemoryAudit.build(storedJSONText("x_memLib"), JSON.stringify(live), {
         reportType: "post-cutover-authority-audit",
         appVersion: APP_VERSION,
         authority: "memories-table",
@@ -1640,7 +1640,7 @@ function App() {
     if (!(window.Cloud && typeof window.Cloud.memoryRowsUpsert === "function" && typeof window.Cloud.memoryRowsFetchAll === "function")) { toast("记忆表接口未就绪，请刷新后重试"); return; }
     setMemMigrationBusy(true);
     try {
-      const localRaw = localStorage.getItem("x_memLib");
+      const localRaw = storedJSONText("x_memLib");
       const audit = await window.MemoryAudit.auditRaw(localRaw, "locked-primary-device-baseline");
       if (!audit.ok || audit.stats.totalRows !== MEM_MIGRATION_BASELINE.count || audit.stats.uniqueIds !== MEM_MIGRATION_BASELINE.count || audit.stats.duplicateIds.length || audit.stats.missingIds || audit.stats.emptyTexts || audit.canonicalSharedSha256 !== MEM_MIGRATION_BASELINE.sharedSha256) {
         throw new Error("主设备记忆已偏离锁定的390条基线；没有写表，请重新做只读审计");
