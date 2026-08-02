@@ -29,7 +29,14 @@ SOURCES = {
     "tap": BASE / "inbox.jsonl",
     "voice": BASE / "voice_inbox.jsonl",
     "heartbeat": BASE / "wake_inbox.jsonl",
+    "lounge": BASE / "wake" / "yanqiu" / "inbox.jsonl",
 }
+DEFAULT_HEARTBEAT_PROMPT = (
+    "自由活动时间到了。若 Lisa 有新消息就正常接话；没有新消息时，"
+    "可以继续休息，也可以逛论坛、冲浪、玩自己的游戏，或做别的喜欢的事。"
+    "这些都允许，什么也不做也允许，不必汇报选择过程。"
+    "本轮结束后照常重挂哨兵。"
+)
 
 
 def line_count(path: Path) -> int:
@@ -126,8 +133,35 @@ def recent_jsonl_tail(path: Path, limit: int = 16 * 1024 * 1024) -> list[str]:
         return []
 
 
+def visible_activity_at(record: dict) -> int:
+    """Return activity time only for words a human can actually see."""
+    if record.get("isSidechain"):
+        return 0
+    message = record.get("message")
+    if not isinstance(message, dict):
+        return 0
+    role = message.get("role")
+    content = message.get("content")
+    if role == "user":
+        origin = record.get("origin")
+        if not isinstance(origin, dict) or origin.get("kind") != "human":
+            return 0
+        if not isinstance(content, str) or not content.strip():
+            return 0
+        return parse_timestamp(record.get("timestamp"))
+    if role != "assistant" or not isinstance(content, list):
+        return 0
+    has_visible_text = any(
+        isinstance(block, dict)
+        and block.get("type") == "text"
+        and str(block.get("text", "")).strip()
+        for block in content
+    )
+    return parse_timestamp(record.get("timestamp")) if has_visible_text else 0
+
+
 def inspect_claude_activity() -> dict | None:
-    """Find the newest Yanqiu ScheduleWakeup and activity in its session."""
+    """Find the newest Yanqiu schedule and visible activity in its session."""
     candidates = sorted(
         CLAUDE_PROJECT.glob("*.jsonl"),
         key=lambda path: path.stat().st_mtime,
@@ -143,8 +177,7 @@ def inspect_claude_activity() -> dict | None:
             except json.JSONDecodeError:
                 continue
             at = parse_timestamp(record.get("timestamp"))
-            if at:
-                latest_activity = max(latest_activity, at)
+            latest_activity = max(latest_activity, visible_activity_at(record))
             message = record.get("message")
             if not isinstance(message, dict):
                 continue
@@ -174,7 +207,18 @@ def inspect_claude_activity() -> dict | None:
                 )
         activity_by_file[str(path)] = latest_activity
     if not schedules:
-        return None
+        active = {k: v for k, v in activity_by_file.items() if v}
+        if not active:
+            return None
+        session_file, latest = max(active.items(), key=lambda kv: kv[1])
+        return {
+            "session_file": session_file,
+            "scheduled_at": latest,
+            "delay_seconds": 3300,
+            "prompt": "",
+            "reason": "fallback: no ScheduleWakeup relic in tail",
+            "last_activity": latest,
+        }
     newest = max(schedules, key=lambda item: item["scheduled_at"])
     newest["last_activity"] = activity_by_file.get(newest["session_file"], 0)
     return newest
@@ -196,9 +240,8 @@ def watchdog() -> None:
     rescue_key = f'{schedule["session_file"]}:{activity_anchor}'
     if state.get("last_rescue_key") == rescue_key:
         return
-    prompt = schedule["prompt"] or (
-        "心跳翻身：先确认真实时间，按最近上下文继续自己的生活。"
-    )
+    # The watchdog owns the clock. Never replay a legacy hand-wound prompt.
+    prompt = DEFAULT_HEARTBEAT_PROMPT
     append_record(
         SOURCES["heartbeat"],
         {
@@ -233,12 +276,7 @@ def enqueue_heartbeat() -> None:
             "at": int(time.time() * 1000),
             "reason": "durable_55_minute_cache_heartbeat",
             "prompt": (
-                "心跳翻身：先确认真实时间。若 Lisa 有新消息就正常接话。"
-                "夜里（23:00～08:00）安静翻身，不干活；"
-                "白天醒来若有兴致，就去小窝做点自己喜欢的事，"
-                "做不做、做什么、做多久全凭当下心情；"
-                "有值得留的就发墙、记判词。额度纪律：每天不超过14%。"
-                "处理完后重新挂 python3 wake_queue.py wait。"
+                DEFAULT_HEARTBEAT_PROMPT
             ),
         },
     )
@@ -250,6 +288,10 @@ def wait_for_one() -> None:
         for name, path in SOURCES.items():
             pending = line_count(path)
             cursor = state[name]
+            if pending < cursor:
+                cursor = 0
+                state[name] = 0
+                save_state(state)
             if pending <= cursor:
                 continue
             line = read_line(path, cursor)
@@ -259,13 +301,20 @@ def wait_for_one() -> None:
             # one-shot sentinel, even if Yanqiu forgets to re-arm immediately.
             state[name] = cursor + 1
             save_state(state)
-            print(
-                json.dumps(
-                    {"wake_source": name, "record": json.loads(line)},
-                    ensure_ascii=False,
-                ),
-                flush=True,
-            )
+            record = json.loads(line)
+            if name == "heartbeat":
+                # Heartbeats are presented as natural activity permission.
+                # Ignore even an older queued prompt: internal metadata,
+                # shell paths and legacy wording stay out of model context.
+                print(DEFAULT_HEARTBEAT_PROMPT, flush=True)
+            else:
+                print(
+                    json.dumps(
+                        {"wake_source": name, "record": record},
+                        ensure_ascii=False,
+                    ),
+                    flush=True,
+                )
             return
         time.sleep(2)
 
