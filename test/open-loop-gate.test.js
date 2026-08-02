@@ -10,7 +10,11 @@ test("普通短期生活安排可以被记住，但不能自动变成开环", ()
     "今晚要吃啥还没决定",
     "阿屿待会洗澡",
     "顾暮明天上班",
-    "Lisa 下班后去健身"
+    "Lisa 下班后去健身",
+    "Lisa 和顾朝约定今天晚上帮顾朝揉脖子半个小时",
+    "Lisa 答应明天下午陪顾暮去打羽毛球",
+    "两人说好周末去约会",
+    "今晚留在木屋过夜"
   ]) {
     assert.deepEqual(Gate.evaluate({ text, open: true, source: "auto", a: 1 }).open, false, text);
   }
@@ -56,6 +60,24 @@ test("明确共同约定、承诺和有后果的等待仍保留开环", () => {
 
 test("模型只写了未来事实、没有开环证据时默认不升级", () => {
   assert.equal(Gate.evaluate({ text: "Lisa 下个月可能换一张桌子", open: true, source: "auto", a: 1 }).open, false);
+});
+
+test("旧自动条目是否该清理由 open 判决决定，而不是只看一种 reason", () => {
+  assert.deepEqual(Gate.evaluate({
+    text: "Stack-chan 已经到货，后面可能继续调试",
+    tags: ["状态"],
+    open: true,
+    source: "auto",
+    a: 1
+  }), { open: false, reason: "future_fact_without_open_loop_evidence" });
+});
+
+test("短时词不能误关有明确后果的安排", () => {
+  for (const text of [
+    "Lisa 明天有考试，答应今晚一起复习",
+    "顾暮周六陪 Lisa 去医院复诊",
+    "周日是纪念日，两人约好一起吃饭"
+  ]) assert.equal(Gate.evaluate({ text, open: true, source: "auto", a: 2 }).open, true, text);
 });
 
 test("Lisa 手动勾选的开环永远尊重", () => {

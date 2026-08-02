@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.41";
+const APP_VERSION = "v51.42";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1797,11 +1797,11 @@ function App() {
     saveMemLib(keep);
     toast("已清理 " + removed + " 条落灰记忆（约定/心事/置顶都留着）");
   };
-  // 旧库清理只碰【明显日常安排】且必须由 Lisa 在设置页二次确认。
+  // 旧库清理只碰【统一资格闸已判定不应 open 的自动条目】且必须由 Lisa 在设置页二次确认。
   // 不是删除：正文、标签、时间和审计痕迹全保留，只撤掉误加的 open 标记。
   const routineOpenCandidates = () => memLibRef.current.filter(e => {
     if (!e || !e.open || e.source !== "auto" || !window.OpenLoopGate) return false;
-    return window.OpenLoopGate.evaluate(e).reason === "routine_plan";
+    return window.OpenLoopGate.evaluate(e).open === false;
   });
   const downgradeRoutineOpen = () => {
     const ids = new Set(routineOpenCandidates().map(e => e.id));
@@ -1810,7 +1810,7 @@ function App() {
     saveMemLib(memLibRef.current.map(e => ids.has(e.id) ? {
       ...e, open: false, routineOpenDowngradedTs: now
     } : e));
-    toast("已把 " + ids.size + " 条吃饭/洗澡/上班等日常安排降为普通记忆（正文都保留）");
+    toast("已把 " + ids.size + " 条日常安排/普通未来事实降为普通记忆（正文都保留）");
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
   const backfillMemEmotion = async () => {
