@@ -340,7 +340,7 @@ function pickUI(){
     return `<button class="${sk.cls==='def'?'def':sk.cls==='sta'?'sta':'atk'}" ${dis?'disabled':''}
       onclick="${click}">${n}·${c}⚡${est}</button>`;
   }).join('');
-  html += `<button class="sta" ${p.energy>=15?'disabled':''} onclick="choose({type:'charge'})">聚能+5⚡(状态)</button>`;
+  html += `<button class="sta" ${p.energy>=10?'disabled':''} onclick="choose({type:'charge'})">聚能+5⚡(状态)</button>`;
   s.team.forEach((q,i)=>{ if(i!==s.active&&q.hp>0)
     html += `<button onclick="choose({type:'switch',to:${i}})">换↔${q.name}</button>`; });
   if (p.name==='雪影娃娃' && !s.bossUsed)
@@ -496,7 +496,7 @@ function execAction(side, oppSide, action, oppAction){
   if (p.hp<=0) return;
   if (p.prioNext) p.prioNext = 0;
   if (action.type==='charge'){
-    p.energy = Math.min(15, p.energy+5); side.statusUses++;
+    p.energy = Math.min(10, p.energy+5); side.statusUses++;
     log(`🔋 ${p.name} 聚能 +5 → ${p.energy}⚡`); return;
   }
   if (action.type==='boss'){
@@ -555,12 +555,12 @@ function execAction(side, oppSide, action, oppAction){
   bits.push(`战时威力${r.showPow}`); if (r.hits>1) bits.push(`${r.hits}连击`);
   log(line + '（' + bits.join('·') + '）');
   if (name==='超级糖果'){ gainMeng(p,'self',1); p.candy++; log(`  ✨ 糖果萌化+1（本技威力已+${60*p.candy}）`); }
-  if (name==='火苗'||name==='甩水'){ p.energy = Math.min(15, p.energy+1); log(`  🔋 回能+1（${p.energy}⚡）`); }
+  if (name==='火苗'||name==='甩水'){ p.energy = Math.min(10, p.energy+1); log(`  🔋 回能+1（${p.energy}⚡）`); }
   if (name==='吹火'){ p.chuihuo=(p.chuihuo||0)+1; log(`  🔥 吹火威力永久+20（已+${20*p.chuihuo}）`); }
   if (name==='水炮'){ p.shuipao=(p.shuipao||0)+1; log(`  💧 水炮能耗永久-1`); }
   if (p.trait==='助燃' && sk.attr==='火'){ p.atkMult += 0.2; log(`  🔥 助燃：双攻+20%（现${p.atkMult.toFixed(1)}倍）`); }
   if (p.trait==='浸润' && sk.attr==='水'){ p.costDelta -= 1; log(`  💧 浸润：全技能能耗-1`); }
-  if (p.trait==='最好的伙伴' && r.eff>1){ p.atkMult += 0.2; p.spdBonus += Math.round(speedOf(p)*0.2); p.energy=Math.min(15,p.energy+2); log(`  🤝 最好的伙伴：克制命中！攻防速+20%并回2能量`); }
+  if (p.trait==='最好的伙伴' && r.eff>1){ p.atkMult += 0.2; p.spdBonus += Math.round(speedOf(p)*0.2); p.energy=Math.min(10,p.energy+2); log(`  🤝 最好的伙伴：克制命中！攻防速+20%并回2能量`); }
   if (name==='撒娇'){ gainMeng(p,'self',1); p.sajiao++; }
   if (counterStatus && sk.counterStatus==='lifesteal'){
     p.hp = Math.min(effMax(p), p.hp + r.total); log(`  🩸 撕裂吸血 ${r.total}`);
