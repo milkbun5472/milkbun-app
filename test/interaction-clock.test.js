@@ -2,6 +2,8 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const Clock = require("../js/interaction-clock.js");
+const fs = require("node:fs");
+const path = require("node:path");
 const groups = [{ id: "g1", memberIds: ["a", "b"] }];
 test("用户在群聊和群线下出现，刷新所有在场角色的共同互动时间", () => {
   const data = { groups, groupChats: { g1: [{ role: "user", ts: 100 }] }, groupOfflines: { g1: [{ startTs: 110, msgs: [{ role: "user", ts: 120 }] }] } };
@@ -30,4 +32,11 @@ test("正在共同群聊或八小时内未结束的群线下，会硬拦主动�
   assert.equal(Clock.isTogetherNow("a", { groups, groupOfflines: { g1: [{ startTs: 500, endTs: null }] } }, 1000), true);
   assert.equal(Clock.isTogetherNow("a", { groups, groupOfflines: { g1: [{ startTs: 1, endTs: null }] } }, 9 * 60 * 60 * 1000), false);
   assert.equal(Clock.isTogetherNow("z", { groups, activeGroupId: "g1" }, 1000), false);
+});
+test("页面必须加载包含用户跨场景钟的新缓存版本", () => {
+  const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
+  const appVersion = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8").match(/APP_VERSION\s*=\s*"v([^"]+)"/);
+  const clockVersion = html.match(/interaction-clock\.js\?v=([^"]+)/);
+  assert.ok(appVersion && clockVersion);
+  assert.equal(clockVersion[1], appVersion[1], "interaction clock cache key must move with the app version");
 });
