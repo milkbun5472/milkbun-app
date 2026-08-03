@@ -7033,7 +7033,7 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
     interop
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条")
       : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 20, 1, " 条"),
-    interop && row("群里自己聊起来", "开互通后，你晾着不说话时群成员会自己顺着往下聊（不必 cue 你，互相接梗/抬杠也行）。只在你正看着这个群时；额度到顶会歇一阵，时间到或你再开口就恢复。", autoChat, setAutoChat),
+    interop && row("群里自己聊起来", "开互通后，你不看着这个群也没关系：只要 App 还活着，成员就会自己顺着聊，聊出来的内容会在消息页挂未读。额度到顶会歇一阵，时间到或你再开口就恢复。", autoChat, setAutoChat),
     interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（带点随机、不死板）。嫌太闹就往大调。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
     interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 30, 1, " 轮"),
     interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 100, 5, " 条"),

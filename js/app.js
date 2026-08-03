@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.62";
+const APP_VERSION = "v51.63";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2467,9 +2467,10 @@ function App() {
     }, 20000);
     return () => clearInterval(timer);
   }, [screen, activeChar, chatSettings, sending, offlineChar]);
-  // ---- 群聊自发（她 2026-07-23）：开了「记忆互通」的群，正看着它且闲置到间隔，成员自己顺着往下聊——
+  // ---- 群聊自发（她 2026-07-23）：开了「记忆互通」的群闲置到间隔，成员自己顺着往下聊——
   //   不必 cue 你、互相接话/抬杠也行。replyGroup 空输入本就会自发续聊（喂「请群成员顺着上面的对话自然继续聊」）。
-  //   防跑飞：自主生成到上限就歇；到顶后过 X 小时自动续杯，你发消息 或 按黑色回复键也会立即续杯。只前台跑。
+  //   不要求你正盯着那个群：App 还活着时可在别的页面生成，pGChat 会正常挂群未读；iOS 杀进程后仍需未来的云端任务。
+  //   防跑飞：自主生成到上限就歇；到顶后过 X 小时自动续杯，你发消息 或 按黑色回复键也会立即续杯。
   const autoChatRoundsRef = useRef({}); // 每群：距上次你开口/按回复键以来，已自主生成了几轮
   const autoChatMsgsRef = useRef({});   // 每群：这一段自发累计已生成多少条（总条数上限用，跨轮累加、递减预算）
   // 额度卡只存在本机：刷新/重开 App 不会绕过上限，但不进入 x_ 云存档，不碰聊天与记忆路径。
@@ -2495,55 +2496,55 @@ function App() {
     writeAutoChatCycle(gid, { ...old, rounds: Number(old.rounds) || 0, msgs: (Number(old.msgs) || 0) + Math.max(0, Number(count) || 0) });
   };
   useEffect(() => {
-    if (screen !== "gthread" || !activeGroup) return;
-    const gs = gsFor(activeGroup.id);
-    if (!gs.memoryInterop || gs.autoChat === false) return;
-    const mins = Math.max(1, gs.autoChatMin || 8);
-    const gid = activeGroup.id;
     const timer = setInterval(() => {
-      if (laneBusy("g:" + gid)) return;
-      if (offlineGroup && offlineGroup.id === gid) return;
-      const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
-      if (!msgs.length) return;
-      const last = msgs[msgs.length - 1];
-      let cycle = (autoChatCycleRef.current && autoChatCycleRef.current[gid]) || {
-        rounds: autoChatRoundsRef.current[gid] || 0, msgs: autoChatMsgsRef.current[gid] || 0,
-        cappedAt: 0, resetAt: 0, lastUserTs: 0
-      };
-      // 只对一条新的用户消息续杯一次；否则 20 秒定时器会反复写本地盘。
-      if (last.role === "user" && (Number(last.ts) || 0) > (Number(cycle.lastUserTs) || 0)) cycle = resetAutoChatCycle(gid, last.ts);
-      const now = Date.now();
-      // 到顶后的冷却已经走完：自动开一张新额度卡。
-      if (cycle.resetAt && now >= cycle.resetAt) cycle = resetAutoChatCycle(gid, cycle.lastUserTs);
-      const rounds = Number(cycle.rounds) || 0;
-      const msgsSoFar = Number(cycle.msgs) || 0;
-      const roundCap = Math.max(1, gs.autoChatRounds || 5);
-      const totalCap = Math.max(1, gs.autoChatMaxMsg || 50);
-      if (rounds >= roundCap || msgsSoFar >= totalCap) {
-        // 冷却从【真正达到上限】这一刻才起算；设置改变后第一次巡检会补记这一刻。
-        if (!cycle.resetAt) {
-          const resetHours = Math.max(1, Number(gs.autoChatResetHours) || 24);
-          cycle = writeAutoChatCycle(gid, { ...cycle, cappedAt: now, resetAt: now + resetHours * 3600000 });
+      // 一次巡检最多叫起一个群，避免多个群同秒并发烧调用；下一次巡检自然轮到其余满足条件的群。
+      for (const group of groups) {
+        const gid = group.id;
+        const gs = gsFor(gid);
+        if (!gs.memoryInterop || gs.autoChat === false) continue;
+        if (laneBusy("g:" + gid)) continue;
+        if (offlineGroup && offlineGroup.id === gid) continue;
+        const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+        if (!msgs.length) continue;
+        const last = msgs[msgs.length - 1];
+        let cycle = (autoChatCycleRef.current && autoChatCycleRef.current[gid]) || {
+          rounds: autoChatRoundsRef.current[gid] || 0, msgs: autoChatMsgsRef.current[gid] || 0,
+          cappedAt: 0, resetAt: 0, lastUserTs: 0
+        };
+        // 只对一条新的用户消息续杯一次；否则 20 秒定时器会反复写本地盘。
+        if (last.role === "user" && (Number(last.ts) || 0) > (Number(cycle.lastUserTs) || 0)) cycle = resetAutoChatCycle(gid, last.ts);
+        const now = Date.now();
+        // 到顶后的冷却已经走完：自动开一张新额度卡。
+        if (cycle.resetAt && now >= cycle.resetAt) cycle = resetAutoChatCycle(gid, cycle.lastUserTs);
+        const rounds = Number(cycle.rounds) || 0;
+        const msgsSoFar = Number(cycle.msgs) || 0;
+        const roundCap = Math.max(1, gs.autoChatRounds || 5);
+        const totalCap = Math.max(1, gs.autoChatMaxMsg || 50);
+        if (rounds >= roundCap || msgsSoFar >= totalCap) {
+          // 冷却从【真正达到上限】这一刻才起算；设置改变后第一次巡检会补记这一刻。
+          if (!cycle.resetAt) {
+            const resetHours = Math.max(1, Number(gs.autoChatResetHours) || 24);
+            cycle = writeAutoChatCycle(gid, { ...cycle, cappedAt: now, resetAt: now + resetHours * 3600000 });
+          }
+          continue;
         }
-        return;
+        const mins = Math.max(1, gs.autoChatMin || 8);
+        const gap = mins * 60000 * (1 + Math.random() * 0.5); // 抖动 1~1.5×，别死板每 N 分钟一次
+        if (now - (last.ts || 0) < gap) continue;
+        // ⭐人格/欲望驱动起聊：有 jiwen 的群要等至少一位成员此刻真有 contact 动念；没配 jiwen 的群退回纯闲置触发。
+        const gm = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
+        if (!gm.length) continue;
+        let anyJiwen = false; const urgeChars = [];
+        gm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urgeChars.push(c); } });
+        if (anyJiwen && !urgeChars.length) continue;
+        urgeChars.forEach(c => { try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {} });
+        cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0 });
+        replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar });
+        break;
       }
-      const gap = mins * 60000 * (1 + Math.random() * 0.5); // 抖动 1~1.5×，别死板每 N 分钟一次
-      if (now - (last.ts || 0) < gap) return;
-      // ⭐人格/欲望驱动起聊（她 2026-07-23：角色根据人格盒子突然想聊）：载了 jiwen 的成员里得有人此刻「想联系/想聊」
-      //   (jiwen contact 触发)才起一段——不是干等计时。没有任何成员载 jiwen，就退回纯闲置触发（保证没配 jiwen 的群也自发）。
-      // 正和用户面对面的成员【也能在群里聊】（人陪朋友也会掏手机回别人）——不再排除，只在 replyGroup 里注入「处境一致」提示
-      //   （发言要符合正在外面陪人、别出现在矛盾场景，如同时在家煮饭）。她 2026-07-23 再更正。
-      const gm = (activeGroup.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-      if (!gm.length) return;
-      let anyJiwen = false; const urgeChars = [];
-      gm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urgeChars.push(c); } });
-      if (anyJiwen && !urgeChars.length) return; // 有 jiwen 但此刻没人动念 → 不硬起，等谁真想聊
-      urgeChars.forEach(c => { try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {} }); // 泄一点，别下一tick又触发
-      cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0 });
-      replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar }); // 这轮上限 = 剩余总预算
     }, 20000);
     return () => clearInterval(timer);
-  }, [screen, activeGroup, groupSettings, sending, offlineGroup]);
+  }, [groups, groupSettings, sending, offlineGroup]);
   // ---- 群线下 jiwen 驱动自发（她 2026-07-23）：开着群线下浮层、闲置、群里有成员此刻「想动/想聊」(jiwen contact 触发)，
   //   成员就自己往下演一拍（groupOfflineReply 空输入=自主续演）。没成员载 jiwen 就不自动（她手动「让他们演绎」）。
   //   防跑飞：距你最后一句自发≥12拍就歇；泄一点思念别连发；只前台浮层开着时跑。

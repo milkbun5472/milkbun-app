@@ -26,7 +26,15 @@ test("群设置可配置 1 至 48 小时刷新周期并保存", () => {
   assert.match(components, /setAutoChatResetHours, 1, 48, 1, " 小时"/);
 });
 
+test("不必盯着群聊页也能自发，并由既有群消息路径挂未读", () => {
+  const autoBlock = app.slice(app.indexOf("// ---- 群聊自发"), app.indexOf("// ---- 群线下 jiwen"));
+  assert.doesNotMatch(autoBlock, /screen !== "gthread" \|\| !activeGroup/);
+  assert.match(autoBlock, /for \(const group of groups\)/);
+  assert.match(autoBlock, /replyGroup\(gid, \{ auto: true/);
+  assert.match(app, /if \(added > 0 && !viewing\)[\s\S]*bumpUnread\(id, added\)/);
+});
+
 test("app 与组件缓存版本同步", () => {
-  assert.match(index, /components\.js\?v=51\.62/);
-  assert.match(index, /app\.js\?v=51\.62/);
+  assert.match(index, /components\.js\?v=51\.63/);
+  assert.match(index, /app\.js\?v=51\.63/);
 });
