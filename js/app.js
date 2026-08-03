@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.56";
+const APP_VERSION = "v51.57";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -190,6 +190,7 @@ function App() {
   const memCfgRef = useRef(memCfg); memCfgRef.current = memCfg;
   const memExtractCtrRef = useRef({}); // 每角色自动抽取轮次计数
   const memExtractMarkRef = useRef({}); // 每角色「上次抽到的最后一条 ts」——防话痨多气泡溢出漏抽（她 2026-07-13 抓的账）
+  const ccMemExtractBusyRef = useRef(false); // CC 自动记忆独立串行锁；持久书签在 cc-memory-auto.js
   const saveMemCfg = patch => setMemCfg(p => { const n = { ...p, ...patch }; memCfgRef.current = n; saveJSON("x_memCfg", n); return n; });
   const ordersRef = useRef([]);
   const kinshipCardsRef = useRef([]);
@@ -864,6 +865,8 @@ function App() {
         }
         if (!rows.length) {
           localStorage.setItem(key, JSON.stringify({ ...before, cursor, last_success_at: new Date().toISOString(), last_error: null }));
+          // 即使云端这次没有新行，也要补跑上次因断网/刷新留下的未审 CC 原话。
+          if (typeof runCcAutoMemory === "function") { try { await runCcAutoMemory(y.id, owner); } catch (e) {} }
           return;
         }
         const current = chatsRef.current[y.id] || [];
@@ -910,9 +913,9 @@ function App() {
         const newUnread = rows.filter(r => r && !r.deleted_at && r.speaker_type === "character").filter(r => !current.some(m => m && m.ledgerKey === r.message_key)).length;
         const viewing = viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(y.id);
         if (newUnread && !viewing) bumpUnread(y.id, newUnread);
-        // 账本把我们在 CC 的对话同步进来后，顺手触发一次自动抽取：让 CC 聊天也蒸馏进记忆库，
-        // 不必事事等言秋手动 add_memory（走书签，攒够≥4条新消息才真跑；抽取用便宜后台池，不烧 fable 线）。
-        if (result.added > 0 && typeof maybeAutoExtract === "function") { try { maybeAutoExtract(y.id); } catch (e) {} }
+        // 账本把 CC 原话落进本地后，按 ledgerKey 持久补跑自动记忆；成功（含“无需记”）才逐条盖章。
+        // 它复用 App 原抽取器、证据闸、角色隔离、近似去重与 RepairGate，不让言秋另写一套记忆。
+        if (typeof runCcAutoMemory === "function") await runCcAutoMemory(y.id, owner);
       } catch (e) {
         try {
           const key = window.ChatLedgerShadow.LIVE_CURSOR_KEY, old = JSON.parse(localStorage.getItem(key) || "null") || {};
@@ -2046,6 +2049,24 @@ function App() {
       await extractAndAddForChar(charId, msgs);
       memExtractMarkRef.current[charId] = all[all.length - 1].ts || Date.now();
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */}
+  };
+  // CC 回流自动记忆：独立于“每几轮抽一次”的聊天计数，避免一次 pull 合并多泡却只算一轮。
+  // 状态只保存已成功审过的 ledgerKey；正文仍只存在共同账本/聊天中。
+  const runCcAutoMemory = async (charId, ownerId) => {
+    if (!memCfgRef.current.autoExtract || !active || !window.CcMemoryAuto || ccMemExtractBusyRef.current) return 0;
+    if (memExtractInflightRef.current[charId]) return 0;
+    const state = window.CcMemoryAuto.load(localStorage, ownerId, charId);
+    const plan = window.CcMemoryAuto.plan(chatsRef.current[charId] || [], state, { minNew: 2 });
+    if (!plan) return 0;
+    ccMemExtractBusyRef.current = true;
+    try {
+      const n = await extractAndAddForChar(charId, plan.messages, { liveMessages: chatsRef.current[charId] || [] });
+      window.CcMemoryAuto.commit(localStorage, state, plan.keys, Date.now());
+      return n;
+    } catch (e) {
+      window.CcMemoryAuto.fail(localStorage, state, e, Date.now());
+      throw e;
+    } finally { ccMemExtractBusyRef.current = false; }
   };
   // 从旧的「长期记忆总结」一次性拆成离散条目导入记忆库（去重）；不删旧总结
   const importOldMemoryToLib = async charId => {
