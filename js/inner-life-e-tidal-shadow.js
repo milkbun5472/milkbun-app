@@ -95,5 +95,17 @@
   async function status() { try { return Store.getTidalState(await ownerId()); } catch (_) { return null; } }
   async function report() { try { return Store.diagnosticReport(await ownerId(), Date.now()); } catch (_) { return { error: "E 影子诊断读取失败" }; } }
 
-  window.InnerLifeETidalShadow = { onUserMessage, onSessionOpenNoMessage, onForegroundNoMessage, scheduleAfterglow, flushAfterglow, noteWouldHold, status, report };
+  async function liveProjection(charId, at) {
+    try { const owner=await ownerId(),packet=await Store.getPacket(owner,charId);return Store.liveProjection(packet,Number(at)||Date.now()); }
+    catch (_) { return null; }
+  }
+  async function commitLiveProjection(charId, anchor, at) {
+    try {
+      const owner=await ownerId(),now=Number(at)||Date.now(),result=await Store.consumePacket(owner,charId,anchor,now);
+      if(result.status==="surfaced")await Store.addDiagnostic(owner,{t:now,kind:"live_surface",charHash:result.packet.charHash,threadCount:(result.packet.unfinishedThreads||[]).length,strengthBucket:Number(result.packet.strength)>=.75?"high":"low"});
+      return result;
+    } catch (_) { return {status:"error",packet:null}; }
+  }
+
+  window.InnerLifeETidalShadow = { onUserMessage, onSessionOpenNoMessage, onForegroundNoMessage, scheduleAfterglow, flushAfterglow, noteWouldHold, status, report, liveProjection, commitLiveProjection };
 })();

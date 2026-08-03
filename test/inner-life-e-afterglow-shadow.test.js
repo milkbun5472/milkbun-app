@@ -50,6 +50,20 @@ test("36 小时边界过期；影子浮现不消耗正式 surfacedAt", () => {
   assert.strictEqual(Afterglow.markShadowWouldSurface(shadowed, T0 + 2), shadowed);
 });
 
+test("live 投影只给受控余温，成功提交后一次性消费", () => {
+  const packet=Afterglow.deriveAfterglow(base()),projection=Afterglow.liveProjection(packet,T0+1);
+  assert.equal(projection.anchor,"msg:m2");assert.equal(projection.writesExperience,false);
+  assert.deepEqual(projection.threads,["那张照片","甜虾后来吃到了吗","还欠一个确认"]);
+  const used=Afterglow.consumeLive(packet,projection.anchor,T0+2);
+  assert.equal(used.status,"surfaced");assert.equal(used.packet.surfacedAt,T0+2);
+  assert.equal(Afterglow.liveProjection(used.packet,T0+3),null);
+});
+
+test("live 提交锚点不一致时不消费，失败回复可以下轮再用",()=>{
+  const packet=Afterglow.deriveAfterglow(base()),result=Afterglow.consumeLive(packet,"msg:别轮",T0+1);
+  assert.equal(result.status,"stale");assert.equal(result.packet.surfacedAt,null);assert.ok(Afterglow.liveProjection(packet,T0+2));
+});
+
 test("不同账号或角色使用不同 key，错误 owner 不能写入", async () => {
   assert.notEqual(Afterglow.storageKey("lisa-account", "xiaoke"), Afterglow.storageKey("friend-account", "xiaoke"));
   assert.notEqual(Afterglow.storageKey("lisa-account", "xiaoke"), Afterglow.storageKey("lisa-account", "yanqiu"));
@@ -71,4 +85,9 @@ test("诊断白名单会丢弃正文、余温文本和未知字段", () => {
   assert.equal("moodSketch" in row, false);
   assert.equal("unfinishedThreads" in row, false);
   assert.equal("prompt" in row, false);
+});
+
+test("live 浮现诊断仍然不保存余温正文",()=>{
+  const row=Afterglow._safeDiagnostic({kind:"live_surface",charHash:"c",unfinishedThreads:["秘密"],moodSketch:"柔软",message:"原话"},"owner");
+  assert.equal(row.kind,"live_surface");assert.equal("unfinishedThreads" in row,false);assert.equal("moodSketch" in row,false);assert.equal("message" in row,false);
 });

@@ -97,6 +97,18 @@
     return { ...packet, shadowWouldSurfaceAt: Number(nowValue) };
   }
 
+  function liveProjection(packet, nowValue) {
+    if (!isValid(packet, nowValue)) return null;
+    const mood = clean(packet.moodSketch, 48), threads = (packet.unfinishedThreads || []).map(x => clean(x, 72)).filter(Boolean).slice(0, 3);
+    if (!mood && !threads.length) return null;
+    return { anchor: packet.lastAnchor, mood, threads, writesExperience: false };
+  }
+
+  function consumeLive(packet, anchor, nowValue) {
+    if (!isValid(packet, nowValue) || !anchor || packet.lastAnchor !== anchor) return { status: "stale", packet: packet || null };
+    return { status: "surfaced", packet: { ...packet, surfacedAt: Number(nowValue) } };
+  }
+
   function openDB(indexedDBImpl) {
     if (dbPromise) return dbPromise;
     const idb = indexedDBImpl || (typeof indexedDB !== "undefined" ? indexedDB : null);
@@ -184,7 +196,7 @@
   }
 
   function safeDiagnostic(input, ownerHash) {
-    const allowedKinds = ["packet_created", "packet_duplicate", "packet_expired", "would_surface", "tidal_transition", "would_hold"];
+    const allowedKinds = ["packet_created", "packet_duplicate", "packet_expired", "would_surface", "live_surface", "tidal_transition", "would_hold"];
     const allowedStates = ["awake", "maybe_sleeping", "uncertain", null];
     const allowedOutlets = ["foreground_proactive", "jiwen", "birthday", "reminder", "eyes_alert", "weather", "greeting", "night_watch", null];
     const kind = allowedKinds.includes(input && input.kind) ? input.kind : null;
@@ -258,11 +270,21 @@
     } catch (_) { return { status: "error", packet: null }; }
   }
 
+  async function consumePacket(ownerId, charId, anchor, nowValue, indexedDBImpl) {
+    try {
+      const db = await openDB(indexedDBImpl); await ensureOwner(db, ownerId);
+      const tx = db.transaction("afterglow_packets", "readwrite"), txDone = transactionDone(tx), store = tx.objectStore("afterglow_packets");
+      const packet = await requestResult(store.get(storageKey(ownerId, charId))), result = consumeLive(packet, anchor, Number(nowValue) || Date.now());
+      if (result.status === "surfaced") store.put(result.packet);
+      await txDone; return result;
+    } catch (_) { return { status: "error", packet: null }; }
+  }
+
   return Object.freeze({
     DB_NAME, DB_VERSION, EXPIRES_MS, MAX_THREADS, DIAGNOSTIC_CAP, DIAGNOSTIC_MAX_AGE,
     hash, storageKey, anchorFor, moodSketch, collectThreads, deriveAfterglow,
-    mergePacket, isValid, markShadowWouldSurface, putPacket, getPacket, putTidalState, getTidalState,
-    addDiagnostic, trimDiagnostics, diagnosticReport, markPacketObserved,
+    mergePacket, isValid, markShadowWouldSurface, liveProjection, consumeLive, putPacket, getPacket, putTidalState, getTidalState,
+    addDiagnostic, trimDiagnostics, diagnosticReport, markPacketObserved, consumePacket,
     _safeDiagnostic: safeDiagnostic,
     _resetDBForTests: () => { dbPromise = null; }
   });

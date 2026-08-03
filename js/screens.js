@@ -5131,7 +5131,7 @@ function InnerLifeEDiagnosticSheet({ characters, onClose }) {
       .then(setReport).catch(() => setReport({ error: "E 影子诊断读取失败" }));
   };
   useEffect(load, []);
-  const labels = { packet_created:"余温新包",packet_duplicate:"同锚重复（已拦）",packet_expired:"余温过期",would_surface:"本来会浮现",tidal_transition:"潮汐转移",would_hold:"本来会拦主动" };
+  const labels = { packet_created:"余温新包",packet_duplicate:"同锚重复（已拦）",packet_expired:"余温过期",would_surface:"本来会浮现",live_surface:"试点真实浮现",tidal_transition:"潮汐转移",would_hold:"本来会拦主动" };
   const outlets = { foreground_proactive:"前台主动",jiwen:"积温主动",birthday:"生日",reminder:"提醒",eyes_alert:"体征提醒",weather:"天气",greeting:"问候",night_watch:"夜巡" };
   const line = (a,b) => h("div", { className:"flex justify-between", style:{fontFamily:F_BODY,fontSize:11.5,color:t.sub,padding:"4px 0",borderBottom:"1px dashed "+t.line} }, h("span",null,a), h("span",{style:{color:t.ink,fontWeight:600}},b));
   const readiness = report && !report.error && window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateE(report) : null;
