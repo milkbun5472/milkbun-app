@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.58";
+const APP_VERSION = "v51.59";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -157,6 +157,9 @@ function App() {
   const diariesRef = useRef(diaries);
   diariesRef.current = diaries; // 日记最新记录（自动补写时读最新）
   const [diaryBusy, setDiaryBusy] = useState({}); // charId -> bool，正在写日记
+  // React state 不是同步互斥锁：自动补写与手动按钮同一拍进来时，
+  // 两边都可能在 setDiaryBusy 生效前看到 false，白烧两次 API 并落两篇。
+  const diaryFlightRef = useRef(new Set()); // 同一角色任一时刻只准一条生成链
   const [diaryCommenting, setDiaryCommenting] = useState(null); // 正在给哪条「我的日记」生成评论(entryId)
   const diaryRunRef = useRef(false); // 本次打开日记 app 是否已跑过自动补写
   const schedRunRef = useRef(false); // 本次打开行程是否已跑过「当天给所有人生成」
@@ -5458,11 +5461,13 @@ function App() {
   const genDiary = async (charId, opts = {}) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
-    if (diaryBusy[charId]) return;
+    if (diaryFlightRef.current.has(charId)) return;
     if (!active) { if (opts.manual) toast("请先到设置配置 API"); return; }
     const targetTs = diaryTargetTs();
     const targetKey = schedDayKey(new Date(targetTs));
     if (diaryWroteFor(charId, targetTs)) { if (opts.manual) toast("昨天的日记已经写过了"); return; }
+    // 必须在第一个 await 之前同步占锁；setState 只负责界面，不承担正确性。
+    diaryFlightRef.current.add(charId);
     setDiaryBusy(b => ({ ...b, [charId]: true }));
     try {
       const mood = moods[charId];
@@ -5523,13 +5528,17 @@ function App() {
       };
       if (!entry.paras.length) throw new Error("内容为空");
       setDiaries(p => {
+        // 最终落库再查一次：防止生成期间云恢复/另一个入口已经补进同日文章。
+        if ((p[charId] || []).some(e => diarySameDay(e.ts, targetTs))) return p;
         const n = { ...p, [charId]: [entry, ...(p[charId] || [])] };
+        diariesRef.current = n; // 下一条自动任务无需等 React 下一次 render 才能看见
         saveJSON("x_diaries", n);
         return n;
       });
     } catch (e) {
       if (opts.manual) toast("生成失败：" + e.message);
     } finally {
+      diaryFlightRef.current.delete(charId);
       setDiaryBusy(b => ({ ...b, [charId]: false }));
     }
   };
