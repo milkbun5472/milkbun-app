@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.63";
+const APP_VERSION = "v51.64";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2446,27 +2446,8 @@ function App() {
     })()
   });
   // 后台保活已并进「一起听」：播放里那首「静音保活」曲目即占住 iOS 音频会话（见 playSong 的 keepalive 分支）。
-  // ---- 主动发消息（仅前台，app 打开该聊天且闲置到间隔后触发）----
-  useEffect(() => {
-    if (screen !== "thread" || !activeChar) return;
-    const s = settingsFor(activeChar.id);
-    if (!s.proactive) return;
-    const mins = Math.max(1, s.proactiveMin || 5);
-    const cid = activeChar.id;
-    const timer = setInterval(() => {
-      if (laneBusy("c:" + cid)) return;
-      // 线下浮层此刻正开着这个角色＝你俩面对面，绝不能在线上主动催「怎么还不来」——掐掉这轮（浮层开着时 screen 仍是 thread，定时器还在转）。
-      // ⚠️只认「浮层当下开着」这个信号，不认「有没散场的 session」——因为「离开」按钮只关浮层不设 endTs，
-      //    若靠 session 判断，离开后该角色会永远不再主动（v47.99 审查抓到的过度压制）。散场后的措辞兜底由 offlineActiveFor 的 prompt 提示负责。
-      if (offlineChar && offlineChar.id === cid) return;
-      if (currentlyTogetherWithChar(cid)) return;
-      const msgs = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
-      if (!msgs.length) return;
-      const lastTs = Math.max(msgs[msgs.length - 1].ts || 0, latestSharedInteractionTs(cid));
-      if (Date.now() - lastTs >= mins * 60000) replyNow(cid, "", null, { proactive: true });
-    }, 20000);
-    return () => clearInterval(timer);
-  }, [screen, activeChar, chatSettings, sending, offlineChar]);
+  // 单聊主动统一走下面的全局巡检：不要求打开 TA 的聊天，并由 pChat 在别处正常挂未读。
+  // 旧的 thread-only 20 秒定时器已删除，避免和积温主动抢跑/双发。
   // ---- 群聊自发（她 2026-07-23）：开了「记忆互通」的群闲置到间隔，成员自己顺着往下聊——
   //   不必 cue 你、互相接话/抬杠也行。replyGroup 空输入本就会自发续聊（喂「请群成员顺着上面的对话自然继续聊」）。
   //   不要求你正盯着那个群：App 还活着时可在别的页面生成，pGChat 会正常挂群未读；iOS 杀进程后仍需未来的云端任务。
@@ -2496,7 +2477,7 @@ function App() {
     writeAutoChatCycle(gid, { ...old, rounds: Number(old.rounds) || 0, msgs: (Number(old.msgs) || 0) + Math.max(0, Number(count) || 0) });
   };
   useEffect(() => {
-    const timer = setInterval(() => {
+    const scanAutoGroups = () => {
       // 一次巡检最多叫起一个群，避免多个群同秒并发烧调用；下一次巡检自然轮到其余满足条件的群。
       for (const group of groups) {
         const gid = group.id;
@@ -2535,15 +2516,27 @@ function App() {
         const gm = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
         if (!gm.length) continue;
         let anyJiwen = false; const urgeChars = [];
-        gm.forEach(c => { const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id]; if (jw) { anyJiwen = true; if (jw.triggers && jw.triggers.some(tr => tr.action === "contact")) urgeChars.push(c); } });
+        gm.forEach(c => {
+          const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id];
+          if (!jw) return;
+          anyJiwen = true;
+          // 同一份思念只能被一个出口认领；群聊认领后 25 分钟内，单聊巡检不会再拿旧快照重复发。
+          if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (jiwenFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
+        });
         if (anyJiwen && !urgeChars.length) continue;
-        urgeChars.forEach(c => { try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {} });
+        urgeChars.forEach(c => {
+          jiwenFiredRef.current[c.id] = now;
+          try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
+        });
         cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0 });
-        replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar });
+        replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar, urgeCharIds: urgeChars.map(c => c.id) });
         break;
       }
-    }, 20000);
-    return () => clearInterval(timer);
+    };
+    const timer = setInterval(scanAutoGroups, 20000);
+    // 等积温首算完，先让群聊拿一次思念出口机会；单聊全局巡检会再晚三秒。
+    const kick = setTimeout(scanAutoGroups, 11000);
+    return () => { clearTimeout(kick); clearInterval(timer); };
   }, [groups, groupSettings, sending, offlineGroup]);
   // ---- 群线下 jiwen 驱动自发（她 2026-07-23）：开着群线下浮层、闲置、群里有成员此刻「想动/想聊」(jiwen contact 触发)，
   //   成员就自己往下演一拍（groupOfflineReply 空输入=自主续演）。没成员载 jiwen 就不自动（她手动「让他们演绎」）。
@@ -2824,7 +2817,8 @@ function App() {
         break;                                                // 一次只发一个，错峰
       }
     };
-    const kick = setTimeout(tick, 6000);                      // 开 app 几秒后先扫一次
+    // 等积温 8 秒首算和群聊 11 秒认领机会走完，再决定是否落到单聊；否则单聊会永远抢先吃掉 contact。
+    const kick = setTimeout(tick, 14000);
     const timer = setInterval(tick, 45000);
     return () => { clearTimeout(kick); clearInterval(timer); };
   }, [characters, active]);
@@ -4645,7 +4639,11 @@ function App() {
         if (gchat[i].role === "assistant") break;
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
-      const userContent = tail.length ? tail.map(m => m.role === "narration" ? "【旁白】" + m.content : (profile.name || "用户") + ": " + (m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content)).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      let userContent = tail.length ? tail.map(m => m.role === "narration" ? "【旁白】" + m.content : (profile.name || "用户") + ": " + (m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content)).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      if (rgOpts.auto && Array.isArray(rgOpts.urgeCharIds) && rgOpts.urgeCharIds.length) {
+        const urgeNames = members.filter(c => rgOpts.urgeCharIds.includes(c.id)).map(c => c.name);
+        if (urgeNames.length) userContent += "\n\n【这轮自然动念】" + urgeNames.join("、") + " 此刻先想在群里说点什么：由 TA 自然先开口，其他人可顺势接话。不要解释这是系统触发，也别把『想念值』说出来。";
+      }
       const groupImageDataUrls = [];
       const groupImageRefs = tail.filter(m => m.kind === "photo" && m.imageRef).slice(-2).map(m => m.imageRef);
       for (const ref of groupImageRefs) {

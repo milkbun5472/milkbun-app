@@ -7541,7 +7541,7 @@ function ChatSettings({
       color: t.fog,
       marginTop: 2
     }
-  }, "打开这个聊天且闲置一段时间后，Ta 会主动找你（仅在 app 前台，非后台推送）")), h("button", {
+  }, "不必打开这个聊天：只要 App 还活着，Ta 想联系你时就会来找你，并在消息页挂未读（iOS 杀进程后仍不是后台推送）")), h("button", {
     onClick: () => setProactive(v => !v),
     className: "shrink-0",
     style: {
