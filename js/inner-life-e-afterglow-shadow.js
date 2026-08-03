@@ -233,13 +233,14 @@
       const diagnostics = (await requestResult(tx.objectStore("diagnostics").getAll())).filter(r => r.ownerHash === ownerHash);
       const packets = (await requestResult(tx.objectStore("afterglow_packets").getAll())).filter(r => r.ownerHash === ownerHash);
       const tidal = await requestResult(tx.objectStore("tidal_state").get(ownerHash)); await txDone;
-      const kinds = {}, outlets = {}; diagnostics.forEach(r => { kinds[r.kind] = (kinds[r.kind] || 0) + 1; if (r.outlet) outlets[r.outlet] = (outlets[r.outlet] || 0) + 1; });
+      const kinds = {}, outlets = {}, byChar = {}; diagnostics.forEach(r => { kinds[r.kind] = (kinds[r.kind] || 0) + 1; if (r.outlet) outlets[r.outlet] = (outlets[r.outlet] || 0) + 1; if(r.charHash){const c=byChar[r.charHash]||(byChar[r.charHash]={diagnostics:0,kinds:{},firstObservedAt:null,lastObservedAt:null});c.diagnostics++;c.kinds[r.kind]=(c.kinds[r.kind]||0)+1;c.firstObservedAt=c.firstObservedAt==null?Number(r.t)||null:Math.min(c.firstObservedAt,Number(r.t)||c.firstObservedAt);c.lastObservedAt=Math.max(c.lastObservedAt||0,Number(r.t)||0)||null;} });
+      Object.values(byChar).forEach(c=>{c.spanHours=c.firstObservedAt&&c.lastObservedAt?Math.round((c.lastObservedAt-c.firstObservedAt)/36000)/100:0;});
       return {
         generatedAt: now, tidal: tidal ? { state: tidal.state, signalKind: tidal.signalKind, updatedTs: tidal.updatedTs } : null,
         diagnostics: diagnostics.length, firstObservedAt:diagnostics.length?Number(diagnostics[0].t)||null:null,lastObservedAt:diagnostics.length?Number(diagnostics[diagnostics.length-1].t)||null:null,spanHours:diagnostics.length>1?Math.round((Number(diagnostics[diagnostics.length-1].t)-Number(diagnostics[0].t))/36000)/100:0,kinds, outlets,
         packets: packets.map(p => ({ charHash: p.charHash, valid: isValid(p, now), createdTs: p.createdTs, expiresTs: p.expiresTs, threadCount: (p.unfinishedThreads || []).length, shadowWouldSurfaceAt: p.shadowWouldSurfaceAt || null })),
         invariants: { sessionOpenWoke: diagnostics.filter(r => r.kind === "tidal_transition" && r.triggerRule === "session_open" && r.toState === "awake").length, writesExperience: packets.filter(p => p.writesExperience !== false).length },
-        nightWatchCoverage: "waiting_for_cloud_tidal_row"
+        byChar, nightWatchCoverage: "waiting_for_cloud_tidal_row"
       };
     } catch (_) { return { error: "E 影子诊断读取失败" }; }
   }

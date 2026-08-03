@@ -37,6 +37,7 @@
       memory[key] = await safe(key, () => mod && mod.report ? mod.report(key === "recall" ? 300 : 300) : ({ unavailable: true }));
     }
     const e = await safe("E", () => window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.report ? window.InnerLifeETidalShadow.report() : ({ unavailable: true }));
+    const eReadiness = window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateE(e) : null;
     const c = await safe("C", () => window.SleepShadow && window.SleepShadow.report ? window.SleepShadow.report(500) : ({ unavailable: true }));
     const personality = cleanPersonality(await safe("personality", () => window.PersonalityShadow && window.PersonalityShadow.report ? window.PersonalityShadow.report() : ({ unavailable: true })));
     const a = [], b = [], drives = [], somatic = [];
@@ -45,7 +46,7 @@
       if (window.InnerLifeAShadow) {
         const state = await safe("A state", () => window.InnerLifeAShadow.get(owner, char.id));
         const report = await safe("A report", () => window.InnerLifeAShadow.report(owner, char.id));
-        if (state || (report && report.sampleCount)) a.push({ charId: char.id, name: label, state, report });
+        if (state || (report && report.sampleCount)) a.push({ charId: char.id, name: label, state, report, readiness: window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateA(report) : null, gate: window.InnerLifePromotionGate ? window.InnerLifePromotionGate.state("A", char.id) : null });
       }
       if (window.InnerLifeBShadow && window.InnerLifeBShadow.pilotFor && window.InnerLifeBShadow.pilotFor(char)) {
         b.push({ charId: char.id, name: label, report: await safe("B report", () => window.InnerLifeBShadow.report(owner, char)) });
@@ -95,7 +96,7 @@
       },
       sampleWindow: { note: "各模块保留期不同；样本不足只能续观，不能自动转正。" },
       memory, innerLife: {
-        E: e, A: a, B: b, C: c, somatic,
+        E: e && typeof e === "object" ? { ...e, readiness: eReadiness } : { report: e, readiness: eReadiness }, A: a, B: b, C: c, somatic,
         somaticReview: window.SomaticReviewCore ? window.SomaticReviewCore.summarize(somatic) : { unavailable: true },
         legacyNineDrives: drives
       }, personality
