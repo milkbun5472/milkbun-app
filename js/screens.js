@@ -4460,10 +4460,16 @@ function CloudSync({ toast }) {
   };
   const doSignOut = async () => {
     setBusy("out");
-    await window.Cloud.signOut();
-    setUser(null);
-    toast("已退出登录，本机数据已清空，正在重载…");
-    setTimeout(function () { location.reload(); }, 800);
+    try {
+      await window.Cloud.signOut();
+      setUser(null);
+      toast("已退出登录，本机数据已清空，正在重载…");
+      setTimeout(function () { location.reload(); }, 800);
+    } catch (e) {
+      // 云备份失败时 Cloud.signOut 会拒绝清理本机；给 Lisa 明确告警，不做假退出。
+      toast("未退出：最新数据还没安全备份，本机内容已保留。请检查网络或重新登录后再试。");
+      setBusy("");
+    }
   };
 
   const inner = user

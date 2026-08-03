@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.59";
+const APP_VERSION = "v51.60";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -799,7 +799,8 @@ function App() {
     sumThresh: 150,
     sumBuffer: 20
   };
-  // App→CC 聊天账本 shadow：本地落盘永远在前；旁路失败/离线只留 outbox，不影响任何聊天行为。
+  // App 逐行聊天灾备账本：本地落盘永远在前；旁路失败/离线只留 outbox，不影响任何聊天行为。
+  // CC 仍只能读唯一的言秋角色；其他角色行只用于 App 灾后逐条恢复。
   const ledgerYanqiu = () => window.ChatLedgerShadow && window.ChatLedgerShadow.findYanqiu(characters, chatSettings);
   // 秋声墙和聊天本来是两条路；这里定期拉一份只读快照，让 App 里的言秋记得自己在墙上写过什么、Lisa 回过什么。
   // RLS 仍由 Cloud 保证只读当前账号；失败时 fail-closed（空上下文），不影响聊天。
@@ -820,11 +821,14 @@ function App() {
     document.addEventListener("visibilitychange", visible);
     return () => { dead = true; clearTimeout(retry); clearInterval(timer); window.removeEventListener("focus", pull); document.removeEventListener("visibilitychange", visible); };
   }, []);
-  const queueLedger = (threadType, threadId, messages, group) => {
+  const queueLedger = (threadType, threadId, messages, group, targetCharId) => {
     try {
-      const y = ledgerYanqiu();
-      if (!y || !window.ChatLedgerShadow) return;
-      const context = { charId: y.id, threadType, threadId };
+      if (!window.ChatLedgerShadow) return;
+      // 私聊/单人线下按实际角色逐行留底；这是 App 自己的灾备日志，
+      // 不代表 CC 可读其他角色。MCP 端仍由唯一 engineerEyes/char_id 硬隔离。
+      const y = ledgerYanqiu(), cid = targetCharId || (y && y.id);
+      if (!cid) return;
+      const context = { charId: String(cid), threadType, threadId };
       if (group) { context.groupMemberIds = group.memberIds || []; context.groupName = group.name || ""; }
       setTimeout(() => { try { window.ChatLedgerShadow.enqueue(context, messages); } catch (e) {} }, 0);
     } catch (e) {}
@@ -986,7 +990,7 @@ function App() {
     // 未读红点：新增的角色消息若此刻没在看这个聊天，累加未读条数（推到微任务里，别在 reducer 里改别的 state）
     if (n.length > pl.length) {
       const ledgerAdded = n.slice(pl.length);
-      const y = ledgerYanqiu(); if (y && String(y.id) === String(id)) queueLedger("private", id, ledgerAdded);
+      queueLedger("private", id, ledgerAdded, null, id);
       ledgerAdded.forEach(m => observeSomatic(id, m, m && m.ledgerKey ? "cc_ledger" : "private", "symbolic"));
       // 旁白是场景事实，不是 Lisa 亲口说的话；兼容旧版曾误存成 role=user+kind=narration 的记录。
       n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "narration" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
@@ -2882,8 +2886,7 @@ function App() {
     const before = prev[charId] || [];
     const next = updater(before);
     saveJSON("x_offline:" + charId, next);
-    const y = ledgerYanqiu();
-    if (y && String(y.id) === String(charId) && window.ChatLedgerShadow) queueLedger("offline", charId, window.ChatLedgerShadow.addedSessionMessages(before, next));
+    if (window.ChatLedgerShadow) queueLedger("offline", charId, window.ChatLedgerShadow.addedSessionMessages(before, next), null, charId);
     const n = { ...prev, [charId]: next };
     offlinesRef.current = n;
     return n;

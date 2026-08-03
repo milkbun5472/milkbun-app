@@ -164,8 +164,10 @@
     },
 
     async signOut() {
-      // 退出前先把最新存档推到云端（确保数据在云上有备份，登录回来能拉回）
-      try { await this.autoPush(); } catch (e) {}
+      // 退出前必须先确认最新存档已成功上云。
+      // 旧逻辑把 push 失败静默吞掉，却仍继续清空本机 x_ 数据；会话过期/断网时会把
+      // 「只在本机的新聊天」直接清掉。宁可拦住退出，也不允许带着未备份数据离开。
+      await this.push();
       // 共享聊天账本 outbox 不属于 x_ saves：先尽力投递，随后清本机队列，绝不把旧账号消息带给下个账号。
       try { if (window.ChatLedgerShadow) await window.ChatLedgerShadow.flush(); } catch (e) {}
       if (client) await client.auth.signOut();
