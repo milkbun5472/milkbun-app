@@ -6975,6 +6975,7 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
   const [autoChatMin, setAutoChatMin] = useState(gs.autoChatMin || 8);
   const [autoChatRounds, setAutoChatRounds] = useState(gs.autoChatRounds || 5);
   const [autoChatMaxMsg, setAutoChatMaxMsg] = useState(gs.autoChatMaxMsg || 50);
+  const [autoChatResetHours, setAutoChatResetHours] = useState(gs.autoChatResetHours || 24);
   const [gDefaultOffline, setGDefaultOffline] = useState(!!gs.defaultOffline);
   const bgFileRef = useRef(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -7007,7 +7008,7 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
-      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, defaultOffline: gDefaultOffline }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
 
     // 成员管理
     h("div", { className: "pt-5" },
@@ -7032,10 +7033,11 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
     interop
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条")
       : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 20, 1, " 条"),
-    interop && row("群里自己聊起来", "开互通后，你晾着不说话时群成员会自己顺着往下聊（不必 cue 你，互相接梗/抬杠也行）。只在你正看着这个群时；距你上次发言自发够多轮会自动歇、等你再开口。", autoChat, setAutoChat),
+    interop && row("群里自己聊起来", "开互通后，你晾着不说话时群成员会自己顺着往下聊（不必 cue 你，互相接梗/抬杠也行）。只在你正看着这个群时；额度到顶会歇一阵，时间到或你再开口就恢复。", autoChat, setAutoChat),
     interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（带点随机、不死板）。嫌太闹就往大调。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
     interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 30, 1, " 轮"),
     interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 100, 5, " 条"),
+    interop && autoChat && sliderRow("额度刷新周期", "达到轮数或总条数上限后，安静多久再自动开一段。你亲自发言或按黑色回复键会立即刷新，不必等。", autoChatResetHours, setAutoChatResetHours, 1, 48, 1, " 小时"),
     row("默认进线下（同处一室 / 常聚）", "点进这个群默认直接进群线下相处（多人面对面叙事），随时可离开跳回线上；关着就跟以前一样默认线上。适合同居/几乎总在一起的群。", gDefaultOffline, setGDefaultOffline),
 
     // 记忆库
