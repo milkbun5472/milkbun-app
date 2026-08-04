@@ -5253,6 +5253,64 @@ function StateCard({
 // ============================================================
 // 线下模式（赴约）—— 全屏叙事界面。setup 选开场白+文风；live 只留输入框+回复键+心声
 // ============================================================
+async function readOfflineStyleDocument(file) {
+  const name = String(file && file.name || "").toLowerCase();
+  if (!name.endsWith(".docx")) {
+    const text = String(await file.text()).trim();
+    if (text.length > 250000) throw new Error("文风文件超过 25 万字，请拆小后导入");
+    return text;
+  }
+  const buf = await file.arrayBuffer();
+  const view = new DataView(buf);
+  let eocd = -1;
+  for (let i = Math.max(0, buf.byteLength - 65557); i <= buf.byteLength - 22; i++) {
+    if (view.getUint32(i, true) === 0x06054b50) eocd = i;
+  }
+  if (eocd < 0) throw new Error("不是有效的 DOCX 文件");
+  const entries = view.getUint16(eocd + 10, true);
+  let pos = view.getUint32(eocd + 16, true), found = null;
+  const decoder = new TextDecoder("utf-8");
+  for (let i = 0; i < entries && pos + 46 <= buf.byteLength; i++) {
+    if (view.getUint32(pos, true) !== 0x02014b50) break;
+    const method = view.getUint16(pos + 10, true);
+    const size = view.getUint32(pos + 20, true);
+    const rawSize = view.getUint32(pos + 24, true);
+    const nameLen = view.getUint16(pos + 28, true);
+    const extraLen = view.getUint16(pos + 30, true);
+    const commentLen = view.getUint16(pos + 32, true);
+    const localOffset = view.getUint32(pos + 42, true);
+    const filename = decoder.decode(new Uint8Array(buf, pos + 46, nameLen));
+    if (filename === "word/document.xml") found = { method, size, rawSize, localOffset };
+    pos += 46 + nameLen + extraLen + commentLen;
+  }
+  if (!found) throw new Error("DOCX 里找不到正文");
+  if (found.rawSize > 2000000) throw new Error("DOCX 正文过大，请另存为较短的 txt 后导入");
+  const localNameLen = view.getUint16(found.localOffset + 26, true);
+  const localExtraLen = view.getUint16(found.localOffset + 28, true);
+  const dataStart = found.localOffset + 30 + localNameLen + localExtraLen;
+  const compressed = new Uint8Array(buf, dataStart, found.size);
+  let xmlBytes;
+  if (found.method === 0) xmlBytes = compressed;
+  else if (found.method === 8 && typeof DecompressionStream !== "undefined") {
+    const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    xmlBytes = new Uint8Array(await new Response(stream).arrayBuffer());
+  } else throw new Error("当前浏览器不能解压这个 DOCX；请另存为 .txt 后导入");
+  const xml = new DOMParser().parseFromString(decoder.decode(xmlBytes), "application/xml");
+  if (xml.querySelector("parsererror")) throw new Error("DOCX 正文解析失败");
+  const paras = Array.from(xml.getElementsByTagNameNS("*", "p")).map(p =>
+    Array.from(p.getElementsByTagNameNS("*", "t")).map(t => t.textContent || "").join("")
+  ).map(s => s.trim()).filter(Boolean);
+  const text = paras.join("\n").trim();
+  if (text.length > 250000) throw new Error("文风正文超过 25 万字，请拆小后导入");
+  return text;
+}
+function OfflineStylePromptPreview({ style, t }) {
+  const prompt = String(style && style.prompt || "");
+  const shown = style && style.imported && prompt.length > 520 ? prompt.slice(0, 520) + "…" : prompt;
+  return h("div", null,
+    style && style.imported ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, marginBottom: 5 } }, "本地导入 · " + prompt.length + " 字 · 只在选中时注入") : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap" } }, shown || "不额外指定文风，由角色本身的人设决定叙事口吻。"));
+}
 function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDensity, compact }) {
   const row = (label, value, setter, options) => h("div", { className: compact ? "mb-3" : "mb-4" },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: .6, color: t.fog, marginBottom: 7 } }, label),
@@ -5319,6 +5377,7 @@ function OfflineMode({
   const [custOpen, setCustOpen] = useState(false);     // 设置里内联新建自定义文风
   const [cName2, setCName2] = useState("");
   const [cPrompt, setCPrompt] = useState("");
+  const styleFileRef = useRef(null);
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
   const [sMax, setSMax] = useState(os.maxTokens || 4000);
@@ -5400,6 +5459,23 @@ function OfflineMode({
     saveJSON("x_offlineStyles", next);
     if (styleKey === key) setStyleKey("default");
   };
+  const importStyleFile = async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const prompt = await readOfflineStyleDocument(file);
+      if (!prompt) throw new Error("文件里没有读到文字");
+      const name = file.name.replace(/\.(docx|txt|md)$/i, "").trim() || "导入文风";
+      const key = "custom_" + Date.now();
+      const next = [...customStyles, { key, name, prompt, custom: true, imported: true }];
+      setCustomStyles(next); saveJSON("x_offlineStyles", next); setStyleKey(key);
+      toast("已导入文风 · " + name + "（" + prompt.length + " 字）");
+    } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
+  };
+  const styleImportControl = h("span", { className: "inline-flex" },
+    h("button", { onClick: () => styleFileRef.current && styleFileRef.current.click(), className: "px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog } }, "⇧ 导入文件"),
+    h("input", { ref: styleFileRef, type: "file", accept: ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importStyleFile }));
   // 设置弹层里的「文风预设」小节（进行中随时改）
   const styleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 2 } }, "文风预设"),
@@ -5410,7 +5486,7 @@ function OfflineMode({
     }, s.name)).concat([h("button", {
       key: "__add", onClick: () => setCustOpen(v => !v),
       className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog }
-    }, "＋ 自定义")])),
+    }, "＋ 自定义"), styleImportControl])),
     custOpen
       ? h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
           h("input", { value: cName2, onChange: e => setCName2(e.target.value), placeholder: "预设名称，如 冷冽克制", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8 } }),
@@ -5418,7 +5494,7 @@ function OfflineMode({
           h("button", { onClick: saveCustomStyle, className: "w-full py-2.5", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"))
       : h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, (curStyle && curStyle.prompt) ? curStyle.prompt : "不额外指定文风，由角色本身的人设决定叙事口吻。"),
+          h(OfflineStylePromptPreview, { style: curStyle, t }),
           curStyle && curStyle.custom && h("button", { onClick: () => delCustomStyle(curStyle.key), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设")));
   const exampleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "好吃片段库 · " + ((os.examples || []).length) + "/12"),
@@ -5501,11 +5577,11 @@ function OfflineMode({
         }, s.name)).concat([h("button", {
           key: "__add", onClick: () => setStyleSheet(true),
           className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: `1px dashed ${t.line}`, background: "transparent", color: t.fog }
-        }, "＋ 自定义")])),
+        }, "＋ 自定义"), styleImportControl])),
         // 选中预设的提示词原文
         h("div", { className: "mb-6 p-3", style: { background: t.bg2, borderRadius: 8, border: `1px solid ${t.line}` } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, (curStyle && curStyle.prompt) ? curStyle.prompt : "不额外指定文风，由角色本身的人设决定叙事口吻。"),
+          h(OfflineStylePromptPreview, { style: curStyle, t }),
           curStyle && curStyle.custom && h("button", { onClick: () => delCustomStyle(curStyle.key), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设")),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
@@ -5770,6 +5846,7 @@ function GroupOfflineMode({
   const [custOpen, setCustOpen] = useState(false);
   const [cName2, setCName2] = useState("");
   const [cPrompt, setCPrompt] = useState("");
+  const styleFileRef = useRef(null);
   const scroller = useRef(null);
   const past = (sessions || []).filter(s => s.endTs);
   const allStyles = [...OFFLINE_STYLES, ...customStyles];
@@ -5795,6 +5872,23 @@ function GroupOfflineMode({
     saveJSON("x_offlineStyles", next);
     if (styleKey === key) setStyleKey("default");
   };
+  const importStyleFile = async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const prompt = await readOfflineStyleDocument(file);
+      if (!prompt) throw new Error("文件里没有读到文字");
+      const name = file.name.replace(/\.(docx|txt|md)$/i, "").trim() || "导入文风";
+      const key = "custom_" + Date.now();
+      const next = [...customStyles, { key, name, prompt, custom: true, imported: true }];
+      setCustomStyles(next); saveJSON("x_offlineStyles", next); setStyleKey(key);
+      toast("已导入文风 · " + name + "（" + prompt.length + " 字）");
+    } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
+  };
+  const styleImportControl = h("span", { className: "inline-flex" },
+    h("button", { onClick: () => styleFileRef.current && styleFileRef.current.click(), className: "px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog } }, "⇧ 导入文件"),
+    h("input", { ref: styleFileRef, type: "file", accept: ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importStyleFile }));
   // 设置弹层里的「文风预设」小节（进行中随时改）
   const styleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 2 } }, "文风预设"),
@@ -5805,7 +5899,7 @@ function GroupOfflineMode({
     }, s.name)).concat([h("button", {
       key: "__add", onClick: () => setCustOpen(v => !v),
       className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.fog }
-    }, "＋ 自定义")])),
+    }, "＋ 自定义"), styleImportControl])),
     custOpen
       ? h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
           h("input", { value: cName2, onChange: e => setCName2(e.target.value), placeholder: "预设名称，如 冷冽克制", className: "w-full outline-none p-2.5 mb-2", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 8 } }),
@@ -5813,7 +5907,7 @@ function GroupOfflineMode({
           h("button", { onClick: saveCustomStyle, className: "w-full py-2.5", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存并选用"))
       : h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, (curStyle && curStyle.prompt) ? curStyle.prompt : "不额外指定文风，由角色本身的人设决定叙事口吻。"),
+          h(OfflineStylePromptPreview, { style: curStyle, t }),
           curStyle && curStyle.custom && h("button", { onClick: () => delCustomStyle(curStyle.key), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设")));
   useEffect(() => {
     if (activeSession && view === "setup") setView("live");
@@ -5893,10 +5987,10 @@ function GroupOfflineMode({
         }, s.name)).concat([h("button", {
           key: "__add", onClick: () => setStyleSheet(true),
           className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: `1px dashed ${t.line}`, background: "transparent", color: t.fog }
-        }, "＋ 自定义")])),
+        }, "＋ 自定义"), styleImportControl])),
         h("div", { className: "mb-6 p-3", style: { background: t.bg2, borderRadius: 8, border: `1px solid ${t.line}` } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, (curStyle && curStyle.prompt) ? curStyle.prompt : "不额外指定文风，由角色本身的人设决定叙事口吻。"),
+          h(OfflineStylePromptPreview, { style: curStyle, t }),
           curStyle && curStyle.custom && h("button", { onClick: () => delCustomStyle(curStyle.key), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设")),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
