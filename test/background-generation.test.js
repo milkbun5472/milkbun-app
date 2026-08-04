@@ -43,3 +43,10 @@ test("同人文批量与追更都使用后台任务，长文调用放宽到五�
   assert.match(fanficSource, /BackgroundGeneration\.start\(chapterTaskKey/);
   assert.ok((fanficSource.match(/timeout:\s*300000/g) || []).length >= 2);
 });
+
+test("超长文风按一篇一交并在每篇完成后立即落库", () => {
+  assert.match(fanficSource, /LONG_STYLE_CHARS\s*=\s*6000/);
+  assert.match(fanficSource, /oneByOne\s*=\s*n\s*>\s*1/);
+  assert.match(fanficSource, /genBatch\(props\.active, curTab, chars, 1,/);
+  assert.match(fanficSource, /saveFics\(part\.concat\(loadFics\(\)\)\)/);
+});

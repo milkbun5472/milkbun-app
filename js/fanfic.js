@@ -1334,11 +1334,13 @@
     const [tabSheet, setTabSheet] = useState(null); // null | {} (new) | tabObj (edit)
     const FANFIC_BATCH_TASK = "fanfic:batch";
     const [busy, setBusy] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(FANFIC_BATCH_TASK).busy); });
+    const [genProg, setGenProg] = useState(function () { return window.BackgroundGeneration ? window.BackgroundGeneration.state(FANFIC_BATCH_TASK).progress : null; });
 
     useEffect(function () {
       if (!window.BackgroundGeneration) return;
       return window.BackgroundGeneration.subscribe(FANFIC_BATCH_TASK, function (s) {
         setBusy(!!s.busy);
+        setGenProg(s.progress || null);
         if (s.status === "done") setFics(loadFics());
       });
     }, []);
@@ -1370,7 +1372,7 @@
     async function doGen(n, cp, styleIds, includeMe) {
       setGearOpen(false);
       props.toast && props.toast("已放到后台生成（" + n + " 篇），可以先去别的页面");
-      const run = async function () {
+      const run = async function (updateProgress) {
         const chars = cpChars(cp, characters, props.profile);
         const cfg = loadCfg();
         // 本次勾选的文风（GenSheet 传来）→ 用它，并记住当默认；没传就退回上次的
@@ -1383,16 +1385,36 @@
         const worldPool = curTab.mixed ? tabs.filter(function (x) { return !x.mixed; }) : null;
         const opts = { style: styleText, perFic: cfg.perFic, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
           includeMe: !!includeMe, meName: (props.profile && props.profile.name) || userName || "我", mePersona: (props.profile && props.profile.persona) || "" };
-        const arr = await window.Fanfic.genBatch(props.active, curTab, chars, n, userName, props.worldbook, opts);
-        const now = Date.now();
-        const made = arr.map(function (x, i) {
+        // 超长文风（如金鱼灯）若一口气索要多篇，Supabase 代理要等整份 JSON 写完才回，
+        // 很容易先撞上云端长请求时限。保留文风全文、不压字数，改为一篇一交：
+        // 每篇完成立刻落库；中途失败也不赔掉已经写好的篇目。普通文风仍是一批一次调用。
+        const LONG_STYLE_CHARS = 6000;
+        const oneByOne = n > 1 && String(styleText || "").length >= LONG_STYLE_CHARS;
+        const made = [];
+        function records(arr, offset) {
+          const now = Date.now();
+          return arr.map(function (x, i) {
           return {
             id: uid("fic"), tabId: curTab.id, cp: cp || [], title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
-            stats: ficHeat(x.title + now + i), reviews: [], createdAt: now - i, updatedAt: now - i
+            stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset
           };
-        });
-        saveFics(made.concat(loadFics()));
+          });
+        }
+        if (oneByOne) {
+          for (let i = 0; i < n; i++) {
+            updateProgress && updateProgress({ done: i, total: n }, "长文风分篇生成");
+            const arr = await window.Fanfic.genBatch(props.active, curTab, chars, 1, userName, props.worldbook, opts);
+            const part = records(arr, i);
+            made.push.apply(made, part);
+            if (part.length) saveFics(part.concat(loadFics()));
+            updateProgress && updateProgress({ done: i + 1, total: n }, "长文风分篇生成");
+          }
+        } else {
+          const arr = await window.Fanfic.genBatch(props.active, curTab, chars, n, userName, props.worldbook, opts);
+          made.push.apply(made, records(arr, 0));
+          saveFics(made.concat(loadFics()));
+        }
         props.toast && props.toast("已生成 " + made.length + " 篇");
         return made;
       };
@@ -1487,7 +1509,7 @@
         view === "feed" && curTab && curTab.desc ? h("div", { className: "px-5 pb-2" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55, whiteSpace: "pre-line", maxHeight: 62, overflowY: "auto", WebkitOverflowScrolling: "touch", background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 10px" } }, curTab.desc)) : null,
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-6" },
-          busy ? h(Spinner, { label: "后台生成中…可以离开本页，回来会自动接上" }) : null,
+          busy ? h(Spinner, { label: genProg && genProg.total ? ("后台生成中 " + genProg.done + "/" + genProg.total + "…可以离开本页") : "后台生成中…可以离开本页，回来会自动接上" }) : null,
           list.length ? list.map(function (f) {
             return h(FicCard, { key: f.id, fic: f, characters: characters, userName: userName, onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); } });
           }) : (busy ? null : h(Empty, { text: view === "shelf" ? "书架空空" : "本版还没有同人文", sub: view === "shelf" ? "收藏或发布的篇目会留在这里追更" : "点右上角齿轮生成，或用底部加号自己写" }))));
