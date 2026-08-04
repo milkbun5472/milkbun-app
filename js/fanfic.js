@@ -685,7 +685,8 @@
     const t = useTheme();
     const f = props.fic;
     const [busy, setBusy] = useState("");         // 内联小操作（发书评/回复）
-    const [busyChap, setBusyChap] = useState(false); // 追更（可与刷书评并行）
+    const chapterTaskKey = "fanfic:chapter:" + f.id;
+    const [busyChap, setBusyChap] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(chapterTaskKey).busy); }); // 追更（离开阅读页仍继续）
     const [busyRev, setBusyRev] = useState(false);   // 刷书评（可与追更并行）
     const [replyTo, setReplyTo] = useState(null); // review id
     const [replyText, setReplyText] = useState("");
@@ -700,6 +701,13 @@
       if (firstChap.current) { firstChap.current = false; return; }
       if (chapRef.current) chapRef.current.scrollIntoView({ behavior: "auto", block: "start" });
     }, [chapIdx]);
+    React.useEffect(function () {
+      if (!window.BackgroundGeneration) return;
+      return window.BackgroundGeneration.subscribe(chapterTaskKey, function (s) {
+        setBusyChap(!!s.busy);
+        if (s.status === "done" && s.result && Number.isInteger(s.result.chapterIndex)) setChapIdx(s.result.chapterIndex);
+      });
+    }, [chapterTaskKey]);
     const chars = cpChars(f.cp, props.characters, props.profile);
     function goChap(to) { const chs = f.chapters || []; if (to >= 0 && to < chs.length) setChapIdx(to); }
     const authorName = f.author || (f.source === "user" ? (props.userName || "我") : "佚名");
@@ -708,17 +716,23 @@
 
     async function addChapter() {
       if (busyChap) return;
-      setBusyChap(true);
       const newIdx = (f.chapters || []).length; // 新章的索引
-      try {
+      const run = async function () {
         const ch = await window.Fanfic.genNextChapter(props.active, f, props.tab, chars, props.userName, props.worldbook, genOpts());
         props.onUpdate(f.id, function (fic) { fic.chapters = (fic.chapters || []).concat([ch]); fic.updatedAt = Date.now(); return fic; });
-        setChapIdx(newIdx); // 翻到新章（useEffect 会跳到章首）
         props.toast && props.toast("已更新一章");
         // item 8：新章推给曾被转发看过这篇的角色（不麻烦的轻量版）
         if (props.onChapterShared && (f.sharedTo || []).length) props.onChapterShared(f, ch, newIdx + 1);
-      } catch (e) { props.toast && props.toast(String(e.message || e)); }
-      setBusyChap(false);
+        return { chapterIndex: newIdx, chapter: ch };
+      };
+      props.toast && props.toast("追更已放到后台，可以先离开阅读页");
+      if (!window.BackgroundGeneration) {
+        setBusyChap(true);
+        try { await run(); setChapIdx(newIdx); } catch (e) { props.toast && props.toast(String(e.message || e)); }
+        setBusyChap(false); return;
+      }
+      try { await window.BackgroundGeneration.start(chapterTaskKey, { label: "追更生成中" }, run); }
+      catch (e) { props.toast && props.toast(String(e.message || e)); }
     }
     async function loadReviews() {
       if (busyRev) return;
@@ -809,7 +823,7 @@
 
         // 追更按钮
         h("button", { onClick: addChapter, disabled: busyChap, className: "w-full active:opacity-70 mb-8", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "11px", borderRadius: 12, border: "1px dashed " + t.line, opacity: busyChap ? 0.5 : 1 } },
-          busyChap ? "续写中…" : "＋ 追更下一章"),
+          busyChap ? "后台续写中…可以离开本页" : "＋ 追更下一章"),
 
         // 书评区
         h("div", { className: "flex items-center justify-between mb-3" },

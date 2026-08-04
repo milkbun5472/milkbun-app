@@ -1,6 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const BG = require("../js/background-generation.js");
+const fs = require("node:fs");
+const path = require("node:path");
+const fanficSource = fs.readFileSync(path.join(__dirname, "../js/fanfic.js"), "utf8");
 
 test("后台任务离开订阅者后仍完成，重进可读取结果", async () => {
   let release;
@@ -24,4 +27,19 @@ test("同一 key 运行中重复启动只执行一次", async () => {
   assert.equal(first, second);
   assert.equal(await second, "ok");
   assert.equal(calls, 1);
+});
+
+test("不同文章的追更任务可以各自运行，互不抢锁", async () => {
+  const a = BG.start("fanfic:chapter:a", {}, async () => "a2");
+  const b = BG.start("fanfic:chapter:b", {}, async () => "b2");
+  assert.equal(await a, "a2");
+  assert.equal(await b, "b2");
+  assert.equal(BG.state("fanfic:chapter:a").status, "done");
+  assert.equal(BG.state("fanfic:chapter:b").status, "done");
+});
+
+test("同人文批量与追更都使用后台任务，长文调用放宽到五分钟", () => {
+  assert.match(fanficSource, /BackgroundGeneration\.start\(FANFIC_BATCH_TASK/);
+  assert.match(fanficSource, /BackgroundGeneration\.start\(chapterTaskKey/);
+  assert.ok((fanficSource.match(/timeout:\s*300000/g) || []).length >= 2);
 });
