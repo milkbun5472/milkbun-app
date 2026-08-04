@@ -24,6 +24,15 @@
   const FANFIC_ANTI_CLICHE_TAIL =
     "\n\n【落笔前再自检一遍】通篇不许出现：埋进颈窝、小兽/幼兽/大型犬、低吼一声/喉间溢出、勾唇/挑眉、圈进怀里/扣住后颈、耳尖泛红，以及白玉凝脂、如瀑长发、藤蔓般缠绕、星辰大海、灵魂深处这类烂词。发现自己要写这些，就换成此情此景独有的具体细节。";
 
+  // 版块管「发生在哪里」，文风管「文字怎么活」。这一层专门拆掉每篇都按同一骨架行进的八股。
+  const FANFIC_ORGANIC_FORM =
+    "【叙事形状 · 禁止标准作文骨架】\n" +
+    "· 世界观版块只决定背景与生活规则，不等于固定文风；句法、叙述距离、段落呼吸以本次文风预设为准。\n" +
+    "· 不必凑标准『起承转合』，也不必每篇都有误会—解释—和好、偶遇—心动—告白或危机—营救—升华。先判断这篇真正有压力的那一刻，从最有生命的切口进入。\n" +
+    "· 开头可以落在半句话、一个动作之后、事情已发生的现场或平静生活中；不要篇篇先交代天气、地点、人物关系。结尾允许停在余波、未说完的话、生活继续的一刻，不写总结陈词和主题升华。\n" +
+    "· 场景详略允许不匀：值得停留的几分钟写深，其余时间可以跳过。别机械轮播环境描写→心理解释→身体反应→台词→金句。\n" +
+    "· 心理不是解说词。能由选择、错手做的小事、话说到一半或对物件的处置显出的，就别再替人物概括一遍。";
+
   // 正面示例（v47.74）：纯禁词清单压不住（否定指令模型不敏感，「埋进颈窝」照样出现）——
   // 上「烂模板 → 正确方向」对照，教思路不给可抄的句子；示例场景是现代的，古风等板块自行翻成对应时代的同款思路
   const FANFIC_GOOD_EXAMPLES =
@@ -60,6 +69,7 @@
   const K_FICS = "x_fanfic_fics";
   const K_CPS = "x_fanfic_cps";
   const K_CFG = "x_fanfic_cfg"; // 生成设置：预设文风 + 每篇 max token
+  const K_SHARED_STYLES = "x_offlineStyles"; // 与线下共用的本地文风库（不复制长 prompt）
 
   // 文风做成多个自定义预设，可多选任意切换；perFic=每篇/每章目标 token（放宽，别老骗刷下一章）
   const CFG_DEFAULT = { styles: [], activeStyleIds: [], perFic: 4200 };
@@ -69,9 +79,18 @@
     return Object.assign({}, CFG_DEFAULT, c);
   }
   function saveCfg(c) { saveJSON(K_CFG, c); }
+  function sharedStylePresets() {
+    return (loadJSON(K_SHARED_STYLES, []) || []).filter(function (s) { return s && s.key && s.prompt; }).map(function (s) {
+      return { id: "shared:" + s.key, label: s.name || "共享文风", text: s.prompt, shared: true };
+    });
+  }
+  function allStylePresets(cfg) { return (cfg.styles || []).concat(sharedStylePresets()); }
+  function styleTextForIds(cfg, ids) {
+    ids = ids || [];
+    return allStylePresets(cfg).filter(function (s) { return ids.indexOf(s.id) >= 0; }).map(function (s) { return s.text; }).filter(Boolean).join("\n\n");
+  }
   function activeStyleText(cfg) {
-    const ids = cfg.activeStyleIds || [];
-    return (cfg.styles || []).filter(function (s) { return ids.indexOf(s.id) >= 0; }).map(function (s) { return s.text; }).filter(Boolean).join("\n\n");
+    return styleTextForIds(cfg, cfg.activeStyleIds || []);
   }
   // 我的·作者主页资料（头像/昵称/id/背景 + 粉丝/关注；热度由我发布的篇目派生）
   const K_ME = "x_fanfic_me";
@@ -164,9 +183,10 @@
     parts.push(INTIMATE_ANTI_CLICHE);
     parts.push(FANFIC_ANTI_CLICHE);
     parts.push(FANFIC_GOOD_EXAMPLES);
+    parts.push(FANFIC_ORGANIC_FORM);
     parts.push(
       "【任务】你是一位很会写的同人文作者。写【纯线下叙事体】短篇同人文（第三人称或第二人称皆可，不是聊天、不是剧本，是成篇的散文小说）。" +
-      "每篇自成一体、有起承转合、有真正推进的剧情和场景，落在具体细节与真实情绪上，别开头没铺垫就草草收尾。");
+      "每篇自成一体，有真正发生或改变了什么的场景，落在具体细节与真实情绪上；结构服从本篇经验，不为完整而硬凑统一的起承转合。");
     // 世界观 = world book / 设定层。推荐(mixed)版：给出一整批世界观供每篇随机取
     if (tab.mixed && Array.isArray(opts.worldPool) && opts.worldPool.length) {
       parts.push("【世界观（综合推荐 · 每篇随机挑一个来写，彼此别扎堆重复）】\n" +
@@ -197,7 +217,7 @@
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
       "[{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：两人的关系设定（如 前未婚夫妻/宿敌/上下级）+身份+世界观要点——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"}]\n" +
-      "每篇 title 别重复、别都一个套路；author 每篇各不同；tags 2-4 个（如『破镜重圆』『HE』『pwp』『情有独钟』等同人圈标签）。别为了凑数量把正文压短——宁可写满。" +
+      "每篇 title 别重复、别都一个套路；同一批里开场位置、核心推进方式、时间跨度、叙述距离和收尾形状至少有三项彼此不同，禁止只是换背景与人名却复用同一情节拍。author 每篇各不同；tags 2-4 个（如『破镜重圆』『HE』『pwp』『情有独钟』等同人圈标签）。别为了凑数量把正文压短——宁可写满。" +
       FANFIC_ANTI_CLICHE_TAIL;
     const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
@@ -474,6 +494,7 @@
   window.Fanfic = {
     loadTabs: loadTabs, saveTabs: saveTabs, loadFics: loadFics, saveFics: saveFics,
     loadCPs: loadCPs, saveCPs: saveCPs, loadCfg: loadCfg, saveCfg: saveCfg, activeStyleText: activeStyleText,
+    allStylePresets: allStylePresets, styleTextForIds: styleTextForIds,
     loadMe: loadMe, saveMe: saveMe, meProfile: meProfile, protectedFic: protectedFic,
     chatMaterialFor: chatMaterialFor,
     genBatch: genBatch, genNextChapter: genNextChapter, genReviews: genReviews, genReplyToUser: genReplyToUser,
@@ -559,7 +580,7 @@
   function GenSheet(props) {
     const t = useTheme();
     const cfg0 = loadCfg();
-    const styles = cfg0.styles || [];
+    const styles = allStylePresets(cfg0);
     const [n, setN] = useState(3);
     const [sel, setSel] = useState([]); // 选中的 CP preset id 或角色 id（这里存最终 cp 数组）
     const [pickA, setPickA] = useState(""), [pickB, setPickB] = useState("");
@@ -590,7 +611,7 @@
             const on = styleIds.indexOf(s.id) >= 0;
             return h("button", { key: s.id, onClick: function () { toggleStyle(s.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) } }, s.label);
           })
-        ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 18 } }, "还没有文风预设，去「我的 → 生成设置」新建，之后每次在这里勾选。"),
+        ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 18 } }, "还没有文风预设，去「我的 → 生成设置」新建或导入，之后每次在这里勾选。"),
 
         h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "选择预设好的 CP，或本次手动设置一对"),
         // 从 CP 预设名单里选
@@ -872,7 +893,7 @@
 
     if (sub === "published") return h(MinePublished, { fics: mine, characters: props.characters, userName: props.userName, onBack: function () { setSub(null); }, onOpen: props.onOpenFic });
     if (sub === "cp") return h(MineCP, { cps: props.cps, characters: props.characters, userName: props.userName, toast: props.toast, onBack: function () { setSub(null); }, onAddCP: props.onAddCP, onDelCP: props.onDelCP });
-    if (sub === "settings") return h(MineSettings, { onBack: function () { setSub(null); } });
+    if (sub === "settings") return h(MineSettings, { toast: props.toast, onBack: function () { setSub(null); } });
 
     const row = function (label, desc, onClick) {
       return h("button", { onClick: onClick, className: "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 mb-2.5 active:opacity-70", style: { background: t.bg2, border: "1px solid " + t.line } },
@@ -961,7 +982,9 @@
   function MineSettings(props) {
     const t = useTheme();
     const [cfg, setCfg] = useState(window.Fanfic.loadCfg());
+    const [sharedStyles, setSharedStyles] = useState(function () { return loadJSON(K_SHARED_STYLES, []) || []; });
     const [adding, setAdding] = useState(false);
+    const [importing, setImporting] = useState(false);
     const [label, setLabel] = useState(""), [text, setText] = useState("");
     function patch(p) { const n = Object.assign({}, cfg, p); setCfg(n); window.Fanfic.saveCfg(n); }
     function addStyle() {
@@ -975,13 +998,37 @@
       patch({ activeStyleIds: on ? cfg.activeStyleIds.filter(function (x) { return x !== id; }) : (cfg.activeStyleIds || []).concat([id]) });
     }
     function del(id) { patch({ styles: (cfg.styles || []).filter(function (s) { return s.id !== id; }), activeStyleIds: (cfg.activeStyleIds || []).filter(function (x) { return x !== id; }) }); }
+    function importStyleFile() {
+      const inp = document.createElement("input");
+      inp.type = "file"; inp.accept = ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      inp.onchange = async function () {
+        const file = inp.files && inp.files[0]; if (!file) return;
+        setImporting(true);
+        try {
+          const reader = window.readWritingStyleDocument;
+          if (typeof reader !== "function") throw new Error("文风解析器尚未加载，请刷新后再试");
+          const prompt = await reader(file);
+          const base = String(file.name || "导入文风").replace(/\.(docx|txt|md)$/i, "");
+          const key = "style_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+          const item = { key: key, name: base || "导入文风", prompt: prompt, source: "local-file", importedAt: Date.now() };
+          const next = sharedStyles.concat([item]);
+          setSharedStyles(next); saveJSON(K_SHARED_STYLES, next);
+          patch({ activeStyleIds: (cfg.activeStyleIds || []).concat(["shared:" + key]) });
+          props.toast && props.toast("已导入「" + item.name + "」，只保存在本机文风库");
+        } catch (e) { props.toast ? props.toast(String(e.message || e)) : alert(String(e.message || e)); }
+        setImporting(false);
+      };
+      inp.click();
+    }
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "生成设置", en: "Settings", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { className: "flex items-center justify-between mb-2" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "预设文风"),
-          h("button", { onClick: function () { setAdding(!adding); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, adding ? "取消" : "＋ 新建")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10 } }, "在这里建好文风预设；每次生成时在齿轮弹窗里按需勾选（可多选），随时换。"),
+          h("div", { className: "flex items-center gap-3" },
+            h("button", { onClick: importStyleFile, disabled: importing, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, opacity: importing ? 0.5 : 1 } }, importing ? "解析中…" : "导入文件"),
+            h("button", { onClick: function () { setAdding(!adding); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, adding ? "取消" : "＋ 新建"))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10 } }, "版块只管世界背景；文风在这里单独选择。可导入 DOCX / TXT / MD，和线下共用同一份本地文风库，不上传原文件。"),
         adding ? h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
           h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "文风名（如 冷冽白描 / 治愈慢热 / 港风）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
           h("textarea", { value: text, onChange: function (e) { setText(e.target.value); }, rows: 7, placeholder: "文风描述，越具体越好，想写多长写多长（无字数限制）：多用短句白描、冷色调意象、情绪藏在动作里、少直白抒情、禁用某些词……", className: "w-full outline-none resize-y mb-3", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, padding: "9px 11px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line, minHeight: 120 } }),
@@ -993,6 +1040,17 @@
               h("button", { onClick: function () { del(s.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, s.text));
         }) : (adding ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "还没有文风预设。")),
+
+        sharedStyles.length ? h("div", { style: { marginTop: 14 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "共享本地文风 · 线下与同人文都可用"),
+          sharedStyles.map(function (s) {
+            const id = "shared:" + s.key, on = (cfg.activeStyleIds || []).indexOf(id) >= 0;
+            return h("button", { key: s.key, onClick: function () { toggle(id); }, className: "w-full text-left rounded-xl px-4 py-3 mb-2 active:opacity-75", style: { background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.accent : t.line) } },
+              h("div", { className: "flex items-center justify-between" },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, s.name || "共享文风"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.accent : t.fog } }, on ? "本次默认启用" : "点按启用")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, String(s.prompt || "").slice(0, 180) + (String(s.prompt || "").length > 180 ? "…" : "")));
+          })) : null,
 
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, margin: "18px 0 8px" } }, "篇幅"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 6 } }, "每篇 / 每章约 " + cfg.perFic + " token（越高越长、越有剧情）"),
@@ -1286,7 +1344,7 @@
         let styleText;
         if (Array.isArray(styleIds)) {
           saveCfg(Object.assign({}, cfg, { activeStyleIds: styleIds }));
-          styleText = (cfg.styles || []).filter(function (s) { return styleIds.indexOf(s.id) >= 0; }).map(function (s) { return s.text; }).filter(Boolean).join("\n\n");
+          styleText = styleTextForIds(cfg, styleIds);
         } else styleText = activeStyleText(cfg);
         // 推荐(mixed)版：把其它世界观当池子供每篇随机取
         const worldPool = curTab.mixed ? tabs.filter(function (x) { return !x.mixed; }) : null;

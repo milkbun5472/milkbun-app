@@ -5304,6 +5304,8 @@ async function readOfflineStyleDocument(file) {
   if (text.length > 250000) throw new Error("文风正文超过 25 万字，请拆小后导入");
   return text;
 }
+// 文风文档解析器供线下与同人文共用；只在本机浏览器读取，不上传原文件。
+window.readWritingStyleDocument = readOfflineStyleDocument;
 function OfflineStylePromptPreview({ style, t }) {
   const prompt = String(style && style.prompt || "");
   const shown = style && style.imported && prompt.length > 520 ? prompt.slice(0, 520) + "…" : prompt;
