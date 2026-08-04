@@ -74,3 +74,20 @@ test("同人文书架可导出诊断稿且新文章记录所用文风", () => {
   assert.match(fanficSource, /generationStyleIds:\s*selectedStyleIds\.slice\(\)/);
   assert.match(fanficSource, /不含角色卡、聊天记录、密钥和书评/);
 });
+
+test("文风实验室拆分技法、保留来源并默认不启用", () => {
+  assert.match(fanficSource, /STYLE_LAB_AXES/);
+  assert.match(fanficSource, /贴身限知/);
+  assert.match(fanficSource, /借骨不借皮/);
+  assert.match(fanficSource, /保存实验稿（暂不启用）/);
+  assert.match(fanficSource, /patch\(\{ styles: \(cfg\.styles \|\| \[\]\)\.concat\(\[s\]\) \}\)/);
+  assert.match(fanficSource, /来源备注（只作溯源，不是写作指令）/);
+});
+
+test("文风实验室 A-B 只改变文风且明确消耗两次调用", () => {
+  assert.match(fanficSource, /试写 A\/B（会调用模型 2 次）/);
+  assert.match(fanficSource, /A · 不带文风/);
+  assert.match(fanficSource, /B · 实验文风/);
+  assert.match(fanficSource, /const base = await callAI/);
+  assert.match(fanficSource, /const styled = await callAI/);
+});

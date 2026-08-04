@@ -139,6 +139,35 @@
   function activeStyleText(cfg) {
     return styleTextForIds(cfg, cfg.activeStyleIds || []);
   }
+
+  // 文风实验室：把“喜欢这篇的感觉”拆成可组合的叙事零件。
+  // 样例只作为句法/叙述距离参照，不允许模型复制人物、情节或原句。
+  const STYLE_LAB_AXES = [
+    { id: "close", label: "贴身限知", text: "叙述贴着当前人物的有限感知走；不知道的事不替人物揭晓，允许误读、迟疑和自相矛盾。" },
+    { id: "breath", label: "长短呼吸", text: "句长随注意力变化：朴素短句承担落点，较长句只用于知觉或回忆真的转向；段落长短不必整齐。" },
+    { id: "scene", label: "现场推进", text: "每段都让现场发生一点变化：人移动、物件易手、话被打断、信息出现或选择落下；不靠换一组比喻原地抒情。" },
+    { id: "subtext", label: "对白潜台词", text: "对白允许绕开真正的问题、说半句、答非所问；人物关系从措辞和停顿显出，不写成观点宣言。" },
+    { id: "embodied", label: "情绪落身体", text: "心理从呼吸、视线、手上正在做的事和动作误差里显影；少用情绪名词，不在动作后追加解释。" },
+    { id: "memory", label: "触发式回忆", text: "回忆必须被眼前具体事物触发，短暂进入后回到现场并改变下一步；不整段交代履历。" },
+    { id: "plain", label: "准确普通词", text: "优先使用准确的普通词。罕见词只在不可替代且符合人物知识时出现，不以辞藻密度冒充文学性。" },
+    { id: "open_end", label: "余波收尾", text: "结尾停在动作、声音、物件、话语或未完成的选择上；不总结成长，不解释标题、象征和关系结论。" }
+  ];
+  const STYLE_LAB_RECIPE = ["close", "breath", "scene", "subtext", "embodied", "memory", "plain", "open_end"];
+  function buildStyleLabPrompt(name, source, axes, notes, samples) {
+    const picked = STYLE_LAB_AXES.filter(function (a) { return (axes || []).indexOf(a.id) >= 0; });
+    const excerpts = (samples || []).map(function (s) { return String(s || "").trim().slice(0, 1600); }).filter(Boolean).slice(0, 3);
+    const out = ["【" + (String(name || "文风实验").trim() || "文风实验") + " · 可迁移写法】"];
+    if (source && String(source).trim()) out.push("来源备注（只作溯源，不是写作指令）：" + String(source).trim().slice(0, 240));
+    out.push("目标：学习叙述距离、句子呼吸、观察顺序和留白方式；绝不复制样例的人名、情节、设定、意象或原句，也不把技巧逐条机械打卡。");
+    picked.forEach(function (a) { out.push("· " + a.text); });
+    if (notes && String(notes).trim()) out.push("\n【本次补充】\n" + String(notes).trim().slice(0, 1800));
+    if (excerpts.length) {
+      out.push("\n【短样例：借骨不借皮】\n只观察句长变化、段落转场、视角贴近程度、对白和动作如何分工。禁止续写或改写样例本身。");
+      excerpts.forEach(function (s, i) { out.push("样例 " + (i + 1) + "：\n" + s); });
+    }
+    out.push("\n【交稿自检】拿掉形容词后，段落仍应靠人物的注意力、选择和现场变化成立。若出现『动作—解释—总结』三连，删掉解释，让读者自己抵达。");
+    return out.join("\n");
+  }
   // 我的·作者主页资料（头像/昵称/id/背景 + 粉丝/关注；热度由我发布的篇目派生）
   const K_ME = "x_fanfic_me";
   function loadMe() { return loadJSON(K_ME, null); }
@@ -1015,7 +1044,7 @@
 
     if (sub === "published") return h(MinePublished, { fics: mine, characters: props.characters, userName: props.userName, onBack: function () { setSub(null); }, onOpen: props.onOpenFic });
     if (sub === "cp") return h(MineCP, { cps: props.cps, characters: props.characters, userName: props.userName, toast: props.toast, onBack: function () { setSub(null); }, onAddCP: props.onAddCP, onDelCP: props.onDelCP });
-    if (sub === "settings") return h(MineSettings, { toast: props.toast, onBack: function () { setSub(null); } });
+    if (sub === "settings") return h(MineSettings, { active: props.active, toast: props.toast, onBack: function () { setSub(null); } });
 
     const row = function (label, desc, onClick) {
       return h("button", { onClick: onClick, className: "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 mb-2.5 active:opacity-70", style: { background: t.bg2, border: "1px solid " + t.line } },
@@ -1108,6 +1137,15 @@
     const [adding, setAdding] = useState(false);
     const [importing, setImporting] = useState(false);
     const [label, setLabel] = useState(""), [text, setText] = useState("");
+    const [labOpen, setLabOpen] = useState(false);
+    const [labName, setLabName] = useState("贴身叙事 · 留白呼吸");
+    const [labSource, setLabSource] = useState("");
+    const [labAxes, setLabAxes] = useState([]);
+    const [labNotes, setLabNotes] = useState("");
+    const [labSamples, setLabSamples] = useState(["", "", ""]);
+    const [labScene, setLabScene] = useState("");
+    const [labTesting, setLabTesting] = useState(false);
+    const [labAB, setLabAB] = useState(null);
     function patch(p) { const n = Object.assign({}, cfg, p); setCfg(n); window.Fanfic.saveCfg(n); }
     function addStyle() {
       if (!text.trim()) { props.toast && props.toast("文风内容不能为空"); return; }
@@ -1120,6 +1158,39 @@
       patch({ activeStyleIds: on ? cfg.activeStyleIds.filter(function (x) { return x !== id; }) : (cfg.activeStyleIds || []).concat([id]) });
     }
     function del(id) { patch({ styles: (cfg.styles || []).filter(function (s) { return s.id !== id; }), activeStyleIds: (cfg.activeStyleIds || []).filter(function (x) { return x !== id; }) }); }
+    function toggleLabAxis(id) {
+      setLabAxes(labAxes.indexOf(id) >= 0 ? labAxes.filter(function (x) { return x !== id; }) : labAxes.concat([id]));
+    }
+    function useCloseNarrativeRecipe() {
+      setLabName("贴身叙事 · 留白呼吸");
+      setLabAxes(STYLE_LAB_RECIPE.slice());
+      setLabNotes("场景的温度来自人物当下会注意什么，而不是叙述者替人物分析。允许朴素句子、重复、停顿和不体面的念头；对白之后不急着解释，回忆进入后必须落回眼前的人或物。");
+    }
+    function saveLabStyle() {
+      const prompt = buildStyleLabPrompt(labName, labSource, labAxes, labNotes, labSamples);
+      if (!labAxes.length && !labNotes.trim() && !labSamples.some(function (s) { return s.trim(); })) {
+        props.toast && props.toast("先选一些文风骨架，或贴一段短样例"); return;
+      }
+      const s = { id: uid("st"), label: labName.trim() || "文风实验", text: prompt, kind: "style-lab", sourceNote: labSource.trim(), createdAt: Date.now() };
+      // 实验稿默认不启用，防止“保存一下”立刻改变下一篇成文。
+      patch({ styles: (cfg.styles || []).concat([s]) });
+      setLabOpen(false);
+      props.toast && props.toast("已保存文风实验 · 默认未启用，勾选后才生效");
+    }
+    async function testLabStyle() {
+      if (!props.active) { props.toast && props.toast("先在 API 设置里选一个可用模型"); return; }
+      if (!labScene.trim()) { props.toast && props.toast("先写一个想测试的场景"); return; }
+      const style = buildStyleLabPrompt(labName, labSource, labAxes, labNotes, labSamples);
+      const task = "把下面场景写成 350～550 字的小说片段。只写正文，不起标题，不解释写法。必须让现场发生变化，并停在一个尚有余波的具体动作上。\n\n【场景】\n" + labScene.trim();
+      setLabTesting(true); setLabAB(null);
+      try {
+        // 两边使用完全相同的场景与篇幅；唯一变量是实验文风。
+        const base = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n" + FANFIC_ANTI_CLICHE, [{ role: "user", content: task }], { maxTokens: 1400, timeout: 180000 });
+        const styled = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n【本次实验文风】\n" + style + "\n\n" + STYLE_FIDELITY_TAIL, [{ role: "user", content: task }], { maxTokens: 1400, timeout: 180000 });
+        setLabAB({ base: String(base || "").trim(), styled: String(styled || "").trim() });
+      } catch (e) { props.toast ? props.toast("A/B 生成失败：" + String(e.message || e)) : alert(String(e.message || e)); }
+      setLabTesting(false);
+    }
     function importStyleFile() {
       const inp = document.createElement("input");
       inp.type = "file"; inp.accept = ".docx,.txt,.md,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -1151,6 +1222,40 @@
             h("button", { onClick: importStyleFile, disabled: importing, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, opacity: importing ? 0.5 : 1 } }, importing ? "解析中…" : "导入文件"),
             h("button", { onClick: function () { setAdding(!adding); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, adding ? "取消" : "＋ 新建"))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10 } }, "版块只管世界背景；文风在这里单独选择。可导入 DOCX / TXT / MD，和线下共用同一份本地文风库，不上传原文件。"),
+        h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
+          h("button", { onClick: function () { setLabOpen(!labOpen); }, className: "w-full flex items-center justify-between text-left active:opacity-70" },
+            h("div", null,
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, "文风实验室"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.8, color: t.fog, marginTop: 2 } }, "拆骨架 · 放短样例 · 预览后保存")),
+            h("span", { style: { color: t.accent, fontSize: 13 } }, labOpen ? "收起" : "打开")),
+          labOpen ? h("div", { style: { marginTop: 13 } },
+            h("button", { onClick: useCloseNarrativeRecipe, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "6px 10px", marginBottom: 11 } }, "一键填入 · 贴身叙事骨架"),
+            h("input", { value: labName, onChange: function (e) { setLabName(e.target.value); }, placeholder: "给这套实验取名", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "8px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+            h("input", { value: labSource, onChange: function (e) { setLabSource(e.target.value); }, placeholder: "来源备注（作者 / 链接 / 自己的样稿，可留空）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 12, padding: "8px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 7 } }, "选择真正想借的骨架"),
+            h("div", { className: "flex flex-wrap gap-2 mb-3" }, STYLE_LAB_AXES.map(function (a) {
+              const on = labAxes.indexOf(a.id) >= 0;
+              return h("button", { key: a.id, onClick: function () { toggleLabAxis(a.id); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 9px" } }, a.label);
+            })),
+            h("textarea", { value: labNotes, onChange: function (e) { setLabNotes(e.target.value); }, rows: 3, placeholder: "额外说明：例如少写全知判断、允许人物想错、对白别太完整……", className: "w-full outline-none resize-y mb-3", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 3 } }, "短样例（可选，1～3 段）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "只贴你有权使用的短段落。系统会明确要求借句法、不借人名情节和原句。"),
+            labSamples.map(function (sample, i) {
+              return h("textarea", { key: i, value: sample, onChange: function (e) { const next = labSamples.slice(); next[i] = e.target.value; setLabSamples(next); }, rows: 3, maxLength: 1600, placeholder: "样例 " + (i + 1) + (i ? "（可留空）" : ""), className: "w-full outline-none resize-y mb-2", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.65, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } });
+            }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, margin: "10px 0 6px" } }, "同场景 A/B 试写"),
+            h("textarea", { value: labScene, onChange: function (e) { setLabScene(e.target.value); }, rows: 3, placeholder: "例如：分别多年后在医院走廊重逢，其中一人先认出了对方，却装作没有。", className: "w-full outline-none resize-y mb-2", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+            h("button", { onClick: testLabStyle, disabled: labTesting, className: "w-full active:opacity-75", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "9px", borderRadius: 10, opacity: labTesting ? 0.5 : 1, marginBottom: 9 } }, labTesting ? "正在生成两份…" : "试写 A/B（会调用模型 2 次）"),
+            labAB ? h("div", { className: "grid grid-cols-1 gap-2 mb-3" },
+              [["A · 不带文风", labAB.base], ["B · 实验文风", labAB.styled]].map(function (it) {
+                return h("div", { key: it[0], style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: 10 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: it[0][0] === "B" ? t.accent : t.fog, marginBottom: 5 } }, it[0]),
+                  h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" } }, it[1] || "（模型返回为空）"));
+              })) : null,
+            h("details", { style: { marginTop: 5, marginBottom: 10 } },
+              h("summary", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, cursor: "pointer" } }, "预览最终提示词"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, whiteSpace: "pre-wrap", color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: 10, marginTop: 7, maxHeight: 260, overflowY: "auto" } }, buildStyleLabPrompt(labName, labSource, labAxes, labNotes, labSamples))),
+            h("button", { onClick: saveLabStyle, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "10px", borderRadius: 10 } }, "保存实验稿（暂不启用）")) : null),
         adding ? h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
           h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "文风名（如 冷冽白描 / 治愈慢热 / 港风）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
           h("textarea", { value: text, onChange: function (e) { setText(e.target.value); }, rows: 7, placeholder: "文风描述，越具体越好，想写多长写多长（无字数限制）：多用短句白描、冷色调意象、情绪藏在动作里、少直白抒情、禁用某些词……", className: "w-full outline-none resize-y mb-3", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, padding: "9px 11px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line, minHeight: 120 } }),
@@ -1587,7 +1692,7 @@
     if (view === "publish") {
       inner = h(Publish, { tabs: tabs, characters: characters, userName: userName, toast: props.toast, onBack: function () { setView("feed"); }, onPublish: publish });
     } else if (view === "mine") {
-      inner = h(Mine, { characters: characters, cps: cps, userName: userName, me: me, fics: fics, profile: props.profile, toast: props.toast,
+      inner = h(Mine, { characters: characters, cps: cps, userName: userName, me: me, fics: fics, profile: props.profile, active: props.active, toast: props.toast,
         onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP, onEnterRP: function () { setView("rp"); },
         onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn });
     } else if (view === "rp") {
