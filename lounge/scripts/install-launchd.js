@@ -9,6 +9,8 @@ const LABEL = 'com.lisa.three-party-lounge';
 const loungeDir = path.resolve(__dirname, '..');
 const agentsDir = path.join(os.homedir(), 'Library', 'LaunchAgents');
 const plistPath = path.join(agentsDir, `${LABEL}.plist`);
+const supportDir = path.join(os.homedir(), 'Library', 'Application Support', 'Lisa Lounge');
+const runtimeConfigPath = path.join(supportDir, 'live-config.json');
 const uid = typeof process.getuid === 'function' ? process.getuid() : null;
 
 function xml(value) {
@@ -25,6 +27,9 @@ function install() {
   if (uid == null) throw new Error('无法取得当前用户 uid');
   fs.mkdirSync(agentsDir, { recursive: true });
   fs.mkdirSync(path.join(loungeDir, 'data'), { recursive: true, mode: 0o700 });
+  fs.mkdirSync(supportDir, { recursive: true, mode: 0o700 });
+  fs.copyFileSync(path.join(loungeDir, 'data', 'live-config.json'), runtimeConfigPath);
+  fs.chmodSync(runtimeConfigPath, 0o600);
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -39,6 +44,10 @@ function install() {
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>5</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>LOUNGE_CONFIG</key><string>${xml(runtimeConfigPath)}</string>
+  </dict>
   <key>StandardOutPath</key><string>${xml(path.join(loungeDir, 'data', 'lounge.out.log'))}</string>
   <key>StandardErrorPath</key><string>${xml(path.join(loungeDir, 'data', 'lounge.err.log'))}</string>
 </dict>
@@ -57,6 +66,7 @@ function uninstall() {
   if (uid == null) throw new Error('无法取得当前用户 uid');
   launchctl(['bootout', `gui/${uid}`, plistPath], true);
   try { fs.unlinkSync(plistPath); } catch {}
+  try { fs.unlinkSync(runtimeConfigPath); } catch {}
   process.stdout.write('会客厅 launchd 已卸载\n');
 }
 
