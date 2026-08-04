@@ -12,6 +12,7 @@ const { createCodexCliRunner } = require('./adapters/codex-runner');
 const { createWakeQueueSender } = require('./adapters/cc-wake-sender');
 const { createLoungeServer } = require('./server');
 const { LoungeOutboxConsumer } = require('./adapters/lounge-outbox-consumer');
+const { LandlordController } = require('./landlord-controller');
 
 const DEFAULT_CONFIG = path.join(__dirname, 'data', 'live-config.json');
 
@@ -65,8 +66,11 @@ function createLiveHost({ configPath, port } = {}) {
       codex: Number(config.codex_timeout_ms || 600000),
     },
   });
-  const built = createLoungeServer({
+  let built;
+  const landlord = new LandlordController({ db, orch, onChange: (roomId) => built && built.snapshot(roomId) });
+  built = createLoungeServer({
     orch,
+    landlord,
     runtime: { mode: 'live', cc: 'dedicated_wake_queue', codex: 'official_cli' },
     healthTargets: { cc: config.cc_session_id, codex: config.codex_thread_id },
     roomDefaults: {
@@ -83,7 +87,7 @@ function createLiveHost({ configPath, port } = {}) {
   });
   outboxConsumer.start(Number(config.outbox_poll_ms || 1000));
   built.server.on('close', () => outboxConsumer.stop());
-  return { ...built, db, orch, outboxConsumer, config, port: Number(port || config.port || 8092) };
+  return { ...built, db, orch, landlord, outboxConsumer, config, port: Number(port || config.port || 8092) };
 }
 
 if (require.main === module) {

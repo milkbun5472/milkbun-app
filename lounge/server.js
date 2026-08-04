@@ -112,6 +112,7 @@ function createEventHub() {
 
 function createLoungeServer({
   orch,
+  landlord = null,
   roomDefaults = {},
   runtime = { mode: 'preview', cc: 'preview', codex: 'preview' },
   healthTargets = {},
@@ -121,8 +122,14 @@ function createLoungeServer({
   const events = createEventHub();
   const lateWatchers = new Map();
 
-  function snapshot(roomId) {
+  function roomState(roomId) {
     const state = safeRoom(orch, roomId);
+    if (state && landlord) state.landlord = landlord.current(roomId);
+    return state;
+  }
+
+  function snapshot(roomId) {
+    const state = roomState(roomId);
     if (state) events.emit(roomId, 'snapshot', state);
     return state;
   }
@@ -189,14 +196,14 @@ function createLoungeServer({
       const room = orch.db.prepare(`SELECT room_id FROM rooms WHERE status != 'stopped'
         ORDER BY updated_at DESC, created_at DESC, rowid DESC LIMIT 1`).get();
       if (!room) return fail(res, 404, 'ROOM_NOT_FOUND', '当前还没有会客厅');
-      return json(res, 200, safeRoom(orch, room.room_id));
+      return json(res, 200, roomState(room.room_id));
     }
 
     if (parts[0] === 'api' && parts[1] === 'rooms' && parts[2]) {
       const roomId = parts[2];
       if (!orch.getRoom(roomId)) return fail(res, 404, 'ROOM_NOT_FOUND', '这间会客厅不存在');
 
-      if (method === 'GET' && parts.length === 3) return json(res, 200, safeRoom(orch, roomId));
+      if (method === 'GET' && parts.length === 3) return json(res, 200, roomState(roomId));
 
       if (method === 'GET' && parts[3] === 'events') {
         res.writeHead(200, {
@@ -206,7 +213,7 @@ function createLoungeServer({
           'x-accel-buffering': 'no',
         });
         events.add(roomId, res);
-        res.write(`event: snapshot\ndata: ${JSON.stringify(safeRoom(orch, roomId))}\n\n`);
+        res.write(`event: snapshot\ndata: ${JSON.stringify(roomState(roomId))}\n\n`);
         const keepalive = setInterval(() => res.write(': keepalive\n\n'), 15000);
         req.on('close', () => {
           clearInterval(keepalive);
@@ -223,6 +230,23 @@ function createLoungeServer({
         const message = orch.postLisaMessage(roomId, content);
         snapshot(roomId);
         return json(res, 201, { message, state: safeRoom(orch, roomId) });
+      }
+
+      if (landlord && parts[3] === 'landlord') {
+        if (method === 'GET' && parts.length === 4) return json(res, 200, { game: landlord.current(roomId) });
+        if (method === 'POST' && parts[4] === 'start') {
+          const b = await bodyOf(req);
+          if (b.codex_confirmed !== true) return fail(res, 409, 'CODEX_CONFIRMATION_REQUIRED', '请先确认本局允许在轮到 Codex 时自动叫醒一次');
+          const game = landlord.start(roomId, { codexConfirmed: true });
+          return json(res, 201, { game, state: snapshot(roomId) });
+        }
+        if (method === 'POST' && parts[4] === 'action') {
+          const b = await bodyOf(req);
+          const current = landlord.current(roomId);
+          if (!current || current.game_id !== b.game_id) return fail(res, 404, 'GAME_NOT_FOUND', '当前牌局不存在');
+          const game = await withProgress(roomId, () => landlord.lisaAction(b.game_id, b.action || {}));
+          return json(res, 200, { game, state: snapshot(roomId) });
+        }
       }
 
       if (method === 'POST' && parts[3] === 'dispatch') {

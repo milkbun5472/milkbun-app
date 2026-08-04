@@ -119,6 +119,21 @@ CREATE TABLE IF NOT EXISTS external_stream_cursors (
   byte_cursor INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL
 );
+
+-- 斗地主牌局。完整 state 只留本机；API 必须按 viewer 投影，绝不下发另外两家的暗牌。
+CREATE TABLE IF NOT EXISTS landlord_games (
+  game_id          TEXT PRIMARY KEY,
+  room_id          TEXT NOT NULL REFERENCES rooms(room_id),
+  status           TEXT NOT NULL CHECK (status IN ('bidding','playing','paused','finished')),
+  state_json       TEXT NOT NULL,
+  codex_confirmed  INTEGER NOT NULL DEFAULT 0 CHECK (codex_confirmed IN (0,1)),
+  error_message    TEXT,
+  created_at       TEXT NOT NULL,
+  updated_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS landlord_games_room_updated
+  ON landlord_games(room_id, updated_at DESC);
 `;
 
 function openDb(path = ':memory:') {

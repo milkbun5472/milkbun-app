@@ -28,6 +28,11 @@ const ui = {
   handoffDialog: $('#handoffDialog'),
   handoffTarget: $('#handoffTarget'),
   confirmHandoff: $('#confirmHandoff'),
+  gameButton: $('#gameButton'), gameDialog: $('#gameDialog'), closeGame: $('#closeGame'),
+  gameWelcome: $('#gameWelcome'), gameTable: $('#gameTable'), gameConsent: $('#gameConsent'), startGame: $('#startGame'),
+  hand: $('#hand'), bidActions: $('#bidActions'), playActions: $('#playActions'), submitPlay: $('#submitPlay'), passPlay: $('#passPlay'),
+  turnLamp: $('#turnLamp'), kitty: $('#kitty'), playedCards: $('#playedCards'), gameError: $('#gameError'), gameResult: $('#gameResult'),
+  yanqiuCards: $('#yanqiuCards'), codexCards: $('#codexCards'), lisaRole: $('#lisaRole'),
 };
 
 const state = {
@@ -38,6 +43,7 @@ const state = {
   stream: null,
   timelineSignature: null,
   hasRenderedTimeline: false,
+  selectedCards: new Set(),
 };
 
 const STATUS = {
@@ -170,6 +176,57 @@ function render(snapshot) {
   } else if (!state.busy) {
     ui.tray.hidden = true;
   }
+  if (snapshot.landlord) renderGame(snapshot.landlord);
+}
+
+const SUIT = { S: '♠', H: '♥', C: '♣', D: '♦' };
+function cardFace(card) {
+  if (card.id === 'SJ') return ['JOKER', '小'];
+  if (card.id === 'BJ') return ['JOKER', '大'];
+  return [card.rank, SUIT[card.suit]];
+}
+function makeCard(card, selectable = false) {
+  const el = document.createElement('button');
+  el.type = 'button'; el.className = `playing-card ${['H', 'D'].includes(card.suit) ? 'red' : ''}`;
+  el.dataset.card = card.id; el.disabled = !selectable;
+  const [rank, suit] = cardFace(card);
+  el.append(text('b', rank), text('span', suit));
+  if (state.selectedCards.has(card.id)) el.classList.add('selected');
+  return el;
+}
+function renderGame(game) {
+  ui.gameWelcome.hidden = true; ui.gameTable.hidden = false;
+  ui.yanqiuCards.textContent = `${game.handCounts.yanqiu} 张${game.landlord === 'yanqiu' ? ' · 地主' : ''}`;
+  ui.codexCards.textContent = `${game.handCounts.codex} 张${game.landlord === 'codex' ? ' · 地主' : ''}`;
+  ui.lisaRole.textContent = game.landlord ? (game.landlord === 'lisa' ? '地主' : '农民') : '等待叫分';
+  const names = { lisa: '你', yanqiu: '言秋', codex: 'Codex' };
+  ui.turnLamp.textContent = game.status === 'finished' ? '本局结束' : game.status === 'paused' ? '牌桌暂停' : `轮到${names[game.turn]}`;
+  ui.gameError.hidden = !game.error; ui.gameError.textContent = game.error || '';
+  ui.kitty.replaceChildren(...(game.kitty || []).map((c) => makeCard(c, false)));
+  ui.playedCards.replaceChildren(...((game.currentPlay && game.currentPlay.cards) || []).map((c) => makeCard(c, false)));
+  ui.hand.replaceChildren(...game.hand.map((c) => makeCard(c, game.turn === 'lisa' && game.status === 'playing')));
+  ui.bidActions.hidden = !(game.turn === 'lisa' && game.status === 'bidding');
+  ui.playActions.hidden = !(game.turn === 'lisa' && game.status === 'playing');
+  for (const button of ui.bidActions.querySelectorAll('[data-bid]')) {
+    const bid = Number(button.dataset.bid);
+    button.disabled = bid > 0 && bid <= game.highestBid;
+  }
+  ui.gameResult.hidden = game.status !== 'finished';
+  if (game.status === 'finished') {
+    ui.gameResult.replaceChildren(text('b', game.winner === 'lisa' ? '你赢啦。' : `${names[game.winner]} 赢了这局。`));
+    const again = text('button', '再洗一局'); again.type = 'button'; again.dataset.newGame = '1'; ui.gameResult.append(again);
+  }
+}
+
+async function gameAction(action) {
+  const game = state.snapshot && state.snapshot.landlord;
+  if (!game || state.busy) return;
+  setBusy(true); ui.turnLamp.textContent = '正在等牌友…';
+  try {
+    const data = await api(`/api/rooms/${state.roomId}/landlord/action`, { method: 'POST', body: JSON.stringify({ game_id: game.game_id, action }) });
+    state.selectedCards.clear(); render(data.state);
+  } catch (error) { showNotice(error.message); await refresh(); }
+  finally { setBusy(false); }
 }
 
 async function postMessage() {
@@ -360,6 +417,32 @@ ui.confirmHandoff.addEventListener('click', (event) => {
   event.preventDefault();
   ui.handoffDialog.close();
   handoff();
+});
+
+ui.gameButton.addEventListener('click', () => {
+  const game = state.snapshot && state.snapshot.landlord;
+  if (game) renderGame(game); else { ui.gameWelcome.hidden = false; ui.gameTable.hidden = true; }
+  ui.gameDialog.showModal();
+});
+ui.closeGame.addEventListener('click', () => ui.gameDialog.close());
+ui.startGame.addEventListener('click', async () => {
+  if (!ui.gameConsent.checked) return showNotice('先勾选本局自动叫醒授权');
+  try {
+    const data = await api(`/api/rooms/${state.roomId}/landlord/start`, { method: 'POST', body: JSON.stringify({ codex_confirmed: true }) });
+    render(data.state);
+  } catch (error) { showNotice(error.message); }
+});
+ui.hand.addEventListener('click', (event) => {
+  const card = event.target.closest('[data-card]'); if (!card || card.disabled) return;
+  if (state.selectedCards.has(card.dataset.card)) state.selectedCards.delete(card.dataset.card); else state.selectedCards.add(card.dataset.card);
+  card.classList.toggle('selected');
+});
+ui.bidActions.addEventListener('click', (event) => { const b = event.target.closest('[data-bid]'); if (b) gameAction({ kind: 'bid', points: Number(b.dataset.bid) }); });
+ui.submitPlay.addEventListener('click', () => gameAction({ kind: 'play', cards: [...state.selectedCards] }));
+ui.passPlay.addEventListener('click', () => gameAction({ kind: 'pass', cards: [] }));
+ui.gameResult.addEventListener('click', (event) => {
+  if (!event.target.closest('[data-new-game]')) return;
+  state.selectedCards.clear(); ui.gameConsent.checked = false; ui.gameWelcome.hidden = false; ui.gameTable.hidden = true;
 });
 
 init();

@@ -17,7 +17,10 @@
           <h1>会客厅</h1>
           <p>你主持，言秋和 Codex 各自在原来的窗口里说话。</p>
         </div>
-        <button id="pauseButton" class="pause-button" type="button">暂停</button>
+        <div class="header-actions">
+          <button id="gameButton" class="game-button" type="button">斗地主</button>
+          <button id="pauseButton" class="pause-button" type="button">暂停</button>
+        </div>
       </div>
       <div class="presence" aria-label="参与者">
         <div class="person lisa">
@@ -97,6 +100,39 @@
       </div>
     </section>
   </main>
+
+  <dialog id="gameDialog" class="game-dialog">
+    <div class="game-shell">
+      <header class="game-head">
+        <div><span class="dialog-kicker">THREE PLAYER TABLE</span><h2>三人斗地主</h2></div>
+        <button id="closeGame" type="button" aria-label="收起牌桌">×</button>
+      </header>
+      <section id="gameWelcome" class="game-welcome">
+        <div class="landlord-mark">♠</div>
+        <h3>开一局？</h3>
+        <p>牌规和胜负都由本机裁判；言秋与 Codex 只看自己的暗牌。轮到他们时才各叫醒一次。</p>
+        <label><input id="gameConsent" type="checkbox"> 我确认：本局每个 AI 回合会自动调用对应的原窗口</label>
+        <button id="startGame" type="button">洗牌入座</button>
+      </section>
+      <section id="gameTable" class="game-table" hidden>
+        <div class="seat seat-left"><span class="seat-avatar">秋</span><b>言秋</b><small id="yanqiuCards">17 张</small></div>
+        <div class="seat seat-right"><span class="seat-avatar">C</span><b>Codex</b><small id="codexCards">17 张</small></div>
+        <div class="turn-lamp" id="turnLamp">等你叫分</div>
+        <div id="kitty" class="kitty"></div>
+        <div id="tablePlay" class="table-play"><small>桌面</small><div id="playedCards"></div></div>
+        <div id="gameError" class="game-error" hidden></div>
+        <div class="seat-self"><b>Lisa</b><small id="lisaRole">农民候选</small></div>
+        <div id="hand" class="card-hand" aria-label="你的手牌"></div>
+        <div id="bidActions" class="game-actions" hidden>
+          <button data-bid="0">不叫</button><button data-bid="1">1 分</button><button data-bid="2">2 分</button><button data-bid="3">3 分</button>
+        </div>
+        <div id="playActions" class="game-actions" hidden>
+          <button id="passPlay">不出</button><button id="submitPlay" class="primary">出牌</button>
+        </div>
+        <div id="gameResult" class="game-result" hidden></div>
+      </section>
+    </div>
+  </dialog>
 
   <dialog id="confirmDialog">
     <form method="dialog">
