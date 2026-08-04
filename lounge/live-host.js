@@ -26,7 +26,11 @@ function readFileWithRetry(filePath, attempts = 8) {
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 80);
     }
   }
-  throw lastError;
+  // Node 26 在少数 launchd/File Provider 环境下会独有地连续返回 -11，
+  // 但同一用户的系统 cat 能正常读同一个 0600 文件。只在该瞬态错误后后备，
+  // 不走 shell、不复制配置、不把内容写进参数或日志。
+  try { return execFileSync('/bin/cat', [filePath], { encoding: 'utf8', timeout: 2000, maxBuffer: 1024 * 1024 }); }
+  catch { throw lastError; }
 }
 
 function readPrivateConfig(configPath = process.env.LOUNGE_CONFIG || DEFAULT_CONFIG) {
