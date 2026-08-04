@@ -1185,9 +1185,12 @@
       setLabTesting(true); setLabAB(null);
       try {
         // 两边使用完全相同的场景与篇幅；唯一变量是实验文风。
-        const base = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n" + FANFIC_ANTI_CLICHE, [{ role: "user", content: task }], { maxTokens: 1400, timeout: 180000 });
-        const styled = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n【本次实验文风】\n" + style + "\n\n" + STYLE_FIDELITY_TAIL, [{ role: "user", content: task }], { maxTokens: 1400, timeout: 180000 });
-        setLabAB({ base: String(base || "").trim(), styled: String(styled || "").trim() });
+        // 思考型模型会把内部思考也计入 maxTokens；1400 曾导致正文只剩几十字。
+        // 与正式长文一样给足 6000，不按字符收费场景无需在这里省预算。
+        const base = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n" + FANFIC_ANTI_CLICHE, [{ role: "user", content: task }], { maxTokens: 6000, timeout: 300000 });
+        const styled = await callAI(props.active, FANFIC_ORGANIC_FORM + "\n\n【本次实验文风】\n" + style + "\n\n" + STYLE_FIDELITY_TAIL, [{ role: "user", content: task }], { maxTokens: 6000, timeout: 300000 });
+        const cleanBase = String(base || "").trim(), cleanStyled = String(styled || "").trim();
+        setLabAB({ base: cleanBase, styled: cleanStyled, baseShort: cleanBase.length < 280, styledShort: cleanStyled.length < 280 });
       } catch (e) { props.toast ? props.toast("A/B 生成失败：" + String(e.message || e)) : alert(String(e.message || e)); }
       setLabTesting(false);
     }
@@ -1250,7 +1253,8 @@
               [["A · 不带文风", labAB.base], ["B · 实验文风", labAB.styled]].map(function (it) {
                 return h("div", { key: it[0], style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: 10 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: it[0][0] === "B" ? t.accent : t.fog, marginBottom: 5 } }, it[0]),
-                  h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" } }, it[1] || "（模型返回为空）"));
+                  h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" } }, it[1] || "（模型返回为空）"),
+                  (it[0][0] === "A" ? labAB.baseShort : labAB.styledShort) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 7 } }, "⚠ 正文不足 280 字，上游可能提前停止；这份不适合拿来比较，请重试。") : null);
               })) : null,
             h("details", { style: { marginTop: 5, marginBottom: 10 } },
               h("summary", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, cursor: "pointer" } }, "预览最终提示词"),

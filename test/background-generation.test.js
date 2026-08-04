@@ -90,4 +90,6 @@ test("文风实验室 A-B 只改变文风且明确消耗两次调用", () => {
   assert.match(fanficSource, /B · 实验文风/);
   assert.match(fanficSource, /const base = await callAI/);
   assert.match(fanficSource, /const styled = await callAI/);
+  assert.ok((fanficSource.match(/maxTokens:\s*6000/g) || []).length >= 2);
+  assert.match(fanficSource, /正文不足 280 字/);
 });
