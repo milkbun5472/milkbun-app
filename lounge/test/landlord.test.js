@@ -50,9 +50,9 @@ test('两家不出后由上一手重新领出', () => {
 
 test('自然回复可解析为叫分、牌号或不出', () => {
   const state = createGame({ random: () => 0 });
-  assert.deepEqual(parseAction('我叫 2 分', state), { kind: 'bid', points: 2 });
+  assert.deepEqual(parseAction('我叫 2 分', state), { kind: 'bid', points: 2, speech: '' });
   state.status = 'playing'; state.turn = 'lisa';
   const id = state.hands.lisa[0].id;
-  assert.deepEqual(parseAction(`出 ${id}`, state), { kind: 'play', cards: [id] });
-  assert.deepEqual(parseAction('不出', state), { kind: 'pass', cards: [] });
+  assert.deepEqual(parseAction(`出 ${id}`, state), { kind: 'play', cards: [id], speech: '' });
+  assert.deepEqual(parseAction('不出\n说：这手先让你。', state), { kind: 'pass', cards: [], speech: '这手先让你。' });
 });

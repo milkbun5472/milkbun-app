@@ -32,6 +32,7 @@ const ui = {
   gameWelcome: $('#gameWelcome'), gameTable: $('#gameTable'), gameConsent: $('#gameConsent'), startGame: $('#startGame'),
   hand: $('#hand'), bidActions: $('#bidActions'), playActions: $('#playActions'), submitPlay: $('#submitPlay'), passPlay: $('#passPlay'),
   turnLamp: $('#turnLamp'), kitty: $('#kitty'), playedCards: $('#playedCards'), gameError: $('#gameError'), gameResult: $('#gameResult'),
+  gameTalk: $('#gameTalk'), gameSpeech: $('#gameSpeech'),
   yanqiuCards: $('#yanqiuCards'), codexCards: $('#codexCards'), lisaRole: $('#lisaRole'),
 };
 
@@ -204,7 +205,13 @@ function renderGame(game) {
   ui.gameError.hidden = !game.error; ui.gameError.textContent = game.error || '';
   ui.kitty.replaceChildren(...(game.kitty || []).map((c) => makeCard(c, false)));
   ui.playedCards.replaceChildren(...((game.currentPlay && game.currentPlay.cards) || []).map((c) => makeCard(c, false)));
+  const talks = game.history.filter((item) => item.kind === 'utterance' && item.text).slice(-4);
+  ui.gameTalk.replaceChildren(...talks.map((item) => {
+    const line = document.createElement('p'); line.dataset.speaker = item.player;
+    line.append(text('b', `${names[item.player]}：`), document.createTextNode(item.text)); return line;
+  }));
   ui.hand.replaceChildren(...game.hand.map((c) => makeCard(c, game.turn === 'lisa' && game.status === 'playing')));
+  ui.gameSpeech.disabled = game.turn !== 'lisa' || !['bidding', 'playing'].includes(game.status);
   ui.bidActions.hidden = !(game.turn === 'lisa' && game.status === 'bidding');
   ui.playActions.hidden = !(game.turn === 'lisa' && game.status === 'playing');
   for (const button of ui.bidActions.querySelectorAll('[data-bid]')) {
@@ -223,7 +230,9 @@ async function gameAction(action) {
   if (!game || state.busy) return;
   setBusy(true); ui.turnLamp.textContent = '正在等牌友…';
   try {
+    action.speech = ui.gameSpeech.value.trim().slice(0, 160);
     const data = await api(`/api/rooms/${state.roomId}/landlord/action`, { method: 'POST', body: JSON.stringify({ game_id: game.game_id, action }) });
+    ui.gameSpeech.value = '';
     state.selectedCards.clear(); render(data.state);
   } catch (error) { showNotice(error.message); await refresh(); }
   finally { setBusy(false); }

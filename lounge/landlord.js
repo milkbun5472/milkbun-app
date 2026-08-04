@@ -158,30 +158,32 @@ function promptFor(state, player) {
   const hand = sortCards(state.hands[player]).map((c) => c.id).join(' ');
   const common = [`Lisa 邀请你在三方会客厅打斗地主。现在轮到${NAMES[player]}。`, `你的手牌（只能看见你自己的）：${hand}`];
   if (state.status === 'bidding') {
-    common.push(`当前最高叫分：${state.highestBid}。请自然地只回复一项：不叫，或“叫 N 分”（N 必须高于当前分，最高 3）。`);
+    common.push(`当前最高叫分：${state.highestBid}。第一行只回复一项：不叫，或“叫 N 分”（N 必须高于当前分，最高 3）。如果这手想顺嘴说话，可另起一行写“说：……”；不想说就省略。`);
   } else {
     common.push(state.currentPlay
       ? `桌面上 ${NAMES[state.lastPlayBy]} 出了：${state.currentPlay.cards.map((c) => c.id).join(' ')}。`
       : '你是这一墩先手，必须出牌。');
-    common.push('请自然地只回复一项：“出 S3 H3”（使用上面的精确牌号），或在可以不出时回复“不出”。不要替别人行动，不要解释规则。');
+    common.push('第一行只回复一项：“出 S3 H3”（使用上面的精确牌号），或在可以不出时回复“不出”。如果这手想顺嘴说话，可另起一行写“说：……”；不想说就省略。不要替别人行动，不要解释规则。');
   }
   return common.join('\n\n');
 }
 
 function parseAction(text, state) {
   const value = String(text || '').trim();
+  const speechHit = value.match(/(?:^|\n)\s*说\s*[：:]\s*([^\n]{1,160})/);
+  const speech = speechHit ? speechHit[1].trim() : '';
   if (state.status === 'bidding') {
-    if (/不叫|pass|过/i.test(value)) return { kind: 'bid', points: 0 };
+    if (/不叫|pass|过/i.test(value)) return { kind: 'bid', points: 0, speech };
     const hit = value.match(/(?:叫\s*)?([0-3])\s*分?/);
-    if (hit) return { kind: 'bid', points: Number(hit[1]) };
+    if (hit) return { kind: 'bid', points: Number(hit[1]), speech };
     throw new Error('没看懂叫分，请说“不叫”或“叫 N 分”');
   }
-  if (/不出|不要|pass|过$/i.test(value)) return { kind: 'pass', cards: [] };
+  if (/不出|不要|pass|过(?:\s|$)/i.test(value)) return { kind: 'pass', cards: [], speech };
   const valid = new Set(state.hands[state.turn].map((c) => c.id));
   const tokens = value.toUpperCase().match(/(?:S|H|C|D)(?:10|[3-9JQKA2])|SJ|BJ/g) || [];
   const cards = [...new Set(tokens.filter((id) => valid.has(id)))];
   if (!cards.length) throw new Error('没读到有效牌号');
-  return { kind: 'play', cards };
+  return { kind: 'play', cards, speech };
 }
 
 module.exports = { PLAYERS, NAMES, deck, sortCards, analyze, beats, createGame, bid, play, viewFor, promptFor, parseAction };

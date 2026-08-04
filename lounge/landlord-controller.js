@@ -40,6 +40,9 @@ class LandlordController {
     const state = this._state(row);
     if (state.turn !== 'lisa') throw new Error('还没轮到你');
     this._apply(state, 'lisa', action);
+    if (typeof action.speech === 'string' && action.speech.trim()) {
+      state.history.push({ kind: 'utterance', player: 'lisa', text: action.speech.trim().slice(0, 160) });
+    }
     this._save(row, state);
     await this.advance(gameId);
     return this.current(row.room_id);
@@ -86,7 +89,7 @@ class LandlordController {
         try {
           const action = parseAction(reply.content, state);
           this._apply(state, target, action);
-          state.history.push({ kind: 'utterance', player: target, text: reply.content.slice(0, 300) });
+          if (action.speech) state.history.push({ kind: 'utterance', player: target, text: action.speech.slice(0, 160) });
           this._save(row, state);
         } catch (error) {
           state.status = 'paused';
