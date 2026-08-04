@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { createGame, bid, play, viewFor, promptFor, parseAction } = require('./landlord');
+const { createGame, normalizeState, bid, play, viewFor, promptFor, parseAction } = require('./landlord');
 
 class LandlordController {
   constructor({ db, orch, onChange = () => {}, maxAiSteps = 8 } = {}) {
@@ -15,7 +15,7 @@ class LandlordController {
 
   _iso() { return new Date().toISOString(); }
   _row(gameId) { return this.db.prepare('SELECT * FROM landlord_games WHERE game_id=?').get(gameId); }
-  _state(row) { return row ? JSON.parse(row.state_json) : null; }
+  _state(row) { return row ? normalizeState(JSON.parse(row.state_json)) : null; }
   _save(row, state, { error = null } = {}) {
     this.db.prepare('UPDATE landlord_games SET status=?,state_json=?,error_message=?,updated_at=? WHERE game_id=?')
       .run(state.status, JSON.stringify(state), error, this._iso(), row.game_id);

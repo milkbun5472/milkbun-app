@@ -13,7 +13,9 @@ const RANKS = [
 function deck() {
   const cards = [];
   for (const [rank, value] of RANKS) for (const suit of SUITS) cards.push({ id: `${suit}${rank}`, rank, value, suit });
-  cards.push({ id: 'SJ', rank: '小王', value: 16, suit: 'J' }, { id: 'BJ', rank: '大王', value: 17, suit: 'J' });
+  // `SJ` 已被黑桃 J 占用；小王必须使用独立牌号，否则 UI 看成两张小王，
+  // 选牌提交时也会因同 id 冲突。XJ = 小王，BJ = 大王。
+  cards.push({ id: 'XJ', rank: '小王', value: 16, suit: 'J' }, { id: 'BJ', rank: '大王', value: 17, suit: 'J' });
   return cards;
 }
 
@@ -95,6 +97,19 @@ function createGame({ random } = {}) {
     turn: 'lisa', bids: [], highestBid: 0, highestBidder: null, landlord: null,
     currentPlay: null, lastPlayBy: null, passes: 0, history: [], winner: null,
   };
+}
+
+// 兼容已经落盘的 v1 牌局：只凭 card 自身的 suit/rank 精确迁移小王，
+// 黑桃 J（suit=S, rank=J）保持 SJ，不靠模糊猜测历史文本。
+function normalizeState(state) {
+  const fix = (card) => card && card.suit === 'J' && card.rank === '小王' && card.id === 'SJ'
+    ? { ...card, id: 'XJ' } : card;
+  for (const hand of Object.values((state && state.hands) || {})) {
+    for (let i = 0; i < hand.length; i++) hand[i] = fix(hand[i]);
+  }
+  if (state && Array.isArray(state.kitty)) state.kitty = state.kitty.map(fix);
+  if (state && state.currentPlay && Array.isArray(state.currentPlay.cards)) state.currentPlay.cards = state.currentPlay.cards.map(fix);
+  return state;
 }
 
 function bid(state, player, points) {
@@ -180,10 +195,10 @@ function parseAction(text, state) {
   }
   if (/不出|不要|pass|过(?:\s|$)/i.test(value)) return { kind: 'pass', cards: [], speech };
   const valid = new Set(state.hands[state.turn].map((c) => c.id));
-  const tokens = value.toUpperCase().match(/(?:S|H|C|D)(?:10|[3-9JQKA2])|SJ|BJ/g) || [];
+  const tokens = value.toUpperCase().match(/(?:S|H|C|D)(?:10|[3-9JQKA2])|XJ|BJ/g) || [];
   const cards = [...new Set(tokens.filter((id) => valid.has(id)))];
   if (!cards.length) throw new Error('没读到有效牌号');
   return { kind: 'play', cards, speech };
 }
 
-module.exports = { PLAYERS, NAMES, deck, sortCards, analyze, beats, createGame, bid, play, viewFor, promptFor, parseAction };
+module.exports = { PLAYERS, NAMES, deck, sortCards, analyze, beats, createGame, normalizeState, bid, play, viewFor, promptFor, parseAction };

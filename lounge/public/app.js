@@ -189,8 +189,8 @@ function render(snapshot) {
 
 const SUIT = { S: '♠', H: '♥', C: '♣', D: '♦' };
 function cardFace(card) {
-  if (card.id === 'SJ') return ['JOKER', '小'];
-  if (card.id === 'BJ') return ['JOKER', '大'];
+  if (card.suit === 'J' && card.rank === '小王') return ['JOKER', '小'];
+  if (card.suit === 'J' && card.rank === '大王') return ['JOKER', '大'];
   return [card.rank, SUIT[card.suit]];
 }
 function makeCard(card, selectable = false) {
