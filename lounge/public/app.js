@@ -1,5 +1,11 @@
 'use strict';
 
+// 双击 public/index.html 会绕开本地宿主，导致样式/API 都走错门。
+// 相对脚本保证 file:// 也能先加载到这里，再送回真正的 localhost 入口。
+if (window.location.protocol === 'file:') {
+  window.location.replace('http://127.0.0.1:8092/');
+}
+
 const $ = (selector) => document.querySelector(selector);
 const ui = {
   timeline: $('#timeline'),
