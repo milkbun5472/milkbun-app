@@ -1671,6 +1671,25 @@ function offlineStyleText(key) {
   const s = OFFLINE_STYLES.find(x => x.key === key);
   return s ? s.prompt : "";
 }
+function offlineTasteBlock(taste, group) {
+  const t = taste || {};
+  const pace = {
+    slow: "把时间放慢，允许停顿、犹豫和小动作停留；这一拍不必急着得出结论或换场。",
+    forward: "让这一拍真的发生一点新变化：做出选择、移动位置、开启话题或完成一个动作；别只在原情绪上打转。"
+  }[t.pace] || "节奏跟着当下事件自然变化：该停就停、该往前就往前，不预先套慢热或赶剧情模板。";
+  const focus = {
+    dialogue: "镜头偏向真实来回的对话；动作只保留能改变语气或关系的部分，别让旁白淹没人声。",
+    action: "镜头偏向身体行动与空间变化；让人物用做法而不是解释推进，但不要堆通用小动作。",
+    atmosphere: "镜头偏向此地此刻能被感到的环境与留白；只取会影响人物的细节，不写空泛风景散文。"
+  }[t.focus] || "镜头自己寻找这一刻最有生命的地方，可以整段主要是对话、动作、环境或沉默，不必平均分配。";
+  const density = {
+    airy: "文字疏一点，允许短句、断句和没说完；一个有效细节胜过一串解释。",
+    rich: "文字可以饱满，但每句话都要带来新画面、新信息或新动作；绝不用同义反复填满篇幅。"
+  }[t.density] || "疏密随内容变化：有东西发生就写足，没东西就留白，不按固定段数与句数交作业。";
+  return "\n\n【本场口味·构图不是清单】\n" + pace + "\n" + focus + "\n" + density +
+    "\n不要每一拍都按『环境一句→动作一句→心理解释→台词→情绪收尾』的同一顺序写。开头、落点和段落形状由眼前发生的事决定；" +
+    (group ? "多人也不必机械轮流发言，没必要开口的人可以只在场。" : "角色没必要每轮都完整解释自己，也不要替这一拍写总结句。");
+}
 // 用户亲自从既有线下正文里收藏的「好吃片段」。它只教模型怎么写，绝不提供剧情事实。
 function offlineStyleExamplesBlock(examples, label, maxItems) {
   const rows = (Array.isArray(examples) ? examples : [])
@@ -1726,9 +1745,10 @@ async function generateOffline(p, ctx, session) {
   const system = buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
     "\n\n" + INTIMATE_ANTI_CLICHE +
+    offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     cotSystemBlock(cotT) +
-    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事：融合【动作描写】【神态与心理描写】【环境旁白】与【对话】，" + lenGuide + "。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
+    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事；动作、神态、心理、环境与对话都是可用镜头，不是每轮必须交齐的栏目，只写这一刻真正有用的部分，" + lenGuide + "。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (styleText ? "\n【文风要求】" + styleText : "") +
     narrativeDirective(session.narr) +
@@ -1902,6 +1922,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") +
     "\n\n" + CHARCARD_RULE +
     groupGrowthRule +
+    offlineTasteBlock(session.taste, true) +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +
     memberExampleText +
@@ -1915,7 +1936,7 @@ async function generateOfflineGroup(p, ctx, session) {
     ((Array.isArray(ctx.memberRecent) && ctx.memberRecent.length)
       ? "\n\n【各成员最近在别处（和用户的私聊 / 单人线下）发生的事·带时间戳】\n下面是每个成员最近单独和用户之间发生的事，按方括号里的真实时间理解它和此刻这场线下的先后顺序，自然接得上——比如某成员昨晚私聊里答应过的事、刚在单人线下经历的情绪，别当没发生过、也别和这些矛盾。\n⚠️隐私铁律：这些是【该成员和用户之间私下】的事，标〔仅本人知道〕——别的成员并不知情。绝不许让别的成员在群线下里提及、点破、或据此反应（吃醋/拆穿/打趣），除非本人自己在场景里说出来。\n" + ctx.memberRecent.map(mr => "〔仅「" + mr.name + "」本人知道〕\n" + mr.lines).join("\n\n")
       : "") +
-    "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻：融合【动作描写】【神态与心理】【环境旁白】与【对话】。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
+    "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (styleText ? "\n【文风要求】" + styleText : "") +
     narrativeDirective(session.narr) +
     (session.minWords ? "\n【篇幅要求】每个 beat 的 scene 都充分展开，整段尽量写到约 " + session.minWords + " 字：靠【更多具体的动作、细节、对话、你来我往的推进】撑够篇幅——【绝不许为凑字数堆形容词／加多余比喻／写空转大词／反复渲染同一种情绪／把句子硬拉长注水】。字数靠内容涨、不靠华丽；真没那么多具体可写时，宁可短一点也别注水凑成八股。" : "") +

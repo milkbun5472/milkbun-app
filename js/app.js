@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.65";
+const APP_VERSION = "v51.66";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -369,6 +369,7 @@ function App() {
   const [offlineSettings, setOfflineSettings] = useState({});
   const osFor = id => offlineSettings[id] || { maxTokens: String(id).startsWith("g_") ? 3200 : 4000 }; // 单人线下默认 1400→4000（1400 太紧、思考型模型长场景会截断掉格式）；想更长拉条到 10000
   const osNarr = id => { const s = osFor(id); return { selfP: s.selfP, userP: s.userP, describeMe: s.describeMe }; };
+  const osTaste = id => { const s = osFor(id); return { pace: s.tastePace || "auto", focus: s.tasteFocus || "auto", density: s.tasteDensity || "auto" }; };
   const saveOfflineSettings = (id, patch) => setOfflineSettings(p => {
     const current = p[id] || { maxTokens: id.startsWith("g_") ? 3200 : 4000 };
     const n = { ...p, [id]: { ...current, ...patch } };
@@ -3055,7 +3056,7 @@ function App() {
       for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
         try { const blob = await idbVaultGet(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
-      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
@@ -3100,6 +3101,7 @@ function App() {
       endTs: null,
       styleKey: opts.styleKey || "default",
       stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
+      taste: opts.taste || osTaste(charId),
       customNotes: [],
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
@@ -3189,7 +3191,7 @@ function App() {
   };
   // 线下进行中随时切换文风（不同剧情段落用不同笔调）
   const offlineSetStyle = (charId, patch) => {
-    pOffline(charId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "" } : s));
+    pOffline(charId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", taste: patch.taste || s.taste || osTaste(charId) } : s));
     toast("文风已切换 · 下次演绎生效");
   };
   const endOffline = async charId => {
@@ -3480,7 +3482,7 @@ function App() {
       const gCtx = ctxForGroupOffline(group);
       gCtx.memberStyleExamples = {};
       (group.memberIds || []).forEach(id => { gCtx.memberStyleExamples[id] = pickOfflineStyleExamples(osFor(id).examples, effectiveSess.msgs || []); });
-      const beats = await generateOfflineGroup(active, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      const beats = await generateOfflineGroup(active, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -3541,6 +3543,7 @@ function App() {
       endTs: null,
       styleKey: opts.styleKey || "default",
       stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
+      taste: opts.taste || osTaste("g_" + groupId),
       customNotes: [],
       onlinePrelude: groupOnlinePrelude(groupId),
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
@@ -3595,7 +3598,7 @@ function App() {
     await genGroupOfflineFrom(group, { ...sess, msgs: truncated, rerollAvoid });
   };
   const groupOfflineSetStyle = (groupId, patch) => {
-    pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "" } : s));
+    pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
     toast("文风已切换 · 下次演绎生效");
   };
   const groupOfflineAddNote = (groupId, note) => {

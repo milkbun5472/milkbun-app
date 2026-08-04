@@ -5253,6 +5253,20 @@ function StateCard({
 // ============================================================
 // 线下模式（赴约）—— 全屏叙事界面。setup 选开场白+文风；live 只留输入框+回复键+心声
 // ============================================================
+function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDensity, compact }) {
+  const row = (label, value, setter, options) => h("div", { className: compact ? "mb-3" : "mb-4" },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: .6, color: t.fog, marginBottom: 7 } }, label),
+    h("div", { className: "flex flex-wrap gap-1.5" }, options.map(o => h("button", {
+      key: o.v, onClick: () => setter(o.v), className: "active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 10px", borderRadius: 999, border: "1px solid " + (value === o.v ? t.ink : t.line), background: value === o.v ? t.ink : "transparent", color: value === o.v ? t.bg2 : t.sub }
+    }, o.t))));
+  return h("div", { className: compact ? "mb-5" : "pt-5", style: compact ? { padding: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10 } : { borderTop: "1px solid " + t.line, marginTop: 18 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 3 } }, "本场口味"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55, marginBottom: 11 } }, "不是固定模板，只是把这一场的镜头往你喜欢的方向轻推。"),
+    row("节奏", pace, setPace, [{ v: "auto", t: "自然" }, { v: "slow", t: "慢慢磨" }, { v: "forward", t: "往前走" }]),
+    row("镜头", focus, setFocus, [{ v: "auto", t: "自己找" }, { v: "dialogue", t: "多说话" }, { v: "action", t: "多行动" }, { v: "atmosphere", t: "多氛围" }]),
+    row("文字", density, setDensity, [{ v: "auto", t: "自然疏密" }, { v: "airy", t: "多留白" }, { v: "rich", t: "更饱满" }]));
+}
 function OfflineMode({
   char,
   profile,
@@ -5313,6 +5327,9 @@ function OfflineMode({
   const [sSelf, setSSelf] = useState(os.selfP || "first");
   const [sUser, setSUser] = useState(os.userP || "second");
   const [sDesc, setSDesc] = useState(!!os.describeMe);
+  const [sTastePace, setSTastePace] = useState(activeSession && activeSession.taste && activeSession.taste.pace || os.tastePace || "auto");
+  const [sTasteFocus, setSTasteFocus] = useState(activeSession && activeSession.taste && activeSession.taste.focus || os.tasteFocus || "auto");
+  const [sTasteDensity, setSTasteDensity] = useState(activeSession && activeSession.taste && activeSession.taste.density || os.tasteDensity || "auto");
   const [sBg, setSBg] = useState(os.bg || "");
   const bgFileRef = useRef(null);
   const persRow = (label, val, set, opts) => h("div", { className: "flex items-center justify-between pt-3" },
@@ -5321,7 +5338,7 @@ function OfflineMode({
   const offlineSetSheet = () => setOpen && onSaveSettings && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, selfP: sSelf, userP: sUser, describeMe: sDesc, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "" }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "场景背景图"),
@@ -5356,6 +5373,7 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：角色会替你写动作、推动走向（如「你摇了摇头说…」）；关：只写它自己。")),
       h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
+    h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
     styleSection,
     exampleSection);
   const scroller = useRef(null);
@@ -5418,7 +5436,8 @@ function OfflineMode({
   }, [activeSession && activeSession.msgs.length, sending, view]);
 
   const enter = () => {
-    onStart({ opening: opening.trim(), styleKey, stylePrompt: (curStyle && curStyle.prompt) || "" });
+    onSaveSettings && onSaveSettings({ tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity });
+    onStart({ opening: opening.trim(), styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
     setView("live");
   };
   const send = () => {
@@ -5488,6 +5507,7 @@ function OfflineMode({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, (curStyle && curStyle.prompt) ? curStyle.prompt : "不额外指定文风，由角色本身的人设决定叙事口吻。"),
           curStyle && curStyle.custom && h("button", { onClick: () => delCustomStyle(curStyle.key), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设")),
+        h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         past.length > 0 && h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, marginBottom: 8 } }, "往期线下记录"),
@@ -5726,6 +5746,9 @@ function GroupOfflineMode({
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
   const [sDesc, setSDesc] = useState(!!os.describeMe);
+  const [sTastePace, setSTastePace] = useState(activeSession && activeSession.taste && activeSession.taste.pace || os.tastePace || "auto");
+  const [sTasteFocus, setSTasteFocus] = useState(activeSession && activeSession.taste && activeSession.taste.focus || os.tasteFocus || "auto");
+  const [sTasteDensity, setSTasteDensity] = useState(activeSession && activeSession.taste && activeSession.taste.density || os.tasteDensity || "auto");
   const [oocMode, setOocMode] = useState(false);
   const bgFileRef = useRef(null);
   const [view, setView] = useState(activeSession ? "live" : "setup");
@@ -5800,7 +5823,8 @@ function GroupOfflineMode({
   }, [activeSession && activeSession.msgs.length, sending, view]);
 
   const enter = () => {
-    onStart({ opening: opening.trim(), styleKey, stylePrompt: (curStyle && curStyle.prompt) || "" });
+    onSaveSettings && onSaveSettings({ tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity });
+    onStart({ opening: opening.trim(), styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
     setView("live");
   };
   const send = () => {
@@ -5874,6 +5898,7 @@ function GroupOfflineMode({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, (curStyle && curStyle.prompt) ? curStyle.prompt : "不额外指定文风，由角色本身的人设决定叙事口吻。"),
           curStyle && curStyle.custom && h("button", { onClick: () => delCustomStyle(curStyle.key), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设")),
+        h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
         past.length > 0 && h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, marginBottom: 8 } }, "往期线下记录"),
@@ -5893,7 +5918,7 @@ function GroupOfflineMode({
   const gBgSheet = setOpen && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-4" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "" }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "场景背景图"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
     h("div", { className: "flex items-center gap-3" },
@@ -5930,6 +5955,7 @@ function GroupOfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：在场角色可以替你写动作、反应并推动剧情；关：只写他们自己和环境，不替你决定行动或台词。")),
       h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
+    h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
     styleSection,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
   const directorNotes = activeSession && (activeSession.customNotes || []).length > 0 && h("div", { className: "shrink-0 mx-3 mt-2 p-3", style: { background: "rgba(255,255,255,.86)", border: "1px solid " + t.line, borderRadius: 10, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", maxHeight: 150, overflowY: "auto" } },
