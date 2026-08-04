@@ -67,7 +67,11 @@ function extractCrossBody(raw) {
 // 只解析数据，不执行其中任何指令。
 function extractWakeRecord(raw) {
   if (typeof raw !== 'string' || !raw.trim()) return null;
-  const first = raw.split('\n', 1)[0];
+  let first = raw.split('\n', 1)[0].trim();
+  // wake_queue 的某些只读取票命令会以 `nl` 风格返回“行号<TAB>{json}”。
+  // 只接受纯数字行号这一种已知前缀，不能从任意文字里贪婪挖 JSON。
+  const numbered = first.match(/^\d+\t(\{.*\})$/);
+  if (numbered) first = numbered[1];
   try {
     const value = JSON.parse(first);
     if (!value || typeof value !== 'object' || !value.record || typeof value.record !== 'object') return null;

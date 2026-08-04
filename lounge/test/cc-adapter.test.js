@@ -217,6 +217,21 @@ test('耐久唤醒接线：精确 lounge wake 可作为本轮起点并收回公�
   });
 });
 
+test('耐久唤醒接线：带行号前缀的 queue JSON 仍能精确认出票据', async () => {
+  await withFixture([uHuman('x')], async (f) => {
+    const { adapter } = mkAdapter(f, { now: 5000 });
+    const content = '轮到言秋出牌';
+    const dispatch_id = `dispatch_${rid()}`;
+    await adapter.deliver({ dispatch_id, cc_session_id: 'local_TARGET', content });
+    const wake = uWake('lounge', content);
+    wake.message.content[0].content = `1\t${wake.message.content[0].content}`;
+    appendJ(f, [wake, aText('出 C6 D6 C7 D7 D8 H8')]);
+    const result = await adapter.poll(dispatch_id);
+    assert.equal(result.state, 'replied');
+    assert.equal(result.reply.content, '出 C6 D6 C7 D7 D8 H8');
+  });
+});
+
 test('耐久唤醒接线：哨兵完成 task-notification 不是 Lisa 插队', async () => {
   await withFixture([uHuman('x')], async (f) => {
     const { adapter } = mkAdapter(f, { now: 5000 });
