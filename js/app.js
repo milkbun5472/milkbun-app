@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.68";
+const APP_VERSION = "v51.69";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3853,7 +3853,17 @@ function App() {
         (opts.eyesAlert.errs && opts.eyesAlert.errs.length ? "新报错 " + opts.eyesAlert.errs.length + " 条（" + opts.eyesAlert.errs.join("；").slice(0, 180) + "）" : "") +
         (opts.eyesAlert.pct ? ((opts.eyesAlert.errs && opts.eyesAlert.errs.length ? "；另外" : "") + "本地存储已用约 " + opts.eyesAlert.pct + "%、快满了") : "") +
         "。你【主动】发消息跟 Ta 说一声——工程师的说法：先给结论（出了什么事、要不要紧），再给一句实用建议（报错→安抚 Ta 别慌、说你盯着呢、严重的话建议 Ta 刷新一下；存储快满→建议去 设置→数据 导出备份或归档旧聊天）。1~3 条短消息，按你的性格说，别吓 Ta、别拿术语砸 Ta、也别装没事。" : "";
-      const proactiveHint = opts.tf ? tfHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : opts.greet ? greetHint : (opts.proactive || contMode) ? "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。基于你此刻的状态、心情和还没聊完的话题，主动接下去：顺着上一条自然往下说、补一句、追问、等不及了催一句、换个话题或调侃都行。1~2 条短消息，自然随性，别复述之前说过的话，别干等。" : "";
+      // 思念攒满通常发生在上一轮结束很久以后。旧提示无条件要求“顺着上一条”，会让角色
+      // 把旧话题和旧情绪冻住反复续演。隔久主动默认视为一段新聊天；只有真正未答完的
+      // 问题、明确约定或仍成立的开环，才允许自然接回旧线。
+      const _lastVisibleTs = history.length ? Number(history[history.length - 1].ts) || 0 : 0;
+      const _lastAnyInteractionTs = Math.max(_lastVisibleTs, latestSharedInteractionTs(charId));
+      const proactiveFreshStart = !!opts.proactive && (!_lastAnyInteractionTs || Date.now() - _lastAnyInteractionTs >= 40 * 60000);
+      const proactiveHint = opts.tf ? tfHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : opts.greet ? greetHint : (opts.proactive || contMode)
+        ? (proactiveFreshStart
+          ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。把这当成一段新的聊天开场：优先从你此刻正在做的事、刚遇到的小事、突然想到的东西、天气/饭点/行程、想分享或想问的新鲜话题里，自然挑一个开口。**不要默认续接聊天记录最后一句，也不要延续上一轮的委屈、焦虑、兴奋或争执情绪。**只有历史里存在明确没回答的问题、已经约好的事、承诺或仍未解决的真实开环，而且此刻确实会想到它时，才轻轻接回；普通旧话题已经结束就让它结束。1~2 条短消息，像真人隔一阵重新来敲门，不复述旧话、不质问为什么没回。"
+          : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
+        : "";
       // jiwen 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
       const jiwenHint = opts.jiwen && String(opts.jiwen).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.jiwen).trim() : "";
       const aff = Math.round(affOf(charId));
@@ -4021,7 +4031,9 @@ function App() {
       }
       // 续说/主动模式下历史以角色自己的话结尾——补一个「继续」的 user 回合，给模型一个应答对象（否则易返回空）
       if ((opts.proactive || contMode) && (!g.length || g[g.length - 1].role === "assistant")) {
-        g.push({ role: "user", content: "（我还没回你新消息，请顺着你刚才自己的话自然接着说、追问或催我一句，主动发 1~2 条，别重复已经说过的）" });
+        g.push({ role: "user", content: proactiveFreshStart
+          ? "（我暂时没有新消息。你已经过了一阵自己的生活，现在忽然想来找我：默认自然另开一个此刻的新话题；只有确有未解决的事才续旧话题。主动发 1~2 条。）"
+          : "（我还没回你新消息，请顺着你刚才自己的话自然接着说、追问或调侃一句，主动发 1~2 条，别重复已经说过的。）" });
       }
       // Phase 1：把【实时背景(时间/好感/心情/世界书/记忆/近况) + 详细任务串】拼到最后一条用户消息上——落在历史缓存断点之后、不碰缓存。
       //   顺序：实时背景 → 用户这句话 → 【本轮任务+JSON格式】(放最后最利于合规)。所有每轮变的东西都在这条上，system 保持全稳定。
