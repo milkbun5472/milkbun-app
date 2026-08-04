@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.64";
+const APP_VERSION = "v51.65";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -369,7 +369,41 @@ function App() {
   const [offlineSettings, setOfflineSettings] = useState({});
   const osFor = id => offlineSettings[id] || { maxTokens: String(id).startsWith("g_") ? 3200 : 4000 }; // 单人线下默认 1400→4000（1400 太紧、思考型模型长场景会截断掉格式）；想更长拉条到 10000
   const osNarr = id => { const s = osFor(id); return { selfP: s.selfP, userP: s.userP, describeMe: s.describeMe }; };
-  const saveOfflineSettings = (id, patch) => setOfflineSettings(p => { const n = { ...p, [id]: { ...osFor(id), ...patch } }; saveJSON("x_offlineSettings", n); return n; });
+  const saveOfflineSettings = (id, patch) => setOfflineSettings(p => {
+    const current = p[id] || { maxTokens: id.startsWith("g_") ? 3200 : 4000 };
+    const n = { ...p, [id]: { ...current, ...patch } };
+    saveJSON("x_offlineSettings", n);
+    return n;
+  });
+  // 最近场景与收藏片段按中文双字片段做一个本地轻量相关度排序；不调用模型、不额外花额度。
+  const pickOfflineStyleExamples = (examples, msgs) => {
+    const pool = (Array.isArray(examples) ? examples : []).filter(x => x && String(x.text || "").trim()).slice(-12);
+    if (!pool.length) return [];
+    const query = (msgs || []).slice(-6).map(m => String(m.content || "")).join(" ").replace(/\s+/g, " ").slice(-1800);
+    const clean = query.replace(/[\s，。！？、：；“”‘’（）【】《》,.!?:;()\[\]]+/g, "");
+    const grams = new Set();
+    for (let i = 0; i < clean.length - 1; i++) grams.add(clean.slice(i, i + 2));
+    return pool.map((x, i) => {
+      let score = i / Math.max(1, pool.length) * 0.35;
+      const txt = String(x.text || "").replace(/\s+/g, " ");
+      grams.forEach(g => { if (txt.includes(g)) score += 1; });
+      return { x, score };
+    }).sort((a, b) => b.score - a.score).slice(0, 2).map(r => r.x);
+  };
+  const saveOfflineStyleExample = (charId, text) => {
+    const clean = String(text || "").trim();
+    if (!clean) return;
+    const old = Array.isArray(osFor(charId).examples) ? osFor(charId).examples : [];
+    if (old.some(x => String(x && x.text || "").trim() === clean)) { toast("这段已经在好吃片段库里"); return; }
+    const item = { id: "offex_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), text: clean.slice(0, 2400), createdAt: Date.now() };
+    saveOfflineSettings(charId, { examples: [...old, item].slice(-12) });
+    toast("已收作 " + ((characters.find(c => c.id === charId) || {}).name || "TA") + " 的好吃范例");
+  };
+  const deleteOfflineStyleExample = (charId, exampleId) => {
+    const old = Array.isArray(osFor(charId).examples) ? osFor(charId).examples : [];
+    saveOfflineSettings(charId, { examples: old.filter(x => x && x.id !== exampleId) });
+    toast("已移出好吃片段库");
+  };
   const offlinesRef = useRef({});
   const [offlineGroup, setOfflineGroup] = useState(null);
   const [groupOfflines, setGroupOfflines] = useState({}); // groupId -> [session,...] newest-first
@@ -3001,6 +3035,7 @@ function App() {
     startLane("c:" + charId);
     try {
       const oCtx = ctxFor(char);
+      oCtx.styleExamples = pickOfflineStyleExamples(osFor(charId).examples, workSess.msgs || []);
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
       oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
@@ -3442,7 +3477,10 @@ function App() {
       for (const m of _gWindow.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
         try { const blob = await idbVaultGet(m.imageRef); if (blob) gOffImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
-      const beats = await generateOfflineGroup(active, ctxForGroupOffline(group), { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      const gCtx = ctxForGroupOffline(group);
+      gCtx.memberStyleExamples = {};
+      (group.memberIds || []).forEach(id => { gCtx.memberStyleExamples[id] = pickOfflineStyleExamples(osFor(id).examples, effectiveSess.msgs || []); });
+      const beats = await generateOfflineGroup(active, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -10052,6 +10090,8 @@ function App() {
     onOOC: txt => offlineOOC(offlineChar.id, txt),
     onAddNote: n => offlineAddNote(offlineChar.id, n),
     onChangeStyle: patch => offlineSetStyle(offlineChar.id, patch),
+    onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
+    onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => offlineEditMsg(offlineChar.id, mid, txt),
     onRerollMsg: mid => offlineRerollMsg(offlineChar.id, mid),
     onDelMsg: mid => offlineDelMsg(offlineChar.id, mid),
@@ -10076,6 +10116,7 @@ function App() {
     onAddNote: n => groupOfflineAddNote(offlineGroup.id, n),
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
+    onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },
     onEditMsg: (mid, txt) => groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => groupOfflineRerollMsg(offlineGroup.id, mid),
     onDelMsg: mid => groupOfflineDelMsg(offlineGroup.id, mid),

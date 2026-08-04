@@ -1671,6 +1671,19 @@ function offlineStyleText(key) {
   const s = OFFLINE_STYLES.find(x => x.key === key);
   return s ? s.prompt : "";
 }
+// 用户亲自从既有线下正文里收藏的「好吃片段」。它只教模型怎么写，绝不提供剧情事实。
+function offlineStyleExamplesBlock(examples, label, maxItems) {
+  const rows = (Array.isArray(examples) ? examples : [])
+    .map(x => typeof x === "string" ? x : x && x.text)
+    .map(x => String(x || "").trim())
+    .filter(Boolean)
+    .slice(0, maxItems == null ? 2 : Math.max(0, maxItems))
+    .map((x, i) => "〔范例 " + (i + 1) + "〕\n" + x.slice(0, 1400));
+  if (!rows.length) return "";
+  return "\n\n【" + (label || "这个角色") + "过去写得很对味的片段·只学写法】\n" +
+    "下面是用户亲自认可的旧片段。只学习它的【声纹、句子长短、留白、观察细节和动作/台词比例】；绝不复刻片段里的事件、物件、台词或情绪，也绝不把旧剧情当成此刻正在发生。此刻事实仍只看当前场景与聊天历史。\n" +
+    rows.join("\n\n");
+}
 // 把线下 msgs 映射成 API 的对话（narration/user 归 user，char 归 assistant，合并连发）
 function offlineHistory(msgs, userName, charName) {
   const g = [];
@@ -1713,6 +1726,7 @@ async function generateOffline(p, ctx, session) {
   const system = buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
     "\n\n" + INTIMATE_ANTI_CLICHE +
+    offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     cotSystemBlock(cotT) +
     "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事：融合【动作描写】【神态与心理描写】【环境旁白】与【对话】，" + lenGuide + "。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
@@ -1853,6 +1867,8 @@ async function generateOfflineGroup(p, ctx, session) {
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
   const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 260) + ((ctx.memberGrown && ctx.memberGrown[c.id]) ? "\n〔" + c.name + " 长出来的自我（这段日子经历沉淀下来的、是 TA 当下真实的一部分，自然体现在言行里，别当台词复述）〕\n" + ctx.memberGrown[c.id] : "")).join("\n\n");
+  // 群里每人最多一段、整场最多四人有范例，避免多人场景为文风样本挤爆上下文。
+  const memberExampleText = members.map(c => offlineStyleExamplesBlock(ctx.memberStyleExamples && ctx.memberStyleExamples[c.id], c.name, 1)).filter(Boolean).slice(0, 4).join("");
   // B（v50.79）：群线下里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余成员照旧贴合原卡。
   const evolveNames = (ctx.memberEvolve || []).map(id => { const c = members.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
   const groupGrowthRule = evolveNames.length ? "\n\n【这些成员会成长·不冻在原卡里：" + evolveNames.join("、") + "】\n他们的人设卡是【起点和底色】不是牢笼：硬核（身份／世界观／说话底色／明确边界／真实发生过的重要经历）绝不因几轮相处被改写或软化；但软层（和用户亲近的方式／处理冲突闹别扭的习惯／偏好／勇气／信任／对未来怎么选）允许被各自『长出来的自我』推着长成新样子。只有【已沉淀成正式人格档案（那段『长出来的自我』）】的成长才算数、才可盖过原卡软倾向；最近几轮的经历只能让 TA 当下松动、不等于人格已永久改变。冲突时：明确硬设定与边界 ＞ 已固化的成长 ＞ 原卡软倾向 ＞ 通用默认。**其余在场成员照旧严格贴合各自原卡、不适用本条。**" : "";
@@ -1888,6 +1904,7 @@ async function generateOfflineGroup(p, ctx, session) {
     groupGrowthRule +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +
+    memberExampleText +
     (ctx.profile && (ctx.profile.name || ctx.profile.persona) ? "\n\n【用户「" + userName + "」的设定】\n" + (ctx.profile.persona || "（未填写）") : "") +
     "\n\n【在场角色间的关系（有方向）】\n" + relLines +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +

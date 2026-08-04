@@ -5268,6 +5268,8 @@ function OfflineMode({
   onOOC,
   onAddNote,
   onChangeStyle,
+  onSaveExample,
+  onDeleteExample,
   onEditMsg,
   onRerollMsg,
   onDelMsg,
@@ -5354,7 +5356,8 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：角色会替你写动作、推动走向（如「你摇了摇头说…」）；关：只写它自己。")),
       h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
-    styleSection);
+    styleSection,
+    exampleSection);
   const scroller = useRef(null);
   const past = (sessions || []).filter(s => s.endTs);
   const allStyles = [...OFFLINE_STYLES, ...customStyles];
@@ -5399,6 +5402,14 @@ function OfflineMode({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } }, "提示词 · " + (curStyle ? curStyle.name : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, (curStyle && curStyle.prompt) ? curStyle.prompt : "不额外指定文风，由角色本身的人设决定叙事口吻。"),
           curStyle && curStyle.custom && h("button", { onClick: () => delCustomStyle(curStyle.key), className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设")));
+  const exampleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "好吃片段库 · " + ((os.examples || []).length) + "/12"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, marginBottom: 10, lineHeight: 1.6 } }, "在角色写得特别对味的卡片上点 ✦ 收藏。生成时本地挑最多两段，只学声纹和节奏，不照抄旧剧情，也不额外调用模型。"),
+    (os.examples || []).length
+      ? h("div", { className: "flex flex-col gap-2" }, (os.examples || []).slice().reverse().map(x => h("div", { key: x.id, className: "flex gap-2 items-start", style: { padding: "9px 10px", border: "1px solid " + t.line, borderRadius: 9, background: t.bg } },
+          h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: t.sub } }, String(x.text || "").replace(/\s+/g, " ").slice(0, 100) + (String(x.text || "").length > 100 ? "…" : "")),
+          h("button", { onClick: () => onDeleteExample && onDeleteExample(x.id), className: "active:opacity-50 shrink-0", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog }, title: "移出片段库" }, "×"))))
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有收藏。先在线下演几轮，遇到好吃的就点 ✦。"));
   useEffect(() => {
     if (activeSession && view === "setup") setView("live");
   }, [activeSession]);
@@ -5522,7 +5533,7 @@ function OfflineMode({
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, String(s.summary || (s.msgs && s.msgs.length ? s.msgs.length + " 段" : "")).replace(/\s+/g, " ").slice(0, 60) || "点开回看"))))),
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, char: char, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onOpenState: onOpenState })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, char: char, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
       sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
     h("div", { className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)", marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说 / 立长期准则", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.10)" : "transparent" } }, "OOC"),
@@ -5602,7 +5613,7 @@ function SelfieBubble({ m }) {
   if (m.imgKey) return note("图加载中…还看不到就是没存住");
   return note("没拿到图");
 }
-function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, editable, sending, onOpenState }) {
+function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const tp = useTtsPlayer(); // 整段 beat 朗读（懒合成，最多 800 字）
@@ -5621,6 +5632,7 @@ function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, e
   const meChar = { name: (meProfile && meProfile.name) || "我", avatarImage: meProfile && meProfile.avatarImage, color: (meProfile && meProfile.color) || "#7a6cf0" };
   const iconBtn = (Ic, fn, title, dis) => h("button", { onClick: fn, disabled: dis, className: "active:opacity-50 disabled:opacity-30", title: title }, h(Ic, { size: 15, color: t.fog }));
   const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0" },
+    (!isUser && !isNarr && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
     (!isUser && !isNarr && onReroll) ? iconBtn(IRefresh, () => onReroll(m.id), "重写", sending) : null,
     onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     onDelete ? iconBtn(ITrash, () => onDelete(m.id), "删除") : null);
@@ -5687,6 +5699,7 @@ function GroupOfflineMode({
   onAddNote,
   onDeleteNote,
   onChangeStyle,
+  onSaveExample,
   onEditMsg,
   onRerollMsg,
   onDelMsg,
@@ -5953,7 +5966,7 @@ function GroupOfflineMode({
     directorNotes,
     h("div", { ref: scroller, className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onOpenState: offOpenState })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, t: t, members: members, meProfile: profile, editable: true, sending: sending, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState })),
       sending && h("div", { className: "flex gap-1 mt-3 justify-center" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1.5 h-1.5 rounded-full animate-pulse", style: { background: t.fog, animationDelay: i * 0.15 + "s" } })))),
     h("div", { className: "flex items-center gap-2 px-3 py-2 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 4px)", marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.08)" : "transparent" } }, "OOC"),
