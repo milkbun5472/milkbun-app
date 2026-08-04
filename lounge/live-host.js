@@ -16,10 +16,23 @@ const { LandlordController } = require('./landlord-controller');
 
 const DEFAULT_CONFIG = path.join(__dirname, 'data', 'live-config.json');
 
+function readFileWithRetry(filePath, attempts = 8) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try { return fs.readFileSync(filePath, 'utf8'); }
+    catch (error) {
+      lastError = error;
+      if (!['EAGAIN', 'EBUSY'].includes(error && error.code) && Number(error && error.errno) !== -11) throw error;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 80);
+    }
+  }
+  throw lastError;
+}
+
 function readPrivateConfig(configPath = process.env.LOUNGE_CONFIG || DEFAULT_CONFIG) {
   const stat = fs.statSync(configPath);
   if ((stat.mode & 0o077) !== 0) throw new Error('live-config 权限必须是 0600');
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const config = JSON.parse(readFileWithRetry(configPath));
   for (const key of ['cc_session_id', 'codex_thread_id', 'cc_project_dir']) {
     if (!config[key] || typeof config[key] !== 'string') throw new Error(`live-config 缺 ${key}`);
   }
@@ -97,4 +110,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createLiveHost, readPrivateConfig, codexProcessRunning, DEFAULT_CONFIG };
+module.exports = { createLiveHost, readPrivateConfig, readFileWithRetry, codexProcessRunning, DEFAULT_CONFIG };
