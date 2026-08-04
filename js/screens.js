@@ -3174,9 +3174,11 @@ const COT_TEMPLATE =
   "· 上一幕/上一句的张力：{{user}}刚才的话或动作，对{{char}}意味着什么？别答非所问。\n" +
   "· 这一步往哪推：顺着上面的情绪，{{char}}接下来最自然会做/说什么？只推进一点点，别跳戏、别提前写没发生的剧情。\n" +
   "· 落笔前自检：有没有八股翻译腔（如「空气中弥漫着」「嘴角勾起一抹弧度」「不易察觉的」）、超雄爹味、说教、OOC？有就换成贴人设的具体写法再落笔。";
-function CotConfig({ toast }) {
+function CotConfig({ toast, activeProfile }) {
   const t = useTheme();
   const [cfg, setCfg] = useState(() => loadCotConfig());
+  const [modelStatus, setModelStatus] = useState(() => typeof offlineCotModelStatus === "function" ? offlineCotModelStatus(activeProfile) : { disabled: false, model: "" });
+  useEffect(() => { if (typeof offlineCotModelStatus === "function") setModelStatus(offlineCotModelStatus(activeProfile)); }, [activeProfile && activeProfile.id, activeProfile && activeProfile.model]);
   const [sel, setSel] = useState("");
   const taRef = React.useRef(null);
   const save = next => { const c = saveCotConfig(next); setCfg(c); return c; };
@@ -3216,9 +3218,13 @@ function CotConfig({ toast }) {
     // 总开关
     h("div", { className: "flex items-center justify-between py-4", style: { borderBottom: "1px solid " + t.line } },
       h("div", { style: { paddingRight: 12 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用自定义思维链"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "线下 / 同人文 / 梦境：AI 先按你写的思路想一遍再落笔。思考不进正文，每条正文旁能点开「看TA怎么想的」。留空 = 不启用，一切照旧。")),
-      h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启思维链" : "已关闭"); } })),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用创作小稿"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "线下 / 同人文 / 梦境：AI 落笔前先交一份简短写作计划。它不是模型的隐秘推理，不进正文。留空 = 不启用。")),
+      h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启创作小稿" : "已关闭"); } })),
+    activeProfile ? h("div", { className: "rounded-xl px-3 py-3 mt-3", style: { background: t.bg2, border: "1px solid " + (modelStatus.disabled ? "#d7a04b" : t.line) } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "当前模型 · " + (modelStatus.model || "未命名")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: modelStatus.disabled ? "#a66b13" : t.fog, marginTop: 3 } }, modelStatus.disabled ? "线下保险已暂停小稿：它曾导致 stop 空正文。同人文仍会尝试。" : "线下小稿可正常尝试；若模型不按格式返回，会保留正文并标明未返回。"),
+      modelStatus.disabled ? h("button", { onClick: () => { if (typeof retryOfflineCotModel === "function") retryOfflineCotModel(activeProfile); setModelStatus(offlineCotModelStatus(activeProfile)); toast && toast("已解除保险，下一轮重新试一次"); }, className: "mt-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "重新试一次") : null) : null,
     // 预设
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline gap-2 mb-2" },
@@ -3235,14 +3241,14 @@ function CotConfig({ toast }) {
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-2" },
         h("div", { className: "flex items-baseline gap-2" },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "思考方式"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "小稿检查方式"),
           h("span", { style: { fontFamily: "monospace", fontSize: 10, letterSpacing: 1, color: t.fog } }, "HOW TO THINK")),
         h("button", { onClick: () => { if (!(cfg.think || "").trim() || window.confirm("用示例模板替换当前内容？")) setThink(COT_TEMPLATE); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "插入示例模板")),
       h("div", { className: "flex gap-2 mb-2" }, chip("{{char}}", () => insertVar("{{char}}")), chip("{{user}}", () => insertVar("{{user}}"))),
       h("textarea", { ref: taRef, value: cfg.think || "", onChange: e => setThink(e.target.value), rows: 9,
-        placeholder: "写下你希望角色在动笔前思考的步骤，一行一条。\n\n· {{char}} 会替换成角色名，{{user}} 替换成你的名字\n· 留空 = 不启用，剧情走默认方式\n· 思考不进正文，想看点每条正文旁的「看TA怎么想的」\n· 想治八股词/超雄/OOC？在这里写「落笔前自检」，示例模板里有现成的",
+        placeholder: "写下你希望创作小稿检查的步骤，一行一条。\n\n· {{char}} 会替换成角色名，{{user}} 替换成你的名字\n· 留空 = 不启用，剧情走默认方式\n· 小稿不进正文，每条正文旁可展开查看\n· 想治八股词/超雄/OOC？示例模板里有现成检查",
         style: { width: "100%", outline: "none", resize: "vertical", padding: "11px 13px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "改动即时保存，全部角色通用。思考越细，正文越贴——但也会多花一点点生成。")));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "改动即时保存，全部角色通用。检查越具体，正文通常越贴；小稿会占少量输出额度。")));
 }
 // 图像 API（角色自拍）设置：开关 + 端点/密钥/模型/尺寸/质量。存 x_imgApi（图本身进 IndexedDB 不在这）。
 // MiniMax 语音 TTS 配置：懒生成（点开语音那条才合成收费），成品缓存在本机重播免费
@@ -3727,7 +3733,7 @@ function Config({
     kk.n = (now - kk.ts < 1500) ? kk.n + 1 : 1; kk.ts = now;
     if (kk.n >= 7) { kk.n = 0; const nx = !toyUnlocked; setToyUnlocked(nx); try { localStorage.setItem("x_toyUnlocked", nx ? "1" : "0"); } catch (e) {} toast && toast(nx ? "已解锁配件" : "已隐藏配件"); }
   };
-  const tabs = [["api", "API"], ["sense", "感知"], ["cot", "思维链"], ["qa", "问答"], ["theme", "主题"], ["data", "数据"]];
+  const tabs = [["api", "API"], ["sense", "感知"], ["cot", "小稿"], ["qa", "问答"], ["theme", "主题"], ["data", "数据"]];
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col"
   }, /*#__PURE__*/React.createElement(Head, {
@@ -3779,8 +3785,9 @@ function Config({
     geo: geo,
     onRequestGeo: onRequestGeo,
     toast: toast
-  })), tab === "cot" && fold("cot-main", "思维链设置", "思考方式、预设与开关", /*#__PURE__*/React.createElement(CotConfig, {
-    toast: toast
+  })), tab === "cot" && fold("cot-main", "创作小稿设置", "检查方式、预设、模型保险与开关", /*#__PURE__*/React.createElement(CotConfig, {
+    toast: toast,
+    activeProfile: (apiProfiles || []).find(p => p.id === activeId) || (apiProfiles || [])[0] || null
   })), tab === "qa" && fold("qa-main", "情侣问答题库", "按角色管理自定义题目", /*#__PURE__*/React.createElement(CoupleQAConfig, {
     characters: characters,
     custom: coupleQACustom,

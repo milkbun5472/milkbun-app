@@ -213,8 +213,9 @@
     const minWords = Math.max(600, Math.round(perFic * 0.55)); // 大致字数下限
     const cotChar = (cpChars && cpChars[0] && cpChars[0].name) || "主角";
     const cotT = (typeof cotThink === "function") ? cotThink({ char: cotChar, user: userName }) : "";
+    const batchDraftRule = cotT ? "\n【本批小稿分篇】这次要写 " + n + " 篇，请在同一个创作小稿标记块里依次写『【第1篇】』『【第2篇】』直到『【第" + n + "篇】』；每篇各自写在意/推进/避开/自定义检查，不能共用一份泛泛计划。\n" : "";
     const sys = buildGenSystem(tab, cpChars, userName, worldbook, opts) + "\n\n" +
-      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
+      (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") + batchDraftRule +
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
       "[{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：两人的关系设定（如 前未婚夫妻/宿敌/上下级）+身份+世界观要点——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"}]\n" +
       "每篇 title 别重复、别都一个套路；同一批里开场位置、核心推进方式、时间跨度、叙述距离和收尾形状至少有三项彼此不同，禁止只是换背景与人名却复用同一情节拍。author 每篇各不同；tags 2-4 个（如『破镜重圆』『HE』『pwp』『情有独钟』等同人圈标签）。别为了凑数量把正文压短——宁可写满。" +
@@ -235,7 +236,14 @@
     let arr = await once("");
     if (!arr || !arr.length) arr = await once("\n\n（上一次输出没能解析成合法 JSON 数组，请务必严格只输出 JSON 数组、别加任何解释文字。）");
     if (!arr || !arr.length) throw new Error("生成失败：模型没有返回可解析的篇目，可重试或换模型");
-    return arr.filter(function (x) { return x && (x.title || x.body); }).slice(0, n).map(function (x, i) {
+    const kept = arr.filter(function (x) { return x && (x.title || x.body); }).slice(0, n);
+    function draftFor(i) {
+      if (!batchCot) return null;
+      const re = new RegExp("【第" + (i + 1) + "篇】([\\s\\S]*?)(?=【第\\d+篇】|$)");
+      const m = String(batchCot).match(re);
+      return m && m[1].trim() ? m[1].trim() : (kept.length === 1 ? batchCot : null);
+    }
+    return kept.map(function (x, i) {
       return {
         title: String(x.title || "无题").slice(0, 60),
         author: String(x.author || "佚名").slice(0, 20),
@@ -243,7 +251,8 @@
         premise: String(x.premise || "").trim().slice(0, 200),  // 核心设定锚（续写防改设）
         body: String(x.body || "").trim(),
         endHook: String(x.endHook || "").trim(),
-        cot: i === 0 ? batchCot : null
+        cot: draftFor(i),
+        cotRequested: !!cotT
       };
     });
   }
@@ -284,7 +293,7 @@
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
       "{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"本章新的结尾锚点，供再下一章接续\"}" +
       FANFIC_ANTI_CLICHE_TAIL;
-    const userMsg = "续写《" + fic.title + "》的下一章。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；cot 必填" : "") + "。〕";
+    const userMsg = "续写《" + fic.title + "》的下一章。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
     // 从坏掉/被截断的 JSON 里抢救章节正文（长章节 JSON 常被截断解析失败，之前直接判「返回为空」白烧一次钱）
     function salvageChapter(clean, cot) {
       const s = String(clean || "");
@@ -300,12 +309,13 @@
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       let d = extractJSON(sp.clean);
       if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(sp.clean)); } catch (e) {} }
-      if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(), cot: sp.cot };
+      if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(), cot: sp.cot, cotRequested: !!cotT };
       return salvageChapter(sp.clean, sp.cot);
     }
     let out = await once("");
     if (!out) out = await once("\n\n（上一次输出为空或没能解析成合法 JSON，请务必严格只输出那一个 JSON 对象、正文写满，别加任何解释文字。）");
     if (!out) throw new Error("续写失败：模型返回为空，可再点一次重试");
+    out.cotRequested = !!cotT;
     return out;
   }
 
@@ -793,7 +803,7 @@
           },
             pager(true),
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.9, color: t.ink, whiteSpace: "pre-wrap" } }, ch.content || ""),
-            (ch.cot && typeof CotReveal === "function") ? h(CotReveal, { cot: ch.cot }) : null,
+            ((ch.cot || ch.cotRequested) && typeof CotReveal === "function") ? h(CotReveal, { cot: ch.cot, requested: ch.cotRequested }) : null,
             pager(false));
         })(),
 
@@ -1355,7 +1365,7 @@
         const made = arr.map(function (x, i) {
           return {
             id: uid("fic"), tabId: curTab.id, cp: cp || [], title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
-            chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null }], source: "npc", onShelf: false, sharedTo: [],
+            chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
             stats: ficHeat(x.title + now + i), reviews: [], createdAt: now - i, updatedAt: now - i
           };
         });

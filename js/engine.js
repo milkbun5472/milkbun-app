@@ -1148,6 +1148,21 @@ function rememberOfflineNoCotModel(modelKey) {
   if (modelKey && !list.includes(modelKey)) list.push(modelKey);
   try { localStorage.setItem(OFFLINE_NO_COT_KEY, JSON.stringify(list.slice(-30))); } catch (e) {}
 }
+function offlineCotModelStatus(p) {
+  const key = offlineCotModelKey(p);
+  return { disabled: !!(key && loadOfflineNoCotModels().includes(key)), model: String(p && p.model || "未选择模型") };
+}
+function retryOfflineCotModel(p) {
+  const target = offlineCotModelKey(p);
+  if (!target) return false;
+  [OFFLINE_NO_COT_KEY, "x_groupOfflineNoCotModels"].forEach(key => {
+    try {
+      const list = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(list)) localStorage.setItem(key, JSON.stringify(list.filter(x => x !== target)));
+    } catch (e) {}
+  });
+  return true;
+}
 function isOfflineEmptyStop(e) {
   return /模型返回为空（停止原因：stop）/.test(String(e && e.message || ""));
 }
@@ -1156,7 +1171,7 @@ function isOfflineEmptyStop(e) {
 // 代码再把这段抠出来当 cot、并从原文里剥掉，这样即使模型思考跑格式也不会污染正文 JSON。
 function cotSystemBlock(think) {
   if (!think) return "";
-  return "\n\n【落笔前先想 · 思维链（每一轮都必做，格式很重要）】在输出正文之前，先按下面这套思考步骤想一遍，把思考【原样写在最前面】，用『【思考开始】』和『【思考结束】』两个标记把它整段包住（纯文本、可用『·』分行；写给创作者看、绝不进正文、不改变正文口吻）；写完『【思考结束】』后，紧接着再照常输出下面要求的那个正文 JSON。\n思考步骤：\n" + think + "\n硬性要求：① 每一轮都要写这段【思考开始】…【思考结束】，别因为历史里看不到就省略（历史只留了正文，思考被系统收走了）。② 思考简洁要点即可，别把正文提前写进思考。③ 下文若说『只输出 JSON』，指的是标记之后的正文部分——你仍要先写思考标记块、再写那个 JSON，除此之外不要别的话。";
+  return "\n\n【落笔前创作小稿（每一轮都要做，格式很重要）】这不是正文，也不是解释你的隐秘推理；只写一份给创作者看的简短写作计划。放在正文 JSON 之前，用『【创作小稿开始】』和『【创作小稿结束】』包住。固定写四行：\n在意：角色此刻最在意的具体事\n推进：这一段只往前推哪一步\n避开：本轮最容易出现的八股/OOC/重复\n自定义检查：按下面要求检查后的简短结论\n自定义检查要求：\n" + think + "\n硬性要求：① 每轮都返回小稿，不要因为历史里看不到就省略。② 每行一句，合计尽量不超过180字，不提前代写正文。③ 写完『【创作小稿结束】』后紧接所要求的正文 JSON；下文的『只输出 JSON』仅指小稿之后的正文部分。";
 }
 // 旧的 JSON 字段方案已弃用：现在思考走标记块、不进 JSON。保留函数签名，恒返回 ""（各处模板不用改）。
 function cotJsonField() { return ""; }
@@ -1164,7 +1179,11 @@ function cotJsonField() { return ""; }
 function extractCotPrefix(raw) {
   if (!raw) return null;
   const s = String(raw);
-  let m = s.match(/【思考开始】([\s\S]*?)【思考结束】/);
+  let m = s.match(/【创作小稿开始】([\s\S]*?)【创作小稿结束】/);
+  if (m && m[1].trim()) return m[1].trim();
+  m = s.match(/【创作小稿开始】([\s\S]*?)(?=[\[{])/);
+  if (m && m[1].trim()) return m[1].trim();
+  m = s.match(/【思考开始】([\s\S]*?)【思考结束】/);
   if (m && m[1].trim()) return m[1].trim();
   // 未闭合兜底：【思考开始】到第一个 JSON 起始
   m = s.match(/【思考开始】([\s\S]*?)(?=[\[{])/);
@@ -1174,6 +1193,9 @@ function extractCotPrefix(raw) {
 // 从原始输出里剥掉思考标记块，剩下的交给 extractJSON（避免思考污染正文解析）
 function stripCotBlock(raw) {
   let s = String(raw || "");
+  s = s.replace(/【创作小稿开始】[\s\S]*?【创作小稿结束】/g, "");
+  s = s.replace(/【创作小稿开始】[\s\S]*?(?=[\[{])/g, "");
+  s = s.replace(/【创作小稿开始】|【创作小稿结束】/g, "");
   s = s.replace(/【思考开始】[\s\S]*?【思考结束】/g, "");
   s = s.replace(/【思考开始】[\s\S]*?(?=[\[{])/g, ""); // 未闭合兜底
   s = s.replace(/【思考开始】|【思考结束】/g, "");
@@ -1762,7 +1784,7 @@ async function generateOffline(p, ctx, session) {
   // ⭐尾部重申（治「越写越八股」）：长对话里开头的规矩会被稀释，模型还会模仿自己前文的油腻输出——
   // 把关键约束追加到上下文最尾（模型对结尾最敏感），每轮都在
   const continueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(false) : "";
-  const tailNudge = continueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：你上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；记不清具体是什么，就模糊带过（『碗里的汤』『面前的菜』『手边的杯子』），别硬编一个新的具体名字来填。①【比喻限额·最要紧】这一整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，且只在真能让画面更具体时才用；其余一律直白写【字面上实际发生了什么】——绝不给每个动作/眼神/声音都套一个比喻（禁『像从溺水里浮出来』『像被雨水洗过的天空』『像一把冰锥』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】——『像只大型犬/大型猫科动物/幼兽/小兽/受伤的动物』一律不许，也禁往颈窝/怀里『蹭/蹭了蹭』这个默认亲昵动作；『眸/眸子/瞳仁』一律写『眼睛』，也别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』『一种沉沉的疲惫』这种抽象情绪结论；②反陈词滥调清单全程生效——尤其禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体或意识写成机器(系统/宕机/防火墙)」、「别套通用情欲模板动作」照样守死；③这一段的【句式、开头方式、意象、节奏】不许和你上一段雷同——上一段用过的比喻和小动作这段一律换新的，长短句结构也换着来；④" + (wantLong ? "写够上面要求的篇幅，把这段写足写透，别注水凑字、也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤cot 字段必填，先想后写。" : "") + "〕";
+  const tailNudge = continueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：你上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；记不清具体是什么，就模糊带过（『碗里的汤』『面前的菜』『手边的杯子』），别硬编一个新的具体名字来填。①【比喻限额·最要紧】这一整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，且只在真能让画面更具体时才用；其余一律直白写【字面上实际发生了什么】——绝不给每个动作/眼神/声音都套一个比喻（禁『像从溺水里浮出来』『像被雨水洗过的天空』『像一把冰锥』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】——『像只大型犬/大型猫科动物/幼兽/小兽/受伤的动物』一律不许，也禁往颈窝/怀里『蹭/蹭了蹭』这个默认亲昵动作；『眸/眸子/瞳仁』一律写『眼睛』，也别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』『一种沉沉的疲惫』这种抽象情绪结论；②反陈词滥调清单全程生效——尤其禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体或意识写成机器(系统/宕机/防火墙)」、「别套通用情欲模板动作」照样守死；③这一段的【句式、开头方式、意象、节奏】不许和你上一段雷同——上一段用过的比喻和小动作这段一律换新的，长短句结构也换着来；④" + (wantLong ? "写够上面要求的篇幅，把这段写足写透，别注水凑字、也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tailNudge };
   else hist.push({ role: "user", content: "（继续）" + tailNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -1778,7 +1800,7 @@ async function generateOffline(p, ctx, session) {
     rememberOfflineNoCotModel(cotModelKey);
     const plainSystem = system.replace(cotSystemBlock(cotT), "");
     const plainHist = hist.map((m, i) => i === hist.length - 1
-      ? { ...m, content: String(m.content || "").replace(/；④cot 字段必填，先想后写。/g, "；") }
+      ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
     raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 4000, timeout: 180000 });
     usedCot = false;
@@ -1795,6 +1817,7 @@ async function generateOffline(p, ctx, session) {
   return {
     scene: String(parsed.scene || sp.clean || "").trim(),
     cot: sp.cot,
+    cotRequested: !!cotT,
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
@@ -1947,7 +1970,7 @@ async function generateOfflineGroup(p, ctx, session) {
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true) : "";
-  const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤cot 字段必填，先想后写。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
+  const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gTail };
   else hist.push({ role: "user", content: "（继续）" + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -1965,7 +1988,7 @@ async function generateOfflineGroup(p, ctx, session) {
     rememberOfflineNoCotModel(cotModelKey);
     const plainSystem = system.replace(cotSystemBlock(cotT), "");
     const plainHist = hist.map((m, i) => i === hist.length - 1
-      ? { ...m, content: String(m.content || "").replace(/；④cot 字段必填，先想后写。/g, "；") }
+      ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
     raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 1900, timeout: 180000 });
     usedCot = false;
@@ -1999,6 +2022,7 @@ async function generateOfflineGroup(p, ctx, session) {
   }).filter(b => b.scene);
   // 群聊线下：整批只想一次，把这次思考挂在第一个 beat 上（供「看TA怎么想的」展开）
   if (out.length && sp.cot) out[0].cot = sp.cot;
+  if (out.length && cotT) out[0].cotRequested = true;
   return out;
 }
 async function summarizeOfflineGroup(p, ctx, session) {

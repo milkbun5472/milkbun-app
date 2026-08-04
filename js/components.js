@@ -5656,18 +5656,19 @@ function OfflineMode({
 }
 // 线下卡片：char/user/narration 都做成带头像的卡，右上角 编辑/重写/删除；留白多，便于后续美化
 // 思维链「看TA怎么想的」：一个低调的可展开小入口，全局复用（线下/同人文/梦境）
-function CotReveal({ cot }) {
+function CotReveal({ cot, requested }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  if (!cot || !String(cot).trim()) return null;
+  if ((!cot || !String(cot).trim()) && !requested) return null;
+  const missing = !cot || !String(cot).trim();
   return h("div", { className: "mt-2.5" },
     h("button", {
       onClick: e => { e.stopPropagation(); setOpen(o => !o); },
       className: "active:opacity-60",
       style: { fontFamily: "monospace", fontSize: 10, letterSpacing: 0.4, color: t.fog, padding: "1px 0" }
-    }, (open ? "▾ " : "▸ ") + "思维链 · 看TA落笔前怎么想"),
+    }, (open ? "▾ " : "▸ ") + (missing ? "创作小稿 · 本轮未返回" : "创作小稿 · 看落笔计划")),
     open && h("div", { style: { marginTop: 6, padding: "9px 11px", borderRadius: 10, background: t.bg, border: `1px dashed ${t.line}` } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.72, color: t.sub, whiteSpace: "pre-wrap" } }, String(cot).trim())));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.72, color: missing ? t.fog : t.sub, whiteSpace: "pre-wrap" } }, missing ? "模型这轮没有按标记格式返回小稿；正文已正常保留。这不代表它没有内部推理。" : String(cot).trim())));
 }
 // 角色自拍气泡：从 IndexedDB 读出生成的图，pending 显示「拍照中」，failed 显示没拍成
 function SelfieBubble({ m }) {
@@ -5758,7 +5759,7 @@ function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, o
       (!isUser && m.thought) && h("div", { className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
         h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
-      (!isUser && m.cot) ? h(CotReveal, { cot: m.cot }) : null));
+      (!isUser && (m.cot || m.cotRequested)) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null));
 }
 // 线下单条消息渲染：char=叙事段+心声；user=我的话/动作；narration=场景设定
 // members（可选）：群聊线下时传在场角色，char beat 会显示发言人头像+名
@@ -5780,7 +5781,7 @@ function renderOffMsg(m, i, t, cName, members) {
     m.thought && h("div", { className: "mt-2 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
-    m.cot ? h(CotReveal, { cot: m.cot }) : null);
+    (m.cot || m.cotRequested) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null);
 }
 // ---- 群聊线下模式（多角色同处一地）----
 function GroupOfflineMode({
