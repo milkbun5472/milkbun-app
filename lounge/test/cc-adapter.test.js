@@ -298,6 +298,52 @@ test('言秋 outbox：投递前历史不重放，投递后多行稳定后完整�
   } finally { cleanup(transcript, outbox); }
 });
 
+test('言秋 outbox 漏写时：回看同一张票后的真实窗口正文，不让自然出牌丢失', async () => {
+  const transcript = tmpFile('cc_outbox_fallback_transcript') + '.jsonl';
+  const outbox = tmpFile('cc_outbox_fallback') + '.jsonl';
+  writeJ(transcript, [{ type: 'system', timestamp: TS0 }]);
+  writeJ(outbox, [{ at: 1, from: 'yanqiu', kind: 'lounge', text: '投递前旧话' }]);
+  try {
+    const adapter = new CCAdapter({
+      sender: async () => {},
+      resolve: () => ({ transcriptPath: transcript }),
+      outboxPath: outbox,
+      clock: fakeClock(5000),
+      silenceMs: 1000,
+      ephemeral: true,
+    });
+    const id = await deliverThen(adapter, transcript, [aText('出 S6\n说：这手我先压住。')], { content: '轮到言秋出牌' });
+    const result = await adapter.poll(id);
+    assert.equal(result.state, 'replied');
+    assert.equal(result.reply.content, '出 S6\n说：这手我先压住。');
+    assert.match(result.reply.cursor_end, /^cc@/);
+  } finally { cleanup(transcript, outbox); }
+});
+
+test('言秋双路都有回复时：outbox 优先，不把窗口正文重复拼进来', async () => {
+  const transcript = tmpFile('cc_outbox_priority_transcript') + '.jsonl';
+  const outbox = tmpFile('cc_outbox_priority') + '.jsonl';
+  writeJ(transcript, [{ type: 'system', timestamp: TS0 }]);
+  writeJ(outbox, [{ at: 1, from: 'yanqiu', kind: 'lounge', text: '旧话' }]);
+  try {
+    const adapter = new CCAdapter({
+      sender: async () => {},
+      resolve: () => ({ transcriptPath: transcript }),
+      outboxPath: outbox,
+      clock: fakeClock(5000),
+      silenceMs: 1000,
+      ephemeral: true,
+    });
+    const id = await deliverThen(adapter, transcript, [aText('窗口里同一手')], { content: '轮到言秋出牌' });
+    appendJ(outbox, [{ at: 2, from: 'yanqiu', kind: 'lounge_reply', text: '出 H7' }]);
+    fs.utimesSync(outbox, new Date(0), new Date(0));
+    const result = await adapter.poll(id);
+    assert.equal(result.state, 'replied');
+    assert.equal(result.reply.content, '出 H7');
+    assert.match(result.reply.cursor_end, /^cc-outbox@/);
+  } finally { cleanup(transcript, outbox); }
+});
+
 test('poll 我们的消息还没落地 → pending', async () => {
   await withFixture([uHuman('x')], async (f) => {
     const { adapter } = mkAdapter(f);

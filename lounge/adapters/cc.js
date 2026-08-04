@@ -92,7 +92,17 @@ class CCAdapter {
   async poll(dispatch_id) {
     const st = this._load(dispatch_id);
     if (!st) return { state: 'pending' };            // 无态可依(既无内存又无 DB) → pending
-    if (st.outboxPath) return this._pollOutbox(st);
+    // outbox 是言秋最稳的结构化回流口，但不能因此把真实窗口正文关掉。
+    // 他若自然回复了牌桌/会客厅、却忘了另写 outbox，仍从【同一张票的投前 transcript 游标】
+    // 精确收回；outbox 有信时始终优先，避免一条回复两边都出现时猜绑。
+    if (st.outboxPath) {
+      const outbox = this._pollOutbox(st);
+      if (outbox.state === 'replied') return outbox;
+    }
+    return this._pollTranscript(st);
+  }
+
+  _pollTranscript(st) {
     const { events } = this.readNew(st.transcriptPath, st.cursor);
     return classify(events, { ourText: st.ourText, nowMs: this.clock.now(), silenceMs: this.silenceMs });
   }
