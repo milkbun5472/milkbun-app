@@ -42,6 +42,35 @@
   const STYLE_FIDELITY_TAIL =
     "\n\n【最后校准 · 文风看句子，不看生词】交稿前删掉动作后的心理讲解、主题总结和同义复述。随机看三段：若拿掉冷僻词后仍是标准 AI 的『动作—解释—升华』句式，就重写那三段；让句长、停顿、留白和视角贴近所选例文，但不得复制例文原句。中后段若连续两段都只在解释人物，请把其中至少一段改成会改变下一刻的现场事件。结尾停在动作、物件、声音、话语或未完成的选择上；严禁解释标题是什么意思、意象象征什么、两人的关系究竟是什么。";
 
+  // 金鱼灯原预设是一份 1.3 万字的「风格施工手册」：它要求每段使用多种指定句法、
+  // 罕见词配额、心理追问链和全知叙述判断。单条例句好看，整份直喂却会稳定产出
+  // 动作→剖析→定义→升华的八股。原预设仍完整留在用户文风库；这里只做同人文专用翻译。
+  const JINYUDENG_FANFIC_ADAPTER =
+    "【金鱼灯 · 小说适配版】\n" +
+    "目标是贴近人物知觉的文学叙事，不是展示写作技巧。让现场和意识一起向前走。\n" +
+    "· 从人物实际看见、碰到、听见的一件东西进入；材质、温度、距离只写当前场景确实存在的部分。\n" +
+    "· 长句只在知觉真的发生转向时出现，前后必须有朴素短句透气。不要每段使用同一套长定语、谓语后置或句末判断。\n" +
+    "· 心理只能来自人物有限、偏颇甚至错误的理解。叙述者不替人物揭晓『真正动机』，不把一次动作翻译成关系结论；矛盾可以悬而未决。\n" +
+    "· 冷僻词和生死词没有配额。普通词准确就用普通词；罕见名词每两三段至多一个，且必须是人物知识范围内不可替换的实物。\n" +
+    "· 比喻只在压力最高处使用一个，并让它来自此人的职业、经历或眼前物；不用连续比喻给同一感受换包装。\n" +
+    "· 对话、误解、选择、阻碍和物件易手都是真正的叙事动作。每次内省都必须改变人物下一步怎样说或怎样做。\n" +
+    "· 结尾停在仍有余波的现场，不总结人物成长，不解释题目、象征或这段关系。\n" +
+    "风格的辨识度来自观察顺序、句子呼吸和人物独有的注意力，不来自生僻词密度。";
+  const JINYUDENG_FANFIC_TAIL =
+    "\n\n【金鱼灯适配终检】正文是否真的发生了事，而非只换着词分析同一种心情？若叙述者说出了人物的『真正动机』或结尾解释了题目，请删掉解释，让动作、对话和最后一件物品自行留下余味。";
+
+  function isJinyudengStyle(text) {
+    text = String(text || "");
+    return /\[金鱼灯\]|金鱼灯jinyudeng|<writing_style>[\s\S]{0,200}\[金鱼灯\]/i.test(text);
+  }
+  function fanficStylePrompt(text) {
+    return isJinyudengStyle(text) ? JINYUDENG_FANFIC_ADAPTER : String(text || "").trim();
+  }
+  function fanficStyleTail(text) {
+    // 有文风也不能撤掉全局陈词禁令；v51.75 曾用风格终检替换禁令，导致幼兽/气音/涟漪复发。
+    return (isJinyudengStyle(text) ? JINYUDENG_FANFIC_TAIL : STYLE_FIDELITY_TAIL) + FANFIC_ANTI_CLICHE_TAIL;
+  }
+
   // 版块管「发生在哪里」，文风管「文字怎么活」。这一层专门拆掉每篇都按同一骨架行进的八股。
   const FANFIC_ORGANIC_FORM =
     "【叙事形状 · 禁止标准作文骨架】\n" +
@@ -261,7 +290,10 @@
       parts.push("【本版世界观（设定层 · world book）：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
     }
     parts.push(INTIMACY_WORLDNOTE);
-    if (opts.style && opts.style.trim()) parts.push("【预设文风（作者本次的写作风格要求，优先满足）】\n" + opts.style.trim() + "\n\n" + STYLE_DEEP_IMITATION);
+    if (opts.style && opts.style.trim()) {
+      const adaptedStyle = fanficStylePrompt(opts.style);
+      parts.push("【预设文风（作者本次的写作风格要求，优先满足）】\n" + adaptedStyle + (isJinyudengStyle(opts.style) ? "" : "\n\n" + STYLE_DEEP_IMITATION));
+    }
     if (worldbook && worldbook.trim()) {
       if (typeof WORLDBOOK_RULE !== "undefined") parts.push(WORLDBOOK_RULE);
       parts.push("【全局世界书（严格遵循：其中的设定/文风/禁忌一律照做，尤其是反套话/反八股类条目要压过模型的默认写法；仅当与本版世界观正面冲突时才以本版为准）】\n" + worldbook.trim());
@@ -285,7 +317,7 @@
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
       "[{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：两人的关系设定（如 前未婚夫妻/宿敌/上下级）+身份+世界观要点——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"}]\n" +
       "每篇 title 别重复、别都一个套路；同一批里开场位置、核心推进方式、时间跨度、叙述距离和收尾形状至少有三项彼此不同，禁止只是换背景与人名却复用同一情节拍。author 每篇各不同；tags 2-4 个（如『破镜重圆』『HE』『pwp』『情有独钟』等同人圈标签）。别为了凑数量把正文压短——宁可写满。" +
-      (opts.style && opts.style.trim() ? STYLE_FIDELITY_TAIL : FANFIC_ANTI_CLICHE_TAIL);
+      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
     const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
@@ -358,7 +390,7 @@
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
       "{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"本章新的结尾锚点，供再下一章接续\"}" +
-      (opts.style && opts.style.trim() ? STYLE_FIDELITY_TAIL : FANFIC_ANTI_CLICHE_TAIL);
+      (opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL);
     const userMsg = "续写《" + fic.title + "》的下一章。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
     // 从坏掉/被截断的 JSON 里抢救章节正文（长章节 JSON 常被截断解析失败，之前直接判「返回为空」白烧一次钱）
     function salvageChapter(clean, cot) {

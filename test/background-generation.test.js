@@ -55,10 +55,17 @@ test("有文风样例时学习句法而非在尾部重复禁词清单", () => {
   assert.match(fanficSource, /STYLE_DEEP_IMITATION/);
   assert.match(fanficSource, /借骨不借皮/);
   assert.match(fanficSource, /只换词不换句法/);
-  assert.match(fanficSource, /opts\.style\s*&&\s*opts\.style\.trim\(\)\s*\?\s*STYLE_FIDELITY_TAIL\s*:\s*FANFIC_ANTI_CLICHE_TAIL/);
+  assert.match(fanficSource, /opts\.style\s*&&\s*opts\.style\.trim\(\)\s*\?\s*fanficStyleTail\(opts\.style\)\s*:\s*FANFIC_ANTI_CLICHE_TAIL/);
   assert.match(fanficSource, /调色盘，不是每段都必须执行的流程图/);
   assert.match(fanficSource, /连续两段不得都以心理分析为主要内容/);
   assert.match(fanficSource, /严禁解释标题是什么意思/);
+});
+
+test("金鱼灯在同人文中使用精简小说适配版而非整份施工手册", () => {
+  assert.match(fanficSource, /JINYUDENG_FANFIC_ADAPTER/);
+  assert.match(fanficSource, /叙述者不替人物揭晓/);
+  assert.match(fanficSource, /isJinyudengStyle\(text\)\s*\?\s*JINYUDENG_FANFIC_ADAPTER/);
+  assert.match(fanficSource, /JINYUDENG_FANFIC_TAIL[\s\S]*FANFIC_ANTI_CLICHE_TAIL/);
 });
 
 test("同人文书架可导出诊断稿且新文章记录所用文风", () => {
