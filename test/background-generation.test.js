@@ -57,3 +57,10 @@ test("有文风样例时学习句法而非在尾部重复禁词清单", () => {
   assert.match(fanficSource, /只换词不换句法/);
   assert.match(fanficSource, /opts\.style\s*&&\s*opts\.style\.trim\(\)\s*\?\s*STYLE_FIDELITY_TAIL\s*:\s*FANFIC_ANTI_CLICHE_TAIL/);
 });
+
+test("同人文书架可导出诊断稿且新文章记录所用文风", () => {
+  assert.match(fanficSource, /lisa_fanfic_audit/);
+  assert.match(fanficSource, /lisa-fanfic-audit-/);
+  assert.match(fanficSource, /generationStyleIds:\s*selectedStyleIds\.slice\(\)/);
+  assert.match(fanficSource, /不含角色卡、聊天记录、密钥和书评/);
+});

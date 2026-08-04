@@ -137,6 +137,54 @@
 
   function uid(pfx) { return (pfx || "f") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+  // 导出只带同人文成品与写作配置，供文风/重复句式诊断；不夹带角色卡、聊天素材、密钥或书评区。
+  function exportFanficAudit(tabs, fics, cfg) {
+    const presets = allStylePresets(cfg).map(function (s) {
+      return { id: s.id, label: s.label || "未命名文风", shared: !!s.shared, text: String(s.text || "") };
+    });
+    const tabById = {};
+    (tabs || []).forEach(function (tab) { tabById[tab.id] = tab; });
+    const bundle = {
+      kind: "lisa_fanfic_audit",
+      schema_version: 1,
+      exported_at: new Date().toISOString(),
+      app_version: (typeof APP_VERSION !== "undefined" ? APP_VERSION : "unknown"),
+      note: "仅含同人文正文、板块与文风配置；不含角色卡、聊天记录、密钥和书评。旧文章可能没有 generation_style_ids。",
+      active_style_ids: (cfg.activeStyleIds || []).slice(),
+      style_presets: presets,
+      stories: (fics || []).map(function (f) {
+        const tab = tabById[f.tabId] || {};
+        return {
+          id: f.id,
+          title: f.title || "",
+          author: f.author || "",
+          board: { id: f.tabId || "", name: tab.name || "", description: tab.desc || "" },
+          tags: (f.tags || []).slice(),
+          premise: f.premise || "",
+          source: f.source || "",
+          created_at: f.createdAt ? new Date(f.createdAt).toISOString() : null,
+          updated_at: f.updatedAt ? new Date(f.updatedAt).toISOString() : null,
+          generation_style_ids: (f.generationStyleIds || []).slice(),
+          generation_style_labels: (f.generationStyleLabels || []).slice(),
+          chapters: (f.chapters || []).map(function (ch, i) {
+            return { number: i + 1, content: ch.content || "", end_hook: ch.endHook || "" };
+          })
+        };
+      })
+    };
+    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    a.href = url;
+    a.download = "lisa-fanfic-audit-" + stamp + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    return bundle.stories.length;
+  }
+
   // 刷新语义（照贴吧）：清掉非保护的 npc fic；onShelf==true || source=="user" 一律保留。
   function protectedFic(f) { return f && (f.onShelf === true || f.source === "user"); }
 
@@ -1393,10 +1441,16 @@
         const cfg = loadCfg();
         // 本次勾选的文风（GenSheet 传来）→ 用它，并记住当默认；没传就退回上次的
         let styleText;
+        let selectedStyleIds;
         if (Array.isArray(styleIds)) {
           saveCfg(Object.assign({}, cfg, { activeStyleIds: styleIds }));
           styleText = styleTextForIds(cfg, styleIds);
-        } else styleText = activeStyleText(cfg);
+          selectedStyleIds = styleIds.slice();
+        } else {
+          styleText = activeStyleText(cfg);
+          selectedStyleIds = (cfg.activeStyleIds || []).slice();
+        }
+        const selectedStyleLabels = allStylePresets(cfg).filter(function (s) { return selectedStyleIds.indexOf(s.id) >= 0; }).map(function (s) { return s.label || "未命名文风"; });
         // 推荐(mixed)版：把其它世界观当池子供每篇随机取
         const worldPool = curTab.mixed ? tabs.filter(function (x) { return !x.mixed; }) : null;
         const opts = { style: styleText, perFic: cfg.perFic, chatMaterial: chatMaterialFor(chars), worldPool: worldPool,
@@ -1413,6 +1467,7 @@
           return {
             id: uid("fic"), tabId: curTab.id, cp: cp || [], title: x.title, author: x.author, tags: x.tags, premise: x.premise || "",
             chapters: [{ content: x.body, endHook: x.endHook, cot: x.cot || null, cotRequested: !!x.cotRequested }], source: "npc", onShelf: false, sharedTo: [],
+            generationStyleIds: selectedStyleIds.slice(), generationStyleLabels: selectedStyleLabels.slice(),
             stats: ficHeat(x.title + now + i + offset), reviews: [], createdAt: now - i - offset, updatedAt: now - i - offset
           };
           });
@@ -1513,7 +1568,7 @@
         h(Head, {
           zh: view === "shelf" ? "书架" : "同人文", en: view === "shelf" ? "追更中心 · Shelf" : "Fanfic",
           onBack: props.onBack,
-          right: view === "feed" ? h("div", { className: "flex items-center gap-3" },
+          right: view === "shelf" ? h("button", { onClick: function () { const n = exportFanficAudit(tabs, loadFics(), loadCfg()); props.toast && props.toast("已导出 " + n + " 篇同人文诊断稿"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "导出") : view === "feed" ? h("div", { className: "flex items-center gap-3" },
             h("button", { onClick: refreshTab, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "刷新"),
             h("button", { onClick: function () { setGearOpen(true); }, disabled: busy, className: "active:opacity-60", title: "生成配置" }, h(GConfig, { size: 19, color: t.ink }))) : null
         }),
