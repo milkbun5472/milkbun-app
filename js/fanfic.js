@@ -223,7 +223,7 @@
     const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
-      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(30000, 6000 + n * perFic) }); // 思考型模型的思考也从这里扣，紧了整批返回空
+      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: user }], { maxTokens: Math.min(30000, 6000 + n * perFic), timeout: 300000 }); // 长文风+长正文允许 5 分钟；思考型模型的思考也从这里扣
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       if (sp.cot) batchCot = sp.cot; // 整批一次思考，挂到第一篇
       let d = extractJSON(sp.clean);
@@ -305,7 +305,7 @@
     }
     // 思考型模型预算别抠（占 maxTokens），太紧就返回空；解析失败先抢救正文、再不行才重试一次
     async function once(extra) {
-      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }], { maxTokens: Math.min(24000, perFic + 10000) });
+      const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }], { maxTokens: Math.min(24000, perFic + 10000), timeout: 300000 });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       let d = extractJSON(sp.clean);
       if (!d && typeof repairJSON === "function") { try { d = JSON.parse(repairJSON(sp.clean)); } catch (e) {} }
@@ -1318,7 +1318,16 @@
     const [openId, setOpenId] = useState(null);
     const [gearOpen, setGearOpen] = useState(false);
     const [tabSheet, setTabSheet] = useState(null); // null | {} (new) | tabObj (edit)
-    const [busy, setBusy] = useState(false);
+    const FANFIC_BATCH_TASK = "fanfic:batch";
+    const [busy, setBusy] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(FANFIC_BATCH_TASK).busy); });
+
+    useEffect(function () {
+      if (!window.BackgroundGeneration) return;
+      return window.BackgroundGeneration.subscribe(FANFIC_BATCH_TASK, function (s) {
+        setBusy(!!s.busy);
+        if (s.status === "done") setFics(loadFics());
+      });
+    }, []);
 
     const userName = (props.profile && props.profile.name) || "我";
     const characters = props.characters || [];
@@ -1345,9 +1354,9 @@
 
     // 生成
     async function doGen(n, cp, styleIds, includeMe) {
-      setGearOpen(false); setBusy(true);
-      props.toast && props.toast("生成中…（" + n + " 篇）");
-      try {
+      setGearOpen(false);
+      props.toast && props.toast("已放到后台生成（" + n + " 篇），可以先去别的页面");
+      const run = async function () {
         const chars = cpChars(cp, characters, props.profile);
         const cfg = loadCfg();
         // 本次勾选的文风（GenSheet 传来）→ 用它，并记住当默认；没传就退回上次的
@@ -1369,10 +1378,17 @@
             stats: ficHeat(x.title + now + i), reviews: [], createdAt: now - i, updatedAt: now - i
           };
         });
-        persistFics(made.concat(loadFics()));
+        saveFics(made.concat(loadFics()));
         props.toast && props.toast("已生成 " + made.length + " 篇");
-      } catch (e) { props.toast && props.toast(String(e.message || e)); }
-      setBusy(false);
+        return made;
+      };
+      if (!window.BackgroundGeneration) {
+        setBusy(true);
+        try { await run(); setFics(loadFics()); } catch (e) { props.toast && props.toast(String(e.message || e)); }
+        setBusy(false); return;
+      }
+      try { await window.BackgroundGeneration.start(FANFIC_BATCH_TASK, { label: "同人文生成中" }, run); }
+      catch (e) { props.toast && props.toast(String(e.message || e)); }
     }
 
     // 刷新：清掉当前 tab 里非保护的 npc fic（onShelf/user 保留）
@@ -1457,7 +1473,7 @@
         view === "feed" && curTab && curTab.desc ? h("div", { className: "px-5 pb-2" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55, whiteSpace: "pre-line", maxHeight: 62, overflowY: "auto", WebkitOverflowScrolling: "touch", background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 10px" } }, curTab.desc)) : null,
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-6" },
-          busy ? h(Spinner, { label: "生成中…" }) : null,
+          busy ? h(Spinner, { label: "后台生成中…可以离开本页，回来会自动接上" }) : null,
           list.length ? list.map(function (f) {
             return h(FicCard, { key: f.id, fic: f, characters: characters, userName: userName, onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); } });
           }) : (busy ? null : h(Empty, { text: view === "shelf" ? "书架空空" : "本版还没有同人文", sub: view === "shelf" ? "收藏或发布的篇目会留在这里追更" : "点右上角齿轮生成，或用底部加号自己写" }))));
