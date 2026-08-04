@@ -94,6 +94,7 @@ function createLiveHost({ configPath, port } = {}) {
       daily_char_cap: Number(config.daily_char_cap || 16000),
     },
   });
+  landlord.recover();
   const outboxConsumer = new LoungeOutboxConsumer({
     db, orch, outboxPath: config.lounge_outbox,
     onMessage: (roomId) => built.snapshot(roomId),

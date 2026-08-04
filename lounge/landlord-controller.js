@@ -10,6 +10,7 @@ class LandlordController {
     this.onChange = onChange;
     this.maxAiSteps = maxAiSteps;
     this.running = new Set();
+    this.lateTimers = new Map();
   }
 
   _iso() { return new Date().toISOString(); }
@@ -33,6 +34,10 @@ class LandlordController {
       VALUES(?,?,?,?,?,?,?)`).run(gameId, roomId, state.status, JSON.stringify(state), codexConfirmed ? 1 : 0, now, now);
     this.onChange(roomId);
     return this.current(roomId);
+  }
+  recover() {
+    const rows = this.db.prepare("SELECT game_id FROM landlord_games WHERE status='paused'").all();
+    for (const row of rows) this._scheduleLate(row.game_id);
   }
   async lisaAction(gameId, action) {
     const row = this._row(gameId);
@@ -79,8 +84,11 @@ class LandlordController {
           codex_confirmed: target === 'codex', timeout_ms: target === 'codex' ? 600000 : 180000,
         });
         if (result.status !== 'replied') {
+          state.pendingDispatch = result.dispatch_id || null;
+          state.pausedFrom = state.status;
           state.status = 'paused';
           this._save(row, state, { error: `${target === 'codex' ? 'Codex' : '言秋'}这手没有成功收回（${result.reason || result.status}），牌桌已停住。` });
+          if (result.reason === 'timeout') this._scheduleLate(gameId);
           return;
         }
         const reply = this.orch.getMessage(result.message_id);
@@ -98,6 +106,61 @@ class LandlordController {
         }
       }
     } finally { this.running.delete(gameId); }
+  }
+
+  _pendingDispatch(row, state) {
+    if (state.pendingDispatch) return this.orch.getDispatch(state.pendingDispatch);
+    return this.db.prepare(`SELECT d.* FROM dispatches d JOIN messages m ON m.message_id=d.message_id
+      WHERE d.room_id=? AND d.target=? AND m.origin_message_id LIKE ?
+      ORDER BY d.created_at DESC,d.rowid DESC LIMIT 1`)
+      .get(row.room_id, state.turn, `landlord:${row.game_id}:%`);
+  }
+
+  async sync(gameId) {
+    const row = this._row(gameId);
+    if (!row) throw new Error('牌局不存在');
+    const state = this._state(row);
+    if (state.status !== 'paused' || !['yanqiu', 'codex'].includes(state.turn)) return this.current(row.room_id);
+    const dispatch = this._pendingDispatch(row, state);
+    if (!dispatch) return this.current(row.room_id);
+    const result = await this.orch.collectExisting(dispatch.dispatch_id);
+    if (result.status !== 'replied') return this.current(row.room_id);
+    const reply = this.orch.getMessage(result.message_id);
+    this.db.prepare('UPDATE messages SET automatic=1 WHERE message_id=?').run(reply.message_id);
+    try {
+      state.status = state.pausedFrom || (state.landlord ? 'playing' : 'bidding');
+      const action = parseAction(reply.content, state);
+      this._apply(state, dispatch.target, action);
+      if (action.speech) state.history.push({ kind: 'utterance', player: dispatch.target, text: action.speech.slice(0, 160) });
+      delete state.pendingDispatch;
+      delete state.pausedFrom;
+      this._save(row, state, { error: null });
+      this._clearLate(gameId);
+      await this.advance(gameId);
+    } catch (error) {
+      state.status = 'paused';
+      this._save(row, state, { error: `${dispatch.target === 'codex' ? 'Codex' : '言秋'}的迟到动作没读懂：${error.message}` });
+    }
+    return this.current(row.room_id);
+  }
+
+  _clearLate(gameId) {
+    const timer = this.lateTimers.get(gameId);
+    if (timer) clearInterval(timer);
+    this.lateTimers.delete(gameId);
+  }
+  _scheduleLate(gameId) {
+    if (this.lateTimers.has(gameId)) return;
+    const started = Date.now();
+    const timer = setInterval(async () => {
+      try {
+        const before = this._row(gameId);
+        if (!before || before.status !== 'paused' || Date.now() - started > 30 * 60 * 1000) return this._clearLate(gameId);
+        await this.sync(gameId);
+      } catch { this._clearLate(gameId); }
+    }, 2000);
+    if (typeof timer.unref === 'function') timer.unref();
+    this.lateTimers.set(gameId, timer);
   }
 }
 

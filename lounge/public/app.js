@@ -39,6 +39,7 @@ const ui = {
   hand: $('#hand'), bidActions: $('#bidActions'), playActions: $('#playActions'), submitPlay: $('#submitPlay'), passPlay: $('#passPlay'),
   turnLamp: $('#turnLamp'), kitty: $('#kitty'), playedCards: $('#playedCards'), gameError: $('#gameError'), gameResult: $('#gameResult'),
   gameTalk: $('#gameTalk'), gameSpeech: $('#gameSpeech'),
+  syncGame: $('#syncGame'),
   yanqiuCards: $('#yanqiuCards'), codexCards: $('#codexCards'), lisaRole: $('#lisaRole'),
 };
 
@@ -205,10 +206,11 @@ function renderGame(game) {
   ui.gameWelcome.hidden = true; ui.gameTable.hidden = false;
   ui.yanqiuCards.textContent = `${game.handCounts.yanqiu} 张${game.landlord === 'yanqiu' ? ' · 地主' : ''}`;
   ui.codexCards.textContent = `${game.handCounts.codex} 张${game.landlord === 'codex' ? ' · 地主' : ''}`;
-  ui.lisaRole.textContent = game.landlord ? (game.landlord === 'lisa' ? '地主' : '农民') : '等待叫分';
+  ui.lisaRole.textContent = `${game.landlord ? (game.landlord === 'lisa' ? '地主' : '农民') : '等待叫分'} · ${game.handCounts.lisa} 张`;
   const names = { lisa: '你', yanqiu: '言秋', codex: 'Codex' };
   ui.turnLamp.textContent = game.status === 'finished' ? '本局结束' : game.status === 'paused' ? '牌桌暂停' : `轮到${names[game.turn]}`;
   ui.gameError.hidden = !game.error; ui.gameError.textContent = game.error || '';
+  ui.syncGame.hidden = !(game.status === 'paused' && ['yanqiu', 'codex'].includes(game.turn));
   ui.kitty.replaceChildren(...(game.kitty || []).map((c) => makeCard(c, false)));
   ui.playedCards.replaceChildren(...((game.currentPlay && game.currentPlay.cards) || []).map((c) => makeCard(c, false)));
   const talks = game.history.filter((item) => item.kind === 'utterance' && item.text).slice(-4);
@@ -455,6 +457,16 @@ ui.hand.addEventListener('click', (event) => {
 ui.bidActions.addEventListener('click', (event) => { const b = event.target.closest('[data-bid]'); if (b) gameAction({ kind: 'bid', points: Number(b.dataset.bid) }); });
 ui.submitPlay.addEventListener('click', () => gameAction({ kind: 'play', cards: [...state.selectedCards] }));
 ui.passPlay.addEventListener('click', () => gameAction({ kind: 'pass', cards: [] }));
+ui.syncGame.addEventListener('click', async () => {
+  const game = state.snapshot && state.snapshot.landlord; if (!game || state.busy) return;
+  setBusy(true);
+  try {
+    const data = await api(`/api/rooms/${state.roomId}/landlord/sync`, { method: 'POST', body: JSON.stringify({ game_id: game.game_id }) });
+    render(data.state);
+    if (data.game && data.game.status === 'paused') showNotice(data.game.error || '迟到回复还没完整落地，再等一会儿');
+  } catch (error) { showNotice(error.message); }
+  finally { setBusy(false); }
+});
 ui.gameResult.addEventListener('click', (event) => {
   if (!event.target.closest('[data-new-game]')) return;
   state.selectedCards.clear(); ui.gameConsent.checked = false; ui.gameWelcome.hidden = false; ui.gameTable.hidden = true;

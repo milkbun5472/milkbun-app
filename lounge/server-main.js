@@ -22,6 +22,7 @@ built = createLoungeServer({
   runtime: { mode: 'preview', cc: 'fake', codex: 'fake' },
   roomDefaults: { max_auto_turns: 2, daily_call_cap: 20, daily_char_cap: 16000 },
 });
+landlord.recover();
 const { server } = built;
 
 const port = Number(process.env.PORT || 8092);

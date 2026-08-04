@@ -118,15 +118,16 @@
         <div class="seat seat-left"><span class="seat-avatar">秋</span><b>言秋</b><small id="yanqiuCards">17 张</small></div>
         <div class="seat seat-right"><span class="seat-avatar">C</span><b>Codex</b><small id="codexCards">17 张</small></div>
         <div class="turn-lamp" id="turnLamp">等你叫分</div>
-        <div id="kitty" class="kitty"></div>
+        <div class="kitty-wrap"><small>地主底牌</small><div id="kitty" class="kitty"></div></div>
         <div id="tablePlay" class="table-play"><small>桌面</small><div id="playedCards"></div></div>
         <div id="gameTalk" class="game-talk" aria-live="polite"></div>
         <div id="gameError" class="game-error" hidden></div>
+        <button id="syncGame" class="sync-game" type="button" hidden>收回迟到出牌</button>
         <div class="seat-self"><b>Lisa</b><small id="lisaRole">农民候选</small></div>
         <div id="hand" class="card-hand" aria-label="你的手牌"></div>
         <input id="gameSpeech" class="game-speech" maxlength="160" placeholder="这手想说什么？可以留空">
         <div id="bidActions" class="game-actions" hidden>
-          <button data-bid="0">不叫</button><button data-bid="1">1 分</button><button data-bid="2">2 分</button><button data-bid="3">3 分</button>
+          <button data-bid="0">不叫</button><button data-bid="1">1 分</button><button data-bid="2">2 分</button><button data-bid="3">3 分（直接当地主）</button>
         </div>
         <div id="playActions" class="game-actions" hidden>
           <button id="passPlay">不出</button><button id="submitPlay" class="primary">出牌</button>

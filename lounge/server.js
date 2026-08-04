@@ -247,6 +247,13 @@ function createLoungeServer({
           const game = await withProgress(roomId, () => landlord.lisaAction(b.game_id, b.action || {}));
           return json(res, 200, { game, state: snapshot(roomId) });
         }
+        if (method === 'POST' && parts[4] === 'sync') {
+          const b = await bodyOf(req);
+          const current = landlord.current(roomId);
+          if (!current || current.game_id !== b.game_id) return fail(res, 404, 'GAME_NOT_FOUND', '当前牌局不存在');
+          const game = await landlord.sync(b.game_id);
+          return json(res, 200, { game, state: snapshot(roomId) });
+        }
       }
 
       if (method === 'POST' && parts[3] === 'dispatch') {
