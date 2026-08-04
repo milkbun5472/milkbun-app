@@ -213,7 +213,7 @@ function renderGame(game) {
   ui.syncGame.hidden = !(game.status === 'paused' && ['yanqiu', 'codex'].includes(game.turn));
   ui.kitty.replaceChildren(...(game.kitty || []).map((c) => makeCard(c, false)));
   ui.playedCards.replaceChildren(...((game.currentPlay && game.currentPlay.cards) || []).map((c) => makeCard(c, false)));
-  const talks = game.history.filter((item) => item.kind === 'utterance' && item.text).slice(-4);
+  const talks = game.history.filter((item) => ['utterance', 'finish_reply'].includes(item.kind) && item.text).slice(-4);
   ui.gameTalk.replaceChildren(...talks.map((item) => {
     const line = document.createElement('p'); line.dataset.speaker = item.player;
     line.append(text('b', `${names[item.player]}：`), document.createTextNode(item.text)); return line;
@@ -229,6 +229,9 @@ function renderGame(game) {
   ui.gameResult.hidden = game.status !== 'finished';
   if (game.status === 'finished') {
     ui.gameResult.replaceChildren(text('b', game.winner === 'lisa' ? '你赢啦。' : `${names[game.winner]} 赢了这局。`));
+    const notices = game.finishNotifications || {};
+    const informed = ['yanqiu', 'codex'].filter((target) => notices[target]);
+    if (informed.length) ui.gameResult.append(text('small', ` 已向${informed.map((target) => names[target]).join('、')}发出终局通报`));
     const again = text('button', '再洗一局'); again.type = 'button'; again.dataset.newGame = '1'; ui.gameResult.append(again);
   }
 }

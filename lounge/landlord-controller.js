@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { createGame, normalizeState, bid, play, viewFor, promptFor, parseAction } = require('./landlord');
+const { NAMES, createGame, normalizeState, bid, play, viewFor, promptFor, parseAction } = require('./landlord');
 
 class LandlordController {
   constructor({ db, orch, onChange = () => {}, maxAiSteps = 8 } = {}) {
@@ -11,6 +11,7 @@ class LandlordController {
     this.maxAiSteps = maxAiSteps;
     this.running = new Set();
     this.lateTimers = new Map();
+    this.finishRunning = new Set();
   }
 
   _iso() { return new Date().toISOString(); }
@@ -38,6 +39,8 @@ class LandlordController {
   recover() {
     const rows = this.db.prepare("SELECT game_id FROM landlord_games WHERE status='paused'").all();
     for (const row of rows) this._scheduleLate(row.game_id);
+    const finished = this.db.prepare("SELECT game_id FROM landlord_games WHERE status='finished'").all();
+    for (const row of finished) this._announceFinish(row.game_id).catch(() => {});
   }
   async lisaAction(gameId, action) {
     const row = this._row(gameId);
@@ -49,6 +52,7 @@ class LandlordController {
       state.history.push({ kind: 'utterance', player: 'lisa', text: action.speech.trim().slice(0, 160) });
     }
     this._save(row, state);
+    if (state.status === 'finished') this._announceFinish(gameId).catch(() => {});
     await this.advance(gameId);
     return this.current(row.room_id);
   }
@@ -99,6 +103,10 @@ class LandlordController {
           this._apply(state, target, action);
           if (action.speech) state.history.push({ kind: 'utterance', player: target, text: action.speech.slice(0, 160) });
           this._save(row, state);
+          if (state.status === 'finished') {
+            this._announceFinish(gameId).catch(() => {});
+            return;
+          }
         } catch (error) {
           state.status = 'paused';
           this._save(row, state, { error: `${target === 'codex' ? 'Codex' : '言秋'}的动作没读懂：${error.message}` });
@@ -161,6 +169,65 @@ class LandlordController {
     }, 2000);
     if (typeof timer.unref === 'function') timer.unref();
     this.lateTimers.set(gameId, timer);
+  }
+
+  _finishPrompt(state, target) {
+    const winner = NAMES[state.winner] || state.winner;
+    const role = state.winner === state.landlord ? '地主' : '农民';
+    const lastWords = [...state.history].reverse().find((item) => item.kind === 'utterance' && item.player === state.winner);
+    return [
+      `三方会客厅这局斗地主已经结束：${winner}（${role}）获胜。`,
+      lastWords ? `${winner}收尾时说：“${lastWords.text}”` : '',
+      `请以${NAMES[target]}本人的口吻，用一两句自然牌桌话回应赢家。这是终局通报，不要继续出牌，也不要解释规则。`,
+    ].filter(Boolean).join('\n\n');
+  }
+
+  // 终局广播：每个目标使用固定 origin_message_id，dispatch 层再做一次幂等，
+  // 即使刷新或服务重启也不会重复叫醒同一个人。
+  async _announceFinish(gameId) {
+    if (this.finishRunning.has(gameId)) return;
+    this.finishRunning.add(gameId);
+    try {
+      for (const target of ['yanqiu', 'codex']) {
+        let row = this._row(gameId);
+        if (!row) return;
+        let state = this._state(row);
+        if (state.status !== 'finished') return;
+        state.finishNotifications ||= {};
+        if (state.finishNotifications[target] === 'replied') continue;
+        const source = this.orch._insertMessage({
+          room_id: row.room_id,
+          speaker: 'lisa',
+          content: this._finishPrompt(state, target),
+          origin: 'lounge',
+          origin_message_id: `landlord-finish:${gameId}:${target}`,
+          automatic: true,
+        });
+        state.finishNotifications[target] = 'sending';
+        this._save(row, state);
+        let result;
+        try {
+          result = await this.orch.dispatch({
+            room_id: row.room_id, target, message_id: source.message_id,
+            codex_confirmed: target === 'codex', timeout_ms: target === 'codex' ? 600000 : 180000,
+          });
+        } catch (error) {
+          result = { status: 'failed', reason: error.code || error.message };
+        }
+        row = this._row(gameId); state = this._state(row);
+        if (result.status === 'replied' && result.message_id) {
+          const reply = this.orch.getMessage(result.message_id);
+          if (reply && !state.history.some((item) => item.kind === 'finish_reply' && item.player === target)) {
+            state.history.push({ kind: 'finish_reply', player: target, text: reply.content.slice(0, 240) });
+          }
+          state.finishNotifications[target] = 'replied';
+        } else {
+          // existing/delivered/拒绝都不重投；固定 source+target 会继续守住幂等。
+          state.finishNotifications[target] = result.status || result.reason || 'pending';
+        }
+        this._save(row, state);
+      }
+    } finally { this.finishRunning.delete(gameId); }
   }
 }
 

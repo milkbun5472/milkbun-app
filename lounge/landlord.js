@@ -164,6 +164,7 @@ function viewFor(state, viewer = 'lisa') {
     bids: state.bids, highestBid: state.highestBid, landlord: state.landlord,
     kitty: state.landlord ? state.kitty : [], currentPlay: state.currentPlay, lastPlayBy: state.lastPlayBy,
     passes: state.passes, winner: state.winner, history: state.history,
+    finishNotifications: state.finishNotifications || {},
     hand: sortCards(state.hands[viewer] || []),
     handCounts: Object.fromEntries(PLAYERS.map((p) => [p, state.hands[p].length])),
   };
