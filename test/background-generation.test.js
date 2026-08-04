@@ -50,3 +50,10 @@ test("超长文风按一篇一交并在每篇完成后立即落库", () => {
   assert.match(fanficSource, /genBatch\(props\.active, curTab, chars, 1,/);
   assert.match(fanficSource, /saveFics\(part\.concat\(loadFics\(\)\)\)/);
 });
+
+test("有文风样例时学习句法而非在尾部重复禁词清单", () => {
+  assert.match(fanficSource, /STYLE_DEEP_IMITATION/);
+  assert.match(fanficSource, /借骨不借皮/);
+  assert.match(fanficSource, /只换词不换句法/);
+  assert.match(fanficSource, /opts\.style\s*&&\s*opts\.style\.trim\(\)\s*\?\s*STYLE_FIDELITY_TAIL\s*:\s*FANFIC_ANTI_CLICHE_TAIL/);
+});

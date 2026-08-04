@@ -24,6 +24,22 @@
   const FANFIC_ANTI_CLICHE_TAIL =
     "\n\n【落笔前再自检一遍】通篇不许出现：埋进颈窝、小兽/幼兽/大型犬、低吼一声/喉间溢出、勾唇/挑眉、圈进怀里/扣住后颈、耳尖泛红，以及白玉凝脂、如瀑长发、藤蔓般缠绕、星辰大海、灵魂深处这类烂词。发现自己要写这些，就换成此情此景独有的具体细节。";
 
+  // 有例文时，不能再拿一长串禁词盖在 prompt 尾部：模型会把注意力全花在避词，
+  // 最后只学到例文的生僻词皮肤，句子仍是「动作→解释→抽象总结」的 AI 八股。
+  // 这一块教的是可迁移的句法机制；示例为本项目原创，只学方法、不复制外部作者句子。
+  const STYLE_DEEP_IMITATION =
+    "【文风学习方式 · 借骨不借皮】\n" +
+    "· 先在心里观察例文的句长变化、停顿位置、段落怎样转场、叙述离身体有多近；不要输出这份分析。\n" +
+    "· 模仿上述句法与叙述距离，不要只摘例文里的冷僻名词、形容词、比喻和意象。只换词不换句法，视为没有遵循文风。\n" +
+    "· 禁止在一个动作后立刻替读者解释『这意味着什么』；禁止连续使用『她只是／这不是……而是……／关于……／仿佛……／像一种……』把现场改写成论文。\n" +
+    "· 抽象判断能删就删。人物的恐惧、爱意、犹疑要留在动作的误差、物件的位置、话语的岔开与段落空白里，让读者自己抵达。\n" +
+    "· 原创对照（只学改法，禁止照抄）：\n" +
+    "  ✗『她收回手。关于他的体温，她早已放弃用感觉判断；这个动作只为确认他仍属于人类。』\n" +
+    "  ✓『她的手背离开他的额头。水壶在桌角响了一声；她转过去关火，回来时又碰了碰同一个地方。』\n" +
+    "  前者把动作解释三遍，后者让重复本身承担情绪。正文优先采用后者的写法。";
+  const STYLE_FIDELITY_TAIL =
+    "\n\n【最后校准 · 文风看句子，不看生词】交稿前删掉动作后的心理讲解、主题总结和同义复述。随机看三段：若拿掉冷僻词后仍是标准 AI 的『动作—解释—升华』句式，就重写那三段；让句长、停顿、留白和视角贴近所选例文，但不得复制例文原句。";
+
   // 版块管「发生在哪里」，文风管「文字怎么活」。这一层专门拆掉每篇都按同一骨架行进的八股。
   const FANFIC_ORGANIC_FORM =
     "【叙事形状 · 禁止标准作文骨架】\n" +
@@ -195,7 +211,7 @@
       parts.push("【本版世界观（设定层 · world book）：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
     }
     parts.push(INTIMACY_WORLDNOTE);
-    if (opts.style && opts.style.trim()) parts.push("【预设文风（作者本次的写作风格要求，优先满足）】\n" + opts.style.trim());
+    if (opts.style && opts.style.trim()) parts.push("【预设文风（作者本次的写作风格要求，优先满足）】\n" + opts.style.trim() + "\n\n" + STYLE_DEEP_IMITATION);
     if (worldbook && worldbook.trim()) {
       if (typeof WORLDBOOK_RULE !== "undefined") parts.push(WORLDBOOK_RULE);
       parts.push("【全局世界书（严格遵循：其中的设定/文风/禁忌一律照做，尤其是反套话/反八股类条目要压过模型的默认写法；仅当与本版世界观正面冲突时才以本版为准）】\n" + worldbook.trim());
@@ -219,7 +235,7 @@
       "【输出】只输出一个合法 JSON 数组，无 markdown 无多余文字。数组恰好 " + n + " 个元素（务必凑满 " + n + " 篇）：\n" +
       "[{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"title\":\"标题\",\"author\":\"作者笔名（同人圈作者马甲/太太笔名，别用真名别带@）\",\"tags\":[\"标签\",\"标签\"],\"premise\":\"本篇核心设定一句话：两人的关系设定（如 前未婚夫妻/宿敌/上下级）+身份+世界观要点——这是全篇不许变的地基\",\"body\":\"正文（成篇散文，务必写足、有剧情，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"结尾锚点：一句话描述这篇结束在什么处境/悬念，供日后续写接续\"}]\n" +
       "每篇 title 别重复、别都一个套路；同一批里开场位置、核心推进方式、时间跨度、叙述距离和收尾形状至少有三项彼此不同，禁止只是换背景与人名却复用同一情节拍。author 每篇各不同；tags 2-4 个（如『破镜重圆』『HE』『pwp』『情有独钟』等同人圈标签）。别为了凑数量把正文压短——宁可写满。" +
-      FANFIC_ANTI_CLICHE_TAIL;
+      (opts.style && opts.style.trim() ? STYLE_FIDELITY_TAIL : FANFIC_ANTI_CLICHE_TAIL);
     const user = "写 " + n + " 篇" + (tab.mixed ? "（世界观每篇随机挑）" : "【" + tab.name + "】世界观下") + "的同人文。别都同一个梗、同一种基调，冷暖虐甜各来一点，每篇都要写出剧情别烂尾。";
     let batchCot = null;
     async function once(extra) {
@@ -292,7 +308,7 @@
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
       "【输出】只输出一个合法 JSON 对象，无 markdown：\n" +
       "{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"content\":\"这一章正文（成篇散文，承接上一章锚点往下推进、有实质剧情进展，约 " + minWords + " 字以上，分段用\\n\\n）\",\"endHook\":\"本章新的结尾锚点，供再下一章接续\"}" +
-      FANFIC_ANTI_CLICHE_TAIL;
+      (opts.style && opts.style.trim() ? STYLE_FIDELITY_TAIL : FANFIC_ANTI_CLICHE_TAIL);
     const userMsg = "续写《" + fic.title + "》的下一章。\n\n〔幕后提醒：本章的开头方式、句式节奏、意象和高频小动作【不许和前几章雷同】——连载越往后越容易一套模板，这章刻意换写法；反陈词滥调清单全程生效" + (cotT ? "；先交创作小稿再写正文" : "") + "。〕";
     // 从坏掉/被截断的 JSON 里抢救章节正文（长章节 JSON 常被截断解析失败，之前直接判「返回为空」白烧一次钱）
     function salvageChapter(clean, cot) {
