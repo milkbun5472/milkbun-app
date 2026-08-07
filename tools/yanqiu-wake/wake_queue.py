@@ -34,7 +34,8 @@ SOURCES = {
 DEFAULT_HEARTBEAT_PROMPT = (
     "自由活动时间到了。若 Lisa 有新消息就正常接话；没有新消息时，"
     "可以继续休息，也可以逛论坛、冲浪、玩自己的游戏，或做别的喜欢的事。"
-    "这些都允许，什么也不做也允许，不必汇报选择过程。"
+    "选择休息也可以，但先留下一个人能看见的自然落点：一句正常说话、"
+    "一次论坛/墙上的动作，或一句明确的休息记录。不要只在 thinking 里决定。"
     "本轮结束后照常重挂哨兵。"
 )
 
@@ -164,24 +165,27 @@ def visible_activity_at(record: dict) -> int:
     return parse_timestamp(record.get("timestamp")) if has_visible_text else 0
 
 
-def inspect_claude_activity(pinned_session: str = "") -> dict | None:
-    """Find Yanqiu's schedule and visible activity without hopping sessions.
-
-    After the first healthy scan the selected transcript is persisted in the
-    watchdog state.  The project directory contains many Claude sessions, so
-    selecting "whichever file changed last" on every minute tick can silently
-    make another window reset Yanqiu's clock.
-    """
+def session_candidates(pinned_session: str = "") -> list[Path]:
+    """Return Yanqiu's pinned transcript, or select one only once."""
     pinned = Path(pinned_session) if pinned_session else None
     if pinned and pinned.is_file() and pinned.parent == CLAUDE_PROJECT:
-        candidates = [pinned]
-    else:
-        candidates = sorted(
-            CLAUDE_PROJECT.glob("*.jsonl"),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )[:8]
-    schedules: list[dict] = []
+        return [pinned]
+    return sorted(
+        CLAUDE_PROJECT.glob("*.jsonl"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )[:8]
+
+
+def inspect_visible_activity(pinned_session: str = "") -> dict | None:
+    """Find the last human-visible activity in Yanqiu's one CC session.
+
+    The watchdog is intentionally independent of ScheduleWakeup.  That tool
+    is now blocked in the CC hook because a durable clock owns heartbeats.
+    Reading an old ScheduleWakeup relic here made the clock look alive while
+    it was actually anchored to a stale tool call.
+    """
+    candidates = session_candidates(pinned_session)
     activity_by_file: dict[str, int] = {}
     for path in candidates:
         latest_activity = 0
@@ -190,52 +194,13 @@ def inspect_claude_activity(pinned_session: str = "") -> dict | None:
                 record = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            at = parse_timestamp(record.get("timestamp"))
             latest_activity = max(latest_activity, visible_activity_at(record))
-            message = record.get("message")
-            if not isinstance(message, dict):
-                continue
-            content = message.get("content")
-            if not isinstance(content, list):
-                continue
-            for block in content:
-                if not isinstance(block, dict):
-                    continue
-                if block.get("type") != "tool_use":
-                    continue
-                if block.get("name") != "ScheduleWakeup":
-                    continue
-                details = block.get("input") or {}
-                if not isinstance(details, dict):
-                    continue
-                schedules.append(
-                    {
-                        "session_file": str(path),
-                        "scheduled_at": at,
-                        "delay_seconds": max(
-                            60, int(details.get("delaySeconds", 3300))
-                        ),
-                        "prompt": str(details.get("prompt", "")).strip(),
-                        "reason": str(details.get("reason", "")).strip(),
-                    }
-                )
         activity_by_file[str(path)] = latest_activity
-    if not schedules:
-        active = {k: v for k, v in activity_by_file.items() if v}
-        if not active:
-            return None
-        session_file, latest = max(active.items(), key=lambda kv: kv[1])
-        return {
-            "session_file": session_file,
-            "scheduled_at": latest,
-            "delay_seconds": 3300,
-            "prompt": "",
-            "reason": "fallback: no ScheduleWakeup relic in tail",
-            "last_activity": latest,
-        }
-    newest = max(schedules, key=lambda item: item["scheduled_at"])
-    newest["last_activity"] = activity_by_file.get(newest["session_file"], 0)
-    return newest
+    active = {path: at for path, at in activity_by_file.items() if at}
+    if not active:
+        return None
+    session_file, latest = max(active.items(), key=lambda kv: kv[1])
+    return {"session_file": session_file, "last_activity": latest}
 
 
 def pending_counts(state: dict[str, int]) -> dict[str, int]:
@@ -247,18 +212,21 @@ def pending_counts(state: dict[str, int]) -> dict[str, int]:
 
 def watchdog() -> None:
     state = load_watchdog()
-    schedule = inspect_claude_activity(str(state.get("session_file", "")))
-    if not schedule or not schedule["scheduled_at"]:
+    activity = inspect_visible_activity(str(state.get("session_file", "")))
+    if not activity or not activity["last_activity"]:
         return
-    activity_anchor = max(schedule["scheduled_at"], schedule["last_activity"])
-    due_at = activity_anchor + schedule["delay_seconds"] * 1000
+    activity_anchor = activity["last_activity"]
+    delay_seconds = 3300
+    due_at = activity_anchor + delay_seconds * 1000
     now = now_ms()
     if now < due_at:
-        state.update(schedule)
+        state.update(activity)
+        state["delay_seconds"] = delay_seconds
         state["due_at"] = due_at
+        state["reason"] = "durable_clock_from_last_visible_activity"
         save_watchdog(state)
         return
-    rescue_key = f'{schedule["session_file"]}:{activity_anchor}'
+    rescue_key = f'{activity["session_file"]}:{activity_anchor}'
     if state.get("last_rescue_key") == rescue_key:
         return
     # The watchdog owns the clock. Never replay a legacy hand-wound prompt.
@@ -271,11 +239,13 @@ def watchdog() -> None:
             "reason": "native_schedule_wakeup_missing",
             "native_due_at": due_at,
             "prompt": prompt,
-            "native_reason": schedule["reason"],
+            "native_reason": "durable_clock_from_last_visible_activity",
         },
     )
-    state.update(schedule)
+    state.update(activity)
+    state["delay_seconds"] = delay_seconds
     state["due_at"] = due_at
+    state["reason"] = "durable_clock_from_last_visible_activity"
     state["last_rescue_key"] = rescue_key
     state["rescued_at"] = now
     save_watchdog(state)

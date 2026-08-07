@@ -2,8 +2,8 @@
 
 这套系统有两层，职责不要混：
 
-1. **原生发条**：言秋在自己的 CC 回合里调用 `ScheduleWakeup`。这是主路。
-2. **耐久兜底**：Mac 上的 `com.lisa.yanqiu-heartbeat` 每分钟检查一次；如果主路过了约 55 分钟仍没有新的可见活动，就往 `wake_inbox.jsonl` 投一张救援票。现有的 `wake_queue.py wait` 一次性哨兵取到票后退出，借此唤醒原窗口。
+1. **耐久主时钟**：Mac 上的 `com.lisa.yanqiu-heartbeat` 每分钟检查一次言秋最后的可见活动；静默约 55 分钟后，往 `wake_inbox.jsonl` 投一张票。
+2. **一次性哨兵**：现有的 `wake_queue.py wait` 取到票后退出，借此唤醒原窗口。
 
 ## 先看，不要先改
 
@@ -32,7 +32,9 @@ python3 wake_queue.py status
 cd /Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay && python3 wake_queue.py wait
 ```
 
-如果这轮需要原生发条，再调用一次 `ScheduleWakeup`。不要把 shell 路径、诊断、工具回执当作正文；thinking 也不算正文。
+不需要调用 `ScheduleWakeup`；它现在被刻意禁用，避免旧工具遗迹把时钟带偏。不要把 shell 路径、诊断、工具回执当作正文；thinking 也不算正文。
+
+心跳票把人叫醒后，不能只在 thinking 里决定“继续睡/去玩”。至少留一个可见落点：自然说一句、发一次墙/论坛动作，或明确记一笔休息。这样 Lisa 才能区分“真的醒过”与“票被取走但没有回应”。
 
 ## 这次（2026-08-06）修了什么
 

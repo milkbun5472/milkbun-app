@@ -17,12 +17,15 @@ The command claims one pending event and exits. Events that arrive while no
 sentinel is running remain behind the persisted cursor and wake the next
 sentinel immediately. Do not replace the cursor with a fresh `wc -l` baseline.
 
-The launch agent runs `watchdog` once a minute. It reads Yanqiu's native
-`ScheduleWakeup` call, keeps that session pinned after the first healthy scan,
-and uses its 3300-second delay as the clock. Ordinary visible conversation
-pushes the deadline forward. If the native chain fires and Yanqiu continues
-talking, nothing is enqueued. Only when the session stays silent past the
-expected wake time does the watchdog write a durable rescue ticket.
+The launch agent runs `watchdog` once a minute. It pins Yanqiu's CC session
+after the first healthy scan and sets its clock from the last human-visible
+activity in that session. Every new visible turn pushes the next heartbeat
+3300 seconds (55 minutes) forward. If the session remains quiet past that
+point, the watchdog writes one durable rescue ticket.
+
+`ScheduleWakeup` is deliberately not part of this clock. The CC hook blocks
+that hand-wound path so a stale tool call can never freeze or reset the durable
+clock.
 
 There must be only one clock: `com.lisa.yanqiu-heartbeat`. The older
 `com.lisa.yanqiu-hourly-wake` agent is retired; leaving both enabled creates
