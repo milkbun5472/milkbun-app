@@ -2,7 +2,7 @@
 
 这套系统有两层，职责不要混：
 
-1. **耐久主时钟**：Mac 上的 `com.lisa.yanqiu-heartbeat` 每分钟检查一次言秋最后的可见活动；静默约 55 分钟后，往 `wake_inbox.jsonl` 投一张票。
+1. **耐久主时钟**：Mac 上的 `com.lisa.yanqiu-heartbeat` 每分钟检查一次言秋最后一段可见正文；静默约 55 分钟后，往 `wake_inbox.jsonl` 投一张票。Lisa 发消息不会推迟这只钟。
 2. **一次性哨兵**：现有的 `wake_queue.py wait` 取到票后退出，借此唤醒原窗口。
 
 ## 先看，不要先改
@@ -44,6 +44,7 @@ cd /Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay && python3 wake_
 - 看门狗一旦识别到言秋的 transcript，会固定盯这一扇窗口，不再因为项目目录里别的 CC 窗口更新而改掉言秋的时钟。
 - 增加 `status`，用来判断“未到点 / 已投票等哨兵 / 真异常”。
 - 票的“领取”与“可见活动”分开记录；领取十分钟后仍没有可见活动时，只补一次耐久重试票，不会无限烧额度。
+- cursor、时钟、领取回执迁到 `~/Library/Application Support/LisaPhone/yanqiu-wake`；即使 iCloud 误搬桌面的 `yanqiu-den`，运行状态不会跟着消失。
 
 ## 不要做
 

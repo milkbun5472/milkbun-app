@@ -18,10 +18,11 @@ sentinel is running remain behind the persisted cursor and wake the next
 sentinel immediately. Do not replace the cursor with a fresh `wc -l` baseline.
 
 The launch agent runs `watchdog` once a minute. It pins Yanqiu's CC session
-after the first healthy scan and sets its clock from the last human-visible
-activity in that session. Every new visible turn pushes the next heartbeat
-3300 seconds (55 minutes) forward. If the session remains quiet past that
-point, the watchdog writes one durable rescue ticket.
+after the first healthy scan and sets its clock from Yanqiu's last
+user-visible reply in that session. Only a real assistant text reply pushes
+the next heartbeat 3300 seconds (55 minutes) forward; a Lisa message cannot
+postpone it. If the session remains quiet past that point, the watchdog writes
+one durable rescue ticket.
 
 `ScheduleWakeup` is deliberately not part of this clock. The CC hook blocks
 that hand-wound path so a stale tool call can never freeze or reset the durable
@@ -46,14 +47,20 @@ visible text or re-armed itself. If a claimed rescue has no new visible
 activity after ten minutes, the watchdog writes one (and only one) retry
 ticket. If that retry remains pending, `status` reports `awaiting_sentinel`.
 
+## iCloud safety
+
+The relay remains the source of Stack-chan events, but the wake cursor, clock,
+and claim ledger now live in `~/Library/Application Support/LisaPhone/yanqiu-wake`.
+On first launch they are safely seeded from the older hidden relay files. This
+keeps the heartbeat's bookkeeping intact if iCloud temporarily moves the
+Desktop relay directory away.
+
 This watchdog does not call a model or create another Yanqiu session. A
 one-shot `wake_queue.py wait` sentinel must still be attached to the existing
 session; if it is temporarily absent, the rescue ticket remains pending.
 
-## Turn-ending tool order
+## Turn-ending order
 
-Claude's wakeup harness may end a turn immediately after `ScheduleWakeup`
-returns. Yanqiu must therefore finish the complete user-facing reply first and
-invoke `ScheduleWakeup` only as the final action. The same rule applies when
-starting the one-shot background sentinel: human-facing text comes before
-turn-ending tool cleanup, never after it.
+The durable clock does not use `ScheduleWakeup`. When Yanqiu re-arms the
+one-shot sentinel, human-facing text still comes first and the background
+`wake_queue.py wait` cleanup comes last.

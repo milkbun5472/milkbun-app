@@ -17,9 +17,19 @@ BASE = Path(
         "/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay",
     )
 )
-STATE = BASE / ".wake_cursor.json"
-WATCHDOG_STATE = BASE / ".heartbeat_watchdog.json"
-CLAIM_LOG = BASE / ".wake_claims.jsonl"
+RUNTIME = Path(
+    os.environ.get(
+        "YANQIU_WAKE_STATE_DIR",
+        "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-wake",
+    )
+)
+# The relay is on Desktop/iCloud. Runtime bookkeeping must survive a relay
+# folder restore, eviction, or accidental trip through Trash.
+STATE = RUNTIME / ".wake_cursor.json"
+WATCHDOG_STATE = RUNTIME / ".heartbeat_watchdog.json"
+CLAIM_LOG = RUNTIME / ".wake_claims.jsonl"
+LEGACY_STATE = BASE / ".wake_cursor.json"
+LEGACY_WATCHDOG_STATE = BASE / ".heartbeat_watchdog.json"
 CLAUDE_PROJECT = Path(
     os.environ.get(
         "YANQIU_CLAUDE_PROJECT",
@@ -46,6 +56,18 @@ def now_ms() -> int:
     return int(time.time() * 1000)
 
 
+def ensure_runtime() -> None:
+    RUNTIME.mkdir(parents=True, exist_ok=True, mode=0o700)
+
+
+def load_json(path: Path) -> dict:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
 def line_count(path: Path) -> int:
     try:
         with path.open("rb") as stream:
@@ -55,10 +77,7 @@ def line_count(path: Path) -> int:
 
 
 def load_state() -> dict[str, int]:
-    try:
-        raw = json.loads(STATE.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        raw = {}
+    raw = load_json(STATE) or load_json(LEGACY_STATE)
     state = {}
     for name in SOURCES:
         # v1 called the 55-minute heartbeat "hourly". Carry its cursor forward
@@ -69,6 +88,7 @@ def load_state() -> dict[str, int]:
 
 
 def save_state(state: dict[str, int]) -> None:
+    ensure_runtime()
     temp = STATE.with_suffix(".tmp")
     temp.write_text(
         json.dumps(state, ensure_ascii=False, sort_keys=True) + "\n",
@@ -113,13 +133,11 @@ def parse_timestamp(value: object) -> int:
 
 
 def load_watchdog() -> dict:
-    try:
-        return json.loads(WATCHDOG_STATE.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return {}
+    return load_json(WATCHDOG_STATE) or load_json(LEGACY_WATCHDOG_STATE)
 
 
 def save_watchdog(state: dict) -> None:
+    ensure_runtime()
     temp = WATCHDOG_STATE.with_suffix(".tmp")
     temp.write_text(
         json.dumps(state, ensure_ascii=False, sort_keys=True) + "\n",
@@ -141,7 +159,12 @@ def recent_jsonl_tail(path: Path, limit: int = 16 * 1024 * 1024) -> list[str]:
 
 
 def visible_activity_at(record: dict) -> int:
-    """Return activity time only for words a human can actually see."""
+    """Return time only for Yanqiu's own user-visible text.
+
+    Lisa speaking must never postpone Yanqiu's heartbeat.  Otherwise a human
+    message followed by a failed/hidden assistant turn looks like activity and
+    silently pushes the safety clock another 55 minutes away.
+    """
     if record.get("isSidechain"):
         return 0
     message = record.get("message")
@@ -149,13 +172,6 @@ def visible_activity_at(record: dict) -> int:
         return 0
     role = message.get("role")
     content = message.get("content")
-    if role == "user":
-        origin = record.get("origin")
-        if not isinstance(origin, dict) or origin.get("kind") != "human":
-            return 0
-        if not isinstance(content, str) or not content.strip():
-            return 0
-        return parse_timestamp(record.get("timestamp"))
     if role != "assistant" or not isinstance(content, list):
         return 0
     has_visible_text = any(
