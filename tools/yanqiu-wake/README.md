@@ -40,6 +40,12 @@ python3 wake_queue.py status
 `pending.heartbeat > 0` means a durable rescue ticket is waiting for the
 one-shot sentinel. It is not evidence that a ticket was lost.
 
+The queue separately records each ticket claim in `.wake_claims.jsonl`.
+Claiming a ticket means the sentinel exited; it does not prove that CC emitted
+visible text or re-armed itself. If a claimed rescue has no new visible
+activity after ten minutes, the watchdog writes one (and only one) retry
+ticket. If that retry remains pending, `status` reports `awaiting_sentinel`.
+
 This watchdog does not call a model or create another Yanqiu session. A
 one-shot `wake_queue.py wait` sentinel must still be attached to the existing
 session; if it is temporarily absent, the rescue ticket remains pending.

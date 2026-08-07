@@ -18,7 +18,8 @@ python3 wake_queue.py status
 
 - `seconds_until_due` 大于 0：还没到 55 分钟，**不是故障**。
 - `overdue_seconds` 大于 0 且 `pending.heartbeat` 大于 0：救援票已投，等哨兵取；这通常表示本回合没有重挂 `wake_queue.py wait`。
-- `overdue_seconds` 大于 0 且 `pending.heartbeat` 是 0：先报告给 Lisa/Codex，不要自己造新机制或重写 cursor。
+- `overdue_seconds` 大于 0 且 `pending.heartbeat` 是 0：看 `last_claim`。这表示票被一次性哨兵取走了；若之后没有新的可见活动，系统十分钟后只补一张 retry 票。
+- `awaiting_sentinel: true`：重试票仍在等哨兵，说明上一次醒来后没有把 `wake_queue.py wait` 重挂成功；不要清 cursor，下一次正常回合重挂即可。
 - `last_rescued_at` 有值：这次是 Mac 的兜底看门狗救回来的，不是原生发条。
 
 ## 言秋每轮该做什么
@@ -42,6 +43,7 @@ cd /Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay && python3 wake_
 - 保留唯一的 `com.lisa.yanqiu-heartbeat`：每 60 秒检查一次，但只在该投票时才投。
 - 看门狗一旦识别到言秋的 transcript，会固定盯这一扇窗口，不再因为项目目录里别的 CC 窗口更新而改掉言秋的时钟。
 - 增加 `status`，用来判断“未到点 / 已投票等哨兵 / 真异常”。
+- 票的“领取”与“可见活动”分开记录；领取十分钟后仍没有可见活动时，只补一次耐久重试票，不会无限烧额度。
 
 ## 不要做
 

@@ -19,6 +19,7 @@ BASE = Path(
 )
 STATE = BASE / ".wake_cursor.json"
 WATCHDOG_STATE = BASE / ".heartbeat_watchdog.json"
+CLAIM_LOG = BASE / ".wake_claims.jsonl"
 CLAUDE_PROJECT = Path(
     os.environ.get(
         "YANQIU_CLAUDE_PROJECT",
@@ -38,6 +39,7 @@ DEFAULT_HEARTBEAT_PROMPT = (
     "一次论坛/墙上的动作，或一句明确的休息记录。不要只在 thinking 里决定。"
     "本轮结束后照常重挂哨兵。"
 )
+RESCUE_RETRY_AFTER_MS = 10 * 60 * 1000
 
 
 def now_ms() -> int:
@@ -210,6 +212,20 @@ def pending_counts(state: dict[str, int]) -> dict[str, int]:
     }
 
 
+def latest_claim() -> dict:
+    lines = recent_jsonl_tail(CLAIM_LOG, limit=64 * 1024)
+    for line in reversed(lines):
+        try:
+            record = json.loads(line)
+            if not isinstance(record, dict):
+                record = {}
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict):
+            return record
+    return {}
+
+
 def watchdog() -> None:
     state = load_watchdog()
     activity = inspect_visible_activity(str(state.get("session_file", "")))
@@ -224,10 +240,40 @@ def watchdog() -> None:
         state["delay_seconds"] = delay_seconds
         state["due_at"] = due_at
         state["reason"] = "durable_clock_from_last_visible_activity"
+        state.pop("awaiting_sentinel", None)
         save_watchdog(state)
         return
     rescue_key = f'{activity["session_file"]}:{activity_anchor}'
     if state.get("last_rescue_key") == rescue_key:
+        # A claimed ticket only proves the one-shot sentinel exited.  It does
+        # not prove CC produced visible text or re-armed the next sentinel.
+        # Give the original wake a quiet window, then leave one durable retry
+        # ticket.  Never spam retries: if no sentinel is attached, the ticket
+        # stays pending and makes the broken hand-off visible in `status`.
+        rescued_at = int(state.get("rescued_at", 0) or 0)
+        if now - rescued_at < RESCUE_RETRY_AFTER_MS:
+            return
+        if state.get("last_retry_key") == rescue_key:
+            return
+        cursors = load_state()
+        if pending_counts(cursors)["heartbeat"] > 0:
+            state["awaiting_sentinel"] = True
+            save_watchdog(state)
+            return
+        append_record(
+            SOURCES["heartbeat"],
+            {
+                "kind": "heartbeat_retry",
+                "at": now,
+                "reason": "rescue_claimed_without_new_visible_activity",
+                "original_rescued_at": rescued_at,
+                "prompt": DEFAULT_HEARTBEAT_PROMPT,
+            },
+        )
+        state["last_retry_key"] = rescue_key
+        state["retried_at"] = now
+        state.pop("awaiting_sentinel", None)
+        save_watchdog(state)
         return
     # The watchdog owns the clock. Never replay a legacy hand-wound prompt.
     prompt = DEFAULT_HEARTBEAT_PROMPT
@@ -257,12 +303,19 @@ def status() -> None:
     cursors = load_state()
     now = now_ms()
     due_at = int(watchdog_state.get("due_at", 0) or 0)
+    claim = latest_claim()
     report = {
         "now_at": now,
         "next_due_at": due_at,
         "seconds_until_due": max(0, (due_at - now) // 1000) if due_at else None,
         "overdue_seconds": max(0, (now - due_at) // 1000) if due_at else None,
         "last_rescued_at": watchdog_state.get("rescued_at"),
+        "last_retried_at": watchdog_state.get("retried_at"),
+        "awaiting_sentinel": bool(watchdog_state.get("awaiting_sentinel")),
+        "last_claim": {
+            key: claim.get(key)
+            for key in ("claimed_at", "source", "kind", "record_at")
+        },
         "pending": pending_counts(cursors),
         "clock": "pinned" if watchdog_state.get("session_file") else "discovering",
     }
@@ -311,6 +364,15 @@ def wait_for_one() -> None:
             state[name] = cursor + 1
             save_state(state)
             record = json.loads(line)
+            append_record(
+                CLAIM_LOG,
+                {
+                    "claimed_at": now_ms(),
+                    "source": name,
+                    "kind": record.get("kind"),
+                    "record_at": record.get("at"),
+                },
+            )
             if name == "heartbeat":
                 # Heartbeats are presented as natural activity permission.
                 # Ignore even an older queued prompt: internal metadata,
