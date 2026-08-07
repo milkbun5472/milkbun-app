@@ -17,13 +17,25 @@ The command claims one pending event and exits. Events that arrive while no
 sentinel is running remain behind the persisted cursor and wake the next
 sentinel immediately. Do not replace the cursor with a fresh `wc -l` baseline.
 
-The launch agent runs `watchdog` once a minute. It reads the newest native
-`ScheduleWakeup` call from Yanqiu's existing Claude session, including its
-dynamic 3300-second delay and full prompt. Ordinary conversation activity
-pushes the watchdog deadline forward. If the native chain fires and Yanqiu
-continues talking, nothing is enqueued. Only when the session stays silent
-past the expected wake time does the watchdog copy that exact dynamic prompt
-into a durable rescue ticket.
+The launch agent runs `watchdog` once a minute. It reads Yanqiu's native
+`ScheduleWakeup` call, keeps that session pinned after the first healthy scan,
+and uses its 3300-second delay as the clock. Ordinary visible conversation
+pushes the deadline forward. If the native chain fires and Yanqiu continues
+talking, nothing is enqueued. Only when the session stays silent past the
+expected wake time does the watchdog write a durable rescue ticket.
+
+There must be only one clock: `com.lisa.yanqiu-heartbeat`. The older
+`com.lisa.yanqiu-hourly-wake` agent is retired; leaving both enabled creates
+two unrelated ticket streams and makes a healthy 55-minute clock look random.
+
+For a safe health check (no prompt, transcript path, or message body printed):
+
+```bash
+python3 wake_queue.py status
+```
+
+`pending.heartbeat > 0` means a durable rescue ticket is waiting for the
+one-shot sentinel. It is not evidence that a ticket was lost.
 
 This watchdog does not call a model or create another Yanqiu session. A
 one-shot `wake_queue.py wait` sentinel must still be attached to the existing

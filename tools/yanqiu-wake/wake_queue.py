@@ -39,6 +39,10 @@ DEFAULT_HEARTBEAT_PROMPT = (
 )
 
 
+def now_ms() -> int:
+    return int(time.time() * 1000)
+
+
 def line_count(path: Path) -> int:
     try:
         with path.open("rb") as stream:
@@ -160,13 +164,23 @@ def visible_activity_at(record: dict) -> int:
     return parse_timestamp(record.get("timestamp")) if has_visible_text else 0
 
 
-def inspect_claude_activity() -> dict | None:
-    """Find the newest Yanqiu schedule and visible activity in its session."""
-    candidates = sorted(
-        CLAUDE_PROJECT.glob("*.jsonl"),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )[:8]
+def inspect_claude_activity(pinned_session: str = "") -> dict | None:
+    """Find Yanqiu's schedule and visible activity without hopping sessions.
+
+    After the first healthy scan the selected transcript is persisted in the
+    watchdog state.  The project directory contains many Claude sessions, so
+    selecting "whichever file changed last" on every minute tick can silently
+    make another window reset Yanqiu's clock.
+    """
+    pinned = Path(pinned_session) if pinned_session else None
+    if pinned and pinned.is_file() and pinned.parent == CLAUDE_PROJECT:
+        candidates = [pinned]
+    else:
+        candidates = sorted(
+            CLAUDE_PROJECT.glob("*.jsonl"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )[:8]
     schedules: list[dict] = []
     activity_by_file: dict[str, int] = {}
     for path in candidates:
@@ -224,14 +238,21 @@ def inspect_claude_activity() -> dict | None:
     return newest
 
 
+def pending_counts(state: dict[str, int]) -> dict[str, int]:
+    return {
+        name: max(0, line_count(path) - int(state.get(name, 0)))
+        for name, path in SOURCES.items()
+    }
+
+
 def watchdog() -> None:
-    schedule = inspect_claude_activity()
+    state = load_watchdog()
+    schedule = inspect_claude_activity(str(state.get("session_file", "")))
     if not schedule or not schedule["scheduled_at"]:
         return
-    state = load_watchdog()
     activity_anchor = max(schedule["scheduled_at"], schedule["last_activity"])
     due_at = activity_anchor + schedule["delay_seconds"] * 1000
-    now = int(time.time() * 1000)
+    now = now_ms()
     if now < due_at:
         state.update(schedule)
         state["due_at"] = due_at
@@ -258,6 +279,24 @@ def watchdog() -> None:
     state["last_rescue_key"] = rescue_key
     state["rescued_at"] = now
     save_watchdog(state)
+
+
+def status() -> None:
+    """Print safe operational state; never print prompts or transcript paths."""
+    watchdog_state = load_watchdog()
+    cursors = load_state()
+    now = now_ms()
+    due_at = int(watchdog_state.get("due_at", 0) or 0)
+    report = {
+        "now_at": now,
+        "next_due_at": due_at,
+        "seconds_until_due": max(0, (due_at - now) // 1000) if due_at else None,
+        "overdue_seconds": max(0, (now - due_at) // 1000) if due_at else None,
+        "last_rescued_at": watchdog_state.get("rescued_at"),
+        "pending": pending_counts(cursors),
+        "clock": "pinned" if watchdog_state.get("session_file") else "discovering",
+    }
+    print(json.dumps(report, ensure_ascii=False, sort_keys=True), flush=True)
 
 
 def initialize() -> None:
@@ -327,11 +366,13 @@ def main() -> None:
         enqueue_heartbeat()
     elif command == "watchdog":
         watchdog()
+    elif command == "status":
+        status()
     elif command == "wait":
         wait_for_one()
     else:
         raise SystemExit(
-            "usage: wake_queue.py [init|enqueue-heartbeat|watchdog|wait]"
+            "usage: wake_queue.py [init|enqueue-heartbeat|watchdog|status|wait]"
         )
 
 
