@@ -9,12 +9,12 @@
   <array>
     <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
     <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/wake_queue.py</string>
-    <string>watchdog</string>
+    <string>serve</string>
   </array>
-  <key>StartInterval</key>
-  <integer>60</integer>
   <key>RunAtLoad</key>
-  <false/>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
   <key>StandardOutPath</key>
   <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/hourly-wake.log</string>
   <key>StandardErrorPath</key>

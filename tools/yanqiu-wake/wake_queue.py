@@ -50,6 +50,7 @@ DEFAULT_HEARTBEAT_PROMPT = (
     "本轮结束后照常重挂哨兵。"
 )
 RESCUE_RETRY_AFTER_MS = 10 * 60 * 1000
+WATCHDOG_POLL_SECONDS = 10
 
 
 def now_ms() -> int:
@@ -313,6 +314,22 @@ def watchdog() -> None:
     save_watchdog(state)
 
 
+def serve_watchdog() -> None:
+    """Keep the durable clock alive instead of relying on launchd timer drift.
+
+    This process never talks to a model. It only writes a durable ticket when
+    the already-calculated due time arrives. `launchd` keeps this supervisor
+    alive, so a delayed StartInterval invocation cannot turn a 55 minute
+    heartbeat into an arbitrary-length wait.
+    """
+    while True:
+        try:
+            watchdog()
+        except Exception as error:  # The next poll is safer than a dead clock.
+            print(f"watchdog poll failed: {error}", file=sys.stderr, flush=True)
+        time.sleep(WATCHDOG_POLL_SECONDS)
+
+
 def status() -> None:
     """Print safe operational state; never print prompts or transcript paths."""
     watchdog_state = load_watchdog()
@@ -414,13 +431,15 @@ def main() -> None:
         enqueue_heartbeat()
     elif command == "watchdog":
         watchdog()
+    elif command == "serve":
+        serve_watchdog()
     elif command == "status":
         status()
     elif command == "wait":
         wait_for_one()
     else:
         raise SystemExit(
-            "usage: wake_queue.py [init|enqueue-heartbeat|watchdog|status|wait]"
+            "usage: wake_queue.py [init|enqueue-heartbeat|watchdog|serve|status|wait]"
         )
 
 

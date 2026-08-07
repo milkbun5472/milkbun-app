@@ -17,12 +17,14 @@ The command claims one pending event and exits. Events that arrive while no
 sentinel is running remain behind the persisted cursor and wake the next
 sentinel immediately. Do not replace the cursor with a fresh `wc -l` baseline.
 
-The launch agent runs `watchdog` once a minute. It pins Yanqiu's CC session
-after the first healthy scan and sets its clock from Yanqiu's last
+The launch agent runs one lightweight, persistent `serve` supervisor. It
+checks the clock every ten seconds, pins Yanqiu's CC session after the first
+healthy scan, and sets its clock from Yanqiu's last
 user-visible reply in that session. Only a real assistant text reply pushes
 the next heartbeat 3300 seconds (55 minutes) forward; a Lisa message cannot
 postpone it. If the session remains quiet past that point, the watchdog writes
-one durable rescue ticket.
+one durable rescue ticket. This avoids launchd timer drift turning the intended
+55-minute interval into an unpredictable late alarm.
 
 `ScheduleWakeup` is deliberately not part of this clock. The CC hook blocks
 that hand-wound path so a stale tool call can never freeze or reset the durable
