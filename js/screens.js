@@ -3692,6 +3692,8 @@ function ConfigFold({ title, sub, open, onToggle, children, danger }) {
 function Config({
   apiProfiles,
   activeId,
+  offlineApiId,
+  onSetOfflineApi,
   bgApiId,
   onSetBgApi,
   onSaveApi,
@@ -3769,6 +3771,8 @@ function Config({
   fold("api-main", "聊天与后台模型", "主模型、备用线路、Embedding 与后台省钱模型", /*#__PURE__*/React.createElement(ApiConfig, {
     profiles: apiProfiles,
     activeId: activeId,
+    offlineApiId: offlineApiId,
+    onSetOfflineApi: onSetOfflineApi,
     bgApiId: bgApiId,
     onSetBgApi: onSetBgApi,
     onSave: onSaveApi,
@@ -3817,6 +3821,8 @@ function Config({
 function ApiConfig({
   profiles,
   activeId,
+  offlineApiId,
+  onSetOfflineApi,
   bgApiId,
   onSetBgApi,
   onSave,
@@ -4036,7 +4042,7 @@ function ApiConfig({
       color: t.bg2,
       borderRadius: 6
     }
-  }, "保存"), list.length > 1 && /*#__PURE__*/React.createElement("button", {
+  }, "保存并设为线上主 API"), list.length > 1 && /*#__PURE__*/React.createElement("button", {
     onClick: removeCur,
     className: "py-3 px-5",
     style: {
@@ -4046,7 +4052,15 @@ function ApiConfig({
       border: `1px solid ${t.line}`,
       borderRadius: 6
     }
-  }, "删除此配置")), onSetBgApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
+  }, "删除此配置")), onSetOfflineApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "线下主 API"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下与群线下的正文、OOC 和总结走这里。角色若在名录里指定了专属线路，仍永远优先走自己的专线；不选＝跟随线上主模型。"),
+    h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+      [{ id: null, name: "跟随线上主模型" }].concat(list).map(p => {
+        const on = (offlineApiId || null) === (p.id || null);
+        return h("button", { key: p.id || "offline-none", onClick: () => onSetOfflineApi(p.id || null), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 13px" } }, p.name || p.model || "未命名配置");
+      }))), onSetBgApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "后台任务 API（省钱可选）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "抽取记忆 / 日程 / 钱包 / 查手机 / 随身物 / 购物 / 便签墙 / 心情日历 / 记账 / 番茄钟 这些后台活，走一个便宜的按量小模型（如 gemini-flash-nothinking），不动聊天/日记/同人这些创作类。不选＝跟主模型用同一个。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },

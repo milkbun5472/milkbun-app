@@ -329,6 +329,7 @@ function App() {
   const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
   const [apiProfiles, setApiProfiles] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  const [offlineApiId, setOfflineApiId] = useState(null); // 线下正文/总结专用；空=跟随线上主 API
   const [bgApiId, setBgApiId] = useState(null); // 后台任务(抽取/日程/钱包/查手机)专用便宜 API；空=回退主 API
   const [activeChar, setActiveChar] = useState(null);
   const [activeGroup, setActiveGroup] = useState(null);
@@ -631,6 +632,7 @@ function App() {
     const aps = loadJSON("x_api", []);
     setApiProfiles(aps);
     setActiveId(loadJSON("x_activeApi", aps[0] && aps[0].id || null));
+    setOfflineApiId(loadJSON("x_offlineApi", null));
     setBgApiId(loadJSON("x_bgApi", null));
     const cm = {},
       gm = {};
@@ -712,6 +714,8 @@ function App() {
     return () => { if (window.__storageFull) delete window.__storageFull; };
   }, []);
   const active = apiProfiles.find(p => p.id === activeId) || apiProfiles[0];
+  // 线上/线下全局分流：未选择线下线路时完全沿用旧行为。
+  const offlineActive = (offlineApiId && apiProfiles.find(p => p.id === offlineApiId)) || active;
   // 后台任务(抽取/日程/钱包/查手机)用的 API：选了便宜的就用它，没选就回退主 API（默认，不改变现状）
   const bgActive = (bgApiId && apiProfiles.find(p => p.id === bgApiId)) || active;
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
@@ -984,9 +988,11 @@ function App() {
   }, [screen, activeChar && activeChar.id, activeGroup && activeGroup.id, offlineChar && offlineChar.id, offlineGroup && offlineGroup.id, call && call.startTs]);
   // 剥掉模型偶尔照抄的历史时间标注：〔今天07:57〕/〔昨天20:11〕/〔7/13 07:57〕/〔07:57〕（system 已明令禁止但拦不住，输出侧兜底，她 2026-07-13 截图）
   const stripAiStamp = w => String(w == null ? "" : w).replace(/^\s*[〔【\[(（]\s*(?:今天|昨天|前天|\d{1,2}\/\d{1,2}\s*)?\d{1,2}[:：]\d{2}\s*[〕】\])）]\s*/, "").trim();
-  // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定跟随全局。
-  // 覆盖「这个角色开口说话」的场合：单聊回复/1:1通话/线下/OOC/撤回反应/拉黑反应——群聊多人同台仍走全局。
+  // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定时线上跟随全局线上主线路。
+  // 角色专线覆盖所有「这个角色本人开口」的场合；线下无专线角色则由 offlineApiFor 回退全局线下线路。
   const apiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || active; };
+  // 角色专线永远优先于全局场景线路：例如只走 Fable 的角色，线上/线下都不会被全局 Gemini 覆盖。
+  const offlineApiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || offlineActive; };
   // 本体执笔·便宜池版（v48.37）：设了专线的角色（如小克接 fable）用专线亲笔写；没设专线的【照旧走便宜后台池】不涨成本。
   // 专用于原本走 bgActive 的「本体文本」（欲望盒子全链）——把灵魂级落笔从 flash 代笔还给本人，其余角色零变化。
   const bgApiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || bgActive; };
@@ -2973,7 +2979,7 @@ function App() {
   const OFF_SUM_THRESH = 50, OFF_SUM_BUFFER = 15;
   const offSumBusyRef = useRef({});
   const maybeSummarizeOffline = async charId => {
-    if (!active || offSumBusyRef.current[charId]) return;
+    if (!offlineApiFor(charId) || offSumBusyRef.current[charId]) return;
     const char = characters.find(c => c.id === charId);
     if (!char) return;
     const sess = (offlinesRef.current[charId] || []).find(s => s && !s.endTs);
@@ -2985,7 +2991,7 @@ function App() {
     if (block.length < 4) return;
     offSumBusyRef.current[charId] = true;
     try {
-      const r = await summarizeOffline(active, ctxFor(char), { ...sess, msgs: block });
+      const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), { ...sess, msgs: block });
       const summ = (r && r.summary || "").trim();
       if (summ) {
         const d = new Date();
@@ -3025,7 +3031,7 @@ function App() {
   };
   const genOfflineFrom = async (charId, workSess) => {
     const char = characters.find(c => c.id === charId);
-    if (!active) {
+    if (!offlineApiFor(charId)) {
       toast("请先到设置配置 API");
       return;
     }
@@ -3056,7 +3062,7 @@ function App() {
       for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
         try { const blob = await idbVaultGet(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
-      const res = await generateOffline(apiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
@@ -3139,13 +3145,13 @@ function App() {
     const sess = (offlinesRef.current[charId] || []).find(s => !s.endTs);
     if (!sess) { toast("先开一场线下"); return; }
     pushOffMsg(charId, { id: "u_" + Date.now(), role: "user", kind: "ooc", content: text.trim(), ts: Date.now() });
-    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!offlineApiFor(charId)) { toast("请先到设置配置 API"); return; }
     startLane("c:" + charId);
     try {
       const uName = (profile && profile.name) || "我";
       const offText = (sess.msgs || []).filter(m => m.kind !== "ooc").slice(-10).map(m => (m.role === "char" ? char.name : m.role === "narration" ? "【场景】" : uName) + "：" + (m.content || "")).join("\n");
       const q = text.trim() + (offText ? "\n\n【背景：我们此刻正在线下面对面相处，最近这几段经过】\n" + offText : "");
-      const res = await oocAsk(apiFor(charId), ctxFor(char), q);
+      const res = await oocAsk(offlineApiFor(charId), ctxFor(char), q);
       if (res.directive && !res.refused) addDirective(charId, res.directive);
       pushOffMsg(charId, { id: "o_" + Date.now(), role: "char", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为长期准则：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏 " + char.name + " 的人设〕" : ""), ts: Date.now() });
     } catch (e) {
@@ -3211,7 +3217,7 @@ function App() {
     startLane("c:" + charId);
     let summary = "", details = [], opens = [];
     try {
-      if (active) { const r = await summarizeOffline(active, ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      if (offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     if (summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], source: "auto" });
@@ -3365,7 +3371,7 @@ function App() {
   //   ⚠️记忆分区：只有开了 memoryInterop 的群才 addMemEntry 进全局记忆库；不互通的群只累进 session.summary 当本场前情提要（不外泄）。
   const gOffSumBusyRef = useRef({});
   const maybeSummarizeGroupOffline = async groupId => {
-    if (!active || gOffSumBusyRef.current[groupId]) return;
+    if (!offlineActive || gOffSumBusyRef.current[groupId]) return;
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs);
@@ -3377,7 +3383,7 @@ function App() {
     if (block.length < 4) return;
     gOffSumBusyRef.current[groupId] = true;
     try {
-      const r = await summarizeOfflineGroup(active, ctxForGroupOffline(group), { ...sess, msgs: block });
+      const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), { ...sess, msgs: block });
       const summ = (r && r.summary || "").trim();
       if (summ) {
         const d = new Date();
@@ -3458,7 +3464,7 @@ function App() {
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
   };
   const genGroupOfflineFrom = async (group, workSess) => {
-    if (!active) {
+    if (!offlineActive) {
       toast("请先到设置配置 API");
       return;
     }
@@ -3483,7 +3489,7 @@ function App() {
       const gCtx = ctxForGroupOffline(group);
       gCtx.memberStyleExamples = {};
       (group.memberIds || []).forEach(id => { gCtx.memberStyleExamples[id] = pickOfflineStyleExamples(osFor(id).examples, effectiveSess.msgs || []); });
-      const beats = await generateOfflineGroup(active, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -3617,7 +3623,7 @@ function App() {
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
     if (!group || !sess) return;
     pushGOffMsg(groupId, { id: "oocu_" + Date.now(), role: "user", kind: "ooc", content: text.trim(), ts: Date.now() });
-    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!offlineActive) { toast("请先到设置配置 API"); return; }
     startLane("g:" + groupId);
     try {
       const members = groupMembers(group);
@@ -3625,7 +3631,7 @@ function App() {
       // 世界书走和正戏同一个筛选引擎（v48.20）：之前塞的是 deriveWorldbook 全量拼接（无视 scope/关键词），
       // 一条正戏根本不会注入的全局词条就能让群 OOC 永远被 Gemini 拦（正戏通/单聊OOC通/群OOC拦 的诡异组合）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
-      const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
+      const res = await oocAskGroup(offlineActive, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
       if (res.directive && !res.refused) addDirective(groupId, res.directive);
       pushGOffMsg(groupId, { id: "ooca_" + Date.now(), role: "assistant", kind: "ooc", content: res.reply + (res.directive && !res.refused ? "\n\n〔已记为群规矩：" + res.directive + "〕" : "") + (res.refused ? "\n\n〔这条我没照做——会破坏群里某位的人设〕" : ""), ts: Date.now() });
     } catch (e) {
@@ -3649,7 +3655,7 @@ function App() {
     startLane("g:" + groupId);
     let summary = "", details = [], opens = [];
     try {
-      if (active && group) { const r = await summarizeOfflineGroup(active, ctxForGroupOffline(group), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
+      if (offlineActive && group) { const r = await summarizeOfflineGroup(offlineActive, ctxForGroupOffline(group), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     // 记忆分区：只有开了「记忆互通」的群才把线下总结写进全局记忆库；
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
@@ -9874,6 +9880,11 @@ function App() {
   });else if (screen === "config") body = /*#__PURE__*/React.createElement(Config, {
     apiProfiles: apiProfiles,
     activeId: activeId,
+    offlineApiId: offlineApiId,
+    onSetOfflineApi: id => {
+      setOfflineApiId(id);
+      saveJSON("x_offlineApi", id);
+    },
     bgApiId: bgApiId,
     onSetBgApi: setBgApi,
     characters: characters,
