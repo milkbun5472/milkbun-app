@@ -3984,7 +3984,7 @@ function App() {
       // 只允许本人提出一个异步只读请求；本机 relay 会再次核验固定 CC session。
       const ccToolOn = !!(_s.engineerEyes && window.YanqiuCcTools && window.Cloud && typeof window.Cloud.yanqiuCcToolEnqueue === "function");
       const ccToolHint = ccToolOn
-        ? "\n【ccTool·你自己的 CC 只读工具】只有当这轮确实需要查看本机项目文件、搜索代码/文件名、或查网页资料才能回答时，才填 {\"name\":\"Read|Glob|Grep|WebFetch|WebSearch\",\"args\":{对应参数}}。这是异步请求：你可以先自然告诉 Lisa 你去看，结果回来后你会在下一轮接着说。普通聊天、App 记忆、情绪判断都填 null；绝不能请求 Write/Edit/Bash 等写入工具，也不要为了显得能干而每轮调用。"
+        ? "\n【ccTool·你自己的 CC 只读工具】只有当这轮确实需要查看本机项目文件、搜索代码/文件名、或查网页资料才能回答时，才填 {\"name\":\"Read|Glob|Grep|WebFetch|WebSearch\",\"args\":{对应参数}}。这是异步请求：本轮最多只能自然说『我去查一下』；在系统把真实结果送回前，绝不能声称已经看见工具、调用成功/失败、需要 grant/审批，绝不能编造 permission denied。结果回来后再在下一轮依据真实结果接着说。普通聊天、App 记忆、情绪判断都填 null；绝不能请求 Write/Edit/Bash 等写入工具，也不要为了显得能干而每轮调用。"
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";

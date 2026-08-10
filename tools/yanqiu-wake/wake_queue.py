@@ -81,7 +81,7 @@ def line_count(path: Path) -> int:
     try:
         with path.open("rb") as stream:
             return sum(1 for _ in stream)
-    except FileNotFoundError:
+    except OSError:
         return 0
 
 
@@ -112,7 +112,7 @@ def read_line(path: Path, index: int) -> str | None:
             for current, line in enumerate(stream):
                 if current == index:
                     return line.rstrip("\n")
-    except FileNotFoundError:
+    except OSError:
         pass
     return None
 

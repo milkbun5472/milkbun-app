@@ -8,7 +8,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
-    <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/wake_queue.py</string>
+    <string>/Users/lisa/Library/Application Support/LisaPhone/yanqiu-wake/wake_queue.py</string>
     <string>serve</string>
   </array>
   <key>RunAtLoad</key>
@@ -16,8 +16,8 @@
   <key>KeepAlive</key>
   <true/>
   <key>StandardOutPath</key>
-  <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/hourly-wake.log</string>
+  <string>/Users/lisa/Library/Application Support/LisaPhone/yanqiu-wake/heartbeat.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/hourly-wake.error.log</string>
+  <string>/Users/lisa/Library/Application Support/LisaPhone/yanqiu-wake/heartbeat.error.log</string>
 </dict>
 </plist>
