@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { MONO_BOARD, monoMove, monoNetWorth, monoAdvance, monoOwnsGroup, monoRent, monoGridPos, monoMigrateSave, monoMaxMoves, monoShouldFlush } = require("../js/games.js");
+const { MONO_BOARD, monoMove, monoNetWorth, monoAdvance, monoOwnsGroup, monoRent, monoGridPos, monoMigrateSave, monoMaxMoves, monoShouldFlush, monoCleanLogs } = require("../js/games.js");
 
 test("monopoly movement wraps and reports passing start", () => {
   assert.deepEqual(monoMove(38, 4), { pos: 2, passed: 1 });
@@ -58,4 +58,19 @@ test("model interaction batches routine events but flushes at important moments"
   assert.equal(monoShouldFlush(4, "买下一块地", false), true);
   assert.equal(monoShouldFlush(1, "有人破产", false), true);
   assert.equal(monoShouldFlush(1, "普通收租", true), true);
+});
+
+test("old rule banners are removed without deleting real table conversation", () => {
+  const next = monoCleanLogs([{ type: "sys", say: "每人带着 $1200 入场。45 回合后结算。" }, { type: "talk", name: "A", say: "这块地我要了。" }]);
+  assert.equal(next.some(x => /1200|45 回合/.test(x.say)), false);
+  assert.equal(next.some(x => x.say === "这块地我要了。"), true);
+  assert.equal(next[0].say.includes("经典 40 格"), true);
+});
+
+test("mobile monopoly layout reserves space for roster and dialogue", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/games.js"), "utf8");
+  assert.match(src, /gridTemplateRows:"repeat\(11,20px\)"/);
+  assert.match(src, /"收起棋盘 · 看对话"/);
+  assert.match(src, /minHeight:55/);
+  assert.match(src, /minHeight:110/);
 });
