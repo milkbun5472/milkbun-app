@@ -49,7 +49,12 @@ READ_ONLY_TOOLS = frozenset(
         "search_events",
     }
 )
-CLOUD_ENV = Path("/Users/lisa/Desktop/lisa-practice/mcp/.env")
+CLOUD_ENV = Path(
+    os.environ.get(
+        "YANQIU_CC_BRIDGE_ENV",
+        "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/.env",
+    )
+)
 CLOUD_BASE = "https://nposjnafsbikwfeoudbg.supabase.co"
 _SCOPE_CACHE: tuple[float, tuple[str, str]] | None = None
 
