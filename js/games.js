@@ -1753,7 +1753,8 @@
   function tdRoster(list, cap) { return list.map(function (p) { return "【" + p.name + "】" + tdDesc(p, cap); }).join("\n\n"); }
   // 贴人设铁律：焊进真心话每个生成，治 OOC + 性别/关系搞错 + 乱配 CP
   const TD_IC = "【严格贴人设 · 别 OOC】每个角色的语气、态度、会问什么、敢做什么，都必须符合 TA 的人设与身份；性别、年龄、称呼一律按人设来别搞错（例：双胞胎哥哥的弟弟就是弟弟、别写成妹妹；冷淡的人别写成话痨）。宁可克制也别为了效果让角色崩人设。" +
-    "\n【关系铁律·重要】除非某个角色【自己的人设里明确写了】和在场另一个人的关系（如双胞胎、恋人、朋友），否则在场各人【互不相识】，只是被这局游戏临时凑到一起——【绝对不要】凭空给他们编交情、配对凑 CP、发展暧昧、开只有熟人才懂的玩笑、或写得像认识很久的老朋友。谁跟谁是什么关系，只认人设里白纸黑字写明的；没写就是陌生人，客客气气、边玩边熟。";
+    "\n【关系铁律·重要】除非某个角色【自己的人设里明确写了】和在场另一个人的关系（如双胞胎、恋人、朋友），否则在场各人【互不相识】，只是被这局游戏临时凑到一起——【绝对不要】凭空给他们编交情、配对凑 CP、发展暧昧、开只有熟人才懂的玩笑、或写得像认识很久的老朋友。谁跟谁是什么关系，只认人设里白纸黑字写明的；没写就是陌生人，客客气气、边玩边熟。" +
+    "\n【时间事实不可漂移】此前发言里出现的时间说法都是本局已经确认的事实，必须逐字保持其时间尺度：『上个月』不能改成『前天』，『三年前』不能改成『最近』，具体日期也不能擅自换算或脑补。后文若重提同一件事，只能沿用原说法；不确定就含糊带过，绝不另编时间。";
   async function setupTD(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
     const sys = AC + "你是「真心话大冒险」的主持。生成 " + npcCount + " 个 NPC 玩家（name 中文名 + persona 一句含职业与性格的人设，多样别雷同）。\n" +
@@ -1787,15 +1788,31 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 4000 });
     return extractJSON(raw) || {};
   }
-  // 跨轮记忆：把每一轮 + 最近插话压成文本，喂给生成 → 角色能翻旧账 / cue 之前的题和回答
+  // 从整局日志单独保留带时间锚点的原话。普通聊天窗口会滚动，但这些事实不能随轮数消失或被模型改写。
+  function tdTemporalFacts(log) {
+    const temporal = /(?:今天|今晚|今早|今晨|昨天|昨晚|前天|大前天|明天|后天|上周|这周|本周|下周|上个月|这个月|本月|下个月|去年|今年|明年|最近|刚才|刚刚|从前|小时候|\d+\s*(?:分钟|小时|天|周|个月|月|年)前|\d{1,4}[年\-/]\d{1,2}(?:[月\-/]\d{1,2}日?)?)/;
+    const facts = [];
+    (log || []).forEach(function (it) {
+      const bits = [];
+      if (it.prompt) bits.push("题「" + it.prompt + "」");
+      if (it.response) bits.push("答「" + it.response + "」");
+      if (it.text) bits.push("说「" + it.text + "」");
+      const line = (it.name ? it.name + " " : "") + bits.join(" ");
+      if (line && temporal.test(line)) facts.push(line.slice(0, 700));
+    });
+    return Array.from(new Set(facts)).slice(-40);
+  }
+  // 跨轮记忆：扩大近期原文窗口，并把整局时间事实另列为不可改写区。
   function tdMemoryText(log) {
     const rounds = []; let n = 0;
     (log || []).forEach(function (it) {
-      if (it.type === "td") { n++; rounds.push("第" + n + "轮 " + it.name + " 的" + it.choice + "：题「" + (it.prompt || "") + "」答「" + ((it.response || "").slice(0, 90)) + "」"); }
+      if (it.type === "td") { n++; rounds.push("第" + n + "轮 " + it.name + " 的" + it.choice + "：题「" + (it.prompt || "") + "」答「" + ((it.response || "").slice(0, 500)) + "」"); }
     });
-    const chatty = (log || []).filter(function (it) { return it.type === "chat" || it.type === "react"; }).slice(-10).map(function (it) { return it.name + "：" + it.text; });
-    const parts = rounds.slice(-10);
+    const chatty = (log || []).filter(function (it) { return it.type === "chat" || it.type === "react"; }).slice(-20).map(function (it) { return it.name + "：" + it.text; });
+    const timeFacts = tdTemporalFacts(log);
+    const parts = rounds.slice(-16);
     if (chatty.length) parts.push("—最近的插话 / 群聊—", chatty.join("\n"));
+    if (timeFacts.length) parts.push("—整局锁定的时间事实（原话，禁止改写或换算）—", timeFacts.join("\n"));
     return parts.join("\n");
   }
   // 自由发言：像群聊一样，谁想说就说、一人可多条、互相接话、cue 题目和回答、翻旧账
