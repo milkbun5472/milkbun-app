@@ -263,7 +263,10 @@ def cloud_request(path: str, method: str = "GET", body: object | None = None, pr
         headers["Prefer"] = prefer
     request = urllib.request.Request(CLOUD_BASE + path, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=2.5) as response:
+        # This runs in the isolated bridge worker, not in CC's hook path.
+        # Supabase frequently needs >2.5s on Lisa's connection; a short
+        # timeout made valid App jobs look absent for many consecutive polls.
+        with urllib.request.urlopen(request, timeout=10) as response:
             raw = response.read().decode("utf-8")
             return json.loads(raw) if raw.strip() else None
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
