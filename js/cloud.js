@@ -283,6 +283,43 @@
       return keys.length;
     },
 
+    // ---- App → 唯一言秋 CC 只读工具桥（复用隐藏账本记录）----
+    async yanqiuCcToolEnqueue(charId, toolName, args, idempotencyKey, lisaMessageKey) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const key = "appcc:req:" + String(idempotencyKey || "");
+      const row = {
+        user_id: user.id, message_key: key, char_id: String(charId || ""),
+        thread_type: "private", thread_id: String(charId || ""),
+        speaker_type: "narration", speaker_id: null,
+        content: "[App→CC 只读工具任务]", occurred_at: new Date().toISOString(),
+        source: "app", source_message_id: lisaMessageKey ? String(lisaMessageKey) : null,
+        metadata: { bridge_kind: "app_cc_request", bridge_state: "queued", tool_name: String(toolName || ""), arguments: args && typeof args === "object" && !Array.isArray(args) ? args : {} }
+      };
+      const { data, error } = await client.from("chat_messages")
+        .upsert(row, { onConflict: "user_id,message_key", ignoreDuplicates: true })
+        .select("id,message_key,created_at").maybeSingle();
+      if (error) throw error;
+      if (data) return { id: data.id, status: "queued", created_at: data.created_at };
+      const existing = await client.from("chat_messages").select("id,message_key,created_at")
+        .eq("user_id", user.id).eq("message_key", key).maybeSingle();
+      if (existing.error) throw existing.error;
+      return existing.data ? { id: existing.data.id, status: "queued", created_at: existing.data.created_at } : null;
+    },
+    async yanqiuCcToolResult(jobId) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const { data, error } = await client.from("chat_messages")
+        .select("id,char_id,content,metadata,created_at").eq("user_id", user.id)
+        .eq("message_key", "appcc:result:" + String(jobId || "")).maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      let payload = null; try { payload = JSON.parse(data.content); } catch (e) {}
+      return { id:data.id, status:payload && payload.ok === false ? "failed" : "completed", result:payload && payload.ok !== false ? payload.result : null, error_text:payload && payload.ok === false ? payload.error : null, completed_at:data.created_at };
+    },
+
     // ---- CC/桌面 → App 第 4 步影子拉取：只返回给诊断观察器，不合并本地聊天 ----
     // 用 updated_at + id 看变更，才能把后来盖上的软删戳也拉回来。
     async chatMessagesPullShadow(charId, cursor, limit) {
