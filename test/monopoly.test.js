@@ -69,8 +69,10 @@ test("old rule banners are removed without deleting real table conversation", ()
 
 test("mobile monopoly layout reserves space for roster and dialogue", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/games.js"), "utf8");
-  assert.match(src, /gridTemplateRows:"repeat\(11,24px\)"/);
-  assert.match(src, /gridColumn:"3 \/ 10",gridRow:"3 \/ 10"/);
+  assert.match(src, /gridTemplateRows:"repeat\(11,30px\)"/);
+  assert.match(src, /gridColumn:"2 \/ 11",gridRow:"2 \/ 11"/);
+  assert.match(src, /MONO_TOKEN_COLORS/);
+  assert.match(src, /monoTokenColor\(p,players\)/);
   assert.match(src, /"收起棋盘 · 看对话"/);
   assert.match(src, /setSelectedTile\(i\)/);
   assert.match(src, /minHeight:55/);
