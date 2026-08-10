@@ -4053,8 +4053,8 @@ function ApiConfig({
       borderRadius: 6
     }
   }, "删除此配置")), onSetOfflineApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "线下主 API"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下与群线下的正文、OOC 和总结走这里。角色若在名录里指定了专属线路，仍永远优先走自己的专线；不选＝跟随线上主模型。"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "线下与创作 API"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下、群线下、小游戏、日记、同人文与穿越互动都走这里；线下 OOC、滚动总结和结束总结也跟随这条线路。角色若在名录里指定了专属线路，角色专属内容仍永远优先走自己的专线；不选＝跟随线上主模型。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       [{ id: null, name: "跟随线上主模型" }].concat(list).map(p => {
         const on = (offlineApiId || null) === (p.id || null);
