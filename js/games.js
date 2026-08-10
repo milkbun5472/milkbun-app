@@ -746,6 +746,14 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 1600 });
     return extractJSON(raw) || {};
   }
+  // AI 狼意见不一致时只开一轮内部密谈，最终交出一个统一刀口；内容绝不进入公开牌局日志。
+  async function genWolfConsensus(api, opts) {
+    const wolves = (opts.wolfTeam || []).map(function (w) { return w.name + "（真实水平：" + (w.skill || "普通") + "）"; }).join("\n");
+    const proposals = (opts.votes || []).map(function (v) { return "· " + v.name + "提议刀 " + v.target + "：" + (v.privateReason || "没细说"); }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n狼人杀·狼队夜间秘密会议。狼队最初刀口不一致，现在只进行【一轮短协商】后统一决定，别反复拉扯。按每头狼的真实水平权衡公开跳神/查杀威胁、守护与救药风险、发言和投票；弱狼的意见可以被高手说服，但高手也不是永远正确。绝不能选择狼队友。\n【狼队】\n" + wolves + "\n【初始提议】\n" + proposals + (opts.publicThreats ? "\n【公开威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【公开局况】\n" + opts.log : "") + "\n【可刀目标】" + opts.targets.join("、") + "\n\n输出 2~4 条简短密谈并给出唯一最终刀口。只输出 JSON：{\"chat\":[{\"name\":\"狼名\",\"text\":\"密谈\"}],\"target\":\"最终刀口或空刀\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "统一今晚刀口。" }], { maxTokens: 1200 });
+    return extractJSON(raw) || {};
+  }
   // 夜晚：替 AI 女巫决定用不用药（一晚最多一瓶）
   async function genWitch(api, opts) {
     const bottles = []; if (opts.hasHeal) bottles.push("解药(救今晚被刀的人)"); if (opts.hasPoison) bottles.push("毒药(毒死一人)");
@@ -772,7 +780,12 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "要自爆吗？" }], { maxTokens: 600 });
     return extractJSON(raw) || {};
   }
-  // 狼刀投票计票：多数决，平票随机；支持空刀（不杀人）；对齐到存活玩家
+  function validWolfTarget(target, list) {
+    if (!target || /空刀|不刀|不杀|弃刀|skip|pass|none|null/i.test(String(target))) return null;
+    const tp = (list || []).find(function (p) { return p.alive && !isWolfRole(p.role) && (p.name === target || String(target).indexOf(p.name) >= 0); });
+    return tp ? tp.name : null;
+  }
+  // 狼刀投票计票：一致/多数时直接采用；平票交给秘密会议，不再在这里随机拍脑袋。
   const KILL_SKIP = "__skip__";
   function tallyKill(votes, list) {
     const cnt = {};
@@ -784,7 +797,7 @@
       if (tp) cnt[tp.name] = (cnt[tp.name] || 0) + 1;
     });
     let max = -1, tied = []; Object.keys(cnt).forEach(function (nm) { if (cnt[nm] > max) { max = cnt[nm]; tied = [nm]; } else if (cnt[nm] === max) tied.push(nm); });
-    const pick = tied.length ? tied[Math.floor(Math.random() * tied.length)] : null;
+    const pick = tied.length === 1 ? tied[0] : null;
     return (!pick || pick === KILL_SKIP) ? null : pick; // 空刀/无有效票 → 不杀
   }
 
@@ -1069,6 +1082,11 @@
           const aliveNames = al.map(function (p) { return p.name; });
           const wolfNames = al.filter(function (p) { return isWolfRole(p.role); }).map(function (p) { return p.name; });
           ai = await genNight(api, { needWolf: needWolf, needSeer: needSeer, needGuard: needGuard, wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill }; }), seer: seer ? { name: seer.name, skill: seer.skill, known: seerKnowRef.current[seer.name] || [] } : null, guard: guard ? { name: guard.name, last: guardLastRef.current } : null, aliveNames: aliveNames, publicThreats: wolfPublicThreats(claimsRef.current, wolfNames, aliveNames), log: shortLog(), mode: cfg.mode });
+          // 没有真人狼拍板时，AI 狼若提出多个不同合法刀口，就秘密协商成一个，不走随机平票。
+          if (!userWolf && needWolf && Array.isArray(ai.wolfVotes)) {
+            const distinct = Array.from(new Set(ai.wolfVotes.map(function (v) { return validWolfTarget(v && v.target, list); }).filter(Boolean)));
+            if (distinct.length > 1) ai.wolfConsensus = await genWolfConsensus(api, { wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill }; }), votes: ai.wolfVotes, targets: al.filter(function (p) { return !isWolfRole(p.role); }).map(function (p) { return p.name; }), publicThreats: wolfPublicThreats(claimsRef.current, wolfNames, aliveNames), log: shortLog() });
+          }
         }
       } catch (e) { props.toast && props.toast("天黑出错：" + ((e && e.message) || "重试")); }
       setBusy(false);
@@ -1082,12 +1100,15 @@
         if (!valid) valid = shuffle(al.filter(function (p) { return p.alive && p.name !== seer.name && !knownNames.has(p.name); }))[0] || null;
         aiSeerCheck = valid ? valid.name : null;
       }
-      setNightAI({ wolfVotes: wolfVotes, seerCheck: aiSeerCheck, seerName: seer ? seer.name : null, guardName: aiGuardName, list: list, n: n });
+      const consensusRaw = ai.wolfConsensus && ai.wolfConsensus.target;
+      const consensusSkip = !!(consensusRaw && /空刀|不刀|不杀|弃刀|skip|pass|none|null/i.test(String(consensusRaw)));
+      const consensusTarget = ai.wolfConsensus && validWolfTarget(consensusRaw, list);
+      setNightAI({ wolfVotes: wolfVotes, wolfChat: (ai.wolfConsensus && ai.wolfConsensus.chat) || [], consensusTarget: consensusTarget, consensusSkip: consensusSkip, seerCheck: aiSeerCheck, seerName: seer ? seer.name : null, guardName: aiGuardName, list: list, n: n });
       const seerInfo = (seer && !userSeer) ? { seer: seer.name, target: aiSeerCheck } : null;
       if (userWolf) setNightStage("wolf");       // 用户狼：等你投刀，再和队友合票
       else if (userSeer) setNightStage("seer");
       else if (userGuard) setNightStage("guard");
-      else finishNight(list, tallyKill(wolfVotes, list), seerInfo, n, wolfVotes, false, aiGuardName);
+      else finishNight(list, consensusSkip ? null : (consensusTarget || tallyKill(wolfVotes, list)), seerInfo, n, wolfVotes, false, aiGuardName);
     };
     // 狼刀 + 预言家定好后走这里：处理女巫（用户或 AI），再结算
     const finishNight = async function (list, wolfTarget, seerInfo, n, wolfVotes, showKillLog, guardName) {
@@ -1177,11 +1198,12 @@
       setHunterCtx(null);
       applyShot(c.list, c.hunter, name, c.dayNum, c.cont);
     };
-    // 用户狼刀：你的一票 + AI 队友的投票，少数服从多数、平票随机
+    // 用户狼：先看队友密谈建议，再由真人最终拍板；不再把真人决定丢进机械多数决。
     const submitWolfKill = function (name) {
       const info = nightAI;
-      const allVotes = (info.wolfVotes || []).concat([{ name: (info.list.find(function (p) { return p.isUser; }) || {}).name || "你", target: name }]);
-      const finalKill = tallyKill(allVotes, info.list);
+      const userName = (info.list.find(function (p) { return p.isUser; }) || {}).name || "你";
+      const finalKill = validWolfTarget(name, info.list); // 空刀会得到 null
+      const allVotes = (info.wolfVotes || []).concat([{ name: userName, target: name, privateReason: "由真人狼最终拍板" }]);
       finishNight(info.list, finalKill, info.seerName ? { seer: info.seerName, target: info.seerCheck } : null, info.n, allVotes, true, info.guardName);
     };
     // 用户守卫守护
@@ -1397,9 +1419,13 @@
         h("button", { onClick: function () { enterNight(players, 1); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 13, padding: "13px" } }, "天黑请闭眼"));
     } else if (phase === "night") {
       if (nightStage === "run" || busy) inline = hintBox("🌙 天黑了，夜色里有人在行动…");
-      else if (nightStage === "wolf") pick = { title: "选今晚要刀的人", sub: "你的一票 + 队友合票，少数服从多数", body: h("div", null,
+      else if (nightStage === "wolf") {
+        const suggestions = (nightAI && nightAI.wolfVotes || []).filter(function (v) { return v && v.name; });
+        pick = { title: suggestions.length ? "🐺 狼队秘密会议" : "选今晚要刀的人", sub: suggestions.length ? "队友先报刀口和理由，最后由你拍板" : "只剩你决定今晚刀口", body: h("div", null,
+        suggestions.length ? h("div", { style: { marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 } }, suggestions.map(function (v, i) { return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px" } }, h("b", { style: { color: t.ink } }, v.name + "："), "我想刀 " + (v.target || "空刀") + "。" + (v.privateReason || "")); })) : null,
         pickRow(alive.filter(function (p) { return !p.isUser && !isWolfRole(p.role); }), null, function (nm) { submitWolfKill(nm); }),
         h("div", { style: { display: "flex", justifyContent: "center" } }, h("button", { onClick: function () { submitWolfKill("空刀"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 16px" } }, "🔪 空刀（今晚不杀）"))) };
+      }
       else if (nightStage === "seer") {
         if (seerResult) pick = { title: "查验结果", body: h("div", null,
           h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 16, color: t.ink, marginBottom: 14 } }, h("b", { style: { color: seerResult.isWolf ? "#c0553f" : "#3f6d5a" } }, seerResult.name + " 是【" + (seerResult.isWolf ? "狼人" : "好人") + "】")),
