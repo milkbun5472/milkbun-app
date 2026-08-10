@@ -2169,35 +2169,48 @@
   // 大富翁 · 本地规则算钱与产权，模型只负责角色互动（绝不让模型改规则）
   // ============================================================
   const MONO_BOARD = [
-    { type:"start", name:"起点", icon:"🚩" },
-    { type:"property", name:"春日街", group:"晨曦", price:180, rent:35, color:"#d98f86" },
-    { type:"chance", name:"机会", icon:"🎴" },
-    { type:"property", name:"月桂巷", group:"晨曦", price:220, rent:45, color:"#d98f86" },
-    { type:"tax", name:"维修费", amount:90, icon:"🧾" },
-    { type:"property", name:"海风路", group:"海岸", price:260, rent:55, color:"#71a7b7" },
-    { type:"station", name:"南站", pair:21, icon:"🚇" },
-    { type:"property", name:"星港", group:"海岸", price:300, rent:65, color:"#71a7b7" },
-    { type:"jail", name:"看守所", icon:"🔒" },
-    { type:"property", name:"银杏街", group:"云城", price:340, rent:75, color:"#967ab4" },
-    { type:"chance", name:"机会", icon:"🎴" },
-    { type:"property", name:"云顶路", group:"云城", price:380, rent:85, color:"#967ab4" },
-    { type:"property", name:"钟楼院", group:"学院", price:410, rent:90, color:"#6c8f78" },
-    { type:"bonus", name:"中央公园", amount:80, icon:"🌳" },
-    { type:"property", name:"书院路", group:"学院", price:440, rent:100, color:"#6c8f78" },
-    { type:"gotojail", name:"去看守所", icon:"🚓" },
-    { type:"property", name:"烟火巷", group:"夜市", price:470, rent:110, color:"#c47d55" },
-    { type:"chance", name:"命运", icon:"🔮" },
-    { type:"property", name:"霓虹街", group:"夜市", price:500, rent:120, color:"#c47d55" },
-    { type:"tax", name:"城市基金", amount:150, icon:"🏛️" },
-    { type:"property", name:"白茶庭", group:"花园", price:530, rent:130, color:"#91a866" },
-    { type:"station", name:"北站", pair:6, icon:"🚇" },
-    { type:"property", name:"紫藤园", group:"花园", price:560, rent:140, color:"#91a866" },
-    { type:"property", name:"灯塔湾", group:"港湾", price:590, rent:150, color:"#5d829f" },
-    { type:"market", name:"交易所", icon:"📈" },
-    { type:"property", name:"月影码头", group:"港湾", price:620, rent:160, color:"#5d829f" },
-    { type:"property", name:"蔷薇大道", group:"蔷薇", price:660, rent:175, color:"#b86976" },
-    { type:"property", name:"玫瑰广场", group:"蔷薇", price:700, rent:190, color:"#b86976" }
+    {type:"start",name:"起点",icon:"🚩"},
+    {type:"property",name:"春日街",group:"晨曦",price:120,rent:22,color:"#d98f86"},
+    {type:"bonus",name:"邻里基金",amount:70,icon:"🎁"},
+    {type:"property",name:"月桂巷",group:"晨曦",price:150,rent:28,color:"#d98f86"},
+    {type:"tax",name:"维修费",amount:100,icon:"🧾"},
+    {type:"station",name:"南站",pair:15,icon:"🚇"},
+    {type:"property",name:"海风路",group:"海岸",price:190,rent:36,color:"#71a7b7"},
+    {type:"chance",name:"机会",icon:"🎴"},
+    {type:"property",name:"星港",group:"海岸",price:220,rent:42,color:"#71a7b7"},
+    {type:"property",name:"珊瑚路",group:"海岸",price:240,rent:47,color:"#71a7b7"},
+    {type:"jail",name:"看守所",icon:"🔒"},
+    {type:"property",name:"银杏街",group:"云城",price:270,rent:52,color:"#967ab4"},
+    {type:"market",name:"小型交易所",icon:"📈"},
+    {type:"property",name:"云顶路",group:"云城",price:300,rent:58,color:"#967ab4"},
+    {type:"property",name:"天际坊",group:"云城",price:320,rent:63,color:"#967ab4"},
+    {type:"station",name:"东站",pair:25,icon:"🚇"},
+    {type:"property",name:"钟楼院",group:"学院",price:350,rent:68,color:"#6c8f78"},
+    {type:"bonus",name:"奖学金",amount:90,icon:"📚"},
+    {type:"property",name:"书院路",group:"学院",price:380,rent:74,color:"#6c8f78"},
+    {type:"property",name:"博雅庭",group:"学院",price:400,rent:80,color:"#6c8f78"},
+    {type:"free",name:"中央公园",icon:"🌳"},
+    {type:"property",name:"烟火巷",group:"夜市",price:430,rent:86,color:"#c47d55"},
+    {type:"chance",name:"命运",icon:"🔮"},
+    {type:"property",name:"霓虹街",group:"夜市",price:460,rent:92,color:"#c47d55"},
+    {type:"property",name:"不夜坊",group:"夜市",price:480,rent:98,color:"#c47d55"},
+    {type:"station",name:"北站",pair:35,icon:"🚇"},
+    {type:"property",name:"白茶庭",group:"花园",price:510,rent:104,color:"#91a866"},
+    {type:"property",name:"紫藤园",group:"花园",price:540,rent:110,color:"#91a866"},
+    {type:"market",name:"城市交易所",icon:"📊"},
+    {type:"property",name:"琉璃温室",group:"花园",price:560,rent:116,color:"#91a866"},
+    {type:"gotojail",name:"去看守所",icon:"🚓"},
+    {type:"property",name:"灯塔湾",group:"港湾",price:590,rent:124,color:"#5d829f"},
+    {type:"property",name:"月影码头",group:"港湾",price:620,rent:132,color:"#5d829f"},
+    {type:"bonus",name:"港口分红",amount:110,icon:"⚓"},
+    {type:"property",name:"鲸落港",group:"港湾",price:650,rent:140,color:"#5d829f"},
+    {type:"station",name:"西站",pair:5,icon:"🚇"},
+    {type:"chance",name:"机会",icon:"🎴"},
+    {type:"property",name:"蔷薇大道",group:"蔷薇",price:690,rent:152,color:"#b86976"},
+    {type:"tax",name:"城市基金",amount:180,icon:"🏛️"},
+    {type:"property",name:"玫瑰广场",group:"蔷薇",price:740,rent:168,color:"#b86976"}
   ];
+  const MONO_V2_NAMES=["起点","春日街","机会","月桂巷","维修费","海风路","南站","星港","看守所","银杏街","机会","云顶路","钟楼院","中央公园","书院路","去看守所","烟火巷","命运","霓虹街","城市基金","白茶庭","北站","紫藤园","灯塔湾","交易所","月影码头","蔷薇大道","玫瑰广场"];
   const MONO_LEGACY_NAMES=["起点","春日街","机会","月桂巷","维修费","海风路","机会","星港","休息站","银杏街","机会","云顶路","城市基金","灯塔湾","机会","玫瑰广场"];
   const MONO_CHANCE = [
     { text: "旧外套里翻出一张支票", amount: 140 },
@@ -2208,14 +2221,16 @@
     { text: "请全桌喝了顿好的", amount: -70 }
   ];
   function monoMove(pos, roll, len) { len = len || MONO_BOARD.length; const raw = pos + roll; return { pos: raw % len, passed: Math.floor(raw / len) }; }
-  function monoGridPos(i) { if(i<=7)return {gridRow:8,gridColumn:i+1};if(i<=14)return {gridRow:15-i,gridColumn:8};if(i<=21)return {gridRow:1,gridColumn:22-i};return {gridRow:i-20,gridColumn:1}; }
+  function monoGridPos(i) { if(i<=10)return {gridRow:11,gridColumn:i+1};if(i<=20)return {gridRow:21-i,gridColumn:11};if(i<=30)return {gridRow:1,gridColumn:31-i};return {gridRow:i-29,gridColumn:1}; }
   function monoOwnsGroup(playerKey, group, owners) { const ids=MONO_BOARD.map(function(x,i){return x.type==="property"&&x.group===group?i:-1;}).filter(function(i){return i>=0;}); return ids.length>1&&ids.every(function(i){return owners[i]===playerKey;}); }
   function monoRent(tileIndex, ownerKey, owners, levels) { const tile=MONO_BOARD[tileIndex]; if(!tile||tile.type!=="property")return 0; const lv=(levels&&levels[tileIndex])||0; return tile.rent*(monoOwnsGroup(ownerKey,tile.group,owners)?2:1)*(lv+1); }
   function monoNetWorth(player, owners, levels) { let worth = player.cash || 0; Object.keys(owners || {}).forEach(function (k) { if (owners[k] === player.key && MONO_BOARD[+k]) { const tile=MONO_BOARD[+k]; worth += tile.price || 0; worth += ((levels&&levels[k])||0)*Math.floor((tile.price||0)/2); } }); return worth; }
   function monoAdvance(players, current) { for (let n = 1; n <= players.length; n++) { const i = (current + n) % players.length; if (!players[i].bankrupt) return i; } return current; }
+  function monoMaxMoves(total) { return Math.max(80,(total||2)*22); }
+  function monoShouldFlush(count,event,beforeUser) { return count>=4||!!beforeUser||/破产|看守所|真人玩家/.test(event||""); }
   function monoPlayerSnap(players) { return players.map(function (p) { return { key:p.key, name:p.name, isUser:!!p.isUser, isNpc:!!p.isNpc, skill:p.skill, persona:p.persona, cash:p.cash, pos:p.pos, bankrupt:!!p.bankrupt, jailed:p.jailed||0 }; }); }
   function hydMonoPlayers(saved, props, t) { return (saved || []).map(function (s) { let char = null; if (s.isUser) { const pf=props.profile||{}; char={name:pf.name||"你",avatarImage:pf.avatarImage,color:pf.color||t.tint}; } else if (!s.isNpc) char=(props.characters||[]).find(function(c){return c.id===s.key;})||null; return Object.assign({},s,{char:char,alive:!s.bankrupt}); }); }
-  function monoMigrateSave(sv) { if(!sv||sv.boardVersion===2)return sv;const out=Object.assign({},sv,{boardVersion:2,owners:{},levels:{}}),find=function(oldIndex){const nm=MONO_LEGACY_NAMES[oldIndex]||"起点";if(nm==="休息站")return 13;const hits=[];MONO_BOARD.forEach(function(x,i){if(x.name===nm)hits.push(i);});return hits[0]!=null?hits[0]:Math.round((oldIndex||0)*27/15);};Object.keys(sv.owners||{}).forEach(function(k){out.owners[find(+k)]=sv.owners[k];});Object.keys(sv.levels||{}).forEach(function(k){out.levels[find(+k)]=sv.levels[k];});out.players=(sv.players||[]).map(function(p){return Object.assign({},p,{pos:find(p.pos||0)});});return out; }
+  function monoMigrateSave(sv) { if(!sv||sv.boardVersion===3)return sv;const names=sv.boardVersion===2?MONO_V2_NAMES:MONO_LEGACY_NAMES,out=Object.assign({},sv,{boardVersion:3,owners:{},levels:{}}),find=function(oldIndex){const nm=names[oldIndex]||"起点";if(nm==="休息站")return 20;if(nm==="交易所")return 28;const hits=[];MONO_BOARD.forEach(function(x,i){if(x.name===nm)hits.push(i);});return hits[0]!=null?hits[0]:Math.round((oldIndex||0)*39/(names.length-1));};Object.keys(sv.owners||{}).forEach(function(k){out.owners[find(+k)]=sv.owners[k];});Object.keys(sv.levels||{}).forEach(function(k){out.levels[find(+k)]=sv.levels[k];});out.players=(sv.players||[]).map(function(p){return Object.assign({},p,{pos:find(p.pos||0)});});return out; }
 
   async function setupMonopoly(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i+1)+". "+p.name+"："+(p.persona||"（没写人设）"); }).join("\n");
@@ -2234,14 +2249,16 @@
     const [owners,setOwners]=useState(sv&&sv.owners?sv.owners:{}), [levels,setLevels]=useState(sv&&sv.levels?sv.levels:{}), [turn,setTurn]=useState(sv?sv.turn||0:0), [moves,setMoves]=useState(sv?sv.moves||0:0);
     const [logs,setLogs]=useState(sv&&sv.logs?sv.logs:[]), [busy,setBusy]=useState(false), [pending,setPending]=useState(null), [winner,setWinner]=useState(sv?sv.winner:null), [error,setError]=useState(""), [tableSay,setTableSay]=useState("");
     const pAvatar=avatarFor(t);
-    useEffect(function(){ if(sv)return; let dead=false; (async function(){try{const data=await setupMonopoly(api,realPlayerLines(cfg,props),cfg.npcCount||0); if(dead)return; const ps=shuffle(buildRoster(cfg,props,t,data.npcs,data.skills)).map(function(p){return Object.assign({},p,{cash:(cfg.mode==="easy"&&p.isUser)?2450:2200,pos:0,bankrupt:false,jailed:0});}); setPlayers(ps); setLogs([{type:"sys",say:"28 格城市棋盘开局：每人 $2200，绕过起点领 $200；70 手后按总资产结算。"}]); setPhase("play");}catch(e){if(!dead){setError(e.message||"开局失败");setPhase("error");}}})(); return function(){dead=true;};},[]);
-    useEffect(function(){ if(phase!=="play"||!players.length)return; saveGameSnap("monopoly",{boardVersion:2,config:cfg,players:monoPlayerSnap(players),owners:owners,levels:levels,turn:turn,moves:moves,logs:logs.slice(-60),winner:winner,label:"第 "+(moves+1)+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场"}); },[players,owners,levels,turn,moves,logs,phase,winner]);
+    const interactionQueue=useRef([]);
+    const maxMoves=monoMaxMoves(players.length||cfg.total||2);
+    useEffect(function(){ if(sv)return; let dead=false; (async function(){try{const data=await setupMonopoly(api,realPlayerLines(cfg,props),cfg.npcCount||0); if(dead)return; const ps=shuffle(buildRoster(cfg,props,t,data.npcs,data.skills)).map(function(p){return Object.assign({},p,{cash:(cfg.mode==="easy"&&p.isUser)?2450:2200,pos:0,bankrupt:false,jailed:0});}); setPlayers(ps); setLogs([{type:"sys",say:"经典 40 格城市棋盘开局：每人 $2200，绕过起点领 $200；每人约 22 手后按总资产结算。"}]); setPhase("play");}catch(e){if(!dead){setError(e.message||"开局失败");setPhase("error");}}})(); return function(){dead=true;};},[]);
+    useEffect(function(){ if(phase!=="play"||!players.length)return; saveGameSnap("monopoly",{boardVersion:3,config:cfg,players:monoPlayerSnap(players),owners:owners,levels:levels,turn:turn,moves:moves,logs:logs.slice(-60),winner:winner,label:"第 "+(moves+1)+" / "+maxMoves+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场"}); },[players,owners,levels,turn,moves,logs,phase,winner]);
     function standings(ps,os){return ps.map(function(p){return p.name+" $"+p.cash+"/地"+Object.keys(os).filter(function(k){return os[k]===p.key;}).length+(p.bankrupt?"(破产)":"");}).join("；");}
     function addLogs(xs){setLogs(function(old){return old.concat(xs).slice(-80);});}
-    async function react(ps,os,event){try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"); const ts=await monoTalk(api,ps,event,standings(ps,os),recent); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).slice(0,4).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,80)};}));}catch(e){}
+    async function react(ps,os,event,force){if(event)interactionQueue.current.push(event);if(!force&&!monoShouldFlush(interactionQueue.current.length,event,false))return;const batch=interactionQueue.current.splice(0,4);if(!batch.length)return;try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"),bundle=batch.map(function(x,i){return (i+1)+". "+x;}).join("\n"); const ts=await monoTalk(api,ps,"以下是连续发生的 "+batch.length+" 次行动，请让发言分别接住其中值得回应的节点：\n"+bundle,standings(ps,os),recent); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).slice(0,6).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,80)};}));}catch(e){}
     }
-    function finishIfNeeded(ps,os,ls,nextMoves){const alive=ps.filter(function(p){return !p.bankrupt;}); if(alive.length<=1||nextMoves>=70){const ranked=ps.slice().sort(function(a,b){return monoNetWorth(b,os,ls)-monoNetWorth(a,os,ls);}); setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
-    async function finalize(ps,os,ls,event,eventLogs,extra){setPlayers(ps);setOwners(os);setLevels(ls);const nm=moves+1;setMoves(nm);addLogs(eventLogs);if(finishIfNeeded(ps,os,ls,nm)){setBusy(false);return;}setTurn(extra&&!ps[turn].bankrupt?turn:monoAdvance(ps,turn));if(event){await react(ps,os,event);}setBusy(false);}
+    function finishIfNeeded(ps,os,ls,nextMoves){const alive=ps.filter(function(p){return !p.bankrupt;}); if(alive.length<=1||nextMoves>=monoMaxMoves(ps.length)){const ranked=ps.slice().sort(function(a,b){return monoNetWorth(b,os,ls)-monoNetWorth(a,os,ls);}); setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
+    async function finalize(ps,os,ls,event,eventLogs,extra){setPlayers(ps);setOwners(os);setLevels(ls);const nm=moves+1;setMoves(nm);addLogs(eventLogs);if(finishIfNeeded(ps,os,ls,nm)){interactionQueue.current=[];setBusy(false);return;}const next=extra&&!ps[turn].bankrupt?turn:monoAdvance(ps,turn);setTurn(next);if(event){const beforeUser=ps[next]&&ps[next].isUser;await react(ps,os,event,monoShouldFlush(interactionQueue.current.length+1,event,beforeUser));}setBusy(false);}
     function bankruptIfNeeded(ps,idx,os,reason){if(ps[idx].cash>=0)return null;ps[idx].bankrupt=true;ps[idx].alive=false;Object.keys(os).forEach(function(k){if(os[k]===ps[idx].key)delete os[k];});return ps[idx].name+"付不起钱，宣布破产，名下土地回到银行"+(reason?"（"+reason+"）":"")+"。";}
     function runAuction(ps,os,tileIndex,excludedKey,ls,eventParts){const tile=MONO_BOARD[tileIndex], bidders=ps.filter(function(x){return !x.bankrupt&&x.key!==excludedKey&&x.cash>=Math.ceil(tile.price*.55);});if(!bidders.length){ls.push({type:"sys",say:tile.name+" 流拍，暂时留在银行。"});return;}bidders.sort(function(a,b){const ar=/冒险|激进|大胆|赌/.test(a.skill||"")?1.05:.88,br=/冒险|激进|大胆|赌/.test(b.skill||"")?1.05:.88;return Math.min(b.cash-180,tile.price*br)-Math.min(a.cash-180,tile.price*ar);});const win=bidders[0],bid=Math.max(Math.ceil(tile.price*.55/10)*10,Math.min(tile.price-10,Math.floor(Math.min(win.cash-180,tile.price*(/冒险|激进|大胆|赌/.test(win.skill||"")?1.05:.88))/10)*10));if(bid<=0)return;win.cash-=bid;os[tileIndex]=win.key;ls.push({type:"event",say:"🔨 "+tile.name+" 进入拍卖，"+win.name+" 以 $"+bid+" 拿下。"});eventParts.push(win.name+"在拍卖中抢走"+tile.name+"，成交$"+bid);}
     async function playTurn(){if(busy||phase!=="play"||pending)return;setBusy(true);const ps=players.map(function(p){return Object.assign({},p);}), os=Object.assign({},owners), lv=Object.assign({},levels), p=ps[turn];if(!p||p.bankrupt){setTurn(monoAdvance(ps,turn));setBusy(false);return;}if(p.jailed){p.jailed=0;await finalize(ps,os,lv,p.name+"在看守所里错过一手",[{type:"bad",say:"🔒 "+p.name+" 在看守所待了一手，今天不能掷骰子。"}],false);return;}const d1=1+Math.floor(Math.random()*6),d2=1+Math.floor(Math.random()*6),roll=d1+d2,extra=d1===d2,mv=monoMove(p.pos,roll);p.pos=mv.pos;if(mv.passed)p.cash+=200*mv.passed;const tile=MONO_BOARD[p.pos], base=p.name+" 掷出 "+d1+" + "+d2+" = "+roll+(extra?"（双骰）":"")+"，走到【"+tile.name+"】"+(mv.passed?"，经过起点领 $"+(200*mv.passed):"")+"。";const ls=[{type:"move",name:p.name,say:base}], eventParts=[];
@@ -2250,18 +2267,18 @@
       else if(tile.type==="chance"){const c=MONO_CHANCE[Math.floor(Math.random()*MONO_CHANCE.length)];p.cash+=c.amount;ls.push({type:"event",say:"🎴 "+c.text+"："+(c.amount>=0?"+":"")+"$"+c.amount+"。"});eventParts.push(p.name+"抽到机会："+c.text+(c.amount>=0?"赚":"花")+"$"+Math.abs(c.amount));const bk=bankruptIfNeeded(ps,turn,os,"机会事件");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
       else if(tile.type==="tax"){p.cash-=tile.amount;ls.push({type:"event",say:p.name+" 支付 "+tile.name+" $"+tile.amount+"。"});eventParts.push(p.name+"被收"+tile.name+"$"+tile.amount);const bk=bankruptIfNeeded(ps,turn,os,tile.name);if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
       else if(tile.type==="bonus"){p.cash+=tile.amount;ls.push({type:"event",say:p.name+" 在 "+tile.name+" 收到城市活动奖励 $"+tile.amount+"。"});eventParts.push(p.name+"在"+tile.name+"得到$"+tile.amount);}
-      else if(tile.type==="gotojail"){p.pos=8;p.jailed=1;ls.push({type:"bad",say:"🚓 "+p.name+" 被送去看守所，下一手暂停行动。"});eventParts.push(p.name+"被送进看守所");}
+      else if(tile.type==="gotojail"){p.pos=10;p.jailed=1;ls.push({type:"bad",say:"🚓 "+p.name+" 被送去看守所，下一手暂停行动。"});eventParts.push(p.name+"被送进看守所");}
       else if(tile.type==="station"){const from=p.pos,to=tile.pair,passed=to<from;p.pos=to;if(passed)p.cash+=200;ls.push({type:"event",say:"🚇 "+p.name+" 搭城际线直达 "+MONO_BOARD[to].name+(passed?"，途中经过起点领 $200":"")+"。"});eventParts.push(p.name+"从"+tile.name+"搭车到"+MONO_BOARD[to].name);}
       else if(tile.type==="market"){const swing=Math.random()<.5?-120:160;p.cash+=swing;ls.push({type:"event",say:"📈 "+p.name+" 在交易所"+(swing>0?"押对行情赚了":"追高被套亏了")+" $"+Math.abs(swing)+"。"});eventParts.push(p.name+"在交易所"+(swing>0?"赚":"亏")+"$"+Math.abs(swing));const bk=bankruptIfNeeded(ps,turn,os,"交易所亏损");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
       if(extra&&!p.bankrupt)ls.push({type:"sys",say:p.name+" 掷出双骰，下一手仍由 TA 行动。"});await finalize(ps,os,lv,eventParts.join("；"),ls,extra);
     }
     async function decideProperty(yes){if(!pending)return;setBusy(true);const q=pending,ps=q.ps.map(function(p){return Object.assign({},p);}),os=Object.assign({},q.os),lv=Object.assign({},q.lv),p=ps[turn],tile=MONO_BOARD[q.tile],ls=[],events=[];if(q.kind==="upgrade"){const cost=Math.floor(tile.price/2);if(yes&&p.cash>=cost){p.cash-=cost;lv[q.tile]=(lv[q.tile]||0)+1;ls.push({type:"event",say:"你把 "+tile.name+" 升到 "+lv[q.tile]+" 级，花费 $"+cost+"。"});events.push(p.name+"升级"+tile.name);}else ls.push({type:"sys",say:"你暂时没有升级 "+tile.name+"。"});}else if(yes&&p.cash>=tile.price){p.cash-=tile.price;os[q.tile]=p.key;ls.push({type:"event",say:"你用 $"+tile.price+" 买下了 "+tile.name+"。"});events.push(p.name+"买下"+tile.name);}else{ls.push({type:"sys",say:"你放弃原价购买 "+tile.name+"，银行开始拍卖。"});runAuction(ps,os,q.tile,p.key,ls,events);}setPending(null);await finalize(ps,os,lv,events.join("；"),ls,q.extra);}
-    async function sendTableTalk(){const say=tableSay.trim();if(!say||busy)return;setTableSay("");addLogs([{type:"talk",name:(props.profile&&props.profile.name)||"你",say:say}]);setBusy(true);await react(players,owners,"真人玩家说：『"+say.slice(0,100)+"』，请直接回应这句话，不改变账面");setBusy(false);}
+    async function sendTableTalk(){const say=tableSay.trim();if(!say||busy)return;setTableSay("");addLogs([{type:"talk",name:(props.profile&&props.profile.name)||"你",say:say}]);setBusy(true);await react(players,owners,"真人玩家说：『"+say.slice(0,100)+"』，请直接回应这句话，不改变账面",true);setBusy(false);}
     if(phase==="loading")return h("div",{className:"h-full flex flex-col"},h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack}),h("div",{className:"flex-1 flex items-center justify-center",style:{fontFamily:F_BODY,color:t.fog}},"…正在摆棋盘、摸清每个人的玩法"));
     if(phase==="error")return h("div",{className:"h-full flex flex-col"},h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack}),h("div",{className:"flex-1 flex flex-col items-center justify-center px-8",style:{fontFamily:F_BODY,color:t.sub}},error,h("button",{onClick:props.onBack,style:{marginTop:16,padding:"10px 22px",borderRadius:12,background:t.ink,color:"#fff"}},"返回")));
     const cur=players[turn], propertyCount=function(k){return Object.keys(owners).filter(function(i){return owners[i]===k;}).length;};
     const header=h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack});
-    const board=h("div",{style:{display:"grid",gridTemplateColumns:"repeat(8,minmax(0,1fr))",gridTemplateRows:"repeat(8,38px)",gap:3,padding:"7px 9px"}},h("div",{style:{gridColumn:"2 / 8",gridRow:"2 / 8",borderRadius:15,background:t.bg2,border:"1px solid "+t.line,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:10}},h("div",{style:{fontSize:24}},"🏙️"),h("div",{style:{fontFamily:F_DISPLAY,fontSize:15,color:t.ink,marginTop:3}},cur?(cur.name+(cur.isUser?"（你）":"")):"城市棋盘"),h("div",{style:{fontFamily:F_BODY,fontSize:10.5,color:t.sub,marginTop:4}},"第 "+(moves+1)+" / 70 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场"),h("div",{style:{fontFamily:F_BODY,fontSize:9,color:t.fog,marginTop:7,lineHeight:1.5}},"同色成套租金 ×2\n🚇 南北站传送 · 🔒 看守所停一手")),MONO_BOARD.map(function(tile,i){const here=players.filter(function(p){return !p.bankrupt&&p.pos===i;}),own=owners[i],owner=players.find(function(p){return p.key===own;}),lv=levels[i]||0,pos=monoGridPos(i);return h("div",{key:i,title:tile.name+(tile.price?" $"+tile.price:""),style:Object.assign({},pos,{borderRadius:6,padding:"2px 1px",background:tile.type==="property"?(tile.color+"35"):t.bg2,border:"1px solid "+(i===(cur&&cur.pos)?t.tint:t.line),textAlign:"center",overflow:"hidden",minWidth:0})},h("div",{style:{fontFamily:F_BODY,fontSize:7.5,color:t.sub,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},tile.icon||"▪",tile.name),h("div",{style:{fontSize:7,color:t.fog,whiteSpace:"nowrap",overflow:"hidden"}},tile.price?(owner?(owner.name.slice(0,3)+(lv?" L"+lv:"")):("$"+tile.price)):(tile.type==="station"?"直达":"")),h("div",{style:{fontSize:8.5,height:10,whiteSpace:"nowrap"}},here.map(function(p){return h("span",{key:p.key,title:p.name},p.isUser?"🔴":"●");})));}));
+    const board=h("div",{style:{display:"grid",gridTemplateColumns:"repeat(11,minmax(0,1fr))",gridTemplateRows:"repeat(11,29px)",gap:2,padding:"6px 7px"}},h("div",{style:{gridColumn:"2 / 11",gridRow:"2 / 11",borderRadius:15,background:t.bg2,border:"1px solid "+t.line,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:10}},h("div",{style:{fontSize:24}},"🏙️"),h("div",{style:{fontFamily:F_DISPLAY,fontSize:15,color:t.ink,marginTop:3}},cur?(cur.name+(cur.isUser?"（你）":"")):"经典城市棋盘"),h("div",{style:{fontFamily:F_BODY,fontSize:10.5,color:t.sub,marginTop:4}},"第 "+(moves+1)+" / "+maxMoves+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场"),h("div",{style:{fontFamily:F_BODY,fontSize:9,color:t.fog,marginTop:7,lineHeight:1.5}},"40 格 · 22 块地产 · 8 个色组\n🚇 四站环线 · 🔒 看守所停一手\n💬 互动每 4 个事件合并生成，节省调用")),MONO_BOARD.map(function(tile,i){const here=players.filter(function(p){return !p.bankrupt&&p.pos===i;}),own=owners[i],owner=players.find(function(p){return p.key===own;}),lv=levels[i]||0,pos=monoGridPos(i);return h("div",{key:i,title:tile.name+(tile.price?" $"+tile.price:""),style:Object.assign({},pos,{borderRadius:5,padding:"1px",background:tile.type==="property"?(tile.color+"35"):t.bg2,border:"1px solid "+(i===(cur&&cur.pos)?t.tint:t.line),textAlign:"center",overflow:"hidden",minWidth:0})},h("div",{style:{fontFamily:F_BODY,fontSize:6.3,color:t.sub,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},tile.icon||"▪",tile.name),h("div",{style:{fontSize:6,color:t.fog,whiteSpace:"nowrap",overflow:"hidden"}},tile.price?(owner?(owner.name.slice(0,2)+(lv?" L"+lv:"")):("$"+tile.price)):(tile.type==="station"?"直达":"")),h("div",{style:{fontSize:7,height:8,whiteSpace:"nowrap"}},here.map(function(p){return h("span",{key:p.key,title:p.name},p.isUser?"🔴":"●");})));}));
     const roster=h("div",{style:{display:"flex",gap:7,overflowX:"auto",padding:"3px 12px 8px"}},players.map(function(p,i){return h("div",{key:p.key,style:{minWidth:106,padding:"7px",borderRadius:10,background:i===turn&&!p.bankrupt?t.tint+"18":t.bg2,border:"1px solid "+(i===turn?t.tint:t.line),opacity:p.bankrupt?.45:1}},h("div",{style:{display:"flex",alignItems:"center",gap:5}},pAvatar(p,25),h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:t.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},p.name+(p.isUser?"(你)":""))),h("div",{style:{fontFamily:"monospace",fontSize:10.5,color:t.sub,marginTop:4}},p.bankrupt?"已破产":"$"+p.cash+" · 地"+propertyCount(p.key)));}));
     const logView=h("div",{className:"flex-1 overflow-y-auto",style:{padding:"7px 14px"}},logs.slice(-22).map(function(x,i){return h("div",{key:i,style:{fontFamily:F_BODY,fontSize:x.type==="talk"?13:11.5,lineHeight:1.55,color:x.type==="talk"?t.ink:(x.type==="bad"?"#c0553f":t.sub),padding:x.type==="talk"?"6px 9px":"3px 5px",marginBottom:3,borderRadius:9,background:x.type==="talk"?t.bg2:"transparent"}},x.type==="talk"?h("b",{style:{color:t.tint}},x.name+"："):null,x.say);}));
     let action;if(phase==="result"){const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});action=h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},"🏆 "+(winner?winner.name:ranking[0].name)+" 赢下这座城"),h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.sub,margin:"8px 0 13px"}},ranking.map(function(p,i){return (i+1)+". "+p.name+" $"+monoNetWorth(p,owners,levels);}).join("　")),h("button",{onClick:props.onBack,style:{width:"100%",padding:12,borderRadius:12,background:t.ink,color:"#fff",fontFamily:F_BODY}},"回游戏中枢"));}
@@ -2772,6 +2789,6 @@
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave };
+  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush };
   if (typeof window !== "undefined") window.Games = Games;
 })();
