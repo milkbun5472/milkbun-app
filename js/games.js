@@ -223,7 +223,10 @@
     const effGods = isWolfGame ? (godSel || standardBoard(total)) : [];
     const godRoom = isWolfGame ? Math.max(1, total - wolfCount(total) - 1) : 0;
     const godOverflow = isWolfGame && effGods.length > godRoom;
-    const canStart = !overMax && !tooFew && picked.length + needNpc > 0 && !godOverflow;
+    const avSpecialRoom = isAvalonGame ? Math.max(0, (AV_EVIL[total] || 2) - 1) : 0; // 刺客固定占一个坏人槽
+    const avSpecialNeed = isAvalonGame ? (avOpts.percival ? 1 : 0) + (avOpts.mordred ? 1 : 0) + (avOpts.oberon ? 1 : 0) : 0;
+    const avOverflow = isAvalonGame && avSpecialNeed > avSpecialRoom;
+    const canStart = !overMax && !tooFew && picked.length + needNpc > 0 && !godOverflow && !avOverflow;
 
     const toggle = function (id) {
       setPicked(function (p) { return p.indexOf(id) >= 0 ? p.filter(function (x) { return x !== id; }) : p.concat([id]); });
@@ -233,6 +236,7 @@
     let countMsg;
     if (overMax) countMsg = "人太多了，" + game.zh + "最多 " + game.max + " 人（现在 " + total + "）";
     else if (tooFew) countMsg = spectate ? "观战至少要 2 个角色下场" : "还差人——至少 " + game.min + " 人" + (npcFill ? "（可加 NPC 凑数）" : "，或开 NPC 凑数");
+    else if (avOverflow) countMsg = "特殊坏人槽位不够：当前人数最多再选 " + avSpecialRoom + " 组（派西维尔会连带莫甘娜）";
     else countMsg = "共 " + total + " 人" + (humanPlays ? "（含你）" : "（你观战）") + (needNpc ? " · 含 " + needNpc + " 个 NPC" : "");
 
     return h("div", { className: "h-full flex flex-col" },
@@ -2131,8 +2135,9 @@
     opts = opts || {};
     const evilN = AV_EVIL[total] || 2;
     const evil = ["assassin"];
-    if (opts.mordred && evil.length < evilN) evil.push("mordred");
+    // 派西维尔开关承诺与莫甘娜成对加入，优先占一个坏人槽；配置页会阻止特殊槽位超限。
     if (opts.percival && evil.length < evilN) evil.push("morgana");
+    if (opts.mordred && evil.length < evilN) evil.push("mordred");
     if (opts.oberon && evil.length < evilN) evil.push("oberon");
     while (evil.length < evilN) evil.push("minion");
     const goodN = total - evilN;
@@ -2252,14 +2257,22 @@
     const pByName = function (nm) { return players.find(function (p) { return p.name === nm || (nm && String(nm).indexOf(p.name) >= 0); }); };
     const pushLog = function (items) { logDataRef.current = logDataRef.current.concat(items); setLog(function (L) { return L.concat(items); }); };
     const pushHist = function (line) { histRef.current = histRef.current.concat([line]); };
-    const histText = function () { return histRef.current.slice(-34).map(function (s) { return "· " + s; }).join("\n"); };
+    // 公开历史分两层：任务/组队/票型等硬事实永不被闲聊挤掉，近期发言保留最后 24 条。
+    const histText = function () {
+      const all = histRef.current || [];
+      const core = all.filter(function (s) { return /^(?:任务\d+|投票|连续否决)/.test(String(s)); });
+      const recent = all.slice(-24);
+      return Array.from(new Set(core.concat(recent))).slice(-64).map(function (s) { return "· " + s; }).join("\n");
+    };
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy]);
     useEffect(function () { setPickerOpen(true); }, [phase, questNum, leaderIdx]);
     useEffect(function () { if (phase === "result") clearGameSave("avalon"); }, [phase]);
     // 存档：在每次「进入某个任务的组队」前存一份干净断点（续局从 startQuest 重进该轮，不复读已发生的）
     const saveCkpt = function (qn, li, vt, resultsArr, playersArr) {
       const ld = playersArr[li];
-      saveGameSnap("avalon", { config: cfg, questNum: qn, leaderIdx: li, voteTrack: vt, results: resultsArr, players: serPlayers(playersArr), log: logDataRef.current, hist: histRef.current, ts: Date.now(), label: "任务 " + (qn + 1) + "/5 · " + score.good + " 成 " + score.evil + " 败 · 队长 " + (ld ? ld.name : "?") });
+      const ckGood = (resultsArr || []).filter(function (r) { return r.success; }).length;
+      const ckEvil = (resultsArr || []).length - ckGood;
+      saveGameSnap("avalon", { config: cfg, questNum: qn, leaderIdx: li, voteTrack: vt, results: resultsArr, players: serPlayers(playersArr), log: logDataRef.current, hist: histRef.current, ts: Date.now(), label: "任务 " + (qn + 1) + "/5 · " + ckGood + " 成 " + ckEvil + " 败 · 队长 " + (ld ? ld.name : "?") });
     };
 
     // ---- 开局 ----
@@ -2309,7 +2322,14 @@
         // 补足/去重后不够就随机补（含队长优先）
         if (tm.length < need) { const pool = shuffle(players.map(function (p) { return p.name; }).filter(function (nm) { return tm.indexOf(nm) < 0; })); while (tm.length < need && pool.length) tm.push(pool.shift()); }
         commitProposal(tm, ld, qn, li, r.reason || "");
-      } catch (e) { props.toast && props.toast("组队出错：" + ((e && e.message) || "重试")); setBusy(false); }
+      } catch (e) {
+        // 生成接口连续失败也不能卡死：队长优先带自己，再随机补齐一支合法队伍继续投票。
+        props.toast && props.toast("组队生成失败，已由法官补一支合法队伍");
+        const ld = players[li];
+        const need = (AV_QUEST[players.length] || AV_QUEST[5])[qn];
+        const fallback = [ld.name].concat(shuffle(players.filter(function (p) { return p !== ld; }).map(function (p) { return p.name; }))).slice(0, need);
+        commitProposal(fallback, ld, qn, li, "接口失灵，先按座次临时组队");
+      }
     };
     const commitProposal = async function (tm, ld, qn, li, reason) {
       setTeam(tm);
@@ -2347,19 +2367,34 @@
         const no = votes.length - yes;
         const approved = yes > no;
         pushHist("投票 赞成" + yes + ":反对" + no + " → " + (approved ? "通过" : "否决"));
+        pushHist("投票明细：" + votes.map(function (v) { return v.name + "=" + (v.approve ? "赞成" : "反对") + (v.reason ? "(" + v.reason + ")" : ""); }).join("；"));
         pushLog([{ type: "votes", votes: votes, yes: yes, no: no, approved: approved }]);
         if (approved) { setBusy(false); goQuest(tm, qn, li); }
         else {
           const vt2 = (voteTrackFor(qn, li)) + 1;
           if (vt2 >= 5) { setBusy(false); pushLog([{ type: "info", text: "连续 5 次组队被否决——坏人不战而胜。" }]); finish("evil"); return; }
-          setVoteTrack(vt2);
+          setVoteTrack(vt2); vtRef.current = vt2;
+          pushHist("连续否决：" + vt2 + "/5");
           pushLog([{ type: "info", text: "队伍被否决（第 " + vt2 + "/5 次），换下一位队长重组。" }]);
           const nli = (li + 1) % players.length;
           setLeaderIdx(nli); setBusy(false);
           saveCkpt(qn, nli, vt2, results, players);
           setTimeout(function () { startQuest(qn, nli, vt2); }, 30);
         }
-      } catch (e) { props.toast && props.toast("投票出错：" + ((e && e.message) || "重试")); setBusy(false); }
+      } catch (e) {
+        // callRetry 已失败两次；观战局没有按钮可重试，法官以 AI 默认赞成、保留真人原票的方式推进，避免永久卡桌。
+        props.toast && props.toast("投票生成失败，法官已用兜底票型推进");
+        const fallbackVotes = players.map(function (p) {
+          const mine = p.isUser && cfg.mode !== "spectate";
+          return { name: p.name, approve: mine && uVote != null ? uVote === "approve" : true, reason: mine ? "（你的一票）" : "（法官兜底）", mine: mine };
+        });
+        const yes = fallbackVotes.filter(function (v) { return v.approve; }).length;
+        const no = fallbackVotes.length - yes;
+        pushHist("投票 赞成" + yes + ":反对" + no + " → 通过（接口兜底）");
+        pushHist("投票明细：" + fallbackVotes.map(function (v) { return v.name + "=" + (v.approve ? "赞成" : "反对") + "(" + v.reason + ")"; }).join("；"));
+        pushLog([{ type: "votes", votes: fallbackVotes, yes: yes, no: no, approved: true }]);
+        setBusy(false); goQuest(tm, qn, li);
+      }
     };
     // voteTrack 用 state，但连否时闭包可能过期——从 log 里推不方便，这里用一个 ref 兜底
     const voteTrackFor = function () { return vtRef.current; };
@@ -2391,7 +2426,11 @@
           evilOnTeam.forEach(function (p) { const hit = plays.find(function (x) { return x.name && (x.name.indexOf(p.name) >= 0 || p.name.indexOf(x.name) >= 0); }); if (hit && /失败|fail/i.test(String(hit.play))) fails++; });
         }
         resolveQuest(tm, qn, li, fails);
-      } catch (e) { props.toast && props.toast("任务出错：" + ((e && e.message) || "重试")); setBusy(false); }
+      } catch (e) {
+        // 任务生成失败不能把观战/好人玩家永久卡在执行中；AI 坏人本轮按藏票（成功票）兜底。
+        props.toast && props.toast("任务生成失败，AI 队员本轮按成功票结算");
+        resolveQuest(tm, qn, li, userFails || 0);
+      }
     };
     const resolveQuest = async function (tm, qn, li, fails) {
       const req = avFailsReq(players.length, qn);
@@ -2432,9 +2471,16 @@
       setBusy(true);
       try {
         const r = await genAssassin(api, assassin, players, histText());
-        const tp = pByName(r.target);
+        const goodCandidates = players.filter(function (p) { return p.side === "good"; });
+        let tp = pByName(r.target);
+        if (!tp || tp.side !== "good") tp = shuffle(goodCandidates)[0] || null; // 非法目标不能让刺客白白跳过规则终局
         settleAssassin(assassin, tp, r.reason || "");
-      } catch (e) { props.toast && props.toast("刺杀出错：" + ((e && e.message) || "重试")); setBusy(false); }
+      } catch (e) {
+        // 两次生成都失败时仍要结算，不能永远卡在「刺客正在锁定」。
+        const fallback = shuffle(players.filter(function (p) { return p.side === "good"; }))[0] || null;
+        props.toast && props.toast("刺杀判断生成失败，已由法官随机锁定一名好人");
+        settleAssassin(assassin, fallback, "（法官兜底）");
+      }
     };
     const settleAssassin = function (assassin, targetP, reason) {
       setBusy(false);
@@ -2578,6 +2624,6 @@
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats };
+  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard };
   if (typeof window !== "undefined") window.Games = Games;
 })();
