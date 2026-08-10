@@ -298,7 +298,10 @@
         // policy intentionally rejects browser-authored narration rows; this
         // remains a hidden control record because bridge_kind (and the lack
         // of sync_kind) keeps it out of chat/ledger projection.
-        speaker_type: "lisa", speaker_id: user.id,
+        // Lisa rows use a null speaker_id everywhere else in the shared
+        // ledger. The authenticated owner lives in user_id; putting that UUID
+        // in speaker_id violates the chat_messages RLS row shape.
+        speaker_type: "lisa", speaker_id: null,
         content: "[App→CC 只读工具任务]",
         occurred_at: new Date().toISOString(), source: "app",
         source_message_id: lisaMessageKey ? String(lisaMessageKey) : null,
