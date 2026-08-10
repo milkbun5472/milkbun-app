@@ -8,6 +8,8 @@ function storage() {
 
 (async () => {
   assert.deepStrictEqual(kit.normalizeRequest({ name:"Read", args:{ file_path:"/tmp/a" } }), { toolName:"Read", arguments:{ file_path:"/tmp/a" } });
+  assert.deepStrictEqual(kit.normalizeRequest({ name:"search_memory", args:{ query:"Lisa" } }), { toolName:"search_memory", arguments:{ query:"Lisa" } });
+  assert.deepStrictEqual(kit.normalizeRequest({ name:"read_yanqiu_moments", args:{} }), { toolName:"read_yanqiu_moments", arguments:{} });
   assert.strictEqual(kit.normalizeRequest({ name:"Write", args:{ file_path:"/tmp/a" } }), null);
 
   let calls = 0, state = "queued";

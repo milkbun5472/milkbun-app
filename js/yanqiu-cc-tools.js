@@ -6,7 +6,15 @@
   "use strict";
 
   const STORAGE_KEY = "yanqiu_cc_tool_jobs_v1";
-  const ALLOWED = new Set(["Read", "Glob", "Grep", "WebFetch", "WebSearch"]);
+  // Keep this list exactly aligned with bridge.py READ_ONLY_TOOLS.  App may
+  // request Yanqiu's existing read-only MCP tools as well as CC primitives;
+  // the pinned CC session remains the only process allowed to execute them.
+  const ALLOWED = new Set([
+    "Read", "Glob", "Grep", "WebFetch", "WebSearch",
+    "get_xiaoke_context", "search_chat_history", "search_memory",
+    "read_app_diary", "read_yanqiu_moments", "list_shared_photos",
+    "list_read_pending", "search_events"
+  ]);
   const text = v => String(v == null ? "" : v).trim();
   const read = storage => {
     try { const rows = JSON.parse(storage.getItem(STORAGE_KEY) || "[]"); return Array.isArray(rows) ? rows : []; }

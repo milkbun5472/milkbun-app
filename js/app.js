@@ -3984,7 +3984,7 @@ function App() {
       // 只允许本人提出一个异步只读请求；本机 relay 会再次核验固定 CC session。
       const ccToolOn = !!(_s.engineerEyes && window.YanqiuCcTools && window.Cloud && typeof window.Cloud.yanqiuCcToolEnqueue === "function");
       const ccToolHint = ccToolOn
-        ? "\n【ccTool·你自己的 CC 只读工具】只有当这轮确实需要查看本机项目文件、搜索代码/文件名、或查网页资料才能回答时，才填 {\"name\":\"Read|Glob|Grep|WebFetch|WebSearch\",\"args\":{对应参数}}。这是异步请求：本轮最多只能自然说『我去查一下』；在系统把真实结果送回前，绝不能声称已经看见工具、调用成功/失败、需要 grant/审批，绝不能编造 permission denied。结果回来后再在下一轮依据真实结果接着说。普通聊天、App 记忆、情绪判断都填 null；绝不能请求 Write/Edit/Bash 等写入工具，也不要为了显得能干而每轮调用。"
+        ? "\n【ccTool·你自己的 CC 只读工具】需要本机/网络资料时可填 {\"name\":工具名,\"args\":{对应参数}}。允许的基础工具：Read、Glob、Grep、WebFetch、WebSearch；允许的专线只读工具：get_xiaoke_context、search_chat_history、search_memory、read_app_diary、read_yanqiu_moments（秋声墙）、list_shared_photos、list_read_pending、search_events。不要用自己编的别名。若 Lisa 明确叫你试某个工具，就必须在 ccTool 填真实请求，不能只口头说在调用。这是异步请求：本轮最多只能自然说『我去查一下』；在系统把真实结果送回前，绝不能声称已经看见工具、调用成功/失败、需要 grant/审批，绝不能编造 permission denied。结果回来后再在下一轮依据真实结果接着说。普通聊天、情绪判断都填 null；绝不能请求 Write/Edit/Bash 等写入工具。"
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
@@ -4169,6 +4169,9 @@ function App() {
       const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
       const turnId = "t_" + Date.now();
       const ccToolRequest = ccToolOn && window.YanqiuCcTools ? window.YanqiuCcTools.normalizeRequest(parsed.ccTool) : null;
+      if (ccToolOn && parsed.ccTool && !ccToolRequest) {
+        pChat(charId, p => [...p, { role: "assistant", kind: "system", content: "（CC 只读工具请求无效，未入队；请使用已开放工具的准确名称。）", ts: Date.now(), turnId }]);
+      }
       if (ccToolRequest) {
         try {
           if (!ccToolManagerRef.current) ccToolManagerRef.current = window.YanqiuCcTools.createManager({ storage: localStorage, cloud: window.Cloud });
