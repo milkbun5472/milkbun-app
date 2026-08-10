@@ -26,3 +26,11 @@ test("optional titles and signatures remain optional in storage and rendering", 
   assert.match(screens, /entry\.titleEn \|\| entry\.titleZh \|\| dateStr/);
   assert.match(screens, /entry\.signature \?/);
 });
+
+test("diary remains the character's own life and may omit the user entirely", () => {
+  assert.match(app, /scheduleText: scheduleTextFor\(char, targetKey\)/);
+  assert.match(engine, /日记的中心是你自己，不是用户/);
+  assert.match(engine, /今天完全不提用户也正常且正确/);
+  assert.match(engine, /整篇一个字都不提 Ta 才是真实/);
+  assert.doesNotMatch(engine, /有没有惦记她\/等她消息/);
+});
