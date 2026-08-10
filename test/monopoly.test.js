@@ -1,10 +1,10 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { MONO_BOARD, monoMove, monoNetWorth, monoAdvance, monoOwnsGroup, monoRent } = require("../js/games.js");
+const { MONO_BOARD, monoMove, monoNetWorth, monoAdvance, monoOwnsGroup, monoRent, monoGridPos, monoMigrateSave } = require("../js/games.js");
 
 test("monopoly movement wraps and reports passing start", () => {
-  assert.deepEqual(monoMove(14, 4), { pos: 2, passed: 1 });
+  assert.deepEqual(monoMove(26, 4), { pos: 2, passed: 1 });
   assert.deepEqual(monoMove(3, 2), { pos: 5, passed: 0 });
 });
 
@@ -29,4 +29,20 @@ test("complete color sets and upgrades increase rent", () => {
 test("upgrades count toward final net worth", () => {
   const p = { key: "a", cash: 500 }, owners = { 1: "a" };
   assert.equal(monoNetWorth(p, owners, { 1: 2 }), 500 + MONO_BOARD[1].price * 2);
+});
+
+test("expanded city has 28 unique perimeter cells and 16 properties", () => {
+  assert.equal(MONO_BOARD.length, 28);
+  assert.equal(MONO_BOARD.filter(x => x.type === "property").length, 16);
+  const cells = MONO_BOARD.map((_, i) => `${monoGridPos(i).gridRow}:${monoGridPos(i).gridColumn}`);
+  assert.equal(new Set(cells).size, 28);
+});
+
+test("legacy 16-cell saves migrate ownership and positions by landmark", () => {
+  const old = { players: [{ key: "a", pos: 13 }], owners: { 13: "a", 15: "b" }, levels: { 15: 2 } };
+  const next = monoMigrateSave(old);
+  assert.equal(MONO_BOARD[next.players[0].pos].name, "灯塔湾");
+  assert.equal(next.owners[23], "a");
+  assert.equal(next.owners[27], "b");
+  assert.equal(next.levels[27], 2);
 });
