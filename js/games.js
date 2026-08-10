@@ -787,6 +787,52 @@
     if (!claims || !claims.length) return "";
     return "\n\n【全场公开声明台账（跨天累积·全场都听见了，务必和这些保持一致：别装作没人跳过预言家、别忘了谁被报过查杀/金水、别再声称已被别人占掉的身份、别把已对跳的两方混为一谈）】\n" + claims.slice(-24).map(function (c) { return "· 第" + c.day + "天 " + c.name + "：" + c.text; }).join("\n");
   }
+
+  // 真预言家的公开验人必须和夜间确定结果一致。可以藏结果，但不能把已验狼说成金水、
+  // 或把已验好人说成查杀；狼人悍跳不在此闸范围内，仍可自由编假验人。
+  function seerTruthViolations(speakers, result) {
+    const speeches = result && Array.isArray(result.speeches) ? result.speeches : [];
+    const claims = result && Array.isArray(result.claims) ? result.claims : [];
+    const out = [];
+    (speakers || []).filter(function (s) { return s && s.role === "seer"; }).forEach(function (s) {
+      const sp = speeches.find(function (x) { return x && x.name && (String(x.name).indexOf(s.name) >= 0 || s.name.indexOf(String(x.name)) >= 0); });
+      const ownClaims = claims.filter(function (x) { return x && x.name && (String(x.name).indexOf(s.name) >= 0 || s.name.indexOf(String(x.name)) >= 0); });
+      const text = [sp && sp.text].concat(ownClaims.map(function (x) { return x.text; })).filter(Boolean).join("；").replace(/\s+/g, "");
+      (s.seerKnown || []).forEach(function (k) {
+        if (!k || !k.name || text.indexOf(k.name) < 0) return;
+        let at = text.indexOf(k.name), contradicted = false;
+        while (at >= 0 && !contradicted) {
+          const near = text.slice(Math.max(0, at - 16), Math.min(text.length, at + String(k.name).length + 22));
+          contradicted = k.isWolf
+            ? /(金水|验.{0,6}(?:好人|好牌|非狼)|查.{0,6}(?:好人|好牌|非狼)|不是狼|非狼)/.test(near)
+            : /(查杀|验.{0,6}(?:狼人|狼牌|是狼)|查.{0,6}(?:狼人|狼牌|是狼))/.test(near);
+          at = text.indexOf(k.name, at + String(k.name).length);
+        }
+        if (contradicted) out.push({ seerName: s.name, target: k.name, isWolf: !!k.isWolf });
+      });
+    });
+    return out;
+  }
+
+  function enforceSeerTruth(result, violations) {
+    if (!violations.length) return result;
+    const bySeer = {};
+    violations.forEach(function (v) { (bySeer[v.seerName] || (bySeer[v.seerName] = [])).push(v); });
+    const fixed = Object.assign({}, result);
+    fixed.speeches = (result.speeches || []).map(function (sp) {
+      const name = Object.keys(bySeer).find(function (n) { return sp && sp.name && (String(sp.name).indexOf(n) >= 0 || n.indexOf(String(sp.name)) >= 0); });
+      if (!name) return sp;
+      const facts = bySeer[name].map(function (v) { return v.target + (v.isWolf ? "是查杀" : "是我的金水"); }).join("，");
+      return Object.assign({}, sp, { text: "我把验人说清楚：" + facts + "。这是我确定的查验结果，今天按这个信息盘。" });
+    });
+    fixed.claims = (result.claims || []).filter(function (c) {
+      return !Object.keys(bySeer).some(function (n) { return c && c.name && (String(c.name).indexOf(n) >= 0 || n.indexOf(String(c.name)) >= 0); });
+    });
+    Object.keys(bySeer).forEach(function (name) {
+      bySeer[name].forEach(function (v) { fixed.claims.push({ name: name, text: v.isWolf ? ("我查杀了" + v.target) : ("我给" + v.target + "金水") }); });
+    });
+    return fixed;
+  }
   // 牌局状态：当前天数 + 存活/出局名单（防 AI 对着出局的人喊话、搞错天数）
   function boardState(list, dayNum) {
     const alive = list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; });
@@ -802,12 +848,19 @@
     const easy = mode === "easy" ? "\n【放水局】狼别演得滴水不漏，给真人留点破绽。" : "";
     const peaceful = /平安夜|没人死|没人被/.test(deaths || "");
     const day1 = dayNum <= 1 ? "\n【第一天·信息极少·别当中间夜打】现在才第 1 天，几乎没有可靠信息。**别过度脑补**——" + (peaceful ? "尤其今天是【平安夜】，别去推演『是不是女巫救了预言家验的人、还是预言家自刀被救』这类没影的可能，本局神职有限，别硬套这些高级推理。" : "") + "别硬咬死谁是狼、别全场催『预言家快跳』。就简短说第一印象、初步站位或表个态就行。预言家要不要跳、什么时候跳，由真预言家自己决定，别逼 TA。" : "";
-    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
+    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"claim\":\"你此刻声称的身份（平民/预言家/我查杀了X/我金水了X 等，隐藏身份就写 装平民 之类）\",\"reads\":\"你怎么读别人：疑谁信谁+简短理由\",\"plan\":\"你接下来打算怎么打：归票谁/自证/隐藏/带节奏\"}],\"claims\":[{\"name\":\"发言人\",\"text\":\"TA这轮做出的【硬公开声明】——跳预言家/报X查杀/给X金水/自曝身份/起跳对跳，才需要列；只是表态怀疑、没有硬声明就【别列进 claims】\"}]}，speeches 顺序照上面，stances 每个发言人一条。";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 6000 });
-    const r = extractJSON(raw);
-    return { speeches: (r && Array.isArray(r.speeches)) ? r.speeches : [], stances: (r && Array.isArray(r.stances)) ? r.stances : [], claims: (r && Array.isArray(r.claims)) ? r.claims : [] };
+    const parse = function (raw) { const r = extractJSON(raw); return { speeches: (r && Array.isArray(r.speeches)) ? r.speeches : [], stances: (r && Array.isArray(r.stances)) ? r.stances : [], claims: (r && Array.isArray(r.claims)) ? r.claims : [] }; };
+    let raw = await callRetry(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 6000 });
+    let result = parse(raw), bad = seerTruthViolations(speakers, result);
+    if (bad.length) {
+      const correction = bad.map(function (v) { return v.seerName + "真实验到" + v.target + "=" + (v.isWolf ? "狼人（只能报查杀）" : "好人（只能给金水）"); }).join("；");
+      raw = await callRetry(api, sys, [{ role: "user", content: "上一版出现真预言家颠倒查验的硬错误：" + correction + "。请重新生成整份 JSON；真预言家可以不报，但绝不能反报。" }], { maxTokens: 6000 });
+      result = parse(raw); bad = seerTruthViolations(speakers, result);
+      if (bad.length) result = enforceSeerTruth(result, bad);
+    }
+    return result;
   }
 
   // 白天投票放逐
@@ -1171,7 +1224,7 @@
       if (!ai.length) { if (final) { setPhase("dayvote"); setUserVote(null); } return; }
       setBusy(true);
       try {
-        const speakers = ai.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, list) }; });
+        const speakers = ai.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] }; });
         const res = await genSpeeches(api, speakers, n, prior, lastDeath, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current);
         const sp = res.speeches;
         (res.stances || []).forEach(function (s) { if (s && s.name) { const hit = speakers.find(function (x) { return s.name.indexOf(x.name) >= 0 || x.name.indexOf(s.name) >= 0; }); if (hit && (s.claim || s.reads || s.plan || s.stance)) stanceRef.current[hit.name] = s.stance ? s.stance : { claim: s.claim || "", reads: s.reads || "", plan: s.plan || "" }; } });
@@ -2436,5 +2489,6 @@
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
   }
 
-  window.Games = Games;
+  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth };
+  if (typeof window !== "undefined") window.Games = Games;
 })();
