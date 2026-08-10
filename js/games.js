@@ -1,6 +1,6 @@
 "use strict";
 // ============================================================
-// 小游戏（games）—— 派对游戏中枢：谁是卧底 / 真心话大冒险 / 狼人杀 / 阿瓦隆
+// 小游戏（games）—— 派对游戏中枢：谁是卧底 / 真心话大冒险 / 狼人杀 / 阿瓦隆 / 大富翁
 // 每个游戏三种模式（正常/放水/观战）+ 人数上下限 + NPC凑数 + 可选注入最近聊天抓人设。
 // 和辩论/梦境一样是独立娱乐场：不写回聊天记忆。
 // 引擎逐个做——GAMES[].ready 标记是否已实现；未实现进占位对局。
@@ -24,7 +24,9 @@
     { key: "werewolf", emoji: "🐺", zh: "狼人杀", en: "Werewolf", min: 5, max: 12, ready: true,
       desc: "狼人夜里行凶，好人白天靠推理投票放逐。当前板子：狼人 + 预言家 + 平民。", rule: "5~12 人 · 预言家局 · 不翻牌" },
     { key: "avalon", emoji: "⚔️", zh: "阿瓦隆", en: "Avalon", min: 5, max: 10, ready: true,
-      desc: "正义与邪恶的任务对抗，梅林认得坏人、刺客要在结局刺杀梅林。", rule: "5~10 人 · 任务制" }
+      desc: "正义与邪恶的任务对抗，梅林认得坏人、刺客要在结局刺杀梅林。", rule: "5~10 人 · 任务制" },
+    { key: "monopoly", emoji: "🏙️", zh: "大富翁", en: "Monopoly", min: 2, max: 6, ready: true,
+      desc: "绕城买地、收租和抽事件。角色会按人设谈买卖、拌嘴、结盟和记仇，不会只沉默掷骰子。", rule: "2~6 人 · 买地收租 · 破产淘汰" }
   ];
   // 游戏生成统一走这个：更长超时 + 失败重试（人多时单次请求大、思考型模型慢，别一次超时就崩）
   async function callRetry(api, sys, msgs, opts) {
@@ -140,6 +142,7 @@
       if (session.game.key === "haigui" || session.game.key === "q25") return h(GuessGame, Object.assign({}, engineProps, { kind: session.game.key }));
       if (session.game.key === "tod") return h(TruthDareGame, engineProps);
       if (session.game.key === "avalon") return h(AvalonGame, engineProps);
+      if (session.game.key === "monopoly") return h(MonopolyGame, engineProps);
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
     if (game) return h(GameSetup, {
@@ -2163,6 +2166,89 @@
   }
 
   // ============================================================
+  // 大富翁 · 本地规则算钱与产权，模型只负责角色互动（绝不让模型改规则）
+  // ============================================================
+  const MONO_BOARD = [
+    { type: "start", name: "起点", icon: "🚩" },
+    { type: "property", name: "春日街", price: 180, rent: 45, color: "#d98f86" },
+    { type: "chance", name: "机会", icon: "🎴" },
+    { type: "property", name: "月桂巷", price: 220, rent: 55, color: "#d9a35f" },
+    { type: "tax", name: "维修费", amount: 100, icon: "🧾" },
+    { type: "property", name: "海风路", price: 260, rent: 65, color: "#71a7b7" },
+    { type: "chance", name: "机会", icon: "🎴" },
+    { type: "property", name: "星港", price: 300, rent: 75, color: "#7f91c2" },
+    { type: "bonus", name: "休息站", amount: 60, icon: "☕" },
+    { type: "property", name: "银杏街", price: 340, rent: 85, color: "#b49b55" },
+    { type: "chance", name: "机会", icon: "🎴" },
+    { type: "property", name: "云顶路", price: 380, rent: 95, color: "#967ab4" },
+    { type: "tax", name: "城市基金", amount: 120, icon: "🏛️" },
+    { type: "property", name: "灯塔湾", price: 420, rent: 110, color: "#599b8d" },
+    { type: "chance", name: "机会", icon: "🎴" },
+    { type: "property", name: "玫瑰广场", price: 460, rent: 125, color: "#b86976" }
+  ];
+  const MONO_CHANCE = [
+    { text: "旧外套里翻出一张支票", amount: 140 },
+    { text: "投资的小店分红了", amount: 110 },
+    { text: "临时接到一笔奖金", amount: 90 },
+    { text: "冲动消费后看到账单", amount: -80 },
+    { text: "手机摔坏，紧急维修", amount: -110 },
+    { text: "请全桌喝了顿好的", amount: -70 }
+  ];
+  function monoMove(pos, roll, len) { len = len || MONO_BOARD.length; const raw = pos + roll; return { pos: raw % len, passed: Math.floor(raw / len) }; }
+  function monoNetWorth(player, owners) { let worth = player.cash || 0; Object.keys(owners || {}).forEach(function (k) { if (owners[k] === player.key && MONO_BOARD[+k]) worth += MONO_BOARD[+k].price || 0; }); return worth; }
+  function monoAdvance(players, current) { for (let n = 1; n <= players.length; n++) { const i = (current + n) % players.length; if (!players[i].bankrupt) return i; } return current; }
+  function monoPlayerSnap(players) { return players.map(function (p) { return { key:p.key, name:p.name, isUser:!!p.isUser, isNpc:!!p.isNpc, skill:p.skill, persona:p.persona, cash:p.cash, pos:p.pos, bankrupt:!!p.bankrupt }; }); }
+  function hydMonoPlayers(saved, props, t) { return (saved || []).map(function (s) { let char = null; if (s.isUser) { const pf=props.profile||{}; char={name:pf.name||"你",avatarImage:pf.avatarImage,color:pf.color||t.tint}; } else if (!s.isNpc) char=(props.characters||[]).find(function(c){return c.id===s.key;})||null; return Object.assign({},s,{char:char,alive:!s.bankrupt}); }); }
+
+  async function setupMonopoly(api, realPlayers, npcCount) {
+    const lines = realPlayers.map(function (p, i) { return (i+1)+". "+p.name+"："+(p.persona||"（没写人设）"); }).join("\n");
+    const sys = AC + SKILL_RULE + "\n\n你是大富翁桌游的 NPC 生成器与玩家风格评估器。生成 "+npcCount+" 个职业、性格各异的 NPC；并给每个真实玩家和 NPC 一句 skill，明确其风险偏好、现金安全线、谈判/读人能力。不要把内向等同于笨，也不要写胜负结果。\n【真实玩家】\n"+(lines||"（只有NPC）")+"\n只输出 JSON：{\"npcs\":[{\"name\":\"\",\"persona\":\"\",\"skill\":\"\"}],\"skills\":[{\"name\":\"\",\"skill\":\"\"}]}";
+    const raw = await callRetry(api, sys, [{role:"user",content:"生成本桌玩家。"}], {maxTokens:3200}); return extractJSON(raw)||{};
+  }
+  async function monoTalk(api, players, event, standings, recent) {
+    const cast = players.filter(function(p){return !p.isUser && !p.bankrupt;}).map(function(p){return "■ "+p.name+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
+    const sys = AC + "\n你在主持一桌有熟人感的大富翁。刚发生：【"+event+"】。账面（这是唯一事实，严禁改钱、改产权、送地或声称规则外交易）："+standings+"。\n从在场角色中挑 2~4 个此刻最有反应的人，各说一句 28 字内的面对面口语。可以讨价还价、嘴硬、幸灾乐祸、安慰、翻旧账、威胁下回合收租、短暂站队；要点名并针对刚发生的事，不要轮流播报，不要都温柔，也不要替真人玩家说话。交易/结盟只能是嘴上态度，不能改变规则数据。避免重复最近说过的话。\n"+cast+"\n【最近】"+(recent||"无")+"\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const raw=await callRetry(api,sys,[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:1800}); const p=extractJSON(raw); return p&&Array.isArray(p.talks)?p.talks:[];
+  }
+
+  function MonopolyGame(props) {
+    const t=props.t, cfg=props.config, api=props.active, sv=props.savedState;
+    const [phase,setPhase]=useState(sv?"play":"loading"), [players,setPlayers]=useState(sv?hydMonoPlayers(sv.players,props,t):[]);
+    const [owners,setOwners]=useState(sv&&sv.owners?sv.owners:{}), [turn,setTurn]=useState(sv?sv.turn||0:0), [moves,setMoves]=useState(sv?sv.moves||0:0);
+    const [logs,setLogs]=useState(sv&&sv.logs?sv.logs:[]), [busy,setBusy]=useState(false), [pending,setPending]=useState(null), [winner,setWinner]=useState(sv?sv.winner:null), [error,setError]=useState("");
+    const pAvatar=avatarFor(t);
+    useEffect(function(){ if(sv)return; let dead=false; (async function(){try{const data=await setupMonopoly(api,realPlayerLines(cfg,props),cfg.npcCount||0); if(dead)return; const ps=shuffle(buildRoster(cfg,props,t,data.npcs,data.skills)).map(function(p){return Object.assign({},p,{cash:(cfg.mode==="easy"&&p.isUser)?1450:1200,pos:0,bankrupt:false});}); setPlayers(ps); setLogs([{type:"sys",say:"每人带着 $"+((cfg.mode==="easy")?"1200（你有额外零花钱）":"1200")+" 入场。绕过起点领 $200，45 回合后按总资产结算。"}]); setPhase("play");}catch(e){if(!dead){setError(e.message||"开局失败");setPhase("error");}}})(); return function(){dead=true;};},[]);
+    useEffect(function(){ if(phase!=="play"||!players.length)return; saveGameSnap("monopoly",{config:cfg,players:monoPlayerSnap(players),owners:owners,turn:turn,moves:moves,logs:logs.slice(-60),winner:winner,label:"第 "+(moves+1)+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场"}); },[players,owners,turn,moves,logs,phase,winner]);
+    function standings(ps,os){return ps.map(function(p){return p.name+" $"+p.cash+"/地"+Object.keys(os).filter(function(k){return os[k]===p.key;}).length+(p.bankrupt?"(破产)":"");}).join("；");}
+    function addLogs(xs){setLogs(function(old){return old.concat(xs).slice(-80);});}
+    async function react(ps,os,event){try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"); const ts=await monoTalk(api,ps,event,standings(ps,os),recent); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).slice(0,4).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,80)};}));}catch(e){}
+    }
+    function finishIfNeeded(ps,os,nextMoves){const alive=ps.filter(function(p){return !p.bankrupt;}); if(alive.length<=1||nextMoves>=45){const ranked=ps.slice().sort(function(a,b){return monoNetWorth(b,os)-monoNetWorth(a,os);}); setWinner(ranked[0]);setPhase("result");clearGameSave("monopoly");return true;} return false;}
+    async function finalize(ps,os,event,eventLogs){setPlayers(ps);setOwners(os);const nm=moves+1;setMoves(nm);addLogs(eventLogs);if(finishIfNeeded(ps,os,nm)){setBusy(false);return;}setTurn(monoAdvance(ps,turn));if(event){await react(ps,os,event);}setBusy(false);}
+    function bankruptIfNeeded(ps,idx,os,reason){if(ps[idx].cash>=0)return null;ps[idx].bankrupt=true;ps[idx].alive=false;Object.keys(os).forEach(function(k){if(os[k]===ps[idx].key)delete os[k];});return ps[idx].name+"付不起钱，宣布破产，名下土地回到银行"+(reason?"（"+reason+"）":"")+"。";}
+    async function playTurn(){if(busy||phase!=="play"||pending)return;setBusy(true);const ps=players.map(function(p){return Object.assign({},p);}), os=Object.assign({},owners), p=ps[turn];if(!p||p.bankrupt){setTurn(monoAdvance(ps,turn));setBusy(false);return;}const roll=1+Math.floor(Math.random()*6), mv=monoMove(p.pos,roll);p.pos=mv.pos;if(mv.passed)p.cash+=200*mv.passed;const tile=MONO_BOARD[p.pos], base=p.name+" 掷出 "+roll+"，走到【"+tile.name+"】"+(mv.passed?"，经过起点领 $"+(200*mv.passed):"")+"。";const ls=[{type:"move",name:p.name,say:base}], eventParts=[];
+      if(tile.type==="property") {const ownerKey=os[p.pos]; if(!ownerKey){if(p.isUser&&cfg.mode!=="spectate"){setPlayers(ps);setOwners(os);addLogs(ls);setPending({tile:p.pos,ps:ps,os:os,base:base});setBusy(false);return;}const reserve=cfg.mode==="easy"?360:260;const daring=/冒险|激进|大胆|冲动|赌/.test(p.skill||"");if(p.cash-tile.price>=(daring?140:reserve)){p.cash-=tile.price;os[p.pos]=p.key;ls.push({type:"event",say:p.name+" 用 $"+tile.price+" 买下了 "+tile.name+"。"});eventParts.push(p.name+"买下"+tile.name);}else{ls.push({type:"sys",say:p.name+" 没有买 "+tile.name+"，把现金留在手里。"});eventParts.push(p.name+"放弃购买"+tile.name);}}
+        else if(ownerKey!==p.key){const oi=ps.findIndex(function(x){return x.key===ownerKey;}), owner=ps[oi];if(owner&&!owner.bankrupt){p.cash-=tile.rent;owner.cash+=tile.rent;ls.push({type:"event",say:p.name+" 向 "+owner.name+" 支付 "+tile.name+" 租金 $"+tile.rent+"。"});eventParts.push(p.name+"踩进"+owner.name+"的"+tile.name+"并付租$"+tile.rent);const bk=bankruptIfNeeded(ps,turn,os,"欠 "+owner.name+" 租金");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}}else ls.push({type:"sys",say:"这里是 "+p.name+" 自己的地，巡视一圈。"});}
+      else if(tile.type==="chance"){const c=MONO_CHANCE[Math.floor(Math.random()*MONO_CHANCE.length)];p.cash+=c.amount;ls.push({type:"event",say:"🎴 "+c.text+"："+(c.amount>=0?"+":"")+"$"+c.amount+"。"});eventParts.push(p.name+"抽到机会："+c.text+(c.amount>=0?"赚":"花")+"$"+Math.abs(c.amount));const bk=bankruptIfNeeded(ps,turn,os,"机会事件");if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      else if(tile.type==="tax"){p.cash-=tile.amount;ls.push({type:"event",say:p.name+" 支付 "+tile.name+" $"+tile.amount+"。"});eventParts.push(p.name+"被收"+tile.name+"$"+tile.amount);const bk=bankruptIfNeeded(ps,turn,os,tile.name);if(bk){ls.push({type:"bad",say:bk});eventParts.push(bk);}}
+      else if(tile.type==="bonus"){p.cash+=tile.amount;ls.push({type:"event",say:p.name+" 在休息站收到补贴 $"+tile.amount+"。"});eventParts.push(p.name+"在休息站得到$"+tile.amount);}
+      await finalize(ps,os,eventParts.join("；"),ls);
+    }
+    async function decideBuy(yes){if(!pending)return;setBusy(true);const q=pending, ps=q.ps.map(function(p){return Object.assign({},p);}),os=Object.assign({},q.os),p=ps[turn],tile=MONO_BOARD[q.tile],ls=[];let ev;if(yes&&p.cash>=tile.price){p.cash-=tile.price;os[q.tile]=p.key;ev=p.name+"买下"+tile.name;ls.push({type:"event",say:"你用 $"+tile.price+" 买下了 "+tile.name+"。"});}else{ev=p.name+"放弃购买"+tile.name;ls.push({type:"sys",say:"你没有买 "+tile.name+"。"});}setPending(null);await finalize(ps,os,ev,ls);}
+    if(phase==="loading")return h("div",{className:"h-full flex flex-col"},h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack}),h("div",{className:"flex-1 flex items-center justify-center",style:{fontFamily:F_BODY,color:t.fog}},"…正在摆棋盘、摸清每个人的玩法"));
+    if(phase==="error")return h("div",{className:"h-full flex flex-col"},h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack}),h("div",{className:"flex-1 flex flex-col items-center justify-center px-8",style:{fontFamily:F_BODY,color:t.sub}},error,h("button",{onClick:props.onBack,style:{marginTop:16,padding:"10px 22px",borderRadius:12,background:t.ink,color:"#fff"}},"返回")));
+    const cur=players[turn], propertyCount=function(k){return Object.keys(owners).filter(function(i){return owners[i]===k;}).length;};
+    const header=h(Head,{zh:"大富翁",en:"Monopoly",onBack:props.onBack});
+    const board=h("div",{style:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:5,padding:"8px 12px"}},MONO_BOARD.map(function(tile,i){const here=players.filter(function(p){return !p.bankrupt&&p.pos===i;}),own=owners[i],owner=players.find(function(p){return p.key===own;});return h("div",{key:i,style:{minHeight:58,borderRadius:9,padding:"5px 4px",background:tile.type==="property"?(tile.color+"28"):t.bg2,border:"1px solid "+(i===(cur&&cur.pos)?t.tint:t.line),textAlign:"center",overflow:"hidden"}},h("div",{style:{fontFamily:F_BODY,fontSize:9.5,color:t.sub,whiteSpace:"nowrap"}},tile.icon||"🏠",tile.name),tile.price?h("div",{style:{fontSize:8.5,color:t.fog}},owner?owner.name:("$"+tile.price)):null,h("div",{style:{fontSize:13,height:17,whiteSpace:"nowrap"}},here.map(function(p){return h("span",{key:p.key,title:p.name},p.isUser?"🔴":"●");})));}));
+    const roster=h("div",{style:{display:"flex",gap:7,overflowX:"auto",padding:"3px 12px 8px"}},players.map(function(p,i){return h("div",{key:p.key,style:{minWidth:106,padding:"7px",borderRadius:10,background:i===turn&&!p.bankrupt?t.tint+"18":t.bg2,border:"1px solid "+(i===turn?t.tint:t.line),opacity:p.bankrupt?.45:1}},h("div",{style:{display:"flex",alignItems:"center",gap:5}},pAvatar(p,25),h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:t.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},p.name+(p.isUser?"(你)":""))),h("div",{style:{fontFamily:"monospace",fontSize:10.5,color:t.sub,marginTop:4}},p.bankrupt?"已破产":"$"+p.cash+" · 地"+propertyCount(p.key)));}));
+    const logView=h("div",{className:"flex-1 overflow-y-auto",style:{padding:"7px 14px"}},logs.slice(-22).map(function(x,i){return h("div",{key:i,style:{fontFamily:F_BODY,fontSize:x.type==="talk"?13:11.5,lineHeight:1.55,color:x.type==="talk"?t.ink:(x.type==="bad"?"#c0553f":t.sub),padding:x.type==="talk"?"6px 9px":"3px 5px",marginBottom:3,borderRadius:9,background:x.type==="talk"?t.bg2:"transparent"}},x.type==="talk"?h("b",{style:{color:t.tint}},x.name+"："):null,x.say);}));
+    let action;if(phase==="result"){const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners)-monoNetWorth(a,owners);});action=h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},"🏆 "+(winner?winner.name:ranking[0].name)+" 赢下这座城"),h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.sub,margin:"8px 0 13px"}},ranking.map(function(p,i){return (i+1)+". "+p.name+" $"+monoNetWorth(p,owners);}).join("　")),h("button",{onClick:props.onBack,style:{width:"100%",padding:12,borderRadius:12,background:t.ink,color:"#fff",fontFamily:F_BODY}},"回游戏中枢"));}
+    else if(pending){const tile=MONO_BOARD[pending.tile];action=h("div",null,h("div",{style:{fontFamily:F_BODY,fontSize:13,color:t.ink,textAlign:"center",marginBottom:9}},"买下【"+tile.name+"】？价格 $"+tile.price+"，租金 $"+tile.rent+"；你有 $"+(players[turn]?players[turn].cash:0)),h("div",{style:{display:"flex",gap:9}},h("button",{disabled:(players[turn]&&players[turn].cash<tile.price),onClick:function(){decideBuy(true);},style:{flex:1,padding:12,borderRadius:11,background:t.ink,color:"#fff",opacity:(players[turn]&&players[turn].cash<tile.price)?.4:1}},"买下"),h("button",{onClick:function(){decideBuy(false);},style:{flex:1,padding:12,borderRadius:11,background:t.bg2,border:"1px solid "+t.line,color:t.ink}},"先不买")));}
+    else action=h("button",{onClick:playTurn,disabled:busy,className:"w-full active:opacity-80",style:{fontFamily:F_BODY,fontSize:15,fontWeight:700,color:"#f3efe6",background:busy?t.line:t.ink,borderRadius:13,padding:"13px"}},busy?"…角色们正在接话":((cur?(cur.isUser?"轮到你":"看 "+cur.name):"")+" · 掷骰子"));
+    return h("div",{className:"h-full flex flex-col"},header,board,roster,logView,h("div",{className:"shrink-0",style:{borderTop:"1px solid "+t.line,padding:"11px 14px calc(env(safe-area-inset-bottom) + 13px)"}},action));
+  }
+
+  // ============================================================
   // 阿瓦隆 · 引擎（任务制：组队→投票→出任务，3成功好人赢/3失败坏人赢/刺客终局刺梅林）
   // ============================================================
   const AV_QUEST = { 5: [2, 3, 2, 3, 3], 6: [2, 3, 4, 3, 4], 7: [2, 3, 3, 4, 4], 8: [3, 4, 4, 5, 5], 9: [3, 4, 4, 5, 5], 10: [3, 4, 4, 5, 5] };
@@ -2664,6 +2750,6 @@
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard };
+  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance };
   if (typeof window !== "undefined") window.Games = Games;
 })();
