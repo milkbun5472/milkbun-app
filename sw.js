@@ -5,7 +5,7 @@
 //   · 带 ?v= 的资源＝缓存优先——版本号即指纹，同 URL 内容永不变，缓存天然不脏；
 //     换版本时 URL 变了自然重新拉，旧版本条目就地清理（同路径不同 ?v= 删旧留新）。
 // 断网能干什么：翻聊天/记忆库/图库/记账/日历（全在本机）；callAI 和云同步仍需网。
-const SW_VERSION = "archive-sw-v3";
+const SW_VERSION = "archive-sw-v4";
 const SHELL_CACHE = "archive-shell-" + SW_VERSION;
 
 // 安装即接管，激活即控制所有页面（不等下次刷新）
@@ -34,7 +34,9 @@ self.addEventListener("fetch", (event) => {
   if (req.mode === "navigate") {
     event.respondWith((async () => {
       try {
-        const fresh = await fetch(req);
+        // iOS 主屏幕 Web App 还会在 Cache Storage 外保留 HTTP 磁盘缓存。
+        // 导航显式 no-store，保证在线启动不被旧 index.html 黏住。
+        const fresh = await fetch(req, { cache: "no-store" });
         const cache = await caches.open(SHELL_CACHE);
         cache.put("__index__", fresh.clone());
         return fresh;
