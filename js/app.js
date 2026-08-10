@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.96";
+const APP_VERSION = "v51.97";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -194,6 +194,7 @@ function App() {
   const memExtractCtrRef = useRef({}); // 每角色自动抽取轮次计数
   const memExtractMarkRef = useRef({}); // 每角色「上次抽到的最后一条 ts」——防话痨多气泡溢出漏抽（她 2026-07-13 抓的账）
   const ccMemExtractBusyRef = useRef(false); // CC 自动记忆独立串行锁；持久书签在 cc-memory-auto.js
+  const ccToolManagerRef = useRef(null); // App→固定言秋 CC 异步只读工具队列
   const saveMemCfg = patch => setMemCfg(p => { const n = { ...p, ...patch }; memCfgRef.current = n; saveJSON("x_memCfg", n); return n; });
   const ordersRef = useRef([]);
   const kinshipCardsRef = useRef([]);
@@ -3792,7 +3793,7 @@ function App() {
       pChat(charId, p => [...p, um]);
       base = [...base, um];
     }
-    const history = base.filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+    const history = base.filter(m => !m.recalled && m.kind !== "ooc" && (m.kind !== "system" || m.ccToolResult === true));
     // CC 原话回流后，本地聊天可以很长；记录仍完整保留，但每次请求只携带最近一扇窗口，
     // 避免专线把整份历史重复上传而在浏览器侧直接 Load failed。
     const promptHistory = window.ChatContextWindow
@@ -3810,7 +3811,7 @@ function App() {
     }
     try { window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
-    const contMode = !opts.proactive && history[history.length - 1] && history[history.length - 1].role !== "user";
+    const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
     startLane("c:" + charId);
     try {
       if (!active) throw new Error("请先到设置配置 API");
@@ -3979,8 +3980,15 @@ function App() {
         ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":1到20的整数,\"duration\":秒数1到30,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着。**先有话、动作配合话**，别每轮都发、别喧宾夺主。强度我这边有上限，你填超了会被自动压到上限。"
         : "";
       const toyField = toyOn ? ",\"toy\":null" : "";
+      // App → CC 工具桥只属于唯一 engineerEyes 言秋。这里不直接执行工具，
+      // 只允许本人提出一个异步只读请求；本机 relay 会再次核验固定 CC session。
+      const ccToolOn = !!(_s.engineerEyes && window.YanqiuCcTools && window.Cloud && typeof window.Cloud.yanqiuCcToolEnqueue === "function");
+      const ccToolHint = ccToolOn
+        ? "\n【ccTool·你自己的 CC 只读工具】只有当这轮确实需要查看本机项目文件、搜索代码/文件名、或查网页资料才能回答时，才填 {\"name\":\"Read|Glob|Grep|WebFetch|WebSearch\",\"args\":{对应参数}}。这是异步请求：你可以先自然告诉 Lisa 你去看，结果回来后你会在下一轮接着说。普通聊天、App 记忆、情绪判断都填 null；绝不能请求 Write/Edit/Bash 等写入工具，也不要为了显得能干而每轮调用。"
+        : "";
+      const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
-      const _taskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + "}").replace(/用户/g, uName);
+      const _taskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       const _primer = "\n\n【任务·总纲】你就是上面的「" + char.name + "」本人（不是在扮演），用手机即时通讯的口吻和 " + uName + " 一对一聊天。**这一轮的详细要求、你可用的能力、以及必须遵守的 JSON 输出格式，都写在 " + uName + " 这条消息末尾的【本轮任务】段落里——严格照它执行，最终只输出那个 JSON、不要任何多余文字。**";
       const system = _histCache ? (bundleStable + _primer) : (bundle + _taskFull);
@@ -3988,6 +3996,11 @@ function App() {
       for (const m of promptHistory) {
         // 每条历史带时间标注〔今天14:32〕（v47.83 她点名单聊也要）：裸消息模型会把几小时前的事说成昨天
         const stp = m.ts && typeof fmtStampAI === "function" ? "〔" + fmtStampAI(m.ts) + "〕" : "";
+        if (m.ccToolResult === true) {
+          const payload = JSON.stringify(m.ccToolResultData == null ? null : m.ccToolResultData).slice(0, 16000);
+          g.push({ role: "user", content: stp + "【你刚才从唯一固定 CC 窗口请求的只读工具结果｜不是 Lisa 的台词】\n" + payload + "\n【请以你本人身份消化结果后自然接着回复 Lisa；不要复述协议字段、job id、session id 或租约。】" });
+          continue;
+        }
         if (m.kind === "offlinelog") {
           // 线下经过：既不算用户发言也不算角色发言，作为「刚发生的场景」注入，让线上接得上线下
           g.push({ role: "user", content: stp + "【你和" + uName + "刚刚在线下见了一面——这发生在上面聊天之后、现在你们已结束线下回到线上，请据此接话，别再停留在线下前的状态】\n归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") });
@@ -4155,6 +4168,21 @@ function App() {
       }
       const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
       const turnId = "t_" + Date.now();
+      const ccToolRequest = ccToolOn && window.YanqiuCcTools ? window.YanqiuCcTools.normalizeRequest(parsed.ccTool) : null;
+      if (ccToolRequest) {
+        try {
+          if (!ccToolManagerRef.current) ccToolManagerRef.current = window.YanqiuCcTools.createManager({ storage: localStorage, cloud: window.Cloud });
+          const lastLisa = [...history].reverse().find(m => m && m.role === "user" && m.kind !== "system");
+          await ccToolManagerRef.current.enqueue({
+            charId,
+            turnId,
+            lisaMessageKey: lastLisa && (lastLisa.ledgerKey || lastLisa.mid || lastLisa.id || lastLisa.turnId) || null
+          }, ccToolRequest);
+          delivered = true;
+        } catch (error) {
+          pChat(charId, p => [...p, { role: "assistant", kind: "system", content: "（CC 只读工具暂时没接通，任务已停止：" + String(error && error.message || error).slice(0, 120) + "）", ts: Date.now(), turnId }]);
+        }
+      }
       // 沉默权（v47.75 借汪汪机）：TA 这轮选择已读不回——只在自然回复场景生效（主动/续说不许沉默）。
       // 留一条 silence 标记（灰字居中、不计未读），心情等状态照常更新；其余输出（表情/语音/礼物…）全部作废
       if (parsed.silent === true && !opts.proactive && !contMode) {
@@ -4391,6 +4419,44 @@ function App() {
       endLane("c:" + charId);
     }
   };
+  // CC 工具结果是异步的：云端完成后先作为隐藏系统事实落进同一私聊，
+  // 再让 App 里的同一个言秋自然消化并接话。job_id 去重，刷新/断网可续。
+  useEffect(() => {
+    if (!loaded || !window.YanqiuCcTools || !window.Cloud) return;
+    if (!ccToolManagerRef.current) {
+      try { ccToolManagerRef.current = window.YanqiuCcTools.createManager({ storage: localStorage, cloud: window.Cloud }); }
+      catch (e) { return; }
+    }
+    let stopped = false, timer = null;
+    const resuming = new Set();
+    const tick = async () => {
+      if (stopped || document.visibilityState === "hidden") return;
+      try {
+        const completed = await ccToolManagerRef.current.poll();
+        for (const item of completed) {
+          if (stopped || resuming.has(item.jobId)) continue;
+          resuming.add(item.jobId);
+          const payload = item.status === "completed"
+            ? { ok: true, tool: item.toolName, result: item.result }
+            : { ok: false, tool: item.toolName, error: item.error || "CC 工具任务失败" };
+          pChat(item.charId, rows => rows.some(m => m && m.ccToolJobId === item.jobId) ? rows : [...rows, {
+            role: "system", kind: "system", ccToolResult: true,
+            ccToolJobId: item.jobId, ccToolResultData: payload,
+            content: "（CC 只读工具结果已返回）", ts: Date.now(), read: true,
+            turnId: "cc_tool_" + item.jobId
+          }]);
+          const replied = await replyNow(item.charId, "", null, { ccToolResume: true });
+          if (replied) ccToolManagerRef.current.markDelivered(item.jobId);
+          resuming.delete(item.jobId);
+        }
+      } catch (e) {/* 未登录、离线或表未部署：任务留在本机，下次继续。 */}
+    };
+    const schedule = () => { if (!stopped) { clearTimeout(timer); timer = setTimeout(async () => { await tick(); schedule(); }, 6000); } };
+    tick(); schedule();
+    const onFocus = () => tick();
+    window.addEventListener("focus", onFocus);
+    return () => { stopped = true; clearTimeout(timer); window.removeEventListener("focus", onFocus); };
+  }, [loaded]);
   // OOC：跳出角色直接问模型（调整/问状态）。my ooc + system 回复都不进角色扮演上下文。
   const oocReply = async (charId, text) => {
     if (laneBusy("c:" + charId) || !text || !text.trim()) return;
