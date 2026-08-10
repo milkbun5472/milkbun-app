@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lisa.yanqiu-cc-bridge</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Library/Frameworks/Python.framework/Versions/3.14/bin/python3</string>
+    <string>/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/bridge.py</string>
+    <string>cloud-worker</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/launchd.err.log</string>
+</dict>
+</plist>

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -21,6 +22,12 @@ RUNTIME = Path(
     os.environ.get(
         "YANQIU_WAKE_STATE_DIR",
         "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-wake",
+    )
+)
+CC_BRIDGE = Path(
+    os.environ.get(
+        "YANQIU_CC_BRIDGE",
+        "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/bridge.py",
     )
 )
 # The relay is on Desktop/iCloud. Runtime bookkeeping must survive a relay
@@ -41,6 +48,7 @@ SOURCES = {
     "voice": BASE / "voice_inbox.jsonl",
     "heartbeat": BASE / "wake_inbox.jsonl",
     "lounge": BASE / "wake" / "yanqiu" / "inbox.jsonl",
+    "app_tool": RUNTIME / "app_tool_inbox.jsonl",
 }
 DEFAULT_HEARTBEAT_PROMPT = (
     "自由活动时间到了。若 Lisa 有新消息就正常接话；没有新消息时，"
@@ -324,7 +332,17 @@ def serve_watchdog() -> None:
     """
     while True:
         try:
-            watchdog()
+            # Transcript files can live behind Desktop/iCloud. A synchronous
+            # stat/read may then block forever without raising, leaving the
+            # launchd process "running" while its clock has stopped. Isolate
+            # every poll so the supervisor always regains control.
+            subprocess.run(
+                [sys.executable, str(Path(__file__).resolve()), "watchdog"],
+                check=False,
+                timeout=8,
+            )
+        except subprocess.TimeoutExpired:
+            print("watchdog poll timed out", file=sys.stderr, flush=True)
         except Exception as error:  # The next poll is safer than a dead clock.
             print(f"watchdog poll failed: {error}", file=sys.stderr, flush=True)
         time.sleep(WATCHDOG_POLL_SECONDS)
@@ -377,7 +395,7 @@ def enqueue_heartbeat() -> None:
     )
 
 
-def wait_for_one() -> None:
+def wait_for_one(expected_session_id: str = "") -> None:
     while True:
         state = load_state()
         for name, path in SOURCES.items():
@@ -389,6 +407,15 @@ def wait_for_one() -> None:
                 save_state(state)
             if pending <= cursor:
                 continue
+            if name == "app_tool":
+                pinned = Path(str(load_watchdog().get("session_file", ""))).stem
+                if not pinned or (expected_session_id and expected_session_id != pinned):
+                    continue
+                # Backward-compatible re-arm for Yanqiu's already-open old
+                # window: the legacy command has no argument. It may adopt
+                # only the heartbeat-pinned session, never a recent/guessed
+                # transcript and never a newly launched Claude process.
+                expected_session_id = pinned
             line = read_line(path, cursor)
             if line is None:
                 continue
@@ -406,7 +433,36 @@ def wait_for_one() -> None:
                     "record_at": record.get("at"),
                 },
             )
-            if name == "heartbeat":
+            if name == "app_tool":
+                try:
+                    claimed = subprocess.run(
+                        [sys.executable, str(CC_BRIDGE), "claim", expected_session_id],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    job = json.loads(claimed.stdout or "{}")
+                except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+                    state[name] = cursor
+                    save_state(state)
+                    print(f"app tool claim failed: {error}", file=sys.stderr, flush=True)
+                    time.sleep(2)
+                    continue
+                if not job:
+                    continue
+                print(
+                    json.dumps(
+                        {
+                            "wake_source": "app_tool",
+                            "instruction": "这是 Lisa 从 App 交给同一个言秋的只读 CC 工具任务。只执行指定工具；完成后调用 complete_yanqiu_cc_read 回执，再自然回复 Lisa。不得创建或续接其他 CC session。",
+                            "job": job,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    flush=True,
+                )
+            elif name == "heartbeat":
                 # Heartbeats are presented as natural activity permission.
                 # Ignore even an older queued prompt: internal metadata,
                 # shell paths and legacy wording stay out of model context.
@@ -436,7 +492,7 @@ def main() -> None:
     elif command == "status":
         status()
     elif command == "wait":
-        wait_for_one()
+        wait_for_one(sys.argv[2] if len(sys.argv) > 2 else "")
     else:
         raise SystemExit(
             "usage: wake_queue.py [init|enqueue-heartbeat|watchdog|serve|status|wait]"
