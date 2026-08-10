@@ -149,6 +149,7 @@ function CastForm({
   const [tz, setTz] = useState(initial && initial.tz != null ? String(initial.tz) : "");
   const [appearance, setAppearance] = useState(initial && initial.appearance || "");
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
+  const [photoStyle, setPhotoStyle] = useState(initial && initial.photoStyle || "realistic");
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
   const [voiceId, setVoiceId] = useState(initial && initial.voiceId || "");
   const save = () => {
@@ -164,6 +165,7 @@ function CastForm({
       tz: tz,
       appearance: appearance.trim(),
       refPhoto: refPhoto,
+      photoStyle: photoStyle,
       birthday: birthday.trim(),
       voiceId: voiceId.trim(),
       remark: initial && initial.remark || ""
@@ -279,6 +281,10 @@ function CastForm({
       h("div", { className: "flex items-center gap-3 mb-2" },
         h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张参考照(可选)固定长相；接了图像 API 后，TA 聊天里会偶尔发照片（自拍／别人给 TA 拍的／和你的合照）")),
+      h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, [
+        ["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]
+      ].map(o => h("button", { key: o[0], type: "button", onClick: () => setPhotoStyle(o[0]), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 10px", borderRadius: 999, background: photoStyle === o[0] ? t.ink : t.bg2, color: photoStyle === o[0] ? t.bg2 : t.sub, border: "1px solid " + t.line } }, o[1]))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6, lineHeight: 1.5 } }, photoStyle === "reference" ? "沿用参考图本身的画风；二次元不会被转成真人。" : photoStyle === "anime" ? "固定生成 2D 动画／插画风，不做真人化。" : "固定生成真人生活照；这是现有角色的默认效果。"),
       h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相/发型/身材/气质/常穿风格……越具体，照片越像本人。" }))),
   h(LineField, { zh: "音色 · 语音消息用", en: "Voice" },
     h("div", null,
