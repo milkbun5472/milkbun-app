@@ -6063,8 +6063,8 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
       isMe
         ? h("h1", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontWeight: 500, fontSize: 38, lineHeight: 1.1, color: t.ink, marginTop: 14 } }, entry.title || "无题手记")
         : h(Fragment, null,
-            h("h1", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontWeight: 500, fontSize: 42, lineHeight: 1.05, color: t.ink, marginTop: 14 } }, entry.titleEn || "Untitled"),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.fog, letterSpacing: "0.28em", marginTop: 12 } }, entry.titleZh || "")),
+            h("h1", { style: { fontFamily: F_DISPLAY, fontStyle: !!entry.titleEn, fontWeight: 500, fontSize: entry.titleEn ? 42 : 30, lineHeight: 1.08, color: t.ink, marginTop: 14 } }, entry.titleEn || entry.titleZh || dateStr),
+            entry.titleEn && entry.titleZh ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.fog, letterSpacing: "0.28em", marginTop: 12 } }, entry.titleZh) : null),
       // 元数据卡
       h("div", { className: "mt-8 px-4 pt-1 pb-2", style: { border: `1px solid ${t.line}`, borderRadius: 4, position: "relative" } },
         h("span", { style: { position: "absolute", top: -8, left: 12, fontSize: 16, color: t.fog, background: t.bg2, padding: "0 4px", lineHeight: 1 } }, "+"),
@@ -6091,7 +6091,7 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
               }
             }, p.text);
           }),
-          (char && char.name) ? h("div", { style: { marginTop: 22, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 19, color: t.sub, textAlign: "right" } }, "— " + char.name) : null)),
+          entry.signature ? h("div", { style: { marginTop: 22, fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 19, color: t.sub, textAlign: "right" } }, entry.signature) : null)),
       // 角色评论（只在「我的日记」显示）
       isMe && h("div", { className: "mt-12" },
         h("div", { className: "flex items-baseline justify-between mb-1" },
@@ -6356,7 +6356,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         list.map((e, i) => {
           const d = new Date(e.ts);
           const mon = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
-          const titleMain = isMe ? (e.title || "无题手记") : (e.titleEn || "Untitled");
+          const titleMain = isMe ? (e.title || "无题手记") : (e.titleEn || e.titleZh || (d.getMonth() + 1) + "/" + d.getDate());
           return h("div", {
             key: e.id, onClick: () => { setCurEntry(e.id); setView("entry"); },
             className: "flex gap-5 py-7 active:opacity-70",

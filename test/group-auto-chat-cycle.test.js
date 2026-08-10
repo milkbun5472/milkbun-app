@@ -35,6 +35,6 @@ test("不必盯着群聊页也能自发，并由既有群消息路径挂未读",
 });
 
 test("app 与组件缓存版本同步", () => {
-  assert.match(index, /components\.js\?v=51\.64/);
-  assert.match(index, /app\.js\?v=51\.64/);
+  assert.match(index, /components\.js\?v=51\.94/);
+  assert.match(index, /app\.js\?v=51\.94/);
 });

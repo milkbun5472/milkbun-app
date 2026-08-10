@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.93";
+const APP_VERSION = "v51.94";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5602,6 +5602,9 @@ function App() {
       }, { fromTs: ds, untilTs: de, limit: 0, userName: profile.name || "用户", charName: char.name }) : [];
       const clock = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
       const dayChatText = dayRows.map(r => "[" + clock(r.ts) + "]【" + r.source + "】" + r.speaker + "：" + r.text).join("\n");
+      // 单独抽出角色本人当天说过的话做声纹锚点：事件材料告诉模型「写什么」，原话样本告诉模型「这个人怎么写」。
+      // 只取本人、不混用户和群友；封顶 12 条避免贵线 prompt 膨胀。
+      const diaryVoiceSamples = dayRows.filter(r => String(r.speaker || "") === String(char.name || "") && String(r.text || "").trim()).slice(-12).map(r => String(r.text).trim());
       // 上一篇日记（目标日之前最近的一篇）——喂给模型当「别重复」参照
       const prevD = (diariesRef.current[charId] || []).filter(e => (e.ts || 0) < targetTs).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
       const prevDiary = prevD ? ((prevD.titleZh || prevD.titleEn || "") + "｜" + (prevD.paras || []).map(p => p.text).join(" ").slice(0, 220)) : "";
@@ -5611,12 +5614,12 @@ function App() {
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
       // 日记归入线下创作线路；角色专线仍最高优先（如小克接 Fable），无专线才回退全局线下主 API。
-      const d = await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, digital: !!settingsFor(charId).engineerEyes });
+      const d = await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
         no: Math.floor(Math.random() * 9000) + 1000,
-        titleEn: d.titleEn || "Untitled",
+        titleEn: d.titleEn || "",
         titleZh: d.titleZh || "",
         location: d.location || "",
         coords: d.coords && d.coords !== "null" ? d.coords : null,
