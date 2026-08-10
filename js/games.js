@@ -1839,26 +1839,61 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 3500 });
     return extractJSON(raw) || { npcs: [] };
   }
-  const TD_GENERIC = "题目可以【贴人设定制】，也可以是【经典款真心话 / 大冒险或其变体】（真心话如：最近一次心动 / 手机最近一张照片 / 最丢脸的事 / 给在场某人打分 / 最想删掉的记忆 / 偷偷喜欢过谁；大冒险如：模仿在场某人 / 给某人发一条消息 / 用夸张语气念一句话 / 和左手边的人对视十秒 / 学一种动物叫）。两类混着来、每轮换花样，别老一个路数。";
+  const TD_PROMPT_HISTORY = "tod_prompt_history_v1"; // 跨新局保留题目去重，不随「弃掉本局」清空
+  const TD_THEMES = ["现场互动", "荒诞脑洞", "限时二选一", "价值冲突", "即兴表演", "模仿挑战", "消息任务", "反向角色扮演", "观察力挑战", "创意表达", "临场社交", "小型技能挑战"];
+  function loadTDPromptHistory() { try { const x = JSON.parse(localStorage.getItem(TD_PROMPT_HISTORY) || "[]"); return Array.isArray(x) ? x : []; } catch (e) { return []; } }
+  function rememberTDPrompt(choice, prompt) {
+    const p = String(prompt || "").trim(); if (!p) return;
+    const all = loadTDPromptHistory().filter(function (x) { return x && x.prompt !== p; });
+    all.push({ choice: choice, prompt: p.slice(0, 300), ts: Date.now() });
+    try { localStorage.setItem(TD_PROMPT_HISTORY, JSON.stringify(all.slice(-120))); } catch (e) {}
+  }
+  function tdRoundPlan(log, targetName, forcedChoice) {
+    const rounds = (log || []).filter(function (x) { return x && x.type === "td"; });
+    let choice = forcedChoice;
+    if (!choice) {
+      const recent = rounds.slice(-2).map(function (x) { return x.choice; });
+      const own = rounds.filter(function (x) { return x.name === targetName; }).slice(-2).map(function (x) { return x.choice; });
+      if (recent.length >= 2 && recent.every(function (x) { return x !== "大冒险"; })) choice = "大冒险";
+      else if (recent.length >= 2 && recent.every(function (x) { return x === "大冒险"; })) choice = "真心话";
+      else if (own.length >= 2 && own[0] === own[1]) choice = own[0] === "大冒险" ? "真心话" : "大冒险";
+      else {
+        const last6 = rounds.slice(-6), dares = last6.filter(function (x) { return x.choice === "大冒险"; }).length;
+        choice = dares < last6.length / 2 ? "大冒险" : (dares > last6.length / 2 ? "真心话" : (Math.random() < 0.5 ? "真心话" : "大冒险"));
+      }
+    }
+    const old = loadTDPromptHistory();
+    const theme = TD_THEMES[old.length % TD_THEMES.length];
+    const avoid = old.slice(-24).map(function (x) { return "· " + x.choice + "：" + x.prompt; }).join("\n");
+    return { choice: choice, theme: theme, avoid: avoid };
+  }
+  const TD_GENERIC = "【新鲜度铁律】人设只决定出题口吻和完成方式，不许每轮都从人设档案里问职业、过去、性格、喜欢谁、最丢脸或最心动这类基础采访题。优先利用本轮指定主题做一个以前没出现过的新玩法；与历史题目换几个词但核心相同也算重复。真心话可以用假设困境、现场观察、即时选择、价值取舍和对刚才局面的判断；大冒险必须是当场能演出来的具体行动，可用语音/文字/模仿/即兴表演/与在场某人互动，不能只让 TA『说一件往事』冒充大冒险。";
   // AI 被指到：出题人由外部（JS 轮换）指定，避免总是同一个人问
-  async function genTDForAI(api, target, asker, mode, hot, memText) {
+  async function genTDForAI(api, target, asker, mode, hot, memText, plan) {
     const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可以暧昧 / 大胆一点，什么都可以问，挖出角色最深的欲望。" : "保持轻松好玩、朋友聚会的尺度。";
     const easy = mode === "easy" ? "整体轻松、别太为难人。" : "";
     const sys = AC + TD_IC + "\n\n你在主持一局「真心话大冒险」。这一轮由【" + askerName + "】给【" + target.name + "】出题，两人都要严格贴人设。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场一起起哄）") +
       "\n被指到的 " + target.name + "（完整人设）：\n" + tdDesc(target) +
       (memText ? "\n\n【之前发生过的（可以拿来玩梗 / 追问，但别硬凑）】\n" + memText : "") +
-      "\n\n完整演出这一轮：\n1. choice：" + target.name + " 选「真心话」还是「大冒险」（按 TA 性格，别每次都一样）。\n2. prompt：" + askerName + " 出的题，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + easy +
+      "\n\n【本轮节奏已锁定】choice 必须是【" + plan.choice + "】，题型主题必须是【" + plan.theme + "】。" + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
+      "\n\n完整演出这一轮：\n1. choice：只填【" + plan.choice + "】，不要自行改成另一类。\n2. prompt：" + askerName + " 出的题，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + easy +
       "\n3. response：" + target.name + " 怎么回应 / 完成，带 TA 的语气小动作、贴人设，写足 3~5 句、别草收。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"prompt\":\"\",\"response\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 6000 });
-    return extractJSON(raw) || {};
+    let raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 6000 });
+    let out = extractJSON(raw) || {};
+    if (out.choice !== plan.choice) {
+      raw = await callRetry(api, sys, [{ role: "user", content: "上一版违反了锁定题型：本轮必须是【" + plan.choice + "】，不能用另一类内容换个标签。请重新输出完整 JSON，prompt 和 response 都必须真正属于 " + plan.choice + "。" }], { maxTokens: 6000 });
+      out = extractJSON(raw) || out;
+    }
+    return out;
   }
   // 用户被指到并选了 真话/大冒险：出题人也由 JS 指定，只生成题目
-  async function genTDPrompt(api, choice, asker, hot, mode, memText) {
+  async function genTDPrompt(api, choice, asker, hot, mode, memText, plan) {
     const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
     const sys = AC + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
+      "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
       "\n只输出 JSON：{\"prompt\":\"\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 4000 });
@@ -1973,9 +2008,12 @@
       setBusy(true);
       try {
         const asker = pickAsker(tgt.name);
-        const r = await genTDForAI(api, tgt, asker, cfg.mode, hot, tdMemoryText(logDataRef.current));
-        pushLog([{ type: "td", name: tgt.name, choice: r.choice || "真心话", asker: asker ? asker.name : "大家", prompt: r.prompt || "", response: r.response || "" }]);
-        await roundChat({ name: tgt.name, choice: r.choice || "真心话", prompt: r.prompt || "", response: r.response || "" });
+        const plan = tdRoundPlan(logDataRef.current, tgt.name, null);
+        const r = await genTDForAI(api, tgt, asker, cfg.mode, hot, tdMemoryText(logDataRef.current), plan);
+        const choice = plan.choice; // 模型即使偷懒偏回真心话，也以节奏器锁定的类型为准
+        rememberTDPrompt(choice, r.prompt);
+        pushLog([{ type: "td", name: tgt.name, choice: choice, asker: asker ? asker.name : "大家", prompt: r.prompt || "", response: r.response || "" }]);
+        await roundChat({ name: tgt.name, choice: choice, prompt: r.prompt || "", response: r.response || "" });
         setPhase("idle");
       } catch (e) { props.toast && props.toast("出错：" + ((e && e.message) || "重试")); setPhase("idle"); }
       finally { setBusy(false); }
@@ -2012,7 +2050,9 @@
       setBusy(true); setPhase("userAnswer");
       const asker = pickAsker((props.profile && props.profile.name) || "你");
       try {
-        const r = await genTDPrompt(api, choice, asker, hot, cfg.mode, tdMemoryText(logDataRef.current));
+        const plan = tdRoundPlan(logDataRef.current, (props.profile && props.profile.name) || "你", choice);
+        const r = await genTDPrompt(api, choice, asker, hot, cfg.mode, tdMemoryText(logDataRef.current), plan);
+        rememberTDPrompt(choice, r.prompt);
         setUserPrompt({ choice: choice, asker: asker ? asker.name : "大家", prompt: r.prompt || (choice === "真心话" ? "说说你最近最上头的一件事。" : "学一个你最不擅长的动物叫。") });
       } catch (e) { props.toast && props.toast("出题出错：" + ((e && e.message) || "重试")); setUserPrompt({ choice: choice, asker: asker ? asker.name : "大家", prompt: choice === "真心话" ? "说一件你没跟人讲过的小事。" : "原地转三圈再坐下。" }); }
       finally { setBusy(false); }
