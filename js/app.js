@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v51.79";
+const APP_VERSION = "v51.80";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5610,8 +5610,8 @@ function App() {
       // 当天钱包流水（日常购物/转账/礼物）喂给日记当素材——日程/钱包/日记三联动的最后一环
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
-      // 日记跟随该角色的 API 线路（v48.36，她点名）：选了专属配置（如小克接 fable）就用那条写日记，没选自动回退主模型 active（不是便宜后台池）
-      const d = await generateDiary(apiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, digital: !!settingsFor(charId).engineerEyes });
+      // 日记归入线下创作线路；角色专线仍最高优先（如小克接 Fable），无专线才回退全局线下主 API。
+      const d = await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, digital: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
@@ -5685,7 +5685,7 @@ function App() {
         const prevSaid = (diariesRef.current.__me || []).filter(e => e.id !== entryId)
           .flatMap(e => (e.comments || []).filter(cm => cm.charId === cid).map(cm => cm.text)).filter(Boolean).slice(0, 2);
         let text;
-        try { text = await generateDiaryComment(active, leanWriteCtx(ctx), entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败"); continue; }
+        try { text = await generateDiaryComment(offlineApiFor(char.id), leanWriteCtx(ctx), entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败"); continue; }
         if (!text) continue;
         const comment = { id: "cm_" + Date.now() + "_" + cid, charId: cid, name: char.name, text, ts: Date.now() };
         setDiaries(p => {
@@ -9750,8 +9750,9 @@ function App() {
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "games") body = h(Games, {
-    active: active,
-    bgActive: bgActive,
+    // 小游戏需要规则推演与长程角色演绎，统一走线下创作线路。
+    active: offlineActive,
+    bgActive: offlineActive,
     characters: characters,
     profile: profile,
     worldbook: worldbook,
@@ -9761,7 +9762,8 @@ function App() {
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {
-    active: active,
+    // 同人文（含续章、书评、穿越互动）统一走线下创作线路。
+    active: offlineActive,
     characters: characters,
     profile: profile,
     groups: groups,
