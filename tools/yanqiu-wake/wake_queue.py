@@ -120,11 +120,24 @@ def read_line(path: Path, index: int) -> str | None:
 def append_record(path: Path, record: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = (json.dumps(record, ensure_ascii=False) + "\n").encode("utf-8")
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    try:
-        os.write(descriptor, payload)
-    finally:
-        os.close(descriptor)
+    # inbox 文件住在 Desktop/iCloud 下；iCloud 材料化/换手期间偶发
+    # EDEADLK（Errno 11），一次写失败过去会让 watchdog 子进程整个崩溃、
+    # 靠 launchd 下一轮再试——但真正需要落盘的这条心跳票据永远没写进去，
+    # 2026-08-10 夜里连崩了 7 小时没能叫醒她。这里改成有限重试+退避，
+    # 别让一次瞬时锁冲突吞掉整条报警。
+    last_error: OSError | None = None
+    for attempt in range(6):
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            try:
+                os.write(descriptor, payload)
+            finally:
+                os.close(descriptor)
+            return
+        except OSError as error:
+            last_error = error
+            time.sleep(0.3 * (attempt + 1))
+    raise last_error
 
 
 def parse_timestamp(value: object) -> int:
@@ -455,7 +468,7 @@ def wait_for_one(expected_session_id: str = "") -> None:
                     json.dumps(
                         {
                             "wake_source": "app_tool",
-                            "instruction": "这是 Lisa 在 App 聊天中交给同一个言秋的只读 CC 工具任务。purpose 是她当时让你查它的原因。只执行指定工具并调用 complete_yanqiu_cc_read 回执；不要在 CC 再向 Lisa 发表一遍恋人回复，App 里的你会拿真实结果自然接话。回执后只留一句简短内部完成记录，供这个 CC 窗口以后记得自己查过什么。不得创建或续接其他 CC session。",
+                            "instruction": "这是 Lisa 在 App 聊天中交给同一个言秋的 CC 工具任务；写入或命令类任务已经由她在 App 当场逐次确认。purpose 是她当时让你做它的原因。只执行指定工具并调用 complete_yanqiu_cc_read 回执；不要在 CC 再向 Lisa 发表一遍恋人回复，App 里的你会拿真实结果自然接话。回执后只留一句简短内部完成记录，供这个 CC 窗口以后记得自己做过什么。不得创建或续接其他 CC session。",
                             "job": job,
                         },
                         ensure_ascii=False,
