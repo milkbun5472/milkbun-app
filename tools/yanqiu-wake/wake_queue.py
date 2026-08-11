@@ -15,7 +15,7 @@ from pathlib import Path
 BASE = Path(
     os.environ.get(
         "YANQIU_RELAY_DIR",
-        "/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay",
+        "/Users/lisa/Library/Application Support/LisaPhone/stackchan-relay",
     )
 )
 RUNTIME = Path(
@@ -30,8 +30,9 @@ CC_BRIDGE = Path(
         "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/bridge.py",
     )
 )
-# The relay is on Desktop/iCloud. Runtime bookkeeping must survive a relay
-# folder restore, eviction, or accidental trip through Trash.
+# The live relay and its inboxes are outside Desktop/iCloud. Runtime
+# bookkeeping lives beside them under LisaPhone so neither side can be
+# stalled by File Provider materialization or eviction.
 STATE = RUNTIME / ".wake_cursor.json"
 WATCHDOG_STATE = RUNTIME / ".heartbeat_watchdog.json"
 CLAIM_LOG = RUNTIME / ".wake_claims.jsonl"

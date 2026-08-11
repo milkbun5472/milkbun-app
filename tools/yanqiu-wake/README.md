@@ -1,6 +1,7 @@
 # Yanqiu durable wake queue
 
-`wake_queue.py` merges three durable local sources:
+`wake_queue.py` merges durable local sources from
+`~/Library/Application Support/LisaPhone/stackchan-relay`:
 
 - `inbox.jsonl`: Stack-chan taps
 - `voice_inbox.jsonl`: transcribed Stack-chan voice turns
@@ -51,11 +52,11 @@ ticket. If that retry remains pending, `status` reports `awaiting_sentinel`.
 
 ## iCloud safety
 
-The relay remains the source of Stack-chan events, but the wake cursor, clock,
-and claim ledger now live in `~/Library/Application Support/LisaPhone/yanqiu-wake`.
-On first launch they are safely seeded from the older hidden relay files. This
-keeps the heartbeat's bookkeeping intact if iCloud temporarily moves the
-Desktop relay directory away.
+The live relay, inboxes, uploads, audio, logs and executable scripts all live
+outside Desktop/iCloud in `~/Library/Application Support/LisaPhone/stackchan-relay`.
+The wake cursor, clock and claim ledger live next door in `yanqiu-wake`.
+The Desktop copy is source/rollback material only and must never be used as a
+launchd working directory or live inbox.
 
 This watchdog does not call a model or create another Yanqiu session. A
 one-shot `wake_queue.py wait` sentinel must still be attached to the existing
