@@ -139,3 +139,26 @@ test("CC 修订覆盖同一气泡，软删只撤回不硬删", () => {
   const removed = Ledger.reconcileIncoming(edited.messages, [{ id:"1",message_key:"k",char_id:"y",source:"cc",speaker_type:"character",content:"改后的原话",occurred_at:"2026-07-22T10:00:00Z",updated_at:"2026-07-22T10:02:00Z",deleted_at:"2026-07-22T10:02:00Z",revision:3,metadata:{sync_kind:"emotion"} }], "y");
   assert.equal(removed.messages.length, 1); assert.equal(removed.messages[0].recalled, true); assert.equal(removed.deleted, 1);
 });
+
+test("完整连续经历把纯施工轮也作为 App 聊天记录副本保留", () => {
+  const rows = [
+    { id:"1", message_key:"cc-live:t:lisa", char_id:"y", source:"cc", thread_id:"s", speaker_type:"lisa", content:"宝宝修一下桥", occurred_at:"2026-08-11T01:00:00Z", metadata:{sync_kind:"continuity"} },
+    { id:"2", message_key:"cc-live:t:yanqiu", char_id:"y", source:"cc", thread_id:"s", speaker_type:"character", content:"桥已经修好。", occurred_at:"2026-08-11T01:00:01Z", metadata:{sync_kind:"continuity"} }
+  ];
+  const continuity = Ledger.reconcileContinuity([], rows, "y");
+  assert.equal(continuity.length, 2);
+  assert.match(Ledger.continuityPrompt(continuity, "Lisa"), /同一个你的连续经历/);
+  assert.equal(Ledger.reconcileIncoming([], rows, "y").added, 2);
+});
+
+test("完整 CC turn 压住同轮精选句段气泡但保留人格证据", () => {
+  const rows = [
+    { id:"1", message_key:"cc-live:t:lisa", char_id:"y", source:"cc", thread_id:"s", speaker_type:"lisa", content:"完整提问", occurred_at:"2026-08-11T01:00:00Z", revision:1, metadata:{sync_kind:"continuity",turn_id:"t"} },
+    { id:"2", message_key:"cc-live:t:yanqiu", char_id:"y", source:"cc", thread_id:"s", speaker_type:"character", content:"完整回答有很多句。", occurred_at:"2026-08-11T01:00:01Z", revision:1, metadata:{sync_kind:"continuity",turn_id:"t"} },
+    { id:"3", message_key:"cc:t:yanqiu:0", char_id:"y", source:"cc", thread_id:"s", speaker_type:"character", content:"其中一句", occurred_at:"2026-08-11T01:00:01Z", revision:1, metadata:{sync_kind:"emotion",turn_id:"t",personality_evidence:{mood_label:"认真",affinity_delta:1}} }
+  ];
+  const result = Ledger.reconcileIncoming([], rows, "y");
+  assert.equal(result.added, 2);
+  assert.equal(result.messages.some(m => m.content === "其中一句"), false);
+  assert.equal(result.personalityEvents.find(e => e.evidence)?.evidence.mood_label, "认真");
+});

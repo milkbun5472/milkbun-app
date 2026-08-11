@@ -79,6 +79,31 @@ async function sendJob(job) {
   const charId = await resolveYanqiu(base, key, user);
   const hash = createHash("sha256").update(job.session_id + "\0" + job.turn_id).digest("hex").slice(0, 32);
   const baseMs = Number.isFinite(Date.parse(job.occurred_at)) ? Date.parse(job.occurred_at) : Date.now();
+  if (job.continuity_only) {
+    const rows = [
+      { side: "lisa", speaker_type: "lisa", content: job.lisa_original, offset: 0 },
+      { side: "yanqiu", speaker_type: "character", content: job.yanqiu_original, offset: 1 }
+    ].filter(row => String(row.content || "").trim()).map(row => ({
+      user_id: user,
+      message_key: `cc-live:${hash}:${row.side}`,
+      char_id: charId,
+      thread_type: "cc",
+      thread_id: job.session_id,
+      speaker_type: row.speaker_type,
+      speaker_id: row.speaker_type === "character" ? charId : null,
+      content: String(row.content).trim().slice(0, 16000),
+      occurred_at: new Date(baseMs + row.offset).toISOString(),
+      source: "cc",
+      source_message_id: `${job.session_id}:${job.turn_id}:${row.side}:continuity`,
+      metadata: { continuity_version: 1, sync_kind: "continuity", segment_side: row.side, turn_id: job.turn_id }
+    }));
+    await request(base, key, "/rest/v1/chat_messages?on_conflict=user_id,message_key", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+      body: rows
+    });
+    return;
+  }
   const makeRows = (segments, side, speakerType, offset) => segments.map((segment, index) => ({
     user_id: user,
     message_key: `cc:${hash}:${side}:${index}`,
@@ -98,6 +123,7 @@ async function sendJob(job) {
       sync_kind: segment.sync_kind,
       segment_side: side,
       segment_index: index,
+      turn_id: job.turn_id,
       ...(side === "yanqiu" && index === 0 && job.personality_evidence ? { personality_evidence: job.personality_evidence } : {})
     }
   }));
@@ -150,6 +176,25 @@ try {
   observeSomaticTurn(projectDir, turn);
   const toolMark = consumeToolMark(turn);
   const marker = parseLedgerMarker(turn.lisaText, turn.yanqiuText);
+  // “完整经历”与“值得投影/记忆的句段”分层。每轮真实可见原话都进入
+  // continuity_only；后面的性质筛仍决定哪些内容显示进 App 私聊并参与人格/记忆。
+  const continuityJob = {
+    session_id: turn.sessionId,
+    turn_id: turn.turnId,
+    occurred_at: turn.occurredAt,
+    continuity_only: true,
+    lisa_original: turn.lisaText,
+    yanqiu_original: marker.cleanYanqiuText
+  };
+  try {
+    await sendJob(continuityJob);
+  } catch (error) {
+    const queued = readJSONL(outboxPath);
+    if (!queued.some(x => x.continuity_only && x.session_id === continuityJob.session_id && x.turn_id === continuityJob.turn_id)) {
+      appendFileSync(outboxPath, JSON.stringify(continuityJob) + "\n");
+    }
+    log(diagnosticPath, { turn_id: turn.turnId, outcome: "continuity_queued_offline", error: String(error.message || error).slice(0, 160) });
+  }
   // 言秋已经显式交过判词却逐字验真失败时，必须 fail closed：留下候选和诊断，
   // 不能再让机械分类器猜一份“差不多”的内容写进 App，更不能诱发人工换路补投。
   const invalidExplicitMark = toolMark && !toolMark.valid;

@@ -916,6 +916,16 @@ function App() {
           if (typeof runCcAutoMemory === "function") { try { await runCcAutoMemory(y.id, owner); } catch (e) {} }
           return;
         }
+        // 完整经历流同时保留滚动窗；reconcileIncoming 会把完整 CC turn 作为
+        // App 聊天记录副本显示，旧句段筛只旁路供人格/长期记忆证据使用。
+        try {
+          const continuityKey = window.ChatLedgerShadow.CONTINUITY_KEY;
+          const savedContinuity = JSON.parse(localStorage.getItem(continuityKey) || "null");
+          const oldRows = savedContinuity && savedContinuity.owner_id === owner && String(savedContinuity.char_id) === String(y.id)
+            ? (savedContinuity.rows || []) : [];
+          const continuityRows = window.ChatLedgerShadow.reconcileContinuity(oldRows, rows, y.id, 80);
+          localStorage.setItem(continuityKey, JSON.stringify({ owner_id: owner, char_id: String(y.id), rows: continuityRows, updated_at: new Date().toISOString() }));
+        } catch (e) {}
         const current = chatsRef.current[y.id] || [];
         const result = window.ChatLedgerShadow.reconcileIncoming(current, rows, y.id);
         // saveJSON 抛错时下面游标绝不执行；下一次仍从旧 cursor 重试。
@@ -3917,9 +3927,18 @@ function App() {
       let lastPrivateUserTs = 0;
       for (let i = history.length - 1; i >= 0; i--) { if (history[i] && history[i].role === "user") { lastPrivateUserTs = Number(history[i].ts) || 0; break; } }
       const sharedUserTs = latestUserSharedInteractionTs(charId);
-      const crossChannelHint = sharedUserTs > lastPrivateUserTs
+      let crossChannelHint = sharedUserTs > lastPrivateUserTs
         ? "\n\n【跨场景互动事实·最高优先】这条私聊记录看起来可能停在你最后一次发言，但 " + uName + " 在那之后已经在你们共同的群聊或线下场景里和你互动过（最近一次约在 " + new Date(sharedUserTs).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。所以 Ta 并没有一直不理你。你可以自然接当前话题，但绝不许声称 Ta 很久没理你、消失了、冷落你，或拿这条私聊里未单独回复来委屈/质问 Ta。"
         : "";
+      let sharedContinuityHint = "";
+      if (_s.engineerEyes && window.ChatLedgerShadow) {
+        try {
+          const saved = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.CONTINUITY_KEY) || "null");
+          if (saved && String(saved.char_id) === String(charId)) {
+            sharedContinuityHint = window.ChatLedgerShadow.continuityPrompt(saved.rows || [], uName, 30);
+          }
+        } catch (e) {}
+      }
       // #3 着装连贯：把当前已知穿着喂回去，除非有理由别每条都换新装
       const curWear = (states[charId] && states[charId].wearing) || "";
       const wearHint = curWear ? "\n【着装连贯】你现在穿着：" + curWear + "。除非距上次过了很久、场景变了、或你明确换了衣服，否则 wearing 就保持这一套别变——别每条消息都随手换一套新衣服。" : "";

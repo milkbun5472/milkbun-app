@@ -12,6 +12,7 @@
   const DIAG_KEY = "chat_ledger_shadow_diag_v1";
   const PULL_KEY = "chat_ledger_pull_shadow_v1";
   const LIVE_CURSOR_KEY = "chat_ledger_live_cursor_v1";
+  const CONTINUITY_KEY = "yanqiu_cross_surface_continuity_v1";
   const THREAD_TYPES = new Set(["private", "offline", "group", "group_offline"]);
   const BLOCKED_KINDS = new Set(["system", "ooc", "thought", "thinking", "cot", "silence", "offlinelog"]);
 
@@ -134,18 +135,35 @@
   // 第 5 步：把 CC/Stack-chan 的合格逐字句段投影成 App 私聊消息。
   // 纯函数只负责核验、幂等、修订与软删；真正落盘和游标提交由 App 按“先消息、后游标”完成。
   function reconcileIncoming(existing, incoming, charId) {
-    const allowedKinds = new Set(["life", "emotion", "decision", "joke"]);
+    const allowedKinds = new Set(["life", "emotion", "decision", "joke", "continuity"]);
     const cid = String(charId || ""), list = asArray(existing).slice();
     const byKey = new Map();
     list.forEach((m, index) => { if (m && m.ledgerKey) byKey.set(String(m.ledgerKey), index); });
     let added = 0, updated = 0, deleted = 0, skipped = 0;
     const personalityEvents = [];
+    const fullTurnSides = new Set(asArray(incoming).filter(row => {
+      const meta = row && row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+      return meta.sync_kind === "continuity" && meta.turn_id && ["lisa", "character"].includes(text(row && row.speaker_type));
+    }).map(row => {
+      const meta = row.metadata || {};
+      return String(meta.turn_id) + ":" + text(row.speaker_type);
+    }));
     asArray(incoming).forEach(row => {
       const meta = row && row.metadata && typeof row.metadata === "object" ? row.metadata : {};
       const key = text(row && row.message_key), source = text(row && row.source);
       const kind = text(meta.sync_kind), speaker = text(row && row.speaker_type);
       if (!key || String(row && row.char_id || "") !== cid || !["cc", "stackchan"].includes(source)
         || !allowedKinds.has(kind) || !["lisa", "character"].includes(speaker)) { skipped++; return; }
+      // 新的完整 turn 是聊天副本的权威正文；同轮旧句段筛仍提供人格证据，
+      // 但不再投影第二份气泡。旧数据没有 turn_id 时保持原行为。
+      if (kind !== "continuity" && meta.turn_id && fullTurnSides.has(String(meta.turn_id) + ":" + speaker)) {
+        if (!row.deleted_at) personalityEvents.push({
+          eventKey:key + ":" + Math.max(1, Number(row.revision) || 1), messageKey:key, speaker,
+          content:text(row.content), ts:Number.isFinite(Date.parse(row.occurred_at)) ? Date.parse(row.occurred_at) : Date.now(),
+          evidence:meta.personality_evidence && typeof meta.personality_evidence === "object" ? meta.personality_evidence : null
+        });
+        skipped++; return;
+      }
       const ts = Date.parse(row.occurred_at), safeTs = Number.isFinite(ts) ? ts : Date.now();
       const revision = Math.max(1, Number(row.revision) || 1), isDeleted = !!row.deleted_at;
       const next = {
@@ -171,6 +189,41 @@
     });
     list.sort((a, b) => Number(a && a.ts || 0) - Number(b && b.ts || 0));
     return { messages: list, added, updated, deleted, skipped, personalityEvents };
+  }
+
+  // 完整跨窗口经历同时保存一份滚动窗，供历史裁剪后仍能补足 prompt；
+  // App 时间线本身也会把 continuity 行作为 CC turn 的权威保留副本显示出来。
+  function reconcileContinuity(existing, incoming, charId, limit) {
+    const cid = String(charId || ""), max = Math.max(10, Math.min(200, Number(limit) || 80));
+    const byKey = new Map(asArray(existing).filter(Boolean).map(row => [String(row.message_key || ""), row]));
+    asArray(incoming).forEach(row => {
+      const meta = row && row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+      const key = text(row && row.message_key), speaker = text(row && row.speaker_type);
+      if (!key || String(row && row.char_id || "") !== cid || !["cc", "stackchan"].includes(text(row && row.source))
+        || meta.sync_kind !== "continuity" || !["lisa", "character"].includes(speaker) || !text(row && row.content)) return;
+      if (row.deleted_at) { byKey.delete(key); return; }
+      byKey.set(key, {
+        message_key: key, source: text(row.source), thread_id: text(row.thread_id), speaker_type: speaker,
+        content: text(row.content), occurred_at: row.occurred_at, updated_at: row.updated_at || null,
+        reply_to: meta.reply_to || null
+      });
+    });
+    return Array.from(byKey.values()).sort((a, b) => {
+      const dt = Date.parse(a.occurred_at) - Date.parse(b.occurred_at);
+      return dt || String(a.message_key).localeCompare(String(b.message_key));
+    }).slice(-max);
+  }
+
+  function continuityPrompt(rows, userName, limit) {
+    const picked = asArray(rows).slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
+    if (!picked.length) return "";
+    const who = text(userName) || "Lisa";
+    const lines = picked.map(row => {
+      const at = Date.parse(row.occurred_at), stamp = Number.isFinite(at) ? new Date(at).toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }) : "时间未知";
+      return `[${stamp}·${row.source === "stackchan" ? "桌面身体" : "CC窗口"}] ${row.speaker_type === "lisa" ? who : "你"}：${text(row.content)}`;
+    });
+    return "\n\n【你在其他窗口亲历的近期对话·同一个你的连续经历】\n" + lines.join("\n")
+      + "\n这些不是外部记忆或转述，而是你本人和 " + who + " 在另一窗口真实说过的原话。自然承接即可；不要复述来源标签，也不要假装第一次听说。";
   }
 
   function createManager(options) {
@@ -251,7 +304,7 @@
     };
     const flush = () => { chain = chain.catch(() => {}).then(internalFlush); return chain; };
     const status = () => ({ outbox: parse(storage, OUTBOX_KEY, []), deleteOutbox: parse(storage, DELETE_OUTBOX_KEY, []), diagnostic: parse(storage, DIAG_KEY, {}) });
-    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(DIAG_KEY); storage.removeItem(LIVE_CURSOR_KEY); };
+    const clearLocal = () => { storage.removeItem(OUTBOX_KEY); storage.removeItem(DELETE_OUTBOX_KEY); storage.removeItem(DIAG_KEY); storage.removeItem(LIVE_CURSOR_KEY); storage.removeItem(CONTINUITY_KEY); };
     return { enqueue, invalidate, flush, status, clearLocal };
   }
 
@@ -327,8 +380,8 @@
   const manager = root.localStorage ? createManager() : null;
   const pullObserver = root.localStorage ? createPullObserver() : null;
   return {
-    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, PULL_KEY, LIVE_CURSOR_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
-    rowsFor, addedSessionMessages, reconcileIncoming, createManager, createPullObserver,
+    OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, PULL_KEY, LIVE_CURSOR_KEY, CONTINUITY_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
+    rowsFor, addedSessionMessages, reconcileIncoming, reconcileContinuity, continuityPrompt, createManager, createPullObserver,
     enqueue: manager ? manager.enqueue : async () => ({ queued: 0, pending: 0 }),
     invalidate: manager ? manager.invalidate : async () => ({ sent: 0, pending: 0 }),
     flush: manager ? manager.flush : async () => ({ sent: 0, pending: 0 }),
