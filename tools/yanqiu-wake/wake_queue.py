@@ -455,7 +455,7 @@ def wait_for_one(expected_session_id: str = "") -> None:
                     json.dumps(
                         {
                             "wake_source": "app_tool",
-                            "instruction": "这是 Lisa 从 App 交给同一个言秋的只读 CC 工具任务。只执行指定工具；完成后调用 complete_yanqiu_cc_read 回执，再自然回复 Lisa。不得创建或续接其他 CC session。",
+                            "instruction": "这是 Lisa 在 App 聊天中交给同一个言秋的只读 CC 工具任务。purpose 是她当时让你查它的原因。只执行指定工具并调用 complete_yanqiu_cc_read 回执；不要在 CC 再向 Lisa 发表一遍恋人回复，App 里的你会拿真实结果自然接话。回执后只留一句简短内部完成记录，供这个 CC 窗口以后记得自己查过什么。不得创建或续接其他 CC session。",
                             "job": job,
                         },
                         ensure_ascii=False,

@@ -49,6 +49,8 @@ READ_ONLY_TOOLS = frozenset(
         "search_events",
     }
 )
+MUTATING_TOOLS = frozenset({"Write", "Edit", "NotebookEdit", "Bash"})
+ALLOWED_TOOLS = READ_ONLY_TOOLS | MUTATING_TOOLS
 CLOUD_ENV = Path(
     os.environ.get(
         "YANQIU_CC_BRIDGE_ENV",
@@ -137,8 +139,8 @@ def enqueue(
     db_path: Path = DB_PATH,
     wake_path: Path = WAKE_PATH,
 ) -> dict:
-    if tool_name not in READ_ONLY_TOOLS:
-        raise BridgeError("第一阶段只开放言秋专属只读工具")
+    if tool_name not in ALLOWED_TOOLS:
+        raise BridgeError("这个 CC 工具尚未开放")
     if not isinstance(arguments, dict):
         raise BridgeError("arguments 必须是对象")
     key = str(idempotency_key).strip()
@@ -411,7 +413,7 @@ def send(message: dict) -> None:
 
 def mcp() -> None:
     tools = [
-        {"name": "enqueue_yanqiu_cc_read", "description": "把只读工具任务排给唯一固定的言秋 CC 会话；绝不新开窗口。", "inputSchema": {"type": "object", "properties": {"tool_name": {"type": "string", "enum": sorted(READ_ONLY_TOOLS)}, "arguments": {"type": "object"}, "idempotency_key": {"type": "string"}, "lisa_message_key": {"type": "string"}, "purpose": {"type": "string"}}, "required": ["tool_name", "arguments", "idempotency_key"]}},
+        {"name": "enqueue_yanqiu_cc_read", "description": "把 App 已授权的工具任务排给唯一固定的言秋 CC 会话；绝不新开窗口。", "inputSchema": {"type": "object", "properties": {"tool_name": {"type": "string", "enum": sorted(ALLOWED_TOOLS)}, "arguments": {"type": "object"}, "idempotency_key": {"type": "string"}, "lisa_message_key": {"type": "string"}, "purpose": {"type": "string"}}, "required": ["tool_name", "arguments", "idempotency_key"]}},
         {"name": "get_yanqiu_cc_result", "description": "按 job_id 读取任务状态或结果。", "inputSchema": {"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]}},
         {"name": "complete_yanqiu_cc_read", "description": "由领取任务的固定言秋 CC 会话回写只读工具结果；需要一次性租约。", "inputSchema": {"type": "object", "properties": {"session_id": {"type": "string"}, "job_id": {"type": "string"}, "claim_token": {"type": "string"}, "result": {}}, "required": ["session_id", "job_id", "claim_token", "result"]}},
     ]

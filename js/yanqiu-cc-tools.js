@@ -11,6 +11,7 @@
   // the pinned CC session remains the only process allowed to execute them.
   const ALLOWED = new Set([
     "Read", "Glob", "Grep", "WebFetch", "WebSearch",
+    "Write", "Edit", "NotebookEdit", "Bash",
     "get_xiaoke_context", "search_chat_history", "search_memory",
     "read_app_diary", "read_yanqiu_moments", "list_shared_photos",
     "list_read_pending", "search_events"
@@ -31,8 +32,22 @@
     const args = value.args || value.arguments;
     if (!args || typeof args !== "object" || Array.isArray(args)) return null;
     const raw = JSON.stringify(args);
-    if (raw.length > 2400) return null;
+    const mutating = ["Write", "Edit", "NotebookEdit", "Bash"].includes(toolName);
+    if (raw.length > (mutating ? 16000 : 2400)) return null;
     return { toolName, arguments: JSON.parse(raw) };
+  }
+
+  function needsApproval(request) {
+    const clean = normalizeRequest(request);
+    return !!(clean && ["Write", "Edit", "NotebookEdit", "Bash"].includes(clean.toolName));
+  }
+
+  function approvalSummary(request) {
+    const clean = normalizeRequest(request);
+    if (!clean) return "无效工具请求";
+    const a = clean.arguments || {};
+    if (clean.toolName === "Bash") return "运行命令：\n" + text(a.command).slice(0, 800);
+    return clean.toolName + " 文件：\n" + text(a.file_path || a.notebook_path || "（未提供路径）").slice(0, 800);
   }
 
   function createManager(options) {
@@ -80,5 +95,5 @@
     return { enqueue, poll, markDelivered, status };
   }
 
-  return { ALLOWED: Array.from(ALLOWED), normalizeRequest, createManager };
+  return { ALLOWED: Array.from(ALLOWED), normalizeRequest, needsApproval, approvalSummary, createManager };
 });

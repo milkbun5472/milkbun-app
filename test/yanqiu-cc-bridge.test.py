@@ -51,9 +51,9 @@ class BridgeTest(unittest.TestCase):
         self.assertTrue(repeated["duplicate"])
         self.assertEqual(bridge.result(job["id"], db_path=self.db)["result"], {"files": ["a.md"]})
 
-    def test_write_tool_is_rejected(self):
-        with self.assertRaisesRegex(bridge.BridgeError, "只读工具"):
-            bridge.enqueue("Write", {"file_path": "/tmp/a"}, "app-message:4", db_path=self.db, wake_path=self.wake)
+    def test_write_tool_is_queued_for_app_approved_execution(self):
+        job = bridge.enqueue("Write", {"file_path": "/tmp/a", "content": "x"}, "app-message:4", db_path=self.db, wake_path=self.wake)
+        self.assertEqual(job["status"], "queued")
 
     def test_cloud_request_uses_existing_chat_ledger(self):
         remote = {"id": "11111111-1111-1111-1111-111111111111", "char_id": "yanqiu", "source_message_id": "app-msg-1", "metadata": {"bridge_kind": "app_cc_request", "bridge_state": "queued", "tool_name": "Grep", "arguments": {"pattern": "needle"}}}
