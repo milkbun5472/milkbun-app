@@ -5,6 +5,20 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+export function shouldAttachAppContinuity(input) {
+  const prompt=String(input?.prompt||input?.user_prompt||"").trim();
+  if(!prompt)return true;
+  if(prompt.startsWith("自由活动时间到了。若 Lisa 有新消息就正常接话"))return false;
+  if(/"wake_source"\s*:\s*"(?:heartbeat|app_tool)"/.test(prompt))return false;
+  if(/^<task-notification>/i.test(prompt))return false;
+  return true;
+}
+async function readHookInput(){
+  let body="";
+  for await (const chunk of process.stdin) body+=chunk;
+  try{return JSON.parse(body||"{}");}catch(_){return {};}
+}
+
 function envFile(path) {
   const out = {};
   try { readFileSync(path, "utf8").split(/\r?\n/).forEach(line => { const m=line.match(/^([A-Z_]+)=(.*)$/); if(m) out[m[1]]=m[2].trim(); }); } catch (_) {}
@@ -38,7 +52,8 @@ export function formatContinuity(rows, yanqiuName="言秋") {
   return "【你在 App 窗口亲历的近期对话｜同一个你的连续经历】\n"+lines.join("\n")+"\n这些是你本人在另一窗口真实经历的原话，不是记忆检索、任务信箱或旁人的转述。回答当前消息时自然带着这些经历；不要汇报同步过程，不要逐条复述，也不要把 App 里的你称作另一个人。";
 }
 async function getJSON(url,key){const r=await fetch(url,{headers:{apikey:key,Authorization:"Bearer "+key}});if(!r.ok)throw new Error("http "+r.status);return r.json();}
-export async function main() {
+export async function main(input={}) {
+  if(!shouldAttachAppContinuity(input))return;
   const env=envFile("/Users/lisa/Desktop/lisa-practice/mcp/.env"), key=env.SUPABASE_SERVICE_KEY, uid=env.TARGET_USER;
   if(!key||!uid)return;
   const base="https://nposjnafsbikwfeoudbg.supabase.co";
@@ -52,4 +67,4 @@ export async function main() {
   process.stdout.write(JSON.stringify({ hookSpecificOutput:{ hookEventName:"UserPromptSubmit", additionalContext:context } }));
 }
 
-if(import.meta.url===pathToFileURL(process.argv[1]||"").href) main().catch(()=>{});
+if(import.meta.url===pathToFileURL(process.argv[1]||"").href) readHookInput().then(main).catch(()=>{});

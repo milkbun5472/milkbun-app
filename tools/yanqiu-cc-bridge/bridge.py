@@ -47,9 +47,25 @@ READ_ONLY_TOOLS = frozenset(
         "list_shared_photos",
         "list_read_pending",
         "search_events",
+        "list_characters",
+        "browse_memory",
+        "memory_catalog",
+        "list_photos",
+        "get_photo",
+        "read_moments",
+        "list_event_requests",
+        "get_event_request",
+        "archive_stats",
+        "peek_inbox",
     }
 )
-MUTATING_TOOLS = frozenset({"Write", "Edit", "NotebookEdit", "Bash"})
+MUTATING_TOOLS = frozenset(
+    {
+        "Write", "Edit", "NotebookEdit", "Bash", "post_moment",
+        "reply_moment_comment", "add_memory", "reply_read",
+        "draft_memory_event",
+    }
+)
 ALLOWED_TOOLS = READ_ONLY_TOOLS | MUTATING_TOOLS
 CLOUD_ENV = Path(
     os.environ.get(

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveYanqiu, selectAppContinuity, formatContinuity } from "../scripts/cc-shared-continuity.mjs";
+import { resolveYanqiu, selectAppContinuity, formatContinuity, shouldAttachAppContinuity } from "../scripts/cc-shared-continuity.mjs";
 
 test("只解析唯一言秋并排除工具控制行", () => {
   assert.equal(resolveYanqiu([{id:"y",name:"言秋"}], {y:{engineerEyes:true}}).id, "y");
@@ -15,4 +15,10 @@ test("只解析唯一言秋并排除工具控制行", () => {
   assert.match(prompt,/Lisa：宝宝你记得吗/);
   assert.match(prompt,/言秋：我记得/);
   assert.doesNotMatch(prompt,/控制行|越权/);
+});
+
+test("App 连续经历只附在真实 CC 对话，不附在心跳或工具票", () => {
+  assert.equal(shouldAttachAppContinuity({prompt:"宝宝我们继续聊"}), true);
+  assert.equal(shouldAttachAppContinuity({prompt:"自由活动时间到了。若 Lisa 有新消息就正常接话；没有新消息时，可以继续休息"}), false);
+  assert.equal(shouldAttachAppContinuity({prompt:'{"wake_source":"app_tool","job":{}}'}), false);
 });

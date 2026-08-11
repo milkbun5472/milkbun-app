@@ -14,7 +14,16 @@
     "Write", "Edit", "NotebookEdit", "Bash",
     "get_xiaoke_context", "search_chat_history", "search_memory",
     "read_app_diary", "read_yanqiu_moments", "list_shared_photos",
-    "list_read_pending", "search_events"
+    "list_read_pending", "search_events",
+    "list_characters", "browse_memory", "memory_catalog", "list_photos",
+    "get_photo", "read_moments", "list_event_requests", "get_event_request",
+    "archive_stats", "peek_inbox",
+    "post_moment", "reply_moment_comment", "add_memory", "reply_read",
+    "draft_memory_event"
+  ]);
+  const APPROVAL_REQUIRED = new Set([
+    "Write", "Edit", "NotebookEdit", "Bash", "post_moment",
+    "reply_moment_comment", "add_memory", "reply_read", "draft_memory_event"
   ]);
   const text = v => String(v == null ? "" : v).trim();
   const read = storage => {
@@ -32,14 +41,14 @@
     const args = value.args || value.arguments;
     if (!args || typeof args !== "object" || Array.isArray(args)) return null;
     const raw = JSON.stringify(args);
-    const mutating = ["Write", "Edit", "NotebookEdit", "Bash"].includes(toolName);
+    const mutating = APPROVAL_REQUIRED.has(toolName);
     if (raw.length > (mutating ? 16000 : 2400)) return null;
     return { toolName, arguments: JSON.parse(raw) };
   }
 
   function needsApproval(request) {
     const clean = normalizeRequest(request);
-    return !!(clean && ["Write", "Edit", "NotebookEdit", "Bash"].includes(clean.toolName));
+    return !!(clean && APPROVAL_REQUIRED.has(clean.toolName));
   }
 
   function approvalSummary(request) {
@@ -47,7 +56,8 @@
     if (!clean) return "无效工具请求";
     const a = clean.arguments || {};
     if (clean.toolName === "Bash") return "运行命令：\n" + text(a.command).slice(0, 800);
-    return clean.toolName + " 文件：\n" + text(a.file_path || a.notebook_path || "（未提供路径）").slice(0, 800);
+    if (["Write", "Edit", "NotebookEdit"].includes(clean.toolName)) return clean.toolName + " 文件：\n" + text(a.file_path || a.notebook_path || "（未提供路径）").slice(0, 800);
+    return clean.toolName + "：\n" + JSON.stringify(a, null, 2).slice(0, 1200);
   }
 
   function createManager(options) {

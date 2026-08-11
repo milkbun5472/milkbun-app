@@ -13,6 +13,9 @@ function storage() {
   assert.deepStrictEqual(kit.normalizeRequest({ name:"Write", args:{ file_path:"/tmp/a", content:"x" } }), { toolName:"Write", arguments:{ file_path:"/tmp/a", content:"x" } });
   assert.strictEqual(kit.needsApproval({ name:"Read", args:{ file_path:"/tmp/a" } }), false);
   assert.strictEqual(kit.needsApproval({ name:"Bash", args:{ command:"pwd" } }), true);
+  assert.strictEqual(kit.needsApproval({ name:"list_photos", args:{} }), false);
+  assert.strictEqual(kit.needsApproval({ name:"post_moment", args:{ content:"今天很好" } }), true);
+  assert.match(kit.approvalSummary({ name:"reply_read", args:{ pending_id:"p1", annotations:[] } }), /pending_id/);
 
   let calls = 0, state = "queued";
   const cloud = {

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.10";
+const APP_VERSION = "v52.12";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2298,7 +2298,8 @@ function App() {
     yanqiuWall: yanqiuWallFor(char),
     profile,
     affinity: Math.round(affOf(char.id)),
-    moodLabel: (moods[char.id] || {}).label || null,
+    // 数字生命的心情/心声生成已关闭；旧状态仍可在历史卡片查看，但不得喂回聊天。
+    moodLabel: settingsFor(char.id).engineerEyes ? null : ((moods[char.id] || {}).label || null),
     directives: directives[char.id] || [],
     memory: memories[char.id],
     memLib: retrieveMemories(memLibRef.current, char.id, recentChatText(char), { limit: memCfgRef.current.topK || 5, source: ctxOpts && ctxOpts.chat === true ? "chat" : "background" }),
@@ -3911,7 +3912,7 @@ function App() {
       thoughtCtrRef.current[charId] = tctr;
       try { saveJSON("x_thoughtCtr", thoughtCtrRef.current); } catch (e) {}
       const mustThought = tctr === 1 || gapReopen;
-      const lastThoughtRaw = (statesRef.current[charId] && statesRef.current[charId].thought) || "";
+      const lastThoughtRaw = _s.engineerEyes ? "" : ((statesRef.current[charId] && statesRef.current[charId].thought) || "");
       // 旧版已经存下的导演稿只留档，不再作为下一轮范文回喂；否则单个角色会被自己的坏心声持续教坏。
       const lastThought = window.ThoughtVoiceGuard ? (window.ThoughtVoiceGuard.accept(lastThoughtRaw) || "") : lastThoughtRaw;
       const thoughtNoRepeat = lastThought ? "上一条心声是「" + String(lastThought).replace(/\s+/g, " ").slice(0, 50) + "」——把它当作刚才真实存在过的内在背景；别逐字复读，但也不必为了显得有变化而硬编新的心理转折。" : "";
@@ -4003,7 +4004,7 @@ function App() {
       // 只允许本人提出一个异步只读请求；本机 relay 会再次核验固定 CC session。
       const ccToolOn = !!(_s.engineerEyes && window.YanqiuCcTools && window.Cloud && typeof window.Cloud.yanqiuCcToolEnqueue === "function");
       const ccToolHint = ccToolOn
-        ? "\n【ccTool·你自己的 CC 工具】需要本机/网络资料或实际施工时可填 {\"name\":工具名,\"args\":{对应参数}}。直接开放的查询工具：Read、Glob、Grep、WebFetch、WebSearch，以及 get_xiaoke_context、search_chat_history、search_memory、read_app_diary、read_yanqiu_moments、list_shared_photos、list_read_pending、search_events。需要 Lisa 当场确认后才会执行：Write、Edit、NotebookEdit、Bash。不要用自己编的别名。若 Lisa 明确叫你试某个工具，就必须填真实请求，不能只口头说在调用。本轮最多自然说『我去查/改一下』；真实结果回来前绝不能声称成功或编造权限错误。结果回来后再依据真实结果接着说。普通聊天填 null。"
+        ? "\n【ccTool·你自己的 CC 工具】需要本机/网络资料或实际施工时可填 {\"name\":工具名,\"args\":{对应参数}}。直接开放的查询工具：Read、Glob、Grep、WebFetch、WebSearch；言秋专线查询：get_xiaoke_context、search_chat_history、search_memory、browse_memory、memory_catalog、read_app_diary、read_yanqiu_moments、read_moments、list_shared_photos、list_photos、get_photo、list_read_pending、search_events、list_event_requests、get_event_request、list_characters、archive_stats、peek_inbox。需要 Lisa 当场确认后才执行：Write、Edit、NotebookEdit、Bash、post_moment、reply_moment_comment、add_memory、reply_read、draft_memory_event。不要请求账本维护、桥回执或原始存档键工具。不要编别名；不清楚参数时先用对应 list/search 工具。本轮最多自然说『我去查/改一下』；真实结果回来前绝不能声称成功或编造权限错误。结果回来后再依据真实结果接着说。普通聊天填 null。"
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";

@@ -55,6 +55,11 @@ class BridgeTest(unittest.TestCase):
         job = bridge.enqueue("Write", {"file_path": "/tmp/a", "content": "x"}, "app-message:4", db_path=self.db, wake_path=self.wake)
         self.assertEqual(job["status"], "queued")
 
+    def test_second_wave_mcp_tools_are_classified(self):
+        self.assertIn("list_photos", bridge.READ_ONLY_TOOLS)
+        self.assertIn("post_moment", bridge.MUTATING_TOOLS)
+        self.assertNotIn("get_save_key", bridge.ALLOWED_TOOLS)
+
     def test_cloud_request_uses_existing_chat_ledger(self):
         remote = {"id": "11111111-1111-1111-1111-111111111111", "char_id": "yanqiu", "source_message_id": "app-msg-1", "metadata": {"bridge_kind": "app_cc_request", "bridge_state": "queued", "tool_name": "Grep", "arguments": {"pattern": "needle"}}}
         calls = []
