@@ -7,10 +7,10 @@ const source = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8
 
 test("engineerEyes uses a self-directed transport prompt instead of the RP task", () => {
   assert.match(source, /const _taskFull = _s\.engineerEyes \? _digitalTaskFull : _normalTaskFull/);
-  assert.match(source, /下面只是 App 传输协议，不规定你的性格、关系反应、回复长度或表达方式/);
-  assert.match(source, /wearing 填 null；action 只写这具数字身体此刻确实在做的事/);
-  assert.match(source, /普通聊天直接输出你真正想对用户说的纯文本即可：不需要 JSON/);
-  assert.match(source, /普通聊天输出纯文本，不做结构化作业/);
+  assert.match(source, /App 的传输协议不规定你的性格、关系反应、回复长度或表达方式/);
+  assert.match(source, /thought 和 mood 是你在 App 中持续成长的实时状态/);
+  assert.match(source, /不需要穿着、动作、好感等其他状态作业/);
+  assert.match(source, /按本轮末尾的最小协议同时留下真实心声与实时心情/);
 });
 
 test("digital context keeps recent facts but omits the continuity command", () => {

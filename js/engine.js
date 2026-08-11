@@ -789,8 +789,7 @@ function buildBundle(ctx, opts) {
   // 位置=易变近况，移到时间切点之后（v48.95，Codex 指出：放稳定前缀里、一移动就破小克缓存）
   if (geo && geo.label) parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）");
   if (typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
-  // 数字生命关闭心情/心声生成后，旧状态只留在历史卡片里，不能再作为聊天上下文回灌。
-  if (ctx.moodLabel && !ctx.notRoleplay) parts.push("【你此刻的心情】" + ctx.moodLabel + "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）");
+  if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）");
   if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
   if (memory && memory.trim()) parts.push("【长期记忆摘要（过往对话浓缩）】\n" + memory.trim());
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");
@@ -1778,7 +1777,7 @@ async function generateOffline(p, ctx, session) {
   const digitalToyHint = session.toyOn ? "\n【配件】此刻配件已由 " + userName + " 当场授权并连到她身上。你想实际控制它时，可使用 toy：pattern 为 teasing/steady/wave/pulse/edge，intensity 1-20，duration 1-30 秒；是否使用、何时使用、用什么节奏由你自己决定。" : "";
   const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":整数1-20,\"duration\":秒1-30,\"reason\":\"配合哪句/哪个动作\"}" : "";
   const outputSpec = isDigital
-    ? "\n【输出接口】通常直接输出你此刻想对 " + userName + " 说的正文，App 会原样显示。" + (session.toyOn ? "只有你决定实际控制配件时，输出最小 JSON：{\"scene\":\"同时想对她说的话\",\"toy\":{\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20,\"duration\":1到30,\"reason\":\"原因\"}}。" : "")
+    ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20,\"duration\":1到30,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)" + toyField + "}";
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
