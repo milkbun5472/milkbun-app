@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { MONO_BOARD, monoMove, monoNetWorth, monoAdvance, monoOwnsGroup, monoRent, monoGridPos, monoMigrateSave, monoMaxMoves, monoShouldFlush, monoCleanLogs } = require("../js/games.js");
+const { MONO_BOARD, monoMove, monoNetWorth, monoAdvance, monoOwnsGroup, monoRent, monoGridPos, monoMigrateSave, monoMaxMoves, monoShouldFlush, monoCleanLogs, monoAuctionCap, monoAuctionPlan } = require("../js/games.js");
 
 test("monopoly movement wraps and reports passing start", () => {
   assert.deepEqual(monoMove(38, 4), { pos: 2, passed: 1 });
@@ -58,6 +58,22 @@ test("model interaction batches routine events but flushes at important moments"
   assert.equal(monoShouldFlush(4, "买下一块地", false), true);
   assert.equal(monoShouldFlush(1, "有人破产", false), true);
   assert.equal(monoShouldFlush(1, "普通收租", true), true);
+  assert.equal(monoShouldFlush(1, "A经过竞价拍下春日街", false), true);
+});
+
+test("auction is deterministic, respects persona cash lines, and charges a real competing bid", () => {
+  const cautious = { key: "c", name: "谨慎型", cash: 900, skill: "谨慎稳健，现金安全线至少保留 $600" };
+  const bold = { key: "b", name: "进攻型", cash: 900, skill: "大胆激进，现金安全线 $150" };
+  const steady = { key: "s", name: "稳健型", cash: 900, skill: "现金安全线 $300" };
+  const tileIndex = 29;
+  assert.ok(monoAuctionCap(bold, MONO_BOARD[tileIndex], tileIndex, {}) > monoAuctionCap(cautious, MONO_BOARD[tileIndex], tileIndex, {}));
+  const a = monoAuctionPlan([cautious, bold, steady], {}, tileIndex, "nobody");
+  const b = monoAuctionPlan([cautious, bold, steady], {}, tileIndex, "nobody");
+  assert.deepEqual(a, b);
+  assert.ok(a.bidders.length >= 2);
+  assert.ok(a.bid >= a.floor);
+  assert.ok(a.bid <= a.bidders[0].cap);
+  assert.equal(a.winner.key, a.bidders[0].p.key);
 });
 
 test("old rule banners are removed without deleting real table conversation", () => {
