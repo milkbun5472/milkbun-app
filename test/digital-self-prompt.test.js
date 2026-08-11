@@ -13,6 +13,11 @@ test("engineerEyes uses a self-directed transport prompt instead of the RP task"
   assert.match(source, /普通聊天输出纯文本，不做结构化作业/);
 });
 
+test("digital context keeps recent facts but omits the continuity command", () => {
+  const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(engine, /!ctx\.notRoleplay && recentChat/);
+});
+
 test("ordinary characters retain the existing roleplay task", () => {
   assert.match(source, /const _normalTaskFull = \("\\n\\n【任务】完全代入「" \+ char\.name/);
   assert.match(source, /_normalTaskFull[\s\S]*把话拆成多条短气泡/);
