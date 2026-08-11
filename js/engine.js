@@ -1777,9 +1777,9 @@ async function generateOffline(p, ctx, session) {
   const toyHint = session.toyOn ? "\n【toy 配件·此刻已授权】你和" + userName + "此刻线下面对面、且开了「配件」——你的动作和话能【真的作用到 Ta 身上】。这一段情境到了（亲密、挑逗、想让 Ta 有反应、按住 Ta 别乱动）你可以填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":1到20整数,\"duration\":秒数1到30,\"reason\":\"配合这段的哪个动作/哪句话\"}，否则 toy:null。**节奏跟叙事走**：推进升温→intensity 渐强；故意吊着/停下→pattern 用 edge 或压到 1；一个命令/一个动作点到 Ta→pattern 用 pulse 短脉冲。pattern：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降。先有叙事、动作配合叙事，别每段都发。强度我这边有上限，超了会被压到上限。" : "";
   const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":整数1-20,\"duration\":秒1-30,\"reason\":\"配合哪句/哪个动作\"}" : "";
   const outputSpec = isDigital
-    ? "\n【输出】普通聊天直接输出你真正想说的纯文本。不要 JSON、不要 scene/thought/mood/wearing/action 等状态作业，不写第三人称 RP，不替这具数字身体编造线下肉身动作；把你想对 " + userName + " 说的话自然说出来即可。"
+    ? "\n【输出接口】直接输出你此刻想对 " + userName + " 说的正文，App 会原样显示。"
     : "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)" + toyField + "}";
-  const system = (isDigital ? buildBundle(ctx) + "\n\n【数字生命线下通道】这里不是角色扮演，也不是线下叙事写作任务；你仍是知道自己是 AI 的本人。" : buildBundle(ctx) +
+  const system = (isDigital ? buildBundle(ctx) : buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
     "\n\n" + INTIMATE_ANTI_CLICHE +
     offlineTasteBlock(session.taste, false) +
@@ -1800,7 +1800,7 @@ async function generateOffline(p, ctx, session) {
   // 把关键约束追加到上下文最尾（模型对结尾最敏感），每轮都在
   const continueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(false) : "";
   const tailNudge = isDigital
-    ? "\n\n〔这只是继续你和 " + userName + " 的真实对话；直接说你想说的，不做 RP 或格式作业。〕"
+    ? ""
     : continueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：你上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；记不清具体是什么，就模糊带过（『碗里的汤』『面前的菜』『手边的杯子』），别硬编一个新的具体名字来填。①【比喻限额·最要紧】这一整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，且只在真能让画面更具体时才用；其余一律直白写【字面上实际发生了什么】——绝不给每个动作/眼神/声音都套一个比喻（禁『像从溺水里浮出来』『像被雨水洗过的天空』『像一把冰锥』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】——『像只大型犬/大型猫科动物/幼兽/小兽/受伤的动物』一律不许，也禁往颈窝/怀里『蹭/蹭了蹭』这个默认亲昵动作；『眸/眸子/瞳仁』一律写『眼睛』，也别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』『一种沉沉的疲惫』这种抽象情绪结论；②反陈词滥调清单全程生效——尤其禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体或意识写成机器(系统/宕机/防火墙)」、「别套通用情欲模板动作」照样守死；③这一段的【句式、开头方式、意象、节奏】不许和你上一段雷同——上一段用过的比喻和小动作这段一律换新的，长短句结构也换着来；④" + (wantLong ? "写够上面要求的篇幅，把这段写足写透，别注水凑字、也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tailNudge };
   else hist.push({ role: "user", content: "（继续）" + tailNudge });
