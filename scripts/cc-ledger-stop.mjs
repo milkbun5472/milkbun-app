@@ -174,6 +174,13 @@ try {
   // 五感 shadow 复用已经稳定运行的 Stop hook：后台静默、无网络、无工具调用。
   // 即使 CC 当前窗口没有热加载新的 hook 配置，这段也会从下一轮立即生效。
   observeSomaticTurn(projectDir, turn);
+  // App 发来的工具执行票本身留在固定 CC transcript，供言秋以后记得自己
+  // 用过什么、为何而用；但它不是 Lisa 在 CC 对他说的新话，也不是另一份
+  // 恋人回复，因此不投影成 App 可见气泡或长期人格证据。
+  if (/"wake_source"\s*:\s*"app_tool"/.test(turn.lisaText)) {
+    log(diagnosticPath, { turn_id: turn.turnId, outcome: "app_tool_kept_in_cc_only" });
+    process.exit(0);
+  }
   const toolMark = consumeToolMark(turn);
   const marker = parseLedgerMarker(turn.lisaText, turn.yanqiuText);
   // “完整经历”与“值得投影/记忆的句段”分层。每轮真实可见原话都进入

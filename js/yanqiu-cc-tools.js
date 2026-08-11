@@ -45,15 +45,17 @@
       const clean = normalizeRequest(request);
       if (!clean) throw new Error("言秋请求了未开放或无效的 CC 工具");
       const key = "app-cc:" + text(meta.charId) + ":" + text(meta.turnId);
+      const purpose = text(meta.purpose).slice(0, 1200);
       const remote = await cloud.yanqiuCcToolEnqueue(
         text(meta.charId), clean.toolName, clean.arguments, key,
-        meta.lisaMessageKey ? text(meta.lisaMessageKey) : null
+        meta.lisaMessageKey ? text(meta.lisaMessageKey) : null,
+        purpose || null
       );
       if (!remote || !remote.id) throw new Error("CC 工具任务未入队");
       const rows = read(storage);
       if (!rows.some(x => x.jobId === remote.id)) rows.push({
         jobId: remote.id, charId: text(meta.charId), turnId: text(meta.turnId),
-        toolName: clean.toolName, lisaMessageKey: meta.lisaMessageKey || null,
+        toolName: clean.toolName, purpose: purpose || null, lisaMessageKey: meta.lisaMessageKey || null,
         createdAt: Date.now(), delivered: false
       });
       write(storage, rows);

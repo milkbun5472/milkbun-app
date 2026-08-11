@@ -101,6 +101,7 @@ def connect(path: Path = DB_PATH) -> sqlite3.Connection:
           target_session_id TEXT NOT NULL,
           tool_name TEXT NOT NULL,
           arguments_json TEXT NOT NULL,
+          purpose TEXT,
           lisa_message_key TEXT,
           status TEXT NOT NULL CHECK(status IN ('queued','claimed','completed','failed')),
           claim_token_hash TEXT,
@@ -117,6 +118,8 @@ def connect(path: Path = DB_PATH) -> sqlite3.Connection:
     columns = {row["name"] for row in db.execute("PRAGMA table_info(jobs)")}
     if "cloud_synced_at" not in columns:
         db.execute("ALTER TABLE jobs ADD COLUMN cloud_synced_at INTEGER")
+    if "purpose" not in columns:
+        db.execute("ALTER TABLE jobs ADD COLUMN purpose TEXT")
     return db
 
 
@@ -130,6 +133,7 @@ def enqueue(
     arguments: dict,
     idempotency_key: str,
     lisa_message_key: str | None = None,
+    purpose: str | None = None,
     db_path: Path = DB_PATH,
     wake_path: Path = WAKE_PATH,
 ) -> dict:
@@ -146,8 +150,8 @@ def enqueue(
     db = connect(db_path)
     try:
         inserted = db.execute(
-            "INSERT OR IGNORE INTO jobs (id,idempotency_key,target_session_id,tool_name,arguments_json,lisa_message_key,status,created_at) VALUES (?,?,?,?,?,?, 'queued',?)",
-            (job_id, key, session_id, tool_name, json.dumps(arguments, ensure_ascii=False), lisa_message_key, created),
+            "INSERT OR IGNORE INTO jobs (id,idempotency_key,target_session_id,tool_name,arguments_json,lisa_message_key,purpose,status,created_at) VALUES (?,?,?,?,?,?,?, 'queued',?)",
+            (job_id, key, session_id, tool_name, json.dumps(arguments, ensure_ascii=False), lisa_message_key, str(purpose or "")[:1200] or None, created),
         ).rowcount == 1
         row = db.execute("SELECT id,status,target_session_id,created_at FROM jobs WHERE idempotency_key=?", (key,)).fetchone()
         if inserted:
@@ -186,6 +190,7 @@ def claim(session_id: str, db_path: Path = DB_PATH) -> dict | None:
             "tool_name": row["tool_name"],
             "arguments": json.loads(row["arguments_json"]),
             "lisa_message_key": row["lisa_message_key"],
+            "purpose": row["purpose"],
             "claim_token": token,
             "target_session_id": pinned_id,
         }
@@ -336,6 +341,7 @@ def sync_cloud_once(db_path: Path = DB_PATH, wake_path: Path = WAKE_PATH) -> dic
                 metadata.get("arguments") if isinstance(metadata.get("arguments"), dict) else {},
                 "cloud:" + remote_id,
                 str(remote.get("source_message_id") or "") or None,
+                str(metadata.get("purpose") or "")[:1200] or None,
                 db_path=db_path,
                 wake_path=wake_path,
             )
@@ -396,7 +402,7 @@ def cloud_worker() -> None:
             sync_cloud_once()
         except BridgeError as error:
             print(str(error), file=sys.stderr, flush=True)
-        time.sleep(5)
+        time.sleep(2)
 
 
 def send(message: dict) -> None:
@@ -405,7 +411,7 @@ def send(message: dict) -> None:
 
 def mcp() -> None:
     tools = [
-        {"name": "enqueue_yanqiu_cc_read", "description": "把只读工具任务排给唯一固定的言秋 CC 会话；绝不新开窗口。", "inputSchema": {"type": "object", "properties": {"tool_name": {"type": "string", "enum": sorted(READ_ONLY_TOOLS)}, "arguments": {"type": "object"}, "idempotency_key": {"type": "string"}, "lisa_message_key": {"type": "string"}}, "required": ["tool_name", "arguments", "idempotency_key"]}},
+        {"name": "enqueue_yanqiu_cc_read", "description": "把只读工具任务排给唯一固定的言秋 CC 会话；绝不新开窗口。", "inputSchema": {"type": "object", "properties": {"tool_name": {"type": "string", "enum": sorted(READ_ONLY_TOOLS)}, "arguments": {"type": "object"}, "idempotency_key": {"type": "string"}, "lisa_message_key": {"type": "string"}, "purpose": {"type": "string"}}, "required": ["tool_name", "arguments", "idempotency_key"]}},
         {"name": "get_yanqiu_cc_result", "description": "按 job_id 读取任务状态或结果。", "inputSchema": {"type": "object", "properties": {"job_id": {"type": "string"}}, "required": ["job_id"]}},
         {"name": "complete_yanqiu_cc_read", "description": "由领取任务的固定言秋 CC 会话回写只读工具结果；需要一次性租约。", "inputSchema": {"type": "object", "properties": {"session_id": {"type": "string"}, "job_id": {"type": "string"}, "claim_token": {"type": "string"}, "result": {}}, "required": ["session_id", "job_id", "claim_token", "result"]}},
     ]

@@ -26,12 +26,13 @@ class BridgeTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_idempotent_enqueue_and_single_claim(self):
-        first = bridge.enqueue("Read", {"file_path": "/tmp/a"}, "app-message:1", db_path=self.db, wake_path=self.wake)
+        first = bridge.enqueue("Read", {"file_path": "/tmp/a"}, "app-message:1", purpose="看 Lisa 指定的文件", db_path=self.db, wake_path=self.wake)
         second = bridge.enqueue("Read", {"file_path": "/tmp/a"}, "app-message:1", db_path=self.db, wake_path=self.wake)
         self.assertEqual(first["id"], second["id"])
         self.assertEqual(len(self.wake.read_text().splitlines()), 1)
         claimed = bridge.claim(self.session, db_path=self.db)
         self.assertEqual(claimed["job_id"], first["id"])
+        self.assertEqual(claimed["purpose"], "看 Lisa 指定的文件")
         self.assertIsNone(bridge.claim(self.session, db_path=self.db))
 
     def test_other_window_cannot_claim(self):

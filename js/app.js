@@ -4198,6 +4198,7 @@ function App() {
           await ccToolManagerRef.current.enqueue({
             charId,
             turnId,
+            purpose: lastLisa && lastLisa.content || "",
             lisaMessageKey: lastLisa && (lastLisa.ledgerKey || lastLisa.mid || lastLisa.id || lastLisa.turnId) || null
           }, ccToolRequest);
           delivered = true;
@@ -4459,8 +4460,8 @@ function App() {
           if (stopped || resuming.has(item.jobId)) continue;
           resuming.add(item.jobId);
           const payload = item.status === "completed"
-            ? { ok: true, tool: item.toolName, result: item.result }
-            : { ok: false, tool: item.toolName, error: item.error || "CC 工具任务失败" };
+            ? { ok: true, tool: item.toolName, purpose: item.purpose || null, result: item.result }
+            : { ok: false, tool: item.toolName, purpose: item.purpose || null, error: item.error || "CC 工具任务失败" };
           pChat(item.charId, rows => rows.some(m => m && m.ccToolJobId === item.jobId) ? rows : [...rows, {
             role: "system", kind: "system", ccToolResult: true,
             ccToolJobId: item.jobId, ccToolResultData: payload,
@@ -4473,7 +4474,7 @@ function App() {
         }
       } catch (e) {/* 未登录、离线或表未部署：任务留在本机，下次继续。 */}
     };
-    const schedule = () => { if (!stopped) { clearTimeout(timer); timer = setTimeout(async () => { await tick(); schedule(); }, 6000); } };
+    const schedule = () => { if (!stopped) { clearTimeout(timer); timer = setTimeout(async () => { await tick(); schedule(); }, 2500); } };
     tick(); schedule();
     const onFocus = () => tick();
     window.addEventListener("focus", onFocus);

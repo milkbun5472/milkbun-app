@@ -284,7 +284,7 @@
     },
 
     // ---- App → 唯一言秋 CC 只读工具桥（异步、幂等）----
-    async yanqiuCcToolEnqueue(charId, toolName, args, idempotencyKey, lisaMessageKey) {
+    async yanqiuCcToolEnqueue(charId, toolName, args, idempotencyKey, lisaMessageKey, purpose) {
       if (!client) throw new Error("云服务未就绪");
       const user = await this.getUser();
       if (!user) throw new Error("未登录");
@@ -308,7 +308,8 @@
         metadata: {
           bridge_kind: "app_cc_request", bridge_state: "queued",
           tool_name: String(toolName || ""),
-          arguments: args && typeof args === "object" && !Array.isArray(args) ? args : {}
+          arguments: args && typeof args === "object" && !Array.isArray(args) ? args : {},
+          purpose: String(purpose || "").slice(0, 1200)
         }
       };
       const { data, error } = await client.from("chat_messages")

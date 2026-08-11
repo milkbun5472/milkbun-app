@@ -18,10 +18,11 @@ function storage() {
     async yanqiuCcToolResult() { return { id:"job-1", status:state, result:state === "completed" ? { text:"ok" } : null }; }
   };
   const mgr = kit.createManager({ storage:storage(), cloud });
-  await mgr.enqueue({ charId:"yanqiu", turnId:"turn-1" }, { name:"Grep", args:{ pattern:"x" } });
+  await mgr.enqueue({ charId:"yanqiu", turnId:"turn-1", purpose:"帮 Lisa 找针" }, { name:"Grep", args:{ pattern:"x" } });
   await mgr.enqueue({ charId:"yanqiu", turnId:"turn-1" }, { name:"Grep", args:{ pattern:"x" } });
   assert.strictEqual(calls, 2); // cloud idempotency owns retry; local tracking stays one row
   assert.strictEqual(mgr.status().length, 1);
+  assert.strictEqual(mgr.status()[0].purpose, "帮 Lisa 找针");
   assert.deepStrictEqual(await mgr.poll(), []);
   state = "completed";
   const done = await mgr.poll();
