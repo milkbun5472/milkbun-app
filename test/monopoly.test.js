@@ -94,3 +94,9 @@ test("mobile monopoly layout reserves space for roster and dialogue", () => {
   assert.match(src, /minHeight:55/);
   assert.match(src, /minHeight:110/);
 });
+
+test("auction controls read the live pending snapshot, not stale roster cash", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/games.js"), "utf8");
+  assert.match(src, /snapshot=Array\.isArray\(pending\.ps\)\?pending\.ps:players/);
+  assert.match(src, /bidLocked=!!busy\|\|!me\|\|me\.cash<pending\.ask/);
+});
