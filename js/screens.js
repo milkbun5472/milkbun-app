@@ -1001,6 +1001,7 @@ function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let 
 function fmtNum(n) { n = Number(n) || 0; if (n >= 10000) return (n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, "") + "万"; return String(n); }
 function forumAge(ts) { if (!ts) return "新人"; const d = Math.floor((Date.now() - ts) / 86400000); if (d < 30) return "吧龄 " + Math.max(d, 1) + " 天"; const mo = Math.floor(d / 30); if (mo < 12) return "吧龄 " + mo + " 个月"; return "吧龄 " + (d / 365).toFixed(1) + " 年"; }
 function NpcAvatar({ seed, size }) { const hh = forumHash(seed); const emo = FORUM_AV_EMOJI[hh % FORUM_AV_EMOJI.length]; return React.createElement("div", { style: { width: size, height: size, borderRadius: size / 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.5), background: `linear-gradient(135deg,hsl(${hh % 360},58%,60%),hsl(${(hh * 7) % 360},58%,48%))` } }, emo); }
+function AltAvatar({ seed, size }) { const hh = forumHash("alt:" + seed), emo = ["◐","◇","☾","✦","⌁","△","◎","♢"][hh % 8]; return React.createElement("div", { style: { width: size, height: size, borderRadius: size / 2, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * .42), color: "#fff", background: `linear-gradient(145deg,hsl(${250 + hh % 55},48%,38%),hsl(${(hh * 5) % 360},48%,55%))`, border: "2px solid rgba(255,255,255,.88)", boxShadow: "0 0 0 1px rgba(103,79,145,.45)" } }, emo, React.createElement("span", { style: { position: "absolute", right: -3, bottom: -2, minWidth: Math.max(15, Math.round(size * .36)), height: Math.max(12, Math.round(size * .3)), padding: "0 3px", borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", fontSize: Math.max(7, Math.round(size * .16)), fontWeight: 700, lineHeight: 1, color: "#fff", background: "#7355a6", border: "1.5px solid #fff" } }, "ALT")); }
 function Forum({
   characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onReplyFloor, onReplySub,
@@ -1015,6 +1016,7 @@ function Forum({
   const [open, setOpen] = useState(null);            // 打开的帖子
   const [profileId, setProfileId] = useState(null);  // 角色主页 charId（"me" 走 nav）
   const [npcProfile, setNpcProfile] = useState(null); // 普通网友公开足迹（不含匿名）
+  const [altProfile, setAltProfile] = useState(null); // 角色小号公开足迹；页面不暴露背后真身
   const [pmId, setPmId] = useState(null);            // 打开的私信会话
   const [pmText, setPmText] = useState("");
   const [fwd, setFwd] = useState(null);              // 转发中的帖子
@@ -1135,6 +1137,7 @@ function Forum({
   };
   const meChar = { name: (forumMe && forumMe.handle) || profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || "#7a6cf0" };
   useEffect(() => { if (profileId && profileId !== "me" && onEnsureCharMeta) { const c = charOf(profileId); if (c) onEnsureCharMeta(c); } }, [profileId]);
+  useEffect(() => { if (altProfile && altProfile.authorId && onEnsureCharMeta) { const c = charOf(altProfile.authorId); if (c) onEnsureCharMeta(c); } }, [altProfile && altProfile.authorId]);
   useEffect(() => {
     const markSeen = () => { try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} };
     markSeen();
@@ -1152,9 +1155,12 @@ function Forum({
   const chip = (b, sel, on) => h("button", { key: b, onClick: on, className: "px-3 py-1.5 active:opacity-70 whitespace-nowrap", style: { borderRadius: 999, background: sel ? t.ink : "transparent", color: sel ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5, border: sel ? "none" : `1px solid ${t.line}` } }, b);
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumLikes", JSON.stringify([...n])); } catch (e) {} return n; });
   const toggleBookmark = id => setBookmarked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
-  const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size })));
+  const isAlt = a => !!(a && a.authorType === "character_alt" && !a.anon);
+  const altFollowKey = a => "alt:" + String(a && a.authorId || "");
+  const avatarFor = (a, size, anon) => anon ? h(NpcAvatar, { seed: a.authorName, size: size }) : (isAlt(a) ? h(AltAvatar, { seed: a.authorHandle || a.authorName, size: size }) : (a.authorType === "character" ? h(Avatar, { character: charOf(a.authorId) || { name: a.authorName, color: "#8a8a8a" }, size: size, radius: size / 2 }) : (a.authorType === "me" ? h(Avatar, { character: meChar, size: size, radius: size / 2 }) : h(NpcAvatar, { seed: a.authorHandle || a.authorName, size: size }))));
   const nameOf = a => a.anon ? a.authorName : (a.authorType === "character" && charOf(a.authorId) ? charOf(a.authorId).name : (a.authorType === "me" ? meChar.name : a.authorName));
   const goProfile = id => { setProfileId(id); setOpen(null); };
+  const goAltProfile = a => { if (!isAlt(a) || !a.authorId) return; setAltProfile({ authorId: a.authorId, name: a.authorName || "小号", handle: a.authorHandle || a.authorName || "side" }); setOpen(null); };
   const goNpcProfile = a => { if (!a || a.anon || a.authorType !== "npc" || !a.authorId) return; setNpcProfile({ id: a.authorId, name: a.authorName || "网友", handle: a.authorHandle || a.authorName || "guest" }); setOpen(null); };
   const toggleNpcFollow = id => setNpcFollows(prev => {
     const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
@@ -1171,6 +1177,12 @@ function Forum({
     (posts || []).forEach(p => { add(p); (cmts[p.id] || []).forEach(f => { add(f); (f.replies || []).forEach(add); }); });
     return map;
   };
+  const knownAltProfiles = () => {
+    const map = new Map(), add = a => { if (isAlt(a) && a.authorId) { const key=altFollowKey(a); if(!map.has(key))map.set(key,{ key, authorId:a.authorId, name:a.authorName||"小号", handle:a.authorHandle||a.authorName||"side" }); } };
+    (posts || []).forEach(p => { add(p); (cmts[p.id] || []).forEach(f => { add(f); (f.replies || []).forEach(add); }); });
+    return map;
+  };
+  const followedPost = p => !p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (isAlt(p) && npcFollowSet.has(altFollowKey(p))) || (p.authorType === "npc" && npcFollowSet.has(p.authorId)));
   const publicNpcRelations = id => {
     try {
       const saved = JSON.parse(localStorage.getItem("x_forumNpcRelations") || "{}");
@@ -1184,11 +1196,13 @@ function Forum({
   // 角色和有公开 id 的网友头像都能点进主页；匿名身份仍不留可追踪足迹。
   const avatarBtn = (a, size, anon) => {
     const clickableChar = a.authorType === "character" && !anon && charOf(a.authorId);
+    const clickableAlt = isAlt(a) && !anon && a.authorId;
     const clickableNpc = a.authorType === "npc" && !anon && a.authorId;
-    return (clickableChar || clickableNpc)
-      ? h("div", { onClick: e => { e.stopPropagation(); clickableChar ? goProfile(a.authorId) : goNpcProfile(a); }, className: "cursor-pointer active:opacity-70", style: { flexShrink: 0 } }, avatarFor(a, size, anon))
+    return (clickableChar || clickableAlt || clickableNpc)
+      ? h("div", { onClick: e => { e.stopPropagation(); clickableChar ? goProfile(a.authorId) : (clickableAlt ? goAltProfile(a) : goNpcProfile(a)); }, className: "cursor-pointer active:opacity-70", style: { flexShrink: 0 } }, avatarFor(a, size, anon))
       : avatarFor(a, size, anon);
   };
+  const accountBadge = a => isAlt(a) ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#7355a6", background: "rgba(115,85,166,.11)", border: "1px solid rgba(115,85,166,.35)", borderRadius: 999, padding: "1px 6px" } }, "小号") : null;
 
   // ---- 帖子底部操作条 ----
   function actBar(p) {
@@ -1213,6 +1227,7 @@ function Forum({
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "flex items-center gap-1.5 flex-wrap" },
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, nameOf(p)),
+            accountBadge(p),
             !p.anon && h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "@" + (p.authorHandle || p.authorName)),
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "· " + timeAgo(p.ts)),
             showBoard && tag(p.board),
@@ -1232,13 +1247,15 @@ function Forum({
         avatarBtn(cm, 34),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { className: "flex items-center gap-1.5" },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: cm.authorType === "me" ? t.accent : (c ? t.tint : t.ink) } }, nm),
+            h("button", { onClick: () => { if(c)goProfile(c.id);else if(isAlt(cm))goAltProfile(cm);else goNpcProfile(cm); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: cm.authorType === "me" ? t.accent : (c ? t.tint : t.ink) } }, nm),
+            accountBadge(cm),
             !cm.anon && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "@" + (cm.authorHandle || cm.authorName)),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, cm.content),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             (cm.replies || []).map((r, j) => h("div", { key: j, style: { padding: "3px 0" } },
-              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? meChar.name : r.authorName)),
+              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? meChar.name : r.authorName)),
+              accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
               h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, r.content))),
@@ -1263,19 +1280,21 @@ function Forum({
     const loadingC = gen && gen.forumC === p.id;
     const moreC = gen && gen.forumMore === p.id;
     const c = (!p.anon && p.authorType === "character") ? charOf(p.authorId) : null;
+    const alt = isAlt(p);
     return h("div", { className: "flex-1 flex flex-col min-h-0" },
       h("div", { className: "flex-1 overflow-y-auto" },
         h("div", { className: "px-4 pt-4 pb-3", style: { borderBottom: `1px solid ${t.line}` } },
           h("div", { className: "flex gap-3" },
             avatarBtn(p, 44, p.anon),
-            h("button", { onClick: () => { if (c) goProfile(c.id); else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, nameOf(p), (c || (!p.anon && p.authorType === "npc" && p.authorId)) && " ›"),
+            h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
+              h("div", { className:"flex items-center gap-1.5", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, h("span",null,nameOf(p)+(c || alt || (!p.anon && p.authorType === "npc" && p.authorId) ? " ›":"")),accountBadge(p)),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts)))),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.3, color: t.ink, marginTop: 10 } }, p.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.7, color: t.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
           h("div", { className: "mt-3" }, tag(p.board)),
           actBar(p),
-          c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA")),
+          c && h("button", { onClick: () => onToggleFollow(c.id), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: flw.includes(c.id) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: flw.includes(c.id) ? t.bg2 : t.ink } }, flw.includes(c.id) ? "已关注" : "关注 TA"),
+          alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
         h("div", { className: "px-4 pt-3 pb-1 flex items-center justify-between" },
           h(Eyebrow, null, "全部回复 · " + (p.replyCount || 0)),
           h("button", { onClick: () => onMoreComments(p), disabled: moreC, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, moreC ? "生成中…" : "↻ 更多回复")),
@@ -1321,6 +1340,43 @@ function Forum({
         !isMe && h("button", { onClick: () => onGenCharPost(c, "日常吧"), disabled: gen && gen.forum === "char_" + c.id, className: "mt-3 px-3.5 py-1.5 active:opacity-70 disabled:opacity-40", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, gen && gen.forum === "char_" + c.id ? "发帖中…" : "＋ 让 TA 发一条")),
       mine.length === 0 && h(Empty, { text: isMe ? "你还没发过帖" : "TA 还没有公开发帖", sub: "匿名吧的帖子不会显示在这里" }),
       mine.map(p => postRow(p, true)));
+  }
+
+  // ---- 角色小号公开主页：只按该马甲汇总公开足迹，绝不显示背后角色真名 ----
+  function altProfileView() {
+    if (!altProfile) return null;
+    const identity={authorType:"character_alt",authorId:altProfile.authorId,authorName:altProfile.name,authorHandle:altProfile.handle}, key=altFollowKey(identity), owner=charOf(altProfile.authorId), meta=owner&&charMetaOf?charMetaOf(owner):{}, displayName=meta.altName||altProfile.name, displayHandle=meta.altHandle||altProfile.handle;
+    const authored=(posts||[]).filter(p=>forumVisible(p)&&!p.anon&&p.authorType==="character_alt"&&p.authorId===altProfile.authorId).sort((a,b)=>Number(b.ts||0)-Number(a.ts||0));
+    const traces=[];
+    (posts||[]).forEach(p=>(cmts[p.id]||[]).filter(forumVisible).forEach(f=>{
+      if(!f.anon&&f.authorType==="character_alt"&&f.authorId===altProfile.authorId)traces.push({id:"af:"+p.id+":"+f.id,post:p,text:f.content||"",ts:floorArrivedAt(f),kind:"回复"});
+      (f.replies||[]).forEach((r,j)=>{if(!r.anon&&r.authorType==="character_alt"&&r.authorId===altProfile.authorId)traces.push({id:"ar:"+p.id+":"+f.id+":"+j,post:p,text:r.content||"",ts:Number(r.ts||f.ts||0),kind:"楼中楼"});});
+    }));
+    traces.sort((a,b)=>b.ts-a.ts);
+    const following=npcFollowSet.has(key), latest=Math.max(Number(authored[0]&&authored[0].ts||0),Number(traces[0]&&traces[0].ts||0));
+    return h("div",{className:"flex-1 overflow-y-auto"},
+      h("div",{className:"px-4 pt-5 pb-4",style:{borderBottom:`1px solid ${t.line}`}},
+        h("div",{className:"flex items-start gap-3"},
+          h(AltAvatar,{seed:meta.altAvatarSeed||displayHandle,size:62}),
+          h("div",{className:"flex-1 min-w-0"},
+            h("div",{className:"flex items-center gap-2",style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},h("span",null,displayName),accountBadge(identity)),
+            h("div",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog}},"@"+displayHandle)),
+          h("button",{onClick:()=>toggleNpcFollow(key),className:"px-3.5 py-1.5 active:opacity-70",style:{borderRadius:999,background:following?t.ink:"transparent",border:`1px solid ${t.line}`,fontFamily:F_BODY,fontSize:12,color:following?t.bg2:t.ink}},following?"已关注":"关注")),
+        h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:10}},meta.altBio||"这个账号习惯把大号不方便说的话留在这里。"),
+        h("div",{className:"flex items-center gap-4 mt-3"},
+          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.fog}},forumAge(meta.altJoinTs)),
+          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink}},h("b",null,fmtNum(meta.altFollowing||0)),h("span",{style:{color:t.fog}}," 关注")),
+          h("span",{style:{fontFamily:F_BODY,fontSize:12.5,color:t.ink}},h("b",null,fmtNum(meta.altFollowers||0)),h("span",{style:{color:t.fog}}," 粉丝"))),
+        h("div",{style:{fontFamily:F_BODY,fontSize:11.5,lineHeight:1.55,color:"#7355a6",marginTop:10,padding:"8px 10px",borderRadius:10,background:"rgba(115,85,166,.08)",border:"1px solid rgba(115,85,166,.2)"}},"小号身份 · 与大号资料和公开足迹分开展示；主页不会揭示它属于谁。"),
+        latest>0&&h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:t.fog,marginTop:7}},"最近活跃 · "+timeAgo(latest))),
+      authored.length>0&&h(React.Fragment,null,h("div",{className:"px-4 pt-4 pb-1"},h(Eyebrow,null,"小号发帖 · "+authored.length)),authored.map(p=>postRow(p,true))),
+      authored.length===0&&h(Empty,{text:"这个小号还没有发过主帖",sub:"它在别人的楼里留下的回复仍会显示在下面"}),
+      h("div",{className:"px-4 pt-4 pb-1"},h(Eyebrow,null,"公开回帖足迹 · "+traces.length)),
+      traces.length===0&&h(Empty,{text:"暂时没有更多公开足迹",sub:"以后用这个小号回帖，记录会继续出现在这里"}),
+      traces.slice(0,80).map(x=>h("button",{key:x.id,onClick:()=>openPost(x.post),className:"w-full text-left px-4 py-3 active:opacity-70",style:{borderBottom:`1px solid ${t.line}`}},
+        h("div",{className:"flex items-center gap-2"},tag(x.kind),h("span",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog}},timeAgo(x.ts))),
+        h("div",{style:{fontFamily:F_BODY,fontSize:13.5,lineHeight:1.55,color:t.sub,marginTop:5}},x.text),
+        h("div",{className:"truncate",style:{fontFamily:F_BODY,fontSize:11,color:t.fog,marginTop:4}},"来自《"+(x.post.title||"帖子")+"》"))));
   }
 
   // ---- 常驻网友 / 一次性路人公开主页：只拼已有公开足迹，绝不读取私聊或角色记忆 ----
@@ -1418,7 +1474,7 @@ function Forum({
   function homeFeed() {
     let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || FORUM_BOARDS.includes(p.board)));
     if (tab === "收藏") arr = arr.filter(p => bookmarked.has(p.id));
-    else if (tab === "关注") arr = arr.filter(p => !p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId))));
+    else if (tab === "关注") arr = arr.filter(followedPost);
     else arr = arr.filter(p => p.board === tab);
     arr = arr.slice().sort((a, b) => {
       if (feedSort === "latest") return Number(b.ts || 0) - Number(a.ts || 0);
@@ -1453,9 +1509,10 @@ function Forum({
   }
 
   // ---- 主体分派 ----
-  const inSub = open || npcProfile || (profileId && profileId !== "me") || pmId;
+  const inSub = open || altProfile || npcProfile || (profileId && profileId !== "me") || pmId;
   let title = "论坛", bodyEl, backFn = null, rightEl = null;
   if (open) { title = "帖子"; bodyEl = detail(); backFn = () => { setOpen(null); setReplyTo(null); }; }
+  else if (altProfile) { title = "小号主页"; bodyEl = altProfileView(); backFn = () => setAltProfile(null); }
   else if (npcProfile) { title = "网友主页"; bodyEl = npcProfileView(); backFn = () => setNpcProfile(null); }
   else if (profileId && profileId !== "me") { title = "主页"; bodyEl = profileView(false); backFn = () => setProfileId(null); }
   else if (pmId) { title = ((pms || []).find(x => x.id === pmId) || {}).npcName || "私信"; bodyEl = pmThread(); backFn = () => setPmId(null); }
@@ -1471,7 +1528,7 @@ function Forum({
       h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, title),
       h("div", { className: "flex items-center gap-3.5" }, (!inSub) && h("button", { onClick: () => setSettingsOpen(true), className: "active:opacity-50" }, h(GConfig, { size: 18, color: t.ink })), rightEl)),
     (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: `1px solid ${t.line}` } }, [...FORUM_BOARDS, "关注", "收藏"].map(b => {
-      const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? (!p.anon && ((p.authorType === "character" && flw.includes(p.authorId)) || (p.authorType === "npc" && npcFollowSet.has(p.authorId)))) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
+      const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     })),
     (!inSub && nav === "home") && h("div", { className: "shrink-0 flex items-center gap-1.5 px-4 py-2", style: { borderBottom: `1px solid ${t.line}`, background: t.bg2 } },
@@ -1517,11 +1574,13 @@ function Forum({
     // 我关注的角色 + 公开网友目录，点进各自主页
     followListOpen && h(Sheet, { onClose: () => setFollowListOpen(false) },
       h(Eyebrow, { style: { marginBottom: 6 } }, "我关注的"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色与普通网友共用这张公开关注名单"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色、小号与普通网友共用这张公开关注名单；小号不会显示背后真身"),
       followedChars.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "去角色或网友主页点关注" }),
       h("div", { className: "space-y-1 max-h-80 overflow-y-auto" },
         followedChars.map(c => h("button", { key: c.id, onClick: () => { setFollowListOpen(false); goProfile(c.id); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "角色 · @" + ((charMetaOf ? charMetaOf(c) : {}).handle || c.name))), h(IChevR, { size: 16, color: t.fog }))),
-        npcFollows.map(id => knownNpcProfiles().get(id)).filter(Boolean).map(n => h("button", { key: n.id, onClick: () => { setFollowListOpen(false); setNpcProfile(n); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(NpcAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, n.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "网友 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))))));
+        npcFollows.map(id => knownAltProfiles().get(id) || knownNpcProfiles().get(id)).filter(Boolean).map(n => n.key
+          ? h("button", { key: n.key, onClick: () => { setFollowListOpen(false); setAltProfile({authorId:n.authorId,name:n.name,handle:n.handle}); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(AltAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { className:"flex items-center gap-1.5", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },h("span",null,n.name),accountBadge({authorType:"character_alt"})), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "小号 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))
+          : h("button", { key: n.id, onClick: () => { setFollowListOpen(false); setNpcProfile(n); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(NpcAvatar, { seed: n.handle || n.name, size: 36 }), h("div", { className: "flex-1 text-left min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, n.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "网友 · @" + n.handle)), h(IChevR, { size: 16, color: t.fog }))))));
 }
 
 // ============================================================

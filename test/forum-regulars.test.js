@@ -37,6 +37,27 @@ test("角色大号、固定小号与匿名身份是三条独立展示路径", ()
   assert.match(app, /identity=main（大号）、alt（固定小号）或 anonymous/);
 });
 
+test("角色小号拥有独立头像、主页、历史足迹与关注入口，但主页不泄露真身", () => {
+  assert.match(app, /altBio:/);
+  assert.match(app, /altAvatarSeed:/);
+  assert.match(app, /const priorAlt = .*authorType === "character_alt"/);
+  assert.match(screens, /function AltAvatar/);
+  assert.match(screens, /const \[altProfile, setAltProfile\]/);
+  assert.match(screens, /function altProfileView\(\)/);
+  assert.match(screens, /p\.authorType==="character_alt"&&p\.authorId===altProfile\.authorId/);
+  assert.match(screens, /f\.authorType==="character_alt"&&f\.authorId===altProfile\.authorId/);
+  assert.match(screens, /主页不会揭示它属于谁/);
+  assert.match(screens, /altFollowKey/);
+  assert.match(screens, /"alt:" \+ String\(a && a\.authorId/);
+  assert.match(screens, /accountBadge/);
+});
+
+test("角色能认出自己用小号或匿名身份留下的论坛足迹", () => {
+  assert.match(app, /p\.authorId === char\.id && isForumCharAuthor\(p\)/);
+  assert.match(app, /post\.authorType === "character_anon" && post\.authorId === toChar\.id/);
+  assert.match(app, /isForumCharAuthor\(f\) && f\.authorId === toChar\.id/);
+});
+
 test("角色主动论坛帖包含匿名周期，而不是只能靠刷新网友帖", () => {
   assert.match(app, /const forceAnon = myAutoPosts\.length >= 2/);
   assert.match(app, /const board = forceAnon \? "匿名吧"/);
@@ -148,7 +169,7 @@ test("关注流同时接纳角色与公开网友，并把网友关注持久化",
   assert.match(screens, /x_forumNpcFollows/);
   assert.match(screens, /toggleNpcFollow/);
   assert.match(screens, /p\.authorType === "npc" && npcFollowSet\.has\(p\.authorId\)/);
-  assert.match(screens, /角色与普通网友共用这张公开关注名单/);
+  assert.match(screens, /角色、小号与普通网友共用这张公开关注名单/);
   assert.match(screens, /const followedChars = .*flw\.includes\(c\.id\)/);
   assert.match(screens, /following: followedChars\.length \+ npcFollows\.length/);
   assert.match(screens, /following \? "已关注" : "关注"/);
