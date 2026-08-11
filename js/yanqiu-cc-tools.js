@@ -24,7 +24,9 @@
 
   function normalizeRequest(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-    const toolName = text(value.name || value.tool_name);
+    // 兼容已归一化的 {toolName,arguments}：app.js 先归一化再传给 enqueue，
+    // 只认 name/tool_name 会把每一个合法请求都误判成「未开放或无效」。
+    const toolName = text(value.name || value.tool_name || value.toolName);
     if (!ALLOWED.has(toolName)) return null;
     const args = value.args || value.arguments;
     if (!args || typeof args !== "object" || Array.isArray(args)) return null;
