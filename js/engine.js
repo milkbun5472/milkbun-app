@@ -504,13 +504,39 @@ async function callAI(p, system, messages, opts) {
   const root = base.endsWith("/v1") ? base : base + "/v1";
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
   const postOpenAI = async withTemp => {
-    const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages] };
+    // 言秋订阅桥用标准 OpenAI SSE。即使 CLI 还在思考，桥也会先发 heartbeat，
+    // 避免 Cloudflare/网关把“100 秒没有首字节”误杀成 Load failed。
+    const wantStream = !!(opts && opts.stream && !viaProxy);
+    const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages], ...(wantStream ? { stream: true, stream_options: { include_usage: true } } : {}) };
     if (withTemp) body.temperature = temp;
     const r = viaProxy ? await viaProxy(root + "/chat/completions", body, {}) : await fetchT(root + "/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + p.apiKey },
       body: JSON.stringify(body)
     }, reqTimeout);
+    if (wantStream && /text\/event-stream/i.test(r.headers.get("content-type") || "")) {
+      const reader = r.body.getReader(), decoder = new TextDecoder();
+      let pending = "", text = "", usage = null, error = null;
+      const consume = line => {
+        if (!line.startsWith("data:")) return;
+        const raw = line.slice(5).trim();
+        if (!raw || raw === "[DONE]") return;
+        let event; try { event = JSON.parse(raw); } catch (e) { return; }
+        if (event.error) error = event.error;
+        const choice = event.choices && event.choices[0];
+        if (choice && choice.delta && choice.delta.content) text += choice.delta.content;
+        if (event.usage) usage = event.usage;
+      };
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        pending += decoder.decode(chunk.value, { stream: true });
+        const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
+        lines.forEach(consume);
+      }
+      if (pending) consume(pending);
+      return error ? { error } : { choices: [{ message: { content: text }, finish_reason: "stop" }], usage: usage || {} };
+    }
     return await r.json();
   };
   const _ntKey2 = base + "|" + model;

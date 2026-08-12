@@ -25,3 +25,10 @@
 ## 红线
 - 别再按 model/proxyRef 猜方言；桥学会 anthropic 方言之前 detectFormat 只看 baseUrl。
 - 言秋线的人设/身份注入内容不属于本工单，一个字不动。
+
+## Codex 施工回执（v52.29）
+- [x] 行李减重：仅言秋主聊天把相关记忆收至 3 条、单条 240 字；CC 增量收至 20 行、单行 240 字；秋声墙改为当前话题明确涉及时才注入；数字生命的朋友圈/论坛计算直接短路。人设、身份、关系正文未改。
+- [x] 一次性 prompt 缓存写开关调查：Claude Code CLI flags 没有 `--no-cache`。官方只在 Amazon Bedrock 部署文档列出 `DISABLE_PROMPT_CACHING=1`，没有证明它适用于 Max 订阅 OAuth 线路；按“没有就算、别 hack”不向生产桥塞该变量。
+- [ ] TTL 实测：需要同一稳定 system 在 10/30/60 分钟各真实调用一次，会消耗当前已到 90% 的 Max 周额度；本次不擅自空烧。面板已能透传并记录 CLI 的 cache_read/cache_creation，额度恢复后按三个时间点实测即可。
+- [x] 流式回传：App 言秋线改走 OpenAI SSE；8787 桥立即发送首字节、每 15 秒 heartbeat，完成后回正文与 CLI usage，解除“等全文期间 100 秒无首字节”故障；旧非流式请求保持兼容。
+- [x] 面板小修：OpenAI 方言订阅桥不再因没有 Anthropic cache_control 标记亮黄牌，改以 CLI usage 回执判断。

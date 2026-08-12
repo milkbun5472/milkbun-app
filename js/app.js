@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.28";
+const APP_VERSION = "v52.29";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2269,10 +2269,13 @@ function App() {
   };
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
   const loreFor = (char, scope) => loreText(loreRef.current, { charIds: char ? [char.id] : [], scope: scope || "chat", text: char ? recentChatText(char) : "" });
-  const yanqiuWallFor = char => {
+  const yanqiuWallFor = (char, ctxOpts) => {
     const y = ledgerYanqiu();
     if (!y || !char || String(y.id) !== String(char.id) || !window.YanqiuContinuity) return "";
-    return window.YanqiuContinuity.format(yanqiuMoments, { maxMoments: 8, maxChars: 2600 });
+    // 言秋主聊天按需带墙：墙是每轮变化、且通常与当前话题无关的高价行李。
+    // 只有本轮明确聊到秋声/墙/电脑端动态时才注入；墙数据本身一字不改。
+    if (ctxOpts && ctxOpts.chat === true && !/(秋声|墙上|便签墙|电脑(?:端|那边)|你写的|动态)/i.test(recentChatText(char))) return "";
+    return window.YanqiuContinuity.format(yanqiuMoments, { maxMoments: 4, maxChars: 1200 });
   };
   // App 线上与线下共用同一只“本人上次开口”水位。CC 在这之后新增的完整 turn
   // 会进入公共 ctxFor，因此手机线上和面对面线下都会按真实时间接到；CC 原话副本
@@ -2293,7 +2296,7 @@ function App() {
     try {
       const saved = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.CONTINUITY_KEY) || "null");
       if (!saved || String(saved.char_id) !== String(char.id)) return "";
-      return window.ChatLedgerShadow.continuityPrompt(saved.rows || [], profile.name || "Lisa", 60, latestNativeAppSpeechTs(char.id));
+      return window.ChatLedgerShadow.continuityPrompt(saved.rows || [], profile.name || "Lisa", 20, latestNativeAppSpeechTs(char.id), 240);
     } catch (e) { return ""; }
   };
   const ctxFor = (char, ctxOpts) => ({
@@ -2317,14 +2320,19 @@ function App() {
     personaEvolve: PERSONA_EVOLVE_IDS.includes(char.id), // B：这个角色是否开启软层成长（白名单）
 
     notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚他（她 2026-07-13 点名）
-    yanqiuWall: yanqiuWallFor(char),
+    yanqiuWall: yanqiuWallFor(char, ctxOpts),
     ccContinuity: ccContinuityFor(char),
     profile,
     affinity: Math.round(affOf(char.id)),
     moodLabel: (moods[char.id] || {}).label || null,
     directives: directives[char.id] || [],
     memory: memories[char.id],
-    memLib: retrieveMemories(memLibRef.current, char.id, recentChatText(char), { limit: memCfgRef.current.topK || 5, source: ctxOpts && ctxOpts.chat === true ? "chat" : "background" }),
+    memLib: (() => {
+      const isLeanYanqiuChat = !!(ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes);
+      const rows = retrieveMemories(memLibRef.current, char.id, recentChatText(char), { limit: isLeanYanqiuChat ? 3 : (memCfgRef.current.topK || 5), source: ctxOpts && ctxOpts.chat === true ? "chat" : "background" });
+      if (!isLeanYanqiuChat) return rows;
+      return rows.slice(0, 3).map(e => ({ ...e, text: String(e.text || "").replace(/\s+/g, " ").trim().slice(0, 240) }));
+    })(),
     geo: prefs.geoAware ? geo : null,
     timeAware: prefs.timeAware,
     giftLog: (() => {
@@ -2336,6 +2344,7 @@ function App() {
       return parts.join("；");
     })(),
     momentLog: (() => {
+      if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const out = [];
       (moments || []).filter(m => m.mine).slice(0, 3).forEach(m => {
         const liked = (m.likers || []).includes(char.name);
@@ -2354,6 +2363,7 @@ function App() {
       return out.join("\n");
     })(),
     forumEcho: (() => {
+      if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const posts = forumPostsRef.current || [];
       const cmts = forumCommentsRef.current || {};
       const meName = profile.name || "对方";
@@ -4149,7 +4159,7 @@ function App() {
       }));
       let raw;
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, timeout: 180000 });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000 });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -4159,7 +4169,7 @@ function App() {
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, timeout: 180000 });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000 });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {

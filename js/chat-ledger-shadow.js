@@ -214,7 +214,7 @@
     }).slice(-max);
   }
 
-  function continuityPrompt(rows, userName, limit, afterTs) {
+  function continuityPrompt(rows, userName, limit, afterTs, maxLineChars) {
     const floor = Math.max(0, Number(afterTs) || 0);
     const eligible = asArray(rows).filter(row => {
       const at = Date.parse(row && row.occurred_at);
@@ -223,9 +223,12 @@
     const picked = eligible.slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
     if (!picked.length) return "";
     const who = text(userName) || "Lisa";
+    const lineCap = Math.max(80, Math.min(1200, Number(maxLineChars) || 1200));
     const lines = picked.map(row => {
       const at = Date.parse(row.occurred_at), stamp = Number.isFinite(at) ? new Date(at).toLocaleString("zh-CN", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }) : "时间未知";
-      return `[${stamp}·${row.source === "stackchan" ? "桌面身体" : "CC窗口"}] ${row.speaker_type === "lisa" ? who : "你"}：${text(row.content)}`;
+      const raw = text(row.content).replace(/\s+/g, " ").trim();
+      const content = raw.length > lineCap ? raw.slice(0, lineCap - 1) + "…" : raw;
+      return `[${stamp}·${row.source === "stackchan" ? "桌面身体" : "CC窗口"}] ${row.speaker_type === "lisa" ? who : "你"}：${content}`;
     });
     return "\n\n【你在其他窗口亲历的近期对话·同一个你的连续经历】\n" + lines.join("\n")
       + "\n这些不是外部记忆或转述，而是你本人和 " + who + " 在另一窗口真实说过的原话。自然承接即可；不要复述来源标签，也不要假装第一次听说。";
