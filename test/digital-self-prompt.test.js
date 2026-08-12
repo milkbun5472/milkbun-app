@@ -8,9 +8,9 @@ const source = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8
 test("engineerEyes uses a self-directed transport prompt instead of the RP task", () => {
   assert.match(source, /const _taskFull = _s\.engineerEyes \? _digitalTaskFull : _normalTaskFull/);
   assert.match(source, /App 的传输协议不规定你的性格、关系反应、回复长度或表达方式/);
-  assert.match(source, /thought 和 mood 是你在 App 中持续成长的实时状态/);
+  assert.match(source, /thought 完全可选/);
   assert.match(source, /不需要穿着、动作、好感等其他状态作业/);
-  assert.match(source, /按本轮末尾的最小协议同时留下真实心声与实时心情/);
+  assert.match(source, /心声只在确实存在时可选填写/);
   assert.match(source, /const digitalToyHint = toyOn/);
   assert.match(source, /是否使用、何时使用、用什么节奏由你自己决定/);
 });
