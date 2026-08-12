@@ -2848,6 +2848,7 @@ function OfflineLogCard({ m, t, sel }) {
 function ChatThread({
   character,
   characters,
+  groups,
   messages,
   sending,
   onBack,
@@ -3022,9 +3023,9 @@ function ChatThread({
     if (selIds.length) onDeleteMessages(selIds);
     exitSel();
   };
-  const doForward = toChar => {
+  const doForward = destination => {
     const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean);
-    if (picked.length) onForward(picked, toChar);
+    if (picked.length) onForward(picked, destination);
     exitSel();
   };
   useEffect(() => {
@@ -3816,7 +3817,7 @@ function ChatThread({
     className: "space-y-1 max-h-72 overflow-y-auto"
   }, (characters || []).filter(c => c.id !== character.id).map(c => h("button", {
     key: c.id,
-    onClick: () => doForward(c),
+    onClick: () => doForward({ type: "chat", id: c.id }),
     className: "w-full flex items-center gap-3 py-2.5 active:opacity-60"
   }, h(Avatar, {
     character: c,
@@ -3828,7 +3829,12 @@ function ChatThread({
       fontSize: 16,
       color: t.ink
     }
-  }, c.remark || c.name))), (characters || []).filter(c => c.id !== character.id).length === 0 && h("div", {
+  }, c.remark || c.name))), (groups || []).map(g => h("button", {
+    key: "g_" + g.id,
+    onClick: () => doForward({ type: "group", id: g.id }),
+    className: "w-full flex items-center gap-3 py-2.5 active:opacity-60"
+  }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"),
+  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name))), (characters || []).filter(c => c.id !== character.id).length === 0 && !(groups || []).length && h("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 12.5,
@@ -6116,6 +6122,7 @@ function GroupOfflineMode({
 // ---- group chat ----
 function GroupThread({
   group,
+  groups,
   characters,
   messages,
   sending,
@@ -6132,6 +6139,7 @@ function GroupThread({
   onOOC,
   onMsgAction,
   onDeleteMessages,
+  onForward,
   onSaveSettings,
   onOpenMemberState,
   onStartPoll,
@@ -6170,6 +6178,7 @@ function GroupThread({
   const [menu, setMenu] = useState(null); // 长按弹出的消息下标
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState([]);
+  const [fwdPick, setFwdPick] = useState(false);
   const pressTimer = useRef(null);
   const [gRecallView, setGRecallView] = useState(null);
   const [sheet, setSheet] = useState(null); // "settings"|"poll"|"rp"
@@ -6213,8 +6222,13 @@ function GroupThread({
   const startPress = idx => { pressTimer.current = setTimeout(() => setMenu(idx), 450); };
   const endPress = () => { if (pressTimer.current) clearTimeout(pressTimer.current); };
   const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
-  const exitSel = () => { setSelMode(false); setSelIds([]); };
+  const exitSel = () => { setSelMode(false); setSelIds([]); setFwdPick(false); };
   const doDelete = () => { if (selIds.length) onDeleteMessages && onDeleteMessages(selIds); exitSel(); };
+  const doForward = destination => {
+    const picked = selIds.slice().sort((a, b) => a - b).map(i => messages[i]).filter(Boolean);
+    if (picked.length && onForward) onForward(picked, destination);
+    exitSel();
+  };
   const memberById = id => characters.find(c => c.id === id);
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
@@ -6675,7 +6689,14 @@ function GroupThread({
     style: { background: t.bg2, borderTop: "1px solid " + t.line }
   }, h("button", { onClick: exitSel, style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"),
     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "已选 " + selIds.length),
-    h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "删除")),
+    h("div", { className: "flex gap-3 items-center" },
+      h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "删除"),
+      h("button", { onClick: () => selIds.length && setFwdPick(true), disabled: !selIds.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发"))),
+  fwdPick && h(Sheet, { onClose: () => setFwdPick(false) },
+    h(Eyebrow, { style: { marginBottom: 12 } }, "转发给谁"),
+    h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
+      (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
+      (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name))))),
   !selMode && quoted && h("div", {
     className: "shrink-0",
     style: { background: t.bg2, borderTop: "1px solid " + t.line, padding: "6px 12px 0", display: "flex", alignItems: "center" }

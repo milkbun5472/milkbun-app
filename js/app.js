@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.18";
+const APP_VERSION = "v52.19";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -9477,6 +9477,7 @@ function App() {
   });else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
     character: activeChar,
     characters: characters,
+    groups: groups,
     messages: chats[activeChar.id] || [],
     sending: sending,
     onBack: () => setScreen("messages"),
@@ -9529,26 +9530,40 @@ function App() {
       });
       toast("已删除 " + indices.length + " 条");
     },
-    onForward: (msgs, toChar) => {
+    onForward: (msgs, destination) => {
       const items = msgs.map(m => ({
         name: m.role === "user" ? profile.name || "我" : activeChar.name,
-        text: m.content
+        text: m.content || ""
       }));
       const content = "【转发的聊天记录】\n" + items.map(it => it.name + "：" + it.text).join("\n");
-      pChat(toChar.id, p => [...p, {
+      const msg = {
         role: "user",
+        kind: "chatforward",
         content,
         forward: {
+          sourceType: "chat",
+          sourceId: activeChar.id,
           from: activeChar.name,
           items
         },
         ts: Date.now(),
         read: false
-      }]);
-      toast("已转发给 " + (toChar.remark || toChar.name));
+      };
+      if (destination && destination.type === "group") {
+        const g = groups.find(x => x.id === destination.id);
+        if (!g) return;
+        pGChat(g.id, p => [...p, { ...msg, senderName: profile.name || "我" }]);
+        toast("已转发到 " + g.name);
+      } else {
+        const toChar = characters.find(c => c.id === (destination && destination.id));
+        if (!toChar) return;
+        pChat(toChar.id, p => [...p, msg]);
+        toast("已转发给 " + (toChar.remark || toChar.name));
+      }
     }
   });else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     group: groups.find(g => g.id === activeGroup.id) || activeGroup,
+    groups: groups,
     characters: characters,
     messages: groupChats[activeGroup.id] || [],
     sending: sending,
@@ -9565,6 +9580,26 @@ function App() {
     onOOC: txt => oocGroup(activeGroup.id, txt),
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
+    onForward: (msgs, destination) => {
+      const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
+      const items = msgs.map(m => ({
+        name: m.role === "user" ? (profile.name || "我") : (m.senderName || "群成员"),
+        text: m.content || (m.kind === "poll" ? "[投票] " + (m.title || "") : m.kind === "redpacket" ? "[红包] " + (m.message || "") : "")
+      }));
+      const content = "【转发的群聊记录 · " + sourceGroup.name + "】\n" + items.map(it => it.name + "：" + it.text).join("\n");
+      const msg = { role: "user", kind: "chatforward", content, forward: { sourceType: "group", sourceId: sourceGroup.id, from: sourceGroup.name, items }, ts: Date.now(), read: false };
+      if (destination && destination.type === "group") {
+        const g = groups.find(x => x.id === destination.id);
+        if (!g) return;
+        pGChat(g.id, p => [...p, { ...msg, senderName: profile.name || "我" }]);
+        toast("已转发到 " + g.name);
+      } else {
+        const toChar = characters.find(c => c.id === (destination && destination.id));
+        if (!toChar) return;
+        pChat(toChar.id, p => [...p, msg]);
+        toast("已转发给 " + (toChar.remark || toChar.name));
+      }
+    },
     onSaveSettings: patch => saveGroupSettings(activeGroup.id, patch),
     onOpenMemberState: memberId => { const c = characters.find(x => x.id === memberId); if (c) { setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true); } },
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
