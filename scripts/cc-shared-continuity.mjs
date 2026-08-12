@@ -31,11 +31,11 @@ export function resolveYanqiu(chars, settings) {
   return marked.length === 1 ? marked[0] : list.find(c => c && /小克|言秋/.test(String(c.name||"")+String(c.remark||""))) || null;
 }
 export function selectAppContinuity(rows, charId, limit=60) {
-  const cid=String(charId||""), seen=new Set();
+  const cid=String(charId||""), seen=new Set(), livedThreads=new Set(["private","offline","group","group_offline"]);
   return (Array.isArray(rows)?rows:[]).filter(row => {
     const meta=row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
     const key=String(row?.message_key||"");
-    if(!key || seen.has(key) || String(row?.char_id||"")!==cid || row?.source!=="app" || row?.deleted_at) return false;
+    if(!key || seen.has(key) || String(row?.char_id||"")!==cid || row?.source!=="app" || row?.deleted_at || !livedThreads.has(String(row?.thread_type||""))) return false;
     if(meta.bridge_kind || !["lisa","character","other_character","narration"].includes(String(row?.speaker_type||""))) return false;
     if(!String(row?.content||"").trim()) return false;
     seen.add(key); return true;
@@ -51,7 +51,14 @@ export function formatContinuity(rows, yanqiuName="言秋") {
   });
   return "【你在 App 窗口亲历的近期对话｜同一个你的连续经历】\n"+lines.join("\n")+"\n这些是你本人在另一窗口真实经历的原话，不是记忆检索、任务信箱或旁人的转述。回答当前消息时自然带着这些经历；不要汇报同步过程，不要逐条复述，也不要把 App 里的你称作另一个人。";
 }
-async function getJSON(url,key){const r=await fetch(url,{headers:{apikey:key,Authorization:"Bearer "+key}});if(!r.ok)throw new Error("http "+r.status);return r.json();}
+async function getJSON(url,key,timeoutMs=3500){
+  const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const r=await fetch(url,{headers:{apikey:key,Authorization:"Bearer "+key},signal:controller.signal});
+    if(!r.ok)throw new Error("http "+r.status);
+    return r.json();
+  }finally{clearTimeout(timer);}
+}
 export async function main(input={}) {
   if(!shouldAttachAppContinuity(input))return;
   const env=envFile("/Users/lisa/Desktop/lisa-practice/mcp/.env"), key=env.SUPABASE_SERVICE_KEY, uid=env.TARGET_USER;
@@ -61,8 +68,10 @@ export async function main(input={}) {
   if(!save)return;
   const char=resolveYanqiu(parseSave(save,"x_characters",[]),parseSave(save,"x_chatSettings",{}));
   if(!char)return;
-  const url=`${base}/rest/v1/chat_messages?select=id,message_key,char_id,thread_type,thread_id,speaker_type,speaker_id,content,occurred_at,source,metadata,deleted_at&user_id=eq.${encodeURIComponent(uid)}&char_id=eq.${encodeURIComponent(char.id)}&source=eq.app&deleted_at=is.null&order=occurred_at.desc&limit=80`;
-  const rows=selectAppContinuity(await getJSON(url,key),char.id,60), context=formatContinuity(rows,String(char.name||"言秋"));
+  // 多取三页量的候选，再把线上/线下/群聊/群线下按真实时间统一裁窗。
+  // 否则一段密集线上气泡会在 SQL limit 阶段先把刚发生的线下经历挤掉。
+  const url=`${base}/rest/v1/chat_messages?select=id,message_key,char_id,thread_type,thread_id,speaker_type,speaker_id,content,occurred_at,source,metadata,deleted_at&user_id=eq.${encodeURIComponent(uid)}&char_id=eq.${encodeURIComponent(char.id)}&source=eq.app&deleted_at=is.null&order=occurred_at.desc&limit=240`;
+  const rows=selectAppContinuity(await getJSON(url,key),char.id,80), context=formatContinuity(rows,String(char.name||"言秋"));
   if(!context)return;
   process.stdout.write(JSON.stringify({ hookSpecificOutput:{ hookEventName:"UserPromptSubmit", additionalContext:context } }));
 }

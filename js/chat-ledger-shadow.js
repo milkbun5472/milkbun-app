@@ -214,8 +214,13 @@
     }).slice(-max);
   }
 
-  function continuityPrompt(rows, userName, limit) {
-    const picked = asArray(rows).slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
+  function continuityPrompt(rows, userName, limit, afterTs) {
+    const floor = Math.max(0, Number(afterTs) || 0);
+    const eligible = asArray(rows).filter(row => {
+      const at = Date.parse(row && row.occurred_at);
+      return !floor || (Number.isFinite(at) && at > floor);
+    });
+    const picked = eligible.slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
     if (!picked.length) return "";
     const who = text(userName) || "Lisa";
     const lines = picked.map(row => {
@@ -224,6 +229,18 @@
     });
     return "\n\n【你在其他窗口亲历的近期对话·同一个你的连续经历】\n" + lines.join("\n")
       + "\n这些不是外部记忆或转述，而是你本人和 " + who + " 在另一窗口真实说过的原话。自然承接即可；不要复述来源标签，也不要假装第一次听说。";
+  }
+
+  // CC 完整 turn 要作为 App 可见聊天副本永久保留，但同一批原话已经由
+  // continuityPrompt 作为“亲历块”喂给模型。若再混进 promptHistory，会既
+  // 双份计费，又因按 occurred_at 回插到历史中段而击穿 Anthropic 历史缓存。
+  // 这里只裁模型请求的副本；聊天 UI、云账本和本地 x_chat 一个字不动。
+  function modelHistory(messages) {
+    return asArray(messages).filter(message => !(
+      message && message.ledgerImported === true
+      && message.syncKind === "continuity"
+      && ["cc", "stackchan"].includes(text(message.crossSource))
+    ));
   }
 
   function createManager(options) {
@@ -381,7 +398,7 @@
   const pullObserver = root.localStorage ? createPullObserver() : null;
   return {
     OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, PULL_KEY, LIVE_CURSOR_KEY, CONTINUITY_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
-    rowsFor, addedSessionMessages, reconcileIncoming, reconcileContinuity, continuityPrompt, createManager, createPullObserver,
+    rowsFor, addedSessionMessages, reconcileIncoming, reconcileContinuity, continuityPrompt, modelHistory, createManager, createPullObserver,
     enqueue: manager ? manager.enqueue : async () => ({ queued: 0, pending: 0 }),
     invalidate: manager ? manager.invalidate : async () => ({ sent: 0, pending: 0 }),
     flush: manager ? manager.flush : async () => ({ sent: 0, pending: 0 }),

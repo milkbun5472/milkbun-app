@@ -3827,11 +3827,16 @@ function App() {
       base = [...base, um];
     }
     const history = base.filter(m => !m.recalled && m.kind !== "ooc" && (m.kind !== "system" || m.ccToolResult === true));
+    // CC turn 仍完整留在 App 时间线里；模型侧只走 continuity 亲历块这一份载体，
+    // 避免同一原话既在历史中段回插、又在实时背景重复携带，击穿 prompt cache。
+    const modelHistory = window.ChatLedgerShadow && typeof window.ChatLedgerShadow.modelHistory === "function"
+      ? window.ChatLedgerShadow.modelHistory(history)
+      : history;
     // CC 原话回流后，本地聊天可以很长；记录仍完整保留，但每次请求只携带最近一扇窗口，
     // 避免专线把整份历史重复上传而在浏览器侧直接 Load failed。
     const promptHistory = window.ChatContextWindow
-      ? window.ChatContextWindow.select(history, { maxChars: 14000, maxMessages: 80 })
-      : history.slice(-80);
+      ? window.ChatContextWindow.select(modelHistory, { maxChars: 14000, maxMessages: 80 })
+      : modelHistory.slice(-80);
     if (!opts.proactive && history.length === 0) {
       toast("先发条消息再让 TA 回复");
       return false;

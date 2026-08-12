@@ -48,11 +48,21 @@ function loadEnv() {
 async function request(base, key, path, options = {}) {
   const headers = { apikey: key, Authorization: "Bearer " + key, ...(options.headers || {}) };
   if (options.body) headers["Content-Type"] = "application/json";
-  const response = await fetch(base + path, {
-    method: options.method || "GET",
-    headers,
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
+  // Stop hook 外层只有 15 秒。网络慢时必须先把控制权还给 hook，随后靠
+  // durable outbox 补投；不能让 Claude Code 硬超时后整轮来不及落本地票。
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Math.max(500, Number(options.timeoutMs) || 2200));
+  let response;
+  try {
+    response = await fetch(base + path, {
+      method: options.method || "GET",
+      headers,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) throw new Error("supabase " + response.status + ": " + (await response.text()).slice(0, 160));
   const text = await response.text();
   return text ? JSON.parse(text) : [];
@@ -141,7 +151,10 @@ async function sendJob(job) {
 async function flushOutbox() {
   const pending = readJSONL(outboxPath);
   const remaining = [];
-  for (const job of pending) {
+  // 每轮只补最老一票。Stop 的首要责任是先捕获“这一轮”，不能为了清旧债
+  // 串行等几十个网络超时，反而被 Claude Code 的 15s 外闸整段掐掉。
+  for (const [index, job] of pending.entries()) {
+    if (index > 0) { remaining.push(job); continue; }
     try { await sendJob(job); }
     catch { remaining.push(job); }
   }
