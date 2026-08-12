@@ -36,7 +36,9 @@ create table if not exists public.chat_messages (
     not (metadata ? 'sync_kind')
     or (
       jsonb_typeof(metadata->'sync_kind') = 'string'
-      and metadata->>'sync_kind' in ('life', 'emotion', 'decision', 'joke')
+      -- 'continuity' = CC 整轮原话的权威保留副本（跨窗互通 v52.18+），
+      -- 与四种性质句段并存；已部署库用 allow_continuity_sync_kind.sql 迁移。
+      and metadata->>'sync_kind' in ('life', 'emotion', 'decision', 'joke', 'continuity')
     )
   ),
   check (edited_at is null or edited_at >= occurred_at),

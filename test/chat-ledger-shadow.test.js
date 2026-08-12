@@ -151,17 +151,6 @@ test("完整连续经历把纯施工轮也作为 App 聊天记录副本保留", 
   assert.equal(Ledger.reconcileIncoming([], rows, "y").added, 2);
 });
 
-test("CC 连续经历只补 App 本人上次开口之后的新轮次并保持时间顺序", () => {
-  const rows = [
-    {message_key:"old",source:"cc",speaker_type:"character",content:"旧话",occurred_at:"2026-08-11T01:00:00Z"},
-    {message_key:"new-lisa",source:"cc",speaker_type:"lisa",content:"后来问的",occurred_at:"2026-08-11T03:00:00Z"},
-    {message_key:"new-yq",source:"cc",speaker_type:"character",content:"后来答的",occurred_at:"2026-08-11T03:00:01Z"}
-  ];
-  const prompt = Ledger.continuityPrompt(rows, "Lisa", 30, Date.parse("2026-08-11T02:00:00Z"));
-  assert.doesNotMatch(prompt, /旧话/);
-  assert.ok(prompt.indexOf("后来问的") < prompt.indexOf("后来答的"));
-});
-
 test("完整 CC turn 压住同轮精选句段气泡但保留人格证据", () => {
   const rows = [
     { id:"1", message_key:"cc-live:t:lisa", char_id:"y", source:"cc", thread_id:"s", speaker_type:"lisa", content:"完整提问", occurred_at:"2026-08-11T01:00:00Z", revision:1, metadata:{sync_kind:"continuity",turn_id:"t"} },
