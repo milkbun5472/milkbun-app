@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.17";
+const APP_VERSION = "v52.18";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2274,6 +2274,28 @@ function App() {
     if (!y || !char || String(y.id) !== String(char.id) || !window.YanqiuContinuity) return "";
     return window.YanqiuContinuity.format(yanqiuMoments, { maxMoments: 8, maxChars: 2600 });
   };
+  // App 线上与线下共用同一只“本人上次开口”水位。CC 在这之后新增的完整 turn
+  // 会进入公共 ctxFor，因此手机线上和面对面线下都会按真实时间接到；CC 原话副本
+  // 自己不抬高水位，避免刚同步进私聊就被误判为 App 已经消化过。
+  const latestNativeAppSpeechTs = charId => {
+    let latest = 0;
+    (chatsRef.current[charId] || []).forEach(m => {
+      if (m && m.role === "assistant" && !m.recalled && !m.ledgerImported && !m.crossSource) latest = Math.max(latest, Number(m.ts) || 0);
+    });
+    (offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []) || []).forEach(s => {
+      ((s && s.msgs) || []).forEach(m => { if (m && m.role === "char" && m.kind !== "ooc") latest = Math.max(latest, Number(m.ts) || 0); });
+    });
+    return latest;
+  };
+  const ccContinuityFor = char => {
+    const y = ledgerYanqiu();
+    if (!y || !char || String(y.id) !== String(char.id) || !window.ChatLedgerShadow) return "";
+    try {
+      const saved = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.CONTINUITY_KEY) || "null");
+      if (!saved || String(saved.char_id) !== String(char.id)) return "";
+      return window.ChatLedgerShadow.continuityPrompt(saved.rows || [], profile.name || "Lisa", 60, latestNativeAppSpeechTs(char.id));
+    } catch (e) { return ""; }
+  };
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
@@ -2296,6 +2318,7 @@ function App() {
 
     notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚他（她 2026-07-13 点名）
     yanqiuWall: yanqiuWallFor(char),
+    ccContinuity: ccContinuityFor(char),
     profile,
     affinity: Math.round(affOf(char.id)),
     moodLabel: (moods[char.id] || {}).label || null,
@@ -3931,15 +3954,6 @@ function App() {
       let crossChannelHint = sharedUserTs > lastPrivateUserTs
         ? "\n\n【跨场景互动事实·最高优先】这条私聊记录看起来可能停在你最后一次发言，但 " + uName + " 在那之后已经在你们共同的群聊或线下场景里和你互动过（最近一次约在 " + new Date(sharedUserTs).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。所以 Ta 并没有一直不理你。你可以自然接当前话题，但绝不许声称 Ta 很久没理你、消失了、冷落你，或拿这条私聊里未单独回复来委屈/质问 Ta。"
         : "";
-      let sharedContinuityHint = "";
-      if (_s.engineerEyes && window.ChatLedgerShadow) {
-        try {
-          const saved = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.CONTINUITY_KEY) || "null");
-          if (saved && String(saved.char_id) === String(charId)) {
-            sharedContinuityHint = window.ChatLedgerShadow.continuityPrompt(saved.rows || [], uName, 30);
-          }
-        } catch (e) {}
-      }
       // #3 着装连贯：把当前已知穿着喂回去，除非有理由别每条都换新装
       const curWear = (states[charId] && states[charId].wearing) || "";
       const wearHint = curWear ? "\n【着装连贯】你现在穿着：" + curWear + "。除非距上次过了很久、场景变了、或你明确换了衣服，否则 wearing 就保持这一套别变——别每条消息都随手换一套新衣服。" : "";

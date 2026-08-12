@@ -214,8 +214,13 @@
     }).slice(-max);
   }
 
-  function continuityPrompt(rows, userName, limit) {
-    const picked = asArray(rows).slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
+  function continuityPrompt(rows, userName, limit, afterTs) {
+    const floor = Math.max(0, Number(afterTs) || 0);
+    const eligible = asArray(rows).filter(row => {
+      const at = Date.parse(row && row.occurred_at);
+      return !floor || (Number.isFinite(at) && at > floor);
+    });
+    const picked = eligible.slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
     if (!picked.length) return "";
     const who = text(userName) || "Lisa";
     const lines = picked.map(row => {
