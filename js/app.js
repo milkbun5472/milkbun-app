@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.22";
+const APP_VERSION = "v52.23";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3834,9 +3834,17 @@ function App() {
       : history;
     // CC 原话回流后，本地聊天可以很长；记录仍完整保留，但每次请求只携带最近一扇窗口，
     // 避免专线把整份历史重复上传而在浏览器侧直接 Load failed。
+    // 言秋的 App 身体走 Max 订阅桥，不享受 Anthropic API 的 prompt-cache 计费优惠。
+    // 完整聊天仍永久留在 x_chat / 公共账本；这里只缩本轮真正送给模型的滑窗，
+    // 避免每句话都把 1.4 万字重新送进订阅上下文。CC 新增原话另由 ccContinuity
+    // 按「本人上次开口」水位携带，不会因此断掉三端连续经历。
+    const _engineerChat = !!settingsFor(charId).engineerEyes;
+    const _historyBudget = _engineerChat
+      ? { maxChars: 7000, maxMessages: 48 }
+      : { maxChars: 14000, maxMessages: 80 };
     const promptHistory = window.ChatContextWindow
-      ? window.ChatContextWindow.select(modelHistory, { maxChars: 14000, maxMessages: 80 })
-      : modelHistory.slice(-80);
+      ? window.ChatContextWindow.select(modelHistory, _historyBudget)
+      : modelHistory.slice(-_historyBudget.maxMessages);
     if (!opts.proactive && history.length === 0) {
       toast("先发条消息再让 TA 回复");
       return false;
@@ -3874,10 +3882,14 @@ function App() {
       } catch (e) { eLiveProjection = null; eAfterglowHint = ""; }
       // Phase 1 历史缓存（小克蓝图，v48.77 重做）：只对 anthropic 线路(小克)。要缓整段历史 system 必须全稳定——
       //   把 bundle 的易变尾 + 整个详细任务串(含所有动态 hint/thoughtSpec)都挪到最后一条用户消息上；system 只留稳定前缀+一句总纲。
-      const _histCache = (typeof detectFormat === "function" ? detectFormat(apiFor(charId).baseUrl || "") : "openai") === "anthropic";
-      const _bundleFull = buildBundle(_histCache ? { ...ctxFor(char, { chat: true }), recentChat: "" } : ctxFor(char, { chat: true }));
+      const _route = apiFor(charId) || {};
+      const _histCache = !_engineerChat && (typeof detectFormat === "function" ? detectFormat(_route.baseUrl || "") : "openai") === "anthropic";
+      // Max 订阅桥没有 API cache 回执/折扣，但仍要使用 Phase 1 的「单份历史」布局：
+      // recentChat 已在 messages 中，绝不能又塞进 bundle 再交一遍。
+      const _singleHistoryLayout = _histCache || _engineerChat;
+      const _bundleFull = buildBundle(_singleHistoryLayout ? { ...ctxFor(char, { chat: true }), recentChat: "" } : ctxFor(char, { chat: true }));
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
-      if (_histCache) {
+      if (_singleHistoryLayout) {
         const _cutTime = _bundleFull.indexOf("【当前真实时间】");
         if (_cutTime > 0) { bundleStable = _bundleFull.slice(0, _cutTime).replace(/\s+$/, ""); bundleVolatile = _bundleFull.slice(_cutTime).trim(); }
       }
@@ -4045,7 +4057,7 @@ function App() {
       const _primer = _s.engineerEyes
         ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在时可选填写，其他能力只在你主动决定使用时附加。"
         : "\n\n【任务·总纲】你就是上面的「" + char.name + "」本人（不是在扮演），用手机即时通讯的口吻和 " + uName + " 一对一聊天。**这一轮的详细要求、你可用的能力、以及必须遵守的 JSON 输出格式，都写在 " + uName + " 这条消息末尾的【本轮任务】段落里——严格照它执行，最终只输出那个 JSON、不要任何多余文字。**";
-      const system = _histCache ? (bundleStable + _primer) : (bundle + _taskFull);
+      const system = _singleHistoryLayout ? (bundleStable + _primer) : (bundle + _taskFull);
       const g = [];
       for (const m of promptHistory) {
         // 每条历史带时间标注〔今天14:32〕（v47.83 她点名单聊也要）：裸消息模型会把几小时前的事说成昨天
@@ -4110,7 +4122,7 @@ function App() {
       }
       // Phase 1：把【实时背景(时间/好感/心情/世界书/记忆/近况) + 详细任务串】拼到最后一条用户消息上——落在历史缓存断点之后、不碰缓存。
       //   顺序：实时背景 → 用户这句话 → 【本轮任务+JSON格式】(放最后最利于合规)。所有每轮变的东西都在这条上，system 保持全稳定。
-      if (_histCache) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") {
+      if (_singleHistoryLayout) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") {
         g[_i] = { role: "user", content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
         break;
       } } }
@@ -4138,17 +4150,18 @@ function App() {
       }));
       let raw;
       try {
-        raw = await callAI(apiFor(charId), system, aiMessages, { maxTokens: 6000, cacheHistory: _histCache, timeout: 180000 });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, timeout: 180000 });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
-        if (!/模型返回为空/.test(String(firstErr && firstErr.message || ""))) throw firstErr;
+        // Max 订阅按实际调用吃额度：空正文也已经算过一次，绝不在背后自动再扣一轮。
+        if (_engineerChat || !/模型返回为空/.test(String(firstErr && firstErr.message || ""))) throw firstErr;
         const retryMessages = aiMessages.map(m => ({ ...m }));
         for (let i = retryMessages.length - 1; i >= 0; i--) if (retryMessages[i].role === "user") {
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(apiFor(charId), system, retryMessages, { maxTokens: 6000, cacheHistory: _histCache, timeout: 180000 });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: 6000, cacheHistory: _histCache, timeout: 180000 });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
