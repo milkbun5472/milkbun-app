@@ -521,6 +521,20 @@ async function callAI(p, system, messages, opts) {
     d = await postOpenAI(false);
   }
   if (d.error) throw new Error(d.error.message);
+  // openai/订阅桥线路也回显 usage（v52.28）：订阅桥升级后会把 CLI 账单里的
+  // cache_read/cache_creation 透传进 usage，这里进同一个 window.__usage，缓存面板照常可见。
+  try {
+    const u2 = d.usage || {};
+    const rec2 = {
+      t: Date.now(), model, ch: false,
+      in: u2.prompt_tokens || 0, out: u2.completion_tokens || 0,
+      cr: u2.cache_read_input_tokens || 0, cw: u2.cache_creation_input_tokens || 0,
+      bridge: !!p.proxyRef || /ts\.net|localhost|127\.0\.0\.1/.test(base),
+      cacheRequested: false, systemBreakpoint: false, historyBreakpoint: false,
+      usageReported: !!d.usage
+    };
+    if (typeof window !== "undefined") { (window.__usage = window.__usage || []).push(rec2); if (window.__usage.length > 30) window.__usage.shift(); }
+  } catch (e) {}
   const choice = d.choices && d.choices[0];
   const t = (choice && choice.message && choice.message.content || "").trim();
   if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）"));
