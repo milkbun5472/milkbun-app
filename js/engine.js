@@ -2,14 +2,19 @@
 // API
 // ============================================================
 function detectFormat(u) {
-  u = (u || "").toLowerCase();
-  if (u.includes("anthropic")) return "anthropic";
+  // 订阅桥的真实供应商不一定写在 baseUrl 里：Max/Fable 通常只在
+  // proxyRef 或 model 上留标识。兼容旧调用的字符串，也接受整条线路配置。
+  const p = u && typeof u === "object" ? u : null;
+  u = p
+    ? [p.baseUrl, p.proxyRef, p.model, p.name].filter(Boolean).join(" ").toLowerCase()
+    : (u || "").toLowerCase();
+  if (/anthropic|claude|fable/.test(u)) return "anthropic";
   if (u.includes("generativelanguage") || u.includes("googleapis")) return "gemini";
   return "openai";
 }
 async function fetchModelList(p) {
   const base = (p.baseUrl || "").replace(/\/$/, "");
-  const fmt = detectFormat(base);
+  const fmt = detectFormat(p);
   if (fmt === "gemini") {
     const r = await fetch(base + "/v1beta/models", {
       headers: {
@@ -306,7 +311,7 @@ async function callAI(p, system, messages, opts) {
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
   const base = (p.baseUrl || "").replace(/\/$/, "");
-  const fmt = detectFormat(base);
+  const fmt = detectFormat(p);
   const model = p.model;
   const temp = typeof p.temperature === "number" ? p.temperature : 0.75;
   const maxTokens = opts.maxTokens || 2400;

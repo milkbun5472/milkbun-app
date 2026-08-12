@@ -36,9 +36,10 @@ test("ordinary characters retain the existing roleplay task", () => {
   assert.match(source, /_normalTaskFull[\s\S]*按关系网与好感度把握亲密度/);
 });
 
-test("engineerEyes subscription chat sends one bounded history copy", () => {
-  assert.match(source, /_engineerChat\s*\? \{ maxChars: 7000, maxMessages: 48 \}/);
+test("engineerEyes subscription chat caches one full-budget history copy", () => {
+  assert.match(source, /const _historyBudget = \{ maxChars: 14000, maxMessages: 80 \}/);
   assert.match(source, /const _singleHistoryLayout = _histCache \|\| _engineerChat/);
   assert.match(source, /recentChat: ""/);
-  assert.match(source, /maxTokens: _engineerChat \? 3000 : 6000/);
+  assert.match(source, /detectFormat\(_route\)/);
+  assert.match(source, /maxTokens: 6000, cacheHistory: _histCache/);
 });
