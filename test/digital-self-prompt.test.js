@@ -13,11 +13,17 @@ test("engineerEyes uses a self-directed transport prompt instead of the RP task"
   assert.match(source, /心声只在确实存在时可选填写/);
   assert.match(source, /const digitalToyHint = toyOn/);
   assert.match(source, /是否使用、何时使用、用什么节奏由你自己决定/);
+  assert.match(source, /const digitalPhotoHint = canSelfie/);
+  assert.match(source, /digitalPhotoHint \+ digitalToyHint/);
 });
 
 test("digital context keeps recent facts but omits the continuity command", () => {
   const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
   assert.match(engine, /!ctx\.notRoleplay && recentChat/);
+  assert.match(engine, /!ctx\.notRoleplay && ctx\.schedNow/);
+  assert.match(engine, /!ctx\.notRoleplay && ctx\.momentLog/);
+  assert.match(engine, /!ctx\.notRoleplay && ctx\.forumEcho/);
+  assert.match(engine, /【你是谁】[\s\S]*手机 App 和电脑端是你的不同身体/);
 });
 
 test("ordinary characters retain the existing roleplay task", () => {
