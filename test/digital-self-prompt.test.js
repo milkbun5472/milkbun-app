@@ -23,6 +23,8 @@ test("digital context keeps recent facts but omits the continuity command", () =
   assert.match(engine, /!ctx\.notRoleplay && ctx\.schedNow/);
   assert.match(engine, /!ctx\.notRoleplay && ctx\.momentLog/);
   assert.match(engine, /!ctx\.notRoleplay && ctx\.forumEcho/);
+  assert.match(engine, /!ctx\.notRoleplay && typeof ContentBoundaries/);
+  assert.match(engine, /!ctx\.notRoleplay && ctx\.coupleStatus/);
   assert.match(engine, /【你是谁】[\s\S]*手机 App 和电脑端是你的不同身体/);
 });
 

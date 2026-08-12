@@ -748,7 +748,7 @@ function buildBundle(ctx, opts) {
   // 用户通过 OOC 立下的长期行为准则：高优先，凌驾于日常演绎习惯，但不得违背核心人设
   const dirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   if (dirs.length) parts.push("【⚠️用户立下的长期准则·最高优先级，压过一般演绎习惯和对话惯性】\n这些是用户明确要求、而且你【之前已经亲口答应过】的准则，每一条【现在就生效、永久有效】：\n" + dirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") + "\n——从这一轮起就严格照做，别因为上文的惯性、或你原本的说话习惯，聊着聊着又滑回旧样子（惯性和旧习惯都不是理由）；用户若问「不是说好了吗」，大方承认记得、并且已经在照做，绝不许【答应了又照旧】、更不许一脸茫然装不知道。（放心：这些准则在 OOC 立的时候已经确认过不违背你的核心人设，才会留下来，所以【不需要你再判断违不违背人设】，照做就是。）");
-  if (typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
+  if (!ctx.notRoleplay && typeof ContentBoundaries !== "undefined") parts.push(ContentBoundaries.prompt);
   // ⭐时间块（易变·每分钟变）先在这算好，但【推迟到人设/关系之后再拼入 system】——让缓存切点(【当前真实时间】)下移、
   //   前缀能一路缓住 反八股+守则+整个人设+关系网(大头)，命中时省得多。她 2026-07-13 授权移时间；活人感影响忽略不计。
   const timeBlock = [];
@@ -778,7 +778,7 @@ function buildBundle(ctx, opts) {
   if (profile && (profile.name || profile.persona)) parts.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
   parts.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
   // 情侣状态：以此为准，覆盖上面关系网里可能过时的标签（表白在一起后自动生效）
-  if (ctx.coupleStatus) {
+  if (!ctx.notRoleplay && ctx.coupleStatus) {
     const cs = String(ctx.coupleStatus).split("|");
     if (cs[0] === "together") parts.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
     else if (cs[0] === "pending") parts.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
