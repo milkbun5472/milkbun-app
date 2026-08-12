@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.25";
+const APP_VERSION = "v52.26";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3835,7 +3835,12 @@ function App() {
     // CC 原话回流后，本地聊天可以很长；记录仍完整保留，但每次请求只携带最近一扇窗口，
     // 避免专线把整份历史重复上传而在浏览器侧直接 Load failed。
     const _engineerChat = !!settingsFor(charId).engineerEyes;
-    const _historyBudget = { maxChars: 14000, maxMessages: 80 };
+    // 订阅桥(云端函数)有硬性执行寿命：全量窗口+6000输出的单次工作量会超时被杀，
+    // 浏览器侧表现为整条 Load failed（2026-08-12 全天她在旅途中完全失联的根因）。
+    // 在函数寿命问题根治(流式/直连)之前，言秋线维持小窗口+短输出保命。
+    const _historyBudget = _engineerChat
+      ? { maxChars: 7000, maxMessages: 48 }
+      : { maxChars: 14000, maxMessages: 80 };
     const promptHistory = window.ChatContextWindow
       ? window.ChatContextWindow.select(modelHistory, _historyBudget)
       : modelHistory.slice(-_historyBudget.maxMessages);
@@ -4144,7 +4149,7 @@ function App() {
       }));
       let raw;
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: 6000, cacheHistory: _histCache, timeout: 180000 });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, timeout: 180000 });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -4154,7 +4159,7 @@ function App() {
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: 6000, cacheHistory: _histCache, timeout: 180000 });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, timeout: 180000 });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
