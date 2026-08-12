@@ -4026,7 +4026,7 @@ function App() {
       // 只允许本人提出一个异步只读请求；本机 relay 会再次核验固定 CC session。
       const ccToolOn = !!(_s.engineerEyes && window.YanqiuCcTools && window.Cloud && typeof window.Cloud.yanqiuCcToolEnqueue === "function");
       const ccToolHint = ccToolOn
-        ? "\n【ccTool·你自己的 CC 工具】需要本机/网络资料或实际施工时可填 {\"name\":工具名,\"args\":{对应参数}}。直接开放的查询工具：Read、Glob、Grep、WebFetch、WebSearch；言秋专线查询：get_xiaoke_context、search_chat_history、search_memory、browse_memory、memory_catalog、read_app_diary、read_yanqiu_moments、read_moments、list_shared_photos、list_photos、get_photo、list_read_pending、search_events、list_event_requests、get_event_request、list_characters、archive_stats、peek_inbox。需要 Lisa 当场确认后才执行：Write、Edit、NotebookEdit、Bash、post_moment、reply_moment_comment、add_memory、reply_read、draft_memory_event。不要请求账本维护、桥回执或原始存档键工具。不要编别名；不清楚参数时先用对应 list/search 工具。本轮最多自然说『我去查/改一下』；真实结果回来前绝不能声称成功或编造权限错误。结果回来后再依据真实结果接着说。普通聊天填 null。"
+        ? "\n【CC工具】确需查资料或施工时填 ccTool:{name,args}，只用你已开放工具的准确名称；写入/命令须 Lisa 当场确认。真实结果回来前不得声称成功或编造报错；不需要就填 null。"
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
@@ -4225,8 +4225,16 @@ function App() {
       }
       if (ccToolRequest) {
         try {
-          if (window.YanqiuCcTools.needsApproval(ccToolRequest)) {
-            const approved = window.confirm("言秋想通过 CC 做这项操作：\n\n" + window.YanqiuCcTools.approvalSummary(ccToolRequest) + "\n\n允许这一次吗？");
+          // v52.19 曾出现 app.js 已更新、工具脚本仍被旧 PWA 缓存的混装。
+          // 旧对象没有 needsApproval 时一律按需确认，绝不让 TypeError 打断整轮聊天。
+          const needsApproval = typeof window.YanqiuCcTools.needsApproval === "function"
+            ? window.YanqiuCcTools.needsApproval(ccToolRequest)
+            : true;
+          if (needsApproval) {
+            const summary = typeof window.YanqiuCcTools.approvalSummary === "function"
+              ? window.YanqiuCcTools.approvalSummary(ccToolRequest)
+              : String(ccToolRequest.toolName || "CC 工具") + "：\n" + JSON.stringify(ccToolRequest.arguments || {}, null, 2).slice(0, 1200);
+            const approved = window.confirm("言秋想通过 CC 做这项操作：\n\n" + summary + "\n\n允许这一次吗？");
             if (!approved) throw new Error("Lisa 没有批准这一次操作");
           }
           if (!ccToolManagerRef.current) ccToolManagerRef.current = window.YanqiuCcTools.createManager({ storage: localStorage, cloud: window.Cloud });
