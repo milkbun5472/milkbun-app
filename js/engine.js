@@ -428,7 +428,21 @@ async function callAI(p, system, messages, opts) {
     // 存 window.__usage（最近 30 条）+ 命中/写入时打一行 console；window.__cacheStat() 看汇总。
     try {
       const u = d.usage || {};
-      const rec = { t: Date.now(), model, ch: cacheHist, in: u.input_tokens || 0, out: u.output_tokens || 0, cr: u.cache_read_input_tokens || 0, cw: u.cache_creation_input_tokens || 0 };
+      const _usageReported = !!(d.usage && (
+        Object.prototype.hasOwnProperty.call(d.usage, "cache_read_input_tokens") ||
+        Object.prototype.hasOwnProperty.call(d.usage, "cache_creation_input_tokens")
+      ));
+      const _hasAssistantBreakpoint = cacheHist && wireMessages.some(m => m && m.role === "assistant");
+      const rec = {
+        t: Date.now(), model, ch: cacheHist,
+        in: u.input_tokens || 0, out: u.output_tokens || 0,
+        cr: u.cache_read_input_tokens || 0, cw: u.cache_creation_input_tokens || 0,
+        // 订阅桥不一定回传 token usage；这些字段记录我们能亲自证明的请求事实。
+        bridge: !!p.proxyRef, cacheRequested: cacheHist,
+        systemBreakpoint: cacheHist && typeof system === "string" && system.length > 40,
+        historyBreakpoint: _hasAssistantBreakpoint,
+        usageReported: _usageReported
+      };
       // 前缀指纹（诊断「连着聊也不命中」，她 2026-07-13 抓的）：缓存的稳定前缀每轮该完全一样；
       // 指纹每轮都变=前缀被某处每轮污染了，那才是没命中的真因（而非有效期/线路）。plen=前缀字符数。
       // ⭐只诊断【主聊天(cacheHist)】那类调用：日记/交换日记等后台生成 prompt 完全不同，若也参与就会污染指纹种类，

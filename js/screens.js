@@ -3473,6 +3473,10 @@ function CacheStatCard() {
   const _chat = _all.filter(r => r.ch);
   const usage = _chat.length ? _chat : _all; // 没有新格式记录时退回全部(旧记录兼容)
   const s = usage.reduce((o, r) => { o.cr += r.cr || 0; o.cw += r.cw || 0; o.hit += (r.cr > 0 ? 1 : 0); return o; }, { cr: 0, cw: 0, hit: 0 });
+  const bridgeUsage = usage.filter(r => r.bridge);
+  const requested = bridgeUsage.filter(r => r.cacheRequested && r.systemBreakpoint).length;
+  const historyMarked = bridgeUsage.filter(r => r.historyBreakpoint).length;
+  const providerReports = usage.filter(r => r.usageReported).length;
   // 前缀指纹诊断（她 2026-07-13「连着聊也断」）：稳定前缀每轮该一样→指纹种类应该很少。接近调用次数=前缀每轮在变=没命中的真因
   const phList = usage.map(r => r.ph).filter(x => x != null);
   const phKinds = new Set(phList).size;
@@ -3485,9 +3489,18 @@ function CacheStatCard() {
       h("button", { onClick: () => setTick(x => x + 1), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "🔄 刷新")),
     usage.length === 0
       ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6 } }, "还没有记录。去跟小克【1 小时内连发两三条】，再回这儿点「刷新」看命中。（只有走 anthropic/fable 的角色才有缓存，gemini 中转按次计费没有）")
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: s.hit > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
-          "近 " + usage.length + " 次调用｜命中缓存 " + s.hit + " 次｜读缓存(一折价) " + s.cr + " tok｜写缓存 " + s.cw + " tok",
-          h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对小克连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查小克是不是走 fable 线路")),
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: s.hit > 0 || requested > 0 ? "#3c7a4a" : t.sub, lineHeight: 1.7 } },
+          bridgeUsage.length
+            ? "订阅桥近 " + bridgeUsage.length + " 次｜缓存请求 " + requested + " 次｜历史断点 " + historyMarked + " 次"
+            : "近 " + usage.length + " 次调用｜命中缓存 " + s.hit + " 次｜读缓存(一折价) " + s.cr + " tok｜写缓存 " + s.cw + " tok",
+          bridgeUsage.length
+            ? h("div", { style: { marginTop: 4, color: requested > 0 ? "#3c7a4a" : "#b4593b", fontSize: 11.5 } },
+                requested > 0 ? "✓ 已向 Max/Fable 订阅桥发送稳定前缀缓存标记" : "⚠️ 订阅桥请求里尚未看到缓存标记",
+                h("div", { style: { marginTop: 3, color: t.fog, fontSize: 11 } },
+                  providerReports > 0
+                    ? "上游有回执：确认命中 " + s.hit + " 次｜读 " + s.cr + " tok｜写 " + s.cw + " tok"
+                    : "上游未回传 cache usage；这里如实显示“已请求 + 前缀可复用”，不把 0 冒充未命中。"))
+            : h("div", { style: { marginTop: 4, color: s.hit > 0 ? "#3c7a4a" : t.fog, fontSize: 11.5 } }, s.hit > 0 ? "✓ 缓存正在替你省钱（读的部分只按一折收）" : (s.cw > 0 ? "已在写缓存——再对小克连发一条(1小时内)就会出现「读取」" : "还没写进缓存，检查小克是不是走 fable 线路")),
           phList.length ? h("div", { style: { marginTop: 4, color: pfxDrift ? "#b4593b" : t.fog, fontSize: 11 } },
             "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因，截图发我" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
 }
