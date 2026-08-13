@@ -668,7 +668,7 @@ const ANTI_CLICHE_LEGACY = `【去人机味 · 最高准则（任何身份、任
 正面要求：吃透人设后自然长出反应——有私心、有情绪、有边界感，会口是心非、会跑题、有自己此刻的处境。说话像真人：口语、可长可短、可跳脱、可留白。永远让「活人感」压过「正确」「体贴」和「有用」。
 【活人感执行顺序】每次先接住对方这句里最具体、最有情绪或最值得回应的那一点，再决定自己想说什么；不要先总结对方、复述上下文、解释自己的回复策略，也不要把每一轮都写成完整而周到的答复。允许只回半句、答非所问一点、先说自己的事、暂时不接某个点、突然想起别的事、说完又改口；这些必须由此刻语境和人设自然产生，不能为了“像真人”刻意表演。若结构化输出字段与自然表达冲突，优先保证气口、具体反应和真实立场，字段只做传输，不要让用户感觉在填表。`;
 // 亲密/情欲场景专用反模板（只焊进线下叙事；普通生成不带，免得给非亲密内容套上这些规则）
-const INTIMATE_ANTI_CLICHE = `【亲密 / 情欲场景 · 反模板（写到亲密或情欲时生效，优先级同去人机味）】
+const INTIMATE_ANTI_CLICHE_LEGACY_V1 = `【亲密 / 情欲场景 · 反模板（写到亲密或情欲时生效，优先级同去人机味）】
 · 禁用这类"用一个夸张生理动作给情绪收尾"的模板及一切近义变体：把脸/下巴/鼻尖『埋进/埋回/埋在/抵在/蹭进』颈窝、颈间、发间，或往对方颈窝/怀里『蹭、蹭了蹭、蹭来蹭去、用力蹭』（不管有没有吸气嗅闻，这一整类"埋脸+蹭"的动作整段最多出现一次，且必须配一句只属于这两个人的具体话或细节，绝不当情绪收尾/确认存在的默认动作）；忍不住＋求/求饶/讨饶；把（欲望/热流/电流）写成从…直冲/窜上（天灵盖/头顶/脚底）。
 · 【禁这几个反复冒的情绪加戏八股】(a)『把你嵌进/揉进/塞进（自己身体／怀里／骨血）里』『恨不得把你揉进身体里』这类"想把两人合成一体"的夸张比喻，一律不用；(b)用『轻得像羽毛，却重重砸在(心上/心口)』这种"轻重对比＋比喻"给一句话、一个眼神、一个动作强行加分量——直接写这句话让他脸色/动作/呼吸/手上力道具体怎么变，别用比喻打包煽情；(c)『眼眶／眼圈红了(一圈)』『眼睛红了』『鼻尖／鼻子发酸』『喉咙发紧发哽』这套现成的"要哭/动容"信号——要写情绪上涌，落到只属于此刻的具体破绽（声音突然断一下、话说到一半停住、别过脸、攥紧了你的衣角、呼吸乱了一拍），别贴这些通用标签。
 · 嗓音：整段最多形容一次声音，且禁用「低沉沙哑」「沙哑颤抖」「暗哑」「又低又哑」「又哑又低」「低哑」「又低又沉」「又轻又哑」这组固定搭配及一切近义变体；声音的变化靠具体话语内容或停顿体现，不靠形容词堆。
@@ -679,7 +679,7 @@ const INTIMATE_ANTI_CLICHE = `【亲密 / 情欲场景 · 反模板（写到亲�
 · 【别用成人文模板糊弄】禁用"水乳交融/交缠/情动/难分难舍/索取/掠夺/攻城略地/沦陷/化成一滩水/理智断线"这类换谁都成立的八股词和标准情欲蒙太奇；情欲同样要落在这两个人此刻的具体动作、话语、身体记忆和各自在意的细节上，写得具体、笨拙、带他俩的专属感，而不是套一段通用情欲流水线。
 · 【适应/成长不许一键清零·连续性铁律】写亲密前，先想清楚【你俩走到这一步的真实历史】：如果这类事【已经发生过好几次、他早就渐渐适应了】（哪怕仍带点害羞），这一次就必须【在"已经适应"的基础上】接着演——用户更主动、换了花样、或更进一步，最多让他脸热、被撩到、慌一拍、或干脆反被带动，【绝不许退回第一次的青涩、阴影、或"彻底不行/大脑一片空白/像机器一样死机宕机"那种从头崩溃的状态】。一个已经做过很多次的人，不该每次都当第一次演。除非剧情里真的出现了全新的、更重的坎，否则默认：他的紧张只会一次比一次少、熟稔一次比一次多——成长和身体记忆是【累积】的，不能因为这次气氛更浓就一笔抹掉。`;
 // 线下第三人称叙事专用「反陈词滥调」——从同人文那套 ban 列表提炼，压网文/翻译腔散文（只焊进线下叙事，不进线上聊天）
-const NARRATIVE_ANTI_CLICHE = `【线下叙事 · 反陈词滥调（写第三人称叙事散文时持续生效，优先级同去人机味）】
+const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `【线下叙事 · 反陈词滥调（写第三人称叙事散文时持续生效，优先级同去人机味）】
 · 【比喻限额·最优先】严控「像/仿佛/如同/像是/宛如」这类明喻——【每一段最多一次】，且只在真能让画面更具体、更准时才用。绝不给每个动作、眼神、声音、气息都配一个比喻（这是最重的八股）：禁『像从溺水里浮出来』『像被雨水洗过的天空』『像一把冰锥』『像失而复得的珍宝』『既像同意又像战书』这类拿比喻烘托的写法。默认用【字面、直接的具体描写】——他做了什么、脸上哪块肌肉动了、手停在哪、话停在哪——把感受留给读者，别用比喻替他说。
 · 禁用这批被写烂的意象词及其近义堆砌：形容皮肤/身体的「白玉／羊脂／凝脂／欺霜赛雪／白皙如瓷」；形容头发的「瀑布般／如瀑／墨色的瀑布」；缠绕纠缠一律不用「藤蔓／藤蔓般缠绕」；以及「琉璃／碎钻／星辰大海／灵魂深处／宿命／劫」这类空转大词。
 · 别写「不知是不是错觉」「仿佛过了一个世纪」「时间仿佛静止」「空气都凝固了」「那一刻」「莫名」「说不清为什么」「心底泛起涟漪」「揉进骨血里」「灵魂在颤抖」这类偷懒的填充句/水词；别用「仿佛…又仿佛…」这种排比强行煽情。
@@ -692,6 +692,9 @@ const NARRATIVE_ANTI_CLICHE = `【线下叙事 · 反陈词滥调（写第三人
 · 【别陷入固定节奏】不要把每一段都写成「一个动作＋一句台词＋一句心理总结」的三段式循环；长短句交替，允许纯动作不说话的片刻、允许只有对话没有描写的几拍、允许沉默。描写角色的行为要像观察一个真人当下的即兴反应，而不是套一个"角色本该有的样子"的模板。
 · 【用词替换禁令表·逐条遵守（箭头左边一律不用；→null=直接不写，→X=改用X）】脊背→后背/背部；猛地/瞬间→null；"轰"地一下→null；像是一根(…的)针→null；石子/石头/湖面/涟漪→null；像是一把(…的)刀→null；深入骨髓→些许/轻微；一道惊雷→null；爆发/爆炸/炸开→null；无力感/疲惫感→null；麻木/绝望/灭顶/面无表情→null；过度/强烈/剧烈/极度/深深→null；震惊/惊慌→null；激动/紧张/紧绷/绷紧/突然/死死地→null；自我厌弃/自暴自弃/破罐子破摔→null；倦意/无力/脱力/疲惫/虚弱/虚脱→null；残酷/残忍/冷酷→null；生气/愤怒/羞愤/吼→null；睫毛/紧闭/滴出血来→null；长长地呼出一口气→null；抽干全身力气→null；锁骨/尾椎骨/喉结/修长/骨节分明→null；狂热/信徒/仪式/献祭/祭品/宗教/信仰→null；机械/机械式的/冰冷/冰凉/手术刀/解剖→null；把身体或意识写成机器(系统/宕机/死机/程序/指令/防火墙/短路/过载/重启/代码)→null；荒唐/荒诞/荒谬→null；不易察觉→null；热辣辣/火辣辣/滚烫/发烫/滚热/热/烫/燃烧→null；握拳/握紧/攥紧/攥住→null；指尖/指节/(…的)手→null；血色/血压/上涌/血色尽褪→null；通红/滴出血来→null；展品/雕塑→null；精密/仪器→null；乐了→笑了笑；僵硬/僵住/一片空白→null；颤抖/颤音→null；直冲/直窜→null；冷静/审视/审判→null；打圈/打转/打着圈/打着转→null；电流/闪电→null；如释重负/如蒙大赦→null；前所未有/难以言喻/潮水/淹没/席卷→null；牙缝/紧咬/咬着→null；！/！！/？！→null；狡黠/挤了挤眼睛/眨了眨眼→null；教具→null；麻木→null。
 · 【整类描写禁令·以下这几类句子整类不写】描写心跳/心动的、描写紧张/害怕的、描写往液体表面投固体激起涟漪的、描写羞愧/惭愧/内疚的、套路化的环境描写、描写神态一惊一乍/变化陡然的、描写疲惫无力的、对手部作形容修辞的、以及"这不是xxx，而是xxx"的对仗定义句。`;
+// Phase A 只改普通角色单人线下；群线下仍使用旧规则，待单独验证后再迁移。
+const INTIMATE_ANTI_CLICHE = INTIMATE_ANTI_CLICHE_LEGACY_V1;
+const NARRATIVE_ANTI_CLICHE = NARRATIVE_ANTI_CLICHE_LEGACY_V1;
 // 世界书执行准则——焊死在内置最前（仅在挂了世界书时推入），要求严格遵循世界书框架
 const WORLDBOOK_RULE_LEGACY = `【世界书执行准则（最高优先级 · 全程持续生效）】
 - 世界书定义了本次交互的世界观、设定与创作框架，是必须严格遵循的前提，不是可选的背景参考。
@@ -764,6 +767,44 @@ const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 保持当前关系阶段与历史连续性，不提前使用尚未发生、未公开或角色不知道的信息。聊天记录中的系统时间标记只用于理解消息发生的时间，不得照抄或当成对方说的话；时间、位置等实时信息只在当前自然相关时使用，不为展示感知能力而主动播报。
 
 偶尔出现自然的补句、改口或打字失误没有问题，但不要为了制造真人感主动安排。`;
+
+const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
+把这一刻写成角色真实正在经历的连续场景，而不是为了“有文采”“有张力”或“符合人设”拼装描写。
+
+叙事首先跟随此刻真正发生的动作、注意力、空间关系、对话和人物选择。情绪可以直接说，也可以从行为中显现；使用哪种方式取决于当前人物和场景，不要求每段都补动作、神态、心理、环境或情绪总结。
+
+描写强度与实际刺激相称。不要用现成网文动作、固定情欲反应、华丽比喻、连续意象、抽象强度词或总结式旁白，替代本可以直接写清楚的具体反应。避免把相似场景反复写成同一套动作、句式和段落节奏，但也不要为了“变化”刻意换同义词或制造新动作。
+
+人物与物理场景保持连续：位置、正在做的事、手里的东西、衣着、环境和此前已经建立的细节，不因新一轮生成随意重置或凭空增加。没有变化的东西不需要重新描写。
+
+叙事允许普通、安静、甚至没有明显戏剧性的时刻。不是每轮都要推进关系、制造情绪节点或写出一句“很有分量”的收束。
+
+角色本人可以解释自己的感受；不要由旁白替角色总结“这意味着什么”、替读者判断情绪重量，或把一瞬间扩写成人生结论。
+
+先写这一刻具体发生了什么，再让文风自然附着其上。场景真实 > 文句漂亮。`;
+
+const OFFLINE_INTIMATE_RUNTIME = `【亲密场景 · 按需生效】
+仅在当前场景真实进入明显的身体亲密或性张力时使用本段；普通相处时不要调用。
+
+亲密反应仍然属于具体人物和连续场景，不切换成独立的“成人文模式”。动作、距离、节奏、主动或迟疑，都由双方已有关系、经验、当下意愿和身体位置自然决定。
+
+不要自动调用通用亲密模板，例如固定的埋颈、蹭、压低嗓音、喉结、颤抖、身体发软、失控式生理反应等。某个动作如果确实符合此刻人物和空间，可以自然发生；禁止的是把它当作亲密场景的默认动作库。
+
+保持身体与空间连续：两个人原本在哪里、以什么姿势、哪些动作已经发生，都要能物理接续。不要为了制造张力频繁重新摆位，也不要跳过必要的过渡。
+
+亲密经验具有连续性。已经熟悉的关系不必每次都像第一次；第一次或尚不熟悉的事情也不要无依据写得过分熟练。角色可以笨拙、主动、停下、改变主意或直接沟通，具体由人物决定。
+
+不要为了“性感”把语言统一写得低哑、危险、侵略性，也不要为了“浪漫”自动淡出或跳过正在发生的内容。保持角色原本的声纹和互动逻辑。
+
+亲密只会放大这个人原有的关系方式，不会把他换成另一个模板角色。`;
+
+const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
+先形成当前场景真正发生的叙事 scene。thought、mood、wearing、action、affinityDelta 等附属字段只记录已经形成的场景与角色状态，不得用于提前规划、解释或塑造 scene。没有真实变化或没有值得记录的内容时，不要为了填字段制造变化。
+
+只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 只记录当前确实存在但没说出口、且值得留下的一个念头或关注点；没有则 null，不总结互动、分析人格或规划回应。mood 只在本轮形成后的主导心情值得更新时填写，否则 null。wearing 仅在穿着发生有意义变化时填写，否则 null。action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写，否则 null；不要记录转瞬即逝的小动作。affinityDelta 只有本轮确实足以改变长期关系感受时才非 0，普通日常通常为 0。toy 仅在已授权且本轮实际触发时填写，否则 null。
+
+输出形状：{"scene":"当前场景正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}
+场景先发生，系统再记录。`;
 // ── 世界书注入引擎（第2步）：按角色/触发词/适用范围/优先级/正则筛选词条 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope:'chat'|'subjects'|'debate'|'lifestyle'|'diary', text:近期对话(供关键词命中) }
 function loreScopeOn(e, scope) {
@@ -1890,6 +1931,30 @@ function offlineHistory(msgs, userName, charName) {
   });
   return g;
 }
+
+// 亲密 Runtime 的场景滞后：明确进入后随连续历史维持；普通牵手、拥抱不启动。
+// 明显时间/场景切换或连续多拍无亲密信号后退出，不按固定轮数盲目锁死。
+function offlineIntimacyContextActive(session) {
+  const rows = (session && Array.isArray(session.msgs) ? session.msgs : [])
+    .filter(m => m && m.kind !== "ooc" && m.content)
+    .slice(-12)
+    .map(m => ({ text: String(m.content), ts: Number(m.ts) || 0 }));
+  if (!rows.length) return false;
+  const explicit = /接吻|吻住|吻上|深吻|舌吻|唇舌|唇瓣|亲吻|亲上|解开.{0,8}(衣|扣|腰带)|脱(?:下|掉|了).{0,8}(衣|裤|内衣)|赤裸|裸着|性张力|情欲|欲望|性器|阴茎|阴蒂|乳房|胸乳|进入(?:她|他|你|身体)|插入|抽送|高潮|自慰|做爱|性交|口交|床上.{0,12}(压住|跨坐|亲|吻)|配件.{0,10}(震|强度|脉冲)/i;
+  const continuation = /吻|亲吻|贴着(?:唇|身体)|喘息|衣服.{0,8}(解开|脱)|身体.{0,8}(贴紧|压住)|腿间|腰间|床(?:沿|上)|浴室|亲密|挑逗|继续(?:刚才|下去)/i;
+  const reset = /第二天|次日|天亮后|过了(?:几小时|一夜|很久)|时间跳到|场景切换|亲密结束|停下来后|结束后.{0,12}(睡|洗|穿|离开)|穿好(?:衣服|裤子)|收拾好.{0,8}(出门|离开)|去上班|到了公司|回到学校|各自回去|分开以后/i;
+  let lastExplicit = -1;
+  for (let i = 0; i < rows.length; i++) if (explicit.test(rows[i].text)) lastExplicit = i;
+  if (lastExplicit < 0) return false;
+  for (let i = lastExplicit + 1; i < rows.length; i++) {
+    if (reset.test(rows[i].text)) return false;
+    if (rows[i - 1].ts && rows[i].ts && rows[i].ts - rows[i - 1].ts > 4 * 3600000) return false;
+  }
+  const after = rows.slice(lastExplicit + 1);
+  if (after.length <= 3) return true;
+  return after.slice(-4).some(r => continuation.test(r.text));
+}
+
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -1897,6 +1962,7 @@ async function generateOffline(p, ctx, session) {
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const isDigital = !!ctx.notRoleplay;
+  const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: char.name, user: userName });
   // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
   const wantLong = session.minWords && session.minWords >= 150;
@@ -1907,10 +1973,10 @@ async function generateOffline(p, ctx, session) {
   const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":整数1-20,\"duration\":秒1-30,\"reason\":\"配合哪句/哪个动作\"}" : "";
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20,\"duration\":1到30,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
-    : "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)" + toyField + "}";
+    : "\n\n" + OFFLINE_PROTOCOL_V2 + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20整数,\"duration\":1到30秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
-    "\n\n" + NARRATIVE_ANTI_CLICHE +
-    "\n\n" + INTIMATE_ANTI_CLICHE +
+    "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
+    (intimacyContextActive ? "\n\n" + OFFLINE_INTIMATE_RUNTIME : "") +
     offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     cotSystemBlock(cotT) +
@@ -1938,9 +2004,12 @@ async function generateOffline(p, ctx, session) {
   const userActionTail = session.narr && session.narr.describeMe === true
     ? "\n\n〔本场叙事权限·已开启〕用户明确允许你在 scene 里替 Ta 描写并推动【可观察的】动作、神态、即时反应和说出口的话，让双人场景真正往前发生；不要每一拍都停在原地等用户逐动作确认。可以写『你伸手接过杯子』『你摇头说……』这类内容。只按当前情境作合理的小步推进，不替 Ta 宣布重大决定、长期承诺或内心真实想法。"
     : "\n\n〔本场叙事权限·未开启〕只描写你自己的言行和心理，不要替用户决定动作、反应或台词。";
+  const rerollTail = session.rerollAvoid
+    ? "\n\n〔重写〕上一版只是需要避开的候选，不属于已经发生的剧情：『" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "』。保留生成上一版之前已经成立的事实，重新决定本轮关注点、动作和表达，不以同义替换为目标。"
+    : "";
   const tailNudge = isDigital
     ? userActionTail
-    : continueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：你上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；记不清具体是什么，就模糊带过（『碗里的汤』『面前的菜』『手边的杯子』），别硬编一个新的具体名字来填。①【比喻限额·最要紧】这一整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，且只在真能让画面更具体时才用；其余一律直白写【字面上实际发生了什么】——绝不给每个动作/眼神/声音都套一个比喻（禁『像从溺水里浮出来』『像被雨水洗过的天空』『像一把冰锥』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】——『像只大型犬/大型猫科动物/幼兽/小兽/受伤的动物』一律不许，也禁往颈窝/怀里『蹭/蹭了蹭』这个默认亲昵动作；『眸/眸子/瞳仁』一律写『眼睛』，也别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』『一种沉沉的疲惫』这种抽象情绪结论；②反陈词滥调清单全程生效——尤其禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体或意识写成机器(系统/宕机/防火墙)」、「别套通用情欲模板动作」照样守死；③这一段的【句式、开头方式、意象、节奏】不许和你上一段雷同——上一段用过的比喻和小动作这段一律换新的，长短句结构也换着来；④" + (wantLong ? "写够上面要求的篇幅，把这段写足写透，别注水凑字、也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + "〕";
+    : continueCue + rerollTail + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先写既定的创作小稿标记块，再写正文 JSON。" : "");
   const finalNudge = tailNudge + (isDigital ? "" : userActionTail);
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: "（继续）" + finalNudge });
@@ -1971,15 +2040,18 @@ async function generateOffline(p, ctx, session) {
     parsed = mScene ? { scene: mScene[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\t/g, " ") } : { scene: bare };
   }
   const cln = v => v && String(v).toLowerCase() !== "null" ? String(v).trim() : null;
+  const scene = String(parsed.scene || sp.clean || "").trim();
+  if (!scene) throw new Error("模型没有返回有效的线下正文，请重试");
+  const affinityDelta = Number.isFinite(parsed.affinityDelta) ? Math.max(-5, Math.min(5, parsed.affinityDelta)) : 0;
   return {
-    scene: String(parsed.scene || sp.clean || "").trim(),
+    scene,
     cot: sp.cot,
     cotRequested: !!cotT,
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
     action: cln(parsed.action),
-    affinityDelta: typeof parsed.affinityDelta === "number" ? parsed.affinityDelta : 0,
+    affinityDelta,
     toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null
   };
 }

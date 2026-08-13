@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.48";
+const APP_VERSION = "v52.49";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3255,15 +3255,18 @@ function App() {
         if (s.intensity > 0) toyPlay(s).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
       }
       // 线下相处也影响好感与心情（跟私聊一样）
-      if (typeof res.affinityDelta === "number") bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
+      if (Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
       tickAmbient(charId, {}); // 线下也计动态保底（她 2026-07-13 点名）——在线下泡久了，动态计数不冻结
       if (res.mood && res.mood.label) setMoodFor(charId, { ...res.mood, ts: Date.now() });
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
+      const liveState = statesRef.current[charId] || {};
       const ost = {};
       if (res.wearing) ost.wearing = res.wearing;
       if (res.action) ost.action = res.action;
+      // thought 的空值表示“本轮没有新心声”，不能像 mood/wearing/action 一样沿用旧值。
       if (res.thought) ost.thought = res.thought;
-      if (Object.keys(ost).length) { const liveState = statesRef.current[charId] || {}; const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
+      else if (liveState.thought) ost.thought = null;
+      if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 jiwen 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
       setTimeout(() => maybeSummarizeOffline(charId), 120); // 长线下防失忆：攒够就把早段滚动总结进记忆库（仿线上）

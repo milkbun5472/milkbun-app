@@ -1,0 +1,54 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+
+test("ordinary single offline uses short narrative runtime and protocol v2", () => {
+  assert.match(engine, /const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】/);
+  assert.match(engine, /const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】/);
+  assert.match(engine, /buildBundle\(ctx\) \+\s*"\\n\\n" \+ OFFLINE_NARRATIVE_RUNTIME/);
+  assert.match(engine, /intimacyContextActive \? "\\n\\n" \+ OFFLINE_INTIMATE_RUNTIME : ""/);
+  assert.doesNotMatch(engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "", /"\\n\\n" \+ NARRATIVE_ANTI_CLICHE/);
+  assert.match(engine, /scene = String\(parsed\.scene \|\| sp\.clean \|\| ""\)\.trim\(\)/);
+  assert.match(engine, /if \(!scene\) throw new Error/);
+});
+
+test("legacy narrative bans remain archived while group offline still uses them", () => {
+  assert.match(engine, /const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `/);
+  assert.match(engine, /const INTIMATE_ANTI_CLICHE_LEGACY_V1 = `/);
+  assert.match(engine, /const INTIMATE_ANTI_CLICHE = INTIMATE_ANTI_CLICHE_LEGACY_V1/);
+  assert.match(engine, /const NARRATIVE_ANTI_CLICHE = NARRATIVE_ANTI_CLICHE_LEGACY_V1/);
+  const group = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)?.[0] || "";
+  assert.match(group, /INTIMATE_ANTI_CLICHE/);
+  assert.match(group, /NARRATIVE_ANTI_CLICHE/);
+});
+
+test("intimacy context has explicit activation, continuity and reset gates", () => {
+  assert.match(engine, /function offlineIntimacyContextActive\(session\)/);
+  assert.match(engine, /const explicit = \/接吻/);
+  assert.doesNotMatch(engine.match(/const explicit = \/[\s\S]*?\/i;/)?.[0] || "", /拥抱|牵手/);
+  assert.match(engine, /const reset = \/第二天/);
+  assert.match(engine, /4 \* 3600000/);
+  assert.match(engine, /after\.length <= 3/);
+});
+
+test("offline null state semantics preserve durable state and clear stale thought", () => {
+  assert.match(app, /if \(res\.wearing\) ost\.wearing = res\.wearing/);
+  assert.match(app, /if \(res\.action\) ost\.action = res\.action/);
+  assert.match(app, /if \(res\.thought\) ost\.thought = res\.thought;\s*else if \(liveState\.thought\) ost\.thought = null/);
+  assert.match(app, /if \(res\.mood && res\.mood\.label\) setMoodFor/);
+  assert.match(app, /Number\.isFinite\(res\.affinityDelta\)/);
+  assert.match(engine, /action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写/);
+});
+
+test("single offline latest-user tail no longer repeats the legacy ban checklist", () => {
+  assert.match(engine, /〔本轮线下〕保持当前场景、人物位置、物件和状态连续/);
+  assert.match(engine, /上一版只是需要避开的候选，不属于已经发生的剧情/);
+  const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
+  assert.doesNotMatch(single, /比喻限额·最要紧/);
+  assert.doesNotMatch(single, /像只大型犬/);
+  assert.doesNotMatch(single, /喉结滚动/);
+});
