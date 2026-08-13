@@ -3736,6 +3736,8 @@ function Config({
   activeId,
   offlineApiId,
   onSetOfflineApi,
+  modelFloatOn,
+  onSetModelFloat,
   bgApiId,
   onSetBgApi,
   onSaveApi,
@@ -3815,6 +3817,8 @@ function Config({
     activeId: activeId,
     offlineApiId: offlineApiId,
     onSetOfflineApi: onSetOfflineApi,
+    modelFloatOn: modelFloatOn,
+    onSetModelFloat: onSetModelFloat,
     bgApiId: bgApiId,
     onSetBgApi: onSetBgApi,
     onSave: onSaveApi,
@@ -3865,6 +3869,8 @@ function ApiConfig({
   activeId,
   offlineApiId,
   onSetOfflineApi,
+  modelFloatOn,
+  onSetModelFloat,
   bgApiId,
   onSetBgApi,
   onSave,
@@ -4067,6 +4073,12 @@ function ApiConfig({
     })
   })),
   // 向量记忆：独立 embedding API（和聊天模型分开填）
+  onSetModelFloat && h("div", { style: { marginTop: 4, marginBottom: 20, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 } },
+    h("div", null,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "模型快速切换浮窗"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "显示 iOS 圆点，快速切换已保存的线上与线下线路；角色专线不受影响。")),
+    h("button", { onClick: () => onSetModelFloat(!modelFloatOn), className: "active:opacity-70", style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
+      h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } }))),
   h(EmbedApiConfig, { toast: toast }),
   /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 mt-8"

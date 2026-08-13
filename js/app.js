@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.50";
+const APP_VERSION = "v52.51";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -91,6 +91,38 @@ function DevBadges() {
   return h(React.Fragment, null,
     h("span", { style: Object.assign({ left: 8, fontFamily: "monospace", fontSize: 9, letterSpacing: 0.4, color: t.ink, opacity: 0.3 }, base) }, APP_VERSION),
     h("span", { style: Object.assign({ right: 8, display: "flex", alignItems: "center" }, base) }, h(BatteryBadge, null)));
+}
+// AssistiveTouch 风格模型切换器：只改全局线上/线下线路；角色专线仍由 apiFor/offlineApiFor 优先。
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSetOffline }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const label = p => (p && (p.name || p.model)) || "未命名线路";
+  const online = (profiles || []).find(p => p.id === activeId) || (profiles || [])[0] || null;
+  const offline = (offlineApiId && (profiles || []).find(p => p.id === offlineApiId)) || online;
+  if (!(profiles || []).length) return null;
+  const choice = (kind, p) => h("button", {
+    key: kind + ":" + (p.id || "follow"),
+    onClick: () => kind === "online" ? onSetOnline(p.id) : onSetOffline(p.id || null),
+    className: "active:opacity-60",
+    style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.35,
+      color: ((kind === "online" ? online && online.id : offline && offline.id) === p.id) ? t.bg2 : t.ink,
+      background: ((kind === "online" ? online && online.id : offline && offline.id) === p.id) ? t.ink : "transparent" }
+  }, label(p));
+  return h("div", { style: { position: "fixed", right: 12, top: "42%", zIndex: 90, display: "flex", alignItems: "center", gap: 8 } },
+    open ? h("div", { style: { width: 226, maxHeight: "58vh", overflowY: "auto", padding: 12, borderRadius: 18, background: t.bg2,
+      border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "快速切换模型"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "5px 4px" } }, "线上 · " + label(online)),
+      (profiles || []).map(p => choice("online", p)),
+      h("div", { style: { height: 1, background: t.line, margin: "10px 0" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "5px 4px" } }, "线下 · " + label(offline)),
+      [h("button", { key: "offline:follow", onClick: () => onSetOffline(null), className: "active:opacity-60",
+        style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12,
+          color: !offlineApiId ? t.bg2 : t.ink, background: !offlineApiId ? t.ink : "transparent" } }, "跟随线上主模型")].concat((profiles || []).map(p => choice("offline", p)))) : null,
+    h("button", { onClick: () => setOpen(v => !v), "aria-label": "快速切换模型", className: "active:scale-95",
+      style: { width: 46, height: 46, borderRadius: 23, flexShrink: 0, background: "rgba(25,24,22,.88)", border: "2px solid rgba(255,255,255,.7)",
+        boxShadow: "0 5px 18px rgba(0,0,0,.3)", color: "white", fontFamily: "monospace", fontSize: 10, lineHeight: 1.05 } }, open ? "×" : "AI"));
 }
 // 一起听·本地音频存 IndexedDB（音频文件大，localStorage 5MB 存不下）。key=歌曲id，value=Blob。
 function idbAudioOpen() {
@@ -330,6 +362,7 @@ function App() {
   const [apiProfiles, setApiProfiles] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [offlineApiId, setOfflineApiId] = useState(null); // 线下正文/总结专用；空=跟随线上主 API
+  const [modelFloatOn, setModelFloatOn] = useState(() => !!loadJSON("x_modelFloatOn", false));
   const [bgApiId, setBgApiId] = useState(null); // 后台机械任务专用便宜 API；空=不运行 cheap_required，绝不偷用主池
   const [activeChar, setActiveChar] = useState(null);
   const [activeGroup, setActiveGroup] = useState(null);
@@ -10261,6 +10294,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     apiProfiles: apiProfiles,
     activeId: activeId,
     offlineApiId: offlineApiId,
+    modelFloatOn: modelFloatOn,
+    onSetModelFloat: on => { setModelFloatOn(!!on); saveJSON("x_modelFloatOn", !!on); },
     onSetOfflineApi: id => {
       setOfflineApiId(id);
       saveJSON("x_offlineApi", id);
@@ -10451,6 +10486,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       setScreen("memlib");
     },
     onExtractMem: () => extractMemForChar(activeChar.id)
+  }), modelFloatOn && h(ModelQuickSwitch, {
+    profiles: apiProfiles,
+    activeId: activeId,
+    offlineApiId: offlineApiId,
+    onSetOnline: id => { setActiveId(id); saveJSON("x_activeApi", id); toast("线上已切换为 " + (((apiProfiles || []).find(p => p.id === id) || {}).name || ((apiProfiles || []).find(p => p.id === id) || {}).model || "该线路")); },
+    onSetOffline: id => { setOfflineApiId(id); saveJSON("x_offlineApi", id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("线下已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: characters,
     onCreate: createGroup,
