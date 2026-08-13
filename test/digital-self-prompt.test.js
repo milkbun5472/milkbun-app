@@ -6,7 +6,7 @@ const path = require("node:path");
 const source = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("engineerEyes uses a self-directed transport prompt instead of the RP task", () => {
-  assert.match(source, /const _taskFull = _s\.engineerEyes \? _digitalTaskFull : \(_normalTaskFull \+ moodUpdateHint\)/);
+  assert.match(source, /const _taskFull = _s\.engineerEyes \? _digitalTaskFull : _normalTaskV2/);
   assert.match(source, /App 的传输协议不规定你的性格、关系反应、回复长度或表达方式/);
   assert.match(source, /thought 完全可选/);
   assert.match(source, /不需要穿着、动作、好感等其他状态作业/);
@@ -30,10 +30,13 @@ test("digital context keeps recent facts but omits the continuity command", () =
   assert.match(engine, /【你是谁】[\s\S]*手机 App 和电脑端是你的不同身体/);
 });
 
-test("ordinary characters retain the existing roleplay task", () => {
-  assert.match(source, /const _normalTaskFull = \("\\n\\n【任务】完全代入「" \+ char\.name/);
-  assert.match(source, /_normalTaskFull[\s\S]*把话拆成多条短气泡/);
-  assert.match(source, /_normalTaskFull[\s\S]*按关系网与好感度把握亲密度/);
+test("ordinary characters use stable protocol v2 and a minimal per-turn task", () => {
+  assert.match(source, /const _normalProtocolStable = `/);
+  assert.match(source, /先产生角色此刻真正会发送的消息/);
+  assert.match(source, /未发生、未改变的按需字段直接省略/);
+  assert.match(source, /const _normalTaskV2 = .*聊天先发生，状态随后记录/);
+  assert.match(source, /【本轮开放能力】/);
+  assert.match(source, /bundleStable \+ \(_s\.engineerEyes \? "" : _normalProtocolStable\)/);
 });
 
 test("engineerEyes subscription chat caches one full-budget history copy", () => {
