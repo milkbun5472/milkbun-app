@@ -246,6 +246,54 @@
     ));
   }
 
+  // 灾后找回（2026-08-13 强制登出+云端恢复丢行事故）：云端恢复只盖回 saves 快照，
+  // 快照时刻之后的 app 行仍活在账本里。这里把账本行与本地线程逐条对账，返回本地缺失
+  // 行还原成的消息。只算缺行，不改不删已有消息；真正落盘由 App 侧直写完成——
+  // 不得走 pChat/pOffline 一类 helper，否则差量会被再次 enqueue、给账本造第二份行。
+  async function restoreAppRows(context, existingMessages, cloudRows) {
+    if (!eligibleContext(context)) return { missing: [] };
+    const offlineLike = context.threadType === "offline" || context.threadType === "group_offline";
+    const groupLike = context.threadType === "group" || context.threadType === "group_offline";
+    const eligible = asArray(cloudRows).filter(row => row && !row.deleted_at
+      && text(row.source) === "app"
+      && text(row.thread_type) === context.threadType
+      && String(row.thread_id) === String(context.threadId)
+      && text(row.message_key).indexOf("appcc:") !== 0
+      && !(row.metadata && typeof row.metadata === "object" && row.metadata.bridge_kind)
+      && text(row.content));
+    if (!eligible.length) return { missing: [] };
+    const existing = asArray(existingMessages);
+    const have = new Set((await rowsFor(context, existing, Date.now())).map(r => r.message_key));
+    // 老消息没强 ID 时 message_key 带正文指纹，本地重算可能漂移；
+    // 再叠一层「同侧同正文±15分钟」软对账兜底，宁可漏补也不造重复泡。
+    const sideOf = value => value === "user" || value === "lisa" ? "u" : value === "narration" ? "n" : "c";
+    const nearby = new Map();
+    existing.filter(isRealMessage).forEach(m => {
+      const k = sideOf(text(m.role).toLowerCase()) + "|" + text(m.content);
+      if (!nearby.has(k)) nearby.set(k, []);
+      nearby.get(k).push(Number(m.ts) || 0);
+    });
+    const missing = [];
+    for (const row of eligible) {
+      if (have.has(text(row.message_key))) continue;
+      const at = Date.parse(row.occurred_at), ts = Number.isFinite(at) ? at : Date.now();
+      const side = sideOf(text(row.speaker_type));
+      const near = nearby.get(side + "|" + text(row.content));
+      if (near && near.some(t => Math.abs(t - ts) < 15 * 60 * 1000)) continue;
+      const meta = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+      const msg = {
+        id: row.source_message_id ? String(row.source_message_id) : "rst_" + text(row.message_key).replace(/[^\w]+/g, "_").slice(-40),
+        role: side === "u" ? "user" : side === "n" ? "narration" : offlineLike ? "char" : "assistant",
+        content: text(row.content), ts, read: true, ledgerRestored: true
+      };
+      if (meta.message_kind) msg.kind = text(meta.message_kind);
+      if (groupLike && side === "c" && row.speaker_id) msg.senderId = String(row.speaker_id);
+      missing.push(msg);
+    }
+    missing.sort((a, b) => a.ts - b.ts);
+    return { missing };
+  }
+
   function createManager(options) {
     options = options || {};
     const storage = options.storage || root.localStorage;
@@ -401,7 +449,7 @@
   const pullObserver = root.localStorage ? createPullObserver() : null;
   return {
     OUTBOX_KEY, DELETE_OUTBOX_KEY, DIAG_KEY, PULL_KEY, LIVE_CURSOR_KEY, CONTINUITY_KEY, findYanqiu, eligibleContext, isRealMessage, speakerFor,
-    rowsFor, addedSessionMessages, reconcileIncoming, reconcileContinuity, continuityPrompt, modelHistory, createManager, createPullObserver,
+    rowsFor, addedSessionMessages, reconcileIncoming, reconcileContinuity, continuityPrompt, modelHistory, restoreAppRows, createManager, createPullObserver,
     enqueue: manager ? manager.enqueue : async () => ({ queued: 0, pending: 0 }),
     invalidate: manager ? manager.invalidate : async () => ({ sent: 0, pending: 0 }),
     flush: manager ? manager.flush : async () => ({ sent: 0, pending: 0 }),

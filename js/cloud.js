@@ -115,6 +115,17 @@
       } finally {
         suspend = false;
       }
+      // 账本游标键不带 x_ 前缀、不在快照里：快照盖回本地后若不归零，游标仍指着「已拉到最新」
+      // 而本地已回到旧时刻——CC 气泡「已拉过但本地没有」，永远回不来（2026-08-13 登出+恢复丢行事故）。
+      // 顺手立一张灾后找回工单：重载后把账本里快照没带上的 app 行补回本地（48 小时窗）。
+      try {
+        ["chat_ledger_live_cursor_v1", "chat_ledger_pull_shadow_v1", "yanqiu_cross_surface_continuity_v1"].forEach(k => localStorage.removeItem(k));
+        localStorage.setItem("chat_ledger_restore_pending_v1", JSON.stringify({
+          requested_at: new Date().toISOString(),
+          since: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+          attempts: 0
+        }));
+      } catch (e) {}
       // 写回完成后冻结本地 x_ 写入，直到调用方 location.reload()。
       // 目的：apply 与 reload 之间那几百毫秒里，登录前那份旧 React 状态可能 saveJSON，
       // 会把刚恢复的键覆盖回旧值（甚至反向 push 污染云端）→「恢复一半」竞态。冻结后这些写入直接丢弃，重载后自然解除。
@@ -339,6 +350,29 @@
         error_text: payload && payload.ok === false ? payload.error : null,
         completed_at: data.created_at
       };
+    },
+
+    // ---- 灾后找回：拉时间窗内 source=app 的存活行，供开机对账补回本地 ----
+    // 只读；软删行（她亲手删过/重roll撤回的）永远不回来，appcc 控制行由对账层再过滤。
+    async chatMessagesAppRestoreRows(sinceIso, cap) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const max = Math.max(100, Math.min(3000, Number(cap) || 2000));
+      const rows = [];
+      for (let offset = 0; offset < max; offset += 500) {
+        const { data, error } = await client.from("chat_messages")
+          .select("id,message_key,char_id,thread_type,thread_id,speaker_type,speaker_id,content,occurred_at,source,source_message_id,metadata,deleted_at")
+          .eq("user_id", user.id).eq("source", "app").is("deleted_at", null)
+          .gte("occurred_at", String(sinceIso))
+          .order("occurred_at", { ascending: true }).order("id", { ascending: true })
+          .range(offset, offset + 499);
+        if (error) throw error;
+        const batch = Array.isArray(data) ? data : [];
+        rows.push(...batch);
+        if (batch.length < 500) break;
+      }
+      return rows;
     },
 
     // ---- CC/桌面 → App 第 4 步影子拉取：只返回给诊断观察器，不合并本地聊天 ----

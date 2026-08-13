@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.31";
+const APP_VERSION = "v52.32";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -985,6 +985,102 @@ function App() {
     window.addEventListener("online", sync); window.addEventListener("focus", sync); document.addEventListener("visibilitychange", visible);
     return () => { dead = true; clearTimeout(retry); clearInterval(timer); window.removeEventListener("online", sync); window.removeEventListener("focus", sync); document.removeEventListener("visibilitychange", visible); };
   }, [loaded, characters, chatSettings]);
+  // 灾后找回：云端恢复(apply)只盖回 saves 快照，快照之后的 app 行仍活在账本里；
+  // apply 会留一张 chat_ledger_restore_pending_v1 工单，这里开机对账、把缺行补回各线程。
+  // 落盘走直写（saveJSON+ref+setState），绝不走 pChat/pOffline——那些 helper 会把差量
+  // 再次 enqueue 回账本，给云端造第二份 message_key。
+  useEffect(() => {
+    if (!loaded || !characters.length) return;
+    let marker = null;
+    try { marker = JSON.parse(localStorage.getItem("chat_ledger_restore_pending_v1") || "null"); } catch (e) {}
+    if (!marker || !marker.since || !window.ChatLedgerShadow || !window.Cloud) return;
+    let dead = false;
+    const byTs = (a, b) => (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0);
+    (async () => {
+      try {
+        const user = await window.Cloud.getSessionUser();
+        if (!user || dead) return;
+        const rows = await window.Cloud.chatMessagesAppRestoreRows(marker.since);
+        const buckets = new Map();
+        rows.forEach(r => {
+          if (!r) return;
+          const k = String(r.thread_type) + " " + String(r.thread_id);
+          if (!buckets.has(k)) buckets.set(k, []);
+          buckets.get(k).push(r);
+        });
+        let restored = 0, newSessions = 0;
+        const fillNames = list => list.forEach(m => {
+          if (m && m.senderId) { const c = characters.find(x => String(x.id) === String(m.senderId)); if (c) m.senderName = c.name; }
+        });
+        for (const bucket of buckets.values()) {
+          if (dead) break;
+          const tt = String(bucket[0].thread_type), tid = String(bucket[0].thread_id);
+          const cid = String(bucket[0].char_id || "") || tid;
+          if (tt === "private") {
+            if (!characters.some(c => String(c.id) === tid)) continue;
+            const existing = chatsRef.current[tid] || loadJSON("x_chat:" + tid, []);
+            const { missing } = await window.ChatLedgerShadow.restoreAppRows({ charId: cid, threadType: tt, threadId: tid }, existing, bucket);
+            if (!missing.length) continue;
+            const merged = existing.concat(missing).sort(byTs);
+            saveJSON("x_chat:" + tid, merged);
+            chatsRef.current = { ...chatsRef.current, [tid]: merged };
+            setChats(p => ({ ...p, [tid]: merged }));
+            restored += missing.length;
+          } else if (tt === "group") {
+            const group = groups.find(g => String(g.id) === tid);
+            if (!group) continue;
+            const existing = groupChatsRef.current[tid] || loadJSON("x_gchat:" + tid, []);
+            const { missing } = await window.ChatLedgerShadow.restoreAppRows({ charId: cid, threadType: tt, threadId: tid, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, existing, bucket);
+            if (!missing.length) continue;
+            fillNames(missing);
+            const merged = existing.concat(missing).sort(byTs);
+            saveJSON("x_gchat:" + tid, merged);
+            groupChatsRef.current = { ...groupChatsRef.current, [tid]: merged };
+            setGroupChats(p => ({ ...p, [tid]: merged }));
+            restored += missing.length;
+          } else if (tt === "offline" || tt === "group_offline") {
+            const isG = tt === "group_offline";
+            const group = isG ? groups.find(g => String(g.id) === tid) : null;
+            if (isG ? !group : !characters.some(c => String(c.id) === tid)) continue;
+            const ref = isG ? groupOfflinesRef : offlinesRef;
+            const key = (isG ? "x_goffline:" : "x_offline:") + tid;
+            const list = (ref.current[tid] || loadJSON(key, [])).slice();
+            const flat = [];
+            list.forEach(s => ((s && s.msgs) || []).forEach(m => flat.push(m)));
+            const ctx = isG
+              ? { charId: cid, threadType: tt, threadId: tid, groupMemberIds: group.memberIds || [], groupName: group.name || "" }
+              : { charId: cid, threadType: tt, threadId: tid };
+            const { missing } = await window.ChatLedgerShadow.restoreAppRows(ctx, flat, bucket);
+            if (!missing.length) continue;
+            if (isG) fillNames(missing);
+            let next;
+            if (list[0] && !list[0].endTs) {
+              // 快照截在场中：缺行并回当前开着的场
+              next = [{ ...list[0], msgs: [...(list[0].msgs || []), ...missing].sort(byTs) }, ...list.slice(1)];
+            } else {
+              // 整场都丢了：立一个已收尾的「找回」场保住原话；场景标题等元数据账本没存，回不来
+              next = [{ id: "off_rst_" + missing[0].ts, startTs: missing[0].ts, endTs: missing[missing.length - 1].ts, styleKey: "default", stylePrompt: "", taste: "", customNotes: [], ledgerRestored: true, msgs: missing }, ...list];
+              newSessions++;
+            }
+            saveJSON(key, next);
+            ref.current = { ...ref.current, [tid]: next };
+            (isG ? setGroupOfflines : setOfflines)(p => ({ ...p, [tid]: next }));
+            restored += missing.length;
+          }
+        }
+        localStorage.removeItem("chat_ledger_restore_pending_v1");
+        if (restored) toast("灾后找回：从账本补回 " + restored + " 条消息" + (newSessions ? "（含 " + newSessions + " 个找回的线下场）" : ""));
+      } catch (e) {
+        // 失败保留工单下次开机重试；连败 5 次自动放弃，别让坏工单永久纠缠开机
+        try {
+          const attempts = Number(marker.attempts || 0) + 1;
+          if (attempts >= 5) localStorage.removeItem("chat_ledger_restore_pending_v1");
+          else localStorage.setItem("chat_ledger_restore_pending_v1", JSON.stringify({ ...marker, attempts, last_error: String((e && e.message) || e) }));
+        } catch (_) {}
+      }
+    })();
+    return () => { dead = true; };
+  }, [loaded, characters, groups]);
   // E 潮汐 shadow：旁路记状态，任何失败都不能影响消息落盘或角色回复。
   const noteTidalUser = (text, ts) => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onUserMessage(text, ts); } catch (e) {} };
   useEffect(() => {

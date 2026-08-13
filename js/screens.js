@@ -4589,6 +4589,15 @@ function CloudSync({ toast }) {
                 h("button", { onClick: () => setConfirmPull(false), className: "flex-1 py-3", style: btnLine }, "取消"),
                 h("button", { onClick: doPull, disabled: busy === "pull", className: "flex-1 py-3", style: { ...btnDark, background: t.accent, color: "#fff" } },
                   busy === "pull" ? "恢复中…" : "确定恢复"))),
+        h("button", { key: "ledgerfix", onClick: () => {
+          // 不动本地已有消息：只把账本里 48h 内还活着、本地却缺失的行补回来，并让 CC 气泡全量重拉
+          try {
+            ["chat_ledger_live_cursor_v1", "chat_ledger_pull_shadow_v1", "yanqiu_cross_surface_continuity_v1"].forEach(k => localStorage.removeItem(k));
+            localStorage.setItem("chat_ledger_restore_pending_v1", JSON.stringify({ requested_at: new Date().toISOString(), since: new Date(Date.now() - 48 * 3600 * 1000).toISOString(), attempts: 0, manual: true }));
+          } catch (e) {}
+          toast("正在从账本找回缺失消息，马上重载…");
+          setTimeout(() => location.reload(), 600);
+        }, disabled: !!busy, className: "mt-3 w-full py-3", style: btnLine }, "从账本找回缺失消息（最近48小时）"),
         h("div", { key: "outnote", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 18, lineHeight: 1.6 } },
           "退出登录会先把最新存档同步到云端，然后清空本机数据、回到初始状态。你的数据都在云端，重新登录会自动拉回。"),
         h("button", { key: "out", onClick: doSignOut, disabled: !!busy, className: "mt-2 w-full py-3", style: { ...btnLine, color: "#c0503f" } },
