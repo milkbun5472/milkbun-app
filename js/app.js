@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.47";
+const APP_VERSION = "v52.37";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4303,10 +4303,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           try {
             if (String(ref).indexOf("data:") === 0) imageDataUrls.push(ref);
             else if (String(ref).indexOf("iv_") === 0 && typeof idbVaultGet === "function" && typeof blobToDataUrl === "function") {
-              const blob = await idbVaultGet(ref);
+              // 发图后紧跟发字时,IDB 写入可能还在半路——取不到就等一拍重试两次,
+              // 别再静默丢图(2026-08-13 她连丢两张扇贝照的「管道吞图」案)
+              let blob = await idbVaultGet(ref);
+              for (let _r = 0; !blob && _r < 2; _r++) { await new Promise(rs => setTimeout(rs, 450)); blob = await idbVaultGet(ref); }
               if (blob) imageDataUrls.push(await blobToDataUrl(blob));
+              else console.warn("[img] vault miss after retries:", ref);
             }
-          } catch (e) {}
+          } catch (e) { console.warn("[img] expand failed:", ref, e); }
         }
         return { role, content, ...(imageDataUrls.length ? { imageDataUrls } : {}) };
       }));
