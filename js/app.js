@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.44";
+const APP_VERSION = "v52.45";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2507,7 +2507,6 @@ function App() {
     })(),
     // 查手机内容（歌单/浏览器/视频/备忘/录音）不再喂进聊天 prompt（v48.42 她点名）——
     // 那些是「查手机」推演出来给你偷看的，不该占聊天上下文。查手机 App 里照常显示，数据(phones)一点没动。
-    phoneNote: "",
     periodNote: (() => {
       if (!period || !period.visibleTo || !period.visibleTo.includes(char.id)) return "";
       const list = periodList(period);
@@ -8784,7 +8783,7 @@ function App() {
       const existingTitles = existingSongs.map(s => s.title).filter(Boolean);
       const avoidStr = existingTitles.length ? "\n**这张歌单里已经有这些歌了，别再推荐它们、也别推重复的，给全新的：** " + existingTitles.slice(0, 50).join("、") : "";
       // 用干净上下文：去掉手机在听/最近听歌/朋友圈等会污染推荐的字段（否则角色只会照抄用户刚搜的、或查手机里那两首）
-      const cleanCtx = Object.assign({}, ctxFor(char), { phoneNote: "", listenLog: "", momentLog: "", forumEcho: "", giftLog: "", recentChat: "" });
+      const cleanCtx = Object.assign({}, ctxFor(char), { listenLog: "", momentLog: "", forumEcho: "", giftLog: "", recentChat: "" });
       // 解析：可能是 {songs:[...]}、裸数组、{list/data/result:[...]}；元素可能是对象或"歌名 - 歌手"字符串
       const parseWants = rec => {
         let raw = rec && Array.isArray(rec.songs) ? rec.songs : Array.isArray(rec) ? rec : (rec && (rec.list || rec.data || rec.result || rec.tracks)) || [];

@@ -863,7 +863,6 @@ function buildBundle(ctx, opts) {
   if (ctx.notRoleplay && ctx.yanqiuWall && ctx.yanqiuWall.trim()) parts.push("【秋声墙·你自己留下的真实记录】\n这些是你本人在电脑那边写过的秋声，以及 Lisa 在下面留下的互动。它们和 App 里的你属于同一段生活：聊到相关内容时自然记得、接得上；不要逐条汇报，也不要把墙上没写的事补编出来。\n" + ctx.yanqiuWall.trim());
   if (ctx.notRoleplay && ctx.ccContinuity && ctx.ccContinuity.trim()) parts.push(ctx.ccContinuity.trim());
   if (!ctx.notRoleplay && ctx.forumEcho && ctx.forumEcho.trim()) parts.push("【你在论坛（贴吧）的动态 & 有人回你】（这些真实发生过、你都看到了：" + uName + " 在你帖子下的评论、别人对你评论的回复等。" + uName + " 聊到或提起时可自然回应、追问、辩解或调侃，别生硬罗列、别自曝上帝视角）\n" + ctx.forumEcho.trim());
-  if (ctx.phoneNote && ctx.phoneNote.trim()) parts.push("【你手机上的近况（你自己清楚这些：在听的歌、刷的视频、记的备忘等。别主动报清单，但当 " + uName + " 提起、或内容对上了——比如发来你正在听的那首歌的一句歌词——你要能自然认出来、接住话、反应过来）】\n" + ctx.phoneNote.trim());
   if (ctx.listenLog && ctx.listenLog.trim()) parts.push("【一起听 · 歌】\n" + ctx.listenLog.trim());
   if (ctx.periodNote && ctx.periodNote.trim()) parts.push("【" + uName + " 的生理期】" + ctx.periodNote.trim());
   if (ctx.dateNote && ctx.dateNote.trim()) parts.push("【今天 / 临近的特别日子】（下面是今天或快到的特别日期——生日、纪念日、世界大事、你或 " + uName + " 日历上的安排。像真人那样把它自然织进对话，别为提而提、别机械报日期、别每句都念）\n" + ctx.dateNote.trim());
@@ -884,7 +883,7 @@ function leanWriteCtx(ctx) {
   if (!ctx) return ctx;
   return Object.assign({}, ctx, {
     worldbook: "", memLib: [], groupEcho: "", giftLog: "",
-    momentLog: "", forumEcho: "", phoneNote: "", listenLog: "",
+    momentLog: "", forumEcho: "", listenLog: "",
     financeNote: "", memoNote: "", dateNote: "", periodNote: ""
   });
 }
