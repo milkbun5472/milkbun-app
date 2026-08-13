@@ -1806,14 +1806,15 @@ function offlineHistory(msgs, userName, charName) {
       ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = ts ? "〔" + fmtStampAI(ts) + "〕" : "";
+    const surface = m._surface === "online" ? "【线上私聊】" : "";
     if (m.role === "char") {
       const l = g[g.length - 1];
-      const c = gap + stamp + (m.content || "");
+      const c = gap + stamp + surface + (m.content || "");
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
       const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(raw, m.ts) : "";
-      const c = gap + stamp + (m.role === "narration" ? "【场景设定】" + raw : raw) + (dateAnchor ? dateAnchor : "");
+      const c = gap + stamp + surface + (m.role === "narration" ? "【场景设定】" + raw : raw) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
     }
@@ -1856,6 +1857,11 @@ async function generateOffline(p, ctx, session) {
     toyHint +
     "") + outputSpec;
   const hist = offlineHistory(session.msgs, userName, char.name);
+  if (session.hasOnlineInterlude) {
+    const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
+    if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
+    else hist.push({ role: "user", content: bridge.trim() });
+  }
   // ⭐尾部重申（治「越写越八股」）：长对话里开头的规矩会被稀释，模型还会模仿自己前文的油腻输出——
   // 把关键约束追加到上下文最尾（模型对结尾最敏感），每轮都在
   const continueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(false) : "";

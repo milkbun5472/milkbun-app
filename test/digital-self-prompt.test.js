@@ -35,3 +35,20 @@ test("ordinary characters retain the existing roleplay task", () => {
   assert.match(source, /_normalTaskFull[\s\S]*把话拆成多条短气泡/);
   assert.match(source, /_normalTaskFull[\s\S]*按关系网与好感度把握亲密度/);
 });
+
+test("engineerEyes subscription chat caches one full-budget history copy", () => {
+  assert.match(source, /\? \{ maxChars: 7000, maxMessages: 48 \}/);
+  assert.match(source, /const _singleHistoryLayout = _histCache \|\| _engineerChat/);
+  assert.match(source, /recentChat: ""/);
+  assert.match(source, /detectFormat\(_route\)/);
+  assert.match(source, /maxTokens: _engineerChat \? 3000 : 6000, cacheHistory: _histCache/);
+});
+
+test("engineerEyes chat carries a lean volatile baggage budget", () => {
+  assert.match(source, /continuityPrompt\(saved\.rows \|\| \[\], profile\.name \|\| "Lisa", 20,[\s\S]*240\)/);
+  assert.match(source, /isLeanYanqiuChat \? 3/);
+  assert.match(source, /slice\(0, 3\)\.map/);
+  assert.match(source, /slice\(0, 240\)/);
+  const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  assert.match(screens, /缓存由 CLI 引擎管理/);
+});

@@ -28,3 +28,13 @@ test("两种线下都沿用全局时间感知开关", () => {
   assert.match(app, /timeAware: prefs\.timeAware/);
   assert.match(engine, /【当前真实时间】/);
 });
+
+test("未结束单人线下重入时按真实时间接入期间全部线上私聊", () => {
+  assert.match(app, /const _onlineInterlude = settingsFor\(charId\)\.engineerEyes \? \[\] :/);
+  assert.match(app, /\(m\.ts \|\| 0\) >= \(workSess\.startTs \|\| 0\)/);
+  assert.match(app, /_windowMsgs\.concat\(_onlineInterlude/);
+  assert.match(app, /sort\(\(a, b\) => \(a\.ts \|\| 0\) - \(b\.ts \|\| 0\)\)/);
+  assert.match(app, /msgs: _timelineMsgs, hasOnlineInterlude:/);
+  assert.match(engine, /【线上私聊】/);
+  assert.match(engine, /不能跳过今天的线上聊天、倒回去续演更早的线下剧情/);
+});

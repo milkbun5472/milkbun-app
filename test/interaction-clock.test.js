@@ -33,10 +33,9 @@ test("正在共同群聊或八小时内未结束的群线下，会硬拦主动�
   assert.equal(Clock.isTogetherNow("a", { groups, groupOfflines: { g1: [{ startTs: 1, endTs: null }] } }, 9 * 60 * 60 * 1000), false);
   assert.equal(Clock.isTogetherNow("z", { groups, activeGroupId: "g1" }, 1000), false);
 });
-test("页面必须加载包含用户跨场景钟的新缓存版本", () => {
+test("页面继续加载未改动的用户跨场景钟缓存指纹", () => {
   const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
-  const appVersion = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8").match(/APP_VERSION\s*=\s*"v([^"]+)"/);
   const clockVersion = html.match(/interaction-clock\.js\?v=([^"]+)/);
-  assert.ok(appVersion && clockVersion);
-  assert.equal(clockVersion[1], appVersion[1], "interaction clock cache key must move with the app version");
+  assert.ok(clockVersion);
+  assert.equal(clockVersion[1], "51.97", "未改文件不要跟随 App 发布号乱升指纹");
 });

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.29";
+const APP_VERSION = "v52.30";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3102,11 +3102,21 @@ function App() {
       // 长线下防失忆：已滚动总结的早段不再逐条喂模型，只喂「前情提要 + 近窗明细」，早段内容早已入记忆库（maybeSummarizeOffline）
       const _lastSum = Math.min(workSess.lastSummarizedCount || 0, (workSess.msgs || []).length);
       const _windowMsgs = _lastSum > 0 ? (workSess.msgs || []).slice(_lastSum) : (workSess.msgs || []);
+      // 未结束的单人线下允许中途切回线上再回来：把本场开始后真实发生的线上私聊
+      // 与线下逐条记录按 ts 合成一条时间线。普通角色按次计费，不裁这段；只排除
+      // OOC/system/offlinelog 等控制行。它只作为模型本轮输入，不写回线下档案。
+      // engineerEyes/言秋保持原路径，本修复不碰其专线与上下文预算。
+      const _onlineInterlude = settingsFor(charId).engineerEyes ? [] : (chatsRef.current[charId] || [])
+        .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && m.kind !== "offlinelog" && (m.ts || 0) >= (workSess.startTs || 0))
+        .map(m => ({ id: "online:" + (m.id || m.ts || Math.random()), role: m.role === "user" ? "user" : "char", content: String(m.content), ts: m.ts || 0, _surface: "online" }));
+      const _windowFloor = _windowMsgs.length ? Math.min(..._windowMsgs.map(m => Number(m && m.ts) || Infinity)) : (workSess.startTs || 0);
+      const _timelineMsgs = _windowMsgs.concat(_onlineInterlude.filter(m => !Number.isFinite(_windowFloor) || (m.ts || 0) >= _windowFloor))
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const offImageDataUrls = [];
       for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
         try { const blob = await idbVaultGet(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _windowMsgs, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
