@@ -44,6 +44,17 @@ test("offline null state semantics preserve durable state and clear stale though
   assert.match(engine, /action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写/);
 });
 
+test("ordinary single offline establishes missing durable state exactly once", () => {
+  assert.match(app, /const currentOfflineState = statesRef\.current\[charId\] \|\| \{\}/);
+  assert.match(app, /oCtx\.curAction = currentOfflineState\.action \|\| ""/);
+  const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
+  assert.match(single, /const missingStateFields = \[\]/);
+  assert.match(single, /!isDigital && !String\(ctx\.curWear \|\| ""\)\.trim\(\)/);
+  assert.match(single, /!isDigital && !String\(ctx\.curAction \|\| ""\)\.trim\(\)/);
+  assert.match(single, /【一次性状态建档】/);
+  assert.match(single, /outputSpec \+ stateBootstrapHint/);
+});
+
 test("single offline latest-user tail no longer repeats the legacy ban checklist", () => {
   assert.match(engine, /〔本轮线下〕保持当前场景、人物位置、物件和状态连续/);
   assert.match(engine, /上一版只是需要避开的候选，不属于已经发生的剧情/);

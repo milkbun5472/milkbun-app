@@ -36,6 +36,9 @@ test("ordinary characters use stable protocol v2 and a minimal per-turn task", (
   assert.match(source, /先产生角色此刻真正会发送的消息/);
   assert.match(source, /未发生、未改变的按需字段直接省略/);
   assert.match(source, /const _normalTaskV2 = .*聊天先发生，状态随后记录/);
+  assert.match(source, /const _liveChatState = statesRef\.current\[charId\] \|\| \{\}/);
+  assert.match(source, /【一次性状态建档】App 还没有/);
+  assert.match(source, /_stateBootstrapHint \+ paceHint/);
   assert.match(source, /【本轮开放能力】/);
   assert.match(source, /const _onlineRuntime = _s\.engineerEyes \? "" : "\\n\\n" \+ ONLINE_CHAT_RULE_V2/);
   assert.match(source, /bundleStable \+ _onlineRuntime \+ \(_s\.engineerEyes \? "" : _normalProtocolStable\)/);

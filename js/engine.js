@@ -1963,6 +1963,12 @@ async function generateOffline(p, ctx, session) {
   const cotModelKey = offlineCotModelKey(p);
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
+  const missingStateFields = [];
+  if (!isDigital && !String(ctx.curWear || "").trim()) missingStateFields.push("wearing（当前穿着）");
+  if (!isDigital && !String(ctx.curAction || "").trim()) missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
+  const stateBootstrapHint = missingStateFields.length
+    ? "\n【一次性状态建档】App 还没有 " + missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知场景合理建立一次；不要写进 scene，也不要为填状态制造剧情。"
+    : "";
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: char.name, user: userName });
   // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
   const wantLong = session.minWords && session.minWords >= 150;
@@ -1989,7 +1995,7 @@ async function generateOffline(p, ctx, session) {
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
-    "") + outputSpec;
+    "") + outputSpec + stateBootstrapHint;
   const hist = offlineHistory(session.msgs, userName, char.name);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
