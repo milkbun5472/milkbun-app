@@ -517,19 +517,6 @@
       if (error) throw error;
       return rows.length;
     },
-    async memoryRowsSoftDelete(ids) {
-      if (!client) throw new Error("云服务未就绪");
-      const user = await this.getUser();
-      if (!user) throw new Error("未登录");
-      const clean = [...new Set((ids || []).map(String).filter(Boolean))];
-      if (!clean.length) return 0;
-      const { error } = await client.from("memories")
-        .update({ deleted: true })
-        .eq("user_id", user.id)
-        .in("id", clean);
-      if (error) throw error;
-      return clean.length;
-    },
     async memoryRowsFetchAll() {
       if (!client) throw new Error("云服务未就绪");
       const user = await this.getUser();
