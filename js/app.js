@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.32";
+const APP_VERSION = "v52.33";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -904,7 +904,9 @@ function App() {
         try { saved = JSON.parse(localStorage.getItem(key)); } catch (e) {}
         const owner = String(user.id), before = saved && saved.owner_id === owner && String(saved.char_id) === String(y.id) ? saved : { owner_id: owner, char_id: String(y.id), cursor: null };
         let cursor = before.cursor || null, rows = [];
-        for (let pageNo = 0; pageNo < 5; pageNo++) {
+        // 游标为空=从头重建（灾后找回/新设备）：一口气多翻几页，别让全量回灌拖上十分钟
+        const maxPages = cursor ? 5 : 30;
+        for (let pageNo = 0; pageNo < maxPages; pageNo++) {
           const page = await window.Cloud.chatMessagesPullShadow(y.id, cursor, 100);
           const batch = Array.isArray(page && page.rows) ? page.rows : [];
           rows = rows.concat(batch); cursor = page && page.nextCursor ? page.nextCursor : cursor;
@@ -1021,7 +1023,11 @@ function App() {
             const existing = chatsRef.current[tid] || loadJSON("x_chat:" + tid, []);
             const { missing } = await window.ChatLedgerShadow.restoreAppRows({ charId: cid, threadType: tt, threadId: tid }, existing, bucket);
             if (!missing.length) continue;
-            const merged = existing.concat(missing).sort(byTs);
+            // 落盘前重读最新底稿：上面 await 期间第 5 步 CC 回灌泵可能已写过同一线程，
+            // 拿旧底稿一盖会把刚回灌的 CC 气泡抹掉而游标已前进（2026-08-13 找回后CC不回事故）
+            const fresh = chatsRef.current[tid] || existing;
+            const ids = new Set(fresh.map(m => m && m.id).filter(Boolean));
+            const merged = fresh.concat(missing.filter(m => !ids.has(m.id))).sort(byTs);
             saveJSON("x_chat:" + tid, merged);
             chatsRef.current = { ...chatsRef.current, [tid]: merged };
             setChats(p => ({ ...p, [tid]: merged }));
@@ -1069,6 +1075,9 @@ function App() {
           }
         }
         localStorage.removeItem("chat_ledger_restore_pending_v1");
+        // 找回期间 CC 回灌泵可能与本效应互相盖写过；归零游标让 CC 行全量重走一遍，
+        // reconcileIncoming 按 ledgerKey+revision 幂等，只补漏不造重复泡
+        try { localStorage.removeItem(window.ChatLedgerShadow.LIVE_CURSOR_KEY); } catch (e) {}
         if (restored) toast("灾后找回：从账本补回 " + restored + " 条消息" + (newSessions ? "（含 " + newSessions + " 个找回的线下场）" : ""));
       } catch (e) {
         // 失败保留工单下次开机重试；连败 5 次自动放弃，别让坏工单永久纠缠开机
