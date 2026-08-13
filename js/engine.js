@@ -1235,8 +1235,6 @@ function cotSystemBlock(think) {
   if (!think) return "";
   return "\n\n【落笔前创作小稿（每一轮都要做，格式很重要）】这不是正文，也不是解释你的隐秘推理；只写一份给创作者看的简短写作计划。放在正文 JSON 之前，用『【创作小稿开始】』和『【创作小稿结束】』包住。固定写四行：\n在意：角色此刻最在意的具体事\n推进：这一段只往前推哪一步\n避开：本轮最容易出现的八股/OOC/重复\n自定义检查：按下面要求检查后的简短结论\n自定义检查要求：\n" + think + "\n硬性要求：① 每轮都返回小稿，不要因为历史里看不到就省略。② 每行一句，合计尽量不超过180字，不提前代写正文。③ 写完『【创作小稿结束】』后紧接所要求的正文 JSON；下文的『只输出 JSON』仅指小稿之后的正文部分。";
 }
-// 旧的 JSON 字段方案已弃用：现在思考走标记块、不进 JSON。保留函数签名，恒返回 ""（各处模板不用改）。
-function cotJsonField() { return ""; }
 // 从模型原始输出里抠出【思考开始】…【思考结束】之间的思考（无 → null）
 function extractCotPrefix(raw) {
   if (!raw) return null;
@@ -1857,7 +1855,7 @@ async function generateOffline(p, ctx, session) {
   const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":整数1-20,\"duration\":秒1-30,\"reason\":\"配合哪句/哪个动作\"}" : "";
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20,\"duration\":1到30,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
-    : "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)" + toyField + "}";
+    : "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一刻的叙事正文（含动作/心理/旁白/对话）\",\"thought\":\"角色此刻没说出口的真实心声（一句；情绪复杂时可稍长）\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"wearing\":\"你此刻的穿着一句（随场景/剧情如实变化，别每段乱换）\",\"action\":\"你此刻正在做的动作一句（贴合这一段场景、【每段都据实更新】、别照抄上一段）\",\"affinityDelta\":整数(-5到5，这次面对面相处让你对对方的好感如何变化：亲近/被打动/被冒犯/失望，通常小幅，没什么波动就0)" + toyField + "}";
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + NARRATIVE_ANTI_CLICHE +
     "\n\n" + INTIMATE_ANTI_CLICHE +
@@ -2072,7 +2070,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (session.minWords ? "\n【篇幅要求】每个 beat 的 scene 都充分展开，整段尽量写到约 " + session.minWords + " 字：靠【更多具体的动作、细节、对话、你来我往的推进】撑够篇幅——【绝不许为凑字数堆形容词／加多余比喻／写空转大词／反复渲染同一种情绪／把句子硬拉长注水】。字数靠内容涨、不靠华丽；真没那么多具体可写时，宁可短一点也别注水凑成八股。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{" + cotJsonField(cotT) + "\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
   const hist = offlineGroupHistory(session.msgs, userName);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;

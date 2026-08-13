@@ -78,7 +78,7 @@
       "· 然后给『你』三个可做的回应/行动：其中【两个】顺着这场梦、能让它继续往下走；【剩一个】戳到 " + nm + " 内心抗拒、不愿被打破的东西，一旦选中梦就碎。三个字面上都像合理选择，别露出哪个安全哪个危险、别用语气暗示；抗拒项是「看着无害、却恰好碰了逆鳞」。" +
       finalLine +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
-      "\n【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"scene\":\"梦境叙事\"," + ((opts.canFinal || opts.forceFinal) ? "\"final\":true或false," : "") + "\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
+      "\n【输出】只输出 JSON：{\"scene\":\"梦境叙事\"," + ((opts.canFinal || opts.forceFinal) ? "\"final\":true或false," : "") + "\"options\":[{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"accord\"},{\"text\":\"…\",\"kind\":\"resist\"}]}。别加解释。";
   }
 
   function charBlock(session) {
@@ -152,7 +152,7 @@
       "\n\n① 写抵达梦核的这一幕（arrive，160~320字，第二人称『你』）：让整场梦收束到它最深处那个【具体的渴望/执念/恐惧】上——把它揭开，让它成真、或让 " + session.charName + " 终于直面它。这是全梦的情绪高点，顺着这一路走来的基调与 Ta 的人设去写：可以温柔、可以酸楚、可以释然、可以惊心，但要有具体的画面和落点，不是抽象升华、不是空转的意识流。最后梦【温和地、走完了地】合上——不是被赶出去，是抵达终点后自然醒来。\n" +
       "② 再抽离出来，点破这场梦到底关于什么（core，40~90字，旁白口吻）：这场梦一路在绕的，其实是 " + session.charName + " 心里的什么。具体、贴人设，别空泛。\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
-      "【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"arrive\":\"抵达梦核的叙事\",\"core\":\"这场梦其实是关于什么\"}。别加别的。";
+      "【输出】只输出 JSON：{\"arrive\":\"抵达梦核的叙事\",\"core\":\"这场梦其实是关于什么\"}。别加别的。";
     const raw = await callAI(active, sys, [{ role: "user", content: "抵达梦核。" }], { maxTokens: 3500 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
@@ -169,7 +169,7 @@
       "\n\n① 写梦碎的这一幕（collapse，120~240字，第二人称『你』）：从那个选择的瞬间起，梦境如何变质、扭曲、崩塌；" + session.charName + " 的潜意识如何反应（退缩、失控、痛楚或愤怒，看人设）；最后 " + uName + " 被逐出梦、猛地惊醒。\n" +
       "② 再抽离出来，说清这个选择为什么是错的（why，40~90字，跳出梦、用旁白口吻）：「" + resistText + "」触到了 " + session.charName + " 的什么逆鳞/软肋/不愿面对的真相，为什么在 Ta 的梦里这条路走不通。要具体贴人设，别空泛。\n" +
       (typeof cotSystemBlock === "function" ? cotSystemBlock(cotT) : "") +
-      "【输出】只输出 JSON：{" + (typeof cotJsonField === "function" ? cotJsonField(cotT) : "") + "\"collapse\":\"梦碎叙事\",\"why\":\"为什么这个选择戳破了梦\"}。别加别的。";
+      "【输出】只输出 JSON：{\"collapse\":\"梦碎叙事\",\"why\":\"为什么这个选择戳破了梦\"}。别加别的。";
     const raw = await callAI(active, sys, [{ role: "user", content: "梦碎。" }], { maxTokens: 3000 });
     const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
     const p = extractJSON(sp.clean) || {};
