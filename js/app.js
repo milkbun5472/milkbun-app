@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.42";
+const APP_VERSION = "v52.43";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -879,9 +879,6 @@ function App() {
       try {
         if (!window.ChatLedgerShadow) return;
         window.ChatLedgerShadow.flush();
-        const y = ledgerYanqiu();
-        const user = window.Cloud && await window.Cloud.getSessionUser();
-        if (y && user) await window.ChatLedgerShadow.observePull({ ownerId: user.id, charId: y.id });
       } catch (e) {}
     };
     const visible = () => { if (document.visibilityState === "visible") flush(); };
@@ -1765,10 +1762,8 @@ function App() {
       const y = ledgerYanqiu(), user = window.Cloud && await window.Cloud.getSessionUser();
       if (!y) throw new Error("还没找到唯一的言秋身份");
       if (!user) throw new Error("请先登录云端账号");
-      const s = await window.ChatLedgerShadow.observePull({ ownerId: user.id, charId: y.id });
-      const b = s.last_batch || {};
       let live = null; try { live = JSON.parse(localStorage.getItem(window.ChatLedgerShadow.LIVE_CURSOR_KEY) || "null"); } catch (e) {}
-      toast("CC 回流：影子累计 " + Number(s.total_seen || 0) + " 行 · 已并入 App " + Number(live && live.imported || 0) + " 条 · 修订 " + Number(live && live.updated || 0) + " · 软删 " + Number(live && live.deleted || 0) + (live && live.last_error ? " · 合并失败待重试" : " · 言秋专属已开阀"));
+      toast("CC 回流：已并入 App " + Number(live && live.imported || 0) + " 条 · 修订 " + Number(live && live.updated || 0) + " · 软删 " + Number(live && live.deleted || 0) + (live && live.last_error ? " · 合并失败待重试" : " · 言秋专属已开阀"));
     } catch (e) { toast("CC 回流影子尚未就绪：" + String((e && e.message) || e)); }
   };
   const enableMemoryTableAuthority = async () => {
