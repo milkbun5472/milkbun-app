@@ -34,10 +34,12 @@ test("不必盯着群聊页也能自发，并由既有群消息路径挂未读",
   assert.match(app, /if \(added > 0 && !viewing\)[\s\S]*bumpUnread\(id, added\)/);
 });
 
-test("app 使用发布版本，未改组件保留自己的缓存指纹", () => {
+test("app 与本次改动的组件使用同一发布版本", () => {
   const componentVersion = index.match(/components\.js\?v=([^"']+)/);
   const appVersion = index.match(/app\.js\?v=([^"']+)/);
   assert.ok(componentVersion && appVersion);
-  assert.match(appVersion[1], /^52\.35$/);
-  assert.match(componentVersion[1], /^52\.35$/);
+  const published = app.match(/APP_VERSION\s*=\s*"v([^"]+)"/);
+  assert.ok(published);
+  assert.equal(appVersion[1], published[1]);
+  assert.equal(componentVersion[1], published[1]);
 });

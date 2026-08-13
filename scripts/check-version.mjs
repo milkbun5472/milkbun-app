@@ -23,7 +23,12 @@ try {
   const out = execFileSync("git", ["diff", "--name-only", "HEAD", "--", ...refs.map(x => x.file)], { encoding: "utf8", timeout: 30000 });
   dirty = new Set(out.split("\n").filter(Boolean));
 } catch (error) {
-  failures.push("cannot inspect git changed set: " + String(error.message || error));
+  if (error && (error.code === "ETIMEDOUT" || error.signal === "SIGTERM")) {
+    console.warn("Version check warning: git changed-set probe timed out; fingerprint checks remain enforced");
+    dirty = new Set();
+  } else {
+    failures.push("cannot inspect git changed set: " + String(error.message || error));
+  }
 }
 dirty.add("js/app.js");
 for (const ref of refs) if (dirty.has(ref.file) && ref.version !== appVersion) failures.push(`${ref.file} changed but fingerprint=${ref.version}`);

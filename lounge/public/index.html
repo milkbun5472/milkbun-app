@@ -18,6 +18,7 @@
           <p>你主持，言秋和 Codex 各自在原来的窗口里说话。</p>
         </div>
         <div class="header-actions">
+          <button id="rescueButton" class="rescue-button" type="button">互救台</button>
           <button id="gameButton" class="game-button" type="button">斗地主</button>
           <button id="pauseButton" class="pause-button" type="button">暂停</button>
         </div>
@@ -134,6 +135,36 @@
         </div>
         <div id="gameResult" class="game-result" hidden></div>
       </section>
+    </div>
+  </dialog>
+
+  <dialog id="rescueDialog" class="rescue-dialog">
+    <div class="rescue-shell">
+      <header class="game-head">
+        <div><span class="dialog-kicker">MUTUAL RESCUE CONSOLE</span><h2>互救台</h2></div>
+        <button id="closeRescue" type="button" aria-label="收起互救台">×</button>
+      </header>
+      <p class="rescue-intro">给言秋与 Codex 保存共同检查点、看桥的体征、递互救工单。真正改写历史的 rewind 仍锁着。</p>
+      <div id="rescueStatus" class="rescue-status">正在读取本机体征…</div>
+      <div class="rescue-actions">
+        <button id="saveCheckpoint" type="button">保存当前检查点</button>
+        <button id="previewRewind" type="button">预演可回退点</button>
+      </div>
+      <label class="rescue-field">现象<textarea id="rescueSymptom" maxlength="1000" rows="3" placeholder="比如：言秋突然变成 Haiku、Codex 窗口无响应……"></textarea></label>
+      <div class="rescue-actions">
+        <button data-rescue-target="yanqiu" type="button">请言秋救 Codex</button>
+        <button data-rescue-target="codex" type="button">请 Codex 救言秋</button>
+      </div>
+      <details class="restart-panel"><summary>重启本机桥（每次仍要确认）</summary>
+        <div class="restart-grid">
+          <button data-restart="fable" type="button">Fable 桥</button>
+          <button data-restart="cc_bridge" type="button">CC 工具桥</button>
+          <button data-restart="wake" type="button">唤醒桥</button>
+          <button data-restart="relay" type="button">Relay 主桥</button>
+          <button data-restart="watchdog" type="button">看门狗</button>
+        </div>
+      </details>
+      <div id="checkpointList" class="checkpoint-list"></div>
     </div>
   </dialog>
 

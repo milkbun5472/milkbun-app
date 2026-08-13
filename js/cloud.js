@@ -295,6 +295,27 @@
     },
 
     // ---- App → 唯一言秋 CC 只读工具桥（异步、幂等）----
+    async rescueRemoteEnqueue(action, payload) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const row = { user_id: user.id, action: String(action || ""), payload: payload && typeof payload === "object" ? payload : {} };
+      const { data, error } = await client.from("rescue_remote_commands")
+        .insert(row).select("id,action,state,created_at").single();
+      if (error) throw error;
+      return data;
+    },
+    async rescueRemoteList(limit) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const { data, error } = await client.from("rescue_remote_commands")
+        .select("id,action,state,result,error_text,created_at,completed_at")
+        .eq("user_id", user.id).order("created_at", { ascending: false }).limit(Math.max(1, Math.min(30, Number(limit) || 12)));
+      if (error) throw error;
+      return Array.isArray(data) ? data : [];
+    },
+
     async yanqiuCcToolEnqueue(charId, toolName, args, idempotencyKey, lisaMessageKey, purpose) {
       if (!client) throw new Error("云服务未就绪");
       const user = await this.getUser();

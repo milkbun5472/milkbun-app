@@ -416,6 +416,18 @@ textarea::placeholder { color: #aaa49a; }
   background: #f3d7d0;
   font-size: 11px;
 }
+.rescue-button { border-color: #8f604f; color: #6f4235; background: #f3ddd5; }
+.rescue-shell { padding: 24px; }
+.rescue-dialog { width: min(560px, calc(100vw - 24px)); }
+.rescue-intro { color: var(--muted); font-size: 12px; line-height: 1.7; }
+.rescue-status { margin: 14px 0; padding: 12px; border: 1px solid var(--rule); border-radius: 14px; background: rgba(255,255,255,.55); white-space: pre-line; font: 11px/1.7 ui-monospace, monospace; }
+.rescue-actions, .restart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 9px 0; }
+.rescue-actions button, .restart-grid button { min-height: 40px; border: 1px solid var(--rule); border-radius: 12px; background: white; cursor: pointer; }
+.rescue-field { display: grid; gap: 6px; margin: 14px 0; color: var(--muted); font-size: 11px; }
+.rescue-field textarea { resize: vertical; padding: 10px; border: 1px solid var(--rule); border-radius: 12px; font: inherit; }
+.restart-panel { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 11px; }
+.checkpoint-list { display: grid; gap: 5px; margin-top: 12px; color: var(--muted); font-size: 10px; }
+.checkpoint-list div { padding: 7px 9px; border-radius: 9px; background: rgba(255,255,255,.5); }
 
 dialog {
   width: min(430px, calc(100vw - 32px));

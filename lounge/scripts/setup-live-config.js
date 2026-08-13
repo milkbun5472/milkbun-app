@@ -6,7 +6,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { DEFAULT_APP_SUPPORT } = require('../adapters/cc-sessions');
 const { DEFAULT_WAKE_INBOX } = require('../adapters/cc-wake-sender');
-const DEFAULT_LOUNGE_OUTBOX = '/Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay/lounge_outbox.jsonl';
+const RELAY_ROOT = path.join(os.homedir(), 'Library/Application Support/LisaPhone/stackchan-relay');
+const DEFAULT_LOUNGE_OUTBOX = path.join(RELAY_ROOT, 'lounge_outbox.jsonl');
 
 const projectDir = path.join(os.homedir(), '.claude/projects', '-Users-lisa-Desktop-Lisa-phone');
 const target = process.env.CODEX_THREAD_ID;
@@ -63,7 +64,7 @@ fs.writeFileSync(out, `${JSON.stringify({
   codex_thread_id: target,
   cc_project_dir: projectDir,
   cc_app_support_dir: DEFAULT_APP_SUPPORT,
-  wake_inbox: DEFAULT_WAKE_INBOX,
+  wake_inbox: path.join(RELAY_ROOT, 'wake_inbox.jsonl'),
   lounge_outbox: DEFAULT_LOUNGE_OUTBOX,
   port: 8092,
   // 每次双方讨论仍严格两棒即停；这里限制的是 Lisa 一天可主动发起几轮。

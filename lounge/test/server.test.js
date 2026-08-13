@@ -150,7 +150,7 @@ test('连续两条 Lisa 消息作为同一批完整递出', async () => {
   });
   assert.equal(sent.response.status, 200);
   const dispatch = sent.data.state.dispatches.at(-1);
-  assert.equal(orch.getMessage(dispatch.message_id).content, '第一条\n\n第二条');
+  assert.equal(orch.getMessage(dispatch.message_id).content, 'Lisa：第一条\n\nLisa：第二条');
 });
 
 test('施工交接必须走专属按钮语义，普通“可以”不会被改写成授权', async () => {

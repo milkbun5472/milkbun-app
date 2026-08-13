@@ -113,6 +113,7 @@ function createEventHub() {
 function createLoungeServer({
   orch,
   landlord = null,
+  rescue = null,
   roomDefaults = {},
   runtime = { mode: 'preview', cc: 'preview', codex: 'preview' },
   healthTargets = {},
@@ -183,6 +184,22 @@ function createLoungeServer({
       });
     }
 
+    if (rescue && method === 'GET' && url.pathname === '/api/rescue') {
+      return json(res, 200, { status: rescue.status(), checkpoints: rescue.list() });
+    }
+    if (rescue && method === 'POST' && url.pathname === '/api/rescue/checkpoint') {
+      const b = await bodyOf(req);
+      return json(res, 201, { checkpoint: rescue.checkpoint(b.reason || 'manual') });
+    }
+    if (rescue && method === 'POST' && url.pathname === '/api/rescue/restart') {
+      const b = await bodyOf(req);
+      return json(res, 200, { result: rescue.restart(String(b.service || ''), b.confirmed === true) });
+    }
+    if (rescue && method === 'POST' && url.pathname === '/api/rescue/rewind-preview') {
+      const b = await bodyOf(req);
+      return json(res, 200, { preview: rescue.rewindPreview({ before: b.before }) });
+    }
+
     if (method === 'POST' && url.pathname === '/api/rooms') {
       const b = await bodyOf(req);
       const room = orch.createRoom({
@@ -230,6 +247,24 @@ function createLoungeServer({
         const message = orch.postLisaMessage(roomId, content);
         snapshot(roomId);
         return json(res, 201, { message, state: safeRoom(orch, roomId) });
+      }
+
+      if (rescue && method === 'POST' && parts[3] === 'rescue-ticket') {
+        const b = await bodyOf(req);
+        if (!['yanqiu', 'codex'].includes(b.target)) return fail(res, 400, 'BAD_TARGET', '互救对象只能是言秋或 Codex');
+        const checkpoint = rescue.checkpoint(`before rescue ticket to ${b.target}`);
+        const message = orch.postLisaMessage(roomId, rescue.rescueSummary(b.symptom || ''));
+        const result = await withProgress(roomId, () => orch.dispatch({
+          room_id: roomId,
+          target: b.target,
+          message_id: message.message_id,
+          codex_confirmed: b.target === 'codex' ? b.codex_confirmed === true : false,
+        }));
+        if (result.status === 'needs_attention' && result.reason === 'timeout') watchLateReply(roomId, result.dispatch_id);
+        return json(res, result.status === 'refused' ? 409 : 200, {
+          result, checkpoint, state: snapshot(roomId),
+          ...(result.status === 'refused' ? { message: refusalMessage(result.reason) } : {}),
+        });
       }
 
       if (landlord && parts[3] === 'landlord') {

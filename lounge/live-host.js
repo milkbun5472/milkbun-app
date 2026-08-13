@@ -13,6 +13,8 @@ const { createWakeQueueSender } = require('./adapters/cc-wake-sender');
 const { createLoungeServer } = require('./server');
 const { LoungeOutboxConsumer } = require('./adapters/lounge-outbox-consumer');
 const { LandlordController } = require('./landlord-controller');
+const { RescueController } = require('./rescue');
+const { RescueCloudConsumer } = require('./rescue-cloud-consumer');
 
 const DEFAULT_CONFIG = path.join(__dirname, 'data', 'live-config.json');
 
@@ -84,10 +86,12 @@ function createLiveHost({ configPath, port } = {}) {
     },
   });
   let built;
+  const rescue = new RescueController({ config, dbPath: config.db_path || path.join(__dirname, 'data', 'lounge-live.db') });
   const landlord = new LandlordController({ db, orch, onChange: (roomId) => built && built.snapshot(roomId) });
   built = createLoungeServer({
     orch,
     landlord,
+    rescue,
     runtime: { mode: 'live', cc: 'dedicated_wake_queue', codex: 'official_cli' },
     healthTargets: { cc: config.cc_session_id, codex: config.codex_thread_id },
     roomDefaults: {
@@ -104,8 +108,10 @@ function createLiveHost({ configPath, port } = {}) {
     onMessage: (roomId) => built.snapshot(roomId),
   });
   outboxConsumer.start(Number(config.outbox_poll_ms || 1000));
-  built.server.on('close', () => outboxConsumer.stop());
-  return { ...built, db, orch, landlord, outboxConsumer, config, port: Number(port || config.port || 8092) };
+  const rescueCloudConsumer = new RescueCloudConsumer({ rescue });
+  rescueCloudConsumer.start(Number(config.rescue_cloud_poll_ms || 5000));
+  built.server.on('close', () => { outboxConsumer.stop(); rescueCloudConsumer.stop(); });
+  return { ...built, db, orch, landlord, rescue, outboxConsumer, rescueCloudConsumer, config, port: Number(port || config.port || 8092) };
 }
 
 if (require.main === module) {

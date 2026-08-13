@@ -159,7 +159,8 @@ function Head({
     className: "flex items-center justify-between mb-4"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: onBack,
-    className: "active:opacity-50 -ml-1"
+    className: "active:opacity-50 -ml-3 flex items-center justify-center",
+    style: { width: 44, height: 44 }
   }, /*#__PURE__*/React.createElement(IArrow, {
     size: 19,
     color: t.ink
@@ -1170,14 +1171,15 @@ function Home({
     games: { kind: "app", zh: "小游戏", G: GGame },
     capsule: { kind: "app", zh: "时光胶囊", G: GCapsule },
     dreamjournal: { kind: "app", zh: "解梦馆", G: window.GDreamBook || GDream },
-    yanqiu: { kind: "app", zh: "秋声", G: window.GYanqiuLeaf || GDiary }
+    yanqiu: { kind: "app", zh: "秋声", G: window.GYanqiuLeaf || GDiary },
+    rescue: { kind: "app", zh: "互救台", G: GGame }
   };
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
     ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
-    ["lore", "memlib", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "dreamjournal", "yanqiu"],
+    ["lore", "memlib", "study", "fanfic", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "dreamjournal", "yanqiu", "rescue"],
     ["capsule", "w_muyu", "w_weather", "w_wheel"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
@@ -5643,7 +5645,7 @@ function OfflineMode({
       onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说 / 立长期准则", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.10)" : "transparent" } }, "OOC"),
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给 Ta 看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
-      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : "#16330a" })),
+      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
       !oocMode && h("button", { onClick: reply, disabled: sending, title: "让 Ta 演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
     photoOpen && sheet("给 Ta 看一张照片", h("div", null,
       h("button", { onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full mb-3 active:opacity-70", style: { minHeight: 150, border: "1px dashed " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg } },
@@ -6101,7 +6103,7 @@ function GroupOfflineMode({
       onOOC && h("button", { onClick: () => setOocMode(v => !v), title: "OOC · 越过角色直接和模型说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + (oocMode ? t.accent : t.line), color: oocMode ? t.accent : t.fog, background: oocMode ? "rgba(194,90,74,0.08)" : "transparent" } }, "OOC"),
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：直接和模型说，可让它调整或问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
-      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: "#16330a" })),
+      h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
       !oocMode && h("button", { onClick: reply, disabled: sending, title: "让他们演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
     photoOpen && sheet("给大家看一张照片", h("div", null,
       h("button", { onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full mb-3 active:opacity-70", style: { minHeight: 150, border: "1px dashed " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg } },

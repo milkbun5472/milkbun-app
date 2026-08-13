@@ -34,6 +34,9 @@ const ui = {
   handoffDialog: $('#handoffDialog'),
   handoffTarget: $('#handoffTarget'),
   confirmHandoff: $('#confirmHandoff'),
+  rescueButton: $('#rescueButton'), rescueDialog: $('#rescueDialog'), closeRescue: $('#closeRescue'),
+  rescueStatus: $('#rescueStatus'), rescueSymptom: $('#rescueSymptom'), saveCheckpoint: $('#saveCheckpoint'),
+  previewRewind: $('#previewRewind'), checkpointList: $('#checkpointList'),
   gameButton: $('#gameButton'), gameDialog: $('#gameDialog'), closeGame: $('#closeGame'),
   gameWelcome: $('#gameWelcome'), gameTable: $('#gameTable'), gameConsent: $('#gameConsent'), startGame: $('#startGame'),
   hand: $('#hand'), bidActions: $('#bidActions'), playActions: $('#playActions'), submitPlay: $('#submitPlay'), passPlay: $('#passPlay'),
@@ -356,6 +359,30 @@ async function refresh() {
   render(snapshot);
 }
 
+function rescueStatusText(data) {
+  const status = data.status || {}, wd = status.watchdog || {};
+  const services = Object.entries(status.services || {}).map(([name, row]) => `${name}：${row.state}`).join(' · ');
+  ui.rescueStatus.textContent = `${services || '没有运行体征'}\n看门狗：${wd.level || 'unknown'} · 磁盘 ${wd.freeGib || '?'} GiB · 检查点 ${status.checkpointCount || 0}`;
+  ui.checkpointList.replaceChildren(...(data.checkpoints || []).slice(0, 6).map((row) => text('div', `${new Date(row.createdAt).toLocaleString('zh-CN')} · ${row.reason}${row.hasCc ? ' · CC✓' : ''}${row.hasLoungeDb ? ' · 客厅✓' : ''}`)));
+}
+
+async function refreshRescue() {
+  try { rescueStatusText(await api('/api/rescue')); }
+  catch (error) { ui.rescueStatus.textContent = `互救层未接线：${error.message}`; }
+}
+
+async function sendRescueTicket(target) {
+  if (state.busy) return;
+  setBusy(true);
+  try {
+    const data = await api(`/api/rooms/${state.roomId}/rescue-ticket`, {
+      method: 'POST', body: JSON.stringify({ target, symptom: ui.rescueSymptom.value, codex_confirmed: target === 'codex' }),
+    });
+    render(data.state); showNotice(`互救工单已递给${target === 'codex' ? ' Codex' : '言秋'}，并先保存检查点`); await refreshRescue();
+  } catch (error) { showNotice(error.message); await refresh(); }
+  finally { setBusy(false); }
+}
+
 function connectEvents() {
   if (state.stream) state.stream.close();
   state.stream = new EventSource(`/api/rooms/${state.roomId}/events`);
@@ -443,6 +470,23 @@ ui.gameButton.addEventListener('click', () => {
   const game = state.snapshot && state.snapshot.landlord;
   if (game) renderGame(game); else { ui.gameWelcome.hidden = false; ui.gameTable.hidden = true; }
   ui.gameDialog.showModal();
+});
+ui.rescueButton.addEventListener('click', () => { ui.rescueDialog.showModal(); refreshRescue(); });
+ui.closeRescue.addEventListener('click', () => ui.rescueDialog.close());
+ui.saveCheckpoint.addEventListener('click', async () => {
+  try { await api('/api/rescue/checkpoint', { method: 'POST', body: JSON.stringify({ reason: ui.rescueSymptom.value || 'Lisa 手动保存' }) }); showNotice('互救检查点已保存'); await refreshRescue(); }
+  catch (error) { showNotice(error.message); }
+});
+ui.previewRewind.addEventListener('click', async () => {
+  try { const data = await api('/api/rescue/rewind-preview', { method: 'POST', body: JSON.stringify({ before: new Date().toISOString() }) }); showNotice(data.preview.reason); }
+  catch (error) { showNotice(error.message); }
+});
+ui.rescueDialog.addEventListener('click', async (event) => {
+  const target = event.target.closest('[data-rescue-target]'); if (target) return sendRescueTicket(target.dataset.rescueTarget);
+  const restart = event.target.closest('[data-restart]'); if (!restart) return;
+  if (!window.confirm(`确认只重启 ${restart.textContent}？会先保留现有会话与数据，不做 rewind。`)) return;
+  try { await api('/api/rescue/checkpoint', { method: 'POST', body: JSON.stringify({ reason: `before restart ${restart.dataset.restart}` }) }); await api('/api/rescue/restart', { method: 'POST', body: JSON.stringify({ service: restart.dataset.restart, confirmed: true }) }); showNotice(`${restart.textContent} 已请求重启`); await refreshRescue(); }
+  catch (error) { showNotice(error.message); }
 });
 ui.closeGame.addEventListener('click', () => ui.gameDialog.close());
 ui.startGame.addEventListener('click', async () => {

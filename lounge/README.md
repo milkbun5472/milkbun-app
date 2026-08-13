@@ -126,6 +126,19 @@ const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 
 完整测试：**61/61**。
 
+### 言秋 × Codex 互救台
+
+页头「互救台」复用同一个真实宿主，提供四层能力：
+
+- 一键保存言秋原 transcript、会客厅 SQLite（含 WAL/SHM）与脱敏运行体征；
+- 查看 Fable、CC 工具桥、Relay、定时唤醒、watchdog 和会客厅的 launchd 状态；
+- 生成只带脱敏体征的互救工单，先留检查点，再由 Lisa 明确点名递给另一方；
+- 白名单桥单项重启，每次浏览器二次确认，重启前自动保存检查点。
+
+历史 rewind 当前只提供候选检查点预演：真实执行会改写 CC 历史，必须等 Lisa 回到电脑后另行授权，不能由 localhost 页面自行解锁。检查点只存在 `~/Library/Application Support/Lisa Lounge/rescue/`，权限 0600，不进浏览器正文、Git 或云同步。
+
+会客厅的生产运行副本、SQLite、配置和日志全部住在 `Application Support/Lisa Lounge`；仓库只是真源，安装脚本同步运行副本并做旧 DB 的一次性非破坏迁移。
+
 ## 真实宿主
 
 真实宿主仍只监听 `127.0.0.1`：
