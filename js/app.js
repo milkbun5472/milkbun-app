@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.43";
+const APP_VERSION = "v52.44";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -45,7 +45,6 @@ const memoryRowFromCloud = r => ({
   surfaceState: r.surface_state == null ? "active" : String(r.surface_state), supersedesId: r.supersedes_id == null ? null : String(r.supersedes_id)
 });
 const normalizeMemoryFact = s => String(s || "").replace(/[\s，。、；：,.;:!！?？「」『』"'“”‘’（）()【】\-—]/g, "").toLowerCase();
-const memoryFactKey = m => normalizeMemoryFact(m && m.text) + "|" + (Array.isArray(m && (m.charIds || m.char_ids)) ? (m.charIds || m.char_ids).map(String).sort().join(",") : "");
 
 const voiceToneForPrompt = m => {
   if (!m || !m.voiceTone) return "";
@@ -1373,44 +1372,6 @@ function App() {
   };
   // 调试钩子：控制台随时 window.__pokeInbox() 手动收一次信（排查云端投递时用）
   useEffect(() => { window.__pokeInbox = deliverServerInbox; return () => { delete window.__pokeInbox; }; });
-  // 旧 MCP 信箱的退休兼容入口：新 MCP 已直写 memories；这里继续安全收完历史积压，失败不消费。
-  const memInboxInflightRef = useRef(false);
-  const memInboxSeenRef = useRef(new Set());
-  const deliverMemoryInbox = async () => {
-    if (memInboxInflightRef.current) return;
-    if (!(window.Cloud && window.Cloud.ready() && typeof window.Cloud.memInboxFetch === "function")) return;
-    memInboxInflightRef.current = true;
-    try {
-      const rows = await window.Cloud.memInboxFetch();
-      if (!rows.length) return;
-      const known = new Set((memLibRef.current || []).map(m => m && m.id).filter(Boolean));
-      // 过渡期可能出现：旧 MCP 已投信箱、重启后的新 MCP 又直写表。两边 ID 不同，必须按“正文＋角色范围”再挡一层。
-      const knownFacts = new Set((memLibRef.current || []).filter(m => m && String(m.text || "").trim()).map(memoryFactKey));
-      const add = [], done = [];
-      for (const row of rows) {
-        if (memInboxSeenRef.current.has(row.id)) { done.push(row.id); continue; }
-        const m = row && row.memory;
-        if (!m || !m.id || !String(m.text || "").trim()) continue; // 坏条目不吞，留在云端可排查
-        memInboxSeenRef.current.add(row.id);
-        const factKey = memoryFactKey(m);
-        if (!known.has(m.id) && !knownFacts.has(factKey)) { add.push(m); known.add(m.id); knownFacts.add(factKey); }
-        done.push(row.id);
-      }
-      if (add.length) saveMemLib([...add, ...(memLibRef.current || [])]); // 先落本地，才允许消费云端信件
-      if (done.length) await window.Cloud.memInboxConsume(done);
-    } catch (e) {/* 表未建/离线时不影响 app，信件留在云端下次再收 */}
-    finally { memInboxInflightRef.current = false; }
-  };
-  useEffect(() => { window.__pokeMemInbox = deliverMemoryInbox; return () => { delete window.__pokeMemInbox; }; });
-  // 收记忆不依赖 API/角色配置：app 载入或回到前台就扫一次。
-  useEffect(() => {
-    if (!loaded) return;
-    const kickMemInbox = () => { if (document.visibilityState !== "hidden") deliverMemoryInbox(); };
-    kickMemInbox();
-    document.addEventListener("visibilitychange", kickMemInbox);
-    window.addEventListener("focus", kickMemInbox);
-    return () => { document.removeEventListener("visibilitychange", kickMemInbox); window.removeEventListener("focus", kickMemInbox); };
-  }, [loaded]);
   // ---- 桌面对话回流（Stack-chan 实体，见 [[lisa-phone-next-window]]）----
   // stackchan-relay 把桌面每轮对话写进云端 desk_log；这里拉回来投进对应角色的手机聊天（带🖥️桌面标记+原时刻），
   // 让「桌面的身体」和「手机里的身体」共用一条聊天/记忆流。desk_log 表还没建时=deskFetch 报错→catch 静默，整块 dormant、零影响。

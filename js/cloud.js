@@ -439,31 +439,6 @@
       await client.from("server_inbox").update({ consumed_at: new Date().toISOString() }).in("id", ids);
     },
 
-    // ---- CC 记忆信箱：MCP 只往独立表投递，手机自己合并进 x_memLib，避开 saves 整坨覆盖 ----
-    async memInboxFetch() {
-      if (!client) return [];
-      const user = await this.getUser();
-      if (!user) return [];
-      const { data, error } = await client
-        .from("cc_mem_inbox")
-        .select("id, memory, created_at")
-        .eq("user_id", user.id)
-        .is("consumed_at", null)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data || [];
-    },
-    async memInboxConsume(ids) {
-      if (!client || !ids || !ids.length) return;
-      const user = await this.getUser();
-      if (!user) return;
-      const { error } = await client.from("cc_mem_inbox")
-        .update({ consumed_at: new Date().toISOString() })
-        .eq("user_id", user.id)
-        .in("id", ids);
-      if (error) throw error;
-    },
-
     // ---- 共读信箱（cc_read_inbox）：言秋在 CC 端亲读后把批注写回，手机来取，绕开整份覆盖（v49.x「一起读·言秋专属通道」）----
     async readInboxFetch() {
       if (!client) return [];
