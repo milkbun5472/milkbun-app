@@ -1495,14 +1495,16 @@ async function hydrateImgVault() { try { const entries = await idbVaultEntries()
 //   开机仍先 hydrate 完再挂载，所以同步读路径不变，又不再挤占 localStorage 的 5MB。
 //   机制同图库：开机 hydrateTxtVault() 把 IDB 里的值一次性灌进内存镜像 __txtMirror；此后 loadJSON/saveJSON
 //   对这些键读写镜像(同步)+异步落 IDB，绝不进 localStorage。云端同步靠 collect 补镜像、apply 回写 IDB。
+const DURABLE_TEXT_KEYS = new Set(["x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger"]);
 const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:"];
-function isIdbTextKey(k) { return typeof k === "string" && IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0); }
+function isIdbTextKey(k) { return typeof k === "string" && (DURABLE_TEXT_KEYS.has(k) || IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0)); }
+function isDurableTextKey(k) { return DURABLE_TEXT_KEYS.has(String(k || "")); }
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
 function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbTxtPut(k, v) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbTxtGet(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const rq = tx.objectStore("txt").get(k); rq.onsuccess = () => res(rq.result == null ? null : rq.result); rq.onerror = () => rej(rq.error); }); }
 async function idbTxtDel(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbTxtClear() { try { const db = await idbTxtOpen(); await new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); } catch (e) {} try { _txtMirror().clear(); } catch (e) {} }
+async function idbTxtClear() { try { const db = await idbTxtOpen(); await new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); } catch (e) {} try { _txtMirror().clear(); } catch (e) {} try { await walDeleteDurableTextKeys(); } catch (e) {} }
 async function idbTxtAll() { const db = await idbTxtOpen(); return new Promise(res => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
 // 云恢复用：只替换备份里归文字仓管理的键；preserveKeys（如行表权威的 x_memLib）原样保留。
 // 完成后调用方才允许 reload，避免大线下记录异步写到一半被刷新截断。
@@ -1512,7 +1514,7 @@ async function idbTxtApplySnapshot(data, preserveKeys) {
   const desired = new Map(Object.entries(src).filter(([k, v]) => isIdbTextKey(k) && v != null && !keep.has(k)).map(([k, v]) => [k, String(v)]));
   const current = await idbTxtAll();
   for (const [k] of current) if (isIdbTextKey(k) && !keep.has(k) && !desired.has(k)) { await idbTxtDel(k); _txtMirror().delete(k); }
-  for (const [k, v] of desired) { await idbTxtPut(k, v); const back = await idbTxtGet(k); if (back !== v) throw new Error("文字仓恢复核对失败: " + k); _txtMirror().set(k, v); }
+  for (const [k, v] of desired) { await idbTxtPut(k, v); const back = await idbTxtGet(k); if (back !== v) throw new Error("文字仓恢复核对失败: " + k); _txtMirror().set(k, v); if (isDurableTextKey(k)) await walDel(k); }
   return desired.size;
 }
 // 开机：IDB→内存镜像，并把还赖在 localStorage 的同人文键搬进 IDB（复制+验证一致，才删本地——绝不先删）。幂等。
@@ -1525,7 +1527,23 @@ async function hydrateTxtVault() {
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (isIdbTextKey(k)) toMig.push(k); }
     for (const k of toMig) {
       const s = localStorage.getItem(k); if (s == null) continue;
-      try { await idbTxtPut(k, s); const back = await idbTxtGet(k); if (back === s) { mir.set(k, s); localStorage.removeItem(k); } } catch (e) {/* 失败保留 localStorage，下次再迁 */ }
+      try {
+        if (isDurableTextKey(k) && !(await walPutVerified(k, s))) continue;
+        await idbTxtPut(k, s); const back = await idbTxtGet(k);
+        if (back === s && (!isDurableTextKey(k) || (await walGetRaw(k)) === s)) { mir.set(k, s); localStorage.removeItem(k); if (isDurableTextKey(k)) await walDel(k); }
+      } catch (e) {/* 任一验真失败都保留 localStorage，下次再迁 */ }
+    }
+    // 上次已经进 WAL、却在 IDB 提交前被系统杀掉：以 WAL 最新版补齐金库。
+    try {
+      const durableWalKeys = (await walKeys("x_")).filter(isDurableTextKey);
+      for (const k of durableWalKeys) {
+        if (localStorage.getItem(k) != null) continue; // journal 更可能是刚写的新版本，由上面的迁移负责
+        const s = await walGetRaw(k); if (s == null) continue;
+        await idbTxtPut(k, s); const back = await idbTxtGet(k);
+        if (back === s) { mir.set(k, s); await walDel(k); }
+      }
+    } catch (e) {
+      console.error("durable text WAL recovery failed:", e);
     }
     return mir.size;
   } catch (e) { return 0; }
@@ -2444,14 +2462,24 @@ function saveJSON(k, v) {
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const s = JSON.stringify(v);
       _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
-      if (k === "x_memLib" || k.indexOf("x_offline:") === 0 || k.indexOf("x_goffline:") === 0) {
+      if (k === "x_memLib" || k.indexOf("x_offline:") === 0 || k.indexOf("x_goffline:") === 0 || isDurableTextKey(k)) {
         // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
         // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
         try { localStorage.setItem(k, s); } catch (e) {}
         try {
-          idbTxtPut(k, s).then(() => idbTxtGet(k)).then(back => {
-            if (back === s && localStorage.getItem(k) === s) localStorage.removeItem(k);
-          }).catch(e => console.error("idbTxtPut failed:", k, e));
+          const staged = isDurableTextKey(k) ? walPutVerified(k, s) : Promise.resolve(true);
+          staged.then(ok => {
+            if (!ok) throw new Error("WAL read-back mismatch");
+            return idbTxtPut(k, s).then(() => idbTxtGet(k));
+          }).then(back => {
+            const verifyWal = isDurableTextKey(k) ? walGetRaw(k) : Promise.resolve(s);
+            return verifyWal.then(walBack => {
+              if (back === s && localStorage.getItem(k) === s && walBack === s) {
+                localStorage.removeItem(k);
+                if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
+              }
+            });
+          }).catch(e => console.error("durable idbTxtPut failed:", k, e));
         } catch (e) {}
       } else {
         try { idbTxtPut(k, s).catch(e => console.error("idbTxtPut failed:", k, e)); } catch (e) {}  // 异步落 IDB
@@ -2509,6 +2537,18 @@ function walKeys(prefix) {
     rq.onsuccess = () => res((rq.result || []).filter(k => typeof k === "string" && (!prefix || k.indexOf(prefix) === 0)));
     rq.onerror = () => rej(rq.error);
   }));
+}
+function walDel(key) {
+  return walOpen().then(db => new Promise((res, rej) => {
+    const tx = db.transaction("wal", "readwrite");
+    tx.objectStore("wal").delete(key);
+    tx.oncomplete = res;
+    tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal delete abort"));
+  }));
+}
+async function walDeleteDurableTextKeys() {
+  const keys = (await walKeys("x_")).filter(isDurableTextKey);
+  for (const key of keys) await walDel(key);
 }
 async function saveJSONDurable(key, value) {
   const str = JSON.stringify(value);

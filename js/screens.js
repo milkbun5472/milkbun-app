@@ -4687,24 +4687,34 @@ const STORAGE_KEY_LABELS = [
   ["x_goffline:", "群聊线下记录"], ["x_offline:", "单人线下记录"], ["x_chat:", "聊天记录"], ["x_gchat:", "群聊记录"], ["x_emotePacks", "表情包"], ["x_emojiPacks", "表情包"], ["x_emoji", "表情包"],
   ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案·人设(图片已迁图库)"], ["x_profile", "我的档案(图片已迁图库)"],
   ["x_memLib", "记忆库"], ["x_memories", "长期记忆"], ["x_diaries", "日记"],
+  ["x_weekly_issues", "周刊往期"], ["x_study_sessions", "一起学会话"], ["x_read_books", "一起读书架与批注"],
+  ["x_debate_saves", "辩论存档"], ["x_dream_saves", "梦境存档"], ["x_tarot_saves", "塔罗存档"], ["x_ledger", "记账本"],
   ["x_forumPosts", "论坛帖子"], ["x_forumComments", "论坛评论"], ["x_fanfic", "同人文"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],
   ["x_capsule", "时光胶囊"], ["x_schedules", "角色日程"], ["x_couple", "情侣空间"],
-  ["x_ledger", "记账"], ["x_memo", "备忘录"], ["x_read", "一起读"], ["x_study", "一起学"], ["x_desires", "欲望盒子"],
+  ["x_memo", "备忘录"], ["x_read", "一起读"], ["x_study", "一起学"], ["x_desires", "欲望盒子"],
   ["x_stateHist", "心声·状态历史"], ["x_states", "当前状态"], ["x_desires", "欲望盒子"],
   ["x_lore", "世界书"], ["x_geo", "定位"], ["x_wx", "天气缓存"]
 ];
 function storageBreakdown() {
   const rows = {};
+  const labelFor = k => {
+    for (const [pfx, name] of STORAGE_KEY_LABELS) { if (k.indexOf(pfx) === 0) return name; }
+    return k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统/其他";
+  };
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i); if (!k) continue;
       const bytes = (k.length + (localStorage.getItem(k) || "").length) * 2;
-      let label = null;
-      for (const [pfx, name] of STORAGE_KEY_LABELS) { if (k.indexOf(pfx) === 0) { label = name; break; } }
-      if (!label) label = k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统/其他";
+      const label = labelFor(k);
       rows[label] = (rows[label] || 0) + bytes;
     }
+    // 大文本已搬进 IDB，不再出现在 localStorage；单列“文字金库”才能看见它们各自的体积。
+    if (window.__txtMirror) window.__txtMirror.forEach((v, k) => {
+      if (v == null || localStorage.getItem(k) != null) return; // 迁移 journal 尚在时不重复统计
+      const label = labelFor(k) + "（文字金库）", bytes = (String(k).length + String(v).length) * 2;
+      rows[label] = (rows[label] || 0) + bytes;
+    });
   } catch (e) {}
   return Object.keys(rows).map(name => ({ name, bytes: rows[name] })).sort((a, b) => b.bytes - a.bytes);
 }
@@ -4758,10 +4768,10 @@ function StorageMeter({ onOffloadChats, onPruneOld }) {
       rows.slice(0, 12).map(r => h("div", { key: r.name },
         h("div", { className: "flex items-center justify-between", style: { marginBottom: 2 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, r.name),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: r.bytes >= 512000 ? "#c25a4a" : t.fog } }, kb(r.bytes) + " · " + Math.round(r.bytes / info.ls * 100) + "%")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: r.name.indexOf("（文字金库）") < 0 && r.bytes >= 512000 ? "#c25a4a" : t.fog } }, kb(r.bytes) + (r.name.indexOf("（文字金库）") >= 0 ? " · IDB" : " · " + Math.round(r.bytes / info.ls * 100) + "%"))),
         h("div", { style: { height: 3, borderRadius: 999, background: t.line, overflow: "hidden" } },
-          h("div", { style: { width: Math.max(2, Math.round(r.bytes / maxB * 100)) + "%", height: "100%", borderRadius: 999, background: r.bytes >= 512000 ? "#c25a4a" : (r.bytes >= 204800 ? "#b89150" : t.tint) } })))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=大头(≥0.5MB)。图片(头像/壁纸/朋友圈)已自动迁到浏览器图库、不占这里；剩下占地方的多是文字。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
+          h("div", { style: { width: Math.max(2, Math.round(r.bytes / maxB * 100)) + "%", height: "100%", borderRadius: 999, background: r.name.indexOf("（文字金库）") >= 0 ? t.tint : (r.bytes >= 512000 ? "#c25a4a" : (r.bytes >= 204800 ? "#b89150" : t.tint)) } })))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "红=localStorage 大头(≥0.5MB)；标有「文字金库」的项目住在 IDB，不挤占 5MB。聊天记录最大又会一直涨——用上面「归档旧聊天到云端」最省地方。")) : null,
     info.idbQuota ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "音频 / 自拍 / 书正文另存在 IndexedDB（已用 " + mb(info.idbUsed) + " MB，空间大得多、不占这 5MB）") : null);
 }
 function LocalPhotoLibrary({ toast }) {

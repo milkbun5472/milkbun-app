@@ -27,8 +27,9 @@
 
   // ---- 存储 ----------------------------------------------------------
   const K_ISSUES = "x_weekly_issues";
+  const MAX_ISSUES = 52; // 本机书架最多保留约一年，避免无界增长
   function loadIssues() { return loadJSON(K_ISSUES, []); }
-  function saveIssues(list) { saveJSON(K_ISSUES, list); }
+  function saveIssues(list) { saveJSON(K_ISSUES, (Array.isArray(list) ? list : []).slice(0, MAX_ISSUES)); }
   function uid(pfx) { return (pfx || "wk") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
   // ---- 记者 NPC 人格（采访版叙述者，不碰角色卡）----------------------
