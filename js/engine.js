@@ -1604,7 +1604,8 @@ function ttsLangBoost(text) {
 // 取一个能调的 AI profile（优先后台便宜池，没有用主模型）——给「日语汉字转假名」这类合成期小活用
 function ttsHelperProfile() {
   try {
-    const list = JSON.parse(localStorage.getItem("x_api") || "[]");
+    const stored = JSON.parse(localStorage.getItem("x_api") || "[]");
+    const list = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(stored) : stored;
     if (!Array.isArray(list) || !list.length) return null;
     const bgId = JSON.parse(localStorage.getItem("x_bgApi") || "null");
     const actId = JSON.parse(localStorage.getItem("x_activeApi") || "null");

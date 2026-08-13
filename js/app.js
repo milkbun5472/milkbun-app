@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.40";
+const APP_VERSION = "v52.41";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -630,7 +630,8 @@ function App() {
     }));
     setGeo(loadJSON("x_geo", null));
     setMapMode(loadJSON("x_mapMode", "real"));
-    const aps = loadJSON("x_api", []);
+    const storedApis = loadJSON("x_api", []);
+    const aps = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(storedApis) : storedApis;
     setApiProfiles(aps);
     setActiveId(loadJSON("x_activeApi", aps[0] && aps[0].id || null));
     setOfflineApiId(loadJSON("x_offlineApi", null));
@@ -10279,11 +10280,15 @@ function App() {
       pC(p => p.map(c => c.id === charId ? { ...c, voiceId } : c));
       toast("音色已指派");
     },
-    onSaveApi: (list, id) => {
-      setApiProfiles(list);
-      setActiveId(id);
-      saveJSON("x_api", list);
-      saveJSON("x_activeApi", id);
+    onSaveApi: async (list, id) => {
+      try {
+        const runtime = window.CredentialVault ? await window.CredentialVault.persistApiProfiles(list) : list;
+        setApiProfiles(runtime);
+        setActiveId(id);
+        if (!window.CredentialVault) saveJSON("x_api", list);
+        saveJSON("x_activeApi", id);
+        toast("API 配置已安全保存");
+      } catch (e) { toast("API 凭证保存失败，旧配置仍保留：" + (e.message || e)); }
     },
     theme: theme,
     onSaveTheme: th => {
@@ -10554,6 +10559,7 @@ function App() {
   const hyd = [];
   if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());
   if (typeof hydrateTxtVault === "function") hyd.push(hydrateTxtVault());
+  if (window.CredentialVault) hyd.push(window.CredentialVault.hydrateApiCredentials());
   if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
 })();
 

@@ -4109,9 +4109,8 @@ function ApiConfig({
   /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 mt-8"
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => {
-      onSave(list, curId);
-      toast("已保存");
+    onClick: async () => {
+      await onSave(list, curId);
     },
     className: "flex-1 py-3",
     style: {
