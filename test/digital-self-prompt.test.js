@@ -31,12 +31,18 @@ test("digital context keeps recent facts but omits the continuity command", () =
 });
 
 test("ordinary characters use stable protocol v2 and a minimal per-turn task", () => {
+  const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
   assert.match(source, /const _normalProtocolStable = `/);
   assert.match(source, /先产生角色此刻真正会发送的消息/);
   assert.match(source, /未发生、未改变的按需字段直接省略/);
   assert.match(source, /const _normalTaskV2 = .*聊天先发生，状态随后记录/);
   assert.match(source, /【本轮开放能力】/);
-  assert.match(source, /bundleStable \+ \(_s\.engineerEyes \? "" : _normalProtocolStable\)/);
+  assert.match(source, /const _onlineRuntime = _s\.engineerEyes \? "" : "\\n\\n" \+ ONLINE_CHAT_RULE_V2/);
+  assert.match(source, /bundleStable \+ _onlineRuntime \+ \(_s\.engineerEyes \? "" : _normalProtocolStable\)/);
+  assert.match(engine, /const ANTI_CLICHE = `【去人机味 · 最高准则】/);
+  assert.match(engine, /const WORLDBOOK_RULE = `【世界书执行准则】/);
+  assert.match(engine, /const CHARCARD_RULE = `【角色卡执行准则】/);
+  assert.match(engine, /const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】/);
 });
 
 test("engineerEyes subscription chat caches one full-budget history copy", () => {
