@@ -2469,6 +2469,54 @@ function saveJSON(k, v) {
     return false;
   }
 }
+// ============================================================
+// 施工卡 1A(2026-08-13 大扫除审计五审定稿):可等待的持久写入 WAL。
+// saveJSON 返回 true 不代表已真正落盘(IDB 分支异步、quota 失败只返 false),
+// 关键消息路径(CC 回灌/灾后找回)必须 await saveJSONDurable——WAL 落盘且读回
+// 逐字核验通过才算 durable,才准提交云游标/清工单;配额满时 WAL 仍保底最新一版,
+// 开机由保险箱回收补回。WAL 只加保险不改动任何现有读写路径。
+let _walDB = null;
+function walOpen() {
+  return new Promise((res, rej) => {
+    if (_walDB) return res(_walDB);
+    const rq = indexedDB.open("lisa_wal_v1", 1);
+    rq.onupgradeneeded = () => { try { rq.result.createObjectStore("wal"); } catch (e) {} };
+    rq.onsuccess = () => { _walDB = rq.result; _walDB.onclose = () => { _walDB = null; }; res(_walDB); };
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function walPutVerified(key, str) {
+  const db = await walOpen();
+  await new Promise((res, rej) => {
+    const tx = db.transaction("wal", "readwrite");
+    tx.objectStore("wal").put({ v: str, ts: Date.now() }, key);
+    tx.oncomplete = res;
+    tx.onabort = tx.onerror = () => rej(tx.error || new Error("wal tx abort"));
+  });
+  const back = await walGetRaw(key);
+  return back === str;
+}
+function walGetRaw(key) {
+  return walOpen().then(db => new Promise((res, rej) => {
+    const rq = db.transaction("wal", "readonly").objectStore("wal").get(key);
+    rq.onsuccess = () => res(rq.result ? rq.result.v : null);
+    rq.onerror = () => rej(rq.error);
+  }));
+}
+function walKeys(prefix) {
+  return walOpen().then(db => new Promise((res, rej) => {
+    const rq = db.transaction("wal", "readonly").objectStore("wal").getAllKeys();
+    rq.onsuccess = () => res((rq.result || []).filter(k => typeof k === "string" && (!prefix || k.indexOf(prefix) === 0)));
+    rq.onerror = () => rej(rq.error);
+  }));
+}
+async function saveJSONDurable(key, value) {
+  const str = JSON.stringify(value);
+  let durable = false;
+  try { durable = await walPutVerified(key, str); } catch (e) { console.error("wal put failed:", key, e); }
+  const live = saveJSON(key, value);
+  return { durable, live };
+}
 // 估算 localStorage 已占字节（近似：键+值字符数×2，UTF-16）
 function localStorageBytes() {
   let n = 0;

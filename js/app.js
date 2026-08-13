@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.33";
+const APP_VERSION = "v52.34";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -930,10 +930,16 @@ function App() {
         } catch (e) {}
         const current = chatsRef.current[y.id] || [];
         const result = window.ChatLedgerShadow.reconcileIncoming(current, rows, y.id);
-        // saveJSON 抛错时下面游标绝不执行；下一次仍从旧 cursor 重试。
-        saveJSON("x_chat:" + y.id, result.messages);
+        // 施工卡1A:saveJSON 从不抛错且 IDB 分支异步谎报成功——必须 WAL 落盘读回核验,
+        // durable 不过则本轮游标绝不提交,下一轮从旧 cursor 原位重拉(reconcile 幂等)。
+        const persisted = await saveJSONDurable("x_chat:" + y.id, result.messages);
         chatsRef.current = { ...chatsRef.current, [y.id]: result.messages };
         if (!dead) setChats(p => ({ ...p, [y.id]: result.messages }));
+        if (!persisted.durable) {
+          // 消息没验真落盘:人格/欲望/未读/自动记忆一律不跑、游标不动,下一轮原位重来
+          localStorage.setItem(key, JSON.stringify({ ...before, last_error: "durable write failed (WAL)", last_attempt_at: new Date().toISOString() }));
+          return;
+        }
         // CC 原话已验真并落入共同账本后，才旁路喂人格观察层；message_key:revision 本地幂等，
         // 刷新/重拉不会重复加情绪。证据只是 A 的固定词典输入，不是 CC 自己写十维状态。
         try {
@@ -1006,11 +1012,11 @@ function App() {
         const buckets = new Map();
         rows.forEach(r => {
           if (!r) return;
-          const k = String(r.thread_type) + " " + String(r.thread_id);
+          const k = String(r.thread_type) + "|" + String(r.thread_id);
           if (!buckets.has(k)) buckets.set(k, []);
           buckets.get(k).push(r);
         });
-        let restored = 0, newSessions = 0;
+        let restored = 0, newSessions = 0, allOk = true;
         const fillNames = list => list.forEach(m => {
           if (m && m.senderId) { const c = characters.find(x => String(x.id) === String(m.senderId)); if (c) m.senderName = c.name; }
         });
@@ -1028,7 +1034,8 @@ function App() {
             const fresh = chatsRef.current[tid] || existing;
             const ids = new Set(fresh.map(m => m && m.id).filter(Boolean));
             const merged = fresh.concat(missing.filter(m => !ids.has(m.id))).sort(byTs);
-            saveJSON("x_chat:" + tid, merged);
+            const w = await saveJSONDurable("x_chat:" + tid, merged);
+            if (!w.durable) allOk = false;
             chatsRef.current = { ...chatsRef.current, [tid]: merged };
             setChats(p => ({ ...p, [tid]: merged }));
             restored += missing.length;
@@ -1039,8 +1046,12 @@ function App() {
             const { missing } = await window.ChatLedgerShadow.restoreAppRows({ charId: cid, threadType: tt, threadId: tid, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, existing, bucket);
             if (!missing.length) continue;
             fillNames(missing);
-            const merged = existing.concat(missing).sort(byTs);
-            saveJSON("x_gchat:" + tid, merged);
+            // 同 private 分支:await 期间群线程可能被别的写者更新过,落盘前重读+按 id 去重
+            const freshG = groupChatsRef.current[tid] || existing;
+            const gids = new Set(freshG.map(m => m && m.id).filter(Boolean));
+            const merged = freshG.concat(missing.filter(m => !gids.has(m.id))).sort(byTs);
+            const w = await saveJSONDurable("x_gchat:" + tid, merged);
+            if (!w.durable) allOk = false;
             groupChatsRef.current = { ...groupChatsRef.current, [tid]: merged };
             setGroupChats(p => ({ ...p, [tid]: merged }));
             restored += missing.length;
@@ -1059,25 +1070,38 @@ function App() {
             const { missing } = await window.ChatLedgerShadow.restoreAppRows(ctx, flat, bucket);
             if (!missing.length) continue;
             if (isG) fillNames(missing);
+            // 同 private 分支:await 期间会话可能被更新过,落盘前重读最新列表+按 id 去重
+            const freshList = (ref.current[tid] || list).slice();
+            const offIds = new Set();
+            freshList.forEach(s => ((s && s.msgs) || []).forEach(m => { if (m && m.id) offIds.add(m.id); }));
+            const add = missing.filter(m => !offIds.has(m.id));
+            if (!add.length) continue;
             let next;
-            if (list[0] && !list[0].endTs) {
+            if (freshList[0] && !freshList[0].endTs) {
               // 快照截在场中：缺行并回当前开着的场
-              next = [{ ...list[0], msgs: [...(list[0].msgs || []), ...missing].sort(byTs) }, ...list.slice(1)];
+              next = [{ ...freshList[0], msgs: [...(freshList[0].msgs || []), ...add].sort(byTs) }, ...freshList.slice(1)];
             } else {
               // 整场都丢了：立一个已收尾的「找回」场保住原话；场景标题等元数据账本没存，回不来
-              next = [{ id: "off_rst_" + missing[0].ts, startTs: missing[0].ts, endTs: missing[missing.length - 1].ts, styleKey: "default", stylePrompt: "", taste: "", customNotes: [], ledgerRestored: true, msgs: missing }, ...list];
+              next = [{ id: "off_rst_" + add[0].ts, startTs: add[0].ts, endTs: add[add.length - 1].ts, styleKey: "default", stylePrompt: "", taste: "", customNotes: [], ledgerRestored: true, msgs: add }, ...freshList];
               newSessions++;
             }
-            saveJSON(key, next);
+            const w = await saveJSONDurable(key, next);
+            if (!w.durable) allOk = false;
             ref.current = { ...ref.current, [tid]: next };
             (isG ? setGroupOfflines : setOfflines)(p => ({ ...p, [tid]: next }));
-            restored += missing.length;
+            restored += add.length;
           }
         }
-        localStorage.removeItem("chat_ledger_restore_pending_v1");
-        // 找回期间 CC 回灌泵可能与本效应互相盖写过；归零游标让 CC 行全量重走一遍，
-        // reconcileIncoming 按 ledgerKey+revision 幂等，只补漏不造重复泡
-        try { localStorage.removeItem(window.ChatLedgerShadow.LIVE_CURSOR_KEY); } catch (e) {}
+        // 施工卡1A:任一线程 durable 核验没过就保留工单下轮重试(幂等只补缺,不会重复)
+        if (!allOk) {
+          const attempts = Number(marker.attempts || 0) + 1;
+          localStorage.setItem("chat_ledger_restore_pending_v1", JSON.stringify({ ...marker, attempts, last_error: "durable write failed (WAL)" }));
+        } else {
+          localStorage.removeItem("chat_ledger_restore_pending_v1");
+          // 找回期间 CC 回灌泵可能与本效应互相盖写过；归零游标让 CC 行全量重走一遍，
+          // reconcileIncoming 按 ledgerKey+revision 幂等，只补漏不造重复泡
+          try { localStorage.removeItem(window.ChatLedgerShadow.LIVE_CURSOR_KEY); } catch (e) {}
+        }
         if (restored) toast("灾后找回：从账本补回 " + restored + " 条消息" + (newSessions ? "（含 " + newSessions + " 个找回的线下场）" : ""));
       } catch (e) {
         // 失败保留工单下次开机重试；连败 5 次自动放弃，别让坏工单永久纠缠开机
@@ -1090,6 +1114,38 @@ function App() {
     })();
     return () => { dead = true; };
   }, [loaded, characters, groups]);
+  // 施工卡1A·保险箱回收：上次只进了 WAL(配额满/中断)没落常规存储的消息,开机对账补回。
+  // 只按 ledgerKey/id 补缺,绝不改写或删除;无 id 的老消息不碰(宁漏勿重)。
+  useEffect(() => {
+    if (!loaded || !characters.length || typeof walKeys !== "function") return;
+    let dead = false;
+    (async () => {
+      try {
+        const keys = await walKeys("x_");
+        let healed = 0;
+        for (const k of keys) {
+          if (dead) break;
+          const isChat = k.indexOf("x_chat:") === 0, isGr = k.indexOf("x_gchat:") === 0;
+          if (!isChat && !isGr) continue;
+          const tid = k.slice(isChat ? "x_chat:".length : "x_gchat:".length);
+          let arr = null;
+          try { arr = JSON.parse((await walGetRaw(k)) || "null"); } catch (e) {}
+          if (!Array.isArray(arr) || !arr.length) continue;
+          const cur = (isChat ? chatsRef.current[tid] : groupChatsRef.current[tid]) || loadJSON(k, []);
+          const have = new Set(cur.map(m => m && (m.ledgerKey || m.id)).filter(Boolean));
+          const missing = arr.filter(m => m && (m.ledgerKey || m.id) && !have.has(m.ledgerKey || m.id));
+          if (!missing.length) continue;
+          const merged = cur.concat(missing).sort((a, b) => (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0));
+          saveJSON(k, merged);
+          if (isChat) { chatsRef.current = { ...chatsRef.current, [tid]: merged }; setChats(p => ({ ...p, [tid]: merged })); }
+          else { groupChatsRef.current = { ...groupChatsRef.current, [tid]: merged }; setGroupChats(p => ({ ...p, [tid]: merged })); }
+          healed += missing.length;
+        }
+        if (healed && !dead) toast("保险箱找回 " + healed + " 条上次未落盘的消息");
+      } catch (e) {}
+    })();
+    return () => { dead = true; };
+  }, [loaded, characters.length]);
   // E 潮汐 shadow：旁路记状态，任何失败都不能影响消息落盘或角色回复。
   const noteTidalUser = (text, ts) => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.onUserMessage(text, ts); } catch (e) {} };
   useEffect(() => {
@@ -1143,6 +1199,8 @@ function App() {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
     saveJSON("x_chat:" + id, n);
+    // 施工卡1A:WAL 异步镜像。localStorage 配额满时 saveJSON 只弹警告,这里保底最新一版,开机保险箱回收补回
+    try { typeof walPutVerified === "function" && setTimeout(() => { walPutVerified("x_chat:" + id, JSON.stringify(n)).catch(() => {}); }, 0); } catch (e) {}
     chatsRef.current = { ...p, [id]: n };
     // 未读红点：新增的角色消息若此刻没在看这个聊天，累加未读条数（推到微任务里，别在 reducer 里改别的 state）
     if (n.length > pl.length) {
@@ -1396,6 +1454,8 @@ function App() {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
     saveJSON("x_gchat:" + id, n);
+    // 施工卡1A:WAL 异步镜像,同 pChat
+    try { typeof walPutVerified === "function" && setTimeout(() => { walPutVerified("x_gchat:" + id, JSON.stringify(n)).catch(() => {}); }, 0); } catch (e) {}
     groupChatsRef.current = { ...p, [id]: n };
     if (n.length > pl.length) {
       const ledgerAdded = n.slice(pl.length), group = groups.find(g => String(g.id) === String(id));
