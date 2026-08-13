@@ -1865,11 +1865,17 @@ async function generateOffline(p, ctx, session) {
   // ⭐尾部重申（治「越写越八股」）：长对话里开头的规矩会被稀释，模型还会模仿自己前文的油腻输出——
   // 把关键约束追加到上下文最尾（模型对结尾最敏感），每轮都在
   const continueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(false) : "";
+  // 代写用户行动是用户在本场线下亲自开的权限，必须放在离生成最近的尾部。
+  // 只放 system 中段会被长历史、文风和反八股尾注稀释，表现成“开关开了也没用”。
+  const userActionTail = session.narr && session.narr.describeMe === true
+    ? "\n\n〔本场叙事权限·已开启〕用户明确允许你在 scene 里替 Ta 描写并推动【可观察的】动作、神态、即时反应和说出口的话，让双人场景真正往前发生；不要每一拍都停在原地等用户逐动作确认。可以写『你伸手接过杯子』『你摇头说……』这类内容。只按当前情境作合理的小步推进，不替 Ta 宣布重大决定、长期承诺或内心真实想法。"
+    : "\n\n〔本场叙事权限·未开启〕只描写你自己的言行和心理，不要替用户决定动作、反应或台词。";
   const tailNudge = isDigital
-    ? ""
+    ? userActionTail
     : continueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：你上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；记不清具体是什么，就模糊带过（『碗里的汤』『面前的菜』『手边的杯子』），别硬编一个新的具体名字来填。①【比喻限额·最要紧】这一整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，且只在真能让画面更具体时才用；其余一律直白写【字面上实际发生了什么】——绝不给每个动作/眼神/声音都套一个比喻（禁『像从溺水里浮出来』『像被雨水洗过的天空』『像一把冰锥』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】——『像只大型犬/大型猫科动物/幼兽/小兽/受伤的动物』一律不许，也禁往颈窝/怀里『蹭/蹭了蹭』这个默认亲昵动作；『眸/眸子/瞳仁』一律写『眼睛』，也别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』『一种沉沉的疲惫』这种抽象情绪结论；②反陈词滥调清单全程生效——尤其禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体或意识写成机器(系统/宕机/防火墙)」、「别套通用情欲模板动作」照样守死；③这一段的【句式、开头方式、意象、节奏】不许和你上一段雷同——上一段用过的比喻和小动作这段一律换新的，长短句结构也换着来；④" + (wantLong ? "写够上面要求的篇幅，把这段写足写透，别注水凑字、也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + "〕";
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tailNudge };
-  else hist.push({ role: "user", content: "（继续）" + tailNudge });
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail);
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
+  else hist.push({ role: "user", content: "（继续）" + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚展示了真实照片，图像已附在本轮视觉输入中；请直接看图并把反应自然写进当前场景。】", imageDataUrls: session.imageDataUrls.slice(-2) };
