@@ -181,15 +181,17 @@
 
   function loadTabs() {
     const stored = loadJSON(K_TABS, null);
-    if (!stored || !Array.isArray(stored) || !stored.length) { saveJSON(K_TABS, SEED_TABS); return SEED_TABS.slice(); }
-    // 补齐新增的预设版块（老用户 localStorage 里只存了旧的几个种子，新种子一直没出现——就是这个根因）
+    if (!stored || !Array.isArray(stored) || !stored.length) return SEED_TABS.slice();
+    // 预设永远来自代码，只把用户自定义项留在存储；旧档里的整套种子读到后会就地瘦身。
     const seedIds = SEED_TABS.map(function (s) { return s.id; });
     const custom = stored.filter(function (t) { return seedIds.indexOf(t.id) < 0; });
-    const merged = SEED_TABS.concat(custom); // 所有当前种子（按定义顺序）在前 + 用户自定义在后
-    if (merged.length !== stored.length) saveTabs(merged);
-    return merged;
+    if (custom.length !== stored.length) saveJSON(K_TABS, custom);
+    return SEED_TABS.concat(custom);
   }
-  function saveTabs(list) { saveJSON(K_TABS, list); }
+  function saveTabs(list) {
+    const seedIds = new Set(SEED_TABS.map(function (s) { return s.id; }));
+    saveJSON(K_TABS, (Array.isArray(list) ? list : []).filter(function (t) { return t && !seedIds.has(t.id); }));
+  }
   function loadFics() { return loadJSON(K_FICS, []); }
   function saveFics(list) { saveJSON(K_FICS, list); }
   function loadCPs() { return loadJSON(K_CPS, []); }
