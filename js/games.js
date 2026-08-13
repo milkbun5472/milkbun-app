@@ -2355,7 +2355,8 @@
     const sys = AC + SKILL_RULE + "\n\n你在主持「阿瓦隆」，替队长做组队决定。队长【" + leader.name + "】：" + avSecretFor(leader, players) + "，真实水平：" + (leader.skill || "普通") +
       "\n第 " + (qn + 1) + " 个任务要选【" + needSize + "】人上场" + (failsReq === 2 ? "（此任务需 2 张失败票才失败）" : "") + "。按队长身份立场选人：好人凑一支可信、没坏人的队（通常带上自己）；坏人想把自己或同伙塞进去又不能太明显。给 team（正好 " + needSize + " 个在场的名字）+ 一句公开理由（别暴露隐藏身份）。" +
       "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") +
-      "\n\n只输出 JSON：{\"team\":[\"\"],\"reason\":\"\"}";
+      "\n队伍确定后，再从非用户玩家里挑 3~5 位各说一句投票前圆桌发言（30字内，针对这支队伍；不许暴露身份）。" +
+      "\n\n只输出 JSON：{\"team\":[\"\"],\"reason\":\"\",\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 1500 });
     return extractJSON(raw) || {};
   }
@@ -2497,7 +2498,7 @@
         tm = tm.filter(function (v, i) { return tm.indexOf(v) === i; }).slice(0, need);
         // 补足/去重后不够就随机补（含队长优先）
         if (tm.length < need) { const pool = shuffle(players.map(function (p) { return p.name; }).filter(function (nm) { return tm.indexOf(nm) < 0; })); while (tm.length < need && pool.length) tm.push(pool.shift()); }
-        commitProposal(tm, ld, qn, li, r.reason || "");
+        commitProposal(tm, ld, qn, li, r.reason || "", Array.isArray(r.talks) ? r.talks : null);
       } catch (e) {
         // 生成接口连续失败也不能卡死：队长优先带自己，再随机补齐一支合法队伍继续投票。
         props.toast && props.toast("组队生成失败，已由法官补一支合法队伍");
@@ -2507,14 +2508,14 @@
         commitProposal(fallback, ld, qn, li, "接口失灵，先按座次临时组队");
       }
     };
-    const commitProposal = async function (tm, ld, qn, li, reason) {
+    const commitProposal = async function (tm, ld, qn, li, reason, proposedTalks) {
       setTeam(tm);
       pushHist("任务" + (qn + 1) + " 队长" + ld.name + "组队[" + tm.join("、") + "]" + (reason ? "，称:" + reason : ""));
       pushLog([{ type: "propose", leader: ld.name, isUser: ld.isUser, team: tm, reason: reason }]);
       // ⭐圆桌讨论（投票前的嘴仗）：一次调用出全桌发言，失败不挡流程
       setBusy(true);
       try {
-        const talks = await genTableTalk(api, players, tm, ld.name, reason, qn, histText(), me && cfg.mode !== "spectate" ? me.name : "");
+        const talks = proposedTalks && proposedTalks.length ? proposedTalks : await genTableTalk(api, players, tm, ld.name, reason, qn, histText(), me && cfg.mode !== "spectate" ? me.name : "");
         talks.slice(0, 5).forEach(function (tk) { const p = pByName(tk.name); if (p && tk.say) { pushLog([{ type: "talk", name: p.name, say: String(tk.say).slice(0, 80) }]); pushHist(p.name + "说:" + String(tk.say).slice(0, 40)); } });
       } catch (e) {/* 讨论生成失败就静默跳过，别挡投票 */}
       setBusy(false);

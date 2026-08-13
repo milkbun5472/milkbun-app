@@ -420,7 +420,10 @@ def cloud_worker() -> None:
             sync_cloud_once()
         except BridgeError as error:
             print(str(error), file=sys.stderr, flush=True)
-        time.sleep(2)
+        # 2s 轮询×无索引 metadata 扫描曾把 Supabase 磁盘 IO 预算磨干
+        # （2026-08-11 深夜 Lisa 被登出）。改 30s；配 supabase/bridge_io_index.sql
+        # 的部分索引后，空队列轮询近乎零 IO。
+        time.sleep(30)
 
 
 def send(message: dict) -> None:

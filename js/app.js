@@ -331,7 +331,7 @@ function App() {
   const [apiProfiles, setApiProfiles] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [offlineApiId, setOfflineApiId] = useState(null); // 线下正文/总结专用；空=跟随线上主 API
-  const [bgApiId, setBgApiId] = useState(null); // 后台任务(抽取/日程/钱包/查手机)专用便宜 API；空=回退主 API
+  const [bgApiId, setBgApiId] = useState(null); // 后台机械任务专用便宜 API；空=不运行 cheap_required，绝不偷用主池
   const [activeChar, setActiveChar] = useState(null);
   const [activeGroup, setActiveGroup] = useState(null);
   // 记录此刻在看的聊天，供未读红点判断
@@ -717,8 +717,8 @@ function App() {
   const active = apiProfiles.find(p => p.id === activeId) || apiProfiles[0];
   // 线上/线下全局分流：未选择线下线路时完全沿用旧行为。
   const offlineActive = (offlineApiId && apiProfiles.find(p => p.id === offlineApiId)) || active;
-  // 后台任务(抽取/日程/钱包/查手机)用的 API：选了便宜的就用它，没选就回退主 API（默认，不改变现状）
-  const bgActive = (bgApiId && apiProfiles.find(p => p.id === bgApiId)) || active;
+  // cheap_required：未显式配置就保持空。自动任务跳过并保留游标，手动入口负责提示；绝不静默烧主池。
+  const bgActive = (bgApiId && apiProfiles.find(p => p.id === bgApiId)) || null;
   const bgActiveRef = useRef(bgActive); bgActiveRef.current = bgActive;
 
   const aShadowOwnerId = async () => {
@@ -1165,9 +1165,8 @@ function App() {
   const apiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || active; };
   // 角色专线永远优先于全局场景线路：例如只走 Fable 的角色，线上/线下都不会被全局 Gemini 覆盖。
   const offlineApiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || offlineActive; };
-  // 本体执笔·便宜池版（v48.37）：设了专线的角色（如小克接 fable）用专线亲笔写；没设专线的【照旧走便宜后台池】不涨成本。
-  // 专用于原本走 bgActive 的「本体文本」（欲望盒子全链）——把灵魂级落笔从 flash 代笔还给本人，其余角色零变化。
-  const bgApiFor = id => { const s = chatSettings[id] || {}; return (s.apiId && apiProfiles.find(p => p.id === s.apiId)) || bgActive; };
+  // 本体文本不是机械活：有角色专线走专线，否则仍由线上主池本人落笔，绝不交给 cheap_required 代写。
+  const bgApiFor = id => apiFor(id);
   // 只算【还存在的角色/群】的未读——防幽灵红点（未读挂在已删角色/群等列表里看不到的 key 上，加进总数却清不掉，她 2026-07-23 报）
   const unreadTotal = Object.entries(unreadMap).reduce((a, kv) => a + ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0), 0);
   // 顺手把孤儿未读 key 从存档里清掉（角色/群删了但未读残留），让幽灵红点彻底消失
@@ -2087,7 +2086,7 @@ function App() {
   };
   // 给还没情绪数据的旧记忆一次性补评估（一批一次便宜调用，点亮情绪色点/未了标记）
   const backfillMemEmotion = async () => {
-    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!bgActive) { toast("请先到设置配置后台便宜 API"); return; }
     const todo = memLibRef.current.filter(e => e && e.text && typeof e.a !== "number");
     if (!todo.length) { toast("所有记忆都已评估过情绪啦"); return; }
     setEmoBusy(true);
@@ -2128,7 +2127,7 @@ function App() {
     : (e && e.source === "monthly" && e.ts ? "rf_" + Number(e.ts) : null);
   const isRefinable = e => { const now = Date.now(); return e && e.text && (e.surfaceState || "active") === "active" && !e.pinned && !e.open && !e.archived && e.source !== "monthly" && (e.a || 0) <= 2 && now - (e.ts || 0) >= REFINE_OLD_DAYS * 86400000; };
   const refineOldMemories = async (scopeCharId, opts = {}) => {
-    if (!bgActive && !active) { if (!opts.auto) toast("请先到设置配置 API"); return 0; }
+    if (!bgActive) { if (!opts.auto) toast("请先到设置配置后台便宜 API"); return 0; }
     const now = Date.now();
     let pool = memLibRef.current.filter(isRefinable);
     if (scopeCharId && scopeCharId !== "all") pool = pool.filter(e => memShareChar([scopeCharId], e.charIds));
@@ -2243,7 +2242,7 @@ function App() {
     }
   };
   const extractMemForChar = async charId => {
-    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!bgActive) { toast("请先到设置配置后台便宜 API"); return; }
     const msgs = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m)).slice(-40);
     if (msgs.length < 2) { toast("对话太少，先多聊几句"); return; }
     startLane("c:" + charId);
@@ -2254,7 +2253,7 @@ function App() {
   // 自动抽取：每轮聊天后按 extractInterval 节拍静默跑一次（开关在记忆库·召回设置）
   const maybeAutoExtract = async charId => {
     const cfg = memCfgRef.current;
-    if (!cfg.autoExtract || !active) return;
+    if (!cfg.autoExtract || !bgActive) return;
     const interval = Math.max(1, cfg.extractInterval || 1);
     const cnt = (memExtractCtrRef.current[charId] || 0) + 1;
     memExtractCtrRef.current[charId] = cnt;
@@ -2277,7 +2276,7 @@ function App() {
   // CC 回流自动记忆：独立于“每几轮抽一次”的聊天计数，避免一次 pull 合并多泡却只算一轮。
   // 状态只保存已成功审过的 ledgerKey；正文仍只存在共同账本/聊天中。
   const runCcAutoMemory = async (charId, ownerId) => {
-    if (!memCfgRef.current.autoExtract || !active || !window.CcMemoryAuto || ccMemExtractBusyRef.current) return 0;
+    if (!memCfgRef.current.autoExtract || !bgActive || !window.CcMemoryAuto || ccMemExtractBusyRef.current) return 0;
     if (memExtractInflightRef.current[charId]) return 0;
     const state = window.CcMemoryAuto.load(localStorage, ownerId, charId);
     const plan = window.CcMemoryAuto.plan(chatsRef.current[charId] || [], state, { minNew: 2 });
@@ -2294,7 +2293,7 @@ function App() {
   };
   // 从旧的「长期记忆总结」一次性拆成离散条目导入记忆库（去重）；不删旧总结
   const importOldMemoryToLib = async charId => {
-    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!bgActive) { toast("请先到设置配置后台便宜 API"); return; }
     const blob = (memories[charId] || "").trim();
     if (!blob) { toast("这个角色没有旧的长期记忆可导入"); return; }
     const char = characters.find(c => c.id === charId);
@@ -6240,7 +6239,9 @@ function App() {
     } finally { desireTendRef.current = false; }
   };
   useEffect(() => {
-    if (screen === "forum") { autoAmbientRun("forum"); clearAppNotif("forum"); } else ambientRunRef.current.forum = false;
+    // 进入论坛只读已有内容，不再自动生成 12~18 层并烧一次主池。
+    // 新内容由用户在论坛内明确触发，或由已有的低频 ambient 调度产生。
+    if (screen === "forum") { clearAppNotif("forum"); } else ambientRunRef.current.forum = false;
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
     if (screen === "messages") { autoAmbientRun("moments"); clearAppNotif("moments"); } else ambientRunRef.current.moments = false;
   }, [screen]);
@@ -9586,7 +9587,7 @@ function App() {
       const d = await runProbe(bgActive, ctxFor(c), {
         instruction: "用户选择困难，把决定交给了手机主屏上的「命运转盘」" + (title ? "（转盘主题：" + title + "）" : "") + "。转盘上的选项：" + items.join("、") + "。刚刚指针停在了【" + result + "】。以「" + c.name + "」的口吻对这个结果说一两句话——起哄、拍板、吐槽 Ta 的选择困难、或者对结果本身发表意见都行，按你的人设和此刻心情来，像随口说的，加起来别超过 40 字。",
         schemaHint: "{\"say\":\"一两句话\"}",
-        maxTokens: 6000   // 思考型模型兜底也够（后台池没配时 bgActive=主模型）
+        maxTokens: 6000   // cheap_required 线路已显式配置时仍保留完整思考预算
       });
       return d && d.say ? { name: c.remark || c.name, text: String(d.say).trim().slice(0, 120), char: c } : null;
     }

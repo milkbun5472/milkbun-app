@@ -240,6 +240,29 @@
     throw new Error(voice.name + " 生成失败，可单独重刷");
   }
 
+  // 四种媒体腔共享同一份周素材：正常路径一次生成四版；整批失败或缺版时，
+  // 只对缺失项调用原来的 genMedia 单项补洞，保留隔离声纹与可重试性。
+  async function genMediaBatch(active, voices, personasBlock, material, empty) {
+    const specs = voices.map(function (v) {
+      return "【" + v.id + "｜" + v.name + "】\n" + v.world + (empty ? "\n空周写法：" + v.absent : "");
+    }).join("\n\n");
+    const sys = ANTI_CLICHE + "\n\n你是周刊的四个彼此隔离的媒体编辑部。每个版块只能使用自己的世界观和声纹，绝不串味。\n\n" + specs +
+      "\n\n" + CHARCARD_RULE + "\n【本周出场人物】\n" + personasBlock + NAME_GUARD +
+      "\n\n【本周 RP 聊天记录】\n" + (empty ? "（本周素材几乎为空。）" : material) +
+      "\n\n每个媒体版写 3~4 篇不同小事。只输出 JSON：{\"media\":[{\"voiceId\":\"上面四个id之一\",\"articles\":[{\"title\":\"\",\"body\":\"\"}]}]}";
+    const d = await genJSON(active, sys, "一次写完四个互不串味的媒体版。", 16000);
+    const rows = d && Array.isArray(d.media) ? d.media : [];
+    const byId = {};
+    rows.forEach(function (row) {
+      if (!row || !voices.some(function (v) { return v.id === row.voiceId; }) || !Array.isArray(row.articles)) return;
+      const articles = row.articles.filter(function (a) { return a && (a.title || a.body); }).map(function (a) {
+        return { title: String(a.title || "").trim(), body: String(a.body || "").trim() };
+      });
+      if (articles.length) byId[row.voiceId] = articles;
+    });
+    return byId;
+  }
+
   // 首页头版：主编把整周素材做成一版封面头条（全局，最抓眼球）
   const HEADLINE_VOICE = "你是这期周刊的主编，正在写整本刊物的封面头版——最抓眼球、最勾人往里翻的一版。语气像八卦杂志封面，会吊胃口、留悬念，但不低俗。";
   async function genCover(active, personasBlock, material, empty) {
@@ -315,10 +338,12 @@
     }
     // 媒体腔（全局，每版 3~4 篇）
     const media = [];
+    let batch = {};
+    try { batch = await genMediaBatch(active, VOICES, personasFor(charsWithMat, userName), globalText, empty); } catch (e) { batch = {}; }
     for (const v of VOICES) {
       tick(v.name);
       try {
-        const articles = await genMedia(active, v, personasFor(charsWithMat, userName), globalText, empty);
+        const articles = batch[v.id] || await genMedia(active, v, personasFor(charsWithMat, userName), globalText, empty);
         media.push({ id: uid("md"), type: "media", voiceId: v.id, articles: articles });
       } catch (e) {
         media.push({ id: uid("md"), type: "media", voiceId: v.id, articles: [{ title: v.name, body: "（本版生成失败，请点进去单独重刷。）" }] });

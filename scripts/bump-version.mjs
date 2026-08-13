@@ -43,10 +43,19 @@ for (const { file, v } of fp) {
 }
 save("index.html", idx);
 
+// manifest.json 本体里的 PWA 启动地址也属于发布目标，不能只 bump index 的 href。
+let manifest = read("manifest.json");
+manifest = manifest.replace(/(index\.html\?launch=)[\d.]+/, `$1${ver}`);
+save("manifest.json", manifest);
+changed.push(`manifest.json launch → ${ver}`);
+
 // 3. rescue.html 版本串整体换代
 let rescue = read("rescue.html");
 const rOld = new Set(rescue.match(/\d+\.\d+/g) || []);
-rescue = rescue.replace(/(app\.js\?v=|launch=|v)(5[0-9]\.[0-9]+)/g, (m, pre) => pre + ver); // 只认 5x.x 世代号，别误伤 v1.7 之类无关串
+rescue = rescue
+  .replace(/(app\.js\?v=|launch=|v)(5[0-9]\.[0-9]+)/g, (m, pre) => pre + ver)
+  // JS 正则字面量里的点是转义形态，例如 app\.js\?v=52\.30 / v52\.30。
+  .replace(/(app\\\.js\\\?v=|v)(5[0-9]\\\.[0-9]+)/g, (m, pre) => pre + ver.replace(".", "\\."));
 save("rescue.html", rescue);
 changed.push(`rescue.html 版本串 → ${ver} (原含: ${[...rOld].slice(0, 4).join(", ")})`);
 
@@ -56,4 +65,4 @@ const b = (idx.match(/js\/app\.js\?v=([\d.]+)/) || [])[1];
 console.log(changed.map(x => "  · " + x).join("\n"));
 if (a !== b) { console.error(`❌ 自检失败: APP_VERSION v${a} vs index 指纹 ${b}`); process.exit(1); }
 console.log(`✅ 指纹同步自检通过 (v${a})${dry ? "【dry-run 未写盘】" : ""}`);
-console.log(`下一步: git add js/app.js index.html rescue.html ${[...dirty].filter(f => f !== "js/app.js").join(" ")}\n然后按《版本更新手册.md》的三件套提交推送。`);
+console.log(`下一步: git add js/app.js index.html manifest.json rescue.html ${[...dirty].filter(f => f !== "js/app.js").join(" ")}\n然后按《版本更新手册.md》的三件套提交推送。`);

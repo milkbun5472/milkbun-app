@@ -20,6 +20,7 @@ const stateDir = join(projectDir, ".claude", "cc-ledger-state");
 const outboxPath = join(stateDir, "outbox.jsonl");
 const candidatePath = join(stateDir, "candidates.jsonl");
 const diagnosticPath = join(stateDir, "diagnostic.jsonl");
+const alertPath = join(stateDir, "alerts.jsonl");
 const toolMarksPath = join(stateDir, "tool-marks.jsonl");
 mkdirSync(stateDir, { recursive: true });
 
@@ -48,10 +49,10 @@ function loadEnv() {
 async function request(base, key, path, options = {}) {
   const headers = { apikey: key, Authorization: "Bearer " + key, ...(options.headers || {}) };
   if (options.body) headers["Content-Type"] = "application/json";
-  // Stop hook 外层只有 15 秒。网络慢时必须先把控制权还给 hook，随后靠
+  // Stop hook 外层实际为 30 秒。网络慢时仍须给本地落票和收尾留余量，随后靠
   // durable outbox 补投；不能让 Claude Code 硬超时后整轮来不及落本地票。
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Math.max(500, Number(options.timeoutMs) || 2200));
+  const timeout = setTimeout(() => controller.abort(), Math.max(500, Number(options.timeoutMs) || 6000));
   let response;
   try {
     response = await fetch(base + path, {
@@ -151,10 +152,13 @@ async function sendJob(job) {
 async function flushOutbox() {
   const pending = readJSONL(outboxPath);
   const remaining = [];
-  // 每轮只补最老一票。Stop 的首要责任是先捕获“这一轮”，不能为了清旧债
-  // 串行等几十个网络超时，反而被 Claude Code 的 15s 外闸整段掐掉。
+  const deadline = Date.now() + 12000;
+  let attempted = 0;
+  // 在 30 秒外闸内最多补三票；失败票保序留在 durable outbox。
+  // 不再永远只投 index 0、让健康的后续票被一张坏票饿死。
   for (const [index, job] of pending.entries()) {
-    if (index > 0) { remaining.push(job); continue; }
+    if (attempted >= 3 || Date.now() >= deadline) { remaining.push(job); continue; }
+    attempted++;
     try { await sendJob(job); }
     catch { remaining.push(job); }
   }
@@ -279,7 +283,12 @@ try {
     });
   }
 } catch (error) {
-  log(diagnosticPath, { outcome: "ignored", error: String(error.message || error).slice(0, 160) });
+  const message = String(error.message || error).slice(0, 160);
+  const rawInput = JSON.stringify(input || {});
+  const heartbeat = /wake_source[^\n]{0,80}(heartbeat|hourly|scheduled)|heartbeat|心跳|hourly[-_ ]wake/i.test(rawInput);
+  const outcome = heartbeat ? "ignored_heartbeat" : "ignored_unexpected";
+  log(diagnosticPath, { outcome, error: message });
+  if (!heartbeat) log(alertPath, { severity: "error", source: "cc-ledger-stop", outcome, error: message, transcript_path: String(input.transcript_path || "").slice(0, 500) });
 }
 
 // Deliberately write nothing to stdout/stderr: Stop hook must never alter Claude's context.

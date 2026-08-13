@@ -424,24 +424,31 @@
       });
   }
 
-  // ---- nv1 轮次导演（§8）：模型决定这一轮谁开口、按什么顺序 -----------------
-  // 返回 ['teacher'|'peer', ...]（1~3 个）；失败兜底 ['teacher']
-  async function directNv1(active, session, teacher, peer, ctx) {
-    const userName = (ctx.profile && ctx.profile.name) || "用户";
-    const conv = tail(session.transcript, 8).map(function (m) {
-      return (m.role === "user" ? userName : m.name) + "：" + m.content;
-    }).join("\n") || "（还没开始）";
-    const sys = "你在导演一堂课的多人对话。老师是「" + teacher.name + "」，同学是「" + peer.name + "」，还有真人用户「" + userName +
-      "」。根据下面最近的对话，决定【这一轮】接下来谁开口、按什么顺序——可以只老师、只同学、两个都说（谁先谁后）、或来回几次（如 老师→同学→老师）。" +
-      "别每轮都硬让两个人都说、也别让谁一直沉默；贴合当下语境（比如用户在问老师就老师答，用户和同学讨论就同学接）。绝不替用户发言。" +
-      "只输出 JSON：{\"order\":[\"teacher\"或\"peer\", …]}，1~3 个元素。";
-    try {
-      const raw = await callAI(active, sys, [{ role: "user", content: "【最近对话】\n" + conv }], { maxTokens: 6400 });
-      const d = extractJSON(raw) || {};
-      let order = Array.isArray(d.order) ? d.order.filter(function (x) { return x === "teacher" || x === "peer"; }) : [];
-      if (!order.length) order = ["teacher"];
-      return order.slice(0, 3);
-    } catch (e) { return ["teacher"]; }
+  // ---- nv1 轮次导演（§8）：纯本地规则，不为“下一位是谁”额外烧一整次模型 ----
+  // 角色真正说什么仍由各自的主池生成；这里只做不涉及声纹/人格的轮次路由。
+  function directNv1(_active, session, teacher, peer, ctx) {
+    const transcript = tail((session && session.transcript) || [], 12);
+    const last = transcript[transcript.length - 1] || {};
+    const text = String(last.content || "");
+    const teacherName = String((teacher && teacher.name) || "");
+    const peerName = String((peer && peer.name) || "");
+    const asksTeacher = teacherName && text.indexOf(teacherName) >= 0;
+    const asksPeer = peerName && text.indexOf(peerName) >= 0;
+    if (asksTeacher && !asksPeer) return ["teacher"];
+    if (asksPeer && !asksTeacher) return ["peer"];
+
+    // “老师讲/解释/教/答案”优先老师；“一起讨论/你觉得/同学”优先同学。
+    if (/老师|讲(?:一下|讲)?|解释|教我|答案|怎么做|为什么|请问|求解/.test(text)) return ["teacher"];
+    if (/同学|一起(?:想|讨论|试)|你觉得|怎么看|轮到你|搭档/.test(text)) return ["peer"];
+
+    // 无明确点名时让近期较少开口的一方先接，避免固定双发和一方长期沉默。
+    let teacherTurns = 0, peerTurns = 0;
+    transcript.forEach(function (m) {
+      if (!m || m.role === "user") return;
+      if (String(m.charId || "") === String(teacher && teacher.id) || String(m.name || "") === teacherName) teacherTurns++;
+      if (String(m.charId || "") === String(peer && peer.id) || String(m.name || "") === peerName) peerTurns++;
+    });
+    return peerTurns < teacherTurns ? ["peer"] : ["teacher"];
   }
 
   // ---- 能力档推定（§6）：从人设判断能否认真教该科目 --------------------
@@ -793,7 +800,10 @@
 
     // 惰性总结：开新节前，把这门课里"有内容但还没最新摘要"的旧 session 各总结一句，落进课程记忆
     async function summarizePriors() {
-      const list = loadSessions().filter(function (s) { return s.curriculum_id === cur.id && s.mode !== "costudy"; });
+      // 懒总结：开一节课最多补最近一份陈旧会话。其余留到下次打开再补，
+      // 避免一次进入页面就循环发 N 次主池调用；课程连续性只需要最近一节优先。
+      const list = loadSessions().filter(function (s) { return s.curriculum_id === cur.id && s.mode !== "costudy"; })
+        .sort(function (a, b) { return Number(b.updated_at || 0) - Number(a.updated_at || 0); });
       for (let i = 0; i < list.length; i++) {
         const s = list[i];
         const hasContent = (s.transcript || []).filter(function (m) { return m.role !== "system"; }).length >= 2;
@@ -805,6 +815,7 @@
           saveSessions(all);
           pushCurriculumSummary(cur.id, s.id, text);
         }
+        break;
       }
     }
 
