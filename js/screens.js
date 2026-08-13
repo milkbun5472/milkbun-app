@@ -2406,44 +2406,6 @@ function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onGen, on
       h("div", null, mine.map(ev => node(ev, false)), startDate ? node(null, true) : null)));
 }
 
-// 情侣空间·纪念日倒计时：加/删，可选联动主页日历
-function CoupleAnniv({ partner, list, onAdd, onRemove, onBack }) {
-  const t = useTheme();
-  const daysTo = (mo, dy) => { const now = new Date(); now.setHours(0, 0, 0, 0); const y = now.getFullYear(); let target = new Date(y, mo - 1, dy); target.setHours(0, 0, 0, 0); if (target < now) target = new Date(y + 1, mo - 1, dy); return Math.round((target - now) / 86400000); };
-  const mine = (list || []).filter(a => a.characterId === partner.id).slice().sort((a, b) => daysTo(a.month, a.day) - daysTo(b.month, b.day));
-  const [showAdd, setShowAdd] = useState(false);
-  const [name, setName] = useState("");
-  const [mo, setMo] = useState("");
-  const [dy, setDy] = useState("");
-  const [yearly, setYearly] = useState(true);
-  const [link, setLink] = useState(true);
-  const submit = () => { if (name.trim() && mo && dy) { onAdd(partner, name, mo, dy, yearly, link); setName(""); setMo(""); setDy(""); setShowAdd(false); } };
-  const toggle = (on, set, label) => h("button", { onClick: () => set(v => !v), className: "active:opacity-70 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.ink : t.fog } }, h("span", { style: { width: 15, height: 15, borderRadius: 4, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), color: t.bg2, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" } }, on ? "✓" : ""), label);
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "纪念日", en: "Anniversary · " + partner.name, onBack,
-      right: h("button", { onClick: () => setShowAdd(v => !v), className: "active:opacity-50" }, h(IPlus, { size: 19, color: t.ink })) }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-      showAdd ? h("div", { className: "space-y-2", style: { marginTop: 6, marginBottom: 16 } },
-        h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "纪念日名称，如 在一起一周年", className: "w-full outline-none px-3 py-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("div", { className: "flex gap-2 items-center" },
-          h("input", { type: "number", value: mo, onChange: e => setMo(e.target.value), placeholder: "月", className: "w-14 outline-none px-2 py-2 rounded-lg text-center", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "月"),
-          h("input", { type: "number", value: dy, onChange: e => setDy(e.target.value), placeholder: "日", className: "w-14 outline-none px-2 py-2 rounded-lg text-center", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "日")),
-        h("div", { className: "flex items-center gap-5", style: { paddingTop: 2 } }, toggle(yearly, setYearly, "每年重复"), toggle(link, setLink, "加进日历")),
-        h("button", { onClick: submit, disabled: !name.trim() || !mo || !dy, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 20px", borderRadius: 10 } }, "加")) : null,
-      mine.length === 0 && !showAdd ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginTop: 8 } }, "还没有纪念日，点右上角 ＋ 添加。") : null,
-      h("div", { className: "space-y-3" },
-        mine.map(a => { const d = daysTo(a.month, a.day); return h("div", { key: a.id, className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 16px" } },
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, a.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, a.month + "月" + a.day + "日" + (a.yearlyRepeat ? " · 每年" : ""))),
-          h("div", { style: { textAlign: "right" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, fontStyle: "italic", color: d === 0 ? t.accent : t.ink, lineHeight: 1 } }, d === 0 ? "今天" : d),
-            d === 0 ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, "天后")),
-          h("button", { onClick: () => onRemove(a.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, paddingLeft: 4 } }, "×")); }))));
-}
-
 // 情书信纸字体（iOS 系统中文字体，零成本；非 iOS 走 fallback）+ 纸张样式
 const LETTER_FONTS = [
   { key: "auto", label: "🎲 智能 / 随机" },

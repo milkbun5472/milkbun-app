@@ -29,7 +29,7 @@
     "memory_sync_rpc.sql": { "status": "unknown" },
     "memory_sync_rpc_test.sql": { "status": "test" },
     "photo_bridge.sql": { "status": "unknown" },
-    "rescue_remote_commands.sql": { "status": "unknown", "note": "App 互救台远程命令队列；待 Lisa 在 SQL Editor 运行后确认" },
+    "rescue_remote_commands.sql": { "status": "applied", "verified_on": "2026-08-13", "note": "Lisa confirmed SQL Editor run" },
     "yanqiu_moments.sql": { "status": "unknown" }
   }
 }

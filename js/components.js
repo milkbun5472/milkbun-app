@@ -5769,28 +5769,6 @@ function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, o
         h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
       (!isUser && (m.cot || m.cotRequested)) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null));
 }
-// 线下单条消息渲染：char=叙事段+心声；user=我的话/动作；narration=场景设定
-// members（可选）：群聊线下时传在场角色，char beat 会显示发言人头像+名
-function renderOffMsg(m, i, t, cName, members) {
-  if (m.role === "narration") {
-    return h("div", { key: i, className: "text-center my-4 px-4", style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.7, color: t.fog } }, m.content);
-  }
-  if (m.role === "user") {
-    return h("div", { key: i, className: "my-3 flex justify-end" },
-      h("div", { className: "px-3.5 py-2 max-w-[80%]", style: { background: "#dce9d0", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#243318" } }, m.content));
-  }
-  // char narrative
-  const spk = members && m.senderId ? members.find(x => x.id === m.senderId) : null;
-  return h("div", { key: i, className: "my-4" },
-    m.senderName && h("div", { className: "flex items-center gap-2 mb-1.5" },
-      spk && h(Avatar, { character: spk, size: 22, radius: 6 }),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.sub } }, m.senderName)),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, m.content),
-    m.thought && h("div", { className: "mt-2 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
-    (m.cot || m.cotRequested) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null);
-}
 // ---- 群聊线下模式（多角色同处一地）----
 function GroupOfflineMode({
   group,
@@ -7912,34 +7890,4 @@ function ChatSettings({
       fontSize: 15
     }
   }, "从对话提取")))));
-}
-// 通用「点此生成」入口（行程等处复用）
-function GenPrompt({
-  char,
-  label,
-  note,
-  onGen
-}) {
-  const t = useTheme();
-  return h("button", {
-    onClick: onGen,
-    className: "w-full text-left py-10",
-    style: {
-      borderTop: `1px solid ${t.line}`,
-      borderBottom: `1px solid ${t.line}`
-    }
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 20,
-      color: t.ink
-    }
-  }, label, " →"), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.fog,
-      marginTop: 6
-    }
-  }, note));
 }
