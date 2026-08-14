@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+const index = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
 test("optional assistive model switch persists online and offline routes separately", () => {
   assert.match(app, /function ModelQuickSwitch\(/);
@@ -14,4 +15,7 @@ test("optional assistive model switch persists online and offline routes separat
   assert.match(app, /角色专线仍由 apiFor\/offlineApiFor 优先/);
   assert.match(screens, /模型快速切换浮窗/);
   assert.match(screens, /角色专线不受影响/);
+  const version = app.match(/APP_VERSION = "v([^"]+)"/)?.[1];
+  assert.ok(version);
+  assert.match(index, new RegExp(`js/screens\\.js\\?v=${version.replace(/\./g, "\\.")}`));
 });
