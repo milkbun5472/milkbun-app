@@ -863,6 +863,19 @@ const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 
 输出形状：{"scene":"当前场景正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}
 场景先发生，系统再记录。`;
+
+const OFFLINE_REGISTER_CALIBRATION = `【表达连续性校准】
+以下两个微型例子只用于校准表达方式，不属于当前人物、关系、地点或历史；不要复用其中的动作、台词或细节。
+A
+前：他被突然拉近，停了一下。“你认真的？”
+后：距离进一步缩短，他确认了对方没有退开的意思，便顺着已经发生的动作继续。“行。”
+B
+前：她愣了半秒，手还停在原处。“等等。”
+后：新的接触发生后，她先缓了一口气，重新看向对方。“好了，继续吧。”
+注意两组人物的反应方式不同，但前后各自使用同一种语言：
+发生什么就写什么，人物仍按自己原来的方式处理。
+内容变直接，不等于语言自动变得更激烈、更感官化、更解释性或更修辞化。
+只增加新事实真正需要的信息。`;
 // ── 世界书注入引擎（第2步）：按角色/触发词/适用范围/优先级/正则筛选词条 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope:'chat'|'subjects'|'debate'|'lifestyle'|'diary', text:近期对话(供关键词命中) }
 function loreScopeOn(e, scope) {
@@ -2034,6 +2047,21 @@ function offlineIntimacyContextActive(session) {
   return after.slice(-4).some(r => continuation.test(r.text));
 }
 
+// v52.68 实验：只识别测试所需的“首次直接身体互动”跨越。
+// 关键词只在本机判定，不进入 prompt；普通接吻/抵门不触发。证明 calibration 有效后再讨论泛化。
+function offlineRegisterTransition(session) {
+  const rows = (session && Array.isArray(session.msgs) ? session.msgs : [])
+    .filter(m => m && m.kind !== "ooc" && m.content);
+  if (!rows.length) return { before: false, after: false, inject: false };
+  const direct = /性器|阴茎|阴蒂|龟头|乳房|胸乳|勃起|硬(?:了|起来|得)|进入(?:她|他|你|身体)|插入|抽送|高潮|自慰|做爱|性交|口交|手(?:指)?[^。！？\n]{0,12}(?:伸进|探进)[^。！？\n]{0,12}(?:裤|内裤|腿间)|(?:握住|握上|抓住|含住|舔弄)[^。！？\n]{0,10}(?:性器|阴茎|那里)|脱(?:下|掉|了)[^。！？\n]{0,8}(?:裤子|内裤)/i;
+  const hit = m => direct.test(String(m && m.content || ""));
+  const last = rows[rows.length - 1];
+  const before = rows.slice(0, -1).some(hit);
+  const after = before || hit(last);
+  const inputBeat = last.role !== "char" && last.role !== "assistant";
+  return { before, after, inject: !!(inputBeat && !before && after) };
+}
+
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -2042,6 +2070,8 @@ async function generateOffline(p, ctx, session) {
   const cotModelKey = offlineCotModelKey(p);
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
+  const registerTransition = !isDigital ? offlineRegisterTransition(session) : { before: false, after: false, inject: false };
+  const registerCalibrationBlock = registerTransition.inject ? "\n\n" + OFFLINE_REGISTER_CALIBRATION : "";
   const missingStateFields = [];
   if (!isDigital && !String(ctx.curWear || "").trim()) missingStateFields.push("wearing（当前穿着）");
   if (!isDigital && !String(ctx.curAction || "").trim()) missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
@@ -2067,6 +2097,7 @@ async function generateOffline(p, ctx, session) {
     : "\n\n" + OFFLINE_PROTOCOL_V2 + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20整数,\"duration\":1到30秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
+    registerCalibrationBlock +
     offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     singleCotBlock +
@@ -2138,6 +2169,9 @@ async function generateOffline(p, ctx, session) {
     cot: sp.cot,
     // 开关开启就保留入口；保险回退或模型漏掉标记时明确显示“本轮未返回”，不整行消失。
     cotRequested: !!requestedCotT,
+    registerTransitionBefore: !!registerTransition.before,
+    registerTransitionAfter: !!registerTransition.after,
+    registerCalibrationInjected: !!registerTransition.inject,
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),

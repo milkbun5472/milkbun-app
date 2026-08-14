@@ -5342,6 +5342,7 @@ function OfflineMode({
   activeSession,
   sending,
   settings,
+  registerTelemetry,
   onSaveSettings,
   onStart,
   onSend,
@@ -5409,6 +5410,14 @@ function OfflineMode({
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
       h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
+    h("div", { style: { marginTop: 14, padding: "9px 11px", borderRadius: 9, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10.5, lineHeight: 1.65, color: t.fog } },
+      h("div", null, ".68 register calibration · 仅内存诊断"),
+      registerTelemetry
+        ? h("div", { style: { color: registerTelemetry.registerCalibrationInjected ? t.tint : t.sub } },
+            "transition: " + registerTelemetry.transitionBefore + " → " + registerTelemetry.transitionAfter,
+            h("br"),
+            "calibration: " + (registerTelemetry.registerCalibrationInjected ? "injected" : "not injected"))
+        : h("div", null, "还没有本轮记录")),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "场景背景图"),

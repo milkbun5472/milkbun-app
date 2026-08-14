@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.67";
+const APP_VERSION = "v52.68";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -399,6 +399,7 @@ function App() {
   const callRef = useRef(null);
   const [offlineChar, setOfflineChar] = useState(null);
   const [offlines, setOfflines] = useState({}); // charId -> [session,...] newest-first
+  const [offlineRegisterTelemetry, setOfflineRegisterTelemetry] = useState({}); // v52.68 实验诊断：只驻内存，不进剧情历史/模型
   // 线下模式设置 { [charId 或 "g_"+groupId]: {selfP,userP,describeMe,maxTokens} }
   const [offlineSettings, setOfflineSettings] = useState({});
   const osFor = id => offlineSettings[id] || { maxTokens: String(id).startsWith("g_") ? 3200 : 4000 }; // 单人线下默认 1400→4000（1400 太紧、思考型模型长场景会截断掉格式）；想更长拉条到 10000
@@ -3283,6 +3284,12 @@ function App() {
         try { const blob = await idbVaultGet(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
       const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      setOfflineRegisterTelemetry(p => ({ ...p, [charId]: {
+        transitionBefore: !!res.registerTransitionBefore,
+        transitionAfter: !!res.registerTransitionAfter,
+        registerCalibrationInjected: !!res.registerCalibrationInjected,
+        ts: Date.now()
+      } }));
       const offTurnId = "ot_" + Date.now(), affinityBefore = affOf(charId);
       pushOffMsg(charId, {
         id: "c_" + Date.now(),
@@ -10553,6 +10560,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     activeSession: (offlines[offlineChar.id] || []).find(s => !s.endTs) || null,
     sending: sending,
     settings: osFor(offlineChar.id),
+    registerTelemetry: offlineRegisterTelemetry[offlineChar.id] || null,
     onSaveSettings: patch => saveOfflineSettings(offlineChar.id, patch),
     onStart: opts => startOffline(offlineChar.id, opts),
     onSend: txt => offlineSend(offlineChar.id, txt),
