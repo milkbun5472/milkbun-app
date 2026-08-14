@@ -35,6 +35,14 @@ test("intimacy context has explicit activation, continuity and reset gates", () 
   assert.match(engine, /after\.length <= 3/);
 });
 
+test("intimacy runtime blocks physiological escalation chains without reviving a word blacklist", () => {
+  assert.match(engine, /同一个反应不要换不同身体部位反复证明/);
+  assert.match(engine, /遇到需要对方同意、回应或选择的节点就停下/);
+  assert.match(engine, /不把退开、迟疑或拒绝当成欲拒还迎/);
+  assert.match(engine, /不要由旁白替互动宣布/);
+  assert.match(engine, /不是另一种“成人文模式”/);
+});
+
 test("offline null state semantics preserve durable state and clear stale thought", () => {
   assert.match(app, /if \(res\.wearing\) ost\.wearing = res\.wearing/);
   assert.match(app, /if \(res\.action\) ost\.action = res\.action/);
