@@ -341,6 +341,31 @@ async function fetchT(url, options, ms) {
     clearTimeout(timer);
   }
 }
+
+// v52.69 线下 wire 诊断：只在用户手动开启时抓 fetch 前的最终 body。
+// 不记录 headers / API key；图片正文替换成占位。仅驻 window 内存，刷新即清空。
+function captureWirePayload(fmt, url, body, opts, attempt) {
+  if (typeof window === "undefined" || !window.__offlineWireCaptureEnabled || !opts || opts.wireScope !== "offline") return;
+  const scrub = (key, value) => {
+    if (key === "data" && typeof value === "string" && value.length > 200) return "[base64 image omitted · " + value.length + " chars]";
+    if (typeof value === "string" && /^data:image\//i.test(value)) return "[data image omitted · " + value.length + " chars]";
+    return value;
+  };
+  let clean;
+  try { clean = JSON.parse(JSON.stringify(body, scrub)); } catch (e) { clean = { error: "payload clone failed: " + (e.message || e) }; }
+  const row = {
+    id: "wire_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+    ts: Date.now(),
+    format: fmt,
+    endpoint: String(url || "").replace(/[?&]key=[^&]*/gi, ""),
+    attempt: attempt || "primary",
+    meta: opts.wireMeta || null,
+    body: clean
+  };
+  const rows = window.__offlineWireCaptures = window.__offlineWireCaptures || [];
+  rows.push(row);
+  if (rows.length > 8) rows.splice(0, rows.length - 8);
+}
 async function callAI(p, system, messages, opts) {
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
@@ -431,6 +456,7 @@ async function callAI(p, system, messages, opts) {
       // 只留【手动块级切块】：cache_control 只打在「守则+人设+关系」稳定前缀那块(见 buildSys)——写一次、之后每轮只读(一折)。
       const body = { model, max_tokens: maxTokens, system: buildSys(), messages: buildMsgs() };
       if (withTemp) body.temperature = temp;
+      captureWirePayload("anthropic", base + "/v1/messages", body, opts, withTemp ? "with-temperature" : "without-temperature");
       const headers = {
         "Content-Type": "application/json",
         "x-api-key": p.apiKey,
@@ -515,6 +541,7 @@ async function callAI(p, system, messages, opts) {
         maxOutputTokens: maxTokens
       }
     };
+    captureWirePayload("gemini", base + "/v1beta/models/" + model + ":generateContent", gBody, opts, "primary");
     // 走代理时函数按 ROUTES 里该引用名的 style 贴钥匙（google 原生线要 goog 头风格）
     const r = viaProxy ? await viaProxy(base + "/v1beta/models/" + model + ":generateContent", gBody, {}) : await fetchT(base + "/v1beta/models/" + model + ":generateContent", {
       method: "POST",
@@ -543,6 +570,7 @@ async function callAI(p, system, messages, opts) {
     const wantStream = !!(opts && opts.stream && !viaProxy);
     const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages], ...(wantStream ? { stream: true, stream_options: { include_usage: true } } : {}) };
     if (withTemp) body.temperature = temp;
+    captureWirePayload("openai", root + "/chat/completions", body, opts, withTemp ? "with-temperature" : "without-temperature");
     const r = viaProxy ? await viaProxy(root + "/chat/completions", body, {}) : await fetchT(root + "/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer " + p.apiKey },
@@ -2141,7 +2169,26 @@ async function generateOffline(p, ctx, session) {
   let raw;
   let usedCot = !!cotT;
   try {
-    raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 4000, timeout: 180000 });
+    raw = await callAI(p, system, hist, {
+      maxTokens: session.maxTokens || 4000,
+      timeout: 180000,
+      wireScope: "offline",
+      wireMeta: {
+        charId: char.id,
+        sessionId: session.id || null,
+        transitionBefore: !!registerTransition.before,
+        transitionAfter: !!registerTransition.after,
+        calibrationInjected: !!registerTransition.inject,
+        mood: ctx.moodLabel || null,
+        wearing: ctx.curWear || null,
+        action: ctx.curAction || null,
+        priorSummary: session.priorSummary || null,
+        memoryCount: Array.isArray(ctx.memLib) ? ctx.memLib.length : null,
+        styleExamples: Array.isArray(ctx.styleExamples) ? ctx.styleExamples.length : null,
+        taste: session.taste || null,
+        reroll: !!session.rerollAvoid
+      }
+    });
   } catch (e) {
     if (!cotT || !isOfflineEmptyStop(e)) throw e;
     rememberOfflineSingleNoCotV2Model(cotModelKey);
@@ -2149,7 +2196,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 4000, timeout: 180000 });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 4000, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
