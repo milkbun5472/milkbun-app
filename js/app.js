@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.53";
+const APP_VERSION = "v52.54";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5637,7 +5637,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (wipeMem) {
       setMemFor(charId, "");
       const next = memLibRef.current.map(e => {
-        if (e.locked) return e;
+        // 用户明确选择“清除并忘记”时，角色归属必须真正移除；locked 只保护日常整理，不能凌驾于显式删除。
+        // 多角色共享条目只摘掉当前角色，仍留给其他角色；无 charIds 的全局背景不属于某个角色，不动。
         if (e.charIds && e.charIds.includes(charId)) { const rest = e.charIds.filter(id => id !== charId); return rest.length ? { ...e, charIds: rest } : null; }
         return e;
       }).filter(Boolean);
