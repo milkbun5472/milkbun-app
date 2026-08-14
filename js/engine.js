@@ -2041,9 +2041,11 @@ async function generateOffline(p, ctx, session) {
   const stateBootstrapHint = missingStateFields.length
     ? "\n【一次性状态建档】App 还没有 " + missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知场景合理建立一次；不要写进 scene，也不要为填状态制造剧情。"
     : "";
-  const requestedCotT = cotThink({ char: char.name, user: userName });
-  const cotT = loadOfflineSingleNoCotV2Models().includes(cotModelKey) ? "" : requestedCotT;
-  const singleCotBlock = isDigital ? cotSystemBlock(cotT) : offlineSingleCotSystemBlock(cotT);
+  // v52.66 A/B：普通单人线下不再注入「创作小稿 / COT」。数字模式仍沿用原路径；
+  // 其余叙事、篇幅、文风、示例和导演提示全部保持不变，便于单独判断作者规划是否放大文体切换。
+  const requestedCotT = isDigital ? cotThink({ char: char.name, user: userName }) : "";
+  const cotT = requestedCotT && !loadOfflineSingleNoCotV2Models().includes(cotModelKey) ? requestedCotT : "";
+  const singleCotBlock = isDigital ? cotSystemBlock(cotT) : "";
   // 篇幅与文风分离：自然长度不设句数；沉浸长文靠有效推进变长，不靠摄影式拆动作或重复解释凑篇幅。
   const lengthMode = session.lengthMode === "immersive" ? "immersive" : "natural";
   const lenGuide = lengthMode === "immersive"

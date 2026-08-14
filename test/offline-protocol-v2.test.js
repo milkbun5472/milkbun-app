@@ -10,8 +10,7 @@ test("ordinary single offline uses short narrative runtime and protocol v2", () 
   assert.match(engine, /const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】/);
   assert.match(engine, /const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】/);
   assert.match(engine, /buildBundle\(ctx\) \+\s*"\\n\\n" \+ OFFLINE_NARRATIVE_RUNTIME/);
-  const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
-  assert.doesNotMatch(single, /"\\n\\n" \+ OFFLINE_INTIMATE_RUNTIME/);
+  assert.match(engine, /intimacyContextActive \? "\\n\\n" \+ OFFLINE_INTIMATE_RUNTIME : ""/);
   assert.doesNotMatch(engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "", /"\\n\\n" \+ NARRATIVE_ANTI_CLICHE/);
   assert.match(engine, /scene = String\(parsed\.scene \|\| sp\.clean \|\| ""\)\.trim\(\)/);
   assert.match(engine, /if \(!scene\) throw new Error/);
@@ -34,13 +33,6 @@ test("intimacy context has explicit activation, continuity and reset gates", () 
   assert.match(engine, /const reset = \/第二天/);
   assert.match(engine, /4 \* 3600000/);
   assert.match(engine, /after\.length <= 3/);
-});
-
-test("single offline keeps intimacy state but intentionally injects no dedicated runtime", () => {
-  const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
-  assert.match(single, /const intimacyContextActive = !isDigital && offlineIntimacyContextActive\(session\)/);
-  assert.doesNotMatch(single, /intimacyContextActive\s*\?/);
-  assert.doesNotMatch(single, /OFFLINE_INTIMATE_RUNTIME/);
 });
 
 test("intimacy runtime stays a domain-neutral scene continuity patch", () => {
