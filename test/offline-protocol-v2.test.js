@@ -35,6 +35,17 @@ test("intimacy context has explicit activation, continuity and reset gates", () 
   assert.match(engine, /after\.length <= 3/);
 });
 
+test("intimacy runtime stays a domain-neutral scene continuity patch", () => {
+  const runtime = engine.match(/const OFFLINE_INTIMATE_RUNTIME = `([\s\S]*?)`;/)?.[1] || "";
+  assert.match(runtime, /【场景连续补充】/);
+  assert.match(runtime, /不因身体距离或互动性质变化而切换文体/);
+  assert.match(runtime, /按实际动作直接、准确地写清楚/);
+  assert.match(runtime, /不额外回避已经成立的事实/);
+  assert.match(runtime, /不要把一个连续动作逐拍拆开/);
+  assert.match(runtime, /遇到需要对方作出新的选择时再停下/);
+  assert.doesNotMatch(runtime, /成人文|性张力|性感|情色|刺激|生理升级|呼吸紊乱|青筋|沙哑|咬牙|失控/);
+});
+
 test("offline null state semantics preserve durable state and clear stale thought", () => {
   assert.match(app, /if \(res\.wearing\) ost\.wearing = res\.wearing/);
   assert.match(app, /if \(res\.action\) ost\.action = res\.action/);
