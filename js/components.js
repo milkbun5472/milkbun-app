@@ -7845,17 +7845,17 @@ function ChatSettings({
       h(Toggle, { on: !!iBlocked, onChange: onToggleBlock }))),
   onClearChat && h("div", { className: "pt-6" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "清除聊天记录"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "清空和 " + cNm + " 的所有聊天，TA 会忘记这些对话（此操作不可恢复）。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "清空和 " + cNm + " 的线上私聊与全部单人线下记录；线下不会先总结，也不会调用模型。群线下是共享记录，不会从这里删除（此操作不可恢复）。"),
     h("div", { className: "flex items-center justify-between mb-3" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "同步忘却记忆库"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "连 TA 的长期记忆一起清（已锁定的记忆条目会保留）。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "连 TA 的长期记忆与记忆库归属一起清；共享条目只解除 TA 的归属。")),
       h(Toggle, { on: wipeMemToo, onChange: () => setWipeMemToo(v => !v) })),
     confirmClear
       ? h("div", { className: "flex gap-2" },
           h("button", { onClick: () => setConfirmClear(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
-          h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除聊天+记忆" : "确认清除聊天"))
-      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除聊天记录"))), h(SettingSection, { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
+          h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除线上线下+记忆" : "清除线上与线下"))
+      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录"))), h(SettingSection, { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
     className: "pt-6"
   }, h(Eyebrow, {
     style: {

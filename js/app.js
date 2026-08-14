@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.54";
+const APP_VERSION = "v52.56";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5628,6 +5628,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   };
   const clearChat = (charId, wipeMem) => {
     pChat(charId, () => []);
+    // “清除聊天记录”覆盖这个角色的一对一线上 + 单人线下时间线。直接删除，不结束会话、
+    // 不生成总结，也不调用模型；群线下属于多人共享记录，不能从单人设置里连带删除。
+    pOffline(charId, () => []);
+    offlineTsRef.current = { ...offlineTsRef.current, [charId]: 0 };
     setChatSettings(p => { const n = { ...p, [charId]: { ...(p[charId] || {}), lastSummarizedCount: 0 } }; saveJSON("x_chatSettings", n); return n; });
     // 清聊天=这个角色重新开始：实时状态/心声历史/心声计数都清掉，资产档案也重置（下次进钱包重新推演生成）
     setStates(p => { const n = { ...p }; delete n[charId]; saveJSON("x_states", n); return n; });
@@ -5645,7 +5649,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       saveMemLib(next);
     }
     setChatSettingsOpen(false);
-    toast(wipeMem ? "已清除聊天并忘却记忆" : "已清除聊天记录");
+    toast(wipeMem ? "已清除线上与线下记录，并忘却记忆" : "已清除线上与线下记录");
   };
 
   // ---- 日历 / calendar ----
