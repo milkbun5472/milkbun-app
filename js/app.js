@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.72";
+const APP_VERSION = "v52.73";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3281,7 +3281,7 @@ function App() {
         .sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const offImageDataUrls = [];
       for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
-        try { const blob = await idbVaultGet(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
+        try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
       const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       setOfflineRegisterTelemetry(p => ({ ...p, [charId]: {
@@ -3714,7 +3714,7 @@ function App() {
       const _gWindow = _gLastSum > 0 ? (effectiveSess.msgs || []).slice(_gLastSum) : (effectiveSess.msgs || []); // 长群线下防失忆：早段用前情提要，只喂近窗明细
       const gOffImageDataUrls = [];
       for (const m of _gWindow.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
-        try { const blob = await idbVaultGet(m.imageRef); if (blob) gOffImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
+        try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) gOffImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
       const gCtx = ctxForGroupOffline(group);
       gCtx.memberStyleExamples = {};
@@ -4366,11 +4366,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           if (!imageAllowed.has(ref)) continue;
           try {
             if (String(ref).indexOf("data:") === 0) imageDataUrls.push(ref);
-            else if (String(ref).indexOf("iv_") === 0 && typeof idbVaultGet === "function" && typeof blobToDataUrl === "function") {
-              // 发图后紧跟发字时,IDB 写入可能还在半路——取不到就等一拍重试两次,
-              // 别再静默丢图(2026-08-13 她连丢两张扇贝照的「管道吞图」案)
-              let blob = await idbVaultGet(ref);
-              for (let _r = 0; !blob && _r < 2; _r++) { await new Promise(rs => setTimeout(rs, 450)); blob = await idbVaultGet(ref); }
+            else if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function" && typeof blobToDataUrl === "function") {
+              // 吞图案根治(单11):IDB+内存缓存双路取图,仓库写后立读装聋也拿得到本会话新图;
+              // 仍留一拍重试兜跨会话冷读(2026-08-13 扇贝照、08-14 龙虾照两案)
+              let blob = await imgVaultFetchBlob(ref);
+              if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
               if (blob) imageDataUrls.push(await blobToDataUrl(blob));
               else console.warn("[img] vault miss after retries:", ref);
             }
@@ -5095,8 +5095,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       for (const ref of groupImageRefs) {
         try {
           if (String(ref).indexOf("data:") === 0) groupImageDataUrls.push(ref);
-          else if (String(ref).indexOf("iv_") === 0 && typeof idbVaultGet === "function" && typeof blobToDataUrl === "function") {
-            const blob = await idbVaultGet(ref);
+          else if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function" && typeof blobToDataUrl === "function") {
+            // 群聊同装吞图案兜底(单11):双路取图+一拍重试,和私聊一致
+            let blob = await imgVaultFetchBlob(ref);
+            if (!blob) { await new Promise(rs => setTimeout(rs, 450)); blob = await imgVaultFetchBlob(ref); }
             if (blob) groupImageDataUrls.push(await blobToDataUrl(blob));
           }
         } catch (e) {}
