@@ -5392,6 +5392,7 @@ function OfflineMode({
   const [setOpen, setSetOpen] = useState(false);
   const [sMax, setSMax] = useState(os.maxTokens || 4000);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
+  const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sSelf, setSSelf] = useState(os.selfP || "first");
   const [sUser, setSUser] = useState(os.userP || "second");
@@ -5407,7 +5408,7 @@ function OfflineMode({
   const offlineSetSheet = () => setOpen && onSaveSettings && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "场景背景图"),
@@ -5427,13 +5428,18 @@ function OfflineMode({
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "想要长文就调高（模型也要支持）。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "这是输出容量上限，不会强迫模型把简单场景写长。"),
       h(Slider, { value: sMax, min: 400, max: 10000, step: 200, onChange: setSMax })),
     h("div", { className: "pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 4 } }, "篇幅模式"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.55 } }, sLengthMode === "immersive" ? "允许这一轮多生活一会儿：有内容才继续，到了需要你回应的位置就停。" : "由当前事件决定长短；简单反应可以短，有真实推进时自然展开。"),
+      h("div", { className: "flex gap-2" },
+        [{ v: "natural", t: "自然长度" }, { v: "immersive", t: "沉浸长文" }].map(o => h("button", { key: o.v, onClick: () => setSLengthMode(o.v), style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 13px", borderRadius: 999, background: sLengthMode === o.v ? t.ink : "transparent", color: sLengthMode === o.v ? t.bg2 : t.fog, border: "1px solid " + (sLengthMode === o.v ? t.ink : t.line) } }, o.t)))),
+    h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "输出下限（约字数）"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "高级 · 最低字数目标"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMinW ? sMinW + " 字" : "不限")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "让每段至少写这么多字（>0 生效，提示模型别太短）。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。"),
       h(Slider, { value: sMinW, min: 0, max: 800, step: 50, onChange: setSMinW })),
     persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: "她/他/名字" }]),
     persRow("角色称我", sUser, setSUser, [{ v: "second", t: "你" }, { v: "third", t: "她/他/名字" }]),

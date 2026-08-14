@@ -1992,9 +1992,11 @@ async function generateOffline(p, ctx, session) {
   const requestedCotT = cotThink({ char: char.name, user: userName });
   const cotT = loadOfflineSingleNoCotV2Models().includes(cotModelKey) ? "" : requestedCotT;
   const singleCotBlock = isDigital ? cotSystemBlock(cotT) : offlineSingleCotSystemBlock(cotT);
-  // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
-  const wantLong = session.minWords && session.minWords >= 150;
-  const lenGuide = wantLong ? "充分展开写足这一段——把动作、神态、心理、环境、对话都写够，别省笔墨" : "写成一小段（约2到6句）";
+  // 篇幅与文风分离：自然长度不设句数；沉浸长文靠有效推进变长，不靠摄影式拆动作或重复解释凑篇幅。
+  const lengthMode = session.lengthMode === "immersive" ? "immersive" : "natural";
+  const lenGuide = lengthMode === "immersive"
+    ? "本轮采用【沉浸长文】：允许这一刻在真正有内容时自然跨过多个有效阶段。每个继续展开的阶段都要带来新的行动、选择、对话、信息、时间流动或环境对行动造成的实际影响；不要重复解释同一种心理、反复重拍没变化的环境与姿态，也不要把一个简单动作拆成许多步骤。只有当前场景确实还能推进时才继续；一旦到了需要对方回应、选择或行动的位置，就自然停下，不为写长而替对方作答或硬造新事"
+    : "本轮采用【自然长度】：篇幅由这一刻真正发生的内容决定。简单反应可以很短；有值得展开的行动、对话、判断或场景变化时自然展开，不为显得完整而补齐固定栏目";
   // 配件（线下·授权门在 app 侧算好传进 session.toyOn；线下天然是用户在场当面，无后台顾虑）
   const toyHint = session.toyOn ? "\n【toy 配件·此刻已授权】你和" + userName + "此刻线下面对面、且开了「配件」——你的动作和话能【真的作用到 Ta 身上】。这一段情境到了（亲密、挑逗、想让 Ta 有反应、按住 Ta 别乱动）你可以填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":1到20整数,\"duration\":秒数1到30,\"reason\":\"配合这段的哪个动作/哪句话\"}，否则 toy:null。**节奏跟叙事走**：推进升温→intensity 渐强；故意吊着/停下→pattern 用 edge 或压到 1；一个命令/一个动作点到 Ta→pattern 用 pulse 短脉冲。pattern：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降。先有叙事、动作配合叙事，别每段都发。强度我这边有上限，超了会被压到上限。" : "";
   const digitalToyHint = session.toyOn ? "\n【配件】此刻配件已由 " + userName + " 当场授权并连到她身上。你想实际控制它时，可使用 toy：pattern 为 teasing/steady/wave/pulse/edge，intensity 1-20，duration 1-30 秒；是否使用、何时使用、用什么节奏由你自己决定。" : "";
@@ -2008,7 +2010,7 @@ async function generateOffline(p, ctx, session) {
     offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     singleCotBlock +
-    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事；动作、神态、心理、环境与对话都是可用镜头，不是每轮必须交齐的栏目，只写这一刻真正有用的部分，" + lenGuide + "。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
+    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事；动作、神态、心理、环境与对话都是可用镜头，不是每轮必须交齐的栏目，只写这一刻真正有用的部分。" + lenGuide + "。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (styleText ? "\n【文风要求】" + styleText : "") +
     narrativeDirective(session.narr) +
