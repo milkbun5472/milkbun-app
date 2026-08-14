@@ -1327,6 +1327,12 @@ function cotSystemBlock(think) {
   if (!think) return "";
   return "\n\n【落笔前创作小稿（每一轮都要做，格式很重要）】这不是正文，也不是解释你的隐秘推理；只写一份给创作者看的简短写作计划。放在正文 JSON 之前，用『【创作小稿开始】』和『【创作小稿结束】』包住。固定写四行：\n在意：角色此刻最在意的具体事\n推进：这一段只往前推哪一步\n避开：本轮最容易出现的八股/OOC/重复\n自定义检查：按下面要求检查后的简短结论\n自定义检查要求：\n" + think + "\n硬性要求：① 每轮都返回小稿，不要因为历史里看不到就省略。② 每行一句，合计尽量不超过180字，不提前代写正文。③ 写完『【创作小稿结束】』后紧接所要求的正文 JSON；下文的『只输出 JSON』仅指小稿之后的正文部分。";
 }
+// 单人线下 v2：正文先发生，创作旁注后记录。保留“看创作小稿”的功能，但不再让四栏计划
+// （在意/推进/避开/检查）在落笔前导演 scene。群线下暂留 v1，便于分阶段验证。
+function offlineSingleCotSystemBlock(think) {
+  if (!think) return "";
+  return "\n\n【正文后的创作旁注】先按本轮线下协议完成 scene 与状态 JSON；不要先列计划、拆解对方话语、安排段落结构或预写情绪走向。JSON 之后再用『【创作小稿开始】』和『【创作小稿结束】』包住一句简短旁注，记录这次落笔后实际采用的一个具体取舍。旁注不是角色心声，不复述正文，不解释人物，不预告下一轮；没有特别取舍可写『无』。结合以下自定义关注点即可，不必逐项作答：\n" + think + "\n旁注尽量不超过80字。正文先发生，旁注只能回看，不能反向塑造 scene。";
+}
 // 从模型原始输出里抠出【思考开始】…【思考结束】之间的思考（无 → null）
 function extractCotPrefix(raw) {
   if (!raw) return null;
@@ -1970,6 +1976,7 @@ async function generateOffline(p, ctx, session) {
     ? "\n【一次性状态建档】App 还没有 " + missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知场景合理建立一次；不要写进 scene，也不要为填状态制造剧情。"
     : "";
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: char.name, user: userName });
+  const singleCotBlock = isDigital ? cotSystemBlock(cotT) : offlineSingleCotSystemBlock(cotT);
   // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
   const wantLong = session.minWords && session.minWords >= 150;
   const lenGuide = wantLong ? "充分展开写足这一段——把动作、神态、心理、环境、对话都写够，别省笔墨" : "写成一小段（约2到6句）";
@@ -1985,7 +1992,7 @@ async function generateOffline(p, ctx, session) {
     (intimacyContextActive ? "\n\n" + OFFLINE_INTIMATE_RUNTIME : "") +
     offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
-    cotSystemBlock(cotT) +
+    singleCotBlock +
     "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处（不是隔着手机聊天）。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把这一刻演绎成有画面感的叙事；动作、神态、心理、环境与对话都是可用镜头，不是每轮必须交齐的栏目，只写这一刻真正有用的部分，" + lenGuide + "。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (styleText ? "\n【文风要求】" + styleText : "") +
@@ -2015,7 +2022,7 @@ async function generateOffline(p, ctx, session) {
     : "";
   const tailNudge = isDigital
     ? userActionTail
-    : continueCue + rerollTail + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先写既定的创作小稿标记块，再写正文 JSON。" : "");
+    : continueCue + rerollTail + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先完成正文 JSON，再写既定的创作旁注标记块。" : "");
   const finalNudge = tailNudge + (isDigital ? "" : userActionTail);
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: "（继续）" + finalNudge });
@@ -2030,9 +2037,9 @@ async function generateOffline(p, ctx, session) {
   } catch (e) {
     if (!cotT || !isOfflineEmptyStop(e)) throw e;
     rememberOfflineNoCotModel(cotModelKey);
-    const plainSystem = system.replace(cotSystemBlock(cotT), "");
+    const plainSystem = system.replace(singleCotBlock, "");
     const plainHist = hist.map((m, i) => i === hist.length - 1
-      ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
+      ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
     raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 4000, timeout: 180000 });
     usedCot = false;
