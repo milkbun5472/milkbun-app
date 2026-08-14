@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.58";
+const APP_VERSION = "v52.59";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5633,9 +5633,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     pOffline(charId, () => []);
     offlineTsRef.current = { ...offlineTsRef.current, [charId]: 0 };
     setChatSettings(p => { const n = { ...p, [charId]: { ...(p[charId] || {}), lastSummarizedCount: 0 } }; saveJSON("x_chatSettings", n); return n; });
-    // 清聊天=这个角色重新开始：实时状态/心声历史/心声计数都清掉，资产档案也重置（下次进钱包重新推演生成）
-    setStates(p => { const n = { ...p }; delete n[charId]; saveJSON("x_states", n); return n; });
-    setStateHist(p => { const n = { ...p }; delete n[charId]; saveJSON("x_stateHist", n); return n; });
+    // 清聊天=这个角色重新开始：实时心情、状态、心声历史与计数全部清掉。
+    // mood 另存在 x_moods；只删 x_states 会让新对话继续继承第一次聊天留下的心情。
+    setMoods(p => { const n = { ...p }; delete n[charId]; saveJSON("x_moods", n); return n; });
+    setStates(p => { const n = { ...p }; delete n[charId]; statesRef.current = n; saveJSON("x_states", n); return n; });
+    setStateHist(p => { const n = { ...p }; delete n[charId]; stateHistRef.current = n; saveJSON("x_stateHist", n); return n; });
     if (thoughtCtrRef.current[charId]) { delete thoughtCtrRef.current[charId]; try { saveJSON("x_thoughtCtr", thoughtCtrRef.current); } catch (e) {} }
     setCharWallet(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_charWallet", n); charWalletRef.current = n; return n; });
     if (wipeMem) {
