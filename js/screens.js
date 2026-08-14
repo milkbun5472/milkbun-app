@@ -3695,9 +3695,26 @@ function CtxDebug({ characters, getBundle }) {
       return out;
     };
     const fa = flat(a, "", {}), fb = flat(b, "", {});
+    const lineDelta = (av, bv) => {
+      let as, bs;
+      try { as = JSON.parse(av); bs = JSON.parse(bv); } catch (e) { return null; }
+      if (typeof as !== "string" || typeof bs !== "string" || (as.length < 120 && bs.length < 120)) return null;
+      const aa = as.split("\n"), bb = bs.split("\n");
+      if (aa.length > 450 || bb.length > 450) return null;
+      const dp = Array.from({ length: aa.length + 1 }, () => new Uint16Array(bb.length + 1));
+      for (let i = aa.length - 1; i >= 0; i--) for (let j = bb.length - 1; j >= 0; j--)
+        dp[i][j] = aa[i] === bb[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      const out = []; let i = 0, j = 0;
+      while (i < aa.length || j < bb.length) {
+        if (i < aa.length && j < bb.length && aa[i] === bb[j]) { i++; j++; continue; }
+        if (j < bb.length && (i >= aa.length || dp[i][j + 1] >= dp[i + 1][j])) out.push({ op: "+", text: bb[j++] });
+        else if (i < aa.length) out.push({ op: "-", text: aa[i++] });
+      }
+      return out;
+    };
     return [...new Set([...Object.keys(fa), ...Object.keys(fb)])]
       .filter(k => fa[k] !== fb[k])
-      .map(k => ({ path: k, before: fa[k], after: fb[k] }));
+      .map(k => ({ path: k, before: fa[k], after: fb[k], lines: lineDelta(fa[k], fb[k]) }));
   })();
   const load = id => { setCid(id); setText(String((getBundle && getBundle(id)) || "（空）")); setOpen({}); };
   const secs = (() => {
@@ -3727,8 +3744,11 @@ function CtxDebug({ characters, getBundle }) {
         h("div", { style: { marginTop: 6, maxHeight: 240, overflow: "auto", fontFamily: "monospace", fontSize: 9.5, lineHeight: 1.55, color: t.sub } },
           wireDiff.length ? wireDiff.slice(0, 120).map((d, i) => h("div", { key: i, style: { padding: "4px 0", borderTop: i ? "1px solid " + t.line : "none" } },
             h("div", { style: { color: t.tint } }, d.path),
-            h("div", null, "A: " + String(d.before).slice(0, 500)),
-            h("div", null, "B: " + String(d.after).slice(0, 500)))) : h("div", null, "最终 body 完全一致"))) : null,
+            d.lines ? h("div", { style: { marginTop: 3 } },
+              d.lines.length ? d.lines.slice(0, 160).map((x, n) => h("div", { key: n, style: { color: x.op === "+" ? "#4a7a4a" : "#b0503f", whiteSpace: "pre-wrap" } }, x.op + " " + (x.text || "（空行）"))) : h("div", null, "仅行内字符变化"))
+            : h(React.Fragment, null,
+              h("div", null, "A: " + String(d.before).slice(0, 500)),
+              h("div", null, "B: " + String(d.after).slice(0, 500))))) : h("div", null, "最终 body 完全一致"))) : null,
       wireRows.length ? h("div", { style: { marginTop: 8 } },
         wireRows.slice().reverse().map((r, i) => h("details", { key: r.id, style: { marginTop: 6, borderTop: i ? "1px solid " + t.line : "none", paddingTop: i ? 6 : 0 } },
           h("summary", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, cursor: "pointer" } },
