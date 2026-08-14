@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.62";
+const APP_VERSION = "v52.63";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -922,10 +922,12 @@ function App() {
   // 任一步失败都原位重拉，reconcileIncoming 以 message_key 幂等，不会重复气泡。
   useEffect(() => {
     if (!loaded || !window.ChatLedgerShadow || localStorage.getItem("chat_ledger_live_off") === "1") return;
-    let dead = false, busy = false;
+    let dead = false;
+    // 每键单飞(审计一刀):busy 原是实例内变量,effect 因 characters/chatSettings 重挂时
+    // 旧实例还在 await 途中、新实例又起跑,两泵并行写同一线程+游标。锁提到 window 级跨实例互斥。
     const sync = async () => {
-      if (dead || busy) return;
-      busy = true;
+      if (dead || window.__ccLivePumpBusy) return;
+      window.__ccLivePumpBusy = true;
       try {
         const y = ledgerYanqiu(), user = window.Cloud && await window.Cloud.getSessionUser();
         if (!y || !user) return;
@@ -942,6 +944,8 @@ function App() {
           rows = rows.concat(batch); cursor = page && page.nextCursor ? page.nextCursor : cursor;
           if (batch.length < 100) break;
         }
+        // 拉页期间本实例可能已被重挂判死:死实例不许再碰盘和游标,新实例会原位重拉(幂等)
+        if (dead) return;
         if (!rows.length) {
           localStorage.setItem(key, JSON.stringify({ ...before, cursor, last_success_at: new Date().toISOString(), last_error: null }));
           // 即使云端这次没有新行，也要补跑上次因断网/刷新留下的未审 CC 原话。
@@ -1004,6 +1008,7 @@ function App() {
           freshEvents.forEach(ev => applied.add(ev.eventKey));
           localStorage.setItem(appliedKey, JSON.stringify(Array.from(applied).slice(-1000)));
         } catch (e) {}
+        if (dead) return; // durable 已落但游标不由死实例提交;新实例重拉幂等,只慢不丢
         localStorage.setItem(key, JSON.stringify({ owner_id: owner, char_id: String(y.id), cursor, last_success_at: new Date().toISOString(), imported: Number(before.imported || 0) + result.added, updated: Number(before.updated || 0) + result.updated, deleted: Number(before.deleted || 0) + result.deleted }));
         const newUnread = rows.filter(r => r && !r.deleted_at && r.speaker_type === "character").filter(r => !current.some(m => m && m.ledgerKey === r.message_key)).length;
         const viewing = viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(y.id);
@@ -1016,7 +1021,7 @@ function App() {
           const key = window.ChatLedgerShadow.LIVE_CURSOR_KEY, old = JSON.parse(localStorage.getItem(key) || "null") || {};
           localStorage.setItem(key, JSON.stringify({ ...old, last_error: String((e && e.message) || e), last_attempt_at: new Date().toISOString() }));
         } catch (_) {}
-      } finally { busy = false; }
+      } finally { window.__ccLivePumpBusy = false; }
     };
     const visible = () => { if (document.visibilityState === "visible") sync(); };
     sync(); const retry = setTimeout(sync, 3000), timer = setInterval(sync, 60000);
@@ -1035,6 +1040,10 @@ function App() {
     let dead = false;
     const byTs = (a, b) => (Number(a && a.ts) || 0) - (Number(b && b.ts) || 0);
     (async () => {
+      // 每键单飞(审计一刀):characters/groups 变更会重挂本效应,旧实例找回跑一半、
+      // 新实例又从头起跑会互相盖写;跨实例互斥,后来者直接退(工单还在,下轮再来)。
+      if (window.__ccRestoreBusy) return;
+      window.__ccRestoreBusy = true;
       try {
         const user = await window.Cloud.getSessionUser();
         if (!user || dead) return;
@@ -1122,6 +1131,8 @@ function App() {
             restored += add.length;
           }
         }
+        // 死实例不许动工单:留给下一轮活实例定夺(幂等只补缺)
+        if (dead) return;
         // 施工卡1A:任一线程 durable 核验没过就保留工单下轮重试(幂等只补缺,不会重复)
         if (!allOk) {
           const attempts = Number(marker.attempts || 0) + 1;
@@ -1140,7 +1151,7 @@ function App() {
           if (attempts >= 5) localStorage.removeItem("chat_ledger_restore_pending_v1");
           else localStorage.setItem("chat_ledger_restore_pending_v1", JSON.stringify({ ...marker, attempts, last_error: String((e && e.message) || e) }));
         } catch (_) {}
-      }
+      } finally { window.__ccRestoreBusy = false; }
     })();
     return () => { dead = true; };
   }, [loaded, characters, groups]);

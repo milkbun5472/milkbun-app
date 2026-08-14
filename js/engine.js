@@ -294,6 +294,40 @@ async function ensureLoreVecs(entries, opts) {
   }
   return done;
 }
+// 全局错误兜底(审计一刀):运行时错误落环形日志(x_errlog,末30条),平时静默;
+// 只有启动就摔死(React 没挂上 #root)才亮 rescue.html 救援入口,不打扰正常使用。
+(function () {
+  if (typeof window === "undefined" || window.__errNetUp) return;
+  window.__errNetUp = true;
+  const log = (kind, msg, extra) => {
+    try {
+      const a = JSON.parse(localStorage.getItem("x_errlog") || "[]");
+      a.push({ t: Date.now(), k: kind, m: String(msg || "").slice(0, 300), x: String(extra || "").slice(0, 200) });
+      localStorage.setItem("x_errlog", JSON.stringify(a.slice(-30)));
+    } catch (e) {}
+  };
+  window.__errlog = () => { try { return JSON.parse(localStorage.getItem("x_errlog") || "[]"); } catch (e) { return []; } };
+  let shown = false;
+  const maybeRescue = () => {
+    if (shown) return;
+    setTimeout(() => {
+      try {
+        const root = document.getElementById("root");
+        if (shown || !root || root.childElementCount > 0) return;
+        shown = true;
+        const d = document.createElement("div");
+        d.style.cssText = "position:fixed;left:12px;right:12px;bottom:24px;z-index:99999;background:#7f1d1d;color:#fff;padding:12px 14px;border-radius:12px;font:14px -apple-system,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,.4)";
+        d.innerHTML = '启动出错了。<a href="rescue.html" style="color:#fecaca;text-decoration:underline">点这里进入救援页</a>（数据都在，别慌）';
+        document.body.appendChild(d);
+      } catch (e) {}
+    }, 1500);
+  };
+  window.addEventListener("error", ev => { log("error", ev && ev.message, (ev && ev.filename || "") + ":" + (ev && ev.lineno || "")); maybeRescue(); });
+  window.addEventListener("unhandledrejection", ev => {
+    const r = ev && ev.reason;
+    log("promise", (r && r.message) || r, r && r.stack ? String(r.stack).slice(0, 200) : "");
+  });
+})();
 // 带超时的 fetch：超时/卡死时中断并抛出可读错误，避免无限转圈
 async function fetchT(url, options, ms) {
   const ctrl = new AbortController();
@@ -527,8 +561,29 @@ async function callAI(p, system, messages, opts) {
         if (choice && choice.delta && choice.delta.content) text += choice.delta.content;
         if (event.usage) usage = event.usage;
       };
+      // 流式超时分型(审计一刀·三审定):fetchT 只管到响应头,此后 reader.read() 原本裸奔——
+      // 桥/网关半路断线不抛错时气泡永远转圈。静默超时=每收到一段数据就重置(桥每 15s 有心跳,
+      // 90s 静默≈连丢 6 次心跳,判死);总时限只防无限滴漏,给足长思考。
+      const SILENCE_MS = (opts && opts.streamSilenceMs) || 90000;
+      const TOTAL_MS = (opts && opts.streamTotalMs) || 600000;
+      const t0 = Date.now();
       while (true) {
-        const chunk = await reader.read();
+        if (Date.now() - t0 > TOTAL_MS) {
+          try { reader.cancel(); } catch (e) {}
+          throw new Error("流式回复超过总时限（" + Math.round(TOTAL_MS / 60000) + " 分钟），已断开——请重试");
+        }
+        let silenceTimer;
+        let chunk;
+        try {
+          chunk = await Promise.race([
+            reader.read(),
+            new Promise((_, rej) => { silenceTimer = setTimeout(() => rej(new Error("__stream_silence__")), SILENCE_MS); })
+          ]);
+        } catch (e) {
+          try { reader.cancel(); } catch (e2) {}
+          if (String(e && e.message).indexOf("__stream_silence__") >= 0) throw new Error("流式回复中途静默超过 " + Math.round(SILENCE_MS / 1000) + " 秒（桥或网关可能断了），已断开——请重试");
+          throw e;
+        } finally { clearTimeout(silenceTimer); }
         if (chunk.done) break;
         pending += decoder.decode(chunk.value, { stream: true });
         const lines = pending.split(/\r?\n/); pending = lines.pop() || "";
