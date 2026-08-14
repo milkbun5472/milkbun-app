@@ -3699,8 +3699,15 @@ function CtxDebug({ characters, getBundle }) {
       let as, bs;
       try { as = JSON.parse(av); bs = JSON.parse(bv); } catch (e) { return null; }
       if (typeof as !== "string" || typeof bs !== "string" || (as.length < 120 && bs.length < 120)) return null;
-      const aa = as.split("\n"), bb = bs.split("\n");
-      if (aa.length > 450 || bb.length > 450) return null;
+      const allA = as.split("\n"), allB = bs.split("\n");
+      // 超长 system 通常只有中间一小块动态变化。先剥掉共同首尾，再对真正变化区做 LCS，
+      // 避免整份数百行 prompt 因超过旧上限而退回无法阅读的 A/B 整段。
+      let head = 0;
+      while (head < allA.length && head < allB.length && allA[head] === allB[head]) head++;
+      let tail = 0;
+      while (tail < allA.length - head && tail < allB.length - head && allA[allA.length - 1 - tail] === allB[allB.length - 1 - tail]) tail++;
+      const aa = allA.slice(head, allA.length - tail), bb = allB.slice(head, allB.length - tail);
+      if (aa.length > 1200 || bb.length > 1200) return null;
       const dp = Array.from({ length: aa.length + 1 }, () => new Uint16Array(bb.length + 1));
       for (let i = aa.length - 1; i >= 0; i--) for (let j = bb.length - 1; j >= 0; j--)
         dp[i][j] = aa[i] === bb[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
