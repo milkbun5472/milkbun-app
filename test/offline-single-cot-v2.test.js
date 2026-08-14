@@ -14,6 +14,10 @@ test("single offline writes scene before a retrospective creation note", () => {
   assert.match(single, /offlineSingleCotSystemBlock\(cotT\)/);
   assert.match(single, /先完成正文 JSON，再写既定的创作旁注标记块/);
   assert.match(single, /system\.replace\(singleCotBlock, ""\)/);
+  assert.match(engine, /OFFLINE_SINGLE_NO_COT_V2_KEY/);
+  assert.match(single, /loadOfflineSingleNoCotV2Models\(\)/);
+  assert.match(single, /rememberOfflineSingleNoCotV2Model\(cotModelKey\)/);
+  assert.match(single, /cotRequested: !!requestedCotT/);
 });
 
 test("group offline keeps the old planning block during the controlled phase", () => {

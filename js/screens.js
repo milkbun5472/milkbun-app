@@ -3246,7 +3246,7 @@ function CotConfig({ toast, activeProfile }) {
     h("div", { className: "flex items-center justify-between py-4", style: { borderBottom: "1px solid " + t.line } },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "启用创作小稿"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "线下 / 同人文 / 梦境：AI 落笔前先交一份简短写作计划。它不是模型的隐秘推理，不进正文。留空 = 不启用。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "单人线下会先写正文、再留一条简短创作旁注；同人文、梦境与群线下仍使用写作计划。它不是模型的隐秘推理，不进正文。留空 = 不启用。")),
       h(Toggle, { on: cfg.enabled === true, onChange: v => { save({ ...cfg, enabled: v }); toast && toast(v ? "已开启创作小稿" : "已关闭"); } })),
     activeProfile ? h("div", { className: "rounded-xl px-3 py-3 mt-3", style: { background: t.bg2, border: "1px solid " + (modelStatus.disabled ? "#d7a04b" : t.line) } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "当前模型 · " + (modelStatus.model || "未命名")),

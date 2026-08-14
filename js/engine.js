@@ -1284,6 +1284,9 @@ function cotThink(names) {
 // 有些模型在显式思维链模式下会正常 stop、却把正文留空。线下单聊/群聊共用兼容记录，
 // 避免同一个模型在两个入口各白付一次；旧群聊记录继续读取，自动平滑迁移。
 const OFFLINE_NO_COT_KEY = "x_offlineNoCotModels";
+// 单人线下的正文后旁注与旧版正文前计划不是同一种协议。旧版留下的兼容黑名单不能
+// 永久阻止模型尝试 v2；单独记忆 v2 真正发生过的空 stop，群线下继续沿用旧名单。
+const OFFLINE_SINGLE_NO_COT_V2_KEY = "x_offlineSingleNoCotModelsV2";
 function offlineCotModelKey(p) {
   return String((p && (p.baseUrl || p.base || "")) + "|" + (p && p.model || ""));
 }
@@ -1302,14 +1305,25 @@ function rememberOfflineNoCotModel(modelKey) {
   if (modelKey && !list.includes(modelKey)) list.push(modelKey);
   try { localStorage.setItem(OFFLINE_NO_COT_KEY, JSON.stringify(list.slice(-30))); } catch (e) {}
 }
+function loadOfflineSingleNoCotV2Models() {
+  try {
+    const list = JSON.parse(localStorage.getItem(OFFLINE_SINGLE_NO_COT_V2_KEY) || "[]");
+    return Array.isArray(list) ? list.filter(Boolean).slice(-30) : [];
+  } catch (e) { return []; }
+}
+function rememberOfflineSingleNoCotV2Model(modelKey) {
+  const list = loadOfflineSingleNoCotV2Models();
+  if (modelKey && !list.includes(modelKey)) list.push(modelKey);
+  try { localStorage.setItem(OFFLINE_SINGLE_NO_COT_V2_KEY, JSON.stringify(list.slice(-30))); } catch (e) {}
+}
 function offlineCotModelStatus(p) {
   const key = offlineCotModelKey(p);
-  return { disabled: !!(key && loadOfflineNoCotModels().includes(key)), model: String(p && p.model || "未选择模型") };
+  return { disabled: !!(key && loadOfflineSingleNoCotV2Models().includes(key)), model: String(p && p.model || "未选择模型") };
 }
 function retryOfflineCotModel(p) {
   const target = offlineCotModelKey(p);
   if (!target) return false;
-  [OFFLINE_NO_COT_KEY, "x_groupOfflineNoCotModels"].forEach(key => {
+  [OFFLINE_SINGLE_NO_COT_V2_KEY, OFFLINE_NO_COT_KEY, "x_groupOfflineNoCotModels"].forEach(key => {
     try {
       const list = JSON.parse(localStorage.getItem(key) || "[]");
       if (Array.isArray(list)) localStorage.setItem(key, JSON.stringify(list.filter(x => x !== target)));
@@ -1975,7 +1989,8 @@ async function generateOffline(p, ctx, session) {
   const stateBootstrapHint = missingStateFields.length
     ? "\n【一次性状态建档】App 还没有 " + missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知场景合理建立一次；不要写进 scene，也不要为填状态制造剧情。"
     : "";
-  const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: char.name, user: userName });
+  const requestedCotT = cotThink({ char: char.name, user: userName });
+  const cotT = loadOfflineSingleNoCotV2Models().includes(cotModelKey) ? "" : requestedCotT;
   const singleCotBlock = isDigital ? cotSystemBlock(cotT) : offlineSingleCotSystemBlock(cotT);
   // 篇幅：设了下限（≥150）就别再暗示写短，否则「一小段2-6句」+尾部「宁可短」会把下限压没（她报的 bug）
   const wantLong = session.minWords && session.minWords >= 150;
@@ -2036,7 +2051,7 @@ async function generateOffline(p, ctx, session) {
     raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 4000, timeout: 180000 });
   } catch (e) {
     if (!cotT || !isOfflineEmptyStop(e)) throw e;
-    rememberOfflineNoCotModel(cotModelKey);
+    rememberOfflineSingleNoCotV2Model(cotModelKey);
     const plainSystem = system.replace(singleCotBlock, "");
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
@@ -2059,7 +2074,8 @@ async function generateOffline(p, ctx, session) {
   return {
     scene,
     cot: sp.cot,
-    cotRequested: !!cotT,
+    // 开关开启就保留入口；保险回退或模型漏掉标记时明确显示“本轮未返回”，不整行消失。
+    cotRequested: !!requestedCotT,
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
