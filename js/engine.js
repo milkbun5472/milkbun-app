@@ -1764,15 +1764,16 @@ function ttsLangBoost(text) {
   if (s.trim() && !/[一-鿿぀-ヿ가-힣]/.test(s) && /[a-zA-Z]/.test(s)) return "English";
   return "Chinese";
 }
-// 取一个能调的 AI profile（优先后台便宜池，没有用主模型）——给「日语汉字转假名」这类合成期小活用
+// 取后台便宜池给「日语汉字转假名」这类合成期机械小活用。
+// cheap_required 家规(审计二刀):没配便宜池就返回 null 让调用方降级(TTS 读原文),
+// 绝不静默回退主池——此前 bg→主池→list[0] 的三连兜底是全 app 最后一处静默漏点。
 function ttsHelperProfile() {
   try {
     const stored = JSON.parse(localStorage.getItem("x_api") || "[]");
     const list = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(stored) : stored;
     if (!Array.isArray(list) || !list.length) return null;
     const bgId = JSON.parse(localStorage.getItem("x_bgApi") || "null");
-    const actId = JSON.parse(localStorage.getItem("x_activeApi") || "null");
-    return list.find(p => p.id === bgId) || list.find(p => p.id === actId) || list[0] || null;
+    return list.find(p => p.id === bgId) || null;
   } catch (e) { return null; }
 }
 // 日语汉字 → 假名读音（v47.93）：MiniMax 对「寝」这类中日共用汉字压不住会读成中文，
