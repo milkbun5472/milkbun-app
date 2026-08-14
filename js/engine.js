@@ -2125,7 +2125,6 @@ async function generateOffline(p, ctx, session) {
     : "\n\n" + OFFLINE_PROTOCOL_V2 + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20整数,\"duration\":1到30秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
-    registerCalibrationBlock +
     offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     singleCotBlock +
@@ -2159,7 +2158,9 @@ async function generateOffline(p, ctx, session) {
   const tailNudge = isDigital
     ? userActionTail
     : continueCue + rerollTail + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先完成正文 JSON，再写既定的创作旁注标记块。" : "");
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail);
+  // v52.72 单变量 A/B：校准文本和首次跨越触发均不变，只从 system 中段移到最新 user 尾部，
+  // 单独验证靠近解码位置能否延长 register 连续性。
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail + registerCalibrationBlock);
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: "（继续）" + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
