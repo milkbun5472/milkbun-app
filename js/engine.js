@@ -897,8 +897,37 @@ function offlineRendererScore(text) {
   return hits ? hits.length : 0;
 }
 
-function offlineRewriteSegments(draft) {
-  return String(draft || "").split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean).map((text, index) => ({ id: index + 1, text }));
+function offlineRewriteSentenceUnits(paragraph) {
+  const source = String(paragraph || "").trim();
+  if (!source) return [];
+  const units = [];
+  let start = 0;
+  let quoteDepth = 0;
+  let asciiQuote = false;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === "“" || ch === "‘") quoteDepth++;
+    else if ((ch === "”" || ch === "’") && quoteDepth > 0) quoteDepth--;
+    else if (ch === '"') asciiQuote = !asciiQuote;
+    if (!quoteDepth && !asciiQuote && /[。！？!?]/.test(ch)) {
+      const text = source.slice(start, i + 1).trim();
+      if (text) units.push(text);
+      start = i + 1;
+    }
+  }
+  const tail = source.slice(start).trim();
+  if (tail) units.push(tail);
+  return units.length ? units : [source];
+}
+
+function offlineRewriteSegments(draft, fineGrained) {
+  const paragraphs = String(draft || "").split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+  const segments = [];
+  paragraphs.forEach((paragraph, paragraphIndex) => {
+    const units = fineGrained ? offlineRewriteSentenceUnits(paragraph) : [paragraph];
+    units.forEach(text => segments.push({ id: segments.length + 1, paragraphIndex, text }));
+  });
+  return segments;
 }
 
 function offlineRepeatedDimensionCount(text) {
@@ -918,7 +947,8 @@ function offlineRepeatedDimensionCount(text) {
 }
 
 async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
-  const segments = offlineRewriteSegments(draft);
+  const fineGrained = !!(wireMeta && wireMeta.fineGrained);
+  const segments = offlineRewriteSegments(draft, fineGrained);
   if (!segments.length) throw new Error("表达编辑阶段没有可编辑的语义段，请重试");
   const system = `你是文本编辑器，不续写剧情，不扮演角色。你要先把一份已经确定事件与人物选择的正文草稿拆清“事实”和“表达”，再按原顺序编辑。
 必须保留草稿中的全部事件、具体身体事实、先后顺序、人物决定、谁主动和尺度；不得淡出、概括、降低明确程度，也不得新增动作或升级事实。
@@ -980,9 +1010,15 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
       if (prose) coveredCharacterUnits++;
     }
     opCounts[op]++;
-    if (op !== "DELETE") output.push(prose);
+    if (op !== "DELETE") output.push({ prose, paragraphIndex: segment.paragraphIndex });
   }
-  const text = output.join("\n\n").trim();
+  const rebuiltParagraphs = [];
+  for (const part of output) {
+    const last = rebuiltParagraphs[rebuiltParagraphs.length - 1];
+    if (last && last.paragraphIndex === part.paragraphIndex) last.text += part.prose;
+    else rebuiltParagraphs.push({ paragraphIndex: part.paragraphIndex, text: part.prose });
+  }
+  const text = rebuiltParagraphs.map(p => p.text).join("\n\n").trim();
   if (!text) throw new Error("表达编辑阶段删除了全部正文，请重试");
   return {
     text,
@@ -2378,7 +2414,8 @@ async function generateOffline(p, ctx, session) {
       transitionBefore: !!registerTransition.before,
       transitionAfter: !!effectiveTransitionAfter,
       draftChars: draftScene.length,
-      rendererScoreBefore
+      rendererScoreBefore,
+      fineGrained: lengthMode === "immersive"
     });
     scene = edited.text;
     rewriteFactUnits = edited.factUnits;
