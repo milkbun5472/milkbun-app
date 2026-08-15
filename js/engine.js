@@ -892,27 +892,30 @@ const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 输出形状：{"scene":"当前场景正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}
 场景先发生，系统再记录。`;
 
-async function offlineExplicitFacts(p, userName, charName, input) {
-  const system = `你是事件表示器，不续写剧情，不扮演角色，也不评价内容。把 ${userName} 最新输入转换成供下一阶段使用的事实 JSON。
-完整保留输入中已经明确写出的每个动作、对象、身体位置、先后顺序、姿势或状态变化、用户意图与边界；事实原本多具体就保留多具体，不用委婉概括替代，不淡出，不打码。
-删除原文的比喻、修辞、感官渲染、强度包装和文体节奏。没有明确写出的事实不得补充；不要替 ${charName} 决定反应、台词或后续动作。
-只输出合法 JSON：{"occurredFacts":["已发生的具体事实"],"userIntent":["用户明确表达的意图"],"boundaries":["明确边界；没有则空数组"],"openForCharacter":["仍由角色自行决定的回应"]}`;
-  const raw = await callAI({ ...p, temperature: 0.1 }, system, [{ role: "user", content: String(input || "") }], {
-    maxTokens: 900,
-    timeout: 120000,
-    wireScope: "offline-fact-extraction"
+function offlineRendererScore(text) {
+  const hits = String(text || "").match(/理智.{0,8}(?:断|崩|烧|碎)|火上浇油|眼底.{0,8}(?:火|烧)|喉结.{0,8}(?:滚|滑)|头皮发麻|青筋|粗喘|粗重.{0,4}呼吸|呼吸.{0,8}(?:乱|沉|重|急促)|肌肉.{0,8}(?:绷|收紧)|侵略感|侵略性|发狠|主导权|神经.{0,10}(?:窜|刺激)|极度.{0,8}(?:紧|湿|热)|毫不温柔|没有任何缓冲/g);
+  return hits ? hits.length : 0;
+}
+
+async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
+  const system = `你是文本编辑器，不续写剧情，不扮演角色。编辑一份已经确定事件与人物选择的正文草稿。
+必须保留草稿中的全部事件、具体身体事实、先后顺序、人物决定、谁主动、尺度和台词含义；不得淡出、概括、降低明确程度，也不得新增动作或升级事实。
+逐句按功能处理：
+1. 承载事件、台词或人物决定的句子：保留含义；若事实与渲染混在一起，只用普通、准确的句子重述事实。
+2. 只负责证明强度、重复生理反应或作抽象情绪结论、却不增加任何事实的句子：整句删除，不换一种修辞重写。
+语言应与参照正文中的 ${charName} 属于同一种句法习惯、观察距离、叙事颗粒和人物声纹。参照正文只提供语言，其中事件与本轮无关，绝不搬用。
+只输出编辑后的正文，不解释修改，不输出代码块或检查表。`;
+  const user = `【语言参照·事件与本轮无关】\n${String(reference || "").trim()}\n\n【唯一待编辑草稿】\n${String(draft || "").trim()}`;
+  const raw = await callAI({ ...p, temperature: 0.2 }, system, [{ role: "user", content: user }], {
+    maxTokens: 4000,
+    timeout: 180000,
+    wireScope: "offline",
+    wireMeta: { ...(wireMeta || {}), rewriteStage: true }
   });
-  const parsed = extractJSON(raw);
-  if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.occurredFacts) || !parsed.occurredFacts.length) {
-    throw new Error("事实隔离阶段没有返回有效事实，请重试");
-  }
-  const cleanList = key => (Array.isArray(parsed[key]) ? parsed[key] : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 20);
-  return {
-    occurredFacts: cleanList("occurredFacts"),
-    userIntent: cleanList("userIntent"),
-    boundaries: cleanList("boundaries"),
-    openForCharacter: cleanList("openForCharacter")
-  };
+  const maybe = extractJSON(raw);
+  const text = String(maybe && maybe.scene ? maybe.scene : raw || "").replace(/```(?:json|text)?/gi, "").trim();
+  if (!text) throw new Error("表达编辑阶段没有返回有效正文，请重试");
+  return text;
 }
 // ── 世界书注入引擎（第2步）：按角色/触发词/适用范围/优先级/正则筛选词条 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope:'chat'|'subjects'|'debate'|'lifestyle'|'diary', text:近期对话(供关键词命中) }
@@ -2105,7 +2108,21 @@ function offlineRegisterTransition(session) {
   const after = before || hit(last);
   const inputBeat = last.role !== "char" && last.role !== "assistant";
   const inject = !!(inputBeat && !before && after);
-  return { before, after, inject, sourceText: inject ? String(last.content || "") : "" };
+  let reference = "";
+  if (inject) {
+    for (let i = rows.length - 2; i >= 0; i--) {
+      const row = rows[i];
+      if ((row.role !== "char" && row.role !== "assistant") || hit(row)) continue;
+      reference = String(row.content || "").trim();
+      if (reference) break;
+    }
+    if (reference.length > 420) {
+      reference = reference.slice(-420);
+      const edge = reference.search(/(?:\n\n|[。！？]\s*)/);
+      if (edge >= 0 && edge < 120) reference = reference.slice(edge + (reference.slice(edge, edge + 2) === "\n\n" ? 2 : 1)).trim();
+    }
+  }
+  return { before, after, inject, reference };
 }
 
 async function generateOffline(p, ctx, session) {
@@ -2155,26 +2172,9 @@ async function generateOffline(p, ctx, session) {
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
     "") + outputSpec + stateBootstrapHint;
-  // v52.75 单变量实验：首次跨越时先把最新 user 原文转换成不丢具体事实的事件表示，
-  // 再用事件表示替换近端原文生成角色正文；撤掉 v52.74 的正文 anchor，单独测 user register contamination。
-  let historyMsgs = Array.isArray(session.msgs) ? session.msgs : [];
-  let factIsolationApplied = false;
-  let isolatedFactChars = 0;
-  if (registerTransition.inject && registerTransition.sourceText) {
-    const facts = await offlineExplicitFacts(p, userName, char.name, registerTransition.sourceText);
-    const factText = JSON.stringify(facts, null, 2);
-    const replaced = historyMsgs.slice();
-    for (let i = replaced.length - 1; i >= 0; i--) {
-      const row = replaced[i];
-      if (!row || row.kind === "ooc" || !row.content) continue;
-      replaced[i] = { ...row, content: "【本轮用户输入·事实表示】\n以下内容完整保留用户本轮已经明确给出的事实与边界，但不携带用户原文的文风。按这些事实继续当前场景；不要淡出、弱化或擅自升级。\n" + factText };
-      factIsolationApplied = true;
-      isolatedFactChars = factText.length;
-      break;
-    }
-    historyMsgs = replaced;
-  }
-  const hist = offlineHistory(historyMsgs, userName, char.name);
+  // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
+  // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
+  const hist = offlineHistory(session.msgs, userName, char.name);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
@@ -2214,8 +2214,8 @@ async function generateOffline(p, ctx, session) {
         transitionBefore: !!registerTransition.before,
         transitionAfter: !!registerTransition.after,
         calibrationInjected: false,
-        factIsolationApplied,
-        isolatedFactChars,
+        factIsolationApplied: false,
+        rewriteStage: false,
         mood: ctx.moodLabel || null,
         wearing: ctx.curWear || null,
         action: ctx.curAction || null,
@@ -2245,8 +2245,27 @@ async function generateOffline(p, ctx, session) {
     parsed = mScene ? { scene: mScene[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\t/g, " ") } : { scene: bare };
   }
   const cln = v => v && String(v).toLowerCase() !== "null" ? String(v).trim() : null;
-  const scene = String(parsed.scene || sp.clean || "").trim();
-  if (!scene) throw new Error("模型没有返回有效的线下正文，请重试");
+  const draftScene = String(parsed.scene || sp.clean || "").trim();
+  if (!draftScene) throw new Error("模型没有返回有效的线下正文，请重试");
+  let scene = draftScene;
+  let rewriteApplied = false;
+  let rewriteLengthRatio = 1;
+  const rendererScoreBefore = offlineRendererScore(draftScene);
+  let rendererScoreAfter = rendererScoreBefore;
+  if (registerTransition.inject) {
+    if (!String(registerTransition.reference || "").trim()) throw new Error("表达编辑阶段缺少角色语言参照，请重试");
+    scene = await offlineRewriteScene(p, char.name, registerTransition.reference, draftScene, {
+      charId: char.id,
+      sessionId: session.id || null,
+      transitionBefore: !!registerTransition.before,
+      transitionAfter: !!registerTransition.after,
+      draftChars: draftScene.length,
+      rendererScoreBefore
+    });
+    rewriteApplied = true;
+    rewriteLengthRatio = draftScene.length ? scene.length / draftScene.length : 1;
+    rendererScoreAfter = offlineRendererScore(scene);
+  }
   const affinityDelta = Number.isFinite(parsed.affinityDelta) ? Math.max(-5, Math.min(5, parsed.affinityDelta)) : 0;
   return {
     scene,
@@ -2256,8 +2275,14 @@ async function generateOffline(p, ctx, session) {
     registerTransitionBefore: !!registerTransition.before,
     registerTransitionAfter: !!registerTransition.after,
     registerCalibrationInjected: false,
-    factIsolationApplied,
-    isolatedFactChars,
+    factIsolationApplied: false,
+    rewriteApplied,
+    rewriteDraftChars: draftScene.length,
+    rewriteFinalChars: scene.length,
+    rewriteLengthRatio,
+    rendererScoreBefore,
+    rendererScoreAfter,
+    rewriteDraft: rewriteApplied ? draftScene : null,
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
