@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.92";
+const APP_VERSION = "v52.93";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4025,6 +4025,22 @@ function App() {
     pChat(charId, p => [...p, { role: "user", kind: "pat", content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now(), read: false, blocked: !!(b.iBlocked || b.theyBlocked) }]);
   };
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
+  const PHOTO_REQUEST_RE = /(?:照片|自拍|拍(?:一|两|几|张|个)|再拍|发(?:张|个|一张|照片|图片|图)|给我看|让我看|看看你|合照|photo|selfie|picture)/i;
+  // 最近三次角色文字回复内，已经发过照片就关闭 photo 能力；只有用户在那张图之后
+  // 明确要求再拍才放行。不能把“别频繁”只交给模型自觉。
+  const photoCooldownState = (messages, senderId) => {
+    const list = Array.isArray(messages) ? messages : [];
+    let last = -1;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const m = list[i];
+      if (m && m.kind === "selfie" && !m.failed && (!senderId || String(m.senderId || "") === String(senderId))) { last = i; break; }
+    }
+    if (last < 0) return { cooling: false, explicitlyAsked: false, assistantTurns: Infinity };
+    const after = list.slice(last + 1);
+    const explicitlyAsked = after.some(m => m && m.role === "user" && PHOTO_REQUEST_RE.test(String(m.content || m.desc || "")));
+    const turns = new Set(after.filter(m => m && m.role === "assistant" && (!senderId || String(m.senderId || "") === String(senderId)) && m.kind !== "selfie").map(m => m.turnId || ("m:" + m.ts)));
+    return { cooling: !explicitlyAsked && turns.size < 3, explicitlyAsked, assistantTurns: turns.size };
+  };
   const replyNow = async (charId, extraText, mode, opts) => {
     opts = opts || {};
     let delivered = false;
@@ -4221,7 +4237,9 @@ function App() {
       // 一起听邀请：偶尔主动约对方一起听歌
       const inviteHint = isListenPartner ? "" : "\n【邀你一起听歌】偶尔（想跟 " + uName + " 分享一首歌、此刻在听到好歌、或气氛正好时，很克制、别频繁、绝大多数回合都 null），你可以主动邀请一起听歌：listenInvite 填 {\"song\":\"想一起听的歌名（可留空）\",\"say\":\"邀请的话，一句\"}；不邀请就 null。";
       // 发照片：仅当接了图像 API 且该角色填了外貌/参考照时才开放（省钱+保长相），否则不给这个字段以免白填
-      const canSelfie = (typeof imgApiReady === "function") && imgApiReady() && (char.appearance || char.refPhoto);
+      const photoCooldown = photoCooldownState(history, null);
+      const canSelfieBase = (typeof imgApiReady === "function") && imgApiReady() && (char.appearance || char.refPhoto);
+      const canSelfie = canSelfieBase && !photoCooldown.cooling;
       // 合照只在【你俩都传了参考照】时才开放——这样两张脸都能拿真照片喂进去，绝不会一张真一张编
       const canDuo = !!(char.refPhoto && profile && profile.refPhoto);
       const photoHint = canSelfie
@@ -4358,7 +4376,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         } else {
           const l = g[g.length - 1];
           // 你自己发过的语音也标一下，别把它当成打的字
-          const ac = stp + (m.kind === "voice" ? "（这条你是用语音说的）" + m.content : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]" : m.content);
+          const ac = stp + (m.kind === "voice" ? "（这条你是用语音说的）" + m.content
+            : m.kind === "selfie" ? (m.failed
+              ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
+              : "【你在这里已经实际发出一张" + (m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
+            : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]" : (m.content || ""));
           if (l && l.role === "assistant" && l._t === m.turnId) l.content += "\n" + ac;else g.push({
             role: "assistant",
             content: ac,
@@ -4611,6 +4633,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       } else if (parsed.selfie && String(parsed.selfie).toLowerCase() !== "null") {
         photoScene = String(parsed.selfie).trim(); photoKind = "self";
       }
+      // 模型即使在冷却轮偷填 photo 也不执行；用户明确说“再拍一张”时上面的状态会放行。
+      if (photoCooldown.cooling) { photoKind = null; photoScene = null; }
       // 合照必须两张参考照都在，否则降级为「别人拍的单人照」——杜绝一张真一张编
       if (photoKind === "duo" && !(char.refPhoto && profile && profile.refPhoto)) photoKind = "other";
       if (photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady() && (char.appearance || char.refPhoto)) {
@@ -5031,7 +5055,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
       const _graw = gchat.filter(m => m.kind !== "ooc").slice(-(gs.ctxN || 30));
-      const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? "[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : (m.content || "")) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : m.content);
+      const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? "[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : (m.content || "")) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
       for (const m of _graw) { const ts = m.ts || 0; if (_gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + "，到 " + fmtStampAI(ts) + " ——〕"); const ta = (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, ts) : ""; _gparts.push((gs.memoryInterop && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
@@ -5103,7 +5127,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gEmotes = emotesForGroup(group.memberIds);
       const gEmoteHint = gEmotes.length ? "\n【表情包】每个成员各自延续已经形成的聊天习惯：本来爱发的人可以常发或兴头上连发，本来很少发或从不发的人不要因为列表可用、也不要模仿别的成员或历史表情突然开始发；不存在全群统一频率。可用关键词：" + gEmotes.map(e => e.keyword).join(" / ") + "。要发就在该成员那条发言对象里加 emote 字段填一个关键词（与列出的完全一致），否则省略。" : "";
       // 群自拍：只有配了图像API且成员填了外貌/参考照才开放（按需注入，平时零 token）
-      const gSelfieMembers = (typeof imgApiReady === "function" && imgApiReady()) ? members.filter(c => c.appearance || c.refPhoto) : [];
+      const gSelfieMembers = (typeof imgApiReady === "function" && imgApiReady()) ? members.filter(c => (c.appearance || c.refPhoto) && !photoCooldownState(gchat, c.id).cooling) : [];
       // 合照只在【用户传了参考照 且 该成员也传了参考照】时才开放——两张脸都拿真照片喂，绝不一张真一张编
       const gDuoMembers = (profile && profile.refPhoto) ? gSelfieMembers.filter(c => c.refPhoto) : [];
       const gUName = (profile && profile.name) || "用户";
@@ -5211,6 +5235,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           } else if (item.selfie && String(item.selfie).toLowerCase() !== "null") {
             gPhotoScene = String(item.selfie).trim(); gPhotoKind = "self";
           }
+          // 群聊也按成员分别冷却；别让另一个成员发过图误伤 TA，也别让 TA 绕过能力提示偷发。
+          if (photoCooldownState(gchat, spk.id).cooling) { gPhotoKind = null; gPhotoScene = null; }
           // 合照必须两张参考照都在（用户 + 该成员），否则降级为「别人拍的单人照」
           if (gPhotoKind === "duo" && !(spk.refPhoto && profile && profile.refPhoto)) gPhotoKind = "other";
           if (gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady() && (spk.appearance || spk.refPhoto)) {
