@@ -1119,15 +1119,16 @@ function buildBundle(ctx, opts) {
   if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push("【你长出来的自我】这些是这段日子里你自己亲笔写下的自我认知——是你当下真实的一部分，" + (ctx.personaEvolve ? "在【软层】（亲近方式／处理冲突的习惯／偏好／勇气／信任／对未来的选择）上，它比原人设卡更接近现在的你、可以盖过原卡里那些旧的软性倾向（但绝不改你的核心身份、底线和真实发生过的经历）" : "和人设同等分量") + "，自然体现在言行里，别当台词复述：\n" + ctx.personaGrown.trim());
   if (profile && (profile.name || profile.persona)) parts.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
   parts.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
-  // 情侣状态：以此为准，覆盖上面关系网里可能过时的标签（表白在一起后自动生效）
+  // ⭐时间块在此拼入：稳定的人设/关系之后、易变的心情/好感/记忆/近况之前——缓存切点(【当前真实时间】)落在这，
+  //   前缀缓住上面全部稳定内容(反八股+守则+人设+关系网)，下面易变的不缓、每轮照旧。
+  if (timeBlock.length) parts.push(...timeBlock);
+  // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
+  // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
   if (!ctx.notRoleplay && ctx.coupleStatus) {
     const cs = String(ctx.coupleStatus).split("|");
     if (cs[0] === "together") parts.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
     else if (cs[0] === "pending") parts.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
   }
-  // ⭐时间块在此拼入：稳定的人设/关系之后、易变的心情/好感/记忆/近况之前——缓存切点(【当前真实时间】)落在这，
-  //   前缀缓住上面全部稳定内容(反八股+守则+人设+关系网)，下面易变的不缓、每轮照旧。
-  if (timeBlock.length) parts.push(...timeBlock);
   // 位置=易变近况，移到时间切点之后（v48.95，Codex 指出：放稳定前缀里、一移动就破小克缓存）
   if (!ctx.notRoleplay && geo && geo.label) parts.push("【" + uName + " 当前位置】" + geo.label + "（角色可据此自然回应，但不要生硬报出经纬度）");
   if (!ctx.notRoleplay && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
@@ -2285,10 +2286,14 @@ async function generateOffline(p, ctx, session) {
   const rerollTail = session.rerollAvoid
     ? "\n\n〔重写〕上一版只是需要避开的候选，不属于已经发生的剧情：『" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "』。保留生成上一版之前已经成立的事实，重新决定本轮关注点、动作和表达，不以同义替换为目标。"
     : "";
+  const characterSupplyInjected = !isDigital && !!registerTransition.inputBeat && !!registerTransition.active;
+  const characterSupplyTail = characterSupplyInjected
+    ? "\n\n〔本轮人物连续〕当前互动不会把叙述者替换成一个只处理身体动作的通用角色。继续从这个具体的人对眼前这个具体的人如何注意、判断、选择和回应来生成：承接对方刚刚实际说过或做过的内容，以及两人已经形成的关系和相处方式。共享细节、现实目标或未完事务只有在此刻确实影响其反应时才自然出现，不为证明人设而硬提，也不按清单配额打卡。台词应由此刻的具体回应产生，不用任何角色都能说的通用场面话。身体事实仍按实际发生直接写清；首稿不承担去除渲染或自我审查，后续编辑另行处理。"
+    : "";
   const tailNudge = isDigital
     ? userActionTail
     : continueCue + rerollTail + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先完成正文 JSON，再写既定的创作旁注标记块。" : "");
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail);
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: "（继续）" + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -2312,6 +2317,7 @@ async function generateOffline(p, ctx, session) {
         rewriteStage: false,
         registerInputBeat: !!registerTransition.inputBeat,
         registerActive: !!registerTransition.active,
+        characterSupplyInjected,
         rewriteRequested,
         mood: ctx.moodLabel || null,
         wearing: ctx.curWear || null,
@@ -2399,6 +2405,7 @@ async function generateOffline(p, ctx, session) {
     factIsolationApplied: false,
     registerInputBeat: !!registerTransition.inputBeat,
     registerActive: !!effectiveRegisterActive,
+    characterSupplyInjected,
     rewriteRequested,
     rewriteApplied,
     rewriteDraftChars: draftScene.length,
