@@ -148,6 +148,8 @@ function CastForm({
   const [avatarImage, setAvatarImage] = useState(initial && initial.avatarImage || null);
   const [tz, setTz] = useState(initial && initial.tz != null ? String(initial.tz) : "");
   const [appearance, setAppearance] = useState(initial && initial.appearance || "");
+  const [photoCanon, setPhotoCanon] = useState(initial && initial.photoCanon || "");
+  const [photoOutfit, setPhotoOutfit] = useState(initial && initial.photoOutfit || "");
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
   const [photoStyle, setPhotoStyle] = useState(initial && initial.photoStyle || "realistic");
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
@@ -164,6 +166,8 @@ function CastForm({
       avatarImage,
       tz: tz,
       appearance: appearance.trim(),
+      photoCanon: photoCanon.trim(),
+      photoOutfit: photoOutfit.trim(),
       refPhoto: refPhoto,
       photoStyle: photoStyle,
       birthday: birthday.trim(),
@@ -285,7 +289,11 @@ function CastForm({
         ["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]
       ].map(o => h("button", { key: o[0], type: "button", onClick: () => setPhotoStyle(o[0]), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 10px", borderRadius: 999, background: photoStyle === o[0] ? t.ink : t.bg2, color: photoStyle === o[0] ? t.bg2 : t.sub, border: "1px solid " + t.line } }, o[1]))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6, lineHeight: 1.5 } }, photoStyle === "reference" ? "沿用参考图本身的画风；二次元不会被转成真人。" : photoStyle === "anime" ? "固定生成 2D 动画／插画风，不做真人化。" : "固定生成真人生活照；这是现有角色的默认效果。"),
-      h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相/发型/身材/气质/常穿风格……越具体，照片越像本人。" }))),
+      h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相/发型/身材/气质……越具体，照片越像本人。" }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "生图身份锁（可选，但儿童／非人角色建议填写）"),
+      h(LineArea, { value: photoCanon, onChange: e => setPhotoCanon(e.target.value), rows: 3, placeholder: "年龄、性别、种族、体型等不可随机的视觉事实，如：8岁小男孩，儿童体型，平坦男童胸廓" }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "固定服装锁（填写后每张都必须穿这套）"),
+      h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 3, placeholder: "如：13世纪深蓝羊毛短袍、亚麻内衫、皮腰带与棕色长靴；禁止现代服装" }))),
   h(LineField, { zh: "音色 · 语音消息用", en: "Voice" },
     h("div", null,
       h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v =>
@@ -3470,7 +3478,7 @@ function CacheStatCard() {
 }
 function ImageApiConfig({ toast }) {
   const t = useTheme();
-  const [c, setC] = useState(() => (typeof loadImgApi === "function" ? loadImgApi() : { baseUrl: "", apiKey: "", model: "gpt-image-1", size: "1024x1536", quality: "medium", enabled: false }));
+  const [c, setC] = useState(() => (typeof loadImgApi === "function" ? loadImgApi() : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false }));
   const set = patch => { const n = Object.assign({}, c, patch); setC(n); if (typeof saveImgApi === "function") saveImgApi(n); };
   const [models, setModels] = useState([]);
   const [fetching, setFetching] = useState(false);
@@ -3507,10 +3515,10 @@ function ImageApiConfig({ toast }) {
       row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "sk-…", type: "password", style: inSt })),
       row("模型", h("div", null,
         h("div", { className: "flex gap-2" },
-          h("input", { value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "gpt-image-1", style: Object.assign({}, inSt, { flex: 1 }) }),
+          h("input", { value: c.model || "", onChange: e => set({ model: e.target.value }), placeholder: "gpt-image-2", style: Object.assign({}, inSt, { flex: 1 }) }),
           h("button", { onClick: pull, disabled: fetching, className: "shrink-0 active:opacity-70 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "0 14px" } }, fetching ? "拉取中…" : "拉取模型")),
         models.length > 0 ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 8, maxHeight: 118, overflowY: "auto" } }, models.map(m => h("button", { key: m, onClick: () => set({ model: m }), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: c.model === m ? t.ink : t.bg2, color: c.model === m ? t.bg2 : t.sub, border: "1px solid " + t.line } }, m))) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "拉取后从上面挑一个【图像】模型（名字通常含 image / dall-e / flux）。自动填的默认是 gpt-image-1，不一定你的接口商支持——拉一下看有没有更保险。"))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "官方 OpenAI 接口默认使用 gpt-image-2；若接的是中转站，仍以『拉取模型』实际返回的名字为准。"))),
       h("div", { className: "flex gap-3" },
         h("div", { className: "flex-1" }, row("尺寸", h("select", { value: c.size || "1024x1536", onChange: e => set({ size: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
           h("option", { value: "1024x1536" }, "竖 1024×1536（自拍推荐）"),

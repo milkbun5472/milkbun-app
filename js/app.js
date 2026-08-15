@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.88";
+const APP_VERSION = "v52.91";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4424,7 +4424,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
         const s = String(raw || "");
-        const mm = s.match(/"word"\s*:\s*\[([\s\S]*?)\]/);
+        // 兼容模型偶发的 Word / WORD、弯引号和中文冒号。之前这里只认小写
+        // `"word":`，线上某些线路一旦改了大小写，整份协议就可能被当聊天正文。
+        const mm = s.match(/["'“”‘’]?word["'“”‘’]?\s*[:：=]\s*\[([\s\S]*?)\]/i);
         if (mm) {
           try { const a = JSON.parse("[" + mm[1] + "]"); if (Array.isArray(a)) return a.filter(x => typeof x === "string" && x.trim()); } catch (e) {}
           const strs = mm[1].match(/"((?:[^"\\]|\\.)*)"/g);
@@ -4434,8 +4436,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       };
       // raw 看起来是（可能坏掉的）JSON——含这些内部字段、或整体就是 JSON 结构，就别当纯文本直接展示，免得把心声等内部字段泄漏进聊天框
       // 字段名放宽到「可无引号、字段名后可有空格」，再加一条「以 { 或 [ 开头且含 : 」的结构判定，兜住被模型写坏引号的情况
-      const looksLikeJSON = /["']?(word|thought|mood|wearing|action|affinityDelta|whisper|moment)["']?\s*:/.test(String(raw)) || (/^\s*[\[{]/.test(String(raw)) && /:/.test(String(raw)));
+      const protocolFieldRe = /(?:^|[\s{[,]\s*)["'“”‘’]?(word|thought|mood|wearing|action|affinityDelta|whisper|moment|silent|voice|quote)["'“”‘’]?\s*[:：=]/i;
+      const looksLikeJSON = protocolFieldRe.test(String(raw)) || (/^\s*[\[{]/.test(String(raw)) && /[:：]/.test(String(raw)));
       let parsed = extractJSON(raw);
+      // 少数兼容线路会把 JSON 再包成一个 JSON 字符串；解开一层，不能把引号里的
+      // word/mood 协议作为普通文字落进气泡。
+      if (typeof parsed === "string" && parsed.trim()) parsed = extractJSON(parsed);
+      // 极简线路偶尔直接回字符串数组，把它按 word 数组接住。
+      if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
       // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
@@ -4475,6 +4483,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       }, []);
       // 队尾空气泡（小克反馈）：滤掉只剩空白/零宽字符/BOM 的空串——trim/Boolean 抓不住零宽符，这里连它一起清
       words = words.filter(w => String(w == null ? "" : w).replace(/[\s\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/g, "") !== "");
+      // 最后一层展示闸：如果上游把整份协议误塞进 word 的某个元素，也不能让
+      // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
+      // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
+      words = words.filter(w => !protocolFieldRe.test(String(w)));
       // \u8868\u60c5\u88ab\u5199\u8fdb\u6587\u5b57\u6c14\u6ce1\u7684\u515c\u5e95\uff08\u5979\u53cd\u9988\u300c\u8868\u60c5\u5076\u5c14\u8fd8\u662f\u53d1\u51fa\u6587\u5b57\u300d\uff09\uff1aword \u91cc\u82e5\u6709\u4e00\u6761\u3010\u53bb\u62ec\u53f7\u6807\u70b9\u540e\u6b63\u597d\u7b49\u4e8e\u3011\u67d0\u4e2a\u53ef\u7528\u8868\u60c5\u5173\u952e\u8bcd\uff0c
       // \u5c31\u628a\u5b83\u5f53\u8868\u60c5\u53d1\u3001\u522b\u5f53\u6587\u5b57\uff08\u7cbe\u786e\u76f8\u7b49\u3001\u4e0d\u505a\u5b50\u4e32\uff0c\u514d\u5f97\u300c\u6211\u597d\u5f00\u5fc3\u300d\u88ab\u8bef\u5f53\u300c\u5f00\u5fc3\u300d\u8868\u60c5\uff09\uff1b\u7eaf\u300c[\u8868\u60c5]\u300d\u8fd9\u7c7b\u7a7a\u6807\u8bb0\u76f4\u63a5\u4e22\u3002
       const emoteWordKws = [];

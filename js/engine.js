@@ -1611,8 +1611,8 @@ function splitCot(raw, on) {
 // OpenAI 兼容：有参考照走 /v1/images/edits(保长相)，否则 /v1/images/generations
 // ============================================================
 function loadImgApi() {
-  try { const c = JSON.parse(localStorage.getItem("x_imgApi") || "null"); if (c && typeof c === "object") return Object.assign({ baseUrl: "", apiKey: "", model: "gpt-image-1", size: "1024x1536", quality: "medium", enabled: false }, c); } catch (e) {}
-  return { baseUrl: "", apiKey: "", model: "gpt-image-1", size: "1024x1536", quality: "medium", enabled: false };
+  try { const c = JSON.parse(localStorage.getItem("x_imgApi") || "null"); if (c && typeof c === "object") return Object.assign({ baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false }, c); } catch (e) {}
+  return { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false };
 }
 function saveImgApi(c) { const clean = Object.assign(loadImgApi(), c || {}); try { localStorage.setItem("x_imgApi", JSON.stringify(clean)); } catch (e) {} return clean; }
 function imgApiReady(a) { a = a || loadImgApi(); return !!(a.enabled && a.baseUrl && a.apiKey); }
@@ -1639,6 +1639,14 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const uName = (me && me.name) || "对方";
   const cName = char.name || "TA";
   const photoStyle = ["realistic", "reference", "anime"].includes(char.photoStyle) ? char.photoStyle : "realistic";
+  const visualCanon = String(char.photoCanon || "").trim();
+  const fixedOutfit = String(char.photoOutfit || "").trim();
+  // 人设不能只服务聊天：其中的时代、年龄、性别、种族与服装同样是生图事实。
+  // 控长避免把超长角色卡整份塞进图像端；显式 photoCanon/photoOutfit 仍拥有最高优先级。
+  const personaVisualSource = String(char.persona || "").trim().slice(0, 2400);
+  const identityText = [visualCanon, char.appearance, personaVisualSource].filter(Boolean).join("\n");
+  const isMinor = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bboy\b|\bgirl\b|\bminor\b|(?:[1-9]|1[0-7])\s*岁)/i.test(identityText);
+  const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
   // 每个角色独立控制画风；旧角色无字段时继续沿用写实，避免升级后突然变画风。
   if (photoStyle === "anime") {
@@ -1655,8 +1663,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   parts.push("【身材硬性要求，凌驾于参考图的身体】healthy body weight, anatomically coherent body, not underweight, not emaciated——健康体重、协调自然的人体：头身与肩颈躯干四肢比例符合所选画风，有自然的体量，绝不许瘦脱相或肢体拉长扭曲。若参考图中的身体过瘦，按健康匀称的体型重画身体。");
   // 体态·治「驼背」和「偷感」（v48.52）：抓拍质感不等于畏缩——人要挺拔松弛
   parts.push("【体态自然挺拔，别驼背别『偷感』】good posture, upright relaxed natural stance, straight back, shoulders relaxed and open, confident at ease——脊背基本挺直、肩膀自然打开别缩着、脖子别前伸、下巴别往里缩；**绝不许含胸驼背、缩肩弓背、佝偻畏缩**。神态松弛自在、大方自然，像很自在地在自拍/被拍，**绝不要躲闪、拘谨、猥琐、鬼鬼祟祟、偷拍似的那种『偷感』**。哪怕是随手抓拍，人也站得/坐得舒展从容。");
-  // 参考照只锁脸别锁衣服（治「穿着永远和参考照一样」）：edits 会连衣服背景一起复制，必须明说只保留身份
-  parts.push("【参考照锁人物、不锁场景】给到的参考照/参考图用于固定人物的脸、五官、发型和身份特征" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；**不要照搬参考照里的那身衣服、姿势和背景**——穿着按下面每个人的『此刻穿着』或当前场景/天气/氛围自然搭配，每次可以不一样。");
+  // 参考照负责像谁；角色卡负责是谁、什么年龄与穿什么。两路约束必须同时生效。
+  parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、发型和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代和服装。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。");
+  if (personaVisualSource) parts.push("【角色完整人设中的视觉事实】以下人设不是气氛建议；凡涉及年龄、性别、种族、身体特征、时代与衣着，均为必须遵守的 canon：" + personaVisualSource + "。");
+  if (visualCanon) parts.push("【最高优先级·身份锁】" + visualCanon + "。年龄、性别、种族、体型与身体特征不得擅自补全、成熟化、女性化、男性化或随机改变。");
+  if (isMinor) parts.push("【未成年人安全与解剖硬锁】这是儿童／未成年角色：必须呈现明确、自然、符合设定年龄的儿童身体比例和第二性征；穿着完整、姿态与镜头完全非性化，禁止成人化、性感化、胸部曲线、乳沟或夸张身体特征。" + (isBoy ? "该角色是男孩／男童：胸廓必须是自然平坦的男童胸廓，绝对不能生成女性乳房或胸部隆起。" : "") + "即使参考图或场景有歧义，也以儿童身份锁为准。");
   // —— 主体人物 ——
   if (kind === "duo") {
     parts.push("照片里【有两个人同框】：一个是「" + cName + "」，另一个是「" + uName + "」，两人关系亲密、一起合影。");
@@ -1668,7 +1679,13 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     parts.push("照片里只有「" + cName + "」一个人。");
     if (char.appearance && char.appearance.trim()) parts.push("外貌特征（务必贴合）：" + char.appearance.trim() + "。");
   }
-  if (st && st.wearing) parts.push((kind === "duo" ? "「" + cName + "」此刻穿着：" : "此刻穿着：") + st.wearing + "。");
+  if (fixedOutfit) {
+    parts.push("【最高优先级·固定服装锁】" + (kind === "duo" ? "「" + cName + "」" : "人物") + "每张图都必须完整穿着：" + fixedOutfit + "。不得随机换装、现代化、简化成别的服饰，也不得用参考照里的衣服替换；只有用户修改此档案字段后才允许变化。");
+  } else if (st && st.wearing) {
+    parts.push((kind === "duo" ? "「" + cName + "」此刻穿着：" : "此刻穿着：") + st.wearing + "。必须忠实照此生成，不得按场景随机另搭一套。");
+  } else {
+    parts.push("服装必须从上述外貌与人设的时代／职业／常穿服饰中忠实推导；若设定已有服装就原样遵守，禁止随机现代化。设定确实没有衣着信息时才允许按场景补全。");
+  }
   if (sceneDesc && String(sceneDesc).trim()) parts.push("场景/正在做什么：" + String(sceneDesc).trim() + "。");
   if (st && st.mood && kind !== "duo") parts.push("神情情绪：" + st.mood + "。");
   // —— 构图/视角，按类型分流 ——
@@ -1737,21 +1754,21 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     try {
       if (useRef && refBlobs.length) {
         const fd = new FormData();
-        fd.append("model", a.model || "gpt-image-1"); fd.append("prompt", prompt); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
+        fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", prompt); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
         if (a.quality) fd.append("quality", a.quality);
-        // 单张走 image（沿用验证过的路径）；多张（合照）走 image[]（gpt-image-1 支持多参考图同框）
+        // 单张走 image（沿用验证过的路径）；多张（合照）走 image[]，交给 GPT Image 2 做高保真多图编辑。
         if (refBlobs.length === 1) fd.append("image", refBlobs[0], "ref.png");
         else refBlobs.forEach((blob, i) => fd.append("image[]", blob, "ref" + i + ".png"));
         r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
-        const body = { model: a.model || "gpt-image-1", prompt, size, n: 1 };
+        const body = { model: a.model || "gpt-image-2", prompt, size, n: 1 };
         if (!slim) { body.response_format = "b64_json"; if (a.quality) body.quality = a.quality; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
     } finally { clearTimeout(to); }
     const rawTxt = await r.text();
-    // 4xx 且报错像是在挑剔某个可选参数 → 裸参数自动再试一次（gpt-image-1 的 quality 值域
+    // 4xx 且报错像是在挑剔某个可选参数 → 裸参数自动再试一次（GPT Image 2 的 quality 值域
     // 是 low/medium/high，别家可能只认 standard/hd；response_format 也有接口不认）
     if (!useRef && !slim && r.status >= 400 && r.status < 500 && ![401, 402, 403, 429].includes(r.status) && /param|quality|response_format|invalid\s+value|不支持|参数/i.test(rawTxt)) {
       try { return await attempt(false, true); } catch (e) {}
