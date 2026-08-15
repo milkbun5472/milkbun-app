@@ -12,7 +12,12 @@ const pairs = [
   ["tools/yanqiu-wake/wake_queue.py", join(home, "Library/Application Support/LisaPhone/yanqiu-wake/wake_queue.py")],
   ["tools/yanqiu-wake/wake_queue.py", join(home, "Library/Application Support/LisaPhone/stackchan-relay/wake_queue.py")],
   ["tools/yanqiu-cc-bridge/bridge.py", join(home, "Library/Application Support/LisaPhone/yanqiu-cc-bridge/bridge.py")],
-  ["tools/voice-prosody/voice_prosody.py", join(home, "Library/Application Support/LisaPhone/stackchan-relay/voice_prosody.py")]
+  ["tools/voice-prosody/voice_prosody.py", join(home, "Library/Application Support/LisaPhone/stackchan-relay/voice_prosody.py")],
+  // Stop hook 运行时拷贝(2026-08-14 断流案):脚本住 iCloud 会被读锁卡到静默死,搬进 App Support,闸门保同步
+  ["scripts/cc-ledger-stop.mjs", join(home, "Library/Application Support/LisaPhone/cc-ledger-runtime/scripts/cc-ledger-stop.mjs")],
+  ["scripts/cc-ledger-nature.cjs", join(home, "Library/Application Support/LisaPhone/cc-ledger-runtime/scripts/cc-ledger-nature.cjs")],
+  ["scripts/cc-somatic-shadow.cjs", join(home, "Library/Application Support/LisaPhone/cc-ledger-runtime/scripts/cc-somatic-shadow.cjs")],
+  ["js/somatic-core.js", join(home, "Library/Application Support/LisaPhone/cc-ledger-runtime/js/somatic-core.js")]
 ];
 const digest = p => createHash("sha256").update(readFileSync(p)).digest("hex");
 const stale = [];
