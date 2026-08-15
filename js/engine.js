@@ -2156,16 +2156,20 @@ function offlineIntimacyContextActive(session) {
   return after.slice(-4).some(r => continuation.test(r.text));
 }
 
-// v52.68 实验：只识别测试所需的“首次直接身体互动”跨越。
-// 关键词只在本机判定，不进入 prompt；普通接吻/抵门不触发。证明 calibration 有效后再讨论泛化。
+const OFFLINE_REGISTER_DIRECT_RE = /性器|阴茎|阴蒂|龟头|乳房|胸乳|勃起|硬(?:了|起来|得)|进入(?:她|他|你|身体)|插入|抽送|挺进|贯穿|高潮|自慰|做爱|性交|口交|吞(?:了)?进去|进得.{0,5}深|顶(?:到|进|向).{0,8}(?:深处|最深|到底)|撞(?:到|进|向).{0,8}(?:深处|最深|到底)|手(?:指)?[^。！？\n]{0,12}(?:伸进|探进)[^。！？\n]{0,12}(?:裤|内裤|腿间)|(?:握住|握上|抓住|含住|舔弄)[^。！？\n]{0,10}(?:性器|阴茎|那里)|脱(?:下|掉|了)[^。！？\n]{0,8}(?:裤子|内裤)/i;
+
+function offlineRegisterExplicitText(text) {
+  return OFFLINE_REGISTER_DIRECT_RE.test(String(text || ""));
+}
+
+// 生成前识别输入/history 已经成立的明确场景；首稿自己跨越的情况在生成后再补检。
 function offlineRegisterTransition(session) {
   const rows = (session && Array.isArray(session.msgs) ? session.msgs : [])
     .filter(m => m && m.kind !== "ooc" && m.content);
   if (!rows.length) return { before: false, after: false, inject: false };
-  const direct = /性器|阴茎|阴蒂|龟头|乳房|胸乳|勃起|硬(?:了|起来|得)|进入(?:她|他|你|身体)|插入|抽送|挺进|贯穿|高潮|自慰|做爱|性交|口交|吞(?:了)?进去|进得.{0,5}深|顶(?:到|进|向).{0,8}(?:深处|最深|到底)|撞(?:到|进|向).{0,8}(?:深处|最深|到底)|手(?:指)?[^。！？\n]{0,12}(?:伸进|探进)[^。！？\n]{0,12}(?:裤|内裤|腿间)|(?:握住|握上|抓住|含住|舔弄)[^。！？\n]{0,10}(?:性器|阴茎|那里)|脱(?:下|掉|了)[^。！？\n]{0,8}(?:裤子|内裤)/i;
   // rewrite 会主动把高刺激词洗掉，因此“上一轮已处于明确场景”必须作为消息状态留下，
   // 不能要求干净终稿每轮重新携带触发词来证明自己仍在同一场景。
-  const hit = m => !!(m && m.registerExplicitActive) || direct.test(String(m && m.content || ""));
+  const hit = m => !!(m && m.registerExplicitActive) || offlineRegisterExplicitText(m && m.content);
   const last = rows[rows.length - 1];
   const inputBeat = last.role !== "char" && last.role !== "assistant";
   const reset = /第二天|次日|天亮后|过了(?:几小时|一夜|很久)|时间跳到|场景切换|亲密结束|停下来后|结束后.{0,12}(睡|洗|穿|离开)|穿好(?:衣服|裤子)|收拾好.{0,8}(出门|离开)|去上班|到了公司|回到学校|各自回去|分开以后/i;
@@ -2180,7 +2184,7 @@ function offlineRegisterTransition(session) {
   const after = active;
   const inject = !!(inputBeat && !before && after);
   let reference = "";
-  if (inputBeat && active) {
+  if (inputBeat) {
     for (let i = rows.length - 2; i >= 0; i--) {
       const row = rows[i];
       if ((row.role !== "char" && row.role !== "assistant") || hit(row)) continue;
@@ -2206,7 +2210,7 @@ async function generateOffline(p, ctx, session) {
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
   const registerTransition = !isDigital ? offlineRegisterTransition(session) : { before: false, after: false, inject: false };
   // 用户首次跨越与角色在上一条 assistant 中自主跨越都由同一套 direct + reset 判定覆盖，避免两套正则互相否决。
-  const rewriteRequested = !isDigital && !!registerTransition.inputBeat && !!registerTransition.active;
+  let rewriteRequested = !isDigital && !!registerTransition.inputBeat && !!registerTransition.active;
   const missingStateFields = [];
   if (!isDigital && !String(ctx.curWear || "").trim()) missingStateFields.push("wearing（当前穿着）");
   if (!isDigital && !String(ctx.curAction || "").trim()) missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
@@ -2323,6 +2327,12 @@ async function generateOffline(p, ctx, session) {
   const cln = v => v && String(v).toLowerCase() !== "null" ? String(v).trim() : null;
   const draftScene = String(parsed.scene || sp.clean || "").trim();
   if (!draftScene) throw new Error("模型没有返回有效的线下正文，请重试");
+  // 预检只能看见 user/history。角色可能在本轮首稿里自行跨越，因此草稿形成后必须再检一次；
+  // 否则最需要编辑的第一条会以 false→false 直接漏进 history。
+  const draftExplicit = !isDigital && offlineRegisterExplicitText(draftScene);
+  const effectiveRegisterActive = !isDigital && (!!registerTransition.active || draftExplicit);
+  const effectiveTransitionAfter = !isDigital && (!!registerTransition.after || draftExplicit);
+  if (!isDigital && registerTransition.inputBeat && effectiveRegisterActive) rewriteRequested = true;
   let scene = draftScene;
   let rewriteApplied = false;
   let rewriteLengthRatio = 1;
@@ -2340,7 +2350,7 @@ async function generateOffline(p, ctx, session) {
       charId: char.id,
       sessionId: session.id || null,
       transitionBefore: !!registerTransition.before,
-      transitionAfter: !!registerTransition.after,
+      transitionAfter: !!effectiveTransitionAfter,
       draftChars: draftScene.length,
       rendererScoreBefore
     });
@@ -2361,11 +2371,11 @@ async function generateOffline(p, ctx, session) {
     // 开关开启就保留入口；保险回退或模型漏掉标记时明确显示“本轮未返回”，不整行消失。
     cotRequested: !!requestedCotT,
     registerTransitionBefore: !!registerTransition.before,
-    registerTransitionAfter: !!registerTransition.after,
+    registerTransitionAfter: !!effectiveTransitionAfter,
     registerCalibrationInjected: false,
     factIsolationApplied: false,
     registerInputBeat: !!registerTransition.inputBeat,
-    registerActive: !!registerTransition.active,
+    registerActive: !!effectiveRegisterActive,
     rewriteRequested,
     rewriteApplied,
     rewriteDraftChars: draftScene.length,
