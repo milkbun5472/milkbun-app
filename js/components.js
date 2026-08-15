@@ -5411,7 +5411,7 @@ function OfflineMode({
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
       h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { style: { marginTop: 14, padding: "9px 11px", borderRadius: 9, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10.5, lineHeight: 1.65, color: t.fog } },
-      h("div", null, ".82 post-draft rewrite gate · 仅内存诊断"),
+      h("div", null, ".83 character-preserving editor · 仅内存诊断"),
       registerTelemetry
         ? h("div", { style: { color: registerTelemetry.registerCalibrationInjected ? t.tint : t.sub } },
             "transition: " + registerTelemetry.transitionBefore + " → " + registerTelemetry.transitionAfter,
@@ -5428,6 +5428,8 @@ function OfflineMode({
               "dimension repeats: " + registerTelemetry.rendererRepeatsBefore + " → " + registerTelemetry.rendererRepeatsAfter,
               h("br"),
               "fact coverage: " + registerTelemetry.rewriteCoveredFactUnits + "/" + registerTelemetry.rewriteFactUnits + " (" + Math.round((registerTelemetry.rewriteFactCoverage || 0) * 100) + "%)",
+              h("br"),
+              "character coverage: " + registerTelemetry.rewriteCoveredCharacterUnits + "/" + registerTelemetry.rewriteCharacterUnits + " (" + Math.round((registerTelemetry.rewriteCharacterCoverage || 0) * 100) + "%)",
               registerTelemetry.rewriteOpCounts ? h(React.Fragment, null,
                 h("br"),
                 "ops K/R/D: " + (registerTelemetry.rewriteOpCounts.KEEP || 0) + "/" + (registerTelemetry.rewriteOpCounts.REWRITE || 0) + "/" + (registerTelemetry.rewriteOpCounts.DELETE || 0)) : null,

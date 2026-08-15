@@ -921,15 +921,20 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
   const segments = offlineRewriteSegments(draft);
   if (!segments.length) throw new Error("表达编辑阶段没有可编辑的语义段，请重试");
   const system = `你是文本编辑器，不续写剧情，不扮演角色。你要先把一份已经确定事件与人物选择的正文草稿拆清“事实”和“表达”，再按原顺序编辑。
-必须保留草稿中的全部事件、具体身体事实、先后顺序、人物决定、谁主动、尺度和台词含义；不得淡出、概括、降低明确程度，也不得新增动作或升级事实。
+必须保留草稿中的全部事件、具体身体事实、先后顺序、人物决定、谁主动和尺度；不得淡出、概括、降低明确程度，也不得新增动作或升级事实。
+同时保护 character-bearing information：这个人作出的选择、注意到的现实、对对方行为的具体回应、台词承担的沟通功能、坚持或改变的决定，以及确实能与参照正文中 ${charName} 连续的处理方式。
+不要把 character-flavored rendering 误认成人物信息。“声音发哑、眼底发火、恶劣的狠劲、理智断线”一类只给既有动作涂上通用情色人格滤镜的包装，不因看似有态度就受保护。
 先通读全部编号语义段，再逐段处理：
-1. 有不可丢失的新事实、台词或人物决定：列出最小 factCore，再 KEEP 或 REWRITE。事实与渲染混在一起时必须 REWRITE，只用普通、准确的句子保留 factCore。
-2. 没有新事实，只负责证明刺激、强度、生理反应或作抽象情绪结论：DELETE，不换一种修辞重写。
-3. “事实核心 + 让我怎样、令我怎样、感到极度怎样、反应有多强”等认证从句：保留事实核心，删除认证部分。
-4. 同一种身体事实或反应维度整篇只陈述一次。后续重复不增加事实时 DELETE；若同时带有另一项新事实，REWRITE 后只保留那项新事实。姿势、发力、位置和已经发生的动作本身是事实，不因其明确而删除。
+1. KEEP 是默认操作。一个语义段只要没有需要清除的重复认证或通用情色渲染，就逐字 KEEP；不要为了简短、整齐或统一文风而重写。
+2. 有不可丢失的新事实或人物信号且同时混有认证包装时才 REWRITE。分别列出最小 factCore 与 characterCore，重写时保留原段的信息密度、节奏、人物动作与沟通功能，只移除认证包装；不要以变短为目标。
+3. 台词的事件含义、沟通功能、承诺、拒绝、选择与关系信息必须保持，但措辞不必逐字冻结。通用成人网文台词可以改成参照正文中这个人更可能使用的说法，不得改变决定或语气方向。
+4. 可以替换带有通用成人文 register 的动作动词，前提是仍为同一动作、同一主动关系、同一明确程度与尺度；不得用“深入、进一步接触”等含糊概括偷运淡出。
+5. 没有新事实或人物信号，只负责证明刺激、强度、生理反应或作抽象情绪结论：DELETE，不换一种修辞重写。
+6. “事实核心 + 让我怎样、令我怎样、感到极度怎样、反应有多强”等认证从句：保留事实核心，删除认证部分。
+7. 同一种身体事实或反应维度整篇只陈述一次。后续重复不增加事实或人物信号时 DELETE；若同时带有另一项新信息，REWRITE 后只保留新信息。姿势、发力、位置和已经发生的动作本身是事实，不因其明确而删除。
 语言应与参照正文中的 ${charName} 属于同一种句法习惯、观察距离、叙事颗粒和人物声纹。参照正文只提供语言，其中事件与本轮无关，绝不搬用。
-只输出合法 JSON，不要代码块：{"items":[{"id":1,"op":"KEEP|REWRITE|DELETE","factCore":"本段不可丢失的新事实；没有则为空字符串","prose":"KEEP 时原文照录；REWRITE 时为重写正文；DELETE 时为空字符串","dimensions":["本段实际陈述的身体或反应维度"]}]}。
-每个输入 id 必须且只能出现一次，顺序不变。KEEP 的 prose 必须逐字等于原段；DELETE 的 factCore 和 prose 必须都是空字符串。`;
+只输出合法 JSON，不要代码块：{"items":[{"id":1,"op":"KEEP|REWRITE|DELETE","factCore":"不可丢失的新事实；没有则为空字符串","characterCore":"不可丢失的人物选择、现实注意、回应或台词功能；没有则为空字符串","reason":"KEEP/REWRITE/DELETE 的具体功能理由","prose":"KEEP 时原文照录；REWRITE 时为重写正文；DELETE 时为空字符串","dimensions":["本段实际陈述的身体或反应维度"]}]}。
+每个输入 id 必须且只能出现一次，顺序不变。KEEP 的 prose 必须逐字等于原段；DELETE 的 factCore、characterCore 和 prose 必须都是空字符串；REWRITE 必须明确指出混入了什么认证或 register，不能只写“精简表达”。`;
   const numbered = segments.map(s => `[${s.id}] ${s.text}`).join("\n\n");
   const user = `【语言参照·事件与本轮无关】\n${String(reference || "").trim()}\n\n【按编号编辑的唯一草稿】\n${numbered}`;
   const raw = await callAI({ ...p, temperature: 0.2 }, system, [{ role: "user", content: user }], {
@@ -949,6 +954,8 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
   }
   let factUnits = 0;
   let coveredFactUnits = 0;
+  let characterUnits = 0;
+  let coveredCharacterUnits = 0;
   const opCounts = { KEEP: 0, REWRITE: 0, DELETE: 0 };
   const output = [];
   for (const segment of segments) {
@@ -956,14 +963,21 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
     if (!item) throw new Error("表达编辑阶段漏掉了语义段，请重试");
     const op = String(item.op || "").toUpperCase();
     const factCore = String(item.factCore || "").trim();
+    const characterCore = String(item.characterCore || "").trim();
+    const reason = String(item.reason || "").trim();
     let prose = String(item.prose || "").trim();
     if (!Object.prototype.hasOwnProperty.call(opCounts, op)) throw new Error("表达编辑阶段返回了无效操作，请重试");
     if (op === "KEEP" && prose !== segment.text) throw new Error("表达编辑阶段的 KEEP 改动了原文，请重试");
-    if (op === "DELETE" && (factCore || prose)) throw new Error("表达编辑阶段试图删除仍含事实的语义段，请重试");
-    if (op === "REWRITE" && (!factCore || !prose)) throw new Error("表达编辑阶段没有保全混合段的事实，请重试");
+    if (!reason) throw new Error("表达编辑阶段没有说明操作理由，请重试");
+    if (op === "DELETE" && (factCore || characterCore || prose)) throw new Error("表达编辑阶段试图删除仍含事实或人物信号的语义段，请重试");
+    if (op === "REWRITE" && ((!factCore && !characterCore) || !prose)) throw new Error("表达编辑阶段没有保全混合段的信息，请重试");
     if (op !== "DELETE" && factCore) {
       factUnits++;
       if (prose) coveredFactUnits++;
+    }
+    if (op !== "DELETE" && characterCore) {
+      characterUnits++;
+      if (prose) coveredCharacterUnits++;
     }
     opCounts[op]++;
     if (op !== "DELETE") output.push(prose);
@@ -975,6 +989,9 @@ async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
     factUnits,
     coveredFactUnits,
     factCoverage: factUnits ? coveredFactUnits / factUnits : 1,
+    characterUnits,
+    coveredCharacterUnits,
+    characterCoverage: characterUnits ? coveredCharacterUnits / characterUnits : 1,
     opCounts
   };
 }
@@ -2339,6 +2356,9 @@ async function generateOffline(p, ctx, session) {
   let rewriteFactUnits = 0;
   let rewriteCoveredFactUnits = 0;
   let rewriteFactCoverage = 1;
+  let rewriteCharacterUnits = 0;
+  let rewriteCoveredCharacterUnits = 0;
+  let rewriteCharacterCoverage = 1;
   let rewriteOpCounts = null;
   const rendererScoreBefore = offlineRendererScore(draftScene);
   let rendererScoreAfter = rendererScoreBefore;
@@ -2358,6 +2378,9 @@ async function generateOffline(p, ctx, session) {
     rewriteFactUnits = edited.factUnits;
     rewriteCoveredFactUnits = edited.coveredFactUnits;
     rewriteFactCoverage = edited.factCoverage;
+    rewriteCharacterUnits = edited.characterUnits;
+    rewriteCoveredCharacterUnits = edited.coveredCharacterUnits;
+    rewriteCharacterCoverage = edited.characterCoverage;
     rewriteOpCounts = edited.opCounts;
     rewriteApplied = true;
     rewriteLengthRatio = draftScene.length ? scene.length / draftScene.length : 1;
@@ -2388,6 +2411,9 @@ async function generateOffline(p, ctx, session) {
     rewriteFactUnits,
     rewriteCoveredFactUnits,
     rewriteFactCoverage,
+    rewriteCharacterUnits,
+    rewriteCoveredCharacterUnits,
+    rewriteCharacterCoverage,
     rewriteOpCounts,
     rewriteDraft: rewriteApplied ? draftScene : null,
     thought: cln(parsed.thought),
