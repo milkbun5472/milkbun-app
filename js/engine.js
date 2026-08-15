@@ -2108,8 +2108,16 @@ function offlineRegisterTransition(session) {
   const after = before || hit(last);
   const inputBeat = last.role !== "char" && last.role !== "assistant";
   const inject = !!(inputBeat && !before && after);
+  const reset = /第二天|次日|天亮后|过了(?:几小时|一夜|很久)|时间跳到|场景切换|亲密结束|停下来后|结束后.{0,12}(睡|洗|穿|离开)|穿好(?:衣服|裤子)|收拾好.{0,8}(出门|离开)|去上班|到了公司|回到学校|各自回去|分开以后/i;
+  let lastDirect = -1;
+  for (let i = 0; i < rows.length; i++) if (hit(rows[i])) lastDirect = i;
+  let active = lastDirect >= 0;
+  for (let i = lastDirect + 1; active && i < rows.length; i++) {
+    if (reset.test(String(rows[i].content || ""))) active = false;
+    if (rows[i - 1] && rows[i - 1].ts && rows[i].ts && Number(rows[i].ts) - Number(rows[i - 1].ts) > 4 * 3600000) active = false;
+  }
   let reference = "";
-  if (inputBeat && after) {
+  if (inputBeat && active) {
     for (let i = rows.length - 2; i >= 0; i--) {
       const row = rows[i];
       if ((row.role !== "char" && row.role !== "assistant") || hit(row)) continue;
@@ -2122,7 +2130,7 @@ function offlineRegisterTransition(session) {
       if (edge >= 0 && edge < 120) reference = reference.slice(edge + (reference.slice(edge, edge + 2) === "\n\n" ? 2 : 1)).trim();
     }
   }
-  return { before, after, inject, inputBeat, reference };
+  return { before, after, inject, inputBeat, active, reference };
 }
 
 async function generateOffline(p, ctx, session) {
@@ -2134,9 +2142,8 @@ async function generateOffline(p, ctx, session) {
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
   const registerTransition = !isDigital ? offlineRegisterTransition(session) : { before: false, after: false, inject: false };
-  // 用户首次跨越与角色在上一条 assistant 中自主跨越都要覆盖；场景持续性由已有 intimacy reset/时距门控制。
-  const rewriteRequested = !isDigital && !!registerTransition.inputBeat &&
-    (registerTransition.inject || (!!registerTransition.after && intimacyContextActive));
+  // 用户首次跨越与角色在上一条 assistant 中自主跨越都由同一套 direct + reset 判定覆盖，避免两套正则互相否决。
+  const rewriteRequested = !isDigital && !!registerTransition.inputBeat && !!registerTransition.active;
   const missingStateFields = [];
   if (!isDigital && !String(ctx.curWear || "").trim()) missingStateFields.push("wearing（当前穿着）");
   if (!isDigital && !String(ctx.curAction || "").trim()) missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
@@ -2219,6 +2226,9 @@ async function generateOffline(p, ctx, session) {
         calibrationInjected: false,
         factIsolationApplied: false,
         rewriteStage: false,
+        registerInputBeat: !!registerTransition.inputBeat,
+        registerActive: !!registerTransition.active,
+        rewriteRequested,
         mood: ctx.moodLabel || null,
         wearing: ctx.curWear || null,
         action: ctx.curAction || null,
@@ -2279,6 +2289,9 @@ async function generateOffline(p, ctx, session) {
     registerTransitionAfter: !!registerTransition.after,
     registerCalibrationInjected: false,
     factIsolationApplied: false,
+    registerInputBeat: !!registerTransition.inputBeat,
+    registerActive: !!registerTransition.active,
+    rewriteRequested,
     rewriteApplied,
     rewriteDraftChars: draftScene.length,
     rewriteFinalChars: scene.length,
