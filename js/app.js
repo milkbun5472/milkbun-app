@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.75";
+const APP_VERSION = "v52.76";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4351,7 +4351,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // Phase 1：把【实时背景(时间/好感/心情/世界书/记忆/近况) + 详细任务串】拼到最后一条用户消息上——落在历史缓存断点之后、不碰缓存。
       //   顺序：实时背景 → 用户这句话 → 【本轮任务+JSON格式】(放最后最利于合规)。所有每轮变的东西都在这条上，system 保持全稳定。
       if (_singleHistoryLayout) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") {
-        g[_i] = { role: "user", content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
+        // ⚠️吞图案真凶(2026-08-14 三案并破):此处原本重建对象只留 role/content,把挂在最后一条
+        // 用户消息上的 _imageRefs 抖掉了——而她的新照片永远在最后一条上,于是新图永丢、旧图冒名。
+        // 必须展开保留原字段。
+        g[_i] = { ...g[_i], content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
         break;
       } } }
       // 真照片按需从 IndexedDB 临时展开，只附最近 2 张，避免旧照片反复吞上下文/流量。
