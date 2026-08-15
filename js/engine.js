@@ -2285,9 +2285,25 @@ async function generateOffline(p, ctx, session) {
   const toyHint = session.toyOn ? "\n【toy 配件·此刻已授权】你和" + userName + "此刻线下面对面、且开了「配件」——你的动作和话能【真的作用到 Ta 身上】。这一段情境到了（亲密、挑逗、想让 Ta 有反应、按住 Ta 别乱动）你可以填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":1到20整数,\"duration\":秒数1到30,\"reason\":\"配合这段的哪个动作/哪句话\"}，否则 toy:null。**节奏跟叙事走**：推进升温→intensity 渐强；故意吊着/停下→pattern 用 edge 或压到 1；一个命令/一个动作点到 Ta→pattern 用 pulse 短脉冲。pattern：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降。先有叙事、动作配合叙事，别每段都发。强度我这边有上限，超了会被压到上限。" : "";
   const digitalToyHint = session.toyOn ? "\n【配件】此刻配件已由 " + userName + " 当场授权并连到她身上。你想实际控制它时，可使用 toy：pattern 为 teasing/steady/wave/pulse/edge，intensity 1-20，duration 1-30 秒；是否使用、何时使用、用什么节奏由你自己决定。" : "";
   const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":整数1-20,\"duration\":秒1-30,\"reason\":\"配合哪句/哪个动作\"}" : "";
+  // v52.88 A/B：预检已命中的普通单人线下，把“首稿 → 表达编辑”折叠进同一次 completion。
+  // JSON 字段按 draftScene → scene 排列；模型生成 scene 时，首稿已经成为它最近的上下文，
+  // 但网络层只发生一次请求。未命中时仍沿用普通单稿协议，不给所有线下轮次平白加倍输出。
+  const singlePassRevisionRequested = !isDigital && !!rewriteRequested;
+  const singlePassRevisionProtocol = singlePassRevisionRequested
+    ? `\n\n【本轮单次响应内自修】
+本轮只调用你一次，但输出 JSON 时必须依次完成两个不同字段：
+1. draftScene：先完整写出这一刻真正发生的首稿。事实、人物选择、主动关系、尺度与角色回应都在这里形成。
+2. scene：draftScene 写完后，立即把它当作已经确定事件的编辑对象；不续写、不改变任何事件、先后顺序、人物决定、主动关系、尺度或台词的沟通功能，只修表达。
+
+scene 必须保留全部具体身体事实，不淡出、不概括、不降低明确程度，也不新增或升级动作。保留这个人的具体选择、现实注意、关系回应和独特说话方式；通用成人场面话可以在不改变含义与语气方向的前提下换成这个人更自然的说法。
+删除或平实改写只负责再次证明刺激与强度、却不增加新事实或人物信息的内容，例如成串的嗓音变化、喉结、青筋、红眼、呼吸认证、神经刺激、理智或侵略性总结。同一种身体事实或反应维度只陈述一次。事实与渲染混在一句时保留事实核心，只移除认证包装；不要以缩短、清水化或统一成冷静短句为目标。
+draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者都必须是完整字符串，不得省略、互换或解释修改过程。
+
+本轮输出形状严格改为：{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}`
+    : "";
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20,\"duration\":1到30,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
-    : "\n\n" + OFFLINE_PROTOCOL_V2 + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20整数,\"duration\":1到30秒,\"reason\":\"配合当前场景的原因\"}。" : "");
+    : "\n\n" + OFFLINE_PROTOCOL_V2 + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20整数,\"duration\":1到30秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
     offlineTasteBlock(session.taste, false) +
@@ -2384,16 +2400,18 @@ async function generateOffline(p, ctx, session) {
     parsed = mScene ? { scene: mScene[1].replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\t/g, " ") } : { scene: bare };
   }
   const cln = v => v && String(v).toLowerCase() !== "null" ? String(v).trim() : null;
-  const draftScene = String(parsed.scene || sp.clean || "").trim();
+  const draftScene = String(singlePassRevisionRequested ? parsed.draftScene : (parsed.scene || sp.clean || "")).trim();
   if (!draftScene) throw new Error("模型没有返回有效的线下正文，请重试");
+  const singlePassFinalScene = singlePassRevisionRequested ? String(parsed.scene || "").trim() : "";
+  if (singlePassRevisionRequested && !singlePassFinalScene) throw new Error("模型没有完成单次响应内的终稿自修，请重试");
   // 预检只能看见 user/history。角色可能在本轮首稿里自行跨越，因此草稿形成后必须再检一次；
   // 否则最需要编辑的第一条会以 false→false 直接漏进 history。
   const draftExplicit = !isDigital && offlineRegisterExplicitText(draftScene);
   const effectiveRegisterActive = !isDigital && (!!registerTransition.active || draftExplicit);
   const effectiveTransitionAfter = !isDigital && (!!registerTransition.after || draftExplicit);
   if (!isDigital && registerTransition.inputBeat && effectiveRegisterActive) rewriteRequested = true;
-  let scene = draftScene;
-  let rewriteApplied = false;
+  let scene = singlePassRevisionRequested ? singlePassFinalScene : draftScene;
+  let rewriteApplied = !!singlePassRevisionRequested;
   let rewriteLengthRatio = 1;
   let rewriteFactUnits = 0;
   let rewriteCoveredFactUnits = 0;
@@ -2403,33 +2421,10 @@ async function generateOffline(p, ctx, session) {
   let rewriteCharacterCoverage = 1;
   let rewriteOpCounts = null;
   const rendererScoreBefore = offlineRendererScore(draftScene);
-  let rendererScoreAfter = rendererScoreBefore;
+  let rendererScoreAfter = offlineRendererScore(scene);
   const rendererRepeatsBefore = offlineRepeatedDimensionCount(draftScene);
-  let rendererRepeatsAfter = rendererRepeatsBefore;
-  if (rewriteRequested) {
-    if (!String(registerTransition.reference || "").trim()) throw new Error("表达编辑阶段缺少角色语言参照，请重试");
-    const edited = await offlineRewriteScene(p, char.name, registerTransition.reference, draftScene, {
-      charId: char.id,
-      sessionId: session.id || null,
-      transitionBefore: !!registerTransition.before,
-      transitionAfter: !!effectiveTransitionAfter,
-      draftChars: draftScene.length,
-      rendererScoreBefore,
-      fineGrained: lengthMode === "immersive"
-    });
-    scene = edited.text;
-    rewriteFactUnits = edited.factUnits;
-    rewriteCoveredFactUnits = edited.coveredFactUnits;
-    rewriteFactCoverage = edited.factCoverage;
-    rewriteCharacterUnits = edited.characterUnits;
-    rewriteCoveredCharacterUnits = edited.coveredCharacterUnits;
-    rewriteCharacterCoverage = edited.characterCoverage;
-    rewriteOpCounts = edited.opCounts;
-    rewriteApplied = true;
-    rewriteLengthRatio = draftScene.length ? scene.length / draftScene.length : 1;
-    rendererScoreAfter = offlineRendererScore(scene);
-    rendererRepeatsAfter = offlineRepeatedDimensionCount(scene);
-  }
+  let rendererRepeatsAfter = offlineRepeatedDimensionCount(scene);
+  if (singlePassRevisionRequested) rewriteLengthRatio = draftScene.length ? scene.length / draftScene.length : 1;
   const affinityDelta = Number.isFinite(parsed.affinityDelta) ? Math.max(-5, Math.min(5, parsed.affinityDelta)) : 0;
   return {
     scene,
@@ -2446,6 +2441,8 @@ async function generateOffline(p, ctx, session) {
     characterSupplyInjected,
     rewriteRequested,
     rewriteApplied,
+    singlePassRevisionRequested,
+    singlePassRevisionApplied: !!singlePassRevisionRequested,
     rewriteDraftChars: draftScene.length,
     rewriteFinalChars: scene.length,
     rewriteLengthRatio,

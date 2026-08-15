@@ -7,9 +7,11 @@ function assert(ok, message) {
   if (!ok) throw new Error(message);
 }
 
-assert(engine.includes("function offlineRewriteSentenceUnits(paragraph)"), "沉浸长文应具备细粒度编辑单元");
-assert(engine.includes("fineGrained: lengthMode === \"immersive\""), "只有沉浸长文应启用细粒度 editor");
-assert(engine.includes("paragraphIndex: segment.paragraphIndex"), "编辑结果应保留原段落归属");
-assert(engine.includes('last.text += part.prose'), "同一原段落内的句级编辑结果应重新连续拼接");
+assert(engine.includes("const singlePassRevisionRequested = !isDigital && !!rewriteRequested"), "只有预检命中的普通单人线下才请求单次自修");
+assert(engine.includes('"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文"'), "同一响应必须先返回首稿、再返回终稿");
+assert(engine.includes("let scene = singlePassRevisionRequested ? singlePassFinalScene : draftScene"), "展示与入史必须使用同响应终稿");
+const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
+assert(!single.includes("await offlineRewriteScene("), "单人线下主路径不得再发第二次 editor 请求");
+assert(engine.includes("singlePassRevisionApplied: !!singlePassRevisionRequested"), "诊断必须明确记录单次自修是否生效");
 
-console.log("offline immersive editor granularity tests passed");
+console.log("offline single-pass revision tests passed");
