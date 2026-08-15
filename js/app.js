@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.79";
+const APP_VERSION = "v52.80";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3298,6 +3298,12 @@ function App() {
         rewriteLengthRatio: Number(res.rewriteLengthRatio) || 0,
         rendererScoreBefore: Number(res.rendererScoreBefore) || 0,
         rendererScoreAfter: Number(res.rendererScoreAfter) || 0,
+        rendererRepeatsBefore: Number(res.rendererRepeatsBefore) || 0,
+        rendererRepeatsAfter: Number(res.rendererRepeatsAfter) || 0,
+        rewriteFactUnits: Number(res.rewriteFactUnits) || 0,
+        rewriteCoveredFactUnits: Number(res.rewriteCoveredFactUnits) || 0,
+        rewriteFactCoverage: Number.isFinite(res.rewriteFactCoverage) ? res.rewriteFactCoverage : 0,
+        rewriteOpCounts: res.rewriteOpCounts || null,
         rewriteDraft: res.rewriteDraft || null,
         ts: Date.now()
       } }));

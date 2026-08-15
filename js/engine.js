@@ -897,25 +897,86 @@ function offlineRendererScore(text) {
   return hits ? hits.length : 0;
 }
 
+function offlineRewriteSegments(draft) {
+  return String(draft || "").split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean).map((text, index) => ({ id: index + 1, text }));
+}
+
+function offlineRepeatedDimensionCount(text) {
+  const source = String(text || "");
+  const dimensions = [
+    /(?:喘|呼吸|气息)/g,
+    /(?:深处|最深|进得很深|顶到底)/g,
+    /(?:紧|绷|收紧|包裹)/g,
+    /(?:热|滚烫|温热|灼热)/g,
+    /(?:撞|顶|挺进|抽送)/g,
+    /(?:发麻|刺激|神经|快感)/g
+  ];
+  return dimensions.reduce((sum, re) => {
+    const count = (source.match(re) || []).length;
+    return sum + Math.max(0, count - 1);
+  }, 0);
+}
+
 async function offlineRewriteScene(p, charName, reference, draft, wireMeta) {
-  const system = `你是文本编辑器，不续写剧情，不扮演角色。编辑一份已经确定事件与人物选择的正文草稿。
+  const segments = offlineRewriteSegments(draft);
+  if (!segments.length) throw new Error("表达编辑阶段没有可编辑的语义段，请重试");
+  const system = `你是文本编辑器，不续写剧情，不扮演角色。你要先把一份已经确定事件与人物选择的正文草稿拆清“事实”和“表达”，再按原顺序编辑。
 必须保留草稿中的全部事件、具体身体事实、先后顺序、人物决定、谁主动、尺度和台词含义；不得淡出、概括、降低明确程度，也不得新增动作或升级事实。
-逐句按功能处理：
-1. 承载事件、台词或人物决定的句子：保留含义；若事实与渲染混在一起，只用普通、准确的句子重述事实。
-2. 只负责证明强度、重复生理反应或作抽象情绪结论、却不增加任何事实的句子：整句删除，不换一种修辞重写。
+先通读全部编号语义段，再逐段处理：
+1. 有不可丢失的新事实、台词或人物决定：列出最小 factCore，再 KEEP 或 REWRITE。事实与渲染混在一起时必须 REWRITE，只用普通、准确的句子保留 factCore。
+2. 没有新事实，只负责证明刺激、强度、生理反应或作抽象情绪结论：DELETE，不换一种修辞重写。
+3. “事实核心 + 让我怎样、令我怎样、感到极度怎样、反应有多强”等认证从句：保留事实核心，删除认证部分。
+4. 同一种身体事实或反应维度整篇只陈述一次。后续重复不增加事实时 DELETE；若同时带有另一项新事实，REWRITE 后只保留那项新事实。姿势、发力、位置和已经发生的动作本身是事实，不因其明确而删除。
 语言应与参照正文中的 ${charName} 属于同一种句法习惯、观察距离、叙事颗粒和人物声纹。参照正文只提供语言，其中事件与本轮无关，绝不搬用。
-只输出编辑后的正文，不解释修改，不输出代码块或检查表。`;
-  const user = `【语言参照·事件与本轮无关】\n${String(reference || "").trim()}\n\n【唯一待编辑草稿】\n${String(draft || "").trim()}`;
+只输出合法 JSON，不要代码块：{"items":[{"id":1,"op":"KEEP|REWRITE|DELETE","factCore":"本段不可丢失的新事实；没有则为空字符串","prose":"KEEP 时原文照录；REWRITE 时为重写正文；DELETE 时为空字符串","dimensions":["本段实际陈述的身体或反应维度"]}]}。
+每个输入 id 必须且只能出现一次，顺序不变。KEEP 的 prose 必须逐字等于原段；DELETE 的 factCore 和 prose 必须都是空字符串。`;
+  const numbered = segments.map(s => `[${s.id}] ${s.text}`).join("\n\n");
+  const user = `【语言参照·事件与本轮无关】\n${String(reference || "").trim()}\n\n【按编号编辑的唯一草稿】\n${numbered}`;
   const raw = await callAI({ ...p, temperature: 0.2 }, system, [{ role: "user", content: user }], {
     maxTokens: 4000,
     timeout: 180000,
     wireScope: "offline",
     wireMeta: { ...(wireMeta || {}), rewriteStage: true }
   });
-  const maybe = extractJSON(raw);
-  const text = String(maybe && maybe.scene ? maybe.scene : raw || "").replace(/```(?:json|text)?/gi, "").trim();
-  if (!text) throw new Error("表达编辑阶段没有返回有效正文，请重试");
-  return text;
+  const parsed = extractJSON(raw);
+  const items = parsed && Array.isArray(parsed.items) ? parsed.items : null;
+  if (!items || items.length !== segments.length) throw new Error("表达编辑阶段没有完整返回全部语义段，请重试");
+  const byId = new Map();
+  for (const item of items) {
+    const id = Number(item && item.id);
+    if (!Number.isInteger(id) || id < 1 || id > segments.length || byId.has(id)) throw new Error("表达编辑阶段返回了无效编号，请重试");
+    byId.set(id, item);
+  }
+  let factUnits = 0;
+  let coveredFactUnits = 0;
+  const opCounts = { KEEP: 0, REWRITE: 0, DELETE: 0 };
+  const output = [];
+  for (const segment of segments) {
+    const item = byId.get(segment.id);
+    if (!item) throw new Error("表达编辑阶段漏掉了语义段，请重试");
+    const op = String(item.op || "").toUpperCase();
+    const factCore = String(item.factCore || "").trim();
+    let prose = String(item.prose || "").trim();
+    if (!Object.prototype.hasOwnProperty.call(opCounts, op)) throw new Error("表达编辑阶段返回了无效操作，请重试");
+    if (op === "KEEP" && prose !== segment.text) throw new Error("表达编辑阶段的 KEEP 改动了原文，请重试");
+    if (op === "DELETE" && (factCore || prose)) throw new Error("表达编辑阶段试图删除仍含事实的语义段，请重试");
+    if (op === "REWRITE" && (!factCore || !prose)) throw new Error("表达编辑阶段没有保全混合段的事实，请重试");
+    if (op !== "DELETE" && factCore) {
+      factUnits++;
+      if (prose) coveredFactUnits++;
+    }
+    opCounts[op]++;
+    if (op !== "DELETE") output.push(prose);
+  }
+  const text = output.join("\n\n").trim();
+  if (!text) throw new Error("表达编辑阶段删除了全部正文，请重试");
+  return {
+    text,
+    factUnits,
+    coveredFactUnits,
+    factCoverage: factUnits ? coveredFactUnits / factUnits : 1,
+    opCounts
+  };
 }
 // ── 世界书注入引擎（第2步）：按角色/触发词/适用范围/优先级/正则筛选词条 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope:'chat'|'subjects'|'debate'|'lifestyle'|'diary', text:近期对话(供关键词命中) }
@@ -2263,11 +2324,17 @@ async function generateOffline(p, ctx, session) {
   let scene = draftScene;
   let rewriteApplied = false;
   let rewriteLengthRatio = 1;
+  let rewriteFactUnits = 0;
+  let rewriteCoveredFactUnits = 0;
+  let rewriteFactCoverage = 1;
+  let rewriteOpCounts = null;
   const rendererScoreBefore = offlineRendererScore(draftScene);
   let rendererScoreAfter = rendererScoreBefore;
+  const rendererRepeatsBefore = offlineRepeatedDimensionCount(draftScene);
+  let rendererRepeatsAfter = rendererRepeatsBefore;
   if (rewriteRequested) {
     if (!String(registerTransition.reference || "").trim()) throw new Error("表达编辑阶段缺少角色语言参照，请重试");
-    scene = await offlineRewriteScene(p, char.name, registerTransition.reference, draftScene, {
+    const edited = await offlineRewriteScene(p, char.name, registerTransition.reference, draftScene, {
       charId: char.id,
       sessionId: session.id || null,
       transitionBefore: !!registerTransition.before,
@@ -2275,9 +2342,15 @@ async function generateOffline(p, ctx, session) {
       draftChars: draftScene.length,
       rendererScoreBefore
     });
+    scene = edited.text;
+    rewriteFactUnits = edited.factUnits;
+    rewriteCoveredFactUnits = edited.coveredFactUnits;
+    rewriteFactCoverage = edited.factCoverage;
+    rewriteOpCounts = edited.opCounts;
     rewriteApplied = true;
     rewriteLengthRatio = draftScene.length ? scene.length / draftScene.length : 1;
     rendererScoreAfter = offlineRendererScore(scene);
+    rendererRepeatsAfter = offlineRepeatedDimensionCount(scene);
   }
   const affinityDelta = Number.isFinite(parsed.affinityDelta) ? Math.max(-5, Math.min(5, parsed.affinityDelta)) : 0;
   return {
@@ -2298,6 +2371,12 @@ async function generateOffline(p, ctx, session) {
     rewriteLengthRatio,
     rendererScoreBefore,
     rendererScoreAfter,
+    rendererRepeatsBefore,
+    rendererRepeatsAfter,
+    rewriteFactUnits,
+    rewriteCoveredFactUnits,
+    rewriteFactCoverage,
+    rewriteOpCounts,
     rewriteDraft: rewriteApplied ? draftScene : null,
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
