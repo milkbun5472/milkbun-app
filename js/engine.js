@@ -1645,6 +1645,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 控长避免把超长角色卡整份塞进图像端；显式 photoCanon/photoOutfit 仍拥有最高优先级。
   const personaVisualSource = String(char.persona || "").trim().slice(0, 2400);
   const identityText = [visualCanon, char.appearance, personaVisualSource].filter(Boolean).join("\n");
+  const clothingText = [fixedOutfit, st && st.wearing, char.appearance, personaVisualSource].filter(Boolean).join("\n");
+  const wantsLightArmor = /(?:骑士|铠甲|盔甲|护甲|armor|armour)/i.test(clothingText) && /(?:不厚重|不笨重|轻便|轻型|轻甲|修身|贴身|灵活|便于行动|lightweight|slim|fitted)/i.test(clothingText);
   const isMinor = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bboy\b|\bgirl\b|\bminor\b|(?:[1-9]|1[0-7])\s*岁)/i.test(identityText);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
@@ -1659,8 +1661,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   }
   // 手部/肢端解剖（治 AI 经典翻车：比耶少一根手指、多指并指）——correct hands 关键词一起上
   parts.push("【手脚必须解剖正确】correct human hands, exactly five fingers per hand, anatomically correct fingers——每只手正好五根手指、每只脚五根脚趾；比耶(V手势)/比心/挥手/竖大拇指/握东西/十指相扣时，手指的数目、长短、朝向和关节都要正确自然，**绝对不许多指、少指、断指、并指融合、手指扭曲畸形或长度诡异**。手若入镜就照实画对，拿不准就让手自然下垂/插兜/被遮挡，也别画错。");
-  // 身材硬约束（v47.74）：edits 模式参考照主导身材，文字要顶在前面才有话语权
-  parts.push("【身材硬性要求，凌驾于参考图的身体】healthy body weight, anatomically coherent body, not underweight, not emaciated——健康体重、协调自然的人体：头身与肩颈躯干四肢比例符合所选画风，有自然的体量，绝不许瘦脱相或肢体拉长扭曲。若参考图中的身体过瘦，按健康匀称的体型重画身体。");
+  // 身体也属于人物身份。旧版曾要求“凌驾于参考图身体”，会造成脸没变、肩宽体型却被职业刻板印象重画。
+  parts.push("【身体身份锁，与脸同等重要】若提供人物参考图，必须保留同一个人的原始骨架与身体轮廓：肩宽、颈肩比例、躯干厚度、胸廓、腰线、四肢粗细、身高观感和整体体型都不得改变；不要增肌、加宽肩膀、加厚胸背，也不要因为『骑士／战士／军人』等职业词自动生成壮汉体格。只修复明显的解剖错误，不得以『更健康／更强壮』为理由重塑身体。若没有参考图，则严格服从身份锁和外貌设定；设定未写体型时使用普通自然体型，不做职业刻板补全。");
   // 体态·治「驼背」和「偷感」（v48.52）：抓拍质感不等于畏缩——人要挺拔松弛
   parts.push("【体态自然挺拔，别驼背别『偷感』】good posture, upright relaxed natural stance, straight back, shoulders relaxed and open, confident at ease——脊背基本挺直、肩膀自然打开别缩着、脖子别前伸、下巴别往里缩；**绝不许含胸驼背、缩肩弓背、佝偻畏缩**。神态松弛自在、大方自然，像很自在地在自拍/被拍，**绝不要躲闪、拘谨、猥琐、鬼鬼祟祟、偷拍似的那种『偷感』**。哪怕是随手抓拍，人也站得/坐得舒展从容。");
   // 参考照负责像谁；角色卡负责是谁、什么年龄与穿什么。两路约束必须同时生效。
@@ -1686,6 +1688,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   } else {
     parts.push("服装必须从上述外貌与人设的时代／职业／常穿服饰中忠实推导；若设定已有服装就原样遵守，禁止随机现代化。设定确实没有衣着信息时才允许按场景补全。");
   }
+  if (wantsLightArmor) parts.push("【轻便骑士服的明确视觉定义】这里要的是纤薄、贴合身体原有轮廓、便于活动的轻型骑士装：以柔软织物、皮革、薄链甲或少量小型护片分层构成，窄肩线、自然胸廓、四肢轮廓清楚，整体重量感轻。只保留必要防护细节；绝对不要全覆盖重型板甲、巨型肩甲、桶状厚胸甲、夸张肌肉胸甲、厚重头盔或科幻动力装甲。『骑士』表示身份与时代设计，不表示重甲或壮硕体型。");
   if (sceneDesc && String(sceneDesc).trim()) parts.push("场景/正在做什么：" + String(sceneDesc).trim() + "。");
   if (st && st.mood && kind !== "duo") parts.push("神情情绪：" + st.mood + "。");
   // —— 构图/视角，按类型分流 ——

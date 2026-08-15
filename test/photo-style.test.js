@@ -42,3 +42,17 @@ test("图像 API 默认与回退模型统一为 GPT Image 2", () => {
   assert.match(engine, /model: "gpt-image-2"/);
   assert.match(screens, /placeholder: "gpt-image-2"/);
 });
+
+test("参考图同时锁脸和身材，不再把骑士职业补成壮汉", () => {
+  assert.match(engine, /身体身份锁，与脸同等重要/);
+  assert.match(engine, /肩宽、颈肩比例、躯干厚度、胸廓/);
+  assert.match(engine, /不要因为『骑士／战士／军人』等职业词自动生成壮汉体格/);
+  assert.doesNotMatch(engine, /身材硬性要求，凌驾于参考图的身体/);
+});
+
+test("轻便骑士服会展开为纤薄轻甲正向规格", () => {
+  assert.match(engine, /const wantsLightArmor =/);
+  assert.match(engine, /轻便骑士服的明确视觉定义/);
+  assert.match(engine, /柔软织物、皮革、薄链甲或少量小型护片/);
+  assert.match(engine, /绝对不要全覆盖重型板甲、巨型肩甲/);
+});
