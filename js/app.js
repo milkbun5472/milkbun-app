@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.80";
+const APP_VERSION = "v52.81";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3317,6 +3317,8 @@ function App() {
         cotRequested: !!res.cotRequested,
         ts: Date.now(),
         generated: true,
+        // 终稿进入 history 后保留场景门控状态；否则 rewrite 洗掉触发词会让下一轮误判退出。
+        registerExplicitActive: !!res.registerActive,
         turnId: offTurnId
       });
       // 配件·触发（线下）：再核一遍激活态才下发（她可能刚按急停）

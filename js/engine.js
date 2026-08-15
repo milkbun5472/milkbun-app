@@ -2162,21 +2162,23 @@ function offlineRegisterTransition(session) {
   const rows = (session && Array.isArray(session.msgs) ? session.msgs : [])
     .filter(m => m && m.kind !== "ooc" && m.content);
   if (!rows.length) return { before: false, after: false, inject: false };
-  const direct = /性器|阴茎|阴蒂|龟头|乳房|胸乳|勃起|硬(?:了|起来|得)|进入(?:她|他|你|身体)|插入|抽送|高潮|自慰|做爱|性交|口交|手(?:指)?[^。！？\n]{0,12}(?:伸进|探进)[^。！？\n]{0,12}(?:裤|内裤|腿间)|(?:握住|握上|抓住|含住|舔弄)[^。！？\n]{0,10}(?:性器|阴茎|那里)|脱(?:下|掉|了)[^。！？\n]{0,8}(?:裤子|内裤)/i;
-  const hit = m => direct.test(String(m && m.content || ""));
+  const direct = /性器|阴茎|阴蒂|龟头|乳房|胸乳|勃起|硬(?:了|起来|得)|进入(?:她|他|你|身体)|插入|抽送|挺进|贯穿|高潮|自慰|做爱|性交|口交|吞(?:了)?进去|进得.{0,5}深|顶(?:到|进|向).{0,8}(?:深处|最深|到底)|撞(?:到|进|向).{0,8}(?:深处|最深|到底)|手(?:指)?[^。！？\n]{0,12}(?:伸进|探进)[^。！？\n]{0,12}(?:裤|内裤|腿间)|(?:握住|握上|抓住|含住|舔弄)[^。！？\n]{0,10}(?:性器|阴茎|那里)|脱(?:下|掉|了)[^。！？\n]{0,8}(?:裤子|内裤)/i;
+  // rewrite 会主动把高刺激词洗掉，因此“上一轮已处于明确场景”必须作为消息状态留下，
+  // 不能要求干净终稿每轮重新携带触发词来证明自己仍在同一场景。
+  const hit = m => !!(m && m.registerExplicitActive) || direct.test(String(m && m.content || ""));
   const last = rows[rows.length - 1];
-  const before = rows.slice(0, -1).some(hit);
-  const after = before || hit(last);
   const inputBeat = last.role !== "char" && last.role !== "assistant";
-  const inject = !!(inputBeat && !before && after);
   const reset = /第二天|次日|天亮后|过了(?:几小时|一夜|很久)|时间跳到|场景切换|亲密结束|停下来后|结束后.{0,12}(睡|洗|穿|离开)|穿好(?:衣服|裤子)|收拾好.{0,8}(出门|离开)|去上班|到了公司|回到学校|各自回去|分开以后/i;
-  let lastDirect = -1;
-  for (let i = 0; i < rows.length; i++) if (hit(rows[i])) lastDirect = i;
-  let active = lastDirect >= 0;
-  for (let i = lastDirect + 1; active && i < rows.length; i++) {
-    if (reset.test(String(rows[i].content || ""))) active = false;
+  let active = false;
+  let before = false;
+  for (let i = 0; i < rows.length; i++) {
+    if (i === rows.length - 1) before = active;
     if (rows[i - 1] && rows[i - 1].ts && rows[i].ts && Number(rows[i].ts) - Number(rows[i - 1].ts) > 4 * 3600000) active = false;
+    if (reset.test(String(rows[i].content || ""))) active = false;
+    else if (hit(rows[i])) active = true;
   }
+  const after = active;
+  const inject = !!(inputBeat && !before && after);
   let reference = "";
   if (inputBeat && active) {
     for (let i = rows.length - 2; i >= 0; i--) {
