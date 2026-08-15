@@ -5411,12 +5411,15 @@ function OfflineMode({
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
       h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { style: { marginTop: 14, padding: "9px 11px", borderRadius: 9, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10.5, lineHeight: 1.65, color: t.fog } },
-      h("div", null, ".84 first-pass character supply · 仅内存诊断"),
+      h("div", null, ".86 explicit preflight · 仅内存诊断"),
       registerTelemetry
-        ? h("div", { style: { color: registerTelemetry.registerCalibrationInjected ? t.tint : t.sub } },
+        ? h(React.Fragment, null,
+          h("div", { style: { color: registerTelemetry.registerCalibrationInjected ? t.tint : t.sub } },
             "transition: " + registerTelemetry.transitionBefore + " → " + registerTelemetry.transitionAfter,
             h("br"),
-            "input/active/requested: " + registerTelemetry.registerInputBeat + " / " + registerTelemetry.registerActive + " / " + registerTelemetry.rewriteRequested,
+            "user beat / preflight / post-draft: " + registerTelemetry.registerInputBeat + " / " + registerTelemetry.registerPreflightActive + " / " + registerTelemetry.registerActive),
+          h("div", null,
+            "rewrite requested: " + registerTelemetry.rewriteRequested,
             h("br"),
             "character supply: " + (registerTelemetry.characterSupplyInjected ? "injected" : "not injected"),
             h("br"),
@@ -5437,7 +5440,7 @@ function OfflineMode({
                 "ops K/R/D: " + (registerTelemetry.rewriteOpCounts.KEEP || 0) + "/" + (registerTelemetry.rewriteOpCounts.REWRITE || 0) + "/" + (registerTelemetry.rewriteOpCounts.DELETE || 0)) : null,
               registerTelemetry.rewriteDraft ? h("details", { style: { marginTop: 5 } },
                 h("summary", { style: { cursor: "pointer" } }, "查看首遍草稿（不入 history）"),
-                h("div", { style: { whiteSpace: "pre-wrap", marginTop: 4, maxHeight: 180, overflow: "auto" } }, registerTelemetry.rewriteDraft)) : null) : null)
+                h("div", { style: { whiteSpace: "pre-wrap", marginTop: 4, maxHeight: 180, overflow: "auto" } }, registerTelemetry.rewriteDraft)) : null) : null))
         : h("div", null, "还没有本轮记录")),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },

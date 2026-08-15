@@ -2174,7 +2174,7 @@ function offlineIntimacyContextActive(session) {
   return after.slice(-4).some(r => continuation.test(r.text));
 }
 
-const OFFLINE_REGISTER_DIRECT_RE = /性器|阴茎|阴蒂|龟头|乳房|胸乳|勃起|硬(?:了|起来|得)|进入(?:她|他|你|身体)|插入|抽送|挺进|贯穿|高潮|自慰|做爱|性交|口交|吞(?:了)?进去|进得.{0,5}深|顶(?:到|进|向).{0,8}(?:深处|最深|到底)|撞(?:到|进|向).{0,8}(?:深处|最深|到底)|手(?:指)?[^。！？\n]{0,12}(?:伸进|探进)[^。！？\n]{0,12}(?:裤|内裤|腿间)|(?:握住|握上|抓住|含住|舔弄)[^。！？\n]{0,10}(?:性器|阴茎|那里)|脱(?:下|掉|了)[^。！？\n]{0,8}(?:裤子|内裤)/i;
+const OFFLINE_REGISTER_DIRECT_RE = /性器|阴茎|阴蒂|龟头|乳房|胸乳|鸡巴|肉棒|阳具|阴道|小穴|肉穴|屁眼|勃起|硬(?:了|起来|得)|进入(?:她|他|你|身体)|插入|抽送|挺进|贯穿|高潮|自慰|做爱|性交|口交|肏|操(?:进|入)|撸(?:动|弄)|套弄|吞(?:了)?进去|进得.{0,5}深|顶(?:到|进|向).{0,8}(?:深处|最深|到底)|撞(?:到|进|向).{0,8}(?:深处|最深|到底)|手(?:指)?[^。！？\n]{0,12}(?:伸进|探进)[^。！？\n]{0,12}(?:裤|内裤|腿间)|(?:握住|握上|抓住|含住|舔弄)[^。！？\n]{0,10}(?:性器|阴茎|鸡巴|肉棒|阳具|那里)|脱(?:下|掉|了)[^。！？\n]{0,8}(?:裤子|内裤)/i;
 
 function offlineRegisterExplicitText(text) {
   return OFFLINE_REGISTER_DIRECT_RE.test(String(text || ""));
@@ -2404,6 +2404,7 @@ async function generateOffline(p, ctx, session) {
     registerCalibrationInjected: false,
     factIsolationApplied: false,
     registerInputBeat: !!registerTransition.inputBeat,
+    registerPreflightActive: !!registerTransition.active,
     registerActive: !!effectiveRegisterActive,
     characterSupplyInjected,
     rewriteRequested,
