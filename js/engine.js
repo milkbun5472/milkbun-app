@@ -892,18 +892,16 @@ const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 输出形状：{"scene":"当前场景正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}
 场景先发生，系统再记录。`;
 
-const OFFLINE_REGISTER_CALIBRATION = `【表达连续性校准】
-以下两个微型例子只用于校准表达方式，不属于当前人物、关系、地点或历史；不要复用其中的动作、台词或细节。
-A
-前：他被突然拉近，停了一下。“你认真的？”
-后：距离进一步缩短，他确认了对方没有退开的意思，便顺着已经发生的动作继续。“行。”
-B
-前：她愣了半秒，手还停在原处。“等等。”
-后：新的接触发生后，她先缓了一口气，重新看向对方。“好了，继续吧。”
-注意两组人物的反应方式不同，但前后各自使用同一种语言：
-发生什么就写什么，人物仍按自己原来的方式处理。
-内容变直接，不等于语言自动变得更激烈、更感官化、更解释性或更修辞化。
-只增加新事实真正需要的信息。`;
+function offlineLocalRegisterCalibration(anchor) {
+  const text = String(anchor || "").trim();
+  if (!text) return "";
+  return `【本轮表达参照】
+最新用户输入是本轮已经发生的事实、用户动作、意图与边界的来源，不是角色的叙述语言示范。角色仍根据自身性格和当前处境决定自己的回应与后续动作。
+已经明确发生的内容保持原样成立：不要省略、淡出、弱化成含糊概括，也不要擅自增加更强的事实。
+下面是当前角色在本场刚刚形成的表达方式。继续沿用其中的句法、注意方式、叙事颗粒和说话习惯；只学习怎么表达，不重复其中事件。
+〔当前角色最近的干净正文〕
+${text}`;
+}
 // ── 世界书注入引擎（第2步）：按角色/触发词/适用范围/优先级/正则筛选词条 ──
 // entries: 结构化词条数组；opts: { charIds:[在场角色id], scope:'chat'|'subjects'|'debate'|'lifestyle'|'diary', text:近期对话(供关键词命中) }
 function loreScopeOn(e, scope) {
@@ -2094,7 +2092,27 @@ function offlineRegisterTransition(session) {
   const before = rows.slice(0, -1).some(hit);
   const after = before || hit(last);
   const inputBeat = last.role !== "char" && last.role !== "assistant";
-  return { before, after, inject: !!(inputBeat && !before && after) };
+  const inject = !!(inputBeat && !before && after);
+  let anchor = "";
+  if (inject) {
+    const picked = [];
+    let chars = 0;
+    for (let i = rows.length - 2; i >= 0 && picked.length < 2 && chars < 520; i--) {
+      const row = rows[i];
+      if ((row.role !== "char" && row.role !== "assistant") || hit(row)) continue;
+      const text = String(row.content || "").trim();
+      if (!text) continue;
+      picked.unshift(text);
+      chars += text.length;
+    }
+    anchor = picked.join("\n\n");
+    if (anchor.length > 600) {
+      anchor = anchor.slice(-600);
+      const edge = anchor.search(/(?:\n\n|[。！？]\s*)/);
+      if (edge >= 0 && edge < 140) anchor = anchor.slice(edge + (anchor.slice(edge, edge + 2) === "\n\n" ? 2 : 1)).trim();
+    }
+  }
+  return { before, after, inject, anchor };
 }
 
 async function generateOffline(p, ctx, session) {
@@ -2106,7 +2124,9 @@ async function generateOffline(p, ctx, session) {
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
   const registerTransition = !isDigital ? offlineRegisterTransition(session) : { before: false, after: false, inject: false };
-  const registerCalibrationBlock = registerTransition.inject ? "\n\n" + OFFLINE_REGISTER_CALIBRATION : "";
+  const registerCalibrationText = registerTransition.inject ? offlineLocalRegisterCalibration(registerTransition.anchor) : "";
+  const registerCalibrationBlock = registerCalibrationText ? "\n\n" + registerCalibrationText : "";
+  const registerCalibrationInjected = !!registerCalibrationText;
   const missingStateFields = [];
   if (!isDigital && !String(ctx.curWear || "").trim()) missingStateFields.push("wearing（当前穿着）");
   if (!isDigital && !String(ctx.curAction || "").trim()) missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
@@ -2165,8 +2185,8 @@ async function generateOffline(p, ctx, session) {
   const tailNudge = isDigital
     ? userActionTail
     : continueCue + rerollTail + "\n\n〔本轮线下〕保持当前场景、人物位置、物件和状态连续；未知细节不要擅自具体化。按既定叙事准则自然续写，不提前跳到未发生的剧情。" + (cotT ? "先完成正文 JSON，再写既定的创作旁注标记块。" : "");
-  // v52.72 单变量 A/B：校准文本和首次跨越触发均不变，只从 system 中段移到最新 user 尾部，
-  // 单独验证靠近解码位置能否延长 register 连续性。
+  // v52.73：首次跨越时把角色刚写出的干净正文提到最新 user 尾部，
+  // 让用户输入只提供事实、角色自己的近端文本提供表达参照。
   const finalNudge = tailNudge + (isDigital ? "" : userActionTail + registerCalibrationBlock);
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: "（继续）" + finalNudge });
@@ -2186,7 +2206,8 @@ async function generateOffline(p, ctx, session) {
         sessionId: session.id || null,
         transitionBefore: !!registerTransition.before,
         transitionAfter: !!registerTransition.after,
-        calibrationInjected: !!registerTransition.inject,
+        calibrationInjected: registerCalibrationInjected,
+        registerAnchorChars: String(registerTransition.anchor || "").length,
         mood: ctx.moodLabel || null,
         wearing: ctx.curWear || null,
         action: ctx.curAction || null,
@@ -2226,7 +2247,8 @@ async function generateOffline(p, ctx, session) {
     cotRequested: !!requestedCotT,
     registerTransitionBefore: !!registerTransition.before,
     registerTransitionAfter: !!registerTransition.after,
-    registerCalibrationInjected: !!registerTransition.inject,
+    registerCalibrationInjected,
+    registerAnchorChars: String(registerTransition.anchor || "").length,
     thought: cln(parsed.thought),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
