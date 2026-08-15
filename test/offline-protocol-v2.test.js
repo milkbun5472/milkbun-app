@@ -16,6 +16,7 @@ test("ordinary single offline uses short narrative runtime and protocol v2", () 
   assert.match(engine, /draftScene = String\(parsed\.scene \|\| sp\.clean \|\| ""\)\.trim\(\)/);
   assert.match(engine, /let scene = draftScene/);
   assert.match(engine, /scene = await offlineRewriteScene/);
+  assert.match(engine, /registerTransition\.after && intimacyContextActive/);
   assert.match(engine, /if \(!draftScene\) throw new Error/);
 });
 

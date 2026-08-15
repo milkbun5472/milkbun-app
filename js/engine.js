@@ -2109,7 +2109,7 @@ function offlineRegisterTransition(session) {
   const inputBeat = last.role !== "char" && last.role !== "assistant";
   const inject = !!(inputBeat && !before && after);
   let reference = "";
-  if (inject) {
+  if (inputBeat && after) {
     for (let i = rows.length - 2; i >= 0; i--) {
       const row = rows[i];
       if ((row.role !== "char" && row.role !== "assistant") || hit(row)) continue;
@@ -2122,7 +2122,7 @@ function offlineRegisterTransition(session) {
       if (edge >= 0 && edge < 120) reference = reference.slice(edge + (reference.slice(edge, edge + 2) === "\n\n" ? 2 : 1)).trim();
     }
   }
-  return { before, after, inject, reference };
+  return { before, after, inject, inputBeat, reference };
 }
 
 async function generateOffline(p, ctx, session) {
@@ -2134,6 +2134,9 @@ async function generateOffline(p, ctx, session) {
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
   const registerTransition = !isDigital ? offlineRegisterTransition(session) : { before: false, after: false, inject: false };
+  // 用户首次跨越与角色在上一条 assistant 中自主跨越都要覆盖；场景持续性由已有 intimacy reset/时距门控制。
+  const rewriteRequested = !isDigital && !!registerTransition.inputBeat &&
+    (registerTransition.inject || (!!registerTransition.after && intimacyContextActive));
   const missingStateFields = [];
   if (!isDigital && !String(ctx.curWear || "").trim()) missingStateFields.push("wearing（当前穿着）");
   if (!isDigital && !String(ctx.curAction || "").trim()) missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
@@ -2252,7 +2255,7 @@ async function generateOffline(p, ctx, session) {
   let rewriteLengthRatio = 1;
   const rendererScoreBefore = offlineRendererScore(draftScene);
   let rendererScoreAfter = rendererScoreBefore;
-  if (registerTransition.inject) {
+  if (rewriteRequested) {
     if (!String(registerTransition.reference || "").trim()) throw new Error("表达编辑阶段缺少角色语言参照，请重试");
     scene = await offlineRewriteScene(p, char.name, registerTransition.reference, draftScene, {
       charId: char.id,
