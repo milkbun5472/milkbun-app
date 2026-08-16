@@ -18,6 +18,10 @@
     const t = useTheme();
     const uName = (props.profile && props.profile.name) || "你";
     const [lines, setLines] = useState(load);
+    // 收藏的基线设定(x_theaterPresets):满意的身份/世界可复用开新局,只重新生成开场与目标
+    const [presets, setPresets] = useState(() => { try { return JSON.parse(localStorage.getItem("x_theaterPresets") || "[]"); } catch (e) { return []; } });
+    const savePresets = fn => setPresets(p => { const n = fn(p.slice()); try { localStorage.setItem("x_theaterPresets", JSON.stringify(n)); } catch (e) {} return n; });
+    const addPreset = src => { savePresets(l => [{ id: rid("tp_"), charId: src.charId, title: src.title, charRole: src.charRole, userRole: src.userRole, setting: src.setting, keywords: src.keywords || "", ts: Date.now() }, ...l]); props.toast("已收藏为基线"); };
     const [view, setView] = useState("list"); // list | create | play
     const [playId, setPlayId] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -39,12 +43,27 @@
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true);
       try {
-        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n先构思一个把两人绑在一起的【张力核心】——一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债;两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。\ngoal 必须是这条张力的【关键节点】,而且【必须是角色一方做出/说出的事】——让他承认、让他答应、让他说出秘密、让他做出那个选择;由 " + uName + " 在对话里想办法促成,他跨过那道心理门槛才算达成。绝不许把目标写成要 " + uName + " 自己去坦白/抉择/行动的任务(Ta 是解题的人,不是被出题的人)。节点要有代价、有风险:他说出口就回不了头、做了就改变两人关系。禁止事务级小目标(承认个小错、答应个小要求这种一句话就能完成的事)。\nsetting 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份与处境(2-3句)\",\"userRole\":\"" + uName + " 的新身份+Ta 背负的冲突或赌注(2-3句)\",\"setting\":\"世界背景+张力核心+当下这个时刻(3-5句)\",\"opening\":\"开场正文\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\"}";
+        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、那股聪明劲;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域(原本搞研究就总派研究员,这是偷懒)。关键词为空时,从彼此差异大的题材池(悬疑/权谋/江湖/末世/民国/赛博/奇幻/宫廷/职场犯罪…)里挑一个与原设定不重合的。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,用他原本的聪明、魅力和说话方式去坏,不许洗白、软化或让他偷偷还是好人。\n先构思一个把两人绑在一起的【张力核心】——一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债;两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。\ngoal 必须是这条张力的【关键节点】,而且【必须是角色一方做出/说出的事】——让他承认、让他答应、让他说出秘密、让他做出那个选择;由 " + uName + " 在对话里想办法促成,他跨过那道心理门槛才算达成。绝不许把目标写成要 " + uName + " 自己去坦白/抉择/行动的任务(Ta 是解题的人,不是被出题的人)。节点要有代价、有风险:他说出口就回不了头、做了就改变两人关系。禁止事务级小目标(承认个小错、答应个小要求这种一句话就能完成的事)。\nsetting 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份与处境(2-3句)\",\"userRole\":\"" + uName + " 的新身份+Ta 背负的冲突或赌注(2-3句)\",\"setting\":\"世界背景+张力核心+当下这个时刻(3-5句)\",\"opening\":\"开场正文\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\"}";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则自由发挥)】" + (kw.trim() || "无") + "\n\n【对方名字】" + uName;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2400, timeout: 150000 });
         const p = extractJSON(raw);
         if (!p || !p.charRole || !p.setting || !p.goal) throw new Error("设定生成不完整,再试一次");
         setDraft({ charId: char.id, keywords: kw.trim(), title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", setting: p.setting, opening: p.opening || "", goal: p.goal });
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 从收藏基线开新局:身份/世界/张力固定不动,只生成新的开场与本轮目标
+    const genFromPreset = async ps => {
+      const char = props.characters.find(c => c.id === ps.charId);
+      if (!char) return props.toast("这个基线的角色不在了");
+      if (!props.active) return props.toast("请先配置线下 API");
+      setPickChar(ps.charId); setBusy(true);
+      try {
+        const sys = "基于下面这套【固定的 if 线设定】开一局新的:设定本身(身份/世界/张力核心)一个字不许改,只生成新的开场与本轮目标。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个正在进行、必须做选择的时刻,张力悬着收尾,不替 Ta 做任何决定。\ngoal:【必须是角色做出/说出的事】(让他承认/答应/揭示/抉择),由 " + uName + " 促成、他跨过心理门槛才算达成;有代价、说出口就回不了头;禁止事务级小目标,也不许写成要 " + uName + " 自己行动的任务。\n只输出 JSON:{\"opening\":\"开场正文\",\"goal\":\"一句话目标\"}";
+        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与张力:" + ps.setting;
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 1800, timeout: 150000 });
+        const p = extractJSON(raw);
+        if (!p || !p.goal) throw new Error("开局生成不完整,再试一次");
+        setDraft({ charId: ps.charId, keywords: ps.keywords, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, setting: ps.setting, opening: p.opening || "", goal: p.goal, fromPreset: true });
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     const acceptDraft = () => {
@@ -118,9 +137,10 @@
       const preview = draft && h("div", { style: S.card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
         [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与情境", draft.setting], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
-        h("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
+        h("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开演"),
-          h("button", { onClick: genSetting, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版")));
+          !draft.fromPreset && h("button", { onClick: genSetting, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
+          !draft.fromPreset && h("button", { onClick: () => addPreset(draft), style: S.btn(false) }, "收藏为基线")));
       return h("div", { style: S.wrap }, header("新开 if 线"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { style: S.card }, h("div", { style: S.lbl }, "选角色"),
@@ -129,6 +149,12 @@
           h("div", { style: S.card }, h("div", { style: S.lbl }, "关键词(选填:题材/身份/氛围,如「民国 报社 追凶」)"),
             h("textarea", { value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=让 Ta 自由发挥", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
             !draft && h("button", { onClick: genSetting, disabled: busy, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, busy ? "在想…" : "生成设定")),
+          !draft && presets.filter(p => p.charId === pickChar).length ? h("div", { style: S.card },
+            h("div", { style: S.lbl }, "收藏的基线(用同一套身份世界开新局)"),
+            presets.filter(p => p.charId === pickChar).map(ps => h("div", { key: ps.id, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
+              h("div", { style: Object.assign({}, S.txt, { flex: 1 }) }, ps.title),
+              h("button", { onClick: () => genFromPreset(ps), disabled: busy, style: S.btn(true) }, "开新局"),
+              h("button", { onClick: () => { if (confirm("删除这条基线?")) savePresets(l => l.filter(x => x.id !== ps.id)); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "✕")))) : null,
           preview));
     }
 
@@ -141,6 +167,7 @@
         line.rounds.map((r, i) => h("div", { key: r.id, style: Object.assign({}, S.txt, { marginBottom: 3 }) }, "第" + (i + 1) + "轮:" + r.goal + (r.goalDone ? " ✓" : i === line.rounds.length - 1 ? "(进行中)" : "(未完)"))),
         h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
           round.goalDone ? h("button", { onClick: newRound, disabled: busy, style: S.btn(true) }, busy ? "在想…" : "开启下一轮目标") : null,
+          h("button", { onClick: () => addPreset(line), style: S.btn(false) }, "收藏此设定"),
           h("button", { onClick: () => delLine(line.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此线")));
       const banner = round.pending && h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", borderColor: t.ink }) },
         h("div", { style: S.txt }, "本轮目标可能已达成:" + round.goal + (typeof round.pending === "string" ? "\n(" + round.pending + ")" : "")),
@@ -161,14 +188,21 @@
           h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "演")));
     }
 
-    // list
+    // list:按角色分组收纳;每条记录可单独删除
+    const groups = [];
+    lines.forEach(l => { let g = groups.find(x => x.charId === l.charId); if (!g) { g = { charId: l.charId, items: [] }; groups.push(g); } g.items.push(l); });
     return h("div", { style: S.wrap }, header("小剧场"),
       h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-        lines.length ? lines.map(l => { const c = charOf(l); const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
-          return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer" }) },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, l.title),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, (c.name || "?") + " · 第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条"),
-            h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); })
+        lines.length ? groups.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
+          return h("div", { key: g.charId },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub, margin: "16px 16px 0" } }, (c.name || "?") + " · " + g.items.length + "条线"),
+            g.items.map(l => { const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
+              return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }) },
+                h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + l.title + "」和全部记录?")) update(list => list.filter(x => x.id !== l.id)); },
+                  style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条"),
+                h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); })); })
         : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有 if 线。", h("br"), "选个角色,把 Ta 扔进另一种人生试试。")));
   }
   window.TheaterApp = TheaterApp;
