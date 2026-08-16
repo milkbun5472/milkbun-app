@@ -70,7 +70,7 @@
           "【if 线身份·你(" + char.name + ")】" + line.charRole + "\n身份、职业、处境按此替换;性格、说话方式、注意力习惯仍是上面这个人。",
           "【if 线身份·" + uName + "】" + (line.userRole || "如设定所述"),
           "【世界与情境】" + line.setting,
-          "【本轮目标】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 让剧情自然走向它,不为达成而硬拗人物;当它在剧情里【真实发生】时,才在 goalReached 里报告。"),
+          "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。"),
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由内容决定。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalNote\":null}(目标达成时 goalReached 为 true,goalNote 用一句话指出达成的瞬间)"
         ].join("\n\n");
         const hist = allMsgs(line).concat([{ role: "user", content: text, ts: Date.now() }])
@@ -78,7 +78,8 @@
         const raw = await callAI(props.active, sys, hist, { maxTokens: 3200, timeout: 180000 });
         const p = extractJSON(raw) || { scene: String(raw || "").replace(/```(?:json)?/gi, "").trim() };
         if (!p.scene) throw new Error("没拿到正文");
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now() }], pending: !r.goalDone && !!p.goalReached ? (p.goalNote || "看起来目标达成了") : r.pending }) }));
+        // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now() }], pending: !r.goalDone && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending }) }));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     const confirmGoal = ok => update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : ok ? { ...r, goalDone: true, goalNote: typeof r.pending === "string" ? r.pending : r.goalNote, pending: false, endTs: Date.now() } : { ...r, pending: false }) }));
