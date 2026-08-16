@@ -51,12 +51,18 @@
     if (legacyLatest) {
       // v49.75 前历史没有 turnId：只允许“最新角色回合”退一格，绝不猜更早分支。
       const legacyHistory = arr(history).slice(1), prevLegacy = legacyHistory[0];
-      return { state: prevLegacy ? { thought: prevLegacy.thought, mood: prevLegacy.mood, wearing: prevLegacy.wearing, action: prevLegacy.action, ts: prevLegacy.ts, turnId: prevLegacy.turnId || null, affinityBefore: prevLegacy.affinityBefore } : null, history: legacyHistory };
+      const legacyState = prevLegacy ? { thought: prevLegacy.thought, mood: prevLegacy.mood, wearing: prevLegacy.wearing, action: prevLegacy.action, ts: prevLegacy.ts, turnId: prevLegacy.turnId || null, affinityBefore: prevLegacy.affinityBefore } : null;
+      if (legacyState && prevLegacy.wearingUpdatedAt != null) legacyState.wearingUpdatedAt = prevLegacy.wearingUpdatedAt;
+      if (legacyState && prevLegacy.actionUpdatedAt != null) legacyState.actionUpdatedAt = prevLegacy.actionUpdatedAt;
+      return { state: legacyState, history: legacyHistory };
     }
     if (!current || String(current.turnId || "") !== String(turnId || "")) return { state: current || null, history: clean };
     const prev = clean[0];
     if (!prev) return { state: null, history: clean };
-    return { state: { thought: prev.thought, mood: prev.mood, wearing: prev.wearing, action: prev.action, ts: prev.ts, turnId: prev.turnId || null, affinityBefore: prev.affinityBefore }, history: clean };
+    const restoredState = { thought: prev.thought, mood: prev.mood, wearing: prev.wearing, action: prev.action, ts: prev.ts, turnId: prev.turnId || null, affinityBefore: prev.affinityBefore };
+    if (prev.wearingUpdatedAt != null) restoredState.wearingUpdatedAt = prev.wearingUpdatedAt;
+    if (prev.actionUpdatedAt != null) restoredState.actionUpdatedAt = prev.actionUpdatedAt;
+    return { state: restoredState, history: clean };
   }
 
   return { evidenceId, evidenceIds, candidateStillLive, truncateChatBranch,journalAssignments, rollbackState };

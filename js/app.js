@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.93";
+const APP_VERSION = "v52.94";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1528,6 +1528,18 @@ function App() {
     saveJSON("x_states", n);
     return n;
   });
+  // Protocol v2 的 wearing/action 是「变化时才报」，但不能因此成为永久真相。
+  // 两个字段各自记最后一次真实更新时间；总 state.ts 会被 mood/thought 刷新，不能拿来判陈旧。
+  const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000 };
+  const freshLiveStateValue = (state, field, now = Date.now()) => {
+    const value = String(state && state[field] || "").trim();
+    if (!value) return "";
+    const updatedAt = Number(state && state[field + "UpdatedAt"]);
+    // v52.94 之前没有字段级时间：宁可下一轮重建一次，也不把几天前的衣服/活动当作现在。
+    if (!Number.isFinite(updatedAt) || updatedAt <= 0) return "";
+    const age = now - updatedAt;
+    return age >= 0 && age <= LIVE_STATE_TTL[field] ? value : "";
+  };
   // 心声历史：每次有新想法就存一条，供「看历史记录」
   const pushStateHist = (id, s) => {
     if (!s || !s.thought) return;
@@ -1535,7 +1547,7 @@ function App() {
       const prev = p[id] || [];
       const last = prev[0];
       if (last && last.thought === s.thought) return p; // 同一条不重复
-      const n = { ...p, [id]: [{ thought: s.thought, mood: s.mood, wearing: s.wearing, action: s.action, ts: s.ts || Date.now() }, ...prev].slice(0, 40) };
+      const n = { ...p, [id]: [{ thought: s.thought, mood: s.mood, wearing: s.wearing, action: s.action, wearingUpdatedAt: s.wearingUpdatedAt, actionUpdatedAt: s.actionUpdatedAt, ts: s.ts || Date.now() }, ...prev].slice(0, 40) };
       n[id][0].turnId = s.turnId || null;
       n[id][0].affinityBefore = s.affinityBefore;
       stateHistRef.current = n;
@@ -3256,8 +3268,8 @@ function App() {
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
       oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
       const currentOfflineState = statesRef.current[charId] || {};
-      oCtx.curWear = currentOfflineState.wearing || ""; // 着装连贯：把当前穿着喂回去
-      oCtx.curAction = currentOfflineState.action || ""; // 首次缺失时建档；已有值由 Protocol v2 按变化更新
+      oCtx.curWear = freshLiveStateValue(currentOfflineState, "wearing"); // 当天连贯；陈旧后自动重建
+      oCtx.curAction = freshLiveStateValue(currentOfflineState, "action"); // 短时活动不跨几个小时硬续
       const oMemN = osFor(charId).memN;
       // 向量记忆：预热线下这段的查询向量，让下面的同步检索走语义相似度（失败自动纯关键词）
       if (typeof primeQueryVec === "function" && (oMemN == null || oMemN > 0)) await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
@@ -3340,8 +3352,9 @@ function App() {
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
       const liveState = statesRef.current[charId] || {};
       const ost = {};
-      if (res.wearing) ost.wearing = res.wearing;
-      if (res.action) ost.action = res.action;
+      const stateNow = Date.now();
+      if (res.wearing) { ost.wearing = res.wearing; ost.wearingUpdatedAt = stateNow; }
+      if (res.action) { ost.action = res.action; ost.actionUpdatedAt = stateNow; }
       // thought 的空值表示“本轮没有新心声”，不能像 mood/wearing/action 一样沿用旧值。
       if (res.thought) ost.thought = res.thought;
       else if (liveState.thought) ost.thought = null;
@@ -4314,9 +4327,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
       const _liveChatState = statesRef.current[charId] || {};
+      const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
+      const _liveChatAction = freshLiveStateValue(_liveChatState, "action");
       const _missingStateFields = [];
-      if (!String(_liveChatState.wearing || "").trim()) _missingStateFields.push("wearing（当前穿着）");
-      if (!String(_liveChatState.action || "").trim()) _missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
+      if (!_liveChatWearing) _missingStateFields.push("wearing（当前穿着）");
+      if (!_liveChatAction) _missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
       const _stateBootstrapHint = _missingStateFields.length
         ? "\n【一次性状态建档】App 还没有 " + _missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知处境合理建立一次；不要写进 word，也不要为填状态制造剧情。"
         : "";
@@ -4772,8 +4787,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // B 关系轴 shadow：仅阿屿/顾暮、仅正常用户回合；回复落地后才走 bg，不污染角色生成 prompt。
       if (!opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
       const st = {};
-      if (parsed.wearing) st.wearing = parsed.wearing;
-      if (parsed.action) st.action = parsed.action;
+      const stateNow = Date.now();
+      if (parsed.wearing) { st.wearing = parsed.wearing; st.wearingUpdatedAt = stateNow; }
+      if (parsed.action) { st.action = parsed.action; st.actionUpdatedAt = stateNow; }
       if (parsed.thought && String(parsed.thought).toLowerCase() !== "null") st.thought = parsed.thought;
       if (Object.keys(st).length) {
         const liveState = statesRef.current[charId] || {};
@@ -5089,7 +5105,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         const ph = (phones || {})[c.id] || {};
         const pn = ph.music && ph.music.songs && ph.music.songs.length ? "（TA 最近在听：" + ph.music.songs.slice(0, 4).map(s => s.name).join("、") + "，对上了能认出来）" : "";
         const st = statesRef.current[c.id] || {};
-        const live = gs.memoryInterop && (st.wearing || st.action) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [st.wearing && "穿着=" + st.wearing, st.action && "上一动作=" + st.action].filter(Boolean).join("；") : "";
+        const freshWearing = freshLiveStateValue(st, "wearing"), freshAction = freshLiveStateValue(st, "action");
+        const live = gs.memoryInterop && (freshWearing || freshAction) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [freshWearing && "穿着=" + freshWearing, freshAction && "上一动作=" + freshAction].filter(Boolean).join("；") : "";
         // 普通线上群聊也带上成员「长出来的自我」(Codex 抓到的漏口：私聊/线下有、线上群没有→进群就退回旧人设)
         const grown = (window.DesireKit && desiresRef.current[c.id]) ? window.DesireKit.personaText(desiresRef.current[c.id]) : "";
         const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
@@ -5277,7 +5294,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             const gThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
-              const ns = { ...liveState, ...(gThink ? { thought: gThink } : {}), ...(gWear ? { wearing: gWear } : {}), ...(gAction ? { action: gAction } : {}), mood: moodLabel || liveState.mood, ts: Date.now(), turnId: gTurnId, affinityBefore };
+              const stateNow = Date.now();
+              const ns = { ...liveState, ...(gThink ? { thought: gThink } : {}), ...(gWear ? { wearing: gWear, wearingUpdatedAt: stateNow } : {}), ...(gAction ? { action: gAction, actionUpdatedAt: stateNow } : {}), mood: moodLabel || liveState.mood, ts: stateNow, turnId: gTurnId, affinityBefore };
               setStateFor(spk.id, ns);
               pushStateHist(spk.id, ns);
             }

@@ -59,8 +59,8 @@ test("intimacy runtime stays a domain-neutral scene continuity patch", () => {
 });
 
 test("offline null state semantics preserve durable state and clear stale thought", () => {
-  assert.match(app, /if \(res\.wearing\) ost\.wearing = res\.wearing/);
-  assert.match(app, /if \(res\.action\) ost\.action = res\.action/);
+  assert.match(app, /if \(res\.wearing\) \{ ost\.wearing = res\.wearing; ost\.wearingUpdatedAt = stateNow; \}/);
+  assert.match(app, /if \(res\.action\) \{ ost\.action = res\.action; ost\.actionUpdatedAt = stateNow; \}/);
   assert.match(app, /if \(res\.thought\) ost\.thought = res\.thought;\s*else if \(liveState\.thought\) ost\.thought = null/);
   assert.match(app, /if \(res\.mood && res\.mood\.label\) setMoodFor/);
   assert.match(app, /Number\.isFinite\(res\.affinityDelta\)/);
@@ -69,13 +69,20 @@ test("offline null state semantics preserve durable state and clear stale though
 
 test("ordinary single offline establishes missing durable state exactly once", () => {
   assert.match(app, /const currentOfflineState = statesRef\.current\[charId\] \|\| \{\}/);
-  assert.match(app, /oCtx\.curAction = currentOfflineState\.action \|\| ""/);
+  assert.match(app, /oCtx\.curWear = freshLiveStateValue\(currentOfflineState, "wearing"\)/);
+  assert.match(app, /oCtx\.curAction = freshLiveStateValue\(currentOfflineState, "action"\)/);
   const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
   assert.match(single, /const missingStateFields = \[\]/);
   assert.match(single, /!isDigital && !String\(ctx\.curWear \|\| ""\)\.trim\(\)/);
   assert.match(single, /!isDigital && !String\(ctx\.curAction \|\| ""\)\.trim\(\)/);
   assert.match(single, /【一次性状态建档】/);
   assert.match(single, /outputSpec \+ stateBootstrapHint/);
+});
+
+test("wearing and action expire independently instead of becoming permanent facts", () => {
+  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000 \}/);
+  assert.match(app, /state\[field \+ "UpdatedAt"\]/);
+  assert.match(app, /age >= 0 && age <= LIVE_STATE_TTL\[field\]/);
 });
 
 test("single offline latest-user tail no longer repeats the legacy ban checklist", () => {

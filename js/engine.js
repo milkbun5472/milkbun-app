@@ -1616,6 +1616,15 @@ function loadImgApi() {
 }
 function saveImgApi(c) { const clean = Object.assign(loadImgApi(), c || {}); try { localStorage.setItem("x_imgApi", JSON.stringify(clean)); } catch (e) {} return clean; }
 function imgApiReady(a) { a = a || loadImgApi(); return !!(a.enabled && a.baseUrl && a.apiKey); }
+// 聊天态穿着是短期现场事实，不是角色永久服装。照片端也必须遵守同一保鲜期，
+// 否则正文已换装，生图仍可能把几天前的衣服当成最高优先级事实。
+function freshPhotoWearing(st, now) {
+  const wearing = String(st && st.wearing || "").trim();
+  const updatedAt = Number(st && st.wearingUpdatedAt);
+  if (!wearing || !Number.isFinite(updatedAt) || updatedAt <= 0) return "";
+  const age = (now == null ? Date.now() : now) - updatedAt;
+  return age >= 0 && age <= 18 * 3600000 ? wearing : "";
+}
 // base64(dataURL 或纯 b64) → Blob
 function b64ToBlob(b64, mime) {
   const s = String(b64).includes(",") ? String(b64).split(",")[1] : String(b64);
@@ -1641,11 +1650,12 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const photoStyle = ["realistic", "reference", "anime"].includes(char.photoStyle) ? char.photoStyle : "realistic";
   const visualCanon = String(char.photoCanon || "").trim();
   const fixedOutfit = String(char.photoOutfit || "").trim();
+  const currentWearing = freshPhotoWearing(st);
   // 人设不能只服务聊天：其中的时代、年龄、性别、种族与服装同样是生图事实。
   // 控长避免把超长角色卡整份塞进图像端；显式 photoCanon/photoOutfit 仍拥有最高优先级。
   const personaVisualSource = String(char.persona || "").trim().slice(0, 2400);
   const identityText = [visualCanon, char.appearance, personaVisualSource].filter(Boolean).join("\n");
-  const clothingText = [fixedOutfit, st && st.wearing, char.appearance, personaVisualSource].filter(Boolean).join("\n");
+  const clothingText = [fixedOutfit, currentWearing, char.appearance, personaVisualSource].filter(Boolean).join("\n");
   const wantsLightArmor = /(?:骑士|铠甲|盔甲|护甲|armor|armour)/i.test(clothingText) && /(?:不厚重|不笨重|轻便|轻型|轻甲|修身|贴身|灵活|便于行动|lightweight|slim|fitted)/i.test(clothingText);
   const isMinor = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bboy\b|\bgirl\b|\bminor\b|(?:[1-9]|1[0-7])\s*岁)/i.test(identityText);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
@@ -1683,8 +1693,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   }
   if (fixedOutfit) {
     parts.push("【最高优先级·固定服装锁】" + (kind === "duo" ? "「" + cName + "」" : "人物") + "每张图都必须完整穿着：" + fixedOutfit + "。不得随机换装、现代化、简化成别的服饰，也不得用参考照里的衣服替换；只有用户修改此档案字段后才允许变化。");
-  } else if (st && st.wearing) {
-    parts.push((kind === "duo" ? "「" + cName + "」此刻穿着：" : "此刻穿着：") + st.wearing + "。必须忠实照此生成，不得按场景随机另搭一套。");
+  } else if (currentWearing) {
+    parts.push((kind === "duo" ? "「" + cName + "」此刻穿着：" : "此刻穿着：") + currentWearing + "。必须忠实照此生成，不得按场景随机另搭一套。");
   } else {
     parts.push("服装必须从上述外貌与人设的时代／职业／常穿服饰中忠实推导；若设定已有服装就原样遵守，禁止随机现代化。设定确实没有衣着信息时才允许按场景补全。");
   }
