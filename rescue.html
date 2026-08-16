@@ -26,16 +26,16 @@
     // 对【主屏幕实际启动的精确 URL】做 reload，并核验拿到的正文真是目标版本。
     const indexRes=await fetch("./index.html",{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const indexText=await indexRes.text();
-    if (!indexRes.ok || !/app\.js\?v=52\.95/.test(indexText)) throw new Error("首页仍不是 v53.09");
-    const appRes=await fetch("./js/app.js?v=53.09",{cache:"reload",headers:{"Cache-Control":"no-cache"}});
+    if (!indexRes.ok || !/app\.js\?v=52\.95/.test(indexText)) throw new Error("首页仍不是 v53.10");
+    const appRes=await fetch("./js/app.js?v=53.10",{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const appText=await appRes.text();
-    if (!appRes.ok || !/APP_VERSION\s*=\s*[\"']v52\.95[\"']/.test(appText)) throw new Error("程序文件仍不是 v53.09");
+    if (!appRes.ok || !/APP_VERSION\s*=\s*[\"']v52\.95[\"']/.test(appText)) throw new Error("程序文件仍不是 v53.10");
     if ("serviceWorker" in navigator) {
       const reg=await navigator.serviceWorker.register("./sw.js?v=5",{updateViaCache:"none"});
       await reg.update();
     }
-    status.textContent="已验证首页和程序均为 v53.09，正在重新打开……";
-    setTimeout(()=>location.replace("./index.html?launch=53.09&fresh="+Date.now()),900);
+    status.textContent="已验证首页和程序均为 v53.10，正在重新打开……";
+    setTimeout(()=>location.replace("./index.html?launch=53.10&fresh="+Date.now()),900);
   } catch (error) {
     status.textContent="刷新没有完成："+(error&&error.message?error.message:"未知错误")+"。请点下面再试。";
     retry.hidden=false; retry.onclick=()=>location.reload();
