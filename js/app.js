@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.98";
+const APP_VERSION = "v52.99";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -96,6 +96,32 @@ function DevBadges() {
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSetOffline }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  // 浮窗可拖动（她 2026-08-16 点名固定位置挡手）：拖完贴边吸附，位置存 x_modelFloatPos，重开 App 记得住。
+  const [pos, setPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem("x_modelFloatPos") || "null"); return p && (p.side === "left" || p.side === "right") && Number.isFinite(p.top) ? p : null; } catch (e) { return null; } });
+  const [drag, setDrag] = useState(null); // 拖动中的指尖坐标（按钮中心跟随）
+  const dragStart = useRef(null);
+  const justDragged = useRef(false);
+  const onDown = e => {
+    dragStart.current = { x: e.clientX, y: e.clientY, moved: false };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+  };
+  const onMove = e => {
+    const s = dragStart.current;
+    if (!s) return;
+    if (!s.moved && Math.hypot(e.clientX - s.x, e.clientY - s.y) < 7) return;
+    if (!s.moved) { s.moved = true; setOpen(false); }
+    setDrag({ x: e.clientX, y: e.clientY });
+  };
+  const onUp = e => {
+    const s = dragStart.current;
+    dragStart.current = null;
+    if (!s || !s.moved) return;
+    justDragged.current = true;
+    const w = window.innerWidth || 390, hh = window.innerHeight || 800;
+    const next = { side: e.clientX < w / 2 ? "left" : "right", top: Math.min(Math.max(e.clientY - 23, 70), hh - 130) };
+    setPos(next); setDrag(null);
+    try { localStorage.setItem("x_modelFloatPos", JSON.stringify(next)); } catch (err) {}
+  };
   const label = p => (p && (p.name || p.model)) || "未命名线路";
   const online = (profiles || []).find(p => p.id === activeId) || (profiles || [])[0] || null;
   const offline = (offlineApiId && (profiles || []).find(p => p.id === offlineApiId)) || online;
@@ -108,7 +134,11 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
       color: ((kind === "online" ? online && online.id : offline && offline.id) === p.id) ? t.bg2 : t.ink,
       background: ((kind === "online" ? online && online.id : offline && offline.id) === p.id) ? t.ink : "transparent" }
   }, label(p));
-  return h("div", { style: { position: "fixed", right: 12, top: "42%", zIndex: 90, display: "flex", alignItems: "center", gap: 8 } },
+  const side = pos ? pos.side : "right";
+  const anchor = drag
+    ? { left: drag.x - 23, top: drag.y - 23, right: "auto", flexDirection: "row-reverse" }
+    : Object.assign({ top: pos ? pos.top : "42%" }, side === "left" ? { left: 12, flexDirection: "row-reverse" } : { right: 12 });
+  return h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     open ? h("div", { style: { width: 226, maxHeight: "58vh", overflowY: "auto", padding: 12, borderRadius: 18, background: t.bg2,
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "快速切换模型"),
@@ -120,9 +150,11 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
       [h("button", { key: "offline:follow", onClick: () => onSetOffline(null), className: "active:opacity-60",
         style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12,
           color: !offlineApiId ? t.bg2 : t.ink, background: !offlineApiId ? t.ink : "transparent" } }, "跟随线上主模型")].concat((profiles || []).map(p => choice("offline", p)))) : null,
-    h("button", { onClick: () => setOpen(v => !v), "aria-label": "快速切换模型", className: "active:scale-95",
+    h("button", { onClick: () => { if (justDragged.current) { justDragged.current = false; return; } setOpen(v => !v); },
+      onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: () => { dragStart.current = null; setDrag(null); },
+      "aria-label": "快速切换模型", className: "active:scale-95",
       style: { width: 46, height: 46, borderRadius: 23, flexShrink: 0, background: "rgba(25,24,22,.88)", border: "2px solid rgba(255,255,255,.7)",
-        boxShadow: "0 5px 18px rgba(0,0,0,.3)", color: "white", fontFamily: "monospace", fontSize: 10, lineHeight: 1.05 } }, open ? "×" : "AI"));
+        boxShadow: "0 5px 18px rgba(0,0,0,.3)", color: "white", fontFamily: "monospace", fontSize: 10, lineHeight: 1.05, touchAction: "none" } }, open ? "×" : "AI"));
 }
 // 一起听·本地音频存 IndexedDB（音频文件大，localStorage 5MB 存不下）。key=歌曲id，value=Blob。
 function idbAudioOpen() {

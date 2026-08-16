@@ -7,11 +7,11 @@ const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "u
 const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
 const group = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)?.[0] || "";
 
-test("single offline writes scene before a retrospective creation note", () => {
-  assert.match(engine, /function offlineSingleCotSystemBlock\(think\)/);
-  assert.match(engine, /先按本轮线下协议完成 scene 与状态 JSON/);
-  assert.match(engine, /不要先列计划、拆解对方话语、安排段落结构或预写情绪走向/);
-  assert.match(single, /offlineSingleCotSystemBlock\(cotT\)/);
+// v52.66 A/B 定为长期行为：普通单人线下完全不注入创作小稿/COT；数字模式沿用 cotSystemBlock。
+test("normal single offline requests no creation-note COT; digital keeps the legacy block", () => {
+  assert.match(single, /const requestedCotT = isDigital \? cotThink\(/);
+  assert.match(single, /const singleCotBlock = isDigital \? cotSystemBlock\(cotT\) : ""/);
+  assert.doesNotMatch(engine, /offlineSingleCotSystemBlock\(/);
   assert.match(single, /先完成正文 JSON，再写既定的创作旁注标记块/);
   assert.match(single, /system\.replace\(singleCotBlock, ""\)/);
   assert.match(engine, /OFFLINE_SINGLE_NO_COT_V2_KEY/);
@@ -22,5 +22,4 @@ test("single offline writes scene before a retrospective creation note", () => {
 
 test("group offline keeps the old planning block during the controlled phase", () => {
   assert.match(group, /cotSystemBlock\(cotT\)/);
-  assert.doesNotMatch(group, /offlineSingleCotSystemBlock/);
 });

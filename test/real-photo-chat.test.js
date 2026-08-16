@@ -41,7 +41,7 @@ test("真照片只把 iv_ 引用写进聊天，像素住 IndexedDB", () => {
 
 test("模型调用只临时展开最近两张真照片", () => {
   assert.match(app, /imageBudget\.length < 2/);
-  assert.match(app, /await idbVaultGet\(ref\)/);
+  assert.match(app, /await imgVaultFetchBlob\(ref\)/);
   assert.match(app, /await blobToDataUrl\(blob\)/);
   assert.match(app, /\{ imageDataUrls \}/);
   assert.match(app, /真实照片已作为视觉输入附在本条消息上/);
