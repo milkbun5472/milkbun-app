@@ -39,16 +39,16 @@
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true);
       try {
-        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。设定要具体、马上能开演,不写玄乎的大词。只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色在这条线里的新身份与处境(2-3句)\",\"userRole\":\"" + uName + " 在这条线里的新身份,与角色身份有天然的互动理由(1-2句)\",\"setting\":\"世界背景+两人相遇的当下情境(2-4句,落到具体场景)\",\"goal\":\"本轮小目标:一个可以在对话中自然达成的具体节点(如 承认喜欢/答应某个条件/说出秘密),一句话\"}";
+        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n先构思一个把两人绑在一起的【张力核心】——一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债;两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。\ngoal 必须是这条张力的【关键节点】:说出口就回不了头、做了就改变两人关系的那种揭示/确认/抉择——有代价、有风险,达成要跨过一个心理门槛。禁止事务级小目标(承认个小错、答应个小要求、问个身份这种一句话就能完成的事)。\nsetting 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份与处境(2-3句)\",\"userRole\":\"" + uName + " 的新身份+Ta 背负的冲突或赌注(2-3句)\",\"setting\":\"世界背景+张力核心+当下这个时刻(3-5句)\",\"opening\":\"开场正文\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\"}";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则自由发挥)】" + (kw.trim() || "无") + "\n\n【对方名字】" + uName;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 1200, timeout: 120000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2400, timeout: 150000 });
         const p = extractJSON(raw);
         if (!p || !p.charRole || !p.setting || !p.goal) throw new Error("设定生成不完整,再试一次");
-        setDraft({ charId: char.id, keywords: kw.trim(), title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", setting: p.setting, goal: p.goal });
+        setDraft({ charId: char.id, keywords: kw.trim(), title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", setting: p.setting, opening: p.opening || "", goal: p.goal });
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     const acceptDraft = () => {
-      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, charRole: draft.charRole, userRole: draft.userRole, setting: draft.setting, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] };
+      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, charRole: draft.charRole, userRole: draft.userRole, setting: draft.setting, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
       update(list => [l, ...list]); setDraft(null); setKw(""); setPlayId(l.id); setView("play"); setPanelOpen(true);
     };
 
@@ -88,7 +88,7 @@
       setBusy(true);
       try {
         const recent = allMsgs(line).slice(-8).map(m => (m.role === "user" ? uName : charOf(line).name) + ":" + m.content).join("\n").slice(-1800);
-        const sys = "为一场进行中的 if 线小剧场想【下一轮小目标】:顺着已发生的剧情往前一步,可在对话中自然达成、具体、不重复已达成的目标。只输出 JSON:{\"goal\":\"一句话目标\"}";
+        const sys = "为一场进行中的 if 线小剧场想【下一轮目标】:顺着已发生的剧情,把两人之间的张力再拧深一档——新目标同样要有代价、有心理门槛、达成后会改变关系走向(更深的揭示、更难的抉择、必须兑现的承诺);禁止事务级小目标,不重复已达成的。只输出 JSON:{\"goal\":\"一句话目标\"}";
         const user = "【设定】" + line.setting + "\n【角色身份】" + line.charRole + "\n【已达成过的目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 400, timeout: 60000 });
         const p = extractJSON(raw);
@@ -117,7 +117,7 @@
     if (view === "create") {
       const preview = draft && h("div", { style: S.card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
-        [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与情境", draft.setting], ["本轮目标", draft.goal]].map(([k, v]) => h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v))),
+        [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与情境", draft.setting], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
         h("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开演"),
           h("button", { onClick: genSetting, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版")));
