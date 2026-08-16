@@ -101,7 +101,7 @@
 
     // ---- UI ----
     const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: t.bg, display: "flex", flexDirection: "column" },
-      top: { display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 10px", borderBottom: "1px solid " + t.line },
+      top: { display: "flex", alignItems: "center", gap: 10, padding: "calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px", borderBottom: "1px solid " + t.line },
       h1: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, flex: 1 },
       btn: (fill) => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
       card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line },
