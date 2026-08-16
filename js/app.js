@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.01";
+const APP_VERSION = "v53.02";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -10321,6 +10321,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     moods: moods,
     // 注入最近聊天抓人设用（只读，不写回记忆）
     recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && !isOocMsg(m)).slice(-16).map(m => (m.role === "user" ? (profile.name || "用户") : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
+    toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "theater") body = h(TheaterApp, {
+    // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
+    active: offlineActive,
+    characters: characters,
+    profile: profile,
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "fanfic") body = h(FanficApp, {
