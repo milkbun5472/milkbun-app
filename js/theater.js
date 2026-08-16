@@ -75,12 +75,19 @@
     const allMsgs = l => l.rounds.flatMap(r => r.msgs);
     const send = async () => {
       const text = input.trim();
-      if (!text || !line || busy) return;
+      if (!line || busy) return;
+      const round = line.rounds[line.rounds.length - 1];
+      const lastIsUser = round.msgs.length && round.msgs[round.msgs.length - 1].role === "user";
+      // 空输入 + 历史末尾是自己的消息 = 上次生成失败的重试:不重复入史,直接用现有历史再生成
+      if (!text && !lastIsUser) return;
       if (!props.active) return props.toast("请先配置线下 API");
       const char = charOf(line);
-      const round = line.rounds[line.rounds.length - 1];
-      setInput("");
-      update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "user", content: text, ts: Date.now() }] }) }));
+      let addedId = null;
+      if (text) {
+        addedId = rid("tm_");
+        setInput("");
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: addedId, role: "user", content: text, ts: Date.now() }] }) }));
+      }
       setBusy(true);
       try {
         const sys = [ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME,
@@ -92,14 +99,19 @@
           "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。"),
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由内容决定。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalNote\":null}(目标达成时 goalReached 为 true,goalNote 用一句话指出达成的瞬间)"
         ].join("\n\n");
-        const hist = allMsgs(line).concat([{ role: "user", content: text, ts: Date.now() }])
+        const base = allMsgs(line);
+        const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
           .slice(-40).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         const raw = await callAI(props.active, sys, hist, { maxTokens: 3200, timeout: 180000 });
         const p = extractJSON(raw) || { scene: String(raw || "").replace(/```(?:json)?/gi, "").trim() };
         if (!p.scene) throw new Error("没拿到正文");
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now() }], pending: !r.goalDone && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending }) }));
-      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+      } catch (e) {
+        // 失败回滚:撤回刚入史的那条,文字放回输入框,再按一次「演」即重试;历史不留残尾
+        if (addedId) { update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: r.msgs.filter(m => m.id !== addedId) }) })); setInput(text); }
+        props.toast("生成失败:" + (e.message || "再按一次「演」重试"));
+      } finally { setBusy(false); }
     };
     const confirmGoal = ok => update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : ok ? { ...r, goalDone: true, goalNote: typeof r.pending === "string" ? r.pending : r.goalNote, pending: false, endTs: Date.now() } : { ...r, pending: false }) }));
     const newRound = async () => {
@@ -184,7 +196,7 @@
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "Ta 在演…") : null),
         h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: "1px solid " + t.line } },
-          h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
+          h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
           h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "演")));
     }
 
