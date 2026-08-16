@@ -19,11 +19,14 @@
     const interactionPlan = /(?:我|嘴上).{0,18}(?:会|要|得|应该|肯定会).{0,18}(?:满足|别扭|嘴硬|装作|回应|回复|哄|安抚|接住|顺着|解释|追问)/;
     const topicPlan = /(?:关心|逗|试探|追问|回应|回复).{0,18}(?:一下|她|他|TA).{0,24}(?:把|将).{0,12}(?:话题|对话).{0,12}(?:引向|转到|带到)/;
     const directorTerms = /(?:回复策略|回应方式|情绪需求|用户意图|对话走向|这一轮(?:应该|需要)|接下来(?:应该|要|得)|(?:这些|这都).{0,8}(?:可以|能).{0,8}(?:作为|是我的).{0,8}(?:背景|铺垫)|把话题引向)/;
+    const selfPerformance = /(?:我(?:得|要|应该|需要|最好)|得|需要|最好).{0,12}(?:表现出一种|表现得|显得|营造出|呈现出|摆出).{0,24}(?:感觉|样子|态度|语气|形象|反应)?/;
+    const selfPresentation = /(?:让自己|把自己|给人).{0,12}(?:看起来|显得|表现得|呈现得|感觉).{0,24}/;
     const hasRecap = recap.test(text);
     const hasClassify = classify.test(text);
     const hasReplyPlan = replyPlan.test(text) || interactionPlan.test(text) || topicPlan.test(text);
 
     if (directorTerms.test(text)) return { ok: false, reason: "director-language" };
+    if (selfPerformance.test(text) || selfPresentation.test(text)) return { ok: false, reason: "self-performance-direction" };
     if (hasReplyPlan && (hasRecap || hasClassify)) return { ok: false, reason: "recap-and-reply-plan" };
     if (hasRecap && hasClassify) return { ok: false, reason: "user-analysis" };
     return { ok: true, reason: "inner-voice" };
@@ -34,5 +37,16 @@
     return inspect(text).ok ? text : null;
   }
 
-  return { inspect, accept };
+  function normalizeAction(value, characterName) {
+    let text = clean(value);
+    if (!text || text.toLowerCase() === "null") return null;
+    const escapeRegExp = value => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const names = [characterName, "他", "她", "TA", "Ta", "ta"].filter(Boolean).map(escapeRegExp);
+    const subject = "(?:" + names.join("|") + ")";
+    text = text.replace(new RegExp("^\\s*" + subject + "的"), "我的");
+    text = text.replace(new RegExp("^\\s*" + subject + "(?=\\s|[，,。！？!?]|[正在刚还又把将盯看坐站躺靠拿走跑按敲点翻伸收低抬转])"), "我");
+    return text;
+  }
+
+  return { inspect, accept, normalizeAction };
 });

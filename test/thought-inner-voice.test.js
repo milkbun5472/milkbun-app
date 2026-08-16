@@ -5,8 +5,9 @@ const fs = require("node:fs");
 const app = fs.readFileSync(require.resolve("../js/app.js"), "utf8");
 
 test("心声要求直接内在声音，而不是第三人称角色分析报告", () => {
-  assert.match(app, /确实存在但没说出口的一个内部念头或当前关注点/);
-  assert.match(app, /不要总结互动、分析自己或规划回复/);
+  assert.match(app, /角色本人脑中此刻真正出现、却没有说出口的一句第一人称念头/);
+  assert.match(app, /不要总结互动、分析自己、规划回复/);
+  assert.match(app, /不要写「我要表现得／显得／装出某种样子」/);
 });
 
 test("没有真实意识片段允许 null，不强迫每轮编转念", () => {

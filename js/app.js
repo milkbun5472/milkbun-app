@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.94";
+const APP_VERSION = "v52.95";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3354,9 +3354,11 @@ function App() {
       const ost = {};
       const stateNow = Date.now();
       if (res.wearing) { ost.wearing = res.wearing; ost.wearingUpdatedAt = stateNow; }
-      if (res.action) { ost.action = res.action; ost.actionUpdatedAt = stateNow; }
+      const offlineAction = res.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(res.action, char && char.name) : res.action;
+      if (offlineAction) { ost.action = offlineAction; ost.actionUpdatedAt = stateNow; }
       // thought 的空值表示“本轮没有新心声”，不能像 mood/wearing/action 一样沿用旧值。
-      if (res.thought) ost.thought = res.thought;
+      const offlineThought = res.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(res.thought) : res.thought;
+      if (offlineThought) ost.thought = offlineThought;
       else if (liveState.thought) ost.thought = null;
       if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 jiwen 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
@@ -4310,8 +4312,8 @@ function App() {
 word: string[]，角色实际发送的消息。
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【按需状态字段】
-thought: string，确实存在但没说出口的一个内部念头或当前关注点；不要总结互动、分析自己或规划回复。
-action: string，仅在当前动作发生有意义变化时填写。
+thought: string，角色本人脑中此刻真正出现、却没有说出口的一句第一人称念头；不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。
+action: string，仅在当前动作发生有意义变化时填写；这是角色自己的状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。
 wearing: string，仅在穿着发生变化时填写。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
 未发生、未改变的按需字段直接省略。
@@ -4789,7 +4791,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const st = {};
       const stateNow = Date.now();
       if (parsed.wearing) { st.wearing = parsed.wearing; st.wearingUpdatedAt = stateNow; }
-      if (parsed.action) { st.action = parsed.action; st.actionUpdatedAt = stateNow; }
+      const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
+      if (onlineAction) { st.action = onlineAction; st.actionUpdatedAt = stateNow; }
       if (parsed.thought && String(parsed.thought).toLowerCase() !== "null") st.thought = parsed.thought;
       if (Object.keys(st).length) {
         const liveState = statesRef.current[charId] || {};
@@ -5287,11 +5290,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             const moodLabel = item.mood && String(item.mood).toLowerCase() !== "null" ? String(item.mood).trim() : null;
             const aDelta = typeof item.affinityDelta === "number" ? item.affinityDelta : Number(item.affinityDelta);
             const gWear = item.wearing && String(item.wearing).toLowerCase() !== "null" ? String(item.wearing).trim() : null;
-            const gAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
+            const rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
+            const gAction = rawGAction && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(rawGAction, spk && spk.name) : rawGAction;
             if (spk && !isNaN(aDelta)) bumpAff(spk.id, aDelta || 0, moodLabel);
             if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
-            const gThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
+            const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
+            const gThink = rawGThink && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(rawGThink) : rawGThink;
             if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
               const stateNow = Date.now();

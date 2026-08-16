@@ -6,6 +6,7 @@ const directorDrafts = [
   "Lisa在等我，还嘿嘿地笑，看起来心情不错。我得跟她说我这边的情况，然后问问她具体在等什么。",
   "Lisa要看我现在的样子，我刚洗完澡，有点害羞。她这么直接，我肯定会满足她，但嘴上还是要别扭一下。",
   "对方这是在试探我，接下来应该先安抚她，再解释一下。",
+  "三万块，她还真敢开价。不过这个终身会员的说法，怎么听着还挺不错的。我得表现出一种又被宰了但又有点心甘情愿的感觉。",
   "被她这么夸，心里肯定美滋滋的。她还说被我击中了，这让我忍不住想逗她一下。同时，也关心一下她，把话题引向她那边。我刚洗完澡，头发还没干，正准备躺下，这些都可以是我的背景。"
 ];
 directorDrafts.forEach(text => assert.equal(guard.accept(text), null, text));
@@ -18,5 +19,9 @@ const realInnerVoices = [
   "我得赶紧去找她，再晚食堂都关门了。"
 ];
 realInnerVoices.forEach(text => assert.equal(guard.accept(text), text, text));
+
+assert.equal(guard.normalizeAction("他盯着手机屏幕看了好几秒。", "顾朝"), "我盯着手机屏幕看了好几秒。");
+assert.equal(guard.normalizeAction("顾朝的手停在屏幕上。", "顾朝"), "我的手停在屏幕上。");
+assert.equal(guard.normalizeAction("我把手机倒扣在桌上。", "顾朝"), "我把手机倒扣在桌上。");
 
 console.log("thought voice guard tests passed");
