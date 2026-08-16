@@ -60,8 +60,8 @@ test("intimacy runtime stays a domain-neutral scene continuity patch", () => {
 
 test("offline null state semantics preserve durable state and clear stale thought", () => {
   assert.match(app, /if \(res\.wearing\) \{ ost\.wearing = res\.wearing; ost\.wearingUpdatedAt = stateNow; \}/);
-  assert.match(app, /if \(res\.action\) \{ ost\.action = res\.action; ost\.actionUpdatedAt = stateNow; \}/);
-  assert.match(app, /if \(res\.thought\) ost\.thought = res\.thought;\s*else if \(liveState\.thought\) ost\.thought = null/);
+  assert.match(app, /if \(offlineAction\) \{ ost\.action = offlineAction; ost\.actionUpdatedAt = stateNow; \}/);
+  assert.match(app, /if \(offlineThought\) ost\.thought = offlineThought;\s*else if \(liveState\.thought\) ost\.thought = null/);
   assert.match(app, /if \(res\.mood && res\.mood\.label\) setMoodFor/);
   assert.match(app, /Number\.isFinite\(res\.affinityDelta\)/);
   assert.match(engine, /action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写/);

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v52.95";
+const APP_VERSION = "v52.96";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3784,9 +3784,11 @@ function App() {
         // 多人线下也影响各角色对用户的好感与心情
         if (b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
         if (b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
-        if (b.senderId && (b.thought || (b.mood && b.mood.label))) {
+        // 群线下心声同样过守卫再进共享状态卡（导演稿/演技备注拦在卡外，消息内原文照旧）
+        const gOffThought = b.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(b.thought) : b.thought;
+        if (b.senderId && (gOffThought || (b.mood && b.mood.label))) {
           const liveState = statesRef.current[b.senderId] || {};
-          const ns = { ...liveState, ...(b.thought ? { thought: b.thought } : {}), mood: b.mood && b.mood.label ? b.mood.label : liveState.mood, ts: Date.now(), turnId: goTurnId, affinityBefore };
+          const ns = { ...liveState, ...(gOffThought ? { thought: gOffThought } : {}), mood: b.mood && b.mood.label ? b.mood.label : liveState.mood, ts: Date.now(), turnId: goTurnId, affinityBefore };
           setStateFor(b.senderId, ns); pushStateHist(b.senderId, ns);
         }
       }
