@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.33";
+const APP_VERSION = "v53.34";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1580,7 +1580,11 @@ function App() {
   });
   // Protocol v2 的 wearing/action 是「变化时才报」，但不能因此成为永久真相。
   // 两个字段各自记最后一次真实更新时间；总 state.ts 会被 mood/thought 刷新，不能拿来判陈旧。
-  const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000 };
+  // thought 90 分钟:线上写入是「有新的才覆盖」,没时效的话守卫拒一次、或模型连着填 null,
+  // 状态卡就会挂着几小时前的念头不动(Lisa 2026-08-18)。线下每轮自清,不受此影响。
+  const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90 * 60000 };
+  // 连续多少轮没有新心声就判定旧的已经过期——时间没到但话题早换了的情况靠它兜
+  const THOUGHT_SKIP_LIMIT = 4;
   const freshLiveStateValue = (state, field, now = Date.now()) => {
     const value = String(state && state[field] || "").trim();
     if (!value) return "";
@@ -3409,8 +3413,8 @@ function App() {
       if (offlineAction) { ost.action = offlineAction; ost.actionUpdatedAt = stateNow; }
       // thought 的空值表示“本轮没有新心声”，不能像 mood/wearing/action 一样沿用旧值。
       const offlineThought = res.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(res.thought) : res.thought;
-      if (offlineThought) ost.thought = offlineThought;
-      else if (liveState.thought) ost.thought = null;
+      if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
+      else if (liveState.thought) { ost.thought = null; ost.thoughtUpdatedAt = 0; }
       if (Object.keys(ost).length) { const ns = { ...liveState, ...ost, mood: res.mood && res.mood.label ? res.mood.label : liveState.mood, ts: Date.now(), turnId: offTurnId, affinityBefore }; setStateFor(charId, ns); pushStateHist(charId, ns); }
       // 线下角色自己冒泡（如 jiwen 自发）时，若你没在看这个角色的线下，挂个未读红点，聊天列表也顶上来（她 2026-07-23）
       if (!(offlineChar && offlineChar.id === charId) && viewRef.current.charId !== charId) bumpUnread(charId, 1);
@@ -3839,7 +3843,7 @@ function App() {
         const gOffThought = b.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(b.thought) : b.thought;
         if (b.senderId && (gOffThought || (b.mood && b.mood.label))) {
           const liveState = statesRef.current[b.senderId] || {};
-          const ns = { ...liveState, ...(gOffThought ? { thought: gOffThought } : {}), mood: b.mood && b.mood.label ? b.mood.label : liveState.mood, ts: Date.now(), turnId: goTurnId, affinityBefore };
+          const ns = { ...liveState, ...(gOffThought ? { thought: gOffThought, thoughtUpdatedAt: Date.now(), thoughtSkips: 0 } : {}), mood: b.mood && b.mood.label ? b.mood.label : liveState.mood, ts: Date.now(), turnId: goTurnId, affinityBefore };
           setStateFor(b.senderId, ns); pushStateHist(b.senderId, ns);
         }
       }
@@ -4365,7 +4369,7 @@ function App() {
 word: string[]，角色实际发送的消息。
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【按需状态字段】
-thought: string，角色本人脑中此刻真正出现、却没有说出口的一句第一人称念头；不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』）——那是旁白在结案，不是人在想事情。真正在想的时候，人根本还没想明白对方是什么意思；欢迎非常小、非常私人、甚至和当前剧情毫无关系的念头——走神、想起别的事、身体感受、没头没尾的碎念，都比一句得体的分析更真实。没有就填 null。
+thought: string，角色本人脑中此刻真正出现、却没有说出口的一句第一人称念头；不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』）——那是旁白在结案，不是人在想事情。真正在想的时候，人根本还没想明白对方是什么意思；欢迎非常小、非常私人、甚至和当前剧情毫无关系的念头——走神、想起别的事、身体感受、没头没尾的碎念，都比一句得体的分析更真实。【门槛很低】不需要重要、不需要深刻、不需要和话题有关，只要此刻脑子里确实有东西闪过就写下来；真正一片空白才填 null——连着好几轮都是 null 是不正常的。但仍然绝不为了交字段硬编一句。
 action: string，仅在当前动作发生有意义变化时填写；这是角色自己的状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。
 wearing: string，仅在穿着发生变化时填写。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
@@ -4380,7 +4384,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         ? "你就是「" + char.name + "」本人，正在从手机这具身体和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，需要几条就给 word 几条。"
         : "完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + digitalToyHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
-      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"wearing\":\"此刻穿着一句\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
+      const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
       const _liveChatState = statesRef.current[charId] || {};
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
@@ -4849,7 +4853,18 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       if (parsed.wearing) { st.wearing = parsed.wearing; st.wearingUpdatedAt = stateNow; }
       const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
       if (onlineAction) { st.action = onlineAction; st.actionUpdatedAt = stateNow; }
-      if (parsed.thought && String(parsed.thought).toLowerCase() !== "null") st.thought = parsed.thought;
+      // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,
+      // 以及连续 N 轮没有新心声就判过期——否则守卫拒一次就永远挂着旧念头。
+      {
+        const _live = statesRef.current[charId] || {};
+        if (parsed.thought && String(parsed.thought).toLowerCase() !== "null") {
+          st.thought = parsed.thought; st.thoughtUpdatedAt = stateNow; st.thoughtSkips = 0;
+        } else if (_live.thought) {
+          const skips = (Number(_live.thoughtSkips) || 0) + 1;
+          st.thoughtSkips = skips;
+          if (skips >= THOUGHT_SKIP_LIMIT) { st.thought = null; st.thoughtUpdatedAt = 0; }
+        }
+      }
       if (Object.keys(st).length) {
         const liveState = statesRef.current[charId] || {};
         const ns = { ...liveState, ...st, mood: parsed.mood && parsed.mood.label ? parsed.mood.label : liveState.mood, ts: Date.now(), turnId, affinityBefore };
@@ -5210,7 +5225,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"self｜other" + (gDuoMembers.length ? "｜duo" : "") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + "一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。" : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。" : "";
-      const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
+      const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
       // Ta 眼里:群里发生的事也能改在场成员对用户的长期印象(极低频,同单聊契约)
       const impressionField = window.Gaze ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"整块重写≤80字\"}（可选,仅当这轮真正改变了该成员对用户或他俩关系的长期认知才填,极少发生;第一人称亲笔、锚具体事、在旧认知上小幅演进）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
@@ -5220,7 +5235,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gDirHint = gDirs.length ? "\n\n【⚠️群规矩·最高优先级，压过下面的对话惯性】这些是用户之前（场外）跟你们立好、你们已经答应了的长期约定，每一条【现在就生效、永久有效】：\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n——就算上面的聊天记录里大家还在聊相关话题，也从这一轮起严格照约定来（惯性不是理由）；用户若问「是不是说好了」，大方承认记得并已经在做，绝不许一脸茫然装不知道。" : "";
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       const groupOnlineRuntime = ONLINE_CHAT_RULE_V2.replace("word 只包含", "每条 text 只包含");
-      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + thoughtHint + gBusyHint + gOfflineHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + thoughtHint + gBusyHint + gOfflineHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -5359,7 +5374,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
               const stateNow = Date.now();
-              const ns = { ...liveState, ...(gThink ? { thought: gThink } : {}), ...(gWear ? { wearing: gWear, wearingUpdatedAt: stateNow } : {}), ...(gAction ? { action: gAction, actionUpdatedAt: stateNow } : {}), mood: moodLabel || liveState.mood, ts: stateNow, turnId: gTurnId, affinityBefore };
+              const ns = { ...liveState, ...(gThink ? { thought: gThink, thoughtUpdatedAt: stateNow, thoughtSkips: 0 } : {}), ...(gWear ? { wearing: gWear, wearingUpdatedAt: stateNow } : {}), ...(gAction ? { action: gAction, actionUpdatedAt: stateNow } : {}), mood: moodLabel || liveState.mood, ts: stateNow, turnId: gTurnId, affinityBefore };
               setStateFor(spk.id, ns);
               pushStateHist(spk.id, ns);
             }
@@ -10584,9 +10599,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       character: scc,
       affinity: Math.round(affOf(scc.id)),
       mood: moods[scc.id],
-      state: states[scc.id],
+      // 心声过了时效就不再展示:宁可空着,也别把两小时前的念头当成「此刻在想」
+      state: (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: stateHist[scc.id] || [],
-      hideWearAction: stateCardGroup,
+      // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
       gazeOn: !!window.Gaze && !settingsFor(scc.id).engineerEyes,
       uName: profile.name || "你",
       onGazeSeed: () => seedGazeFor(scc),

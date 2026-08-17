@@ -2341,6 +2341,9 @@ draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者
     : "\n\n" + OFFLINE_PROTOCOL_V2 + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20整数,\"duration\":1到30秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
+    // 读懂对方这句话在做什么:原先焊死在 ReplyPacing.guidance 里,只有线上单聊吃得到,
+    // 于是同一个角色在线下/群聊里少了这层理解,显得不像同一个人(Lisa 2026-08-18)
+    (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") +
     offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     singleCotBlock +
@@ -2619,6 +2622,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (typeof ContentBoundaries !== "undefined" ? "\n\n" + ContentBoundaries.prompt : "") +
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") +
     "\n\n" + CHARCARD_RULE +
+    (typeof ReplyPacing !== "undefined" ? "\n\n" + ReplyPacing.reading() : "") +
     groupGrowthRule +
     offlineTasteBlock(session.taste, true) +
     timeBlock +

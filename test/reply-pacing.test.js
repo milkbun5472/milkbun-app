@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const Pacing = require("../js/reply-pacing.js");
+const fs = require("node:fs");
 
 test("随口一句默认只需一到两泡", () => {
   assert.deepEqual(Pacing.band([{ role: "assistant", content: "在" }, { role: "user", content: "你在干嘛" }]), { min: 1, max: 2, kind: "short" });
@@ -24,4 +25,17 @@ test("整体提示用通用交际目的与情绪重量原则，不堆具体案�
   assert.match(prompt, /证据不足时保持轻量/);
   assert.match(prompt, /角色差异优先于统一的高情商模板/);
   assert.doesNotMatch(prompt, /怎么会呢|我怎么会不想你|好几天没见你了|你是不是今天太累/);
+});
+
+// 读懂对方这句话在做什么：与「气泡」无关，四条通道都该吃到（Lisa 2026-08-18 对齐线上线下）
+test("读句规则与气泡节奏拆开，并铺到线下与群聊", () => {
+  const reading = Pacing.reading();
+  assert.match(reading, /先理解这句话在做什么/);
+  assert.doesNotMatch(reading, /气泡/, "reading 不该带任何只属于线上聊天的气泡概念");
+  assert.match(Pacing.pacing([{ role: "user", content: "嗨" }]), /气泡/);
+  assert.match(Pacing.guidance([{ role: "user", content: "嗨" }]), /先理解这句话在做什么/);
+  const app = fs.readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const engine = fs.readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(app, /ReplyPacing\.reading\(\)/, "群聊线上要接入读句规则");
+  assert.equal((engine.match(/ReplyPacing\.reading\(\)/g) || []).length, 2, "线下单聊与群线下各接入一次");
 });

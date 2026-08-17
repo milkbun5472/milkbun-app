@@ -61,7 +61,8 @@ test("intimacy runtime stays a domain-neutral scene continuity patch", () => {
 test("offline null state semantics preserve durable state and clear stale thought", () => {
   assert.match(app, /if \(res\.wearing\) \{ ost\.wearing = res\.wearing; ost\.wearingUpdatedAt = stateNow; \}/);
   assert.match(app, /if \(offlineAction\) \{ ost\.action = offlineAction; ost\.actionUpdatedAt = stateNow; \}/);
-  assert.match(app, /if \(offlineThought\) ost\.thought = offlineThought;\s*else if \(liveState\.thought\) ost\.thought = null/);
+  assert.match(app, /if \(offlineThought\) \{ ost\.thought = offlineThought; ost\.thoughtUpdatedAt = stateNow; ost\.thoughtSkips = 0; \}/);
+  assert.match(app, /else if \(liveState\.thought\) \{ ost\.thought = null; ost\.thoughtUpdatedAt = 0; \}/);
   assert.match(app, /if \(res\.mood && res\.mood\.label\) setMoodFor/);
   assert.match(app, /Number\.isFinite\(res\.affinityDelta\)/);
   assert.match(engine, /action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写/);
@@ -80,7 +81,7 @@ test("ordinary single offline establishes missing durable state exactly once", (
 });
 
 test("wearing and action expire independently instead of becoming permanent facts", () => {
-  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000 \}/);
+  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000, thought: 90 \* 60000 \}/);
   assert.match(app, /state\[field \+ "UpdatedAt"\]/);
   assert.match(app, /age >= 0 && age <= LIVE_STATE_TTL\[field\]/);
 });
