@@ -21,6 +21,11 @@
     // 收藏的基线设定(x_theaterPresets):满意的身份/世界可复用开新局,只重新生成开场与目标
     const [presets, setPresets] = useState(() => { try { return JSON.parse(localStorage.getItem("x_theaterPresets") || "[]"); } catch (e) { return []; } });
     const savePresets = fn => setPresets(p => { const n = fn(p.slice()); try { localStorage.setItem("x_theaterPresets", JSON.stringify(n)); } catch (e) {} return n; });
+    // 图库(x_theaterGallery):所有出过的剧照自动归档,按角色分组;重拍换掉的、线删掉的都仍留在这里
+    const loadGal = () => { try { return JSON.parse(localStorage.getItem("x_theaterGallery") || "[]"); } catch (e) { return []; } };
+    const [gal, setGal] = useState(loadGal);
+    const saveGal = fn => setGal(p => { const n = fn(p.slice()); try { localStorage.setItem("x_theaterGallery", JSON.stringify(n)); } catch (e) {} return n; });
+    const [galView, setGalView] = useState(null); // 图库里点开的大图:null | item
     const addPreset = src => { savePresets(l => [{ id: rid("tp_"), charId: src.charId, title: src.title, charRole: src.charRole, userRole: src.userRole, setting: src.setting, keywords: src.keywords || "", ts: Date.now() }, ...l]); props.toast("已收藏为基线"); };
     const [view, setView] = useState("list"); // list | create | play
     const [playId, setPlayId] = useState(null);
@@ -45,6 +50,15 @@
     const sumBusyRef = useRef(false);
     const update = fn => setLines(p => { const n = fn(p.slice()); persist(n); return n; });
     useEffect(() => { linesRef.current = lines; });
+    // 回填:图库上线前已经出过的剧照(含归档的重开局)一次性补进图库,按图引用去重
+    useEffect(() => {
+      const have = new Set(loadGal().map(x => x.img));
+      const add = [];
+      lines.forEach(l => (l.rounds || []).concat((l.archives || []).flatMap(a => a.rounds || [])).forEach(r => (r.msgs || []).forEach(m => {
+        if (m.role === "photo" && m.img && !have.has(m.img)) { have.add(m.img); add.push({ id: rid("tg_"), charId: l.charId, lineId: l.id, lineTitle: l.title, img: m.img, ts: m.ts || Date.now() }); }
+      })));
+      if (add.length) saveGal(list => add.concat(list).sort((a, b) => b.ts - a.ts));
+    }, []);
     // 难度档:目标重量 + 演出时他有多难撬
     const DIFF = {
       easy: { name: "轻松", goal: "目标门槛放轻:日常温度,几轮内可自然达成,不必生死攸关。", play: "他对目标方向的抵抗不高:给个台阶就下,顺水推舟就能到。" },
@@ -240,7 +254,19 @@
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
+        saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now() }].concat(list));
       } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 存进手机系统相册:iOS 在分享单里选「存储图像」
+    const saveToAlbum = async ref => {
+      try {
+        let blob = null;
+        if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function") blob = await imgVaultFetchBlob(ref);
+        if (!blob) blob = await (await fetch(imgSrc(ref))).blob();
+        const file = new File([blob], "theater_" + Date.now() + ".png", { type: blob.type || "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+        else { window.open(URL.createObjectURL(blob), "_blank"); props.toast("在新页长按图片存储"); }
+      } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
     };
     const rerollPhoto = m => { if (busy) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(genPhoto, 60); };
     const pressStart = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setPhotoMenu(m), 550); };
@@ -266,12 +292,35 @@
       card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line },
       lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
       txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
-    const back = () => view === "list" ? props.onBack() : (setView("list"), setPlayId(null), setDraft(null));
+    const back = () => view === "list" ? props.onBack() : (setView("list"), setPlayId(null), setDraft(null), setGalView(null));
     const header = title => h("div", { style: S.top },
       h("button", { onClick: back, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
       h("div", { style: S.h1 }, title),
+      view === "list" ? h("button", { key: "gal", onClick: () => setView("gallery"), style: S.btn(false) }, "图库") : null,
       view === "list" ? h("button", { onClick: () => { setDraft(null); setView("create"); }, style: S.btn(true) }, "新开if线") : null,
       view === "play" && line ? h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "背景与目标") : null);
+
+    // 图库:所有出过的剧照按角色分组;点开看大图,可存进手机相册或从图库删掉
+    if (view === "gallery") {
+      const gg = [];
+      gal.forEach(x => { let g = gg.find(y => y.charId === x.charId); if (!g) { g = { charId: x.charId, items: [] }; gg.push(g); } g.items.push(x); });
+      const viewer = galView && h("div", { onClick: () => setGalView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
+        h("img", { src: imgSrc(galView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
+        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
+          h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
+          h("button", { onClick: () => { if (!confirm("从图库删掉这张?剧情里的那张不受影响。")) return; const id = galView.id; setGalView(null); saveGal(l => l.filter(x => x.id !== id)); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+      return h("div", { style: S.wrap }, header("剧照图库"), viewer,
+        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          gal.length ? gg.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
+            return h("div", { key: g.charId || "unknown" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub, margin: "16px 16px 6px" } }, (c.name || "已删除的角色") + " · " + g.items.length + "张"),
+              h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, padding: "0 14px" } },
+                g.items.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+                  h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })))));
+          })
+          : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有剧照。", h("br"), "演出时点 + 里的「当轮剧照」,出过的图都会自动收在这。")));
+    }
 
     if (view === "create") {
       const preview = draft && h("div", { style: S.card },
@@ -357,14 +406,7 @@
       const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
-           ["保存到手机相册", async () => { const m = photoMenu; setPhotoMenu(null); try {
-             let blob = null;
-             if (String(m.img).indexOf("iv_") === 0 && typeof idbVaultGet === "function") blob = await idbVaultGet(m.img);
-             if (!blob) blob = await (await fetch(imgSrc(m.img))).blob();
-             const file = new File([blob], "theater_" + Date.now() + ".png", { type: blob.type || "image/png" });
-             if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] }); // iOS 分享单里选「存储图像」即入系统相册
-             else { window.open(URL.createObjectURL(blob), "_blank"); props.toast("在新页长按图片存储"); }
-           } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); } }],
+           ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
            ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { style: S.wrap },
         line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
