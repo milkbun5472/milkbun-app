@@ -33,6 +33,7 @@
     const [edit, setEdit] = useState(null); // 演出面板的设定编辑缓冲:null | {title, charRole, userRole, setting, goal}
     const [note, setNote] = useState(""); // 导演便签:一次性,喂给下一拍生成后自动清空
     const [noteOpen, setNoteOpen] = useState(false);
+    const [dice, setDice] = useState(false); // 剧场骰子:下一拍注入一个意外,一次性
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
     const scrollRef = useRef(null);
@@ -113,7 +114,7 @@
       const round = line.rounds[line.rounds.length - 1];
       const lastIsUser = round.msgs.length && round.msgs[round.msgs.length - 1].role === "user";
       // 空输入 + 历史末尾是自己的消息 = 上次生成失败的重试:不重复入史,直接用现有历史再生成
-      if (!text && !lastIsUser) return;
+      if (!text && !lastIsUser && !dice) return;
       if (!props.active) return props.toast("请先配置线下 API");
       const char = charOf(line);
       let addedId = null;
@@ -133,6 +134,7 @@
           "【本轮目标(远景,不是本轮任务)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续即可)" : " —— 这是这一轮剧情【最终】要自然抵达的节点,通常需要多次来回互动、经过铺垫、并由 " + uName + " 的行动共同促成。绝不许在开场或单次回复里自己一步演完整条弧,更不许自导自演替对方完成属于对方的部分;每轮只朝它走一小步,留足对方行动的空间。只有当它经过铺垫在剧情里【真实发生】后,才在 goalReached 里报告。" + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : "")),
           line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
+          dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由内容决定。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalNote\":null}(目标达成时 goalReached 为 true,goalNote 用一句话指出达成的瞬间)"
         ].filter(Boolean).join("\n\n");
         const base = allMsgs(line).slice(line.sumCount || 0);
@@ -143,7 +145,7 @@
         if (!p.scene) throw new Error("没拿到正文");
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now() }], pending: !r.goalDone && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending }) }));
-        setNote(""); setNoteOpen(false); // 导演便签一次性,用完即清
+        setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
         setTimeout(() => maybeSummarize(line.id), 400);
       } catch (e) {
         // 失败回滚:撤回刚入史的那条,文字放回输入框,再按一次「演」即重试;历史不留残尾
@@ -172,6 +174,40 @@
           ? { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, goal: p.goal, pending: false }) }
           : { ...l, rounds: [...l.rounds, { id: rid("tr_"), goal: p.goal, goalDone: false, goalNote: null, pending: false, msgs: [], startTs: Date.now() }] }));
         setPanelOpen(true);
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 重开:旧剧情整段归档,同一套设定从第一轮重来(新开场+新目标)
+    const restartLine = async () => {
+      if (!line || busy) return;
+      if (!confirm("重开此线?当前剧情会归档,从第一轮重新开始。")) return;
+      setBusy(true);
+      try {
+        const char = charOf(line);
+        const sys = "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个必须做选择的时刻,悬着收尾。goal:【必须是角色做出/说出的事】,由 " + uName + " 促成;只定门槛类型不预设路径;禁止事务级小目标。只输出 JSON:{\"opening\":\"开场正文\",\"goal\":\"一句话目标\"}";
+        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2600, timeout: 150000 });
+        const p = extractJSON(raw);
+        if (!p || !p.goal) throw new Error("重开生成失败,再试一次");
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0,
+          archives: [...(l.archives || []), { rounds: l.rounds, summary: l.summary || "", ts: Date.now() }],
+          rounds: [{ id: rid("tr_"), goal: p.goal, goalDone: false, goalNote: null, pending: false, msgs: p.opening ? [{ id: rid("tm_"), role: "char", content: p.opening, ts: Date.now() }] : [], startTs: Date.now() }] }));
+        setPanelOpen(true);
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    // 谢幕:生成终场戏并标记完结(仍可回看,面板里可重开)
+    const endLine = async () => {
+      if (!line || busy) return;
+      if (!confirm("为这条线谢幕?会生成终场戏并标记完结。")) return;
+      setBusy(true);
+      try {
+        const char = charOf(line);
+        const recent = allMsgs(line).slice(-14).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-3000);
+        const sys = ANTI_CLICHE + "\n\n" + OFFLINE_NARRATIVE_RUNTIME + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\"}";
+        const user = "【设定】" + line.setting + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : "")).join(";") + "\n【最近剧情】\n" + recent;
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2600, timeout: 150000 });
+        const p = extractJSON(raw) || { scene: String(raw || "").replace(/```(?:json)?/gi, "").trim() };
+        if (!p.scene) throw new Error("终场没写出来");
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     const delLine = id => { if (!confirm("删除这条 if 线和全部记录?")) return; setView("list"); setPlayId(null); update(list => list.filter(l => l.id !== id)); };
@@ -240,10 +276,12 @@
              h("div", { key: "gl", style: S.lbl }, "各轮目标"),
              line.rounds.map((r, i) => h("div", { key: r.id, style: Object.assign({}, S.txt, { marginBottom: 3 }) }, "第" + (i + 1) + "轮:" + r.goal + (r.goalDone ? " ✓" : i === line.rounds.length - 1 ? "(进行中)" : "(未完)"))),
              h("div", { key: "bt", style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },
-               round.goalDone
+               line.ended ? null : round.goalDone
                  ? [h("button", { key: "ai", onClick: () => genGoal("next"), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "下一轮·AI想"),
                     h("button", { key: "hand", onClick: () => setWriteGoal(""), style: S.btn(false) }, "下一轮·自己写")]
                  : h("button", { onClick: () => genGoal("redo"), disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换个目标"),
+               !line.ended && h("button", { onClick: endLine, disabled: busy, style: S.btn(false) }, "谢幕收线"),
+               h("button", { onClick: restartLine, disabled: busy, style: S.btn(false) }, "重开此线"),
                h("button", { onClick: () => setEdit({ title: line.title, charRole: line.charRole, userRole: line.userRole, setting: line.setting, goal: round.goal }), style: S.btn(false) }, "编辑设定"),
                h("button", { onClick: () => addPreset(line), style: S.btn(false) }, "收藏此设定"),
                h("button", { onClick: () => delLine(line.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此线")),
@@ -267,9 +305,10 @@
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "Ta 在演…") : null),
-        noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
+        line.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
           h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让他更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
-        h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: noteOpen ? "none" : "1px solid " + t.line } },
+        line.ended ? null : h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: noteOpen ? "none" : "1px solid " + t.line } },
+          h("button", { onClick: () => setDice(v => !v), title: "剧场骰子", style: Object.assign({}, S.btn(dice), { padding: "7px 9px" }) }, "🎲"),
           h("button", { onClick: () => setNoteOpen(v => !v), style: Object.assign({}, S.btn(noteOpen || !!note.trim()), { padding: "7px 10px" }) }, "()"),
           h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
           h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "演")));
@@ -288,7 +327,7 @@
                 h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + l.title + "」和全部记录?")) update(list => list.filter(x => x.id !== l.id)); },
                   style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
                 h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); })); })
         : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有 if 线。", h("br"), "选个角色,把 Ta 扔进另一种人生试试。")));
   }
