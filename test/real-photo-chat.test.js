@@ -131,3 +131,16 @@ test("给了行头就锁死，没给才每张随机", () => {
   assert.match(eng, /同一场戏里这身衣服始终不变/);
   assert.match(eng, /每张可以不一样/, "没给行头时仍保留日常合照的随机搭配");
 });
+
+// 上游审核(2026-08-18 第二例):报错明说 prompt 太长或措辞敏感。
+// 主线人设 2400 字对 if 线既冗余又污染(整条线就是在替换他的身份)，
+// 且过滤只挡情色不挡刀/血,场景一带凶器就整单被拒。
+test("剧照 prompt 要控长、滤敏感，并有审核被拒后的简版兜底", () => {
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  assert.match(th, /persona: String\(char\.persona \|\| ""\)\.slice\(0, 400\)/, "主线人设必须截短");
+  assert.match(th, /const SENSITIVE_RE = /, "过滤要覆盖暴力血腥，不只情色");
+  assert.match(th, /slice\(-240\)/, "剧情摘要要控在短量级");
+  assert.match(th, /generateSelfieImage\(minimalPrompt, refs\)/, "审核被拒要有简版重试");
+  assert.match(th, /safety\|policy\|内容政策\|too long\|sensitive\|reject/, "只对审核类错误重试，别把真故障也重试一遍");
+  assert.doesNotMatch(th, /minimalPrompt[\s\S]{0,400}recent/, "简版 prompt 不许再带剧情文本");
+});

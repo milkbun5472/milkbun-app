@@ -312,11 +312,12 @@
         // 一旦这几拍是亲密戏,审核会直接拒("该提示可能违反了我们的内容政策"),
         // 而且两张真人参考照 + 亲密文本审得更严——单张能过、合照过不了就是这么来的
         // (2026-08-18 Lisa 案)。所以逐条过滤明确内容,并声明画面必须含蓄。
-        const explicit = t => typeof offlineRegisterExplicitText === "function" && offlineRegisterExplicitText(t);
+        const SENSITIVE_RE = /刀|刃|血|尸|伤口|掐|勒|捅|砍|割|窒息|尖叫|喘息|呻吟|哭喊|挣扎|绑|铐|药|毒/;
+        const explicit = t => (typeof offlineRegisterExplicitText === "function" && offlineRegisterExplicitText(t)) || SENSITIVE_RE.test(String(t || ""));
         const rows = allMsgs(line).filter(m => m.role !== "photo").slice(-4);
         const spicy = rows.some(m => explicit(m.content));
         const recent = rows.filter(m => !explicit(m.content))
-          .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-600)
+          .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-240)
           || "两人此刻正对着彼此,气氛紧绷。";
         const safeShot = "\n【画面尺度】必须是可公开展示的画面:两人衣着完整整齐,不露骨、不裸露、不做亲密动作的特写;情绪张力靠眼神、距离、手的位置和光影表达。若剧情此刻是亲密场面,就取它【之前或之后】的一个含蓄瞬间来画。";
         // 走 buildPhotoPrompt,别再自己从零拼:画风(photoStyle 写实/跟随参考图/二次元)、
@@ -325,7 +326,7 @@
         // st 传 null(此刻穿着同理,银龙不该穿着主线那身出现在龙岛)。
         // 用 if 线自己的行头顶替主线的固定服装锁:清空会让服装每张随机(她拍到袍子变女仆装),
         // 照抄主线又会让银龙穿着现代便装出现在龙岛。正解是这条线有自己的一套,并且锁死。
-        const styledChar = Object.assign({}, char, { photoOutfit: String(line.charOutfit || "").trim() });
+        const styledChar = Object.assign({}, char, { photoOutfit: String(line.charOutfit || "").trim(), persona: String(char.persona || "").slice(0, 400) });
         // if 线的身份描述会跟参考照抢脸:模型容易照着「龙族监督官」重画一个陌生人。
         // 所以把「只换身份行头、不换人」提到最前面,和 buildPhotoPrompt 的身份锁叠加。
         const faceLock = "【最高优先级·就是这个人】" + (duo
@@ -339,7 +340,20 @@
           ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true })
           : faceLock + sceneDesc;
         const refs = duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : null);
-        const out = await generateSelfieImage(prompt, refs);
+        // 上游审核可能仍然拒(prompt 太长 / 措辞被误判)。备用 prompt 完全不含剧情文本:
+        // 只保留锁脸、行头、世界一句话和一个中性构图,短且干净,成功率高得多。
+        const minimalPrompt = faceLock + "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【场景】" + String(line.world || line.setting || "").slice(0, 120)
+          + "\n【" + char.name + " 的穿着】" + (line.charOutfit || "符合上述世界观的身份装束")
+          + (duo ? "\n【" + uName + " 的穿着】" + (line.userOutfit || "符合上述世界观的身份装束") : "")
+          + "\n两人只是面对面站着说话,神情各异,衣着完整整齐,画面含蓄、可公开展示。";
+        let out;
+        try {
+          out = await generateSelfieImage(prompt, refs);
+        } catch (e1) {
+          if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
+          props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
+          out = await generateSelfieImage(minimalPrompt, refs);
+        }
         if (!out || !out.blob) throw new Error("没出图");
         // 降级不再无声无息:脸没锁上时要说出来,否则你只会看到两个陌生人却不知道为什么
         // 降级时把接口原话一起报出来:光说「没用上参考照」排查不了,得知道它到底拒了什么
