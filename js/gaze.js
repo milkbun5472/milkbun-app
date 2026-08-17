@@ -57,31 +57,44 @@
   }
   const hasAny = charId => Object.keys(boxOf(load(), charId).blocks).length > 0;
 
-  // ---- 信纸页面(嵌在状态卡里) ----
+  // ---- 信纸页面(嵌在状态卡里,参考 2026-08-17 Lisa 给的拍立得信纸样张) ----
+  const EN = { "me.person": "WHO SHE IS", "me.soft": "SOFT SPOTS", "me.like": "WEAKNESS FOR", "me.recent": "THESE DAYS", "me.unread": "STILL UNREAD", "us.what": "WHAT WE ARE", "us.how": "OUR WAYS", "us.marks": "MILESTONES", "us.elephant": "UNSPOKEN", "us.want": "HOPES & FEARS" };
+  const PAPER = "#fbf5ea", INKSOFT = "#5c5244", GOLD = "#ac8a5b", BLUSH = "#e8c9bd";
+  const tape = extra => h("div", { style: Object.assign({ position: "absolute", top: -9, left: "50%", width: 52, height: 18, marginLeft: -26, background: "rgba(240,231,214,.8)", boxShadow: "0 1px 3px rgba(0,0,0,.10)", transform: "rotate(-2deg)", borderLeft: "1px dashed rgba(0,0,0,.06)", borderRight: "1px dashed rgba(0,0,0,.06)" }, extra || {}) });
   function GazePage({ charId, charName, uName, onSeed, seedBusy }) {
-    const t = useTheme();
     const [side, setSide] = useState("me");
     const [openK, setOpenK] = useState(null); // 展开成信纸的块 key
     const box = boxOf(load(), charId);
     const defs = side === "me" ? ME : US;
-    const tabBtn = (k, label) => h("button", { key: k, onClick: () => setSide(k), style: { flex: 1, padding: "9px 0", fontFamily: F_DISPLAY, fontSize: 14, letterSpacing: 2, color: side === k ? t.ink : t.fog, background: "transparent", border: "none", borderBottom: "2px solid " + (side === k ? t.ink : "transparent") } }, label);
-    const full = openK && h("div", { onClick: () => setOpenK(null), style: { position: "fixed", inset: 0, zIndex: 130, background: "rgba(30,28,24,.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
-      h("div", { onClick: e => e.stopPropagation(), style: { maxHeight: "72vh", overflowY: "auto", width: "100%", maxWidth: 420, background: t.bg2, borderRadius: 6, padding: "26px 22px", boxShadow: "0 18px 50px rgba(0,0,0,.28)", borderTop: "6px solid " + t.line } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 14, letterSpacing: 1 } }, KEYS[openK]),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 2.1, whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || "他还没往这想过。"),
-        box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 14 } }, "写于 " + new Date(box.blocks[openK].ts).toLocaleDateString("zh-CN")),
-        (box.hist || []).filter(x => x.k === openK).length ? h("div", { style: { marginTop: 16, borderTop: "1px dashed " + t.line, paddingTop: 10 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 6 } }, "他从前是这么想的"),
-          box.hist.filter(x => x.k === openK).slice(0, 6).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.8, marginBottom: 8 } }, x.old, h("span", { style: { color: t.fog, fontSize: 10 } }, "  · " + new Date(x.ts).toLocaleDateString("zh-CN"))))) : null));
-    return h("div", null,
-      h("div", { style: { display: "flex", marginBottom: 12 } }, tabBtn("me", "关于我"), tabBtn("us", "关于我们")),
-      !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "26px 10px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2, marginBottom: 14 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
-        onSeed ? h("button", { onClick: onSeed, disabled: seedBusy, style: { padding: "9px 22px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, background: t.ink, color: t.bg2 } }, seedBusy ? "他在想…" : "让他写写看") : null) : null,
+    // Sheet 容器带 transform,fixed 会锚到 Sheet 而非屏幕 → 信纸必须 portal 到 body 才能居中
+    const full = openK && ReactDOM.createPortal(
+      h("div", { onClick: () => setOpenK(null), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        h("div", { onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "74vh", overflowY: "auto", width: "100%", maxWidth: 400, background: "linear-gradient(" + PAPER + "," + PAPER + " 60%, #f7efdf)", borderRadius: 4, padding: "34px 26px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)", backgroundImage: "repeating-linear-gradient(transparent, transparent 29px, rgba(120,100,70,.07) 29px, rgba(120,100,70,.07) 30px)" } },
+          tape(),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 4, color: GOLD, marginBottom: 4 } }, EN[openK] || ""),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || "他还没往这想过。"),
+          box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + new Date(box.blocks[openK].ts).toLocaleDateString("zh-CN")),
+          (box.hist || []).filter(x => x.k === openK).length ? h("div", { style: { marginTop: 20, borderTop: "1px dashed rgba(120,100,70,.25)", paddingTop: 12 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 3, color: GOLD, marginBottom: 8 } }, "他从前是这么想的"),
+            box.hist.filter(x => x.k === openK).slice(0, 6).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN"))))) : null)),
+      document.body);
+    return h("div", { style: { margin: "-4px -6px 0", padding: "18px 14px 26px", borderRadius: 18, background: "linear-gradient(168deg, #f8f2e6, #f6ecdf 46%, #f2e2d6 78%, " + BLUSH + "40)" } },
+      h("div", { style: { textAlign: "right", padding: "2px 6px 14px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, letterSpacing: 6, color: GOLD, textShadow: "0 1px 0 rgba(255,255,255,.6)" } }, side === "me" ? "关于我" : "关于我们"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 5, color: "rgba(172,138,91,.55)", marginTop: 3 } }, side === "me" ? "SHE, THROUGH HIS EYES" : "LOVE IS ALL YOU NEED")),
+      h("div", { style: { display: "flex", gap: 10, marginBottom: 16 } },
+        [["me", "关于我"], ["us", "关于我们"]].map(([k, label]) => h("button", { key: k, onClick: () => setSide(k), style: { flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3, borderRadius: 999, border: "1px solid " + (side === k ? GOLD : "rgba(172,138,91,.35)"), color: side === k ? "#fff" : GOLD, background: side === k ? GOLD : "rgba(255,255,255,.45)" } }, label))),
+      !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
+        onSeed ? h("button", { onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? "他在想…" : "让他写写看") : null) : null,
       defs.map(([k, name], i) => { const fk = side + "." + k; const b = box.blocks[fk];
-        return h("div", { key: fk, onClick: () => setOpenK(fk), style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 5, padding: "13px 14px", marginBottom: 11, cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.5 : -0.5) + "deg)", boxShadow: "0 2px 9px rgba(0,0,0,.05)" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, letterSpacing: 1, marginBottom: 5 } }, name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: b ? t.sub : t.fog, lineHeight: 1.9, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : "他还没往这想过。")); }),
+        return h("div", { key: fk, onClick: () => setOpenK(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
+          tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 3.5, color: GOLD, marginBottom: 3 } }, EN[fk] || ""),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : "他还没往这想过。"),
+          b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
       full);
   }
   window.Gaze = { ME, US, KEYS, apply, applyParsed, text, spec, seedSpec, seed, hasAny };
