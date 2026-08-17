@@ -328,24 +328,31 @@
       view === "lines" ? h("button", { key: "new", onClick: () => { setDraft(null); setKw(""); setPickChar(listChar); setView("create"); }, style: S.btn(true) }, "新开if线") : null,
       view === "play" && line ? h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "背景与目标") : null);
 
-    // 角色抽屉:入口页点头像拉起,三条去处都在这
-    const charSheet = sheetChar && (() => {
-      const c = props.characters.find(x => x.id === sheetChar) || {};
-      const nL = lines.filter(l => l.charId === sheetChar).length;
-      const nP = presets.filter(p => p.charId === sheetChar).length;
-      const row = (label, meta, fn, strong) => h("button", { key: label, onClick: fn, style: { width: "100%", display: "flex", alignItems: "center", padding: "14px 2px", fontFamily: F_BODY, fontSize: 14, color: strong ? t.ink : t.ink, fontWeight: strong ? 600 : 400, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
-        h("span", { style: { flex: 1, textAlign: "left" } }, label),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, meta));
-      return h("div", { onClick: () => setSheetChar(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
-        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px)" } },
-          h("div", { style: { width: 38, height: 4, borderRadius: 999, background: t.line, margin: "0 auto 12px" } }),
-          h("div", { style: { display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 } }, avatarOf(c, 40),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name || "?")),
-          row("查看记录", nL ? nL + " 条线" : "还没有", () => { setSheetChar(null); setListChar(sheetChar); setView("lines"); }),
-          row("收藏的设定", nP ? nP + " 个" : "还没有", () => { setSheetChar(null); setListChar(sheetChar); setView("presets"); }),
-          row("新开 if 线", "", () => { setSheetChar(null); setListChar(sheetChar); setPickChar(sheetChar); setDraft(null); setKw(""); setView("create"); }, true),
-          h("button", { onClick: () => setSheetChar(null), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.fog, background: "transparent", border: "none" } }, "取消")));
-    })();
+    // 入口的一行:头像居中站着,点开时纸条从右边拉出来,居中布局把头像自然挤向左边
+    // (不用手写 translate:让 flex 的 justifyContent:center 去分配,头像走多远永远等于纸条宽度的一半)
+    const EASE = "cubic-bezier(.22,1,.36,1)";
+    const NOTE_W = 214;
+    const charRow = c => {
+      const open = sheetChar === c.id;
+      const nL = lines.filter(l => l.charId === c.id).length;
+      const nP = presets.filter(p => p.charId === c.id).length;
+      const go = fn => e => { e.stopPropagation(); setListChar(c.id); fn(); };
+      const noteBtn = (label, meta, onClick, strong) => h("button", { key: label, onClick, style: { width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "6px 9px", marginBottom: 5, borderRadius: 7, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: strong ? t.ink : "transparent", border: "1px solid " + (strong ? t.ink : t.line) } },
+        h("span", { style: { flex: 1, textAlign: "left", color: strong ? t.bg2 : t.ink } }, label),
+        meta ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: strong ? t.bg2 : t.fog } }, meta) : null);
+      return h("div", { key: c.id, onClick: () => setSheetChar(open ? null : c.id), style: { display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px" } },
+        h("div", { style: { flexShrink: 0, textAlign: "center", transition: "transform .38s " + EASE, transform: open ? "scale(.94)" : "scale(1)" } },
+          avatarOf(c, 62),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, maxWidth: 78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, nL ? nL + " 条线" : "还没演过")),
+        // 纸条:宽度 0→NOTE_W 的动画;内层固定宽,内容不会跟着挤变形
+        // 外层多留 8px 内边距:纸条有阴影又是歪的,贴着 overflow:hidden 的边会被削掉角
+        h("div", { onClick: e => open && e.stopPropagation(), style: { width: open ? NOTE_W + 16 : 0, marginLeft: open ? 6 : 0, padding: "8px", opacity: open ? 1 : 0, overflow: "hidden", transition: "width .38s " + EASE + ", margin-left .38s " + EASE + ", opacity .26s ease" } },
+          h("div", { style: { width: NOTE_W, padding: "9px 10px 5px", borderRadius: "2px 9px 9px 2px", background: t.bg2, borderLeft: "3px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.10)", transform: "rotate(-.7deg)", backgroundImage: "repeating-linear-gradient(180deg, transparent 0, transparent 25px, " + t.line + " 25px, " + t.line + " 26px)" } },
+            noteBtn("查看记录", nL ? nL + " 条" : "还没有", go(() => setView("lines"))),
+            noteBtn("收藏的设定", nP ? nP + " 个" : "还没有", go(() => setView("presets"))),
+            noteBtn("新开 if 线", "", go(() => { setPickChar(c.id); setDraft(null); setKw(""); setView("create"); }), true))));
+    };
 
     // 图库:所有出过的剧照按角色分组;点开看大图,可存进手机相册或从图库删掉
     if (view === "gallery") {
@@ -515,16 +522,10 @@
           : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有和 Ta 演过。", h("br"), "点右上角新开一条 if 线。")));
     }
 
-    // 入口:一墙头像,点开抽屉挑去处
-    return h("div", { style: S.wrap }, header("小剧场"), charSheet,
-      h("div", { style: { flex: 1, overflowY: "auto", padding: "16px 14px 30px" } },
-        props.characters.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, props.characters.map(c => {
-          const n = lines.filter(l => l.charId === c.id).length;
-          return h("div", { key: c.id, onClick: () => setSheetChar(c.id), style: { width: "calc((100% - 20px) / 3)", textAlign: "center", padding: "12px 4px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
-            h("div", { style: { display: "flex", justifyContent: "center" } }, avatarOf(c, 54)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, n ? n + " 条线" : "还没演过"));
-        }))
+    // 入口:头像一个一列站在屏幕中间,往下滑看全部;点一下纸条从右边拉开
+    return h("div", { style: S.wrap }, header("小剧场"),
+      h("div", { onClick: () => setSheetChar(null), style: { flex: 1, overflowY: "auto", padding: "10px 0 40px" } },
+        props.characters.length ? props.characters.map(charRow)
         : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有角色。", h("br"), "先去建一个,再把 Ta 扔进另一种人生。")));
   }
   window.TheaterApp = TheaterApp;
