@@ -180,6 +180,12 @@
       }
       setBusy(true);
       try {
+        // 是否跨进了明确场景:复用主线线下那套判定(它靠消息上的 registerExplicitActive 记状态,
+        // 因为自修会把触发词洗掉,不能每轮要求干净终稿重新自证)
+        const rt = typeof offlineRegisterTransition === "function"
+          ? offlineRegisterTransition({ msgs: allMsgs(line).filter(m => m.role !== "photo").concat(text ? [{ role: "user", content: text }] : []) })
+          : { inputBeat: false, active: false };
+        const selfRevise = !!(rt.inputBeat && rt.active);
         const sys = [ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME, NARRATIVE_ANTI_CLICHE, INTIMATE_ANTI_CLICHE,
           "【小剧场·if 线(独立平行时空)】这是一场与主线完全无关的平行扮演:不引用主线聊天里发生过的事,也不提及这是扮演。世界观、身份以下面的设定为准。",
           "【角色人设(性格与声纹的根基,保持不变)】\n" + (char.persona || char.name),
@@ -194,7 +200,10 @@
           "【节拍】一次回复只演【一拍】:你的一个反应、至多一次行动和随之的话;演到需要 " + uName + " 回应、选择或行动的位置就自然停下。不把几个情绪阶段压进同一拍(震惊、想通、劝阻、逼问要分几个来回演),不替 Ta 说出 Ta 没说出口的意图,也不自问自答替 Ta 推进。一拍限制的是【剧情推进量】,不是篇幅——同一拍之内照样要写足。",
           "【镜头不随人物收缩】角色的克制是【台词】的克制,不是【镜头】的克制。他话少、冷淡、不外露,恰恰意味着叙述要接住更多:说这句话之前先做完的那个动作、停顿的那一下、手上正在做的事、他注意到却没提起的东西、身体先于话给出的反应。绝不能因为他是个冷淡的人就把段落缩成「我看着你。」——那不是克制,那是没写;他不说的部分必须在纸面上有分量。每句台词旁边至少要有一处具体的、看得见的动作或环境细节;但也不许拿华丽形容词和情绪副词充数,要的是具体物件与动作,不是修饰。",
           "【成段,不要一句一行】把动作、感觉、台词织进【连续的段落】里,一段通常三五句连着写;绝不要每写一句就换行空一段——一句一段会让整场戏看起来支离破碎、像剧本提纲而不是小说。「我看着你。」「我停了一下。」这种单句尤其不许独立成段,要么并进前后的叙述里,要么就删掉。只有真正需要一个停顿感的关键处,才允许一句独立成段,一整拍里至多用一次。\n【别学历史的排版】前文里如果全是短句短段,那是旧毛病,不是范例:照上面的要求写,不要模仿它。",
-          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)"
+          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
+          // 跨进明确场景时,和主线线下走同一套「初稿→自编辑去认证句」——以前这套只焊在
+          // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
+          selfRevise ? offlineSelfReviseProtocol("{\"draftScene\":\"内部完整首稿\",\"scene\":\"基于前一字段完成的最终正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}") : null
         ].filter(Boolean).join("\n\n");
         const base = allMsgs(line).slice(line.sumCount || 0).filter(m => m.role !== "photo");
         const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
@@ -204,11 +213,15 @@
         const tail = "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来,并且织成连贯的段落——不要一句一段,前文那种支离破碎的排版不要学。";
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
-        const raw = await callAI(props.active, sys, hist, { maxTokens: 3200, timeout: 180000 });
+        // 自修轮要多写一份初稿,预算给足,否则终稿会被截断
+        const raw = await callAI(props.active, sys, hist, { maxTokens: selfRevise ? 6000 : 3200, timeout: 180000 });
         const p = extractJSON(raw) || { scene: String(raw || "").replace(/```(?:json)?/gi, "").trim() };
+        // 自修轮:draftScene 只是内部草稿,scene 才是进历史的终稿;终稿缺失就当本轮失败重试,
+        // 绝不拿草稿顶上——那等于把去认证句这一步悄悄跳过
+        if (selfRevise && p.draftScene && !String(p.scene || "").trim()) throw new Error("模型没写出自修终稿,再按一次「演」");
         if (!p.scene) throw new Error("没拿到正文");
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now() }], pending: !r.goalDone && !r.failed && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending, pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), registerExplicitActive: rt.active || undefined }], pending: !r.goalDone && !r.failed && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending, pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
         setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
         setTimeout(() => maybeSummarize(line.id), 400);
       } catch (e) {
@@ -291,7 +304,13 @@
         // 两处刻意改造:photoOutfit 清空(角色的固定服装锁是主线世界的,会把 if 线的行头顶掉);
         // st 传 null(此刻穿着同理,银龙不该穿着主线那身出现在龙岛)。
         const styledChar = Object.assign({}, char, { photoOutfit: "" });
-        const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。";
+        // if 线的身份描述会跟参考照抢脸:模型容易照着「龙族监督官」重画一个陌生人。
+        // 所以把「只换身份行头、不换人」提到最前面,和 buildPhotoPrompt 的身份锁叠加。
+        const faceLock = "【最高优先级·就是这个人】" + (duo
+          ? "画面里的两个人必须严格就是参考图里的这两位:「" + char.name + "」用参考图1的脸,「" + uName + "」用参考图2的脸——五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人。"
+          : "画面里的人必须严格就是参考图里的那一位:五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人,也绝不出现第二个人。")
+          + "下面的身份设定【只改变服装、道具、场景与气质,绝不改变这张脸】;身份描述里的种族/职业/头衔不是长相指令,不得据此重画五官。\n";
+        const sceneDesc = faceLock + "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。";
         const prompt = typeof buildPhotoPrompt === "function"
           ? buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? props.profile : null })
           : sceneDesc;
