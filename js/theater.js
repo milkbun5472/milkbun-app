@@ -317,6 +317,9 @@
         const refs = duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : null);
         const out = await generateSelfieImage(prompt, refs);
         if (!out || !out.blob) throw new Error("没出图");
+        // 降级不再无声无息:脸没锁上时要说出来,否则你只会看到两个陌生人却不知道为什么
+        if (out.degraded === "duo-single-ref") props.toast("你的图像接口不支持多图参考,这张只锁了 " + char.name + " 的脸");
+        else if (out.degraded === "no-ref") props.toast("这张没能用上参考照,长相可能对不上");
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));

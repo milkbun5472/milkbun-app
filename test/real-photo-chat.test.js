@@ -82,3 +82,18 @@ test("小剧场剧照复用角色画风与身份锁", () => {
   assert.match(theater, /photoOutfit: ""/, "if 线服装不能被角色的固定服装锁顶掉");
   assert.doesNotMatch(theater, /第三人称旁观视角的电影感画面\(绝不是自拍/, "旧的自拼 prompt 必须已经移除");
 });
+
+// 合照锁脸(2026-08-18):多图 edits 失败时曾直接退回无参考照的 generations，
+// 于是合照必出两个陌生人，而且外面看起来像成功出图。降级必须逐级、且可见。
+test("多图参考失败要逐级降级并标记，不许无声丢脸", () => {
+  const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+  assert.match(eng, /refMode === "first"/, "要有只锁一张脸的中间级");
+  assert.match(eng, /refMode === "repeat"/, "要试重复 image 字段名");
+  assert.match(eng, /attempt\(true, false, "bracket"\)[\s\S]{0,200}attempt\(true, false, "repeat"\)[\s\S]{0,200}attempt\(true, false, "first"\)/,
+    "降级顺序必须是 image[] → 重复 image → 单张");
+  assert.match(eng, /mark\(await attempt\(false\), "no-ref"\)/, "彻底无参考照要打标记");
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+  assert.match(th, /degraded === "duo-single-ref"/, "小剧场要把降级说出来");
+  assert.match(app, /degraded === "duo-single-ref"/, "主聊天也要把降级说出来");
+});

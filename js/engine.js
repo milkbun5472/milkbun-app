@@ -1768,7 +1768,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     }
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
   };
-  const attempt = async (useRef, slim) => {
+  const attempt = async (useRef, slim, refMode) => {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 180000);
     let r;
@@ -1778,7 +1778,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", prompt); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
         if (a.quality) fd.append("quality", a.quality);
         // 单张走 image（沿用验证过的路径）；多张（合照）走 image[]，交给 GPT Image 2 做高保真多图编辑。
-        if (refBlobs.length === 1) fd.append("image", refBlobs[0], "ref.png");
+        // 多图编辑的字段名各家不一：官方 gpt-image 用 image[]，不少中转只认重复的 image。
+        // 两种都试过再降级，别一失败就悄悄丢掉参考照（那就是合照变陌生人的真凶）。
+        if (refBlobs.length === 1 || refMode === "first") fd.append("image", refBlobs[0], "ref.png");
+        else if (refMode === "repeat") refBlobs.forEach((blob, i) => fd.append("image", blob, "ref" + i + ".png"));
         else refBlobs.forEach((blob, i) => fd.append("image[]", blob, "ref" + i + ".png"));
         r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
       } else {
@@ -1796,8 +1799,17 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     }
     return await parseOut(r, rawTxt);
   };
-  // 有参考照：先 edits(保长相)，挂了退回 generations；没参考照直接 generations
-  if (refs.length) { try { return await attempt(true); } catch (e) { return await attempt(false); } }
+  // 有参考照时的降级阶梯。关键：以前多图一失败就直接退回无参考照的 generations，
+  // 于是合照必出两个陌生人，而且外面看起来是「成功出图」，没人知道脸锁掉了（2026-08-18 Lisa 报）。
+  // 现在逐级退：image[] → 重复 image → 只锁角色一张 → 才是无参考照；并把降级结果标出来。
+  const mark = (out, how) => { try { if (out && typeof out === "object") out.degraded = how; } catch (e) {} return out; };
+  if (refBlobs.length > 1) {
+    try { return await attempt(true, false, "bracket"); } catch (e) {}
+    try { return await attempt(true, false, "repeat"); } catch (e) {}
+    try { return mark(await attempt(true, false, "first"), "duo-single-ref"); } catch (e) {}
+    return mark(await attempt(false), "no-ref");
+  }
+  if (refs.length) { try { return await attempt(true); } catch (e) { return mark(await attempt(false), "no-ref"); } }
   return await attempt(false);
 }
 // ============================================================
