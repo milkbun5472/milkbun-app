@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.39";
+const APP_VERSION = "v53.40";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -522,9 +522,10 @@ function App() {
   const [editingMsg, setEditingMsg] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
   const [loaded, setLoaded] = useState(false);
-  const toast = m => {
+  // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
+  const toast = (m, ms) => {
     setToastMsg(m);
-    setTimeout(() => setToastMsg(null), 2200);
+    setTimeout(() => setToastMsg(null), ms || 2200);
   };
   // 自包含子组件（如事件书架）不走 props 也能弹提示
   useEffect(() => { window.__toast = toast; return () => { delete window.__toast; }; });
@@ -4727,8 +4728,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             const refs = photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
             const out = await generateSelfieImage(prompt, refs.length ? refs : null);
             // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
-            if (out && out.degraded === "duo-single-ref") toast("图像接口不支持多图参考,这张只锁了 " + char.name + " 的脸");
-            else if (out && out.degraded === "no-ref") toast("这张没能用上参考照,长相可能对不上");
+            if (out && out.degraded) toast((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : ""), 9000);
             if (out.blob) {
               const key = "img_" + charId + "_" + sid;
               await idbImgPut(key, out.blob);

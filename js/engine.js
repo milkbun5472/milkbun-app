@@ -1732,7 +1732,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const refs = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).filter(x => x && typeof x === "string");
   // 参考照已迁入 x_imgvault 时直接取 Blob；旧 data: 仍兼容。这样 localStorage 不再为每张参考照背几百 KB。
   const refBlobs = (await Promise.all(refs.map(async rp => {
-    try { if (rp.indexOf("iv_") === 0) return await idbVaultGet(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
+    try { if (rp.indexOf("iv_") === 0) return await imgVaultFetchBlob(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
   }))).filter(Boolean);
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
   let base = (a.baseUrl || "").trim().replace(/\/+$/, "");
@@ -1805,14 +1805,18 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // 有参考照时的降级阶梯。关键：以前多图一失败就直接退回无参考照的 generations，
   // 于是合照必出两个陌生人，而且外面看起来是「成功出图」，没人知道脸锁掉了（2026-08-18 Lisa 报）。
   // 现在逐级退：image[] → 重复 image → 只锁角色一张 → 才是无参考照；并把降级结果标出来。
-  const mark = (out, how) => { try { if (out && typeof out === "object") out.degraded = how; } catch (e) {} return out; };
+  // 阶梯里每一级为什么失败必须留下来。以前统统 catch 掉,外面只看到「出图成功」,
+  // 排查时全靠猜——参考照被丢了却没人知道接口到底说了什么(2026-08-18)。
+  let lastRefErr = "";
+  const note = e => { lastRefErr = String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 180); };
+  const mark = (out, how) => { try { if (out && typeof out === "object") { out.degraded = how; if (lastRefErr) out.refError = lastRefErr; } } catch (e) {} return out; };
   if (refBlobs.length > 1) {
-    try { return await attempt(true, false, "bracket"); } catch (e) {}
-    try { return await attempt(true, false, "repeat"); } catch (e) {}
-    try { return mark(await attempt(true, false, "first"), "duo-single-ref"); } catch (e) {}
+    try { return await attempt(true, false, "bracket"); } catch (e) { note(e); }
+    try { return await attempt(true, false, "repeat"); } catch (e) { note(e); }
+    try { return mark(await attempt(true, false, "first"), "duo-single-ref"); } catch (e) { note(e); }
     return mark(await attempt(false), "no-ref");
   }
-  if (refs.length) { try { return await attempt(true); } catch (e) { return mark(await attempt(false), "no-ref"); } }
+  if (refs.length) { try { return await attempt(true); } catch (e) { note(e); return mark(await attempt(false), "no-ref"); } }
   return await attempt(false);
 }
 // ============================================================
