@@ -19,6 +19,9 @@
     const interactionPlan = /(?:我|嘴上).{0,18}(?:会|要|得|应该|肯定会).{0,18}(?:满足|别扭|嘴硬|装作|回应|回复|哄|安抚|接住|顺着|解释|追问)/;
     const topicPlan = /(?:关心|逗|试探|追问|回应|回复).{0,18}(?:一下|她|他|TA).{0,24}(?:把|将).{0,12}(?:话题|对话).{0,12}(?:引向|转到|带到)/;
     const directorTerms = /(?:回复策略|回应方式|情绪需求|用户意图|对话走向|这一轮(?:应该|需要)|接下来(?:应该|要|得)|(?:这些|这都).{0,8}(?:可以|能).{0,8}(?:作为|是我的).{0,8}(?:背景|铺垫)|把话题引向)/;
+    // 策略权衡与事后复盘:汇报「想完的结果」而非正在想(2026-08-18 V 案)
+    const stratCompare = /比.{0,16}(?:更像对话|更像聊天|要好得多|更稳妥|更有效|更自然)/;
+    const wrapup = /(?:看来|总算).{0,12}(?:话题|安抚|哄|聊|误会|情绪).{0,12}(?:好了|过去了|结束了|翻篇|平息)/;
     const selfPerformance = /(?:我(?:得|要|应该|需要|最好)|得|需要|最好).{0,12}(?:表现出一种|表现得|显得|营造出|呈现出|摆出).{0,24}(?:感觉|样子|态度|语气|形象|反应)?/;
     const selfPresentation = /(?:让自己|把自己|给人).{0,12}(?:看起来|显得|表现得|呈现得|感觉).{0,24}/;
     const hasRecap = recap.test(text);
@@ -27,6 +30,7 @@
 
     if (directorTerms.test(text)) return { ok: false, reason: "director-language" };
     if (selfPerformance.test(text) || selfPresentation.test(text)) return { ok: false, reason: "self-performance-direction" };
+    if (stratCompare.test(text) || wrapup.test(text)) return { ok: false, reason: "post-hoc-planning" };
     if (hasReplyPlan && (hasRecap || hasClassify)) return { ok: false, reason: "recap-and-reply-plan" };
     if (hasRecap && hasClassify) return { ok: false, reason: "user-analysis" };
     return { ok: true, reason: "inner-voice" };

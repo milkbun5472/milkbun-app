@@ -10,6 +10,9 @@ const directorDrafts = [
   "被她这么夸，心里肯定美滋滋的。她还说被我击中了，这让我忍不住想逗她一下。同时，也关心一下她，把话题引向她那边。我刚洗完澡，头发还没干，正准备躺下，这些都可以是我的背景。"
 ];
 directorDrafts.forEach(text => assert.equal(guard.accept(text), null, text));
+["她现在在路上，问一句她的行程进度，比只谈我自己更像对话。",
+ "看来昨晚关于记忆的话题已经过去了。她的精力恢复得很快。",
+ "总算安抚好了。她也该好好休息了。"].forEach(text => assert.equal(guard.accept(text), null, text));
 
 const realInnerVoices = [
   "啊啊啊她怎么能每次都这么理直气壮地把话圆回来！明明就是她先故意引导我想歪的。",
