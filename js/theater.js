@@ -191,14 +191,16 @@
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
           "【对方主权】" + uName + " 的行动、反应和台词永远由 Ta 本人输入:你只能写「我」的言行心理与 NPC/环境,绝不替『你』做动作、说台词、下决定——哪怕剧情顺手也不行,写到需要 Ta 行动的位置就停。",
-          "【节拍】一次回复只演【一拍】:你的一个反应、至多一次行动和随之的话;演到需要 " + uName + " 回应、选择或行动的位置就自然停下。不把几个情绪阶段压进同一拍(震惊、想通、劝阻、逼问要分几个来回演),不替 Ta 说出 Ta 没说出口的意图,也不自问自答替 Ta 推进。",
-          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由内容决定。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)"
+          "【节拍】一次回复只演【一拍】:你的一个反应、至多一次行动和随之的话;演到需要 " + uName + " 回应、选择或行动的位置就自然停下。不把几个情绪阶段压进同一拍(震惊、想通、劝阻、逼问要分几个来回演),不替 Ta 说出 Ta 没说出口的意图,也不自问自答替 Ta 推进。一拍限制的是【剧情推进量】,不是篇幅——同一拍之内照样要写足。",
+          "【镜头不随人物收缩】角色的克制是【台词】的克制,不是【镜头】的克制。他话少、冷淡、不外露,恰恰意味着叙述要接住更多:说这句话之前先做完的那个动作、停顿的那一下、手上正在做的事、他注意到却没提起的东西、身体先于话给出的反应。绝不能因为他是个冷淡的人就把段落缩成「我看着你。」——那不是克制,那是没写;他不说的部分必须在纸面上有分量。每句台词旁边至少要有一处具体的、看得见的动作或环境细节;但也不许拿华丽形容词和情绪副词充数,要的是具体物件与动作,不是修饰。",
+          "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)"
         ].filter(Boolean).join("\n\n");
         const base = allMsgs(line).slice(line.sumCount || 0).filter(m => m.role !== "photo");
         const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
           .slice(-40).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         // 尾部守则(recency 最强处;史里有旧八股时 system 中段压不住自我模仿)
-        const tail = "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。";
+        // 尾部原先全是减法,冷淡角色被砍完就只剩「我看着你。」——必须在同一处补上加法
+        const tail = "\n\n〔本拍守则〕只演我自己的一拍,绝不写「你」的动作、反应或台词,写到需要你行动处就停;用这个角色自己的说话方式,砍掉现成网文反应、连环强度词和总结旁白。台词可以短,镜头不能跟着短:他不说的那部分,用具体的动作、手上的事和他注意到的细节写出来。";
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
         const raw = await callAI(props.active, sys, hist, { maxTokens: 3200, timeout: 180000 });
