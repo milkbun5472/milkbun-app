@@ -340,7 +340,8 @@
       const noteBtn = (label, meta, onClick, strong) => h("button", { key: label, onClick, style: { width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "6px 9px", marginBottom: 5, borderRadius: 7, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: strong ? t.ink : "transparent", border: "1px solid " + (strong ? t.ink : t.line) } },
         h("span", { style: { flex: 1, textAlign: "left", color: strong ? t.bg2 : t.ink } }, label),
         meta ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: strong ? t.bg2 : t.fog } }, meta) : null);
-      return h("div", { key: c.id, onClick: () => setSheetChar(open ? null : c.id), style: { display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px" } },
+      // 必须挡住冒泡:外层容器有「点空白收起」,不挡的话这一下会被它接着关掉,看起来就是点了没反应
+      return h("div", { key: c.id, onClick: e => { e.stopPropagation(); setSheetChar(open ? null : c.id); }, style: { display: "flex", alignItems: "center", justifyContent: "center", padding: "9px 12px" } },
         h("div", { style: { flexShrink: 0, textAlign: "center", transition: "transform .38s " + EASE, transform: open ? "scale(.94)" : "scale(1)" } },
           avatarOf(c, 62),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, maxWidth: 78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
