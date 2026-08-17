@@ -94,3 +94,17 @@ test("single offline latest-user tail no longer repeats the legacy ban checklist
   assert.doesNotMatch(single, /像只大型犬/);
   assert.doesNotMatch(single, /喉结滚动/);
 });
+
+// 小剧场自由发挥的多样性(2026-08-18 Lisa:空关键词生成仍大同小异)。
+// 题材骰子本来就在转,但张力核心是写死的四选一(旧账/秘密/对立/欠债),
+// 全是阴谋味,题材换了情绪形状没换——所以张力与基调也必须入骰。
+test("取景骰子必须覆盖张力性质与基调，且题材只掷一个", () => {
+  const th = fs.readFileSync(path.join(__dirname, "..", "js", "theater.js"), "utf8");
+  assert.match(th, /const POOL_TENSION = \[/, "张力性质要入骰");
+  assert.match(th, /const POOL_TONE = \[/, "基调要入骰");
+  assert.match(th, /题材:" \+ pick\(POOL_GENRE\)/, "题材单掷,不给三选一的逃跑余地");
+  assert.doesNotMatch(th, /pick3\(POOL_GENRE\)/, "旧的三选一必须已移除");
+  assert.match(th, /【基调决定味道,不决定重量】/, "基调不得被读成可以把目标写软");
+  assert.doesNotMatch(th, /一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债/,
+    "写死的阴谋味张力配方必须已解绑");
+});
