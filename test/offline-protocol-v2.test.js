@@ -108,3 +108,18 @@ test("取景骰子必须覆盖张力性质与基调，且题材只掷一个", ()
   assert.doesNotMatch(th, /一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债/,
     "写死的阴谋味张力配方必须已解绑");
 });
+
+// 目标尺度(2026-08-18 Lisa 拿商业乙游关卡对照):那边的目标是「让他喂你吃排骨」
+// 「让他同意你帮他换衬衫」这类日常小动作,却一点不轻——重量来自处境。
+// 原先写死的「禁止事务级小目标」把整类好目标一刀切了。
+test("目标契约共用一份，且允许日常尺度", () => {
+  const th = fs.readFileSync(path.join(__dirname, "..", "js", "theater.js"), "utf8");
+  assert.match(th, /const GOAL_RULE = /, "四处生成必须共用一份目标契约");
+  assert.equal((th.match(/【门槛的重量来自处境,不来自动作大小】/g) || []).length, 1);
+  assert.match(th, /【目标必须具体、可判定】/, "小目标更要可判定，否则达成判断会飘");
+  // 该短语只允许留在注释里（记录为什么废掉），不许再出现在任何提示词字符串中
+  const banLines = th.split("\n").filter(l => l.includes("禁止事务级小目标"));
+  assert.equal(banLines.length, 1, "一刀切的禁令只该剩注释那一处");
+  assert.match(banLines[0].trim(), /^\/\//, "剩下那处必须是注释，不是提示词");
+  assert.equal((th.match(/GOAL_RULE/g) || []).length, 5, "一处定义 + 四处引用，不许再各写各的");
+});
