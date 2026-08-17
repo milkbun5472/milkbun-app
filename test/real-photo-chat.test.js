@@ -97,3 +97,14 @@ test("多图参考失败要逐级降级并标记，不许无声丢脸", () => {
   assert.match(th, /degraded === "duo-single-ref"/, "小剧场要把降级说出来");
   assert.match(app, /degraded === "duo-single-ref"/, "主聊天也要把降级说出来");
 });
+
+// 合照锁脸的位置很关键(2026-08-18):sceneDesc 会被塞到 prompt 末尾并冠以「场景/正在做什么」，
+// 身份指令挂在那里压不住前面一大段设定，必须前置；engine 侧另有参考图对应关系兜底。
+test("合照必须说明哪张参考图是谁，且锁脸前置", () => {
+  const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+  assert.match(eng, /第一张参考图是「" \+ cName \+ "」本人，第二张参考图是「" \+ uName \+ "」本人/);
+  assert.match(eng, /两张脸绝不许互换、混合或平均化/);
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  assert.match(th, /faceLock \+ buildPhotoPrompt/, "小剧场的锁脸必须在整段 prompt 最前面");
+  assert.doesNotMatch(th, /sceneDesc = faceLock/, "锁脸不能再埋回 sceneDesc 里");
+});

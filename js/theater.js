@@ -298,7 +298,7 @@
       const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
       setPlusOpen(false); setBusy(true);
       try {
-        const recent = allMsgs(line).filter(m => m.role !== "photo").slice(-4).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-1200);
+        const recent = allMsgs(line).filter(m => m.role !== "photo").slice(-4).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-600);
         // 走 buildPhotoPrompt,别再自己从零拼:画风(photoStyle 写实/跟随参考图/二次元)、
         // 身份锁、人设视觉事实、手部解剖锁全在那边,自拼等于把角色的画风设定整个丢掉。
         // 两处刻意改造:photoOutfit 清空(角色的固定服装锁是主线世界的,会把 if 线的行头顶掉);
@@ -310,10 +310,12 @@
           ? "画面里的两个人必须严格就是参考图里的这两位:「" + char.name + "」用参考图1的脸,「" + uName + "」用参考图2的脸——五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人。"
           : "画面里的人必须严格就是参考图里的那一位:五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人,也绝不出现第二个人。")
           + "下面的身份设定【只改变服装、道具、场景与气质,绝不改变这张脸】;身份描述里的种族/职业/头衔不是长相指令,不得据此重画五官。\n";
-        const sceneDesc = faceLock + "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。";
+        const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。";
+        // 锁脸放【整段 prompt 的最前面】:sceneDesc 会被 buildPhotoPrompt 塞到末尾、还冠以
+        // 「场景/正在做什么：」,身份指令挂在那儿位置最弱,压不住后面一大段 if 线设定。
         const prompt = typeof buildPhotoPrompt === "function"
-          ? buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? props.profile : null, cinematic: true })
-          : sceneDesc;
+          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? props.profile : null, cinematic: true })
+          : faceLock + sceneDesc;
         const refs = duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : null);
         const out = await generateSelfieImage(prompt, refs);
         if (!out || !out.blob) throw new Error("没出图");
