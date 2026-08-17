@@ -127,7 +127,7 @@
       }
       setBusy(true);
       try {
-        const sys = [ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME,
+        const sys = [ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME, NARRATIVE_ANTI_CLICHE, INTIMATE_ANTI_CLICHE,
           "【小剧场·if 线(独立平行时空)】这是一场与主线完全无关的平行扮演:不引用主线聊天里发生过的事,也不提及这是扮演。世界观、身份以下面的设定为准。",
           "【角色人设(性格与声纹的根基,保持不变)】\n" + (char.persona || char.name),
           "【if 线身份·你(" + char.name + ")】" + line.charRole + "\n身份、职业、处境按此替换;性格、说话方式、注意力习惯仍是上面这个人。",
