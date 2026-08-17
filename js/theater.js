@@ -357,7 +357,14 @@
       const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
-           ["保存到相册", async () => { const m = photoMenu; setPhotoMenu(null); try { if (typeof rememberRealPhoto === "function" && String(m.img).indexOf("iv_") === 0) { await rememberRealPhoto(m.img, line.title + " · 剧照", "theater"); props.toast("已存入图库"); } else props.toast("这张存不了图库"); } catch (e) { props.toast("保存失败"); } }],
+           ["保存到手机相册", async () => { const m = photoMenu; setPhotoMenu(null); try {
+             let blob = null;
+             if (String(m.img).indexOf("iv_") === 0 && typeof idbVaultGet === "function") blob = await idbVaultGet(m.img);
+             if (!blob) blob = await (await fetch(imgSrc(m.img))).blob();
+             const file = new File([blob], "theater_" + Date.now() + ".png", { type: blob.type || "image/png" });
+             if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] }); // iOS 分享单里选「存储图像」即入系统相册
+             else { window.open(URL.createObjectURL(blob), "_blank"); props.toast("在新页长按图片存储"); }
+           } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); } }],
            ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { style: S.wrap }, header(line.title + " · " + (char.name || "")), photoSheet,
         panel, banner,
