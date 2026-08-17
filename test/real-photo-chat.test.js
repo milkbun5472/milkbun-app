@@ -108,3 +108,14 @@ test("合照必须说明哪张参考图是谁，且锁脸前置", () => {
   assert.match(th, /faceLock \+ buildPhotoPrompt/, "小剧场的锁脸必须在整段 prompt 最前面");
   assert.doesNotMatch(th, /sceneDesc = faceLock/, "锁脸不能再埋回 sceneDesc 里");
 });
+
+// 图像接口的内容审核(2026-08-18):把当轮正文原样喂给出图接口，亲密戏会被判违规，
+// 且两张真人参考照 + 亲密文本审得更严 —— 单张能过、合照过不了就是这么来的。
+test("剧照 prompt 要过滤明确内容并声明画面尺度", () => {
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  assert.match(th, /rows\.filter\(m => !explicit\(m\.content\)\)/, "明确内容不能进图像 prompt");
+  assert.match(th, /offlineRegisterExplicitText/, "复用线下那套明确内容判定，别另造一套");
+  assert.match(th, /【画面尺度】/, "要显式声明画面必须可公开展示");
+  assert.match(th, /两人此刻正对着彼此/, "全被过滤掉时要有兜底描述，不能给空场景");
+  assert.match(th, /内容政策\|content policy/, "审核类失败要能被识别并给出可操作提示");
+});

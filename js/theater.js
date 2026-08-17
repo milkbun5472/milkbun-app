@@ -298,7 +298,17 @@
       const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
       setPlusOpen(false); setBusy(true);
       try {
-        const recent = allMsgs(line).filter(m => m.role !== "photo").slice(-4).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-600);
+        // 图像接口要的是【画面上看得见什么】,不是小说正文。把当轮正文原样喂过去,
+        // 一旦这几拍是亲密戏,审核会直接拒("该提示可能违反了我们的内容政策"),
+        // 而且两张真人参考照 + 亲密文本审得更严——单张能过、合照过不了就是这么来的
+        // (2026-08-18 Lisa 案)。所以逐条过滤明确内容,并声明画面必须含蓄。
+        const explicit = t => typeof offlineRegisterExplicitText === "function" && offlineRegisterExplicitText(t);
+        const rows = allMsgs(line).filter(m => m.role !== "photo").slice(-4);
+        const spicy = rows.some(m => explicit(m.content));
+        const recent = rows.filter(m => !explicit(m.content))
+          .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-600)
+          || "两人此刻正对着彼此,气氛紧绷。";
+        const safeShot = "\n【画面尺度】必须是可公开展示的画面:两人衣着完整整齐,不露骨、不裸露、不做亲密动作的特写;情绪张力靠眼神、距离、手的位置和光影表达。若剧情此刻是亲密场面,就取它【之前或之后】的一个含蓄瞬间来画。";
         // 走 buildPhotoPrompt,别再自己从零拼:画风(photoStyle 写实/跟随参考图/二次元)、
         // 身份锁、人设视觉事实、手部解剖锁全在那边,自拼等于把角色的画风设定整个丢掉。
         // 两处刻意改造:photoOutfit 清空(角色的固定服装锁是主线世界的,会把 if 线的行头顶掉);
@@ -310,7 +320,7 @@
           ? "画面里的两个人必须严格就是参考图里的这两位:「" + char.name + "」用参考图1的脸,「" + uName + "」用参考图2的脸——五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人。"
           : "画面里的人必须严格就是参考图里的那一位:五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人,也绝不出现第二个人。")
           + "下面的身份设定【只改变服装、道具、场景与气质,绝不改变这张脸】;身份描述里的种族/职业/头衔不是长相指令,不得据此重画五官。\n";
-        const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。";
+        const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。" + safeShot;
         // 锁脸放【整段 prompt 的最前面】:sceneDesc 会被 buildPhotoPrompt 塞到末尾、还冠以
         // 「场景/正在做什么：」,身份指令挂在那儿位置最弱,压不住后面一大段 if 线设定。
         const prompt = typeof buildPhotoPrompt === "function"
@@ -321,7 +331,13 @@
         if (!out || !out.blob) throw new Error("没出图");
         // 降级不再无声无息:脸没锁上时要说出来,否则你只会看到两个陌生人却不知道为什么
         // 降级时把接口原话一起报出来:光说「没用上参考照」排查不了,得知道它到底拒了什么
-        if (out.degraded) props.toast((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : ""), 9000);
+        if (out.degraded) {
+          const policy = /内容政策|content policy|safety|moderat/i.test(out.refError || "");
+          props.toast(
+            (out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") +
+            (policy ? "：图像接口的审核拒了这一拍" + (spicy ? "(本拍是亲密戏,已尽量过滤仍被判定)" : "") + ",换个不那么贴身的时刻再拍试试" : (out.refError ? "：" + out.refError : "")),
+            9000);
+        }
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
