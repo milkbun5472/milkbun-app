@@ -23,6 +23,11 @@
   const POOL_GATE = ["承认一种他一直否认的感情", "放弃一个他赖以生存的身份", "亲手毁掉他最在意的东西", "当众站到某一边去", "放走一个他本该处理掉的人", "答应一件违背他原则的事", "说出一个他发誓不说的名字", "第一次向人开口求助", "收下他一直拒绝的东西", "把一个人留下来"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
   const pick3 = a => { const s = []; while (s.length < 3) { const x = pick(a); if (s.indexOf(x) < 0) s.push(x); } return s; };
+  // 情境骰子:同一套身份世界要开出【不同的故事】时用。收藏基线开新局、重开此线都掷它,
+  // 否则模型只会把上一次那个时刻换个说法复述一遍——身份留住了,故事却是同一个。
+  const POOL_SITU = ["其中一方失去了记忆", "一场政变或剧变掀翻了原有秩序", "多年以后重逢,两人的位置对调了", "一方病倒或重伤,只能依赖另一方", "两人被困在同一个地方出不去", "一方的秘密被第三方当众揭穿", "一方来求另一方办一件绝不该开口的事", "一笔旧账被翻出来当众清算", "一个外来者闯入,打破了两人之间的平衡", "两人被迫以另一重身份共事", "一方失势落魄,另一方成了唯一的去处", "一件本该早就毁掉的东西重新出现"];
+  // world(长期为真)+ hook(此刻)拼成整段情境;老存档只有 setting,拼接要能容忍空值
+  const joinScene = (world, hook) => [String(world || "").trim(), String(hook || "").trim()].filter(Boolean).join("\n");
 
   function TheaterApp(props) {
     const t = useTheme();
@@ -39,7 +44,9 @@
     const [galChar, setGalChar] = useState(null); // 图库里进到哪个角色:null=头像墙
     const [sheetChar, setSheetChar] = useState(null); // 入口页点头像拉起的抽屉
     const [listChar, setListChar] = useState(null); // 记录/收藏页当前看的是哪个角色
-    const addPreset = src => { savePresets(l => [{ id: rid("tp_"), charId: src.charId, title: src.title, charRole: src.charRole, userRole: src.userRole, setting: src.setting, keywords: src.keywords || "", ts: Date.now() }, ...l]); props.toast("已收藏为基线"); };
+    // 收藏只留【长期为真】的那一层:身份 + 世界。此刻的处境(hook)故意不存——
+    // 存了它,用基线开新局就变成把同一个时刻重演一遍,那正是它没意思的原因。
+    const addPreset = src => { savePresets(l => [{ id: rid("tp_"), charId: src.charId, title: src.title, charRole: src.charRole, userRole: src.userRole, world: src.world || src.setting, keywords: src.keywords || "", ts: Date.now() }, ...l]); props.toast("已收藏为基线(只存身份与世界,每次开局重新起情境)"); };
     const [view, setView] = useState("list"); // list | create | play
     const [playId, setPlayId] = useState(null);
     const [busy, setBusy] = useState(false);
@@ -111,7 +118,7 @@
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true);
       try {
-        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、那股聪明劲;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域(原本搞研究就总派研究员,这是偷懒)。关键词为空时,严格按 user 消息里给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,用他原本的聪明、魅力和说话方式去坏,不许洗白、软化或让他偷偷还是好人。\n先构思一个把两人绑在一起的【张力核心】——一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债;两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。\ngoal 必须是这条张力的【关键节点】,而且【必须是角色一方做出/说出的事】——让他承认、让他答应、让他交出、让他做出那个选择;由 " + uName + " 在对话里想办法促成,他跨过那道心理门槛才算达成。绝不许把目标写成要 " + uName + " 自己去坦白/抉择/行动的任务(Ta 是解题的人,不是被出题的人)。节点要有代价、有风险:他说出口就回不了头、做了就改变两人关系。禁止事务级小目标。\n【目标只定门槛,不定路径】:写清他要跨过【哪一类】门槛(承认/交出/答应/放手…),但不预设具体内容、真相细节或唯一剧情走法——写『让他说出他一直瞒着你的那件事』,不写『让他承认那件事其实是XX造成的』;方向明确,真相和抵达方式留给演出时自然长出来,解法必须不止一种。\n【禁用默认套路】「一方走投无路,另一方手里正好握着唯一能救他/她的物件或情报,交出即自毁」——这是上面这套约束最省力的解,已经被用烂了;雨夜、暗室、追兵在门外、身上带着伤同样是默认布景。你想到的第一个点子如果长这样,推翻重想。\n【代价不必是生死】身败名裂、失去位置、背叛另一个人、承认自己错了或需要人——社会性、关系性、自尊上的代价一样重。不要每条线都写成命悬一线。\nsetting 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份与处境(2-3句)\",\"userRole\":\"" + uName + " 的新身份+Ta 背负的冲突或赌注(2-3句)\",\"setting\":\"世界背景+张力核心+当下这个时刻(3-5句)\",\"opening\":\"开场正文\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\"}";
+        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、那股聪明劲;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域(原本搞研究就总派研究员,这是偷懒)。关键词为空时,严格按 user 消息里给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,用他原本的聪明、魅力和说话方式去坏,不许洗白、软化或让他偷偷还是好人。\n先构思一个把两人绑在一起的【张力核心】——一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债;两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。\ngoal 必须是这条张力的【关键节点】,而且【必须是角色一方做出/说出的事】——让他承认、让他答应、让他交出、让他做出那个选择;由 " + uName + " 在对话里想办法促成,他跨过那道心理门槛才算达成。绝不许把目标写成要 " + uName + " 自己去坦白/抉择/行动的任务(Ta 是解题的人,不是被出题的人)。节点要有代价、有风险:他说出口就回不了头、做了就改变两人关系。禁止事务级小目标。\n【目标只定门槛,不定路径】:写清他要跨过【哪一类】门槛(承认/交出/答应/放手…),但不预设具体内容、真相细节或唯一剧情走法——写『让他说出他一直瞒着你的那件事』,不写『让他承认那件事其实是XX造成的』;方向明确,真相和抵达方式留给演出时自然长出来,解法必须不止一种。\n【禁用默认套路】「一方走投无路,另一方手里正好握着唯一能救他/她的物件或情报,交出即自毁」——这是上面这套约束最省力的解,已经被用烂了;雨夜、暗室、追兵在门外、身上带着伤同样是默认布景。你想到的第一个点子如果长这样,推翻重想。\n【代价不必是生死】身败名裂、失去位置、背叛另一个人、承认自己错了或需要人——社会性、关系性、自尊上的代价一样重。不要每条线都写成命悬一线。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;而「他明天一早就要走」「你正拿着文件堵在他面前」这类只属于今天这一刻的处境,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份、性格处境与长期立场(2-3句;不含一次性的当下状态)\",\"userRole\":\"" + uName + " 的新身份+Ta 长期背负的冲突或赌注(2-3句;同样不含当下状态)\",\"world\":\"世界观 + 两人之间长期存在的关系与张力核心(2-4句)\",\"hook\":\"此刻正在发生什么:这一局专属的一次性处境(1-3句)\",\"opening\":\"开场正文\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\"}";
         // 关键词为空才掷骰子;她写了关键词就一切听她的,不拿随机框去顶她的要求
         const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,必须照办)】\n题材:从这三个里挑一个最有戏的——" + pick3(POOL_GENRE).join(" / ") + "\n两人关系的底座:" + pick(POOL_BOND) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
@@ -119,27 +126,38 @@
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 3200, timeout: 150000 });
         const p = extractJSON(raw);
-        if (!p || !p.charRole || !p.setting || !p.goal) throw new Error("设定生成不完整,再试一次");
-        setDraft({ charId: char.id, keywords: kw.trim(), difficulty: diff, title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", setting: p.setting, opening: p.opening || "", goal: p.goal });
+        if (!p || !p.charRole || !(p.world || p.setting) || !p.goal) throw new Error("设定生成不完整,再试一次");
+        // world=长期为真(可收藏复用) / hook=这一局专属的此刻;setting 仍是两者拼起来的整段,面板与出图都照旧读它
+        const world = p.world || p.setting, hook = p.hook || (p.world ? "" : "");
+        setDraft({ charId: char.id, keywords: kw.trim(), difficulty: diff, title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", world: world, hook: hook, setting: joinScene(world, hook), opening: p.opening || "", goal: p.goal });
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
-    // 从收藏基线开新局:身份/世界/张力固定不动,只生成新的开场与本轮目标
+    // 从收藏基线开新局:身份与世界原样不动,但【此刻的处境要整个换掉】——
+    // 基线存的是「他是龙族监督官、你是人类书记官」,不是「他行囊打包好了、你堵在他面前」。
+    // 不明说这一点的话,模型会把上次那个时刻原样复述一遍,新局和重开就没有区别了。
+    const newSituation = (fixedWorld, avoid) => "\n【这一局的处境必须是全新的】上面的身份与世界原样保留,但【此刻正在发生什么】要另起一个:换时间点(几个月后/多年后)、换事件、换两人相遇的理由都行,幅度要大到一眼看得出是另一个故事。举例——同样是这两个身份,可以是其中一方失忆了被另一方捡到,可以是一场政变让强势的一方反过来求人,可以是多年后位置对调重逢。\n【禁止】复述或微调以往开过的局:同一个时刻换个说法、同一个场景挪个地点、同一件事往前往后挪一天,都算重复。"
+      + (avoid ? "\n【已经开过的局(务必避开)】" + avoid : "")
+      + "\n【本局情境骰子】从这三个里挑一个最有戏的当作新处境的起点:" + pick3(POOL_SITU).join(" / ");
     const genFromPreset = async ps => {
       const char = props.characters.find(c => c.id === ps.charId);
       if (!char) return props.toast("这个基线的角色不在了");
       if (!props.active) return props.toast("请先配置线下 API");
       setPickChar(ps.charId); setBusy(true);
       try {
-        const sys = "基于下面这套【固定的 if 线设定】开一局新的:设定本身(身份/世界/张力核心)一个字不许改,只生成新的开场与本轮目标。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个正在进行、必须做选择的时刻,张力悬着收尾,不替 Ta 做任何决定。\ngoal:【必须是角色做出/说出的事】(让他承认/答应/揭示/抉择),由 " + uName + " 促成、他跨过心理门槛才算达成;有代价、说出口就回不了头;只定门槛类型、不预设具体真相或唯一剧情路径,解法要不止一种;禁止事务级小目标,也不许写成要 " + uName + " 自己行动的任务。\n只输出 JSON:{\"opening\":\"开场正文\",\"goal\":\"一句话目标\"}";
-        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与张力:" + ps.setting;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2600, timeout: 150000 });
+        const past = lines.filter(l => l.presetId === ps.id).slice(0, 6).map(l => String(l.hook || l.setting || "").slice(0, 50)).join(";");
+        const sys = "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系一个字不许改,但要生成一个【全新的当下处境】以及配套的开场与本轮目标。"
+          + newSituation(true, past)
+          + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、必须做选择的时刻,张力悬着收尾,不替 Ta 做任何决定。\ngoal:【必须是角色做出/说出的事】(让他承认/答应/揭示/抉择),由 " + uName + " 促成、他跨过心理门槛才算达成;有代价、说出口就回不了头;只定门槛类型、不预设具体真相或唯一剧情路径,解法要不止一种;禁止事务级小目标,也不许写成要 " + uName + " 自己行动的任务。\n只输出 JSON:{\"hook\":\"新的当下处境\",\"opening\":\"开场正文\",\"goal\":\"一句话目标\"}";
+        const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2800, timeout: 150000 });
         const p = extractJSON(raw);
         if (!p || !p.goal) throw new Error("开局生成不完整,再试一次");
-        setDraft({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, setting: ps.setting, opening: p.opening || "", goal: p.goal, fromPreset: true });
+        const world = ps.world || ps.setting;
+        setDraft({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, world: world, hook: p.hook || "", setting: joinScene(world, p.hook), opening: p.opening || "", goal: p.goal, fromPreset: true, presetId: ps.id });
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     const acceptDraft = () => {
-      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, setting: draft.setting, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
+      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", setting: draft.setting, presetId: draft.presetId || null, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
       update(list => [l, ...list]); setDraft(null); setKw(""); setPlayId(l.id); setView("play"); setPanelOpen(true);
     };
 
@@ -223,7 +241,8 @@
     // 重开:旧剧情整段归档,同一套设定从第一轮重来(新开场+新目标)
     const restartLine = async () => {
       if (!line || busy) return;
-      if (!confirm("重开此线?当前剧情会归档,从第一轮重新开始。")) return;
+      // 重开 = 同一个处境从头再演一遍(要换处境请用收藏基线开新局);两者的分工别混
+      if (!confirm("重开此线?当前剧情会归档,同一个处境从第一轮重演。\n(想要同样的身份、全新的故事,请用「收藏此设定」再开新局)")) return;
       setBusy(true);
       try {
         const char = charOf(line);
@@ -392,7 +411,7 @@
     if (view === "create") {
       const preview = draft && h("div", { style: S.card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
-        [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与情境", draft.setting], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
+        [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与长期张力", draft.world || draft.setting], ["此刻正在发生", draft.hook], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
         h("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开演"),
           !draft.fromPreset && h("button", { onClick: genSetting, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
@@ -418,12 +437,12 @@
       const mine = presets.filter(p => p.charId === listChar);
       return h("div", { style: S.wrap }, header((c.name || "?") + " · 收藏的设定"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-          mine.length ? mine.map(ps => h("div", { key: ps.id, style: S.card },
+          mine.length ? [h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, margin: "12px 16px 0" } }, "基线只留身份与世界。每次开新局都会另起一个全新的处境——同样这两个人,可能是失忆、政变、多年后重逢,不会再演同一个时刻。")].concat(mine.map(ps => h("div", { key: ps.id, style: S.card },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, ps.title),
-            [["Ta 的身份", ps.charRole], [uName + " 的身份", ps.userRole], ["世界与情境", ps.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginTop: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
+            [["Ta 的身份", ps.charRole], [uName + " 的身份", ps.userRole], ["世界与长期张力", ps.world || ps.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginTop: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
             h("div", { style: { display: "flex", gap: 8, marginTop: 9, flexWrap: "wrap" } },
               h("button", { onClick: () => genFromPreset(ps), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "用它开新局"),
-              h("button", { onClick: () => { if (confirm("删除这条基线?")) savePresets(l => l.filter(x => x.id !== ps.id)); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除"))))
+              h("button", { onClick: () => { if (confirm("删除这条基线?")) savePresets(l => l.filter(x => x.id !== ps.id)); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除")))))
           : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有收藏的设定。", h("br"), "生成设定时或演出面板里点「收藏」,身份和世界就存下来了。")));
     }
 
