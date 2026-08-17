@@ -312,10 +312,16 @@
         // 一旦这几拍是亲密戏,审核会直接拒("该提示可能违反了我们的内容政策"),
         // 而且两张真人参考照 + 亲密文本审得更严——单张能过、合照过不了就是这么来的
         // (2026-08-18 Lisa 案)。所以逐条过滤明确内容,并声明画面必须含蓄。
-        const SENSITIVE_RE = /刀|刃|血|尸|伤口|掐|勒|捅|砍|割|窒息|尖叫|喘息|呻吟|哭喊|挣扎|绑|铐|药|毒/;
-        const explicit = t => (typeof offlineRegisterExplicitText === "function" && offlineRegisterExplicitText(t)) || SENSITIVE_RE.test(String(t || ""));
+        // 两类分开算:上游审核对情色和暴力惊悚都会拦,但提示里不能混为一谈——
+        // 抓到的是刻刀和喘息,却跟她说「本拍是亲密戏」,那是系统在乱扣帽子(她 2026-08-18 指出)。
+        const VIOLENT_RE = /刀|刃|血|尸|伤口|掐|勒|捅|砍|割|窒息|尖叫|喘息|呻吟|哭喊|挣扎|绑|铐|药|毒/;
+        const isSex = t => typeof offlineRegisterExplicitText === "function" && offlineRegisterExplicitText(t);
+        const isViolent = t => VIOLENT_RE.test(String(t || ""));
+        const explicit = t => isSex(t) || isViolent(t);
         const rows = allMsgs(line).filter(m => m.role !== "photo").slice(-4);
-        const spicy = rows.some(m => explicit(m.content));
+        const hitSex = rows.some(m => isSex(m.content));
+        const hitViolent = rows.some(m => isViolent(m.content));
+        const spicyWhy = hitSex && hitViolent ? "本拍有亲密与刀具/惊悚描写" : hitSex ? "本拍是亲密戏" : hitViolent ? "本拍有刀具或惊悚描写" : "";
         const recent = rows.filter(m => !explicit(m.content))
           .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-240)
           || "两人此刻正对着彼此,气氛紧绷。";
@@ -366,7 +372,7 @@
           const policy = /内容政策|content policy|safety|moderat/i.test(out.refError || "");
           props.toast(
             (out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") +
-            (policy ? "：图像接口的审核拒了这一拍" + (spicy ? "(本拍是亲密戏,已尽量过滤仍被判定)" : "") + ",换个不那么贴身的时刻再拍试试" : (out.refError ? "：" + out.refError : "")),
+            (policy ? "：图像接口的审核拒了这一拍" + (spicyWhy ? "(" + spicyWhy + ",已尽量过滤仍被判定)" : "") + ",换个平静些的时刻再拍试试" : (out.refError ? "：" + out.refError : "")),
             9000);
         }
         const durl = await blobToDataUrl(out.blob);

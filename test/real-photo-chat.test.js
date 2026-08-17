@@ -141,7 +141,7 @@ test("给了行头就锁死，没给才每张随机", () => {
 test("剧照 prompt 要控长、滤敏感，并有审核被拒后的简版兜底", () => {
   const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
   assert.match(th, /persona: String\(char\.persona \|\| ""\)\.slice\(0, 400\)/, "主线人设必须截短");
-  assert.match(th, /const SENSITIVE_RE = /, "过滤要覆盖暴力血腥，不只情色");
+  assert.match(th, /const VIOLENT_RE = /, "过滤要覆盖暴力血腥，不只情色");
   assert.match(th, /slice\(-240\)/, "剧情摘要要控在短量级");
   assert.match(th, /generateSelfieImage\(minimalPrompt, refList\.slice\(0, duo \? 2 : 1\)\)/, "简版重试要连连贯图一起去掉");
   assert.match(th, /safety\|policy\|内容政策\|too long\|sensitive\|reject/, "只对审核类错误重试，别把真故障也重试一遍");
@@ -163,4 +163,14 @@ test("连贯参考图与配饰锁", () => {
   assert.match(app, /kind === "selfie" && m\.imgKey && \(Date\.now\(\)/, "只取近期的自拍当锚");
   assert.match(app, /place: 3 \* 3600000/, "地点要有自己的时效");
   assert.match(th, /refList\.push\(prevPhoto\.img\)/, "小剧场也用上一张剧照做连贯");
+});
+
+// 提示不许乱扣帽子(2026-08-18 Lisa:「这都能算亲密戏吗」)——
+// 过滤器抓到的是刻刀和喘息，属于暴力惊悚，却被一律说成「本拍是亲密戏」。
+test("审核提示要分清情色与暴力，别乱扣帽子", () => {
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  assert.match(th, /const isSex = /, "情色判定要独立");
+  assert.match(th, /const isViolent = /, "暴力判定要独立");
+  assert.match(th, /本拍有刀具或惊悚描写/, "命中暴力时要如实描述");
+  assert.doesNotMatch(th, /spicy \? "\(本拍是亲密戏/, "旧的一律扣亲密戏必须已移除");
 });
