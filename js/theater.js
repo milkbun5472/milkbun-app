@@ -69,7 +69,9 @@
     };
     const line = lines.find(l => l.id === playId) || null;
     const charOf = l => props.characters.find(c => c.id === l.charId) || {};
-    useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; });
+    const msgCount = line ? line.rounds.reduce((n, r) => n + r.msgs.length, 0) : 0;
+    // 只在消息数或换线时滚到底;无依赖数组会让每次打字/点按钮都把滚动条按回底部,想往上翻都翻不了
+    useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgCount, playId]);
 
     // ---- 生成:if 线设定 ----
     const genSetting = async () => {
