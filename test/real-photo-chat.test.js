@@ -92,8 +92,11 @@ test("多图参考失败要逐级降级并标记，不许无声丢脸", () => {
   const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
   assert.match(eng, /refMode === "first"/, "要有只锁一张脸的中间级");
   assert.match(eng, /refMode === "repeat"/, "要试重复 image 字段名");
-  assert.match(eng, /attempt\(true, false, "bracket"\)[\s\S]{0,200}attempt\(true, false, "repeat"\)[\s\S]{0,200}attempt\(true, false, "first"\)/,
-    "降级顺序必须是 image[] → 重复 image → 单张");
+  // v53.46 起降级按【参考图集合】分级：先丢连贯图，再丢用户的脸，最后才无参考照；
+  // 每一级内部再试 image[] / 重复 image 两种字段名。
+  assert.match(eng, /sets\.push\(\{ n: 1, how: "duo-single-ref" \}\)/, "要保留只锁一张脸这一级");
+  assert.match(eng, /how: opts && opts\.contRef \? "no-continuity" : null/, "连贯图必须最先被丢");
+  assert.match(eng, /use\.length > 1 \? \["bracket", "repeat"\] : \["first"\]/, "多图仍要试两种字段名");
   assert.match(eng, /mark\(await attempt\(false\), "no-ref"\)/, "彻底无参考照要打标记");
   const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
   const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
@@ -140,7 +143,24 @@ test("剧照 prompt 要控长、滤敏感，并有审核被拒后的简版兜底
   assert.match(th, /persona: String\(char\.persona \|\| ""\)\.slice\(0, 400\)/, "主线人设必须截短");
   assert.match(th, /const SENSITIVE_RE = /, "过滤要覆盖暴力血腥，不只情色");
   assert.match(th, /slice\(-240\)/, "剧情摘要要控在短量级");
-  assert.match(th, /generateSelfieImage\(minimalPrompt, refs\)/, "审核被拒要有简版重试");
+  assert.match(th, /generateSelfieImage\(minimalPrompt, refList\.slice\(0, duo \? 2 : 1\)\)/, "简版重试要连连贯图一起去掉");
   assert.match(th, /safety\|policy\|内容政策\|too long\|sensitive\|reject/, "只对审核类错误重试，别把真故障也重试一遍");
-  assert.doesNotMatch(th, /minimalPrompt[\s\S]{0,400}recent/, "简版 prompt 不许再带剧情文本");
+  assert.doesNotMatch(th, /minimalPrompt = [\s\S]{0,400}recent/, "简版 prompt 不许再带剧情文本");
+});
+
+// 视觉连贯层(2026-08-18，采纳 GPT 架构建议里真正缺的两条):
+// ① 上一张生成图作为额外参考，治「十分钟前灰卫衣、现在黑衬衫」;
+// ② 随身不摘的配饰单列一条，与换不换衣服无关；地点进实时状态并带时效。
+test("连贯参考图与配饰锁", () => {
+  const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+  const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  assert.match(eng, /【随身不摘的东西·每张都要有】/, "配饰要独立于服装锁");
+  assert.match(eng, /opts\.contRefIndex/, "要告诉模型第几张是连贯参考图");
+  assert.match(eng, /构图、姿势、机位、表情必须换新的/, "连贯图不能被复制成同一张");
+  assert.match(eng, /以人物参考图为准/, "连贯图与身份冲突时身份优先");
+  assert.match(eng, /rp\.indexOf\("img_"\) === 0/, "聊天自拍库的键也要能当参考图");
+  assert.match(app, /kind === "selfie" && m\.imgKey && \(Date\.now\(\)/, "只取近期的自拍当锚");
+  assert.match(app, /place: 3 \* 3600000/, "地点要有自己的时效");
+  assert.match(th, /refList\.push\(prevPhoto\.img\)/, "小剧场也用上一张剧照做连贯");
 });

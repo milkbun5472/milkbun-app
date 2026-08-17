@@ -1683,6 +1683,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 参考照负责像谁；角色卡负责是谁、什么年龄与穿什么。两路约束必须同时生效。
   parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、发型和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代和服装。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。");
   if (personaVisualSource) parts.push("【角色完整人设中的视觉事实】以下人设不是气氛建议；凡涉及年龄、性别、种族、身体特征、时代与衣着，均为必须遵守的 canon：" + personaVisualSource + "。");
+  const accessories = String(char.photoAccessories || "").trim();
+  if (accessories) parts.push("【随身不摘的东西·每张都要有】" + (kind === "duo" ? "「" + cName + "」" : "人物") + "身上始终带着：" + accessories + "。它们与换不换衣服无关,不因场景、季节或服装变化而消失或改动;戴的位置、数量、款式每张保持一致。");
   if (visualCanon) parts.push("【最高优先级·身份锁】" + visualCanon + "。年龄、性别、种族、体型与身体特征不得擅自补全、成熟化、女性化、男性化或随机改变。");
   if (isMinor) parts.push("【未成年人安全与解剖硬锁】这是儿童／未成年角色：必须呈现明确、自然、符合设定年龄的儿童身体比例和第二性征；穿着完整、姿态与镜头完全非性化，禁止成人化、性感化、胸部曲线、乳沟或夸张身体特征。" + (isBoy ? "该角色是男孩／男童：胸廓必须是自然平坦的男童胸廓，绝对不能生成女性乳房或胸部隆起。" : "") + "即使参考图或场景有歧义，也以儿童身份锁为准。");
   // —— 主体人物 ——
@@ -1723,6 +1725,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
       ? "【两人同框的场景剧照】第三人称旁观视角，绝不是自拍：两人都不看镜头、手里没有相机或手机，画面像电影剧照/抓拍，构图取两人此刻真实的相对位置与动作，不要摆拍式合影。"
       : "【两人合照】可以是两人凑在一起自拍（一条手臂入镜），也可以是路人或支架帮拍的第三人称合影；姿势自然亲密：依偎、勾肩、贴脸、并肩、十指相扣都行，像真实亲密关系的人随手拍的合照。");
   }
+  if (opts.contRefIndex) parts.push("【第" + opts.contRefIndex + "张参考图=上一张刚生成的图】它只用来延续连贯性:同一个人、同一套衣着配饰、同一个场地与光线时段照它来;但【构图、姿势、机位、表情必须换新的】,不要复制它的画面。若它与前面的人物参考图冲突,一律以人物参考图为准。");
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }
@@ -1735,7 +1738,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const refs = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).filter(x => x && typeof x === "string");
   // 参考照已迁入 x_imgvault 时直接取 Blob；旧 data: 仍兼容。这样 localStorage 不再为每张参考照背几百 KB。
   const refBlobs = (await Promise.all(refs.map(async rp => {
-    try { if (rp.indexOf("iv_") === 0) return await imgVaultFetchBlob(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
+    // 连贯参考图可能是聊天自拍库的 img_ 键（与 iv_ 图库不是同一个仓），两边都要认
+    try { if (rp.indexOf("iv_") === 0) return await imgVaultFetchBlob(rp); if (rp.indexOf("img_") === 0) return await idbImgGet(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
   }))).filter(Boolean);
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
   let base = (a.baseUrl || "").trim().replace(/\/+$/, "");
@@ -1773,6 +1777,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       return { blob: null, url: url };
     }
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
+  };
+  const attemptWith = async (blobs, refMode) => {
+    const saved = refBlobs.slice();
+    refBlobs.length = 0; blobs.forEach(b => refBlobs.push(b));
+    try { return await attempt(true, false, refMode); }
+    finally { refBlobs.length = 0; saved.forEach(b => refBlobs.push(b)); }
   };
   const attempt = async (useRef, slim, refMode) => {
     const ctrl = new AbortController();
@@ -1813,10 +1823,23 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   let lastRefErr = "";
   const note = e => { lastRefErr = String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 180); };
   const mark = (out, how) => { try { if (out && typeof out === "object") { out.degraded = how; if (lastRefErr) out.refError = lastRefErr; } } catch (e) {} return out; };
+  // 参考图集合的降级顺序:先丢【连贯参考图】(它只是锦上添花),再丢用户的脸,最后才无参考照。
+  // 连贯图排在最后一张,所以 slice 掉尾巴就是丢它——身份永远比连贯重要。
   if (refBlobs.length > 1) {
-    try { return await attempt(true, false, "bracket"); } catch (e) { note(e); }
-    try { return await attempt(true, false, "repeat"); } catch (e) { note(e); }
-    try { return mark(await attempt(true, false, "first"), "duo-single-ref"); } catch (e) { note(e); }
+    const sets = [];
+    if (opts && opts.contRef && refBlobs.length > 1) sets.push({ n: refBlobs.length, how: null });
+    sets.push({ n: Math.min(refBlobs.length, opts && opts.contRef ? refBlobs.length - 1 : refBlobs.length), how: opts && opts.contRef ? "no-continuity" : null });
+    sets.push({ n: 1, how: "duo-single-ref" });
+    for (const set of sets) {
+      if (set.n < 1) continue;
+      const use = refBlobs.slice(0, set.n);
+      for (const mode of (use.length > 1 ? ["bracket", "repeat"] : ["first"])) {
+        try {
+          const out = await attemptWith(use, mode);
+          return set.how ? mark(out, set.how) : out;
+        } catch (e) { note(e); }
+      }
+    }
     return mark(await attempt(false), "no-ref");
   }
   if (refs.length) { try { return await attempt(true); } catch (e) { note(e); return mark(await attempt(false), "no-ref"); } }

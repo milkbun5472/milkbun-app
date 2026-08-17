@@ -337,9 +337,14 @@
         // 锁脸放【整段 prompt 的最前面】:sceneDesc 会被 buildPhotoPrompt 塞到末尾、还冠以
         // 「场景/正在做什么：」,身份指令挂在那儿位置最弱,压不住后面一大段 if 线设定。
         const prompt = typeof buildPhotoPrompt === "function"
-          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true })
+          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true, contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), contRefIndex: (prevPhoto && refList.length > (duo ? 2 : 1)) ? refList.length : 0 })
           : faceLock + sceneDesc;
-        const refs = duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : null);
+        // 连贯参考图:同一条线上一张剧照。同场景连拍两张会飘,拿它当锚能稳住
+        // 衣着配饰与场地光线;它排在最后,失败降级时第一个被丢掉(身份优先于连贯)。
+        const prevPhoto = allMsgs(line).filter(m => m.role === "photo" && m.img).slice(-1)[0];
+        const refList = (duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : [])).filter(Boolean);
+        if (prevPhoto && refList.length) refList.push(prevPhoto.img);
+        const refs = refList.length ? refList : null;
         // 上游审核可能仍然拒(prompt 太长 / 措辞被误判)。备用 prompt 完全不含剧情文本:
         // 只保留锁脸、行头、世界一句话和一个中性构图,短且干净,成功率高得多。
         const minimalPrompt = faceLock + "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【场景】" + String(line.world || line.setting || "").slice(0, 120)
@@ -348,11 +353,11 @@
           + "\n两人只是面对面站着说话,神情各异,衣着完整整齐,画面含蓄、可公开展示。";
         let out;
         try {
-          out = await generateSelfieImage(prompt, refs);
+          out = await generateSelfieImage(prompt, refs, { contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)) });
         } catch (e1) {
           if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
           props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
-          out = await generateSelfieImage(minimalPrompt, refs);
+          out = await generateSelfieImage(minimalPrompt, refList.slice(0, duo ? 2 : 1));
         }
         if (!out || !out.blob) throw new Error("没出图");
         // 降级不再无声无息:脸没锁上时要说出来,否则你只会看到两个陌生人却不知道为什么

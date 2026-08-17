@@ -150,6 +150,7 @@ function CastForm({
   const [appearance, setAppearance] = useState(initial && initial.appearance || "");
   const [photoCanon, setPhotoCanon] = useState(initial && initial.photoCanon || "");
   const [photoOutfit, setPhotoOutfit] = useState(initial && initial.photoOutfit || "");
+  const [photoAccessories, setPhotoAccessories] = useState(initial && initial.photoAccessories || "");
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
   const [photoStyle, setPhotoStyle] = useState(initial && initial.photoStyle || "realistic");
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
@@ -168,6 +169,7 @@ function CastForm({
       appearance: appearance.trim(),
       photoCanon: photoCanon.trim(),
       photoOutfit: photoOutfit.trim(),
+      photoAccessories: photoAccessories.trim(),
       refPhoto: refPhoto,
       photoStyle: photoStyle,
       birthday: birthday.trim(),
@@ -294,6 +296,8 @@ function CastForm({
       h(LineArea, { value: photoCanon, onChange: e => setPhotoCanon(e.target.value), rows: 3, placeholder: "年龄、性别、种族、体型等不可随机的视觉事实，如：8岁小男孩，儿童体型，平坦男童胸廓" }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "固定服装锁（填写后每张都必须穿这套）"),
       h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 3, placeholder: "如：13世纪深蓝羊毛短袍、亚麻内衫、皮腰带与棕色长靴；禁止现代服装" }))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "随身不摘的东西（每张图都在，跟换不换衣服无关）"),
+      h(LineArea, { value: photoAccessories, onChange: e => setPhotoAccessories(e.target.value), rows: 2, placeholder: "如：细框银边眼镜、左耳一枚黑色耳钉、右手无名指素圈；不填就没有。" }),
   h(LineField, { zh: "音色 · 语音消息用", en: "Voice" },
     h("div", null,
       h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v =>

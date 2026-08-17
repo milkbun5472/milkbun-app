@@ -81,7 +81,7 @@ test("ordinary single offline establishes missing durable state exactly once", (
 });
 
 test("wearing and action expire independently instead of becoming permanent facts", () => {
-  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000, thought: 90 \* 60000 \}/);
+  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000, thought: 90 \* 60000, place: 3 \* 3600000 \}/);
   assert.match(app, /state\[field \+ "UpdatedAt"\]/);
   assert.match(app, /age >= 0 && age <= LIVE_STATE_TTL\[field\]/);
 });
