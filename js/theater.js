@@ -135,6 +135,7 @@
           line.summary ? "【前情提要(早前剧情已浓缩,接着往下演,别倒回去复述)】\n" + line.summary : null,
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
+          "【节拍】一次回复只演【一拍】:你的一个反应、至多一次行动和随之的话;演到需要 " + uName + " 回应、选择或行动的位置就自然停下。不把几个情绪阶段压进同一拍(震惊、想通、劝阻、逼问要分几个来回演),不替 Ta 说出 Ta 没说出口的意图,也不自问自答替 Ta 推进。",
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由内容决定。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)"
         ].filter(Boolean).join("\n\n");
         const base = allMsgs(line).slice(line.sumCount || 0);
