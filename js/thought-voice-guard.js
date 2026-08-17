@@ -22,6 +22,11 @@
     // 策略权衡与事后复盘:汇报「想完的结果」而非正在想(2026-08-18 V 案)
     const stratCompare = /比.{0,16}(?:更像对话|更像聊天|要好得多|更稳妥|更有效|更自然)/;
     const wrapup = /(?:看来|总算).{0,12}(?:话题|安抚|哄|聊|误会|情绪).{0,12}(?:好了|过去了|结束了|翻篇|平息)/;
+    // 判词 + 结案陈词:给对方的行为盖个定性戳,再给这一轮收尾归档(2026-08-18 Lisa 案:
+    // 「她是挑衅，这笔账我记下了」)。这是旁白在结案,不是人在想事情——正在想的时候
+    // 根本还没想明白对方什么意思。判词单独出现也算:它本身就是想完了的产物。
+    const verdict = new RegExp("(?:" + other + "|这|那)(?:这)?(?:是|就是|分明是|根本是|纯粹是|无非是)(?:在)?\\s*(?:挑衅|示威|试探|挑事|找茬|报复|示弱|撒娇|求关注|演戏|装的|故意的|做给我看)");
+    const ledger = /(?:这笔账|这一笔|这账|这本账).{0,8}(?:记下|记住|先记|算在|留着)|我(?:先)?(?:记下了|记住了)。?$|倒要看看(?:她|他|TA)?(?:能|想|要)/;
     const selfPerformance = /(?:我(?:得|要|应该|需要|最好)|得|需要|最好).{0,12}(?:表现出一种|表现得|显得|营造出|呈现出|摆出).{0,24}(?:感觉|样子|态度|语气|形象|反应)?/;
     const selfPresentation = /(?:让自己|把自己|给人).{0,12}(?:看起来|显得|表现得|呈现得|感觉).{0,24}/;
     const hasRecap = recap.test(text);
@@ -31,6 +36,7 @@
     if (directorTerms.test(text)) return { ok: false, reason: "director-language" };
     if (selfPerformance.test(text) || selfPresentation.test(text)) return { ok: false, reason: "self-performance-direction" };
     if (stratCompare.test(text) || wrapup.test(text)) return { ok: false, reason: "post-hoc-planning" };
+    if (verdict.test(text) || ledger.test(text)) return { ok: false, reason: "verdict-and-filing" };
     if (hasReplyPlan && (hasRecap || hasClassify)) return { ok: false, reason: "recap-and-reply-plan" };
     if (hasRecap && hasClassify) return { ok: false, reason: "user-analysis" };
     return { ok: true, reason: "inner-voice" };

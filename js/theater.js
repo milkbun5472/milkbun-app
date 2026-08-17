@@ -36,6 +36,9 @@
     const [gal, setGal] = useState(loadGal);
     const saveGal = fn => setGal(p => { const n = fn(p.slice()); try { localStorage.setItem("x_theaterGallery", JSON.stringify(n)); } catch (e) {} return n; });
     const [galView, setGalView] = useState(null); // 图库里点开的大图:null | item
+    const [galChar, setGalChar] = useState(null); // 图库里进到哪个角色:null=头像墙
+    const [sheetChar, setSheetChar] = useState(null); // 入口页点头像拉起的抽屉
+    const [listChar, setListChar] = useState(null); // 记录/收藏页当前看的是哪个角色
     const addPreset = src => { savePresets(l => [{ id: rid("tp_"), charId: src.charId, title: src.title, charRole: src.charRole, userRole: src.userRole, setting: src.setting, keywords: src.keywords || "", ts: Date.now() }, ...l]); props.toast("已收藏为基线"); };
     const [view, setView] = useState("list"); // list | create | play
     const [playId, setPlayId] = useState(null);
@@ -296,7 +299,7 @@
       } catch (err) { props.toast("背景设置失败"); }
     };
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
-    const delLine = id => { if (!confirm("删除这条 if 线和全部记录?")) return; setView("list"); setPlayId(null); update(list => list.filter(l => l.id !== id)); };
+    const delLine = id => { if (!confirm("删除这条 if 线和全部记录?")) return; const l0 = lines.find(l => l.id === id); if (l0) setListChar(l0.charId); setView(l0 ? "lines" : "list"); setPlayId(null); update(list => list.filter(l => l.id !== id)); };
 
     // ---- UI ----
     const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: t.bg, display: "flex", flexDirection: "column" },
@@ -306,13 +309,43 @@
       card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line },
       lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
       txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
-    const back = () => view === "list" ? props.onBack() : (setView("list"), setPlayId(null), setDraft(null), setGalView(null));
+    // 头像:没设头像就用带首字的色块,别让入口页出现一排空洞
+    const avatarOf = (c, size) => (c && c.avatarImage)
+      ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
+      : h("div", { style: { width: size, height: size, borderRadius: 999, background: (c && c.color) || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: Math.round(size * 0.4), color: "#fff" } }, String((c && c.name) || "?")[0]);
+    // 返回:子页面逐层退回,不要一脚踹回入口(演出→该角色的记录→入口)
+    const back = () => {
+      if (view === "list") return props.onBack();
+      if (view === "gallery") { setGalView(null); return galChar ? setGalChar(null) : setView("list"); }
+      if (view === "play" && line) { setListChar(line.charId); setPlayId(null); setDraft(null); setView("lines"); return; }
+      if ((view === "create" || view === "presets") && listChar) { setDraft(null); setView("lines"); return; }
+      setPlayId(null); setDraft(null); setView("list");
+    };
     const header = title => h("div", { style: S.top },
       h("button", { onClick: back, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
       h("div", { style: S.h1 }, title),
-      view === "list" ? h("button", { key: "gal", onClick: () => setView("gallery"), style: S.btn(false) }, "图库") : null,
-      view === "list" ? h("button", { onClick: () => { setDraft(null); setView("create"); }, style: S.btn(true) }, "新开if线") : null,
+      view === "list" ? h("button", { key: "gal", onClick: () => { setGalChar(null); setView("gallery"); }, style: S.btn(false) }, "图库") : null,
+      view === "lines" ? h("button", { key: "new", onClick: () => { setDraft(null); setKw(""); setPickChar(listChar); setView("create"); }, style: S.btn(true) }, "新开if线") : null,
       view === "play" && line ? h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "背景与目标") : null);
+
+    // 角色抽屉:入口页点头像拉起,三条去处都在这
+    const charSheet = sheetChar && (() => {
+      const c = props.characters.find(x => x.id === sheetChar) || {};
+      const nL = lines.filter(l => l.charId === sheetChar).length;
+      const nP = presets.filter(p => p.charId === sheetChar).length;
+      const row = (label, meta, fn, strong) => h("button", { key: label, onClick: fn, style: { width: "100%", display: "flex", alignItems: "center", padding: "14px 2px", fontFamily: F_BODY, fontSize: 14, color: strong ? t.ink : t.ink, fontWeight: strong ? 600 : 400, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+        h("span", { style: { flex: 1, textAlign: "left" } }, label),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, meta));
+      return h("div", { onClick: () => setSheetChar(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "10px 16px calc(env(safe-area-inset-bottom, 0px) + 10px)" } },
+          h("div", { style: { width: 38, height: 4, borderRadius: 999, background: t.line, margin: "0 auto 12px" } }),
+          h("div", { style: { display: "flex", alignItems: "center", gap: 10, paddingBottom: 10 } }, avatarOf(c, 40),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name || "?")),
+          row("查看记录", nL ? nL + " 条线" : "还没有", () => { setSheetChar(null); setListChar(sheetChar); setView("lines"); }),
+          row("收藏的设定", nP ? nP + " 个" : "还没有", () => { setSheetChar(null); setListChar(sheetChar); setView("presets"); }),
+          row("新开 if 线", "", () => { setSheetChar(null); setListChar(sheetChar); setPickChar(sheetChar); setDraft(null); setKw(""); setView("create"); }, true),
+          h("button", { onClick: () => setSheetChar(null), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.fog, background: "transparent", border: "none" } }, "取消")));
+    })();
 
     // 图库:所有出过的剧照按角色分组;点开看大图,可存进手机相册或从图库删掉
     if (view === "gallery") {
@@ -324,16 +357,28 @@
         h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
           h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
           h("button", { onClick: () => { if (!confirm("从图库删掉这张?剧情里的那张不受影响。")) return; const id = galView.id; setGalView(null); saveGal(l => l.filter(x => x.id !== id)); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
-      return h("div", { style: S.wrap }, header("剧照图库"), viewer,
-        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-          gal.length ? gg.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
-            return h("div", { key: g.charId || "unknown" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub, margin: "16px 16px 6px" } }, (c.name || "已删除的角色") + " · " + g.items.length + "张"),
-              h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, padding: "0 14px" } },
-                g.items.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
-                  h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })))));
-          })
-          : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有剧照。", h("br"), "演出时点 + 里的「当轮剧照」,出过的图都会自动收在这。")));
+      // 先头像墙,点进某个角色才看到 Ta 的照片
+      if (!galChar) {
+        return h("div", { style: S.wrap }, header("剧照图库"),
+          h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
+            gg.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, gg.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
+              const cover = g.items[0];
+              return h("div", { key: g.charId || "unknown", onClick: () => setGalChar(g.charId), style: { width: "calc((100% - 20px) / 3)", textAlign: "center" } },
+                h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+                  cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
+                  h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, avatarOf(c, 52))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name || "已删除"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, g.items.length + " 张"));
+            }))
+            : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有剧照。", h("br"), "演出时点 + 里的「当轮剧照」,出过的图都会自动收在这。")));
+      }
+      const cg = props.characters.find(x => x.id === galChar) || {};
+      const mine = gal.filter(x => x.charId === galChar);
+      return h("div", { style: S.wrap }, header((cg.name || "已删除的角色") + " · 剧照"), viewer,
+        h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            mine.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+              h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }))))));
     }
 
     if (view === "create") {
@@ -344,24 +389,34 @@
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开演"),
           !draft.fromPreset && h("button", { onClick: genSetting, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
           !draft.fromPreset && h("button", { onClick: () => addPreset(draft), style: S.btn(false) }, "收藏为基线")));
+      const pc = props.characters.find(c => c.id === pickChar) || {};
       return h("div", { style: S.wrap }, header("新开 if 线"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-          h("div", { style: S.card }, h("div", { style: S.lbl }, "选角色"),
-            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, props.characters.map(c =>
-              h("button", { key: c.id, onClick: () => setPickChar(c.id), style: Object.assign({}, S.btn(pickChar === c.id)) }, c.name)))),
+          h("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 10 }) }, avatarOf(pc, 34),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, pc.name || "?"),
+            h("button", { onClick: () => { setDraft(null); setView("list"); }, style: S.btn(false) }, "换个角色")),
           h("div", { style: S.card }, h("div", { style: S.lbl }, "关键词(选填:题材/身份/氛围,如「民国 报社 追凶」)"),
             h("textarea", { value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=让 Ta 自由发挥", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
             h("div", { style: S.lbl }, "难度"),
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, ["easy", "normal", "hard"].map(k =>
               h("button", { key: k, onClick: () => setDiff(k), style: S.btn(diff === k) }, DIFF[k].name))),
             !draft && h("button", { onClick: genSetting, disabled: busy, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, busy ? "在想…" : "生成设定")),
-          !draft && presets.filter(p => p.charId === pickChar).length ? h("div", { style: S.card },
-            h("div", { style: S.lbl }, "收藏的基线(用同一套身份世界开新局)"),
-            presets.filter(p => p.charId === pickChar).map(ps => h("div", { key: ps.id, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
-              h("div", { style: Object.assign({}, S.txt, { flex: 1 }) }, ps.title),
-              h("button", { onClick: () => genFromPreset(ps), disabled: busy, style: S.btn(true) }, "开新局"),
-              h("button", { onClick: () => { if (confirm("删除这条基线?")) savePresets(l => l.filter(x => x.id !== ps.id)); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "✕")))) : null,
           preview));
+    }
+
+    // 收藏的设定:某个角色的基线,用同一套身份世界开新局
+    if (view === "presets") {
+      const c = props.characters.find(x => x.id === listChar) || {};
+      const mine = presets.filter(p => p.charId === listChar);
+      return h("div", { style: S.wrap }, header((c.name || "?") + " · 收藏的设定"),
+        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          mine.length ? mine.map(ps => h("div", { key: ps.id, style: S.card },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, ps.title),
+            [["Ta 的身份", ps.charRole], [uName + " 的身份", ps.userRole], ["世界与情境", ps.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginTop: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
+            h("div", { style: { display: "flex", gap: 8, marginTop: 9, flexWrap: "wrap" } },
+              h("button", { onClick: () => genFromPreset(ps), disabled: busy, style: S.btn(true) }, busy ? "在想…" : "用它开新局"),
+              h("button", { onClick: () => { if (confirm("删除这条基线?")) savePresets(l => l.filter(x => x.id !== ps.id)); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除"))))
+          : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有收藏的设定。", h("br"), "生成设定时或演出面板里点「收藏」,身份和世界就存下来了。")));
     }
 
     if (view === "play" && line) {
@@ -443,22 +498,34 @@
           h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "演"))));
     }
 
-    // list:按角色分组收纳;每条记录可单独删除
-    const groups = [];
-    lines.forEach(l => { let g = groups.find(x => x.charId === l.charId); if (!g) { g = { charId: l.charId, items: [] }; groups.push(g); } g.items.push(l); });
-    return h("div", { style: S.wrap }, header("小剧场"),
-      h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-        lines.length ? groups.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
-          return h("div", { key: g.charId },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub, margin: "16px 16px 0" } }, (c.name || "?") + " · " + g.items.length + "条线"),
-            g.items.map(l => { const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
-              return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }) },
-                h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + l.title + "」和全部记录?")) update(list => list.filter(x => x.id !== l.id)); },
-                  style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
-                h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); })); })
-        : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有 if 线。", h("br"), "选个角色,把 Ta 扔进另一种人生试试。")));
+    // 某个角色的记录:只显示 Ta 的线,每条可单独删除
+    const lineCard = l => { const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
+      return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }) },
+        h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + l.title + "」和全部记录?")) update(list => list.filter(x => x.id !== l.id)); },
+          style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
+        h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); };
+    if (view === "lines") {
+      const c = props.characters.find(x => x.id === listChar) || {};
+      const mine = lines.filter(l => l.charId === listChar);
+      return h("div", { style: S.wrap }, header((c.name || "?") + " · 记录"),
+        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          mine.length ? mine.map(lineCard)
+          : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有和 Ta 演过。", h("br"), "点右上角新开一条 if 线。")));
+    }
+
+    // 入口:一墙头像,点开抽屉挑去处
+    return h("div", { style: S.wrap }, header("小剧场"), charSheet,
+      h("div", { style: { flex: 1, overflowY: "auto", padding: "16px 14px 30px" } },
+        props.characters.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, props.characters.map(c => {
+          const n = lines.filter(l => l.charId === c.id).length;
+          return h("div", { key: c.id, onClick: () => setSheetChar(c.id), style: { width: "calc((100% - 20px) / 3)", textAlign: "center", padding: "12px 4px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+            h("div", { style: { display: "flex", justifyContent: "center" } }, avatarOf(c, 54)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, n ? n + " 条线" : "还没演过"));
+        }))
+        : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有角色。", h("br"), "先去建一个,再把 Ta 扔进另一种人生。")));
   }
   window.TheaterApp = TheaterApp;
 })();

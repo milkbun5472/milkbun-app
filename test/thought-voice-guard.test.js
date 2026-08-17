@@ -14,6 +14,13 @@ directorDrafts.forEach(text => assert.equal(guard.accept(text), null, text));
  "看来昨晚关于记忆的话题已经过去了。她的精力恢复得很快。",
  "总算安抚好了。她也该好好休息了。"].forEach(text => assert.equal(guard.accept(text), null, text));
 
+// 判词 + 结案陈词(2026-08-18 Lisa 案):给对方行为盖定性戳、再给这一轮归档收尾
+["她是挑衅，这笔账我记下了。",
+ "这是挑衅。",
+ "她这是在试探我，我记住了。",
+ "有意思，我倒要看看她能撑多久。",
+ "这笔账先记着。"].forEach(text => assert.equal(guard.accept(text), null, text));
+
 const realInnerVoices = [
   "啊啊啊她怎么能每次都这么理直气壮地把话圆回来！明明就是她先故意引导我想歪的。",
   "一想到她，就觉得又活过来了。",
