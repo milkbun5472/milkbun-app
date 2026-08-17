@@ -35,6 +35,8 @@
     const [noteOpen, setNoteOpen] = useState(false);
     const [dice, setDice] = useState(false); // 剧场骰子:下一拍注入一个意外,一次性
     const [plusOpen, setPlusOpen] = useState(false); // + 菜单(骰子/便签/背景/出图)
+    const [photoMenu, setPhotoMenu] = useState(null); // 长按剧照弹出的操作单:msg|null
+    const pressRef = useRef(null);
     const fileRef = useRef(null);
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
@@ -240,7 +242,9 @@
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
       } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
-    const rerollPhoto = m => { if (busy || !confirm("重拍这张?")) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(genPhoto, 60); };
+    const rerollPhoto = m => { if (busy) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(genPhoto, 60); };
+    const pressStart = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setPhotoMenu(m), 550); };
+    const pressEnd = () => clearTimeout(pressRef.current);
     const onBgFile = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = "";
       if (!f || !line) return;
@@ -346,11 +350,16 @@
       let ri = 0;
       const flow = line.rounds.flatMap((r, i) => [h("div", { key: "rd" + r.id, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "14px 0 4px" } }, "— 第" + (i + 1) + "轮 · " + r.goal + (r.goalDone ? " ✓" : r.failed ? " ✗" : "") + " —")]
         .concat(r.msgs.map(m => m.role === "photo"
-          ? h("div", { key: m.id, onClick: () => rerollPhoto(m), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }), h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, marginTop: 3 } }, "点击可重拍"))
+          ? h("div", { key: m.id, onPointerDown: () => pressStart(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
           : m.role === "user"
           ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
           : h("div", { key: m.id, style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content))));
-      return h("div", { style: S.wrap }, header(line.title + " · " + (char.name || "")),
+      const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
+           ["保存到相册", async () => { const m = photoMenu; setPhotoMenu(null); try { if (typeof rememberRealPhoto === "function" && String(m.img).indexOf("iv_") === 0) { await rememberRealPhoto(m.img, line.title + " · 剧照", "theater"); props.toast("已存入图库"); } else props.toast("这张存不了图库"); } catch (e) { props.toast("保存失败"); } }],
+           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+      return h("div", { style: S.wrap }, header(line.title + " · " + (char.name || "")), photoSheet,
         panel, banner,
         h("div", { ref: scrollRef, style: Object.assign({ flex: 1, overflowY: "auto", paddingBottom: 16 }, line.bg ? { backgroundImage: "linear-gradient(rgba(240,236,228,.84),rgba(240,236,228,.84)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "local" } : {}) }, flow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "Ta 在演…") : null),
