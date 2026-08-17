@@ -73,3 +73,12 @@ test("单人和群线下都能展示真图，并只临时附最近两张给模�
   assert.match(engine, /用户刚展示了真实照片/);
   assert.match(engine, /用户刚给在场所有人展示了真实照片/);
 });
+
+// 小剧场出图必须走 buildPhotoPrompt，否则角色的 photoStyle（写实/二次元/跟随参考图）
+// 与身份锁、解剖锁全部丢失（Lisa 2026-08-18：银龙设了写实却一直出二次元厚涂）
+test("小剧场剧照复用角色画风与身份锁", () => {
+  const theater = fs.readFileSync(path.join(__dirname, "..", "js", "theater.js"), "utf8");
+  assert.match(theater, /buildPhotoPrompt\(styledChar, sceneDesc, null, \{ kind: duo \? "duo" : "other"/);
+  assert.match(theater, /photoOutfit: ""/, "if 线服装不能被角色的固定服装锁顶掉");
+  assert.doesNotMatch(theater, /第三人称旁观视角的电影感画面\(绝不是自拍/, "旧的自拼 prompt 必须已经移除");
+});

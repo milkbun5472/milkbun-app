@@ -286,7 +286,15 @@
       setPlusOpen(false); setBusy(true);
       try {
         const recent = allMsgs(line).filter(m => m.role !== "photo").slice(-4).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-1200);
-        const prompt = "第三人称旁观视角的电影感画面(绝不是自拍,人物不看镜头,像剧照):" + (duo ? "画面里有两个人同框:「" + char.name + "」(脸严格按参考图1)和「" + uName + "」(脸严格按参考图2)。" : "画面里只有「" + char.name + "」一个人" + (char.refPhoto ? "(脸严格按参考图)" : "(外貌:" + char.appearance + ")") + ",绝不出现第二个人。") + "\n【世界与场景】" + line.setting + "\n【" + char.name + " 的身份】" + line.charRole + (duo ? "\n【" + uName + " 的身份】" + line.userRole : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让原设定或现代便装乱入;构图取此刻最有张力的一瞬。";
+        // 走 buildPhotoPrompt,别再自己从零拼:画风(photoStyle 写实/跟随参考图/二次元)、
+        // 身份锁、人设视觉事实、手部解剖锁全在那边,自拼等于把角色的画风设定整个丢掉。
+        // 两处刻意改造:photoOutfit 清空(角色的固定服装锁是主线世界的,会把 if 线的行头顶掉);
+        // st 传 null(此刻穿着同理,银龙不该穿着主线那身出现在龙岛)。
+        const styledChar = Object.assign({}, char, { photoOutfit: "" });
+        const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。";
+        const prompt = typeof buildPhotoPrompt === "function"
+          ? buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? props.profile : null })
+          : sceneDesc;
         const refs = duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : null);
         const out = await generateSelfieImage(prompt, refs);
         if (!out || !out.blob) throw new Error("没出图");
