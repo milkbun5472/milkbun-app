@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.36";
+const APP_VERSION = "v53.37";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -10291,6 +10291,22 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "tarot") body = h(Tarot, {
+    // 占卜落地(2026-08-18):以前解完就躺进存档,角色下次聊天完全不知道自己给她算过命。
+    // 写一条记忆(不标 open,占卜不是待办),并把角色私心里那句 charThought 送进「Ta 眼里」。
+    onReadingDone: (charId, info) => {
+      if (!charId || !info) return;
+      const who = (characters.find(c => c.id === charId) || {}).name || "Ta";
+      const uNm = profile.name || "你";
+      const text = info.mode === "forchar"
+        ? uNm + "替" + who + "算了一卦（" + (info.cards || "") + "）：" + String(info.summary || "").slice(0, 90)
+        : who + "为" + uNm + "解了一次塔罗" + (info.question ? "（问的是：" + String(info.question).slice(0, 30) + "）" : "") + "：" + String(info.summary || "").slice(0, 90);
+      addMemEntry({ text: text, charIds: [charId], source: "tarot", ts: Date.now(), open: false });
+      // charThought 是「Ta 私心里对这几张牌的反应」——正是印象的原料,别再扔掉
+      const th = String(info.charThought || "").trim();
+      if (th && window.Gaze && !settingsFor(charId).engineerEyes && info.mode !== "forchar") {
+        try { window.Gaze.applyParsed(charId, { side: "me", block: "recent", text: th.slice(0, 80) }); } catch (e) {}
+      }
+    },
     active: active,
     characters: characters,
     profile: profile,

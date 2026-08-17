@@ -14,6 +14,8 @@
   const NAC = () => (typeof NARRATIVE_ANTI_CLICHE !== "undefined" ? NARRATIVE_ANTI_CLICHE + "\n\n" : "");
   // 忠于牌面、别为讨好而美化
   const HONEST = "【忠于牌面】牌是随机抽出的、无法更改。别为了讨好或安慰就把凶牌、逆位往好里圆——该警示就警示、该沉就沉，正位逆位要解出真差别，像一次正经的占卜，不是心灵鸡汤。";
+  // 换个角色只换语气、结构一模一样，是塔罗显得单薄的一个来源：让人设决定 Ta 跟这副牌的关系。
+  const STANCE = "【你自己对占卜这件事的态度，由你的人设决定】你可以是真信的、半信半疑的、嘴上不信却认真解的、觉得这是无聊游戏但还是陪着的、甚至对某张牌有私人忌讳。这个态度要渗进你怎么说话——理性的人会先说明这只是概率与投射再照解不误，信的人翻到凶牌会真的皱眉。但不管什么态度，都不许因此敷衍牌面或拒绝解读：忠于牌面的要求高于你的态度。";
 
   // ---- 牌堆 ----
   const MAJORS = ["愚者", "魔术师", "女祭司", "皇后", "皇帝", "教皇", "恋人", "战车", "力量", "隐者", "命运之轮", "正义", "倒吊人", "死神", "节制", "恶魔", "高塔", "星星", "月亮", "太阳", "审判", "世界"];
@@ -126,7 +128,7 @@
       thoughtAsk = "charThought：切换成「" + charName + "」本人的口吻，说一句 Ta 若看到替自己算的这一卦、心里真实的一句反应（第一人称）。";
     }
 
-    const sys = AC() + NAC() + HONEST + "\n\n" + voice + "\n\n" +
+    const sys = AC() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" + voice + "\n\n" +
       "【角色资料】「" + charName + "」：" + (charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 800) +
       (mood ? "\n\n【Ta 此刻的心情：" + mood + "】顺带透一点即可，别喧宾夺主、牌义才是主角。" : "") +
       (voiceRef ? "\n\n【Ta 近期的语气 / 近况，仅参考】\n" + voiceRef : "") +
@@ -151,7 +153,7 @@
   // ============================================================
   async function readDailyForCard(active, card, list, uName, worldbook) {
     const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 260) + (it.mood ? "\n  此刻心情：" + it.mood : "") + (it.voiceRef ? "\n  近况一瞥：" + it.voiceRef.replace(/\n/g, "；").slice(0, 90) : "")).join("\n\n");
-    const sys = AC() + NAC() + HONEST + "\n\n" +
+    const sys = AC() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" +
       "今天的塔罗牌是【同一张】：" + cardLabel(card) + "。请【分别以下面每位角色本人的口吻】，就【这同一张牌】给 " + uName + " 递一句今天的当日签——短，像随口说的一两句，结合这张牌（含正/逆位）与各自人设" + (list.some(it => it.mood) ? "（有此刻心情就顺带透一点，但别喧宾夺主，牌义才是主角）" : "") + "，别混淆、别串味、别把几个人写成同一个腔调、也别千篇一律。\n\n" +
       "【要解读这张牌的角色】\n" + block +
       "\n\n【输出】只输出 JSON，readings 数组和上面角色顺序【一一对应、数量一致】：{\"readings\":[{\"name\":\"角色名\",\"text\":\"这位角色对今天这张牌的当日签\"}...]}。别加解释、别加代码块。";
@@ -191,7 +193,18 @@
         modeKey: view.slice(5), characters: props.characters, profile: props.profile, rels: props.rels,
         affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, active: props.active, toast: props.toast,
         onCancel: () => setView("home"),
-        onDone: session => { persist([session].concat(loadSaves().filter(s => s.id !== session.id))); setView("s:" + session.id); }
+        onDone: (session, skipHook) => {
+          persist([session].concat(loadSaves().filter(s => s.id !== session.id)));
+          // 占卜不再是死胡同:落一条记忆,并把角色私心里那句送进「Ta 眼里」(每日一牌是多角色合卦，逐条回流)
+          try {
+            if (props.onReadingDone && !skipHook) {
+              const cardsOf = x => (x.cards || []).map(c => c.name).join("、") || (x.card ? x.card.name : "");
+              if (session.mode === "daily") (session.entries || []).forEach(e => e && e.charId && props.onReadingDone(e.charId, { mode: "daily", summary: e.summary || e.text || "", charThought: e.charThought || "", cards: session.card ? session.card.name : "", question: "" }));
+              else if (session.charId) props.onReadingDone(session.charId, { mode: session.mode, summary: session.summary || "", charThought: session.charThought || "", cards: cardsOf(session), question: session.question || "" });
+            }
+          } catch (e) {}
+          setView("s:" + session.id);
+        }
       });
     }
     if (view.indexOf("s:") === 0) {
@@ -313,7 +326,7 @@
         if (!wantChars.length) { props.toast && props.toast("先去『名录』建个角色"); return; }
         const have = {}; (existing && existing.entries || []).forEach(e => { have[e.charId] = true; });
         const toGen = wantChars.filter(x => !have[x.id]);
-        if (!toGen.length && existing) { props.onDone(existing); return; } // 想看的人都解过了 → 直接看
+        if (!toGen.length && existing) { props.onDone(existing, true); return; } // 想看的人都解过了 → 直接看(纯回看,不再回流一次)
         setBusy(true); setPhase(existing ? "解读今天这张牌…" : "正在翻开今天的牌…");
         try {
           const list = toGen.map(x => ({ id: x.id, name: x.name, persona: x.persona || "", mood: moodOf(x.id), voiceRef: recentChat(x.id, uName, x.name) }));
