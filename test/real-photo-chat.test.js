@@ -174,3 +174,15 @@ test("审核提示要分清情色与暴力，别乱扣帽子", () => {
   assert.match(th, /本拍有刀具或惊悚描写/, "命中暴力时要如实描述");
   assert.doesNotMatch(th, /spicy \? "\(本拍是亲密戏/, "旧的一律扣亲密戏必须已移除");
 });
+
+// TDZ 守卫(2026-08-18):连贯参考图接线时把 prevPhoto 写在了 prompt 之后，
+// node --check 查不出来，线上直接「Cannot access 'prevPhoto' before initialization」。
+// 声明顺序是运行期语义，这里用静态位置把它钉住。
+test("连贯参考图必须在 prompt 组装之前声明", () => {
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  assert.ok(th.indexOf("const prevPhoto") < th.indexOf("const prompt = typeof buildPhotoPrompt"),
+    "theater: prevPhoto 要先于 prompt 声明");
+  const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+  assert.ok(app.indexOf("const prevShot") < app.indexOf("const prompt = buildPhotoPrompt(char,"),
+    "app: prevShot 要先于 prompt 声明");
+});

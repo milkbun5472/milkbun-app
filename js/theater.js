@@ -342,15 +342,15 @@
         const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。" + safeShot;
         // 锁脸放【整段 prompt 的最前面】:sceneDesc 会被 buildPhotoPrompt 塞到末尾、还冠以
         // 「场景/正在做什么：」,身份指令挂在那儿位置最弱,压不住后面一大段 if 线设定。
-        const prompt = typeof buildPhotoPrompt === "function"
-          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true, contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), contRefIndex: (prevPhoto && refList.length > (duo ? 2 : 1)) ? refList.length : 0 })
-          : faceLock + sceneDesc;
         // 连贯参考图:同一条线上一张剧照。同场景连拍两张会飘,拿它当锚能稳住
         // 衣着配饰与场地光线;它排在最后,失败降级时第一个被丢掉(身份优先于连贯)。
         const prevPhoto = allMsgs(line).filter(m => m.role === "photo" && m.img).slice(-1)[0];
         const refList = (duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : [])).filter(Boolean);
         if (prevPhoto && refList.length) refList.push(prevPhoto.img);
         const refs = refList.length ? refList : null;
+        const prompt = typeof buildPhotoPrompt === "function"
+          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true, contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), contRefIndex: (prevPhoto && refList.length > (duo ? 2 : 1)) ? refList.length : 0 })
+          : faceLock + sceneDesc;
         // 上游审核可能仍然拒(prompt 太长 / 措辞被误判)。备用 prompt 完全不含剧情文本:
         // 只保留锁脸、行头、世界一句话和一个中性构图,短且干净,成功率高得多。
         const minimalPrompt = faceLock + "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【场景】" + String(line.world || line.setting || "").slice(0, 120)
