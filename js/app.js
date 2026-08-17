@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.10";
+const APP_VERSION = "v53.11";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -416,6 +416,24 @@ function App() {
   const [stateCardOpen, setStateCardOpen] = useState(false);
   const [stateCardChar, setStateCardChar] = useState(null); // 心声卡要显示谁（群聊点头像时=该成员；私聊=null→用 activeChar）
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
+  // Ta 眼里·一次性建卡:老角色首开时把长期印象初始化出来(此后全靠聊天协议按需字段有机演进)
+  const [gazeSeedBusy, setGazeSeedBusy] = useState(false);
+  const seedGazeFor = async char => {
+    if (gazeSeedBusy || !window.Gaze) return;
+    const p = apiFor(char.id);
+    if (!p) return toast("请先配置 API");
+    setGazeSeedBusy(true);
+    try {
+      const uN = profile.name || "用户";
+      const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
+      const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
+      const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 4000, timeout: 150000 });
+      const parsed = extractJSON(raw);
+      if (!parsed) throw new Error("没解析出卡");
+      const n = window.Gaze.seed(char.id, parsed);
+      toast(n ? "Ta 写下了 " + n + " 块" : "Ta 暂时没写出什么");
+    } catch (e) { toast("建卡失败:" + (e.message || "重试")); } finally { setGazeSeedBusy(false); }
+  };
   const [editMsg, setEditMsg] = useState(null); // 编辑消息弹层 {content, onSave}
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
   const [temperamentDraft, setTemperamentDraft] = useState(null);
@@ -2535,6 +2553,7 @@ function App() {
     profile,
     affinity: Math.round(affOf(char.id)),
     moodLabel: (moods[char.id] || {}).label || null,
+    gazeText: !settingsFor(char.id).engineerEyes && window.Gaze ? window.Gaze.text(char.id, profile.name || "用户") : "",
     directives: directives[char.id] || [],
     memory: memories[char.id],
     memLib: (() => {
@@ -4350,6 +4369,7 @@ thought: string，角色本人脑中此刻真正出现、却没有说出口的�
 action: string，仅在当前动作发生有意义变化时填写；这是角色自己的状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。
 wearing: string，仅在穿着发生变化时填写。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
+${window.Gaze ? window.Gaze.spec("对方") : ""}
 未发生、未改变的按需字段直接省略。
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge","intensity":1到20,"duration":1到30,"reason":"原因"}=配件。
@@ -4532,6 +4552,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 模型有时会把「分析用户意图 → 规划怎么回复」塞进 thought；那是任务草稿，不是角色心声。
       // 保存前做结构闸：命中就宁可本轮没有新心声，也绝不让导演稿污染心声历史。
       if (parsed.thought != null && window.ThoughtVoiceGuard) parsed.thought = window.ThoughtVoiceGuard.accept(parsed.thought);
+      // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
+      if (parsed.impression && window.Gaze && !_s.engineerEyes) { try { window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
       // mark user msg read
       pChat(charId, p => p.map(m => m.role === "user" ? {
         ...m,
@@ -5189,6 +5211,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
+      // Ta 眼里:群里发生的事也能改在场成员对用户的长期印象(极低频,同单聊契约)
+      const impressionField = window.Gaze ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"整块重写≤80字\"}（可选,仅当这轮真正改变了该成员对用户或他俩关系的长期认知才填,极少发生;第一人称亲笔、锚具体事、在旧认知上小幅演进）" : "";
       // 世界书：按在场成员 + 近期群聊做检索式注入（全局词条 + 绑定到在场任一成员的词条，关键词命中才进）
       const gWorld = loreText(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist });
       // 群规矩（用户 OOC 立的长期准则，复用 directives[groupId]）→ 注入，让群成员记得并遵守（item 4）
@@ -5196,7 +5220,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gDirHint = gDirs.length ? "\n\n【⚠️群规矩·最高优先级，压过下面的对话惯性】这些是用户之前（场外）跟你们立好、你们已经答应了的长期约定，每一条【现在就生效、永久有效】：\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n——就算上面的聊天记录里大家还在聊相关话题，也从这一轮起严格照约定来（惯性不是理由）；用户若问「是不是说好了」，大方承认记得并已经在做，绝不许一脸茫然装不知道。" : "";
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       const groupOnlineRuntime = ONLINE_CHAT_RULE_V2.replace("word 只包含", "每条 text 只包含");
-      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + thoughtHint + gBusyHint + gOfflineHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + thoughtHint + gBusyHint + gOfflineHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quote\":\"（可选）你正在回应的那句话原文，不回应特定某句就省略此字段\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -5331,6 +5355,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
             const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gThink = rawGThink && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(rawGThink) : rawGThink;
+            if (spk && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
             if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
               const stateNow = Date.now();
@@ -10562,6 +10587,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       state: states[scc.id],
       history: stateHist[scc.id] || [],
       hideWearAction: stateCardGroup,
+      gazeOn: !!window.Gaze && !settingsFor(scc.id).engineerEyes,
+      uName: profile.name || "你",
+      onGazeSeed: () => seedGazeFor(scc),
+      gazeSeedBusy: gazeSeedBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); }
     });
   })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false) }) : null, desireBoxOpen && activeChar && window.DesireBoxSheet ? h(window.DesireBoxSheet, {

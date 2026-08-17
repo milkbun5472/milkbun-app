@@ -5106,10 +5106,15 @@ function StateCard({
   state,
   history,
   hideWearAction,
-  onClose
+  onClose,
+  gazeOn,
+  uName,
+  onGazeSeed,
+  gazeSeedBusy
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
+  const [page, setPage] = useState("now"); // 此刻 | Ta 眼里
   const hist = history || [];
   const dmRaw = decayMood(mood) || { label: "平静", def: true };
   const dm = window.MoodLabel ? window.MoodLabel.normalizeMood(dmRaw) : dmRaw;
@@ -5136,6 +5141,9 @@ function StateCard({
       color: t.fog
     }
   }, "实时状态同步中")), hist.length > 0 && h("button", { onClick: () => setShowHist(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px" } }, showHist ? "返回" : "看历史")),
+    gazeOn && window.GazePage ? h("div", { className: "flex mb-4", style: { borderBottom: "1px solid " + t.line } },
+      [["now", "此刻"], ["gaze", "Ta 眼里"]].map(([k, label]) => h("button", { key: k, onClick: () => setPage(k), style: { flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, color: page === k ? t.ink : t.fog, background: "transparent", border: "none", borderBottom: "2px solid " + (page === k ? t.ink : "transparent") } }, label))) : null,
+    page === "gaze" && gazeOn && window.GazePage ? h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", onSeed: onGazeSeed, seedBusy: gazeSeedBusy }) :
     showHist ? h("div", { className: "space-y-3" },
       h(Eyebrow, { style: { marginBottom: 2 } }, "心声历史 · " + hist.length + " 条"),
       hist.map((s, i) => h("div", { key: i, style: { paddingBottom: 10, borderBottom: "1px solid " + t.line } },
