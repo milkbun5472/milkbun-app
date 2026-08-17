@@ -34,6 +34,8 @@
     const [note, setNote] = useState(""); // 导演便签:一次性,喂给下一拍生成后自动清空
     const [noteOpen, setNoteOpen] = useState(false);
     const [dice, setDice] = useState(false); // 剧场骰子:下一拍注入一个意外,一次性
+    const [plusOpen, setPlusOpen] = useState(false); // + 菜单(骰子/便签/背景/出图)
+    const fileRef = useRef(null);
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
     const [diff, setDiff] = useState("normal"); // 开线时的难度档
     const scrollRef = useRef(null);
@@ -57,7 +59,7 @@
       const done = l.sumCount || 0;
       if (all.length - done <= 48) return;
       const cut = all.length - 32;
-      const seg = all.slice(done, cut).map(m => (m.role === "user" ? uName : (charOf(l).name || "Ta")) + ":" + m.content).join("\n").slice(0, 9000);
+      const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => (m.role === "user" ? uName : (charOf(l).name || "Ta")) + ":" + m.content).join("\n").slice(0, 9000);
       sumBusyRef.current = true;
       try {
         const sys = "把这段小剧场剧情浓缩成【前情提要】(第三人称,400字内):只保留已发生的关键事件、已揭示的事实、双方关系变化和未解决的悬念,不保留文风渲染。若已有旧前情,合并续写成一段完整提要。只输出提要正文。";
@@ -141,7 +143,7 @@
           "【节拍】一次回复只演【一拍】:你的一个反应、至多一次行动和随之的话;演到需要 " + uName + " 回应、选择或行动的位置就自然停下。不把几个情绪阶段压进同一拍(震惊、想通、劝阻、逼问要分几个来回演),不替 Ta 说出 Ta 没说出口的意图,也不自问自答替 Ta 推进。",
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由内容决定。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)"
         ].filter(Boolean).join("\n\n");
-        const base = allMsgs(line).slice(line.sumCount || 0);
+        const base = allMsgs(line).slice(line.sumCount || 0).filter(m => m.role !== "photo");
         const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
           .slice(-40).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
         // 尾部守则(recency 最强处;史里有旧八股时 system 中段压不住自我模仿)
@@ -219,6 +221,37 @@
         update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
+    // 当轮剧照:第三人称旁观构图,服饰道具跟 if 线世界观;有两张脸参考才双人,否则他单人
+    const genPhoto = async () => {
+      if (!line || busy) return;
+      const char = charOf(line);
+      if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
+      if (!(char.refPhoto || char.appearance)) return props.toast("角色还没有参考照或外貌描述");
+      const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
+      setPlusOpen(false); setBusy(true);
+      try {
+        const recent = allMsgs(line).filter(m => m.role !== "photo").slice(-4).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-1200);
+        const prompt = "第三人称旁观视角的电影感画面(绝不是自拍,人物不看镜头,像剧照):" + (duo ? "画面里有两个人同框:「" + char.name + "」(脸严格按参考图1)和「" + uName + "」(脸严格按参考图2)。" : "画面里只有「" + char.name + "」一个人" + (char.refPhoto ? "(脸严格按参考图)" : "(外貌:" + char.appearance + ")") + ",绝不出现第二个人。") + "\n【世界与场景】" + line.setting + "\n【" + char.name + " 的身份】" + line.charRole + (duo ? "\n【" + uName + " 的身份】" + line.userRole : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让原设定或现代便装乱入;构图取此刻最有张力的一瞬。";
+        const refs = duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : null);
+        const out = await generateSelfieImage(prompt, refs);
+        if (!out || !out.blob) throw new Error("没出图");
+        const durl = await blobToDataUrl(out.blob);
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
+      } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
+    const rerollPhoto = m => { if (busy || !confirm("重拍这张?")) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(genPhoto, 60); };
+    const onBgFile = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = "";
+      if (!f || !line) return;
+      try {
+        const durl = typeof resizeImageFile === "function" ? await resizeImageFile(f, 1600, 0.85) : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: ref }));
+        setPlusOpen(false);
+      } catch (err) { props.toast("背景设置失败"); }
+    };
+    const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
     const delLine = id => { if (!confirm("删除这条 if 线和全部记录?")) return; setView("list"); setPlayId(null); update(list => list.filter(l => l.id !== id)); };
 
     // ---- UI ----
@@ -312,18 +345,26 @@
           h("button", { onClick: () => confirmFail(false), style: S.btn(false) }, "还有机会"))) : null;
       let ri = 0;
       const flow = line.rounds.flatMap((r, i) => [h("div", { key: "rd" + r.id, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "14px 0 4px" } }, "— 第" + (i + 1) + "轮 · " + r.goal + (r.goalDone ? " ✓" : r.failed ? " ✗" : "") + " —")]
-        .concat(r.msgs.map(m => m.role === "user"
+        .concat(r.msgs.map(m => m.role === "photo"
+          ? h("div", { key: m.id, onClick: () => rerollPhoto(m), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }), h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, marginTop: 3 } }, "点击可重拍"))
+          : m.role === "user"
           ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
           : h("div", { key: m.id, style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content))));
       return h("div", { style: S.wrap }, header(line.title + " · " + (char.name || "")),
         panel, banner,
-        h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
+        h("div", { ref: scrollRef, style: Object.assign({ flex: 1, overflowY: "auto", paddingBottom: 16 }, line.bg ? { backgroundImage: "linear-gradient(rgba(240,236,228,.84),rgba(240,236,228,.84)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center", backgroundAttachment: "local" } : {}) }, flow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "Ta 在演…") : null),
         line.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
           h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让他更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
-        line.ended ? null : h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: noteOpen ? "none" : "1px solid " + t.line } },
-          h("button", { onClick: () => setDice(v => !v), title: "剧场骰子", style: Object.assign({}, S.btn(dice), { padding: "7px 9px" }) }, "🎲"),
-          h("button", { onClick: () => setNoteOpen(v => !v), style: Object.assign({}, S.btn(noteOpen || !!note.trim()), { padding: "7px 10px" }) }, "()"),
+        !line.ended && plusOpen ? h("div", { style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
+          h("button", { onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
+          h("button", { onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
+          h("button", { onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
+          h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 背景图"),
+          line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null,
+        line.ended ? null : h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: (noteOpen || plusOpen) ? "none" : "1px solid " + t.line } },
+          h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
+          h("button", { onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
           h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: (round.msgs.length && round.msgs[round.msgs.length - 1].role === "user") ? "上条没生成出来,直接按「演」重试" : "你的行动或台词…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
           h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "演")));
     }
