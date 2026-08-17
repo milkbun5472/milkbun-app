@@ -79,7 +79,10 @@ test("单人和群线下都能展示真图，并只临时附最近两张给模�
 test("小剧场剧照复用角色画风与身份锁", () => {
   const theater = fs.readFileSync(path.join(__dirname, "..", "js", "theater.js"), "utf8");
   assert.match(theater, /buildPhotoPrompt\(styledChar, sceneDesc, null, \{ kind: duo \? "duo" : "other"/);
-  assert.match(theater, /photoOutfit: ""/, "if 线服装不能被角色的固定服装锁顶掉");
+  // v53.42 起改为「这条线自己的一套行头并锁死」：清空会让服装每张随机（袍子变女仆装），
+  // 照抄主线又会让角色穿着现代便装进 if 线。
+  assert.match(theater, /photoOutfit: String\(line\.charOutfit \|\| ""\)\.trim\(\)/, "if 线用自己的行头锁");
+  assert.match(theater, /outfit: String\(line\.userOutfit \|\| ""\)\.trim\(\)/, "用户侧行头同样要锁");
   assert.doesNotMatch(theater, /第三人称旁观视角的电影感画面\(绝不是自拍/, "旧的自拼 prompt 必须已经移除");
 });
 
@@ -118,4 +121,13 @@ test("剧照 prompt 要过滤明确内容并声明画面尺度", () => {
   assert.match(th, /【画面尺度】/, "要显式声明画面必须可公开展示");
   assert.match(th, /两人此刻正对着彼此/, "全被过滤掉时要有兜底描述，不能给空场景");
   assert.match(th, /内容政策\|content policy/, "审核类失败要能被识别并给出可操作提示");
+});
+
+// 同一场戏里衣服不许变（2026-08-18 Lisa：袍子突然变女仆装）。
+// 合照分支原本明写「每张可以不一样」，那是为日常自拍写的，一场戏里是灾难。
+test("给了行头就锁死，没给才每张随机", () => {
+  const eng = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+  assert.match(eng, /me && String\(me\.outfit \|\| ""\)\.trim\(\)/, "用户侧要支持固定服装锁");
+  assert.match(eng, /同一场戏里这身衣服始终不变/);
+  assert.match(eng, /每张可以不一样/, "没给行头时仍保留日常合照的随机搭配");
 });

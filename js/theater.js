@@ -118,7 +118,7 @@
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true);
       try {
-        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、那股聪明劲;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域(原本搞研究就总派研究员,这是偷懒)。关键词为空时,严格按 user 消息里给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,用他原本的聪明、魅力和说话方式去坏,不许洗白、软化或让他偷偷还是好人。\n先构思一个把两人绑在一起的【张力核心】——一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债;两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。\ngoal 必须是这条张力的【关键节点】,而且【必须是角色一方做出/说出的事】——让他承认、让他答应、让他交出、让他做出那个选择;由 " + uName + " 在对话里想办法促成,他跨过那道心理门槛才算达成。绝不许把目标写成要 " + uName + " 自己去坦白/抉择/行动的任务(Ta 是解题的人,不是被出题的人)。节点要有代价、有风险:他说出口就回不了头、做了就改变两人关系。禁止事务级小目标。\n【目标只定门槛,不定路径】:写清他要跨过【哪一类】门槛(承认/交出/答应/放手…),但不预设具体内容、真相细节或唯一剧情走法——写『让他说出他一直瞒着你的那件事』,不写『让他承认那件事其实是XX造成的』;方向明确,真相和抵达方式留给演出时自然长出来,解法必须不止一种。\n【禁用默认套路】「一方走投无路,另一方手里正好握着唯一能救他/她的物件或情报,交出即自毁」——这是上面这套约束最省力的解,已经被用烂了;雨夜、暗室、追兵在门外、身上带着伤同样是默认布景。你想到的第一个点子如果长这样,推翻重想。\n【代价不必是生死】身败名裂、失去位置、背叛另一个人、承认自己错了或需要人——社会性、关系性、自尊上的代价一样重。不要每条线都写成命悬一线。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;而「他明天一早就要走」「你正拿着文件堵在他面前」这类只属于今天这一刻的处境,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份、性格处境与长期立场(2-3句;不含一次性的当下状态)\",\"userRole\":\"" + uName + " 的新身份+Ta 长期背负的冲突或赌注(2-3句;同样不含当下状态)\",\"world\":\"世界观 + 两人之间长期存在的关系与张力核心(2-4句)\",\"hook\":\"此刻正在发生什么:这一局专属的一次性处境(1-3句)\",\"opening\":\"开场正文\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\"}";
+        const sys = "你在为一场「if 线小剧场」做开场设定:保持角色的性格、说话方式和反应习惯,但把身份、职业、处境替换到一个全新的平行世界。\n【保留的只是性格机制】——他怎么说话、怎么注意、怎么反应、那股聪明劲;履历、职业领域、社会位置、甚至道德立场都属于可替换的部分。新身份要敢于远离原设定:换时代、换世界观、换职业大类都行;除非关键词点名,【不要】沿用原人设的职业领域(原本搞研究就总派研究员,这是偷懒)。关键词为空时,严格按 user 消息里给出的【本局取景框】搭这条线,不要另起炉灶挑自己顺手的题材。\n【关键词拥有最高优先级】:题材、身份、阵营都照办——包括要求他当反派/坏人时,就让他【真的坏】,用他原本的聪明、魅力和说话方式去坏,不许洗白、软化或让他偷偷还是好人。\n先构思一个把两人绑在一起的【张力核心】——一段未清算的过去、一个不能说的秘密、互相冲突的立场、一笔没还清的债;两人的新身份都必须长在这个张力上,不是随便两个职业的偶遇。\ngoal 必须是这条张力的【关键节点】,而且【必须是角色一方做出/说出的事】——让他承认、让他答应、让他交出、让他做出那个选择;由 " + uName + " 在对话里想办法促成,他跨过那道心理门槛才算达成。绝不许把目标写成要 " + uName + " 自己去坦白/抉择/行动的任务(Ta 是解题的人,不是被出题的人)。节点要有代价、有风险:他说出口就回不了头、做了就改变两人关系。禁止事务级小目标。\n【目标只定门槛,不定路径】:写清他要跨过【哪一类】门槛(承认/交出/答应/放手…),但不预设具体内容、真相细节或唯一剧情走法——写『让他说出他一直瞒着你的那件事』,不写『让他承认那件事其实是XX造成的』;方向明确,真相和抵达方式留给演出时自然长出来,解法必须不止一种。\n【禁用默认套路】「一方走投无路,另一方手里正好握着唯一能救他/她的物件或情报,交出即自毁」——这是上面这套约束最省力的解,已经被用烂了;雨夜、暗室、追兵在门外、身上带着伤同样是默认布景。你想到的第一个点子如果长这样,推翻重想。\n【代价不必是生死】身败名裂、失去位置、背叛另一个人、承认自己错了或需要人——社会性、关系性、自尊上的代价一样重。不要每条线都写成命悬一线。\n【长期与一次性必须分开写】这是硬性要求:world 和两人的身份只写【长期为真】的东西——他们是谁、这个世界怎么运转、两人之间长期存在的关系与张力;而「他明天一早就要走」「你正拿着文件堵在他面前」这类只属于今天这一刻的处境,一个字都不许写进 world 或身份里,全部放进 hook。判断标准:半年前成立、半年后还成立的,写进 world;只在此刻成立的,写进 hook。\nhook 要把 " + uName + " 直接放进一个【正在进行、必须做选择】的具体时刻,不是平静的日常介绍。\nopening 是写给 " + uName + " 的开场正文(第二人称『你』,5-9句):交代 Ta 的身份处境与内心冲突,把场景推进到那个时刻,以张力悬在半空收尾;绝不替 " + uName + " 做任何决定或行动。\n只输出 JSON:{\"title\":\"这条if线的短名字(≤10字)\",\"charRole\":\"角色的新身份、性格处境与长期立场(2-3句;不含一次性的当下状态)\",\"userRole\":\"" + uName + " 的新身份+Ta 长期背负的冲突或赌注(2-3句;同样不含当下状态)\",\"world\":\"世界观 + 两人之间长期存在的关系与张力核心(2-4句)\",\"hook\":\"此刻正在发生什么:这一局专属的一次性处境(1-3句)\",\"charOutfit\":\"Ta 在这条线里穿什么:一句话,具体到能照着画(材质/形制/颜色/关键配件),必须符合这个世界的时代与身份\",\"userOutfit\":\"" + uName + " 在这条线里穿什么:同样一句话、同样具体\",\"opening\":\"开场正文\",\"goal\":\"本轮目标:一句话,写清那个有代价的关键节点\"}";
         // 关键词为空才掷骰子;她写了关键词就一切听她的,不拿随机框去顶她的要求
         const frame = kw.trim() ? "" : "\n\n【本局取景框(骰子已经掷好,必须照办)】\n题材:从这三个里挑一个最有戏的——" + pick3(POOL_GENRE).join(" / ") + "\n两人关系的底座:" + pick(POOL_BOND) + "\n本轮目标要跨的门槛属于这一类:" + pick(POOL_GATE);
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
@@ -129,7 +129,7 @@
         if (!p || !p.charRole || !(p.world || p.setting) || !p.goal) throw new Error("设定生成不完整,再试一次");
         // world=长期为真(可收藏复用) / hook=这一局专属的此刻;setting 仍是两者拼起来的整段,面板与出图都照旧读它
         const world = p.world || p.setting, hook = p.hook || (p.world ? "" : "");
-        setDraft({ charId: char.id, keywords: kw.trim(), difficulty: diff, title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", world: world, hook: hook, setting: joinScene(world, hook), opening: p.opening || "", goal: p.goal });
+        setDraft({ charId: char.id, keywords: kw.trim(), difficulty: diff, title: p.title || "if线", charRole: p.charRole, userRole: p.userRole || "", world: world, hook: hook, charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, hook), opening: p.opening || "", goal: p.goal });
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 从收藏基线开新局:身份与世界原样不动,但【此刻的处境要整个换掉】——
@@ -147,17 +147,17 @@
         const past = lines.filter(l => l.presetId === ps.id).slice(0, 6).map(l => String(l.hook || l.setting || "").slice(0, 50)).join(";");
         const sys = "基于下面这套【固定的身份与世界】开一局全新的:身份、世界观、两人的长期关系一个字不许改,但要生成一个【全新的当下处境】以及配套的开场与本轮目标。"
           + newSituation(true, past)
-          + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、必须做选择的时刻,张力悬着收尾,不替 Ta 做任何决定。\ngoal:【必须是角色做出/说出的事】(让他承认/答应/揭示/抉择),由 " + uName + " 促成、他跨过心理门槛才算达成;有代价、说出口就回不了头;只定门槛类型、不预设具体真相或唯一剧情路径,解法要不止一种;禁止事务级小目标,也不许写成要 " + uName + " 自己行动的任务。\n只输出 JSON:{\"hook\":\"新的当下处境\",\"opening\":\"开场正文\",\"goal\":\"一句话目标\"}";
+          + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、必须做选择的时刻,张力悬着收尾,不替 Ta 做任何决定。\ngoal:【必须是角色做出/说出的事】(让他承认/答应/揭示/抉择),由 " + uName + " 促成、他跨过心理门槛才算达成;有代价、说出口就回不了头;只定门槛类型、不预设具体真相或唯一剧情路径,解法要不止一种;禁止事务级小目标,也不许写成要 " + uName + " 自己行动的任务。\n只输出 JSON:{\"hook\":\"新的当下处境\",\"charOutfit\":\"Ta 这一局穿什么(具体到能照着画)\",\"userOutfit\":\"" + uName + " 这一局穿什么\",\"opening\":\"开场正文\",\"goal\":\"一句话目标\"}";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2800, timeout: 150000 });
         const p = extractJSON(raw);
         if (!p || !p.goal) throw new Error("开局生成不完整,再试一次");
         const world = ps.world || ps.setting;
-        setDraft({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, world: world, hook: p.hook || "", setting: joinScene(world, p.hook), opening: p.opening || "", goal: p.goal, fromPreset: true, presetId: ps.id });
+        setDraft({ charId: ps.charId, keywords: ps.keywords, difficulty: diff, title: ps.title, charRole: ps.charRole, userRole: ps.userRole, world: world, hook: p.hook || "", charOutfit: p.charOutfit || "", userOutfit: p.userOutfit || "", setting: joinScene(world, p.hook), opening: p.opening || "", goal: p.goal, fromPreset: true, presetId: ps.id });
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     const acceptDraft = () => {
-      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", setting: draft.setting, presetId: draft.presetId || null, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
+      const l = { id: rid("th_"), charId: draft.charId, title: draft.title, keywords: draft.keywords, difficulty: draft.difficulty || "normal", charRole: draft.charRole, userRole: draft.userRole, world: draft.world || draft.setting, hook: draft.hook || "", charOutfit: draft.charOutfit || "", userOutfit: draft.userOutfit || "", setting: draft.setting, presetId: draft.presetId || null, createdAt: Date.now(), rounds: [{ id: rid("tr_"), goal: draft.goal, goalDone: false, goalNote: null, pending: false, msgs: draft.opening ? [{ id: rid("tm_"), role: "char", content: draft.opening, ts: Date.now() }] : [], startTs: Date.now() }] };
       update(list => [l, ...list]); setDraft(null); setKw(""); setPlayId(l.id); setView("play"); setPanelOpen(true);
     };
 
@@ -313,7 +313,9 @@
         // 身份锁、人设视觉事实、手部解剖锁全在那边,自拼等于把角色的画风设定整个丢掉。
         // 两处刻意改造:photoOutfit 清空(角色的固定服装锁是主线世界的,会把 if 线的行头顶掉);
         // st 传 null(此刻穿着同理,银龙不该穿着主线那身出现在龙岛)。
-        const styledChar = Object.assign({}, char, { photoOutfit: "" });
+        // 用 if 线自己的行头顶替主线的固定服装锁:清空会让服装每张随机(她拍到袍子变女仆装),
+        // 照抄主线又会让银龙穿着现代便装出现在龙岛。正解是这条线有自己的一套,并且锁死。
+        const styledChar = Object.assign({}, char, { photoOutfit: String(line.charOutfit || "").trim() });
         // if 线的身份描述会跟参考照抢脸:模型容易照着「龙族监督官」重画一个陌生人。
         // 所以把「只换身份行头、不换人」提到最前面,和 buildPhotoPrompt 的身份锁叠加。
         const faceLock = "【最高优先级·就是这个人】" + (duo
@@ -324,7 +326,7 @@
         // 锁脸放【整段 prompt 的最前面】:sceneDesc 会被 buildPhotoPrompt 塞到末尾、还冠以
         // 「场景/正在做什么：」,身份指令挂在那儿位置最弱,压不住后面一大段 if 线设定。
         const prompt = typeof buildPhotoPrompt === "function"
-          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? props.profile : null, cinematic: true })
+          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true })
           : faceLock + sceneDesc;
         const refs = duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : null);
         const out = await generateSelfieImage(prompt, refs);
@@ -372,6 +374,9 @@
     const delLine = id => { if (!confirm("删除这条 if 线和全部记录?")) return; const l0 = lines.find(l => l.id === id); if (l0) setListChar(l0.charId); setView(l0 ? "lines" : "list"); setPlayId(null); update(list => list.filter(l => l.id !== id)); };
 
     // ---- UI ----
+    // 小剧场是 zIndex:60 的整屏覆盖层,会盖住 zIndex:50 的全局 DevBadges;
+    // 在层内再渲染一次同一个组件,版本号/电量就还在左上右上,和别的页面一样
+    const badges = () => (typeof DevBadges === "function" ? h(DevBadges) : null);
     const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: t.bg, display: "flex", flexDirection: "column" },
       top: { display: "flex", alignItems: "center", gap: 10, padding: "calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px", borderBottom: "1px solid " + t.line },
       h1: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, flex: 1 },
@@ -393,8 +398,7 @@
     };
     const header = title => h("div", { style: S.top },
       h("button", { onClick: back, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
-      // 小剧场是整屏 fixed 覆盖层,把 App 的版本徽标盖住了;在这儿补一个,免得判断不了自己刷到哪一版
-      h("div", { style: S.h1 }, title, h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, marginLeft: 6, letterSpacing: .5 } }, typeof APP_VERSION !== "undefined" ? APP_VERSION : "")),
+      h("div", { style: S.h1 }, title),
       view === "list" ? h("button", { key: "gal", onClick: () => { setGalChar(null); setView("gallery"); }, style: S.btn(false) }, "图库") : null,
       view === "lines" ? h("button", { key: "new", onClick: () => { setDraft(null); setKw(""); setPickChar(listChar); setView("create"); }, style: S.btn(true) }, "新开if线") : null,
       view === "play" && line ? h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "背景与目标") : null);
@@ -438,7 +442,7 @@
           h("button", { onClick: () => { if (!confirm("从图库删掉这张?剧情里的那张不受影响。")) return; const id = galView.id; setGalView(null); saveGal(l => l.filter(x => x.id !== id)); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
       // 先头像墙,点进某个角色才看到 Ta 的照片
       if (!galChar) {
-        return h("div", { style: S.wrap }, header("剧照图库"),
+        return h("div", { style: S.wrap }, badges(), header("剧照图库"),
           h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
             gg.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } }, gg.map(g => { const c = props.characters.find(x => x.id === g.charId) || {};
               const cover = g.items[0];
@@ -453,7 +457,7 @@
       }
       const cg = props.characters.find(x => x.id === galChar) || {};
       const mine = gal.filter(x => x.charId === galChar);
-      return h("div", { style: S.wrap }, header((cg.name || "已删除的角色") + " · 剧照"), viewer,
+      return h("div", { style: S.wrap }, badges(), header((cg.name || "已删除的角色") + " · 剧照"), viewer,
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
             mine.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
@@ -463,13 +467,13 @@
     if (view === "create") {
       const preview = draft && h("div", { style: S.card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
-        [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与长期张力", draft.world || draft.setting], ["此刻正在发生", draft.hook], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
+        [["Ta 的新身份", draft.charRole], [uName + " 的新身份", draft.userRole], ["世界与长期张力", draft.world || draft.setting], ["此刻正在发生", draft.hook], ["Ta 的行头", draft.charOutfit], [uName + " 的行头", draft.userOutfit], ["开场", draft.opening], ["本轮目标", draft.goal]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
         h("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开演"),
           !draft.fromPreset && h("button", { onClick: genSetting, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
           !draft.fromPreset && h("button", { onClick: () => addPreset(draft), style: S.btn(false) }, "收藏为基线")));
       const pc = props.characters.find(c => c.id === pickChar) || {};
-      return h("div", { style: S.wrap }, header("新开 if 线"),
+      return h("div", { style: S.wrap }, badges(), header("新开 if 线"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { style: Object.assign({}, S.card, { display: "flex", alignItems: "center", gap: 10 }) }, avatarOf(pc, 34),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, pc.name || "?"),
@@ -487,7 +491,7 @@
     if (view === "presets") {
       const c = props.characters.find(x => x.id === listChar) || {};
       const mine = presets.filter(p => p.charId === listChar);
-      return h("div", { style: S.wrap }, header((c.name || "?") + " · 收藏的设定"),
+      return h("div", { style: S.wrap }, badges(), header((c.name || "?") + " · 收藏的设定"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           mine.length ? [h("div", { key: "tip", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, margin: "12px 16px 0" } }, "基线只留身份与世界。每次开新局都会另起一个全新的处境——同样这两个人,可能是失忆、政变、多年后重逢,不会再演同一个时刻。")].concat(mine.map(ps => h("div", { key: ps.id, style: S.card },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, ps.title),
@@ -508,9 +512,11 @@
              h("div", { key: "e2", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "Ta 的身份"), ta("charRole")),
              h("div", { key: "e3", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, uName + " 的身份"), ta("userRole", 2)),
              h("div", { key: "e4", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "世界与情境"), ta("setting", 4)),
+             h("div", { key: "e4b", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "Ta 的行头(出图时锁定,留空则每张随机)"), ta("charOutfit", 2)),
+             h("div", { key: "e4c", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, uName + " 的行头(同上)"), ta("userOutfit", 2)),
              h("div", { key: "e5", style: { marginBottom: 7 } }, h("div", { style: S.lbl }, "当前轮目标"), ta("goal", 2)),
              h("div", { key: "e6", style: { display: "flex", gap: 8 } },
-               h("button", { onClick: () => { const e2 = edit; update(list => list.map(l => l.id !== line.id ? l : { ...l, title: e2.title.trim() || l.title, charRole: e2.charRole, userRole: e2.userRole, setting: e2.setting, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, goal: e2.goal }) })); setEdit(null); props.toast("已保存"); }, style: S.btn(true) }, "保存"),
+               h("button", { onClick: () => { const e2 = edit; update(list => list.map(l => l.id !== line.id ? l : { ...l, title: e2.title.trim() || l.title, charRole: e2.charRole, userRole: e2.userRole, setting: e2.setting, charOutfit: e2.charOutfit, userOutfit: e2.userOutfit, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, goal: e2.goal }) })); setEdit(null); props.toast("已保存"); }, style: S.btn(true) }, "保存"),
                h("button", { onClick: () => setEdit(null), style: S.btn(false) }, "取消"))]
           : [[["Ta 的身份", line.charRole], [uName + " 的身份", line.userRole], ["世界与情境", line.setting]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 7 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, v)) : null),
              h("div", { key: "df", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 7 } },
@@ -525,7 +531,7 @@
                  : h("button", { onClick: () => genGoal("redo"), disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换个目标"),
                !line.ended && h("button", { onClick: endLine, disabled: busy, style: S.btn(false) }, "谢幕收线"),
                h("button", { onClick: restartLine, disabled: busy, style: S.btn(false) }, "重开此线"),
-               h("button", { onClick: () => setEdit({ title: line.title, charRole: line.charRole, userRole: line.userRole, setting: line.setting, goal: round.goal }), style: S.btn(false) }, "编辑设定"),
+               h("button", { onClick: () => setEdit({ title: line.title, charRole: line.charRole, userRole: line.userRole, setting: line.setting, charOutfit: line.charOutfit || "", userOutfit: line.userOutfit || "", goal: round.goal }), style: S.btn(false) }, "编辑设定"),
                h("button", { onClick: () => addPreset(line), style: S.btn(false) }, "收藏此设定"),
                h("button", { onClick: () => delLine(line.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此线")),
              writeGoal !== null && h("div", { key: "wg", style: { marginTop: 8 } },
@@ -556,7 +562,7 @@
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
            ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
-      return h("div", { style: S.wrap },
+      return h("div", { style: S.wrap }, badges(),
         line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet,
         panel, banner,
@@ -588,14 +594,14 @@
     if (view === "lines") {
       const c = props.characters.find(x => x.id === listChar) || {};
       const mine = lines.filter(l => l.charId === listChar);
-      return h("div", { style: S.wrap }, header((c.name || "?") + " · 记录"),
+      return h("div", { style: S.wrap }, badges(), header((c.name || "?") + " · 记录"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           mine.length ? mine.map(lineCard)
           : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有和 Ta 演过。", h("br"), "点右上角新开一条 if 线。")));
     }
 
     // 入口:头像一个一列站在屏幕中间,往下滑看全部;点一下纸条从右边拉开
-    return h("div", { style: S.wrap }, header("小剧场"),
+    return h("div", { style: S.wrap }, badges(), header("小剧场"),
       h("div", { onClick: () => setSheetChar(null), style: { flex: 1, overflowY: "auto", padding: "10px 0 40px" } },
         props.characters.length ? props.characters.map(charRow)
         : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有角色。", h("br"), "先去建一个,再把 Ta 扔进另一种人生。")));

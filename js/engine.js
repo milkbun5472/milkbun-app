@@ -1693,7 +1693,10 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     parts.push("【两张参考图的对应关系·最高优先级】第一张参考图是「" + cName + "」本人，第二张参考图是「" + uName + "」本人。必须严格按各自的参考图还原各自的五官、脸型、发色发型、瞳色、肤色与年龄感；两张脸绝不许互换、混合或平均化，也不许按下文的身份、种族或职业描述另造一张脸——下文的设定只改变服装、道具、场景与气质，不改变这两张脸。");
     if (char.appearance && char.appearance.trim()) parts.push("「" + cName + "」的外貌（务必贴合）：" + char.appearance.trim() + "。");
     if (me && me.appearance && String(me.appearance).trim()) parts.push("「" + uName + "」的外貌（务必贴合）：" + String(me.appearance).trim() + "。");
-    parts.push("「" + uName + "」的穿着：**别照搬 " + uName + " 参考照里的那身衣服**，按当前场景/天气/氛围给 TA 自然搭配一套合适、日常的衣着（每张可以不一样），只保留 TA 的长相五官。");
+    // me.outfit：同一场戏里必须每张都穿同一套（小剧场）。日常合照没有它，仍旧每张随机搭配。
+    parts.push(me && String(me.outfit || "").trim()
+      ? "【" + uName + " 的固定服装锁】「" + uName + "」每张图都必须完整穿着：" + String(me.outfit).trim() + "。不得换装、不得照搬参考照里的衣服、不得按场景另搭一套——同一场戏里这身衣服始终不变。"
+      : "「" + uName + "」的穿着：**别照搬 " + uName + " 参考照里的那身衣服**，按当前场景/天气/氛围给 TA 自然搭配一套合适、日常的衣着（每张可以不一样），只保留 TA 的长相五官。");
     parts.push("【两个人的脸都要清楚完整地出现在画面里】，是两个长相不同的人，五官各自清晰可辨——别把两人画成同一张脸、别只画一个人、别缺人、别多出第三个人。");
   } else {
     parts.push("照片里只有「" + cName + "」一个人。");
