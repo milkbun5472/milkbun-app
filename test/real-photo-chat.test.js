@@ -186,3 +186,14 @@ test("连贯参考图必须在 prompt 组装之前声明", () => {
   assert.ok(app.indexOf("const prevShot") < app.indexOf("const prompt = buildPhotoPrompt(char,"),
     "app: prevShot 要先于 prompt 声明");
 });
+
+// 刀具不该只是「删掉了事」(2026-08-18 Lisa:不能像亲密戏一样画前一拍或后一拍吗)。
+// 敏感原文仍不能进 prompt——上游审核读的就是原文——但删完必须给替代方案，
+// 否则这一拍被掏空，画不出任何属于它的东西。
+test("敏感内容删掉后要改画相邻的一瞬，而不是留白", () => {
+  const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
+  assert.match(th, /【这一拍要改画相邻的一瞬】/, "两类敏感内容都要给出替代拍法");
+  assert.match(th, /hitSex \|\| hitViolent/, "刀具与亲密走同一条替代路径");
+  assert.match(th, /不出现凶器、伤口、血迹与尸体/, "画面尺度要显式覆盖暴力，不只情色");
+  assert.match(th, /const fallbackCue = /, "全被过滤时要有真正的场景兜底");
+});

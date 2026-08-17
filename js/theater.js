@@ -322,10 +322,14 @@
         const hitSex = rows.some(m => isSex(m.content));
         const hitViolent = rows.some(m => isViolent(m.content));
         const spicyWhy = hitSex && hitViolent ? "本拍有亲密与刀具/惊悚描写" : hitSex ? "本拍是亲密戏" : hitViolent ? "本拍有刀具或惊悚描写" : "";
-        const recent = rows.filter(m => !explicit(m.content))
-          .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-240)
-          || "两人此刻正对着彼此,气氛紧绷。";
-        const safeShot = "\n【画面尺度】必须是可公开展示的画面:两人衣着完整整齐,不露骨、不裸露、不做亲密动作的特写;情绪张力靠眼神、距离、手的位置和光影表达。若剧情此刻是亲密场面,就取它【之前或之后】的一个含蓄瞬间来画。";
+        // 敏感句仍然不能进 prompt(上游审核读的就是原文),但删掉之后必须给替代方案,
+        // 否则这一拍等于被掏空。做法和亲密戏一致:告诉它画紧挨着的前一瞬或后一瞬。
+        const kept = rows.filter(m => !explicit(m.content))
+          .map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-240);
+        const fallbackCue = [line.hook, line.charOutfit ? null : null].filter(Boolean).find(t => !explicit(t)) || "两人此刻正对着彼此,气氛紧绷。";
+        const recent = kept || fallbackCue;
+        const safeShot = "\n【画面尺度】必须是可公开展示的画面:人物衣着完整整齐,不露骨、不裸露,画面里不出现凶器、伤口、血迹与尸体;张力全部靠神情、距离、手的位置、环境与光影来表达。"
+          + ((hitSex || hitViolent) ? "\n【这一拍要改画相邻的一瞬】本拍原文里有" + (hitSex && hitViolent ? "亲密与刀具/惊悚" : hitSex ? "亲密" : "刀具或惊悚") + "的内容,已从上面的描述里拿掉了。不要试图还原那一刻,改画【紧挨着它之前或之后】的一个瞬间:动作已经收住或还没发生,两人在同一个空间里,把刚才那股劲留在呼吸、眼神、没松开的距离和屋子里的光线上。这样画面依然属于这一拍,只是取了可以见人的那一格。" : "");
         // 走 buildPhotoPrompt,别再自己从零拼:画风(photoStyle 写实/跟随参考图/二次元)、
         // 身份锁、人设视觉事实、手部解剖锁全在那边,自拼等于把角色的画风设定整个丢掉。
         // 两处刻意改造:photoOutfit 清空(角色的固定服装锁是主线世界的,会把 if 线的行头顶掉);
