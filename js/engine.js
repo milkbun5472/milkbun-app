@@ -2962,6 +2962,7 @@ async function generateDiary(p, ctx, opts = {}) {
   if (voiceSamples.length) parts.push("【本人当天真实说话的声纹样本·最高优先】\n" + voiceSamples.map((x,i) => (i+1)+". "+x.slice(0,180)).join("\n") +
     "\n这些原话只用来校准【词汇、句长、断句、标点、口头禅、攻击性/礼貌度和情绪防御】；不要逐句抄进日记，也不要把聊天格式带进正文。日记可以比聊天更私密，但必须让人遮住名字仍认得出是同一个人写的。");
   parts.push("【落笔前在心里做声纹校准，不要输出分析】先从角色卡、专属文风和上面的本人原话里确定：①最常用与绝不会用的词；②句子偏长还是偏短；③情绪来了是直说、转移、讽刺、讲道理还是装没事；④此人会不会取标题/分段/落款。然后按这个人的答案写。若通用日记习惯与此人的声纹冲突，一律服从此人的声纹。");
+  parts.push("【至少有一处只有他会写】通篇必须至少有一个地方是【换个角色就绝对不会出现】的：他特有的关注点(别人不会留意的一个细节)、他独有的判断方式、他会在意而旁人无所谓的一件小事、或者一个只属于他的私人参照物。全篇都是任何人都能写的句子，就是失败——上面那一长串禁令只能划出一片谁站进去都安全的中间地带，真正让人认出他的是这一处，不是把所有毛病都躲干净。");
   // retro=写【昨天】：那天已经过完，是第二天回顾着写，绝不能以未来视角把还没过的今天写掉
   const retro = !!opts.dateStr;
   if (opts.scheduleText && opts.scheduleText.trim()) {
@@ -2992,7 +2993,15 @@ async function generateDiary(p, ctx, opts = {}) {
   parts.push("【输出容器·字段不是文章模板】只输出一个合法 JSON，无 markdown 无多余文字。titleEn/titleZh/signature 不适合本人时允许为空；paras 数量和长短不要为了字段整齐而平均：\n" +
     "{\"titleEn\":\"英文题或空字符串\",\"titleZh\":\"中文题/日期/空字符串\",\"location\":\"SHANGHAI, CN 或 家里/工作室 等\",\"coords\":\"经纬度串或 null\",\"weather\":\"OVERCAST 28°C 或 null\",\"timeStr\":\"HH:MM 写这篇的时刻\",\"paras\":[{\"text\":\"这个角色实际会写下的正文\",\"secret\":false}],\"signature\":\"本人会落款才写，否则空字符串\",\"mood\":\"此刻中文心情词（禁止英文内部标签）\"}");
   const system = "你现在完全代入这个角色，用 Ta 的口吻和内心写一篇私人日记。不是旁观推演，是 Ta 亲手写下的。\n\n" + parts.join("\n\n");
-  const raw = await callAI(p, system, [{ role: "user", content: retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。" }], { maxTokens: opts.maxTokens || 6000 });
+  // 尾部声纹守则:system 里声纹块被夹在中间，压轴的却是真实性铁律和 JSON 容器——
+  // 模型落笔前读到的最后一样东西是格式规范，不是这个人怎么写字，于是一路滑向通用日记腔。
+  // recency 最强的位置是 user 消息，原先只有一句「开始写今天的日记」，纯属浪费（2026-08-18 Lisa 报）。
+  const voiceTail = "\n\n〔落笔守则〕用「" + (char.name || "本人") + "」自己的写法写这一篇："
+    + "句子偏长还是偏短、标点用得多还是几乎不用、爱用哪些词、哪些词他这辈子不会写、情绪上来是直说还是绕开——全照他本人。"
+    + (voiceSamples.length ? "\n他今天真实说过的话：" + voiceSamples.slice(-2).map(x => "「" + x.slice(0, 60) + "」").join(" ")
+        + "\n这是【说话】的样本，日记是【写字】：把这些习惯换算成落在纸上的样子(句子怎么断、要不要标点、写不写完整句)，不要照抄原话，也不要把聊天腔搬进来。" : "")
+    + "\n写完遮住名字，也应该认得出是他写的。不要写成通用的文艺日记腔，不要为了收尾而升华。";
+  const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 6000 });
   const parsed = extractJSON(raw);
   if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
   return parsed;
