@@ -212,6 +212,21 @@ function ToyConfig({ toast }) {
         line(unlocked && toyReady(), "① 已连接", toyReady() ? "地址与启用都就绪" : "地址没填 / 没启用"),
         line(optIn.length > 0, "② 角色已开配件", optIn.length ? "已开：" + optIn.join("、") : "去 TA 的聊天设置里打开「配件」"),
         line(!!armedName, "③ 本次已激活", armedName ? "当前授权给 " + armedName : "去 TA 的单聊页点右下「▷ 激活配件」"),
+        (() => {
+          // 上一轮实况（v53.71）：跟 TA 说一句话再回来看，这里直接指出卡在哪一关
+          const g = (typeof window !== "undefined" && window.__toyLastGate) || null;
+          if (!g) return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.5 } },
+            "▸ 还没有实况：去跟 TA 说一句话，再回来这里，会显示那一轮到底开没开成。");
+          const bad = (g.conds || []).filter(x => !x[1]).map(x => x[0]);
+          const mm = Math.max(0, Math.round((Date.now() - g.ts) / 60000));
+          return h("div", { style: { marginTop: 8, padding: "8px 10px", borderRadius: 8, background: g.result ? "rgba(60,122,74,.08)" : "rgba(192,57,43,.07)", border: "1px solid " + (g.result ? "rgba(60,122,74,.3)" : "rgba(192,57,43,.25)") } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: g.result ? "#3c7a4a" : "#c0392b", lineHeight: 1.6 } },
+              g.result
+                ? "✓ 上一轮（" + g.who + "，" + mm + " 分钟前）已把 toy 能力给到 TA 了。"
+                : "✗ 上一轮（" + g.who + "，" + mm + " 分钟前）没开成，卡在：" + (bad.join("、") || "未知")),
+            !g.result ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } },
+              "※「不是主动/续写轮」这条的意思是：点【让 TA 回复】续写、或 TA 主动发的那种轮次，按安全设计一律不开放硬件——要你【真发一句话】给 TA，那一轮才算数。") : null);
+        })(),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
           "③ 是【一次会话】的授权：刷新页面或重开 app 会自动解除，需要重点一次——这是当初定的安全设计，不是坏了。三关全绿，TA 的选项才会出现。"));
     })(),

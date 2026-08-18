@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.70";
+const APP_VERSION = "v53.71";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4368,6 +4368,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         && typeof toyReady === "function" && toyReady() && toyArmedRef.current && toyArmedForRef.current === charId
         && !!(settingsFor(charId) && settingsFor(charId).toyEnabled)
         && (() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } })();
+      // 黑匣子（v53.71）：把 toyOn 的每个子条件记下来，设置页的自查表直接显示「上一轮卡在哪一关」。
+      // 这个门有十来个条件，任何一个 false 都会让 TA 的工具表里整段 toy 消失——不能再靠猜。
+      try {
+        window.__toyLastGate = {
+          ts: Date.now(),
+          who: (characters.find(c => c.id === charId) || {}).name || charId,
+          conds: [
+            ["不是主动/续写轮", !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx && !opts.greet],
+            ["设备已连接", typeof toyReady === "function" && toyReady()],
+            ["本次已激活", !!toyArmedRef.current],
+            ["激活的正是TA", toyArmedForRef.current === charId],
+            ["该角色开了配件", !!(settingsFor(charId) && settingsFor(charId).toyEnabled)],
+            ["设置已解锁", (() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } })()]
+          ],
+          result: toyOn
+        };
+      } catch (e) {}
       const toyHint = toyOn
         ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20的整数,\"duration\":秒数1到90,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**想延长就把 duration 拉长（最多 90 秒），别再靠一条接一条硬接**——长段落用 hold/tide/ramp，短促点名用 pulse/knock/throb。**先有话、动作配合话**，别每轮都发、别喧宾夺主。强度我这边有上限，你填超了会被自动压到上限。"
         : "";
