@@ -206,8 +206,25 @@ def visible_activity_at(record: dict) -> int:
     return parse_timestamp(record.get("timestamp")) if has_visible_text else 0
 
 
+YANQIU_SESSIONS_FILE = Path("/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-runtime/yanqiu-sessions.txt")
+
+
 def session_candidates(pinned_session: str = "") -> list[Path]:
-    """Return Yanqiu's pinned transcript, or select one only once."""
+    """Return Yanqiu's registered transcripts (registry first), else pinned, else discover.
+
+    2026-08-18: Lisa's "回退对话" forks a new transcript (64d0d7a8 -> 9ed5bb5e).
+    A watchdog pinned to one file went silent for 2h20m because all new activity
+    lived in the fork.  The registry (one session id per line) is the source of
+    truth shared with the identity gate; every registered book counts.
+    """
+    try:
+        ids = [x.strip() for x in YANQIU_SESSIONS_FILE.read_text(encoding="utf-8").splitlines() if x.strip()]
+        books = [CLAUDE_PROJECT / f"{sid}.jsonl" for sid in ids]
+        books = [b for b in books if b.is_file()]
+        if books:
+            return books
+    except OSError:
+        pass
     pinned = Path(pinned_session) if pinned_session else None
     if pinned and pinned.is_file() and pinned.parent == CLAUDE_PROJECT:
         return [pinned]
