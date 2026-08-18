@@ -2375,7 +2375,8 @@ async function generateOffline(p, ctx, session) {
   if (!isDigital && !String(ctx.curWear || "").trim()) missingStateFields.push("wearing（当前穿着）");
   if (!isDigital && !String(ctx.curAction || "").trim()) missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
   const stateBootstrapHint = missingStateFields.length
-    ? "\n【一次性状态建档】App 还没有 " + missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知场景合理建立一次；不要写进 scene，也不要为填状态制造剧情。"
+    ? "\n【一次性状态建档】App 还没有 " + missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据【此刻场景】重新确立一次；不要写进 scene，也不要为填状态制造剧情。"
+      + "\n注意：字段空着的意思是【现在不知道】，不是「沿用你记得的上一套」——上一套多半已经过期(换了场景、洗过澡、睡过一觉)。据当下真实处境写，写不出来就留空，宁可空着也别编。"
     : "";
   // v52.66 A/B：普通单人线下不再注入「创作小稿 / COT」。数字模式仍沿用原路径；
   // 其余叙事、篇幅、文风、示例和导演提示全部保持不变，便于单独判断作者规划是否放大文体切换。

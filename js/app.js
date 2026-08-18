@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.59";
+const APP_VERSION = "v53.60";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1589,9 +1589,20 @@ function App() {
   // thought 90 分钟:线上写入是「有新的才覆盖」,没时效的话守卫拒一次、或模型连着填 null,
   // 状态卡就会挂着几小时前的念头不动(Lisa 2026-08-18)。线下每轮自清,不受此影响。
   // condition 12 小时:伤/病/醉/累比换衣服和换地方都留得久,但也不该跨天硬续
-const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90 * 60000, place: 3 * 3600000, condition: 12 * 3600000 };
+const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 * 60000, place: 3 * 3600000, condition: 12 * 3600000 };
   // 连续多少轮没有新心声就判定旧的已经过期——时间没到但话题早换了的情况靠它兜
   const THOUGHT_SKIP_LIMIT = 4;
+  // 只有值【真的变了】才刷新时间戳。模型每轮都会把上一轮的穿着/动作原样再报一遍，
+  // 旧写法是「有值就 UpdatedAt = now」，于是时效永远到不了期——运动衣穿了好几天、
+  // 大半夜还在「准备晨跑」，死因都是这个续命，而不是 TTL 定得太长（她 2026-08-18）。
+  const sameStateValue = (a, b) => String(a || "").replace(/\s+/g, "") === String(b || "").replace(/\s+/g, "");
+  const putLiveField = (patch, live, key, value, now) => {
+    const v = String(value == null ? "" : value).trim();
+    if (!v) return;
+    patch[key] = v;
+    if (!sameStateValue(v, live && live[key])) patch[key + "UpdatedAt"] = now;
+    else if (!(Number((live && live[key + "UpdatedAt"]) || 0) > 0)) patch[key + "UpdatedAt"] = now;
+  };
   const freshLiveStateValue = (state, field, now = Date.now()) => {
     const value = String(state && state[field] || "").trim();
     if (!value) return "";
@@ -3438,9 +3449,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90
       const liveState = statesRef.current[charId] || {};
       const ost = {};
       const stateNow = Date.now();
-      if (res.wearing) { ost.wearing = res.wearing; ost.wearingUpdatedAt = stateNow; }
+      putLiveField(ost, liveState, "wearing", res.wearing, stateNow);
       const offlineAction = res.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(res.action, char && char.name) : res.action;
-      if (offlineAction) { ost.action = offlineAction; ost.actionUpdatedAt = stateNow; }
+      putLiveField(ost, liveState, "action", offlineAction, stateNow);
       // thought 的空值表示“本轮没有新心声”，不能像 mood/wearing/action 一样沿用旧值。
       const offlineThought = res.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(res.thought) : res.thought;
       if (offlineThought) { ost.thought = offlineThought; ost.thoughtUpdatedAt = stateNow; ost.thoughtSkips = 0; }
@@ -4890,10 +4901,16 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       if (!opts.proactive && !contMode) observeRelationshipBShadow(char, history.concat(words.map((content, i) => ({ role: "assistant", content, mid: turnId + "_" + i, ts: Date.now(), turnId }))));
       const st = {};
       const stateNow = Date.now();
-      if (parsed.wearing) { st.wearing = parsed.wearing; st.wearingUpdatedAt = stateNow; }
+      const _live0 = statesRef.current[charId] || {};
+      putLiveField(st, _live0, "wearing", parsed.wearing, stateNow);
       const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
-      if (onlineAction) { st.action = onlineAction; st.actionUpdatedAt = stateNow; }
-      if (parsed.place) { st.place = String(parsed.place).trim(); st.placeUpdatedAt = stateNow; }
+      putLiveField(st, _live0, "action", onlineAction, stateNow);
+      putLiveField(st, _live0, "place", parsed.place, stateNow);
+      // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替他编一套,
+      // 而是下一轮据当下场景重新确立(场景域字段的生命周期,Codex 2026-08-18)。
+      if (st.place && _live0.place && !sameStateValue(st.place, _live0.place) && !parsed.wearing) {
+        st.wearing = null; st.wearingUpdatedAt = 0;
+      }
       if (parsed.condition && String(parsed.condition).toLowerCase() !== "null") { st.condition = String(parsed.condition).trim(); st.conditionUpdatedAt = stateNow; }
       else if (parsed.condition === null && (statesRef.current[charId] || {}).condition) { st.condition = null; st.conditionUpdatedAt = 0; }
       // 线上是「有新的才覆盖」(与线下的每轮自清相反)。给它加两道时效:自己的时间戳,

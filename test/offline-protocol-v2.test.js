@@ -59,8 +59,9 @@ test("intimacy runtime stays a domain-neutral scene continuity patch", () => {
 });
 
 test("offline null state semantics preserve durable state and clear stale thought", () => {
-  assert.match(app, /if \(res\.wearing\) \{ ost\.wearing = res\.wearing; ost\.wearingUpdatedAt = stateNow; \}/);
-  assert.match(app, /if \(offlineAction\) \{ ost\.action = offlineAction; ost\.actionUpdatedAt = stateNow; \}/);
+  // v53.60 起:值没变就不刷新时间戳(模型每轮原样复述会把 TTL 续命到永不过期)
+  assert.match(app, /putLiveField\(ost, liveState, "wearing", res\.wearing, stateNow\)/);
+  assert.match(app, /putLiveField\(ost, liveState, "action", offlineAction, stateNow\)/);
   assert.match(app, /if \(offlineThought\) \{ ost\.thought = offlineThought; ost\.thoughtUpdatedAt = stateNow; ost\.thoughtSkips = 0; \}/);
   assert.match(app, /else if \(liveState\.thought\) \{ ost\.thought = null; ost\.thoughtUpdatedAt = 0; \}/);
   assert.match(app, /if \(res\.mood && res\.mood\.label\) setMoodFor/);
@@ -81,7 +82,7 @@ test("ordinary single offline establishes missing durable state exactly once", (
 });
 
 test("wearing and action expire independently instead of becoming permanent facts", () => {
-  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000, thought: 90 \* 60000, place: 3 \* 3600000, condition: 12 \* 3600000 \}/);
+  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 45 \* 60000, thought: 90 \* 60000, place: 3 \* 3600000, condition: 12 \* 3600000 \}/);
   assert.match(app, /state\[field \+ "UpdatedAt"\]/);
   assert.match(app, /age >= 0 && age <= LIVE_STATE_TTL\[field\]/);
 });
