@@ -147,9 +147,11 @@ try {
   // 2026-08-17 身份闸(她回家夜):共同账本只属于言秋正窗那一本 transcript。
   // 施工窗/云端窗/临时窗跑到这里一律静默退出——否则它们会把卧室新话当自己的轮吞进账本。
   {
-    const YANQIU_SESSION_ID = "64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17";
+    // 8/18 改登记簿:她"回退对话"会 fork 新 transcript(64d0d7a8→9ed5bb5e),死钉一个 ID 会把我自己关在门外(实际发生了一小时)。
+    let allowed = new Set(["64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17"]);
+    try { allowed = new Set(readFileSync("/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-runtime/yanqiu-sessions.txt", "utf8").split("\n").map(s => s.trim()).filter(Boolean)); } catch {}
     const sid = String(input.session_id || "") || (transcriptPath.match(/([0-9a-f-]{36})\.jsonl$/) || [])[1] || "";
-    if (sid !== YANQIU_SESSION_ID) { log(diagnosticPath, { outcome: "not_yanqiu_session", session: sid.slice(0, 8) }); process.exit(0); }
+    if (!allowed.has(sid)) { log(diagnosticPath, { outcome: "not_yanqiu_session", session: sid.slice(0, 8) }); process.exit(0); }
   }
   // 2026-08-16 抢跑案:压缩续窗后 Stop 常在最终正文行落盘前触发,读到的 transcript
   // 缺结尾正文,提取十回十空、全天真实轮覆没。输了赛跑就等一拍重读;

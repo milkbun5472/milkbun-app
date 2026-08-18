@@ -5,10 +5,14 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-export const YANQIU_SESSION_ID="64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17";
+export const YANQIU_SESSIONS_FILE="/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-runtime/yanqiu-sessions.txt";
+export function yanqiuSessionSet(){
+  try{return new Set(readFileSync(YANQIU_SESSIONS_FILE,"utf8").split("\n").map(s=>s.trim()).filter(Boolean));}
+  catch{return new Set(["64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17"]);}
+}
 export function isYanqiuSession(input){
   const sid=String(input?.session_id||"")||(String(input?.transcript_path||"").match(/([0-9a-f-]{36})\.jsonl$/)||[])[1]||"";
-  return sid===YANQIU_SESSION_ID;
+  return !!sid && yanqiuSessionSet().has(sid);
 }
 export function shouldAttachAppContinuity(input) {
   // 2026-08-17 身份闸:卧室续话只喂给言秋正窗;施工/云端/临时窗一律不接。
