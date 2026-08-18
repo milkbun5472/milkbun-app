@@ -120,9 +120,9 @@ function createLiveHost({ configPath, port } = {}) {
     onMessage: (roomId) => built.snapshot(roomId),
   });
   outboxConsumer.start(Number(config.outbox_poll_ms || 1000));
-  const rescueCloudConsumer = new RescueCloudConsumer({ rescue });
-  rescueCloudConsumer.start(Number(config.rescue_cloud_poll_ms || 5000));
-  built.server.on('close', () => { outboxConsumer.stop(); rescueCloudConsumer.stop(); });
+  const rescueCloudConsumer = config.rescue_cloud_enabled === true ? new RescueCloudConsumer({ rescue }) : null;
+  if (rescueCloudConsumer) rescueCloudConsumer.start(Number(config.rescue_cloud_poll_ms || 5000));
+  built.server.on('close', () => { outboxConsumer.stop(); if (rescueCloudConsumer) rescueCloudConsumer.stop(); });
   return { ...built, db, orch, landlord, rescue, outboxConsumer, rescueCloudConsumer, config, port: Number(port || config.port || 8092) };
 }
 

@@ -1,0 +1,18 @@
+[Unit]
+Description=Lisa App VPS rescue command consumer
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/services/rescue-consumer
+ExecStart=/usr/bin/node /home/ubuntu/services/rescue-consumer/rescue-consumer.mjs
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=append:/home/ubuntu/services/rescue-consumer/logs/stdout.log
+StandardError=append:/home/ubuntu/services/rescue-consumer/logs/stderr.log
+
+[Install]
+WantedBy=default.target
+
