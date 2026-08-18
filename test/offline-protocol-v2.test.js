@@ -122,7 +122,8 @@ test("目标契约共用一份，且允许日常尺度", () => {
   const banLines = th.split("\n").filter(l => l.includes("禁止事务级小目标"));
   assert.equal(banLines.length, 1, "一刀切的禁令只该剩注释那一处");
   assert.match(banLines[0].trim(), /^\/\//, "剩下那处必须是注释，不是提示词");
-  assert.equal((th.match(/GOAL_RULE/g) || []).length, 5, "一处定义 + 四处引用，不许再各写各的");
+  // 一处定义 + 四处生成 + 两处截断补写（补 goal 时同样要带着这份契约，不能补出个没门槛的目标）
+  assert.equal((th.match(/GOAL_RULE/g) || []).length, 7, "一处定义 + 六处引用，不许再各写各的");
 });
 
 // 参考 liveware-tavern 的长故事记忆模型（AGPL，仅借鉴概念、代码自写，2026-08-18）：
