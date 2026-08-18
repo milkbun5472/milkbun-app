@@ -13,6 +13,48 @@
   const load = () => { try { return JSON.parse(localStorage.getItem("x_theater") || "[]"); } catch (e) { return []; } };
   const persist = list => { try { localStorage.setItem("x_theater", JSON.stringify(list)); } catch (e) {} };
   const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+  // 前情提要改成小账本(参考 liveware-tavern 的做法,自己实现):
+  // 一坨文字没法判断压缩有没有把东西压没了,也没法规定谁先被丢。
+  const LEDGER_KEYS = ["timeline", "facts", "openThreads", "objects"];
+  // 超长时的淘汰顺序:先丢流水与事实,【未了的线与物件最后才动】——
+  // 最早的事件往往正是埋得最深的那条线,按时间一刀切会先把它扔掉。
+  const LEDGER_EVICT = ["timeline", "facts", "objects", "openThreads"];
+  const ledgerCount = L => LEDGER_KEYS.reduce((n, k) => n + ((L && L[k]) || []).length, 0);
+  const ledgerChars = L => LEDGER_KEYS.reduce((n, k) => n + ((L && L[k]) || []).join("").length, 0);
+  function shrinkLedger(L, maxChars) {
+    const out = Object.assign({}, L);
+    while (ledgerChars(out) > maxChars) {
+      let moved = false;
+      for (const k of LEDGER_EVICT) {
+        const arr = (out[k] || []).slice();
+        if (arr.length) { arr.shift(); out[k] = arr; moved = true; break; }
+      }
+      if (!moved) break;
+    }
+    return out;
+  }
+  // 压缩质量闸:不额外调用,纯本地判断这次压缩是不是把记忆压没了。
+  // 受保护的(未了的线/物件)从有到几乎没有,一律判失败,宁可这轮不压。
+  function ledgerOk(prev, next) {
+    if (!prev || !ledgerCount(prev)) return ledgerCount(next) > 0;
+    const p = (L, ks) => ks.reduce((n, k) => n + ((L && L[k]) || []).length, 0);
+    if (p(prev, ["openThreads", "objects"]) >= 4 && p(next, ["openThreads", "objects"]) < 2) return false;
+    if (p(prev, ["timeline", "facts"]) >= 4 && p(next, ["timeline", "facts"]) < 2) return false;
+    return ledgerCount(next) > 0;
+  }
+  const ledgerToText = L => LEDGER_KEYS.map(k => {
+    const arr = (L && L[k]) || [];
+    if (!arr.length) return "";
+    const zh = { timeline: "已经发生", facts: "已确立的事实", openThreads: "还没了结的线", objects: "物件在谁手上" }[k];
+    return "【" + zh + "】\n" + arr.map(x => "· " + x).join("\n");
+  }).filter(Boolean).join("\n");
+  // 覆盖到哪儿改用【内容哈希】而不是下标:删改过中间某条消息后,下标会静默错位,
+  // 摘要覆盖范围和实际对不上也不会报错。
+  function histSig(msgs) {
+    let h = 5381;
+    (msgs || []).forEach(m => { const t = (m.id || "") + "|" + (m.content || ""); for (let i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) >>> 0; });
+    return h.toString(36) + "_" + (msgs || []).length;
+  }
   // 取景骰子(v53.27):没关键词时让模型「自由发挥」,它每次都掷出同一个众数——
   // 民国租界 + 一方走投无路 + 另一方手里握着唯一能救她的物件。根因是目标契约
   // (他做出/有代价/不可逆/由她促成)最省力的解只有那一个拓扑,再加上提示词里
@@ -102,17 +144,32 @@
       const l = (linesRef.current || []).find(x => x.id === lineId);
       if (!l) return;
       const all = l.rounds.flatMap(r => r.msgs);
-      const done = l.sumCount || 0;
+      // 覆盖范围认哈希:存档里 sumSig 与当前前缀对不上(中间被删改过)就从头重算,
+      // 不再拿一个可能已经错位的下标继续往下压。
+      const done = (l.sumSig && l.sumSig === histSig(all.slice(0, l.sumCount || 0))) ? (l.sumCount || 0) : 0;
       if (all.length - done <= 48) return;
       const cut = all.length - 32;
       const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => (m.role === "user" ? uName : (charOf(l).name || "Ta")) + ":" + m.content).join("\n").slice(0, 9000);
       sumBusyRef.current = true;
       try {
-        const sys = "把这段小剧场剧情浓缩成【前情提要】(第三人称,400字内):只保留已发生的关键事件、已揭示的事实、双方关系变化和未解决的悬念,不保留文风渲染。若已有旧前情,合并续写成一段完整提要。只输出提要正文。";
-        const user = (l.summary ? "【旧前情】\n" + l.summary + "\n\n" : "") + "【新增剧情】\n" + seg;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2000, timeout: 120000 });
-        const text = String(raw || "").replace(/```/g, "").trim().slice(0, 3000);
-        if (text) update(list => list.map(x => x.id !== lineId ? x : { ...x, summary: text, sumCount: cut }));
+        const prev = l.ledger && LEDGER_KEYS.some(k => (l.ledger[k] || []).length) ? l.ledger : null;
+        const sys = "把小剧场剧情压缩进一本【前情账本】,不是写摘要散文。合并旧账本与新增剧情,输出四类条目,每条一句话:\n"
+          + "· timeline:已经发生的关键事件,按先后。\n"
+          + "· facts:已经确立、后面不该被推翻的事实(身份、关系、真相、约定)。\n"
+          + "· openThreads:【还没了结的线】——问了没答的、说了要做还没做的、悬着的威胁与承诺。这一类最要紧,宁可多留。\n"
+          + "· objects:重要物件此刻在谁手上、什么状态(刀、信、底片、钥匙…)。没有就给空数组。\n"
+          + "旧账本里的条目除非已经被剧情推翻或了结,否则一律保留;了结了的从 openThreads 挪进 timeline 或 facts。不要写文风渲染,不要复述对白。\n"
+          + "只输出 JSON:{\"timeline\":[],\"facts\":[],\"openThreads\":[],\"objects\":[]}";
+        const user = (prev ? "【旧账本】\n" + JSON.stringify(prev) + "\n\n" : "") + "【新增剧情】\n" + seg;
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2200, timeout: 120000 });
+        const p2 = extractJSON(raw) || {};
+        const next = {};
+        LEDGER_KEYS.forEach(k => { next[k] = (Array.isArray(p2[k]) ? p2[k] : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 14); });
+        // 质量闸:压完发现受保护的记忆几乎没了,就当这次压缩没发生——
+        // 宁可下一轮多喂点原文,也不能静默把几十轮剧情压成一句空话。
+        if (!ledgerOk(prev, next)) return;
+        const trimmed = shrinkLedger(next, 2400);
+        update(list => list.map(x => x.id !== lineId ? x : { ...x, ledger: trimmed, summary: ledgerToText(trimmed), sumCount: cut, sumSig: histSig(all.slice(0, cut)) }));
       } catch (e) { /* 静默:下次再试 */ } finally { sumBusyRef.current = false; }
     };
     const line = lines.find(l => l.id === playId) || null;

@@ -81,7 +81,7 @@ test("ordinary single offline establishes missing durable state exactly once", (
 });
 
 test("wearing and action expire independently instead of becoming permanent facts", () => {
-  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000, thought: 90 \* 60000, place: 3 \* 3600000 \}/);
+  assert.match(app, /const LIVE_STATE_TTL = \{ wearing: 18 \* 3600000, action: 3 \* 3600000, thought: 90 \* 60000, place: 3 \* 3600000, condition: 12 \* 3600000 \}/);
   assert.match(app, /state\[field \+ "UpdatedAt"\]/);
   assert.match(app, /age >= 0 && age <= LIVE_STATE_TTL\[field\]/);
 });
@@ -122,4 +122,34 @@ test("目标契约共用一份，且允许日常尺度", () => {
   assert.equal(banLines.length, 1, "一刀切的禁令只该剩注释那一处");
   assert.match(banLines[0].trim(), /^\/\//, "剩下那处必须是注释，不是提示词");
   assert.equal((th.match(/GOAL_RULE/g) || []).length, 5, "一处定义 + 四处引用，不许再各写各的");
+});
+
+// 参考 liveware-tavern 的长故事记忆模型（AGPL，仅借鉴概念、代码自写，2026-08-18）：
+// 一坨文字的摘要既判断不了「有没有压没」，也规定不了「谁先被丢」。
+test("小剧场前情改为账本：有质量闸、有淘汰序、覆盖范围认哈希", () => {
+  const th = fs.readFileSync(path.join(__dirname, "..", "js", "theater.js"), "utf8");
+  const grab = name => {
+    const i = th.indexOf("  function " + name);
+    let d = 0, j = i;
+    for (; j < th.length; j++) { if (th[j] === "{") d++; else if (th[j] === "}") { d--; if (!d) { j++; break; } } }
+    return th.slice(i, j);
+  };
+  const consts = ["LEDGER_KEYS", "LEDGER_EVICT", "ledgerCount", "ledgerChars"]
+    .map(n => { const i = th.indexOf("  const " + n); return th.slice(i, th.indexOf("\n", i)); }).join("\n");
+  const m = new Function(consts + "\n" + grab("shrinkLedger") + "\n" + grab("ledgerOk") + "\n; return { shrinkLedger, ledgerOk };")();
+
+  const prev = { timeline: ["a", "b", "c", "d"], facts: ["e", "f"], openThreads: ["悬着的威胁", "没兑现的承诺", "问了没答"], objects: ["刀在他手上"] };
+  assert.equal(m.ledgerOk(prev, { timeline: ["a2"], facts: ["e2"], openThreads: ["悬着的威胁", "没兑现的承诺"], objects: ["刀在他手上"] }), true);
+  // 模型返回一句空话时必须拒绝采用，而不是静默把几十轮压没
+  assert.equal(m.ledgerOk(prev, { timeline: ["两人关系有所进展"], facts: [], openThreads: [], objects: [] }), false);
+  assert.equal(m.ledgerOk(prev, { timeline: [], facts: [], openThreads: [], objects: [] }), false);
+  // 淘汰序：未了的线与物件最后才动
+  const big = { timeline: new Array(20).fill("x".repeat(80)), facts: new Array(10).fill("y".repeat(80)), openThreads: ["关键线索A", "关键线索B"], objects: ["刀"] };
+  const small = m.shrinkLedger(big, 800);
+  assert.deepEqual(small.openThreads, ["关键线索A", "关键线索B"], "未了的线不能先被丢");
+  assert.deepEqual(small.objects, ["刀"], "物件不能先被丢");
+  assert.ok(small.timeline.length < 20, "流水要先让位");
+  // 覆盖范围认内容哈希：下标在中间被删改后会静默错位
+  assert.match(th, /function histSig\(msgs\)/);
+  assert.match(th, /l\.sumSig === histSig\(all\.slice\(0, l\.sumCount \|\| 0\)\)/);
 });

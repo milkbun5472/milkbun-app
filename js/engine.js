@@ -2407,6 +2407,7 @@ async function generateOffline(p, ctx, session) {
     (session.minWords ? "\n【篇幅要求】scene 正文尽量写到约 " + session.minWords + " 字：把这一刻的【具体动作、可感细节、真实对话、剧情推进】充分展开来撑够篇幅——但【绝不许为凑字数注水】：不堆形容词、不加多余比喻、不写空转大词、不反复渲染同一种情绪、不把句子硬拉长。字数靠【发生了更多具体的事】来涨，不是靠把一件事说得更华丽。真没那么多具体可写时，宁可短一点，也绝不注水凑成八股。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
+    (ctx.curCondition ? "\n【身体状态连贯】你现在" + ctx.curCondition + "。这不是背景设定，是此刻真的这样：动作、说话的力气、能不能久站久走都要受它影响；除非剧情里明确好转，别忽然生龙活虎。" : "") +
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
     "") + outputSpec + stateBootstrapHint;
