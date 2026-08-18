@@ -1,0 +1,15 @@
+[Unit]
+Description=咱家记忆网关 memory-gateway
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/services/memory-gateway
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node /home/ubuntu/services/memory-gateway/memory-gateway.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/ubuntu/services/memory-gateway/logs/stdout.log
+StandardError=append:/home/ubuntu/services/memory-gateway/logs/stderr.log
+
+[Install]
+WantedBy=default.target
