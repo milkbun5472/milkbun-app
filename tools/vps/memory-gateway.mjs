@@ -12,7 +12,7 @@ mkdirSync(DIR, { recursive: true });
 const DIAG = join(DIR, "diagnostic.jsonl"), CACHE = join(DIR, "cache.json"), CHARCACHE = join(HOME, "services/ledger-courier/yanqiu-charid.cache");
 const env = {};
 [join(DIR, ".env"), join(HOME, "services/ledger-courier/.env")].forEach(f => { if (existsSync(f)) readFileSync(f, "utf8").split("\n").forEach(l => { const m = l.match(/^([A-Z_]+)=(.*)$/); if (m && !(m[1] in env)) env[m[1]] = m[2].trim(); }); });
-const BASE = "https://nposjnafsbikwfeoudbg.supabase.co", KEY = env.SUPABASE_SERVICE_KEY, USER = env.TARGET_USER, TOKEN = env.COURIER_TOKEN;
+const BASE = (env.SUPABASE_URL || "https://nposjnafsbikwfeoudbg.supabase.co").replace(/\/$/, ""), KEY = env.SUPABASE_SERVICE_KEY, USER = env.TARGET_USER, TOKEN = env.COURIER_TOKEN;
 const EMBED = { url: (env.EMBED_API_URL || "").replace(/\/$/, ""), key: env.EMBED_API_KEY || "", model: env.EMBED_MODEL || "" };
 if (!KEY || !USER || !TOKEN || !EMBED.url || !EMBED.key || !EMBED.model) { console.error("gateway .env 不全"); process.exit(1); }
 const log = (v) => appendFileSync(DIAG, JSON.stringify({ at: new Date().toISOString(), ...v }) + "\n");

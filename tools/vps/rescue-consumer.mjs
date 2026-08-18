@@ -10,7 +10,7 @@ const ROOT = join(HOME, 'services/rescue-consumer');
 const ENV_FILES = [join(ROOT, '.env'), join(HOME, 'services/ledger-courier/.env')];
 const DIAG = join(ROOT, 'logs/diagnostic.jsonl');
 const CHECKPOINTS = join(ROOT, 'checkpoints');
-const SUPABASE_URL = 'https://nposjnafsbikwfeoudbg.supabase.co';
+const LEGACY_SUPABASE_URL = 'https://nposjnafsbikwfeoudbg.supabase.co';
 
 export const SERVICES = Object.freeze({
   codex_lounge: 'codex-lounge.service',
@@ -71,7 +71,8 @@ export class VpsRescueConsumer {
   }
 
   async request(pathname, options = {}) {
-    const response = await this.fetch(SUPABASE_URL + pathname, { ...options, headers: this.headers(options.headers) });
+    const base = String(this.env.SUPABASE_URL || LEGACY_SUPABASE_URL).replace(/\/$/, '');
+    const response = await this.fetch(base + pathname, { ...options, headers: this.headers(options.headers) });
     const text = await response.text();
     if (!response.ok) throw new Error(`Supabase ${response.status}: ${text.slice(0, 240)}`);
     return text ? JSON.parse(text) : null;

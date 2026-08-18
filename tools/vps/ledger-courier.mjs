@@ -18,7 +18,7 @@ mkdirSync(DIR, { recursive: true });
 
 const env = {};
 if (existsSync(ENV)) readFileSync(ENV, "utf8").split("\n").forEach(l => { const m = l.match(/^([A-Z_]+)=(.*)$/); if (m) env[m[1]] = m[2].trim(); });
-const BASE = "https://nposjnafsbikwfeoudbg.supabase.co", KEY = env.SUPABASE_SERVICE_KEY, USER = env.TARGET_USER, TOKEN = env.COURIER_TOKEN;
+const BASE = (env.SUPABASE_URL || "https://nposjnafsbikwfeoudbg.supabase.co").replace(/\/$/, ""), KEY = env.SUPABASE_SERVICE_KEY, USER = env.TARGET_USER, TOKEN = env.COURIER_TOKEN;
 if (!KEY || !USER || !TOKEN) { console.error("courier .env 不全"); process.exit(1); }
 
 const log = (v) => appendFileSync(DIAG, JSON.stringify({ at: new Date().toISOString(), ...v }) + "\n");

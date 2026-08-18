@@ -7,8 +7,7 @@
   const SUPABASE_URL = "https://nposjnafsbikwfeoudbg.supabase.co";
   const SUPABASE_ANON_KEY =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wb3NqbmFmc2Jpa3dmZW91ZGJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjY1MTgsImV4cCI6MjA5ODYwMjUxOH0.efs3N7b6Z8CU_1Hlg-S35dkQLP4cZw3IaQnmSc5D9RQ";
-  // VPS 迁移影子：切主路前只准备同 UUID 的新登录态，不参与任何数据读写。
-  // 旧 Supabase 仍是 client/权威写路；验收完最后增量拷贝后才会改这一点。
+  // 旧 Supabase 只保留作一次性「换证」来源；数据读写权威已经切到 VPS。
   const VPS_SUPABASE_URL = "https://yanqiu-vps.tail542792.ts.net:8443";
   const VPS_SUPABASE_ANON_KEY =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3MDczODc3LCJleHAiOjE5NDQ3NTM4Nzd9.2kTgRLljhvgLXWojMi6opixszW1H2f3wKab-s2hE6Cc";
@@ -16,6 +15,7 @@
   const VPS_SHADOW_MARK = "vps_session_shadow_v1";
 
   let client = null;
+  let legacyClient = null;
   let vpsClient = null;
   let vpsSessionInFlight = null;
   let suspend = false; // apply() 期间挂起，避免写回触发反向 push
@@ -38,10 +38,12 @@
 
   try {
     if (window.supabase && window.supabase.createClient) {
-      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // 不改旧 client 的默认 storageKey：这样升级前已经登录的 session 才能被换证器找到。
+      legacyClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       vpsClient = window.supabase.createClient(VPS_SUPABASE_URL, VPS_SUPABASE_ANON_KEY, {
         auth: { storageKey: "lisa-vps-auth-token", persistSession: true, autoRefreshToken: true }
       });
+      client = vpsClient;
     }
   } catch (e) {
     console.error("supabase init failed", e);
@@ -50,22 +52,27 @@
   window.Cloud = {
     ready: () => !!client,
 
-    // 旧登录仍有效时，一次性换出 VPS 登录态。只迁认证，不碰 saves/记忆/聊天写路。
+    // 旧登录仍有效时，一次性换出 VPS 登录态。数据主路始终是 VPS；换证失败就停写。
     // 可重复调用：UUID 已一致就直接返回，不会再次发票。
     async ensureVpsSession() {
-      if (!client || !vpsClient) return { ok: false, reason: "not_ready" };
+      if (!legacyClient || !vpsClient) return { ok: false, reason: "not_ready" };
       if (vpsSessionInFlight) return vpsSessionInFlight;
       vpsSessionInFlight = (async () => {
         try {
-          const oldResult = await client.auth.getSession();
-          const oldSession = oldResult && oldResult.data && oldResult.data.session;
-          if (!oldSession || !oldSession.access_token || !oldSession.user) return { ok: false, reason: "not_signed_in" };
           const current = await vpsClient.auth.getSession();
           const currentSession = current && current.data && current.data.session;
-          if (currentSession && currentSession.user && currentSession.user.id === oldSession.user.id) {
-            localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: true, user_id: oldSession.user.id, checked_at: new Date().toISOString() }));
+          const oldResult = await legacyClient.auth.getSession();
+          const oldSession = oldResult && oldResult.data && oldResult.data.session;
+          if (currentSession && currentSession.user) {
+            // 两边若明确是不同账号，不能把上一账号的 VPS session 当成本次换证成功。
+            if (oldSession && oldSession.user && oldSession.user.id !== currentSession.user.id) {
+              await vpsClient.auth.signOut();
+            } else {
+            localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: true, user_id: currentSession.user.id, checked_at: new Date().toISOString(), authority: "vps" }));
             return { ok: true, reused: true };
+            }
           }
+          if (!oldSession || !oldSession.access_token || !oldSession.user) return { ok: false, reason: "not_signed_in" };
           const response = await fetch(VPS_SESSION_MIGRATOR, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -77,7 +84,7 @@
           if (setResult.error) throw setResult.error;
           const newUser = setResult.data && setResult.data.user;
           if (!newUser || newUser.id !== oldSession.user.id) throw new Error("identity_mismatch");
-          localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: true, user_id: newUser.id, migrated_at: new Date().toISOString() }));
+          localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: true, user_id: newUser.id, migrated_at: new Date().toISOString(), authority: "vps" }));
           return { ok: true, migrated: true };
         } catch (error) {
           localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: false, reason: String(error && error.message || error), checked_at: new Date().toISOString() }));
@@ -210,6 +217,7 @@
     async getUser() {
       if (!client) return null;
       try {
+        await this.ensureVpsSession();
         const { data } = await client.auth.getUser();
         return data ? data.user : null;
       } catch {
@@ -221,6 +229,7 @@
     async getSessionUser() {
       if (!client) return null;
       try {
+        await this.ensureVpsSession();
         const { data, error } = await client.auth.getSession();
         if (error) return null;
         return data && data.session ? data.session.user : null;
@@ -234,21 +243,28 @@
       const { data, error } = await client.auth.signUp({ email, password });
       if (error) throw error;
       try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
-      this.ensureVpsSession();
       return data;
     },
 
     async signIn(email, password) {
       if (!client) throw new Error("云服务未就绪");
       localStorage.removeItem("memory_table_authority_v1"); // 登录可能换账号；新账号必须自己重新逐 ID 验收
-      const { data, error } = await client.auth.signInWithPassword({
+      try { await vpsClient.auth.signOut(); } catch (e) {}
+      // 迁移期旧密码哈希无法从 Supabase 导出：先向旧 Auth 验证一次，再换成同 UUID 的 VPS session。
+      const { data: legacyData, error } = await legacyClient.auth.signInWithPassword({
         email,
         password,
       });
       if (error) throw error;
+      const migrated = await this.ensureVpsSession();
+      if (!migrated.ok) throw new Error("账号换证失败，请稍后重试；本机数据没有被改动");
+      // 用户亲自输过旧密码后，把同一密码写进新 Auth；以后旧云停服也能独立登录。
+      const updated = await vpsClient.auth.updateUser({ password });
+      if (updated.error) throw updated.error;
+      const current = await vpsClient.auth.getSession();
+      const data = { user: current.data && current.data.session && current.data.session.user, session: current.data && current.data.session };
       protectedSaveCache.clear();
       try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
-      this.ensureVpsSession();
       return data;
     },
 
@@ -259,7 +275,7 @@
       await this.push();
       // 共享聊天账本 outbox 不属于 x_ saves：先尽力投递，随后清本机队列，绝不把旧账号消息带给下个账号。
       try { if (window.ChatLedgerShadow) await window.ChatLedgerShadow.flush(); } catch (e) {}
-      if (client) await client.auth.signOut();
+      if (legacyClient) { try { await legacyClient.auth.signOut(); } catch (e) {} }
       if (vpsClient) { try { await vpsClient.auth.signOut(); } catch (e) {} }
       localStorage.removeItem(VPS_SHADOW_MARK);
       protectedSaveCache.clear();
@@ -961,9 +977,9 @@
       const ctrl = new AbortController();
       const tm = setTimeout(() => ctrl.abort(), timeout || 120000);
       try {
-        return await fetch(SUPABASE_URL + "/functions/v1/llm-proxy", {
+        return await fetch(VPS_SUPABASE_URL + "/functions/v1/llm-proxy", {
           method: "POST",
-          headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
+          headers: { "Content-Type": "application/json", apikey: VPS_SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
           body: JSON.stringify({ ref: ref, url: url, body: body, extraHeaders: extraHeaders || {} }),
           signal: ctrl.signal
         });

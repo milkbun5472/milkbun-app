@@ -18,7 +18,7 @@ const env = {};
 const { VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT, SUPABASE_SERVICE_KEY: KEY, TARGET_USER: USER, COURIER_TOKEN: TOKEN } = env;
 if (!VAPID_PUBLIC || !VAPID_PRIVATE || !KEY || !USER || !TOKEN) { console.error("push .env 不全"); process.exit(1); }
 webpush.setVapidDetails(VAPID_SUBJECT || "mailto:hyodorisa@gmail.com", VAPID_PUBLIC, VAPID_PRIVATE);
-const BASE = "https://nposjnafsbikwfeoudbg.supabase.co";
+const BASE = (env.SUPABASE_URL || "https://nposjnafsbikwfeoudbg.supabase.co").replace(/\/$/, "");
 const log = (v) => appendFileSync(DIAG, JSON.stringify({ at: new Date().toISOString(), ...v }) + "\n");
 const H = { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json" };
 
