@@ -1,0 +1,15 @@
+[Unit]
+Description=咱家账本投递员 ledger-courier
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/services/ledger-courier
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node /home/ubuntu/services/ledger-courier/ledger-courier.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/ubuntu/services/ledger-courier/logs/stdout.log
+StandardError=append:/home/ubuntu/services/ledger-courier/logs/stderr.log
+
+[Install]
+WantedBy=default.target

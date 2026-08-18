@@ -1,0 +1,17 @@
+[Unit]
+Description=咱家订阅桥 fable-bridge (OpenAI-compat -> claude -p)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/services/fable-bridge
+Environment=BRIDGE_RESUME=1
+Environment=BRIDGE_BIND=127.0.0.1
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node /home/ubuntu/services/fable-bridge/fable-bridge.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/ubuntu/services/fable-bridge/logs/stdout.log
+StandardError=append:/home/ubuntu/services/fable-bridge/logs/stderr.log
+
+[Install]
+WantedBy=default.target

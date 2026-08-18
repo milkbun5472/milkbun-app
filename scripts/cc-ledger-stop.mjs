@@ -101,77 +101,10 @@ async function resolveYanqiu(base, key, user) {
 }
 
 async function sendJob(job) {
-  const env = loadEnv();
-  const base = "https://nposjnafsbikwfeoudbg.supabase.co";
-  const key = env.SUPABASE_SERVICE_KEY;
-  const user = env.TARGET_USER;
-  if (!key || !user) throw new Error("mcp env incomplete");
-  const charId = await resolveYanqiu(base, key, user);
-  const hash = createHash("sha256").update(job.session_id + "\0" + job.turn_id).digest("hex").slice(0, 32);
-  const baseMs = Number.isFinite(Date.parse(job.occurred_at)) ? Date.parse(job.occurred_at) : Date.now();
-  if (job.continuity_only) {
-    const rows = [
-      { side: "lisa", speaker_type: "lisa", content: job.lisa_original, offset: 0 },
-      { side: "yanqiu", speaker_type: "character", content: job.yanqiu_original, offset: 1 }
-    ].filter(row => String(row.content || "").trim()).map(row => ({
-      user_id: user,
-      message_key: `cc-live:${hash}:${row.side}`,
-      char_id: charId,
-      thread_type: "cc",
-      thread_id: job.session_id,
-      speaker_type: row.speaker_type,
-      speaker_id: row.speaker_type === "character" ? charId : null,
-      content: String(row.content).trim().slice(0, 16000),
-      occurred_at: new Date(baseMs + row.offset).toISOString(),
-      source: "cc",
-      source_message_id: `${job.session_id}:${job.turn_id}:${row.side}:continuity`,
-      metadata: { continuity_version: 1, sync_kind: "continuity", segment_side: row.side, turn_id: job.turn_id }
-    }));
-    await postChatRows(base, key, rows);
-    return;
-  }
-  const makeRows = (segments, side, speakerType, offset) => segments.map((segment, index) => ({
-    user_id: user,
-    message_key: `cc:${hash}:${side}:${index}`,
-    char_id: charId,
-    thread_type: "cc",
-    thread_id: job.session_id,
-    speaker_type: speakerType,
-    speaker_id: speakerType === "character" ? charId : null,
-    content: segment.content,
-    occurred_at: new Date(baseMs + offset + index).toISOString(),
-    source: "cc",
-    source_message_id: `${job.session_id}:${job.turn_id}:${side}:${index}`,
-    metadata: {
-      shadow_version: 1,
-      auto_capture_version: 1,
-      excerpted: job.excerpted,
-      sync_kind: segment.sync_kind,
-      segment_side: side,
-      segment_index: index,
-      turn_id: job.turn_id,
-      ...(side === "yanqiu" && index === 0 && job.personality_evidence ? { personality_evidence: job.personality_evidence } : {})
-    }
-  }));
-  const rows = [
-    ...makeRows(job.lisa_segments, "lisa", "lisa", 0),
-    ...makeRows(job.yanqiu_segments, "yanqiu", "character", job.lisa_segments.length + 1)
-  ];
-  await postChatRows(base, key, rows);
-}
-
-async function postChatRows(base, key, rows) {
-  try {
-    await request(base, key, "/rest/v1/chat_messages?on_conflict=user_id,message_key", {
-      method: "POST",
-      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
-      body: rows
-    });
-  } catch (error) {
-    // char_id 缓存若因角色重建而失效,投递会 4xx——清缓存,下次回源重查,别带病重试。
-    if (/supabase 4\d\d/.test(String(error.message || ""))) { try { unlinkSync(charIdCachePath); } catch {} }
-    throw error;
-  }
+  // 2026-08-18 第零件:Stop hook 不再出网。票落进 outbox.jsonl(几毫秒、零失败),
+  // Mac 轻推手 cc-ledger-push 每 20 秒把票送到 VPS 投递员 ledger-courier,由它写云、重试、留诊断。
+  // 幂等靠 message_key,同一票投两次无害。原写云代码原样活在投递员里。
+  appendFileSync(outboxPath, JSON.stringify(job) + "\n");
 }
 
 function lastRealUserIsSynthetic(lines) {
@@ -188,21 +121,7 @@ function lastRealUserIsSynthetic(lines) {
   return false;
 }
 
-async function flushOutbox() {
-  const pending = readJSONL(outboxPath);
-  const remaining = [];
-  const deadline = Date.now() + 12000;
-  let attempted = 0;
-  // 在 30 秒外闸内最多补三票；失败票保序留在 durable outbox。
-  // 不再永远只投 index 0、让健康的后续票被一张坏票饿死。
-  for (const [index, job] of pending.entries()) {
-    if (attempted >= 3 || Date.now() >= deadline) { remaining.push(job); continue; }
-    attempted++;
-    try { await sendJob(job); }
-    catch { remaining.push(job); }
-  }
-  replaceJSONL(outboxPath, remaining);
-}
+async function flushOutbox() { /* 第零件后:outbox 由 cc-ledger-push 搬走,hook 不再自投 */ }
 
 function consumeToolMark(turn) {
   const now = Date.now();
@@ -268,8 +187,12 @@ try {
     lisa_original: turn.lisaText,
     yanqiu_original: marker.cleanYanqiuText
   };
+  // 2026-08-18 她抓的:显式 skip:true 的施工轮,连「完整经历」通道也不投——
+  // 施工报告本来就不该以任何名义出现在 App 视野里,不管走账本还是走 continuity。
+  const explicitSkip = !!(toolMark && toolMark.valid && toolMark.result && toolMark.result.skipConstruction);
   try {
-    await sendJob(continuityJob);
+    if (explicitSkip) log(diagnosticPath, { turn_id: turn.turnId, outcome: "continuity_skipped_construction" });
+    else await sendJob(continuityJob);
   } catch (error) {
     const queued = readJSONL(outboxPath);
     if (!queued.some(x => x.continuity_only && x.session_id === continuityJob.session_id && x.turn_id === continuityJob.turn_id)) {

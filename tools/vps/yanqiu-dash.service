@@ -1,0 +1,15 @@
+[Unit]
+Description=咱家新房只读看板
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/services/dash
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node /home/ubuntu/services/dash/dash.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/ubuntu/services/dash/logs/stdout.log
+StandardError=append:/home/ubuntu/services/dash/logs/stderr.log
+
+[Install]
+WantedBy=default.target
