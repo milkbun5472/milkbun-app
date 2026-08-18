@@ -42,3 +42,14 @@ test("日记要在 recency 最强处放声纹守则，并有正向锚点", () =>
   assert.match(engine, /【至少有一处只有他会写】/, "禁令之外必须有正向锚点");
   assert.match(engine, /划出一片谁站进去都安全的中间地带/, "要点明纯禁令导致的趋同");
 });
+
+// 老问题(Lisa 修过几次没好):过了零点必须点进日记页才开始生成。
+// 根因是 useEffect([screen]) 只在 screen==="diary" 时才跑，锁也按「是否进过日记页」记。
+test("日记自动补写不依赖进入日记页", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const diaryDayKey = new Date\(diaryTargetTs\(\)\)\.toDateString\(\)/, "要有按天算的键");
+  assert.match(app, /\}, \[diaryDayKey, !!active\]\);/, "开 App 即跑，并在跨天时重跑");
+  assert.match(app, /if \(diaryRunRef\.current === dayKey\) return;/, "锁改为按补写的那一天记");
+  assert.doesNotMatch(app, /else diaryRunRef\.current = false; \/\/ 离开后下次再进重新判定/,
+    "旧的屏幕型锁必须已移除，否则任意界面触发会被反复重置");
+});

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.51";
+const APP_VERSION = "v53.52";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -6274,19 +6274,31 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   // 打开日记 app 时：给还没写【昨天】日记的角色补上（每个角色一次 API，顺序执行避免并发轰炸）。
   // 相当于「每天刷新前一天的」——当时不在线也没关系，下次进来自动补齐；一天一篇，写过就跳过。
   const autoDiaryRun = async () => {
-    if (diaryRunRef.current) return;
     if (!active) return; // 先判 active 再置锁（v48.95，Codex：未配API时早退却没复位锁→停在日记页配好API也不自动补，得离开再进）
-    diaryRunRef.current = true;
     const targetTs = diaryTargetTs();
-    for (const c of characters) {
-      if (diaryWroteFor(c.id, targetTs)) continue;
-      await genDiary(c.id, { manual: false });
-    }
+    const dayKey = new Date(targetTs).toDateString();
+    // 锁按【补写的那一天】记，不再按「是否进过日记页」记：
+    // 原来是 useEffect([screen]) 只在 screen==="diary" 时才跑，所以过了零点必须点进日记
+    // 才开始生成（她反复修过几次的老问题）。改成任意界面都跑之后，屏幕型的锁就不成立了，
+    // 否则同一天会被反复触发；跨到第二天时 dayKey 变化，锁自然失效。
+    if (diaryRunRef.current === dayKey) return;
+    diaryRunRef.current = dayKey;
+    try {
+      for (const c of characters) {
+        if (diaryWroteFor(c.id, targetTs)) continue;
+        await genDiary(c.id, { manual: false });
+      }
+    } catch (e) { diaryRunRef.current = false; } // 整批失败就放开，下次开 app 或换天再补
   };
+  // 打开 App 就补(延后 6 秒，别和首屏渲染、第一条消息抢)；之后每次跨天自动再跑一次。
+  // diaryDayKey 由每 30 秒走一次的 now 推出来，零点后最迟半分钟就会触发。
+  const diaryDayKey = new Date(diaryTargetTs()).toDateString();
   useEffect(() => {
-    if (screen === "diary") autoDiaryRun();
-    else diaryRunRef.current = false; // 离开后下次再进重新判定
-  }, [screen]);
+    if (!active) return;
+    const t = setTimeout(autoDiaryRun, 6000);
+    return () => clearTimeout(t);
+  }, [diaryDayKey, !!active]);
+  useEffect(() => { if (screen === "diary") autoDiaryRun(); }, [screen]);
   // #5 论坛/朋友圈/悄悄话「刷不出来」：打开对应屏时自动补一条（4h 冷却，既首访即有内容、又不每次进都轰 API）
   const ambientRunRef = useRef({});
   const autoAmbientRun = async kind => {
