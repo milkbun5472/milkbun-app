@@ -302,10 +302,11 @@ def cloud_yanqiu_scope() -> tuple[str, str]:
         return _SCOPE_CACHE[1]
     env = cloud_env()
     user = env["TARGET_USER"]
-    rows = cloud_request(f"/rest/v1/saves?select=data&user_id=eq.{urllib.parse.quote(user)}")
+    sel = urllib.parse.quote("x_characters:data->>x_characters,x_chatSettings:data->>x_chatSettings", safe="")
+    rows = cloud_request(f"/rest/v1/saves?select={sel}&user_id=eq.{urllib.parse.quote(user)}")
     if not isinstance(rows, list) or not rows:
         raise BridgeError("云端没有 Lisa 存档")
-    data = rows[0].get("data") or {}
+    data = rows[0] or {}
     try:
         chars = json.loads(data.get("x_characters") or "[]")
         settings = json.loads(data.get("x_chatSettings") or "{}")

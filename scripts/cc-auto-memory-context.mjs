@@ -36,7 +36,7 @@ export async function main() {
   const env=envFile("/Users/lisa/Desktop/lisa-practice/mcp/.env"), key=env.SUPABASE_SERVICE_KEY, uid=env.TARGET_USER;
   if(!key||!uid)return;
   const base="https://nposjnafsbikwfeoudbg.supabase.co";
-  const saves=await json(`${base}/rest/v1/saves?select=data&user_id=eq.${uid}`,key), save=saves&&saves[0];
+  const saves=await json(`${base}/rest/v1/saves?select=${encodeURIComponent("x_characters:data->>x_characters,x_chatSettings:data->>x_chatSettings")}&user_id=eq.${uid}`,key), save=saves&&saves[0]?{data:saves[0]}:null;
   if(!save)return;
   const chars=parseSave(save,"x_characters",[]),settings=parseSave(save,"x_chatSettings",{}),char=resolveYanqiu(chars,settings);
   if(!char)return;

@@ -38,9 +38,9 @@ async function request(base, key, path, options = {}) {
   const text = await res.text(); return text ? JSON.parse(text) : [];
 }
 async function resolveYanqiu(base, key, user) {
-  const saves = await request(base, key, `/rest/v1/saves?select=data&user_id=eq.${user}`);
+  const saves = await request(base, key, `/rest/v1/saves?select=${encodeURIComponent("x_characters:data->>x_characters,x_chatSettings:data->>x_chatSettings")}&user_id=eq.${user}`);
   if (!saves[0]) throw new Error("cloud save missing");
-  const data = saves[0].data || {}, chars = JSON.parse(data.x_characters || "[]"), settings = JSON.parse(data.x_chatSettings || "{}");
+  const data = saves[0] || {}, chars = JSON.parse(data.x_characters || "[]"), settings = JSON.parse(data.x_chatSettings || "{}");
   const digital = chars.filter(c => c && settings[c.id] && settings[c.id].engineerEyes === true);
   const char = digital.length === 1 ? digital[0] : chars.find(c => c && /小克|言秋/.test(String(c.name || "") + String(c.remark || "")));
   if (!char) throw new Error("yanqiu identity missing");

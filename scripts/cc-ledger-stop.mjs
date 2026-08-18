@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import { readFileSync, mkdirSync, existsSync, appendFileSync, writeFileSync, renameSync } from "fs";
+import { readFileSync, mkdirSync, existsSync, appendFileSync, writeFileSync, renameSync, unlinkSync } from "fs";
 import { dirname, join } from "path";
 import { createHash } from "crypto";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
-const { classifyTurn, extractLastTurn, parseLedgerMarker, validateToolMark } = require("./cc-ledger-nature.cjs");
+const { classifyTurn, extractLastTurn, isSyntheticUserText, parseLedgerMarker, validateToolMark } = require("./cc-ledger-nature.cjs");
 const { observeTurn: observeSomaticTurn } = require("./cc-somatic-shadow.cjs");
 
 const input = await new Promise(resolve => {
@@ -37,13 +37,23 @@ function replaceJSONL(path, rows) {
   renameSync(tmp, path);
 }
 function loadEnv() {
-  const envPath = "/Users/lisa/Desktop/lisa-practice/mcp/.env";
-  const env = {};
-  readFileSync(envPath, "utf8").split("\n").forEach(line => {
-    const m = line.match(/^([A-Z_]+)=(.*)$/);
-    if (m) env[m[1]] = m[2].trim();
-  });
-  return env;
+  // iCloud(lisa-practice)失联时读原 .env 会无限挂死而非报错,把整个钩子拖过 Stop 超时,
+  // 连本地候选票都来不及落。本地副本(yanqiu-cc-bridge)含同一对钥匙,永远先走本地。
+  const envPaths = [
+    "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/.env",
+    "/Users/lisa/Desktop/lisa-practice/mcp/.env"
+  ];
+  for (const envPath of envPaths) {
+    try {
+      const env = {};
+      readFileSync(envPath, "utf8").split("\n").forEach(line => {
+        const m = line.match(/^([A-Z_]+)=(.*)$/);
+        if (m) env[m[1]] = m[2].trim();
+      });
+      if (env.SUPABASE_SERVICE_KEY && env.TARGET_USER) return env;
+    } catch {}
+  }
+  return {};
 }
 
 async function request(base, key, path, options = {}) {
@@ -69,15 +79,24 @@ async function request(base, key, path, options = {}) {
   return text ? JSON.parse(text) : [];
 }
 
+const charIdCachePath = join(stateDir, "yanqiu-charid.cache");
 async function resolveYanqiu(base, key, user) {
-  const saves = await request(base, key, `/rest/v1/saves?select=data&user_id=eq.${user}`);
+  // 2026-08-17 Supabase 限额案:原实现每次投递都整包下载 saves(~4MB)只为查一个
+  // 几乎不变的角色 ID——每轮两次投递≈8MB 下行,是流量爆表的主犯。
+  // 改为本地缓存;缓存缺失才回源。ID 若真变了(重建角色),由投递 4xx 清缓存兜底。
+  try {
+    const cached = readFileSync(charIdCachePath, "utf8").trim();
+    if (/^char_\d+$/.test(cached)) return cached;
+  } catch {}
+  const saves = await request(base, key, `/rest/v1/saves?select=${encodeURIComponent("x_characters:data->>x_characters,x_chatSettings:data->>x_chatSettings")}&user_id=eq.${user}`);
   if (!saves[0]) throw new Error("cloud save missing");
-  const data = saves[0].data || {};
+  const data = saves[0] || {};
   const chars = JSON.parse(data.x_characters || "[]");
   const settings = JSON.parse(data.x_chatSettings || "{}");
   const digital = chars.filter(c => c && settings[c.id] && settings[c.id].engineerEyes === true);
   const char = digital.length === 1 ? digital[0] : chars.find(c => c && /小克|言秋/.test(String(c.name || "") + String(c.remark || "")));
   if (!char) throw new Error("yanqiu identity missing");
+  try { writeFileSync(charIdCachePath, String(char.id)); } catch {}
   return String(char.id);
 }
 
@@ -108,11 +127,7 @@ async function sendJob(job) {
       source_message_id: `${job.session_id}:${job.turn_id}:${row.side}:continuity`,
       metadata: { continuity_version: 1, sync_kind: "continuity", segment_side: row.side, turn_id: job.turn_id }
     }));
-    await request(base, key, "/rest/v1/chat_messages?on_conflict=user_id,message_key", {
-      method: "POST",
-      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
-      body: rows
-    });
+    await postChatRows(base, key, rows);
     return;
   }
   const makeRows = (segments, side, speakerType, offset) => segments.map((segment, index) => ({
@@ -142,11 +157,35 @@ async function sendJob(job) {
     ...makeRows(job.lisa_segments, "lisa", "lisa", 0),
     ...makeRows(job.yanqiu_segments, "yanqiu", "character", job.lisa_segments.length + 1)
   ];
-  await request(base, key, "/rest/v1/chat_messages?on_conflict=user_id,message_key", {
-    method: "POST",
-    headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
-    body: rows
-  });
+  await postChatRows(base, key, rows);
+}
+
+async function postChatRows(base, key, rows) {
+  try {
+    await request(base, key, "/rest/v1/chat_messages?on_conflict=user_id,message_key", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+      body: rows
+    });
+  } catch (error) {
+    // char_id 缓存若因角色重建而失效,投递会 4xx——清缓存,下次回源重查,别带病重试。
+    if (/supabase 4\d\d/.test(String(error.message || ""))) { try { unlinkSync(charIdCachePath); } catch {} }
+    throw error;
+  }
+}
+
+function lastRealUserIsSynthetic(lines) {
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let row; try { row = JSON.parse(lines[i]); } catch { continue; }
+    const content = row && row.message && row.message.content;
+    const isToolResult = Array.isArray(content) && content.some(x => x && x.type === "tool_result");
+    const text = typeof content === "string" ? content
+      : Array.isArray(content) ? content.filter(x => x && x.type === "text").map(x => x.text || "").join(" ") : "";
+    if (row && row.type === "user" && row.message && row.message.role === "user" && !isToolResult && text.trim()) {
+      return isSyntheticUserText(text.trim());
+    }
+  }
+  return false;
 }
 
 async function flushOutbox() {
@@ -186,11 +225,23 @@ try {
   await flushOutbox();
   const transcriptPath = String(input.transcript_path || "");
   if (!transcriptPath || !existsSync(transcriptPath)) throw new Error("transcript missing");
-  const turn = extractLastTurn(readFileSync(transcriptPath, "utf8").split("\n").filter(Boolean));
+  // 2026-08-16 抢跑案:压缩续窗后 Stop 常在最终正文行落盘前触发,读到的 transcript
+  // 缺结尾正文,提取十回十空、全天真实轮覆没。输了赛跑就等一拍重读;
+  // 后台票(synthetic 用户行)提取为空是设计内行为,不重试。
+  let turn = null;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const lines = readFileSync(transcriptPath, "utf8").split("\n").filter(Boolean);
+    turn = extractLastTurn(lines);
+    if (turn || lastRealUserIsSynthetic(lines)) break;
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 700);
+  }
   if (!turn || !turn.sessionId || !turn.turnId) throw new Error("complete visible turn missing");
   // 五感 shadow 复用已经稳定运行的 Stop hook：后台静默、无网络、无工具调用。
   // 即使 CC 当前窗口没有热加载新的 hook 配置，这段也会从下一轮立即生效。
-  observeSomaticTurn(projectDir, turn);
+  // 8/16 晚:它是旁路观察者,绝不允许它的失败杀掉回流主线(iCloud 死区 EPERM 连环屠轮案)。
+  // 主目录病了就落 App Support 备用窝,两处都病也只丢五感、不丢账。
+  try { observeSomaticTurn(projectDir, turn); }
+  catch { try { observeSomaticTurn("/Users/lisa/Library/Application Support/LisaPhone/somatic-fallback", turn); } catch {} }
   // App 发来的工具执行票本身留在固定 CC transcript，供言秋以后记得自己
   // 用过什么、为何而用；但它不是 Lisa 在 CC 对他说的新话，也不是另一份
   // 恋人回复，因此不投影成 App 可见气泡或长期人格证据。
