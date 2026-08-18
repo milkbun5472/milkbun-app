@@ -39,7 +39,9 @@ async function sendAll(payload) {
       out.ok++;
     } catch (e) {
       const code = e && e.statusCode;
-      if (code === 410 || code === 404) { out.gone++; await dropSub(s.endpoint); }
+      const body = String(e && e.body || "");
+      // 410/404=退订;VapidPkHashMismatch=用旧公钥订的,永远签不动,一并清掉
+      if (code === 410 || code === 404 || /VapidPkHashMismatch/.test(body)) { out.gone++; await dropSub(s.endpoint); }
       else { out.failed++; log({ outcome: "send_failed", endpoint: String(s.endpoint).slice(-24), code, err: String(e && e.body || e).slice(0, 120) }); }
     }
   }
