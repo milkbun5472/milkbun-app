@@ -5,11 +5,20 @@
 // UI 隐身：默认不出现，设置·数据 tab 连点「数据」7 下解锁（x_toyUnlocked）。配置只存本机、不进云同步。
 // ============================================================
 function loadToyCfg() {
-  try { const c = JSON.parse(localStorage.getItem("x_toy") || "null"); if (c && typeof c === "object") return Object.assign({ url: "", platform: "LisaPhone", enabled: false, cap: 12 }, c); } catch (e) {}
-  return { url: "", platform: "LisaPhone", enabled: false, cap: 12 };
+  try { const c = JSON.parse(localStorage.getItem("x_toy") || "null"); if (c && typeof c === "object") return Object.assign({ url: "", platform: "LisaPhone", enabled: false, cap: 12, fn: "All" }, c); } catch (e) {}
+  return { url: "", platform: "LisaPhone", enabled: false, cap: 12, fn: "All" };
 }
 function toyCap() { const c = loadToyCfg(); const n = Math.round(c.cap); return isNaN(n) ? 12 : Math.max(1, Math.min(20, n)); }
 function saveToyCfg(c) { const clean = Object.assign(loadToyCfg(), c || {}); try { localStorage.setItem("x_toy", JSON.stringify(clean)); } catch (e) {} return clean; }
+// ── 设备功能（v53.58，照 Lovense 官方文档）──
+// 只会说「震动」是不够的：抽插/旋转/气泵/吸吮款根本不吃 Vibrate，接上就「用不了」。
+// All = 通吃该设备所有可用功能（默认）；Pattern 的 F: 留空同理。强度上限各不相同，必须分别钳制。
+const TOY_FN_LETTER = { Vibrate: "v", Rotate: "r", Pump: "p", Thrusting: "t", Fingering: "f", Suction: "s", Depth: "d", Oscillate: "o", All: "" };
+const TOY_FN_MAX = { Vibrate: 20, Rotate: 20, Pump: 3, Thrusting: 20, Fingering: 20, Suction: 20, Depth: 3, Stroke: 100, Oscillate: 20, All: 20 };
+const TOY_FN_LIST = ["All", "Vibrate", "Rotate", "Thrusting", "Oscillate", "Suction", "Fingering", "Pump", "Depth", "Stroke"];
+function toyFn() { const f = (loadToyCfg().fn || "All"); return TOY_FN_MAX[f] ? f : "All"; }
+// 该功能下的实际强度天花板 = 用户设的 cap 与该功能物理上限取小（气泵/深度只有 0~3，发 20 会越界）
+function toyEffMax() { return Math.max(1, Math.min(toyCap(), TOY_FN_MAX[toyFn()] || 20)); }
 function toyReady(c) { c = c || loadToyCfg(); return !!(c.enabled && c.url); }
 // 归一本地地址：削尾 /command、去尾斜杠。用户从 Lovense Remote 的 Game Mode 页面抄「域名:端口」。
 function toyBase(url) {
@@ -45,8 +54,9 @@ async function toyCommand(body, opts) {
 }
 // 常用封装：强度 0~20，时长秒（0=持续到下一条/Stop）
 function toyVibrate(strength, timeSec) {
-  const s = Math.max(0, Math.min(20, Math.round(strength || 0)));
-  return toyCommand({ command: "Function", action: "Vibrate:" + s, timeSec: timeSec || 0, apiVer: 1 });
+  const fn = toyFn();
+  const s = Math.max(0, Math.min(TOY_FN_MAX[fn] || 20, Math.round(strength || 0)));
+  return toyCommand({ command: "Function", action: fn + ":" + s, timeSec: timeSec || 0, apiVer: 1 });
 }
 function toyStop() { return toyCommand({ command: "Function", action: "Stop", timeSec: 0, apiVer: 1 }); }
 function toyGetToys() { return toyCommand({ command: "GetToys" }); }
@@ -84,14 +94,15 @@ const TOY_PATTERN_DESC = {
 // 按语义规格播放。强度【一律封顶 toyCap()】，角色越不过；时长封顶 90s（v53.57 从 30s 放宽，她点名）。返回 promise。
 function toyPlay(spec) {
   spec = spec || {};
-  const cap = toyCap();
+  const cap = toyEffMax();   // 用户上限 ∩ 该功能物理上限
   const I = Math.max(1, Math.min(cap, Math.round(spec.intensity || 0) || 1));   // ⚠️用户上限封顶，角色不可越
   const D = Math.max(1, Math.min(90, Math.round(spec.duration || 3) || 3));
   const pat = TOY_PATTERNS.includes(String(spec.pattern || "").toLowerCase()) ? String(spec.pattern).toLowerCase() : "steady";
   if (pat === "steady") return toyVibrate(I, D);
   const seq = TOY_STRENGTH[pat](I).map(x => Math.max(0, Math.min(cap, Math.round(x)))).join(";");
   const interval = TOY_INTERVAL[pat] || 600;
-  return toyCommand({ command: "Pattern", rule: "V:1;F:v;S:" + interval + "#", strength: seq, timeSec: D, apiVer: 1 });
+  const F = TOY_FN_LETTER[toyFn()];   // "" = 该设备全部可用功能
+  return toyCommand({ command: "Pattern", rule: "V:1;F:" + F + ";S:" + interval + "#", strength: seq, timeSec: D, apiVer: 1 });
 }
 
 // ── 设置 UI（只在解锁后渲染；藏在 设置·数据 tab）──
@@ -105,6 +116,21 @@ function ToyConfig({ toast }) {
   const inSt = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "8px 12px", width: "100%", outline: "none" };
   const row = (label, node) => h("div", { style: { marginBottom: 10 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
+  // 专用检测（v53.58）：把 GetToys 解析成人话——型号/昵称/在线状态/id，并附完整原始返回。
+  // 「接了新玩意就用不了」多半是新设备不吃 Vibrate（抽插/旋转/气泵款），得先看清它到底是什么。
+  const detect = async () => {
+    setBusy(true); setDiag("");
+    try {
+      const d = await toyGetToys();
+      let raw = d && (d.data !== undefined ? d.data : d);
+      if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch (e) {} }
+      const list = (raw && typeof raw === "object") ? Object.keys(raw).map(k => raw[k]).filter(x => x && typeof x === "object") : [];
+      if (!list.length) { setDiag("✗ 没解析到设备。原始返回：\n" + JSON.stringify(d)); return; }
+      const lines = list.map(x => "· " + (x.nickName || x.name || "?") + "｜型号 " + (x.toyType || x.name || "?") + "｜" + (String(x.status) === "1" ? "在线" : "离线") + "｜id " + (x.id || "?"));
+      setDiag("✓ 连着 " + list.length + " 个设备：\n" + lines.join("\n") + "\n\n完整返回（排查用）：\n" + JSON.stringify(raw));
+    } catch (e) { setDiag("✗ " + (e && e.message || e)); }
+    finally { setBusy(false); }
+  };
   const run = async (fn, okMsg) => {
     setBusy(true); setDiag("");
     try { const d = await fn(); setDiag("✓ " + (okMsg || "成功") + (d && d.data ? "：" + JSON.stringify(d.data).slice(0, 200) : "")); }
@@ -127,6 +153,17 @@ function ToyConfig({ toast }) {
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "强度上限（TA 越不过）"),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, (c.cap == null ? 12 : c.cap))),
       h("input", { type: "range", min: 1, max: 20, step: 1, value: c.cap == null ? 12 : c.cap, onChange: e => set({ cap: +e.target.value }), style: { width: "100%" } })),
+    // 设备功能（v53.58）：新玩意不吃震动时在这儿切
+    h("div", { style: { padding: "6px 0" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "设备功能（新玩意没反应就换一个试）"),
+      h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+        TOY_FN_LIST.map(f => h("button", { key: f,
+          onClick: () => set({ fn: f }),
+          style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999,
+            background: (c.fn || "All") === f ? t.ink : "transparent",
+            color: (c.fn || "All") === f ? t.bg2 : t.fog,
+            border: "1px solid " + ((c.fn || "All") === f ? t.ink : t.line) } },
+          f === "All" ? "自动（全部）" : f)))),
     // 测试面板
     h("div", { style: { marginTop: 8, paddingTop: 12, borderTop: "1px solid " + t.line } },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
@@ -136,9 +173,9 @@ function ToyConfig({ toast }) {
       h("div", { className: "flex gap-2", style: { marginTop: 10 } },
         h("button", { onClick: () => run(() => toyVibrate(str, 0), "已发送"), disabled: busy, className: "flex-1", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 8, padding: "9px 0" } }, busy ? "…" : "测试"),
         h("button", { onClick: () => run(() => toyStop(), "已停止"), disabled: busy, className: "flex-1", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 0" } }, "停止"),
-        h("button", { onClick: () => run(() => toyGetToys(), "已连接"), disabled: busy, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, "检测")),
-      diag ? h("div", { style: { fontFamily: "monospace", fontSize: 11, color: diag[0] === "✓" ? "#3c7a4a" : t.accent, marginTop: 10, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5 } }, diag) : null),
+        h("button", { onClick: detect, disabled: busy, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, "检测")),
+      diag ? h("div", { style: { maxHeight: 220, overflowY: "auto", fontFamily: "monospace", fontSize: 11, color: diag[0] === "✓" ? "#3c7a4a" : t.accent, marginTop: 10, whiteSpace: "pre-wrap", wordBreak: "break-all", lineHeight: 1.5 } }, diag) : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 12, lineHeight: 1.5 } },
       "地址会随网络变，重连后回来重抄一次即可。人不在同一 WiFi 时本地直连用不了（那要走 Lovense 云端 API，得先搭一小截后端）。"));
 }
-if (typeof window !== "undefined") { window.ToyConfig = ToyConfig; window.toyVibrate = toyVibrate; window.toyStop = toyStop; window.toyReady = toyReady; window.toyCommand = toyCommand; window.toyPlay = toyPlay; window.toyCap = toyCap; window.TOY_PATTERNS = TOY_PATTERNS; window.TOY_PATTERN_DESC = TOY_PATTERN_DESC; }
+if (typeof window !== "undefined") { window.ToyConfig = ToyConfig; window.toyVibrate = toyVibrate; window.toyStop = toyStop; window.toyReady = toyReady; window.toyCommand = toyCommand; window.toyPlay = toyPlay; window.toyCap = toyCap; window.TOY_PATTERNS = TOY_PATTERNS; window.TOY_PATTERN_DESC = TOY_PATTERN_DESC; window.toyFn = toyFn; window.toyEffMax = toyEffMax; window.TOY_FN_LIST = TOY_FN_LIST; }
