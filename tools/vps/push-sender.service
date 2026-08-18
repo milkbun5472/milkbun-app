@@ -1,0 +1,15 @@
+[Unit]
+Description=锁屏推送发信员 push-sender
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/services/push
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/node /home/ubuntu/services/push/push-sender.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/ubuntu/services/push/logs/stdout.log
+StandardError=append:/home/ubuntu/services/push/logs/stderr.log
+
+[Install]
+WantedBy=default.target
