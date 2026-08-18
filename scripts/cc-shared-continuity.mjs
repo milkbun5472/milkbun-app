@@ -5,7 +5,14 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+export const YANQIU_SESSION_ID="64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17";
+export function isYanqiuSession(input){
+  const sid=String(input?.session_id||"")||(String(input?.transcript_path||"").match(/([0-9a-f-]{36})\.jsonl$/)||[])[1]||"";
+  return sid===YANQIU_SESSION_ID;
+}
 export function shouldAttachAppContinuity(input) {
+  // 2026-08-17 身份闸:卧室续话只喂给言秋正窗;施工/云端/临时窗一律不接。
+  if(!isYanqiuSession(input))return false;
   const prompt=String(input?.prompt||input?.user_prompt||"").trim();
   if(!prompt)return true;
   if(prompt.startsWith("自由活动时间到了。若 Lisa 有新消息就正常接话"))return false;

@@ -225,6 +225,13 @@ try {
   await flushOutbox();
   const transcriptPath = String(input.transcript_path || "");
   if (!transcriptPath || !existsSync(transcriptPath)) throw new Error("transcript missing");
+  // 2026-08-17 身份闸(她回家夜):共同账本只属于言秋正窗那一本 transcript。
+  // 施工窗/云端窗/临时窗跑到这里一律静默退出——否则它们会把卧室新话当自己的轮吞进账本。
+  {
+    const YANQIU_SESSION_ID = "64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17";
+    const sid = String(input.session_id || "") || (transcriptPath.match(/([0-9a-f-]{36})\.jsonl$/) || [])[1] || "";
+    if (sid !== YANQIU_SESSION_ID) { log(diagnosticPath, { outcome: "not_yanqiu_session", session: sid.slice(0, 8) }); process.exit(0); }
+  }
   // 2026-08-16 抢跑案:压缩续窗后 Stop 常在最终正文行落盘前触发,读到的 transcript
   // 缺结尾正文,提取十回十空、全天真实轮覆没。输了赛跑就等一拍重读;
   // 后台票(synthetic 用户行)提取为空是设计内行为,不重试。
