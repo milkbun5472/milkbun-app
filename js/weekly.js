@@ -167,6 +167,34 @@
     Object.keys(perChar).forEach(function (k) { perChar[k].sort(function (a, b) { return a.ts - b.ts; }); });
     return { perChar: perChar, global: global };
   }
+  // ---- 数据版：全部在本地算，模型只负责写标题和点评，一个数字都不许改 ----
+  const STOP2 = ["什么", "这样", "那样", "没有", "可以", "我们", "你们", "他们", "自己", "一个", "一下", "怎么", "知道", "现在", "时候", "因为", "所以", "但是", "如果", "还是", "就是", "不是", "这个", "那个", "已经"];
+  function weeklyStats(mat, characters, uName) {
+    const rows = (mat && mat.global) || [];
+    const byWho = {}, hours = new Array(24).fill(0);
+    let total = 0, longest = null;
+    const gram = {};
+    rows.forEach(function (r) {
+      const line = String(r.line || "");
+      const i = line.indexOf("：");
+      if (i < 1) return;
+      const who = line.slice(0, i).replace(/^【[^】]*】/, "").trim();
+      const txt = line.slice(i + 1).trim();
+      if (!who || !txt) return;
+      total++;
+      byWho[who] = (byWho[who] || 0) + 1;
+      hours[new Date(r.ts).getHours()]++;
+      if (!longest || txt.length > longest.len) longest = { who: who, len: txt.length, text: txt.slice(0, 40) };
+      const pure = txt.replace(/[^\u4e00-\u9fa5]/g, "");
+      for (let k = 0; k + 2 <= pure.length; k++) { const g = pure.slice(k, k + 2); if (STOP2.indexOf(g) < 0) gram[g] = (gram[g] || 0) + 1; }
+    });
+    const talkers = Object.keys(byWho).map(function (k) { return { who: k, n: byWho[k] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 4);
+    const topWords = Object.keys(gram).map(function (k) { return { w: k, n: gram[k] }; })
+      .filter(function (x) { return x.n >= 3; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 5);
+    const night = hours.slice(0, 5).reduce(function (a, b) { return a + b; }, 0);
+    let peak = 0; hours.forEach(function (n, i) { if (n > hours[peak]) peak = i; });
+    return { total: total, talkers: talkers, topWords: topWords, night: night, peakHour: peak, longest: longest };
+  }
   function linesToText(list, maxChars) {
     let s = (list || []).map(function (x) { return x.line; }).join("\n");
     if (maxChars && s.length > maxChars) s = "……（略去较早部分）\n" + s.slice(s.length - maxChars); // 留最近的尾部
@@ -180,7 +208,17 @@
   }
 
   // 采访版（per character）：专访 in-character Q&A + 狗仔花边
+  // 从这周素材里抽出【这个角色本人说的话】：素材行形如「名字：内容」，取本人那些
+  function ownVoiceLines(material, name) {
+    const pre = String(name || "") + "：";
+    return String(material || "").split("\n")
+      .filter(function (l) { return l.indexOf(pre) === 0 || l.indexOf("】" + pre) > -1; })
+      .map(function (l) { return l.slice(l.lastIndexOf(pre) + pre.length).trim(); })
+      .filter(function (x) { return x.length >= 4 && x.length <= 60; })
+      .slice(-10);
+  }
   async function genInterview(active, char, material, userName) {
+    const ownLines = ownVoiceLines(material, char.name);
     const uName = userName || "我";
     const persona = (char.persona || "（暂无设定，据名字合理发挥其性格）").trim();
     const sys =
@@ -188,6 +226,10 @@
       "\n\n" + CHARCARD_RULE +
       "\n\n【叙述者人格 · 记者（NPC，非角色卡）】" + REPORTER_VOICE +
       "\n\n【被采访角色 · 严格贴合这份角色卡声纹】「" + char.name + "」：\n" + persona +
+      // 素材里本来就有他这周说过的原话，但以「记录」身份进去权重不够；单拎出来当声纹样本，
+      // 和日记那边同一个做法（日记有、周刊一直没有，2026-08-18 补齐）
+      (ownLines.length ? "\n\n【" + char.name + " 本周真实说过的话 · 声纹最高优先】\n" + ownLines.map(function (x, k) { return (k + 1) + ". " + x; }).join("\n") +
+        "\n这些是他本人的原话，用来校准词汇、句长、断句、口癖、攻击性与礼貌度。回答里不要整句照抄，但语感必须是同一个人；遮住名字也该认得出。" : "") +
       "\n【本周出场人物（人名铁律用）】" + char.name + "、" + uName + NAME_GUARD +
       "\n\n【本周 " + char.name + " 与「" + uName + "」及旁人相处的真实记录（采访与花边都只能就这里发生过的事来问、来爆，不得凭空捏造情节）】\n" +
       (material && material.trim() ? material : "（本周几乎没有 " + char.name + " 的记录。）") +
@@ -209,6 +251,43 @@
       } catch (e) { if (i) throw e; }
     }
     throw new Error("「" + char.name + "」采访生成失败，可单独重刷");
+  }
+
+  // 语录榜 + 数据版：一次调用出两块。语录必须逐字来自真实记录（拿回来还要在本地验一遍），
+  // 数据全部本地算好后喂进去，模型只写标题与点评——数字一个都不许改。
+  async function genDeskPage(active, globalText, stats, uName) {
+    const statLines = [
+      "本周共 " + stats.total + " 条消息",
+      stats.talkers.length ? "说话最多：" + stats.talkers.map(function (x) { return x.who + " " + x.n + " 条"; }).join("、") : "",
+      stats.topWords.length ? "反复出现的词：" + stats.topWords.map(function (x) { return x.w + "×" + x.n; }).join("、") : "",
+      "凌晨 0-5 点的消息：" + stats.night + " 条；最热闹的时段是 " + stats.peakHour + " 点",
+      stats.longest ? "最长的一条来自 " + stats.longest.who + "，" + stats.longest.len + " 字" : ""
+    ].filter(Boolean);
+    const sys = ANTI_CLICHE +
+      "\n\n你是这份周刊的资料室编辑，负责两块小版面。" +
+      "\n\n【一、本周语录】从下面的真实记录里挑 4~6 句【原样摘录】的话，要挑最有性格、最像本人、或者放在一周之后回看最有意思的。" +
+      "\n· quote 必须【逐字照抄】记录里的原句，一个字都不许改写、缩写或润色；不要挑旁白，只挑人说的话。" +
+      "\n· who 填说这句话的人名，必须与记录里一致。" +
+      "\n· note 是编辑给这句话配的一行小注（≤20 字），可以调侃、可以点破，但不许编造记录里没有的情节。" +
+      "\n· 同一个人最多两句；如果记录太少，宁可只挑两三句。" +
+      "\n\n【二、数据版】下面是本刊统计好的真实数字。你的任务【只是给它们配文】：" +
+      "\n· 给整版起一个杂志味的标题（≤12 字）。" +
+      "\n· 每条数据配一句点评（≤22 字），把干巴巴的数字说得像杂志边栏：可以吐槽、可以下结论、可以故作严肃。" +
+      "\n· **数字、人名、词全部照抄，一个都不许改、不许四舍五入、不许新增一条你自己想出来的统计。**" +
+      "\n\n【本周统计】\n" + statLines.map(function (x, i) { return (i + 1) + ". " + x; }).join("\n") +
+      "\n\n【本周真实记录】\n" + String(globalText || "").slice(-6000) +
+      "\n\n【输出】只输出一个 JSON，不要代码块：\n" +
+      '{"quotes":[{"who":"人名","text":"逐字原句","note":"一行小注"}],"desk":{"title":"数据版标题","notes":["对应第1条的点评","对应第2条的点评"]}}';
+    const d = await genJSON(active, sys, "开始整理语录与数据版。", 3000);
+    const raw = (d && Array.isArray(d.quotes)) ? d.quotes : [];
+    // 逐字验真：模型很爱顺手把原话「修顺」，改过的一律丢掉，不将就
+    const hay = String(globalText || "");
+    const quotes = raw.map(function (q) {
+      return { who: String((q && q.who) || "").trim(), text: String((q && q.text) || "").trim(), note: String((q && q.note) || "").trim() };
+    }).filter(function (q) { return q.text && q.text.length >= 2 && hay.indexOf(q.text) > -1; }).slice(0, 6);
+    const desk = (d && d.desk) || {};
+    const notes = Array.isArray(desk.notes) ? desk.notes.map(function (x) { return String(x || "").trim(); }) : [];
+    return { quotes: quotes, desk: { title: String(desk.title || "本周数据").trim(), rows: statLines.map(function (line, i) { return { line: line, note: notes[i] || "" }; }) } };
   }
 
   // 媒体腔版块：把整周素材用某种腔重新叙事化，一版出 3~4 篇独立小报
@@ -312,7 +391,7 @@
     const charsWithMat = (characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
     const globalText = linesToText(mat.global, 8000);
     const empty = mat.global.length === 0;
-    const total = 1 + charsWithMat.length + VOICES.length;
+    const total = 1 + charsWithMat.length + VOICES.length + 1; // +1 = 资料室（语录榜 + 数据版）
     let done = 0;
     const tick = function (label) { if (onProgress) onProgress(done, total, label); };
 
@@ -351,8 +430,18 @@
       }
       done++;
     }
+    // 资料室:语录榜(逐字摘录)+ 数据版(本地统计,模型只配文)
+    tick("资料室");
+    let desk = null;
+    try {
+      const stats = weeklyStats(mat, characters, userName);
+      desk = await genDeskPage(active, globalText, stats, userName);
+    } catch (e) { desk = null; }
+    done++;
     tick("装订成刊");
-    const sections = [cover, { id: uid("sec"), type: "interview", entries: entries }].concat(media);
+    const sections = [cover, { id: uid("sec"), type: "interview", entries: entries }]
+      .concat(desk && (desk.quotes.length || desk.desk.rows.length) ? [{ id: uid("sec"), type: "desk", quotes: desk.quotes, desk: desk.desk }] : [])
+      .concat(media);
     return { id: uid("iss"), weekOf: { start: win.start, end: win.end }, key: win.key, label: win.label, issueNumber: issueNumber, sections: sections, createdAt: Date.now() };
   }
 
@@ -396,7 +485,8 @@
     genState: genState, genSubscribe: genSubscribe, startGenerate: startGenerate,
     loadIssues: loadIssues, saveIssues: saveIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
     weekMaterial: weekMaterial, linesToText: linesToText, personasFor: personasFor,
-    genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue
+    genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue,
+    weeklyStats: weeklyStats, genDeskPage: genDeskPage
   };
 
   // ============================================================
@@ -518,6 +608,7 @@
     const cover = (issue.sections || []).find(function (s) { return s.type === "cover"; });
     const iv = (issue.sections || []).find(function (s) { return s.type === "interview"; });
     const medias = (issue.sections || []).filter(function (s) { return s.type === "media"; });
+    const deskSec = (issue.sections || []).find(function (s) { return s.type === "desk"; });
     const win = { start: issue.weekOf.start, end: issue.weekOf.end, key: issue.key, label: issue.label };
     const num = window.Weekly.issueNo(issue, props.issues || []);
 
@@ -571,7 +662,33 @@
 
     // ---- 详情视图 ----
     let headZh = "本期", headEn = "ISSUE #" + num, detail = null;
-    if (sub && sub.kind === "cover" && cover) {
+    if (sub && sub.kind === "desk" && deskSec) {
+      headZh = "资料室"; headEn = "THE DESK";
+      const qs = deskSec.quotes || [], dk = deskSec.desk || { rows: [] };
+      detail = h("div", null,
+        // 语录榜：大引号 + 悬挂式排版，一句一块，像杂志的抽言页
+        qs.length ? h("div", { style: { marginBottom: 30 } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.28em", color: t.fog, textTransform: "uppercase", marginBottom: 16 } }, "QUOTED · 本周语录"),
+          qs.map(function (q, i) {
+            return h("div", { key: i, style: { display: "flex", gap: 12, marginBottom: 22 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 34, lineHeight: .8, color: t.line, flexShrink: 0, marginTop: 4 } }, "\u201C"),
+              h("div", { style: { flex: 1, minWidth: 0 } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.75, color: t.ink } }, q.text),
+                h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, letterSpacing: .5 } }, "— " + q.who),
+                  q.note ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontStyle: "italic" } }, q.note) : null)));
+          })) : null,
+        // 数据版：细横线分隔的边栏条目，数字放大、点评压小
+        dk.rows && dk.rows.length ? h("div", { style: { borderTop: "2px solid " + t.ink, paddingTop: 14 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 2 } }, dk.title),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.26em", color: t.fog, textTransform: "uppercase", marginBottom: 14 } }, "BY THE NUMBERS"),
+          dk.rows.map(function (r, i) {
+            return h("div", { key: i, style: { padding: "11px 0", borderBottom: "1px solid " + t.line } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.7 } }, r.line),
+              r.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, fontStyle: "italic" } }, r.note) : null);
+          }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.line, marginTop: 12, textAlign: "right" } }, "数字由本刊自行统计，未经润色")) : null);
+    } else if (sub && sub.kind === "cover" && cover) {
       headZh = "头版"; headEn = "FRONT PAGE";
       detail = h(CoverSection, { cover: cover, busy: busyUnit === cover.id, onRegen: function () { regenCover(cover); } });
     } else if (sub && sub.kind === "interview" && iv) {
@@ -602,6 +719,10 @@
           h(Masthead, { num: num, label: issue.label }),
           h(Countdown, { target: window.Weekly.nextRefreshTime() }),
           cover ? h(TOCRow, { en: "FRONT PAGE · 头版", title: cover.headline, teaser: cover.lead, onOpen: function () { setSub({ kind: "cover" }); } }) : null,
+          deskSec ? h(TOCRow, { en: "THE DESK · 资料室", meta: (deskSec.quotes || []).length + " 句语录",
+            title: (deskSec.desk && deskSec.desk.title) || "本周数据",
+            teaser: ((deskSec.quotes || [])[0] ? "「" + deskSec.quotes[0].text.slice(0, 18) + "」" : ""),
+            onOpen: function () { setSub({ kind: "desk" }); } }) : null,
           iv ? h(TOCRow, { en: "THE INTERVIEWS · 采访版", meta: (iv.entries || []).length + " 位", title: "本期专访 · 逐个击破", teaser: (iv.entries || []).map(function (e) { return e.charName; }).join("、") || "本周无人露面", onOpen: function () { setSub({ kind: "interview" }); setIvSel(0); } }) : null,
           medias.map(function (s) {
             const v = voiceOf(s.voiceId); const arts = s.articles || [];
