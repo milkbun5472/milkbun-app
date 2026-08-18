@@ -16,3 +16,22 @@ test("专访接入声纹样本，资料室语录逐字验真、数据本地统�
   assert.match(w, /QUOTED · 本周语录/);
   assert.match(w, /BY THE NUMBERS/);
 });
+
+// 第二步(2026-08-18):四个媒体腔换的是戏服不是视角 → 扩池到 6 个、每期抽 3，
+// 并补一块真正换立场的「读者来信」，外加更正启事与中缝广告(搭资料室的便车，不额外调用)。
+test("媒体腔按周抽签，来信/更正/中缝到位", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const seg = w.slice(w.indexOf("const VOICES = ["), w.indexOf("// ---- 报道周窗口"));
+  const mod = new Function(seg + "; return { VOICES: VOICES, voicesForWeek: voicesForWeek };")();
+  assert.ok(mod.VOICES.length >= 6, "池子要够抽");
+  assert.equal(mod.voicesForWeek("2026-W31").length, 3, "每期只出三块");
+  assert.deepEqual(mod.voicesForWeek("2026-W31").map(v => v.id), mod.voicesForWeek("2026-W31").map(v => v.id),
+    "同一周重抽必须一致，否则重刷会换掉整本刊物的构成");
+  assert.notDeepEqual(mod.voicesForWeek("2026-W31").map(v => v.id), mod.voicesForWeek("2026-W34").map(v => v.id),
+    "不同周应当抽出不同组合");
+  assert.match(w, /async function genLetters/, "读者来信要换立场而不是换口音");
+  assert.match(w, /type: "letters"/);
+  assert.match(w, /CORRECTION · 更正/);
+  assert.match(w, /CLASSIFIEDS · 中缝/);
+  assert.match(w, /genMediaBatch\(active, weekVoices,/, "出刊要用抽签结果而不是全量 VOICES");
+});
