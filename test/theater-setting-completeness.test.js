@@ -70,9 +70,10 @@ test("控制字符与裸引号两种坏 JSON 都能抢救出必填字段", () =>
     const i = src.indexOf("function " + name);
     return src.slice(i, src.indexOf("\n}\n", i) + 3);
   };
-  const body = theater.slice(theater.indexOf("  const escapeJsonStringControls"),
+  const body = theater.slice(theater.indexOf("  const decodeLooseJsonText"),
     theater.indexOf("  // v53.61 以前若已经把协议原文存进历史"));
-  const mod = new Function(fn(engine, "repairJSON") + fn(engine, "extractJSON") + body +
+  const mod = new Function(fn(engine, "repairJSON") + fn(engine, "extractJSON") +
+    fn(engine, "escapeJsonStringControls") + body +
     "\nreturn { parseSettingPayload, extractJSON };")();
   const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
   const base = '"title":"宅斗","userRole":"你","world":"侯府","hook":"账房失窃",' +

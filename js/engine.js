@@ -670,6 +670,38 @@ function repairJSON(t) {
   out = out.replace(/,(\s*[}\]])/g, "$1"); // 去掉尾逗号
   return out;
 }
+// 模型往 JSON 字符串正文里直接写控制字符（真换行/制表符）是最常见的一种坏法，
+// 尤其是要它写成段的正文时。JSON.parse 在这上面直接死，而 repairJSON 只补截断、补不了它。
+// 这里把字符串内部的控制字符补成转义序列（字符串外的原样不动）。
+function escapeJsonStringControls(value) {
+  let out = "", inString = false, escaped = false;
+  for (const ch of String(value || "")) {
+    if (!inString) { out += ch; if (ch === '"') inString = true; continue; }
+    if (escaped) { out += ch; escaped = false; continue; }
+    if (ch === "\\") { out += ch; escaped = true; continue; }
+    if (ch === '"') { out += ch; inString = false; continue; }
+    if (ch === "\n") { out += "\\n"; continue; }
+    if (ch === "\r") { out += "\\r"; continue; }
+    if (ch === "\t") { out += "\\t"; continue; }
+    out += ch;
+  }
+  return out;
+}
+// extractJSON 的加固版：先规规矩矩解析，再转义控制字符重试，最后拆一层字符串双包。
+// 任何「拿模型返回当 JSON 用」的地方都该走它，别再各写各的。
+function parseJSONLoose(raw) {
+  let v = null;
+  for (const cand of [String(raw || ""), escapeJsonStringControls(raw)]) {
+    v = extractJSON(cand);
+    if (v != null) break;
+  }
+  for (let depth = 0; depth < 3 && typeof v === "string"; depth++) {
+    const nested = extractJSON(v) || extractJSON(escapeJsonStringControls(v));
+    if (nested == null) break;
+    v = nested;
+  }
+  return v;
+}
 function extractJSON(raw) {
   if (!raw) return null;
   let t = String(raw).replace(/```(?:json)?/gi, "").trim();
