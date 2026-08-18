@@ -10,6 +10,10 @@ mkdir -p "$sessions" "$logs"
 
 # Session recordings are disposable worker traces, never the Mac primary session.
 find "$sessions" -type f -mtime +7 -delete
+# Delivered replies and failed letters are pickup/evidence files, not permanent storage.
+for transient in replies failed processing; do
+  [[ -d "$root/$transient" ]] && find "$root/$transient" -type f -mtime +7 -delete
+done
 
 size_bytes() {
   du -sk "$sessions" | awk '{print $1 * 1024}'

@@ -1,0 +1,23 @@
+[Unit]
+Description=Codex dedicated lounge inbox worker
+After=network-online.target codex-worker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/services/codex
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=CODEX_WORKER_ROOT=%h/services/codex
+ExecStart=/usr/bin/python3 %h/services/codex/bin/codex-lounge-worker.py
+Restart=on-failure
+RestartSec=2
+StandardOutput=append:%h/services/codex/logs/lounge.log
+StandardError=append:%h/services/codex/logs/lounge-error.log
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/services/codex %h/.codex
+
+[Install]
+WantedBy=default.target
