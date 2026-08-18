@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.72";
+const APP_VERSION = "v53.73";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4536,6 +4536,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         // 用户消息上的 _imageRefs 抖掉了——而她的新照片永远在最后一条上,于是新图永丢、旧图冒名。
         // 必须展开保留原字段。
         g[_i] = { ...g[_i], content: (bundleVolatile ? "【此刻的实时背景（只服务这一轮，不是历史）】\n" + bundleVolatile + "\n\n———\n" : "") + g[_i].content + _taskFull };
+            // 留存这一轮 TA 实际收到的指令尾部（v53.73）：再遇到「他说没有这个字段」时直接看真东西，不靠猜。只读快照，不参与判定。
+            try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
       } } }
       // 真照片按需从 IndexedDB 临时展开，只附最近 2 张，避免旧照片反复吞上下文/流量。

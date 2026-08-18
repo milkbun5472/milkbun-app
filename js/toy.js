@@ -126,6 +126,7 @@ function ToyConfig({ toast }) {
   const [busy, setBusy] = useState(false);
   const [str, setStr] = useState(10);
   const [diag, setDiag] = useState("");
+  const [showTail, setShowTail] = useState(false);
   const set = patch => setC(p => { const n = Object.assign({}, p, patch); saveToyCfg(n); return n; });
   const inSt = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "8px 12px", width: "100%", outline: "none" };
   const row = (label, node) => h("div", { style: { marginBottom: 10 } },
@@ -226,6 +227,18 @@ function ToyConfig({ toast }) {
                 : "✗ 上一轮（" + g.who + "，" + mm + " 分钟前）没开成，卡在：" + (bad.join("、") || "未知")),
             !g.result ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } },
               "※「不是主动/续写轮」这条的意思是：点【让 TA 回复】续写、或 TA 主动发的那种轮次，按安全设计一律不开放硬件——要你【真发一句话】给 TA，那一轮才算数。") : null);
+        })(),
+        (() => {
+          const p = (typeof window !== "undefined" && window.__lastSentTail) || null;
+          if (!p) return null;
+          return h("div", { style: { marginTop: 8 } },
+            h("button", { onClick: () => setShowTail(v => !v), className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } },
+              (showTail ? "\u25be \u6536\u8d77 " : "\u25b8 \u770b ") + "TA \u4e0a\u4e00\u8f6e\u5b9e\u9645\u6536\u5230\u7684\u6307\u4ee4"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } },
+              "\u00b7 \u6307\u4ee4\u91cc\u542b toy \u5b57\u6bb5\uff1a" + (p.toyInTask ? "\u6709 \u2713" : "\u6ca1\u6709 \u2717")
+              + "\u3000\u00b7 \u7ebf\u4e0b\u672a\u6563\u573a\u5e72\u6270\uff1a" + (p.offlineBleed ? "\u6709\uff08\u4f1a\u76d6\u8fc7\u7ebf\u4e0a\u80fd\u529b\uff0c\u5efa\u8bae\u5148\u7ed3\u675f\u7ebf\u4e0b\uff09" : "\u65e0")),
+            showTail ? h("div", { style: { marginTop: 6, maxHeight: 200, overflowY: "auto", padding: "8px 10px", borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontFamily: "monospace", fontSize: 10, lineHeight: 1.55, color: t.sub, whiteSpace: "pre-wrap", wordBreak: "break-all" } }, p.tail) : null);
         })(),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
           "③ 是【一次会话】的授权：刷新页面或重开 app 会自动解除，需要重点一次——这是当初定的安全设计，不是坏了。三关全绿，TA 的选项才会出现。"));
