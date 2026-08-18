@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.60";
+const APP_VERSION = "v53.61";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3648,7 +3648,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     return picked.reverse().join("\n");
   };
-  const ctxForGroupOffline = group => ({
+  // 群线下的记忆按在场成员的可见交集分流（v53.61，同线上群）：全员都知道的进公共【记忆库】段，
+  // 只有部分成员知道的落进各自那段〔仅本人知道〕里，别的成员的上下文里根本不出现。
+  const groupOfflineMemSplit = group => {
+    if (!gsFor(group.id).memoryInterop) return null;
+    const limit = osFor("g_" + group.id).memN != null ? Number(osFor("g_" + group.id).memN) : 6;
+    if (!Number.isFinite(limit) || limit <= 0) return { shared: [], perChar: {} };
+    const sess = (groupOfflinesRef.current[group.id] || []).find(s => !s.endTs);
+    const qtext = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-6).map(m => m.content || "").join("\n") : "";
+    return splitGroupMemories(memLibRef.current, group.memberIds || [], qtext, { limit, touch: false });
+  };
+  const ctxForGroupOffline = group => {
+  const memSplit = groupOfflineMemSplit(group);
+  return ({
     members: groupMembers(group),
     profile,
     rels,
@@ -3679,29 +3691,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memberRecent: (group.memberIds || []).map(id => {
       const c = characters.find(x => x.id === id);
       if (!c) return null;
-      const lines = crossRecentFor(id); // 时间窗/预算走召回设置拉条
+      const own = (memSplit && memSplit.perChar[String(id)]) || [];
+      const ownMem = own.length ? "记忆库里【只有 " + c.name + " 知道】的事：\n" + formatMemLib(own).trim() : "";
+      const lines = [ownMem, crossRecentFor(id)].filter(x => x && x.trim()).join("\n"); // 时间窗/预算走召回设置拉条
       return lines ? { name: c.name, lines } : null;
     }).filter(Boolean),
     // 记忆分区：不互通的群是封闭空间，线下也不读全局记忆库（不让外部记忆流入）。
     // 互通群也【只召回相关 topK】，绝不把整个记忆库全量灌进 prompt（v48.41 修：预算炸弹 + 和 v48.20 同类的线上筛/线下裸灌触审不对称，对齐线上 replyGroup 的 retrieveMemories）。
     memLib: (() => {
-      if (!gsFor(group.id).memoryInterop) return null;
-      const limit = osFor("g_" + group.id).memN != null ? Number(osFor("g_" + group.id).memN) : 6;
-      if (!Number.isFinite(limit) || limit <= 0) return [];
-      const sess = (groupOfflinesRef.current[group.id] || []).find(s => !s.endTs);
-      const qtext = sess && Array.isArray(sess.msgs) ? sess.msgs.slice(-6).map(m => m.content || "").join("\n") : "";
-      // 每位成员各取相关结果后按名次轮流合并，避免群成员顺序决定谁有记忆、谁失忆。
-      const pools = (group.memberIds || []).map(charId => retrieveMemories(memLibRef.current, charId, qtext, { limit, touch: false }));
-      const picked = [], seen = new Set();
-      for (let rank = 0; picked.length < limit && pools.some(pool => rank < pool.length); rank++) {
-        for (const pool of pools) {
-          const entry = pool[rank];
-          if (!entry || seen.has(entry.id)) continue;
-          seen.add(entry.id);
-          picked.push(entry);
-          if (picked.length >= limit) break;
-        }
-      }
+      if (!memSplit) return null;
+      const picked = memSplit.shared;
       // 记忆条数不是上下文预算：导入长文可能一条就有几千字。群成员增多后若裸灌，模型会把输出额度耗空并返回空正文。
       // 单条 360 字、整包 2400 字双封顶；只裁本次 prompt 副本，记忆库原文一个字不改。
       let charsLeft = 2400;
@@ -3714,6 +3713,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }).filter(Boolean);
     })()
   });
+  };
   const pGOffline = (groupId, updater) => {
     // 群线下会连续追加多个 beat、再消耗导演便签；ref 先同步推进，避免 React 批处理让下一步读到旧会话。
     const before = groupOfflinesRef.current[groupId] || loadJSON("x_goffline:" + groupId, []);
@@ -5253,18 +5253,20 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
       let interop = "";
       if (gs.memoryInterop) {
+        if (typeof primeQueryVec === "function") await primeQueryVec(hist); // 向量记忆预热（失败自动纯关键词）
+        // 记忆按在场成员的可见交集分流（v53.61）：全员都知道的进公共段，
+        // 只有部分成员知道的（比如 A 私下说了自己受伤、没告诉别人）只落进那几个人各自的私密段。
+        const gSplit = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
         const memLines = members.map(c => {
           const mem = memories[c.id];
+          const onlyMine = formatMemLib(gSplit.perChar[String(c.id)] || []);
           const priv = gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
           // 单人线下（跨情境近况，v50.66）：这个成员最近和用户单独线下相处的片段，带时间戳，让群线上接得上（own-scoped，仍在本人隐私段里）
           const offBeats = gs.privateCtxN > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
-          const seg = [mem && "长期记忆：" + mem, priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
+          const seg = [mem && "长期记忆：" + mem, onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己在群里说出来）：\n" + onlyMine.trim(), priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
-        if (typeof primeQueryVec === "function") await primeQueryVec(hist); // 向量记忆预热（失败自动纯关键词）
-        const groupMem = formatMemLib(retrieveMemories(memLibRef.current, members[0] && members[0].id, hist, {
-          limit: memCfgRef.current.topK || 5
-        }));
+        const groupMem = formatMemLib(gSplit.shared);
         interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem + "\n⚠️这些是背景、不是照演的剧本：别复刻记忆里的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作，生活要有新的具体。" : "");
       }
       const asPrivate = gs.spectate && members.length === 2;
