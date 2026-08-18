@@ -138,6 +138,25 @@ services:
     volumes:
       - ./session-migrator.mjs:/app/session-migrator.mjs:ro
 
+  functions:
+    image: node:22-alpine
+    restart: unless-stopped
+    mem_limit: 128m
+    depends_on:
+      auth:
+        condition: service_healthy
+    command: ["node", "/app/function-service.mjs"]
+    environment:
+      PORT: 8082
+      NEW_AUTH_URL: http://auth:9999
+      NEW_ANON_KEY: ${ANON_KEY}
+      OWNER_UID: ${OWNER_UID}
+      KEY_DZZI: ${KEY_DZZI:-}
+      KEY_ANTHROPIC: ${KEY_ANTHROPIC:-}
+      KEY_SILICONFLOW: ${KEY_SILICONFLOW:-}
+    volumes:
+      - ./function-service.mjs:/app/function-service.mjs:ro
+
   gateway:
     image: nginx:1.29-alpine
     restart: unless-stopped
@@ -150,6 +169,8 @@ services:
       storage:
         condition: service_healthy
       session-migrator:
+        condition: service_started
+      functions:
         condition: service_started
     ports:
       - "127.0.0.1:8800:8080"

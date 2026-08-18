@@ -53,11 +53,14 @@ async function writeGzipLines(file, lines) {
 const manifest = { createdAt: new Date().toISOString(), source: 'supabase-rest-readonly', tables: {}, auth: {}, storage: {} };
 for (const table of tables) {
   let offset = 0, count = 0, bytes = 0;
+  // embedding 行很宽；一次取 500 条会在免费库临近限额时撞 statement timeout。
+  // 缩小页只影响读取批次，不改变 JSONL 行或指纹语义。
+  const pageSize = table === 'memory_embeddings' ? 100 : 500;
   const hash = createHash('sha256');
   const file = join(OUT, `table-${table}.jsonl.gz`);
   async function* lines() {
     for (;;) {
-      const r = await request(`/rest/v1/${encodeURIComponent(table)}?select=*`, { headers: { Range: `${offset}-${offset + 499}` } });
+      const r = await request(`/rest/v1/${encodeURIComponent(table)}?select=*`, { headers: { Range: `${offset}-${offset + pageSize - 1}` } });
       const page = await r.json();
       if (!Array.isArray(page) || !page.length) break;
       for (const row of page) {
@@ -66,7 +69,7 @@ for (const table of tables) {
         yield line;
       }
       offset += page.length;
-      if (page.length < 500) break;
+      if (page.length < pageSize) break;
     }
   }
   try {

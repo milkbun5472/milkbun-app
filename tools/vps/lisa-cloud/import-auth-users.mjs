@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { createGunzip } from "node:zlib";
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 
 const source = process.argv[2];
 if (!source) throw new Error("usage: import-auth-users.mjs <auth-users.jsonl.gz>");
@@ -12,10 +13,7 @@ const psql = spawn("sudo", [
   "psql", "-v", "ON_ERROR_STOP=1", "-q", "-U", "postgres"
 ], { cwd: "/home/ubuntu/services/lisa-cloud", stdio: ["pipe", "inherit", "inherit"] });
 
-const write = (s) => new Promise((resolve, reject) => {
-  if (psql.stdin.write(s)) resolve();
-  else psql.stdin.once("drain", resolve).once("error", reject);
-});
+const write = async (s) => { if (!psql.stdin.write(s)) await once(psql.stdin, "drain"); };
 const copyEscape = (s) => s.replaceAll("\\", "\\\\").replaceAll("\t", "\\t").replaceAll("\r", "\\r");
 
 await write(`

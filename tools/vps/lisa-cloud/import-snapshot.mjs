@@ -4,6 +4,7 @@ import { createGunzip } from "node:zlib";
 import { createInterface } from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { once } from "node:events";
 
 const root = process.argv[2];
 if (!root) throw new Error("usage: import-snapshot.mjs <snapshot-directory>");
@@ -12,6 +13,8 @@ const tables = Object.keys(manifest.tables || {}).sort();
 if (!tables.length || tables.some((name) => !/^[a-z][a-z0-9_]*$/.test(name))) {
   throw new Error("snapshot contains no tables or an unsafe table name");
 }
+const incomplete = tables.filter((name) => manifest.tables[name]?.state !== "ok");
+if (incomplete.length) throw new Error(`snapshot is incomplete; refusing to truncate: ${incomplete.join(",")}`);
 
 const dockerArgs = ["docker", "compose", "exec", "-T", "db", "psql", "-v", "ON_ERROR_STOP=1", "-q", "-U", "postgres"];
 const truncateSql = `truncate table ${tables.map((t) => `public.${t}`).join(",")} restart identity cascade;`;
@@ -27,10 +30,7 @@ for (const table of tables) {
   const psql = spawn("sudo", dockerArgs, {
     cwd: "/home/ubuntu/services/lisa-cloud", stdio: ["pipe", "inherit", "inherit"]
   });
-  const write = (s) => new Promise((resolve, reject) => {
-    if (psql.stdin.write(s)) resolve();
-    else psql.stdin.once("drain", resolve).once("error", reject);
-  });
+  const write = async (s) => { if (!psql.stdin.write(s)) await once(psql.stdin, "drain"); };
   await write(`
 begin;
 set local session_replication_role = replica;
