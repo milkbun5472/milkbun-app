@@ -5,9 +5,23 @@
 // UI 隐身：默认不出现，设置·数据 tab 连点「数据」7 下解锁（x_toyUnlocked）。配置只存本机、不进云同步。
 // ============================================================
 function loadToyCfg() {
-  try { const c = JSON.parse(localStorage.getItem("x_toy") || "null"); if (c && typeof c === "object") return Object.assign({ url: "", platform: "LisaPhone", enabled: false, cap: 12, fn: "All" }, c); } catch (e) {}
-  return { url: "", platform: "LisaPhone", enabled: false, cap: 12, fn: "All" };
+  const DFT = { url: "", platform: "LisaPhone", enabled: false, cap: 12, fn: "Vibrate" };
+  try {
+    const c = JSON.parse(localStorage.getItem("x_toy") || "null");
+    if (c && typeof c === "object") {
+      const m = Object.assign({}, DFT, c);
+      // ⚠️v53.59 回滚：v53.58 曾把默认动作设成 "All"、波形 F: 留空——文档虽合法，但实机(Ferri 等震动款)不认，
+      //   直接导致「连普通调用都不行」。这里把【非用户亲手选过】的 All 一次性改回 Vibrate；
+      //   用户自己在设置里点过（fnPicked）就尊重她的选择，不再回滚。
+      if (m.fn === "All" && !m.fnPicked) m.fn = "Vibrate";
+      if (!TOY_FN_MAX_SAFE(m.fn)) m.fn = "Vibrate";
+      return m;
+    }
+  } catch (e) {}
+  return Object.assign({}, DFT);
 }
+// 提前声明用的小守卫（TOY_FN_MAX 在下方定义，这里做惰性查表，避免加载顺序问题）
+function TOY_FN_MAX_SAFE(f) { try { return !!(TOY_FN_MAX && TOY_FN_MAX[f]); } catch (e) { return true; } }
 function toyCap() { const c = loadToyCfg(); const n = Math.round(c.cap); return isNaN(n) ? 12 : Math.max(1, Math.min(20, n)); }
 function saveToyCfg(c) { const clean = Object.assign(loadToyCfg(), c || {}); try { localStorage.setItem("x_toy", JSON.stringify(clean)); } catch (e) {} return clean; }
 // ── 设备功能（v53.58，照 Lovense 官方文档）──
@@ -155,10 +169,10 @@ function ToyConfig({ toast }) {
       h("input", { type: "range", min: 1, max: 20, step: 1, value: c.cap == null ? 12 : c.cap, onChange: e => set({ cap: +e.target.value }), style: { width: "100%" } })),
     // 设备功能（v53.58）：新玩意不吃震动时在这儿切
     h("div", { style: { padding: "6px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "设备功能（新玩意没反应就换一个试）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "设备功能（Ferri 等震动款用 Vibrate；换了别的设备没反应再试其他）"),
       h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
         TOY_FN_LIST.map(f => h("button", { key: f,
-          onClick: () => set({ fn: f }),
+          onClick: () => set({ fn: f, fnPicked: true }),
           style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999,
             background: (c.fn || "All") === f ? t.ink : "transparent",
             color: (c.fn || "All") === f ? t.bg2 : t.fog,
