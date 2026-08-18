@@ -66,24 +66,7 @@
   // 不同供应商对“只输出 JSON”的服从方式并不一致。Gemini 通常直接给对象，
   // Claude/部分中转偶尔会多包一层 JSON 字符串，或在字符串里留下未转义换行。
   // 小剧场正文绝不能因此退化成显示整坨协议原文（scene/goalReached/...）。
-  const escapeJsonStringControls = value => {
-    let out = "", inString = false, escaped = false;
-    for (const ch of String(value || "")) {
-      if (!inString) {
-        out += ch;
-        if (ch === '"') inString = true;
-        continue;
-      }
-      if (escaped) { out += ch; escaped = false; continue; }
-      if (ch === "\\") { out += ch; escaped = true; continue; }
-      if (ch === '"') { out += ch; inString = false; continue; }
-      if (ch === "\n") { out += "\\n"; continue; }
-      if (ch === "\r") { out += "\\r"; continue; }
-      if (ch === "\t") { out += "\\t"; continue; }
-      out += ch;
-    }
-    return out;
-  };
+  // escapeJsonStringControls / parseJSONLoose 现在住在 engine.js，主聊天、群聊、小剧场共用一份实现。
   // Claude 偶尔会在 JSON 字符串正文里直接写中文对话引号，导致整份 JSON
   // 语法失效。此时不猜整份对象，只按协议中稳定的字段边界抢救 scene；
   // goal 字段仍逐个读取，绝不把协议壳当正文。

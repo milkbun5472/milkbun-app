@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.67";
+const APP_VERSION = "v53.68";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5202,6 +5202,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       gOfflineHint = "\n\n【你们此刻正在一场群线下相处 · 进行中】" + (_gnarr ? "（场景：" + String(_gnarr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "——用户从线上给群里发消息，多半是这场线下的间隙里插空发的；你们清楚大家此刻正面对面在一起，就顺着接，**别当没相处过、别问『在哪呢/怎么还不来』**，也别演成才刚到。最近线下：\n" + _gr;
     }
     startLane("g:" + groupId);
+    // 走到哪一步的标记：出错时和错误类型一起报出来，省得只剩一句无从下手的报错文案
+    let phase = "准备上下文";
     try {
       if (!active) throw new Error("请先配置 API");
       const gchat = groupChatsRef.current[groupId] || [];
@@ -5324,6 +5326,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           }
         } catch (e) {}
       }
+      phase = "等模型回复";
       const raw = await callAI(active, system, [{
         role: "user",
         content: userContent,
@@ -5334,12 +5337,27 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
         timeout: 180000
       });
-      const arr = extractJSON(raw);
-      if (Array.isArray(arr)) {
+      phase = "解析回复";
+      // 群聊回复里全是对白，最容易踩「JSON 字符串正文里直接写了换行/裸引号」这两种坏法；
+      // 走和主聊天、小剧场同一套加固解析，别再裸 extractJSON。
+      let arr = parseJSONLoose(raw);
+      // 模型偶尔把数组裹进对象、或者只回一条就直接给个对象。能救就救，别整轮丢掉。
+      if (arr && !Array.isArray(arr) && typeof arr === "object") {
+        arr = ["items", "messages", "replies", "list"].map(k => arr[k]).find(Array.isArray)
+          || (arr.name && (arr.text || arr.redpacket || arr.emote) ? [arr] : null);
+      }
+      // 以前这里没有 else：解析不出来就【什么都不发生】——她只会看到点了没反应，
+      // 连一条失败提示都没有。现在明确报出来，并带上模型到底回了什么。
+      if (!Array.isArray(arr)) {
+        const t = String(raw || "").replace(/\s+/g, " ").trim();
+        throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 40) + (t.length > 40 ? "…" : "") + "）" : "（上游什么都没回）"));
+      }
+      {
         const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, profile.name || "用户") : { items: arr, dropped: [], thoughtsDropped: [] };
         const safeArr = guarded.items;
         if (rgOpts.auto) addAutoChatMessages(groupId, safeArr.length); // 自发累计条数（持久额度卡，跨重开仍有效）
         if ((guarded.dropped || []).length || (guarded.thoughtsDropped || []).length) toast("拦住了 " + ((guarded.dropped || []).length + (guarded.thoughtsDropped || []).length) + " 条群聊身份串线");
+        phase = "落地发言";
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
@@ -5462,10 +5480,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         _gspoke.forEach(id => tickAmbient(id, {}));
       }
     } catch (e) {
+      // DOMException 之类的报错只给一句没头没尾的话（比如 iOS 上那句 "The string did not
+      // match the expected pattern."），光看文案根本不知道是哪一步、哪个 API 抛的。
+      // 把【错误类型】和【当时走到哪一步】一起带出来，下次一眼能定位。
+      const kind = e && e.name && e.name !== "Error" ? "[" + e.name + "] " : "";
       pGChat(groupId, p => [...p, {
         role: "assistant",
         senderName: "系统",
-        content: "（群聊生成失败：" + e.message + "）",
+        content: "（群聊生成失败·" + phase + "：" + kind + (e && e.message || "未知错误") + "）",
         ts: Date.now()
       }]);
     } finally {
