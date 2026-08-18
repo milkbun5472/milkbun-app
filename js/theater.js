@@ -10,7 +10,14 @@
   // 图标:两片小幕布 + 星(挂进 REG 的 window.GTheater)
   window.GTheater = p => h(Svg, p, h("path", { d: "M3 4c3 2 15 2 18 0v5a9 9 0 01-18 0z" }), h("path", { d: "M7.5 13.5v4M12 14.5v5M16.5 13.5v4" }), h("path", { d: "M12 6.2l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" }));
 
-  const load = () => { try { return JSON.parse(localStorage.getItem("x_theater") || "[]"); } catch (e) { return []; } };
+  const load = () => {
+    try {
+      const list = JSON.parse(localStorage.getItem("x_theater") || "[]");
+      const repaired = repairTheaterHistory(list);
+      if (repaired.changed) localStorage.setItem("x_theater", JSON.stringify(repaired.list));
+      return repaired.list;
+    } catch (e) { return []; }
+  };
   const persist = list => { try { localStorage.setItem("x_theater", JSON.stringify(list)); } catch (e) {} };
   const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
   // 前情提要改成小账本(参考 liveware-tavern 的做法,自己实现):
@@ -77,7 +84,38 @@
     }
     return out;
   };
-  const parseTheaterPayload = raw => {
+  // Claude 偶尔会在 JSON 字符串正文里直接写中文对话引号，导致整份 JSON
+  // 语法失效。此时不猜整份对象，只按协议中稳定的字段边界抢救 scene；
+  // goal 字段仍逐个读取，绝不把协议壳当正文。
+  const decodeLooseJsonText = value => String(value || "")
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\\r\\n|\\n|\\r/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, "\\");
+  const salvageTheaterPayload = raw => {
+    const text = String(raw || "").replace(/```(?:json)?/gi, "").trim();
+    const startMatch = /"scene"\s*:\s*"/.exec(text);
+    if (!startMatch) return null;
+    const start = startMatch.index + startMatch[0].length;
+    const rest = text.slice(start);
+    const endMatch = /"\s*,\s*"goalReached"\s*:/.exec(rest);
+    if (!endMatch) return null;
+    const scene = decodeLooseJsonText(rest.slice(0, endMatch.index)).trim();
+    if (!scene) return null;
+    const bool = name => {
+      const m = new RegExp('"' + name + '"\\s*:\\s*(true|false)', "i").exec(text.slice(start + endMatch.index));
+      return m ? m[1].toLowerCase() === "true" : false;
+    };
+    const noteMatch = /"goalNote"\s*:\s*(null|"([\s\S]*?)")\s*[},]/.exec(text.slice(start + endMatch.index));
+    return {
+      scene,
+      goalReached: bool("goalReached"),
+      goalFailed: bool("goalFailed"),
+      goalNote: noteMatch && noteMatch[1] !== "null" ? decodeLooseJsonText(noteMatch[2]) : null
+    };
+  };
+  function parseTheaterPayload(raw) {
     let value = null;
     const candidates = [String(raw || ""), escapeJsonStringControls(raw)];
     for (const candidate of candidates) {
@@ -102,12 +140,31 @@
       }
       break;
     }
+    if (!value || typeof value !== "object" || Array.isArray(value)) value = salvageTheaterPayload(raw);
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
     const scene = typeof value.scene === "string" ? value.scene.trim() : "";
     // 最后一层保险：协议对象仍像协议对象时，宁可重试，也不污染剧情历史。
     if (!scene || /^\s*\{\s*"(?:scene|draftScene|goalReached)"\s*:/.test(scene)) return null;
     return Object.assign({}, value, { scene });
-  };
+  }
+  // v53.61 以前若已经把协议原文存进历史，升级后本地就地修复一次。
+  // 只碰明确长得像 theater 协议的角色消息，普通剧情与用户输入完全不动。
+  function repairTheaterHistory(value) {
+    let changed = false;
+    const repairRounds = rounds => (rounds || []).map(round => ({ ...round, msgs: (round.msgs || []).map(msg => {
+      if (msg.role !== "char" || typeof msg.content !== "string" || !/"scene"\s*:/.test(msg.content) || !/"goalReached"\s*:/.test(msg.content)) return msg;
+      const parsed = parseTheaterPayload(msg.content);
+      if (!parsed || !parsed.scene) return msg;
+      changed = true;
+      return { ...msg, content: parsed.scene };
+    }) }));
+    const list = Array.isArray(value) ? value.map(line => ({
+      ...line,
+      rounds: repairRounds(line.rounds),
+      archives: (line.archives || []).map(archive => ({ ...archive, rounds: repairRounds(archive.rounds) }))
+    })) : [];
+    return { list, changed };
+  }
   // 取景骰子(v53.27):没关键词时让模型「自由发挥」,它每次都掷出同一个众数——
   // 民国租界 + 一方走投无路 + 另一方手里握着唯一能救她的物件。根因是目标契约
   // (他做出/有代价/不可逆/由她促成)最省力的解只有那一个拓扑,再加上提示词里
