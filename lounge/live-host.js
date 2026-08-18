@@ -9,6 +9,7 @@ const { Orchestrator } = require('./orchestrator');
 const { CCAdapter } = require('./adapters/cc');
 const { CodexAdapter } = require('./adapters/codex');
 const { createCodexCliRunner } = require('./adapters/codex-runner');
+const { createVpsCodexRunner } = require('./adapters/vps-codex-runner');
 const { createWakeQueueSender } = require('./adapters/cc-wake-sender');
 const { createLoungeServer } = require('./server');
 const { LoungeOutboxConsumer } = require('./adapters/lounge-outbox-consumer');
@@ -64,15 +65,23 @@ function createLiveHost({ configPath, port } = {}) {
     outboxPath: config.lounge_outbox,
     silenceMs: Number(config.cc_silence_ms || 4000),
   });
-  const runner = createCodexCliRunner({ cliPath: config.codex_cli_path });
+  const runner = config.codex_transport === 'vps_file'
+    ? createVpsCodexRunner({
+      sshPath: config.codex_ssh_path || '/usr/bin/ssh',
+      sshAlias: config.codex_ssh_alias || 'vps',
+      remoteSubmit: config.codex_remote_submit,
+      threadLabel: config.codex_thread_id,
+    })
+    : createCodexCliRunner({ cliPath: config.codex_cli_path });
   const codex = new CodexAdapter({
     db,
     runner,
     spoolDir: path.join(__dirname, 'data', 'codex-spool'),
-    threadHealth: async (threadId) => ({
-      exists: threadId === config.codex_thread_id,
-      running: codexProcessRunning(threadId),
-    }),
+    threadHealth: async (threadId) => {
+      if (threadId !== config.codex_thread_id) return { exists: false, running: false };
+      if (config.codex_transport === 'vps_file') return runner.health();
+      return { exists: true, running: codexProcessRunning(threadId) };
+    },
   });
   const orch = new Orchestrator({
     db,
@@ -92,7 +101,10 @@ function createLiveHost({ configPath, port } = {}) {
     orch,
     landlord,
     rescue,
-    runtime: { mode: 'live', cc: 'dedicated_wake_queue', codex: 'official_cli' },
+    runtime: {
+      mode: 'live', cc: 'dedicated_wake_queue',
+      codex: config.codex_transport === 'vps_file' ? 'vps_file_inbox' : 'official_cli',
+    },
     healthTargets: { cc: config.cc_session_id, codex: config.codex_thread_id },
     roomDefaults: {
       cc_session_id: config.cc_session_id,

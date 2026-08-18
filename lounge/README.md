@@ -148,13 +148,18 @@ const orch = new Orchestrator({ db, cc, /* codex, clock */ });  // 同一个 db
 - CC 回收：可见闸同时识别原 `cross-session-message` 与 `kind=lounge/source=three_party_lounge` 的耐久唤醒记录。
 - 哨兵完成产生的 `<task-notification>` 被视为系统唤醒，不再误判 Lisa 插队。
 - 其它真人输入、语音、敲击在回复前插入，仍进入 `needs_attention`，绝不猜绑。
-- Codex：继续使用已验收的官方 `codex exec resume --json`，每次必须由 Lisa 在 UI 点名或确认双方各答一轮。
+- Codex 支持两种经过同一 Orchestrator 安全闸的运输：旧的 Mac 官方
+  `codex exec resume --json`，以及 VPS 专职正窗的 `vps_file_inbox`。当前生产
+  客厅使用后者：自然正文经 SSH stdin 投进 VPS 文件信箱，最终可见回复才回到
+  本地时间线；不开放公网端口、不把正文放进进程参数、不唤醒 Mac 施工任务。
+- VPS 提交以 dispatch id 做幂等票；SSH 中断或页面重试只等同一封回复，不重新
+  投递。每次真实 Codex 调用仍必须由 Lisa 在 UI 点名或确认双方各答一轮。
 - `scripts/setup-live-config.js` 自动发现原言秋会话与当前 Codex task，将绑定写入 gitignored `data/live-config.json`，权限 `0600`，不打印具体 ID。
 - `scripts/install-launchd.js` 生成用户级 LaunchAgent，登录自启、异常退出自动拉起。
 
 真实 CC 接线受控活测：只投 1 次；初次因 `<task-notification>` 假阳性停下，修复后从同一投前游标只读重采，**没有重发**，最终 `replied`。
 
-完整测试更新为：**66/66**。
+完整测试更新为：**99/99**。
 
 ## 仍未做
 
