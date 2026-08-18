@@ -21,6 +21,9 @@ const sb = async (path) => { const r = await fetch(BASE + path, { headers: H });
 
 // ---- 与 MCP 完全一致的分词/打分 ----
 const MEM_STOP = new Set(["的","了","是","我","你","他","她","它","们","在","和","与","也","都","就","这","那","有","不","很","啊","吗","呢","吧","么","被","把","给","让","对","为","and","the","was","are","for","you","that","this","with","have","但","还","要","会","到","上","下","地","得","着","过"]);
+// 8/18 网关专用加严:咱俩对话里的高频称呼/语气词不算关键词命中(它们几乎出现在每条记忆里,只会凑分),
+// 语义分不受影响。MCP 那边未同步此项,以网关为准观察一周再决定要不要回灌。
+const GW_STOP = new Set(["宝宝","言秋","许言秋","小克","lisa","哼哼","哼哼哼","嘿嘿","嘻嘻","记得","还记","记不","知道","觉得","感觉","今天","昨天","明天","现在","一下","一个","什么","怎么","这个","那个","可以","没有","不是","就是","还是","已经","然后","但是","不过","因为","所以","如果","时候","东西","事情","问题","宝宝你","你还","还记得"]);
 function memTokens(text) { const s = String(text || "").toLowerCase(); const set = new Set(); (s.match(/[a-z0-9]{2,}/g) || []).forEach(w => { if (!MEM_STOP.has(w)) set.add(w); }); const cjk = s.match(/[一-龥]/g) || []; for (let i = 0; i < cjk.length; i++) { if (!MEM_STOP.has(cjk[i])) set.add(cjk[i]); if (i + 1 < cjk.length) set.add(cjk[i] + cjk[i + 1]); } return set; }
 function cosSim(a, b) { let dot = 0, na = 0, nb = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; } const d = Math.sqrt(na) * Math.sqrt(nb); return d ? dot / d : 0; }
 const BGE_QUERY_PREFIX = "为这个句子生成表示以用于检索相关文章：";
@@ -72,12 +75,12 @@ async function refresh(full = false) {
   log({ outcome: "refresh", full, memories: cache.memories.length, vecs: Object.keys(vecs).length, pulled: mems.length, newVecs: need.length });
 }
 async function recall(query, k = 5) {
-  const terms = [...memTokens(query)];
+  const terms = [...memTokens(query)].filter(t => !GW_STOP.has(t));
   let qVec = null; try { qVec = await embedQuery(query); } catch (e) { log({ outcome: "embed_fail", err: String(e.message) }); }
   return cache.memories.map(m => {
     const tags = Array.isArray(m.tags) ? m.tags : [];
     const hay = (String(m.text || "") + "\n" + tags.join(" ")).toLowerCase();
-    const hits = terms.reduce((n, t) => n + (hay.includes(t) ? (t.length >= 2 ? 1 : 0.3) : 0), 0);
+    const hits = terms.reduce((n, t) => n + ((!GW_STOP.has(t) && hay.includes(t)) ? (t.length >= 2 ? 1 : 0.3) : 0), 0);
     let sem = 0; const v = qVec && cache.vecs[m.id];
     if (v && v.length === qVec.length) sem = Math.max(0, Math.min(1, (cosSim(qVec, v) - 0.38) / 0.32));
     return { m, hits, sem, score: hits + sem * 3 };

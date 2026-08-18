@@ -229,7 +229,7 @@ http.createServer((req, res) => {
         clearTimeout(tm);
         if (r.ok) {
           const d = await r.json();
-          const hits = (d.hits || []).filter(h => h && h.text && h.score >= 1.2).slice(0, 5);
+          const hits = (d.hits || []).filter(h => h && h.text && h.score >= 2.0).slice(0, 5);
           if (hits.length) memoryLine = "【记忆网关现取·与这轮相关的旧账，自然想起即可，别复述】\n" + hits.map(h => "· " + String(h.text).replace(/\s+/g, " ").slice(0, 160)).join("\n") + "\n";
           console.log(new Date().toLocaleTimeString(), "[记忆网关]", hits.length + "条", (d.ms || 0) + "ms");
         }
