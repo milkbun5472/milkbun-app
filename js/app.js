@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.69";
+const APP_VERSION = "v53.70";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -449,6 +449,8 @@ function App() {
   const [toyArmedFor, setToyArmedFor] = useState(null);
   const toyArmedRef = useRef(false); toyArmedRef.current = toyArmed;
   const toyArmedForRef = useRef(null); toyArmedForRef.current = toyArmedFor;
+  // 把激活态暴露给设置页的自查表（v53.70）：她在设置页看不见浮层，得有地方知道「到底激活没」
+  try { window.__toyArmed = { armed: !!toyArmed, forId: toyArmedFor }; } catch (e) {}
   const disarmToy = () => { setToyArmed(false); setToyArmedFor(null); try { if (typeof toyStop === "function") toyStop(); } catch (e) {} };
   const [call, setCall] = useState(null); // {participants:[char], mode:"voice"|"video", groupId, msgs:[]}
   const callRef = useRef(null);

@@ -132,16 +132,32 @@ function ToyConfig({ toast }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
   // 专用检测（v53.58）：把 GetToys 解析成人话——型号/昵称/在线状态/id，并附完整原始返回。
   // 「接了新玩意就用不了」多半是新设备不吃 Vibrate（抽插/旋转/气泵款），得先看清它到底是什么。
+  // 专用检测（v53.70 修）：Lovense 的 GetToys 把设备表放在 data.toys，而且是【JSON 字符串】不是对象——
+  // 旧写法直接遍历 data 的键，拿到的全是字符串，永远「没解析到设备」。这里二次 parse，并兼容旧格式。
+  // 顺带读设备自报的 fullFunctionNames 自动设定功能（Ferri 自报 ["Vibrate"]），不用再手动猜。
   const detect = async () => {
     setBusy(true); setDiag("");
     try {
       const d = await toyGetToys();
-      let raw = d && (d.data !== undefined ? d.data : d);
-      if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch (e) {} }
-      const list = (raw && typeof raw === "object") ? Object.keys(raw).map(k => raw[k]).filter(x => x && typeof x === "object") : [];
+      const data = (d && d.data !== undefined) ? d.data : d;
+      let toys = (data && data.toys !== undefined) ? data.toys : data;   // 新格式在 data.toys，旧格式 data 本身就是表
+      if (typeof toys === "string") { try { toys = JSON.parse(toys); } catch (e) {} }
+      const list = (toys && typeof toys === "object") ? Object.keys(toys).map(k => toys[k]).filter(x => x && typeof x === "object" && (x.id || x.name)) : [];
       if (!list.length) { setDiag("✗ 没解析到设备。原始返回：\n" + JSON.stringify(d)); return; }
-      const lines = list.map(x => "· " + (x.nickName || x.name || "?") + "｜型号 " + (x.toyType || x.name || "?") + "｜" + (String(x.status) === "1" ? "在线" : "离线") + "｜id " + (x.id || "?"));
-      setDiag("✓ 连着 " + list.length + " 个设备：\n" + lines.join("\n") + "\n\n完整返回（排查用）：\n" + JSON.stringify(raw));
+      const lines = list.map(x => {
+        const fns = Array.isArray(x.fullFunctionNames) ? x.fullFunctionNames.join("/") : "?";
+        return "· " + (x.nickName || x.name || "?") + "｜" + (String(x.status) === "1" ? "在线" : "离线")
+          + (x.battery != null ? "｜电量 " + x.battery + "%" : "") + "｜支持 " + fns;
+      });
+      // 自动对齐功能：设备只支持一种就直接用它；支持多种且当前选的不在其中，退回它的第一种
+      const all = list.flatMap(x => Array.isArray(x.fullFunctionNames) ? x.fullFunctionNames : []);
+      let note = "";
+      if (all.length) {
+        const cur = (loadToyCfg().fn) || "Vibrate";
+        if (!all.includes(cur) && TOY_FN_MAX[all[0]]) { set({ fn: all[0], fnPicked: true }); note = "\n\n已自动把「设备功能」设成 " + all[0] + "（这是设备自己报的）。"; }
+        else note = "\n\n当前「设备功能」= " + cur + "，和设备自报的对得上。";
+      }
+      setDiag("✓ 连着 " + list.length + " 个设备：\n" + lines.join("\n") + note);
     } catch (e) { setDiag("✗ " + (e && e.message || e)); }
     finally { setBusy(false); }
   };
@@ -178,6 +194,27 @@ function ToyConfig({ toast }) {
             color: (c.fn || "All") === f ? t.bg2 : t.fog,
             border: "1px solid " + ((c.fn || "All") === f ? t.ink : t.line) } },
           f === "All" ? "自动（全部）" : f)))),
+    // 授权自查（v53.70）：言秋说「眼前没有选项」= 下面三关没全过。三关缺一，他的 prompt 里就没有 toy 这个能力。
+    (() => {
+      let unlocked = false, chars = [], cs = {};
+      try { unlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
+      try { chars = JSON.parse(localStorage.getItem("x_characters") || "[]"); } catch (e) {}
+      try { cs = JSON.parse(localStorage.getItem("x_chatSettings") || "{}"); } catch (e) {}
+      const optIn = chars.filter(x => cs[x.id] && cs[x.id].toyEnabled).map(x => x.remark || x.name);
+      const ai = (typeof window !== "undefined" && window.__toyArmed) || {};
+      const armedName = ai.armed && ai.forId ? (((chars.find(x => x.id === ai.forId) || {}).remark) || ((chars.find(x => x.id === ai.forId) || {}).name) || "某位") : "";
+      const line = (ok, label, detail) => h("div", { style: { display: "flex", gap: 8, alignItems: "baseline", padding: "3px 0" } },
+        h("span", { style: { color: ok ? "#3c7a4a" : "#c0392b", fontSize: 12 } }, ok ? "✓" : "✗"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink } }, label),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, detail));
+      return h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px solid " + t.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "TA 那边能不能用 · 三关自查"),
+        line(unlocked && toyReady(), "① 已连接", toyReady() ? "地址与启用都就绪" : "地址没填 / 没启用"),
+        line(optIn.length > 0, "② 角色已开配件", optIn.length ? "已开：" + optIn.join("、") : "去 TA 的聊天设置里打开「配件」"),
+        line(!!armedName, "③ 本次已激活", armedName ? "当前授权给 " + armedName : "去 TA 的单聊页点右下「▷ 激活配件」"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
+          "③ 是【一次会话】的授权：刷新页面或重开 app 会自动解除，需要重点一次——这是当初定的安全设计，不是坏了。三关全绿，TA 的选项才会出现。"));
+    })(),
     // 测试面板
     h("div", { style: { marginTop: 8, paddingTop: 12, borderTop: "1px solid " + t.line } },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
