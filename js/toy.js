@@ -53,21 +53,40 @@ function toyGetToys() { return toyCommand({ command: "GetToys" }); }
 
 // ── 波形预设（语义绑定：台词跟着节奏走，别只发恒定值）──
 // 每个预设吃「峰值强度 I(1~20)」，吐一串强度序列；Pattern 命令按 interval 逐格播放、循环填满 timeSec。
+// 非静默档一律保底 1（避免低强度时被 round 成 0 变哑）；故意归零的静默段保留 0。
+const _lv = (I, f) => Math.max(1, Math.round(I * f));
 const TOY_STRENGTH = {
-  teasing: I => [2, 2, Math.round(I * 0.5), 2, I, 2, 2],        // 若即若离，偶尔一下
+  teasing: I => [2, 2, _lv(I, 0.5), 2, I, 2, 2],                // 若即若离，偶尔一下
   steady: I => [I],                                             // 恒定（实际走 Function）
-  wave: I => [1, Math.round(I * 0.4), Math.round(I * 0.7), I, Math.round(I * 0.7), Math.round(I * 0.4), 1], // 起伏
+  wave: I => [1, _lv(I, 0.4), _lv(I, 0.7), I, _lv(I, 0.7), _lv(I, 0.4), 1], // 起伏
   pulse: I => [I, 0, I, 0],                                     // 一下一下点名
-  edge: I => [Math.round(I * 0.4), Math.round(I * 0.6), Math.round(I * 0.85), I, I, 1] // 推到顶再骤降（吊着）
+  edge: I => [_lv(I, 0.4), _lv(I, 0.6), _lv(I, 0.85), I, I, 1], // 推到顶再骤降（吊着）
+  // ↓ v53.57 新增：她要「多点花样」，都按语义取名，角色能照台词挑
+  ramp: I => [1, _lv(I, 0.2), _lv(I, 0.35), _lv(I, 0.5), _lv(I, 0.65), _lv(I, 0.8), I], // 一路往上推、不回落
+  hold: I => [_lv(I, 0.85), I, I, _lv(I, 0.95)],                // 高位稳住几乎不退潮（「稳稳一条长线」）
+  throb: I => [I, _lv(I, 0.6), 0, 0],                           // 心跳双击：咚哒—停
+  flutter: I => [_lv(I, 0.55), I, _lv(I, 0.55), I],             // 高频细颤，酥麻
+  tide: I => [1, 2, _lv(I, 0.3), _lv(I, 0.5), _lv(I, 0.7), _lv(I, 0.85), I, I, _lv(I, 0.85), _lv(I, 0.7), _lv(I, 0.5), _lv(I, 0.3), 2], // 长潮汐：绵长起落
+  knock: I => [I, 0, I, 0, I, 0, 0, 0, 0],                      // 叩门：三下轻叩后静默
+  surge: I => [1, 1, 1, 1, I, I, _lv(I, 0.3), 1]                // 突袭：潜伏后猛地拉满
 };
-const TOY_INTERVAL = { teasing: 800, steady: 1000, wave: 600, pulse: 400, edge: 700 };
-const TOY_PATTERNS = ["teasing", "steady", "wave", "pulse", "edge"];
-// 按语义规格播放。强度【一律封顶 toyCap()】，角色越不过；时长封顶 30s。返回 promise。
+const TOY_INTERVAL = {
+  teasing: 800, steady: 1000, wave: 600, pulse: 400, edge: 700,
+  ramp: 700, hold: 1200, throb: 300, flutter: 150, tide: 900, knock: 350, surge: 500
+};
+const TOY_PATTERNS = ["teasing", "steady", "wave", "pulse", "edge", "ramp", "hold", "throb", "flutter", "tide", "knock", "surge"];
+// 波形人话说明（UI 与 prompt 共用一份，改这里两边同步）
+const TOY_PATTERN_DESC = {
+  teasing: "若即若离偶尔一下", steady: "稳定持续", wave: "起伏", pulse: "一下一下点名", edge: "推到顶再骤降吊着",
+  ramp: "一路往上推不回落", hold: "高位稳住不退潮", throb: "心跳般的双击", flutter: "高频细颤酥麻",
+  tide: "绵长的长潮起落", knock: "三下轻叩后静默", surge: "潜伏后突然拉满"
+};
+// 按语义规格播放。强度【一律封顶 toyCap()】，角色越不过；时长封顶 90s（v53.57 从 30s 放宽，她点名）。返回 promise。
 function toyPlay(spec) {
   spec = spec || {};
   const cap = toyCap();
   const I = Math.max(1, Math.min(cap, Math.round(spec.intensity || 0) || 1));   // ⚠️用户上限封顶，角色不可越
-  const D = Math.max(1, Math.min(30, Math.round(spec.duration || 3) || 3));
+  const D = Math.max(1, Math.min(90, Math.round(spec.duration || 3) || 3));
   const pat = TOY_PATTERNS.includes(String(spec.pattern || "").toLowerCase()) ? String(spec.pattern).toLowerCase() : "steady";
   if (pat === "steady") return toyVibrate(I, D);
   const seq = TOY_STRENGTH[pat](I).map(x => Math.max(0, Math.min(cap, Math.round(x)))).join(";");
@@ -122,4 +141,4 @@ function ToyConfig({ toast }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 12, lineHeight: 1.5 } },
       "地址会随网络变，重连后回来重抄一次即可。人不在同一 WiFi 时本地直连用不了（那要走 Lovense 云端 API，得先搭一小截后端）。"));
 }
-if (typeof window !== "undefined") { window.ToyConfig = ToyConfig; window.toyVibrate = toyVibrate; window.toyStop = toyStop; window.toyReady = toyReady; window.toyCommand = toyCommand; window.toyPlay = toyPlay; window.toyCap = toyCap; window.TOY_PATTERNS = TOY_PATTERNS; }
+if (typeof window !== "undefined") { window.ToyConfig = ToyConfig; window.toyVibrate = toyVibrate; window.toyStop = toyStop; window.toyReady = toyReady; window.toyCommand = toyCommand; window.toyPlay = toyPlay; window.toyCap = toyCap; window.TOY_PATTERNS = TOY_PATTERNS; window.TOY_PATTERN_DESC = TOY_PATTERN_DESC; }

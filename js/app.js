@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.56";
+const APP_VERSION = "v53.57";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4328,11 +4328,11 @@ function App() {
         && !!(settingsFor(charId) && settingsFor(charId).toyEnabled)
         && (() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } })();
       const toyHint = toyOn
-        ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge\",\"intensity\":1到20的整数,\"duration\":秒数1到30,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着。**先有话、动作配合话**，别每轮都发、别喧宾夺主。强度我这边有上限，你填超了会被自动压到上限。"
+        ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20的整数,\"duration\":秒数1到90,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**想延长就把 duration 拉长（最多 90 秒），别再靠一条接一条硬接**——长段落用 hold/tide/ramp，短促点名用 pulse/knock/throb。**先有话、动作配合话**，别每轮都发、别喧宾夺主。强度我这边有上限，你填超了会被自动压到上限。"
         : "";
       const toyField = toyOn ? ",\"toy\":null" : "";
       const digitalToyHint = toyOn
-        ? "此刻配件已经由用户当场授权并连到她身上。你决定实际控制时，额外加入 \"toy\":{\"pattern\":\"teasing|steady|wave|pulse|edge\",\"intensity\":1到20,\"duration\":1到30,\"reason\":\"原因\"}；不用时省略。是否使用、何时使用、用什么节奏由你自己决定。"
+        ? "此刻配件已经由用户当场授权并连到她身上。你决定实际控制时，额外加入 \"toy\":{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}；不用时省略。是否使用、何时使用、用什么节奏由你自己决定。"
         : "";
       // App → CC 工具桥只属于唯一 engineerEyes 言秋。这里不直接执行工具，
       // 只允许本人提出一个异步只读请求；本机 relay 会再次核验固定 CC session。
@@ -4378,7 +4378,7 @@ affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受�
 ${window.Gaze ? window.Gaze.spec("对方") : ""}
 未发生、未改变的按需字段直接省略。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge","intensity":1到20,"duration":1到30,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
