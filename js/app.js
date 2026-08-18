@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.58";
+const APP_VERSION = "v53.59";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -38,7 +38,11 @@ const MEMORY_TABLE_AUTHORITY_KEY = "memory_table_authority_v1";
 const memoryTableAuthorityOn = () => { try { return localStorage.getItem(MEMORY_TABLE_AUTHORITY_KEY) === "1"; } catch (e) { return false; } };
 const memoryRowFromCloud = r => ({
   id: String(r.id), text: String(r.text || ""), tags: Array.isArray(r.tags) ? r.tags.map(String) : [],
-  charIds: Array.isArray(r.char_ids) ? r.char_ids.map(String) : [], v: typeof r.v === "number" ? r.v : 0,
+  charIds: Array.isArray(r.char_ids) ? r.char_ids.map(String) : [],
+  // known_by 三态：只有真是数组才接，NULL/缺失一律保持 undefined（legacy），
+  // 不能学上面 charIds 那样兜成 []——那会把旧记忆误判成「仅用户知道」。
+  knownBy: Array.isArray(r.known_by) ? r.known_by.map(String) : undefined,
+  v: typeof r.v === "number" ? r.v : 0,
   a: typeof r.a === "number" ? r.a : 1, open: !!r.open, pinned: !!r.pinned, ts: Number(r.ts) || 0,
   archived: !!r.archived, archivedBatch: r.archived_batch == null ? null : String(r.archived_batch),
   archivedTs: r.archived_ts == null ? null : Number(r.archived_ts), source: r.source == null ? null : String(r.source),
@@ -2021,6 +2025,28 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90
     }
     return true;
   });
+  // 迁移审计(只读,不改任何数据):先看清存量里有多少条能可靠推断可见性,再决定要不要迁。
+  // Codex 的意见是宁可保持 legacy 也别假装知道权限——所以这里只统计,不写回。
+  // 用法:在控制台跑 __knownByAudit()
+  window.__knownByAudit = function () {
+    const lib = (memLibRef && memLibRef.current) || [];
+    const bySource = {};
+    let hasField = 0, legacy = 0, emptyCharIds = 0, oneChar = 0, multiChar = 0;
+    lib.forEach(function (e) {
+      if (!e) return;
+      if (Array.isArray(e.knownBy)) { hasField++; return; }
+      legacy++;
+      const n = (e.charIds || []).length;
+      if (!n) emptyCharIds++; else if (n === 1) oneChar++; else multiChar++;
+      const src = e.source || "unknown";
+      bySource[src] = (bySource[src] || 0) + 1;
+    });
+    const out = { 总条数: lib.length, 已有knownBy: hasField, 仍是legacy: legacy,
+      legacy中_charIds为空_旧全局: emptyCharIds, legacy中_单角色_可安全推断: oneChar,
+      legacy中_多角色_需看来源: multiChar, legacy按来源: bySource };
+    console.log(out);
+    return out;
+  };
   const clampInt = (x, lo, hi, dflt) => typeof x === "number" && !isNaN(x) ? Math.max(lo, Math.min(hi, Math.round(x))) : dflt;
   const addMemEntry = e => {
     let entry = {
@@ -3275,9 +3301,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90
       if (summ) {
         const d = new Date();
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·线下】" + summ;
-        addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], source: "auto" });
-        (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], source: "auto" }));
-        (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], source: "auto", open: true }));
+        addMemEntry({ text: summ, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto" });
+        (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto" }));
+        (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true }));
         pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s));
       }
     } catch (e) {/* 静默：滚动总结失败下轮再试 */ }
@@ -3550,10 +3576,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90
       if (offlineApiFor(charId)) { const r = await summarizeOffline(offlineApiFor(charId), ctxFor(char), sess); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) {}
     pOffline(charId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    if (summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], source: "auto" });
+    if (summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto" });
     // 谈话细节逐条入库（她要的：总结之外，具体聊过什么也记得住）；新约定标未了结
-    details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], source: "auto" }));
-    opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], source: "auto", open: true }));
+    details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "细节"], charIds: [charId], knownBy: [charId], source: "auto" }));
+    opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "约定"], charIds: [charId], knownBy: [charId], source: "auto", open: true }));
     // 把这段线下经过回写进线上聊天记录，接上线上/线下的连贯：否则线上角色读不到刚才线下发生了什么，
     // 会接着线下前的最后一句继续（比如还以为自己在公司楼下等你）。这条 offlinelog 既显示给用户当分隔，
     // 也会作为「场景」注入线上回复的历史里。
@@ -3720,9 +3746,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·群线下】" + summ;
         if (gsFor(groupId).memoryInterop) { // 只有互通群进全局记忆库（记忆分区）
           const memberIds = (group.memberIds || []).slice();
-          addMemEntry({ text: summ, tags: ["线下", "群聊"], charIds: memberIds, source: "auto" });
-          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "群聊", "细节"], charIds: memberIds, source: "auto" }));
-          (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], charIds: memberIds, source: "auto", open: true }));
+          addMemEntry({ text: summ, tags: ["线下", "群聊"], charIds: memberIds, knownBy: memberIds.slice(), source: "auto" });
+          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "群聊", "细节"], charIds: memberIds, knownBy: memberIds.slice(), source: "auto" }));
+          (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], charIds: memberIds, knownBy: memberIds.slice(), source: "auto", open: true }));
         }
         pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
       }
@@ -3993,11 +4019,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    if (summary && group && interopOn) addMemEntry({ text: summary, tags: ["线下", "群聊"], charIds: group.memberIds || [], source: "auto" });
+    if (summary && group && interopOn) addMemEntry({ text: summary, tags: ["线下", "群聊"], knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto" });
     // 群线下细节/约定逐条入库（与单人 v47.55 平权），同样只在互通群才进全局记忆库
     if (group && interopOn) {
-      details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "群聊", "细节"], charIds: group.memberIds || [], source: "auto" }));
-      opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], charIds: group.memberIds || [], source: "auto", open: true }));
+      details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "群聊", "细节"], knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto" }));
+      opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", open: true }));
     }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
     pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ts: Date.now() }]);
@@ -4028,7 +4054,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 3 * 3600000, thought: 90
     const id = "char_" + Date.now();
     pC(p => [...p, { id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: "", color: "#5a6a7d" }]);
     if (parsed.longMem) setMemFor(id, parsed.longMem);
-    (parsed.seeds || []).forEach(s => addMemEntry({ text: s.text, charIds: [id], pinned: s.pinned, source: "manual" }));
+    (parsed.seeds || []).forEach(s => addMemEntry({ text: s.text, charIds: [id], knownBy: [id], pinned: s.pinned, source: "manual" }));
     setCardImportOpen(false);
     toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + "，去名录点开补头像/线路吧");
   };
@@ -5037,6 +5063,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       addMemEntry({
         text: who + "：" + m.content,
         charIds: [activeChar.id],
+        knownBy: [activeChar.id],
         source: "chat"
       });
       toast("已存入记忆库");
@@ -5685,7 +5712,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         addMemEntry({
           text: "【群「" + group.name + "」】" + summary.trim(),
           tags: ["群聊", group.name],
-          charIds: group.memberIds.slice(),
+          charIds: group.memberIds.slice(), knownBy: group.memberIds.slice(),
           source: "auto"
         });
         toast("已存入记忆库");
@@ -5764,7 +5791,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!toSum.length || !active) return;
     try {
       const summary = await summarizeGroup(active, { profile }, toSum);
-      if (summary && summary.trim()) addMemEntry({ text: summary.trim(), tags: ["群聊"], charIds: (g.memberIds || []).slice(), source: "auto" });
+      if (summary && summary.trim()) addMemEntry({ text: summary.trim(), tags: ["群聊"], charIds: (g.memberIds || []).slice(), knownBy: (g.memberIds || []).slice(), source: "auto" });
       saveGroupSettings(groupId, { lastSummarizedCount: msgs.length - buffer });
       toast("群聊已存入记忆库");
     } catch (e) {/* silent */}
@@ -7064,9 +7091,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           else if (cur.participants[0]) pChat(cur.participants[0].id, patch);
           // 记忆分区：群里打的通话，只有互通群才写进全局记忆库（同群线下的规矩）
           if (!cur.groupId || gsFor(cur.groupId).memoryInterop) {
-            addMemEntry({ text: sum, tags: ["通话"], charIds: cur.participants.map(c => c.id), source: "auto" });
+            addMemEntry({ text: sum, tags: ["通话"], charIds: cur.participants.map(c => c.id), knownBy: cur.participants.map(c => c.id), source: "auto" });
             // 电话里约的事也标未了结进开环（和线下同款）：兑现后 extractMemories 的 resolveOpen 会自动勾掉
-            opens.forEach(op => addMemEntry({ text: op, tags: ["通话", "约定"], charIds: cur.participants.map(c => c.id), source: "auto", open: true }));
+            opens.forEach(op => addMemEntry({ text: op, tags: ["通话", "约定"], charIds: cur.participants.map(c => c.id), knownBy: cur.participants.map(c => c.id), source: "auto", open: true }));
           }
         } catch (e) {/* 静默：摘要失败不影响通话记录本身 */}
       })();
@@ -10332,7 +10359,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     profile: profile,
     worldbook: worldbook,
     toast: toast,
-    onAddMemory: (text, charId) => addMemEntry({ text: text, charIds: charId ? [charId] : [], source: "read", tags: ["一起读"] }),
+    onAddMemory: (text, charId) => addMemEntry({ text: text, charIds: charId ? [charId] : [], knownBy: charId ? [charId] : [], source: "read", tags: ["一起读"] }),
     onBack: () => setScreen("home")
   });else if (screen === "debate") body = h(Debate, {
     active: active,
@@ -10359,7 +10386,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const text = info.mode === "forchar"
         ? uNm + "替" + who + "算了一卦（" + (info.cards || "") + "）：" + String(info.summary || "").slice(0, 90)
         : who + "为" + uNm + "解了一次塔罗" + (info.question ? "（问的是：" + String(info.question).slice(0, 30) + "）" : "") + "：" + String(info.summary || "").slice(0, 90);
-      addMemEntry({ text: text, charIds: [charId], source: "tarot", ts: Date.now(), open: false });
+      addMemEntry({ text: text, charIds: [charId], knownBy: [charId], source: "tarot", ts: Date.now(), open: false });
       // charThought 是「Ta 私心里对这几张牌的反应」——正是印象的原料,别再扔掉
       const th = String(info.charThought || "").trim();
       if (th && window.Gaze && !settingsFor(charId).engineerEyes && info.mode !== "forchar") {

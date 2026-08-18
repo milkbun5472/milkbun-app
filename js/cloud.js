@@ -476,6 +476,9 @@
         text: String(e.text),
         tags: Array.isArray(e.tags) ? e.tags.map(String) : [],
         char_ids: Array.isArray(e.charIds) ? e.charIds.map(String) : [],
+        // known_by 三态：不是数组就写 NULL（旧数据），空数组照原样写空数组（仅用户知道）。
+        // 这里绝不能写成 `|| []`，那会把 legacy 和 user-only 压成同一个值。
+        known_by: Array.isArray(e.knownBy) ? e.knownBy.map(String) : null,
         v: typeof e.v === "number" ? Math.max(-5, Math.min(5, Math.round(e.v))) : 0,
         a: typeof e.a === "number" ? Math.max(0, Math.min(5, Math.round(e.a))) : 1,
         open: !!e.open,
@@ -499,7 +502,7 @@
       const all = [], pageSize = 500;
       for (let from = 0; ; from += pageSize) {
         const { data, error } = await client.from("memories")
-          .select("id,text,tags,char_ids,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,surface_state,supersedes_id,revision,updated_at")
+          .select("id,text,tags,char_ids,known_by,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,surface_state,supersedes_id,revision,updated_at")
           .eq("user_id", user.id)
           .order("id", { ascending: true })
           .range(from, from + pageSize - 1);
@@ -519,7 +522,7 @@
       const all = [], pageSize = 500;
       for (let from = 0; ; from += pageSize) {
         const { data, error } = await client.from("memories")
-          .select("id,text,tags,char_ids,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,surface_state,supersedes_id,revision,last_mutation_id,updated_at")
+          .select("id,text,tags,char_ids,known_by,v,a,open,pinned,ts,archived,archived_batch,archived_ts,source,deleted,surface_state,supersedes_id,revision,last_mutation_id,updated_at")
           .eq("user_id", user.id)
           .gte("updated_at", since)
           .order("updated_at", { ascending: true })
@@ -619,7 +622,7 @@
       const clean = [...new Set((ids || []).map(String).filter(Boolean))];
       if (!clean.length) return [];
       const { data, error } = await client.from("memories")
-        .select("id,text,tags,char_ids,v,a,open,pinned,ts,archived,source,deleted,surface_state,supersedes_id,revision")
+        .select("id,text,tags,char_ids,known_by,v,a,open,pinned,ts,archived,source,deleted,surface_state,supersedes_id,revision")
         .eq("user_id", user.id).in("id", clean);
       if (error) throw error;
       return data || [];

@@ -1289,7 +1289,14 @@ function scoreMemEntry(entry, qTokens, now, qVec) {
 }
 function retrieveMemories(lib, charId, queryText, opts = {}) {
   const limit = opts.limit || 6;
-  const list = (lib || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active" && (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId)));
+  // 可见性必须排在【置顶与打分之前】：先 topK 再过滤会让不可见记忆占掉名额，
+  // 而置顶是从这个 list 里另取的，合在这一层才不会被置顶绕过权限。
+  //   knownBy 不是数组 → 旧数据，沿用「charIds 为空即全员可见」的老规则
+  //   knownBy 是数组   → 只认它；空数组＝只有用户知道，任何角色都召不回
+  const canSee = e => Array.isArray(e.knownBy)
+    ? e.knownBy.indexOf(charId) > -1
+    : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(charId));
+  const list = (lib || []).filter(e => e && e.text && !e.archived && (e.surfaceState || "active") === "active" && canSee(e));
   if (list.length === 0) return [];
   const qTokens = memTokens(queryText);
   // 向量：只有发送前 primeQueryVec 预热过、缓存命中才拿得到；没有就 null=纯关键词，行为同旧版

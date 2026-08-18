@@ -8,6 +8,12 @@ create table if not exists public.memories (
   text text not null check (length(btrim(text)) > 0),
   tags text[] not null default '{}'::text[],
   char_ids text[] not null default '{}'::text[],
+  -- 记忆可见性（known_by）：三态必须分得开，绝不能 not null default '{}'。
+  --   NULL  = 旧数据，沿用「charIds 为空即全员可见」的旧规则
+  --   '{}'  = 只有用户知道，角色一个都不知道
+  --   {A,B} = 只有 A、B 知道
+  -- 把 NULL 折成 '{}' 会让全部旧记忆在上线第一天被误判成「仅用户知道」。
+  known_by text[] null,
   v smallint not null default 0 check (v between -5 and 5),
   a smallint not null default 1 check (a between 0 and 5),
   open boolean not null default false,
