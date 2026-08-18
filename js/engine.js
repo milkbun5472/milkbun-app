@@ -1373,6 +1373,54 @@ function retrieveMemories(lib, charId, queryText, opts = {}) {
   }
   return picked;
 }
+// 群聊记忆分流（v53.61）：一份记忆库、多个在场成员，可见范围各不相同。
+// 旧做法是拿【某一个成员】的可见结果当全群的公共记忆，于是
+//   ① 只有 A 知道的事（比如 A 私下说自己受了伤）会原样出现在全群都读得到的公共段里；
+//   ② 只有 B 知道的事永远召不回来——召回压根没用 B 的身份问过。
+// 现在按【在场成员的可见交集】分流：所有人都看得见的进公共段；只有部分人看得见的
+// 落进那几个人各自的私密段（提示词里本来就标着〔只有本人知道〕）。
+// 旧数据（knownBy 缺省）照旧走 charIds 规则，可见范围与行为均不变。
+function splitGroupMemories(lib, memberIds, queryText, opts = {}) {
+  const ids = (memberIds || []).map(String).filter(Boolean);
+  const shared = [], perChar = {};
+  ids.forEach(id => { perChar[id] = []; });
+  if (!ids.length) return { shared, perChar };
+  const limit = opts.limit || 6;
+  // 每位成员各按自己的身份召回一次，再按名次轮流合并——成员顺序不再决定谁有记忆、谁失忆。
+  const pools = ids.map(id => retrieveMemories(lib, id, queryText, Object.assign({}, opts, { limit, touch: false })));
+  const canSee = (e, id) => Array.isArray(e.knownBy)
+    ? e.knownBy.indexOf(id) > -1
+    : (!e.charIds || e.charIds.length === 0 || e.charIds.includes(id));
+  const seen = new Set();
+  let taken = 0;
+  for (let rank = 0; taken < limit && pools.some(pool => rank < pool.length); rank++) {
+    for (const pool of pools) {
+      const entry = pool[rank];
+      if (!entry || seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      const audience = ids.filter(id => canSee(entry, id));
+      if (!audience.length) continue;
+      if (audience.length === ids.length) shared.push(entry);
+      else audience.forEach(id => perChar[id].push(entry));
+      if (++taken >= limit) break;
+    }
+  }
+  // 检索即复习：真正被选中的条目刷新 lastHit/hits（成员各自召回时一律 touch:false，
+  // 免得同一条记忆因为群里人多被记成命中好几次）。
+  if (opts.touch !== false && taken) {
+    const nowTs = Date.now();
+    let dirty = false;
+    const all = [], dedup = new Set();
+    shared.concat(...ids.map(id => perChar[id])).forEach(e => { if (!dedup.has(e)) { dedup.add(e); all.push(e); } });
+    all.forEach(e => {
+      if (!e.lastHit || nowTs - e.lastHit > 6 * 3600000) dirty = true;
+      e.lastHit = nowTs;
+      e.hits = (e.hits || 0) + 1;
+    });
+    if (dirty && Array.isArray(lib)) { try { saveJSON("x_memLib", lib); } catch (e2) {} }
+  }
+  return { shared, perChar };
+}
 function formatMemLib(entries) {
   const arr = entries || [];
   const body = arr.map(e => {
