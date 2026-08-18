@@ -122,6 +122,44 @@
     return out;
   }
 
+  // 采访轮换:每期至多 3 人,抽完一轮才允许重复(洗牌袋)。
+  // 袋子状态不落盘,而是【由往期回放推出来】——这样重新生成某一期也不会打乱轮次。
+  // 例:5 人 → 第一周 abc(袋剩 de) → 第二周 de + 补袋后再抽一个(a) → 第三周从 bcde 里抽三个 …
+  function interviewPickFor(issueKey, allIds, pastIssues, weekStart) {
+    const ids = (allIds || []).slice();
+    if (ids.length <= 3) return ids;
+    // 按时间正序回放已经出过的期,把袋子推到当前状态
+    // 只回放【这一期之前】的期数:否则重新生成某一期时，后面几期也会被算进袋子，
+    // 抽出来的人就跟当初不一样了（重生成不该改变历史轮次）
+    const cut = Number(weekStart) || Infinity;
+    const past = (pastIssues || []).filter(function (x) { return (x.weekOf && x.weekOf.start || 0) < cut; })
+      .slice().sort(function (a, b) { return (a.weekOf && a.weekOf.start || 0) - (b.weekOf && b.weekOf.start || 0); });
+    let bag = ids.slice();
+    const drawn = function (iss) {
+      const sec = (iss.sections || []).find(function (x) { return x.type === "interview"; });
+      return ((sec && sec.entries) || []).filter(function (e) { return e && e.auto; }).map(function (e) { return e.charId; });
+    };
+    past.forEach(function (iss) {
+      if (iss.key === issueKey) return;
+      // 只回放【抽中的】那些。手动补生成的不算被抽过——否则手动补一次
+      // 就把这个人从袋子里划掉了,下一轮反而轮不到他（她 2026-08-18 点名）
+      drawn(iss).forEach(function (id) {
+        const k = bag.indexOf(id);
+        if (k > -1) bag.splice(k, 1);
+        if (!bag.length) bag = ids.slice(); // 一轮抽完,重新装袋
+      });
+    });
+    const r = seeded("iv" + issueKey);
+    const out = [];
+    while (out.length < 3 && ids.length) {
+      if (!bag.length) bag = ids.filter(function (id) { return out.indexOf(id) < 0; });
+      if (!bag.length) break;
+      const pick = bag.splice(Math.floor(r() * bag.length), 1)[0];
+      if (out.indexOf(pick) < 0) out.push(pick);
+    }
+    return out;
+  }
+
   // ---- 报道周窗口 & 闸门 ---------------------------------------------
   function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   function fmtRange(a, b) { return (a.getMonth() + 1) + "/" + a.getDate() + "–" + (b.getMonth() + 1) + "/" + b.getDate(); }
@@ -464,7 +502,7 @@
     const globalText = linesToText(mat.global, 8000);
     const empty = mat.global.length === 0;
     const weekVoices = voicesForWeek(win.key); // 每期只出三块，抽签决定是哪三块
-    const total = 1 + charsWithMat.length + weekVoices.length + 1; // +1 = 资料室(语录/数据/更正/中缝/来信合并为一次调用)
+    const total = 1 + Math.min(3, charsWithMat.length) + weekVoices.length + 1; // +1 = 资料室(语录/数据/更正/中缝/来信合并为一次调用)
     let done = 0;
     const tick = function (label) { if (onProgress) onProgress(done, total, label); };
 
@@ -481,11 +519,14 @@
 
     // 采访版
     const entries = [];
-    for (const c of charsWithMat) {
+    // 每期至多采访 3 人,洗牌袋轮换;没抽中的仍可在采访版里手动补,且不占轮次
+    const pickIds = interviewPickFor(win.key, charsWithMat.map(function (c) { return c.id; }), loadIssues(), win.start);
+    const picked = charsWithMat.filter(function (c) { return pickIds.indexOf(c.id) > -1; });
+    for (const c of picked) {
       tick("采访 " + c.name);
       try {
         const iv = await genInterview(active, c, linesToText(mat.perChar[c.id], 4000), userName);
-        entries.push(Object.assign({ id: uid("iv"), charId: c.id, charName: c.name }, iv));
+        entries.push(Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv));
       } catch (e) { /* 单角色硬失败就跳过，不拖垮整期 */ }
       done++;
     }
@@ -568,7 +609,7 @@
     loadIssues: loadIssues, saveIssues: saveIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
     weekMaterial: weekMaterial, linesToText: linesToText, personasFor: personasFor,
     genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue,
-    weeklyStats: weeklyStats, genDeskPage: genDeskPage, genLetters: genLetters, voicesForWeek: voicesForWeek
+    weeklyStats: weeklyStats, genDeskPage: genDeskPage, genLetters: genLetters, voicesForWeek: voicesForWeek, interviewPickFor: interviewPickFor
   };
 
   // ============================================================
@@ -585,6 +626,34 @@
     noir:       { tint: "#4a4550", rule: "solid",  face: "mono",   deco: "▲", eyebrow: "case file" }
   };
   function lookOf(id) { return VOICE_LOOK[id] || VOICE_LOOK.editorial; }
+  // 种子随机:同一期封面每次打开必须长得一样,所以不能用 Math.random
+  function seeded(key) {
+    let x = 0; String(key || "x").split("").forEach(function (ch) { x = (x * 31 + ch.charCodeAt(0)) >>> 0; });
+    return function () { x = (x * 1103515245 + 12345) >>> 0; return x / 4294967296; };
+  }
+  // 封面底:四种花样,按期抽。都不是纯色,但都压得很淡,保证压在上面的字读得清
+  const COVER_SKINS = [
+    { id: "halftone", dark: false, ink: ["#2a2622", "#7a3b2e", "#3d5a4a", "#5a4a72"],
+      css: function (c) { return { backgroundColor: c, backgroundImage: "radial-gradient(rgba(0,0,0,.10) 1px, transparent 1.2px)", backgroundSize: "9px 9px" }; } },
+    { id: "grid", dark: false, ink: ["#22303a", "#7c4a24", "#3f4a2c", "#6a2f43"],
+      css: function (c) { return { backgroundColor: c, backgroundImage: "linear-gradient(rgba(0,0,0,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,.055) 1px, transparent 1px)", backgroundSize: "22px 22px" }; } },
+    { id: "stripe", dark: false, ink: ["#2b2b2b", "#6d3a52", "#2f5560", "#6b5220"],
+      css: function (c) { return { backgroundColor: c, backgroundImage: "repeating-linear-gradient(58deg, rgba(0,0,0,.05) 0 2px, transparent 2px 13px)" }; } },
+    { id: "night", dark: true, ink: ["#f2ece2", "#e8c9a0", "#bcd6cf", "#d9c3e6"],
+      css: function () { return { backgroundColor: "#1d1b1a", backgroundImage: "radial-gradient(120% 90% at 30% 10%, rgba(255,255,255,.10), transparent 55%), repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 6px)" }; } }
+  ];
+  const COVER_TINTS = ["#efe9dd", "#e9eae4", "#f0e6e2", "#e6ebee"];
+  function coverSkin(key) {
+    const r = seeded("skin" + key);
+    const sk = COVER_SKINS[Math.floor(r() * COVER_SKINS.length)];
+    const tint = COVER_TINTS[Math.floor(r() * COVER_TINTS.length)];
+    return { skin: sk, style: sk.css(tint), inks: sk.ink, dark: sk.dark };
+  }
+  // 标题散落:用固定的槽位再加抖动。纯随机会叠在一起，槽位保证读得清。
+  const COVER_SLOTS = [
+    { top: 4, left: 4, w: 62 }, { top: 20, left: 34, w: 60 }, { top: 35, left: 3, w: 55 },
+    { top: 50, left: 30, w: 64 }, { top: 65, left: 5, w: 58 }, { top: 79, left: 26, w: 66 }
+  ];
   const faceOf = function (f) { return f === "mono" ? "'Archivo',ui-monospace,monospace" : F_DISPLAY; };
   // 纸感底:两层极淡的斜向条纹 + 一层柔光，比纯色背景像纸，又不至于花
   function paperStyle(t) {
@@ -641,19 +710,45 @@
   }
 
   // 目录一行（点进去看单个版块）
-  function TOCRow(props) {
+  // 封面:每期的版块标题散落在封面上,点哪块进哪块。
+  // 随机的只有位置/字号/颜色/倾角,且全部限制在读得清的范围内——
+  // 深底只用浅墨、浅底只用深墨,字号下限 15px,倾角不超过 ±7°。
+  function CoverPage(props) {
     const t = useTheme();
-    const tint = props.tint || t.ink;
-    // 目录做成真正的「contents」：左侧栏号、中间条目、右侧引线到页码位
-    return h("button", { onClick: props.onOpen, className: "w-full text-left active:opacity-60", style: { display: "flex", gap: 11, borderBottom: "1px solid " + t.line, padding: "16px 0" } },
-      h("div", { style: { flex: "0 0 auto", width: 24, textAlign: "right", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15, color: tint, opacity: .55, lineHeight: 1.5, paddingTop: 1 } }, props.idx ? ("0" + props.idx).slice(-2) : ""),
-      h("div", { style: { flex: 1, minWidth: 0 } },
-      h("div", { className: "flex items-baseline", style: { gap: 7 } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 8.5, color: tint, whiteSpace: "nowrap" } }, props.en),
-        h("div", { style: { flex: 1, borderBottom: "1px dotted " + t.line, transform: "translateY(-2px)" } }),
-        props.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } }, props.meta) : null),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, lineHeight: 1.28, marginTop: 4 } }, props.title),
-      props.teaser ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.teaser) : null));
+    const items = props.items || [];
+    const ck = coverSkin(props.issueKey);
+    const r = seeded("lay" + props.issueKey);
+    const laid = items.slice(0, COVER_SLOTS.length).map(function (it, i) {
+      const slot = COVER_SLOTS[i];
+      return {
+        it: it,
+        top: slot.top + (r() * 5 - 2.5),
+        left: Math.max(2, Math.min(38, slot.left + (r() * 6 - 3))),
+        w: slot.w,
+        size: 17 + Math.round(r() * 11),          // 17~28px，不会小到看不见
+        rot: (r() * 14 - 7).toFixed(1),           // ±7°
+        ink: ck.inks[Math.floor(r() * ck.inks.length)],
+        face: r() < .5 ? F_DISPLAY : F_BODY,
+        weight: r() < .35 ? 600 : 400
+      };
+    });
+    const sub = ck.dark ? "rgba(255,255,255,.62)" : "rgba(0,0,0,.45)";
+    return h("div", { style: Object.assign({ position: "relative", borderRadius: 4, overflow: "hidden", minHeight: 560, padding: "16px 14px", boxShadow: "0 10px 30px rgba(0,0,0,.13)", border: "1px solid " + (ck.dark ? "rgba(255,255,255,.14)" : "rgba(0,0,0,.10)") }, ck.style) },
+      // 封面报头
+      h("div", { style: { textAlign: "center", paddingBottom: 10, borderBottom: "1.5px solid " + (ck.dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)") } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.4em", fontSize: 8, color: sub, textTransform: "uppercase" } }, "THE WEEKLY"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 38, letterSpacing: "0.14em", textIndent: "0.14em", color: ck.dark ? "#f4efe6" : "#232019", lineHeight: 1.1 } }, "周刊"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, marginTop: 2 } }, "第 " + (props.num || "—") + " 期　·　" + (props.label || ""))),
+      // 散落的标题
+      h("div", { style: { position: "relative", height: 470, marginTop: 6 } },
+        laid.map(function (L, i) {
+          return h("button", { key: i, onClick: L.it.onOpen, className: "text-left active:opacity-60",
+            style: { position: "absolute", top: L.top + "%", left: L.left + "%", width: L.w + "%", transform: "rotate(" + L.rot + "deg)", transformOrigin: "left top" } },
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: "0.26em", textTransform: "uppercase", color: sub, marginBottom: 2 } }, L.it.en),
+            h("div", { style: { fontFamily: L.face, fontWeight: L.weight, fontSize: L.size, lineHeight: 1.25, color: L.ink, textShadow: ck.dark ? "0 1px 2px rgba(0,0,0,.5)" : "0 1px 0 rgba(255,255,255,.55)" } }, L.it.title),
+            L.it.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 2 } }, L.it.meta) : null);
+        })),
+      h("div", { style: { position: "absolute", right: 12, bottom: 10, fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "TAP A HEADLINE"));
   }
 
   // 版块详情里的「重刷」行（版块名已在顶栏 Head 显示，这里不重复标题）
@@ -767,6 +862,26 @@
       } catch (e) { props.toast(String(e.message || e)); }
       setBusyUnit(null);
     }
+    // 手动补一位没被抽中的:auto 留空,不占轮次,下一期照样能被抽到
+    async function addInterview(char) {
+      if (!char) return;
+      setBusyUnit("add_" + char.id);
+      try {
+        const mat = window.Weekly.weekMaterial(win, [char], props.groups || [], props.userName);
+        const lines = mat.perChar[char.id] || [];
+        if (!lines.length) { props.toast(char.name + " 本周没有记录，采访不出来"); return; }
+        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(lines, 4000), props.userName);
+        props.onPatch(issue.id, function (iss) {
+          iss.sections = iss.sections.map(function (sec) {
+            if (sec.type !== "interview") return sec;
+            if ((sec.entries || []).some(function (e) { return e.charId === char.id; })) return sec;
+            return Object.assign({}, sec, { entries: (sec.entries || []).concat([Object.assign({ id: "iv_" + Date.now(), charId: char.id, charName: char.name, auto: false }, fresh)]) });
+          });
+          return iss;
+        });
+      } catch (e) { props.toast(String(e.message || e)); }
+      finally { setBusyUnit(null); }
+    }
     async function regenInterview(entry) {
       const char = (props.characters || []).find(function (c) { return c.id === entry.charId; });
       if (!char) { props.toast("角色已不存在"); return; }
@@ -865,6 +980,19 @@
           })),
         en ? h(InterviewEntry, { key: en.id, entry: en, spk: (props.characters || []).find(function (c) { return c.id === en.charId; }), busy: busyUnit === en.id, onRegen: function () { regenInterview(en); } }) : null
       ) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.6 } }, "本周无人露面——采访版空场。");
+      // 没被抽中的人:列在下面，想看谁点谁，补出来的不占轮次
+      const shown = (iv.entries || []).map(function (e) { return e.charId; });
+      const rest = (props.characters || []).filter(function (c) { return shown.indexOf(c.id) < 0; });
+      if (rest.length) detail = h("div", null, detail,
+        h("div", { style: { marginTop: 26, paddingTop: 14, borderTop: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".24em", textTransform: "uppercase", color: t.fog, marginBottom: 8 } }, "NOT IN THIS ISSUE · 本期未采访"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "每期至多采访三人，轮流来。想现在就看某位的，点一下单独补——补出来的不占轮次，下期照样能抽到 Ta。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 7 } }, rest.map(function (c) {
+            const on = busyUnit === ("add_" + c.id);
+            return h("button", { key: c.id, onClick: function () { if (!on) addInterview(c); }, className: "active:opacity-60",
+              style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink, opacity: on ? .5 : 1 } },
+              on ? "采访中…" : c.name);
+          }))));
     } else if (sub && sub.kind === "media") {
       const sec = medias.find(function (s) { return s.id === sub.id; });
       if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = voiceOf(sec.voiceId).en; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }
@@ -877,20 +1005,18 @@
       h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { setSub(null); } : props.onBack }),
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
         detail ? detail : h("div", null,
-          h(Masthead, { num: num, label: issue.label }),
           h(Countdown, { target: window.Weekly.nextRefreshTime() }),
-          cover ? h(TOCRow, { idx: 1, en: "FRONT PAGE · 头版", title: cover.headline, teaser: cover.lead, onOpen: function () { setSub({ kind: "cover" }); } }) : null,
-          deskSec ? h(TOCRow, { idx: 2, en: "THE DESK · 资料室", meta: (deskSec.quotes || []).length + " 句语录",
-            title: (deskSec.desk && deskSec.desk.title) || "本周数据",
-            teaser: ((deskSec.quotes || [])[0] ? "「" + deskSec.quotes[0].text.slice(0, 18) + "」" : ""),
-            onOpen: function () { setSub({ kind: "desk" }); } }) : null,
-          lettersSec ? h(TOCRow, { idx: 3, en: "LETTERS · 读者来信", meta: (lettersSec.letters || []).length + " 封",
-            title: "本周来信", teaser: ((lettersSec.letters || [])[0] ? (lettersSec.letters[0].from + "：" + lettersSec.letters[0].body.slice(0, 16)) : ""),
-            onOpen: function () { setSub({ kind: "letters" }); } }) : null,
-          iv ? h(TOCRow, { idx: 4, en: "THE INTERVIEWS · 采访版", meta: (iv.entries || []).length + " 位", title: "本期专访 · 逐个击破", teaser: (iv.entries || []).map(function (e) { return e.charName; }).join("、") || "本周无人露面", onOpen: function () { setSub({ kind: "interview" }); setIvSel(0); } }) : null,
-          medias.map(function (s, mi) {
-            const v = voiceOf(s.voiceId); const arts = s.articles || [];
-            return h(TOCRow, { key: s.id, idx: 5 + mi, tint: lookOf(s.voiceId).tint, en: v.en, meta: arts.length + " 篇", title: v.name, teaser: (arts[0] && arts[0].title) || "", onOpen: function () { setSub({ kind: "media", id: s.id }); } });
+          h(CoverPage, {
+            issueKey: issue.key, num: num, label: issue.label,
+            items: [].concat(
+              cover ? [{ en: "FRONT PAGE", title: cover.headline, meta: "头版", onOpen: function () { setSub({ kind: "cover" }); } }] : [],
+              deskSec ? [{ en: "THE DESK", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { setSub({ kind: "desk" }); } }] : [],
+              lettersSec ? [{ en: "LETTERS", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { setSub({ kind: "letters" }); } }] : [],
+              iv ? [{ en: "INTERVIEWS", title: "本期专访", meta: (iv.entries || []).length + " 位", onOpen: function () { setSub({ kind: "interview" }); } }] : [],
+              medias.map(function (sec) {
+                const v = voiceOf(sec.voiceId);
+                return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { setSub({ kind: "media", id: sec.id }); } };
+              }))
           }),
           h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, marginTop: 26 } }, "— 点 版 块 进 入 阅 读 —"))));
   }

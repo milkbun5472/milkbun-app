@@ -43,9 +43,43 @@ test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次",
   assert.match(w, /function paperStyle\(t\)/, "要有纸感底，不是纯色背景");
   assert.match(w, /float: "left"/, "首段要有落款首字（drop cap）");
   assert.match(w, /transform: "rotate\(-7deg\)"/, "期数做成盖歪的印章");
-  assert.match(w, /borderBottom: "1px dotted " \+ t\.line/, "目录要有引线");
+  assert.match(w, /function CoverPage\(props\)/, "主页面是一本杂志封面，不是目录列表");
+  assert.match(w, /TAP A HEADLINE/);
   assert.match(w, /scrollRef\.current\.scrollTop = 0/, "换版必须回到顶部");
   // 资料室一次调用出五块，别再各调各的
   assert.match(w, /genDeskPage\(active, globalText, stats, userName, personasFor/);
-  assert.match(w, /const total = 1 \+ charsWithMat\.length \+ weekVoices\.length \+ 1;/);
+  assert.match(w, /const total = 1 \+ Math\.min\(3, charsWithMat\.length\) \+ weekVoices\.length \+ 1;/, "每期至多采访三人");
+});
+
+// 采访轮换(2026-08-18 Lisa):每期至多 3 人，抽完一轮才允许重复；
+// 手动补的那些不算被抽过，下一轮照样能抽到。
+test("采访洗牌袋：满一轮才重复，手动补的不占轮次", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const grab = name => {
+    const i = w.indexOf("  function " + name);
+    let d = 0, j = i;
+    for (; j < w.length; j++) { if (w[j] === "{") d++; else if (w[j] === "}") { d--; if (!d) { j++; break; } } }
+    return w.slice(i, j);
+  };
+  const m = new Function(grab("seeded") + "\n" + grab("interviewPickFor") + "\n; return { interviewPickFor };")();
+  const all = ["a", "b", "c", "d", "e"], past = [];
+  const seen = {};
+  for (let k = 1; k <= 4; k++) {
+    const pick = m.interviewPickFor("W" + k, all, past, k);
+    assert.equal(pick.length, 3, "每期抽三人");
+    assert.equal(new Set(pick).size, 3, "同一期不重复同一个人");
+    pick.forEach(id => { seen[id] = (seen[id] || 0) + 1; });
+    past.push({ key: "W" + k, weekOf: { start: k }, sections: [{ type: "interview", entries: pick.map(id => ({ charId: id, auto: true })) }] });
+  }
+  // 12 个名额发给 5 个人：满一轮才重复 → 没有人能比别人多两轮以上
+  const counts = all.map(id => seen[id] || 0);
+  assert.ok(Math.max.apply(null, counts) - Math.min.apply(null, counts) <= 1, "轮次要均匀：" + JSON.stringify(seen));
+  // 重生成旧的一期，结果必须不变（回放只看这一期之前）
+  const again = m.interviewPickFor("W2", all, past, 2).join("");
+  assert.equal(again, past[1].sections[0].entries.map(e => e.charId).join(""), "重生成不该改变历史轮次");
+  // 手动补一位（auto:false）不影响后续抽签
+  const before = m.interviewPickFor("W5", all, past, 5).join("");
+  past[0].sections[0].entries.push({ charId: "e", auto: false });
+  assert.equal(m.interviewPickFor("W5", all, past, 5).join(""), before, "手动补的不占轮次");
+  assert.match(w, /auto: false/, "手动补的条目要标出来");
 });
