@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Codex worker hygiene daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=20m
+Unit=codex-hygiene.service
+
+[Install]
+WantedBy=timers.target

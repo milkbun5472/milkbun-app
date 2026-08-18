@@ -1,0 +1,9 @@
+[Unit]
+Description=Codex worker session and disk hygiene
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/services/codex
+ExecStart=%h/services/codex/bin/codex-hygiene.sh
+StandardOutput=append:%h/services/codex/logs/hygiene.log
+StandardError=append:%h/services/codex/logs/hygiene-error.log
