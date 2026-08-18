@@ -38,6 +38,7 @@ create index if not exists memory_embeddings_user_idx
 create or replace function public.memory_embeddings_gc()
 returns trigger
 language plpgsql
+security definer
 set search_path = public
 as $$
 begin

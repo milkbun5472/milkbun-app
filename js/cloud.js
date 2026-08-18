@@ -7,8 +7,17 @@
   const SUPABASE_URL = "https://nposjnafsbikwfeoudbg.supabase.co";
   const SUPABASE_ANON_KEY =
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5wb3NqbmFmc2Jpa3dmZW91ZGJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjY1MTgsImV4cCI6MjA5ODYwMjUxOH0.efs3N7b6Z8CU_1Hlg-S35dkQLP4cZw3IaQnmSc5D9RQ";
+  // VPS 迁移影子：切主路前只准备同 UUID 的新登录态，不参与任何数据读写。
+  // 旧 Supabase 仍是 client/权威写路；验收完最后增量拷贝后才会改这一点。
+  const VPS_SUPABASE_URL = "https://yanqiu-vps.tail542792.ts.net:8443";
+  const VPS_SUPABASE_ANON_KEY =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3MDczODc3LCJleHAiOjE5NDQ3NTM4Nzd9.2kTgRLljhvgLXWojMi6opixszW1H2f3wKab-s2hE6Cc";
+  const VPS_SESSION_MIGRATOR = VPS_SUPABASE_URL + "/migrate/v1/session";
+  const VPS_SHADOW_MARK = "vps_session_shadow_v1";
 
   let client = null;
+  let vpsClient = null;
+  let vpsSessionInFlight = null;
   let suspend = false; // apply() 期间挂起，避免写回触发反向 push
   let frozen = false;  // 云端恢复写回后锁死本地 x_ 写入：等重载期间，旧 React 状态再 saveJSON 也覆盖不了刚恢复的数据（防「恢复到一半」竞态）
   let pushTimer = null; // 防抖计时器
@@ -30,6 +39,9 @@
   try {
     if (window.supabase && window.supabase.createClient) {
       client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      vpsClient = window.supabase.createClient(VPS_SUPABASE_URL, VPS_SUPABASE_ANON_KEY, {
+        auth: { storageKey: "lisa-vps-auth-token", persistSession: true, autoRefreshToken: true }
+      });
     }
   } catch (e) {
     console.error("supabase init failed", e);
@@ -37,6 +49,49 @@
 
   window.Cloud = {
     ready: () => !!client,
+
+    // 旧登录仍有效时，一次性换出 VPS 登录态。只迁认证，不碰 saves/记忆/聊天写路。
+    // 可重复调用：UUID 已一致就直接返回，不会再次发票。
+    async ensureVpsSession() {
+      if (!client || !vpsClient) return { ok: false, reason: "not_ready" };
+      if (vpsSessionInFlight) return vpsSessionInFlight;
+      vpsSessionInFlight = (async () => {
+        try {
+          const oldResult = await client.auth.getSession();
+          const oldSession = oldResult && oldResult.data && oldResult.data.session;
+          if (!oldSession || !oldSession.access_token || !oldSession.user) return { ok: false, reason: "not_signed_in" };
+          const current = await vpsClient.auth.getSession();
+          const currentSession = current && current.data && current.data.session;
+          if (currentSession && currentSession.user && currentSession.user.id === oldSession.user.id) {
+            localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: true, user_id: oldSession.user.id, checked_at: new Date().toISOString() }));
+            return { ok: true, reused: true };
+          }
+          const response = await fetch(VPS_SESSION_MIGRATOR, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ access_token: oldSession.access_token })
+          });
+          const migrated = await response.json().catch(() => ({}));
+          if (!response.ok || !migrated.access_token || !migrated.refresh_token) throw new Error(migrated.error || "session_migration_failed");
+          const setResult = await vpsClient.auth.setSession({ access_token: migrated.access_token, refresh_token: migrated.refresh_token });
+          if (setResult.error) throw setResult.error;
+          const newUser = setResult.data && setResult.data.user;
+          if (!newUser || newUser.id !== oldSession.user.id) throw new Error("identity_mismatch");
+          localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: true, user_id: newUser.id, migrated_at: new Date().toISOString() }));
+          return { ok: true, migrated: true };
+        } catch (error) {
+          localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: false, reason: String(error && error.message || error), checked_at: new Date().toISOString() }));
+          return { ok: false, reason: String(error && error.message || error) };
+        } finally {
+          vpsSessionInFlight = null;
+        }
+      })();
+      return vpsSessionInFlight;
+    },
+
+    vpsSessionStatus() {
+      try { return JSON.parse(localStorage.getItem(VPS_SHADOW_MARK) || "null"); } catch (e) { return null; }
+    },
 
     // 收集所有 x_ 键为纯对象（原始字符串），与导出/导入格式一致
     collect() {
@@ -179,6 +234,7 @@
       const { data, error } = await client.auth.signUp({ email, password });
       if (error) throw error;
       try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
+      this.ensureVpsSession();
       return data;
     },
 
@@ -192,6 +248,7 @@
       if (error) throw error;
       protectedSaveCache.clear();
       try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
+      this.ensureVpsSession();
       return data;
     },
 
@@ -203,6 +260,8 @@
       // 共享聊天账本 outbox 不属于 x_ saves：先尽力投递，随后清本机队列，绝不把旧账号消息带给下个账号。
       try { if (window.ChatLedgerShadow) await window.ChatLedgerShadow.flush(); } catch (e) {}
       if (client) await client.auth.signOut();
+      if (vpsClient) { try { await vpsClient.auth.signOut(); } catch (e) {} }
+      localStorage.removeItem(VPS_SHADOW_MARK);
       protectedSaveCache.clear();
       // 清空本地所有 x_ 存档：退出＝回到初始空账号，数据只在云端。挂起同步避免删除触发 push
       suspend = true;
@@ -1004,6 +1063,8 @@
       try {
         const user = await this.getUser();
         if (!user) return { applied: false };
+        // 不阻塞旧云恢复，也不改任何数据写路；只提前备好停服后的新登录态。
+        this.ensureVpsSession();
         if (bootHadLocal) {
           // 老设备/刷新回来：本地权威，顺手把本地推上云备份，绝不拉云覆盖
           this.autoPush();
