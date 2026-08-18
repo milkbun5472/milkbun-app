@@ -313,8 +313,15 @@
       "上一期的具体内容你并不知道,所以只许纠正这种鸡毛蒜皮,不许纠正剧情事实。没什么可更正就留空字符串。" +
       "\n\n【四、分类广告】写 2~3 条极短的分类广告/寻物启事(每条≤26 字),必须由本周真实发生过的事引出:丢了的东西、想换掉的习惯、招人一起做的事。" +
       "写成报纸中缝那种一句话广告,不解释、不署名、允许荒诞,但引子必须真。" +
+      "\n\n【五、读者来信】写 3~4 封短信(每封 40~90 字),写信人就是下面这些当事人本人:" +
+      "\n· 每封一个不同的署名者(用「" + uName + "」或角色本名),同一个人不写两封。" +
+      "\n· 必须是【这个人自己的立场和口气】:他在意什么、替谁说话、嘴硬还是直说,全照他的人设与本周表现。" +
+      "\n· 允许互相抬杠、纠正、阴阳怪气、替自己辩解,也允许有人完全跑题;不许写成千篇一律的读后感。" +
+      "\n· 编者按(reply)至多给一封,≤18 字,其余留空。" +
+      (empty ? "\n· 本周素材极少:那就写成抱怨没什么可写、或纯粹跑题的闲话,不要硬编剧情。" : "") +
+      "\n\n【写信人声纹】\n" + String(personasBlock || "") +
       "\n\n【输出】只输出一个 JSON，不要代码块：\n" +
-      '{"quotes":[{"who":"人名","text":"逐字原句","note":"一行小注"}],"desk":{"title":"数据版标题","notes":["对应第1条的点评","对应第2条的点评"]},"correction":"更正启事或空字符串","ads":["分类广告一","分类广告二"]}';
+      '{"quotes":[{"who":"人名","text":"逐字原句","note":"一行小注"}],"desk":{"title":"数据版标题","notes":["对应第1条的点评","对应第2条的点评"]},"correction":"更正启事或空字符串","ads":["分类广告一","分类广告二"],"letters":[{"from":"署名","body":"信的正文","reply":"编者按或空字符串"}]}';
     const d = await genJSON(active, sys, "开始整理语录与数据版。", 3000);
     const raw = (d && Array.isArray(d.quotes)) ? d.quotes : [];
     // 逐字验真：模型很爱顺手把原话「修顺」，改过的一律丢掉，不将就
@@ -325,7 +332,10 @@
     const desk = (d && d.desk) || {};
     const notes = Array.isArray(desk.notes) ? desk.notes.map(function (x) { return String(x || "").trim(); }) : [];
     const ads = (d && Array.isArray(d.ads) ? d.ads : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean).slice(0, 3);
-    return { quotes: quotes, correction: String((d && d.correction) || "").trim(), ads: ads,
+    const letters = (d && Array.isArray(d.letters) ? d.letters : []).map(function (x) {
+      return { from: String((x && x.from) || "").trim(), body: String((x && x.body) || "").trim(), reply: String((x && x.reply) || "").trim() };
+    }).filter(function (x) { return x.from && x.body; }).slice(0, 4);
+    return { quotes: quotes, correction: String((d && d.correction) || "").trim(), ads: ads, letters: letters,
       desk: { title: String(desk.title || "本周数据").trim(), rows: statLines.map(function (line, i) { return { line: line, note: notes[i] || "" }; }) } };
   }
 
@@ -454,7 +464,7 @@
     const globalText = linesToText(mat.global, 8000);
     const empty = mat.global.length === 0;
     const weekVoices = voicesForWeek(win.key); // 每期只出三块，抽签决定是哪三块
-    const total = 1 + charsWithMat.length + weekVoices.length + 2; // +2 = 资料室、读者来信
+    const total = 1 + charsWithMat.length + weekVoices.length + 1; // +1 = 资料室(语录/数据/更正/中缝/来信合并为一次调用)
     let done = 0;
     const tick = function (label) { if (onProgress) onProgress(done, total, label); };
 
@@ -498,14 +508,16 @@
     let desk = null;
     try {
       const stats = weeklyStats(mat, characters, userName);
-      desk = await genDeskPage(active, globalText, stats, userName);
+      // 语录/数据/更正/中缝/来信共用这一次调用:它们用的都是同一份 globalText,
+      // 分成两次纯属浪费。整期调用数因此是 1(头版)+N(专访)+1(媒体腔批量)+1(资料室)。
+      desk = await genDeskPage(active, globalText, stats, userName, personasFor(charsWithMat, userName), empty);
     } catch (e) { desk = null; }
     done++;
-    // 读者来信
-    tick("读者来信");
-    let letters = [];
-    try { letters = await genLetters(active, personasFor(charsWithMat, userName), globalText, userName, empty); } catch (e) { letters = []; }
-    done++;
+    const letters = (desk && desk.letters) || [];
+    // 批量那次万一没给出来信,单独补一次,不让整块消失
+    if (!letters.length && !empty) {
+      try { const L = await genLetters(active, personasFor(charsWithMat, userName), globalText, userName, empty); L.forEach(function (x) { letters.push(x); }); } catch (e) {}
+    }
     tick("装订成刊");
     const sections = [cover, { id: uid("sec"), type: "interview", entries: entries }]
       .concat(desk && (desk.quotes.length || desk.desk.rows.length)
@@ -562,13 +574,47 @@
   // ============================================================
   // UI
   // ============================================================
+  // 每个媒体腔一套自己的视觉:同样的字排成一样的样子，那还是四篇一样的东西。
+  // tint=版块主色 / rule=分隔线画法 / face=正文字体取向 / deco=版头装饰字符
+  const VOICE_LOOK = {
+    victorian:  { tint: "#7a5c3e", rule: "double", face: "serif",  deco: "❦", eyebrow: "letterpress" },
+    cyberpunk:  { tint: "#2f6b6e", rule: "dashed", face: "mono",   deco: "▮▮▯", eyebrow: "datastream" },
+    republican: { tint: "#8a4a52", rule: "solid",  face: "serif",  deco: "❁", eyebrow: "old shanghai" },
+    editorial:  { tint: "#3a3a3a", rule: "thick",  face: "serif",  deco: "—", eyebrow: "editorial" },
+    naturalist: { tint: "#4f6b45", rule: "dotted", face: "mono",   deco: "✿", eyebrow: "field notes" },
+    noir:       { tint: "#4a4550", rule: "solid",  face: "mono",   deco: "▲", eyebrow: "case file" }
+  };
+  function lookOf(id) { return VOICE_LOOK[id] || VOICE_LOOK.editorial; }
+  const faceOf = function (f) { return f === "mono" ? "'Archivo',ui-monospace,monospace" : F_DISPLAY; };
+  // 纸感底:两层极淡的斜向条纹 + 一层柔光，比纯色背景像纸，又不至于花
+  function paperStyle(t) {
+    return {
+      backgroundColor: t.bg,
+      backgroundImage:
+        "repeating-linear-gradient(115deg, rgba(0,0,0,.014) 0 1px, transparent 1px 4px)," +
+        "repeating-linear-gradient(15deg, rgba(0,0,0,.010) 0 1px, transparent 1px 7px)," +
+        "radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.5), transparent 60%)"
+    };
+  }
   function Masthead(props) {
     const t = useTheme();
-    return h("div", { style: { borderTop: "2px solid " + t.ink, borderBottom: "1px solid " + t.ink, padding: "10px 0", marginBottom: 18, textAlign: "center" } },
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.34em", textTransform: "uppercase", fontSize: 9, color: t.fog } }, "THE WEEKLY"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: t.ink, lineHeight: 1.1, margin: "2px 0" } }, "周 刊"),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.1em", fontSize: 10, color: t.fog } },
-        "第 " + (props.num || "—") + " 期" + (props.label ? " · " + props.label : "")));
+    const hair = { height: 1, background: t.ink, opacity: .28 };
+    return h("div", { style: { position: "relative", marginBottom: 20 } },
+      // 双线报头:粗线压顶、发丝线收底，中间留白，是报纸报头最基本的骨架
+      h("div", { style: { height: 3, background: t.ink } }),
+      h("div", { style: Object.assign({ marginTop: 2 }, hair) }),
+      h("div", { style: { textAlign: "center", padding: "13px 0 9px" } },
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9 } },
+          h("span", { style: { flex: 1, height: 1, background: t.line } }),
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.42em", textTransform: "uppercase", fontSize: 8.5, color: t.fog, whiteSpace: "nowrap" } }, "THE WEEKLY"),
+          h("span", { style: { flex: 1, height: 1, background: t.line } })),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 40, fontWeight: 400, color: t.ink, lineHeight: 1.05, letterSpacing: "0.16em", margin: "4px 0 2px", textIndent: "0.16em" } }, "周刊"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, letterSpacing: ".08em" } },
+          (props.label || "") + "　·　全 本 由 本 刊 编 辑 部 编 纂")),
+      h("div", { style: hair }),
+      h("div", { style: Object.assign({ marginTop: 2, height: 2 }, { background: t.ink }) }),
+      // 期数做成盖歪的印章，压在报头右下角
+      h("div", { style: { position: "absolute", right: 2, top: 4, transform: "rotate(-7deg)", border: "1.5px solid " + t.accent, color: t.accent, borderRadius: 3, padding: "3px 7px", fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".14em", opacity: .82 } }, "NO." + (props.num || "—")));
   }
 
   function SectionRule(props) {
@@ -597,12 +643,17 @@
   // 目录一行（点进去看单个版块）
   function TOCRow(props) {
     const t = useTheme();
-    return h("button", { onClick: props.onOpen, className: "w-full text-left active:opacity-60", style: { display: "block", borderBottom: "1px solid " + t.line, padding: "15px 0" } },
-      h("div", { className: "flex items-baseline justify-between" },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 9, color: t.fog } }, props.en),
-        props.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, props.meta) : null),
+    const tint = props.tint || t.ink;
+    // 目录做成真正的「contents」：左侧栏号、中间条目、右侧引线到页码位
+    return h("button", { onClick: props.onOpen, className: "w-full text-left active:opacity-60", style: { display: "flex", gap: 11, borderBottom: "1px solid " + t.line, padding: "16px 0" } },
+      h("div", { style: { flex: "0 0 auto", width: 24, textAlign: "right", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15, color: tint, opacity: .55, lineHeight: 1.5, paddingTop: 1 } }, props.idx ? ("0" + props.idx).slice(-2) : ""),
+      h("div", { style: { flex: 1, minWidth: 0 } },
+      h("div", { className: "flex items-baseline", style: { gap: 7 } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.18em", textTransform: "uppercase", fontSize: 8.5, color: tint, whiteSpace: "nowrap" } }, props.en),
+        h("div", { style: { flex: 1, borderBottom: "1px dotted " + t.line, transform: "translateY(-2px)" } }),
+        props.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } }, props.meta) : null),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, lineHeight: 1.28, marginTop: 4 } }, props.title),
-      props.teaser ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.teaser) : null);
+      props.teaser ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.teaser) : null));
   }
 
   // 版块详情里的「重刷」行（版块名已在顶栏 Head 显示，这里不重复标题）
@@ -659,13 +710,31 @@
   function MediaDetail(props) {
     const t = useTheme(); const s = props.sec; const v = voiceOf(s.voiceId);
     const arts = s.articles || [];
+    const L = lookOf(s.voiceId);
+    // 每块的分隔线按自己的性格画：双线 / 虚线 / 点线 / 粗线
+    const sep = L.rule === "double" ? { borderBottom: "3px double " + L.tint }
+      : L.rule === "dashed" ? { borderBottom: "1px dashed " + L.tint }
+      : L.rule === "dotted" ? { borderBottom: "1.5px dotted " + L.tint }
+      : L.rule === "thick" ? { borderBottom: "2px solid " + L.tint } : { borderBottom: "1px solid " + L.tint };
     return h("div", null,
+      // 版头：装饰字符 + 刊名条，颜色是这块自己的
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4 } },
+        h("span", { style: { fontSize: 13, color: L.tint, opacity: .7 } }, L.deco),
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.3em", textTransform: "uppercase", color: L.tint } }, L.eyebrow),
+        h("span", { style: { flex: 1, height: 1, background: L.tint, opacity: .35 } })),
       h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
       arts.map(function (a, i) {
-        return h("article", { key: i, style: { marginBottom: 20, paddingBottom: 18, borderBottom: i < arts.length - 1 ? "1px solid " + t.line : "none" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1.28, marginBottom: 9 } }, a.title),
-          (a.body || "").split(/\n+/).filter(Boolean).map(function (p, j) {
-            return h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.78, marginBottom: 8, whiteSpace: "pre-wrap" } }, p);
+        const paras = (a.body || "").split(/\n+/).filter(Boolean);
+        return h("article", { key: i, style: Object.assign({ marginBottom: 24, paddingBottom: 20 }, i < arts.length - 1 ? sep : { }) },
+          h("div", { style: { fontFamily: faceOf(L.face), fontSize: 21, fontWeight: L.face === "mono" ? 600 : 400, color: t.ink, lineHeight: 1.28, marginBottom: 4, letterSpacing: L.face === "mono" ? ".02em" : "0" } }, a.title),
+          // 标题底下一道短色条，长度固定，像栏目章
+          h("div", { style: { width: 34, height: 2, background: L.tint, opacity: .6, marginBottom: 10 } }),
+          paras.map(function (p, j) {
+            const first = j === 0 && p.length > 6;
+            return h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.85, marginBottom: 9, whiteSpace: "pre-wrap" } },
+              // 首段首字放大成落款字，只在第一段做一次
+              first ? h("span", { style: { float: "left", fontFamily: F_DISPLAY, fontSize: 40, lineHeight: .92, color: L.tint, marginRight: 6, marginTop: 2 } }, p.slice(0, 1)) : null,
+              first ? p.slice(1) : p);
           }));
       }));
   }
@@ -801,24 +870,27 @@
       if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = voiceOf(sec.voiceId).en; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }
     }
 
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    // 换版块必须回到顶部：不然点进采访版是停在上一版的滚动位置，还得自己往上滑（她 2026-08-18 报）
+    const scrollRef = React.useRef(null);
+    React.useEffect(function () { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [sub && sub.kind, sub && sub.id, ivSel]);
+    return h("div", { className: "h-full flex flex-col", style: paperStyle(t) },
       h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { setSub(null); } : props.onBack }),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
+      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
         detail ? detail : h("div", null,
           h(Masthead, { num: num, label: issue.label }),
           h(Countdown, { target: window.Weekly.nextRefreshTime() }),
-          cover ? h(TOCRow, { en: "FRONT PAGE · 头版", title: cover.headline, teaser: cover.lead, onOpen: function () { setSub({ kind: "cover" }); } }) : null,
-          deskSec ? h(TOCRow, { en: "THE DESK · 资料室", meta: (deskSec.quotes || []).length + " 句语录",
+          cover ? h(TOCRow, { idx: 1, en: "FRONT PAGE · 头版", title: cover.headline, teaser: cover.lead, onOpen: function () { setSub({ kind: "cover" }); } }) : null,
+          deskSec ? h(TOCRow, { idx: 2, en: "THE DESK · 资料室", meta: (deskSec.quotes || []).length + " 句语录",
             title: (deskSec.desk && deskSec.desk.title) || "本周数据",
             teaser: ((deskSec.quotes || [])[0] ? "「" + deskSec.quotes[0].text.slice(0, 18) + "」" : ""),
             onOpen: function () { setSub({ kind: "desk" }); } }) : null,
-          lettersSec ? h(TOCRow, { en: "LETTERS · 读者来信", meta: (lettersSec.letters || []).length + " 封",
+          lettersSec ? h(TOCRow, { idx: 3, en: "LETTERS · 读者来信", meta: (lettersSec.letters || []).length + " 封",
             title: "本周来信", teaser: ((lettersSec.letters || [])[0] ? (lettersSec.letters[0].from + "：" + lettersSec.letters[0].body.slice(0, 16)) : ""),
             onOpen: function () { setSub({ kind: "letters" }); } }) : null,
-          iv ? h(TOCRow, { en: "THE INTERVIEWS · 采访版", meta: (iv.entries || []).length + " 位", title: "本期专访 · 逐个击破", teaser: (iv.entries || []).map(function (e) { return e.charName; }).join("、") || "本周无人露面", onOpen: function () { setSub({ kind: "interview" }); setIvSel(0); } }) : null,
-          medias.map(function (s) {
+          iv ? h(TOCRow, { idx: 4, en: "THE INTERVIEWS · 采访版", meta: (iv.entries || []).length + " 位", title: "本期专访 · 逐个击破", teaser: (iv.entries || []).map(function (e) { return e.charName; }).join("、") || "本周无人露面", onOpen: function () { setSub({ kind: "interview" }); setIvSel(0); } }) : null,
+          medias.map(function (s, mi) {
             const v = voiceOf(s.voiceId); const arts = s.articles || [];
-            return h(TOCRow, { key: s.id, en: v.en, meta: arts.length + " 篇", title: v.name, teaser: (arts[0] && arts[0].title) || "", onOpen: function () { setSub({ kind: "media", id: s.id }); } });
+            return h(TOCRow, { key: s.id, idx: 5 + mi, tint: lookOf(s.voiceId).tint, en: v.en, meta: arts.length + " 篇", title: v.name, teaser: (arts[0] && arts[0].title) || "", onOpen: function () { setSub({ kind: "media", id: s.id }); } });
           }),
           h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, marginTop: 26 } }, "— 点 版 块 进 入 阅 读 —"))));
   }

@@ -35,3 +35,17 @@ test("媒体腔按周抽签，来信/更正/中缝到位", () => {
   assert.match(w, /CLASSIFIEDS · 中缝/);
   assert.match(w, /genMediaBatch\(active, weekVoices,/, "出刊要用抽签结果而不是全量 VOICES");
 });
+
+// 排版与省钱(2026-08-18 Lisa:一页光秃秃只有文字；每次点进版块还停在上一页的滚动位置)
+test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  assert.match(w, /const VOICE_LOOK = \{/, "每个媒体腔要有自己的视觉，不能排成一个样");
+  assert.match(w, /function paperStyle\(t\)/, "要有纸感底，不是纯色背景");
+  assert.match(w, /float: "left"/, "首段要有落款首字（drop cap）");
+  assert.match(w, /transform: "rotate\(-7deg\)"/, "期数做成盖歪的印章");
+  assert.match(w, /borderBottom: "1px dotted " \+ t\.line/, "目录要有引线");
+  assert.match(w, /scrollRef\.current\.scrollTop = 0/, "换版必须回到顶部");
+  // 资料室一次调用出五块，别再各调各的
+  assert.match(w, /genDeskPage\(active, globalText, stats, userName, personasFor/);
+  assert.match(w, /const total = 1 \+ charsWithMat\.length \+ weekVoices\.length \+ 1;/);
+});
