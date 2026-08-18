@@ -53,3 +53,22 @@ test("日记自动补写不依赖进入日记页", () => {
   assert.doesNotMatch(app, /else diaryRunRef\.current = false; \/\/ 离开后下次再进重新判定/,
     "旧的屏幕型锁必须已移除，否则任意界面触发会被反复重置");
 });
+
+// 新增两种段落与补齐(2026-08-18 Lisa 选 1/2/4 + 一键补齐)
+test("涂改段、贴纸段、真实位置与逐天补齐", () => {
+  const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+  const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(engine, /【涂掉的那一句 \/ struck】/);
+  assert.match(engine, /它出现在事情中间，不是结尾/, "涂改句不能变成新的收尾套路");
+  assert.match(engine, /【贴进来的东西 \/ pasted】/);
+  assert.match(engine, /【此刻所在】/, "位置要跟随实时状态");
+  assert.match(screens, /textDecoration: p\.struck \? "line-through" : "none"/);
+  assert.match(screens, /if \(p\.pasted\) return h\("div"/, "贴纸要单独成块，不按正文排");
+  assert.match(screens, /!x\.secret && !x\.struck && !x\.pasted/, "列表摘要要跳过这两类");
+  // 逐天补齐：写一天存一天，失败只丢失败那天
+  assert.match(app, /const backfillDiary = async charId =>/);
+  assert.match(app, /await genDiary\(charId, \{ manual: false, targetTs: ts \}\)/);
+  assert.match(app, /已写好 " \+ done \+ " 篇，稍后再点一次接着补/, "失败要保住已完成的");
+  assert.match(app, /const targetTs = opts\.targetTs \|\| diaryTargetTs\(\)/, "genDiary 要能指定补哪天");
+});

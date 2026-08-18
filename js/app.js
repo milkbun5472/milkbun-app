@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.52";
+const APP_VERSION = "v53.53";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -225,6 +225,7 @@ function App() {
   const diaryFlightRef = useRef(new Set()); // 同一角色任一时刻只准一条生成链
   const [diaryCommenting, setDiaryCommenting] = useState(null); // 正在给哪条「我的日记」生成评论(entryId)
   const diaryRunRef = useRef(false); // 本次打开日记 app 是否已跑过自动补写
+  const diaryBackfillRef = useRef(false); // 一键补齐是否正在跑（逐天串行，不许并发）
   const schedRunRef = useRef(false); // 本次打开行程是否已跑过「当天给所有人生成」
   const schedulesRef = useRef({});
   const [rels, setRels] = useState({});
@@ -6133,9 +6134,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!char) return;
     if (diaryFlightRef.current.has(charId)) return;
     if (!active) { if (opts.manual) toast("请先到设置配置 API"); return; }
-    const targetTs = diaryTargetTs();
+    // opts.targetTs:补写指定的某一天(一键补齐用);不给就照常写昨天
+    const targetTs = opts.targetTs || diaryTargetTs();
     const targetKey = schedDayKey(new Date(targetTs));
-    if (diaryWroteFor(charId, targetTs)) { if (opts.manual) toast("昨天的日记已经写过了"); return; }
+    if (diaryWroteFor(charId, targetTs)) { if (opts.manual && !opts.targetTs) toast("昨天的日记已经写过了"); return; }
     // 必须在第一个 await 之前同步占锁；setState 只负责界面，不承担正确性。
     diaryFlightRef.current.add(charId);
     setDiaryBusy(b => ({ ...b, [charId]: true }));
@@ -6183,7 +6185,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
       // 日记归入线下创作线路；角色专线仍最高优先（如小克接 Fable），无专线才回退全局线下主 API。
-      const d = await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
+      const d = await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
@@ -6289,6 +6291,35 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         await genDiary(c.id, { manual: false });
       }
     } catch (e) { diaryRunRef.current = false; } // 整批失败就放开，下次开 app 或换天再补
+  };
+  // 一键补齐:找出这个角色最近 14 天里漏掉的日子,从最早的一天开始【逐天】写。
+  // 逐天而不是一把梭:每写完一天立刻落盘,中途失败已完成的都保得住,不至于一次失败全白花。
+  const backfillDiary = async charId => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    if (diaryBackfillRef.current) { toast("正在补,别急"); return; }
+    const days = [];
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(22, 30, 0, 0);
+      if (!diaryWroteFor(charId, d.getTime())) days.push(d.getTime());
+    }
+    days.reverse(); // 从最早的一天往回补,时间顺序才对
+    if (!days.length) { toast("最近两周没有漏掉的"); return; }
+    if (!confirm("补齐最近 14 天里漏掉的 " + days.length + " 篇?会一天一天写,中途失败已写好的都保留。")) return;
+    diaryBackfillRef.current = true;
+    let done = 0;
+    try {
+      for (const ts of days) {
+        const before = (diariesRef.current[charId] || []).length;
+        await genDiary(charId, { manual: false, targetTs: ts });
+        if ((diariesRef.current[charId] || []).length <= before) {
+          toast("补到 " + new Date(ts).toLocaleDateString("zh-CN") + " 时失败了，已写好 " + done + " 篇，稍后再点一次接着补", 6000);
+          return;
+        }
+        done++;
+        toast("已补 " + done + "/" + days.length, 1200);
+      }
+      toast("补齐了 " + done + " 篇");
+    } finally { diaryBackfillRef.current = false; }
   };
   // 打开 App 就补(延后 6 秒，别和首屏渲染、第一条消息抢)；之后每次跨天自动再跑一次。
   // diaryDayKey 由每 30 秒走一次的 now 推出来，零点后最迟半分钟就会触发。
@@ -10474,6 +10505,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     commentingId: diaryCommenting,
     onBack: () => setScreen("home"),
     onGen: genDiary,
+    onBackfill: backfillDiary,
     onDelEntry: delDiaryEntry,
     onSaveFields: saveDiaryFields,
     onAddMyEntry: addMyDiaryEntry,

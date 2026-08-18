@@ -6189,7 +6189,8 @@ function DiaryBarcode({ seed, color, h: hh = 26 }) {
   return h("div", { style: { display: "flex", gap: 1, alignItems: "flex-end" } }, bars);
 }
 function diaryPreview(e) {
-  const p = (e.paras || []).find(x => !x.secret) || (e.paras || [])[0];
+  // 摘要别拿划掉的半句或贴进来的票根当开头，那两样单看都不成句
+  const p = (e.paras || []).find(x => !x.secret && !x.struck && !x.pasted) || (e.paras || []).find(x => !x.secret) || (e.paras || [])[0];
   return p ? p.text : "";
 }
 
@@ -6232,6 +6233,8 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
           hasSecret && h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: "0.14em", color: t.fog, marginBottom: 20, textAlign: "center" } }, "[ TAP THE BLURRED INK TO REVEAL ]"),
           (entry.paras || []).map((p, i) => {
             const hidden = p.secret && !revealed[i];
+            // 贴进来的东西：像真的贴了张纸条上去，单独一块、不当正文排
+            if (p.pasted) return h("div", { key: i, style: { margin: "6px 0 22px", padding: "11px 13px", background: t.bg2, borderLeft: "2px solid " + t.line, borderRadius: "2px 8px 8px 2px", boxShadow: "0 2px 8px rgba(0,0,0,.07)", transform: "rotate(-.5deg)", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, p.text);
             return h("p", {
               key: i,
               onClick: hidden ? () => setRevealed(r => ({ ...r, [i]: true })) : undefined,
@@ -6240,7 +6243,10 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
                 filter: hidden ? "blur(5.5px)" : "none",
                 cursor: hidden ? "pointer" : "auto",
                 userSelect: hidden ? "none" : "auto",
-                opacity: p.secret && !hidden ? 0.86 : 1,
+                // 划掉的那句仍看得见，只是被划了一道并淡下去
+                textDecoration: p.struck ? "line-through" : "none",
+                textDecorationThickness: p.struck ? "1px" : undefined,
+                opacity: p.struck ? 0.42 : (p.secret && !hidden ? 0.86 : 1),
                 transition: "filter .35s ease"
               }
             }, p.text);
@@ -6416,7 +6422,7 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
@@ -6498,11 +6504,18 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         onBack: () => setView("archive"),
         right: isMe
           ? h("button", { onClick: () => setView("compose"), className: "active:opacity-50" }, h(IPencil, { size: 18, color: t.ink }))
-          : h("button", {
-              onClick: () => { if (gb) return; if (done) { toast && toast("昨天的日记已经写过了"); return; } onGen(curId, { manual: true }); },
-              disabled: gb, className: "active:opacity-50 disabled:opacity-40",
-              style: { opacity: done && !gb ? 0.35 : 1 }
-            }, gb ? h(IPulse, { size: 18, color: t.ink }) : h(IPencil, { size: 18, color: t.ink }))
+          : h("div", { className: "flex items-center gap-3" },
+              // 补齐漏记的那几天：逐天写，写一天存一天
+              h("button", {
+                onClick: () => { if (gb) return; onBackfill && onBackfill(curId); },
+                disabled: gb, className: "active:opacity-50 disabled:opacity-40",
+                style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, letterSpacing: .3 }
+              }, "补齐"),
+              h("button", {
+                onClick: () => { if (gb) return; if (done) { toast && toast("昨天的日记已经写过了"); return; } onGen(curId, { manual: true }); },
+                disabled: gb, className: "active:opacity-50 disabled:opacity-40",
+                style: { opacity: done && !gb ? 0.35 : 1 }
+              }, gb ? h(IPulse, { size: 18, color: t.ink }) : h(IPencil, { size: 18, color: t.ink })))
       }),
       h("div", { className: "flex-1 overflow-y-auto px-6 pb-10", onTouchStart: onTS, onTouchEnd: onTE },
         gb && h(Spinner, { label: curAuthor.name + " 正在记录昨天…" }),
