@@ -55,6 +55,59 @@
     (msgs || []).forEach(m => { const t = (m.id || "") + "|" + (m.content || ""); for (let i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) >>> 0; });
     return h.toString(36) + "_" + (msgs || []).length;
   }
+
+  // 不同供应商对“只输出 JSON”的服从方式并不一致。Gemini 通常直接给对象，
+  // Claude/部分中转偶尔会多包一层 JSON 字符串，或在字符串里留下未转义换行。
+  // 小剧场正文绝不能因此退化成显示整坨协议原文（scene/goalReached/...）。
+  const escapeJsonStringControls = value => {
+    let out = "", inString = false, escaped = false;
+    for (const ch of String(value || "")) {
+      if (!inString) {
+        out += ch;
+        if (ch === '"') inString = true;
+        continue;
+      }
+      if (escaped) { out += ch; escaped = false; continue; }
+      if (ch === "\\") { out += ch; escaped = true; continue; }
+      if (ch === '"') { out += ch; inString = false; continue; }
+      if (ch === "\n") { out += "\\n"; continue; }
+      if (ch === "\r") { out += "\\r"; continue; }
+      if (ch === "\t") { out += "\\t"; continue; }
+      out += ch;
+    }
+    return out;
+  };
+  const parseTheaterPayload = raw => {
+    let value = null;
+    const candidates = [String(raw || ""), escapeJsonStringControls(raw)];
+    for (const candidate of candidates) {
+      value = typeof extractJSON === "function" ? extractJSON(candidate) : null;
+      if (value != null) break;
+    }
+    // 兼容 `"{\"scene\":...}"` 以及 `{scene:"{\"scene\":...}"}` 两种双包层。
+    for (let depth = 0; depth < 3; depth++) {
+      if (typeof value === "string") {
+        const nested = (typeof extractJSON === "function" && extractJSON(value))
+          || (typeof extractJSON === "function" && extractJSON(escapeJsonStringControls(value)));
+        if (nested == null) break;
+        value = nested;
+        continue;
+      }
+      if (value && typeof value === "object" && typeof value.scene === "string" && /^\s*\{\s*"(?:scene|draftScene)"\s*:/.test(value.scene)) {
+        const nested = (typeof extractJSON === "function" && extractJSON(value.scene))
+          || (typeof extractJSON === "function" && extractJSON(escapeJsonStringControls(value.scene)));
+        if (!nested || typeof nested !== "object") break;
+        value = Object.assign({}, value, nested);
+        continue;
+      }
+      break;
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const scene = typeof value.scene === "string" ? value.scene.trim() : "";
+    // 最后一层保险：协议对象仍像协议对象时，宁可重试，也不污染剧情历史。
+    if (!scene || /^\s*\{\s*"(?:scene|draftScene|goalReached)"\s*:/.test(scene)) return null;
+    return Object.assign({}, value, { scene });
+  };
   // 取景骰子(v53.27):没关键词时让模型「自由发挥」,它每次都掷出同一个众数——
   // 民国租界 + 一方走投无路 + 另一方手里握着唯一能救她的物件。根因是目标契约
   // (他做出/有代价/不可逆/由她促成)最省力的解只有那一个拓扑,再加上提示词里
@@ -282,7 +335,8 @@
         else hist.push({ role: "user", content: "(继续)" + tail });
         // 自修轮要多写一份初稿,预算给足,否则终稿会被截断
         const raw = await callAI(props.active, sys, hist, { maxTokens: selfRevise ? 6000 : 3200, timeout: 180000 });
-        const p = extractJSON(raw) || { scene: String(raw || "").replace(/```(?:json)?/gi, "").trim() };
+        const p = parseTheaterPayload(raw);
+        if (!p) throw new Error("模型返回的剧情格式无法解析，已拦住协议原文；请再按一次「演」");
         // 自修轮:draftScene 只是内部草稿,scene 才是进历史的终稿;终稿缺失就当本轮失败重试,
         // 绝不拿草稿顶上——那等于把去认证句这一步悄悄跳过
         if (selfRevise && p.draftScene && !String(p.scene || "").trim()) throw new Error("模型没写出自修终稿,再按一次「演」");
@@ -351,8 +405,8 @@
         const sys = ANTI_CLICHE + "\n\n" + OFFLINE_NARRATIVE_RUNTIME + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\"}";
         const user = "【设定】" + line.setting + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2600, timeout: 150000 });
-        const p = extractJSON(raw) || { scene: String(raw || "").replace(/```(?:json)?/gi, "").trim() };
-        if (!p.scene) throw new Error("终场没写出来");
+        const p = parseTheaterPayload(raw);
+        if (!p || !p.scene) throw new Error("终场格式无法解析，已拦住协议原文；请再试一次");
         update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: true, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), curtain: true }] }) }));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
