@@ -20,3 +20,14 @@ test("退出被安全闸拦住时界面明说本机数据已保留", () => {
   assert.match(screens, /未退出：最新数据还没安全备份/);
   assert.match(screens, /本机内容已保留/);
 });
+
+test("自动备份只投影保护字段，且慢网时不得并发叠发整包", () => {
+  const collect = cloud.match(/async collectForSave\(userId\) \{([\s\S]*?)\n      return dump;\n    \},/);
+  assert.ok(collect, "collectForSave body should remain inspectable");
+  assert.doesNotMatch(collect[1], /\.select\(["']data["']\)/,
+    "ordinary backup must never download the whole saves.data row first");
+  assert.match(collect[1], /data->x_memLib/);
+  assert.match(collect[1], /data->x_loreEntries/);
+  assert.match(cloud, /const protectedSaveCache = new Map\(\)/);
+  assert.match(cloud, /if \(pushInFlight\) \{ pushAgain = true; return pushInFlight; \}/);
+});

@@ -12,6 +12,9 @@
   let suspend = false; // apply() 期间挂起，避免写回触发反向 push
   let frozen = false;  // 云端恢复写回后锁死本地 x_ 写入：等重载期间，旧 React 状态再 saveJSON 也覆盖不了刚恢复的数据（防「恢复到一半」竞态）
   let pushTimer = null; // 防抖计时器
+  let pushInFlight = null; // 同一时刻只许一份整包备份在路上，慢网时绝不叠发
+  let pushAgain = false;   // 在途期间又有变化：收尾后只补最后一份
+  const protectedSaveCache = new Map(); // 冻结回滚字段每账号/每页面只读一次，杜绝每次小改下载整行 saves
   const MARK = "cloud_pushed_at"; // 本机最后一次成功 push 的时间戳（无 x_ 前缀，不进存档）
   const tableMemoryMode = () => { try { return localStorage.getItem("memory_table_authority_v1") === "1"; } catch (e) { return false; } };
   // 开机快照：本脚本执行(app 之前)时本地是否已有存档。localStorage 跨刷新持久，
@@ -64,20 +67,37 @@
         } catch (e) {}
       };
       await embedRefs("x_characters"); await embedRefs("x_profile");
-      if (tableMemoryMode()) {
-        const { data, error } = await client.from("saves").select("data").eq("user_id", userId).maybeSingle();
-        if (error) throw error; // 宁可这次不备份，也不带着未知状态覆盖并删掉旧记忆副本
-        if (data && data.data && data.data.x_memLib != null) dump.x_memLib = data.data.x_memLib;
+      const needMem = tableMemoryMode();
+      const needLore = !loreNonEmpty(dump.x_loreEntries);
+      if (needMem || needLore) {
+        let cached = protectedSaveCache.get(userId);
+        if (!cached) { cached = { loadedMem: false, loadedLore: false, pending: null }; protectedSaveCache.set(userId, cached); }
+        const missingMem = needMem && !cached.loadedMem;
+        const missingLore = needLore && !cached.loadedLore;
+        if (missingMem || missingLore) {
+          // PostgREST JSON path 投影：只取要保护的两个键，不再把 0.6~6.8MB 整行 data 下载回来。
+          // pending 合并同一时刻的 push，避免慢网下首读也重叠。
+          if (!cached.pending) {
+            const fields = [];
+            if (missingMem) fields.push("data->x_memLib");
+            if (missingLore) fields.push("data->x_loreEntries");
+            cached.pending = client.from("saves").select(fields.join(",")).eq("user_id", userId).maybeSingle()
+              .then(({ data, error }) => {
+                if (error) throw error;
+                if (missingMem) { cached.x_memLib = data && data.x_memLib; cached.loadedMem = true; }
+                if (missingLore) { cached.x_loreEntries = data && data.x_loreEntries; cached.loadedLore = true; }
+              }).finally(() => { cached.pending = null; });
+          }
+          await cached.pending;
+        }
+        if (needMem && cached.x_memLib != null) dump.x_memLib = cached.x_memLib;
+        if (needLore && loreNonEmpty(cached.x_loreEntries)) {
+          dump.x_loreEntries = cached.x_loreEntries;
+          try { console.warn("[Cloud] 世界书防呆：本机为空，保留云端词条，未被覆盖"); } catch (e) {}
+        }
       }
       // 世界书防呆（本地→推云方向）：本机世界书是空的、但云端那份还有词条 → 别用空的盖掉云端，把云端那份原样带回。
       // 只在本机空时才多读一次云（正常有词条时零额外开销）。
-      if (!loreNonEmpty(dump.x_loreEntries)) {
-        try {
-          const { data } = await client.from("saves").select("data").eq("user_id", userId).maybeSingle();
-          const cloudLore = data && data.data && data.data.x_loreEntries;
-          if (loreNonEmpty(cloudLore)) { dump.x_loreEntries = cloudLore; try { console.warn("[Cloud] 世界书防呆：本机为空，保留云端词条，未被覆盖"); } catch (e) {} }
-        } catch (e) {/* 读云失败就照常推，不阻断整次备份 */}
-      }
       return dump;
     },
 
@@ -170,6 +190,7 @@
         password,
       });
       if (error) throw error;
+      protectedSaveCache.clear();
       try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
       return data;
     },
@@ -182,6 +203,7 @@
       // 共享聊天账本 outbox 不属于 x_ saves：先尽力投递，随后清本机队列，绝不把旧账号消息带给下个账号。
       try { if (window.ChatLedgerShadow) await window.ChatLedgerShadow.flush(); } catch (e) {}
       if (client) await client.auth.signOut();
+      protectedSaveCache.clear();
       // 清空本地所有 x_ 存档：退出＝回到初始空账号，数据只在云端。挂起同步避免删除触发 push
       suspend = true;
       try {
@@ -937,7 +959,8 @@
     markDirty() {
       if (!client || suspend) return;
       clearTimeout(pushTimer);
-      pushTimer = setTimeout(() => this.autoPush(), 2500);
+      // 聊天/状态常在几秒内连写许多 x_ 键；合成一份备份即可。切后台仍会立刻补推。
+      pushTimer = setTimeout(() => this.autoPush(), 12000);
     },
 
     // 本地是不是「有意义的存档」：至少建过一个角色才算。空壳（新设备/新标签页开机自动写的几个默认键）
@@ -951,19 +974,22 @@
     async autoPush() {
       if (!client) return;
       if (!this.localMeaningful()) return; // 空壳绝不自动上云（手动推送在设置里另有确认）
-      try {
-        const user = await this.getUser();
-        if (!user) return; // 访客模式：纯本地
-        const ts = new Date().toISOString();
-        const saveData = await this.collectForSave(user.id);
-        const { error } = await client.from("saves").upsert({
-          user_id: user.id,
-          data: saveData,
-          updated_at: ts,
-        });
-        if (!error) localStorage.setItem(MARK, ts);
-      } catch (e) {
-        // 离线或网络错误：静默，等下一次变动重试
+      if (pushInFlight) { pushAgain = true; return pushInFlight; }
+      pushInFlight = (async () => {
+        try {
+          const user = await this.getUser();
+          if (!user) return; // 访客模式：纯本地
+          const ts = new Date().toISOString();
+          const saveData = await this.collectForSave(user.id);
+          const { error } = await client.from("saves").upsert({ user_id: user.id, data: saveData, updated_at: ts });
+          if (!error) localStorage.setItem(MARK, ts);
+        } catch (e) {
+          // 离线或网络错误：静默，等下一次变动重试
+        }
+      })();
+      try { await pushInFlight; } finally {
+        pushInFlight = null;
+        if (pushAgain) { pushAgain = false; this.markDirty(); }
       }
     },
 

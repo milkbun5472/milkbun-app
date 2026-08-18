@@ -37,6 +37,36 @@ for (const table of TABLES) {
   rows.push({ table, count: Number.isFinite(count) ? count : null, state: r.ok ? 'ok' : `http_${r.status}` });
 }
 
+// 只量 JSON 响应体的本地字节数，不打印任何用户正文。用于定位 PostgREST
+// egress 是否来自「高频整行读取」；审计本身只在人工运行时执行一次。
+const jsonBytes = value => Buffer.byteLength(JSON.stringify(value ?? null), 'utf8');
+async function payloadSizes(table, select, orderKey) {
+  const url = new URL(`${BASE}/rest/v1/${table}`);
+  url.searchParams.set('select', select);
+  if (orderKey) url.searchParams.set('order', `${orderKey}.asc`);
+  const r = await fetch(url, { headers: { ...headers, Range: '0-9999' } });
+  if (!r.ok) return { state: `http_${r.status}` };
+  const data = await r.json();
+  const sizes = (Array.isArray(data) ? data : []).map((row, index) => ({
+    key: `row_${index + 1}`,
+    bytes: jsonBytes(row.data ?? row.msgs ?? row.embedding ?? row),
+  }));
+  return {
+    state: 'ok', rows: sizes.length,
+    responseKeys: Array.isArray(data) && data[0] ? Object.keys(data[0]).sort() : [],
+    totalBytes: sizes.reduce((n, row) => n + row.bytes, 0),
+    maxBytes: sizes.reduce((n, row) => Math.max(n, row.bytes), 0),
+    byRow: sizes,
+  };
+}
+
+const payloads = {
+  savesData: await payloadSizes('saves', 'user_id,data', 'user_id'),
+  savesLegacyMemory: await payloadSizes('saves', 'user_id,data->x_memLib', 'user_id'),
+  savesLore: await payloadSizes('saves', 'user_id,data->x_loreEntries', 'user_id'),
+  chatArchiveMsgs: await payloadSizes('chat_archive', 'char_id,msgs', 'char_id'),
+};
+
 let storage = { objects: null, bytes: null, state: 'not_available' };
 const br = await fetch(`${BASE}/storage/v1/bucket`, { headers });
 if (br.ok) {
@@ -64,4 +94,4 @@ if (br.ok) {
   };
 }
 
-console.log(JSON.stringify({ auditedAt: new Date().toISOString(), tables: rows, storage }, null, 2));
+console.log(JSON.stringify({ auditedAt: new Date().toISOString(), tables: rows, payloads, storage }, null, 2));
