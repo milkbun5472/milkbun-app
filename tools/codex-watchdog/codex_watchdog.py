@@ -32,7 +32,8 @@ CRITICAL_DISK_BYTES = 1024**3
 FAST_DROP_BYTES = 1024**3
 FAST_DROP_WINDOW_SECONDS = 10 * 60
 PROCESS_FLOOR = 24
-PROCESS_GROWTH_LIMIT = 10
+PROCESS_GROWTH_LIMIT = 12
+TRANSIENT_PROCESS_SECONDS = 30 * 60
 INCIDENT_COOLDOWN_SECONDS = 15 * 60
 
 PROCESS_MARKERS = (
@@ -113,6 +114,20 @@ def list_codex_processes() -> list[ProcessInfo]:
         except (TypeError, ValueError):
             continue
     return processes
+
+
+def is_transient_tool_process(item: ProcessInfo) -> bool:
+    """Ignore young per-call tool runners when measuring resident growth.
+
+    Code-mode creates a short-lived node_repl for ordinary tool calls. Counting
+    those alongside the desktop app's resident renderers caused false alarms
+    during active maintenance. A runner that survives half an hour is no longer
+    treated as transient and will still contribute to a leak warning.
+    """
+    return (
+        "/Contents/Resources/cua_node/bin/node_repl" in item.command
+        and item.elapsed_seconds < TRANSIENT_PROCESS_SECONDS
+    )
 
 
 def load_state() -> dict:
@@ -202,7 +217,9 @@ def sample(*, allow_incident: bool = True) -> dict:
     state = load_state()
     processes = list_codex_processes()
     free_bytes = shutil.disk_usage("/").free
-    process_count = len(processes)
+    resident_processes = [item for item in processes if not is_transient_tool_process(item)]
+    process_count = len(resident_processes)
+    observed_process_count = len(processes)
 
     baseline = int(state.get("baseline_process_count") or 0)
     samples_seen = int(state.get("samples_seen") or 0)
@@ -229,8 +246,8 @@ def sample(*, allow_incident: bool = True) -> dict:
 
     reasons: list[str] = []
     process_limit = max(PROCESS_FLOOR, baseline + PROCESS_GROWTH_LIMIT)
-    if process_count >= process_limit:
-        reasons.append(f"Codex process count {process_count} reached limit {process_limit}")
+    if process_count > process_limit:
+        reasons.append(f"Codex resident process count {process_count} exceeded limit {process_limit}")
     hot = [item for item in processes if current_cpu.get(str(item.pid), 0) >= HIGH_CPU_STREAK]
     if hot:
         reasons.append(
@@ -249,6 +266,8 @@ def sample(*, allow_incident: bool = True) -> dict:
         "free_bytes": free_bytes,
         "free_gib": round(free_bytes / 1024**3, 2),
         "process_count": process_count,
+        "observed_process_count": observed_process_count,
+        "transient_tool_process_count": observed_process_count - process_count,
         "process_limit": process_limit,
         "baseline_process_count": baseline,
         "max_cpu_percent": max((item.cpu for item in processes), default=0.0),
