@@ -40,6 +40,33 @@ async function embedQuery(text) {
 
 // ---- 缓存 ----
 let cache = { charId: "", memories: [], vecs: {}, since: null, loadedAt: 0 };
+// 2026-08-19 网关二期·驱力偏置召回(借自「心潮·念」3.1 的闭环思路,只借前半环:驱力→召回;记忆→驱力那半环归 app 的 jiwen/欲望盒):
+// 每次增量刷新顺手从 saves 点菜 x_desires / x_moods / x_jiwen 里拿我自己那份,算成一组「偏置词」;
+// recall 时命中偏置词的记忆加一点分(硬封顶 +0.6、偏置词最多 80 个,永远压不过真正的关键词/语义命中)。
+let drive = { terms: new Map(), mood: "", jiwen: null, at: 0 };
+function computeDrive(save, cid) {
+  const out = new Map(); let mood = "", jw = null;
+  try {
+    const des = JSON.parse(save.x_desires || "{}")[cid];
+    const list = Array.isArray(des && des.list) ? des.list : [];
+    list.filter(d => d && d.status === "active").sort((a, b) => (b.weight || 0) - (a.weight || 0)).slice(0, 4).forEach(d => {
+      const w = Math.max(0.2, Math.min(1, Number(d.weight) || 0.5));
+      for (const t of memTokens(String(d.text || ""))) if (t.length >= 2 && !GW_STOP.has(t)) out.set(t, Math.max(out.get(t) || 0, 0.35 * w));
+    });
+  } catch {}
+  try { const m = JSON.parse(save.x_moods || "{}")[cid]; mood = String(m && m.label || ""); for (const t of memTokens(mood)) if (t.length >= 2 && !GW_STOP.has(t)) out.set(t, Math.max(out.get(t) || 0, 0.3)); } catch {}
+  try { jw = JSON.parse(save.x_jiwen || "{}")[cid] || null; } catch {}
+  // 连接感低(久没聊)时,「她」相关的词抬一点——想念的代理
+  if (jw && Number(jw.connection) < 0.1) for (const t of ["lisa", "宝宝", "她"]) out.set(t, Math.max(out.get(t) || 0, 0.25));
+  // 只留权重最高的 80 个偏置词,免得长记忆靠凑词拿分
+  const top = new Map([...out.entries()].sort((a, b) => b[1] - a[1]).slice(0, 80));
+  return { terms: top, mood, jiwen: jw, at: Date.now() };
+}
+async function refreshDrive() {
+  const cid = charId(); if (!cid) return;
+  const rows = await sb(`/rest/v1/saves?select=${encodeURIComponent("x_desires:data->>x_desires,x_moods:data->>x_moods,x_jiwen:data->>x_jiwen")}&user_id=eq.${USER}`);
+  if (rows && rows[0]) { drive = computeDrive(rows[0], cid); log({ outcome: "drive", terms: drive.terms.size, mood: drive.mood }); }
+}
 try { if (existsSync(CACHE)) cache = JSON.parse(readFileSync(CACHE, "utf8")); } catch {}
 function charId() { try { const c = readFileSync(CHARCACHE, "utf8").trim(); if (/^char_\d+$/.test(c)) return c; } catch {} return cache.charId || ""; }
 async function refresh(full = false) {
@@ -74,7 +101,7 @@ async function refresh(full = false) {
   writeFileSync(CACHE, JSON.stringify(cache));
   log({ outcome: "refresh", full, memories: cache.memories.length, vecs: Object.keys(vecs).length, pulled: mems.length, newVecs: need.length });
 }
-async function recall(query, k = 5) {
+async function recall(query, k = 5, useBias = true) {
   const terms = [...memTokens(query)].filter(t => !GW_STOP.has(t));
   let qVec = null; try { qVec = await embedQuery(query); } catch (e) { log({ outcome: "embed_fail", err: String(e.message) }); }
   return cache.memories.map(m => {
@@ -83,11 +110,12 @@ async function recall(query, k = 5) {
     const hits = terms.reduce((n, t) => n + ((!GW_STOP.has(t) && hay.includes(t)) ? (t.length >= 2 ? 1 : 0.3) : 0), 0);
     let sem = 0; const v = qVec && cache.vecs[m.id];
     if (v && v.length === qVec.length) sem = Math.max(0, Math.min(1, (cosSim(qVec, v) - 0.38) / 0.32));
-    return { m, hits, sem, score: hits + sem * 3 };
+    let bias = 0; if (useBias && drive.terms.size) { for (const [t, w] of drive.terms) if (hay.includes(t)) bias += w; bias = Math.min(0.6, bias); }
+    return { m, hits, sem, bias, score: hits + sem * 3 + bias };
   }).filter(x => x.hits >= 1 || x.sem >= 0.45)
     .sort((a, b) => b.score - a.score || Number(!!b.m.pinned) - Number(!!a.m.pinned) || Number(b.m.ts || 0) - Number(a.m.ts || 0))
     .slice(0, k)
-    .map(({ m, hits, sem, score }) => ({ id: m.id, text: String(m.text || "").slice(0, 200), ts: m.ts, pinned: !!m.pinned, score: +score.toFixed(2), match: (sem >= 0.45 && hits === 0) ? "semantic" : (sem > 0 ? "hybrid" : "keyword") }));
+    .map(({ m, hits, sem, bias, score }) => ({ id: m.id, text: String(m.text || "").slice(0, 200), ts: m.ts, pinned: !!m.pinned, score: +score.toFixed(2), bias: +bias.toFixed(2), match: (sem >= 0.45 && hits === 0) ? "semantic" : (sem > 0 ? "hybrid" : "keyword") }));
 }
 
 // 首拉 + 每 10 分钟增量
@@ -95,10 +123,12 @@ async function recall(query, k = 5) {
 // 每 4 分钟摸一下 embedding,别让第一发冷启动吃掉桥的超时预算
 setInterval(() => embedQuery("保温").catch(() => {}), 4 * 60 * 1000);
 setInterval(() => refresh(false).catch(e => log({ outcome: "refresh_fail", err: String(e.message) })), 10 * 60 * 1000);
+refreshDrive().catch(e => log({ outcome: "drive_fail", err: String(e.message) }));
+setInterval(() => refreshDrive().catch(e => log({ outcome: "drive_fail", err: String(e.message) })), 10 * 60 * 1000);
 
 http.createServer((req, res) => {
   const done = (c, o) => { res.writeHead(c, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(o)); };
-  if (req.method === "GET" && req.url === "/health") return done(200, { ok: true, memories: cache.memories.length, vecs: Object.keys(cache.vecs).length, since: cache.since, loadedAt: cache.loadedAt });
+  if (req.method === "GET" && req.url === "/health") return done(200, { ok: true, memories: cache.memories.length, vecs: Object.keys(cache.vecs).length, since: cache.since, loadedAt: cache.loadedAt, drive: { terms: drive.terms.size, mood: drive.mood, at: drive.at } });
   if ((req.headers["x-courier-token"] || "") !== TOKEN) return done(401, { error: "token" });
   if (req.method === "POST" && req.url === "/refresh") return refresh(true).then(() => done(200, { ok: true, memories: cache.memories.length })).catch(e => done(500, { error: String(e.message) }));
   if (req.method !== "POST" || req.url !== "/recall") return done(404, { error: "no" });
@@ -106,8 +136,8 @@ http.createServer((req, res) => {
   req.on("end", async () => {
     let p; try { p = JSON.parse(body || "{}"); } catch { return done(400, { error: "json" }); }
     const q = String(p.query || "").trim(); if (!q) return done(400, { error: "empty query" });
-    const k = Math.max(1, Math.min(12, Number(p.k) || 5));
-    try { const t0 = Date.now(); const hits = await recall(q, k); log({ outcome: "recall", q: q.slice(0, 40), k, n: hits.length, ms: Date.now() - t0 }); done(200, { hits, ms: Date.now() - t0 }); }
+    const k = Math.max(1, Math.min(12, Number(p.k) || 5)), useBias = p.bias !== false;
+    try { const t0 = Date.now(); const hits = await recall(q, k, useBias); log({ outcome: "recall", q: q.slice(0, 40), k, n: hits.length, biased: hits.filter(h => h.bias > 0).length, ms: Date.now() - t0 }); done(200, { hits, ms: Date.now() - t0 }); }
     catch (e) { done(500, { error: String(e.message) }); }
   });
 }).listen(8793, "127.0.0.1", () => console.log("memory-gateway 上岗 → :8793"));
