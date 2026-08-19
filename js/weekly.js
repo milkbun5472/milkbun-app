@@ -183,6 +183,39 @@
     b.setDate(b.getDate() + 7);
     return b.getTime();
   }
+  // 往期补刊候选：过去一年里【有真实 RP 素材、但书架上没有刊】的完整周。
+  // 这里只在本地扫一遍消息时间，不调用模型；当前可出刊周仍由封面负责，不在这里重复出现。
+  function missedWindows(characters, groups, issues, userName, now) {
+    const current = reportWindow(now), weekKeys = {};
+    const gset = loadJSON("x_groupSettings", {});
+    function remember(m) {
+      if (!m || !m.ts || !cleanMsg(m) || m.ts >= current.start) return;
+      const shifted = new Date(m.ts);
+      shifted.setHours(shifted.getHours() - WEEKLY_REFRESH_HOUR);
+      const monday = new Date(shifted);
+      monday.setHours(WEEKLY_REFRESH_HOUR, 0, 0, 0);
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      weekKeys[ymd(monday)] = monday.getTime();
+    }
+    (characters || []).forEach(function (c) {
+      loadJSON("x_chat:" + c.id, []).forEach(remember);
+    });
+    (groups || []).forEach(function (g) {
+      if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
+      loadJSON("x_gchat:" + g.id, []).forEach(remember);
+    });
+    const made = {};
+    (issues || []).forEach(function (iss) { if (iss && iss.key) made[iss.key] = true; });
+    return Object.keys(weekKeys).filter(function (key) {
+      const age = current.start - weekKeys[key];
+      return !made[key] && age > 0 && age <= MAX_ISSUES * 7 * 86400000;
+    }).map(function (key) {
+      const start = new Date(weekKeys[key]);
+      const next = new Date(start); next.setDate(next.getDate() + 7);
+      const endSun = new Date(next); endSun.setDate(endSun.getDate() - 1);
+      return { start: start.getTime(), end: next.getTime() - 1, key: key, label: fmtRange(start, endSun) };
+    }).sort(function (a, b) { return b.start - a.start; });
+  }
   // 期数动态算：= 这一期的周距【最早那一期】相差几周 + 1（锚定最早一期）。
   // 删最早一期→锚点前移、后面全体递减；删中间一期→最早没变、后面数字不变、中间留空号。
   function issueNo(issue, issues) {
@@ -587,7 +620,7 @@
   function genState() { return { busy: _gen.busy, key: _gen.key, prog: _gen.prog }; }
   function startGenerate(opts) {
     // opts: { active, characters, groups, userName, win, toast }
-    if (_gen.busy && _gen.key === opts.win.key) return _gen.promise; // 已在出这一期 → 不重复触发
+    if (_gen.busy) return _gen.promise; // 后台一次只装订一本；避免本期和补刊互相覆盖进度
     _gen.busy = true; _gen.key = opts.win.key; _gen.prog = { done: 0, total: 0, label: "整理上周素材" };
     _emit();
     _gen.promise = (async function () {
@@ -615,6 +648,7 @@
     WEEKLY_REFRESH_HOUR: WEEKLY_REFRESH_HOUR, VOICES: VOICES, voiceOf: voiceOf,
     genState: genState, genSubscribe: genSubscribe, startGenerate: startGenerate,
     loadIssues: loadIssues, saveIssues: saveIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
+    missedWindows: missedWindows,
     weekMaterial: weekMaterial, linesToText: linesToText, personasFor: personasFor,
     genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue,
     weeklyStats: weeklyStats, genDeskPage: genDeskPage, genLetters: genLetters, voicesForWeek: voicesForWeek, interviewPickFor: interviewPickFor
@@ -1063,7 +1097,7 @@
     return h("div", { className: "h-full flex flex-col", style: paperStyle(t) },
       h(WeeklyMotionStyles),
       h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { goSub(null, "prev"); } : props.onBack }),
-      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-8 pb-16" },
+      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-10 pb-16" },
         h("div", { className: "weekly-page-stage" },
         h("div", { key: currentPageKey + ":" + turn.n, className: turn.dir === "prev" ? "weekly-page-prev" : "weekly-page-next" },
         detail ? detail : h("div", null,
@@ -1089,6 +1123,19 @@
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
       h(Head, { zh: "往期", en: "BACK ISSUES", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
+        props.missed.length ? h("div", { style: { margin: "2px 0 22px", padding: "15px 14px", border: "1px solid " + t.line, borderRadius: 14, background: t.bg2 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "漏刊可补"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "4px 0 10px" } }, "只列出有当周聊天素材、但尚未出刊的完整周；补刊严格使用那一周的记录。"),
+          props.missed.map(function (win) {
+            const on = props.busyKey === win.key;
+            return h("div", { key: win.key, className: "flex items-center justify-between", style: { padding: "9px 0", borderTop: "1px solid " + t.line } },
+              h("div", null,
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, win.label),
+                h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog, marginTop: 2 } }, win.key)),
+              h("button", { disabled: !!props.busyKey, onClick: function () { props.onMakeup(win); }, className: "active:opacity-60",
+                style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.accent, fontFamily: F_BODY, fontSize: 12, color: t.accent, opacity: props.busyKey ? .48 : 1 } },
+                on ? "补刊中…" : "补做"));
+          })) : null,
         props.issues.length ? props.issues.map(function (iss) {
           return h("div", { key: iss.id, className: "flex items-center justify-between active:opacity-70", style: { padding: "14px 0", borderBottom: "1px solid " + t.line } },
             h("button", { onClick: function () { props.onOpen(iss.id); }, className: "flex-1 text-left" },
@@ -1107,6 +1154,7 @@
     const [, force] = useState(0); // 订阅后台出刊状态用（busy/prog 变化时重渲染）
     const win = window.Weekly.reportWindow();
     const currentIssue = issues.find(function (i) { return i.key === win.key; });
+    const missed = window.Weekly.missedWindows(props.characters || [], props.groups || [], issues, userName);
     // 出刊状态改读模块级——离开界面再回来，进度不丢、完成的刊自动读进来
     const gen = window.Weekly.genState();
     const busy = gen.busy && gen.key === win.key;
@@ -1134,6 +1182,15 @@
       });
     }
 
+    function doMakeup(makeupWin) {
+      if (!props.active) { props.toast("先在设置里配置好模型再补刊"); return; }
+      if (window.Weekly.genState().busy) { props.toast("另一本还在装订，等它出刊后再补"); return; }
+      window.Weekly.startGenerate({
+        active: props.active, characters: props.characters || [], groups: props.groups || [],
+        userName: userName, win: makeupWin, toast: props.toast
+      });
+    }
+
     if (view === "issue" && openId) {
       const iss = issues.find(function (x) { return x.id === openId; });
       if (iss) return h(IssueView, {
@@ -1143,7 +1200,8 @@
       setOpenId(null); setView("cover"); return null;
     }
     if (view === "shelf") return h(Shelf, {
-      issues: issues, onBack: function () { setView("cover"); }, onOpen: function (id) { setOpenId(id); setView("issue"); }, onDelete: delIssue
+      issues: issues, missed: missed, busyKey: gen.busy ? gen.key : null, onMakeup: doMakeup,
+      onBack: function () { setView("cover"); }, onOpen: function (id) { setOpenId(id); setView("issue"); }, onDelete: delIssue
     });
 
     // cover
@@ -1151,7 +1209,7 @@
       h(Head, {
         zh: "周刊", en: "THE WEEKLY",
         onBack: props.onBack,
-        right: issues.length ? h("button", { onClick: function () { setView("shelf"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "往期") : null
+        right: (issues.length || missed.length) ? h("button", { onClick: function () { setView("shelf"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "往期") : null
       }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
         busy ? h("div", null,
