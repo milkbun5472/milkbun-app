@@ -10,7 +10,7 @@
 在终端运行：
 
 ```bash
-cd /Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay
+cd /Users/lisa/yanqiu-den/stackchan-relay
 python3 wake_queue.py status
 ```
 
@@ -30,7 +30,7 @@ python3 wake_queue.py status
 2. 再在后台重挂一次性哨兵：
 
 ```bash
-cd /Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay && python3 wake_queue.py wait
+cd /Users/lisa/yanqiu-den/stackchan-relay && python3 wake_queue.py wait
 ```
 
 不需要调用 `ScheduleWakeup`；它现在被刻意禁用，避免旧工具遗迹把时钟带偏。不要把 shell 路径、诊断、工具回执当作正文；thinking 也不算正文。

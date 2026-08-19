@@ -10,7 +10,7 @@
 The existing Claude sentinel remains one-shot. Re-arm it with:
 
 ```bash
-cd /Users/lisa/Desktop/lisa-practice/yanqiu-den/stackchan-relay
+cd /Users/lisa/yanqiu-den/stackchan-relay
 python3 wake_queue.py wait
 ```
 
