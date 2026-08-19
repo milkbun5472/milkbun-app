@@ -78,7 +78,7 @@ if (mode === "--check") {
   process.exit(0);
 }
 
-const env = loadEnv(), base = "https://nposjnafsbikwfeoudbg.supabase.co", key = env.SUPABASE_SERVICE_KEY, user = env.TARGET_USER;
+const env = loadEnv(), base = (env.SUPABASE_URL || "https://yanqiu-vps.tail542792.ts.net:8443").replace(/\/$/, ""), key = env.SUPABASE_SERVICE_KEY, user = env.TARGET_USER;
 if (!key || !user) throw new Error("mcp env incomplete");
 const charId = await resolveYanqiu(base, key, user);
 const hash = createHash("sha256").update(candidate.session_id + "\0" + candidate.turn_id).digest("hex").slice(0, 32);
