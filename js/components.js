@@ -6160,6 +6160,7 @@ function GroupThread({
   settings,
   directives,
   onRemoveDirective,
+  onSetDirectiveTurns,
   onBack,
   onSend,
   onReply,
@@ -6810,6 +6811,7 @@ function GroupThread({
     characters: characters,
     directives: directives,
     onRemoveDirective: onRemoveDirective,
+    onSetDirectiveTurns: onSetDirectiveTurns,
     onSave: patch => onSaveSettings(patch),
     onSummarize: onSummarize,
     onAddMember: onAddMember,
@@ -7140,7 +7142,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
-function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirective, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClose }) {
+function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -7253,12 +7255,20 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
     // 若规矩原文里有触审词（如未成年词汇×魅惑词汇同框），会导致后续所有请求被 Gemini 硬拦、OOC 取消也发不出去（死循环）。
     (directives && directives.length > 0) ? h("div", { className: "pt-6" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "群规矩 · 你经 OOC 立下"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "这些会注入之后每一轮群聊。若某条立完后 AI 开始报「内容被拦截」，多半是那条的措辞触了审核——删掉它就能恢复。"),
-      h("div", { className: "space-y-2" }, directives.map(d => h("div", {
-        key: d.id,
-        style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
-      }, h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, d.text),
-        onRemoveDirective && h("button", { onClick: () => onRemoveDirective(d.id), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除"))))) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "这些会注入之后每一轮群聊。点「长期／临时」可以切换：临时的每聊一轮少一轮，到期自己消失，不用记得回来删。若某条立完后 AI 开始报「内容被拦截」，多半是那条的措辞触了审核——删掉它就能恢复。"),
+      h("div", { className: "space-y-2" }, directives.map(d => {
+        const temp = Number(d && d.turns) > 0;
+        return h("div", {
+          key: d.id,
+          style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+        }, h("div", { style: { flex: 1 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, d.text),
+          onSetDirectiveTurns && h("button", {
+            onClick: () => onSetDirectiveTurns(d.id, temp ? null : 10), className: "active:opacity-60",
+            style: { marginTop: 5, fontFamily: F_BODY, fontSize: 11, color: temp ? t.accent : t.fog, padding: "1px 0" }
+          }, temp ? "临时 · 还剩 " + Number(d.turns) + " 轮（点回长期）" : "长期 · 点这里改成临时 10 轮")),
+          onRemoveDirective && h("button", { onClick: () => onRemoveDirective(d.id), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除"));
+      }))) : null,
 
     // 删除群聊
     confirmDel

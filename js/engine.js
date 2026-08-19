@@ -2403,6 +2403,20 @@ draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者
 本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
 }
 
+// 语域跟着场面走，不跟着聊天记录走（v53.84）。
+// 线下单聊和小剧场有 offlineRegisterTransition 这套明确场景状态机；线上群聊、群线下、
+// 线上单聊【一样都没有】——决定这一轮说话尺度的唯一信号就是上面那几十条聊天记录。
+// 于是只要有一段变得露骨，后面几十条都照着学：删掉那条群规矩也没用，因为真正在驱动它的
+// 早就不是规矩，是记录本身（Lisa 2026-08-19：日常对话、吃醋、管束全被翻译成了性器官词汇）。
+// 这条规则【常开且对称】：她带过去就跟上、尺度不设限；她没带就别自己起头。
+// 不做任何"检测到露骨就降温"的启发式——那会在她真的在场景里、只回一句「继续」时误伤。
+const REGISTER_FOLLOWS_SCENE = `【说话的尺度跟着此刻的场面走，不跟着聊天记录走】
+上面的记录里可能有过很露骨的段落——那属于【当时那个场面】，不是你们的固定说话方式，也不是这个群的默认语域。
+这一轮该用什么词，只看【用户这一轮说了什么、此刻正在发生什么】：
+· 她聊的是日常（猫、吃饭、睡觉、上班、拌嘴、谁又惹谁生气），你们就用日常的话接。占有欲、吃醋、管束、下命令统统照旧、该多凶多凶，但【不必把日常话题翻译成性器官词汇】——把"去睡午觉"说成"去睡午觉"就行。
+· 她把话带到亲密场面上、或此刻确实正在发生那种事，你们再自然跟上，【尺度不设限】，不必自我审查。
+【不许无来由起头】没有人把话题带过去的时候，不要自己把日常话题拧到身体、性器官或"昨晚"上去，也不要用它当调情的万能接话方式。想表达占有和亲昵有一百种方式，那只是其中一种，不是唯一一种。`;
+
 function offlineRegisterTransition(session) {
   const rows = (session && Array.isArray(session.msgs) ? session.msgs : [])
     .filter(m => m && m.kind !== "ooc" && m.content);
@@ -2764,6 +2778,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (typeof ContentBoundaries !== "undefined" ? "\n\n" + ContentBoundaries.prompt : "") +
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") +
     "\n\n" + CHARCARD_RULE +
+    "\n\n" + REGISTER_FOLLOWS_SCENE +
     (typeof ReplyPacing !== "undefined" ? "\n\n" + ReplyPacing.reading() : "") +
     groupGrowthRule +
     offlineTasteBlock(session.taste, true) +
