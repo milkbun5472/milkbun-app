@@ -29,5 +29,5 @@ test("存储仪表盘能按名称显示七类金库文本", () => {
 
 test("周刊书架最多保留 52 期", () => {
   assert.match(weekly, /const MAX_ISSUES = 52/);
-  assert.match(weekly, /slice\(0, MAX_ISSUES\)/);
+  assert.match(weekly, /ordered\.slice\(Math\.max\(0, ordered\.length - MAX_ISSUES\)\)/);
 });

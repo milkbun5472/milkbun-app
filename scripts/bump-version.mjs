@@ -53,6 +53,7 @@ changed.push(`manifest.json launch → ${ver}`);
 let rescue = read("rescue.html");
 const rOld = new Set(rescue.match(/\d+\.\d+/g) || []);
 rescue = rescue
+  .replace(/(const\s+TARGET\s*=\s*")[\d.]+(";?)/, `$1${ver}$2`)
   .replace(/(app\.js\?v=|launch=|v)(5[0-9]\.[0-9]+)/g, (m, pre) => pre + ver)
   // JS 正则字面量里的点是转义形态，例如 app\.js\?v=52\.30 / v52\.30。
   .replace(/(app\\\.js\\\?v=|v)(5[0-9]\\\.[0-9]+)/g, (m, pre) => pre + ver.replace(".", "\\."));

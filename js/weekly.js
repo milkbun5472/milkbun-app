@@ -28,8 +28,18 @@
   // ---- 存储 ----------------------------------------------------------
   const K_ISSUES = "x_weekly_issues";
   const MAX_ISSUES = 52; // 本机书架最多保留约一年，避免无界增长
-  function loadIssues() { return loadJSON(K_ISSUES, []); }
-  function saveIssues(list) { saveJSON(K_ISSUES, (Array.isArray(list) ? list : []).slice(0, MAX_ISSUES)); }
+  function issueStart(x) { return Number(x && x.weekOf && x.weekOf.start) || 0; }
+  // 书架按报道周排，不按「哪天补做」排。这样补出的第 7 期会插回第 8 期前面。
+  function orderedIssues(list) {
+    return (Array.isArray(list) ? list : []).slice().sort(function (a, b) {
+      return issueStart(a) - issueStart(b) || Number(a.createdAt || 0) - Number(b.createdAt || 0);
+    });
+  }
+  function loadIssues() { return orderedIssues(loadJSON(K_ISSUES, [])); }
+  function saveIssues(list) {
+    const ordered = orderedIssues(list);
+    saveJSON(K_ISSUES, ordered.slice(Math.max(0, ordered.length - MAX_ISSUES)));
+  }
   function uid(pfx) { return (pfx || "wk") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
   // ---- 记者 NPC 人格（采访版叙述者，不碰角色卡）----------------------
@@ -110,16 +120,29 @@
     }
   ];
   function voiceOf(id) { return VOICES.find(function (v) { return v.id === id; }) || VOICES[0]; }
-  // 每期只出三个版块，从池子里抽。用周次做种子而不是 Math.random：
-  // 同一周重新生成时抽到的必须还是那三个，否则重刷一次整本刊物的构成就变了。
-  function voicesForWeek(key) {
-    let seed = 0; String(key || "").split("").forEach(function (ch) { seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; });
-    const pool = VOICES.slice(), out = [];
-    while (out.length < 3 && pool.length) {
-      seed = (seed * 1103515245 + 12345) >>> 0;
-      out.push(pool.splice(seed % pool.length, 1)[0]);
+  // 文风也走整池轮抽：一轮没抽完前不重置；袋底不足 3 个时，取完袋底再开新轮补足。
+  // 手动补出的媒体版 auto=false，不参与回放，所以不会消耗下一期的正常抽签池。
+  function voicesForWeek(key, pastIssues, weekStart) {
+    const ids = VOICES.map(function (v) { return v.id; });
+    const cut = Number(weekStart) || Infinity;
+    const past = (pastIssues || []).filter(function (x) { return issueStart(x) < cut; })
+      .slice().sort(function (a, b) { return issueStart(a) - issueStart(b); });
+    let bag = ids.slice();
+    past.forEach(function (iss) {
+      (iss.sections || []).filter(function (s) { return s.type === "media" && s.auto !== false; }).forEach(function (s) {
+        const k = bag.indexOf(s.voiceId);
+        if (k > -1) bag.splice(k, 1);
+        if (!bag.length) bag = ids.slice();
+      });
+    });
+    const r = seeded("voice" + key), out = [];
+    while (out.length < Math.min(3, ids.length)) {
+      if (!bag.length) bag = ids.filter(function (id) { return out.indexOf(id) < 0; });
+      if (!bag.length) break;
+      const id = bag.splice(Math.floor(r() * bag.length), 1)[0];
+      if (out.indexOf(id) < 0) out.push(id);
     }
-    return out;
+    return out.map(voiceOf);
   }
 
   // 采访轮换:每期至多 3 人,抽完一轮才允许重复(洗牌袋)。
@@ -542,8 +565,9 @@
     const charsWithMat = (characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
     const globalText = linesToText(mat.global, 8000);
     const empty = mat.global.length === 0;
-    const weekVoices = voicesForWeek(win.key); // 每期只出三块，抽签决定是哪三块
-    const total = 1 + Math.min(3, charsWithMat.length) + weekVoices.length + 1; // +1 = 资料室(语录/数据/更正/中缝/来信合并为一次调用)
+    const weekVoices = voicesForWeek(win.key, loadIssues(), win.start); // 每期三块，整池轮抽
+    const interviewPool = charsWithMat.concat((characters || []).filter(function (c) { return !charsWithMat.some(function (x) { return x.id === c.id; }); }));
+    const total = 1 + Math.min(3, interviewPool.length) + weekVoices.length + 1; // +1 = 资料室(语录/数据/更正/中缝/来信合并为一次调用)
     let done = 0;
     const tick = function (label) { if (onProgress) onProgress(done, total, label); };
 
@@ -560,13 +584,14 @@
 
     // 采访版
     const entries = [];
-    // 每期至多采访 3 人,洗牌袋轮换;没抽中的仍可在采访版里手动补,且不占轮次
-    const pickIds = interviewPickFor(win.key, charsWithMat.map(function (c) { return c.id; }), loadIssues(), win.start);
-    const picked = charsWithMat.filter(function (c) { return pickIds.indexOf(c.id) > -1; });
+    // 有至少 3 个角色时固定采访 3 人；本周没发言的人也可被抽中，缺席本身就是可问的新闻。
+    // 洗牌袋轮换；没抽中的仍可手动补，且不占轮次。
+    const pickIds = interviewPickFor(win.key, interviewPool.map(function (c) { return c.id; }), loadIssues(), win.start);
+    const picked = pickIds.map(function (id) { return interviewPool.find(function (c) { return c.id === id; }); }).filter(Boolean);
     for (const c of picked) {
       tick("采访 " + c.name);
       try {
-        const iv = await genInterview(active, c, linesToText(mat.perChar[c.id], 4000), userName);
+        const iv = await genInterview(active, c, linesToText(mat.perChar[c.id] || [], 4000), userName);
         entries.push(Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv));
       } catch (e) { /* 单角色硬失败就跳过，不拖垮整期 */ }
       done++;
@@ -579,9 +604,9 @@
       tick(v.name);
       try {
         const articles = batch[v.id] || await genMedia(active, v, personasFor(charsWithMat, userName), globalText, empty);
-        media.push({ id: uid("md"), type: "media", voiceId: v.id, articles: articles });
+        media.push({ id: uid("md"), type: "media", voiceId: v.id, auto: true, articles: articles });
       } catch (e) {
-        media.push({ id: uid("md"), type: "media", voiceId: v.id, articles: [{ title: v.name, body: "（本版生成失败，请点进去单独重刷。）" }] });
+        media.push({ id: uid("md"), type: "media", voiceId: v.id, auto: true, articles: [{ title: v.name, body: "（本版生成失败，请点进去单独重刷。）" }] });
       }
       done++;
     }
@@ -630,7 +655,7 @@
         const issue = await generateIssue(opts.active, opts.characters || [], opts.groups || [], opts.userName, opts.win, num,
           function (d, tot, l) { _gen.prog = { done: d, total: tot, label: l }; _emit(); });
         // 同周旧刊先剔除（重出本期=覆盖，不再留重复号）再落库
-        const list = [issue].concat(loadIssues().filter(function (x) { return x.key !== issue.key; }));
+        const list = orderedIssues([issue].concat(loadIssues().filter(function (x) { return x.key !== issue.key; })));
         saveIssues(list);
         _gen.busy = false; _gen.prog = null; _gen.promise = null; _emit();
         if (opts.toast) opts.toast("第 " + issueNo(issue, list) + " 期已出刊");
@@ -647,7 +672,7 @@
   window.Weekly = {
     WEEKLY_REFRESH_HOUR: WEEKLY_REFRESH_HOUR, VOICES: VOICES, voiceOf: voiceOf,
     genState: genState, genSubscribe: genSubscribe, startGenerate: startGenerate,
-    loadIssues: loadIssues, saveIssues: saveIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
+    loadIssues: loadIssues, saveIssues: saveIssues, orderedIssues: orderedIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
     missedWindows: missedWindows,
     weekMaterial: weekMaterial, linesToText: linesToText, personasFor: personasFor,
     genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue,
@@ -989,6 +1014,26 @@
       } catch (e) { props.toast(String(e.message || e)); }
       setBusyUnit(null);
     }
+    // 手动补本期没抽到的文风。auto=false 是关键：它只丰富这一本，不从轮抽袋里拿号。
+    async function addMediaVoice(v) {
+      if (!v || busyUnit) return;
+      setBusyUnit("add_voice_" + v.id);
+      try {
+        const mat = window.Weekly.weekMaterial(win, props.characters || [], props.groups || [], props.userName);
+        const charsWithMat = (props.characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
+        const articles = await window.Weekly.genMedia(
+          props.active, v, window.Weekly.personasFor(charsWithMat, props.userName),
+          window.Weekly.linesToText(mat.global, 8000), mat.global.length === 0
+        );
+        props.onPatch(issue.id, function (iss) {
+          if ((iss.sections || []).some(function (s) { return s.type === "media" && s.voiceId === v.id; })) return iss;
+          iss.sections = (iss.sections || []).concat([{ id: "md_" + Date.now(), type: "media", voiceId: v.id, auto: false, articles: articles }]);
+          return iss;
+        });
+        props.toast(v.name + "已补进本期，不占下期轮抽");
+      } catch (e) { props.toast(String(e.message || e)); }
+      finally { setBusyUnit(null); }
+    }
 
     // ---- 详情视图 ----
     let headZh = "本期", headEn = "ISSUE #" + num, detail = null;
@@ -1081,6 +1126,8 @@
       medias.map(function (sec) { return { key: "media:" + sec.id, label: voiceOf(sec.voiceId).name, sub: { kind: "media", id: sec.id } }; })
     );
     const currentPageKey = !sub ? "contents" : (sub.kind === "media" ? "media:" + sub.id : sub.kind);
+    const shownVoiceIds = medias.map(function (s) { return s.voiceId; });
+    const missingVoices = window.Weekly.VOICES.filter(function (v) { return shownVoiceIds.indexOf(v.id) < 0; });
     const pageIndex = pages.findIndex(function (p) { return p.key === currentPageKey; });
     if (detail && pageIndex >= 0) {
       const prev = pageIndex > 0 ? pages[pageIndex - 1] : null;
@@ -1114,6 +1161,14 @@
                 return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };
               }))
           }),
+          missingVoices.length ? h("div", { style: { marginTop: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: t.fog, marginBottom: 5 } }, "NOT IN THIS ISSUE · 本期未抽中"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginBottom: 9 } }, "想看哪一种可以单独补进来；补版不占轮抽名额，也不会改变下期的抽签池。"),
+            h("div", { className: "flex flex-wrap", style: { gap: 7 } }, missingVoices.map(function (v) {
+              const on = busyUnit === ("add_voice_" + v.id);
+              return h("button", { key: v.id, disabled: !!busyUnit, onClick: function () { addMediaVoice(v); }, className: "active:opacity-60",
+                style: { padding: "6px 10px", borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 11.5, opacity: busyUnit ? .55 : 1 } }, on ? "补版中…" : v.name);
+            }))) : null,
           h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, marginTop: 26 } }, "— 点 版 块 进 入 阅 读 —"))))));
   }
 
@@ -1128,13 +1183,17 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "4px 0 10px" } }, "只列出有当周聊天素材、但尚未出刊的完整周；补刊严格使用那一周的记录。"),
           props.missed.map(function (win) {
             const on = props.busyKey === win.key;
+            const makeupNo = window.Weekly.issueNo({ weekOf: { start: win.start } }, props.issues);
+            const progressText = on && props.progress
+              ? "补第 " + makeupNo + " 期 · " + props.progress.label + (props.progress.total ? " " + props.progress.done + "/" + props.progress.total : "")
+              : "";
             return h("div", { key: win.key, className: "flex items-center justify-between", style: { padding: "9px 0", borderTop: "1px solid " + t.line } },
               h("div", null,
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, win.label),
-                h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog, marginTop: 2 } }, win.key)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "第 " + makeupNo + " 期 · " + win.label),
+                h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".08em", color: on ? t.accent : t.fog, marginTop: 2 } }, progressText || win.key)),
               h("button", { disabled: !!props.busyKey, onClick: function () { props.onMakeup(win); }, className: "active:opacity-60",
                 style: { padding: "6px 11px", borderRadius: 999, border: "1px solid " + t.accent, fontFamily: F_BODY, fontSize: 12, color: t.accent, opacity: props.busyKey ? .48 : 1 } },
-                on ? "补刊中…" : "补做"));
+                on ? "补到第 " + makeupNo + " 期…" : "补做第 " + makeupNo + " 期"));
           })) : null,
         props.issues.length ? props.issues.map(function (iss) {
           return h("div", { key: iss.id, className: "flex items-center justify-between active:opacity-70", style: { padding: "14px 0", borderBottom: "1px solid " + t.line } },
@@ -1200,7 +1259,7 @@
       setOpenId(null); setView("cover"); return null;
     }
     if (view === "shelf") return h(Shelf, {
-      issues: issues, missed: missed, busyKey: gen.busy ? gen.key : null, onMakeup: doMakeup,
+      issues: issues, missed: missed, busyKey: gen.busy ? gen.key : null, progress: gen.prog, onMakeup: doMakeup,
       onBack: function () { setView("cover"); }, onOpen: function (id) { setOpenId(id); setView("issue"); }, onDelete: delIssue
     });
 

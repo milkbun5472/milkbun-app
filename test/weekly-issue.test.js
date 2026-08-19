@@ -22,13 +22,19 @@ test("专访接入声纹样本，资料室语录逐字验真、数据本地统�
 test("媒体腔按周抽签，来信/更正/中缝到位", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const seg = w.slice(w.indexOf("const VOICES = ["), w.indexOf("// ---- 报道周窗口"));
-  const mod = new Function(seg + "; return { VOICES: VOICES, voicesForWeek: voicesForWeek };")();
+  const mod = new Function("function seeded(){ return function(){ return .37; }; }\nfunction issueStart(x){ return Number(x&&x.weekOf&&x.weekOf.start)||0; }\n" + seg + "; return { VOICES: VOICES, voicesForWeek: voicesForWeek };")();
   assert.ok(mod.VOICES.length >= 6, "池子要够抽");
-  assert.equal(mod.voicesForWeek("2026-W31").length, 3, "每期只出三块");
-  assert.deepEqual(mod.voicesForWeek("2026-W31").map(v => v.id), mod.voicesForWeek("2026-W31").map(v => v.id),
+  assert.equal(mod.voicesForWeek("2026-W31", [], 1).length, 3, "每期只出三块");
+  assert.deepEqual(mod.voicesForWeek("2026-W31", [], 1).map(v => v.id), mod.voicesForWeek("2026-W31", [], 1).map(v => v.id),
     "同一周重抽必须一致，否则重刷会换掉整本刊物的构成");
-  assert.notDeepEqual(mod.voicesForWeek("2026-W31").map(v => v.id), mod.voicesForWeek("2026-W34").map(v => v.id),
-    "不同周应当抽出不同组合");
+  const first = mod.voicesForWeek("W1", [], 1);
+  const past = [{ weekOf: { start: 1 }, sections: first.map(v => ({ type: "media", voiceId: v.id, auto: true })) }];
+  const second = mod.voicesForWeek("W2", past, 2);
+  assert.equal(first.concat(second).slice(0, mod.VOICES.length).map(v => v.id).length,
+    new Set(first.concat(second).slice(0, mod.VOICES.length).map(v => v.id)).size,
+    "整池抽完以前不得重复文风");
+  past[0].sections.push({ type: "media", voiceId: mod.VOICES[5].id, auto: false });
+  assert.deepEqual(mod.voicesForWeek("W2", past, 2).map(v => v.id), second.map(v => v.id), "手动补版不得消耗抽签池");
   assert.match(w, /async function genLetters/, "读者来信要换立场而不是换口音");
   assert.match(w, /type: "letters"/);
   assert.match(w, /CORRECTION · 更正/);
@@ -48,7 +54,7 @@ test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次",
   assert.match(w, /scrollRef\.current\.scrollTop = 0/, "换版必须回到顶部");
   // 资料室一次调用出五块，别再各调各的
   assert.match(w, /genDeskPage\(active, globalText, stats, userName, personasFor/);
-  assert.match(w, /const total = 1 \+ Math\.min\(3, charsWithMat\.length\) \+ weekVoices\.length \+ 1;/, "每期至多采访三人");
+  assert.match(w, /const total = 1 \+ Math\.min\(3, interviewPool\.length\) \+ weekVoices\.length \+ 1;/, "有足够角色时每期固定采访三人");
 });
 
 // 采访轮换(2026-08-18 Lisa):每期至多 3 人，抽完一轮才允许重复；
@@ -61,7 +67,7 @@ test("采访洗牌袋：满一轮才重复，手动补的不占轮次", () => {
     for (; j < w.length; j++) { if (w[j] === "{") d++; else if (w[j] === "}") { d--; if (!d) { j++; break; } } }
     return w.slice(i, j);
   };
-  const m = new Function(grab("seeded") + "\n" + grab("interviewPickFor") + "\n; return { interviewPickFor };")();
+  const m = new Function("function issueStart(x){ return Number(x&&x.weekOf&&x.weekOf.start)||0; }\n" + grab("seeded") + "\n" + grab("interviewPickFor") + "\n; return { interviewPickFor };")();
   const all = ["a", "b", "c", "d", "e"], past = [];
   const seen = {};
   for (let k = 1; k <= 4; k++) {
@@ -82,4 +88,14 @@ test("采访洗牌袋：满一轮才重复，手动补的不占轮次", () => {
   past[0].sections[0].entries.push({ charId: "e", auto: false });
   assert.equal(m.interviewPickFor("W5", all, past, 5).join(""), before, "手动补的不占轮次");
   assert.match(w, /auto: false/, "手动补的条目要标出来");
+});
+
+test("补刊按实际报道周归位，并显示期号与装订进度", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  assert.match(w, /function orderedIssues\(list\)/);
+  assert.match(w, /issueStart\(a\) - issueStart\(b\)/, "书架必须按报道周而非补做时间排序");
+  assert.match(w, /补到第 /, "补刊中要显示正在补哪一期");
+  assert.match(w, /props\.progress\.done \+ "\/" \+ props\.progress\.total/, "补刊中要显示版块进度");
+  assert.match(w, /voiceId: v\.id, auto: false/, "手动补文风必须标记为不占轮抽");
+  assert.match(w, /NOT IN THIS ISSUE · 本期未抽中/, "本期目录要能选择补齐未抽中的文风");
 });
