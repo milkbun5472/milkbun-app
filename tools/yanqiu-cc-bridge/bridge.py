@@ -73,7 +73,10 @@ CLOUD_ENV = Path(
         "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/.env",
     )
 )
-CLOUD_BASE = "https://nposjnafsbikwfeoudbg.supabase.co"
+CLOUD_BASE = os.environ.get(
+    "YANQIU_CC_CLOUD_BASE",
+    "https://yanqiu-vps.tail542792.ts.net:8443",
+).rstrip("/")
 _SCOPE_CACHE: tuple[float, tuple[str, str]] | None = None
 
 
