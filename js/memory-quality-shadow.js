@@ -28,7 +28,9 @@
       const candidates = Array.isArray(input && input.candidates) ? input.candidates : [];
       const accepted = new Set((input && input.acceptedTexts || []).map(x => String(x || "").trim()));
       const byId = new Map(msgs.map((m, i) => [msgId(m, i), String(m && m.content || "")]));
-      const rows = candidates.filter(x => x && x.text && !x.resolveOpen).map(x => {
+      const rows = candidates.filter(x => x && x.text && !x.resolveOpen).map(raw => {
+        const x = window.MemoryExtractionGate && window.MemoryExtractionGate.normalizeEvidence
+          ? window.MemoryExtractionGate.normalizeEvidence(raw, msgs) : raw;
         const ids = Array.isArray(x.evidence_message_ids) ? x.evidence_message_ids.map(String) : [];
         const quotes = Array.isArray(x.evidence_quotes) ? x.evidence_quotes.map(String) : [];
         const aligned = ids.length > 0 && ids.length === quotes.length;

@@ -83,6 +83,27 @@ test("逐字引文命中多条消息时绝不猜归属", () => {
   assert.equal(inspect(candidate, ambiguousMessages).formal, false);
 });
 
+test("证据数组错位时仅凭唯一逐字引文机械重建整组 ID", () => {
+  const candidate = {
+    text: "Lisa 下周五去温哥华，角色答应接机", kind: "fact", proposed_action: "accept",
+    evidence_message_ids: ["模型只给了一个坏ID"],
+    evidence_quotes: ["下周五要去温哥华", "答应你到机场接你"]
+  };
+  const fixed = normalizeEvidence(candidate, messages);
+  assert.deepEqual(fixed.evidence_message_ids, ["u1", "a1"]);
+  assert.equal(inspect(candidate, messages).formal, true);
+});
+
+test("错位数组里任一引文多义时维持原样并拒绝，不猜证据归属", () => {
+  const ambiguousMessages = messages.concat({ mid: "u2", role: "user", content: "对，下周五要去温哥华。" });
+  const candidate = {
+    text: "Lisa 下周五去温哥华", kind: "fact", proposed_action: "accept",
+    evidence_message_ids: [], evidence_quotes: ["下周五要去温哥华"]
+  };
+  assert.deepEqual(normalizeEvidence(candidate, ambiguousMessages).evidence_message_ids, []);
+  assert.equal(inspect(candidate, ambiguousMessages).formal, false);
+});
+
 test("普通观察误标 insight 不能绕过洞察结构门", () => {
   const result = inspect({
     text: "下雨会让 Lisa 改坐公交", kind: "insight", proposed_action: "accept",

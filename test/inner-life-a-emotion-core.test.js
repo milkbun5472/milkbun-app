@@ -52,14 +52,14 @@ test("固定词典能区分受伤/愤怒/焦虑/柔软/疲惫，未知词不脑�
 });
 
 test("固定词典覆盖既有真实未命中词，仍不调用模型解释", () => {
-  assert.equal(A.moodDictionaryVersion,5);
+  assert.equal(A.moodDictionaryVersion,6);
   const cases=[["松快","positive_valence"],["郁闷","low_valence"],["動揺","anxiety"],["激动","high_arousal"],["冷酷","cold"]];
   for(const [word,rule] of cases)assert.ok(A.moodEvidence(word).rules.includes(rule),word);
   const added=[["平静","calm"],["专注","calm"],["得意","positive_valence"],["调皮","playful"],["害羞","shy"],["落寞","hurt"],["心疼","warmth"],["慵懒","fatigue"]];
   for(const [word,rule] of added)assert.ok(A.moodEvidence(word).rules.includes(rule),word);
   assert.deepEqual(A.moodEvidence("平静").delta,{},"中性词只算识别，不硬改数字");
   const event=A.applyEvent(A.createState("char",T0),{moodLabel:"松快"},T0+1);
-  assert.equal(event.audit.moodDictionaryVersion,5);
+  assert.equal(event.audit.moodDictionaryVersion,6);
   assert.equal(event.audit.moodLabel,"松快");
 });
 
@@ -106,6 +106,12 @@ test("未知性情词保留为身份锚点但没有数值权限", () => {
   assert.equal(t.approved,false);
 });
 
+test("v6 固定词典能拆解复合 mood 自述，不调用模型解释", () => {
+  const labels=["上工·热起来了","落定","手痒又稳","上工·护着","心虚又想笑","手痒又忍着","支持她的稳妥","急切","心跳加速","迫切","松弛","歉疚","纵容","忙碌","平稳","调侃"];
+  labels.forEach(label=>assert.equal(A.moodEvidence(label).matched,true,label));
+  assert.equal(A.moodDictionaryVersion,6);
+});
+
 test("性情升敏与降敏确定性合成，不受锚点词序影响", () => {
   const a=A.temperamentFromAnchors(["温柔","急躁"],true),b=A.temperamentFromAnchors(["急躁","温柔"],true);
   assert.deepEqual(a.sensitivity,b.sensitivity);
@@ -130,8 +136,8 @@ test("接近 baseline 时 display 零增量，不硬塞十维", () => {
   assert.equal(out.tokenEstimate,0);
 });
 
-test("v4 真实未命中词受控归轴，姿态词只识别不推数字", () => {
-  assert.equal(A.moodDictionaryVersion,5);
+test("既有真实未命中词受控归轴，姿态词只识别不推数字", () => {
+  assert.equal(A.moodDictionaryVersion,6);
   const awkward=A.moodEvidence("局促");
   assert.equal(awkward.matched,true);
   assert.ok(awkward.delta.anxiety>0);

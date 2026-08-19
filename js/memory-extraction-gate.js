@@ -14,9 +14,21 @@
     const x = candidate || {}, msgs = Array.isArray(messages) ? messages : [];
     const ids = Array.isArray(x.evidence_message_ids) ? x.evidence_message_ids.map(String) : [];
     const quotes = Array.isArray(x.evidence_quotes) ? x.evidence_quotes.map(v => String(v || "")) : [];
-    if (!ids.length || ids.length !== quotes.length || quotes.some(q => !q.trim())) return x;
+    if (!quotes.length || quotes.some(q => !q.trim())) return x;
     const rows = msgs.map((m, i) => ({ id: messageId(m, i), text: String(m && m.content || "") }));
     const byId = new Map(rows.map(r => [r.id, r.text]));
+    // 数组错位时不按位置猜：仅凭每段逐字引文在本轮唯一命中的消息，
+    // 机械重建整组 ID。任一引文零命中或多命中，就保留原样交给闸拒绝。
+    if (ids.length !== quotes.length) {
+      const rebuilt = [];
+      for (const quote of quotes) {
+        const hits = rows.filter(r => r.text.includes(quote));
+        if (hits.length !== 1) return x;
+        rebuilt.push(hits[0].id);
+      }
+      return Object.assign({}, x, { evidence_message_ids: rebuilt });
+    }
+    if (!ids.length) return x;
     let changed = false;
     const repaired = ids.map((id, i) => {
       if (byId.has(id) && byId.get(id).includes(quotes[i])) return id;
