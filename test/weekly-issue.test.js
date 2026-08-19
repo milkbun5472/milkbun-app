@@ -17,13 +17,14 @@ test("专访接入声纹样本，资料室语录逐字验真、数据本地统�
   assert.match(w, /BY THE NUMBERS/);
 });
 
-// 第二步(2026-08-18):四个媒体腔换的是戏服不是视角 → 扩池到 6 个、每期抽 3，
+// 第二步(2026-08-18):媒体腔换的是戏服不是视角 → 扩池、每期抽 3，
 // 并补一块真正换立场的「读者来信」，外加更正启事与中缝广告(搭资料室的便车，不额外调用)。
 test("媒体腔按周抽签，来信/更正/中缝到位", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const seg = w.slice(w.indexOf("const VOICES = ["), w.indexOf("// ---- 报道周窗口"));
   const mod = new Function("function seeded(){ return function(){ return .37; }; }\nfunction issueStart(x){ return Number(x&&x.weekOf&&x.weekOf.start)||0; }\n" + seg + "; return { VOICES: VOICES, voicesForWeek: voicesForWeek };")();
-  assert.ok(mod.VOICES.length >= 6, "池子要够抽");
+  assert.ok(mod.VOICES.length >= 10, "池子要够抽");
+  assert.ok(mod.VOICES.some(v => v.id === "cyberpunk"), "赛博朋克必须留在完整池里");
   assert.equal(mod.voicesForWeek("2026-W31", [], 1).length, 3, "每期只出三块");
   assert.deepEqual(mod.voicesForWeek("2026-W31", [], 1).map(v => v.id), mod.voicesForWeek("2026-W31", [], 1).map(v => v.id),
     "同一周重抽必须一致，否则重刷会换掉整本刊物的构成");
@@ -97,5 +98,7 @@ test("补刊按实际报道周归位，并显示期号与装订进度", () => {
   assert.match(w, /补到第 /, "补刊中要显示正在补哪一期");
   assert.match(w, /props\.progress\.done \+ "\/" \+ props\.progress\.total/, "补刊中要显示版块进度");
   assert.match(w, /voiceId: v\.id, auto: false/, "手动补文风必须标记为不占轮抽");
-  assert.match(w, /NOT IN THIS ISSUE · 本期未抽中/, "本期目录要能选择补齐未抽中的文风");
+  assert.match(w, /ALL EDITIONS · 全部文风状态/, "目录要以完整池为准，不能让半成品文风无声消失");
+  assert.match(w, /数据待修复|待修复/, "旧刊半成品要显式提供修复入口");
+  assert.match(w, /normalizeVoiceId\(s\.voiceId\)/, "旧刊 voiceId 的空格和大小写要兼容");
 });

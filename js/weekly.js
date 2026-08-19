@@ -52,7 +52,7 @@
     "\n【人名铁律 · 必须遵守】文中出现的所有人物名字，只能用【本周出场人物】里列出的那几个真实名字。" +
     "本提示中任何位置出现的示例名字、占位符、代号样例，都只是格式说明，绝对不能出现在你的输出里。写谁就用谁的真名。";
 
-  // ---- 4 种媒体腔（world book 层：世界观 + 声纹 + 禁止 + 缺席句）------
+  // ---- 媒体腔（world book 层：世界观 + 声纹 + 禁止 + 缺席句）----------
   const VOICES = [
     {
       id: "victorian", name: "维多利亚社交小报", en: "THE SOCIETY PAGES",
@@ -117,9 +117,65 @@
         "④ 允许描写雨、烟、廉价咖啡这类硬派意象，但每篇至多一处，不许堆。\n" +
         "禁止：① 不出现真凶／案件之类真犯罪情节，跟踪的只是这几个人的日常。② 不煽情。③ 不用网络梗。",
       absent: "本周目标毫无动静。我在车里坐了七个晚上，什么也没发生"
+    },
+    {
+      id: "tabloid", name: "娱乐头条爆料", en: "THE SCANDAL SHEET",
+      world:
+        "设定：一本消息灵通、标题凶猛的都市娱乐周刊。把本周小事做成足以占据报摊头版的独家爆料。\n" +
+        "声纹：\n① 标题短、狠、有悬念，导语先抛最反常的画面或后果。\n" +
+        "② 记者有鲜明判断，会追问谁先动心、谁嘴硬、谁为此付了代价。\n" +
+        "③ 允许夸张反差和悬念，但每个事实、引语、关系必须来自素材。\n" +
+        "④ 正文像爆料而非流水账，结尾留一个下一期仍值得追踪的问题。\n" +
+        "禁止：① 不捏造知情人士或匿名爆料。② 不用震惊体感叹号连发。③ 不把普通亲密写成低俗桃色新闻。",
+      absent: "全员神隐七日：本刊记者扑空，沉默本身成了最大新闻"
+    },
+    {
+      id: "markets", name: "情感市场收盘", en: "CLOSING BELL",
+      world:
+        "设定：财经终端的收盘简报，把关系、承诺、注意力和情绪当作一周市场走势。\n" +
+        "声纹：\n① 用开盘、震荡、增持、抛售、风险敞口、流动性等财经语言解释真实互动。\n" +
+        "② 每篇先报本周最关键的涨跌，再解释触发事件与潜在后市。\n" +
+        "③ 冷静精确，偶尔以一本正经的方式承认市场完全不理性。\n" +
+        "④ 数字只有素材真实提供时才能写，不得虚构百分比。\n" +
+        "禁止：① 不给现实投资建议。② 不把人物写成真的证券代码。③ 不堆空洞术语掩盖事件。",
+      absent: "本周交投清淡，主要关系指数横盘，市场等待新的明确信号"
+    },
+    {
+      id: "tribunal", name: "关系庭审纪要", en: "THE TRIBUNAL",
+      world:
+        "设定：一场只审理日常关系争议的公开听证会。报道以证据、陈述、争点和裁定组织。\n" +
+        "声纹：\n① 把真实消息、行动和物件当证据编号，不虚构证人。\n" +
+        "② 每篇明确本案争点：谁先失约、谁口是心非、某句话究竟算不算承诺。\n" +
+        "③ 允许控辩双方各自作最有利解释，最后给出幽默但有依据的临时裁定。\n" +
+        "④ 语言克制、程序感强，荒诞来自小事被郑重审理。\n" +
+        "禁止：① 不写犯罪、刑罚或真正司法后果。② 不篡改原话。③ 不把裁定写成人格羞辱。",
+      absent: "因本周无人提交证据，合议庭宣布休庭，所有悬案顺延"
+    },
+    {
+      id: "sportsdesk", name: "关系赛事战报", en: "THE SPORTS DESK",
+      world:
+        "设定：体育报的赛后复盘，把一周互动视为同一支队伍内部的攻防、配合与临场决策。\n" +
+        "声纹：\n① 开头先报决定走势的关键回合，不从赛前背景慢慢讲。\n" +
+        "② 分析转折点、主动权、失误、补救和默契；引用原话像赛后采访。\n" +
+        "③ 节奏明快、有现场感，能夸一记漂亮配合，也敢指出一次离谱失误。\n" +
+        "④ 没有输赢时就写成训练赛或拉锯战，不硬判胜负。\n" +
+        "禁止：① 不虚构比分和统计。② 不把关系写成敌我战争。③ 不连续使用热血口号。",
+      absent: "本周赛程空白，双方均未登场，积分榜维持原状"
     }
   ];
-  function voiceOf(id) { return VOICES.find(function (v) { return v.id === id; }) || VOICES[0]; }
+  function normalizeVoiceId(id) { return String(id || "").trim().toLowerCase(); }
+  function knownVoice(id) {
+    const key = normalizeVoiceId(id);
+    return VOICES.find(function (v) { return v.id === key; }) || null;
+  }
+  function voiceOf(id) {
+    return knownVoice(id) || { id: normalizeVoiceId(id) || "unknown", name: "未知文风", en: "UNKNOWN EDITION", world: "", absent: "" };
+  }
+  function mediaHasContent(sec) {
+    return !!(sec && Array.isArray(sec.articles) && sec.articles.some(function (a) {
+      return a && (String(a.title || "").trim() || String(a.body || "").trim());
+    }));
+  }
   // 文风也走整池轮抽：一轮没抽完前不重置；袋底不足 3 个时，取完袋底再开新轮补足。
   // 手动补出的媒体版 auto=false，不参与回放，所以不会消耗下一期的正常抽签池。
   function voicesForWeek(key, pastIssues, weekStart) {
@@ -130,7 +186,7 @@
     let bag = ids.slice();
     past.forEach(function (iss) {
       (iss.sections || []).filter(function (s) { return s.type === "media" && s.auto !== false; }).forEach(function (s) {
-        const k = bag.indexOf(s.voiceId);
+        const k = bag.indexOf(normalizeVoiceId(s.voiceId));
         if (k > -1) bag.splice(k, 1);
         if (!bag.length) bag = ids.slice();
       });
@@ -494,25 +550,26 @@
     throw new Error(voice.name + " 生成失败，可单独重刷");
   }
 
-  // 四种媒体腔共享同一份周素材：正常路径一次生成四版；整批失败或缺版时，
+  // 当期抽中的媒体腔共享同一份周素材：正常路径一次批量生成；整批失败或缺版时，
   // 只对缺失项调用原来的 genMedia 单项补洞，保留隔离声纹与可重试性。
   async function genMediaBatch(active, voices, personasBlock, material, empty) {
     const specs = voices.map(function (v) {
       return "【" + v.id + "｜" + v.name + "】\n" + v.world + (empty ? "\n空周写法：" + v.absent : "");
     }).join("\n\n");
-    const sys = ANTI_CLICHE + "\n\n你是周刊的四个彼此隔离的媒体编辑部。每个版块只能使用自己的世界观和声纹，绝不串味。\n\n" + specs +
+    const sys = ANTI_CLICHE + "\n\n你是周刊里几个彼此隔离的媒体编辑部。每个版块只能使用自己的世界观和声纹，绝不串味。\n\n" + specs +
       "\n\n" + CHARCARD_RULE + "\n【本周出场人物】\n" + personasBlock + NAME_GUARD +
       "\n\n【本周 RP 聊天记录】\n" + (empty ? "（本周素材几乎为空。）" : material) +
-      "\n\n每个媒体版写 3~4 篇不同小事。每篇都不是聊天摘要：先选冲突／反差／失控瞬间／意外后果／代价之一作为报道角度；标题具体短促且有判断，首句先抛最炸的画面或后果。允许在各自媒体腔里放大反差、制造悬念、下判断，但只能夸张表达，绝不捏造事实、假引语或关系。正文要说清这件小事为什么值得刊登，不要按聊天时间线平铺。只输出 JSON：{\"media\":[{\"voiceId\":\"上面四个id之一\",\"articles\":[{\"title\":\"\",\"body\":\"\"}]}]}";
-    const d = await genJSON(active, sys, "一次写完四个互不串味的媒体版。", 16000);
+      "\n\n每个媒体版写 3~4 篇不同小事。每篇都不是聊天摘要：先选冲突／反差／失控瞬间／意外后果／代价之一作为报道角度；标题具体短促且有判断，首句先抛最炸的画面或后果。允许在各自媒体腔里放大反差、制造悬念、下判断，但只能夸张表达，绝不捏造事实、假引语或关系。正文要说清这件小事为什么值得刊登，不要按聊天时间线平铺。只输出 JSON：{\"media\":[{\"voiceId\":\"上面列出的id之一\",\"articles\":[{\"title\":\"\",\"body\":\"\"}]}]}";
+    const d = await genJSON(active, sys, "一次写完这些互不串味的媒体版。", 16000);
     const rows = d && Array.isArray(d.media) ? d.media : [];
     const byId = {};
     rows.forEach(function (row) {
-      if (!row || !voices.some(function (v) { return v.id === row.voiceId; }) || !Array.isArray(row.articles)) return;
+      const rowVoiceId = normalizeVoiceId(row && row.voiceId);
+      if (!row || !voices.some(function (v) { return v.id === rowVoiceId; }) || !Array.isArray(row.articles)) return;
       const articles = row.articles.filter(function (a) { return a && (a.title || a.body); }).map(function (a) {
         return { title: String(a.title || "").trim(), body: String(a.body || "").trim() };
       });
-      if (articles.length) byId[row.voiceId] = articles;
+      if (articles.length) byId[rowVoiceId] = articles;
     });
     return byId;
   }
@@ -671,6 +728,7 @@
 
   window.Weekly = {
     WEEKLY_REFRESH_HOUR: WEEKLY_REFRESH_HOUR, VOICES: VOICES, voiceOf: voiceOf,
+    normalizeVoiceId: normalizeVoiceId, knownVoice: knownVoice, mediaHasContent: mediaHasContent,
     genState: genState, genSubscribe: genSubscribe, startGenerate: startGenerate,
     loadIssues: loadIssues, saveIssues: saveIssues, orderedIssues: orderedIssues, reportWindow: reportWindow, nextRefreshTime: nextRefreshTime, issueNo: issueNo,
     missedWindows: missedWindows,
@@ -690,7 +748,11 @@
     republican: { tint: "#8a4a52", rule: "solid",  face: "serif",  deco: "❁", eyebrow: "old shanghai" },
     editorial:  { tint: "#3a3a3a", rule: "thick",  face: "serif",  deco: "—", eyebrow: "editorial" },
     naturalist: { tint: "#4f6b45", rule: "dotted", face: "mono",   deco: "✿", eyebrow: "field notes" },
-    noir:       { tint: "#4a4550", rule: "solid",  face: "mono",   deco: "▲", eyebrow: "case file" }
+    noir:       { tint: "#4a4550", rule: "solid",  face: "mono",   deco: "▲", eyebrow: "case file" },
+    tabloid:    { tint: "#b23830", rule: "thick",  face: "sans",   deco: "★", eyebrow: "exclusive" },
+    markets:    { tint: "#24605a", rule: "dashed", face: "mono",   deco: "↗", eyebrow: "closing bell" },
+    tribunal:   { tint: "#614a3b", rule: "double", face: "serif",  deco: "§", eyebrow: "hearing record" },
+    sportsdesk: { tint: "#285e8a", rule: "thick",  face: "sans",   deco: "●", eyebrow: "match report" }
   };
   function lookOf(id) { return VOICE_LOOK[id] || VOICE_LOOK.editorial; }
   function WeeklyMotionStyles() {
@@ -937,7 +999,9 @@
     const [turn, setTurn] = useState({ dir: "next", n: 0 });
     const cover = (issue.sections || []).find(function (s) { return s.type === "cover"; });
     const iv = (issue.sections || []).find(function (s) { return s.type === "interview"; });
-    const medias = (issue.sections || []).filter(function (s) { return s.type === "media"; });
+    const allMedias = (issue.sections || []).filter(function (s) { return s.type === "media"; });
+    // 旧刊可能留下只有 voiceId、没有正文的半成品。它不能继续冒充“已出”，否则会同时从目录和未抽中区消失。
+    const medias = allMedias.filter(function (s) { return knownVoice(s.voiceId) && mediaHasContent(s); });
     const deskSec = (issue.sections || []).find(function (s) { return s.type === "desk"; });
     const lettersSec = (issue.sections || []).find(function (s) { return s.type === "letters"; });
     const win = { start: issue.weekOf.start, end: issue.weekOf.end, key: issue.key, label: issue.label };
@@ -1026,11 +1090,16 @@
           window.Weekly.linesToText(mat.global, 8000), mat.global.length === 0
         );
         props.onPatch(issue.id, function (iss) {
-          if ((iss.sections || []).some(function (s) { return s.type === "media" && s.voiceId === v.id; })) return iss;
-          iss.sections = (iss.sections || []).concat([{ id: "md_" + Date.now(), type: "media", voiceId: v.id, auto: false, articles: articles }]);
+          let repaired = false;
+          iss.sections = (iss.sections || []).map(function (s) {
+            if (s.type !== "media" || normalizeVoiceId(s.voiceId) !== v.id) return s;
+            repaired = true;
+            return Object.assign({}, s, { voiceId: v.id, articles: articles });
+          });
+          if (!repaired) iss.sections = iss.sections.concat([{ id: "md_" + Date.now(), type: "media", voiceId: v.id, auto: false, articles: articles }]);
           return iss;
         });
-        props.toast(v.name + "已补进本期，不占下期轮抽");
+        props.toast(v.name + "已补进本期；手动补版不占下期轮抽");
       } catch (e) { props.toast(String(e.message || e)); }
       finally { setBusyUnit(null); }
     }
@@ -1126,8 +1195,11 @@
       medias.map(function (sec) { return { key: "media:" + sec.id, label: voiceOf(sec.voiceId).name, sub: { kind: "media", id: sec.id } }; })
     );
     const currentPageKey = !sub ? "contents" : (sub.kind === "media" ? "media:" + sub.id : sub.kind);
-    const shownVoiceIds = medias.map(function (s) { return s.voiceId; });
-    const missingVoices = window.Weekly.VOICES.filter(function (v) { return shownVoiceIds.indexOf(v.id) < 0; });
+    const voiceStates = window.Weekly.VOICES.map(function (v) {
+      const raw = allMedias.find(function (s) { return normalizeVoiceId(s.voiceId) === v.id; });
+      const ready = raw && mediaHasContent(raw);
+      return { voice: v, sec: ready ? raw : null, state: ready ? "ready" : (raw ? "broken" : "missing") };
+    });
     const pageIndex = pages.findIndex(function (p) { return p.key === currentPageKey; });
     if (detail && pageIndex >= 0) {
       const prev = pageIndex > 0 ? pages[pageIndex - 1] : null;
@@ -1161,14 +1233,16 @@
                 return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };
               }))
           }),
-          missingVoices.length ? h("div", { style: { marginTop: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: t.fog, marginBottom: 5 } }, "NOT IN THIS ISSUE · 本期未抽中"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginBottom: 9 } }, "想看哪一种可以单独补进来；补版不占轮抽名额，也不会改变下期的抽签池。"),
-            h("div", { className: "flex flex-wrap", style: { gap: 7 } }, missingVoices.map(function (v) {
-              const on = busyUnit === ("add_voice_" + v.id);
-              return h("button", { key: v.id, disabled: !!busyUnit, onClick: function () { addMediaVoice(v); }, className: "active:opacity-60",
-                style: { padding: "6px 10px", borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 11.5, opacity: busyUnit ? .55 : 1 } }, on ? "补版中…" : v.name);
-            }))) : null,
+          h("div", { style: { marginTop: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: t.fog, marginBottom: 5 } }, "ALL EDITIONS · 全部文风状态"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginBottom: 9 } }, "每期从完整文风池轮抽三种。已出可直接翻阅；未抽中可补版；旧刊半成品会标为待修复，不再无声消失。"),
+            h("div", { className: "flex flex-wrap", style: { gap: 7 } }, voiceStates.map(function (item) {
+              const v = item.voice, on = busyUnit === ("add_voice_" + v.id);
+              const label = item.state === "ready" ? (v.name + " · 已出") : item.state === "broken" ? (on ? "修复中…" : v.name + " · 待修复") : (on ? "补版中…" : v.name + " · 未抽中");
+              return h("button", { key: v.id, disabled: !!busyUnit && !on,
+                onClick: function () { if (item.state === "ready") goSub({ kind: "media", id: item.sec.id }, "next"); else addMediaVoice(v); },
+                className: "active:opacity-60", style: { padding: "6px 10px", borderRadius: 999, border: "1px solid " + (item.state === "broken" ? t.accent : t.line), color: item.state === "ready" ? t.sub : t.ink, fontFamily: F_BODY, fontSize: 11.5, opacity: busyUnit && !on ? .55 : 1 } }, label);
+            }))),
           h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, marginTop: 26 } }, "— 点 版 块 进 入 阅 读 —"))))));
   }
 
