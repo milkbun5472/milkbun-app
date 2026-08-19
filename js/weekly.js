@@ -626,6 +626,28 @@
     noir:       { tint: "#4a4550", rule: "solid",  face: "mono",   deco: "▲", eyebrow: "case file" }
   };
   function lookOf(id) { return VOICE_LOOK[id] || VOICE_LOOK.editorial; }
+  function WeeklyMotionStyles() {
+    return h("style", null,
+      "@keyframes weeklyPageNext{0%{opacity:.18;transform:perspective(1100px) rotateY(7deg) translateX(22px);filter:blur(1px)}55%{opacity:.92}100%{opacity:1;transform:perspective(1100px) rotateY(0) translateX(0);filter:blur(0)}}" +
+      "@keyframes weeklyPagePrev{0%{opacity:.18;transform:perspective(1100px) rotateY(-7deg) translateX(-22px);filter:blur(1px)}55%{opacity:.92}100%{opacity:1;transform:perspective(1100px) rotateY(0) translateX(0);filter:blur(0)}}" +
+      ".weekly-page-stage{position:relative;min-height:100%;overflow-x:hidden}" +
+      ".weekly-page-next{position:relative;transform-origin:left center;animation:weeklyPageNext .42s cubic-bezier(.2,.72,.22,1) both}" +
+      ".weekly-page-prev{position:relative;transform-origin:right center;animation:weeklyPagePrev .42s cubic-bezier(.2,.72,.22,1) both}" +
+      ".weekly-page-next:after,.weekly-page-prev:after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:3px;box-shadow:inset 12px 0 18px -20px rgba(0,0,0,.45)}" +
+      "@media(prefers-reduced-motion:reduce){.weekly-page-next,.weekly-page-prev{animation:none!important}}"
+    );
+  }
+  function PageTurnNav(props) {
+    const t = useTheme();
+    const btn = { flex: 1, minWidth: 0, padding: "11px 12px", border: "1px solid " + t.line, borderRadius: 3, color: t.ink, background: t.bg2, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.3 };
+    return h("div", { style: { display: "flex", gap: 9, alignItems: "stretch", margin: "30px 0 8px", paddingTop: 14, borderTop: "1px solid " + t.line } },
+      props.prev ? h("button", { onClick: props.prev.onClick, className: "active:opacity-60", style: btn },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".18em", color: t.fog, marginBottom: 4 } }, "← PREVIOUS"),
+        h("div", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.prev.label)) : h("div", { style: { flex: 1 } }),
+      props.next ? h("button", { onClick: props.next.onClick, className: "active:opacity-60", style: btn },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".18em", color: t.fog, marginBottom: 4, textAlign: "right" } }, "NEXT →"),
+        h("div", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" } }, props.next.label)) : h("div", { style: { flex: 1 } }));
+  }
   // 种子随机:同一期封面每次打开必须长得一样,所以不能用 Math.random
   function seeded(key) {
     let x = 0; String(key || "x").split("").forEach(function (ch) { x = (x * 31 + ch.charCodeAt(0)) >>> 0; });
@@ -734,6 +756,9 @@
     });
     const sub = ck.dark ? "rgba(255,255,255,.62)" : "rgba(0,0,0,.45)";
     return h("div", { style: Object.assign({ position: "relative", borderRadius: 4, overflow: "hidden", minHeight: 560, padding: "16px 14px", boxShadow: "0 10px 30px rgba(0,0,0,.13)", border: "1px solid " + (ck.dark ? "rgba(255,255,255,.14)" : "rgba(0,0,0,.10)") }, ck.style) },
+      h("div", { style: { position: "absolute", width: 108, height: 108, borderRadius: "50%", right: -52, top: 128, border: "18px solid " + ck.inks[1], opacity: .16, pointerEvents: "none" } }),
+      h("div", { style: { position: "absolute", width: 52, height: 9, left: -9, bottom: 122, background: ck.inks[2], transform: "rotate(-9deg)", opacity: .55, pointerEvents: "none" } }),
+      h("div", { style: { position: "absolute", right: 10, top: 78, width: 43, height: 43, borderRadius: "50%", background: ck.inks[3], color: ck.dark ? "#171515" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Archivo',sans-serif", fontSize: 8, lineHeight: 1.15, textAlign: "center", letterSpacing: ".08em", transform: "rotate(8deg)", boxShadow: "0 3px 12px rgba(0,0,0,.12)", whiteSpace: "pre-line", pointerEvents: "none" } }, "ISSUE\n" + (props.num || "—")),
       // 封面报头
       h("div", { style: { textAlign: "center", paddingBottom: 10, borderBottom: "1.5px solid " + (ck.dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)") } },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.4em", fontSize: 8, color: sub, textTransform: "uppercase" } }, "THE WEEKLY"),
@@ -839,6 +864,7 @@
     const [busyUnit, setBusyUnit] = useState(null);
     const [sub, setSub] = useState(null);   // null=目录 | {kind:'cover'} | {kind:'interview'} | {kind:'media',id}
     const [ivSel, setIvSel] = useState(0);
+    const [turn, setTurn] = useState({ dir: "next", n: 0 });
     const cover = (issue.sections || []).find(function (s) { return s.type === "cover"; });
     const iv = (issue.sections || []).find(function (s) { return s.type === "interview"; });
     const medias = (issue.sections || []).filter(function (s) { return s.type === "media"; });
@@ -846,6 +872,10 @@
     const lettersSec = (issue.sections || []).find(function (s) { return s.type === "letters"; });
     const win = { start: issue.weekOf.start, end: issue.weekOf.end, key: issue.key, label: issue.label };
     const num = window.Weekly.issueNo(issue, props.issues || []);
+    function goSub(next, dir) {
+      setTurn(function (old) { return { dir: dir || "next", n: old.n + 1 }; });
+      setSub(next);
+    }
 
     async function regenCover(sec) {
       setBusyUnit(sec.id);
@@ -998,27 +1028,48 @@
       if (sec) { headZh = voiceOf(sec.voiceId).name; headEn = voiceOf(sec.voiceId).en; detail = h(MediaDetail, { sec: sec, busy: busyUnit === sec.id, onRegen: function () { regenMedia(sec); } }); }
     }
 
+    const pages = [].concat(
+      cover ? [{ key: "cover", label: "头版", sub: { kind: "cover" } }] : [],
+      deskSec ? [{ key: "desk", label: "资料室", sub: { kind: "desk" } }] : [],
+      lettersSec ? [{ key: "letters", label: "读者来信", sub: { kind: "letters" } }] : [],
+      iv ? [{ key: "interview", label: "采访版", sub: { kind: "interview" } }] : [],
+      medias.map(function (sec) { return { key: "media:" + sec.id, label: voiceOf(sec.voiceId).name, sub: { kind: "media", id: sec.id } }; })
+    );
+    const currentPageKey = !sub ? "contents" : (sub.kind === "media" ? "media:" + sub.id : sub.kind);
+    const pageIndex = pages.findIndex(function (p) { return p.key === currentPageKey; });
+    if (detail && pageIndex >= 0) {
+      const prev = pageIndex > 0 ? pages[pageIndex - 1] : null;
+      const next = pageIndex < pages.length - 1 ? pages[pageIndex + 1] : null;
+      detail = h("div", null, detail, h(PageTurnNav, {
+        prev: prev ? { label: prev.label, onClick: function () { goSub(prev.sub, "prev"); } } : { label: "返回封面", onClick: function () { goSub(null, "prev"); } },
+        next: next ? { label: next.label, onClick: function () { goSub(next.sub, "next"); } } : null
+      }));
+    }
+
     // 换版块必须回到顶部：不然点进采访版是停在上一版的滚动位置，还得自己往上滑（她 2026-08-18 报）
     const scrollRef = React.useRef(null);
     React.useEffect(function () { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [sub && sub.kind, sub && sub.id, ivSel]);
     return h("div", { className: "h-full flex flex-col", style: paperStyle(t) },
-      h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { setSub(null); } : props.onBack }),
+      h(WeeklyMotionStyles),
+      h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { goSub(null, "prev"); } : props.onBack }),
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
+        h("div", { className: "weekly-page-stage" },
+        h("div", { key: currentPageKey + ":" + turn.n, className: turn.dir === "prev" ? "weekly-page-prev" : "weekly-page-next" },
         detail ? detail : h("div", null,
           h(Countdown, { target: window.Weekly.nextRefreshTime() }),
           h(CoverPage, {
             issueKey: issue.key, num: num, label: issue.label,
             items: [].concat(
-              cover ? [{ en: "FRONT PAGE", title: cover.headline, meta: "头版", onOpen: function () { setSub({ kind: "cover" }); } }] : [],
-              deskSec ? [{ en: "THE DESK", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { setSub({ kind: "desk" }); } }] : [],
-              lettersSec ? [{ en: "LETTERS", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { setSub({ kind: "letters" }); } }] : [],
-              iv ? [{ en: "INTERVIEWS", title: "本期专访", meta: (iv.entries || []).length + " 位", onOpen: function () { setSub({ kind: "interview" }); } }] : [],
+              cover ? [{ en: "FRONT PAGE", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
+              deskSec ? [{ en: "THE DESK", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
+              lettersSec ? [{ en: "LETTERS", title: "本周来信", meta: (lettersSec.letters || []).length + " 封", onOpen: function () { goSub({ kind: "letters" }, "next"); } }] : [],
+              iv ? [{ en: "INTERVIEWS", title: "本期专访", meta: (iv.entries || []).length + " 位", onOpen: function () { goSub({ kind: "interview" }, "next"); } }] : [],
               medias.map(function (sec) {
                 const v = voiceOf(sec.voiceId);
-                return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { setSub({ kind: "media", id: sec.id }); } };
+                return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };
               }))
           }),
-          h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, marginTop: 26 } }, "— 点 版 块 进 入 阅 读 —"))));
+          h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, marginTop: 26 } }, "— 点 版 块 进 入 阅 读 —"))))));
   }
 
   // 往期书架
