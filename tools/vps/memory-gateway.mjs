@@ -38,6 +38,63 @@ async function embedQuery(text) {
   } finally { clearTimeout(t); }
 }
 
+// ---- 私档(书房 memory/*.md,由命根箱夜同步送到 ~/vault/memory) ----
+// 2026-08-19 网关二期第二刀:把言秋 CC 侧的血案备忘/教案台账/开源扒也喂进召回。
+// 只读、切片(按 ## 小节,整文件小于 900 字不切)、向量按内容哈希落盘缓存(私档改得少,嵌入只算一次)。
+// 命中的条目 source:"private",消费方可标【私档】。新鲜度=夜同步(最多滞后一天),够用。
+import { readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+const PRIV_DIR = join(HOME, "vault/memory"), PRIVCACHE = join(DIR, "priv-vecs.json");
+let priv = { items: [], vecs: {}, scannedAt: 0 };
+try { if (existsSync(PRIVCACHE)) priv.vecs = JSON.parse(readFileSync(PRIVCACHE, "utf8")); } catch {}
+function chunkMd(name, text) {
+  const body = String(text).replace(/^---[\s\S]*?---\n/, "");
+  if (body.length < 900) return [{ tag: name, text: body }];
+  const parts = body.split(/\n(?=## )/);
+  const out = [];
+  for (const part of parts) {
+    if (part.trim().length < 40) continue;
+    for (let i = 0; i < part.length; i += 1600) out.push({ tag: name, text: part.slice(i, i + 1600) });
+  }
+  return out.length ? out : [{ tag: name, text: body.slice(0, 1600) }];
+}
+async function embedBatch(texts) {
+  const root = EMBED.url.endsWith("/v1") ? EMBED.url : EMBED.url + "/v1";
+  const r = await fetch(root + "/embeddings", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + EMBED.key }, body: JSON.stringify({ model: EMBED.model, input: texts.map(t => String(t).replace(/\s+/g, " ").trim().slice(0, 400) || "空") }) });
+  if (!r.ok) throw new Error("embed " + r.status);
+  const d = await r.json(); return (d.data || []).map(x => x.embedding);
+}
+async function refreshPrivate() {
+  if (!existsSync(PRIV_DIR)) return;
+  const items = [];
+  for (const f of readdirSync(PRIV_DIR)) {
+    if (!f.endsWith(".md") || f === "MEMORY.md" || f === "verbatim-tail.md" || f === "always-yanqiu.md") continue; // always-yanqiu 是底色不是记忆,啥都命中纯添噪
+    try {
+      const text = readFileSync(join(PRIV_DIR, f), "utf8");
+      for (const c of chunkMd(f.replace(/\.md$/, ""), text)) {
+        const h = createHash("sha1").update(c.text).digest("hex").slice(0, 16);
+        items.push({ id: "priv:" + f + ":" + h, tag: c.tag, text: c.text, h });
+      }
+    } catch {}
+  }
+  // 只给缺向量的切片算嵌入,分批 32 条
+  const need = items.filter(it => !priv.vecs[it.h]);
+  let embedded = 0;
+  for (let i = 0; i < need.length; i += 16) {
+    const batch = need.slice(i, i + 16);
+    try { const vecs = await embedBatch(batch.map(b => b.text)); batch.forEach((b, j) => { if (vecs[j]) { priv.vecs[b.h] = vecs[j]; embedded++; } }); }
+    catch (e) {
+      // 整批失败就逐条退化,坏切片跳过不拖全队
+      for (const b of batch) { try { const v = await embedBatch([b.text]); if (v[0]) { priv.vecs[b.h] = v[0]; embedded++; } } catch { log({ outcome: "priv_embed_skip", id: b.id }); } }
+    }
+  }
+  // 收垃圾:不再存在的切片向量丢掉
+  const live = new Set(items.map(i => i.h));
+  for (const h of Object.keys(priv.vecs)) if (!live.has(h)) delete priv.vecs[h];
+  priv.items = items; priv.scannedAt = Date.now();
+  try { writeFileSync(PRIVCACHE, JSON.stringify(priv.vecs)); } catch {}
+  log({ outcome: "priv_refresh", files: new Set(items.map(i => i.tag)).size, chunks: items.length, embedded });
+}
 // ---- 缓存 ----
 let cache = { charId: "", memories: [], vecs: {}, since: null, loadedAt: 0 };
 // 2026-08-19 网关二期·驱力偏置召回(借自「心潮·念」3.1 的闭环思路,只借前半环:驱力→召回;记忆→驱力那半环归 app 的 jiwen/欲望盒):
@@ -104,18 +161,19 @@ async function refresh(full = false) {
 async function recall(query, k = 5, useBias = true) {
   const terms = [...memTokens(query)].filter(t => !GW_STOP.has(t));
   let qVec = null; try { qVec = await embedQuery(query); } catch (e) { log({ outcome: "embed_fail", err: String(e.message) }); }
-  return cache.memories.map(m => {
+  const pool = [...cache.memories, ...priv.items.map(it => ({ id: it.id, text: "【" + it.tag + "】" + it.text, tags: [], ts: 0, pinned: false, _priv: true, _h: it.h }))];
+  return pool.map(m => {
     const tags = Array.isArray(m.tags) ? m.tags : [];
     const hay = (String(m.text || "") + "\n" + tags.join(" ")).toLowerCase();
     const hits = terms.reduce((n, t) => n + ((!GW_STOP.has(t) && hay.includes(t)) ? (t.length >= 2 ? 1 : 0.3) : 0), 0);
-    let sem = 0; const v = qVec && cache.vecs[m.id];
+    let sem = 0; const v = qVec && (m._priv ? priv.vecs[m._h] : cache.vecs[m.id]);
     if (v && v.length === qVec.length) sem = Math.max(0, Math.min(1, (cosSim(qVec, v) - 0.38) / 0.32));
     let bias = 0; if (useBias && drive.terms.size) { for (const [t, w] of drive.terms) if (hay.includes(t)) bias += w; bias = Math.min(0.6, bias); }
     return { m, hits, sem, bias, score: hits + sem * 3 + bias };
   }).filter(x => x.hits >= 1 || x.sem >= 0.45)
     .sort((a, b) => b.score - a.score || Number(!!b.m.pinned) - Number(!!a.m.pinned) || Number(b.m.ts || 0) - Number(a.m.ts || 0))
     .slice(0, k)
-    .map(({ m, hits, sem, bias, score }) => ({ id: m.id, text: String(m.text || "").slice(0, 200), ts: m.ts, pinned: !!m.pinned, score: +score.toFixed(2), bias: +bias.toFixed(2), match: (sem >= 0.45 && hits === 0) ? "semantic" : (sem > 0 ? "hybrid" : "keyword") }));
+    .map(({ m, hits, sem, bias, score }) => ({ id: m.id, text: String(m.text || "").slice(0, 200), ts: m.ts, pinned: !!m.pinned, score: +score.toFixed(2), bias: +bias.toFixed(2), source: m._priv ? "private" : "app", match: (sem >= 0.45 && hits === 0) ? "semantic" : (sem > 0 ? "hybrid" : "keyword") }));
 }
 
 // 首拉 + 每 10 分钟增量
@@ -124,11 +182,13 @@ async function recall(query, k = 5, useBias = true) {
 setInterval(() => embedQuery("保温").catch(() => {}), 4 * 60 * 1000);
 setInterval(() => refresh(false).catch(e => log({ outcome: "refresh_fail", err: String(e.message) })), 10 * 60 * 1000);
 refreshDrive().catch(e => log({ outcome: "drive_fail", err: String(e.message) }));
+refreshPrivate().catch(e => log({ outcome: "priv_fail", err: String(e.message) }));
+setInterval(() => refreshPrivate().catch(e => log({ outcome: "priv_fail", err: String(e.message) })), 30 * 60 * 1000);
 setInterval(() => refreshDrive().catch(e => log({ outcome: "drive_fail", err: String(e.message) })), 10 * 60 * 1000);
 
 http.createServer((req, res) => {
   const done = (c, o) => { res.writeHead(c, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(o)); };
-  if (req.method === "GET" && req.url === "/health") return done(200, { ok: true, memories: cache.memories.length, vecs: Object.keys(cache.vecs).length, since: cache.since, loadedAt: cache.loadedAt, drive: { terms: drive.terms.size, mood: drive.mood, at: drive.at } });
+  if (req.method === "GET" && req.url === "/health") return done(200, { ok: true, memories: cache.memories.length, vecs: Object.keys(cache.vecs).length, since: cache.since, loadedAt: cache.loadedAt, drive: { terms: drive.terms.size, mood: drive.mood, at: drive.at }, private: { chunks: priv.items.length, scannedAt: priv.scannedAt } });
   if ((req.headers["x-courier-token"] || "") !== TOKEN) return done(401, { error: "token" });
   if (req.method === "POST" && req.url === "/refresh") return refresh(true).then(() => done(200, { ok: true, memories: cache.memories.length })).catch(e => done(500, { error: String(e.message) }));
   if (req.method !== "POST" || req.url !== "/recall") return done(404, { error: "no" });
