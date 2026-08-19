@@ -74,7 +74,7 @@ export async function main(input={}) {
   if(!shouldAttachAppContinuity(input))return;
   const env=envFile("/Users/lisa/Desktop/lisa-practice/mcp/.env"), key=env.SUPABASE_SERVICE_KEY, uid=env.TARGET_USER;
   if(!key||!uid)return;
-  const base="https://nposjnafsbikwfeoudbg.supabase.co";
+  const base=(env.SUPABASE_URL||"https://yanqiu-vps.tail542792.ts.net:8443").replace(/\/$/,"");
   const saves=await getJSON(`${base}/rest/v1/saves?select=${encodeURIComponent("x_characters:data->>x_characters,x_chatSettings:data->>x_chatSettings")}&user_id=eq.${encodeURIComponent(uid)}`,key), save=saves?.[0]?{data:saves[0]}:null;
   if(!save)return;
   const char=resolveYanqiu(parseSave(save,"x_characters",[]),parseSave(save,"x_chatSettings",{}));
