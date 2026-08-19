@@ -305,8 +305,12 @@
       "\n\n【本周 " + char.name + " 与「" + uName + "」及旁人相处的真实记录（采访与花边都只能就这里发生过的事来问、来爆，不得凭空捏造情节）】\n" +
       (material && material.trim() ? material : "（本周几乎没有 " + char.name + " 的记录。）") +
       "\n\n【任务 · 产出两块】\n" +
-      "① 专访：你作为记者，就本周记录里具体发生的事发问，做一段 Q&A（4~6 轮）。" + char.name +
-      " 必须 IN CHARACTER 回答——语气／态度／软肋／口癖严格贴合上面的角色卡：冷淡就冷淡挑刺，黏糊就黏糊跑题，绝不滑成标准好人腔或客服腔。问题可以八卦、俏皮、带钩子，别一本正经；回答鲜活、有个性、有情绪。每条回答可另附一个被镜头拍到的神态或小动作（写进 action 字段，如「没有看镜头，抬手松了松领口」；没有就留空）。\n" +
+      "① 专访：你作为一个真的想问出东西的记者，就本周记录做一段 4~6 轮 Q&A。采访必须像现场交锋，不是拿现成答案倒推一道送分题。\n" +
+      "· 先找记录里尚有解释空间的矛盾、代价、动机或关系变化再发问；问题只给必要背景，不许把答案、结论或角色原话先塞进题干。\n" +
+      "· 问题要有递进：开场切入 → 追到一个具体关节 → 根据上一答追问或质疑。至少一问让对方不太好答；至少一问必须真正承接上一答，不能彼此独立。\n" +
+      "· 记者可以判断错。" + char.name + " 可以纠正前提、回避、反问、拆台或拒答，不必配合记者把预设答案说完整。\n" +
+      "· " + char.name + " 必须 IN CHARACTER 回答——语气／态度／软肋／口癖严格贴合角色卡；回答先像人在现场说话，再考虑信息完整，绝不滑成标准好人腔、客服腔或总结稿。\n" +
+      "· 每条回答可另附一个镜头确实看得到的神态或小动作（action）；没有就留空，别用动作替答案做情绪注解。\n" +
       "② 狗仔：同一个你，写一段花边小道消息，只报 " + char.name + " 本周的戏。全程「据悉／知情人士向本刊透露／本刊直击」式无实锤爆料，暧昧、留白、点到为止，不给实锤。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
       '{"interview":{"qa":[{"q":"记者的问题","a":"' + char.name + ' 的口头回答（in character）","action":"（可选）回答时的神态/小动作一句，没有就空字符串"}]},"paparazzi":{"title":"花边标题","body":"狗仔正文一段"}}';
@@ -414,6 +418,10 @@
       "· 每篇聚焦本周【不同的一件小事 / 不同的人或一对关系】，各有各的标题，别几篇写同一个人、也别写成一篇长文。\n" +
       "· 【不必覆盖每个角色】：只挑本周你这个腔调觉得最有戏、最好玩的几件小事来报，冷落谁都行，宁缺毋滥。\n" +
       "· 出场人物清单只是声纹参考，【别按它的顺序】决定先写谁——打乱来，谁最有料谁上，别老让同一个人当头条。\n" +
+      "· 这不是聊天摘要。每篇先确定一个鲜明的【报道角度】：冲突、反差、失控的一刻、意外后果、谁付了代价，五选一；标题和导语都围绕它打。\n" +
+      "· 标题必须具体、短促、有判断，像真的会让人停下来翻页；禁止「本周动态／关于某事／某某的一天」式档案标题。首段把最炸的画面、矛盾或后果放在第一句，别从时间线起点平铺。\n" +
+      "· 可以像新闻、小报或专栏那样放大反差、制造悬念、下带立场的判断；但【夸张的是措辞与角度，不是事实】。不得捏造新事件、假引语、伤亡、身份或关系。\n" +
+      "· 正文必须回答「为什么这件小事值得刊登」；少复述过程，多写它暴露了什么、改变了什么、接下来最可能惹出什么麻烦。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
       '{"articles":[{"title":"这篇的标题","body":"这篇正文（严格遵守上面的声纹与禁止项；只用该腔调，别串味）"},{"title":"第二篇标题","body":"第二篇正文"}]}';
     for (let i = 0; i < 2; i++) {
@@ -439,7 +447,7 @@
     const sys = ANTI_CLICHE + "\n\n你是周刊的四个彼此隔离的媒体编辑部。每个版块只能使用自己的世界观和声纹，绝不串味。\n\n" + specs +
       "\n\n" + CHARCARD_RULE + "\n【本周出场人物】\n" + personasBlock + NAME_GUARD +
       "\n\n【本周 RP 聊天记录】\n" + (empty ? "（本周素材几乎为空。）" : material) +
-      "\n\n每个媒体版写 3~4 篇不同小事。只输出 JSON：{\"media\":[{\"voiceId\":\"上面四个id之一\",\"articles\":[{\"title\":\"\",\"body\":\"\"}]}]}";
+      "\n\n每个媒体版写 3~4 篇不同小事。每篇都不是聊天摘要：先选冲突／反差／失控瞬间／意外后果／代价之一作为报道角度；标题具体短促且有判断，首句先抛最炸的画面或后果。允许在各自媒体腔里放大反差、制造悬念、下判断，但只能夸张表达，绝不捏造事实、假引语或关系。正文要说清这件小事为什么值得刊登，不要按聊天时间线平铺。只输出 JSON：{\"media\":[{\"voiceId\":\"上面四个id之一\",\"articles\":[{\"title\":\"\",\"body\":\"\"}]}]}";
     const d = await genJSON(active, sys, "一次写完四个互不串味的媒体版。", 16000);
     const rows = d && Array.isArray(d.media) ? d.media : [];
     const byId = {};
@@ -465,8 +473,8 @@
       (empty ? "（本周素材几乎为空。）" : material) +
       (empty ? "\n\n【空周处理】本周几乎没有素材。不要报错。把「本周风平浪静／无事发生」本身做成一版煞有介事、故作悬念的头版。" : "") +
       "\n\n【任务 · 写这期封面头版】\n" +
-      "① headline：一个耸动抓人的主标题（像杂志封面大字，可用悬念或反差，别一句剧透到底没了悬念）。\n" +
-      "② lead：一段导语，把本周最大那件事的看点讲出来，勾人往里看。\n" +
+      "① headline：一个 10~22 字的封面主标题。必须含具体的人／物／冲突或后果，并做出鲜明判断；像报摊上能把人拽住的大字，不许用「本周动态／某某的一天」这种概括题。可耸动、可反差、可悬念，但不得捏造事实。\n" +
+      "② lead：不要从头复述聊天。第一句先抛最有冲击力的画面、反常点或后果，再用一段导语说明这为什么成了本周头条。夸张角度与措辞，不夸张事实。\n" +
       "③ highlights：3~4 条「本期看点」，每条一句、点不同角色／版块的戏，吊胃口（别用感叹号堆砌）。\n" +
       "④ editorNote：一句主编编者按，给本期定调（俏皮、暧昧或意味深长皆可）。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
@@ -671,10 +679,12 @@
     const tint = COVER_TINTS[Math.floor(r() * COVER_TINTS.length)];
     return { skin: sk, style: sk.css(tint), inks: sk.ink, dark: sk.dark };
   }
-  // 标题散落:用固定的槽位再加抖动。纯随机会叠在一起，槽位保证读得清。
+  // 标题散落在互不相交的固定行带里。行带可以左右错落、旋转，但高度不会互相侵入；
+  // 不能再用百分比 top + 任意换行，否则两条长标题会在小屏上叠住。
   const COVER_SLOTS = [
-    { top: 4, left: 4, w: 62 }, { top: 20, left: 34, w: 60 }, { top: 35, left: 3, w: 55 },
-    { top: 50, left: 30, w: 64 }, { top: 65, left: 5, w: 58 }, { top: 79, left: 26, w: 66 }
+    { top: 8, left: 4, w: 62, h: 72 }, { top: 84, left: 34, w: 61, h: 76 },
+    { top: 164, left: 4, w: 57, h: 72 }, { top: 240, left: 31, w: 64, h: 76 },
+    { top: 320, left: 5, w: 61, h: 72 }, { top: 396, left: 27, w: 68, h: 72 }
   ];
   const faceOf = function (f) { return f === "mono" ? "'Archivo',ui-monospace,monospace" : F_DISPLAY; };
   // 纸感底:两层极淡的斜向条纹 + 一层柔光，比纯色背景像纸，又不至于花
@@ -747,8 +757,9 @@
         top: slot.top + (r() * 5 - 2.5),
         left: Math.max(2, Math.min(38, slot.left + (r() * 6 - 3))),
         w: slot.w,
-        size: 17 + Math.round(r() * 11),          // 17~28px，不会小到看不见
-        rot: (r() * 14 - 7).toFixed(1),           // ±7°
+        h: slot.h,
+        size: Math.max(17, (String(it.title || "").length > 16 ? 18 : 19 + Math.round(r() * 7))),
+        rot: (r() * 8 - 4).toFixed(1),            // ±4°，留足旋转后的安全边界
         ink: ck.inks[Math.floor(r() * ck.inks.length)],
         face: r() < .5 ? F_DISPLAY : F_BODY,
         weight: r() < .35 ? 600 : 400
@@ -765,12 +776,12 @@
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 38, letterSpacing: "0.14em", textIndent: "0.14em", color: ck.dark ? "#f4efe6" : "#232019", lineHeight: 1.1 } }, "周刊"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, marginTop: 2 } }, "第 " + (props.num || "—") + " 期　·　" + (props.label || ""))),
       // 散落的标题
-      h("div", { style: { position: "relative", height: 470, marginTop: 6 } },
+      h("div", { style: { position: "relative", height: 474, marginTop: 6 } },
         laid.map(function (L, i) {
           return h("button", { key: i, onClick: L.it.onOpen, className: "text-left active:opacity-60",
-            style: { position: "absolute", top: L.top + "%", left: L.left + "%", width: L.w + "%", transform: "rotate(" + L.rot + "deg)", transformOrigin: "left top" } },
+            style: { position: "absolute", top: L.top, left: L.left + "%", width: L.w + "%", height: L.h, overflow: "hidden", transform: "rotate(" + L.rot + "deg)", transformOrigin: "left top" } },
             h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: "0.26em", textTransform: "uppercase", color: sub, marginBottom: 2 } }, L.it.en),
-            h("div", { style: { fontFamily: L.face, fontWeight: L.weight, fontSize: L.size, lineHeight: 1.25, color: L.ink, textShadow: ck.dark ? "0 1px 2px rgba(0,0,0,.5)" : "0 1px 0 rgba(255,255,255,.55)" } }, L.it.title),
+            h("div", { style: { fontFamily: L.face, fontWeight: L.weight, fontSize: L.size, lineHeight: 1.2, color: L.ink, textShadow: ck.dark ? "0 1px 2px rgba(0,0,0,.5)" : "0 1px 0 rgba(255,255,255,.55)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, L.it.title),
             L.it.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 2 } }, L.it.meta) : null);
         })),
       h("div", { style: { position: "absolute", right: 12, bottom: 10, fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "TAP A HEADLINE"));
@@ -1052,7 +1063,7 @@
     return h("div", { className: "h-full flex flex-col", style: paperStyle(t) },
       h(WeeklyMotionStyles),
       h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { goSub(null, "prev"); } : props.onBack }),
-      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
+      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-8 pb-16" },
         h("div", { className: "weekly-page-stage" },
         h("div", { key: currentPageKey + ":" + turn.n, className: turn.dir === "prev" ? "weekly-page-prev" : "weekly-page-next" },
         detail ? detail : h("div", null,
