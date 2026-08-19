@@ -4,6 +4,8 @@ const BG = require("../js/background-generation.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const fanficSource = fs.readFileSync(path.join(__dirname, "../js/fanfic.js"), "utf8");
+const tarotSource = fs.readFileSync(path.join(__dirname, "../js/tarot.js"), "utf8");
+const dreamJournalSource = fs.readFileSync(path.join(__dirname, "../js/dreamjournal.js"), "utf8");
 
 test("后台任务离开订阅者后仍完成，重进可读取结果", async () => {
   let release;
@@ -36,6 +38,25 @@ test("不同文章的追更任务可以各自运行，互不抢锁", async () =>
   assert.equal(await b, "b2");
   assert.equal(BG.state("fanfic:chapter:a").status, "done");
   assert.equal(BG.state("fanfic:chapter:b").status, "done");
+});
+
+test("不同功能各用自己的任务命名空间并可分别查询", async () => {
+  await Promise.all([
+    BG.start("tarot:test", {}, async () => "牌"),
+    BG.start("dreamjournal:test", {}, async () => "梦")
+  ]);
+  assert.equal(BG.list("tarot:").some(x => x.key === "tarot:test"), true);
+  assert.equal(BG.list("dreamjournal:").some(x => x.key === "dreamjournal:test"), true);
+  assert.equal(BG.list("weekly:").some(x => x.key === "tarot:test"), false);
+});
+
+test("塔罗、做梦和解梦都接入各自后台任务且在任务内落结果", () => {
+  assert.match(tarotSource, /const bgKey = "tarot:active"/);
+  assert.match(tarotSource, /bg\.start\(bgKey/);
+  assert.match(dreamJournalSource, /"dreamjournal:generate:" \+ row\.key/);
+  assert.match(dreamJournalSource, /"dreamjournal:interpret:" \+ entry\.id \+ ":" \+ char\.id/);
+  assert.match(dreamJournalSource, /DreamLoop\.saveGenerated\(row\.key, gen\)/);
+  assert.match(dreamJournalSource, /saveLog\(next\)/);
 });
 
 test("同人文批量与追更都使用后台任务，长文调用放宽到五分钟", () => {

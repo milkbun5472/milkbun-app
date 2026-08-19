@@ -302,8 +302,18 @@
     const [charId, setCharId] = useState("");
     const [dailyAll, setDailyAll] = useState(false); // 每日一牌：一次抽全部角色
     const [q, setQ] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [phase, setPhase] = useState("");
+    const bgKey = "tarot:active";
+    const bg = window.BackgroundGeneration;
+    const initialTask = bg ? bg.state(bgKey) : null;
+    const [busy, setBusy] = useState(!!(initialTask && initialTask.busy));
+    const [phase, setPhase] = useState((initialTask && initialTask.label) || "");
+
+    React.useEffect(() => {
+      if (!bg) return;
+      const sync = s => { setBusy(!!s.busy); setPhase(s.busy ? (s.label || "生成中…") : ""); };
+      sync(bg.state(bgKey));
+      return bg.subscribe(bgKey, sync);
+    }, []);
 
     const uName = (props.profile && props.profile.name) || "我";
     const isDailyAll = m.daily && dailyAll;
@@ -329,11 +339,17 @@
         if (!toGen.length && existing) { props.onDone(existing, true); return; } // 想看的人都解过了 → 直接看(纯回看,不再回流一次)
         setBusy(true); setPhase(existing ? "解读今天这张牌…" : "正在翻开今天的牌…");
         try {
-          const list = toGen.map(x => ({ id: x.id, name: x.name, persona: x.persona || "", mood: moodOf(x.id), voiceRef: recentChat(x.id, uName, x.name) }));
-          const outs = await readDailyForCard(props.active, card, list, uName, props.worldbook);
-          const newEntries = toGen.map((x, i) => ({ charId: x.id, charName: x.name, text: outs[i] ? outs[i].text : "" }));
-          const merged = (existing && existing.entries || []).concat(newEntries);
-          props.onDone({ id: "tr_daily_" + tk, mode: "daily", dayKey: tk, card: card, entries: merged, all: isDailyAll || !!(existing && existing.all), ts: Date.now() });
+          const run = async update => {
+            update(null, existing ? "解读今天这张牌…" : "正在翻开今天的牌…");
+            const list = toGen.map(x => ({ id: x.id, name: x.name, persona: x.persona || "", mood: moodOf(x.id), voiceRef: recentChat(x.id, uName, x.name) }));
+            const outs = await readDailyForCard(props.active, card, list, uName, props.worldbook);
+            const newEntries = toGen.map((x, i) => ({ charId: x.id, charName: x.name, text: outs[i] ? outs[i].text : "" }));
+            const merged = (existing && existing.entries || []).concat(newEntries);
+            const session = { id: "tr_daily_" + tk, mode: "daily", dayKey: tk, card: card, entries: merged, all: isDailyAll || !!(existing && existing.all), ts: Date.now() };
+            props.onDone(session);
+            return session;
+          };
+          if (bg) await bg.start(bgKey, { label: phase || "正在翻开今天的牌…" }, run); else await run(() => {});
         } catch (e) { props.toast && props.toast("牌没摊开：" + (e.message || "重试")); setBusy(false); setPhase(""); }
         return;
       }
@@ -341,22 +357,26 @@
       const c = props.characters.find(x => x.id === charId);
       setBusy(true); setPhase("正在洗牌…");
       try {
-        const cards = draw(m.spread.length);
-        setPhase("牌已摊开，" + c.name + "正在解读…");
-        const r1 = rels[c.id + "->me"], r2 = rels["me->" + c.id];
-        const relText = [r2 && r2.label ? "你把 Ta 当作：" + r2.label : "", r1 && r1.label ? "Ta 把你当作：" + r1.label : ""].filter(Boolean).join("；");
-        const aff = props.affinities ? props.affinities[c.id] : null;
-        const out = await readSpread(props.active, {
-          mode: props.modeKey, cards: cards, spread: m.spread,
-          charName: c.name, charPersona: c.persona || "", uName: uName,
-          question: q.trim(), relText: relText,
-          band: (props.modeKey === "relation" || props.modeKey === "reading") ? affBand(aff) : "",
-          voiceRef: recentChat(c.id, uName, c.name), mood: moodOf(c.id), worldbook: props.worldbook
-        });
-        props.onDone({
-          id: "tr_" + Date.now(), mode: props.modeKey, charId: c.id, charName: c.name,
-          question: q.trim(), spread: m.spread, cards: cards, reads: out.reads, summary: out.summary, charThought: out.charThought, ts: Date.now()
-        });
+        const run = async update => {
+          update(null, "正在洗牌…");
+          const cards = draw(m.spread.length);
+          update(null, "牌已摊开，" + c.name + "正在解读…");
+          const r1 = rels[c.id + "->me"], r2 = rels["me->" + c.id];
+          const relText = [r2 && r2.label ? "你把 Ta 当作：" + r2.label : "", r1 && r1.label ? "Ta 把你当作：" + r1.label : ""].filter(Boolean).join("；");
+          const aff = props.affinities ? props.affinities[c.id] : null;
+          const out = await readSpread(props.active, {
+            mode: props.modeKey, cards: cards, spread: m.spread,
+            charName: c.name, charPersona: c.persona || "", uName: uName,
+            question: q.trim(), relText: relText,
+            band: (props.modeKey === "relation" || props.modeKey === "reading") ? affBand(aff) : "",
+            voiceRef: recentChat(c.id, uName, c.name), mood: moodOf(c.id), worldbook: props.worldbook
+          });
+          const session = { id: "tr_" + Date.now(), mode: props.modeKey, charId: c.id, charName: c.name,
+            question: q.trim(), spread: m.spread, cards: cards, reads: out.reads, summary: out.summary, charThought: out.charThought, ts: Date.now() };
+          props.onDone(session);
+          return session;
+        };
+        if (bg) await bg.start(bgKey, { label: "正在洗牌…" }, run); else await run(() => {});
       } catch (e) { props.toast && props.toast("牌没摊开：" + (e.message || "重试")); setBusy(false); setPhase(""); }
     };
 

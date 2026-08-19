@@ -110,28 +110,34 @@
 
     // 懒生成：点开「未醒的梦」才真正花一次调用（材料引用就地还原成片段，正文不入库）
     const generate = async (row) => {
-      if (genBusy) return;
+      const taskKey = "dreamjournal:generate:" + row.key;
+      const bg = window.BackgroundGeneration;
+      if (genBusy && genBusy !== row.key) return;
       const char = chars.find(c => c.id === row.charId);
       if (!char) { props.toast && props.toast("角色不在了，这场梦无主"); return; }
       setGenBusy(row.key);
       try {
-        const p = props.bgApi || (props.apiFor ? props.apiFor(char.id) : null);
-        if (!p) throw new Error("没有可用的 API 线路");
-        const msgs = loadJSON("x_chat:" + row.charId, []) || [];
-        const refs = new Map((row.materialRefs || []).filter(r => r.kind === "chat").map(r => [String(r.refId), r]));
-        const excerpts = [];
-        msgs.forEach((m, i) => {
-          const mid = m.id || m.turnId || (String(m.ts || 0) + ":" + i);
-          const ref = refs.get(String(mid));
-          if (ref && m.content && window.DreamLoopCore && window.DreamLoopCore.refMatches(ref, m.content) && excerpts.length < 12) excerpts.push(String(m.content).slice(0, 80));
-        });
-        const cp = props.couples && props.couples[char.id];
-        const relationship = cp && cp.status === "together" ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
-        const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
-        const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }), [{ role: "user", content: "开始做梦。" }], { maxTokens: 6400 });
-        const gen = parseDreamJSON(raw);
-        if (!gen) throw new Error("梦没成形，再试一次");
-        await window.DreamLoop.saveGenerated(row.key, gen);
+        const run = async () => {
+          const p = props.bgApi || (props.apiFor ? props.apiFor(char.id) : null);
+          if (!p) throw new Error("没有可用的 API 线路");
+          const msgs = loadJSON("x_chat:" + row.charId, []) || [];
+          const refs = new Map((row.materialRefs || []).filter(r => r.kind === "chat").map(r => [String(r.refId), r]));
+          const excerpts = [];
+          msgs.forEach((m, i) => {
+            const mid = m.id || m.turnId || (String(m.ts || 0) + ":" + i);
+            const ref = refs.get(String(mid));
+            if (ref && m.content && window.DreamLoopCore && window.DreamLoopCore.refMatches(ref, m.content) && excerpts.length < 12) excerpts.push(String(m.content).slice(0, 80));
+          });
+          const cp = props.couples && props.couples[char.id];
+          const relationship = cp && cp.status === "together" ? "你和她现实中已正式在一起，可以使用现实已有的恋人称谓" : cp && cp.status === "pending" ? "你向她表达过关系意愿，但现实中尚未确认成为恋人" : "你和她现实中没有已确认的恋人关系";
+          const allowedNames = [char.name, char.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
+          const raw = await callAI(p, dreamGenSys(char, row, excerpts, { relationship, allowedNames }), [{ role: "user", content: "开始做梦。" }], { maxTokens: 6400 });
+          const gen = parseDreamJSON(raw);
+          if (!gen) throw new Error("梦没成形，再试一次");
+          await window.DreamLoop.saveGenerated(row.key, gen);
+          return gen;
+        };
+        if (bg) await bg.start(taskKey, { label: nameOf(row.charId) + "的梦正在成形…" }, run); else await run();
         await loadTheirs();
       } catch (e) { props.toast && props.toast("生成失败：" + (e.message || e)); }
       finally { setGenBusy(null); }
@@ -147,18 +153,26 @@
     };
 
     const interpret = async (entry, char) => {
-      if (busyId) return;
+      const taskKey = "dreamjournal:interpret:" + entry.id + ":" + char.id;
+      const bg = window.BackgroundGeneration;
+      if (busyId && busyId !== entry.id) return;
       setPickFor(null);
       setBusyId(entry.id);
       try {
-        const p = props.apiFor ? props.apiFor(char.id) : null;
-        if (!p) throw new Error("没有可用的 API 线路");
-        const motifs = motifTop(log.filter(e => e.id !== entry.id), 5);
-        const body = entry.kind === "none" ? "（她说昨晚没做梦，或者什么都不记得了。）" : entry.text;
-        const raw = await callAI(p, interpretSys(char, entry, motifs), [{ role: "user", content: "【她的梦】\n" + body }], { maxTokens: 6400 });
-        const clean = String(raw || "").trim();
-        if (!clean) throw new Error("解梦人走神了，再试一次");
-        commit(loadLog().map(e => e.id === entry.id ? { ...e, interpretations: [...(e.interpretations || []), { charId: char.id, name: char.remark || char.name, text: clean, ts: Date.now() }] } : e));
+        const run = async () => {
+          const p = props.apiFor ? props.apiFor(char.id) : null;
+          if (!p) throw new Error("没有可用的 API 线路");
+          const motifs = motifTop(loadLog().filter(e => e.id !== entry.id), 5);
+          const body = entry.kind === "none" ? "（她说昨晚没做梦，或者什么都不记得了。）" : entry.text;
+          const raw = await callAI(p, interpretSys(char, entry, motifs), [{ role: "user", content: "【她的梦】\n" + body }], { maxTokens: 6400 });
+          const clean = String(raw || "").trim();
+          if (!clean) throw new Error("解梦人走神了，再试一次");
+          const next = loadLog().map(e => e.id === entry.id ? { ...e, interpretations: [...(e.interpretations || []), { charId: char.id, name: char.remark || char.name, text: clean, ts: Date.now() }] } : e);
+          saveLog(next);
+          return clean;
+        };
+        if (bg) await bg.start(taskKey, { label: (char.remark || char.name) + "正在解梦…" }, run); else await run();
+        setLog(loadLog());
       } catch (e) { props.toast && props.toast("解梦失败：" + (e.message || e)); }
       finally { setBusyId(null); }
     };

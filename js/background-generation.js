@@ -26,6 +26,11 @@
     return function () { listeners.set(key, (listeners.get(key) || []).filter(function (x) { return x !== fn; })); };
   }
 
+  function list(prefix) {
+    const p = prefix == null ? "" : String(prefix);
+    return Array.from(tasks.keys()).filter(function (key) { return !p || key.indexOf(p) === 0; }).map(snapshot);
+  }
+
   function start(key, options, runner) {
     options = options || {};
     const old = tasks.get(key);
@@ -45,6 +50,6 @@
     return task.promise;
   }
 
-  root.BackgroundGeneration = { start: start, state: snapshot, subscribe: subscribe };
+  root.BackgroundGeneration = { start: start, state: snapshot, subscribe: subscribe, list: list };
   if (typeof module !== "undefined" && module.exports) module.exports = root.BackgroundGeneration;
 })(typeof window !== "undefined" ? window : globalThis);
