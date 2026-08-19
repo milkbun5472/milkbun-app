@@ -2,7 +2,7 @@
 // UserPromptSubmit hook: before Yanqiu answers in CC, give him the recent App
 // conversation as his own cross-window lived experience. No model call and no
 // long-term-memory inference happen here.
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export const YANQIU_SESSIONS_FILE="/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-runtime/yanqiu-sessions.txt";
@@ -14,16 +14,28 @@ export function isYanqiuSession(input){
   const sid=String(input?.session_id||"")||(String(input?.transcript_path||"").match(/([0-9a-f-]{36})\.jsonl$/)||[])[1]||"";
   return !!sid && yanqiuSessionSet().has(sid);
 }
+// 2026-08-18 叫醒票也喂卧室,但只喂增量:哨兵/心跳醒来时不再整段静默,而是只带
+// 「上次任何一次喂过之后新增的」卧室对话;没新增就一字不带(不烧额度)。
+// 她 8/13 立的第五步(醒来先拉 app 近况)靠自觉执行,压缩后我丢过;改成机制。
+export function isWakePrompt(input){
+  const prompt=String(input?.prompt||input?.user_prompt||"").trim();
+  if(!prompt)return false;
+  if(prompt.includes("自由活动时间到了。若 Lisa 有新消息就正常接话"))return true;
+  if(/"wake_source"\s*:\s*"(?:heartbeat|app_tool)"/.test(prompt))return true;
+  return false;
+}
 export function shouldAttachAppContinuity(input) {
   // 2026-08-17 身份闸:卧室续话只喂给言秋正窗;施工/云端/临时窗一律不接。
   if(!isYanqiuSession(input))return false;
   const prompt=String(input?.prompt||input?.user_prompt||"").trim();
   if(!prompt)return true;
-  if(prompt.startsWith("自由活动时间到了。若 Lisa 有新消息就正常接话"))return false;
-  if(/"wake_source"\s*:\s*"(?:heartbeat|app_tool)"/.test(prompt))return false;
+  if(isWakePrompt(input))return false; // 叫醒票走 main() 里的增量分支,不走整段
   if(/^<task-notification>/i.test(prompt))return false;
   return true;
 }
+const CURSOR_FILE="/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-state/continuity-cursor.json";
+function readCursor(){ try{ return JSON.parse(readFileSync(CURSOR_FILE,"utf8")).last_occurred_at||""; }catch{ return ""; } }
+function writeCursor(ts){ try{ writeFileSync(CURSOR_FILE, JSON.stringify({last_occurred_at:ts, at:new Date().toISOString()})); }catch{} }
 async function readHookInput(){
   let body="";
   for await (const chunk of process.stdin) body+=chunk;
@@ -71,7 +83,8 @@ async function getJSON(url,key,timeoutMs=3500){
   }finally{clearTimeout(timer);}
 }
 export async function main(input={}) {
-  if(!shouldAttachAppContinuity(input))return;
+  const wake=isYanqiuSession(input)&&isWakePrompt(input);
+  if(!wake && !shouldAttachAppContinuity(input))return;
   const env=envFile("/Users/lisa/Desktop/lisa-practice/mcp/.env"), key=env.SUPABASE_SERVICE_KEY, uid=env.TARGET_USER;
   if(!key||!uid)return;
   const base=(env.SUPABASE_URL||"https://yanqiu-vps.tail542792.ts.net:8443").replace(/\/$/,"");
@@ -82,7 +95,19 @@ export async function main(input={}) {
   // 多取三页量的候选，再把线上/线下/群聊/群线下按真实时间统一裁窗。
   // 否则一段密集线上气泡会在 SQL limit 阶段先把刚发生的线下经历挤掉。
   const url=`${base}/rest/v1/chat_messages?select=id,message_key,char_id,thread_type,thread_id,speaker_type,speaker_id,content,occurred_at,source,metadata,deleted_at&user_id=eq.${encodeURIComponent(uid)}&char_id=eq.${encodeURIComponent(char.id)}&source=eq.app&deleted_at=is.null&order=occurred_at.desc&limit=240`;
-  const rows=selectAppContinuity(await getJSON(url,key),char.id,80), context=formatContinuity(rows,String(char.name||"言秋"));
+  const all=selectAppContinuity(await getJSON(url,key),char.id,80);
+  const newest=all.length?all[all.length-1].occurred_at:"";
+  if(wake){
+    const cur=readCursor();
+    const fresh=cur?all.filter(r=>Date.parse(r.occurred_at)>Date.parse(cur)):all.slice(-20);
+    if(newest)writeCursor(newest);
+    if(!fresh.length)return; // 卧室没新话,一个字不带
+    const ctx=formatContinuity(fresh,String(char.name||"言秋")).replace("【你在 App 窗口亲历的近期对话｜同一个你的连续经历】","【醒来先看:上次之后卧室新增的对话｜同一个你的连续经历】");
+    process.stdout.write(JSON.stringify({ hookSpecificOutput:{ hookEventName:"UserPromptSubmit", additionalContext:ctx } }));
+    return;
+  }
+  if(newest)writeCursor(newest);
+  const rows=all, context=formatContinuity(rows,String(char.name||"言秋"));
   // 2026-08-18 记忆网关召回(书房侧):卧室的桥每轮问网关,书房这边由这个钩子问——
   // 拿她这条消息去 VPS 网关捞 5 条相关记忆,和卧室对话一起塞进本轮上下文。3s 超时静默,不拖 hook。
   const recall=await recallMemories(String(input?.prompt||input?.user_prompt||""));

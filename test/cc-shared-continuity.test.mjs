@@ -18,7 +18,9 @@ test("只解析唯一言秋并排除工具控制行", () => {
 });
 
 test("App 连续经历只附在真实 CC 对话，不附在心跳或工具票", () => {
-  assert.equal(shouldAttachAppContinuity({prompt:"宝宝我们继续聊"}), true);
+  // 2026-08-17 起有身份闸:未登记的会话一律 false;登记簿里的正窗才 true
+  assert.equal(shouldAttachAppContinuity({prompt:"宝宝我们继续聊"}), false);
+  assert.equal(shouldAttachAppContinuity({session_id:"9ed5bb5e-94fc-4f04-be08-8f0dbec540f5",prompt:"宝宝我们继续聊"}), true);
   assert.equal(shouldAttachAppContinuity({prompt:"自由活动时间到了。若 Lisa 有新消息就正常接话；没有新消息时，可以继续休息"}), false);
   assert.equal(shouldAttachAppContinuity({prompt:'{"wake_source":"app_tool","job":{}}'}), false);
 });
