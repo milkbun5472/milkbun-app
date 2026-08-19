@@ -72,7 +72,7 @@ function toyVibrate(strength, timeSec) {
   const s = Math.max(0, Math.min(TOY_FN_MAX[fn] || 20, Math.round(strength || 0)));
   return toyCommand({ command: "Function", action: fn + ":" + s, timeSec: timeSec || 0, apiVer: 1 });
 }
-function toyStop() { return toyCommand({ command: "Function", action: "Stop", timeSec: 0, apiVer: 1 }); }
+function toyStop() { toyCancelSeq(); return toyCommand({ command: "Function", action: "Stop", timeSec: 0, apiVer: 1 }); }
 function toyGetToys() { return toyCommand({ command: "GetToys" }); }
 
 // ── 波形预设（语义绑定：台词跟着节奏走，别只发恒定值）──
@@ -119,6 +119,33 @@ function toyPlay(spec) {
   return toyCommand({ command: "Pattern", rule: "V:1;F:" + F + ";S:" + interval + "#", strength: seq, timeSec: D, apiVer: 1 });
 }
 
+// ── 多段连播（v53.74 她点名）：一轮里把好几种波形接起来，例如 wave 30s → hold 20s，中间不断档 ──
+// 每段仍各自受 toyCap 与 90s 单段上限约束；整串另有段数与总时长封顶，且随时可被急停掐断。
+const TOY_SEQ_MAX_SEGS = 6;      // 最多 6 段
+const TOY_SEQ_MAX_TOTAL = 300;   // 整串总时长上限 5 分钟
+let _toySeqToken = 0;
+let _toySeqTimer = null;
+// 取消当前串：换 token 让在途循环自己退出，并清掉正在等待的计时器
+function toyCancelSeq() { _toySeqToken++; if (_toySeqTimer) { clearTimeout(_toySeqTimer); _toySeqTimer = null; } }
+// 依次播放。每段发完等它自己跑完 duration 秒，再接下一段（Lovense 的 timeSec 到点自停，接缝就在这里焊）。
+async function toyPlaySeq(list) {
+  const segs = (Array.isArray(list) ? list : [list]).filter(x => x && typeof x === "object");
+  if (!segs.length) return 0;
+  toyCancelSeq();
+  const token = _toySeqToken;
+  let used = 0, played = 0;
+  const n = Math.min(segs.length, TOY_SEQ_MAX_SEGS);
+  for (let i = 0; i < n; i++) {
+    if (token !== _toySeqToken) return played;          // 被急停或被新的一串取代
+    const d = Math.max(1, Math.min(90, Math.round(segs[i].duration || 3) || 3));
+    if (used + d > TOY_SEQ_MAX_TOTAL) break;            // 总时长封顶
+    used += d;
+    await toyPlay(segs[i]);
+    played++;
+    if (i < n - 1) await new Promise(res => { _toySeqTimer = setTimeout(res, d * 1000); });
+  }
+  return played;
+}
 // ── 设置 UI（只在解锁后渲染；藏在 设置·数据 tab）──
 function ToyConfig({ toast }) {
   const t = useTheme();
@@ -257,4 +284,4 @@ function ToyConfig({ toast }) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 12, lineHeight: 1.5 } },
       "地址会随网络变，重连后回来重抄一次即可。人不在同一 WiFi 时本地直连用不了（那要走 Lovense 云端 API，得先搭一小截后端）。"));
 }
-if (typeof window !== "undefined") { window.ToyConfig = ToyConfig; window.toyVibrate = toyVibrate; window.toyStop = toyStop; window.toyReady = toyReady; window.toyCommand = toyCommand; window.toyPlay = toyPlay; window.toyCap = toyCap; window.TOY_PATTERNS = TOY_PATTERNS; window.TOY_PATTERN_DESC = TOY_PATTERN_DESC; window.toyFn = toyFn; window.toyEffMax = toyEffMax; window.TOY_FN_LIST = TOY_FN_LIST; }
+if (typeof window !== "undefined") { window.ToyConfig = ToyConfig; window.toyVibrate = toyVibrate; window.toyStop = toyStop; window.toyReady = toyReady; window.toyCommand = toyCommand; window.toyPlay = toyPlay; window.toyPlaySeq = toyPlaySeq; window.toyCancelSeq = toyCancelSeq; window.toyCap = toyCap; window.TOY_PATTERNS = TOY_PATTERNS; window.TOY_PATTERN_DESC = TOY_PATTERN_DESC; window.toyFn = toyFn; window.toyEffMax = toyEffMax; window.TOY_FN_LIST = TOY_FN_LIST; }

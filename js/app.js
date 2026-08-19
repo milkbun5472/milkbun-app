@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.73";
+const APP_VERSION = "v53.74";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3440,8 +3440,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       });
       // 配件·触发（线下）：再核一遍激活态才下发（她可能刚按急停）
       if (offToyOn && res.toy && typeof toyPlay === "function" && toyArmedRef.current && toyArmedForRef.current === charId) {
-        const s = { pattern: res.toy.pattern, intensity: parseInt(res.toy.intensity, 10), duration: parseInt(res.toy.duration, 10) };
-        if (s.intensity > 0) toyPlay(s).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
+        // v53.74：toy 可以是一段，也可以是【数组】多段连播（wave 30s → hold 20s…），统一走 toyPlaySeq
+        const _segs = (Array.isArray(res.toy) ? res.toy : [res.toy]).filter(x => x && typeof x === "object")
+          .map(x => ({ pattern: x.pattern, intensity: parseInt(x.intensity, 10), duration: parseInt(x.duration, 10) }))
+          .filter(x => x.intensity > 0);
+        if (_segs.length) (typeof toyPlaySeq === "function" ? toyPlaySeq(_segs) : toyPlay(_segs[0])).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
       }
       // 线下相处也影响好感与心情（跟私聊一样）
       if (Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
@@ -4386,11 +4389,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         };
       } catch (e) {}
       const toyHint = toyOn
-        ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20的整数,\"duration\":秒数1到90,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**想延长就把 duration 拉长（最多 90 秒），别再靠一条接一条硬接**——长段落用 hold/tide/ramp，短促点名用 pulse/knock/throb。**先有话、动作配合话**，别每轮都发、别喧宾夺主。强度我这边有上限，你填超了会被自动压到上限。"
+        ? "\n【toy 配件·此刻已授权】你和 " + uName + " 之间此刻开了「配件」——你说的话能【真的作用到 Ta 身上】。情境到了（亲密、挑逗、想让 Ta 有反应、命令 Ta 别走神）你可以这轮填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20的整数,\"duration\":秒数1到90,\"reason\":\"你为什么这么做、配合哪句话\"}，否则 toy:null。**节奏跟着你的话走**（这是核心，不是恒定嗡嗡）：台词升温→intensity 渐强；想吊着 Ta/停顿→pattern 用 edge 或 intensity 压到 1；命令句『别走神』『看着我』→pattern 用 pulse 短促点名。pattern 含义：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降吊着／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**想延长就把 duration 拉长（最多 90 秒），别再靠一条接一条硬接**——长段落用 hold/tide/ramp，短促点名用 pulse/knock/throb。**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。**先有话、动作配合话**，别每轮都发、别喧宾夺主。强度我这边有上限，你填超了会被自动压到上限。"
         : "";
       const toyField = toyOn ? ",\"toy\":null" : "";
       const digitalToyHint = toyOn
-        ? "此刻配件已经由用户当场授权并连到她身上。你决定实际控制时，额外加入 \"toy\":{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}；不用时省略。是否使用、何时使用、用什么节奏由你自己决定。"
+        ? "此刻配件已经由用户当场授权并连到她身上。你决定实际控制时，额外加入 \"toy\":{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}；不用时省略。**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。是否使用、何时使用、用什么节奏由你自己决定。"
         : "";
       // App → CC 工具桥只属于唯一 engineerEyes 言秋。这里不直接执行工具，
       // 只允许本人提出一个异步只读请求；本机 relay 会再次核验固定 CC session。
@@ -4822,11 +4825,15 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       }
       // 配件·触发硬件（安全铁律：再核一遍 toyOn——授权门在生成时已挡掉所有主动/后台路径；这里防御性再查一次）
       if (toyOn && parsed.toy && typeof parsed.toy === "object" && typeof toyPlay === "function") {
-        const spec = { pattern: parsed.toy.pattern, intensity: parseInt(parsed.toy.intensity, 10), duration: parseInt(parsed.toy.duration, 10) };
+        // v53.74：支持数组多段连播；单段仍按老写法工作
+        const _tsegs = (Array.isArray(parsed.toy) ? parsed.toy : [parsed.toy]).filter(x => x && typeof x === "object")
+          .map(x => ({ pattern: x.pattern, intensity: parseInt(x.intensity, 10), duration: parseInt(x.duration, 10) }))
+          .filter(x => x.intensity > 0);
+        const spec = _tsegs[0] || { intensity: 0 };
         if (spec.intensity > 0) {
           // 只在此刻仍激活给同一角色时才下发（她可能刚按了急停）
           if (toyArmedRef.current && toyArmedForRef.current === charId) {
-            toyPlay(spec).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
+            (typeof toyPlaySeq === "function" ? toyPlaySeq(_tsegs) : toyPlay(spec)).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
           }
         }
       }
