@@ -517,7 +517,18 @@
   }
 
   // 媒体腔版块：把整周素材用某种腔重新叙事化，一版出 3~4 篇独立小报
-  async function genMedia(active, voice, personasBlock, material, empty) {
+  // 同一件事的归一化标签：跨版面查重用。去空白与常见标点，只比"骨架"。
+  function eventKey(x) { return String(x || "").replace(/[\s·、，,。.:：;；!！?？"'「」『』（）()《》〈〉\-—_~～]/g, "").toLowerCase(); }
+  // 本周素材里最扎眼的那件事，每个版面都会不约而同挑它——所以要明确把已被别的版
+  // 占掉的事列出来禁掉，否则换的只是腔调，事件永远是同一件（她 2026-08-19 报）。
+  function avoidBlock(avoid) {
+    const list = (avoid || []).map(function (x) { return String(x || "").trim(); }).filter(Boolean);
+    if (!list.length) return "";
+    return "\n\n【这些事已经被本期别的版面报道了 · 一件都不许再写】\n" +
+      list.map(function (x, i) { return (i + 1) + ". " + x; }).join("\n") +
+      "\n换个说法、换个角度、只换主角都算重复。本周素材里还有别的事，去挑别人没挑的；实在挑不出，宁可写更小的事，也不许和上面撞。";
+  }
+  async function genMedia(active, voice, personasBlock, material, empty, avoid) {
     const sys =
       ANTI_CLICHE +
       "\n\n【媒体腔 · " + voice.name + "（本版块叙述者的世界观与声纹，是最高创作框架，全程严格遵守）】\n" + voice.world +
@@ -526,6 +537,7 @@
       "\n\n【本周 RP 聊天记录（把这些真实发生过的事，用上面的媒体腔重新叙事化、报道出来；不得虚构没发生的事）】\n" +
       (empty ? "（本周素材几乎为空。）" : material) +
       (empty ? "\n\n【空周处理】本周几乎没有素材。不要报错、也不要硬编剧情。请按你这种腔调，把「无人可报／集体缺席」本身写成一两篇像模像样的报道。参考方向：" + voice.absent : "") +
+      avoidBlock(avoid) +
       "\n\n【任务】用这种媒体腔写 3~4 篇【各自独立】的小报文章：\n" +
       "· 每篇聚焦本周【不同的一件小事 / 不同的人或一对关系】，各有各的标题，别几篇写同一个人、也别写成一篇长文。\n" +
       "· 【不必覆盖每个角色】：只挑本周你这个腔调觉得最有戏、最好玩的几件小事来报，冷落谁都行，宁缺毋滥。\n" +
@@ -535,14 +547,15 @@
       "· 可以像新闻、小报或专栏那样放大反差、制造悬念、下带立场的判断；但【夸张的是措辞与角度，不是事实】。不得捏造新事件、假引语、伤亡、身份或关系。\n" +
       "· 正文必须回答「为什么这件小事值得刊登」；少复述过程，多写它暴露了什么、改变了什么、接下来最可能惹出什么麻烦。\n" +
       "【输出】只输出一个 JSON，不要代码块、不要多余文字：\n" +
-      '{"articles":[{"title":"这篇的标题","body":"这篇正文（严格遵守上面的声纹与禁止项；只用该腔调，别串味）"},{"title":"第二篇标题","body":"第二篇正文"}]}';
+      "· 每篇另给一个 event 字段：用【不带腔调的大白话】一句话说清这篇报的是哪件事（如「早餐做了两份吐司起了争执」）。它不出现在页面上，只用来保证各版面报的不是同一件事。\n" +
+      '{"articles":[{"event":"大白话说清这篇报的是哪件事","title":"这篇的标题","body":"这篇正文（严格遵守上面的声纹与禁止项；只用该腔调，别串味）"},{"event":"第二件事","title":"第二篇标题","body":"第二篇正文"}]}';
     for (let i = 0; i < 2; i++) {
       try {
         const d = await genJSON(active, sys + (i ? "\n\n（上次解析失败，请严格只输出合法 JSON。）" : ""), "写本版 3~4 篇小报。", 7000);
         const arr = d && Array.isArray(d.articles) ? d.articles : (d && (d.title || d.body) ? [d] : null);
         if (arr && arr.length) {
           const out = arr.filter(function (a) { return a && (a.title || a.body); })
-            .map(function (a) { return { title: String(a.title || voice.name).trim(), body: String(a.body || "").trim() }; });
+            .map(function (a) { return { title: String(a.title || voice.name).trim(), body: String(a.body || "").trim(), event: String(a.event || "").trim() }; });
           if (out.length) return out;
         }
       } catch (e) { if (i) throw e; }
@@ -559,19 +572,48 @@
     const sys = ANTI_CLICHE + "\n\n你是周刊里几个彼此隔离的媒体编辑部。每个版块只能使用自己的世界观和声纹，绝不串味。\n\n" + specs +
       "\n\n" + CHARCARD_RULE + "\n【本周出场人物】\n" + personasBlock + NAME_GUARD +
       "\n\n【本周 RP 聊天记录】\n" + (empty ? "（本周素材几乎为空。）" : material) +
-      "\n\n每个媒体版写 3~4 篇不同小事。每篇都不是聊天摘要：先选冲突／反差／失控瞬间／意外后果／代价之一作为报道角度；标题具体短促且有判断，首句先抛最炸的画面或后果。允许在各自媒体腔里放大反差、制造悬念、下判断，但只能夸张表达，绝不捏造事实、假引语或关系。正文要说清这件小事为什么值得刊登，不要按聊天时间线平铺。只输出 JSON：{\"media\":[{\"voiceId\":\"上面列出的id之一\",\"articles\":[{\"title\":\"\",\"body\":\"\"}]}]}";
+      // 一次调用同时写所有版面，是【唯一能真正做到互不撞车】的时机——模型此刻同时看得见
+      // 所有版面。以前没说这句，于是每个版都各自去挑本周最扎眼的那件事，换的只是腔调，
+      // 事件永远是同一件（她 2026-08-19 报：几种风格生成的都是同样的事件）。
+      "\n\n【最高优先 · 先分事，再写稿】\n" +
+      "① 先把本周素材拆成【互不重叠的若干件事】，每件事用一句不带腔调的大白话记下来（如「早餐做了两份吐司起了争执」）。\n" +
+      "② 再把这些事【分配】给各个版面：**同一件事只许给一个版面**。谁的腔调最适合报哪件，就分给谁。\n" +
+      "③ 分完才动笔。换个说法、换个角度、只换主角都算同一件事，一律不许两个版都写。\n" +
+      "④ 如果事情不够分：宁可让某些版少写一篇、或去挑更小更边角的事，也绝不许两个版报同一件。\n" +
+      "⑤ 每篇都要带上它对应的那句大白话，填进 event 字段（不出现在页面上，只用来查重）。\n" +
+      "\n每个媒体版写 3~4 篇不同小事。每篇都不是聊天摘要：先选冲突／反差／失控瞬间／意外后果／代价之一作为报道角度；标题具体短促且有判断，首句先抛最炸的画面或后果。允许在各自媒体腔里放大反差、制造悬念、下判断，但只能夸张表达，绝不捏造事实、假引语或关系。正文要说清这件小事为什么值得刊登，不要按聊天时间线平铺。只输出 JSON：{\"media\":[{\"voiceId\":\"上面列出的id之一\",\"articles\":[{\"event\":\"大白话说清这篇报的是哪件事\",\"title\":\"\",\"body\":\"\"}]}]}";
     const d = await genJSON(active, sys, "一次写完这些互不串味的媒体版。", 16000);
     const rows = d && Array.isArray(d.media) ? d.media : [];
     const byId = {};
+    // 提示词只是要求，不是保证。这里再用代码硬查一遍：同一件事在本期只许出现一次，
+    // 撞车的后来者直接丢掉——宁可某版少一篇（外面会按 avoid 补写），也不让她翻两页看到同一件事。
+    const claimed = new Set();
     rows.forEach(function (row) {
       const rowVoiceId = normalizeVoiceId(row && row.voiceId);
       if (!row || !voices.some(function (v) { return v.id === rowVoiceId; }) || !Array.isArray(row.articles)) return;
-      const articles = row.articles.filter(function (a) { return a && (a.title || a.body); }).map(function (a) {
-        return { title: String(a.title || "").trim(), body: String(a.body || "").trim() };
+      const articles = [];
+      row.articles.forEach(function (a) {
+        if (!a || !(a.title || a.body)) return;
+        const ev = String(a.event || "").trim(), k = eventKey(ev || a.title);
+        if (k && claimed.has(k)) return; // 这件事已经被别的版占了
+        if (k) claimed.add(k);
+        articles.push({ title: String(a.title || "").trim(), body: String(a.body || "").trim(), event: ev });
       });
       if (articles.length) byId[rowVoiceId] = articles;
     });
     return byId;
+  }
+  // 一期里已经被报道过的事（供单版重刷/补写时避开）
+  function claimedEvents(sections, exceptSecId) {
+    const out = [];
+    (sections || []).forEach(function (s) {
+      if (!s || s.type !== "media" || (exceptSecId && s.id === exceptSecId)) return;
+      (s.articles || []).forEach(function (a) {
+        const ev = String((a && a.event) || (a && a.title) || "").trim();
+        if (ev) out.push(ev);
+      });
+    });
+    return out;
   }
 
   // 首页头版：主编把整周素材做成一版封面头条（全局，最抓眼球）
@@ -657,10 +699,15 @@
     const media = [];
     let batch = {};
     try { batch = await genMediaBatch(active, weekVoices, personasFor(charsWithMat, userName), globalText, empty); } catch (e) { batch = {}; }
+    // 批量那次已经在一个上下文里把事分完了；补洞的单版调用看不见别的版，
+    // 所以必须把已被占掉的事显式喂给它，否则补出来的又是最扎眼的那件。
+    const taken = [];
+    Object.keys(batch).forEach(function (k) { (batch[k] || []).forEach(function (a) { if (a && (a.event || a.title)) taken.push(a.event || a.title); }); });
     for (const v of weekVoices) {
       tick(v.name);
       try {
-        const articles = batch[v.id] || await genMedia(active, v, personasFor(charsWithMat, userName), globalText, empty);
+        const articles = batch[v.id] || await genMedia(active, v, personasFor(charsWithMat, userName), globalText, empty, taken.slice());
+        if (!batch[v.id]) articles.forEach(function (a) { if (a && (a.event || a.title)) taken.push(a.event || a.title); });
         media.push({ id: uid("md"), type: "media", voiceId: v.id, auto: true, articles: articles });
       } catch (e) {
         media.push({ id: uid("md"), type: "media", voiceId: v.id, auto: true, articles: [{ title: v.name, body: "（本版生成失败，请点进去单独重刷。）" }] });
@@ -734,6 +781,7 @@
     missedWindows: missedWindows,
     weekMaterial: weekMaterial, linesToText: linesToText, personasFor: personasFor,
     genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue,
+    claimedEvents: claimedEvents, eventKey: eventKey,
     weeklyStats: weeklyStats, genDeskPage: genDeskPage, genLetters: genLetters, voicesForWeek: voicesForWeek, interviewPickFor: interviewPickFor
   };
 
@@ -762,7 +810,9 @@
       ".weekly-page-stage{position:relative;min-height:100%;overflow-x:hidden}" +
       ".weekly-page-next{position:relative;transform-origin:left center;animation:weeklyPageNext .42s cubic-bezier(.2,.72,.22,1) both}" +
       ".weekly-page-prev{position:relative;transform-origin:right center;animation:weeklyPagePrev .42s cubic-bezier(.2,.72,.22,1) both}" +
-      ".weekly-page-next:after,.weekly-page-prev:after{content:'';position:absolute;inset:0;pointer-events:none;border-radius:3px;box-shadow:inset 12px 0 18px -20px rgba(0,0,0,.45)}" +
+      // 翻页伪元素原来画了一道 inset 阴影当"书脊"，但它的 inset:0 正好落在 px-10 的内容盒上，
+      // 于是每一版正文外面都框着一道边（她 2026-08-19 圈出来要去掉）。翻页动画本身保留。
+
       "@media(prefers-reduced-motion:reduce){.weekly-page-next,.weekly-page-prev{animation:none!important}}"
     );
   }
@@ -1070,7 +1120,9 @@
         const charsWithMat = (props.characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
         const personasBlock = window.Weekly.personasFor(charsWithMat, props.userName);
         const empty = mat.global.length === 0;
-        const articles = await window.Weekly.genMedia(props.active, voiceOf(sec.voiceId), personasBlock, window.Weekly.linesToText(mat.global, 8000), empty);
+        // 重刷一版时，本期别的版已经报过的事要避开——否则重刷出来的还是那件最扎眼的
+        const avoid = window.Weekly.claimedEvents(issue.sections, sec.id);
+        const articles = await window.Weekly.genMedia(props.active, voiceOf(sec.voiceId), personasBlock, window.Weekly.linesToText(mat.global, 8000), empty, avoid);
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (s) { return s.id === sec.id ? Object.assign({}, s, { articles: articles }) : s; });
           return iss;
@@ -1087,7 +1139,8 @@
         const charsWithMat = (props.characters || []).filter(function (c) { return (mat.perChar[c.id] || []).length; });
         const articles = await window.Weekly.genMedia(
           props.active, v, window.Weekly.personasFor(charsWithMat, props.userName),
-          window.Weekly.linesToText(mat.global, 8000), mat.global.length === 0
+          window.Weekly.linesToText(mat.global, 8000), mat.global.length === 0,
+          window.Weekly.claimedEvents(issue.sections) // 手动补版同样避开已报过的事
         );
         props.onPatch(issue.id, function (iss) {
           let repaired = false;
