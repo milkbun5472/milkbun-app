@@ -451,7 +451,10 @@ ui.tray.addEventListener('click', (event) => {
 });
 ui.summon.addEventListener('click', (event) => {
   const button = event.target.closest('[data-summon]');
-  if (button) summon(button.dataset.summon);
+  if (button) {
+    ui.summon.removeAttribute('open');
+    summon(button.dataset.summon);
+  }
 });
 ui.pause.addEventListener('click', async () => {
   try { render(await api(`/api/rooms/${state.roomId}/pause`, { method: 'POST', body: '{}' })); }

@@ -74,18 +74,18 @@
         <textarea id="messageInput" rows="2" maxlength="6000" placeholder="写一句自然的话……"></textarea>
         <div class="composer-foot">
           <span id="charCount">0 / 6000</span>
-          <button id="postButton" class="post-button" type="button">放到桌上</button>
-        </div>
-      </div>
-
-      <div id="summonDock" class="summon-dock">
-        <div>
-          <b>不发消息，也可以直接叫人</b>
-          <small>只邀请一位上桌，不会自动让双方连续讨论。</small>
-        </div>
-        <div class="summon-actions">
-          <button type="button" data-summon="yanqiu"><span>秋</span>呼叫言秋</button>
-          <button type="button" data-summon="codex"><span>C</span>呼叫 Codex</button>
+          <div class="composer-actions">
+            <details id="summonDock" class="summon-menu">
+              <summary aria-label="不发消息，直接叫人" title="不发消息，直接叫人">＋</summary>
+              <div class="summon-popover">
+                <b>直接叫人上桌</b>
+                <small>不需要先发消息，只邀请一位。</small>
+                <button type="button" data-summon="yanqiu"><span>秋</span>呼叫言秋</button>
+                <button type="button" data-summon="codex"><span>C</span>呼叫 Codex</button>
+              </div>
+            </details>
+            <button id="postButton" class="post-button" type="button">放到桌上</button>
+          </div>
         </div>
       </div>
 
