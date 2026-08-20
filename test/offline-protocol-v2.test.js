@@ -21,6 +21,16 @@ test("ordinary single offline uses short narrative runtime and protocol v2", () 
   assert.match(engine, /if \(!draftScene\) throw new Error/);
 });
 
+test("single offline narration keeps a character-bound lens and varied pacing", () => {
+  const runtime = engine.match(/const OFFLINE_NARRATIVE_RUNTIME = `([\s\S]*?)`;/)?.[1] || "";
+  assert.match(runtime, /【人物绑定的叙述视角】/);
+  assert.match(runtime, /第一人称叙述不是中立摄影记录/);
+  assert.match(runtime, /线下叙事不是行动日志/);
+  assert.match(runtime, /普通过渡可以合并或跳过/);
+  assert.match(runtime, /只属于当前人物的观察与矛盾/);
+  assert.doesNotMatch(runtime, /叙述者只当【摄影机】/);
+});
+
 test("legacy narrative bans remain archived while group offline still uses them", () => {
   assert.match(engine, /const NARRATIVE_ANTI_CLICHE_LEGACY_V1 = `/);
   assert.match(engine, /const INTIMATE_ANTI_CLICHE_LEGACY_V1 = `/);
