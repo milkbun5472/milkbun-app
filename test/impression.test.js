@@ -49,9 +49,8 @@ test("quote 必须守声纹，不能写成通用抒情散文", () => {
   // 「Ta 眼里」已有的长期印象当底子，别每月推翻重来
   assert.match(gen, /底子，别推翻，只在它上面往前长一点/);
   assert.match(imp, /window\.Gaze && window\.Gaze\.text/);
-  // 三个关键词要有层次，不许三个同义词（TAG_RULE 抽在函数外，对全文断言）
-  assert.match(imp, /别三个同义词堆一起/);
-  assert.match(imp, /一个偏气质、一个偏状态、一个偏他自己的私心/);
+  // 三个关键词不许同义、不许都在夸她（定死的槽位已废，改成按期轮换取词角度）
+  assert.match(imp, /三个之间不许同义，也不许都在夸她/);
   // 出不全就算失败，不许写半张卡
   assert.match(gen, /if \(!quote \|\| !tags\.length\) throw new Error/);
 });
@@ -175,11 +174,69 @@ test("剪影要画的是这一期的印象，不是一句孤零零的场景", ()
 test("文案与剪影能分开重来，且不给整张重刷的误触入口", () => {
   assert.match(imp, /async function rewriteText\(charId, entry\)/);
   // 只换字，图原样留着
-  assert.match(imp, /Object\.assign\(\{\}, x, \{ title: d\.title, tags: d\.tags, quote: d\.quote, silhouette: d\.silhouette \}\)/);
-  assert.doesNotMatch(imp.slice(imp.indexOf("async function rewriteText"), imp.indexOf("// ---- 单张卡片")), /genArt/,
+  assert.match(imp, /Object\.assign\(\{\}, x, \{ title: d\.title, tags: d\.tags, quote: d\.quote, silhouette: d\.silhouette, turn \}\)/,
+    "只换这五样，img 原样不动");
+  assert.doesNotMatch(imp.slice(imp.indexOf("async function rewriteText"), imp.indexOf("// ---- 单张卡片")), /M\.genArt/,
     "只重写文案的那条路绝不能碰出图");
   assert.match(imp, /"只重写文案"/);
   assert.match(imp, /"只重出剪影"/);
   // 已写过的月份不给整张重来（那会连剪影一起白刷一次）
   assert.match(imp, /hasThis \? props\.toast\("点进那张卡片，可以只重写文案或只重出剪影"\) : make\(curChar, openMonth\)/);
+});
+
+// v54.06：两张卡是同一个骨架（我推演了…→她一句话→我的逻辑全部破产），
+// 连 title 都是同一个模子。现成的 ANTI_CLICHE 管的是演的时候的毛病，压不住这个。
+const dice = () => {
+  const grab = name => {
+    const i = imp.indexOf("  function " + name + "(");
+    let d = 0, j = imp.indexOf("{", i), st = false;
+    for (; j < imp.length; j++) { if (imp[j] === "{") { d++; st = true; } else if (imp[j] === "}") { d--; if (st && !d) { j++; break; } } }
+    return imp.slice(i, j);
+  };
+  return new Function(
+    imp.slice(imp.indexOf("const TAG_ANGLES"), imp.indexOf("const BANNED_SHAPE")) +
+    imp.slice(imp.indexOf("const hashOf"), imp.indexOf("  // 起点按角色")) +
+    grab("pickN") + "\nreturn { pickN, QUOTE_FORMS, TAG_ANGLES };")();
+};
+
+test("句式骰子：同卡稳定、重写必换、角色之间也不同", () => {
+  const m = dice();
+  assert.ok(m.QUOTE_FORMS.length >= 10, "写法池要够大");
+  const f = (c, t) => m.pickN(m.QUOTE_FORMS, 1, c + "|2026-07|form", t)[0];
+  assert.equal(f("c1", 0), f("c1", 0), "同一张卡不许自己重掷");
+  const five = [0, 1, 2, 3, 4].map(t => f("c1", 0 + t));
+  assert.equal(new Set(five).size, 5, "重写五次必须五种写法——靠哈希碰运气会撞面，实测撞过");
+  assert.notEqual(f("c1", 0), f("c2", 0), "两个角色同一个月不该拿到同一种写法");
+  // 转满一圈回到起点是可以接受的
+  assert.equal(f("c1", 0), f("c1", m.QUOTE_FORMS.length));
+});
+
+test("取词角度也轮换，且三个角度互不相同", () => {
+  const m = dice();
+  const tg = (c, t) => m.pickN(m.TAG_ANGLES, 3, c + "|2026-07|tag", t);
+  assert.equal(new Set(tg("c1", 0)).size, 3, "同一张卡的三个角度不许重复");
+  assert.notDeepEqual(tg("c1", 0), tg("c1", 1), "重写要换一组角度");
+  assert.notDeepEqual(tg("c1", 0), tg("c2", 0));
+  // 以前定死槽位（气质/状态/他的私心）——第三格必然长成「拿她没办法」，雷同是规则自己造的
+  assert.doesNotMatch(imp, /一个偏气质、一个偏状态、一个偏他自己的私心/, "定死的槽位已经废掉");
+});
+
+test("已经写烂的骨架要指着名字禁掉，同义改写也算", () => {
+  assert.match(imp, /const BANNED_SHAPE = /);
+  assert.match(imp, /我［推演／分析／计算／设想］了很多种/);
+  assert.match(imp, /全部［破产／失效／崩塌／被切断］/);
+  assert.match(imp, /同义改写也算/);
+  assert.match(imp, /「不讲理的X」「不按套路的X」这类【形容词\+抽象名词】的取名法已经用过/);
+  assert.match(imp, /BANNED_SHAPE/);
+});
+
+test("往期 quote 要喂回去，重写时连自己上一版一起避开", () => {
+  assert.match(imp, /你以往几个月写过的话 · 骨架不许重复/);
+  assert.match(imp, /句子的【搭法】必须和上面每一句都不一样/);
+  // 生成时避开别的月份
+  assert.match(imp, /const past = \(book\[charId\] \|\| \[\]\)\.filter\(x => x\.monthKey !== monthKey\)\.map\(x => x\.quote\)/);
+  // 重写时把自己上一版也算进去——重写就是为了不要它
+  assert.match(imp, /\.concat\(\[entry\.quote\]\)/);
+  assert.match(imp, /const turn = Number\(entry\.turn \|\| 0\) \+ 1;/);
+  assert.match(imp, /turn: 0, ts: Date\.now\(\)/, "新卡片要记下 turn，重写才知道转到第几面");
 });

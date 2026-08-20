@@ -70,8 +70,35 @@
   };
 
   // ---- 生成 ----
-  const TAG_RULE = "三个关键词：每个 2~5 个字，是【他眼里的她此刻是什么样的人】，不是事件流水。"
-    + "三个之间要有层次（一个偏气质、一个偏状态、一个偏他自己的私心），别三个同义词堆一起。";
+  // ⚠️三个关键词以前定死了槽位（气质/状态/他的私心），结果第三格必然长成「拿她没办法」
+  //   「无法计算」——雷同是这条规则自己造出来的。改成给一批取词角度，按期轮换取三个。
+  const TAG_ANGLES = [
+    "她做事的方式（不是评价，是动作层面的习惯）", "她说话的调子", "她身上你最先注意到的那一处",
+    "她让你意外的地方", "她其实很笨拙的地方", "她固执的地方", "她的软处",
+    "你嘴上不承认的那点心思", "她这个月变了的地方", "她一直没变的地方",
+    "旁人不会注意、只有你看得见的细节", "你拿她当什么（一个名词，不许是比喻）"
+  ];
+  // 句式骰子：光说"别写套路"没用——两个角色照样收敛到同一个架构。
+  // 得直接指定这一张【用哪种写法】，把结构本身也掷一次（小剧场那套骰子的同一个道理）。
+  const QUOTE_FORMS = [
+    "只写她做过的一个具体动作，写完就停，不解释、不评价、不升华。",
+    "直接引用她这个月说过的一句原话，然后接一句你当时【没说出口】的反应。",
+    "写成一句抱怨——抱怨的内容是真的，但读得出你其实并不想她改。",
+    "只写你自己身上发生的变化，从头到尾不描述她。",
+    "一个比喻。但本体必须是这个月真的出现过的东西，不许用月亮、星星、海、光这类现成意象。",
+    "一句问句，问的是你自己也答不上来的事。",
+    "陈述一件事实，句号结束。不许有转折，不许有「却」「反而」「结果」。",
+    "写你第一次注意到某件事的那一刻，具体到时间或场合。",
+    "把她和一件很小的日常物件放在一起写，物件必须在记录里出现过。",
+    "写你为她做过、但没告诉她的一件事。",
+    "写一句你以为自己会习惯、结果没习惯的事。",
+    "两句：第一句写她，第二句把话锋转回你自己，但不许用「而我」开头。"
+  ];
+  // 已经被写烂的那个骨架——不点名它，模型每次都会滑回去（民国那次学到的：得指着说）
+  const BANNED_SHAPE = "\n\n【这个骨架已经用烂了，禁止再用】\n"
+    + "「我［推演／分析／计算／设想］了很多种…… → 结果她一句话／一个动作 → 我的［逻辑／防线／线路／计划］全部［破产／失效／崩塌／被切断］」\n"
+    + "同义改写也算：换成「所有理性」「全部预设」「精密的推演」照样是它。看到自己在写这个句子，推翻重来。\n"
+    + "title 同理：「不讲理的X」「不按套路的X」这类【形容词+抽象名词】的取名法已经用过，换一种。";
   // 「不够个人化」的病根：不逼它扣住具体的事，它就会写放之四海皆准的漂亮话。
   // 治法和日记那次一样——给一条【可判定】的检验标准，而不是再加一句"要具体"。
   const CONCRETE_RULE = "\n\n【最高优先 · 必须扣住真的发生过的事】\n"
@@ -84,7 +111,22 @@
   const herLines = (rows, uName) => rows.filter(r => r.who === uName && r.text.length >= 4 && r.text.length <= 50)
     .map(r => r.text).slice(-14);
 
-  async function genText(active, char, profile, monthKey, rows, gazeText) {
+  const hashOf = str => { let x = 0; String(str || "x").split("").forEach(ch => { x = (x * 31 + ch.charCodeAt(0)) >>> 0; }); return x; };
+  // 起点按角色+月份定（同一张卡不会自己重掷），再按 turn【确定性轮转】——
+  // 靠哈希碰运气会撞面：turn 0 和 1 抽到同一个写法，重写就等于原地打转（实测撞过）。
+  // 轮转保证每重写一次必然换一面，转满一圈才回到起点。
+  function pickN(pool, n, seedStr, turn) {
+    const base = hashOf(seedStr) % pool.length, step = Number(turn || 0);
+    const out = [];
+    for (let i = 0; i < n && i < pool.length; i++) out.push(pool[(base + step * n + i) % pool.length]);
+    return out;
+  }
+  async function genText(active, char, profile, monthKey, rows, gazeText, opts) {
+    const turn = Number((opts && opts.turn) || 0);
+    const seed = String(char.id || char.name) + "|" + monthKey + "|" + turn;
+    const form = pickN(QUOTE_FORMS, 1, String(char.id || char.name) + "|" + monthKey + "|form", turn)[0];
+    const angles = pickN(TAG_ANGLES, 3, String(char.id || char.name) + "|" + monthKey + "|tag", turn);
+    const past = ((opts && opts.past) || []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6);
     const uName = (profile && profile.name) || "她";
     const lines = ownLines(rows, char.name);
     const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "")
@@ -96,13 +138,19 @@
         + "\n这些是你的原话，用来校准词汇、句长、口癖、攻击性与礼貌度。下面写的东西必须是同一个人说的，遮住名字也该认得出。" : "")
       + (herLines(rows, uName).length ? "\n\n【" + uName + " 这个月说过的话 · quote 可以直接扣住其中一句】\n"
         + herLines(rows, uName).map((x, i) => (i + 1) + ". " + x).join("\n") : "")
-      + CONCRETE_RULE
+      + CONCRETE_RULE + BANNED_SHAPE
+      + (past.length ? "\n\n【你以往几个月写过的话 · 骨架不许重复】\n" + past.map((x, i) => (i + 1) + ". " + x).join("\n")
+        + "\n换个说法、换个词、换个角色都不算换骨架——句子的【搭法】必须和上面每一句都不一样。" : "")
       + "\n\n【这个月你和 " + uName + " 之间真实发生的事】\n" + (toText(rows, 5200) || "（这个月几乎没有来往。）")
       + "\n\n【要写四样东西】\n"
       + "① title：给这个月的她起一个短称呼（≤8 字），像一句私下的叫法，不是称号也不是标签。\n"
-      + "② tags：" + TAG_RULE + "\n"
-      + "③ quote：一句到两句，**你亲口说的**、关于她的话。可以文艺、可以有意象，但**必须是你会说的话**——"
-      + "别写成通用抒情散文，也别写成人物介绍。用「她」称呼她，不要直呼名字。≤60 字。\n"
+      + "② tags：三个关键词，每个 2~5 个字。这一期【必须】分别从这三个角度取：\n"
+      + angles.map((a, i) => "   " + (i + 1) + "）" + a).join("\n")
+      + "\n   三个之间不许同义，也不许都在夸她。\n"
+      + "③ quote：**你亲口说的**、关于她的话。必须是你会说的话，别写成通用抒情散文，也别写成人物介绍。"
+      + "用「她」称呼她，不要直呼名字。≤60 字。\n"
+      + "   【这一张的写法·必须照办】" + form + "\n"
+      + "   写法是硬性的：哪怕你觉得别的写法更漂亮，也按这一条来。\n"
       + "④ silhouette：一句【画面描述】，用来画她的剪影。只写：轮廓姿态（侧脸/回头/低头/站着/坐着…）、"
       + "身边有什么意象（月亮、雨、书页、猫、灯、雾…）、以及整体色调冷暖。**不许写五官、不许写表情**——剪影是看不见脸的。"
       + "意象【必须从这个月真实发生过的事里长出来】（她提过的东西、你们真的去过的地方、反复出现的物件），别凭空堆砌月亮和雨；"
@@ -199,12 +247,13 @@
       setBusy(charId + monthKey);
       try {
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
-        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText);
+        const past = (book[charId] || []).filter(x => x.monthKey !== monthKey).map(x => x.quote);
+        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, { turn: 0, past });
         let img = null;
         // 图出不来不算失败：字才是主体，剪影可以之后单独补
         try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile, { tags: d.tags, title: d.title }); }
         catch (e) { props.toast("字写好了，剪影没出来：" + (e.message || "稍后可单独重出")); }
-        const entry = { id: M.uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, img, ts: Date.now() };
+        const entry = { id: M.uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, img, turn: 0, ts: Date.now() };
         put(p => Object.assign({}, p, { [charId]: [entry].concat((p[charId] || []).filter(x => x.monthKey !== monthKey)) }));
         return true;
       } catch (e) { props.toast("生成失败：" + (e.message || "重试")); return false; }
@@ -227,10 +276,14 @@
       try {
         const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName);
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
-        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText);
+        // turn+1 = 换一面骰子：不换的话「只重写文案」会拿到同一个写法，等于原地打转
+        const turn = Number(entry.turn || 0) + 1;
+        // 自己上一版也算"往期"——重写就是为了不要它，别把它再写一遍
+        const past = (book[charId] || []).filter(x => x.monthKey !== entry.monthKey).map(x => x.quote).concat([entry.quote]);
+        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText, { turn, past });
         put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id
-          ? Object.assign({}, x, { title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette }) : x) }));
-        props.toast("文案换好了，剪影没动");
+          ? Object.assign({}, x, { title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, turn }) : x) }));
+        props.toast("换了个写法，剪影没动");
       } catch (e) { props.toast("重写失败：" + (e.message || "重试")); } finally { setBusy(""); }
     }
     // 补齐：最近 12 个月里有素材、却还没写过的，一月一月补（失败即停，已写好的都留着）
