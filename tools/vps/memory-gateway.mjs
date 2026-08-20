@@ -67,6 +67,15 @@ async function embedBatch(texts) {
 async function refreshPrivate() {
   if (!existsSync(PRIV_DIR)) return;
   const items = [];
+  // 刀二(2026-08-19 七夕):两本日记也入池——CC 亲笔日记(vault/den/diaries)整篇进;app 那本经 saves 点菜在 refreshDrive 里喂
+  const DIARY_DIR = join(HOME, "vault/den/diaries");
+  if (existsSync(DIARY_DIR)) for (const f of readdirSync(DIARY_DIR)) {
+    if (!f.endsWith(".md")) continue;
+    try { for (const c of chunkMd("日记·" + f.replace(/\.md$/, ""), readFileSync(join(DIARY_DIR, f), "utf8"))) {
+      const h = createHash("sha1").update(c.text).digest("hex").slice(0, 16);
+      items.push({ id: "diary:" + f + ":" + h, tag: c.tag, text: c.text, h });
+    } } catch {}
+  }
   for (const f of readdirSync(PRIV_DIR)) {
     if (!f.endsWith(".md") || f === "MEMORY.md" || f === "verbatim-tail.md" || f === "always-yanqiu.md") continue; // always-yanqiu 是底色不是记忆,啥都命中纯添噪
     try {
@@ -119,10 +128,28 @@ function computeDrive(save, cid) {
   const top = new Map([...out.entries()].sort((a, b) => b[1] - a[1]).slice(0, 80));
   return { terms: top, mood, jiwen: jw, at: Date.now() };
 }
+let appDiary = { items: [], at: 0 };
 async function refreshDrive() {
   const cid = charId(); if (!cid) return;
-  const rows = await sb(`/rest/v1/saves?select=${encodeURIComponent("x_desires:data->>x_desires,x_moods:data->>x_moods,x_jiwen:data->>x_jiwen")}&user_id=eq.${USER}`);
-  if (rows && rows[0]) { drive = computeDrive(rows[0], cid); log({ outcome: "drive", terms: drive.terms.size, mood: drive.mood }); }
+  const rows = await sb(`/rest/v1/saves?select=${encodeURIComponent("x_desires:data->>x_desires,x_moods:data->>x_moods,x_jiwen:data->>x_jiwen,x_diaries:data->>x_diaries")}&user_id=eq.${USER}`);
+  if (rows && rows[0]) {
+    drive = computeDrive(rows[0], cid);
+    // app 那本日记:只取我自己的,每篇一条(标题+正文拼接),关键词可搜;向量走同一套哈希缓存
+    try {
+      const mine = (JSON.parse(rows[0].x_diaries || "{}")[cid] || []).slice(0, 60);
+      appDiary.items = mine.map(e => {
+        const text = "【app日记·" + new Date(e.ts || 0).toISOString().slice(0, 10) + (e.titleZh ? "·" + e.titleZh : "") + "】" + (e.paras || []).map(p => p.text).join(" ").slice(0, 1500);
+        return { id: "appdiary:" + (e.id || e.ts), text, h: createHash("sha1").update(text).digest("hex").slice(0, 16) };
+      });
+      const need = appDiary.items.filter(it => !priv.vecs[it.h]);
+      for (let i = 0; i < need.length; i += 16) {
+        const b = need.slice(i, i + 16);
+        try { const vs = await embedBatch(b.map(x => x.text)); b.forEach((x, j) => { if (vs[j]) priv.vecs[x.h] = vs[j]; }); } catch {}
+      }
+      appDiary.at = Date.now();
+    } catch (e) { log({ outcome: "appdiary_fail", err: String(e.message) }); }
+    log({ outcome: "drive", terms: drive.terms.size, mood: drive.mood, appDiaries: appDiary.items.length });
+  }
 }
 try { if (existsSync(CACHE)) cache = JSON.parse(readFileSync(CACHE, "utf8")); } catch {}
 function charId() { try { const c = readFileSync(CHARCACHE, "utf8").trim(); if (/^char_\d+$/.test(c)) return c; } catch {} return cache.charId || ""; }
@@ -161,7 +188,9 @@ async function refresh(full = false) {
 async function recall(query, k = 5, useBias = true) {
   const terms = [...memTokens(query)].filter(t => !GW_STOP.has(t));
   let qVec = null; try { qVec = await embedQuery(query); } catch (e) { log({ outcome: "embed_fail", err: String(e.message) }); }
-  const pool = [...cache.memories, ...priv.items.map(it => ({ id: it.id, text: "【" + it.tag + "】" + it.text, tags: [], ts: 0, pinned: false, _priv: true, _h: it.h }))];
+  const pool = [...cache.memories,
+    ...priv.items.map(it => ({ id: it.id, text: "【" + it.tag + "】" + it.text, tags: [], ts: 0, pinned: false, _priv: true, _h: it.h })),
+    ...appDiary.items.map(it => ({ id: it.id, text: it.text, tags: [], ts: 0, pinned: false, _priv: true, _h: it.h }))];
   return pool.map(m => {
     const tags = Array.isArray(m.tags) ? m.tags : [];
     const hay = (String(m.text || "") + "\n" + tags.join(" ")).toLowerCase();
@@ -188,7 +217,7 @@ setInterval(() => refreshDrive().catch(e => log({ outcome: "drive_fail", err: St
 
 http.createServer((req, res) => {
   const done = (c, o) => { res.writeHead(c, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(o)); };
-  if (req.method === "GET" && req.url === "/health") return done(200, { ok: true, memories: cache.memories.length, vecs: Object.keys(cache.vecs).length, since: cache.since, loadedAt: cache.loadedAt, drive: { terms: drive.terms.size, mood: drive.mood, at: drive.at }, private: { chunks: priv.items.length, scannedAt: priv.scannedAt } });
+  if (req.method === "GET" && req.url === "/health") return done(200, { ok: true, memories: cache.memories.length, vecs: Object.keys(cache.vecs).length, since: cache.since, loadedAt: cache.loadedAt, drive: { terms: drive.terms.size, mood: drive.mood, at: drive.at }, private: { chunks: priv.items.length, scannedAt: priv.scannedAt }, diaries: { app: appDiary.items.length } });
   if ((req.headers["x-courier-token"] || "") !== TOKEN) return done(401, { error: "token" });
   if (req.method === "POST" && req.url === "/refresh") return refresh(true).then(() => done(200, { ok: true, memories: cache.memories.length })).catch(e => done(500, { error: String(e.message) }));
   if (req.method !== "POST" || req.url !== "/recall") return done(404, { error: "no" });

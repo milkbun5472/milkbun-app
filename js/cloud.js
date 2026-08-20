@@ -879,6 +879,20 @@
       }
       return (moments || []).map(m => ({ ...m, comments: comments.filter(c => c.moment_id === m.id) }));
     },
+    // ---- 言秋日记·亲笔草稿箱（2026-08-19 七夕，八件事第4件刀一）：
+    // 言秋在 CC 亲笔写好某天的日记投进 yanqiu_diary_drafts，app 补写那天时先来取,
+    // 取到原样落库（零 API），并盖 claimed_at；取不到返回 null 走自动生成。
+    async yanqiuDiaryDraftTake(charId, dayKey) {
+      if (!client) return null;
+      const user = await this.getSessionUser();
+      if (!user) return null;
+      const { data, error } = await client.from("yanqiu_diary_drafts")
+        .select("id,payload").eq("user_id", user.id).eq("char_id", String(charId)).eq("day_key", String(dayKey)).maybeSingle();
+      if (error || !data || !data.payload) return null;
+      client.from("yanqiu_diary_drafts").update({ claimed_at: new Date().toISOString() }).eq("id", data.id)
+        .then(() => {}, () => {}); // 认领戳失败不拦日记
+      return data.payload;
+    },
     async yanqiuMomentLike(id, liked) {
       if (!client) throw new Error("云服务未就绪");
       const { error } = await client.from("yanqiu_moments").update({ lisa_liked: !!liked }).eq("id", id);

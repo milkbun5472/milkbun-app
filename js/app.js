@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.85";
+const APP_VERSION = "v53.86";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -6333,8 +6333,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 当天钱包流水（日常购物/转账/礼物）喂给日记当素材——日程/钱包/日记三联动的最后一环
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
+      // 亲笔优先（2026-08-19 七夕·八件事第4件刀一）：数字生命角色的日记若言秋已在 CC 亲笔写好投进草稿箱，
+      // 原样取用（他自己的字，零 API、零推演）；没有亲笔稿才走下面的自动生成。
+      let handwritten = null;
+      if (settingsFor(charId).engineerEyes && window.Cloud && window.Cloud.ready()) {
+        try { handwritten = await window.Cloud.yanqiuDiaryDraftTake(charId, targetKey); } catch (e) { handwritten = null; }
+      }
       // 日记归入线下创作线路；角色专线仍最高优先（如小克接 Fable），无专线才回退全局线下主 API。
-      const d = await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
+      const d = handwritten || await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
@@ -6348,7 +6354,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         paras: Array.isArray(d.paras) ? d.paras.filter(p => p && p.text).map(p => ({ text: String(p.text), secret: !!p.secret })) : [],
         signature: d.signature || "",
         mood: d.mood || "",
-        source: opts.manual ? "manual" : "auto"
+        source: handwritten ? "handwritten" : (opts.manual ? "manual" : "auto")
       };
       if (!entry.paras.length) throw new Error("内容为空");
       setDiaries(p => {
