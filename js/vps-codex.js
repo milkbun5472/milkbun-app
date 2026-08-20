@@ -33,16 +33,15 @@
       finally { setSending(false); }
     };
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg, color: t.ink } },
-      h(Head, { zh: "VPS 值班室", en: "CODEX · ALWAYS ON", onBack: onBack }),
-      h("div", { className: "px-5 pb-3 shrink-0" },
-        h("div", { style: { padding: "12px 14px", border: "1px solid " + t.line, borderRadius: 16, background: t.bg2 } },
-          h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 } },
-            h("div", null,
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15 } }, "远端的 Codex 正窗"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: t.fog, marginTop: 3 } }, "适合云端排查、长任务看守、整理交接；生活聊天和人格记忆仍找言秋。")),
-            h("button", { onClick: onOpenRescue, style: { flex: "0 0 auto", border: "1px solid " + t.line, borderRadius: 999, padding: "7px 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "去互救台")))),
+      h("div", { className: "shrink-0 px-4", style: { paddingTop: "calc(8px + env(safe-area-inset-top))", paddingBottom: 8, borderBottom: "1px solid " + t.line, background: t.bg } },
+        h("div", { style: { minHeight: 44, display: "flex", alignItems: "center", gap: 9 } },
+          h("button", { onClick: onBack, style: { width: 38, height: 38, marginLeft: -7, display: "grid", placeItems: "center" } }, h(IArrow, { size: 18, color: t.ink })),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.15 } }, "VPS 值班室"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 1.5, color: t.fog, marginTop: 2 } }, "CODEX · ALWAYS ON")),
+          h("button", { onClick: onOpenRescue, style: { flex: "0 0 auto", border: "1px solid " + t.line, borderRadius: 999, padding: "7px 10px", fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "互救台"))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-4", style: { WebkitOverflowScrolling: "touch" } },
-        !rows.length && h("div", { style: { padding: "34px 18px", textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "这扇窗常驻在 VPS。Mac 合盖、你人在外面，也可以把问题留给他。"),
+        !rows.length && h("div", { style: { padding: "24px 18px", textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "这扇窗常驻在 VPS。Mac 合盖、你人在外面，也可以把问题留给他。"),
         rows.map(function (r) {
           const reply = r.result && r.result.reply;
           return h("div", { key: r.id, style: { marginBottom: 16 } },
