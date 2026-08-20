@@ -81,3 +81,22 @@ test("三处注册齐全：脚本、图标、路由", () => {
   assert.match(app, /screen === "impression"\) body = h\(ImpressionApp/);
   assert.match(app, /active: offlineActive/);
 });
+
+// v54.03：一进页面就白屏。imgSrc 不是全局的（theater.js 自己内部声明的一份），
+// 照抄用法没带定义 → ReferenceError → 整个 App 挂掉。
+test("用到的每个外部名字都得真有顶层定义，不能想当然", () => {
+  const files = fs.readdirSync(path.join(root, "js")).filter(f => f.endsWith(".js") && f !== "impression.js");
+  const topLevel = new Set();
+  files.forEach(f => fs.readFileSync(path.join(root, "js", f), "utf8").split("\n").forEach(l => {
+    const m = /^(?:const|let|var|function|async function)\s+([A-Za-z_$][\w$]*)/.exec(l);
+    if (m) topLevel.add(m[1]);   // 顶格声明才跨脚本可见
+  }));
+  // impression.js 依赖的外部名字，逐个点名——加新依赖时也要加到这里
+  ["blobToDataUrl", "imgToVault", "imgVaultFetchBlob", "generateSelfieImage", "callAI",
+   "parseJSONLoose", "extractJSON", "imgApiReady", "useTheme", "F_BODY", "F_DISPLAY", "Svg", "resolveImg"]
+    .forEach(n => assert.ok(topLevel.has(n), n + " 必须是别处的顶层声明，现在不是"));
+  // imgSrc 恰恰不是全局的，所以本模块【必须自己声明一份】
+  assert.ok(!topLevel.has("imgSrc"), "imgSrc 至今仍不是全局的（theater 也是自己声明）");
+  assert.match(imp, /const imgSrc = ref => \(typeof resolveImg === "function" \? resolveImg\(ref\) : ref\);/,
+    "本模块必须自带 imgSrc，不能指望它是全局的");
+});

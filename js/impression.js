@@ -125,6 +125,9 @@
     const [cardId, setCardId] = useState(null);
     const [busy, setBusy] = useState("");
     const put = fn => setBook(p => { const n = fn(p); M.save(n); return n; });
+    // ⚠️imgSrc 不是全局的：它是 theater.js 自己内部声明的（js/theater.js 里那份）。
+    // 照抄用法却没带上定义，一进这个页面就 ReferenceError、整个 App 白屏（她 2026-08-20 撞到）。
+    const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
     // 头像与存相册照小剧场那套自己实现——components 里那两个不是全局的，拿不到
     const avatarOf = (c, size) => (c && c.avatarImage)
       ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
