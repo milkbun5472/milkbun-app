@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.93";
+const APP_VERSION = "v53.94";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -6551,7 +6551,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!active) return;
     try {
       const autoSealDays = [7, 14, 30];
-      const openTs = Date.now() + autoSealDays[Math.floor(Math.random() * autoSealDays.length)] * 86400000;
+      const days = autoSealDays[Math.floor(Math.random() * autoSealDays.length)];
+      const openTs = Date.now() + days * 86400000;
       const cur = loadJSON("x_capsules", []); const list = Array.isArray(cur) ? cur : [];
       // 别和之前埋的重复（她 2026-07-26：触发好几个都在说同一件事）：把这个角色最近埋过的胶囊当"要避开的"喂进去
       const mine = list.filter(x => x && x.dir === "fromChar" && x.charId === char.id).slice(0, 5);
@@ -6564,10 +6565,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const raw = await callAI(apiFor(char.id), sys, [{ role: "user", content: "写吧。" }], { maxTokens: 4000 });
       const d = extractJSON(raw);
       if (!d || !d.letter) return;
-      const entry = { id: "cap_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), dir: "fromChar", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
+      const entry = { id: "cap_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), dir: "fromChar", source: "ambient", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
       saveJSON("x_capsules", [entry, ...list]);
-      toast(char.name + " 悄悄给你埋了一颗时光胶囊");
-      if (window.Notify) window.Notify.push({ title: char.name + " 给你埋了一颗时光胶囊", body: "过些天就能拆开", tag: "cap-" + char.id, charId: char.id });
+      toast(char.name + " 悄悄给你埋了一颗时光胶囊 · " + days + " 天后可拆");
+      if (window.Notify) window.Notify.push({ title: char.name + " 给你埋了一颗时光胶囊", body: days + " 天后可以拆开", tag: "cap-" + char.id, charId: char.id });
     } catch (e) {}
   };
   const forceAmbient = async (char, type) => {
@@ -6603,8 +6604,15 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (isCouple && n.whisper >= 15) due.push("whisper");
     if (n.moment >= 30) due.push("moment");
     if ((n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
-    // 时光胶囊：恋人间稀发（≥40 轮），角色主动埋一颗给你（她要的"自动生成、有了再点开看"）
-    if (isCouple && n.capsule >= 40) due.push("capsule");
+    // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
+    // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
+    if (isCouple && n.capsule >= 80) {
+      const caps = loadJSON("x_capsules", []);
+      const own = (Array.isArray(caps) ? caps : []).filter(x => x && x.dir === "fromChar" && x.charId === charId);
+      const hasSealed = own.some(x => !x.opened);
+      const latestTs = own.reduce((mx, x) => Math.max(mx, Number(x.createdTs || 0)), 0);
+      if (!hasSealed && (!latestTs || Date.now() - latestTs >= 14 * 86400000)) due.push("capsule");
+    }
     due.forEach(k => { if (k === "whisper") n.whisper = 0; else if (k === "moment") n.moment = 0; else if (k === "capsule") n.capsule = 0; else { n.forum = 0; n.lastForumTs = Date.now(); } });
     const np = { ...ambientCountRef.current, [charId]: n };
     ambientCountRef.current = np; setAmbientCount(np); saveJSON("x_ambientCount", np);

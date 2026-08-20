@@ -46,7 +46,10 @@
     // 每个角色【第一次】给 TA 埋时必回埋一颗（保证你至少见到一次）；之后 70% 概率。失败给提示、不再静默。
     const maybeBuryBack = async (char, openTs) => {
       if (!props.active) return;
-      const everBuried = load().some(c => c && c.dir === "fromChar" && c.charId === char.id);
+      const existing = load();
+      // 同一个人已经有一颗话在路上，就别因为用户连续埋信而叠出一排锁盒。
+      if (existing.some(c => c && c.dir === "fromChar" && c.charId === char.id && !c.opened)) return;
+      const everBuried = existing.some(c => c && c.dir === "fromChar" && c.charId === char.id);
       if (everBuried && Math.random() > 0.7) return;
       try {
         const sys = buildBundle(props.ctxFor(char)) +
@@ -54,14 +57,14 @@
         const raw = await callAI(props.apiFor ? props.apiFor(char.id) : props.active, sys, [{ role: "user", content: "写吧。" }], { maxTokens: 4000 }); // 反向埋胶囊=TA 亲笔，跟随专线（v48.37）
         const d = extractJSON(raw);
         if (!d || !d.letter) { props.toast && props.toast(char.name + " 想回埋一颗但没写成，回头再说～"); return; }
-        const entry = { id: uid(), dir: "fromChar", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
+        const entry = { id: uid(), dir: "fromChar", source: "reciprocal", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
         setList(prev => { const n = [entry, ...prev]; save(n); return n; });
         props.toast && props.toast(char.name + " 好像也悄悄埋了一颗…到期才能拆");
       } catch (e) { props.toast && props.toast(char.name + " 想回埋一颗但没成：" + (e.message || "稍后重试")); }
     };
     const bury = (target, text, openTs) => {
       const c = target === "self" ? null : charOf(target);
-      const entry = { id: uid(), dir: c ? "toChar" : "toSelf", charId: c ? c.id : null, charName: c ? c.name : null, text, createdTs: Date.now(), openTs, opened: false, reply: null };
+      const entry = { id: uid(), dir: c ? "toChar" : "toSelf", source: "manual", charId: c ? c.id : null, charName: c ? c.name : null, text, createdTs: Date.now(), openTs, opened: false, reply: null };
       persist([entry, ...list]);
       setView(null);
       props.toast && props.toast("已封存 · " + fmtD(openTs) + " 开启");
