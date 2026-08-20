@@ -2902,6 +2902,7 @@ function ChatThread({
   const [input, setInput] = useState("");
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
   const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
+  const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
   const [menu, setMenu] = useState(null);
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState([]);
@@ -3147,9 +3148,26 @@ function ChatThread({
     h(Marquee, { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
     schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, flexShrink: 0 } }, "改"),
     h(IChevR, { size: 13, color: t.fog, style: { marginLeft: "auto", flexShrink: 0 } })),
+  unblockDraft !== null && h("div", {
+    style: { flexShrink: 0, background: t.bg2, borderBottom: "1px solid " + t.line, padding: "10px 14px" }
+  },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6, lineHeight: 1.6 } },
+      "跟 TA 说点什么。说到 TA 当初生气的那件事上，比笼统道歉管用得多。"),
+    h("textarea", {
+      value: unblockDraft, autoFocus: true, rows: 3,
+      onChange: e => setUnblockDraft(e.target.value),
+      placeholder: "写你想说的话…",
+      style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.7, outline: "none", resize: "none" }
+    }),
+    h("div", { style: { display: "flex", gap: 8, marginTop: 8, justifyContent: "flex-end" } },
+      h("button", { onClick: () => setUnblockDraft(null), style: { padding: "7px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "取消"),
+      h("button", {
+        onClick: () => { const txt = String(unblockDraft || "").trim(); if (!txt) return; setUnblockDraft(null); onSendUnblockReq(txt); },
+        style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: 12.5, color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
+      }, "发给 TA"))),
   (bk.iBlocked || bk.theyBlocked) && h("div", {
     style: { flexShrink: 0, background: "rgba(194,90,74,0.1)", borderBottom: "1px solid " + t.line, padding: "7px 16px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, textAlign: "center", lineHeight: 1.5 }
-  }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 发送解除申请" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
+  }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
     ref: ref,
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-1"
   }, archCount > 0 ? h("button", {
@@ -3479,8 +3497,8 @@ function ChatThread({
         marginTop: 2
       }
     }, subLine(m))), isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }), m.blocked && h(isU && bk.theyBlocked ? "button" : "div", {
-      onClick: (isU && bk.theyBlocked) ? () => onSendUnblockReq(m.content) : undefined,
-      title: (isU && bk.theyBlocked) ? "点这里发送解除拉黑申请" : "拉黑中",
+      onClick: (isU && bk.theyBlocked) ? () => setUnblockDraft(String(m.content || "")) : undefined,
+      title: (isU && bk.theyBlocked) ? "点这里写一句话，求 TA 解除拉黑" : "拉黑中",
       className: "shrink-0 self-center active:opacity-60",
       style: { order: isU ? -1 : 1, width: 18, height: 18, borderRadius: 999, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: (isU && bk.theyBlocked) ? "pointer" : "default" }
     }, "!")));
@@ -6455,15 +6473,19 @@ function GroupThread({
       meName: meName,
       onVote: opt => onVote(i, opt)
     });
-    if (m.kind === "redpacket") return h("div", {
-      key: i,
-      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
-      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-      style: { outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 12 }
-    }, h(RedPacketCard, {
-      rp: m,
-      onClick: selMode ? () => toggleSel(i) : () => openRp(i)
-    }));
+    // 红包以前是整条裸着排的：没有头像、也没有发红包的人是谁（她 2026-08-20 报）。
+    // 改成和语音/同人分享同一套外壳：左边头像、上面名字，卡片本身一个字不动。
+    if (m.kind === "redpacket") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+      h("div", {
+        className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start"),
+        onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+        onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+        style: { outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2, borderRadius: 12 }
+      },
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        h(RedPacketCard, { rp: m, onClick: selMode ? () => toggleSel(i) : () => openRp(i) })),
+      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "geo") return h(GeoCard, {
       key: i,
       m: m,

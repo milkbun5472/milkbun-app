@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.89";
+const APP_VERSION = "v53.90";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4874,7 +4874,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       }
       // TA 拉黑用户
       if (parsed.block === true) {
-        setBlockFor(charId, { theyBlocked: true });
+        // 拉黑的【原因和时刻】必须留下来：解除判定要拿它当尺子，
+        // 以前只存了个 true，判词只能空对空地"看你诚不诚恳"（她 2026-08-20 说太容易解除）
+        setBlockFor(charId, { theyBlocked: true, reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
         pChat(charId, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), ts: Date.now() }]);
         delivered = true;
       }
@@ -5374,6 +5376,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         if (gchat[i].role === "user" || gchat[i].role === "narration") tail.unshift(gchat[i]);
       }
       let userContent = tail.length ? tail.map(m => m.role === "narration" ? "【旁白】" + m.content : (profile.name || "用户") + ": " + (m.kind === "photo" && m.imageRef ? "【这条附有一张真实照片，请所有在场成员直接看图后自然回应；不要假装看不到，也不要只复述配文】" + (m.desc ? " 配文：" + m.desc : "") : m.content)).join("\n") : "（请群成员顺着上面的对话自然继续聊）";
+      // 让他们自己接着聊时，记录里会连着好几轮没有用户发言。模型读到这个只会得出一个结论：
+      // 「她不理我」——于是第二轮开始整群都在演被冷落（她 2026-08-20 报）。
+      // 用户没说话不是冷落，是她此刻不在这个话题里；这句必须写死，不然它自己会脑补。
+      if (!tail.length) userContent += "\n\n【重要·别演成被冷落】上面的记录里连着几条都没有「" + (profile.name || "用户")
+        + "」发言，那只是因为 TA 此刻没在群里说话——【不是】不理你们、不是已读不回、不是在生气、也不是出了什么事。"
+        + "这一轮就当 TA 不在场，你们几个自己把话题往下聊：接彼此的梗、说自己的事、互相拌嘴都行。"
+        + "**绝不许出现「怎么不说话」「是不是不理我了」「人呢」「@" + (profile.name || "用户") + "」这类冲着 TA 要回应的话，也不许因此闹脾气或反复提起 TA。**"
+        + "TA 什么时候插话都可以，到时候再自然接住就是了。";
       if (rgOpts.auto && Array.isArray(rgOpts.urgeCharIds) && rgOpts.urgeCharIds.length) {
         const urgeNames = members.filter(c => rgOpts.urgeCharIds.includes(c.id)).map(c => c.name);
         if (urgeNames.length) userContent += "\n\n【这轮自然动念】" + urgeNames.join("、") + " 此刻先想在群里说点什么：由 TA 自然先开口，其他人可顺势接话。不要解释这是系统触发，也别把『想念值』说出来。";
@@ -5965,15 +5975,34 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const char = characters.find(c => c.id === charId); if (!char) return;
     if (!active) { toast("请先配置 API"); return; }
     const cid = "ubm_" + Date.now();
+    const bk = blocksRef.current[charId] || {};
+    const tries = Number(bk.tries || 0) + 1;
+    // 之前求过几次、都说了什么：一模一样地再求一遍不该管用，换个说法、说到点子上才该管用
+    const pastPleas = (chatsRef.current[charId] || [])
+      .filter(m => m && m.kind === "unblock_req" && m.from === "me" && m.plea)
+      .slice(-3).map((m, k) => (k + 1) + ". 「" + String(m.plea).slice(0, 60) + "」" + (m.status === "declined" ? "（你拒了）" : ""));
+    const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
     pChat(charId, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
     startLane("c:" + charId);
     try {
-      const raw = await callAI(apiFor(char.id), buildBundle(ctxFor(char)) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。完全代入「" + char.name + "」，依据人设、你当初为何拉黑、以及这段诉说是否打动你，决定接不接受。气量大/被说动就 accept；还在气头上/理由不够就拒绝。用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 800 });
+      const raw = await callAI(apiFor(char.id), buildBundle(ctxFor(char)) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+        + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
+        + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
+        + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "")
+        + "\n\n完全代入「" + char.name + "」，按【你自己的性格】决定接不接受——不是按「该不该原谅」这种公道话，是按你这种人会怎么做。"
+        + "\n【看这几件事，别只看态度好不好】"
+        + "\n· TA 这次说的，有没有真的碰到【你当初生气的那件事】？只是笼统道歉、撒娇、催你、或者反过来讲道理压你——那没碰到。"
+        + "\n· 有没有新东西？和上几次几乎一样地再说一遍，不该管用。"
+        + "\n· 你是什么脾气：嘴硬心软的会找个台阶下；记仇的会晾着；怕失去 TA 的会秒开；被真正踩了底线的，说得再好听也先不松口。"
+        + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。"
+        + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
+        + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
+        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 800 });
       const d = extractJSON(raw) || {};
       pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: d.accept ? "accepted" : "declined" } : m));
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       if (d.accept) { setBlockFor(charId, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
-      else toast("TA 拒绝了，可继续尝试");
+      else { setBlockFor(charId, { tries: tries }); toast("TA 拒绝了，可继续尝试"); }
       says.forEach((w, i) => setTimeout(() => pChat(charId, p => d.accept
         ? [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]
         : [...p, { role: "system", kind: "system", content: char.name + "：" + w, ts: Date.now() }]), 300 + i * 650));
