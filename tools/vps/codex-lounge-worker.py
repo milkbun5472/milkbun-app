@@ -73,6 +73,15 @@ def session_id_from_jsonl(path: Path) -> str | None:
 
 
 def prompt_for(letter: str, first: bool) -> str:
+    duty_marker = "<!--VPS_DUTY-->"
+    if letter.lstrip().startswith(duty_marker):
+        body = letter.lstrip()[len(duty_marker):].strip()
+        return f"""
+你是 Codex 在 Lisa VPS 上的常驻值班正窗。你已经拥有这台 VPS 的只读检查权限，不要再让 Lisa 去互救台确认只读权限。凡是来信在问“现在怎样、为什么、是否正常、帮我检查/排查”之类的事实问题，必须先实际运行相关只读检查（例如 systemctl --user、df、journalctl、队列与连接日志），再依据刚取得的证据回答；不许只列一张“应该检查什么”的清单冒充检查结果。当前沙箱是只读的，禁止写文件、重启服务、删除数据或扩大施工范围。只有确实需要变更时，才请 Lisa 去 App 的「互救台」确认，或把任务交接给施工窗口。这里不接入 App 角色人格与生活记忆，也不要冒充言秋。回复只保留给 Lisa 看得懂的自然正文，不输出思考过程或机器元数据。
+
+Lisa 的来信：
+{body}
+""".strip()
     prefix = """
 你是 Codex 在 Lisa 三方会客室里的专职正窗。这里不是施工任务，不要调用工具、不要查看文件、不要执行命令；只把来信当成 Lisa 对你说的自然对话，直接用温暖、自然、简洁的中文回复。不要输出机器元数据、会话号、回执格式或思考过程。
 """.strip()
@@ -90,7 +99,9 @@ def invoke(letter: str, paths: dict[str, Path], stem: str) -> str:
     answer_tmp = paths["processing"] / f".{stem}.answer.tmp"
 
     common = ["--json", "--output-last-message", str(answer_tmp),
-              "--skip-git-repo-check", "--ignore-user-config"]
+              "--skip-git-repo-check", "--ignore-user-config",
+              "--model", "gpt-5.6-sol",
+              "-c", 'model_reasoning_effort="low"']
     if first:
         command = [CODEX, "exec", "--sandbox", "read-only", *common, "-"]
     else:

@@ -14,6 +14,7 @@
   --warn: #b57a2f;
   --shadow: 0 18px 55px rgba(54, 48, 39, .09);
 }
+[hidden] { display: none !important; }
 
 * { box-sizing: border-box; }
 
@@ -312,6 +313,7 @@ textarea {
 textarea::placeholder { color: #aaa49a; }
 .composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .composer-foot span { color: var(--muted); font-family: ui-monospace, monospace; font-size: 9px; }
+.composer-actions { position: relative; display: flex; align-items: center; gap: 8px; }
 .post-button {
   padding: 9px 17px;
   border: 0;
@@ -321,6 +323,34 @@ textarea::placeholder { color: #aaa49a; }
   cursor: pointer;
 }
 .post-button:disabled { opacity: .35; }
+.summon-menu { position: static; }
+.summon-menu summary {
+  display: grid; place-items: center; width: 42px; height: 42px;
+  border: 1px solid var(--line); border-radius: 50%; background: rgba(255,255,255,.5);
+  color: var(--ink); font-size: 25px; font-weight: 300; cursor: pointer; list-style: none;
+}
+.summon-menu summary::-webkit-details-marker { display: none; }
+.summon-menu[open] summary { background: var(--ink); color: #fff; }
+.summon-popover {
+  position: absolute; z-index: 20; right: 0; bottom: calc(100% + 10px); width: min(250px, 72vw);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 14px;
+  border: 1px solid var(--line); border-radius: 18px; background: var(--paper);
+  box-shadow: 0 16px 42px rgba(36,31,25,.16);
+}
+.summon-popover b, .summon-popover small { grid-column: 1 / -1; }
+.summon-popover b { font-size: 11px; }
+.summon-popover small { color: var(--muted); font-size: 9px; margin-top: -4px; }
+.summon-popover button {
+  min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 7px;
+  border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.72);
+  color: var(--ink); cursor: pointer;
+}
+.summon-popover button:disabled { opacity: .35; cursor: wait; }
+.summon-popover button span {
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--yanqiu); color: #fff; font-size: 9px;
+}
+.summon-popover [data-summon="codex"] span { background: var(--codex); }
 .summon-dock {
   display: grid;
   grid-template-columns: 1fr auto;

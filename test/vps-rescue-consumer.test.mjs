@@ -32,3 +32,20 @@ test('白名单重启返回前后体征', () => {
   assert.equal(result.after.state, 'active');
 });
 
+test('VPS 值班室信件只把可见回复写回结果', () => {
+  const calls = [];
+  const c = new VpsRescueConsumer({
+    env,
+    codexSubmitImpl: (id, text) => { calls.push({ id, text }); return '我在 VPS 收到啦。'; },
+  });
+  const result = c.execute({ id: 'dispatch-1', action: 'codex_chat', payload: { text: '帮我看一下队列' } });
+  assert.deepEqual(calls, [{ id: 'app-dispatch-1', text: '<!--VPS_DUTY-->\n帮我看一下队列' }]);
+  assert.equal(result.reply, '我在 VPS 收到啦。');
+  assert.equal(result.executor, 'vps_codex');
+});
+
+test('VPS 值班室拒绝空信与超长信', () => {
+  const c = new VpsRescueConsumer({ env, codexSubmitImpl: () => '不应调用' });
+  assert.throws(() => c.execute({ id: 'x', action: 'codex_chat', payload: { text: '  ' } }), /1~3000/);
+  assert.throws(() => c.execute({ id: 'x', action: 'codex_chat', payload: { text: 'x'.repeat(3001) } }), /1~3000/);
+});

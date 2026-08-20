@@ -293,8 +293,11 @@ const GLedger = p => h(Svg, p, h("rect", { x: 4, y: 3, width: 12, height: 18, rx
 const GFocus = p => h(Svg, p, h("circle", { cx: 12, cy: 14, r: 7.5 }), h("path", { d: "M12 14V9.5" }), h("path", { d: "M12 3.5v2.4M9.6 4.2h4.8" }), h("path", { d: "M17.8 7.6l1.3-1.3" }));
 // 小游戏：游戏手柄（机身 + 十字键 + 两个圆钮）
 const GGame = p => h(Svg, p, h("rect", { x: 3, y: 8, width: 18, height: 9, rx: 4.5 }), h("path", { d: "M7.5 10.8v3.4M5.8 12.5h3.4" }), h("circle", { cx: 16, cy: 11.8, r: 1 }), h("circle", { cx: 18, cy: 14, r: 1 }));
+// 互救台：带十字的救生圈；值班室：常亮的服务器；会客室：三把座椅围桌。
+const GRescue = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("circle", { cx: 12, cy: 12, r: 3.2 }), h("path", { d: "M12 3.5v5.3M12 15.2v5.3M3.5 12h5.3M15.2 12h5.3" }));
+const GDuty = p => h(Svg, p, h("rect", { x: 4, y: 4.5, width: 16, height: 6, rx: 1.6 }), h("rect", { x: 4, y: 13.5, width: 16, height: 6, rx: 1.6 }), h("circle", { cx: 7.2, cy: 7.5, r: .8 }), h("circle", { cx: 7.2, cy: 16.5, r: .8 }), h("path", { d: "M10 7.5h6.5M10 16.5h6.5" }));
+const GLounge = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 3.2 }), h("circle", { cx: 12, cy: 4.8, r: 2.1 }), h("circle", { cx: 5.7, cy: 15.8, r: 2.1 }), h("circle", { cx: 18.3, cy: 15.8, r: 2.1 }), h("path", { d: "M10.2 7.1l.8 1.9M7.8 14.3l1.9-1M16.2 14.3l-1.9-1" }));
 // 备忘录：便签清单（板身 + 顶夹 + 两行勾选）
 const GMemo = p => h(Svg, p, h("rect", { x: 5, y: 4, width: 14, height: 17, rx: 2 }), h("path", { d: "M9 3.5h6v2.4H9z" }), h("path", { d: "M8.4 10l1.2 1.2 2.1-2.3M8.4 15l1.2 1.2 2.1-2.3" }), h("path", { d: "M14 9.6h2.6M14 14.6h2.6" }));
 // 时光胶囊：沙漏
 const GCapsule = p => h(Svg, p, h("path", { d: "M7 3.5h10M7 20.5h10" }), h("path", { d: "M8.2 3.5v2.2c0 2.6 2.3 3.9 3.8 5.3 1.5-1.4 3.8-2.7 3.8-5.3V3.5M8.2 20.5v-2.2c0-2.6 2.3-3.9 3.8-5.3 1.5 1.4 3.8 2.7 3.8 5.3v2.2" }), h("path", { d: "M10.4 18.6h3.2" }));
-

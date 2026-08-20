@@ -369,8 +369,8 @@ class Orchestrator {
     return { status: 'needs_attention', dispatch_id, reason };
   }
 
-  // ---------- 双方各答一轮（§5.2；④真实正文 ⑤两棒=一次run）----------
-  async runOneEach({ room_id, lisa_message_id, first_speaker = 'yanqiu', timeout_ms, codex_confirmed = false } = {}) {
+  // ---------- 双方有限连续对话（§5.2；每轮两棒，整段仍是一次显式 run）----------
+  async runOneEach({ room_id, lisa_message_id, first_speaker = 'yanqiu', rounds = 1, timeout_ms, codex_confirmed = false } = {}) {
     if (!this.getRoom(room_id)) throw new Error(`no room ${room_id}`);
     const lisa = this.getMessage(lisa_message_id);
     if (!lisa || lisa.speaker !== 'lisa') throw new Error('runOneEach 需要一条 Lisa 自然正文消息');
@@ -383,7 +383,9 @@ class Orchestrator {
     const res = this._tx(() => this._reserve(room_id, { automatic: true, reserveTurn: true, reserveCall: false }));
     if (!res.ok) return { run_id: runId, refused: true, reason: res.reason, results: [] };
 
-    const order = first_speaker === 'codex' ? ['codex', 'yanqiu'] : ['yanqiu', 'codex'];
+    const safeRounds = Math.max(1, Math.min(6, Math.trunc(Number(rounds || 1))));
+    const pair = first_speaker === 'codex' ? ['codex', 'yanqiu'] : ['yanqiu', 'codex'];
+    const order = Array.from({ length: safeRounds }, () => pair).flat();
     const results = [];
     let prevReply = null;
     for (let idx = 0; idx < order.length; idx++) {
@@ -418,7 +420,7 @@ class Orchestrator {
     }
     const room = this.getRoom(room_id);
     if (room.status !== 'stopped') this._setRoom(room_id, { status: 'paused' });
-    return { run_id: runId, results };
+    return { run_id: runId, rounds_requested: safeRounds, rounds_completed: Math.floor(results.filter(x => x.status === 'replied').length / 2), results };
   }
 
   // ---------- 手动重试（§5.2；不新建投递，重收回复）----------

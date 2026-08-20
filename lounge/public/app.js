@@ -7,6 +7,10 @@ if (window.location.protocol === 'file:') {
 }
 
 const $ = (selector) => document.querySelector(selector);
+// 同一套会客厅既可跑 localhost 根路径，也可由 Tailscale 挂在 /lounge。
+// 所有 API/SSE 都跟随当前门牌，避免手机端页面到了、信却误投网站根目录。
+const BASE_PATH = window.location.pathname === '/lounge' || window.location.pathname.startsWith('/lounge/') ? '/lounge' : '';
+const serviceUrl = (url) => BASE_PATH && String(url).startsWith('/') ? BASE_PATH + url : url;
 const ui = {
   timeline: $('#timeline'),
   empty: $('#emptyState'),
@@ -30,6 +34,7 @@ const ui = {
   codexPresence: $('#codexPresence'),
   dialog: $('#confirmDialog'),
   firstSpeaker: $('#firstSpeaker'),
+  conversationRounds: $('#conversationRounds'),
   confirmBoth: $('#confirmBoth'),
   handoffDialog: $('#handoffDialog'),
   handoffTarget: $('#handoffTarget'),
@@ -85,7 +90,7 @@ function showNotice(message) {
 }
 
 async function api(url, options = {}) {
-  const response = await fetch(url, {
+  const response = await fetch(serviceUrl(url), {
     ...options,
     headers: { 'content-type': 'application/json', ...(options.headers || {}) },
   });
@@ -345,6 +350,7 @@ async function runBoth() {
       body: JSON.stringify({
         message_ids: state.selectedMessageIds,
         first_speaker: ui.firstSpeaker.value,
+        rounds: Number(ui.conversationRounds.value || 1),
         codex_confirmed: true,
       }),
     });
@@ -385,7 +391,7 @@ async function sendRescueTicket(target) {
 
 function connectEvents() {
   if (state.stream) state.stream.close();
-  state.stream = new EventSource(`/api/rooms/${state.roomId}/events`);
+  state.stream = new EventSource(serviceUrl(`/api/rooms/${state.roomId}/events`));
   state.stream.addEventListener('snapshot', (event) => {
     try { render(JSON.parse(event.data)); } catch {}
   });
@@ -445,7 +451,10 @@ ui.tray.addEventListener('click', (event) => {
 });
 ui.summon.addEventListener('click', (event) => {
   const button = event.target.closest('[data-summon]');
-  if (button) summon(button.dataset.summon);
+  if (button) {
+    ui.summon.removeAttribute('open');
+    summon(button.dataset.summon);
+  }
 });
 ui.pause.addEventListener('click', async () => {
   try { render(await api(`/api/rooms/${state.roomId}/pause`, { method: 'POST', body: '{}' })); }

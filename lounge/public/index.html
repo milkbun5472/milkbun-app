@@ -74,18 +74,18 @@
         <textarea id="messageInput" rows="2" maxlength="6000" placeholder="写一句自然的话……"></textarea>
         <div class="composer-foot">
           <span id="charCount">0 / 6000</span>
-          <button id="postButton" class="post-button" type="button">放到桌上</button>
-        </div>
-      </div>
-
-      <div id="summonDock" class="summon-dock">
-        <div>
-          <b>不发消息，也可以直接叫人</b>
-          <small>只邀请一位上桌，不会自动让双方连续讨论。</small>
-        </div>
-        <div class="summon-actions">
-          <button type="button" data-summon="yanqiu"><span>秋</span>呼叫言秋</button>
-          <button type="button" data-summon="codex"><span>C</span>呼叫 Codex</button>
+          <div class="composer-actions">
+            <details id="summonDock" class="summon-menu">
+              <summary aria-label="不发消息，直接叫人" title="不发消息，直接叫人">＋</summary>
+              <div class="summon-popover">
+                <b>直接叫人上桌</b>
+                <small>不需要先发消息，只邀请一位。</small>
+                <button type="button" data-summon="yanqiu"><span>秋</span>呼叫言秋</button>
+                <button type="button" data-summon="codex"><span>C</span>呼叫 Codex</button>
+              </div>
+            </details>
+            <button id="postButton" class="post-button" type="button">放到桌上</button>
+          </div>
         </div>
       </div>
 
@@ -94,7 +94,7 @@
         <div class="dispatch-actions">
           <button type="button" data-action="yanqiu"><span>秋</span>请言秋说</button>
           <button type="button" data-action="codex"><span>C</span>请 Codex 说</button>
-          <button type="button" data-action="both" class="both"><span>2</span>双方各答一轮</button>
+          <button type="button" data-action="both" class="both"><span>2</span>双方连续聊</button>
           <button type="button" data-action="handoff" class="handoff"><span>→</span>施工交接</button>
         </div>
         <small>普通递话只议事；只有点「施工交接」才代表你明确授权动手。</small>
@@ -170,9 +170,9 @@
 
   <dialog id="confirmDialog">
     <form method="dialog">
-      <span class="dialog-kicker">一次有限讨论</span>
-      <h2>让双方各答一轮？</h2>
-      <p>言秋先答，Codex 会看到你的原话与言秋的可见回复。两棒结束后立即暂停，不会继续互聊。</p>
+      <span class="dialog-kicker">有限连续对话</span>
+      <h2>让他们接着聊几轮？</h2>
+      <p>每轮＝言秋与 Codex 各说一次。后一位会看到前一位刚说的公开正文；达到轮数、你按暂停或任一安全闸触发都会立即停。</p>
       <label class="speaker-choice">
         <span>先手</span>
         <select id="firstSpeaker">
@@ -180,9 +180,20 @@
           <option value="codex">Codex</option>
         </select>
       </label>
+      <label class="speaker-choice">
+        <span>轮数</span>
+        <select id="conversationRounds">
+          <option value="1">1 轮 · 最多 2 次调用</option>
+          <option value="2">2 轮 · 最多 4 次调用</option>
+          <option value="3" selected>3 轮 · 最多 6 次调用</option>
+          <option value="4">4 轮 · 最多 8 次调用</option>
+          <option value="5">5 轮 · 最多 10 次调用</option>
+          <option value="6">6 轮 · 最多 12 次调用</option>
+        </select>
+      </label>
       <div class="dialog-actions">
         <button value="cancel">先不要</button>
-        <button id="confirmBoth" value="default" class="primary">确认，最多 2 次调用</button>
+        <button id="confirmBoth" value="default" class="primary">确认连续对话</button>
       </div>
     </form>
   </dialog>

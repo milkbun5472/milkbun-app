@@ -412,6 +412,20 @@
       if (error) throw error;
       return Array.isArray(data) ? data : [];
     },
+    async vpsCodexSend(text) {
+      return this.rescueRemoteEnqueue("codex_chat", { text: String(text || "").trim().slice(0, 3000) });
+    },
+    async vpsCodexHistory(limit) {
+      if (!client) throw new Error("云服务未就绪");
+      const user = await this.getUser();
+      if (!user) throw new Error("未登录");
+      const { data, error } = await client.from("rescue_remote_commands")
+        .select("id,action,payload,state,result,error_text,created_at,claimed_at,completed_at")
+        .eq("user_id", user.id).eq("action", "codex_chat")
+        .order("created_at", { ascending: false }).limit(Math.max(1, Math.min(80, Number(limit) || 40)));
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []).reverse();
+    },
 
     async yanqiuCcToolEnqueue(charId, toolName, args, idempotencyKey, lisaMessageKey, purpose) {
       if (!client) throw new Error("云服务未就绪");

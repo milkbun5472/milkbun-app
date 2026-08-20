@@ -10,6 +10,7 @@ const ROOT = join(HOME, 'services/rescue-consumer');
 const ENV_FILES = [join(ROOT, '.env'), join(HOME, 'services/ledger-courier/.env')];
 const DIAG = join(ROOT, 'logs/diagnostic.jsonl');
 const CHECKPOINTS = join(ROOT, 'checkpoints');
+const CODEX_SUBMIT = join(HOME, 'services/codex/bin/codex-lounge-submit.py');
 const LEGACY_SUPABASE_URL = 'https://nposjnafsbikwfeoudbg.supabase.co';
 
 export const SERVICES = Object.freeze({
@@ -55,7 +56,7 @@ export function serviceStatus(label) {
 }
 
 export class VpsRescueConsumer {
-  constructor({ env = readEnv(), fetchImpl = fetch, serviceStatusImpl = serviceStatus, restartImpl } = {}) {
+  constructor({ env = readEnv(), fetchImpl = fetch, serviceStatusImpl = serviceStatus, restartImpl, codexSubmitImpl } = {}) {
     this.env = env;
     this.fetch = fetchImpl;
     this.serviceStatus = serviceStatusImpl;
@@ -63,6 +64,10 @@ export class VpsRescueConsumer {
       execFileSync('/usr/bin/systemctl', ['--user', 'restart', label], { timeout: 12000 });
       return this.serviceStatus(label);
     });
+    this.codexSubmit = codexSubmitImpl || ((dispatchId, text) => execFileSync(
+      '/usr/bin/python3', [CODEX_SUBMIT, dispatchId],
+      { input: text, encoding: 'utf8', timeout: 90000, maxBuffer: 256 * 1024 }
+    ).trim());
   }
 
   headers(extra = {}) {
@@ -135,6 +140,13 @@ export class VpsRescueConsumer {
       return { executor: 'vps', executable: false, authorizationRequired: true, candidate: id, reason: id ? '已找到 VPS 只读检查点；真正回退仍锁定' : 'VPS 尚无检查点' };
     }
     if (row.action === 'rescue_ticket') return { executor: 'vps', symptom: String(p.symptom || '').slice(0, 1000), status: this.status(), dispatchRequired: true };
+    if (row.action === 'codex_chat') {
+      const text = String(p.text || '').trim();
+      if (!text || text.length > 3000) throw new Error('VPS 值班室来信须为 1~3000 字');
+      const reply = this.codexSubmit(`app-${row.id}`, `<!--VPS_DUTY-->\n${text}`);
+      if (!reply) throw new Error('VPS Codex 没有返回可见正文');
+      return { executor: 'vps_codex', reply, repliedAt: new Date().toISOString() };
+    }
     throw new Error('未知互救命令');
   }
 

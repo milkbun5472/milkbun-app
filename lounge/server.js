@@ -366,10 +366,12 @@ function createLoungeServer({
         const messageIds = Array.isArray(b.message_ids) && b.message_ids.length ? b.message_ids : [b.message_id].filter(Boolean);
         if (!messageIds.length) return fail(res, 400, 'MESSAGE_REQUIRED', '缺少要讨论的消息');
         const source = orch.composeLisaMessages(roomId, messageIds);
+        const rounds = Math.max(1, Math.min(6, Math.trunc(Number(b.rounds || 1))));
         const result = await withProgress(roomId, () => orch.runOneEach({
           room_id: roomId,
           lisa_message_id: source.message_id,
           first_speaker: b.first_speaker === 'codex' ? 'codex' : 'yanqiu',
+          rounds,
           codex_confirmed: b.codex_confirmed === true,
         }));
         for (const baton of result.results || []) {
@@ -436,7 +438,11 @@ function createLoungeServer({
   const server = http.createServer(async (req, res) => {
     try {
       const host = req.headers.host || '127.0.0.1';
-      await route(req, res, new URL(req.url || '/', `http://${host}`));
+      const requestUrl = new URL(req.url || '/', `http://${host}`);
+      // Tailscale 的 /lounge 门牌会把前缀原样交给本地服务；路由内部仍按根路径工作。
+      if (requestUrl.pathname === '/lounge') requestUrl.pathname = '/';
+      else if (requestUrl.pathname.startsWith('/lounge/')) requestUrl.pathname = requestUrl.pathname.slice('/lounge'.length) || '/';
+      await route(req, res, requestUrl);
     } catch (error) {
       const status = error.status || (error.code === 'LOCKED' ? 409 : 500);
       const code = error.code || 'INTERNAL_ERROR';
