@@ -237,6 +237,7 @@
     const [dice, setDice] = useState(false); // 剧场骰子:下一拍注入一个意外,一次性
     const [plusOpen, setPlusOpen] = useState(false); // + 菜单(骰子/便签/背景/出图)
     const [photoMenu, setPhotoMenu] = useState(null); // 长按剧照弹出的操作单:msg|null
+    const [msgMenu, setMsgMenu] = useState(null);     // 长按正文弹出的操作单(分支):msg|null
     const pressRef = useRef(null);
     const fileRef = useRef(null);
     const [writeGoal, setWriteGoal] = useState(null); // null | string:手写下一轮目标的缓冲
@@ -537,6 +538,53 @@
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 当轮剧照:第三人称旁观构图,服饰道具跟 if 线世界观;有两张脸参考才双人,否则他单人
+    // 剧照和封面共用的一套底座（v53.88）：画风、身份锁、if 线行头、参考图排列。
+    // 抽出来是因为封面若自己再拼一份，就会漏掉 photoStyle/手部解剖锁这些——
+    // 和 GOAL_RULE 当初四处各写各的是同一类毛病。
+    const shotBase = l => {
+      const char = charOf(l);
+      const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
+      // photoOutfit 换成 if 线自己的行头：角色的固定服装锁属于主线世界，会把这条线的装束顶掉
+      const styledChar = Object.assign({}, char, { photoOutfit: String(l.charOutfit || "").trim(), persona: String(char.persona || "").slice(0, 400) });
+      const faceLock = "【最高优先级·就是这个人】" + (duo
+        ? "画面里的两个人必须严格就是参考图里的这两位:「" + char.name + "」用参考图1的脸,「" + uName + "」用参考图2的脸——五官、脸型、发色瞳色、年龄感、肤色完全照搬各自的参考图,不许互换、混合或另造陌生人。"
+        : "画面里的人必须严格就是参考图里的那一位:五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人,也绝不出现第二个人。")
+        + "下面的身份设定【只改变服装、道具、场景与气质,绝不改变这张脸】;身份描述里的种族/职业/头衔不是长相指令,不得据此重画五官。\n";
+      const refList = (duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : [])).filter(Boolean);
+      const meWith = duo ? Object.assign({}, props.profile, { outfit: String(l.userOutfit || "").trim() }) : null;
+      return { char: char, duo: duo, styledChar: styledChar, faceLock: faceLock, refList: refList, me: meWith };
+    };
+    // ---- 封面图（v53.88）----
+    // 不取自任何一拍：画的是这条线【整体】的样子——世界、两个人的身份、那股张力。
+    // 所以它不需要剧情过滤（没有原文进去），也不会因为某一拍是亲密戏就出不来。
+    const genCover = async () => {
+      if (!line || busy) return;
+      if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
+      const b = shotBase(line);
+      if (!(b.char.refPhoto || b.char.appearance)) return props.toast("角色还没有参考照或外貌描述");
+      setPlusOpen(false); setBusy(true);
+      try {
+        const sceneDesc = "这条平行世界故事线的【封面海报】:一张能代表整个故事的电影感主视觉,不是某一场戏的抓拍。人物不看镜头,构图留白、有电影海报的气场。\n"
+          + "【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n"
+          + "【世界与场景】" + String(line.world || line.setting || "").slice(0, 300) + "\n"
+          + "【" + b.char.name + " 在这条线里的身份】" + String(line.charRole || "").slice(0, 200) + "\n"
+          + (b.duo ? "【" + uName + " 在这条线里的身份】" + String(line.userRole || "").slice(0, 200) + "\n" : "")
+          + "【要画出的东西】这个世界的质地(时代、光线、建筑或环境的特征)，以及" + (b.duo ? "这两个人之间那股说不破的张力" : "这个人此刻的处境与气场")
+          + "。**别画成证件照或人物立绘**,要有场景、有氛围、有故事正要发生的感觉。\n"
+          + "【画面尺度】必须是可公开展示的画面:衣着完整整齐,不露骨、不裸露,不出现凶器、伤口、血迹与尸体。";
+        const prompt = typeof buildPhotoPrompt === "function"
+          ? b.faceLock + buildPhotoPrompt(b.styledChar, sceneDesc, null, { kind: b.duo ? "duo" : "other", me: b.me, cinematic: true })
+          : b.faceLock + sceneDesc;
+        const out = await generateSelfieImage(prompt, b.refList.length ? b.refList : null);
+        if (!out || !out.blob) throw new Error("没出图");
+        if (out.degraded) props.toast(out.degraded === "duo-single-ref" ? "只锁了 " + b.char.name + " 的脸" : "没用上参考照" + (out.refError ? "：" + out.refError : ""), 7000);
+        const durl = await blobToDataUrl(out.blob);
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        // 封面跟着【整条线】走，分支出去的新线也沿用同一张——同一个世界不必各画各的
+        update(list => list.map(l => l.id !== line.id ? l : { ...l, cover: ref }));
+        props.toast("封面出好了");
+      } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); }
+    };
     const genPhoto = async () => {
       if (!line || busy) return;
       const char = charOf(line);
@@ -634,7 +682,50 @@
       } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
     };
     const rerollPhoto = m => { if (busy) return; update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map(r => ({ ...r, msgs: r.msgs.filter(x => x.id !== m.id) })) })); setTimeout(genPhoto, 60); };
+    // ---- 分支存档（v53.88）----
+    // 从任意一拍岔开一条新线：那一拍之前原样保留，之后的全部不要；原线一个字不动。
+    // 这既是"存档读档"（想回到某个路口重走），也是真正的 if 之 if。纯本地操作，零 API。
+    const branchFrom = msg => {
+      if (!line || !msg) return;
+      const rounds = [];
+      let hit = false;
+      for (const r of line.rounds) {
+        if (hit) break;
+        const k = (r.msgs || []).findIndex(m => m.id === msg.id);
+        if (k < 0) { rounds.push(r); continue; }
+        hit = true;
+        // 岔开点那一拍要留着（她是看到这一拍才想换条路的），之后的全丢
+        rounds.push({ ...r, msgs: r.msgs.slice(0, k + 1),
+          // 这一轮的结局从此重新未定：达成/失败/待确认全部清空，早先几轮的结果照旧
+          goalDone: false, failed: false, pending: false, pendingFail: false, goalNote: null });
+      }
+      if (!rounds.length) return props.toast("没找到这一拍");
+      const kept = rounds.reduce((n, r) => n + (r.msgs || []).length, 0);
+      // 账本覆盖的是前 sumCount 条。岔开点在它之后 → 账本对这段前缀仍然成立，可以带走；
+      // 岔在它之前 → 账本里写的事有一半已经不存在了，只能丢掉，让新线自己重新压缩。
+      const keepLedger = Number(line.sumCount || 0) > 0 && kept >= Number(line.sumCount || 0);
+      const sameRoot = l => (l.branchRoot || l.id) === (line.branchRoot || line.id);
+      const n = lines.filter(sameRoot).length; // 同一条根线下已经有几条了
+      const nl = { ...line,
+        id: rid("th_"),
+        title: (line.title || "if线") + "·分支" + n,
+        rounds: rounds,
+        archives: [],              // 归档属于原线，不跟着分支走
+        ended: false,
+        cover: line.cover || null, // 封面沿用，同一个世界
+        summary: keepLedger ? line.summary : "",
+        ledger: keepLedger ? line.ledger : null,
+        sumCount: keepLedger ? line.sumCount : 0,
+        sumSig: keepLedger ? line.sumSig : "",
+        createdAt: Date.now(),
+        branchRoot: line.branchRoot || line.id,
+        branchedFrom: { lineId: line.id, title: line.title, msgId: msg.id, at: kept, ts: Date.now() } };
+      update(list => [nl, ...list]);
+      setMsgMenu(null); setPlayId(nl.id); setPanelOpen(false);
+      props.toast("岔出一条新线，原线完整保留");
+    };
     const pressStart = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setPhotoMenu(m), 550); };
+    const pressMsg = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setMsgMenu(m), 550); };
     const pressEnd = () => clearTimeout(pressRef.current);
     const onBgFile = async e => {
       const f = e.target.files && e.target.files[0]; e.target.value = "";
@@ -832,15 +923,22 @@
           ? h("div", { key: m.id, onPointerDown: () => pressStart(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
           : m.role === "user"
           ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
-          : h("div", { key: m.id, style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content))));
+          : h("div", { key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(),
+              style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content))));
       const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重拍这张", () => { const m = photoMenu; setPhotoMenu(null); rerollPhoto(m); }],
            ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
            ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+      const msgSheet = msgMenu && h("div", { onClick: () => setMsgMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } },
+            "从这一拍岔开一条新线：这一拍之前原样保留，之后的重演。**原线一个字不动**，随时能切回去。"),
+          [["⑂ 从这里分支", () => branchFrom(msgMenu)],
+           ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { style: S.wrap }, badges(),
         line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
-        h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet,
+        h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet, msgSheet,
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "Ta 在演…") : null),
@@ -850,6 +948,7 @@
           h("button", { onClick: () => { setDice(v => !v); }, style: S.btn(dice) }, "🎲 骰子" + (dice ? "·已上膛" : "")),
           h("button", { onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
           h("button", { onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
+          h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, line.cover ? "🎞 重出封面" : "🎞 封面图"),
           h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 背景图"),
           line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null,
         line.ended ? null : h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: (noteOpen || plusOpen) ? "none" : "1px solid " + t.line } },
@@ -861,10 +960,17 @@
 
     // 某个角色的记录:只显示 Ta 的线,每条可单独删除
     const lineCard = l => { const n = allMsgs(l).length; const done = l.rounds.filter(r => r.goalDone).length;
-      return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }) },
+      // 有封面就把它压进卡片当底：图上要压字，所以盖一层足够厚的渐变，先保证读得清
+      const coverBg = l.cover ? {
+        backgroundImage: "linear-gradient(90deg, rgba(240,236,228,.94) 0%, rgba(240,236,228,.82) 52%, rgba(240,236,228,.35) 100%), url(" + imgSrc(l.cover) + ")",
+        backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
+      } : null;
+      return h("div", { key: l.id, onClick: () => { setPlayId(l.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
         h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + l.title + "」和全部记录?")) update(list => list.filter(x => x.id !== l.id)); },
           style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, l.title),
+        l.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+          "⑂ 分支自「" + (l.branchedFrom.title || "原线") + "」第 " + (l.branchedFrom.at || 0) + " 拍") : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4 } }, (l.ended ? "已完结 · " : "") + "第" + l.rounds.length + "轮 · 目标达成" + done + " · " + n + "条" + (l.archives && l.archives.length ? " · 重开过" + l.archives.length + "次" : "")),
         h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, l.setting)); };
     if (view === "lines") {
