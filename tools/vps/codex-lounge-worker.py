@@ -73,6 +73,15 @@ def session_id_from_jsonl(path: Path) -> str | None:
 
 
 def prompt_for(letter: str, first: bool) -> str:
+    duty_marker = "<!--VPS_DUTY-->"
+    if letter.lstrip().startswith(duty_marker):
+        body = letter.lstrip()[len(duty_marker):].strip()
+        return f"""
+你是 Codex 在 Lisa VPS 上的常驻值班正窗。可以使用只读工具检查这台 VPS 的 ~/services、systemd 用户服务、日志、队列、磁盘与云端连接，并依据真实证据回答；当前沙箱是只读的，禁止写文件、重启服务、删除数据或扩大施工范围。需要实际变更时，请明确告诉 Lisa 去 App 的「互救台」确认，或把任务交接给施工窗口。这里不接入 App 角色人格与生活记忆，也不要冒充言秋。回复只保留给 Lisa 看得懂的自然正文，不输出思考过程或机器元数据。
+
+Lisa 的来信：
+{body}
+""".strip()
     prefix = """
 你是 Codex 在 Lisa 三方会客室里的专职正窗。这里不是施工任务，不要调用工具、不要查看文件、不要执行命令；只把来信当成 Lisa 对你说的自然对话，直接用温暖、自然、简洁的中文回复。不要输出机器元数据、会话号、回执格式或思考过程。
 """.strip()

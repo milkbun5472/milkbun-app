@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.89";
+const APP_VERSION = "v53.91";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -10560,6 +10560,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onBack: () => setScreen("home")
   });else if (screen === "rescue") body = h(window.RescueConsole, {
     toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "vpscodex") body = h(window.VpsCodexApp, {
+    toast: toast,
+    onOpenRescue: () => setScreen("rescue"),
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {
     active: bgActive,

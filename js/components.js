@@ -1173,6 +1173,7 @@ function Home({
     dreamjournal: { kind: "app", zh: "解梦馆", G: window.GDreamBook || GDream },
     yanqiu: { kind: "app", zh: "秋声", G: window.GYanqiuLeaf || GDiary },
     rescue: { kind: "app", zh: "互救台", G: GGame },
+    vpscodex: { kind: "app", zh: "值班室", G: GGame },
     theater: { kind: "app", zh: "小剧场", G: window.GTheater || GDream }
   };
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
@@ -1180,7 +1181,7 @@ function Home({
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
     ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
-    ["lore", "memlib", "study", "fanfic", "theater", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "dreamjournal", "yanqiu", "rescue"],
+    ["lore", "memlib", "study", "fanfic", "theater", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "dreamjournal", "yanqiu", "rescue", "vpscodex"],
     ["capsule", "w_muyu", "w_weather", "w_wheel"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞

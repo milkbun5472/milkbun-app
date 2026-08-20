@@ -2,7 +2,7 @@
 create table if not exists public.rescue_remote_commands (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  action text not null check (action in ('status','checkpoint','restart','rescue_ticket','rewind_preview')),
+  action text not null check (action in ('status','checkpoint','restart','rescue_ticket','rewind_preview','codex_chat')),
   payload jsonb not null default '{}'::jsonb,
   state text not null default 'queued' check (state in ('queued','claimed','completed','failed')),
   result jsonb,
@@ -35,3 +35,7 @@ create policy rescue_remote_commands_insert_own on public.rescue_remote_commands
 revoke update, delete on public.rescue_remote_commands from authenticated;
 grant select, insert on public.rescue_remote_commands to authenticated;
 
+-- 旧表升级：为手机里的「VPS 值班室」开放耐久对话信件。
+alter table public.rescue_remote_commands drop constraint if exists rescue_remote_commands_action_check;
+alter table public.rescue_remote_commands add constraint rescue_remote_commands_action_check
+  check (action in ('status','checkpoint','restart','rescue_ticket','rewind_preview','codex_chat'));
