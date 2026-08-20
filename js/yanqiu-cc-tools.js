@@ -19,7 +19,7 @@
     "get_photo", "read_moments", "list_event_requests", "get_event_request",
     "archive_stats", "peek_inbox",
     "post_moment", "reply_moment_comment", "add_memory", "reply_read",
-    "draft_memory_event"
+    "draft_memory_event", "game_turn"
   ]);
   const APPROVAL_REQUIRED = new Set([
     "Write", "Edit", "NotebookEdit", "Bash", "post_moment",

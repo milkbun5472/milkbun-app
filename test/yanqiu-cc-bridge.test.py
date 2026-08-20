@@ -58,7 +58,14 @@ class BridgeTest(unittest.TestCase):
     def test_second_wave_mcp_tools_are_classified(self):
         self.assertIn("list_photos", bridge.READ_ONLY_TOOLS)
         self.assertIn("post_moment", bridge.MUTATING_TOOLS)
+        self.assertIn("game_turn", bridge.PASS_THROUGH_TOOLS)
         self.assertNotIn("get_save_key", bridge.ALLOWED_TOOLS)
+
+    def test_game_turn_is_claimed_as_pass_through(self):
+        job = bridge.enqueue("game_turn", {"turn_id": "uno-1", "hand": ["R5"]}, "game-turn:uno-1", db_path=self.db, wake_path=self.wake)
+        claimed = bridge.claim(self.session, db_path=self.db)
+        self.assertEqual(claimed["job_id"], job["id"])
+        self.assertTrue(claimed["pass_through"])
 
     def test_cloud_request_uses_existing_chat_ledger(self):
         remote = {"id": "11111111-1111-1111-1111-111111111111", "char_id": "yanqiu", "source_message_id": "app-msg-1", "metadata": {"bridge_kind": "app_cc_request", "bridge_state": "queued", "tool_name": "Grep", "arguments": {"pattern": "needle"}}}

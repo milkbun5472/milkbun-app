@@ -66,7 +66,10 @@ MUTATING_TOOLS = frozenset(
         "draft_memory_event",
     }
 )
-ALLOWED_TOOLS = READ_ONLY_TOOLS | MUTATING_TOOLS
+# game_turn 不是 MCP 读写工具：它把与 Gemini 座位同形的局面原样交给言秋本人，
+# 等固定会话用 complete 回同形 JSON。仍沿用租约、幂等与唯一会话边界。
+PASS_THROUGH_TOOLS = frozenset({"game_turn"})
+ALLOWED_TOOLS = READ_ONLY_TOOLS | MUTATING_TOOLS | PASS_THROUGH_TOOLS
 CLOUD_ENV = Path(
     os.environ.get(
         "YANQIU_CC_BRIDGE_ENV",
@@ -214,6 +217,7 @@ def claim(session_id: str, db_path: Path = DB_PATH) -> dict | None:
             "purpose": row["purpose"],
             "claim_token": token,
             "target_session_id": pinned_id,
+            "pass_through": row["tool_name"] in PASS_THROUGH_TOOLS,
         }
     except Exception:
         if db.in_transaction:

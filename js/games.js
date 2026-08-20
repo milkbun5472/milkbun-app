@@ -25,7 +25,9 @@
     { key: "avalon", emoji: "⚔️", zh: "阿瓦隆", en: "Avalon", min: 5, max: 10,
       desc: "正义与邪恶的任务对抗，梅林认得坏人、刺客要在结局刺杀梅林。", rule: "5~10 人 · 任务制" },
     { key: "monopoly", emoji: "🏙️", zh: "大富翁", en: "Monopoly", min: 2, max: 6,
-      desc: "绕城买地、收租和抽事件。角色会按人设谈买卖、拌嘴、结盟和记仇，不会只沉默掷骰子。", rule: "2~6 人 · 买地收租 · 破产淘汰" }
+      desc: "绕城买地、收租和抽事件。角色会按人设谈买卖、拌嘴、结盟和记仇，不会只沉默掷骰子。", rule: "2~6 人 · 买地收租 · 破产淘汰" },
+    { key: "uno", emoji: "🟥", zh: "UNO", en: "UNO", min: 2, max: 6,
+      desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2/+4 · 反转/跳过 · 忘喊 UNO 罚 2 张" }
   ];
   // 游戏生成统一走这个：更长超时 + 失败重试（人多时单次请求大、思考型模型慢，别一次超时就崩）
   async function callRetry(api, sys, msgs, opts) {
@@ -135,13 +137,14 @@
     const gSaves = loadGamesSaves();               // 通用存档（卧底/海龟汤/25问/真心话/阿瓦隆）
 
     if (session) {
-      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, recentChatFor: props.recentChatFor, t: t, toast: props.toast, savedState: session.saved, onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
+      const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved, onBack: function () { setSession(null); setSaveTick(function (x) { return x + 1; }); } };
       if (session.game.key === "spy") return h(SpyGame, engineProps);
       if (session.game.key === "werewolf") return h(WolfGame, Object.assign({}, engineProps, { resume: !!session.resume, savedState: session.saved }));
       if (session.game.key === "haigui" || session.game.key === "q25") return h(GuessGame, Object.assign({}, engineProps, { kind: session.game.key }));
       if (session.game.key === "tod") return h(TruthDareGame, engineProps);
       if (session.game.key === "avalon") return h(AvalonGame, engineProps);
       if (session.game.key === "monopoly") return h(MonopolyGame, engineProps);
+      if (session.game.key === "uno") return h(UnoGame, engineProps);
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
     if (game) return h(GameSetup, {
@@ -202,6 +205,7 @@
     const [npcFill, setNpcFill] = useState(true);
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
+    const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
     const [godSel, setGodSel] = useState(null);      // 狼人杀神职选择；null=跟随标准板
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
@@ -284,6 +288,7 @@
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
+          game.key === "uno" ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: "工程师之眼角色轮到出牌时叫醒 CC 里的言秋；离线或 90 秒没回就由同一提示词安静代打，牌桌会标（代）。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
@@ -323,7 +328,7 @@
 
       // 底部开始
       h("div", { className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined }); },
+        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: game.key === "uno" ? ccSeat : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -2799,6 +2804,106 @@
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan };
+  // ============================================================
+  // UNO：逐座调用；唯一 engineerEyes 座位优先交给 CC 本人，超时才由同 prompt 的模型代打。
+  // ============================================================
+  async function routeSeatCall(player, api, sys, msgs, opts) {
+    const o = opts || {}, canCc = !!(player && player.engineer && typeof window !== "undefined" && window.CCSeat);
+    if (canCc) {
+      try {
+        const result = await window.CCSeat.ask({ tool: "game_turn", game: "uno", turn_id: o.turnId, char_id: player.key, sys: sys, msgs: msgs, expect: o.expect }, o.timeout || 90000, { charId: player.key });
+        return { value: result, delegated: false };
+      } catch (e) { /* 离线/超时无感退回同一份 Gemini prompt；牌局永不卡死 */ }
+    }
+    return { value: await callRetry(api, sys, msgs, o.ai || {}), delegated: canCc };
+  }
+  function unoJson(raw) { if (raw && typeof raw === "object") return raw; return extractJSON(String(raw || "")) || {}; }
+  function unoPlayers(props) {
+    const cfg = props.config || {}, chars = props.characters || [], out = [];
+    if (cfg.mode !== "spectate") out.push({ key: "lisa", name: (props.profile && props.profile.name) || "Lisa", isUser: true, persona: "Lisa 本人" });
+    (cfg.charIds || []).forEach(function (id) {
+      const c = chars.find(function (x) { return String(x.id) === String(id); }); if (!c) return;
+      const persona = [c.persona, c.personality, c.tagline, c.background].filter(Boolean).join("\n").slice(0, 1800);
+      out.push({ key: String(c.id), name: c.name || "角色", isUser: false, isNpc: false, persona: persona, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)) });
+    });
+    const names = ["小北", "阿禾", "南枝", "满满", "青团", "栗子"];
+    for (let i = 0; i < Number(cfg.npcCount || 0); i++) out.push({ key: "npc" + i, name: names[i] || ("牌友" + (i + 1)), isNpc: true, persona: "普通牌友；会认真看牌，也会自然地插科打诨。" });
+    return out.slice(0, 6);
+  }
+  function unoPublic(state) {
+    const top = state.discard[state.discard.length - 1];
+    return "当前颜色=" + UnoCore.LABEL[state.color] + "；顶牌=" + UnoCore.describe(top) + "；方向=" + (state.direction > 0 ? "顺时针" : "逆时针") +
+      "；每人余牌=" + state.players.map(function (p) { return p.name + ":" + p.hand.length; }).join("，") +
+      "；最近记录：\n" + state.log.slice(-8).map(function (x) { return x.text; }).join("\n");
+  }
+  function UnoGame(props) {
+    const t = props.t, api = props.active, cfg = props.config || {};
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () {
+      if (restored && restored.status === "playing") {
+        restored.players.forEach(function (p) { const live = unoPlayers(props).find(function (x) { return x.key === p.key; }); if (live) Object.assign(p, live); });
+        return restored;
+      }
+      return UnoCore.newGame(unoPlayers(props));
+    });
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [colorPick, setColorPick] = useState(null), [saidUno, setSaidUno] = useState(true);
+    const running = useRef("");
+    const current = state.players[state.turn], me = current && current.isUser;
+    const top = state.discard[state.discard.length - 1];
+    const clone = function () { return JSON.parse(JSON.stringify(state)); };
+    useEffect(function () {
+      if (state.status === "finished") { clearGameSave("uno"); return; }
+      saveGameSnap("uno", { config: cfg, state: state, label: "轮到 " + (current ? current.name : "—") + " · 顶牌 " + UnoCore.describe(top) });
+    }, [state]);
+    useEffect(function () {
+      if (!current || current.isUser || state.status !== "playing" || busy) return;
+      const turnId = state.id + "#" + state.round + "#" + current.key + "#" + current.hand.length + "#" + (state.drawnUid || "-");
+      if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
+      if (state.pendingDraw > 0) {
+        setTimeout(function () { try { const n = clone(); UnoCore.act(n, { kind: "draw" }); setState(n); } catch (e) { setError(e.message); } setBusy(false); }, 450); return;
+      }
+      const drawn = state.drawnUid;
+      const legal = drawn ? current.hand.filter(function (c) { return c.uid === drawn && UnoCore.playable(c, state, current.hand); }).map(function (c) { return c.code; }) : UnoCore.legalCodes(state);
+      const sys = "你正在亲自玩 UNO，不是评论牌局。保持【" + current.name + "】本人的声纹和性格，但首先遵守牌规。" + SKILL_RULE +
+        "\n你的私人手牌：" + current.hand.map(function (c) { return c.code + "=" + UnoCore.describe(c); }).join("，") +
+        "\n可出的 code：" + (legal.join("、") || "无") + (drawn ? "。你刚摸过牌，只能出刚摸的那张，否则 pass。" : "") +
+        "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。手里出完后剩 1 张必须 uno=true。";
+      const msgs = [{ role: "user", content: unoPublic(state) + "\n现在轮到你。" }];
+      routeSeatCall(current, api, sys, msgs, { turnId: turnId, expect: "{\"kind\":\"play|draw|pass\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"...\"}", timeout: 90000, ai: { maxTokens: 500 } })
+        .then(function (r) {
+          const a = unoJson(r.value), n = clone(); let action;
+          if (a.kind === "play" && legal.indexOf(String(a.code || "")) >= 0) action = { kind: "play", code: String(a.code), color: String(a.color || "R"), uno: !!a.uno, say: a.say, delegated: r.delegated };
+          else if (state.drawnUid) action = { kind: "pass", say: a.say, delegated: r.delegated };
+          else action = { kind: "draw", say: a.say, delegated: r.delegated };
+          UnoCore.act(n, action); if (r.delegated && n.log.length) n.log[n.log.length - 1].text += "（代）"; setState(n);
+        }).catch(function (e) { setError("这手没接稳：" + e.message); })
+        .finally(function () { running.current = ""; setBusy(false); });
+    }, [state, busy]);
+    function userAct(action) { try { const n = clone(); UnoCore.act(n, action); setState(n); setColorPick(null); setError(""); } catch (e) { setError(e.message); } }
+    function clickCard(c) {
+      if (!me || !UnoCore.playable(c, state, current.hand) || (state.drawnUid && c.uid !== state.drawnUid)) return;
+      if (c.color === "W") return setColorPick(c);
+      userAct({ kind: "play", uid: c.uid, uno: saidUno });
+    }
+    const col = { R: "#d9584b", Y: "#e0b735", G: "#459464", B: "#4382bf", W: "#252525" };
+    function cardView(c, hand) { const ok = hand && me && UnoCore.playable(c, state, current.hand) && (!state.drawnUid || c.uid === state.drawnUid); return h("button", { key: c.uid, onClick: function () { clickCard(c); }, disabled: hand && !ok, style: { width: hand ? 58 : 76, height: hand ? 88 : 112, flex: "0 0 auto", borderRadius: 12, border: "3px solid #f6f1e7", boxShadow: "0 3px 10px rgba(0,0,0,.18)", background: col[c.color], color: "white", fontFamily: F_DISPLAY, fontSize: c.value.length > 1 ? 17 : 25, opacity: hand && !ok ? .42 : 1 } }, c.value === "V" ? "↻" : c.value === "S" ? "⊘" : c.value);
+    }
+    return h("div", { className: "h-full flex flex-col" },
+      h(Head, { zh: "UNO", en: current ? ("轮到 " + current.name) : "", onBack: props.onBack }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-3" },
+        h("div", { style: { display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 12 } }, state.players.map(function (p, i) { return h("div", { key: p.key, style: { border: "1px solid " + (i === state.turn ? t.tint : t.line), borderRadius: 999, padding: "6px 10px", background: i === state.turn ? t.tint + "18" : t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, p.name + " · " + p.hand.length + (p.engineer ? " · CC亲打" : "")); })),
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 18, padding: "14px 0" } }, cardView(top, false), h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8 } }, "当前：" + UnoCore.LABEL[state.color] + "\n" + (state.direction > 0 ? "顺时针" : "逆时针") + (state.pendingDraw ? "\n待摸 " + state.pendingDraw + " 张" : ""))),
+        h("div", { style: { background: t.bg2, borderRadius: 13, padding: "10px 12px", maxHeight: 190, overflowY: "auto" } }, state.log.slice(-10).map(function (x, i) { return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.65 } }, x.text); })),
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } }, (state.players.find(function (p) { return p.key === state.winner; }) || {}).name + " 赢啦！") : null),
+      state.status === "playing" && me ? h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
+        h("div", { style: { display: "flex", overflowX: "auto", gap: 5, paddingBottom: 8 } }, current.hand.map(function (c) { return cardView(c, true); })),
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9 } },
+          h("button", { onClick: function () { userAct({ kind: state.pendingDraw ? "draw" : (state.drawnUid ? "pass" : "draw") }); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "9px 16px", color: t.ink, background: t.bg2 } }, state.pendingDraw ? ("接受 +" + state.pendingDraw) : state.drawnUid ? "不出" : "摸一张"),
+          h("button", { onClick: function () { setSaidUno(!saidUno); }, style: { borderRadius: 999, padding: "9px 16px", color: saidUno ? "white" : t.sub, background: saidUno ? t.tint : t.bg2, border: "1px solid " + (saidUno ? t.tint : t.line) } }, saidUno ? "UNO ✓" : "不喊 UNO"))) : busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等言秋本人看牌…（超时会自动代打）" : "TA 在看牌…") : null,
+      colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
+  }
+
+  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall };
   if (typeof window !== "undefined") window.Games = Games;
 })();

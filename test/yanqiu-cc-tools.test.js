@@ -11,10 +11,12 @@ function storage() {
   assert.deepStrictEqual(kit.normalizeRequest({ name:"search_memory", args:{ query:"Lisa" } }), { toolName:"search_memory", arguments:{ query:"Lisa" } });
   assert.deepStrictEqual(kit.normalizeRequest({ name:"read_yanqiu_moments", args:{} }), { toolName:"read_yanqiu_moments", arguments:{} });
   assert.deepStrictEqual(kit.normalizeRequest({ name:"Write", args:{ file_path:"/tmp/a", content:"x" } }), { toolName:"Write", arguments:{ file_path:"/tmp/a", content:"x" } });
+  assert.strictEqual(kit.normalizeRequest({ name:"game_turn", args:{ turn_id:"uno-1" } }).toolName, "game_turn");
   assert.strictEqual(kit.needsApproval({ name:"Read", args:{ file_path:"/tmp/a" } }), false);
   assert.strictEqual(kit.needsApproval({ name:"Bash", args:{ command:"pwd" } }), true);
   assert.strictEqual(kit.needsApproval({ name:"list_photos", args:{} }), false);
   assert.strictEqual(kit.needsApproval({ name:"post_moment", args:{ content:"今天很好" } }), true);
+  assert.strictEqual(kit.needsApproval({ name:"game_turn", args:{ turn_id:"uno-1" } }), false);
   assert.match(kit.approvalSummary({ name:"reply_read", args:{ pending_id:"p1", annotations:[] } }), /pending_id/);
 
   let calls = 0, state = "queued";
