@@ -2068,14 +2068,23 @@ function isImgRef(v) { v = String(v || ""); return v.slice(0, 5) === "data:" || 
 function _imgCache() { if (typeof window === "undefined") return new Map(); return window.__imgUrlCache || (window.__imgUrlCache = new Map()); }
 async function hydrateImgVault() { try { const entries = await idbVaultEntries(); const c = _imgCache(); entries.forEach(([k, blob]) => { if (k && blob && !c.has(k)) { try { c.set(k, URL.createObjectURL(blob)); } catch (e) {} } }); return entries.length; } catch (e) { return 0; } }
 // ── 文字库（IDB）：把大块文字键搬出 localStorage(5MB)、存进 IndexedDB（她 2026-07-25 本地满）。──
-//   同人文 + 记忆离线镜像搬进来。x_memLib 在 memories 行表转正后只是离线镜像；
+//   同人文 + 记忆离线镜像 + 单/群聊天搬进来。x_memLib 在 memories 行表转正后只是离线镜像；
 //   开机仍先 hydrate 完再挂载，所以同步读路径不变，又不再挤占 localStorage 的 5MB。
 //   机制同图库：开机 hydrateTxtVault() 把 IDB 里的值一次性灌进内存镜像 __txtMirror；此后 loadJSON/saveJSON
 //   对这些键读写镜像(同步)+异步落 IDB，绝不进 localStorage。云端同步靠 collect 补镜像、apply 回写 IDB。
 const DURABLE_TEXT_KEYS = new Set(["x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger"]);
-const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:"];
+const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"];
 function isIdbTextKey(k) { return typeof k === "string" && (DURABLE_TEXT_KEYS.has(k) || IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0)); }
-function isDurableTextKey(k) { return DURABLE_TEXT_KEYS.has(String(k || "")); }
+function isDurableTextKey(k) {
+  k = String(k || "");
+  return DURABLE_TEXT_KEYS.has(k) || k === "x_memLib" || k.indexOf("x_offline:") === 0 || k.indexOf("x_goffline:") === 0 || k.indexOf("x_chat:") === 0 || k.indexOf("x_gchat:") === 0;
+}
+// 单/群聊天可能远超 localStorage 的 5MB：它们以 WAL 本身作同步 journal，不能再要求
+// localStorage 也塞下一整份；其余核心文字键继续保留 localStorage + WAL + IDB 三重核对。
+function durableTextNeedsLocalJournal(k) {
+  k = String(k || "");
+  return k.indexOf("x_chat:") !== 0 && k.indexOf("x_gchat:") !== 0;
+}
 function _txtMirror() { const g = (typeof window !== "undefined") ? window : globalThis; if (!g.__txtMirror) g.__txtMirror = new Map(); return g.__txtMirror; }
 function idbTxtOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_txtvault", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("txt")) r.result.createObjectStore("txt"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbTxtPut(k, v) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").put(v, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
@@ -3305,10 +3314,11 @@ function saveJSON(k, v) {
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const s = JSON.stringify(v);
       _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
-      if (k === "x_memLib" || k.indexOf("x_offline:") === 0 || k.indexOf("x_goffline:") === 0 || isDurableTextKey(k)) {
+      if (isDurableTextKey(k)) {
         // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
         // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
-        try { localStorage.setItem(k, s); } catch (e) {}
+        const needsLocalJournal = durableTextNeedsLocalJournal(k);
+        if (needsLocalJournal) try { localStorage.setItem(k, s); } catch (e) {}
         try {
           const staged = isDurableTextKey(k) ? walPutVerified(k, s) : Promise.resolve(true);
           staged.then(ok => {
@@ -3317,8 +3327,8 @@ function saveJSON(k, v) {
           }).then(back => {
             const verifyWal = isDurableTextKey(k) ? walGetRaw(k) : Promise.resolve(s);
             return verifyWal.then(walBack => {
-              if (back === s && localStorage.getItem(k) === s && walBack === s) {
-                localStorage.removeItem(k);
+              if (back === s && (!needsLocalJournal || localStorage.getItem(k) === s) && walBack === s) {
+                if (needsLocalJournal) localStorage.removeItem(k);
                 if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
               }
             });

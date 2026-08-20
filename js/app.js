@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.04";
+const APP_VERSION = "v54.05";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1298,8 +1298,7 @@ function App() {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
     saveJSON("x_chat:" + id, n);
-    // 施工卡1A:WAL 异步镜像。localStorage 配额满时 saveJSON 只弹警告,这里保底最新一版,开机保险箱回收补回
-    try { typeof walPutVerified === "function" && setTimeout(() => { walPutVerified("x_chat:" + id, JSON.stringify(n)).catch(() => {}); }, 0); } catch (e) {}
+    // x_chat 已归 IDB 文字仓管理；saveJSON 内部先写 WAL、逐字验真后落 IDB 并销账。
     chatsRef.current = { ...p, [id]: n };
     // 未读红点：新增的角色消息若此刻没在看这个聊天，累加未读条数（推到微任务里，别在 reducer 里改别的 state）
     if (n.length > pl.length) {
@@ -1523,8 +1522,7 @@ function App() {
     const pl = p[id] || [];
     const n = typeof u === "function" ? u(pl) : u;
     saveJSON("x_gchat:" + id, n);
-    // 施工卡1A:WAL 异步镜像,同 pChat
-    try { typeof walPutVerified === "function" && setTimeout(() => { walPutVerified("x_gchat:" + id, JSON.stringify(n)).catch(() => {}); }, 0); } catch (e) {}
+    // x_gchat 同样由 IDB 文字仓 + WAL 原子保护，避免 localStorage 满盘时每次开机重复找回。
     groupChatsRef.current = { ...p, [id]: n };
     if (n.length > pl.length) {
       const ledgerAdded = n.slice(pl.length), group = groups.find(g => String(g.id) === String(id));

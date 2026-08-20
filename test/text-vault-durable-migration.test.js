@@ -17,9 +17,16 @@ test("旧键必须 WAL 与 IDB 双重逐字验真后才删除", () => {
   assert.match(engine, /isDurableTextKey\(k\) && !\(await walPutVerified\(k, s\)\)/);
   assert.match(engine, /back === s && \(!isDurableTextKey\(k\) \|\| \(await walGetRaw\(k\)\) === s\)/);
   assert.match(engine, /durableWalKeys = \(await walKeys\("x_"\)\)\.filter\(isDurableTextKey\)/);
-  assert.match(engine, /if \(back === s && localStorage\.getItem\(k\) === s && walBack === s\)/);
+  assert.match(engine, /if \(back === s && \(!needsLocalJournal \|\| localStorage\.getItem\(k\) === s\) && walBack === s\)/);
   assert.match(engine, /if \(isDurableTextKey\(k\)\) walDel\(k\)/);
   assert.match(engine, /async function walDeleteDurableTextKeys/);
+});
+
+test("超大单群聊天由 IDB 与 WAL 接管，不再要求塞回 localStorage", () => {
+  assert.match(engine, /k\.indexOf\("x_chat:"\) === 0/);
+  assert.match(engine, /k\.indexOf\("x_gchat:"\) === 0/);
+  assert.match(engine, /function durableTextNeedsLocalJournal\(k\)/);
+  assert.match(engine, /return k\.indexOf\("x_chat:"\) !== 0 && k\.indexOf\("x_gchat:"\) !== 0/);
 });
 
 test("存储仪表盘能按名称显示七类金库文本", () => {

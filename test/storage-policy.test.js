@@ -20,9 +20,9 @@ assert.match(app, /await window\.Cloud\.chatArchiveAppend\(archKey, older\)[\s\S
 
 const engine = fs.readFileSync(path.join(__dirname, "../js/engine.js"), "utf8");
 const cloud = fs.readFileSync(path.join(__dirname, "../js/cloud.js"), "utf8");
-assert.match(engine, /IDB_TEXT_PREFIXES = \["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:"\]/);
+assert.match(engine, /IDB_TEXT_PREFIXES = \["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"\]/);
 assert.match(engine, /function storedJSONText\(k\)/);
-assert.match(engine, /back === s && localStorage\.getItem\(k\) === s/);
+assert.match(engine, /back === s && \(!needsLocalJournal \|\| localStorage\.getItem\(k\) === s\)/);
 assert.match(engine, /async function idbTxtApplySnapshot\(data, preserveKeys\)/);
 assert.match(app, /MemoryAudit\.build\(storedJSONText\("x_memLib"\)/);
 assert.match(app, /window\.__txtMirror\.forEach\(\(v, k\) => offlineKeys\.add\(k\)\)/);
