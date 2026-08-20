@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.91";
+const APP_VERSION = "v53.92";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -6545,18 +6545,22 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     } catch (e) {}
   };
   // 角色【主动】给你埋一颗时光胶囊（不必你先埋给 TA）——她要的"自动生成、有了我再点开看"。
-  // 由 tickAmbient 按轮数稀发；封存到 1~7 天后（保留"等一等再拆"的胶囊感，又不至于锁太久）。写 x_capsules，
+  // 由 tickAmbient 按轮数稀发；封存到 7/14/30 天后。短期胶囊是“延时抵达的此刻”，不再一两天后硬装遥远未来（v53.90）。写 x_capsules，
   // 下次打开时光胶囊即见；到期主屏图标亮红点（window.capsuleDueCount 读 localStorage）。
   const autoBuryCapsuleForChar = async char => {
     if (!active) return;
     try {
-      const openTs = Date.now() + (1 + Math.floor(Math.random() * 7)) * 86400000;
+      const autoSealDays = [7, 14, 30];
+      const openTs = Date.now() + autoSealDays[Math.floor(Math.random() * autoSealDays.length)] * 86400000;
       const cur = loadJSON("x_capsules", []); const list = Array.isArray(cur) ? cur : [];
       // 别和之前埋的重复（她 2026-07-26：触发好几个都在说同一件事）：把这个角色最近埋过的胶囊当"要避开的"喂进去
       const mine = list.filter(x => x && x.dir === "fromChar" && x.charId === char.id).slice(0, 5);
       const avoid = mine.length ? "\n\n【你之前已经给 Ta 埋过下面这些胶囊——这次【绝不许再说同一件事/同一种心情】，换一件不一样的事、换个由头和角度写；哪怕换几个词说同一件也不行】\n" + mine.map((x, i) => (i + 1) + ". " + String(x.text || "").replace(/\s+/g, " ").slice(0, 90)).join("\n") : "";
+      const capsuleGuide = window.CapsulePromptKit
+        ? window.CapsulePromptKit.sealGuide(openTs)
+        : "把今天此刻一个具体念头或没说出口的话封进去，不预测遥远未来。写 2-4 个自然短段。";
       const sys = buildBundle(ctxFor(char)) +
-        "\n\n【任务】此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗时光胶囊——写下你【此刻】最想对「拆开它那天的 Ta」说的话（2-6 句，第一人称，贴你的人设与此刻心情，可以有没说出口过的话；别客套、别落款）。" + avoid + "\n只输出 JSON：{\"letter\":\"信的正文\"}";
+        "\n\n【任务】此刻你心里一动，想悄悄给 " + (profile.name || "Ta") + " 埋一颗【现在写下、到期才送达】的时光胶囊。" + capsuleGuide + "第一人称，贴你的人设与此刻心情；别客套、别落款。" + avoid + "\n只输出 JSON：{\"letter\":\"信的正文\"}";
       const raw = await callAI(apiFor(char.id), sys, [{ role: "user", content: "写吧。" }], { maxTokens: 4000 });
       const d = extractJSON(raw);
       if (!d || !d.letter) return;
