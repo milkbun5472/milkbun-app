@@ -577,7 +577,7 @@ function App() {
     setSnoops(loadJSON("x_snoops", {}));
     setCarries(loadJSON("x_carries", {}));
     setPhones(loadJSON("x_phone", {}));
-    setDiaries(loadJSON("x_diaries", {}));
+    setDiaries(sortDiaryBook(loadJSON("x_diaries", {})));
     setAnon(loadJSON("x_anon", {}));
     setBlocks(loadJSON("x_blocks", {}));
     setStateHist(loadJSON("x_stateHist", {}));
@@ -6360,7 +6360,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       setDiaries(p => {
         // 最终落库再查一次：防止生成期间云恢复/另一个入口已经补进同日文章。
         if ((p[charId] || []).some(e => diarySameDay(e.ts, targetTs))) return p;
-        const n = { ...p, [charId]: [entry, ...(p[charId] || [])] };
+        const n = { ...p, [charId]: sortDiaryList([entry, ...(p[charId] || [])]) };
         diariesRef.current = n; // 下一条自动任务无需等 React 下一次 render 才能看见
         saveJSON("x_diaries", n);
         return n;
@@ -6372,6 +6372,18 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       setDiaryBusy(b => ({ ...b, [charId]: false }));
     }
   };
+  // 日记按【日记那天的日期】倒序排，最新的在最上面（v53.86）。
+  // 补齐漏记的日子时，条目是后写的、日期却是旧的；以前一律 [新条目, ...旧的] 怼到最前面，
+  // 于是补出来的旧日记全堆在顶上（她 2026-08-20 报）。排序只认 ts，不认写入顺序。
+  function sortDiaryList(list) {
+    return (list || []).slice().sort(function (a, b) { return Number((b && b.ts) || 0) - Number((a && a.ts) || 0); });
+  }
+  // 整本重排：老数据里已经乱掉的顺序，加载时一次性理好，不用她自己动手
+  function sortDiaryBook(book) {
+    const out = {};
+    Object.keys(book || {}).forEach(function (k) { out[k] = sortDiaryList(book[k]); });
+    return out;
+  }
   const delDiaryEntry = (charId, entryId) => setDiaries(p => {
     const n = { ...p, [charId]: (p[charId] || []).filter(e => e.id !== entryId) };
     saveJSON("x_diaries", n);
@@ -6391,7 +6403,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       timeStr: data.timeStr || "", paras, comments: [], source: "me"
     };
     setDiaries(p => {
-      const n = { ...p, __me: [entry, ...(p.__me || [])] };
+      const n = { ...p, __me: sortDiaryList([entry, ...(p.__me || [])]) };
       saveJSON("x_diaries", n);
       return n;
     });
