@@ -117,13 +117,18 @@
     // 否则一次普通 push 会因 JSON 整体替换而意外删掉回滚材料。
     async collectForSave(userId) {
       const dump = this.collect();
-      // 本机参考照只存 iv_ 短引用；云存档临时嵌回 base64，换设备恢复后开机迁移器会再放回 IndexedDB。
-      // 任一图库读取失败就保留 iv_（不阻断其他数据备份），但正常情况下角色/用户参考照可跨设备恢复。
+      // 本机头像/参考照只存 iv_ 短引用；云存档临时嵌回 base64，换设备恢复后开机迁移器会再放回 IndexedDB。
+      // 两个字段必须一起嵌回：WKWebView 与 Safari 的 IndexedDB 彼此隔离，只同步 iv_ 门牌会产生跨壳空头像。
+      // 任一图库读取失败就保留 iv_（不阻断其他数据备份），但正常情况下角色/用户头像与参考照可跨设备恢复。
       const embedRefs = async key => {
         try {
           const value = JSON.parse(dump[key] || (key === "x_characters" ? "[]" : "{}")), list = Array.isArray(value) ? value : [value];
-          for (const row of list) if (row && typeof row.refPhoto === "string" && row.refPhoto.indexOf("iv_") === 0 && typeof idbVaultGet === "function" && typeof blobToDataUrl === "function") {
-            const blob = await idbVaultGet(row.refPhoto); if (blob) row.refPhoto = await blobToDataUrl(blob);
+          for (const row of list) if (row && typeof idbVaultGet === "function" && typeof blobToDataUrl === "function") {
+            for (const field of ["avatarImage", "refPhoto"]) {
+              const ref = row[field];
+              if (typeof ref !== "string" || ref.indexOf("iv_") !== 0) continue;
+              const blob = await idbVaultGet(ref); if (blob) row[field] = await blobToDataUrl(blob);
+            }
           }
           dump[key] = JSON.stringify(value);
         } catch (e) {}
