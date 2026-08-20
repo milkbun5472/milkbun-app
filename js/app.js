@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.87";
+const APP_VERSION = "v53.88";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1439,6 +1439,14 @@ function App() {
         inboxSeenRef.current.add(L.id);
         const char = characters.find(c => c.id === L.char_id);
         if (!char) { done.push(L.id); continue; } // 角色已删，信作废
+        // 时间闸（她 2026-08-20：凌晨4点开app看到一排早安、角色理论上在睡觉）——云端晨信/晚安信是定时任务提前生成、
+        // 排在信箱里，你几点开就几点全倒出来。这里按【角色本地时间】卡：晨信只在早上(5-12)投、晚安信只在晚上(20-2)投；
+        // 不合时宜的（多半是你错过没在的旧信）直接作废、别在离谱的点冒出来。用 charLocalMin 尊重各自时区。
+        if (L.kind === "morning" || L.kind === "night") {
+          const _lh = Math.floor(charLocalMin(char) / 60);
+          const _ok = L.kind === "morning" ? (_lh >= 5 && _lh < 12) : (_lh >= 20 || _lh < 2);
+          if (!_ok) { done.push(L.id); continue; }
+        }
         // C 第4步：收信口二道 shadow 核对（合同 §5.2）——只记 would_hold，不影响投递
         try { window.SleepShadow && window.SleepShadow.gateCheck(char, "night_watch_delivery", settingsFor(char.id).engineerEyes === true); } catch (eSg) {}
         const msgs = chatsRef.current[char.id] || [];
