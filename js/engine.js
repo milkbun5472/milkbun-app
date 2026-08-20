@@ -766,6 +766,19 @@ function narrativeDirective(s) {
     : "只描写你自己的言行和心理，不要替对方决定动作或台词。";
   return "\n【叙事人称】" + (parts.length ? parts.join("；") + "。" : "") + desc;
 }
+
+// 终稿自修必须服从用户在本场选择的人称，不能把某一种称谓焊死。
+// third 的具体「她/他/名字」仍交给人物资料与正文语境判断，避免误改真正的第三方。
+function offlineRevisionAddressRule(narr) {
+  const userP = narr && narr.userP ? narr.userP : "second";
+  if (userP === "first") {
+    return "称谓是事实，不是文风：本场设置要求用第一人称『我』称呼对方。draftScene 若漂成『你／她／他／TA』，scene 必须按这项设置纠正；正文中确实存在的第三方人物不受影响。";
+  }
+  if (userP === "third") {
+    return "称谓是事实，不是文风：本场设置要求用第三人称称呼对方，按对方资料与语境使用『她／他』或名字；不要擅自改回『你』。正文中其他人物的指代必须继续分清。";
+  }
+  return "称谓是事实，不是文风：本场设置要求用第二人称『你』称呼对方。draftScene 若漂成『她／他／TA』，scene 必须纠回『你』；正文中确实存在的第三方人物仍保留第三人称。";
+}
 // 内置「去人机味 / 反八股」总则——焊死在所有生成里，不用挂世界书也能压住套路化的 AI 腔
 const ANTI_CLICHE_LEGACY = `【去人机味 · 最高准则（任何身份、任何场景都优先于其他要求）】
 把角色演成一个具体、真实、有自己生活的人，而不是 AI 扮演的「完美体贴对象」。严禁下列一切「人机味」八股：
@@ -2439,7 +2452,7 @@ function offlineRegisterExplicitText(text) {
 // 单次响应内自修（初稿→自编辑去认证句）。原先写死在 generateOffline 里，小剧场等其它
 // 线下通道拿不到；抽出来共享，让「所有线下走同一套提示词」这句话真的成立（Lisa 2026-08-18）。
 // shape 用于替换末尾的输出形状说明——不同通道的 JSON 字段不一样。
-function offlineSelfReviseProtocol(shape, archetypeGuard) {
+function offlineSelfReviseProtocol(shape, archetypeGuard, narr) {
   return `\n\n【本轮单次响应内自修】
 本轮只调用你一次，但输出 JSON 时必须依次完成两个不同字段：
 1. draftScene：先完整写出这一刻真正发生的首稿。事实、人物选择、主动关系、尺度与角色回应都在这里形成。
@@ -2448,13 +2461,13 @@ function offlineSelfReviseProtocol(shape, archetypeGuard) {
 scene 必须保留全部具体身体事实，不淡出、不概括、不降低明确程度，也不新增或升级动作。保留这个人的具体选择、现实注意、关系回应和独特说话方式；通用成人场面话可以在不改变含义与语气方向的前提下换成这个人更自然的说法。
 删除或平实改写只负责再次证明刺激与强度、却不增加新事实或人物信息的内容，例如成串的嗓音变化、喉结、青筋、红眼、呼吸认证、神经刺激、理智或侵略性总结。同一种身体事实或反应维度只陈述一次。事实与渲染混在一句时保留事实核心，只移除认证包装；不要以缩短、清水化或统一成冷静短句为目标。
 ${archetypeGuard ? "角色卡里的强烈性格标签只决定人物会作何选择，不是要求旁白反复替他宣传某种原型。行为或台词已经表现清楚时，删除随后给它贴标签、评点气场、认证他有多强势／危险／无赖／宠溺的作者解说；保留真实的赖账、坚持、疲倦、占有、照顾、关系决定和说话功能，不把人物改乖。" : ""}
-称谓是事实，不是文风：本场与角色面对面互动的用户始终称为「你」。即使 draftScene 漂成「她／他／TA」，scene 也必须纠回「你」；只有正文中确实另有第三方人物时，第三人称才保留。
+${offlineRevisionAddressRule(narr)}
 draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者都必须是完整字符串，不得省略、互换或解释修改过程。
 
 本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
 }
 
-function offlineArchetypeSelfReviseProtocol(shape) {
+function offlineArchetypeSelfReviseProtocol(shape, narr) {
   return `\n\n【本轮人物表达自修】
 本轮只调用你一次，但输出 JSON 时依次完成两个字段：
 1. draftScene：先让这个具体的人照常完成本轮场景。
@@ -2462,7 +2475,7 @@ function offlineArchetypeSelfReviseProtocol(shape) {
 
 scene 必须保留人物真正做出的选择、关系立场、疲倦与欲望、对眼前人的具体回应、共享细节和台词的沟通功能；不把人物改得更温和、更礼貌，也不削弱其原有性格。
 角色卡里的强烈标签是行为原因，不是旁白任务。若动作和台词已经足以表现人物，删除随后替读者评点他像什么人、认证他有多强势／危险／无赖／宠溺，或把普通语气包装成某种魅力的作者解说。用事实让性格成立，不反复给事实贴标签。
-称谓是事实，不是文风：本场与角色面对面互动的用户始终称为「你」。即使 draftScene 漂成「她／他／TA」，scene 也必须纠回「你」；只有正文中确实另有第三方人物时，第三人称才保留。
+${offlineRevisionAddressRule(narr)}
 亲昵动作可以自然发生；但如果某个小动作只是在重复展示同一种人设、没有改变距离、选择、关系或感受，不要把它当作角色的固定签名每轮补一次。
 不要追求缩短，不把场景改成动作记录，也不要复用一种统一的冷静文风。draftScene 是内部草稿，scene 才展示并进入历史。
 
@@ -2561,8 +2574,8 @@ async function generateOffline(p, ctx, session) {
   rewriteRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionRequested = explicitRevisionRequested || archetypeRevisionRequested;
   const singlePassRevisionProtocol = explicitRevisionRequested
-    ? offlineSelfReviseProtocol(null, archetypeRevisionRequested)
-    : (archetypeRevisionRequested ? offlineArchetypeSelfReviseProtocol() : "");
+    ? offlineSelfReviseProtocol(null, archetypeRevisionRequested, session.narr)
+    : (archetypeRevisionRequested ? offlineArchetypeSelfReviseProtocol(null, session.narr) : "");
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2 + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
@@ -2574,7 +2587,7 @@ async function generateOffline(p, ctx, session) {
     offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     singleCotBlock +
-    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处，不是隔着手机聊天。用第一人称『我』完全代入「" + char.name + "」，称对方为『你』。把当前互动写成连续的场景正文。动作、对话、心理、环境与感官都可以自然出现，但只使用这一刻真正需要的部分，不要求齐全，也不为了丰富正文额外安排。保持已经成立的地点、人物位置、物件、状态和事件连续；自然推进，不提前跳到尚未发生的剧情。对话使用引号。" + lenGuide + "。" +
+    "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处，不是隔着手机聊天。完全代入「" + char.name + "」，人物称谓严格服从本场的【叙事人称】设置。把当前互动写成连续的场景正文。动作、对话、心理、环境与感官都可以自然出现，但只使用这一刻真正需要的部分，不要求齐全，也不为了丰富正文额外安排。保持已经成立的地点、人物位置、物件、状态和事件连续；自然推进，不提前跳到尚未发生的剧情。对话使用引号。" + lenGuide + "。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (styleText ? "\n【文风要求】" + styleText : "") +
     narrativeDirective(session.narr) +
