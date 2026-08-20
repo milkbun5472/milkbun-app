@@ -64,7 +64,7 @@ test("图出不来不算失败：字是主体，剪影可以之后补", () => {
 test("补齐：只补有素材的月份，一月一月来，失败即停", () => {
   const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
   assert.match(seg, /const missing = all\.filter\(k => !have\.has\(k\)\);/, "已经有的不重写");
-  assert.match(seg, /M\.monthMaterial\(charId, char\.name, k, uName, props\.groups\)\.length >= 6\)/, "没素材的月份跳过，不硬编");
+  assert.match(seg, /M\.monthMaterial\(charId, char\.name, k, uName, props\.groups, arch\)\.length >= 6\)/, "没素材的月份跳过，不硬编");
   assert.match(seg, /if \(!ok\) \{ props\.toast\("补到 " \+ M\.monthLabel\(k\) \+ " 时停下了/, "失败即停，前面的都保留");
   assert.match(seg, /want\.reverse\(\)/, "从最早的一个月往回补，时间顺序才对");
 });
@@ -253,8 +253,8 @@ test("群聊也算素材，但封闭群不算", () => {
   assert.match(seg, /if \(!isUser && !isHim\) return;/);
   assert.match(seg, /"【群】" \+ txt/, "标出来源，模型才知道这句是当众说的");
   // 三个调用点都要把 groups 传下去，漏一个就又数不到
-  // 四处：生成 / 补齐筛选 / 只重写文案 / 界面上那行素材统计。漏一个就又数不到群
-  assert.equal((imp.match(/uName, props\.groups\)/g) || []).length, 4);
+  // 四处调用都要带上 groups，漏一个就又数不到群（现在还各自带上云端归档）
+  assert.equal((imp.match(/uName, props\.groups, /g) || []).length, 4);
   assert.match(app, /groups: groups,\s+\/\/ 群聊也是素材/);
 });
 
@@ -276,13 +276,43 @@ test("取素材走 loadJSON——它会先读 IDB 镜像，聊天记录可能不
 // v54.08：她说江识七月聊了几百条也显示没有。逻辑本身实测是对的（六条、跨月正确排除），
 // 所以要么读不到那份记录、要么记录不在那个月——界面上直接把数字摆出来，别再靠猜。
 test("角色页要显示这个月的素材条数，分来源", () => {
-  assert.match(imp, /function materialBreakdown\(charId, charName, monthKey, uName, groups\)/);
+  assert.match(imp, /function materialBreakdown\(charId, charName, monthKey, uName, groups, arch\)/);
   assert.match(imp, /const g = rows\.filter\(r => String\(r\.text\)\.indexOf\("【群】"\) === 0\)\.length;/);
   assert.match(imp, /chatAll/, "还要报这个角色一共有多少条聊天记录");
   assert.match(imp, /素材：单聊\+线下 " \+ b\.direct \+ " 条 · 群 " \+ b\.group \+ " 条"/);
-  // 关键的分辨句：有记录但不在这个月 vs 根本读不到
-  assert.match(imp, /这个角色的聊天记录一共 " \+ b\.chatAll \+ " 条，只是都不在这个月/);
+  // 关键的分辨：本地 vs 云端归档分开报——江识那次就是本地 150 条、云端几千条
+  assert.match(imp, /本地 " \+ b\.local \+ " · 云端归档 " \+ b\.cloud/);
   assert.match(imp, /materialBreakdown/, "要导出给界面用");
   // 统计本身不能把页面搞崩
   assert.match(imp, /try \{ b = M\.materialBreakdown\(/);
+});
+
+// v54.09：江识七月每天几十上百条，却显示 0 条。看聊天归档页每天都带云朵图标——
+// 本地 x_chat 只留最近 150 条，七月那几千条早归档到云上了。只读本地必然数出 0。
+test("素材必须把云端归档算进来，本地只是最近的一个窗口", () => {
+  assert.match(imp, /function monthMaterial\(charId, charName, monthKey, uName, groups, arch\)/);
+  assert.match(imp, /本地 x_chat 只留最近 150 条/);
+  // 单聊：归档 + 本地一起过，按 id 去重（两边会重叠）
+  assert.match(imp, /\(A\["c:" \+ charId\] \|\| \[\]\)\.concat\(grab\("x_chat:" \+ charId\)\)/);
+  assert.match(imp, /if \(m && m\.id\) \{ if \(seenId\.has\(m\.id\)\) return; seenId\.add\(m\.id\); \}/);
+  // 群聊归档的 key 是 "g_"+groupId（app.js 的 archKey），别写错
+  assert.match(imp, /\(A\["g:" \+ g\.id\] \|\| \[\]\)\.concat\(grab\("x_gchat:" \+ g\.id\)\)/);
+  assert.match(imp, /chatArchiveGet\("g_" \+ g\.id\)/);
+  assert.match(app, /const archKey = "g_" \+ groupId;/, "归档 key 的写法必须和 app.js 一致");
+});
+
+test("归档一个角色只拉一次，并且封闭群不拉", () => {
+  const seg = imp.slice(imp.indexOf("async function ensureArch"), imp.indexOf("// ---- 生成一个月"));
+  assert.match(seg, /if \(archs\[charId\]\) return archs\[charId\];/, "拉过就不再拉");
+  assert.match(seg, /if \(!\(gset\[g\.id\] && gset\[g\.id\]\.memoryInterop\)\) continue;/, "封闭群不拉");
+  assert.match(seg, /\(g\.memberIds \|\| \[\]\)\.includes\(charId\)/);
+  // 云没就绪就退回本地，但不能装作没事
+  assert.match(seg, /if \(!\(window\.Cloud && window\.Cloud\.ready && window\.Cloud\.ready\(\)\)\) return null;/);
+  assert.match(imp, /⚠️云端归档没拉到，只数了本地那 " \+ b\.local \+ " 条——旧消息都在云上/);
+});
+
+test("界面上要分开报本地与云端的条数", () => {
+  assert.match(imp, /"（记录共 " \+ b\.chatAll \+ " 条：本地 " \+ b\.local \+ " · 云端归档 " \+ b\.cloud \+ "）"/);
+  assert.match(imp, /if \(arching && !archs\[curChar\]\) return h\("div", \{ style: \{ marginTop: 4 \} \}, "正在拉云端归档…"\);/);
+  assert.match(imp, /if \(!archs\[curChar\] && !arching\) ensureArch\(curChar\);/, "进页面就拉，不然那行数字继续误导");
 });

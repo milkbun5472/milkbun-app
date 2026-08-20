@@ -37,7 +37,11 @@
   const nextOpenAt = now => { const d = now ? new Date(now) : new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); };
 
   // ---- 当月素材：单聊 + 单人线下 + 互通群里他说的话 ----
-  function monthMaterial(charId, charName, monthKey, uName, groups) {
+  // arch = { ["c:"+charId]: [...], ["g:"+groupId]: [...] } —— 云端归档，调用方先取好传进来。
+  // 必须要它：本地 x_chat 只留最近 150 条，七月那几千条早就归档到云上了，
+  // 只读本地就会得出"这个月 0 条"的荒唐结论（她 2026-08-20 江识那次）。
+  function monthMaterial(charId, charName, monthKey, uName, groups, arch) {
+    const A = arch || {};
     const { start, end } = monthRange(monthKey);
     const inWin = ts => ts != null && ts >= start && ts <= end;
     const rows = [];
@@ -48,7 +52,13 @@
       if (!m || m.recalled || m.role === "system" || m.kind === "ooc" || m.kind === "silence") return "";
       return String(m.content || "").replace(/\s+/g, " ").trim();
     };
-    (grab("x_chat:" + charId)).forEach(m => {
+    // 云端归档 + 本地窗口一起过一遍；两边可能有重叠，按消息 id 去重
+    const seenId = new Set();
+    const eachChat = fn => (A["c:" + charId] || []).concat(grab("x_chat:" + charId)).forEach(m => {
+      if (m && m.id) { if (seenId.has(m.id)) return; seenId.add(m.id); }
+      fn(m);
+    });
+    eachChat(m => {
       if (!inWin(m.ts)) return;
       const t = clean(m); if (!t) return;
       rows.push({ ts: m.ts, who: m.role === "user" ? uName : charName, text: t });
@@ -64,7 +74,9 @@
     (groups || []).forEach(g => {
       if (!g || !(g.memberIds || []).includes(charId)) return;
       if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
-      (grab("x_gchat:" + g.id)).forEach(m => {
+      const gSeen = new Set();
+      (A["g:" + g.id] || []).concat(grab("x_gchat:" + g.id)).forEach(m => {
+        if (m && m.id) { if (gSeen.has(m.id)) return; gSeen.add(m.id); }
         if (!inWin(m.ts)) return;
         const txt = clean(m); if (!txt) return;
         // 群里只取【他和她】两个人的话：别的成员说什么不构成"他眼里的她"
@@ -78,12 +90,12 @@
     return rows;
   }
   // 分来源数一遍：界面上直接显示，省得"明明聊了很多却说没有"只能靠猜（她 2026-08-20 两次撞到）
-  function materialBreakdown(charId, charName, monthKey, uName, groups) {
-    const rows = monthMaterial(charId, charName, monthKey, uName, groups);
+  function materialBreakdown(charId, charName, monthKey, uName, groups, arch) {
+    const rows = monthMaterial(charId, charName, monthKey, uName, groups, arch);
     const g = rows.filter(r => String(r.text).indexOf("【群】") === 0).length;
-    let all = 0;
-    try { all = (typeof loadJSON === "function" ? (loadJSON("x_chat:" + charId, []) || []) : []).length; } catch (e) {}
-    return { total: rows.length, group: g, direct: rows.length - g, chatAll: all };
+    let local = 0, cloud = ((arch || {})["c:" + charId] || []).length;
+    try { local = (typeof loadJSON === "function" ? (loadJSON("x_chat:" + charId, []) || []) : []).length; } catch (e) {}
+    return { total: rows.length, group: g, direct: rows.length - g, chatAll: local + cloud, local, cloud };
   }
   // 他自己说过的话：拿来当声纹样本，quote 才不会写成通用文艺腔
   const ownLines = (rows, charName) => rows.filter(r => r.who === charName && r.text.length >= 6 && r.text.length <= 60)
@@ -227,6 +239,11 @@
     const [curChar, setCurChar] = useState(null);
     const [cardId, setCardId] = useState(null);
     const [busy, setBusy] = useState("");
+    // 云端归档缓存：{ charId: {"c:xx":[...], "g:yy":[...]} }。一个角色只拉一次，
+    // 后面写印象、补齐、看素材条数全用这一份——别每次都去云上拉一遍大数组。
+    const [archs, setArchs] = useState({});
+    const [arching, setArching] = useState(false);
+    const archOf = id => archs[id] || null;
     const put = fn => setBook(p => { const n = fn(p); M.save(n); return n; });
     // ⚠️imgSrc 不是全局的：它是 theater.js 自己内部声明的（js/theater.js 里那份）。
     // 照抄用法却没带上定义，一进这个页面就 ReferenceError、整个 App 白屏（她 2026-08-20 撞到）。
@@ -260,13 +277,32 @@
       props.onBack();
     }
 
+    // 拉这个角色的云端归档（本人单聊 + 他在的互通群）。拉不到就退回只用本地，
+    // 但要说出来——否则又变成"聊了一整月却说没有"那种查不下去的沉默。
+    async function ensureArch(charId) {
+      if (archs[charId]) return archs[charId];
+      if (!(window.Cloud && window.Cloud.ready && window.Cloud.ready())) return null;
+      setArching(true);
+      const box = {};
+      try { box["c:" + charId] = await window.Cloud.chatArchiveGet(charId) || []; } catch (e) { box["c:" + charId] = []; }
+      const gset = (function () { try { return loadJSON("x_groupSettings", {}) || {}; } catch (e) { return {}; } })();
+      for (const g of (props.groups || [])) {
+        if (!g || !(g.memberIds || []).includes(charId)) continue;
+        if (!(gset[g.id] && gset[g.id].memoryInterop)) continue;
+        try { box["g:" + g.id] = await window.Cloud.chatArchiveGet("g_" + g.id) || []; } catch (e) { box["g:" + g.id] = []; }
+      }
+      setArchs(p => Object.assign({}, p, { [charId]: box }));
+      setArching(false);
+      return box;
+    }
     // ---- 生成一个月 ----
     async function make(charId, monthKey, opts) {
       const char = (props.characters || []).find(c => c.id === charId);
       if (!char) return;
       if (!props.active) return props.toast("请先配置线下 API");
       if (!M.isWritable(monthKey)) { props.toast(M.monthLabel(monthKey) + " 还没过完，等下个月 1 号 0 点再写"); return false; }
-      const rows = M.monthMaterial(charId, char.name, monthKey, uName, props.groups);
+      const arch = await ensureArch(charId);
+      const rows = M.monthMaterial(charId, char.name, monthKey, uName, props.groups, arch);
       if (rows.length < 6) {
         // 报出实际条数：以前只说"几乎没有来往"，她明明聊了很多也不知道是哪一步没数到
         if (!(opts && opts.quiet)) props.toast(M.monthLabel(monthKey) + " 只找到 " + rows.length + " 条你俩的往来（单聊+单人线下+互通群），写不出印象");
@@ -302,7 +338,7 @@
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(charId + entry.monthKey);
       try {
-        const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName, props.groups);
+        const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName, props.groups, await ensureArch(charId));
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
         // turn+1 = 换一面骰子：不换的话「只重写文案」会拿到同一个写法，等于原地打转
         const turn = Number(entry.turn || 0) + 1;
@@ -322,10 +358,11 @@
       let want = [];
       // 整段包起来：以前任何一步抛出去，外面没人接，表现就是"点了没反应"
       try {
+        const arch = await ensureArch(charId);              // 先把云端归档拉齐，再判断哪些月有素材
         const have = new Set((book[charId] || []).map(x => x.monthKey));
         const all = M.prevMonths(12);                       // 已经过完的 12 个月
         const missing = all.filter(k => !have.has(k));
-        want = missing.filter(k => M.monthMaterial(charId, char.name, k, uName, props.groups).length >= 6);
+        want = missing.filter(k => M.monthMaterial(charId, char.name, k, uName, props.groups, arch).length >= 6);
         if (!want.length) {
           // 分清三种"没得补"，别一律一句话打发
           return props.toast(!missing.length ? "最近一年每个月都写过了"
@@ -375,6 +412,8 @@
     // ---- 某个角色的珍藏册 ----
     if (curChar) {
       const c = (props.characters || []).find(x => x.id === curChar) || {};
+      // 一进来就把云端归档拉好：不然那行素材统计报的是本地窗口的数，等于继续误导
+      if (!archs[curChar] && !arching) ensureArch(curChar);
       const mine = listOf(curChar);
       // 能写的是【上个月】：本月还在过，写不出"这个月你是什么样"
       const openMonth = M.latestWritable();
@@ -393,11 +432,15 @@
             "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。",
             // 素材数就摆在这儿：写不出来的时候一眼看得出是没素材、还是根本没读到
             (function () {
+              if (arching && !archs[curChar]) return h("div", { style: { marginTop: 4 } }, "正在拉云端归档…");
               let b = null;
-              try { b = M.materialBreakdown(curChar, c.name, openMonth, uName, props.groups); } catch (e) { return null; }
+              try { b = M.materialBreakdown(curChar, c.name, openMonth, uName, props.groups, archOf(curChar)); } catch (e) { return null; }
+              const cloudOk = !!archs[curChar];
               return h("div", { style: { marginTop: 4 } },
-                M.monthLabel(openMonth) + "素材：单聊+线下 " + b.direct + " 条 · 群 " + b.group + " 条"
-                + (b.total < 6 && b.chatAll ? "（这个角色的聊天记录一共 " + b.chatAll + " 条，只是都不在这个月）" : ""));
+                M.monthLabel(openMonth) + "素材：单聊+线下 " + b.direct + " 条 · 群 " + b.group + " 条",
+                h("br"),
+                "（记录共 " + b.chatAll + " 条：本地 " + b.local + " · 云端归档 " + b.cloud + "）",
+                cloudOk ? null : h("span", null, h("br"), "⚠️云端归档没拉到，只数了本地那 " + b.local + " 条——旧消息都在云上"));
             })()),
           mine.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
             mine.map(e => h("div", { key: e.id, onClick: () => setCardId(e.id), style: { width: "calc((100% - 10px) / 2)" } },
