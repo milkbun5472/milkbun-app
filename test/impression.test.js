@@ -157,7 +157,7 @@ test("逼它扣住真实发生过的事，并给一条可判定的自检", () =>
   // 可判定的检验标准仍在
   assert.match(imp, /把她换成另一个人——如果这句话照样成立/);
   assert.match(imp, /宁可写得怪，也别写得空/);
-  assert.match(imp, /const herLines = \(rows, uName\) =>/);
+  assert.match(imp, /const herLines = \(rows, uName, turn\)/);
 });
 
 test("剪影要画的是这一期的印象，不是一句孤零零的场景", () => {
@@ -234,7 +234,7 @@ test("已经写烂的骨架要指着名字禁掉，同义改写也算", () => {
 });
 
 test("往期 quote 要喂回去，重写时连自己上一版一起避开", () => {
-  assert.match(imp, /你以往几个月写过的话 · 骨架不许重复/);
+  assert.match(imp, /你以往写过的话 · 骨架和料都不许重复/);
   assert.match(imp, /句子的【搭法】必须和上面每一句都不一样/);
   // 生成时避开别的月份
   assert.match(imp, /const past = \(book\[charId\] \|\| \[\]\)\.filter\(x => x\.monthKey !== monthKey\)\.map\(x => x\.quote\)/);
@@ -347,4 +347,47 @@ test("关键词角度也从行为观察挪到整体气质", () => {
 test("title 改成「类型名」，不是外号也不是事件概括", () => {
   assert.match(imp, /给这个月的她起一个【类型名】/);
   assert.match(imp, /不是外号，也不是事件概括/);
+});
+
+// v54.11：句式每次都换，榴莲披萨却每次都在。
+// 因为素材窗口没换——toText 取的是月末最后 5200 字，每次重写喂进去的原料一模一样。
+test("素材要铺开整个月取，不是只截月末那一段", () => {
+  const code = imp.slice(imp.indexOf("const spread ="), imp.indexOf("  // ---- 生成 ----"));
+  const m = new Function(code + "\nreturn { spread };")();
+  const rows = [];
+  for (let d = 1; d <= 30; d++) for (let i = 0; i < 6; i++)
+    rows.push({ ts: new Date(2026, 6, d, 10 + i).getTime(), who: i % 2 ? "Lisa" : "他",
+      text: "第" + d + "天第" + i + "句这里是一些足够长的日常对话内容用来撑开预算" });
+
+  const a = m.spread(rows, 1200, 0);
+  const days = [...a.matchAll(/〔(\d+)号前后〕/g)].map(x => Number(x[1]));
+  assert.ok(days.includes(1), "月初必须也在——月度印象只看月末本来就是错的");
+  assert.ok(days.length >= 6, "整月要切成若干段各取一点，实得 " + days.length + " 段");
+  assert.ok(Math.max(...days) >= 24, "月末也要在");
+  assert.ok(a.length <= 1200 + days.length * 20, "总量不该超预算太多");
+
+  // turn 变化时段内取样起点跟着挪：重写不只换写法，看到的素材也换一批
+  assert.notEqual(m.spread(rows, 1200, 0), m.spread(rows, 1200, 1));
+  assert.notEqual(m.spread(rows, 1200, 1), m.spread(rows, 1200, 2));
+  // 素材少的时候原样给全，不要瞎切
+  const few = rows.slice(0, 3);
+  assert.equal(m.spread(few, 5000, 0).split("\n").length, 3);
+  assert.equal(m.spread([], 5000, 0), "");
+});
+
+test("声纹样本与她的原话也铺开抽，别老盯最后十几句", () => {
+  assert.match(imp, /const ownLines = \(rows, charName, turn\)/);
+  assert.match(imp, /const herLines = \(rows, uName, turn\)/);
+  assert.match(imp, /铺开整月抽，别老盯着最后十四句/);
+  // 三处采样都要吃到 turn，漏一个那一路就还是老样子
+  assert.match(imp, /ownLines\(rows, char\.name, turn\)/);
+  assert.match(imp, /herLines\(rows, uName, turn\)/);
+  assert.match(imp, /spread\(rows, 5200, turn\)/);
+  assert.doesNotMatch(imp, /const toText = /, "只截尾部的老取法已经废掉");
+});
+
+test("重写时连上一版用过的具体东西也要避开", () => {
+  assert.match(imp, /骨架和料都不许重复/);
+  assert.match(imp, /上面那些句子里用过的【具体东西】（食物、物件、地点、那几个字），这一次一个都不许再用/);
+  assert.match(imp, /这是【一整个月】，不是某一天：别死抓着某一样东西反复用/);
 });

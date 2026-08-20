@@ -98,11 +98,40 @@
     return { total: rows.length, group: g, direct: rows.length - g, chatAll: local + cloud, local, cloud };
   }
   // 他自己说过的话：拿来当声纹样本，quote 才不会写成通用文艺腔
-  const ownLines = (rows, charName) => rows.filter(r => r.who === charName && r.text.length >= 6 && r.text.length <= 60)
-    .map(r => r.text).slice(-12);
-  const toText = (rows, budget) => {
-    let s = rows.map(r => r.who + "：" + r.text).join("\n");
-    return s.length > budget ? "……（略去较早部分）\n" + s.slice(s.length - budget) : s;
+  const ownLines = (rows, charName, turn) => {
+    const all = rows.filter(r => r.who === charName && r.text.length >= 6 && r.text.length <= 60).map(r => r.text);
+    if (all.length <= 12) return all;
+    const step = all.length / 12, off = Number(turn || 0);
+    const out = [];
+    for (let i = 0; i < 12; i++) out.push(all[Math.floor(i * step + off) % all.length]);
+    return [...new Set(out)];
+  };
+  // 铺开整个月来取样，而不是只截月末那一段（她 2026-08-20：句式在换，榴莲披萨却每次都在）。
+  // 两个毛病一起治：
+  //   ① 只取尾部 → 每次重写喂进去的原料一模一样，模型只能反复抓同几样东西；
+  //   ② 对「月度」印象来说，只看得见月末那几天本来就是错的。
+  // 做法：把整月切成若干段，每段各取一点；turn 变化时段内的取样起点跟着挪，
+  // 于是重写不只换写法，连看到的素材也换了一批。
+  const spread = (rows, budget, turn) => {
+    if (!rows.length) return "";
+    const line = r => r.who + "：" + r.text;
+    const whole = rows.map(line).join("\n");
+    if (whole.length <= budget) return whole;
+    const SEG = 8, per = Math.floor(budget / SEG);
+    const size = Math.ceil(rows.length / SEG);
+    const off = Number(turn || 0);
+    const out = [];
+    for (let i = 0; i < SEG; i++) {
+      const seg = rows.slice(i * size, (i + 1) * size);
+      if (!seg.length) continue;
+      // 段内起点按 turn 挪：同一段里换一批句子给它看
+      const start = seg.length > 3 ? (off * 3) % seg.length : 0;
+      const picked = seg.slice(start).concat(seg.slice(0, start));
+      let used = 0; const buf = [];
+      for (const r of picked) { const t = line(r); if (used + t.length > per) break; buf.push(t); used += t.length + 1; }
+      if (buf.length) out.push("〔" + new Date(seg[0].ts).getDate() + "号前后〕\n" + buf.join("\n"));
+    }
+    return out.join("\n\n");
   };
 
   // ---- 生成 ----
@@ -147,10 +176,19 @@
     + "但落笔时只留那个意象，不交代它从哪来。读的人不知道出处，也该觉得准。\n"
     + "· 【自检】把她换成另一个人——如果这句话照样成立，说明你写的是漂亮话不是她，推翻重写。\n"
     + "· 也别滑到另一头：「温柔又坚强」「像月亮一样」这种谁都能套的词一律不许用。宁可写得怪，也别写得空。\n"
-    + "· 抽象、有意象、可以很文艺——但每一个词都要是你【看着她】才会想到的。";
+    + "· 抽象、有意象、可以很文艺——但每一个词都要是你【看着她】才会想到的。\n"
+    + "· 这是【一整个月】，不是某一天：别死抓着某一样东西反复用。上面的记录从月初铺到月末，"
+    + "你的印象应该是这一整段时间沉下来的，而不是某几句话留下的印子。";
   // 她自己说过的话：给模型一把具体的钩子，quote 才有东西可以扣
-  const herLines = (rows, uName) => rows.filter(r => r.who === uName && r.text.length >= 4 && r.text.length <= 50)
-    .map(r => r.text).slice(-14);
+  // 她说过的话同理：铺开整月抽，别老盯着最后十四句
+  const herLines = (rows, uName, turn) => {
+    const all = rows.filter(r => r.who === uName && r.text.length >= 4 && r.text.length <= 50).map(r => r.text);
+    if (all.length <= 14) return all;
+    const step = all.length / 14, off = Number(turn || 0);
+    const out = [];
+    for (let i = 0; i < 14; i++) out.push(all[Math.floor(i * step + off) % all.length]);
+    return [...new Set(out)];
+  };
 
   const hashOf = str => { let x = 0; String(str || "x").split("").forEach(ch => { x = (x * 31 + ch.charCodeAt(0)) >>> 0; }); return x; };
   // 起点按角色+月份定（同一张卡不会自己重掷），再按 turn【确定性轮转】——
@@ -169,7 +207,7 @@
     const angles = pickN(TAG_ANGLES, 3, String(char.id || char.name) + "|" + monthKey + "|tag", turn);
     const past = ((opts && opts.past) || []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6);
     const uName = (profile && profile.name) || "她";
-    const lines = ownLines(rows, char.name);
+    const lines = ownLines(rows, char.name, turn);
     const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "")
       + (typeof CHARCARD_RULE !== "undefined" ? CHARCARD_RULE + "\n\n" : "")
       + "你就是「" + char.name + "」本人。现在回望这一个月，写下【" + uName + " 在你眼里是什么样子】。\n"
@@ -177,12 +215,14 @@
       + (gazeText ? "\n\n【你心里对 " + uName + " 已有的长期印象（底子，别推翻，只在它上面往前长一点）】\n" + gazeText : "")
       + (lines.length ? "\n\n【你这个月真的说过的话 · 声纹最高优先】\n" + lines.map((x, i) => (i + 1) + ". " + x).join("\n")
         + "\n这些是你的原话，用来校准词汇、句长、口癖、攻击性与礼貌度。下面写的东西必须是同一个人说的，遮住名字也该认得出。" : "")
-      + (herLines(rows, uName).length ? "\n\n【" + uName + " 这个月说过的话 · quote 可以直接扣住其中一句】\n"
-        + herLines(rows, uName).map((x, i) => (i + 1) + ". " + x).join("\n") : "")
+      + (herLines(rows, uName, turn).length ? "\n\n【" + uName + " 这个月说过的话 · quote 可以直接扣住其中一句】\n"
+        + herLines(rows, uName, turn).map((x, i) => (i + 1) + ". " + x).join("\n") : "")
       + CONCRETE_RULE + BANNED_SHAPE
-      + (past.length ? "\n\n【你以往几个月写过的话 · 骨架不许重复】\n" + past.map((x, i) => (i + 1) + ". " + x).join("\n")
-        + "\n换个说法、换个词、换个角色都不算换骨架——句子的【搭法】必须和上面每一句都不一样。" : "")
-      + "\n\n【这个月你和 " + uName + " 之间真实发生的事】\n" + (toText(rows, 5200) || "（这个月几乎没有来往。）")
+      + (past.length ? "\n\n【你以往写过的话 · 骨架和料都不许重复】\n" + past.map((x, i) => (i + 1) + ". " + x).join("\n")
+        + "\n① 换个说法、换个词、换个角色都不算换骨架——句子的【搭法】必须和上面每一句都不一样。\n"
+        + "② 上面那些句子里用过的【具体东西】（食物、物件、地点、那几个字），这一次一个都不许再用。"
+        + "这个月还有别的东西可写，去找没被写过的那些。" : "")
+      + "\n\n【这个月你和 " + uName + " 之间真实发生的事·从月初铺到月末】\n" + (spread(rows, 5200, turn) || "（这个月几乎没有来往。）")
       + "\n\n【要写四样东西】\n"
       + "① title：给这个月的她起一个【类型名】（≤10 字），像给一种人下定义那样——"
       + "「清冷理性的科研学者」就是这个感觉，但必须是【你】才会这么定义她。不是外号，也不是事件概括。\n"
