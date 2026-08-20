@@ -45,3 +45,18 @@ test("三个入口都走排序：加载、角色日记、我的日记", () => {
   assert.doesNotMatch(app, /\[charId\]: \[entry, \.\.\./);
   assert.doesNotMatch(app, /__me: \[entry, \.\.\./);
 });
+
+// v53.87：显示层兜底。存储顺序对不对都不该影响显示。
+test("显示层自己排一次，不依赖存储顺序", () => {
+  const screens = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
+  assert.match(screens, /const sortByDay = list => \(list \|\| \[\]\)\.slice\(\)\.sort/);
+  assert.match(screens, /const entriesOf = id => sortByDay\(diaries\[id\]\);/);
+  assert.doesNotMatch(screens, /const entriesOf = id => diaries\[id\] \|\| \[\];/, "不许再有裸取");
+  assert.doesNotMatch(screens, /const list = diaries\[char\.id\] \|\| \[\];/, "翻阅页也要排");
+  // 行为：乱序进去，倒序出来
+  const m = new Function("const list = arguments[0];" +
+    "return (list || []).slice().sort((a, b) => Number((b && b.ts) || 0) - Number((a && a.ts) || 0));");
+  const d = (day, tag) => ({ id: tag, ts: new Date(2026, 7, day).getTime() });
+  assert.deepEqual(m([d(7, "补7"), d(19, "十九"), d(18, "十八")]).map(x => x.id), ["十九", "十八", "补7"],
+    "她截图里那个顺序：8/7 被补在最后写，不该压在 8/19 上面");
+});

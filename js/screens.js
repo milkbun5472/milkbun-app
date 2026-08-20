@@ -6277,8 +6277,8 @@ function DiaryArchive({ characters, curId, setCurId, diaries, onOpen, onBack, on
   const idx = Math.max(0, characters.findIndex(c => c.id === curId));
   const char = characters[idx] || characters[0];
   if (!char) return null;
-  const list = diaries[char.id] || [];
-  const last = list[0];
+  const list = (diaries[char.id] || []).slice().sort((a, b) => Number((b && b.ts) || 0) - Number((a && a.ts) || 0));
+  const last = list[0]; // 排过序，last 就是真正最新的一篇
   const go = dir => {
     const ni = idx + dir;
     if (ni >= 0 && ni < characters.length) setCurId(characters[ni].id);
@@ -6436,7 +6436,11 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   const busy = genBusy || {};
   const curAuthor = authors.find(c => c.id === curId) || authors[0];
   const isMe = curAuthor && curAuthor.isMe;
-  const entriesOf = id => diaries[id] || [];
+  // 显示层兜底排序（v53.87）：日记一律按【日记那天的日期】倒序，最新在最上面。
+  // app.js 那边写入与加载时也排了，但显示不该依赖存储顺序——云恢复、老数据、
+  // 以后新加的写入口都可能绕过它。排在这里，只要能显示出来就一定是对的顺序。
+  const sortByDay = list => (list || []).slice().sort((a, b) => Number((b && b.ts) || 0) - Number((a && a.ts) || 0));
+  const entriesOf = id => sortByDay(diaries[id]);
   // 日记写的是【昨天】的，所以按钮/去重都按昨天判定
   const wroteToday = id => entriesOf(id).some(e => diarySameDay(e.ts, Date.now() - 86400000));
 
