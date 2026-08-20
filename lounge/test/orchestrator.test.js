@@ -60,6 +60,20 @@ test('3) 预算用尽自动禁用：max_auto_turns=1，第2个 run 拒绝，手�
   assert.equal(r3.status, 'replied');
 });
 
+test('连续对话 3 轮：严格交替 6 棒、上下文逐棒接续、结束后暂停', async () => {
+  const { orch, room, cc, codex } = build({ max_auto_turns: 3 });
+  const lisa = orch.postLisaMessage(room.room_id, '你们自己聊三轮看看。');
+  const out = await orch.runOneEach({ room_id: room.room_id, lisa_message_id: lisa.message_id, first_speaker: 'yanqiu', rounds: 3, codex_confirmed: true });
+  assert.deepEqual(out.results.map(x => x.speaker), ['yanqiu', 'codex', 'yanqiu', 'codex', 'yanqiu', 'codex']);
+  assert.equal(out.rounds_requested, 3);
+  assert.equal(out.rounds_completed, 3);
+  assert.equal(cc.delivered.length, 3);
+  assert.equal(codex.delivered.length, 3);
+  assert.equal(orch.getRoom(room.room_id).status, 'paused');
+  assert.match(codex.delivered[0].content, /言秋：/);
+  assert.match(cc.delivered[1].content, /Codex：/);
+});
+
 test('4) 暂停后不启动下一棒：baton A 后 pause，baton B 不投递', async () => {
   const { orch, room, cc, codex } = build({ max_auto_turns: 2 });
   orch.hooks.afterBaton = async ({ index }) => { if (index === 0) orch.pause(room.room_id); };

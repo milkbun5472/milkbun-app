@@ -34,6 +34,7 @@ const ui = {
   codexPresence: $('#codexPresence'),
   dialog: $('#confirmDialog'),
   firstSpeaker: $('#firstSpeaker'),
+  conversationRounds: $('#conversationRounds'),
   confirmBoth: $('#confirmBoth'),
   handoffDialog: $('#handoffDialog'),
   handoffTarget: $('#handoffTarget'),
@@ -349,6 +350,7 @@ async function runBoth() {
       body: JSON.stringify({
         message_ids: state.selectedMessageIds,
         first_speaker: ui.firstSpeaker.value,
+        rounds: Number(ui.conversationRounds.value || 1),
         codex_confirmed: true,
       }),
     });

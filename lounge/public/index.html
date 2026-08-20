@@ -170,9 +170,9 @@
 
   <dialog id="confirmDialog">
     <form method="dialog">
-      <span class="dialog-kicker">一次有限讨论</span>
-      <h2>让双方各答一轮？</h2>
-      <p>言秋先答，Codex 会看到你的原话与言秋的可见回复。两棒结束后立即暂停，不会继续互聊。</p>
+      <span class="dialog-kicker">有限连续对话</span>
+      <h2>让他们接着聊几轮？</h2>
+      <p>每轮＝言秋与 Codex 各说一次。后一位会看到前一位刚说的公开正文；达到轮数、你按暂停或任一安全闸触发都会立即停。</p>
       <label class="speaker-choice">
         <span>先手</span>
         <select id="firstSpeaker">
@@ -180,9 +180,20 @@
           <option value="codex">Codex</option>
         </select>
       </label>
+      <label class="speaker-choice">
+        <span>轮数</span>
+        <select id="conversationRounds">
+          <option value="1">1 轮 · 最多 2 次调用</option>
+          <option value="2">2 轮 · 最多 4 次调用</option>
+          <option value="3" selected>3 轮 · 最多 6 次调用</option>
+          <option value="4">4 轮 · 最多 8 次调用</option>
+          <option value="5">5 轮 · 最多 10 次调用</option>
+          <option value="6">6 轮 · 最多 12 次调用</option>
+        </select>
+      </label>
       <div class="dialog-actions">
         <button value="cancel">先不要</button>
-        <button id="confirmBoth" value="default" class="primary">确认，最多 2 次调用</button>
+        <button id="confirmBoth" value="default" class="primary">确认连续对话</button>
       </div>
     </form>
   </dialog>
