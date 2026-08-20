@@ -59,7 +59,7 @@ test("quote 必须守声纹，不能写成通用抒情散文", () => {
 test("图出不来不算失败：字是主体，剪影可以之后补", () => {
   const seg = imp.slice(imp.indexOf("async function make"), imp.indexOf("// 只重出剪影"));
   assert.match(seg, /catch \(e\) \{ props\.toast\("字写好了，剪影没出来/);
-  assert.match(imp, /(e\.img \? "重出剪影" : "补一张剪影")/, "没图的卡片要能单独补一张");
+  assert.match(imp, /e\.img \? "只重出剪影" : "补一张剪影"/, "没图的卡片要能单独补一张");
 });
 
 test("补齐：只补有素材的月份，一月一月来，失败即停", () => {
@@ -145,4 +145,41 @@ test("补齐必须永远给回音，不许静默", () => {
   // 取素材本身也要带兜底
   assert.match(imp, /const grab = k => \{ try \{/);
   assert.doesNotMatch(imp, /JSON\.parse\(localStorage\.getItem\("x_chat/, "不许再有裸 JSON.parse");
+});
+
+// v54.05：① 不够个人化 ② 想只重写文案、别连着刷图 ③ 剪影该跟印象有关
+test("逼它扣住真实发生过的事，并给一条可判定的自检", () => {
+  assert.match(imp, /const CONCRETE_RULE = /);
+  assert.match(imp, /title、tags、quote、silhouette 四样【都】要长在下面那段真实记录上/);
+  assert.match(imp, /只有你们俩对得上号的具体东西/);
+  // 关键：给【可判定】的检验标准，而不是再喊一句"要具体"
+  assert.match(imp, /把她的名字换成任何一个别人——如果这句话照样成立，说明写空了，推翻重写/);
+  assert.match(imp, /宁可写得小、写得怪，也别写得大而空/);
+  // 给模型具体的钩子：她自己说过的话
+  assert.match(imp, /const herLines = \(rows, uName\) =>/);
+  assert.match(imp, /quote 可以直接扣住其中一句/);
+});
+
+test("剪影要画的是这一期的印象，不是一句孤零零的场景", () => {
+  const art = imp.slice(imp.indexOf("async function genArt"), imp.indexOf("window.Impression ="));
+  assert.match(art, /async function genArt\(desc, profile, mood\)/);
+  assert.match(art, /这幅画要画出的气质·最重要/);
+  assert.match(art, /姿态、光线、冷暖、留白多少，全部服务于这几个词/);
+  // 两个调用点都要把 tags/title 带上，别只带一个
+  assert.equal((imp.match(/M\.genArt\([^)]*\{ tags:/g) || []).length, 2, "生成与重出剪影都要带上这一期的印象");
+  // 剪影描述本身也要长在真事上，并和关键词气质一致
+  assert.match(imp, /意象【必须从这个月真实发生过的事里长出来】/);
+  assert.match(imp, /关键词是冷的，画面就不该是暖的/);
+});
+
+test("文案与剪影能分开重来，且不给整张重刷的误触入口", () => {
+  assert.match(imp, /async function rewriteText\(charId, entry\)/);
+  // 只换字，图原样留着
+  assert.match(imp, /Object\.assign\(\{\}, x, \{ title: d\.title, tags: d\.tags, quote: d\.quote, silhouette: d\.silhouette \}\)/);
+  assert.doesNotMatch(imp.slice(imp.indexOf("async function rewriteText"), imp.indexOf("// ---- 单张卡片")), /genArt/,
+    "只重写文案的那条路绝不能碰出图");
+  assert.match(imp, /"只重写文案"/);
+  assert.match(imp, /"只重出剪影"/);
+  // 已写过的月份不给整张重来（那会连剪影一起白刷一次）
+  assert.match(imp, /hasThis \? props\.toast\("点进那张卡片，可以只重写文案或只重出剪影"\) : make\(curChar, openMonth\)/);
 });

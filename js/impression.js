@@ -72,6 +72,17 @@
   // ---- 生成 ----
   const TAG_RULE = "三个关键词：每个 2~5 个字，是【他眼里的她此刻是什么样的人】，不是事件流水。"
     + "三个之间要有层次（一个偏气质、一个偏状态、一个偏他自己的私心），别三个同义词堆一起。";
+  // 「不够个人化」的病根：不逼它扣住具体的事，它就会写放之四海皆准的漂亮话。
+  // 治法和日记那次一样——给一条【可判定】的检验标准，而不是再加一句"要具体"。
+  const CONCRETE_RULE = "\n\n【最高优先 · 必须扣住真的发生过的事】\n"
+    + "title、tags、quote、silhouette 四样【都】要长在下面那段真实记录上，不许凭空抒情。\n"
+    + "· quote 里必须有一处【只有你们俩对得上号的具体东西】：她说过的某一句原话、某件真的发生过的小事、"
+    + "某个反复出现的细节。可以不点破前因后果，但那个东西必须真的在记录里出现过。\n"
+    + "· 【自检】写完把她的名字换成任何一个别人——如果这句话照样成立，说明写空了，推翻重写。\n"
+    + "· 不许用「温柔又坚强」「像月亮一样」这类谁都能套的词；宁可写得小、写得怪，也别写得大而空。";
+  // 她自己说过的话：给模型一把具体的钩子，quote 才有东西可以扣
+  const herLines = (rows, uName) => rows.filter(r => r.who === uName && r.text.length >= 4 && r.text.length <= 50)
+    .map(r => r.text).slice(-14);
 
   async function genText(active, char, profile, monthKey, rows, gazeText) {
     const uName = (profile && profile.name) || "她";
@@ -83,6 +94,9 @@
       + (gazeText ? "\n\n【你心里对 " + uName + " 已有的长期印象（底子，别推翻，只在它上面往前长一点）】\n" + gazeText : "")
       + (lines.length ? "\n\n【你这个月真的说过的话 · 声纹最高优先】\n" + lines.map((x, i) => (i + 1) + ". " + x).join("\n")
         + "\n这些是你的原话，用来校准词汇、句长、口癖、攻击性与礼貌度。下面写的东西必须是同一个人说的，遮住名字也该认得出。" : "")
+      + (herLines(rows, uName).length ? "\n\n【" + uName + " 这个月说过的话 · quote 可以直接扣住其中一句】\n"
+        + herLines(rows, uName).map((x, i) => (i + 1) + ". " + x).join("\n") : "")
+      + CONCRETE_RULE
       + "\n\n【这个月你和 " + uName + " 之间真实发生的事】\n" + (toText(rows, 5200) || "（这个月几乎没有来往。）")
       + "\n\n【要写四样东西】\n"
       + "① title：给这个月的她起一个短称呼（≤8 字），像一句私下的叫法，不是称号也不是标签。\n"
@@ -91,7 +105,8 @@
       + "别写成通用抒情散文，也别写成人物介绍。用「她」称呼她，不要直呼名字。≤60 字。\n"
       + "④ silhouette：一句【画面描述】，用来画她的剪影。只写：轮廓姿态（侧脸/回头/低头/站着/坐着…）、"
       + "身边有什么意象（月亮、雨、书页、猫、灯、雾…）、以及整体色调冷暖。**不许写五官、不许写表情**——剪影是看不见脸的。"
-      + "意象要从这个月真实发生的事里长出来，别凭空堆砌。\n"
+      + "意象【必须从这个月真实发生过的事里长出来】（她提过的东西、你们真的去过的地方、反复出现的物件），别凭空堆砌月亮和雨；"
+      + "整体气质要和你写的那三个关键词对得上——关键词是冷的，画面就不该是暖的。\n"
       + "\n【输出】只输出 JSON，不要代码块：\n"
       + '{"title":"","tags":["","",""],"quote":"","silhouette":""}';
     const raw = await callAI(active, sys, [{ role: "user", content: "开始写这个月的印象。" }], { maxTokens: 2000, timeout: 120000 });
@@ -103,10 +118,16 @@
   }
 
   // 剪影图：艺术插画，不是照片。刻意不给参考照——看不见脸，给了只会让它去画五官。
-  async function genArt(desc, profile) {
+  // 剪影不能只照着一句场景描述画——那样画出来跟这个月的印象没关系。
+  // 把这一期的三个关键词和短称呼一起喂进去：它们才是这张图真正要画的东西（她 2026-08-20 提）。
+  async function genArt(desc, profile, mood) {
     const look = String((profile && profile.appearance) || "").slice(0, 120);
+    const tags = (mood && Array.isArray(mood.tags) ? mood.tags : []).filter(Boolean);
     const prompt = "一幅【剪影艺术插画】：画面主体是一个人的纯黑剪影，**完全看不见五官、没有脸部细节**，"
       + "只有轮廓与发丝的形状。水墨与水彩晕染的质感，大量留白，像杂志内页的一幅意象插画。\n"
+      + (tags.length ? "【这幅画要画出的气质·最重要】" + tags.join("、")
+        + (mood && mood.title ? "（一句话概括：" + mood.title + "）" : "")
+        + "。姿态、光线、冷暖、留白多少，全部服务于这几个词——画面读起来必须就是这种感觉。\n" : "")
       + "【画面】" + (desc || "一个人的侧影，身后是一轮月亮，冷色调。") + "\n"
       + (look ? "【轮廓参考·只取发型长度与身形，不画五官】" + look + "\n" : "")
       + "【硬性要求】不出现文字、不出现边框、不画成头像或证件照；构图竖幅；整体安静、克制、有留白；"
@@ -181,7 +202,7 @@
         const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText);
         let img = null;
         // 图出不来不算失败：字才是主体，剪影可以之后单独补
-        try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile); }
+        try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile, { tags: d.tags, title: d.title }); }
         catch (e) { props.toast("字写好了，剪影没出来：" + (e.message || "稍后可单独重出")); }
         const entry = { id: M.uid(), monthKey, title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, img, ts: Date.now() };
         put(p => Object.assign({}, p, { [charId]: [entry].concat((p[charId] || []).filter(x => x.monthKey !== monthKey)) }));
@@ -194,9 +215,23 @@
       if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
       setBusy(charId + entry.monthKey);
       try {
-        const img = await M.genArt(entry.silhouette, props.profile);
+        const img = await M.genArt(entry.silhouette, props.profile, { tags: entry.tags, title: entry.title });
         put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id ? Object.assign({}, x, { img }) : x) }));
       } catch (e) { props.toast("剪影没出来：" + (e.message || "重试")); } finally { setBusy(""); }
+    }
+    // 只重写文案，剪影原样留着——出图慢又贵，不该为了换一句话把画也重刷一遍（她 2026-08-20 提）
+    async function rewriteText(charId, entry) {
+      const char = (props.characters || []).find(c => c.id === charId); if (!char) return;
+      if (!props.active) return props.toast("请先配置线下 API");
+      setBusy(charId + entry.monthKey);
+      try {
+        const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName);
+        const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
+        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText);
+        put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id
+          ? Object.assign({}, x, { title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette }) : x) }));
+        props.toast("文案换好了，剪影没动");
+      } catch (e) { props.toast("重写失败：" + (e.message || "重试")); } finally { setBusy(""); }
     }
     // 补齐：最近 12 个月里有素材、却还没写过的，一月一月补（失败即停，已写好的都留着）
     async function backfill(charId) {
@@ -251,7 +286,8 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "right", marginTop: 14 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
           h("div", { style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
-            h("button", { onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "重出剪影" : "补一张剪影")),
+            h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
+            h("button", { onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "只重出剪影" : "补一张剪影")),
             h("button", { onClick: () => { if (!confirm("删掉这个月的印象？")) return; put(p => Object.assign({}, p, { [curChar]: (p[curChar] || []).filter(x => x.id !== e.id) })); setCardId(null); }, style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
     }
 
@@ -267,9 +303,11 @@
         header((c.name || "?") + " 眼里的 " + uName,
           h("button", { onClick: () => backfill(curChar), disabled: !!busy, style: S.btn(false) }, "补齐")),
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 34px" } },
-          h("button", { onClick: () => make(curChar, openMonth), disabled: !!busy,
-            style: { width: "100%", padding: "12px 0", borderRadius: 14, border: "1px dashed " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 13, marginBottom: 4 } },
-            busy ? "在写…" : (hasThis ? "重写 " + M.monthLabel(openMonth) : "写 " + M.monthLabel(openMonth) + "的印象")),
+          // 已经写过就不给整张重来的入口：那会连剪影一起重刷一遍，白花一次出图。
+          // 想换东西请进卡片，那里能分开「只重写文案」和「只重出剪影」。
+          h("button", { onClick: () => hasThis ? props.toast("点进那张卡片，可以只重写文案或只重出剪影") : make(curChar, openMonth), disabled: !!busy,
+            style: { width: "100%", padding: "12px 0", borderRadius: 14, border: "1px dashed " + t.line, background: "transparent", color: hasThis ? t.fog : t.ink, fontFamily: F_BODY, fontSize: 13, marginBottom: 4 } },
+            busy ? "在写…" : (hasThis ? M.monthLabel(openMonth) + " 已写过 · 点卡片可单独重写" : "写 " + M.monthLabel(openMonth) + "的印象")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", marginBottom: 14, lineHeight: 1.7 } },
             "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。"),
           mine.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
