@@ -2915,6 +2915,41 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const [apiInput, setApiInput] = useState(apiBase || "");
   const [ckEdit, setCkEdit] = useState(false);
   const [ckInput, setCkInput] = useState(cookie || "");
+  // 网易云扫码登录（v54.10）：/login/qr/key → /login/qr/create(qrimg) → 轮询 /login/qr/check
+  // 800=过期 801=等扫 802=已扫待确认 803=成功(带 cookie)。轮询句柄放 ref，离开界面/取消时清掉。
+  const [qr, setQr] = useState({ img: null, status: null, busy: false });
+  const qrTimerRef = useRef(null);
+  const stopQrLogin = () => { if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; } setQr({ img: null, status: null, busy: false }); };
+  useEffect(() => () => { if (qrTimerRef.current) clearInterval(qrTimerRef.current); }, []);
+  const startQrLogin = async () => {
+    if (!apiBase || qr.busy) return;
+    stopQrLogin(); setQr({ img: null, status: null, busy: true });
+    try {
+      const j = u => fetch(apiBase + u + (u.includes("?") ? "&" : "?") + "timestamp=" + Date.now()).then(r => r.json());
+      const keyRes = await j("/login/qr/key");
+      const unikey = keyRes && keyRes.data && keyRes.data.unikey;
+      if (!unikey) throw new Error("拿二维码钥匙失败");
+      const qrRes = await j("/login/qr/create?key=" + encodeURIComponent(unikey) + "&qrimg=true");
+      const img = qrRes && qrRes.data && qrRes.data.qrimg;
+      if (!img) throw new Error("生成二维码失败");
+      setQr({ img: img, status: "waiting", busy: false });
+      qrTimerRef.current = setInterval(async () => {
+        try {
+          const c = await j("/login/qr/check?key=" + encodeURIComponent(unikey));
+          if (!c) return;
+          if (c.code === 802) setQr(p => ({ ...p, status: "scanned" }));
+          else if (c.code === 800) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; setQr(p => ({ ...p, status: "expired" })); }
+          else if (c.code === 803 && c.cookie) {
+            clearInterval(qrTimerRef.current); qrTimerRef.current = null;
+            // 只留真正要用的键，别把整串杂项 cookie 存下来
+            const keep = (c.cookie.match(/(MUSIC_U|__csrf)=[^;]+/g) || []).join("; ");
+            onSetCookie(keep || c.cookie);
+            setQr(p => ({ ...p, status: "done" }));
+          }
+        } catch (e) {}
+      }, 2500);
+    } catch (e) { stopQrLogin(); if (typeof toast === "function") toast("扫码登录起不来：" + (e.message || e)); }
+  };
   const [openPl, setOpenPl] = useState(null); // 展开的歌单 id
   const [plName, setPlName] = useState("");
   const [plCharPick, setPlCharPick] = useState(false); // 选角色生成歌单
@@ -3104,6 +3139,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         apiEdit
           ? h("div", null,
               h("input", { value: apiInput, onChange: e => setApiInput(e.target.value), placeholder: "https://你的-netease-api.vercel.app", style: Object.assign({ marginBottom: 8 }, field) }),
+              h("button", { onClick: () => setApiInput("https://yanqiu-vps.tail542792.ts.net/music"), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginBottom: 8 } }, "⚡ 一键填咱家 VPS 的接口"),
               h("div", { className: "flex gap-2" },
                 h("button", { onClick: () => { onSetApiBase(apiInput); setApiEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "保存"),
                 h("button", { onClick: () => setApiEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "取消")))
@@ -3117,9 +3153,17 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
               h("div", { className: "flex gap-2" },
                 h("button", { onClick: () => { onSetCookie(ckInput); setCkEdit(false); }, className: "flex-1 py-2 active:opacity-70", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "保存"),
                 h("button", { onClick: () => setCkEdit(false), className: "flex-1 py-2 active:opacity-70", style: { border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 13, borderRadius: 8 } }, "取消")))
-          : h("div", { className: "flex items-center justify-between gap-2" },
-              h("button", { onClick: () => { setCkInput(cookie || ""); setCkEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: cookie ? t.fog : t.tint, textAlign: "left" } }, cookie ? "✓ 已填账号 Cookie（可放 VIP）· 改" : "＋ 配账号 Cookie（可放 VIP 歌，选填）"),
-              h("button", { onClick: onTestLogin, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 10px" } }, "测登录"))) : null));
+          : h("div", null,
+              h("div", { className: "flex items-center justify-between gap-2" },
+                h("button", { onClick: () => { setCkInput(cookie || ""); setCkEdit(true); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: cookie ? t.fog : t.tint, textAlign: "left" } }, cookie ? "✓ 已填账号 Cookie（可放 VIP）· 改" : "＋ 配账号 Cookie（可放 VIP 歌，选填）"),
+                h("button", { onClick: onTestLogin, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 10px" } }, "测登录"),
+                h("button", { onClick: startQrLogin, disabled: qr.busy, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: t.ink, borderRadius: 8, padding: "4px 10px", opacity: qr.busy ? 0.5 : 1 } }, qr.busy ? "生成中…" : "扫码登录")),
+              // 扫码登录：手机网易云 App 扫这个码 → 自动拿 Cookie，免手贴（后端 /login/qr/*）
+              qr.img ? h("div", { style: { marginTop: 10, textAlign: "center" } },
+                h("img", { src: qr.img, style: { width: 160, height: 160, borderRadius: 10, border: "1px solid " + t.line, background: "#fff" } }),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: qr.status === "done" ? "#3f7d4e" : t.fog, marginTop: 6 } },
+                  qr.status === "waiting" ? "打开手机网易云 App 扫一扫" : qr.status === "scanned" ? "扫到了，在手机上点确认" : qr.status === "done" ? "✓ 登录成功，Cookie 已自动存好（仅本机）" : qr.status === "expired" ? "码过期了，再点一次扫码登录" : "…"),
+                qr.status !== "done" ? h("button", { onClick: stopQrLogin, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "取消") : null) : null)) : null));
 
   // ============ 我的 tab（歌单）============
   const favs = songs.filter(s => s.fav);

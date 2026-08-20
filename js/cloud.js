@@ -101,10 +101,11 @@
     },
 
     // 收集所有 x_ 键为纯对象（原始字符串），与导出/导入格式一致
+    // x_neteaseCookie 是账号凭据：界面承诺「只存这台设备」，永不进云快照（2026-08-20 抓漏）
     collect() {
       const dump = {};
       Object.keys(localStorage)
-        .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
+        .filter((k) => k.startsWith("x_") && k !== "x_neteaseCookie" && !(tableMemoryMode() && k === "x_memLib"))
         .forEach((k) => {
           dump[k] = localStorage.getItem(k);
         });
@@ -180,9 +181,11 @@
         const keepLore = (loreNonEmpty(localLore) && !loreNonEmpty(data && data.x_loreEntries)) ? localLore : null;
         if (typeof idbTxtApplySnapshot === "function") await idbTxtApplySnapshot(data || {}, tableMemoryMode() ? ["x_memLib"] : []);
         Object.keys(localStorage)
-          .filter((k) => k.startsWith("x_") && !(tableMemoryMode() && k === "x_memLib"))
+          .filter((k) => k.startsWith("x_") && k !== "x_neteaseCookie" && !(tableMemoryMode() && k === "x_memLib"))
           .forEach((k) => localStorage.removeItem(k));
         Object.entries(data || {}).forEach(([k, v]) => {
+          // 凭据键绝不从云端落地（老快照里可能已混入过一份）
+          if (k === "x_neteaseCookie") return;
           // memories 行表已经权威时，旧 saves 里的冻结 x_memLib 只供灾备，不能覆盖当前离线镜像。
           if (tableMemoryMode() && k === "x_memLib") return;
           // 文字库键(同人文等)：写进 IDB + 内存镜像，绝不进 localStorage(否则又占回 5MB)。apply 后调用方会 reload，hydrateTxtVault 再兜一遍。
