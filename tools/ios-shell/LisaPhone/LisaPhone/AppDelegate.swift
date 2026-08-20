@@ -20,6 +20,14 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
   var webView: WKWebView!
   let home = URL(string: "https://milkbun5472.github.io/milkbun-app/index.html")!
 
+  // WKWebView 有自己的一层 HTTP 磁盘缓存，可能在 Service Worker 接手前就把旧 index.html 交回来。
+  // 首页每次冷启动带一个只用于破缓存的时间戳；脚本本身仍用站内版本号缓存，既能更新也不重复囤积。
+  private func homeRequest() -> URLRequest {
+    var parts = URLComponents(url: home, resolvingAgainstBaseURL: false)!
+    parts.queryItems = [URLQueryItem(name: "shell", value: String(Int(Date().timeIntervalSince1970)))]
+    return URLRequest(url: parts.url!, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 30)
+  }
+
   override func viewDidLoad() {
     super.viewDidLoad()
     let cfg = WKWebViewConfiguration()
@@ -45,7 +53,7 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
       webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
     ])
-    webView.load(URLRequest(url: home))
+    webView.load(homeRequest())
   }
 
   // 断网/加载失败:给一句人话+三秒后自动重试,别白屏
@@ -55,7 +63,7 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
     webView.loadHTMLString("<meta name=viewport content='width=device-width,initial-scale=1'><body style='display:flex;align-items:center;justify-content:center;height:96vh;font-family:-apple-system;background:#ece8e1;color:#6b6257'>断网了,三秒后自己重试…</body>", baseURL: nil)
     DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
       guard let self else { return }
-      self.webView.load(URLRequest(url: self.home))
+      self.webView.load(self.homeRequest())
     }
   }
   // window.open / target=_blank 一律留在本窗
