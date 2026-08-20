@@ -40,7 +40,8 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
     NSLayoutConstraint.activate([
       // 顶部让出刘海/状态栏:站是按 Safari PWA 的安全区排的,壳里没人替它挡,得壳自己让(2026-08-20 她真机抓的位移)
       webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-      webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+      // 底部同理:让出 Home 小白条,壳里 env(safe-area-inset-bottom)=0,站按平底排版正好齐
+      webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
       webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
     ])
