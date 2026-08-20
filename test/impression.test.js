@@ -46,11 +46,12 @@ test("quote 必须守声纹，不能写成通用抒情散文", () => {
   assert.match(gen, /遮住名字也该认得出/);
   assert.match(gen, /别写成通用抒情散文，也别写成人物介绍/);
   assert.match(gen, /用「她」称呼她，不要直呼名字/);
+  assert.match(imp, /写「她是什么样的人」，不是「这个月发生了什么」/);
   // 「Ta 眼里」已有的长期印象当底子，别每月推翻重来
   assert.match(gen, /底子，别推翻，只在它上面往前长一点/);
   assert.match(imp, /window\.Gaze && window\.Gaze\.text/);
   // 三个关键词不许同义、不许都在夸她（定死的槽位已废，改成按期轮换取词角度）
-  assert.match(imp, /三个之间不许同义，也不许都在夸她/);
+  assert.match(imp, /三个之间不许同义，也不许都在夸她。要抽象、要有气质——「爱吃雪糕」那是事，不是印象/);
   // 出不全就算失败，不许写半张卡
   assert.match(gen, /if \(!quote \|\| !tags\.length\) throw new Error/);
 });
@@ -149,14 +150,14 @@ test("补齐必须永远给回音，不许静默", () => {
 // v54.05：① 不够个人化 ② 想只重写文案、别连着刷图 ③ 剪影该跟印象有关
 test("逼它扣住真实发生过的事，并给一条可判定的自检", () => {
   assert.match(imp, /const CONCRETE_RULE = /);
-  assert.match(imp, /title、tags、quote、silhouette 四样【都】要长在下面那段真实记录上/);
-  assert.match(imp, /只有你们俩对得上号的具体东西/);
-  // 关键：给【可判定】的检验标准，而不是再喊一句"要具体"
-  assert.match(imp, /把她的名字换成任何一个别人——如果这句话照样成立，说明写空了，推翻重写/);
-  assert.match(imp, /宁可写得小、写得怪，也别写得大而空/);
-  // 给模型具体的钩子：她自己说过的话
+  assert.match(imp, /下面那段记录是【养料】，不是【题目】/);
+  assert.match(imp, /quote 里不许出现具体事件的经过/);
+  assert.match(imp, /意象必须【长在真事上】/);
+  assert.match(imp, /落笔时只留那个意象，不交代它从哪来/);
+  // 可判定的检验标准仍在
+  assert.match(imp, /把她换成另一个人——如果这句话照样成立/);
+  assert.match(imp, /宁可写得怪，也别写得空/);
   assert.match(imp, /const herLines = \(rows, uName\) =>/);
-  assert.match(imp, /quote 可以直接扣住其中一句/);
 });
 
 test("剪影要画的是这一期的印象，不是一句孤零零的场景", () => {
@@ -167,7 +168,9 @@ test("剪影要画的是这一期的印象，不是一句孤零零的场景", ()
   // 两个调用点都要把 tags/title 带上，别只带一个
   assert.equal((imp.match(/M\.genArt\([^)]*\{ tags:/g) || []).length, 2, "生成与重出剪影都要带上这一期的印象");
   // 剪影描述本身也要长在真事上，并和关键词气质一致
-  assert.match(imp, /意象【必须从这个月真实发生过的事里长出来】/);
+  // 剪影也从"生活场景抓拍"挪到"意象画"——她要的是总体印象，不是那天在工位吃雪糕
+  assert.match(imp, /这是一幅【意象画】，不是生活场景抓拍/);
+  assert.match(imp, /要画一个能代表她【整个人】的画面/);
   assert.match(imp, /关键词是冷的，画面就不该是暖的/);
 });
 
@@ -315,4 +318,33 @@ test("界面上要分开报本地与云端的条数", () => {
   assert.match(imp, /"（记录共 " \+ b\.chatAll \+ " 条：本地 " \+ b\.local \+ " · 云端归档 " \+ b\.cloud \+ "）"/);
   assert.match(imp, /if \(arching && !archs\[curChar\]\) return h\("div", \{ style: \{ marginTop: 4 \} \}, "正在拉云端归档…"\);/);
   assert.match(imp, /if \(!archs\[curChar\] && !arching\) ensureArch\(curChar\);/, "进页面就拉，不然那行数字继续误导");
+});
+
+// v54.10：quote 太"现实"了——写成了轶事复述，她要的是小红书那种总体人物意象。
+// 上一版为了治空话，把刀磨反了：素材本该是【养料】，被我当成了【题目】。
+test("句式池整体挪到肖像式，池子里不许再有叙事形状", () => {
+  const m = dice();
+  assert.equal(m.QUOTE_FORMS.length, 12);
+  // 叙事形状（引用原话/写抱怨/第一次注意到/为她做过的事）全部退场
+  assert.ok(!m.QUOTE_FORMS.some(x => /引用|原话|抱怨|第一次注意到|没告诉她/.test(x)),
+    "这些都会写出轶事，不是印象");
+  // 肖像形状：比喻整个人 / 感官 / 判断句 / 否定 / 用动词定义
+  ["比喻", "感官", "她是……", "只用否定", "动词"].forEach(k =>
+    assert.ok(m.QUOTE_FORMS.some(x => x.includes(k)), "肖像写法里该有：" + k));
+  // 轮转与去重的性质不能因为换池子丢掉
+  const f = t => m.pickN(m.QUOTE_FORMS, 1, "c|2026-07|form", t)[0];
+  assert.equal(new Set([0, 1, 2, 3].map(f)).size, 4);
+});
+
+test("关键词角度也从行为观察挪到整体气质", () => {
+  const m = dice();
+  assert.ok(!m.TAG_ANGLES.some(x => /做事的方式|说话的调子|笨拙的地方/.test(x)), "行为流水式角度退场");
+  ["气温", "质地", "节奏", "底色"].forEach(k =>
+    assert.ok(m.TAG_ANGLES.some(x => x.includes(k)), "气质类角度里该有：" + k));
+  assert.equal(new Set(m.pickN(m.TAG_ANGLES, 3, "c|2026-07|tag", 0)).size, 3);
+});
+
+test("title 改成「类型名」，不是外号也不是事件概括", () => {
+  assert.match(imp, /给这个月的她起一个【类型名】/);
+  assert.match(imp, /不是外号，也不是事件概括/);
 });
