@@ -77,6 +77,14 @@
     rows.sort((a, b) => a.ts - b.ts);
     return rows;
   }
+  // 分来源数一遍：界面上直接显示，省得"明明聊了很多却说没有"只能靠猜（她 2026-08-20 两次撞到）
+  function materialBreakdown(charId, charName, monthKey, uName, groups) {
+    const rows = monthMaterial(charId, charName, monthKey, uName, groups);
+    const g = rows.filter(r => String(r.text).indexOf("【群】") === 0).length;
+    let all = 0;
+    try { all = (typeof loadJSON === "function" ? (loadJSON("x_chat:" + charId, []) || []) : []).length; } catch (e) {}
+    return { total: rows.length, group: g, direct: rows.length - g, chatAll: all };
+  }
   // 他自己说过的话：拿来当声纹样本，quote 才不会写成通用文艺腔
   const ownLines = (rows, charName) => rows.filter(r => r.who === charName && r.text.length >= 6 && r.text.length <= 60)
     .map(r => r.text).slice(-12);
@@ -202,7 +210,7 @@
     return typeof imgToVault === "function" ? await imgToVault(durl) : durl;
   }
 
-  window.Impression = { load, save, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, monthMaterial, genText, genArt, uid };
+  window.Impression = { load, save, materialBreakdown, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, monthMaterial, genText, genArt, uid };
 })();
 
 // ============================================================
@@ -382,7 +390,15 @@
             style: { width: "100%", padding: "12px 0", borderRadius: 14, border: "1px dashed " + t.line, background: "transparent", color: hasThis ? t.fog : t.ink, fontFamily: F_BODY, fontSize: 13, marginBottom: 4 } },
             busy ? "在写…" : (hasThis ? M.monthLabel(openMonth) + " 已写过 · 点卡片可单独重写" : "写 " + M.monthLabel(openMonth) + "的印象")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", marginBottom: 14, lineHeight: 1.7 } },
-            "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。"),
+            "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。",
+            // 素材数就摆在这儿：写不出来的时候一眼看得出是没素材、还是根本没读到
+            (function () {
+              let b = null;
+              try { b = M.materialBreakdown(curChar, c.name, openMonth, uName, props.groups); } catch (e) { return null; }
+              return h("div", { style: { marginTop: 4 } },
+                M.monthLabel(openMonth) + "素材：单聊+线下 " + b.direct + " 条 · 群 " + b.group + " 条"
+                + (b.total < 6 && b.chatAll ? "（这个角色的聊天记录一共 " + b.chatAll + " 条，只是都不在这个月）" : ""));
+            })()),
           mine.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
             mine.map(e => h("div", { key: e.id, onClick: () => setCardId(e.id), style: { width: "calc((100% - 10px) / 2)" } },
               h("div", { style: { width: "100%", aspectRatio: "3 / 4", borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },

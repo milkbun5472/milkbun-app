@@ -253,7 +253,8 @@ test("群聊也算素材，但封闭群不算", () => {
   assert.match(seg, /if \(!isUser && !isHim\) return;/);
   assert.match(seg, /"【群】" \+ txt/, "标出来源，模型才知道这句是当众说的");
   // 三个调用点都要把 groups 传下去，漏一个就又数不到
-  assert.equal((imp.match(/uName, props\.groups\)/g) || []).length, 3);
+  // 四处：生成 / 补齐筛选 / 只重写文案 / 界面上那行素材统计。漏一个就又数不到群
+  assert.equal((imp.match(/uName, props\.groups\)/g) || []).length, 4);
   assert.match(app, /groups: groups,\s+\/\/ 群聊也是素材/);
 });
 
@@ -270,4 +271,18 @@ test("取素材走 loadJSON——它会先读 IDB 镜像，聊天记录可能不
   const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
   assert.match(engine, /IDB_TEXT_PREFIXES = \[[^\]]*"x_chat:"/);
   assert.match(engine, /IDB_TEXT_PREFIXES = \[[^\]]*"x_gchat:"/);
+});
+
+// v54.08：她说江识七月聊了几百条也显示没有。逻辑本身实测是对的（六条、跨月正确排除），
+// 所以要么读不到那份记录、要么记录不在那个月——界面上直接把数字摆出来，别再靠猜。
+test("角色页要显示这个月的素材条数，分来源", () => {
+  assert.match(imp, /function materialBreakdown\(charId, charName, monthKey, uName, groups\)/);
+  assert.match(imp, /const g = rows\.filter\(r => String\(r\.text\)\.indexOf\("【群】"\) === 0\)\.length;/);
+  assert.match(imp, /chatAll/, "还要报这个角色一共有多少条聊天记录");
+  assert.match(imp, /素材：单聊\+线下 " \+ b\.direct \+ " 条 · 群 " \+ b\.group \+ " 条"/);
+  // 关键的分辨句：有记录但不在这个月 vs 根本读不到
+  assert.match(imp, /这个角色的聊天记录一共 " \+ b\.chatAll \+ " 条，只是都不在这个月/);
+  assert.match(imp, /materialBreakdown/, "要导出给界面用");
+  // 统计本身不能把页面搞崩
+  assert.match(imp, /try \{ b = M\.materialBreakdown\(/);
 });
