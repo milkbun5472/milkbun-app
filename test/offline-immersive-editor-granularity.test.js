@@ -7,7 +7,7 @@ function assert(ok, message) {
   if (!ok) throw new Error(message);
 }
 
-assert(engine.includes("const singlePassRevisionRequested = !isDigital && !!rewriteRequested"), "只有预检命中的普通单人线下才请求单次自修");
+assert(engine.includes("const singlePassRevisionRequested = explicitRevisionRequested || archetypeRevisionRequested"), "明确场景或强原型卡才请求单次自修");
 assert(engine.includes('"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文"'), "同一响应必须先返回首稿、再返回终稿");
 assert(engine.includes("let scene = singlePassRevisionRequested ? singlePassFinalScene : draftScene"), "展示与入史必须使用同响应终稿");
 const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";

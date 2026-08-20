@@ -937,6 +937,23 @@ function offlineRendererScore(text) {
   return hits ? hits.length : 0;
 }
 
+// 有些角色卡把几组强势恋爱原型同时写满。模型即使在普通日常里也容易把这些
+// 「人物原因」演成言情旁白：行为已经说明了，还要再认证一遍他有多危险、无赖、
+// 占有或宠溺。只在标签形成簇时开门，单个普通性格词不触发。
+function offlineArchetypePerformanceRisk(persona) {
+  const source = String(persona || "");
+  if (!source.trim()) return false;
+  const clusters = [
+    /占有欲|控制欲|掌控欲|独占|偏执|病娇|疯批|强取豪夺|不容拒绝|必须服从/,
+    /霸道|强势|腹黑|毒舌|痞(?:气|坏)?|无赖|危险|阴鸷|冷酷|禁欲|高冷|玩世不恭/,
+    /宠溺|纵容|护短|黏人|粘人|吃醋|醋意|忠犬|深情|爹系|男友力/,
+    /总裁|上位者|掌权|权势|黑道|Alpha|帝王|少爷|财阀/
+  ];
+  const clusterCount = clusters.reduce((sum, re) => sum + (re.test(source) ? 1 : 0), 0);
+  const hitCount = (source.match(/占有欲|控制欲|掌控欲|独占|偏执|病娇|疯批|强取豪夺|霸道|强势|腹黑|毒舌|痞气|无赖|危险|阴鸷|冷酷|禁欲|高冷|玩世不恭|宠溺|纵容|护短|黏人|粘人|吃醋|醋意|忠犬|深情|爹系|男友力|总裁|上位者|掌权|权势|黑道|Alpha|帝王|少爷|财阀/g) || []).length;
+  return clusterCount >= 2 || hitCount >= 4;
+}
+
 function offlineRewriteSentenceUnits(paragraph) {
   const source = String(paragraph || "").trim();
   if (!source) return [];
@@ -2422,7 +2439,7 @@ function offlineRegisterExplicitText(text) {
 // 单次响应内自修（初稿→自编辑去认证句）。原先写死在 generateOffline 里，小剧场等其它
 // 线下通道拿不到；抽出来共享，让「所有线下走同一套提示词」这句话真的成立（Lisa 2026-08-18）。
 // shape 用于替换末尾的输出形状说明——不同通道的 JSON 字段不一样。
-function offlineSelfReviseProtocol(shape) {
+function offlineSelfReviseProtocol(shape, archetypeGuard) {
   return `\n\n【本轮单次响应内自修】
 本轮只调用你一次，但输出 JSON 时必须依次完成两个不同字段：
 1. draftScene：先完整写出这一刻真正发生的首稿。事实、人物选择、主动关系、尺度与角色回应都在这里形成。
@@ -2430,7 +2447,21 @@ function offlineSelfReviseProtocol(shape) {
 
 scene 必须保留全部具体身体事实，不淡出、不概括、不降低明确程度，也不新增或升级动作。保留这个人的具体选择、现实注意、关系回应和独特说话方式；通用成人场面话可以在不改变含义与语气方向的前提下换成这个人更自然的说法。
 删除或平实改写只负责再次证明刺激与强度、却不增加新事实或人物信息的内容，例如成串的嗓音变化、喉结、青筋、红眼、呼吸认证、神经刺激、理智或侵略性总结。同一种身体事实或反应维度只陈述一次。事实与渲染混在一句时保留事实核心，只移除认证包装；不要以缩短、清水化或统一成冷静短句为目标。
+${archetypeGuard ? "角色卡里的强烈性格标签只决定人物会作何选择，不是要求旁白反复替他宣传某种原型。行为或台词已经表现清楚时，删除随后给它贴标签、评点气场、认证他有多强势／危险／无赖／宠溺的作者解说；保留真实的赖账、坚持、疲倦、占有、照顾、关系决定和说话功能，不把人物改乖。" : ""}
 draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者都必须是完整字符串，不得省略、互换或解释修改过程。
+
+本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
+}
+
+function offlineArchetypeSelfReviseProtocol(shape) {
+  return `\n\n【本轮人物表达自修】
+本轮只调用你一次，但输出 JSON 时依次完成两个字段：
+1. draftScene：先让这个具体的人照常完成本轮场景。
+2. scene：事件全部保持不变，只检查表达是否把人物演成了现成的言情原型。
+
+scene 必须保留人物真正做出的选择、关系立场、疲倦与欲望、对眼前人的具体回应、共享细节和台词的沟通功能；不把人物改得更温和、更礼貌，也不削弱其原有性格。
+角色卡里的强烈标签是行为原因，不是旁白任务。若动作和台词已经足以表现人物，删除随后替读者评点他像什么人、认证他有多强势／危险／无赖／宠溺，或把普通语气包装成某种魅力的作者解说。用事实让性格成立，不反复给事实贴标签。
+不要追求缩短，不把场景改成动作记录，也不要复用一种统一的冷静文风。draftScene 是内部草稿，scene 才展示并进入历史。
 
 本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
 }
@@ -2495,6 +2526,7 @@ async function generateOffline(p, ctx, session) {
   const isDigital = !!ctx.notRoleplay;
   const intimacyContextActive = !isDigital && offlineIntimacyContextActive(session);
   const registerTransition = !isDigital ? offlineRegisterTransition(session) : { before: false, after: false, inject: false };
+  const archetypePerformanceRisk = !isDigital && offlineArchetypePerformanceRisk(char && char.persona);
   // 用户首次跨越与角色在上一条 assistant 中自主跨越都由同一套 direct + reset 判定覆盖，避免两套正则互相否决。
   let rewriteRequested = !isDigital && !!registerTransition.inputBeat && !!registerTransition.active;
   const missingStateFields = [];
@@ -2521,8 +2553,13 @@ async function generateOffline(p, ctx, session) {
   // v52.88 A/B：预检已命中的普通单人线下，把“首稿 → 表达编辑”折叠进同一次 completion。
   // JSON 字段按 draftScene → scene 排列；模型生成 scene 时，首稿已经成为它最近的上下文，
   // 但网络层只发生一次请求。未命中时仍沿用普通单稿协议，不给所有线下轮次平白加倍输出。
-  const singlePassRevisionRequested = !isDigital && !!rewriteRequested;
-  const singlePassRevisionProtocol = singlePassRevisionRequested ? offlineSelfReviseProtocol() : "";
+  const explicitRevisionRequested = !isDigital && !!rewriteRequested;
+  const archetypeRevisionRequested = !isDigital && !!archetypePerformanceRisk;
+  rewriteRequested = explicitRevisionRequested || archetypeRevisionRequested;
+  const singlePassRevisionRequested = explicitRevisionRequested || archetypeRevisionRequested;
+  const singlePassRevisionProtocol = explicitRevisionRequested
+    ? offlineSelfReviseProtocol(null, archetypeRevisionRequested)
+    : (archetypeRevisionRequested ? offlineArchetypeSelfReviseProtocol() : "");
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2 + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
@@ -2596,6 +2633,8 @@ async function generateOffline(p, ctx, session) {
         registerInputBeat: !!registerTransition.inputBeat,
         registerActive: !!registerTransition.active,
         characterSupplyInjected,
+        archetypePerformanceRisk,
+        archetypeRevisionRequested,
         rewriteRequested,
         mood: ctx.moodLabel || null,
         wearing: ctx.curWear || null,
@@ -2665,6 +2704,8 @@ async function generateOffline(p, ctx, session) {
     registerPreflightActive: !!registerTransition.active,
     registerActive: !!effectiveRegisterActive,
     characterSupplyInjected,
+    archetypePerformanceRisk,
+    archetypeRevisionRequested,
     rewriteRequested,
     rewriteApplied,
     singlePassRevisionRequested,

@@ -13,7 +13,7 @@ test("ordinary single offline uses short narrative runtime and protocol v2", () 
   const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
   assert.doesNotMatch(single, /"\\n\\n" \+ OFFLINE_INTIMATE_RUNTIME/);
   assert.doesNotMatch(engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "", /"\\n\\n" \+ NARRATIVE_ANTI_CLICHE/);
-  assert.match(engine, /const singlePassRevisionRequested = !isDigital && !!rewriteRequested/);
+  assert.match(engine, /const singlePassRevisionRequested = explicitRevisionRequested \|\| archetypeRevisionRequested/);
   assert.match(engine, /draftScene = String\(singlePassRevisionRequested \? parsed\.draftScene/);
   assert.match(engine, /let scene = singlePassRevisionRequested \? singlePassFinalScene : draftScene/);
   assert.doesNotMatch(single, /await offlineRewriteScene\(/);

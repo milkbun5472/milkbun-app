@@ -28,9 +28,9 @@ test("group offline keeps the old planning block during the controlled phase", (
 test("自修协议抽成共享函数，小剧场走同一套", () => {
   const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
   const th = fs.readFileSync(path.join(__dirname, "..", "js", "theater.js"), "utf8");
-  assert.match(eng, /function offlineSelfReviseProtocol\(shape\)/);
+  assert.match(eng, /function offlineSelfReviseProtocol\(shape, archetypeGuard\)/);
   assert.equal((eng.match(/本轮单次响应内自修/g) || []).length, 1, "自修文本只许有一份");
-  assert.match(eng, /singlePassRevisionRequested \? offlineSelfReviseProtocol\(\) : ""/);
+  assert.match(eng, /explicitRevisionRequested\s*\? offlineSelfReviseProtocol\(null, archetypeRevisionRequested\)/);
   assert.match(th, /offlineSelfReviseProtocol\(/, "小剧场要用同一份自修协议");
   assert.match(th, /offlineRegisterTransition\(/, "小剧场要用同一套跨界判定");
   assert.match(th, /selfRevise && p\.draftScene && !String\(p\.scene \|\| ""\)\.trim\(\)/, "终稿缺失不许拿草稿顶上");

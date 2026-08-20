@@ -5452,6 +5452,8 @@ function OfflineMode({
             h("br"),
             "character supply: " + (registerTelemetry.characterSupplyInjected ? "injected" : "not injected"),
             h("br"),
+            "archetype guard: " + (registerTelemetry.archetypeRevisionRequested ? "injected" : "not injected"),
+            h("br"),
             "rewrite: " + (registerTelemetry.rewriteApplied ? "applied" : "not applied"),
             registerTelemetry.rewriteApplied ? h(React.Fragment, null,
               h("br"),
