@@ -37,17 +37,17 @@
   const nextOpenAt = now => { const d = now ? new Date(now) : new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); };
 
   // ---- 当月素材：单聊 + 单人线下 + 互通群里他说的话 ----
-  function monthMaterial(charId, charName, monthKey, uName) {
+  function monthMaterial(charId, charName, monthKey, uName, groups) {
     const { start, end } = monthRange(monthKey);
     const inWin = ts => ts != null && ts >= start && ts <= end;
     const rows = [];
+    // 用 loadJSON（自带 try/catch，还会先读 IDB 镜像）：以前是裸 JSON.parse，
+    // 任何一条记录坏掉就整个函数抛，而补齐外面没有 catch——表现就是"点了没反应"。
+    const grab = k => { try { return typeof loadJSON === "function" ? (loadJSON(k, []) || []) : (JSON.parse(localStorage.getItem(k) || "[]") || []); } catch (e) { return []; } };
     const clean = m => {
       if (!m || m.recalled || m.role === "system" || m.kind === "ooc" || m.kind === "silence") return "";
       return String(m.content || "").replace(/\s+/g, " ").trim();
     };
-    // 用 loadJSON（自带 try/catch）：以前是裸 JSON.parse，任何一条记录坏掉就整个函数抛，
-    // 而补齐外面没有 catch —— 表现就是"点了补齐没反应"（她 2026-08-20 报）。
-    const grab = k => { try { return typeof loadJSON === "function" ? (loadJSON(k, []) || []) : (JSON.parse(localStorage.getItem(k) || "[]") || []); } catch (e) { return []; } };
     (grab("x_chat:" + charId)).forEach(m => {
       if (!inWin(m.ts)) return;
       const t = clean(m); if (!t) return;
@@ -58,6 +58,22 @@
       const t = clean(m); if (!t) return;
       rows.push({ ts: m.ts, who: m.role === "user" ? uName : m.role === "narration" ? "【场景】" : charName, text: t });
     }));
+    // 群聊也要算（v54.07）：她和顾朝顾暮大半的话是在群里说的，只数单聊会得出"七月没来往"
+    // 这个荒唐结论。封闭群（没开记忆互通）不算——记忆不进也不出，和周刊同一条规矩。
+    const gset = grab("x_groupSettings") || {};
+    (groups || []).forEach(g => {
+      if (!g || !(g.memberIds || []).includes(charId)) return;
+      if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
+      (grab("x_gchat:" + g.id)).forEach(m => {
+        if (!inWin(m.ts)) return;
+        const txt = clean(m); if (!txt) return;
+        // 群里只取【他和她】两个人的话：别的成员说什么不构成"他眼里的她"
+        const isUser = m.role === "user";
+        const isHim = m.senderId === charId;
+        if (!isUser && !isHim) return;
+        rows.push({ ts: m.ts, who: isUser ? uName : charName, text: "【群】" + txt });
+      });
+    });
     rows.sort((a, b) => a.ts - b.ts);
     return rows;
   }
@@ -242,8 +258,12 @@
       if (!char) return;
       if (!props.active) return props.toast("请先配置线下 API");
       if (!M.isWritable(monthKey)) { props.toast(M.monthLabel(monthKey) + " 还没过完，等下个月 1 号 0 点再写"); return false; }
-      const rows = M.monthMaterial(charId, char.name, monthKey, uName);
-      if (rows.length < 6) { if (!(opts && opts.quiet)) props.toast(M.monthLabel(monthKey) + " 几乎没有来往，写不出印象"); return false; }
+      const rows = M.monthMaterial(charId, char.name, monthKey, uName, props.groups);
+      if (rows.length < 6) {
+        // 报出实际条数：以前只说"几乎没有来往"，她明明聊了很多也不知道是哪一步没数到
+        if (!(opts && opts.quiet)) props.toast(M.monthLabel(monthKey) + " 只找到 " + rows.length + " 条你俩的往来（单聊+单人线下+互通群），写不出印象");
+        return false;
+      }
       setBusy(charId + monthKey);
       try {
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
@@ -274,7 +294,7 @@
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(charId + entry.monthKey);
       try {
-        const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName);
+        const rows = M.monthMaterial(charId, char.name, entry.monthKey, uName, props.groups);
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
         // turn+1 = 换一面骰子：不换的话「只重写文案」会拿到同一个写法，等于原地打转
         const turn = Number(entry.turn || 0) + 1;
@@ -297,7 +317,7 @@
         const have = new Set((book[charId] || []).map(x => x.monthKey));
         const all = M.prevMonths(12);                       // 已经过完的 12 个月
         const missing = all.filter(k => !have.has(k));
-        want = missing.filter(k => M.monthMaterial(charId, char.name, k, uName).length >= 6);
+        want = missing.filter(k => M.monthMaterial(charId, char.name, k, uName, props.groups).length >= 6);
         if (!want.length) {
           // 分清三种"没得补"，别一律一句话打发
           return props.toast(!missing.length ? "最近一年每个月都写过了"

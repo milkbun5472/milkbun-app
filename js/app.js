@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.06";
+const APP_VERSION = "v54.07";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -10700,9 +10700,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "impression") body = h(ImpressionApp, {
-    // 月度印象：写字走线下创作线路（要文学性），素材自己从 localStorage 取
+    // 月度印象：写字走线下创作线路（要文学性），素材自己从存储层取
     active: offlineActive,
     characters: characters,
+    groups: groups,          // 群聊也是素材：她和某些角色大半的话都在群里说
     profile: profile,
     toast: toast,
     onBack: () => setScreen("home")

@@ -64,7 +64,7 @@ test("图出不来不算失败：字是主体，剪影可以之后补", () => {
 test("补齐：只补有素材的月份，一月一月来，失败即停", () => {
   const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
   assert.match(seg, /const missing = all\.filter\(k => !have\.has\(k\)\);/, "已经有的不重写");
-  assert.match(seg, /M\.monthMaterial\(charId, char\.name, k, uName\)\.length >= 6\)/, "没素材的月份跳过，不硬编");
+  assert.match(seg, /M\.monthMaterial\(charId, char\.name, k, uName, props\.groups\)\.length >= 6\)/, "没素材的月份跳过，不硬编");
   assert.match(seg, /if \(!ok\) \{ props\.toast\("补到 " \+ M\.monthLabel\(k\) \+ " 时停下了/, "失败即停，前面的都保留");
   assert.match(seg, /want\.reverse\(\)/, "从最早的一个月往回补，时间顺序才对");
 });
@@ -239,4 +239,35 @@ test("往期 quote 要喂回去，重写时连自己上一版一起避开", () =
   assert.match(imp, /\.concat\(\[entry\.quote\]\)/);
   assert.match(imp, /const turn = Number\(entry\.turn \|\| 0\) \+ 1;/);
   assert.match(imp, /turn: 0, ts: Date\.now\(\)/, "新卡片要记下 turn，重写才知道转到第几面");
+});
+
+// v54.07：她说某个角色七月聊了很多，却被告知"没有来往写不了"。
+// 原因是取素材只数了单聊和单人线下——而她和顾朝顾暮大半的话是在群里说的。
+test("群聊也算素材，但封闭群不算", () => {
+  const seg = imp.slice(imp.indexOf("function monthMaterial"), imp.indexOf("// 他自己说过的话"));
+  assert.match(seg, /grab\("x_gchat:" \+ g\.id\)/, "群记录要读");
+  assert.match(seg, /\(g\.memberIds \|\| \[\]\)\.includes\(charId\)/, "只算他真的在的群");
+  assert.match(seg, /if \(!\(gset\[g\.id\] && gset\[g\.id\]\.memoryInterop\)\) return;/,
+    "封闭群不算——记忆不进也不出，和周刊同一条规矩");
+  // 群里只取他俩的话：别人说什么不构成"他眼里的她"
+  assert.match(seg, /if \(!isUser && !isHim\) return;/);
+  assert.match(seg, /"【群】" \+ txt/, "标出来源，模型才知道这句是当众说的");
+  // 三个调用点都要把 groups 传下去，漏一个就又数不到
+  assert.equal((imp.match(/uName, props\.groups\)/g) || []).length, 3);
+  assert.match(app, /groups: groups,\s+\/\/ 群聊也是素材/);
+});
+
+test("素材不够时要报出实际条数，别让人猜", () => {
+  assert.match(imp, /只找到 " \+ rows\.length \+ " 条你俩的往来（单聊\+单人线下\+互通群）/);
+  assert.doesNotMatch(imp, /几乎没有来往，写不出印象"\); return false/, "旧的含糊文案已经换掉");
+});
+
+test("取素材走 loadJSON——它会先读 IDB 镜像，聊天记录可能不在 localStorage 里", () => {
+  const seg = imp.slice(imp.indexOf("function monthMaterial"), imp.indexOf("// 他自己说过的话"));
+  assert.match(seg, /typeof loadJSON === "function" \? \(loadJSON\(k, \[\]\) \|\| \[\]\)/);
+  assert.match(seg, /先读 IDB 镜像/);
+  // x_chat / x_gchat 都在 engine 的 IDB 文本键前缀里，裸读 localStorage 会漏
+  const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
+  assert.match(engine, /IDB_TEXT_PREFIXES = \[[^\]]*"x_chat:"/);
+  assert.match(engine, /IDB_TEXT_PREFIXES = \[[^\]]*"x_gchat:"/);
 });
