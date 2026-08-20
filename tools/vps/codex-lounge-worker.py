@@ -99,7 +99,9 @@ def invoke(letter: str, paths: dict[str, Path], stem: str) -> str:
     answer_tmp = paths["processing"] / f".{stem}.answer.tmp"
 
     common = ["--json", "--output-last-message", str(answer_tmp),
-              "--skip-git-repo-check", "--ignore-user-config"]
+              "--skip-git-repo-check", "--ignore-user-config",
+              "--model", "gpt-5.6-sol",
+              "-c", 'model_reasoning_effort="low"']
     if first:
         command = [CODEX, "exec", "--sandbox", "read-only", *common, "-"]
     else:
