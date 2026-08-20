@@ -23,11 +23,18 @@
     const [y, m] = String(k).split("-").map(Number);
     return { start: new Date(y, m - 1, 1).getTime(), end: new Date(y, m, 1).getTime() - 1 };
   };
-  const prevMonths = n => {
-    const out = [], now = new Date();
-    for (let i = 0; i < n; i++) out.push(monthKeyOf(new Date(now.getFullYear(), now.getMonth() - i, 1).getTime()));
+  // 可写的月份 = 【已经过完的月】。本月还在发生，写不出"这个月你是什么样"——
+  // 和周刊同一条规矩：报道窗口必须已经关闭（她 2026-08-20 指出）。
+  // 所以 i 从 1 起：最近可写的是上个月，本月要等下月 1 号 0 点。
+  const prevMonths = (n, now) => {
+    const out = [], d = now ? new Date(now) : new Date();
+    for (let i = 1; i <= n; i++) out.push(monthKeyOf(new Date(d.getFullYear(), d.getMonth() - i, 1).getTime()));
     return out;
   };
+  const latestWritable = now => prevMonths(1, now)[0];
+  const isWritable = (k, now) => String(k) <= String(latestWritable(now));
+  // 下一次开写的时刻 = 下个月 1 号 0 点
+  const nextOpenAt = now => { const d = now ? new Date(now) : new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); };
 
   // ---- 当月素材：单聊 + 单人线下 + 互通群里他说的话 ----
   function monthMaterial(charId, charName, monthKey, uName) {
@@ -38,12 +45,15 @@
       if (!m || m.recalled || m.role === "system" || m.kind === "ooc" || m.kind === "silence") return "";
       return String(m.content || "").replace(/\s+/g, " ").trim();
     };
-    (JSON.parse(localStorage.getItem("x_chat:" + charId) || "[]") || []).forEach(m => {
+    // 用 loadJSON（自带 try/catch）：以前是裸 JSON.parse，任何一条记录坏掉就整个函数抛，
+    // 而补齐外面没有 catch —— 表现就是"点了补齐没反应"（她 2026-08-20 报）。
+    const grab = k => { try { return typeof loadJSON === "function" ? (loadJSON(k, []) || []) : (JSON.parse(localStorage.getItem(k) || "[]") || []); } catch (e) { return []; } };
+    (grab("x_chat:" + charId)).forEach(m => {
       if (!inWin(m.ts)) return;
       const t = clean(m); if (!t) return;
       rows.push({ ts: m.ts, who: m.role === "user" ? uName : charName, text: t });
     });
-    (JSON.parse(localStorage.getItem("x_offline:" + charId) || "[]") || []).forEach(s => ((s && s.msgs) || []).forEach(m => {
+    (grab("x_offline:" + charId)).forEach(s => ((s && s.msgs) || []).forEach(m => {
       if (!inWin(m.ts)) return;
       const t = clean(m); if (!t) return;
       rows.push({ ts: m.ts, who: m.role === "user" ? uName : m.role === "narration" ? "【场景】" : charName, text: t });
@@ -107,7 +117,7 @@
     return typeof imgToVault === "function" ? await imgToVault(durl) : durl;
   }
 
-  window.Impression = { load, save, monthKeyOf, monthLabel, monthRange, prevMonths, monthMaterial, genText, genArt, uid };
+  window.Impression = { load, save, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, monthMaterial, genText, genArt, uid };
 })();
 
 // ============================================================
@@ -162,6 +172,7 @@
       const char = (props.characters || []).find(c => c.id === charId);
       if (!char) return;
       if (!props.active) return props.toast("请先配置线下 API");
+      if (!M.isWritable(monthKey)) { props.toast(M.monthLabel(monthKey) + " 还没过完，等下个月 1 号 0 点再写"); return false; }
       const rows = M.monthMaterial(charId, char.name, monthKey, uName);
       if (rows.length < 6) { if (!(opts && opts.quiet)) props.toast(M.monthLabel(monthKey) + " 几乎没有来往，写不出印象"); return false; }
       setBusy(charId + monthKey);
@@ -190,10 +201,21 @@
     // 补齐：最近 12 个月里有素材、却还没写过的，一月一月补（失败即停，已写好的都留着）
     async function backfill(charId) {
       const char = (props.characters || []).find(c => c.id === charId); if (!char) return;
-      const have = new Set((book[charId] || []).map(x => x.monthKey));
-      const want = M.prevMonths(12).filter(k => !have.has(k))
-        .filter(k => M.monthMaterial(charId, char.name, k, uName).length >= 6);
-      if (!want.length) return props.toast("最近一年没有漏掉的");
+      if (busy) return props.toast("正在写，别急");
+      if (!props.active) return props.toast("请先配置线下 API");
+      let want = [];
+      // 整段包起来：以前任何一步抛出去，外面没人接，表现就是"点了没反应"
+      try {
+        const have = new Set((book[charId] || []).map(x => x.monthKey));
+        const all = M.prevMonths(12);                       // 已经过完的 12 个月
+        const missing = all.filter(k => !have.has(k));
+        want = missing.filter(k => M.monthMaterial(charId, char.name, k, uName).length >= 6);
+        if (!want.length) {
+          // 分清三种"没得补"，别一律一句话打发
+          return props.toast(!missing.length ? "最近一年每个月都写过了"
+            : "漏掉的那 " + missing.length + " 个月几乎没有来往，写不出印象");
+        }
+      } catch (e) { return props.toast("翻旧账的时候出错了：" + (e.message || "未知")); }
       if (!confirm("补齐 " + want.length + " 个月？会一个月一个月写，中途失败前面的都保留。")) return;
       want.reverse();
       let done = 0;
@@ -237,15 +259,19 @@
     if (curChar) {
       const c = (props.characters || []).find(x => x.id === curChar) || {};
       const mine = listOf(curChar);
-      const thisMonth = M.monthKeyOf(Date.now());
-      const hasThis = mine.some(x => x.monthKey === thisMonth);
+      // 能写的是【上个月】：本月还在过，写不出"这个月你是什么样"
+      const openMonth = M.latestWritable();
+      const hasThis = mine.some(x => x.monthKey === openMonth);
+      const openAt = new Date(M.nextOpenAt());
       return h("div", { style: S.wrap },
         header((c.name || "?") + " 眼里的 " + uName,
           h("button", { onClick: () => backfill(curChar), disabled: !!busy, style: S.btn(false) }, "补齐")),
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 34px" } },
-          h("button", { onClick: () => make(curChar, thisMonth), disabled: !!busy,
-            style: { width: "100%", padding: "12px 0", borderRadius: 14, border: "1px dashed " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 13, marginBottom: 14 } },
-            busy ? "在写…" : (hasThis ? "重写本月印象" : "写本月的印象")),
+          h("button", { onClick: () => make(curChar, openMonth), disabled: !!busy,
+            style: { width: "100%", padding: "12px 0", borderRadius: 14, border: "1px dashed " + t.line, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 13, marginBottom: 4 } },
+            busy ? "在写…" : (hasThis ? "重写 " + M.monthLabel(openMonth) : "写 " + M.monthLabel(openMonth) + "的印象")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", marginBottom: 14, lineHeight: 1.7 } },
+            "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。"),
           mine.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
             mine.map(e => h("div", { key: e.id, onClick: () => setCardId(e.id), style: { width: "calc((100% - 10px) / 2)" } },
               h("div", { style: { width: "100%", aspectRatio: "3 / 4", borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },

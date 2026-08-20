@@ -64,8 +64,8 @@ test("图出不来不算失败：字是主体，剪影可以之后补", () => {
 
 test("补齐：只补有素材的月份，一月一月来，失败即停", () => {
   const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
-  assert.match(seg, /M\.prevMonths\(12\)\.filter\(k => !have\.has\(k\)\)/, "已经有的不重写");
-  assert.match(seg, /\.length >= 6\)/, "没素材的月份跳过，不硬编");
+  assert.match(seg, /const missing = all\.filter\(k => !have\.has\(k\)\);/, "已经有的不重写");
+  assert.match(seg, /M\.monthMaterial\(charId, char\.name, k, uName\)\.length >= 6\)/, "没素材的月份跳过，不硬编");
   assert.match(seg, /if \(!ok\) \{ props\.toast\("补到 " \+ M\.monthLabel\(k\) \+ " 时停下了/, "失败即停，前面的都保留");
   assert.match(seg, /want\.reverse\(\)/, "从最早的一个月往回补，时间顺序才对");
 });
@@ -99,4 +99,50 @@ test("用到的每个外部名字都得真有顶层定义，不能想当然", ()
   assert.ok(!topLevel.has("imgSrc"), "imgSrc 至今仍不是全局的（theater 也是自己声明）");
   assert.match(imp, /const imgSrc = ref => \(typeof resolveImg === "function" \? resolveImg\(ref\) : ref\);/,
     "本模块必须自带 imgSrc，不能指望它是全局的");
+});
+
+// v54.04：① 点补齐没反应 ② 本月不该能写——要跟周刊一样，等这个月过完
+test("只有【已经过完的月】才能写，本月要等下月 1 号 0 点", () => {
+  const m = new Function(`
+    const monthKeyOf = ts => { const d = new Date(ts); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+    const prevMonths = (n, now) => { const out = [], d = now ? new Date(now) : new Date();
+      for (let i = 1; i <= n; i++) out.push(monthKeyOf(new Date(d.getFullYear(), d.getMonth() - i, 1).getTime())); return out; };
+    const latestWritable = now => prevMonths(1, now)[0];
+    const isWritable = (k, now) => String(k) <= String(latestWritable(now));
+    const nextOpenAt = now => { const d = now ? new Date(now) : new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); };
+    return { prevMonths, latestWritable, isWritable, nextOpenAt };`)();
+
+  const 八月二十 = new Date(2026, 7, 20).getTime();
+  assert.equal(m.latestWritable(八月二十), "2026-07", "8/20 能写的是 7 月");
+  assert.equal(m.isWritable("2026-08", 八月二十), false, "本月不许写");
+  assert.equal(m.isWritable("2026-07", 八月二十), true);
+  assert.deepEqual(m.prevMonths(3, 八月二十), ["2026-07", "2026-06", "2026-05"], "补齐的候选里不许有本月");
+
+  // 边界：9/1 0 点整，8 月就该开了
+  const 九月一日零点 = new Date(2026, 8, 1, 0, 0, 0).getTime();
+  assert.equal(m.isWritable("2026-08", 九月一日零点), true, "跨过 0 点上个月立刻可写");
+  assert.equal(new Date(m.nextOpenAt(八月二十)).getTime(), 九月一日零点, "下次开写＝下月 1 号 0 点");
+  // 跨年
+  const 十二月十五 = new Date(2026, 11, 15).getTime();
+  assert.equal(m.latestWritable(十二月十五), "2026-11");
+  assert.equal(m.latestWritable(new Date(2027, 0, 3).getTime()), "2026-12", "1 月能写去年 12 月");
+
+  // 源码里确实拦住了，而且 UI 说得清
+  assert.match(imp, /if \(!M\.isWritable\(monthKey\)\) \{ props\.toast\(M\.monthLabel\(monthKey\) \+ " 还没过完/);
+  assert.match(imp, /const openMonth = M\.latestWritable\(\);/);
+  assert.match(imp, /本月还在过，写不出这个月你是什么样。/);
+});
+
+test("补齐必须永远给回音，不许静默", () => {
+  const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
+  // 裸 JSON.parse 抛出去外面没人接 = 点了没反应，这次整段包起来
+  assert.match(seg, /\} catch \(e\) \{ return props\.toast\("翻旧账的时候出错了：/);
+  assert.match(seg, /if \(busy\) return props\.toast\("正在写，别急"\)/);
+  assert.match(seg, /if \(!props\.active\) return props\.toast\("请先配置线下 API"\)/);
+  // 三种"没得补"要分清，别一律一句话
+  assert.match(seg, /最近一年每个月都写过了/);
+  assert.match(seg, /几乎没有来往，写不出印象/);
+  // 取素材本身也要带兜底
+  assert.match(imp, /const grab = k => \{ try \{/);
+  assert.doesNotMatch(imp, /JSON\.parse\(localStorage\.getItem\("x_chat/, "不许再有裸 JSON.parse");
 });
