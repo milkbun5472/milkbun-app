@@ -36,20 +36,24 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
     cfg.websiteDataStore = .default()   // localStorage/IndexedDB 持久化,和 Safari 分开的独立小家
     if #available(iOS 16.4, *) { cfg.preferences.isElementFullscreenEnabled = true }
     webView = WKWebView(frame: .zero, configuration: cfg)
+    webView.scrollView.contentInsetAdjustmentBehavior = .never
+    // 全面屏铺满,env(safe-area-inset-*)在壳里本来就活;真凶是站内顶部垫片只认 standalone(书签)模式,
+    // 这里把 navigator.standalone 报成 true,站就按 PWA 同一套排版走——壳与书签像素级一致(2026-08-20 三堂会审定案)
+    let fakeStandalone = WKUserScript(source: "Object.defineProperty(navigator,'standalone',{get:function(){return true}});",
+                                      injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    webView.configuration.userContentController.addUserScript(fakeStandalone)
     webView.navigationDelegate = self
     webView.uiDelegate = self
     view.backgroundColor = UIColor(red: 0.925, green: 0.910, blue: 0.882, alpha: 1) // 站内米白,刘海区同色补齐
-    webView.scrollView.contentInsetAdjustmentBehavior = .never // 站内自己处理安全区
     webView.scrollView.bounces = false
     webView.allowsBackForwardNavigationGestures = true
     if #available(iOS 16.4, *) { webView.isInspectable = true } // 连 Mac Safari 可调试
     view.addSubview(webView)
     webView.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-      // 顶部让出刘海/状态栏:站是按 Safari PWA 的安全区排的,壳里没人替它挡,得壳自己让(2026-08-20 她真机抓的位移)
-      webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-      // 底部同理:让出 Home 小白条,壳里 env(safe-area-inset-bottom)=0,站按平底排版正好齐
-      webView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
+      webView.topAnchor.constraint(equalTo: view.topAnchor),
+      // 底部铺满到物理屏底:站内 dock 自带留白,壳再让就成双重垫底(2026-08-20 她第二次抓包)
+      webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
       webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
     ])
