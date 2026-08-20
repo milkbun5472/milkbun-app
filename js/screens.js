@@ -3218,14 +3218,95 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 底部导航
   const navBtn = (k, label, iconEl) => h("button", { onClick: () => setNav(k), className: "flex-1 flex flex-col items-center gap-1 active:opacity-70 py-2", style: { color: nav === k ? t.ink : t.fog } }, iconEl, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5 } }, label));
 
+  // ============ 云村 tab（仿网易云 v54.12）：账号 + 每日推荐 + 我的歌单，全部真数据 ============
+  // 只读镜像：日推/歌单从她账号实时拉，点歌走现有 onPlayResult 管线；红心(/like)是唯一写回。
+  const nj = u => fetch(apiBase + u + (u.includes("?") ? "&" : "?") + "cookie=" + encodeURIComponent(cookie || "") + "&timestamp=" + Date.now()).then(r => r.json());
+  const toRes = s => ({ id: s.id, name: s.name, artist: ((s.ar || s.artists || []).map(a => a.name).filter(Boolean).join(" / ")), cover: ((s.al || s.album || {}).picUrl || null) });
+  const [cv, setCv] = useState({ me: null, daily: null, pls: null, open: null, openSongs: null, likeIds: null, busy: false });
+  useEffect(() => {
+    if (nav !== "cloud" || !apiBase || !cookie || cv.me) return;
+    (async () => {
+      setCv(p => ({ ...p, busy: true }));
+      try {
+        const acc = await nj("/user/account");
+        const me = acc && acc.profile ? { uid: acc.profile.userId, name: acc.profile.nickname, avatar: acc.profile.avatarUrl } : null;
+        const [dl, pl, lk] = await Promise.all([
+          nj("/recommend/songs").catch(() => null),
+          me ? nj("/user/playlist?uid=" + me.uid + "&limit=30").catch(() => null) : null,
+          me ? nj("/likelist?uid=" + me.uid).catch(() => null) : null
+        ]);
+        setCv(p => ({ ...p, busy: false, me: me,
+          daily: (dl && dl.data && dl.data.dailySongs || []).map(toRes),
+          pls: (pl && pl.playlist || []).map(x => ({ id: x.id, name: x.name, count: x.trackCount, cover: x.coverImgUrl, mine: !!(me && x.userId === me.uid) })),
+          likeIds: new Set(((lk && lk.ids) || []).map(String)) }));
+      } catch (e) { setCv(p => ({ ...p, busy: false })); toast("云村拉不动：" + (e.message || e)); }
+    })();
+  }, [nav, apiBase, cookie]);
+  const openCloudPl = async pl => {
+    setCv(p => ({ ...p, open: pl, openSongs: null }));
+    try {
+      const d = await nj("/playlist/track/all?id=" + pl.id + "&limit=100");
+      setCv(p => (p.open && p.open.id === pl.id) ? { ...p, openSongs: (d && d.songs || []).map(toRes) } : p);
+    } catch (e) { toast("歌单拉不动"); }
+  };
+  const likeSong = async s => {
+    const liked = cv.likeIds && cv.likeIds.has(String(s.id));
+    try {
+      await nj("/like?id=" + s.id + "&like=" + (!liked));
+      setCv(p => { const ids = new Set(p.likeIds || []); liked ? ids.delete(String(s.id)) : ids.add(String(s.id)); return { ...p, likeIds: ids }; });
+      toast(liked ? "已取消红心（同步到网易云）" : "❤ 已红心（同步到网易云）");
+    } catch (e) { toast("红心没同步上"); }
+  };
+  const cloudRow = (s, i, list) => h("div", { key: s.id, className: "flex items-center gap-2 py-2", style: { borderBottom: "1px solid " + t.line } },
+    h("button", { onClick: () => onPlayResult(s), className: "flex items-center gap-2.5 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
+      h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: s.cover ? "center/cover no-repeat url(" + s.cover + "?param=80y80)" : t.bg2 } }),
+      h("div", { className: "min-w-0" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.artist || "网易云"))),
+    h("button", { onClick: () => likeSong(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 16, color: (cv.likeIds && cv.likeIds.has(String(s.id))) ? "#d0503e" : t.fog } }, (cv.likeIds && cv.likeIds.has(String(s.id))) ? "♥" : "♡"),
+    h("button", { onClick: () => onAddNeteaseResult(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 18, color: t.fog }, title: "收进咱家歌库" }, "＋"),
+    h("button", { onClick: () => onPlayResult(s), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 28, height: 28, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 13)));
+  const cloudTab = h("div", { className: "px-4 py-3" },
+    cv.open
+      ? h("div", null,
+          h("button", { onClick: () => setCv(p => ({ ...p, open: null, openSongs: null })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 8 } }, "‹ 云村"),
+          h("div", { className: "flex items-center gap-3", style: { marginBottom: 10 } },
+            h("div", { style: { width: 54, height: 54, borderRadius: 10, background: cv.open.cover ? "center/cover no-repeat url(" + cv.open.cover + "?param=120y120)" : t.bg2 } }),
+            h("div", null,
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cv.open.name),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, cv.open.count + " 首")),
+            (cv.openSongs && cv.openSongs.length) ? h("button", { onClick: () => { cv.openSongs.forEach(onAddNeteaseResult); onPlayResult(cv.openSongs[0]); }, className: "ml-auto shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 16)) : null),
+          cv.openSongs ? cv.openSongs.map(cloudRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "拉歌单中…"))
+      : h("div", null,
+          cv.me ? h("div", { className: "flex items-center gap-3", style: { marginBottom: 14 } },
+            h("div", { style: { width: 44, height: 44, borderRadius: 999, background: cv.me.avatar ? "center/cover no-repeat url(" + cv.me.avatar + "?param=100y100)" : t.bg2 } }),
+            h("div", null,
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, cv.me.name),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "网易云账号已连 · 数据实时"))) : (cv.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0" } }, "连你的网易云账号中…") : null),
+          (cv.daily && cv.daily.length) ? h("div", { style: { marginBottom: 16 } },
+            h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "每日推荐"),
+              h("button", { onClick: () => { cv.daily.forEach(onAddNeteaseResult); onPlayResult(cv.daily[0]); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "▶ 播放全部")),
+            cv.daily.slice(0, 30).map(cloudRow)) : null,
+          (cv.pls && cv.pls.length) ? h("div", null,
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "我的歌单"),
+            cv.pls.map(pl => h("button", { key: pl.id, onClick: () => openCloudPl(pl), className: "w-full flex items-center gap-3 py-2 active:opacity-70", style: { borderBottom: "1px solid " + t.line, textAlign: "left" } },
+              h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=100y100)" : t.bg2 } }),
+              h("div", { className: "min-w-0 flex-1" },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首" + (pl.mine ? "" : " · 收藏"))),
+              h("span", { style: { color: t.fog, fontSize: 16 } }, "›")))) : null,
+          (!cv.busy && cv.me && !(cv.daily && cv.daily.length) && !(cv.pls && cv.pls.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "账号连上了，但日推和歌单都没拉到——过几秒切出去再进来试试") : null));
+
   return h("div", { className: "h-full flex flex-col relative", style: { background: t.bg } },
     h(Head, { zh: "一起听", en: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) : "Listen", onBack: () => { if (openPl) setOpenPl(null); else onBack(); } }),
-    h("div", { className: "flex-1 overflow-y-auto" }, nav === "play" ? playTab : nav === "home" ? homeTab : mineTab),
+    h("div", { className: "flex-1 overflow-y-auto" }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
     pickerOverlay,
     // 底部三 tab：首页 / 播放 / 我的
     h("div", { className: "shrink-0 flex items-stretch", style: { borderTop: "1px solid " + t.line, background: t.bg } },
       navBtn("home", "首页", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 11l8-6 8 6M6 10v9h12v-9" }))),
       navBtn("play", "播放", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "play" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 12, r: 8 }), h("path", { d: "M10 9l5 3-5 3z", fill: nav === "play" ? t.ink : t.fog }))),
+      (apiBase && cookie) ? navBtn("cloud", "云村", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
       navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" })))),
     h("input", { ref: audioFileRef, type: "file", accept: "audio/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) { setLocalFile(f); setAddTab("local"); setNav("home"); } e.target.value = ""; }, style: { display: "none" } }),
     h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f && now) onSetCover(now.id, f); e.target.value = ""; }, style: { display: "none" } }));
