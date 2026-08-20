@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v53.84";
+const APP_VERSION = "v53.85";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5335,7 +5335,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 合照只在【用户传了参考照 且 该成员也传了参考照】时才开放——两张脸都拿真照片喂，绝不一张真一张编
       const gDuoMembers = (profile && profile.refPhoto) ? gSelfieMembers.filter(c => c.refPhoto) : [];
       const gUName = (profile && profile.name) || "用户";
-      const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"self｜other" + (gDuoMembers.length ? "｜duo" : "") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + "一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。" : "";
+      // 合照要几张脸就得有几张参考照；凑不够两个人就别把 group 这个选项给模型，免得它开空头支票
+      const gGroupShotOk = members.filter(c => c && c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2
+        && members.filter(c => c && c.refPhoto).length >= 1;
+      const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"self｜other" + (gDuoMembers.length ? "｜duo" : "") + (gGroupShotOk ? "｜group" : "") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + (gGroupShotOk ? "**group**=【多人合照】画面里是在场几个人一起拍的合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；一个人在场时不许用。" : "") + "一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。" : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
@@ -5460,7 +5463,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           let gPhotoKind = null, gPhotoScene = null;
           if (item.photo && typeof item.photo === "object") {
             gPhotoScene = String(item.photo.scene || item.photo.desc || "").trim();
-            gPhotoKind = ["self", "other", "duo"].includes(String(item.photo.kind || "").toLowerCase()) ? String(item.photo.kind).toLowerCase() : "self";
+            gPhotoKind = ["self", "other", "duo", "group"].includes(String(item.photo.kind || "").toLowerCase()) ? String(item.photo.kind).toLowerCase() : "self";
           } else if (item.selfie && String(item.selfie).toLowerCase() !== "null") {
             gPhotoScene = String(item.selfie).trim(); gPhotoKind = "self";
           }
@@ -5468,6 +5471,22 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           if (photoCooldownState(gchat, spk.id).cooling) { gPhotoKind = null; gPhotoScene = null; }
           // 合照必须两张参考照都在（用户 + 该成员），否则降级为「别人拍的单人照」
           if (gPhotoKind === "duo" && !(spk.refPhoto && profile && profile.refPhoto)) gPhotoKind = "other";
+          // 群合照（v53.85）：点名单＝在场【有参考照】的成员 + 用户，拍照的那位排第一。
+          // 顺序就是参考图顺序，两边必须一一对齐——错位了脸就串（duo 当初的老毛病）。
+          // 上限 4 人：再多脸就开始糊，也更容易被上游审核拦。
+          let gCast = null;
+          if (gPhotoKind === "group") {
+            const withRef = [spk].concat(members.filter(c => c.id !== spk.id))
+              .filter(c => c && c.refPhoto);
+            const roster = withRef.slice(0, profile && profile.refPhoto ? 3 : 4).map(c => ({
+              id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto
+            }));
+            if (profile && profile.refPhoto) roster.push({
+              id: "__me", name: (profile.name || "我"), appearance: profile.appearance, refPhoto: profile.refPhoto
+            });
+            // 凑不齐两个人就不是合照，退回该成员自己的单人照
+            if (roster.length >= 2) gCast = roster; else gPhotoKind = "other";
+          }
           if (gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady() && (spk.appearance || spk.refPhoto)) {
             const gsid = "gsf_" + Date.now() + "_" + i;
             await new Promise(r => setTimeout(r, 420));
@@ -5476,8 +5495,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
               try {
                 const st = states[spk.id] || {};
                 const me = { name: (profile && profile.name) || "对方", appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto };
-                const prompt = buildPhotoPrompt(spk, gPhotoScene, st, { kind: gPhotoKind, me });
-                const refs = gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean) : [spk.refPhoto].filter(Boolean);
+                const prompt = buildPhotoPrompt(spk, gPhotoScene, st, gCast ? { kind: "duo", me, cast: gCast } : { kind: gPhotoKind, me });
+                const refs = gCast ? gCast.map(x => x.refPhoto)
+                  : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
+                  : [spk.refPhoto].filter(Boolean);
                 const out = await generateSelfieImage(prompt, refs.length ? refs : null);
                 if (out.blob) {
                   const key = "img_" + spk.id + "_" + gsid;

@@ -1736,6 +1736,10 @@ async function idbImgEntries() { const db = await idbImgOpen(); return new Promi
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   opts = opts || {};
   const kind = ["self", "other", "duo"].includes(opts.kind) ? opts.kind : "self";
+  // 合影点名单（v53.85）：详见下面的多人分支。必须在这里就声明——底下有好几处措辞要用它判断，
+  // 声明写在使用点后面会直接 TDZ 崩掉（小剧场那次 prevPhoto 就是这么炸的）。
+  const cast = Array.isArray(opts.cast) ? opts.cast.filter(x => x && String(x.name || "").trim()) : [];
+  const multi = cast.length >= 2;
   const me = opts.me || null;
   const uName = (me && me.name) || "对方";
   const cName = char.name || "TA";
@@ -1771,11 +1775,37 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   parts.push("【参考照与角色设定同时锁定】参考照用于固定脸、五官、发型和人物身份" + (photoStyle === "reference" ? "，并锁定参考图的视觉媒介与画风" : "") + "；角色档案与人设用于固定年龄、性别表达、种族、体型、时代和服装。不得只参考脸而忽略文字设定，也不得让参考照中冲突的身体或服装覆盖角色设定。场景和姿势可以变化，人物身份事实绝不能变化。");
   if (personaVisualSource) parts.push("【角色完整人设中的视觉事实】以下人设不是气氛建议；凡涉及年龄、性别、种族、身体特征、时代与衣着，均为必须遵守的 canon：" + personaVisualSource + "。");
   const accessories = String(char.photoAccessories || "").trim();
-  if (accessories) parts.push("【随身不摘的东西·每张都要有】" + (kind === "duo" ? "「" + cName + "」" : "人物") + "身上始终带着：" + accessories + "。它们与换不换衣服无关,不因场景、季节或服装变化而消失或改动;戴的位置、数量、款式每张保持一致。");
+  if (accessories) parts.push("【随身不摘的东西·每张都要有】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "身上始终带着：" + accessories + "。它们与换不换衣服无关,不因场景、季节或服装变化而消失或改动;戴的位置、数量、款式每张保持一致。");
   if (visualCanon) parts.push("【最高优先级·身份锁】" + visualCanon + "。年龄、性别、种族、体型与身体特征不得擅自补全、成熟化、女性化、男性化或随机改变。");
   if (isMinor) parts.push("【未成年人安全与解剖硬锁】这是儿童／未成年角色：必须呈现明确、自然、符合设定年龄的儿童身体比例和第二性征；穿着完整、姿态与镜头完全非性化，禁止成人化、性感化、胸部曲线、乳沟或夸张身体特征。" + (isBoy ? "该角色是男孩／男童：胸廓必须是自然平坦的男童胸廓，绝对不能生成女性乳房或胸部隆起。" : "") + "即使参考图或场景有歧义，也以儿童身份锁为准。");
   // —— 主体人物 ——
-  if (kind === "duo") {
+  // 合影点名单（v53.85）：opts.cast = [{name, appearance, outfit}]，顺序【必须】等于参考图顺序。
+  // 给它就走多人分支，人数不写死——群合照是「在场角色 + 你」，以后「看看你俩合照」只是换一份名单，
+  // 生图这层一个字都不用再改。duo 是两人的老路径，没给 cast 时原样保留（单聊/小剧场都还走它）。
+  if (multi) {
+    const 序 = ["第一张", "第二张", "第三张", "第四张", "第五张", "第六张"];
+    const names = cast.map(x => "「" + String(x.name).trim() + "」");
+    parts.push("照片里【有 " + cast.length + " 个人同框】：" + names.join("、") + (opts.cinematic ? "。" : "，几个人关系亲密、一起合影。"));
+    // 谁对应哪张参考图必须说死。两个人时模型猜也能猜对，但人一多、再叠上身份与场景描述，
+    // 它就会自己重新分配长相，出来几个陌生人（2026-08-18 duo 踩过一次，人多只会更糟）。
+    parts.push("【" + cast.length + " 张参考图的对应关系·最高优先级】" +
+      cast.map((x, i) => (序[i] || "第" + (i + 1) + "张") + "参考图是" + names[i] + "本人").join("；") +
+      "。必须严格按各自的参考图还原各自的五官、脸型、发色发型、瞳色、肤色与年龄感；每张脸只许对应自己那张参考图，" +
+      "绝不许互换、混合或平均化，也不许按下文的身份、种族或职业描述另造一张脸。");
+    cast.forEach((x, i) => {
+      const ap = String(x.appearance || "").trim();
+      if (ap) parts.push(names[i] + "的外貌（务必贴合）：" + ap + "。");
+    });
+    cast.forEach((x, i) => {
+      const of = String(x.outfit || "").trim();
+      parts.push(of
+        ? "【" + names[i] + " 的固定服装锁】" + names[i] + "每张图都必须完整穿着：" + of + "。不得换装、不得照搬参考照里的衣服、不得按场景另搭一套。"
+        : names[i] + "的穿着：**别照搬 " + names[i] + " 参考照里的那身衣服**，按当前场景/天气/氛围自然搭配一套合适的衣着，只保留 TA 的长相五官。");
+    });
+    parts.push("【这 " + cast.length + " 个人的脸都要清楚完整地出现在画面里】，是 " + cast.length +
+      " 个长相各不相同的人，五官各自清晰可辨——别把谁和谁画成同一张脸、别漏掉任何一个人、" +
+      "也别凭空多出第 " + (cast.length + 1) + " 个人。人多时按合影的方式自然站位，别挤成一团糊脸。");
+  } else if (kind === "duo") {
     parts.push("照片里【有两个人同框】：一个是「" + cName + "」，另一个是「" + uName + "」" + (opts.cinematic ? "。" : "，两人关系亲密、一起合影。"));
     // 谁对应哪张参考图必须说死。聊天合照里模型猜也能猜对，但一旦叠上大段身份/场景描述
     // （小剧场的 if 线设定就是），它会自己重新分配长相，出来两个陌生人（2026-08-18 Lisa 报）。
@@ -1792,15 +1822,15 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     if (char.appearance && char.appearance.trim()) parts.push("外貌特征（务必贴合）：" + char.appearance.trim() + "。");
   }
   if (fixedOutfit) {
-    parts.push("【最高优先级·固定服装锁】" + (kind === "duo" ? "「" + cName + "」" : "人物") + "每张图都必须完整穿着：" + fixedOutfit + "。不得随机换装、现代化、简化成别的服饰，也不得用参考照里的衣服替换；只有用户修改此档案字段后才允许变化。");
+    parts.push("【最高优先级·固定服装锁】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "每张图都必须完整穿着：" + fixedOutfit + "。不得随机换装、现代化、简化成别的服饰，也不得用参考照里的衣服替换；只有用户修改此档案字段后才允许变化。");
   } else if (currentWearing) {
-    parts.push((kind === "duo" ? "「" + cName + "」此刻穿着：" : "此刻穿着：") + currentWearing + "。必须忠实照此生成，不得按场景随机另搭一套。");
+    parts.push((kind === "duo" || multi ? "「" + cName + "」此刻穿着：" : "此刻穿着：") + currentWearing + "。必须忠实照此生成，不得按场景随机另搭一套。");
   } else {
     parts.push("服装必须从上述外貌与人设的时代／职业／常穿服饰中忠实推导；若设定已有服装就原样遵守，禁止随机现代化。设定确实没有衣着信息时才允许按场景补全。");
   }
   if (wantsLightArmor) parts.push("【轻便骑士服的明确视觉定义】这里要的是纤薄、贴合身体原有轮廓、便于活动的轻型骑士装：以柔软织物、皮革、薄链甲或少量小型护片分层构成，窄肩线、自然胸廓、四肢轮廓清楚，整体重量感轻。只保留必要防护细节；绝对不要全覆盖重型板甲、巨型肩甲、桶状厚胸甲、夸张肌肉胸甲、厚重头盔或科幻动力装甲。『骑士』表示身份与时代设计，不表示重甲或壮硕体型。");
   if (sceneDesc && String(sceneDesc).trim()) parts.push("场景/正在做什么：" + String(sceneDesc).trim() + "。");
-  if (st && st.mood && kind !== "duo") parts.push("神情情绪：" + st.mood + "。");
+  if (st && st.mood && kind !== "duo" && !multi) parts.push("神情情绪：" + st.mood + "。");
   // —— 构图/视角，按类型分流 ——
   if (kind === "self") {
     parts.push("【第一人称自拍】手臂伸出去、前置摄像头拍的自拍构图（selfie）；TA 的脸清楚地对着镜头出现在画面里（正脸或半侧脸，五官清晰），画面里只有 TA 一个人。就算在描述某个场景，也要把 TA 本人带脸拍进去，不是纯风景照。");
@@ -1916,6 +1946,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const sets = [];
     if (opts && opts.contRef && refBlobs.length > 1) sets.push({ n: refBlobs.length, how: null });
     sets.push({ n: Math.min(refBlobs.length, opts && opts.contRef ? refBlobs.length - 1 : refBlobs.length), how: opts && opts.contRef ? "no-continuity" : null });
+    // 人多时别从 N 张一步掉到 1 张——那等于一次丢掉好几张脸。逐张往下退，能保住几个是几个。
+    for (let n = refBlobs.length - (opts && opts.contRef ? 2 : 1); n >= 2; n--) sets.push({ n: n, how: "fewer-refs-" + n });
     sets.push({ n: 1, how: "duo-single-ref" });
     for (const set of sets) {
       if (set.n < 1) continue;
