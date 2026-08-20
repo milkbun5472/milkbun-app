@@ -30,6 +30,7 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
     webView = WKWebView(frame: .zero, configuration: cfg)
     webView.navigationDelegate = self
     webView.uiDelegate = self
+    view.backgroundColor = UIColor(red: 0.925, green: 0.910, blue: 0.882, alpha: 1) // 站内米白,刘海区同色补齐
     webView.scrollView.contentInsetAdjustmentBehavior = .never // 站内自己处理安全区
     webView.scrollView.bounces = false
     webView.allowsBackForwardNavigationGestures = true
@@ -37,7 +38,8 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
     view.addSubview(webView)
     webView.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-      webView.topAnchor.constraint(equalTo: view.topAnchor),
+      // 顶部让出刘海/状态栏:站是按 Safari PWA 的安全区排的,壳里没人替它挡,得壳自己让(2026-08-20 她真机抓的位移)
+      webView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
       webView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
       webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
       webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),

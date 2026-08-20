@@ -250,19 +250,25 @@
       if (!client) throw new Error("云服务未就绪");
       localStorage.removeItem("memory_table_authority_v1"); // 登录可能换账号；新账号必须自己重新逐 ID 验收
       try { await vpsClient.auth.signOut(); } catch (e) {}
-      // 迁移期旧密码哈希无法从 Supabase 导出：先向旧 Auth 验证一次，再换成同 UUID 的 VPS session。
-      const { data: legacyData, error } = await legacyClient.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-      const migrated = await this.ensureVpsSession();
-      if (!migrated.ok) throw new Error("账号换证失败，请稍后重试；本机数据没有被改动");
-      // 用户亲自输过旧密码后，把同一密码写进新 Auth；以后旧云停服也能独立登录。
-      const updated = await vpsClient.auth.updateUser({ password });
-      if (updated.error) throw updated.error;
-      const current = await vpsClient.auth.getSession();
-      const data = { user: current.data && current.data.session && current.data.session.user, session: current.data && current.data.session };
+      // 已经迁移过的账号（包括新装原生壳）应直接登录 VPS。旧 Supabase 只给尚未迁移的账号兜底，
+      // 不能让一次性的换证服务变成每台新设备永远绕不开的登录前置。
+      let direct = await vpsClient.auth.signInWithPassword({ email, password });
+      let data = direct.data;
+      if (direct.error || !data || !data.session) {
+        // 迁移期旧密码哈希无法从 Supabase 导出：向旧 Auth 验证一次，再换成同 UUID 的 VPS session。
+        const legacy = await legacyClient.auth.signInWithPassword({ email, password });
+        if (legacy.error) throw direct.error || legacy.error;
+        const migrated = await this.ensureVpsSession();
+        if (!migrated.ok) throw new Error("账号换证失败，请稍后重试；本机数据没有被改动");
+        // 用户亲自输过旧密码后，把同一密码写进新 Auth；以后旧云停服也能独立登录。
+        const updated = await vpsClient.auth.updateUser({ password });
+        if (updated.error) throw updated.error;
+        const current = await vpsClient.auth.getSession();
+        data = { user: current.data && current.data.session && current.data.session.user, session: current.data && current.data.session };
+      }
+      if (data && data.user) {
+        localStorage.setItem(VPS_SHADOW_MARK, JSON.stringify({ ok: true, user_id: data.user.id, checked_at: new Date().toISOString(), authority: "vps", login: "direct_or_migrated" }));
+      }
       protectedSaveCache.clear();
       try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
       return data;

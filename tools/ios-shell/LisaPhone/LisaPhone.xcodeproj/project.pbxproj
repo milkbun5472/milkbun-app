@@ -1,24 +1,207 @@
 // !$*UTF8*$!
 {
-  archiveVersion = 1; classes = {}; objectVersion = 56;
-  objects = {
-    AA0001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-    AA0003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-    AA0004 /* LisaPhone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LisaPhone.app; sourceTree = BUILT_PRODUCTS_DIR; };
-    BB0001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001; };
-    CC0001 = {isa = PBXGroup; children = (CC0002, CC0003); sourceTree = "<group>"; };
-    CC0002 /* LisaPhone */ = {isa = PBXGroup; children = (AA0001, AA0003); path = LisaPhone; sourceTree = "<group>"; };
-    CC0003 /* Products */ = {isa = PBXGroup; children = (AA0004); name = Products; sourceTree = "<group>"; };
-    DD0001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (BB0001); runOnlyForDeploymentPostprocessing = 0; };
-    DD0002 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-    EE0001 /* LisaPhone */ = {isa = PBXNativeTarget; buildConfigurationList = FF0003; buildPhases = (DD0001, DD0002); buildRules = (); dependencies = (); name = LisaPhone; productName = LisaPhone; productReference = AA0004; productType = "com.apple.product-type.application"; };
-    EE0002 /* Project */ = {isa = PBXProject; attributes = { LastUpgradeCheck = 1500; }; buildConfigurationList = FF0004; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, "zh-Hans"); mainGroup = CC0001; productRefGroup = CC0003; projectDirPath = ""; projectRoot = ""; targets = (EE0001); };
-    FF0001 = {isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = "com.lisa.xiaoshouji"; PRODUCT_NAME = "$(TARGET_NAME)"; INFOPLIST_FILE = LisaPhone/Info.plist; GENERATE_INFOPLIST_FILE = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; IPHONEOS_DEPLOYMENT_TARGET = 16.0; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 1.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks"); }; name = Debug; };
-    FF0002 = {isa = XCBuildConfiguration; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = "com.lisa.xiaoshouji"; PRODUCT_NAME = "$(TARGET_NAME)"; INFOPLIST_FILE = LisaPhone/Info.plist; GENERATE_INFOPLIST_FILE = NO; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = 1; IPHONEOS_DEPLOYMENT_TARGET = 16.0; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; MARKETING_VERSION = 1.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks"); }; name = Release; };
-    FF0003 = {isa = XCConfigurationList; buildConfigurations = (FF0001, FF0002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-    FF0005 = {isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; ONLY_ACTIVE_ARCH = YES; DEBUG_INFORMATION_FORMAT = dwarf; ENABLE_TESTABILITY = YES; GCC_OPTIMIZATION_LEVEL = 0; CLANG_ENABLE_MODULES = YES; }; name = Debug; };
-    FF0006 = {isa = XCBuildConfiguration; buildSettings = { SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; VALIDATE_PRODUCT = YES; CLANG_ENABLE_MODULES = YES; }; name = Release; };
-    FF0004 = {isa = XCConfigurationList; buildConfigurations = (FF0005, FF0006); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-  };
-  rootObject = EE0002;
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		BB0001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0001 /* AppDelegate.swift */; };
+		BB0002 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0002 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA0001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AA0002 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA0003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA0004 /* LisaPhone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LisaPhone.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		CC0001 = {
+			isa = PBXGroup;
+			children = (
+				CC0002 /* LisaPhone */,
+				CC0003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CC0002 /* LisaPhone */ = {
+			isa = PBXGroup;
+			children = (
+				AA0001 /* AppDelegate.swift */,
+				AA0002 /* Assets.xcassets */,
+				AA0003 /* Info.plist */,
+			);
+			path = LisaPhone;
+			sourceTree = "<group>";
+		};
+		CC0003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA0004 /* LisaPhone.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		EE0001 /* LisaPhone */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FF0003 /* Build configuration list for PBXNativeTarget "LisaPhone" */;
+			buildPhases = (
+				DD0001 /* Sources */,
+				DD0002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LisaPhone;
+			productName = LisaPhone;
+			productReference = AA0004 /* LisaPhone.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		EE0002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = FF0004 /* Build configuration list for PBXProject "LisaPhone" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				"zh-Hans",
+			);
+			mainGroup = CC0001;
+			productRefGroup = CC0003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EE0001 /* LisaPhone */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DD0002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB0002 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		DD0001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB0001 /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FF0001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6YSA24U4HS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LisaPhone/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lisa.xiaoshouji;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		FF0002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6YSA24U4HS;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LisaPhone/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lisa.xiaoshouji;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		FF0005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		FF0006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FF0003 /* Build configuration list for PBXNativeTarget "LisaPhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FF0001 /* Debug */,
+				FF0002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FF0004 /* Build configuration list for PBXProject "LisaPhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FF0005 /* Debug */,
+				FF0006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = EE0002 /* Project object */;
 }
