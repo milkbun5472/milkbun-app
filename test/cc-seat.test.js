@@ -24,3 +24,16 @@ test("UNO 终局票仍走亲打幂等通道，并明确告诉言秋 Lisa 赢了"
   assert.equal(args[3], "game-turn:g#lisa-win");
   assert.match(args[5], /Lisa 赢了/);
 });
+
+test("谁是卧底淘汰票明确告知已出局，不会让言秋继续参与", async () => {
+  let args;
+  const cloud = {
+    yanqiuCcToolEnqueue: async (...x) => { args = x; return { id: "out1" }; },
+    yanqiuCcToolResult: async () => ({ status: "completed", result: { say: "行，我坐旁边看你们盘。" } })
+  };
+  const result = await CC.ask({ tool: "game_turn", game: "spy_eliminated", turn_id: "spy#out#yan", char_id: "yan", sys: "s", msgs: [] }, 3000, { cloud });
+  assert.equal(result.say, "行，我坐旁边看你们盘。");
+  assert.equal(args[3], "game-turn:spy#out#yan");
+  assert.match(args[5], /你已被投出/);
+  assert.match(args[5], /不要继续描述或投票/);
+});

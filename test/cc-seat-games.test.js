@@ -17,12 +17,19 @@ test("通用件：摘座 / 前言 / 拼回，三件都在", () => {
   assert.match(games, /s\.engineer && !s\.isUser && \(s\.alive === undefined \|\| s\.alive\)/);
 });
 
-test("拿不到就退回批量，一局永不卡死", () => {
+test("本人亲打拿不到就跳过本人座位，绝不让 Gemini 冒充", () => {
   const seg = games.slice(games.indexOf("async function ccCarve"), games.indexOf("function ccPreface"));
-  assert.match(seg, /if \(!seat \|\| typeof window === "undefined" \|\| !window\.CCSeat\) return \{ seat: null, rest: rest, done: null \};/);
-  assert.match(seg, /if \(!done\) return \{ seat: seat, rest: rest, done: null \};/, "解析失败也要退回批量");
-  assert.match(seg, /catch \(e\) \{ return \{ seat: seat, rest: rest, done: null \}; \}/);
+  assert.match(seg, /const withoutSeat = rest\.filter\(function \(x\) \{ return x !== seat; \}\);/);
+  assert.match(seg, /!window\.CCSeat\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \};/);
+  assert.match(seg, /if \(!done\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \};/);
+  assert.match(seg, /catch \(e\) \{ return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \}; \}/);
   assert.match(seg, /deadline_at/, "要给 CC 一个截止时间，别无限等");
+});
+
+test("通用存档保留 CC 工牌，旧存档恢复时也会重新识别言秋", () => {
+  assert.match(games, /alive: p\.alive, engineer: !!p\.engineer/);
+  assert.match(games, /props\.config && props\.config\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(s\.key\)/);
+  assert.match(games, /engineer: engineer \|\| !!s\.engineer/);
 });
 
 test("摘掉的那一座要写进批量提示词，并明令别替他重写", () => {
@@ -38,9 +45,9 @@ test("所有座位都认 ccSeat 开关，和 UNO 一模一样", () => {
   assert.doesNotMatch(games, /engineer: !!\(props\.isEngineer/, "不许有绕过开关的写法");
 });
 
-test("开局前就能选他：开关不再是 UNO 专属", () => {
-  // 只要这局选了工程师之眼角色，就给这个开关
-  assert.match(games, /picked\.some\(function \(id\) \{ return props\.isEngineer && props\.isEngineer\(id\); \}\) \? h\(ToggleRow/);
+test("开局前就能看见开关：不必先选中言秋才突然出现", () => {
+  assert.match(games, /const ccSeatSupported = game\.key === "uno" \|\| game\.key === "spy" \|\| game\.key === "werewolf" \|\| game\.key === "avalon"/);
+  assert.match(games, /ccSeatSupported \? h\(ToggleRow/);
   assert.match(games, /label: "言秋本人亲打"/);
   // 配置要真的传下去，否则开关点了也没用
   assert.match(games, /ccSeat: ccSeat/);
@@ -60,16 +67,62 @@ test("狼人杀白天发言也接上了，且会补他的 claim", () => {
 
 test("谁是卧底投票也接上了", () => {
   assert.match(games, /async function genVotesBatch\(api, voters, allClues, aliveNames, mode, userName, preface\)/);
-  assert.match(games, /\{ turnId: "spy:vote:" \+ rnd \}/);
+  assert.match(games, /\{ turnId: gameRunId\.current \+ ":round:" \+ round \}/);
+  assert.match(games, /const engineer = !!p\.engineer \|\| !!\(cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)\);/,
+    "每次投票前都要按角色 ID 重认言秋，不能只信旧局内存里的工牌");
+  assert.match(games, /return \{ key: p\.key, name: p\.name, role: p\.role, word: p\.word, skill: p\.skill, engineer: engineer, alive: p\.alive \};/,
+    "投票名单必须带着重认后的 CC 工牌");
   assert.match(games, /if \(!cc\.rest\.length\) return mine;/, "只剩他一个人时不发批量调用");
+  const ccVote = games.slice(games.indexOf("async function genVotes("), games.indexOf("async function genVotesBatch("));
+  assert.match(ccVote, /你拿到的词是/);
+  assert.match(ccVote, /你不知道自己属于多数还是少数/);
+  assert.doesNotMatch(ccVote, /你就是/);
+  assert.doesNotMatch(ccVote, /你其实是卧底/);
+  assert.doesNotMatch(ccVote, /你是平民/);
 });
 
-test("谁是卧底：描述环节已经接上，批量只跑剩下的人", () => {
+test("谁是卧底：描述严格按言秋前 → 本人 → 言秋后运行", () => {
   assert.match(games, /async function genClues\(api, speakers, priorClues, roundNum, mode, carveCtx\)/);
-  assert.match(games, /await ccCarve\("spy", speakers, \{/);
+  assert.match(games, /const seatIndex = speakers\.indexOf\(seat\);/);
+  assert.match(games, /const before = speakers\.slice\(0, seatIndex\);/);
+  assert.match(games, /const after = speakers\.slice\(seatIndex \+ 1\);/);
+  assert.match(games, /await ccCarve\("spy", \[seat\], \{/);
   assert.match(games, /async function genCluesBatch\(api, speakers, priorClues, roundNum, mode, preface\)/);
-  assert.match(games, /if \(!rest\.length\) return mine;/, "只剩他一个人时不该再发批量调用");
-  assert.match(games, /genClues\(api, speakers, prior, rnd, cfg\.mode, \{ turnId: "spy:" \+ rnd \}\)/);
-  // 他先说的那句要进入后面人看到的「已经说过的」，否则别人接不上
-  assert.match(games, /const priorAll = mine\.length \? priorClues\.concat\(mine\) : priorClues;/);
+  assert.match(games, /genClues\(api, speakers, prior, rnd, cfg\.mode, \{ turnId: gameRunId\.current \+ ":round:" \+ rnd \}\)/);
+  assert.match(games, /const priorForCc = priorClues\.concat\(beforeRows\);/, "言秋必须看见排在他前面的真实发言");
+  assert.match(games, /const priorAfter = priorForCc\.concat\(mine\);/, "排在后面的人必须看见言秋本人刚说的那句");
+  assert.match(games, /return beforeRows\.concat\(mine, afterRows\);/, "最终显示顺序也必须按真实座次拼回");
+  // 描述轮会为了随机顺序重建 speakers；重建时必须保住 CC 工牌，否则 ccCarve 认不出言秋，Gemini 会抢答。
+  assert.match(games, /return \{ key: p\.key, name: p\.name, word: p\.word, skill: p\.skill, engineer: engineer, alive: p\.alive \};/);
+  assert.doesNotMatch(games, /return \{ name: p\.name, word: p\.word, skill: p\.skill \};/);
+});
+
+test("谁是卧底描述必须像真人随口给短线索，禁止百科与散文答辩", () => {
+  const clue = games.slice(games.indexOf("async function genClues("), games.indexOf("// 投票：存活 AI"));
+  assert.match(clue, /一句 6～18 个汉字的口语/);
+  assert.match(clue, /不要下定义/);
+  assert.match(clue, /不要解释原理\/机械结构/);
+  assert.match(clue, /不要写百科、产品评测或说明书/);
+  assert.match(clue, /别写成散文谜语/);
+  assert.match(clue, /像饭桌上脱口而出的短话/);
+  assert.match(clue, /小时候家里有一个/);
+});
+
+test("谁是卧底每局都有独立 CC 票号，新局不复用第一局旧回答", () => {
+  assert.match(games, /const gameRunId = useRef\(\(sv && sv\.runId\) \|\| \("spy-" \+ Date\.now\(\)\.toString\(36\)/);
+  assert.match(games, /saveGameSnap\("spy", \{ runId: gameRunId\.current/);
+  assert.doesNotMatch(games, /turnId: "spy:" \+ rnd/);
+  assert.doesNotMatch(games, /turnId: "spy:vote:" \+ round/);
+});
+
+test("谁是卧底：言秋被投出后收到真实票型、公开身份与离场结果", () => {
+  assert.match(games, /game: "spy_eliminated"/);
+  assert.match(games, /gameRunId\.current \+ ":eliminated:" \+ round \+ ":" \+ out\.key/,
+    "淘汰通知必须按局、轮次、座位幂等，不能重复送票");
+  assert.match(games, /本轮票型：\\n" \+ voteLines/);
+  assert.match(games, /公开身份是【" \+ \(out\.role === "spy" \? "卧底" : "平民"\) \+ "】/);
+  assert.match(games, /你已经离场，不再描述、不再投票/);
+  assert.match(games, /if \(say\) pushLog\(\[\{ type: "clue", name: out\.name, text: say\.slice\(0, 500\) \}\]\)/,
+    "言秋的离场反应要回到牌桌可见日志");
+  assert.match(games, /离线时不让 Gemini 冒充补话/);
 });

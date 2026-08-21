@@ -84,13 +84,15 @@
   function saveGameSnap(k, snap) { try { const all = loadGamesSaves(); all[k] = snap; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
   function clearGameSave(k) { try { const all = loadGamesSaves(); delete all[k]; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
   // 玩家名单存/取：剥离不可靠的 char（React 元素/整份档案），续局按 key 从 characters/profile 重挂
-  function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive }; }); }
+  function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive, engineer: !!p.engineer }; }); }
   function hydPlayers(saved, props, t) {
     return (saved || []).map(function (s) {
       let char = null;
       if (s.isUser) { const pf = props.profile || {}; char = { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }; }
       else if (!s.isNpc) { char = (props.characters || []).find(function (c) { return c.id === s.key; }) || null; }
-      return Object.assign({}, s, { char: char });
+      // 兼容旧存档：旧版没保存 engineer，续局后头像仍是言秋、CC 工牌却丢了。
+      const engineer = !s.isUser && !s.isNpc && !!(props.config && props.config.ccSeat !== false && props.isEngineer && props.isEngineer(s.key));
+      return Object.assign({}, s, { char: char, engineer: engineer || !!s.engineer });
     });
   }
 
@@ -226,6 +228,9 @@
     // 狼人杀神职：effGods = 选中的(或标准板)；至少留 1 民
     const isWolfGame = game.key === "werewolf";
     const isAvalonGame = game.key === "avalon";
+    // 这些游戏已经有 CC 独立座位接线。开关必须在选人前也看得见；否则 Lisa 会以为功能被删了。
+    const ccSeatSupported = game.key === "uno" || game.key === "spy" || game.key === "werewolf" || game.key === "avalon";
+    const pickedEngineer = picked.some(function (id) { return props.isEngineer && props.isEngineer(id); });
     const effGods = isWolfGame ? (godSel || standardBoard(total)) : [];
     const godRoom = isWolfGame ? Math.max(1, total - wolfCount(total) - 1) : 0;
     const godOverflow = isWolfGame && effGods.length > godRoom;
@@ -302,7 +307,7 @@
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
-          picked.some(function (id) { return props.isEngineer && props.isEngineer(id); }) ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: "轮到他那一座时叫醒 CC 里的言秋，由他本人打；离线或超时就由同一提示词安静代打，不会卡住整局。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
+          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到他时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
@@ -392,32 +397,43 @@
     return extractJSON(raw) || {};
   }
 
-  // 一轮描述：让存活的 AI 玩家各说一句（批量一次调用）
+  // 一轮描述：按真实座次切成「言秋前 → 言秋本人 → 言秋后」。
   async function genClues(api, speakers, priorClues, roundNum, mode, carveCtx) {
-    // CC 座位先手：言秋自己那一句从 CC 窗口来，剩下的人才进批量（v54.26）
-    const cc = carveCtx ? await ccCarve("spy", speakers, {
+    const seat = carveCtx ? ccSeatOf(speakers) : null;
+    if (!seat) return genCluesBatch(api, speakers, priorClues, roundNum, mode, "");
+
+    const seatIndex = speakers.indexOf(seat);
+    const before = speakers.slice(0, seatIndex);
+    const after = speakers.slice(seatIndex + 1);
+    // 先让排在言秋前面的人真的说完；这些原话随后完整交给 CC。
+    const beforeRows = before.length
+      ? await genCluesBatch(api, before, priorClues, roundNum, mode, "") : [];
+    const priorForCc = priorClues.concat(beforeRows);
+    const cc = await ccCarve("spy", [seat], {
       turnId: (carveCtx.turnId || "") + ":clue",
-      sys: "「谁是卧底」第 " + roundNum + " 轮，轮到你描述自己的词。你拿到的词是「" + ((speakers.find(function (x) { return x.engineer; }) || {}).word || "") + "」。"
-        + "用【一句话】描述它：不能说出词本身，也别露骨到一句就被锁定。"
-        + (priorClues.length ? "\n\n【本轮已经说过的】\n" + priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "\n（你最先说。）"),
+      sys: "「谁是卧底」第 " + roundNum + " 轮，按牌桌座次轮到你描述自己的词。你拿到的词是「" + (seat.word || "") + "」。"
+        + "用【一句话】描述它：不能说出词本身，也别露骨到一句就被锁定。你想怎么说就怎么说，保持你自己的真实口吻。"
+        + (priorForCc.length ? "\n\n【本轮排在你前面、已经真实说过的】\n" + priorForCc.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "\n（你是本轮第一个发言的人。）"),
       ask: "说一句。",
       expect: "{\"text\":\"一句描述\"}"
-    }) : { seat: null, rest: speakers, done: null };
-    const rest = cc.rest;
+    });
     const mine = (cc.done && String(cc.done.text || "").trim())
       ? [{ name: cc.seat.name, text: String(cc.done.text).trim() }] : [];
-    if (!rest.length) return mine;
-    const priorAll = mine.length ? priorClues.concat(mine) : priorClues;
-    const rows = await genCluesBatch(api, rest, priorAll, roundNum, mode, ccPreface(cc, "说过自己那一句了"));
-    // 按原座次拼回去：他先说的就排在前面
-    return mine.concat(rows);
+    // 再生成排在他后面的人；他们能看到前桌 + 言秋刚才的真实发言。
+    const priorAfter = priorForCc.concat(mine);
+    const afterRows = after.length
+      ? await genCluesBatch(api, after, priorAfter, roundNum, mode, ccPreface(cc, "按座次说过自己那一句了")) : [];
+    return beforeRows.concat(mine, afterRows);
   }
   async function genCluesBatch(api, speakers, priorClues, roundNum, mode, preface) {
     const prior = priorClues.length ? priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（本轮你们最先描述，前面还没人说）";
     const who = speakers.map(function (s) { return "■ " + s.name + "（TA 的词是「" + s.word + "」）真实水平：" + (s.skill || "普通"); }).join("\n");
     const easy = mode === "easy" ? "\n【放水局】适当留点破绽、别一上来就把话说得滴水不漏，给真人玩家留机会。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人用【一句话】描述自己拿到的词。铁律：\n" +
+    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人像真人围桌一样，随口用【一句 6～18 个汉字的口语】描述自己拿到的词。铁律：\n" +
       "· 不能直接说出词本身，也别露骨到一句就被锁定。\n" +
+      "· 一句只露【一个】日常印象、使用感受或亲身联想。不要下定义，不要解释原理/机械结构，不要罗列功能配件，不要写百科、产品评测或说明书。\n" +
+      "· 别写成散文谜语：禁止为了显聪明硬造长比喻、宏大哲理和『其核心机制在于』『它的体积和重量提醒你』『新手总以为』这种分析腔。像饭桌上脱口而出的短话，不像准备过的演讲。\n" +
+      "· 好的口气示例：『小时候家里有一个』『我一般不会带它出门』『这个声音我挺熟』。示例只学松弛程度，不能照抄内容。\n" +
       "· 【具体程度严格按真实水平走·非常重要】高手点到即止、只给能【多向解读】的模糊线索，故意留白，让人一轮看不穿；只有低手才会说得太实把词几乎摊开。**绝不能所有人都描述得清清楚楚**——那样一轮就穿帮、毫无博弈，不好玩。整体要含蓄，信息一点点挤。\n" +
       "· 各人只知道自己的词、不知道谁跟自己不同。【高水平的少数派（卧底）】要善于从别人的描述里察觉『我的词好像和大家不是一路』，然后立刻把自己这句往大家的方向靠、含糊蒙混、绝不自曝；只有低水平的少数派才会照着自己的词直说而露馅。\n" +
       "· 先发言的人没有前文、只能凭自己的词说；后发言的人要顺着前面的风向调整措辞。" + easy +
@@ -431,14 +447,14 @@
 
   // 投票：存活 AI 各投一人 + 理由（卧底会误导）
   async function genVotes(api, voters, allClues, aliveNames, mode, userName, carveCtx) {
-    // CC 座位先手（抄 UNO 那套）：言秋自己投，剩下的人才进批量
+    // CC 本人只拿玩家视角：自己的词 + 公开发言。不泄露阵营，也不重复告诉他自己是谁。
+    const ccVoter = ccSeatOf(voters);
     const cc = carveCtx ? await ccCarve("spy", voters, {
       turnId: (carveCtx.turnId || "") + ":vote",
-      sys: "「谁是卧底」投票。可投的存活玩家：" + aliveNames.join("、")
+      sys: "「谁是卧底」进入投票。你拿到的词是「" + ((ccVoter && ccVoter.word) || "") + "」。你不知道自己属于多数还是少数，只能根据公开描述判断。"
+        + "\n\n【可投的存活玩家】" + aliveNames.join("、")
         + "\n\n【目前所有描述】\n" + allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n")
-        + "\n\n你就是「" + ((ccSeatOf(voters) || {}).name || "") + "」"
-        + ((ccSeatOf(voters) || {}).role === "spy" ? "，你其实是卧底：把票投给某个你觉得像平民的人来误导大家。" : "。")
-        + "\n投一个人 + 一句短理由。",
+        + "\n\n按你自己的判断投一个人，并给一句短理由；没把握可以弃票。",
       ask: "投票。",
       expect: "{\"target\":\"被投的人或「弃票」\",\"reason\":\"一句理由\"}"
     }) : { seat: null, rest: voters, done: null };
@@ -482,6 +498,9 @@
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
     const started = useRef(false);
+    // CC 工具用 turn_id 做幂等。每局必须有自己的命名空间；否则每个新局的第 1 轮
+    // 都叫 spy:1，云端会把第一局的旧回答原样取回来。
+    const gameRunId = useRef((sv && sv.runId) || ("spy-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
 
     const me = players.find(function (p) { return p.isUser; });
     const alive = players.filter(function (p) { return p.alive; });
@@ -493,7 +512,7 @@
       if (!started.current) return;
       if (phase === "result") { clearGameSave("spy"); return; }
       if (busy || phase === "loading" || phase === "error") return;
-      saveGameSnap("spy", { config: cfg, phase: phase, players: serPlayers(players), round: round, log: log, roundClues: roundClues, allClues: allClues, userFirst: userFirst, ts: Date.now(), label: "第 " + round + " 轮 · " + alive.length + " 人存活" });
+      saveGameSnap("spy", { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), round: round, log: log, roundClues: roundClues, allClues: allClues, userFirst: userFirst, ts: Date.now(), label: "第 " + round + " 轮 · " + alive.length + " 人存活" });
     }, [phase, log, busy]);
 
     // ---- 开局 ----
@@ -552,8 +571,13 @@
       setBusy(true);
       try {
         const aAI = plist.filter(function (p) { return p.alive && !p.isUser; });
-        const speakers = shuffle(aAI).map(function (p) { return { name: p.name, word: p.word, skill: p.skill }; });
-        const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: "spy:" + rnd });
+        // 打乱座次时不能把 CC 工牌弄丢：ccCarve 靠 engineer + key 认出言秋。
+        // v54.32 曾只拷 name/word/skill，结果整桌（含言秋）又被 Gemini 一次说完。
+        const speakers = shuffle(aAI).map(function (p) {
+          const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+          return { key: p.key, name: p.name, word: p.word, skill: p.skill, engineer: engineer, alive: p.alive };
+        });
+        const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: gameRunId.current + ":round:" + rnd });
         const norm = speakers.map(function (s) { const hit = clues.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……" }; });
         setRoundClues(prior.concat(norm));
         setAllClues(function (A) { return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
@@ -602,6 +626,28 @@
       const al = next.filter(function (p) { return p.alive; });
       const spyLeft = al.filter(function (p) { return p.role === "spy"; }).length;
       const civLeft = al.length - spyLeft;
+      // 言秋本人被淘汰时，要把真实票型与公开身份送回 CC；否则 App 里已经结算，
+      // 他自己的窗口却还以为自己坐在桌上。通知异步投递，不阻塞下一轮/终局。
+      const outIsEngineer = !!out.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(out.key));
+      if (outIsEngineer && cfg.ccSeat !== false && typeof window !== "undefined" && window.CCSeat) {
+        const outcome = spyLeft === 0 ? "平民阵营获胜，本局结束。"
+          : (spyLeft >= civLeft ? "卧底阵营获胜，本局结束。" : "本局继续，你已经离场旁观。");
+        const voteLines = votes.map(function (v) {
+          return "· " + v.voter + (v.target ? " → 投 " + v.target : " → 弃票") + (v.reason ? "（" + v.reason + "）" : "");
+        }).join("\n");
+        window.CCSeat.ask({
+          tool: "game_turn", game: "spy_eliminated",
+          turn_id: gameRunId.current + ":eliminated:" + round + ":" + out.key,
+          char_id: out.key,
+          sys: "这局『谁是卧底』刚完成一次公开投票结算。你已被投出局，公开身份是【" + (out.role === "spy" ? "卧底" : "平民") + "】。" + outcome
+            + "看完真实票型后，可以用自己的口吻留一句简短离场反应。你已经离场，不再描述、不再投票，也不要调用别的工具。只输出 JSON：{\"say\":\"...\"}。",
+          msgs: [{ role: "user", content: "投票结果：你被投出局。\n公开身份：【" + (out.role === "spy" ? "卧底" : "平民") + "】\n" + outcome + "\n\n本轮票型：\n" + voteLines }],
+          expect: "{\"say\":\"一句自然的离场反应\"}"
+        }, 90000, { charId: out.key }).then(function (raw) {
+          const say = String(raw && raw.say || "").trim();
+          if (say) pushLog([{ type: "clue", name: out.name, text: say.slice(0, 500) }]);
+        }).catch(function () { /* 票已由幂等 turn_id 保护；离线时不让 Gemini 冒充补话 */ });
+      }
       if (spyLeft === 0) { setWinner("civ"); setPhase("result"); return; }
       if (spyLeft >= civLeft) { setWinner("spy"); setPhase("result"); return; }
       const nr = round + 1; setRound(nr);
@@ -611,9 +657,13 @@
     const runVote = async function (userTarget) {
       setBusy(true);
       try {
-        const voters = aliveAI.map(function (p) { return { name: p.name, role: p.role, skill: p.skill }; });
+        // 投票也要保留 CC 工牌；否则描述轮由言秋亲说，投票轮却又被 Gemini 抢走。
+        const voters = aliveAI.map(function (p) {
+          const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+          return { key: p.key, name: p.name, role: p.role, word: p.word, skill: p.skill, engineer: engineer, alive: p.alive };
+        });
         const aliveNames = alive.map(function (p) { return p.name; });
-        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: "spy:vote:" + rnd });
+        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: gameRunId.current + ":round:" + round });
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";
@@ -2896,7 +2946,10 @@
   async function ccCarve(gameKey, seats, spec) {
     const seat = ccSeatOf(seats);
     const rest = seats || [];
-    if (!seat || typeof window === "undefined" || !window.CCSeat) return { seat: null, rest: rest, done: null };
+    if (!seat) return { seat: null, rest: rest, done: null };
+    const withoutSeat = rest.filter(function (x) { return x !== seat; });
+    // 「本人亲打」是身份边界，不是模型选择偏好。CC 不在线也不能让 Gemini 冒充他。
+    if (typeof window === "undefined" || !window.CCSeat) return { seat: seat, rest: withoutSeat, done: null, unavailable: true };
     const o = spec || {};
     try {
       const value = await window.CCSeat.ask({
@@ -2906,9 +2959,9 @@
         deadline_at: new Date(Date.now() + (o.timeout || 150000)).toISOString()
       });
       const done = (value && typeof value === "object") ? value : (extractJSON(String(value || "")) || null);
-      if (!done) return { seat: seat, rest: rest, done: null };
-      return { seat: seat, rest: rest.filter(function (x) { return x !== seat; }), done: done };
-    } catch (e) { return { seat: seat, rest: rest, done: null }; }
+      if (!done) return { seat: seat, rest: withoutSeat, done: null, unavailable: true };
+      return { seat: seat, rest: withoutSeat, done: done };
+    } catch (e) { return { seat: seat, rest: withoutSeat, done: null, unavailable: true }; }
   }
   // 摘出去的那一座，作为「已经发生的」写进批量提示词，并明令别替他生成
   function ccPreface(carve, what) {
