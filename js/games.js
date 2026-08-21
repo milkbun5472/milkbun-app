@@ -84,13 +84,15 @@
   function saveGameSnap(k, snap) { try { const all = loadGamesSaves(); all[k] = snap; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
   function clearGameSave(k) { try { const all = loadGamesSaves(); delete all[k]; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
   // 玩家名单存/取：剥离不可靠的 char（React 元素/整份档案），续局按 key 从 characters/profile 重挂
-  function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive }; }); }
+  function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive, engineer: !!p.engineer }; }); }
   function hydPlayers(saved, props, t) {
     return (saved || []).map(function (s) {
       let char = null;
       if (s.isUser) { const pf = props.profile || {}; char = { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }; }
       else if (!s.isNpc) { char = (props.characters || []).find(function (c) { return c.id === s.key; }) || null; }
-      return Object.assign({}, s, { char: char });
+      // 兼容旧存档：旧版没保存 engineer，续局后头像仍是言秋、CC 工牌却丢了。
+      const engineer = !s.isUser && !s.isNpc && !!(props.config && props.config.ccSeat !== false && props.isEngineer && props.isEngineer(s.key));
+      return Object.assign({}, s, { char: char, engineer: engineer || !!s.engineer });
     });
   }
 
@@ -305,7 +307,7 @@
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
-          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到他那一座时叫醒 CC 里的本人；离线或超时才安静代打，不会卡住整局。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
+          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到他时只收 CC 本人的回答；没接上就跳过这一手，Gemini 不会冒充。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
@@ -2906,7 +2908,10 @@
   async function ccCarve(gameKey, seats, spec) {
     const seat = ccSeatOf(seats);
     const rest = seats || [];
-    if (!seat || typeof window === "undefined" || !window.CCSeat) return { seat: null, rest: rest, done: null };
+    if (!seat) return { seat: null, rest: rest, done: null };
+    const withoutSeat = rest.filter(function (x) { return x !== seat; });
+    // 「本人亲打」是身份边界，不是模型选择偏好。CC 不在线也不能让 Gemini 冒充他。
+    if (typeof window === "undefined" || !window.CCSeat) return { seat: seat, rest: withoutSeat, done: null, unavailable: true };
     const o = spec || {};
     try {
       const value = await window.CCSeat.ask({
@@ -2916,9 +2921,9 @@
         deadline_at: new Date(Date.now() + (o.timeout || 150000)).toISOString()
       });
       const done = (value && typeof value === "object") ? value : (extractJSON(String(value || "")) || null);
-      if (!done) return { seat: seat, rest: rest, done: null };
-      return { seat: seat, rest: rest.filter(function (x) { return x !== seat; }), done: done };
-    } catch (e) { return { seat: seat, rest: rest, done: null }; }
+      if (!done) return { seat: seat, rest: withoutSeat, done: null, unavailable: true };
+      return { seat: seat, rest: withoutSeat, done: done };
+    } catch (e) { return { seat: seat, rest: withoutSeat, done: null, unavailable: true }; }
   }
   // 摘出去的那一座，作为「已经发生的」写进批量提示词，并明令别替他生成
   function ccPreface(carve, what) {

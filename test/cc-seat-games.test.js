@@ -17,12 +17,19 @@ test("通用件：摘座 / 前言 / 拼回，三件都在", () => {
   assert.match(games, /s\.engineer && !s\.isUser && \(s\.alive === undefined \|\| s\.alive\)/);
 });
 
-test("拿不到就退回批量，一局永不卡死", () => {
+test("本人亲打拿不到就跳过本人座位，绝不让 Gemini 冒充", () => {
   const seg = games.slice(games.indexOf("async function ccCarve"), games.indexOf("function ccPreface"));
-  assert.match(seg, /if \(!seat \|\| typeof window === "undefined" \|\| !window\.CCSeat\) return \{ seat: null, rest: rest, done: null \};/);
-  assert.match(seg, /if \(!done\) return \{ seat: seat, rest: rest, done: null \};/, "解析失败也要退回批量");
-  assert.match(seg, /catch \(e\) \{ return \{ seat: seat, rest: rest, done: null \}; \}/);
+  assert.match(seg, /const withoutSeat = rest\.filter\(function \(x\) \{ return x !== seat; \}\);/);
+  assert.match(seg, /!window\.CCSeat\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \};/);
+  assert.match(seg, /if \(!done\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \};/);
+  assert.match(seg, /catch \(e\) \{ return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \}; \}/);
   assert.match(seg, /deadline_at/, "要给 CC 一个截止时间，别无限等");
+});
+
+test("通用存档保留 CC 工牌，旧存档恢复时也会重新识别言秋", () => {
+  assert.match(games, /alive: p\.alive, engineer: !!p\.engineer/);
+  assert.match(games, /props\.config && props\.config\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(s\.key\)/);
+  assert.match(games, /engineer: engineer \|\| !!s\.engineer/);
 });
 
 test("摘掉的那一座要写进批量提示词，并明令别替他重写", () => {
