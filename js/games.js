@@ -397,25 +397,33 @@
     return extractJSON(raw) || {};
   }
 
-  // 一轮描述：让存活的 AI 玩家各说一句（批量一次调用）
+  // 一轮描述：按真实座次切成「言秋前 → 言秋本人 → 言秋后」。
   async function genClues(api, speakers, priorClues, roundNum, mode, carveCtx) {
-    // CC 座位先手：言秋自己那一句从 CC 窗口来，剩下的人才进批量（v54.26）
-    const cc = carveCtx ? await ccCarve("spy", speakers, {
+    const seat = carveCtx ? ccSeatOf(speakers) : null;
+    if (!seat) return genCluesBatch(api, speakers, priorClues, roundNum, mode, "");
+
+    const seatIndex = speakers.indexOf(seat);
+    const before = speakers.slice(0, seatIndex);
+    const after = speakers.slice(seatIndex + 1);
+    // 先让排在言秋前面的人真的说完；这些原话随后完整交给 CC。
+    const beforeRows = before.length
+      ? await genCluesBatch(api, before, priorClues, roundNum, mode, "") : [];
+    const priorForCc = priorClues.concat(beforeRows);
+    const cc = await ccCarve("spy", [seat], {
       turnId: (carveCtx.turnId || "") + ":clue",
-      sys: "「谁是卧底」第 " + roundNum + " 轮，轮到你描述自己的词。你拿到的词是「" + ((speakers.find(function (x) { return x.engineer; }) || {}).word || "") + "」。"
+      sys: "「谁是卧底」第 " + roundNum + " 轮，按牌桌座次轮到你描述自己的词。你拿到的词是「" + (seat.word || "") + "」。"
         + "用【一句话】描述它：不能说出词本身，也别露骨到一句就被锁定。"
-        + (priorClues.length ? "\n\n【本轮已经说过的】\n" + priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "\n（你最先说。）"),
+        + (priorForCc.length ? "\n\n【本轮排在你前面、已经真实说过的】\n" + priorForCc.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "\n（你是本轮第一个发言的人。）"),
       ask: "说一句。",
       expect: "{\"text\":\"一句描述\"}"
-    }) : { seat: null, rest: speakers, done: null };
-    const rest = cc.rest;
+    });
     const mine = (cc.done && String(cc.done.text || "").trim())
       ? [{ name: cc.seat.name, text: String(cc.done.text).trim() }] : [];
-    if (!rest.length) return mine;
-    const priorAll = mine.length ? priorClues.concat(mine) : priorClues;
-    const rows = await genCluesBatch(api, rest, priorAll, roundNum, mode, ccPreface(cc, "说过自己那一句了"));
-    // 按原座次拼回去：他先说的就排在前面
-    return mine.concat(rows);
+    // 再生成排在他后面的人；他们能看到前桌 + 言秋刚才的真实发言。
+    const priorAfter = priorForCc.concat(mine);
+    const afterRows = after.length
+      ? await genCluesBatch(api, after, priorAfter, roundNum, mode, ccPreface(cc, "按座次说过自己那一句了")) : [];
+    return beforeRows.concat(mine, afterRows);
   }
   async function genCluesBatch(api, speakers, priorClues, roundNum, mode, preface) {
     const prior = priorClues.length ? priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（本轮你们最先描述，前面还没人说）";

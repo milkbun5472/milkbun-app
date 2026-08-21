@@ -75,14 +75,17 @@ test("谁是卧底投票也接上了", () => {
   assert.match(games, /if \(!cc\.rest\.length\) return mine;/, "只剩他一个人时不发批量调用");
 });
 
-test("谁是卧底：描述环节已经接上，批量只跑剩下的人", () => {
+test("谁是卧底：描述严格按言秋前 → 本人 → 言秋后运行", () => {
   assert.match(games, /async function genClues\(api, speakers, priorClues, roundNum, mode, carveCtx\)/);
-  assert.match(games, /await ccCarve\("spy", speakers, \{/);
+  assert.match(games, /const seatIndex = speakers\.indexOf\(seat\);/);
+  assert.match(games, /const before = speakers\.slice\(0, seatIndex\);/);
+  assert.match(games, /const after = speakers\.slice\(seatIndex \+ 1\);/);
+  assert.match(games, /await ccCarve\("spy", \[seat\], \{/);
   assert.match(games, /async function genCluesBatch\(api, speakers, priorClues, roundNum, mode, preface\)/);
-  assert.match(games, /if \(!rest\.length\) return mine;/, "只剩他一个人时不该再发批量调用");
   assert.match(games, /genClues\(api, speakers, prior, rnd, cfg\.mode, \{ turnId: gameRunId\.current \+ ":round:" \+ rnd \}\)/);
-  // 他先说的那句要进入后面人看到的「已经说过的」，否则别人接不上
-  assert.match(games, /const priorAll = mine\.length \? priorClues\.concat\(mine\) : priorClues;/);
+  assert.match(games, /const priorForCc = priorClues\.concat\(beforeRows\);/, "言秋必须看见排在他前面的真实发言");
+  assert.match(games, /const priorAfter = priorForCc\.concat\(mine\);/, "排在后面的人必须看见言秋本人刚说的那句");
+  assert.match(games, /return beforeRows\.concat\(mine, afterRows\);/, "最终显示顺序也必须按真实座次拼回");
   // 描述轮会为了随机顺序重建 speakers；重建时必须保住 CC 工牌，否则 ccCarve 认不出言秋，Gemini 会抢答。
   assert.match(games, /return \{ key: p\.key, name: p\.name, word: p\.word, skill: p\.skill, engineer: engineer, alive: p\.alive \};/);
   assert.doesNotMatch(games, /return \{ name: p\.name, word: p\.word, skill: p\.skill \};/);
