@@ -14,7 +14,9 @@ test("engineerEyes uses a self-directed transport prompt instead of the RP task"
   assert.match(source, /const digitalToyHint = toyOn/);
   assert.match(source, /是否使用、何时使用、用什么节奏由你自己决定/);
   assert.match(source, /const digitalPhotoHint = canSelfie/);
-  assert.match(source, /digitalPhotoHint \+ digitalToyHint/);
+  // v54.48：一起听的切歌/邀听能力做最小协议时被落下了——他知道在放什么却切不动
+  // （她 2026-08-21 问「一起听还在不在他的能力里」查出来的）。执行路径本就通用，补 hint 即可。
+  assert.match(source, /digitalPhotoHint \+ listenHint \+ inviteHint \+ digitalToyHint/);
 });
 
 test("digital context keeps recent facts but omits the continuity command", () => {
