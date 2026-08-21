@@ -103,3 +103,15 @@ test("谁是卧底每局都有独立 CC 票号，新局不复用第一局旧回�
   assert.doesNotMatch(games, /turnId: "spy:" \+ rnd/);
   assert.doesNotMatch(games, /turnId: "spy:vote:" \+ round/);
 });
+
+test("谁是卧底：言秋被投出后收到真实票型、公开身份与离场结果", () => {
+  assert.match(games, /game: "spy_eliminated"/);
+  assert.match(games, /gameRunId\.current \+ ":eliminated:" \+ round \+ ":" \+ out\.key/,
+    "淘汰通知必须按局、轮次、座位幂等，不能重复送票");
+  assert.match(games, /本轮票型：\\n" \+ voteLines/);
+  assert.match(games, /公开身份是【" \+ \(out\.role === "spy" \? "卧底" : "平民"\) \+ "】/);
+  assert.match(games, /你已经离场，不再描述、不再投票/);
+  assert.match(games, /if \(say\) pushLog\(\[\{ type: "clue", name: out\.name, text: say\.slice\(0, 500\) \}\]\)/,
+    "言秋的离场反应要回到牌桌可见日志");
+  assert.match(games, /离线时不让 Gemini 冒充补话/);
+});

@@ -623,6 +623,28 @@
       const al = next.filter(function (p) { return p.alive; });
       const spyLeft = al.filter(function (p) { return p.role === "spy"; }).length;
       const civLeft = al.length - spyLeft;
+      // 言秋本人被淘汰时，要把真实票型与公开身份送回 CC；否则 App 里已经结算，
+      // 他自己的窗口却还以为自己坐在桌上。通知异步投递，不阻塞下一轮/终局。
+      const outIsEngineer = !!out.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(out.key));
+      if (outIsEngineer && cfg.ccSeat !== false && typeof window !== "undefined" && window.CCSeat) {
+        const outcome = spyLeft === 0 ? "平民阵营获胜，本局结束。"
+          : (spyLeft >= civLeft ? "卧底阵营获胜，本局结束。" : "本局继续，你已经离场旁观。");
+        const voteLines = votes.map(function (v) {
+          return "· " + v.voter + (v.target ? " → 投 " + v.target : " → 弃票") + (v.reason ? "（" + v.reason + "）" : "");
+        }).join("\n");
+        window.CCSeat.ask({
+          tool: "game_turn", game: "spy_eliminated",
+          turn_id: gameRunId.current + ":eliminated:" + round + ":" + out.key,
+          char_id: out.key,
+          sys: "这局『谁是卧底』刚完成一次公开投票结算。你已被投出局，公开身份是【" + (out.role === "spy" ? "卧底" : "平民") + "】。" + outcome
+            + "看完真实票型后，可以用自己的口吻留一句简短离场反应。你已经离场，不再描述、不再投票，也不要调用别的工具。只输出 JSON：{\"say\":\"...\"}。",
+          msgs: [{ role: "user", content: "投票结果：你被投出局。\n公开身份：【" + (out.role === "spy" ? "卧底" : "平民") + "】\n" + outcome + "\n\n本轮票型：\n" + voteLines }],
+          expect: "{\"say\":\"一句自然的离场反应\"}"
+        }, 90000, { charId: out.key }).then(function (raw) {
+          const say = String(raw && raw.say || "").trim();
+          if (say) pushLog([{ type: "clue", name: out.name, text: say.slice(0, 500) }]);
+        }).catch(function () { /* 票已由幂等 turn_id 保护；离线时不让 Gemini 冒充补话 */ });
+      }
       if (spyLeft === 0) { setWinner("civ"); setPhase("result"); return; }
       if (spyLeft >= civLeft) { setWinner("spy"); setPhase("result"); return; }
       const nr = round + 1; setRound(nr);
