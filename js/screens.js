@@ -6588,6 +6588,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
   const authors = [meAuthor, ...characters];
+  const [pickDay, setPickDay] = useState(false); // 「补齐」弹出的挑日子单
   const [view, setView] = useState("archive"); // archive(默认大图) | home(目录) | entries | entry | compose
   const [curId, setCurId] = useState(characters[0] ? characters[0].id : "__me");
   const [curEntry, setCurEntry] = useState(null);
@@ -6663,7 +6664,40 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       tx.current = null;
     };
     const done = wroteToday(curId), gb = busy[curId];
-    return h("div", { className: "h-full flex flex-col" },
+    // 「补齐」的挑日子单（v54.24）：以前只能一次补 14 天全部漏掉的，
+    // 删掉某一篇想单独补回来根本没有入口（她 2026-08-21 报）。
+    // 这里把最近 30 天里缺的日子列出来，点一天补一天，也可以一次全补。
+    const missing = (function () {
+      const out = [];
+      for (let i = 1; i <= 30; i++) {
+        const d = new Date(); d.setDate(d.getDate() - i); d.setHours(22, 30, 0, 0);
+        if (!entriesOf(curId).some(e => diarySameDay(e.ts, d.getTime()))) out.push(d.getTime());
+      }
+      return out.reverse();
+    })();
+    const daySheet = pickDay && h("div", {
+      onClick: () => setPickDay(false),
+      style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" }
+    }, h("div", {
+      onClick: ev => ev.stopPropagation(),
+      style: { width: "100%", maxHeight: "68vh", overflowY: "auto", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "16px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" }
+    },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 2 } }, "补哪一天"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 12 } },
+        missing.length ? "最近 30 天里还没写的日子。点一天就只补那一天——删掉过的也在这儿。" : "最近 30 天每天都写过了。"),
+      missing.map(ts => h("button", {
+        key: ts, disabled: gb,
+        onClick: () => { setPickDay(false); onBackfill && onBackfill(curId, { days: [ts] }); },
+        className: "active:opacity-60 disabled:opacity-40",
+        style: { width: "100%", textAlign: "left", padding: "11px 4px", borderBottom: "1px solid " + t.line, background: "none", border: "none", fontFamily: F_BODY, fontSize: 13.5, color: t.ink }
+      }, new Date(ts).toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" }))),
+      missing.length > 1 ? h("button", {
+        disabled: gb,
+        onClick: () => { setPickDay(false); onBackfill && onBackfill(curId); },
+        className: "active:opacity-60 disabled:opacity-40",
+        style: { width: "100%", marginTop: 12, padding: "11px 0", borderRadius: 12, border: "1px solid " + t.line, background: "none", fontFamily: F_BODY, fontSize: 13, color: t.sub }
+      }, "全部补齐（" + missing.length + " 篇）") : null));
+    return h("div", { className: "h-full flex flex-col" }, daySheet,
       h(Head, {
         zh: curAuthor.name, en: isMe ? "My Journal · 我的日记" : "Journal · 翻阅日记",
         onBack: () => setView("archive"),
@@ -6672,7 +6706,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
           : h("div", { className: "flex items-center gap-3" },
               // 补齐漏记的那几天：逐天写，写一天存一天
               h("button", {
-                onClick: () => { if (gb) return; onBackfill && onBackfill(curId); },
+                onClick: () => { if (gb) return; setPickDay(true); },
                 disabled: gb, className: "active:opacity-50 disabled:opacity-40",
                 style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, letterSpacing: .3 }
               }, "补齐"),

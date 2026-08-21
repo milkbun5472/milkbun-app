@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.23";
+const APP_VERSION = "v54.24";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -6534,17 +6534,25 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   };
   // 一键补齐:找出这个角色最近 14 天里漏掉的日子,从最早的一天开始【逐天】写。
   // 逐天而不是一把梭:每写完一天立刻落盘,中途失败已完成的都保得住,不至于一次失败全白花。
-  const backfillDiary = async charId => {
+  // 漏掉的日子：往回数 DIARY_BACKFILL_DAYS 天，返回还没写过的那些（从早到晚）
+  // 30 天而不是 14 天：删掉一篇之后想补回来，超过两周就够不着了（她 2026-08-21 报）
+  const DIARY_BACKFILL_DAYS = 30;
+  const diaryMissingDays = charId => {
+    const out = [];
+    for (let i = 1; i <= DIARY_BACKFILL_DAYS; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(22, 30, 0, 0);
+      if (!diaryWroteFor(charId, d.getTime())) out.push(d.getTime());
+    }
+    return out.reverse(); // 从最早的一天往回补,时间顺序才对
+  };
+  // opts.days = [ts...] 只补这几天（挑一天单独补就走它）；不给就补全部漏掉的
+  const backfillDiary = async (charId, opts = {}) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     if (diaryBackfillRef.current) { toast("正在补,别急"); return; }
-    const days = [];
-    for (let i = 1; i <= 14; i++) {
-      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(22, 30, 0, 0);
-      if (!diaryWroteFor(charId, d.getTime())) days.push(d.getTime());
-    }
-    days.reverse(); // 从最早的一天往回补,时间顺序才对
-    if (!days.length) { toast("最近两周没有漏掉的"); return; }
-    if (!confirm("补齐最近 14 天里漏掉的 " + days.length + " 篇?会一天一天写,中途失败已写好的都保留。")) return;
+    const pick = Array.isArray(opts.days) && opts.days.length ? opts.days.slice() : null;
+    const days = pick || diaryMissingDays(charId);
+    if (!days.length) { toast("最近一个月没有漏掉的"); return; }
+    if (!pick && !confirm("补齐最近 " + DIARY_BACKFILL_DAYS + " 天里漏掉的 " + days.length + " 篇?会一天一天写,中途失败已写好的都保留。")) return;
     diaryBackfillRef.current = true;
     let done = 0;
     try {
@@ -10773,7 +10781,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     commentingId: diaryCommenting,
     onBack: () => setScreen("home"),
     onGen: genDiary,
-    onBackfill: backfillDiary,
+    onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
     onSaveFields: saveDiaryFields,
     onAddMyEntry: addMyDiaryEntry,

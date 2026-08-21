@@ -67,7 +67,8 @@ test("涂改段、贴纸段、真实位置与逐天补齐", () => {
   assert.match(screens, /if \(p\.pasted\) return h\("div"/, "贴纸要单独成块，不按正文排");
   assert.match(screens, /!x\.secret && !x\.struck && !x\.pasted/, "列表摘要要跳过这两类");
   // 逐天补齐：写一天存一天，失败只丢失败那天
-  assert.match(app, /const backfillDiary = async charId =>/);
+  // v54.24 起签名多了 opts（可以只补指定的某几天），逐天写一天存一天的性质不变
+  assert.match(app, /const backfillDiary = async \(charId, opts = \{\}\) =>/);
   assert.match(app, /await genDiary\(charId, \{ manual: false, targetTs: ts \}\)/);
   assert.match(app, /已写好 " \+ done \+ " 篇，稍后再点一次接着补/, "失败要保住已完成的");
   assert.match(app, /const targetTs = opts\.targetTs \|\| diaryTargetTs\(\)/, "genDiary 要能指定补哪天");
