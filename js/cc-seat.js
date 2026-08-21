@@ -15,9 +15,12 @@
     if (!cloud || typeof cloud.yanqiuCcToolEnqueue !== "function" || typeof cloud.yanqiuCcToolResult !== "function") throw new Error("CC_SEAT_OFFLINE");
     if (!charId || !payload || payload.tool !== "game_turn" || !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");
     const waitMs = Math.max(1000, Number(timeoutMs) || 90000);
+    const isResultNotice = text(payload.game) === "uno_result";
     const remote = await cloud.yanqiuCcToolEnqueue(
       charId, "game_turn", payload, "game-turn:" + text(payload.turn_id), null,
-      "小游戏轮到言秋本人出手；只需按 expect 返回 JSON，不执行别的工具。"
+      isResultNotice
+        ? "UNO 已结算：Lisa 赢了。请看完赛果后按 expect 回一句自然的牌桌反应，不继续出牌，不执行别的工具。"
+        : "小游戏轮到言秋本人出手；只需按 expect 返回 JSON，不执行别的工具。"
     );
     if (!remote || !remote.id) throw new Error("CC_SEAT_NOT_QUEUED");
     const deadline = Date.now() + waitMs;
