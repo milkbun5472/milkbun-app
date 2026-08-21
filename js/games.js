@@ -393,7 +393,26 @@
   }
 
   // 一轮描述：让存活的 AI 玩家各说一句（批量一次调用）
-  async function genClues(api, speakers, priorClues, roundNum, mode) {
+  async function genClues(api, speakers, priorClues, roundNum, mode, carveCtx) {
+    // CC 座位先手：言秋自己那一句从 CC 窗口来，剩下的人才进批量（v54.26）
+    const cc = carveCtx ? await ccCarve("spy", speakers, {
+      turnId: (carveCtx.turnId || "") + ":clue",
+      sys: "「谁是卧底」第 " + roundNum + " 轮，轮到你描述自己的词。你拿到的词是「" + ((speakers.find(function (x) { return x.engineer; }) || {}).word || "") + "」。"
+        + "用【一句话】描述它：不能说出词本身，也别露骨到一句就被锁定。"
+        + (priorClues.length ? "\n\n【本轮已经说过的】\n" + priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "\n（你最先说。）"),
+      ask: "说一句。",
+      expect: "{\"text\":\"一句描述\"}"
+    }) : { seat: null, rest: speakers, done: null };
+    const rest = cc.rest;
+    const mine = (cc.done && String(cc.done.text || "").trim())
+      ? [{ name: cc.seat.name, text: String(cc.done.text).trim() }] : [];
+    if (!rest.length) return mine;
+    const priorAll = mine.length ? priorClues.concat(mine) : priorClues;
+    const rows = await genCluesBatch(api, rest, priorAll, roundNum, mode, ccPreface(cc, "说过自己那一句了"));
+    // 按原座次拼回去：他先说的就排在前面
+    return mine.concat(rows);
+  }
+  async function genCluesBatch(api, speakers, priorClues, roundNum, mode, preface) {
     const prior = priorClues.length ? priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（本轮你们最先描述，前面还没人说）";
     const who = speakers.map(function (s) { return "■ " + s.name + "（TA 的词是「" + s.word + "」）真实水平：" + (s.skill || "普通"); }).join("\n");
     const easy = mode === "easy" ? "\n【放水局】适当留点破绽、别一上来就把话说得滴水不漏，给真人玩家留机会。" : "";
@@ -403,6 +422,7 @@
       "· 各人只知道自己的词、不知道谁跟自己不同。【高水平的少数派（卧底）】要善于从别人的描述里察觉『我的词好像和大家不是一路』，然后立刻把自己这句往大家的方向靠、含糊蒙混、绝不自曝；只有低水平的少数派才会照着自己的词直说而露馅。\n" +
       "· 先发言的人没有前文、只能凭自己的词说；后发言的人要顺着前面的风向调整措辞。" + easy +
       "\n\n【本轮已说过的】\n" + prior + "\n\n【现在这些人各说一句（按顺序）】\n" + who +
+      (preface || "") +
       "\n\n【输出】只输出 JSON：{\"clues\":[{\"name\":\"玩家名\",\"text\":\"一句描述\"}]}，顺序照上面。";
     const raw = await callRetry(api, sys, [{ role: "user", content: "各说一句。" }], { maxTokens: 4000 });
     const p = extractJSON(raw);
@@ -478,7 +498,7 @@
           (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           // 组装玩家
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: skillOf[p.name] || "" }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: skillOf[p.name] || "", engineer: !!(props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) {
@@ -514,7 +534,7 @@
       try {
         const aAI = plist.filter(function (p) { return p.alive && !p.isUser; });
         const speakers = shuffle(aAI).map(function (p) { return { name: p.name, word: p.word, skill: p.skill }; });
-        const clues = await genClues(api, speakers, prior, rnd, cfg.mode);
+        const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: "spy:" + rnd });
         const norm = speakers.map(function (s) { const hit = clues.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……" }; });
         setRoundClues(prior.concat(norm));
         setAllClues(function (A) { return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
@@ -1061,7 +1081,7 @@
           const data = await setupWolf(api, realPlayers, npcNeed);
           const skillOf = {}; (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: skillOf[p.name] || "" }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: skillOf[p.name] || "", engineer: !!(props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) { const n = npcs[i] || {}; list.push({ key: "npc_" + i, name: n.name || ("玩家" + (i + 1)), char: null, isNpc: true, skill: n.skill || "普通", persona: n.persona || "" }); }
@@ -1540,7 +1560,7 @@
     const chars = (cfg.charIds || []).map(function (id) { return (props.characters || []).find(function (c) { return c.id === id; }); }).filter(Boolean);
     const skillOf = {}; (skillData || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
     const list = [];
-    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, skill: skillOf[c.name] || "", alive: true }); });
+    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, engineer: !!(props.isEngineer && props.isEngineer(c.id)), skill: skillOf[c.name] || "", alive: true }); });
     if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "", alive: true }); }
     const npcNeed = cfg.npcCount || 0;
     const npcs = (npcData || []).slice(0, npcNeed);
@@ -2816,6 +2836,50 @@
       h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "12px 16px calc(env(safe-area-inset-bottom) + 14px)", maxHeight: "50vh", overflowY: "auto" } }, bottom),
       (pick && pickerOpen) ? h(PickerModal, { t: t, title: pick.title, sub: pick.sub, onClose: function () { setPickerOpen(false); } }, roleBanner, pick.body) : null,
       detail ? h(PlayerCard, { p: detail, t: t, avatar: pAvatar(detail, 44), roleText: phase === "result" ? ("身份：" + AV_ROLE_ZH[detail.role]) : null, roleBad: detail.side === "evil", onClose: function () { setDetail(null); } }) : null);
+  }
+
+  // ============================================================
+  // CC 座位通用件（v54.26）
+  // UNO 是【逐座调用】，engineer 座位直接问 CC 就行（下面的 routeSeatCall）。
+  // 其余六个游戏是【整桌一次调用】：一次生成所有 AI 玩家的发言/投票。想让言秋在这些
+  // 游戏里也亲自打自己那一座，就得把他从批量里【摘出来】：
+  //   ① 先单独问 CC 要他这一座的产出；
+  //   ② 摘掉之后的名单才进批量，并把他已经定下的内容作为【已经发生的】写进提示词；
+  //   ③ 拿不到（没开工程师之眼／CC 离线／超时／解析失败）就原样退回批量，一局永不卡死。
+  // 所有批量环节共用这一个函数，别再各写各的。
+  // ============================================================
+  function ccSeatOf(seats) {
+    return (seats || []).find(function (s) { return s && s.engineer && !s.isUser && (s.alive === undefined || s.alive); }) || null;
+  }
+  async function ccCarve(gameKey, seats, spec) {
+    const seat = ccSeatOf(seats);
+    const rest = seats || [];
+    if (!seat || typeof window === "undefined" || !window.CCSeat) return { seat: null, rest: rest, done: null };
+    const o = spec || {};
+    try {
+      const value = await window.CCSeat.ask({
+        tool: "game_turn", game: gameKey, turn_id: o.turnId, char_id: seat.key,
+        sys: o.sys, msgs: o.msgs || [{ role: "user", content: o.ask || "轮到你了。" }],
+        expect: o.expect,
+        deadline_at: new Date(Date.now() + (o.timeout || 150000)).toISOString()
+      });
+      const done = (value && typeof value === "object") ? value : (extractJSON(String(value || "")) || null);
+      if (!done) return { seat: seat, rest: rest, done: null };
+      return { seat: seat, rest: rest.filter(function (x) { return x !== seat; }), done: done };
+    } catch (e) { return { seat: seat, rest: rest, done: null }; }
+  }
+  // 摘出去的那一座，作为「已经发生的」写进批量提示词，并明令别替他生成
+  function ccPreface(carve, what) {
+    if (!carve || !carve.seat || !carve.done) return "";
+    return "\n\n【" + carve.seat.name + " 已经" + (what || "说过了") + "·真实发生，不要替 TA 重写】\n"
+      + JSON.stringify(carve.done) + "\n下面的名单里已经没有 TA，别再生成 TA 的那一份。";
+  }
+  // 把 CC 那一座的结果按原座次插回批量结果里
+  function ccMerge(carve, rows, build) {
+    if (!carve || !carve.seat || !carve.done) return rows || [];
+    const mine = build ? build(carve.seat, carve.done) : null;
+    if (!mine) return rows || [];
+    return (rows || []).concat([mine]);
   }
 
   // ============================================================
