@@ -1787,11 +1787,38 @@ function b64ToBlob(b64, mime) {
 }
 // ---- 自拍图存 IndexedDB（base64 大图不能进 localStorage/云同步）----
 function idbImgOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_selfies", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbImgPut(k, blob) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbImgGet(k) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
-async function idbImgDel(k) { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+// 原生壳有一层 Application Support 文件保险仓。WKWebView 的 IndexedDB 偶发被 iOS
+// 清空时从这里自愈；普通 Safari/PWA 没这个 bridge，仍按原来的 IDB 路径工作。
+function nativeMediaHandler() { try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeMedia; } catch (e) { return null; } }
+async function nativeMediaCall(action, bucket, key, dataUrl) {
+  const h = nativeMediaHandler(); if (!h || typeof h.postMessage !== "function") return null;
+  return await h.postMessage({ action: action, bucket: bucket, key: key || "", dataUrl: dataUrl || "" });
+}
+async function nativeMediaPut(bucket, k, blob) { try { const d = await blobToDataUrl(blob); await nativeMediaCall("put", bucket, k, d); } catch (e) {} }
+async function nativeMediaGet(bucket, k) { try { const d = await nativeMediaCall("get", bucket, k, ""); return typeof d === "string" && d.indexOf("data:") === 0 ? dataUrlToBlob(d) : null; } catch (e) { return null; } }
+async function nativeMediaDel(bucket, k) { try { await nativeMediaCall("delete", bucket, k, ""); } catch (e) {} }
+async function nativeMediaKeys(bucket) { try { const a = await nativeMediaCall("keys", bucket, "", ""); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+async function idbImgPutOnly(k, blob) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+async function idbImgPut(k, blob) { await idbImgPutOnly(k, blob); await nativeMediaPut("selfies", k, blob); }
+async function idbImgGetOnly(k) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
+async function idbImgGet(k) { const own = await idbImgGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("selfies", k); if (native) { try { await idbImgPutOnly(k, native); } catch (e) {} return native; } return null; }
+async function idbImgDel(k) { const db = await idbImgOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("selfies", k); }
 // 自拍整仓遍历（备份 v3 用）：[[key, blob], ...]
 async function idbImgEntries() { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const st = tx.objectStore("img"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
+async function hydrateNativeSelfies() {
+  if (!nativeMediaHandler()) return 0;
+  const nativeKeys = await nativeMediaKeys("selfies"), nativeSet = new Set(nativeKeys);
+  let restored = 0;
+  // 原生有、IDB 没有：iOS 清了网页仓，补回网页。
+  for (const k of nativeKeys) {
+    if (await idbImgGetOnly(k).catch(() => null)) continue;
+    const b = await nativeMediaGet("selfies", k);
+    if (b) { try { await idbImgPutOnly(k, b); restored++; } catch (e) {} }
+  }
+  // IDB 有、原生没有：第一次装带保险仓的新壳，把现有图库补一份保险。
+  for (const [k, b] of await idbImgEntries()) if (!nativeSet.has(k) && b) await nativeMediaPut("selfies", k, b);
+  return restored;
+}
 // 拼「角色照片」的图像 prompt。opts.kind: self=第一人称自拍 / other=别人给 TA 拍(第三人称,姿势构图多变) / duo=TA 和用户的合照
 // opts.me = { name, appearance, refPhoto } 用户本人（duo 合照时用）
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
@@ -2172,6 +2199,25 @@ function storedJSONText(k) {
 // 把一张 base64/dataURL 存进图库，返回 iv_ 键（同图幂等：同 hash 复用）。非 data: 的（http/已是 iv_）原样返回。
 async function imgToVault(dataUrl) { if (!dataUrl || typeof dataUrl !== "string") return dataUrl; if (dataUrl.indexOf("iv_") === 0) return dataUrl; if (dataUrl.slice(0, 5) !== "data:") return dataUrl; const key = "iv_" + imgVaultHash(dataUrl); const c = _imgCache(); if (!c.has(key)) { const blob = dataUrlToBlob(dataUrl); if (!blob) return dataUrl; try { await idbVaultPut(key, blob); c.set(key, URL.createObjectURL(blob)); } catch (e) { return dataUrl; } } return key; }
 // 渲染用：iv_ 键 -> objectURL（缓存里没有就返回空串，图不显示但不崩）；其它（base64/http/空）原样返回。向后兼容旧存档。
+// 保存原图(2026-08-21 她抓的产品缺陷:原图在 IDB 里是无损的,却只能截屏翻拍)
+// ref 可以是 iv_/img_ 键或 dataURL;取出 Blob 触发下载,文件名带日期。
+async function saveImgOriginal(ref, name) {
+  let blob = null;
+  try {
+    if (typeof ref === "string" && ref.indexOf("iv_") === 0) blob = await imgVaultFetchBlob(ref);
+    else if (typeof ref === "string" && ref.indexOf("img_") === 0) blob = await idbImgGet(ref);
+    else if (typeof ref === "string" && ref.slice(0, 5) === "data:") blob = dataUrlToBlob(ref);
+  } catch (e) {}
+  if (!blob) return false;
+  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (name || "图片") + "-" + new Date().toISOString().slice(0, 10) + "." + ext;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return true;
+}
+if (typeof window !== "undefined") window.saveImgOriginal = saveImgOriginal;
 function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) return _imgCache().get(v) || ""; return v; }
 // 取图统一兜底(单11,2026-08-14):iOS IDB 写后立读偶发返 null(v47.36 案卷),但 imgToVault 存图时
 // 已把 objectURL 放进内存缓存——仓库装聋就从内存拿,本会话刚挂的图绝不再因时序丢失;两路皆空才算真 miss。
