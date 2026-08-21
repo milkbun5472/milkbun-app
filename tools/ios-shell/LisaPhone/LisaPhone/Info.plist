@@ -8,6 +8,7 @@
   <key>CFBundleVersion</key><string>1</string>
   <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>NSLocationWhenInUseUsageDescription</key><string>好友地图需要你的位置来显示你和角色们的实时距离、就近搜索地点和画导航路线。</string>
   <key>UILaunchScreen</key><dict/>
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
   <key>UIViewControllerBasedStatusBarAppearance</key><true/>

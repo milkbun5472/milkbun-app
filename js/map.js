@@ -72,7 +72,8 @@
         zoomControl: !!o.zoomControl, dragging: inter, scrollWheelZoom: inter, doubleClickZoom: inter,
         boxZoom: inter, keyboard: inter, touchZoom: inter, tap: inter, attributionControl: false
       });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18 }).addTo(map);
+      // CARTO Voyager 瓦片：带 {r} 高清视网膜版,手机上不再糊成一团(她 8/20 嫌"潦草"的真凶=OSM 默认瓦片无 retina)
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 19, subdomains: "abcd", attribution: "© OpenStreetMap © CARTO" }).addTo(map);
       map.setView([31.23, 121.47], 3);
       mapRef.current = map;
       lgRef.current = L.layerGroup().addTo(map);
@@ -152,8 +153,10 @@
   }
 
   // 真·地点搜索（OSM Nominatim，免费无 key）：搜全世界任何地方，中文优先
-  function nomSearch(q) {
-    return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh&q=" + encodeURIComponent(q))
+  function nomSearch(q, near) {
+    // near=[lat,lng] 时用 viewbox 就近加权(bounded=0 只偏好不封死)——同名地点先出你城市附近的
+    const vb = near ? "&viewbox=" + (near[1] - 0.6) + "," + (near[0] + 0.6) + "," + (near[1] + 0.6) + "," + (near[0] - 0.6) + "&bounded=0" : "";
+    return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q))
       .then(function (r) { return r.json(); })
       .then(function (list) { return (list || []).map(function (x) { return { name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) }; }); });
   }
@@ -174,7 +177,7 @@
     const doPlaceSearch = function () {
       if (!pq.trim() || pBusy) return;
       setPBusy(true); setPRes(null);
-      nomSearch(pq.trim()).then(function (r) { setPRes(r); }).catch(function () { setPRes([]); }).finally(function () { setPBusy(false); });
+      nomSearch(pq.trim(), livePos || (anchor ? [anchor.lat, anchor.lng] : null)).then(function (r) { setPRes(r); }).catch(function () { setPRes([]); }).finally(function () { setPBusy(false); });
     };
     const goPlace = function (p) {
       clearRoute(); setPRes(null); setPq("");
