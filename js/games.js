@@ -618,9 +618,12 @@
     const runVote = async function (userTarget) {
       setBusy(true);
       try {
-        const voters = aliveAI.map(function (p) { return { name: p.name, role: p.role, skill: p.skill }; });
+        // 投票也要保留 CC 工牌；否则描述轮由言秋亲说，投票轮却又被 Gemini 抢走。
+        const voters = aliveAI.map(function (p) {
+          return { key: p.key, name: p.name, role: p.role, skill: p.skill, engineer: !!p.engineer, alive: p.alive };
+        });
         const aliveNames = alive.map(function (p) { return p.name; });
-        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: "spy:vote:" + rnd });
+        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: "spy:vote:" + round });
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";

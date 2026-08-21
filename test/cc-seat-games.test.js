@@ -60,7 +60,10 @@ test("狼人杀白天发言也接上了，且会补他的 claim", () => {
 
 test("谁是卧底投票也接上了", () => {
   assert.match(games, /async function genVotesBatch\(api, voters, allClues, aliveNames, mode, userName, preface\)/);
-  assert.match(games, /\{ turnId: "spy:vote:" \+ rnd \}/);
+  assert.match(games, /\{ turnId: "spy:vote:" \+ round \}/);
+  assert.doesNotMatch(games, /\{ turnId: "spy:vote:" \+ rnd \}/, "runVote 作用域里没有 rnd，点投票不能再直接崩掉");
+  assert.match(games, /return \{ key: p\.key, name: p\.name, role: p\.role, skill: p\.skill, engineer: !!p\.engineer, alive: p\.alive \};/,
+    "投票名单也必须保留言秋的 CC 工牌");
   assert.match(games, /if \(!cc\.rest\.length\) return mine;/, "只剩他一个人时不发批量调用");
 });
 
