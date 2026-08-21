@@ -587,23 +587,69 @@ function CalWidget({ now, calendar, onOpen, period }) {
       })));
 }
 // 一起听·主屏音乐组件（展示型，不真放声音）：左唱片 + 正在听的歌 + 装饰进度条
-// 天气小组件（Open-Meteo 免费无 key）：你所在地实时天气，2 小时缓存；点开进好友地图
+// 天气小组件（Open-Meteo 免费无 key）：你所在地实时天气，2 小时缓存；点开=天气详情页（逐小时+7天），不再借地图的门（她 8/20 抓的）
 function WeatherWidget({ userGeo, onOpen }) {
   const t = useTheme();
   const [w, setW] = useState(function () { return userGeo && typeof weatherCached === "function" ? weatherCached(userGeo.lat, userGeo.lng) : null; });
+  const [open, setOpen] = useState(false);
+  const [fx, setFx] = useState(null); // {hourly:[{h,t,p,code}], daily:[{d,code,hi,lo}]}
   useEffect(() => {
     let alive = true;
     if (userGeo && typeof weatherFor === "function") weatherFor(userGeo.lat, userGeo.lng).then(x => { if (alive && x) setW(x); }).catch(() => {});
     return () => { alive = false; };
   }, [userGeo && userGeo.lat, userGeo && userGeo.lng]);
-  return h(GlassCard, { onClick: onOpen, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
+  const openDetail = function () {
+    if (!userGeo) { onOpen && onOpen(); return; } // 没定位就还走老门（地图里能开定位）
+    setOpen(true);
+    if (fx) return;
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=" + userGeo.lat + "&longitude=" + userGeo.lng + "&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto")
+      .then(r => r.json())
+      .then(d => {
+        const nowH = new Date().getHours();
+        const hs = []; const H = d.hourly || {};
+        for (let i = 0; i < (H.time || []).length && hs.length < 24; i++) {
+          const dt = new Date(H.time[i]); if (dt < new Date(Date.now() - 3600000)) continue;
+          hs.push({ h: dt.getHours(), t: Math.round(H.temperature_2m[i]), p: H.precipitation_probability ? H.precipitation_probability[i] : null, code: H.weather_code[i] });
+        }
+        const ds = []; const D = d.daily || {};
+        for (let i = 0; i < (D.time || []).length; i++) ds.push({ d: new Date(D.time[i]), code: D.weather_code[i], hi: Math.round(D.temperature_2m_max[i]), lo: Math.round(D.temperature_2m_min[i]) });
+        setFx({ hourly: hs, daily: ds });
+      }).catch(() => {});
+  };
+  const wk = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const detail = open ? h(Sheet, { onClose: function () { setOpen(false); }, tall: true },
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 2 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, (userGeo && userGeo.label ? String(userGeo.label).slice(0, 14) : "你所在地") + " 天气"),
+        w ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 2 } }, wmoEmoji(w.code) + " " + wmoZh(w.code) + " · 现在 " + w.t + "° · 今日 " + w.lo + "~" + w.hi + "°") : null),
+      h("button", { onClick: function () { setOpen(false); onOpen && onOpen(); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "好友地图 ›")),
+    fx ? h("div", null,
+      // 逐小时横滑条
+      h("div", { style: { display: "flex", gap: 4, overflowX: "auto", padding: "12px 0 10px", borderBottom: "1px solid " + t.line } },
+        fx.hourly.map(function (x, i) {
+          return h("div", { key: i, className: "shrink-0", style: { textAlign: "center", width: 46 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, i === 0 ? "现在" : x.h + "时"),
+            h("div", { style: { fontSize: 16, margin: "3px 0" } }, wmoEmoji(x.code)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, x.t + "°"),
+            (x.p != null && x.p >= 20) ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: "#4a7fa5" } }, x.p + "%") : h("div", { style: { height: 12 } }));
+        })),
+      // 7 天列表
+      h("div", { style: { paddingTop: 4 } }, fx.daily.map(function (x, i) {
+        return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: i < fx.daily.length - 1 ? "1px solid " + t.line : "none" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, width: 44 } }, i === 0 ? "今天" : wk[x.d.getDay()]),
+          h("span", { style: { fontSize: 17 } }, wmoEmoji(x.code)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1 } }, wmoZh(x.code)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, x.lo + "°"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, x.hi + "°"));
+      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…")) : null;
+  return h(React.Fragment, null, detail, h(GlassCard, { onClick: openDetail, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },
         h("span", { style: { fontSize: 21, lineHeight: 1 } }, wmoEmoji(w.code)),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1 } }, w.t + "°")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginTop: 4 } }, wmoZh(w.code) + " · " + w.lo + "~" + w.hi + "°"),
       userGeo && userGeo.label ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(userGeo.label).slice(0, 12)) : null)
-    : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-line" } }, "🌤 天气\n" + (userGeo ? "获取中…" : "设置里开定位后显示")));
+    : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, whiteSpace: "pre-line" } }, "🌤 天气\n" + (userGeo ? "获取中…" : "设置里开定位后显示"))));
 }
 // 记账小组件（2 格宽）：本月各币种支出一眼看（数据走 ledger.js 的 window.ledgerWidgetData，纯本地零 API）
 function LedgerWidget({ onOpen }) {
