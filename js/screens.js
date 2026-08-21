@@ -3219,11 +3219,15 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 底部导航
   const navBtn = (k, label, iconEl) => h("button", { onClick: () => setNav(k), className: "flex-1 flex flex-col items-center gap-1 active:opacity-70 py-2", style: { color: nav === k ? t.ink : t.fog } }, iconEl, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5 } }, label));
 
-  // ============ 云村 tab（仿网易云 v54.12）：账号 + 每日推荐 + 我的歌单，全部真数据 ============
-  // 只读镜像：日推/歌单从她账号实时拉，点歌走现有 onPlayResult 管线；红心(/like)是唯一写回。
+  // ============ 云村 tab（v54.46 全量返工）：登录后就是一个小网易云 ============
+  // 她搬到 VPS 后要的「完全搬进来」：搜索全库 / 日推 / 私人FM(带垃圾桶) / 排行榜 /
+  // 最近播放 / 我喜欢的音乐 / 歌单建·删·移歌。读全部实时拉她账号；写（红心、加/移歌、
+  // 建/删歌单、FM 垃圾桶）全部真实写回网易云，App 里立刻能看到；播放顺手 scrobble
+  // 进听歌记录，账号的「最近播放」和年度报告也会算上在这儿听的歌。
   const nj = u => fetch(apiBase + u + (u.includes("?") ? "&" : "?") + "cookie=" + encodeURIComponent(cookie || "") + "&timestamp=" + Date.now()).then(r => r.json());
   const toRes = s => ({ id: s.id, name: s.name, artist: ((s.ar || s.artists || []).map(a => a.name).filter(Boolean).join(" / ")), cover: ((s.al || s.album || {}).picUrl || null) });
-  const [cv, setCv] = useState({ me: null, daily: null, pls: null, open: null, openSongs: null, likeIds: null, busy: false });
+  const [cv, setCv] = useState({ me: null, daily: null, pls: null, open: null, openSongs: null, likeIds: null, busy: false, sub: "rec", q: "", results: null, searching: false, fm: null, recent: null, tops: null });
+  const [cvPlName, setCvPlName] = useState("");
   useEffect(() => {
     if (nav !== "cloud" || !apiBase || !cookie || cv.me) return;
     (async () => {
@@ -3233,7 +3237,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
         const me = acc && acc.profile ? { uid: acc.profile.userId, name: acc.profile.nickname, avatar: acc.profile.avatarUrl } : null;
         const [dl, pl, lk] = await Promise.all([
           nj("/recommend/songs").catch(() => null),
-          me ? nj("/user/playlist?uid=" + me.uid + "&limit=30").catch(() => null) : null,
+          me ? nj("/user/playlist?uid=" + me.uid + "&limit=50").catch(() => null) : null,
           me ? nj("/likelist?uid=" + me.uid).catch(() => null) : null
         ]);
         setCv(p => ({ ...p, busy: false, me: me,
@@ -3243,12 +3247,89 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       } catch (e) { setCv(p => ({ ...p, busy: false })); toast("云村拉不动：" + (e.message || e)); }
     })();
   }, [nav, apiBase, cookie]);
+  // 播放 + scrobble：登记听歌记录是唯一让"在这儿听"反映回她账号历史的通道，失败无声跳过
+  const playCloud = (s, srcId) => { onPlayResult(s); try { nj("/scrobble?id=" + s.id + "&sourceid=" + (srcId || 0) + "&time=240").catch(() => {}); } catch (e) {} };
   const openCloudPl = async pl => {
     setCv(p => ({ ...p, open: pl, openSongs: null }));
     try {
-      const d = await nj("/playlist/track/all?id=" + pl.id + "&limit=100");
+      const d = await nj("/playlist/track/all?id=" + pl.id + "&limit=200");
       setCv(p => (p.open && p.open.id === pl.id) ? { ...p, openSongs: (d && d.songs || []).map(toRes) } : p);
     } catch (e) { toast("歌单拉不动"); }
+  };
+  // 「我喜欢的音乐」不是普通歌单：likelist 只有 id，得再拿 song/detail 补全
+  const openLikePl = async () => {
+    const ids = [...(cv.likeIds || [])].slice(0, 200);
+    setCv(p => ({ ...p, open: { id: "__like__", name: "我喜欢的音乐", count: (p.likeIds && p.likeIds.size) || 0, mine: false }, openSongs: null }));
+    if (!ids.length) return setCv(p => p.open && p.open.id === "__like__" ? { ...p, openSongs: [] } : p);
+    try {
+      const d = await nj("/song/detail?ids=" + ids.join(","));
+      setCv(p => (p.open && p.open.id === "__like__") ? { ...p, openSongs: (d && d.songs || []).map(toRes) } : p);
+    } catch (e) { toast("红心歌单拉不动"); }
+  };
+  const cvSearch = async () => {
+    const q = (cv.q || "").trim(); if (!q) return;
+    setCv(p => ({ ...p, searching: true }));
+    try {
+      const d = await nj("/cloudsearch?keywords=" + encodeURIComponent(q) + "&limit=30");
+      setCv(p => ({ ...p, searching: false, results: ((d && d.result && d.result.songs) || []).map(toRes) }));
+    } catch (e) { setCv(p => ({ ...p, searching: false })); toast("搜不动：" + (e.message || e)); }
+  };
+  const loadFm = async () => {
+    try {
+      const d = await nj("/personal_fm");
+      const add = ((d && d.data) || []).map(toRes);
+      setCv(p => ({ ...p, fm: (p.fm || []).concat(add.filter(x => !(p.fm || []).some(y => y.id === x.id))) }));
+    } catch (e) { toast("FM 拉不动"); }
+  };
+  const trashFm = async s => {
+    setCv(p => ({ ...p, fm: (p.fm || []).filter(x => x.id !== s.id) }));
+    try { await nj("/fm_trash?id=" + s.id); toast("已丢进 FM 垃圾桶，网易云会少推这类"); } catch (e) {}
+  };
+  const loadRecent = async () => {
+    try {
+      const d = await nj("/record/recent/song?limit=50");
+      setCv(p => ({ ...p, recent: (((d && d.data && d.data.list) || []).map(x => toRes(x.data || x))) }));
+    } catch (e) { toast("最近播放拉不动"); }
+  };
+  const loadTops = async () => {
+    try {
+      const d = await nj("/toplist");
+      setCv(p => ({ ...p, tops: ((d && d.list) || []).slice(0, 20).map(x => ({ id: x.id, name: x.name, cover: x.coverImgUrl, count: x.trackCount, freq: x.updateFrequency, mine: false })) }));
+    } catch (e) { toast("排行榜拉不动"); }
+  };
+  const setCvSub = k => { setCv(p => ({ ...p, sub: k })); if (k === "top" && !cv.tops) loadTops(); if (k === "recent" && !cv.recent) loadRecent(); };
+  const refreshCvPls = async () => {
+    const me = cv.me; if (!me) return;
+    try {
+      const pl = await nj("/user/playlist?uid=" + me.uid + "&limit=50");
+      setCv(p => ({ ...p, pls: ((pl && pl.playlist) || []).map(x => ({ id: x.id, name: x.name, count: x.trackCount, cover: x.coverImgUrl, mine: x.userId === me.uid })) }));
+    } catch (e) {}
+  };
+  const createRealPl = async name => {
+    try {
+      const d = await nj("/playlist/create?name=" + encodeURIComponent(name));
+      const code = d && (d.code || (d.body && d.body.code));
+      if (code && code !== 200) throw new Error("code " + code);
+      setCvPlName(""); toast("已在你网易云账号建了「" + name + "」");
+      await refreshCvPls();
+    } catch (e) { toast("建歌单失败：" + (e.message || e)); }
+  };
+  const delRealPl = async pl => {
+    if (!confirm("删掉网易云歌单「" + pl.name + "」？会真的从你账号删除。")) return;
+    try {
+      await nj("/playlist/delete?id=" + pl.id);
+      toast("已从你网易云账号删除");
+      setCv(p => ({ ...p, pls: (p.pls || []).filter(x => x.id !== pl.id), open: (p.open && p.open.id === pl.id) ? null : p.open }));
+    } catch (e) { toast("删除失败：" + (e.message || e)); }
+  };
+  const removeFromRealPl = async (pl, s) => {
+    try {
+      const d = await nj("/playlist/tracks?op=del&pid=" + pl.id + "&tracks=" + s.id);
+      const code = d && (d.status || (d.body && d.body.code) || d.code);
+      if (code && code !== 200) throw new Error("code " + code);
+      toast("已从网易云的「" + pl.name + "」移除");
+      setCv(p => ({ ...p, openSongs: (p.openSongs || []).filter(x => x.id !== s.id), pls: (p.pls || []).map(x => x.id === pl.id ? { ...x, count: Math.max(0, (x.count || 1) - 1) } : x) }));
+    } catch (e) { toast("移除失败：" + (e.message || e)); }
   };
   // 加进她真网易云歌单（只列她自己建的，收藏的没有写权限）；v54.15 她赢完UNO当场抓的缺口
   const [cvAddPick, setCvAddPick] = useState(null); // 待入单的歌
@@ -3291,8 +3372,10 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
       toast(liked ? "已取消红心（同步到网易云）" : "❤ 已红心（同步到网易云）");
     } catch (e) { toast("红心没同步上"); }
   };
-  const cloudRow = (s, i, list) => h("div", { key: s.id, className: "flex items-center gap-2 py-2", style: { borderBottom: "1px solid " + t.line } },
-    h("button", { onClick: () => onPlayResult(s), className: "flex items-center gap-2.5 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
+  // 统一的歌行：播放(带scrobble) / 红心 / 收进家 / ☁＋入她的网易云歌单；
+  // opts.removable=从她自己的歌单里真删这首；opts.trash=FM 垃圾桶
+  const cloudRow = (s, opts) => { const o = opts || {}; return h("div", { key: s.id, className: "flex items-center gap-2 py-2", style: { borderBottom: "1px solid " + t.line } },
+    h("button", { onClick: () => playCloud(s, o.srcId), className: "flex items-center gap-2.5 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
       h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: s.cover ? "center/cover no-repeat url(" + s.cover + "?param=80y80)" : t.bg2 } }),
       h("div", { className: "min-w-0" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.name),
@@ -3300,38 +3383,71 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     h("button", { onClick: () => likeSong(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 16, color: (cv.likeIds && cv.likeIds.has(String(s.id))) ? "#d0503e" : t.fog } }, (cv.likeIds && cv.likeIds.has(String(s.id))) ? "♥" : "♡"),
     h("button", { onClick: () => onAddNeteaseResult(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 18, color: t.fog }, title: "收进咱家歌库" }, "＋"),
     h("button", { onClick: () => openCvAdd(s), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint }, title: "加进网易云歌单" }, "☁＋"),
-    h("button", { onClick: () => onPlayResult(s), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 28, height: 28, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 13)));
+    o.removable ? h("button", { onClick: () => removeFromRealPl(o.removable, s), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 15, color: "#a4442e" }, title: "从这个网易云歌单移除" }, "－") : null,
+    o.trash ? h("button", { onClick: () => trashFm(s), className: "shrink-0 active:opacity-60 px-1", style: { fontSize: 14, color: t.fog }, title: "不喜欢，少推这类" }, "🗑") : null,
+    h("button", { onClick: () => playCloud(s, o.srcId), className: "shrink-0 active:opacity-60 flex items-center justify-center", style: { width: 28, height: 28, borderRadius: 999, background: t.ink } }, ic("play", t.bg2, 13))); };
+  const cvChip = (k, label) => h("button", { key: k, onClick: () => setCvSub(k), className: "active:opacity-70", style: { padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, background: cv.sub === k ? t.ink : t.bg2, color: cv.sub === k ? t.bg2 : t.sub, border: "1px solid " + (cv.sub === k ? t.ink : t.line) } }, label);
+  const cvPlRow = pl => h("div", { key: pl.id, className: "w-full flex items-center gap-3 py-2", style: { borderBottom: "1px solid " + t.line } },
+    h("button", { onClick: () => openCloudPl(pl), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-70", style: { textAlign: "left" } },
+      h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=100y100)" : t.bg2 } }),
+      h("div", { className: "min-w-0 flex-1" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首" + (pl.freq ? " · " + pl.freq : pl.mine ? "" : " · 收藏")))),
+    pl.mine ? h("button", { onClick: () => delRealPl(pl), className: "shrink-0 active:opacity-60 px-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a4442e" } }, "删") : null,
+    h("span", { style: { color: t.fog, fontSize: 16 } }, "›"));
+  const cvSection = (title, right) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 4, marginTop: 14 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, title), right || null);
   const cloudTab = h("div", { className: "px-4 py-3" },
     cv.open
       ? h("div", null,
           h("button", { onClick: () => setCv(p => ({ ...p, open: null, openSongs: null })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 8 } }, "‹ 云村"),
           h("div", { className: "flex items-center gap-3", style: { marginBottom: 10 } },
-            h("div", { style: { width: 54, height: 54, borderRadius: 10, background: cv.open.cover ? "center/cover no-repeat url(" + cv.open.cover + "?param=120y120)" : t.bg2 } }),
+            h("div", { style: { width: 54, height: 54, borderRadius: 10, background: cv.open.cover ? "center/cover no-repeat url(" + cv.open.cover + "?param=120y120)" : (cv.open.id === "__like__" ? "linear-gradient(135deg,#e0576b,#f0a8c0)" : t.bg2), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 20 } }, cv.open.cover ? null : (cv.open.id === "__like__" ? "♥" : null)),
             h("div", null,
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cv.open.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, cv.open.count + " 首")),
-            (cv.openSongs && cv.openSongs.length) ? h("button", { onClick: () => { cv.openSongs.forEach(onAddNeteaseResult); onPlayResult(cv.openSongs[0]); }, className: "ml-auto shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 16)) : null),
-          cv.openSongs ? cv.openSongs.map(cloudRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "拉歌单中…"))
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, cv.open.count + " 首" + (cv.open.mine ? " · 我建的（可移歌）" : ""))),
+            (cv.openSongs && cv.openSongs.length) ? h("button", { onClick: () => { cv.openSongs.forEach(onAddNeteaseResult); playCloud(cv.openSongs[0], cv.open.id === "__like__" ? 0 : cv.open.id); }, className: "ml-auto shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 16)) : null),
+          cv.openSongs ? (cv.openSongs.length ? cv.openSongs.map(s => cloudRow(s, { srcId: cv.open.id === "__like__" ? 0 : cv.open.id, removable: cv.open.mine ? cv.open : null })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "这个歌单是空的")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "拉歌单中…"))
       : h("div", null,
-          cv.me ? h("div", { className: "flex items-center gap-3", style: { marginBottom: 14 } },
+          cv.me ? h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
             h("div", { style: { width: 44, height: 44, borderRadius: 999, background: cv.me.avatar ? "center/cover no-repeat url(" + cv.me.avatar + "?param=100y100)" : t.bg2 } }),
             h("div", null,
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, cv.me.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "网易云账号已连 · 数据实时"))) : (cv.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0" } }, "连你的网易云账号中…") : null),
-          (cv.daily && cv.daily.length) ? h("div", { style: { marginBottom: 16 } },
-            h("div", { className: "flex items-center justify-between", style: { marginBottom: 4 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "每日推荐"),
-              h("button", { onClick: () => { cv.daily.forEach(onAddNeteaseResult); onPlayResult(cv.daily[0]); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "▶ 播放全部")),
-            cv.daily.slice(0, 30).map(cloudRow)) : null,
-          (cv.pls && cv.pls.length) ? h("div", null,
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "我的歌单"),
-            cv.pls.map(pl => h("button", { key: pl.id, onClick: () => openCloudPl(pl), className: "w-full flex items-center gap-3 py-2 active:opacity-70", style: { borderBottom: "1px solid " + t.line, textAlign: "left" } },
-              h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=100y100)" : t.bg2 } }),
-              h("div", { className: "min-w-0 flex-1" },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首" + (pl.mine ? "" : " · 收藏"))),
-              h("span", { style: { color: t.fog, fontSize: 16 } }, "›")))) : null,
-          (!cv.busy && cv.me && !(cv.daily && cv.daily.length) && !(cv.pls && cv.pls.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "账号连上了，但日推和歌单都没拉到——过几秒切出去再进来试试") : null));
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "网易云账号已连 · 操作会真实写回"))) : (cv.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0" } }, "连你的网易云账号中…") : null),
+          // 搜索全库：结果行上红心/☁＋/收进家全都能用
+          h("div", { className: "flex gap-2", style: { marginBottom: 10 } },
+            h("input", { value: cv.q, onChange: e => { const v = e.target.value; setCv(p => ({ ...p, q: v })); }, onKeyDown: e => { if (e.key === "Enter") cvSearch(); }, placeholder: "搜网易云全库：歌名 / 歌手", style: field }),
+            h("button", { onClick: cvSearch, disabled: cv.searching, className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 8, flexShrink: 0 } }, cv.searching ? "…" : "搜")),
+          cv.results
+            ? h("div", null,
+                h("button", { onClick: () => setCv(p => ({ ...p, results: null, q: "" })), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 4 } }, "‹ 清空搜索结果"),
+                cv.results.length ? cv.results.map(s => cloudRow(s)) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "没搜到"))
+            : h("div", null,
+                h("div", { className: "flex gap-2 flex-wrap" }, cvChip("rec", "推荐"), cvChip("pls", "歌单"), cvChip("top", "排行榜"), cvChip("recent", "最近播放")),
+                cv.sub === "rec" ? h("div", null,
+                  // 我喜欢的音乐入口
+                  h("button", { onClick: openLikePl, className: "w-full flex items-center gap-3 active:opacity-80", style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "10px 12px", textAlign: "left" } },
+                    h("div", { style: { flexShrink: 0, width: 44, height: 44, borderRadius: 10, background: "linear-gradient(135deg,#e0576b,#f0a8c0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff" } }, "♥"),
+                    h("div", { className: "min-w-0 flex-1" },
+                      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "我喜欢的音乐"),
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 和网易云 App 同一份")),
+                    h("span", { style: { color: t.fog, fontSize: 16 } }, "›")),
+                  (cv.daily && cv.daily.length) ? h("div", null,
+                    cvSection("每日推荐", h("button", { onClick: () => { cv.daily.forEach(onAddNeteaseResult); playCloud(cv.daily[0]); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "▶ 播放全部")),
+                    cv.daily.slice(0, 30).map(s => cloudRow(s))) : null,
+                  cvSection("私人FM", h("button", { onClick: loadFm, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, cv.fm ? "↻ 再来一批" : "▶ 开一波")),
+                  cv.fm ? (cv.fm.length ? cv.fm.map(s => cloudRow(s, { trash: true })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "都丢垃圾桶了，再来一批")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 0 8px" } }, "网易云那套私人电台——🗑 会真实反馈「不喜欢」")) : null,
+                cv.sub === "pls" ? h("div", null,
+                  h("div", { className: "flex gap-2", style: { marginTop: 12, marginBottom: 4 } },
+                    h("input", { value: cvPlName, onChange: e => setCvPlName(e.target.value), placeholder: "在网易云账号里新建歌单", style: field }),
+                    h("button", { onClick: () => { if (cvPlName.trim()) createRealPl(cvPlName.trim()); }, disabled: !cvPlName.trim(), className: "active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, padding: "0 16px", borderRadius: 8, flexShrink: 0 } }, "建")),
+                  (cv.pls && cv.pls.length) ? cv.pls.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, cv.busy ? "拉歌单中…" : "还没拉到歌单")) : null,
+                cv.sub === "top" ? h("div", { style: { marginTop: 6 } },
+                  cv.tops ? cv.tops.map(cvPlRow) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉榜单中…")) : null,
+                cv.sub === "recent" ? h("div", { style: { marginTop: 6 } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, "含在这儿听的——每次播放都会登记进你账号的听歌记录"),
+                  cv.recent ? (cv.recent.length ? cv.recent.map(s => cloudRow(s)) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "没有最近播放")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "拉记录中…")) : null,
+                (!cv.busy && cv.me && cv.sub === "rec" && !(cv.daily && cv.daily.length)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "16px 0", textAlign: "center" } }, "日推没拉到——过几秒切出去再进来试试") : null)));
 
   return h("div", { className: "h-full flex flex-col relative", style: { background: t.bg } },
     h(Head, { zh: "一起听", en: nav === "play" && now ? (idx >= 0 ? idx + 1 : 1) + " / " + (nowQueue.length || songs.length) : "Listen", onBack: () => { if (openPl) setOpenPl(null); else onBack(); } }),
