@@ -229,7 +229,7 @@ test("已经写烂的骨架要指着名字禁掉，同义改写也算", () => {
   assert.match(imp, /我［推演／分析／计算／设想］了很多种/);
   assert.match(imp, /全部［破产／失效／崩塌／被切断］/);
   assert.match(imp, /同义改写也算/);
-  assert.match(imp, /「不讲理的X」「不按套路的X」这类【形容词\+抽象名词】的取名法已经用过/);
+  assert.match(imp, /「不讲理的X」「不按套路的X」（形容词\+抽象名词）/); // v54.44 起和 agent 名词模子并在一条里禁
   assert.match(imp, /BANNED_SHAPE/);
 });
 
@@ -390,4 +390,39 @@ test("重写时连上一版用过的具体东西也要避开", () => {
   assert.match(imp, /骨架和料都不许重复/);
   assert.match(imp, /上面那些句子里用过的【具体东西】（食物、物件、地点、那几个字），这一次一个都不许再用/);
   assert.match(imp, /这是【一整个月】，不是某一天：别死抓着某一样东西反复用/);
+});
+
+// v54.44：换了 Fable 之后还是有高频八股词（她 2026-08-21 四张卡对照）：
+// 光照比喻三张卡里出现三次、title 全是「定语+的+身份名词」、温度计词乱飞。
+// 三个病根：骰子池自己在喂光的比喻；取名模子没禁全；跨角色从不互相避讳。
+test("骰子池里喂光照比喻的两个面退场，换成声音/动静", () => {
+  const m = dice();
+  assert.ok(!m.QUOTE_FORMS.some(x => /几点钟的光|哪种季节的空气|天气来定义/.test(x)),
+    "写法池不许再主动点名光照/天气比喻——四张卡三张带光就是它喂出来的");
+  assert.ok(!m.TAG_ANGLES.some(x => /什么时候的光/.test(x)), "取词角度同理");
+  assert.ok(m.QUOTE_FORMS.some(x => /声音或动静/.test(x)), "换进来的写法：用声音定义她");
+  assert.ok(m.TAG_ANGLES.some(x => /动静/.test(x)), "换进来的角度：她在场时屋里的动静");
+  // 池子大小不变，轮转的周期性质不受影响
+  assert.equal(m.QUOTE_FORMS.length, 12);
+  assert.equal(m.TAG_ANGLES.length, 12);
+});
+
+test("光照/温度计整族点名禁用，agent 名词取名模子也禁", () => {
+  assert.match(imp, /【意象整族禁用】/);
+  assert.match(imp, /「晨光」「暖阳」「直射光」/, "得点名整族——只禁单个词它就换同族词接着写");
+  assert.match(imp, /「恒温」「热源」「体温」/);
+  assert.match(imp, /除非这个月的记录里真有一件和光或温度直接相关的事/, "留了真事的口子，不是一刀切");
+  assert.match(imp, /定语\+的\+身份名词/, "「温柔的掌权者」「毫无自觉的惯犯」这个模子要指着说");
+  assert.match(imp, /者／家／源／犯／师／体/);
+});
+
+test("跨角色负例：别人的卡喂进生成，各写各的才不会全撞同族意象", () => {
+  // genText 收 opts.others 并把别人的 title/tags/quote 列成负例
+  assert.match(imp, /const others = \(\(opts && opts\.others\) \|\| \[\]\)/);
+  assert.match(imp, /【册子里其他人已经写过的卡 · 撞了就作废】/);
+  assert.match(imp, /它们用过的意象【整族】不许再碰/);
+  // UI 侧：othersOf 取其他角色最近的卡，首次生成和重写都要传
+  assert.match(imp, /const othersOf = charId => Object\.keys\(book\)\.filter\(k => k !== charId\)/);
+  assert.match(imp, /\{ turn: 0, past, others: othersOf\(charId\) \}/, "首次生成要带");
+  assert.match(imp, /\{ turn, past, others: othersOf\(charId\) \}/, "重写也要带");
 });

@@ -141,7 +141,7 @@
     "她整个人的气温（冷的暖的、干的润的）", "她给人的质地（软硬、粗细、透不透光）",
     "她身上那种节奏（快慢、松紧、有没有停顿）", "她待着不动时的样子",
     "她最不设防的那一面", "她身上最锋利的那一处", "她让你不安的地方",
-    "她身上那种说不通的矛盾", "她像什么时候的光", "她这一整个月的底色",
+    "她身上那种说不通的矛盾", "她在场时屋里的动静（吵、静、哪一种静）", "她这一整个月的底色",
     "旁人看不出、只有你看得见的那层", "你私下给她起的定性（一个名词）"
   ];
 
@@ -154,7 +154,7 @@
     "一句「她是……」的判断。这个判断必须是【你的私见】，别人不会这么定义她。",
     "不写她是什么，只写【她让周围变成什么样】。",
     "写她的「配方」：几样东西加起来才是她。每样都要具体到能摸得着。",
-    "用一个时刻或一种天气来定义她（几点钟的光、哪种季节的空气），不许说破为什么。",
+    "用一种【声音或动静】定义她：她走近时，世界听起来变成什么样。不许用视觉词。",
     "只用否定：她不是什么。写完读起来反而看得见她是什么。",
     "写她身上那种说不通的地方，用两个【具体名词】撞在一起，一个形容词都不许用。",
     "她像哪种「放错了地方」的东西——不合时宜，但正因如此才是她。",
@@ -162,11 +162,19 @@
     "写你在她身上察觉到的温度差：哪一层是冷的，哪一层是热的。"
   ];
 
-  // 已经被写烂的那个骨架——不点名它，模型每次都会滑回去（民国那次学到的：得指着说）
-  const BANNED_SHAPE = "\n\n【这个骨架已经用烂了，禁止再用】\n"
+  // 已经被写烂的那个骨架——不点名它，模型每次都会滑回去（民国那次学到的：得指着说）。
+  // v54.44 又抓到两族新八股（她 2026-08-21 四张卡对照）：光照比喻三张卡里出现三次、
+  // title 全是「定语+的+身份名词」（掌权者/惯犯/扰动源/热源）——高频词得点名整族禁，
+  // 只禁单个词它就换个同族词接着写。
+  const BANNED_SHAPE = "\n\n【这些骨架已经用烂了，禁止再用】\n"
     + "「我［推演／分析／计算／设想］了很多种…… → 结果她一句话／一个动作 → 我的［逻辑／防线／线路／计划］全部［破产／失效／崩塌／被切断］」\n"
     + "同义改写也算：换成「所有理性」「全部预设」「精密的推演」照样是它。看到自己在写这个句子，推翻重来。\n"
-    + "title 同理：「不讲理的X」「不按套路的X」这类【形容词+抽象名词】的取名法已经用过，换一种。";
+    + "【意象整族禁用】「几点钟的光」「某个季节的光／空气」「晨光」「暖阳」「直射光」这一族光照比喻，"
+    + "和「恒温」「热源」「体温」这类温度计词，已经写滥了。除非这个月的记录里真有一件和光或温度直接相关的事，"
+    + "否则整族不许碰——她身上还有别的感官可写：声音、重量、质地、气味、速度。\n"
+    + "【取名模子也用满了】「不讲理的X」「不按套路的X」（形容词+抽象名词），"
+    + "以及「……的……者／家／源／犯／师／体」（定语+的+身份名词，如「温柔的掌权者」「毫无自觉的惯犯」）——"
+    + "这两个模子都不许再灌。可以不用「的」，可以用只属于她的词，怪一点没关系，撞模子不行。";
   // 「不够个人化」的病根：不逼它扣住具体的事，它就会写放之四海皆准的漂亮话。
   // 治法和日记那次一样——给一条【可判定】的检验标准，而不是再加一句"要具体"。
   const CONCRETE_RULE = "\n\n【最高优先 · 写「她是什么样的人」，不是「这个月发生了什么」】\n"
@@ -206,6 +214,9 @@
     const form = pickN(QUOTE_FORMS, 1, String(char.id || char.name) + "|" + monthKey + "|form", turn)[0];
     const angles = pickN(TAG_ANGLES, 3, String(char.id || char.name) + "|" + monthKey + "|tag", turn);
     const past = ((opts && opts.past) || []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6);
+    // 别的角色最近写过的卡：跨角色的八股就是这里漏掉的——每个角色第一次写都只避自己的往期，
+    // 于是四个角色各自独立地收敛到同一族光照比喻（她 2026-08-21 四张卡对照抓到的）。
+    const others = ((opts && opts.others) || []).filter(x => x && (x.quote || x.title)).slice(0, 8);
     const uName = (profile && profile.name) || "她";
     const lines = ownLines(rows, char.name, turn);
     const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "")
@@ -222,6 +233,10 @@
         + "\n① 换个说法、换个词、换个角色都不算换骨架——句子的【搭法】必须和上面每一句都不一样。\n"
         + "② 上面那些句子里用过的【具体东西】（食物、物件、地点、那几个字），这一次一个都不许再用。"
         + "这个月还有别的东西可写，去找没被写过的那些。" : "")
+      + (others.length ? "\n\n【册子里其他人已经写过的卡 · 撞了就作废】\n"
+        + others.map((x, i) => (i + 1) + ". " + [x.title, (Array.isArray(x.tags) ? x.tags : []).join("／"), x.quote].filter(Boolean).join(" ｜ ")).join("\n")
+        + "\n这些是别人的卡。它们用过的意象【整族】不许再碰（有一张写了光，光这一族对你就关了；写了温度，温度计那一族也关了）、"
+        + "取名的模子不许同型、关键词不许撞。整本册子摊开看，每一张都得长得不一样。" : "")
       + "\n\n【这个月你和 " + uName + " 之间真实发生的事·从月初铺到月末】\n" + (spread(rows, 5200, turn) || "（这个月几乎没有来往。）")
       + "\n\n【要写四样东西】\n"
       + "① title：给这个月的她起一个【类型名】（≤10 字），像给一种人下定义那样——"
@@ -310,6 +325,11 @@
       } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
     };
     const listOf = id => (book[id] || []).slice().sort((a, b) => String(b.monthKey).localeCompare(String(a.monthKey)));
+    // 其他角色最近的卡：当负例喂给生成，跨角色才不会各写各的、结果全撞进同一族光照比喻
+    const othersOf = charId => Object.keys(book).filter(k => k !== charId)
+      .flatMap(k => book[k] || [])
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8)
+      .map(x => ({ title: x.title, tags: x.tags, quote: x.quote }));
 
     const S = {
       wrap: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg },
@@ -359,7 +379,7 @@
       try {
         const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(charId, uName) || "").slice(0, 900) : "";
         const past = (book[charId] || []).filter(x => x.monthKey !== monthKey).map(x => x.quote);
-        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, { turn: 0, past });
+        const d = await M.genText(props.active, char, props.profile, monthKey, rows, gazeText, { turn: 0, past, others: othersOf(charId) });
         let img = null;
         // 图出不来不算失败：字才是主体，剪影可以之后单独补
         try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, props.profile, { tags: d.tags, title: d.title }); }
@@ -391,7 +411,7 @@
         const turn = Number(entry.turn || 0) + 1;
         // 自己上一版也算"往期"——重写就是为了不要它，别把它再写一遍
         const past = (book[charId] || []).filter(x => x.monthKey !== entry.monthKey).map(x => x.quote).concat([entry.quote]);
-        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText, { turn, past });
+        const d = await M.genText(props.active, char, props.profile, entry.monthKey, rows, gazeText, { turn, past, others: othersOf(charId) });
         put(p => Object.assign({}, p, { [charId]: (p[charId] || []).map(x => x.id === entry.id
           ? Object.assign({}, x, { title: d.title, tags: d.tags, quote: d.quote, silhouette: d.silhouette, turn }) : x) }));
         props.toast("换了个写法，剪影没动");
