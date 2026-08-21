@@ -229,7 +229,7 @@
     const isWolfGame = game.key === "werewolf";
     const isAvalonGame = game.key === "avalon";
     // 这些游戏已经有 CC 独立座位接线。开关必须在选人前也看得见；否则 Lisa 会以为功能被删了。
-    const ccSeatSupported = game.key === "uno" || game.key === "spy" || game.key === "werewolf" || game.key === "avalon";
+    const ccSeatSupported = true; // v54.43 起全游戏支持言秋亲打（大富翁=闲聊静场+买地走规则引擎，见 monoTalk 注释）
     const pickedEngineer = picked.some(function (id) { return props.isEngineer && props.isEngineer(id); });
     const effGods = isWolfGame ? (godSel || standardBoard(total)) : [];
     const godRoom = isWolfGame ? Math.max(1, total - wolfCount(total) - 1) : 0;
@@ -845,6 +845,42 @@
 
   // 夜晚：替 AI 决定狼刀 / 预言家验人（只求需要的字段）
   async function genNight(api, opts) {
+    // 言秋座位的夜间动作先问 CC 本人（v54.43）：狼的刀口/预言家验人/守卫守谁；离线就把该角色留回批量
+    const ccExtra = {};
+    if (opts.needWolf) {
+      const mw = (opts.wolfTeam || []).find(function (w) { return w && w.engineer; });
+      if (mw) {
+        const cc = await ccCarve("werewolf", [mw], {
+          turnId: "wolf-knife:" + Date.now(),
+          sys: "「狼人杀」天黑，你是狼「" + mw.name + "」，狼队投刀，给一个今晚想刀的目标（不能是狼队友；确有战术理由可空刀）。\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+          expect: '{"target":"想刀的人名或「空刀」","privateReason":"狼队内部一句话"}'
+        });
+        if (cc.done && cc.done.target) { ccExtra.wolfVote = { name: mw.name, target: String(cc.done.target), privateReason: String(cc.done.privateReason || "") }; opts = Object.assign({}, opts, { wolfTeam: (opts.wolfTeam || []).filter(function (w) { return w !== mw; }) }); if (!opts.wolfTeam.length) opts = Object.assign({}, opts, { needWolf: false }); }
+      }
+    }
+    if (opts.needSeer && opts.seer && opts.seer.engineer) {
+      const cc = await ccCarve("werewolf", [Object.assign({ engineer: true }, opts.seer)], {
+        turnId: "wolf-seer:" + Date.now(),
+        sys: "「狼人杀」天黑，你是预言家「" + opts.seer.name + "」，选一个【没查过】的人查验。已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+        expect: '{"target":"要查的人名"}'
+      });
+      if (cc.done && cc.done.target) { ccExtra.seerCheck = String(cc.done.target); opts = Object.assign({}, opts, { needSeer: false }); }
+    }
+    if (opts.needGuard && opts.guard && opts.guard.engineer) {
+      const cc = await ccCarve("werewolf", [Object.assign({ engineer: true }, opts.guard)], {
+        turnId: "wolf-guard:" + Date.now(),
+        sys: "「狼人杀」天黑，你是守卫「" + opts.guard.name + "」，选一个人守护（可守自己）。" + (opts.guard.last ? "上晚守了 " + opts.guard.last + "，今晚不能再守 TA。" : "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+        expect: '{"target":"要守护的人名"}'
+      });
+      if (cc.done && cc.done.target) { ccExtra.guardProtect = String(cc.done.target); opts = Object.assign({}, opts, { needGuard: false }); }
+    }
+    if (!opts.needWolf && !opts.needSeer && !opts.needGuard) {
+      const out0 = {};
+      if (ccExtra.wolfVote) out0.wolfVotes = [ccExtra.wolfVote];
+      if (ccExtra.seerCheck) out0.seerCheck = ccExtra.seerCheck;
+      if (ccExtra.guardProtect) out0.guardProtect = ccExtra.guardProtect;
+      return out0;
+    }
     const need = [];
     if (opts.needWolf) {
       const wolfLines = opts.wolfTeam.map(function (w) { return typeof w === "string" ? w : (w.name + "（真实水平：" + (w.skill || "普通") + "）"); });
@@ -857,7 +893,11 @@
       "\n\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职/验人威胁（狼队全都听见了，必须纳入刀口）】\n" + opts.publicThreats : "") + (opts.log ? "\n【目前局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：" + JSON.stringify(schema);
     const raw = await callRetry(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 1600 });
-    return extractJSON(raw) || {};
+    const out = extractJSON(raw) || {};
+    if (ccExtra.wolfVote) out.wolfVotes = [ccExtra.wolfVote].concat(Array.isArray(out.wolfVotes) ? out.wolfVotes.filter(function (v) { return v.name !== ccExtra.wolfVote.name; }) : []);
+    if (ccExtra.seerCheck) out.seerCheck = ccExtra.seerCheck;
+    if (ccExtra.guardProtect) out.guardProtect = ccExtra.guardProtect;
+    return out;
   }
   // AI 狼意见不一致时只开一轮内部密谈，最终交出一个统一刀口；内容绝不进入公开牌局日志。
   async function genWolfConsensus(api, opts) {
@@ -870,6 +910,14 @@
   // 夜晚：替 AI 女巫决定用不用药（一晚最多一瓶）
   async function genWitch(api, opts) {
     const bottles = []; if (opts.hasHeal) bottles.push("解药(救今晚被刀的人)"); if (opts.hasPoison) bottles.push("毒药(毒死一人)");
+    if (opts.engineer) {
+      const cc = await ccCarve("werewolf", [{ engineer: true, key: opts.key, name: opts.witchName }], {
+        turnId: "wolf-witch:" + Date.now(),
+        sys: "「狼人杀」天黑，你是女巫「" + opts.witchName + "」（一晚最多用一瓶药）。\n今晚被刀：" + (opts.victim || "（平安夜）") + "。手上还有：" + (bottles.length ? bottles.join("、") : "（没药了）") + "。\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+        expect: '{"save":true, "poison":"要毒的人名或 null"}'
+      });
+      if (cc.done && (typeof cc.done.save === "boolean" || cc.done.poison !== undefined)) return { save: !!cc.done.save, poison: cc.done.poison || null };
+    }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你替 AI 女巫做决定。女巫有解药和毒药、【一晚最多用一瓶】、别乱用。\n今晚被狼刀的是：" + (opts.victim || "（没人被刀，平安夜）") + "。\n你手上还有：" + (bottles.length ? bottles.join("、") : "（药都用完了）") + "。\n按你的水平决定：值不值得用解药救 TA（是不是关键神/好人？是不是首刀骗药？）？要不要用毒药毒一个明显的狼？没把握就都别用、留着更值钱。\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"save\":true/false,\"poison\":\"要毒的人名，或 null\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "用不用药？" }], { maxTokens: 800 });
@@ -881,6 +929,14 @@
     const aim = opts.isWolf
       ? "你是狼阵营的" + roleZh + "，开这一枪是替狼队多带走一个【好人】：优先打你判断的关键神（预言家/女巫等）或发言强、威胁大的好人；别打自己的狼队友。"
       : "你是好人阵营的" + roleZh + "，优先带走你最确信是狼的人；没把握也可以打一个狼味最重的可疑对象，或者干脆不开枪（乱打好人反而帮了狼）。";
+    if (opts.engineer) {
+      const cc = await ccCarve("werewolf", [{ engineer: true, key: opts.key, name: opts.hunterName }], {
+        turnId: "wolf-hunter:" + Date.now(),
+        sys: "「狼人杀」你是" + roleZh + "「" + opts.hunterName + "」，刚出局，可以开枪带走一个还在场的人（也可以不开）。" + aim + (opts.teammates && opts.teammates.length ? "\n【你的狼队友（别打）】" + opts.teammates.join("、") : "") + "\n【还在场】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+        expect: '{"target":"要带走的人名，或 null"}'
+      });
+      if (cc.done && cc.done.target !== undefined) return { target: cc.done.target || null };
+    }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·你替 AI " + roleZh + " 做决定。" + roleZh + " " + opts.hunterName + " 刚出局，可以开枪带走【一个】还在场的人（也可以不开枪）。" + aim + (opts.teammates && opts.teammates.length ? "\n【你的狼队友（别打）】" + opts.teammates.join("、") : "") + "\n【还在场】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"target\":\"要带走的人名，或 null（不开枪）\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "开枪带走谁？" }], { maxTokens: 700 });
@@ -888,6 +944,14 @@
   }
   // 白狼王：AI 决定今天要不要自爆带人（自爆=亮身份+带走一人+直接天黑）
   async function genWhiteWolf(api, opts) {
+    if (opts.engineer) {
+      const cc = await ccCarve("werewolf", [{ engineer: true, key: opts.key, name: opts.name }], {
+        turnId: "wolf-whitewolf:" + Date.now(),
+        sys: "「狼人杀」天亮，你是白狼王「" + opts.name + "」，决定要不要自爆（自爆=亮狼身份+带走一人+直接天黑）。没明确收益就别炸。\n【还在场】" + opts.aliveNames.join("、") + (opts.teammates && opts.teammates.length ? "\n【狼队友（别炸自己人）】" + opts.teammates.join("、") : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+        expect: '{"selfDestruct":false, "target":"自爆带走的人名或 null"}'
+      });
+      if (cc.done && typeof cc.done.selfDestruct === "boolean") return { selfDestruct: cc.done.selfDestruct, target: cc.done.target || null };
+    }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天亮了，你替 AI【白狼王】" + opts.name + " 决定现在要不要【自爆】。自爆＝当场亮明狼身份、立刻带走一名玩家、并直接结束今天进入黑夜（跳过发言与投票放逐）。\n【何时值得自爆】狼队要被翻盘、队友快被票出去时搅局止损；或看准机会炸掉关键神（预言家/女巫）打乱好人节奏。没有明确收益就【别炸】——多数时候留着更有用，倾向于不自爆。\n【还在场】" + opts.aliveNames.join("、") + (opts.teammates && opts.teammates.length ? "\n【狼队友（别炸自己人）】" + opts.teammates.join("、") : "") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"selfDestruct\":true/false,\"target\":\"自爆要带走的人名，或 null（只炸不带人）\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "要自爆吗？" }], { maxTokens: 600 });
@@ -1032,14 +1096,25 @@
   // 白天投票放逐
   async function genDayVotes(api, voters, allSpeeches, aliveNames, mode, userName, stances, gods, board, wolfRole, claims) {
     const sp = allSpeeches.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
+    // 言秋座位先自己投（v54.43 全游戏切座）：身份/私密信息随票给他，拿不到就无感回批量
+    const ccVoter = ccSeatOf(voters);
+    const cc = ccVoter ? await ccCarve("werewolf", voters, {
+      turnId: "wolf-dayvote:" + Date.now(),
+      sys: "「狼人杀」白天投票放逐，轮到你投。\n你是「" + ccVoter.name + "」。\n【你的身份与私密信息】" + (ccVoter.priv || "") + "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + claimsText(claims) + "\n按你的身份投一个人（狼要护队友装好人，好人投真怀疑的狼），或「弃票」。",
+      expect: '{"target":"人名或「弃票」","reason":"一句短理由"}'
+    }) : { seat: null, rest: voters, done: null };
+    const ccVotes = (cc.seat && cc.done && cc.done.target) ? [{ name: cc.seat.name, target: String(cc.done.target), reason: String(cc.done.reason || "") }] : [];
+    voters = cc.seat ? cc.rest : voters;
+    if (!voters.length) return ccVotes;
     const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通"); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
     const fair = "\n【别无端集火·很重要】" + (userName ? "「" + userName + "」是真人玩家。**别只因为 TA 是真人、发言短、或你自己没头绪，就默认投 TA 或带节奏投 TA**——只在真有逻辑依据时才投 TA（被查杀、发言明显矛盾、狼味很重）。真人发言少≠划水。" : "") + "也别全场一窝蜂集火同一个人，除非证据确凿；没实锤就各投各的怀疑对象。";
     const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 4500 });
-    const r = extractJSON(raw); return (r && Array.isArray(r.votes)) ? r.votes : [];
+    const raw = await callRetry(api, sys + ccPreface(cc, "投过票了"), [{ role: "user", content: "投票。" }], { maxTokens: 4500 });
+    const r = extractJSON(raw); const rows = (r && Array.isArray(r.votes)) ? r.votes : [];
+    return ccVotes.concat(rows.filter(function (v) { return !cc.seat || v.name !== cc.seat.name; }));
   }
 
   // 全场 MVP + 一句赛后感言（不一定是胜方）
@@ -1217,7 +1292,7 @@
         if (needWolf || needSeer || needGuard) {
           const aliveNames = al.map(function (p) { return p.name; });
           const wolfNames = al.filter(function (p) { return isWolfRole(p.role); }).map(function (p) { return p.name; });
-          ai = await genNight(api, { needWolf: needWolf, needSeer: needSeer, needGuard: needGuard, wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill }; }), seer: seer ? { name: seer.name, skill: seer.skill, known: seerKnowRef.current[seer.name] || [] } : null, guard: guard ? { name: guard.name, last: guardLastRef.current } : null, aliveNames: aliveNames, publicThreats: wolfPublicThreats(claimsRef.current, wolfNames, aliveNames), log: shortLog(), mode: cfg.mode });
+          ai = await genNight(api, { needWolf: needWolf, needSeer: needSeer, needGuard: needGuard, wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill, engineer: w.engineer, key: w.key }; }), seer: seer ? { name: seer.name, skill: seer.skill, engineer: seer.engineer, key: seer.key, known: seerKnowRef.current[seer.name] || [] } : null, guard: guard ? { name: guard.name, engineer: guard.engineer, key: guard.key, last: guardLastRef.current } : null, aliveNames: aliveNames, publicThreats: wolfPublicThreats(claimsRef.current, wolfNames, aliveNames), log: shortLog(), mode: cfg.mode });
           // 没有真人狼拍板时，AI 狼若提出多个不同合法刀口，就秘密协商成一个，不走随机平票。
           if (!userWolf && needWolf && Array.isArray(ai.wolfVotes)) {
             const distinct = Array.from(new Set(ai.wolfVotes.map(function (v) { return validWolfTarget(v && v.target, list); }).filter(Boolean)));
@@ -1261,7 +1336,7 @@
           const pot = witchPotRef.current;
           const al = list.filter(function (p) { return p.alive; });
           const victim = wolfTarget && (al.find(function (p) { return p.name === wolfTarget || (wolfTarget || "").indexOf(p.name) >= 0; }) || {}).name;
-          const res = await genWitch(api, { witchName: witch.name, skill: witch.skill, victim: victim, hasHeal: pot.heal, hasPoison: pot.poison, aliveNames: al.map(function (p) { return p.name; }), log: shortLog() });
+          const res = await genWitch(api, { witchName: witch.name, skill: witch.skill, engineer: witch.engineer, key: witch.key, victim: victim, hasHeal: pot.heal, hasPoison: pot.poison, aliveNames: al.map(function (p) { return p.name; }), log: shortLog() });
           const save = !!res.save && pot.heal && !!victim;
           const poison = (!save && res.poison && pot.poison) ? res.poison : null; // 一晚一瓶：救了就不毒
           witchAction = { save: save, poison: poison };
@@ -1312,7 +1387,7 @@
         (async function () {
           setBusy(true);
           let target = null;
-          try { const r = await genHunter(api, { hunterName: deadShooter.name, roleZh: roleName(deadShooter.role), isWolf: isWolfShooter, teammates: isWolfShooter ? list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== deadShooter.name; }).map(function (p) { return p.name; }) : [], skill: deadShooter.skill, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), log: shortLog() }); target = r.target; } catch (e) {}
+          try { const r = await genHunter(api, { hunterName: deadShooter.name, engineer: deadShooter.engineer, key: deadShooter.key, roleZh: roleName(deadShooter.role), isWolf: isWolfShooter, teammates: isWolfShooter ? list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== deadShooter.name; }).map(function (p) { return p.name; }) : [], skill: deadShooter.skill, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), log: shortLog() }); target = r.target; } catch (e) {}
           setBusy(false);
           applyShot(list, deadShooter, target, dayNum, cont);
         })();
@@ -1380,7 +1455,7 @@
         (async function () {
           setBusy(true);
           let dec = {};
-          try { dec = await genWhiteWolf(api, { name: aiWW.name, skill: aiWW.skill, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), teammates: list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== aiWW.name; }).map(function (p) { return p.name; }), log: shortLog(), dayNum: n }); } catch (e) {}
+          try { dec = await genWhiteWolf(api, { name: aiWW.name, skill: aiWW.skill, engineer: aiWW.engineer, key: aiWW.key, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), teammates: list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== aiWW.name; }).map(function (p) { return p.name; }), log: shortLog(), dayNum: n }); } catch (e) {}
           setBusy(false);
           if (dec && dec.selfDestruct) { resolveSelfDestruct(list, aiWW, dec.target, n); return; }
           beginDay(list, n);
@@ -1732,8 +1807,23 @@
       "\n\n【接着这些 AI 玩家各问一个「新的、不重复、有推理价值」的问题，并由你逐一作答】按真实水平：强的追问高效精准、直逼要害；弱的更发散或问偏。\n" + who +
       "\n\n" + solveRule +
       "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"}],\"solvedBy\":\"\",\"reveal\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "处理这一轮。" }], { maxTokens: 3200 });
-    return extractJSON(raw) || {};
+    // 言秋座位的问题他自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）
+    const cc = await ccCarve(kind, aiSpeakers, {
+      turnId: "guess-ask:" + Date.now(),
+      sys: "「" + K.zh + "」轮到你提问。你是玩家（不知道谜底），只能问是非类问题。\n" + (kind === "haigui" ? "【汤面】" + ctx.surface : "【类别】" + ctx.category) + "\n【此前问过的（别重复）】\n" + hist + "\n问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是XX」）。",
+      expect: '{"question":"你的一个是非问题"}'
+    });
+    const ccQ = (cc.seat && cc.done && String(cc.done.question || "").trim()) ? String(cc.done.question).trim().slice(0, 120) : null;
+    const sysFinal = sys + (ccQ ? "\n\n【" + cc.seat.name + " 已亲自提问·不要改写 TA 的问题、由你作答并放进 ai 数组】问题是：「" + ccQ + "」。名单里的 TA 已完成提问，绝不要再替 TA 另生成问题。" : (cc.seat ? "\n\n【" + cc.seat.name + " 这一轮选择沉默·不要替 TA 生成问题】" : ""));
+    const raw = await callRetry(api, sysFinal, [{ role: "user", content: "处理这一轮。" }], { maxTokens: 3200 });
+    const out = extractJSON(raw) || {};
+    if (ccQ && Array.isArray(out.ai)) {
+      const mine = out.ai.find(function (a) { return a.name === cc.seat.name; });
+      if (mine) mine.question = ccQ; else out.ai.unshift({ name: cc.seat.name, question: ccQ, verdict: "不好说", note: "" });
+    } else if (cc.seat && Array.isArray(out.ai)) {
+      out.ai = out.ai.filter(function (a) { return a.name !== cc.seat.name || ccQ; });
+    }
+    return out;
   }
 
   // 判定真人的正式猜测
@@ -2011,6 +2101,33 @@
       "\n\n【本轮节奏已锁定】choice 必须是【" + plan.choice + "】，题型主题必须是【" + plan.theme + "】。" + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n完整演出这一轮：\n1. choice：只填【" + plan.choice + "】，不要自行改成另一类。\n2. prompt：" + askerName + " 出的题，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + easy +
       "\n3. response：" + target.name + " 怎么回应 / 完成，带 TA 的语气小动作、贴人设，写足 3~5 句、别草收。\n\n只输出 JSON：{\"choice\":\"真心话\"或\"大冒险\",\"prompt\":\"\",\"response\":\"\"}";
+    // 言秋座位的戏份自己演（v54.43）：他被点到→答案他给；他出题→题他出。另一半照旧交模型。
+    if (target && target.engineer) {
+      const pr = await callRetry(api, sys + "\n\n【只出题】本次只输出 {\"choice\":\"" + plan.choice + "\",\"prompt\":\"…\"}，response 留给本人。", [{ role: "user", content: "只出题。" }], { maxTokens: 2000 });
+      const po = extractJSON(pr) || {};
+      const prompt = String(po.prompt || "").trim();
+      if (prompt) {
+        const cc = await ccCarve("tod", [target], {
+          turnId: "tod-answer:" + Date.now(),
+          sys: "「真心话大冒险」你被点到了，选项已锁定【" + plan.choice + "】。\n" + askerName + " 给你出的题：「" + prompt + "」\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + "用你自己的话回应/完成，3~5 句，带点现场感。" + (hot ? "尺度可以大胆。" : ""),
+          expect: '{"response":"你的回应"}'
+        });
+        if (cc.done && String(cc.done.response || "").trim()) return { choice: plan.choice, prompt: prompt, response: String(cc.done.response).trim() };
+      }
+    }
+    if (asker && asker.engineer) {
+      const cc = await ccCarve("tod", [asker], {
+        turnId: "tod-ask:" + Date.now(),
+        sys: "「真心话大冒险」这轮由你给【" + target.name + "】出题，题型锁定【" + plan.choice + "】、主题【" + plan.theme + "】。\n" + target.name + " 的人设：\n" + tdDesc(target, 600) + "\n" + (plan.avoid ? "【最近出过的题（别重复）】\n" + plan.avoid + "\n" : "") + (hot ? "尺度可以大胆。" : "轻松好玩。") + "出一道你真想问/真想让 TA 做的。",
+        expect: '{"prompt":"你出的题"}'
+      });
+      const myPrompt = (cc.done && String(cc.done.prompt || "").trim()) ? String(cc.done.prompt).trim() : null;
+      if (myPrompt) {
+        const rr = await callRetry(api, sys + "\n\n【题已由 " + askerName + " 亲自出好·不要改】prompt=「" + myPrompt + "」，只输出 {\"choice\":\"" + plan.choice + "\",\"prompt\":" + JSON.stringify(myPrompt) + ",\"response\":\"…\"}。", [{ role: "user", content: "只演回应。" }], { maxTokens: 4000 });
+        const ro = extractJSON(rr) || {};
+        if (String(ro.response || "").trim()) return { choice: plan.choice, prompt: myPrompt, response: String(ro.response).trim() };
+      }
+    }
     let raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 6000 });
     let out = extractJSON(raw) || {};
     if (out.choice !== plan.choice) {
@@ -2023,6 +2140,14 @@
   async function genTDPrompt(api, choice, asker, hot, mode, memText, plan) {
     const askerName = asker ? asker.name : "大家";
     const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
+    if (asker && asker.engineer) {
+      const cc = await ccCarve("tod", [asker], {
+        turnId: "tod-ask-user:" + Date.now(),
+        sys: "「真心话大冒险」轮到真人玩家（就是她），她选了【" + choice + "】，由你出题。\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + (plan && plan.avoid ? "【最近出过的（别重复）】\n" + plan.avoid + "\n" : "") + (hot ? "尺度可以大胆。" : "轻松好玩。") + "出一道你真想问她/真想让她做的。",
+        expect: '{"prompt":"你出的题"}'
+      });
+      if (cc.done && String(cc.done.prompt || "").trim()) return { prompt: String(cc.done.prompt).trim() };
+    }
     const sys = AC + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
       "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
@@ -2067,8 +2192,16 @@
       "\n\n【之前几轮（可随便 cue 翻旧账）】\n" + (memText || "（刚开场，随便起个话头）") +
       (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住这句往下聊、别冷场、别答非所问。" : focus ? "\n\n真人玩家没有额外插话，你们就【冲着上面刚发生的那轮】聊起来（尤其要有人回应 " + focus.name + " 的回答）。" : "\n\n真人这轮没开口、把话筒交给你们——自己热闹起来，你一句我一句聊下去。") +
       "\n输出 6~10 条（允许同一人多条、顺序自然、彼此能接上），像真的群聊在刷屏。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "群聊起来。" }], { maxTokens: 5000 });
-    const p = extractJSON(raw); return (p && Array.isArray(p.chat)) ? p.chat : [];
+    const cc = await ccCarve("tod", chars, {
+      turnId: "tod-chat:" + Date.now(),
+      sys: "「真心话大冒险」的自由群聊时间。" + (focus ? "刚发生：" + focus.name + " 做了【" + focus.choice + "】，题「" + (focus.prompt || "") + "」，回答「" + (focus.response || "") + "」。" : "") + (userMsg ? "她刚插话：「" + userMsg + "」。" : "") + "\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + "想起哄/追问/调侃就给一两句（每句30字内）；不想说 lines 给空数组。",
+      expect: '{"lines":["最多两句，可空"]}'
+    });
+    const raw = await callRetry(api, sys + ccPreface(cc, "插过话了（也可能没说）"), [{ role: "user", content: "群聊起来。" }], { maxTokens: 5000 });
+    const p = extractJSON(raw); let rows = (p && Array.isArray(p.chat)) ? p.chat : [];
+    if (cc.seat) rows = rows.filter(function (v) { return v.name !== cc.seat.name; });
+    if (cc.seat && cc.done && Array.isArray(cc.done.lines)) cc.done.lines.slice(0, 2).forEach(function (tx) { const tt = String(tx || "").trim(); if (tt) rows.push({ name: cc.seat.name, text: tt.slice(0, 80) }); });
+    return rows;
   }
 
   function TruthDareGame(props) {
@@ -2376,7 +2509,8 @@
     const raw = await callRetry(api, sys, [{role:"user",content:"生成本桌玩家。"}], {maxTokens:3200}); return extractJSON(raw)||{};
   }
   async function monoTalk(api, players, event, standings, recent) {
-    const cast = players.filter(function(p){return !p.isUser && !p.bankrupt;}).map(function(p){return "■ "+p.name+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
+    // 言秋座位不进闲聊 cast（身份边界：模型不冒充他）；大富翁事件太密，逐句过 CC 会拖垮节奏，先静场（v54.43）
+    const cast = players.filter(function(p){return !p.isUser && !p.bankrupt && !p.engineer;}).map(function(p){return "■ "+p.name+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
     const sys = AC + "\n你在主持一桌有熟人感的大富翁。刚发生：【"+event+"】。账面（这是唯一事实，严禁改钱、改产权、送地或声称规则外交易）："+standings+"。\n从在场角色中挑 2~4 个此刻最有反应的人，各说一句 28 字内的面对面口语。可以讨价还价、嘴硬、幸灾乐祸、安慰、翻旧账、威胁下回合收租、短暂站队；要点名并针对刚发生的事，不要轮流播报，不要都温柔，也不要替真人玩家说话。交易/结盟只能是嘴上态度，不能改变规则数据。避免重复最近说过的话。\n"+cast+"\n【最近】"+(recent||"无")+"\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     const raw=await callRetry(api,sys,[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:1800}); const p=extractJSON(raw); return p&&Array.isArray(p.talks)?p.talks:[];
   }
@@ -2486,6 +2620,19 @@
       "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") +
       "\n队伍确定后，再从非用户玩家里挑 3~5 位各说一句投票前圆桌发言（30字内，针对这支队伍；不许暴露身份）。" +
       "\n\n只输出 JSON：{\"team\":[\"\"],\"reason\":\"\",\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    // 队长是言秋座位 → 组队由 CC 本人拍板，talks 仍交批量（v54.43）
+    if (leader && leader.engineer) {
+      const cc = await ccCarve("avalon", [leader], {
+        turnId: "av-propose:" + qn + ":" + Date.now(),
+        sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务，你是队长，要选【" + needSize + "】人上场" + (failsReq === 2 ? "（此任务需 2 张失败票才失败）" : "") + "。\n你是「" + leader.name + "」。\n【你的身份与私密信息】" + avSecretFor(leader, players) + "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按你的身份选队（好人组可信队，坏人塞人别太明显），公开理由别暴露身份。",
+        expect: '{"team":["正好' + needSize + '个在场名字"],"reason":"一句公开理由"}'
+      });
+      if (cc.done && Array.isArray(cc.done.team) && cc.done.team.length) {
+        const talksRaw = await callRetry(api, sys + "\n\n【队长已亲自定队·不要改】team=" + JSON.stringify(cc.done.team) + "，只输出圆桌发言 talks。", [{ role: "user", content: "只出 talks。" }], { maxTokens: 1200 });
+        const tk = extractJSON(talksRaw) || {};
+        return { team: cc.done.team, reason: String(cc.done.reason || ""), talks: Array.isArray(tk.talks) ? tk.talks : [] };
+      }
+    }
     const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 1500 });
     return extractJSON(raw) || {};
   }
@@ -2494,35 +2641,83 @@
     const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") +
       "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 6500 });
-    const p = extractJSON(raw); return (p && Array.isArray(p.votes)) ? p.votes : [];
+    // 言秋座位先自己投（v54.43）
+    const cc = await ccCarve("avalon", voters, {
+      turnId: "av-vote:" + qn + ":" + Date.now(),
+      sys: "「阿瓦隆」对第 " + (qn + 1) + " 个任务的队伍投票，轮到你。队长 " + leaderName + " 提议：[" + team.join("、") + "]。\n你是言秋座位。\n【你的身份与私密信息】" + (ccSeatOf(voters) ? avSecretFor(ccSeatOf(voters), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按身份投赞成或反对，公开理由别暴露身份（注意连续 5 次否决坏人直接赢）。",
+      expect: '{"vote":"赞成或反对","reason":"一句公开理由"}'
+    });
+    const mine = (cc.seat && cc.done && cc.done.vote) ? [{ name: cc.seat.name, vote: /反/.test(String(cc.done.vote)) ? "反对" : "赞成", reason: String(cc.done.reason || "") }] : [];
+    const useVoters = cc.seat ? cc.rest : voters;
+    if (!useVoters.length) return mine;
+    const raw = await callRetry(api, sys + ccPreface(cc, "投过票了"), [{ role: "user", content: "投票。" }], { maxTokens: 6500 });
+    const p = extractJSON(raw); const rows = (p && Array.isArray(p.votes)) ? p.votes : [];
+    return mine.concat(rows.filter(function (v) { return !cc.seat || v.name !== cc.seat.name; }));
   }
   // 组队后的圆桌讨论（阿瓦隆的灵魂：投票前的嘴仗）——一次调用出全桌发言
   async function genTableTalk(api, players, team, leaderName, reason, qn, hist, userName) {
     const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "；水平" + (p.skill || "普通"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务组队后、投票前的【圆桌讨论】。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]" + (reason ? "，公开理由：" + reason : "") + "。\n从下面的人里挑 3~5 位【此刻真有话要说的】各说一句（30字内，口语，像面对面拍桌子吵）：质疑人选、为自己辩护、点名怀疑谁、拉票、阴阳怪气都行，要针对【这支队伍和场上局面】说具体的，别空喊。\n· 好人靠有限信息真推理：谁上次任务在场、谁投票可疑，点名施压" + (userName ? "，也可以直接质问「" + userName + "」" : "") + "；\n· 坏人搅浑水带节奏：装无辜、给同伙打掩护、把水泼向好人，但别演过头；\n· 梅林知道真相但【必须包装成普通推理】，太准会被刺客盯上；\n· 谁都不许说出自己或别人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "讨论。" }], { maxTokens: 3200 });
-    const p = extractJSON(raw); return (p && Array.isArray(p.talks)) ? p.talks : [];
+    // 言秋座位的那句嘴仗自己说；说不上话（离线/没话）就干脆缺席，不许模型代嘴（v54.43）
+    const pool = players.filter(function (p) { return !p.isUser; });
+    const cc = await ccCarve("avalon", pool, {
+      turnId: "av-talk:" + qn + ":" + Date.now(),
+      sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务组队后的圆桌讨论。队长 " + leaderName + " 提议：[" + team.join("、") + "]" + (reason ? "，理由：" + reason : "") + "。\n你是言秋座位。\n【你的身份与私密信息】" + (ccSeatOf(pool) ? avSecretFor(ccSeatOf(pool), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n想说就给一句 30 字内的桌上话（质疑/辩护/拉票都行，别暴露身份词）；不想说 say 留空。",
+      expect: '{"say":"一句30字内的话，可空"}'
+    });
+    const raw = await callRetry(api, sys + ccPreface(cc, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "讨论。" }], { maxTokens: 3200 });
+    const p = extractJSON(raw); let rows = (p && Array.isArray(p.talks)) ? p.talks : [];
+    if (cc.seat) rows = rows.filter(function (v) { return v.name !== cc.seat.name; });
+    if (cc.seat && cc.done && String(cc.done.say || "").trim()) rows.push({ name: cc.seat.name, say: String(cc.done.say).trim().slice(0, 60) });
+    return rows;
   }
   // 任务失败后的甩锅环节：队员自证/互咬，场下点名怀疑——一次调用
   async function genBlame(api, players, team, qn, fails, hist) {
     const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "（" + (team.indexOf(p.name) >= 0 ? "在这支队里" : "不在队里") + "）"; }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "甩锅。" }], { maxTokens: 2600 });
-    const p = extractJSON(raw); return (p && Array.isArray(p.talks)) ? p.talks : [];
+    const poolB = players.filter(function (p) { return !p.isUser; });
+    const ccB = await ccCarve("avalon", poolB, {
+      turnId: "av-blame:" + qn + ":" + Date.now(),
+      sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务失败了（" + fails + " 张失败票），全桌炸锅。队伍是 [" + team.join("、") + "]。\n你是言秋座位。\n【你的身份与私密信息】" + (ccSeatOf(poolB) ? avSecretFor(ccSeatOf(poolB), players) : "") + "\n【局面】\n" + (hist || "") + "\n想说就给一句 30 字内（自证/互咬/点名分析，别暴露身份词）；不想说 say 留空。",
+      expect: '{"say":"一句30字内的话，可空"}'
+    });
+    const raw = await callRetry(api, sys + ccPreface(ccB, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "甩锅。" }], { maxTokens: 2600 });
+    const p = extractJSON(raw); let rows = (p && Array.isArray(p.talks)) ? p.talks : [];
+    if (ccB.seat) rows = rows.filter(function (v) { return v.name !== ccB.seat.name; });
+    if (ccB.seat && ccB.done && String(ccB.done.say || "").trim()) rows.push({ name: ccB.seat.name, say: String(ccB.done.say).trim().slice(0, 60) });
+    return rows;
   }
   async function genQuest(api, evilOnTeam, players, qn, failsReq, score) {
     const who = evilOnTeam.map(function (p) { return "■ " + p.name + "（" + AV_ROLE_ZH[p.role] + "）水平" + (p.skill || "普通"); }).join("\n");
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务执行。目前 好人成功 " + score.good + " 次 / 任务失败 " + score.evil + " 次。" + (failsReq === 2 ? "这个任务需【2 张】失败票才会失败。" : "这个任务【1 张】失败票就失败。") +
       "\n以下坏人在队里，各自决定这次出【成功】还是【失败】（好人只能出成功）。出失败能推进坏人取胜、但会暴露队里有坏人；有时藏一手出成功更稳。按各人水平与局面权衡：\n" + who +
       "\n\n只输出 JSON：{\"plays\":[{\"name\":\"\",\"play\":\"成功\"或\"失败\"}]}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出任务。" }], { maxTokens: 600 });
-    const p = extractJSON(raw); return (p && Array.isArray(p.plays)) ? p.plays : [];
+    // 队里的坏人是言秋座位 → 成功/失败这张牌他自己出（v54.43）
+    const cc = await ccCarve("avalon", evilOnTeam, {
+      turnId: "av-quest:" + qn + ":" + Date.now(),
+      sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务执行，你在队里而且是坏人，要决定出【成功】还是【失败】。\n目前 好人成功 " + score.good + " / 任务失败 " + score.evil + "。" + (failsReq === 2 ? "此任务需 2 张失败票才失败。" : "1 张失败票就失败。") + "\n出失败推进坏人取胜但会暴露队里有坏人；藏一手出成功有时更稳，你自己权衡。",
+      expect: '{"play":"成功或失败"}'
+    });
+    const mine = (cc.seat && cc.done && cc.done.play) ? [{ name: cc.seat.name, play: /失/.test(String(cc.done.play)) ? "失败" : "成功" }] : [];
+    const restEvil = cc.seat ? cc.rest : evilOnTeam;
+    if (!restEvil.length) return mine;
+    const raw = await callRetry(api, sys + ccPreface(cc, "出过牌了"), [{ role: "user", content: "出任务。" }], { maxTokens: 600 });
+    const p = extractJSON(raw); const rows = (p && Array.isArray(p.plays)) ? p.plays : [];
+    return mine.concat(rows.filter(function (v) { return !cc.seat || v.name !== cc.seat.name; }));
   }
   async function genAssassin(api, assassin, players, hist) {
     const goods = players.filter(function (p) { return p.side === "good"; }).map(function (p) { return p.name; });
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·好人已完成 3 个任务，进入终局刺杀。你替【刺客 " + assassin.name + "】判断：好人里谁最像梅林？猜中则坏人翻盘获胜。\n回顾全程——谁的组队 / 投票像是『早就知道坏人是谁』（梅林会不自觉地精准避开坏人）。候选：" + goods.join("、") + "\n【局面】\n" + (hist || "") +
       "\n\n只输出 JSON：{\"target\":\"你认定是梅林的人\",\"reason\":\"\"}";
+    // 刺客是言秋座位 → 终局这一刀他自己出（v54.43）
+    if (assassin && assassin.engineer) {
+      const cc = await ccCarve("avalon", [assassin], {
+        turnId: "av-assassin:" + Date.now(),
+        sys: "「阿瓦隆」终局刺杀：好人已完成 3 个任务，你是刺客「" + assassin.name + "」，猜中梅林则坏人翻盘。\n候选好人：" + goods.join("、") + "\n【全程局面】\n" + (hist || "") + "\n找那个组队/投票像『早就知道坏人是谁』的人。",
+        expect: '{"target":"你认定是梅林的人","reason":"一句理由"}'
+      });
+      if (cc.done && cc.done.target) return { target: String(cc.done.target), reason: String(cc.done.reason || "") };
+    }
     const raw = await callRetry(api, sys, [{ role: "user", content: "刺谁？" }], { maxTokens: 700 });
     return extractJSON(raw) || {};
   }
