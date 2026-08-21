@@ -158,7 +158,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, onSetOnline, onSet
       onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: () => { dragStart.current = null; setDrag(null); },
       "aria-label": "快速切换模型", className: "active:scale-95",
       style: { width: 46, height: 46, borderRadius: 23, flexShrink: 0, background: "rgba(25,24,22,.88)", border: "2px solid rgba(255,255,255,.7)",
-        boxShadow: "0 5px 18px rgba(0,0,0,.3)", color: "white", fontFamily: "monospace", fontSize: 10, lineHeight: 1.05, touchAction: "none" } }, open ? "×" : "AI"));
+        boxShadow: "0 5px 18px rgba(0,0,0,.3)", color: "white", fontFamily: "monospace", fontSize: 13, lineHeight: 1.05, touchAction: "none" } }, open ? "×" : "⇄"));
 }
 // 一起听·本地音频存 IndexedDB（音频文件大，localStorage 5MB 存不下）。key=歌曲id，value=Blob。
 function idbAudioOpen() {
