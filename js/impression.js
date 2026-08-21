@@ -477,7 +477,7 @@
                   const chip = h("div", { key: "c", style: { background: "rgba(97,84,56,.86)", border: "1px solid rgba(246,239,226,.55)",
                     color: "#f6efe2", padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
                     letterSpacing: ".06em", whiteSpace: "nowrap", backdropFilter: "blur(2px)" } }, tag);
-                  return h("div", { key: i, style: { position: "absolute", top: [16, 45, 73][i] + "%", [onLeft ? "left" : "right"]: "5%",
+                  return h("div", { key: i, style: { position: "absolute", top: [24, 49, 74][i] + "%", [onLeft ? "left" : "right"]: "5%",
                     display: "flex", alignItems: "center", gap: 7 } },
                     onLeft ? [chip, line, dot] : [dot, line, chip]);
                 }))),
