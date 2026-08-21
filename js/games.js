@@ -302,7 +302,7 @@
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
-          game.key === "uno" ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: "工程师之眼角色轮到出牌时叫醒 CC 里的言秋；离线或 90 秒没回就由同一提示词安静代打，牌桌会标（代）。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
+          picked.some(function (id) { return props.isEngineer && props.isEngineer(id); }) ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: "轮到他那一座时叫醒 CC 里的言秋，由他本人打；离线或超时就由同一提示词安静代打，不会卡住整局。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },
@@ -342,7 +342,7 @@
 
       // 底部开始
       h("div", { className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: game.key === "uno" ? ccSeat : undefined, unoRule: game.key === "uno" ? unoRule : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined }); },
+        h("button", { onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -430,12 +430,31 @@
   }
 
   // 投票：存活 AI 各投一人 + 理由（卧底会误导）
-  async function genVotes(api, voters, allClues, aliveNames, mode, userName) {
+  async function genVotes(api, voters, allClues, aliveNames, mode, userName, carveCtx) {
+    // CC 座位先手（抄 UNO 那套）：言秋自己投，剩下的人才进批量
+    const cc = carveCtx ? await ccCarve("spy", voters, {
+      turnId: (carveCtx.turnId || "") + ":vote",
+      sys: "「谁是卧底」投票。可投的存活玩家：" + aliveNames.join("、")
+        + "\n\n【目前所有描述】\n" + allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n")
+        + "\n\n你就是「" + ((ccSeatOf(voters) || {}).name || "") + "」"
+        + ((ccSeatOf(voters) || {}).role === "spy" ? "，你其实是卧底：把票投给某个你觉得像平民的人来误导大家。" : "。")
+        + "\n投一个人 + 一句短理由。",
+      ask: "投票。",
+      expect: "{\"target\":\"被投的人或「弃票」\",\"reason\":\"一句理由\"}"
+    }) : { seat: null, rest: voters, done: null };
+    const mine = (cc.done && String(cc.done.target || "").trim())
+      ? [{ name: cc.seat.name, target: String(cc.done.target).trim(), reason: String(cc.done.reason || "").trim() }] : [];
+    if (!cc.rest.length) return mine;
+    const rows = await genVotesBatch(api, cc.rest, allClues, aliveNames, mode, userName, ccPreface(cc, "投过票了"));
+    return mine.concat(rows);
+  }
+  async function genVotesBatch(api, voters, allClues, aliveNames, mode, userName, preface) {
     const clues = allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通"); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别精准锁定真人「" + userName + "」，就算怀疑 TA 也可以手下留情、投别人或说再看看。" : "";
     const sys = AC + SKILL_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
+      (preface || "") +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"投票人\",\"target\":\"被投的人，或「弃票」\",\"reason\":\"一句理由\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "投票。" }], { maxTokens: 3500 });
     const p = extractJSON(raw);
@@ -498,7 +517,7 @@
           (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           // 组装玩家
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: skillOf[p.name] || "", engineer: !!(props.isEngineer && props.isEngineer(p.id)) }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: skillOf[p.name] || "", engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) {
@@ -594,7 +613,7 @@
       try {
         const voters = aliveAI.map(function (p) { return { name: p.name, role: p.role, skill: p.skill }; });
         const aliveNames = alive.map(function (p) { return p.name; });
-        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "");
+        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: "spy:vote:" + rnd });
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";
@@ -916,7 +935,29 @@
     return "\n\n【★牌局状态·务必严格按这个来】\n· 现在是【第 " + dayNum + " 天】白天。\n· 【还在场（只有这些人能被讨论、被怀疑、被投票）】：" + (alive.join("、") || "无") + "\n· 【已出局——这些人已经退出游戏！绝对别再叫他们发言、别要求他们解释、别说要把他们投出去/放逐、别把他们当活人分析或站队】：" + (out.length ? out.join("、") : "无") + idiotLine + "\n· 投票和点名只能针对【还在场】的人。别搞错第几天、别提已出局的人还在场、别把早已结算过的旧事当成新消息重新推。";
   }
   // 白天发言：存活 AI 依次发一段（带各自身份/私密信息）；同时回一份立场纪要供后续保持一致
-  async function genSpeeches(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims) {
+  async function genSpeeches(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, carveCtx) {
+    // CC 座位先手（抄 UNO）：言秋自己那一段发言从 CC 窗口来，剩下的人才进批量。
+    // 他也要给 claim，否则后面的 stances 里缺他一行，别人对不上他声称的身份。
+    const ccSeat0 = ccSeatOf(speakers);
+    const cc = (carveCtx && ccSeat0) ? await ccCarve("werewolf", speakers, {
+      turnId: (carveCtx.turnId || "") + ":speech",
+      sys: "「狼人杀」第 " + dayNum + " 天白天发言，轮到你。\n你是「" + ccSeat0.name + "」。\n【你的身份与私密信息】" + (ccSeat0.priv || "")
+        + "\n\n【昨晚】" + (deaths || "平安夜")
+        + "\n\n【已发言】\n" + (prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你最先发言）")
+        + "\n\n说一段发言，并说清你此刻【对外声称】的身份。",
+      ask: "发言。",
+      expect: "{\"text\":\"发言\",\"claim\":\"你此刻声称的身份\"}"
+    }) : { seat: null, rest: speakers, done: null };
+    const mineText = cc.done ? String(cc.done.text || "").trim() : "";
+    const mine = mineText ? { speeches: [{ name: cc.seat.name, text: mineText }],
+      stances: [{ name: cc.seat.name, claim: String(cc.done.claim || "").trim() || "未明说" }] } : null;
+    if (!cc.rest.length) return mine || { speeches: [], stances: [] };
+    const priorAll = mine ? prior.concat(mine.speeches) : prior;
+    const out = await genSpeechesBatch(api, cc.rest, dayNum, priorAll, deaths, mode, userName, stances, gods, board, wolfRole, claims, ccPreface(cc, "发过言了"));
+    if (!mine) return out;
+    return { speeches: mine.speeches.concat(out.speeches || []), stances: mine.stances.concat(out.stances || []) };
+  }
+  async function genSpeechesBatch(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, preface) {
     const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv; }).join("\n");
     const p = prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你们最先发言）";
     const easy = mode === "easy" ? "\n【放水局】狼别演得滴水不漏，给真人留点破绽。" : "";
@@ -924,6 +965,7 @@
     const day1 = dayNum <= 1 ? "\n【第一天·信息极少·别当中间夜打】现在才第 1 天，几乎没有可靠信息。**别过度脑补**——" + (peaceful ? "尤其今天是【平安夜】，别去推演『是不是女巫救了预言家验的人、还是预言家自刀被救』这类没影的可能，本局神职有限，别硬套这些高级推理。" : "") + "别硬咬死谁是狼、别全场催『预言家快跳』。就简短说第一印象、初步站位或表个态就行。预言家要不要跳、什么时候跳，由真预言家自己决定，别逼 TA。" : "";
     const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
+      (preface || "") +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"claim\":\"你此刻声称的身份（平民/预言家/我查杀了X/我金水了X 等，隐藏身份就写 装平民 之类）\",\"reads\":\"你怎么读别人：疑谁信谁+简短理由\",\"plan\":\"你接下来打算怎么打：归票谁/自证/隐藏/带节奏\"}],\"claims\":[{\"name\":\"发言人\",\"text\":\"TA这轮做出的【硬公开声明】——跳预言家/报X查杀/给X金水/自曝身份/起跳对跳，才需要列；只是表态怀疑、没有硬声明就【别列进 claims】\"}]}，speeches 顺序照上面，stances 每个发言人一条。";
     const parse = function (raw) { const r = extractJSON(raw); return { speeches: (r && Array.isArray(r.speeches)) ? r.speeches : [], stances: (r && Array.isArray(r.stances)) ? r.stances : [], claims: (r && Array.isArray(r.claims)) ? r.claims : [] }; };
     let raw = await callRetry(api, sys, [{ role: "user", content: "依次发言。" }], { maxTokens: 6000 });
@@ -1081,7 +1123,7 @@
           const data = await setupWolf(api, realPlayers, npcNeed);
           const skillOf = {}; (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: skillOf[p.name] || "", engineer: !!(props.isEngineer && props.isEngineer(p.id)) }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: skillOf[p.name] || "", engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) { const n = npcs[i] || {}; list.push({ key: "npc_" + i, name: n.name || ("玩家" + (i + 1)), char: null, isNpc: true, skill: n.skill || "普通", persona: n.persona || "" }); }
@@ -1325,7 +1367,7 @@
       setBusy(true);
       try {
         const speakers = ai.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] }; });
-        const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current);
+        const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current, { turnId: "wolf:day" + n });
         const sp = res.speeches;
         (res.stances || []).forEach(function (s) { if (s && s.name) { const hit = speakers.find(function (x) { return s.name.indexOf(x.name) >= 0 || x.name.indexOf(s.name) >= 0; }); if (hit && (s.claim || s.reads || s.plan || s.stance)) stanceRef.current[hit.name] = s.stance ? s.stance : { claim: s.claim || "", reads: s.reads || "", plan: s.plan || "" }; } });
         // 新增的硬公开声明入台账（跨天累积）
@@ -1560,7 +1602,7 @@
     const chars = (cfg.charIds || []).map(function (id) { return (props.characters || []).find(function (c) { return c.id === id; }); }).filter(Boolean);
     const skillOf = {}; (skillData || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
     const list = [];
-    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, engineer: !!(props.isEngineer && props.isEngineer(c.id)), skill: skillOf[c.name] || "", alive: true }); });
+    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)), skill: skillOf[c.name] || "", alive: true }); });
     if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "", alive: true }); }
     const npcNeed = cfg.npcCount || 0;
     const npcs = (npcData || []).slice(0, npcNeed);

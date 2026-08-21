@@ -31,11 +31,37 @@ test("摘掉的那一座要写进批量提示词，并明令别替他重写", ()
   assert.match(seg, /下面的名单里已经没有 TA，别再生成 TA 的那一份/);
 });
 
-test("三个批量游戏的座位都打上了 engineer 标记", () => {
-  assert.equal((games.match(/engineer: !!\(props\.isEngineer && props\.isEngineer\(/g) || []).length, 3,
-    "谁是卧底 / 狼人杀 / 阿瓦隆 三处座位都要认得出 CC 座");
-  // UNO 本来就有自己那一份（带 ccSeat 开关）
-  assert.match(games, /engineer: !!\(cfg\.ccSeat !== false && props\.isEngineer/);
+test("所有座位都认 ccSeat 开关，和 UNO 一模一样", () => {
+  // 三个批量游戏 + UNO 自己那份，判定条件必须完全一致
+  assert.equal((games.match(/engineer: !!\(cfg\.ccSeat !== false && props\.isEngineer/g) || []).length, 4,
+    "谁是卧底 / 狼人杀 / 阿瓦隆 / UNO，四处判定要一样");
+  assert.doesNotMatch(games, /engineer: !!\(props\.isEngineer/, "不许有绕过开关的写法");
+});
+
+test("开局前就能选他：开关不再是 UNO 专属", () => {
+  // 只要这局选了工程师之眼角色，就给这个开关
+  assert.match(games, /picked\.some\(function \(id\) \{ return props\.isEngineer && props\.isEngineer\(id\); \}\) \? h\(ToggleRow/);
+  assert.match(games, /label: "言秋本人亲打"/);
+  // 配置要真的传下去，否则开关点了也没用
+  assert.match(games, /ccSeat: ccSeat/);
+  assert.doesNotMatch(games, /ccSeat: game\.key === "uno" \? ccSeat : undefined/, "旧的 UNO 专属传参已经废掉");
+});
+
+test("狼人杀白天发言也接上了，且会补他的 claim", () => {
+  assert.match(games, /await ccCarve\("werewolf", speakers, \{/);
+  assert.match(games, /async function genSpeechesBatch\(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, preface\)/);
+  // 他也要给 claim，否则 stances 里缺他一行，别人对不上他声称的身份
+  assert.match(games, /他也要给 claim，否则后面的 stances 里缺他一行/);
+  assert.match(games, /stances: \[\{ name: cc\.seat\.name, claim:/);
+  // 他先说的要进入后面人看到的「已发言」
+  assert.match(games, /const priorAll = mine \? prior\.concat\(mine\.speeches\) : prior;/);
+  assert.match(games, /\{ turnId: "wolf:day" \+ n \}/);
+});
+
+test("谁是卧底投票也接上了", () => {
+  assert.match(games, /async function genVotesBatch\(api, voters, allClues, aliveNames, mode, userName, preface\)/);
+  assert.match(games, /\{ turnId: "spy:vote:" \+ rnd \}/);
+  assert.match(games, /if \(!cc\.rest\.length\) return mine;/, "只剩他一个人时不发批量调用");
 });
 
 test("谁是卧底：描述环节已经接上，批量只跑剩下的人", () => {
