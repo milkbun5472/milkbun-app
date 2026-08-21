@@ -2877,7 +2877,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
 // CONFIG
 // ============================================================
 // 一起听（展示型）：自定义唱片封面 + 添加"正在听"的歌（歌名/歌手/封面）+ 歌单，不真放声音
-function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onSetAutoComment, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
+function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onAddNetease, onAddLocal, onPlaySong, onRemoveSong, onSetPartner, apiBase, onSetApiBase, cookie, onSetCookie, onTestLogin, onAddNeteaseResult, onPlayResult, onPlayResultList, onAddResultToPlaylist, onCreatePlaylist, onDeletePlaylist, onRenamePlaylist, onAddToPlaylist, onRemoveFromPlaylist, onRenameSong, onGenCharPlaylist, onSetAutoComment, player, onTogglePlay, onStep, onSeek, onToggleFav, playMode, onCyclePlayMode, gen, genCharPl }) {
   const t = useTheme();
   const data = listen || {};
   const songs = data.songs || [];
@@ -3313,6 +3313,8 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   }, [nav, apiBase, cookie]);
   // 播放 + scrobble：登记听歌记录是唯一让"在这儿听"反映回她账号历史的通道，失败无声跳过
   const playCloud = (s, srcId) => { onPlayResult(s); try { nj("/scrobble?id=" + s.id + "&sourceid=" + (srcId || 0) + "&time=240").catch(() => {}); } catch (e) {} };
+  // 「播放全部」走整列表连播：显式队列，不再逐首收库+单放第一首（那样队列会塌成单曲循环）
+  const playAllCloud = (list, srcId) => { if (!list || !list.length) return; onPlayResultList(list); try { nj("/scrobble?id=" + list[0].id + "&sourceid=" + (srcId || 0) + "&time=240").catch(() => {}); } catch (e) {} };
   const openCloudPl = async pl => {
     setCv(p => ({ ...p, open: pl, openSongs: null }));
     try {
@@ -3470,7 +3472,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             h("div", null,
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cv.open.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, cv.open.count + " 首" + (cv.open.mine ? " · 我建的（可移歌）" : ""))),
-            (cv.openSongs && cv.openSongs.length) ? h("button", { onClick: () => { cv.openSongs.forEach(onAddNeteaseResult); playCloud(cv.openSongs[0], cv.open.id === "__like__" ? 0 : cv.open.id); }, className: "ml-auto shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 16)) : null),
+            (cv.openSongs && cv.openSongs.length) ? h("button", { onClick: () => playAllCloud(cv.openSongs, cv.open.id === "__like__" ? 0 : cv.open.id), className: "ml-auto shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 16)) : null),
           cv.openSongs ? (cv.openSongs.length ? cv.openSongs.map(s => cloudRow(s, { srcId: cv.open.id === "__like__" ? 0 : cv.open.id, removable: cv.open.mine ? cv.open : null })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "这个歌单是空的")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "拉歌单中…"))
       : h("div", null,
           cv.me ? h("div", { className: "flex items-center gap-3", style: { marginBottom: 12 } },
@@ -3497,7 +3499,7 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 和网易云 App 同一份")),
                     h("span", { style: { color: t.fog, fontSize: 16 } }, "›")),
                   (cv.daily && cv.daily.length) ? h("div", null,
-                    cvSection("每日推荐", h("button", { onClick: () => { cv.daily.forEach(onAddNeteaseResult); playCloud(cv.daily[0]); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "▶ 播放全部")),
+                    cvSection("每日推荐", h("button", { onClick: () => playAllCloud(cv.daily), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "▶ 播放全部")),
                     cv.daily.slice(0, 30).map(s => cloudRow(s))) : null,
                   cvSection("私人FM", h("button", { onClick: loadFm, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, cv.fm ? "↻ 再来一批" : "▶ 开一波")),
                   cv.fm ? (cv.fm.length ? cv.fm.map(s => cloudRow(s, { trash: true })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "都丢垃圾桶了，再来一批")) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "4px 0 8px" } }, "网易云那套私人电台——🗑 会真实反馈「不喜欢」")) : null,

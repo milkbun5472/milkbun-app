@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.51";
+const APP_VERSION = "v54.52";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -9114,6 +9114,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (id === KEEPALIVE_ID) return KEEPALIVE_SONG;
     const L = listenRef.current || {};
     if (L.nowSong && L.nowSong.id === id) return L.nowSong;
+    // 云村「播放全部」的当前批次（日推/网易云歌单整单连播），不进「全部」库
+    const b = (L.nowBatch || []).find(x => x.id === id);
+    if (b) return b;
     let s = (L.songs || []).find(x => x.id === id);
     if (s) return s;
     for (const pl of (L.playlists || [])) { const f = (pl.songs || []).find(x => x.id === id); if (f) return f; }
@@ -9384,6 +9387,16 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   const resultToSong = s => ({ id: "sg_" + Date.now() + "_" + s.id + "_" + Math.random().toString(36).slice(2, 5), source: "netease", neteaseId: String(s.id), title: s.name || ("网易云 " + s.id), artist: s.artist || "", cover: s.cover || null, ts: Date.now() });
   // 搜索结果：直接现在播放（临时，不塞进「全部」）/ 加进「全部」库 / 加进某个歌单
   const playNeteaseResult = s => playSong(resultToSong(s));
+  // 整列表连播（云村「播放全部」）：以前是逐首收库+单放第一首——收库和播放各随机造一个 id，
+  // 播放器一看「这歌不在库里」就把队列塌成单曲循环（她 2026-08-21 日推报的）。
+  // 现在按 neteaseId 造稳定 id、整批存进 nowBatch（不污染「全部」库）、显式传队列。
+  const playNeteaseList = list => {
+    const rows = (list || []).filter(s => s && s.id);
+    if (!rows.length) return;
+    const ss = rows.map(s => ({ ...resultToSong(s), id: "sgn_" + s.id }));
+    saveListen(p => ({ ...p, nowBatch: ss }));
+    playSong(ss[0], ss.map(x => x.id));
+  };
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
   const addResultToPlaylist = (plId, s) => addToPlaylist(plId, resultToSong(s));
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
@@ -10845,6 +10858,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onTestLogin: testNeteaseLogin,
     onAddNeteaseResult: addNeteaseResult,
     onPlayResult: playNeteaseResult,
+    onPlayResultList: playNeteaseList,
     onAddResultToPlaylist: addResultToPlaylist,
     onCreatePlaylist: createPlaylist,
     onDeletePlaylist: deletePlaylist,

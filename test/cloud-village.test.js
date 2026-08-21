@@ -46,3 +46,17 @@ test("写回失败都要报出来，不许静默吞掉", () => {
   ["建歌单失败：", "删除失败：", "移除失败：", "写回失败："].forEach(msg =>
     assert.ok(seg.includes(msg), "得有失败回音：" + msg));
 });
+
+// v54.52：日推「播放全部」只循环第一首——逐首收库+单放的老路，收库和播放各随机
+// 造一个 id，播放器判「不在库里」把队列塌成单曲。改走整列表连播 nowBatch 通道。
+test("播放全部走整列表连播，队列不许塌成单曲", () => {
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
+  assert.match(app, /const playNeteaseList = list => \{/);
+  assert.match(app, /id: "sgn_" \+ s\.id/, "按 neteaseId 造稳定 id");
+  assert.match(app, /nowBatch: ss/, "整批存 nowBatch，不污染「全部」库");
+  assert.match(app, /playSong\(ss\[0\], ss\.map\(x => x\.id\)\)/, "显式传整个队列");
+  assert.match(app, /\(L\.nowBatch \|\| \[\]\)\.find\(x => x\.id === id\)/, "resolveSong 认得批次里的歌");
+  assert.match(seg, /const playAllCloud = \(list, srcId\)/);
+  assert.match(seg, /onClick: \(\) => playAllCloud\(cv\.daily\)/, "日推播放全部走新通道");
+  assert.doesNotMatch(seg, /forEach\(onAddNeteaseResult\); playCloud\(/, "逐首收库+单放的老路不许再有");
+});
