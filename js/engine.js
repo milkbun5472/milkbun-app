@@ -1785,11 +1785,38 @@ function b64ToBlob(b64, mime) {
 }
 // ---- 自拍图存 IndexedDB（base64 大图不能进 localStorage/云同步）----
 function idbImgOpen() { return new Promise((res, rej) => { const r = indexedDB.open("x_selfies", 1); r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("img")) r.result.createObjectStore("img"); }; r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
-async function idbImgPut(k, blob) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
-async function idbImgGet(k) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
-async function idbImgDel(k) { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); }
+// 原生壳有一层 Application Support 文件保险仓。WKWebView 的 IndexedDB 偶发被 iOS
+// 清空时从这里自愈；普通 Safari/PWA 没这个 bridge，仍按原来的 IDB 路径工作。
+function nativeMediaHandler() { try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeMedia; } catch (e) { return null; } }
+async function nativeMediaCall(action, bucket, key, dataUrl) {
+  const h = nativeMediaHandler(); if (!h || typeof h.postMessage !== "function") return null;
+  return await h.postMessage({ action: action, bucket: bucket, key: key || "", dataUrl: dataUrl || "" });
+}
+async function nativeMediaPut(bucket, k, blob) { try { const d = await blobToDataUrl(blob); await nativeMediaCall("put", bucket, k, d); } catch (e) {} }
+async function nativeMediaGet(bucket, k) { try { const d = await nativeMediaCall("get", bucket, k, ""); return typeof d === "string" && d.indexOf("data:") === 0 ? dataUrlToBlob(d) : null; } catch (e) { return null; } }
+async function nativeMediaDel(bucket, k) { try { await nativeMediaCall("delete", bucket, k, ""); } catch (e) {} }
+async function nativeMediaKeys(bucket) { try { const a = await nativeMediaCall("keys", bucket, "", ""); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+async function idbImgPutOnly(k, blob) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").put(blob, k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
+async function idbImgPut(k, blob) { await idbImgPutOnly(k, blob); await nativeMediaPut("selfies", k, blob); }
+async function idbImgGetOnly(k) { const db = await idbImgOpen(); return new Promise((res, rej) => { const tx = db.transaction("img", "readonly"); const rq = tx.objectStore("img").get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => rej(rq.error); }); }
+async function idbImgGet(k) { const own = await idbImgGetOnly(k).catch(() => null); if (own) return own; const native = await nativeMediaGet("selfies", k); if (native) { try { await idbImgPutOnly(k, native); } catch (e) {} return native; } return null; }
+async function idbImgDel(k) { const db = await idbImgOpen(); await new Promise(res => { const tx = db.transaction("img", "readwrite"); tx.objectStore("img").delete(k); tx.oncomplete = () => res(); tx.onerror = () => res(); }); await nativeMediaDel("selfies", k); }
 // 自拍整仓遍历（备份 v3 用）：[[key, blob], ...]
 async function idbImgEntries() { const db = await idbImgOpen(); return new Promise(res => { const tx = db.transaction("img", "readonly"); const st = tx.objectStore("img"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
+async function hydrateNativeSelfies() {
+  if (!nativeMediaHandler()) return 0;
+  const nativeKeys = await nativeMediaKeys("selfies"), nativeSet = new Set(nativeKeys);
+  let restored = 0;
+  // 原生有、IDB 没有：iOS 清了网页仓，补回网页。
+  for (const k of nativeKeys) {
+    if (await idbImgGetOnly(k).catch(() => null)) continue;
+    const b = await nativeMediaGet("selfies", k);
+    if (b) { try { await idbImgPutOnly(k, b); restored++; } catch (e) {} }
+  }
+  // IDB 有、原生没有：第一次装带保险仓的新壳，把现有图库补一份保险。
+  for (const [k, b] of await idbImgEntries()) if (!nativeSet.has(k) && b) await nativeMediaPut("selfies", k, b);
+  return restored;
+}
 // 拼「角色照片」的图像 prompt。opts.kind: self=第一人称自拍 / other=别人给 TA 拍(第三人称,姿势构图多变) / duo=TA 和用户的合照
 // opts.me = { name, appearance, refPhoto } 用户本人（duo 合照时用）
 function buildPhotoPrompt(char, sceneDesc, st, opts) {

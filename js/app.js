@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.46";
+const APP_VERSION = "v54.47";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -10038,15 +10038,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         for (const [k, b] of entries) { try { vault[k] = await blobToDataUrl(b); vaultCount++; } catch (e) {} }
       }
     } catch (e) {}
-    // ⭐备份 v3（backlog：数据安全最高优先）：自拍可选打包——自拍存 IndexedDB(x_selfies) 不进云同步，
-    // 换设备时唯一的迁移通道就是这份文件。图多会让备份变大，导出时现场问一句（不做常驻开关）。
+    // ⭐备份 v3：自拍永远打包。以前现场问「要不要带自拍」，一次误点/漏点就会得到
+    // 只有图片门牌、没有像素的假完整备份；数据安全优先，备份可以大但不能悄悄缺图。
     let selfies = {}, selfieCount = 0;
     try {
       if (typeof idbImgEntries === "function" && typeof blobToDataUrl === "function") {
         const sEntries = await idbImgEntries();
-        if (sEntries.length && window.confirm("要把 " + sEntries.length + " 张自拍也打进备份吗？\n\n自拍只存在这台设备上、不走云同步——不打包的话换设备就没了。打包会让备份文件变大一些。")) {
-          for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
-        }
+        for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
       }
     } catch (e) {}
     const blob = new Blob([JSON.stringify({
@@ -11198,6 +11196,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   // 挂载前先灌好图库 + 文字库(同人文迁 IDB)镜像，首帧就能同步读到；失败也照常挂载(loadJSON 会回落 localStorage)。
   const hyd = [];
   if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());
+  if (typeof hydrateNativeSelfies === "function") hyd.push(hydrateNativeSelfies());
   if (typeof hydrateTxtVault === "function") hyd.push(hydrateTxtVault());
   if (window.CredentialVault) hyd.push(window.CredentialVault.hydrateApiCredentials());
   if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
