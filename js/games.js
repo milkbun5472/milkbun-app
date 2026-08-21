@@ -226,6 +226,9 @@
     // 狼人杀神职：effGods = 选中的(或标准板)；至少留 1 民
     const isWolfGame = game.key === "werewolf";
     const isAvalonGame = game.key === "avalon";
+    // 这些游戏已经有 CC 独立座位接线。开关必须在选人前也看得见；否则 Lisa 会以为功能被删了。
+    const ccSeatSupported = game.key === "uno" || game.key === "spy" || game.key === "werewolf" || game.key === "avalon";
+    const pickedEngineer = picked.some(function (id) { return props.isEngineer && props.isEngineer(id); });
     const effGods = isWolfGame ? (godSel || standardBoard(total)) : [];
     const godRoom = isWolfGame ? Math.max(1, total - wolfCount(total) - 1) : 0;
     const godOverflow = isWolfGame && effGods.length > godRoom;
@@ -302,7 +305,7 @@
             h(Stepper, { t: t, value: needNpc, min: minNpc, max: maxNpc, onChange: function (v) { setNpcWant(v); } })) : null,
           h("div", { style: { borderTop: "1px solid " + t.line } }),
           h(ToggleRow, { t: t, label: "注入最近聊天", sub: "把最近的聊天喂给上场角色，让 TA 带着当前的人设、心情、你俩的近况上场。只读不写——不会记进聊天记忆。", on: injectChat, onToggle: function () { setInjectChat(!injectChat); } }),
-          picked.some(function (id) { return props.isEngineer && props.isEngineer(id); }) ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: "轮到他那一座时叫醒 CC 里的言秋，由他本人打；离线或超时就由同一提示词安静代打，不会卡住整局。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
+          ccSeatSupported ? h(ToggleRow, { t: t, label: "言秋本人亲打", sub: pickedEngineer ? "已经认出言秋。轮到他那一座时叫醒 CC 里的本人；离线或超时才安静代打，不会卡住整局。" : "先把言秋选进本局；开关会保留，选中后由 CC 里的本人亲自玩。", on: ccSeat, onToggle: function () { setCcSeat(!ccSeat); } }) : null,
           // 狼人杀·神职配置（自选 + 随机 + 标准板）
           isWolfGame ? h("div", { style: { paddingTop: 12, marginTop: 6, borderTop: "1px solid " + t.line } },
             h("div", { style: { display: "flex", alignItems: "center", marginBottom: 6 } },

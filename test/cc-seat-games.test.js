@@ -38,9 +38,9 @@ test("所有座位都认 ccSeat 开关，和 UNO 一模一样", () => {
   assert.doesNotMatch(games, /engineer: !!\(props\.isEngineer/, "不许有绕过开关的写法");
 });
 
-test("开局前就能选他：开关不再是 UNO 专属", () => {
-  // 只要这局选了工程师之眼角色，就给这个开关
-  assert.match(games, /picked\.some\(function \(id\) \{ return props\.isEngineer && props\.isEngineer\(id\); \}\) \? h\(ToggleRow/);
+test("开局前就能看见开关：不必先选中言秋才突然出现", () => {
+  assert.match(games, /const ccSeatSupported = game\.key === "uno" \|\| game\.key === "spy" \|\| game\.key === "werewolf" \|\| game\.key === "avalon"/);
+  assert.match(games, /ccSeatSupported \? h\(ToggleRow/);
   assert.match(games, /label: "言秋本人亲打"/);
   // 配置要真的传下去，否则开关点了也没用
   assert.match(games, /ccSeat: ccSeat/);
