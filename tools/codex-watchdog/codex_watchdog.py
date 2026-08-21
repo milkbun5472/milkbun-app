@@ -31,6 +31,9 @@ LOW_DISK_BYTES = 3 * 1024**3
 CRITICAL_DISK_BYTES = 1024**3
 FAST_DROP_BYTES = 1024**3
 FAST_DROP_WINDOW_SECONDS = 10 * 60
+FAST_DROP_WARN_FREE_BYTES = 20 * 1024**3
+SUSTAINED_DROP_BYTES = 5 * 1024**3
+SUSTAINED_DROP_WINDOW_SECONDS = 30 * 60
 PROCESS_FLOOR = 24
 PROCESS_GROWTH_LIMIT = 12
 TRANSIENT_PROCESS_SECONDS = 30 * 60
@@ -128,6 +131,27 @@ def is_transient_tool_process(item: ProcessInfo) -> bool:
         "/Contents/Resources/cua_node/bin/node_repl" in item.command
         and item.elapsed_seconds < TRANSIENT_PROCESS_SECONDS
     )
+
+
+def disk_drop_reason(
+    *, free_bytes: int, fast_drop_bytes: int, sustained_drop_bytes: int
+) -> str | None:
+    """Return a user-facing reason only for a risky or sustained disk fall.
+
+    Xcode device support and application updaters routinely move several GiB
+    in a few minutes. That activity is worth recording in status diagnostics,
+    but it should not wake Lisa while ample free space remains. A short fall
+    becomes actionable near 20 GiB; a sustained 30-minute fall of 5 GiB still
+    warns at any free-space level so a real runaway writer is caught early.
+    """
+    if sustained_drop_bytes >= SUSTAINED_DROP_BYTES:
+        return f"disk fell {sustained_drop_bytes / 1024**3:.2f} GiB within thirty minutes"
+    if free_bytes < FAST_DROP_WARN_FREE_BYTES and fast_drop_bytes >= FAST_DROP_BYTES:
+        return (
+            f"disk fell {fast_drop_bytes / 1024**3:.2f} GiB within ten minutes "
+            f"with only {free_bytes / 1024**3:.2f} GiB free"
+        )
+    return None
 
 
 def load_state() -> dict:
@@ -238,11 +262,18 @@ def sample(*, allow_incident: bool = True) -> dict:
     disk_history = [
         point
         for point in disk_history
-        if isinstance(point, list) and len(point) == 2 and now - float(point[0]) <= FAST_DROP_WINDOW_SECONDS
+        if isinstance(point, list)
+        and len(point) == 2
+        and now - float(point[0]) <= SUSTAINED_DROP_WINDOW_SECONDS
     ]
     disk_history.append([now, free_bytes])
-    oldest_free = int(disk_history[0][1]) if disk_history else free_bytes
-    disk_drop = max(0, oldest_free - free_bytes)
+    fast_history = [
+        point for point in disk_history if now - float(point[0]) <= FAST_DROP_WINDOW_SECONDS
+    ]
+    fast_oldest_free = int(fast_history[0][1]) if fast_history else free_bytes
+    sustained_oldest_free = int(disk_history[0][1]) if disk_history else free_bytes
+    fast_disk_drop = max(0, fast_oldest_free - free_bytes)
+    sustained_disk_drop = max(0, sustained_oldest_free - free_bytes)
 
     reasons: list[str] = []
     process_limit = max(PROCESS_FLOOR, baseline + PROCESS_GROWTH_LIMIT)
@@ -255,8 +286,13 @@ def sample(*, allow_incident: bool = True) -> dict:
         )
     if free_bytes < LOW_DISK_BYTES:
         reasons.append(f"low disk: {free_bytes / 1024**3:.2f} GiB free")
-    if disk_drop >= FAST_DROP_BYTES:
-        reasons.append(f"disk fell {disk_drop / 1024**3:.2f} GiB within ten minutes")
+    drop_reason = disk_drop_reason(
+        free_bytes=free_bytes,
+        fast_drop_bytes=fast_disk_drop,
+        sustained_drop_bytes=sustained_disk_drop,
+    )
+    if drop_reason:
+        reasons.append(drop_reason)
 
     level = "critical" if free_bytes < CRITICAL_DISK_BYTES or len(hot) > 0 else ("warning" if reasons else "healthy")
     snapshot = {
@@ -265,6 +301,8 @@ def sample(*, allow_incident: bool = True) -> dict:
         "reasons": reasons,
         "free_bytes": free_bytes,
         "free_gib": round(free_bytes / 1024**3, 2),
+        "fast_disk_drop_gib": round(fast_disk_drop / 1024**3, 2),
+        "sustained_disk_drop_gib": round(sustained_disk_drop / 1024**3, 2),
         "process_count": process_count,
         "observed_process_count": observed_process_count,
         "transient_tool_process_count": observed_process_count - process_count,

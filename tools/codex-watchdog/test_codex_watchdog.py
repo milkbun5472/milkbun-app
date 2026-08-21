@@ -26,6 +26,35 @@ class CodexWatchdogTests(unittest.TestCase):
         self.assertGreaterEqual(watchdog.HIGH_CPU_STREAK * watchdog.SAMPLE_SECONDS, 180)
         self.assertGreaterEqual(watchdog.PROCESS_FLOOR, 20)
 
+    def test_fast_disk_drop_is_diagnostic_only_when_space_is_ample(self):
+        gib = 1024**3
+        self.assertIsNone(
+            watchdog.disk_drop_reason(
+                free_bytes=50 * gib,
+                fast_drop_bytes=3 * gib,
+                sustained_drop_bytes=3 * gib,
+            )
+        )
+
+    def test_fast_disk_drop_warns_when_free_space_is_getting_low(self):
+        gib = 1024**3
+        reason = watchdog.disk_drop_reason(
+            free_bytes=15 * gib,
+            fast_drop_bytes=2 * gib,
+            sustained_drop_bytes=2 * gib,
+        )
+        self.assertIn("within ten minutes", reason or "")
+        self.assertIn("15.00 GiB free", reason or "")
+
+    def test_sustained_disk_drop_warns_even_when_space_is_ample(self):
+        gib = 1024**3
+        reason = watchdog.disk_drop_reason(
+            free_bytes=50 * gib,
+            fast_drop_bytes=2 * gib,
+            sustained_drop_bytes=6 * gib,
+        )
+        self.assertIn("within thirty minutes", reason or "")
+
 
 if __name__ == "__main__":
     unittest.main()
