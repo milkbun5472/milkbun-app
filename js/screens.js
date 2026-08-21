@@ -2902,7 +2902,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const dur = (player && player.dur) || 0, cur = (player && player.t) || 0;
   const frac = dur ? cur / dur : 0;
   const fmt = s => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
-  const [nav, setNav] = useState(now ? "play" : "home"); // home | play | mine 底部三 tab
+  // v54.51 网易云化：连了账号就以「推荐」(cloud)为落地页，正在放歌仍优先回播放页；
+  // 没连账号退回本地曲库(home)。四 tab：推荐 / 播放 / 我的 / 曲库
+  const [nav, setNav] = useState(now ? "play" : ((apiBase && cookie) ? "cloud" : "home"));
   const [addTab, setAddTab] = useState(apiBase ? "search" : "netease"); // search | netease | local
   const [link, setLink] = useState("");
   const [title, setTitle] = useState("");
@@ -3211,6 +3213,9 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
                 qr.status !== "done" ? h("button", { onClick: stopQrLogin, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "取消") : null) : null)) : null));
 
   // ============ 我的 tab（歌单）============
+  // cv（云村/账号态）在这里声明：「我的」tab 渲染时直接读它，声明放云村区会 TDZ 白屏
+  const [cv, setCv] = useState({ me: null, daily: null, pls: null, open: null, openSongs: null, likeIds: null, busy: false, sub: "rec", q: "", results: null, searching: false, fm: null, recent: null, tops: null });
+  const [cvPlName, setCvPlName] = useState("");
   const favs = songs.filter(s => s.fav);
   const isFavView = openPl === "__fav__";
   const openPlObj = isFavView ? { id: "__fav__", name: "我喜欢的音乐", songs: favs } : (playlists.find(p => p.id === openPl) || null);
@@ -3231,13 +3236,30 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
             h(Eyebrow, { style: { marginBottom: 8 } }, "从全部歌加入"),
             h("div", { className: "flex flex-wrap gap-2" }, songs.filter(s => !(openPlObj.songs || []).some(x => (s.neteaseId && x.neteaseId === s.neteaseId) || x.id === s.id)).map(s => h("button", { key: s.id, onClick: () => onAddToPlaylist(openPlObj.id, s), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px" } }, "＋ " + s.title)))) : null)
       : h("div", null,
-          // 我喜欢的音乐（点左侧打开看列表；右侧圆钮直接播放）
-          h("div", { className: "w-full flex items-center gap-3", style: { marginTop: 8, background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px" } },
-            h("button", { onClick: () => setOpenPl("__fav__"), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-80 text-left" },
+          // 网易云账号区（v54.51）：把她真账号的「我喜欢的音乐」和自建歌单搬进「我的」，
+          // 和网易云 App 的我的页一个样；点开跳到推荐页的歌单详情（写权限都在那边）
+          (apiBase && cookie) ? h("div", { style: { marginTop: 8 } },
+            h("button", { onClick: () => { setNav("cloud"); openLikePl(); }, className: "w-full flex items-center gap-3 active:opacity-80", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", textAlign: "left" } },
               h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg,#e0576b,#f0a8c0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#fff" } }, "♥"),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "我喜欢的音乐"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, favs.length + " 首 · 收藏歌单"))),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, ((cv.likeIds && cv.likeIds.size) || 0) + " 首 · 网易云账号"))),
+            (cv.pls || []).filter(p => p.mine).length ? h("div", { style: { marginTop: 10 } },
+              h(Eyebrow, { style: { marginBottom: 6 } }, "网易云歌单"),
+              (cv.pls || []).filter(p => p.mine).slice(0, 10).map(pl => h("button", { key: pl.id, onClick: () => { setNav("cloud"); openCloudPl(pl); }, className: "w-full flex items-center gap-3 py-2 active:opacity-70", style: { borderBottom: "1px solid " + t.line, textAlign: "left" } },
+                h("div", { style: { flexShrink: 0, width: 40, height: 40, borderRadius: 8, background: pl.cover ? "center/cover no-repeat url(" + pl.cover + "?param=80y80)" : t.bg2 } }),
+                h("div", { className: "min-w-0 flex-1" },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pl.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, pl.count + " 首")),
+                h("span", { style: { color: t.fog, fontSize: 16 } }, "›")))) : null,
+            h(Eyebrow, { style: { marginTop: 14, marginBottom: 2 } }, "本地 · 一起听")) : null,
+          // 本地收藏（点左侧打开看列表；右侧圆钮直接播放）
+          h("div", { className: "w-full flex items-center gap-3", style: { marginTop: 8, background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px" } },
+            h("button", { onClick: () => setOpenPl("__fav__"), className: "flex items-center gap-3 flex-1 min-w-0 active:opacity-80 text-left" },
+              h("div", { style: { flexShrink: 0, width: 52, height: 52, borderRadius: 12, background: "linear-gradient(135deg,#8a6d3b,#cfc0a0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#fff" } }, "♡"),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, (apiBase && cookie) ? "本地收藏" : "我喜欢的音乐"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } }, favs.length + " 首 · 咱家歌库的收藏"))),
             h("button", { onClick: () => favs.length && onPlaySong(favs[0].id, favs.map(s => s.id)), className: "shrink-0 active:opacity-70", style: { width: 36, height: 36, borderRadius: 999, background: t.ink, display: "flex", alignItems: "center", justifyContent: "center" } }, ic("play", t.bg2, 18))),
           // 创建歌单
           h("div", { className: "flex gap-2", style: { marginTop: 14 } },
@@ -3270,10 +3292,8 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   // 进听歌记录，账号的「最近播放」和年度报告也会算上在这儿听的歌。
   const nj = u => fetch(apiBase + u + (u.includes("?") ? "&" : "?") + "cookie=" + encodeURIComponent(cookie || "") + "&timestamp=" + Date.now()).then(r => r.json());
   const toRes = s => ({ id: s.id, name: s.name, artist: ((s.ar || s.artists || []).map(a => a.name).filter(Boolean).join(" / ")), cover: ((s.al || s.album || {}).picUrl || null) });
-  const [cv, setCv] = useState({ me: null, daily: null, pls: null, open: null, openSongs: null, likeIds: null, busy: false, sub: "rec", q: "", results: null, searching: false, fm: null, recent: null, tops: null });
-  const [cvPlName, setCvPlName] = useState("");
   useEffect(() => {
-    if (nav !== "cloud" || !apiBase || !cookie || cv.me) return;
+    if ((nav !== "cloud" && nav !== "mine") || !apiBase || !cookie || cv.me) return; // 「我的」也展示账号歌单，进哪个都拉一次
     (async () => {
       setCv(p => ({ ...p, busy: true }));
       try {
@@ -3498,12 +3518,12 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     h("div", { className: "flex-1 overflow-y-auto" }, nav === "play" ? playTab : nav === "home" ? homeTab : nav === "cloud" ? cloudTab : mineTab),
     cvAddSheet,
     pickerOverlay,
-    // 底部三 tab：首页 / 播放 / 我的
+    // 底部 tab（v54.51 网易云化）：推荐 / 播放 / 我的 / 曲库——连了账号推荐在首位当门面
     h("div", { className: "shrink-0 flex items-stretch", style: { borderTop: "1px solid " + t.line, background: t.bg } },
-      navBtn("home", "首页", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 11l8-6 8 6M6 10v9h12v-9" }))),
+      (apiBase && cookie) ? navBtn("cloud", "推荐", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
       navBtn("play", "播放", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "play" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 12, r: 8 }), h("path", { d: "M10 9l5 3-5 3z", fill: nav === "play" ? t.ink : t.fog }))),
-      (apiBase && cookie) ? navBtn("cloud", "云村", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "cloud" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M6.5 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 16.6 8.7 4.2 4.2 0 0 1 17.5 17z" }), h("path", { d: "M13.6 15.9a1.9 1.9 0 1 1-2.4-1.83V9.6l3.4 1" }))) : null,
-      navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" })))),
+      navBtn("mine", "我的", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "mine" ? t.ink : t.fog, strokeWidth: 1.7 }, h("circle", { cx: 12, cy: 8, r: 3.4 }), h("path", { d: "M5 20c0-3.6 3.1-5.5 7-5.5s7 1.9 7 5.5" }))),
+      navBtn("home", (apiBase && cookie) ? "曲库" : "首页", h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: nav === "home" ? t.ink : t.fog, strokeWidth: 1.7 }, h("path", { d: "M4 11l8-6 8 6M6 10v9h12v-9" })))),
     h("input", { ref: audioFileRef, type: "file", accept: "audio/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) { setLocalFile(f); setAddTab("local"); setNav("home"); } e.target.value = ""; }, style: { display: "none" } }),
     h("input", { ref: coverRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f && now) onSetCover(now.id, f); e.target.value = ""; }, style: { display: "none" } }));
 }
