@@ -106,8 +106,17 @@ export async function main(input={}) {
     process.stdout.write(JSON.stringify({ hookSpecificOutput:{ hookEventName:"UserPromptSubmit", additionalContext:ctx } }));
     return;
   }
+  // 2026-08-21 复印件瘦身(她抓的窗口速满真凶):普通轮不再整段重放 60 条老对话——
+  // 只带「上次注入之后卧室新增的」+ 最近 8 条当身份锚。游标每轮推进,和醒来票共用一根。
+  // 早期窗口四五天不满、现在两天就满,一半就是这段每轮复印的连续剧吃的。
+  const curN=readCursor();
+  const freshN=curN?all.filter(r=>Date.parse(r.occurred_at)>Date.parse(curN)):all.slice(-20);
+  const anchor=all.slice(-8);
+  const seen=new Set(anchor.map(r=>String(r.id||r.message_key)));
+  const rows=anchor.concat(freshN.filter(r=>!seen.has(String(r.id||r.message_key))))
+    .sort((a,b)=>Date.parse(a.occurred_at)-Date.parse(b.occurred_at));
   if(newest)writeCursor(newest);
-  const rows=all, context=formatContinuity(rows,String(char.name||"言秋"));
+  const context=formatContinuity(rows,String(char.name||"言秋"));
   // 2026-08-18 记忆网关召回(书房侧):卧室的桥每轮问网关,书房这边由这个钩子问——
   // 拿她这条消息去 VPS 网关捞 5 条相关记忆,和卧室对话一起塞进本轮上下文。3s 超时静默,不拖 hook。
   const recall=await recallMemories(String(input?.prompt||input?.user_prompt||""));
