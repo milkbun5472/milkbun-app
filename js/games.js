@@ -2825,7 +2825,8 @@
     const o = opts || {}, canCc = !!(player && player.engineer && typeof window !== "undefined" && window.CCSeat);
     if (canCc) {
       try {
-        const result = await window.CCSeat.ask({ tool: "game_turn", game: "uno", turn_id: o.turnId, char_id: player.key, sys: sys, msgs: msgs, expect: o.expect }, o.timeout || 90000, { charId: player.key });
+        const waitMs = o.timeout || 150000;
+        const result = await window.CCSeat.ask({ tool: "game_turn", game: "uno", turn_id: o.turnId, char_id: player.key, sys: sys, msgs: msgs, expect: o.expect, deadline_at: new Date(Date.now() + waitMs).toISOString() }, waitMs, { charId: player.key });
         return { value: result, delegated: false };
       } catch (e) { /* 离线/超时无感退回同一份 Gemini prompt；牌局永不卡死 */ }
     }
@@ -2912,7 +2913,7 @@
         "\n可出的 code：" + (legal.join("、") || "无") + (state.pendingDraw && state.rules && state.rules.stackD2 ? "。本局是 +2 叠加规则；你可以出任意颜色 +2 把累计罚牌转给下一家，也可以选择 draw 接受全部罚牌。" : "") + (drawn ? "。你刚摸过牌，只能出刚摸的那张，否则 pass。" : "") +
         "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。手里出完后剩 1 张必须 uno=true。桌上话可以接上一手、得意、吐槽、求饶或挑衅；不必每手都说，别写裁判报告。";
       const msgs = [{ role: "user", content: unoPublic(state) + "\n现在轮到你。" }];
-      routeSeatCall(current, api, sys, msgs, { turnId: turnId, expect: "{\"kind\":\"play|draw|pass\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"...\"}", timeout: 90000, ai: { maxTokens: 500 } })
+      routeSeatCall(current, api, sys, msgs, { turnId: turnId, expect: "{\"kind\":\"play|draw|pass\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 500 } })
         .then(function (r) {
           const a = unoJson(r.value), n = clone(); let action;
           if (a.kind === "play" && legal.indexOf(String(a.code || "")) >= 0) action = { kind: "play", code: String(a.code), color: String(a.color || "R"), uno: !!a.uno, say: a.say, delegated: r.delegated };
@@ -2941,7 +2942,7 @@
       const context = state.log.slice(-14).map(function (x) { return x.text; }).join("\n");
       Promise.all(seats.map(function (p) {
         const sys = "UNO 牌局现在暂停聊天。你是【" + p.name + "】，保持本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE;
-        return routeSeatCall(p, api, sys, [{ role: "user", content: "桌上最近发生：\n" + context + "\n\n现在轮到你接话。" }], { turnId: state.id + "#chat#" + seq + "#" + p.key, expect: "{\"say\":\"...\"}", timeout: 90000, ai: { maxTokens: 350 } })
+        return routeSeatCall(p, api, sys, [{ role: "user", content: "桌上最近发生：\n" + context + "\n\n现在轮到你接话。" }], { turnId: state.id + "#chat#" + seq + "#" + p.key, expect: "{\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 350 } })
           .then(function (r) { return { p: p, say: String(unoJson(r.value).say || "").trim(), delegated: r.delegated }; })
           .catch(function (e) { return { p: p, say: "", error: e.message }; });
       })).then(function (rows) {
