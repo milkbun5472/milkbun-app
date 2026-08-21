@@ -73,3 +73,49 @@ test("模型仍给字符串时也要拆开，不能退回一整段", () => {
   [null, "", "null"].forEach(x => assert.deepEqual(split(x), [], "空值不发"));
   assert.equal(split(Array.from({ length: 9 }, (_, i) => "第" + i)).length, 6, "封顶 6 条，别刷屏");
 });
+
+// v54.32：① 一发群聊顾朝就私聊 ② 封闭群不该开放互通
+test("封闭群不许牵线到私聊——记忆不进也不出", () => {
+  assert.match(app, /const gDmMembers = gs\.memoryInterop\s*\n?\s*\? members\.filter/,
+    "群→私聊要先看这个群开没开记忆互通");
+  assert.match(app, /封闭群（没开记忆互通）是密封空间：记忆不进也不出/);
+  // 反方向同理：私聊里的话不许投进封闭群
+  assert.match(app, /_gsFor\(g\.id\)\.memoryInterop\)/);
+  assert.match(app, /封闭群不收外面的话，别把私聊里的东西投进去/);
+});
+
+test("dm 默认不用，且给了可判定的自检", () => {
+  assert.match(app, /⚠️【默认不用】绝大多数轮次都不该出现 dm/);
+  assert.match(app, /私聊是【例外】，不是每轮的附加动作/);
+  assert.match(app, /只有满足下面之一才允许用，其余情况一律不填/);
+  // 自检要能自己判，不是再喊一句"别频繁"
+  assert.match(app, /如果这句话在群里公开说也完全没问题，那它就该留在 text 里，不要用 dm/);
+  assert.match(app, /想跟 TA 亲近不是理由——群里也能亲近/);
+  assert.match(app, /（可选·多数轮次不填）/, "输出形状里也要写明默认不填");
+});
+
+test("提示词管不住就上代码闸：30 分钟冷却", () => {
+  const seg = app.slice(app.indexOf("const gDmCooling"), app.indexOf("const dmTurn"));
+  assert.match(seg, /m\.fromGroup && Date\.now\(\) - Number\(m\.ts \|\| 0\) < 30 \* 60000/);
+  assert.match(seg, /if \(gDmList\.length && gDmCooling\) gDmList = \[\];/);
+  assert.match(app, /提示词说了「默认不用」它照样每轮都来，所以再加一道代码闸/);
+  // 只回看最近 40 条，别每轮扫整份聊天记录
+  assert.match(seg, /k >= arr\.length - 40/);
+  // 认的是 fromGroup 标记——普通私聊消息不该把冷却顶起来
+  assert.match(seg, /m && m\.fromGroup/);
+});
+
+test("冷却的判定逻辑：只看群里牵过来的那些", () => {
+  const cooling = (arr, now) => {
+    for (let k = arr.length - 1; k >= 0 && k >= arr.length - 40; k--) {
+      const m = arr[k];
+      if (m && m.fromGroup && now - Number(m.ts || 0) < 30 * 60000) return true;
+    }
+    return false;
+  };
+  const now = Date.now();
+  assert.equal(cooling([{ fromGroup: "g1", ts: now - 5 * 60000 }], now), true, "5 分钟前刚牵过 → 冷却");
+  assert.equal(cooling([{ fromGroup: "g1", ts: now - 40 * 60000 }], now), false, "40 分钟前 → 放行");
+  assert.equal(cooling([{ ts: now - 1000 }, { ts: now }], now), false, "普通私聊不该把冷却顶起来");
+  assert.equal(cooling([], now), false);
+});

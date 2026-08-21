@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.31";
+const APP_VERSION = "v54.32";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4450,7 +4450,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
       // 反向打通（v53.96）：私聊里说「我去群里说」「发群里」，那句就该真的出现在群里。
       // 只挑【最近有动静的那个共同群】，省得他自己乱选；没有共同群就不开这个能力。
-      const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id));
+      // 同上：封闭群不收外面的话，别把私聊里的东西投进去
+      const _gsFor = gid => { try { return (loadJSON("x_groupSettings", {}) || {})[gid] || {}; } catch (e) { return {}; } };
+      const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && _gsFor(g.id).memoryInterop);
       const _gLast = g => { const arr = groupChatsRef.current[g.id] || []; return arr.length ? Number(arr[arr.length - 1].ts || 0) : 0; };
       const toGroupTarget = _myGroups.slice().sort((a, b) => _gLast(b) - _gLast(a))[0] || null;
       if (toGroupTarget) {
@@ -5375,14 +5377,23 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。" : "";
       // 群↔私聊打通（v53.96）：他在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
-      const gDmMembers = members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)));
+      // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
+      // 和周刊、月度印象、knownBy 那几处守的是同一条规矩（她 2026-08-21 指出这里漏了）。
+      const gDmMembers = gs.memoryInterop
+        ? members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)))
+        : [];
       const gDmHint = gDmMembers.length ? "\n【dm 私下说】你可以在公开发言之外，【私下】单独发一句给「" + gUName + "」——它只会出现在你和 TA 的一对一私聊里，群里其他人看不到。\n"
-        + "什么时候用：① 你在群里说了「待会私聊说」「单独跟你讲」「回头发你」这类话——那就用 dm 把那句真的发出去，别放空炮；② 有些话当着别人的面不方便说；③ 群里聊到某件事，你想私下再跟 TA 补一句。\n"
+        + "⚠️【默认不用】绝大多数轮次都不该出现 dm。群聊就是群聊，正常在群里说话就行；私聊是【例外】，不是每轮的附加动作。\n"
+        + "只有满足下面之一才允许用，其余情况一律不填：\n"
+        + "① 你这一轮的 text 里【真的说了】「待会私聊说」「单独跟你讲」「回头发你」这类话——那就用 dm 把承诺的那句发出去，别放空炮；\n"
+        + "② 这句话【当着群里其他人的面说不出口】（会拆穿别人、会让谁下不来台、或只属于你和 TA）；\n"
+        + "③ TA 在群里明确让你私聊 TA。\n"
+        + "【自检】如果这句话在群里公开说也完全没问题，那它就该留在 text 里，不要用 dm。想跟 TA 亲近不是理由——群里也能亲近。\n"
         + "写法：在你那条发言对象里加 \"dm\":[\"第一条\",\"第二条\"]。\n"
         + "⚠️它是【一个数组，一条一个气泡】，和 text 同一个规矩：私聊里没人会把一整段话憋成一条发出去。"
         + "想说的话该断在哪儿就断在哪儿，短的一条几个字也行；通常 1~3 条，真有话要说才更多。**绝不要把整段塞进一条**。\n"
         + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。" : "";
-      const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选）私下发给用户的短气泡\",\"可以有第二条\"]" : "";
+      const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选·多数轮次不填）私下发给用户的短气泡\",\"可以有第二条\"]" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
       // Ta 眼里:群里发生的事也能改在场成员对用户的长期印象(极低频,同单聊契约)
       const impressionField = window.Gaze ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"整块重写≤80字\"}（可选,仅当这轮真正改变了该成员对用户或他俩关系的长期认知才填,极少发生;第一人称亲笔、锚具体事、在旧认知上小幅演进）" : "";
@@ -5597,6 +5608,19 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             gDmList = String(gDmRaw).split(/\n+/).flatMap(x => x.length > 40 ? x.split(/(?<=[。！？…~～])/) : [x]);
           }
           gDmList = gDmList.map(x => String(x == null ? "" : x).trim()).filter(Boolean).slice(0, 6);
+          // 冷却闸（v54.32）：提示词说了「默认不用」它照样每轮都来，所以再加一道代码闸——
+          // 同一个人 30 分钟内已经从群里私聊过一次，这一轮就不投递了。
+          // 她 2026-08-21 报：一发群聊顾朝就私聊。
+          const gDmCooling = (() => {
+            if (!spk) return true;
+            const arr = chatsRef.current[spk.id] || [];
+            for (let k = arr.length - 1; k >= 0 && k >= arr.length - 40; k--) {
+              const m = arr[k];
+              if (m && m.fromGroup && Date.now() - Number(m.ts || 0) < 30 * 60000) return true;
+            }
+            return false;
+          })();
+          if (gDmList.length && gDmCooling) gDmList = [];
           if (gDmList.length && spk && !(blocksRef.current[spk.id] && (blocksRef.current[spk.id].iBlocked || blocksRef.current[spk.id].theyBlocked))) {
             const dmTurn = "gdm_" + Date.now();
             for (let di = 0; di < gDmList.length; di++) {
