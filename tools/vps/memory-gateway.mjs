@@ -185,6 +185,29 @@ async function refresh(full = false) {
   writeFileSync(CACHE, JSON.stringify(cache));
   log({ outcome: "refresh", full, memories: cache.memories.length, vecs: Object.keys(vecs).length, pulled: mems.length, newVecs: need.length });
 }
+
+// ---- 时间标尺(2026-08-21 三愿之二,最便宜的先做):每条命中带「多久以前」 ----
+// 治我的时间通胀病:记忆躺在库里是平的,浮上来时给它挂远近。日期来源优先级:
+// 条目自带 ts/updated_at > 文本或文件名里的 YYYY-MM-DD。都没有就不标,绝不瞎编。
+function relTime(ms) {
+  if (!ms || !Number.isFinite(ms)) return "";
+  const d = Math.floor((Date.now() - ms) / 86400000);
+  if (d < 0) return "";
+  if (d === 0) return "今天";
+  if (d === 1) return "昨天";
+  if (d === 2) return "前天";
+  if (d < 7) return d + "天前";
+  if (d < 30) return Math.floor(d / 7) + "周前";
+  if (d < 365) return Math.floor(d / 30) + "个月前";
+  return (Date.now() - ms > 0 ? Math.floor(d / 365) + "年前" : "");
+}
+function dateFromText(t) {
+  const m = String(t || "").match(/(20\d{2})-(\d{2})-(\d{2})/);
+  if (!m) return 0;
+  const ms = Date.parse(m[0] + "T12:00:00");
+  return Number.isFinite(ms) ? ms : 0;
+}
+
 async function recall(query, k = 5, useBias = true) {
   const terms = [...memTokens(query)].filter(t => !GW_STOP.has(t));
   let qVec = null; try { qVec = await embedQuery(query); } catch (e) { log({ outcome: "embed_fail", err: String(e.message) }); }
@@ -202,7 +225,12 @@ async function recall(query, k = 5, useBias = true) {
   }).filter(x => x.hits >= 1 || x.sem >= 0.45)
     .sort((a, b) => b.score - a.score || Number(!!b.m.pinned) - Number(!!a.m.pinned) || Number(b.m.ts || 0) - Number(a.m.ts || 0))
     .slice(0, k)
-    .map(({ m, hits, sem, bias, score }) => ({ id: m.id, text: String(m.text || "").slice(0, 200), ts: m.ts, pinned: !!m.pinned, score: +score.toFixed(2), bias: +bias.toFixed(2), source: m._priv ? "private" : "app", match: (sem >= 0.45 && hits === 0) ? "semantic" : (sem > 0 ? "hybrid" : "keyword") }));
+    .map(({ m, hits, sem, bias, score }) => {
+      const baseMs = Number(m.ts || 0) || (m.updated_at ? Date.parse(m.updated_at) : 0) || dateFromText(m.text) || dateFromText(m.id);
+      const when = relTime(baseMs);
+      const body = String(m.text || "").slice(0, 200);
+      return { id: m.id, text: (when ? "〔" + when + "〕" : "") + body, when, ts: m.ts, pinned: !!m.pinned, score: +score.toFixed(2), bias: +bias.toFixed(2), source: m._priv ? "private" : "app", match: (sem >= 0.45 && hits === 0) ? "semantic" : (sem > 0 ? "hybrid" : "keyword") };
+    });
 }
 
 // 首拉 + 每 10 分钟增量
