@@ -3241,6 +3241,7 @@ const DIARY_SKELETON = [
 ].join("\n");
 async function generateDiary(p, ctx, opts = {}) {
   const char = ctx.char;
+  const uName = (ctx.profile && ctx.profile.name) || "她";
   const parts = [DIARY_SKELETON, "", buildBundle(ctx)];
   if (char.diaryStyle && char.diaryStyle.trim()) {
     parts.push("【这个角色专属的日记文风偏好（最高优先，凌驾于上面的通用调性之上）】\n" + char.diaryStyle.trim());

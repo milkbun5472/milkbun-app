@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.55";
+const APP_VERSION = "v54.56";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1106,7 +1106,14 @@ function App() {
       try {
         const user = await window.Cloud.getSessionUser();
         if (!user || dead) return;
-        const rows = await window.Cloud.chatMessagesAppRestoreRows(marker.since);
+        // 用户明确导入「权威备份」后，导入时刻以前的云账本只可做历史证据，
+        // 不许再把另一容器已被覆盖掉的旧消息补回本机。
+        let restoreSince = marker.since;
+        try {
+          const floor = localStorage.getItem("chat_ledger_authority_floor_v1");
+          if (floor && Date.parse(floor) > Date.parse(restoreSince)) restoreSince = floor;
+        } catch (_) {}
+        const rows = await window.Cloud.chatMessagesAppRestoreRows(restoreSince);
         const buckets = new Map();
         rows.forEach(r => {
           if (!r) return;
@@ -1119,7 +1126,7 @@ function App() {
           if (m && m.senderId) { const c = characters.find(x => String(x.id) === String(m.senderId)); if (c) m.senderName = c.name; }
         });
         for (const bucket of buckets.values()) {
-          if (dead) break;
+          if (dead || window.__authoritativeImportBusy) break;
           const tt = String(bucket[0].thread_type), tid = String(bucket[0].thread_id);
           const cid = String(bucket[0].char_id || "") || tid;
           if (tt === "private") {
@@ -1191,7 +1198,7 @@ function App() {
           }
         }
         // 死实例不许动工单:留给下一轮活实例定夺(幂等只补缺)
-        if (dead) return;
+        if (dead || window.__authoritativeImportBusy) return;
         // 施工卡1A:任一线程 durable 核验没过就保留工单下轮重试(幂等只补缺,不会重复)
         if (!allOk) {
           const attempts = Number(marker.attempts || 0) + 1;
@@ -10080,24 +10087,16 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         toast("文件格式不对");
         return;
       }
-      // 壳与书签是两个本地仓：聊天做并集（各自新增都保留、共有消息去重），
-      // 其它设置/人设仍以导入备份为准。以前先整机替换、再靠云账本/WAL 补漏，
-      // 会形成“独有的回来了、共有的偶尔重复”的半合并状态。
-      const localChatRaw = new Map();
+      // 从按下导入起就暂停本页正在跑的灾后补账；否则它可能在清仓与重载之间
+      // 把刚被权威备份删掉的旧消息又写回来。
+      window.__authoritativeImportBusy = true;
       try {
-        if (window.__txtMirror) window.__txtMirror.forEach((v, k) => {
-          if (window.BackupMerge && window.BackupMerge.isChatKey(k) && v != null) localChatRaw.set(k, String(v));
-        });
-        Object.keys(localStorage).forEach(k => {
-          if (window.BackupMerge && window.BackupMerge.isChatKey(k) && localStorage.getItem(k) != null) localChatRaw.set(k, localStorage.getItem(k));
-        });
-      } catch (e) {}
-      const importData = { ...parsed.data };
-      if (window.BackupMerge) {
-        const chatKeys = new Set([...localChatRaw.keys(), ...Object.keys(importData).filter(window.BackupMerge.isChatKey)]);
-        chatKeys.forEach(k => { importData[k] = window.BackupMerge.mergeChatRaw(localChatRaw.get(k), importData[k]); });
-      }
-      // 非聊天文字仓仍是“备份替换本机”：避免备份里已删除的旧线下/同人文从 IDB 残留回来。
+        localStorage.removeItem("chat_ledger_restore_pending_v1");
+        localStorage.setItem("chat_ledger_authority_floor_v1", new Date().toISOString());
+      } catch (_) {}
+      // 显式导入就是整机替换：备份来自哪一边，哪一边就是这次的权威真相。
+      // 不合并当前容器的独有聊天；书签里多出来的消息必须被壳备份覆盖掉。
+      const importData = parsed.data;
       try { if (typeof idbTxtClear === "function") await idbTxtClear(); } catch (e) {}
       // 先清本地 x_ 键
       Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
@@ -10146,7 +10145,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         );
         setTimeout(() => location.reload(), 400);
       } else {
-        toast("导入成功：聊天已合并去重，正在重载…");
+        // 清掉旧的灾后找回工单，并钉住这次权威导入的时间地板。
+        // 以后云账本仍可找回导入之后的新消息，但绝不复活导入之前被覆盖掉的书签旧消息。
+        toast("导入成功：已用这份备份完整覆盖本机，正在重载…");
         setTimeout(() => location.reload(), 800);
       }
     };

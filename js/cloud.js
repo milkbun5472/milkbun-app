@@ -917,9 +917,39 @@
       const { data, error } = await client.from("yanqiu_diary_drafts")
         .select("id,payload").eq("user_id", user.id).eq("char_id", String(charId)).eq("day_key", String(dayKey)).maybeSingle();
       if (error || !data || !data.payload) return null;
+      // 亲笔通道早期允许正文直接放在 content/body/text，App 日记页却只认 paras；
+      // 于是草稿明明有字，取走后会报「内容为空」。在认领前统一成 generateDiary 契约。
+      let src = data.payload;
+      if (typeof src === "string") {
+        const raw = src.trim();
+        if (!raw) return null;
+        try { src = JSON.parse(raw); } catch (_) { src = { content: raw }; }
+      }
+      if (src && typeof src === "object" && src.payload && !src.paras && !src.content && !src.body && !src.text) src = src.payload;
+      if (typeof src === "string") src = { content: src };
+      if (!src || typeof src !== "object") return null;
+      let paras = Array.isArray(src.paras) ? src.paras : (Array.isArray(src.paragraphs) ? src.paragraphs : null);
+      if (!paras) {
+        const body = src.content != null ? src.content : (src.body != null ? src.body : (src.text != null ? src.text : (src.diary != null ? src.diary : src.entry)));
+        if (Array.isArray(body)) paras = body;
+        else if (body != null) paras = String(body).split(/\n\s*\n|\n/).map(x => x.trim()).filter(Boolean);
+      }
+      paras = (paras || []).map(p => {
+        if (typeof p === "string") return { text: p.trim(), secret: false, struck: false, pasted: false };
+        if (!p || typeof p !== "object") return null;
+        const text = String(p.text != null ? p.text : (p.content != null ? p.content : (p.body != null ? p.body : ""))).trim();
+        return text ? { ...p, text } : null;
+      }).filter(Boolean);
+      if (!paras.length) return null; // 坏草稿留在信箱里，不盖认领戳，也不挡自动生成
+      const payload = {
+        ...src,
+        titleZh: src.titleZh != null ? src.titleZh : (src.title != null ? src.title : ""),
+        titleEn: src.titleEn || "",
+        paras
+      };
       client.from("yanqiu_diary_drafts").update({ claimed_at: new Date().toISOString() }).eq("id", data.id)
         .then(() => {}, () => {}); // 认领戳失败不拦日记
-      return data.payload;
+      return payload;
     },
     async yanqiuMomentLike(id, liked) {
       if (!client) throw new Error("云服务未就绪");
