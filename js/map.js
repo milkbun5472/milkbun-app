@@ -151,11 +151,50 @@
         h("div", { style: { fontSize: 26, opacity: 0.5 } }, "🗺️")) : null);
   }
 
+  // 真·地点搜索（OSM Nominatim，免费无 key）：搜全世界任何地方，中文优先
+  function nomSearch(q) {
+    return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh&q=" + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (list) { return (list || []).map(function (x) { return { name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) }; }); });
+  }
+
   // 全屏好友地图
   function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack }) {
     const t = useTheme();
     const [sel, setSel] = useState(null);   // 选中要设城市的角色 id
     const [q, setQ] = useState("");
+    // 地点搜索 + 导航（v54.16 真货二连）：Nominatim 搜地点落临时钉，OSRM 画从你到那儿的路线
+    const [pq, setPq] = useState("");             // 地点搜索词
+    const [pRes, setPRes] = useState(null);       // 搜索结果
+    const [pBusy, setPBusy] = useState(false);
+    const [pin, setPin] = useState(null);         // 临时地点钉 {pos:[lat,lng], name}
+    const [route, setRoute] = useState(null);     // {km, min} 当前画着的路线
+    const routeLayerRef = useRef(null);
+    const clearRoute = function () { if (routeLayerRef.current && mapRef.current) { try { mapRef.current.removeLayer(routeLayerRef.current); } catch (e) {} } routeLayerRef.current = null; setRoute(null); };
+    const doPlaceSearch = function () {
+      if (!pq.trim() || pBusy) return;
+      setPBusy(true); setPRes(null);
+      nomSearch(pq.trim()).then(function (r) { setPRes(r); }).catch(function () { setPRes([]); }).finally(function () { setPBusy(false); });
+    };
+    const goPlace = function (p) {
+      clearRoute(); setPRes(null); setPq("");
+      setPin({ pos: [p.lat, p.lng], name: p.name });
+      if (mapRef.current) { try { mapRef.current.setView([p.lat, p.lng], 14, { animate: true }); } catch (e) {} }
+    };
+    const routeTo = function (dest) {
+      const from = livePos || (anchor ? [anchor.lat, anchor.lng] : null);
+      if (!from || !dest) return;
+      clearRoute();
+      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=full&geometries=geojson")
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          const rt = d && d.routes && d.routes[0]; if (!rt || !mapRef.current) return;
+          const line = L.polyline(rt.geometry.coordinates.map(function (c) { return [c[1], c[0]]; }), { color: "#3f6d8c", weight: 5, opacity: 0.85 });
+          line.addTo(mapRef.current); routeLayerRef.current = line;
+          try { mapRef.current.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {}
+          setRoute({ km: (rt.distance / 1000).toFixed(rt.distance > 20000 ? 0 : 1), min: Math.round(rt.duration / 60) });
+        }).catch(function () {});
+    };
     // 你自己的实时位置（像苹果地图蓝点）：进地图就持续 watchPosition，离开清掉。仅前台生效。
     const [livePos, setLivePos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
     useEffect(function () {
@@ -179,6 +218,7 @@
       return { pos: charPos(c, st, anchor), html: avatarHtml(c, 40), size: 40, tooltip: label, onClick: function () { setSel(c.id); } };
     }).filter(function (p) { return p.pos; });
     if (livePos) pins.push({ pos: livePos, size: 22, html: meDotHtml(20), tooltip: (profile && profile.name || "我") + "（你 · 实时）" });
+    if (pin) pins.push({ pos: pin.pos, size: 30, html: "<div style='font-size:26px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))'>📍</div>", tooltip: pin.name });
     allPtsRef.current = pins.map(function (p) { return p.pos; });
     const flyTo = function (pos) { if (mapRef.current && pos) { try { mapRef.current.setView(pos, 13, { animate: true }); } catch (e) {} } };
     const fitAll = function () { if (mapRef.current && allPtsRef.current.length) { try { mapRef.current.fitBounds(allPtsRef.current, { padding: [30, 30], maxZoom: 12 }); } catch (e) {} } };
@@ -198,6 +238,25 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.6 } }, "这里将放你自己的世界地图图片，把角色钉在剧情地点上。\n（下一步做上传+图钉，先占位）")))
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
             h(MapCanvas, { pins: pins, opts: { noFit: true, zoomControl: true, zoom: 11, onReady: function (m) { mapRef.current = m; const c = livePos || (anchor ? [anchor.lat, anchor.lng] : allPtsRef.current[0]); if (c) { try { m.setView(c, livePos ? 12 : 11); } catch (e) {} if (livePos) centeredRef.current = true; } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
+            // 地点搜索条（真·全球搜索）
+            h("div", { style: { position: "absolute", top: 10, left: 12, right: 12, zIndex: 1200 } },
+              h("div", { style: { display: "flex", gap: 6 } },
+                h("input", { value: pq, onChange: function (e) { setPq(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") doPlaceSearch(); }, placeholder: "搜任何地方：店名 / 地址 / 城市",
+                  style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "rgba(255,255,255,0.95)", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 15px", outline: "none", boxShadow: "0 2px 10px rgba(0,0,0,.10)" } }),
+                h("button", { onClick: doPlaceSearch, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 999, padding: "0 16px", boxShadow: "0 2px 10px rgba(0,0,0,.15)" } }, pBusy ? "…" : "搜")),
+              pRes ? h("div", { style: { marginTop: 6, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 14, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,.12)" } },
+                pRes.length ? pRes.map(function (p, i) {
+                  return h("button", { key: i, onClick: function () { goPlace(p); }, className: "w-full active:opacity-70", style: { display: "block", textAlign: "left", padding: "9px 14px", borderTop: i ? "1px solid " + t.line : "none" } },
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, p.name),
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.full));
+                }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "10px 14px" } }, "没搜到，换个说法试试")) : null),
+            // 临时地点卡：导航 / 清除
+            pin ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 86, zIndex: 1200, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 16, padding: "10px 14px", boxShadow: "0 6px 20px rgba(0,0,0,.14)", display: "flex", alignItems: "center", gap: 10 } },
+              h("div", { className: "min-w-0 flex-1" },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📍 " + pin.name),
+                route ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 2 } }, "🚗 " + route.km + " km · 约 " + route.min + " 分钟") : null),
+              h("button", { onClick: function () { routeTo(pin.pos); }, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#3f6d8c", borderRadius: 999, padding: "7px 14px" } }, "路线"),
+              h("button", { onClick: function () { setPin(null); clearRoute(); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "7px 4px" } }, "✕")) : null,
             // 底部角色条（z-index 压过 Leaflet 图层）：点头像=飞到 TA；右侧「设/改」=设城市；最前「全部」=看全部
             h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto", alignItems: "center" } },
               h("button", { key: "__all", onClick: fitAll, className: "shrink-0 active:opacity-80", style: { display: "flex", alignItems: "center", gap: 5, background: "#fff", border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
@@ -225,7 +284,15 @@
             return h("button", { key: name, onClick: function () { const c = CITY_DB[name]; onSetHome(sel, { city: name, lat: c[0], lng: c[1] }); setSel(null); setQ(""); }, className: "active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 13.5, color: cur ? "#fff" : t.ink, background: cur ? t.tint : "transparent", border: "1px solid " + (cur ? t.tint : t.line), borderRadius: 999, padding: "7px 15px" } }, name);
           }),
-          cityList.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: 8 } }, "没找到这个城市，换个说法试试（目前支持常用城市）") : null)));
+          cityList.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: 8 } }, "内置名单里没有——用下面的全网搜索，全世界任何城市都能设") : null),
+        // 名单外城市：Nominatim 全网搜（v54.16 起任何地方都能当家乡）
+        q.trim() ? h("button", { onClick: function () {
+            nomSearch(q.trim()).then(function (r) {
+              const p = r && r[0];
+              if (p) { onSetHome(sel, { city: p.name.split(",")[0], lat: p.lat, lng: p.lng }); setSel(null); setQ(""); }
+              else if (typeof toast === "function") toast("全网也没搜到这个地方");
+            }).catch(function () { if (typeof toast === "function") toast("搜索接口没响应，稍后再试"); });
+          }, className: "w-full active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 10, padding: "10px 0" } }, "🔍 全网搜「" + q.trim() + "」并设为家乡") : null));
   }
 
   window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, CITY_DB: CITY_DB, charHome: charHome };
