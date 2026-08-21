@@ -43,22 +43,26 @@
     return state;
   }
   function describe(c) { return !c ? "" : (c.color === "W" ? LABEL[c.value] : LABEL[c.color] + (LABEL[c.value] || c.value)); }
+  function withSay(note, action) {
+    const line = String(action && action.say || "").trim().slice(0, 100);
+    return line ? note + " · “" + line + "”" : note;
+  }
   function legalCodes(state) { const p = state.players[state.turn]; return p.hand.filter(c => playable(c, state, p.hand)).map(c => c.code); }
   function act(state, action, random) {
     if (!state || state.status !== "playing") throw new Error("牌局已经结束");
     const p = state.players[state.turn], a = action || {};
     if (state.pendingDraw > 0) {
       const n = state.pendingDraw; draw(state, p, n, random); state.pendingDraw = 0; state.drawnUid = null;
-      state.log.push({ kind: "draw", player: p.key, text: p.name + " 摸 " + n + " 张" }); state.turn = nextIndex(state); state.round++; return state;
+      state.log.push({ kind: "draw", player: p.key, text: withSay(p.name + " 摸 " + n + " 张", a) }); state.turn = nextIndex(state); state.round++; return state;
     }
     if (a.kind === "draw") {
       if (state.drawnUid) throw new Error("已经摸过牌了");
       const got = draw(state, p, 1, random); const c = got[0];
-      state.log.push({ kind: "draw", player: p.key, text: p.name + " 摸 1 张" });
+      state.log.push({ kind: "draw", player: p.key, text: withSay(p.name + " 摸 1 张", a) });
       if (c && playable(c, state, p.hand)) { state.drawnUid = c.uid; return state; }
       state.turn = nextIndex(state); state.round++; return state;
     }
-    if (a.kind === "pass" && state.drawnUid) { state.drawnUid = null; state.turn = nextIndex(state); state.round++; return state; }
+    if (a.kind === "pass" && state.drawnUid) { state.log.push({ kind: "pass", player: p.key, text: withSay(p.name + " 不出", a) }); state.drawnUid = null; state.turn = nextIndex(state); state.round++; return state; }
     if (a.kind !== "play") throw new Error("无效动作");
     // 摸牌后只能认刚摸到的实体牌；同 code 的旧牌不能抢先被命中。
     const idx = state.drawnUid
@@ -72,7 +76,7 @@
     p.hand.splice(idx, 1); state.discard.push(c); state.color = c.color === "W" ? a.color : c.color; state.drawnUid = null;
     let note = p.name + " 出 " + describe(c) + (c.color === "W" ? "，改成" + LABEL[state.color] : "");
     if (p.hand.length === 1 && !a.uno) { draw(state, p, 2, random); note += "；忘喊 UNO，罚摸 2 张"; }
-    if (a.say) note += " · “" + String(a.say).slice(0, 100) + "”";
+    note = withSay(note, a);
     state.log.push({ kind: "play", player: p.key, text: note, code: c.code, delegated: !!a.delegated });
     if (!p.hand.length) { state.status = "finished"; state.winner = p.key; state.log.push({ kind: "finish", player: p.key, text: p.name + " 赢了！" }); return state; }
     let steps = 1;

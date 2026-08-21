@@ -42,3 +42,14 @@ test("摸到重复 code 时只允许打刚摸到的实体牌", () => {
   U.act(s, { kind: "play", code: "R5", uno: true });
   assert.deepEqual(s.players[0].hand.map(c => c.uid), ["old"]);
 });
+
+test("出牌、摸牌和不出都保留桌上话", () => {
+  const s = U.newGame(players().slice(0, 2), () => .6); s.turn = 0; s.color = "R"; s.discard = [{ color: "R", value: "3" }];
+  s.players[0].hand = [{ uid: "talk", color: "R", value: "5", code: "R5" }, { uid: "left", color: "B", value: "8", code: "B8" }];
+  U.act(s, { kind: "play", uid: "talk", uno: true, say: "这张接好。" });
+  assert.match(s.log.at(-1).text, /这张接好/);
+  s.pendingDraw = 2; U.act(s, { kind: "draw", say: "我记住了。" });
+  assert.match(s.log.at(-1).text, /我记住了/);
+  s.drawnUid = s.players[0].hand[0].uid; s.turn = 0; U.act(s, { kind: "pass", say: "先让你们一手。" });
+  assert.match(s.log.at(-1).text, /先让你们一手/);
+});
