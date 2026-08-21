@@ -2170,6 +2170,25 @@ function storedJSONText(k) {
 // 把一张 base64/dataURL 存进图库，返回 iv_ 键（同图幂等：同 hash 复用）。非 data: 的（http/已是 iv_）原样返回。
 async function imgToVault(dataUrl) { if (!dataUrl || typeof dataUrl !== "string") return dataUrl; if (dataUrl.indexOf("iv_") === 0) return dataUrl; if (dataUrl.slice(0, 5) !== "data:") return dataUrl; const key = "iv_" + imgVaultHash(dataUrl); const c = _imgCache(); if (!c.has(key)) { const blob = dataUrlToBlob(dataUrl); if (!blob) return dataUrl; try { await idbVaultPut(key, blob); c.set(key, URL.createObjectURL(blob)); } catch (e) { return dataUrl; } } return key; }
 // 渲染用：iv_ 键 -> objectURL（缓存里没有就返回空串，图不显示但不崩）；其它（base64/http/空）原样返回。向后兼容旧存档。
+// 保存原图(2026-08-21 她抓的产品缺陷:原图在 IDB 里是无损的,却只能截屏翻拍)
+// ref 可以是 iv_/img_ 键或 dataURL;取出 Blob 触发下载,文件名带日期。
+async function saveImgOriginal(ref, name) {
+  let blob = null;
+  try {
+    if (typeof ref === "string" && ref.indexOf("iv_") === 0) blob = await imgVaultFetchBlob(ref);
+    else if (typeof ref === "string" && ref.indexOf("img_") === 0) blob = await idbImgGet(ref);
+    else if (typeof ref === "string" && ref.slice(0, 5) === "data:") blob = dataUrlToBlob(ref);
+  } catch (e) {}
+  if (!blob) return false;
+  const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (name || "图片") + "-" + new Date().toISOString().slice(0, 10) + "." + ext;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return true;
+}
+if (typeof window !== "undefined") window.saveImgOriginal = saveImgOriginal;
 function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) return _imgCache().get(v) || ""; return v; }
 // 取图统一兜底(单11,2026-08-14):iOS IDB 写后立读偶发返 null(v47.36 案卷),但 imgToVault 存图时
 // 已把 objectURL 放进内存缓存——仓库装聋就从内存拿,本会话刚挂的图绝不再因时序丢失;两路皆空才算真 miss。
