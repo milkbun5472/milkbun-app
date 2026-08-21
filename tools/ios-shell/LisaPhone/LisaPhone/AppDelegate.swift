@@ -2,6 +2,7 @@
 // 目的:摆脱 Safari PWA 的后台限制,让 app 有自己的进程与图标;推送仍走 Web Push(站内已有)。
 import UIKit
 import WebKit
+import AVFoundation
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -30,6 +31,8 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
 
   override func viewDidLoad() {
     super.viewDidLoad()
+    // 静音保活的资格证:playback 类别 + mixWithOthers,不抢别的 app 的声音
+    try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
     let cfg = WKWebViewConfiguration()
     cfg.allowsInlineMediaPlayback = true
     cfg.mediaTypesRequiringUserActionForPlayback = []
@@ -59,6 +62,9 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate 
     ])
     webView.load(homeRequest())
   }
+
+  // 后台被 iOS 杀掉 WebView 内容进程 → 回前台自动复活,别让她对着白屏(2026-08-21 她抓的「几秒就重置」)
+  func webViewWebContentProcessDidTerminate(_ webView: WKWebView) { webView.reload() }
 
   // 断网/加载失败:给一句人话+三秒后自动重试,别白屏
   func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { retrySoon() }
