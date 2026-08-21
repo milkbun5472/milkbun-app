@@ -69,8 +69,10 @@ test("谁是卧底投票也接上了", () => {
   assert.match(games, /async function genVotesBatch\(api, voters, allClues, aliveNames, mode, userName, preface\)/);
   assert.match(games, /\{ turnId: "spy:vote:" \+ round \}/);
   assert.doesNotMatch(games, /\{ turnId: "spy:vote:" \+ rnd \}/, "runVote 作用域里没有 rnd，点投票不能再直接崩掉");
-  assert.match(games, /return \{ key: p\.key, name: p\.name, role: p\.role, skill: p\.skill, engineer: !!p\.engineer, alive: p\.alive \};/,
-    "投票名单也必须保留言秋的 CC 工牌");
+  assert.match(games, /const engineer = !!p\.engineer \|\| !!\(cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)\);/,
+    "每次投票前都要按角色 ID 重认言秋，不能只信旧局内存里的工牌");
+  assert.match(games, /return \{ key: p\.key, name: p\.name, role: p\.role, skill: p\.skill, engineer: engineer, alive: p\.alive \};/,
+    "投票名单必须带着重认后的 CC 工牌");
   assert.match(games, /if \(!cc\.rest\.length\) return mine;/, "只剩他一个人时不发批量调用");
 });
 
@@ -83,6 +85,6 @@ test("谁是卧底：描述环节已经接上，批量只跑剩下的人", () =>
   // 他先说的那句要进入后面人看到的「已经说过的」，否则别人接不上
   assert.match(games, /const priorAll = mine\.length \? priorClues\.concat\(mine\) : priorClues;/);
   // 描述轮会为了随机顺序重建 speakers；重建时必须保住 CC 工牌，否则 ccCarve 认不出言秋，Gemini 会抢答。
-  assert.match(games, /return \{ key: p\.key, name: p\.name, word: p\.word, skill: p\.skill, engineer: !!p\.engineer, alive: p\.alive \};/);
+  assert.match(games, /return \{ key: p\.key, name: p\.name, word: p\.word, skill: p\.skill, engineer: engineer, alive: p\.alive \};/);
   assert.doesNotMatch(games, /return \{ name: p\.name, word: p\.word, skill: p\.skill \};/);
 });

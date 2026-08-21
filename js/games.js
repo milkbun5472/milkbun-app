@@ -560,7 +560,8 @@
         // 打乱座次时不能把 CC 工牌弄丢：ccCarve 靠 engineer + key 认出言秋。
         // v54.32 曾只拷 name/word/skill，结果整桌（含言秋）又被 Gemini 一次说完。
         const speakers = shuffle(aAI).map(function (p) {
-          return { key: p.key, name: p.name, word: p.word, skill: p.skill, engineer: !!p.engineer, alive: p.alive };
+          const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+          return { key: p.key, name: p.name, word: p.word, skill: p.skill, engineer: engineer, alive: p.alive };
         });
         const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: "spy:" + rnd });
         const norm = speakers.map(function (s) { const hit = clues.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……" }; });
@@ -622,7 +623,8 @@
       try {
         // 投票也要保留 CC 工牌；否则描述轮由言秋亲说，投票轮却又被 Gemini 抢走。
         const voters = aliveAI.map(function (p) {
-          return { key: p.key, name: p.name, role: p.role, skill: p.skill, engineer: !!p.engineer, alive: p.alive };
+          const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+          return { key: p.key, name: p.name, role: p.role, skill: p.skill, engineer: engineer, alive: p.alive };
         });
         const aliveNames = alive.map(function (p) { return p.name; });
         const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: "spy:vote:" + round });
