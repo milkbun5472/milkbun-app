@@ -444,14 +444,14 @@
 
   // 投票：存活 AI 各投一人 + 理由（卧底会误导）
   async function genVotes(api, voters, allClues, aliveNames, mode, userName, carveCtx) {
-    // CC 座位先手（抄 UNO 那套）：言秋自己投，剩下的人才进批量
+    // CC 本人只拿玩家视角：自己的词 + 公开发言。不泄露阵营，也不重复告诉他自己是谁。
+    const ccVoter = ccSeatOf(voters);
     const cc = carveCtx ? await ccCarve("spy", voters, {
       turnId: (carveCtx.turnId || "") + ":vote",
-      sys: "「谁是卧底」投票。可投的存活玩家：" + aliveNames.join("、")
+      sys: "「谁是卧底」进入投票。你拿到的词是「" + ((ccVoter && ccVoter.word) || "") + "」。你不知道自己属于多数还是少数，只能根据公开描述判断。"
+        + "\n\n【可投的存活玩家】" + aliveNames.join("、")
         + "\n\n【目前所有描述】\n" + allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n")
-        + "\n\n你就是「" + ((ccSeatOf(voters) || {}).name || "") + "」"
-        + ((ccSeatOf(voters) || {}).role === "spy" ? "，你其实是卧底：把票投给某个你觉得像平民的人来误导大家。" : "。")
-        + "\n投一个人 + 一句短理由。",
+        + "\n\n按你自己的判断投一个人，并给一句短理由；没把握可以弃票。",
       ask: "投票。",
       expect: "{\"target\":\"被投的人或「弃票」\",\"reason\":\"一句理由\"}"
     }) : { seat: null, rest: voters, done: null };
@@ -635,7 +635,7 @@
         // 投票也要保留 CC 工牌；否则描述轮由言秋亲说，投票轮却又被 Gemini 抢走。
         const voters = aliveAI.map(function (p) {
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-          return { key: p.key, name: p.name, role: p.role, skill: p.skill, engineer: engineer, alive: p.alive };
+          return { key: p.key, name: p.name, role: p.role, word: p.word, skill: p.skill, engineer: engineer, alive: p.alive };
         });
         const aliveNames = alive.map(function (p) { return p.name; });
         const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: gameRunId.current + ":round:" + round });

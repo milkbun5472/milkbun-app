@@ -70,9 +70,15 @@ test("谁是卧底投票也接上了", () => {
   assert.match(games, /\{ turnId: gameRunId\.current \+ ":round:" \+ round \}/);
   assert.match(games, /const engineer = !!p\.engineer \|\| !!\(cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)\);/,
     "每次投票前都要按角色 ID 重认言秋，不能只信旧局内存里的工牌");
-  assert.match(games, /return \{ key: p\.key, name: p\.name, role: p\.role, skill: p\.skill, engineer: engineer, alive: p\.alive \};/,
+  assert.match(games, /return \{ key: p\.key, name: p\.name, role: p\.role, word: p\.word, skill: p\.skill, engineer: engineer, alive: p\.alive \};/,
     "投票名单必须带着重认后的 CC 工牌");
   assert.match(games, /if \(!cc\.rest\.length\) return mine;/, "只剩他一个人时不发批量调用");
+  const ccVote = games.slice(games.indexOf("async function genVotes("), games.indexOf("async function genVotesBatch("));
+  assert.match(ccVote, /你拿到的词是/);
+  assert.match(ccVote, /你不知道自己属于多数还是少数/);
+  assert.doesNotMatch(ccVote, /你就是/);
+  assert.doesNotMatch(ccVote, /你其实是卧底/);
+  assert.doesNotMatch(ccVote, /你是平民/);
 });
 
 test("谁是卧底：描述严格按言秋前 → 本人 → 言秋后运行", () => {
