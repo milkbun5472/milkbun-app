@@ -147,19 +147,23 @@
 
   // 句式骰子：光说"别写套路"没用——两个角色照样收敛到同一个架构。
   // 得直接指定这一张【用哪种写法】，把结构本身也掷一次（小剧场那套骰子的同一个道理）。
+  // v54.45 池子整体换血（她 2026-08-21 拿别家「初形象生成」对照）：旧池子里
+  // 「两个名词相撞不许形容词」「只用否定」这类刻意求怪的面，正是「过载的嗡鸣」
+  // 「融化的黄油」的出处。她要的是那种温润流动的【鉴定词】——总意象、两面性格、
+  // 一丝反差的余味——所以每一面都改成肖像鉴定的写法，怪腔的面全部退场。
   const QUOTE_FORMS = [
-    "一个比喻：把她【整个人】比作一样东西。那样东西要从这个月的记录里长出来，但句子里不许叙述那件事。",
-    "把两种相反的特质并排放在一起，中间不许用「却」「但」「反而」——让矛盾自己立着。",
-    "只用感官词写她给你的整体感觉：温度、光线、质地、声音。不写事、不写性格标签。",
-    "一句「她是……」的判断。这个判断必须是【你的私见】，别人不会这么定义她。",
-    "不写她是什么，只写【她让周围变成什么样】。",
-    "写她的「配方」：几样东西加起来才是她。每样都要具体到能摸得着。",
-    "用一种【声音或动静】定义她：她走近时，世界听起来变成什么样。不许用视觉词。",
-    "只用否定：她不是什么。写完读起来反而看得见她是什么。",
-    "写她身上那种说不通的地方，用两个【具体名词】撞在一起，一个形容词都不许用。",
+    "开头一句「她是……」的总比喻：把她整个人比作一样有分量的意象（从这个月的记录里长出来，但不叙述那件事），后面接一两个短句，把人从意象里接回来。",
+    "写她的两面：既有……的一面，又有……的一面。两面都要落在她本人身上，收尾补一丝和整体基调相反的余味。",
+    "只用感官写她给你的整体感觉：质地、声音、气味、重量都行，但每个感官词都得是这个月真在她身上出现过的。",
+    "一句「她是……」的私见判断。别人不会这么定义她，但听的人会点头。",
+    "不写她是什么，写她让你的世界变成了什么样——语气像承认一件早就知道的事。",
+    "写她的「配方」：几样具体的东西加起来才是她，最后一样要出人意料、却最准。",
+    "用一种【声音或动静】定义她：她在场时，世界听起来变成什么样。",
+    "由远及近：第一句写旁人也看得见的她，第二句写只有你看得见的她。",
+    "写她身上那种说不通的矛盾，但语气是欣赏不是拆台——矛盾要落在两样具体的东西上。",
     "她像哪种「放错了地方」的东西——不合时宜，但正因如此才是她。",
-    "用一个【动词】定义她：她整个人是一个正在进行的动作。",
-    "写你在她身上察觉到的温度差：哪一层是冷的，哪一层是热的。"
+    "用一个【动词】定义她：她整个人是一个正在进行的动作，再补一句这个动作落到你身上的感觉。",
+    "先立一个符合你身份的判断，再让步：她本该是……，偏偏……。让步的那半句才是真心话。"
   ];
 
   // 已经被写烂的那个骨架——不点名它，模型每次都会滑回去（民国那次学到的：得指着说）。
@@ -183,7 +187,10 @@
     + "· 意象必须【长在真事上】：你想到的比喻、颜色、温度、物件，都得是这个月真的在她身上出现过的东西，"
     + "但落笔时只留那个意象，不交代它从哪来。读的人不知道出处，也该觉得准。\n"
     + "· 【自检】把她换成另一个人——如果这句话照样成立，说明你写的是漂亮话不是她，推翻重写。\n"
-    + "· 也别滑到另一头：「温柔又坚强」「像月亮一样」这种谁都能套的词一律不许用。宁可写得怪，也别写得空。\n"
+    + "· 也别滑到另一头：「温柔又坚强」「像月亮一样」这种谁都能套的词一律不许用。\n"
+    + "· 语感的靶子是【温润、流动、一读就懂】：读起来顺口，落在她身上分毫不差。"
+    + "不许靠生僻词、硬拗的意象、机械或技术黑话显得特别——怪不是目的，准才是。"
+    + "读的人应该先觉得「写得真好」，再觉得「这就是她」。\n"
     + "· 抽象、有意象、可以很文艺——但每一个词都要是你【看着她】才会想到的。\n"
     + "· 这是【一整个月】，不是某一天：别死抓着某一样东西反复用。上面的记录从月初铺到月末，"
     + "你的印象应该是这一整段时间沉下来的，而不是某几句话留下的印子。";
@@ -240,12 +247,15 @@
       + "\n\n【这个月你和 " + uName + " 之间真实发生的事·从月初铺到月末】\n" + (spread(rows, 5200, turn) || "（这个月几乎没有来往。）")
       + "\n\n【要写四样东西】\n"
       + "① title：给这个月的她起一个【类型名】（≤10 字），像给一种人下定义那样——"
-      + "「清冷理性的科研学者」就是这个感觉，但必须是【你】才会这么定义她。不是外号，也不是事件概括。\n"
+      + "「清冷理性的科研学者」就是这个感觉：气质定语＋一个【真实身份】（学者、医生、店主这种真的存在的身份），"
+      + "但必须是【你】才会这么定义她。不是外号，不是事件概括，也不是抽象概念拼出来的机器词。\n"
       + "② tags：三个关键词，每个 2~5 个字。这一期【必须】分别从这三个角度取：\n"
       + angles.map((a, i) => "   " + (i + 1) + "）" + a).join("\n")
-      + "\n   三个之间不许同义，也不许都在夸她。要抽象、要有气质——「爱吃雪糕」那是事，不是印象。\n"
-      + "③ quote：**你亲口说的**、关于她的话。必须是你会说的话，别写成通用抒情散文，也别写成人物介绍。"
-      + "用「她」称呼她，不要直呼名字。≤60 字。\n"
+      + "\n   三个之间不许同义，也不许都在夸她。要抽象、要有气质——「爱吃雪糕」那是事，不是印象。"
+      + "词形要顺口：像「静谧慵懒」「知性松弛」那样一读就懂的气质词，不是让人猜的谜语。\n"
+      + "③ quote：**你亲口说的**、关于她的话。一段 40~80 字的【鉴定词】，二到三个短句，"
+      + "读起来温润流动、有一锤定音的准。别写成通用抒情散文，也别写成人物介绍。"
+      + "用「她」称呼她，不要直呼名字。\n"
       + "   【这一张的写法·必须照办】" + form + "\n"
       + "   写法是硬性的：哪怕你觉得别的写法更漂亮，也按这一条来。\n"
       + "④ silhouette：一句【画面描述】，用来画她的剪影。只写：轮廓姿态（侧脸/回头/低头/站着/坐着…）、"
@@ -458,17 +468,27 @@
             h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4", background: t.bg } },
               e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
                 : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: 20 } }, "还没有剪影"),
-              // 三个关键词浮在图上，像原图那样错落挂着
+              // 三个关键词照「初形象生成」那套挂：白点＋细线＋金边小签，点朝画面里侧
               h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
-                (e.tags || []).slice(0, 3).map((tag, i) => h("div", {
-                  key: i,
-                  style: { position: "absolute", top: [18, 46, 74][i] + "%", [i === 1 ? "left" : "right"]: "6%",
-                    background: "rgba(28,25,22,.72)", color: "#f3ece0", padding: "5px 12px", borderRadius: 999,
-                    fontFamily: F_BODY, fontSize: 12.5, letterSpacing: ".04em", backdropFilter: "blur(2px)" } }, tag)))),
-            h("div", { style: { padding: "18px 18px 22px" } },
-              e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, textAlign: "center", marginBottom: 12 } }, "{ " + e.title + " }") : null,
-              h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2, color: t.ink, textAlign: "center" } }, "“" + e.quote + "”"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "right", marginTop: 14 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
+                (e.tags || []).slice(0, 3).map((tag, i) => {
+                  const onLeft = i === 1;
+                  const dot = h("div", { key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 7px rgba(255,255,255,.26)", flexShrink: 0 } });
+                  const line = h("div", { key: "l", style: { width: 20, height: 1, background: "rgba(255,255,255,.85)", flexShrink: 0 } });
+                  const chip = h("div", { key: "c", style: { background: "rgba(97,84,56,.86)", border: "1px solid rgba(246,239,226,.55)",
+                    color: "#f6efe2", padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
+                    letterSpacing: ".06em", whiteSpace: "nowrap", backdropFilter: "blur(2px)" } }, tag);
+                  return h("div", { key: i, style: { position: "absolute", top: [16, 45, 73][i] + "%", [onLeft ? "left" : "right"]: "5%",
+                    display: "flex", alignItems: "center", gap: 7 } },
+                    onLeft ? [chip, line, dot] : [dot, line, chip]);
+                }))),
+            h("div", { style: { padding: "20px 18px 24px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".42em", color: t.fog, textAlign: "center", marginBottom: 10, textIndent: ".42em" } }, "CHANGE IN IMPRESSION"),
+              e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
+              h("div", { style: { position: "relative", padding: "2px 14px" } },
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: t.fog, opacity: .55 } }, "“"),
+                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: t.ink, textAlign: "center", padding: "0 6px" } }, e.quote),
+                h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: t.fog, opacity: .55, textAlign: "right" } }, "”")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))),
           h("div", { style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
             e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
             h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
