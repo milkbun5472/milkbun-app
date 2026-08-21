@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.48";
+const APP_VERSION = "v54.49";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -2772,13 +2772,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (lyr && lyr.trim()) lines.push("【这首歌的歌词（你听得到、记得住，聊到时可自然接一两句/被某句打动，别整首背出来）】\n" + lyr.trim());
         }
       }
-      // 一起听过的歌 → 记忆
+      // 一起听过的歌 → 记忆。带粗时间（v54.49 她点头）：不带的话上个月的歌和昨晚的歌
+      // 在 TA 眼里一样近，会把旧歌当刚听过的聊
+      const ago = ts => { if (!ts) return ""; const d = Math.floor((Date.now() - ts) / 86400000); return d <= 0 ? "（今天）" : d === 1 ? "（昨天）" : d <= 30 ? "（" + d + "天前）" : "（一个多月前）"; };
       const hist = L.history || [];
       const together = hist.filter(x => x.partnerId === char.id).slice(0, 8);
-      if (together.length) lines.push("你和 " + uName + " 一起听过：" + together.map(x => "《" + x.title + "》" + (x.artist ? "(" + x.artist + ")" : "")).join("、") + "（聊到时可自然记得）");
-      // 若这个角色有专属歌单
+      if (together.length) lines.push("你和 " + uName + " 一起听过：" + together.map(x => "《" + x.title + "》" + (x.artist ? "(" + x.artist + ")" : "") + ago(x.ts)).join("、") + "（按括号里的时间感受远近：昨晚的歌可以像余温一样提，一个月前的就是回忆了）");
+      // 专属歌单连歌名一起喂（v54.49）：只喂名字他没法说「我歌单里那首X」
       const myPl = (L.playlists || []).find(p => p.charId === char.id);
-      if (myPl) lines.push("你自己整理过一张歌单「" + myPl.name + "」，是你爱听的那些。");
+      if (myPl) lines.push("你自己整理过一张歌单「" + myPl.name + "」，是你爱听的那些" + ((myPl.songs || []).length ? "，里面有：" + (myPl.songs || []).slice(0, 8).map(s => "《" + s.title + "》").join("、") + ((myPl.songs || []).length > 8 ? " 等" : "") + "。聊到音乐品味、想推歌给 " + uName + " 时可自然提起其中某首。" : "。"));
       return lines.join("\n");
     })(),
     groupEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {
