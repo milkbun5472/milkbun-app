@@ -1674,7 +1674,7 @@ function HomeCard({ card, profile, onEditCard, onEditProfile, onOpenCodex }) {
         tags.length ? h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 8 } }, tags.map((tg, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, background: "rgba(255,255,255,0.5)", border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap", flexShrink: 0 } }, "#" + tg))) : null),
       h("div", { className: "flex flex-col gap-1.5", style: { flexShrink: 0 } },
         h("button", { onClick: onEditCard, className: "active:opacity-60 flex items-center justify-center", style: { width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,0.5)", border: "1px solid " + t.line } }, h(IPencil, { size: 14, color: t.fog })),
-        onOpenCodex ? h("button", { onClick: onOpenCodex, className: "active:opacity-60 flex items-center justify-center", title: "使用手册", style: { width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,0.5)", border: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: 14, color: t.fog } }, "?") : null)));
+        onOpenCodex ? h("button", { onClick: onOpenCodex, className: "active:opacity-60 flex items-center justify-center", title: "攻略", style: { width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,0.5)", border: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: 14, color: t.fog } }, "?") : null)));
 }
 // 编辑名片：昵称 / 签名 / 标签(逗号隔开)
 function HomeCardSheet({ card, onSave, onClose }) {
