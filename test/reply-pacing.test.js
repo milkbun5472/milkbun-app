@@ -3,14 +3,23 @@ const assert = require("node:assert/strict");
 const Pacing = require("../js/reply-pacing.js");
 const fs = require("node:fs");
 
-test("随口一句默认只需一到两泡", () => {
-  assert.deepEqual(Pacing.band([{ role: "assistant", content: "在" }, { role: "user", content: "你在干嘛" }]), { min: 1, max: 2, kind: "short" });
+// v54.57 放宽（她 2026-08-22：短句调情被夹成「想。」「？」，人格全泄进心声）：
+// 短档 1~3、普通 1~4、长内容 2~5；且提示词明写「字数只是参考，分量和性格才定节奏」。
+test("随口一句默认一到三泡——不再按用户字数硬夹", () => {
+  assert.deepEqual(Pacing.band([{ role: "assistant", content: "在" }, { role: "user", content: "你在干嘛" }]), { min: 1, max: 3, kind: "short" });
 });
 
-test("连发和长内容逐级放宽，但不默认五六泡", () => {
+test("连发和长内容逐级放宽，但不默认五六泡起步", () => {
   const two = [{ role: "user", content: "第一件事我想问你" }, { role: "user", content: "还有一件事" }];
-  assert.equal(Pacing.band(two).max, 3);
-  assert.deepEqual(Pacing.band([{ role: "user", content: "这是一段".repeat(40) }]), { min: 2, max: 4, kind: "substantial" });
+  assert.equal(Pacing.band(two).max, 4);
+  assert.deepEqual(Pacing.band([{ role: "user", content: "这是一段".repeat(40) }]), { min: 2, max: 5, kind: "substantial" });
+});
+
+test("节奏提示明写：分量和性格定节奏，短消息不许把角色也压短", () => {
+  const p = Pacing.pacing([{ role: "user", content: "可是我不想" }]);
+  assert.match(p, /字数只是参考/);
+  assert.match(p, /不许因为对方话短就把自己也压成同样短/);
+  assert.match(p, /把同一个意思换说法凑数/, "反注水的刹车还在");
 });
 
 test("自主续说保持一到两泡", () => {

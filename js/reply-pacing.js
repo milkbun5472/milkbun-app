@@ -14,18 +14,22 @@
     }
     return out;
   }
+  // v54.57 放宽：短消息档从 1~2 提到 1~3，且明写「字数只是参考、分量和性格才定节奏」。
+  // 旧版按用户字数硬夹气泡数——她的聊天风格是短句调情（「可是我不想」5 个字），
+  // 于是每一轮都落进 1~2 条的枷锁，角色被压成「想。」「？」，人格全泄进无长度约束的
+  // 心声字段（她 2026-08-22 截图：thought 活蹦乱跳、气泡只剩标点）。
   function band(history, options) {
     if (options && (options.proactive || options.continueMode)) return { min: 1, max: 2, kind: "self_continue" };
     const burst = trailingUserBurst(history);
     const chars = burst.reduce((n, m) => n + String(m.content || "").replace(/\s+/g, "").length, 0);
-    if (burst.length <= 1 && chars <= 28) return { min: 1, max: 2, kind: "short" };
-    if (burst.length <= 2 && chars <= 100) return { min: 1, max: 3, kind: "normal" };
-    return { min: 2, max: 4, kind: "substantial" };
+    if (burst.length <= 1 && chars <= 28) return { min: 1, max: 3, kind: "short" };
+    if (burst.length <= 2 && chars <= 100) return { min: 1, max: 4, kind: "normal" };
+    return { min: 2, max: 5, kind: "substantial" };
   }
   // 气泡节奏：只有线上单聊有「气泡」这个东西，不能搬去线下叙事。
   function pacing(history, options) {
     const b = band(history, options);
-    return "【这一轮的聊天节奏】按对方这次实际说了多少，通常回 " + b.min + "～" + b.max + " 个短气泡就停；说到点上即可，不要为了显得热情把同一个意思换说法凑满。角色本来话多可以落在区间上沿，寡言则落在下沿。只有真正需要逐项回应、争执或倾诉正在展开时，才自然超过范围；长回复应当是少数。";
+    return "【这一轮的聊天节奏】参考区间 " + b.min + "～" + b.max + " 个短气泡——但字数只是参考，真正定节奏的是【这句话的分量】和【你这个人的性格】：对方一句短短的调情、撒娇、反话、抛梗，分量可能很重，话密的人对着一个字也能连发几条，这正是他的活人感，不许因为对方话短就把自己也压成同样短。该刹住的只有一种：把同一个意思换说法凑数。真有话说时自然超出区间也没关系；没话硬凑才是毛病。";
   }
   // 读懂对方这句话在做什么：与「气泡」无关，线上/线下/群聊/单聊都成立。
   // originally 和 pacing 焊在一起，导致只有线上单聊吃得到——这正是同一个角色
