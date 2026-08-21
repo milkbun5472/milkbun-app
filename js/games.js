@@ -487,6 +487,9 @@
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
     const started = useRef(false);
+    // CC 工具用 turn_id 做幂等。每局必须有自己的命名空间；否则每个新局的第 1 轮
+    // 都叫 spy:1，云端会把第一局的旧回答原样取回来。
+    const gameRunId = useRef((sv && sv.runId) || ("spy-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
 
     const me = players.find(function (p) { return p.isUser; });
     const alive = players.filter(function (p) { return p.alive; });
@@ -498,7 +501,7 @@
       if (!started.current) return;
       if (phase === "result") { clearGameSave("spy"); return; }
       if (busy || phase === "loading" || phase === "error") return;
-      saveGameSnap("spy", { config: cfg, phase: phase, players: serPlayers(players), round: round, log: log, roundClues: roundClues, allClues: allClues, userFirst: userFirst, ts: Date.now(), label: "第 " + round + " 轮 · " + alive.length + " 人存活" });
+      saveGameSnap("spy", { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), round: round, log: log, roundClues: roundClues, allClues: allClues, userFirst: userFirst, ts: Date.now(), label: "第 " + round + " 轮 · " + alive.length + " 人存活" });
     }, [phase, log, busy]);
 
     // ---- 开局 ----
@@ -563,7 +566,7 @@
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
           return { key: p.key, name: p.name, word: p.word, skill: p.skill, engineer: engineer, alive: p.alive };
         });
-        const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: "spy:" + rnd });
+        const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: gameRunId.current + ":round:" + rnd });
         const norm = speakers.map(function (s) { const hit = clues.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……" }; });
         setRoundClues(prior.concat(norm));
         setAllClues(function (A) { return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
@@ -627,7 +630,7 @@
           return { key: p.key, name: p.name, role: p.role, skill: p.skill, engineer: engineer, alive: p.alive };
         });
         const aliveNames = alive.map(function (p) { return p.name; });
-        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: "spy:vote:" + round });
+        const raw = await genVotes(api, voters, allClues.filter(function (c) { return c.name; }), aliveNames, cfg.mode, me && me.alive ? me.name : "", { turnId: gameRunId.current + ":round:" + round });
         const votes = voters.map(function (v) {
           const hit = raw.find(function (r) { return r.name && (r.name.indexOf(v.name) >= 0 || v.name.indexOf(r.name) >= 0); });
           const target = hit && hit.target ? String(hit.target) : "";
