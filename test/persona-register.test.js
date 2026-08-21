@@ -23,12 +23,37 @@ test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
 test("锚点必须是双向的，不能变成「一律活泼」的新模板", () => {
   const i = engine.indexOf("const PERSONA_REGISTER_ANCHOR");
   const rule = engine.slice(i, engine.indexOf("`;", i));
-  assert.match(rule, /只认人设卡/);
-  assert.match(rule, /别因为聊了很多轮就自动端起一副沉稳老练的口吻/);
-  assert.match(rule, /惯性不是理由/);
+  assert.match(rule, /不按上面聊天记录里的平均值来/);
+  assert.match(rule, /聊了很多轮不是端起架子的理由/);
   // 反方向也要管住：话少冷淡的人不该被带得咋咋呼呼
-  assert.match(rule, /人设写的是话少、冷淡、端着的，就别被气氛带得咋咋呼呼/);
+  assert.match(rule, /也别被气氛带得咋咋呼呼/);
   assert.match(rule, /别用「这女人」「那家伙」这类把对方当第三方点评的说法/);
+});
+
+// 她 2026-08-21 追问：这样会不会把人格成长一起冻住？会——上一版确实写过头了。
+// 「黏人程度」是 GROWTH_RULE 里的【软层】，正是欲望盒毕业的成长该长的地方。
+test("锚点不许冻结成长：软层要让位给已沉淀的人格档案", () => {
+  const i = engine.indexOf("const PERSONA_REGISTER_ANCHOR");
+  const rule = engine.slice(i, engine.indexOf("`;", i));
+  assert.match(rule, /但这不冻结你的成长/);
+  assert.match(rule, /这个变化有没有沉淀进【你长出来的自我】那段正式人格档案/, "判据要可判定");
+  assert.match(rule, /沉淀进去了 → 算数，在软层上大方盖过原卡的旧倾向/);
+  assert.match(rule, /只是最近几轮听起来那样 → 不算数，那是惯性，不是成长/);
+  // 优先级必须和 GROWTH_RULE 一字不差地对齐，两条规则不能打架
+  assert.match(rule, /明确的硬设定与边界 ＞ 已沉淀的成长 ＞ 原卡的软倾向 ＞ 通用默认/);
+  assert.match(engine, /明确的硬设定与边界 ＞ 你经历沉淀、反复确认下来的成长/, "GROWTH_RULE 那条还在");
+  // 锚住的只能是【硬核】里的说话底色，不许再把软层项目写进"只认人设卡"
+  assert.match(rule, /说话的底色和年龄感属于【硬核】/);
+  assert.doesNotMatch(rule, /语气、用词、黏人程度.*全部按【人设卡上写的那个人】来/,
+    "旧的一刀切写法已经废掉——黏人程度属于软层");
+});
+
+test("日记那条同样收窄，不否认沉淀下来的成长", () => {
+  const i = engine.indexOf("const voiceTail =");
+  const tail = engine.slice(i, engine.indexOf("const raw = await callAI(p, system", i));
+  assert.match(tail, /但这不是要你原地不动/);
+  assert.match(tail, /只要已经沉淀进上文那段『你长出来的自我』，就照现在的你写/);
+  assert.match(tail, /记进人格档案的是成长，只是最近几篇听起来那样的是惯性/);
 });
 
 test("日记：上一篇只借鉴「事」，措辞和称呼不许传下去", () => {
