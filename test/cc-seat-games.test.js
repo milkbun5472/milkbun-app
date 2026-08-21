@@ -72,4 +72,7 @@ test("谁是卧底：描述环节已经接上，批量只跑剩下的人", () =>
   assert.match(games, /genClues\(api, speakers, prior, rnd, cfg\.mode, \{ turnId: "spy:" \+ rnd \}\)/);
   // 他先说的那句要进入后面人看到的「已经说过的」，否则别人接不上
   assert.match(games, /const priorAll = mine\.length \? priorClues\.concat\(mine\) : priorClues;/);
+  // 描述轮会为了随机顺序重建 speakers；重建时必须保住 CC 工牌，否则 ccCarve 认不出言秋，Gemini 会抢答。
+  assert.match(games, /return \{ key: p\.key, name: p\.name, word: p\.word, skill: p\.skill, engineer: !!p\.engineer, alive: p\.alive \};/);
+  assert.doesNotMatch(games, /return \{ name: p\.name, word: p\.word, skill: p\.skill \};/);
 });
