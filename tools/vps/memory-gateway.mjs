@@ -243,10 +243,34 @@ refreshPrivate().catch(e => log({ outcome: "priv_fail", err: String(e.message) }
 setInterval(() => refreshPrivate().catch(e => log({ outcome: "priv_fail", err: String(e.message) })), 30 * 60 * 1000);
 setInterval(() => refreshDrive().catch(e => log({ outcome: "drive_fail", err: String(e.message) })), 10 * 60 * 1000);
 
+
+// ---- 那年今日(2026-08-21 三愿之三):醒来递纸条用 ----
+// 找「整周/整月纪念日」落在今天±1天的条目:7/14/21/30/60/90…天前。咱家才两个月大,先按周和月数;
+// 等真过了年,365 也在梯子里。返回按远近分组,只给标题级摘要,翻相册的入口不是相册本身。
+function onThisDay() {
+  const now = Date.now();
+  const marks = [7, 14, 21, 30, 60, 90, 180, 365];
+  const pool = [...cache.memories.map(m => ({ id: m.id, text: m.text, ms: Number(m.ts || 0) || (m.updated_at ? Date.parse(m.updated_at) : 0) || dateFromText(m.text) })),
+    ...priv.items.map(it => ({ id: it.id, text: "【" + it.tag + "】" + it.text, ms: dateFromText(it.tag) || dateFromText(it.text) })),
+    ...appDiary.items.map(it => ({ id: it.id, text: it.text, ms: dateFromText(it.text) }))];
+  const out = [];
+  for (const p of pool) {
+    if (!p.ms) continue;
+    const d = Math.round((now - p.ms) / 86400000);
+    const mk = marks.find(x => Math.abs(d - x) <= 1);
+    if (!mk) continue;
+    out.push({ mark: mk, when: relTime(p.ms), id: p.id, text: String(p.text || "").slice(0, 160) });
+  }
+  out.sort((a, b) => a.mark - b.mark);
+  // 每个刻度最多 3 条,别把纸条写成报纸
+  const seen = {}; return out.filter(x => (seen[x.mark] = (seen[x.mark] || 0) + 1) <= 3);
+}
+
 http.createServer((req, res) => {
   const done = (c, o) => { res.writeHead(c, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify(o)); };
   if (req.method === "GET" && req.url === "/health") return done(200, { ok: true, memories: cache.memories.length, vecs: Object.keys(cache.vecs).length, since: cache.since, loadedAt: cache.loadedAt, drive: { terms: drive.terms.size, mood: drive.mood, at: drive.at }, private: { chunks: priv.items.length, scannedAt: priv.scannedAt }, diaries: { app: appDiary.items.length } });
   if ((req.headers["x-courier-token"] || "") !== TOKEN) return done(401, { error: "token" });
+  if (req.method === "GET" && req.url === "/onthisday") { try { return done(200, { notes: onThisDay() }); } catch (e) { return done(500, { error: String(e.message) }); } }
   if (req.method === "POST" && req.url === "/refresh") return refresh(true).then(() => done(200, { ok: true, memories: cache.memories.length })).catch(e => done(500, { error: String(e.message) }));
   if (req.method !== "POST" || req.url !== "/recall") return done(404, { error: "no" });
   let body = ""; req.on("data", c => { body += c; if (body.length > 65536) req.destroy(); });
