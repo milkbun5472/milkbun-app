@@ -184,11 +184,26 @@
       setPin({ pos: [p.lat, p.lng], name: p.name });
       if (mapRef.current) { try { mapRef.current.setView([p.lat, p.lng], 14, { animate: true }); } catch (e) {} }
     };
+    // 把 OSRM 的 maneuver 翻成人话（OSRM 只给类型不给文案）
+    const stepText = function (s) {
+      const M = { left: "左转", right: "右转", "slight left": "稍向左", "slight right": "稍向右", "sharp left": "急左转", "sharp right": "急右转", straight: "直行", uturn: "掉头" };
+      const m = s.maneuver || {}; const road = s.name ? "进入 " + s.name : "";
+      if (m.type === "depart") return "出发" + (s.name ? "，沿 " + s.name : "");
+      if (m.type === "arrive") return "到达目的地";
+      if (m.type === "roundabout" || m.type === "rotary") return "环岛第 " + (m.exit || 1) + " 个出口" + (road ? "，" + road : "");
+      if (m.type === "merge") return "并线" + (road ? "，" + road : "");
+      if (m.type === "on ramp") return "上匝道" + (road ? "，" + road : "");
+      if (m.type === "off ramp") return "下匝道" + (road ? "，" + road : "");
+      return (M[m.modifier] || "继续") + (road ? "，" + road : "");
+    };
+    const havM = function (a, b) { const R = 6371000, dLa = (b[0] - a[0]) * Math.PI / 180, dLo = (b[1] - a[1]) * Math.PI / 180, la = a[0] * Math.PI / 180, lb = b[0] * Math.PI / 180; const x = Math.sin(dLa / 2) * Math.sin(dLa / 2) + Math.cos(la) * Math.cos(lb) * Math.sin(dLo / 2) * Math.sin(dLo / 2); return 2 * R * Math.asin(Math.sqrt(x)); };
+    const [steps, setSteps] = useState(null);       // 转弯步骤 [{pos,text,dist}]
+    const [stepsOpen, setStepsOpen] = useState(false);
     const routeTo = function (dest) {
       const from = livePos || (anchor ? [anchor.lat, anchor.lng] : null);
       if (!from || !dest) return;
-      clearRoute();
-      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=full&geometries=geojson")
+      clearRoute(); setSteps(null); setStepsOpen(false);
+      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=full&geometries=geojson&steps=true")
         .then(function (r) { return r.json(); })
         .then(function (d) {
           const rt = d && d.routes && d.routes[0]; if (!rt || !mapRef.current) return;
@@ -196,8 +211,22 @@
           line.addTo(mapRef.current); routeLayerRef.current = line;
           try { mapRef.current.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {}
           setRoute({ km: (rt.distance / 1000).toFixed(rt.distance > 20000 ? 0 : 1), min: Math.round(rt.duration / 60) });
+          const st = ((rt.legs && rt.legs[0] && rt.legs[0].steps) || []).map(function (s) {
+            const loc = s.maneuver && s.maneuver.location;
+            return { pos: loc ? [loc[1], loc[0]] : null, text: stepText(s), dist: s.distance };
+          }).filter(function (s) { return s.pos; });
+          setSteps(st.length ? st : null);
         }).catch(function () {});
     };
+    // 实时「下一个转弯」：拿你此刻位置找最近的下一步，像真导航一样报「XX 米后 左转」
+    const nextTurn = (function () {
+      if (!steps || !livePos) return null;
+      let best = 0, bd = Infinity;
+      for (var i = 0; i < steps.length; i++) { const dd = havM(livePos, steps[i].pos); if (dd < bd) { bd = dd; best = i; } }
+      const nx = (bd < 40 && best + 1 < steps.length) ? steps[best + 1] : steps[best]; // 已到达这步跳下一步
+      const m = Math.round(havM(livePos, nx.pos));
+      return { text: nx.text, m: m };
+    })();
     // 你自己的实时位置（像苹果地图蓝点）：进地图就持续 watchPosition，离开清掉。仅前台生效。
     const [livePos, setLivePos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
     useEffect(function () {
@@ -258,8 +287,20 @@
               h("div", { className: "min-w-0 flex-1" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📍 " + pin.name),
                 route ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 2 } }, "🚗 " + route.km + " km · 约 " + route.min + " 分钟") : null),
+              route && steps ? h("button", { onClick: function () { setStepsOpen(!stepsOpen); }, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "7px 12px" } }, stepsOpen ? "收起" : "步骤") : null,
               h("button", { onClick: function () { routeTo(pin.pos); }, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#3f6d8c", borderRadius: 999, padding: "7px 14px" } }, "路线"),
-              h("button", { onClick: function () { setPin(null); clearRoute(); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "7px 4px" } }, "✕")) : null,
+              h("button", { onClick: function () { setPin(null); clearRoute(); setSteps(null); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "7px 4px" } }, "✕")) : null,
+            // 实时下一步提示（真导航横幅）：绿牌报「XX 米后 干什么」，随你移动自己刷新
+            (route && nextTurn) ? h("div", { style: { position: "absolute", top: 62, left: 12, right: 12, zIndex: 1200, background: "#2e5e46", borderRadius: 14, padding: "10px 16px", boxShadow: "0 6px 20px rgba(0,0,0,.25)", display: "flex", alignItems: "center", gap: 12 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#fff", whiteSpace: "nowrap" } }, nextTurn.m >= 1000 ? (nextTurn.m / 1000).toFixed(1) + " km" : nextTurn.m + " m"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: "rgba(255,255,255,0.95)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nextTurn.text)) : null,
+            // 全程步骤列表
+            (route && steps && stepsOpen) ? h("div", { style: { position: "absolute", left: 12, right: 12, bottom: 150, maxHeight: "38%", overflowY: "auto", zIndex: 1200, background: "rgba(255,255,255,0.97)", border: "1px solid " + t.line, borderRadius: 16, boxShadow: "0 6px 20px rgba(0,0,0,.14)" } },
+              steps.map(function (s, i) {
+                return h("div", { key: i, style: { display: "flex", gap: 10, alignItems: "baseline", padding: "8px 14px", borderTop: i ? "1px solid " + t.line : "none" } },
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0, width: 52, textAlign: "right" } }, s.dist >= 1000 ? (s.dist / 1000).toFixed(1) + " km" : Math.round(s.dist) + " m"),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, s.text));
+              })) : null,
             // 底部角色条（z-index 压过 Leaflet 图层）：点头像=飞到 TA；右侧「设/改」=设城市；最前「全部」=看全部
             h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 1200, padding: "10px 12px 14px", background: "linear-gradient(0deg,rgba(255,255,255,0.96),rgba(255,255,255,0.7) 55%,rgba(255,255,255,0))", display: "flex", gap: 8, overflowX: "auto", alignItems: "center" } },
               h("button", { key: "__all", onClick: fitAll, className: "shrink-0 active:opacity-80", style: { display: "flex", alignItems: "center", gap: 5, background: "#fff", border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px", boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
