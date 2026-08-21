@@ -97,6 +97,17 @@ test("谁是卧底：描述严格按言秋前 → 本人 → 言秋后运行", (
   assert.doesNotMatch(games, /return \{ name: p\.name, word: p\.word, skill: p\.skill \};/);
 });
 
+test("谁是卧底描述必须像真人随口给短线索，禁止百科与散文答辩", () => {
+  const clue = games.slice(games.indexOf("async function genClues("), games.indexOf("// 投票：存活 AI"));
+  assert.match(clue, /一句 6～18 个汉字的口语/);
+  assert.match(clue, /不要下定义/);
+  assert.match(clue, /不要解释原理\/机械结构/);
+  assert.match(clue, /不要写百科、产品评测或说明书/);
+  assert.match(clue, /别写成散文谜语/);
+  assert.match(clue, /像饭桌上脱口而出的短话/);
+  assert.match(clue, /小时候家里有一个/);
+});
+
 test("谁是卧底每局都有独立 CC 票号，新局不复用第一局旧回答", () => {
   assert.match(games, /const gameRunId = useRef\(\(sv && sv\.runId\) \|\| \("spy-" \+ Date\.now\(\)\.toString\(36\)/);
   assert.match(games, /saveGameSnap\("spy", \{ runId: gameRunId\.current/);
