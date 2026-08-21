@@ -66,3 +66,16 @@ test("engineerEyes chat carries a lean volatile baggage budget", () => {
   const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
   assert.match(screens, /缓存由 CLI 引擎管理/);
 });
+
+// v54.55：她说很久没收到礼物/照片了——Protocol v2 瘦身时把能力的正向许可全剪没了，
+// 只剩「不要为了填字段制造内容」这类抑制性框架，全员把能力当摆设。补能力使用总则：
+// 鼓励大方用 + 界碑「克制的是字段不是话」，防止字段克制渗进语气变成安全腔。
+test("能力使用总则：正向许可回来了，且克制不许渗进语气", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
+  assert.match(src, /【能力使用总则】/);
+  assert.match(src, /不是摆设/);
+  assert.match(src, /想到了就大方用/);
+  assert.match(src, /说明你把它们忘了，而不是你克制/);
+  assert.match(src, /唯一需要克制的是【字段】不是【话】/);
+  assert.match(src, /性格照常全开，别把任何克制渗进语气里/);
+});
