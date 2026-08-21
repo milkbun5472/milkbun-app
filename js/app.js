@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.53";
+const APP_VERSION = "v54.54";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -10079,18 +10079,38 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         toast("文件格式不对");
         return;
       }
-      // 完整备份导入是“替换本机”：先清文字仓，避免备份里已删除的旧线下/同人文从 IDB 残留回来。
+      // 壳与书签是两个本地仓：聊天做并集（各自新增都保留、共有消息去重），
+      // 其它设置/人设仍以导入备份为准。以前先整机替换、再靠云账本/WAL 补漏，
+      // 会形成“独有的回来了、共有的偶尔重复”的半合并状态。
+      const localChatRaw = new Map();
+      try {
+        if (window.__txtMirror) window.__txtMirror.forEach((v, k) => {
+          if (window.BackupMerge && window.BackupMerge.isChatKey(k) && v != null) localChatRaw.set(k, String(v));
+        });
+        Object.keys(localStorage).forEach(k => {
+          if (window.BackupMerge && window.BackupMerge.isChatKey(k) && localStorage.getItem(k) != null) localChatRaw.set(k, localStorage.getItem(k));
+        });
+      } catch (e) {}
+      const importData = { ...parsed.data };
+      if (window.BackupMerge) {
+        const chatKeys = new Set([...localChatRaw.keys(), ...Object.keys(importData).filter(window.BackupMerge.isChatKey)]);
+        chatKeys.forEach(k => { importData[k] = window.BackupMerge.mergeChatRaw(localChatRaw.get(k), importData[k]); });
+      }
+      // 非聊天文字仓仍是“备份替换本机”：避免备份里已删除的旧线下/同人文从 IDB 残留回来。
       try { if (typeof idbTxtClear === "function") await idbTxtClear(); } catch (e) {}
       // 先清本地 x_ 键
       Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
       // 逐键写入：单键失败（多半是超了浏览器单站点 ~5MB 上限）不整体中断，记下漏掉的，尽量恢复其余
       const failed = [];
-      for (const [k, v] of Object.entries(parsed.data)) {
+      for (const [k, v] of Object.entries(importData)) {
         // 文字库键(同人文)：写进 IDB + 镜像，不进 localStorage(否则又占回 5MB、还可能超限)
         if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
           try {
             if (typeof idbTxtPut === "function") { await idbTxtPut(k, v); const back = await idbTxtGet(k); if (back !== v) throw new Error("文字仓恢复核对失败: " + k); }
             window.__txtMirror && window.__txtMirror.set(k, v);
+            // 清仓已删旧 WAL；合并结果落稳后再确认没有残留 journal，
+            // 防止重载时旧快照覆盖刚合好的聊天。
+            if (typeof walDel === "function" && typeof isDurableTextKey === "function" && isDurableTextKey(k)) { try { await walDel(k); } catch (e2) {} }
           } catch (e) { failed.push({ k, size: (v || "").length }); }
           continue;
         }
@@ -10125,7 +10145,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         );
         setTimeout(() => location.reload(), 400);
       } else {
-        toast("导入成功，正在重载…");
+        toast("导入成功：聊天已合并去重，正在重载…");
         setTimeout(() => location.reload(), 800);
       }
     };
