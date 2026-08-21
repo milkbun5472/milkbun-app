@@ -2959,6 +2959,38 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
   const [showQueue, setShowQueue] = useState(false); // 播放页展开当前队列
   const audioFileRef = useRef(null);
   const coverRef = useRef(null);
+  // ---- 播放页歌词（v54.50 她要的）：点「词」在唱片位置换成滚动歌词，带当前句高亮 ----
+  const [showLyric, setShowLyric] = useState(false);
+  const [lyrics, setLyrics] = useState({}); // songId -> {lines:[{t,text}]|null}；null=确认没有
+  const lyricBoxRef = useRef(null);
+  const parseLrc = raw => {
+    const out = [];
+    String(raw || "").split("\n").forEach(ln => {
+      const stamps = [...ln.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+      const text = ln.replace(/\[[^\]]*\]/g, "").trim();
+      if (!stamps.length) { if (text) out.push({ t: null, text }); return; }
+      if (!text) return;
+      stamps.forEach(m => out.push({ t: Number(m[1]) * 60 + Number(m[2]), text }));
+    });
+    return out.sort((a, b) => (a.t == null ? 1 : 0) - (b.t == null ? 1 : 0) || (a.t || 0) - (b.t || 0));
+  };
+  useEffect(() => {
+    if (!showLyric || !now || lyrics[now.id] !== undefined) return;
+    if (now.source !== "netease" || !now.neteaseId || !apiBase) { setLyrics(p => ({ ...p, [now.id]: { lines: null } })); return; }
+    fetch(apiBase + "/lyric?id=" + now.neteaseId).then(r => r.json()).then(d => {
+      const raw = d && d.lrc && d.lrc.lyric;
+      const lines = raw ? parseLrc(raw).filter(l => l.text) : null;
+      setLyrics(p => ({ ...p, [now.id]: { lines: (lines && lines.length) ? lines : null } }));
+    }).catch(() => setLyrics(p => ({ ...p, [now.id]: { lines: null } })));
+  }, [showLyric, nowId]);
+  const lyricLines = now && lyrics[now.id] !== undefined ? lyrics[now.id].lines : undefined;
+  let lyricActive = -1;
+  if (Array.isArray(lyricLines)) for (let i = 0; i < lyricLines.length; i++) { if (lyricLines[i].t != null && lyricLines[i].t <= cur) lyricActive = i; }
+  useEffect(() => {
+    if (!showLyric || lyricActive < 0 || !lyricBoxRef.current) return;
+    const el = lyricBoxRef.current.querySelector('[data-lyric-active="1"]');
+    if (el && el.scrollIntoView) try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+  }, [lyricActive, showLyric]);
 
   const doSearch = async () => {
     if (!apiBase || !q.trim()) return;
@@ -3034,14 +3066,26 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
 
   // ============ 播放 tab ============
   const playTab = now ? h("div", { className: "flex flex-col items-center px-6 pb-6" },
-    h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-90 relative", style: { width: 232, height: 232, borderRadius: 999, marginTop: 14, background: "radial-gradient(circle at 50% 50%, #2b2b30 0 61%, #17171b 62%)", boxShadow: "0 16px 44px rgba(0,0,0,0.34)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
-      h("div", { style: { width: 148, height: 148, borderRadius: 999, background: nowCover ? "center/cover no-repeat url(" + nowCover + ")" : discImg ? "center/cover no-repeat url(" + discImg + ")" : "linear-gradient(135deg,#e8b6c8,#f0d9a8)", boxShadow: "inset 0 0 0 5px rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center" } },
-        h("div", { style: { width: 18, height: 18, borderRadius: 999, background: t.bg, border: "3px solid rgba(0,0,0,0.35)" } }))),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "点唱片换封面"),
+    // 唱片 ↔ 歌词页（仿网易云：进词后点任意处回唱片）
+    showLyric
+      ? h("div", { ref: lyricBoxRef, onClick: () => setShowLyric(false), className: "w-full active:opacity-95", style: { height: 268, overflowY: "auto", marginTop: 14, padding: "100px 8px", textAlign: "center", WebkitMaskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)", maskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)" } },
+          lyricLines === undefined ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "找歌词中…")
+            : !lyricLines ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 2 } }, now.source === "netease" ? "这首歌没有歌词（可能是纯音乐）" : "本地/外链歌曲拿不到歌词")
+            : lyricLines.map((l, i) => h("div", { key: i, "data-lyric-active": i === lyricActive ? "1" : "0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: i === lyricActive ? 16.5 : 13.5, lineHeight: 2.1, color: i === lyricActive ? t.ink : t.fog, fontWeight: i === lyricActive ? 600 : 400, transition: "font-size .2s,color .2s" } }, l.text)))
+      : h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-90 relative", style: { width: 232, height: 232, borderRadius: 999, marginTop: 14, background: "radial-gradient(circle at 50% 50%, #2b2b30 0 61%, #17171b 62%)", boxShadow: "0 16px 44px rgba(0,0,0,0.34)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
+          h("div", { style: { width: 148, height: 148, borderRadius: 999, background: nowCover ? "center/cover no-repeat url(" + nowCover + ")" : discImg ? "center/cover no-repeat url(" + discImg + ")" : "linear-gradient(135deg,#e8b6c8,#f0d9a8)", boxShadow: "inset 0 0 0 5px rgba(0,0,0,0.22)", display: "flex", alignItems: "center", justifyContent: "center" } },
+            h("div", { style: { width: 18, height: 18, borderRadius: 999, background: t.bg, border: "3px solid rgba(0,0,0,0.35)" } }))),
+    showLyric ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, "点唱片换封面"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
-    h("div", { className: "flex items-center justify-center gap-4", style: { marginTop: 14 } },
-      cbtn(h("span", { style: { fontSize: 20, color: now.fav ? "#e0576b" : t.fog } }, now.fav ? "♥" : "♡"), () => onToggleFav(now.id), { bg: t.bg2 })),
+    h("div", { className: "flex items-center justify-center gap-3", style: { marginTop: 14 } },
+      cbtn(h("span", { style: { fontSize: 20, color: now.fav ? "#e0576b" : t.fog } }, now.fav ? "♥" : "♡"), () => onToggleFav(now.id), { bg: t.bg2 }),
+      // 加进本地歌单（复用底部选择层）
+      cbtn(h("span", { style: { fontSize: 20, color: t.fog } }, "＋"), () => setPickFor({ song: now }), { bg: t.bg2 }),
+      // 加进她真网易云歌单（仅网易云歌 + 已连账号；openCvAdd 在下方云村区声明，闭包延迟取用没有 TDZ 问题）
+      (now.source === "netease" && now.neteaseId && cookie) ? cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "☁＋"), () => openCvAdd({ id: now.neteaseId, name: now.title, artist: now.artist, cover: now.cover }), { bg: t.bg2 }) : null,
+      // 歌词页开关
+      cbtn(h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: showLyric ? (t.accent || "#8a6d3b") : t.fog } }, "词"), () => setShowLyric(v => !v), { bg: showLyric ? (t.accent || "#8a6d3b") + "22" : t.bg2 })),
     h("div", { className: "w-full", style: { maxWidth: 320 } },
       h("input", { type: "range", min: 0, max: 1000, value: Math.round(frac * 1000), onChange: e => onSeek(Number(e.target.value) / 1000), style: { width: "100%", marginTop: 14 } }),
       h("div", { className: "flex items-center justify-between" },
