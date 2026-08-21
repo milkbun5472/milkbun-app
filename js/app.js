@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.27";
+const APP_VERSION = "v54.31";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -5378,8 +5378,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gDmMembers = members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)));
       const gDmHint = gDmMembers.length ? "\n【dm 私下说】你可以在公开发言之外，【私下】单独发一句给「" + gUName + "」——它只会出现在你和 TA 的一对一私聊里，群里其他人看不到。\n"
         + "什么时候用：① 你在群里说了「待会私聊说」「单独跟你讲」「回头发你」这类话——那就用 dm 把那句真的发出去，别放空炮；② 有些话当着别人的面不方便说；③ 群里聊到某件事，你想私下再跟 TA 补一句。\n"
-        + "写法：在你那条发言对象里加 \"dm\":\"私下要说的话\"。它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。" : "";
-      const gDmField = gDmMembers.length ? ",\"dm\":\"（可选）私下单独发给用户的话，群里看不到\"" : "";
+        + "写法：在你那条发言对象里加 \"dm\":[\"第一条\",\"第二条\"]。\n"
+        + "⚠️它是【一个数组，一条一个气泡】，和 text 同一个规矩：私聊里没人会把一整段话憋成一条发出去。"
+        + "想说的话该断在哪儿就断在哪儿，短的一条几个字也行；通常 1~3 条，真有话要说才更多。**绝不要把整段塞进一条**。\n"
+        + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。" : "";
+      const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选）私下发给用户的短气泡\",\"可以有第二条\"]" : "";
       const thoughtField = gs.memoryInterop ? ",\"thought\":\"（可选）没说出口的心声\",\"mood\":\"（可选）此刻中文心情词（禁止英文内部标签）\",\"affinityDelta\":\"（可选）整数-5到5\",\"wearing\":\"该成员此刻穿着一句（保持连续；但必须跟场合对得上，在外面不可能还穿着睡衣）\",\"action\":\"该成员发言时正在做的简短动作（每次更新）\"" : "";
       // Ta 眼里:群里发生的事也能改在场成员对用户的长期印象(极低频,同单聊契约)
       const impressionField = window.Gaze ? ",\"impression\":{\"side\":\"me|us\",\"block\":\"me侧:person/soft/like/recent/unread;us侧:what/how/marks/elephant/want\",\"text\":\"整块重写≤80字\"}（可选,仅当这轮真正改变了该成员对用户或他俩关系的长期认知才填,极少发生;第一人称亲笔、锚具体事、在旧认知上小幅演进）" : "";
@@ -5585,10 +5588,21 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           }
           // dm 落地（v53.96）：群里承诺的「私聊说」真的进私聊，而不是停在嘴上。
           // 走和普通私聊消息完全一样的形状，所以未读红点、消息列表预览、记忆提取全都照常吃到。
-          const gDm = item.dm && String(item.dm).toLowerCase() !== "null" ? String(item.dm).trim() : "";
-          if (gDm && spk && !(blocksRef.current[spk.id] && (blocksRef.current[spk.id].iBlocked || blocksRef.current[spk.id].theyBlocked))) {
-            await new Promise(r => setTimeout(r, 500));
-            pChat(spk.id, p => [...p, { role: "assistant", content: gDm, ts: Date.now(), read: false, fromGroup: groupId }]);
+          // dm 落地：和单聊一样【一条一个气泡】逐条发（v54.31）。
+          // 以前不管多长都塞进一条，私聊里就出现一大坨——没人这么发消息。
+          // 兼容旧写法：模型仍给字符串时，按换行/句末切一下，别退回一整段。
+          const gDmRaw = item.dm;
+          let gDmList = Array.isArray(gDmRaw) ? gDmRaw : [];
+          if (!gDmList.length && gDmRaw && String(gDmRaw).toLowerCase() !== "null") {
+            gDmList = String(gDmRaw).split(/\n+/).flatMap(x => x.length > 40 ? x.split(/(?<=[。！？…~～])/) : [x]);
+          }
+          gDmList = gDmList.map(x => String(x == null ? "" : x).trim()).filter(Boolean).slice(0, 6);
+          if (gDmList.length && spk && !(blocksRef.current[spk.id] && (blocksRef.current[spk.id].iBlocked || blocksRef.current[spk.id].theyBlocked))) {
+            const dmTurn = "gdm_" + Date.now();
+            for (let di = 0; di < gDmList.length; di++) {
+              await new Promise(r => setTimeout(r, di === 0 ? 500 : 420)); // 节奏同单聊
+              pChat(spk.id, p => [...p, { role: "assistant", content: gDmList[di], ts: Date.now(), read: false, fromGroup: groupId, turnId: dmTurn }]);
+            }
           }
           // 成员主动发起通话邀请
           const gcm = item.call && ["voice", "video"].includes(String(item.call).toLowerCase()) ? String(item.call).toLowerCase() : null;
