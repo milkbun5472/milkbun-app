@@ -14,11 +14,13 @@ const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 test("三条没有场景状态机的通道都要挂上「语域跟着场面走」", () => {
   assert.match(engine, /const REGISTER_FOLLOWS_SCENE = /);
   // 线上群聊
-  assert.match(app, /ContentBoundaries\.prompt : ""\) \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ dir \+ common/);
+  // v54.21 起中间多了一条 PERSONA_REGISTER_ANCHOR，两条都得在
+  assert.match(app, /ContentBoundaries\.prompt : ""\) \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/);
   // 线上单聊
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
   // 群线下
   assert.match(engine, /"\\n\\n" \+ CHARCARD_RULE \+\n    "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
+  assert.match(engine, /REGISTER_FOLLOWS_SCENE \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/);
 });
 
 test("这条规则必须是对称的：她带过去就不设限，她没带就别自己起头", () => {

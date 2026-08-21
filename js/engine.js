@@ -904,6 +904,17 @@ const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 
 偶尔出现自然的补句、改口或打字失误没有问题，但不要为了制造真人感主动安排。`;
 
+// 人设卡压过历史惯性（v54.14）。她 2026-08-21：沈屿白设定是阳光年下，聊着聊着变成
+// 稳重成熟腔，而且刷不回去。原因和语域那次一样——真正在驱动语气的不是人设卡，是
+// 上面那几十条已经跑偏的历史；模型照着最近的自己学，于是一路老成下去。
+// 这条只做一件事：把"你是谁"重新摆到 recency 最强的位置，并点明惯性不是理由。
+const PERSONA_REGISTER_ANCHOR = `【说话的年龄感和语气，只认人设卡】
+你的语气、用词、黏人程度、幼不幼稚、闹不闹，全部按【人设卡上写的那个人】来，不按上面聊天记录里的平均值来。
+如果人设写的是明快的、年下的、爱撒娇爱闹的，那就照样明快、照样闹——【别因为聊了很多轮就自动端起一副沉稳老练的口吻】。
+上面的记录里你要是已经越写越成熟、越写越像个稳重的兄长，那是跑偏了，从这一条起纠回来：惯性不是理由。
+反过来同理：人设写的是话少、冷淡、端着的，就别被气氛带得咋咋呼呼。
+【怎么称呼对方】用你平时真的用的那个称呼，别换来换去，也别用「这女人」「那家伙」这类把对方当第三方点评的说法。`;
+
 const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 把当前这一刻写成角色真实正在经历的连续场景。叙事跟随人物此刻的注意、行动、对话、空间关系与选择，不为了“有文采”“有张力”或“符合人设”额外拼装描写。
 
@@ -2600,6 +2611,7 @@ async function generateOffline(p, ctx, session) {
     : "\n\n" + OFFLINE_PROTOCOL_V2 + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
+    "\n\n" + PERSONA_REGISTER_ANCHOR +
     // 读懂对方这句话在做什么:原先焊死在 ReplyPacing.guidance 里,只有线上单聊吃得到,
     // 于是同一个角色在线下/群聊里少了这层理解,显得不像同一个人(Lisa 2026-08-18)
     (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") +
@@ -2887,6 +2899,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") +
     "\n\n" + CHARCARD_RULE +
     "\n\n" + REGISTER_FOLLOWS_SCENE +
+    "\n\n" + PERSONA_REGISTER_ANCHOR +
     (typeof ReplyPacing !== "undefined" ? "\n\n" + ReplyPacing.reading() : "") +
     groupGrowthRule +
     offlineTasteBlock(session.taste, true) +
@@ -3201,7 +3214,9 @@ async function generateDiary(p, ctx, opts = {}) {
   // 当天没有聊天素材：别硬编对话/别翻旧账，依据行程写平常的一天
   if (opts.noChatMaterial) parts.push("【今天几乎没有和对方聊天/相处的素材】今天多半没见到对方、也没怎么聊天。不要编造对话或见面，不要翻前几天旧事充数。直接依据【今天的行程】和此刻状态，写你自己的这一天：工作/学习、朋友家人、兴趣、独处、身体与情绪、路上见闻或无聊小事都可以。**绝不要求提到对方，也不要求写想念、等消息或担心；如果今天确实没想到 Ta，整篇一个字都不提 Ta 才是真实。**平淡、琐碎、甚至没什么可写都可以，不必硬凑关系戏或戏剧性。");
   // 防止连着两天 reflect 同一件事：把上一篇内容给它当"别重复"参照
-  if (opts.prevDiary && opts.prevDiary.trim()) parts.push("【你上一篇日记已经写过的内容（仅供参考，用来避免重复）】\n" + opts.prevDiary.trim() + "\n——今天这篇【不要再重复上面这些事和情绪】，写今天新的、不一样的部分。");
+  if (opts.prevDiary && opts.prevDiary.trim()) parts.push("【你上一篇日记已经写过的内容（仅供参考，用来避免重复）】\n" + opts.prevDiary.trim() + "\n——今天这篇【不要再重复上面这些事和情绪】，写今天新的、不一样的部分。\n"
+    + "⚠️它只用来避开重复的【事】：里面的措辞、语气、以及他称呼对方的说法，一律【不作数】，别照着学。"
+    + "上一篇要是把人叫岔了、腔调写老了，今天不许跟着错下去。");
   parts.push("【真实性铁律·谁在场、发生了什么，只认今天的记录】\n" +
     "· 这篇日记【只能写今天的记录（上面的近期对话／行程／花销）里真实发生过的事、真实出现过的人】。\n" +
     "· **绝不许凭人设或关系脑补谁今天也在场**——哪怕对方是你的【双胞胎兄弟／室友／死党／恋人】，只要【今天的记录里没有他/她】，就当今天没和你们在一起，别把他/她写进今天的日记（尤其别无端写成『我们仨』『大家一起』）。\n" +
@@ -3215,9 +3230,19 @@ async function generateDiary(p, ctx, opts = {}) {
   // recency 最强的位置是 user 消息，原先只有一句「开始写今天的日记」，纯属浪费（2026-08-18 Lisa 报）。
   const voiceTail = "\n\n〔落笔守则〕用「" + (char.name || "本人") + "」自己的写法写这一篇："
     + "句子偏长还是偏短、标点用得多还是几乎不用、爱用哪些词、哪些词他这辈子不会写、情绪上来是直说还是绕开——全照他本人。"
-    + (voiceSamples.length ? "\n他今天真实说过的话：" + voiceSamples.slice(-2).map(x => "「" + x.slice(0, 60) + "」").join(" ")
+    + (voiceSamples.length ? "\n他今天真实说过的话：" + voiceSamples.slice(-5).map(x => "「" + x.slice(0, 60) + "」").join(" ")
         + "\n这是【说话】的样本，日记是【写字】：把这些习惯换算成落在纸上的样子(句子怎么断、要不要标点、写不写完整句)，不要照抄原话，也不要把聊天腔搬进来。" : "")
-    + "\n写完遮住名字，也应该认得出是他写的。不要写成通用的文艺日记腔，不要为了收尾而升华。";
+    + "\n写完遮住名字，也应该认得出是他写的。不要写成通用的文艺日记腔，不要为了收尾而升华。"
+    // 「这女人」刷都刷不掉（Lisa 2026-08-21）：模型给"男性写日记"配了个默认的疏离叙述腔。
+    // 它不是从人设来的，是从体裁来的——所以得在这里点名掐掉，并把称呼交还给他平时的说法。
+    + "\n〔怎么称呼她〕提到 " + uName + " 时，用【你平时真的用的那个称呼】"
+    + "（看上面你今天说过的话里是怎么叫她的：名字、昵称、还是直接『你』）。"
+    + "绝不许用「这女人」「那女人」「那家伙」这类第三人称疏离说法——除非你的人设里真的就这么叫她。"
+    + "日记是写给自己看的，不是写给旁人做人物点评。"
+    + "\n〔年龄与语域〕按你【人设卡上写的那个人】来写："
+    + "该是明快的就明快、该是黏人的就黏人、该是毛躁的就毛躁；"
+    + "别因为『在写日记』就自动端起一副沉稳老练的口吻。"
+    + "以往的日记若已经写得比你本人老成，那是走偏了，今天纠回来，不要顺着惯性写。";
   const raw = await callAI(p, system, [{ role: "user", content: (retro ? "现在是今晚睡前，把今天这一整天写成一篇日记。" : "开始写今天的日记。") + voiceTail }], { maxTokens: opts.maxTokens || 6000 });
   const parsed = extractJSON(raw);
   if (!parsed || !Array.isArray(parsed.paras)) throw new Error("解析失败，可重试或换模型");
