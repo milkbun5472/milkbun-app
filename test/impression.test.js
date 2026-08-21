@@ -52,8 +52,10 @@ test("quote 必须守声纹，不能写成通用抒情散文", () => {
   assert.match(imp, /window\.Gaze && window\.Gaze\.text/);
   // 三个关键词不许同义、不许都在夸她（定死的槽位已废，改成按期轮换取词角度）
   assert.match(imp, /三个之间不许同义，也不许都在夸她。要抽象、要有气质——「爱吃雪糕」那是事，不是印象/);
-  // 出不全就算失败，不许写半张卡
-  assert.match(gen, /if \(!quote \|\| !tags\.length\) throw new Error/);
+  // 出不全就算失败，不许写半张卡；silhouette 是 JSON 末字段，兼任截断哨兵
+  // （v54.47：maxTokens 2000 被打穿，quote 半句话被存成卡——额度放大 + 截断必判失败）
+  assert.match(gen, /if \(!quote \|\| !tags\.length \|\| !String\(d\.silhouette \|\| ""\)\.trim\(\)\) throw new Error/);
+  assert.match(gen, /maxTokens: 5000/);
 });
 
 test("图出不来不算失败：字是主体，剪影可以之后补", () => {
