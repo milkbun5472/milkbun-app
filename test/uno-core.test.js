@@ -42,3 +42,33 @@ test("摸到重复 code 时只允许打刚摸到的实体牌", () => {
   U.act(s, { kind: "play", code: "R5", uno: true });
   assert.deepEqual(s.players[0].hand.map(c => c.uid), ["old"]);
 });
+
+test("出牌、摸牌和不出都保留桌上话", () => {
+  const s = U.newGame(players().slice(0, 2), () => .6); s.turn = 0; s.color = "R"; s.discard = [{ color: "R", value: "3" }];
+  s.players[0].hand = [{ uid: "talk", color: "R", value: "5", code: "R5" }, { uid: "left", color: "B", value: "8", code: "B8" }];
+  U.act(s, { kind: "play", uid: "talk", uno: true, say: "这张接好。" });
+  assert.match(s.log.at(-1).text, /这张接好/);
+  s.pendingDraw = 2; U.act(s, { kind: "draw", say: "我记住了。" });
+  assert.match(s.log.at(-1).text, /我记住了/);
+  s.drawnUid = s.players[0].hand[0].uid; s.turn = 0; U.act(s, { kind: "pass", say: "先让你们一手。" });
+  assert.match(s.log.at(-1).text, /先让你们一手/);
+});
+
+test("任意颜色 +2 可以连续叠加，罚牌累计转给下一家", () => {
+  const s = U.newGame(players(), () => .4, { stackD2: true }); s.turn = 0; s.color = "R"; s.discard = [{ color: "R", value: "D2", code: "RD2" }]; s.pendingDraw = 2;
+  s.players[0].hand = [{ uid: "blue2", color: "B", value: "D2", code: "BD2" }, { uid: "rest", color: "Y", value: "6", code: "Y6" }];
+  assert.deepEqual(U.legalCodes(s), ["BD2"]);
+  U.act(s, { kind: "play", uid: "blue2", uno: true, say: "还给你。" });
+  assert.equal(s.pendingDraw, 4); assert.equal(s.turn, 1); assert.equal(s.color, "B"); assert.match(s.log.at(-1).text, /累计 \+4.*还给你/);
+  const before = s.players[1].hand.length; U.act(s, { kind: "draw" }, () => .3);
+  assert.equal(s.players[1].hand.length, before + 4); assert.equal(s.pendingDraw, 0); assert.equal(s.turn, 2);
+});
+
+test("官方规则下 +2 不能叠加，只能摸牌并跳过", () => {
+  const s = U.newGame(players(), () => .4, { stackD2: false }); s.turn = 0; s.color = "R"; s.discard = [{ color: "R", value: "D2", code: "RD2" }]; s.pendingDraw = 2;
+  s.players[0].hand = [{ uid: "blue2", color: "B", value: "D2", code: "BD2" }];
+  assert.deepEqual(U.legalCodes(s), []);
+  assert.throws(() => U.act(s, { kind: "play", uid: "blue2", uno: true }), /官方规则不能叠加/);
+  const before = s.players[0].hand.length; U.act(s, { kind: "draw" }, () => .3);
+  assert.equal(s.players[0].hand.length, before + 2); assert.equal(s.turn, 1);
+});

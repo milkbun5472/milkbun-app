@@ -70,6 +70,7 @@ MUTATING_TOOLS = frozenset(
 # 等固定会话用 complete 回同形 JSON。仍沿用租约、幂等与唯一会话边界。
 PASS_THROUGH_TOOLS = frozenset({"game_turn"})
 ALLOWED_TOOLS = READ_ONLY_TOOLS | MUTATING_TOOLS | PASS_THROUGH_TOOLS
+GAME_CLAIM_LEASE_MS = 5 * 60 * 1000
 CLOUD_ENV = Path(
     os.environ.get(
         "YANQIU_CC_BRIDGE_ENV",
@@ -150,6 +151,48 @@ def connect(path: Path = DB_PATH) -> sqlite3.Connection:
 def token_hash(token: str) -> str:
     import hashlib
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def requeue_expired_game_claims(
+    db_path: Path = DB_PATH,
+    wake_path: Path = WAKE_PATH,
+    lease_ms: int = GAME_CLAIM_LEASE_MS,
+) -> int:
+    """Re-arm abandoned game tickets without ever replaying mutating tools.
+
+    A game decision is safe to ask again because the App owns the authoritative
+    turn and turn_id is idempotent.  Read/write tools deliberately stay claimed:
+    repeating one after an unknown crash could duplicate a real side effect.
+    """
+    cutoff = now_ms() - max(1000, int(lease_ms))
+    db = connect(db_path)
+    reclaimed: list[tuple[str, int]] = []
+    try:
+        db.execute("BEGIN IMMEDIATE")
+        rows = db.execute(
+            "SELECT id FROM jobs WHERE status='claimed' AND tool_name='game_turn' AND claimed_at IS NOT NULL AND claimed_at<=? ORDER BY claimed_at,id",
+            (cutoff,),
+        ).fetchall()
+        for row in rows:
+            changed = db.execute(
+                "UPDATE jobs SET status='queued',claim_token_hash=NULL,claimed_at=NULL,error_text=NULL WHERE id=? AND status='claimed' AND tool_name='game_turn'",
+                (row["id"],),
+            ).rowcount
+            if changed == 1:
+                reclaimed.append((str(row["id"]), now_ms()))
+        db.execute("COMMIT")
+    except Exception:
+        if db.in_transaction:
+            db.execute("ROLLBACK")
+        raise
+    finally:
+        db.close()
+    if reclaimed:
+        wake_path.parent.mkdir(parents=True, exist_ok=True)
+        with wake_path.open("a", encoding="utf-8") as stream:
+            for job_id, at in reclaimed:
+                stream.write(json.dumps({"kind": "app_cc_read_tool", "at": at, "job_id": job_id, "reason": "expired_game_claim_requeued"}, ensure_ascii=False) + "\n")
+    return len(reclaimed)
 
 
 def enqueue(
@@ -425,6 +468,7 @@ def sync_cloud_once(db_path: Path = DB_PATH, wake_path: Path = WAKE_PATH) -> dic
 def cloud_worker() -> None:
     while True:
         try:
+            requeue_expired_game_claims()
             sync_cloud_once()
         except BridgeError as error:
             print(str(error), file=sys.stderr, flush=True)
