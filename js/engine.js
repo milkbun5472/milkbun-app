@@ -2028,16 +2028,16 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
   };
   // pOverride：审核软化重试用——同一套参考照，换一版措辞。不传就用原 prompt，行为不变。
-  const attemptWith = async (blobs, refMode, pOverride) => {
+  const attemptWith = async (blobs, refMode, pOverride, msOverride) => {
     const saved = refBlobs.slice();
     refBlobs.length = 0; blobs.forEach(b => refBlobs.push(b));
-    try { return await attempt(true, false, refMode, pOverride); }
+    try { return await attempt(true, false, refMode, pOverride, msOverride); }
     finally { refBlobs.length = 0; saved.forEach(b => refBlobs.push(b)); }
   };
-  const attempt = async (useRef, slim, refMode, pOverride) => {
+  const attempt = async (useRef, slim, refMode, pOverride, msOverride) => {
     const promptText = pOverride || prompt;
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 180000);
+    const to = setTimeout(() => ctrl.abort(), msOverride || 180000);
     let r;
     try {
       if (useRef && refBlobs.length) {
@@ -2100,6 +2100,14 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   };
   // 只有【疑似被审核拒了】才值得软化重试；网络错误、超时、配额不足换个说法也没用
   const looksLikePolicy = e => /safety|policy|内容政策|content policy|moderat|sensitive|blocked|reject|违反/i.test(String((e && e.message) || e || ""));
+  // ⏱整条阶梯的总时间预算（v54.90）。加了几级重试之后，每级各等 180 秒，
+  // 最坏情况能卡十几分钟，界面上一直显示「拍照中」（她 2026-08-22 报）。
+  // 现在给全程一个总闸：超了就不再往下试，宁可早点告诉她失败。
+  // 重试级别的单次超时也压到 70 秒——真能出的图不会拖那么久，拖住的多半是死路。
+  const RETRY_MS = 70000;
+  const deadline = Date.now() + Number((opts && opts.budgetMs) || 180000);
+  const timeLeft = () => deadline - Date.now();
+  const canRetry = () => timeLeft() > 20000;   // 剩不到 20 秒就别开新的一轮了
   let lastRefErr = "";
   const note = e => { lastRefErr = String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 180); };
   const mark = (out, how) => { try { if (out && typeof out === "object") { out.degraded = how; if (lastRefErr) out.refError = lastRefErr; } } catch (e) {} return out; };
@@ -2114,21 +2122,23 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     sets.push({ n: 1, how: "duo-single-ref" });
     for (const set of sets) {
       if (set.n < 1) continue;
+      if (!canRetry()) break;   // 人多时这圈自己就能转好几分钟，超预算就停
       const use = refBlobs.slice(0, set.n);
       for (const mode of (use.length > 1 ? ["bracket", "repeat"] : ["first"])) {
+        if (!canRetry()) break;
         try {
-          const out = await attemptWith(use, mode);
+          const out = await attemptWith(use, mode, null, set.how ? RETRY_MS : undefined);
           return set.how ? mark(out, set.how) : out;
         } catch (e) { note(e); }
       }
     }
     const softM = looksLikePolicy({ message: lastRefErr }) ? softenForModeration(prompt) : null;
     if (softM) {
-      try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", softM), "softened"); } catch (e3) { note(e3); }
-      if (opts && opts.minimalPrompt) {
-        try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", opts.minimalPrompt), "minimal"); } catch (eM2) { note(eM2); }
+      if (canRetry()) { try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", softM, RETRY_MS), "softened"); } catch (e3) { note(e3); } }
+      if (opts && opts.minimalPrompt && canRetry()) {
+        try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", opts.minimalPrompt, RETRY_MS), "minimal"); } catch (eM2) { note(eM2); }
       }
-      try { return mark(await attempt(false, false, null, softM), "softened-no-ref"); } catch (e4) { note(e4); }
+      if (canRetry()) { try { return mark(await attempt(false, false, null, softM, RETRY_MS), "softened-no-ref"); } catch (e4) { note(e4); } }
     }
     return mark(await attempt(false), "no-ref");
   }
@@ -2136,21 +2146,26 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     try { return await attempt(true); } catch (e) {
       note(e);
       // 被审核拒了 → 先换个说法、【照片照带】再试一次；脸比杯子重要
-      const soft = looksLikePolicy(e) ? softenForModeration(prompt) : null;
+      // ⚠️只有【审核拒绝】才值得往下试：超时、断网、配额不足换个说法一样跑不通，
+      //   硬试只会让「拍照中」多转好几分钟（她 2026-08-22 卡了几分钟）。
+      const policy = looksLikePolicy(e);
+      if (!policy) throw e;
+      const soft = softenForModeration(prompt);
       // ① 软化 + 照片照带：她要的是这张脸，不是那只杯子
-      if (soft) { try { return mark(await attemptWith(refBlobs, "first", soft), "softened"); } catch (e2) { note(e2); } }
+      if (soft && canRetry()) { try { return mark(await attemptWith(refBlobs, "first", soft, RETRY_MS), "softened"); } catch (e2) { note(e2); } }
       // ②【保脸级】最简 prompt + 照片照带：几乎不带场景文字，审核没东西可挑，
       //    参考照却还在。这一级由调用方传进来（opts.minimalPrompt）——只有它知道
       //    锁脸段和这条线的行头长什么样。她 2026-08-22 问「到底咋样才能永远保住脸」，
       //    答案就是这一级：把风险全在场景描述里，那就把场景描述整个拿掉。
-      if (opts && opts.minimalPrompt) {
-        try { return mark(await attemptWith(refBlobs, "first", opts.minimalPrompt), "minimal"); } catch (eM) { note(eM); }
+      if (opts && opts.minimalPrompt && canRetry()) {
+        try { return mark(await attemptWith(refBlobs, "first", opts.minimalPrompt, RETRY_MS), "minimal"); } catch (eM) { note(eM); }
       }
       // ③ 软化 + 无参考照：脸保不住了，至少让图出得来。
       //    以前这一级用的是【原始 prompt】，于是软化白做——原措辞本来就被拒，
       //    不带照片照样被拒，整个函数抛出，界面上就是「自拍没生成」（她 2026-08-22 第二张截图）。
-      if (soft) { try { return mark(await attempt(false, false, null, soft), "softened-no-ref"); } catch (e3) { note(e3); } }
-      return mark(await attempt(false), "no-ref");
+      if (soft && canRetry()) { try { return mark(await attempt(false, false, null, soft, RETRY_MS), "softened-no-ref"); } catch (e3) { note(e3); } }
+      if (!canRetry()) throw new Error("出图试了几轮都被挡住，先停下别再等了。最后一次的原话：" + (lastRefErr || "未知"));
+      return mark(await attempt(false, false, null, null, RETRY_MS), "no-ref");
     }
   }
   return await attempt(false);

@@ -65,8 +65,8 @@ test("只对疑似审核拒绝重试；网络错误换说法也没用", () => {
 
 test("降级阶梯：丢脸【之前】插一级软化重试，两条路都插了", () => {
   // 单张参考照：只在疑似审核拒绝时才算软化稿
-  assert.match(engine, /const soft = looksLikePolicy\(e\) \? softenForModeration\(prompt\) : null;/);
-  assert.match(engine, /return mark\(await attemptWith\(refBlobs, "first", soft\), "softened"\);/);
+  assert.match(engine, /const policy = looksLikePolicy\(e\);\n      if \(!policy\) throw e;\n      const soft = softenForModeration\(prompt\);/);
+  assert.match(engine, /return mark\(await attemptWith\(refBlobs, "first", soft, RETRY_MS\), "softened"\);/);
   // 多张（合照）
   assert.match(engine, /const softM = looksLikePolicy\(\{ message: lastRefErr \}\) \? softenForModeration\(prompt\) : null;/);
   // 顺序要紧：软化重试必须排在 no-ref 之前，否则脸已经丢了再软化毫无意义
@@ -77,16 +77,16 @@ test("降级阶梯：丢脸【之前】插一级软化重试，两条路都插�
 
 test("兜底那级也必须用软化后的措辞——否则软化等于白做", () => {
   // 这是「自拍没生成」的真正病根：原措辞被拒，不带照片照样被拒，整个函数抛出
-  assert.match(engine, /return mark\(await attempt\(false, false, null, soft\), "softened-no-ref"\);/, "单张");
-  assert.match(engine, /return mark\(await attempt\(false, false, null, softM\), "softened-no-ref"\);/, "多张");
+  assert.match(engine, /return mark\(await attempt\(false, false, null, soft, RETRY_MS\), "softened-no-ref"\);/, "单张");
+  assert.match(engine, /return mark\(await attempt\(false, false, null, softM, RETRY_MS\), "softened-no-ref"\);/, "多张");
   // 四级顺序：原样带照片 → 软化带照片 → 软化不带照片 → 原样不带照片
   const i1 = engine.indexOf('"softened"'), i2 = engine.indexOf('"softened-no-ref"');
   assert.ok(i1 < i2, "保住脸的那级要排在前面");
 });
 
 test("prompt 覆盖串下去了，而且没把 API 的字段名改坏", () => {
-  assert.match(engine, /const attemptWith = async \(blobs, refMode, pOverride\)/);
-  assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride\) => \{\n    const promptText = pOverride \|\| prompt;/);
+  assert.match(engine, /const attemptWith = async \(blobs, refMode, pOverride, msOverride\)/);
+  assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride, msOverride\) => \{\n    const promptText = pOverride \|\| prompt;/);
   // ⚠️两个出口的【键名】必须还是 prompt，值才是 promptText——
   // 改这儿时用正则一不小心会把简写属性 { prompt } 改成 { promptText }，那会让无参考照出图全废
   assert.match(engine, /fd\.append\("prompt", promptText\)/);
@@ -129,8 +129,8 @@ test("退出口必须堵死：有酒有刀都不是不拍的理由", () => {
 
 test("保脸级：丢参考照之前，先试一版没有场景描述的最简稿", () => {
   // 阶梯里要有这一级，并且由调用方传进来（只有它知道锁脸段长什么样）
-  assert.match(engine, /if \(opts && opts\.minimalPrompt\) \{/);
-  assert.match(engine, /return mark\(await attemptWith\(refBlobs, "first", opts\.minimalPrompt\), "minimal"\);/);
+  assert.match(engine, /if \(opts && opts\.minimalPrompt && canRetry\(\)\) \{/);
+  assert.match(engine, /return mark\(await attemptWith\(refBlobs, "first", opts\.minimalPrompt, RETRY_MS\), "minimal"\);/);
   // 顺序：软化带照片 → 最简带照片 → 才是丢照片
   const soft = engine.indexOf('"softened"'), min = engine.indexOf('"minimal"'), lost = engine.indexOf('"softened-no-ref"');
   assert.ok(soft < min && min < lost, "保脸的两级都要排在丢照片之前");
@@ -212,4 +212,35 @@ test("prompt 长度不是病根，别再往「改短」的方向使劲", () => {
   const p = build({ name: "某人", photoStyle: "realistic", refPhoto: "iv_x", appearance: "墨发束起" },
     "窗边逆光，只拍了半张脸", null, { kind: "self" });
   assert.ok(p.length < 4000, "整份 prompt 应远低于接口上限，实测 " + p.length + " 字");
+});
+
+// 她 2026-08-22：「现在拍照卡了好几分钟都是拍照中」。是我加重试加出来的——
+// 每级各等 180 秒，而且【超时】这种根本不该重试的失败也照走全套阶梯。
+test("非审核类失败立刻抛出，不许拖着走完整套阶梯", () => {
+  assert.match(engine, /const policy = looksLikePolicy\(e\);\n      if \(!policy\) throw e;/,
+    "超时、断网、配额不足换个说法一样跑不通，硬试只会让「拍照中」多转几分钟");
+  assert.match(engine, /超时、断网、配额不足换个说法一样跑不通/);
+});
+
+test("整条阶梯有总时间预算，每一级都要先问一句还来不来得及", () => {
+  assert.match(engine, /const deadline = Date\.now\(\) \+ Number\(\(opts && opts\.budgetMs\) \|\| 180000\);/);
+  assert.match(engine, /const canRetry = \(\) => timeLeft\(\) > 20000;/, "剩不到 20 秒就别开新一轮");
+  // 每一级重试都得挂上闸，漏一级那一级就能独自超时
+  const gated = (engine.match(/canRetry\(\)/g) || []).length;
+  assert.ok(gated >= 7, "只有 " + gated + " 处挂了预算闸，漏了级");
+  // 合照那圈 sets 循环也要吃闸：成员多时它自己就能转好几分钟
+  assert.match(engine, /if \(!canRetry\(\)\) break;   \/\/ 人多时这圈自己就能转好几分钟/);
+});
+
+test("重试级的单次超时压到 70 秒，不跟首次一样等 3 分钟", () => {
+  assert.match(engine, /const RETRY_MS = 70000;/);
+  assert.match(engine, /attemptWith\(refBlobs, "first", soft, RETRY_MS\)/);
+  assert.match(engine, /attemptWith\(refBlobs, "first", opts\.minimalPrompt, RETRY_MS\)/);
+  // 超时参数要真的串到发请求那一层
+  assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride, msOverride\)/);
+  assert.match(engine, /setTimeout\(\(\) => ctrl\.abort\(\), msOverride \|\| 180000\)/);
+});
+
+test("预算用光时给一句能看懂的失败，而不是继续干等", () => {
+  assert.match(engine, /出图试了几轮都被挡住，先停下别再等了。最后一次的原话：/);
 });
