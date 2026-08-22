@@ -971,16 +971,25 @@ function periodMap(period) {
     while (cur <= end) { map[pDK(cur)] = { t: "period", actual: true }; cur.setDate(cur.getDate() + 1); }
   });
   if (!list.length) return map;
-  const lastP = list[list.length - 1];
-  const anchor = pKeyDate(lastP.start);
-  const predLen = periodSpanLen(lastP, defLen); // 预测长度用最近一次的实际天数（没记结束就用默认）
-  for (let c = 0; c < 8; c++) {
-    const S = new Date(anchor); S.setDate(S.getDate() + c * cyc);
-    for (let i = 0; i < predLen; i++) { const d = new Date(S); d.setDate(d.getDate() + i); const k = pDK(d); if (!map[k]) map[k] = { t: "period" }; }
+  // 2026-08-22 修「记新经期后历史全变白」：预测锚点不再只用最近一次——
+  // 每一次实际记录都当自己那段的锚，把它到下一次记录之间的日子照常上色（排卵/安全期），
+  // 历史区间从此有连续性；只有最后一次才往未来铺 8 个周期。
+  const paintCycle = (S, predLen, stopAt) => {
     const ov = new Date(S); ov.setDate(ov.getDate() + cyc - 14);
-    for (let i = -4; i <= 1; i++) { const d = new Date(ov); d.setDate(d.getDate() + i); const k = pDK(d); if (!map[k] || map[k].t === "safe") map[k] = { t: i === 0 ? "ov" : "fertile" }; }
-    for (let i = predLen; i < cyc; i++) { const d = new Date(S); d.setDate(d.getDate() + i); const k = pDK(d); if (!map[k]) map[k] = { t: "safe" }; }
-  }
+    for (let i = -4; i <= 1; i++) { const d = new Date(ov); d.setDate(d.getDate() + i); if (stopAt && d >= stopAt) continue; const k = pDK(d); if (!map[k] || map[k].t === "safe") map[k] = { t: i === 0 ? "ov" : "fertile" }; }
+    const lastDay = stopAt ? Math.round((stopAt - S) / 86400000) : cyc;
+    for (let i = predLen; i < lastDay; i++) { const d = new Date(S); d.setDate(d.getDate() + i); const k = pDK(d); if (!map[k]) map[k] = { t: "safe" }; }
+  };
+  list.forEach((p, idx) => {
+    const anchor = pKeyDate(p.start);
+    const predLen = periodSpanLen(p, defLen); // 预测长度用该次的实际天数（没记结束就用默认）
+    if (idx < list.length - 1) { paintCycle(anchor, predLen, pKeyDate(list[idx + 1].start)); return; }
+    for (let c = 0; c < 8; c++) {
+      const S = new Date(anchor); S.setDate(S.getDate() + c * cyc);
+      if (c > 0) for (let i = 0; i < predLen; i++) { const d = new Date(S); d.setDate(d.getDate() + i); const k = pDK(d); if (!map[k]) map[k] = { t: "period" }; }
+      paintCycle(S, predLen, null);
+    }
+  });
   return map;
 }
 function Calendar({ characters, calendar, profile, period, busy, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod }) {
