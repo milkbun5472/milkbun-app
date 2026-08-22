@@ -44,7 +44,7 @@ test("整词组先处理，别逐词拼出病句", () => {
 test("酒/烟/刀被换掉，并补一句尺度声明", () => {
   const out = soften("他坐在醉仙楼二楼，手里端着酒杯，正在喝酒");
   assert.ok(!/酒/.test(out.split("【画面尺度补充】")[0]), "正文里不该再有酒：" + out);
-  assert.match(out, /茶/);
+  assert.match(out, /水/, "换成不挑时代的说法（v54.93 起不再用「茶」）");
   assert.match(out, /【画面尺度补充】画面必须是可公开展示的日常场景/);
   assert.ok(!/烟/.test(soften("他叼着烟").split("【画面尺度补充】")[0]));
   assert.ok(!/刀/.test(soften("腰间佩刀").split("【画面尺度补充】")[0]));
@@ -157,7 +157,7 @@ test("最简稿要短，但【身份信息一个都不能少】", () => {
   // 就给她画了个白毛衣小姐姐。要拿掉的只是【有风险的场景】，不是【这个人是谁】。
   assert.match(one, /二十七八岁男子，墨发束起/, "外貌必须带上");
   assert.match(one, /性别/, "锁脸清单里要点名性别");
-  assert.match(one, /不要现代便装乱入/, "时代感也得钉住");
+  assert.match(one, /按这个人所处的时代与身份自然推导，别串到别的时代去/, "时代感要钉住，但不许假定是哪个时代");
   // 没填外貌的角色不能拼出空标签
   const bare = minimal({ name: "谁" }, { kind: "self" });
   assert.ok(!/【的外貌|【穿着】\n/.test(bare), "字段为空时不许留空标签：" + bare);
@@ -253,4 +253,41 @@ test("重试级的单次超时压到 70 秒，不跟首次一样等 3 分钟", (
 
 test("预算用光时给一句能看懂的失败，而不是继续干等", () => {
   assert.match(engine, /出图试了几轮都被挡住，先停下别再等了。最后一次的原话：/);
+});
+
+// 她 2026-08-22：「你就固定住了阿川，以后其他角色想生图咋办」。
+// 提示词构建本身一直是通用的（名字/外貌/画风全从 char 读），但两处被醉仙楼带偏了：
+// ① 软化替换写成了「茶盏」「折扇」——现代角色手里冒出把折扇就荒唐；
+// ② 穿着兜底写着「不要现代便装乱入」——对现代角色纯属添乱。
+test("最简稿对任何角色都成立，一个字都没写死", () => {
+  const modern = minimal({ name: "林知夏", photoStyle: "anime", appearance: "二十三岁女生，齐肩短发，常穿oversize卫衣" }, { kind: "self" });
+  assert.match(modern, /林知夏的外貌/);
+  assert.match(modern, /二十三岁女生/);
+  assert.match(modern, /二次元动画插画风格/, "画风跟着角色走");
+  // 穿着兜底不许假定时代
+  assert.ok(!/不要现代便装乱入/.test(modern), "对现代角色说这句是添乱");
+  assert.match(modern, /按这个人所处的时代与身份自然推导，别串到别的时代去/);
+  // 换个古风角色，同一份代码照样对
+  const gufeng = minimal({ name: "裴照川", photoStyle: "realistic", appearance: "二十七八岁男子，常着玄色窄袖长袍" }, { kind: "self" });
+  assert.match(gufeng, /玄色窄袖长袍/);
+  assert.match(gufeng, /真实照片风格/);
+});
+
+test("软化替换不挑时代：古风现代读起来都得通顺", () => {
+  const cut = t => (t ? t.split("【画面尺度补充】")[0].trim() : null);
+  // 现代
+  assert.equal(cut(soften("她坐在酒吧吧台前，手里晃着一杯红酒")), "她坐在酒吧吧台前，手里晃着一杯水");
+  assert.equal(cut(soften("他叼着烟站在天台，腰间别着匕首")), "他出神地站在天台，腰间别着随身的物件");
+  // 古风
+  assert.equal(cut(soften("手里漫不经心地转着个青瓷酒杯")), "手里漫不经心地转着个青瓷杯子");
+  assert.equal(cut(soften("腰间佩剑，衣袖沾了血迹")), "腰间挂着随身的物件，衣袖沾了尘土");
+  // 古风味的替换词一个都不许再出现
+  ["茶盏", "折扇"].forEach(w =>
+    assert.ok(!engine.includes('"' + w + '"'), "替换表里还留着挑时代的词：" + w));
+});
+
+test("场所词一律放过：酒吧、酒楼、酒馆都不是画面里的酒", () => {
+  ["他在酒楼二楼靠窗坐着", "她走进那家酒吧", "巷口的小酒馆"].forEach(t =>
+    assert.equal(soften(t), null, "误伤了场所：" + t));
+  assert.match(engine, /\[\/酒\(\?!\[楼馆家店肆坊铺吧席宴\]\)\/g, "水"\]/);
 });
