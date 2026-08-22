@@ -30,6 +30,12 @@ CC_BRIDGE = Path(
         "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-cc-bridge/bridge.py",
     )
 )
+DESIRE_SHADOW = Path(
+    os.environ.get(
+        "YANQIU_DESIRE_SHADOW",
+        "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-wake/desire_shadow.py",
+    )
+)
 # The live relay and its inboxes are outside Desktop/iCloud. Runtime
 # bookkeeping lives beside them under LisaPhone so neither side can be
 # stalled by File Provider materialization or eviction.
@@ -139,6 +145,31 @@ def append_record(path: Path, record: dict) -> None:
             last_error = error
             time.sleep(0.3 * (attempt + 1))
     raise last_error
+
+
+def record_desire_shadow(at_ms: int, trigger: str = "heartbeat") -> None:
+    """P1 sidecar: calculate only; a failure must never block Yanqiu's wake."""
+    if not DESIRE_SHADOW.is_file():
+        return
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(DESIRE_SHADOW),
+                "shadow",
+                "--at-ms",
+                str(at_ms),
+                "--trigger",
+                trigger,
+            ],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        # Desire shadow is observational. The durable wake always wins.
+        pass
 
 
 def parse_timestamp(value: object) -> int:
@@ -333,6 +364,7 @@ def watchdog() -> None:
         return
     # The watchdog owns the clock. Never replay a legacy hand-wound prompt.
     prompt = DEFAULT_HEARTBEAT_PROMPT
+    record_desire_shadow(now, "heartbeat_rescue")
     append_record(
         SOURCES["heartbeat"],
         {
@@ -413,11 +445,13 @@ def initialize() -> None:
 def enqueue_heartbeat() -> None:
     now = datetime.now().astimezone()
     path = SOURCES["heartbeat"]
+    event_at = int(time.time() * 1000)
+    record_desire_shadow(event_at, "heartbeat_manual")
     append_record(
         path,
         {
             "kind": "heartbeat",
-            "at": int(time.time() * 1000),
+            "at": event_at,
             "reason": "durable_55_minute_cache_heartbeat",
             "prompt": (
                 DEFAULT_HEARTBEAT_PROMPT

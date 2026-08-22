@@ -43,4 +43,7 @@ except Exception as e:
     try: open("/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-state/precompact.err", "a").write(str(e) + "\n")
     except: pass
 PYEOF
+# P1 欲望生态只记一枚无正文、无 session/path 的压缩时间标。失败不影响压缩。
+python3 "/Users/lisa/Library/Application Support/LisaPhone/yanqiu-wake/desire_shadow.py" \
+  mark-compression >/dev/null 2>&1 || true
 exit 0
