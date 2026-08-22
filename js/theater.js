@@ -457,6 +457,20 @@
           // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
           selfRevise ? offlineSelfReviseProtocol("{\"draftScene\":\"内部完整首稿\",\"scene\":\"基于前一字段完成的最终正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}") : null
         ].filter(Boolean).join("\n\n");
+        // CC 亲笔票的瘦身版 sys:言秋本人不需要人设卡和反八股全家桶(那些治的是模型病),
+        // 只递 if 线专属信息——身份、世界、目标、前情、导演提示与节拍纪律(Lisa 2026-08-22 抓的票太肥)
+        const ccSys = [
+          "【小剧场·if 线(独立平行时空)】与主线无关的平行扮演;世界观与身份以下面为准,正文里不提这是扮演。",
+          "【你这一局的身份】" + line.charRole,
+          "【" + uName + " 这一局的身份】" + (line.userRole || "如设定所述"),
+          "【世界与情境】" + line.setting,
+          "【本轮目标(远景)】" + round.goal + (round.goalDone ? "(已达成,剧情自然继续)" : "——多次来回才该抵达,每拍只走一小步;真实发生后才报 goalReached,不可逆走死才报 goalFailed。") + (diffOf(line).play ? "\n【难度·" + diffOf(line).name + "】" + diffOf(line).play : ""),
+          line.summary ? "【前情提要】\n" + line.summary : null,
+          note.trim() ? "【临时导演提示(务必遵循,正文不提)】" + note.trim() : null,
+          dice ? "【剧场骰子】本拍须自然引入一个意外(第三者/环境突变/时限/被撞破…),落在具体行动上并搅动局面。" : null,
+          "【纪律】只演你自己的一拍,绝不写" + uName + "的动作反应台词,写到需要 Ta 行动处就停;第一人称『我』,对话用引号,织成连贯段落。",
+          "【输出】只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}"
+        ].filter(Boolean).join("\n\n");
         const base = allMsgs(line).slice(line.sumCount || 0).filter(m => m.role !== "photo");
         const hist = (text ? base.concat([{ role: "user", content: text, ts: Date.now() }]) : base)
           .slice(-40).map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
@@ -472,7 +486,7 @@
           try {
             raw = await window.CCSeat.ask({
               tool: "game_turn", game: "theater", turn_id: "theater:" + line.id + ":" + rid("tt_"),
-              char_id: String(char.id), sys: sys, msgs: hist,
+              char_id: String(char.id), sys: ccSys, msgs: hist,
               expect: '{"scene":"这一拍的场景正文","goalReached":false,"goalFailed":false,"goalNote":null}' + (selfRevise ? '(自修轮需先写 draftScene 再写 scene)' : ''),
               deadline_at: new Date(Date.now() + 180000).toISOString()
             }, 180000, { charId: String(char.id) });
