@@ -942,6 +942,31 @@ const OFFLINE_INTIMATE_RUNTIME = `【场景连续补充】
 
 已经成立的互动可以自然继续；遇到需要对方作出新的选择时再停下。`;
 
+// 连续正文的共用底座（v54.80）。以前每个功能各拼各的清单，于是三份配方各自漂：
+// 小剧场演出带反陈词滥调、同人文没有；小剧场的谢幕戏连角色卡准则都没带。
+// 加规则只该改这一处——谁写叙事正文，谁就吃同一套底座。
+//
+// ⚠️线下【不走这里】：单人线下已经迁到 v2 协议、并【刻意】不带旧的反陈词滥调清单
+// （Codex 的 Phase A，offline-protocol-v2 测试盯着），群线下仍用旧规则待迁。
+// 硬把它们并进来等于替别人做了还没验证的迁移决定，所以这个底座只服务小剧场与同人文。
+//
+// opts.bans     旧的反陈词滥调清单（明喻限额／禁用意象词／不替读者定情绪分量），默认带
+// opts.intimate 亲密场景反模板，默认不带
+// opts.register 语气与年龄感锚，默认带；纯写故事、用户不在场时传 false
+function narrativeCore(opts) {
+  opts = opts || {};
+  const parts = [
+    // 下面这几套准则的标题里带「线下」，那只是它们最早的出处，不限定场合：
+    // 凡是写连续叙事正文（线下、小剧场、同人文）都一样生效。
+    "【以下叙事准则适用于一切连续正文；标题里的「线下」只是出处，不是适用范围】",
+    ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME
+  ];
+  if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
+  if (opts.intimate) parts.push(INTIMATE_ANTI_CLICHE);
+  if (opts.register !== false) parts.push(PERSONA_REGISTER_ANCHOR);
+  return parts.join("\n\n");
+}
+
 const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 先形成当前场景真正发生的叙事 scene。thought、mood、wearing、action、affinityDelta 等附属字段只记录已经形成的场景与角色状态，不得用于提前规划、解释或塑造 scene。没有真实变化或没有值得记录的内容时，不要为了填字段制造变化。
 

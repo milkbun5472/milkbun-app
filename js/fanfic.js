@@ -304,9 +304,10 @@
   function buildGenSystem(tab, cpChars, userName, worldbook, opts) {
     opts = opts || {};
     const parts = [];
-    parts.push(ANTI_CLICHE);
-    parts.push(CHARCARD_RULE);
-    parts.push(INTIMATE_ANTI_CLICHE);
+    // 叙事底座（v54.80）：以前这儿只有 ANTI_CLICHE + CHARCARD_RULE，缺了线下那套
+    // 【自然生成准则】和【反陈词滥调】——明喻限额、别把情绪列成清单、叙述者不替读者
+    // 定情绪分量这几条同人文一条都没吃到。register:false 是因为纯写故事时用户不在场。
+    parts.push(narrativeCore({ intimate: true, register: false }));
     parts.push(FANFIC_ANTI_CLICHE);
     parts.push(FANFIC_GOOD_EXAMPLES);
     parts.push(FANFIC_ORGANIC_FORM);
@@ -561,7 +562,8 @@
     return { name: "无名路人", role: "一个刚好路过的陌生人" };
   }
   function buildRPSystem(fic, tab, cpChars, mode, userName, worldbook, style, identity) {
-    const parts = [ANTI_CLICHE, CHARCARD_RULE, INTIMATE_ANTI_CLICHE, FANFIC_ANTI_CLICHE];
+    // 穿越 RP 里用户真的在场跟角色互动，性质同线下，所以连语气与年龄感锚一起带
+    const parts = [narrativeCore({ intimate: true }), FANFIC_ANTI_CLICHE];
     parts.push("【穿越 · 互动叙事引擎】玩家『穿越』进了一篇同人文，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
     parts.push("【世界观：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
     parts.push(cpBlock(cpChars));
