@@ -6,7 +6,7 @@ const HOME = process.env.HOME;
 const ENV_FILES = [join(HOME, 'services/rescue-consumer/.env'), join(HOME, 'services/ledger-courier/.env')];
 const BASE = 'https://nposjnafsbikwfeoudbg.supabase.co';
 const TABLES = [
-  'saves', 'chat_archive', 'chat_messages', 'server_inbox', 'cc_read_inbox', 'desk_log',
+  'saves', 'chat_archive', 'chat_messages', 'cc_read_inbox', 'desk_log',
   'memories', 'memory_embeddings', 'memory_conflicts', 'memory_correction_audit',
   'memory_correction_candidates', 'memory_events', 'memory_event_links', 'memory_event_candidates',
   'character_sleep_presence', 'user_tidal_state', 'photo_bridge_index', 'push_subs',

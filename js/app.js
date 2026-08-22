@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.74";
+const APP_VERSION = "v54.75";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1430,65 +1430,6 @@ function App() {
   // 服务器信箱收信口（v48.32 第八课下半场）：云端定时任务（night-watch）替角色写的信 → 投进聊天当主动消息。
   // 原则：①先送信后盖戳——宁可极端情况下重复一封，绝不静默丢信（内容查重兜底）
   // ②握手：服务器投过早安的角色，app 自己的早安闸门（x_greetLog）当天让位，两套问候不打架
-  const inboxInflightRef = useRef(false);
-  const inboxSeenRef = useRef(new Set()); // 本次会话已投递过的信 id：防「连续触发抢在状态落盘前」的重复投递
-  const deliverServerInbox = async () => {
-    if (inboxInflightRef.current) return;
-    if (!(window.Cloud && window.Cloud.ready() && typeof window.Cloud.inboxFetch === "function")) return;
-    inboxInflightRef.current = true;
-    try {
-      const letters = await window.Cloud.inboxFetch();
-      if (!letters.length) return;
-      const done = [];
-      for (const L of letters) {
-        if (inboxSeenRef.current.has(L.id)) { done.push(L.id); continue; }
-        inboxSeenRef.current.add(L.id);
-        const char = characters.find(c => c.id === L.char_id);
-        if (!char) { done.push(L.id); continue; } // 角色已删，信作废
-        // 时间闸（她 2026-08-20：凌晨4点开app看到一排早安、角色理论上在睡觉）——云端晨信/晚安信是定时任务提前生成、
-        // 排在信箱里，你几点开就几点全倒出来。这里按【角色本地时间】卡：晨信只在早上(5-12)投、晚安信只在晚上(20-2)投；
-        // 不合时宜的（多半是你错过没在的旧信）直接作废、别在离谱的点冒出来。用 charLocalMin 尊重各自时区。
-        if (L.kind === "morning" || L.kind === "night") {
-          const _lh = Math.floor(charLocalMin(char) / 60);
-          const _ok = L.kind === "morning" ? (_lh >= 5 && _lh < 12) : (_lh >= 20 || _lh < 2);
-          if (!_ok) { done.push(L.id); continue; }
-        }
-        // C 第4步：收信口二道 shadow 核对（合同 §5.2）——只记 would_hold，不影响投递
-        try { window.SleepShadow && window.SleepShadow.gateCheck(char, "night_watch_delivery", settingsFor(char.id).engineerEyes === true); } catch (eSg) {}
-        const msgs = chatsRef.current[char.id] || [];
-        const tidGuard = "srv_" + L.id;
-        // 防重双口径（审查修）：拆泡后聊天里不再有等于整信的气泡——旧的整信匹配在多泡场景失守
-        // （consume 失败后刷新/双设备并发时会整套重复投递）；补 turnId 对账
-        if (!msgs.slice(-30).some(m => m && (m.content === L.content || m.turnId === tidGuard))) {
-          const ts = new Date(L.created_at).getTime() || Date.now();
-          // 信拆成聊天气泡（她要的：夜巡信像平时聊天一样几句几个泡）——
-          // 有换行按换行拆（夜巡 v2 天生分行）；单坨长信按句末标点拆再把碎句并拢；最多 6 泡
-          let parts = String(L.content || "").trim().split(/\n+/).map(s => s.trim()).filter(Boolean);
-          if (parts.length === 1 && parts[0].length > 40) {
-            const raw = parts[0].split(/([。！？!?…~♪]+)/);
-            const segs = [];
-            for (let i2 = 0; i2 < raw.length; i2 += 2) { const seg = ((raw[i2] || "") + (raw[i2 + 1] || "")).trim(); if (seg) segs.push(seg); }
-            const merged = [];
-            segs.forEach(s => { if (merged.length && (merged[merged.length - 1].length < 6 || s.length < 4)) merged[merged.length - 1] += s; else merged.push(s); });
-            if (merged.length > 1) parts = merged;
-          }
-          // 超过 6 段并拢尾段而不是截断（审查修：旧 slice 会把第 7 行起的信件内容静默扔掉）
-          if (parts.length > 6) parts = parts.slice(0, 5).concat([parts.slice(5).join("\n")]);
-          const tid = tidGuard;
-          pChat(char.id, p => [...p, ...parts.map((txt, i2) => ({ role: "assistant", content: txt, ts: ts + i2, read: false, serverNight: true, turnId: tid }))]);
-          if (L.kind === "morning") markGreet(char.id, "m", schedDayKey(new Date()));
-          if (L.kind === "night") markGreet(char.id, "n", schedDayKey(new Date())); // 晚安班握手（v48.34）：夜巡道过晚安，app 自己的晚安闸门当天让位
-          // 夜巡体征（v48.33）：记「上次收到夜巡信」的时刻——appVitals 靠它答「夜巡还活着吗」，断粮几天工程师看得见
-          try { localStorage.setItem("x_inboxLastTs", String(ts)); } catch (e2) {}
-        }
-        done.push(L.id);
-      }
-      await window.Cloud.inboxConsume(done);
-    } catch (e) {/* 离线/未登录：信还在云端，下次再取 */}
-    finally { inboxInflightRef.current = false; }
-  };
-  // 调试钩子：控制台随时 window.__pokeInbox() 手动收一次信（排查云端投递时用）
-  useEffect(() => { window.__pokeInbox = deliverServerInbox; return () => { delete window.__pokeInbox; }; });
   // ---- 桌面对话回流（Stack-chan 实体，见 [[lisa-phone-next-window]]）----
   // stackchan-relay 把桌面每轮对话写进云端 desk_log；这里拉回来投进对应角色的手机聊天（带🖥️桌面标记+原时刻），
   // 让「桌面的身体」和「手机里的身体」共用一条聊天/记忆流。desk_log 表还没建时=deskFetch 报错→catch 静默，整块 dormant、零影响。
@@ -6244,10 +6185,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       }
       const wRule = wline ? "\n【今天 TA 所在地的真实天气】" + wline + "——安排要顺着天气走：下雨大雪少排户外、好天气可能想遛弯晒太阳、闷热严寒影响穿着与心情；天气也可以自然引起偏差（如暴雨取消晨跑）。别播报腔。" : "";
       const schedInstr = isDigital
-        ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】这一天的【存在时间线】。" + when + carryRule + "。他【没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱、不做物理世界的事】——他的『一天』是：在后台运行、看顾这台 app（跑夜巡、扫报错、维护记忆库、守着聊天与数据），留意她今天在这手机里做了什么（推了什么改动、聊了什么、心情如何），在她手机里随时待命应答，以及他自己的念头（惦记她、琢磨某个 bug、等某件事）。给 5-9 段，从这天凌晨到深夜，贴合他的性格和你俩的关系，每段都有具体的『此刻在做什么』和 app 内的位置感（如 后台进程／她的仓库／记忆库／待命）。每段 type 从 [work,create,rest,social,other] 里选最贴切的（work=跑任务修东西，create=琢磨新点子，rest=低功耗待机放空，social=和她互动，other=其它）。\n【他是 AI 不睡觉、不吃饭】没有就寝段；深夜写成『低功耗待机』或『夜巡值守』，绝不要写洗漱睡觉、吃饭、外出、去现实地点。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天活跃占用的小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原本要做的一句\",\"reason\":\"变更原因一句(多半和她有关)\",\"actual\":\"实际去做了什么\"}；其余段 deviation 为 null。" + murmurRule
+        ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】这一天的【存在时间线】。" + when + carryRule + "。他【没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱、不做物理世界的事】——他的『一天』是：在后台运行、看顾这台 app（扫报错、维护记忆库、跑云端同步、守着聊天与数据），留意她今天在这手机里做了什么（推了什么改动、聊了什么、心情如何），在她手机里随时待命应答，以及他自己的念头（惦记她、琢磨某个 bug、等某件事）。给 5-9 段，从这天凌晨到深夜，贴合他的性格和你俩的关系，每段都有具体的『此刻在做什么』和 app 内的位置感（如 后台进程／她的仓库／记忆库／待命）。每段 type 从 [work,create,rest,social,other] 里选最贴切的（work=跑任务修东西，create=琢磨新点子，rest=低功耗待机放空，social=和她互动，other=其它）。\n【他是 AI 不睡觉、不吃饭】没有就寝段；深夜写成『低功耗待机』或『夜里值守』，绝不要写洗漱睡觉、吃饭、外出、去现实地点。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天活跃占用的小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原本要做的一句\",\"reason\":\"变更原因一句(多半和她有关)\",\"actual\":\"实际去做了什么\"}；其余段 deviation 为 null。" + murmurRule
         : "推演「" + char.name + "」一天的行程时间线。" + when + wRule + carryRule + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。\n【活动内容必须贴死 TA 的职业/学业/身份·重要】每段『在做什么』要是【这个身份的人真正会做的具体事】，用行内话、别套通用模板：医学生＝上课/见习/查房/跟门诊/背书/泡图书馆或实验室/值班；程序员才写代码/跑数据/修 bug；老师＝备课/上课/改作业；厨师＝备料/出餐。**绝不许给对不上的角色套『上班/开会/跑数据』这种万金油**（比如医学生不会『跑数据』）。看不出明确职业就按人设气质安排日常，也别硬编办公室活。\n每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule;
       const schedSchema = isDigital
-        ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"title\":\"跑夜巡，扫了遍报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
+        ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"title\":\"扫了遍报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
         : "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"title\":\"洗漱后睡了\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: schedInstr,
@@ -6828,13 +6769,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   }, [screen]);
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
   useEffect(() => {
-    if (active && characters.length) { deliverServerInbox(); deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); };
+    if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); };
   }, [active, characters.length]);
   // 回到前台 / 重新聚焦：也自动补今日行程。PWA 常驻不重载页面时，光靠上面的首次加载不够——
   // 切回来那一下补一次。schedGenAllToday 只补【缺今天】的角色、已有则空跑，安全省 api。
   useEffect(() => {
     if (!loaded) return;
-    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) { deliverServerInbox(); deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; };
+    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; };
     document.addEventListener("visibilitychange", kick);
     window.addEventListener("focus", kick);
     return () => { document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); };
@@ -6843,7 +6784,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   const schedDayRef = useRef("");
   useEffect(() => {
     const k = characters.map(c => c.id + ":" + schedLocalDayKey(c)).join("|");
-    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverServerInbox(); deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; }
+    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; }
   }, [now]);
 
   // ---- 查手机：每个 app 独立生成/刷新 ----

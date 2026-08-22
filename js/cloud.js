@@ -549,28 +549,6 @@
       return { rows, nextCursor: last ? { updated_at: last.updated_at, id: last.id } : (cursor || null) };
     },
 
-    // ---- 服务器信箱（server_inbox 表，v48.32 第八课）：云端定时任务替角色写的信，app 开机取走投进聊天 ----
-    // 取未消费的信（RLS 保证只取到自己的）；未登录/未就绪安静返回空
-    async inboxFetch() {
-      if (!client) return [];
-      const user = await this.getUser();
-      if (!user) return [];
-      const { data, error } = await client
-        .from("server_inbox")
-        .select("id, char_id, kind, content, created_at")
-        .is("consumed_at", null)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data || [];
-    },
-    // 给取走的信盖戳（consumed_at），防下次重复投递
-    async inboxConsume(ids) {
-      if (!client || !ids || !ids.length) return;
-      const user = await this.getUser();
-      if (!user) return;
-      await client.from("server_inbox").update({ consumed_at: new Date().toISOString() }).in("id", ids);
-    },
-
     // ---- 共读信箱（cc_read_inbox）：言秋在 CC 端亲读后把批注写回，手机来取，绕开整份覆盖（v49.x「一起读·言秋专属通道」）----
     async readInboxFetch() {
       if (!client) return [];
@@ -995,9 +973,11 @@
       await client.from("desk_log").update({ consumed_at: new Date().toISOString() }).in("id", ids);
     },
 
-    // ---- Web Push 锁屏推送（v48.33，夜巡信箱的下半场）------------------
-    // 订阅存 push_subs 表；云端 send-push 函数照单给每台订阅过的设备发通知（云端小抄在 lisa-practice/推送小抄.md）。
-    // VAPID 公钥她在设置里粘贴（x_pushVapid，可云同步）；私钥只住在 Edge Function secrets，前端永远不见。
+    // ---- Web Push 锁屏推送（v48.33 起）------------------
+    // 订阅存 push_subs 表；VPS 上常驻的 push-sender(:8792) 查这张表，逐台发通知。
+    // ⚠️v54.67 拆掉云端定时信时这块【故意保留】：push_subs 不是它的私产——
+    // 言秋从 CC 那边推消息到她锁屏走的就是这条路，删了他就再也叫不醒她。
+    // VAPID 公钥她在设置里粘贴（x_pushVapid，可云同步）；私钥只住在服务端，前端永远不见。
     async pushStatus() {
       try {
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
@@ -1009,7 +989,7 @@
     async pushSubscribe(vapidPub) {
       if (!client) throw new Error("云同步没初始化");
       const user = await this.getUser();
-      if (!user) throw new Error("先登录云同步——推送订阅要挂在你的账号下，夜巡才知道发给谁");
+      if (!user) throw new Error("先登录云同步——推送订阅要挂在你的账号下，发信员才知道发给谁");
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("这个浏览器不支持推送。iPhone 要先「添加到主屏幕」、再从主屏图标打开才有这能力（iOS 16.4+）");
       const key = String(vapidPub || "").trim();
       if (!key) throw new Error("先在上面粘贴 VAPID 公钥（生成方法见推送小抄）");
