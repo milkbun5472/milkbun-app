@@ -1990,6 +1990,44 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }
+
+// 有人物参考照时，任务不是「读一大本角色卡重新设计一个符合描述的人」，而是
+// 「编辑参考图里的这个人，让同一个人出现在新场景」。长版 buildPhotoPrompt 里的
+// 外貌、人设、体型、职业和摄影约束会与像素身份争注意力：上游即使收到了 image，
+// 也可能只保留“古装男性”这一类别而重画一张脸（v54.94 裴照川马场实测）。
+// 这份 reference-first prompt 只保留编辑所需的场景、衣着和构图；脸只由参考图决定。
+function buildReferencePhotoPrompt(char, sceneDesc, st, opts) {
+  opts = opts || {};
+  const kind = ["self", "other", "duo"].includes(opts.kind) ? opts.kind : "self";
+  const cast = Array.isArray(opts.cast) ? opts.cast.filter(x => x && x.refPhoto) : [];
+  const me = opts.me || null;
+  const refsN = cast.length || (kind === "duo" ? 2 : 1);
+  const cName = String((char && char.name) || "人物");
+  const style = ["realistic", "reference", "anime"].includes(char && char.photoStyle) ? char.photoStyle : "realistic";
+  const wearing = String((char && char.photoOutfit) || freshPhotoWearing(st) || "").trim();
+  const accessories = String((char && char.photoAccessories) || "").trim();
+  const parts = [];
+  parts.push("这是一次基于所附参考图的图片编辑，不是重新选角或重新设计人物。画面中的人物必须仍是参考图里的同一个人；逐像素级保留其独有的脸型、五官比例、眼形眼距、鼻唇轮廓、下颌、肤色、年龄感、发际线和可识别身份。不要生成相似类型、替身、演员或另一张更符合文字描述的脸。若场景要求与身份保真冲突，优先保住参考人物身份。");
+  if (refsN > 1) {
+    const names = cast.length ? cast.map(x => String(x.name || "人物")) : [cName, String((me && me.name) || "对方")];
+    parts.push("共有" + refsN + "张人物参考图，按上传顺序分别对应：" + names.join("、") + "。每个人只沿用自己那张脸，不得交换、融合或平均化。");
+  }
+  if (opts.contRef && Number(opts.contRefIndex) > 0) {
+    parts.push("第" + Number(opts.contRefIndex) + "张图只用于承接上一张照片的场景、衣着和光线，不是新的人脸参考。人物身份仍只由前面对应的人物参考图决定；不得把连续性图片中的脸混入、平均或替换参考人物的脸。");
+  }
+  if (style === "anime") parts.push("保持参考人物的二维动画／插画身份与原有角色设计，不要真人化或改成3D。");
+  else if (style === "reference") parts.push("保持第一张参考图原有的视觉媒介与画风，只改变场景、姿势和必要衣着。");
+  else parts.push("输出自然写实照片；保留参考人物本人，不做换脸式美化，不改变脸部骨相。");
+  if (wearing) parts.push(cName + "此刻穿着：" + wearing + "。只改变衣着，不改变身体和脸。");
+  else parts.push("衣着沿用参考图中可见的时代与人物气质，并按新场景做最少量、自然的调整；不要为了换装重画头脸。");
+  if (accessories) parts.push("保留随身配饰：" + accessories + "。");
+  if (sceneDesc && String(sceneDesc).trim()) parts.push("新场景与动作：" + String(sceneDesc).trim() + "。");
+  if (kind === "self") parts.push("构图为本人用前置摄像头拍的自然自拍，脸清楚可辨，画面只有本人。");
+  else if (kind === "other") parts.push("构图为别人拍摄的自然生活照，不是自拍；人物的脸清楚可辨。");
+  else parts.push(opts.cinematic ? "构图为第三人称场景剧照，不是自拍；所有参考人物的脸都清楚可辨。" : "构图为自然合照；所有参考人物的脸都清楚可辨。");
+  parts.push("真实自然的光线和皮肤纹理；手若入镜须解剖正确。不要文字、水印、logo或额外人物。");
+  return parts.join("");
+}
 // 生成一张自拍，返回 { blob, dataUrl } 或 { blob:null, url }。有参考照只走 images/edits，
 // 并请求 high input fidelity；注意：接口接收参考图不等于它提供了“同脸验证”回执。
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {

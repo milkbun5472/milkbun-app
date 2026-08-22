@@ -182,6 +182,8 @@ function AvatarPicker({
   character,
   size = 72,
   radius,
+  imageMaxDim = 400,
+  imageQuality = 0.85,
   onPick,
   onClear
 }) {
@@ -191,7 +193,7 @@ function AvatarPicker({
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
-      onPick(await resizeImageFile(f));
+      onPick(await resizeImageFile(f, imageMaxDim, imageQuality));
     } catch {}
     e.target.value = "";
   };
@@ -1841,7 +1843,7 @@ function ProfileSheet({
   })), h(LineField, { zh: "外貌 · 合照用", en: "Appearance" },
     h("div", null,
       h("div", { className: "flex items-center gap-3 mb-2" },
-        h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
+        h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张你的参考照(可选)锁住长相；接了图像 API 后，角色发『我俩合照』时会照着画你")),
       h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 4, placeholder: "你的长相/发型/身材/气质/常穿风格……越具体，合照里的你越像本人。填了才开放『合照』。" }))));
 }

@@ -6,6 +6,9 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
+const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
+const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const theater = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
 
 test("参考照失败不会退回无参考生成陌生人", () => {
   const fn = engine.slice(engine.indexOf("async function generateSelfieImage"), engine.indexOf("// ============================================================\n// MiniMax"));
@@ -23,4 +26,19 @@ test("设置页诚实区分参考请求成功与同脸验证", () => {
   assert.match(screens, /测试高保真参考图/);
   assert.match(screens, /接口没有返回人脸相似度证明/);
   assert.doesNotMatch(screens, /参考照已通过 edits 发送/);
+});
+
+test("线上参考照使用短身份编辑提示，小剧场仍保留 IF 线重设计提示", () => {
+  assert.match(engine, /function buildReferencePhotoPrompt/);
+  assert.match(engine, /不是重新选角或重新设计人物/);
+  assert.match(engine, /连续性图片中的脸混入、平均或替换/);
+  assert.match(app, /refs\.length \? buildReferencePhotoPrompt/);
+  assert.match(app, /refs\.length \? buildReferencePhotoPrompt\(spk/);
+  assert.doesNotMatch(theater, /buildReferencePhotoPrompt/);
+  assert.match(theater, /buildPhotoPrompt/);
+});
+
+test("人物与用户合照参考图使用高分辨率保存", () => {
+  assert.match(screens, /imageMaxDim: 1024, imageQuality: 0\.94/);
+  assert.match(components, /imageMaxDim: 1024, imageQuality: 0\.94/);
 });

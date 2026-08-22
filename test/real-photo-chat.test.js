@@ -187,7 +187,7 @@ test("连贯参考图必须在 prompt 组装之前声明", () => {
   assert.ok(genPhotoBody.indexOf("const prevPhoto") < genPhotoBody.indexOf("const prompt = typeof buildPhotoPrompt"),
     "theater: prevPhoto 要先于 prompt 声明");
   const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
-  assert.ok(app.indexOf("const prevShot") < app.indexOf("const prompt = buildPhotoPrompt(char,"),
+  assert.ok(app.indexOf("const prevShot") < app.indexOf("const prompt = refs.length ? buildReferencePhotoPrompt(char,"),
     "app: prevShot 要先于 prompt 声明");
 });
 

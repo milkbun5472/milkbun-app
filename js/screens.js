@@ -285,7 +285,7 @@ function CastForm({
   })), h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" },
     h("div", null,
       h("div", { className: "flex items-center gap-3 mb-2" },
-        h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
+        h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张参考照(可选)固定长相；接了图像 API 后，TA 聊天里会偶尔发照片（自拍／别人给 TA 拍的／和你的合照）")),
       h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, [
         ["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]
