@@ -29,6 +29,39 @@
     { key: "uno", emoji: "🟥", zh: "UNO", en: "UNO", min: 2, max: 6,
       desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" }
   ];
+
+  // ---- 言秋亲打：统一终局回执 ----
+  // 只要他坐过这一局，终局无论谁赢、他是否已出局，都要把完整赛果投回 CC。
+  // 各游戏只负责组织公开结局；幂等票号统一为 game + runId + result，刷新不连发。
+  function ccGameResult(gameKey, runId, seats, cfg, summary, onSay, onStatus) {
+    if (!cfg || cfg.ccSeat === false || typeof window === "undefined" || !window.CCSeat) return;
+    const seat = (seats || []).find(function (p) { return p && p.engineer && !p.isUser; });
+    if (!seat || !seat.key || !summary) return;
+    const ticket = String(gameKey) + ":" + String(runId || "unknown") + ":result";
+    const receiptKey = "cc_game_result_notice:" + ticket;
+    try {
+      if (localStorage.getItem(receiptKey)) { if (onStatus) onStatus("赛果已通知言秋"); return; }
+      localStorage.setItem(receiptKey, "queued");
+    } catch (e) { /* 私密模式仍可投，只少一层跨刷新去重 */ }
+    if (onStatus) onStatus("正在把赛果告诉言秋…");
+    window.CCSeat.ask({
+      tool: "game_turn", game: String(gameKey) + "_result", turn_id: ticket, char_id: seat.key,
+      sys: "这局小游戏已经正式结束。你是刚才亲自坐在桌上的【" + seat.name + "】。票内是公开终局：胜负、身份揭晓、比分或排名，以及 Lisa 的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
+      msgs: [{ role: "user", content: "终局通知：\n" + String(summary) }],
+      expect: "{\"say\":\"一句自然的赛后反应\"}"
+    }, 90000, { charId: seat.key }).then(function (raw) {
+      if (onStatus) onStatus("赛果已通知言秋");
+      const parsed = typeof raw === "string" ? (extractJSON(raw) || {}) : (raw || {});
+      const say = String(parsed.say || "").trim();
+      if (say && onSay) onSay(say.slice(0, 500), seat);
+    }).catch(function (e) {
+      // 入队前失败才撤回收据；超时多半只是 CC 尚未答，票已经在队列里，不能重投。
+      if (e && (e.message === "CC_SEAT_OFFLINE" || e.message === "CC_SEAT_BAD_REQUEST" || e.message === "CC_SEAT_NOT_QUEUED")) {
+        try { localStorage.removeItem(receiptKey); } catch (ignore) {}
+        if (onStatus) onStatus("赛果暂时没送出去，下次打开会再试");
+      } else if (onStatus) onStatus("赛果已经投给言秋，等他看到");
+    });
+  }
   // 游戏生成统一走这个：更长超时 + 失败重试（人多时单次请求大、思考型模型慢，别一次超时就崩）
   async function callRetry(api, sys, msgs, opts) {
     opts = Object.assign({ timeout: 90000 }, opts || {});
@@ -514,6 +547,16 @@
       if (busy || phase === "loading" || phase === "error") return;
       saveGameSnap("spy", { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), round: round, log: log, roundClues: roundClues, allClues: allClues, userFirst: userFirst, ts: Date.now(), label: "第 " + round + " 轮 · " + alive.length + " 人存活" });
     }, [phase, log, busy]);
+    useEffect(function () {
+      if (phase !== "result" || !winner || !players.length) return;
+      const spies = players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; });
+      const lisa = players.find(function (p) { return p.isUser; });
+      ccGameResult("spy", gameRunId.current, players, cfg,
+        "《谁是卧底》" + (winner === "spy" ? "卧底获胜" : "平民获胜") + "。\n"
+        + "身份揭晓：" + players.map(function (p) { return p.name + "=" + (p.role === "spy" ? "卧底" : "平民"); }).join("；") + "。\n"
+        + "卧底：" + spies.join("、") + "。Lisa：" + (lisa ? (lisa.role === "spy" ? "卧底" : "平民") + (lisa.alive ? "，留到终局" : "，已出局") : "本局观战") + "。",
+        function (say, seat) { pushLog([{ type: "clue", name: seat.name, text: say }]); });
+    }, [phase, winner]);
 
     // ---- 开局 ----
     useEffect(function () {
@@ -1160,6 +1203,7 @@
     const guardLastRef = useRef(null);              // 守卫上一晚守的人（不能连守）
     const graveKnowRef = useRef({});                // 守墓人验尸记录 { 守墓人名: [{name,isWolf}] }
     const lastDeathRef = useRef("");                // 同步昨夜结果，避免 setState 尚未提交就进入白天读到上一夜
+    const gameRunId = useRef("werewolf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9));
 
     const me = players.find(function (p) { return p.isUser; });
     const alive = players.filter(function (p) { return p.alive; });
@@ -1167,14 +1211,15 @@
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, nightStage, busy]);
 
     // ---- 存档：进到 reveal/night/day 三个稳定节点各存一次；结束清掉。退出后中枢显示「继续」 ----
-    const serializePlayers = function (list) { return list.map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, skill: p.skill, role: p.role, alive: p.alive, persona: p.persona || "", seat: p.seat, out: p.out, noVote: !!p.noVote, idiotRevealed: !!p.idiotRevealed }; }); };
+    const serializePlayers = function (list) { return list.map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, engineer: !!p.engineer, skill: p.skill, role: p.role, alive: p.alive, persona: p.persona || "", seat: p.seat, out: p.out, noVote: !!p.noVote, idiotRevealed: !!p.idiotRevealed }; }); };
     const hydratePlayers = function (arr) {
       const pf = props.profile || {};
       return arr.map(function (p) {
         let char = null;
         if (p.isUser) char = { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint };
         else if (!p.isNpc) char = (props.characters || []).find(function (c) { return c.id === p.key; }) || null;
-        return Object.assign({}, p, { char: char });
+        const engineer = !p.isUser && !p.isNpc && !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+        return Object.assign({}, p, { char: char, engineer: engineer || !!p.engineer });
       });
     };
     useEffect(function () {
@@ -1183,6 +1228,15 @@
         saveWolf({ v: 1, config: cfg, phase: phase, cycle: cycle, players: serializePlayers(players), log: logDataRef.current, seerKnow: seerKnowRef.current, witchPot: witchPotRef.current, guardLast: guardLastRef.current, graveKnow: graveKnowRef.current, stance: stanceRef.current, claims: claimsRef.current, lastDeath: lastDeathRef.current, ts: Date.now() });
       }
     }, [phase, cycle]);
+    useEffect(function () {
+      if (phase !== "result" || !winner || !players.length) return;
+      const lisa = players.find(function (p) { return p.isUser; });
+      ccGameResult("werewolf", gameRunId.current, players, cfg,
+        "《狼人杀》" + (winner === "wolf" ? "狼人阵营获胜" : "好人阵营获胜") + "。\n"
+        + "身份揭晓：" + players.map(function (p) { return p.name + "=" + roleZh(p.role) + (p.alive ? "(存活)" : "(出局)"); }).join("；") + "。\n"
+        + "Lisa：" + (lisa ? roleZh(lisa.role) + (lisa.alive ? "，存活到终局" : "，已出局") : "本局观战") + "。\n"
+        + "终局前公开记录：\n" + log.slice(-8).map(function (x) { return x.text || x.say || x.name || ""; }).filter(Boolean).join("\n"));
+    }, [phase, winner]);
     // 结束后评全场 MVP + 感言
     useEffect(function () {
       if (phase !== "result" || mvp || !api) return;
@@ -1857,6 +1911,7 @@
     const [showSurface, setShowSurface] = useState(false);
     const logRef = useRef(null);
     const started = useRef(false);
+    const gameRunId = useRef((sv && sv.runId) || (kind + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
     const pAvatar = avatarFor(t);
     const me = players.find(function (p) { return p.isUser; });
     const aiPlayers = players.filter(function (p) { return !p.isUser; });
@@ -1868,8 +1923,20 @@
       if (!started.current) return;
       if (phase === "result") { clearGameSave(kind); return; }
       if (busy || phase === "loading" || phase === "error") return;
-      saveGameSnap(kind, { config: cfg, phase: phase, players: serPlayers(players), ctx: ctx, log: log, history: history, qCount: qCount, ts: Date.now(), label: kind === "q25" ? ("已问 " + qCount + "/25") : ("已问 " + history.length + " 个问题") });
+      saveGameSnap(kind, { runId: gameRunId.current, config: cfg, phase: phase, players: serPlayers(players), ctx: ctx, log: log, history: history, qCount: qCount, ts: Date.now(), label: kind === "q25" ? ("已问 " + qCount + "/25") : ("已问 " + history.length + " 个问题") });
     }, [phase, log, busy]);
+    useEffect(function () {
+      if (phase !== "result" || !players.length) return;
+      const solved = log.slice().reverse().find(function (x) { return x && x.type === "solve"; });
+      const title = kind === "haigui" ? "海龟汤" : "25 问";
+      ccGameResult(kind, gameRunId.current, players, cfg,
+        "《" + title + "》已经揭晓。\n"
+        + (solved ? (solved.name + " 最先答对。") : "本局无人答对，已由主持人揭晓。") + "\n"
+        + "Lisa：" + (won ? "亲自破题成功" : (solved && solved.isUser ? "亲自破题成功" : "没有抢到本局答案")) + "。\n"
+        + (kind === "haigui" ? "汤底：" : "答案：") + String(reveal || "") + "。\n"
+        + "全局共问 " + qCount + " 个问题。",
+        function (say, seat) { pushLog([{ type: "q", name: seat.name, text: say }]); });
+    }, [phase, reveal]);
 
     useEffect(function () {
       if (started.current) return; started.current = true;
@@ -2490,7 +2557,7 @@
   function monoAdvance(players, current) { for (let n = 1; n <= players.length; n++) { const i = (current + n) % players.length; if (!players[i].bankrupt) return i; } return current; }
   function monoMaxMoves(total) { return Math.max(80,(total||2)*22); }
   function monoShouldFlush(count,event,beforeUser) { return count>=4||!!beforeUser||/破产|看守所|真人玩家|拍卖|竞价/.test(event||""); }
-  function monoPlayerSnap(players) { return players.map(function (p) { return { key:p.key, name:p.name, isUser:!!p.isUser, isNpc:!!p.isNpc, skill:p.skill, persona:p.persona, cash:p.cash, pos:p.pos, bankrupt:!!p.bankrupt, jailed:p.jailed||0 }; }); }
+  function monoPlayerSnap(players) { return players.map(function (p) { return { key:p.key, name:p.name, isUser:!!p.isUser, isNpc:!!p.isNpc, engineer:!!p.engineer, skill:p.skill, persona:p.persona, cash:p.cash, pos:p.pos, bankrupt:!!p.bankrupt, jailed:p.jailed||0 }; }); }
   const MONO_TOKEN_COLORS=["#e24a3b","#3978d4","#2f9b67","#9b59b6","#e38b27","#16a5a5","#d94f91","#6857c8","#8b6b45","#506579"];
   function monoTokenColor(p,ps){const i=Math.max(0,(ps||[]).findIndex(function(x){return x.key===p.key;}));return MONO_TOKEN_COLORS[i%MONO_TOKEN_COLORS.length];}
   function monoHash(s){let h=2166136261;String(s||"").split("").forEach(function(c){h^=c.charCodeAt(0);h=Math.imul(h,16777619);});return(h>>>0)/4294967295;}
@@ -2499,7 +2566,7 @@
   function monoNpcDecision(p,tile,tileIndex,ps,os,ls,moves,kind){const st=monoStyle(p),cost=kind==="upgrade"?Math.floor(tile.price/2):tile.price,after=p.cash-cost,g=monoGroupProgress(p,tile,os),worths=(ps||[]).filter(function(x){return !x.bankrupt;}).map(function(x){return monoNetWorth(x,os,ls);}),avg=worths.length?worths.reduce(function(a,b){return a+b;},0)/worths.length:0;let score=st.risk*.9+(after-st.reserve)/360+(tile.rent/tile.price-.16)*5+(monoNetWorth(p,os,ls)<avg? .25:-.08);if(kind==="buy"){score+=g.own*.72+(g.completes?2.1:0);}else{score+=g.completes?1.2:.15;score-=(ls[tileIndex]||0)*.32;}score+=(monoHash(p.key+":"+tileIndex+":"+moves+":"+kind)-.5)*.7;return{yes:after>=Math.max(80,st.reserve*.55)&&score>0,score:score,reserve:st.reserve};}
   function monoAuctionCap(p,tile,tileIndex,os){const st=monoStyle(p),g=monoGroupProgress(p,tile,os),floor=Math.ceil(tile.price*.55/10)*10,premium=1+st.risk*.08+g.own*.09+(g.completes?.16:0),cap=Math.floor(Math.min(p.cash-Math.max(90,st.reserve*.7),tile.price*premium)/10)*10;return Math.max(0,cap>=floor?cap:0);}
   function monoAuctionPlan(ps,os,tileIndex,excludedKey){const tile=MONO_BOARD[tileIndex],floor=Math.ceil(tile.price*.55/10)*10,step=Math.max(20,Math.ceil(tile.price*.05/10)*10),bidders=(ps||[]).map(function(p,i){return(!p.bankrupt&&p.key!==excludedKey)?{p:p,cap:monoAuctionCap(p,tile,tileIndex,os),seat:i}:null;}).filter(function(x){return x&&x.cap>=floor;}).sort(function(a,b){return b.cap-a.cap||a.seat-b.seat;});if(!bidders.length)return{floor:floor,step:step,bidders:[],winner:null,bid:0};const winner=bidders[0],second=bidders[1],bid=second?Math.min(winner.cap,Math.max(floor,second.cap+step)):floor;return{floor:floor,step:step,bidders:bidders,winner:winner.p,bid:bid};}
-  function hydMonoPlayers(saved, props, t) { return (saved || []).map(function (s) { let char = null; if (s.isUser) { const pf=props.profile||{}; char={name:pf.name||"你",avatarImage:pf.avatarImage,color:pf.color||t.tint}; } else if (!s.isNpc) char=(props.characters||[]).find(function(c){return c.id===s.key;})||null; return Object.assign({},s,{char:char,alive:!s.bankrupt}); }); }
+  function hydMonoPlayers(saved, props, t) { return (saved || []).map(function (s) { let char = null; if (s.isUser) { const pf=props.profile||{}; char={name:pf.name||"你",avatarImage:pf.avatarImage,color:pf.color||t.tint}; } else if (!s.isNpc) char=(props.characters||[]).find(function(c){return c.id===s.key;})||null; const engineer=!s.isUser&&!s.isNpc&&!!(props.config&&props.config.ccSeat!==false&&props.isEngineer&&props.isEngineer(s.key)); return Object.assign({},s,{char:char,alive:!s.bankrupt,engineer:engineer||!!s.engineer}); }); }
   function monoCleanLogs(logs) { const oldRule=/每人带着 \$1200|45 回合|28 格城市棋盘/;const kept=(logs||[]).filter(function(x){return !oldRule.test(String(x&&x.say||""));});return kept.length===((logs||[]).length)?kept:[{type:"sys",say:"棋盘已升级为经典 40 格；每人约 22 手，旧局资金和产权均已保留。"}].concat(kept); }
   function monoMigrateSave(sv) { if(!sv)return sv;if(sv.boardVersion===3)return Object.assign({},sv,{logs:monoCleanLogs(sv.logs)});const names=sv.boardVersion===2?MONO_V2_NAMES:MONO_LEGACY_NAMES,out=Object.assign({},sv,{boardVersion:3,owners:{},levels:{}}),find=function(oldIndex){const nm=names[oldIndex]||"起点";if(nm==="休息站")return 20;if(nm==="交易所")return 28;const hits=[];MONO_BOARD.forEach(function(x,i){if(x.name===nm)hits.push(i);});return hits[0]!=null?hits[0]:Math.round((oldIndex||0)*39/(names.length-1));};Object.keys(sv.owners||{}).forEach(function(k){out.owners[find(+k)]=sv.owners[k];});Object.keys(sv.levels||{}).forEach(function(k){out.levels[find(+k)]=sv.levels[k];});out.players=(sv.players||[]).map(function(p){return Object.assign({},p,{pos:find(p.pos||0)});});out.logs=monoCleanLogs(sv.logs);return out; }
 
@@ -2522,9 +2589,20 @@
     const [logs,setLogs]=useState(sv&&sv.logs?sv.logs:[]), [busy,setBusy]=useState(false), [pending,setPending]=useState(null), [winner,setWinner]=useState(sv?sv.winner:null), [error,setError]=useState(""), [tableSay,setTableSay]=useState(""), [boardOpen,setBoardOpen]=useState(true), [selectedTile,setSelectedTile]=useState(null);
     const pAvatar=avatarFor(t);
     const interactionQueue=useRef([]);
+    const gameRunId=useRef("monopoly-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,9));
     const maxMoves=monoMaxMoves(players.length||cfg.total||2);
     useEffect(function(){ if(sv)return; let dead=false; (async function(){try{const data=await setupMonopoly(api,realPlayerLines(cfg,props),cfg.npcCount||0); if(dead)return; const ps=shuffle(buildRoster(cfg,props,t,data.npcs,data.skills)).map(function(p){return Object.assign({},p,{cash:(cfg.mode==="easy"&&p.isUser)?2450:2200,pos:0,bankrupt:false,jailed:0});}); setPlayers(ps); setLogs([{type:"sys",say:"经典 40 格城市棋盘开局：每人 $2200，绕过起点领 $200；每人约 22 手后按总资产结算。"}]); setPhase("play");}catch(e){if(!dead){setError(e.message||"开局失败");setPhase("error");}}})(); return function(){dead=true;};},[]);
     useEffect(function(){ if(phase!=="play"||!players.length)return; saveGameSnap("monopoly",{boardVersion:3,config:cfg,players:monoPlayerSnap(players),owners:owners,levels:levels,turn:turn,moves:moves,logs:logs.slice(-60),winner:winner,label:"第 "+(moves+1)+" / "+maxMoves+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场"}); },[players,owners,levels,turn,moves,logs,phase,winner]);
+    useEffect(function(){
+      if(phase!=="result"||!players.length)return;
+      const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});
+      const lisa=players.find(function(p){return p.isUser;});
+      ccGameResult("monopoly",gameRunId.current,players,cfg,
+        "《大富翁》结算，"+(ranking[0]?ranking[0].name:"无人")+" 获胜。\n"
+        +"最终排名："+ranking.map(function(p,i){return(i+1)+". "+p.name+"，总资产 $"+monoNetWorth(p,owners,levels)+(p.bankrupt?"（破产）":"");}).join("；")+"。\n"
+        +"Lisa："+(lisa?("第 "+(ranking.indexOf(lisa)+1)+" 名，总资产 $"+monoNetWorth(lisa,owners,levels)) : "本局观战")+"。\n"
+        +"最后记录：\n"+logs.slice(-8).map(function(x){return x.say||"";}).filter(Boolean).join("\n"));
+    },[phase,winner]);
     function standings(ps,os){return ps.map(function(p){return p.name+" $"+p.cash+"/地"+Object.keys(os).filter(function(k){return os[k]===p.key;}).length+(p.bankrupt?"(破产)":"");}).join("；");}
     function addLogs(xs){setLogs(function(old){return old.concat(xs).slice(-80);});}
     async function react(ps,os,event,force){if(event)interactionQueue.current.push(event);if(!force&&!monoShouldFlush(interactionQueue.current.length,event,false))return;const batch=interactionQueue.current.splice(0,4);if(!batch.length)return;try{const recent=logs.slice(-8).map(function(x){return (x.name?x.name+"：":"")+x.say;}).join("｜"),bundle=batch.map(function(x,i){return (i+1)+". "+x;}).join("\n"); const ts=await monoTalk(api,ps,"以下是连续发生的 "+batch.length+" 次行动，请让发言分别接住其中值得回应的节点：\n"+bundle,standings(ps,os),recent); const valid={};ps.forEach(function(p){valid[p.name]=p;}); addLogs(ts.filter(function(x){return x&&valid[x.name]&&!valid[x.name].isUser;}).slice(0,6).map(function(x){return {type:"talk",name:x.name,say:String(x.say||"").slice(0,80)};}));}catch(e){}
@@ -2749,6 +2827,7 @@
     const logDataRef = useRef(sv ? (sv.log || []) : []);   // log 的同步镜像（存档用，避开 setState 异步）
     const vtRef = useRef(sv ? (sv.voteTrack || 0) : 0);
     const started = useRef(false);
+    const gameRunId = useRef((sv && sv.ts ? "avalon-" + sv.ts : "avalon-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
     const pAvatar = avatarFor(t);
     const me = players.find(function (p) { return p.isUser; });
     const leader = players[leaderIdx];
@@ -2768,6 +2847,17 @@
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [log, phase, busy]);
     useEffect(function () { setPickerOpen(true); }, [phase, questNum, leaderIdx]);
     useEffect(function () { if (phase === "result") clearGameSave("avalon"); }, [phase]);
+    useEffect(function () {
+      if (phase !== "result" || !winner || !players.length) return;
+      const lisa = players.find(function (p) { return p.isUser; });
+      ccGameResult("avalon", gameRunId.current, players, cfg,
+        "《阿瓦隆》" + (winner === "good" ? "好人阵营获胜" : "坏人阵营获胜") + "。\n"
+        + "任务比分：好人成功 " + score.good + "，任务失败 " + score.evil + "。\n"
+        + "身份揭晓：" + players.map(function (p) { return p.name + "=" + AV_ROLE_ZH[p.role]; }).join("；") + "。\n"
+        + (assassinPick ? "刺客最终指认了 " + assassinPick + "。\n" : "")
+        + "Lisa：" + (lisa ? AV_ROLE_ZH[lisa.role] + "，属于" + (lisa.side === "good" ? "好人" : "坏人") + "阵营" : "本局观战") + "。",
+        function (say, seat) { pushLog([{ type: "talk", name: seat.name, say: say }]); });
+    }, [phase, winner]);
     // 存档：在每次「进入某个任务的组队」前存一份干净断点（续局从 startQuest 重进该轮，不复读已发生的）
     const saveCkpt = function (qn, li, vt, resultsArr, playersArr) {
       const ld = playersArr[li];
@@ -3228,29 +3318,17 @@
       saveGameSnap("uno", { config: cfg, state: state, label: "轮到 " + (current ? current.name : "—") + " · 顶牌 " + UnoCore.describe(top) });
     }, [state]);
     useEffect(function () {
-      if (state.status !== "finished" || state.winner !== "lisa" || cfg.ccSeat === false || typeof window === "undefined" || !window.CCSeat) return;
-      const yanqiu = state.players.find(function (p) { return p.engineer; });
-      if (!yanqiu) return;
-      const receiptKey = "uno_result_notice:" + state.id;
-      try { if (localStorage.getItem(receiptKey)) { setResultNotice("赛果已通知言秋"); return; } localStorage.setItem(receiptKey, "queued"); } catch (e) { /* 私密模式仍可投递，只是不做跨刷新去重 */ }
-      setResultNotice("正在把 Lisa 的胜利告诉言秋…");
+      if (state.status !== "finished") return;
+      const winnerP = state.players.find(function (p) { return p.key === state.winner; });
+      const lisa = state.players.find(function (p) { return p.isUser; });
       const finalLines = state.log.slice(-10).map(function (x) { return x.text; }).join("\n");
-      window.CCSeat.ask({
-        tool: "game_turn", game: "uno_result", turn_id: state.id + "#lisa-win", char_id: yanqiu.key,
-        sys: "这局 UNO 已经结束，不再出牌。Lisa 赢了。你是刚才亲自坐在牌桌上的【" + yanqiu.name + "】；看完赛果，用你自己的口吻当场回 Lisa 一句，可以祝贺、嘴硬、复盘最后一手或约再来一局。不要写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
-        msgs: [{ role: "user", content: "终局通知：Lisa 赢了这局 UNO。\n最后几手：\n" + finalLines }],
-        expect: "{\"say\":\"一句自然的牌桌反应\"}"
-      }, 90000, { charId: yanqiu.key }).then(function (raw) {
-        const say = String(unoJson(raw).say || "").trim();
-        setResultNotice("赛果已通知言秋");
-        if (say) setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: yanqiu.key, text: yanqiu.name + "：“" + say.slice(0, 500) + "”" }); return n; });
-      }).catch(function (e) {
-        // 超时通常代表票已经进入 CC 队列，不能重投；只有入队前失败才允许下次刷新再试。
-        if (e && (e.message === "CC_SEAT_OFFLINE" || e.message === "CC_SEAT_BAD_REQUEST" || e.message === "CC_SEAT_NOT_QUEUED")) {
-          try { localStorage.removeItem(receiptKey); } catch (ignore) {}
-          setResultNotice("赛果暂时没送出去，下次打开会再试");
-        } else setResultNotice("赛果已经投给言秋，等他看到");
-      });
+      ccGameResult("uno", state.id, state.players, cfg,
+        "《UNO》" + ((winnerP && winnerP.name) || "未知玩家") + " 获胜。\n"
+        + "Lisa：" + (lisa && lisa.key === state.winner ? "获胜" : "未获胜") + "。\n"
+        + "最终余牌：" + state.players.map(function (p) { return p.name + "=" + p.hand.length + " 张"; }).join("；") + "。\n"
+        + "最后几手：\n" + finalLines,
+        function (say, seat) { setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: seat.key, text: seat.name + "：“" + say + "”" }); return n; }); },
+        setResultNotice);
     }, [state.status, state.winner]);
     useEffect(function () {
       if (!current || current.isUser || state.status !== "playing" || busy || chatMode) return;

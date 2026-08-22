@@ -46,7 +46,7 @@ test("所有座位都认 ccSeat 开关，和 UNO 一模一样", () => {
 });
 
 test("开局前就能看见开关：不必先选中言秋才突然出现", () => {
-  assert.match(games, /const ccSeatSupported = game\.key === "uno" \|\| game\.key === "spy" \|\| game\.key === "werewolf" \|\| game\.key === "avalon"/);
+  assert.match(games, /const ccSeatSupported = true/);
   assert.match(games, /ccSeatSupported \? h\(ToggleRow/);
   assert.match(games, /label: "言秋本人亲打"/);
   // 配置要真的传下去，否则开关点了也没用
@@ -125,4 +125,20 @@ test("谁是卧底：言秋被投出后收到真实票型、公开身份与离�
   assert.match(games, /if \(say\) pushLog\(\[\{ type: "clue", name: out\.name, text: say\.slice\(0, 500\) \}\]\)/,
     "言秋的离场反应要回到牌桌可见日志");
   assert.match(games, /离线时不让 Gemini 冒充补话/);
+});
+
+test("所有有终局的小游戏都统一给言秋送赛果，不再只报 Lisa 赢 UNO", () => {
+  assert.match(games, /function ccGameResult\(gameKey, runId, seats, cfg, summary, onSay, onStatus\)/);
+  assert.match(games, /const seat = \(seats \|\| \[\]\)\.find\(function \(p\) \{ return p && p\.engineer && !p\.isUser; \}\)/,
+    "言秋即使已淘汰也必须收到最后结局");
+  assert.match(games, /String\(gameKey\) \+ ":" \+ String\(runId \|\| "unknown"\) \+ ":result"/,
+    "终局票必须有稳定幂等号");
+  ["spy", "werewolf", "monopoly", "avalon", "uno"].forEach((key) => {
+    assert.match(games, new RegExp('ccGameResult\\("' + key + '"'), key + " 缺终局回执");
+  });
+  assert.match(games, /ccGameResult\(kind, gameRunId\.current/, "海龟汤 / 25 问共享结算也必须送终局回执");
+  assert.doesNotMatch(games, /state\.winner !== "lisa"/, "UNO 不能再只在 Lisa 获胜时通知");
+  assert.match(games, /身份揭晓：/);
+  assert.match(games, /最终排名：/);
+  assert.match(games, /最终余牌：/);
 });

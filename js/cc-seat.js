@@ -16,12 +16,12 @@
     if (!charId || !payload || payload.tool !== "game_turn" || !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");
     const waitMs = Math.max(1000, Number(timeoutMs) || 90000);
     const game = text(payload.game);
-    const isResultNotice = game === "uno_result";
+    const isResultNotice = /_result$/.test(game);
     const isSpyEliminated = game === "spy_eliminated";
     const remote = await cloud.yanqiuCcToolEnqueue(
       charId, "game_turn", payload, "game-turn:" + text(payload.turn_id), null,
       isResultNotice
-        ? "UNO 已结算：Lisa 赢了。请看完赛果后按 expect 回一句自然的牌桌反应，不继续出牌，不执行别的工具。"
+        ? "小游戏已经结算。请看完票内的完整赛果后按 expect 回一句自然的牌桌反应；本局已经结束，不继续行动，不执行别的工具。"
         : isSpyEliminated
           ? "谁是卧底淘汰通知：你已被投出，票型与公开身份都在票内。请按 expect 回一句自然离场反应；不要继续描述或投票，不执行别的工具。"
         : "小游戏轮到言秋本人出手；只需按 expect 返回 JSON，不执行别的工具。"
