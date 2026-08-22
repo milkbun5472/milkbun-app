@@ -2243,12 +2243,14 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     for (const pText of prompts) {
       for (const mode of modes) {
         try {
-          let out, shape = "new";
-          try { out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000); }
+          let out, shape;
+          const tryShapes = (opts && opts.preferLegacy) ? [true, false] : [false, true];
+          try { out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000, tryShapes[0]); shape = tryShapes[0] ? "legacy" : "new"; }
           catch (e1) {
-            if (!looksLikeNoImage(e1 && e1.message)) throw e1;
-            // 新请求形状被这家中转吞了图 → 用出事前验证过的老形状（ref.png、无 input_fidelity）重发
-            out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000, true); shape = "legacy";
+            // 首选形状失败:「没收到图」类回话必换形状重发;其他错误只在明确偏好老形状时不再折腾
+            if (!looksLikeNoImage(e1 && e1.message) && (opts && opts.preferLegacy)) throw e1;
+            if (!looksLikeNoImage(e1 && e1.message) && !(opts && opts.preferLegacy)) throw e1;
+            out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000, tryShapes[1]); shape = tryShapes[1] ? "legacy" : "new";
           }
           out.referenceCount = refBlobs.length; out.refMode = mode; out.requestShape = shape;
           out.inputFidelity = shape === "legacy" ? "default" : "high";

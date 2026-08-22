@@ -3870,7 +3870,7 @@ function ImageApiConfig({ toast }) {
       const prompt = testRef
         ? "Photocopy test: reproduce the attached reference image as exactly as possible — same person, same face, same hair, same expression, same clothing, same pose. Change ONLY the background to plain white. Do not redesign, beautify, restyle, or replace anything about the person."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
-      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 290000, budgetMs: 660000, size: "1024x1024", quality: "low" });
+      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 290000, budgetMs: 660000, size: "1024x1024", preferLegacy: true });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
       setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
     } catch (e) { setTestRes({ ok: false, err: String((e && e.message) || e) }); }
