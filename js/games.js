@@ -34,17 +34,17 @@
   // 只要他坐过这一局，终局无论谁赢、他是否已出局，都要把完整赛果投回 CC。
   // 各游戏只负责组织公开结局；幂等票号统一为 game + runId + result，刷新不连发。
   function ccGameResult(gameKey, runId, seats, cfg, summary, onSay, onStatus) {
-    if (!cfg || cfg.ccSeat === false || typeof window === "undefined" || !window.CCSeat) return;
+    if (!cfg || cfg.ccSeat === false || typeof window === "undefined" || !window.CCSeat) return Promise.resolve("");
     const seat = (seats || []).find(function (p) { return p && p.engineer && !p.isUser; });
-    if (!seat || !seat.key || !summary) return;
+    if (!seat || !seat.key || !summary) return Promise.resolve("");
     const ticket = String(gameKey) + ":" + String(runId || "unknown") + ":result";
     const receiptKey = "cc_game_result_notice:" + ticket;
     try {
-      if (localStorage.getItem(receiptKey)) { if (onStatus) onStatus("赛果已通知言秋"); return; }
+      if (localStorage.getItem(receiptKey)) { if (onStatus) onStatus("赛果已通知言秋"); return Promise.resolve(""); }
       localStorage.setItem(receiptKey, "queued");
     } catch (e) { /* 私密模式仍可投，只少一层跨刷新去重 */ }
     if (onStatus) onStatus("正在把赛果告诉言秋…");
-    window.CCSeat.ask({
+    return window.CCSeat.ask({
       tool: "game_turn", game: String(gameKey) + "_result", turn_id: ticket, char_id: seat.key,
       sys: "这局小游戏已经正式结束。票内是公开终局：胜负、身份揭晓、比分或排名，以及 Lisa 的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
       msgs: [{ role: "user", content: "终局通知：\n" + String(summary) }],
@@ -54,12 +54,14 @@
       const parsed = typeof raw === "string" ? (extractJSON(raw) || {}) : (raw || {});
       const say = String(parsed.say || "").trim();
       if (say && onSay) onSay(say.slice(0, 500), seat);
+      return say;
     }).catch(function (e) {
       // 入队前失败才撤回收据；超时多半只是 CC 尚未答，票已经在队列里，不能重投。
       if (e && (e.message === "CC_SEAT_OFFLINE" || e.message === "CC_SEAT_BAD_REQUEST" || e.message === "CC_SEAT_NOT_QUEUED")) {
         try { localStorage.removeItem(receiptKey); } catch (ignore) {}
         if (onStatus) onStatus("赛果暂时没送出去，下次打开会再试");
       } else if (onStatus) onStatus("赛果已经投给言秋，等他看到");
+      return "";
     });
   }
   // 游戏生成统一走这个：更长超时 + 失败重试（人多时单次请求大、思考型模型慢，别一次超时就崩）
@@ -1215,7 +1217,7 @@
   }
 
   // 全场 MVP + 一句赛后感言（不一定是胜方）
-  async function genMVP(api, players, log, winnerZh, cfg, runId) {
+  async function genMVP(api, players, log, winnerZh, cfg, runId, resultSayPromise) {
     const roleZh = roleName;
     const roster = players.map(function (p) { return "· " + p.name + (p.isUser ? "(你)" : "") + "（" + roleZh(p.role) + "，" + (p.alive ? "存活到终局" : "中途出局") + "）水平：" + (p.skill || "—"); }).join("\n");
     const logText = log.filter(function (it) { return it.type === "speech" || it.type === "death" || it.type === "out" || it.type === "vote"; }).map(function (it) { return it.type === "speech" ? (it.name + "：" + it.text) : it.text; }).slice(-40).join("\n");
@@ -1227,6 +1229,14 @@
     // 评选权仍在裁判；第一人称赛后感想只让本人写。即使本人已经出局也要认座，
     // 所以这里给临时票恢复 alive 标记，不能被 ccSeatOf 的存活过滤吞掉。
     picked.quote = "";
+    // 终局通知和 MVP 评选是并行发生的。若本人已经在终局票里亲口写过
+    // 一段赛后反应，直接把原话放进 MVP 卡，不再让他重复交第二张票。
+    const resultSay = resultSayPromise ? String(await resultSayPromise || "").trim() : "";
+    if (resultSay) {
+      picked.quote = resultSay;
+      picked.quotePending = false;
+      return picked;
+    }
     const cc = await ccCarve("werewolf_mvp", [Object.assign({}, mvpPlayer, { alive: true })], {
       turnId: "wolf-mvp:" + String(runId || Date.now()),
       sys: "这局狼人杀已经结束，裁判评你为全场 MVP。请只写你本人此刻会说的赛后感想，不要让别人代笔；可以回顾自己的判断、心态、对手、遗憾或得意，几句自然的话即可。\n\n【胜负】" + winnerZh + "\n【裁判理由】" + String(picked.reason || "") + "\n【公开赛况】\n" + logText,
@@ -1274,6 +1284,7 @@
     const lastDeathRef = useRef("");                // 同步昨夜结果，避免 setState 尚未提交就进入白天读到上一夜
     const gameRunId = useRef((props.resume && props.savedState && props.savedState.runId)
       || ("werewolf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
+    const ccResultPromiseRef = useRef(null);         // 本局言秋终局原话；若他获 MVP，卡片直接采用，绝不代笔
 
     const me = players.find(function (p) { return p.isUser; });
     const alive = players.filter(function (p) { return p.alive; });
@@ -1301,7 +1312,7 @@
     useEffect(function () {
       if (phase !== "result" || !winner || !players.length) return;
       const lisa = players.find(function (p) { return p.isUser; });
-      ccGameResult("werewolf", gameRunId.current, players, cfg,
+      ccResultPromiseRef.current = ccGameResult("werewolf", gameRunId.current, players, cfg,
         "《狼人杀》" + (winner === "wolf" ? "狼人阵营获胜" : "好人阵营获胜") + "。\n"
         + "身份揭晓：" + players.map(function (p) { return p.name + "=" + roleZh(p.role) + (p.alive ? "(存活)" : "(出局)"); }).join("；") + "。\n"
         + "Lisa：" + (lisa ? roleZh(lisa.role) + (lisa.alive ? "，存活到终局" : "，已出局") : "本局观战") + "。\n"
@@ -1310,7 +1321,7 @@
     // 结束后评全场 MVP + 感言
     useEffect(function () {
       if (phase !== "result" || mvp || !api) return;
-      (async function () { try { const m = await genMVP(api, players, log, winner === "wolf" ? "狼人获胜" : "好人获胜", cfg, gameRunId.current); if (m && m.name) setMvp(m); } catch (e) {} })();
+      (async function () { try { const m = await genMVP(api, players, log, winner === "wolf" ? "狼人获胜" : "好人获胜", cfg, gameRunId.current, ccResultPromiseRef.current); if (m && m.name) setMvp(m); } catch (e) {} })();
     }, [phase]);
     // 每当轮到你做选择（新的阶段/结果）就自动弹出选择框
     useEffect(function () { setPickerOpen(true); }, [phase, nightStage, poisonPick, seerResult, hunterCtx, witchCtx, boomPick]);

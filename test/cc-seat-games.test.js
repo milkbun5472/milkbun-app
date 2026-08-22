@@ -297,4 +297,6 @@ test("狼人杀 MVP 若是言秋，第一人称感想必须另发本人票，不
   assert.match(seg, /picked\.quote\s*=\s*""/);
   assert.match(seg, /本人赛后感想/);
   assert.match(seg, /quotePending/);
+  assert.match(seg, /await resultSayPromise/);
+  assert.match(seg, /picked\.quote\s*=\s*resultSay/);
 });
