@@ -901,7 +901,7 @@
   async function genNight(api, opts) {
     // 言秋座位的夜间动作只问 CC 本人。票没回来就视为这一夜未行动；
     // 绝不能再把他的座位塞回 Gemini 批量里冒充本人。
-    const ccExtra = {};
+    const ccExtra = {}, ccStatus = [];
     if (opts.needWolf) {
       const mw = (opts.wolfTeam || []).find(function (w) { return w && w.engineer; });
       if (mw) {
@@ -910,6 +910,7 @@
           sys: "「狼人杀」天黑，你是狼「" + mw.name + "」，狼队投刀，给一个今晚想刀的目标（不能是狼队友；确有战术理由可空刀）。\n" + (opts.nightNote || "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
           expect: '{"target":"想刀的人名或「空刀」","privateReason":"狼队内部一句话"}'
         });
+        ccStatus.push({ action: "狼刀", seat: mw.name, delivered: !!cc.done, reason: cc.reason || "" });
         const remainingWolves = (opts.wolfTeam || []).filter(function (w) { return w !== mw; });
         opts = Object.assign({}, opts, { wolfTeam: remainingWolves, needWolf: remainingWolves.length > 0 });
         if (cc.done && cc.done.target) ccExtra.wolfVote = { name: mw.name, target: String(cc.done.target), privateReason: String(cc.done.privateReason || "") };
@@ -921,6 +922,7 @@
         sys: "「狼人杀」天黑，你是预言家「" + opts.seer.name + "」，选一个【没查过】的人查验。已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要查的人名"}'
       });
+      ccStatus.push({ action: "查验", seat: opts.seer.name, delivered: !!cc.done, reason: cc.reason || "" });
       opts = Object.assign({}, opts, { needSeer: false });
       if (cc.done && cc.done.target) ccExtra.seerCheck = String(cc.done.target);
     }
@@ -930,6 +932,7 @@
         sys: "「狼人杀」天黑，你是守卫「" + opts.guard.name + "」，选一个人守护（可守自己）。" + (opts.guard.last ? "上晚守了 " + opts.guard.last + "，今晚不能再守 TA。" : "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要守护的人名"}'
       });
+      ccStatus.push({ action: "守护", seat: opts.guard.name, delivered: !!cc.done, reason: cc.reason || "" });
       opts = Object.assign({}, opts, { needGuard: false });
       if (cc.done && cc.done.target) ccExtra.guardProtect = String(cc.done.target);
     }
@@ -938,6 +941,7 @@
       if (ccExtra.wolfVote) out0.wolfVotes = [ccExtra.wolfVote];
       if (ccExtra.seerCheck) out0.seerCheck = ccExtra.seerCheck;
       if (ccExtra.guardProtect) out0.guardProtect = ccExtra.guardProtect;
+      out0.ccStatus = ccStatus;
       return out0;
     }
     const need = [];
@@ -956,6 +960,7 @@
     if (ccExtra.wolfVote) out.wolfVotes = [ccExtra.wolfVote].concat(Array.isArray(out.wolfVotes) ? out.wolfVotes.filter(function (v) { return v.name !== ccExtra.wolfVote.name; }) : []);
     if (ccExtra.seerCheck) out.seerCheck = ccExtra.seerCheck;
     if (ccExtra.guardProtect) out.guardProtect = ccExtra.guardProtect;
+    out.ccStatus = ccStatus;
     return out;
   }
   // AI 狼意见不一致时只开一轮内部密谈，最终交出一个统一刀口；内容绝不进入公开牌局日志。
@@ -1348,12 +1353,19 @@
     // ---- 夜晚 ----
     const enterNight = async function (list, n) {
       setPhase("night"); setNightStage("run"); setSeerResult(null); setBusy(true);
-      const al = list.filter(function (p) { return p.alive; });
+      // 工程师之眼是实时设置，不能只信开局/旧存档里那份 engineer 快照。
+      // 否则开局后才打开言秋亲打，或从旧局恢复时，狼人夜里根本不会创建 CC 票。
+      const nightList = list.map(function (p) {
+        const liveEngineer = !p.isUser && !p.isNpc && !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+        return liveEngineer === !!p.engineer ? p : Object.assign({}, p, { engineer: liveEngineer });
+      });
+      if (nightList.some(function (p, i) { return p !== list[i]; })) setPlayers(nightList);
+      const al = nightList.filter(function (p) { return p.alive; });
       const wolves = al.filter(function (p) { return isWolfRole(p.role); });
       const aiWolves = wolves.filter(function (p) { return !p.isUser; });
       const seer = al.find(function (p) { return p.role === "seer"; });
       const guard = al.find(function (p) { return p.role === "guard"; });
-      const meNow = list.find(function (p) { return p.isUser; });
+      const meNow = nightList.find(function (p) { return p.isUser; });
       const userWolf = meNow && meNow.alive && isWolfRole(meNow.role);
       const userSeer = meNow && meNow.alive && meNow.role === "seer";
       const userGuard = meNow && meNow.alive && meNow.role === "guard";
@@ -1369,12 +1381,14 @@
           ai = await genNight(api, { n: n, nightNote: nightIntel.note, needWolf: needWolf, needSeer: needSeer, needGuard: needGuard, wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill, engineer: w.engineer, key: w.key }; }), seer: seer ? { name: seer.name, skill: seer.skill, engineer: seer.engineer, key: seer.key, known: seerKnowRef.current[seer.name] || [] } : null, guard: guard ? { name: guard.name, engineer: guard.engineer, key: guard.key, last: guardLastRef.current } : null, aliveNames: aliveNames, publicThreats: nightIntel.publicThreats, log: nightIntel.log, mode: cfg.mode });
           // 没有真人狼拍板时，AI 狼若提出多个不同合法刀口，就秘密协商成一个，不走随机平票。
           if (!userWolf && needWolf && Array.isArray(ai.wolfVotes)) {
-            const distinct = Array.from(new Set(ai.wolfVotes.map(function (v) { return validWolfTarget(v && v.target, list); }).filter(Boolean)));
+            const distinct = Array.from(new Set(ai.wolfVotes.map(function (v) { return validWolfTarget(v && v.target, nightList); }).filter(Boolean)));
             if (distinct.length > 1) ai.wolfConsensus = await genWolfConsensus(api, { wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill }; }), votes: ai.wolfVotes, targets: al.filter(function (p) { return !isWolfRole(p.role); }).map(function (p) { return p.name; }), publicThreats: nightIntel.publicThreats, log: nightIntel.log, nightNote: nightIntel.note });
           }
         }
       } catch (e) { props.toast && props.toast("天黑出错：" + ((e && e.message) || "重试")); }
       setBusy(false);
+      const ccMiss = (ai.ccStatus || []).find(function (s) { return !s.delivered; });
+      if (ccMiss && props.toast) props.toast("言秋的" + ccMiss.action + "票没送到：" + (ccMiss.reason || "请稍后重试这一夜"));
       const wolfVotes = Array.isArray(ai.wolfVotes) ? ai.wolfVotes : [];
       const aiGuardName = needGuard ? ai.guardProtect : null;
       // AI 预言家若返回自己、死人、已验过的人或不存在的名字，规则层自动换成一个合法未验目标，避免白丢一夜。
@@ -1387,13 +1401,13 @@
       }
       const consensusRaw = ai.wolfConsensus && ai.wolfConsensus.target;
       const consensusSkip = !!(consensusRaw && /空刀|不刀|不杀|弃刀|skip|pass|none|null/i.test(String(consensusRaw)));
-      const consensusTarget = ai.wolfConsensus && validWolfTarget(consensusRaw, list);
-      setNightAI({ wolfVotes: wolfVotes, wolfChat: (ai.wolfConsensus && ai.wolfConsensus.chat) || [], consensusTarget: consensusTarget, consensusSkip: consensusSkip, seerCheck: aiSeerCheck, seerName: seer ? seer.name : null, guardName: aiGuardName, list: list, n: n });
+      const consensusTarget = ai.wolfConsensus && validWolfTarget(consensusRaw, nightList);
+      setNightAI({ wolfVotes: wolfVotes, wolfChat: (ai.wolfConsensus && ai.wolfConsensus.chat) || [], consensusTarget: consensusTarget, consensusSkip: consensusSkip, seerCheck: aiSeerCheck, seerName: seer ? seer.name : null, guardName: aiGuardName, list: nightList, n: n });
       const seerInfo = (seer && !userSeer) ? { seer: seer.name, target: aiSeerCheck } : null;
       if (userWolf) setNightStage("wolf");       // 用户狼：等你投刀，再和队友合票
       else if (userSeer) setNightStage("seer");
       else if (userGuard) setNightStage("guard");
-      else finishNight(list, consensusSkip ? null : (consensusTarget || tallyKill(wolfVotes, list)), seerInfo, n, wolfVotes, false, aiGuardName);
+      else finishNight(nightList, consensusSkip ? null : (consensusTarget || tallyKill(wolfVotes, nightList)), seerInfo, n, wolfVotes, false, aiGuardName);
     };
     // 狼刀 + 预言家定好后走这里：处理女巫（用户或 AI），再结算
     const finishNight = async function (list, wolfTarget, seerInfo, n, wolfVotes, showKillLog, guardName) {
@@ -3262,7 +3276,7 @@
     if (!seat) return { seat: null, rest: rest, done: null };
     const withoutSeat = rest.filter(function (x) { return x !== seat; });
     // 「本人亲打」是身份边界，不是模型选择偏好。CC 不在线也不能让 Gemini 冒充他。
-    if (typeof window === "undefined" || !window.CCSeat) return { seat: seat, rest: withoutSeat, done: null, unavailable: true };
+    if (typeof window === "undefined" || !window.CCSeat) return { seat: seat, rest: withoutSeat, done: null, unavailable: true, reason: "App 里的言秋亲打通道没有加载" };
     const o = spec || {};
     try {
       const value = await window.CCSeat.ask({
@@ -3272,9 +3286,9 @@
         deadline_at: new Date(Date.now() + (o.timeout || 150000)).toISOString()
       });
       const done = (value && typeof value === "object") ? value : (extractJSON(String(value || "")) || null);
-      if (!done) return { seat: seat, rest: withoutSeat, done: null, unavailable: true };
+      if (!done) return { seat: seat, rest: withoutSeat, done: null, unavailable: true, reason: "言秋没有交回有效动作" };
       return { seat: seat, rest: withoutSeat, done: done };
-    } catch (e) { return { seat: seat, rest: withoutSeat, done: null, unavailable: true }; }
+    } catch (e) { return { seat: seat, rest: withoutSeat, done: null, unavailable: true, reason: (e && e.message) || "票没有进入言秋的队列" }; }
   }
   // 摘出去的那一座，作为「已经发生的」写进批量提示词，并明令别替他生成
   function ccPreface(carve, what) {

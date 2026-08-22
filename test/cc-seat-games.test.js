@@ -20,9 +20,9 @@ test("通用件：摘座 / 前言 / 拼回，三件都在", () => {
 test("本人亲打拿不到就跳过本人座位，绝不让 Gemini 冒充", () => {
   const seg = games.slice(games.indexOf("async function ccCarve"), games.indexOf("function ccPreface"));
   assert.match(seg, /const withoutSeat = rest\.filter\(function \(x\) \{ return x !== seat; \}\);/);
-  assert.match(seg, /!window\.CCSeat\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \};/);
-  assert.match(seg, /if \(!done\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \};/);
-  assert.match(seg, /catch \(e\) \{ return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true \}; \}/);
+  assert.match(seg, /!window\.CCSeat\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true, reason:/);
+  assert.match(seg, /if \(!done\) return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true, reason:/);
+  assert.match(seg, /catch \(e\) \{ return \{ seat: seat, rest: withoutSeat, done: null, unavailable: true, reason:/);
   assert.match(seg, /deadline_at/, "要给 CC 一个截止时间，别无限等");
 });
 
@@ -78,6 +78,16 @@ test("狼人杀 CC 夜间票失败也绝不交给 Gemini 接管", () => {
   assert.match(witch, /return \{ save: false, poison: null \};/);
   assert.match(hunter, /return \{ target: null \};/);
   assert.match(whiteWolf, /return \{ selfDestruct: false, target: null \};/);
+});
+
+test("狼人杀每一夜都实时重认言秋工牌，不能被旧局快照吞票", () => {
+  const night = games.slice(games.indexOf("const enterNight = async function"), games.indexOf("// 狼刀 + 预言家定好后走这里"));
+  assert.match(night, /const nightList = list\.map\(function \(p\) \{/);
+  assert.match(night, /cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)/);
+  assert.match(night, /setPlayers\(nightList\)/);
+  assert.match(night, /wolfTeam: aiWolves\.map\(function \(w\) \{ return \{ name: w\.name, skill: w\.skill, engineer: w\.engineer, key: w\.key \}; \}\)/);
+  assert.match(night, /言秋的" \+ ccMiss\.action \+ "票没送到/,
+    "亲打票失败必须给 Lisa 明确原因，不能静默让 Gemini 接管或像没发生过一样结算");
 });
 
 test("谁是卧底投票也接上了", () => {
