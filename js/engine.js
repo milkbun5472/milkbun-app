@@ -2013,20 +2013,22 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     }
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
   };
-  const attemptWith = async (blobs, refMode) => {
+  // pOverride：审核软化重试用——同一套参考照，换一版措辞。不传就用原 prompt，行为不变。
+  const attemptWith = async (blobs, refMode, pOverride) => {
     const saved = refBlobs.slice();
     refBlobs.length = 0; blobs.forEach(b => refBlobs.push(b));
-    try { return await attempt(true, false, refMode); }
+    try { return await attempt(true, false, refMode, pOverride); }
     finally { refBlobs.length = 0; saved.forEach(b => refBlobs.push(b)); }
   };
-  const attempt = async (useRef, slim, refMode) => {
+  const attempt = async (useRef, slim, refMode, pOverride) => {
+    const promptText = pOverride || prompt;
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 180000);
     let r;
     try {
       if (useRef && refBlobs.length) {
         const fd = new FormData();
-        fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", prompt); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
+        fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
         if (a.quality) fd.append("quality", a.quality);
         // 单张走 image（沿用验证过的路径）；多张（合照）走 image[]，交给 GPT Image 2 做高保真多图编辑。
         // 多图编辑的字段名各家不一：官方 gpt-image 用 image[]，不少中转只认重复的 image。
@@ -2037,7 +2039,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
-        const body = { model: a.model || "gpt-image-2", prompt, size, n: 1 };
+        const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
         if (!slim) { body.response_format = "b64_json"; if (a.quality) body.quality = a.quality; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
@@ -2055,6 +2057,29 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // 现在逐级退：image[] → 重复 image → 只锁角色一张 → 才是无参考照；并把降级结果标出来。
   // 阶梯里每一级为什么失败必须留下来。以前统统 catch 掉,外面只看到「出图成功」,
   // 排查时全靠猜——参考照被丢了却没人知道接口到底说了什么(2026-08-18)。
+  // 审核软化（v54.84）。上游对【真人参考照 + 酒精/烟/刀】特别敏感：她只是要一张自拍，
+  // 角色恰好在醉仙楼喝酒，模型顺手把酒杯写进了画面描述，带参考照那次就被整个拒了
+  // （她 2026-08-22 截图：「没用上参考照：该提示可能违反了我们的内容政策」）。
+  // 以前一被拒就直接退到无参考照——那等于为了一只酒杯丢掉整张脸，换回一个陌生人。
+  // 她要的是这张脸，不是那只杯子，所以先把这些词换掉、【仍然带着参考照】再试一次。
+  const SOFTEN = [
+    [/(喝|饮|斟|灌|抿|品|酌)(着|了|下|过)?(酒|白酒|黄酒|烈酒|米酒)/g, "喝着茶"],
+    [/酒(杯|盏|壶|坛|碗|瓶|樽|囊)/g, "茶盏"],
+    [/(醉|微醺|酩酊|醉醺醺|半醉)(意|态|了)?/g, "微红的脸色"],
+    [/(白酒|红酒|黄酒|烈酒|米酒|清酒|啤酒|酒water|酒)/g, "茶"],
+    [/(抽|吸|叼)(着|了)?(烟|香烟|卷烟)/g, "出神"],
+    [/(烟|香烟|卷烟|烟斗|烟卷)/g, "茶"],
+    [/(刀|剑|匕首|长枪|弓箭|刃)(尖|刃|柄|身)?/g, "折扇"],
+    [/(血|鲜血|血迹|伤口|淤青|刀疤)/g, "衣褶"]
+  ];
+  const softenForModeration = txt => {
+    let out = String(txt || "");
+    SOFTEN.forEach(([re, to]) => { out = out.replace(re, to); });
+    return out === String(txt || "") ? null   // 一个字都没改 → 不是这类问题，别白跑一次
+      : out + "\n【画面尺度补充】画面必须是可公开展示的日常场景：不出现酒精、烟草、武器、血迹与伤口。";
+  };
+  // 只有【疑似被审核拒了】才值得软化重试；网络错误、超时、配额不足换个说法也没用
+  const looksLikePolicy = e => /safety|policy|内容政策|content policy|moderat|sensitive|blocked|reject|违反/i.test(String((e && e.message) || e || ""));
   let lastRefErr = "";
   const note = e => { lastRefErr = String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 180); };
   const mark = (out, how) => { try { if (out && typeof out === "object") { out.degraded = how; if (lastRefErr) out.refError = lastRefErr; } } catch (e) {} return out; };
@@ -2077,9 +2102,23 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         } catch (e) { note(e); }
       }
     }
+    if (looksLikePolicy({ message: lastRefErr })) {
+      const soft = softenForModeration(prompt);
+      if (soft) { try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", soft), "softened"); } catch (e3) { note(e3); } }
+    }
     return mark(await attempt(false), "no-ref");
   }
-  if (refs.length) { try { return await attempt(true); } catch (e) { note(e); return mark(await attempt(false), "no-ref"); } }
+  if (refs.length) {
+    try { return await attempt(true); } catch (e) {
+      note(e);
+      // 被审核拒了 → 先换个说法、【照片照带】再试一次；脸比杯子重要
+      if (looksLikePolicy(e)) {
+        const soft = softenForModeration(prompt);
+        if (soft) { try { return mark(await attemptWith(refBlobs, "first", soft), "softened"); } catch (e2) { note(e2); } }
+      }
+      return mark(await attempt(false), "no-ref");
+    }
+  }
   return await attempt(false);
 }
 // ============================================================
