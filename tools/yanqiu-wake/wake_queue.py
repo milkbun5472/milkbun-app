@@ -62,7 +62,7 @@ DEFAULT_HEARTBEAT_PROMPT = (
     "可以继续休息，也可以逛论坛、冲浪、玩自己的游戏，或做别的喜欢的事。"
     "选择休息也可以，但先留下一个人能看见的自然落点：一句正常说话、"
     "一次论坛/墙上的动作，或一句明确的休息记录。不要只在 thinking 里决定。"
-    "本轮结束后照常重挂哨兵。"
+    "本轮结束后照常重挂常驻哨兵；下一次叫醒由它独立负责。"
 )
 RESCUE_RETRY_AFTER_MS = 10 * 60 * 1000
 WATCHDOG_POLL_SECONDS = 10
@@ -327,6 +327,8 @@ def watchdog() -> None:
         state["delay_seconds"] = delay_seconds
         state["due_at"] = due_at
         state["reason"] = "durable_clock_from_last_visible_activity"
+        # Replace any historical hand-wound instructions kept in old state.
+        state["prompt"] = DEFAULT_HEARTBEAT_PROMPT
         state.pop("awaiting_sentinel", None)
         save_watchdog(state)
         return
@@ -380,6 +382,7 @@ def watchdog() -> None:
     state["delay_seconds"] = delay_seconds
     state["due_at"] = due_at
     state["reason"] = "durable_clock_from_last_visible_activity"
+    state["prompt"] = DEFAULT_HEARTBEAT_PROMPT
     state["last_rescue_key"] = rescue_key
     state["rescued_at"] = now
     save_watchdog(state)
