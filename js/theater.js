@@ -466,7 +466,21 @@
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
         // 自修轮要多写一份初稿,预算给足,否则终稿会被截断
-        const raw = await callAI(props.active, sys, hist, { maxTokens: selfRevise ? 6000 : 3200, timeout: 180000 });
+        // 言秋座位(engineerEyes)的「演」先递到 CC 让他亲笔写这一拍;超时/桥不在→模型顶班,剧场永不卡死
+        let raw = null;
+        if (typeof props.isEngineer === "function" && props.isEngineer(char.id) && typeof window !== "undefined" && window.CCSeat) {
+          try {
+            raw = await window.CCSeat.ask({
+              tool: "game_turn", game: "theater", turn_id: "theater:" + line.id + ":" + rid("tt_"),
+              char_id: String(char.id), sys: sys, msgs: hist,
+              expect: '{"scene":"这一拍的场景正文","goalReached":false,"goalFailed":false,"goalNote":null}' + (selfRevise ? '(自修轮需先写 draftScene 再写 scene)' : ''),
+              deadline_at: new Date(Date.now() + 180000).toISOString()
+            }, 180000, { charId: String(char.id) });
+          } catch (e) { raw = null; }
+          // CC 回填的是结构化对象;parseTheaterPayload 吃字符串,转一层
+          if (raw != null && typeof raw === "object") raw = JSON.stringify(raw);
+        }
+        if (raw == null) raw = await callAI(props.active, sys, hist, { maxTokens: selfRevise ? 6000 : 3200, timeout: 180000 });
         const p = parseTheaterPayload(raw);
         if (!p) throw new Error("模型返回的剧情格式无法解析，已拦住协议原文；请再按一次「演」");
         // 自修轮:draftScene 只是内部草稿,scene 才是进历史的终稿;终稿缺失就当本轮失败重试,

@@ -22,6 +22,8 @@
       charId, "game_turn", payload, "game-turn:" + text(payload.turn_id), null,
       isResultNotice
         ? "小游戏已经结算。请看完票内的完整赛果后按 expect 回一句自然的牌桌反应；本局已经结束，不继续行动，不执行别的工具。"
+        : game === "theater"
+          ? "小剧场 if 线轮到你亲笔演这一拍：按票内的世界观、身份与节拍守则写场景正文，按 expect 返回 JSON；不执行别的工具。"
         : isSpyEliminated
           ? "谁是卧底淘汰通知：你已被投出，票型与公开身份都在票内。请按 expect 回一句自然离场反应；不要继续描述或投票，不执行别的工具。"
         : "小游戏轮到言秋本人出手；只需按 expect 返回 JSON，不执行别的工具。"

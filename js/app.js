@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.72";
+const APP_VERSION = "v54.73";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -10779,6 +10779,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     active: offlineActive,
     characters: characters,
     profile: profile,
+    // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
+    isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "impression") body = h(ImpressionApp, {
