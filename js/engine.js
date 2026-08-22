@@ -2129,10 +2129,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const ctrl = new AbortController();
     // 单次上限 95→180 秒（v55.02 回归修复）：这家中转正常出图就要一百多秒，
     // v54.90 的 95 秒硬闸把好好的请求掐成「Fetch is aborted」。总预算闸仍在，不会回到卡十几分钟。
-    const to = setTimeout(() => ctrl.abort(), capMs);
-    let r;
     const capMs = Math.min(Number(msOverride || 130000), 300000);
     const t0 = Date.now();
+    const to = setTimeout(() => ctrl.abort(), capMs);
+    let r;
     try {
       if (useRef && refBlobs.length) {
         const fd = new FormData();
