@@ -3868,7 +3868,7 @@ function ImageApiConfig({ toast }) {
       // 出来的脸若不是同一个人，结论只有一个：这条线路根本没把参考图喂给模型（或模型不支持编辑），
       // prompt 写得再狠也救不回来，该换站/换模型。
       const prompt = testRef
-        ? "Photocopy test: reproduce the attached reference image as exactly as possible — same person, same face, same hair, same expression, same clothing, same pose. Change ONLY the background to plain white. Do not redesign, beautify, restyle, or replace anything about the person."
+        ? "Simple background replacement edit: keep the attached photo unchanged and replace only the background with plain white. Keep the same subject, hair, clothing and pose as in the original photo."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
       const out = await generateSelfieImage(prompt, testRef, { attemptMs: 290000, budgetMs: 660000, size: "1024x1024", preferLegacy: true });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
