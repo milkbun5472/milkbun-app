@@ -105,6 +105,17 @@ test("狼人杀从真实玩家进入白天发言时不能把 CC 工牌丢在窄�
     "重认后的同一份 speakers 必须进入真正的白天发言函数");
 });
 
+test("狼人杀白天投票也要保留 CC 工牌，不能让 Gemini 替言秋代投", () => {
+  const voteFlow = games.slice(games.indexOf("const runDayVote = async function"), games.indexOf("// ---- UI helpers"));
+  assert.match(voteFlow, /const engineer = !!p\.engineer \|\| !!\(cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)\);/,
+    "投票前要按角色 ID 重认言秋工牌，兼容旧局快照");
+  assert.match(voteFlow, /return \{ key: p\.key, name: p\.name, skill: p\.skill, engineer: engineer, alive: p\.alive, priv:/,
+    "投票名单必须带 key、engineer、alive 进入 genDayVotes");
+  assert.doesNotMatch(voteFlow, /return \{ name: p\.name, skill: p\.skill, priv:/,
+    "旧精简名单会导致 ccSeatOf 找不到言秋，并由 Gemini 代投");
+  assert.match(voteFlow, /await genDayVotes\(api, voters,/);
+});
+
 test("狼人杀 CC 夜间票失败也绝不交给 Gemini 接管", () => {
   const night = games.slice(games.indexOf("async function genNight("), games.indexOf("// AI 狼意见不一致"));
   assert.match(night, /const remainingWolves = \(opts\.wolfTeam \|\| \[\]\)\.filter/);
