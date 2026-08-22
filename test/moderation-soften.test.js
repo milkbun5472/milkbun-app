@@ -150,7 +150,9 @@ test("最简稿要短，但【身份信息一个都不能少】", () => {
   const one = minimal(char, { kind: "self" });
   assert.ok(one.length < 320, "还是要短，现在 " + one.length + " 字");
   assert.match(one, /画面里的人必须严格就是参考图里的那一位/);
-  assert.match(one, /只拍上半身与神情，背景简单干净/);
+  assert.match(one, /必须是本人自拍/);
+  assert.match(one, /自拍透视/);
+  assert.match(one, /背景简单干净/);
   assert.ok(!/酒|刀|血|烟|伤/.test(one), "最简稿里不许有触发词");
   // ⚠️v54.92 血泪教训：上一版把身份也删光了，中转站一旦没真用上参考照
   // （不少便宜通道的图生图是假的，静默退化成文生图），模型手里零信息，

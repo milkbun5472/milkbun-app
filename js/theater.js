@@ -686,7 +686,9 @@
         // 衣着配饰与场地光线;它排在最后,失败降级时第一个被丢掉(身份优先于连贯)。
         const prevPhoto = allMsgs(line).filter(m => m.role === "photo" && m.img).slice(-1)[0];
         const refList = (duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : [])).filter(Boolean);
-        if (prevPhoto && refList.length) refList.push(prevPhoto.img);
+        // IF 线也锁同一张脸，但只让原始人物照定义五官。生成剧照若已经画歪，绝不能
+        // 在下一拍或重 roll 时反过来污染身份；仅在没有任何原始照时才拿它续场景。
+        if (prevPhoto && refList.length === 0) refList.push(prevPhoto.img);
         const refs = refList.length ? refList : null;
         const prompt = typeof buildPhotoPrompt === "function"
           ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true, contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), contRefIndex: (prevPhoto && refList.length > (duo ? 2 : 1)) ? refList.length : 0 })

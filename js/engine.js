@@ -1860,6 +1860,7 @@ async function hydrateNativeSelfies() {
 function buildMinimalPhotoPrompt(char, opts) {
   const anime = char && char.photoStyle === "anime";
   const duo = opts && (opts.kind === "duo" || opts.cast);
+  const kind = opts && ["self", "other", "duo"].includes(opts.kind) ? opts.kind : "self";
   const name = (char && char.name) || "这个人";
   // ⚠️v54.92：上一版把身份信息也删光了，只剩「就是参考图里那位」。
   // 中转站一旦没真用上参考照（不少便宜通道的图生图是假的，静默退化成文生图），
@@ -1872,7 +1873,11 @@ function buildMinimalPhotoPrompt(char, opts) {
     + (look ? "【" + name + "的外貌·务必贴合】" + look + "\n" : "")
     + (wear ? "【穿着】" + wear + "\n" : (look ? "【穿着】按上述外貌里写的来；外貌没写明服装时，按这个人所处的时代与身份自然推导，别串到别的时代去。\n" : ""))
     + (anime ? "精致的二次元动画插画风格。" : "真实照片风格。")
-    + "一张普通的人像：只拍" + (duo ? "两人的" : "") + "上半身与神情，背景简单干净，衣着完整整齐，画面平静、可公开展示。";
+    + (duo
+      ? "一张两人的自然合照：两人都清楚可辨，背景简单干净，衣着完整整齐，画面平静、可公开展示。"
+      : kind === "other"
+        ? "一张由别人拍摄的自然生活照，不是自拍：人物清楚可辨，背景简单干净，衣着完整整齐，画面平静、可公开展示。"
+        : "【必须是本人自拍】本人手持手机、用前置摄像头在一臂距离内拍摄，具有明确自然的自拍透视；脸清楚可辨。不是别人拍摄、不是三脚架肖像、不是宣传人像。背景简单干净，衣着完整整齐，画面平静、可公开展示。");
 }
 
 
@@ -2022,7 +2027,7 @@ function buildReferencePhotoPrompt(char, sceneDesc, st, opts) {
   else parts.push("衣着沿用参考图中可见的时代与人物气质，并按新场景做最少量、自然的调整；不要为了换装重画头脸。");
   if (accessories) parts.push("保留随身配饰：" + accessories + "。");
   if (sceneDesc && String(sceneDesc).trim()) parts.push("新场景与动作：" + String(sceneDesc).trim() + "。");
-  if (kind === "self") parts.push("构图为本人用前置摄像头拍的自然自拍，脸清楚可辨，画面只有本人。");
+  if (kind === "self") parts.push("【硬性构图·必须是本人自拍】本人手持手机、使用前置摄像头在一臂距离内拍摄，画面须有明确自然的自拍透视，取近景或中近景，脸清楚可辨且画面只有本人。不得改成别人拍摄、三脚架肖像、影视剧照或宣传人像。");
   else if (kind === "other") parts.push("构图为别人拍摄的自然生活照，不是自拍；人物的脸清楚可辨。");
   else parts.push(opts.cinematic ? "构图为第三人称场景剧照，不是自拍；所有参考人物的脸都清楚可辨。" : "构图为自然合照；所有参考人物的脸都清楚可辨。");
   parts.push("真实自然的光线和皮肤纹理；手若入镜须解剖正确。不要文字、水印、logo或额外人物。");

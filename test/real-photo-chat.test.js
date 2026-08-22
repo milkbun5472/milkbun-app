@@ -164,7 +164,8 @@ test("连贯参考图与配饰锁", () => {
   assert.match(eng, /rp\.indexOf\("img_"\) === 0/, "聊天自拍库的键也要能当参考图");
   assert.match(app, /kind === "selfie" && m\.imgKey && \(Date\.now\(\)/, "只取近期的自拍当锚");
   assert.match(app, /place: 3 \* 3600000/, "地点要有自己的时效");
-  assert.match(th, /refList\.push\(prevPhoto\.img\)/, "小剧场也用上一张剧照做连贯");
+  assert.match(app, /refs\.length === 0 && prevShot/, "有原始人物照时，线上不得让上一张错脸污染重 roll");
+  assert.match(th, /prevPhoto && refList\.length === 0/, "有原始人物照时，小剧场也不得让上一张错脸污染下一拍");
 });
 
 // 提示不许乱扣帽子(2026-08-18 Lisa:「这都能算亲密戏吗」)——

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.97";
+const APP_VERSION = "v54.98";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4757,8 +4757,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
             const prevShot = (chatsRef.current[charId] || []).slice().reverse()
               .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
-            const contBlobKey = prevShot ? prevShot.imgKey : null;
+            // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
+            // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
+            // 人物参考照时，才允许生成图临时承担服装/场景连贯参考。
             const refs = photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
+            const contBlobKey = refs.length === 0 && prevShot ? prevShot.imgKey : null;
             if (contBlobKey) refs.push(contBlobKey);
             const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
             const photoOpts = { kind: photoKind, me, contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };

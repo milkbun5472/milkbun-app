@@ -42,6 +42,13 @@ test("线上参考照使用短身份编辑提示，小剧场仍保留 IF 线重�
   assert.match(theater, /只改变服装、道具、场景与气质,绝不改变这张脸/);
 });
 
+test("照片类型在审核降级后仍保持：自拍是自拍，抓拍仍允许抓拍", () => {
+  assert.match(engine, /【必须是本人自拍】本人手持手机、用前置摄像头在一臂距离内拍摄/);
+  assert.match(engine, /一张由别人拍摄的自然生活照，不是自拍/);
+  assert.match(engine, /【硬性构图·必须是本人自拍】本人手持手机、使用前置摄像头/);
+  assert.match(engine, /构图为别人拍摄的自然生活照，不是自拍/);
+});
+
 test("人物与用户合照参考图使用高分辨率保存", () => {
   assert.match(screens, /imageMaxDim: 1024, imageQuality: 0\.94/);
   assert.match(components, /imageMaxDim: 1024, imageQuality: 0\.94/);
