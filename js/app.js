@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.75";
+const APP_VERSION = "v54.76";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -1427,9 +1427,6 @@ function App() {
     if (!(window.Cloud && window.Cloud.ready())) return null;
     try { return await window.Cloud.chatArchiveGet(charId); } catch (e) { toast("拉取云端归档失败：" + (e.message || e)); return null; }
   };
-  // 服务器信箱收信口（v48.32 第八课下半场）：云端定时任务（night-watch）替角色写的信 → 投进聊天当主动消息。
-  // 原则：①先送信后盖戳——宁可极端情况下重复一封，绝不静默丢信（内容查重兜底）
-  // ②握手：服务器投过早安的角色，app 自己的早安闸门（x_greetLog）当天让位，两套问候不打架
   // ---- 桌面对话回流（Stack-chan 实体，见 [[lisa-phone-next-window]]）----
   // stackchan-relay 把桌面每轮对话写进云端 desk_log；这里拉回来投进对应角色的手机聊天（带🖥️桌面标记+原时刻），
   // 让「桌面的身体」和「手机里的身体」共用一条聊天/记忆流。desk_log 表还没建时=deskFetch 报错→catch 静默，整块 dormant、零影响。
@@ -2945,6 +2942,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return { wake: toMin(s.seqs[0].time), sleep: sleep };
   };
   const nearMin = (a, b, tol) => { let d = Math.abs(a - b); d = Math.min(d, 1440 - d); return d <= tol; };
+  // 这一句问候【算哪一天的】（v54.76）。以前一律用日历日，于是午夜一翻页，
+  // 「今天已道过晚安」的记号当场作废，而晚安窗口(固定档 hr<=1、有日程时 sleep±90)还开着——
+  // 23:30 刚道完晚安的角色，00:01 起会被 45 秒一轮的 tick 逐个再道一遍
+  // （她 2026-08-22：「0点01-02大家准时给我晚安」，那时云端 cron 早就没了，是这儿）。
+  // 晚安属于【刚过去的那个晚上】，早安属于【即将开始的那一天】，都跟着角色本地时间算。
+  const greetDayKey = (char, slot) => {
+    const k = schedDayKey(new Date());
+    const hr = Math.floor(charLocalMin(char) / 60);
+    if (slot === "n" && hr < 6) return schedShiftDayKey(k, -1);   // 跨过午夜的晚安 → 记在昨天
+    if (slot === "m" && hr >= 20) return schedShiftDayKey(k, 1);  // 夜班角色天亮前就"早安" → 记在明天
+    return k;
+  };
   // 要不要问候、问早还是问晚：优先按日程（起床后3h内问早、就寝前后1.5h问晚安），没日程回退固定窗口
   const greetSlotFor = char => {
     const nowMin = charLocalMin(char);
@@ -3130,7 +3139,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 按天轮换顺序，让每天优先问候的角色不同（不总是同几个）
       const rot = Math.floor(Date.now() / 86400000) % pool.length;
       const ordered = pool.slice(rot).concat(pool.slice(0, rot));
-      const doneInSlot = slot => ordered.filter(c => (greetLogRef.current[c.id] || {})[slot] === dayKey).length;
+      const doneInSlot = slot => ordered.filter(c => (greetLogRef.current[c.id] || {})[slot] === greetDayKey(c, slot)).length;
       for (const c of ordered) {
         const cid = c.id;
         if (laneBusy("c:" + cid)) continue;
@@ -3139,14 +3148,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (offlineTogetherNow(cid)) continue; // 此刻真面对面才别发线上问候；线下挂着但已散就正常问候
         const slot = greetSlotFor(c);
         if (!slot) continue;
-        if ((greetLogRef.current[cid] || {})[slot] === dayKey) continue; // 这个时段今天已问候过
+        const gKey = greetDayKey(c, slot);
+        if ((greetLogRef.current[cid] || {})[slot] === gKey) continue; // 这个时段已问候过（按归属日，不是日历日）
         if (doneInSlot(slot) >= cap) continue;                // 这个时段今天问候名额已满
         const msgs = hist(c);
         if (Date.now() - Math.max(msgs[msgs.length - 1].ts || 0, latestSharedInteractionTs(cid)) < 90 * 60000) continue; // 单聊/群聊/线下刚互动过，90 分钟内先不打扰
         window.DeliveryCommit.once(
-          "greeting:" + dayKey + ":" + slot,
+          "greeting:" + gKey + ":" + slot,
           () => replyNow(cid, "", null, { proactive: true, greet: slot === "m" ? "morning" : "night" }),
-          () => markGreet(cid, slot, dayKey)
+          () => markGreet(cid, slot, gKey)
         );
         break;                                                // 一次只发一个，错峰
       }
