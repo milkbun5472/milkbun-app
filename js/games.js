@@ -115,6 +115,11 @@
   function loadGamesSaves() { try { return JSON.parse(localStorage.getItem(GS_SAVE) || "{}") || {}; } catch (e) { return {}; } }
   function loadGameSave(k) { return loadGamesSaves()[k] || null; }
   function saveGameSnap(k, snap) { try { const all = loadGamesSaves(); all[k] = snap; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
+  // CC 回执按 turn_id 幂等领取。仅用 day/round 或裸毫秒都可能在新局、时钟回拨、
+  // 同毫秒连续出票时撞上旧回执；所有没有稳定局号的临时票统一加随机尾巴。
+  function freshCCTurn(prefix) {
+    return String(prefix || "game") + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  }
   function clearGameSave(k) { try { const all = loadGamesSaves(); delete all[k]; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
   // 玩家名单存/取：剥离不可靠的 char（React 元素/整份档案），续局按 key 从 characters/profile 重挂
   function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive, engineer: !!p.engineer }; }); }
@@ -906,7 +911,7 @@
       const mw = (opts.wolfTeam || []).find(function (w) { return w && w.engineer; });
       if (mw) {
         const cc = await ccCarve("werewolf", [mw], {
-          turnId: "wolf-knife:" + Date.now(),
+          turnId: freshCCTurn("wolf-knife:"),
           sys: "「狼人杀」天黑，你是狼「" + mw.name + "」，狼队投刀，给一个今晚想刀的目标（不能是狼队友；确有战术理由可空刀）。\n" + (opts.nightNote || "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
           expect: '{"target":"想刀的人名或「空刀」","privateReason":"狼队内部一句话"}'
         });
@@ -918,7 +923,7 @@
     }
     if (opts.needSeer && opts.seer && opts.seer.engineer) {
       const cc = await ccCarve("werewolf", [Object.assign({ engineer: true }, opts.seer)], {
-        turnId: "wolf-seer:" + Date.now(),
+        turnId: freshCCTurn("wolf-seer:"),
         sys: "「狼人杀」天黑，轮到你的预言家行动：选一个【没查过】的人查验。已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要查的人名"}'
       });
@@ -928,7 +933,7 @@
     }
     if (opts.needGuard && opts.guard && opts.guard.engineer) {
       const cc = await ccCarve("werewolf", [Object.assign({ engineer: true }, opts.guard)], {
-        turnId: "wolf-guard:" + Date.now(),
+        turnId: freshCCTurn("wolf-guard:"),
         sys: "「狼人杀」天黑，你是守卫「" + opts.guard.name + "」，选一个人守护（可守自己）。" + (opts.guard.last ? "上晚守了 " + opts.guard.last + "，今晚不能再守 TA。" : "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要守护的人名"}'
       });
@@ -976,7 +981,7 @@
     const bottles = []; if (opts.hasHeal) bottles.push("解药(救今晚被刀的人)"); if (opts.hasPoison) bottles.push("毒药(毒死一人)");
     if (opts.engineer) {
       const cc = await ccCarve("werewolf", [{ engineer: true, key: opts.key, name: opts.witchName }], {
-        turnId: "wolf-witch:" + Date.now(),
+        turnId: freshCCTurn("wolf-witch:"),
         sys: "「狼人杀」天黑，你是女巫「" + opts.witchName + "」（一晚最多用一瓶药）。\n今晚被刀：" + (opts.victim || "（平安夜）") + "。手上还有：" + (bottles.length ? bottles.join("、") : "（没药了）") + "。\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"save":true, "poison":"要毒的人名或 null"}'
       });
@@ -996,7 +1001,7 @@
       : "你是好人阵营的" + roleZh + "，优先带走你最确信是狼的人；没把握也可以打一个狼味最重的可疑对象，或者干脆不开枪（乱打好人反而帮了狼）。";
     if (opts.engineer) {
       const cc = await ccCarve("werewolf", [{ engineer: true, key: opts.key, name: opts.hunterName }], {
-        turnId: "wolf-hunter:" + Date.now(),
+        turnId: freshCCTurn("wolf-hunter:"),
         sys: "「狼人杀」你是" + roleZh + "「" + opts.hunterName + "」，刚出局，可以开枪带走一个还在场的人（也可以不开）。" + aim + (opts.teammates && opts.teammates.length ? "\n【你的狼队友（别打）】" + opts.teammates.join("、") : "") + "\n【还在场】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要带走的人名，或 null"}'
       });
@@ -1012,7 +1017,7 @@
   async function genWhiteWolf(api, opts) {
     if (opts.engineer) {
       const cc = await ccCarve("werewolf", [{ engineer: true, key: opts.key, name: opts.name }], {
-        turnId: "wolf-whitewolf:" + Date.now(),
+        turnId: freshCCTurn("wolf-whitewolf:"),
         sys: "「狼人杀」天亮，你是白狼王「" + opts.name + "」，决定要不要自爆（自爆=亮狼身份+带走一人+直接天黑）。没明确收益就别炸。\n【还在场】" + opts.aliveNames.join("、") + (opts.teammates && opts.teammates.length ? "\n【狼队友（别炸自己人）】" + opts.teammates.join("、") : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"selfDestruct":false, "target":"自爆带走的人名或 null"}'
       });
@@ -1182,7 +1187,7 @@
     // 言秋座位先自己投（v54.43 全游戏切座）：身份/私密信息随票给他，拿不到就无感回批量
     const ccVoter = ccSeatOf(voters);
     const cc = ccVoter ? await ccCarve("werewolf", voters, {
-      turnId: "wolf-dayvote:" + Date.now(),
+      turnId: freshCCTurn("wolf-dayvote:"),
       sys: "「狼人杀」白天投票放逐，轮到你投。\n【你的身份与私密信息】" + (ccVoter.priv || "") + "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + claimsText(claims) + "\n按你的身份投一个人（狼要护队友装好人，好人投真怀疑的狼），或「弃票」。",
       expect: '{"target":"人名或「弃票」","reason":"一句短理由"}'
     }) : { seat: null, rest: voters, done: null };
@@ -1922,7 +1927,7 @@
       "\n\n【输出】只输出 JSON：{\"userAnswer\":{\"verdict\":\"\",\"note\":\"\"}或null,\"ai\":[{\"name\":\"\",\"question\":\"\",\"verdict\":\"\",\"note\":\"\"}],\"solvedBy\":\"\",\"reveal\":\"\"}";
     // 言秋座位的问题他自己问（只给公开信息，谜底绝不进票）；主持人照常作答（v54.43）
     const cc = await ccCarve(kind, aiSpeakers, {
-      turnId: "guess-ask:" + Date.now(),
+      turnId: freshCCTurn("guess-ask:"),
       sys: "「" + K.zh + "」轮到你提问。你是玩家（不知道谜底），只能问是非类问题。\n" + (kind === "haigui" ? "【汤面】" + ctx.surface : "【类别】" + ctx.category) + "\n【此前问过的（别重复）】\n" + hist + "\n问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是XX」）。",
       expect: '{"question":"你的一个是非问题"}'
     });
@@ -2239,7 +2244,7 @@
       const prompt = String(po.prompt || "").trim();
       if (prompt) {
         const cc = await ccCarve("tod", [target], {
-          turnId: "tod-answer:" + Date.now(),
+          turnId: freshCCTurn("tod-answer:"),
           sys: "「真心话大冒险」你被点到了，选项已锁定【" + plan.choice + "】。\n" + askerName + " 给你出的题：「" + prompt + "」\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + "用你自己的话回应/完成，3~5 句，带点现场感。" + (hot ? "尺度可以大胆。" : ""),
           expect: '{"response":"你的回应"}'
         });
@@ -2250,7 +2255,7 @@
     }
     if (asker && asker.engineer) {
       const cc = await ccCarve("tod", [asker], {
-        turnId: "tod-ask:" + Date.now(),
+        turnId: freshCCTurn("tod-ask:"),
         sys: "「真心话大冒险」这轮由你给【" + target.name + "】出题，题型锁定【" + plan.choice + "】、主题【" + plan.theme + "】。\n" + target.name + " 的人设：\n" + tdDesc(target, 600) + "\n" + (plan.avoid ? "【最近出过的题（别重复）】\n" + plan.avoid + "\n" : "") + (hot ? "尺度可以大胆。" : "轻松好玩。") + "出一道你真想问/真想让 TA 做的。",
         expect: '{"prompt":"你出的题"}'
       });
@@ -2277,7 +2282,7 @@
     const spice = hot ? "尺度可暧昧 / 大胆些，什么都可以问，挖出角色最深的欲望。" : "轻松好玩的尺度。";
     if (asker && asker.engineer) {
       const cc = await ccCarve("tod", [asker], {
-        turnId: "tod-ask-user:" + Date.now(),
+        turnId: freshCCTurn("tod-ask-user:"),
         sys: "「真心话大冒险」轮到真人玩家（就是她），她选了【" + choice + "】，由你出题。\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + (plan && plan.avoid ? "【最近出过的（别重复）】\n" + plan.avoid + "\n" : "") + (hot ? "尺度可以大胆。" : "轻松好玩。") + "出一道你真想问她/真想让她做的。",
         expect: '{"prompt":"你出的题"}'
       });
@@ -2329,7 +2334,7 @@
       (userMsg ? "\n\n真人玩家刚插了一句：「" + userMsg + "」——让相关的角色自然接住这句往下聊、别冷场、别答非所问。" : focus ? "\n\n真人玩家没有额外插话，你们就【冲着上面刚发生的那轮】聊起来（尤其要有人回应 " + focus.name + " 的回答）。" : "\n\n真人这轮没开口、把话筒交给你们——自己热闹起来，你一句我一句聊下去。") +
       "\n输出 6~10 条（允许同一人多条、顺序自然、彼此能接上），像真的群聊在刷屏。" + (hot ? "尺度可暧昧大胆些，什么都可以聊。" : "轻松好玩。") + "\n只输出 JSON：{\"chat\":[{\"name\":\"\",\"text\":\"\"}]}";
     const cc = await ccCarve("tod", chars, {
-      turnId: "tod-chat:" + Date.now(),
+      turnId: freshCCTurn("tod-chat:"),
       sys: "「真心话大冒险」的自由群聊时间。" + (focus ? "刚发生：" + focus.name + " 做了【" + focus.choice + "】，题「" + (focus.prompt || "") + "」，回答「" + (focus.response || "") + "」。" : "") + (userMsg ? "她刚插话：「" + userMsg + "」。" : "") + "\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + "想起哄/追问/调侃就给一两句（每句30字内）；不想说 lines 给空数组。",
       expect: '{"lines":["最多两句，可空"]}'
     });
@@ -2660,7 +2665,7 @@
     // 大富翁的买地/移动仍由规则引擎结算；攒成一批事件后，言秋本人收到一张桌上发言票。
     const pool = players.filter(function(p){return !p.isUser && !p.bankrupt;});
     const cc = await ccCarve("monopoly", pool, {
-      turnId: "monopoly-talk:" + Date.now(),
+      turnId: freshCCTurn("monopoly-talk:"),
       sys: "「大富翁」桌上刚连续发生了这些事：\n" + event + "\n【账面事实】" + standings + "\n【最近桌上话】" + (recent || "无") + "\n想说就给 1～2 句面对面口语（可讨价还价、嘴硬、幸灾乐祸、安慰或威胁下回合收租）；不想说 lines 留空。不能改钱、产权或规则数据。",
       expect: '{"lines":["最多两句，可空"]}'
     });
@@ -2791,7 +2796,7 @@
     // 队长是言秋座位 → 组队由 CC 本人拍板，talks 仍交批量（v54.43）
     if (leader && leader.engineer) {
       const cc = await ccCarve("avalon", [leader], {
-        turnId: "av-propose:" + qn + ":" + Date.now(),
+        turnId: freshCCTurn("av-propose:" + qn + ":"),
         sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务，轮到你作为队长选【" + needSize + "】人上场" + (failsReq === 2 ? "（此任务需 2 张失败票才失败）" : "") + "。\n【你的身份与私密信息】" + avSecretFor(leader, players) + "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按你的身份选队（好人组可信队，坏人塞人别太明显），公开理由别暴露身份。",
         expect: '{"team":["正好' + needSize + '个在场名字"],"reason":"一句公开理由"}'
       });
@@ -2813,7 +2818,7 @@
       "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
     // 言秋座位先自己投（v54.43）
     const cc = await ccCarve("avalon", voters, {
-      turnId: "av-vote:" + qn + ":" + Date.now(),
+      turnId: freshCCTurn("av-vote:" + qn + ":"),
       sys: "「阿瓦隆」对第 " + (qn + 1) + " 个任务的队伍投票，轮到你。队长 " + leaderName + " 提议：[" + team.join("、") + "]。\n【你的身份与私密信息】" + (ccSeatOf(voters) ? avSecretFor(ccSeatOf(voters), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按身份投赞成或反对，公开理由别暴露身份（注意连续 5 次否决坏人直接赢）。",
       expect: '{"vote":"赞成或反对","reason":"一句公开理由"}'
     });
@@ -2831,7 +2836,7 @@
     // 言秋座位的那句嘴仗自己说；说不上话（离线/没话）就干脆缺席，不许模型代嘴（v54.43）
     const pool = players.filter(function (p) { return !p.isUser; });
     const cc = await ccCarve("avalon", pool, {
-      turnId: "av-talk:" + qn + ":" + Date.now(),
+      turnId: freshCCTurn("av-talk:" + qn + ":"),
       sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务组队后的圆桌讨论。队长 " + leaderName + " 提议：[" + team.join("、") + "]" + (reason ? "，理由：" + reason : "") + "。\n【你的身份与私密信息】" + (ccSeatOf(pool) ? avSecretFor(ccSeatOf(pool), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n想说就给一句 30 字内的桌上话（质疑/辩护/拉票都行，别暴露身份词）；不想说 say 留空。",
       expect: '{"say":"一句30字内的话，可空"}'
     });
@@ -2847,7 +2852,7 @@
     const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     const poolB = players.filter(function (p) { return !p.isUser; });
     const ccB = await ccCarve("avalon", poolB, {
-      turnId: "av-blame:" + qn + ":" + Date.now(),
+      turnId: freshCCTurn("av-blame:" + qn + ":"),
       sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务失败了（" + fails + " 张失败票），全桌炸锅。队伍是 [" + team.join("、") + "]。\n【你的身份与私密信息】" + (ccSeatOf(poolB) ? avSecretFor(ccSeatOf(poolB), players) : "") + "\n【局面】\n" + (hist || "") + "\n想说就给一句 30 字内（自证/互咬/点名分析，别暴露身份词）；不想说 say 留空。",
       expect: '{"say":"一句30字内的话，可空"}'
     });
@@ -2864,7 +2869,7 @@
       "\n\n只输出 JSON：{\"plays\":[{\"name\":\"\",\"play\":\"成功\"或\"失败\"}]}";
     // 队里的坏人是言秋座位 → 成功/失败这张牌他自己出（v54.43）
     const cc = await ccCarve("avalon", evilOnTeam, {
-      turnId: "av-quest:" + qn + ":" + Date.now(),
+      turnId: freshCCTurn("av-quest:" + qn + ":"),
       sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务执行，你在队里而且是坏人，要决定出【成功】还是【失败】。\n目前 好人成功 " + score.good + " / 任务失败 " + score.evil + "。" + (failsReq === 2 ? "此任务需 2 张失败票才失败。" : "1 张失败票就失败。") + "\n出失败推进坏人取胜但会暴露队里有坏人；藏一手出成功有时更稳，你自己权衡。",
       expect: '{"play":"成功或失败"}'
     });
@@ -2882,7 +2887,7 @@
     // 刺客是言秋座位 → 终局这一刀他自己出（v54.43）
     if (assassin && assassin.engineer) {
       const cc = await ccCarve("avalon", [assassin], {
-        turnId: "av-assassin:" + Date.now(),
+        turnId: freshCCTurn("av-assassin:"),
         sys: "「阿瓦隆」终局刺杀：好人已完成 3 个任务，轮到你的刺客行动，猜中梅林则坏人翻盘。\n候选好人：" + goods.join("、") + "\n【全程局面】\n" + (hist || "") + "\n找那个组队/投票像『早就知道坏人是谁』的人。",
         expect: '{"target":"你认定是梅林的人","reason":"一句理由"}'
       });

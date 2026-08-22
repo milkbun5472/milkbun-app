@@ -81,6 +81,18 @@ test("狼人杀新局白天票带每局唯一号，绝不复用上一局第一�
     "旧固定票号会把上一局回执重新投进新局");
 });
 
+test("其余小游戏的临时 CC 票也有随机尾巴，不能靠裸毫秒碰运气", () => {
+  assert.match(games, /function freshCCTurn\(prefix\)/);
+  assert.match(games, /Date\.now\(\)\.toString\(36\) \+ "-" \+ Math\.random\(\)\.toString\(36\)\.slice\(2, 10\)/);
+  assert.doesNotMatch(games, /turnId:\s*"[^"]+"\s*\+\s*Date\.now\(\)/,
+    "所有临时票必须经过 freshCCTurn，避免同毫秒或时钟回拨撞旧回执");
+  ["wolf-knife:", "wolf-seer:", "wolf-guard:", "wolf-witch:", "wolf-hunter:",
+    "wolf-whitewolf:", "wolf-dayvote:", "guess-ask:", "tod-answer:", "tod-ask:",
+    "tod-ask-user:", "tod-chat:", "monopoly-talk:", "av-assassin:"].forEach(function (prefix) {
+    assert.match(games, new RegExp("turnId: freshCCTurn\\(\\\"" + prefix.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&") + "\\\"\\)"), prefix + " 要走统一票号");
+  });
+});
+
 test("狼人杀从真实玩家进入白天发言时不能把 CC 工牌丢在窄桥上", () => {
   const flow = games.slice(games.indexOf("const aiSpeakSeq = async function"), games.indexOf("const submitUserSpeech"));
   assert.match(flow, /const engineer = !!p\.engineer \|\| !!\(cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)\);/,
