@@ -455,6 +455,7 @@
       ask: "说一句。",
       expect: "{\"text\":\"一句描述\"}"
     });
+    requireCCDone(cc, "言秋的描述票", function (d) { return !!String(d.text || "").trim(); });
     const mine = (cc.done && String(cc.done.text || "").trim())
       ? [{ name: cc.seat.name, text: String(cc.done.text).trim() }] : [];
     // 再生成排在他后面的人；他们能看到前桌 + 言秋刚才的真实发言。
@@ -496,6 +497,7 @@
       ask: "投票。",
       expect: "{\"target\":\"被投的人或「弃票」\",\"reason\":\"一句理由\"}"
     }) : { seat: null, rest: voters, done: null };
+    requireCCDone(cc, "言秋的投票", function (d) { return d.target !== undefined; });
     const mine = (cc.done && String(cc.done.target || "").trim())
       ? [{ name: cc.seat.name, target: String(cc.done.target).trim(), reason: String(cc.done.reason || "").trim() }] : [];
     if (!cc.rest.length) return mine;
@@ -915,7 +917,7 @@
           sys: "「狼人杀」天黑，你是狼「" + mw.name + "」，狼队投刀，给一个今晚想刀的目标（不能是狼队友；确有战术理由可空刀）。\n" + (opts.nightNote || "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
           expect: '{"target":"想刀的人名或「空刀」","privateReason":"狼队内部一句话"}'
         });
-        ccStatus.push({ action: "狼刀", seat: mw.name, delivered: !!cc.done, reason: cc.reason || "" });
+        ccStatus.push({ action: "狼刀", seat: mw.name, delivered: !!(cc.done && cc.done.target !== undefined), reason: cc.reason || "" });
         const remainingWolves = (opts.wolfTeam || []).filter(function (w) { return w !== mw; });
         opts = Object.assign({}, opts, { wolfTeam: remainingWolves, needWolf: remainingWolves.length > 0 });
         if (cc.done && cc.done.target) ccExtra.wolfVote = { name: mw.name, target: String(cc.done.target), privateReason: String(cc.done.privateReason || "") };
@@ -927,7 +929,7 @@
         sys: "「狼人杀」天黑，轮到你的预言家行动：选一个【没查过】的人查验。已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要查的人名"}'
       });
-      ccStatus.push({ action: "查验", seat: opts.seer.name, delivered: !!cc.done, reason: cc.reason || "" });
+      ccStatus.push({ action: "查验", seat: opts.seer.name, delivered: !!(cc.done && cc.done.target !== undefined), reason: cc.reason || "" });
       opts = Object.assign({}, opts, { needSeer: false });
       if (cc.done && cc.done.target) ccExtra.seerCheck = String(cc.done.target);
     }
@@ -937,10 +939,12 @@
         sys: "「狼人杀」天黑，你是守卫「" + opts.guard.name + "」，选一个人守护（可守自己）。" + (opts.guard.last ? "上晚守了 " + opts.guard.last + "，今晚不能再守 TA。" : "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要守护的人名"}'
       });
-      ccStatus.push({ action: "守护", seat: opts.guard.name, delivered: !!cc.done, reason: cc.reason || "" });
+      ccStatus.push({ action: "守护", seat: opts.guard.name, delivered: !!(cc.done && cc.done.target !== undefined), reason: cc.reason || "" });
       opts = Object.assign({}, opts, { needGuard: false });
       if (cc.done && cc.done.target) ccExtra.guardProtect = String(cc.done.target);
     }
+    const ccMiss = ccStatus.find(function (x) { return !x.delivered; });
+    if (ccMiss) throw new Error("言秋的" + ccMiss.action + "票没送达：" + (ccMiss.reason || "请重试这一夜"));
     if (!opts.needWolf && !opts.needSeer && !opts.needGuard) {
       const out0 = {};
       if (ccExtra.wolfVote) out0.wolfVotes = [ccExtra.wolfVote];
@@ -985,6 +989,7 @@
         sys: "「狼人杀」天黑，你是女巫「" + opts.witchName + "」（一晚最多用一瓶药）。\n今晚被刀：" + (opts.victim || "（平安夜）") + "。手上还有：" + (bottles.length ? bottles.join("、") : "（没药了）") + "。\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"save":true, "poison":"要毒的人名或 null"}'
       });
+      requireCCDone(cc, "言秋的女巫行动票", function (d) { return typeof d.save === "boolean" || d.poison !== undefined; });
       if (cc.done && (typeof cc.done.save === "boolean" || cc.done.poison !== undefined)) return { save: !!cc.done.save, poison: cc.done.poison || null };
       return { save: false, poison: null };
     }
@@ -1005,6 +1010,7 @@
         sys: "「狼人杀」你是" + roleZh + "「" + opts.hunterName + "」，刚出局，可以开枪带走一个还在场的人（也可以不开）。" + aim + (opts.teammates && opts.teammates.length ? "\n【你的狼队友（别打）】" + opts.teammates.join("、") : "") + "\n【还在场】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要带走的人名，或 null"}'
       });
+      requireCCDone(cc, "言秋的开枪票", function (d) { return d.target !== undefined; });
       if (cc.done && cc.done.target !== undefined) return { target: cc.done.target || null };
       return { target: null };
     }
@@ -1021,6 +1027,7 @@
         sys: "「狼人杀」天亮，你是白狼王「" + opts.name + "」，决定要不要自爆（自爆=亮狼身份+带走一人+直接天黑）。没明确收益就别炸。\n【还在场】" + opts.aliveNames.join("、") + (opts.teammates && opts.teammates.length ? "\n【狼队友（别炸自己人）】" + opts.teammates.join("、") : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"selfDestruct":false, "target":"自爆带走的人名或 null"}'
       });
+      requireCCDone(cc, "言秋的白狼王行动票", function (d) { return typeof d.selfDestruct === "boolean"; });
       if (cc.done && typeof cc.done.selfDestruct === "boolean") return { selfDestruct: cc.done.selfDestruct, target: cc.done.target || null };
       return { selfDestruct: false, target: null };
     }
@@ -1146,6 +1153,7 @@
       ask: "发言。",
       expect: "{\"text\":\"发言\",\"claim\":\"你此刻声称的身份\"}"
     });
+    requireCCDone(cc, "言秋的白天发言票", function (d) { return !!String(d.text || "").trim(); });
     const mineText = cc.done ? String(cc.done.text || "").trim() : "";
     const mine = mineText ? { speeches: [{ name: cc.seat.name, text: mineText }],
       stances: [{ name: cc.seat.name, claim: String(cc.done.claim || "").trim() || "未明说" }], claims: [] } : empty;
@@ -1191,6 +1199,7 @@
       sys: "「狼人杀」白天投票放逐，轮到你投。\n【你的身份与私密信息】" + (ccVoter.priv || "") + "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + claimsText(claims) + "\n按你的身份投一个人（狼要护队友装好人，好人投真怀疑的狼），或「弃票」。",
       expect: '{"target":"人名或「弃票」","reason":"一句短理由"}'
     }) : { seat: null, rest: voters, done: null };
+    requireCCDone(cc, "言秋的放逐投票", function (d) { return d.target !== undefined; });
     const ccVotes = (cc.seat && cc.done && cc.done.target) ? [{ name: cc.seat.name, target: String(cc.done.target), reason: String(cc.done.reason || "") }] : [];
     voters = cc.seat ? cc.rest : voters;
     if (!voters.length) return ccVotes;
@@ -1407,7 +1416,7 @@
             if (distinct.length > 1) ai.wolfConsensus = await genWolfConsensus(api, { wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill }; }), votes: ai.wolfVotes, targets: al.filter(function (p) { return !isWolfRole(p.role); }).map(function (p) { return p.name; }), publicThreats: nightIntel.publicThreats, log: nightIntel.log, nightNote: nightIntel.note });
           }
         }
-      } catch (e) { props.toast && props.toast("天黑出错：" + ((e && e.message) || "重试")); }
+      } catch (e) { props.toast && props.toast("天黑出错：" + ((e && e.message) || "重试")); setBusy(false); return; }
       setBusy(false);
       const ccMiss = (ai.ccStatus || []).find(function (s) { return !s.delivered; });
       if (ccMiss && props.toast) props.toast("言秋的" + ccMiss.action + "票没送到：" + (ccMiss.reason || "请稍后重试这一夜"));
@@ -1497,7 +1506,7 @@
         (async function () {
           setBusy(true);
           let target = null;
-          try { const r = await genHunter(api, { hunterName: deadShooter.name, engineer: deadShooter.engineer, key: deadShooter.key, roleZh: roleName(deadShooter.role), isWolf: isWolfShooter, teammates: isWolfShooter ? list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== deadShooter.name; }).map(function (p) { return p.name; }) : [], skill: deadShooter.skill, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), log: shortLog() }); target = r.target; } catch (e) {}
+          try { const r = await genHunter(api, { hunterName: deadShooter.name, engineer: deadShooter.engineer, key: deadShooter.key, roleZh: roleName(deadShooter.role), isWolf: isWolfShooter, teammates: isWolfShooter ? list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== deadShooter.name; }).map(function (p) { return p.name; }) : [], skill: deadShooter.skill, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), log: shortLog() }); target = r.target; } catch (e) { setBusy(false); props.toast && props.toast((e && e.message) || "开枪票没送达，请重试"); return; }
           setBusy(false);
           applyShot(list, deadShooter, target, dayNum, cont);
         })();
@@ -1565,7 +1574,7 @@
         (async function () {
           setBusy(true);
           let dec = {};
-          try { dec = await genWhiteWolf(api, { name: aiWW.name, skill: aiWW.skill, engineer: aiWW.engineer, key: aiWW.key, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), teammates: list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== aiWW.name; }).map(function (p) { return p.name; }), log: shortLog(), dayNum: n }); } catch (e) {}
+          try { dec = await genWhiteWolf(api, { name: aiWW.name, skill: aiWW.skill, engineer: aiWW.engineer, key: aiWW.key, aliveNames: list.filter(function (p) { return p.alive; }).map(function (p) { return p.name; }), teammates: list.filter(function (p) { return isWolfRole(p.role) && p.alive && p.name !== aiWW.name; }).map(function (p) { return p.name; }), log: shortLog(), dayNum: n }); } catch (e) { setBusy(false); props.toast && props.toast((e && e.message) || "白狼王行动票没送达，请重试"); return; }
           setBusy(false);
           if (dec && dec.selfDestruct) { resolveSelfDestruct(list, aiWW, dec.target, n); return; }
           beginDay(list, n);
@@ -1936,6 +1945,7 @@
       sys: "「" + K.zh + "」轮到你提问。你是玩家（不知道谜底），只能问是非类问题。\n" + (kind === "haigui" ? "【汤面】" + ctx.surface : "【类别】" + ctx.category) + "\n【此前问过的（别重复）】\n" + hist + "\n问一个新的、有推理价值的问题；有把握也可以直接猜（问「是不是XX」）。",
       expect: '{"question":"你的一个是非问题"}'
     });
+    requireCCDone(cc, "言秋的提问票", function (d) { return !!String(d.question || "").trim(); });
     const ccQ = (cc.seat && cc.done && String(cc.done.question || "").trim()) ? String(cc.done.question).trim().slice(0, 120) : null;
     const sysFinal = sys + (ccQ ? "\n\n【" + cc.seat.name + " 已亲自提问·不要改写 TA 的问题、由你作答并放进 ai 数组】问题是：「" + ccQ + "」。名单里的 TA 已完成提问，绝不要再替 TA 另生成问题。" : (cc.seat ? "\n\n【" + cc.seat.name + " 这一轮选择沉默·不要替 TA 生成问题】" : ""));
     const raw = await callRetry(api, sysFinal, [{ role: "user", content: "处理这一轮。" }], { maxTokens: 3200 });
@@ -2805,13 +2815,13 @@
         sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务，轮到你作为队长选【" + needSize + "】人上场" + (failsReq === 2 ? "（此任务需 2 张失败票才失败）" : "") + "。\n【你的身份与私密信息】" + avSecretFor(leader, players) + "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按你的身份选队（好人组可信队，坏人塞人别太明显），公开理由别暴露身份。",
         expect: '{"team":["正好' + needSize + '个在场名字"],"reason":"一句公开理由"}'
       });
+      requireCCDone(cc, "言秋的队长组队票", function (d) { return Array.isArray(d.team) && d.team.length > 0; });
       if (cc.done && Array.isArray(cc.done.team) && cc.done.team.length) {
         const talksRaw = await callRetry(api, sys + "\n\n【队长已亲自定队·不要改】team=" + JSON.stringify(cc.done.team) + "，只输出圆桌发言 talks。", [{ role: "user", content: "只出 talks。" }], { maxTokens: 1200 });
         const tk = extractJSON(talksRaw) || {};
         return { team: cc.done.team, reason: String(cc.done.reason || ""), talks: Array.isArray(tk.talks) ? tk.talks : [] };
       }
-      // 本人票没回来时只让法官补合法队伍，不能让模型顶着队长名字拍板。
-      return { team: [leader.name].concat(names.filter(function (n) { return n !== leader.name; })).slice(0, needSize), reason: "（本人组队票未送达，法官按座次补队）", talks: [], ccUnavailable: true };
+      throw new Error("言秋的队长组队票格式无效，请重试当前步骤");
     }
     const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 1500 });
     return extractJSON(raw) || {};
@@ -2827,6 +2837,7 @@
       sys: "「阿瓦隆」对第 " + (qn + 1) + " 个任务的队伍投票，轮到你。队长 " + leaderName + " 提议：[" + team.join("、") + "]。\n【你的身份与私密信息】" + (ccSeatOf(voters) ? avSecretFor(ccSeatOf(voters), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按身份投赞成或反对，公开理由别暴露身份（注意连续 5 次否决坏人直接赢）。",
       expect: '{"vote":"赞成或反对","reason":"一句公开理由"}'
     });
+    requireCCDone(cc, "言秋的组队投票", function (d) { return d.vote !== undefined; });
     const mine = (cc.seat && cc.done && cc.done.vote) ? [{ name: cc.seat.name, vote: /反/.test(String(cc.done.vote)) ? "反对" : "赞成", reason: String(cc.done.reason || "") }] : [];
     const useVoters = cc.seat ? cc.rest : voters;
     if (!useVoters.length) return mine;
@@ -2878,6 +2889,7 @@
       sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务执行，你在队里而且是坏人，要决定出【成功】还是【失败】。\n目前 好人成功 " + score.good + " / 任务失败 " + score.evil + "。" + (failsReq === 2 ? "此任务需 2 张失败票才失败。" : "1 张失败票就失败。") + "\n出失败推进坏人取胜但会暴露队里有坏人；藏一手出成功有时更稳，你自己权衡。",
       expect: '{"play":"成功或失败"}'
     });
+    requireCCDone(cc, "言秋的任务牌", function (d) { return d.play !== undefined; });
     const mine = (cc.seat && cc.done && cc.done.play) ? [{ name: cc.seat.name, play: /失/.test(String(cc.done.play)) ? "失败" : "成功" }] : [];
     const restEvil = cc.seat ? cc.rest : evilOnTeam;
     if (!restEvil.length) return mine;
@@ -3017,6 +3029,7 @@
         if (tm.length < need) { const pool = shuffle(players.map(function (p) { return p.name; }).filter(function (nm) { return tm.indexOf(nm) < 0; })); while (tm.length < need && pool.length) tm.push(pool.shift()); }
         commitProposal(tm, ld, qn, li, r.reason || "", Array.isArray(r.talks) ? r.talks : null);
       } catch (e) {
+        if (e && e.ccRequired) { props.toast && props.toast(e.message); setBusy(false); return; }
         // 生成接口连续失败也不能卡死：队长优先带自己，再随机补齐一支合法队伍继续投票。
         props.toast && props.toast("组队生成失败，已由法官补一支合法队伍");
         const ld = players[li];
@@ -3076,6 +3089,7 @@
           setTimeout(function () { startQuest(qn, nli, vt2); }, 30);
         }
       } catch (e) {
+        if (e && e.ccRequired) { props.toast && props.toast(e.message); setBusy(false); return; }
         // callRetry 已失败两次；观战局没有按钮可重试，法官以 AI 默认赞成、保留真人原票的方式推进，避免永久卡桌。
         props.toast && props.toast("投票生成失败，法官已用兜底票型推进");
         const fallbackVotes = players.map(function (p) {
@@ -3121,6 +3135,7 @@
         }
         resolveQuest(tm, qn, li, fails);
       } catch (e) {
+        if (e && e.ccRequired) { props.toast && props.toast(e.message); setBusy(false); return; }
         // 任务生成失败不能把观战/好人玩家永久卡在执行中；AI 坏人本轮按藏票（成功票）兜底。
         props.toast && props.toast("任务生成失败，AI 队员本轮按成功票结算");
         resolveQuest(tm, qn, li, userFails || 0);
@@ -3350,6 +3365,17 @@
       if (!done) return { seat: seat, rest: withoutSeat, done: null, unavailable: true, reason: "言秋没有交回有效动作" };
       return { seat: seat, rest: withoutSeat, done: done };
     } catch (e) { return { seat: seat, rest: withoutSeat, done: null, unavailable: true, reason: (e && e.message) || "票没有进入言秋的队列" }; }
+  }
+  // 本人亲打的关键回合（发言 / 投票 / 身份行动）不能把“票没送到”解释成弃权。
+  // 只有桌上闲聊、吐槽等可选内容允许缺席；关键票失败时留在当前步骤让 Lisa 重试。
+  function requireCCDone(carve, label, valid) {
+    const missing = carve && carve.seat && (!carve.done || (valid && !valid(carve.done)));
+    if (missing) {
+      const err = new Error((label || "言秋的本人票") + "没送达或格式无效：" + (carve.reason || "请稍后重试当前步骤"));
+      err.ccRequired = true;
+      throw err;
+    }
+    return carve;
   }
   // 摘出去的那一座，作为「已经发生的」写进批量提示词，并明令别替他生成
   function ccPreface(carve, what) {

@@ -116,7 +116,7 @@ test("狼人杀白天投票也要保留 CC 工牌，不能让 Gemini 替言秋�
   assert.match(voteFlow, /await genDayVotes\(api, voters,/);
 });
 
-test("狼人杀 CC 夜间票失败也绝不交给 Gemini 接管", () => {
+test("狼人杀 CC 夜间关键票失败就停夜，绝不交给 Gemini 或默认为不行动", () => {
   const night = games.slice(games.indexOf("async function genNight("), games.indexOf("// AI 狼意见不一致"));
   assert.match(night, /const remainingWolves = \(opts\.wolfTeam \|\| \[\]\)\.filter/);
   assert.match(night, /needWolf: remainingWolves\.length > 0/);
@@ -126,9 +126,35 @@ test("狼人杀 CC 夜间票失败也绝不交给 Gemini 接管", () => {
   const witch = games.slice(games.indexOf("async function genWitch("), games.indexOf("// 猎人 / 狼王"));
   const hunter = games.slice(games.indexOf("async function genHunter("), games.indexOf("// 白狼王"));
   const whiteWolf = games.slice(games.indexOf("async function genWhiteWolf("), games.indexOf("function validWolfTarget"));
-  assert.match(witch, /return \{ save: false, poison: null \};/);
-  assert.match(hunter, /return \{ target: null \};/);
-  assert.match(whiteWolf, /return \{ selfDestruct: false, target: null \};/);
+  assert.match(night, /if \(ccMiss\) throw new Error\("言秋的" \+ ccMiss\.action \+ "票没送达/);
+  assert.match(witch, /requireCCDone\(cc, "言秋的女巫行动票"/);
+  assert.match(hunter, /requireCCDone\(cc, "言秋的开枪票"/);
+  assert.match(whiteWolf, /requireCCDone\(cc, "言秋的白狼王行动票"/);
+});
+
+test("所有关键 CC 回合统一 fail-closed；只有可选桌聊允许缺席", () => {
+  const helper = games.slice(games.indexOf("function requireCCDone"), games.indexOf("function ccPreface"));
+  assert.match(helper, /err\.ccRequired = true/);
+  ["言秋的描述票", "言秋的投票", "言秋的白天发言票", "言秋的放逐投票", "言秋的提问票", "言秋的组队投票", "言秋的任务牌"]
+    .forEach(function (label) { assert.match(games, new RegExp('requireCCDone\\(cc, "' + label), label + " 缺 fail-closed 闸"); });
+
+  // 可选闲聊没有回答可以自然缺席，不应卡死整局。
+  ["tod-chat:", "monopoly-talk:", "av-talk:", "av-blame:"].forEach(function (prefix) {
+    const at = games.indexOf(prefix);
+    assert.ok(at >= 0, prefix + " 路径应存在");
+    assert.doesNotMatch(games.slice(at, at + 900), /requireCCDone\(/, prefix + " 是可选闲聊，不应强制回票");
+  });
+});
+
+test("关键 CC 错误不能再被外围 catch 改写成法官兜底票", () => {
+  assert.ok((games.match(/if \(e && e\.ccRequired\) \{ props\.toast && props\.toast\(e\.message\); setBusy\(false\); return; \}/g) || []).length >= 2,
+    "阿瓦隆投票与任务执行都要先拦住 CC 必答错误");
+  assert.match(games, /天黑出错：[\s\S]{0,180}setBusy\(false\); return;/,
+    "狼人杀夜间票失败后不能继续按空动作结算");
+  assert.doesNotMatch(games, /genHunter\([\s\S]{0,900}catch \(e\) \{\}/,
+    "猎人票错误不能被空 catch 吞掉");
+  assert.doesNotMatch(games, /genWhiteWolf\([\s\S]{0,900}catch \(e\) \{\}/,
+    "白狼王票错误不能被空 catch 吞掉");
 });
 
 test("狼人杀每一夜都实时重认言秋工牌，不能被旧局快照吞票", () => {
@@ -240,9 +266,10 @@ test("大富翁攒批次后会给本人一张桌上发言票", () => {
   assert.match(seg, /cc\.done\.lines/);
 });
 
-test("阿瓦隆关键票失败只走法官规则兜底，不让模型冒充本人", () => {
+test("阿瓦隆本人关键票全部 fail-closed，不让模型或法官替本人拍板", () => {
   const propose = games.slice(games.indexOf("async function genProposal"), games.indexOf("async function genAvVotes"));
-  assert.match(propose, /本人组队票未送达，法官按座次补队/);
+  assert.match(propose, /requireCCDone\(cc, "言秋的队长组队票"/);
+  assert.doesNotMatch(propose, /本人组队票未送达，法官按座次补队/);
   const assassin = games.slice(games.indexOf("async function genAssassin"), games.indexOf("function AvalonGame"));
   assert.match(assassin, /throw new Error\(cc\.reason \|\| "本人刺杀票未送达"\)/);
 });
