@@ -1793,12 +1793,45 @@ function splitCot(raw, on) {
 // 配置存 localStorage x_imgApi（不含大图，可云同步）；生成的图存 IndexedDB(x_selfies) 不进云
 // OpenAI 兼容：有参考照走 /v1/images/edits(保长相)，否则 /v1/images/generations
 // ============================================================
-function loadImgApi() {
-  const def = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
-  try { const c = JSON.parse(localStorage.getItem("x_imgApi") || "null"); if (c && typeof c === "object") return Object.assign({}, def, c); } catch (e) {}
-  return def;
+const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
+function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
+function normalizeImgApiProfile(p, index) {
+  const out = Object.assign({}, IMG_API_DEFAULTS, p || {});
+  out.id = String(out.id || imgApiProfileId());
+  out.name = String(out.name || ("图像站 " + ((index || 0) + 1))).trim() || ("图像站 " + ((index || 0) + 1));
+  return out;
 }
-function saveImgApi(c) { const clean = Object.assign(loadImgApi(), c || {}); try { localStorage.setItem("x_imgApi", JSON.stringify(clean)); } catch (e) {} return clean; }
+function loadImgApiProfiles() {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem("x_imgApi") || "null"); } catch (e) {}
+  // v54.99：旧版单站配置原地迁移成多站容器，仍复用 x_imgApi，云备份无需改协议。
+  if (raw && Array.isArray(raw.profiles)) {
+    const profiles = raw.profiles.length ? raw.profiles.map(normalizeImgApiProfile) : [normalizeImgApiProfile(null, 0)];
+    const activeId = profiles.some(p => p.id === raw.activeId) ? raw.activeId : profiles[0].id;
+    return { version: 2, activeId, profiles };
+  }
+  const first = normalizeImgApiProfile(raw && typeof raw === "object" ? raw : null, 0);
+  return { version: 2, activeId: first.id, profiles: [first] };
+}
+function saveImgApiProfiles(store) {
+  const src = store && Array.isArray(store.profiles) ? store : loadImgApiProfiles();
+  const profiles = src.profiles.length ? src.profiles.map(normalizeImgApiProfile) : [normalizeImgApiProfile(null, 0)];
+  const clean = { version: 2, activeId: profiles.some(p => p.id === src.activeId) ? src.activeId : profiles[0].id, profiles };
+  try { localStorage.setItem("x_imgApi", JSON.stringify(clean)); } catch (e) {}
+  return clean;
+}
+function loadImgApi() {
+  const store = loadImgApiProfiles();
+  return Object.assign({}, IMG_API_DEFAULTS, store.profiles.find(p => p.id === store.activeId) || store.profiles[0]);
+}
+function saveImgApi(c) {
+  const store = loadImgApiProfiles();
+  const i = Math.max(0, store.profiles.findIndex(p => p.id === store.activeId));
+  store.profiles[i] = normalizeImgApiProfile(Object.assign({}, store.profiles[i], c || {}), i);
+  store.activeId = store.profiles[i].id;
+  saveImgApiProfiles(store);
+  return Object.assign({}, store.profiles[i]);
+}
 function imgApiReady(a) { a = a || loadImgApi(); return !!(a.enabled && a.baseUrl && a.apiKey); }
 // 聊天态穿着是短期现场事实，不是角色永久服装。照片端也必须遵守同一保鲜期，
 // 否则正文已换装，生图仍可能把几天前的衣服当成最高优先级事实。

@@ -3825,8 +3825,28 @@ function CacheStatCard() {
 }
 function ImageApiConfig({ toast }) {
   const t = useTheme();
-  const [c, setC] = useState(() => (typeof loadImgApi === "function" ? loadImgApi() : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false }));
-  const set = patch => { const n = Object.assign({}, c, patch); setC(n); if (typeof saveImgApi === "function") saveImgApi(n); };
+  const [store, setStore] = useState(() => (typeof loadImgApiProfiles === "function" ? loadImgApiProfiles() : { activeId: "legacy", profiles: [Object.assign({ id: "legacy", name: "图像站 1" }, typeof loadImgApi === "function" ? loadImgApi() : {})] }));
+  const c = store.profiles.find(p => p.id === store.activeId) || store.profiles[0];
+  const persist = next => { const clean = typeof saveImgApiProfiles === "function" ? saveImgApiProfiles(next) : next; setStore(clean); return clean; };
+  const set = patch => {
+    const profiles = store.profiles.map((p, i) => p.id === store.activeId ? Object.assign({}, p, patch, { name: String((patch && patch.name) != null ? patch.name : p.name).trim() || ("图像站 " + (i + 1)) }) : p);
+    persist(Object.assign({}, store, { profiles }));
+  };
+  const switchSite = id => { persist(Object.assign({}, store, { activeId: id })); setModels([]); setTestRes(null); toast && toast("已切换图像站"); };
+  const addSite = copy => {
+    const n = store.profiles.length + 1;
+    const id = "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
+    const base = copy ? Object.assign({}, c) : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
+    const profile = Object.assign({}, base, { id, name: copy ? ((c.name || "图像站") + " 副本") : ("图像站 " + n) });
+    persist({ version: 2, activeId: id, profiles: store.profiles.concat(profile) }); setModels([]); setTestRes(null);
+    toast && toast(copy ? "已复制并切到新站点" : "已新增图像站");
+  };
+  const removeSite = () => {
+    if (store.profiles.length <= 1) { toast && toast("至少保留一个图像站"); return; }
+    if (!window.confirm("删除图像站「" + (c.name || "未命名") + "」？只删本站配置。")) return;
+    const profiles = store.profiles.filter(p => p.id !== store.activeId);
+    persist({ version: 2, activeId: profiles[0].id, profiles }); setModels([]); setTestRes(null); toast && toast("已删除并切到另一个图像站");
+  };
   const [models, setModels] = useState([]);
   const [fetching, setFetching] = useState(false);
   const pull = async () => {
@@ -3861,6 +3881,16 @@ function ImageApiConfig({ toast }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像 API · 角色照片"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接一个 OpenAI 兼容的图像接口（gpt-image 类）。开了之后，给角色填了『外貌/参考照』的，聊天里会偶尔发照片（自拍／别人拍的／和你的合照）。想要合照，还要在「我的面具」里填你自己的外貌或传参考照。按张计费、比文字贵，别乱开；生成的图只存在本机、不进云同步。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启角色自拍（按张计费）" : "已关闭"); } })),
+    h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { className: "flex items-center justify-between", style: { gap: 8, marginBottom: 8 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "当前图像站点 · 线上照片与小剧场共用"),
+        h("div", { className: "flex", style: { gap: 6 } },
+          h("button", { onClick: () => addSite(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "＋新增"),
+          h("button", { onClick: () => addSite(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "复制当前"))),
+      h("div", { className: "flex", style: { gap: 6, overflowX: "auto", paddingBottom: 3 } }, store.profiles.map(p => h("button", { key: p.id, onClick: () => switchSite(p.id), className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, padding: "7px 10px", borderRadius: 999, border: "1px solid " + (p.id === store.activeId ? t.ink : t.line), background: p.id === store.activeId ? t.ink : t.bg, color: p.id === store.activeId ? t.bg : t.sub } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")))),
+      h("div", { className: "flex items-center", style: { gap: 7, marginTop: 9 } },
+        h("input", { value: c.name || "", onChange: e => set({ name: e.target.value }), placeholder: "站点名称", style: Object.assign({}, inSt, { flex: 1, padding: "7px 10px", fontSize: 12.5 }) }),
+        h("button", { onClick: removeSite, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b55b51", padding: "7px 9px", border: "1px solid rgba(181,91,81,.35)", borderRadius: 8 } }, "删除本站"))),
     c.enabled ? h("div", { className: "pt-3" },
       row("接口地址 Base URL", h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "如 https://xxx.com（会自动补 /v1/images）", style: inSt })),
       row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "sk-…", type: "password", style: inSt })),
