@@ -13,7 +13,7 @@ const theater = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
 
 // 把软化器抠出来真跑
 const soften = (() => {
-  const i = engine.indexOf("  const SOFTEN = [");
+  const i = engine.indexOf("  // ⚠️替换顺序有讲究");
   const j = engine.indexOf("  };", engine.indexOf("const softenForModeration")) + 4;
   return new Function(engine.slice(i, j) + "\nreturn softenForModeration;")();
 })();
@@ -22,13 +22,33 @@ const looksLikePolicy = (() => {
   return new Function(engine.slice(i, engine.indexOf("\n", i)) + "\nreturn looksLikePolicy;")();
 })();
 
+// v54.85：她第二张截图——同一场景改报「自拍没生成」，整个函数抛了。
+// 两个新病根：① 光秃秃一个「醉」字把【醉仙楼】拆成了「微红的脸色仙楼」，
+// 逐词替换还拼出了「因喝着茶而起的微红的脸色感」这种病句；
+// ② 软化只用在带照片那次，最后的 no-ref 兜底仍用【原始 prompt】——
+// 原措辞本来就被拒，不带照片照样被拒，于是整个抛出。
+test("地名不许误伤：醉仙楼、酒楼要原样活着", () => {
+  const real = "背景是醉仙楼雅间模糊的木雕窗棂，带着几分因饮酒而起的微醺感";
+  const out = soften(real);
+  assert.match(out, /醉仙楼雅间/, "把地名拆了：" + out);
+  assert.equal(soften("他在酒楼二楼靠窗坐着"), null, "酒楼是场所，不是画面里的酒");
+});
+
+test("整词组先处理，别逐词拼出病句", () => {
+  const out = soften("带着几分随性和几分因饮酒而起的微醺感").split("【画面尺度补充】")[0];
+  assert.ok(!/带着几分带着几分/.test(out), "拼重了：" + out);
+  assert.ok(!/微红的脸色感/.test(out), "拼出病句了：" + out);
+  assert.match(out, /带着几分随性和几分松弛/);
+});
+
 test("酒/烟/刀被换掉，并补一句尺度声明", () => {
   const out = soften("他坐在醉仙楼二楼，手里端着酒杯，正在喝酒");
   assert.ok(!/酒/.test(out.split("【画面尺度补充】")[0]), "正文里不该再有酒：" + out);
   assert.match(out, /茶/);
   assert.match(out, /【画面尺度补充】画面必须是可公开展示的日常场景/);
   assert.ok(!/烟/.test(soften("他叼着烟").split("【画面尺度补充】")[0]));
-  assert.ok(!/刀/.test(soften("腰间挂着刀").split("【画面尺度补充】")[0]));
+  assert.ok(!/刀/.test(soften("腰间佩刀").split("【画面尺度补充】")[0]));
+  assert.match(soften("衣袖沾了血迹"), /衣袖沾了尘土/);
 });
 
 test("一个字都没改就返回 null——别为不相干的失败白跑一次", () => {
@@ -44,15 +64,24 @@ test("只对疑似审核拒绝重试；网络错误换说法也没用", () => {
 });
 
 test("降级阶梯：丢脸【之前】插一级软化重试，两条路都插了", () => {
-  // 单张参考照
-  assert.match(engine, /if \(looksLikePolicy\(e\)\) \{\s*const soft = softenForModeration\(prompt\);/);
+  // 单张参考照：只在疑似审核拒绝时才算软化稿
+  assert.match(engine, /const soft = looksLikePolicy\(e\) \? softenForModeration\(prompt\) : null;/);
   assert.match(engine, /return mark\(await attemptWith\(refBlobs, "first", soft\), "softened"\);/);
   // 多张（合照）
-  assert.match(engine, /if \(looksLikePolicy\(\{ message: lastRefErr \}\)\) \{/);
+  assert.match(engine, /const softM = looksLikePolicy\(\{ message: lastRefErr \}\) \? softenForModeration\(prompt\) : null;/);
   // 顺序要紧：软化重试必须排在 no-ref 之前，否则脸已经丢了再软化毫无意义
   const softAt = engine.indexOf('"softened"');
   const noRefAt = engine.indexOf('mark(await attempt(false), "no-ref")');
   assert.ok(softAt > 0 && softAt < noRefAt, "软化重试要排在退回无参考照之前");
+});
+
+test("兜底那级也必须用软化后的措辞——否则软化等于白做", () => {
+  // 这是「自拍没生成」的真正病根：原措辞被拒，不带照片照样被拒，整个函数抛出
+  assert.match(engine, /return mark\(await attempt\(false, false, null, soft\), "softened-no-ref"\);/, "单张");
+  assert.match(engine, /return mark\(await attempt\(false, false, null, softM\), "softened-no-ref"\);/, "多张");
+  // 四级顺序：原样带照片 → 软化带照片 → 软化不带照片 → 原样不带照片
+  const i1 = engine.indexOf('"softened"'), i2 = engine.indexOf('"softened-no-ref"');
+  assert.ok(i1 < i2, "保住脸的那级要排在前面");
 });
 
 test("prompt 覆盖串下去了，而且没把 API 的字段名改坏", () => {
@@ -71,4 +100,8 @@ test("界面要说清楚为什么手里变成了茶，别让她以为角色改�
   assert.equal((theater.match(new RegExp(msg.replace(/[/—]/g, "."), "g")) || []).length, 2, "小剧场剧照与封面两处都要报");
   // softened 不能落进「没用上参考照」那条分支——脸其实保住了，报反了会让人白排查
   assert.match(app, /out\.degraded === "softened" \?/);
+  // 脸没保住的那级要说实话，别和「脸保住了」报成同一句
+  const lost = "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像";
+  assert.ok(app.includes(lost), "单聊要报 softened-no-ref");
+  assert.equal((theater.match(new RegExp(lost.replace(/[/—]/g, "."), "g")) || []).length, 2, "小剧场两处也要报");
 });

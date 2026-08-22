@@ -611,7 +611,7 @@
           : b.faceLock + sceneDesc;
         const out = await generateSelfieImage(prompt, b.refList.length ? b.refList : null);
         if (!out || !out.blob) throw new Error("没出图");
-        if (out.degraded) props.toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "duo-single-ref" ? "只锁了 " + b.char.name + " 的脸" : "没用上参考照" + (out.refError ? "：" + out.refError : ""), 7000);
+        if (out.degraded) props.toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : out.degraded === "duo-single-ref" ? "只锁了 " + b.char.name + " 的脸" : "没用上参考照" + (out.refError ? "：" + out.refError : ""), 7000);
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         // 封面跟着【整条线】走，分支出去的新线也沿用同一张——同一个世界不必各画各的
@@ -705,6 +705,7 @@
         // 降级不再无声无息:脸没锁上时要说出来,否则你只会看到两个陌生人却不知道为什么
         // 降级时把接口原话一起报出来:光说「没用上参考照」排查不了,得知道它到底拒了什么
         if (out.degraded === "softened") props.toast("审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了", 7000);
+        else if (out.degraded === "softened-no-ref") props.toast("审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像", 7000);
         else if (out.degraded) {
           const policy = /内容政策|content policy|safety|moderat/i.test(out.refError || "");
           props.toast(

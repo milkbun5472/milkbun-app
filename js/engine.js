@@ -2062,15 +2062,21 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // （她 2026-08-22 截图：「没用上参考照：该提示可能违反了我们的内容政策」）。
   // 以前一被拒就直接退到无参考照——那等于为了一只酒杯丢掉整张脸，换回一个陌生人。
   // 她要的是这张脸，不是那只杯子，所以先把这些词换掉、【仍然带着参考照】再试一次。
+  // ⚠️替换顺序有讲究：先整词组、再单词，否则逐词替换会拼出病句
+  //   （v54.84 实测「因饮酒而起的微醺感」→「因喝着茶而起的微红的脸色感」）。
+  // ⚠️更要命的是别误伤地名：光秃秃一个「醉」字会把【醉仙楼】拆成「微红的脸色仙楼」，
+  //   所以只认成词的「微醺／醉意／酒意」，绝不单独匹配「醉」；「酒楼／酒馆」同理放过。
   const SOFTEN = [
-    [/(喝|饮|斟|灌|抿|品|酌)(着|了|下|过)?(酒|白酒|黄酒|烈酒|米酒)/g, "喝着茶"],
-    [/酒(杯|盏|壶|坛|碗|瓶|樽|囊)/g, "茶盏"],
-    [/(醉|微醺|酩酊|醉醺醺|半醉)(意|态|了)?/g, "微红的脸色"],
-    [/(白酒|红酒|黄酒|烈酒|米酒|清酒|啤酒|酒water|酒)/g, "茶"],
-    [/(抽|吸|叼)(着|了)?(烟|香烟|卷烟)/g, "出神"],
-    [/(烟|香烟|卷烟|烟斗|烟卷)/g, "茶"],
-    [/(刀|剑|匕首|长枪|弓箭|刃)(尖|刃|柄|身)?/g, "折扇"],
-    [/(血|鲜血|血迹|伤口|淤青|刀疤)/g, "衣褶"]
+    [/因(?:饮酒|喝酒|酒)而(?:起|生|来|生出)的?/g, ""],   // 整个短语拿掉，别拼成「几分带着几分…」
+    [/(?:微醺|醉意|酒意|醉态|半醉|酩酊|醉醺醺)(?:感|的|之意)?/g, "松弛"],
+    [/(?:喝|饮|斟|灌|抿|品|酌)(?:着|了|下|过)?(?:白酒|黄酒|烈酒|米酒|清酒|啤酒|红酒|酒)/g, "喝着茶"],
+    [/(?:白酒|黄酒|烈酒|米酒|清酒|啤酒|红酒)/g, "茶"],
+    [/酒(?:杯|盏|壶|坛|碗|瓶|樽|囊)/g, "茶盏"],
+    [/酒(?![楼馆家店肆坊铺])/g, "茶"],
+    [/(?:抽|吸|叼)(?:着|了)?(?:烟|香烟|卷烟)/g, "出神"],
+    [/(?:香烟|卷烟|烟斗|烟卷|烟草)/g, "茶"],
+    [/(?:匕首|长枪|弓箭|刀刃|刀尖|剑刃|剑尖|佩刀|佩剑)/g, "折扇"],
+    [/(?:鲜血|血迹|血痕|伤口|淤青|刀疤)/g, "尘土"]
   ];
   const softenForModeration = txt => {
     let out = String(txt || "");
@@ -2102,9 +2108,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         } catch (e) { note(e); }
       }
     }
-    if (looksLikePolicy({ message: lastRefErr })) {
-      const soft = softenForModeration(prompt);
-      if (soft) { try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", soft), "softened"); } catch (e3) { note(e3); } }
+    const softM = looksLikePolicy({ message: lastRefErr }) ? softenForModeration(prompt) : null;
+    if (softM) {
+      try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", softM), "softened"); } catch (e3) { note(e3); }
+      try { return mark(await attempt(false, false, null, softM), "softened-no-ref"); } catch (e4) { note(e4); }
     }
     return mark(await attempt(false), "no-ref");
   }
@@ -2112,10 +2119,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     try { return await attempt(true); } catch (e) {
       note(e);
       // 被审核拒了 → 先换个说法、【照片照带】再试一次；脸比杯子重要
-      if (looksLikePolicy(e)) {
-        const soft = softenForModeration(prompt);
-        if (soft) { try { return mark(await attemptWith(refBlobs, "first", soft), "softened"); } catch (e2) { note(e2); } }
-      }
+      const soft = looksLikePolicy(e) ? softenForModeration(prompt) : null;
+      // ① 软化 + 照片照带：她要的是这张脸，不是那只杯子
+      if (soft) { try { return mark(await attemptWith(refBlobs, "first", soft), "softened"); } catch (e2) { note(e2); } }
+      // ② 软化 + 无参考照：脸保不住了，至少让图出得来。
+      //    以前这一级用的是【原始 prompt】，于是软化白做——原措辞本来就被拒，
+      //    不带照片照样被拒，整个函数抛出，界面上就是「自拍没生成」（她 2026-08-22 第二张截图）。
+      if (soft) { try { return mark(await attempt(false, false, null, soft), "softened-no-ref"); } catch (e3) { note(e3); } }
       return mark(await attempt(false), "no-ref");
     }
   }
