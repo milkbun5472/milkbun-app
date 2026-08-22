@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.90";
+const APP_VERSION = "v54.91";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4068,6 +4068,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pChat(charId, p => [...p, { role: "user", kind: "pat", content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now(), read: false, blocked: !!(b.iBlocked || b.theyBlocked) }]);
   };
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
+  // 连续几轮「要了却没拍」的计数，按角色分开（只用来判断要不要提示，不落库）
+  const noPhotoStreakRef = useRef({});
   const PHOTO_REQUEST_RE = /(?:照片|自拍|拍(?:一|两|几|张|个)|再拍|发(?:张|个|一张|照片|图片|图)|给我看|让我看|看看你|合照|photo|selfie|picture)/i;
   // 最近三次角色文字回复内，已经发过照片就关闭 photo 能力；只有用户在那张图之后
   // 明确要求再拍才放行。不能把“别频繁”只交给模型自觉。
@@ -4723,6 +4725,21 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       }
       // 模型即使在冷却轮偷填 photo 也不执行；用户明确说“再拍一张”时上面的状态会放行。
       if (photoCooldown.cooling) { photoKind = null; photoScene = null; }
+      // 她明明开口要了，模型却一个 photo 字段都没吐（她 2026-08-22 发现：有的中转站模型
+      // 怎么催都不发图，换一个立刻就发）。这以前完全静默——她只看到他打哈哈，
+      // 分不清是「他不想拍」还是「这个模型根本不认这个能力」，只能一个个试出来。
+      // 所以把它说出来：能力确实给了、她也确实开口了、就是没吐字段 → 那是模型的问题。
+      if (!photoScene && canSelfie && !photoCooldown.cooling) {
+        const lastAsk = (history || []).slice(-4).filter(m => m && m.role === "user")
+          .some(m => PHOTO_REQUEST_RE.test(String(m.content || "")));
+        if (lastAsk) {
+          noPhotoStreakRef.current[charId] = (noPhotoStreakRef.current[charId] || 0) + 1;
+          // 连着两轮不吐才提示：偶尔一轮他就是想逗你，那是人物反应，不该报错
+          if (noPhotoStreakRef.current[charId] === 2) {
+            toast("你要了两次他都没拍——不是他不肯，是这个聊天模型没吐 photo 字段。有的中转站模型不认这个能力，去 设置·API 换一个模型多半立刻就发", 9000);
+          }
+        }
+      } else if (photoScene) noPhotoStreakRef.current[charId] = 0;
       // 合照必须两张参考照都在，否则降级为「别人拍的单人照」——杜绝一张真一张编
       if (photoKind === "duo" && !(char.refPhoto && profile && profile.refPhoto)) photoKind = "other";
       if (photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady() && (char.appearance || char.refPhoto)) {
