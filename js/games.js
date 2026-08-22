@@ -2185,7 +2185,7 @@
   }
   // 自由发言：像群聊一样，谁想说就说、一人可多条、互相接话、cue 题目和回答、翻旧账
   // focus = 刚发生的这一轮 {name,choice,prompt,response}，有它就让大家【针对它】反应（含真人的回答）
-  async function genTDDiscuss(api, chars, memText, userMsg, hot, focus) {
+  async function genTDDiscuss(api, chars, memText, userMsg, hot, focus, banNames) {
     const who = tdRoster(chars, 700);
     const focusLine = focus ? "\n\n【★ 刚刚这一轮·大家务必【针对这个】起哄 / 追问 / 调侃 / 接话，别当没看见、别自顾自跳过它去聊别的】\n" + focus.name + " 刚做了【" + focus.choice + "】——题目是「" + (focus.prompt || "") + "」，" + focus.name + " 的回答 / 表现是：「" + (focus.response || "（没细说）") + "」" : "";
     const sys = AC + TD_IC + "\n\n「真心话大冒险」的自由发言时间——【不是排队每人一句评论】，是【像微信群聊那样】：谁想插话就插、同一个人可以连着说好几句、可以打断 / 接住 / 反驳别人、可以专门 cue 刚才那道题或那个回答、翻之前几轮的旧账、拱火、跑题都行，要有你来我往的层次。只有下面这些角色开口（【绝不替真人玩家说话】，每人严格贴自己人设、口吻各不相同）：\n" + who + focusLine +
@@ -2199,6 +2199,14 @@
     });
     const raw = await callRetry(api, sys + ccPreface(cc, "插过话了（也可能没说）"), [{ role: "user", content: "群聊起来。" }], { maxTokens: 5000 });
     const p = extractJSON(raw); let rows = (p && Array.isArray(p.chat)) ? p.chat : [];
+    // 真人玩家名字硬拉黑（v54.60 她抓到）：模型会编一条 name=她 的发言，渲染层模糊匹配
+    // 到真人玩家就挂上她的头像、变成"她说的话"。围观路人（短发女生这类临时编的）保留，
+    // 但任何撞真人玩家名字的行（含模糊包含）一律丢弃——嘴替是底线。
+    const bans = (banNames || []).filter(Boolean);
+    rows = rows.filter(function (v) {
+      const nm = String((v && v.name) || "").trim();
+      return nm && !bans.some(function (b) { return nm === b || nm.indexOf(b) >= 0 || b.indexOf(nm) >= 0; });
+    });
     if (cc.seat) rows = rows.filter(function (v) { return v.name !== cc.seat.name; });
     if (cc.seat && cc.done && Array.isArray(cc.done.lines)) cc.done.lines.slice(0, 2).forEach(function (tx) { const tt = String(tx || "").trim(); if (tt) rows.push({ name: cc.seat.name, text: tt.slice(0, 80) }); });
     return rows;
@@ -2241,7 +2249,7 @@
     const roundChat = async function (focus) {
       try {
         const chars = players.filter(function (p) { return !p.isUser; });
-        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), null, hot, focus || null);
+        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), null, hot, focus || null, players.filter(function (p) { return p.isUser; }).map(function (p) { return p.name; }));
         if (c.length) pushLog(c.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
       } catch (e) { /* 反应可有可无 */ }
     };
@@ -2338,7 +2346,7 @@
       if (userMsg) pushLog([{ type: "chat", name: (props.profile && props.profile.name) || "你", text: userMsg, mine: true }]);
       try {
         const chars = players.filter(function (p) { return !p.isUser; });
-        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), userMsg, hot);
+        const c = await genTDDiscuss(api, chars, tdMemoryText(logDataRef.current), userMsg, hot, null, players.filter(function (p) { return p.isUser; }).map(function (p) { return p.name; }));
         if (c.length) pushLog(c.map(function (x) { return { type: "chat", name: x.name, text: x.text }; }));
         else if (!userMsg) props.toast && props.toast("大家没接话，再点一次试试");
       } catch (e) { props.toast && props.toast("聊天出错：" + ((e && e.message) || "重试")); }
