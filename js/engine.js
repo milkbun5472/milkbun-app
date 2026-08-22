@@ -2111,6 +2111,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const softM = looksLikePolicy({ message: lastRefErr }) ? softenForModeration(prompt) : null;
     if (softM) {
       try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", softM), "softened"); } catch (e3) { note(e3); }
+      if (opts && opts.minimalPrompt) {
+        try { return mark(await attemptWith(refBlobs, refBlobs.length > 1 ? "bracket" : "first", opts.minimalPrompt), "minimal"); } catch (eM2) { note(eM2); }
+      }
       try { return mark(await attempt(false, false, null, softM), "softened-no-ref"); } catch (e4) { note(e4); }
     }
     return mark(await attempt(false), "no-ref");
@@ -2122,7 +2125,14 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const soft = looksLikePolicy(e) ? softenForModeration(prompt) : null;
       // ① 软化 + 照片照带：她要的是这张脸，不是那只杯子
       if (soft) { try { return mark(await attemptWith(refBlobs, "first", soft), "softened"); } catch (e2) { note(e2); } }
-      // ② 软化 + 无参考照：脸保不住了，至少让图出得来。
+      // ②【保脸级】最简 prompt + 照片照带：几乎不带场景文字，审核没东西可挑，
+      //    参考照却还在。这一级由调用方传进来（opts.minimalPrompt）——只有它知道
+      //    锁脸段和这条线的行头长什么样。她 2026-08-22 问「到底咋样才能永远保住脸」，
+      //    答案就是这一级：把风险全在场景描述里，那就把场景描述整个拿掉。
+      if (opts && opts.minimalPrompt) {
+        try { return mark(await attemptWith(refBlobs, "first", opts.minimalPrompt), "minimal"); } catch (eM) { note(eM); }
+      }
+      // ③ 软化 + 无参考照：脸保不住了，至少让图出得来。
       //    以前这一级用的是【原始 prompt】，于是软化白做——原措辞本来就被拒，
       //    不带照片照样被拒，整个函数抛出，界面上就是「自拍没生成」（她 2026-08-22 第二张截图）。
       if (soft) { try { return mark(await attempt(false, false, null, soft), "softened-no-ref"); } catch (e3) { note(e3); } }

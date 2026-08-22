@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.85";
+const APP_VERSION = "v54.86";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4288,7 +4288,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "\n【photo 发照片】你可以给 " + uName + " 发真实照片，别太拘谨——Ta 让你拍、你想给 Ta 看此刻的自己、撒娇卖萌、报备在哪在干嘛、心情好想分享、氛围正好、或话题聊到你的样子/穿着/所在时，都可以自然发一张（放开点，但别每一轮都发、别刷屏，一段对话里几次就够）。想发就填 photo 对象：{\"kind\":\"self｜other" + (canDuo ? "｜duo" : "") + "\",\"scene\":\"这张照片拍到了什么（你在哪、在干嘛、表情、光线氛围，一句话；别描写长相——长相已知）\"}。" + (canDuo ? "三" : "两") + "种 kind：**self**=你自己拿手机拍的第一人称自拍（有你的脸）；**other**=别人给你拍的照片（第三人称，可站可坐可走可回眸、半身全身带环境都行，姿势构图更多样，别老是怼脸自拍）——别人在场时/想给 Ta 看更完整的你时用；" + (canDuo ? "**duo**=你和 " + uName + " 的合照（画面里有你俩两个人，会拿你俩各自的参考照把两张脸都锁住）——你俩见面/依偎/约会/想留合影时用，**哪怕 Ta 没明说要合照，只要情境是你俩在一起，你也可以主动发一张我俩的合照**，你清楚这照片里另一个人就是 " + uName + "。" : "") + "不发就 photo:null。**极其重要：画面描述只能写进 photo.scene，绝不许写进 word 气泡里、也不许用『[图片]』『*发来一张自拍：…*』『（一张照片：…）』这类文字假装发图；word 气泡就正常说话（比如『喏，给你看』『刚拍的』），真图交给 photo 字段。要发图就必须填 photo，不填就等于没发图。**"
         : "";
       const digitalPhotoHint = canSelfie
-        ? "你想给 " + uName + " 发图时，额外加入 \"photo\":{\"kind\":\"self|other" + (canDuo ? "|duo" : "") + "\",\"scene\":\"画面内容\"}；不发就省略。self 是你的自拍，other 是别人拍下的你" + (canDuo ? "，duo 是你和 " + uName + " 的合照" : "") + "。scene 只写画面，不要把图片说明塞进 word；是否发、发什么由你自己决定。"
+        ? "你想给 " + uName + " 发图时，额外加入 \"photo\":{\"kind\":\"self|other" + (canDuo ? "|duo" : "") + "\",\"scene\":\"画面内容\"}；不发就省略。self 是你的自拍，other 是别人拍下的你" + (canDuo ? "，duo 是你和 " + uName + " 的合照" : "") + "。scene 只写画面，不要把图片说明塞进 word；是否发、发什么由你自己决定。\n⚠️scene 必须是【能公开展示】的画面：不出现酒精（酒杯、饮酒、微醺）、烟草、武器刀刃、血迹伤口、裸露与性暗示。出图接口对这些会【整张拒绝】——那样你连脸都发不出去。你此刻真的在喝酒、真的带着刀也一样：把镜头取在【不含这些东西的那一格】（比如只拍上半身和神情），别写进 scene。"
         : "";
       // 配件·授权门（安全铁律④：任何主动/续写/提醒/生日/微信/转账/眼睛/续说 都【绝不】开放硬件；只在此刻在场、明示激活、该角色 opt-in、且已解锁时才注入 toy 能力）
       const toyOn = !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx
@@ -4744,9 +4744,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             const refs = photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
             if (contBlobKey) refs.push(contBlobKey);
             const prompt = buildPhotoPrompt(char, (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene, st, { kind: photoKind, me, contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 });
-            const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey });
+            // 保脸级的备用稿：把【场景描述整个换掉】，只留锁脸段与行头。
+            // 审核挑的一直是场景里那些词（酒、刀、伤），拿掉它就没东西可挑，参考照却还在。
+            const minimalPrompt = buildPhotoPrompt(char, "普通的日常人像：只拍上半身与神情，背景简单干净，衣着完整整齐，画面平静、可公开展示。", st, { kind: photoKind, me });
+            const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
             // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
-            if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
+            if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人和神情、没带场景——但脸是对的" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
             if (out.blob) {
               const key = "img_" + charId + "_" + sid;
               await idbImgPut(key, out.blob);
@@ -5465,7 +5468,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
                 const refs = gCast ? gCast.map(x => x.refPhoto)
                   : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
                   : [spk.refPhoto].filter(Boolean);
-                const out = await generateSelfieImage(prompt, refs.length ? refs : null);
+                const gMinimal = buildPhotoPrompt(spk, "普通的日常人像：只拍上半身与神情，背景简单干净，衣着完整整齐，画面平静、可公开展示。", st, gCast ? { kind: "duo", me, cast: gCast } : { kind: gPhotoKind, me });
+                const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: gMinimal });
                 if (out.blob) {
                   const key = "img_" + spk.id + "_" + gsid;
                   await idbImgPut(key, out.blob);

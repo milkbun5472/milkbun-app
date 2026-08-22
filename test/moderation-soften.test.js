@@ -105,3 +105,38 @@ test("界面要说清楚为什么手里变成了茶，别让她以为角色改�
   assert.ok(app.includes(lost), "单聊要报 softened-no-ref");
   assert.equal((theater.match(new RegExp(lost.replace(/[/—]/g, "."), "g")) || []).length, 2, "小剧场两处也要报");
 });
+
+// 她 2026-08-22：「到底咋样才能永远保住脸嘤」。
+// 补救总是慢一拍，真正的答案是两层：① 别让触发词进 prompt；② 丢脸之前先把场景整个拿掉。
+test("上游预防：模型写 scene 时就被告知画面要能过审", () => {
+  assert.match(app, /scene 必须是【能公开展示】的画面/);
+  assert.match(app, /不出现酒精（酒杯、饮酒、微醺）、烟草、武器刀刃、血迹伤口、裸露与性暗示/);
+  // 要说清后果，模型才有动机遵守
+  assert.match(app, /出图接口对这些会【整张拒绝】——那样你连脸都发不出去/);
+  // 角色真在喝酒时该怎么办，也得给出路，否则它只能硬写
+  assert.match(app, /把镜头取在【不含这些东西的那一格】/);
+});
+
+test("保脸级：丢参考照之前，先试一版没有场景描述的最简稿", () => {
+  // 阶梯里要有这一级，并且由调用方传进来（只有它知道锁脸段长什么样）
+  assert.match(engine, /if \(opts && opts\.minimalPrompt\) \{/);
+  assert.match(engine, /return mark\(await attemptWith\(refBlobs, "first", opts\.minimalPrompt\), "minimal"\);/);
+  // 顺序：软化带照片 → 最简带照片 → 才是丢照片
+  const soft = engine.indexOf('"softened"'), min = engine.indexOf('"minimal"'), lost = engine.indexOf('"softened-no-ref"');
+  assert.ok(soft < min && min < lost, "保脸的两级都要排在丢照片之前");
+});
+
+test("两条出图线路都把最简稿传下去了", () => {
+  assert.match(app, /const minimalPrompt = buildPhotoPrompt\(char, "普通的日常人像/, "单聊自拍");
+  assert.match(app, /minimalPrompt: minimalPrompt \}\);/);
+  assert.match(app, /const gMinimal = buildPhotoPrompt\(spk, "普通的日常人像/, "群聊合照");
+  assert.match(app, /\{ minimalPrompt: gMinimal \}/);
+  // 最简稿必须【不含】任何场景文字，否则这一级白设
+  const m = app.match(/buildPhotoPrompt\(char, "([^"]+)"/);
+  assert.ok(m && !/酒|刀|血|烟/.test(m[1]), "最简稿里不许再有触发词");
+});
+
+test("minimal 那一级要说明白：脸是对的，只是没有场景", () => {
+  assert.ok(app.includes("审核挡了两次，这张只拍了人和神情、没带场景——但脸是对的"));
+  assert.match(app, /out\.degraded === "minimal" \?/);
+});
