@@ -2231,6 +2231,14 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const mark = (out, how) => { try { if (out && typeof out === "object") { out.degraded = how; if (lastRefErr) out.refError = lastRefErr; } } catch (e) {} return out; };
   // v54.94：参考照存在时身份是硬条件。审核软化与 minimal prompt 可以重试，
   // 但所有重试都必须携带完整身份参考；旧降级阶梯保留在下方仅供无参考路径兼容，实际不会进入。
+  if (refBlobs.length && a.classicMode === true) {
+    // 经典直通:出事前(v54.66时代)逐字节同款请求——ref.png、无input_fidelity、180秒、不重试不软化。
+    // 用途:审计对照组。它好=后来加的哪层坏了;它也坏=站变了,别再改代码。
+    const out = await attempt(true, false, refBlobs.length > 1 ? "bracket" : "first", null, 180000, true);
+    out.referenceCount = refBlobs.length; out.refMode = "classic"; out.inputFidelity = "default";
+    out.identityVerification = "not-provided";
+    return out;
+  }
   if (refBlobs.length) {
     const configured = a.refFieldMode === "repeat" ? "repeat" : (refBlobs.length > 1 ? "bracket" : "first");
     const modes = refBlobs.length > 1 ? (configured === "repeat" ? ["repeat", "bracket"] : ["bracket", "repeat"]) : ["first"];

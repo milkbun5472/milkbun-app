@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.07";
+const APP_VERSION = "v55.08";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4765,7 +4765,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             if (contBlobKey) refs.push(contBlobKey);
             const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
             const photoOpts = { kind: photoKind, me, contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };
-            const prompt = refs.length ? buildReferencePhotoPrompt(char, sceneForPhoto, st, photoOpts) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
+            // 经典直通模式:整条管线回滚到 2026-08-21 之前验证过锁脸的原样(老prompt+老请求形状)
+            const classicImg = typeof loadImgApi === "function" && loadImgApi().classicMode === true;
+            const prompt = (refs.length && !classicImg) ? buildReferencePhotoPrompt(char, sceneForPhoto, st, photoOpts) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
             // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
             // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
             // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
@@ -5497,7 +5499,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
                   : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
                   : [spk.refPhoto].filter(Boolean);
                 const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast } : { kind: gPhotoKind, me };
-                const prompt = refs.length ? buildReferencePhotoPrompt(spk, gPhotoScene, st, gPhotoOpts) : buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
+                const gClassicImg = typeof loadImgApi === "function" && loadImgApi().classicMode === true;
+                const prompt = (refs.length && !gClassicImg) ? buildReferencePhotoPrompt(spk, gPhotoScene, st, gPhotoOpts) : buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
                 const gMinimal = buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
                 const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: gMinimal });
                 if (out.blob) {
