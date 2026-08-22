@@ -65,6 +65,21 @@ test("狼人杀白天发言也接上了，且会补他的 claim", () => {
   assert.match(games, /\{ turnId: "wolf:day" \+ n \}/);
 });
 
+test("狼人杀 CC 夜间票失败也绝不交给 Gemini 接管", () => {
+  const night = games.slice(games.indexOf("async function genNight("), games.indexOf("// AI 狼意见不一致"));
+  assert.match(night, /const remainingWolves = \(opts\.wolfTeam \|\| \[\]\)\.filter/);
+  assert.match(night, /needWolf: remainingWolves\.length > 0/);
+  assert.match(night, /opts = Object\.assign\(\{\}, opts, \{ needSeer: false \}\)/);
+  assert.match(night, /opts = Object\.assign\(\{\}, opts, \{ needGuard: false \}\)/);
+
+  const witch = games.slice(games.indexOf("async function genWitch("), games.indexOf("// 猎人 / 狼王"));
+  const hunter = games.slice(games.indexOf("async function genHunter("), games.indexOf("// 白狼王"));
+  const whiteWolf = games.slice(games.indexOf("async function genWhiteWolf("), games.indexOf("function validWolfTarget"));
+  assert.match(witch, /return \{ save: false, poison: null \};/);
+  assert.match(hunter, /return \{ target: null \};/);
+  assert.match(whiteWolf, /return \{ selfDestruct: false, target: null \};/);
+});
+
 test("谁是卧底投票也接上了", () => {
   assert.match(games, /async function genVotesBatch\(api, voters, allClues, aliveNames, mode, userName, preface\)/);
   assert.match(games, /\{ turnId: gameRunId\.current \+ ":round:" \+ round \}/);

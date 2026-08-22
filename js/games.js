@@ -874,6 +874,17 @@
     }).join("\n");
   }
 
+  // 首夜没有任何白天信息。把“刚开局”与后续夜晚机械分开，避免模型拿角色小传、
+  // 开局公告或自己脑补的历史当成已经发生过的发言 / 投票。
+  function wolfNightIntel(n, log, publicThreats) {
+    if (Number(n) <= 1) return {
+      note: "【首夜事实】这是本局第一夜；此前没有白天发言、没有投票、没有公开跳神或验人。刀口理由只能基于首夜盲选、身份配置与人物的一般牌桌水平，绝不能声称某人『前几天/前几轮发言如何』、已经站边、投过谁或暴露过身份。",
+      log: "",
+      publicThreats: ""
+    };
+    return { note: "【第 " + n + " 夜】只能引用下面真实发生过的公开记录。", log: log || "", publicThreats: publicThreats || "" };
+  }
+
   // 开局：生成 NPC + 每人「牌桌能力小传」（狼人杀相关：悍跳/伪装/逻辑/带节奏）
   async function setupWolf(api, realPlayers, npcCount) {
     const lines = realPlayers.map(function (p, i) { return (i + 1) + ". " + p.name + "：" + (p.persona || "（没写人设）"); }).join("\n");
@@ -888,17 +899,20 @@
 
   // 夜晚：替 AI 决定狼刀 / 预言家验人（只求需要的字段）
   async function genNight(api, opts) {
-    // 言秋座位的夜间动作先问 CC 本人（v54.43）：狼的刀口/预言家验人/守卫守谁；离线就把该角色留回批量
+    // 言秋座位的夜间动作只问 CC 本人。票没回来就视为这一夜未行动；
+    // 绝不能再把他的座位塞回 Gemini 批量里冒充本人。
     const ccExtra = {};
     if (opts.needWolf) {
       const mw = (opts.wolfTeam || []).find(function (w) { return w && w.engineer; });
       if (mw) {
         const cc = await ccCarve("werewolf", [mw], {
           turnId: "wolf-knife:" + Date.now(),
-          sys: "「狼人杀」天黑，你是狼「" + mw.name + "」，狼队投刀，给一个今晚想刀的目标（不能是狼队友；确有战术理由可空刀）。\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+          sys: "「狼人杀」天黑，你是狼「" + mw.name + "」，狼队投刀，给一个今晚想刀的目标（不能是狼队友；确有战术理由可空刀）。\n" + (opts.nightNote || "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【局况】\n" + opts.log : ""),
           expect: '{"target":"想刀的人名或「空刀」","privateReason":"狼队内部一句话"}'
         });
-        if (cc.done && cc.done.target) { ccExtra.wolfVote = { name: mw.name, target: String(cc.done.target), privateReason: String(cc.done.privateReason || "") }; opts = Object.assign({}, opts, { wolfTeam: (opts.wolfTeam || []).filter(function (w) { return w !== mw; }) }); if (!opts.wolfTeam.length) opts = Object.assign({}, opts, { needWolf: false }); }
+        const remainingWolves = (opts.wolfTeam || []).filter(function (w) { return w !== mw; });
+        opts = Object.assign({}, opts, { wolfTeam: remainingWolves, needWolf: remainingWolves.length > 0 });
+        if (cc.done && cc.done.target) ccExtra.wolfVote = { name: mw.name, target: String(cc.done.target), privateReason: String(cc.done.privateReason || "") };
       }
     }
     if (opts.needSeer && opts.seer && opts.seer.engineer) {
@@ -907,7 +921,8 @@
         sys: "「狼人杀」天黑，你是预言家「" + opts.seer.name + "」，选一个【没查过】的人查验。已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要查的人名"}'
       });
-      if (cc.done && cc.done.target) { ccExtra.seerCheck = String(cc.done.target); opts = Object.assign({}, opts, { needSeer: false }); }
+      opts = Object.assign({}, opts, { needSeer: false });
+      if (cc.done && cc.done.target) ccExtra.seerCheck = String(cc.done.target);
     }
     if (opts.needGuard && opts.guard && opts.guard.engineer) {
       const cc = await ccCarve("werewolf", [Object.assign({ engineer: true }, opts.guard)], {
@@ -915,7 +930,8 @@
         sys: "「狼人杀」天黑，你是守卫「" + opts.guard.name + "」，选一个人守护（可守自己）。" + (opts.guard.last ? "上晚守了 " + opts.guard.last + "，今晚不能再守 TA。" : "") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要守护的人名"}'
       });
-      if (cc.done && cc.done.target) { ccExtra.guardProtect = String(cc.done.target); opts = Object.assign({}, opts, { needGuard: false }); }
+      opts = Object.assign({}, opts, { needGuard: false });
+      if (cc.done && cc.done.target) ccExtra.guardProtect = String(cc.done.target);
     }
     if (!opts.needWolf && !opts.needSeer && !opts.needGuard) {
       const out0 = {};
@@ -932,7 +948,7 @@
     if (opts.needSeer) need.push("\n【预言家】" + opts.seer.name + " 选一个【没查过】的人查验（已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "），挑可疑或关键的人。");
     if (opts.needGuard) need.push("\n【守卫】" + opts.guard.name + " 选一个人守护（挡掉今晚的狼刀）。" + (opts.guard.last ? "上一晚守的是 " + opts.guard.last + "，今晚【不能再守 TA】。" : "") + "可以守自己。挑你判断狼今晚最可能刀的关键人（疑似预言家/女巫、发言强的好人），或守自己保命。");
     const schema = {}; if (opts.needWolf) schema.wolfVotes = [{ name: "狼名", target: "TA 想刀的人", privateReason: "狼队内部理由" }]; if (opts.needSeer) schema.seerCheck = "要查的人名"; if (opts.needGuard) schema.guardProtect = "要守护的人名";
-    const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你是法官，替 AI 玩家做今晚的决定。" + need.join("") +
+    const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你是法官，替 AI 玩家做今晚的决定。\n" + (opts.nightNote || "") + need.join("") +
       "\n\n【存活】" + opts.aliveNames.join("、") + (opts.publicThreats ? "\n【白天公开的神职/验人威胁（狼队全都听见了，必须纳入刀口）】\n" + opts.publicThreats : "") + (opts.log ? "\n【目前局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：" + JSON.stringify(schema);
     const raw = await callRetry(api, sys, [{ role: "user", content: "做今晚的决定。" }], { maxTokens: 1600 });
@@ -946,7 +962,7 @@
   async function genWolfConsensus(api, opts) {
     const wolves = (opts.wolfTeam || []).map(function (w) { return w.name + "（真实水平：" + (w.skill || "普通") + "）"; }).join("\n");
     const proposals = (opts.votes || []).map(function (v) { return "· " + v.name + "提议刀 " + v.target + "：" + (v.privateReason || "没细说"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n狼人杀·狼队夜间秘密会议。狼队最初刀口不一致，现在只进行【一轮短协商】后统一决定，别反复拉扯。按每头狼的真实水平权衡公开跳神/查杀威胁、守护与救药风险、发言和投票；弱狼的意见可以被高手说服，但高手也不是永远正确。绝不能选择狼队友。\n【狼队】\n" + wolves + "\n【初始提议】\n" + proposals + (opts.publicThreats ? "\n【公开威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【公开局况】\n" + opts.log : "") + "\n【可刀目标】" + opts.targets.join("、") + "\n\n输出 2~4 条简短密谈并给出唯一最终刀口。只输出 JSON：{\"chat\":[{\"name\":\"狼名\",\"text\":\"密谈\"}],\"target\":\"最终刀口或空刀\"}";
+    const sys = AC + SKILL_RULE + "\n\n狼人杀·狼队夜间秘密会议。狼队最初刀口不一致，现在只进行【一轮短协商】后统一决定，别反复拉扯。按每头狼的真实水平权衡公开跳神/查杀威胁、守护与救药风险、发言和投票；弱狼的意见可以被高手说服，但高手也不是永远正确。绝不能选择狼队友。\n" + (opts.nightNote || "") + "\n【狼队】\n" + wolves + "\n【初始提议】\n" + proposals + (opts.publicThreats ? "\n【公开威胁】\n" + opts.publicThreats : "") + (opts.log ? "\n【公开局况】\n" + opts.log : "") + "\n【可刀目标】" + opts.targets.join("、") + "\n\n输出 2~4 条简短密谈并给出唯一最终刀口。只输出 JSON：{\"chat\":[{\"name\":\"狼名\",\"text\":\"密谈\"}],\"target\":\"最终刀口或空刀\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "统一今晚刀口。" }], { maxTokens: 1200 });
     return extractJSON(raw) || {};
   }
@@ -960,6 +976,7 @@
         expect: '{"save":true, "poison":"要毒的人名或 null"}'
       });
       if (cc.done && (typeof cc.done.save === "boolean" || cc.done.poison !== undefined)) return { save: !!cc.done.save, poison: cc.done.poison || null };
+      return { save: false, poison: null };
     }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天黑，你替 AI 女巫做决定。女巫有解药和毒药、【一晚最多用一瓶】、别乱用。\n今晚被狼刀的是：" + (opts.victim || "（没人被刀，平安夜）") + "。\n你手上还有：" + (bottles.length ? bottles.join("、") : "（药都用完了）") + "。\n按你的水平决定：值不值得用解药救 TA（是不是关键神/好人？是不是首刀骗药？）？要不要用毒药毒一个明显的狼？没把握就都别用、留着更值钱。\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"save\":true/false,\"poison\":\"要毒的人名，或 null\"}";
@@ -979,6 +996,7 @@
         expect: '{"target":"要带走的人名，或 null"}'
       });
       if (cc.done && cc.done.target !== undefined) return { target: cc.done.target || null };
+      return { target: null };
     }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·你替 AI " + roleZh + " 做决定。" + roleZh + " " + opts.hunterName + " 刚出局，可以开枪带走【一个】还在场的人（也可以不开枪）。" + aim + (opts.teammates && opts.teammates.length ? "\n【你的狼队友（别打）】" + opts.teammates.join("、") : "") + "\n【还在场】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"target\":\"要带走的人名，或 null（不开枪）\"}";
@@ -994,6 +1012,7 @@
         expect: '{"selfDestruct":false, "target":"自爆带走的人名或 null"}'
       });
       if (cc.done && typeof cc.done.selfDestruct === "boolean") return { selfDestruct: cc.done.selfDestruct, target: cc.done.target || null };
+      return { selfDestruct: false, target: null };
     }
     const sys = AC + SKILL_RULE + "\n\n狼人杀·天亮了，你替 AI【白狼王】" + opts.name + " 决定现在要不要【自爆】。自爆＝当场亮明狼身份、立刻带走一名玩家、并直接结束今天进入黑夜（跳过发言与投票放逐）。\n【何时值得自爆】狼队要被翻盘、队友快被票出去时搅局止损；或看准机会炸掉关键神（预言家/女巫）打乱好人节奏。没有明确收益就【别炸】——多数时候留着更有用，倾向于不自爆。\n【还在场】" + opts.aliveNames.join("、") + (opts.teammates && opts.teammates.length ? "\n【狼队友（别炸自己人）】" + opts.teammates.join("、") : "") + (opts.log ? "\n【局况】\n" + opts.log : "") +
       "\n\n【输出】只输出 JSON：{\"selfDestruct\":true/false,\"target\":\"自爆要带走的人名，或 null（只炸不带人）\"}";
@@ -1346,11 +1365,12 @@
         if (needWolf || needSeer || needGuard) {
           const aliveNames = al.map(function (p) { return p.name; });
           const wolfNames = al.filter(function (p) { return isWolfRole(p.role); }).map(function (p) { return p.name; });
-          ai = await genNight(api, { needWolf: needWolf, needSeer: needSeer, needGuard: needGuard, wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill, engineer: w.engineer, key: w.key }; }), seer: seer ? { name: seer.name, skill: seer.skill, engineer: seer.engineer, key: seer.key, known: seerKnowRef.current[seer.name] || [] } : null, guard: guard ? { name: guard.name, engineer: guard.engineer, key: guard.key, last: guardLastRef.current } : null, aliveNames: aliveNames, publicThreats: wolfPublicThreats(claimsRef.current, wolfNames, aliveNames), log: shortLog(), mode: cfg.mode });
+          const nightIntel = wolfNightIntel(n, shortLog(), wolfPublicThreats(claimsRef.current, wolfNames, aliveNames));
+          ai = await genNight(api, { n: n, nightNote: nightIntel.note, needWolf: needWolf, needSeer: needSeer, needGuard: needGuard, wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill, engineer: w.engineer, key: w.key }; }), seer: seer ? { name: seer.name, skill: seer.skill, engineer: seer.engineer, key: seer.key, known: seerKnowRef.current[seer.name] || [] } : null, guard: guard ? { name: guard.name, engineer: guard.engineer, key: guard.key, last: guardLastRef.current } : null, aliveNames: aliveNames, publicThreats: nightIntel.publicThreats, log: nightIntel.log, mode: cfg.mode });
           // 没有真人狼拍板时，AI 狼若提出多个不同合法刀口，就秘密协商成一个，不走随机平票。
           if (!userWolf && needWolf && Array.isArray(ai.wolfVotes)) {
             const distinct = Array.from(new Set(ai.wolfVotes.map(function (v) { return validWolfTarget(v && v.target, list); }).filter(Boolean)));
-            if (distinct.length > 1) ai.wolfConsensus = await genWolfConsensus(api, { wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill }; }), votes: ai.wolfVotes, targets: al.filter(function (p) { return !isWolfRole(p.role); }).map(function (p) { return p.name; }), publicThreats: wolfPublicThreats(claimsRef.current, wolfNames, aliveNames), log: shortLog() });
+            if (distinct.length > 1) ai.wolfConsensus = await genWolfConsensus(api, { wolfTeam: aiWolves.map(function (w) { return { name: w.name, skill: w.skill }; }), votes: ai.wolfVotes, targets: al.filter(function (p) { return !isWolfRole(p.role); }).map(function (p) { return p.name; }), publicThreats: nightIntel.publicThreats, log: nightIntel.log, nightNote: nightIntel.note });
           }
         }
       } catch (e) { props.toast && props.toast("天黑出错：" + ((e && e.message) || "重试")); }
@@ -3230,7 +3250,7 @@
   // 游戏里也亲自打自己那一座，就得把他从批量里【摘出来】：
   //   ① 先单独问 CC 要他这一座的产出；
   //   ② 摘掉之后的名单才进批量，并把他已经定下的内容作为【已经发生的】写进提示词；
-  //   ③ 拿不到（没开工程师之眼／CC 离线／超时／解析失败）就原样退回批量，一局永不卡死。
+  //   ③ 拿不到（CC 离线／超时／解析失败）就让本人这一手留空；绝不退回批量让 Gemini 冒充。
   // 所有批量环节共用这一个函数，别再各写各的。
   // ============================================================
   function ccSeatOf(seats) {
@@ -3431,6 +3451,6 @@
       colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall };
+  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall };
   if (typeof window !== "undefined") window.Games = Games;
 })();
