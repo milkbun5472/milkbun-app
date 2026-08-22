@@ -2084,6 +2084,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   base = base.replace(/\/(v1\/)?images\/(generations|edits)\/?$/i, "").replace(/\/chat\/completions\/?$/i, "").replace(/\/+$/, "");
   const root = base.endsWith("/v1") ? base : base + "/v1";
   const size = (opts && opts.size) || a.size || "1024x1536";
+  const qualityOverride = (opts && opts.quality) || a.quality;
   const parseOut = async (r, rawTxt) => {
     let d;
     try { d = JSON.parse(rawTxt); } catch (e) { throw new Error("接口没返回 JSON：" + rawTxt.slice(0, 160)); }
@@ -2128,13 +2129,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const ctrl = new AbortController();
     // 单次上限 95→180 秒（v55.02 回归修复）：这家中转正常出图就要一百多秒，
     // v54.90 的 95 秒硬闸把好好的请求掐成「Fetch is aborted」。总预算闸仍在，不会回到卡十几分钟。
-    const to = setTimeout(() => ctrl.abort(), Math.min(Number(msOverride || 130000), 180000));
+    const to = setTimeout(() => ctrl.abort(), Math.min(Number(msOverride || 130000), 300000));
     let r;
     try {
       if (useRef && refBlobs.length) {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
-        if (a.quality) fd.append("quality", a.quality);
+        if (qualityOverride) fd.append("quality", qualityOverride);
         // GPT Image 的编辑接口默认 input_fidelity=low：它可能只借人物类型/构图，重新捏一张脸。
         // 角色参考照的产品语义是身份锚，因此必须显式请求 high。
         // ⚠️legacyShape（v55.01 回归修复）：8/22 晚同一个中转「改前锁脸好好的、改后收不到图」，
@@ -2159,7 +2160,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
         const body = { model: a.model || "gpt-image-2", prompt: promptText, size, n: 1 };
-        if (!slim) { body.response_format = "b64_json"; if (a.quality) body.quality = a.quality; }
+        if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
     } finally { clearTimeout(to); }
