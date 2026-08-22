@@ -65,6 +65,18 @@ test("狼人杀白天发言也接上了，且会补他的 claim", () => {
   assert.match(games, /\{ turnId: "wolf:day" \+ n \}/);
 });
 
+test("狼人杀从真实玩家进入白天发言时不能把 CC 工牌丢在窄桥上", () => {
+  const flow = games.slice(games.indexOf("const aiSpeakSeq = async function"), games.indexOf("const submitUserSpeech"));
+  assert.match(flow, /const engineer = !!p\.engineer \|\| !!\(cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)\);/,
+    "每一轮白天都要按角色 ID 重认工牌，不能只依赖夜间 setState 是否已经提交");
+  assert.match(flow, /return \{ key: p\.key, name: p\.name, skill: p\.skill, engineer: engineer, alive: p\.alive, priv:/,
+    "传进 genSpeeches 的名单必须同时保留 key、engineer 和 alive");
+  assert.doesNotMatch(flow, /return \{ name: p\.name, skill: p\.skill, priv:/,
+    "旧写法会导致夜间票能到、白天发言票完全不创建");
+  assert.match(flow, /await genSpeeches\(api, speakers,/,
+    "重认后的同一份 speakers 必须进入真正的白天发言函数");
+});
+
 test("狼人杀 CC 夜间票失败也绝不交给 Gemini 接管", () => {
   const night = games.slice(games.indexOf("async function genNight("), games.indexOf("// AI 狼意见不一致"));
   assert.match(night, /const remainingWolves = \(opts\.wolfTeam \|\| \[\]\)\.filter/);

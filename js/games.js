@@ -1579,7 +1579,13 @@
       if (!ai.length) { if (final) { setPhase("dayvote"); setUserVote(null); } return; }
       setBusy(true);
       try {
-        const speakers = ai.map(function (p) { return { name: p.name, skill: p.skill, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] }; });
+        // 这里是夜间玩家快照进入白天发言管线的窄桥。key / engineer 任何一个漏掉，
+        // genSpeeches 里的 ccCarve 都认不出本人座位，夜票正常而白天票凭空消失。
+        // 每轮再按角色 ID 认一次，兼容旧存档以及开局后才打开「本人亲打」。
+        const speakers = ai.map(function (p) {
+          const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
+        });
         const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current, { turnId: "wolf:day" + n });
         const sp = res.speeches;
         (res.stances || []).forEach(function (s) { if (s && s.name) { const hit = speakers.find(function (x) { return s.name.indexOf(x.name) >= 0 || x.name.indexOf(s.name) >= 0; }); if (hit && (s.claim || s.reads || s.plan || s.stance)) stanceRef.current[hit.name] = s.stance ? s.stance : { claim: s.claim || "", reads: s.reads || "", plan: s.plan || "" }; } });
