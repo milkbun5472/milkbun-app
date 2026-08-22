@@ -186,3 +186,30 @@ test("minimal 那一级要说明白：脸是对的，只是没有场景", () => 
   assert.ok(app.includes("审核挡了两次，这张只拍了人和神情、没带场景——但脸是对的"));
   assert.match(app, /out\.degraded === "minimal" \?/);
 });
+
+// 她 2026-08-22 追问：「为啥这个 prompt 在别的地方可以，我们之前不也用的这个吗」。
+// 量了一遍才发现前一版判断错了：实际 prompt 只有 1519 字（接口能收几万），
+// 场景描述只占 6%，中转站那句 "prompt is too long" 是它列的三个可能原因之一，不是诊断。
+// 真正扎眼的是我们自己的模板：【真人…以假乱真的写实照片质感…必须像真实照片】
+// 再附一张真人参考照 —— 那正是反 deepfake 审核要抓的组合。prompt 没变，是上游收紧了。
+test("写实档不再说「以假乱真」——那四个字字面就是假的冒充真的", () => {
+  assert.ok(!engine.includes("以假乱真"), "最扎眼的四个字要拿掉");
+  assert.match(engine, /生成一张【手机随手拍的生活照】，要自然的写实照片质感/);
+  // 但画质要求一个都不能少，去掉的只是「无法与真实区分」这层意思
+  ["真实的皮肤纹理", "不是插画、不是动漫", "浅景深与轻微噪点"].forEach(k =>
+    assert.ok(engine.includes(k), "画风要求被误删：" + k));
+});
+
+test("prompt 长度不是病根，别再往「改短」的方向使劲", () => {
+  // 把函数抠出来真跑一遍，量的是【发给接口的那一版】
+  const i = engine.indexOf("function buildPhotoPrompt(char, sceneDesc, st, opts) {");
+  let d = 0, started = false, j = engine.indexOf("{", i);
+  for (; j < engine.length; j++) {
+    if (engine[j] === "{") { d++; started = true; }
+    else if (engine[j] === "}") { d--; if (started && !d) { j++; break; } }
+  }
+  const build = new Function("freshPhotoWearing", engine.slice(i, j) + "\nreturn buildPhotoPrompt;")(() => "");
+  const p = build({ name: "某人", photoStyle: "realistic", refPhoto: "iv_x", appearance: "墨发束起" },
+    "窗边逆光，只拍了半张脸", null, { kind: "self" });
+  assert.ok(p.length < 4000, "整份 prompt 应远低于接口上限，实测 " + p.length + " 字");
+});
