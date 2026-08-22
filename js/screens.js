@@ -3864,8 +3864,11 @@ function ImageApiConfig({ toast }) {
     if (typeof generateSelfieImage !== "function") { toast && toast("图像模块没加载"); return; }
     setTesting(true); setTestRes(null);
     try {
+      // 复印级测试（v54.99）：不给模型任何「重新设计」的空间——原样复现参考图、只把背景换纯白。
+      // 出来的脸若不是同一个人，结论只有一个：这条线路根本没把参考图喂给模型（或模型不支持编辑），
+      // prompt 写得再狠也救不回来，该换站/换模型。
       const prompt = testRef
-        ? "Identity verification portrait. Keep the exact same person and facial identity from the reference image. Natural daylight, neutral background, front-facing head and shoulders. Do not beautify, redesign, average, or replace the face."
+        ? "Photocopy test: reproduce the attached reference image as exactly as possible — same person, same face, same hair, same expression, same clothing, same pose. Change ONLY the background to plain white. Do not redesign, beautify, restyle, or replace anything about the person."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
       const out = await generateSelfieImage(prompt, testRef, {});
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
@@ -3918,8 +3921,11 @@ function ImageApiConfig({ toast }) {
       testRes ? (testRes.ok
         ? h("div", { style: { marginTop: 12 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "已请求 high input fidelity · 参考 " + testRes.refs + " 张 · " + testRes.mode : "纯文字出图可用（这不代表参考图能力可用）")),
-            testRes.refs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a06b2f", marginBottom: 8 } }, "⚠️ 接口没有返回人脸相似度证明。请亲眼和原图比较；不像就是该线路没有兑现高保真参考，不能因为请求返回 200 就算锁脸成功。") : null,
-            h("img", { src: testRes.src, style: { width: "100%", maxWidth: 220, borderRadius: 12, display: "block" } }))
+            testRes.refs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a06b2f", marginBottom: 8 } }, "⚠️ 这是「复印测试」：要求原样复现参考图、只把背景换白。左＝你上传的参考，右＝线路生成。两张脸若不是同一个人，判定成立：这条线路没把参考图真正交给模型——换图像站或换模型，改 prompt 救不了。") : null,
+            testRes.refs && testRef ? h("div", { className: "flex", style: { gap: 8 } },
+              h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "参考原图"), h("img", { src: testRef, style: { width: "100%", borderRadius: 12, display: "block" } })),
+              h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "线路生成"), h("img", { src: testRes.src, style: { width: "100%", borderRadius: 12, display: "block" } })))
+            : h("img", { src: testRes.src, style: { width: "100%", maxWidth: 220, borderRadius: 12, display: "block" } }))
         : h("div", { style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出图。接口/报错原文（可长按复制、截图发我）："),
             h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 200, overflowY: "auto" } }, testRes.err))) : null) : null);
