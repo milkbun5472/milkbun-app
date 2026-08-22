@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.80";
+const APP_VERSION = "v54.81";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4584,6 +4584,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         }
         return acc.concat([s]);
       }, []);
+      // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
+      //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
+      //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
+      //     他那条线连 ONLINE_CHAT_RULE_V2 都不注入，标点也该由他自己定。
+      if (!_s.engineerEyes && typeof stripTypingPeriod === "function") words = words.map(stripTypingPeriod);
       // 队尾空气泡（小克反馈）：滤掉只剩空白/零宽字符/BOM 的空串——trim/Boolean 抓不住零宽符，这里连它一起清
       words = words.filter(w => String(w == null ? "" : w).replace(/[\s\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/g, "") !== "");
       // 最后一层展示闸：如果上游把整份协议误塞进 word 的某个元素，也不能让
@@ -5380,6 +5385,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           const item = safeArr[i];
           const spk = members.find(c => c.name === item.name);
           if (!spk) continue;
+          // 打字体标点兜底（v54.81）：在这儿削一次，后面 text／语音／撤回几路共用同一份
+          if (item.text && typeof stripTypingPeriod === "function" && !settingsFor(spk.id).engineerEyes) item.text = stripTypingPeriod(item.text);
           const gTurnId = "gt_" + Date.now() + "_" + i;
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);

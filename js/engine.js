@@ -953,6 +953,25 @@ const OFFLINE_INTIMATE_RUNTIME = `【场景连续补充】
 // opts.bans     旧的反陈词滥调清单（明喻限额／禁用意象词／不替读者定情绪分量），默认带
 // opts.intimate 亲密场景反模板，默认不带
 // opts.register 语气与年龄感锚，默认带；纯写故事、用户不在场时传 false
+// 打字体标点兜底（v54.81）。ONLINE_CHAT_RULE_V2 里已经写明「句尾不打句号」，
+// 规则也确实送到了模型手里——但上文一旦被带偏，几十条带句号的记录拉着它往回走，
+// 光靠提示词拔不过来（她 2026-08-22 刷完还是有）。所以在气泡落库前再削一刀。
+//
+// 只削【句尾那一个句号】，其余一概不碰：
+//   · ？！…～ 传的是语气，一律留着
+//   · 句中的句号不削——那多半是模型把两句塞进了一个气泡，削了会连读成一句话
+//   · 「。。。」这类叠用是语气不是句号，不动
+//   · 只认中文句号与全角句点；英文句点留着（缩写、网址、小数点会被误伤）
+//   · 削完只剩空字符串就放弃，宁可留着句号也不发空泡
+function stripTypingPeriod(text) {
+  const s = String(text == null ? "" : text);
+  // 句号后面可能还跟着引号/括号：先剥出来，削完原样接回去
+  const m = /^([\s\S]*?)([。．]+)([」』）)\]"'\u201d\u2019]*)\s*$/.exec(s);
+  if (!m || m[2].length > 1) return s;
+  const out = m[1] + m[3];
+  return out.trim() ? out : s;
+}
+
 function narrativeCore(opts) {
   opts = opts || {};
   const parts = [

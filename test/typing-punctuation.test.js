@@ -55,9 +55,10 @@ test("单聊和群聊两条线路都真的拿到这段字", () => {
 });
 
 test("只管线上打字，不许波及线下叙事和写字类产出", () => {
-  // ONLINE_CHAT_RULE_V2 只在这两处注入；线下/日记/情书走的是另外的规则常量
-  const hits = (app.match(/ONLINE_CHAT_RULE_V2/g) || []).length;
-  assert.equal(hits, 2, "注入点数量变了，确认没被塞进线下或日记");
+  // ONLINE_CHAT_RULE_V2 只在这两处注入；线下/日记/情书走的是另外的规则常量。
+  // 只数【真的注入】的那几行——注释里提到它不算（v54.81 兜底那段注释就提了一次）。
+  const inject = app.split("\n").filter(l => l.includes("ONLINE_CHAT_RULE_V2") && !/^\s*\/\//.test(l));
+  assert.equal(inject.length, 2, "注入点数量变了，确认没被塞进线下或日记：\n" + inject.join("\n"));
   assert.ok(!grabConst("NARRATIVE_ANTI_CLICHE_LEGACY_V1").includes("句尾不打句号"),
     "线下是叙事散文，标点该好好打");
 });
