@@ -1243,7 +1243,8 @@
     const guardLastRef = useRef(null);              // 守卫上一晚守的人（不能连守）
     const graveKnowRef = useRef({});                // 守墓人验尸记录 { 守墓人名: [{name,isWolf}] }
     const lastDeathRef = useRef("");                // 同步昨夜结果，避免 setState 尚未提交就进入白天读到上一夜
-    const gameRunId = useRef("werewolf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9));
+    const gameRunId = useRef((props.resume && props.savedState && props.savedState.runId)
+      || ("werewolf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9)));
 
     const me = players.find(function (p) { return p.isUser; });
     const alive = players.filter(function (p) { return p.alive; });
@@ -1265,7 +1266,7 @@
     useEffect(function () {
       if (phase === "result") { clearWolf(); return; }
       if (phase === "reveal" || phase === "night" || phase === "day") {
-        saveWolf({ v: 1, config: cfg, phase: phase, cycle: cycle, players: serializePlayers(players), log: logDataRef.current, seerKnow: seerKnowRef.current, witchPot: witchPotRef.current, guardLast: guardLastRef.current, graveKnow: graveKnowRef.current, stance: stanceRef.current, claims: claimsRef.current, lastDeath: lastDeathRef.current, ts: Date.now() });
+        saveWolf({ v: 1, runId: gameRunId.current, config: cfg, phase: phase, cycle: cycle, players: serializePlayers(players), log: logDataRef.current, seerKnow: seerKnowRef.current, witchPot: witchPotRef.current, guardLast: guardLastRef.current, graveKnow: graveKnowRef.current, stance: stanceRef.current, claims: claimsRef.current, lastDeath: lastDeathRef.current, ts: Date.now() });
       }
     }, [phase, cycle]);
     useEffect(function () {
@@ -1602,7 +1603,9 @@
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
           return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
         });
-        const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current, { turnId: "wolf:day" + n });
+        const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current, {
+          turnId: gameRunId.current + ":day:" + n + ":" + speakers.map(function (s) { return s.key; }).join(",")
+        });
         const sp = res.speeches;
         (res.stances || []).forEach(function (s) { if (s && s.name) { const hit = speakers.find(function (x) { return s.name.indexOf(x.name) >= 0 || x.name.indexOf(s.name) >= 0; }); if (hit && (s.claim || s.reads || s.plan || s.stance)) stanceRef.current[hit.name] = s.stance ? s.stance : { claim: s.claim || "", reads: s.reads || "", plan: s.plan || "" }; } });
         // 新增的硬公开声明入台账（跨天累积）

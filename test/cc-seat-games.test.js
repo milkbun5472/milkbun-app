@@ -67,7 +67,18 @@ test("狼人杀白天发言按真实座位切三段，言秋能看到前桌、�
   assert.match(games, /stances: \[\{ name: cc\.seat\.name, claim:/);
   assert.doesNotMatch(games, /await ccCarve\("werewolf", speakers, \{/,
     "旧写法会把言秋强行提到第一位，看不到同轮前桌发言");
-  assert.match(games, /\{ turnId: "wolf:day" \+ n \}/);
+  assert.match(games, /turnId: gameRunId\.current \+ ":day:" \+ n \+ ":" \+ speakers\.map/);
+});
+
+test("狼人杀新局白天票带每局唯一号，绝不复用上一局第一轮发言", () => {
+  assert.match(games, /const gameRunId = useRef\(\(props\.resume && props\.savedState && props\.savedState\.runId\)/,
+    "续局要沿用原局号，不能误开一套新票");
+  assert.match(games, /saveWolf\(\{ v: 1, runId: gameRunId\.current/,
+    "局号必须随存档保存");
+  assert.match(games, /turnId: gameRunId\.current \+ ":day:" \+ n \+ ":" \+ speakers\.map/,
+    "白天发言票必须包含局号和当前发言分段，不能只用 day1");
+  assert.doesNotMatch(games, /turnId: "wolf:day" \+ n/,
+    "旧固定票号会把上一局回执重新投进新局");
 });
 
 test("狼人杀从真实玩家进入白天发言时不能把 CC 工牌丢在窄桥上", () => {
