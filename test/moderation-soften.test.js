@@ -136,14 +136,50 @@ test("保脸级：丢参考照之前，先试一版没有场景描述的最简�
   assert.ok(soft < min && min < lost, "保脸的两级都要排在丢照片之前");
 });
 
-test("两条出图线路都把最简稿传下去了", () => {
-  assert.match(app, /const minimalPrompt = buildPhotoPrompt\(char, "普通的日常人像/, "单聊自拍");
+// v54.88（她第三张截图）：他终于肯拍了、场景也干净了，却还是没出图。
+// 上游原话：rejected by upstream safety checks... prompt is too long。
+// 病根是上一版的「最简稿」也交给 buildPhotoPrompt 拼——那函数把画风、身份锁、
+// 解剖锁、服装锁、随身物全塞进去，出来一两千字，根本不最简。
+const minimal = (() => {
+  const i = engine.indexOf("function buildMinimalPhotoPrompt(char, opts) {");
+  return new Function(engine.slice(i, engine.indexOf("\n}", i) + 2) + "\nreturn buildMinimalPhotoPrompt;")();
+})();
+
+test("最简稿必须真的短——它是保脸的最后一招", () => {
+  const one = minimal({ photoStyle: "realistic" }, { kind: "self" });
+  assert.ok(one.length < 200, "太长就白设了，现在 " + one.length + " 字");
+  // 只留两件事：这是谁、拍张普通人像
+  assert.match(one, /画面里的人必须严格就是参考图里的那一位/);
+  assert.match(one, /只拍上半身与神情，背景简单干净/);
+  // 触发词一个都不许有
+  assert.ok(!/酒|刀|血|烟|伤/.test(one), "最简稿里不许有触发词");
+});
+
+test("最简稿仍认画风与合照，别把二次元画成真人", () => {
+  assert.match(minimal({ photoStyle: "anime" }, { kind: "self" }), /二次元动画插画风格/);
+  assert.match(minimal({ photoStyle: "realistic" }, { kind: "self" }), /真实照片风格/);
+  const duo = minimal({}, { kind: "duo" });
+  assert.match(duo, /两个人必须严格就是参考图里的这两位/);
+  assert.ok(duo.length < 220);
+});
+
+test("两条出图线路都用上了新的最简稿", () => {
+  assert.match(app, /const minimalPrompt = buildMinimalPhotoPrompt\(char, \{ kind: photoKind \}\);/, "单聊自拍");
   assert.match(app, /minimalPrompt: minimalPrompt \}\);/);
-  assert.match(app, /const gMinimal = buildPhotoPrompt\(spk, "普通的日常人像/, "群聊合照");
+  assert.match(app, /const gMinimal = buildMinimalPhotoPrompt\(spk, gCast/, "群聊合照");
   assert.match(app, /\{ minimalPrompt: gMinimal \}/);
-  // 最简稿必须【不含】任何场景文字，否则这一级白设
-  const m = app.match(/buildPhotoPrompt\(char, "([^"]+)"/);
-  assert.ok(m && !/酒|刀|血|烟/.test(m[1]), "最简稿里不许再有触发词");
+  // 旧的大家伙不许再被当成最简稿
+  assert.ok(!/buildPhotoPrompt\(char, "普通的日常人像/.test(app), "旧最简稿该退场");
+});
+
+test("审核拒绝不许再被误报成配额问题", () => {
+  // 上游原话里带「misclassified by the upstream model」，那个 model 以前会命中配额正则
+  assert.match(app, /const isSafety = \/safety\|policy\|内容政策/);
+  assert.match(app, /顺序要紧：审核拒绝的原话里常带/, "为什么要先判审核，得写在代码里");
+  // 配额正则里必须已经拿掉裸的 model
+  const q = app.match(/: \/quota\|available\|([^/]+)\/i\.test\(em\)/);
+  assert.ok(q && !/\bmodel\b(?!_not)/.test(q[1]), "配额正则里还留着裸的 model：" + (q && q[1]));
+  assert.match(app, /上游审核拒了这一张（试过换措辞、也试过只拍人像都没过）/, "要说清已经试过哪几招");
 });
 
 test("minimal 那一级要说明白：脸是对的，只是没有场景", () => {

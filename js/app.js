@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v54.87";
+const APP_VERSION = "v54.88";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4744,9 +4744,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             const refs = photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
             if (contBlobKey) refs.push(contBlobKey);
             const prompt = buildPhotoPrompt(char, (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene, st, { kind: photoKind, me, contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 });
-            // 保脸级的备用稿：把【场景描述整个换掉】，只留锁脸段与行头。
-            // 审核挑的一直是场景里那些词（酒、刀、伤），拿掉它就没东西可挑，参考照却还在。
-            const minimalPrompt = buildPhotoPrompt(char, "普通的日常人像：只拍上半身与神情，背景简单干净，衣着完整整齐，画面平静、可公开展示。", st, { kind: photoKind, me });
+            // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
+            // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
+            // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
+            const minimalPrompt = buildMinimalPhotoPrompt(char, { kind: photoKind });
             const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
             // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
             if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人和神情、没带场景——但脸是对的" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -4765,7 +4766,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             pChat(charId, p => p.map(m => m.sid === sid ? { ...m, pending: false, failed: true } : m));
             const em = String(e.message || "");
             // 配额/模型类报错 → 指路：多半是图像模型名不对或该模型没配额
-            const hint = /quota|available|model|not\s*found|额度|配额|无可用|不存在|无权限|permission/i.test(em)
+            // ⚠️顺序要紧：审核拒绝的原话里常带「misclassified by the upstream model」，
+            // 里面那个 model 会被下面的配额正则命中，于是审核问题被报成「没配额或名字不对」，
+            // 她照着提示去改模型名纯属白折腾（她 2026-08-22 第三张截图）。所以先判审核。
+            const isSafety = /safety|policy|内容政策|content policy|moderat|sensitive|blocked|rejected|违反/i.test(em);
+            const hint = isSafety
+              ? "上游审核拒了这一张（试过换措辞、也试过只拍人像都没过）。多半是这一拍的场景描述里有它敏感的词——换个平静点的时刻再拍，或者直接说「拍张脸就行」。原始报错：" + em
+              : /quota|available|not\s*found|额度|配额|无可用|不存在|无权限|permission|model_not|invalid_model/i.test(em)
               ? "图像模型没配额或名字不对——去 设置·图像API 点「拉取模型」，换一个你中转站真有货的图像模型（gpt-image-1 很多便宜中转没有）。原始报错：" + em
               : (em || "重试");
             toast("自拍没生成：" + hint);
@@ -5468,7 +5475,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
                 const refs = gCast ? gCast.map(x => x.refPhoto)
                   : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
                   : [spk.refPhoto].filter(Boolean);
-                const gMinimal = buildPhotoPrompt(spk, "普通的日常人像：只拍上半身与神情，背景简单干净，衣着完整整齐，画面平静、可公开展示。", st, gCast ? { kind: "duo", me, cast: gCast } : { kind: gPhotoKind, me });
+                const gMinimal = buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
                 const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: gMinimal });
                 if (out.blob) {
                   const key = "img_" + spk.id + "_" + gsid;

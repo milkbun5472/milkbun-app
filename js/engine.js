@@ -1851,6 +1851,20 @@ async function hydrateNativeSelfies() {
 }
 // 拼「角色照片」的图像 prompt。opts.kind: self=第一人称自拍 / other=别人给 TA 拍(第三人称,姿势构图多变) / duo=TA 和用户的合照
 // opts.me = { name, appearance, refPhoto } 用户本人（duo 合照时用）
+// 保脸最后一招（v54.88）：一份【真的很短】的 prompt。
+// 上一版把「最简稿」也交给 buildPhotoPrompt 拼，可那是个把画风、身份锁、解剖锁、
+// 服装锁、随身物全塞进去的大家伙，出来还是一两千字——而上游拒绝的第一条原因就写着
+// prompt is too long（她 2026-08-22 第三张截图）。所以这份手搓：只留【这是谁】
+// 和【拍一张普通人像】，其余一个字不要。审核挑不出东西，参考照也还在。
+function buildMinimalPhotoPrompt(char, opts) {
+  const anime = char && char.photoStyle === "anime";
+  const duo = opts && (opts.kind === "duo" || opts.cast);
+  return "【最高优先级·就是这个人】画面里的" + (duo ? "两个人必须严格就是参考图里的这两位" : "人必须严格就是参考图里的那一位")
+    + "：五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图，不许另造陌生人。\n"
+    + (anime ? "精致的二次元动画插画风格。" : "真实照片风格。")
+    + "一张普通的人像：只拍" + (duo ? "两人的" : "") + "上半身与神情，背景简单干净，衣着完整整齐，画面平静、可公开展示。";
+}
+
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   opts = opts || {};
   const kind = ["self", "other", "duo"].includes(opts.kind) ? opts.kind : "self";
