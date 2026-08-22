@@ -36,6 +36,10 @@ test("线上参考照使用短身份编辑提示，小剧场仍保留 IF 线重�
   assert.match(app, /refs\.length \? buildReferencePhotoPrompt\(spk/);
   assert.doesNotMatch(theater, /buildReferencePhotoPrompt/);
   assert.match(theater, /buildPhotoPrompt/);
+  assert.match(theater, /const ifVisualPersona = \[l\.world \|\| l\.setting, l\.charRole\]/);
+  assert.match(theater, /const ifVisualPersona = \[line\.world \|\| line\.setting, line\.charRole\]/);
+  assert.doesNotMatch(theater, /persona: String\(char\.persona \|\| ""\)\.slice\(0, 400\)/);
+  assert.match(theater, /只改变服装、道具、场景与气质,绝不改变这张脸/);
 });
 
 test("人物与用户合照参考图使用高分辨率保存", () => {

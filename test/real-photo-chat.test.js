@@ -136,11 +136,13 @@ test("给了行头就锁死，没给才每张随机", () => {
 });
 
 // 上游审核(2026-08-18 第二例):报错明说 prompt 太长或措辞敏感。
-// 主线人设 2400 字对 if 线既冗余又污染(整条线就是在替换他的身份)，
+// 主线人设对 if 线既冗余又污染(整条线就是在替换他的身份)，
 // 且过滤只挡情色不挡刀/血,场景一带凶器就整单被拒。
 test("剧照 prompt 要控长、滤敏感，并有审核被拒后的简版兜底", () => {
   const th = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
-  assert.match(th, /persona: String\(char\.persona \|\| ""\)\.slice\(0, 400\)/, "主线人设必须截短");
+  assert.match(th, /const ifVisualPersona = \[l\.world \|\| l\.setting, l\.charRole\]/, "剧照只继承脸，视觉身份应来自 IF 世界与角色");
+  assert.match(th, /const ifVisualPersona = \[line\.world \|\| line\.setting, line\.charRole\]/, "单张剧照也应使用 IF 视觉身份");
+  assert.doesNotMatch(th, /persona: String\(char\.persona \|\| ""\)\.slice\(0, 400\)/, "主线身份不能污染 IF 线");
   assert.match(th, /const VIOLENT_RE = /, "过滤要覆盖暴力血腥，不只情色");
   assert.match(th, /slice\(-240\)/, "剧情摘要要控在短量级");
   assert.match(th, /generateSelfieImage\(minimalPrompt, refList\.slice\(0, duo \? 2 : 1\)\)/, "简版重试要连连贯图一起去掉");

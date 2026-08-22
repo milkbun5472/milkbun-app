@@ -578,7 +578,10 @@
       const char = charOf(l);
       const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
       // photoOutfit 换成 if 线自己的行头：角色的固定服装锁属于主线世界，会把这条线的装束顶掉
-      const styledChar = Object.assign({}, char, { photoOutfit: String(l.charOutfit || "").trim(), persona: String(char.persona || "").slice(0, 400) });
+      // IF 线只继承【这张脸】，不继承主线职业/时代/身份。以前这里仍塞主线 persona，
+      // 会一边要求「平行世界」，一边又把主线行头和职业递给图片模型，造成串线。
+      const ifVisualPersona = [l.world || l.setting, l.charRole].filter(Boolean).join("\n").slice(0, 500);
+      const styledChar = Object.assign({}, char, { photoOutfit: String(l.charOutfit || "").trim(), persona: ifVisualPersona });
       const faceLock = "【最高优先级·就是这个人】" + (duo
         ? "画面里的两个人必须严格就是参考图里的这两位:「" + char.name + "」用参考图1的脸,「" + uName + "」用参考图2的脸——五官、脸型、发色瞳色、年龄感、肤色完全照搬各自的参考图,不许互换、混合或另造陌生人。"
         : "画面里的人必须严格就是参考图里的那一位:五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人,也绝不出现第二个人。")
@@ -668,7 +671,8 @@
         // st 传 null(此刻穿着同理,银龙不该穿着主线那身出现在龙岛)。
         // 用 if 线自己的行头顶替主线的固定服装锁:清空会让服装每张随机(她拍到袍子变女仆装),
         // 照抄主线又会让银龙穿着现代便装出现在龙岛。正解是这条线有自己的一套,并且锁死。
-        const styledChar = Object.assign({}, char, { photoOutfit: String(line.charOutfit || "").trim(), persona: String(char.persona || "").slice(0, 400) });
+        const ifVisualPersona = [line.world || line.setting, line.charRole].filter(Boolean).join("\n").slice(0, 500);
+        const styledChar = Object.assign({}, char, { photoOutfit: String(line.charOutfit || "").trim(), persona: ifVisualPersona });
         // if 线的身份描述会跟参考照抢脸:模型容易照着「龙族监督官」重画一个陌生人。
         // 所以把「只换身份行头、不换人」提到最前面,和 buildPhotoPrompt 的身份锁叠加。
         const faceLock = "【最高优先级·就是这个人】" + (duo
