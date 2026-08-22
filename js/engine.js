@@ -2117,13 +2117,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
   };
   // pOverride：审核软化重试用——同一套参考照，换一版措辞。不传就用原 prompt，行为不变。
-  const attemptWith = async (blobs, refMode, pOverride, msOverride) => {
+  const attemptWith = async (blobs, refMode, pOverride, msOverride, legacyShape) => {
     const saved = refBlobs.slice();
     refBlobs.length = 0; blobs.forEach(b => refBlobs.push(b));
-    try { return await attempt(true, false, refMode, pOverride, msOverride); }
+    try { return await attempt(true, false, refMode, pOverride, msOverride, legacyShape); }
     finally { refBlobs.length = 0; saved.forEach(b => refBlobs.push(b)); }
   };
-  const attempt = async (useRef, slim, refMode, pOverride, msOverride) => {
+  const attempt = async (useRef, slim, refMode, pOverride, msOverride, legacyShape) => {
     const promptText = pOverride || prompt;
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), Math.min(Number(msOverride || 95000), 95000));
@@ -2134,9 +2134,15 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
         if (a.quality) fd.append("quality", a.quality);
         // GPT Image 的编辑接口默认 input_fidelity=low：它可能只借人物类型/构图，重新捏一张脸。
-        // 角色参考照的产品语义是身份锚，因此必须显式请求 high；中转若不支持就应报错，绝不静默降级。
-        fd.append("input_fidelity", "high");
+        // 角色参考照的产品语义是身份锚，因此必须显式请求 high。
+        // ⚠️legacyShape（v55.01 回归修复）：8/22 晚同一个中转「改前锁脸好好的、改后收不到图」，
+        // 出事窗口里请求侧就动了两处——新增 input_fidelity 字段 + 文件名从固定 ref.png 改成按
+        // 真实 mime 起 .jpg/.webp。有些中转按可选字段/扩展名白名单解析 multipart，撞上就把
+        // image 整个丢了（模型回「请上传参考图片」）。所以保留新形状为首选，一旦上游回话像
+        // 「没收到图」，立刻用出事前验证过的老形状（ref.png + 不带 input_fidelity）重试。
+        if (!legacyShape) fd.append("input_fidelity", "high");
         const refFilename = (blob, i) => {
+          if (legacyShape) return "ref" + (i == null ? "" : i) + ".png";
           const mime = String((blob && blob.type) || "").toLowerCase();
           const ext = mime.indexOf("jpeg") >= 0 || mime.indexOf("jpg") >= 0 ? "jpg" : mime.indexOf("webp") >= 0 ? "webp" : mime.indexOf("gif") >= 0 ? "gif" : "png";
           return "ref" + (i == null ? "" : i) + "." + ext;
@@ -2220,12 +2226,20 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const softened = softenForModeration(prompt);
     if (softened) prompts.push(softened);
     if (opts && opts.minimalPrompt) prompts.push(opts.minimalPrompt);
+    // 上游把 image 弄丢时的典型回话（8/22 实录：模型直接说「请上传你要处理的参考图片」）
+    const looksLikeNoImage = t => /请上传|需要.{0,6}(?:原图|图片)|先看到原图|no\s+image|image\s+(?:is\s+)?(?:required|missing)|upload.{0,20}image/i.test(String(t || ""));
     for (const pText of prompts) {
       for (const mode of modes) {
         try {
-          const out = await attemptWith(refBlobs, mode, pText, RETRY_MS);
-          out.referenceCount = refBlobs.length; out.refMode = mode;
-          out.inputFidelity = "high";
+          let out, shape = "new";
+          try { out = await attemptWith(refBlobs, mode, pText, RETRY_MS); }
+          catch (e1) {
+            if (!looksLikeNoImage(e1 && e1.message)) throw e1;
+            // 新请求形状被这家中转吞了图 → 用出事前验证过的老形状（ref.png、无 input_fidelity）重发
+            out = await attemptWith(refBlobs, mode, pText, RETRY_MS, true); shape = "legacy";
+          }
+          out.referenceCount = refBlobs.length; out.refMode = mode; out.requestShape = shape;
+          out.inputFidelity = shape === "legacy" ? "default" : "high";
           // API 响应没有人脸相似度证明；保留“未验证”状态，禁止 UI 把 HTTP 200 说成锁脸成功。
           out.identityVerification = "not-provided";
           if (a.refFieldMode === "auto" && mode !== "first") saveImgApi({ refFieldMode: mode });
