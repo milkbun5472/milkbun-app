@@ -2231,51 +2231,30 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const mark = (out, how) => { try { if (out && typeof out === "object") { out.degraded = how; if (lastRefErr) out.refError = lastRefErr; } } catch (e) {} return out; };
   // v54.94：参考照存在时身份是硬条件。审核软化与 minimal prompt 可以重试，
   // 但所有重试都必须携带完整身份参考；旧降级阶梯保留在下方仅供无参考路径兼容，实际不会进入。
-  if (refBlobs.length && a.classicMode === true) {
-    // 经典直通:出事前(v54.66时代)逐字节同款请求——ref.png、无input_fidelity、180秒、不重试不软化。
-    // 用途:审计对照组。它好=后来加的哪层坏了;它也坏=站变了,别再改代码。
-    const out = await attempt(true, false, refBlobs.length > 1 ? "bracket" : "first", null, 180000, true);
-    out.referenceCount = refBlobs.length; out.refMode = "classic"; out.inputFidelity = "default";
-    out.identityVerification = "not-provided";
-    return out;
-  }
   if (refBlobs.length) {
-    const configured = a.refFieldMode === "repeat" ? "repeat" : (refBlobs.length > 1 ? "bracket" : "first");
-    const modes = refBlobs.length > 1 ? (configured === "repeat" ? ["repeat", "bracket"] : ["bracket", "repeat"]) : ["first"];
-    const prompts = [prompt];
-    const softened = softenForModeration(prompt);
-    if (softened) prompts.push(softened);
-    if (opts && opts.minimalPrompt) prompts.push(opts.minimalPrompt);
-    // 上游把 image 弄丢时的典型回话（8/22 实录：模型直接说「请上传你要处理的参考图片」）
-    const looksLikeNoImage = t => /请上传|需要.{0,6}(?:原图|图片)|先看到原图|no\s+image|image\s+(?:is\s+)?(?:required|missing)|upload.{0,20}image/i.test(String(t || ""));
-    for (const pText of prompts) {
-      for (const mode of modes) {
-        try {
-          let out, shape;
-          const tryShapes = (opts && opts.preferLegacy) ? [true, false] : [false, true];
-          try { out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000, tryShapes[0]); shape = tryShapes[0] ? "legacy" : "new"; }
-          catch (e1) {
-            // 首选形状失败:「没收到图」类回话必换形状重发;其他错误只在明确偏好老形状时不再折腾
-            if (!looksLikeNoImage(e1 && e1.message) && (opts && opts.preferLegacy)) throw e1;
-            if (!looksLikeNoImage(e1 && e1.message) && !(opts && opts.preferLegacy)) throw e1;
-            out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000, tryShapes[1]); shape = tryShapes[1] ? "legacy" : "new";
-          }
-          out.referenceCount = refBlobs.length; out.refMode = mode; out.requestShape = shape;
-          out.inputFidelity = shape === "legacy" ? "default" : "high";
-          // API 响应没有人脸相似度证明；保留“未验证”状态，禁止 UI 把 HTTP 200 说成锁脸成功。
-          out.identityVerification = "not-provided";
-          if (a.refFieldMode === "auto" && mode !== "first") saveImgApi({ refFieldMode: mode });
-          return out;
-        } catch (e) {
-          note(e);
-          // 同一 prompt 只有字段格式错误才换 image[] / repeated image；别为超时或审核重复等待。
-          if (!/HTTP 4(?:00|04|05|13|15|22).*?(?:image|file|field|array|multipart|参数|字段|文件)/i.test(lastRefErr)) break;
-        }
+    // 定版管线(v55.09,她实测拍板):经典形状+经典时长为默认——它是唯一被验证能在她的站上
+    // 锁脸的形状(ref.png/无input_fidelity/180s/一次一枪)。当初出发点只是「酒楼喝酒触发审核」,
+    // 正确药方是 v54.84 的措辞软化;后来叠加的身份强锁prompt+新请求形状被 8/22 审计+经典对照
+    // 实验证明是把好管线改坏的元凶,全部退役。保留两级兜底,每级仍然带着参考照:
+    //   1) 经典一枪 → 2) 审核拒了才换软化稿再一枪 → 3) 「没收到图」类回话才试新形状一枪 → 报错。
+    const mode = refBlobs.length > 1 ? (a.refFieldMode === "repeat" ? "repeat" : "bracket") : "first";
+    const finish = (out, how) => { out.referenceCount = refBlobs.length; out.refMode = mode; out.inputFidelity = how === "new-shape" ? "high" : "default"; out.identityVerification = "not-provided"; if (how !== "classic") out.degraded = how === "softened" ? "softened" : out.degraded; return out; };
+    const ms = Number(opts && opts.attemptMs) || 180000;
+    try { return finish(await attemptWith(refBlobs, mode, null, ms, true), "classic"); }
+    catch (e1) {
+      note(e1);
+      const noImg = /请上传|需要.{0,6}(?:原图|图片)|先看到原图|no\s+image|image\s+(?:is\s+)?(?:required|missing)|upload.{0,20}image/i.test(String((e1 && e1.message) || ""));
+      if (noImg) {
+        try { return finish(await attemptWith(refBlobs, mode, null, ms, false), "new-shape"); } catch (e2) { note(e2); }
+      } else if (looksLikePolicy(e1)) {
+        const softened = softenForModeration(prompt);
+        if (softened) { try { return finish(await attemptWith(refBlobs, mode, softened, ms, true), "softened"); } catch (e3) { note(e3); } }
+        if (opts && opts.minimalPrompt) { try { return finish(await attemptWith(refBlobs, mode, opts.minimalPrompt, ms, true), "minimal"); } catch (e4) { note(e4); } }
       }
-      if (!looksLikePolicy({ message: lastRefErr })) break;
     }
     throw new Error("参考照锁脸请求失败，已停止而没有生成陌生人" + (lastRefErr ? "：" + lastRefErr : ""));
   }
+
   // 参考图集合的降级顺序:先丢【连贯参考图】(它只是锦上添花),再丢用户的脸,最后才无参考照。
   // 连贯图排在最后一张,所以 slice 掉尾巴就是丢它——身份永远比连贯重要。
   if (refBlobs.length > 1) {
