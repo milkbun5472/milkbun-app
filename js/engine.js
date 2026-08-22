@@ -1990,8 +1990,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
   return parts.join("");
 }
-// 生成一张自拍，返回 { blob, dataUrl } 或 { blob:null, url }。有参考照先走 images/edits(保长相)，
-// 失败(很多便宜中转不支持 /images/edits)自动退回 images/generations(丢参考照但能出图)。
+// 生成一张自拍，返回 { blob, dataUrl } 或 { blob:null, url }。有参考照只走 images/edits，
+// 并请求 high input fidelity；注意：接口接收参考图不等于它提供了“同脸验证”回执。
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const a = loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
@@ -2057,12 +2057,20 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
         if (a.quality) fd.append("quality", a.quality);
+        // GPT Image 的编辑接口默认 input_fidelity=low：它可能只借人物类型/构图，重新捏一张脸。
+        // 角色参考照的产品语义是身份锚，因此必须显式请求 high；中转若不支持就应报错，绝不静默降级。
+        fd.append("input_fidelity", "high");
+        const refFilename = (blob, i) => {
+          const mime = String((blob && blob.type) || "").toLowerCase();
+          const ext = mime.indexOf("jpeg") >= 0 || mime.indexOf("jpg") >= 0 ? "jpg" : mime.indexOf("webp") >= 0 ? "webp" : mime.indexOf("gif") >= 0 ? "gif" : "png";
+          return "ref" + (i == null ? "" : i) + "." + ext;
+        };
         // 单张走 image（沿用验证过的路径）；多张（合照）走 image[]，交给 GPT Image 2 做高保真多图编辑。
         // 多图编辑的字段名各家不一：官方 gpt-image 用 image[]，不少中转只认重复的 image。
         // 两种都试过再降级，别一失败就悄悄丢掉参考照（那就是合照变陌生人的真凶）。
-        if (refBlobs.length === 1 || refMode === "first") fd.append("image", refBlobs[0], "ref.png");
-        else if (refMode === "repeat") refBlobs.forEach((blob, i) => fd.append("image", blob, "ref" + i + ".png"));
-        else refBlobs.forEach((blob, i) => fd.append("image[]", blob, "ref" + i + ".png"));
+        if (refBlobs.length === 1 || refMode === "first") fd.append("image", refBlobs[0], refFilename(refBlobs[0]));
+        else if (refMode === "repeat") refBlobs.forEach((blob, i) => fd.append("image", blob, refFilename(blob, i)));
+        else refBlobs.forEach((blob, i) => fd.append("image[]", blob, refFilename(blob, i)));
         r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
       } else {
         // slim = 裸参数重试：有些中转不认 quality/response_format 这类可选参数，只发必填的
@@ -2141,6 +2149,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         try {
           const out = await attemptWith(refBlobs, mode, pText, RETRY_MS);
           out.referenceCount = refBlobs.length; out.refMode = mode;
+          out.inputFidelity = "high";
+          // API 响应没有人脸相似度证明；保留“未验证”状态，禁止 UI 把 HTTP 200 说成锁脸成功。
+          out.identityVerification = "not-provided";
           if (a.refFieldMode === "auto" && mode !== "first") saveImgApi({ refFieldMode: mode });
           return out;
         } catch (e) {
