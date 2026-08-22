@@ -54,14 +54,19 @@ test("开局前就能看见开关：不必先选中言秋才突然出现", () =>
   assert.doesNotMatch(games, /ccSeat: game\.key === "uno" \? ccSeat : undefined/, "旧的 UNO 专属传参已经废掉");
 });
 
-test("狼人杀白天发言也接上了，且会补他的 claim", () => {
-  assert.match(games, /await ccCarve\("werewolf", speakers, \{/);
+test("狼人杀白天发言按真实座位切三段，言秋能看到前桌、后桌也能接他", () => {
+  assert.match(games, /const ccIndex = speakers\.indexOf\(ccSeat0\);/);
+  assert.match(games, /const beforeSeats = speakers\.slice\(0, ccIndex\);/);
+  assert.match(games, /const afterSeats = speakers\.slice\(ccIndex \+ 1\);/);
+  assert.match(games, /await ccCarve\("werewolf", \[ccSeat0\], \{/);
   assert.match(games, /async function genSpeechesBatch\(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, preface\)/);
-  // 他也要给 claim，否则 stances 里缺他一行，别人对不上他声称的身份
-  assert.match(games, /他也要给 claim，否则后面的 stances 里缺他一行/);
+  assert.match(games, /const priorForCc = prior\.concat\(before\.speeches \|\| \[\]\);/);
+  assert.match(games, /const priorAfter = priorForCc\.concat\(mine\.speeches \|\| \[\]\);/);
+  assert.match(games, /speeches: \(before\.speeches \|\| \[\]\)\.concat\(mine\.speeches \|\| \[\], after\.speeches \|\| \[\]\)/);
+  // 他仍要给 claim，否则 stances 里缺他一行，别人对不上他声称的身份
   assert.match(games, /stances: \[\{ name: cc\.seat\.name, claim:/);
-  // 他先说的要进入后面人看到的「已发言」
-  assert.match(games, /const priorAll = mine \? prior\.concat\(mine\.speeches\) : prior;/);
+  assert.doesNotMatch(games, /await ccCarve\("werewolf", speakers, \{/,
+    "旧写法会把言秋强行提到第一位，看不到同轮前桌发言");
   assert.match(games, /\{ turnId: "wolf:day" \+ n \}/);
 });
 

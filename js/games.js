@@ -1117,26 +1117,42 @@
   }
   // 白天发言：存活 AI 依次发一段（带各自身份/私密信息）；同时回一份立场纪要供后续保持一致
   async function genSpeeches(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, carveCtx) {
-    // CC 座位先手（抄 UNO）：言秋自己那一段发言从 CC 窗口来，剩下的人才进批量。
-    // 他也要给 claim，否则后面的 stances 里缺他一行，别人对不上他声称的身份。
     const ccSeat0 = ccSeatOf(speakers);
-    const cc = (carveCtx && ccSeat0) ? await ccCarve("werewolf", speakers, {
+    if (!carveCtx || !ccSeat0) {
+      return genSpeechesBatch(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, "");
+    }
+
+    // 必须按真实座位顺序走：先生成言秋前面的人，再把他们的原话随票给言秋；
+    // 言秋答完后，后面的角色也要看到他的原话。不能为了切 CC 座位把他永远提到第一位。
+    const ccIndex = speakers.indexOf(ccSeat0);
+    const beforeSeats = speakers.slice(0, ccIndex);
+    const afterSeats = speakers.slice(ccIndex + 1);
+    const empty = { speeches: [], stances: [], claims: [] };
+    const before = beforeSeats.length
+      ? await genSpeechesBatch(api, beforeSeats, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, "")
+      : empty;
+    const priorForCc = prior.concat(before.speeches || []);
+    const cc = await ccCarve("werewolf", [ccSeat0], {
       turnId: (carveCtx.turnId || "") + ":speech",
       sys: "「狼人杀」第 " + dayNum + " 天白天发言，轮到你。\n【你的身份与私密信息】" + (ccSeat0.priv || "")
         + "\n\n【昨晚】" + (deaths || "平安夜")
-        + "\n\n【已发言】\n" + (prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你最先发言）")
+        + "\n\n【已发言】\n" + (priorForCc.length ? priorForCc.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你最先发言）")
         + "\n\n说一段发言，并说清你此刻【对外声称】的身份。",
       ask: "发言。",
       expect: "{\"text\":\"发言\",\"claim\":\"你此刻声称的身份\"}"
-    }) : { seat: null, rest: speakers, done: null };
+    });
     const mineText = cc.done ? String(cc.done.text || "").trim() : "";
     const mine = mineText ? { speeches: [{ name: cc.seat.name, text: mineText }],
-      stances: [{ name: cc.seat.name, claim: String(cc.done.claim || "").trim() || "未明说" }] } : null;
-    if (!cc.rest.length) return mine || { speeches: [], stances: [] };
-    const priorAll = mine ? prior.concat(mine.speeches) : prior;
-    const out = await genSpeechesBatch(api, cc.rest, dayNum, priorAll, deaths, mode, userName, stances, gods, board, wolfRole, claims, ccPreface(cc, "发过言了"));
-    if (!mine) return out;
-    return { speeches: mine.speeches.concat(out.speeches || []), stances: mine.stances.concat(out.stances || []) };
+      stances: [{ name: cc.seat.name, claim: String(cc.done.claim || "").trim() || "未明说" }], claims: [] } : empty;
+    const priorAfter = priorForCc.concat(mine.speeches || []);
+    const after = afterSeats.length
+      ? await genSpeechesBatch(api, afterSeats, dayNum, priorAfter, deaths, mode, userName, stances, gods, board, wolfRole, claims, ccPreface(cc, "发过言了"))
+      : empty;
+    return {
+      speeches: (before.speeches || []).concat(mine.speeches || [], after.speeches || []),
+      stances: (before.stances || []).concat(mine.stances || [], after.stances || []),
+      claims: (before.claims || []).concat(mine.claims || [], after.claims || [])
+    };
   }
   async function genSpeechesBatch(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, preface) {
     const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv; }).join("\n");
