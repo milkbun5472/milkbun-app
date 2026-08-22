@@ -3870,7 +3870,7 @@ function ImageApiConfig({ toast }) {
       const prompt = testRef
         ? "Photocopy test: reproduce the attached reference image as exactly as possible — same person, same face, same hair, same expression, same clothing, same pose. Change ONLY the background to plain white. Do not redesign, beautify, restyle, or replace anything about the person."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
-      const out = await generateSelfieImage(prompt, testRef, {});
+      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 175000, budgetMs: 360000 });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
       setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
     } catch (e) { setTestRes({ ok: false, err: String((e && e.message) || e) }); }
@@ -3917,7 +3917,7 @@ function ImageApiConfig({ toast }) {
         testRef ? "✓ 已选测试参考脸（点这里更换）" : "可选：上传一张脸，测试高保真参考能力",
         h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { setTestRef(String(rd.result || "")); setTestRes(null); }; rd.readAsDataURL(f); } })),
       // 诊断按钮：真拍一张测试图
-      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（最多约 95 秒/次）" : (testRef ? "🔬 测试高保真参考图" : "🔬 测试纯文字出图")),
+      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（慢站可能要两三分钟）" : (testRef ? "🔬 测试高保真参考图" : "🔬 测试纯文字出图")),
       testRes ? (testRes.ok
         ? h("div", { style: { marginTop: 12 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "已请求 high input fidelity · 参考 " + testRes.refs + " 张 · " + testRes.mode : "纯文字出图可用（这不代表参考图能力可用）")),

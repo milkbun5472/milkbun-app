@@ -2126,7 +2126,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const attempt = async (useRef, slim, refMode, pOverride, msOverride, legacyShape) => {
     const promptText = pOverride || prompt;
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), Math.min(Number(msOverride || 95000), 95000));
+    // 单次上限 95→180 秒（v55.02 回归修复）：这家中转正常出图就要一百多秒，
+    // v54.90 的 95 秒硬闸把好好的请求掐成「Fetch is aborted」。总预算闸仍在，不会回到卡十几分钟。
+    const to = setTimeout(() => ctrl.abort(), Math.min(Number(msOverride || 130000), 180000));
     let r;
     try {
       if (useRef && refBlobs.length) {
@@ -2232,11 +2234,11 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       for (const mode of modes) {
         try {
           let out, shape = "new";
-          try { out = await attemptWith(refBlobs, mode, pText, RETRY_MS); }
+          try { out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000); }
           catch (e1) {
             if (!looksLikeNoImage(e1 && e1.message)) throw e1;
             // 新请求形状被这家中转吞了图 → 用出事前验证过的老形状（ref.png、无 input_fidelity）重发
-            out = await attemptWith(refBlobs, mode, pText, RETRY_MS, true); shape = "legacy";
+            out = await attemptWith(refBlobs, mode, pText, Number(opts && opts.attemptMs) || 130000, true); shape = "legacy";
           }
           out.referenceCount = refBlobs.length; out.refMode = mode; out.requestShape = shape;
           out.inputFidelity = shape === "legacy" ? "default" : "high";
