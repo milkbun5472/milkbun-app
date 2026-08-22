@@ -212,16 +212,6 @@ const GCarry = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.
 const GWallet = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M4 7.5A2.5 2.5 0 016.5 5h11A1.5 1.5 0 0119 6.5V8M4 7.5v9A2.5 2.5 0 006.5 19h12a1.5 1.5 0 001.5-1.5V10a1.5 1.5 0 00-1.5-1.5H6.5A2.5 2.5 0 014 6.5M16 13.5a1 1 0 100 .01"
 }));
-// 占位（敬请期待）：沙漏
-const GSoon = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
-  d: "M7 4h10M7 20h10M8 4c0 4 8 5 8 8s-8 4-8 8M16 4c0 4-8 5-8 8s8 4 8 8"
-}));
-// 一起听（唱片：外圈 + 内孔）
-const GListen = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("circle", {
-  cx: "12", cy: "12", r: "9"
-}), /*#__PURE__*/React.createElement("circle", {
-  cx: "12", cy: "12", r: "2.4"
-}));
 // —— 行程活动图标 ——
 const GCoffee = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M4 8h13v5a5 5 0 01-5 5H9a5 5 0 01-5-5V8zM17 9h2.5a2.5 2.5 0 010 5H17M7 3.5c0 1-.8 1.3-.8 2.3M11 3.5c0 1-.8 1.3-.8 2.3"
@@ -287,8 +277,6 @@ const GDebate = p => h(Svg, p, h("path", { d: "M12 3v18M6 21h12M4 7h16M12 4l-7 3
 const GDream = p => h(Svg, p, h("path", { d: "M20 14.5A8 8 0 019.5 4 7 7 0 1020 14.5z" }), h("path", { d: "M16.5 3.6l.5 1.6 1.6.5-1.6.5-.5 1.6-.5-1.6-1.6-.5 1.6-.5z" }));
 // 塔罗：两张摊开的牌 + 星
 const GTarot = p => h(Svg, p, h("rect", { x: 4, y: 6, width: 9, height: 13, rx: 1.4, transform: "rotate(-11 8.5 12.5)" }), h("rect", { x: 11, y: 5, width: 9, height: 13, rx: 1.4, transform: "rotate(9 15.5 11.5)" }), h("path", { d: "M15.3 8.4l.45 1.35 1.35.45-1.35.45-.45 1.35-.45-1.35-1.35-.45 1.35-.45z" }));
-// 记账：账本 + 硬币
-const GLedger = p => h(Svg, p, h("rect", { x: 4, y: 3, width: 12, height: 18, rx: 2 }), h("path", { d: "M7 7h6M7 11h6M7 15h3" }), h("circle", { cx: 17, cy: 16, r: 4 }), h("path", { d: "M17 14.4v3.2M15.7 15.2h2.2" }));
 // 番茄钟：计时器（表身 + 顶钮 + 指针）
 const GFocus = p => h(Svg, p, h("circle", { cx: 12, cy: 14, r: 7.5 }), h("path", { d: "M12 14V9.5" }), h("path", { d: "M12 3.5v2.4M9.6 4.2h4.8" }), h("path", { d: "M17.8 7.6l1.3-1.3" }));
 // 小游戏：游戏手柄（机身 + 十字键 + 两个圆钮）
