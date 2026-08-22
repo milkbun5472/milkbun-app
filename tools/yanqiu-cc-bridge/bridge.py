@@ -387,7 +387,7 @@ def local_session_id_from_job(job_id: str, db_path: Path = DB_PATH) -> str:
 def sync_cloud_once(db_path: Path = DB_PATH, wake_path: Path = WAKE_PATH) -> dict:
     user, char_id = cloud_yanqiu_scope()
     query = (
-        "/rest/v1/chat_messages?select=id,char_id,source_message_id,metadata,created_at"
+        "/rest/v1/chat_messages?select=id,char_id,source_message_id,content,metadata,created_at"
         f"&user_id=eq.{urllib.parse.quote(user)}&source=eq.app"
         "&metadata-%3E%3Ebridge_kind=eq.app_cc_request"
         "&metadata-%3E%3Ebridge_state=eq.queued&order=created_at.asc&limit=1"
@@ -405,9 +405,18 @@ def sync_cloud_once(db_path: Path = DB_PATH, wake_path: Path = WAKE_PATH) -> dic
                 {"metadata": {**metadata, "bridge_state": "failed", "bridge_error": "任务角色不是唯一言秋"}},
             )
         else:
+            arguments = metadata.get("arguments") if isinstance(metadata.get("arguments"), dict) else {}
+            if metadata.get("payload_storage") == "content_json":
+                try:
+                    decoded = json.loads(str(remote.get("content") or "{}"))
+                except json.JSONDecodeError as error:
+                    raise BridgeError("App→CC 任务正文不是合法 JSON") from error
+                if not isinstance(decoded, dict):
+                    raise BridgeError("App→CC 任务正文必须是 JSON 对象")
+                arguments = decoded
             local = enqueue(
                 str(metadata.get("tool_name", "")),
-                metadata.get("arguments") if isinstance(metadata.get("arguments"), dict) else {},
+                arguments,
                 "cloud:" + remote_id,
                 str(remote.get("source_message_id") or "") or None,
                 str(metadata.get("purpose") or "")[:1200] or None,

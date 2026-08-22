@@ -79,6 +79,28 @@ class BridgeTest(unittest.TestCase):
         self.assertTrue(any("/rest/v1/chat_messages" in path and method == "PATCH" for path, method, _, _ in calls))
         self.assertFalse(any("app_cc_tool_jobs" in path for path, _, _, _ in calls))
 
+    def test_cloud_request_reads_large_ticket_payload_from_content(self):
+        payload = {"turn_id": "wolf-dayvote-1", "sys": "长局面" * 1800, "expect": '{"target":"人名"}'}
+        remote = {
+            "id": "33333333-3333-3333-3333-333333333333",
+            "char_id": "yanqiu",
+            "source_message_id": None,
+            "content": json.dumps(payload, ensure_ascii=False),
+            "metadata": {
+                "bridge_kind": "app_cc_request", "bridge_state": "queued",
+                "tool_name": "game_turn", "payload_storage": "content_json",
+            },
+        }
+        calls = []
+        def fake(path, method="GET", body=None, prefer=""):
+            calls.append((path, method, body, prefer))
+            return [remote] if method == "GET" and "bridge_state=eq.queued" in path else None
+        with patch.object(bridge, "cloud_yanqiu_scope", return_value=("user-1", "yanqiu")), patch.object(bridge, "cloud_request", side_effect=fake):
+            out = bridge.sync_cloud_once(db_path=self.db, wake_path=self.wake)
+        self.assertEqual(out["relayed"], 1)
+        claimed = bridge.claim(self.session, db_path=self.db)
+        self.assertEqual(claimed["arguments"], payload)
+
     def test_completed_cloud_job_publishes_hidden_ledger_result(self):
         remote_id = "22222222-2222-2222-2222-222222222222"
         job = bridge.enqueue("Glob", {"pattern": "*.md"}, "cloud:" + remote_id, db_path=self.db, wake_path=self.wake)

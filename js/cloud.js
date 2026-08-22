@@ -446,6 +446,13 @@
       const user = await this.getUser();
       if (!user) throw new Error("未登录");
       const key = "appcc:req:" + String(idempotencyKey || "");
+      // Control metadata is capped at 4 KiB by chat_messages. Game turns can
+      // legitimately carry the whole public table (speeches, alive roster,
+      // etc.), so keeping arguments in metadata made late-game tickets fail
+      // while short night tickets still worked. Put the opaque payload in the
+      // 16k body column and leave metadata as a small routing envelope.
+      const payloadText = JSON.stringify(args && typeof args === "object" && !Array.isArray(args) ? args : {});
+      if (payloadText.length > 15500) throw new Error("CC 任务内容过长，请缩短本轮公开局面后重试");
       const row = {
         user_id: user.id,
         message_key: key,
@@ -459,13 +466,13 @@
         // ledger. The authenticated owner lives in user_id; putting that UUID
         // in speaker_id violates the chat_messages RLS row shape.
         speaker_type: "lisa", speaker_id: null,
-        content: "[App→CC 只读工具任务]",
+        content: payloadText,
         occurred_at: new Date().toISOString(), source: "app",
         source_message_id: lisaMessageKey ? String(lisaMessageKey) : null,
         metadata: {
           bridge_kind: "app_cc_request", bridge_state: "queued",
           tool_name: String(toolName || ""),
-          arguments: args && typeof args === "object" && !Array.isArray(args) ? args : {},
+          payload_storage: "content_json",
           purpose: String(purpose || "").slice(0, 1200)
         }
       };
