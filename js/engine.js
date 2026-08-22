@@ -1859,11 +1859,21 @@ async function hydrateNativeSelfies() {
 function buildMinimalPhotoPrompt(char, opts) {
   const anime = char && char.photoStyle === "anime";
   const duo = opts && (opts.kind === "duo" || opts.cast);
+  const name = (char && char.name) || "这个人";
+  // ⚠️v54.92：上一版把身份信息也删光了，只剩「就是参考图里那位」。
+  // 中转站一旦没真用上参考照（不少便宜通道的图生图是假的，静默退化成文生图），
+  // 模型手里就一个字的人物信息都没有 → 自由发挥，给她画了个白毛衣小姐姐
+  // （她 2026-08-22 截图）。要拿掉的只是【有风险的场景】，绝不是【这个人是谁】。
+  const look = String((char && char.appearance) || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const wear = String((char && char.photoOutfit) || "").replace(/\s+/g, " ").trim().slice(0, 60);
   return "【最高优先级·就是这个人】画面里的" + (duo ? "两个人必须严格就是参考图里的这两位" : "人必须严格就是参考图里的那一位")
-    + "：五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图，不许另造陌生人。\n"
+    + "：五官、脸型、发色瞳色、年龄感、性别、肤色完全照搬参考图，不许另造陌生人。\n"
+    + (look ? "【" + name + "的外貌·务必贴合】" + look + "\n" : "")
+    + (wear ? "【穿着】" + wear + "\n" : (look ? "【穿着】按上述外貌所属的时代与身份来，不要现代便装乱入。\n" : ""))
     + (anime ? "精致的二次元动画插画风格。" : "真实照片风格。")
     + "一张普通的人像：只拍" + (duo ? "两人的" : "") + "上半身与神情，背景简单干净，衣着完整整齐，画面平静、可公开展示。";
 }
+
 
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   opts = opts || {};

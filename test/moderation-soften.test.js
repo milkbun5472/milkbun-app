@@ -145,14 +145,22 @@ const minimal = (() => {
   return new Function(engine.slice(i, engine.indexOf("\n}", i) + 2) + "\nreturn buildMinimalPhotoPrompt;")();
 })();
 
-test("最简稿必须真的短——它是保脸的最后一招", () => {
-  const one = minimal({ photoStyle: "realistic" }, { kind: "self" });
-  assert.ok(one.length < 200, "太长就白设了，现在 " + one.length + " 字");
-  // 只留两件事：这是谁、拍张普通人像
+test("最简稿要短，但【身份信息一个都不能少】", () => {
+  const char = { name: "裴照川", photoStyle: "realistic", appearance: "二十七八岁男子，墨发束起，常着玄色窄袖长袍" };
+  const one = minimal(char, { kind: "self" });
+  assert.ok(one.length < 320, "还是要短，现在 " + one.length + " 字");
   assert.match(one, /画面里的人必须严格就是参考图里的那一位/);
   assert.match(one, /只拍上半身与神情，背景简单干净/);
-  // 触发词一个都不许有
   assert.ok(!/酒|刀|血|烟|伤/.test(one), "最简稿里不许有触发词");
+  // ⚠️v54.92 血泪教训：上一版把身份也删光了，中转站一旦没真用上参考照
+  // （不少便宜通道的图生图是假的，静默退化成文生图），模型手里零信息，
+  // 就给她画了个白毛衣小姐姐。要拿掉的只是【有风险的场景】，不是【这个人是谁】。
+  assert.match(one, /二十七八岁男子，墨发束起/, "外貌必须带上");
+  assert.match(one, /性别/, "锁脸清单里要点名性别");
+  assert.match(one, /不要现代便装乱入/, "时代感也得钉住");
+  // 没填外貌的角色不能拼出空标签
+  const bare = minimal({ name: "谁" }, { kind: "self" });
+  assert.ok(!/【的外貌|【穿着】\n/.test(bare), "字段为空时不许留空标签：" + bare);
 });
 
 test("最简稿仍认画风与合照，别把二次元画成真人", () => {
@@ -183,7 +191,9 @@ test("审核拒绝不许再被误报成配额问题", () => {
 });
 
 test("minimal 那一级要说明白：脸是对的，只是没有场景", () => {
-  assert.ok(app.includes("审核挡了两次，这张只拍了人和神情、没带场景——但脸是对的"));
+  // 「脸是对的」是句谎话——参考照有没有真被用上我们判断不了（她 2026-08-22 就撞到了）
+  assert.ok(!app.includes("但脸是对的"), "别打包票");
+  assert.ok(app.includes("要是脸不像，多半是中转站没真用上参考照"));
   assert.match(app, /out\.degraded === "minimal" \?/);
 });
 
