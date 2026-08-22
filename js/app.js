@@ -2930,42 +2930,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (raw !== undefined && raw !== null && String(raw).trim() !== "") { const off = parseFloat(raw); if (!isNaN(off)) { const d = new Date(Date.now() + off * 3600000); return d.getUTCHours() * 60 + d.getUTCMinutes(); } }
     const d = new Date(); return d.getHours() * 60 + d.getMinutes();
   };
-  // 从今日日程取起床/就寝时刻（角色本地，分钟）；没日程返回 null
-  const schedWakeSleep = char => {
-    const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
-    if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return null;
-    const toMin = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
-    let sleep = null;
-    for (let i = s.seqs.length - 1; i >= 0; i--) { if (s.seqs[i].type === "sleep") { sleep = toMin(s.seqs[i].time); break; } }
-    if (sleep == null) sleep = toMin(s.seqs[s.seqs.length - 1].time);
-    return { wake: toMin(s.seqs[0].time), sleep: sleep };
-  };
-  const nearMin = (a, b, tol) => { let d = Math.abs(a - b); d = Math.min(d, 1440 - d); return d <= tol; };
-  // 这一句问候【算哪一天的】（v54.76）。以前一律用日历日，于是午夜一翻页，
-  // 「今天已道过晚安」的记号当场作废，而晚安窗口(固定档 hr<=1、有日程时 sleep±90)还开着——
-  // 23:30 刚道完晚安的角色，00:01 起会被 45 秒一轮的 tick 逐个再道一遍
-  // （她 2026-08-22：「0点01-02大家准时给我晚安」，那时云端 cron 早就没了，是这儿）。
-  // 晚安属于【刚过去的那个晚上】，早安属于【即将开始的那一天】，都跟着角色本地时间算。
-  const greetDayKey = (char, slot) => {
-    const k = schedDayKey(new Date());
-    const hr = Math.floor(charLocalMin(char) / 60);
-    if (slot === "n" && hr < 6) return schedShiftDayKey(k, -1);   // 跨过午夜的晚安 → 记在昨天
-    if (slot === "m" && hr >= 20) return schedShiftDayKey(k, 1);  // 夜班角色天亮前就"早安" → 记在明天
-    return k;
-  };
-  // 要不要问候、问早还是问晚：优先按日程（起床后3h内问早、就寝前后1.5h问晚安），没日程回退固定窗口
-  const greetSlotFor = char => {
-    const nowMin = charLocalMin(char);
-    const ws = schedWakeSleep(char);
-    if (ws) {
-      if (ws.wake != null && nowMin >= ws.wake && nowMin <= ws.wake + 180) return "m";
-      if (ws.sleep != null && nearMin(nowMin, ws.sleep, 90)) return "n";
-      return null; // 有日程但不在起床/就寝附近 → 此刻不问候
-    }
-    const hr = Math.floor(nowMin / 60); // 没今日日程 → 回退固定窗口
-    return (hr >= 7 && hr <= 10) ? "m" : ((hr >= 21 && hr <= 23) || hr <= 1) ? "n" : null;
-  };
   useEffect(() => {
     const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
     const tick = () => {
@@ -3132,34 +3096,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
       } catch (e) {}
-      // 池 = 真在聊的角色（≥2条历史）；每个时段最多问候 ceil(池/2) 个，别全员打卡把你淹了
-      const pool = characters.filter(c => hist(c).length >= 2);
-      if (!pool.length) return;
-      const cap = Math.ceil(pool.length / 2);
-      // 按天轮换顺序，让每天优先问候的角色不同（不总是同几个）
-      const rot = Math.floor(Date.now() / 86400000) % pool.length;
-      const ordered = pool.slice(rot).concat(pool.slice(0, rot));
-      const doneInSlot = slot => ordered.filter(c => (greetLogRef.current[c.id] || {})[slot] === greetDayKey(c, slot)).length;
-      for (const c of ordered) {
-        const cid = c.id;
-        if (laneBusy("c:" + cid)) continue;
-        if (viewRef.current.charId === cid) continue;         // 正在看这个聊天就不用主动问候
-        if (currentlyTogetherWithChar(cid)) continue;         // 正在共同群聊/群线下，不能另开私聊假装没被理
-        if (offlineTogetherNow(cid)) continue; // 此刻真面对面才别发线上问候；线下挂着但已散就正常问候
-        const slot = greetSlotFor(c);
-        if (!slot) continue;
-        const gKey = greetDayKey(c, slot);
-        if ((greetLogRef.current[cid] || {})[slot] === gKey) continue; // 这个时段已问候过（按归属日，不是日历日）
-        if (doneInSlot(slot) >= cap) continue;                // 这个时段今天问候名额已满
-        const msgs = hist(c);
-        if (Date.now() - Math.max(msgs[msgs.length - 1].ts || 0, latestSharedInteractionTs(cid)) < 90 * 60000) continue; // 单聊/群聊/线下刚互动过，90 分钟内先不打扰
-        window.DeliveryCommit.once(
-          "greeting:" + gKey + ":" + slot,
-          () => replyNow(cid, "", null, { proactive: true, greet: slot === "m" ? "morning" : "night" }),
-          () => markGreet(cid, slot, gKey)
-        );
-        break;                                                // 一次只发一个，错峰
-      }
+      // 定时早晚安已于 v54.77 整块下线（她 2026-08-22：「早安晚安也停了吧，就留真正挂念的时候发」）。
+      // 打卡式问候本来就压着上面那套积温：到点必发、跟心情无关，久了就成了背景噪音。
+      // 现在角色主动开口只剩两个理由：真攒够思念（积温，就在上面）、以及你生日。
     };
     // 等积温 8 秒首算和群聊 11 秒认领机会走完，再决定是否落到单聊；否则单聊会永远抢先吃掉 contact。
     const kick = setTimeout(tick, 14000);
@@ -4152,7 +4091,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (laneBusy("c:" + charId)) return false;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
     if (opts.proactive) {
-      const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : opts.greet ? "greeting" : "foreground_proactive";
+      const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -4239,7 +4178,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const emoteHint = emotes.length ? "\n【表情包】频率必须延续你这个角色已经形成的聊天习惯：本来爱发表情包的人可以自然地常发、兴头上连甩几张；本来很少发或从不发的人不要因为列表可用、也不要因为历史别处出现过表情就突然开始发。以人设和你自己过去的真实用法为准，不设统一频率。可用关键词：" + emotes.map(e => e.keyword).join(" / ") + "。要发就把 emote 填成其中一个关键词（与上面列的完全一致），否则 null。" : "";
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const uName = profile && profile.name ? profile.name : "对方"; // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
-      const greetHint = opts.greet ? "\n\n【此刻·你主动问候】现在是" + (opts.greet === "morning" ? "早上" : "晚上") + "，你【主动】给 Ta 发一句" + (opts.greet === "morning" ? "问早/早安" : "道晚安") + "——结合你此刻的作息、行程、心情，自然又简短（1~2 条），像真人随手发的，别只干巴巴一句『早安』。**很重要：Ta 有自己的生活、可能在忙、可能没空回，这完全正常。语气要轻松不粘人——不许用『怎么不理我』『是不是不想理我』『冷落我』这类质问或愧疚绑架，也别摆被冷落的委屈脸。就是单纯想到 Ta、顺手送个问候，Ta 回不回都没关系。**" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：把输出里的 gift 填成具体的东西（如『一支 Ta 上次说想要的口红』『一块草莓奶油蛋糕』『一束向日葵』），会像外卖一样送到；不送就 null。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
@@ -4258,7 +4196,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _lastVisibleTs = history.length ? Number(history[history.length - 1].ts) || 0 : 0;
       const _lastAnyInteractionTs = Math.max(_lastVisibleTs, latestSharedInteractionTs(charId));
       const proactiveFreshStart = !!opts.proactive && (!_lastAnyInteractionTs || Date.now() - _lastAnyInteractionTs >= 40 * 60000);
-      const proactiveHint = opts.tf ? tfHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : opts.greet ? greetHint : (opts.proactive || contMode)
+      const proactiveHint = opts.tf ? tfHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。把这当成一段新的聊天开场：优先从你此刻正在做的事、刚遇到的小事、突然想到的东西、天气/饭点/行程、想分享或想问的新鲜话题里，自然挑一个开口。**不要默认续接聊天记录最后一句，也不要延续上一轮的委屈、焦虑、兴奋或争执情绪。**只有历史里存在明确没回答的问题、已经约好的事、承诺或仍未解决的真实开环，而且此刻确实会想到它时，才轻轻接回；普通旧话题已经结束就让它结束。1~2 条短消息，像真人隔一阵重新来敲门，不复述旧话、不质问为什么没回。"
           : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
@@ -4354,7 +4292,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "你想给 " + uName + " 发图时，额外加入 \"photo\":{\"kind\":\"self|other" + (canDuo ? "|duo" : "") + "\",\"scene\":\"画面内容\"}；不发就省略。self 是你的自拍，other 是别人拍下的你" + (canDuo ? "，duo 是你和 " + uName + " 的合照" : "") + "。scene 只写画面，不要把图片说明塞进 word；是否发、发什么由你自己决定。"
         : "";
       // 配件·授权门（安全铁律④：任何主动/续写/提醒/生日/微信/转账/眼睛/续说 都【绝不】开放硬件；只在此刻在场、明示激活、该角色 opt-in、且已解锁时才注入 toy 能力）
-      const toyOn = !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx && !opts.greet
+      const toyOn = !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx
         && typeof toyReady === "function" && toyReady() && toyArmedRef.current && toyArmedForRef.current === charId
         && !!(settingsFor(charId) && settingsFor(charId).toyEnabled)
         && (() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } })();
@@ -4365,7 +4303,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           ts: Date.now(),
           who: (characters.find(c => c.id === charId) || {}).name || charId,
           conds: [
-            ["不是主动/续写轮", !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx && !opts.greet],
+            ["不是主动/续写轮", !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx],
             ["设备已连接", typeof toyReady === "function" && toyReady()],
             ["本次已激活", !!toyArmedRef.current],
             ["激活的正是TA", toyArmedForRef.current === charId],
