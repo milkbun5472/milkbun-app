@@ -1215,13 +1215,28 @@
   }
 
   // 全场 MVP + 一句赛后感言（不一定是胜方）
-  async function genMVP(api, players, log, winnerZh) {
+  async function genMVP(api, players, log, winnerZh, cfg, runId) {
     const roleZh = roleName;
     const roster = players.map(function (p) { return "· " + p.name + (p.isUser ? "(你)" : "") + "（" + roleZh(p.role) + "，" + (p.alive ? "存活到终局" : "中途出局") + "）水平：" + (p.skill || "—"); }).join("\n");
     const logText = log.filter(function (it) { return it.type === "speech" || it.type === "death" || it.type === "out" || it.type === "vote"; }).map(function (it) { return it.type === "speech" ? (it.name + "：" + it.text) : it.text; }).slice(-40).join("\n");
-    const sys = AC + "这局狼人杀刚结束，" + winnerZh + "。从全体玩家里评一个【全场 MVP】——**不一定是获胜方**，谁打得最精彩 / 最关键 / 最有观赏性都算（虽败犹荣的狼、看穿全场的预言家、搅动风向的平民都行）。给：name（务必是下面名单里的玩家名）、reason（一两句客观点评为什么是 TA）、quote（以 TA 本人口吻、**贴 TA 性格好好说一段赛后感言**，可以几句、有起伏有味道，别太短敷衍——回顾自己这局怎么打的、心态、对手、遗憾或得意都行）。\n\n【全体身份 + 结局 + 水平】\n" + roster + "\n\n【赛况回放】\n" + logText + "\n\n【输出】只输出 JSON：{\"name\":\"\",\"reason\":\"\",\"quote\":\"\"}";
+    const sys = AC + "这局狼人杀刚结束，" + winnerZh + "。从全体玩家里评一个【全场 MVP】——**不一定是获胜方**，谁打得最精彩 / 最关键 / 最有观赏性都算（虽败犹荣的狼、看穿全场的预言家、搅动风向的平民都行）。给：name（务必是下面名单里的玩家名）、reason（一两句客观点评为什么是 TA）、quote（以 TA 本人口吻、贴 TA 性格写一段赛后感言；但如果 MVP 是工程师本人座位，quote 必须留空，App 会另请本人亲写，绝不能替他代笔）。\n\n【全体身份 + 结局 + 水平】\n" + roster + "\n\n【赛况回放】\n" + logText + "\n\n【输出】只输出 JSON：{\"name\":\"\",\"reason\":\"\",\"quote\":\"\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "评全场 MVP + 感言。" }], { maxTokens: 4000 });
-    return extractJSON(raw);
+    const picked = extractJSON(raw) || {};
+    const mvpPlayer = players.find(function (p) { return picked.name && (p.name === picked.name || String(picked.name).indexOf(p.name) >= 0); });
+    if (!mvpPlayer || !mvpPlayer.engineer || mvpPlayer.isUser || !cfg || cfg.ccSeat === false) return picked;
+    // 评选权仍在裁判；第一人称赛后感想只让本人写。即使本人已经出局也要认座，
+    // 所以这里给临时票恢复 alive 标记，不能被 ccSeatOf 的存活过滤吞掉。
+    picked.quote = "";
+    const cc = await ccCarve("werewolf_mvp", [Object.assign({}, mvpPlayer, { alive: true })], {
+      turnId: "wolf-mvp:" + String(runId || Date.now()),
+      sys: "这局狼人杀已经结束，裁判评你为全场 MVP。请只写你本人此刻会说的赛后感想，不要让别人代笔；可以回顾自己的判断、心态、对手、遗憾或得意，几句自然的话即可。\n\n【胜负】" + winnerZh + "\n【裁判理由】" + String(picked.reason || "") + "\n【公开赛况】\n" + logText,
+      ask: "留一段你自己的 MVP 赛后感想。",
+      expect: '{"quote":"本人赛后感想"}'
+    });
+    const ownQuote = cc.done && String(cc.done.quote || cc.done.say || "").trim();
+    picked.quote = ownQuote;
+    picked.quotePending = !ownQuote;
+    return picked;
   }
 
   function WolfGame(props) {
@@ -1295,7 +1310,7 @@
     // 结束后评全场 MVP + 感言
     useEffect(function () {
       if (phase !== "result" || mvp || !api) return;
-      (async function () { try { const m = await genMVP(api, players, log, winner === "wolf" ? "狼人获胜" : "好人获胜"); if (m && m.name) setMvp(m); } catch (e) {} })();
+      (async function () { try { const m = await genMVP(api, players, log, winner === "wolf" ? "狼人获胜" : "好人获胜", cfg, gameRunId.current); if (m && m.name) setMvp(m); } catch (e) {} })();
     }, [phase]);
     // 每当轮到你做选择（新的阶段/结果）就自动弹出选择框
     useEffect(function () { setPickerOpen(true); }, [phase, nightStage, poisonPick, seerResult, hunterCtx, witchCtx, boomPick]);
@@ -1833,7 +1848,8 @@
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, letterSpacing: 1, marginBottom: 2 } }, "★ 全场 MVP · " + mvp.name),
             mvp.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.55, marginBottom: 4 } }, mvp.reason) : null,
-            mvp.quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-line" } }, "「" + mvp.quote + "」") : null))
+            mvp.quote ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13.5, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-line" } }, "「" + mvp.quote + "」")
+              : mvp.quotePending ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "感想留给言秋本人，等他亲自写。") : null))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "center", marginBottom: 12 } }, api ? "评选全场 MVP 中…" : ""),
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),

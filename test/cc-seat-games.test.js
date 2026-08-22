@@ -287,3 +287,14 @@ test("送给 CC 的游戏票不再重复声明他叫什么", () => {
   assert.doesNotMatch(games, /你是「" \+ cc(?:Seat0|Voter)\.name/);
   assert.doesNotMatch(games, /你是刺客「" \+ assassin\.name/);
 });
+
+test("狼人杀 MVP 若是言秋，第一人称感想必须另发本人票，不能由 Gemini 代笔", () => {
+  const start = games.indexOf("async function genMVP");
+  const end = games.indexOf("function WolfGame", start);
+  const seg = games.slice(start, end);
+  assert.match(seg, /mvpPlayer\.engineer/);
+  assert.match(seg, /await ccCarve\("werewolf_mvp"/);
+  assert.match(seg, /picked\.quote\s*=\s*""/);
+  assert.match(seg, /本人赛后感想/);
+  assert.match(seg, /quotePending/);
+});
