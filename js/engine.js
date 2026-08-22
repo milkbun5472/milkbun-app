@@ -1794,8 +1794,9 @@ function splitCot(raw, on) {
 // OpenAI 兼容：有参考照走 /v1/images/edits(保长相)，否则 /v1/images/generations
 // ============================================================
 function loadImgApi() {
-  try { const c = JSON.parse(localStorage.getItem("x_imgApi") || "null"); if (c && typeof c === "object") return Object.assign({ baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false }, c); } catch (e) {}
-  return { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false };
+  const def = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
+  try { const c = JSON.parse(localStorage.getItem("x_imgApi") || "null"); if (c && typeof c === "object") return Object.assign({}, def, c); } catch (e) {}
+  return def;
 }
 function saveImgApi(c) { const clean = Object.assign(loadImgApi(), c || {}); try { localStorage.setItem("x_imgApi", JSON.stringify(clean)); } catch (e) {} return clean; }
 function imgApiReady(a) { a = a || loadImgApi(); return !!(a.enabled && a.baseUrl && a.apiKey); }
@@ -1891,13 +1892,14 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const currentWearing = freshPhotoWearing(st);
   // 人设不能只服务聊天：其中的时代、年龄、性别、种族与服装同样是生图事实。
   // 控长避免把超长角色卡整份塞进图像端；显式 photoCanon/photoOutfit 仍拥有最高优先级。
-  const personaVisualSource = String(char.persona || "").trim().slice(0, 2400);
+  const personaVisualSource = String(char.persona || "").trim().slice(0, 900);
   const identityText = [visualCanon, char.appearance, personaVisualSource].filter(Boolean).join("\n");
   const clothingText = [fixedOutfit, currentWearing, char.appearance, personaVisualSource].filter(Boolean).join("\n");
   const wantsLightArmor = /(?:骑士|铠甲|盔甲|护甲|armor|armour)/i.test(clothingText) && /(?:不厚重|不笨重|轻便|轻型|轻甲|修身|贴身|灵活|便于行动|lightweight|slim|fitted)/i.test(clothingText);
   const isMinor = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bboy\b|\bgirl\b|\bminor\b|(?:[1-9]|1[0-7])\s*岁)/i.test(identityText);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
   const parts = [];
+  if (multi || kind === "duo" || char.refPhoto) parts.push("【首要任务：人物身份】所有人物参考图都是硬性身份来源。可改变姿势、表情、服装与背景，但不得重画、混合、平均化或替换任何参考人物的脸；无法保留全部身份时应失败，而不是生成陌生人。");
   // 每个角色独立控制画风；旧角色无字段时继续沿用写实，避免升级后突然变画风。
   if (photoStyle === "anime") {
     parts.push("生成一张【精致的二次元动画插画】。必须保持 2D anime illustration / cel-shaded illustration 的视觉语言：清晰自然的线稿、动画式五官与发丝、协调的赛璐璐或柔和插画上色。**不要真人化，不要摄影质感，不要真实皮肤毛孔，不要 3D/CG，不要把角色改造成现实演员。**若有参考图，保留其中人物的二次元身份设计、发型、角、瞳色、配色与辨识度。");
@@ -2000,6 +2002,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     // 连贯参考图可能是聊天自拍库的 img_ 键（与 iv_ 图库不是同一个仓），两边都要认
     try { if (rp.indexOf("iv_") === 0) return await imgVaultFetchBlob(rp); if (rp.indexOf("img_") === 0) return await idbImgGet(rp); return dataUrlToBlob(rp) || b64ToBlob(rp, "image/png"); } catch (e) { return null; }
   }))).filter(Boolean);
+  if (refs.length && refBlobs.length !== refs.length) throw new Error("有参考照读取失败；为避免生成陌生人，本次已停止。请重新选择参考照后再试");
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
   let base = (a.baseUrl || "").trim().replace(/\/+$/, "");
   base = base.replace(/\/(v1\/)?images\/(generations|edits)\/?$/i, "").replace(/\/chat\/completions\/?$/i, "").replace(/\/+$/, "");
@@ -2047,7 +2050,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const attempt = async (useRef, slim, refMode, pOverride, msOverride) => {
     const promptText = pOverride || prompt;
     const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), msOverride || 180000);
+    const to = setTimeout(() => ctrl.abort(), Math.min(Number(msOverride || 95000), 95000));
     let r;
     try {
       if (useRef && refBlobs.length) {
@@ -2124,6 +2127,32 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   let lastRefErr = "";
   const note = e => { lastRefErr = String((e && e.message) || e || "").replace(/\s+/g, " ").slice(0, 180); };
   const mark = (out, how) => { try { if (out && typeof out === "object") { out.degraded = how; if (lastRefErr) out.refError = lastRefErr; } } catch (e) {} return out; };
+  // v54.94：参考照存在时身份是硬条件。审核软化与 minimal prompt 可以重试，
+  // 但所有重试都必须携带完整身份参考；旧降级阶梯保留在下方仅供无参考路径兼容，实际不会进入。
+  if (refBlobs.length) {
+    const configured = a.refFieldMode === "repeat" ? "repeat" : (refBlobs.length > 1 ? "bracket" : "first");
+    const modes = refBlobs.length > 1 ? (configured === "repeat" ? ["repeat", "bracket"] : ["bracket", "repeat"]) : ["first"];
+    const prompts = [prompt];
+    const softened = softenForModeration(prompt);
+    if (softened) prompts.push(softened);
+    if (opts && opts.minimalPrompt) prompts.push(opts.minimalPrompt);
+    for (const pText of prompts) {
+      for (const mode of modes) {
+        try {
+          const out = await attemptWith(refBlobs, mode, pText, RETRY_MS);
+          out.referenceCount = refBlobs.length; out.refMode = mode;
+          if (a.refFieldMode === "auto" && mode !== "first") saveImgApi({ refFieldMode: mode });
+          return out;
+        } catch (e) {
+          note(e);
+          // 同一 prompt 只有字段格式错误才换 image[] / repeated image；别为超时或审核重复等待。
+          if (!/HTTP 4(?:00|04|05|13|15|22).*?(?:image|file|field|array|multipart|参数|字段|文件)/i.test(lastRefErr)) break;
+        }
+      }
+      if (!looksLikePolicy({ message: lastRefErr })) break;
+    }
+    throw new Error("参考照锁脸请求失败，已停止而没有生成陌生人" + (lastRefErr ? "：" + lastRefErr : ""));
+  }
   // 参考图集合的降级顺序:先丢【连贯参考图】(它只是锦上添花),再丢用户的脸,最后才无参考照。
   // 连贯图排在最后一张,所以 slice 掉尾巴就是丢它——身份永远比连贯重要。
   if (refBlobs.length > 1) {

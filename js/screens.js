@@ -3839,13 +3839,17 @@ function ImageApiConfig({ toast }) {
   // 诊断：真调一次接口拍张测试图。成→当场显示；败→把原始报错整段贴出来（能截图排查）
   const [testing, setTesting] = useState(false);
   const [testRes, setTestRes] = useState(null);
+  const [testRef, setTestRef] = useState(null);
   const runTest = async () => {
     if (typeof generateSelfieImage !== "function") { toast && toast("图像模块没加载"); return; }
     setTesting(true); setTestRes(null);
     try {
-      const out = await generateSelfieImage("a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo", null, {});
+      const prompt = testRef
+        ? "Identity verification portrait. Keep the exact same person and facial identity from the reference image. Natural daylight, neutral background, front-facing head and shoulders. Do not beautify, redesign, average, or replace the face."
+        : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
+      const out = await generateSelfieImage(prompt, testRef, {});
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
-      setTestRes(src ? { ok: true, src: src } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
+      setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, mode: out.refMode || "generation" } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
     } catch (e) { setTestRes({ ok: false, err: String((e && e.message) || e) }); }
     finally { setTesting(false); }
   };
@@ -3876,11 +3880,14 @@ function ImageApiConfig({ toast }) {
           h("option", { value: "medium" }, "medium"),
           h("option", { value: "high" }, "high（最贵）"))))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去某个角色的档案里写『外貌』或传参考照，再在聊天里让 TA『拍张自拍』试试。参考照会用 images/edits 尽量保住长相。"),
+      h("label", { className: "block mt-4", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 12px", border: "1px dashed " + t.line, borderRadius: 10, cursor: "pointer" } },
+        testRef ? "✓ 已选测试参考脸（点这里更换）" : "可选：上传一张脸，真正测试锁脸接口",
+        h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { setTestRef(String(rd.result || "")); setTestRes(null); }; rd.readAsDataURL(f); } })),
       // 诊断按钮：真拍一张测试图
-      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（可能要 30~90 秒）" : "🔬 拍张测试图（诊断接口）"),
+      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（最多约 95 秒/次）" : (testRef ? "🔬 测试参考照锁脸" : "🔬 测试纯文字出图")),
       testRes ? (testRes.ok
         ? h("div", { style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功！接口能出图（下面是刚拍的测试图）"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功！" + (testRes.refs ? "参考照已通过 edits 发送 · " + testRes.refs + " 张 · " + testRes.mode : "纯文字出图可用（这不代表锁脸可用）")),
             h("img", { src: testRes.src, style: { width: "100%", maxWidth: 220, borderRadius: 12, display: "block" } }))
         : h("div", { style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出图。接口/报错原文（可长按复制、截图发我）："),
