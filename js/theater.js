@@ -226,6 +226,9 @@
     const [view, setView] = useState("list"); // list | create | play
     const [playId, setPlayId] = useState(null);
     const [busy, setBusy] = useState(false);
+    // busy 只说"忙着"，说不出在忙什么。出图要等半分钟，界面却写着「Ta 在演…」，
+    // 加上 + 菜单点完就收起来，看着就像点了没反应（她 2026-08-22 提）。
+    const [busyWhat, setBusyWhat] = useState("");
     const [panelOpen, setPanelOpen] = useState(false);
     const [draft, setDraft] = useState(null); // create 预览:{charId, keywords, title, charRole, userRole, setting, goal}
     const [pickChar, setPickChar] = useState((props.characters[0] || {}).id || null);
@@ -254,6 +257,8 @@
       lines.forEach(l => (l.rounds || []).concat((l.archives || []).flatMap(a => a.rounds || [])).forEach(r => (r.msgs || []).forEach(m => {
         if (m.role === "photo" && m.img && !have.has(m.img)) { have.add(m.img); add.push({ id: rid("tg_"), charId: l.charId, lineId: l.id, lineTitle: l.title, img: m.img, ts: m.ts || Date.now() }); }
       })));
+      // 封面同样归档（v54.46）：以前封面只当卡片底纹，出完就再也看不到整张
+      lines.forEach(l => { if (l.cover && !have.has(l.cover)) { have.add(l.cover); add.push({ id: rid("tg_"), charId: l.charId, lineId: l.id, lineTitle: l.title, img: l.cover, ts: l.coverTs || l.ts || Date.now(), kind: "cover" }); } });
       if (add.length) saveGal(list => add.concat(list).sort((a, b) => b.ts - a.ts));
     }, []);
     // 目标契约(四处生成共用一份,免得改一处漏三处)。
@@ -562,7 +567,8 @@
       if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
       const b = shotBase(line);
       if (!(b.char.refPhoto || b.char.appearance)) return props.toast("角色还没有参考照或外貌描述");
-      setPlusOpen(false); setBusy(true);
+      setPlusOpen(false); setBusy(true); setBusyWhat("正在画封面…出图慢，别退出这一页");
+      props.toast("开始画封面了，出图要等一会儿…", 6000);
       try {
         const sceneDesc = "这条平行世界故事线的【封面海报】:一张能代表整个故事的电影感主视觉,不是某一场戏的抓拍。人物不看镜头,构图留白、有电影海报的气场。\n"
           + "【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n"
@@ -581,9 +587,21 @@
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         // 封面跟着【整条线】走，分支出去的新线也沿用同一张——同一个世界不必各画各的
-        update(list => list.map(l => l.id !== line.id ? l : { ...l, cover: ref }));
-        props.toast("封面出好了");
-      } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); }
+        // 顺手当背景（v54.46）：以前封面只在记录卡上当底纹，被 90° 渐变压掉大半，
+        // 等于画完就看不见。但【不许覆盖她自己传的背景】——只在没背景、
+        // 或现在这张背景就是上一版封面（背景本来就在跟着封面走）时才接管。
+        let bgTook = false;
+        update(list => list.map(l => {
+          if (l.id !== line.id) return l;
+          const take = !l.bg || l.bg === l.cover;
+          if (take) bgTook = true;
+          return { ...l, cover: ref, coverTs: Date.now(), bg: take ? ref : l.bg };
+        }));
+        // 存进图库：那里才有看整张的大图和「保存到手机相册」（她 2026-08-22 要的）
+        saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now(), kind: "cover" }].concat(list));
+        props.toast(bgTook ? "封面出好了，已当作背景 · 图库里可以看整张、存相册"
+          : "封面出好了，已进图库（这条线有你自己的背景图，没动它）", 6000);
+      } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     const genPhoto = async () => {
       if (!line || busy) return;
@@ -591,7 +609,8 @@
       if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
       if (!(char.refPhoto || char.appearance)) return props.toast("角色还没有参考照或外貌描述");
       const duo = !!(char.refPhoto && props.profile && props.profile.refPhoto);
-      setPlusOpen(false); setBusy(true);
+      setPlusOpen(false); setBusy(true); setBusyWhat("正在画这一拍的剧照…");
+      props.toast("开始画这一拍了，出图要等一会儿…", 6000);
       try {
         // 图像接口要的是【画面上看得见什么】,不是小说正文。把当轮正文原样喂过去,
         // 一旦这几拍是亲密戏,审核会直接拒("该提示可能违反了我们的内容政策"),
@@ -668,7 +687,7 @@
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "photo", img: ref, ts: Date.now() }] }) }));
         saveGal(list => [{ id: rid("tg_"), charId: line.charId, lineId: line.id, lineTitle: line.title, img: ref, ts: Date.now() }].concat(list));
-      } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); }
+      } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     // 存进手机系统相册:iOS 在分享单里选「存储图像」
     const saveToAlbum = async ref => {
@@ -738,6 +757,15 @@
       } catch (err) { props.toast("背景设置失败"); }
     };
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
+    // 大图查看器（objectFit:contain，看的是整张不是裁过的）。
+    // v54.46 从图库分支里搬出来：演出页刚出完封面就该能点开看整张，
+    // 而不是先退到图库再点进角色再点缩略图。
+    const bigViewer = () => galView && h("div", { onClick: () => setGalView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
+        h("img", { src: imgSrc(galView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
+        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
+          h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
+          h("button", { onClick: () => { const id = galView.id; if (!gal.some(x => x.id === id)) return props.toast("这张还没归档进图库"); if (!confirm("从图库删掉这张?剧情里的那张不受影响。")) return; setGalView(null); saveGal(l => l.filter(x => x.id !== id)); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
     const delLine = id => { if (!confirm("删除这条 if 线和全部记录?")) return; const l0 = lines.find(l => l.id === id); if (l0) setListChar(l0.charId); setView(l0 ? "lines" : "list"); setPlayId(null); update(list => list.filter(l => l.id !== id)); };
 
     // ---- UI ----
@@ -801,12 +829,7 @@
     if (view === "gallery") {
       const gg = [];
       gal.forEach(x => { let g = gg.find(y => y.charId === x.charId); if (!g) { g = { charId: x.charId, items: [] }; gg.push(g); } g.items.push(x); });
-      const viewer = galView && h("div", { onClick: () => setGalView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
-        h("img", { src: imgSrc(galView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, galView.lineTitle + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
-        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
-          h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
-          h("button", { onClick: () => { if (!confirm("从图库删掉这张?剧情里的那张不受影响。")) return; const id = galView.id; setGalView(null); saveGal(l => l.filter(x => x.id !== id)); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+      const viewer = bigViewer();
       // 先头像墙,点进某个角色才看到 Ta 的照片
       if (!galChar) {
         return h("div", { style: S.wrap }, badges(), header("剧照图库"),
@@ -827,8 +850,9 @@
       return h("div", { style: S.wrap }, badges(), header((cg.name || "已删除的角色") + " · 剧照"), viewer,
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
-            mine.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
-              h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }))))));
+            mine.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },
+              h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+              x.kind === "cover" ? h("div", { style: { position: "absolute", left: 4, top: 4, padding: "1px 5px", borderRadius: 6, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 9 } }, "封面") : null)))));
     }
 
     if (view === "create") {
@@ -938,10 +962,11 @@
            ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { style: S.wrap }, badges(),
         line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
+        bigViewer(),
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } }, header(line.title + " · " + (char.name || "")), photoSheet, msgSheet,
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow,
-          busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "Ta 在演…") : null),
+          busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "Ta 在演…") : null),
         line.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已完结 · 可在「背景与目标」里重开 ——") : noteOpen ? h("div", { style: { padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
           h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "导演便签(只给这一拍的幕后指示,不入剧情):比如「让他更凶一点」「引入一个不速之客」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
         !line.ended && plusOpen ? h("div", { style: { display: "flex", gap: 8, padding: "8px 14px 0", borderTop: "1px solid " + t.line, flexWrap: "wrap" } },
@@ -949,7 +974,10 @@
           h("button", { onClick: () => { setNoteOpen(v => !v); }, style: S.btn(noteOpen || !!note.trim()) }, "() 便签"),
           h("button", { onClick: genPhoto, disabled: busy, style: S.btn(false) }, "📷 当轮剧照"),
           h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, line.cover ? "🎞 重出封面" : "🎞 封面图"),
-          h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 背景图"),
+          // 封面画完不该只剩卡片上那层被渐变压掉的底纹：点开看整张、或直接铺成背景
+          line.cover ? h("button", { onClick: () => { setPlusOpen(false); setGalView(gal.find(x => x.img === line.cover) || { id: "cover_" + line.id, charId: line.charId, lineId: line.id, lineTitle: line.title, img: line.cover, ts: line.coverTs || Date.now(), kind: "cover" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
+          line.cover && line.bg !== line.cover ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: line.cover })); setPlusOpen(false); props.toast("封面已铺成背景"); }, style: S.btn(false) }, "🖼 封面当背景") : null,
+          h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 传背景图"),
           line.bg ? h("button", { onClick: () => { update(list => list.map(l => l.id !== line.id ? l : { ...l, bg: null })); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null,
         line.ended ? null : h("div", { style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)", borderTop: (noteOpen || plusOpen) ? "none" : "1px solid " + t.line } },
           h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),

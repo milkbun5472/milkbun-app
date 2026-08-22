@@ -72,7 +72,8 @@ test("封面：走共用底座，不自己另拼一套", () => {
 
 test("封面存在线上，分支沿用同一张", () => {
   const cover = theater.slice(theater.indexOf("const genCover"), theater.indexOf("const genPhoto"));
-  assert.match(cover, /\{ \.\.\.l, cover: ref \}/);
+  // v54.46 起同一次 update 还要写 coverTs 并（有条件地）接管 bg，形状变了但语义没变
+  assert.match(cover, /\{ \.\.\.l, cover: ref, coverTs: Date\.now\(\), bg: take \? ref : l\.bg \}/);
   const br = theater.slice(theater.indexOf("const branchFrom = msg =>"), theater.indexOf("const pressMsg"));
   assert.match(br, /cover: line\.cover \|\| null/, "同一个世界不必各画各的");
   assert.match(theater, /line\.cover \? "🎞 重出封面" : "🎞 封面图"/);
