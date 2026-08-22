@@ -2129,8 +2129,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const ctrl = new AbortController();
     // 单次上限 95→180 秒（v55.02 回归修复）：这家中转正常出图就要一百多秒，
     // v54.90 的 95 秒硬闸把好好的请求掐成「Fetch is aborted」。总预算闸仍在，不会回到卡十几分钟。
-    const to = setTimeout(() => ctrl.abort(), Math.min(Number(msOverride || 130000), 300000));
+    const to = setTimeout(() => ctrl.abort(), capMs);
     let r;
+    const capMs = Math.min(Number(msOverride || 130000), 300000);
+    const t0 = Date.now();
     try {
       if (useRef && refBlobs.length) {
         const fd = new FormData();
@@ -2163,6 +2165,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
+    } catch (err) {
+      // 测速仪(v55.04):分清「我们的闹钟到点」还是「被外部(如切后台)提前掐断」
+      if (/abort/i.test(String((err && err.name) || "") + String((err && err.message) || ""))) {
+        const sec = Math.round((Date.now() - t0) / 1000), cap = Math.round(capMs / 1000);
+        throw new Error("请求在 " + sec + " 秒后中止（本次上限 " + cap + " 秒" + (sec < cap - 3 ? "——远早于上限,多半是 app 切了后台被系统掐断,重试时请保持在前台" : ",是等待到点超时,这家站这单没做完") + "）");
+      }
+      throw err;
     } finally { clearTimeout(to); }
     const rawTxt = await r.text();
     // 4xx 且报错像是在挑剔某个可选参数 → 裸参数自动再试一次（GPT Image 2 的 quality 值域
