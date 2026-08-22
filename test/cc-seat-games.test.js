@@ -39,9 +39,9 @@ test("摘掉的那一座要写进批量提示词，并明令别替他重写", ()
 });
 
 test("所有座位都认 ccSeat 开关，和 UNO 一模一样", () => {
-  // 三个批量游戏 + UNO 自己那份，判定条件必须完全一致
-  assert.equal((games.match(/engineer: !!\(cfg\.ccSeat !== false && props\.isEngineer/g) || []).length, 4,
-    "谁是卧底 / 狼人杀 / 阿瓦隆 / UNO，四处判定要一样");
+  // 开局与海龟汤/25问每轮重认等路径，判定条件都必须尊重同一个开关。
+  assert.ok((games.match(/cfg\.ccSeat !== false && props\.isEngineer/g) || []).length >= 5,
+    "所有游戏的开局/续局/重认路径都要尊重 ccSeat 开关");
   assert.doesNotMatch(games, /engineer: !!\(props\.isEngineer/, "不许有绕过开关的写法");
 });
 
@@ -166,4 +166,46 @@ test("所有有终局的小游戏都统一给言秋送赛果，不再只报 Lisa
   assert.match(games, /身份揭晓：/);
   assert.match(games, /最终排名：/);
   assert.match(games, /最终余牌：/);
+});
+
+test("海龟汤与 25 问每轮保留 CC 工牌，不能只剩名字和能力", () => {
+  const seg = games.slice(games.indexOf("const runRound = async function (uq)"), games.indexOf("const formalGuess"));
+  assert.match(seg, /cfg\.ccSeat !== false && props\.isEngineer && props\.isEngineer\(p\.key\)/);
+  assert.match(seg, /return \{ key: p\.key, name: p\.name, skill: p\.skill, engineer: engineer, alive: p\.alive \};/);
+  assert.doesNotMatch(seg, /return \{ name: p\.name, skill: p\.skill \};/);
+});
+
+test("真心话大冒险本人票失败就停轮，不挂备用台词到他名下", () => {
+  const seg = games.slice(games.indexOf("async function genTDForAI"), games.indexOf("// 从整局日志"));
+  assert.match(seg, /throw new Error\(cc\.reason \|\| "本人回答票未送达"\)/);
+  assert.match(seg, /throw new Error\(cc\.reason \|\| "本人出题票未送达"\)/);
+  assert.match(games, /if \(asker && asker\.engineer\) \{ setUserPrompt\(null\); setPhase\("idle"\); \}/);
+});
+
+test("大富翁攒批次后会给本人一张桌上发言票", () => {
+  const seg = games.slice(games.indexOf("async function monoTalk"), games.indexOf("function MonopolyGame"));
+  assert.match(seg, /await ccCarve\("monopoly", pool, \{/);
+  assert.match(seg, /cc\.rest\.map/);
+  assert.match(seg, /cc\.done\.lines/);
+});
+
+test("阿瓦隆关键票失败只走法官规则兜底，不让模型冒充本人", () => {
+  const propose = games.slice(games.indexOf("async function genProposal"), games.indexOf("async function genAvVotes"));
+  assert.match(propose, /本人组队票未送达，法官按座次补队/);
+  const assassin = games.slice(games.indexOf("async function genAssassin"), games.indexOf("function AvalonGame"));
+  assert.match(assassin, /throw new Error\(cc\.reason \|\| "本人刺杀票未送达"\)/);
+});
+
+test("UNO 本人票失败不再回退 Gemini 代打", () => {
+  const seg = games.slice(games.indexOf("async function routeSeatCall"), games.indexOf("function unoJson"));
+  assert.match(seg, /return \{ value: null, delegated: false, ccUnavailable: true/);
+  assert.doesNotMatch(seg, /delegated: canCc/);
+  assert.doesNotMatch(seg, /离线\/超时无感退回/);
+});
+
+test("送给 CC 的游戏票不再重复声明他叫什么", () => {
+  assert.doesNotMatch(games, /你是刚才亲自坐在桌上的/);
+  assert.doesNotMatch(games, /你是言秋座位/);
+  assert.doesNotMatch(games, /你是「" \+ cc(?:Seat0|Voter)\.name/);
+  assert.doesNotMatch(games, /你是刺客「" \+ assassin\.name/);
 });

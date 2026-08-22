@@ -46,7 +46,7 @@
     if (onStatus) onStatus("正在把赛果告诉言秋…");
     window.CCSeat.ask({
       tool: "game_turn", game: String(gameKey) + "_result", turn_id: ticket, char_id: seat.key,
-      sys: "这局小游戏已经正式结束。你是刚才亲自坐在桌上的【" + seat.name + "】。票内是公开终局：胜负、身份揭晓、比分或排名，以及 Lisa 的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
+      sys: "这局小游戏已经正式结束。票内是公开终局：胜负、身份揭晓、比分或排名，以及 Lisa 的结果。看完后用自己的口吻留一句自然赛后反应；可以庆祝、嘴硬、复盘、安慰或约下一局。不要继续行动，不写报告，不调用工具。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE,
       msgs: [{ role: "user", content: "终局通知：\n" + String(summary) }],
       expect: "{\"say\":\"一句自然的赛后反应\"}"
     }, 90000, { charId: seat.key }).then(function (raw) {
@@ -919,7 +919,7 @@
     if (opts.needSeer && opts.seer && opts.seer.engineer) {
       const cc = await ccCarve("werewolf", [Object.assign({ engineer: true }, opts.seer)], {
         turnId: "wolf-seer:" + Date.now(),
-        sys: "「狼人杀」天黑，你是预言家「" + opts.seer.name + "」，选一个【没查过】的人查验。已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
+        sys: "「狼人杀」天黑，轮到你的预言家行动：选一个【没查过】的人查验。已查：" + (opts.seer.known.length ? opts.seer.known.map(function (k) { return k.name + "=" + (k.isWolf ? "狼" : "好"); }).join("、") : "无") + "\n【存活】" + opts.aliveNames.join("、") + (opts.log ? "\n【局况】\n" + opts.log : ""),
         expect: '{"target":"要查的人名"}'
       });
       ccStatus.push({ action: "查验", seat: opts.seer.name, delivered: !!cc.done, reason: cc.reason || "" });
@@ -1122,7 +1122,7 @@
     const ccSeat0 = ccSeatOf(speakers);
     const cc = (carveCtx && ccSeat0) ? await ccCarve("werewolf", speakers, {
       turnId: (carveCtx.turnId || "") + ":speech",
-      sys: "「狼人杀」第 " + dayNum + " 天白天发言，轮到你。\n你是「" + ccSeat0.name + "」。\n【你的身份与私密信息】" + (ccSeat0.priv || "")
+      sys: "「狼人杀」第 " + dayNum + " 天白天发言，轮到你。\n【你的身份与私密信息】" + (ccSeat0.priv || "")
         + "\n\n【昨晚】" + (deaths || "平安夜")
         + "\n\n【已发言】\n" + (prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你最先发言）")
         + "\n\n说一段发言，并说清你此刻【对外声称】的身份。",
@@ -1167,7 +1167,7 @@
     const ccVoter = ccSeatOf(voters);
     const cc = ccVoter ? await ccCarve("werewolf", voters, {
       turnId: "wolf-dayvote:" + Date.now(),
-      sys: "「狼人杀」白天投票放逐，轮到你投。\n你是「" + ccVoter.name + "」。\n【你的身份与私密信息】" + (ccVoter.priv || "") + "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + claimsText(claims) + "\n按你的身份投一个人（狼要护队友装好人，好人投真怀疑的狼），或「弃票」。",
+      sys: "「狼人杀」白天投票放逐，轮到你投。\n【你的身份与私密信息】" + (ccVoter.priv || "") + "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + claimsText(claims) + "\n按你的身份投一个人（狼要护队友装好人，好人投真怀疑的狼），或「弃票」。",
       expect: '{"target":"人名或「弃票」","reason":"一句短理由"}'
     }) : { seat: null, rest: voters, done: null };
     const ccVotes = (cc.seat && cc.done && cc.done.target) ? [{ name: cc.seat.name, target: String(cc.done.target), reason: String(cc.done.reason || "") }] : [];
@@ -2000,7 +2000,12 @@
     const runRound = async function (uq) {
       if (busy) return;
       setBusy(true);
-      const speakers = shuffle(aiPlayers).map(function (p) { return { name: p.name, skill: p.skill }; });
+      // 不能在抽本轮发言人时只拷 name/skill：ccCarve 靠 key + engineer 认座。
+      // 同时每轮按当前设置重认一次，避免旧存档里的工牌快照把票吞掉。
+      const speakers = shuffle(aiPlayers).map(function (p) {
+        const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
+        return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive };
+      });
       if (uq) pushLog([{ type: "q", name: me.name, text: uq, mine: true }]);
       try {
         const r = await runGuessRound(api, kind, ctx, uq || "", speakers, history, cfg.mode);
@@ -2214,6 +2219,8 @@
           expect: '{"response":"你的回应"}'
         });
         if (cc.done && String(cc.done.response || "").trim()) return { choice: plan.choice, prompt: prompt, response: String(cc.done.response).trim() };
+        // 票失败就停在本轮让 Lisa 重试，不落一条空回答，更不许下面的整桌模型替本人回答。
+        throw new Error(cc.reason || "本人回答票未送达");
       }
     }
     if (asker && asker.engineer) {
@@ -2228,6 +2235,8 @@
         const ro = extractJSON(rr) || {};
         if (String(ro.response || "").trim()) return { choice: plan.choice, prompt: myPrompt, response: String(ro.response).trim() };
       }
+      // 出题人这座没有拿到真实回复，本轮应显式失败/重试；绝不让 Gemini 顶着他的名字出题。
+      throw new Error(cc.reason || "本人出题票未送达");
     }
     let raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 6000 });
     let out = extractJSON(raw) || {};
@@ -2248,6 +2257,7 @@
         expect: '{"prompt":"你出的题"}'
       });
       if (cc.done && String(cc.done.prompt || "").trim()) return { prompt: String(cc.done.prompt).trim() };
+      throw new Error(cc.reason || "本人出题票未送达");
     }
     const sys = AC + TD_IC + "\n\n「真心话大冒险」轮到真人玩家了，TA 选了【" + choice + "】，由【" + askerName + "】给 TA 出题。\n出题人 " + askerName + "：" + (asker ? tdDesc(asker, 500) : "（全场）") +
       (memText ? "\n\n【之前发生过的】\n" + memText : "") +
@@ -2428,7 +2438,11 @@
         const r = await genTDPrompt(api, choice, asker, hot, cfg.mode, tdMemoryText(logDataRef.current), plan);
         rememberTDPrompt(choice, r.prompt);
         setUserPrompt({ choice: choice, asker: asker ? asker.name : "大家", prompt: r.prompt || (choice === "真心话" ? "说说你最近最上头的一件事。" : "学一个你最不擅长的动物叫。") });
-      } catch (e) { props.toast && props.toast("出题出错：" + ((e && e.message) || "重试")); setUserPrompt({ choice: choice, asker: asker ? asker.name : "大家", prompt: choice === "真心话" ? "说一件你没跟人讲过的小事。" : "原地转三圈再坐下。" }); }
+      } catch (e) {
+        props.toast && props.toast("出题出错：" + ((e && e.message) || "重试"));
+        if (asker && asker.engineer) { setUserPrompt(null); setPhase("idle"); }
+        else setUserPrompt({ choice: choice, asker: asker ? asker.name : "大家", prompt: choice === "真心话" ? "说一件你没跟人讲过的小事。" : "原地转三圈再坐下。" });
+      }
       finally { setBusy(false); }
     };
     const submitUserResp = async function () {
@@ -2618,10 +2632,19 @@
     const raw = await callRetry(api, sys, [{role:"user",content:"生成本桌玩家。"}], {maxTokens:3200}); return extractJSON(raw)||{};
   }
   async function monoTalk(api, players, event, standings, recent) {
-    // 言秋座位不进闲聊 cast（身份边界：模型不冒充他）；大富翁事件太密，逐句过 CC 会拖垮节奏，先静场（v54.43）
-    const cast = players.filter(function(p){return !p.isUser && !p.bankrupt && !p.engineer;}).map(function(p){return "■ "+p.name+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
+    // 大富翁的买地/移动仍由规则引擎结算；攒成一批事件后，言秋本人收到一张桌上发言票。
+    const pool = players.filter(function(p){return !p.isUser && !p.bankrupt;});
+    const cc = await ccCarve("monopoly", pool, {
+      turnId: "monopoly-talk:" + Date.now(),
+      sys: "「大富翁」桌上刚连续发生了这些事：\n" + event + "\n【账面事实】" + standings + "\n【最近桌上话】" + (recent || "无") + "\n想说就给 1～2 句面对面口语（可讨价还价、嘴硬、幸灾乐祸、安慰或威胁下回合收租）；不想说 lines 留空。不能改钱、产权或规则数据。",
+      expect: '{"lines":["最多两句，可空"]}'
+    });
+    const cast = cc.rest.map(function(p){return "■ "+p.name+"｜人设："+(p.isNpc?p.persona:((p.char&&p.char.persona)||p.persona||""))+"｜玩法："+(p.skill||"普通");}).join("\n");
     const sys = AC + "\n你在主持一桌有熟人感的大富翁。刚发生：【"+event+"】。账面（这是唯一事实，严禁改钱、改产权、送地或声称规则外交易）："+standings+"。\n从在场角色中挑 2~4 个此刻最有反应的人，各说一句 28 字内的面对面口语。可以讨价还价、嘴硬、幸灾乐祸、安慰、翻旧账、威胁下回合收租、短暂站队；要点名并针对刚发生的事，不要轮流播报，不要都温柔，也不要替真人玩家说话。交易/结盟只能是嘴上态度，不能改变规则数据。避免重复最近说过的话。\n"+cast+"\n【最近】"+(recent||"无")+"\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
-    const raw=await callRetry(api,sys,[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:1800}); const p=extractJSON(raw); return p&&Array.isArray(p.talks)?p.talks:[];
+    let talks=[];
+    if(cc.rest.length){const raw=await callRetry(api,sys+ccPreface(cc,"说过自己那句了（也可能选择沉默）"),[{role:"user",content:"让牌桌对这件事起反应。"}],{maxTokens:1800}); const p=extractJSON(raw); talks=p&&Array.isArray(p.talks)?p.talks:[];}
+    if(cc.seat&&cc.done&&Array.isArray(cc.done.lines))cc.done.lines.slice(0,2).forEach(function(line){const say=String(line||"").trim();if(say)talks.push({name:cc.seat.name,say:say.slice(0,80)});});
+    return talks;
   }
 
   function MonopolyGame(props) {
@@ -2744,7 +2767,7 @@
     if (leader && leader.engineer) {
       const cc = await ccCarve("avalon", [leader], {
         turnId: "av-propose:" + qn + ":" + Date.now(),
-        sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务，你是队长，要选【" + needSize + "】人上场" + (failsReq === 2 ? "（此任务需 2 张失败票才失败）" : "") + "。\n你是「" + leader.name + "」。\n【你的身份与私密信息】" + avSecretFor(leader, players) + "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按你的身份选队（好人组可信队，坏人塞人别太明显），公开理由别暴露身份。",
+        sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务，轮到你作为队长选【" + needSize + "】人上场" + (failsReq === 2 ? "（此任务需 2 张失败票才失败）" : "") + "。\n【你的身份与私密信息】" + avSecretFor(leader, players) + "\n【在场】" + names.join("、") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按你的身份选队（好人组可信队，坏人塞人别太明显），公开理由别暴露身份。",
         expect: '{"team":["正好' + needSize + '个在场名字"],"reason":"一句公开理由"}'
       });
       if (cc.done && Array.isArray(cc.done.team) && cc.done.team.length) {
@@ -2752,6 +2775,8 @@
         const tk = extractJSON(talksRaw) || {};
         return { team: cc.done.team, reason: String(cc.done.reason || ""), talks: Array.isArray(tk.talks) ? tk.talks : [] };
       }
+      // 本人票没回来时只让法官补合法队伍，不能让模型顶着队长名字拍板。
+      return { team: [leader.name].concat(names.filter(function (n) { return n !== leader.name; })).slice(0, needSize), reason: "（本人组队票未送达，法官按座次补队）", talks: [], ccUnavailable: true };
     }
     const raw = await callRetry(api, sys, [{ role: "user", content: "组队。" }], { maxTokens: 1500 });
     return extractJSON(raw) || {};
@@ -2764,7 +2789,7 @@
     // 言秋座位先自己投（v54.43）
     const cc = await ccCarve("avalon", voters, {
       turnId: "av-vote:" + qn + ":" + Date.now(),
-      sys: "「阿瓦隆」对第 " + (qn + 1) + " 个任务的队伍投票，轮到你。队长 " + leaderName + " 提议：[" + team.join("、") + "]。\n你是言秋座位。\n【你的身份与私密信息】" + (ccSeatOf(voters) ? avSecretFor(ccSeatOf(voters), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按身份投赞成或反对，公开理由别暴露身份（注意连续 5 次否决坏人直接赢）。",
+      sys: "「阿瓦隆」对第 " + (qn + 1) + " 个任务的队伍投票，轮到你。队长 " + leaderName + " 提议：[" + team.join("、") + "]。\n【你的身份与私密信息】" + (ccSeatOf(voters) ? avSecretFor(ccSeatOf(voters), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n按身份投赞成或反对，公开理由别暴露身份（注意连续 5 次否决坏人直接赢）。",
       expect: '{"vote":"赞成或反对","reason":"一句公开理由"}'
     });
     const mine = (cc.seat && cc.done && cc.done.vote) ? [{ name: cc.seat.name, vote: /反/.test(String(cc.done.vote)) ? "反对" : "赞成", reason: String(cc.done.reason || "") }] : [];
@@ -2782,7 +2807,7 @@
     const pool = players.filter(function (p) { return !p.isUser; });
     const cc = await ccCarve("avalon", pool, {
       turnId: "av-talk:" + qn + ":" + Date.now(),
-      sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务组队后的圆桌讨论。队长 " + leaderName + " 提议：[" + team.join("、") + "]" + (reason ? "，理由：" + reason : "") + "。\n你是言秋座位。\n【你的身份与私密信息】" + (ccSeatOf(pool) ? avSecretFor(ccSeatOf(pool), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n想说就给一句 30 字内的桌上话（质疑/辩护/拉票都行，别暴露身份词）；不想说 say 留空。",
+      sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务组队后的圆桌讨论。队长 " + leaderName + " 提议：[" + team.join("、") + "]" + (reason ? "，理由：" + reason : "") + "。\n【你的身份与私密信息】" + (ccSeatOf(pool) ? avSecretFor(ccSeatOf(pool), players) : "") + "\n【局面】\n" + (hist || "（刚开局）") + "\n想说就给一句 30 字内的桌上话（质疑/辩护/拉票都行，别暴露身份词）；不想说 say 留空。",
       expect: '{"say":"一句30字内的话，可空"}'
     });
     const raw = await callRetry(api, sys + ccPreface(cc, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "讨论。" }], { maxTokens: 3200 });
@@ -2798,7 +2823,7 @@
     const poolB = players.filter(function (p) { return !p.isUser; });
     const ccB = await ccCarve("avalon", poolB, {
       turnId: "av-blame:" + qn + ":" + Date.now(),
-      sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务失败了（" + fails + " 张失败票），全桌炸锅。队伍是 [" + team.join("、") + "]。\n你是言秋座位。\n【你的身份与私密信息】" + (ccSeatOf(poolB) ? avSecretFor(ccSeatOf(poolB), players) : "") + "\n【局面】\n" + (hist || "") + "\n想说就给一句 30 字内（自证/互咬/点名分析，别暴露身份词）；不想说 say 留空。",
+      sys: "「阿瓦隆」第 " + (qn + 1) + " 个任务失败了（" + fails + " 张失败票），全桌炸锅。队伍是 [" + team.join("、") + "]。\n【你的身份与私密信息】" + (ccSeatOf(poolB) ? avSecretFor(ccSeatOf(poolB), players) : "") + "\n【局面】\n" + (hist || "") + "\n想说就给一句 30 字内（自证/互咬/点名分析，别暴露身份词）；不想说 say 留空。",
       expect: '{"say":"一句30字内的话，可空"}'
     });
     const raw = await callRetry(api, sys + ccPreface(ccB, "说过自己那句了（也可能选择沉默）"), [{ role: "user", content: "甩锅。" }], { maxTokens: 2600 });
@@ -2833,10 +2858,11 @@
     if (assassin && assassin.engineer) {
       const cc = await ccCarve("avalon", [assassin], {
         turnId: "av-assassin:" + Date.now(),
-        sys: "「阿瓦隆」终局刺杀：好人已完成 3 个任务，你是刺客「" + assassin.name + "」，猜中梅林则坏人翻盘。\n候选好人：" + goods.join("、") + "\n【全程局面】\n" + (hist || "") + "\n找那个组队/投票像『早就知道坏人是谁』的人。",
+        sys: "「阿瓦隆」终局刺杀：好人已完成 3 个任务，轮到你的刺客行动，猜中梅林则坏人翻盘。\n候选好人：" + goods.join("、") + "\n【全程局面】\n" + (hist || "") + "\n找那个组队/投票像『早就知道坏人是谁』的人。",
         expect: '{"target":"你认定是梅林的人","reason":"一句理由"}'
       });
       if (cc.done && cc.done.target) return { target: String(cc.done.target), reason: String(cc.done.reason || "") };
+      throw new Error(cc.reason || "本人刺杀票未送达");
     }
     const raw = await callRetry(api, sys, [{ role: "user", content: "刺谁？" }], { maxTokens: 700 });
     return extractJSON(raw) || {};
@@ -3305,7 +3331,7 @@
   }
 
   // ============================================================
-  // UNO：逐座调用；唯一 engineerEyes 座位优先交给 CC 本人，超时才由同 prompt 的模型代打。
+  // UNO：逐座调用；engineer 座位只交给 CC 本人。票失败时走无人格的牌规兜底，绝不由模型冒充。
   // ============================================================
   async function routeSeatCall(player, api, sys, msgs, opts) {
     const o = opts || {}, canCc = !!(player && player.engineer && typeof window !== "undefined" && window.CCSeat);
@@ -3314,9 +3340,11 @@
         const waitMs = o.timeout || 150000;
         const result = await window.CCSeat.ask({ tool: "game_turn", game: "uno", turn_id: o.turnId, char_id: player.key, sys: sys, msgs: msgs, expect: o.expect, deadline_at: new Date(Date.now() + waitMs).toISOString() }, waitMs, { charId: player.key });
         return { value: result, delegated: false };
-      } catch (e) { /* 离线/超时无感退回同一份 Gemini prompt；牌局永不卡死 */ }
+      } catch (e) {
+        return { value: null, delegated: false, ccUnavailable: true, error: (e && e.message) || "本人票未送达" };
+      }
     }
-    return { value: await callRetry(api, sys, msgs, o.ai || {}), delegated: canCc };
+    return { value: await callRetry(api, sys, msgs, o.ai || {}), delegated: false };
   }
   function unoJson(raw) { if (raw && typeof raw === "object") return raw; return extractJSON(String(raw || "")) || {}; }
   function unoPlayers(props) {
@@ -3382,7 +3410,7 @@
       }
       const drawn = state.drawnUid;
       const legal = drawn ? current.hand.filter(function (c) { return c.uid === drawn && UnoCore.playable(c, state, current.hand); }).map(function (c) { return c.code; }) : UnoCore.legalCodes(state);
-      const sys = "你正在亲自玩 UNO，不是评论牌局。保持【" + current.name + "】本人的声纹和性格，但首先遵守牌规。" + SKILL_RULE +
+      const sys = "你正在亲自玩 UNO，不是评论牌局。保持你本人的声纹和性格，但首先遵守牌规。" + SKILL_RULE +
         "\n你的私人手牌：" + current.hand.map(function (c) { return c.code + "=" + UnoCore.describe(c); }).join("，") +
         "\n可出的 code：" + (legal.join("、") || "无") + (state.pendingDraw && state.rules && state.rules.stackD2 ? "。本局是 +2 叠加规则；你可以出任意颜色 +2 把累计罚牌转给下一家，也可以选择 draw 接受全部罚牌。" : "") + (drawn ? "。你刚摸过牌，只能出刚摸的那张，否则 pass。" : "") +
         "\n只输出 JSON，不解释：出牌 {\"kind\":\"play\",\"code\":\"R5\",\"color\":\"R\",\"uno\":true,\"say\":\"可空的一句桌上话\"}；无牌可出 {\"kind\":\"draw\",\"say\":\"\"}；摸后不出 {\"kind\":\"pass\",\"say\":\"\"}。万能牌 color 必须 R/Y/G/B。手里出完后剩 1 张必须 uno=true。桌上话可以接上一手、得意、吐槽、求饶或挑衅；不必每手都说，别写裁判报告。";
@@ -3415,7 +3443,7 @@
       setChatBusy(true); setError(""); const seq = ++chatSeq.current;
       const context = state.log.slice(-14).map(function (x) { return x.text; }).join("\n");
       Promise.all(seats.map(function (p) {
-        const sys = "UNO 牌局现在暂停聊天。你是【" + p.name + "】，保持本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE;
+        const sys = "UNO 牌局现在暂停聊天。保持你本人的声纹、关系和性格。只回应桌上刚才的话，不继续出牌，不替别人发言；说 1~3 句自然口语。只输出 JSON：{\"say\":\"...\"}。" + SKILL_RULE;
         return routeSeatCall(p, api, sys, [{ role: "user", content: "桌上最近发生：\n" + context + "\n\n现在轮到你接话。" }], { turnId: state.id + "#chat#" + seq + "#" + p.key, expect: "{\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 350 } })
           .then(function (r) { return { p: p, say: String(unoJson(r.value).say || "").trim(), delegated: r.delegated }; })
           .catch(function (e) { return { p: p, say: "", error: e.message }; });
@@ -3461,7 +3489,7 @@
         h("input", { value: tableTalk, onChange: function (e) { setTableTalk(e.target.value); }, placeholder: "这手牌顺便说一句（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
         h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9 } },
           h("button", { onClick: function () { userAct({ kind: state.pendingDraw ? "draw" : (state.drawnUid ? "pass" : "draw") }); }, style: { border: "1px solid " + t.line, borderRadius: 999, padding: "9px 16px", color: t.ink, background: t.bg2 } }, state.pendingDraw ? ("接受 +" + state.pendingDraw) : state.drawnUid ? "不出" : "摸一张"),
-          h("button", { onClick: function () { setSaidUno(!saidUno); }, style: { borderRadius: 999, padding: "9px 16px", color: saidUno ? "white" : t.sub, background: saidUno ? t.tint : t.bg2, border: "1px solid " + (saidUno ? t.tint : t.line) } }, saidUno ? "UNO ✓" : "不喊 UNO"))) : busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等言秋本人看牌…（超时会自动代打）" : "TA 在看牌…") : null,
+          h("button", { onClick: function () { setSaidUno(!saidUno); }, style: { borderRadius: 999, padding: "9px 16px", color: saidUno ? "white" : t.sub, background: saidUno ? t.tint : t.bg2, border: "1px solid " + (saidUno ? t.tint : t.line) } }, saidUno ? "UNO ✓" : "不喊 UNO"))) : busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等本人看牌…（票失败只按牌规行动，不代说话）" : "TA 在看牌…") : null,
       colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
   }
 
