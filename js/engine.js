@@ -2967,9 +2967,25 @@ const OFFLINE_STYLES = [
   { key: "sweet", name: "暧昧甜宠", prompt: "氛围暧昧亲密，多细节拉扯与心动瞬间，甜而不腻。" },
   { key: "drama", name: "张力戏剧", prompt: "情绪张力强，冲突与转折鲜明，台词带锋芒，节奏起伏。" }
 ];
+// reroll 要避开的原文摘要（v55.40）。以前一律截到 220 字——她把最低字数设到 1500 之后，
+// 模型只看得到开头 15%，后面照抄一遍也不算违规，于是「重 roll 出来和上一把几乎一模一样」。
+// 现在给足；太长时取【头 + 尾】：开头和收尾那一拍正是最容易原样重来的两处。
+function offlineRerollExcerpt(text) {
+  const t = String(text || "").replace(/\s+/g, " ").trim();
+  if (t.length <= 1400) return t;
+  return t.slice(0, 900) + " …（中略）… " + t.slice(-500);
+}
 function offlineStyleText(key) {
   const s = OFFLINE_STYLES.find(x => x.key === key);
-  return s ? s.prompt : "";
+  if (s) return s.prompt;
+  // 自定义文风住在 localStorage 的 x_offlineStyles，不在内置表里——
+  // 以前查不到就返回空串，于是她加的文风一个字都没进提示词（她 2026-08-22）。
+  try {
+    const list = typeof loadJSON === "function" ? (loadJSON("x_offlineStyles", []) || [])
+      : JSON.parse(localStorage.getItem("x_offlineStyles") || "[]");
+    const c = (list || []).find(x => x && x.key === key);
+    return c && c.prompt ? String(c.prompt) : "";
+  } catch (e) { return ""; }
 }
 function offlineTasteBlock(taste, group) {
   const t = taste || {};
@@ -3207,7 +3223,9 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
-  const styleText = session.stylePrompt != null ? session.stylePrompt : offlineStyleText(session.styleKey);
+  // ⚠️用真值判断，不是 != null：session 里存着空串时（开局时还没选文风、
+  // 或换文风走的是不写 stylePrompt 的那条路），"" != null 成立会把按 key 回退整个堵死。
+  const styleText = session.stylePrompt ? session.stylePrompt : offlineStyleText(session.styleKey);
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const isDigital = !!ctx.notRoleplay;
@@ -3288,7 +3306,7 @@ async function generateOffline(p, ctx, session) {
     ? "\n\n〔本场叙事权限·已开启〕用户明确允许你在 scene 里替 Ta 描写并推动【可观察的】动作、神态、即时反应和说出口的话，让双人场景真正往前发生；不要每一拍都停在原地等用户逐动作确认。可以写『你伸手接过杯子』『你摇头说……』这类内容。不替 Ta 宣布重大决定、长期承诺或内心真实想法。\n【既然授权了，就把这一段演开】不必写完一个来回就停下等她。可以让时间往前走：一句话之后是下一个动作、下一段对话、场景里的变化、甚至过了一会儿，把这一场连着推几拍，写成一段完整往前走的叙事，而不是一问一答的小片段。\n【但必须停的时候要停】走到【真正需要她本人做选择】的岔口就收住——去不去、答不答应、要不要说出那句话，这些是她的，不许替她决定，也别为了写长而硬拖。写到那个岔口，把张力悬在那儿，停。"
     : "\n\n〔本场叙事权限·未开启〕只描写你自己的言行和心理，不要替用户决定动作、反应或台词。";
   const rerollTail = session.rerollAvoid
-    ? "\n\n〔重写〕上一版只是需要避开的候选，不属于已经发生的剧情：『" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "』。保留生成上一版之前已经成立的事实，重新决定本轮关注点、动作和表达，不以同义替换为目标。"
+    ? "\n\n〔重写〕上一版只是需要避开的候选，不属于已经发生的剧情：『" + offlineRerollExcerpt(session.rerollAvoid) + "』。保留生成上一版之前已经成立的事实，重新决定本轮关注点、动作和表达，不以同义替换为目标。"
     : "";
   const characterSupplyInjected = !isDigital && !!registerTransition.inputBeat && !!registerTransition.active;
   const characterSupplyTail = characterSupplyInjected
@@ -3521,7 +3539,9 @@ function salvageOfflineGroupProse(raw, members) {
 async function generateOfflineGroup(p, ctx, session) {
   const members = ctx.members || [];
   const userName = (ctx.profile && ctx.profile.name) || "用户";
-  const styleText = session.stylePrompt != null ? session.stylePrompt : offlineStyleText(session.styleKey);
+  // ⚠️用真值判断，不是 != null：session 里存着空串时（开局时还没选文风、
+  // 或换文风走的是不写 stylePrompt 的那条路），"" != null 成立会把按 key 回退整个堵死。
+  const styleText = session.stylePrompt ? session.stylePrompt : offlineStyleText(session.styleKey);
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
@@ -3589,7 +3609,7 @@ async function generateOfflineGroup(p, ctx, session) {
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true) : "";
-  const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + String(session.rerollAvoid).replace(/\s+/g, " ").slice(0, 220) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
+  const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向，绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gTail };
   else hist.push({ role: "user", content: "（继续）" + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
