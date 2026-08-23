@@ -1239,7 +1239,8 @@ function Home({
     vpscodex: { kind: "app", zh: "值班室", G: GDuty },
     loungeapp: { kind: "app", zh: "三席会客", G: GLounge },
     theater: { kind: "app", zh: "小剧场", G: window.GTheater || GDream },
-    impression: { kind: "app", zh: "月度印象", G: window.GImpression || GDream }
+    impression: { kind: "app", zh: "月度印象", G: window.GImpression || GDream },
+    assistant: { kind: "app", zh: "帮手", G: window.GAssist || GDuty }
   };
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页

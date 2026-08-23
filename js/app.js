@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.49";
+const APP_VERSION = "v55.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10853,6 +10853,17 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     profile: profile,
     // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
+    toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "assistant") body = h(AssistantApp, {
+    // 帮手：改文风/人设/外貌、往记忆库加条目、查「为什么没生效」。
+    // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。
+    active: offlineActive,
+    characters: characters,
+    profile: profile,
+    onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
+    onAddMemories: (charId, items) => (items || []).forEach(txt =>
+      addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "impression") body = h(ImpressionApp, {
