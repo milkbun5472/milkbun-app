@@ -56,29 +56,42 @@
       patchCur({ mods: a });
     };
 
+    // 一段文字进来之后：像 json 就当模块包，否则整段当一条手写预设。
+    // ⚠️判定看的是内容不是文件名——iOS 选文件常常把扩展名吃掉。
+    const takeText = (txt, fallbackName) => {
+      let d = null;
+      if (/^\s*[{\[]/.test(txt)) { try { d = JSON.parse(txt); } catch (err) { d = null; } }
+      if (d && (Array.isArray(d.modules) || Array.isArray(d.presets))) {
+        const r = SP.importBundle(d);
+        const next = SP.list();
+        setPresets(next);
+        if (!curId && next.length) setCurId(next[0].id);
+        const firstCat = ((d.modules || [])[0] || {}).cat;
+        if (firstCat) setOpenCat(o => Object.assign({}, o, { [firstCat]: true }));
+        props.toast && props.toast("导入了 " + r.modules + " 个模块" + (r.presets ? " 和 " + r.presets + " 条预设" : "") + "，在下面模块库里勾");
+        return "bundle";
+      }
+      if (d) throw new Error("这是个 json，但里面没有 modules／presets，不是模块包");
+      addPreset({ name: String(fallbackName || "").trim() || "导入的预设", free: txt.trim() });
+      props.toast && props.toast("导入了 " + cnt(txt) + " 字，进「手写／导入」那一格了");
+      return "free";
+    };
+    // 只读开头一小段来判形状，别为了看一眼把整个文件读两遍
+    const peek = async file => { try { return await file.slice(0, 64).text(); } catch (e) { return ""; } };
+    const pasteBundle = () => {
+      const txt = prompt("把模块包的 json 整段粘贴进来（从「文件」里选不出来时用这个）：", "");
+      if (!txt || !txt.trim()) return;
+      try { takeText(txt.trim(), "粘贴进来的"); } catch (err) { alert("导入失败：" + (err && err.message || "内容读不出来")); }
+    };
     const importFile = async e => {
       const file = e.target.files && e.target.files[0];
       e.target.value = "";
       if (!file) return;
       try {
-        const isJson = /\.json$/i.test(file.name);
-        const txt = isJson || typeof readOfflineStyleDocument !== "function" ? await file.text() : await readOfflineStyleDocument(file);
+        const looksJson = /^\s*[{\[]/.test(await peek(file));
+        const txt = looksJson || typeof readOfflineStyleDocument !== "function" ? await file.text() : await readOfflineStyleDocument(file);
         if (!txt || !txt.trim()) throw new Error("文件里没有读到文字");
-        // json 包：一次导入一堆【可勾选的模块】（酒馆预设拆出来的那种）。
-        // 普通文档：整段进「手写／导入」那一格，当成一条纯手写预设。
-        let bundle = null;
-        if (isJson) { try { const d = JSON.parse(txt); if (d && (Array.isArray(d.modules) || Array.isArray(d.presets))) bundle = d; } catch (err) { bundle = null; } }
-        if (bundle) {
-          const r = SP.importBundle(bundle);
-          const next = SP.list();
-          setPresets(next);
-          if (!curId && next.length) setCurId(next[0].id);
-          setOpenCat(o => Object.assign({}, o, ((bundle.modules || [])[0] || {}).cat ? { [bundle.modules[0].cat]: true } : {}));
-          props.toast && props.toast("导入了 " + r.modules + " 个模块" + (r.presets ? " 和 " + r.presets + " 条预设" : "") + "，在下面模块库里勾");
-        } else {
-          addPreset({ name: file.name.replace(/\.(docx|txt|md|json)$/i, "").trim() || "导入的预设", free: txt.trim() });
-          props.toast && props.toast("导入了 " + cnt(txt) + " 字，进「手写／导入」那一格了");
-        }
+        takeText(txt, file.name.replace(/\.(docx|txt|md|json)$/i, "").trim());
       } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
     };
     // 老的自定义文风（x_offlineStyles）搬一条过来当手写块，原来那条不动。
@@ -111,8 +124,9 @@
           p.name + " · " + ((p.mods || []).length + (String(p.free || "").trim() ? 1 : 0)))),
         h("button", { key: "__add", onClick: () => addPreset(), style: S.dash }, "＋ 新建"),
         h("button", { key: "__imp", onClick: () => fileRef.current && fileRef.current.click(), style: S.dash }, "⇧ 导入"),
+        h("button", { key: "__paste", onClick: pasteBundle, style: S.dash }, "粘贴模块包"),
         h("button", { key: "__old", onClick: importOldStyle, style: S.dash }, "搬旧文风"),
-        h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain", style: { display: "none" }, onChange: importFile })),
+        h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain,application/json,*/*", style: { display: "none" }, onChange: importFile })),
 
       !cur
         ? h("div", { style: Object.assign({}, S.hint, { lineHeight: 1.9 }) },
@@ -173,6 +187,16 @@
               h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "整段贴进来就行，不用拆。你从酒馆搬的那种一整篇的文风放这儿最合适。"),
               h("textarea", { value: cur.free || "", onChange: e => patchCur({ free: e.target.value }), rows: 6,
                 placeholder: "粘贴一整篇文风说明…", style: Object.assign({}, S.input, { lineHeight: 1.7, resize: "vertical" }) }),
+              /^\s*[{\[]/.test(cur.free || "")
+                ? h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
+                    h("span", { style: Object.assign({}, S.hint, { color: t.tint, flex: 1 }) }, "这一坨看着是模块包，不该整段躺在这儿"),
+                    h("button", { onClick: () => {
+                        try {
+                          const kind = takeText(String(cur.free), cur.name);
+                          if (kind === "bundle") commit(SP.list().filter(p => p.id !== cur.id));
+                        } catch (err) { alert("拆不开：" + (err && err.message || "内容读不出来")); }
+                      }, style: { padding: "6px 12px", borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "拆成模块"))
+                : null,
               h("div", { style: { display: "flex", gap: 7, marginTop: 8, alignItems: "center" } },
                 h("span", { style: S.hint }, "放在模块的"),
                 h("button", { onClick: () => patchCur({ freePos: "before" }), style: S.chip(cur.freePos === "before") }, "前面"),

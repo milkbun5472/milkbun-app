@@ -256,9 +256,34 @@ test("不认识的 json 直接拒绝，不当成空包默默吞掉", () => {
 });
 
 test("界面上 json 走导包、别的文件仍走整段手写", () => {
-  assert.ok(lab.indexOf("SP.importBundle(bundle)") > 0);
-  assert.ok(lab.indexOf('const isJson = /\\.json$/i.test(file.name)') > 0);
+  assert.ok(lab.indexOf("SP.importBundle(d)") > 0);
+  assert.ok(lab.indexOf("const takeText") > 0);
   assert.ok(lab.indexOf("SP.allCats()") > 0, "模块库要显示导入的分类");
   assert.ok(lab.indexOf("SP.moduleById(id)") > 0, "已选列表要认得导入的模块");
   assert.ok(lab.indexOf("SP.removeUserModule(m.id)") > 0, "导入的模块要能删");
+});
+
+// —— 她导进去变成了一大坨（2026-08-23）——
+// 原因：靠文件名 /\.json$/ 认包，iOS 从「文件」里选出来常常没有扩展名，
+// 于是整包掉进「手写／导入」那格。改成看内容判定，并补两条不靠文件选择器的路。
+
+test("认包看内容不看文件名", () => {
+  assert.ok(lab.indexOf("/^\\s*[{\\[]/.test") > 0, "要按开头的 { 或 [ 判形状");
+  assert.ok(lab.indexOf("/\\.json$/i.test(file.name)") < 0, "不许再靠文件名认包");
+  assert.ok(lab.indexOf("⚠️判定看的是内容不是文件名") > 0, "病因写在代码里");
+});
+
+test("选不出文件时还有两条路：粘贴、和把已经变成一坨的那条就地拆开", () => {
+  assert.ok(lab.indexOf("const pasteBundle") > 0);
+  assert.ok(lab.indexOf('"粘贴模块包"') > 0);
+  assert.ok(lab.indexOf('"拆成模块"') > 0);
+  assert.ok(lab.indexOf("commit(SP.list().filter(p => p.id !== cur.id))") > 0, "拆开之后原来那条一坨要删掉");
+});
+
+test("是 json 但不是模块包，要报错，不许再倒进手写框", () => {
+  assert.ok(lab.indexOf("里面没有 modules／presets，不是模块包") > 0);
+  // takeText 的分支：认出包 → bundle；是 json 但没有那两个键 → 抛；其余 → free
+  const fn = lab.slice(lab.indexOf("const takeText"), lab.indexOf("const peek"));
+  assert.ok(fn.indexOf('return "bundle"') > 0 && fn.indexOf('return "free"') > 0);
+  assert.ok(fn.indexOf("if (d) throw new Error") > 0);
 });
