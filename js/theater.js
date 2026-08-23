@@ -571,7 +571,7 @@
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); }
     };
     // 当轮剧照:第三人称旁观构图,服饰道具跟 if 线世界观;有两张脸参考才双人,否则他单人
-    // 剧照和封面共用的一套底座（v53.88）：画风、身份锁、if 线行头、参考图排列。
+    // 剧照和封面共用的一套底座：画风、if 线行头、参考图排列。
     // 抽出来是因为封面若自己再拼一份，就会漏掉 photoStyle/手部解剖锁这些——
     // 和 GOAL_RULE 当初四处各写各的是同一类毛病。
     const shotBase = l => {
@@ -582,13 +582,9 @@
       // 会一边要求「平行世界」，一边又把主线行头和职业递给图片模型，造成串线。
       const ifVisualPersona = [l.world || l.setting, l.charRole].filter(Boolean).join("\n").slice(0, 500);
       const styledChar = Object.assign({}, char, { photoOutfit: String(l.charOutfit || "").trim(), persona: ifVisualPersona });
-      const faceLock = "【最高优先级·就是这个人】" + (duo
-        ? "画面里的两个人必须严格就是参考图里的这两位:「" + char.name + "」用参考图1的脸,「" + uName + "」用参考图2的脸——五官、脸型、发色瞳色、年龄感、肤色完全照搬各自的参考图,不许互换、混合或另造陌生人。"
-        : "画面里的人必须严格就是参考图里的那一位:五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人,也绝不出现第二个人。")
-        + "下面的身份设定【只改变服装、道具、场景与气质,绝不改变这张脸】;身份描述里的种族/职业/头衔不是长相指令,不得据此重画五官。\n";
       const refList = (duo ? [char.refPhoto, props.profile.refPhoto] : (char.refPhoto ? [char.refPhoto] : [])).filter(Boolean);
       const meWith = duo ? Object.assign({}, props.profile, { outfit: String(l.userOutfit || "").trim() }) : null;
-      return { char: char, duo: duo, styledChar: styledChar, faceLock: faceLock, refList: refList, me: meWith };
+      return { char: char, duo: duo, styledChar: styledChar, refList: refList, me: meWith };
     };
     // ---- 封面图（v53.88）----
     // 不取自任何一拍：画的是这条线【整体】的样子——世界、两个人的身份、那股张力。
@@ -610,9 +606,12 @@
           + "。**别画成证件照或人物立绘**,要有场景、有氛围、有故事正要发生的感觉。\n"
           + "【画面尺度】必须是可公开展示的画面:衣着完整整齐,不露骨、不裸露,不出现凶器、伤口、血迹与尸体。";
         const prompt = typeof buildPhotoPrompt === "function"
-          ? b.faceLock + buildPhotoPrompt(b.styledChar, sceneDesc, null, { kind: b.duo ? "duo" : "other", me: b.me, cinematic: true })
-          : b.faceLock + sceneDesc;
-        const out = await generateSelfieImage(prompt, b.refList.length ? b.refList : null);
+          ? buildPhotoPrompt(b.styledChar, sceneDesc, null, { kind: b.duo ? "duo" : "other", me: b.me, cinematic: true })
+          : sceneDesc;
+        const minimalPrompt = typeof buildMinimalPhotoPrompt === "function"
+          ? buildMinimalPhotoPrompt(b.styledChar, { kind: b.duo ? "duo" : "other" })
+          : sceneDesc;
+        const out = await generateSelfieImage(prompt, b.refList.length ? b.refList : null, { minimalPrompt: minimalPrompt });
         if (!out || !out.blob) throw new Error("没出图");
         if (out.degraded) props.toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : out.degraded === "duo-single-ref" ? "只锁了 " + b.char.name + " 的脸" : "没用上参考照" + (out.refError ? "：" + out.refError : ""), 7000);
         const durl = await blobToDataUrl(out.blob);
@@ -673,15 +672,9 @@
         // 照抄主线又会让银龙穿着现代便装出现在龙岛。正解是这条线有自己的一套,并且锁死。
         const ifVisualPersona = [line.world || line.setting, line.charRole].filter(Boolean).join("\n").slice(0, 500);
         const styledChar = Object.assign({}, char, { photoOutfit: String(line.charOutfit || "").trim(), persona: ifVisualPersona });
-        // if 线的身份描述会跟参考照抢脸:模型容易照着「龙族监督官」重画一个陌生人。
-        // 所以把「只换身份行头、不换人」提到最前面,和 buildPhotoPrompt 的身份锁叠加。
-        const faceLock = "【最高优先级·就是这个人】" + (duo
-          ? "画面里的两个人必须严格就是参考图里的这两位:「" + char.name + "」用参考图1的脸,「" + uName + "」用参考图2的脸——五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人。"
-          : "画面里的人必须严格就是参考图里的那一位:五官、脸型、发色瞳色、年龄感、肤色完全照搬参考图,不许生成长相不同的陌生人,也绝不出现第二个人。")
-          + "下面的身份设定【只改变服装、道具、场景与气质,绝不改变这张脸】;身份描述里的种族/职业/头衔不是长相指令,不得据此重画五官。\n";
         const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一条平行世界 if 线,与角色原设定的时代/职业无关】\n【世界与场景】" + (line.setting || "") + "\n【" + char.name + " 在这条线里的身份】" + (line.charRole || "") + (duo ? "\n【" + uName + " 在这条线里的身份】" + (line.userRole || "") : "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n服装、发型、道具、环境必须符合上述 if 线的世界观与身份,绝不让角色原设定的职业装束或现代便装乱入;构图取此刻最有张力的一瞬。" + safeShot;
-        // 锁脸放【整段 prompt 的最前面】:sceneDesc 会被 buildPhotoPrompt 塞到末尾、还冠以
-        // 「场景/正在做什么：」,身份指令挂在那儿位置最弱,压不住后面一大段 if 线设定。
+        // 与线上自拍共用已经实测能锁脸的经典 buildPhotoPrompt。IF 身份只提供行头与场景，
+        // 不再额外叠一篇强锁脸作文；那会让编辑任务重新退化成“按身份设计一个新人”。
         // 连贯参考图:同一条线上一张剧照。同场景连拍两张会飘,拿它当锚能稳住
         // 衣着配饰与场地光线;它排在最后,失败降级时第一个被丢掉(身份优先于连贯)。
         const prevPhoto = allMsgs(line).filter(m => m.role === "photo" && m.img).slice(-1)[0];
@@ -691,17 +684,16 @@
         if (prevPhoto && refList.length === 0) refList.push(prevPhoto.img);
         const refs = refList.length ? refList : null;
         const prompt = typeof buildPhotoPrompt === "function"
-          ? faceLock + buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true, contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), contRefIndex: (prevPhoto && refList.length > (duo ? 2 : 1)) ? refList.length : 0 })
-          : faceLock + sceneDesc;
+          ? buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? Object.assign({}, props.profile, { outfit: String(line.userOutfit || "").trim() }) : null, cinematic: true, contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), contRefIndex: (prevPhoto && refList.length > (duo ? 2 : 1)) ? refList.length : 0 })
+          : sceneDesc;
         // 上游审核可能仍然拒(prompt 太长 / 措辞被误判)。备用 prompt 完全不含剧情文本:
         // 只保留锁脸、行头、世界一句话和一个中性构图,短且干净,成功率高得多。
-        const minimalPrompt = faceLock + "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【场景】" + String(line.world || line.setting || "").slice(0, 120)
-          + "\n【" + char.name + " 的穿着】" + (line.charOutfit || "符合上述世界观的身份装束")
-          + (duo ? "\n【" + uName + " 的穿着】" + (line.userOutfit || "符合上述世界观的身份装束") : "")
-          + "\n两人只是面对面站着说话,神情各异,衣着完整整齐,画面含蓄、可公开展示。";
+        const minimalPrompt = typeof buildMinimalPhotoPrompt === "function"
+          ? buildMinimalPhotoPrompt(styledChar, { kind: duo ? "duo" : "other" })
+          : "第三人称旁观的电影剧照，人物衣着完整，画面含蓄、可公开展示。";
         let out;
         try {
-          out = await generateSelfieImage(prompt, refs, { contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)) });
+          out = await generateSelfieImage(prompt, refs, { contRef: !!(prevPhoto && refList.length > (duo ? 2 : 1)), minimalPrompt: minimalPrompt });
         } catch (e1) {
           if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
           props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
