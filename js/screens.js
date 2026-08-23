@@ -3869,13 +3869,13 @@ function ImageApiConfig({ toast }) {
     if (typeof generateSelfieImage !== "function") { toast && toast("图像模块没加载"); return; }
     setTesting(true); setTestRes(null);
     try {
-      // 复印级测试（v54.99）：不给模型任何「重新设计」的空间——原样复现参考图、只把背景换纯白。
-      // 出来的脸若不是同一个人，结论只有一个：这条线路根本没把参考图喂给模型（或模型不支持编辑），
-      // prompt 写得再狠也救不回来，该换站/换模型。
+      // 能力探针只发一枪。旧版的「原样复印、只能换白底」既像身份复制指令，又会在
+      // 审核失败后自动换稿连射，部分中转会把它判成多次触发并锁 30 分钟。
+      // 这里用正常的参考图编辑任务确认“图片有没有送达、脸能不能跟住”，不再做压力测试。
       const prompt = testRef
-        ? "Simple background replacement edit: keep the attached photo unchanged and replace only the background with plain white. Keep the same subject, hair, clothing and pose as in the original photo."
+        ? "Use the uploaded portrait as the visual reference. Create a natural studio portrait of the same fictional character against a plain warm-gray background. Preserve the recognizable facial structure, hairstyle, age and overall appearance. Normal clothing, neutral expression, realistic photography, no text."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
-      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 290000, budgetMs: 660000, size: "1024x1024", preferLegacy: true });
+      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 120000, budgetMs: 130000, size: "1024x1024", preferLegacy: true, singleShot: true });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
       setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, bytes: out.referenceBytes || 0, field: out.refField || null, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
     } catch (e) { setTestRes({ ok: false, err: String((e && e.message) || e) }); }
@@ -3917,6 +3917,11 @@ function ImageApiConfig({ toast }) {
           h("option", { value: "low" }, "low（最省）"),
           h("option", { value: "medium" }, "medium"),
           h("option", { value: "high" }, "high（最贵）"))))),
+      row("参考图上传字段（每个站单独保存）", h("select", { value: c.refFieldMode || "auto", onChange: e => set({ refFieldMode: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
+        h("option", { value: "auto" }, "自动（单图 image，多图 image[]）"),
+        h("option", { value: "first" }, "image（多数旧中转）"),
+        h("option", { value: "bracket" }, "image[]（官方/部分新中转）"),
+        h("option", { value: "repeat" }, "重复 image（多图兼容）"))),
       h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
         h("div", { style: { paddingRight: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "经典直通模式（已是默认管线）"),
@@ -3927,11 +3932,11 @@ function ImageApiConfig({ toast }) {
         testRef ? "✓ 已选测试参考脸（点这里更换）" : "可选：上传一张脸，测试高保真参考能力",
         h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { setTestRef(String(rd.result || "")); setTestRes(null); }; rd.readAsDataURL(f); } })),
       // 诊断按钮：真拍一张测试图
-      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（体检用小图慢车道，最多约5分钟）" : (testRef ? "🔬 测试高保真参考图" : "🔬 测试纯文字出图")),
+      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（单次探针，最多约2分钟）" : (testRef ? "🔬 单次测试参考图" : "🔬 测试纯文字出图")),
       testRes ? (testRes.ok
         ? h("div", { style: { marginTop: 12 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "参考 " + testRes.refs + " 张已上传 · 字段 " + (testRes.field || testRes.mode) + " · " + (testRes.bytes ? Math.round(testRes.bytes / 1024) + " KB · " : "") + "input fidelity: " + (testRes.fidelity || "default") : "纯文字出图可用（这不代表参考图能力可用）")),
-            testRes.refs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a06b2f", marginBottom: 8 } }, "⚠️ 这是「复印测试」：要求原样复现参考图、只把背景换白。左＝你上传的参考，右＝线路生成。两张脸若不是同一个人，判定成立：这条线路没把参考图真正交给模型——换图像站或换模型，改 prompt 救不了。") : null,
+            testRes.refs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a06b2f", marginBottom: 8 } }, "⚠️ 这是单次参考能力探针，不会自动换字段或提示词重打。左＝参考，右＝生成；若接口说没收到图，请只切换上面的 image / image[] 后再试一次。若已收到图但脸差很多，才说明该线路或模型的参考保真较弱。") : null,
             testRes.refs && testRef ? h("div", { className: "flex", style: { gap: 8 } },
               h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "参考原图"), h("img", { src: testRef, style: { width: "100%", borderRadius: 12, display: "block" } })),
               h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "线路生成"), h("img", { src: testRes.src, style: { width: "100%", borderRadius: 12, display: "block" } })))

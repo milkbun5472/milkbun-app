@@ -2268,7 +2268,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     // 正确药方是 v54.84 的措辞软化;后来叠加的身份强锁prompt+新请求形状被 8/22 审计+经典对照
     // 实验证明是把好管线改坏的元凶,全部退役。保留两级兜底,每级仍然带着参考照:
     //   1) 经典一枪 → 2) 审核拒了才换软化稿再一枪 → 3) 「没收到图」类回话才试新形状一枪 → 报错。
-    const preferredMode = refBlobs.length > 1 ? (a.refFieldMode === "repeat" ? "repeat" : "bracket") : "first";
+    // 中转站对 multipart 文件字段的兼容并不一致，而且这个偏好必须按站点保存。
+    // 单图也不能永远写死 image：有的兼容层只接官方常见的 image[]。
+    const preferredMode = a.refFieldMode === "first" ? "first"
+      : a.refFieldMode === "repeat" ? "repeat"
+      : a.refFieldMode === "bracket" ? "bracket"
+      : refBlobs.length > 1 ? "bracket" : "first";
     const uploadedBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
     const finish = (out, how, mode, legacyShape) => {
       out.referenceCount = refBlobs.length;
@@ -2284,6 +2289,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     try { return finish(await attemptWith(refBlobs, preferredMode, null, ms, true), "classic", preferredMode, true); }
     catch (e1) {
       note(e1);
+      // 设置页的能力探针必须一键只发一枪。生产拍照可以有受控兜底，但体检若自动
+      // 轮换字段/提示词，会把同一请求连续打给上游：审核站会因此进入冷却，慢站则
+      // 可能连续挂几分钟，让人根本分不清是哪一种请求失败。
+      if (opts && opts.singleShot) {
+        throw new Error("单次参考图探针失败（字段 " + (preferredMode === "bracket" ? "image[]" : "image") + "）：" + (lastRefErr || "未知错误"));
+      }
       const noImg = /请上传|需要.{0,6}(?:原图|图片)|先看到原图|no\s+image|image\s+(?:is\s+)?(?:required|missing)|upload.{0,20}image/i.test(String((e1 && e1.message) || ""));
       if (noImg) {
         // 先只换 multipart 字段名，保持已经实测锁脸成功的经典请求形状；若仍不认，

@@ -27,9 +27,19 @@ test("参考照失败不会退回无参考生成陌生人", () => {
 
 test("设置页诚实区分参考请求成功与同脸验证", () => {
   assert.match(screens, /上传一张脸，测试高保真参考能力/);
-  assert.match(screens, /测试高保真参考图/);
+  assert.match(screens, /单次测试参考图/);
+  assert.match(screens, /singleShot: true/);
+  assert.match(screens, /attemptMs: 120000/);
+  assert.match(screens, /参考图上传字段（每个站单独保存）/);
+  assert.match(screens, /value: "bracket".*image\[\]/s);
   assert.match(screens, /最终是不是同一个人仍要看测试图确认/);
   assert.doesNotMatch(screens, /参考照已通过 edits 发送/);
+});
+
+test("单次参考图诊断不会自动换字段或提示词连射", () => {
+  assert.match(engine, /if \(opts && opts\.singleShot\)/);
+  assert.match(engine, /单次参考图探针失败/);
+  assert.match(engine, /a\.refFieldMode === "bracket" \? "bracket"/);
 });
 
 test("线上参考照使用短身份编辑提示，小剧场仍保留 IF 线重设计提示", () => {
