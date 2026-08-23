@@ -261,12 +261,34 @@
     const budget = t => canStream ? Math.min(20000, t) : Math.min(NO_STREAM_CAP, t);
     const repairBudget = t => canStream ? Math.min(20000, t) : Math.min(NO_STREAM_REPAIR_CAP, t);
 
-    const firstBudget = budget(Math.max(3000, Math.ceil((minW || 600) * 2.6 + 2000)));   // 思考型模型先吃一大块，别掐在半路
-    let text = String(await callAI(active, sys, [{ role: "user", content: scene.user }], {
-      maxTokens: firstBudget, stream: canStream && firstBudget >= 3000, timeout: 180000
-    }) || "").trim();
+    // ⚠️routeCanStream 判的是【方言】，不是「这家中转真的会推 SSE」。
+    // 便宜中转常常照单收下 stream:true 却把整份响应缓冲到最后一起发——
+    // 于是照样是几分钟没有首字节、照样被网关掐成 Load failed，而我们还以为在流式。
+    // 她的中转全是 openai 格式，所以 v55.57 那条 4200 上限对她一次都没生效（2026-08-23）。
+    // 所以：流式失败一次就自己退回短请求，不需要她去分辨中转有没有说实话。
+    let streamOk = canStream;   // 一旦证实这家中转没真推流，后面几次就别再白试一遍
+    const netish = e => /load failed|failed to fetch|network|timeout|aborted|超时|断/i.test(String((e && e.message) || e || ""));
+    async function callOnce(system, user, want, wantStream, label) {
+      const t0 = Date.now();
+      try {
+        return String(await callAI(active, system, [{ role: "user", content: user }], {
+          maxTokens: want, stream: wantStream, timeout: 180000
+        }) || "").trim();
+      } catch (e) {
+        const secs = Math.round((Date.now() - t0) / 1000);
+        if (!wantStream || !netish(e)) { e.message = String(e.message || e) + "（" + label + "，等了 " + secs + " 秒）"; throw e; }
+        // 说好了会流式却还是没首字节：这家中转多半是缓冲发回的。压成短请求再来一次。
+        streamOk = false;
+        notes.push(label + " 流式 " + secs + " 秒没首字节，这家中转多半没真推流——改用短请求重来");
+        return String(await callAI(active, system, [{ role: "user", content: user }], {
+          maxTokens: Math.min(NO_STREAM_CAP, want), stream: false, timeout: 180000
+        }) || "").trim();
+      }
+    }
 
     const notes = [];
+    const firstBudget = budget(Math.max(3000, Math.ceil((minW || 600) * 2.6 + 2000)));   // 思考型模型先吃一大块，别掐在半路
+    let text = await callOnce(sys, scene.user, firstBudget, canStream && firstBudget >= 3000, "首轮");
     // 没达标就补写，最多两次。每次都要整篇重交，不做机械拼接。
     let attempts = 0;
     while (minW && attempts < 2 && visibleCount(text) < minW) {
@@ -282,18 +304,15 @@
       ].filter(x => String(x || "").trim()).join("\n\n");
       let got = "";
       try {
-        got = String(await callAI(active, rsys, [{
-          role: "user",
-          content: "把下面这篇补足为完整定稿，保留全文并自然扩展到至少 " + minW + " 个非空白可见字符：\n\n" + text
-        }], {
-          // 补写要把整篇原文再吐一遍才谈得上加长，所以预算必须比首轮【更大】，不是更小。
-          // 线下就栽过这个跟头：按首轮的额度压补写→返回被截断→解析失败→白花一次，
-          // 结果「留下来的比丢掉的还短」（她 2026-08-22）。
-          // 补写 = 从头写够 minW（＝首轮的量）＋ 还得把已有的 had 字原样再吐一遍，
-          // 所以永远是首轮预算【加上】原文那部分，不是另算一个可能更小的数。
-          maxTokens: repairBudget(firstBudget + Math.ceil(had * 2.2) + 500),
-          stream: canStream, timeout: 180000
-        }) || "").trim();
+        // 补写要把整篇原文再吐一遍才谈得上加长，所以预算必须比首轮【更大】，不是更小。
+        // 线下就栽过这个跟头：按首轮的额度压补写→返回被截断→解析失败→白花一次，
+        // 结果「留下来的比丢掉的还短」（她 2026-08-22）。
+        // 补写 = 从头写够 minW（＝首轮的量）＋ 还得把已有的 had 字原样再吐一遍，
+        // 所以永远是首轮预算【加上】原文那部分，不是另算一个可能更小的数。
+        got = await callOnce(rsys,
+          "把下面这篇补足为完整定稿，保留全文并自然扩展到至少 " + minW + " 个非空白可见字符：\n\n" + text,
+          streamOk ? repairBudget(firstBudget + Math.ceil(had * 2.2) + 500) : Math.min(NO_STREAM_REPAIR_CAP, firstBudget + Math.ceil(had * 2.2) + 500),
+          streamOk, "第 " + attempts + " 次补写");
       } catch (e) {
         notes.push("第 " + attempts + " 次补写没问成：" + String((e && e.message) || e).slice(0, 60));
         break;
@@ -306,9 +325,10 @@
     if (minW && final < minW) {
       // 分清两种没达标：模型不肯写长，和这条线路单次就发不了这么长。
       // 混为一谈的话，她会以为是预设写得差、去改预设——其实该换个能流式的线路。
-      notes.push(canStream
+      const fellBack = notes.some(n => n.indexOf("没真推流") >= 0);
+      notes.push(canStream && !fellBack
         ? "⚠️模型不肯写到 " + minW + "，最终 " + final + " 字"
-        : "⚠️最终 " + final + "/" + minW + " 字。这条线路发不出流式，单次只能写 " + NO_STREAM_CAP + " token 就得停（再长会被网关掐成 Load failed），只能靠补写往上垒。想一次写长得换条支持流式的线路。");
+        : "⚠️最终 " + final + "/" + minW + " 字。这条线路" + (fellBack ? "说好了流式却没真推" : "发不出流式") + "，单次只能写 " + NO_STREAM_CAP + " token 就得停（再长会被网关掐成 Load failed），只能靠补写往上垒。想一次写长得换一家真支持 SSE 的中转。");
     }
     return { text: text, chars: final, notes: notes };
   }

@@ -335,7 +335,7 @@ const RT = (model, stream) => {
     saveJSON: (k, v) => { store[k] = JSON.stringify(v); },
     narrativeCore: () => "BASE", routeCanStream: () => stream !== false,
     offlineVisibleCharCount: t => String(t || "").replace(/\s/g, "").length,
-    callAI: async (p, sys, msgs, opt) => { calls.push({ sys, opt, user: msgs[0].content }); return model(calls.length); }
+    callAI: async (p, sys, msgs, opt) => { calls.push({ sys, opt, user: msgs[0].content }); return model(calls.length, opt); }
   };
   new Function(...Object.keys(sandbox), sp)(...Object.values(sandbox));
   return { SP: win.StylePresets, calls };
@@ -420,4 +420,53 @@ test("没达标要分清是模型不肯写，还是这条线路发不了这么�
   const rf = await fast.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
   assert.match(rf.notes.join(""), /模型不肯写到 1500/);
   assert.ok(rf.notes.join("").indexOf("发不出流式") < 0);
+});
+
+// —— 「但是我设的中转站应该都是 openai 格式的」（她 2026-08-23）——
+// 说得对，所以 v55.57 那条 4200 上限对她一次都没生效：detectFormat 只看 baseUrl，
+// openai 格式就一定 canStream=true。真凶是中转【收下 stream:true 却缓冲发回】——
+// 照样几分钟没首字节、照样 Load failed，而我们还以为在流式。
+// routeCanStream 判的是方言，不是「这家真的会推 SSE」，所以失败要能自己退回去。
+
+const liar = (model, stream) => RT(model, stream);
+
+test("中转谎报支持流式：失败一次就自己退回短请求，别让她去分辨", async () => {
+  const h = liar((n, o) => { if (o.stream) throw new Error("Load failed"); return "甲".repeat(n === 2 ? 1200 : 1600); }, true);
+  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.deepEqual(h.calls.map(c => c.opt.stream), [true, false, false],
+    "退回之后要记住，后面几次别再白试一遍流式");
+  assert.equal(h.calls.length, 3);
+  assert.equal(h.calls[1].opt.maxTokens, 4200, "退回时要压到网关扛得住的量");
+  assert.match(r.notes.join(""), /这家中转多半没真推流/);
+  assert.equal(r.chars, 1600, "退回之后照样要补到下限");
+  assert.ok(sp.indexOf("判的是【方言】，不是「这家中转真的会推 SSE」") > 0, "病因写在代码里");
+});
+
+test("不是网络类的错就直接抛，别拿短请求白烧一次", async () => {
+  const h = liar(() => { throw new Error("401 Unauthorized"); }, true);
+  await assert.rejects(() => h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 }), /401/);
+  assert.equal(h.calls.length, 1);
+});
+
+test("报错要带上是哪一步、等了多久——分得清网关掐断和 CORS/密钥", async () => {
+  const h = liar(() => { throw new Error("401 Unauthorized"); }, true);
+  await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 }).catch(e => {
+    assert.match(e.message, /首轮/);
+    assert.match(e.message, /等了 \d+ 秒/);
+  });
+});
+
+test("一切正常就只调一次，退回逻辑不平白多花钱", async () => {
+  const h = liar(() => "甲".repeat(1600), true);
+  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.equal(h.calls.length, 1);
+  assert.deepEqual(r.notes, []);
+});
+
+test("退回过之后，没达标的说法要说成「说好了流式却没真推」", async () => {
+  const h = liar((n, o) => { if (o.stream) throw new Error("Load failed"); return "甲".repeat(300); }, true);
+  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.match(r.notes.join(""), /说好了流式却没真推/);
+  assert.ok(r.notes.join("").indexOf("模型不肯写到") < 0, "这不是模型的锅");
+  assert.match(r.notes.join(""), /换一家真支持 SSE 的中转/);
 });
