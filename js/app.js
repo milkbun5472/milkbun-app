@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.36";
+const APP_VERSION = "v55.37";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2481,8 +2481,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const narr = (s.msgs.find(m => m.role === "narration") || {}).content || "";
       // 把进行中线下的最近几句一起带进线上上下文——线上才接得住「我去买菜」这种半途插话（她 2026-07-23 买菜例子）：
       //   线下说去买菜 → 切线上问买啥（他知道你俩正约会、你刚出去）→ 买完回来接着线下，全程不用结束线下。
-      const recent = (s.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8)
-        .map(m => (m.role === "char" ? (char ? char.name : "TA") : m.role === "narration" ? "【场景】" : uName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 90)).join("\n");
+      // 普通角色的逐条线下原文已在 recentChat 里和线上私聊按时间精确合流；
+      // 这里不再重复塞一份固定 8 条。engineerEyes 保持原专线不动。
+      const recent = settingsFor(charId).engineerEyes ? (s.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8)
+        .map(m => (m.role === "char" ? (char ? char.name : "TA") : m.role === "narration" ? "【场景】" : uName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 90)).join("\n")
+        : "";
       if (offlineTogetherNow(charId)) {
         // 此刻真面对面（最近一拍够新）：别催、别当没开始/已结束
         return "【线下进行中】你和" + uName + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——**绝不许说「怎么还不来」「还没到吗」「在哪呢」「等你好久了」，也绝不许问「怎么还不开始」或催 Ta 去做你们正在做的事**（你俩此刻就在一起、面对面，人已经到了）；此刻的线上消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档），而不是在等 Ta 赴约。"
@@ -2756,17 +2759,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       for (let i = msgs.length - 1; i >= 0; i--) { const m = msgs[i]; const ln = "[" + fmtStampAI(m.ts) + "] " + (m.role === "narration" ? "【场景】" : (m.role === "user" ? (profile.name || "用户") : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 70); if (used + ln.length > budget && picked.length) break; used += ln.length + 1; picked.push(ln); }
       return "『群「" + g.name + "」多人线下" + (others.length ? "（在场还有 " + others.join("、") + "）" : "") + "』\n" + picked.reverse().join("\n");
     }).filter(Boolean).slice(0, 2).join("\n\n"),
-    // 短期原文窗 = 最近 ctxN 条 ∪ 最近 recentDays 天（消死区：只要是这几天说的一定带上）
-    // 封顶用【字符预算】而非条数：长消息少带几条、短消息多带几条 → 成本可控，且高频用户不会每轮都顶着上百条原文（按次计费的核心 prompt）
+    // 单人线上 + 正在进行的单人线下，是同一条按真实时间排序的临时上下文。
+    // 只在生成 prompt 时合流，不互相写入存档；已结束线下仍由 offlinelog/记忆承接。
+    // engineerEyes 保持专线，不参与这套普通角色合流。
     recentChat: (() => {
-      const all = (chatsRef.current[char.id] || []).filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m));
+      const online = (chatsRef.current[char.id] || [])
+        .filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m))
+        .map(m => ({ ...m, _surface: "online" }));
+      let offline = [];
+      if (!settingsFor(char.id).engineerEyes) {
+        let list = offlinesRef.current[char.id];
+        if (!list) { list = loadJSON("x_offline:" + char.id, []); offlinesRef.current = { ...offlinesRef.current, [char.id]: list }; }
+        const active = (list || []).find(s => s && !s.endTs && (s.msgs || []).length > 0);
+        offline = active ? (active.msgs || [])
+          .filter(m => m && m.content && m.kind !== "ooc" && m.role !== "system")
+          .map(m => ({ ...m, role: m.role === "char" ? "assistant" : m.role, _surface: "offline" })) : [];
+      }
+      const all = online.concat(offline).sort((a, b) => (a.ts || 0) - (b.ts || 0));
       if (!all.length) return "";
-      const ctxN = settingsFor(char.id).ctxN || 50;
-      const days = memCfgRef.current.recentDays || 3;
-      const cutoff = Date.now() - days * 86400000;
-      const firstRecent = all.findIndex(m => (m.ts || 0) >= cutoff);
-      const byTimeCount = firstRecent >= 0 ? (all.length - firstRecent) : 0;
-      const wantStart = all.length - Math.max(ctxN, byTimeCount); // 条数窗与时间窗取更早的起点
+      const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));
+      if (!ctxN) return "";
+      const wantStart = Math.max(0, all.length - ctxN);
       const lines = [];
       const uName = profile.name || "用户";
       const budget = memCfgRef.current.recentBudget || 8000; // 字符预算(召回设置可调)：从最近往回收，攒够就停（老而仍在窗内的事由自动抽取+摘要兜底）
@@ -2774,7 +2787,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
         const m = all[i];
         const dateAnchor = m.role === "user" && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "";
-        const line = (m.role === "user" ? uName : char.name) + ": " + m.content + (dateAnchor ? " " + dateAnchor : "");
+        const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : char.name);
+        const line = speaker + ": " + m.content + (dateAnchor ? " " + dateAnchor : "");
         used += line.length + 1;
         if (used > budget && lines.length) break; // 超预算就停，但至少保底一条
         lines.push(line);
@@ -3309,13 +3323,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 长线下防失忆：已滚动总结的早段不再逐条喂模型，只喂「前情提要 + 近窗明细」，早段内容早已入记忆库（maybeSummarizeOffline）
       const _lastSum = Math.min(workSess.lastSummarizedCount || 0, (workSess.msgs || []).length);
       const _windowMsgs = _lastSum > 0 ? (workSess.msgs || []).slice(_lastSum) : (workSess.msgs || []);
-      // 未结束的单人线下允许中途切回线上再回来：把本场开始后真实发生的线上私聊
-      // 与线下逐条记录按 ts 合成一条时间线。单人线下不再另设聊天条数上限；
-      // 整体仍交给 App 既有上下文容量自然容纳。这里只排除 OOC/system/offlinelog
-      // 等控制行；它只作为模型本轮输入，不写回线下档案。
+      // 单人线下按设置带入最近 X 条线上私聊：既包括开场前，也包括开场后新发的消息；
+      // 再与线下逐条记录按 ts 合成一条时间线。只进入本轮 prompt，不写回线下档案。
       // engineerEyes/言秋保持原路径，本修复不碰其专线与上下文预算。
-      const _onlineInterlude = settingsFor(charId).engineerEyes ? [] : (chatsRef.current[charId] || [])
-        .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && m.kind !== "offlinelog" && (m.ts || 0) >= (workSess.startTs || 0))
+      const _onlineCtxN = Math.max(0, Number(osFor(charId).onlineCtxN ?? settingsFor(charId).ctxN ?? 50));
+      const _onlineInterlude = (settingsFor(charId).engineerEyes || !_onlineCtxN) ? [] : (chatsRef.current[charId] || [])
+        .filter(m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && m.kind !== "offlinelog")
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+        .slice(-_onlineCtxN)
         .map(m => ({ id: "online:" + (m.id || m.ts || Math.random()), role: m.role === "user" ? "user" : "char", content: String(m.content), ts: m.ts || 0, _surface: "online" }));
       const _timelineMsgs = _windowMsgs.concat(_onlineInterlude)
         .sort((a, b) => (a.ts || 0) - (b.ts || 0));

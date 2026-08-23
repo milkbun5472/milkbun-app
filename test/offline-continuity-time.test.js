@@ -30,18 +30,27 @@ test("两种线下都沿用全局时间感知开关", () => {
   assert.match(engine, /【当前真实时间】/);
 });
 
-test("未结束单人线下重入时按真实时间接入期间全部线上私聊", () => {
+test("未结束单人线下按设置条数接入线上私聊并按真实时间合流", () => {
   const mergeBlock = app.slice(app.indexOf("const _onlineInterlude"), app.indexOf("const res = await generateOffline", app.indexOf("const _onlineInterlude")));
   const singleSettings = components.slice(components.indexOf("function OfflineMode("), components.indexOf("function GroupOfflineMode("));
-  assert.match(app, /const _onlineInterlude = settingsFor\(charId\)\.engineerEyes \? \[\] :/);
-  assert.match(app, /\(m\.ts \|\| 0\) >= \(workSess\.startTs \|\| 0\)/);
+  assert.match(app, /const _onlineCtxN = Math\.max/);
+  assert.match(app, /settingsFor\(charId\)\.engineerEyes \|\| !_onlineCtxN/);
+  assert.doesNotMatch(mergeBlock, /workSess\.startTs/);
   assert.match(app, /_windowMsgs\.concat\(_onlineInterlude/);
   assert.match(app, /sort\(\(a, b\) => \(a\.ts \|\| 0\) - \(b\.ts \|\| 0\)\)/);
   assert.match(app, /msgs: _timelineMsgs, hasOnlineInterlude:/);
-  assert.doesNotMatch(mergeBlock, /_onlineCtxN|onlineCtxN/);
+  assert.match(mergeBlock, /_onlineCtxN|onlineCtxN/);
   assert.match(mergeBlock, /\.map\(m => \(\{[^;]+_surface: "online" \}\)\);/);
-  assert.doesNotMatch(singleSettings, /sOnlineN|onlineCtxN|带入线上私聊条数/);
-  assert.match(singleSettings, /本次线下开始后的线上私聊会自动全部按时间顺序并入，不另设条数/);
+  assert.match(singleSettings, /sOnlineN|onlineCtxN|带入线上私聊条数/);
+  assert.match(singleSettings, /开场前和线下进行中后来发的消息都会参与/);
   assert.match(engine, /【线上私聊】/);
   assert.match(engine, /不能跳过今天的线上聊天、倒回去续演更早的线下剧情/);
+});
+
+test("普通角色线上生成按 ctxN 合并当前线下逐条记录，言秋专线不动", () => {
+  const recentChat = app.slice(app.indexOf("recentChat: (() =>"), app.indexOf("groupRecent:", app.indexOf("recentChat: (() =>")));
+  assert.match(recentChat, /online\.concat\(offline\)\.sort/);
+  assert.match(recentChat, /Math\.max\(0, Number\(settingsFor\(char\.id\)\.ctxN/);
+  assert.match(recentChat, /settingsFor\(char\.id\)\.engineerEyes/);
+  assert.match(recentChat, /【线下场景】/);
 });
