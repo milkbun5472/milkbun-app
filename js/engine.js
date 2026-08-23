@@ -973,6 +973,25 @@ const OFFLINE_INTIMATE_RUNTIME = `【场景连续补充】
 //   · 「。。。」这类叠用是语气不是句号，不动
 //   · 只认中文句号与全角句点；英文句点留着（缩写、网址、小数点会被误伤）
 //   · 削完只剩空字符串就放弃，宁可留着句号也不发空泡
+// 回声式反问兜底（v55.11）。ONLINE_CHAT_RULE_V2 里已经写明「别把对方刚说的词
+// 原样反问一遍再开口」，但她刷完还是被「自拍？」开场（2026-08-22）。提示词压不住
+// 就上刀——判据很硬：第一个气泡整条就是【她刚说过的词】+问号，别的什么都没有。
+//   · 只削【第一泡】：后面的反问多半是真问句
+//   · 那个词必须在她最近一条消息里【真的出现过】，不然那是他自己的疑问
+//   · 整条气泡只有这个词和标点才算回声；「自拍？现在？」这种连问是情绪，不动
+//   · 削完必须还剩别的气泡，否则宁可留着——总不能一句话都不回
+function stripEchoQuestion(words, userText) {
+  const list = Array.isArray(words) ? words.slice() : [];
+  if (list.length < 2) return list;                 // 只有一泡，削了就没话了
+  const first = String(list[0] || "").trim();
+  const m = /^([^，。！？!?…~～\s]{1,6})[？?]$/.exec(first);   // 整条＝一个短词＋问号
+  if (!m) return list;
+  const word = m[1];
+  const said = String(userText || "");
+  if (!said || said.indexOf(word) < 0) return list; // 她没说过这个词 → 是他自己在问
+  return list.slice(1);
+}
+
 function stripTypingPeriod(text) {
   const s = String(text == null ? "" : text);
   // 句号后面可能还跟着引号/括号：先剥出来，削完原样接回去
