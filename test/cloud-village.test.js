@@ -82,3 +82,16 @@ test("自动续播连续两次也必须沿队列前进，不能因 React 状态�
   assert.match(app, /const fromId = playerSongIdRef\.current \|\| player\.songId;[\s\S]{0,700}computeNextId\(\) !== id\) return;/,
     "旧曲目的异步预取晚回来不得污染新队列");
 });
+
+test("当前队列页面能解析云村临时批次，重开 App 仍从保存的整队列恢复", () => {
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
+  const screens = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/screens.js"), "utf8");
+  assert.match(screens, /const batchSong = \(data\.nowBatch \|\| \[\]\)\.find\(x => x\.id === id\)/,
+    "队列 UI 必须从 nowBatch 解析整张云歌单");
+  assert.match(screens, /\(player && player\.songId\) \|\| data\.nowId \|\|/,
+    "audio 尚未恢复时仍显示持久化的当前曲");
+  assert.match(app, /const savedQueue = \(L\.nowQueue \|\| \[\]\).*resolveSong\(id\)/,
+    "冷启动先恢复仍可解析的持久队列");
+  assert.match(app, /playSong\(restoredId, savedQueue\.length \? savedQueue : undefined\)/,
+    "重开后的首次播放必须携带整队列，不得塌成单曲");
+});

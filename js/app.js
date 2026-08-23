@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.18";
+const APP_VERSION = "v55.19";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -667,7 +667,7 @@ function App() {
     setCoupleAnniv(loadJSON("x_coupleAnniv", []));
     setCoupleLetters(loadJSON("x_coupleLetters", []));
     setCoupleLetterCfg(loadJSON("x_coupleLetterCfg", {}));
-    { const L = loadJSON("x_listen", { disc: null, songs: [] }); setListen(L); setPlayer(p => ({ ...p, songId: L.nowId || (L.songs && L.songs[0] && L.songs[0].id) || null })); }
+    { const L = loadJSON("x_listen", { disc: null, songs: [] }); const restoredId = L.nowId || (L.songs && L.songs[0] && L.songs[0].id) || null; listenRef.current = L; playerSongIdRef.current = restoredId; setListen(L); setPlayer(p => ({ ...p, songId: restoredId })); }
     setNeteaseApi(loadJSON("x_neteaseApi", ""));
     setNeteaseCookie(loadJSON("x_neteaseCookie", ""));
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
@@ -9156,8 +9156,16 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   };
   const togglePlay = () => {
     const el = audioElRef.current; if (!el) return;
-    if (!player.songId) { const q = listenRef.current.songs || []; if (q.length) playSong(q[0].id); return; }
-    if (el.paused) { if (!el.getAttribute("src")) return playSong(player.songId, listenRef.current.nowQueue); el.play(); setPlayer(p => ({ ...p, playing: true })); }
+    const L = listenRef.current || {};
+    // 冷启动时不能重新从「全部」第一首建一个新单曲队列：优先恢复上次曲目及其完整队列。
+    // 这样关 App 前正在播云歌单第 N 首，回来按播放仍从第 N 首接着按原列表走。
+    const savedQueue = (L.nowQueue || []).filter(id => id !== KEEPALIVE_ID && !!resolveSong(id));
+    const restoredId = (L.nowId && L.nowId !== KEEPALIVE_ID && resolveSong(L.nowId) && L.nowId)
+      || savedQueue[0]
+      || (L.songs && L.songs[0] && L.songs[0].id)
+      || null;
+    if (!player.songId) { if (restoredId) playSong(restoredId, savedQueue.length ? savedQueue : undefined); return; }
+    if (el.paused) { if (!el.getAttribute("src")) return playSong(restoredId || player.songId, savedQueue.length ? savedQueue : L.nowQueue); el.play(); setPlayer(p => ({ ...p, playing: true })); }
     else { el.pause(); setPlayer(p => ({ ...p, playing: false })); }
   };
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。

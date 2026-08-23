@@ -2888,11 +2888,16 @@ function ListenTogether({ listen, characters, onBack, onSetDisc, onSetCover, onA
     if (!id) return null;
     if (id === KEEPALIVE_ID) return KEEPALIVE_SONG;
     if (data.nowSong && data.nowSong.id === id) return data.nowSong;
+    // 云村「播放全部」不会把整张列表塞进本地曲库，而是放在 nowBatch。
+    // 队列页若漏查这里，就只认得 nowSong/当前曲，视觉上永远只有一首。
+    const batchSong = (data.nowBatch || []).find(x => x.id === id);
+    if (batchSong) return batchSong;
     let s = songs.find(x => x.id === id); if (s) return s;
     for (const pl of playlists) { const f = (pl.songs || []).find(x => x.id === id); if (f) return f; }
     return null;
   };
-  const nowId = (player && player.songId) || (songs[0] && songs[0].id) || null;
+  // App 重开后 audio 尚未重新挂 src，但持久化的 nowId 仍代表上次停留的曲目。
+  const nowId = (player && player.songId) || data.nowId || (songs[0] && songs[0].id) || null;
   const now = resolveSong(nowId) || songs[0] || null;
   const nowQueue = (data.nowQueue && data.nowQueue.length ? data.nowQueue : songs.map(s => s.id)).map(resolveSong).filter(Boolean);
   const idx = nowQueue.findIndex(s => s.id === nowId);
