@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.23";
+const APP_VERSION = "v55.24";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4383,7 +4383,7 @@ thought: string，【每轮必须写一句，禁止 null、空串或省略】。
 【实时动作字段·普通角色每轮必填】
 action: string，每轮回复完成后都重新观察并填写角色此刻真正正在做的事或所处的活动状态；这是角色自己的实时状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。确实仍在继续同一件事时可以保持同一事实，不要为了显得有变化而硬编小动作；但必须根据此刻重新表述，不能机械照抄已经过时的旧动作。
 【按需状态字段】
-wearing: string，仅在穿着发生变化时填写。
+wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
 ${window.Gaze ? window.Gaze.spec("对方") : ""}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
@@ -4404,14 +4404,31 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const _liveChatState = statesRef.current[charId] || {};
       const _liveChatWearing = freshLiveStateValue(_liveChatState, "wearing");
       const _liveChatAction = freshLiveStateValue(_liveChatState, "action");
+      const _wearBrief = schedNowBriefFor(char);
+      const _wearScheduleKey = window.WearingRefresh ? window.WearingRefresh.scheduleKey(_wearBrief, schedLocalDayKey(char)) : "";
+      const _latestUserMessage = [...promptHistory].reverse().find(m => m && m.role === "user");
+      const _wearRefreshGate = (!_s.engineerEyes && window.WearingRefresh)
+        ? window.WearingRefresh.evaluate({
+            scheduleKey: _wearScheduleKey,
+            acknowledgedKey: _liveChatState.wearingScheduleKey,
+            pending: _liveChatState.wearingRefreshPending,
+            hasWearing: !!_liveChatWearing,
+            latestUserText: _latestUserMessage && _latestUserMessage.content
+          })
+        : { required: false, reason: "", scheduleKey: _wearScheduleKey };
       const _missingStateFields = [];
       if (!_liveChatWearing) _missingStateFields.push("wearing（当前穿着）");
       if (!_liveChatAction) _missingStateFields.push("action（当前可持续的活动或所处状态，不写转瞬即逝的小动作）");
       const _stateBootstrapHint = _missingStateFields.length
         ? "\n【一次性状态建档】App 还没有 " + _missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知处境合理建立一次；不要写进 word，也不要为填状态制造剧情。"
         : "";
+      const _wearRefreshHint = _wearRefreshGate.required
+        ? "\n【本轮必须重新确认穿着】触发原因：" + _wearRefreshGate.reason + "。"
+          + (_wearBrief ? "当前行程是「" + (_wearBrief.time || "此刻") + " " + (_wearBrief.title || "") + (_wearBrief.location ? " · " + _wearBrief.location : "") + "」。" : "")
+          + "请在 wearing 写角色进入当前活动后实际穿着的一句话；不得照抄与新地点或新活动不相符的旧值。七点在家吃早餐可以仍穿睡衣，十点切到出门行程就必须重新判断并换成适合出门的衣服。只更新状态，不要为了交字段在 word 里表演换衣过程。"
+        : "";
       const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint).replace(/用户/g, uName);
       const _taskFull = _s.engineerEyes ? _digitalTaskFull : _normalTaskV2;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       const _primer = _s.engineerEyes
@@ -4947,6 +4964,18 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const stateNow = Date.now();
       const _live0 = statesRef.current[charId] || {};
       putLiveField(st, _live0, "wearing", parsed.wearing, stateNow);
+      // 穿着必须确认到具体行程槽。只有模型真的交回了 wearing 才承认本槽已刷新；
+      // 漏填则把 pending 留到下一轮，不能提醒一次后继续挂着旧睡衣。
+      if (!_s.engineerEyes && _wearRefreshGate.required) {
+        if (parsed.wearing && String(parsed.wearing).trim()) {
+          st.wearingRefreshPending = false;
+          if (_wearScheduleKey) st.wearingScheduleKey = _wearScheduleKey;
+        } else {
+          st.wearingRefreshPending = true;
+        }
+      } else if (!_s.engineerEyes && parsed.wearing && String(parsed.wearing).trim() && _wearScheduleKey) {
+        st.wearingScheduleKey = _wearScheduleKey;
+      }
       const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
       putLiveField(st, _live0, "action", onlineAction, stateNow);
       // 普通角色的 action 是一张「此刻」快照：模型本轮重新确认了，即使事实仍相同也要刷新时效；
