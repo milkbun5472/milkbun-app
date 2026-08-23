@@ -1,6 +1,14 @@
 // ============================================================
 // API
 // ============================================================
+// 这条线路发不发得出流式（v55.45，只读判断，不碰任何方言分支的实现）。
+// 只有 OpenAI 方言的分支实现了 SSE；Anthropic 那条是言秋的路，不动。
+// 云端密钥代理（proxyRef）走 llmProxyFetch，会把响应整个缓冲下来，流式没意义。
+function routeCanStream(p) {
+  if (!p || typeof p !== "object") return false;
+  if (p.proxyRef) return false;
+  return detectFormat(p) === "openai";
+}
 function detectFormat(u) {
   // ⚠️线路方言只认 baseUrl，绝不按 model/proxyRef 猜（2026-08-12 全天 Load failed 血案）：
   // 「小克订阅」桥是本机 8787 的 OpenAI 方言服务(只收 /v1/chat/completions)，
@@ -3202,9 +3210,11 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
       role: "user",
       content: "请把下面这篇正文补足为完整定稿。必须保留全文并自然扩展到至少 " + target + " 个非空白可见字符：\n\n" + current
     }], {
-      maxTokens: Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200))),
+      // 补写这一次同样受线路限制：发不出流式就压到网关扛得住的量（v55.45）
+      maxTokens: (routeCanStream(p) ? Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200)))
+        : Math.min(4200, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200)))),
       // 补写的预算和主调用一样大，同样会撞网关无首字节掐断，一起走流式
-      stream: Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200))) >= 3000,
+      stream: routeCanStream(p) && Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200))) >= 3000,
       timeout: 180000,
       wireScope: "offline-minimum-repair",
       wireMeta: {
@@ -3348,10 +3358,17 @@ async function generateOffline(p, ctx, session) {
   // 病根不是模型，是【两三分钟不吐一个字节】：Cloudflare/网关把长时间没有首字节
   // 当成死连接掐掉，浏览器只能报一句 Load failed。本文件上面那条注释早就写过这个坑。
   // 流式一开始就有字节流出，连接活着；中转若不支持，callAI 会按 content-type 自动退回普通解析。
-  const wantStreamOffline = generationMaxTokens >= 3000;
+  // ⚠️流式发不出去时（云端密钥代理、或非 OpenAI 方言的线路），巨型单请求会久久没有
+  // 首字节被网关掐断 → Load failed（她 2026-08-22 两次）。这种线路就别一次写完：
+  // 把单次预算压到网关扛得住的量，不足的字数交给下面 ensureOfflineMinimumScene 补——
+  // 两三个短请求各自很快返回，总时长差不多，但每一次都不会被当成死连接。
+  const canStream = routeCanStream(p);
+  const NO_STREAM_CAP = 4200;
+  const generationBudget = canStream ? generationMaxTokens : Math.min(generationMaxTokens, NO_STREAM_CAP);
+  const wantStreamOffline = canStream && generationBudget >= 3000;
   try {
     raw = await callAI(p, system, hist, {
-      maxTokens: generationMaxTokens,
+      maxTokens: generationBudget,
       stream: wantStreamOffline,
       timeout: 180000,
       wireScope: "offline",
@@ -3386,7 +3403,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationMaxTokens, stream: wantStreamOffline, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
