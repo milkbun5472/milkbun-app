@@ -255,12 +255,13 @@
         const preset = pid ? SP.byId(pid) : null;
         setBusy((preset ? preset.name : "对照组") + "（" + (i + 1) + "/" + picks.length + "）");
         try {
-          const text = await SP.runTest(props.active, {
+          const r = await SP.runTest(props.active, {
             char: char, preset: preset, scene: scene, minWords: tMin,
             uName: (props.profile && props.profile.name) || "你"
           });
           acc = SP.pushRun({ id: rid2("run_"), presetName: preset ? preset.name : "对照组 · 不吃预设",
-            presetId: pid || "", charName: char.name, sceneName: scene.name, chars: cnt(text), text: String(text || "").trim(), ts: Date.now() });
+            presetId: pid || "", charName: char.name, sceneName: scene.name,
+            chars: r.chars, text: r.text, notes: r.notes || [], want: tMin, ts: Date.now() });
           setRuns(acc);
         } catch (e) {
           acc = SP.pushRun({ id: rid2("run_"), presetName: preset ? preset.name : "对照组 · 不吃预设",
@@ -315,7 +316,9 @@
                 h("div", { style: { display: "flex", alignItems: "baseline", gap: 7, marginBottom: 6 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink } }, r.presetName),
                   h("span", { style: Object.assign({}, S.hint, { fontSize: 10.5 }) }, r.charName + " · " + r.sceneName),
-                  h("span", { style: { marginLeft: "auto", fontFamily: "monospace", fontSize: 10.5, color: r.err ? t.accent : t.fog } }, r.err ? "失败" : r.chars + " 字")),
+                  h("span", { style: { marginLeft: "auto", fontFamily: "monospace", fontSize: 10.5, color: r.err || (r.want && r.chars < r.want) ? t.accent : t.fog } },
+                    r.err ? "失败" : r.chars + " 字" + (r.want ? " / " + r.want : ""))),
+                (r.notes || []).length ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginBottom: 5, color: t.tint }) }, (r.notes || []).join("　·　")) : null,
                 r.err
                   ? h("div", { style: Object.assign({}, S.hint, { color: t.accent }) }, r.err)
                   : h("div", null,

@@ -216,6 +216,19 @@
 
   // 试写一段。走和线下同一套叙事底座，但不带记忆库/行程/前情——测试台要的是
   // 干净对照：同一个人设、同一个场景、只有预设不同，输出的差别才算得上是预设的差别。
+  //
+  // ⚠️最低字数必须真的兑现。第一版这里是裸调一次就完，她设 1500 结果吐了 200
+  // （2026-08-23）——线下有 ensureOfflineMinimumScene 兜底补写，测试台没有，
+  // 于是同一个模型在两边表现完全不同，那对照就白比了。这里补一套同样的补写循环。
+  const LEN_FLOOR = target => "\n【最终正文硬下限】用户设置的是最低值，不是建议：正文必须至少有 " + target
+    + " 个非空白可见字符。用更多真正发生的行动、后果、判断、对话和有效场景推进达到下限；不堆形容词、不加多余比喻、不反复认证同一种感受、不把一个动作逐帧注水。";
+
+  function visibleCount(t) {
+    return typeof offlineVisibleCharCount === "function"
+      ? offlineVisibleCharCount(t)
+      : String(t == null ? "" : t).replace(/\s/g, "").length;
+  }
+
   async function runTest(active, opts) {
     const o = opts || {};
     const char = o.char || {};
@@ -223,20 +236,68 @@
     const uName = o.uName || "你";
     const styleText = o.preset ? textFor(o.preset, "offline", { uName: uName, charName: char.name }) : "";
     const minW = Math.max(0, Number(o.minWords) || 0);
+    const canStream = typeof routeCanStream === "function" ? routeCanStream(active) : false;
     const sys = [
       typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) : "",
       "【文风测试台】这是一次离线试写，不属于任何真实剧情，写完就丢。别提到测试这件事。",
       "【角色人设（性格与声纹的根基）】\n" + (char.persona || char.name || "（未设定）"),
       char.appearance ? "【外貌】" + char.appearance : "",
       "【场景】" + scene.setting,
-      "【对方主权】" + uName + " 的行动和台词只由 Ta 本人给出，你只写「我」的言行心理与环境，写到需要 Ta 行动的位置就停。",
+      // 「写到需要对方行动就停」和一个很高的下限是直接打架的：不说清优先级，
+      // 模型会挑省事的那条听，写两百字就交卷。
+      "【对方主权】" + uName + " 的行动和台词只由 Ta 本人给出，你只写「我」的言行心理与环境，不替 Ta 做动作、说台词、下决定。"
+        + (minW >= 800 ? "这一条管的是【不许替对方做主】，不是让你早点收笔——本轮要一直写到下限为止，中间该有的过程一个都别略过。" : "这一段写到需要 Ta 回应的位置就自然停下。"),
       wrap(styleText),
       "【输出】用第一人称『我』完全代入「" + (char.name || "他") + "」，称对方为『你』，对话用引号，写成连续的场景正文。"
-        + (minW ? "至少 " + minW + " 个非空白字符，用真正发生的行动、对话和推进写够，不靠形容词注水。" : "")
-        + "只输出正文，不要 JSON、不要标题、不要任何解释。"
+        + "只输出正文，不要 JSON、不要标题、不要任何解释。",
+      minW ? LEN_FLOOR(minW) : ""
     ].filter(x => String(x || "").trim()).join("\n\n");
-    const budget = Math.max(2000, Math.ceil((minW || 600) * 2.2 + 1200));
-    return callAI(active, sys, [{ role: "user", content: scene.user }], { maxTokens: budget, timeout: 240000 });
+    const budget = t => canStream ? Math.min(20000, t) : Math.min(9000, t);
+
+    const firstBudget = budget(Math.max(3000, Math.ceil((minW || 600) * 2.6 + 2000)));   // 思考型模型先吃一大块，别掐在半路
+    let text = String(await callAI(active, sys, [{ role: "user", content: scene.user }], {
+      maxTokens: firstBudget, stream: canStream, timeout: 240000
+    }) || "").trim();
+
+    const notes = [];
+    // 没达标就补写，最多两次。每次都要整篇重交，不做机械拼接。
+    let attempts = 0;
+    while (minW && attempts < 2 && visibleCount(text) < minW) {
+      attempts++;
+      const had = visibleCount(text);
+      const rsys = [
+        typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) : "",
+        "【定稿补足】你是这篇场景正文的编辑。当前只有 " + had + " 个非空白可见字符，用户设的下限是 " + minW + "，必须达到。",
+        "保留原稿已经发生的全部事实、动作先后、人物决定、台词含义、叙事人称与结尾落点；不删减、不概括、不擅自升级事件。",
+        "在同一时间段内补足真正可写的内容：让已有动作产生具体后果，让人物继续观察、判断、回应和说话，让环境实际参与行动。不复述开头，不重复认证同一种感受，不堆生理反应、强度形容和空泛心理。",
+        wrap(styleText),
+        "只输出补足后的完整正文，不要 JSON、不要解释、不要报告字数。"
+      ].filter(x => String(x || "").trim()).join("\n\n");
+      let got = "";
+      try {
+        got = String(await callAI(active, rsys, [{
+          role: "user",
+          content: "把下面这篇补足为完整定稿，保留全文并自然扩展到至少 " + minW + " 个非空白可见字符：\n\n" + text
+        }], {
+          // 补写要把整篇原文再吐一遍才谈得上加长，所以预算必须比首轮【更大】，不是更小。
+          // 线下就栽过这个跟头：按首轮的额度压补写→返回被截断→解析失败→白花一次，
+          // 结果「留下来的比丢掉的还短」（她 2026-08-22）。
+          // 补写 = 从头写够 minW（＝首轮的量）＋ 还得把已有的 had 字原样再吐一遍，
+          // 所以永远是首轮预算【加上】原文那部分，不是另算一个可能更小的数。
+          maxTokens: budget(firstBudget + Math.ceil(had * 2.2) + 500),
+          stream: canStream, timeout: 240000
+        }) || "").trim();
+      } catch (e) {
+        notes.push("第 " + attempts + " 次补写没问成：" + String((e && e.message) || e).slice(0, 60));
+        break;
+      }
+      const gained = visibleCount(got);
+      if (gained > had) { text = got; notes.push("补写 " + attempts + "：" + had + " → " + gained); }
+      else { notes.push("补写 " + attempts + "：只拿回 " + gained + " 字，没改善，保留原稿"); break; }
+    }
+    const final = visibleCount(text);
+    if (minW && final < minW) notes.push("⚠️模型不肯写到 " + minW + "，最终 " + final + " 字");
+    return { text: text, chars: final, notes: notes };
   }
 
   window.StylePresets = {

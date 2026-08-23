@@ -321,3 +321,66 @@ test("导入模块的「删」是独立按钮，不是套在模块按钮里的 s
   assert.ok(seg.indexOf('m.user ? h("span"') < 0);
   assert.ok(lab.indexOf("按钮套按钮在 iOS 上点谁很看运气") > 0);
 });
+
+// —— 「试吃最低字数 1500 给我吐了 200」（她 2026-08-23）——
+// 线下有 ensureOfflineMinimumScene 兜底补写，测试台第一版是裸调一次就完。
+// 同一个模型在两边表现完全不同，那这个对照就白比了。
+
+const RT = model => {
+  const store = {}, win = {}, calls = [];
+  const sandbox = {
+    window: win,
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+    loadJSON: (k, d) => { try { return k in store ? JSON.parse(store[k]) : d; } catch (e) { return d; } },
+    saveJSON: (k, v) => { store[k] = JSON.stringify(v); },
+    narrativeCore: () => "BASE", routeCanStream: () => true,
+    offlineVisibleCharCount: t => String(t || "").replace(/\s/g, "").length,
+    callAI: async (p, sys, msgs, opt) => { calls.push({ sys, opt, user: msgs[0].content }); return model(calls.length); }
+  };
+  new Function(...Object.keys(sandbox), sp)(...Object.values(sandbox));
+  return { SP: win.StylePresets, calls };
+};
+
+test("没达标就补写，补到为止", async () => {
+  const h = RT(n => (n === 1 ? "甲".repeat(200) : "乙".repeat(1600)));
+  const r = await h.SP.runTest({}, { char: { name: "阿川", persona: "P" }, minWords: 1500 });
+  assert.equal(h.calls.length, 2);
+  assert.equal(r.chars, 1600);
+  assert.deepEqual(r.notes, ["补写 1：200 → 1600"]);
+  assert.ok(h.calls[0].sys.indexOf("最终正文硬下限") > 0, "首轮就要把下限写进 prompt");
+  // 「写到需要对方回应就停」和一个很高的下限直接打架，得说清优先级
+  assert.ok(h.calls[0].sys.indexOf("不是让你早点收笔") > 0);
+  assert.ok(h.calls[1].user.indexOf("甲".repeat(200)) > 0, "补写要把整篇原文带上，不做机械拼接");
+  assert.ok(h.calls[1].opt.maxTokens > h.calls[0].opt.maxTokens,
+    "补写得先把原文再吐一遍才谈得上加长，预算要比首轮【更大】");
+});
+
+test("模型死活不肯写长：补两次就停手，不许无限烧钱", async () => {
+  const h = RT(() => "丙".repeat(200));
+  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.equal(h.calls.length, 2, "第二次没改善就该停");
+  assert.equal(r.chars, 200);
+  assert.ok(r.notes.join("").indexOf("没改善") > 0);
+  assert.ok(r.notes.join("").indexOf("⚠️模型不肯写到 1500") > 0, "没达标必须说出来，别让人以为是预设写得差");
+});
+
+test("补写请求断了，已经写好的正文要留住", async () => {
+  const h = RT(n => { if (n === 1) return "丁".repeat(300); throw new Error("Load failed"); });
+  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.equal(r.chars, 300, "别赔上一篇好好的正文");
+  assert.ok(r.notes.join("").indexOf("没问成") > 0);
+});
+
+test("不设下限就只调一次，不平白多花一次钱", async () => {
+  const h = RT(() => "戊".repeat(100));
+  await h.SP.runTest({}, { char: { name: "x" }, minWords: 0 });
+  assert.equal(h.calls.length, 1);
+  assert.ok(h.calls[0].sys.indexOf("最终正文硬下限") < 0);
+  assert.ok(h.calls[0].sys.indexOf("自然停下") > 0, "低下限时仍然是「写到需要回应就停」");
+});
+
+test("结果卡片要显示拿到几字 / 要几字，以及补写实况", () => {
+  assert.ok(lab.indexOf('r.chars + " 字" + (r.want ? " / " + r.want : "")') > 0);
+  assert.ok(lab.indexOf("(r.notes || []).join(") > 0);
+  assert.ok(lab.indexOf("r.err || (r.want && r.chars < r.want) ? t.accent : t.fog") > 0, "没达标要标红");
+});
