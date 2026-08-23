@@ -40,6 +40,9 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     // 自拍双写保险仓：网页照常写 IndexedDB，同时把像素镜像到 App 的 Application Support。
     // iOS 偶发清掉 WKWebView 网站数据时，网页可通过同一 bridge 自动补回。
     cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeMedia")
+    // 自定义图像站通常不开放 WebView CORS。只代发用户明确配置的 HTTPS 请求，
+    // 让模型列表和图片 API 能像 curl 一样工作；API key 不再交给跨域浏览器请求。
+    cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeHttp")
     if #available(iOS 16.4, *) { cfg.preferences.isElementFullscreenEnabled = true }
     webView = WKWebView(frame: .zero, configuration: cfg)
     webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -113,6 +116,10 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
   func userContentController(_ userContentController: WKUserContentController,
                              didReceive message: WKScriptMessage,
                              replyHandler: @escaping (Any?, String?) -> Void) {
+    if message.name == "nativeHttp" {
+      handleNativeHttp(message.body, replyHandler: replyHandler)
+      return
+    }
     guard let body = message.body as? [String: Any],
           let action = body["action"] as? String,
           let bucket = body["bucket"] as? String else {
@@ -159,6 +166,37 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     } catch {
       replyHandler(nil, "native_media_error_\((error as NSError).code)")
     }
+  }
+
+  private func handleNativeHttp(_ rawBody: Any,
+                                replyHandler: @escaping (Any?, String?) -> Void) {
+    guard let body = rawBody as? [String: Any],
+          let urlText = body["url"] as? String,
+          let url = URL(string: urlText),
+          url.scheme?.lowercased() == "https",
+          url.host != nil else {
+      replyHandler(["error": "only_https_urls_are_allowed"], nil); return
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = (body["method"] as? String) ?? "GET"
+    let timeoutMs = (body["timeoutMs"] as? NSNumber)?.doubleValue ?? 180000
+    request.timeoutInterval = min(max(timeoutMs / 1000.0, 5), 300)
+    if let headers = body["headers"] as? [String: Any] {
+      for (name, value) in headers { request.setValue(String(describing: value), forHTTPHeaderField: name) }
+    }
+    if let text = body["body"] as? String, !text.isEmpty { request.httpBody = Data(text.utf8) }
+    URLSession.shared.dataTask(with: request) { data, response, error in
+      if let error {
+        replyHandler(["error": error.localizedDescription], nil); return
+      }
+      guard let http = response as? HTTPURLResponse else {
+        replyHandler(["error": "non_http_response"], nil); return
+      }
+      var headers: [String: String] = [:]
+      for (key, value) in http.allHeaderFields { headers[String(describing: key)] = String(describing: value) }
+      let text = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+      replyHandler(["status": http.statusCode, "headers": headers, "text": text], nil)
+    }.resume()
   }
 
   override var prefersStatusBarHidden: Bool { false }

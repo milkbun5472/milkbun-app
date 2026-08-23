@@ -12,6 +12,47 @@ function detectFormat(u) {
   if (u.includes("generativelanguage") || u.includes("googleapis")) return "gemini";
   return "openai";
 }
+function isCatsImageProvider(value) {
+  try {
+    const u = new URL(String(value || ""));
+    const host = String(u.hostname || "").toLowerCase();
+    return host === "catsapi.com" || host.endsWith(".catsapi.com");
+  } catch (e) { return /(?:^|\.)catsapi\.com(?=[:/]|$)/i.test(String(value || "")); }
+}
+function nativeHttpHandler() {
+  try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeHttp; }
+  catch (e) { return null; }
+}
+async function nativeProviderFetch(url, init) {
+  init = init || {};
+  const method = String(init.method || "GET").toUpperCase();
+  const h = nativeHttpHandler();
+  if (!h || typeof h.postMessage !== "function") {
+    try { return await fetch(url, init); }
+    catch (e) {
+      throw new Error("网络请求失败 · " + method + " " + url + " · " + String((e && e.message) || e) + "。CatsAPI 未开放浏览器跨域；请在更新后的 Lisa-phone 原生 App 中使用");
+    }
+  }
+  const headers = {};
+  if (init.headers) {
+    if (typeof init.headers.forEach === "function") init.headers.forEach((v, k) => { headers[k] = v; });
+    else Object.keys(init.headers).forEach(k => { headers[k] = init.headers[k]; });
+  }
+  const reply = await h.postMessage({
+    url: String(url), method: method, headers: headers,
+    body: typeof init.body === "string" ? init.body : "",
+    timeoutMs: Number(init.timeoutMs || 180000)
+  });
+  if (!reply || reply.error) throw new Error("原生网络请求失败 · " + method + " " + url + " · " + String((reply && reply.error) || "empty response"));
+  const textValue = String(reply.text || "");
+  return {
+    ok: Number(reply.status) >= 200 && Number(reply.status) < 300,
+    status: Number(reply.status || 0),
+    headers: reply.headers || {},
+    text: async () => textValue,
+    json: async () => JSON.parse(textValue)
+  };
+}
 async function fetchModelList(p) {
   const base = (p.baseUrl || "").replace(/\/$/, "");
   const fmt = detectFormat(p);
@@ -38,13 +79,23 @@ async function fetchModelList(p) {
     return (d.data || []).map(m => m.id);
   }
   const root = base.endsWith("/v1") ? base : base + "/v1";
-  const r = await fetch(root + "/models", {
+  const endpoint = root + "/models";
+  const request = {
     headers: {
-      Authorization: "Bearer " + p.apiKey
+      Authorization: "Bearer " + p.apiKey,
+      Accept: "application/json"
     }
-  });
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message);
+  };
+  // CatsAPI 不给 WKWebView/browser 跨域放行；原生壳代发，避免明明 curl 200 页面却只报 Load failed。
+  const r = isCatsImageProvider(base) ? await nativeProviderFetch(endpoint, request) : await fetch(endpoint, request);
+  const raw = await r.text();
+  let d;
+  try { d = JSON.parse(raw); }
+  catch (e) { throw new Error("模型列表不是 JSON · GET " + endpoint + " · HTTP " + r.status + " · " + raw.slice(0, 180)); }
+  if (!r.ok || d.error) {
+    const msg = d && d.error ? (d.error.message || d.error.msg || JSON.stringify(d.error)) : raw;
+    throw new Error("模型拉取失败 · GET " + endpoint + " · HTTP " + r.status + " · " + String(msg).slice(0, 220));
+  }
   return (d.data || []).map(m => m.id).sort();
 }
 // 检测这个 API 支不支持 embedding（向量记忆的前提）：真调一次 /embeddings，返回 { ok, dim, model, msg }
@@ -2118,9 +2169,25 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     let d;
     try { d = JSON.parse(rawTxt); } catch (e) { throw new Error("接口没返回 JSON：" + rawTxt.slice(0, 160)); }
     if (d && d.error) throw new Error((d.error.message || d.error.msg || JSON.stringify(d.error)) + "");
-    const cand = (d && d.data && d.data[0]) || (d && d.images && d.images[0]) || (d && d.output && (Array.isArray(d.output) ? d.output[0] : d.output)) || d || {};
+    const message = d && d.choices && d.choices[0] && d.choices[0].message;
+    const messageImages = message && Array.isArray(message.images) ? message.images : [];
+    const messageContent = message && message.content;
+    const contentParts = Array.isArray(messageContent) ? messageContent : [];
+    const chatCand = messageImages[0]
+      || contentParts.find(x => x && (x.image_url || x.b64_json || x.url || x.type === "output_image" || x.type === "image"));
+    const cand = (d && d.data && d.data[0]) || (d && d.images && d.images[0]) || (d && d.output && (Array.isArray(d.output) ? d.output[0] : d.output)) || chatCand || d || {};
     let b64 = cand.b64_json || cand.b64 || (typeof cand === "string" && /^data:image/i.test(cand) ? cand.replace(/^data:image\/\w+;base64,/i, "") : null);
-    let url = cand.url || (cand.image && cand.image.url) || (typeof cand === "string" && /^https?:\/\//i.test(cand) ? cand : null);
+    let url = cand.url || (cand.image && cand.image.url) || (cand.image_url && (cand.image_url.url || cand.image_url)) || (typeof cand === "string" && /^https?:\/\//i.test(cand) ? cand : null);
+    // OpenAI-compatible chat image providers may put the result in message.content
+    // as either a data URL, a plain URL, or Markdown instead of data[0].
+    if (!b64 && !url && typeof messageContent === "string") {
+      const dataMatch = messageContent.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=\s]+/i);
+      if (dataMatch) b64 = dataMatch[0].replace(/^data:image\/[^;]+;base64,/i, "").replace(/\s+/g, "");
+      if (!b64) {
+        const urlMatch = messageContent.match(/https?:\/\/[^\s"')\]]+/i);
+        if (urlMatch) url = urlMatch[0];
+      }
+    }
     if (!b64 && url && /^data:image/i.test(url)) { b64 = url.replace(/^data:image\/\w+;base64,/i, ""); url = null; }
     if (!b64 && !url) { const mk = String(rawTxt).match(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/i); if (mk) b64 = mk[0].replace(/^data:image\/\w+;base64,/i, ""); }
     if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp)/i); if (mk) url = mk[0]; }
@@ -2146,6 +2213,62 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     }
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
   };
+  // CatsAPI advertises an OpenAI-style surface, but its deployed GPT Image route is
+  // chat/completions rather than the official OpenAI /images/* endpoints. Sending it
+  // through the generic edits ladder used to guarantee 404s (or silently lose refs).
+  // Keep this adapter host-scoped so every existing image provider stays unchanged.
+  if (isCatsImageProvider(base)) {
+    const endpoint = root + "/chat/completions";
+    const blobDataUrl = blob => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error || new Error("参考图读取失败"));
+      reader.readAsDataURL(blob);
+    });
+    const imageInputs = await Promise.all(refBlobs.map(blobDataUrl));
+    const content = [{ type: "text", text: String(prompt || "") }];
+    imageInputs.forEach(url => content.push({ type: "image_url", image_url: { url: url } }));
+    const body = {
+      model: a.model || "gptImage2",
+      stream: false,
+      messages: [{ role: "user", content: content }]
+    };
+    let response;
+    try {
+      response = await nativeProviderFetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + a.apiKey,
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body),
+        timeoutMs: Number((opts && opts.attemptMs) || 180000)
+      });
+    } catch (e) {
+      throw new Error("CatsAPI 生图网络失败 · POST " + endpoint + " · " + String((e && e.message) || e));
+    }
+    const raw = await response.text();
+    if (!response.ok) {
+      let detail = raw;
+      try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg)) || parsed.message || raw; } catch (e) {}
+      throw new Error("CatsAPI 生图失败 · POST " + endpoint + " · HTTP " + response.status + " · " + String(detail).replace(/\s+/g, " ").slice(0, 260));
+    }
+    let out;
+    try { out = await parseOut(response, raw); }
+    catch (e) {
+      const prefix = refBlobs.length ? "参考照已随请求上传，但接口没有返回可用图片" : "接口没有返回可用图片";
+      throw new Error(prefix + " · POST " + endpoint + " · " + String((e && e.message) || e));
+    }
+    out.referenceCount = refBlobs.length;
+    out.referenceBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
+    out.refMode = "chat-completions";
+    out.refField = "messages[0].content[].image_url";
+    out.inputFidelity = "provider-managed";
+    out.providerEndpoint = endpoint;
+    out.identityVerification = "not-provided";
+    return out;
+  }
   // pOverride：审核软化重试用——同一套参考照，换一版措辞。不传就用原 prompt，行为不变。
   const attemptWith = async (blobs, refMode, pOverride, msOverride, legacyShape) => {
     const saved = refBlobs.slice();
