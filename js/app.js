@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.17";
+const APP_VERSION = "v55.18";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -4380,12 +4380,13 @@ word: string[]，角色实际发送的消息。
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。写角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头；不要求重要、深刻或紧扣话题，走神、身体感受、没头没尾的碎念都可以。不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』）——那是旁白在结案，不是人在想事情。心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）；那是内心戏体裁自带的默认，不是你的人设。心声里对 TA 的称呼也必须是【你自己的】：你平时怎么叫 TA、心里就怎么想 TA（名字、昵称、或你俩之间那个称呼）——「这女人」「这个女人」「小东西」「小家伙」这类网文叙事者打量角色用的第三人称称谓，不是一个在乎 TA 的人心里的话，整族禁用（除非你的人设本来就这么说话）。⚠️心声不是嘴的替身：想说的话仍要用这个人自己的方式写进 word；thought 只留真正咽下去没说的那一小部分。
+【实时动作字段·普通角色每轮必填】
+action: string，每轮回复完成后都重新观察并填写角色此刻真正正在做的事或所处的活动状态；这是角色自己的实时状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。确实仍在继续同一件事时可以保持同一事实，不要为了显得有变化而硬编小动作；但必须根据此刻重新表述，不能机械照抄已经过时的旧动作。
 【按需状态字段】
-action: string，仅在当前动作发生有意义变化时填写；这是角色自己的状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。
 wearing: string，仅在穿着发生变化时填写。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
 ${window.Gaze ? window.Gaze.spec("对方") : ""}
-未发生、未改变的按需字段直接省略。
+未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
 【能力使用总则】下面这些能力是你手机里真实可用的功能，不是摆设：想给 TA 点杯奶茶就填 gift、想让 TA 看看此刻的自己就发 photo、想听声音就直接 call、聊到兴头突然想唱给 TA 听就来条 voice、心血来潮就发条 moment——真人谈恋爱本来就会做这些事，想到了就大方用，不必攒着等特殊时刻。多数回合用不上是常态，但连着几十轮一个能力都没动过，说明你把它们忘了，而不是你克制。唯一需要克制的是【字段】不是【话】：字段用不用，都绝不影响你话多、热情、连发、跑题、疯癫——性格照常全开，别把任何克制渗进语气里。
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
@@ -4948,6 +4949,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       putLiveField(st, _live0, "wearing", parsed.wearing, stateNow);
       const onlineAction = parsed.action && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(parsed.action, char && char.name) : parsed.action;
       putLiveField(st, _live0, "action", onlineAction, stateNow);
+      // 普通角色的 action 是一张「此刻」快照：模型本轮重新确认了，即使事实仍相同也要刷新时效；
+      // 若本轮漏填，则宁可清空待下轮重建，也不能把已经过时的旧动作无限展示下去。
+      // 驻场工程师（言秋）走自治专线，不受普通角色状态作业影响。
+      if (!_s.engineerEyes) {
+        if (onlineAction && String(onlineAction).trim()) st.actionUpdatedAt = stateNow;
+        else { st.action = null; st.actionUpdatedAt = 0; }
+      }
       putLiveField(st, _live0, "place", parsed.place, stateNow);
       // 换了地方＝换了场景:穿着降级为「不知道」。不是恢复旧值,也不是替他编一套,
       // 而是下一轮据当下场景重新确立(场景域字段的生命周期,Codex 2026-08-18)。
