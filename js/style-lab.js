@@ -61,10 +61,24 @@
       e.target.value = "";
       if (!file) return;
       try {
-        const txt = typeof readOfflineStyleDocument === "function" ? await readOfflineStyleDocument(file) : await file.text();
+        const isJson = /\.json$/i.test(file.name);
+        const txt = isJson || typeof readOfflineStyleDocument !== "function" ? await file.text() : await readOfflineStyleDocument(file);
         if (!txt || !txt.trim()) throw new Error("文件里没有读到文字");
-        addPreset({ name: file.name.replace(/\.(docx|txt|md|json)$/i, "").trim() || "导入的预设", free: txt.trim() });
-        props.toast && props.toast("导入了 " + cnt(txt) + " 字，进「手写／导入」那一格了");
+        // json 包：一次导入一堆【可勾选的模块】（酒馆预设拆出来的那种）。
+        // 普通文档：整段进「手写／导入」那一格，当成一条纯手写预设。
+        let bundle = null;
+        if (isJson) { try { const d = JSON.parse(txt); if (d && (Array.isArray(d.modules) || Array.isArray(d.presets))) bundle = d; } catch (err) { bundle = null; } }
+        if (bundle) {
+          const r = SP.importBundle(bundle);
+          const next = SP.list();
+          setPresets(next);
+          if (!curId && next.length) setCurId(next[0].id);
+          setOpenCat(o => Object.assign({}, o, ((bundle.modules || [])[0] || {}).cat ? { [bundle.modules[0].cat]: true } : {}));
+          props.toast && props.toast("导入了 " + r.modules + " 个模块" + (r.presets ? " 和 " + r.presets + " 条预设" : "") + "，在下面模块库里勾");
+        } else {
+          addPreset({ name: file.name.replace(/\.(docx|txt|md|json)$/i, "").trim() || "导入的预设", free: txt.trim() });
+          props.toast && props.toast("导入了 " + cnt(txt) + " 字，进「手写／导入」那一格了");
+        }
       } catch (err) { alert("导入失败：" + (err && err.message || "请改用 txt 文件")); }
     };
     // 老的自定义文风（x_offlineStyles）搬一条过来当手写块，原来那条不动。
@@ -96,7 +110,7 @@
         presets.map(p => h("button", { key: p.id, onClick: () => setCurId(p.id), style: S.chip(p.id === curId) },
           p.name + " · " + ((p.mods || []).length + (String(p.free || "").trim() ? 1 : 0)))),
         h("button", { key: "__add", onClick: () => addPreset(), style: S.dash }, "＋ 新建"),
-        h("button", { key: "__imp", onClick: () => fileRef.current && fileRef.current.click(), style: S.dash }, "⇧ 导入文件"),
+        h("button", { key: "__imp", onClick: () => fileRef.current && fileRef.current.click(), style: S.dash }, "⇧ 导入"),
         h("button", { key: "__old", onClick: importOldStyle, style: S.dash }, "搬旧文风"),
         h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain", style: { display: "none" }, onChange: importFile })),
 
@@ -115,7 +129,7 @@
                 ? h("div", { style: Object.assign({}, S.card, S.hint) }, "一条都没勾。下面按分类勾。")
                 : h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
                     (cur.mods || []).map((id, i) => {
-                      const m = SP.MODULES[id];
+                      const m = SP.moduleById(id);
                       return h("div", { key: id, style: Object.assign({ display: "flex", alignItems: "center", gap: 8 }, S.card) },
                         h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, width: 16 } }, String(i + 1)),
                         h("div", { style: { flex: 1 } },
@@ -130,7 +144,7 @@
             h("div", { style: { marginBottom: 16 } },
               h("div", { style: S.h2 }, "模块库"),
               h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "点分类展开。勾上就进上面的「已选」，再去调顺序。"),
-              SP.CATS.map(c => h("div", { key: c.id, style: { marginBottom: 6 } },
+              SP.allCats().map(c => h("div", { key: c.id, style: { marginBottom: 6 } },
                 h("button", { onClick: () => setOpenCat(o => Object.assign({}, o, { [c.id]: !o[c.id] })),
                   style: { width: "100%", textAlign: "left", padding: "9px 11px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg, display: "flex", alignItems: "center", gap: 8 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, c.zh),
@@ -147,7 +161,9 @@
                           h("span", { style: { fontSize: 12, color: on ? t.tint : t.fog, lineHeight: 1.5 } }, on ? "✓" : "○"),
                           h("span", { style: { flex: 1 } },
                             h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
-                            h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint)));
+                            h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint)),
+                          m.user ? h("span", { onClick: e => { e.stopPropagation(); if (confirm("删掉导入的模块「" + m.name + "」？用到它的预设会自动跳过这一条。")) { SP.removeUserModule(m.id); setPresets(SP.list().slice()); } },
+                            style: { fontSize: 12, color: t.fog, padding: "0 2px" } }, "删") : null);
                       }))
                   : null))),
 

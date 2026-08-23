@@ -13,6 +13,7 @@
 // ============================================================
 (function () {
   const KEY = "x_stylePresets";
+  const MKEY = "x_styleModules";   // 她自己导入的模块（酒馆预设拆出来的那种）
   const RUNS = "x_styleLabRuns";
 
   // ---- 从 theater.js 原样抽出来的三条（它现在引用这里，字面量只此一份）----
@@ -95,6 +96,69 @@
   const loadJ = (k, d) => { try { return typeof loadJSON === "function" ? loadJSON(k, d) : JSON.parse(localStorage.getItem(k) || JSON.stringify(d)); } catch (e) { return d; } };
   const saveJ = (k, v) => { try { if (typeof saveJSON === "function") saveJSON(k, v); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { throw new Error("存不下了，可能是本地存储满了"); } };
 
+  // ---- 她自己导入的模块 ----
+  // 内置模块是我写的，改不了；导入的模块跟它们平级：一样能勾、能排序、能删。
+  // 单独存一个键，这样内置那份以后我改版不会把她导的东西冲掉。
+  function userModules() {
+    const a = loadJ(MKEY, []);
+    return (Array.isArray(a) ? a : []).filter(m => m && m.id && String(m.text || "").trim());
+  }
+  function saveUserModules(next) { saveJ(MKEY, next || []); return next || []; }
+  function removeUserModule(id) { return saveUserModules(userModules().filter(m => m.id !== id)); }
+  function moduleById(id) {
+    if (MODULES[id]) return MODULES[id];
+    return userModules().find(m => m.id === id) || null;
+  }
+  // 内置分类 + 导入分类（按 cat 归堆，顺序按第一次出现）
+  function allCats() {
+    const out = CATS.slice();
+    const seen = {};
+    userModules().forEach(m => {
+      const id = m.cat || "imported";
+      if (!seen[id]) { seen[id] = { id: id, zh: m.catZh || "我导入的", hint: m.catHint || "", mods: [], user: true }; out.push(seen[id]); }
+      seen[id].mods.push(m);
+    });
+    return out;
+  }
+  // 导入一整包：{ modules:[{id?,cat?,catZh?,name,hint?,text}], presets:[{id?,name,mods?,free?,freePos?}] }
+  // id 相同就原地覆盖，同一包导两次不会变出两份。
+  function importBundle(data) {
+    const d = data || {};
+    if (!Array.isArray(d.modules) && !Array.isArray(d.presets)) throw new Error("这个 json 里没有 modules 也没有 presets");
+    let mN = 0, pN = 0;
+    if (Array.isArray(d.modules) && d.modules.length) {
+      const cur = userModules();
+      const map = {};
+      cur.forEach(m => { map[m.id] = m; });
+      d.modules.forEach(function (m, i) {
+        const text = String((m && m.text) || "").trim();
+        const name = String((m && m.name) || "").trim();
+        if (!text || !name) return;
+        const id = String((m && m.id) || "").trim() || ("um_" + i + "_" + name.replace(/\s+/g, "").slice(0, 12));
+        if (MODULES[id]) return;                    // 不许顶掉内置模块
+        map[id] = { id: id, cat: String((m && m.cat) || "imported"), catZh: String((m && m.catZh) || "我导入的"),
+          catHint: String((m && m.catHint) || ""), name: name, hint: String((m && m.hint) || "").trim() || "导入的模块", text: text, user: true };
+        mN++;
+      });
+      saveUserModules(Object.keys(map).map(k => map[k]));
+    }
+    if (Array.isArray(d.presets) && d.presets.length) {
+      const cur = list();
+      const map = {};
+      cur.forEach(p => { map[p.id] = p; });
+      d.presets.forEach(function (p, i) {
+        const name = String((p && p.name) || "").trim();
+        if (!name) return;
+        const id = String((p && p.id) || "").trim() || ("sp_imp_" + i + "_" + name.replace(/\s+/g, "").slice(0, 10));
+        map[id] = { id: id, name: name, mods: Array.isArray(p.mods) ? p.mods.slice() : [],
+          free: String((p && p.free) || ""), freePos: p && p.freePos === "before" ? "before" : "after", ts: 0 };
+        pN++;
+      });
+      save(Object.keys(map).map(k => map[k]));
+    }
+    return { modules: mN, presets: pN };
+  }
+
   // preset: { id, name, mods:[moduleId...]（数组顺序就是喂进去的顺序）, free:"手写/导入的整段", freePos:"before"|"after", ts }
   function list() { const a = loadJ(KEY, []); return Array.isArray(a) ? a : []; }
   function save(next) { saveJ(KEY, next || []); return next || []; }
@@ -113,7 +177,7 @@
     const p = typeof preset === "string" ? byId(preset) : preset;
     if (!p) return "";
     const rows = (p.mods || [])
-      .map(id => MODULES[id])
+      .map(moduleById)
       .filter(m => m && !(surface && m.builtinIn && m.builtinIn.indexOf(surface) >= 0))
       .map(m => typeof m.text === "function" ? m.text(ctx || {}) : m.text)
       .filter(x => String(x || "").trim());
@@ -177,6 +241,8 @@
 
   window.StylePresets = {
     CATS: CATS, MODULES: MODULES, TEST_SCENES: TEST_SCENES,
+    allCats: allCats, moduleById: moduleById, userModules: userModules,
+    removeUserModule: removeUserModule, importBundle: importBundle,
     list: list, save: save, byId: byId, upsert: upsert, remove: remove,
     textFor: textFor, blockFor: blockFor, wrap: wrap,
     loadRuns: loadRuns, pushRun: pushRun, clearRuns: clearRuns, runTest: runTest,

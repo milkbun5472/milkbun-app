@@ -188,3 +188,77 @@ test("首页能点进去", () => {
   assert.match(comp, /stylelab: \{ kind: "app", zh: "文风台"/);
   assert.ok(comp.indexOf('"vpscodex", "assistant", "stylelab"') > 0, "默认布局里没有它，新装的人找不到");
 });
+
+// —— 她 2026-08-23 传了一份 Ako 1.91 酒馆预设，要拆成能勾的模块 ——
+// 仓库是公开的，Ako 的正文不进 git；这里只测导入这条路本身。
+
+const SPU = (() => {
+  const store = {};
+  const win = {};
+  const sandbox = {
+    window: win,
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+    loadJSON: (k, d) => { try { return k in store ? JSON.parse(store[k]) : d; } catch (e) { return d; } },
+    saveJSON: (k, v) => { store[k] = JSON.stringify(v); },
+    callAI: async () => "", narrativeCore: () => ""
+  };
+  new Function(...Object.keys(sandbox), sp)(...Object.values(sandbox));
+  return win.StylePresets;
+})();
+
+const BUNDLE = {
+  modules: [
+    { id: "t_a", cat: "t_cat", catZh: "测试类", name: "甲", hint: "h", text: "甲的正文写得够长了吧" },
+    { id: "t_b", cat: "t_cat", catZh: "测试类", name: "乙", hint: "h", text: "乙的正文写得够长了吧" },
+    { name: "", text: "没名字的要被丢掉" },
+    { name: "没正文的", text: "  " }
+  ],
+  presets: [{ id: "t_p", name: "测试预设", mods: ["t_a", "t_b"] }]
+};
+
+test("json 包能一次导入一堆可勾选模块", () => {
+  const r = SPU.importBundle(BUNDLE);
+  assert.deepEqual(r, { modules: 2, presets: 1 });
+  assert.equal(SPU.userModules().length, 2, "缺名字或缺正文的要被丢掉");
+  const cat = SPU.allCats().find(c => c.id === "t_cat");
+  assert.ok(cat && cat.user && cat.mods.length === 2, "导入的模块要自成一类挂在内置分类后面");
+  assert.equal(SPU.allCats().length, SPU.CATS.length + 1);
+});
+
+test("导入的模块和内置模块平级：能混用、顺序照排", () => {
+  const mixed = SPU.textFor({ mods: ["ac_no_ceo", "t_a"] }, "offline", {});
+  assert.ok(mixed.indexOf("别滑进霸总腔") >= 0 && mixed.indexOf("甲的正文") >= 0);
+  assert.ok(mixed.indexOf("别滑进霸总腔") < mixed.indexOf("甲的正文"));
+  assert.ok(SPU.textFor({ mods: ["t_b", "t_a"] }, "offline", {}).indexOf("乙的正文") < SPU.textFor({ mods: ["t_b", "t_a"] }, "offline", {}).indexOf("甲的正文"));
+});
+
+test("同一包导两次不会变出两份", () => {
+  SPU.importBundle(BUNDLE);
+  assert.equal(SPU.userModules().length, 2);
+  assert.equal(SPU.list().filter(p => p.id === "t_p").length, 1);
+});
+
+test("导入的模块顶不掉内置模块", () => {
+  SPU.importBundle({ modules: [{ id: "ac_no_ceo", name: "冒名顶替", text: "把内置那条换掉" }] });
+  assert.ok(SPU.moduleById("ac_no_ceo").text.indexOf("把内置那条换掉") < 0);
+});
+
+test("删掉导入的模块，用到它的预设自动跳过、不报错", () => {
+  SPU.removeUserModule("t_a");
+  const txt = SPU.textFor(SPU.byId("t_p"), "offline", {});
+  assert.ok(txt.indexOf("甲的正文") < 0);
+  assert.ok(txt.indexOf("乙的正文") >= 0, "只掉这一条，别的照留");
+});
+
+test("不认识的 json 直接拒绝，不当成空包默默吞掉", () => {
+  assert.throws(() => SPU.importBundle({ foo: 1 }), /没有 modules 也没有 presets/);
+  assert.throws(() => SPU.importBundle(null), /没有 modules 也没有 presets/);
+});
+
+test("界面上 json 走导包、别的文件仍走整段手写", () => {
+  assert.ok(lab.indexOf("SP.importBundle(bundle)") > 0);
+  assert.ok(lab.indexOf('const isJson = /\\.json$/i.test(file.name)') > 0);
+  assert.ok(lab.indexOf("SP.allCats()") > 0, "模块库要显示导入的分类");
+  assert.ok(lab.indexOf("SP.moduleById(id)") > 0, "已选列表要认得导入的模块");
+  assert.ok(lab.indexOf("SP.removeUserModule(m.id)") > 0, "导入的模块要能删");
+});
