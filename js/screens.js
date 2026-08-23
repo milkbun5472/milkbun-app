@@ -3865,8 +3865,11 @@ function ImageApiConfig({ toast }) {
   const [testing, setTesting] = useState(false);
   const [testRes, setTestRes] = useState(null);
   const [testRef, setTestRef] = useState(null);
-  const runTest = async () => {
+  const runTest = async (fieldOverride) => {
     if (typeof generateSelfieImage !== "function") { toast && toast("图像模块没加载"); return; }
+    // 某些中转只认 image，另一些只认 image[]。诊断卡允许带着指定字段
+    // 直接重试；先同步写入站点配置，engine 随后会从持久化配置重新读取。
+    if (typeof fieldOverride === "string") set({ refFieldMode: fieldOverride });
     setTesting(true); setTestRes(null);
     try {
       // 能力探针只发一枪。旧版的「原样复印、只能换白底」既像身份复制指令，又会在
@@ -3875,7 +3878,7 @@ function ImageApiConfig({ toast }) {
       const prompt = testRef
         ? "Edit the attached portrait into a simple studio photo with a plain warm-gray background. Keep the same adult man: the same face, facial features, hairstyle, age, skin tone and recognizable appearance. Do not replace him with another person and do not change his sex. Normal clothing, neutral expression, realistic photo, no text."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
-      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 120000, budgetMs: 130000, size: "1024x1024", preferLegacy: true, singleShot: true });
+      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 180000, budgetMs: 190000, size: "1024x1024", preferLegacy: true, singleShot: true });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
       setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, bytes: out.referenceBytes || 0, field: out.refField || null, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
     } catch (e) {
@@ -3885,12 +3888,13 @@ function ImageApiConfig({ toast }) {
       // 诊断仍坚持一次只发一枪（避免审核冷却/重复扣费），但替用户把【下一枪】的字段
       // 按站点切好并保存；页面同时给出醒目的再次测试按钮，不必回头猜下拉框。
       const missingRef = !!testRef && /请上传|需要.{0,8}(?:原图|图片)|先看到原图|no\s+image|image\s+(?:is\s+)?(?:required|missing)|upload.{0,30}image|image\s+is\s+attached|once\s+the\s+image\s+is\s+attached/i.test(err);
+      const timedOut = /请求在\s*\d+\s*秒后中止|等待到点超时|timed?\s*out|timeout/i.test(err);
       let switchedField = null;
       if (missingRef) {
         switchedField = (c.refFieldMode === "bracket") ? "first" : "bracket";
         set({ refFieldMode: switchedField });
       }
-      setTestRes({ ok: false, err, missingRef, switchedField });
+      setTestRes({ ok: false, err, missingRef, timedOut, switchedField });
     }
     finally { setTesting(false); }
   };
@@ -3945,7 +3949,7 @@ function ImageApiConfig({ toast }) {
         testRef ? "✓ 已选测试参考脸（点这里更换）" : "可选：上传一张脸，测试高保真参考能力",
         h("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { setTestRef(String(rd.result || "")); setTestRes(null); }; rd.readAsDataURL(f); } })),
       // 诊断按钮：真拍一张测试图
-      h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（单次探针，最多约2分钟）" : (testRef ? "🔬 单次测试参考图" : "🔬 测试纯文字出图")),
+      h("button", { onClick: () => runTest(), disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（单次探针，最多约3分钟）" : (testRef ? "🔬 单次测试参考图" : "🔬 测试纯文字出图")),
       testRes ? (testRes.ok
         ? h("div", { style: { marginTop: 12 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "参考 " + testRes.refs + " 张已上传 · 字段 " + (testRes.field || testRes.mode) + " · " + (testRes.bytes ? Math.round(testRes.bytes / 1024) + " KB · " : "") + "input fidelity: " + (testRes.fidelity || "default") : "纯文字出图可用（这不代表参考图能力可用）")),
@@ -3959,7 +3963,12 @@ function ImageApiConfig({ toast }) {
             h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 200, overflowY: "auto" } }, testRes.err),
             testRes.missingRef ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px dashed rgba(194,90,74,0.3)" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这不是锁脸差：接口根本没接住参考图。已为当前站切到「" + (testRes.switchedField === "bracket" ? "image[]" : "image") + "」并保存；请只再测一次。"),
-              h("button", { onClick: runTest, disabled: testing, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 0" } }, testing ? "测试中…" : "换字段后再测一次")) : null)) : null) : null);
+              h("button", { onClick: () => runTest(), disabled: testing, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 0" } }, testing ? "测试中…" : "换字段后再测一次"))
+            : testRes.timedOut ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px dashed rgba(194,90,74,0.3)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这次是线路三分钟仍未完成，不代表参考图字段错误。可以原字段重试；也可以只换一次 image / image[]，排除该站字段兼容问题。"),
+              h("div", { className: "flex", style: { gap: 8 } },
+                h("button", { onClick: () => runTest(), disabled: testing, className: "flex-1 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 6px" } }, testing ? "测试中…" : "原字段再试"),
+                h("button", { onClick: () => runTest(c.refFieldMode === "bracket" ? "first" : "bracket"), disabled: testing, className: "flex-1 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: "#a05f35", background: "rgba(255,255,255,.45)", border: "1px solid rgba(194,90,74,.35)", borderRadius: 9, padding: "9px 6px" } }, testing ? "测试中…" : (c.refFieldMode === "bracket" ? "换 image 再试" : "换 image[] 再试")))) : null)) : null) : null);
 }
 // 独立 embedding API 配置：聊天模型和向量记忆分家。聊天那家（如 gemini 中转）没 embedding 渠道时，
 // 这里另填一家支持 OpenAI 兼容 /v1/embeddings 的 key，只管向量记忆，不影响聊天。
