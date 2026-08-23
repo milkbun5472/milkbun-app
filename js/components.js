@@ -5784,6 +5784,20 @@ function OfflineMode({
       h(Marquee, { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, schedNow.title + (schedNow.location ? " · " + schedNow.location : "")),
       schedNow.dev && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent, flexShrink: 0 } }, "改"),
       onOpenSched && h(IChevR, { size: 13, color: t.fog, style: { marginLeft: "auto", flexShrink: 0 } })),
+    // 当前这局用的是哪个文风（v55.44）。她 2026-08-22 放了份自定义文风进去却完全没生效，
+    // 而界面上根本看不出这局到底挂着哪一个——排查全靠猜。摆出来，没挂上一眼就看见。
+    (function () {
+      const sess = (sessions || []).find(x => x && !x.endTs);
+      if (!sess) return null;
+      const key = sess.styleKey || "default";
+      const own = (sess.stylePrompt || "").trim();
+      const named = [...OFFLINE_STYLES, ...customStyles].find(x => x.key === key);
+      const on = !!(own || (named && named.prompt));
+      return h("div", { onClick: () => setSetOpen(true), className: "shrink-0 w-full flex items-center gap-1.5 px-4 pb-1 active:opacity-60" },
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog } }, "STYLE"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.sub : t.fog } },
+          on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
+    })(),
     offlineSetSheet(),
     modeOpen && sheet("切换", h("div", { className: "space-y-1" },
       h("button", { onClick: () => { setModeOpen(false); onClose(); }, className: "w-full text-left py-3 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "💬 对话（回到线上聊天）"),
