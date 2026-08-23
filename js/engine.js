@@ -2239,61 +2239,112 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     }
     throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
   };
-  // CatsAPI advertises an OpenAI-style surface, but its deployed GPT Image route is
-  // chat/completions rather than the official OpenAI /images/* endpoints. Sending it
-  // through the generic edits ladder used to guarantee 404s (or silently lose refs).
-  // Keep this adapter host-scoped so every existing image provider stays unchanged.
+  // CatsAPI 的 /api/v1/chat/completions 只允许 stream=true，不能拿来做同步生图。
+  // 它真正的图片协议是异步任务：POST /api/tasks 创建，随后 GET /api/tasks/{id}
+  // 轮询；参考图放在 images[].base64。适配严格限于 Cats 主机，不碰其他站。
   if (isCatsImageProvider(base)) {
-    const endpoint = root + "/chat/completions";
-    const blobDataUrl = blob => new Promise((resolve, reject) => {
+    const endpoint = new URL("/api/tasks", base).toString();
+    const blobBase64 = blob => new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onload = () => resolve(String(reader.result || "").replace(/^data:[^;,]+;base64,/i, ""));
       reader.onerror = () => reject(reader.error || new Error("参考图读取失败"));
       reader.readAsDataURL(blob);
     });
-    const imageInputs = await Promise.all(refBlobs.map(blobDataUrl));
-    const content = [{ type: "text", text: String(prompt || "") }];
-    imageInputs.forEach(url => content.push({ type: "image_url", image_url: { url: url } }));
+    const extFor = blob => /jpe?g/i.test(String(blob && blob.type)) ? "jpg"
+      : /webp/i.test(String(blob && blob.type)) ? "webp"
+      : /gif/i.test(String(blob && blob.type)) ? "gif" : "png";
+    const imageInputs = await Promise.all(refBlobs.map(blobBase64));
+    const catsSize = /1536\s*x\s*1024/i.test(size) ? "1536x1024"
+      : /1024\s*x\s*1536/i.test(size) ? "1024x1536" : "1024x1024";
+    const catsQuality = /^(?:auto|low|medium|high)$/i.test(String(qualityOverride || ""))
+      ? String(qualityOverride).toLowerCase() : "auto";
     const body = {
       model: a.model || "gptImage2",
-      stream: false,
-      messages: [{ role: "user", content: content }]
+      prompt: String(prompt || ""),
+      task_type: "image",
+      num_images: 1,
+      params: { size: catsSize, quality: catsQuality, rewritePrompt: false }
+    };
+    if (imageInputs.length) body.images = imageInputs.map((base64, i) => ({
+      base64: base64,
+      name: "reference-" + (i + 1) + "." + extFor(refBlobs[i])
+    }));
+    const headers = {
+      Authorization: "Bearer " + a.apiKey,
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    };
+    const totalMs = Number((opts && (opts.budgetMs || opts.attemptMs)) || 180000);
+    const deadline = Date.now() + Math.max(30000, totalMs);
+    const request = async (url, init) => {
+      const left = Math.max(1000, deadline - Date.now());
+      return await nativeProviderFetch(url, Object.assign({}, init || {}, {
+        headers: Object.assign({}, headers, (init && init.headers) || {}),
+        timeoutMs: Math.min(left, 60000)
+      }));
     };
     let response;
     try {
-      response = await nativeProviderFetch(endpoint, {
+      response = await request(endpoint, {
         method: "POST",
-        headers: {
-          Authorization: "Bearer " + a.apiKey,
-          Accept: "application/json",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body),
-        timeoutMs: Number((opts && opts.attemptMs) || 180000)
+        body: JSON.stringify(body)
       });
     } catch (e) {
-      throw new Error("CatsAPI 生图网络失败 · POST " + endpoint + " · " + String((e && e.message) || e));
+      throw new Error("CatsAPI 创建任务网络失败 · POST " + endpoint + " · " + String((e && e.message) || e));
     }
     const raw = await response.text();
     if (!response.ok) {
       let detail = raw;
       try { const parsed = JSON.parse(raw); detail = (parsed.error && (parsed.error.message || parsed.error.msg)) || parsed.message || raw; } catch (e) {}
-      throw new Error("CatsAPI 生图失败 · POST " + endpoint + " · HTTP " + response.status + " · " + String(detail).replace(/\s+/g, " ").slice(0, 260));
+      throw new Error("CatsAPI 创建任务失败 · POST " + endpoint + " · HTTP " + response.status + " · " + String(detail).replace(/\s+/g, " ").slice(0, 260));
     }
-    let out;
-    try { out = await parseOut(response, raw); }
-    catch (e) {
-      const prefix = refBlobs.length ? "参考照已随请求上传，但接口没有返回可用图片" : "接口没有返回可用图片";
-      throw new Error(prefix + " · POST " + endpoint + " · " + String((e && e.message) || e));
+    let created;
+    try { created = JSON.parse(raw); }
+    catch (e) { throw new Error("CatsAPI 创建任务没有返回 JSON · " + raw.replace(/\s+/g, " ").slice(0, 220)); }
+    const taskId = created && (created.id || created.task_id || (created.data && (created.data.id || created.data.task_id)));
+    if (!taskId) throw new Error("CatsAPI 创建任务成功但没有返回任务 id · " + raw.replace(/\s+/g, " ").slice(0, 220));
+    const pollUrl = endpoint.replace(/\/+$/, "") + "/" + encodeURIComponent(String(taskId));
+    let task = created;
+    while (Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      let poll;
+      try { poll = await request(pollUrl, { method: "GET" }); }
+      catch (e) { throw new Error("CatsAPI 轮询任务网络失败 · GET " + pollUrl + " · " + String((e && e.message) || e)); }
+      const pollRaw = await poll.text();
+      if (!poll.ok) throw new Error("CatsAPI 轮询任务失败 · GET " + pollUrl + " · HTTP " + poll.status + " · " + pollRaw.replace(/\s+/g, " ").slice(0, 260));
+      try { task = JSON.parse(pollRaw); }
+      catch (e) { throw new Error("CatsAPI 任务状态不是 JSON · " + pollRaw.replace(/\s+/g, " ").slice(0, 220)); }
+      const state = String((task && (task.status || (task.data && task.data.status))) || "").toLowerCase();
+      if (["failed", "failure", "cancelled", "canceled", "error"].includes(state)) {
+        const why = task.error_message || task.message || task.error || (task.data && (task.data.error_message || task.data.message));
+        throw new Error("CatsAPI 生图任务失败 · " + state + " · " + String(why || JSON.stringify(task)).replace(/\s+/g, " ").slice(0, 300));
+      }
+      const results = task.result_images || (task.data && task.data.result_images);
+      if (["completed", "succeeded", "success", "done"].includes(state) || (Array.isArray(results) && results.length)) {
+        const normalized = (Array.isArray(results) ? results : []).map(item => {
+          if (typeof item !== "string") return item;
+          if (/^data:image/i.test(item)) return { b64_json: item.replace(/^data:image\/[^;]+;base64,/i, "") };
+          if (/^https?:\/\//i.test(item)) return { url: item };
+          return { b64_json: item };
+        });
+        let out;
+        try { out = await parseOut(poll, JSON.stringify({ data: normalized })); }
+        catch (e) {
+          const prefix = refBlobs.length ? "参考照已上传，但 CatsAPI 完成任务后没有返回可用图片" : "CatsAPI 完成任务后没有返回可用图片";
+          throw new Error(prefix + " · GET " + pollUrl + " · " + String((e && e.message) || e));
+        }
+        out.referenceCount = refBlobs.length;
+        out.referenceBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
+        out.refMode = "cats-task";
+        out.refField = "images[].base64";
+        out.inputFidelity = "provider-managed";
+        out.providerEndpoint = endpoint;
+        out.providerPollEndpoint = pollUrl;
+        out.identityVerification = "not-provided";
+        return out;
+      }
     }
-    out.referenceCount = refBlobs.length;
-    out.referenceBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
-    out.refMode = "chat-completions";
-    out.refField = "messages[0].content[].image_url";
-    out.inputFidelity = "provider-managed";
-    out.providerEndpoint = endpoint;
-    out.identityVerification = "not-provided";
-    return out;
+    throw new Error("CatsAPI 生图任务等待超时 · " + Math.round(totalMs / 1000) + " 秒 · task " + taskId + " · 最后状态 " + String((task && task.status) || "unknown"));
   }
   // pOverride：审核软化重试用——同一套参考照，换一版措辞。不传就用原 prompt，行为不变。
   const attemptWith = async (blobs, refMode, pOverride, msOverride, legacyShape) => {
