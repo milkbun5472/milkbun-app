@@ -2184,7 +2184,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         // 单张走 image（沿用验证过的路径）；多张（合照）走 image[]，交给 GPT Image 2 做高保真多图编辑。
         // 多图编辑的字段名各家不一：官方 gpt-image 用 image[]，不少中转只认重复的 image。
         // 两种都试过再降级，别一失败就悄悄丢掉参考照（那就是合照变陌生人的真凶）。
-        if (refBlobs.length === 1 || refMode === "first") fd.append("image", refBlobs[0], refFilename(refBlobs[0]));
+        // 不要用「只有一张图」覆盖 refMode。部分中转即使单图也只认官方常见的
+        // image[]；旧代码在单图时永远落到 image，导致所谓 bracket 重试实际一枪都没发过。
+        if (refMode === "first") fd.append("image", refBlobs[0], refFilename(refBlobs[0]));
         else if (refMode === "repeat") refBlobs.forEach((blob, i) => fd.append("image", blob, refFilename(blob, i)));
         else refBlobs.forEach((blob, i) => fd.append("image[]", blob, refFilename(blob, i)));
         r = await fetch(root + "/images/edits", { method: "POST", headers: { Authorization: "Bearer " + a.apiKey }, body: fd, signal: ctrl.signal });
@@ -2266,19 +2268,35 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     // 正确药方是 v54.84 的措辞软化;后来叠加的身份强锁prompt+新请求形状被 8/22 审计+经典对照
     // 实验证明是把好管线改坏的元凶,全部退役。保留两级兜底,每级仍然带着参考照:
     //   1) 经典一枪 → 2) 审核拒了才换软化稿再一枪 → 3) 「没收到图」类回话才试新形状一枪 → 报错。
-    const mode = refBlobs.length > 1 ? (a.refFieldMode === "repeat" ? "repeat" : "bracket") : "first";
-    const finish = (out, how) => { out.referenceCount = refBlobs.length; out.refMode = mode; out.inputFidelity = how === "new-shape" ? "high" : "default"; out.identityVerification = "not-provided"; if (how !== "classic") out.degraded = how === "softened" ? "softened" : out.degraded; return out; };
+    const preferredMode = refBlobs.length > 1 ? (a.refFieldMode === "repeat" ? "repeat" : "bracket") : "first";
+    const uploadedBytes = refBlobs.reduce((n, b) => n + Number((b && b.size) || 0), 0);
+    const finish = (out, how, mode, legacyShape) => {
+      out.referenceCount = refBlobs.length;
+      out.referenceBytes = uploadedBytes;
+      out.refMode = mode;
+      out.refField = mode === "bracket" ? "image[]" : "image";
+      out.inputFidelity = legacyShape ? "default" : "high";
+      out.identityVerification = "not-provided";
+      if (how !== "classic") out.degraded = how === "softened" ? "softened" : out.degraded;
+      return out;
+    };
     const ms = Number(opts && opts.attemptMs) || 180000;
-    try { return finish(await attemptWith(refBlobs, mode, null, ms, true), "classic"); }
+    try { return finish(await attemptWith(refBlobs, preferredMode, null, ms, true), "classic", preferredMode, true); }
     catch (e1) {
       note(e1);
       const noImg = /请上传|需要.{0,6}(?:原图|图片)|先看到原图|no\s+image|image\s+(?:is\s+)?(?:required|missing)|upload.{0,20}image/i.test(String((e1 && e1.message) || ""));
       if (noImg) {
-        try { return finish(await attemptWith(refBlobs, mode, null, ms, false), "new-shape"); } catch (e2) { note(e2); }
+        // 先只换 multipart 字段名，保持已经实测锁脸成功的经典请求形状；若仍不认，
+        // 再分别试带 input_fidelity=high 的两种字段。单图同样必须真的试 image[]。
+        const alternateMode = preferredMode === "bracket" ? "first" : "bracket";
+        try { return finish(await attemptWith(refBlobs, alternateMode, null, ms, true), "alternate-field", alternateMode, true); } catch (e2) { note(e2); }
+        for (const mode of [preferredMode, alternateMode]) {
+          try { return finish(await attemptWith(refBlobs, mode, null, ms, false), "new-shape", mode, false); } catch (e3) { note(e3); }
+        }
       } else if (looksLikePolicy(e1)) {
         const softened = softenForModeration(prompt);
-        if (softened) { try { return finish(await attemptWith(refBlobs, mode, softened, ms, true), "softened"); } catch (e3) { note(e3); } }
-        if (opts && opts.minimalPrompt) { try { return finish(await attemptWith(refBlobs, mode, opts.minimalPrompt, ms, true), "minimal"); } catch (e4) { note(e4); } }
+        if (softened) { try { return finish(await attemptWith(refBlobs, preferredMode, softened, ms, true), "softened", preferredMode, true); } catch (e3) { note(e3); } }
+        if (opts && opts.minimalPrompt) { try { return finish(await attemptWith(refBlobs, preferredMode, opts.minimalPrompt, ms, true), "minimal", preferredMode, true); } catch (e4) { note(e4); } }
       }
     }
     throw new Error("参考照锁脸请求失败，已停止而没有生成陌生人" + (lastRefErr ? "：" + lastRefErr : ""));

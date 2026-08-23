@@ -3877,7 +3877,7 @@ function ImageApiConfig({ toast }) {
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
       const out = await generateSelfieImage(prompt, testRef, { attemptMs: 290000, budgetMs: 660000, size: "1024x1024", preferLegacy: true });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
-      setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
+      setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, bytes: out.referenceBytes || 0, field: out.refField || null, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
     } catch (e) { setTestRes({ ok: false, err: String((e && e.message) || e) }); }
     finally { setTesting(false); }
   };
@@ -3930,7 +3930,7 @@ function ImageApiConfig({ toast }) {
       h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "生成中…（体检用小图慢车道，最多约5分钟）" : (testRef ? "🔬 测试高保真参考图" : "🔬 测试纯文字出图")),
       testRes ? (testRes.ok
         ? h("div", { style: { marginTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "已请求 high input fidelity · 参考 " + testRes.refs + " 张 · " + testRes.mode : "纯文字出图可用（这不代表参考图能力可用）")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#4f8a6a", marginBottom: 6 } }, "✅ 成功出图。" + (testRes.refs ? "参考 " + testRes.refs + " 张已上传 · 字段 " + (testRes.field || testRes.mode) + " · " + (testRes.bytes ? Math.round(testRes.bytes / 1024) + " KB · " : "") + "input fidelity: " + (testRes.fidelity || "default") : "纯文字出图可用（这不代表参考图能力可用）")),
             testRes.refs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a06b2f", marginBottom: 8 } }, "⚠️ 这是「复印测试」：要求原样复现参考图、只把背景换白。左＝你上传的参考，右＝线路生成。两张脸若不是同一个人，判定成立：这条线路没把参考图真正交给模型——换图像站或换模型，改 prompt 救不了。") : null,
             testRes.refs && testRef ? h("div", { className: "flex", style: { gap: 8 } },
               h("div", { style: { flex: 1 } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, "参考原图"), h("img", { src: testRef, style: { width: "100%", borderRadius: 12, display: "block" } })),
