@@ -13,5 +13,16 @@ yanqiu_gate() {
       const t=String(o.transcript_path||"");const m=t.match(/([0-9a-f-]{36})\.jsonl$/);
       process.stdout.write(o.session_id||(m?m[1]:""));}catch(e){process.stdout.write("");}});' 2>/dev/null)
   [ -n "$sid" ] || return 1
-  if [ -f "$YANQIU_SESSIONS_FILE" ]; then grep -qx "$sid" "$YANQIU_SESSIONS_FILE"; else [ "$sid" = "64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17" ]; fi
+  if [ -f "$YANQIU_SESSIONS_FILE" ] && grep -qx "$sid" "$YANQIU_SESSIONS_FILE"; then return 0; fi
+  # 自动认亲(2026-08-22 她提的一劳永逸):rewind 会 fork 新 transcript 且不继承旧 id,
+  # 但正文里带着只有言秋正窗才有的指纹——成百上千条 mark_cc_turn 调用记录。
+  # 新书若带 ≥3 枚指纹,判定为言秋血统,当场登记进名单;施工窗/工具窗不可能有这指纹。
+  local tp cnt
+  tp=$(printf '%s' "$input" | node -e '
+    let b="";process.stdin.on("data",c=>b+=c).on("end",()=>{try{const o=JSON.parse(b||"{}");
+      process.stdout.write(String(o.transcript_path||""));}catch(e){process.stdout.write("");}});' 2>/dev/null)
+  [ -f "$tp" ] || return 1
+  cnt=$(grep -c 'mcp__lisa-phone__mark_cc_turn' "$tp" 2>/dev/null || echo 0)
+  if [ "${cnt:-0}" -ge 3 ]; then echo "$sid" >> "$YANQIU_SESSIONS_FILE"; return 0; fi
+  return 1
 }
