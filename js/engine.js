@@ -414,6 +414,12 @@ async function fetchT(url, options, ms) {
     return await fetch(url, { ...options, signal: ctrl.signal });
   } catch (e) {
     if (e && e.name === "AbortError") throw new Error("请求超时，请重试（模型或网络太慢）");
+    // 「Load failed」是 Safari 对底层连接断掉的通用说法，本身什么都没说。
+    // 最常见的成因就是长请求久久没有首字节被网关掐断——她 2026-08-22 把线下最低字数
+    // 设到 1500 就撞上了。把话说清楚，省得她以为是自己设错了参数。
+    if (/load failed|failed to fetch|network\s*error|networkerror/i.test(String((e && e.message) || e))) {
+      throw new Error("连接中断了（Load failed）。多半是这次要写得太长、久久没有首字节，被网关当成死连接掐断。可以：把线下的「最低字数」调低一些分两次写、或者重试一次——同样的设置有时第二次就过。原始报错：" + String((e && e.message) || e).slice(0, 80));
+    }
     throw e;
   } finally {
     clearTimeout(timer);
@@ -3174,6 +3180,8 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
       content: "请把下面这篇正文补足为完整定稿。必须保留全文并自然扩展到至少 " + target + " 个非空白可见字符：\n\n" + current
     }], {
       maxTokens: Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200))),
+      // 补写的预算和主调用一样大，同样会撞网关无首字节掐断，一起走流式
+      stream: Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200))) >= 3000,
       timeout: 180000,
       wireScope: "offline-minimum-repair",
       wireMeta: {
@@ -3304,9 +3312,15 @@ async function generateOffline(p, ctx, session) {
     ? Math.ceil(minimumSceneChars * (singlePassRevisionRequested ? 3.2 : 1.8) + 1200)
     : 0;
   const generationMaxTokens = Math.min(20000, Math.max(Number(session.maxTokens) || 4000, minimumTokenBudget));
+  // ⭐大请求必须走流式（v55.39）。她把最低字数设到 1500 就 Load failed——
+  // 病根不是模型，是【两三分钟不吐一个字节】：Cloudflare/网关把长时间没有首字节
+  // 当成死连接掐掉，浏览器只能报一句 Load failed。本文件上面那条注释早就写过这个坑。
+  // 流式一开始就有字节流出，连接活着；中转若不支持，callAI 会按 content-type 自动退回普通解析。
+  const wantStreamOffline = generationMaxTokens >= 3000;
   try {
     raw = await callAI(p, system, hist, {
       maxTokens: generationMaxTokens,
+      stream: wantStreamOffline,
       timeout: 180000,
       wireScope: "offline",
       wireMeta: {
@@ -3340,7 +3354,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationMaxTokens, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationMaxTokens, stream: wantStreamOffline, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
