@@ -287,3 +287,37 @@ test("是 json 但不是模块包，要报错，不许再倒进手写框", () =>
   assert.ok(fn.indexOf('return "bundle"') > 0 && fn.indexOf('return "free"') > 0);
   assert.ok(fn.indexOf("if (d) throw new Error") > 0);
 });
+
+// —— 「想删预设删不掉，按不动按钮」（她 2026-08-23）——
+// 两个原因叠在一起：热区只有十几像素高；删除走 confirm()，装成 PWA 之后
+// 弹不出来时代码把它当成「取消」，表现同样是「按了没反应」。
+
+test("预设台里不许再用 confirm 做删除确认", () => {
+  const calls = lab.split("\n").filter(l => !/^\s*\/\//.test(l) && l.indexOf("confirm(") >= 0);
+  assert.deepEqual(calls, [], "PWA 里弹不出来就等于静默取消");
+  assert.ok(lab.indexOf("PWA 之后不一定弹得出来") > 0, "病因写在代码里");
+});
+
+test("删除改成点两下：先问一句，再点才真删，还能反悔", () => {
+  assert.ok(lab.indexOf('const [armed, setArmed] = useState("")') > 0);
+  assert.ok(lab.indexOf('armed === cur.id ? "真删？再点一下" : "删掉这条"') > 0);
+  assert.ok(lab.indexOf('h("button", { onClick: () => setArmed(""), style: S.tapGhost(t.fog) }, "算了")') > 0);
+  const fn = lab.slice(lab.indexOf("const delPreset"), lab.indexOf("const toggleMod"));
+  assert.ok(fn.indexOf("if (armed !== cur.id) { setArmed(cur.id); return; }") > 0, "第一下只上膛");
+  assert.ok(fn.indexOf('setArmed(""); commit(next)') > 0, "删完要卸膛，否则下一条一点就没");
+});
+
+test("小字按钮都给够热区，别再是一条 15px 高的字", () => {
+  assert.ok(lab.indexOf("tapGhost: color => ({ minHeight: 40") > 0);
+  assert.ok(lab.indexOf("tapIcon: color => ({ minWidth: 38, minHeight: 38") > 0);
+  // 原来那几个 padding:0 / padding:"0 4px" 的写法不许留着
+  assert.ok(lab.indexOf('fontSize: 14, padding: "0 4px"') < 0);
+  assert.ok(lab.indexOf('color: t.accent }, "删掉这条")') < 0);
+});
+
+test("导入模块的「删」是独立按钮，不是套在模块按钮里的 span", () => {
+  const seg = lab.slice(lab.indexOf("c.mods.map(m =>"), lab.indexOf("c.mods.map(m =>") + 1800);
+  assert.ok(seg.indexOf('m.user ? h("button"') > 0, "按钮套按钮在 iOS 上点谁看运气");
+  assert.ok(seg.indexOf('m.user ? h("span"') < 0);
+  assert.ok(lab.indexOf("按钮套按钮在 iOS 上点谁很看运气") > 0);
+});

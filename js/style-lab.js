@@ -24,6 +24,10 @@
     const [curId, setCurId] = useState(() => { const l = SP.list(); return l.length ? l[0].id : ""; });
     const [openCat, setOpenCat] = useState({});
     const [showFull, setShowFull] = useState(false);
+    // 删除一律「点一下问一句、再点一下才删」。以前用 confirm()，装成 PWA 之后不一定弹得出来，
+    // 弹不出来时代码会当成「取消」——表现就是「按了没反应」，跟按钮太小的症状一模一样，
+    // 查起来会绕远路。行内确认还有个好处：第一下就有可见反馈，按没按到一眼就知道。
+    const [armed, setArmed] = useState("");        // 非空=这个 id 的删除已经问过一次，再点就真删
     const fileRef = useRef(null);
 
     const cur = presets.find(p => p.id === curId) || null;
@@ -38,9 +42,9 @@
     const dupPreset = () => { if (!cur) return; const p = Object.assign({}, cur, { id: rid2("sp_"), name: cur.name + " 副本", ts: Date.now() }); commit(presets.concat([p])); setCurId(p.id); };
     const delPreset = () => {
       if (!cur) return;
-      if (!confirm("删掉「" + (cur.name || "这条预设") + "」？三处如果正在用它，会自动退回原本的行为。")) return;
+      if (armed !== cur.id) { setArmed(cur.id); return; }
       const next = presets.filter(p => p.id !== cur.id);
-      commit(next); setCurId(next.length ? next[0].id : "");
+      setArmed(""); commit(next); setCurId(next.length ? next[0].id : "");
     };
     const toggleMod = id => {
       if (!cur) return;
@@ -114,6 +118,8 @@
       h2: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub, marginBottom: 3 },
       hint: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 },
       card: { background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: 11 },
+      tapGhost: color => ({ minHeight: 40, padding: "9px 14px", borderRadius: 999, border: "1px solid " + t.line, background: "transparent", color: color, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1 }),
+      tapIcon: color => ({ minWidth: 38, minHeight: 38, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: color, fontSize: 15, padding: 0 }),
       input: { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" }
     };
 
@@ -149,9 +155,9 @@
                         h("div", { style: { flex: 1 } },
                           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m ? m.name : "（已失效：" + id + "）"),
                           m && m.builtinIn ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginTop: 1 }) }, "小剧场本来就有这条，在那边会自动跳过") : null),
-                        h("button", { onClick: () => moveMod(id, -1), style: { background: "none", border: "none", color: t.fog, fontSize: 14, padding: "0 4px" } }, "↑"),
-                        h("button", { onClick: () => moveMod(id, 1), style: { background: "none", border: "none", color: t.fog, fontSize: 14, padding: "0 4px" } }, "↓"),
-                        h("button", { onClick: () => toggleMod(id), style: { background: "none", border: "none", color: t.accent, fontSize: 15, padding: "0 4px" } }, "×"));
+                        h("button", { onClick: () => moveMod(id, -1), style: S.tapIcon(t.fog) }, "↑"),
+                        h("button", { onClick: () => moveMod(id, 1), style: S.tapIcon(t.fog) }, "↓"),
+                        h("button", { onClick: () => toggleMod(id), style: S.tapIcon(t.accent) }, "×"));
                     }))),
 
             // 模块库
@@ -168,16 +174,21 @@
                   h("span", { style: { color: t.fog, fontSize: 12 } }, openCat[c.id] ? "▾" : "▸")),
                 openCat[c.id]
                   ? h("div", { style: { padding: "6px 0 2px 6px", display: "flex", flexDirection: "column", gap: 5 } },
+                      // 「删」是独立按钮、不是套在模块按钮里的 span——按钮套按钮在 iOS 上点谁很看运气
                       c.mods.map(m => {
                         const on = (cur.mods || []).indexOf(m.id) >= 0;
-                        return h("button", { key: m.id, onClick: () => toggleMod(m.id),
-                          style: { textAlign: "left", padding: "8px 10px", borderRadius: 8, border: "1px solid " + (on ? t.tint : t.line), background: on ? (t.bg2 || "transparent") : "transparent", display: "flex", gap: 9, alignItems: "flex-start" } },
-                          h("span", { style: { fontSize: 12, color: on ? t.tint : t.fog, lineHeight: 1.5 } }, on ? "✓" : "○"),
-                          h("span", { style: { flex: 1 } },
-                            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
-                            h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint)),
-                          m.user ? h("span", { onClick: e => { e.stopPropagation(); if (confirm("删掉导入的模块「" + m.name + "」？用到它的预设会自动跳过这一条。")) { SP.removeUserModule(m.id); setPresets(SP.list().slice()); } },
-                            style: { fontSize: 12, color: t.fog, padding: "0 2px" } }, "删") : null);
+                        return h("div", { key: m.id, style: { display: "flex", alignItems: "stretch", gap: 4 } },
+                          h("button", { onClick: () => toggleMod(m.id),
+                            style: { flex: 1, textAlign: "left", padding: "10px 10px", borderRadius: 8, border: "1px solid " + (on ? t.tint : t.line), background: on ? (t.bg2 || "transparent") : "transparent", display: "flex", gap: 9, alignItems: "flex-start" } },
+                            h("span", { style: { fontSize: 12, color: on ? t.tint : t.fog, lineHeight: 1.5 } }, on ? "✓" : "○"),
+                            h("span", { style: { flex: 1 } },
+                              h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
+                              h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint))),
+                          m.user ? h("button", { onClick: () => {
+                              if (armed !== m.id) { setArmed(m.id); return; }
+                              SP.removeUserModule(m.id); setArmed(""); setPresets(SP.list().slice()); },
+                            style: Object.assign({}, S.tapIcon(armed === m.id ? t.accent : t.fog), { fontSize: 11.5, borderRadius: 8, border: "1px solid " + (armed === m.id ? t.accent : t.line) }) },
+                            armed === m.id ? "真删" : "删") : null);
                       }))
                   : null))),
 
@@ -207,13 +218,17 @@
               h("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } },
                 h("div", { style: S.h2 }, "组装出来长这样"),
                 h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog } }, cnt(assembled) + " 字"),
-                h("button", { onClick: () => setShowFull(v => !v), style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginLeft: "auto" } }, showFull ? "收起" : "看全文")),
+                h("button", { onClick: () => setShowFull(v => !v), style: Object.assign({}, S.tapGhost(t.tint), { marginLeft: "auto", border: "none" }) }, showFull ? "收起" : "看全文")),
               h("div", { style: Object.assign({}, S.card, { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap", maxHeight: showFull ? "none" : 150, overflow: "hidden" }) },
                 assembled || "（空的——勾几条模块，或者贴一段进去）")),
 
-            h("div", { style: { display: "flex", gap: 14 } },
-              h("button", { onClick: dupPreset, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "复制一份"),
-              h("button", { onClick: delPreset, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删掉这条"))));
+            h("div", { style: { display: "flex", gap: 10, alignItems: "center" } },
+              h("button", { onClick: dupPreset, style: S.tapGhost(t.tint) }, "复制一份"),
+              h("button", { onClick: delPreset, style: Object.assign({}, S.tapGhost(t.accent), armed === cur.id ? { background: t.accent, color: "#fff", borderColor: t.accent } : null) },
+                armed === cur.id ? "真删？再点一下" : "删掉这条"),
+              armed === cur.id
+                ? h("button", { onClick: () => setArmed(""), style: S.tapGhost(t.fog) }, "算了")
+                : null)));
 
     // ---- 测试台 ----
     const chars = props.characters || [];
@@ -293,7 +308,8 @@
         ? h("div", null,
             h("div", { style: { display: "flex", alignItems: "baseline", marginBottom: 8 } },
               h("div", { style: S.h2 }, "结果 · 最近 " + runs.length + " 次"),
-              h("button", { onClick: () => { if (confirm("清掉所有试写结果？")) setRuns(SP.clearRuns()); }, style: { marginLeft: "auto", background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "清空")),
+              h("button", { onClick: () => { if (armed !== "__runs") { setArmed("__runs"); return; } setArmed(""); setRuns(SP.clearRuns()); },
+                style: Object.assign({}, S.tapGhost(armed === "__runs" ? t.accent : t.fog), { marginLeft: "auto" }) }, armed === "__runs" ? "真清空？再点一下" : "清空")),
             h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } },
               runs.map(r => h("div", { key: r.id, style: S.card },
                 h("div", { style: { display: "flex", alignItems: "baseline", gap: 7, marginBottom: 6 } },
@@ -304,7 +320,7 @@
                   ? h("div", { style: Object.assign({}, S.hint, { color: t.accent }) }, r.err)
                   : h("div", null,
                       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.sub, whiteSpace: "pre-wrap", maxHeight: openRun[r.id] ? "none" : 132, overflow: "hidden" } }, r.text),
-                      h("button", { onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })), style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 5, padding: 0 } }, openRun[r.id] ? "收起" : "全文"))))))
+                      h("button", { onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })), style: Object.assign({}, S.tapGhost(t.tint), { border: "none", marginTop: 3, paddingLeft: 0 }) }, openRun[r.id] ? "收起" : "全文"))))))
         : null);
 
     return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
