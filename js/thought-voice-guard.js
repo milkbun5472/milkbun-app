@@ -42,8 +42,25 @@
     return { ok: true, reason: "inner-voice" };
   }
 
-  function accept(value) {
-    const text = clean(value);
+  // 疏离称呼：把对方当第三方点评的说法（v55.22）。
+  // PERSONA_REGISTER_ANCHOR 里已经点名禁过「这女人／这丫头」，她刷完还是被这么叫
+  // （2026-08-22）——和句尾句号那次一样，体裁惯性压过提示词，得上确定性的刀。
+  // 只换称呼，不动句子：「这丫头真是……」→「她真是……」，念头本身完整留着。
+  const APPELLATION = [
+    [/(?:这|那)(?:个)?(?:女人|丫头|妮子|姑娘家|小妮子)/g, "她"],
+    [/(?:这|那)(?:个)?(?:男人|小子|臭小子)/g, "他"],
+    [/(?:这|那)(?:个)?(?:家伙|人儿|小东西|小祖宗|磨人精)/g, null]  // 性别不明 → 用调用方给的代词
+  ];
+  function normalizeAppellation(value, pronoun) {
+    let text = clean(value);
+    if (!text) return text;
+    const fallback = pronoun || "她";
+    APPELLATION.forEach(([re, to]) => { text = text.replace(re, to || fallback); });
+    return text;
+  }
+
+  function accept(value, pronoun) {
+    const text = normalizeAppellation(clean(value), pronoun);
     return inspect(text).ok ? text : null;
   }
 
@@ -58,5 +75,5 @@
     return text;
   }
 
-  return { inspect, accept, normalizeAction };
+  return { inspect, accept, normalizeAction, normalizeAppellation };
 });
