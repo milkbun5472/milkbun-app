@@ -3857,7 +3857,12 @@ function ImageApiConfig({ toast }) {
   const pull = async () => {
     if (!c.baseUrl || !c.apiKey) { toast && toast("先填接口地址和密钥"); return; }
     setFetching(true);
-    try { const ms = await fetchModelList(c); setModels(ms || []); toast && toast((ms || []).length + " 个模型（挑含 image/dall-e/flux 的）"); }
+    try {
+      const cleanBase = typeof normalizedOpenAIBase === "function" ? normalizedOpenAIBase(c.baseUrl) : c.baseUrl;
+      if (cleanBase && cleanBase !== c.baseUrl) set({ baseUrl: cleanBase });
+      const ms = await fetchModelList(Object.assign({}, c, { baseUrl: cleanBase }));
+      setModels(ms || []); toast && toast((ms || []).length + " 个模型（挑含 image/dall-e/flux 的）");
+    }
     catch (e) { toast && toast("拉取失败：" + (e.message || e)); }
     finally { setFetching(false); }
   };

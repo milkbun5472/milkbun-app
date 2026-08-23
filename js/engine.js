@@ -19,6 +19,33 @@ function isCatsImageProvider(value) {
     return host === "catsapi.com" || host.endsWith(".catsapi.com");
   } catch (e) { return /(?:^|\.)catsapi\.com(?=[:/]|$)/i.test(String(value || "")); }
 }
+function normalizedOpenAIBase(value) {
+  let base = String(value || "").trim().replace(/\/+$/, "");
+  // CatsAPI 的设置曾被旧版把 endpoint 回写进 baseUrl，甚至累积成
+  // /api/v1/models/v1/models。它的 API 根是固定的 /api/v1：只要认出
+  // Cats 主机，就从路径中第一个 /api/v1 截断，彻底清掉历史脏尾巴。
+  if (isCatsImageProvider(base)) {
+    try {
+      const u = new URL(/^https?:\/\//i.test(base) ? base : "https://" + base);
+      const marker = u.pathname.toLowerCase().indexOf("/api/v1");
+      u.pathname = marker >= 0 ? u.pathname.slice(0, marker + "/api/v1".length) : "/api/v1";
+      u.search = ""; u.hash = "";
+      return u.toString().replace(/\/+$/, "");
+    } catch (e) {}
+  }
+  // 设置页允许粘贴官网给出的完整 endpoint；内部统一收回 API 根目录，
+  // 避免 .../models/v1/models、.../chat/completions/v1/models 这类重复拼接。
+  let previous;
+  do {
+    previous = base;
+    base = base.replace(/\/(?:models|chat\/completions|responses|images\/(?:generations|edits))$/i, "").replace(/\/+$/, "");
+  } while (base !== previous);
+  return base.replace(/\/+$/, "");
+}
+function openAICompatibleRoot(value) {
+  const base = normalizedOpenAIBase(value);
+  return /\/v1$/i.test(base) ? base : base + "/v1";
+}
 function nativeHttpHandler() {
   try { return window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeHttp; }
   catch (e) { return null; }
@@ -54,7 +81,7 @@ async function nativeProviderFetch(url, init) {
   };
 }
 async function fetchModelList(p) {
-  const base = (p.baseUrl || "").replace(/\/$/, "");
+  const base = normalizedOpenAIBase(p.baseUrl);
   const fmt = detectFormat(p);
   if (fmt === "gemini") {
     const r = await fetch(base + "/v1beta/models", {
@@ -78,7 +105,7 @@ async function fetchModelList(p) {
     if (d.error) throw new Error(d.error.message);
     return (d.data || []).map(m => m.id);
   }
-  const root = base.endsWith("/v1") ? base : base + "/v1";
+  const root = openAICompatibleRoot(base);
   const endpoint = root + "/models";
   const request = {
     headers: {
@@ -2160,9 +2187,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   }))).filter(Boolean);
   if (refs.length && refBlobs.length !== refs.length) throw new Error("有参考照读取失败；为避免生成陌生人，本次已停止。请重新选择参考照后再试");
   // 归一 base：用户可能把整段 endpoint(…/v1/images/generations) 都粘进来 → 削回域名根，统一补 /v1
-  let base = (a.baseUrl || "").trim().replace(/\/+$/, "");
-  base = base.replace(/\/(v1\/)?images\/(generations|edits)\/?$/i, "").replace(/\/chat\/completions\/?$/i, "").replace(/\/+$/, "");
-  const root = base.endsWith("/v1") ? base : base + "/v1";
+  const base = normalizedOpenAIBase(a.baseUrl);
+  const root = openAICompatibleRoot(base);
   const size = (opts && opts.size) || a.size || "1024x1536";
   const qualityOverride = (opts && opts.quality) || a.quality;
   const parseOut = async (r, rawTxt) => {
