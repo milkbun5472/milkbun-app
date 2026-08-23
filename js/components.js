@@ -2967,7 +2967,7 @@ function ChatThread({
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [input, setInput] = useState("");
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
-  const [quoted, setQuoted] = useState(null); // 我引用的某条消息原文
+  const [quoted, setQuoted] = useState(null); // { id, text, senderId, senderName }；旧字符串仍兼容
   const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
   const [menu, setMenu] = useState(null);
   const [selMode, setSelMode] = useState(false);
@@ -6346,7 +6346,11 @@ function GroupThread({
     const v = input.trim();
     setInput("");
     if (chatMode === "ooc") { onOOC && onOOC(v); return; }
-    if (quoted) { onSendRich && onSendRich({ role: "user", senderName: meName, content: v, replyTo: quoted }); setQuoted(null); return; }
+    if (quoted) {
+      const q = typeof quoted === "string" ? { text: quoted } : quoted;
+      onSendRich && onSendRich({ role: "user", senderName: meName, content: v, replyTo: q.text, replyToId: q.id || null, replyToSenderId: q.senderId || null, replyToSenderName: q.senderName || null });
+      setQuoted(null); return;
+    }
     onSend(v);
   };
   const startPress = idx => { pressTimer.current = setTimeout(() => setMenu(idx), 450); };
@@ -6743,7 +6747,7 @@ function GroupThread({
         textOverflow: "ellipsis",
         whiteSpace: "nowrap"
       }
-    }, "❝ " + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
+    }, "❝ " + (m.replyToSenderName ? "引用 " + m.replyToSenderName + "：" : "") + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
       onTouchStart: selMode ? undefined : () => startPress(i),
       onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i),
@@ -6835,7 +6839,7 @@ function GroupThread({
     className: "shrink-0",
     style: { background: t.bg2, borderTop: "1px solid " + t.line, padding: "6px 12px 0", display: "flex", alignItems: "center" }
   }, h("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px", background: t.bg, borderRadius: 7, borderLeft: "2px solid " + t.accent } },
-    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "❝ " + quoted),
+    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)),
     h("button", { onClick: () => setQuoted(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px" } }, "×"))),
   !selMode && h("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
@@ -7054,7 +7058,7 @@ function GroupThread({
     onClose: () => setMenu(null),
     onAction: act => {
       if (act === "multi") { setSelMode(true); setSelIds([menu]); }
-      else if (act === "quote") { const mm = messages[menu]; if (mm && mm.content) setQuoted(String(mm.content)); }
+      else if (act === "quote") { const mm = messages[menu]; if (mm && mm.content) setQuoted(window.GroupQuote ? window.GroupQuote.makeSelection(mm, menu, meName) : String(mm.content)); }
       else onMsgAction && onMsgAction(act, menu);
       setMenu(null);
     }
