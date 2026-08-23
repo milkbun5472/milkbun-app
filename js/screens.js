@@ -3878,7 +3878,20 @@ function ImageApiConfig({ toast }) {
       const out = await generateSelfieImage(prompt, testRef, { attemptMs: 120000, budgetMs: 130000, size: "1024x1024", preferLegacy: true, singleShot: true });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
       setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, bytes: out.referenceBytes || 0, field: out.refField || null, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
-    } catch (e) { setTestRes({ ok: false, err: String((e && e.message) || e) }); }
+    } catch (e) {
+      const err = String((e && e.message) || e);
+      // 有些 OpenAI 兼容中转把单图字段做成了 image[]，另一些仍只认 image。
+      // 当上游明确说「请上传/附上图片」时，文件并非没选，而是 multipart 字段没被它接住。
+      // 诊断仍坚持一次只发一枪（避免审核冷却/重复扣费），但替用户把【下一枪】的字段
+      // 按站点切好并保存；页面同时给出醒目的再次测试按钮，不必回头猜下拉框。
+      const missingRef = !!testRef && /请上传|需要.{0,8}(?:原图|图片)|先看到原图|no\s+image|image\s+(?:is\s+)?(?:required|missing)|upload.{0,30}image|image\s+is\s+attached|once\s+the\s+image\s+is\s+attached/i.test(err);
+      let switchedField = null;
+      if (missingRef) {
+        switchedField = (c.refFieldMode === "bracket") ? "first" : "bracket";
+        set({ refFieldMode: switchedField });
+      }
+      setTestRes({ ok: false, err, missingRef, switchedField });
+    }
     finally { setTesting(false); }
   };
   const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
@@ -3943,7 +3956,10 @@ function ImageApiConfig({ toast }) {
             : h("img", { src: testRes.src, style: { width: "100%", maxWidth: 220, borderRadius: 12, display: "block" } }))
         : h("div", { style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出图。接口/报错原文（可长按复制、截图发我）："),
-            h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 200, overflowY: "auto" } }, testRes.err))) : null) : null);
+            h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 200, overflowY: "auto" } }, testRes.err),
+            testRes.missingRef ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px dashed rgba(194,90,74,0.3)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: "#a05f35", marginBottom: 8 } }, "这不是锁脸差：接口根本没接住参考图。已为当前站切到「" + (testRes.switchedField === "bracket" ? "image[]" : "image") + "」并保存；请只再测一次。"),
+              h("button", { onClick: runTest, disabled: testing, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#b86a56", borderRadius: 9, padding: "9px 0" } }, testing ? "测试中…" : "换字段后再测一次")) : null)) : null) : null);
 }
 // 独立 embedding API 配置：聊天模型和向量记忆分家。聊天那家（如 gemini 中转）没 embedding 渠道时，
 // 这里另填一家支持 OpenAI 兼容 /v1/embeddings 的 key，只管向量记忆，不影响聊天。
