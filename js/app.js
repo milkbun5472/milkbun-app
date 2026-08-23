@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.15";
+const APP_VERSION = "v55.16";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -316,6 +316,9 @@ function App() {
   const listenRef = useRef(listen); listenRef.current = listen;
   // 全局播放器：<audio> 挂在根节点 → 退出「一起听」界面也继续播（后台播放）
   const [player, setPlayer] = useState({ songId: null, playing: false, t: 0, dur: 0, loading: false, err: null });
+  // 自动续播发生在 audio ended 回调里，不能等 React 下一次 render 才知道「当前曲目」；
+  // 否则后台预取会继续拿上一首算 next，整张歌单就可能反复播同一首。
+  const playerSongIdRef = useRef(null);
   const audioElRef = useRef(null);
   const playUrlRef = useRef(null); // 本地歌的 objectURL，切歌时回收
   const songLyricsRef = useRef({}); // neteaseId -> 纯歌词文本（一起听时让角色知道歌词，v48.87 她要）
@@ -9099,6 +9102,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     // 静音保活：像歌一样播，但循环放静音、不写历史、不进队列（下一首/上一首会跳去真歌）
     if (song.source === "keepalive") {
       if (playUrlRef.current) { URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = null; }
+      playerSongIdRef.current = KEEPALIVE_ID;
       setPlayer(p => ({ ...p, songId: KEEPALIVE_ID, loading: false, playing: false, err: null, t: 0, dur: 0 }));
       saveListen(p => ({ ...p, nowId: KEEPALIVE_ID })); // 不动 nowQueue/nowSong：保活不走队列，切回真歌能续原队列
       const elk = audioElRef.current;
@@ -9109,6 +9113,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const songId = song.id;
     const inLib = (L.songs || []).some(s => s.id === songId);
     const inPl = (L.playlists || []).some(pl => (pl.songs || []).some(s => s.id === songId));
+    playerSongIdRef.current = songId;
+    // 用户主动点歌/播放全部时，旧曲目预取好的 next 已经作废。
+    nextUpRef.current = { id: null, url: null, song: null };
     setPlayer(p => ({ ...p, songId: songId, loading: true, playing: false, err: null }));
     saveListen(p => {
       const hist = [{ id: song.id, title: song.title, artist: song.artist || "", partnerId: p.partnerId || null, ts: Date.now() }, ...(p.history || []).filter(x => x.id !== song.id)].slice(0, 30);
@@ -9141,39 +9148,44 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   // 关键：切歌时把当前队列一起传给 playSong，否则播放歌单里点下一首会把队列缩成单曲。
   const stepSong = dir => {
     const L = listenRef.current, all = L.songs || [];
+    const currentId = playerSongIdRef.current || player.songId;
     // 正放「静音保活」时，上/下一首 = 跳进真的歌单第一首（方便从保活直接切到真歌）
-    if (player.songId === KEEPALIVE_ID) { if (all.length) playSong(all[0].id, all.map(s => s.id)); return; }
+    if (currentId === KEEPALIVE_ID) { if (all.length) playSong(all[0].id, all.map(s => s.id)); return; }
     let q = (L.nowQueue && L.nowQueue.length ? L.nowQueue : all.map(s => s.id)).filter(id => id !== KEEPALIVE_ID && !!resolveSong(id));
     if (!q.length) return;
     if ((L.playMode || "order") === "shuffle" && q.length > 1) {
-      let n; do { n = q[Math.floor(Math.random() * q.length)]; } while (n === player.songId);
+      let n; do { n = q[Math.floor(Math.random() * q.length)]; } while (n === currentId);
       playSong(n, q); return;
     }
-    const i = Math.max(0, q.indexOf(player.songId));
+    const i = Math.max(0, q.indexOf(currentId));
     playSong(q[(i + dir + q.length) % q.length], q);
   };
   // ---- 下一首预取：iOS 锁屏/后台时，onEnded 里若还要 await 解析地址，那次 play() 会被当成
   // 「非用户续播」拦掉 → 卡住不换歌。所以提前把下一首地址备好，ended 时同步换 src+play() 才放得出。
   const nextUpRef = useRef({ id: null, url: null, song: null });
   const computeNextId = () => {
-    if (player.songId === KEEPALIVE_ID) return null; // 保活循环放，不预取下一首
+    const currentId = playerSongIdRef.current || player.songId;
+    if (currentId === KEEPALIVE_ID) return null; // 保活循环放，不预取下一首
     const L = listenRef.current || {};
     const all = L.songs || [];
     const q = (L.nowQueue && L.nowQueue.length ? L.nowQueue : all.map(s => s.id)).filter(id => !!resolveSong(id));
     if (!q.length) return null;
     const mode = L.playMode || "order";
-    if (mode === "one") return player.songId || q[0];
-    if (mode === "shuffle" && q.length > 1) { let n; do { n = q[Math.floor(Math.random() * q.length)]; } while (n === player.songId); return n; }
-    const i = Math.max(0, q.indexOf(player.songId));
+    if (mode === "one") return currentId || q[0];
+    if (mode === "shuffle" && q.length > 1) { let n; do { n = q[Math.floor(Math.random() * q.length)]; } while (n === currentId); return n; }
+    const i = Math.max(0, q.indexOf(currentId));
     return q[(i + 1 + q.length) % q.length];
   };
   const preloadNext = async () => {
+    const fromId = playerSongIdRef.current || player.songId;
     const id = computeNextId();
     if (!id) { nextUpRef.current = { id: null, url: null, song: null }; return; }
     if (nextUpRef.current.id === id && nextUpRef.current.url) return; // 已备好
     const song = resolveSong(id);
     if (!song) return;
     const url = await resolvePlayUrl(song);
+    // 切歌/换队列期间旧请求即使晚回来，也不准覆盖新曲目的下一首。
+    if ((playerSongIdRef.current || player.songId) !== fromId || computeNextId() !== id) return;
     if (url) nextUpRef.current = { id, url, song };
   };
   // 播放结束自动下一首：单曲循环重播；否则用预取好的地址同步续播（后台/锁屏也能切），没预取到才退回异步路径
@@ -9181,10 +9193,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const L = listenRef.current || {};
     const mode = L.playMode || "order";
     const el = audioElRef.current;
-    if (mode === "one" && player.songId && el) { try { el.currentTime = 0; const pr = el.play(); if (pr && pr.catch) pr.catch(() => {}); setPlayer(p => ({ ...p, playing: true })); return; } catch (e) {} }
+    const currentId = playerSongIdRef.current || player.songId;
+    if (mode === "one" && currentId && el) { try { el.currentTime = 0; const pr = el.play(); if (pr && pr.catch) pr.catch(() => {}); setPlayer(p => ({ ...p, playing: true })); return; } catch (e) {} }
     const nu = nextUpRef.current;
     if (el && nu && nu.url && nu.song) {
       const song = nu.song, songId = nu.id;
+      playerSongIdRef.current = songId;
       if (song.source === "local") { if (playUrlRef.current) URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = nu.url; }
       el.src = nu.url;
       const pr = el.play(); if (pr && pr.then) pr.then(() => setPlayer(p => ({ ...p, playing: true, loading: false }))).catch(() => setPlayer(p => ({ ...p, loading: false })));
@@ -9207,6 +9221,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const el = audioElRef.current;
     if (el) { el.pause(); el.loop = false; el.removeAttribute("src"); try { el.load(); } catch (e) {} }
     if (playUrlRef.current) { URL.revokeObjectURL(playUrlRef.current); playUrlRef.current = null; }
+    playerSongIdRef.current = null;
+    nextUpRef.current = { id: null, url: null, song: null };
     setPlayer(p => ({ ...p, songId: null, playing: false, t: 0, dur: 0, loading: false, err: null }));
   };
   // ---- Media Session：锁屏/后台控制 + 让 iOS 把这当正经播放器 ----

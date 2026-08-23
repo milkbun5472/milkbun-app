@@ -71,3 +71,14 @@ test("云村队列写入必须在同一事件内立刻对播放器可见", () =>
   assert.match(saveSeg, /const prev = listenRef\.current \|\| listen \|\| \{\}/);
   assert.match(saveSeg, /listenRef\.current = n;\s*setListen\(n\)/, "先同步 ref，再触发 React render");
 });
+
+test("自动续播连续两次也必须沿队列前进，不能因 React 状态慢半拍重复预取同一首", () => {
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
+  assert.match(app, /const playerSongIdRef = useRef\(null\)/, "播放器要有同步当前曲目 ref");
+  assert.match(app, /const currentId = playerSongIdRef\.current \|\| player\.songId;[\s\S]{0,900}q\.indexOf\(currentId\)/,
+    "下一首必须按同步曲目算，不能等 React render");
+  assert.match(app, /const song = nu\.song, songId = nu\.id;\s*playerSongIdRef\.current = songId;/,
+    "ended 同步换源时要先同步当前曲目");
+  assert.match(app, /const fromId = playerSongIdRef\.current \|\| player\.songId;[\s\S]{0,700}computeNextId\(\) !== id\) return;/,
+    "旧曲目的异步预取晚回来不得污染新队列");
+});
