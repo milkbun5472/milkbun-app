@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.16";
+const APP_VERSION = "v55.17";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -3467,9 +3467,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "edit", charId, before: s.msgs, after: next, targetIndex: idx }); } catch (e) {}
     return { ...s, msgs: next };
   }));
-  const offlineDelMsg = (charId, msgId) => pOffline(charId, list => list.map(s => {
+  const offlineDelMsg = (charId, msgId, fallbackIndex) => pOffline(charId, list => list.map(s => {
     if (s.endTs) return s;
-    const idx = s.msgs.findIndex(m => m.id === msgId), next = s.msgs.filter(m => m.id !== msgId);
+    let idx = s.msgs.findIndex(m => msgId != null && m.id === msgId);
+    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < s.msgs.length) idx = fallbackIndex;
+    if (idx < 0) return s;
+    const next = s.msgs.filter((_, i) => i !== idx);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "delete", charId, before: s.msgs, after: next, targetIndex: idx }); } catch (e) {}
     return { ...s, msgs: next };
   }));
@@ -3886,7 +3889,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     await genGroupOfflineFrom(group, { ...sess, msgs, autonomousContinue });
   };
   const groupOfflineEditMsg = (groupId, msgId, text) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.map(m => m.id === msgId ? { ...m, content: text } : m) } : s));
-  const groupOfflineDelMsg = (groupId, msgId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, msgs: s.msgs.filter(m => m.id !== msgId) } : s));
+  const groupOfflineDelMsg = (groupId, msgId, fallbackIndex) => pGOffline(groupId, list => list.map(s => {
+    if (s.endTs) return s;
+    let idx = s.msgs.findIndex(m => msgId != null && m.id === msgId);
+    if (idx < 0 && Number.isInteger(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < s.msgs.length) idx = fallbackIndex;
+    return idx < 0 ? s : { ...s, msgs: s.msgs.filter((_, i) => i !== idx) };
+  }));
   const groupOfflineRerollMsg = async (groupId, msgId) => {
     if (laneBusy("g:" + groupId)) return;
     const group = groups.find(g => g.id === groupId);
@@ -11154,7 +11162,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => offlineEditMsg(offlineChar.id, mid, txt),
     onRerollMsg: mid => offlineRerollMsg(offlineChar.id, mid),
-    onDelMsg: mid => offlineDelMsg(offlineChar.id, mid),
+    onDelMsg: (mid, idx) => offlineDelMsg(offlineChar.id, mid, idx),
     onDelSession: sid => offlineDelSession(offlineChar.id, sid),
     onEnd: () => endOffline(offlineChar.id),
     onClose: () => setOfflineChar(null),                       // 下拉「对话（回线上）」：只收线下浮层，露出线上聊天
@@ -11179,7 +11187,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },
     onEditMsg: (mid, txt) => groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => groupOfflineRerollMsg(offlineGroup.id, mid),
-    onDelMsg: mid => groupOfflineDelMsg(offlineGroup.id, mid),
+    onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),
     onDelSession: sid => groupOfflineDelSession(offlineGroup.id, sid),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),
     onEnd: () => endGroupOffline(offlineGroup.id),

@@ -10,7 +10,15 @@ assert.match(src, /isOocRecord\(m\)\) \? h\("button"[\s\S]*?onDeleteMessages\(\[
 assert.match(src, /function OffCard[\s\S]*?if \(m\.kind === "ooc"\)[\s\S]*?editable && onDelete[\s\S]*?onDelete\(m\.id\)/,
   "单人/群体线下 OOC 应通过消息 id 删除");
 
-const oocDeleteLabels = (src.match(/删除这条 OOC 记录/g) || []).length;
-assert.ok(oocDeleteLabels >= 4, "四类 OOC 展示路径都应提供删除操作");
+assert.doesNotMatch(src, /confirm\("删除这条 OOC 记录/,
+  "OOC 小叉应直接删除，避免 iOS/PWA 吞掉原生 confirm 后看似无响应");
+assert.match(src, /onDelete\(m\.id, msgIndex\)/,
+  "线下旧记录应把当前下标作为缺失或失配 id 的删除兜底");
+
+const appSrc = fs.readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+assert.match(appSrc, /offlineDelMsg = \(charId, msgId, fallbackIndex\)[\s\S]*?Number\.isInteger\(fallbackIndex\)[\s\S]*?filter\(\(_, i\) => i !== idx\)/,
+  "单人线下删除应在 id 无法命中时按当前下标兜底");
+assert.match(appSrc, /groupOfflineDelMsg = \(groupId, msgId, fallbackIndex\)[\s\S]*?Number\.isInteger\(fallbackIndex\)[\s\S]*?filter\(\(_, i\) => i !== idx\)/,
+  "群体线下删除应在 id 无法命中时按当前下标兜底");
 
 console.log("ooc-delete-controls: ok");
