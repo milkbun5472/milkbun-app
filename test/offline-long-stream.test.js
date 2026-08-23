@@ -61,9 +61,11 @@ test("发不出流式就降额，交给补写循环分两次写", () => {
   assert.match(engine, /const canStream = routeCanStream\(p\);/);
   assert.match(engine, /const generationBudget = canStream \? generationMaxTokens : Math\.min\(generationMaxTokens, NO_STREAM_CAP\);/);
   assert.match(engine, /两三个短请求各自很快返回，总时长差不多，但每一次都不会被当成死连接/);
-  // 补写那次也要受同样的限制，否则它自己又发一个大的
-  assert.match(engine, /补写这一次同样受线路限制：发不出流式就压到网关扛得住的量/);
-  assert.match(engine, /stream: routeCanStream\(p\) &&/);
+  // 补写那次也受线路限制，但额度【另算】——它要把整篇原文吐一遍再加长，
+  // v55.48 起按 (target + 现有正文) 计，照抄首轮的 4200 会把它截断（见 offline-repair-keeps-scene）
+  assert.match(engine, /比首轮更费额度/);
+  assert.match(engine, /routeCanStream\(p\) \? Math\.min\(20000, want\) : Math\.min\(9000, want\)/);
+  assert.match(engine, /stream: routeCanStream\(p\),/);
 });
 
 test("言秋那条路一个字都不许改", () => {

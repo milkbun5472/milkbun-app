@@ -3198,6 +3198,7 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
   // 分清两种短稿：模型写了但不肯写长（Codex 的原意：不许伪装成达标，照旧报错），
   // 和【压根没问成】（网络断了/超时）——后者不该赔上一篇好好的正文。
   let repairError = "";
+  const notes = [];   // 逐次补写的实况，失败时一并报出去
   if (!target || offlineVisibleCharCount(current) >= target) {
     return { scene: current, attempts, applied: false };
   }
@@ -3219,10 +3220,16 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
       content: "请把下面这篇正文补足为完整定稿。必须保留全文并自然扩展到至少 " + target + " 个非空白可见字符：\n\n" + current
     }], {
       // 补写这一次同样受线路限制：发不出流式就压到网关扛得住的量（v55.45）
-      maxTokens: (routeCanStream(p) ? Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200)))
-        : Math.min(4200, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200)))),
+      // ⚠️补写要把【整篇原文原样吐一遍再加长】，比首轮更费额度——v55.45 我按首轮的
+      // 4200 压它是压错了：额度不够→返回被截断→JSON 解析失败→这一次白花且悄无声息，
+      // 结果就是「保留下来的比丢掉的还短」（她 2026-08-22）。按现有正文长度另算。
+      maxTokens: (function () {
+        const need = Math.ceil((target + currentCount) * 1.6 + 1500);
+        const want = Math.max(Number(session.maxTokens) || 4000, need);
+        return routeCanStream(p) ? Math.min(20000, want) : Math.min(9000, want);
+      })(),
       // 补写的预算和主调用一样大，同样会撞网关无首字节掐断，一起走流式
-      stream: routeCanStream(p) && Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200))) >= 3000,
+      stream: routeCanStream(p),
       timeout: 180000,
       wireScope: "offline-minimum-repair",
       wireMeta: {
@@ -3240,7 +3247,12 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
     }
     const parsed = extractJSON(String(raw || ""));
     const candidate = String(parsed && parsed.scene || "").trim();
-    if (offlineVisibleCharCount(candidate) > currentCount) current = candidate;
+    const gained = offlineVisibleCharCount(candidate);
+    // 这一次到底发生了什么，以前完全静默：解析失败和「模型就是不肯写长」
+    // 长得一模一样，都表现为字数没涨（她 2026-08-22：留下来的比丢掉的还短）。
+    if (!parsed || !candidate) notes.push("第" + attempts + "次补写没解析出正文（多半是额度不够被截断）");
+    else if (gained <= currentCount) notes.push("第" + attempts + "次补写只回了 " + gained + " 字，没比原来长");
+    else { notes.push("第" + attempts + "次补写 " + currentCount + " → " + gained + " 字"); current = candidate; }
   }
 
   const finalCount = offlineVisibleCharCount(current);
@@ -3251,7 +3263,7 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
     return {
       scene: current, attempts, applied: attempts > 0,
       shortCount: finalCount, shortTarget: target,
-      shortBecause: repairError || "模型两次补写都没写够"
+      shortBecause: (repairError || "模型两次补写都没写够") + (notes.length ? "；" + notes.join("；") : "")
     };
   }
   return { scene: current, attempts, applied: attempts > 0 };

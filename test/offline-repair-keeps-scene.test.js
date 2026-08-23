@@ -30,7 +30,7 @@ test("写出来的正文一律保留，绝不因为没写够就丢", () => {
   assert.ok(!/本轮短稿未保存/.test(engine), "丢稿的 throw 不许再存在");
   assert.ok(!/throw new Error\("模型两次补写/.test(engine));
   assert.match(REPAIR, /shortCount: finalCount, shortTarget: target/);
-  assert.match(REPAIR, /shortBecause: repairError \|\| "模型两次补写都没写够"/, "两种原因都要能说清");
+  assert.match(REPAIR, /shortBecause: \(repairError \|\| "模型两次补写都没写够"\)/, "两种原因都要能说清");
   assert.match(REPAIR, /她 2026-08-22 明确要求：宁可短也不要白写一场/);
 });
 
@@ -52,6 +52,28 @@ test("正常路径一个字没变", () => {
   // 够长时直接返回，不进循环
   assert.match(REPAIR, /if \(!target \|\| offlineVisibleCharCount\(current\) >= target\) \{\n    return \{ scene: current, attempts, applied: false \};/);
   // 补写成功仍然照旧覆盖
-  assert.match(REPAIR, /if \(offlineVisibleCharCount\(candidate\) > currentCount\) current = candidate;/);
+  assert.match(REPAIR, /else \{ notes\.push\([\s\S]{0,120}current = candidate; \}/, "补写变长了才覆盖");
   assert.match(REPAIR, /while \(attempts < 2 && offlineVisibleCharCount\(current\) < target\)/);
+});
+
+// v55.48：她发现「保留下来的比丢掉的还短」——丢掉的有 1400/1000 字，留下的只有 500。
+// 病根是我 v55.45 按首轮的 4200 去压补写：补写要把【整篇原文原样吐一遍再加长】，
+// 额度不够就被截断 → JSON 解析失败 → 这一次白花，而且完全静默。
+test("补写额度按它真正要吐的量算，不能照抄首轮的上限", () => {
+  assert.match(REPAIR, /补写要把【整篇原文原样吐一遍再加长】，比首轮更费额度/);
+  assert.match(REPAIR, /const need = Math\.ceil\(\(target \+ currentCount\) \* 1\.6 \+ 1500\);/, "要把现有正文长度算进去");
+  assert.match(REPAIR, /routeCanStream\(p\) \? Math\.min\(20000, want\) : Math\.min\(9000, want\)/);
+  // 现有正文越长，补写需要的额度越大——这是关键性质
+  const need = (target, cur) => Math.ceil((target + cur) * 1.6 + 1500);
+  assert.ok(need(1500, 1400) > need(1500, 500), "正文越长越费额度");
+  assert.ok(need(1500, 500) > 4200, "旧的 4200 连最轻的情况都不够宽裕");
+});
+
+test("每一次补写发生了什么都要说出来，别再静默", () => {
+  assert.match(REPAIR, /const notes = \[\];/);
+  assert.match(REPAIR, /没解析出正文（多半是额度不够被截断）/, "解析失败要能和「不肯写长」区分开");
+  assert.match(REPAIR, /次补写只回了 " \+ gained \+ " 字，没比原来长/);
+  assert.match(REPAIR, /次补写 " \+ currentCount \+ " → " \+ gained \+ " 字/, "成功也要记，才看得出补到哪一步");
+  // 失败时把实况一起报给她
+  assert.match(REPAIR, /\(notes\.length \? "；" \+ notes\.join\("；"\) : ""\)/);
 });

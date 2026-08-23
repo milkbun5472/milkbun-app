@@ -6240,6 +6240,20 @@ function GroupOfflineMode({
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置" }, h(GConfig, { size: 19, color: t.fog })),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
     gBgSheet,
+    // 当前这局用的是哪个文风（v55.44，群线下同款）。她 2026-08-22 放了份自定义文风进去却完全没生效，
+    // 而界面上根本看不出这局到底挂着哪一个——排查全靠猜。摆出来，没挂上一眼就看见。
+    (function () {
+      const sess = (sessions || []).find(x => x && !x.endTs);
+      if (!sess) return null;
+      const key = sess.styleKey || "default";
+      const own = (sess.stylePrompt || "").trim();
+      const named = [...OFFLINE_STYLES, ...customStyles].find(x => x.key === key);
+      const on = !!(own || (named && named.prompt));
+      return h("div", { onClick: () => setSetOpen(true), className: "shrink-0 w-full flex items-center gap-1.5 px-4 pb-1 active:opacity-60" },
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog } }, "STYLE"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.sub : t.fog } },
+          on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
+    })(),
     modeOpen && sheet("切换", h("div", { className: "space-y-1" },
       h("button", { onClick: () => { setModeOpen(false); onClose(); }, className: "w-full text-left py-3 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "💬 群聊（回到线上群）"),
       h("div", { className: "w-full py-3 px-2", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.tint, background: t.bg, borderRadius: 10 } }, "🎬 多人线下（当前）✓"),

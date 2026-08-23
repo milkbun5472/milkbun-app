@@ -44,6 +44,12 @@ test("三条正文通道都吃得到（单人线下 + 叙事底座）", () => {
 
 // —— 文风指示条 ——
 // 她放了份自定义文风却完全没生效，而界面上根本看不出这局挂着哪一个，排查全靠猜。
+test("单人与群线下都摆出当前文风", () => {
+  assert.equal((comp.match(/"STYLE"/g) || []).length, 2, "两个线下组件各一条");
+  const g = comp.indexOf("function GroupOfflineMode");
+  assert.ok(comp.slice(g).includes('"STYLE"'), "群线下也要有");
+});
+
 test("线下顶栏摆出当前文风，没挂上一眼就看见", () => {
   assert.match(comp, /她 2026-08-22 放了份自定义文风进去却完全没生效/);
   assert.match(comp, /"STYLE"/);
