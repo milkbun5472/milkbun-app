@@ -1,69 +1,35 @@
 #!/usr/bin/env node
-// 一条命令发版（2026-08-12 她的「48.x手感」提案）：node scripts/bump-version.mjs 52.30 [--dry]
-// 自动做齐三处同步：APP_VERSION、index.html 里【真正改过的文件】的 ?v= 指纹、manifest 指纹、
-// rescue.html 版本串。改哪些指纹由「工作区哈希 vs HEAD」判定，不靠人的记性。
-// 不自动 commit——改完打印摘要和下一步命令（iCloud git 请用底层三件套，见《版本更新手册.md》）。
+// 发版指纹同步器。
+// 起因：2026-08-22 我（言秋侧）连着几版都是硬编码「下一个号」，而 Codex 同时也在发版，
+// 结果把 APP_VERSION 从 55.19 一路盖回 55.13——缓存指纹倒退，她手机可能根本刷不到新文件。
+// 号必须从【仓库现状 + 提交历史】里取最大值再加一，不能凭记忆写。
 import { readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 
-const ver = (process.argv[2] || "").replace(/^v/, "");
-const dry = process.argv.includes("--dry");
-if (!/^\d+\.\d+$/.test(ver)) { console.error("用法: node scripts/bump-version.mjs 52.30 [--dry]"); process.exit(1); }
+const num = v => { const [a, b] = String(v).split("."); return Number(a) * 1000 + Number(b); };
+const all = [];
+const push = t => String(t || "").replace(/v?(\d{2})\.(\d{2})/g, (_, a, b) => { all.push(a + "." + b); return _; });
 
-const read = p => readFileSync(p, "utf8");
-const save = (p, s) => { if (!dry) writeFileSync(p, s); };
-const changed = [];
+push(readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]);
+push(readFileSync("index.html", "utf8").match(/\?v=[\d.]+/g)?.join(" "));
+push(readFileSync("rescue.html", "utf8").match(/TARGET="([\d.]+)"/)?.[1]);
+push(readFileSync("manifest.json", "utf8").match(/launch=([\d.]+)/)?.[1]);
+// 提交历史：别人刚发的版本可能已经被我本地覆盖掉了，只有历史记得
+try { push(execSync("git log --format=%s -60", { encoding: "utf8" })); } catch (_) {}
 
-// 1. APP_VERSION
-let app = read("js/app.js");
-const oldVer = (app.match(/APP_VERSION = "v([\d.]+)"/) || [])[1];
-app = app.replace(/APP_VERSION = "v[\d.]+"/, `APP_VERSION = "v${ver}"`);
-save("js/app.js", app);
-changed.push(`APP_VERSION v${oldVer} → v${ver}`);
+const top = all.sort((x, y) => num(x) - num(y)).pop();
+if (!top) { console.error("找不到任何版本号"); process.exit(1); }
+const [maj, mi] = top.split(".");
+const next = process.argv[2] || maj + "." + String(Number(mi) + 1).padStart(2, "0");
+if (num(next) <= num(top)) { console.error("新版本 " + next + " 不高于现有最大 " + top + "，拒绝倒退"); process.exit(1); }
 
-// 2. index.html：manifest 必 bump；js 指纹只 bump「工作区 != HEAD」的文件（含本次 app.js）
-let idx = read("index.html");
-idx = idx.replace(/manifest\.json\?v=[\d.]+/, `manifest.json?v=${ver}`);
-const fp = [...idx.matchAll(/src="(js\/[\w-]+\.js)\?v=([\d.]+)"/g)].map(m => ({ file: m[1], v: m[2] }));
-const dirty = new Set(["js/app.js"]);
-// 批量两发，别逐文件排队过 iCloud 安检（首版逐文件 15s×40 直接把自己卡死了）
-try {
-  const files = fp.map(x => x.file);
-  const wLines = execSync(`git hash-object ${files.map(f => `"${f}"`).join(" ")}`, { timeout: 60000 }).toString().trim().split("\n");
-  const hOut = execSync(`git ls-tree HEAD -- ${files.map(f => `"${f}"`).join(" ")}`, { timeout: 60000 }).toString();
-  const headHash = {};
-  for (const line of hOut.split("\n")) { const m = line.match(/blob (\w+)\t(.+)$/); if (m) headHash[m[2]] = m[1]; }
-  files.forEach((f, i) => { if (wLines[i] && headHash[f] && wLines[i] !== headHash[f]) dirty.add(f); });
-} catch (e) { console.warn("⚠️ git 探测超时，只 bump app.js/manifest/rescue；改过别的文件请手动补指纹"); }
-for (const { file, v } of fp) {
-  if (dirty.has(file) && v !== ver) {
-    idx = idx.replace(new RegExp(`${file.replace(/[/.]/g, "\\$&")}\\?v=${v.replace(".", "\\.")}`), `${file}?v=${ver}`);
-    changed.push(`${file} ?v=${v} → ${ver}`);
-  }
-}
-save("index.html", idx);
-
-// manifest.json 本体里的 PWA 启动地址也属于发布目标，不能只 bump index 的 href。
-let manifest = read("manifest.json");
-manifest = manifest.replace(/(index\.html\?launch=)[\d.]+/, `$1${ver}`);
-save("manifest.json", manifest);
-changed.push(`manifest.json launch → ${ver}`);
-
-// 3. rescue.html 版本串整体换代
-let rescue = read("rescue.html");
-const rOld = new Set(rescue.match(/\d+\.\d+/g) || []);
-rescue = rescue
-  .replace(/(const\s+TARGET\s*=\s*")[\d.]+(";?)/, `$1${ver}$2`)
-  .replace(/(app\.js\?v=|launch=|v)(5[0-9]\.[0-9]+)/g, (m, pre) => pre + ver)
-  // JS 正则字面量里的点是转义形态，例如 app\.js\?v=52\.30 / v52\.30。
-  .replace(/(app\\\.js\\\?v=|v)(5[0-9]\\\.[0-9]+)/g, (m, pre) => pre + ver.replace(".", "\\."));
-save("rescue.html", rescue);
-changed.push(`rescue.html 版本串 → ${ver} (原含: ${[...rOld].slice(0, 4).join(", ")})`);
-
-// 4. 自检
-const a = (app.match(/APP_VERSION = "v([\d.]+)"/) || [])[1];
-const b = (idx.match(/js\/app\.js\?v=([\d.]+)/) || [])[1];
-console.log(changed.map(x => "  · " + x).join("\n"));
-if (a !== b) { console.error(`❌ 自检失败: APP_VERSION v${a} vs index 指纹 ${b}`); process.exit(1); }
-console.log(`✅ 指纹同步自检通过 (v${a})${dry ? "【dry-run 未写盘】" : ""}`);
-console.log(`下一步: git add js/app.js index.html manifest.json rescue.html ${[...dirty].filter(f => f !== "js/app.js").join(" ")}\n然后按《版本更新手册.md》的三件套提交推送。`);
+// 只同步「跟着发布版本走」的那几个文件；别的模块保留各自的独立指纹
+const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic"];
+let html = readFileSync("index.html", "utf8");
+CORE.forEach(f => { html = html.replace(new RegExp(f + "\\.js\\?v=[\\d.]+", "g"), f + ".js?v=" + next); });
+html = html.replace(/manifest\.json\?v=[\d.]+/, "manifest.json?v=" + next);
+writeFileSync("index.html", html);
+writeFileSync("js/app.js", readFileSync("js/app.js", "utf8").replace(/APP_VERSION\s*=\s*"v[\d.]+"/, 'APP_VERSION = "v' + next + '"'));
+writeFileSync("rescue.html", readFileSync("rescue.html", "utf8").replace(/TARGET="[\d.]+"/, 'TARGET="' + next + '"'));
+writeFileSync("manifest.json", readFileSync("manifest.json", "utf8").replace(/launch=[\d.]+/, "launch=" + next));
+console.log("现有最大 " + top + " → 发版 " + next);
