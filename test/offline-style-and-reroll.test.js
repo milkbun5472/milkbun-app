@@ -39,7 +39,8 @@ test("空串不许堵住按 key 回退", () => {
 });
 
 test("文风真的会被拼进提示词", () => {
-  assert.equal((engine.match(/\(styleText \? "\\n【文风要求】" \+ styleText : ""\)/g) || []).length, 2);
+  // v55.41 起前面多了一段优先级声明，所以只钉「以 styleText 结尾、条件是 styleText」
+  assert.equal((engine.match(/\(styleText \? "[\s\S]{0,600}?" \+ styleText : ""\)/g) || []).length, 2);
 });
 
 // —— reroll ——
@@ -61,4 +62,39 @@ test("单人与群 reroll 都换成新的摘要函数", () => {
   assert.equal((engine.match(/offlineRerollExcerpt\(session\.rerollAvoid\)/g) || []).length, 2);
   assert.ok(!/rerollAvoid\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 220\)/.test(engine), "220 字截断不许留着");
   assert.match(engine, /模型只看得到开头 15%，后面照抄一遍也不算违规/, "病因写在代码里");
+});
+
+// 她 2026-08-22 贴了两版 reroll 对照 + 一份四千字的自定义文风：
+// 两版事件顺序完全相同（走进马场→灰马→伸手→被咬→拉进怀里→训斥→揉手腕→德顺楼说书），
+// 最后那句邀约几乎逐字一样；而那份文风（雨雾缱绻、禁一切明喻、情绪不叫名字）一个字没生效，
+// 正文里还留着「铁钳似的」这种明喻。
+
+test("自定义文风要压过内置叙事准则——它俩本来就打架", () => {
+  assert.equal((engine.match(/【文风要求 · 文体层最高优先】/g) || []).length, 2, "单人与群线下各一处");
+  assert.match(engine, /在【句式、意象、比喻、格式、节奏、禁用词、段落安排】这些【怎么写】的事情上，它高于上文任何通用叙事准则/);
+  // 拿她那条真实冲突当例子，模型才知道该听谁的
+  assert.match(engine, /它若禁止一切明喻，那就一个「像／似的／仿佛」都不许有，上文的「每段最多一次」不作数/);
+  // 但硬规矩不许被文风带走
+  assert.match(engine, /人称、视角归属、场景与事实的连续性、不替用户做决定这些硬规矩不受它影响/);
+});
+
+test("长文风要在尾部重申，否则被前面几千字稀释", () => {
+  assert.match(engine, /const styleTail = !isDigital && styleText && styleText\.length > 200/);
+  assert.match(engine, /〔再说一遍·文体以用户设定的文风为准〕/);
+  assert.match(engine, /写完扫一眼它的禁区清单再交/);
+  // 必须真的挂进最终尾注
+  assert.match(engine, /const finalNudge = tailNudge \+ \(isDigital \? "" : userActionTail\) \+ characterSupplyTail \+ styleTail;/);
+  // 短文风不折腾（内置那几条一句话的没必要重申）
+  assert.match(engine, /styleText\.length > 200/);
+});
+
+test("reroll 要换的是节拍，不是措辞", () => {
+  assert.match(engine, /〔重写要换的是【这一拍怎么走】，不是措辞〕/);
+  assert.match(engine, /上一版把句子写得更细、更长，但事件顺序一模一样，那不算重写/, "她两版正是这个情况");
+  // 给出可勾选的四项，别只说「要不一样」
+  ["从哪儿切入", "按什么顺序推进", "重心落在谁身上", "停在哪里"].forEach(k =>
+    assert.ok(engine.includes(k), "换节拍的清单少了：" + k));
+  // 收尾是最容易原样重来的地方，单独点名
+  assert.match(engine, /【尤其是收尾】上一版最后那句邀约／提议／反问，连同它提到的地点、人名、吃食，这次一个都不许重复出现/);
+  assert.match(engine, /同义替换、把同样的事写得更华丽，都不算换/);
 });
