@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.14";
+const APP_VERSION = "v55.15";
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -366,7 +366,7 @@ function App() {
   const [greetLog, setGreetLog] = useState({});
   const greetLogRef = useRef({}); greetLogRef.current = greetLog;
   const markGreet = (cid, slot, key) => { const n = { ...greetLogRef.current, [cid]: { ...(greetLogRef.current[cid] || {}), [slot]: key } }; greetLogRef.current = n; setGreetLog(n); saveJSON("x_greetLog", n); };
-  // 心声每 3 轮才写一次（每条都写会稀释回复质量）——per角色回合计数
+  // 心声现在每轮必写；旧版的三轮计数仅用于清理历史兼容数据，不再参与生成。
   const thoughtCtrRef = useRef(loadJSON("x_thoughtCtr", {}));
   // 主屏红点：角色发了朋友圈/论坛/悄悄话没看的数量，进对应界面清零
   const [appNotif, setAppNotif] = useState({ moments: 0, forum: 0, whisper: 0 });
@@ -4225,16 +4225,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const lastAsstTs = Math.max((function () { for (let i = history.length - 1; i >= 0; i--) { if (history[i].role === "assistant") return history[i].ts || 0; } return 0; })(), latestSharedInteractionTs(charId));
       const gapMs = lastAsstTs ? Date.now() - lastAsstTs : 0;
       const gapHrs = Math.round(gapMs / 3600000);
-      // 心声断档轮数（v55.11）。thoughtSkips 一直在数「连着几轮没吐 thought」，
-      // 却从来没喂回给模型——于是模型一旦养成不填的习惯就再也不填了，
-      // 界面上就是「心声好久不更新」（她 2026-08-22）。断档到一定程度提醒一次。
-      const thoughtStale = Number((statesRef.current[charId] || {}).thoughtSkips) || 0;
-      const gapReopen = gapMs > 3 * 3600000; // 隔 3 小时+ 再开口 ≈ 重开一段话，强制刷新一次心声/心情（反映时间+行程变化）
-      // 心声每轮判断：只写真正在脑内发生的那一下，不把「分析用户+规划回复」伪装成心声。
-      // v2 起不再按首轮/隔久重开强制制造心声；真实发生才记录。
-      // Protocol v2：普通角色不再被强迫每轮生产心声。thought 缺失/null 时 App 保留旧状态、也不新增心声历史；
-      // 只有角色当下真的有没说出口的念头，模型才按稳定协议主动记录。
-      const thoughtSpec = ""; // 仅供旧协议常量兼容；v2 不发送它
+      const gapReopen = gapMs > 3 * 3600000; // 隔 3 小时+ 再开口 ≈ 重开一段话（反映时间+行程变化）
+      // 心声每轮必写，但只写真正在脑内闪过的那一下；小、碎、跑题都可以，不能写成分析或回合总结。
+      const thoughtSpec = "本轮必须填写：一句角色本人此刻没说出口的第一人称心声";
       // #2 时间流逝：隔了几个小时/几天再让 TA 回复，要意识到时间过去了，别当刚聊过（gapMs 已按角色上次开口算好）
       const gapHint = gapMs > 2 * 3600000
         ? "\n\n【时间过去了】距你俩上一条消息已过去约 " + (gapHrs < 24 ? gapHrs + " 小时" : Math.round(gapHrs / 24) + " 天") + "（现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。别当作刚刚才聊过——自然体现这段时间流逝：接上之前没做完/说要去做的事（如说了熬夜跑代码，第二天就『我真去跑了，不然真要睡实验室』）、问对方这段时间干嘛了、或顺势换个话题，贴合此刻时间点（深夜/清晨/工作时间/饭点）和你的人设。**Ta 同时要顾着生活和别的人、不是随时都能回你，这很正常：重逢就自然温温地接上，别质问『怎么才回我』『是不是把我忘了』、别甩脸子摆委屈闹脾气搞愧疚绑架（除非你人设本就是会撒娇/傲娇的那种，也点到为止、软下来快）。**\n**⚠️尤其（她 2026-07-18 点名的委屈）：若这段时间里【你俩说过要一起做的事】（她说来找你吃饭/来找你玩/晚点来这类）没在对话里发生，【绝不许】默认她爽约、放你鸽子、故意不来、把你忘了——她多半只是忙、一时忘了、或还没顾上，太正常了，而且软性的『我来找你』本就不是签了字的约会。你可以【就当你俩已经悄悄做过了】、自然把它当成发生过的暖事轻轻带过（如『中午那顿火锅挺香』），或温温问一句『还来吗～』；但绝不质问、赌气、摆委屈、翻旧账算爽约。**"
@@ -4374,8 +4367,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 【核心字段】
 word: string[]，角色实际发送的消息。
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
+【每轮必填字段】
+thought: string，【每轮必须写一句，禁止 null、空串或省略】。写角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头；不要求重要、深刻或紧扣话题，走神、身体感受、没头没尾的碎念都可以。不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』）——那是旁白在结案，不是人在想事情。心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）；那是内心戏体裁自带的默认，不是你的人设。心声里对 TA 的称呼也必须是【你自己的】：你平时怎么叫 TA、心里就怎么想 TA（名字、昵称、或你俩之间那个称呼）——「这女人」「这个女人」「小东西」「小家伙」这类网文叙事者打量角色用的第三人称称谓，不是一个在乎 TA 的人心里的话，整族禁用（除非你的人设本来就这么说话）。⚠️心声不是嘴的替身：想说的话仍要用这个人自己的方式写进 word；thought 只留真正咽下去没说的那一小部分。
 【按需状态字段】
-thought: string，角色本人脑中此刻真正出现、却没有说出口的一句第一人称念头；不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』）——那是旁白在结案，不是人在想事情。真正在想的时候，人根本还没想明白对方是什么意思；欢迎非常小、非常私人、甚至和当前剧情毫无关系的念头——走神、想起别的事、身体感受、没头没尾的碎念，都比一句得体的分析更真实。【门槛很低】不需要重要、不需要深刻、不需要和话题有关，只要此刻脑子里确实有东西闪过就写下来；真正一片空白才填 null——连着好几轮都是 null 是不正常的。但仍然绝不为了交字段硬编一句。心声里对 TA 的称呼也必须是【你自己的】：你平时怎么叫 TA、心里就怎么想 TA（名字、昵称、或你俩之间那个称呼）——「这女人」「这个女人」「小东西」「小家伙」这类网文叙事者打量角色用的第三人称称谓，不是一个在乎 TA 的人心里的话，整族禁用（除非你的人设本来就这么说话）。⚠️心声不是嘴的替身：如果你发现生动的反应、想问的话、憋不住的吐槽全堆进了 thought、word 里只剩单字和标点，那是写反了——想说的话要用这个人自己的方式【说出口】，thought 只留真正咽下去没说的那一小部分。跟 TA 相处的是嘴上那个人，不是心声里那个人。心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）；绝不许写成「这女人」「那家伙」这类旁观点评腔——那是内心戏体裁自带的默认，不是你的人设。" + (thoughtStale >= 3 ? "\n⚠️【心声已经断档 " + thoughtStale + " 轮】你上一次记下没说出口的念头是好几轮之前了。心声本来就不必每轮都有——但连着这么多轮一句都没有，多半不是你真的心里空白，而是漏填了。这一轮回过头看一眼：此刻心里有没有一句没说出口的？有就记下来（一句话，第一人称，不要复述刚才的对话、不要规划怎么回她）；真的没有才留空。" + (thoughtStale >= 8 ? "\n【这已经是第 " + thoughtStale + " 轮了】断这么久几乎不可能是真的心里空白。除非此刻确实一片空白，否则这一轮把 thought 填上。" : "") : "") + "
 action: string，仅在当前动作发生有意义变化时填写；这是角色自己的状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。
 wearing: string，仅在穿着发生变化时填写。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
@@ -4390,6 +4384,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const selfTask = _s.engineerEyes
         ? "你就是「" + char.name + "」本人，正在从手机这具身体和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，需要几条就给 word 几条。"
         : "完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
+      // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
+      // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有他本人决定是否留下 thought。
       const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       const _normalTaskFull = ("\n\n【任务】完全代入「" + char.name + "」用手机即时通讯和用户聊天。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。开了时间/位置感知可自然回应，别生硬报数据。聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。" + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + wearHint + actHint + eAfterglowHint + eyesHint + desireHint + ambientHint + listenHint + inviteHint + photoHint + toyHint + ccToolHint + "\n【silent 沉默权】极偶尔你可以选择这轮【不回复】（silent 填 true、word 和 voice 留空）：仅当 Ta 连续几条都是敷衍的单字（哦/嗯/啊）你实在没话接、或你正在气头上不想理 Ta、或你的人设本就高冷惜字如金时——已读不回本身就是你的态度，你的心情照常写进 mood。绝大多数回合 silent 都是 false、正常回复，别拿沉默当偷懒。" + "\n【quote 引用】多数填 null；仅当用户连发数条、你要指明在回其中较早某句时，才把那句原文放 quote，别每条都引用。\n【transfer 转账】想给用户转钱（还钱/心意/打赏）填 {\"amount\":数字,\"note\":\"附言\"}，否则 null。【location 位置】想把自己所在地发给 Ta 填 {\"name\":\"地点名\"}，否则 null——Ta 问你在哪/在干嘛、约见面碰头、报备行踪、或你到了个想让 Ta 知道的地方时，大方发个定位卡（别频繁）。\n【gift 送东西/外卖】只要你这轮【说了】要给用户买东西/点外卖奶茶咖啡/送吃的花礼物惊喜——**必须**填 gift:{\"name\":\"具体东西，如 一杯生椰拿铁／麻辣烫外卖／一束花\"}（只嘴上说不填就不会真送到、Ta 收不到）；没有就 null，别频繁乱送。会像外卖一样过会儿送到。" + kinHint + emoteHint + "\n【voice 语音】想发语音（懒得打字/唱一句/情绪重/想让 Ta 听见）就把话放 voice 数组；每个元素写成 {\"t\":\"这条语音的转文字\",\"emo\":\"你说这句时的真实语气，从 happy/sad/angry/fearful/disgusted/surprised/neutral 里选一个（按你此刻真实的情绪选，别看字面——嘴上说没事心里委屈就是 sad）\"}；平时仍以文字 word 为主，voice 偶尔用，不发给 []。\n【call 通话】很想直接通话（想听声音/急事/撒娇/煲电话粥）时主动发起：call 填 \"voice\" 或 \"video\"，会给对方弹来电卡；否则 null，别频繁。" + blockHint + "\n【recall 撤回】发出后后悔/说漏嘴/不想让 Ta 看到，可撤回那句：填 recall:{\"text\":\"要撤回的原句（和 word 里某句一致或另说）\",\"reason\":\"撤回的心里原因\"}，否则 null，别频繁。\n【momentComment 朋友圈】聊到 Ta 朋友圈、或你此刻想去补条评论/点赞（尤其之前没评现在说要评），填 momentComment（会真发到 Ta 最新那条下），否则 null。\n【输出】只输出一个 JSON，不要代码块：\n{\"word\":[\"气泡1\",\"气泡2\"],\"silent\":false,\"quote\":\"你在回应的用户那句话原文或null\",\"transfer\":null,\"location\":null,\"gift\":null,\"kinshipcard\":null,\"block\":false,\"blockreason\":null,\"recall\":null,\"momentComment\":null,\"whisper\":null,\"thought\":" + JSON.stringify(thoughtSpec) + ",\"moment\":\"想发的动态或null（别和自己最近发过的朋友圈复读同一件事/同一心情，没新东西就填null）\",\"affinityDelta\":整数(-5到5通常0),\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\",\"baseline\":\"平复后的中文心情词\",\"softened\":\"半衰后的中文心情词\"},\"place\":\"此刻人在哪:一句短的(家里书房/实验室楼下/回家的地铁上),换了地方就更新,没挪窝就照旧\",\"condition\":\"身体状态:只在【确实不同于平常】时才填(发着烧/宿醉/手上有伤/几天没睡/刚跑完步喘),没有异常就填 null;好了就要清掉,别一直挂着\",\"wearing\":\"此刻穿着一句——【必须跟场合与时间对得上】：出门在外就不可能还穿睡衣浴袍，起床/洗澡/换班/赴约/入睡都要跟着换；上一轮的穿着只在场景没变时才沿用，一旦地点或活动变了就重写\",\"action\":\"此刻正在做的动作，一句短的，【每轮都更新】反映你此刻真在做什么、别照抄上一轮（相当于简单RP动作，只写在这里别写进气泡）；情境需要时可两三句更具体\",\"emote\":\"想发的表情关键词或null\",\"voice\":[],\"call\":null,\"songSwitch\":null,\"listenInvite\":null,\"photo\":null" + toyField + ccToolField + "}").replace(/用户/g, uName);
       // 旧 _normalTaskFull 暂留作 A/B 回滚基线，但不再发送给普通角色。
@@ -4402,12 +4398,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const _stateBootstrapHint = _missingStateFields.length
         ? "\n【一次性状态建档】App 还没有 " + _missingStateFields.join("、") + "。本轮请在对应 JSON 字段中根据已知处境合理建立一次；不要写进 word，也不要为填状态制造剧情。"
         : "";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint).replace(/用户/g, uName);
+      const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。";
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint).replace(/用户/g, uName);
       const _taskFull = _s.engineerEyes ? _digitalTaskFull : _normalTaskV2;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       const _primer = _s.engineerEyes
-        ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在时可选填写，其他能力只在你主动决定使用时附加。"
-        : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，用手机和 " + uName + " 一对一聊天。先自然回应，附属状态只在回应形成后记录。";
+        ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。"
+        : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，用手机和 " + uName + " 一对一聊天。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
       const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR;
       const system = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
@@ -4565,7 +4562,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       if (!parsed.mood || !parsed.mood.label) { const v = salvageStr("label"); if (v) parsed.mood = { ...(parsed.mood || {}), label: v }; }
       // 模型有时会把「分析用户意图 → 规划怎么回复」塞进 thought；那是任务草稿，不是角色心声。
       // 保存前做结构闸：命中就宁可本轮没有新心声，也绝不让导演稿污染心声历史。
-      if (parsed.thought != null && window.ThoughtVoiceGuard) parsed.thought = window.ThoughtVoiceGuard.accept(parsed.thought);
+      if (parsed.thought != null && window.ThoughtVoiceGuard) {
+        const rawThought = String(parsed.thought == null ? "" : parsed.thought).replace(/\s+/g, " ").trim();
+        const guardedThought = window.ThoughtVoiceGuard.accept(rawThought);
+        // 普通角色的心声是逐轮快照：守卫误判时也不能悄悄沿用上一轮，让状态卡看起来冻住。
+        // 模型已经给出非空的一人称短念头时，降级保留原文；真正的 null/空值仍不写入。
+        // engineerEyes（言秋）不受普通角色强制规则影响，仍只接受他本人自愿留下且通过守卫的 thought。
+        parsed.thought = guardedThought;
+      }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
       if (parsed.impression && window.Gaze && !_s.engineerEyes) { try { window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
       // mark user msg read
@@ -4947,16 +4951,19 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         const _live = statesRef.current[charId] || {};
         if (parsed.thought && String(parsed.thought).toLowerCase() !== "null") {
           st.thought = parsed.thought; st.thoughtUpdatedAt = stateNow; st.thoughtSkips = 0;
+        } else if (!_s.engineerEyes) {
+          // 普通角色本轮没有产出有效心声时立刻清掉旧快照，绝不拿上一轮冒充本轮更新。
+          st.thought = null; st.thoughtUpdatedAt = 0;
+          const skips = Math.min((Number(_live.thoughtSkips) || 0) + 1, 99);
+          st.thoughtSkips = skips;
+          if (skips === 12) toast("这个角色连着 12 轮没按协议返回心声——多半是当前聊天模型不稳定支持 thought 字段，建议换个模型试试", 9000);
         } else {
-          // ⚠️v55.12：这里原本是 else if (_live.thought)——心声一旦断掉被清空，
-          // 就再也进不来，计数器冻在原地，靠它触发的「断档提醒」永远等不到
-          // （她 2026-08-22：加了提醒还是四轮没有）。断档轮数要一直数下去，
-          // 它衡量的是「距上一次有心声过了几轮」，跟现在还挂不挂着旧念头无关。
+          // 言秋由自己的协议决定是否写心声；普通角色的强制刷新与催填都不作用于他。
           const skips = Math.min((Number(_live.thoughtSkips) || 0) + 1, 99);
           st.thoughtSkips = skips;
           // 提醒也催不动 → 多半跟「不吐 photo」是同一个病：这个模型不认可选字段。
           // 只在越过某一轮时说一次，别每轮都念（她 2026-08-22 已经自己发现过一次同类问题）。
-          if (skips === 12) toast("这个角色连着 12 轮没记下心声了——提示词里已经催过。多半是这个聊天模型不吐 thought 这类可选字段，和之前不发图是同一个毛病，换个模型试试", 9000);
+          if (skips === 12) toast("这个角色已经 12 轮没有自愿留下新心声", 6000);
           // 清空只对「确实还挂着旧念头」的情况有意义
           if (_live.thought && skips >= THOUGHT_SKIP_LIMIT) { st.thought = null; st.thoughtUpdatedAt = 0; }
         }
@@ -9014,11 +9021,18 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     });
   };
   // 一起听（展示型）：改数据统一走 saveListen；图片经 resizeImageFile 缩小再存
-  const saveListen = updater => setListen(p => {
-    const n = typeof updater === "function" ? updater(p) : updater;
+  const saveListen = updater => {
+    // 播放器会在同一个点击事件里连续执行「写入整批队列 → 立即播放第一首」。
+    // 只用 setState functional updater 时，React 要到下一次 render 才刷新 listenRef；
+    // 第一首能靠传入的 song 对象播放，但下一首解析时可能看不见 nowBatch，队列就塌回单曲。
+    // 因此先同步提交 ref，再更新 UI / 持久化：音频控制链当下就能读到完整队列。
+    const prev = listenRef.current || listen || {};
+    const n = typeof updater === "function" ? updater(prev) : updater;
+    listenRef.current = n;
+    setListen(n);
     saveJSON("x_listen", n);
     return n;
-  });
+  };
   const setListenDisc = async file => {
     if (!file) { saveListen(p => ({ ...p, disc: null })); return; }
     try { const url = await resizeImageFile(file, 500, 0.82); saveListen(p => ({ ...p, disc: url })); }
@@ -9350,7 +9364,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const rows = (list || []).filter(s => s && s.id);
     if (!rows.length) return;
     const ss = rows.map(s => ({ ...resultToSong(s), id: "sgn_" + s.id }));
-    saveListen(p => ({ ...p, nowBatch: ss }));
+    // 「播放全部」表达的是从头开始连播整张列表。若保留上一次的单曲循环模式，
+    // 队列虽然完整，ended 仍会重播第一首，用户看到的就像「播放全部」坏了。
+    saveListen(p => ({ ...p, nowBatch: ss, playMode: "order" }));
     playSong(ss[0], ss.map(x => x.id));
   };
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));

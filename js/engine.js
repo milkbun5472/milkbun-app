@@ -1018,9 +1018,9 @@ function narrativeCore(opts) {
 const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】
 先形成当前场景真正发生的叙事 scene。thought、mood、wearing、action、affinityDelta 等附属字段只记录已经形成的场景与角色状态，不得用于提前规划、解释或塑造 scene。没有真实变化或没有值得记录的内容时，不要为了填字段制造变化。
 
-只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 只记录角色本人脑中此刻真实发生、没有说出口且值得留下的一句第一人称念头；没有则 null，不总结互动、分析人格、规划回应，也不写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。mood 只在本轮形成后的主导心情值得更新时填写，否则 null。wearing 仅在穿着发生有意义变化时填写，否则 null。action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写，否则 null；不要记录转瞬即逝的小动作；这是角色自己的状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。affinityDelta 只有本轮确实足以改变长期关系感受时才非 0，普通日常通常为 0。toy 仅在已授权且本轮实际触发时填写，否则 null。
+只输出一个合法 JSON 对象，不要代码块。scene 是本轮实际发生的叙事正文，必须有效。thought 每轮必须填写一句角色本人此刻真实发生、没有说出口的第一人称念头，禁止 null、空串或省略；它可以很小、零碎、跑题，但不总结互动、分析人格、规划回应，也不写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。mood 只在本轮形成后的主导心情值得更新时填写，否则 null。wearing 仅在穿着发生有意义变化时填写，否则 null。action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写，否则 null；不要记录转瞬即逝的小动作；这是角色自己的状态卡，必须用第一人称「我」写，禁止用角色名或「他／她／TA」从旁描述。affinityDelta 只有本轮确实足以改变长期关系感受时才非 0，普通日常通常为 0。toy 仅在已授权且本轮实际触发时填写，否则 null。
 
-输出形状：{"scene":"当前场景正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}
+输出形状：{"scene":"当前场景正文","thought":"本轮没说出口的一句真实第一人称心声","mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}
 场景先发生，系统再记录。`;
 
 function offlineRendererScore(text) {
@@ -2832,7 +2832,7 @@ ${archetypeGuard ? "角色卡里的强烈性格标签只决定人物会作何选
 ${offlineRevisionAddressRule(narr)}
 draftScene 是内部草稿，scene 才是展示并进入历史的终稿。两者都必须是完整字符串，不得省略、互换或解释修改过程。
 
-本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
+本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":"角色本人此刻没说出口的一句第一人称心声","mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
 }
 
 function offlineArchetypeSelfReviseProtocol(shape, narr) {
@@ -2848,7 +2848,7 @@ ${offlineRevisionAddressRule(narr)}
 亲昵动作可以自然发生；但如果某个小动作只是在重复展示同一种人设、没有改变距离、选择、关系或感受，不要把它当作角色的固定签名每轮补一次。
 不要追求缩短，不把场景改成动作记录，也不要复用一种统一的冷静文风。draftScene 是内部草稿，scene 才展示并进入历史。
 
-本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":null,"mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
+本轮输出形状严格改为：` + (shape || '{"draftScene":"内部完整首稿","scene":"基于前一字段完成的最终正文","thought":"角色本人此刻没说出口的一句第一人称心声","mood":null,"wearing":null,"action":null,"affinityDelta":0,"toy":null}');
 }
 
 // 语域跟着场面走，不跟着聊天记录走（v53.84）。

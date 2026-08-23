@@ -54,9 +54,20 @@ test("播放全部走整列表连播，队列不许塌成单曲", () => {
   assert.match(app, /const playNeteaseList = list => \{/);
   assert.match(app, /id: "sgn_" \+ s\.id/, "按 neteaseId 造稳定 id");
   assert.match(app, /nowBatch: ss/, "整批存 nowBatch，不污染「全部」库");
+  assert.match(app, /nowBatch: ss, playMode: "order"/, "播放全部要退出残留的单曲循环模式");
   assert.match(app, /playSong\(ss\[0\], ss\.map\(x => x\.id\)\)/, "显式传整个队列");
   assert.match(app, /\(L\.nowBatch \|\| \[\]\)\.find\(x => x\.id === id\)/, "resolveSong 认得批次里的歌");
   assert.match(seg, /const playAllCloud = \(list, srcId\)/);
   assert.match(seg, /onClick: \(\) => playAllCloud\(cv\.daily\)/, "日推播放全部走新通道");
   assert.doesNotMatch(seg, /forEach\(onAddNeteaseResult\); playCloud\(/, "逐首收库+单放的老路不许再有");
+});
+
+test("云村队列写入必须在同一事件内立刻对播放器可见", () => {
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
+  const saveStart = app.indexOf("const saveListen = updater => {");
+  const saveEnd = app.indexOf("const setListenDisc", saveStart);
+  assert.ok(saveStart >= 0 && saveEnd > saveStart, "应存在同步 saveListen 实现");
+  const saveSeg = app.slice(saveStart, saveEnd);
+  assert.match(saveSeg, /const prev = listenRef\.current \|\| listen \|\| \{\}/);
+  assert.match(saveSeg, /listenRef\.current = n;\s*setListen\(n\)/, "先同步 ref，再触发 React render");
 });
