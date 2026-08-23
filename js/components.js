@@ -24,6 +24,12 @@ const BUBBLE_SKIN_DEFAULTS = Object.assign({}, BUBBLE_SKIN);
 try { Object.assign(BUBBLE_SKIN, JSON.parse(localStorage.getItem("x_bubbleSkin") || "{}")); } catch (e) {}
 // 给皮肤底色追加两位透明度（如 "eb"≈92%）：只有六位 #hex 能拼，渐变/rgba 原样返回
 function skinAlpha(c, a) { return (typeof c === "string" && c[0] === "#" && c.length === 7) ? c + a : c; }
+// OOC 有两种历史形态：普通 OOC 气泡，以及单聊里保留旧视觉的 SYSTEM RESPONSE。
+// components.js 不能依赖 engine.js 的顶层 helper 是否被浏览器挂到 window；在渲染层自己认全，
+// 否则单聊回复会出现“看得见删除键/分支，实际判断不到这是一条 OOC”的脆弱行为。
+function isOocRecord(m) {
+  return !!(m && (m.kind === "ooc" || (m.turnId && String(m.turnId).indexOf("ooc_") === 0)));
+}
 // 气泡角落贴纸：绝对定位悬在气泡外沿（我的在右上、TA 的在左上并水平翻转），不挡点击
 function bubbleSticker(isU) {
   const src = isU ? BUBBLE_SKIN.mySticker : BUBBLE_SKIN.charSticker;
@@ -3332,8 +3338,8 @@ function ChatThread({
       }
     }, "SYSTEM RESPONSE",
       // OOC 回复（system 形态·turnId ooc_ 开头）也给删除口（和 OOC 提问一起清干净）
-      (onDeleteMessages && typeof isOocMsg === "function" && isOocMsg(m)) ? h("button", {
-        onClick: () => window.confirm("删除这条 OOC 记录？") && onDeleteMessages([i]),
+      (onDeleteMessages && isOocRecord(m)) ? h("button", {
+        onClick: e => { e.stopPropagation(); if (window.confirm("删除这条 OOC 记录？")) onDeleteMessages([i]); },
         className: "active:opacity-50",
         style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 10, letterSpacing: 0 }
       }, "✕ 删除") : null));
@@ -5864,7 +5870,13 @@ function OffCard({ m, t, char, meProfile, members, onEdit, onReroll, onDelete, o
   useEffect(() => { setTxt(m.content || ""); }, [m.content]);
   if (m.kind === "ooc") {
     const isU = m.role === "user";
-    return h("div", { className: "my-2 flex " + (isU ? "justify-end" : "justify-start") },
+    return h("div", { className: "my-2 flex items-start gap-1.5 " + (isU ? "justify-end" : "justify-start") },
+      editable && onDelete ? h("button", {
+        onClick: () => window.confirm("删除这条 OOC 记录？") && onDelete(m.id),
+        className: "active:opacity-50 shrink-0",
+        title: "删除 OOC",
+        style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.55, padding: "4px 3px 0", order: isU ? -1 : 1 }
+      }, "✕") : null,
       h("div", { style: { maxWidth: "84%", padding: "8px 12px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.fog, background: t.bg, border: "1px dashed " + t.line, borderRadius: 10, whiteSpace: "pre-wrap" } }, "OOC · " + m.content));
   }
   const isUser = m.role === "user";
