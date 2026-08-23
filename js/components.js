@@ -1240,14 +1240,15 @@ function Home({
     loungeapp: { kind: "app", zh: "三席会客", G: GLounge },
     theater: { kind: "app", zh: "小剧场", G: window.GTheater || GDream },
     impression: { kind: "app", zh: "月度印象", G: window.GImpression || GDream },
-    assistant: { kind: "app", zh: "帮手", G: window.GAssist || GDuty }
+    assistant: { kind: "app", zh: "帮手", G: window.GAssist || GDuty },
+    stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty }
   };
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "lifestyle", "phone", "w_music", "w_map"],
     ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
-    ["lore", "memlib", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex"],
+    ["lore", "memlib", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
     ["capsule", "w_muyu", "w_weather", "w_wheel"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
@@ -5424,6 +5425,40 @@ function OfflineStylePromptPreview({ style, t }) {
     style && style.imported ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint, marginBottom: 5 } }, "本地导入 · " + prompt.length + " 字 · 只在选中时注入") : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap" } }, shown || "不额外指定文风，由角色本身的人设决定叙事口吻。"));
 }
+// 「吃入文风预设」小节。线下单人和群线下共用一份——两边这块以前各写各的，
+// 一改就得改两遍还容易只改一边（自定义文风那块就吃过这个亏）。
+// 开关默认关：不开＝下面那套原本的文风预选照旧生效，一个字都不变。
+function OfflineStylePresetSection({ t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }) {
+  const SP = window.StylePresets;
+  const presets = SP ? SP.list() : [];
+  const cur = presetId && SP ? SP.byId(presetId) : null;
+  const body = SP && cur ? SP.textFor(cur, "offline", {}) : "";
+  return h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
+    h("div", { className: "flex items-center justify-between" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "吃入文风预设"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+          "开：这一局改用预设台里搭好的那份写法。关：还是用下面的文风预选，和以前完全一样。")),
+      h(Toggle, { on: !!presetOn, onChange: () => setPresetOn(v => !v) })),
+    presetOn
+      ? h("div", { className: "mt-3" },
+          presets.length
+            ? h("div", { className: "flex flex-wrap gap-2 mb-2" }, presets.map(p => h("button", {
+                key: p.id, onClick: () => setPresetId(p.id), className: "px-3 py-1.5",
+                style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + (presetId === p.id ? t.ink : t.line), background: presetId === p.id ? t.ink : "transparent", color: presetId === p.id ? t.bg2 : t.sub }
+              }, p.name)))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.6 } }, "预设台里还一条都没有——先去搭一条。"),
+          cur
+            ? h("div", { className: "p-3", style: { background: t.bg, borderRadius: 8, border: "1px solid " + t.line } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 4 } },
+                  (cur.mods || []).length + " 个模块" + (String(cur.free || "").trim() ? " ＋ 手写" : "") + " · 共 " + String(body).replace(/\s/g, "").length + " 字"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap", maxHeight: 110, overflow: "hidden" } }, body || "（这条预设是空的）"))
+            : null)
+      : null,
+    h("button", { onClick: () => onOpenStyleLab && onOpenStyleLab(), className: "mt-3 px-3 py-1.5 active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.tint } },
+      "去文风预设台 →"));
+}
 function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDensity, compact }) {
   const row = (label, value, setter, options) => h("div", { className: compact ? "mb-3" : "mb-4" },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: .6, color: t.fog, marginBottom: 7 } }, label),
@@ -5465,7 +5500,8 @@ function OfflineMode({
   onExit,
   onOpenState,
   schedNow,
-  onOpenSched
+  onOpenSched,
+  onOpenStyleLab
 }) {
   const t = useTheme();
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传 onExit 就退回线上（兜底）
@@ -5474,6 +5510,8 @@ function OfflineMode({
   const [view, setView] = useState(activeSession ? "live" : "setup");
   const [opening, setOpening] = useState("");
   const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : "default");
+  const [presetOn, setPresetOn] = useState(() => activeSession ? !!activeSession.presetOn : !!(settings && settings.presetOn));
+  const [presetId, setPresetId] = useState(() => (activeSession && activeSession.presetId) || (settings && settings.presetId) || "");
   const [input, setInput] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoImg, setPhotoImg] = useState("");
@@ -5514,7 +5552,7 @@ function OfflineMode({
   const offlineSetSheet = () => setOpen && onSaveSettings && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings({ maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { style: { marginTop: 14, padding: "9px 11px", borderRadius: 9, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10.5, lineHeight: 1.65, color: t.fog } },
       h("div", null, ".87 immersive fine-grained editor · 仅内存诊断"),
       registerTelemetry
@@ -5603,6 +5641,7 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：角色会替你写动作、推动走向（如「你摇了摇头说…」）；关：只写它自己。")),
       h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
+    h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
     styleSection,
     exampleSection);
   const scroller = useRef(null);
@@ -5698,7 +5737,7 @@ function OfflineMode({
 
   const enter = () => {
     onSaveSettings && onSaveSettings({ tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity });
-    onStart({ opening: opening.trim(), styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
+    onStart({ opening: opening.trim(), styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
     setView("live");
   };
   const send = () => {
@@ -5812,11 +5851,13 @@ function OfflineMode({
       const key = sess.styleKey || "default";
       const own = (sess.stylePrompt || "").trim();
       const named = [...OFFLINE_STYLES, ...customStyles].find(x => x.key === key);
-      const on = !!(own || (named && named.prompt));
+      const usingPreset = !!(sess.presetOn && sess.presetId && window.StylePresets && window.StylePresets.byId(sess.presetId));
+      const presetName = usingPreset ? window.StylePresets.byId(sess.presetId).name : "";
+      const on = usingPreset || !!(own || (named && named.prompt));
       return h("div", { onClick: () => setSetOpen(true), className: "shrink-0 w-full flex items-center gap-1.5 px-4 pb-1 active:opacity-60" },
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog } }, "STYLE"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.sub : t.fog } },
-          on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
+          usingPreset ? presetName + "（预设台）" : on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
     })(),
     offlineSetSheet(),
     modeOpen && sheet("切换", h("div", { className: "space-y-1" },
@@ -5993,7 +6034,8 @@ function GroupOfflineMode({
   onExit,
   settings,
   onSaveSettings,
-  onOpenMemberState
+  onOpenMemberState,
+  onOpenStyleLab
 }) {
   const t = useTheme();
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传就退回线上群（兜底）
@@ -6017,6 +6059,8 @@ function GroupOfflineMode({
   const [view, setView] = useState(activeSession ? "live" : "setup");
   const [opening, setOpening] = useState("");
   const [styleKey, setStyleKey] = useState(activeSession && activeSession.styleKey ? activeSession.styleKey : "default");
+  const [presetOn, setPresetOn] = useState(() => activeSession ? !!activeSession.presetOn : !!(settings && settings.presetOn));
+  const [presetId, setPresetId] = useState(() => (activeSession && activeSession.presetId) || (settings && settings.presetId) || "");
   const [input, setInput] = useState("");
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoImg, setPhotoImg] = useState("");
@@ -6121,7 +6165,7 @@ function GroupOfflineMode({
 
   const enter = () => {
     onSaveSettings && onSaveSettings({ tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity });
-    onStart({ opening: opening.trim(), styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
+    onStart({ opening: opening.trim(), styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } });
     setView("live");
   };
   const send = () => {
@@ -6218,7 +6262,7 @@ function GroupOfflineMode({
   const gBgSheet = setOpen && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
     h("div", { className: "flex items-center justify-between mb-4" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "场景背景图"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
     h("div", { className: "flex items-center gap-3" },
@@ -6256,6 +6300,7 @@ function GroupOfflineMode({
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：在场角色可以替你写动作、反应并推动剧情；关：只写他们自己和环境，不替你决定行动或台词。")),
       h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
+    h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
     styleSection,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
   const directorNotes = activeSession && (activeSession.customNotes || []).length > 0 && h("div", { className: "shrink-0 mx-3 mt-2 p-3", style: { background: "rgba(255,255,255,.86)", border: "1px solid " + t.line, borderRadius: 10, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", maxHeight: 150, overflowY: "auto" } },
@@ -6287,11 +6332,13 @@ function GroupOfflineMode({
       const key = sess.styleKey || "default";
       const own = (sess.stylePrompt || "").trim();
       const named = [...OFFLINE_STYLES, ...customStyles].find(x => x.key === key);
-      const on = !!(own || (named && named.prompt));
+      const usingPreset = !!(sess.presetOn && sess.presetId && window.StylePresets && window.StylePresets.byId(sess.presetId));
+      const presetName = usingPreset ? window.StylePresets.byId(sess.presetId).name : "";
+      const on = usingPreset || !!(own || (named && named.prompt));
       return h("div", { onClick: () => setSetOpen(true), className: "shrink-0 w-full flex items-center gap-1.5 px-4 pb-1 active:opacity-60" },
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".12em", color: t.fog } }, "STYLE"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.sub : t.fog } },
-          on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
+          usingPreset ? presetName + "（预设台）" : on ? (named ? named.name : "自定义") + (named && named.custom ? "（自定义）" : "") : "未设文风 · 走通用叙事"));
     })(),
     modeOpen && sheet("切换", h("div", { className: "space-y-1" },
       h("button", { onClick: () => { setModeOpen(false); onClose(); }, className: "w-full text-left py-3 px-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink } }, "💬 群聊（回到线上群）"),

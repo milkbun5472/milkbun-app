@@ -31,16 +31,19 @@ test("自定义文风查得到——它不在内置表里", () => {
 });
 
 test("空串不许堵住按 key 回退", () => {
-  // 源码层面：两处都要用真值判断，不是 != null
-  const hits = engine.match(/const styleText = session\.stylePrompt \? session\.stylePrompt : offlineStyleText\(session\.styleKey\);/g) || [];
-  assert.equal(hits.length, 2, "单人线下与群线下各一处");
-  assert.ok(!/session\.stylePrompt != null \? session\.stylePrompt/.test(engine), "旧的 != null 判断不许留着");
-  assert.match(engine, /"" != null 成立会把按 key 回退整个堵死/, "为什么改，得写在代码里");
+  // v55.52 起两处共用 offlineResolveStyleText（文风预设台要在同一个地方分岔），
+  // 但真值判断这条坑必须原样守住：空串 stylePrompt 要能落回按 key 查。
+  const fn = engine.slice(engine.indexOf("function offlineResolveStyleText"));
+  const body = fn.slice(0, fn.indexOf("\n}") + 2);
+  assert.match(body, /return s\.stylePrompt \? s\.stylePrompt : offlineStyleText\(s\.styleKey\);/);
+  assert.ok(!/!= null/.test(body), "旧的 != null 判断不许留着");
+  assert.equal((engine.match(/const styleText = offlineResolveStyleText\(session, \{/g) || []).length, 2, "单人线下与群线下各一处");
+  assert.ok(!/session\.stylePrompt != null \? session\.stylePrompt/.test(engine));
 });
 
 test("文风真的会被拼进提示词", () => {
   // v55.41 起前面多了一段优先级声明，所以只钉「以 styleText 结尾、条件是 styleText」
-  assert.equal((engine.match(/\(styleText \? "[\s\S]{0,600}?" \+ styleText : ""\)/g) || []).length, 2);
+  assert.equal((engine.match(/\(styleText \? "\\n\\n" \+ window\.StylePresets\.wrap\(styleText\) : ""\)/g) || []).length, 2);
 });
 
 // —— reroll ——
@@ -70,12 +73,16 @@ test("单人与群 reroll 都换成新的摘要函数", () => {
 // 正文里还留着「铁钳似的」这种明喻。
 
 test("自定义文风要压过内置叙事准则——它俩本来就打架", () => {
-  assert.equal((engine.match(/【文风要求 · 文体层最高优先】/g) || []).length, 2, "单人与群线下各一处");
-  assert.match(engine, /在【句式、意象、比喻、格式、节奏、禁用词、段落安排】这些【怎么写】的事情上，它高于上文任何通用叙事准则/);
+  // v55.52 起这段外壳只剩一份，住在 style-presets.js（以前 engine 里手抄了两遍）
+  const wrap = fs.readFileSync(path.join(__dirname, "..", "js/style-presets.js"), "utf8");
+  assert.equal((wrap.match(/【文风要求 · 文体层最高优先】/g) || []).length, 1);
+  assert.equal((engine.match(/【文风要求 · 文体层最高优先】/g) || []).length, 0, "engine 里不许再留手抄副本");
+  assert.equal((engine.match(/window\.StylePresets\.wrap\(styleText\)/g) || []).length, 2, "单人与群线下各一处");
+  assert.match(wrap, /在【句式、意象、比喻、格式、节奏、禁用词、段落安排】这些【怎么写】的事情上，它高于上文任何通用叙事准则/);
   // 拿她那条真实冲突当例子，模型才知道该听谁的
-  assert.match(engine, /它若禁止一切明喻，那就一个「像／似的／仿佛」都不许有，上文的「每段最多一次」不作数/);
+  assert.match(wrap, /它若禁止一切明喻，那就一个「像／似的／仿佛」都不许有，上文的「每段最多一次」不作数/);
   // 但硬规矩不许被文风带走
-  assert.match(engine, /人称、视角归属、场景与事实的连续性、不替用户做决定这些硬规矩不受它影响/);
+  assert.match(wrap, /人称、视角归属、场景与事实的连续性、不替用户做决定这些硬规矩不受它影响/);
 });
 
 test("长文风要在尾部重申，否则被前面几千字稀释", () => {

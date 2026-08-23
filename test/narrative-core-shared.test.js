@@ -46,7 +46,7 @@ test("三个开关各自管用", () => {
 
 test("小剧场两处正文都接上了底座", () => {
   assert.match(theater, /const sys = \[narrativeCore\(\{ intimate: true \}\),/, "演出");
-  assert.match(theater, /const sys = narrativeCore\(\{ intimate: true \}\) \+ "\\n\\n【谢幕】/, "谢幕戏");
+  assert.match(theater, /const sys = narrativeCore\(\{ intimate: true \}\) \+ \(spEnd \? "\\n\\n" \+ window\.StylePresets\.wrap\(spEnd\) : ""\) \+ "\\n\\n【谢幕】/, "谢幕戏");
   assert.equal((theater.match(/narrativeCore\(/g) || []).length, 2);
   // 手拼的旧清单不许留着，留着就等于又有一份会漂的配方
   assert.ok(!/\[ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME/.test(theater));

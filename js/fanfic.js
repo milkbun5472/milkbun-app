@@ -131,7 +131,16 @@
       return { id: "shared:" + s.key, label: s.name || "共享文风", text: s.prompt, shared: true };
     });
   }
-  function allStylePresets(cfg) { return (cfg.styles || []).concat(sharedStylePresets()); }
+  // 文风预设台（x_stylePresets）里搭好的预设。同人文本来就支持多选文风，所以不给它
+  // 另造一个「是否吃入」开关——勾上就是吃，不勾就是完全照旧。
+  function labStylePresets() {
+    if (!window.StylePresets) return [];
+    return (window.StylePresets.list() || []).map(function (p) {
+      const text = window.StylePresets.textFor(p, "fanfic", {});
+      return text ? { id: "preset:" + p.id, label: (p.name || "预设") + "（预设台）", text: text, lab: true } : null;
+    }).filter(Boolean);
+  }
+  function allStylePresets(cfg) { return (cfg.styles || []).concat(labStylePresets()).concat(sharedStylePresets()); }
   function styleTextForIds(cfg, ids) {
     ids = ids || [];
     return allStylePresets(cfg).filter(function (s) { return ids.indexOf(s.id) >= 0; }).map(function (s) { return s.text; }).filter(Boolean).join("\n\n");
@@ -1275,6 +1284,21 @@
               h("button", { onClick: function () { del(s.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, s.text));
         }) : (adding ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "还没有文风预设。")),
+
+        (function () {
+          const labs = labStylePresets();
+          if (!labs.length) return null;
+          return h("div", { style: { marginTop: 14 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "文风预设台 · 线下／小剧场／同人文共用"),
+            labs.map(function (s) {
+              const on = (cfg.activeStyleIds || []).indexOf(s.id) >= 0;
+              return h("button", { key: s.id, onClick: function () { toggle(s.id); }, className: "w-full text-left rounded-xl px-4 py-3 mb-2 active:opacity-75", style: { background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.accent : t.line) } },
+                h("div", { className: "flex items-center justify-between" },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, s.label),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.accent : t.fog } }, on ? "本次默认启用" : "点按启用")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, String(s.text || "").slice(0, 180) + (String(s.text || "").length > 180 ? "…" : "")));
+            }));
+        })(),
 
         sharedStyles.length ? h("div", { style: { marginTop: 14 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "共享本地文风 · 线下与同人文都可用"),

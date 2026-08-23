@@ -438,6 +438,7 @@
           ? offlineRegisterTransition({ msgs: allMsgs(line).filter(m => m.role !== "photo").concat(text ? [{ role: "user", content: text }] : []) })
           : { inputBeat: false, active: false };
         const selfRevise = !!(rt.inputBeat && rt.active);
+        const spBlock = window.StylePresets.blockFor(line, "theater", { uName: uName, charName: char.name });
         const sys = [narrativeCore({ intimate: true }),
           "【小剧场·if 线(独立平行时空)】这是一场与主线完全无关的平行扮演:不引用主线聊天里发生过的事,也不提及这是扮演。世界观、身份以下面的设定为准。",
           "【角色人设(性格与声纹的根基,保持不变)】\n" + (char.persona || char.name),
@@ -449,9 +450,10 @@
           note.trim() ? "【临时导演提示(本拍务必遵循;这是幕后指示,绝不在正文中提及它的存在)】" + note.trim() : null,
           dice ? "【剧场骰子】本拍必须自然引入一个出乎双方意料的外部意外(第三者闯入/环境突变/时限出现/被撞破…):与世界观相容、落在具体行动上,并让它实际搅动当前局面。" : null,
           "【对方主权】" + uName + " 的行动、反应和台词永远由 Ta 本人输入:你只能写「我」的言行心理与 NPC/环境,绝不替『你』做动作、说台词、下决定——哪怕剧情顺手也不行,写到需要 Ta 行动的位置就停。",
-          "【节拍】一次回复只演【一拍】:你的一个反应、至多一次行动和随之的话;演到需要 " + uName + " 回应、选择或行动的位置就自然停下。不把几个情绪阶段压进同一拍(震惊、想通、劝阻、逼问要分几个来回演),不替 Ta 说出 Ta 没说出口的意图,也不自问自答替 Ta 推进。一拍限制的是【剧情推进量】,不是篇幅——同一拍之内照样要写足。",
-          "【镜头不随人物收缩】角色的克制是【台词】的克制,不是【镜头】的克制。他话少、冷淡、不外露,恰恰意味着叙述要接住更多:说这句话之前先做完的那个动作、停顿的那一下、手上正在做的事、他注意到却没提起的东西、身体先于话给出的反应。绝不能因为他是个冷淡的人就把段落缩成「我看着你。」——那不是克制,那是没写;他不说的部分必须在纸面上有分量。每句台词旁边至少要有一处具体的、看得见的动作或环境细节;但也不许拿华丽形容词和情绪副词充数,要的是具体物件与动作,不是修饰。",
-          "【成段,不要一句一行】把动作、感觉、台词织进【连续的段落】里,一段通常三五句连着写;绝不要每写一句就换行空一段——一句一段会让整场戏看起来支离破碎、像剧本提纲而不是小说。「我看着你。」「我停了一下。」这种单句尤其不许独立成段,要么并进前后的叙述里,要么就删掉。只有真正需要一个停顿感的关键处,才允许一句独立成段,一整拍里至多用一次。\n【别学历史的排版】前文里如果全是短句短段,那是旧毛病,不是范例:照上面的要求写,不要模仿它。",
+          window.StylePresets.SM_BEAT(uName),
+          window.StylePresets.SM_CAMERA,
+          window.StylePresets.SM_PARAGRAPH,
+          spBlock ? window.StylePresets.wrap(spBlock) : null,
           "【输出】用第一人称『我』完全代入「" + char.name + "」,称对方为『你』,对话用引号,写成连续场景正文;篇幅由【场景需要】决定,不由角色话多话少决定——冷淡的人不等于短的段落。只输出 JSON:{\"scene\":\"场景正文\",\"goalReached\":false,\"goalFailed\":false,\"goalNote\":null}(达成时 goalReached=true;不可逆失败时 goalFailed=true;goalNote 一句话指出达成或失败的瞬间)",
           // 跨进明确场景时,和主线线下走同一套「初稿→自编辑去认证句」——以前这套只焊在
           // 单聊线下里,小剧场拿不到,于是同样的内容在这边就滑回八股(Lisa 2026-08-18)
@@ -562,7 +564,8 @@
       try {
         const char = charOf(line);
         const recent = allMsgs(line).slice(-14).map(m => (m.role === "user" ? uName : char.name) + ":" + m.content).join("\n").slice(-3000);
-        const sys = narrativeCore({ intimate: true }) + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\"}";
+        const spEnd = window.StylePresets.blockFor(line, "theater", { uName: uName, charName: char.name });
+        const sys = narrativeCore({ intimate: true }) + (spEnd ? "\n\n" + window.StylePresets.wrap(spEnd) : "") + "\n\n【谢幕】为这条 if 线写终场戏:用第一人称『我』代入「" + char.name + "」,顺着已发生的剧情把这条线收在一个有余味的落点——不强行大团圆、不总结陈词,最后一拍落在具体的动作或一句话上。只输出 JSON:{\"scene\":\"终场正文\"}";
         const user = "【设定】" + line.setting + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2600, timeout: 150000 });
         const p = parseTheaterPayload(raw);
@@ -941,6 +944,15 @@
              h("div", { key: "df", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 7 } },
                h("span", { style: S.lbl }, "难度"),
                ["easy", "normal", "hard"].map(k => h("button", { key: k, onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, difficulty: k })), style: S.btn((line.difficulty || "normal") === k) }, DIFF[k].name))),
+             h("div", { key: "sp", style: { marginBottom: 7 } },
+               h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+                 h("span", { style: S.lbl }, "文风预设"),
+                 h("button", { onClick: () => props.onOpenStyleLab && props.onOpenStyleLab(), style: S.btn(false) }, "去预设台")),
+               h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+                 [h("button", { key: "__off", onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, presetOn: false })), style: S.btn(!line.presetOn) }, "不吃(照旧)")]
+                   .concat((window.StylePresets.list() || []).map(p => h("button", { key: p.id,
+                     onClick: () => update(list => list.map(l => l.id !== line.id ? l : { ...l, presetOn: true, presetId: p.id })),
+                     style: S.btn(!!line.presetOn && line.presetId === p.id) }, p.name))))),
              h("div", { key: "gl", style: S.lbl }, "各轮目标"),
              line.rounds.map((r, i) => h("div", { key: r.id, style: Object.assign({}, S.txt, { marginBottom: 3 }) }, "第" + (i + 1) + "轮:" + r.goal + (r.goalDone ? " ✓" : r.failed ? " ✗失败" : i === line.rounds.length - 1 ? "(进行中)" : "(未完)"))),
              h("div", { key: "bt", style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },

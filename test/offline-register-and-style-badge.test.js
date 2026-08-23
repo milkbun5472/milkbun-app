@@ -65,5 +65,7 @@ test("线下顶栏摆出当前文风，没挂上一眼就看见", () => {
 test("判「有没有文风」要认两条路：session 自带的与按 key 查到的", () => {
   assert.match(comp, /const own = \(sess\.stylePrompt \|\| ""\)\.trim\(\);/);
   assert.match(comp, /const named = \[\.\.\.OFFLINE_STYLES, \.\.\.customStyles\]\.find\(x => x\.key === key\);/);
-  assert.match(comp, /const on = !!\(own \|\| \(named && named\.prompt\)\);/);
+  assert.match(comp, /const on = usingPreset \|\| !!\(own \|\| \(named && named\.prompt\)\);/);
+  // v55.52：吃预设台那份时也算「有文风」，别再报「未设文风」
+  assert.match(comp, /const usingPreset = !!\(sess\.presetOn && sess\.presetId && window\.StylePresets/);
 });

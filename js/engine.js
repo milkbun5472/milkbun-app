@@ -3002,6 +3002,17 @@ function offlineStyleText(key) {
     return c && c.prompt ? String(c.prompt) : "";
   } catch (e) { return ""; }
 }
+// 这一局到底喂哪份文风。开了「吃入文风预设」就走预设台那套（模块按用户排的顺序拼），
+// 没开就照旧：session 自带的 stylePrompt 优先，否则按 styleKey 回落到内置/自定义文风。
+// 预设台是新东西，开关默认关着——不开的人一个字都感觉不到变化。
+function offlineResolveStyleText(session, ctx) {
+  const s = session || {};
+  if (s.presetOn && s.presetId && window.StylePresets) {
+    const txt = window.StylePresets.blockFor(s, "offline", ctx || {});
+    if (txt) return txt;
+  }
+  return s.stylePrompt ? s.stylePrompt : offlineStyleText(s.styleKey);
+}
 function offlineTasteBlock(taste, group) {
   const t = taste || {};
   const pace = {
@@ -3272,9 +3283,7 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
-  // ⚠️用真值判断，不是 != null：session 里存着空串时（开局时还没选文风、
-  // 或换文风走的是不写 stylePrompt 的那条路），"" != null 成立会把按 key 回退整个堵死。
-  const styleText = session.stylePrompt ? session.stylePrompt : offlineStyleText(session.styleKey);
+  const styleText = offlineResolveStyleText(session, { uName: userName, charName: char.name });
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const isDigital = !!ctx.notRoleplay;
@@ -3324,12 +3333,12 @@ async function generateOffline(p, ctx, session) {
     // 读懂对方这句话在做什么:原先焊死在 ReplyPacing.guidance 里,只有线上单聊吃得到,
     // 于是同一个角色在线下/群聊里少了这层理解,显得不像同一个人(Lisa 2026-08-18)
     (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") +
-    offlineTasteBlock(session.taste, false) +
     offlineStyleExamplesBlock(ctx.styleExamples, char.name) +
     singleCotBlock +
     "\n\n【当前场景：线下面对面】你和" + userName + "此刻身处同一个地方，面对面相处，不是隔着手机聊天。完全代入「" + char.name + "」，人物称谓严格服从本场的【叙事人称】设置。把当前互动写成连续的场景正文。动作、对话、心理、环境与感官都可以自然出现，但只使用这一刻真正需要的部分，不要求齐全，也不为了丰富正文额外安排。保持已经成立的地点、人物位置、物件、状态和事件连续；自然推进，不提前跳到尚未发生的剧情。对话使用引号。" + lenGuide + "。" +
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
-    (styleText ? "\n\n【文风要求 · 文体层最高优先】以下这份文风由用户亲自设定，在【句式、意象、比喻、格式、节奏、禁用词、段落安排】这些【怎么写】的事情上，它高于上文任何通用叙事准则——两边冲突时一律以它为准（例如它若禁止一切明喻，那就一个「像／似的／仿佛」都不许有，上文的「每段最多一次」不作数）。\n但它管的只是文体：人称、视角归属、场景与事实的连续性、不替用户做决定这些硬规矩不受它影响。\n\n" + styleText : "") +
+    (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
+    offlineTasteBlock(session.taste, false) +
     narrativeDirective(session.narr) +
     (minimumSceneChars ? "\n【最终正文硬下限】用户设置的是最低值，不是建议：最终 scene 必须至少有 " + minimumSceneChars + " 个非空白可见字符。用更多真正发生的行动、后果、判断、对话和有效场景推进达到下限；不堆形容词、不加多余比喻、不反复认证同一种感受、不把一个动作逐帧注水。遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
@@ -3605,9 +3614,7 @@ function salvageOfflineGroupProse(raw, members) {
 async function generateOfflineGroup(p, ctx, session) {
   const members = ctx.members || [];
   const userName = (ctx.profile && ctx.profile.name) || "用户";
-  // ⚠️用真值判断，不是 != null：session 里存着空串时（开局时还没选文风、
-  // 或换文风走的是不写 stylePrompt 的那条路），"" != null 成立会把按 key 回退整个堵死。
-  const styleText = session.stylePrompt ? session.stylePrompt : offlineStyleText(session.styleKey);
+  const styleText = offlineResolveStyleText(session, { uName: userName, charName: (members[0] && members[0].name) || "在场角色" });
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
@@ -3650,7 +3657,6 @@ async function generateOfflineGroup(p, ctx, session) {
     "\n\n" + PERSONA_REGISTER_ANCHOR +
     (typeof ReplyPacing !== "undefined" ? "\n\n" + ReplyPacing.reading() : "") +
     groupGrowthRule +
-    offlineTasteBlock(session.taste, true) +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +
     memberExampleText +
@@ -3665,7 +3671,8 @@ async function generateOfflineGroup(p, ctx, session) {
       ? "\n\n【各成员最近在别处（和用户的私聊 / 单人线下）发生的事·带时间戳】\n下面是每个成员最近单独和用户之间发生的事，按方括号里的真实时间理解它和此刻这场线下的先后顺序，自然接得上——比如某成员昨晚私聊里答应过的事、刚在单人线下经历的情绪，别当没发生过、也别和这些矛盾。\n⚠️隐私铁律：这些是【该成员和用户之间私下】的事，标〔仅本人知道〕——别的成员并不知情。绝不许让别的成员在群线下里提及、点破、或据此反应（吃醋/拆穿/打趣），除非本人自己在场景里说出来。\n" + ctx.memberRecent.map(mr => "〔仅「" + mr.name + "」本人知道〕\n" + mr.lines).join("\n\n")
       : "") +
     "\n\n【当前场景：线下面对面 · 多人同处】用户和上述角色此刻身处同一个地方，面对面相处（不是隔着手机的群聊）。以沉浸的第三人称叙事推进这一刻；动作、神态、心理、环境与对话都是可用镜头，不是每个 beat 必须交齐的栏目。多个角色会自然地行动、开口、互相接话、跑题调侃或起冲突，像真实的多人相处那样，不是轮流回答用户；没有反应必要的人可以安静在场。称用户为『你』。对话用引号包住。自然推进、不出戏、不提前跳到未发生的剧情。" +
-    (styleText ? "\n\n【文风要求 · 文体层最高优先】以下这份文风由用户亲自设定，在【句式、意象、比喻、格式、节奏、禁用词、段落安排】这些【怎么写】的事情上，它高于上文任何通用叙事准则——两边冲突时一律以它为准（例如它若禁止一切明喻，那就一个「像／似的／仿佛」都不许有，上文的「每段最多一次」不作数）。\n但它管的只是文体：人称、视角归属、场景与事实的连续性、不替用户做决定这些硬规矩不受它影响。\n\n" + styleText : "") +
+    (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
+    offlineTasteBlock(session.taste, true) +
     narrativeDirective(session.narr) +
     (session.minWords ? "\n【篇幅要求】每个 beat 的 scene 都充分展开，整段尽量写到约 " + session.minWords + " 字：靠【更多具体的动作、细节、对话、你来我往的推进】撑够篇幅——【绝不许为凑字数堆形容词／加多余比喻／写空转大词／反复渲染同一种情绪／把句子硬拉长注水】。字数靠内容涨、不靠华丽；真没那么多具体可写时，宁可短一点也别注水凑成八股。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +

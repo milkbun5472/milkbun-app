@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.51";
+const APP_VERSION = "v55.52";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3432,6 +3432,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       startTs: Date.now(),
       endTs: null,
       styleKey: opts.styleKey || "default",
+      presetOn: !!opts.presetOn,
+      presetId: opts.presetId || "",
       stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
       taste: opts.taste || osTaste(charId),
       customNotes: [],
@@ -3526,7 +3528,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 线下进行中随时切换文风（不同剧情段落用不同笔调）
   const offlineSetStyle = (charId, patch) => {
-    pOffline(charId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", taste: patch.taste || s.taste || osTaste(charId) } : s));
+    pOffline(charId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste(charId) } : s));
     toast("文风已切换 · 下次演绎生效");
   };
   const endOffline = async charId => {
@@ -3880,6 +3882,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       startTs: Date.now(),
       endTs: null,
       styleKey: opts.styleKey || "default",
+      presetOn: !!opts.presetOn,
+      presetId: opts.presetId || "",
       stylePrompt: opts.stylePrompt != null ? opts.stylePrompt : "",
       taste: opts.taste || osTaste("g_" + groupId),
       customNotes: [],
@@ -3941,7 +3945,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     await genGroupOfflineFrom(group, { ...sess, msgs: truncated, rerollAvoid });
   };
   const groupOfflineSetStyle = (groupId, patch) => {
-    pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
+    pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, styleKey: patch.styleKey, stylePrompt: patch.stylePrompt != null ? patch.stylePrompt : "", presetOn: !!patch.presetOn, presetId: patch.presetId || "", taste: patch.taste || s.taste || osTaste("g_" + groupId) } : s));
     toast("文风已切换 · 下次演绎生效");
   };
   const groupOfflineAddNote = (groupId, note) => {
@@ -4015,6 +4019,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setActiveGroup(null);
     setEditingChar(null);
     setStateCardOpen(false);
+  };
+  // 文风预设台：线下浮层 / 小剧场 / 同人文都能跳进去，返回时回到原来那一处。
+  // 线下是 z-20 的浮层、不是 screen，跳之前得先把浮层收掉，回来时再把它挂回去。
+  const styleLabRef = useRef(null);
+  const goStyleLab = () => {
+    styleLabRef.current = { screen: screen, charId: offlineChar && offlineChar.id, groupId: offlineGroup && offlineGroup.id };
+    setOfflineChar(null); setOfflineGroup(null); setScreen("stylelab");
+  };
+  const backFromStyleLab = () => {
+    const r = styleLabRef.current || {};
+    styleLabRef.current = null;
+    const back = r.screen && r.screen !== "stylelab" ? r.screen : "home";
+    setScreen(back);
+    if (r.charId) { const c = characters.find(x => x.id === r.charId); if (c) setOfflineChar(c); }
+    else if (r.groupId) { const g = groups.find(x => x.id === r.groupId); if (g) setOfflineGroup(g); }
   };
   // 一起听：记住从哪儿进来的 → 退出/悬浮球点回时回到原处（如聊天时打开悬浮切歌，切完回聊天）
   const listenReturnRef = useRef("home");
@@ -10854,7 +10873,16 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     toast: toast,
+    onOpenStyleLab: goStyleLab,
     onBack: () => setScreen("home")
+  });else if (screen === "stylelab") body = h(StyleLabApp, {
+    // 文风预设台：一处生产，线下/小剧场/同人文三处消费。只在这里改预设本身，
+    // 三处吃不吃各自有开关；开关关着＝行为和以前一模一样。
+    active: offlineActive,
+    characters: characters,
+    profile: profile,
+    toast: toast,
+    onBack: backFromStyleLab
   });else if (screen === "assistant") body = h(AssistantApp, {
     // 帮手：改文风/人设/外貌、往记忆库加条目、查「为什么没生效」。
     // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。
@@ -11264,6 +11292,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onExit: () => { setOfflineChar(null); setScreen("messages"); }, // 顶栏「离开」：直接退回聊天列表（她要的：别再退两次）
     onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: schedNowBriefFor(offlineChar),
+    onOpenStyleLab: goStyleLab,
     onOpenSched: () => { setSelSched(offlineChar.id); setOfflineChar(null); setScreen("lifestyle"); } // 离开线下浮层→跳到日程（线下浮层是 z-20 会盖住日程屏，得先离开）
   }), offlineGroup && h(GroupOfflineMode, {
     group: offlineGroup,
@@ -11288,6 +11317,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onEnd: () => endGroupOffline(offlineGroup.id),
     onClose: () => setOfflineGroup(null),                        // 下拉「群聊（回线上群）」：只收线下浮层
     onExit: () => { setOfflineGroup(null); setScreen("messages"); }, // 顶栏「离开」：直接退回聊天列表
+    onOpenStyleLab: goStyleLab,
     settings: osFor("g_" + offlineGroup.id),
     onSaveSettings: patch => saveOfflineSettings("g_" + offlineGroup.id, patch),
     // 群线下点头像看心声：和线上群一样，只有开了互通(states 才共享/会变)才可点
