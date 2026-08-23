@@ -17,6 +17,7 @@
 
   const text = value => String(value == null ? "" : value).trim();
   const asArray = value => Array.isArray(value) ? value : [];
+  const contextAllows = message => !(root.ChatContextFilter && root.ChatContextFilter.isExcluded(message));
   const parse = (storage, key, fallback) => {
     try { const value = JSON.parse(storage.getItem(key)); return value == null ? fallback : value; }
     catch (_) { return fallback; }
@@ -42,7 +43,7 @@
   }
 
   function isRealMessage(message) {
-    if (!message || message.recalled || !text(message.content)) return false;
+    if (!message || !contextAllows(message) || message.recalled || !text(message.content)) return false;
     if (BLOCKED_KINDS.has(text(message.kind).toLowerCase())) return false;
     return ["user", "assistant", "char", "narration"].includes(text(message.role).toLowerCase());
   }
@@ -126,7 +127,7 @@
     const added = [];
     asArray(next).forEach(s => asArray(s && s.msgs).forEach(m => {
       const k = identity(m), left = counts.get(k) || 0;
-      if (left) counts.set(k, left - 1); else added.push(m);
+      if (left) counts.set(k, left - 1); else if (contextAllows(m)) added.push(m);
     }));
     return added;
   }
@@ -217,7 +218,7 @@
     const floor = Math.max(0, Number(afterTs) || 0);
     const eligible = asArray(rows).filter(row => {
       const at = Date.parse(row && row.occurred_at);
-      return !floor || (Number.isFinite(at) && at > floor);
+      return contextAllows({ content: row && row.content }) && (!floor || (Number.isFinite(at) && at > floor));
     });
     const picked = eligible.slice(-(Math.max(4, Math.min(60, Number(limit) || 30))));
     if (!picked.length) return "";
@@ -238,7 +239,7 @@
   // 双份计费，又因按 occurred_at 回插到历史中段而击穿 Anthropic 历史缓存。
   // 这里只裁模型请求的副本；聊天 UI、云账本和本地 x_chat 一个字不动。
   function modelHistory(messages) {
-    return asArray(messages).filter(message => !(
+    return asArray(messages).filter(message => contextAllows(message) && !(
       message && message.ledgerImported === true
       && message.syncKind === "continuity"
       && ["cc", "stackchan"].includes(text(message.crossSource))

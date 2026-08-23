@@ -2,7 +2,9 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.24";
+const APP_VERSION = "v55.26";
+// 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
+const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
 // 固定 id 让同一个人能跨帖子回来；boards/voice 只约束公开发言习惯。
 const FORUM_NPC_REGISTRY = [
@@ -432,7 +434,7 @@ function App() {
     setGazeSeedBusy(true);
     try {
       const uN = profile.name || "用户";
-      const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
+      const recent = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40).map(m => (m.role === "user" ? uN : char.name) + ":" + m.content).join("\n").slice(-6000);
       const user = "【你的人设】\n" + (char.persona || char.name) + "\n\n【当前对 " + uN + " 的好感度】" + Math.round(affOf(char.id)) + "/100\n\n【长期记忆】\n" + String(memories[char.id] || "(还没有)").slice(0, 3000) + "\n\n【最近聊天】\n" + (recent || "(还没聊过)");
       const raw = await callAI(p, window.Gaze.seedSpec(uN), [{ role: "user", content: user }], { maxTokens: 4000, timeout: 150000 });
       const parsed = extractJSON(raw);
@@ -958,13 +960,15 @@ function App() {
   const queueLedger = (threadType, threadId, messages, group, targetCharId) => {
     try {
       if (!window.ChatLedgerShadow) return;
+      const safeMessages = (Array.isArray(messages) ? messages : []).filter(contextAllowsMessage);
+      if (!safeMessages.length) return;
       // 私聊/单人线下按实际角色逐行留底；这是 App 自己的灾备日志，
       // 不代表 CC 可读其他角色。MCP 端仍由唯一 engineerEyes/char_id 硬隔离。
       const y = ledgerYanqiu(), cid = targetCharId || (y && y.id);
       if (!cid) return;
       const context = { charId: String(cid), threadType, threadId };
       if (group) { context.groupMemberIds = group.memberIds || []; context.groupName = group.name || ""; }
-      setTimeout(() => { try { window.ChatLedgerShadow.enqueue(context, messages); } catch (e) {} }, 0);
+      setTimeout(() => { try { window.ChatLedgerShadow.enqueue(context, safeMessages); } catch (e) {} }, 0);
     } catch (e) {}
   };
   useEffect(() => {
@@ -1311,12 +1315,12 @@ function App() {
     chatsRef.current = { ...p, [id]: n };
     // 未读红点：新增的角色消息若此刻没在看这个聊天，累加未读条数（推到微任务里，别在 reducer 里改别的 state）
     if (n.length > pl.length) {
-      const ledgerAdded = n.slice(pl.length);
+      const ledgerAdded = n.slice(pl.length).filter(contextAllowsMessage);
       queueLedger("private", id, ledgerAdded, null, id);
       ledgerAdded.forEach(m => observeSomatic(id, m, m && m.ledgerKey ? "cc_ledger" : "private", "symbolic"));
       // 旁白是场景事实，不是 Lisa 亲口说的话；兼容旧版曾误存成 role=user+kind=narration 的记录。
       n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "narration" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
-      if (n.slice(pl.length).some(m => m && (m.role === "user" || m.role === "assistant") && m.content)) setTimeout(() => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.scheduleAfterglow(id, n, moods[id], Date.now()); } catch (e) {} }, 0);
+      if (ledgerAdded.some(m => m && (m.role === "user" || m.role === "assistant") && m.content)) setTimeout(() => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.scheduleAfterglow(id, n.filter(contextAllowsMessage), moods[id], Date.now()); } catch (e) {} }, 0);
       const added = n.slice(pl.length).filter(m => m && m.role === "assistant" && m.kind !== "system" && m.kind !== "silence").length;
       const viewing = viewRef.current.screen === "thread" && viewRef.current.charId === id;
       if (added > 0 && !viewing) setTimeout(() => bumpUnread(id, added), 0);
@@ -1472,7 +1476,7 @@ function App() {
     // x_gchat 同样由 IDB 文字仓 + WAL 原子保护，避免 localStorage 满盘时每次开机重复找回。
     groupChatsRef.current = { ...p, [id]: n };
     if (n.length > pl.length) {
-      const ledgerAdded = n.slice(pl.length), group = groups.find(g => String(g.id) === String(id));
+      const ledgerAdded = n.slice(pl.length).filter(contextAllowsMessage), group = groups.find(g => String(g.id) === String(id));
       if (group) queueLedger("group", id, ledgerAdded, group);
       if (group) ledgerAdded.forEach(m => observeSomaticGroup(group, m, "group", "symbolic"));
       n.slice(pl.length).filter(m => m && m.role === "user" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
@@ -2288,7 +2292,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 审查修：resolveOpen 用 == null 判（空串/0 也是 resolveOpen 元素），且必须真有 text——
       // 否则 {"resolveOpen":""} 会漏进来变成一条 text="undefined" 的垃圾记忆入库上云
       // 抽取期间若用户 reroll 掉旧分支，旧结果即使稍后返回也不得落库。
-      const liveMessages = exOpts.liveMessages || (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m));
+      const liveMessages = exOpts.liveMessages || (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m) && contextAllowsMessage(m));
       const entries = items.filter(it =>
         it && it.resolveOpen == null && it.text &&
         window.MemoryExtractionGate && window.MemoryExtractionGate.inspect(it, msgs).formal &&
@@ -2325,7 +2329,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const extractMemForChar = async charId => {
     if (!bgActive) { toast("请先到设置配置后台便宜 API"); return; }
-    const msgs = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m)).slice(-40);
+    const msgs = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40);
     if (msgs.length < 2) { toast("对话太少，先多聊几句"); return; }
     startLane("c:" + charId);
     try { const n = await extractAndAddForChar(charId, msgs); toast(n ? "已抽取 " + n + " 条记忆" : "没有抽到新的记忆点（都已经记过了）"); }
@@ -2340,7 +2344,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const cnt = (memExtractCtrRef.current[charId] || 0) + 1;
     memExtractCtrRef.current[charId] = cnt;
     if (cnt % interval !== 0) return;
-    const all = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m));
+    const all = (chatsRef.current[charId] || []).filter(m => !m.recalled && m.kind !== "offlinelog" && !isOocMsg(m) && contextAllowsMessage(m));
     if (all.length < 4) return;
     // ⭐防溢出漏抽（她 2026-07-13 抓的账）：不用固定 24 窗，从「上次抽到的位置」之后的【全部新消息】都覆盖到——
     //   话痨一轮 17 条、间隔 3 轮攒 50+ 条时，窗口自动放大到够装（新消息+4 条重叠），封顶 120 防 prompt 过大。
@@ -2498,7 +2502,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return "";
   };
   // 近期对话文本（供世界书关键词命中）
-  const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled && !isOocMsg(m)).slice(-8).map(m => m.content).join("\n");
+  const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-8).map(m => m.content).join("\n");
   // 论坛/朋友圈/悄悄话共用的近期生活素材：不再只看私聊，角色亲历的群聊与线上/线下相处全部按时间混排。
   const ambientMaterialFor = (char, opts) => {
     if (!window.AmbientMaterial || !char) return "";
@@ -2731,7 +2735,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return lines.join("\n");
     })(),
     groupEcho: (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(char.id)).map(g => {
-      const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && m.kind !== "ooc" && m.role !== "system" && String(m.content || "").trim());
+      const msgs = (groupChatsRef.current[g.id] || []).filter(m => m && m.kind !== "ooc" && m.role !== "system" && contextAllowsMessage(m) && String(m.content || "").trim());
       if (!msgs.length) return "";
       const others = (g.memberIds || []).filter(id => id !== char.id).map(id => { const c = characters.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
       const lines = msgs.slice(-14).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? (profile.name || "用户") : (m.senderName || "某人")) + "：") + String(m.content).replace(/\s+/g, " ").slice(0, 60) + ((m.role === "user" || m.role === "narration") && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n");
@@ -2755,7 +2759,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 短期原文窗 = 最近 ctxN 条 ∪ 最近 recentDays 天（消死区：只要是这几天说的一定带上）
     // 封顶用【字符预算】而非条数：长消息少带几条、短消息多带几条 → 成本可控，且高频用户不会每轮都顶着上百条原文（按次计费的核心 prompt）
     recentChat: (() => {
-      const all = (chatsRef.current[char.id] || []).filter(m => !m.recalled && m.content && !isOocMsg(m));
+      const all = (chatsRef.current[char.id] || []).filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m));
       if (!all.length) return "";
       const ctxN = settingsFor(char.id).ctxN || 50;
       const days = memCfgRef.current.recentDays || 3;
@@ -2818,7 +2822,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!gs.memoryInterop || gs.autoChat === false) continue;
         if (laneBusy("g:" + gid)) continue;
         if (offlineGroup && offlineGroup.id === gid) continue;
-        const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+        const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
         if (!msgs.length) continue;
         const last = msgs[msgs.length - 1];
         let cycle = (autoChatCycleRef.current && autoChatCycleRef.current[gid]) || {
@@ -2933,7 +2937,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const d = new Date(); return d.getHours() * 60 + d.getMinutes();
   };
   useEffect(() => {
-    const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+    const hist = c => (chatsRef.current[c.id] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
     const tick = () => {
       if (!active) return;
       const dayKey = schedDayKey(new Date());
@@ -3078,7 +3082,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 线上路径：正在看这个聊天就不发；线下路径（有场景）：她看着/离开都能自己动（她要"从线上变线下"）。
           if (!activeOffScene && viewRef.current.charId === cid) continue;
           if (activeOff && !activeOffScene) continue; // 线下开着但还没开演：不发线上、也没得演，跳过
-          const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+          const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
           if (!activeOffScene && !ms.length) continue;
           // ⭐jiwen 阶段二（v48.80/81）：有 jiwen 就【由心理动机决定开口】——思念漂到 contact 阈值才主动，时机全交给它（线上线下同一套门槛）；
           //   固定间隔滑块已去掉(v48.81 她点名)，这里只留防刷屏底线：有 jiwen=45min 底线(真时机 jiwen 说了算)，没 jiwen(引擎没载)兜底 3h。
@@ -3546,7 +3550,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const n = rawN == null ? 10 : Math.max(0, Math.min(30, Number(rawN) || 0));
     if (!n) return [];
     return (groupChatsRef.current[groupId] || [])
-      .filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.content)
+      .filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.content && contextAllowsMessage(m))
       .slice(-n)
       .map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, content: String(m.content), ts: m.ts || 0 }));
   };
@@ -3564,7 +3568,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const uName = (profile && profile.name) || "用户";
     const beats = [];
     if (surfaces.includes("online")) (chatsRef.current[charId] || []).forEach(m => {
-      if (!m || m.recalled || !m.content || isOocMsg(m) || m.kind === "offlinelog" || m.role === "system") return;
+      if (!m || m.recalled || !m.content || isOocMsg(m) || m.kind === "offlinelog" || m.role === "system" || !contextAllowsMessage(m)) return;
       if (sinceMs && (m.ts || 0) < sinceMs) return;
       beats.push({ ts: m.ts || 0, surface: "线上私聊", who: m.role === "user" ? uName : cName, text: String(m.content) });
     });
@@ -4028,7 +4032,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const unsummarized = msgs.length - lastSum;
     if (unsummarized >= s.sumThresh) {
       const char = characters.find(c => c.id === charId);
-      const toSummarize = msgs.slice(lastSum, msgs.length - s.sumBuffer).filter(m => !isOocMsg(m)); // OOC 不进长期记忆（计数窗口不变，只是浓缩时剔掉）
+      const toSummarize = msgs.slice(lastSum, msgs.length - s.sumBuffer).filter(m => !isOocMsg(m) && contextAllowsMessage(m)); // OOC/失败诊断不进长期记忆（计数窗口不变，只是浓缩时剔掉）
       if (toSummarize.length > 0) {
         try {
           // 止漂移：只浓缩这段新对话成一段带日期的记忆，【追加】到旧记忆末尾，不重炼整团（避免老细节被反复压糊）。封顶 8000 字，超了从头截、保最近。
@@ -4120,7 +4124,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pChat(charId, p => [...p, um]);
       base = [...base, um];
     }
-    const history = base.filter(m => !m.recalled && m.kind !== "ooc" && (m.kind !== "system" || m.ccToolResult === true));
+    const history = base.filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
     // CC turn 仍完整留在 App 时间线里；模型侧只走 continuity 亲历块这一份载体，
     // 避免同一原话既在历史中段回插、又在实时背景重复携带，击穿 prompt cache。
     const modelHistory = window.ChatLedgerShadow && typeof window.ChatLedgerShadow.modelHistory === "function"
@@ -5034,6 +5038,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       pChat(charId, p => [...p, {
         role: "assistant",
         kind: "system",
+        contextExcluded: true,
+        systemFailure: true,
         content: "（发送失败：" + e.message + "）",
         ts: Date.now(),
         turnId: "e_" + Date.now()
@@ -5305,7 +5311,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gQuoteCatalog = window.GroupQuote ? window.GroupQuote.buildCatalog(gchat, profile.name || "用户", 50) : [];
       const gQuoteByMessage = new Map(gQuoteCatalog.map(x => [x.message, x]));
       const gQuoteCatalogText = gQuoteCatalog.length ? "\n\n【可正式引用的旧消息 · 跨轮有效】\n" + gQuoteCatalog.map(x => x.alias + "｜" + x.senderName + "｜" + x.preview).join("\n") + "\n需要显示引用气泡时，用 quoteId 填对应 Q 编号。即使相隔数轮也可以回引；相同文字必须依作者和编号区分，绝不能猜是谁说的。只口头提『你刚刚说过』而不需要引用气泡时，可以不填。" : "";
-      const _graw = gchat.filter(m => m.kind !== "ooc").slice(-(gs.ctxN || 30));
+      const _graw = gchat.filter(m => m.kind !== "ooc" && contextAllowsMessage(m)).slice(-(gs.ctxN || 30));
       const fmtGLine = m => m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。内容：" + m.sum : "") + "，别当没打过】" : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + m.transcript : "") : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? "[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : (m.content || "")) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "poll" ? "[发起投票]" + m.title : m.kind === "redpacket" ? "[发红包 ¥" + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || ""));
       // 插时间断点：相邻消息间隔 >1.5h 就标一行「隔了约X、到了几点」——让模型知道时间过去了、别把旧事当正在发生（item 3/5）
       const _gparts = []; let _gprev = 0;
@@ -5360,7 +5366,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         const memLines = members.map(c => {
           const mem = memories[c.id];
           const onlyMine = formatMemLib(gSplit.perChar[String(c.id)] || []);
-          const priv = gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
+          const priv = gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
           // 单人线下（跨情境近况，v50.66）：这个成员最近和用户单独线下相处的片段，带时间戳，让群线上接得上（own-scoped，仍在本人隐私段里）
           const offBeats = gs.privateCtxN > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
           const seg = [mem && "长期记忆：" + mem, onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己在群里说出来）：\n" + onlyMine.trim(), priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
@@ -5678,6 +5684,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       pGChat(groupId, p => [...p, {
         role: "assistant",
         senderName: "系统",
+        contextExcluded: true,
+        systemFailure: true,
         content: "（群聊生成失败·" + phase + "：" + kind + (e && e.message || "未知错误") + "）",
         ts: Date.now()
       }]);
@@ -5696,7 +5704,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     startLane("g:" + groupId);
     try {
       const members = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
-      const histText = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.content).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
+      const histText = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.content && contextAllowsMessage(m)).slice(-20).map(m => m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + "：" + m.content).join("\n");
       // 世界书走和正戏同一个筛选引擎（v48.20，理由同群线下 OOC 处注释）
       const oocLore = loreText(loreRef.current, { charIds: members.map(c => c.id), scope: "chat", text: histText });
       const res = await oocAskGroup(active, { members, profile, rels, chars: characters, worldbook: oocLore, historyText: histText, directives: directives[groupId] || [] }, text.trim());
@@ -5790,7 +5798,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         return "【" + c.name + "】" + (c.persona || "").slice(0, 220) + md + af;
       }).join("\n");
       const gsp = gsFor(groupId);
-      const hist = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.kind !== "system").slice(-16).map(m => (m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.content || ""))).join("\n");
+      const hist = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.content || ""))).join("\n");
       const system = "群里发起了投票：「" + poll.title + "」。选项：" + poll.options.map((o, i) => i + ". " + o.text).join("；") + "。\n**每个成员投什么，必须由 TA 的人设、价值观、当前所处的上下文、此刻心情、跟发起人/其他成员的关系来决定——绝对不要随机乱投、也不要为了均衡而分散**。有的成员会按性格明显偏向某个选项，有的会犹豫、跟风、或按人设弃权（choice 填 -1，比如不感兴趣、故意不掺和、闹别扭）。**say（顺口说的那句话）必须和 TA 投的 choice 一致**（别嘴上说 A 却投 B）；不是每个人都要 say。如果有人弃权，别的成员可能会 cue 他「你怎么不投」。\n【成员（含此刻心情与好感，据此判断投向）】\n" + memberDesc + (hist ? "\n【近期群聊上下文（投票就发生在这些对话之后，投向要贴合语境）】\n" + hist : "") + "\n【输出】只输出 JSON 数组，按发生先后：[{\"name\":\"成员名\",\"choice\":选项序号(0起，弃权 -1),\"say\":\"（可选）和 choice 一致的一句话\"}]";
       const raw = await callAI(active, system, [{
         role: "user",
@@ -5930,7 +5938,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       toast("请先配置 API");
       return;
     }
-    const msgs = (groupChatsRef.current[groupId] || []).filter(m => m.content && !isOocMsg(m)).slice(-40);
+    const msgs = (groupChatsRef.current[groupId] || []).filter(m => m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-40);
     if (msgs.length < 2) {
       toast("群聊太少");
       return;
@@ -6019,7 +6027,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const msgs = (groupChatsRef.current[groupId] || []).filter(m => m.role === "user" || m.role === "assistant" || m.role === "narration");
     const lastSum = gs.lastSummarizedCount || 0;
     if (msgs.length - lastSum < thresh) return;
-    const toSum = msgs.slice(lastSum, msgs.length - buffer).filter(m => !isOocMsg(m)); // OOC 不进群记忆（计数窗口不变）
+    const toSum = msgs.slice(lastSum, msgs.length - buffer).filter(m => !isOocMsg(m) && contextAllowsMessage(m)); // OOC/失败诊断不进群记忆（计数窗口不变）
     if (!toSum.length || !active) return;
     try {
       const summary = await summarizeGroup(active, { profile }, toSum);
@@ -6777,7 +6785,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const todo = characters.filter(c => {
       const b = desiresRef.current[c.id];
       if (b && b.lastMuse === today) return false;
-      const msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m));
+      const msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
       const lastTs = msgs.length ? (msgs[msgs.length - 1].ts || 0) : 0;
       const hasLive = b && Array.isArray(b.list) && b.list.some(e => e.status === "active");
       return (lastTs && Date.now() - lastTs < 7 * 86400000) || hasLive;
@@ -6802,7 +6810,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         // 观测者（每7天，P3）：旁观的便宜小模型摘录「我注意到…」纸条+痕避，喂 TA 下次发呆/盘点。
         // 只对 7 天内聊过的角色跑（没新对话没什么可观测）；和小满/冬至互不排队，同天先观测再盘点（纸条正好当盘点材料）。
         if (DesireKit.observeDue(box, today)) {
-          const _msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m));
+          const _msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
           const _lastTs = _msgs.length ? (_msgs[_msgs.length - 1].ts || 0) : 0;
           if (_lastTs && Date.now() - _lastTs < 7 * 86400000) {
             let _observerCompleted = false;
@@ -8385,7 +8393,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forumSearch: true }));
     try {
-      const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content).slice(-30).map(m => m.content).join(" ").slice(0, 300);
+      const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content && contextAllowsMessage(m)).slice(-30).map(m => m.content).join(" ").slice(0, 300);
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
         schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
@@ -10813,7 +10821,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     worldbook: worldbook,
     moods: moods,
     // 注入最近聊天抓人设用（只读，不写回记忆）
-    recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && !isOocMsg(m)).slice(-16).map(m => (m.role === "user" ? (profile.name || "用户") : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
+    recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "user" ? (profile.name || "用户") : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     toast: toast,
     onBack: () => setScreen("home")

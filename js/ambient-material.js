@@ -4,7 +4,8 @@
   if (root) root.AmbientMaterial = api;
 })(typeof window !== "undefined" ? window : globalThis, function () {
   const textOf = m => String((m && m.content) || "").replace(/\s+/g, " ").trim();
-  const valid = m => !!(m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && textOf(m));
+  const contextAllows = m => !(typeof globalThis !== "undefined" && globalThis.ChatContextFilter && globalThis.ChatContextFilter.isExcluded(m));
+  const valid = m => !!(m && contextAllows(m) && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && textOf(m));
   const who = (m, userName, charName) => {
     if (m.role === "user" || m.role === "narration") return m.role === "narration" ? "场景" : userName;
     return m.senderName || charName || "角色";

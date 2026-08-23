@@ -24,7 +24,9 @@
   });
   function buildCatalog(messages, meName, limit) {
     const all = (Array.isArray(messages) ? messages : []).map((message, index) => ({ message, index }))
-      .filter(x => x.message && !x.message.recalled && x.message.kind !== "ooc" && clean(x.message.content));
+      .filter(x => x.message && !x.message.recalled && x.message.kind !== "ooc"
+        && !(typeof globalThis !== "undefined" && globalThis.ChatContextFilter && globalThis.ChatContextFilter.isExcluded(x.message))
+        && clean(x.message.content));
     return all.slice(-Math.max(1, Number(limit) || 50)).map((x, i) => ({
       alias: "Q" + (i + 1),
       id: messageId(x.message, x.index),
