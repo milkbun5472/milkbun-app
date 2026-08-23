@@ -5559,7 +5559,7 @@ function OfflineMode({
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "关联记忆条数"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMemN + " 条")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "线下场景带入最近多少条记忆库条目（含单聊和群聊沉淀的）。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "线下场景带入最近多少条记忆库条目（含单聊和群聊沉淀的）。本次线下开始后的线上私聊会自动全部按时间顺序并入，不另设条数。"),
       h(Slider, { value: sMemN, min: 0, max: 20, step: 1, onChange: setSMemN })),
     h("div", { className: "pt-4" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
