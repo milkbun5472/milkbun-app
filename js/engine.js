@@ -3245,10 +3245,14 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
 
   const finalCount = offlineVisibleCharCount(current);
   if (finalCount < target) {
-    // 网络原因没问成 → 正文照留，只把「没补到」如实说出来，绝不因此丢稿
-    if (repairError) return { scene: current, attempts, applied: attempts > 0, shortBecause: repairError, shortCount: finalCount };
-    // 模型确实写了、就是不肯写长 → 维持 Codex 原意：不许把短稿伪装成达标
-    throw new Error("模型两次补写后仍未达到最低字数：当前 " + finalCount + " / 目标 " + target + "。本轮短稿未保存，请重试");
+    // ⚠️v55.47：这里原本会 throw、把整篇丢掉（原意是「不许把短稿伪装成达标」）。
+    // 她 2026-08-22 明确要求：宁可短也不要白写一场——写出来的正文一律留下。
+    // 原意仍然成立，只是换个兑现方式：不是【丢掉】，是【如实说它没写够】。
+    return {
+      scene: current, attempts, applied: attempts > 0,
+      shortCount: finalCount, shortTarget: target,
+      shortBecause: repairError || "模型两次补写都没写够"
+    };
   }
   return { scene: current, attempts, applied: attempts > 0 };
 }
@@ -3485,7 +3489,9 @@ async function generateOffline(p, ctx, session) {
     minimumLengthChars,
     minimumLengthRepairApplied: minimumRepair.applied,
     minimumLengthRepairAttempts: minimumRepair.attempts,
-    minimumLengthShortBecause: minimumRepair.shortBecause || "",   // 补写没问成的原因（网络类），正文照留
+    minimumLengthShortBecause: minimumRepair.shortBecause || "",   // 没写够的原因；正文一律照留
+    minimumLengthShortCount: minimumRepair.shortCount || 0,
+    minimumLengthShortTarget: minimumRepair.shortTarget || 0,
     minimumLengthSatisfied: !minimumSceneChars || minimumLengthChars >= minimumSceneChars,
     rewriteLengthRatio,
     rendererScoreBefore,
