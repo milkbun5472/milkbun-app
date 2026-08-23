@@ -3873,7 +3873,7 @@ function ImageApiConfig({ toast }) {
       // 审核失败后自动换稿连射，部分中转会把它判成多次触发并锁 30 分钟。
       // 这里用正常的参考图编辑任务确认“图片有没有送达、脸能不能跟住”，不再做压力测试。
       const prompt = testRef
-        ? "Use the uploaded portrait as the visual reference. Create a natural studio portrait of the same fictional character against a plain warm-gray background. Preserve the recognizable facial structure, hairstyle, age and overall appearance. Normal clothing, neutral expression, realistic photography, no text."
+        ? "Edit the attached portrait into a simple studio photo with a plain warm-gray background. Keep the same adult man: the same face, facial features, hairstyle, age, skin tone and recognizable appearance. Do not replace him with another person and do not change his sex. Normal clothing, neutral expression, realistic photo, no text."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
       const out = await generateSelfieImage(prompt, testRef, { attemptMs: 120000, budgetMs: 130000, size: "1024x1024", preferLegacy: true, singleShot: true });
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
