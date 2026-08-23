@@ -326,14 +326,14 @@ test("导入模块的「删」是独立按钮，不是套在模块按钮里的 s
 // 线下有 ensureOfflineMinimumScene 兜底补写，测试台第一版是裸调一次就完。
 // 同一个模型在两边表现完全不同，那这个对照就白比了。
 
-const RT = model => {
+const RT = (model, stream) => {
   const store = {}, win = {}, calls = [];
   const sandbox = {
     window: win,
     localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
     loadJSON: (k, d) => { try { return k in store ? JSON.parse(store[k]) : d; } catch (e) { return d; } },
     saveJSON: (k, v) => { store[k] = JSON.stringify(v); },
-    narrativeCore: () => "BASE", routeCanStream: () => true,
+    narrativeCore: () => "BASE", routeCanStream: () => stream !== false,
     offlineVisibleCharCount: t => String(t || "").replace(/\s/g, "").length,
     callAI: async (p, sys, msgs, opt) => { calls.push({ sys, opt, user: msgs[0].content }); return model(calls.length); }
   };
@@ -353,6 +353,7 @@ test("没达标就补写，补到为止", async () => {
   assert.ok(h.calls[1].user.indexOf("甲".repeat(200)) > 0, "补写要把整篇原文带上，不做机械拼接");
   assert.ok(h.calls[1].opt.maxTokens > h.calls[0].opt.maxTokens,
     "补写得先把原文再吐一遍才谈得上加长，预算要比首轮【更大】");
+  assert.equal(h.calls[0].opt.timeout, 180000, "跟线下一样的超时，别自己另设一套");
 });
 
 test("模型死活不肯写长：补两次就停手，不许无限烧钱", async () => {
@@ -383,4 +384,40 @@ test("结果卡片要显示拿到几字 / 要几字，以及补写实况", () =>
   assert.ok(lab.indexOf('r.chars + " 字" + (r.want ? " / " + r.want : "")') > 0);
   assert.ok(lab.indexOf("(r.notes || []).join(") > 0);
   assert.ok(lab.indexOf("r.err || (r.want && r.chars < r.want) ? t.accent : t.fog") > 0, "没达标要标红");
+});
+
+// —— 「又 load failed 了」（她 2026-08-23）——
+// 非流式线路上一个大请求两三分钟不吐首字节，网关当成死连接掐掉。
+// 线下 v55.39 已经踩平过（NO_STREAM_CAP=4200 + 补写往上垒），试写台没跟上。
+
+test("发不出流式的线路，单次预算压到网关扛得住的量", async () => {
+  const h = RT(n => (n === 1 ? "甲".repeat(1200) : "乙".repeat(1600)), false);
+  await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.ok(h.calls[0].opt.maxTokens <= 4200, "首轮 " + h.calls[0].opt.maxTokens + " 超过网关能扛的量");
+  assert.equal(h.calls[0].opt.stream, false);
+  // 补写要把原文原样再吐一遍，压到 4200 会截断——所以补写另有一档，同线下
+  assert.ok(h.calls[1].opt.maxTokens > 4200 && h.calls[1].opt.maxTokens <= 9000,
+    "补写 " + h.calls[1].opt.maxTokens + " 档位不对");
+  assert.match(sp, /NO_STREAM_CAP = 4200/);
+  assert.match(sp, /NO_STREAM_REPAIR_CAP = 9000/);
+  assert.ok(sp.indexOf("被网关掐断，浏览器只报一句 Load failed") > 0, "病因写在代码里");
+});
+
+test("能流式的线路不受这个上限连累", async () => {
+  const h = RT(n => (n === 1 ? "甲".repeat(1200) : "乙".repeat(1600)), true);
+  await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.ok(h.calls[0].opt.maxTokens > 4200);
+  assert.equal(h.calls[0].opt.stream, true);
+});
+
+test("没达标要分清是模型不肯写，还是这条线路发不了这么长", async () => {
+  const slow = RT(() => "丙".repeat(300), false);
+  const rs = await slow.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.match(rs.notes.join(""), /这条线路发不出流式/);
+  assert.ok(rs.notes.join("").indexOf("模型不肯写到") < 0, "别甩锅给模型");
+
+  const fast = RT(() => "丙".repeat(300), true);
+  const rf = await fast.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
+  assert.match(rf.notes.join(""), /模型不肯写到 1500/);
+  assert.ok(rf.notes.join("").indexOf("发不出流式") < 0);
 });

@@ -236,7 +236,13 @@
     const uName = o.uName || "你";
     const styleText = o.preset ? textFor(o.preset, "offline", { uName: uName, charName: char.name }) : "";
     const minW = Math.max(0, Number(o.minWords) || 0);
+    // ⭐发不出流式的线路（云端密钥代理、非 OpenAI 方言）上，巨型单请求会久久没有首字节
+    // 被网关掐断，浏览器只报一句 Load failed。线下 v55.39 已经踩平过这个坑：把单次预算
+    // 压到网关扛得住的量，不足的字数交给下面的补写循环——两三个短请求各自很快返回，
+    // 总时长差不多，但每一次都不会被当成死连接。试写台这次是我没跟上（她 2026-08-23）。
     const canStream = typeof routeCanStream === "function" ? routeCanStream(active) : false;
+    const NO_STREAM_CAP = 4200;         // 首轮：网关扛得住的上限
+    const NO_STREAM_REPAIR_CAP = 9000;  // 补写要把原文原样再吐一遍，压到 4200 会截断，同线下
     const sys = [
       typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) : "",
       "【文风测试台】这是一次离线试写，不属于任何真实剧情，写完就丢。别提到测试这件事。",
@@ -252,11 +258,12 @@
         + "只输出正文，不要 JSON、不要标题、不要任何解释。",
       minW ? LEN_FLOOR(minW) : ""
     ].filter(x => String(x || "").trim()).join("\n\n");
-    const budget = t => canStream ? Math.min(20000, t) : Math.min(9000, t);
+    const budget = t => canStream ? Math.min(20000, t) : Math.min(NO_STREAM_CAP, t);
+    const repairBudget = t => canStream ? Math.min(20000, t) : Math.min(NO_STREAM_REPAIR_CAP, t);
 
     const firstBudget = budget(Math.max(3000, Math.ceil((minW || 600) * 2.6 + 2000)));   // 思考型模型先吃一大块，别掐在半路
     let text = String(await callAI(active, sys, [{ role: "user", content: scene.user }], {
-      maxTokens: firstBudget, stream: canStream, timeout: 240000
+      maxTokens: firstBudget, stream: canStream && firstBudget >= 3000, timeout: 180000
     }) || "").trim();
 
     const notes = [];
@@ -284,8 +291,8 @@
           // 结果「留下来的比丢掉的还短」（她 2026-08-22）。
           // 补写 = 从头写够 minW（＝首轮的量）＋ 还得把已有的 had 字原样再吐一遍，
           // 所以永远是首轮预算【加上】原文那部分，不是另算一个可能更小的数。
-          maxTokens: budget(firstBudget + Math.ceil(had * 2.2) + 500),
-          stream: canStream, timeout: 240000
+          maxTokens: repairBudget(firstBudget + Math.ceil(had * 2.2) + 500),
+          stream: canStream, timeout: 180000
         }) || "").trim();
       } catch (e) {
         notes.push("第 " + attempts + " 次补写没问成：" + String((e && e.message) || e).slice(0, 60));
@@ -296,7 +303,13 @@
       else { notes.push("补写 " + attempts + "：只拿回 " + gained + " 字，没改善，保留原稿"); break; }
     }
     const final = visibleCount(text);
-    if (minW && final < minW) notes.push("⚠️模型不肯写到 " + minW + "，最终 " + final + " 字");
+    if (minW && final < minW) {
+      // 分清两种没达标：模型不肯写长，和这条线路单次就发不了这么长。
+      // 混为一谈的话，她会以为是预设写得差、去改预设——其实该换个能流式的线路。
+      notes.push(canStream
+        ? "⚠️模型不肯写到 " + minW + "，最终 " + final + " 字"
+        : "⚠️最终 " + final + "/" + minW + " 字。这条线路发不出流式，单次只能写 " + NO_STREAM_CAP + " token 就得停（再长会被网关掐成 Load failed），只能靠补写往上垒。想一次写长得换条支持流式的线路。");
+    }
     return { text: text, chars: final, notes: notes };
   }
 
