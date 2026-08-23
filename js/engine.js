@@ -3192,6 +3192,12 @@ function offlineMinimumSceneChars(value) {
 async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
   let current = String(scene || "").trim();
   let attempts = 0;
+  // ⚠️v55.46：补写这一步以前【没有 try/catch】——第一段正文明明已经写好了，
+  // 补写请求一断网，异常直接穿出去，整轮作废，界面上只剩一句 Load failed
+  // （她 2026-08-22：「同一个模型站子，之前可以了突然又不行」——变的正是这段代码）。
+  // 分清两种短稿：模型写了但不肯写长（Codex 的原意：不许伪装成达标，照旧报错），
+  // 和【压根没问成】（网络断了/超时）——后者不该赔上一篇好好的正文。
+  let repairError = "";
   if (!target || offlineVisibleCharCount(current) >= target) {
     return { scene: current, attempts, applied: false };
   }
@@ -3206,7 +3212,9 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
       + "\n保留原稿已经发生的全部事实、动作先后、人物决定、主动关系、台词含义、叙事人称、明确程度与结尾落点；不要删减、淡出、概括或擅自升级事件。"
       + "\n在同一时间段内补足真正可写的内容：让已有动作产生具体后果，让人物继续观察、判断、回应和说话，让环境实际参与行动；必要时把过快略过的有效过程写完整。不要复述开头，不重复认证同一种感受，不堆生理反应、强度形容、比喻或空泛心理，不写流水账，也不替用户作重大选择。"
       + "\n沿用原稿已经形成的人物声纹和叙事质感。只交完整定稿，不解释，不报告字数。";
-    const raw = await callAI(p, system, [{
+    let raw;
+    try {
+      raw = await callAI(p, system, [{
       role: "user",
       content: "请把下面这篇正文补足为完整定稿。必须保留全文并自然扩展到至少 " + target + " 个非空白可见字符：\n\n" + current
     }], {
@@ -3225,6 +3233,11 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
         attempt: attempts
       }
     });
+    } catch (e) {
+      // 问不成就停手，把已经写好的正文留住
+      repairError = String((e && e.message) || e || "").slice(0, 120);
+      break;
+    }
     const parsed = extractJSON(String(raw || ""));
     const candidate = String(parsed && parsed.scene || "").trim();
     if (offlineVisibleCharCount(candidate) > currentCount) current = candidate;
@@ -3232,6 +3245,9 @@ async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
 
   const finalCount = offlineVisibleCharCount(current);
   if (finalCount < target) {
+    // 网络原因没问成 → 正文照留，只把「没补到」如实说出来，绝不因此丢稿
+    if (repairError) return { scene: current, attempts, applied: attempts > 0, shortBecause: repairError, shortCount: finalCount };
+    // 模型确实写了、就是不肯写长 → 维持 Codex 原意：不许把短稿伪装成达标
     throw new Error("模型两次补写后仍未达到最低字数：当前 " + finalCount + " / 目标 " + target + "。本轮短稿未保存，请重试");
   }
   return { scene: current, attempts, applied: attempts > 0 };
@@ -3469,6 +3485,7 @@ async function generateOffline(p, ctx, session) {
     minimumLengthChars,
     minimumLengthRepairApplied: minimumRepair.applied,
     minimumLengthRepairAttempts: minimumRepair.attempts,
+    minimumLengthShortBecause: minimumRepair.shortBecause || "",   // 补写没问成的原因（网络类），正文照留
     minimumLengthSatisfied: !minimumSceneChars || minimumLengthChars >= minimumSceneChars,
     rewriteLengthRatio,
     rendererScoreBefore,

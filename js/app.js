@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.45";
+const APP_VERSION = "v55.46";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3339,6 +3339,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
       const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      // 补写没问成时正文仍然留下了，但字数没到——如实说一声，别让她以为设置没生效（v55.46）
+      if (res && res.minimumLengthShortBecause) {
+        toast("这篇没补到你设的最低字数（写了 " + (res.minimumLengthChars || "?") + " 字）——补写那次没请求成功：" + res.minimumLengthShortBecause + "。正文已经保留，想要更长可以对这条点重写", 9000);
+      }
       setOfflineRegisterTelemetry(p => ({ ...p, [charId]: {
         transitionBefore: !!res.registerTransitionBefore,
         transitionAfter: !!res.registerTransitionAfter,
