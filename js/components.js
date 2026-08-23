@@ -5528,6 +5528,14 @@ function OfflineMode({
             h("br"),
             "archetype guard: " + (registerTelemetry.archetypeRevisionRequested ? "injected" : "not injected"),
             h("br"),
+            registerTelemetry.minimumLengthTarget
+              ? "minimum chars: " + registerTelemetry.minimumLengthChars + " / " + registerTelemetry.minimumLengthTarget
+                + (registerTelemetry.minimumLengthRepairApplied
+                  ? " · repaired ×" + registerTelemetry.minimumLengthRepairAttempts
+                  : " · direct")
+                + (registerTelemetry.minimumLengthSatisfied ? " · satisfied" : " · failed")
+              : "minimum chars: off",
+            h("br"),
             "rewrite: " + (registerTelemetry.rewriteApplied ? "applied" : "not applied"),
             registerTelemetry.rewriteApplied ? h(React.Fragment, null,
               h("br"),

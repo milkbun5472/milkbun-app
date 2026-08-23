@@ -3141,6 +3141,61 @@ function offlineRegisterTransition(session) {
   return { before, after, inject, inputBeat, active, reference };
 }
 
+// 「最低字数」在产品里按用户实际看见的正文计数：忽略空格与换行，
+// 但标点、英文和数字仍是可见内容。不要用 String.length 把排版空白冒充正文。
+function offlineVisibleCharCount(text) {
+  return Array.from(String(text || "").replace(/\s/g, "")).length;
+}
+
+function offlineMinimumSceneChars(value) {
+  const n = Math.floor(Number(value) || 0);
+  return Number.isFinite(n) && n > 0 ? Math.min(12000, n) : 0;
+}
+
+async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
+  let current = String(scene || "").trim();
+  let attempts = 0;
+  if (!target || offlineVisibleCharCount(current) >= target) {
+    return { scene: current, attempts, applied: false };
+  }
+
+  // 最多补写两次。每次都要求返回完整定稿，避免把两段机械拼接成断裂正文。
+  // 若模型仍拒绝达到用户设置，就显式失败，不能把短稿伪装成已满足最低字数。
+  while (attempts < 2 && offlineVisibleCharCount(current) < target) {
+    attempts++;
+    const currentCount = offlineVisibleCharCount(current);
+    const system = buildBundle(ctx) + "\n\n【线下正文定稿补足】你是同一篇场景正文的编辑。只输出 JSON：{\"scene\":\"完整定稿\"}。"
+      + "\n当前正文只有 " + currentCount + " 个非空白可见字符，用户明确设置最终 scene 至少 " + target + " 个。最终成稿必须达到该下限。"
+      + "\n保留原稿已经发生的全部事实、动作先后、人物决定、主动关系、台词含义、叙事人称、明确程度与结尾落点；不要删减、淡出、概括或擅自升级事件。"
+      + "\n在同一时间段内补足真正可写的内容：让已有动作产生具体后果，让人物继续观察、判断、回应和说话，让环境实际参与行动；必要时把过快略过的有效过程写完整。不要复述开头，不重复认证同一种感受，不堆生理反应、强度形容、比喻或空泛心理，不写流水账，也不替用户作重大选择。"
+      + "\n沿用原稿已经形成的人物声纹和叙事质感。只交完整定稿，不解释，不报告字数。";
+    const raw = await callAI(p, system, [{
+      role: "user",
+      content: "请把下面这篇正文补足为完整定稿。必须保留全文并自然扩展到至少 " + target + " 个非空白可见字符：\n\n" + current
+    }], {
+      maxTokens: Math.min(20000, Math.max(Number(session.maxTokens) || 4000, Math.ceil(target * 1.8 + 1200))),
+      timeout: 180000,
+      wireScope: "offline-minimum-repair",
+      wireMeta: {
+        charId: ctx.char && ctx.char.id,
+        sessionId: session.id || null,
+        target,
+        beforeChars: currentCount,
+        attempt: attempts
+      }
+    });
+    const parsed = extractJSON(String(raw || ""));
+    const candidate = String(parsed && parsed.scene || "").trim();
+    if (offlineVisibleCharCount(candidate) > currentCount) current = candidate;
+  }
+
+  const finalCount = offlineVisibleCharCount(current);
+  if (finalCount < target) {
+    throw new Error("模型两次补写后仍未达到最低字数：当前 " + finalCount + " / 目标 " + target + "。本轮短稿未保存，请重试");
+  }
+  return { scene: current, attempts, applied: attempts > 0 };
+}
+
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -3167,6 +3222,7 @@ async function generateOffline(p, ctx, session) {
   const singleCotBlock = isDigital ? cotSystemBlock(cotT) : "";
   // 篇幅与文风分离：自然长度不设句数；沉浸长文靠有效推进变长，不靠摄影式拆动作或重复解释凑篇幅。
   const lengthMode = session.lengthMode === "immersive" ? "immersive" : "natural";
+  const minimumSceneChars = offlineMinimumSceneChars(session.minWords);
   const lenGuide = lengthMode === "immersive"
     ? "本轮采用【沉浸长文】：允许这一刻在真正有内容时自然跨过多个有效阶段。每个继续展开的阶段都要带来新的行动、选择、对话、信息、时间流动或环境对行动造成的实际影响；不要重复解释同一种心理、反复重拍没变化的环境与姿态，也不要把一个简单动作拆成许多步骤。只有当前场景确实还能推进时才继续；一旦到了需要对方回应、选择或行动的位置，就自然停下，不为写长而替对方作答或硬造新事"
     : "本轮采用【自然长度】：篇幅由这一刻真正发生的内容决定。简单反应可以很短；有值得展开的行动、对话、判断或场景变化时自然展开，不为显得完整而补齐固定栏目";
@@ -3200,7 +3256,7 @@ async function generateOffline(p, ctx, session) {
     (ctx.timeAware !== false ? "\n【时间感】你清楚现在的真实时间（见上文），让当下的时段自然渗进场景——天色光线、周围的动静、店家开没开、你此刻该困该饿还是精神，都照这个钟走；别报时刻表，也别把深夜写成白天。" : "") +
     (styleText ? "\n【文风要求】" + styleText : "") +
     narrativeDirective(session.narr) +
-    (session.minWords ? "\n【篇幅要求】scene 正文尽量写到约 " + session.minWords + " 字：把这一刻的【具体动作、可感细节、真实对话、剧情推进】充分展开来撑够篇幅——但【绝不许为凑字数注水】：不堆形容词、不加多余比喻、不写空转大词、不反复渲染同一种情绪、不把句子硬拉长。字数靠【发生了更多具体的事】来涨，不是靠把一件事说得更华丽。真没那么多具体可写时，宁可短一点，也绝不注水凑成八股。" : "") +
+    (minimumSceneChars ? "\n【最终正文硬下限】用户设置的是最低值，不是建议：最终 scene 必须至少有 " + minimumSceneChars + " 个非空白可见字符。用更多真正发生的行动、后果、判断、对话和有效场景推进达到下限；不堆形容词、不加多余比喻、不反复认证同一种感受、不把一个动作逐帧注水。遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
     (ctx.curCondition ? "\n【身体状态连贯】你现在" + ctx.curCondition + "。这不是背景设定，是此刻真的这样：动作、说话的力气、能不能久站久走都要受它影响；除非剧情里明确好转，别忽然生龙活虎。" : "") +
@@ -3242,9 +3298,15 @@ async function generateOffline(p, ctx, session) {
   }
   let raw;
   let usedCot = !!cotT;
+  // 单次自修会同时输出 draftScene 与 scene，所需容量约为普通生成的两倍；
+  // 不能让 4000 tok 默认上限先把“最低 1500 字”截断。
+  const minimumTokenBudget = minimumSceneChars
+    ? Math.ceil(minimumSceneChars * (singlePassRevisionRequested ? 3.2 : 1.8) + 1200)
+    : 0;
+  const generationMaxTokens = Math.min(20000, Math.max(Number(session.maxTokens) || 4000, minimumTokenBudget));
   try {
     raw = await callAI(p, system, hist, {
-      maxTokens: session.maxTokens || 4000,
+      maxTokens: generationMaxTokens,
       timeout: 180000,
       wireScope: "offline",
       wireMeta: {
@@ -3278,7 +3340,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 4000, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationMaxTokens, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -3302,6 +3364,9 @@ async function generateOffline(p, ctx, session) {
   if (!isDigital && registerTransition.inputBeat && effectiveRegisterActive) rewriteRequested = true;
   let scene = singlePassRevisionRequested ? singlePassFinalScene : draftScene;
   let rewriteApplied = !!singlePassRevisionRequested;
+  const minimumRepair = await ensureOfflineMinimumScene(p, ctx, session, scene, minimumSceneChars);
+  scene = minimumRepair.scene;
+  const minimumLengthChars = offlineVisibleCharCount(scene);
   let rewriteLengthRatio = 1;
   let rewriteFactUnits = 0;
   let rewriteCoveredFactUnits = 0;
@@ -3337,6 +3402,11 @@ async function generateOffline(p, ctx, session) {
     singlePassRevisionApplied: !!singlePassRevisionRequested,
     rewriteDraftChars: draftScene.length,
     rewriteFinalChars: scene.length,
+    minimumLengthTarget: minimumSceneChars,
+    minimumLengthChars,
+    minimumLengthRepairApplied: minimumRepair.applied,
+    minimumLengthRepairAttempts: minimumRepair.attempts,
+    minimumLengthSatisfied: !minimumSceneChars || minimumLengthChars >= minimumSceneChars,
     rewriteLengthRatio,
     rendererScoreBefore,
     rendererScoreAfter,
