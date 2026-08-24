@@ -53,9 +53,12 @@ test("绝不把话削光：只有一泡时宁可留着回声", () => {
 
 test("接在单聊气泡流水线上，engineerEyes 照旧跳过", () => {
   assert.match(app, /if \(!_s\.engineerEyes && typeof stripEchoQuestion === "function"\) \{/);
-  assert.match(app, /words = stripEchoQuestion\(words, _lastSaid \? _lastSaid\.content : ""\);/);
+  // v55.76：改成比【她这一整轮】说的话，不是最后那一条（她连发消息时旧写法整个失效）
+  assert.match(app, /words = stripEchoQuestion\(words, lastUserTurnText\(history\)\);/);
   // 要拿【她最近一条】来比，不是整段历史
-  assert.match(app, /\[\.\.\.\(history \|\| \[\]\)\]\.reverse\(\)\.find\(m => m && m\.role === "user"\)/);
+  // 她这一整轮说过的话（可能连发好几条），不是最后那一条
+  assert.match(engine, /function lastUserTurnText\(msgs\)/);
+  assert.match(engine, /if \(m\.role === "assistant" \|\| m\.role === "char"\) break;/, "碰到他说话就是上一轮了");
 });
 
 // —— 心声刷新 ——

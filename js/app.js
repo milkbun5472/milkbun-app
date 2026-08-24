@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.75";
+const APP_VERSION = "v55.76";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4698,8 +4698,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 回声式反问兜底（v55.11）：提示词里那条压不住，她刷完还是被「自拍？」开场。
       // 削第一泡而已，判据很硬（整条＝她刚说过的词＋问号），真反问碰不到。
       if (!_s.engineerEyes && typeof stripEchoQuestion === "function") {
-        const _lastSaid = [...(history || [])].reverse().find(m => m && m.role === "user");
-        words = stripEchoQuestion(words, _lastSaid ? _lastSaid.content : "");
+        // 看她【这一整轮】说的话，不是最后那一条——她常常一次连发好几条，
+        // 只比最后一条的话，回声的那个词多半在前面几条里，判定永远不成立
+        words = stripEchoQuestion(words, lastUserTurnText(history));
       }
       // 队尾空气泡（小克反馈）：滤掉只剩空白/零宽字符/BOM 的空串——trim/Boolean 抓不住零宽符，这里连它一起清
       words = words.filter(w => String(w == null ? "" : w).replace(/[\s\u200b-\u200f\u202a-\u202e\u2060\ufeff]+/g, "") !== "");

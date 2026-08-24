@@ -115,3 +115,53 @@ test("提示词里要说清：记录里有旧回声不代表那是他的习惯",
   const off = new Function(g("ECHO_QUESTION_BAN") + "\n" + engine.slice(i, engine.indexOf("`;", i) + 2) + "\nreturn OFFLINE_NARRATIVE_RUNTIME;")();
   assert.match(off, /不说明它对/);
 });
+
+// —— 她 2026-08-24 的截图：一轮连发三条，他回声了中间那条 ——
+//   她：「腊月不还早吗」「说不定到时候你身边已经妻妾成群」「早就忘了我了」
+//   他：「妻妾成群？」+「一个天天想着休大房…我都应付不过来」
+// 刀只拿【最后一条】去比，里面没有「妻妾成群」，判定永远不成立。
+// 她一连发消息，这把刀就整个废了——判据再宽也没用，比错了对象。
+
+const TURN = (() => {
+  const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
+  const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+    + g("function lastUserTurnText(") + g("function stripEchoQuestion(")
+    + "\nreturn { stripEchoQuestion, lastUserTurnText };")();
+})();
+
+test("要比的是她这一整轮说的话，不是最后那一条", () => {
+  const hist = [
+    { role: "assistant", content: "服了你了" },
+    { role: "user", content: "腊月不还早吗" },
+    { role: "user", content: "说不定到时候你身边已经妻妾成群" },
+    { role: "user", content: "早就忘了我了" }
+  ];
+  const said = TURN.lastUserTurnText(hist);
+  assert.match(said, /妻妾成群/);
+  assert.match(said, /腊月不还早吗/, "整轮三条都要在");
+  const words = ["妻妾成群？", "一个天天想着休大房、还算计我爹娘房事的某人我都应付不过来"];
+  assert.deepEqual(TURN.stripEchoQuestion(words, said),
+    ["一个天天想着休大房、还算计我爹娘房事的某人我都应付不过来"]);
+  // 旧做法（只拿最后一条）确实拦不住——这就是她截图里看到的
+  assert.deepEqual(TURN.stripEchoQuestion(words, "早就忘了我了"), words);
+});
+
+test("上一轮的话不算数：碰到他说话就停", () => {
+  const hist = [
+    { role: "user", content: "看看自拍" },
+    { role: "assistant", content: "行" },
+    { role: "user", content: "今天累死了" }
+  ];
+  assert.equal(TURN.lastUserTurnText(hist), "今天累死了");
+  // 所以他这轮回「自拍？」是真的莫名其妙，不该被当成回声削掉
+  assert.deepEqual(TURN.stripEchoQuestion(["自拍？", "嗯"], TURN.lastUserTurnText(hist)), ["自拍？", "嗯"]);
+});
+
+test("三处都改成看整轮", () => {
+  assert.match(app, /words = stripEchoQuestion\(words, lastUserTurnText\(history\)\);/, "线上");
+  assert.match(engine, /const lastSaid = lastUserTurnText\(session\.msgs\);/, "单人线下");
+  assert.match(engine, /const gLastSaid = lastUserTurnText\(session\.msgs\);/, "群线下");
+  assert.ok(!/stripEchoQuestion\(words, _lastSaid/.test(app), "旧的只取最后一条的写法不许留着");
+  assert.match(engine, /她一连发消息，这把刀就整个废了/, "病因写在代码里");
+});

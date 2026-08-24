@@ -88,8 +88,9 @@ test("线下叙事准则里要点名正文形态那种写法", () => {
 });
 
 test("三处都真的挂上了刀", () => {
-  assert.match(engine, /if \(lastSaid\) scene = stripEchoQuestionScene\(scene, lastSaid\.content\)/, "单人线下");
-  assert.match(engine, /out\[firstChar\]\.scene = stripEchoQuestionScene\(out\[firstChar\]\.scene, gLastSaid\.content\)/, "群线下");
+  // v55.76：改成整轮（lastUserTurnText），不再只看最后一条
+  assert.match(engine, /if \(lastSaid\) scene = stripEchoQuestionScene\(scene, lastSaid\)/, "单人线下");
+  assert.match(engine, /out\[firstChar\]\.scene = stripEchoQuestionScene\(out\[firstChar\]\.scene, gLastSaid\)/, "群线下");
   assert.match(theater, /p\.scene = stripEchoQuestionScene\(p\.scene, text\)/, "小剧场");
 });
 

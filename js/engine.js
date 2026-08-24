@@ -1121,6 +1121,22 @@ function isEchoOfUser(phrase, said) {
   return hit / chars.length >= 0.8;
 }
 
+// 回声判定要看【她这一整轮说的话】，不是最后那一条。
+// 她 2026-08-24 截图：一轮连发三条「腊月不还早吗」「说不定到时候你身边已经妻妾成群」
+// 「早就忘了我了」，他回「妻妾成群？」——而刀只拿最后那条去比，里面没有「妻妾成群」，
+// 判定永远不成立。她一连发消息，这把刀就整个废了。
+function lastUserTurnText(msgs) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  const buf = [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i];
+    if (!m) continue;
+    if (m.role === "assistant" || m.role === "char") break;   // 碰到他说话就是上一轮了
+    if (m.role === "user" && m.content) buf.unshift(String(m.content));
+  }
+  return buf.join(" ");
+}
+
 // 线上气泡版。
 // ⚠️v55.13：头一版只认【整个第一泡就是回声】，模型立刻学会了绕——把本该分开的两泡
 // 硬合成一泡发（「自拍？行，别后悔」），刀就够不着了（她 2026-08-22 当场抓到）。
@@ -3492,8 +3508,8 @@ async function generateOffline(p, ctx, session) {
   let scene = singlePassRevisionRequested ? singlePassFinalScene : draftScene;
   // 回声式反问兜底（v55.66）：提示词压不住就上刀。isDigital 是言秋那条专线，不碰。
   if (!isDigital) {
-    const lastSaid = (session.msgs || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0];
-    if (lastSaid) scene = stripEchoQuestionScene(scene, lastSaid.content);
+    const lastSaid = lastUserTurnText(session.msgs);
+    if (lastSaid) scene = stripEchoQuestionScene(scene, lastSaid);
   }
   let rewriteApplied = !!singlePassRevisionRequested;
   // ⭐一轮就是一次调用（她 2026-08-24：「我永远只要一次」）。以前这里会再发一到两次
@@ -3767,10 +3783,10 @@ async function generateOfflineGroup(p, ctx, session) {
   }).filter(b => b.scene);
   // 回声式反问兜底：只削【第一个角色 beat】开头那一声——后面的 beat 是别人在接话，
   // 那些反问不是冲着她刚说的那句来的，不能一并当回声删掉。
-  const gLastSaid = (session.msgs || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0];
+  const gLastSaid = lastUserTurnText(session.msgs);
   if (gLastSaid) {
     const firstChar = out.findIndex(b => b.role === "char");
-    if (firstChar >= 0) out[firstChar].scene = stripEchoQuestionScene(out[firstChar].scene, gLastSaid.content);
+    if (firstChar >= 0) out[firstChar].scene = stripEchoQuestionScene(out[firstChar].scene, gLastSaid);
   }
   // 群聊线下：整批只想一次，把这次思考挂在第一个 beat 上（供「看TA怎么想的」展开）
   if (out.length && sp.cot) out[0].cot = sp.cot;
