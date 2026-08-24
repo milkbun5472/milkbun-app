@@ -304,6 +304,20 @@
           h("span", { style: { fontFamily: "monospace", fontSize: 11, color: t.tint } }, tMin ? String(tMin) : "不限")),
         h("input", { type: "range", min: 0, max: 3000, step: 100, value: tMin, onChange: e => setTMin(Number(e.target.value)), style: { width: "100%" } })),
 
+      // 这条线路能不能流式，决定了它有没有 60 秒的天花板——花钱之前就该看见，
+      // 而不是等三次试写全挂了才知道（她 2026-08-24）。
+      (function () {
+        if (!props.active || !SP.routeInfo) return null;
+        const r = SP.routeInfo(props.active);
+        if (r.canStream) return null;
+        return h("div", { style: Object.assign({}, S.card, { marginBottom: 14, borderColor: t.accent }) },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginBottom: 4 } }, "这条线路发不出流式 · 有 60 秒天花板"),
+          h("div", { style: Object.assign({}, S.hint, { lineHeight: 1.75 }) },
+            r.why + "。\n非流式请求只要生成超过 60 秒就会被读超时掐断（nginx 和 iOS 的默认值都是 60 秒），"
+            + "跟 max_tokens、上下文多长都没关系。1500 字本来就要一两分钟，所以多半会失败。\n"
+            + "· 想一次写长：给这个角色的线下 API 直接填密钥、别走云端密钥保险柜，能流式之后这个天花板就没了。\n"
+            + "· 先将就：最低字数调到 800 上下，一次调用能在 60 秒内写完。"));
+      })(),
       h("button", { onClick: doRun, disabled: !!busy,
         style: { width: "100%", padding: "12px", borderRadius: 9, border: "none", background: busy ? t.line : t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5, marginBottom: 18 } },
         busy ? "在写 " + busy + "…" : "试写"),

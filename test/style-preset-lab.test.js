@@ -468,3 +468,68 @@ test("界面上说清每份只花一次调用", () => {
   assert.ok(lab.indexOf('"每份【只调一次 API】，不偷偷补写。"') > 0);
   assert.ok(lab.indexOf('tPicks.length + " 份 = " + tPicks.length + " 次调用。"') > 0);
 });
+
+// —— 三次试写全在 60 秒整挂掉（她 2026-08-24 的截图）——
+// 60 秒是 nginx proxy_read_timeout 和 iOS 请求超时的共同默认值：非流式请求
+// 只要生成超过 60 秒就必被掐，跟 max_tokens、上下文长度都没关系。
+// 酒馆能一次写这么长是因为它【真的在流式】——字节一直在流，读超时永远不触发。
+// 所以关键不是额度，是能不能流；能不能流又取决于线路怎么配的。
+
+const stubbed = (opts, model) => {
+  const win = {};
+  new Function("window", "localStorage", "loadJSON", "saveJSON", "callAI", "narrativeCore", "routeCanStream", "detectFormat", "Date", sp)(
+    win, { getItem: () => null, setItem: () => {} }, (k, d) => d, () => {},
+    model, () => "",
+    p => !p.proxyRef && !/anthropic|googleapis/.test(p.baseUrl || ""),
+    p => (/anthropic/.test(p.baseUrl || "") ? "anthropic" : "openai"),
+    opts.Date || Date);
+  return win.StylePresets;
+};
+
+test("失败时说清这条线路能不能流、为什么不能", async () => {
+  const SPX = stubbed({}, async () => { throw new Error("Load failed"); });
+  const cases = [
+    [{ name: "a", baseUrl: "https://x/v1", proxyRef: "DZZI" }, /走云端密钥保险柜（DZZI）.*整个缓冲/],
+    [{ name: "b", baseUrl: "https://x/v1" }, /本该能流式/],
+    [{ name: "c", baseUrl: "https://api.anthropic.com" }, /anthropic 方言/]
+  ];
+  for (const [route, want] of cases) {
+    await SPX.runTest(route, { char: { name: "x" }, minWords: 1500 }).catch(e => assert.match(e.message, want));
+  }
+});
+
+test("60 秒上下挂掉要点名是读超时，并给出根治和将就两条路", async () => {
+  let now = 1e6;
+  const SPX = stubbed({ Date: { now: () => now } }, async () => { now += 60000; throw new Error("Load failed"); });
+  await SPX.runTest({ name: "a", baseUrl: "https://x/v1", proxyRef: "DZZI" }, { char: { name: "x" }, minWords: 1500 })
+    .catch(e => {
+      assert.match(e.message, /等了 60 秒/);
+      assert.match(e.message, /读超时到点了/);
+      assert.match(e.message, /跟 max_tokens、上下文长度都没关系/, "别让她再去调额度");
+      assert.match(e.message, /直接填密钥，别走云端密钥保险柜/, "根治");
+      assert.match(e.message, /最低字数调低到 800/, "将就");
+    });
+});
+
+test("能流式却也挂了，说法要不一样——那是中转谎报", async () => {
+  let now = 1e6;
+  const SPX = stubbed({ Date: { now: () => now } }, async () => { now += 60000; throw new Error("Load failed"); });
+  await SPX.runTest({ name: "b", baseUrl: "https://x/v1" }, { char: { name: "x" }, minWords: 1500 })
+    .catch(e => {
+      assert.match(e.message, /中转收下了 stream 却缓冲发回/);
+      assert.ok(e.message.indexOf("保险柜") < 0);
+    });
+});
+
+test("瞬间失败不当成读超时——那是密钥/CORS/DNS", async () => {
+  const SPX = stubbed({}, async () => { throw new Error("Load failed"); });
+  await SPX.runTest({ name: "b", baseUrl: "https://x/v1" }, { char: { name: "x" }, minWords: 1500 })
+    .catch(e => assert.ok(e.message.indexOf("读超时到点了") < 0, "0 秒就挂跟超时没关系"));
+});
+
+test("花钱之前就告诉她这条线路有 60 秒天花板", () => {
+  assert.ok(lab.indexOf("这条线路发不出流式 · 有 60 秒天花板") > 0);
+  assert.ok(lab.indexOf("SP.routeInfo(props.active)") > 0);
+  assert.ok(lab.indexOf("if (r.canStream) return null;") > 0, "能流式就别唠叨");
+  assert.ok(lab.indexOf("等三次试写全挂了才知道") > 0, "为什么要前置，写在代码里");
+});

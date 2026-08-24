@@ -244,6 +244,42 @@
   // 只为这一种错退一档重试，别为它平白给所有人降配。
   const tooBig = e => /max_tokens|max output|maximum.*token|too large|invalid.*token/i.test(String((e && e.message) || e || ""));
 
+  // 这条线路到底能不能流式，以及为什么——失败时要能一眼看出来，别再靠猜。
+  // 三次试写全在 60 秒整挂掉（她 2026-08-24 的截图）就是个死信号：60s 是 nginx
+  // proxy_read_timeout 和 WKWebView 请求超时的共同默认值。非流式请求只要生成超过
+  // 60 秒就必被掐，而 1500 字本来就要一两分钟。酒馆能行是因为它【真的在流式】——
+  // 字节一直在流，读超时永远不触发。所以这里的关键不是额度，是能不能流。
+  // 失败时把「这条线路能不能流 + 等了多久 + 该怎么办」一次说清。
+  // 60 秒整挂掉是最典型的一种，单独点名——那不是模型慢，是读超时到点了。
+  function explainFail(p, secs) {
+    const r = routeInfo(p);
+    const timeoutish = secs >= 45 && secs <= 130;
+    let out = "（等了 " + secs + " 秒";
+    out += r.canStream ? "，这条线路本该能流式" : "，这条线路发不出流式：" + r.why;
+    out += "）";
+    if (!timeoutish) return out;
+    out += "\n60 秒上下挂掉基本就是读超时到点了（nginx 和 iOS 的默认值都是 60 秒），"
+      + "跟 max_tokens、上下文长度都没关系：非流式请求只要生成超过这个时间就会被掐，而 1500 字本来就要一两分钟。"
+      + (r.canStream
+        ? "这条线路方言上支持流式，那多半是中转收下了 stream 却缓冲发回——换一家真推 SSE 的站子就好了。"
+        : (p && p.proxyRef
+          ? "根治办法：给这个角色的线下 API 直接填密钥，别走云端密钥保险柜——保险柜必须收全响应才转回来，天生流不起来。填了直连密钥就能流式，60 秒的天花板直接消失。"
+          : "根治办法：换一条 openai 方言、能直连的线路，就能走流式。"))
+      + "\n将就办法：把最低字数调低到 800 上下，一次调用能在 60 秒内写完。";
+    return out;
+  }
+
+  function routeInfo(p) {
+    const canStream = typeof routeCanStream === "function" ? routeCanStream(p) : false;
+    let why = "";
+    if (!canStream) {
+      if (p && p.proxyRef) why = "走云端密钥保险柜（" + p.proxyRef + "），它会把响应整个缓冲下来才转回来，流不起来";
+      else if (typeof detectFormat === "function" && detectFormat(p) !== "openai") why = "这条线路是 " + detectFormat(p) + " 方言，我们这边只给 openai 方言实现了 SSE";
+      else why = "线路判定发不出流式";
+    }
+    return { canStream: canStream, why: why };
+  }
+
   function wordRule(minW) {
     if (!minW) return "";
     const maxW = Math.round(minW * 1.35);   // 用 round 不用 ceil：1500*1.35 浮点是 2025.0000000000002
@@ -264,7 +300,8 @@
     // routeCanStream 判的是【方言】：走云端密钥代理的线路天生发不出流式
     //（llmProxyFetch 把响应整个缓冲），便宜中转还常常收下 stream:true 却缓冲发回。
     // 流式只影响会不会被网关掐断，不影响能写多长——能写多长看的是上面那三样。
-    const canStream = typeof routeCanStream === "function" ? routeCanStream(active) : false;
+    const route = routeInfo(active);
+    const canStream = route.canStream;
 
     const sys = [
       typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) : "",
@@ -291,7 +328,7 @@
       }) || "").trim();
     } catch (e) {
       const secs = Math.round((Date.now() - t0) / 1000);
-      if (!tooBig(e)) { e.message = String(e.message || e) + "（等了 " + secs + " 秒）"; throw e; }
+      if (!tooBig(e)) { e.message = String(e.message || e) + explainFail(active, secs); throw e; }
       // 这条线路不肯 clamp，退一档再试一次——只为这一种错多花这一次
       want = 8192;
       notes.push("这条线路不接受 " + tokensFor(minW || 600) + " 的 max_tokens，退到 " + want + " 重试");
@@ -316,7 +353,7 @@
     list: list, save: save, byId: byId, upsert: upsert, remove: remove,
     textFor: textFor, blockFor: blockFor, wrap: wrap,
     loadRuns: loadRuns, pushRun: pushRun, clearRuns: clearRuns, runTest: runTest,
-    wordRule: wordRule, outTokens: tokensFor, OUT_CEILING: OUT_CEILING,
+    wordRule: wordRule, outTokens: tokensFor, OUT_CEILING: OUT_CEILING, routeInfo: routeInfo,
     SM_BEAT: SM_BEAT, SM_CAMERA: SM_CAMERA, SM_PARAGRAPH: SM_PARAGRAPH
   };
 })();
