@@ -43,6 +43,9 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     // 自定义图像站通常不开放 WebView CORS。只代发用户明确配置的 HTTPS 请求，
     // 让模型列表和图片 API 能像 curl 一样工作；API key 不再交给跨域浏览器请求。
     cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeHttp")
+    // 网页的 <a download> 在 WKWebView 里常被静默吃掉。审计/备份等文本文件统一交给
+    // 系统分享面板，用户可存到“文件”、隔空投送或发给其它 App。
+    cfg.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "nativeExport")
     if #available(iOS 16.4, *) { cfg.preferences.isElementFullscreenEnabled = true }
     webView = WKWebView(frame: .zero, configuration: cfg)
     webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -116,6 +119,10 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
   func userContentController(_ userContentController: WKUserContentController,
                              didReceive message: WKScriptMessage,
                              replyHandler: @escaping (Any?, String?) -> Void) {
+    if message.name == "nativeExport" {
+      handleNativeExport(message.body, replyHandler: replyHandler)
+      return
+    }
     if message.name == "nativeHttp" {
       handleNativeHttp(message.body, replyHandler: replyHandler)
       return
@@ -165,6 +172,39 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
       }
     } catch {
       replyHandler(nil, "native_media_error_\((error as NSError).code)")
+    }
+  }
+
+  private func handleNativeExport(_ rawBody: Any,
+                                  replyHandler: @escaping (Any?, String?) -> Void) {
+    guard let body = rawBody as? [String: Any],
+          let rawName = body["filename"] as? String,
+          let text = body["text"] as? String,
+          !rawName.isEmpty, rawName.count <= 180 else {
+      replyHandler(["ok": false, "error": "bad_export_request"], nil); return
+    }
+    var filename = URL(fileURLWithPath: rawName).lastPathComponent
+    filename = filename.replacingOccurrences(of: ":", with: "-")
+    guard !filename.isEmpty else {
+      replyHandler(["ok": false, "error": "bad_filename"], nil); return
+    }
+    do {
+      let dir = FileManager.default.temporaryDirectory.appendingPathComponent("LisaPhoneExports", isDirectory: true)
+      try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+      let url = dir.appendingPathComponent(filename)
+      try Data(text.utf8).write(to: url, options: .atomic)
+      DispatchQueue.main.async { [weak self] in
+        guard let self else { replyHandler(["ok": false, "error": "view_closed"], nil); return }
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = sheet.popoverPresentationController {
+          popover.sourceView = self.view
+          popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 1, height: 1)
+        }
+        self.present(sheet, animated: true)
+        replyHandler(["ok": true], nil)
+      }
+    } catch {
+      replyHandler(["ok": false, "error": "export_write_failed"], nil)
     }
   }
 

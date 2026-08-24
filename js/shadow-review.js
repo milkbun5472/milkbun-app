@@ -102,12 +102,28 @@
       }, personality
     };
   }
+  async function saveText(filename, text, mime) {
+    const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeExport;
+    if (bridge && typeof bridge.postMessage === "function") {
+      const result = await bridge.postMessage({ filename, text, mime: mime || "application/json" });
+      if (!result || result.ok !== true) throw new Error("原生保存面板没有打开");
+      return "native";
+    }
+    const file = new File([text], filename, { type: mime || "application/json" });
+    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+      await navigator.share({ files: [file], title: "人格转正评审包" });
+      return "share";
+    }
+    const href = URL.createObjectURL(file), a = document.createElement("a");
+    a.href = href; a.download = filename; a.style.display = "none";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 10000);
+    return "download";
+  }
   async function download(characters, appVersion) {
     const data = await build(characters, appVersion), stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), a = document.createElement("a");
-    a.href = URL.createObjectURL(blob); a.download = "lisa-shadow-review-" + stamp + ".json"; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    await saveText("lisa-shadow-review-" + stamp + ".json", JSON.stringify(data, null, 2), "application/json");
     return data;
   }
-  window.ShadowReview = Object.freeze({ build, download });
+  window.ShadowReview = Object.freeze({ build, download, _saveText: saveText });
 })();
