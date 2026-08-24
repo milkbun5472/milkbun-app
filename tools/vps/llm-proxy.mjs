@@ -56,7 +56,8 @@ http.createServer(async (req, res) => {
   try { payload = JSON.parse(await readBody(req)); }
   catch (e) { return send(res, 400, { error: "请求体不是合法 JSON：" + e.message }); }
 
-  const { ref, url, body, extraHeaders } = payload || {};
+  const { ref, url, body, extraHeaders, method } = payload || {};
+  const upMethod = String(method || "POST").toUpperCase() === "GET" ? "GET" : "POST";
   const route = ROUTES[ref];
   const key = process.env["KEY_" + ref];
   if (!route) return send(res, 400, { error: "unknown ref: " + ref });
@@ -76,7 +77,7 @@ http.createServer(async (req, res) => {
 
   let up;
   try {
-    up = await fetch(u.toString(), { method: "POST", headers, body: JSON.stringify(body) });
+    up = await fetch(u.toString(), upMethod === "GET" ? { method: "GET", headers } : { method: "POST", headers, body: JSON.stringify(body) });
   } catch (e) {
     return send(res, 502, { error: "上游连不上：" + (e && e.message || e) });
   }

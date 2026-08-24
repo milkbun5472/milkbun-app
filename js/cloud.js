@@ -1044,7 +1044,7 @@
       localStorage.setItem("x_llmProxyDirect", JSON.stringify(v));
       return v;
     },
-    async llmProxyFetch(ref, url, body, extraHeaders, timeout) {
+    async llmProxyFetch(ref, url, body, extraHeaders, timeout, method) {
       const direct = this.llmProxyDirect();
       if (direct) {
         const ctrl0 = new AbortController();
@@ -1053,7 +1053,7 @@
           return await fetch(direct.url, {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(direct.secret ? { "x-proxy-secret": direct.secret } : {}) },
-            body: JSON.stringify({ ref: ref, url: url, body: body, extraHeaders: extraHeaders || {} }),
+            body: JSON.stringify({ ref: ref, url: url, body: body, extraHeaders: extraHeaders || {}, method: method || "POST" }),
             signal: ctrl0.signal
           });
         } catch (e) {
@@ -1073,7 +1073,7 @@
         return await fetch(VPS_SUPABASE_URL + "/functions/v1/llm-proxy", {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: VPS_SUPABASE_ANON_KEY, Authorization: "Bearer " + token },
-          body: JSON.stringify({ ref: ref, url: url, body: body, extraHeaders: extraHeaders || {} }),
+          body: JSON.stringify({ ref: ref, url: url, body: body, extraHeaders: extraHeaders || {}, method: method || "POST" }),
           signal: ctrl.signal
         });
       } catch (e) {

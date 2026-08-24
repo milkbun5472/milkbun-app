@@ -124,7 +124,14 @@ async function fetchModelList(p) {
     }
   };
   // CatsAPI 不给 WKWebView/browser 跨域放行；原生壳代发，避免明明 curl 200 页面却只报 Load failed。
-  const r = isCatsImageProvider(base) ? await nativeProviderFetch(endpoint, request) : await fetch(endpoint, request);
+  // 保险柜线路（proxyRef）：钥匙住 VPS，本地 apiKey 只是占位符——拉模型也得借道保险柜贴真钥匙，
+  // 否则必吃 401 无效令牌（2026-08-23 大肘子案）。
+  let r;
+  if (p.proxyRef && typeof window !== "undefined" && window.Cloud && window.Cloud.llmProxyFetch) {
+    r = await window.Cloud.llmProxyFetch(String(p.proxyRef).trim().toUpperCase(), endpoint, null, { Accept: "application/json" }, 30000, "GET");
+  } else {
+    r = isCatsImageProvider(base) ? await nativeProviderFetch(endpoint, request) : await fetch(endpoint, request);
+  }
   const raw = await r.text();
   let d;
   try { d = JSON.parse(raw); }
