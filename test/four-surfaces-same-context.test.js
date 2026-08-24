@@ -26,19 +26,18 @@ test("规矩写在 .claude/rules 里，不是只活在某一次对话里", () =>
 
 const B = (() => {
   const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
-  return new Function("const GROUP_PERSONA_BUDGET = 9000;" + g("function groupPersonaBudget(")
+  return new Function("const GROUP_PERSONA_BUDGET = 30000, GROUP_PERSONA_EACH_MAX = 6000;" + g("function groupPersonaBudget(")
     + g("function groupPersonaText(") + "\nreturn { groupPersonaBudget, groupPersonaText };")();
 })();
 
 test("人设按在场人数分预算，小群直接给全文", () => {
-  assert.equal(B.groupPersonaBudget(2), 4500);
-  assert.equal(B.groupPersonaBudget(3), 3000);
-  assert.ok(B.groupPersonaBudget(30) >= 400, "人再多也得有个地板");
+  assert.equal(B.groupPersonaBudget(3), 6000);
+  assert.ok(B.groupPersonaBudget(40) >= 1500, "人再多也得有个地板");
   // 两三个人的群，两千字的人设一个字不砍
   const p = "甲".repeat(2000);
   assert.equal(B.groupPersonaText(p, B.groupPersonaBudget(3)), p);
   // 超了才截，而且要说明是被截的
-  const long = "乙".repeat(5000);
+  const long = "乙".repeat(9000);
   const cut = B.groupPersonaText(long, B.groupPersonaBudget(3));
   assert.ok(cut.length < long.length);
   assert.match(cut, /〔人设过长，按在场人数分到的额度截断〕$/);
@@ -69,17 +68,71 @@ test("群聊线下也补上，同样的分档", () => {
   assert.match(app, /memberMood: \(\(\) => \{/);
   assert.match(app, /memberAff: \(\(\) => \{/);
   assert.match(app, /memberGaze: \(\(\) => \{/);
-  assert.match(app, /if \(!gsFor\(group\.id\)\.memoryInterop \|\| !window\.Gaze\) return m;/, "封闭群不给印象卡");
+  assert.match(app, /      if \(!window\.Gaze\) return m;/, "读一律给：封闭群也拿得到印象卡");
   assert.match(engine, /\(ctx\.memberMood && ctx\.memberMood\[c\.id\]\) \? "\\n〔此刻心情〕"/);
   assert.match(engine, /\(ctx\.memberAff && ctx\.memberAff\[c\.id\] != null\)/);
   assert.match(engine, /\(ctx\.memberGaze && ctx\.memberGaze\[c\.id\]\) \? "\\n〔以下只有 " \+ c\.name \+ " 本人知道，别的成员并不知情〕/);
 });
 
-test("封闭群仍然只封「发生过什么」，不封「这个人是谁」", () => {
-  // 心情/好感不看 memoryInterop——它们是人物本身
+test("封闭群的读侧一个都不许挡", () => {
   const i = app.indexOf("memberMood: (() => {");
   const j = app.indexOf("memberGaze: (() => {");
   assert.ok(app.slice(i, j).indexOf("memoryInterop") < 0, "心情/好感不该被封闭群挡掉");
-  assert.match(app, /它们是【这个人此刻是谁】、\n    \/\/ 不是【你们之间发生过什么】，所以封闭群照给/);
-  assert.match(rule, /「这个人是谁」类的（人设全文、长出来的自我、心情、好感度）照常给/);
+  const k = app.indexOf("memberGaze: (() => {");
+  assert.ok(app.slice(k, k + 400).indexOf("memoryInterop") < 0, "印象卡现在也读一律给");
+});
+
+// —— 「封闭群线上线下也要做个区分，长出来的自我、记忆库这些要只进不出，
+//     封闭群不应该影响主要世界」（她 2026-08-24）——
+// 以前 memoryInterop 一个开关同时管两个方向，关掉就是「不进也不出」，
+// 于是封闭群里所有人都退化成一张标签。现在拆开：读一律给，写一律封死。
+
+test("规矩里把「只进不出」写清楚了", () => {
+  assert.match(rule, /封闭群.*＝只进不出/);
+  assert.match(rule, /读一律给/);
+  assert.match(rule, /写一律封死/);
+  assert.match(rule, /闭群是平行沙盒，读主线、不写主线/);
+  assert.match(rule, /先问一句「封闭群里发生这件事，该不该影响主线」。默认答案是不该/);
+});
+
+test("读：封闭群照样拿得到记忆库/印象卡", () => {
+  // 线上群那一大块不再挂在 memoryInterop 上
+  assert.ok(app.indexOf("      if (gs.memoryInterop) {\n        if (typeof primeQueryVec") < 0, "旧的读闸不许留着");
+  assert.match(app, /【读】一律给（记忆库、长期记忆、印象卡、长出来的自我）/);
+  // 群线下的两处读闸也开了
+  assert.match(app, /const groupOfflineMemSplit = group => \{\n(?:.*\n)*?    if \(!group\) return null;/);
+  assert.match(app, /      if \(!window\.Gaze\) return m;/);
+});
+
+test("写：封闭群一个字都不回流主线", () => {
+  // 记忆库
+  assert.match(app, /if \(gsFor\(groupId\)\.memoryInterop\) \{ \/\/ 只有互通群进全局记忆库/);
+  assert.match(app, /if \(!gsFor\(groupId\)\.memoryInterop\) return; \/\/ 记忆分区/);
+  // 群线下的好感/心情/状态卡——以前一道闸都没有
+  assert.match(app, /const gOffSealed = groupClosed\(group\.id\);/);
+  assert.match(app, /if \(!gOffSealed && b\.senderId && typeof b\.affinityDelta === "number"\) bumpAff/);
+  assert.match(app, /if \(!gOffSealed && b\.senderId && b\.mood && b\.mood\.label\) setMoodFor/);
+  assert.match(app, /if \(!gOffSealed && b\.senderId && \(gOffThought \|\| \(b\.mood && b\.mood\.label\)\)\)/);
+  // 动态计数器：线上线下都要堵
+  assert.match(app, /if \(!groupClosed\(groupId\)\) _gspoke\.forEach/, "群聊线上");
+  assert.match(app, /if \(!groupClosed\(group\.id\)\) _spoke\.forEach/, "群线下");
+  // 钱包
+  assert.match(app, /if \(!groupClosed\(groupId\)\) adjustCharBalance/);
+});
+
+test("实时私聊窗口仍归互通群，别和 preJoin 叠加", () => {
+  assert.match(app, /const priv = gs\.memoryInterop && gs\.privateCtxN > 0/);
+  assert.match(app, /const offBeats = gs\.memoryInterop && gs\.privateCtxN > 0/);
+  assert.match(app, /if \(gs\.preJoinN > 0 && !gs\.memoryInterop\)/, "闭群走 preJoin");
+  assert.match(app, /否则同一段私聊会进两遍/);
+});
+
+test("人设额度放宽到她的实际长度：每人 4500+ 不该被砍", () => {
+  assert.equal(B.groupPersonaBudget(3), 6000);
+  assert.equal(B.groupPersonaBudget(5), 6000);
+  assert.equal(B.groupPersonaBudget(10), 3000);
+  assert.ok(B.groupPersonaBudget(40) >= 1500, "地板");
+  const p = "甲".repeat(4500);
+  assert.equal(B.groupPersonaText(p, B.groupPersonaBudget(5)), p, "五人以内一个字不砍");
+  assert.match(engine, /她的人设每个都 4500\+/);
 });

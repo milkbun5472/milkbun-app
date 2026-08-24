@@ -3176,9 +3176,13 @@ function offlineStyleExamplesBlock(examples, label, maxItems) {
 // 空白由训练先验补上就成了网文霸总。而同群的双胞胎是「现代年轻人」，fallback 恰好无害——
 // 所以同一个群里只有他一个人崩。截断对谁伤害大，取决于剩下的标签有多刻板。
 // 改成按在场人数分总预算：两三个人的群直接给全文，人多了才按份额收。
-const GROUP_PERSONA_BUDGET = 9000;
+// 她的人设每个都 4500+，9000 的总预算在三人群里就开始截了（2026-08-24）。
+// 她按次计费，上下文长一点不多花钱；每人给到 6000 封顶、总预算 30000，
+// 五个人以内谁都不用被砍。人再多才按份额收，地板 1500。
+const GROUP_PERSONA_BUDGET = 30000, GROUP_PERSONA_EACH_MAX = 6000;
 function groupPersonaBudget(memberCount) {
-  return Math.max(400, Math.floor(GROUP_PERSONA_BUDGET / Math.max(1, Number(memberCount) || 1)));
+  const n = Math.max(1, Number(memberCount) || 1);
+  return Math.min(GROUP_PERSONA_EACH_MAX, Math.max(1500, Math.floor(GROUP_PERSONA_BUDGET / n)));
 }
 function groupPersonaText(persona, budget) {
   const t = String(persona == null ? "" : persona).trim();

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.87";
+const APP_VERSION = "v55.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3642,7 +3642,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 群线下的记忆按在场成员的可见交集分流（v53.61，同线上群）：全员都知道的进公共【记忆库】段，
   // 只有部分成员知道的落进各自那段〔仅本人知道〕里，别的成员的上下文里根本不出现。
   const groupOfflineMemSplit = group => {
-    if (!gsFor(group.id).memoryInterop) return null;
+    // 读一律给（她 2026-08-24「只进不出」）：封闭群照样读得到记忆库，
+    // 只是里头发生的事不写回去——写那一侧的闸在 addMemEntry 那几处，一个没松。
+    if (!group) return null;
     const limit = osFor("g_" + group.id).memN != null ? Number(osFor("g_" + group.id).memN) : 6;
     if (!Number.isFinite(limit) || limit <= 0) return { shared: [], perChar: {} };
     const sess = (groupOfflinesRef.current[group.id] || []).find(s => !s.endTs);
@@ -3688,7 +3690,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 印象卡跟长期记忆同一档（从私下往来长出来的＝「发生过什么」），只在开了记忆互通时给
     memberGaze: (() => {
       const m = {};
-      if (!gsFor(group.id).memoryInterop || !window.Gaze) return m;
+      // 读一律给：封闭群里角色照样是完整的自己（她 2026-08-24「只进不出」）
+      if (!window.Gaze) return m;
       (group.memberIds || []).forEach(id => {
         if (settingsFor(id).engineerEyes) return;
         const t = window.Gaze.text(id, profile.name || "用户");
@@ -3897,12 +3900,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           generated: true,
           turnId: goTurnId
         });
-        // 多人线下也影响各角色对用户的好感与心情
-        if (b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
-        if (b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
+        // 多人线下也影响各角色对用户的好感与心情——但【封闭群不写回主线】
+        // （她 2026-08-24「只进不出，封闭群不应该影响主要世界」）。
+        // 这三处以前一道闸都没有：闭群里演什么，好感、心情、状态卡就跟着变，
+        // 转头回单聊他还带着闭群里的情绪，等于沙盒漏了。
+        const gOffSealed = groupClosed(group.id);
+        if (!gOffSealed && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
+        if (!gOffSealed && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
         // 群线下心声同样过守卫再进共享状态卡（导演稿/演技备注拦在卡外，消息内原文照旧）
         const gOffThought = b.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(b.thought) : b.thought;
-        if (b.senderId && (gOffThought || (b.mood && b.mood.label))) {
+        if (!gOffSealed && b.senderId && (gOffThought || (b.mood && b.mood.label))) {
           const liveState = statesRef.current[b.senderId] || {};
           const ns = { ...liveState, ...(gOffThought ? { thought: gOffThought, thoughtUpdatedAt: Date.now(), thoughtSkips: 0 } : {}), mood: b.mood && b.mood.label ? b.mood.label : liveState.mood, ts: Date.now(), turnId: goTurnId, affinityBefore };
           setStateFor(b.senderId, ns); pushStateHist(b.senderId, ns);
@@ -3918,7 +3925,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const left = Math.max(0, ...(effectiveSess.customNotes || []).map(n => typeof n === "string" ? 0 : (usedNoteIds.has(n.id) ? Number(n.remaining || 0) - 1 : 0)));
         toast(left ? "导演便签已落实 · 还剩 " + left + " 轮" : "导演便签已结束 · 下轮不再注入");
       }
-      _spoke.forEach(id => tickAmbient(id, {}));
+      // 封闭群不驱动朋友圈/论坛/悄悄话这些对外的东西（线上那处 v55.79 已堵，群线下漏了）
+      if (!groupClosed(group.id)) _spoke.forEach(id => tickAmbient(id, {}));
       // 群线下成员自己冒泡时，若你没在看这个群的线下，挂未读红点+顶上来
       const _gCharBeats = (beats || []).filter(b => b && b.senderId).length;
       if (_gCharBeats && !(offlineGroup && offlineGroup.id === group.id) && viewRef.current.charId !== group.id) bumpUnread(group.id, _gCharBeats);
@@ -5478,7 +5486,15 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gGrowthHint = gEvolveNames.length ? "\n\n【这些成员会成长·不冻在原卡里：" + gEvolveNames.join("、") + "】\n他们的人设卡是【起点和底色】不是牢笼：硬核（身份／世界观／说话底色／明确边界／真实发生过的重要经历）绝不因几轮相处被改写或软化；但软层（和用户亲近的方式／处理冲突闹别扭的习惯／偏好／勇气／信任／对未来怎么选）允许被各自『长出来的自我』推着长成新样子。只有【已沉淀成正式人格档案（上面那段『长出来的自我』）】的成长才算数、才可盖过原卡软倾向；最近几轮的经历只能让 TA 当下有所松动，不等于人格已永久改变。冲突时：明确硬设定与边界 ＞ 已固化的成长 ＞ 原卡软倾向 ＞ 通用默认。**其余在场成员照旧严格贴合各自原卡、不适用本条。**" : "";
       const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
       let interop = "";
-      if (gs.memoryInterop) {
+      // ⭐封闭群改成【只进不出】（她 2026-08-24：「长出来的自我、记忆库这些要只进不出，
+      // 封闭群不应该影响主要世界」）。以前 memoryInterop 一个开关同时管两个方向，
+      // 关掉就是「不进也不出」——于是封闭群里所有人都退化成一张标签。
+      // 现在：【读】一律给（记忆库、长期记忆、印象卡、长出来的自我），角色在哪儿都是完整的自己；
+      //      【写】仍然全部封死（记忆库、状态卡、好感、朋友圈、钱包、群→私聊回声），
+      //      封闭群里发生的事一个字都不回流主线。
+      // 只有【实时私聊窗口】仍归互通群：封闭群那边有自己的 preJoin（入群前私聊）当这一档，
+      // 两者不叠加，否则同一段私聊会进两遍。
+      {
         if (typeof primeQueryVec === "function") await primeQueryVec(hist); // 向量记忆预热（失败自动纯关键词）
         // 记忆按在场成员的可见交集分流（v53.61）：全员都知道的进公共段，
         // 只有部分成员知道的（比如 A 私下说了自己受伤、没告诉别人）只落进那几个人各自的私密段。
@@ -5486,11 +5502,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         const memLines = members.map(c => {
           const mem = memories[c.id];
           const onlyMine = formatMemLib(gSplit.perChar[String(c.id)] || []);
-          const priv = gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
+          const priv = gs.memoryInterop && gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
           // 单人线下（跨情境近况，v50.66）：这个成员最近和用户单独线下相处的片段，带时间戳，让群线上接得上（own-scoped，仍在本人隐私段里）
-          const offBeats = gs.privateCtxN > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
-          // 印象卡跟长期记忆同一档：它是从私下往来里长出来的，属于「发生过什么」，
-          // 所以只在开了记忆互通时给，而且必须落在这位成员自己那一段里（隐私围栏见上）
+          const offBeats = gs.memoryInterop && gs.privateCtxN > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
+          // 印象卡跟长期记忆同一档：读一律给（封闭群也给），但必须落在这位成员自己那一段里（隐私围栏见上）
           const gz = window.Gaze && !settingsFor(c.id).engineerEyes ? window.Gaze.text(c.id, profile.name || "用户") : "";
           const seg = [mem && "长期记忆：" + mem, gz && gz.trim(), onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己在群里说出来）：\n" + onlyMine.trim(), priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
