@@ -4392,6 +4392,7 @@ function Config({
   })), fold("theme-bubble", "聊天气泡皮肤", "气泡尺寸、圆角、颜色与阴影", /*#__PURE__*/React.createElement(BubbleSkinConfig, {
     toast: toast
   }))), tab === "data" && h("div", null, /*#__PURE__*/React.createElement(DataConfig, {
+    characters: characters,
     onExport: onExport,
     onImport: onImport,
     onOffloadChats: onOffloadChats,
@@ -5379,6 +5380,7 @@ function LocalPhotoLibrary({ toast }) {
         h("button", { onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); }, className: "w-full", style: { color: "#fff", fontFamily: F_BODY, fontSize: 12, padding: 12, marginTop: 8 } }, "仅移出本机照片库"))) : null);
 }
 function DataConfig({
+  characters,
   onExport,
   onImport,
   onOffloadChats,
@@ -5389,6 +5391,7 @@ function DataConfig({
   const t = useTheme();
   const [c, setC] = useState(false);
   const [part, setPart] = useState("");
+  const [innerLifeOpen, setInnerLifeOpen] = useState(false);
   const ref = useRef(null);
   const fold = (id, title, sub, child, danger) => h(ConfigFold, {
     title: title, sub: sub, danger: danger, open: part === id,
@@ -5401,6 +5404,10 @@ function DataConfig({
       border: primary ? "none" : "1px solid " + t.line }
   }, label);
   return h("div", { style: { paddingTop: 4 } },
+    innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { characters: characters || [], onClose: () => setInnerLifeOpen(false) }) : null,
+    fold("inner-life", "人格试点", "E 余温开阀、影响次数与紧急回滚", h("div", { style: { paddingTop: 8 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "在这里查看每个角色的余温影响，并一次给全部角色开启前台试点。"),
+      button("打开 E 余温与潮汐仪表", () => setInnerLifeOpen(true), true))),
     fold("storage", "本地空间", "查看占用、归档聊天和清理可再生数据", h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld })),
     fold("photos", "本机照片库", "聊天照片、相册导入与给言秋看的照片桥", h(LocalPhotoLibrary, { toast: toast })),
     fold("cloud", "云同步", "账号、云端存档与同步状态", h(CloudSync, { toast: toast })),
