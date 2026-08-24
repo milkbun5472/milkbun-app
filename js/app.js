@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.68";
+const APP_VERSION = "v55.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2588,7 +2588,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     ccContinuity: ccContinuityFor(char),
     profile,
     affinity: Math.round(affOf(char.id)),
-    moodLabel: (moods[char.id] || {}).label || null,
+    // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
+    // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
+    // 提示词照原样塞进去，等于要求他把三天前那阵气重演一遍（她 2026-08-24 问到的）。
+    ...(function () {
+      const m = moods[char.id] || {};
+      const st = window.MoodLabel && window.MoodLabel.settle
+        ? window.MoodLabel.settle(m.label, m.ts, Date.now())
+        : { label: m.label || null, note: "" };
+      return { moodLabel: st.label || null, moodNote: st.note || "" };
+    })(),
     gazeText: !settingsFor(char.id).engineerEyes && window.Gaze ? window.Gaze.text(char.id, profile.name || "用户") : "",
     directives: directives[char.id] || [],
     memory: memories[char.id],
