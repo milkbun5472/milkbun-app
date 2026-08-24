@@ -489,7 +489,7 @@ const stubbed = (opts, model) => {
 test("失败时说清这条线路能不能流、为什么不能", async () => {
   const SPX = stubbed({}, async () => { throw new Error("Load failed"); });
   const cases = [
-    [{ name: "a", baseUrl: "https://x/v1", proxyRef: "DZZI" }, /走云端密钥保险柜（DZZI）.*整个缓冲/],
+    [{ name: "a", baseUrl: "https://api.anthropic.com" }, /anthropic 方言/],
     [{ name: "b", baseUrl: "https://x/v1" }, /本该能流式/],
     [{ name: "c", baseUrl: "https://api.anthropic.com" }, /anthropic 方言/]
   ];
@@ -501,12 +501,12 @@ test("失败时说清这条线路能不能流、为什么不能", async () => {
 test("60 秒上下挂掉要点名是读超时，并给出根治和将就两条路", async () => {
   let now = 1e6;
   const SPX = stubbed({ Date: { now: () => now } }, async () => { now += 60000; throw new Error("Load failed"); });
-  await SPX.runTest({ name: "a", baseUrl: "https://x/v1", proxyRef: "DZZI" }, { char: { name: "x" }, minWords: 1500 })
+  await SPX.runTest({ name: "a", baseUrl: "https://api.anthropic.com" }, { char: { name: "x" }, minWords: 1500 })
     .catch(e => {
       assert.match(e.message, /等了 60 秒/);
       assert.match(e.message, /读超时到点了/);
       assert.match(e.message, /跟 max_tokens、上下文长度都没关系/, "别让她再去调额度");
-      assert.match(e.message, /直接填密钥，别走云端密钥保险柜/, "根治");
+      assert.match(e.message, /换一条 openai 方言的线路/, "根治");
       assert.match(e.message, /最低字数调低到 800/, "将就");
     });
 });
@@ -517,7 +517,7 @@ test("能流式却也挂了，说法要不一样——那是中转谎报", async
   await SPX.runTest({ name: "b", baseUrl: "https://x/v1" }, { char: { name: "x" }, minWords: 1500 })
     .catch(e => {
       assert.match(e.message, /中转收下了 stream 却缓冲发回/);
-      assert.ok(e.message.indexOf("保险柜") < 0);
+      assert.ok(e.message.indexOf("换一条 openai 方言的线路") < 0, "本来就是 openai 方言，别叫她换");
     });
 });
 

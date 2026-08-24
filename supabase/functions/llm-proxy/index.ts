@@ -32,5 +32,19 @@ Deno.serve(async (req) => {
   if (route.style === "query") u.searchParams.set("key", key);
 
   const r = await fetch(u.toString(), { method: "POST", headers, body: JSON.stringify(body) });
-  return new Response(await r.text(), { status: r.status, headers: { ...CORS, "Content-Type": r.headers.get("Content-Type") || "application/json" } });
+  // ⭐流式透传，别 await r.text()（Lisa 2026-08-24）。
+  // 原来这里把上游响应【整个读完】才往回发：中转就算在推 SSE，保险柜也会攒到最后一起给，
+  // 浏览器一个字节都收不到。她那次 gemini-3.1-pro 服务端跑了 1m8s、钱照扣，客户端 60 秒
+  // 就判死拿不到东西——因为长时间没有首字节，会被当成死连接掐掉。
+  // r.body 直接当 Response 的 body 传下去，字节到一段发一段，连接一直活着。
+  // 对非流式请求完全等价：同样的字节、同样的顺序，只是分成几块到达，客户端 .json()/.text() 照读。
+  return new Response(r.body, {
+    status: r.status,
+    headers: {
+      ...CORS,
+      "Content-Type": r.headers.get("Content-Type") || "application/json",
+      "Cache-Control": "no-cache, no-transform",   // 别让中间层再缓冲一次
+      "X-Accel-Buffering": "no"
+    }
+  });
 });

@@ -262,9 +262,7 @@
       + "跟 max_tokens、上下文长度都没关系：非流式请求只要生成超过这个时间就会被掐，而 1500 字本来就要一两分钟。"
       + (r.canStream
         ? "这条线路方言上支持流式，那多半是中转收下了 stream 却缓冲发回——换一家真推 SSE 的站子就好了。"
-        : (p && p.proxyRef
-          ? "根治办法：给这个角色的线下 API 直接填密钥，别走云端密钥保险柜——保险柜必须收全响应才转回来，天生流不起来。填了直连密钥就能流式，60 秒的天花板直接消失。"
-          : "根治办法：换一条 openai 方言、能直连的线路，就能走流式。"))
+        : "根治办法：换一条 openai 方言的线路，就能走流式。")
       + "\n将就办法：把最低字数调低到 800 上下，一次调用能在 60 秒内写完。";
     return out;
   }
@@ -273,8 +271,7 @@
     const canStream = typeof routeCanStream === "function" ? routeCanStream(p) : false;
     let why = "";
     if (!canStream) {
-      if (p && p.proxyRef) why = "走云端密钥保险柜（" + p.proxyRef + "），它会把响应整个缓冲下来才转回来，流不起来";
-      else if (typeof detectFormat === "function" && detectFormat(p) !== "openai") why = "这条线路是 " + detectFormat(p) + " 方言，我们这边只给 openai 方言实现了 SSE";
+      if (typeof detectFormat === "function" && detectFormat(p) !== "openai") why = "这条线路是 " + detectFormat(p) + " 方言，我们这边只给 openai 方言实现了 SSE";
       else why = "线路判定发不出流式";
     }
     return { canStream: canStream, why: why };

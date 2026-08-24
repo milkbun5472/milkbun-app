@@ -6,7 +6,9 @@
 // 云端密钥代理（proxyRef）走 llmProxyFetch，会把响应整个缓冲下来，流式没意义。
 function routeCanStream(p) {
   if (!p || typeof p !== "object") return false;
-  if (p.proxyRef) return false;
+  // 云端密钥保险柜（llm-proxy）v55.64 起流式透传，不再整个缓冲，所以它也能流了。
+  // ⚠️这要求 supabase/functions/llm-proxy 已经重新部署过；没部署的话最坏情况是
+  // 跟以前一样攒到最后一起发，不会更糟。
   return detectFormat(p) === "openai";
 }
 function detectFormat(u) {
@@ -659,7 +661,9 @@ async function callAI(p, system, messages, opts) {
   const postOpenAI = async withTemp => {
     // 言秋订阅桥用标准 OpenAI SSE。即使 CLI 还在思考，桥也会先发 heartbeat，
     // 避免 Cloudflare/网关把“100 秒没有首字节”误杀成 Load failed。
-    const wantStream = !!(opts && opts.stream && !viaProxy);
+    // 保险柜（viaProxy）v55.64 起流式透传，不再一刀切禁流式。
+    // 她那次就死在这儿：gemini-3.1-pro 服务端跑了 68 秒、钱扣了，客户端 60 秒没收到首字节判死。
+    const wantStream = !!(opts && opts.stream);
     const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages], ...(wantStream ? { stream: true, stream_options: { include_usage: true } } : {}) };
     if (withTemp) body.temperature = temp;
     captureWirePayload("openai", root + "/chat/completions", body, opts, withTemp ? "with-temperature" : "without-temperature");

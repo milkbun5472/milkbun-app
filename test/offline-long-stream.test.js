@@ -21,8 +21,10 @@ test("大请求走流式，短请求保持原路", () => {
 test("流式是安全替换：中转不支持会自动退回普通解析", () => {
   // callAI 按 content-type 判断，不是盲信 stream 参数
   assert.match(engine, /if \(wantStream && \/text\\\/event-stream\/i\.test\(r\.headers\.get\("content-type"\) \|\| ""\)\)/);
-  // 代理路径不流式，这条守卫不能被我碰掉
-  assert.match(engine, /const wantStream = !!\(opts && opts\.stream && !viaProxy\);/);
+  // 借道保险柜时也按 content-type 判断：函数 v55.64 起把上游的 content-type 原样带回来，
+  // 所以这条判断对直连和保险柜是同一套，不需要再给代理开特例
+  const fn = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/llm-proxy/index.ts"), "utf8");
+  assert.match(fn, /"Content-Type": r\.headers\.get\("Content-Type"\)/);
 });
 
 test("Load failed 要翻译成人话，并给出下一步", () => {
@@ -48,12 +50,34 @@ const canStream = (() => {
   return new Function(engine.slice(df, k) + "\n" + engine.slice(i, engine.indexOf("\nfunction detectFormat", i)) + "\nreturn routeCanStream;")();
 })();
 
+// v55.64：她翻中转账单发现「扣了费的也算失败」——gemini-3.1-pro 服务端跑了 1m8s、
+// 标着「非流」、钱照扣，客户端 60 秒判死什么都没拿到。
+// 病根在保险柜函数最后一行 `new Response(await r.text(), ...)`：它把上游响应【整个读完】
+// 才往回发，所以中转就算在推 SSE，浏览器也是一个字节都收不到，长时间无首字节被掐断。
+// 改成 r.body 流式透传之后，保险柜这条路也能流了。
+
 test("只有真发得出流式的线路才算数", () => {
   assert.equal(canStream({ baseUrl: "https://api.xxx.com/v1" }), true, "普通 OpenAI 中转");
-  assert.equal(canStream({ baseUrl: "https://api.xxx.com/v1", proxyRef: "DZZI" }), false, "云端代理会整个缓冲");
+  assert.equal(canStream({ baseUrl: "https://api.xxx.com/v1", proxyRef: "DZZI" }), true, "保险柜 v55.64 起流式透传");
   assert.equal(canStream({ baseUrl: "https://api.anthropic.com" }), false, "言秋那条没实现 SSE");
   assert.equal(canStream({ baseUrl: "https://generativelanguage.googleapis.com" }), false);
   assert.equal(canStream(null), false);
+});
+
+test("保险柜要流式透传，不许再把上游整个读完才发", () => {
+  const fn = fs.readFileSync(path.join(__dirname, "..", "supabase/functions/llm-proxy/index.ts"), "utf8");
+  assert.match(fn, /return new Response\(r\.body, \{/, "必须把上游的 body 直接传下去");
+  assert.ok(!/new Response\(await r\.text\(\)/.test(fn), "await r.text() 会攒到最后一起发");
+  assert.match(fn, /"X-Accel-Buffering": "no"/, "别让中间层再缓冲一次");
+  assert.match(fn, /钱照扣/, "病因写在代码里");
+  // 域名白名单是防钥匙外流的关键，改传输方式时不许顺手动它
+  assert.match(fn, /if \(!route\.hosts\.includes\(u\.hostname\)\) return json/);
+  assert.match(fn, /user\.id !== Deno\.env\.get\("OWNER_UID"\)/);
+});
+
+test("借道保险柜时也允许流式", () => {
+  assert.match(engine, /const wantStream = !!\(opts && opts\.stream\);/);
+  assert.ok(!/opts\.stream && !viaProxy/.test(engine), "旧的一刀切禁流式不许留着");
 });
 
 // v55.62：发不出流式时【不再压 max_tokens】。她拿酒馆对比出来的——
