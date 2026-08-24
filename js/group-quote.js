@@ -51,11 +51,12 @@
     if (quotedText) return { replyTo: quotedText, replyToId: null, replyToSenderId: null, replyToSenderName: quotedAuthor || null };
     return { replyTo: null, replyToId: null, replyToSenderId: null, replyToSenderName: null };
   }
+  // 界面上只摆被引用的那句原话，不写「引用 XXX：」——是谁说的代码里一直有
+  // （senderId/senderName 照常带着、也照常喂给模型），界面不必再报一遍（她 2026-08-24）
   const label = value => {
     if (!value) return "";
     if (typeof value === "string") return "❝ " + value;
-    const who = clean(value.senderName);
-    return "❝ " + (who ? "引用 " + who + "：" : "") + clean(value.text || value.replyTo);
+    return "❝ " + clean(value.text || value.replyTo);
   };
   return { clean, authorName, messageId, makeSelection, buildCatalog, resolve, label };
 });

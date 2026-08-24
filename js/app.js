@@ -2518,16 +2518,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 近期对话文本（供世界书关键词命中）
   const recentChatText = char => (chatsRef.current[char.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-8).map(m => m.content).join("\n");
   // 论坛/朋友圈/悄悄话共用的近期生活素材：不再只看私聊，角色亲历的群聊与线上/线下相处全部按时间混排。
+  // 朋友圈/论坛/悄悄话的取材。⚠️封闭群（没开记忆互通）的内容一律不进——
+  // 那是密封空间，拿它当素材发到朋友圈上就等于把里面的事捅出去了（她 2026-08-24）。
   const ambientMaterialFor = (char, opts) => {
     if (!window.AmbientMaterial || !char) return "";
+    const openGroups = (groups || []).filter(g => !groupClosed(g.id));
     const go = {};
-    (groups || []).filter(g => (g.memberIds || []).includes(char.id)).forEach(g => {
+    openGroups.filter(g => (g.memberIds || []).includes(char.id)).forEach(g => {
       go[g.id] = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []);
     });
+    const openChats = {};
+    openGroups.forEach(g => { if (groupChatsRef.current[g.id]) openChats[g.id] = groupChatsRef.current[g.id]; });
     const rows = window.AmbientMaterial.collect(char.id, {
       chats: chatsRef.current,
       offlines: { [char.id]: offlinesRef.current[char.id] || loadJSON("x_offline:" + char.id, []) },
-      groups, groupChats: groupChatsRef.current, groupOfflines: go
+      groups: openGroups, groupChats: openChats, groupOfflines: go
     }, { ...opts, userName: profile.name || "用户", charName: char.name, limit: (opts && opts.limit) || 20 });
     return window.AmbientMaterial.format(rows);
   };
@@ -5408,9 +5413,15 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           const before = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !m.kind && (!cutTs || (m.ts || 0) < cutTs)).slice(-gs.preJoinN);
           if (!before.length) return "";
           const lines = before.map(m => (m.role === "user" ? profile.name || "用户" : c.name) + "：" + m.content).join("\n");
-          return "『" + c.name + "』入群前的私聊：\n" + lines;
+          return "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕入群前和用户的私聊：\n" + lines;
         }).filter(Boolean).join("\n\n");
-        if (pj) preJoin = "\n\n【成员入群前和用户的私聊（作为背景，别生硬复述）】\n" + pj;
+        // ⚠️这一整块以前是【没有隐私围栏】的共享注入（隔壁 interop 的 memLines 有铁律、它没有），
+        // 于是顾朝能逐字读到裴照川的私聊，第一句就抖出了「大房二房」这个只属于他俩的梗
+        //（她 2026-08-24 抓到）。围栏照抄 interop 那份，一个字都不放松。
+        if (pj) preJoin = "\n\n【每位成员入群前和用户的私聊 · ⚠️隐私边界铁律】\n"
+          + "下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示、化用或质问另一个成员和用户之间私聊过什么、有过什么梗、是什么关系**——除非那位成员【自己在群里主动说了出来】。\n"
+          + "尤其注意：别人段落里的称呼、玩笑、专属梗、约定、旧事，对你来说【根本不存在】，不许拿来开场、接话或试探。每个成员只凭『自己那一段』和『群里公开说过的话』行动。\n"
+          + "这些只是背景，别生硬复述。\n" + pj;
       }
       const memberDesc = members.map(c => {
         const ph = (phones || {})[c.id] || {};
@@ -5744,7 +5755,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             }
           }
         }
-        _gspoke.forEach(id => tickAmbient(id, {}));
+        // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，那就更不该驱动
+        // 朋友圈/论坛/悄悄话这些【对外】的东西——动态素材本来就把群聊混在一起取，
+        // 攒够 30 轮强制发一条，等于把闭群里的事发到朋友圈上（她 2026-08-24 抓到）。
+        if (!groupClosed(groupId)) _gspoke.forEach(id => tickAmbient(id, {}));
       }
     } catch (e) {
       // DOMException 之类的报错只给一句没头没尾的话（比如 iOS 上那句 "The string did not

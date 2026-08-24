@@ -6876,7 +6876,9 @@ function GroupThread({
         textOverflow: "ellipsis",
         whiteSpace: "nowrap"
       }
-    }, "❝ " + (m.replyToSenderName ? "引用 " + m.replyToSenderName + "：" : "") + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
+      // 只显示被引用的原话，不写「引用 XXX：」——是谁说的代码里有 replyToSenderName，
+      // 界面上照旧只摆一句原文就够了（她 2026-08-24）
+    }, "❝ " + m.replyTo), m.recalled ? h(m.origText ? "button" : "div", { onClick: m.origText ? () => setGRecallView(m) : undefined, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.fog, padding: "4px 2px" } }, (isU ? "你" : m.senderName || "对方") + " 撤回了一条消息" + (m.origText ? " · 点看" : "")) : h("div", {
       onTouchStart: selMode ? undefined : () => startPress(i),
       onTouchEnd: endPress,
       onMouseDown: selMode ? undefined : () => startPress(i),
