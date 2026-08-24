@@ -5811,23 +5811,38 @@ function InnerLifeEDiagnosticSheet({ characters, onClose }) {
   const [report, setReport] = useState(null);
   const [previews, setPreviews] = useState({});
   const [gateTick, setGateTick] = useState(0);
+  // iOS 原生壳里关闭弹层会立刻卸载组件。E 报告与逐角色预览是异步读取，
+  // 旧实现可能在卸载后才回来 setState，WebKit 偶发会把整个 React 页面打白。
+  // 退场先熔断本轮读取；刷新时用序号丢弃过期结果。
+  const aliveRef = useRef(true);
+  const loadSeqRef = useRef(0);
+  useEffect(() => () => { aliveRef.current = false; loadSeqRef.current += 1; }, []);
   const load = async () => {
-    setReport(null);
+    const seq = ++loadSeqRef.current;
+    if (aliveRef.current) setReport(null);
     try {
       const mod=window.InnerLifeETidalShadow;
       const next=await Promise.resolve(mod&&mod.report?mod.report():{error:"E 影子模块未载入"});
-      setReport(next);
       const rows=await Promise.all((characters||[]).map(async c=>[c.id,mod&&mod.liveProjection?await mod.liveProjection(c.id,Date.now()):null]));
+      if (!aliveRef.current || seq !== loadSeqRef.current) return;
+      setReport(next);
       setPreviews(Object.fromEntries(rows));
-    } catch (_) { setReport({ error: "E 影子诊断读取失败" }); }
+    } catch (_) {
+      if (aliveRef.current && seq === loadSeqRef.current) setReport({ error: "E 影子诊断读取失败" });
+    }
   };
   useEffect(load, []);
+  const closeSafely = () => {
+    aliveRef.current = false;
+    loadSeqRef.current += 1;
+    onClose && onClose();
+  };
   const labels = { packet_created:"余温新包",packet_duplicate:"同锚重复（已拦）",packet_expired:"余温过期",would_surface:"本来会浮现",live_surface:"试点真实浮现",tidal_transition:"潮汐转移",would_hold:"本来会拦主动" };
   const outlets = { foreground_proactive:"前台主动",jiwen:"积温主动",birthday:"生日",reminder:"提醒",eyes_alert:"体征提醒",weather:"天气",greeting:"问候" };
   const line = (a,b) => h("div", { className:"flex justify-between", style:{fontFamily:F_BODY,fontSize:11.5,color:t.sub,padding:"4px 0",borderBottom:"1px dashed "+t.line} }, h("span",null,a), h("span",{style:{color:t.ink,fontWeight:600}},b));
   const readiness = report && !report.error && window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateE(report) : null;
   const allEArmed = window.InnerLifePromotionGate && window.InnerLifePromotionGate.state("E","*").mode === "pilot";
-  return h(Sheet, { onClose },
+  return h(Sheet, { onClose: closeSafely },
     h(Eyebrow, null, "E · 余温与潮汐 · 诊断与试点"),
     h("div", { style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"} }, "授权后只会在你主动点回复时，把上一段交流留下的一点心情色彩和未完注意力作为轻背景；不写记忆、不替角色决定、不复述旧话题。主动消息暂不接入。"),
     !report ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"16px 0"} }, "正在读本机影子数据…") : report.error ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:"#9f5149",padding:"12px 0"} }, report.error) : h(React.Fragment, null,
