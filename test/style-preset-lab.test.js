@@ -338,39 +338,11 @@ const RT = (model, stream) => {
     callAI: async (p, sys, msgs, opt) => { calls.push({ sys, opt, user: msgs[0].content }); return model(calls.length, opt); }
   };
   new Function(...Object.keys(sandbox), sp)(...Object.values(sandbox));
-  return { SP: win.StylePresets, calls };
+  return { SP: win.StylePresets, calls, store };
 };
 
-test("没达标就补写，补到为止", async () => {
-  const h = RT(n => (n === 1 ? "甲".repeat(200) : "乙".repeat(1600)));
-  const r = await h.SP.runTest({}, { char: { name: "阿川", persona: "P" }, minWords: 1500 });
-  assert.equal(h.calls.length, 2);
-  assert.equal(r.chars, 1600);
-  assert.deepEqual(r.notes, ["补写 1：200 → 1600"]);
-  assert.ok(h.calls[0].sys.indexOf("最终正文硬下限") > 0, "首轮就要把下限写进 prompt");
-  // 「写到需要对方回应就停」和一个很高的下限直接打架，得说清优先级
-  assert.ok(h.calls[0].sys.indexOf("不是让你早点收笔") > 0);
-  assert.ok(h.calls[1].user.indexOf("甲".repeat(200)) > 0, "补写要把整篇原文带上，不做机械拼接");
-  assert.ok(h.calls[1].opt.maxTokens > h.calls[0].opt.maxTokens,
-    "补写得先把原文再吐一遍才谈得上加长，预算要比首轮【更大】");
-  assert.equal(h.calls[0].opt.timeout, 180000, "跟线下一样的超时，别自己另设一套");
-});
 
-test("模型死活不肯写长：补两次就停手，不许无限烧钱", async () => {
-  const h = RT(() => "丙".repeat(200));
-  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(h.calls.length, 2, "第二次没改善就该停");
-  assert.equal(r.chars, 200);
-  assert.ok(r.notes.join("").indexOf("没改善") > 0);
-  assert.ok(r.notes.join("").indexOf("⚠️模型不肯写到 1500") > 0, "没达标必须说出来，别让人以为是预设写得差");
-});
 
-test("补写请求断了，已经写好的正文要留住", async () => {
-  const h = RT(n => { if (n === 1) return "丁".repeat(300); throw new Error("Load failed"); });
-  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(r.chars, 300, "别赔上一篇好好的正文");
-  assert.ok(r.notes.join("").indexOf("没问成") > 0);
-});
 
 test("不设下限就只调一次，不平白多花一次钱", async () => {
   const h = RT(() => "戊".repeat(100));
@@ -390,37 +362,8 @@ test("结果卡片要显示拿到几字 / 要几字，以及补写实况", () =>
 // 非流式线路上一个大请求两三分钟不吐首字节，网关当成死连接掐掉。
 // 线下 v55.39 已经踩平过（NO_STREAM_CAP=4200 + 补写往上垒），试写台没跟上。
 
-test("发不出流式的线路，单次预算压到网关扛得住的量", async () => {
-  const h = RT(n => (n === 1 ? "甲".repeat(1200) : "乙".repeat(1600)), false);
-  await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.ok(h.calls[0].opt.maxTokens <= 4200, "首轮 " + h.calls[0].opt.maxTokens + " 超过网关能扛的量");
-  assert.equal(h.calls[0].opt.stream, false);
-  // 补写要把原文原样再吐一遍，压到 4200 会截断——所以补写另有一档，同线下
-  assert.ok(h.calls[1].opt.maxTokens > 4200 && h.calls[1].opt.maxTokens <= 9000,
-    "补写 " + h.calls[1].opt.maxTokens + " 档位不对");
-  assert.match(sp, /NO_STREAM_CAP = 4200/);
-  assert.match(sp, /NO_STREAM_REPAIR_CAP = 9000/);
-  assert.ok(sp.indexOf("被网关掐断，浏览器只报一句 Load failed") > 0, "病因写在代码里");
-});
 
-test("能流式的线路不受这个上限连累", async () => {
-  const h = RT(n => (n === 1 ? "甲".repeat(1200) : "乙".repeat(1600)), true);
-  await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.ok(h.calls[0].opt.maxTokens > 4200);
-  assert.equal(h.calls[0].opt.stream, true);
-});
 
-test("没达标要分清是模型不肯写，还是这条线路发不了这么长", async () => {
-  const slow = RT(() => "丙".repeat(300), false);
-  const rs = await slow.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.match(rs.notes.join(""), /这条线路发不出流式/);
-  assert.ok(rs.notes.join("").indexOf("模型不肯写到") < 0, "别甩锅给模型");
-
-  const fast = RT(() => "丙".repeat(300), true);
-  const rf = await fast.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.match(rf.notes.join(""), /模型不肯写到 1500/);
-  assert.ok(rf.notes.join("").indexOf("发不出流式") < 0);
-});
 
 // —— 「但是我设的中转站应该都是 openai 格式的」（她 2026-08-23）——
 // 说得对，所以 v55.57 那条 4200 上限对她一次都没生效：detectFormat 只看 baseUrl，
@@ -430,17 +373,6 @@ test("没达标要分清是模型不肯写，还是这条线路发不了这么�
 
 const liar = (model, stream) => RT(model, stream);
 
-test("中转谎报支持流式：失败一次就自己退回短请求，别让她去分辨", async () => {
-  const h = liar((n, o) => { if (o.stream) throw new Error("Load failed"); return "甲".repeat(n === 2 ? 1200 : 1600); }, true);
-  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.deepEqual(h.calls.map(c => c.opt.stream), [true, false, false],
-    "退回之后要记住，后面几次别再白试一遍流式");
-  assert.equal(h.calls.length, 3);
-  assert.equal(h.calls[1].opt.maxTokens, 4200, "退回时要压到网关扛得住的量");
-  assert.match(r.notes.join(""), /这家中转多半没真推流/);
-  assert.equal(r.chars, 1600, "退回之后照样要补到下限");
-  assert.ok(sp.indexOf("判的是【方言】，不是「这家中转真的会推 SSE」") > 0, "病因写在代码里");
-});
 
 test("不是网络类的错就直接抛，别拿短请求白烧一次", async () => {
   const h = liar(() => { throw new Error("401 Unauthorized"); }, true);
@@ -463,10 +395,82 @@ test("一切正常就只调一次，退回逻辑不平白多花钱", async () =>
   assert.deepEqual(r.notes, []);
 });
 
-test("退回过之后，没达标的说法要说成「说好了流式却没真推」", async () => {
-  const h = liar((n, o) => { if (o.stream) throw new Error("Load failed"); return "甲".repeat(300); }, true);
-  const r = await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 });
-  assert.match(r.notes.join(""), /说好了流式却没真推/);
-  assert.ok(r.notes.join("").indexOf("模型不肯写到") < 0, "这不是模型的锅");
-  assert.match(r.notes.join(""), /换一家真支持 SSE 的中转/);
+
+// —— 「很多都说支持 100w 上下文，不应该 4200 就被截断」（她 2026-08-23）——
+// 她是对的，我把两件事搞混了：
+// · Load failed 是【墙上时间】问题（非流式久久没首字节被网关掐），
+// · 我却拿 max_tokens 去压时长——而思考模型的推理 token 也算在 max_tokens 里，
+//   4200 被推理吃掉三千多，剩几百个给正文，首轮就只吐 202 字。
+// 100w 上下文是【输入】侧，跟输出上限无关。
+// 正确做法：上限给足（推理有地方放），用「这一轮写多少字」控制时长。
+
+test("上限给足推理空间，不再拿 max_tokens 当时长闸门", async () => {
+  const h = RT(() => "甲".repeat(1600), false);
+  await h.SP.runTest({ name: "A" }, { char: { name: "x" }, minWords: 1500 });
+  assert.equal(h.calls[0].opt.maxTokens, 7900, "1500 字 * 2.6 + 4000 思考余量");
+  assert.ok(h.calls[0].opt.maxTokens > 4200, "旧的 4200 会把思考模型的正文挤没");
+  assert.match(sp, /THINK_HEADROOM = 4000/);
+  assert.ok(sp.indexOf("思考模型的推理 token 也算在 max_tokens 里") > 0, "病因写在代码里");
+  assert.ok(sp.indexOf("上下文 100w 跟这个毫无关系，那是输入侧") > 0);
+});
+
+test("天花板只防跑飞，不参与调节", async () => {
+  const h = RT(() => "甲".repeat(5000), false);
+  await h.SP.runTest({ name: "D" }, { char: { name: "x" }, minWords: 4000 });
+  assert.equal(h.calls[0].opt.maxTokens, 12000);
+  assert.match(sp, /const CEILING = 12000;/);
+});
+
+test("非流式先按下限试一次，别预先把它切碎", async () => {
+  const h = RT(() => "甲".repeat(1600), false);
+  const r = await h.SP.runTest({ name: "A" }, { char: { name: "x" }, minWords: 1500 });
+  assert.equal(h.calls.length, 1, "一次就写够了就别再多花钱");
+  assert.equal(r.chars, 1600);
+});
+
+test("首轮写不够就一段一段往下续，只喂结尾不喂全文", async () => {
+  const h = RT(n => (n === 1 ? "甲".repeat(202) : "乙".repeat(700)), false);
+  const r = await h.SP.runTest({ name: "B" }, { char: { name: "沈屿白", persona: "P" }, minWords: 1500 });
+  assert.ok(r.chars >= 1500);
+  assert.ok(h.calls[1].user.length < 600, "续写只喂最后 500 字，不把全文再塞一遍");
+  assert.ok(h.calls[1].sys.indexOf("沈屿白") > 0, "续写也要带着人设和文风，否则声音会飘");
+  assert.ok(h.calls[1].sys.indexOf("接着往下写") > 0);
+  assert.ok(h.calls[1].sys.indexOf("别急着收尾") > 0, "还没垒够时不许它收束全篇");
+  assert.ok(h.calls[1].opt.maxTokens > 4200, "续写轮同样要给足推理空间");
+  assert.match(r.notes.join(""), /续写 1：\+700/);
+});
+
+test("模型把结尾抄一遍再往下写，重复那截要剪掉", async () => {
+  const h = RT(n => (n === 1 ? "甲".repeat(200) + "这是结尾一句话。" : "这是结尾一句话。" + "新".repeat(1400)), false);
+  const r = await h.SP.runTest({ name: "B2" }, { char: { name: "x" }, minWords: 1500 });
+  assert.equal((r.text.match(/这是结尾一句话。/g) || []).length, 1, "接缝处不许重复");
+});
+
+test("真被掐断时，调小的是「每轮写多少字」，不是 max_tokens", async () => {
+  const h = RT(n => { if (n === 1) throw new Error("Load failed"); return "丙".repeat(1600); }, false);
+  const r = await h.SP.runTest({ name: "C" }, { char: { name: "x" }, minWords: 1500 });
+  assert.ok(h.calls[1].opt.maxTokens > 4200, "重试也不许把思考模型的额度压没");
+  assert.ok(h.calls[1].opt.maxTokens < h.calls[0].opt.maxTokens, "少写点，自然就少要点额度");
+  assert.match(r.notes.join(""), /改成每轮只写 \d+ 字并记住了/);
+  assert.match(sp, /const CHUNKKEY = "x_noStreamChunk"/);
+  assert.ok(sp.indexOf("后者调小只会截断思考模型") > 0);
+});
+
+test("学到的每轮字数只往下走，同一条线路下次直接用小的", async () => {
+  const h = RT(n => { if (n === 1) throw new Error("Load failed"); return "丙".repeat(1600); }, false);
+  await h.SP.runTest({ name: "C" }, { char: { name: "x" }, minWords: 1500 });
+  const learned = JSON.parse(h.store["x_noStreamChunk"]).C;
+  assert.ok(learned >= 250 && learned < 700, "学到的是 " + learned);
+  // 再跑一次不该重新试探大的
+  const before = h.calls.length;
+  await h.SP.runTest({ name: "C" }, { char: { name: "x" }, minWords: 1500 });
+  assert.equal(JSON.parse(h.store["x_noStreamChunk"]).C, learned, "只往下学，不往上试探");
+  assert.ok(h.calls.length > before);
+});
+
+test("能流式的线路仍走整篇重交，保留可修改、无接缝的好处", async () => {
+  const h = RT(n => (n === 1 ? "甲".repeat(202) : "乙".repeat(1600)), true);
+  const r = await h.SP.runTest({ name: "D" }, { char: { name: "x" }, minWords: 1500 });
+  assert.ok(h.calls[1].user.indexOf("甲".repeat(202)) > 0, "整篇重交要喂全文");
+  assert.match(r.notes.join(""), /补写 1：202 → 1600/);
 });
