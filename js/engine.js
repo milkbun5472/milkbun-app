@@ -3200,85 +3200,6 @@ function offlineMinimumSceneChars(value) {
   return Number.isFinite(n) && n > 0 ? Math.min(12000, n) : 0;
 }
 
-async function ensureOfflineMinimumScene(p, ctx, session, scene, target) {
-  let current = String(scene || "").trim();
-  let attempts = 0;
-  // ⚠️v55.46：补写这一步以前【没有 try/catch】——第一段正文明明已经写好了，
-  // 补写请求一断网，异常直接穿出去，整轮作废，界面上只剩一句 Load failed
-  // （她 2026-08-22：「同一个模型站子，之前可以了突然又不行」——变的正是这段代码）。
-  // 分清两种短稿：模型写了但不肯写长（Codex 的原意：不许伪装成达标，照旧报错），
-  // 和【压根没问成】（网络断了/超时）——后者不该赔上一篇好好的正文。
-  let repairError = "";
-  const notes = [];   // 逐次补写的实况，失败时一并报出去
-  if (!target || offlineVisibleCharCount(current) >= target) {
-    return { scene: current, attempts, applied: false };
-  }
-
-  // 最多补写两次。每次都要求返回完整定稿，避免把两段机械拼接成断裂正文。
-  // 若模型仍拒绝达到用户设置，就显式失败，不能把短稿伪装成已满足最低字数。
-  while (attempts < 2 && offlineVisibleCharCount(current) < target) {
-    attempts++;
-    const currentCount = offlineVisibleCharCount(current);
-    const system = buildBundle(ctx) + "\n\n【线下正文定稿补足】你是同一篇场景正文的编辑。只输出 JSON：{\"scene\":\"完整定稿\"}。"
-      + "\n当前正文只有 " + currentCount + " 个非空白可见字符，用户明确设置最终 scene 至少 " + target + " 个。最终成稿必须达到该下限。"
-      + "\n保留原稿已经发生的全部事实、动作先后、人物决定、主动关系、台词含义、叙事人称、明确程度与结尾落点；不要删减、淡出、概括或擅自升级事件。"
-      + "\n在同一时间段内补足真正可写的内容：让已有动作产生具体后果，让人物继续观察、判断、回应和说话，让环境实际参与行动；必要时把过快略过的有效过程写完整。不要复述开头，不重复认证同一种感受，不堆生理反应、强度形容、比喻或空泛心理，不写流水账，也不替用户作重大选择。"
-      + "\n沿用原稿已经形成的人物声纹和叙事质感。只交完整定稿，不解释，不报告字数。";
-    let raw;
-    try {
-      raw = await callAI(p, system, [{
-      role: "user",
-      content: "请把下面这篇正文补足为完整定稿。必须保留全文并自然扩展到至少 " + target + " 个非空白可见字符：\n\n" + current
-    }], {
-      // 补写这一次同样受线路限制：发不出流式就压到网关扛得住的量（v55.45）
-      // ⚠️补写要把【整篇原文原样吐一遍再加长】，比首轮更费额度——v55.45 我按首轮的
-      // 4200 压它是压错了：额度不够→返回被截断→JSON 解析失败→这一次白花且悄无声息，
-      // 结果就是「保留下来的比丢掉的还短」（她 2026-08-22）。按现有正文长度另算。
-      maxTokens: (function () {
-        const need = Math.ceil((target + currentCount) * 1.6 + 1500);
-        const want = Math.max(Number(session.maxTokens) || 4000, need);
-        return routeCanStream(p) ? Math.min(20000, want) : Math.min(9000, want);
-      })(),
-      // 补写的预算和主调用一样大，同样会撞网关无首字节掐断，一起走流式
-      stream: routeCanStream(p),
-      timeout: 180000,
-      wireScope: "offline-minimum-repair",
-      wireMeta: {
-        charId: ctx.char && ctx.char.id,
-        sessionId: session.id || null,
-        target,
-        beforeChars: currentCount,
-        attempt: attempts
-      }
-    });
-    } catch (e) {
-      // 问不成就停手，把已经写好的正文留住
-      repairError = String((e && e.message) || e || "").slice(0, 120);
-      break;
-    }
-    const parsed = extractJSON(String(raw || ""));
-    const candidate = String(parsed && parsed.scene || "").trim();
-    const gained = offlineVisibleCharCount(candidate);
-    // 这一次到底发生了什么，以前完全静默：解析失败和「模型就是不肯写长」
-    // 长得一模一样，都表现为字数没涨（她 2026-08-22：留下来的比丢掉的还短）。
-    if (!parsed || !candidate) notes.push("第" + attempts + "次补写没解析出正文（多半是额度不够被截断）");
-    else if (gained <= currentCount) notes.push("第" + attempts + "次补写只回了 " + gained + " 字，没比原来长");
-    else { notes.push("第" + attempts + "次补写 " + currentCount + " → " + gained + " 字"); current = candidate; }
-  }
-
-  const finalCount = offlineVisibleCharCount(current);
-  if (finalCount < target) {
-    // ⚠️v55.47：这里原本会 throw、把整篇丢掉（原意是「不许把短稿伪装成达标」）。
-    // 她 2026-08-22 明确要求：宁可短也不要白写一场——写出来的正文一律留下。
-    // 原意仍然成立，只是换个兑现方式：不是【丢掉】，是【如实说它没写够】。
-    return {
-      scene: current, attempts, applied: attempts > 0,
-      shortCount: finalCount, shortTarget: target,
-      shortBecause: (repairError || "模型两次补写都没写够") + (notes.length ? "；" + notes.join("；") : "")
-    };
-  }
-  return { scene: current, attempts, applied: attempts > 0 };
-}
 
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
@@ -3340,7 +3261,10 @@ async function generateOffline(p, ctx, session) {
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, false) +
     narrativeDirective(session.narr) +
-    (minimumSceneChars ? "\n【最终正文硬下限】用户设置的是最低值，不是建议：最终 scene 必须至少有 " + minimumSceneChars + " 个非空白可见字符。用更多真正发生的行动、后果、判断、对话和有效场景推进达到下限；不堆形容词、不加多余比喻、不反复认证同一种感受、不把一个动作逐帧注水。遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定。" : "") +
+    // 字数规则和试写台共用一份（酒馆那套：下限＋上限＋自己数着写）。以前只给下限、
+    // 没给上限、也没让它自己数，模型没有目标区间就写到哪算哪（她 2026-08-24）。
+    (minimumSceneChars ? "\n" + window.StylePresets.wordRule(minimumSceneChars)
+      + "\n· 遇到需要用户本人选择的岔口时，可以在岔口之前充分写完本轮已有内容，但仍不可替用户作重大决定。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     (ctx.curWear ? "\n【着装连贯】你现在穿着：" + ctx.curWear + "。除非场景变了、过了很久、或你明确换/脱了衣服，否则 wearing 保持这套；一旦场景真的换了（如从外面进了家、下了雨淋湿、换了衣服）就据实更新。" : "") +
     (ctx.curCondition ? "\n【身体状态连贯】你现在" + ctx.curCondition + "。这不是背景设定，是此刻真的这样：动作、说话的力气、能不能久站久走都要受它影响；除非剧情里明确好转，别忽然生龙活虎。" : "") +
@@ -3391,21 +3315,25 @@ async function generateOffline(p, ctx, session) {
   let usedCot = !!cotT;
   // 单次自修会同时输出 draftScene 与 scene，所需容量约为普通生成的两倍；
   // 不能让 4000 tok 默认上限先把“最低 1500 字”截断。
+  // ⭐max_tokens 是【天花板】不是预付款：给大了不多花一分钱，给小了才要命——
+  // 思考模型的推理 token 也算在里面，压小了推理吃完，正文只剩两百来字
+  //（她 2026-08-24 拿酒馆对比出来的：Ako 预设里 openai_max_tokens 就是 65535）。
+  // 控制篇幅的活儿交给上面【字数】里的上限，不是拿额度去掐。
   const minimumTokenBudget = minimumSceneChars
-    ? Math.ceil(minimumSceneChars * (singlePassRevisionRequested ? 3.2 : 1.8) + 1200)
+    ? window.StylePresets.outTokens(minimumSceneChars * (singlePassRevisionRequested ? 2 : 1))
     : 0;
-  const generationMaxTokens = Math.min(20000, Math.max(Number(session.maxTokens) || 4000, minimumTokenBudget));
-  // ⭐大请求必须走流式（v55.39）。她把最低字数设到 1500 就 Load failed——
-  // 病根不是模型，是【两三分钟不吐一个字节】：Cloudflare/网关把长时间没有首字节
-  // 当成死连接掐掉，浏览器只能报一句 Load failed。本文件上面那条注释早就写过这个坑。
-  // 流式一开始就有字节流出，连接活着；中转若不支持，callAI 会按 content-type 自动退回普通解析。
-  // ⚠️流式发不出去时（云端密钥代理、或非 OpenAI 方言的线路），巨型单请求会久久没有
-  // 首字节被网关掐断 → Load failed（她 2026-08-22 两次）。这种线路就别一次写完：
-  // 把单次预算压到网关扛得住的量，不足的字数交给下面 ensureOfflineMinimumScene 补——
-  // 两三个短请求各自很快返回，总时长差不多，但每一次都不会被当成死连接。
+  // 8000 是地板不是上限：她的拉条默认 4000，配上思考型模型，推理吃完就只剩几百字正文。
+  // 拉条想往上拉照样有效（最高 24000），只是不许把天花板压到会截断的高度。
+  const generationMaxTokens = Math.min(window.StylePresets.OUT_CEILING,
+    Math.max(Number(session.maxTokens) || 4000, 8000, minimumTokenBudget));
+  // 能流式就流式：非流式的大请求两三分钟不吐一个字节，Cloudflare/网关会把它当死连接
+  // 掐掉，浏览器只报一句 Load failed；流式一开始就有字节流出，连接活着。
+  // ⚠️但发不出流式时【不再压 max_tokens】（v55.62）：压额度并不缩短生成时间——
+  // 一段 1500 字的正文，额度给 4200 还是 16000，模型吐字的秒数是一样的，
+  // 压的只是「会不会被截断」。真正管住时长的是【字数】里的上限。
+  // 以前压到 4200 换来的是思考模型被推理吃光额度、正文只剩两百字，得靠补写找补。
   const canStream = routeCanStream(p);
-  const NO_STREAM_CAP = 4200;
-  const generationBudget = canStream ? generationMaxTokens : Math.min(generationMaxTokens, NO_STREAM_CAP);
+  const generationBudget = generationMaxTokens;
   const wantStreamOffline = canStream && generationBudget >= 3000;
   try {
     raw = await callAI(p, system, hist, {
@@ -3468,9 +3396,11 @@ async function generateOffline(p, ctx, session) {
   if (!isDigital && registerTransition.inputBeat && effectiveRegisterActive) rewriteRequested = true;
   let scene = singlePassRevisionRequested ? singlePassFinalScene : draftScene;
   let rewriteApplied = !!singlePassRevisionRequested;
-  const minimumRepair = await ensureOfflineMinimumScene(p, ctx, session, scene, minimumSceneChars);
-  scene = minimumRepair.scene;
+  // ⭐一轮就是一次调用（她 2026-08-24：「我永远只要一次」）。以前这里会再发一到两次
+  // 补写请求去凑最低字数——她按次计费，那是拿她的钱补我 prompt 没写好的窟窿。
+  // 现在靠【字数】规则 + 给足的 max_tokens 一次写够；真没写够就照实报，正文一律照留。
   const minimumLengthChars = offlineVisibleCharCount(scene);
+  const minimumShort = minimumSceneChars && minimumLengthChars < minimumSceneChars;
   let rewriteLengthRatio = 1;
   let rewriteFactUnits = 0;
   let rewriteCoveredFactUnits = 0;
@@ -3508,11 +3438,9 @@ async function generateOffline(p, ctx, session) {
     rewriteFinalChars: scene.length,
     minimumLengthTarget: minimumSceneChars,
     minimumLengthChars,
-    minimumLengthRepairApplied: minimumRepair.applied,
-    minimumLengthRepairAttempts: minimumRepair.attempts,
-    minimumLengthShortBecause: minimumRepair.shortBecause || "",   // 没写够的原因；正文一律照留
-    minimumLengthShortCount: minimumRepair.shortCount || 0,
-    minimumLengthShortTarget: minimumRepair.shortTarget || 0,
+    minimumLengthShortBecause: minimumShort ? "模型就写了这么多，这一轮只调一次 API、没有再补写" : "",
+    minimumLengthShortCount: minimumShort ? minimumLengthChars : 0,
+    minimumLengthShortTarget: minimumShort ? minimumSceneChars : 0,
     minimumLengthSatisfied: !minimumSceneChars || minimumLengthChars >= minimumSceneChars,
     rewriteLengthRatio,
     rendererScoreBefore,
@@ -3674,13 +3602,18 @@ async function generateOfflineGroup(p, ctx, session) {
     (styleText ? "\n\n" + window.StylePresets.wrap(styleText) : "") +
     offlineTasteBlock(session.taste, true) +
     narrativeDirective(session.narr) +
-    (session.minWords ? "\n【篇幅要求】每个 beat 的 scene 都充分展开，整段尽量写到约 " + session.minWords + " 字：靠【更多具体的动作、细节、对话、你来我往的推进】撑够篇幅——【绝不许为凑字数堆形容词／加多余比喻／写空转大词／反复渲染同一种情绪／把句子硬拉长注水】。字数靠内容涨、不靠华丽；真没那么多具体可写时，宁可短一点也别注水凑成八股。" : "") +
+    // 和单人线下、试写台共用同一份【字数】规则（酒馆那套：下限＋上限＋自己数着写）
+    (session.minWords ? "\n" + window.StylePresets.wordRule(session.minWords)
+      + "\n· 这个字数是【整段所有 beat 加起来】的量，不是每个 beat 各写这么多。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     cotSystemBlock(cotT) +
     "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
   const hist = offlineGroupHistory(session.msgs, userName);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
+  // max_tokens 是天花板不是预付款；思考模型的推理也从这儿扣，给窄了正文就只剩个零头
+  const gBudget = Math.min(window.StylePresets.OUT_CEILING,
+    Math.max(Number(session.maxTokens) || 1900, session.minWords ? window.StylePresets.outTokens(session.minWords) : 0));
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true) : "";
   const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gTail };
@@ -3692,7 +3625,7 @@ async function generateOfflineGroup(p, ctx, session) {
   let raw;
   let usedCot = !!cotT;
   try {
-    raw = await callAI(p, system, hist, { maxTokens: session.maxTokens || 1900, timeout: 180000 });
+    raw = await callAI(p, system, hist, { maxTokens: gBudget, timeout: 180000 });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -3702,7 +3635,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: session.maxTokens || 1900, timeout: 180000 });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: gBudget, timeout: 180000 });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);

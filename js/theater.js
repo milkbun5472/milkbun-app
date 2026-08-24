@@ -496,7 +496,9 @@
           // CC 回填的是结构化对象;parseTheaterPayload 吃字符串,转一层
           if (raw != null && typeof raw === "object") raw = JSON.stringify(raw);
         }
-        if (raw == null) raw = await callAI(props.active, sys, hist, { maxTokens: selfRevise ? 6000 : 3200, timeout: 180000 });
+        // max_tokens 是天花板不是预付款:思考模型的推理也从这儿扣,3200 会被推理吃光、
+        // 正文只剩个零头(她 2026-08-24 拿酒馆的 65535 对比出来的)。给大不多花钱。
+        if (raw == null) raw = await callAI(props.active, sys, hist, { maxTokens: window.StylePresets.outTokens(selfRevise ? 2400 : 1600), timeout: 300000 });
         const p = parseTheaterPayload(raw);
         if (!p) throw new Error("模型返回的剧情格式无法解析，已拦住协议原文；请再按一次「演」");
         // 自修轮:draftScene 只是内部草稿,scene 才是进历史的终稿;终稿缺失就当本轮失败重试,

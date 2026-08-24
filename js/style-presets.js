@@ -316,6 +316,7 @@
     list: list, save: save, byId: byId, upsert: upsert, remove: remove,
     textFor: textFor, blockFor: blockFor, wrap: wrap,
     loadRuns: loadRuns, pushRun: pushRun, clearRuns: clearRuns, runTest: runTest,
+    wordRule: wordRule, outTokens: tokensFor, OUT_CEILING: OUT_CEILING,
     SM_BEAT: SM_BEAT, SM_CAMERA: SM_CAMERA, SM_PARAGRAPH: SM_PARAGRAPH
   };
 })();

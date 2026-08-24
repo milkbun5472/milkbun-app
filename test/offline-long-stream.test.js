@@ -13,10 +13,9 @@ const engine = fs.readFileSync(path.join(__dirname, "..", "js/engine.js"), "utf8
 test("大请求走流式，短请求保持原路", () => {
   assert.match(engine, /const wantStreamOffline = canStream && generationBudget >= 3000;/);
   assert.match(engine, /两三分钟不吐一个字节/, "为什么要流式，得写在代码里");
-  // 主调用 + 纯文本兜底 + 补写重试，三处都要带上
+  // 主调用 + 纯文本兜底两处都要带上（补写那一路 v55.62 起整个不存在了）
   assert.match(engine, /maxTokens: generationBudget,\n      stream: wantStreamOffline,/, "主调用");
   assert.match(engine, /\{ maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wireScope: "offline"/, "纯文本兜底");
-  assert.match(engine, /补写的预算和主调用一样大，同样会撞网关无首字节掐断，一起走流式/, "补写重试");
 });
 
 test("流式是安全替换：中转不支持会自动退回普通解析", () => {
@@ -57,15 +56,22 @@ test("只有真发得出流式的线路才算数", () => {
   assert.equal(canStream(null), false);
 });
 
-test("发不出流式就降额，交给补写循环分两次写", () => {
+// v55.62：发不出流式时【不再压 max_tokens】。她拿酒馆对比出来的——
+// Ako 预设里 openai_max_tokens 就是 65535，一次调用照样写得又长又不截断。
+// 关键在于：压额度并不缩短生成时间。一段 1500 字的正文，额度给 4200 还是 16000，
+// 模型吐字的秒数一样；压的只是「会不会被截断」。而思考模型的推理也从这份额度里扣，
+// 压到 4200 就是推理吃光、正文只剩两百来字，然后还得再花调用去补。
+// 真正管住时长的是【字数】规则里的上限。
+
+test("发不出流式也不许压 max_tokens——那不省时间，只会截断思考模型", () => {
   assert.match(engine, /const canStream = routeCanStream\(p\);/);
-  assert.match(engine, /const generationBudget = canStream \? generationMaxTokens : Math\.min\(generationMaxTokens, NO_STREAM_CAP\);/);
-  assert.match(engine, /两三个短请求各自很快返回，总时长差不多，但每一次都不会被当成死连接/);
-  // 补写那次也受线路限制，但额度【另算】——它要把整篇原文吐一遍再加长，
-  // v55.48 起按 (target + 现有正文) 计，照抄首轮的 4200 会把它截断（见 offline-repair-keeps-scene）
-  assert.match(engine, /比首轮更费额度/);
-  assert.match(engine, /routeCanStream\(p\) \? Math\.min\(20000, want\) : Math\.min\(9000, want\)/);
-  assert.match(engine, /stream: routeCanStream\(p\),/);
+  assert.match(engine, /const generationBudget = generationMaxTokens;/);
+  assert.ok(!/NO_STREAM_CAP/.test(engine), "旧的 4200 上限不许留着");
+  assert.match(engine, /压额度并不缩短生成时间/, "为什么不压，得写在代码里");
+  assert.match(engine, /max_tokens 是【天花板】不是预付款/);
+  // 天花板照酒馆的量给，思考模型才有地方放推理
+  assert.match(engine, /Math\.max\(Number\(session\.maxTokens\) \|\| 4000, 8000, minimumTokenBudget\)/,
+    "拉条默认 4000 配思考模型照样会截断，得有地板");
 });
 
 test("言秋那条路一个字都不许改", () => {
