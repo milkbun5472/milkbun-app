@@ -41,7 +41,7 @@
       {key:"experience",ok:Number(inv.writesExperience)===0,reason:"发现余温越权写经历"}
     ]),metrics:{diagnostics:Number(r.diagnostics)||0,spanHours:Number(r.spanHours)||0,packets,surfaces},scope:"app_foreground_only",nightWatchPending:r.nightWatchCoverage==="waiting_for_cloud_tidal_row"};
   }
-  function state(moduleName,charId){const cfg=read(),row=cfg.modules&&cfg.modules[moduleName]&&cfg.modules[moduleName][String(charId)];return {emergencyOff:!!cfg.emergencyOff,mode:row&&row.mode==="pilot"?"pilot":"shadow",approvedAt:row&&row.approvedAt||null};}
+  function state(moduleName,charId){const cfg=read(),bucket=cfg.modules&&cfg.modules[moduleName]||{},exact=bucket[String(charId)],fallback=moduleName==="E"?bucket["*"]:null,row=exact||fallback;return {emergencyOff:!!cfg.emergencyOff,mode:row&&row.mode==="pilot"?"pilot":"shadow",approvedAt:row&&row.approvedAt||null,allCharacters:!exact&&!!fallback};}
   function armPilot(moduleName,charId,review){
     if(!["A","E"].includes(moduleName)||!String(charId||"").trim())return {ok:false,reason:"bad_target"};
     if(!review||!review.ready)return {ok:false,reason:"not_ready",blockers:review&&review.blockers||[]};
@@ -49,8 +49,13 @@
     modules[moduleName][String(charId)]={mode:"pilot",approvedAt:Date.now(),reviewMetrics:review.metrics||{}};
     write({...cfg,emergencyOff:false,modules});return {ok:true};
   }
-  function disarm(moduleName,charId){const cfg=read(),modules={A:{...(cfg.modules&&cfg.modules.A||{})},E:{...(cfg.modules&&cfg.modules.E||{})}};delete modules[moduleName][String(charId)];write({...cfg,modules});return {ok:true};}
+  function disarm(moduleName,charId){const cfg=read(),modules={A:{...(cfg.modules&&cfg.modules.A||{})},E:{...(cfg.modules&&cfg.modules.E||{})}},key=String(charId);if(moduleName==="E"&&key!=="*"&&modules.E["*"])modules.E[key]={mode:"shadow",approvedAt:null};else delete modules[moduleName][key];write({...cfg,modules});return {ok:true};}
+  function armAllE(review){
+    if(!review||!review.ready)return {ok:false,reason:"not_ready",blockers:review&&review.blockers||[]};
+    const cfg=read(),modules={A:{...(cfg.modules&&cfg.modules.A||{})},E:{"*":{mode:"pilot",approvedAt:Date.now(),reviewMetrics:review.metrics||{}}}};
+    write({...cfg,emergencyOff:false,modules});return {ok:true};
+  }
   function rollbackAll(){const cfg=read();write({...cfg,emergencyOff:true,modules:{A:{},E:{}}});return {ok:true};}
   function isPilotEnabled(moduleName,charId){const s=state(moduleName,charId);return !s.emergencyOff&&s.mode==="pilot";}
-  return Object.freeze({STORAGE_KEY,evaluateA,evaluateE,state,armPilot,disarm,rollbackAll,isPilotEnabled,_blank:blank});
+  return Object.freeze({STORAGE_KEY,evaluateA,evaluateE,state,armPilot,armAllE,disarm,rollbackAll,isPilotEnabled,_blank:blank});
 });

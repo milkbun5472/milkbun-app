@@ -5802,20 +5802,27 @@ function MemoryCorrectionPreviewSheet({ candidate, onDecided, onClose }) {
 function InnerLifeEDiagnosticSheet({ characters, onClose }) {
   const t = useTheme();
   const [report, setReport] = useState(null);
+  const [previews, setPreviews] = useState({});
   const [gateTick, setGateTick] = useState(0);
-  const load = () => {
+  const load = async () => {
     setReport(null);
-    Promise.resolve(window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.report ? window.InnerLifeETidalShadow.report() : { error: "E 影子模块未载入" })
-      .then(setReport).catch(() => setReport({ error: "E 影子诊断读取失败" }));
+    try {
+      const mod=window.InnerLifeETidalShadow;
+      const next=await Promise.resolve(mod&&mod.report?mod.report():{error:"E 影子模块未载入"});
+      setReport(next);
+      const rows=await Promise.all((characters||[]).map(async c=>[c.id,mod&&mod.liveProjection?await mod.liveProjection(c.id,Date.now()):null]));
+      setPreviews(Object.fromEntries(rows));
+    } catch (_) { setReport({ error: "E 影子诊断读取失败" }); }
   };
   useEffect(load, []);
   const labels = { packet_created:"余温新包",packet_duplicate:"同锚重复（已拦）",packet_expired:"余温过期",would_surface:"本来会浮现",live_surface:"试点真实浮现",tidal_transition:"潮汐转移",would_hold:"本来会拦主动" };
   const outlets = { foreground_proactive:"前台主动",jiwen:"积温主动",birthday:"生日",reminder:"提醒",eyes_alert:"体征提醒",weather:"天气",greeting:"问候" };
   const line = (a,b) => h("div", { className:"flex justify-between", style:{fontFamily:F_BODY,fontSize:11.5,color:t.sub,padding:"4px 0",borderBottom:"1px dashed "+t.line} }, h("span",null,a), h("span",{style:{color:t.ink,fontWeight:600}},b));
   const readiness = report && !report.error && window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateE(report) : null;
+  const allEArmed = window.InnerLifePromotionGate && window.InnerLifePromotionGate.state("E","*").mode === "pilot";
   return h(Sheet, { onClose },
-    h(Eyebrow, null, "E · 余温与潮汐 · 纯影子诊断"),
-    h("div", { style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"} }, "只显示状态、次数、时间和角色 hash；不展示或保存聊天正文。现在不会注入，也不会真的拦住任何消息。"),
+    h(Eyebrow, null, "E · 余温与潮汐 · 诊断与试点"),
+    h("div", { style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"} }, "授权后只会在你主动点回复时，把上一段交流留下的一点心情色彩和未完注意力作为轻背景；不写记忆、不替角色决定、不复述旧话题。主动消息与夜巡暂不接入。"),
     !report ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"16px 0"} }, "正在读本机影子数据…") : report.error ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:"#9f5149",padding:"12px 0"} }, report.error) : h(React.Fragment, null,
       line("当前潮汐", report.tidal ? report.tidal.state + " · " + report.tidal.signalKind : "尚无数据"),
       line("诊断记录", report.diagnostics + " 条"),
@@ -5827,8 +5834,9 @@ function InnerLifeEDiagnosticSheet({ characters, onClose }) {
       Object.keys(report.kinds || {}).length ? Object.entries(report.kinds).map(([k,v])=>line(labels[k]||k,v)) : h("div",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog}},"还没有事件"),
       h("div", { style:{fontFamily:F_BODY,fontSize:11,fontWeight:700,color:t.ink,margin:"12px 0 4px"} }, "本来会拦的出口"),
       Object.keys(report.outlets || {}).length ? Object.entries(report.outlets).map(([k,v])=>line(outlets[k]||k,v)) : h("div",{style:{fontFamily:F_BODY,fontSize:11,color:t.fog}},"目前 0 次"),
-      h("div", { style:{fontFamily:F_BODY,fontSize:11,fontWeight:700,color:t.ink,margin:"12px 0 4px"} }, "按角色试点闸（授权不等于已经注入）"),
-      (characters||[]).map(c=>{const charHash=window.InnerLifeEAfterglowShadow&&window.InnerLifeEAfterglowShadow.hash(c.id),rdy=window.InnerLifePromotionGate&&window.InnerLifePromotionGate.evaluateE(report,charHash),gate=window.InnerLifePromotionGate&&window.InnerLifePromotionGate.state("E",c.id),armed=gate&&gate.mode==="pilot";return h("div",{key:c.id,className:"flex items-center justify-between",style:{gap:8,padding:"5px 0",borderBottom:"1px dashed "+t.line}},h("span",{style:{fontFamily:F_BODY,fontSize:11,color:t.sub}},c.remark||c.name),h("button",{disabled:!armed&&!(rdy&&rdy.ready),onClick:()=>{if(armed)window.InnerLifePromotionGate.disarm("E",c.id);else window.InnerLifePromotionGate.armPilot("E",c.id,rdy);setGateTick(x=>x+1);},style:{fontFamily:F_BODY,fontSize:10.5,color:armed?"#9f5149":rdy&&rdy.ready?"#4a8b68":t.fog,border:"1px solid "+(armed?"#9f5149":t.line),borderRadius:999,padding:"3px 8px",opacity:!armed&&!(rdy&&rdy.ready)?.45:1}},armed?"撤销授权":rdy&&rdy.ready?"授权试点":"未达标"));}),
+      h("div", { style:{fontFamily:F_BODY,fontSize:11,fontWeight:700,color:t.ink,margin:"12px 0 4px"} }, "角色影响仪表"),
+      readiness&&readiness.ready?h("button",{onClick:()=>{const result=window.InnerLifePromotionGate&&window.InnerLifePromotionGate.armAllE(readiness);if(result&&result.ok){setGateTick(x=>x+1);window.__toast&&window.__toast("E 已给全部角色开启前台余温试点");}},className:"w-full mb-2 py-2 active:opacity-70",style:{borderRadius:9,background:allEArmed?t.ink:"#4a8b68",fontFamily:F_BODY,fontSize:11.5,color:"white"}},allEArmed?"✓ E 已对全部角色开启":"全部角色开启 E · 前台试点"):null,
+      (characters||[]).map(c=>{const charHash=window.InnerLifeEAfterglowShadow&&window.InnerLifeEAfterglowShadow.hash(c.id),rdy=window.InnerLifePromotionGate&&window.InnerLifePromotionGate.evaluateE(report,charHash),gate=window.InnerLifePromotionGate&&window.InnerLifePromotionGate.state("E",c.id),armed=gate&&gate.mode==="pilot",stats=report.byChar&&report.byChar[charHash]||{},live=Number(stats.kinds&&stats.kinds.live_surface)||0,preview=previews[c.id];return h("div",{key:c.id,style:{padding:"7px 0",borderBottom:"1px dashed "+t.line}},h("div",{className:"flex items-center justify-between",style:{gap:8}},h("span",{style:{fontFamily:F_BODY,fontSize:11,color:t.sub}},c.remark||c.name),h("button",{disabled:!armed&&!(rdy&&rdy.ready),onClick:()=>{if(armed)window.InnerLifePromotionGate.disarm("E",c.id);else window.InnerLifePromotionGate.armPilot("E",c.id,rdy);setGateTick(x=>x+1);},style:{fontFamily:F_BODY,fontSize:10.5,color:armed?"#9f5149":rdy&&rdy.ready?"#4a8b68":t.fog,border:"1px solid "+(armed?"#9f5149":t.line),borderRadius:999,padding:"3px 8px",opacity:!armed&&!(rdy&&rdy.ready)?.45:1}},armed?"已开 · 撤销":rdy&&rdy.ready?"授权试点":"未达标")),h("div",{style:{fontFamily:F_BODY,fontSize:10,color:t.fog,lineHeight:1.55,marginTop:3}},"已真实带入 "+live+" 次 · "+(preview?("下次可带入："+(preview.mood||"无心情色彩")+(preview.threads&&preview.threads.length?" · "+preview.threads.length+" 个未完注意点":"")):"目前没有待用余温")));}),
       ),
     h("button", { onClick:load,className:"w-full mt-3 py-2.5 active:opacity-70",style:{borderRadius:9,border:"1px solid "+t.line,fontFamily:F_BODY,fontSize:12,color:t.sub} }, "刷新诊断"),
     h("button", { onClick:()=>{if(confirm("立即撤销 A/E 全部试点授权？影子观察会继续，任何角色都不会丢数据。")){window.InnerLifePromotionGate&&window.InnerLifePromotionGate.rollbackAll();setGateTick(x=>x+1);window.__toast&&window.__toast("A/E 已全部退回纯影子");}},className:"w-full mt-2 py-2 active:opacity-70",style:{borderRadius:9,border:"1px solid #9f5149",fontFamily:F_BODY,fontSize:11,color:"#9f5149"} }, "紧急回滚 · A/E 全部退回纯影子"));

@@ -65,6 +65,7 @@
     }
     const e = await safe("E", () => window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.report ? window.InnerLifeETidalShadow.report() : ({ unavailable: true }));
     const eReadiness = window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateE(e) : null;
+    const eGates = chars.map(char => ({ charId: char.id, name: char.remark || char.name || char.id, gate: window.InnerLifePromotionGate ? window.InnerLifePromotionGate.state("E", char.id) : null }));
     const c = await safe("C", () => window.SleepShadow && window.SleepShadow.report ? window.SleepShadow.report(500) : ({ unavailable: true }));
     const personality = cleanPersonality(await safe("personality", () => window.PersonalityShadow && window.PersonalityShadow.report ? window.PersonalityShadow.report() : ({ unavailable: true })));
     const a = [], b = [], drives = [], somatic = [], jiwen = [], storedJiwen = readStoredJiwen();
@@ -136,7 +137,7 @@
       schema: "lisa-shadow-promotion-review-v1",
       generatedAt: new Date().toISOString(), appVersion: appVersion || null,
       safety: {
-        readOnly: true, changedLiveBehavior: false, containsChatText: false, openedAnyGate: false,
+        readOnly: true, changedLiveBehavior: false, containsChatText: false, openedAnyGate: eGates.some(x => x.gate && x.gate.mode === "pilot") || a.some(x => x.gate && x.gate.mode === "pilot"),
         ownerMismatchCannotClearDiagnostics: true
       },
       comparisonIntegrity: {
@@ -149,7 +150,7 @@
       },
       sampleWindow: { note: "各模块保留期不同；样本不足只能续观，不能自动转正。" },
       memory, innerLife: {
-        E: e && typeof e === "object" ? { ...e, readiness: eReadiness } : { report: e, readiness: eReadiness }, A: a, B: b, C: c, somatic,
+        E: e && typeof e === "object" ? { ...e, readiness: eReadiness, gates: eGates } : { report: e, readiness: eReadiness, gates: eGates }, A: a, B: b, C: c, somatic,
         somaticReview: window.SomaticReviewCore ? window.SomaticReviewCore.summarize(somatic) : { unavailable: true },
         jiwenLive: {
           mode: "live",

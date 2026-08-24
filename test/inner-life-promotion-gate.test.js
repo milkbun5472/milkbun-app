@@ -26,3 +26,24 @@ test("没有达标报告不能武装试点",()=>{
   const result=Gate.armPilot("A","char-1",{ready:false,blockers:["样本不足"]});
   assert.equal(result.ok,false);assert.equal(result.reason,"not_ready");
 });
+
+test("E 全角色授权仍必须先通过机械审计",()=>{
+  assert.equal(Gate.armAllE({ready:false,blockers:["观察不足"]}).ok,false);
+  assert.equal(Gate.armAllE({ready:true,metrics:{diagnostics:40}}).ok,true);
+});
+
+test("E 全角色授权用通配闸生效，仍可单独撤销某个角色",()=>{
+  const values=new Map(),fake={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};
+  const old=Object.getOwnPropertyDescriptor(globalThis,"localStorage");
+  Object.defineProperty(globalThis,"localStorage",{value:fake,configurable:true});
+  try{
+    assert.equal(Gate.armAllE({ready:true,metrics:{diagnostics:40}}).ok,true);
+    assert.equal(Gate.state("E","char-a").mode,"pilot");
+    assert.equal(Gate.state("E","char-b").mode,"pilot");
+    Gate.disarm("E","char-a");
+    assert.equal(Gate.state("E","char-a").mode,"shadow");
+    assert.equal(Gate.state("E","char-b").mode,"pilot");
+  }finally{
+    if(old)Object.defineProperty(globalThis,"localStorage",old);else delete globalThis.localStorage;
+  }
+});
