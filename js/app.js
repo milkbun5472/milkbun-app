@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.70";
+const APP_VERSION = "v55.71";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4191,9 +4191,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const history = base.filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
     // CC turn 仍完整留在 App 时间线里；模型侧只走 continuity 亲历块这一份载体，
     // 避免同一原话既在历史中段回插、又在实时背景重复携带，击穿 prompt cache。
-    const modelHistory = window.ChatLedgerShadow && typeof window.ChatLedgerShadow.modelHistory === "function"
+    const _mh0 = window.ChatLedgerShadow && typeof window.ChatLedgerShadow.modelHistory === "function"
       ? window.ChatLedgerShadow.modelHistory(history)
       : history;
+    // 记录里那些旧回声不再喂回去（她 2026-08-24：「我不删的话第二轮绝对又会用反问开头」）。
+    // 只改送进模型的这一份，她自己的聊天记录一个字不动。言秋那条专线不参与。
+    const modelHistory = (!settingsFor(charId).engineerEyes && typeof stripEchoFromHistory === "function")
+      ? stripEchoFromHistory(_mh0) : _mh0;
     // CC 原话回流后，本地聊天可以很长；记录仍完整保留，但每次请求只携带最近一扇窗口，
     // 避免专线把整份历史重复上传而在浏览器侧直接 Load failed。
     const _engineerChat = !!settingsFor(charId).engineerEyes;

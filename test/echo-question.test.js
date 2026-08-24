@@ -97,3 +97,61 @@ test("线上线下共用同一套判据，别再各写一份", () => {
   assert.match(engine, /isEchoOfUser\(em\[1\], said\)/, "线下正文版");
   assert.match(engine, /她 2026-08-24：\n\/\/ 「你这反问还是压不住线上啊啊啊」|你这反问还是压不住线上/, "病因写在代码里");
 });
+
+// —— 「我不删的话第二轮绝对又会用反问开头」（她 2026-08-24）——
+// 刀发生在【展示前】，可 v55.11 之前漏出去的、判据没盖住的那些，已经躺在记录里了；
+// 每一轮它们都作为「他自己的说话习惯」被重新喂回去。她只能手动删。
+// 两手一起上：提示词加一条「这一条不跟聊天记录走」，同时干脆让模型看不见它们。
+
+test("提示词里要说清：记录里有旧回声不代表那是他的习惯", () => {
+  assert.match(ONLINE, /【这一条不跟聊天记录走】上面的记录里要是有你自己「某某？」开场的旧消息/);
+  assert.match(ONLINE, /不是你的口头禅、不是你的语气标记、也不是这段关系里的默契/);
+  assert.match(ONLINE, /记录里出现过几次，就说明它错了几次，不说明它对/);
+  // 线下叙事准则那份也吃得到（共用 ECHO_QUESTION_BAN）
+  const i = engine.indexOf("const OFFLINE_NARRATIVE_RUNTIME = `");
+  const g = n => { const j = engine.indexOf("const " + n + " = `"); return engine.slice(j, engine.indexOf("`;", j) + 2); };
+  const off = new Function(g("ECHO_QUESTION_BAN") + "\n" + engine.slice(i, engine.indexOf("`;", i) + 2) + "\nreturn OFFLINE_NARRATIVE_RUNTIME;")();
+  assert.match(off, /不说明它对/);
+});
+
+const H = (() => {
+  const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
+  const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+    + g("function stripEchoQuestion(") + g("function stripEchoFromHistory(") + "\nreturn stripEchoFromHistory;")();
+})();
+
+test("送进模型的历史里，旧回声要被削掉", () => {
+  const out = H([
+    { role: "user", content: "看看自拍" },
+    { role: "assistant", content: "自拍？" },
+    { role: "assistant", content: "行，别后悔" },
+    { role: "user", content: "你在喝酒吗" },
+    { role: "assistant", content: "喝酒？嗯，跟程策" }
+  ]).map(m => m.role[0] + ":" + m.content);
+  assert.deepEqual(out, ["u:看看自拍", "a:行，别后悔", "u:你在喝酒吗", "a:嗯，跟程策"]);
+});
+
+test("历史里的真反问一样不许动", () => {
+  const out = H([
+    { role: "user", content: "我摔了一下" },
+    { role: "assistant", content: "疼吗？" },
+    { role: "assistant", content: "我看看" }
+  ]).map(m => m.content);
+  assert.deepEqual(out, ["我摔了一下", "疼吗？", "我看看"]);
+});
+
+test("只动送进模型的那一份，她的记录不许碰", () => {
+  assert.match(engine, /只改【送进模型的那一份】，她的记录一个字不动——那是她的东西，不归我删/);
+  assert.match(app, /const modelHistory = \(!settingsFor\(charId\)\.engineerEyes && typeof stripEchoFromHistory === "function"\)/);
+  assert.match(app, /她自己的聊天记录一个字不动/);
+  // pChat / setChats 这类写入路径附近不许出现它
+  const i = app.indexOf("stripEchoFromHistory(_mh0)");
+  assert.ok(app.slice(i - 300, i + 300).indexOf("pChat(") < 0, "别把它接到写入路径上");
+});
+
+test("线下历史也要过一遍，言秋那条除外", () => {
+  assert.match(engine, /function offlineHistory\(msgs, userName, charName, stripEcho\)/);
+  assert.match(engine, /const hist = offlineHistory\(session\.msgs, userName, char\.name, !isDigital\)/);
+  assert.match(engine, /stripEcho && lastSaid && typeof stripEchoQuestionScene === "function"/);
+});
