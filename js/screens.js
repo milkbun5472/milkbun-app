@@ -269,7 +269,7 @@ function CastForm({
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
     value: birthday,
     onChange: e => setBirthday(e.target.value),
-    placeholder: "如 3-15 或 1998-3-15（可留空）",
+    placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五",
     className: "w-full bg-transparent outline-none",
     style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" }
   }), (function () {
@@ -283,9 +283,17 @@ function CastForm({
     }, "现在 " + age + " 岁", /*#__PURE__*/React.createElement("span", {
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontWeight: 400, marginLeft: 8 }
     }, "生日一过自动加一，Ta 自己也知道"));
+  })(), (function () {
+    // 两历对照：填农历就给出今年的公历，填公历就给出今年的农历（她 2026-08-24 要的
+    // 「王爷腊月廿三的生日填了农历可以换成新历两个都显示」）
+    const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(birthday) : "";
+    if (!both) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4 }
+    }, both);
   })(), /*#__PURE__*/React.createElement("div", {
     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
-  }, "到生日当天/临近，Ta 会自己惦记着。【带上年份】才会算年龄（如 2004-10-25）；只填月日就只过生日、不算岁数。算出来的年龄以这里为准，人设正文里那句「XX 岁」可以删掉了。"))), /*#__PURE__*/React.createElement(LineField, {
+  }, "公历农历都能填，会自动换算成另一历、两个都显示，生日提醒也按换算后的那天。【带上年份】才会算年龄（2004-10-25 或 农历1998年腊月廿三）；只填月日就只过生日、不算岁数。算出来的年龄以这里为准，人设正文里那句「XX 岁」可以删掉了。"))), /*#__PURE__*/React.createElement(LineField, {
     zh: "人设",
     en: "Persona"
   }, /*#__PURE__*/React.createElement(LineArea, {

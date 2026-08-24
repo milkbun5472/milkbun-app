@@ -1491,6 +1491,10 @@ function buildBundle(ctx, opts) {
   // 年龄按【今天】现算。人设里写死的岁数会随时间过期，这一条不会——冲突时以这条为准。
   {
     const _age = charAge(char && char.birthday, Date.now());
+    // 农历生日的角色（王爷这类）在提示词里也该看见今年的公历日子，否则他没法跟现实对上
+    const _bd = String((char && char.birthday) || "").trim();
+    const _both = _bd && typeof birthdayBothLabel === "function" ? birthdayBothLabel(_bd) : "";
+    if (_both && parseLunarBirthday(_bd)) parts.push("【你的生日】" + _both + "（你按农历过生日；换算成公历是今年的这一天）。");
     if (_age != null) parts.push("【你现在的年龄】" + _age + " 岁（按你的生日 " + String(char.birthday).trim()
       + " 和今天的日期算出来的，每过一次生日会自己长一岁）。人设里若写着别的岁数，那是写下时的旧数字，以这里为准。别动不动把年龄挂在嘴边，它只是你自然知道的事。");
   }
@@ -3832,10 +3836,18 @@ function parseBirthDate(s) {
 }
 // 周岁：生日当天就算长一岁
 function charAge(birthday, now) {
-  const b = parseBirthDate(birthday);
-  if (!b) return null;
   const n = now instanceof Date ? now : new Date(now == null ? Date.now() : now);
   if (isNaN(n.getTime())) return null;
+  let b = parseBirthDate(birthday);
+  // 农历生日写了年份的（如「农历1998年腊月廿三」）：先换成那一天的公历，再照常算周岁
+  if (!b && typeof parseLunarBirthday === "function") {
+    const lu = parseLunarBirthday(birthday);
+    if (lu && lu.y && typeof lunarToSolar === "function") {
+      const sd = lunarToSolar(lu.y, lu.m, lu.d, lu.isLeap);
+      if (sd) b = { y: sd.getFullYear(), mo: sd.getMonth() + 1, d: sd.getDate() };
+    }
+  }
+  if (!b) return null;
   const mo = n.getMonth() + 1, d = n.getDate();
   let age = n.getFullYear() - b.y;
   if (mo < b.mo || (mo === b.mo && d < b.d)) age--;
@@ -3901,6 +3913,130 @@ function solarToLunar(dateObj) {
   if (offset === 0 && leap > 0 && month === leap + 1) { if (isLeap) isLeap = false; else { isLeap = true; --month; } }
   if (offset < 0) { offset += temp; --month; }
   return { y: year, m: month, d: offset + 1, isLeap: isLeap };
+}
+// ── 农历 → 公历（她 2026-08-24：「王爷腊月廿三的生日填了农历可以换成新历两个都显示」）──
+// 上面只有公历→农历，反向没有。查表法同一张表，从农历年正月初一往后数天数。
+// 闰月排在同名月【之后】：闰四月在四月和五月之间。
+function lunarNewYearUTC(y) {
+  let offset = 0;
+  for (let i = 1900; i < y; i++) offset += lunarYearDays(i);
+  return Date.UTC(1900, 0, 31) + offset * 86400000;
+}
+// 农历 y 年 m 月 d 日（isLeap=闰月）→ 公历 Date（本地零点）；不合法返回 null
+function lunarToSolar(y, m, d, isLeap) {
+  if (!(y >= 1901 && y <= 2099) || !(m >= 1 && m <= 12) || !(d >= 1)) return null;
+  const leap = lunarLeapMonth(y);
+  if (isLeap && leap !== m) return null;            // 那一年这个月没闰
+  const max = isLeap ? lunarLeapDays(y) : lunarMonthDays(y, m);
+  if (d > max) return null;                          // 农历月只有 29 或 30 天
+  let days = 0;
+  for (let i = 1; i < m; i++) {
+    days += lunarMonthDays(y, i);
+    if (leap === i) days += lunarLeapDays(y);
+  }
+  if (isLeap) days += lunarMonthDays(y, m);
+  days += d - 1;
+  const t = new Date(lunarNewYearUTC(y) + days * 86400000);
+  return new Date(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
+}
+// 中文月日：正月/冬月/腊月、初一/十五/廿三/三十 这些都要认
+const LUNAR_MON_ZH = { "正": 1, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10, "冬": 11, "十一": 11, "腊": 12, "十二": 12 };
+function lunarDayFromZh(txt) {
+  const s = String(txt || "").trim();
+  let m = /^初([一二三四五六七八九十])$/.exec(s);
+  if (m) return m[1] === "十" ? 10 : "一二三四五六七八九".indexOf(m[1]) + 1;
+  if (/^(二十|廿)$/.test(s)) return 20;
+  if (s === "三十") return 30;
+  m = /^(廿|二十)([一二三四五六七八九])$/.exec(s);
+  if (m) return 20 + "一二三四五六七八九".indexOf(m[2]) + 1;
+  m = /^十([一二三四五六七八九])$/.exec(s);
+  if (m) return 10 + "一二三四五六七八九".indexOf(m[1]) + 1;
+  if (s === "十") return 10;
+  if (/^\d{1,2}$/.test(s)) return +s;
+  return null;
+}
+// 解析农历生日。认「腊月廿三」「农历腊月廿三」「闰四月初二」「农历八月十五」「农历12-23」。
+// 年份可选（多数架空角色不会有）：「农历1998年腊月廿三」。
+function parseLunarBirthday(str) {
+  const raw = String(str || "").trim();
+  if (!raw) return null;
+  const s = raw.replace(/^农历\s*/, "").replace(/\s+/g, "");
+  const hadTag = raw !== s || /[正冬腊初廿]/.test(s) || /月.*[初廿十]/.test(s);
+  if (!hadTag) return null;                          // 没有任何农历特征就别抢公历的活
+  const ym = /^(\d{4})年?/.exec(s);
+  const y = ym ? +ym[1] : null;
+  const rest = ym ? s.slice(ym[0].length) : s;
+  let m = /^(闰?)([正一二三四五六七八九十冬腊]|十一|十二)月(.+)$/.exec(rest);
+  if (m) {
+    const mo = LUNAR_MON_ZH[m[2]];
+    const d = lunarDayFromZh(m[3]);
+    return mo && d ? { y: y, m: mo, d: d, isLeap: !!m[1] } : null;
+  }
+  m = /^(闰?)(\d{1,2})[-\/.月](\d{1,2})日?$/.exec(rest);
+  if (m) {
+    const mo = +m[2], d = +m[3];
+    return mo >= 1 && mo <= 12 && d >= 1 && d <= 30 ? { y: y, m: mo, d: d, isLeap: !!m[1] } : null;
+  }
+  return null;
+}
+// 这个农历生日在【某个公历年】落在哪一天。腊月的生日通常落在下一个公历年，
+// 所以两个农历年都试，取真正落在目标公历年里的那个。
+function lunarBirthdayInYear(spec, solarYear) {
+  if (!spec) return null;
+  for (const ly of [solarYear, solarYear - 1]) {
+    const d = lunarToSolar(ly, spec.m, spec.d, spec.isLeap);
+    if (d && d.getFullYear() === solarYear) return d;
+  }
+  // 那一年恰好没这个闰月：退回同名平月，别让生日整年消失
+  if (spec.isLeap) return lunarBirthdayInYear({ y: spec.y, m: spec.m, d: spec.d, isLeap: false }, solarYear);
+  return null;
+}
+// 生日在【某个公历年】落在哪一天。公历生日直接拼，农历生日先换算。
+// 提醒、年龄、两历对照全走这一个入口，免得三处各判一次然后判得不一样。
+function birthdaySolarDate(birthday, year) {
+  const lu = parseLunarBirthday(birthday);
+  if (lu) return lunarBirthdayInYear(lu, year);
+  const md = parseMonthDay(birthday);
+  return md ? new Date(year, md.mo - 1, md.d) : null;
+}
+// 距下一次生日还有几天（今天过生日=0）；两种历都认，认不出返回 null
+function daysUntilBirthday(birthday, now) {
+  const t = now instanceof Date ? new Date(now) : new Date(now == null ? Date.now() : now);
+  if (isNaN(t.getTime())) return null;
+  t.setHours(0, 0, 0, 0);
+  for (const y of [t.getFullYear(), t.getFullYear() + 1]) {
+    const d = birthdaySolarDate(birthday, y);
+    if (!d) return null;
+    d.setHours(0, 0, 0, 0);
+    if (d >= t) return Math.round((d - t) / 86400000);
+  }
+  return null;
+}
+// 给界面用的一行人话：农历生日附上今年的公历日期，公历生日附上今年的农历。
+// 两历都显示是她要的（「填了农历可以换成新历两个都显示」）。
+const LUNAR_MON_LABEL = ["", "正月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "冬月", "腊月"];
+function lunarDayLabel(d) {
+  const TEN = ["初", "十", "廿", "三十"];
+  const ZH = "一二三四五六七八九十";
+  if (d === 10) return "初十";
+  if (d === 20) return "二十";
+  if (d === 30) return "三十";
+  return TEN[Math.floor(d / 10)] + ZH[(d % 10) - 1];
+}
+function birthdayBothLabel(birthday, year) {
+  const raw = String(birthday || "").trim();
+  if (!raw) return "";
+  const y = year || new Date().getFullYear();
+  const lu = parseLunarBirthday(raw);
+  if (lu) {
+    const d = lunarBirthdayInYear(lu, y);
+    return d ? "农历 " + (lu.isLeap ? "闰" : "") + LUNAR_MON_LABEL[lu.m] + lunarDayLabel(lu.d)
+      + " · 今年公历 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日" : "";
+  }
+  const md = parseMonthDay(raw);
+  if (!md) return "";
+  const l = solarToLunar(new Date(y, md.mo - 1, md.d));
+  return l ? "公历 " + md.mo + " 月 " + md.d + " 日 · 今年农历 " + (l.isLeap ? "闰" : "") + LUNAR_MON_LABEL[l.m] + lunarDayLabel(l.d) : "";
 }
 const LUNAR_FESTIVALS = { "1-1": "春节", "1-15": "元宵节", "2-2": "龙抬头", "5-5": "端午节", "7-7": "七夕", "7-15": "中元节", "8-15": "中秋节", "9-9": "重阳节", "12-8": "腊八" };
 // 某天是不是农历节日（含除夕=腊月最后一天）；不是返回 null

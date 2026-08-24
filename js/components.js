@@ -7680,7 +7680,8 @@ function ContactDetail({
     if (age == null && !bd) return null;
     return /*#__PURE__*/React.createElement("div", {
       style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 }
-    }, (age != null ? age + " 岁" : "") + (age != null && bd ? " · " : "") + (bd ? "生日 " + bd : ""));
+    }, (age != null ? age + " 岁" : "") + (age != null && bd ? " · " : "")
+       + (bd ? ((typeof birthdayBothLabel === "function" && birthdayBothLabel(bd)) || ("生日 " + bd)) : ""));
   })())), /*#__PURE__*/React.createElement(LineField, {
     zh: "备注名",
     en: "Remark"

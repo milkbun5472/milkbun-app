@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.74";
+const APP_VERSION = "v55.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2687,23 +2687,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const mdK = (today.getMonth() + 1) + "-" + today.getDate();
       // 复用「我的日历/经期」可见名单：只有被允许的角色才知道用户的生日 / 私人日历
       const canSeeMine = !!(period && period.visibleTo && period.visibleTo.includes(char.id));
-      const daysUntil = bd => {
-        if (!bd) return null;
-        const y = today.getFullYear();
-        let next = new Date(y, bd.mo - 1, bd.d); next.setHours(0, 0, 0, 0);
-        if (next < today) next = new Date(y + 1, bd.mo - 1, bd.d);
-        return Math.round((next - today) / 86400000);
-      };
       const evTitles = arr => (arr || []).map(e => e && e.title).filter(Boolean).slice(0, 4).join("、");
       const lines = [];
       // —— 用户生日（仅对可见角色）——
       if (canSeeMine) {
-        const du = daysUntil(parseMonthDay(profile && profile.birthday));
+        const du = daysUntilBirthday(profile && profile.birthday, today);
         if (du === 0) lines.push("🎂 今天是 " + uName + " 的生日。若合你的人设和你俩的关系，可以自然地记得、表达心意，别硬邦邦报日期、别客服腔。");
         else if (du != null && du <= 7) lines.push("再过 " + du + " 天就是 " + uName + " 的生日，你心里记着（想的话可提前张罗、准备点小惊喜，但别每句念叨）。");
       }
       // —— 角色自己的生日 ——
-      const cdu = daysUntil(parseMonthDay(char && char.birthday));
+      // 农历生日以前从来不触发提醒：parseMonthDay 认不出「腊月廿三」这种写法（她 2026-08-24）
+      const cdu = daysUntilBirthday(char && char.birthday, today);
       // 生日填了年份就能算出今天满几岁；只填月日的（古风/架空角色多半如此）就不提岁数
       const _cage = typeof charAge === "function" ? charAge(char && char.birthday, Date.now()) : null;
       if (cdu === 0) lines.push("🎂 今天是你自己的生日"
