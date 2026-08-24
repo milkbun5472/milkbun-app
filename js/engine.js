@@ -964,6 +964,11 @@ const CHARCARD_RULE = `【角色卡执行准则】
 
 角色不是设定的集合，是经历累积后仍在继续生活的同一个人。`;
 
+// 回声式反问禁令。线上线下同一份，别让它在两处各活一份然后飘走
+//（v52.48 那次「重写 prompt 顺手丢掉标点和霸总禁令」就是这么来的）。
+const ECHO_QUESTION_BAN = `别把对方刚说的词原样反问一遍再开口。「自拍？」「现在？」「喝酒？」「你要我陪你去？」——这种回声式开场不是反应，是复述：它把对方的话原样退回去一次，什么都没添，只是在给真正的回答垫场。真人不会先复读一遍关键词才说话，直接从你真正的反应开始就行（对方说「看看自拍」，「行，别后悔」本身就是一句完整的回答，前面不需要挂一个「自拍？」）。
+
+【判定】把开头那个反问删掉——句子照样成立、意思一点没少，那它就是回声，删掉。`;
 const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 完全代入当前角色，通过手机即时通讯与对方聊天。word 只包含角色此刻真正会发送出去的内容，不写旁白、动作、神态、心理活动、括号说明或舞台提示。
 
@@ -973,9 +978,7 @@ const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 
 【这一条不跟聊天记录走】上面的记录里要是句句都规规矩矩带着句号，那不是这个人的打字习惯，是上文被污染了：别跟着学，从这一条起纠回来。只有【人设卡里明写了】他老派、讲究、写字一板一眼，才照卡上那样打全标点——「性格沉稳」「年纪大一些」都不算，那说的是脾气不是标点。
 
-别把对方刚说的词原样反问一遍再开口。「自拍？」「现在？」「喝酒？」「你要我陪你去？」——这种回声式开场不是反应，是复述：它把对方的话原样退回去一次，什么都没添，只是在给真正的回答垫场。真人不会先复读一遍关键词才说话，直接从你真正的反应开始就行（对方说「看看自拍」，「行，别后悔」本身就是一句完整的回答，前面不需要挂一个「自拍？」）。
-
-【判定】把开头那个反问删掉——句子照样成立、意思一点没少，那它就是回声，删掉。把它和后半句挤进同一条消息里也一样是回声，别用这个办法把它留下来。反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
+${ECHO_QUESTION_BAN}把它和后半句挤进同一条消息里也一样是回声，别用这个办法把它留下来。反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
 
 自然聊天不等于每句话都有功能。放松、兴奋、撒娇、吐槽、分享欲上头的时候，人会说信息上多余、人物上必要的话：临时想到又补一句、围着同一件事多绕两圈、自己起的梗自己接着玩、轻微跑题、先冒出反应再慢慢组织观点。不要为了信息密度和逻辑完整，把这些整理成最短、最顺、每句都服务同一个目的的一组句子。这种「多余」保不保留、保留多少，只看这个角色本人的说话习惯——话密的人这就是常态，惜字如金的人也不因此变碎。
 
@@ -1015,6 +1018,10 @@ const PERSONA_REGISTER_ANCHOR = `【语气与年龄感 · 惯性不算成长】
 你在心里叫她什么，就还是那个称呼；心里跟她说话时，直接用「你」也完全正常。`;
 
 const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
+【别拿对方刚说的词开口反问】${ECHO_QUESTION_BAN}把它和后半句塞进同一句台词里也一样是回声（「「自拍？行，别后悔。」」），别用这个办法把它留下来。反过来，真的没听清、真的意外到要确认一遍、或者你就是在质疑这件事本身，那是真反问，照常用；区别在于它有没有带进新的东西。
+⚠️这一条在【线下正文】里同样生效，而且更容易犯：写成「『自拍？』他挑眉，『行，别后悔。』」看着像有动作、有节奏，其实前半句仍然什么都没添——把它整个删掉，从他真正的反应开始写。
+
+
 把当前这一刻写成角色真实正在经历的连续场景。叙事跟随人物此刻的注意、行动、对话、空间关系与选择，不为了“有文采”“有张力”或“符合人设”额外拼装描写。
 
 【人物绑定的叙述视角】
@@ -1111,6 +1118,42 @@ function stripEchoQuestion(words, userText) {
   return list.slice(1);                                    // 整泡型：丢掉这一泡
 }
 
+
+// 回声式反问 · 正文版兜底（v55.66）。
+// 线上那把刀（stripEchoQuestion）是按【气泡】切的，线下是一整段连续正文，它根本没机会跑；
+// 禁令又只写在 ONLINE_CHAT_RULE_V2 里，线下压根不吃——等于线下两道防线一道都没有，
+// 她 2026-08-24：「线下也在反问句，完全压不住」。
+//
+// 判据照抄线上那把刀，只是改成在引号里找：
+//   · 那个词必须在她最近一条消息里【真的出现过】，否则是他自己在惊讶
+//   · 只看正文里【第一段】引号内容，后面的反问一律不碰
+//   · 「自拍？现在？」这类连问是情绪，整串不动
+//   · 引号里还有别的话 → 只削开头那一声；整句就是回声 → 整段引号删掉，
+//     但必须【后面还有别的对话】才敢删，否则这场戏就没人说话了
+function stripEchoQuestionScene(scene, userText) {
+  const s = String(scene == null ? "" : scene);
+  const said = String(userText || "");
+  if (!s || !said) return s;
+  const Q = /[「“"]([^」”"\n]{1,40})[」”"]/;
+  const m = Q.exec(s);
+  if (!m) return s;
+  const em = /^([^，。！？!?…~～\s]{1,6})[？?]\s*([\s\S]*)$/.exec(m[1].trim());
+  if (!em) return s;
+  const word = em[1], rest = em[2].trim();
+  if (said.indexOf(word) < 0) return s;                        // 她没说过 → 真反问
+  if (/^[^，。！？!?…~～\s]{1,6}[？?]/.test(rest)) return s;      // 连问＝情绪
+  const open = m[0][0], close = m[0][m[0].length - 1];
+  if (rest) {                                                  // 合并型：只削开头那一声
+    return s.slice(0, m.index) + open + rest + close + s.slice(m.index + m[0].length);
+  }
+  const after = s.slice(m.index + m[0].length);
+  if (!Q.test(after)) return s;                                // 删了就没人说话了，留着
+  // 删掉整段引号后把接缝处并起来的标点收拾干净（「他抬眼，，顿了顿」这种）
+  return (s.slice(0, m.index) + after)
+    .replace(/([，、；：])\s*([，。！？、；：])/g, "$2")
+    .replace(/^[\s，、。；：]+/, "")
+    .trim();
+}
 
 function stripTypingPeriod(text) {
   const s = String(text == null ? "" : text);
@@ -3406,6 +3449,11 @@ async function generateOffline(p, ctx, session) {
   const effectiveTransitionAfter = !isDigital && (!!registerTransition.after || draftExplicit);
   if (!isDigital && registerTransition.inputBeat && effectiveRegisterActive) rewriteRequested = true;
   let scene = singlePassRevisionRequested ? singlePassFinalScene : draftScene;
+  // 回声式反问兜底（v55.66）：提示词压不住就上刀。isDigital 是言秋那条专线，不碰。
+  if (!isDigital) {
+    const lastSaid = (session.msgs || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0];
+    if (lastSaid) scene = stripEchoQuestionScene(scene, lastSaid.content);
+  }
   let rewriteApplied = !!singlePassRevisionRequested;
   // ⭐一轮就是一次调用（她 2026-08-24：「我永远只要一次」）。以前这里会再发一到两次
   // 补写请求去凑最低字数——她按次计费，那是拿她的钱补我 prompt 没写好的窟窿。
@@ -3676,6 +3724,13 @@ async function generateOfflineGroup(p, ctx, session) {
       affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0
     };
   }).filter(b => b.scene);
+  // 回声式反问兜底：只削【第一个角色 beat】开头那一声——后面的 beat 是别人在接话，
+  // 那些反问不是冲着她刚说的那句来的，不能一并当回声删掉。
+  const gLastSaid = (session.msgs || []).filter(m => m && m.role === "user" && m.content).slice(-1)[0];
+  if (gLastSaid) {
+    const firstChar = out.findIndex(b => b.role === "char");
+    if (firstChar >= 0) out[firstChar].scene = stripEchoQuestionScene(out[firstChar].scene, gLastSaid.content);
+  }
   // 群聊线下：整批只想一次，把这次思考挂在第一个 beat 上（供「看TA怎么想的」展开）
   if (out.length && sp.cot) out[0].cot = sp.cot;
   if (out.length && cotT) out[0].cotRequested = true;

@@ -9,10 +9,11 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 // 她 2026-08-22：「我说看看自拍，有时候会回答：自拍？行，别后悔。明明直接说后部分就行」。
 // 回声式开场——把对方刚说的词原样反问一遍再回答。它不添任何东西，只是给真正的回答垫场。
 
+// v55.66 起禁令抽成了共用常量 ECHO_QUESTION_BAN（线上线下同一份），
+// 所以这里要【求值】而不是读原文，否则看到的是没插值的 ${...} 占位。
 const ONLINE = (() => {
-  const i = engine.indexOf("const ONLINE_CHAT_RULE_V2 = `");
-  const start = engine.indexOf("`", i) + 1;
-  return engine.slice(start, engine.indexOf("`", start));
+  const g = n => { const i = engine.indexOf("const " + n + " = `"); return engine.slice(i, engine.indexOf("`;", i) + 2); };
+  return new Function(g("ECHO_QUESTION_BAN") + "\n" + g("ONLINE_CHAT_RULE_V2") + "\nreturn ONLINE_CHAT_RULE_V2;")();
 })();
 
 test("点名这个毛病，并说清它为什么是复述不是反应", () => {

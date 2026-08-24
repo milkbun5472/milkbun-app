@@ -505,6 +505,8 @@
         // 绝不拿草稿顶上——那等于把去认证句这一步悄悄跳过
         if (selfRevise && p.draftScene && !String(p.scene || "").trim()) throw new Error("模型没写出自修终稿,再按一次「演」");
         if (!p.scene) throw new Error("没拿到正文");
+        // 回声式反问兜底:线下、群线下、小剧场同一把刀。提示词压不住就削掉开头那一声。
+        if (text && typeof stripEchoQuestionScene === "function") p.scene = stripEchoQuestionScene(p.scene, text);
         // 达成硬门槛:本轮用户发言不满 3 条时,模型报 goalReached 也不采信——防"开场自导自演一步通关"
         update(list => list.map(l => l.id !== line.id ? l : { ...l, rounds: l.rounds.map((r, i) => i !== l.rounds.length - 1 ? r : { ...r, msgs: [...r.msgs, { id: rid("tm_"), role: "char", content: p.scene, ts: Date.now(), registerExplicitActive: rt.active || undefined }], pending: !r.goalDone && !r.failed && !!p.goalReached && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来目标达成了") : r.pending, pendingFail: !r.goalDone && !r.failed && !p.goalReached && !!p.goalFailed && r.msgs.filter(m => m.role === "user").length >= 3 ? (p.goalNote || "看起来这条路走死了") : r.pendingFail }) }));
         setNote(""); setNoteOpen(false); setDice(false); // 便签与骰子都是一次性,用完即清
