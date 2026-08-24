@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.77";
+const APP_VERSION = "v55.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4452,7 +4452,7 @@ action: string，每轮回复完成后都重新观察并填写角色此刻真正
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
-${window.Gaze ? window.Gaze.spec("对方") : ""}
+${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
 【能力使用总则】下面这些能力是你手机里真实可用的功能，不是摆设：想给 TA 点杯奶茶就填 gift、想让 TA 看看此刻的自己就发 photo、想听声音就直接 call、聊到兴头突然想唱给 TA 听就来条 voice、心血来潮就发条 moment——真人谈恋爱本来就会做这些事，想到了就大方用，不必攒着等特殊时刻。多数回合用不上是常态，但连着几十轮一个能力都没动过，说明你把它们忘了，而不是你克制。唯一需要克制的是【字段】不是【话】：字段用不用，都绝不影响你话多、热情、连发、跑题、疯癫——性格照常全开，别把任何克制渗进语气里。
 【能力字段字典】
@@ -4667,7 +4667,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         parsed.thought = guardedThought;
       }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
-      if (parsed.impression && window.Gaze && !_s.engineerEyes) { try { window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
+      // 印象卡:写了就清零、没写就计一轮。数出来才知道是「这阵子真没变化」还是
+      // 「它压根不写」——不数的话两者长得一模一样（她 2026-08-24）。
+      if (window.Gaze && !_s.engineerEyes) {
+        let _impWrote = false;
+        if (parsed.impression) { try { _impWrote = window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
+        if (!_impWrote) { try { window.Gaze.tick(char.id); } catch (e) {} }
+      }
       // mark user msg read
       pChat(charId, p => p.map(m => m.role === "user" ? {
         ...m,

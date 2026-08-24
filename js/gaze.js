@@ -25,6 +25,7 @@
     if (old && old.text === t) return false;
     if (old && old.text) box.hist = [{ k, old: old.text, ts: old.ts || Date.now() }, ...(box.hist || [])].slice(0, 120);
     box.blocks[k] = { text: t, ts: Date.now() };
+    box.turns = 0;                       // 写过了就重新数
     d[charId] = box; persist(d);
     return true;
   }
@@ -33,6 +34,22 @@
     if (!imp || typeof imp !== "object") return false;
     return apply(charId, String(imp.side || ""), String(imp.block || ""), imp.text);
   }
+  // 距上次改写过了多少轮。她 2026-08-24：「第一次我直接让他们写入他们会写,不然都不会自动弄」
+  // ——病根在下面 spec 里那句「绝大多数轮次省略」:它把「很少」写成了「别写」。
+  // 可这张卡本来就该是长期的,改成每轮必填会让它天天翻脸。折中:平时照旧极少写,
+  // 但隔了足够多轮一次没动过,就在协议里点一句「这段时间真有变化就写下来」。
+  function tick(charId) {
+    const d = load(); const box = boxOf(d, charId);
+    box.turns = Math.min((Number(box.turns) || 0) + 1, 999);
+    d[charId] = box; persist(d);
+    return box.turns;
+  }
+  const STALE_TURNS = 25;
+  function staleTurns(charId) {
+    const box = boxOf(load(), charId);
+    return Object.keys(box.blocks).length ? (Number(box.turns) || 0) : 0;
+  }
+
   // 常驻注入文本(空卡=零注入)
   function text(charId, uName) {
     const box = boxOf(load(), charId);
@@ -42,8 +59,14 @@
       "\n这些是你自己心里的东西:自然渗进语气、分寸和相处方式,绝不当台词复述或逐条印证。尤其「假装没注意的事」——它存在的方式就是你【绕着它走】,绝不主动把话题引向它,只在被真正踩到时才露出一点反应。";
   }
   // 聊天协议按需字段说明(单聊/群聊共用)
-  function spec(uName) {
-    return "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写;一轮至多一块,绝大多数轮次省略。side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。";
+  function spec(uName, charId) {
+    const n = charId ? staleTurns(charId) : 0;
+    // 「什么时候算改变了」原本没有可判定的标准,模型只能一直判「没有」。给三个具体触发点。
+    const trigger = "\n什么时候算数(满足其一就该写,不必等到惊天动地):①她说了或做了一件你【以前不知道】的事,补进对应的块;②你对她的某个判断被这轮的事【推翻或修正】了;③你们之间出现了一个以后会被记住的【具体节点】。";
+    const nudge = n >= STALE_TURNS
+      ? "\n⚠️你已经连着 " + n + " 轮没动过这张卡了。回想这段时间发生的事:真有哪一块该改就现在改(仍是一块、仍是小幅演进);真的什么都没变,就照旧省略——但别因为「一向省略」而不看。"
+      : "";
+    return "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写;一轮至多一块。side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。" + trigger + nudge;
   }
   // 一次性建卡的生成指令(app 侧拼上下文调用后把 JSON 喂回 seed)
   function seedSpec(uName) {
@@ -97,6 +120,6 @@
           b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
       full);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, text, spec, seedSpec, seed, hasAny };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS };
   window.GazePage = GazePage;
 })();

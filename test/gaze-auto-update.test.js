@@ -1,0 +1,80 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const root = path.join(__dirname, "..");
+const gaze = fs.readFileSync(path.join(root, "js/gaze.js"), "utf8");
+const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+
+// 她 2026-08-24：「Ta 眼里那几条，第一次我直接让他们写入他们会写，
+// 不然都不会自动弄」。
+// 病根在协议字段说明里那句「绝大多数轮次省略」——它把「很少」写成了「别写」；
+// 加上「什么时候算真正改变了长期认知」没有可判定的标准，模型只能一直判「没有」。
+// 但这张卡本来就该是长期的，改成每轮必填会让它天天翻脸。所以是折中：
+// 平时照旧极少写，给出可判定的触发点，再加一只计数器——久没动过就点一句。
+
+const G = (() => {
+  const store = {};
+  const sb = {
+    React: { useState: () => [] }, ReactDOM: { createPortal: () => null }, h: () => null,
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+    F_BODY: "", F_DISPLAY: "", window: {}
+  };
+  new Function(...Object.keys(sb), gaze)(...Object.values(sb));
+  return sb.window.Gaze;
+})();
+
+test("「绝大多数轮次省略」不许再留着——那不是「很少」，是「别写」", () => {
+  const live = gaze.split("\n").filter(l => !/^\s*\/\//.test(l) && l.indexOf("绝大多数轮次省略") >= 0);
+  assert.deepEqual(live, []);
+  assert.match(gaze, /它把「很少」写成了「别写」/, "病因写在代码里");
+});
+
+test("给可判定的触发点，别让它自己去悟「什么算真正改变了长期认知」", () => {
+  const s = G.spec("阿棠", "c1");
+  assert.match(s, /满足其一就该写,不必等到惊天动地/);
+  assert.match(s, /以前不知道/);
+  assert.match(s, /推翻或修正/);
+  assert.match(s, /具体节点/);
+  // 但「一轮至多一块、小幅演进」这些护栏不许松
+  assert.match(s, /一轮至多一块/);
+  assert.match(s, /绝不因单日情绪整块翻转/);
+});
+
+test("久没动过才点一句，平时不啰嗦", () => {
+  G.seed("c1", { me: { person: "她很怕麻烦别人" }, us: {} });
+  assert.equal(G.staleTurns("c1"), 0);
+  for (let i = 0; i < G.STALE_TURNS - 1; i++) G.tick("c1");
+  assert.ok(G.spec("阿棠", "c1").indexOf("⚠️你已经连着") < 0, "还没到阈值就别念");
+  G.tick("c1");
+  const s = G.spec("阿棠", "c1");
+  assert.match(s, /⚠️你已经连着 25 轮没动过这张卡了/);
+  // 催归催，「真没变化就省略」这条退路要留着，不然它会硬编
+  assert.match(s, /真的什么都没变,就照旧省略/);
+  assert.match(s, /别因为「一向省略」而不看/);
+});
+
+test("写过一次就重新数", () => {
+  assert.equal(G.applyParsed("c1", { side: "me", block: "recent", text: "她这阵子在赶一个东西" }), true);
+  assert.equal(G.staleTurns("c1"), 0);
+});
+
+test("空卡不催——那是建卡的事，不是更新的事", () => {
+  for (let i = 0; i < 40; i++) G.tick("empty");
+  assert.equal(G.staleTurns("empty"), 0, "还没建卡就没有「久没更新」可言");
+  assert.ok(G.spec("阿棠", "empty").indexOf("⚠️") < 0);
+});
+
+test("不传 charId 也不炸（群聊那份还在共用）", () => {
+  assert.equal(typeof G.spec("阿棠"), "string");
+  assert.ok(G.spec("阿棠").indexOf("⚠️") < 0);
+});
+
+test("接线：写了就清零，没写就计一轮", () => {
+  assert.match(app, /window\.Gaze\.spec\("对方", charId\)/);
+  assert.match(app, /_impWrote = window\.Gaze\.applyParsed\(char\.id, parsed\.impression\)/);
+  assert.match(app, /if \(!_impWrote\) \{ try \{ window\.Gaze\.tick\(char\.id\); \}/);
+  assert.match(app, /不数的话两者长得一模一样/, "分不清「真没变化」和「压根不写」，就只能干等");
+  // 言秋那条专线不参与
+  assert.match(app, /if \(window\.Gaze && !_s\.engineerEyes\)/);
+});
