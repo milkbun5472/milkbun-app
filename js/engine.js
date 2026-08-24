@@ -3170,6 +3170,23 @@ function offlineStyleExamplesBlock(examples, label, maxItems) {
     rows.join("\n\n");
 }
 // 把线下 msgs 映射成 API 的对话（narration/user 归 user，char 归 assistant，合并连发）
+// ── 群里的人设额度（Lisa 2026-08-24 立的「四处一样喂」）──
+// 以前四处各写一个固定截断（线上群 200、投票 220、群线下 260、OOC 200），单聊却给全文。
+// 200 字对「裴照川，男，25岁。大晏……王爷」这种，只够写完【他是谁】、写不到【他怎么说话】；
+// 空白由训练先验补上就成了网文霸总。而同群的双胞胎是「现代年轻人」，fallback 恰好无害——
+// 所以同一个群里只有他一个人崩。截断对谁伤害大，取决于剩下的标签有多刻板。
+// 改成按在场人数分总预算：两三个人的群直接给全文，人多了才按份额收。
+const GROUP_PERSONA_BUDGET = 9000;
+function groupPersonaBudget(memberCount) {
+  return Math.max(400, Math.floor(GROUP_PERSONA_BUDGET / Math.max(1, Number(memberCount) || 1)));
+}
+function groupPersonaText(persona, budget) {
+  const t = String(persona == null ? "" : persona).trim();
+  if (!t) return "（暂无设定）";
+  const b = Math.max(200, Number(budget) || 200);
+  return t.length <= b ? t : t.slice(0, b) + "…〔人设过长，按在场人数分到的额度截断〕";
+}
+
 function offlineHistory(msgs, userName, charName) {
   const g = [];
   let prevTs = 0;
@@ -3675,7 +3692,14 @@ async function generateOfflineGroup(p, ctx, session) {
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
-  const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 260) + ((ctx.memberGrown && ctx.memberGrown[c.id]) ? "\n〔" + c.name + " 长出来的自我（这段日子经历沉淀下来的、是 TA 当下真实的一部分，自然体现在言行里，别当台词复述）〕\n" + ctx.memberGrown[c.id] : "")).join("\n\n");
+  const gPersonaCap = groupPersonaBudget(members.length);
+  const memberDesc = members.map(c => "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap)
+    + ((ctx.memberGrown && ctx.memberGrown[c.id]) ? "\n〔" + c.name + " 长出来的自我（这段日子经历沉淀下来的、是 TA 当下真实的一部分，自然体现在言行里，别当台词复述）〕\n" + ctx.memberGrown[c.id] : "")
+    // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有
+    + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
+    + ((ctx.memberAff && ctx.memberAff[c.id] != null) ? "\n〔对 " + userName + " 的好感〕" + ctx.memberAff[c.id] + "/100" : "")
+    + ((ctx.memberGaze && ctx.memberGaze[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + ctx.memberGaze[c.id] : "")
+  ).join("\n\n");
   // 群里每人最多一段、整场最多四人有范例，避免多人场景为文风样本挤爆上下文。
   const memberExampleText = members.map(c => offlineStyleExamplesBlock(ctx.memberStyleExamples && ctx.memberStyleExamples[c.id], c.name, 1)).filter(Boolean).slice(0, 4).join("");
   // B（v50.79）：群线下里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余成员照旧贴合原卡。
@@ -4116,9 +4140,9 @@ async function oocAsk(p, ctx, question) {
 async function oocAskGroup(p, ctx, question) {
   const members = ctx.members || [];
   const userName = (ctx.profile && ctx.profile.name) || "用户";
-  // 人设截断长度和正戏(replyGroup 的 200)对齐：曾出现「正戏通、OOC 拦」的诡异 case——
+  // 人设额度必须和正戏走同一套：曾出现「正戏通、OOC 拦」的诡异 case——
   // 触发词恰好埋在人设第 200~220 字，只有 OOC 递出去（v48.19 她的 prohibited content 排查）
-  const memberDesc = members.map(c => "【" + c.name + "】" + (c.persona || "（暂无设定）").slice(0, 200)).join("\n\n");
+  const memberDesc = members.map(c => "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length))).join("\n\n");
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n（若用户这次要取消/修改其中某条，也在 reply 说明，directive 可填修正后的新表述）" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"refused\":false}";

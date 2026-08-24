@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.86";
+const APP_VERSION = "v55.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3667,6 +3667,35 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
+    // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：此刻心情与好感度，
+    // 单聊经 buildBundle 一直有，群线下以前一层都没有。它们是【这个人此刻是谁】、
+    // 不是【你们之间发生过什么】，所以封闭群照给。
+    memberMood: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const cur = moods[id] || {};
+        const st = window.MoodLabel && window.MoodLabel.settle
+          ? window.MoodLabel.settle(cur.label, cur.ts, Date.now()) : { label: cur.label || "", note: "" };
+        if (st.label || st.note) m[id] = st.label || st.note;
+      });
+      return m;
+    })(),
+    memberAff: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => { m[id] = Math.round(affOf(id)); });
+      return m;
+    })(),
+    // 印象卡跟长期记忆同一档（从私下往来长出来的＝「发生过什么」），只在开了记忆互通时给
+    memberGaze: (() => {
+      const m = {};
+      if (!gsFor(group.id).memoryInterop || !window.Gaze) return m;
+      (group.memberIds || []).forEach(id => {
+        if (settingsFor(id).engineerEyes) return;
+        const t = window.Gaze.text(id, profile.name || "用户");
+        if (t && t.trim()) m[id] = t.trim();
+      });
+      return m;
+    })(),
     // 世界书走和单人线下/线上群同一套筛选引擎（v50.74）：之前群线下用 deriveWorldbook 全量拼接——只认没绑角色的全局词条、还无视 scope、绑了角色的一律看不见。
     //   改成 loreText 检索式：在场成员绑定的 + 全局的，聊天 scope，用本场近段做关键词命中；常驻/无关键词照常进。
     worldbook: (() => {
@@ -5423,6 +5452,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           + "尤其注意：别人段落里的称呼、玩笑、专属梗、约定、旧事，对你来说【根本不存在】，不许拿来开场、接话或试探。每个成员只凭『自己那一段』和『群里公开说过的话』行动。\n"
           + "这些只是背景，别生硬复述。\n" + pj;
       }
+      const gPersonaCap = groupPersonaBudget(members.length);
       const memberDesc = members.map(c => {
         const ph = (phones || {})[c.id] || {};
         const pn = ph.music && ph.music.songs && ph.music.songs.length ? "（TA 最近在听：" + ph.music.songs.slice(0, 4).map(s => s.name).join("、") + "，对上了能认出来）" : "";
@@ -5432,7 +5462,16 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         // 普通线上群聊也带上成员「长出来的自我」(Codex 抓到的漏口：私聊/线下有、线上群没有→进群就退回旧人设)
         const grown = (window.DesireKit && desiresRef.current[c.id]) ? window.DesireKit.personaText(desiresRef.current[c.id]) : "";
         const grownSeg = grown && grown.trim() ? "\n〔" + c.name + " 长出来的自我（经历沉淀下来的、是 TA 当下真实的一部分，自然体现，别当台词复述）〕\n" + grown.trim() : "";
-        return "【" + c.name + "】" + (c.persona || "").slice(0, 200) + pn + live + grownSeg;
+        // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊经 buildBundle
+        // 拿到全文人设＋此刻心情＋好感度，群聊以前只有 200 字人设、别的一层都没有——
+        // 于是同一个人在群里只剩「一个古代王爷」这个标签，空白由训练先验补成霸总。
+        // 心情和好感是【这个人此刻是谁】、不是【你们之间发生过什么】，所以封闭群照给。
+        const md = window.MoodLabel && window.MoodLabel.settle
+          ? window.MoodLabel.settle((moods[c.id] || {}).label, (moods[c.id] || {}).ts, Date.now())
+          : { label: (moods[c.id] || {}).label || "", note: "" };
+        const mdSeg = md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : "");
+        const afSeg = "\n〔对 " + (profile.name || "用户") + " 的好感〕" + Math.round(affOf(c.id)) + "/100";
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -5450,7 +5489,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           const priv = gs.privateCtxN > 0 ? (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m)).slice(-gs.privateCtxN).map(m => "[" + fmtStampAI(m.ts) + "] " + (m.role === "user" ? profile.name || "用户" : c.name) + ": " + m.content + (m.role === "user" && window.TemporalAnchor ? " " + window.TemporalAnchor.anchor(m.content, m.ts) : "")).join("\n") : "";
           // 单人线下（跨情境近况，v50.66）：这个成员最近和用户单独线下相处的片段，带时间戳，让群线上接得上（own-scoped，仍在本人隐私段里）
           const offBeats = gs.privateCtxN > 0 ? crossRecentFor(c.id, { surfaces: ["offline"] }) : "";
-          const seg = [mem && "长期记忆：" + mem, onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己在群里说出来）：\n" + onlyMine.trim(), priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
+          // 印象卡跟长期记忆同一档：它是从私下往来里长出来的，属于「发生过什么」，
+          // 所以只在开了记忆互通时给，而且必须落在这位成员自己那一段里（隐私围栏见上）
+          const gz = window.Gaze && !settingsFor(c.id).engineerEyes ? window.Gaze.text(c.id, profile.name || "用户") : "";
+          const seg = [mem && "长期记忆：" + mem, gz && gz.trim(), onlyMine && onlyMine.trim() && "记忆库里【只有 " + c.name + " 知道】的事（别的成员并不知情，除非 TA 自己在群里说出来）：\n" + onlyMine.trim(), priv && "最近私聊（带时间，请和群聊记录一起按真实时间先后理解发生顺序）：\n" + priv, offBeats && "最近单人线下（带时间，和上面私聊/群聊一起按真实先后理解）：\n" + offBeats].filter(Boolean).join("\n");
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const groupMem = formatMemLib(gSplit.shared);
@@ -5895,7 +5937,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const memberDesc = members.map(c => {
         const md = moods[c.id] && moods[c.id].label ? "，此刻心情：" + moods[c.id].label : "";
         const af = "，对用户好感 " + Math.round(affOf(c.id)) + "/100";
-        return "【" + c.name + "】" + (c.persona || "").slice(0, 220) + md + af;
+        return "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.length)) + md + af;
       }).join("\n");
       const gsp = gsFor(groupId);
       const hist = (groupChatsRef.current[groupId] || []).filter(m => m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "narration" ? "【旁白】" + m.content : (m.role === "user" ? profile.name || "用户" : m.senderName || "某人") + ": " + (m.content || ""))).join("\n");
