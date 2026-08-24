@@ -24,15 +24,12 @@
 
 域名白名单（`ROUTES[ref].hosts`）原样保留——这才是防钥匙外流的那道，任何时候都不能删。
 
-## 装
+## 装（2026-08-23 言秋已装好，本节留档）
 
-```bash
-ssh yanqiu-vps
-mkdir -p ~/services/llm-proxy/logs
-# 把仓库里这两个文件拷过去
-#   tools/vps/llm-proxy.mjs      -> ~/services/llm-proxy/llm-proxy.mjs
-#   tools/vps/llm-proxy.service  -> /etc/systemd/system/llm-proxy.service
-```
+实际部署与原稿三处不同（改因如下），以下为**现状**：
+- 端口 8791 已被 ledger-courier 占用 → 改用 **8795**；
+- 原稿 BIND=0.0.0.0 会开公网口，违反「VPS 不开公网口」家规 → 改 **127.0.0.1**，经 tailscale serve 的 **/llm 路径**出门（与 /music 同姿势）；
+- 原稿 system 级 systemd 要 sudo → 改**用户级** `~/.config/systemd/user/llm-proxy.service`（与 memory-gateway 同姿势），`systemctl --user restart llm-proxy` 即可。
 
 密钥文件（**不进 git**）：
 
@@ -62,7 +59,7 @@ curl -s http://127.0.0.1:8791/health     # 应回 {"ok":true,"routes":[...]}
 | 栏 | 填什么 |
 |---|---|
 | 云端代理 | 照旧填引用名，如 `DZZI` |
-| **保险柜直连** | `https://yanqiu-vps.tail542792.ts.net:8791/` |
+| **保险柜直连** | `https://yanqiu-vps.tail542792.ts.net/llm` |
 | **直连口令** | 上面 `LLM_PROXY_SECRET` 那一串 |
 
 后两栏是**全局**的，填一次所有走云端代理的线路都改道；留空就还走原来的 Kong 那条路。
