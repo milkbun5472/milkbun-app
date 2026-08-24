@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.67";
+const APP_VERSION = "v55.68";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1534,6 +1534,17 @@ function App() {
     saveJSON("x_moods", n);
     return n;
   });
+  // 连着多少轮没按协议返回 mood。心情不动有两种可能：模型每轮都报了同一个词（正常），
+  // 和模型压根不填这个字段（坏）。不数一下就分不出来，只会看见「心情好久没变」。
+  const _moodSkip = (id, got) => {
+    const live = statesRef.current[id] || {};
+    const n = got ? 0 : Math.min((Number(live.moodSkips) || 0) + 1, 99);
+    if (n === (Number(live.moodSkips) || 0)) return;
+    const ns = { ...live, moodSkips: n };
+    statesRef.current = { ...statesRef.current, [id]: ns };
+    setStates(p => { const m = { ...p, [id]: { ...(p[id] || {}), moodSkips: n } }; saveJSON("x_states", m); return m; });
+    if (n === 12) toast("这个角色连着 12 轮没按协议返回心情——多半是当前模型不稳定支持 mood 字段，换个模型试试", 9000);
+  };
   const setStateFor = (id, s) => setStates(p => {
     const n = {
       ...p,
@@ -3402,7 +3413,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 线下相处也影响好感与心情（跟私聊一样）
       if (Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
       tickAmbient(charId, {}); // 线下也计动态保底（她 2026-07-13 点名）——在线下泡久了，动态计数不冻结
-      if (res.mood && res.mood.label) setMoodFor(charId, { ...res.mood, ts: Date.now() });
+      // mood 一直不动的老毛病（她 2026-08-24）：病根是线下协议原本写着「值得更新才填，
+      // 否则 null」，示范形状里还直接摆着 "mood":null——模型照着模板填 null，心情就永远冻着。
+      // v55.67 改成每轮必填。这里再加一只计数器：还是不回就说出来，别又变成静默失败。
+      if (res.mood && res.mood.label) { setMoodFor(charId, { ...res.mood, ts: Date.now() }); _moodSkip(charId, true); }
+      else _moodSkip(charId, false);
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
       const liveState = statesRef.current[charId] || {};
       const ost = {};
@@ -4996,10 +5011,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       if (typeof parsed.affinityDelta === "number") bumpAff(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
       // jiwen 阶段二（v48.80）：把这轮互动的好感增量反喂进积温——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
       try { if (typeof parsed.affinityDelta === "number" && parsed.affinityDelta !== 0) { const eng = getJiwen(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, parsed.affinityDelta * 0.05)) }); } } catch (e) {}
-      if (parsed.mood && parsed.mood.label) setMoodFor(charId, {
-        ...parsed.mood,
-        ts: Date.now()
-      });
+      if (parsed.mood && parsed.mood.label) {
+        setMoodFor(charId, { ...parsed.mood, ts: Date.now() });
+        _moodSkip(charId, true);
+      } else _moodSkip(charId, false);
       // A 情绪立体化 shadow：只算十维与 display 候选，写独立 IDB 诊断；绝不注入本轮/下轮 prompt。
       observeEmotionAShadow(charId, parsed.affinityDelta, parsed.mood && parsed.mood.label);
       // B 关系轴 shadow：仅阿屿/顾暮、仅正常用户回合；回复落地后才走 bg，不污染角色生成 prompt。

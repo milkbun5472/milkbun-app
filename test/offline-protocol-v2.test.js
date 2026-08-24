@@ -74,7 +74,9 @@ test("offline null state semantics preserve durable state and clear stale though
   assert.match(app, /putLiveField\(ost, liveState, "action", offlineAction, stateNow\)/);
   assert.match(app, /if \(offlineThought\) \{ ost\.thought = offlineThought; ost\.thoughtUpdatedAt = stateNow; ost\.thoughtSkips = 0; \}/);
   assert.match(app, /else if \(liveState\.thought\) \{ ost\.thought = null; ost\.thoughtUpdatedAt = 0; \}/);
-  assert.match(app, /if \(res\.mood && res\.mood\.label\) setMoodFor/);
+  // v55.67：mood 没回来时要计数（她「心情好久不会变」），所以这一句多了个 else 分支
+  assert.match(app, /if \(res\.mood && res\.mood\.label\) \{ setMoodFor\(charId, \{ \.\.\.res\.mood, ts: Date\.now\(\) \}\); _moodSkip\(charId, true\); \}/);
+  assert.match(app, /else _moodSkip\(charId, false\);/);
   assert.match(app, /Number\.isFinite\(res\.affinityDelta\)/);
   assert.match(engine, /action 仅在角色当前可持续的活动或所处状态发生有意义变化时填写/);
 });
