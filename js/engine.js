@@ -968,6 +968,8 @@ const CHARCARD_RULE = `【角色卡执行准则】
 //（v52.48 那次「重写 prompt 顺手丢掉标点和霸总禁令」就是这么来的）。
 const ECHO_QUESTION_BAN = `别把对方刚说的词原样反问一遍再开口。「自拍？」「现在？」「喝酒？」「你要我陪你去？」——这种回声式开场不是反应，是复述：它把对方的话原样退回去一次，什么都没添，只是在给真正的回答垫场。真人不会先复读一遍关键词才说话，直接从你真正的反应开始就行（对方说「看看自拍」，「行，别后悔」本身就是一句完整的回答，前面不需要挂一个「自拍？」）。
 
+群里同理：把【刚才别的成员】说过的词原样反问一遍再接话，也是回声（「飞爪绳梯？」「二十层？」），一样删掉，直接说你要说的。
+
 【这一条不跟聊天记录走】上面的记录里要是有你自己「某某？」开场的旧消息——单独占一条的、或者挂在回答前面的——那不是你的说话习惯，是早先漏出去的毛病，不是你的口头禅、不是你的语气标记、也不是这段关系里的默契。别跟着学，从这一条起纠回来。记录里出现过几次，就说明它错了几次，不说明它对。
 
 【判定】把开头那个反问删掉——句子照样成立、意思一点没少，那它就是回声，删掉。`;
@@ -1109,8 +1111,10 @@ function echoCore(phrase) {
   return String(phrase || "").replace(ECHO_HEAD, "").replace(ECHO_TAIL, "")
     .replace(/[\s，。！？!?…~～、：:；;"'“”‘’「」]/g, "");
 }
-// phrase 是他开口那一声（不含问号），said 是她上一条。是回声就返回 true。
-function isEchoOfUser(phrase, said) {
+// phrase 是他开口那一声（不含问号），said 是【刚刚被说过的话】。
+// 单聊/线下里 said 是她这一整轮；群聊里还要算上比他先开口的其他成员——
+// 她 2026-08-24 截图：顾朝提了「飞爪绳梯」，裴照川下一条就「飞爪绳梯？」。
+function isEchoOfSaid(phrase, said) {
   const core = echoCore(phrase);
   const src = String(said || "").replace(/[\s，。！？!?…~～、：:；;"'“”‘’「」]/g, "");
   if (core.length < 2 || core.length > 10 || !src) return false;
@@ -1145,21 +1149,30 @@ function lastUserTurnText(msgs) {
 // 现在扫前两泡（垫场只会出现在真正的回答之前），削掉先撞上的那一个。
 //
 // 判据仍然很硬，真反问碰不到：
-//   · 那句话必须来自她最近一条消息（见 isEchoOfUser），否则是他自己在惊讶
+//   · 那句话必须来自她最近一条消息（见 isEchoOfSaid），否则是他自己在惊讶
 //   · 只削开头那一声；后面还有问号照样留着
 //   · 「自拍？现在？」这类连问是情绪，整串不动
 //   · 削完必须还剩下东西，绝不把话削光
+// 单条判定。返回 undefined=不是回声（原样留着）；字符串=削掉开头那一声后剩下的；
+// null=整条就是回声（丢不丢由调用方决定——线上气泡和群聊的「还剩不剩话」判法不一样）
+function echoOpening(text, said) {
+  if (!said) return undefined;
+  const m = /^([^，。！？!?…~～\s]{1,10})[？?]\s*([\s\S]*)$/.exec(String(text || "").trim().replace(ECHO_HEAD, ""));
+  if (!m) return undefined;
+  const rest = m[2].trim();
+  if (!isEchoOfSaid(m[1], said)) return undefined;
+  if (/^[^，。！？!?…~～\s]{1,10}[？?]/.test(rest)) return undefined;  // 连问＝情绪，整串留着
+  return rest || null;
+}
+
 function stripEchoQuestion(words, userText) {
   const list = Array.isArray(words) ? words.slice() : [];
   const said = String(userText || "");
   if (!list.length || !said) return list;
   for (let i = 0; i < Math.min(2, list.length); i++) {
-    const m = /^([^，。！？!?…~～\s]{1,10})[？?]\s*([\s\S]*)$/.exec(String(list[i] || "").trim().replace(ECHO_HEAD, ""));
-    if (!m) continue;
-    const rest = m[2].trim();
-    if (!isEchoOfUser(m[1], said)) continue;
-    if (/^[^，。！？!?…~～\s]{1,10}[？?]/.test(rest)) continue;   // 连问＝情绪，整串留着
-    if (rest) { list[i] = rest; return list; }                   // 合并型：只削开头那一声
+    const r = echoOpening(list[i], said);
+    if (r === undefined) continue;
+    if (r) { list[i] = r; return list; }                         // 合并型：只削开头那一声
     if (list.length < 2) return list;                            // 整泡就是回声，但削了就没话了
     list.splice(i, 1);
     return list;
@@ -1170,7 +1183,7 @@ function stripEchoQuestion(words, userText) {
 // 正文版（线下 / 群线下 / 小剧场）。线上那把刀是按【气泡】切的，线下是一整段连续
 // 正文，它根本没机会跑；禁令又只写在 ONLINE_CHAT_RULE_V2 里，线下压根不吃——
 // 等于线下两道防线一道都没有（她 2026-08-24：「线下也在反问句，完全压不住」）。
-// 判据跟线上共用同一个 isEchoOfUser，只是改成在引号里找：
+// 判据跟线上共用同一个 isEchoOfSaid，只是改成在引号里找：
 //   · 只看正文里【第一段】引号内容，后面的反问一律不碰
 //   · 引号里还有别的话 → 只削开头那一声；整句就是回声 → 整段引号删掉，
 //     但必须【后面还有别的对话】才敢删，否则这场戏就没人说话了
@@ -1184,7 +1197,7 @@ function stripEchoQuestionScene(scene, userText) {
   const em = /^([^，。！？!?…~～\s]{1,10})[？?]\s*([\s\S]*)$/.exec(m[1].trim().replace(ECHO_HEAD, ""));
   if (!em) return s;
   const rest = em[2].trim();
-  if (!isEchoOfUser(em[1], said)) return s;                     // 她没说过 → 真反问
+  if (!isEchoOfSaid(em[1], said)) return s;                     // 她没说过 → 真反问
   if (/^[^，。！？!?…~～\s]{1,10}[？?]/.test(rest)) return s;      // 连问＝情绪
   const open = m[0][0], close = m[0][m[0].length - 1];
   if (rest) {                                                   // 合并型：只削开头那一声

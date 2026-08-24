@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.85";
+const APP_VERSION = "v55.86";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5581,12 +5581,28 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         phase = "落地发言";
         tickDirectives(groupId); // 临时规矩每回一轮少一轮，到 0 自动消失
         const _gspoke = new Set(); // 群聊(含旁观模式，同一路径)也给开口成员计动态保底（她 2026-07-13 点名）
+        // 回声判定的比对文本：先装她这一整轮，然后随着本批成员依次开口往后累加
+        let _gSaidRun = typeof lastUserTurnText === "function" ? lastUserTurnText(groupChatsRef.current[groupId] || []) : "";
         for (let i = 0; i < safeArr.length; i++) {
           const item = safeArr[i];
           const spk = members.find(c => c.name === item.name);
           if (!spk) continue;
           // 打字体标点兜底（v54.81）：在这儿削一次，后面 text／语音／撤回几路共用同一份
           if (item.text && typeof stripTypingPeriod === "function" && !settingsFor(spk.id).engineerEyes) item.text = stripTypingPeriod(item.text);
+          // 回声式反问兜底（v55.85）：群聊这条一直没接刀，她 2026-08-24 抓到——
+          // 顾朝提了「飞爪绳梯」，裴照川下一条就「飞爪绳梯？」。
+          // 群里回声的来源可能是【别的成员】，所以比对的是「她这一整轮 ＋ 本批里比他先开口的人说过的话」。
+          if (item.text && typeof echoOpening === "function" && !settingsFor(spk.id).engineerEyes) {
+            const r = echoOpening(item.text, _gSaidRun);
+            if (r) item.text = r;                       // 合并型：只削开头那一声
+            else if (r === null) {
+              // 整条就是回声。只有这个人在本批里【后面还有别的话】才敢丢，
+              // 否则他这一轮就等于没开口。
+              const hasMore = safeArr.slice(i + 1).some(x => x && x.name === item.name && String(x.text || "").trim());
+              if (hasMore) continue;
+            }
+          }
+          if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见他刚说的
           const gTurnId = "gt_" + Date.now() + "_" + i;
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);

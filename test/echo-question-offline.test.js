@@ -17,7 +17,7 @@ const theater = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
 const strip = (() => {
   const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
   const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
-  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfSaid(") + g("function echoOpening(")
     + g("function stripEchoQuestionScene(") + "\nreturn stripEchoQuestionScene;")();
 })();
 

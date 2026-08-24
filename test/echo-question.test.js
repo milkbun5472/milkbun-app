@@ -54,7 +54,7 @@ test("只加在线上：线下是叙事散文，对白里的反问由场景决�
 const S = (() => {
   const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
   const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
-  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfSaid(") + g("function echoOpening(")
     + g("function stripEchoQuestion(") + "\nreturn stripEchoQuestion;")();
 })();
 
@@ -91,10 +91,11 @@ test("真反问一个都不许误杀", () => {
   assert.deepEqual(S(["你？", "行"], "你看看"), ["你？", "行"]);
 });
 
-test("线上线下共用同一套判据，别再各写一份", () => {
-  assert.equal((engine.match(/function isEchoOfUser\(/g) || []).length, 1);
-  assert.match(engine, /isEchoOfUser\(m\[1\], said\)/, "线上气泡版");
-  assert.match(engine, /isEchoOfUser\(em\[1\], said\)/, "线下正文版");
+test("线上线下群聊共用同一套判据，别再各写一份", () => {
+  assert.equal((engine.match(/function isEchoOfSaid\(/g) || []).length, 1);
+  assert.equal((engine.match(/function echoOpening\(/g) || []).length, 1);
+  assert.match(engine, /isEchoOfSaid\(m\[1\], said\)/, "单条判定");
+  assert.match(engine, /isEchoOfSaid\(em\[1\], said\)/, "线下正文版");
   assert.match(engine, /她 2026-08-24：\n\/\/ 「你这反问还是压不住线上啊啊啊」|你这反问还是压不住线上/, "病因写在代码里");
 });
 
@@ -125,7 +126,7 @@ test("提示词里要说清：记录里有旧回声不代表那是他的习惯",
 const TURN = (() => {
   const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
   const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
-  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfSaid(") + g("function echoOpening(")
     + g("function lastUserTurnText(") + g("function stripEchoQuestion(")
     + "\nreturn { stripEchoQuestion, lastUserTurnText };")();
 })();
@@ -164,4 +165,47 @@ test("三处都改成看整轮", () => {
   assert.match(engine, /const gLastSaid = lastUserTurnText\(session\.msgs\);/, "群线下");
   assert.ok(!/stripEchoQuestion\(words, _lastSaid/.test(app), "旧的只取最后一条的写法不许留着");
   assert.match(engine, /她一连发消息，这把刀就整个废了/, "病因写在代码里");
+});
+
+// —— 「宝宝群聊也会反问」（她 2026-08-24 截图）——
+//   顾朝：「阿暮你别挑衅人家，万一王爷真带了飞爪绳梯什么的呢」
+//   裴照川：「飞爪绳梯？」＋「对付个二十层的高楼还不至于用那些劳什子物件」
+// 两件事：① 群聊这条路从来没接过刀；② 回声的来源是【别的成员】，
+// 而判据一直只跟「她说的话」比——所以判据再宽也够不着。
+
+const EO = (() => {
+  const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
+  const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfSaid(")
+    + g("function echoOpening(") + "\nreturn echoOpening;")();
+})();
+
+const GSAID = "顾朝：阿暮你别挑衅人家，万一王爷真带了飞爪绳梯什么的呢 顾朝：不过要是进来了，我们家沙发可没地方给你睡";
+
+test("群里回声别人的话一样要削", () => {
+  assert.equal(EO("飞爪绳梯？", GSAID), null, "整条就是回声");
+  assert.equal(EO("飞爪绳梯？对付个二十层的高楼", GSAID), "对付个二十层的高楼", "合并型只削开头");
+});
+
+test("群里的真反问和正常话一个都不许动", () => {
+  assert.equal(EO("对付个二十层的高楼还不至于", GSAID), undefined);
+  assert.equal(EO("你几楼？", GSAID), undefined, "她/别人都没说过「你几楼」");
+  assert.equal(EO("飞爪？绳梯？", GSAID), undefined, "连问＝情绪");
+  assert.equal(EO("飞爪绳梯？", ""), undefined, "没有可比的话就别乱削");
+});
+
+test("群聊接线：比对文本要随本批成员依次开口累加", () => {
+  assert.match(app, /let _gSaidRun = typeof lastUserTurnText === "function" \? lastUserTurnText\(groupChatsRef\.current\[groupId\] \|\| \[\]\) : "";/,
+    "先装她这一整轮");
+  assert.match(app, /const r = echoOpening\(item\.text, _gSaidRun\);/);
+  assert.match(app, /if \(item\.text\) _gSaidRun \+= " " \+ item\.text;/, "后面的人要能看见他刚说的");
+  assert.match(app, /群里回声的来源可能是【别的成员】/, "病因写在代码里");
+});
+
+test("整条是回声时，只有他后面还有别的话才敢丢", () => {
+  assert.match(app, /const hasMore = safeArr\.slice\(i \+ 1\)\.some\(x => x && x\.name === item\.name && String\(x\.text \|\| ""\)\.trim\(\)\);/);
+  assert.match(app, /if \(hasMore\) continue;/);
+  assert.match(app, /否则他这一轮就等于没开口/);
+  // 言秋那条专线不参与
+  assert.match(app, /typeof echoOpening === "function" && !settingsFor\(spk\.id\)\.engineerEyes/);
 });
