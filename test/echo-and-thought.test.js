@@ -9,9 +9,12 @@ const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 // 她 2026-08-22：「心声也好久不更新了」「而且还在反问我」。
 // 两条都是【提示词写了但压不住】——和句尾句号那次一样，得上确定性的刀 / 把状态喂回去。
 
+// v55.70 起判据抽成共用的 isEchoOfUser（线上线下同一套），抠函数时要连它一起带上
 const strip = (() => {
-  const i = engine.indexOf("function stripEchoQuestion(words, userText) {");
-  return new Function(engine.slice(i, engine.indexOf("\n}", i) + 2) + "\nreturn stripEchoQuestion;")();
+  const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
+  const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+    + g("function stripEchoQuestion(") + "\nreturn stripEchoQuestion;")();
 })();
 
 test("回声反问：她刚说过那个词才削", () => {

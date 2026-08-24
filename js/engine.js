@@ -1090,44 +1090,70 @@ const OFFLINE_INTIMATE_RUNTIME = `【场景连续补充】
 //   · 「。。。」这类叠用是语气不是句号，不动
 //   · 只认中文句号与全角句点；英文句点留着（缩写、网址、小数点会被误伤）
 //   · 削完只剩空字符串就放弃，宁可留着句号也不发空泡
-// 回声式反问兜底。ONLINE_CHAT_RULE_V2 里已经写明「别把对方刚说的词原样反问一遍
-// 再开口」，压不住就上刀。
-//
+// ── 回声式反问：判据 ───────────────────────────────────────────────
+// 提示词里那条压不住就上刀。v55.70 把判据从「一字不差」放宽——她 2026-08-24：
+// 「你这反问还是压不住线上啊啊啊」。原来要求那个词【逐字】出现在她上一条里，
+// 于是这些全漏了：
+//   「自拍啊？」「自拍吗？」——多个语气助词，indexOf 就找不到了
+//   「你的自拍？」——她说的是「看看自拍」，他多加了「你的」
+//   「你要我陪你去？」——她说的是「你要不要陪我去」，字序不同
+// 现在先把标点和语气助词剥干净，再用两条判据取并集：整段连着出现，
+// 或者八成以上的字都来自她那句。真反问靠「她压根没说过这些字」挡住。
+const ECHO_TAIL = /[啊吗嘛呢吧么呀哦噢喔嘞咯啦]+$/;
+const ECHO_HEAD = /^[哦噢喔啊呀嗯诶欸唉哈嘿嗯]+[，,、\s]*/;
+// 这些词就算逐字对得上也不算回声：它们是真的在惊讶/确认，不是把话原样退回去
+const ECHO_STOP = ["真的", "是吗", "什么", "这样", "这么", "那么", "怎么", "为什么", "多久"];
+function echoCore(phrase) {
+  return String(phrase || "").replace(ECHO_HEAD, "").replace(ECHO_TAIL, "")
+    .replace(/[\s，。！？!?…~～、：:；;"'“”‘’「」]/g, "");
+}
+// phrase 是他开口那一声（不含问号），said 是她上一条。是回声就返回 true。
+function isEchoOfUser(phrase, said) {
+  const core = echoCore(phrase);
+  const src = String(said || "").replace(/[\s，。！？!?…~～、：:；;"'“”‘’「」]/g, "");
+  if (core.length < 2 || core.length > 10 || !src) return false;
+  if (ECHO_STOP.indexOf(core) >= 0) return false;
+  if (src.indexOf(core) >= 0) return true;                 // 整段连着出现
+  const chars = Array.from(new Set(Array.from(core)));     // 或者八成以上的字都是她的
+  const hit = chars.filter(c => src.indexOf(c) >= 0).length;
+  return hit / chars.length >= 0.8;
+}
+
+// 线上气泡版。
 // ⚠️v55.13：头一版只认【整个第一泡就是回声】，模型立刻学会了绕——把本该分开的两泡
 // 硬合成一泡发（「自拍？行，别后悔」），刀就够不着了（她 2026-08-22 当场抓到）。
 // 所以改成认【开头】：不管它跟不跟别的话挤在一起，开头那声回声一律削掉。
+// ⚠️v55.70：只看第 0 泡也不够——第一泡是「嗯」或一个表情、第二泡才回声的，照样漏。
+// 现在扫前两泡（垫场只会出现在真正的回答之前），削掉先撞上的那一个。
 //
 // 判据仍然很硬，真反问碰不到：
-//   · 那个词必须在她最近一条消息里【真的出现过】，否则是他自己在惊讶
+//   · 那句话必须来自她最近一条消息（见 isEchoOfUser），否则是他自己在惊讶
 //   · 只削开头那一声；后面还有问号照样留着
 //   · 「自拍？现在？」这类连问是情绪，整串不动
 //   · 削完必须还剩下东西，绝不把话削光
 function stripEchoQuestion(words, userText) {
   const list = Array.isArray(words) ? words.slice() : [];
-  if (!list.length) return list;
-  const first = String(list[0] || "").trim();
   const said = String(userText || "");
-  if (!said) return list;
-  const m = /^([^，。！？!?…~～\s]{1,6})[？?]\s*([\s\S]*)$/.exec(first);
-  if (!m) return list;
-  const word = m[1], rest = m[2].trim();
-  if (said.indexOf(word) < 0) return list;                 // 她没说过 → 真反问
-  if (/^[^，。！？!?…~～\s]{1,6}[？?]/.test(rest)) return list; // 连问＝情绪，整串留着
-  if (rest) { list[0] = rest; return list; }               // 合并型：只削开头那一声
-  if (list.length < 2) return list;                        // 整泡就是回声，但削了就没话了
-  return list.slice(1);                                    // 整泡型：丢掉这一泡
+  if (!list.length || !said) return list;
+  for (let i = 0; i < Math.min(2, list.length); i++) {
+    const m = /^([^，。！？!?…~～\s]{1,10})[？?]\s*([\s\S]*)$/.exec(String(list[i] || "").trim().replace(ECHO_HEAD, ""));
+    if (!m) continue;
+    const rest = m[2].trim();
+    if (!isEchoOfUser(m[1], said)) continue;
+    if (/^[^，。！？!?…~～\s]{1,10}[？?]/.test(rest)) continue;   // 连问＝情绪，整串留着
+    if (rest) { list[i] = rest; return list; }                   // 合并型：只削开头那一声
+    if (list.length < 2) return list;                            // 整泡就是回声，但削了就没话了
+    list.splice(i, 1);
+    return list;
+  }
+  return list;
 }
 
-
-// 回声式反问 · 正文版兜底（v55.66）。
-// 线上那把刀（stripEchoQuestion）是按【气泡】切的，线下是一整段连续正文，它根本没机会跑；
-// 禁令又只写在 ONLINE_CHAT_RULE_V2 里，线下压根不吃——等于线下两道防线一道都没有，
-// 她 2026-08-24：「线下也在反问句，完全压不住」。
-//
-// 判据照抄线上那把刀，只是改成在引号里找：
-//   · 那个词必须在她最近一条消息里【真的出现过】，否则是他自己在惊讶
+// 正文版（线下 / 群线下 / 小剧场）。线上那把刀是按【气泡】切的，线下是一整段连续
+// 正文，它根本没机会跑；禁令又只写在 ONLINE_CHAT_RULE_V2 里，线下压根不吃——
+// 等于线下两道防线一道都没有（她 2026-08-24：「线下也在反问句，完全压不住」）。
+// 判据跟线上共用同一个 isEchoOfUser，只是改成在引号里找：
 //   · 只看正文里【第一段】引号内容，后面的反问一律不碰
-//   · 「自拍？现在？」这类连问是情绪，整串不动
 //   · 引号里还有别的话 → 只削开头那一声；整句就是回声 → 整段引号删掉，
 //     但必须【后面还有别的对话】才敢删，否则这场戏就没人说话了
 function stripEchoQuestionScene(scene, userText) {
@@ -1137,17 +1163,17 @@ function stripEchoQuestionScene(scene, userText) {
   const Q = /[「“"]([^」”"\n]{1,40})[」”"]/;
   const m = Q.exec(s);
   if (!m) return s;
-  const em = /^([^，。！？!?…~～\s]{1,6})[？?]\s*([\s\S]*)$/.exec(m[1].trim());
+  const em = /^([^，。！？!?…~～\s]{1,10})[？?]\s*([\s\S]*)$/.exec(m[1].trim().replace(ECHO_HEAD, ""));
   if (!em) return s;
-  const word = em[1], rest = em[2].trim();
-  if (said.indexOf(word) < 0) return s;                        // 她没说过 → 真反问
-  if (/^[^，。！？!?…~～\s]{1,6}[？?]/.test(rest)) return s;      // 连问＝情绪
+  const rest = em[2].trim();
+  if (!isEchoOfUser(em[1], said)) return s;                     // 她没说过 → 真反问
+  if (/^[^，。！？!?…~～\s]{1,10}[？?]/.test(rest)) return s;      // 连问＝情绪
   const open = m[0][0], close = m[0][m[0].length - 1];
-  if (rest) {                                                  // 合并型：只削开头那一声
+  if (rest) {                                                   // 合并型：只削开头那一声
     return s.slice(0, m.index) + open + rest + close + s.slice(m.index + m[0].length);
   }
   const after = s.slice(m.index + m[0].length);
-  if (!Q.test(after)) return s;                                // 删了就没人说话了，留着
+  if (!Q.test(after)) return s;                                 // 删了就没人说话了，留着
   // 删掉整段引号后把接缝处并起来的标点收拾干净（「他抬眼，，顿了顿」这种）
   return (s.slice(0, m.index) + after)
     .replace(/([，、；：])\s*([，。！？、；：])/g, "$2")

@@ -45,3 +45,55 @@ test("只加在线上：线下是叙事散文，对白里的反问由场景决�
     engine.match(/const OFFLINE_NARRATIVE_RUNTIME = `([\s\S]*?)`;/)?.[1] || ""),
     "别顺手塞进线下");
 });
+
+// —— 「你这反问还是压不住线上啊啊啊」（她 2026-08-24）——
+// 刀一直在跑，是判据太窄：原来要求那个词【逐字】出现在她上一条里。
+// 于是「自拍啊？」「自拍吗？」（多了语气助词）、「你的自拍？」（多了两个字）、
+// 「你要我陪你去？」（字序不同）全漏；第一泡是「嗯」或表情、第二泡才回声的也漏。
+
+const S = (() => {
+  const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
+  const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+    + g("function stripEchoQuestion(") + "\nreturn stripEchoQuestion;")();
+})();
+
+test("语气助词不该让它逃掉", () => {
+  assert.deepEqual(S(["自拍啊？", "行"], "看看自拍"), ["行"]);
+  assert.deepEqual(S(["自拍吗？行，别后悔"], "看看自拍"), ["行，别后悔"]);
+  assert.deepEqual(S(["哦，自拍？", "行"], "看看自拍"), ["行"]);
+});
+
+test("多几个字也还是回声", () => {
+  assert.deepEqual(S(["你的自拍？", "行"], "看看你的自拍"), ["行"]);
+  // 字序不同但字都是她的：八成以上命中也算
+  assert.deepEqual(S(["你要我陪你去？", "行啊"], "你要不要陪我去"), ["行啊"]);
+});
+
+test("垫场不一定在第一泡——前两泡都要扫", () => {
+  assert.deepEqual(S(["嗯", "自拍？", "行，别后悔"], "看看自拍"), ["嗯", "行，别后悔"]);
+  // 但第三泡以后不碰：那时候他已经在正经说话了
+  assert.deepEqual(S(["嗯", "好", "自拍？", "行"], "看看自拍"), ["嗯", "好", "自拍？", "行"]);
+});
+
+test("真反问一个都不许误杀", () => {
+  assert.deepEqual(S(["疼吗？", "我看看"], "我摔了一下"), ["疼吗？", "我看看"]);
+  // 「真的」这类字面上对得上、其实是在惊讶的，进停用表
+  assert.deepEqual(S(["真的？", "太好了"], "我今天真的很累"), ["真的？", "太好了"]);
+  assert.deepEqual(S(["什么？", "再说一遍"], "我说什么了"), ["什么？", "再说一遍"]);
+  // 连问＝情绪
+  assert.deepEqual(S(["自拍？现在？", "行"], "看看自拍"), ["自拍？现在？", "行"]);
+  // 削了就没话了
+  assert.deepEqual(S(["自拍？"], "看看自拍"), ["自拍？"]);
+  // 本来就没有回声
+  assert.deepEqual(S(["行，别后悔"], "看看自拍"), ["行，别后悔"]);
+  // 太短/太长都不算
+  assert.deepEqual(S(["你？", "行"], "你看看"), ["你？", "行"]);
+});
+
+test("线上线下共用同一套判据，别再各写一份", () => {
+  assert.equal((engine.match(/function isEchoOfUser\(/g) || []).length, 1);
+  assert.match(engine, /isEchoOfUser\(m\[1\], said\)/, "线上气泡版");
+  assert.match(engine, /isEchoOfUser\(em\[1\], said\)/, "线下正文版");
+  assert.match(engine, /她 2026-08-24：\n\/\/ 「你这反问还是压不住线上啊啊啊」|你这反问还是压不住线上/, "病因写在代码里");
+});

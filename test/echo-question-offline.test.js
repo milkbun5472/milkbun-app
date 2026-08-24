@@ -13,9 +13,12 @@ const theater = fs.readFileSync(path.join(root, "js/theater.js"), "utf8");
 // 所以补两样：禁令进 OFFLINE_NARRATIVE_RUNTIME（线下/小剧场/同人文一起吃），
 // 再加一把正文层的刀。
 
+// v55.70 起判据抽成共用的 isEchoOfUser（线上线下同一套），抠函数时要连它一起带上
 const strip = (() => {
-  const i = engine.indexOf("function stripEchoQuestionScene(scene, userText) {");
-  return new Function(engine.slice(i, engine.indexOf("\n}\n", i) + 2) + "\nreturn stripEchoQuestionScene;")();
+  const g = n => { const i = engine.indexOf(n); return engine.slice(i, engine.indexOf("\n}\n", i) + 2); };
+  const consts = engine.slice(engine.indexOf("const ECHO_TAIL ="), engine.indexOf("function echoCore("));
+  return new Function(consts + g("function echoCore(") + g("function isEchoOfUser(")
+    + g("function stripEchoQuestionScene(") + "\nreturn stripEchoQuestionScene;")();
 })();
 
 test("合并进同一句台词的回声：只削开头那一声", () => {
