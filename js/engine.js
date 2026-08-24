@@ -1151,42 +1151,6 @@ function stripEchoQuestion(words, userText) {
   return list;
 }
 
-// 历史里的旧回声不再喂给模型（v55.70）。
-// 她 2026-08-24：「我不删的话第二轮绝对又会用反问开头」——刀是发生在【展示前】的，
-// 可 v55.11 之前漏出去的那些、以及判据没盖住的那些，已经实实在在躺在聊天记录里；
-// 每一轮它们都作为「他自己的说话习惯」被重新喂回去，模型照着学，她只能手动删。
-// 提示词那条「不跟聊天记录走」在跟这些旧例子拔河；干脆让模型看不见它们。
-// ⚠️只改【送进模型的那一份】，她的记录一个字不动——那是她的东西，不归我删。
-function stripEchoFromHistory(list) {
-  const msgs = Array.isArray(list) ? list : [];
-  if (!msgs.length) return msgs;
-  const out = [];
-  let said = "";
-  for (let i = 0; i < msgs.length; i++) {
-    const m = msgs[i];
-    if (!m || m.role !== "assistant" || !m.content) {
-      if (m && m.role === "user" && m.content) said = String(m.content);
-      out.push(m);
-      continue;
-    }
-    // 连着的 assistant 就是同一轮拆出来的气泡，整组一起判，跟实时那把刀同一套判据
-    const group = [];
-    let j = i;
-    for (; j < msgs.length && msgs[j] && msgs[j].role === "assistant" && msgs[j].content; j++) group.push(msgs[j]);
-    const kept = stripEchoQuestion(group.map(x => String(x.content)), said);
-    // stripEchoQuestion 要么删掉一条、要么改写一条；按内容对回去，删掉的那条就不入列
-    let k = 0;
-    for (const g of group) {
-      if (k < kept.length && (kept[k] === String(g.content) || String(g.content).endsWith(kept[k]))) {
-        out.push(kept[k] === String(g.content) ? g : Object.assign({}, g, { content: kept[k] }));
-        k++;
-      }
-    }
-    i = j - 1;
-  }
-  return out;
-}
-
 // 正文版（线下 / 群线下 / 小剧场）。线上那把刀是按【气泡】切的，线下是一整段连续
 // 正文，它根本没机会跑；禁令又只写在 ONLINE_CHAT_RULE_V2 里，线下压根不吃——
 // 等于线下两道防线一道都没有（她 2026-08-24：「线下也在反问句，完全压不住」）。
@@ -3167,13 +3131,9 @@ function offlineStyleExamplesBlock(examples, label, maxItems) {
     rows.join("\n\n");
 }
 // 把线下 msgs 映射成 API 的对话（narration/user 归 user，char 归 assistant，合并连发）
-// stripEcho：把历史里旧的回声式反问从【送进模型的那一份】里削掉。她的记录不动。
-// 新写的正文早在落库前就被 stripEchoQuestionScene 削过了，这里治的是 v55.66 之前
-// 攒下来的那些——每轮都作为「他自己的说话习惯」重新喂回去，模型照着学。
-function offlineHistory(msgs, userName, charName, stripEcho) {
+function offlineHistory(msgs, userName, charName) {
   const g = [];
   let prevTs = 0;
-  let lastSaid = "";
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     const ts = Number(m.ts) || 0;
@@ -3184,14 +3144,11 @@ function offlineHistory(msgs, userName, charName, stripEcho) {
     const surface = m._surface === "online" ? "【线上私聊】" : "";
     if (m.role === "char") {
       const l = g[g.length - 1];
-      const body = stripEcho && lastSaid && typeof stripEchoQuestionScene === "function"
-        ? stripEchoQuestionScene(m.content || "", lastSaid) : (m.content || "");
-      const c = gap + stamp + surface + body;
+      const c = gap + stamp + surface + (m.content || "");
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
       const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(raw, m.ts) : "";
-      if (m.role === "user" && raw) lastSaid = String(raw);
       const c = gap + stamp + surface + (m.role === "narration" ? "【场景设定】" + raw : raw) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
@@ -3401,7 +3358,7 @@ async function generateOffline(p, ctx, session) {
     "") + outputSpec + stateBootstrapHint;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
-  const hist = offlineHistory(session.msgs, userName, char.name, !isDigital);
+  const hist = offlineHistory(session.msgs, userName, char.name);
   if (session.hasOnlineInterlude) {
     const bridge = "\n\n〔跨情境衔接〕上面标成【线上私聊】的内容，是这场未结束的线下相处期间，你们切到手机聊天时真实说过的话。所有记录已经按实际时间排好；再次回到线下时，以时间最新的线上与线下内容共同作为现在的前情，绝不能跳过今天的线上聊天、倒回去续演更早的线下剧情，也不要把线上原话假装成刚刚面对面又说了一遍。";
     if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { ...hist[hist.length - 1], content: hist[hist.length - 1].content + bridge };
