@@ -4540,6 +4540,43 @@ function ApiConfig({
       fontFamily: F_BODY
     }
   })), /*#__PURE__*/React.createElement(LineField, {
+    // 直连版保险柜（tools/vps/llm-proxy.mjs）。填了这一栏，所有走「云端代理」的线路
+    // 都改走它，不再经过自建 Supabase 的 Kong——Kong 的读超时默认 60 秒，
+    // 长正文一次写不完就会被掐（她 2026-08-24 的 gemini 那笔：服务端 68 秒、钱扣了、东西没了）。
+    // 这是全局设置，不属于某一条线路，所以不进 cur、直接读写 localStorage。
+    zh: "保险柜直连",
+    en: "Vault Direct · 选填 · 全局"
+  }, /*#__PURE__*/React.createElement(LineInput, {
+    value: (window.Cloud && window.Cloud.llmProxyDirect() || {}).url || "",
+    onChange: e => {
+      const v = e.target.value.trim();
+      const old = (window.Cloud && window.Cloud.llmProxyDirect()) || {};
+      window.Cloud && window.Cloud.setLlmProxyDirect(v, old.secret || "");
+      upd({});
+    },
+    placeholder: "https://yanqiu-vps.tail542792.ts.net:8791/ ——留空＝还走 Kong",
+    style: {
+      fontSize: 15,
+      fontFamily: F_BODY
+    }
+  })), /*#__PURE__*/React.createElement(LineField, {
+    zh: "直连口令",
+    en: "Vault Secret · 全局"
+  }, /*#__PURE__*/React.createElement(LineInput, {
+    type: "password",
+    value: (window.Cloud && window.Cloud.llmProxyDirect() || {}).secret || "",
+    onChange: e => {
+      const old = (window.Cloud && window.Cloud.llmProxyDirect()) || {};
+      if (!old.url) return;
+      window.Cloud && window.Cloud.setLlmProxyDirect(old.url, e.target.value.trim());
+      upd({});
+    },
+    placeholder: "服务端 LLM_PROXY_SECRET 那一串",
+    style: {
+      fontSize: 15,
+      fontFamily: F_BODY
+    }
+  })), /*#__PURE__*/React.createElement(LineField, {
     zh: "模型",
     en: "Model",
     right: /*#__PURE__*/React.createElement("button", {

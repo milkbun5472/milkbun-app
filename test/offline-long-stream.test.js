@@ -105,3 +105,45 @@ test("言秋那条路一个字都不许改", () => {
   assert.ok(!/stream/i.test(body), "postAnthropic 里不许出现 stream");
   assert.match(engine, /Anthropic 那条是言秋的路，不动/);
 });
+
+// —— 「能不用 supabase 全走 vps 吗」（她 2026-08-24）——
+// 其实早就全在她 VPS 上了（VPS_SUPABASE_URL 指向 yanqiu-vps.ts.net:8443，
+// 一个字节都没去 supabase.com）。要拿掉的是中间那两层：Kong 的 60 秒读超时，
+// 和 Edge Function 里 await r.text() 的整份缓冲。
+// 直连版是 VPS 上一个裸 http 服务，手机 → VPS → 中转，字节一段到一段发。
+
+const vps = fs.readFileSync(path.join(__dirname, "..", "tools/vps/llm-proxy.mjs"), "utf8");
+const cloud = fs.readFileSync(path.join(__dirname, "..", "js/cloud.js"), "utf8");
+
+test("直连版必须是流式转发，一个字节都不许攒", () => {
+  assert.match(vps, /for await \(const chunk of up\.body\)/, "要逐块转发");
+  const buffering = vps.split("\n").filter(l => !/^\s*\/\//.test(l) && /await up\.text\(\)/.test(l));
+  assert.deepEqual(buffering, [], "await up.text() 就是原来那个病");
+  assert.match(vps, /res\.flush === "function"/, "Node 默认会攒小包，得逐块 flush");
+  assert.match(vps, /"X-Accel-Buffering": "no"/);
+  assert.match(vps, /钱照扣/, "病因写在代码里");
+});
+
+test("拿掉 Supabase 那层之后，门禁一道都不能少", () => {
+  // 域名白名单：防钥匙外流的那道，任何时候都不能删
+  assert.match(vps, /if \(!route\.hosts\.includes\(u\.hostname\)\) return send\(res, 400/);
+  // 口令：tailnet 之外还要再挡一层
+  assert.match(vps, /req\.headers\["x-proxy-secret"\] !== SECRET/);
+  // 密钥只从 env 读，仓库里一个字都没有
+  assert.match(vps, /process\.env\["KEY_" \+ ref\]/);
+  assert.ok(!/sk-[A-Za-z0-9]{10}/.test(vps), "仓库是公开的，不许出现真钥匙");
+  const svc = fs.readFileSync(path.join(__dirname, "..", "tools/vps/llm-proxy.service"), "utf8");
+  assert.match(svc, /EnvironmentFile=/, "密钥走 EnvironmentFile，不写进进 git 的 unit 文件");
+  assert.ok(!/KEY_[A-Z]+=\S/.test(svc));
+});
+
+test("客户端：配了直连就走直连，没配还是走原来那条", () => {
+  assert.match(cloud, /llmProxyDirect\(\) \{/);
+  assert.match(cloud, /const direct = this\.llmProxyDirect\(\);/);
+  assert.match(cloud, /if \(direct\) \{/);
+  assert.match(cloud, /"x-proxy-secret": direct\.secret/);
+  // 原来那条 Edge Function 的路必须原样留着，随时能退回去
+  assert.match(cloud, /VPS_SUPABASE_URL \+ "\/functions\/v1\/llm-proxy"/);
+  // 连不上时要说人话，并告诉她怎么退
+  assert.match(cloud, /手机要在 tailnet 里才连得到/);
+});

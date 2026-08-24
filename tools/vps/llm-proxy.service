@@ -1,0 +1,19 @@
+[Unit]
+Description=密钥保险柜直连版 llm-proxy（绕开 Kong，流式透传）
+After=network-online.target
+
+[Service]
+WorkingDirectory=/home/ubuntu/services/llm-proxy
+Environment=LLM_PROXY_PORT=8791
+Environment=LLM_PROXY_BIND=0.0.0.0
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# ⚠️密钥和 secret 用 systemctl edit 或 EnvironmentFile 注入，别写进这个文件（它进 git）
+EnvironmentFile=/home/ubuntu/services/llm-proxy/env
+ExecStart=/usr/bin/node /home/ubuntu/services/llm-proxy/llm-proxy.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/ubuntu/services/llm-proxy/logs/stdout.log
+StandardError=append:/home/ubuntu/services/llm-proxy/logs/stderr.log
+
+[Install]
+WantedBy=default.target

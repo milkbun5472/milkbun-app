@@ -1028,7 +1028,41 @@
     // ---- LLM 密钥代理（llm-proxy 函数，v49.38）----------------------------
     // 密钥住云端 secrets；app 只带登录态借道，函数验明是本人后替贴钥匙转发。
     // 返回原生 Response（调用方照常 .json()），供应商报错原样透传。
+    // 直连版保险柜（tools/vps/llm-proxy.mjs）。配了就走它，没配就还是走 Edge Function。
+    // 为什么要绕开 Kong（Lisa 2026-08-24）：手机 → Kong(:8443) → Edge Function → 中转，
+    // Kong 的 proxy_read_timeout 默认就是 60 秒。她那次 gemini-3.1-pro 服务端跑了 68 秒、
+    // 钱照扣，手机 60 秒判死什么都没拿到。直连版是 Node 裸 http，没有这一层。
+    llmProxyDirect() {
+      try {
+        const v = JSON.parse(localStorage.getItem("x_llmProxyDirect") || "null");
+        return v && v.url ? { url: String(v.url).replace(/\/+$/, ""), secret: String(v.secret || "") } : null;
+      } catch (e) { return null; }
+    },
+    setLlmProxyDirect(url, secret) {
+      if (!url) { localStorage.removeItem("x_llmProxyDirect"); return null; }
+      const v = { url: String(url).trim().replace(/\/+$/, ""), secret: String(secret || "").trim() };
+      localStorage.setItem("x_llmProxyDirect", JSON.stringify(v));
+      return v;
+    },
     async llmProxyFetch(ref, url, body, extraHeaders, timeout) {
+      const direct = this.llmProxyDirect();
+      if (direct) {
+        const ctrl0 = new AbortController();
+        const tm0 = setTimeout(() => ctrl0.abort(), timeout || 120000);
+        try {
+          return await fetch(direct.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(direct.secret ? { "x-proxy-secret": direct.secret } : {}) },
+            body: JSON.stringify({ ref: ref, url: url, body: body, extraHeaders: extraHeaders || {} }),
+            signal: ctrl0.signal
+          });
+        } catch (e) {
+          if (ctrl0.signal.aborted || (e && e.name === "AbortError") || /fetch.*abort/i.test(String(e && e.message || ""))) {
+            throw new Error("请求超时，请重试（模型或直连保险柜响应太慢）");
+          }
+          throw new Error("直连保险柜连不上（" + direct.url + "）：" + (e && e.message || e) + "——手机要在 tailnet 里才连得到；不想用直连就去设置里清掉它");
+        } finally { clearTimeout(tm0); }
+      }
       if (!client) throw new Error("云同步没初始化，云端代理用不了");
       const { data: sess } = await client.auth.getSession();
       const token = sess && sess.session && sess.session.access_token;
