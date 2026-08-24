@@ -43,6 +43,13 @@ test("人格审计会导出现役 jiwen 五轴但不泄露聊天正文", async (
   };
   const window = {
     localStorage: { getItem: key => key === "x_jiwen" ? JSON.stringify(stored) : null },
+    InnerLifeAShadow: {
+      get: async () => ({ schemaVersion: 1, emotion: { current: {
+        connection: 0.2, pride: 0.1, valence: -0.1, arousal: 0.4, immersion: 0.25,
+        hurt: 0.3, anger: 0.05, anxiety: 0.2, warmth: 0.7, fatigue: 0.4
+      } } }),
+      report: async () => ({ sampleCount: 12, spanHours: 36 })
+    },
     __jiwen: {
       ayu: {
         state: stored.ayu,
@@ -60,6 +67,12 @@ test("人格审计会导出现役 jiwen 五轴但不泄露聊天正文", async (
     type: "reading", at: "2026-08-24T11:00:00.000Z"
   });
   assert.equal(audit.innerLife.legacyNineDrivesStatus.mode, "retired_shadow");
+  const comparison = audit.innerLife.jiwenVsA.characters[0];
+  assert.equal(comparison.sharedAxes.connection.jiwen, 0.457);
+  assert.equal(comparison.sharedAxes.connection.aShadow, 0.2);
+  assert.equal(comparison.sharedAxes.connection.delta, -0.257);
+  assert.equal(comparison.aAddedAxes.warmth, 0.7);
+  assert.equal(comparison.aEvidence.sampleCount, 12);
   const text = JSON.stringify(audit);
   assert.equal(text.includes("不能进审计"), false);
   assert.equal(text.includes("secret-message-id"), false);

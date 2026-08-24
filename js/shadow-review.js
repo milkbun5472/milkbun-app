@@ -108,6 +108,30 @@
     }
     const ownerMismatches = a.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name)
       .concat(b.filter(x => x && x.report && x.report.ownerMismatch).map(x => x.name));
+    const aByChar = Object.fromEntries(a.map(row => [row.charId, row]));
+    const jiwenVsA = jiwen.map(row => {
+      const aRow = aByChar[row.charId], current = aRow && aRow.state && aRow.state.emotion && aRow.state.emotion.current;
+      const sharedAxes = {};
+      ["connection", "pride", "valence", "arousal", "immersion"].forEach(key => {
+        const jiwenValue = finiteRound(row.axes[key]);
+        const aValue = current ? finiteRound(current[key]) : null;
+        sharedAxes[key] = { jiwen: jiwenValue, aShadow: aValue, delta: jiwenValue != null && aValue != null ? finiteRound(aValue - jiwenValue) : null };
+      });
+      return {
+        charId: row.charId, name: row.name,
+        sharedAxes,
+        aAddedAxes: current ? {
+          hurt: finiteRound(current.hurt), anger: finiteRound(current.anger), anxiety: finiteRound(current.anxiety),
+          warmth: finiteRound(current.warmth), fatigue: finiteRound(current.fatigue)
+        } : null,
+        aEvidence: aRow ? {
+          sampleCount: Number(aRow.report && aRow.report.sampleCount || 0),
+          spanHours: finiteRound(aRow.report && aRow.report.spanHours),
+          readiness: aRow.readiness || null
+        } : { sampleCount: 0, spanHours: 0, readiness: null },
+        interpretation: "delta 只表示两套引擎此刻读数之差，不代表谁对谁错；须由 Lisa 与角色本人评审。"
+      };
+    });
     return {
       schema: "lisa-shadow-promotion-review-v1",
       generatedAt: new Date().toISOString(), appVersion: appVersion || null,
@@ -134,6 +158,13 @@
           livePaths: ["private_proactive", "group_proactive", "group_offline_proactive"],
           containsChatText: false,
           characters: jiwen
+        },
+        jiwenVsA: {
+          mode: "review_only",
+          changedLiveBehavior: false,
+          sharedAxisLabels: { connection: "连接/挂念", pride: "骄傲/端着", valence: "情绪正负", arousal: "唤醒度", immersion: "沉浸度" },
+          aAddedAxisLabels: { hurt: "受伤", anger: "愤怒", anxiety: "焦虑", warmth: "温度", fatigue: "疲劳" },
+          characters: jiwenVsA
         },
         legacyNineDrivesStatus: {
           mode: "retired_shadow",
