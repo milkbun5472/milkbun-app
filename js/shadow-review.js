@@ -23,6 +23,33 @@
       }))
     };
   };
+  const finiteRound = value => Number.isFinite(Number(value)) ? Math.round(Number(value) * 1000) / 1000 : null;
+  const readStoredJiwen = () => {
+    try {
+      const raw = window.localStorage && window.localStorage.getItem("x_jiwen");
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (e) { return {}; }
+  };
+  const cleanJiwen = (char, label, stored) => {
+    const live = window.__jiwen && window.__jiwen[char.id];
+    const state = live && live.state || stored && stored[char.id];
+    if (!state || typeof state !== "object") return null;
+    const triggers = Array.isArray(live && live.triggers) ? live.triggers : [];
+    return {
+      charId: char.id, name: label,
+      axes: {
+        connection: finiteRound(state.connection), pride: finiteRound(state.pride),
+        valence: finiteRound(state.valence), arousal: finiteRound(state.arousal),
+        immersion: finiteRound(state.immersion)
+      },
+      triggerActions: [...new Set(triggers.map(row => row && row.action).filter(action => ["observation", "contact", "find_activity"].includes(action)))],
+      lastTick: state.lastTick || null,
+      userStatus: ["active", "busy", "away", "sleeping"].includes(state.userStatus) ? state.userStatus : "active",
+      lastActivity: state.lastActivity ? { type: String(state.lastActivity.type || ""), at: state.lastActivity.at || null } : null,
+      runtimeSnapshotReady: !!live
+    };
+  };
   async function build(characters, appVersion) {
     const chars = Array.isArray(characters) ? characters : [], owner = await ownerId();
     const modules = {
@@ -40,9 +67,11 @@
     const eReadiness = window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateE(e) : null;
     const c = await safe("C", () => window.SleepShadow && window.SleepShadow.report ? window.SleepShadow.report(500) : ({ unavailable: true }));
     const personality = cleanPersonality(await safe("personality", () => window.PersonalityShadow && window.PersonalityShadow.report ? window.PersonalityShadow.report() : ({ unavailable: true })));
-    const a = [], b = [], drives = [], somatic = [];
+    const a = [], b = [], drives = [], somatic = [], jiwen = [], storedJiwen = readStoredJiwen();
     for (const char of chars) {
       const label = char.remark || char.name || char.id;
+      const jiwenRow = cleanJiwen(char, label, storedJiwen);
+      if (jiwenRow) jiwen.push(jiwenRow);
       if (window.InnerLifeAShadow) {
         const state = await safe("A state", () => window.InnerLifeAShadow.get(owner, char.id));
         const report = await safe("A report", () => window.InnerLifeAShadow.report(owner, char.id));
@@ -98,6 +127,19 @@
       memory, innerLife: {
         E: e && typeof e === "object" ? { ...e, readiness: eReadiness } : { report: e, readiness: eReadiness }, A: a, B: b, C: c, somatic,
         somaticReview: window.SomaticReviewCore ? window.SomaticReviewCore.summarize(somatic) : { unavailable: true },
+        jiwenLive: {
+          mode: "live",
+          axes: ["connection", "pride", "valence", "arousal", "immersion"],
+          affectsLiveBehavior: true,
+          livePaths: ["private_proactive", "group_proactive", "group_offline_proactive"],
+          containsChatText: false,
+          characters: jiwen
+        },
+        legacyNineDrivesStatus: {
+          mode: "retired_shadow",
+          affectsLiveBehavior: false,
+          note: "旧九维只作历史对照，不是 jiwen，也不能据此开阀或解释当前主动消息。"
+        },
         legacyNineDrives: drives
       }, personality
     };
