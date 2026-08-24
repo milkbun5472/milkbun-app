@@ -765,7 +765,7 @@ const A_AXES = Object.freeze({
 });
 const A_DEFAULT_BASELINE = Object.freeze({ connection:0,pride:0,valence:0,arousal:0,immersion:0,hurt:0,anger:0,anxiety:0,warmth:.35,fatigue:.25 });
 const A_REGRESS_PER_MIN = Object.freeze({ connection:0,pride:.003,valence:.005,arousal:.005,immersion:.010,hurt:.001,anger:.004,anxiety:.002,warmth:.0015,fatigue:.001 });
-const A_MOOD_DICTIONARY_VERSION = 6;
+const A_MOOD_DICTIONARY_VERSION = 7;
 const A_MOOD_RULES = Object.freeze([
   ["hurt",/(?:委屈|受伤|失落|难过|伤心|低落|沮丧|心碎|孤独|落寞|心酸|酸涩|惆怅|遗憾|被刺痛|愧疚|歉疚|憋屈|崩溃)/,{hurt:.18,valence:-.10,warmth:-.04}],
   ["anger",/(?:生气|愤怒|恼火|烦躁|火大|气恼|无语|厌烦|不悦|恼怒|烦闷|羞恼|心烦意乱|没好气|憋屈)/,{anger:.18,arousal:.12,valence:-.08}],
@@ -776,11 +776,15 @@ const A_MOOD_RULES = Object.freeze([
   ["positive_short",/(?:^|[\s、，,;/])乐(?:$|[\s、，,;/])/,{valence:.14,warmth:.05,anxiety:-.04}],
   ["low_valence",/(?:郁闷|鬱悶|压抑|消沉|闷闷不乐|无奈|尴尬|窘迫|没辙|羡慕)/,{valence:-.14,arousal:-.04,hurt:.05}],
   ["high_arousal",/(?:激动|兴奋|振奋|亢奋|热起来|热血|脸红心跳|心跳加速|心痒难耐|手痒|燥热|干劲|急切|迫切|惊喜|错愕|受宠若惊)/,{arousal:.16,valence:.06}],
+  ["achievement_energy",/(?:来劲|起劲|带劲|爽感|痛快|过瘾)/,{valence:.12,arousal:.10}],
   ["playful",/(?:调皮|调侃|戏谑|促狭|逗弄|顽皮|玩味|坏笑|淘气|逗乐|嬉皮|打趣|讨饶|手痒)/,{valence:.06,arousal:.04,warmth:.04}],
   ["shy",/(?:害羞|羞涩|腼腆|羞赧|脸红心跳|局促)/,{anxiety:.05,warmth:.04}],
   ["jealous",/(?:醋意|吃醋|酸溜溜)/,{hurt:.10,anger:.06,anxiety:.05,valence:-.08}],
+  ["warmth_short",/(?:^|[\s、，,;/·])温(?:$|[\s、，,;/·])/,{warmth:.12,valence:.06}],
+  ["social_exposed",/(?:被看透|被看穿|说中心事|戳破心事)/,{anxiety:.06,warmth:.04}],
   // 姿态/表达方式不是情绪：只把「识别成功」记进诊断，不借机篡改任何轴。
   ["posture_neutral",/(?:嘴硬|掌控|走神|忙碌|上工|兑付|哭笑不得|不为所动|审视|坦白)/,{}],
+  ["task_posture_neutral",/(?:反诉|郑重|干脆|落地|开炉|监工|上岗|对症|开方|现货|交付|交差|收工|办妥|兑现|验收|开工|施工|排查|复盘|拍板|定案|成交|发货|出炉|查岗|值守|守夜|守岗|待命|复命|回执)/,{}],
   ["calm",/(?:平静|平和|平稳|淡定|从容|安定|安宁|安稳|稳妥|落定|踏实|释然|专注|认真|好奇|若有所思|沉思|克制|忍着|谨慎)/,{}],
   ["cold",/(?:冷酷|冷淡|冷漠|疏冷)/,{warmth:-.14,valence:-.06}]
 ]);
