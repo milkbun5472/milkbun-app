@@ -287,10 +287,13 @@ function CastForm({
     // 两历对照：填农历就给出今年的公历，填公历就给出今年的农历（她 2026-08-24 要的
     // 「王爷腊月廿三的生日填了农历可以换成新历两个都显示」）
     const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(birthday) : "";
-    if (!both) return null;
+    const born = typeof birthdayBornLabel === "function" ? birthdayBornLabel(birthday) : "";
+    if (!both && !born) return null;
     return /*#__PURE__*/React.createElement("div", {
-      style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4 }
-    }, both);
+      style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 }
+    }, both, born ? /*#__PURE__*/React.createElement("div", {
+      style: { color: t.fog, marginTop: 1 }
+    }, born) : null);
   })(), /*#__PURE__*/React.createElement("div", {
     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
   }, "公历农历都能填，会自动换算成另一历、两个都显示，生日提醒也按换算后的那天。【带上年份】才会算年龄（2004-10-25 或 农历1998年腊月廿三）；只填月日就只过生日、不算岁数。算出来的年龄以这里为准，人设正文里那句「XX 岁」可以删掉了。"))), /*#__PURE__*/React.createElement(LineField, {

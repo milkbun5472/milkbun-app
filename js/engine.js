@@ -4047,12 +4047,29 @@ function birthdayBothLabel(birthday, year) {
   if (lu) {
     const d = lunarBirthdayInYear(lu, y);
     return d ? "农历 " + (lu.isLeap ? "闰" : "") + LUNAR_MON_LABEL[lu.m] + lunarDayLabel(lu.d)
-      + " · 今年公历 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日" : "";
+      + " · 今年生日 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日（公历）" : "";
   }
   const md = parseMonthDay(raw);
   if (!md) return "";
   const l = solarToLunar(new Date(y, md.mo - 1, md.d));
   return l ? "公历 " + md.mo + " 月 " + md.d + " 日 · 今年农历 " + (l.isLeap ? "闰" : "") + LUNAR_MON_LABEL[l.m] + lunarDayLabel(l.d) : "";
+}
+// 生日写了年份时，把【出生那天】的公历日期显示出来。
+// ⚠️腊月/冬月的生日在公历上已经是第二年了：农历2001年腊月廿三＝公历 2002-02-04。
+// 她 2026-08-24 就看岔了这个——界面上「2001」和「2 月 10 日」并排（后者其实是
+// 今年的生日、不是出生日），拼起来就成了「01年2月」，年龄自然对不上。
+// 把出生那天原样写出来，她一眼就能判断自己要的是农历 2000 还是 2001。
+function birthdayBornLabel(birthday) {
+  const lu = parseLunarBirthday(birthday);
+  if (lu && lu.y) {
+    const d = lunarToSolar(lu.y, lu.m, lu.d, lu.isLeap);
+    if (!d) return "";
+    const cross = d.getFullYear() !== lu.y;
+    return "出生：公历 " + d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"
+      + (cross ? "（农历 " + lu.y + " 年的" + LUNAR_MON_LABEL[lu.m] + "，公历上已经是第二年）" : "");
+  }
+  const b = parseBirthDate(birthday);
+  return b ? "出生：公历 " + b.y + " 年 " + b.mo + " 月 " + b.d + " 日" : "";
 }
 const LUNAR_FESTIVALS = { "1-1": "春节", "1-15": "元宵节", "2-2": "龙抬头", "5-5": "端午节", "7-7": "七夕", "7-15": "中元节", "8-15": "中秋节", "9-9": "重阳节", "12-8": "腊八" };
 // 某天是不是农历节日（含除夕=腊月最后一天）；不是返回 null

@@ -100,7 +100,7 @@ const L = (() => {
     g("function solarToLunar("),
     engine.slice(engine.indexOf("// ── 农历 → 公历"), engine.indexOf("const LUNAR_FESTIVALS = {")),
     g("function parseMonthDay("), g("function parseBirthDate("), g("function charAge("),
-    "return { lunarToSolar, solarToLunar, parseLunarBirthday, lunarBirthdayInYear, birthdaySolarDate, daysUntilBirthday, birthdayBothLabel, charAge };"
+    "return { lunarToSolar, solarToLunar, parseLunarBirthday, lunarBirthdayInYear, birthdaySolarDate, daysUntilBirthday, birthdayBothLabel, birthdayBornLabel, charAge };"
   ].join("\n");
   return new Function(src)();
 })();
@@ -162,9 +162,9 @@ test("农历生日也要能触发提醒——以前 parseMonthDay 认不出，�
 });
 
 test("两历都显示：填哪个都给出另一个", () => {
-  assert.equal(L.birthdayBothLabel("腊月廿三", 2026), "农历 腊月廿三 · 今年公历 2 月 10 日");
+  assert.equal(L.birthdayBothLabel("腊月廿三", 2026), "农历 腊月廿三 · 今年生日 2 月 10 日（公历）");
   assert.equal(L.birthdayBothLabel("2004-10-25", 2026), "公历 10 月 25 日 · 今年农历 九月十六");
-  assert.equal(L.birthdayBothLabel("闰四月初二", 2026), "农历 闰四月初二 · 今年公历 5 月 18 日");
+  assert.equal(L.birthdayBothLabel("闰四月初二", 2026), "农历 闰四月初二 · 今年生日 5 月 18 日（公历）");
   assert.equal(L.birthdayBothLabel("", 2026), "");
 });
 
@@ -186,4 +186,47 @@ test("提醒改走统一入口，旧的 daysUntil 拆干净", () => {
   assert.match(app, /const du = daysUntilBirthday\(profile && profile\.birthday, today\)/);
   assert.ok(!/const daysUntil = bd =>/.test(app), "旧的只认公历，不许留着");
   assert.match(engine, /提醒、年龄、两历对照全走这一个入口/, "为什么合成一个，写在代码里");
+});
+
+
+// —— 「宝宝01年2月到现在不是应该25岁了吗」（她 2026-08-24）——
+// 数学没错，是显示把她带偏了：界面上「2001」和「2 月 10 日」并排，
+// 而后者其实是【今年的生日】不是出生日，拼起来就成了「01年2月」。
+// 真正的坑在于腊月/冬月的生日在公历上已经是第二年：
+//   农历2001年腊月廿三 = 公历 2002-02-04 → 24 岁
+//   农历2000年腊月廿三 = 公历 2001-01-17 → 25 岁
+// 两个只差一个农历年，年龄差一岁。把出生那天写出来她才判断得了自己要哪个。
+
+test("腊月的生日，公历年份要比农历年份大一岁", () => {
+  const a = L.lunarToSolar(2001, 12, 23, false);
+  assert.equal(a.getFullYear(), 2002);
+  assert.equal(a.getMonth() + 1, 2);
+  assert.equal(a.getDate(), 4);
+  const b = L.lunarToSolar(2000, 12, 23, false);
+  assert.equal(b.getFullYear(), 2001);
+  assert.equal(b.getDate(), 17);
+});
+
+test("差一个农历年就差一岁——所以必须让她看得见出生那天", () => {
+  const now = new Date("2026-08-24T12:00:00");
+  assert.equal(L.charAge("农历2001年腊月廿三", now), 24);
+  assert.equal(L.charAge("农历2000年腊月廿三", now), 25);
+});
+
+test("出生日要单独显示，并点明跨年这件事", () => {
+  assert.equal(L.birthdayBornLabel("农历2001年腊月廿三"),
+    "出生：公历 2002 年 2 月 4 日（农历 2001 年的腊月，公历上已经是第二年）");
+  // 不跨年的就不啰嗦
+  assert.equal(L.birthdayBornLabel("农历1998年八月十五"), "出生：公历 1998 年 10 月 5 日");
+  assert.equal(L.birthdayBornLabel("2004-10-25"), "出生：公历 2004 年 10 月 25 日");
+  // 没填年份就没有出生日可言
+  assert.equal(L.birthdayBornLabel("腊月廿三"), "");
+  assert.equal(L.birthdayBornLabel(""), "");
+});
+
+test("「今年生日」和「出生日」在措辞上要分得开", () => {
+  const both = L.birthdayBothLabel("农历2001年腊月廿三", 2026);
+  assert.match(both, /今年生日/, "别再叫「今年公历」——跟出生日混在一起看就是那个歧义");
+  assert.ok(both.indexOf("出生") < 0, "这一行只说今年，不说出生");
+  assert.match(screens, /birthdayBornLabel\(birthday\)/, "表单里要摆出来");
 });
