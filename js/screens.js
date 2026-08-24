@@ -5822,7 +5822,7 @@ function InnerLifeEDiagnosticSheet({ characters, onClose }) {
   const allEArmed = window.InnerLifePromotionGate && window.InnerLifePromotionGate.state("E","*").mode === "pilot";
   return h(Sheet, { onClose },
     h(Eyebrow, null, "E · 余温与潮汐 · 诊断与试点"),
-    h("div", { style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"} }, "授权后只会在你主动点回复时，把上一段交流留下的一点心情色彩和未完注意力作为轻背景；不写记忆、不替角色决定、不复述旧话题。主动消息与夜巡暂不接入。"),
+    h("div", { style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"} }, "授权后只会在你主动点回复时，把上一段交流留下的一点心情色彩和未完注意力作为轻背景；不写记忆、不替角色决定、不复述旧话题。主动消息暂不接入。"),
     !report ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"16px 0"} }, "正在读本机影子数据…") : report.error ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:"#9f5149",padding:"12px 0"} }, report.error) : h(React.Fragment, null,
       line("当前潮汐", report.tidal ? report.tidal.state + " · " + report.tidal.signalKind : "尚无数据"),
       line("诊断记录", report.diagnostics + " 条"),
