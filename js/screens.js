@@ -272,9 +272,20 @@ function CastForm({
     placeholder: "如 3-15 或 1998-3-15（可留空）",
     className: "w-full bg-transparent outline-none",
     style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" }
-  }), /*#__PURE__*/React.createElement("div", {
+  }), (function () {
+    // 就在她填生日的地方当场把年龄显示出来（她 2026-08-24：本来只做在联系人页，
+    // 她在编辑档案这一页填、当然看不见）。现算不存盘，所以填完立刻就能看到对不对，
+    // 确认无误就可以把人设正文里那句「XX岁」删掉了。
+    const age = typeof charAge === "function" ? charAge(birthday, Date.now()) : null;
+    if (age == null) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      style: { fontFamily: F_BODY, fontSize: 13.5, color: t.tint, marginTop: 6, fontWeight: 600 }
+    }, "现在 " + age + " 岁", /*#__PURE__*/React.createElement("span", {
+      style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontWeight: 400, marginLeft: 8 }
+    }, "生日一过自动加一，Ta 自己也知道"));
+  })(), /*#__PURE__*/React.createElement("div", {
     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
-  }, "到生日当天/临近，Ta 会自己惦记着。【带上年份】就会显示年龄、生日一过自己长一岁，Ta 也知道；只填月日就不算年龄。"))), /*#__PURE__*/React.createElement(LineField, {
+  }, "到生日当天/临近，Ta 会自己惦记着。【带上年份】才会算年龄（如 2004-10-25）；只填月日就只过生日、不算岁数。算出来的年龄以这里为准，人设正文里那句「XX 岁」可以删掉了。"))), /*#__PURE__*/React.createElement(LineField, {
     zh: "人设",
     en: "Persona"
   }, /*#__PURE__*/React.createElement(LineArea, {

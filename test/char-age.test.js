@@ -71,6 +71,20 @@ test("联系人页显示年龄和生日", () => {
   assert.match(comp, /if \(age == null && !bd\) return null;/, "两样都没有就别占地方");
 });
 
-test("表单里要告诉她「带上年份才有年龄」", () => {
-  assert.match(screens, /【带上年份】就会显示年龄、生日一过自己长一岁，Ta 也知道；只填月日就不算年龄/);
+// 她 2026-08-24 第二轮：「没有啊宝宝，而且我是要一个单独字段显示生日他 xx 岁，
+// 这样可以直接把人设生日删了」。第一版只做在联系人页，而她是在【编辑档案】这一页
+// 填生日的——填完当场看不见，就等于没做。
+test("年龄要显示在她填生日的那一页，当场就能看见", () => {
+  const i = screens.indexOf('zh: "生日"');
+  const block = screens.slice(i, i + 2600);
+  assert.match(block, /const age = typeof charAge === "function" \? charAge\(birthday, Date\.now\(\)\) : null;/,
+    "要读表单里正在编辑的 birthday，不是存档里的");
+  assert.match(block, /"现在 " \+ age \+ " 岁"/);
+  assert.match(block, /if \(age == null\) return null;/, "只填月日的就别占地方");
+  assert.match(block, /生日一过自动加一，Ta 自己也知道/);
+});
+
+test("表单说明要指明「人设正文里那句 XX 岁可以删了」", () => {
+  assert.match(screens, /【带上年份】才会算年龄/);
+  assert.match(screens, /人设正文里那句「XX 岁」可以删掉了/, "这才是她要这个字段的原因");
 });
