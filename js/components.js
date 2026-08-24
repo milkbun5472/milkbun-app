@@ -7673,7 +7673,15 @@ function ContactDetail({
       fontSize: 12,
       color: t.fog
     }
-  }, character.tagline || "—"))), /*#__PURE__*/React.createElement(LineField, {
+  }, character.tagline || "—"), (function () {
+    // 年龄现算不存盘：生日一过自己就长一岁，不用她进来手动改（她 2026-08-24）
+    const age = typeof charAge === "function" ? charAge(character.birthday, Date.now()) : null;
+    const bd = String(character.birthday || "").trim();
+    if (age == null && !bd) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 }
+    }, (age != null ? age + " 岁" : "") + (age != null && bd ? " · " : "") + (bd ? "生日 " + bd : ""));
+  })())), /*#__PURE__*/React.createElement(LineField, {
     zh: "备注名",
     en: "Remark"
   }, /*#__PURE__*/React.createElement(LineInput, {

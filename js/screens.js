@@ -274,7 +274,7 @@ function CastForm({
     style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" }
   }), /*#__PURE__*/React.createElement("div", {
     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
-  }, "到生日当天/临近，Ta 会自己惦记着；填了世界书/人设里的设定也行。"))), /*#__PURE__*/React.createElement(LineField, {
+  }, "到生日当天/临近，Ta 会自己惦记着。【带上年份】就会显示年龄、生日一过自己长一岁，Ta 也知道；只填月日就不算年龄。"))), /*#__PURE__*/React.createElement(LineField, {
     zh: "人设",
     en: "Persona"
   }, /*#__PURE__*/React.createElement(LineArea, {

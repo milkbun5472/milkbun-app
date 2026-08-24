@@ -1488,6 +1488,12 @@ function buildBundle(ctx, opts) {
   }
   const uName = profile && profile.name ? profile.name : "对方";
   parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+  // 年龄按【今天】现算。人设里写死的岁数会随时间过期，这一条不会——冲突时以这条为准。
+  {
+    const _age = charAge(char && char.birthday, Date.now());
+    if (_age != null) parts.push("【你现在的年龄】" + _age + " 岁（按你的生日 " + String(char.birthday).trim()
+      + " 和今天的日期算出来的，每过一次生日会自己长一岁）。人设里若写着别的岁数，那是写下时的旧数字，以这里为准。别动不动把年龄挂在嘴边，它只是你自然知道的事。");
+  }
   // 欲望盒子毕业念想凝成的人格档案（角色亲笔，人设的活体延伸；空=零注入，ctxFor 侧已封顶 400 字）
   // Runtime v2 已在角色卡准则中定义根基、短期状态与长期成长的关系；
   // 不再为白名单角色重复注入旧版长篇成长教程，正式人格档案本身仍照常进入下文。
@@ -3814,6 +3820,27 @@ function gapPhrase(ms) {
   return Math.round(h / 24) + " 天";
 }
 // 解析生日/月-日字符串 → {mo,d}；容「3-15 / 1998-3-15(年忽略) / 3月15日 / 3/15」，非法返回 null
+// 生日填了【年份】才算得出年龄；只写「3-15」的（大多数古风/架空角色）不显示年龄。
+// 年龄一律【现算】不存盘——存了就要在生日当天去改它，那正是她不想手动做的事
+//（她 2026-08-24：「过了生日之后这个数字可以自动变大…不用我自己手动进去调」）。
+function parseBirthDate(s) {
+  const m = String(s || "").match(/(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || y < 1000 || y > 9999) return null;
+  return { y: y, mo: mo, d: d };
+}
+// 周岁：生日当天就算长一岁
+function charAge(birthday, now) {
+  const b = parseBirthDate(birthday);
+  if (!b) return null;
+  const n = now instanceof Date ? now : new Date(now == null ? Date.now() : now);
+  if (isNaN(n.getTime())) return null;
+  const mo = n.getMonth() + 1, d = n.getDate();
+  let age = n.getFullYear() - b.y;
+  if (mo < b.mo || (mo === b.mo && d < b.d)) age--;
+  return age >= 0 && age <= 200 ? age : null;
+}
 function parseMonthDay(s) {
   const m = String(s || "").match(/(?:\d{4}[-/.年])?\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
   if (!m) return null;
