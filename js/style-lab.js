@@ -292,7 +292,8 @@
         h("div", { style: S.h2 }, "跑哪几份 · 可多选"),
         h("div", { style: Object.assign({}, S.hint, { marginBottom: 6 }) },
           "勾几份就连着跑几次，结果并排堆在下面。「对照组」是完全不吃预设，用来做基线。"
-          + (tPicks.length > 1 ? "　·　这一把 " + tPicks.length + " 份，至少 " + tPicks.length + " 次 API 调用" : "")),
+          + "每份【只调一次 API】，不偷偷补写。"
+          + (tPicks.length > 1 ? "这一把 " + tPicks.length + " 份 = " + tPicks.length + " 次调用。" : "")),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
           [h("button", { key: "__base", onClick: () => togglePick(""), style: S.chip(tPicks.indexOf("") >= 0) }, "对照组")]
             .concat(presets.map(p => h("button", { key: p.id, onClick: () => togglePick(p.id), style: S.chip(tPicks.indexOf(p.id) >= 0) }, p.name))))),

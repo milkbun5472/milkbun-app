@@ -374,19 +374,7 @@ test("结果卡片要显示拿到几字 / 要几字，以及补写实况", () =>
 const liar = (model, stream) => RT(model, stream);
 
 
-test("不是网络类的错就直接抛，别拿短请求白烧一次", async () => {
-  const h = liar(() => { throw new Error("401 Unauthorized"); }, true);
-  await assert.rejects(() => h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 }), /401/);
-  assert.equal(h.calls.length, 1);
-});
 
-test("报错要带上是哪一步、等了多久——分得清网关掐断和 CORS/密钥", async () => {
-  const h = liar(() => { throw new Error("401 Unauthorized"); }, true);
-  await h.SP.runTest({}, { char: { name: "x" }, minWords: 1500 }).catch(e => {
-    assert.match(e.message, /首轮/);
-    assert.match(e.message, /等了 \d+ 秒/);
-  });
-});
 
 test("一切正常就只调一次，退回逻辑不平白多花钱", async () => {
   const h = liar(() => "甲".repeat(1600), true);
@@ -404,99 +392,79 @@ test("一切正常就只调一次，退回逻辑不平白多花钱", async () =>
 // 100w 上下文是【输入】侧，跟输出上限无关。
 // 正确做法：上限给足（推理有地方放），用「这一轮写多少字」控制时长。
 
-test("上限给足推理空间，不再拿 max_tokens 当时长闸门", async () => {
-  const h = RT(() => "甲".repeat(1600), false);
-  await h.SP.runTest({ name: "A" }, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(h.calls[0].opt.maxTokens, 7900, "1500 字 * 2.6 + 4000 思考余量");
-  assert.ok(h.calls[0].opt.maxTokens > 4200, "旧的 4200 会把思考模型的正文挤没");
-  assert.match(sp, /THINK_HEADROOM = 4000/);
-  assert.ok(sp.indexOf("思考模型的推理 token 也算在 max_tokens 里") > 0, "病因写在代码里");
-  assert.ok(sp.indexOf("上下文 100w 跟这个毫无关系，那是输入侧") > 0);
-});
-
-test("天花板只防跑飞，不参与调节", async () => {
-  const h = RT(() => "甲".repeat(5000), false);
-  await h.SP.runTest({ name: "D" }, { char: { name: "x" }, minWords: 4000 });
-  assert.equal(h.calls[0].opt.maxTokens, 12000);
-  assert.match(sp, /const CEILING = 12000;/);
-});
-
-test("非流式先按下限试一次，别预先把它切碎", async () => {
-  const h = RT(() => "甲".repeat(1600), false);
-  const r = await h.SP.runTest({ name: "A" }, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(h.calls.length, 1, "一次就写够了就别再多花钱");
-  assert.equal(r.chars, 1600);
-});
-
-
-test("模型把结尾抄一遍再往下写，重复那截要剪掉", async () => {
-  const h = RT(n => (n === 1 ? "甲".repeat(200) + "这是结尾一句话。" : "这是结尾一句话。" + "新".repeat(1400)), false);
-  const r = await h.SP.runTest({ name: "B2" }, { char: { name: "x" }, minWords: 1500 });
-  assert.equal((r.text.match(/这是结尾一句话。/g) || []).length, 1, "接缝处不许重复");
-});
 
 
 
-test("能流式的线路仍走整篇重交，保留可修改、无接缝的好处", async () => {
-  const h = RT(n => (n === 1 ? "甲".repeat(202) : "乙".repeat(1600)), true);
-  const r = await h.SP.runTest({ name: "D" }, { char: { name: "x" }, minWords: 1500 });
-  assert.ok(h.calls[1].user.indexOf("甲".repeat(202)) > 0, "整篇重交要喂全文");
-  assert.match(r.notes.join(""), /补写 1：202 → 1600/);
-});
+
+
+
+
 
 // —— 「那我不是要调用很多次 api」（她 2026-08-24）——
 // 她按次计费，调用次数就是钱。我上一版为了「不被网关掐断」把每轮切到 700 字，
 // 1500 字就要垒四五次——优化过头了。默认不分段：每轮把还差的一次要完。
 
-test("一次写够就只调一次，不平白多花钱", async () => {
-  const h = RT(() => "甲".repeat(1600), false);
+
+
+
+
+
+
+// —— 「酒馆用差不多的站子，一次调用就能生成那么多不被截断，我只要一次调用」
+//    （她 2026-08-24）——
+// 去翻了她那份 Ako 1.91：openai_max_tokens 65535、字数给了下限【和上限】、
+// 还有一条字数锁让模型自己数着写。三样我都做错了，然后拿多次调用去补窟窿。
+
+test("一次试写就是一次调用，不偷偷补写", async () => {
+  const h = RT(() => "甲".repeat(202), false);
   const r = await h.SP.runTest({ name: "A" }, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(h.calls.length, 1);
-  assert.deepEqual(r.notes, [], "只调一次时连「共 N 次调用」都不用写");
+  assert.equal(h.calls.length, 1, "写不够也不许自己再调一次");
+  assert.equal(r.chars, 202);
+  assert.match(r.notes.join(""), /就这一次调用没再补/, "写不够要照实说，别悄悄花钱");
+  // 补写阶梯的零件必须全部拆干净，别留着以后又偷偷长回来
+  ["stripOverlap", "lowerChunk", "CHUNKKEY", "LEN_FLOOR", "THINK_HEADROOM"].forEach(n =>
+    assert.ok(sp.indexOf(n) < 0, sp.indexOf(n) + " 处还留着 " + n));
 });
 
-test("默认不分段：续写一次把还差的全要完，还多要一点让它一次过线", async () => {
-  const h = RT(n => (n === 1 ? "甲".repeat(202) : "乙".repeat(1400)), false);
+test("max_tokens 是天花板不是预付款——按酒馆的量给", async () => {
+  const h = RT(() => "甲".repeat(1600), false);
+  await h.SP.runTest({ name: "A" }, { char: { name: "x" }, minWords: 1500 });
+  assert.ok(h.calls[0].opt.maxTokens >= 16000,
+    "只给了 " + h.calls[0].opt.maxTokens + "——思考模型的推理也算在里面，给小了正文就只剩两百字");
+  assert.match(sp, /OUT_CEILING = 65535/);
+  assert.ok(sp.indexOf("它是【天花板】不是预付款") > 0, "为什么给这么大，写在代码里");
+});
+
+test("字数要给下限【和上限】，还要让它自己数着写", () => {
+  const rule = new Function("minW", sp.slice(sp.indexOf("function wordRule"), sp.indexOf("async function runTest")) + "\nreturn wordRule(minW);");
+  const t = rule(1500);
+  assert.match(t, /不少于 1500 字/);
+  assert.match(t, /不超过 2025 字/, "只给下限模型没有目标区间，写到哪算哪");
+  assert.match(t, /自己数着写/);
+  assert.match(t, /没到下限就继续往下写，不要提前收尾/);
+  assert.match(t, /不用场景铺陈、外貌描写、环境渲染或多余细节凑数/, "别让它拿景物注水");
+  assert.equal(rule(0), "", "没设下限时这段整个不出现");
+});
+
+test("线路不肯 clamp 才退一档，只为这一种错多花一次", async () => {
+  const h = RT(n => { if (n === 1) throw new Error("max_tokens is too large for this model"); return "甲".repeat(1600); }, false);
   const r = await h.SP.runTest({ name: "B" }, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(h.calls.length, 2, "首轮 + 一次续写就该收工");
-  assert.ok(r.chars >= 1500);
-  const asked = Number(/写 (\d+) 字左右/.exec(h.calls[1].sys)[1]);
-  assert.ok(asked >= 1400, "要了 " + asked + " 字——不该只要一小段");
-  assert.ok(asked <= Math.ceil(1298 * 1.2), "多要 15% 就够，别漫天要价");
-  assert.match(r.notes.join(""), /共 2 次调用/, "花了几次要告诉她");
-  assert.ok(sp.indexOf("她的 API 是【按次】计费") > 0, "为什么这么定，写在代码里");
+  assert.equal(h.calls.length, 2);
+  assert.equal(h.calls[1].opt.maxTokens, 8192);
+  assert.match(r.notes.join(""), /不接受 \d+ 的 max_tokens，退到 8192 重试/);
+
+  const other = RT(() => { throw new Error("Load failed"); }, false);
+  await assert.rejects(() => other.SP.runTest({ name: "C" }, { char: { name: "x" }, minWords: 1500 }), /Load failed/);
+  assert.equal(other.calls.length, 1, "别的错不许拿第二次调用去撞");
 });
 
-test("轮数卡死：一次试写最多四次调用，垒不上去就停", async () => {
-  const h = RT(() => "丙".repeat(200), false);
-  const r = await h.SP.runTest({ name: "C" }, { char: { name: "x" }, minWords: 1500 });
-  assert.ok(h.calls.length <= 3, "用了 " + h.calls.length + " 次");
-  assert.match(sp, /const maxRound = 2;/);
-  assert.match(r.notes.join(""), /再垒下去就是白花调用次数/);
+test("报错带上等了多久——分得清网关掐断和 CORS/密钥", async () => {
+  const h = RT(() => { throw new Error("Load failed"); }, false);
+  await h.SP.runTest({ name: "C" }, { char: { name: "x" }, minWords: 1500 }).catch(e =>
+    assert.match(e.message, /等了 \d+ 秒/));
 });
 
-test("只有被网关掐断过的线路才退而分段，那不是常态", async () => {
-  const clean = RT(n => (n === 1 ? "甲".repeat(202) : "乙".repeat(1400)), false);
-  await clean.SP.runTest({ name: "clean" }, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(clean.store["x_noStreamChunk"], undefined, "没被掐断就别记东西");
-
-  const cut = RT(n => { if (n === 1) throw new Error("Load failed"); return "丁".repeat(500); }, false);
-  const r = await cut.SP.runTest({ name: "cut" }, { char: { name: "x" }, minWords: 1500 });
-  assert.ok(JSON.parse(cut.store["x_noStreamChunk"]).cut >= 250);
-  assert.match(r.notes.join(""), /以后每轮最多写 \d+ 字并记住了/);
-  // 掐断过的线路垒不到时，别甩锅给模型
-  assert.match(r.notes.join(""), /这条线路被网关掐断过/);
-  assert.ok(r.notes.join("").indexOf("模型自己不肯往下写") < 0);
-});
-
-test("流式失败退回时，退回的那次不再压小额度", async () => {
-  const h = RT((n, o) => { if (o.stream) throw new Error("Load failed"); return "甲".repeat(1600); }, true);
-  const r = await h.SP.runTest({ name: "L" }, { char: { name: "x" }, minWords: 1500 });
-  assert.equal(h.calls[1].opt.maxTokens, h.calls[0].opt.maxTokens, "换成非流式而已，别顺手把思考额度也砍了");
-  assert.match(r.notes.join(""), /共 2 次调用/);
-  assert.equal(r.chars, 1600);
-});
-
-test("界面上先告诉她这一把要花几次调用", () => {
-  assert.ok(lab.indexOf('"　·　这一把 " + tPicks.length + " 份，至少 " + tPicks.length + " 次 API 调用"') > 0);
+test("界面上说清每份只花一次调用", () => {
+  assert.ok(lab.indexOf('"每份【只调一次 API】，不偷偷补写。"') > 0);
+  assert.ok(lab.indexOf('tPicks.length + " 份 = " + tPicks.length + " 次调用。"') > 0);
 });

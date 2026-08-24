@@ -220,8 +220,6 @@
   // ⚠️最低字数必须真的兑现。第一版这里是裸调一次就完，她设 1500 结果吐了 200
   // （2026-08-23）——线下有 ensureOfflineMinimumScene 兜底补写，测试台没有，
   // 于是同一个模型在两边表现完全不同，那对照就白比了。这里补一套同样的补写循环。
-  const LEN_FLOOR = target => "\n【最终正文硬下限】用户设置的是最低值，不是建议：正文必须至少有 " + target
-    + " 个非空白可见字符。用更多真正发生的行动、后果、判断、对话和有效场景推进达到下限；不堆形容词、不加多余比喻、不反复认证同一种感受、不把一个动作逐帧注水。";
 
   function visibleCount(t) {
     return typeof offlineVisibleCharCount === "function"
@@ -229,51 +227,30 @@
       : String(t == null ? "" : t).replace(/\s/g, "").length;
   }
 
-  // ⚠️别把「输出上限」当成「时长闸门」用（她 2026-08-23 指出来的）。
-  // Load failed 是【墙上时间】问题：非流式请求久久没有首字节，网关当死连接掐掉。
-  // 我上一版拿 max_tokens 压到 4200 去缩短时长——拿错闸门了，代价是：
-  // 【思考模型的推理 token 也算在 max_tokens 里】，4200 被推理吃掉三千多，
-  // 剩下几百个给正文，于是首轮只吐两百字。她那张截图里的 202 就是这么来的。
-  // 上下文 100w 跟这个毫无关系，那是输入侧。
-  //
-  // 改成：上限给足（推理有地方放，不会被截断），用【这一轮只让它写多少字】来控制时长——
-  // 少写点，生成自然就快，不碰上限也不会被网关掐。
-  const CEILING = 12000;        // 非流式的安全天花板，只防跑飞，不参与调节
-  const THINK_HEADROOM = 4000;  // 留给思考型模型的推理预算，别让它挤掉正文
-  // ⚠️她的 API 是【按次】计费（2026-08-13 起），所以调用次数就是钱。
-  // 默认【不预先切碎】：每一轮都直接把「还差多少」一次要完，多要 15% 让它一次写过线，
-  // 免得为了最后几十个字再花一次。只有真的被网关掐断过的线路，才退而求其次开始分段——
-  // 那是为了让它至少能出东西，不是常态。
-  const tokensFor = chars => Math.min(CEILING, Math.ceil(Math.max(200, chars) * 2.6) + THINK_HEADROOM);
+  // ⭐一次调用写够，别拿多次调用去补（她 2026-08-24：「酒馆用差不多的站子，
+  // 一次调用就能生成那么多不被截断，我只要一次调用」）。
+  // 翻了她那份 Ako 1.91 预设，配方就三样，我三样都做错了：
+  //   ① openai_max_tokens: 65535   —— 它是【天花板】不是预付款，给大了不多花钱，
+  //      给小了才要命：思考模型的推理 token 也算在里面，我给 7900，推理吃掉一大半，
+  //      剩下的额度只够两百来字。上下文 100w 是输入侧，跟这个无关。
+  //   ② content_minimal_words: 1500 / content_max_words: 2000 —— 下限【和上限】一起给。
+  //      只给下限，模型没有目标区间，写到哪算哪。
+  //   ③ 字数锁 —— 明确让它自己数着写：没到下限就继续，不提示不收尾；到了就停。
+  // 三样齐了就是一次调用的事，不需要补写阶梯。
+  const OUT_CEILING = 65535;    // 同酒馆。中转会自行 clamp 到模型上限
+  const tokensFor = chars => Math.min(OUT_CEILING, Math.max(16000, Math.ceil(Math.max(200, chars) * 3) + 8000));
 
-  // 真的被掐断过的线路才往下调，而且只调「每轮写多少字」，不再动 max_tokens。
-  // 只往下学，不往上试探——试探一次的代价就是她又看见一次 Load failed。
-  const CHUNKKEY = "x_noStreamChunk";
-  const CHUNK_FLOOR = 250, CHUNK_START = 900;
-  const routeKey = a => String((a && (a.name || a.baseUrl)) || "default").slice(0, 60);
-  // 返回 0 = 这条线路没被掐断过，别分段
-  function chunkFor(a) {
-    const m = loadJ(CHUNKKEY, {}) || {};
-    const v = Number(m[routeKey(a)]);
-    return v >= CHUNK_FLOOR ? v : 0;
-  }
-  function lowerChunk(a) {
-    const m = loadJ(CHUNKKEY, {}) || {};
-    const cur = chunkFor(a) || CHUNK_START;
-    const next = Math.max(CHUNK_FLOOR, Math.floor(cur * 0.6));
-    m[routeKey(a)] = next; saveJ(CHUNKKEY, m);
-    return next;
-  }
+  // 有的线路会因为 max_tokens 超过模型上限直接报错（多数中转是 clamp，少数不是）。
+  // 只为这一种错退一档重试，别为它平白给所有人降配。
+  const tooBig = e => /max_tokens|max output|maximum.*token|too large|invalid.*token/i.test(String((e && e.message) || e || ""));
 
-  // 续写时把模型可能抄回来的那截前文剪掉——它经常会先重复一遍结尾再往下写
-  function stripOverlap(tail, got) {
-    const t = String(tail || ""), g = String(got || "");
-    for (let n = Math.min(t.length, 200); n >= 8; n--) {   // 8 个汉字完全撞上几乎不可能是巧合
-      const suf = t.slice(-n);
-      const i = g.indexOf(suf);
-      if (i >= 0 && i < 40) return g.slice(i + n).replace(/^[\s。，、！？…—]+/, "");
-    }
-    return g;
+  function wordRule(minW) {
+    if (!minW) return "";
+    const maxW = Math.round(minW * 1.35);   // 用 round 不用 ceil：1500*1.35 浮点是 2025.0000000000002
+    return "【字数】正文用简体中文写，不少于 " + minW + " 字、不超过 " + maxW + " 字（按中文字符算）。\n"
+      + "· 字数用【真实发生的互动、对白和心理活动】填满；不用场景铺陈、外貌描写、环境渲染或多余细节凑数。\n"
+      + "· 自己数着写：没到下限就继续往下写，不要提前收尾、不要提示字数、不要问要不要继续；到了下限并且这一拍也写完了，就停。\n"
+      + "· 下限是硬要求，不是建议。";
   }
 
   async function runTest(active, opts) {
@@ -284,20 +261,15 @@
     const styleText = o.preset ? textFor(o.preset, "offline", { uName: uName, charName: char.name }) : "";
     const minW = Math.max(0, Number(o.minWords) || 0);
     const notes = [];
-
-    // routeCanStream 判的是【方言】，不是「这家中转真的会推 SSE」。走云端密钥代理的线路
-    // 天生就发不出流式（llmProxyFetch 把响应整个缓冲），便宜中转还常常照单收下 stream:true
-    // 却缓冲发回。所以非流式是常态，不是降级——它得有一套自己好用的写法，不是被罚站。
+    // routeCanStream 判的是【方言】：走云端密钥代理的线路天生发不出流式
+    //（llmProxyFetch 把响应整个缓冲），便宜中转还常常收下 stream:true 却缓冲发回。
+    // 流式只影响会不会被网关掐断，不影响能写多长——能写多长看的是上面那三样。
     const canStream = typeof routeCanStream === "function" ? routeCanStream(active) : false;
-    let streamOk = canStream;
-    let chunk = chunkFor(active);   // 0 = 这条线路没被掐断过，不分段
-    let calls = 0;
 
-    const base = [
+    const sys = [
       typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) : "",
       "【文风测试台】这是一次离线试写，不属于任何真实剧情，写完就丢。别提到测试这件事。",
-      // 名字要放在 base 里，不能只写在【输出】那行——续写轮不带【输出】，
-      // 只写在那儿的话续写时模型根本不知道自己是谁，声音会飘
+      // 名字放在这儿而不是只写在【输出】里，任何一段提示词都能知道自己是谁
       "【角色人设 · " + (char.name || "TA") + "（性格与声纹的根基）】\n" + (char.persona || char.name || "（未设定）"),
       char.appearance ? "【外貌】" + char.appearance : "",
       "【场景】" + scene.setting,
@@ -305,114 +277,34 @@
       // 模型会挑省事的那条听，写两百字就交卷。
       "【对方主权】" + uName + " 的行动和台词只由 Ta 本人给出，你只写「我」的言行心理与环境，不替 Ta 做动作、说台词、下决定。"
         + (minW >= 800 ? "这一条管的是【不许替对方做主】，不是让你早点收笔——本轮要一直写到下限为止，中间该有的过程一个都别略过。" : "这一段写到需要 Ta 回应的位置就自然停下。"),
-      wrap(styleText)
-    ].filter(x => String(x || "").trim());
+      wrap(styleText),
+      "【输出】用第一人称『我』完全代入「" + (char.name || "他") + "」，称对方为『你』，对话用引号，写成连续的场景正文。只输出正文，不要 JSON、不要标题、不要任何解释、不要报告字数。",
+      wordRule(minW)
+    ].filter(x => String(x || "").trim()).join("\n\n");
 
-    const outLine = "【输出】用第一人称『我』完全代入「" + (char.name || "他") + "」，称对方为『你』，对话用引号，写成连续的场景正文。只输出正文，不要 JSON、不要标题、不要任何解释。";
-
-    const netish = e => /load failed|failed to fetch|network|timeout|aborted|超时|断/i.test(String((e && e.message) || e || ""));
-    async function callOnce(system, user, wantChars, wantStream, label) {
-      const t0 = Date.now();
-      calls++;
-      try {
-        return String(await callAI(active, system, [{ role: "user", content: user }], {
-          maxTokens: tokensFor(wantChars), stream: wantStream, timeout: 180000
-        }) || "").trim();
-      } catch (e) {
-        const secs = Math.round((Date.now() - t0) / 1000);
-        if (!netish(e)) { e.message = String(e.message || e) + "（" + label + "，等了 " + secs + " 秒）"; throw e; }
-        if (wantStream) {
-          // 说好了会流式却还是没首字节：这家中转多半是缓冲发回的
-          streamOk = false;
-          calls++;
-          notes.push(label + " 流式 " + secs + " 秒没首字节，这家中转多半没真推流——改成非流式重来");
-          return String(await callAI(active, system, [{ role: "user", content: user }], {
-            maxTokens: tokensFor(wantChars), stream: false, timeout: 180000
-          }) || "").trim();
-        }
-        // 非流式被掐断：不是上限太高，是这一次要写的内容太多、跑太久。
-        // 所以调小的是【这一轮写多少字】，不是 max_tokens——后者调小只会截断思考模型。
-        chunk = lowerChunk(active);
-        calls++;
-        notes.push(label + " 等了 " + secs + " 秒被掐断，这条线路以后每轮最多写 " + chunk + " 字并记住了");
-        return String(await callAI(active, system, [{ role: "user", content: user }], {
-          maxTokens: tokensFor(chunk), stream: false, timeout: 180000
-        }) || "").trim();
-      }
-    }
-
-    // 首轮：能流式就一口气按下限写；不能流式也【先按下限试一次】——很多模型一次就写够了，
-    // 没必要预先把它切碎。真被掐断了 callOnce 会自己缩，下面的续写再往上垒。
-    const firstAsk = minW || 600;
-    let text = await callOnce(
-      base.concat([outLine, minW ? LEN_FLOOR(minW) : ""]).filter(Boolean).join("\n\n"),
-      scene.user, firstAsk, canStream, "首轮");
-
-    // ---- 往上垒 ----
-    // 能流式：整篇重交（模型能顺手修，没有接缝），最多两次。
-    // 不能流式：一段一段续写。整篇重交每轮都要把已有正文原样再吐一遍，正文越长留给
-    //   新内容的额度越少，越垒越慢最后卡住——她那次 202 → 815 → 1387 就是这个形状。
-    //   续写每轮只产出新内容，也不必把 max_tokens 压小，所以可以多垒几轮。
-    // 按次计费，所以轮数卡死在 2：首轮 + 最多两轮补，一次试写最多四次调用。
-    // 每一轮都把「还差多少」一次要完，不是一小段一小段挤。
-    let round = 0;
-    const maxRound = 2;
-    while (minW && round < maxRound && visibleCount(text) < minW) {
-      round++;
-      const had = visibleCount(text);
-      const need = minW - had;
-      try {
-        if (streamOk) {
-          const rsys = base.concat([
-            "【定稿补足】你是这篇场景正文的编辑。当前只有 " + had + " 个非空白可见字符，用户设的下限是 " + minW + "，必须达到。",
-            "保留原稿已经发生的全部事实、动作先后、人物决定、台词含义、叙事人称与结尾落点；不删减、不概括、不擅自升级事件。",
-            "在同一时间段内补足真正可写的内容：让已有动作产生具体后果，让人物继续观察、判断、回应和说话，让环境实际参与行动。不复述开头，不重复认证同一种感受，不堆生理反应、强度形容和空泛心理。",
-            "只输出补足后的完整正文，不要 JSON、不要解释、不要报告字数。"
-          ]).join("\n\n");
-          // 整篇重交要连原文一起再吐一遍，所以请求量按「下限 + 已有」算，不是只按下限
-          const got = await callOnce(rsys,
-            "把下面这篇补足为完整定稿，保留全文并自然扩展到至少 " + minW + " 个非空白可见字符：\n\n" + text,
-            minW + had, true, "第 " + round + " 次补写");
-          const gained = visibleCount(got);
-          if (gained <= had) { notes.push("补写 " + round + "：只拿回 " + gained + " 字，没改善，保留原稿"); break; }
-          text = got; notes.push("补写 " + round + "：" + had + " → " + gained);
-        } else {
-          // 一次把还差的全要完，多要 15% 让它一次写过线，免得为几十个字再花一次调用。
-          // 只有被掐断过的线路才受 chunk 限制。
-          const want = Math.ceil(need * 1.15);
-          const ask = chunk ? Math.min(want, chunk) : want;
-          const tail = text.slice(-500);
-          const csys = base.concat([
-            "【接着往下写】下面给你的是这场戏已经写好的结尾。你要【紧接着最后一个字】往下写新的内容：",
-            "· 绝不复述、改写或重新开头——你写的第一句必须能直接接在给你那段的最后一个字后面读通。\n"
-              + "· 不另起场景、不跳时间、不总结前面发生过什么、不收束全篇。\n"
-              + "· 继续用真正发生的行动、对话和推进往下写，这一段写 " + ask + " 字左右"
-              + (need > ask ? "（后面还会接着写，所以别急着收尾）" : "") + "。\n"
-              + "· 只输出【新写的这一段】，不要把前文再抄一遍，不要 JSON、不要解释。"
-          ]).join("\n\n");
-          const raw = await callOnce(csys, "已经写好的结尾：\n\n" + tail, ask, false, "续写 " + round);
-          const got = stripOverlap(tail, raw);
-          const add = visibleCount(got);
-          if (add < 30) { notes.push("续写 " + round + "：只多了 " + add + " 字，停手"); break; }
-          text = (text + "\n\n" + got).trim();
-          notes.push("续写 " + round + "：+" + add + "（" + had + " → " + visibleCount(text) + "）");
-        }
-      } catch (e) {
-        notes.push((streamOk ? "第 " + round + " 次补写" : "续写 " + round) + "没问成：" + String((e && e.message) || e).slice(0, 70));
-        break;
-      }
+    let want = tokensFor(minW || 600);
+    let text = "";
+    const t0 = Date.now();
+    try {
+      text = String(await callAI(active, sys, [{ role: "user", content: scene.user }], {
+        maxTokens: want, stream: canStream, timeout: 300000
+      }) || "").trim();
+    } catch (e) {
+      const secs = Math.round((Date.now() - t0) / 1000);
+      if (!tooBig(e)) { e.message = String(e.message || e) + "（等了 " + secs + " 秒）"; throw e; }
+      // 这条线路不肯 clamp，退一档再试一次——只为这一种错多花这一次
+      want = 8192;
+      notes.push("这条线路不接受 " + tokensFor(minW || 600) + " 的 max_tokens，退到 " + want + " 重试");
+      text = String(await callAI(active, sys, [{ role: "user", content: scene.user }], {
+        maxTokens: want, stream: canStream, timeout: 300000
+      }) || "").trim();
     }
 
     const final = visibleCount(text);
-    if (calls > 1) notes.push("共 " + calls + " 次调用");
     if (minW && final < minW) {
-      const fellBack = notes.some(n => n.indexOf("没真推流") >= 0);
-      notes.push(canStream && !fellBack
-        ? "⚠️模型不肯写到 " + minW + "，最终 " + final + " 字"
-        : "⚠️最终 " + final + "/" + minW + " 字。" + (chunk
-            ? "这条线路被网关掐断过，每轮最多只敢要 " + chunk + " 字，" + maxRound + " 轮垒不到这个数。"
-            : "补了 " + maxRound + " 轮还没垒到，多半是模型自己不肯往下写。")
-          + "再垒下去就是白花调用次数，停在这儿了。");
+      // 就这一次调用，不偷偷补写。写不够就照实说，怎么办由她定。
+      notes.push("⚠️模型只写了 " + final + "/" + minW + " 字，就这一次调用没再补。"
+        + "再点一次试写多半就够了；老是不够就换个模型，或者把人设写细一点——模型没东西可写时就会早早收尾。");
     }
     return { text: text, chars: final, notes: notes };
   }
