@@ -240,22 +240,27 @@
   // 少写点，生成自然就快，不碰上限也不会被网关掐。
   const CEILING = 12000;        // 非流式的安全天花板，只防跑飞，不参与调节
   const THINK_HEADROOM = 4000;  // 留给思考型模型的推理预算，别让它挤掉正文
-  const CHUNK = 700;            // 非流式时每一轮最多请求多少字的新内容（够快，又不至于碎）
+  // ⚠️她的 API 是【按次】计费（2026-08-13 起），所以调用次数就是钱。
+  // 默认【不预先切碎】：每一轮都直接把「还差多少」一次要完，多要 15% 让它一次写过线，
+  // 免得为了最后几十个字再花一次。只有真的被网关掐断过的线路，才退而求其次开始分段——
+  // 那是为了让它至少能出东西，不是常态。
   const tokensFor = chars => Math.min(CEILING, Math.ceil(Math.max(200, chars) * 2.6) + THINK_HEADROOM);
 
   // 真的被掐断过的线路才往下调，而且只调「每轮写多少字」，不再动 max_tokens。
   // 只往下学，不往上试探——试探一次的代价就是她又看见一次 Load failed。
   const CHUNKKEY = "x_noStreamChunk";
-  const CHUNK_FLOOR = 250;
+  const CHUNK_FLOOR = 250, CHUNK_START = 900;
   const routeKey = a => String((a && (a.name || a.baseUrl)) || "default").slice(0, 60);
+  // 返回 0 = 这条线路没被掐断过，别分段
   function chunkFor(a) {
     const m = loadJ(CHUNKKEY, {}) || {};
     const v = Number(m[routeKey(a)]);
-    return v >= CHUNK_FLOOR ? Math.min(CHUNK, v) : CHUNK;
+    return v >= CHUNK_FLOOR ? v : 0;
   }
   function lowerChunk(a) {
     const m = loadJ(CHUNKKEY, {}) || {};
-    const next = Math.max(CHUNK_FLOOR, Math.floor(chunkFor(a) * 0.6));
+    const cur = chunkFor(a) || CHUNK_START;
+    const next = Math.max(CHUNK_FLOOR, Math.floor(cur * 0.6));
     m[routeKey(a)] = next; saveJ(CHUNKKEY, m);
     return next;
   }
@@ -285,7 +290,8 @@
     // 却缓冲发回。所以非流式是常态，不是降级——它得有一套自己好用的写法，不是被罚站。
     const canStream = typeof routeCanStream === "function" ? routeCanStream(active) : false;
     let streamOk = canStream;
-    let chunk = chunkFor(active);
+    let chunk = chunkFor(active);   // 0 = 这条线路没被掐断过，不分段
+    let calls = 0;
 
     const base = [
       typeof narrativeCore === "function" ? narrativeCore({ intimate: true }) : "",
@@ -307,6 +313,7 @@
     const netish = e => /load failed|failed to fetch|network|timeout|aborted|超时|断/i.test(String((e && e.message) || e || ""));
     async function callOnce(system, user, wantChars, wantStream, label) {
       const t0 = Date.now();
+      calls++;
       try {
         return String(await callAI(active, system, [{ role: "user", content: user }], {
           maxTokens: tokensFor(wantChars), stream: wantStream, timeout: 180000
@@ -317,15 +324,17 @@
         if (wantStream) {
           // 说好了会流式却还是没首字节：这家中转多半是缓冲发回的
           streamOk = false;
-          notes.push(label + " 流式 " + secs + " 秒没首字节，这家中转多半没真推流——改成一段一段续写");
+          calls++;
+          notes.push(label + " 流式 " + secs + " 秒没首字节，这家中转多半没真推流——改成非流式重来");
           return String(await callAI(active, system, [{ role: "user", content: user }], {
-            maxTokens: tokensFor(Math.min(chunk, wantChars)), stream: false, timeout: 180000
+            maxTokens: tokensFor(wantChars), stream: false, timeout: 180000
           }) || "").trim();
         }
         // 非流式被掐断：不是上限太高，是这一次要写的内容太多、跑太久。
         // 所以调小的是【这一轮写多少字】，不是 max_tokens——后者调小只会截断思考模型。
         chunk = lowerChunk(active);
-        notes.push(label + " 等了 " + secs + " 秒被掐断，这条线路改成每轮只写 " + chunk + " 字并记住了");
+        calls++;
+        notes.push(label + " 等了 " + secs + " 秒被掐断，这条线路以后每轮最多写 " + chunk + " 字并记住了");
         return String(await callAI(active, system, [{ role: "user", content: user }], {
           maxTokens: tokensFor(chunk), stream: false, timeout: 180000
         }) || "").trim();
@@ -344,8 +353,10 @@
     // 不能流式：一段一段续写。整篇重交每轮都要把已有正文原样再吐一遍，正文越长留给
     //   新内容的额度越少，越垒越慢最后卡住——她那次 202 → 815 → 1387 就是这个形状。
     //   续写每轮只产出新内容，也不必把 max_tokens 压小，所以可以多垒几轮。
+    // 按次计费，所以轮数卡死在 2：首轮 + 最多两轮补，一次试写最多四次调用。
+    // 每一轮都把「还差多少」一次要完，不是一小段一小段挤。
     let round = 0;
-    const maxRound = streamOk ? 2 : 6;
+    const maxRound = 2;
     while (minW && round < maxRound && visibleCount(text) < minW) {
       round++;
       const had = visibleCount(text);
@@ -366,7 +377,10 @@
           if (gained <= had) { notes.push("补写 " + round + "：只拿回 " + gained + " 字，没改善，保留原稿"); break; }
           text = got; notes.push("补写 " + round + "：" + had + " → " + gained);
         } else {
-          const ask = Math.min(need, chunk);
+          // 一次把还差的全要完，多要 15% 让它一次写过线，免得为几十个字再花一次调用。
+          // 只有被掐断过的线路才受 chunk 限制。
+          const want = Math.ceil(need * 1.15);
+          const ask = chunk ? Math.min(want, chunk) : want;
           const tail = text.slice(-500);
           const csys = base.concat([
             "【接着往下写】下面给你的是这场戏已经写好的结尾。你要【紧接着最后一个字】往下写新的内容：",
@@ -390,12 +404,15 @@
     }
 
     const final = visibleCount(text);
+    if (calls > 1) notes.push("共 " + calls + " 次调用");
     if (minW && final < minW) {
       const fellBack = notes.some(n => n.indexOf("没真推流") >= 0);
       notes.push(canStream && !fellBack
         ? "⚠️模型不肯写到 " + minW + "，最终 " + final + " 字"
-        : "⚠️最终 " + final + "/" + minW + " 字。这条线路发不出流式，只能一段一段往下续；连着 "
-          + maxRound + " 轮还没垒到，多半是模型自己不肯往下写了。");
+        : "⚠️最终 " + final + "/" + minW + " 字。" + (chunk
+            ? "这条线路被网关掐断过，每轮最多只敢要 " + chunk + " 字，" + maxRound + " 轮垒不到这个数。"
+            : "补了 " + maxRound + " 轮还没垒到，多半是模型自己不肯往下写。")
+          + "再垒下去就是白花调用次数，停在这儿了。");
     }
     return { text: text, chars: final, notes: notes };
   }
