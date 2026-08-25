@@ -186,6 +186,8 @@ function Head({
 }
 function AvatarPicker({
   character,
+  onGenerate,
+  genBusy,
   size = 72,
   radius,
   imageMaxDim = 400,
@@ -228,14 +230,20 @@ function AvatarPicker({
     accept: "image/*",
     className: "hidden",
     onChange: handle
-  }), character && character.avatarImage && /*#__PURE__*/React.createElement("button", {
+  }), h("div", { className: "flex items-center gap-3" },
+    onGenerate ? h("button", {
+      onClick: () => { if (!genBusy) onGenerate(); },
+      className: "active:opacity-60",
+      style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: genBusy ? t.fog : t.tint }
+    }, genBusy ? "生成中…" : (character && character.avatarImage ? "重新生成" : "生成头像")) : null,
+    character && character.avatarImage && /*#__PURE__*/React.createElement("button", {
     onClick: onClear,
     style: {
       fontFamily: "'Archivo',sans-serif",
       fontSize: 10,
       color: t.fog
     }
-  }, "移除照片"));
+  }, "移除照片")));
 }
 function Sheet({
   children,

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.10";
+const APP_VERSION = "v56.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10732,7 +10732,23 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     initial: editingChar,
     onBack: () => setScreen("cast"),
     onSave: saveChar,
-    onDelete: delChar
+    onDelete: delChar,
+    // 生成头像（她 2026-08-25：「为啥别的小手机能生成真的像头像的图，我们只有 emoji」）。
+    // 图像 API 早就在跑自拍/合照/剧照，只是从来没接过头像这个字段。有参考照就拿它锁脸
+    //（走 images/edits），没有就按【外貌】那栏画。方图 1024，存进图库只留一个 iv_ 键。
+    onGenAvatar: async draft => {
+      if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
+      try {
+        const c = { name: draft.name, appearance: draft.appearance, photoOutfit: draft.photoOutfit, photoStyle: draft.photoStyle };
+        const prompt = buildAvatarPrompt(c, { hasRef: !!draft.refPhoto });
+        const r = await generateSelfieImage(prompt, draft.refPhoto ? [draft.refPhoto] : null, { size: "1024x1024" });
+        const dataUrl = r && (r.dataUrl || r.url);
+        if (!dataUrl) throw new Error("上游没有返回图片");
+        const key = typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        toast("头像生成好了，记得点右上角保存");
+        return key;
+      } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
+    }
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
     characters: liveChars,
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头

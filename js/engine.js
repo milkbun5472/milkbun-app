@@ -2451,6 +2451,31 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   return parts.join("");
 }
 
+// 头像（她 2026-08-25：「为啥别的小手机生成头像可以有真的像头像的图，我们只有 emoji 代替」）。
+// 不是做不到——图像 API 早就在跑自拍、合照、小剧场剧照了，只是这条路从来没接过头像那个字段。
+// 头像和自拍是两种东西：自拍要「一臂距离的前置摄像头透视」，头像要【正经的头肩像】，
+// 脸占画面大半、背景干净、方图——缩到 40px 还认得出是谁才算数。
+function buildAvatarPrompt(char, opts) {
+  const anime = char && char.photoStyle === "anime";
+  const name = (char && char.name) || "这个人";
+  const look = String((char && char.appearance) || "").replace(/\s+/g, " ").trim().slice(0, 300);
+  const wear = String((char && char.photoOutfit) || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const hasRef = !!(opts && opts.hasRef);
+  const parts = [];
+  if (hasRef) parts.push("【最高优先级·就是参考图里那个人】五官、脸型、发型发色、瞳色、肤色、年龄感完全照搬参考图，不许另造一张脸。");
+  else parts.push("【" + name + "】" + (look || "按下面的气质自然设计一个具体的人"));
+  if (look && hasRef) parts.push("补充特征（与参考图冲突时一律以参考图为准）：" + look);
+  if (wear) parts.push("穿着：" + wear + "。");
+  parts.push("【这是头像，不是自拍】正经的【头肩像】：脸占画面大半，头顶留一点余量，"
+    + "视线看向镜头或略偏，表情自然（不必微笑，按这个人本来的气质来）。"
+    + "背景干净单一、虚化或纯色，不要杂物、不要文字水印 logo 边框贴纸，画面里只有 " + name + " 一个人。"
+    + "⚠️不要一臂距离的自拍透视、不要手机入镜、不要全身、不要大远景、不要侧背影。");
+  // 参考图那条同 buildPhotoPrompt：参考图只决定【这是谁】，机位由这次决定
+  if (hasRef) parts.push("参考图只决定【这是谁】。机位、头的朝向、表情、取景一律按【头像】这个用途重新决定，不许沿用参考图里的角度。");
+  parts.push(anime ? "精致的二次元动画插画风格，干净的线条和上色。" : "真实照片质感：真实皮肤纹理与毛孔、自然光、浅景深，不要磨皮成塑料、不要 AI 精修感、不是 3D 渲染。");
+  parts.push("正方形构图，居中，缩到很小也还认得出是谁。");
+  return parts.join("");
+}
 // 有人物参考照时，任务不是「读一大本角色卡重新设计一个符合描述的人」，而是
 // 「编辑参考图里的这个人，让同一个人出现在新场景」。长版 buildPhotoPrompt 里的
 // 外貌、人设、体型、职业和摄影约束会与像素身份争注意力：上游即使收到了 image，

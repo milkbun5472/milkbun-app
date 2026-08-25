@@ -137,9 +137,11 @@ function CastForm({
   initial,
   onBack,
   onSave,
-  onDelete
+  onDelete,
+  onGenAvatar
 }) {
   const t = useTheme();
+  const [avBusy, setAvBusy] = useState(false);
   const [name, setName] = useState(initial && initial.name || "");
   const [tagline, setTagline] = useState(initial && initial.tagline || "");
   const [emoji, setEmoji] = useState(initial && initial.avatarEmoji || "");
@@ -214,7 +216,17 @@ function CastForm({
     size: 76,
     radius: 16,
     onPick: setAvatarImage,
-    onClear: () => setAvatarImage(null)
+    onClear: () => setAvatarImage(null),
+    genBusy: avBusy,
+    // 头像生成：有参考照就拿它锁脸，没有就按【外貌】那一栏画。两样都没有时说清楚。
+    onGenerate: onGenAvatar ? async () => {
+      if (!refPhoto && !String(appearance || "").trim()) { toast && toast("先填【外貌】那一栏，或者传一张参考照，不然它不知道该画谁"); return; }
+      setAvBusy(true);
+      try {
+        const url = await onGenAvatar({ name, appearance, photoOutfit, photoStyle, refPhoto });
+        if (url) setAvatarImage(url);
+      } finally { setAvBusy(false); }
+    } : null
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1"
   }, /*#__PURE__*/React.createElement("input", {
