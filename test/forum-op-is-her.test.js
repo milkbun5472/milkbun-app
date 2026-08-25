@@ -52,3 +52,30 @@ test("第一轮和后面几波用的是同一条规矩", () => {
   assert.match(app, /forumNpcRule\(post\.board\) \+ " " \+ opRule2Full \+ relBlock \+ opGround/);
   assert.match(app, /const opRule = "【楼主是".*\+ meRule/s);
 });
+
+// 她 2026-08-25 追问：「双胞胎的小号会互相评论好像认出来是谁一样，这是对的吗」。
+// 结果碰巧对、机制是错的：relBlock 对【大号/小号/匿名】完全不区分，
+// 于是所有角色一律按真实关系互认——双胞胎那次看着合理，
+// 但同一套逻辑下陆衍也会认出沈屿白的小号，那就荒谬了。
+test("认出小号要有门槛，不能所有人一律互认", () => {
+  const i = app.indexOf("const relBlock = relLines.length");
+  const seg = app.slice(i, app.indexOf("// 楼主规则", i));
+  const relBlock = new Function("relLines", seg + "\nreturn relBlock;")(["「顾朝」眼中的「顾暮」：双胞胎弟弟"]);
+  // 原来那句「绝不当陌生人」只该管大号
+  assert.match(relBlock, /【上面这条只管大号】/);
+  assert.match(relBlock, /默认在场其他角色\*\*认不出那是谁\*\*/);
+  assert.match(relBlock, /那正是小号存在的意义/);
+  // 双胞胎这种确实该认得出——门槛是「现实里本来就知道对方的小号」，交给模型按关系判断
+  assert.match(relBlock, /双胞胎、同住的家人、伴侣、天天混在一起的死党/);
+  assert.match(relBlock, /照上面的关系描述自己判断/);
+  // 认出来 ≠ 可以当众点破
+  assert.match(relBlock, /绝不许在公开楼里点破/);
+  assert.match(relBlock, /这不是我哥吗/);
+  assert.match(relBlock, /用只有你俩懂的方式暗接一句/, "要给正向的替代，不能只说别怎样");
+});
+
+test("没有关系线时不发这一整块，别白占额度", () => {
+  const i = app.indexOf("const relBlock = relLines.length");
+  const seg = app.slice(i, app.indexOf("// 楼主规则", i));
+  assert.equal(new Function("relLines", seg + "\nreturn relBlock;")([]), "");
+});
