@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.92";
+const APP_VERSION = "v55.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5725,7 +5725,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 连一条失败提示都没有。现在明确报出来，并带上模型到底回了什么。
       if (!Array.isArray(arr)) {
         const t = String(raw || "").replace(/\s+/g, " ").trim();
-        throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 40) + (t.length > 40 ? "…" : "") + "）" : "（上游什么都没回）"));
+        throw new Error("模型没按 JSON 数组输出" + (t ? "（它回的是：" + t.slice(0, 200) + (t.length > 200 ? "…" : "") + "）" : "（上游什么都没回）"));
       }
       {
         const guarded = window.GroupIdentityGuard ? window.GroupIdentityGuard.sanitize(arr, members, profile.name || "用户") : { items: arr, dropped: [], thoughtsDropped: [] };

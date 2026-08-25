@@ -467,6 +467,46 @@ function captureWirePayload(fmt, url, body, opts, attempt) {
   rows.push(row);
   if (rows.length > 8) rows.splice(0, rows.length - 8);
 }
+// 中转站/上游出错时，很多站不是回 HTTP 错误、也不是回 {error:...}，而是把错误话
+// 塞进 choices[0].message.content 当【正文】200 回来（她 2026-08-25 抓到两种：
+// 「empty response from gemini api」和「The prompt could not be submitted. The p…」）。
+// 我们这边就当模型真说了这句话，于是群聊报的是「模型没按 JSON 数组输出」——
+// 方向指错了：模型根本没跑，是这条线路此刻不通。
+// 判据收得很紧：必须【从头】就是这些话，或者整条短到不可能是正文却带着这些字眼；
+// 角色本人用英文说话不该被误伤。
+const UPSTREAM_ERROR_PATTERNS = [
+  /^empty response from/i,
+  /^the prompt could not be submitted/i,
+  /^(an )?(internal (server )?error|bad gateway|service unavailable|gateway time-?out)/i,
+  /^upstream (error|request failed)/i,
+  /^\{?\s*"?error"?\s*[:：]/,
+  /^request failed with status code \d+/i,
+  /^\[?(GoogleGenerativeAI|OpenAI|Anthropic) ?Error\]?/i
+];
+const UPSTREAM_ERROR_PHRASES = [
+  /prompt (could not be submitted|was blocked)/i,
+  /empty response from/i,
+  /(quota|resource has been) exhausted/i,
+  /rate limit (exceeded|reached)/i,
+  /no (available|valid) (api ?)?key/i,
+  /all keys? (are )?(exhausted|invalid)/i,
+  /候鸟|令牌|分组.*不存在|无可用渠道|当前分组.*负载已饱和/
+];
+function upstreamErrorInContent(text) {
+  const t = String(text || "").trim();
+  if (!t) return "";
+  if (UPSTREAM_ERROR_PATTERNS.some(re => re.test(t))) return t;
+  // 正文不会这么短还刚好在讲配额/密钥/拦截；300 字以内才启用短语判定
+  if (t.length <= 300 && UPSTREAM_ERROR_PHRASES.some(re => re.test(t))) return t;
+  return "";
+}
+// 三种协议分支共用：拿到正文先过这一关，是上游错误就当错误抛，别冒充模型的话往下走。
+function assertNotUpstreamError(t, model) {
+  const hit = upstreamErrorInContent(t);
+  if (!hit) return t;
+  throw new Error("线路报错（不是模型写的正文）：" + hit.replace(/\s+/g, " ").slice(0, 300)
+    + "\n——" + (model ? "「" + model + "」" : "这条线路") + "此刻没跑起来（多半是上游拦了、配额/密钥不通、或这个模型不稳）。换条线路或换个模型再试。");
+}
 async function callAI(p, system, messages, opts) {
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
@@ -624,7 +664,7 @@ async function callAI(p, system, messages, opts) {
     } catch (e) {}
     const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
     if (!t) throw new Error("模型返回为空" + (d.stop_reason ? "（停止原因：" + d.stop_reason + "）" : "（上游没有返回正文）"));
-    return t;
+    return assertNotUpstreamError(t, model);
   }
   if (fmt === "gemini") {
     const gBody = {
@@ -661,7 +701,7 @@ async function callAI(p, system, messages, opts) {
       const blocked = d.promptFeedback && d.promptFeedback.blockReason;
       throw new Error("模型返回为空" + (reason || blocked ? "（停止原因：" + (reason || blocked) + "）" : "（上游没有返回正文）"));
     }
-    return t;
+    return assertNotUpstreamError(t, model);
   }
   const root = base.endsWith("/v1") ? base : base + "/v1";
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
@@ -750,7 +790,7 @@ async function callAI(p, system, messages, opts) {
   const choice = d.choices && d.choices[0];
   const t = (choice && choice.message && choice.message.content || "").trim();
   if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）"));
-  return t;
+  return assertNotUpstreamError(t, model);
 }
 function repairJSON(t) {
   // 走查字符，补全被截断的字符串与括号，尽力把残缺 JSON 修成可解析
