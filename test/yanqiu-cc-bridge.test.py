@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import tempfile
+import datetime
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -66,6 +67,21 @@ class BridgeTest(unittest.TestCase):
         claimed = bridge.claim(self.session, db_path=self.db)
         self.assertEqual(claimed["job_id"], job["id"])
         self.assertTrue(claimed["pass_through"])
+
+    def test_late_game_turn_receipt_is_rejected_not_fake_success(self):
+        expired = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=5)).isoformat()
+        job = bridge.enqueue(
+            "game_turn", {"turn_id": "tod-chat:late", "deadline_at": expired},
+            "game-turn:tod-chat:late", db_path=self.db, wake_path=self.wake,
+        )
+        claimed = bridge.claim(self.session, db_path=self.db)
+        with self.assertRaisesRegex(bridge.BridgeError, "TURN_EXPIRED"):
+            bridge.complete(self.session, job["id"], claimed["claim_token"], {"lines": ["迟到啦"]}, db_path=self.db)
+        row = bridge.result(job["id"], db_path=self.db)
+        self.assertEqual(row["status"], "failed")
+        self.assertEqual(row["error_text"], "TURN_EXPIRED")
+        with self.assertRaisesRegex(bridge.BridgeError, "TURN_EXPIRED"):
+            bridge.complete(self.session, job["id"], claimed["claim_token"], {"lines": ["再补一次"]}, db_path=self.db)
 
     def test_cloud_request_uses_existing_chat_ledger(self):
         remote = {"id": "11111111-1111-1111-1111-111111111111", "char_id": "yanqiu", "source_message_id": "app-msg-1", "metadata": {"bridge_kind": "app_cc_request", "bridge_state": "queued", "tool_name": "Grep", "arguments": {"pattern": "needle"}}}

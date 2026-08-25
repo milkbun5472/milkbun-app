@@ -18,6 +18,7 @@ import uuid
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -153,6 +154,23 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def game_turn_expired(row: sqlite3.Row, now: int | None = None) -> bool:
+    """The App owns the turn lifetime; a late CC receipt must never look accepted."""
+    if row["tool_name"] != "game_turn":
+        return False
+    try:
+        args = json.loads(row["arguments_json"] or "{}")
+        raw = str(args.get("deadline_at") or "").strip()
+        if not raw:
+            return False
+        deadline = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        return (now if now is not None else now_ms()) >= int(deadline.timestamp() * 1000)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return False
+
+
 def requeue_expired_game_claims(
     db_path: Path = DB_PATH,
     wake_path: Path = WAKE_PATH,
@@ -281,10 +299,18 @@ def complete(session_id: str, job_id: str, claim_token: str, result: object, db_
             raise BridgeError("任务不存在或不属于固定言秋会话")
         if row["status"] == "completed":
             return {"ok": True, "job_id": job_id, "duplicate": True}
+        if row["status"] == "failed" and row["error_text"] == "TURN_EXPIRED":
+            raise BridgeError("TURN_EXPIRED：这轮已经关闭，迟到回执没有写进游戏桌，请勿将它当作成功")
         if row["status"] != "claimed" or not secrets.compare_digest(
             str(row["claim_token_hash"] or ""), token_hash(claim_token)
         ):
             raise BridgeError("任务租约无效；拒绝跨窗口回执")
+        if game_turn_expired(row):
+            db.execute(
+                "UPDATE jobs SET status='failed',completed_at=?,error_text='TURN_EXPIRED' WHERE id=? AND status='claimed'",
+                (now_ms(), job_id),
+            )
+            raise BridgeError("TURN_EXPIRED：这轮已经关闭，迟到回执没有写进游戏桌，请勿将它当作成功")
         db.execute(
             "UPDATE jobs SET status='completed',completed_at=?,result_json=? WHERE id=? AND status='claimed'",
             (now_ms(), json.dumps(result, ensure_ascii=False), job_id),

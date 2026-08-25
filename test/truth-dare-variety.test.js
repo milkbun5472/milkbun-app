@@ -17,8 +17,8 @@ test("连续两轮没有大冒险时下一轮强制大冒险", () => {
   assert.match(source, /recent\.length >= 2 && recent\.every/);
   assert.match(source, /choice = "大冒险"/);
   assert.match(source, /const choice = plan\.choice/);
-  assert.match(source, /if \(out\.choice !== plan\.choice\)/);
-  assert.match(source, /不能用另一类内容换个标签/);
+  assert.match(source, /out\.choice !== plan\.choice \|\| !tdPromptMatchesChoice/);
+  assert.match(source, /不能只改 choice 标签/);
 });
 
 test("题型主题轮换且大冒险必须是可执行行动", () => {

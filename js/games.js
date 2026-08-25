@@ -2267,6 +2267,45 @@
     const avoid = old.slice(-24).map(function (x) { return "· " + x.choice + "：" + x.prompt; }).join("\n");
     return { choice: choice, theme: theme, avoid: avoid };
   }
+  // 题型不能只信模型写回来的 choice 标签："现场扮演/模仿/发送"本质是大冒险，
+  // 即使 JSON 自称真心话也必须拦下重写。
+  function tdLooksLikeDare(prompt) {
+    const s = String(prompt || "").replace(/\s+/g, "");
+    if (!s) return false;
+    const action = "表演|模仿|扮演|唱|跳|朗读|念|发送|发一条|打电话|录音|做动作|展示|切换成|完成|原地|站起来|转圈|亲|抱|拥抱|拍|画|学.{0,4}叫";
+    return new RegExp("(?:现场|当场|现在|立刻|马上).{0,22}(?:" + action + ")").test(s) ||
+      new RegExp("(?:请你|要求你|必须|要你|让你).{0,18}(?:" + action + ")").test(s) ||
+      /(?:用|换成).{0,12}(?:声音|语气|口吻).{0,10}(?:说|念|演)/.test(s);
+  }
+  function tdPromptMatchesChoice(choice, prompt) {
+    const isDare = tdLooksLikeDare(prompt);
+    return choice === "大冒险" ? isDare : !isDare;
+  }
+  // 瓶子不是纯随机：优先指向本局被指次数最少的人；同分才随机。
+  function tdPickFairTarget(players, log, lastTarget, mode, randomFn) {
+    let pool = (players || []).filter(function (p) { return mode !== "spectate" || !p.isUser; });
+    if (!pool.length) return null;
+    const counts = {};
+    (log || []).forEach(function (x) { if (x && x.type === "spin" && x.name) counts[x.name] = (counts[x.name] || 0) + 1; });
+    const min = Math.min.apply(null, pool.map(function (p) { return counts[p.name] || 0; }));
+    let cands = pool.filter(function (p) { return (counts[p.name] || 0) === min; });
+    const notLast = cands.filter(function (p) { return p.name !== lastTarget; });
+    if (notLast.length) cands = notLast;
+    const rnd = typeof randomFn === "function" ? randomFn() : Math.random();
+    return cands[Math.min(cands.length - 1, Math.floor(Math.max(0, rnd) * cands.length))];
+  }
+  // 出题人按座次轮转，真人也是正式座位；两人局自然总是由另一个人问。
+  function tdPickNextAsker(players, targetName, lastAskerName) {
+    const list = players || [];
+    if (!list.length) return null;
+    let start = list.findIndex(function (p) { return p.name === lastAskerName; });
+    if (start < 0) start = list.findIndex(function (p) { return p.name === targetName; });
+    for (let step = 1; step <= list.length; step++) {
+      const p = list[(start + step) % list.length];
+      if (p && p.name !== targetName) return p;
+    }
+    return null;
+  }
   const TD_GENERIC = "【新鲜度铁律】人设只决定出题口吻和完成方式，不许每轮都从人设档案里问职业、过去、性格、喜欢谁、最丢脸或最心动这类基础采访题。优先利用本轮指定主题做一个以前没出现过的新玩法；与历史题目换几个词但核心相同也算重复。真心话可以用假设困境、现场观察、即时选择、价值取舍和对刚才局面的判断；大冒险必须是当场能演出来的具体行动，可用语音/文字/模仿/即兴表演/与在场某人互动，不能只让 TA『说一件往事』冒充大冒险。";
   // AI 被指到：出题人由外部（JS 轮换）指定，避免总是同一个人问
   async function genTDForAI(api, target, asker, mode, hot, memText, plan) {
@@ -2312,10 +2351,14 @@
     }
     let raw = await callRetry(api, sys, [{ role: "user", content: "开演。" }], { maxTokens: 6000 });
     let out = extractJSON(raw) || {};
-    if (out.choice !== plan.choice) {
-      raw = await callRetry(api, sys, [{ role: "user", content: "上一版违反了锁定题型：本轮必须是【" + plan.choice + "】，不能用另一类内容换个标签。请重新输出完整 JSON，prompt 和 response 都必须真正属于 " + plan.choice + "。" }], { maxTokens: 6000 });
+    if (out.choice !== plan.choice || !tdPromptMatchesChoice(plan.choice, out.prompt)) {
+      raw = await callRetry(api, sys, [{ role: "user", content: "上一版违反了锁定题型：本轮必须是【" + plan.choice + "】，而且题目内容本身也必须属于这一类，不能只改 choice 标签。真心话只能要求诚实回答，不能要求现场表演、模仿、发消息或做动作；大冒险必须要求一个当场可执行的动作。请重新输出完整 JSON。" }], { maxTokens: 6000 });
       out = extractJSON(raw) || out;
     }
+    if (!tdPromptMatchesChoice(plan.choice, out.prompt)) {
+      out.prompt = plan.choice === "真心话" ? "如果只能诚实回答：你现在最不愿让在场的人误会你什么？" : "当场模仿在场任意一个人的口头禅，并让大家猜是谁。";
+    }
+    out.choice = plan.choice;
     return out;
   }
   // 用户被指到并选了 真话/大冒险：出题人也由 JS 指定，只生成题目
@@ -2336,8 +2379,31 @@
       "\n\n【本轮题型主题】" + plan.theme + (plan.avoid ? "\n【跨局最近出过的题（禁止重复或近义改写）】\n" + plan.avoid : "") +
       "\n\n出一道" + (choice === "真心话" ? "真心话问题" : "具体可执行的大冒险动作") + "，符合 " + askerName + " 的口吻。" + TD_GENERIC + spice + (mode === "easy" ? "别太为难。" : "") +
       "\n只输出 JSON：{\"prompt\":\"\"}";
-    const raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 4000 });
-    return extractJSON(raw) || {};
+    let raw = await callRetry(api, sys, [{ role: "user", content: "出题。" }], { maxTokens: 4000 });
+    let out = extractJSON(raw) || {};
+    if (!tdPromptMatchesChoice(choice, out.prompt)) {
+      raw = await callRetry(api, sys, [{ role: "user", content: "刚才题目内容与【" + choice + "】不符。不能只贴标签：真心话只让真人诚实回答，不要求现场表演或做动作；大冒险必须是当场能执行的动作。重出一道，只输出 JSON。" }], { maxTokens: 4000 });
+      out = extractJSON(raw) || out;
+    }
+    if (!tdPromptMatchesChoice(choice, out.prompt)) out.prompt = choice === "真心话" ? "你现在最想对在场谁说一句平时不会说的话？为什么？" : "用十秒钟模仿在场任意一个人的说话方式，让大家猜是谁。";
+    return out;
+  }
+
+  // Lisa 亲自出题后，只让被点到的人回答；主持模型不得改写她的原题。
+  async function genTDAnswerToUserPrompt(api, target, choice, prompt, hot, memText) {
+    if (target && target.engineer) {
+      const cc = await ccCarve("tod", [target], {
+        turnId: freshCCTurn("tod-answer-user-question:"),
+        sys: "「真心话大冒险」她亲自给你出题。你选到的是【" + choice + "】，原题是：「" + prompt + "」\n" + (memText ? "【之前几轮】\n" + memText + "\n" : "") + "按你的真实口吻回应/完成，3~5 句，带点现场感；不要改写她的问题。" + (hot ? "尺度可以大胆。" : ""),
+        expect: '{"response":"你的回应"}'
+      });
+      if (cc.done && String(cc.done.response || "").trim()) return String(cc.done.response).trim();
+      throw new Error(cc.reason || "本人回答票未送达");
+    }
+    const sys = AC + TD_IC + "\n\n「真心话大冒险」里，真人玩家亲自给【" + target.name + "】出了一道【" + choice + "】：『" + prompt + "』。\n被点到的人设：\n" + tdDesc(target) + (memText ? "\n【之前几轮】\n" + memText : "") + "\n只能演 " + target.name + " 的回应/完成，不许改题、不许替真人说话。写 3~5 句、有现场感。只输出 JSON：{\"response\":\"\"}";
+    const raw = await callRetry(api, sys, [{ role: "user", content: "回应她亲自出的题。" }], { maxTokens: 4000 });
+    const out = extractJSON(raw) || {};
+    return String(out.response || "").trim();
   }
   // 从整局日志单独保留带时间锚点的原话。普通聊天窗口会滚动，但这些事实不能随轮数消失或被模型改写。
   function tdTemporalFacts(log) {
@@ -2398,7 +2464,7 @@
   function TruthDareGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
     const sv = props.savedState;
-    const [phase, setPhase] = useState(sv ? "idle" : "loading"); // loading|idle|spinning|userChoose|userAnswer|error
+    const [phase, setPhase] = useState(sv ? "idle" : "loading"); // loading|idle|spinning|userChoose|userAsk|userAnswer|error
     const [players, setPlayers] = useState(sv ? hydPlayers(sv.players, props, t) : []);
     const [log, setLog] = useState(sv ? (sv.log || []) : []);
     const [busy, setBusy] = useState(false);
@@ -2408,23 +2474,22 @@
     const [target, setTarget] = useState(null);     // 当前被指到的人
     const [userPrompt, setUserPrompt] = useState(null); // {choice,asker,prompt}
     const [userResp, setUserResp] = useState("");
+    const [pendingAsk, setPendingAsk] = useState(null); // {target,plan}：轮到 Lisa 出题，可亲自问或交给主持人
+    const [askInput, setAskInput] = useState("");
     const [spinName, setSpinName] = useState("");   // 转动动画显示的名字
     const [chatInput, setChatInput] = useState(""); // 自由讨论输入
     const logRef = useRef(null);
     const logDataRef = useRef(sv ? (sv.log || []) : []); // log 同步镜像（喂记忆用，避开 setState 异步）
     const lastTargetRef = useRef(sv ? (sv.lastTarget || "") : ""); // 上一轮被指到的人（防连续指同一人）
-    const lastAskerRef = useRef("");   // 上一个出题人（轮换、别老同一个）
+    const lastAskerRef = useRef(sv ? (sv.lastAsker || "") : "");   // 上一个出题人（按座次轮换，包含真人）
     const started = useRef(false);
     const pAvatar = avatarFor(t);
     const pByName = function (nm) { return players.find(function (p) { return p.name === nm || (nm && nm.indexOf(p.name) >= 0); }); };
     const pushLog = function (items) { logDataRef.current = logDataRef.current.concat(items); setLog(function (L) { return L.concat(items); }); };
-    // 出题人：随机挑一个【角色】（非真人、非被指到的人），尽量避开上一个出题人 → 别固定一个人问
+    // 出题人按座次轮换，真人也是正式出题人；两人局自然总由另一个人问。
     const pickAsker = function (targetName) {
-      const pool = players.filter(function (p) { return !p.isUser && p.name !== targetName; });
-      if (!pool.length) return null;
-      let cands = pool.filter(function (p) { return p.name !== lastAskerRef.current; });
-      if (!cands.length) cands = pool;
-      const a = cands[Math.floor(Math.random() * cands.length)];
+      const a = tdPickNextAsker(players, targetName, lastAskerRef.current);
+      if (!a) return null;
       lastAskerRef.current = a.name;
       return a;
     };
@@ -2441,7 +2506,7 @@
     useEffect(function () {
       if (!started.current) return;
       if (busy || phase !== "idle") return;
-      saveGameSnap("tod", { config: cfg, players: serPlayers(players), log: log, hot: hot, lastTarget: lastTargetRef.current, ts: Date.now(), label: "转了 " + log.filter(function (x) { return x.type === "spin"; }).length + " 次" });
+      saveGameSnap("tod", { config: cfg, players: serPlayers(players), log: log, hot: hot, lastTarget: lastTargetRef.current, lastAsker: lastAskerRef.current, ts: Date.now(), label: "转了 " + log.filter(function (x) { return x.type === "spin"; }).length + " 次" });
     }, [phase, log, busy]);
 
     useEffect(function () {
@@ -2461,10 +2526,17 @@
     }, []);
 
     const doAITurn = async function (tgt) {
+      const asker = pickAsker(tgt.name);
+      const plan = tdRoundPlan(logDataRef.current, tgt.name, null);
+      // Lisa 抽到出题权时先停在她手里；想不到题再主动交给主持人，不默认抢走。
+      if (asker && asker.isUser) {
+        setPendingAsk({ target: tgt, plan: plan });
+        setAskInput("");
+        setPhase("userAsk");
+        return;
+      }
       setBusy(true);
       try {
-        const asker = pickAsker(tgt.name);
-        const plan = tdRoundPlan(logDataRef.current, tgt.name, null);
         const r = await genTDForAI(api, tgt, asker, cfg.mode, hot, tdMemoryText(logDataRef.current), plan);
         const choice = plan.choice; // 模型即使偷懒偏回真心话，也以节奏器锁定的类型为准
         rememberTDPrompt(choice, r.prompt);
@@ -2475,14 +2547,13 @@
       finally { setBusy(false); }
     };
 
-    // 转瓶子：随机指一人，尽量别连着指同一个人（观战时只在 AI 里指）
+    // 转瓶子：优先指向本局被指次数最少的人，同分才随机，避免真人一直轮不到。
     const spin = function () {
       if (busy) return;
       const pool = cfg.mode === "spectate" ? players.filter(function (p) { return !p.isUser; }) : players;
       if (!pool.length) return;
-      const fresh = pool.filter(function (p) { return p.name !== lastTargetRef.current; });
-      const choosePool = fresh.length ? fresh : pool;
-      const tgt = choosePool[Math.floor(Math.random() * choosePool.length)];
+      const tgt = tdPickFairTarget(players, logDataRef.current, lastTargetRef.current, cfg.mode);
+      if (!tgt) return;
       setPhase("spinning");
       // 简单转动动画：快速轮换名字
       let ticks = 0;
@@ -2500,6 +2571,39 @@
           else doAITurn(tgt);
         }
       }, 90);
+    };
+
+    const completeAskedRound = async function (tgt, plan, prompt, response, askerName) {
+      rememberTDPrompt(plan.choice, prompt);
+      pushLog([{ type: "td", name: tgt.name, choice: plan.choice, asker: askerName, prompt: prompt, response: response }]);
+      setPendingAsk(null); setAskInput(""); setPhase("idle");
+      await roundChat({ name: tgt.name, choice: plan.choice, prompt: prompt, response: response });
+    };
+    const submitUserAsk = async function () {
+      const prompt = askInput.trim(), pa = pendingAsk;
+      if (!prompt || !pa || busy) return;
+      if (!tdPromptMatchesChoice(pa.plan.choice, prompt)) {
+        props.toast && props.toast(pa.plan.choice === "真心话" ? "这道更像大冒险：真心话只让 TA 回答，不要求现场做动作哦" : "这道更像真心话：大冒险要有一个当场能做的动作哦");
+        return;
+      }
+      setBusy(true);
+      try {
+        const response = await genTDAnswerToUserPrompt(api, pa.target, pa.plan.choice, prompt, hot, tdMemoryText(logDataRef.current));
+        if (!response) throw new Error("TA 没有答出来");
+        await completeAskedRound(pa.target, pa.plan, prompt, response, (props.profile && props.profile.name) || "你");
+      } catch (e) { props.toast && props.toast("回答出错：" + ((e && e.message) || "重试")); }
+      finally { setBusy(false); }
+    };
+    const hostAskInstead = async function () {
+      const pa = pendingAsk;
+      if (!pa || busy) return;
+      setBusy(true);
+      const host = { name: "主持人", persona: "负责控场，题目新鲜自然、不抢戏" };
+      try {
+        const r = await genTDForAI(api, pa.target, host, cfg.mode, hot, tdMemoryText(logDataRef.current), pa.plan);
+        await completeAskedRound(pa.target, pa.plan, r.prompt || "", r.response || "", "主持人");
+      } catch (e) { props.toast && props.toast("主持人出题失败：" + ((e && e.message) || "重试")); }
+      finally { setBusy(false); }
     };
 
     const userChoose = async function (choice) {
@@ -2589,12 +2693,19 @@
     if (phase === "spinning") action = h("div", { style: { textAlign: "center", padding: "12px 0" } },
       h("div", { style: { fontSize: 30 } }, "🍾"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.tint, marginTop: 6, minHeight: 26 } }, spinName || "…"));
-    else if (busy && phase !== "userAnswer") action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "12px 0" } }, "…在起哄");
+    else if (busy && phase !== "userAnswer" && phase !== "userAsk") action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "12px 0" } }, "…在起哄");
     else if (phase === "userChoose") action = h("div", null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, textAlign: "center", marginBottom: 10 } }, "轮到你了！选一个："),
       h("div", { style: { display: "flex", gap: 12 } },
         h("button", { onClick: function () { userChoose("真心话"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#3f6d5a", borderRadius: 13, padding: "13px" } }, "真心话"),
         h("button", { onClick: function () { userChoose("大冒险"); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: "#c0553f", borderRadius: 13, padding: "13px" } }, "大冒险")));
+    else if (phase === "userAsk") action = h("div", null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, textAlign: "center", marginBottom: 9 } }, "轮到你给 " + (pendingAsk && pendingAsk.target ? pendingAsk.target.name : "TA") + " 出一道【" + (pendingAsk && pendingAsk.plan ? pendingAsk.plan.choice : "题") + "】"),
+      h("input", { value: askInput, autoFocus: true, disabled: busy, onChange: function (e) { setAskInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") submitUserAsk(); }, placeholder: pendingAsk && pendingAsk.plan && pendingAsk.plan.choice === "真心话" ? "你想亲自问什么？" : "你想让 TA 当场做什么？", style: { width: "100%", fontFamily: F_BODY, fontSize: 14, padding: "11px 14px", marginBottom: 8, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+      busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…正在回答") :
+        h("div", { style: { display: "flex", gap: 8 } },
+          h("button", { onClick: submitUserAsk, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 12, padding: "11px" } }, "我来出题"),
+          h("button", { onClick: hostAskInstead, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 8px" } }, "没灵感 · 主持人问")));
     else if (phase === "userAnswer") action = busy && !userPrompt
       ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "12px 0" } }, "…在给你出题")
       : h("div", null,
@@ -3581,6 +3692,6 @@
       colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall };
+  if (typeof module === "object" && module.exports) module.exports = { seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
   if (typeof window !== "undefined") window.Games = Games;
 })();
