@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.07";
+const APP_VERSION = "v56.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6321,9 +6321,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       if (summary && summary.trim()) {
         addMemEntry({
           text: "【群「" + group.name + "」】" + summary.trim(),
-          tags: ["群聊", group.name],
-          charIds: group.memberIds.slice(), knownBy: group.memberIds.slice(),
-          source: "auto"
+          tags: gTags(group),
+          // 归属只给真角色（配角没有自己的记忆库），在场的都算知道
+          charIds: memOwners(group.memberIds), knownBy: group.memberIds.slice(),
+          source: "auto", groupId: group.id
         });
         toast("已存入记忆库");
       }
@@ -11152,7 +11153,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const text = info.mode === "forchar"
         ? uNm + "替" + who + "算了一卦（" + (info.cards || "") + "）：" + String(info.summary || "").slice(0, 90)
         : who + "为" + uNm + "解了一次塔罗" + (info.question ? "（问的是：" + String(info.question).slice(0, 30) + "）" : "") + "：" + String(info.summary || "").slice(0, 90);
-      addMemEntry({ text: text, charIds: [charId], knownBy: [charId], source: "tarot", ts: Date.now(), open: false });
+      // 占卜不进记忆库（她 2026-08-25：「为啥塔罗也进记忆库了，不要这个！」）。
+      // 记忆库是给「你俩之间真的发生过什么」用的，一卦牌不是那种东西，
+      // 攒多了还会把真正的事挤出召回名额。下面那句 charThought 仍旧进「Ta 眼里」——
+      // 那是他私心里对牌的反应，属于印象不属于事实。
+      void text;
       // charThought 是「Ta 私心里对这几张牌的反应」——正是印象的原料,别再扔掉
       const th = String(info.charThought || "").trim();
       if (th && window.Gaze && !settingsFor(charId).engineerEyes && info.mode !== "forchar") {

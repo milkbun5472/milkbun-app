@@ -7124,6 +7124,7 @@ function GroupThread({
     characters: characters,
     allChars: allChars,
     rels: rels,
+    msgCount: (messages || []).length,
     directives: directives,
     onRemoveDirective: onRemoveDirective,
     onSetDirectiveTurns: onSetDirectiveTurns,
@@ -7458,7 +7459,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
-function GroupSettingsSheet({ gs, group, characters, allChars, rels, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -7584,7 +7585,17 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, directives,
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
 
-    h("button", { onClick: onSummarize, className: "w-full rounded-xl py-3 mt-7", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15 } }, "立即总结群聊并存入记忆库"),
+    (() => {
+      const n = Number(msgCount) || 0, left = Math.max(0, (sumThresh || 150) - Math.max(0, n - (gs.lastSummarizedCount || 0)));
+      return h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 18 } },
+        interop
+          ? (left > 0
+              ? "现在 " + n + " 条，还差 " + left + " 条才会自动总结进记忆库（阈值在上面可以调）。等不及就按下面。"
+              : "已经够阈值了，下一轮结束就会自动总结进记忆库。")
+          : "⚠️这个群没开【记忆互通】：群里发生的事一个字都不会进记忆库，也不会影响好感和心情（你定的「封闭群只进不出」）。想让它进，把上面的记忆互通打开。");
+    })(),
+    h("button", { onClick: onSummarize, className: "w-full rounded-xl py-3 mt-2", style: { border: "1px solid " + (interop ? t.line : t.accent), color: interop ? t.ink : t.accent, fontFamily: F_DISPLAY, fontSize: 15 } },
+      interop ? "立即总结群聊并存入记忆库" : "仍要立刻存进记忆库（破例一次）"),
 
     // 群规矩管理（v48.17 补缺件）：OOC 立的群规矩之前存了就没法删——它会注入之后【每一轮】群聊和群 OOC 的 prompt，
     // 若规矩原文里有触审词（如未成年词汇×魅惑词汇同框），会导致后续所有请求被 Gemini 硬拦、OOC 取消也发不出去（死循环）。

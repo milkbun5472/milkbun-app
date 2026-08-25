@@ -143,7 +143,7 @@ test("③ 跟着主人一起删，并从所有群里摘干净", () => {
 // 不用新造机制——knownBy 已经在了。
 test("记忆归主角色，配角只记得自己在场的那些", () => {
   assert.match(app, /const memOwners = ids =>.*!c\.npc/s);
-  assert.equal((app.match(/charIds: memOwners\(/g) || []).length, 7, "群侧七处写记忆都要归属真角色");
+  assert.equal((app.match(/charIds: memOwners\(/g) || []).length, 8, "群侧八处写记忆都要归属真角色（含手动总结那一枪）");
   // ⚠️knownBy 以前被 addMemEntry 的白名单丢掉了（各处它都恰好等于 charIds 所以没人发现）；
   // NPC 一来两者就分家，非补不可，否则配角什么都记不住。
   const add = app.slice(app.indexOf("const addMemEntry = e =>"), app.indexOf("const addMemEntry = e =>") + 1500);
