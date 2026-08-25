@@ -2451,6 +2451,64 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   return parts.join("");
 }
 
+// ==== 自动头像（她 2026-08-25 定的 A+B）====
+// 论坛里的路人、常驻熟面孔、小号一直是 emoji 方块（FORUM_AV_EMOJI = 🐧🐸🐱…）。
+// 参考的那个小手机（jrsy）是硬编码 190 条外链图片、Math.random() 随机取一张——
+// 两点都不抄：外链白嫖别人的图床随时会挂，Math.random 让同一个人每次刷新换张脸。
+// 这里改成【池子 + 按种子哈希稳定分配】：同一个 handle 永远同一张，重装也一样。
+//   A 档：没池子时，按种子程序化画一张 SVG（零请求、无限不重复、永不失效）
+//   B 档：她从相册批量塞图进 x_avatarPool，池子非空就优先用她自己的图
+function avatarSeedHash(str) {
+  let h = 2166136261; str = String(str || "");
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+// 程序化头像：渐变底 + 几团柔和的色块。刻意不放字母/emoji——真人的头像上没有那些。
+function avatarArt(seed) {
+  const h = avatarSeedHash(seed);
+  const pick = (shift, mod) => Math.floor(h / Math.pow(2, shift)) % mod;
+  const hue = pick(0, 360);
+  // 同色系偏移：太近显脏，太远显廉价；30~110 度之间取
+  const hue2 = (hue + 30 + pick(4, 80)) % 360;
+  const sat = 42 + pick(9, 26), lig = 52 + pick(13, 16);
+  const rot = pick(17, 360);
+  const blob = i => {
+    const cx = 12 + ((h >>> (i * 5 + 3)) % 76), cy = 12 + ((h >>> (i * 7 + 5)) % 76);
+    const r = 20 + ((h >>> (i * 3 + 11)) % 34);
+    const o = (14 + ((h >>> (i * 4 + 9)) % 26)) / 100;
+    const hh = (hue + i * 47 + pick(21, 60)) % 360;
+    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="hsl(' + hh + ',' + (sat + 12) + '%,' + (lig + 14) + '%)" opacity="' + o + '"/>';
+  };
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+    + '<defs><linearGradient id="g" gradientTransform="rotate(' + rot + ' .5 .5)">'
+    + '<stop offset="0%" stop-color="hsl(' + hue + ',' + sat + '%,' + lig + '%)"/>'
+    + '<stop offset="100%" stop-color="hsl(' + hue2 + ',' + (sat + 10) + '%,' + Math.max(24, lig - 24) + '%)"/>'
+    + '</linearGradient></defs>'
+    + '<rect width="100" height="100" fill="url(#g)"/>'
+    + blob(0) + blob(1) + blob(2)
+    + '</svg>';
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+const AVATAR_POOL_KEY = "x_avatarPool";
+function avatarPool() {
+  try { const a = JSON.parse(localStorage.getItem(AVATAR_POOL_KEY) || "[]"); return Array.isArray(a) ? a.filter(Boolean) : []; }
+  catch (e) { return []; }
+}
+function avatarPoolSave(list) {
+  try { localStorage.setItem(AVATAR_POOL_KEY, JSON.stringify((list || []).filter(Boolean).slice(0, 300))); } catch (e) {}
+}
+// 给任何「没有自己头像的人」算一张。池子非空就从池子里按哈希取（她自己的图优先），
+// 否则程序化画一张。同一个 seed 永远同一个结果。
+function autoAvatarSrc(seed) {
+  const pool = avatarPool();
+  if (pool.length) {
+    const k = pool[avatarSeedHash(seed) % pool.length];
+    const u = typeof resolveImg === "function" ? resolveImg(k) : k;
+    if (u) return u;
+  }
+  return avatarArt(seed);
+}
+
 // 头像（她 2026-08-25：「为啥别的小手机生成头像可以有真的像头像的图，我们只有 emoji 代替」）。
 // 不是做不到——图像 API 早就在跑自拍、合照、小剧场剧照了，只是这条路从来没接过头像那个字段。
 // 头像和自拍是两种东西：自拍要「一臂距离的前置摄像头透视」，头像要【正经的头肩像】，

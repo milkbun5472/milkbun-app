@@ -58,19 +58,18 @@ function Avatar({
       borderRadius: rad
     }
   });
-  const initial = character && character.name && character.name[0] || "?";
-  return /*#__PURE__*/React.createElement("div", {
+  // 她自己设过 emoji 就还用 emoji（那是她挑的）；否则不再摆首字母方块，
+  // 按 id/名字哈希给一张自动头像（有池子用池子里的图，没有就程序化画）。
+  if (character && character.avatarEmoji) return /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-center shrink-0",
-    style: {
-      width: size,
-      height: size,
-      borderRadius: rad,
-      background: character && character.color || "#c2bdb1",
-      color: "#f6f4ef",
-      fontSize: size * 0.4,
-      fontFamily: F_DISPLAY
-    }
-  }, character && character.avatarEmoji || initial);
+    style: { width: size, height: size, borderRadius: rad, background: character.color || "#c2bdb1", color: "#f6f4ef", fontSize: size * 0.4, fontFamily: F_DISPLAY }
+  }, character.avatarEmoji);
+  const seed = (character && (character.id || character.handle || character.name)) || "?";
+  return /*#__PURE__*/React.createElement("img", {
+    src: typeof autoAvatarSrc === "function" ? autoAvatarSrc(seed) : "",
+    alt: "", className: "object-cover shrink-0",
+    style: { width: size, height: size, borderRadius: rad }
+  });
 }
 function Eyebrow({
   children,

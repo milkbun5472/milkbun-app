@@ -1140,12 +1140,28 @@ function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
 //  帖子只有一份，版块是筛选视图；评论懒加载（含楼中楼，回复者随机 NPC/角色）
 // ============================================================
 const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
-const FORUM_AV_EMOJI = ["🐧", "🐸", "🐱", "🦊", "🐰", "🐻", "🐨", "🦁", "🐯", "🐙", "🦈", "🌵", "🍥", "🌙", "⚡", "🎭", "👾", "🤖", "🍔", "🧋", "🪐", "🎧", "📎", "🧃", "🦖", "🫧", "🌻", "🍒", "🐳", "🦉"];
+// FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function fmtNum(n) { n = Number(n) || 0; if (n >= 10000) return (n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, "") + "万"; return String(n); }
 function forumAge(ts) { if (!ts) return "新人"; const d = Math.floor((Date.now() - ts) / 86400000); if (d < 30) return "吧龄 " + Math.max(d, 1) + " 天"; const mo = Math.floor(d / 30); if (mo < 12) return "吧龄 " + mo + " 个月"; return "吧龄 " + (d / 365).toFixed(1) + " 年"; }
-function NpcAvatar({ seed, size }) { const hh = forumHash(seed); const emo = FORUM_AV_EMOJI[hh % FORUM_AV_EMOJI.length]; return React.createElement("div", { style: { width: size, height: size, borderRadius: size / 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.5), background: `linear-gradient(135deg,hsl(${hh % 360},58%,60%),hsl(${(hh * 7) % 360},58%,48%))` } }, emo); }
-function AltAvatar({ seed, size }) { const hh = forumHash("alt:" + seed), emo = ["◐","◇","☾","✦","⌁","△","◎","♢"][hh % 8]; return React.createElement("div", { style: { width: size, height: size, borderRadius: size / 2, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * .42), color: "#fff", background: `linear-gradient(145deg,hsl(${250 + hh % 55},48%,38%),hsl(${(hh * 5) % 360},48%,55%))`, border: "2px solid rgba(255,255,255,.88)", boxShadow: "0 0 0 1px rgba(103,79,145,.45)" } }, emo, React.createElement("span", { style: { position: "absolute", right: -3, bottom: -2, minWidth: Math.max(15, Math.round(size * .36)), height: Math.max(12, Math.round(size * .3)), padding: "0 3px", borderRadius: 999, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", fontSize: Math.max(7, Math.round(size * .16)), fontWeight: 700, lineHeight: 1, color: "#fff", background: "#7355a6", border: "1.5px solid #fff" } }, "ALT")); }
+// 论坛路人/常驻/小号的头像。原来画的是 FORUM_AV_EMOJI 里的 🐧🐸🐱 —— 她 2026-08-25
+// 说的「只有 emoji 代替」就是这儿。种子哈希那套是对的（同一个人永远同一张），
+// 只把画出来的东西换掉：有头像池就用她自己的图，没有就程序化画一张。
+function NpcAvatar({ seed, size }) {
+  return React.createElement("img", {
+    src: typeof autoAvatarSrc === "function" ? autoAvatarSrc(seed) : "",
+    alt: "", className: "object-cover shrink-0",
+    style: { width: size, height: size, borderRadius: "50%" }
+  });
+}
+// 小号要和大号明显不是同一张脸（不然就自曝身份了）——加盐换一套种子。
+function AltAvatar({ seed, size }) {
+  return React.createElement("img", {
+    src: typeof autoAvatarSrc === "function" ? autoAvatarSrc("alt:" + seed) : "",
+    alt: "", className: "object-cover shrink-0",
+    style: { width: size, height: size, borderRadius: "50%" }
+  });
+}
 function Forum({
   characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onReplyFloor, onReplySub,
@@ -3998,6 +4014,62 @@ function CacheStatCard() {
           phList.length ? h("div", { style: { marginTop: 4, color: pfxDrift ? "#b4593b" : t.fog, fontSize: 11 } },
             "前缀指纹：" + phList.length + " 次里 " + phKinds + " 种、变动 " + pfxChanges + " 次" + (pfxDrift ? "　⚠️前缀几乎每轮在变→这才是不命中的真因，截图发我" : "（变动 0~1 次=一次性/没事；一直涨=每轮churn发我）")) : null));
 }
+// 头像池（她 2026-08-25 定的 B 档）：她从相册一次挑几十张（猫、风景、动漫截图…），
+// 存进本地图库当池子。论坛路人、常驻、小号、还有任何没传头像的人，都按种子哈希
+// 从池子里稳定取一张——同一个人永远同一张。零 API 调用、零外链，图是她自己挑的。
+// 参考的那个小手机是硬编码 190 条别人图床的外链 + Math.random，两点都不抄。
+function AvatarPoolConfig({ toast }) {
+  const t = useTheme();
+  const fileRef = useRef(null);
+  const [pool, setPool] = useState(() => (typeof avatarPool === "function" ? avatarPool() : []));
+  const [busy, setBusy] = useState(false);
+  const [armed, setArmed] = useState(false);
+  const add = async e => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!files.length) return;
+    setBusy(true);
+    try {
+      const keys = [];
+      for (const f of files) {
+        try {
+          // 头像最大只会显示到 76px，存 256 见方足够，别把几十张原图塞进图库
+          const dataUrl = await resizeImageFile(f, 256, 0.86);
+          const k = typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+          if (k) keys.push(k);
+        } catch (x) {}
+      }
+      const next = [...pool, ...keys].filter((v, i, a) => a.indexOf(v) === i).slice(0, 300);
+      avatarPoolSave(next); setPool(next);
+      toast && toast(keys.length ? ("加了 " + keys.length + " 张，池子现在 " + next.length + " 张") : "一张都没读进来");
+    } finally { setBusy(false); }
+  };
+  return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "头像池 · 论坛路人和没传头像的人"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginTop: 4 } },
+      "论坛里的路人、常驻熟面孔、小号，还有任何没传过头像的人，都从这个池子里按各自的 ID 取一张——"
+      + "同一个人永远同一张，不会刷一次换张脸。池子空着的时候会自动画一张渐变色块顶上，"
+      + "所以不塞图也不会退回 emoji。一次可以多选，不花任何 API 调用。"),
+    h("div", { className: "flex items-center gap-3", style: { marginTop: 12 } },
+      h("button", {
+        onClick: () => fileRef.current && fileRef.current.click(),
+        className: "active:opacity-70",
+        style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 10, padding: "10px 18px", fontFamily: F_DISPLAY, fontSize: 14, opacity: busy ? 0.5 : 1 }
+      }, busy ? "读取中…" : "从相册添加"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+        pool.length ? ("池子里有 " + pool.length + " 张") : "还是空的 · 现在用程序化头像"),
+      pool.length ? h("button", {
+        onClick: () => { if (armed) { avatarPoolSave([]); setPool([]); setArmed(false); toast && toast("已清空，回到程序化头像"); } else setArmed(true); },
+        className: "active:opacity-60",
+        style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: t.accent }
+      }, armed ? "确定清空？" : "清空") : null),
+    h("input", { ref: fileRef, type: "file", accept: "image/*", multiple: true, className: "hidden", onChange: add }),
+    pool.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
+      pool.slice(0, 24).map(k => h("img", {
+        key: k, src: typeof resolveImg === "function" ? resolveImg(k) : k, alt: "",
+        className: "object-cover", style: { width: 38, height: 38, borderRadius: 999, border: "1px solid " + t.line }
+      })).concat(pool.length > 24 ? [h("span", { key: "more", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, alignSelf: "center" } }, "…还有 " + (pool.length - 24) + " 张")] : [])) : null);
+}
 function ImageApiConfig({ toast }) {
   const t = useTheme();
   const [store, setStore] = useState(() => (typeof loadImgApiProfiles === "function" ? loadImgApiProfiles() : { activeId: "legacy", profiles: [Object.assign({ id: "legacy", name: "图像站 1" }, typeof loadImgApi === "function" ? loadImgApi() : {})] }));
@@ -4512,9 +4584,10 @@ function Config({
     onSetBgApi: onSetBgApi,
     onSave: onSaveApi,
     toast: toast
-  })), fold("api-cache", "额度与缓存", "查看缓存命中和调用读数", /*#__PURE__*/React.createElement(CacheStatCard, null)), fold("api-image", "图像生成", "自拍、合照与图像模型配置", /*#__PURE__*/React.createElement(ImageApiConfig, {
-    toast: toast
-  })), fold("api-tts", "语音 TTS", "声音接口、音色和角色分配", /*#__PURE__*/React.createElement(TtsApiConfig, {
+  })), fold("api-cache", "额度与缓存", "查看缓存命中和调用读数", /*#__PURE__*/React.createElement(CacheStatCard, null)), fold("api-image", "图像生成", "自拍、合照与图像模型配置", /*#__PURE__*/React.createElement(React.Fragment, null,
+    /*#__PURE__*/React.createElement(ImageApiConfig, { toast: toast }),
+    /*#__PURE__*/React.createElement(AvatarPoolConfig, { toast: toast })
+  )), fold("api-tts", "语音 TTS", "声音接口、音色和角色分配", /*#__PURE__*/React.createElement(TtsApiConfig, {
     toast: toast,
     characters: characters,
     onAssignVoice: onAssignVoice
