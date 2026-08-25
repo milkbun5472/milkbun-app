@@ -1063,6 +1063,19 @@ const PRIVATE_IS_BACKGROUND_NOT_AMMO = `⚠️【你自己那一段也是背景�
 // 导演写「一个古代王爷」，写出来的就是这个类型的通用样子。而同群的双胞胎是
 // 「现代年轻人」，导演写出来照样正常——又是那条老规律：站错位置对谁伤害大，
 // 取决于他身上那张标签有多刻板。
+// 她 2026-08-25 报「实时心情动都不动」：心声历史里连着四条、跨 13 小时全是「清醒又好笑」。
+// 查出来是 app.js 里那条 moodUpdateHint —— 写好了，声明了一次，然后【再没被引用过】，
+// 一个字都没进过提示词。旁边的 _normalThoughtTurnHint（心声那条）是拼进去的，
+// 所以心声一直在动、心情不动。又是「这一层只写在一处」的老形状。
+//
+// 顺带把措辞收紧：旧稿写的是「没有真实变化才保持原词」——那是给模型一个默认逃生口，
+// 而它上一行刚被告知【你此刻的心情】就是那个词，照抄永远是最省事的选择。
+// 心声那条能一直有效，靠的是「必填、非空、不许 null」这种没有逃生口的写法。
+const MOOD_TURN_RULE = `【实时心情·每轮重判】mood.label 必须是非空的中文短词，不许 null、空串或省略。
+· 上面【你此刻的心情】给的是【这一轮开始前】的读数，是起点不是答案。先按刚发生的事重新判断，再写你现在的。
+· 心情不只被对方那句话推动：此刻几点、你正在做什么、身体累不累、刚才那件事有没有过去，都会让它挪动。就算对方什么都没说，你等了半天、或者事情办完了，心情也已经不是刚才那个了。
+· 允许和上一轮相同，但那必须是重新判断出来的结果。**连着三四轮一模一样，基本就说明是在照抄上面那个词，不是在报此刻。**
+· 写具体的那一个词，别写「平静」「还行」这种什么都没说的挡箭牌。`;
 const GROUP_IN_CHARACTER = `【你不是在导演他们，你就是在场的每一个人】
 轮到写谁那一条，你就【是】那个人在打字、在场，不是站在旁边替他写台词。每一条都从【这个具体的人此刻真实的判断、心情、说话习惯】里出来，不是从「他这种人该有的样子」里出来。
 
@@ -3497,6 +3510,7 @@ async function generateOffline(p, ctx, session) {
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
+    "\n\n" + MOOD_TURN_RULE +
     // 读懂对方这句话在做什么:原先焊死在 ReplyPacing.guidance 里,只有线上单聊吃得到,
     // 于是同一个角色在线下/群聊里少了这层理解,显得不像同一个人(Lisa 2026-08-18)
     (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") +
@@ -3848,6 +3862,7 @@ async function generateOfflineGroup(p, ctx, session) {
     "\n\n" + CONDESCENDING_TONE_BAN +
     "\n\n" + REGISTER_FOLLOWS_SCENE +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
+    "\n\n" + MOOD_TURN_RULE +
     (typeof ReplyPacing !== "undefined" ? "\n\n" + ReplyPacing.reading() : "") +
     groupGrowthRule +
     timeBlock +
