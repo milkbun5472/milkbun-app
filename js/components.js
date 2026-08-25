@@ -3557,7 +3557,7 @@ function ChatThread({
         fontSize: 10.5,
         opacity: 0.7
       }
-    }, m.dir === "toChar" ? "转账" : "转账给你"))) : m.content), !selMode && !m.kind && last && subLine(m) && /*#__PURE__*/React.createElement("span", {
+    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU })), !selMode && !m.kind && last && subLine(m) && /*#__PURE__*/React.createElement("span", {
       style: {
         fontFamily: F_BODY,
         fontSize: 9.5,
@@ -4348,6 +4348,42 @@ function giftFmtLeft(ms) {
   if (m >= 60) { const hh = Math.floor(m / 60); return hh + "小时" + (m % 60 ? (m % 60) + "分" : ""); }
   const s = Math.ceil(ms / 1000);
   return m > 0 ? m + "分" + (s % 60) + "秒" : (s % 60) + "秒";
+}
+// 外语气泡：点一下把气泡撑开、下面显示中文（她 2026-08-25 要的，形状照抄上面的语音转文字）。
+// 绝大多数消息是中文 → translatableLang 返回空串 → 直接把原字符串还回去，不多包一层 DOM、零开销。
+// 点了才调 API（她按次计费），译文按原文缓存，同一句再出现免费。
+function TransText({ text, isU }) {
+  const t = useTheme();
+  const lang = typeof translatableLang === "function" ? translatableLang(text) : "";
+  const [open, setOpen] = useState(false);
+  const [zh, setZh] = useState(() => (lang && typeof transCacheGet === "function" ? transCacheGet(text) : ""));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  if (!lang) return text;
+  const fg = isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink);
+  const MONO = "'Archivo','SF Mono',ui-monospace,monospace";
+  const tap = async e => {
+    e.stopPropagation();
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (zh || busy) return;
+    setBusy(true); setErr("");
+    try { setZh(await translateToZh(text)); }
+    catch (x) { setErr(String((x && x.message) || x)); }
+    finally { setBusy(false); }
+  };
+  return h("span", null,
+    h("span", { onClick: tap, style: { cursor: "pointer" } }, text),
+    h("span", {
+      onClick: tap, className: "active:opacity-60",
+      style: { display: "inline-block", marginLeft: 6, verticalAlign: "middle", cursor: "pointer",
+        fontFamily: MONO, fontSize: 9.5, letterSpacing: "0.08em", lineHeight: 1.6,
+        padding: "0 5px", borderRadius: 5, border: "1px solid " + fg, opacity: 0.42, color: fg }
+    }, open ? "收起" : "译"),
+    open && h("span", { style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
+      h("span", { style: { display: "block", fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang),
+      h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1 } },
+        busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
 }
 // 语音消息：默认只显示语音条（波形+文件名+时长），点一下才展开转文字（TRANSCRIPT）
 function VoiceMsg({ m, isU, speaker }) {
@@ -6905,7 +6941,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }
-    }, bubbleSticker(isU), m.content), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU })), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
   }), sending && h("div", {
     className: "flex items-center gap-2"
   }, h("div", {

@@ -3085,6 +3085,76 @@ function ttsHelperProfile() {
     return list.find(p => p.id === bgId) || null;
   } catch (e) { return null; }
 }
+// ==== 外语气泡按需翻译（她 2026-08-25：角色发了别的语言，点一下像语音那样把气泡撑开显示中文）====
+// 设计三条：
+// ① 判定必须【保守】——宁可漏，不可把中文消息误判成外语，那样每条底下都挂个「译」很吵。
+//    「装睡还非要回一句Over」这种夹一个英文词的，绝不算。
+// ② 点了才调 API（她按次计费），一条一条来，绝不预翻。
+// ③ 译文按【原文】缓存：同一句话在别处再出现就免费，重开 App 也还在。
+function _transStrip(text) {
+  return String(text || "")
+    .replace(/https?:\/\/\S+/g, " ")                    // 链接不算外语
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, " ") // 表情不算
+    .replace(/[\s\d]+/g, " ");
+}
+// 返回 "" 表示不用翻；否则返回中文语种名，直接拿去当标签
+function translatableLang(text) {
+  const t = _transStrip(text);
+  if (!t.trim()) return "";
+  const count = re => (t.match(re) || []).length;
+  const han    = count(/[\u4e00-\u9fff]/g);
+  const kana   = count(/[\u3040-\u30ff]/g);
+  const hangul = count(/[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/g);
+  const cyr    = count(/[\u0400-\u04ff]/g);
+  const latin  = count(/[A-Za-z\u00c0-\u024f]/g);
+  // 假名和谚文是【决定性】的：中文里不会出现，见到就是日文/韩文，哪怕句中还有汉字
+  if (kana >= 2) return "日文";
+  if (hangul >= 2) return "韩文";
+  if (cyr >= 4) return "俄文";
+  // 拉丁字母要严格得多：必须【一个汉字都没有】，而且够长，才算整句外语。
+  // 这样「回一句Over」「发个OK」「hi」都不会被挂上标签。
+  if (han === 0 && latin >= 8) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
+  return "";
+}
+const TRANS_CACHE_KEY = "x_transCache";
+const TRANS_CACHE_MAX = 400;
+function _transKey(text) {
+  const s = String(text || "");
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return s.length + "_" + h.toString(36);
+}
+function transCacheGet(text) {
+  try { return (JSON.parse(localStorage.getItem(TRANS_CACHE_KEY) || "{}") || {})[_transKey(text)] || ""; }
+  catch (e) { return ""; }
+}
+function transCachePut(text, zh) {
+  try {
+    const m = JSON.parse(localStorage.getItem(TRANS_CACHE_KEY) || "{}") || {};
+    m[_transKey(text)] = zh;
+    const keys = Object.keys(m);
+    if (keys.length > TRANS_CACHE_MAX) keys.slice(0, keys.length - TRANS_CACHE_MAX).forEach(k => delete m[k]);
+    localStorage.setItem(TRANS_CACHE_KEY, JSON.stringify(m));
+  } catch (e) {}
+}
+// 走后台线路（和注音、记忆整理同一条），不占聊天线路、也不进聊天上下文。
+async function translateToZh(text) {
+  const cached = transCacheGet(text);
+  if (cached) return cached;
+  const p = ttsHelperProfile();
+  if (!p || !p.apiKey || !p.model) throw new Error("没配后台线路：去 设置·API 选一条「后台任务」用的线路");
+  const sys = "你是翻译。把用户发来的这段话翻译成简体中文。\n"
+    + "· 只输出译文，不要原文、不要注音、不要解释、不要引号、不要「译：」这类前缀。\n"
+    + "· 保留原话的语气和口吻（撒娇、调侃、生气、正式都照搬），这是聊天消息不是公文。\n"
+    + "· 人名、昵称、专有名词按通行译法；实在没有通行译法就保留原文。\n"
+    + "· 原文有几句就译几句，换行位置保持一致。";
+  const raw = await callAI(p, sys, [{ role: "user", content: String(text || "") }], { maxTokens: 1200, timeout: 45000 });
+  const zh = String(raw || "").trim().replace(/^[「『"']|[」』"']$/g, "").trim();
+  if (!zh) throw new Error("上游没有返回译文");
+  transCachePut(text, zh);
+  return zh;
+}
+
 // 日语汉字 → 假名读音（v47.93）：MiniMax 对「寝」这类中日共用汉字压不住会读成中文，
 // 合成前先让 AI 把汉字换成这句里的正确假名读音，喂假名给 TTS 就不会串中文。失败降级回原文（至少能出声）
 async function jpKanaReading(text) {
