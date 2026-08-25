@@ -6409,6 +6409,7 @@ function GroupThread({
   onAddMember,
   onKickMember,
   onDeleteGroup,
+  onClearGroupChat,
   onOffline,
   onSendRich,
   onStartCall,
@@ -7057,6 +7058,7 @@ function GroupThread({
     onAddMember: onAddMember,
     onKickMember: onKickMember,
     onDelete: onDeleteGroup,
+    onClearChat: onClearGroupChat,
     onClose: () => setSheet(null)
   }), sheet === "poll" && h(PollComposeSheet, {
     onSubmit: (title, opts, anon) => {
@@ -7382,7 +7384,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
-function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClose }) {
+function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -7407,6 +7409,8 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
   const bgFileRef = useRef(null);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [wipeMemToo, setWipeMemToo] = useState(false);
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),
     h(Toggle, { on: val, onChange: () => set(v => !v) }));
@@ -7509,6 +7513,23 @@ function GroupSettingsSheet({ gs, group, characters, directives, onRemoveDirecti
           }, temp ? "临时 · 还剩 " + Number(d.turns) + " 轮（点回长期）" : "长期 · 点这里改成临时 10 轮")),
           onRemoveDirective && h("button", { onClick: () => onRemoveDirective(d.id), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除"));
       }))) : null,
+
+    // 清除聊天记录（她 2026-08-24 要的）：照单聊那份的形状来。
+    // 只删【本群的线上 + 群线下】；成员各自的单聊/单人线下是他们自己的记录，不从这里连带删。
+    onClearChat && h("div", { className: "pt-7", style: { borderTop: "1px solid " + t.line, marginTop: 20 } },
+      h(Eyebrow, { style: { marginBottom: 6 } }, "清除聊天记录"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } },
+        "清空 " + ((group && group.name) || "这个群") + " 的线上群聊与群线下记录；线下不会先总结，也不会调用模型。成员各自的单聊与单人线下不受影响（此操作不可恢复）。"),
+      h("div", { className: "flex items-center justify-between mb-3" },
+        h("div", { className: "pr-3" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "同步忘却记忆库"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "连本群总结进记忆库的条目一起摘掉；成员在别处产生的记忆不动。")),
+        h(Toggle, { on: wipeMemToo, onChange: () => setWipeMemToo(v => !v) })),
+      confirmClear
+        ? h("div", { className: "flex gap-2" },
+            h("button", { onClick: () => setConfirmClear(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
+            h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); onClose && onClose(); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除线上线下+记忆" : "清除线上与线下"))
+        : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录")),
 
     // 删除群聊
     confirmDel

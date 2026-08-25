@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.88";
+const APP_VERSION = "v55.89";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2048,6 +2048,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return out;
   };
   const clampInt = (x, lo, hi, dflt) => typeof x === "number" && !isNaN(x) ? Math.max(lo, Math.min(hi, Math.round(x))) : dflt;
+  // 群产生的记忆统一打上「群聊 + 群名」这对 tag。groupId 认得更准，但它是本地字段——
+  // 云端 memlib 的列是固定的，同步一圈回来 groupId 就没了，只有 tags 活得下来。
+  // 所以「清群记录 · 同步忘却」的两级匹配（groupId 优先、tag 兜底）两条都要有人喂。
+  const gTags = (group, ...extra) => {
+    const nm = (group && group.name || "").trim();
+    return [...extra, "群聊", ...(nm ? [nm] : [])];
+  };
   const addMemEntry = e => {
     let entry = {
       id: "m_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
@@ -2059,7 +2066,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pinned: !!e.pinned,
       v: clampInt(e.v, -5, 5, 0),   // 情绪愉悦度 -5~5
       a: clampInt(e.a, 0, 5, 1),    // 情绪强度 0~5
-      open: !!e.open                // 还没了结的开环
+      open: !!e.open,               // 还没了结的开环
+      // 哪个群产生的（群侧总结才有）。addMemEntry 是白名单式建对象——不写在这儿，
+      // 调用方传了也会被静默丢掉，「清群记录·同步忘却」就永远只能靠 tag 兜底。
+      ...(e.groupId ? { groupId: String(e.groupId) } : {})
     };
     // v51.07：模型把“今晚吃粥”一类普通未来安排也大量标成 open。
     // 自动来源先过机械资格闸；手动勾选不干预。被挡的条目仍作为普通事实保存，不丢记忆。
@@ -3780,9 +3790,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日·群线下】" + summ;
         if (gsFor(groupId).memoryInterop) { // 只有互通群进全局记忆库（记忆分区）
           const memberIds = (group.memberIds || []).slice();
-          addMemEntry({ text: summ, tags: ["线下", "群聊"], charIds: memberIds, knownBy: memberIds.slice(), source: "auto" });
-          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: ["线下", "群聊", "细节"], charIds: memberIds, knownBy: memberIds.slice(), source: "auto" }));
-          (r.open || []).forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], charIds: memberIds, knownBy: memberIds.slice(), source: "auto", open: true }));
+          // groupId：清群记录时要能只摘本群产生的条目，光靠 tags 认不准（她 2026-08-24）
+          addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memberIds, knownBy: memberIds.slice(), source: "auto", groupId: groupId });
+          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memberIds, knownBy: memberIds.slice(), source: "auto", groupId: groupId }));
+          (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memberIds, knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId }));
         }
         pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
       }
@@ -4065,11 +4076,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    if (summary && group && interopOn) addMemEntry({ text: summary, tags: ["线下", "群聊"], knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto" });
+    if (summary && group && interopOn) addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", groupId: groupId });
     // 群线下细节/约定逐条入库（与单人 v47.55 平权），同样只在互通群才进全局记忆库
     if (group && interopOn) {
-      details.forEach(dt => addMemEntry({ text: dt, tags: ["线下", "群聊", "细节"], knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto" }));
-      opens.forEach(op => addMemEntry({ text: op, tags: ["线下", "群聊", "约定"], knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", open: true }));
+      details.forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", groupId: groupId }));
+      opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", open: true, groupId: groupId }));
     }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
     pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ts: Date.now() }]);
@@ -5458,7 +5469,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         if (pj) preJoin = "\n\n【每位成员入群前和用户的私聊 · ⚠️隐私边界铁律】\n"
           + "下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示、化用或质问另一个成员和用户之间私聊过什么、有过什么梗、是什么关系**——除非那位成员【自己在群里主动说了出来】。\n"
           + "尤其注意：别人段落里的称呼、玩笑、专属梗、约定、旧事，对你来说【根本不存在】，不许拿来开场、接话或试探。每个成员只凭『自己那一段』和『群里公开说过的话』行动。\n"
-          + "这些只是背景，别生硬复述。\n" + pj;
+          + "这些只是背景，别生硬复述。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + pj;
       }
       const gPersonaCap = groupPersonaBudget(members.length);
       const memberDesc = members.map(c => {
@@ -5511,7 +5522,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           return seg ? "『" + c.name + "』〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + seg : "";
         }).filter(Boolean).join("\n\n");
         const groupMem = formatMemLib(gSplit.shared);
-        interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem + "\n⚠️这些是背景、不是照演的剧本：别复刻记忆里的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作，生活要有新的具体。" : "");
+        interop = (memLines ? "\n\n【每位成员各自和用户的私下往来 · ⚠️隐私边界铁律】\n下面每一段【只属于标注的那位成员本人】。**一个成员绝不知道、也绝不许提及、暗示或质问另一个成员和用户之间私聊过什么、是什么关系**——除非那位成员【自己在群里主动说了出来】，说出来的话全群才知道。绝不许让谁从这里发现别人和用户的私密关系/对话（比如各自都以为自己是用户的对象，也不该借此撞破彼此）。每个成员只凭『自己那段私聊+记忆』和『群里公开说过的话』行动。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + memLines : "") + (groupMem ? "\n\n【记忆库·相关条目】\n" + groupMem + "\n⚠️这些是背景、不是照演的剧本：别复刻记忆里的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作，生活要有新的具体。" : "");
       }
       const asPrivate = gs.spectate && members.length === 2;
       let dir;
@@ -6188,7 +6199,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!toSum.length || !active) return;
     try {
       const summary = await summarizeGroup(active, { profile }, toSum);
-      if (summary && summary.trim()) addMemEntry({ text: summary.trim(), tags: ["群聊"], charIds: (g.memberIds || []).slice(), knownBy: (g.memberIds || []).slice(), source: "auto" });
+      if (summary && summary.trim()) addMemEntry({ text: summary.trim(), tags: gTags(g), charIds: (g.memberIds || []).slice(), knownBy: (g.memberIds || []).slice(), source: "auto", groupId: g.id });
       saveGroupSettings(groupId, { lastSummarizedCount: msgs.length - buffer });
       toast("群聊已存入记忆库");
     } catch (e) {/* silent */}
@@ -6296,6 +6307,33 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     }
     setChatSettingsOpen(false);
     toast(wipeMem ? "已清除线上与线下记录，并忘却记忆" : "已清除线上与线下记录");
+  };
+
+  // 群也要能清聊天记录（她 2026-08-24）。照着单聊那份 clearChat 的形状来：
+  // 覆盖【这个群的线上 + 群线下】，直接删、不总结、不调模型。
+  // ⚠️不碰任何成员的单聊/单人线下——那是各自的记录，不该被群里的操作连带删掉。
+  // 记忆库同理：只在她明确勾了「同步忘却」时，才摘掉【本群产生的】那些条目。
+  const clearGroupChat = (groupId, wipeMem) => {
+    pGChat(groupId, () => []);
+    pGOffline(groupId, () => []);
+    saveGroupSettings(groupId, { lastSummarizedCount: 0 });
+    // 自发额度也一起归零，否则清完记录它还记着「这一轮已经自发过 N 条」，
+    // 新起的第一句就可能直接撞上限、或者反过来立刻自发一串。
+    resetAutoChatCycle(groupId, Date.now());
+    clearUnread(groupId);
+    if (wipeMem) {
+      const gName = (groups.find(x => x.id === groupId) || {}).name || "";
+      const next = memLibRef.current.filter(e => {
+        if (!e) return false;
+        if (e.groupId && String(e.groupId) === String(groupId)) return false;   // 新条目带 groupId，认得准
+        // 旧条目没有 groupId，退回「群聊 + 群名」这对 tag；两个都对上才敢删
+        const tg = Array.isArray(e.tags) ? e.tags : [];
+        if (gName && tg.indexOf("群聊") >= 0 && tg.indexOf(gName) >= 0) return false;
+        return true;
+      });
+      saveMemLib(next);
+    }
+    toast(wipeMem ? "已清除本群线上与线下记录，并摘掉本群产生的记忆" : "已清除本群线上与线下记录");
   };
 
   // ---- 日历 / calendar ----
@@ -10644,6 +10682,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onAddMember: charId => addGroupMember(activeGroup.id, charId),
     onKickMember: charId => kickGroupMember(activeGroup.id, charId),
     onDeleteGroup: () => deleteGroup(activeGroup.id),
+    onClearGroupChat: wipeMem => clearGroupChat(activeGroup.id, wipeMem),
     onOffline: () => openGroupOffline(activeGroup),
     emotes: emotesForGroupMine(activeGroup.memberIds),
     onManageEmotes: () => setScreen("emotes"),
