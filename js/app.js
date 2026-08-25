@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.12";
+const APP_VERSION = "v56.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2772,7 +2772,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           lines.push("你的帖「" + p.title + "」下，" + (f.authorType === "me" ? meName + "评论的那条" : (f.authorName || "有人") + "评论的那条") + "（“" + String(f.content).slice(0, 24) + "”）又有人回：" + rs.join("；"));
         }
       }); });
-      return lines.slice(0, 5).join("\n");
+      // ⭐她自己公开发的帖（她 2026-08-25：「论坛行为怎么喂回聊天比较合理」）。
+      // 原来 forumEcho 只喂【角色自己发的帖】——她发的帖角色一个字都不知道，
+      // 可他明明关注着她的账号，这在现实里说不通。
+      // 边界照 v48.42 那条老规矩延伸：只给【公开的】。
+      //   给：她用大号发的帖、底下谁回了、这个角色自己有没有去回
+      //   不给：匿名吧、她的小号——那正是她不想让人对上号的东西，一个字都不许漏
+      const myPub = posts.filter(p => p.authorType === "me" && !p.anon && p.board !== "匿名吧").slice(0, 3);
+      myPub.forEach(p => {
+        const fl = (cmts[p.id] || []);
+        const mine = fl.filter(f => f.authorId === char.id || (f.replies || []).some(r => r.authorId === char.id));
+        const others = fl.filter(f => f.authorType !== "me").slice(0, 2)
+          .map(f => (f.authorName || "有人") + "：" + String(f.content || "").slice(0, 28));
+        lines.push(meName + "在「" + p.board + "」发了帖「" + p.title + "」"
+          + (p.body ? "（" + String(p.body).replace(/\s+/g, " ").slice(0, 40) + "）" : "")
+          + (others.length ? "，楼下有人回：" + others.join("；") : "，还没什么人回")
+          + (mine.length ? "。你也在下面回过。" : "。"));
+      });
+      return lines.slice(0, 6).join("\n");
     })(),
     // 查手机内容（歌单/浏览器/视频/备忘/录音）不再喂进聊天 prompt（v48.42 她点名）——
     // 那些是「查手机」推演出来给你偷看的，不该占聊天上下文。查手机 App 里照常显示，数据(phones)一点没动。
@@ -8749,6 +8766,104 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   };
   // 帖子回复数 +N
   const bumpReplyBy = (postId, n) => setForumPosts(prev => { const nn = prev.map(p => p.id === postId ? { ...p, replyCount: (p.replyCount || 0) + n } : p); saveJSON("x_forumPosts", nn); return nn; });
+  // ==== 我发的帖：让人陆续来回（她 2026-08-25 定的 A+B+C）====
+  // 原来 postMyForum 只做三件事：插一条记录、replyCount:0、弹个 toast，然后【再没有任何人来过】。
+  // 真论坛发帖的乐趣就是「过一会儿回来看看有没有人理我」，那一环整个是空的。
+  // 现在发帖当下排一张时间表，到点了才真去生成 1~2 层，并且亮红点。
+  // 成本按她自己的节奏：不发帖就一分钱不花；走后台池，比聊天线便宜。
+  const FORUM_MINE_WAVES_MS = [3 * 60000, 22 * 60000, 70 * 60000, 3 * 3600000, 8 * 3600000];
+  const FORUM_MINE_Q = "x_forumMineQueue";
+  const forumMineQueue = () => { try { const o = loadJSON(FORUM_MINE_Q, {}); return o && typeof o === "object" ? o : {}; } catch (e) { return {}; } };
+  const forumMineQueueSave = q => { try { saveJSON(FORUM_MINE_Q, q); } catch (e) {} };
+  const forumMineEnqueue = postId => {
+    const now = Date.now(), q = forumMineQueue();
+    q[postId] = { waves: FORUM_MINE_WAVES_MS.map(d => now + d), done: 0 };
+    forumMineQueueSave(q);
+  };
+  const forumWaveBusyRef = useRef(false);
+  // 一次巡检最多推进一个帖的一波：别让攒了几个帖时同秒并发烧调用。
+  const forumMineTick = async () => {
+    if (forumWaveBusyRef.current) return;
+    const p = bgActiveRef.current || active;
+    if (!p) return;
+    const now = Date.now(), q = forumMineQueue();
+    let hitId = null, hitIdx = -1;
+    for (const id of Object.keys(q)) {
+      const w = q[id]; if (!w || !Array.isArray(w.waves)) continue;
+      const idx = Number(w.done) || 0;
+      if (idx >= w.waves.length) { delete q[id]; forumMineQueueSave(q); continue; }
+      if (w.waves[idx] <= now) { hitId = id; hitIdx = idx; break; }
+    }
+    if (!hitId) return;
+    const post = (forumPostsRef.current || []).find(x => x.id === hitId);
+    // 帖子被删/被淘汰了就把队列一起清掉，别留着空转
+    if (!post) { const q2 = forumMineQueue(); delete q2[hitId]; forumMineQueueSave(q2); return; }
+    forumWaveBusyRef.current = true;
+    try {
+      const existing = forumCommentsRef.current[hitId] || [];
+      const d = await runProbeRetry(p, forumWorldCtx(),
+        forumCommentProbe(post, "1-2", { round2: true, existingFloors: existing, repliedChars: forumRepliedCharCells(existing) }));
+      const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
+      if (cs.length) {
+        const base = Date.now(), start = existing.length + 2;
+        const floorByNum = new Map(existing.map(f => [f.floor, f]));
+        const newRaw = [], subInserts = [];
+        cs.forEach(x => {
+          const tf = Number(x.reply_to_floor);
+          if (Number.isFinite(tf) && tf > 0 && floorByNum.has(tf)) {
+            const rep = buildForumReplyObj(x, post);
+            if (rep) subInserts.push({ floorId: floorByNum.get(tf).id, reply: rep });
+          } else newRaw.push(x);
+        });
+        // 这一波是【现在】才发生的，所以直接可见，不再往后铺时间
+        const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(hitId + ":w" + hitIdx) % 9999 + i, post))
+          .filter(Boolean).map((f, i) => ({ ...f, floor: start + i, visibleAt: base, ts: base }));
+        if (more.length || subInserts.length) {
+          setForumComments(prev => {
+            let list = prev[hitId] || [];
+            if (subInserts.length) list = list.map(f => {
+              const adds = subInserts.filter(x => x.floorId === f.id).map(x => x.reply);
+              return adds.length ? { ...f, replies: [...(f.replies || []), ...adds] } : f;
+            });
+            const n = { ...prev, [hitId]: [...list, ...more] };
+            saveJSON("x_forumComments", n); return n;
+          });
+          bumpReplyBy(hitId, more.length + subInserts.length);
+          forumMineBumpSocial(hitId, more.length + subInserts.length);
+          // ⭐B：红点原来只在【角色自己发帖】时亮，有人回她一律不亮，
+          // 于是就算生成了回复她也不知道。这儿补上，跟朋友圈/悄悄话一个待遇。
+          notifyApp("forum");
+          if (window.Notify) window.Notify.push({ title: "论坛有人回你了", body: "「" + String(post.title || "").slice(0, 18) + "」下有新回复", tag: "forum-mine-" + hitId });
+        }
+      }
+      const q3 = forumMineQueue();
+      if (q3[hitId]) { q3[hitId].done = hitIdx + 1; forumMineQueueSave(q3); }
+    } catch (e) {
+      // 失败不推进 done，下次巡检重试这一波；但把时间往后挪 10 分钟，别贴着一直撞
+      const q4 = forumMineQueue();
+      if (q4[hitId] && q4[hitId].waves) { q4[hitId].waves[hitIdx] = Date.now() + 10 * 60000; forumMineQueueSave(q4); }
+    } finally { forumWaveBusyRef.current = false; }
+  };
+  // ⭐C：她的帖原来 replyCount/likeCount/viewCount 永远是 0，列表上一看就是没人理。
+  // 回复数用真实新增（bumpReplyBy），点赞/浏览按这一波的规模编一个涨幅——
+  // 真论坛的浏览数本来也不是一条条数出来的。
+  const forumMineBumpSocial = (postId, added) => setForumPosts(prev => {
+    const nn = prev.map(x => {
+      if (x.id !== postId) return x;
+      const hh = forumHash(postId + ":" + (x.replyCount || 0));
+      return { ...x,
+        likeCount: (x.likeCount || 0) + added * (1 + hh % 4),
+        viewCount: (x.viewCount || 0) + added * (9 + hh % 40) + (hh % 25),
+        rtCount: (x.rtCount || 0) + (hh % 7 === 0 ? 1 : 0) };
+    });
+    saveJSON("x_forumPosts", nn); return nn;
+  });
+  useEffect(() => {
+    if (!loaded) return;
+    const first = setTimeout(forumMineTick, 20000);
+    const iv = setInterval(forumMineTick, 90000);
+    return () => { clearTimeout(first); clearInterval(iv); };
+  }, [loaded]);
   // 我开新楼评论 → 随后刷 4-6 条回我的（含楼主本人）挂到这层楼中楼
   const addForumFloor = (post, text) => {
     const base = Date.now();
@@ -8841,7 +8956,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const base = Date.now();
     const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
-    toast("已发布到「" + board + "」");
+    forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
+    toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
   };
   // 搜索：随机刷到四版块之外的吧（据全局聊天/世界话题），board 由 AI 起名
   const genForumSearch = async query => {

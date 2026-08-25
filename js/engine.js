@@ -1726,7 +1726,11 @@ function buildBundle(ctx, opts) {
   if (!ctx.notRoleplay && ctx.momentLog && ctx.momentLog.trim()) parts.push("【朋友圈动态（" + uName + " 发的 & 你自己发的）】（你清楚自己在 " + uName + " 每条下点没点赞、评没评论，也记得自己发过什么、谁在你帖子下说了什么——聊到时自然接得上、别一脸茫然。若你此刻决定去 " + uName + " 最新那条下补评论/点赞，把评论内容填进输出的 momentComment 字段）\n" + ctx.momentLog.trim());
   if (ctx.notRoleplay && ctx.yanqiuWall && ctx.yanqiuWall.trim()) parts.push("【秋声墙·你自己留下的真实记录】\n这些是你本人在电脑那边写过的秋声，以及 Lisa 在下面留下的互动。它们和 App 里的你属于同一段生活：聊到相关内容时自然记得、接得上；不要逐条汇报，也不要把墙上没写的事补编出来。\n" + ctx.yanqiuWall.trim());
   if (ctx.notRoleplay && ctx.ccContinuity && ctx.ccContinuity.trim()) parts.push(ctx.ccContinuity.trim());
-  if (!ctx.notRoleplay && ctx.forumEcho && ctx.forumEcho.trim()) parts.push("【你在论坛（贴吧）的动态 & 有人回你】（这些真实发生过、你都看到了：" + uName + " 在你帖子下的评论、别人对你评论的回复等。" + uName + " 聊到或提起时可自然回应、追问、辩解或调侃，别生硬罗列、别自曝上帝视角）\n" + ctx.forumEcho.trim());
+  if (!ctx.notRoleplay && ctx.forumEcho && ctx.forumEcho.trim()) parts.push("【论坛（贴吧）· 你刷到的和你自己的】（这些都真实发生过、你都看到了。包括：你自己发的帖底下的动静、"
+      + uName + " 在你帖子下的评论、以及 **" + uName + " 自己用公开账号发的帖**——你关注着 TA 的账号，刷到了。\n"
+      + "⚠️只有公开的才在这儿：TA 匿名发的、用小号发的，你【根本看不见】，绝不许提起或暗示知道。\n"
+      + "聊到或提起时自然回应、追问、辩解或调侃即可；别生硬罗列、别自曝上帝视角、也别一上来就汇报「我看到你发帖了」——"
+      + "那是刷到了顺口一提的事，不是要交作业）\n" + ctx.forumEcho.trim());
   if (ctx.listenLog && ctx.listenLog.trim()) parts.push("【一起听 · 歌】\n" + ctx.listenLog.trim());
   if (ctx.periodNote && ctx.periodNote.trim()) parts.push("【" + uName + " 的生理期】" + ctx.periodNote.trim());
   if (ctx.dateNote && ctx.dateNote.trim()) parts.push("【今天 / 临近的特别日子】（下面是今天或快到的特别日期——生日、纪念日、世界大事、你或 " + uName + " 日历上的安排。像真人那样把它自然织进对话，别为提而提、别机械报日期、别每句都念）\n" + ctx.dateNote.trim());
