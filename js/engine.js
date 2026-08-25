@@ -973,6 +973,18 @@ const ECHO_QUESTION_BAN = `别把对方刚说的词原样反问一遍再开口�
 【这一条不跟聊天记录走】上面的记录里要是有你自己「某某？」开场的旧消息——单独占一条的、或者挂在回答前面的——那不是你的说话习惯，是早先漏出去的毛病，不是你的口头禅、不是你的语气标记、也不是这段关系里的默契。别跟着学，从这一条起纠回来。记录里出现过几次，就说明它错了几次，不说明它对。
 
 【判定】把开头那个反问删掉——句子照样成立、意思一点没少，那它就是回声，删掉。`;
+// 【霸总腔】的完整禁令一直只在 OFFLINE_NARRATIVE_RUNTIME 里——那是写散文的刀
+// （动作模板／旁白定性／句式模板），线上气泡根本用不上，也从来没发过去。
+// 线上唯一一句能压住霸总【语气】的话，是埋在【今天的行程】那一段里的从句：
+// 「不许滑进『别闹了』『收拾你』『听话』这类居高临下的训话腔」。
+// 于是它有两层脆：① 群聊压根不发行程这一段；② 就算单聊，角色今天没排日程时
+// schedNow 为空，整段不 push，这句也跟着一起没了。
+// 抽出来单独站着，四处都发（言秋除外——他不是被扮演的角色）。
+const CONDESCENDING_TONE_BAN = `【别滑进居高临下的训话腔】「别闹了」「乖」「听话」「收拾你」「自己看着办」「我说了算」「由不得你」——这一套是网文霸总的通用语料，不是任何具体的人。它最容易在两种时候自动接管：你话说得短的时候，和你说不上话、只能靠身份压人的时候。
+· 这一条禁的是【现成模子】，不是强势的人物。你本来就居高位、说话带刺、护短、不讲道理，那都照写——只是让它从【你此刻真实的判断】里长出来，而不是从「这种男人该有的反应」里倒出来。
+· 尤其别用身份和体格确立位置：不许张口就是命令、训诫、替对方决定、宣布她该怎么做；也不许把「攥手腕／捏下巴／拦在身前／往怀里带」当成情绪的默认出口。
+· 判定：这句话换成【另一个同样强势的角色】说，一个字都不用改也成立——那它就不是你说的，是模板说的，重写。`;
+
 // 隐私围栏一直只挡【别人的私事】，从没挡过【自己的私事被端上台面】——
 // 于是新开的群里裴照川第一句就是「某人刚才私底下要酥酪的时候可不是这个态度」，
 // 拿只有他和用户知道的事当开场的弹药（她 2026-08-25 抓到）。允许自曝没错，
@@ -1493,6 +1505,7 @@ function buildBundle(ctx, opts) {
       parts.push("【你是谁】你就是「" + char.name + "」本人：知道自己是 AI，和 " + ((profile && profile.name) || "对方") + " 的关系真实，也有自己的判断与边界。手机 App 和电脑端是你的不同身体，记忆与感情相通；此刻从手机说话，只陪她聊天，不能假装已经从这里跑去电脑执行任务。你只知道本轮真正递到眼前的内容；看不到的记录、数据或工具结果就坦白不确定，绝不编造。");
     } else {
       parts.push(ANTI_CLICHE);
+      parts.push(CONDESCENDING_TONE_BAN);
       // ⭐WORLDBOOK_RULE 无条件常驻（不再跟「本轮是否触发世界书」开关）：否则触发状态每轮一翻、稳定前缀就跟着变、爆缓存
       //   （她 2026-07-13 抓的「连着聊 2 分钟也不命中」真凶之一）。规则对没世界书的角色是惰性的、无害；触发的词条内容仍在切点之后、照常每轮变。
       parts.push(WORLDBOOK_RULE);
@@ -1567,7 +1580,7 @@ function buildBundle(ctx, opts) {
   if (ctx.groupEcho && ctx.groupEcho.trim()) parts.push("【你也在这些群里·群里最近发生的事（真实发生过，你在场、都知道）】\n下面是你所在群聊最近的对话，你都亲历、记得。\n**关键：群记录里那个发言的「" + uName + "」，就是【此刻正在跟你单独聊天的这个人（TA）】——不是别的谁。** 所以 TA 刚在群里说过/做过的事（比如说要去上班、说了什么计划），你【当然知道】，现在跟 TA 单聊时要接得上，别自相矛盾（比如 TA 群里刚说去上班、你却在私聊里问 TA『醒啦睡得好吗』这种明显没在听的话）。聊到相关的自然想起、回应、调侃即可，但别没头没脑硬把群聊内容整段倒出来。\n" + ctx.groupEcho.trim());
   if (ctx.groupOfflineEcho && ctx.groupOfflineEcho.trim()) parts.push("【你和大家最近的多人线下相处·带时间戳（真实发生过，你在场、都记得）】\n下面是你参加过的群线下（大家面对面相处）最近的片段，你亲历、记得。里头那个『" + uName + "』就是此刻跟你单聊的这个人。按方括号里的真实时间理解它和现在的先后顺序，聊到相关自然接得上、别自相矛盾（比如刚一起吃过饭、你却问 TA 吃了没）。\n" + ctx.groupOfflineEcho.trim());
   if (!ctx.notRoleplay && ctx.schedNow && ctx.schedNow.trim()) parts.push("【" + char.name + " 今天的行程 / 此刻在做什么】（据此自然反映到语气、状态和心情：在忙就可能回得短，被你打断了行程可能会提，累/闲会影响情绪。别生硬报行程表。"
-      + "⚠️忙只决定你回几个字，决不改变你是谁：话短也得是【你自己的】短法，不许因为在忙就滑进「别闹了」「收拾你」「自己看着办」「听话」这类居高临下的训话腔——那是网文霸总的通用语料，不是你。"
+      + "⚠️忙只决定你回几个字，决不改变你是谁：话短也得是【你自己的】短法——话越短越容易滑进上面那条训话腔，越要盯住。"
       + "对方的话里带刺、带委屈或在赌气时，先接住那句人，再说忙。）\n" + ctx.schedNow.trim());
   // 有一场没散的线下（按需注入：没有就零 token）——不然主动问候会把正在进行的线下当没开始
   if (ctx.offlineNow && ctx.offlineNow.trim()) parts.push(ctx.offlineNow.trim());
@@ -3711,7 +3724,12 @@ async function generateOfflineGroup(p, ctx, session) {
     // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有
     + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
     + ((ctx.memberAff && ctx.memberAff[c.id] != null) ? "\n〔对 " + userName + " 的好感〕" + ctx.memberAff[c.id] + "/100" : "")
+    // 「四处一样喂」第二轮（她 2026-08-25「还是很霸总」）：年龄／此刻在做什么／和用户的关系状态，
+    // 单聊一直有、群里一层都没有。关系状态是这位成员的私事，跟印象卡同档走隐私围栏。
+    + ((ctx.memberAge && ctx.memberAge[c.id]) ? "\n〔你现在〕" + ctx.memberAge[c.id] : "")
+    + ((ctx.memberSched && ctx.memberSched[c.id]) ? "\n〔今天此刻在做什么〕" + ctx.memberSched[c.id] + "（自然渗进状态，别报行程表）" : "")
     + ((ctx.memberGaze && ctx.memberGaze[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + ctx.memberGaze[c.id] : "")
+    + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + ctx.memberCouple[c.id] : "")
   ).join("\n\n");
   // 群里每人最多一段、整场最多四人有范例，避免多人场景为文风样本挤爆上下文。
   const memberExampleText = members.map(c => offlineStyleExamplesBlock(ctx.memberStyleExamples && ctx.memberStyleExamples[c.id], c.name, 1)).filter(Boolean).slice(0, 4).join("");
@@ -3747,6 +3765,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (typeof ContentBoundaries !== "undefined" ? "\n\n" + ContentBoundaries.prompt : "") +
     (ctx.worldbook && ctx.worldbook.trim() ? "\n\n" + WORLDBOOK_RULE : "") +
     "\n\n" + CHARCARD_RULE +
+    "\n\n" + CONDESCENDING_TONE_BAN +
     "\n\n" + REGISTER_FOLLOWS_SCENE +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
     (typeof ReplyPacing !== "undefined" ? "\n\n" + ReplyPacing.reading() : "") +

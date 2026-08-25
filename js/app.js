@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v55.89";
+const APP_VERSION = "v55.90";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2578,6 +2578,53 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return window.ChatLedgerShadow.continuityPrompt(saved.rows || [], profile.name || "Lisa", 20, latestNativeAppSpeechTs(char.id), 240);
     } catch (e) { return ""; }
   };
+  // ⭐群聊补课（她 2026-08-25：「不是酥酪的问题宝宝是还是很霸总」）。
+  // v55.87 补的是【人设被砍到 200 字】，那只是缺口之一。把单聊线上的 buildBundle
+  // 和群线上的 system 一层层对下来，群里还少这四样，每一样都在直接决定他用什么语气说话：
+  //   ① 用户是谁（profile.persona）——群里只有一个名字，她整个人是空白。
+  //   ② 和用户是不是恋人、在一起多久（coupleStatus）——这是最要命的一条：
+  //      关系网里可能还写着旧标签，单聊靠 coupleStatus 盖过去，群聊压根没这层，
+  //      于是王爷在群里不知道自己是她男朋友，只好按「一个王爷遇上一个姑娘」演，
+  //      那个先验就是网文霸总。双胞胎是「现代年轻人」，同样空白但先验无害——
+  //      跟 v55.87 那次一模一样的形状：缺口对谁伤害大，取决于剩下的标签有多刻板。
+  //   ③ 多大年纪（她刚做的生日/年龄字段，群里一口没吃到）。
+  //   ④ 此刻在做什么。
+  // 这几条都是【这个人此刻是谁】，按「读一律给」封闭群照发；但和用户的关系是私事，
+  // 必须落在这位成员自己那一段里，走隐私围栏，绝不合成一块共享注入。
+  const coupleLineFor = (charId, uName) => {
+    const cp = couplesRef.current[charId];
+    if (!cp) return "";
+    if (cp.status === "together") {
+      const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null;
+      return "你和 " + uName + " 已经在一起了" + (days ? "（约 " + days + " 天）" : "") + "——这是你俩【当前真实的关系】，就算上面关系网里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】相处。";
+    }
+    if (cp.status === "pending") return "你和 " + uName + " 之间有一个还没敲定的情侣邀请，关系正处在暧昧、要不要更进一步的阶段。";
+    return "";
+  };
+  const ageLineFor = char => {
+    const bd = String((char && char.birthday) || "").trim();
+    if (!bd) return "";
+    const age = typeof charAge === "function" ? charAge(bd, Date.now()) : null;
+    const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(bd) : "";
+    const bits = [];
+    if (age != null) bits.push(age + " 岁");
+    if (both && typeof parseLunarBirthday === "function" && parseLunarBirthday(bd)) bits.push("生日 " + both);
+    return bits.length ? bits.join("，") + "（按今天现算；人设里写死的岁数是旧数字，以这个为准）" : "";
+  };
+  // 群里一人一份完整日程会把上下文撑爆，而且她按次计费——只取「此刻正在做什么」这一行。
+  // 差异是显式的、有理由的：整张行程表留给单聊，群里只保留决定语气和连贯性的那一句。
+  const schedBriefFor = char => {
+    try {
+      const plans = schedulesRef.current[char.id] || {};
+      const sc = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+      if (!sc || !Array.isArray(sc.seqs) || !sc.seqs.length) return "";
+      const disp = schedDisplaySeqs(char, sc.seqs);
+      const idx = schedCurrentSeqIdx(disp, true, char);
+      const cur = idx >= 0 ? disp[idx] : null;
+      if (!cur) return "";
+      return cur.title + (cur.location ? "，在 " + cur.location : "");
+    } catch (e) { return ""; }
+  };
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
@@ -3695,6 +3742,33 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memberAff: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => { m[id] = Math.round(affOf(id)); });
+      return m;
+    })(),
+    // 年龄／此刻在做什么／和用户的关系状态：单聊线上线下一直有，群里一层都没有（她 2026-08-25）
+    memberAge: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const c = characters.find(x => x.id === id);
+        const a = c ? ageLineFor(c) : "";
+        if (a) m[id] = a;
+      });
+      return m;
+    })(),
+    memberSched: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const c = characters.find(x => x.id === id);
+        const b = c ? schedBriefFor(c) : "";
+        if (b) m[id] = b;
+      });
+      return m;
+    })(),
+    memberCouple: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const l = coupleLineFor(id, profile.name || "用户");
+        if (l) m[id] = l;
+      });
       return m;
     })(),
     // 印象卡跟长期记忆同一档（从私下往来长出来的＝「发生过什么」），只在开了记忆互通时给
@@ -5490,7 +5564,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           : { label: (moods[c.id] || {}).label || "", note: "" };
         const mdSeg = md.label ? "\n〔此刻心情〕" + md.label : (md.note ? "\n〔心情〕" + md.note : "");
         const afSeg = "\n〔对 " + (profile.name || "用户") + " 的好感〕" + Math.round(affOf(c.id)) + "/100";
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg;
+        // 年龄按今天现算（她刚做的生日字段，群里一直没吃到）
+        const ageSeg = (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })();
+        // ⚠️和用户是什么关系是【这位成员的私事】——落在他自己这一段里，别的成员不知道（隐私铁律见下）
+        const cpSeg = (() => { const l = coupleLineFor(c.id, profile.name || "用户"); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })();
+        const sbSeg = (() => { const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })();
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cpSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -5581,7 +5660,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const gDirHint = gDirs.length ? "\n\n【⚠️群规矩·最高优先级，压过下面的对话惯性】这些是用户之前（场外）跟你们立好、你们已经答应了的约定，每一条【现在就生效】（没标临时的即长期有效）：\n" + gDirs.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n——就算上面的聊天记录里大家还在聊相关话题，也从这一轮起严格照约定来（惯性不是理由）；用户若问「是不是说好了」，大方承认记得并已经在做，绝不许一脸茫然装不知道。" : "";
       // 群聊里有旁白/围观（spectate）等长段描写时也吃八股压制器（线上短对话不需要，但群聊会写到叙事）
       const groupOnlineRuntime = ONLINE_CHAT_RULE_V2.replace("word 只包含", "每条 text 只包含");
-      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {

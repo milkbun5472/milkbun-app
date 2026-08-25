@@ -14,12 +14,13 @@ const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 test("三条没有场景状态机的通道都要挂上「语域跟着场面走」", () => {
   assert.match(engine, /const REGISTER_FOLLOWS_SCENE = /);
   // 线上群聊
-  // v54.21 起中间多了一条 PERSONA_REGISTER_ANCHOR，两条都得在
-  assert.match(app, /ContentBoundaries\.prompt : ""\) \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/);
+  // v54.21 起中间多了一条 PERSONA_REGISTER_ANCHOR，两条都得在；
+  // v55.90 起「语域三件套」再加一条 CONDESCENDING_TONE_BAN，三条连成一片、顺序固定。
+  assert.match(app, /ContentBoundaries\.prompt : ""\) \+ "\\n\\n" \+ CONDESCENDING_TONE_BAN \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR \+ "\\n\\n" \+ dir \+ common/);
   // 线上单聊
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
   // 群线下
-  assert.match(engine, /"\\n\\n" \+ CHARCARD_RULE \+\n    "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
+  assert.match(engine, /"\\n\\n" \+ CHARCARD_RULE \+\n    "\\n\\n" \+ CONDESCENDING_TONE_BAN \+\n    "\\n\\n" \+ REGISTER_FOLLOWS_SCENE/);
   assert.match(engine, /REGISTER_FOLLOWS_SCENE \+\n    "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/);
 });
 
