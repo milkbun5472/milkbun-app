@@ -3234,6 +3234,7 @@ function ChatThread({
     style: { flexShrink: 0, background: "rgba(194,90,74,0.1)", borderBottom: "1px solid " + t.line, padding: "7px 16px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, textAlign: "center", lineHeight: 1.5 }
   }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
     ref: ref,
+    style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-1"
   }, archCount > 0 ? h("button", {
     onClick: async () => { if (archView === "loading") return; setArchView("loading"); const arr = onLoadOlder ? await onLoadOlder(character.id) : null; setArchView(Array.isArray(arr) ? arr : []); },
@@ -3457,7 +3458,8 @@ function ChatThread({
       className: "flex flex-col",
       style: {
         alignItems: isU ? "flex-end" : "flex-start",
-        maxWidth: "72%"
+        maxWidth: "72%",
+        minWidth: 0
       }
     }, m.replyTo && h("div", {
       style: {
@@ -6667,6 +6669,7 @@ function GroupThread({
     color: t.ink
   }))), h("div", {
     ref: ref,
+    style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-2"
   }, archCount > 0 ? h("button", {
     onClick: async () => { if (archView === "loading") return; setArchView("loading"); const arr = onLoadOlder ? await onLoadOlder("g_" + group.id) : null; setArchView(Array.isArray(arr) ? arr : []); },
@@ -6916,7 +6919,8 @@ function GroupThread({
       className: "flex flex-col",
       style: {
         alignItems: isU ? "flex-end" : "flex-start",
-        maxWidth: "72%"
+        maxWidth: "72%",
+        minWidth: 0
       }
     }, !isU && h("span", {
       style: {
