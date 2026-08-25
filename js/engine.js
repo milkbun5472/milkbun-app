@@ -230,6 +230,26 @@ async function embedTexts(texts, opts) {
 function memEntryEmbedText(e) { return (String(e.text || "") + ((e.tags && e.tags.length) ? ("（" + e.tags.join("、") + "）") : "")).slice(0, 420); }
 // 给记忆库补嵌向量：只处理「没向量/文本变了/换了模型」的条目（force=全量重嵌），分批走 API、批间歇口气（免费模型有限速）。
 // 顺手清掉已删除条目的孤儿向量。onProgress(done,total)。返回本次嵌了几条。任何时候没配 API 都静默返回 0。
+// 向量记忆体检（她 2026-08-25：「看看我的向量记忆库是不是还是好的」）。
+// 只读本机缓存 + 比对哈希/模型，一次网络请求都不发、一分钱不花。
+// 三种「不好」要分开报，因为修法完全不同：
+//   没配 embedding → 整个功能没开，聊天回落关键词检索（不算坏）
+//   缺向量        → 新记忆还没补嵌，按「建向量索引」就好
+//   过期          → 文本改过或换了模型，旧向量对不上，同样要重建
+async function memVecStatus(lib) {
+  if (!embApiReady()) return { on: false };
+  await hydrateMemVecs();
+  const model = loadEmbApi().model;
+  const cache = _memVecCache();
+  const list = (lib || []).filter(e => e && e.id && e.text);
+  let ok = 0, stale = 0;
+  list.forEach(e => {
+    const cur = cache.get(e.id);
+    if (!cur) return;
+    if (cur.m === model && cur.h === memVecHash(memEntryEmbedText(e))) ok++; else stale++;
+  });
+  return { on: true, model: model, total: list.length, ok: ok, stale: stale, missing: list.length - ok - stale };
+}
 async function ensureMemVecs(lib, opts) {
   opts = opts || {};
   if (!embApiReady()) return 0;

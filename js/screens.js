@@ -6262,6 +6262,29 @@ function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
         }));
 }
 
+// 向量记忆体检条（她 2026-08-25：「看看我的向量记忆库是不是还是好的」）。
+// 只读本机缓存，零请求零花费。三种情况分开说，因为修法不一样。
+function VecHealth({ entries }) {
+  const t = useTheme();
+  const [st, setSt] = useState(null);
+  useEffect(() => {
+    let dead = false;
+    if (typeof memVecStatus !== "function") return;
+    memVecStatus(entries || []).then(r => { if (!dead) setSt(r); }).catch(() => {});
+    return () => { dead = true; };
+  }, [(entries || []).length]);
+  if (!st) return null;
+  if (!st.on) return h("div", { className: "px-6", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, paddingBottom: 6 } },
+    "向量记忆没开 · 聊天挑记忆走关键词检索（能用，只是换个说法就认不出）。要开去 设置 · 向量记忆 API。");
+  const bad = (st.missing || 0) + (st.stale || 0);
+  return h("div", { className: "px-6", style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.5, paddingBottom: 6, color: bad ? t.accent : t.fog } },
+    bad === 0
+      ? "🟢 向量记忆正常 · " + st.total + " 条全都有向量（" + st.model + "）"
+      : "🟡 向量记忆 " + st.ok + "/" + st.total + " 条就绪"
+        + (st.missing ? "，" + st.missing + " 条还没建" : "")
+        + (st.stale ? "，" + st.stale + " 条过期（改过文本或换过模型）" : "")
+        + " · 去 设置 · 向量记忆 API 按「建向量索引」补上");
+}
 function MemoryLib({
   entries,
   characters,
@@ -6409,7 +6432,7 @@ function MemoryLib({
       onBulkImport ? h("button", { onClick: () => setImportOpen(true), className: "active:opacity-50", title: "导入长文进记忆库", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "导入长文") : null,
       onSaveCfg ? h("button", { onClick: () => setCfgOpen(true), className: "active:opacity-50", title: "召回设置" }, h(GConfig, { size: 19, color: t.ink })) : null,
       h("button", { onClick: () => setEditing("new"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })))
-  }), importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
+  }), h(VecHealth, { entries: entries }), importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
   innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { characters, onClose: () => setInnerLifeOpen(false) }) : null,
   bAxesOpen ? h(InnerLifeBDiagnosticSheet, { characters, onClose: () => setBAxesOpen(false) }) : null,
   cSleepOpen ? h(InnerLifeCDiagnosticSheet, { characters, onClose: () => setCSleepOpen(false) }) : null,
