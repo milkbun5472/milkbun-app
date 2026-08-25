@@ -2886,6 +2886,27 @@ function loadTtsApi() {
   return a;
 }
 function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try { localStorage.setItem("x_ttsApi", JSON.stringify(clean)); } catch (e) {} return clean; }
+// 真声通话的耳朵：书房 Mac 上的 whisper 识别服务（voice-live），带门锁 token。
+// 只存地址和门锁，不是模型密钥；留空=真声档不出现，零膨胀。
+function loadVoiceEars() {
+  const def = { base: "", k: "" };
+  let a = def;
+  try { const c = JSON.parse(localStorage.getItem("x_voiceEars") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
+  a.base = String(a.base || "").trim().replace(/\/+$/, "");
+  a.k = String(a.k || "").trim();
+  return a;
+}
+function saveVoiceEars(c) { const clean = Object.assign(loadVoiceEars(), c || {}); try { localStorage.setItem("x_voiceEars", JSON.stringify(clean)); } catch (e) {} return clean; }
+function voiceEarsReady(a) { a = a || loadVoiceEars(); return !!(a.base && a.k); }
+// 送一段 16k 单声道 WAV 去识别；回 {text, ms}。识别失败抛人话错误。
+async function earsTranscribe(wavBlob) {
+  const a = loadVoiceEars();
+  if (!voiceEarsReady(a)) throw new Error("没配置真声耳朵（设置 · API）");
+  const r = await fetchT(a.base + "/transcribe?k=" + encodeURIComponent(a.k), { method: "POST", body: wavBlob }, 60000);
+  const d = await r.json();
+  if (!r.ok || !d.ok) throw new Error("识别失败：" + (d.error || ("HTTP " + r.status)));
+  return d;
+}
 // 克隆音色库：克过的 voice_id 登记在本机（只是清单方便管理/指派，删掉不影响 MiniMax 账号里的音色）
 function loadVoiceLib() { try { const v = JSON.parse(localStorage.getItem("x_voiceLib") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 function saveVoiceLib(list) { try { localStorage.setItem("x_voiceLib", JSON.stringify(list || [])); } catch (e) {} }

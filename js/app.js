@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.08";
+const APP_VERSION = "v55.98";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1819,7 +1819,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!loaded) return;
     const tickAll = async (forcePresence) => { try { if (window.SleepShadow) {
       if (window.SleepShadow.ready) await window.SleepShadow.ready();
-      liveChars.forEach(c => {
+      characters.forEach(c => {
       const r = window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true, { forcePresence: !!forcePresence });
       // D 梦回路胶水：只读 C 的 tick 返回值，REM 窗到点由 DreamLoop 自判并入队（零 API 不展示）
       try { if (r && !r.exempt && r.state && window.DreamLoop) window.DreamLoop.observe(c, r.state); } catch (eD) {}
@@ -2051,12 +2051,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 群产生的记忆统一打上「群聊 + 群名」这对 tag。groupId 认得更准，但它是本地字段——
   // 云端 memlib 的列是固定的，同步一圈回来 groupId 就没了，只有 tags 活得下来。
   // 所以「清群记录 · 同步忘却」的两级匹配（groupId 优先、tag 兜底）两条都要有人喂。
-  // 她要的：NPC 在群里的互动【进主角色的记忆库】。
-  // 不用新造机制——knownBy 已经在了（splitGroupMemories 就按它分流）：
-  //   charIds  = 只放真角色 → 这条记忆【归主角色】，他单聊时召得回来
-  //   knownBy  = 在场的都放（含 NPC） → 陆闻下次在群里也记得这一段，
-  //              但召不回裴照川跟她的私事
-  const memOwners = ids => (ids || []).filter(id => { const c = characters.find(x => x.id === id); return c && !c.npc; });
   const gTags = (group, ...extra) => {
     const nm = (group && group.name || "").trim();
     return [...extra, "群聊", ...(nm ? [nm] : [])];
@@ -2073,10 +2067,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       v: clampInt(e.v, -5, 5, 0),   // 情绪愉悦度 -5~5
       a: clampInt(e.a, 0, 5, 1),    // 情绪强度 0~5
       open: !!e.open,               // 还没了结的开环
-      // 谁知道这件事。以前各处 knownBy 都恰好等于 charIds，白名单丢了它也没人发现；
-      // NPC 一来两者就分家了（归属只给主角色、在场的配角也该记得），非补不可。
-      // 三态：不是数组＝旧数据走 charIds 老规则；空数组＝只有用户知道。
-      ...(Array.isArray(e.knownBy) ? { knownBy: e.knownBy.map(String) } : {}),
       // 哪个群产生的（群侧总结才有）。addMemEntry 是白名单式建对象——不写在这儿，
       // 调用方传了也会被静默丢掉，「清群记录·同步忘却」就永远只能靠 tag 兜底。
       ...(e.groupId ? { groupId: String(e.groupId) } : {})
@@ -2489,7 +2479,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return { time: cur._myLabel || cur.time || "", title: cur.title || "", location: cur.location || "", type: cur.type || "other", dev: !!cur.deviation };
   };
   // 好友地图：所有角色此刻在做什么（供 pin 定位偏移 + 标签）
-  const mapStatusAll = () => { const m = {}; liveChars.forEach(c => { const b = schedNowBriefFor(c); if (b) m[c.id] = b; }); return m; };
+  const mapStatusAll = () => { const m = {}; characters.forEach(c => { const b = schedNowBriefFor(c); if (b) m[c.id] = b; }); return m; };
   // 「此刻是不是真和用户面对面」——不只看线下 session 开着，还看【最近一拍够不够新】（她 2026-07-23）：
   //   线下可能开着但他俩已在剧情里分开/各自去忙，或就是没关线下挂着；那时角色该能正常线上找人/找用户/在群里聊，别死锁。
   //   最近一拍在 OFFLINE_TOGETHER_MIN 分钟内 = 还面对面(锁线上/别分身)；更久 = 已散/挂着(放行线上互动)。
@@ -2669,16 +2659,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       + "\n它们会重复出现，恰恰因为它们是【这种时候的通用模板】。本轮不许照搬，也不许换个说法说同一件事。"
       + "你想到的第一句要是落在这张单子上，那多半不是你要说的话，重想一句真正属于你此刻的。";
   };
-  // ⭐NPC（她 2026-08-25）：只在群里出场的配角，没有单聊、没有心情好感、不进任何后台循环。
-  // 它们和真角色存在同一个 characters 里——群聊、记忆库、印象卡、头像全是绕着这张表转的，
-  // 另起一张表等于把这些全部重写一遍。区别只是【关掉几个开口】。
-  //
-  // ⚠️关键决定：递给 UI 的 characters 一律换成 liveChars（不含 NPC），
-  // 只有【真的要按 id 找群成员】的那两处显式再拿全量。
-  // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
-  // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
-  const liveChars = characters.filter(c => c && !c.npc);
-  const npcsOf = hostId => characters.filter(c => c && c.npc && String(c.ownerId) === String(hostId));
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
@@ -3176,7 +3156,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // —— 特殊天气主动：TA 那边雨/雪/雷雾/极端温度 → 一位在聊的角色主动发条被天气牵动的消息（全局每天最多一条，读天气缓存零请求）——
       try {
         if (loadJSON("x_wxReactDay", "") !== dayKey && typeof wxSpecial === "function") {
-          const wpool = liveChars.filter(c => hist(c).length >= 2);
+          const wpool = characters.filter(c => hist(c).length >= 2);
           const wrot = wpool.length ? Math.floor(Date.now() / 86400000) % wpool.length : 0;
           const _prefs = loadJSON("x_prefs", {});
           const _geo = _prefs.geoAware ? loadJSON("x_geo", null) : null;
@@ -3786,7 +3766,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memberMood: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => {
-        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有心情
         const cur = moods[id] || {};
         const st = window.MoodLabel && window.MoodLabel.settle
           ? window.MoodLabel.settle(cur.label, cur.ts, Date.now()) : { label: cur.label || "", note: "" };
@@ -3796,21 +3775,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     })(),
     memberAff: (() => {
       const m = {};
-      (group.memberIds || []).forEach(id => {
-        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有好感度
-        m[id] = Math.round(affOf(id));
-      });
-      return m;
-    })(),
-    // 配角的主人名字：群线下的 memberDesc 用它标一行「这是 X 身边的人」
-    npcOwnerName: (() => {
-      const m = {};
-      (group.memberIds || []).forEach(id => {
-        const c = characters.find(x => x.id === id);
-        if (!c || !c.npc) return;
-        const o = characters.find(x => x.id === c.ownerId);
-        if (o) m[id] = o.name;
-      });
+      (group.memberIds || []).forEach(id => { m[id] = Math.round(affOf(id)); });
       return m;
     })(),
     // 年龄／此刻在做什么／和用户的关系状态：单聊线上线下一直有，群里一层都没有（她 2026-08-25）
@@ -3818,8 +3783,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const m = {};
       (group.memberIds || []).forEach(id => {
         const c = characters.find(x => x.id === id);
-        if (!c || c.npc) return;            // 配角没有年龄这一层
-        const a = ageLineFor(c);
+        const a = c ? ageLineFor(c) : "";
         if (a) m[id] = a;
       });
       return m;
@@ -3828,8 +3792,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const m = {};
       (group.memberIds || []).forEach(id => {
         const c = characters.find(x => x.id === id);
-        if (!c || c.npc) return;            // 配角没有行程
-        const b = schedBriefFor(c);
+        const b = c ? schedBriefFor(c) : "";
         if (b) m[id] = b;
       });
       return m;
@@ -3837,8 +3800,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     memberCouple: (() => {
       const m = {};
       (group.memberIds || []).forEach(id => {
-        const c = characters.find(x => x.id === id);
-        if (!c || c.npc) return;            // 配角跟用户没有关系线
         const l = coupleLineFor(id, profile.name || "用户");
         if (l) m[id] = l;
       });
@@ -3851,7 +3812,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!window.Gaze) return m;
       (group.memberIds || []).forEach(id => {
         if (settingsFor(id).engineerEyes) return;
-        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有印象卡
         const t = window.Gaze.text(id, profile.name || "用户");
         if (t && t.trim()) m[id] = t.trim();
       });
@@ -3939,9 +3899,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (gsFor(groupId).memoryInterop) { // 只有互通群进全局记忆库（记忆分区）
           const memberIds = (group.memberIds || []).slice();
           // groupId：清群记录时要能只摘本群产生的条目，光靠 tags 认不准（她 2026-08-24）
-          addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId });
-          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", groupId: groupId }));
-          (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memOwners(memberIds), knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId }));
+          addMemEntry({ text: summ, tags: gTags(group, "线下"), charIds: memberIds, knownBy: memberIds.slice(), source: "auto", groupId: groupId });
+          (r.details || []).forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), charIds: memberIds, knownBy: memberIds.slice(), source: "auto", groupId: groupId }));
+          (r.open || []).forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), charIds: memberIds, knownBy: memberIds.slice(), source: "auto", open: true, groupId: groupId }));
         }
         pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, summary: ((s.summary ? s.summary + "\n" : "") + seg).slice(-4000), lastSummarizedCount: all.length - OFF_SUM_BUFFER } : s)); // 前情提要总累进(防本场失忆)
       }
@@ -4064,9 +4024,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 这三处以前一道闸都没有：闭群里演什么，好感、心情、状态卡就跟着变，
         // 转头回单聊他还带着闭群里的情绪，等于沙盒漏了。
         const gOffSealed = groupClosed(group.id);
-        const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有心情/好感
-        if (!gOffSealed && !_bNpc && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
-        if (!gOffSealed && !_bNpc && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
+        if (!gOffSealed && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
+        if (!gOffSealed && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
         // 群线下心声同样过守卫再进共享状态卡（导演稿/演技备注拦在卡外，消息内原文照旧）
         const gOffThought = b.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(b.thought) : b.thought;
         if (!gOffSealed && b.senderId && (gOffThought || (b.mood && b.mood.label))) {
@@ -4225,11 +4184,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 不互通的群是封闭空间——总结只留在本群这条线下会话里，绝不外泄到记忆库/单聊。
     const interopOn = gsFor(groupId).memoryInterop;
     pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
-    if (summary && group && interopOn) addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId });
+    if (summary && group && interopOn) addMemEntry({ text: summary, tags: gTags(group, "线下"), knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", groupId: groupId });
     // 群线下细节/约定逐条入库（与单人 v47.55 平权），同样只在互通群才进全局记忆库
     if (group && interopOn) {
-      details.forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", groupId: groupId }));
-      opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: memOwners(group.memberIds), source: "auto", open: true, groupId: groupId }));
+      details.forEach(dt => addMemEntry({ text: dt, tags: gTags(group, "线下", "细节"), knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", groupId: groupId }));
+      opens.forEach(op => addMemEntry({ text: op, tags: gTags(group, "线下", "约定"), knownBy: (group.memberIds || []).slice(), charIds: group.memberIds || [], source: "auto", open: true, groupId: groupId }));
     }
     // 回写进线上群聊记录，接上线上/线下连贯（群成员回到线上不会还停在线下前的状态）
     pGChat(groupId, p => [...p, { role: "system", kind: "offlinelog", content: summary || "你们刚一起在线下见了一面。", transcript: offlineTranscriptForOnline(sess.msgs, true, ""), ts: Date.now() }]);
@@ -4279,41 +4238,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setCardImportOpen(false);
     toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + "，去名录点开补头像/线路吧");
   };
-  // NPC：她填一句「要谁」，一次调用生成简介+双向关系，落成一个 npc:true 的角色。
-  // 走后台线路（和记忆整理、翻译同一条），不占聊天线路。
-  const createNpc = async (hostId, ask) => {
-    const host = characters.find(c => c.id === hostId);
-    if (!host) return;
-    if (!String(ask || "").trim()) { toast("先写要生成谁，比如「陆闻」或「他的属下」"); return; }
-    const p = bgActiveRef.current || active;
-    if (!p) { toast("先去 设置·API 配一条线路"); return; }
-    if (laneBusy("npc:" + hostId)) return;
-    startLane("npc:" + hostId);
-    try {
-      const r = await generateNpc(p, host, ask, npcsOf(hostId).map(c => c.name));
-      const id = "c_" + Date.now() + "_npc";
-      pC(prev => [...prev, {
-        id: id, name: r.name, persona: r.brief,
-        npc: true, ownerId: hostId          // ← 这两个字段是全部区别
-      }]);
-      // 双向关系：群聊的【成员间关系】那一段就是读它，写了他俩在群里才认得彼此
-      if (r.relFromHost) saveRel(hostId + "->" + id, r.relFromHost, "");
-      if (r.relToHost) saveRel(id + "->" + hostId, r.relToHost, "");
-      toast("已加入「" + r.name + "」，去群里拉上他");
-    } catch (e) {
-      toast("生成失败：" + ((e && e.message) || e));
-    } finally { endLane("npc:" + hostId); }
-  };
   const delChar = id => {
-    // 主角色删了，他身边的人跟着删（她 2026-08-25 拍的）；顺手从所有群里摘掉，
-    // 否则群成员列表里会留下一串找不到人的 id。
-    const doomed = new Set([id, ...npcsOf(id).map(c => c.id)]);
-    pC(p => p.filter(c => !doomed.has(c.id)));
-    setGroups(prev => {
-      const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => !doomed.has(x)) }));
-      saveJSON("x_groups", n);
-      return n;
-    });
+    pC(p => p.filter(c => c.id !== id));
     setScreen("cast");
     setEditingChar(null);
   };
@@ -5651,7 +5577,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           + "尤其注意：别人段落里的称呼、玩笑、专属梗、约定、旧事，对你来说【根本不存在】，不许拿来开场、接话或试探。每个成员只凭『自己那一段』和『群里公开说过的话』行动。\n"
           + "这些只是背景，别生硬复述。\n" + PRIVATE_IS_BACKGROUND_NOT_AMMO + "\n" + pj;
       }
-      const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
+      const gPersonaCap = groupPersonaBudget(members.length);
       const memberDesc = members.map(c => {
         const ph = (phones || {})[c.id] || {};
         const pn = ph.music && ph.music.songs && ph.music.songs.length ? "（TA 最近在听：" + ph.music.songs.slice(0, 4).map(s => s.name).join("、") + "，对上了能认出来）" : "";
@@ -5675,15 +5601,6 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         // ⚠️和用户是什么关系是【这位成员的私事】——落在他自己这一段里，别的成员不知道（隐私铁律见下）
         const cpSeg = (() => { const l = coupleLineFor(c.id, profile.name || "用户"); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })();
         const sbSeg = (() => { const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })();
-        // NPC 是只在群里出场的配角（她 2026-08-25 拍板）：没有心情、没有好感度。
-        // 也不吃印象卡、长出来的自我、年龄、行程、情侣状态——那些都是
-        // 「这个主角色是谁」的层，配角没有，给了反而会演出争宠吃醋那一套。
-        // 人设额度另算：群预算是按人数平分的，配角挤进去会把主角色的额度吃掉。
-        if (c.npc) {
-          const owner = characters.find(x => x.id === c.ownerId);
-          return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
-            + (owner ? "\n〔这是 " + owner.name + " 身边的人，只在群里出场〕" : "");
-        }
         return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cpSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
@@ -5978,13 +5895,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             const gWear = item.wearing && String(item.wearing).toLowerCase() !== "null" ? String(item.wearing).trim() : null;
             const rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
             const gAction = rawGAction && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.normalizeAction(rawGAction, spk && spk.name) : rawGAction;
-            // NPC 没有心情、也没有好感度（她 2026-08-25 拍板）：模型照样填了就丢掉
-            if (spk && !spk.npc && !isNaN(aDelta)) bumpAff(spk.id, aDelta || 0, moodLabel);
-            if (spk && !spk.npc && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
+            if (spk && !isNaN(aDelta)) bumpAff(spk.id, aDelta || 0, moodLabel);
+            if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
             const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gThink = rawGThink && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(rawGThink) : rawGThink;
-            if (spk && !spk.npc && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
+            if (spk && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
             if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
               const stateNow = Date.now();
@@ -6321,10 +6237,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       if (summary && summary.trim()) {
         addMemEntry({
           text: "【群「" + group.name + "」】" + summary.trim(),
-          tags: gTags(group),
-          // 归属只给真角色（配角没有自己的记忆库），在场的都算知道
-          charIds: memOwners(group.memberIds), knownBy: group.memberIds.slice(),
-          source: "auto", groupId: group.id
+          tags: ["群聊", group.name],
+          charIds: group.memberIds.slice(), knownBy: group.memberIds.slice(),
+          source: "auto"
         });
         toast("已存入记忆库");
       }
@@ -6402,7 +6317,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!toSum.length || !active) return;
     try {
       const summary = await summarizeGroup(active, { profile }, toSum);
-      if (summary && summary.trim()) addMemEntry({ text: summary.trim(), tags: gTags(g), charIds: memOwners(g.memberIds), knownBy: (g.memberIds || []).slice(), source: "auto", groupId: g.id });
+      if (summary && summary.trim()) addMemEntry({ text: summary.trim(), tags: gTags(g), charIds: (g.memberIds || []).slice(), knownBy: (g.memberIds || []).slice(), source: "auto", groupId: g.id });
       saveGroupSettings(groupId, { lastSummarizedCount: msgs.length - buffer });
       toast("群聊已存入记忆库");
     } catch (e) {/* silent */}
@@ -6701,7 +6616,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   const schedGenAllToday = async () => {
     if (schedRunRef.current) return; // 防并发：同一次生成过程里别重复触发
     if (!active) return;
-    const todo = liveChars.filter(c => !(schedulesRef.current[c.id] || {})[schedLocalDayKey(c)]);
+    const todo = characters.filter(c => !(schedulesRef.current[c.id] || {})[schedLocalDayKey(c)]);
     if (!todo.length) return;
     schedRunRef.current = true;
     try {
@@ -7056,7 +6971,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     try {
       if (kind === "forum") { const bs = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
       else if (kind === "moments") { if (characters.length) await genMoment(characters[Math.floor(Math.random() * characters.length)]); }
-      else if (kind === "whisper") { const ps = liveChars.filter(c => couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
+      else if (kind === "whisper") { const ps = characters.filter(c => couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
     } catch (e) {/* 静默 */}
   };
   // ---- 角色动态：主屏红点通知 + 保底触发 ----
@@ -7180,7 +7095,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   const desireMuseAllToday = async () => {
     if (desireRunRef.current || !active || !window.DesireKit || !characters.length) return;
     const today = schedDayKey(new Date());
-    const todo = liveChars.filter(c => {
+    const todo = characters.filter(c => {
       const b = desiresRef.current[c.id];
       if (b && b.lastMuse === today) return false;
       const msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
@@ -7261,7 +7176,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   // 跨天（app 一直开着没关）：日期一变就补新一天的行程
   const schedDayRef = useRef("");
   useEffect(() => {
-    const k = liveChars.map(c => c.id + ":" + schedLocalDayKey(c)).join("|");
+    const k = characters.map(c => c.id + ":" + schedLocalDayKey(c)).join("|");
     if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; }
   }, [now]);
 
@@ -8025,13 +7940,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     let roster, primary;
     if (author) {
       // 角色的帖子：发帖人 + 认识发帖人的其他角色（都可能插话）；定向回复的对象排最前
-      const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
+      const others = characters.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
       roster = [...new Set([primary, author, ...others.slice(0, 4)])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
-      const canSee = mom.visibleTo && mom.visibleTo.length ? liveChars.filter(c => mom.visibleTo.includes(c.id)) : liveChars;
+      const canSee = mom.visibleTo && mom.visibleTo.length ? characters.filter(c => mom.visibleTo.includes(c.id)) : characters;
       if (!canSee.length) return;
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
@@ -8103,7 +8018,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   // 可见角色自动对我的朋友圈做真实反应：可能只赞/只评/已读不理/又赞又评，并会互相回复
   const reactToUserMoment = async mom => {
     if (!active) return;
-    const canSee = mom.visibleTo && mom.visibleTo.length ? liveChars.filter(c => mom.visibleTo.includes(c.id)) : liveChars;
+    const canSee = mom.visibleTo && mom.visibleTo.length ? characters.filter(c => mom.visibleTo.includes(c.id)) : characters;
     if (!canSee.length) return;
     setGen(g => ({
       ...g,
@@ -10609,7 +10524,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     text: "加载中…"
   });else if (screen === "home") body = /*#__PURE__*/React.createElement(Home, {
     now: now,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     wallpaper: wallpaper,
     unread: unreadTotal,
@@ -10636,7 +10551,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     // 命运转盘·角色起哄：转完随机一位在聊的角色来一句（走便宜后台池，一句话；没配 API/没角色就静默）
     onWheelReact: async (title, items, result) => {
       if (!active) return null;
-      const pool = liveChars.filter(c => (chatsRef.current[c.id] || []).filter(m => !m.recalled).length >= 2);
+      const pool = characters.filter(c => (chatsRef.current[c.id] || []).filter(m => !m.recalled).length >= 2);
       const c = pool.length ? pool[Math.floor(Math.random() * pool.length)] : characters[0];
       if (!c) return null;
       const d = await runProbe(bgActive, ctxFor(c), {
@@ -10647,7 +10562,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       return d && d.say ? { name: c.remark || c.name, text: String(d.say).trim().slice(0, 120), char: c } : null;
     }
   });else if (screen === "map") body = (window.MapKit ? h(window.MapKit.CharMap, {
-    characters: liveChars,
+    characters: characters,
     status: mapStatusAll(),
     profile: profile,
     userGeo: prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null,
@@ -10656,7 +10571,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onSetHome: (charId, home) => pC(p => p.map(c => c.id === charId ? { ...c, home: home || undefined } : c)),
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
-    characters: liveChars,
+    characters: characters,
     onBack: goHome,
     onEdit: c => {
       setEditingChar(c);
@@ -10677,8 +10592,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onSave: saveChar,
     onDelete: delChar
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
-    characters: liveChars,
-    allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
+    characters: characters,
     groups: groups,
     chats: chats,
     groupChats: groupChats,
@@ -10723,7 +10637,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     isMe: !!(momTarget && momTarget.isMe),
     character: momTarget && !momTarget.isMe ? characters.find(c => c.id === momTarget.id) : null,
     profile: profile,
-    characters: liveChars,
+    characters: characters,
     moments: moments,
     cover: (momTarget && momTarget.isMe) ? momentsCover.me : (momTarget ? momentsCover[momTarget.id] : ""),
     signature: (momTarget && momTarget.isMe) ? (profile.tagline || "") : (momTarget ? ((anon[momTarget.id] && anon[momTarget.id].bio) || "") : ""),
@@ -10739,7 +10653,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     balance: wallet,
     log: walletLog,
     cards: kinshipCards,
-    characters: liveChars,
+    characters: characters,
     onBack: () => setScreen("messages"),
     onSetBalance: setWalletTo,
     onOpenCard: charId => { setActiveCardId(charId); setScreen("kincard"); }
@@ -10750,7 +10664,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onRaise: ask => requestKinshipRaise(activeCardId, ask)
   });else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
     character: activeChar,
-    characters: liveChars,
+    characters: characters,
     groups: groups,
     messages: chats[activeChar.id] || [],
     sending: sending,
@@ -10838,9 +10752,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     group: groups.find(g => g.id === activeGroup.id) || activeGroup,
     groups: groups,
-    characters: liveChars,
-    allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
-    rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
+    characters: characters,
     messages: groupChats[activeGroup.id] || [],
     sending: sending,
     profile: profile,
@@ -10921,25 +10833,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     desireCount: ((desires[activeChar.id] || {}).list || []).length,
     onOpenDesires: () => setDesireBoxOpen(true)
   });else if (screen === "ties") body = /*#__PURE__*/React.createElement(Ties, {
-    characters: liveChars,
+    characters: characters,
     rels: rels,
     profile: profile,
     onBack: goHome,
-    onSave: saveRel,
-    // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。
-    // NPC 本来就是「某个角色身边的一段关系」，跟「我和角色」「角色之间」并排才对。
-    allChars: characters,   // 关系伙伴要按 id 解析；配角也算数，否则他那段关系整条消失
-    npcsOf: npcsOf,
-    onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
-    npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
-    onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
-    onDeleteNpc: id => {
-      pC(p => p.filter(c => c.id !== id));
-      setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
-      toast("已删除");
-    }
+    onSave: saveRel
   });else if (screen === "lifestyle") body = h(Lifestyle, {
-    characters: liveChars,
+    characters: characters,
     schedules: schedules,
     selId: selSched,
     busyKey: gen.sched,
@@ -10947,7 +10847,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onSel: setSelSched,
     onGenDay: genScheduleDay
   });else if (screen === "phone") body = /*#__PURE__*/React.createElement(PhoneCarry, {
-    characters: liveChars,
+    characters: characters,
     phones: phones,
     selId: selPhone,
     busyKey: gen.phoneApp,
@@ -10957,7 +10857,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onGenAll: genPhoneAll,
     profile: profile
   });else if (screen === "carry") body = h(Carry, {
-    characters: liveChars,
+    characters: characters,
     carry: carry,
     carryGifts: carryGifts,
     selId: selCarry,
@@ -10969,7 +10869,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onGenAll: genCarryAll,
     onGenGiftThought: genGiftThought
   });else if (screen === "cwallet") body = h(CharWallet, {
-    characters: liveChars,
+    characters: characters,
     charWallet: charWallet,
     selId: selCWallet,
     busyKey: gen.cwallet,
@@ -10982,7 +10882,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onRefresh: refreshCharAssets
   });else if (screen === "emotes") body = h(EmoteMatrix, {
     packs: emotePacks,
-    characters: liveChars,
+    characters: characters,
     onBack: () => setScreen(activeChar ? "thread" : activeGroup ? "gthread" : "home"),
     onAddPack: addEmotePack,
     onUpdatePack: updateEmotePack,
@@ -10992,11 +10892,11 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onDeleteEmotes: deleteEmotes
   });else if (screen === "favorites") body = h(Favorites, {
     favorites: favorites,
-    characters: liveChars,
+    characters: characters,
     onBack: () => setScreen("messages"),
     onDelete: delFavorite
   });else if (screen === "forum") body = /*#__PURE__*/React.createElement(Forum, {
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     posts: forumPosts,
     comments: forumComments,
@@ -11030,7 +10930,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     cart: cart,
     orders: orders,
     inventory: inventory,
-    characters: liveChars,
+    characters: characters,
     groups: groups,
     kinshipCards: kinshipCards,
     feed: shopFeed,
@@ -11044,7 +10944,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onReceiveGift: receiveGift,
     toast: toast
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
-    characters: liveChars,
+    characters: characters,
     couples: couples,
     whispers: whispers,
     // 合照墙：从和 TA 的单聊里捞出所有「我俩合照」(photoKind:"duo")，投进情侣空间的相册
@@ -11106,14 +11006,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onReadExDiary: markExDiaryRead
   });else if (screen === "lore") body = h(WorldBook, {
     entries: loreEntries,
-    characters: liveChars,
+    characters: characters,
     onBack: goHome,
     onSave: e => saveLore([e].concat(loreRef.current.filter(x => x.id !== e.id))),
     onDelete: id => saveLore(loreRef.current.filter(x => x.id !== id))
   });else if (screen === "study") body = h(StudyApp, {
     active: active,
     bgActive: bgActive, // 判卷/课后小纸条等结构化小活走便宜后台池；教学对话仍用主 active
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: worldbook,
     toast: toast,
@@ -11121,8 +11021,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "read") body = h(ReadTogether, {
     active: active,
     bgActive: bgActive, // 批注/讲解/总结走便宜后台池；讨论(实时对话)仍用主 active
-    characters: liveChars,
-    digitalIds: liveChars.filter(function (c) { return settingsFor(c.id).engineerEyes; }).map(function (c) { return c.id; }), // 数字生命(言秋)→走亲读专属通道
+    characters: characters,
+    digitalIds: characters.filter(function (c) { return settingsFor(c.id).engineerEyes; }).map(function (c) { return c.id; }), // 数字生命(言秋)→走亲读专属通道
     profile: profile,
     worldbook: worldbook,
     toast: toast,
@@ -11130,14 +11030,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onBack: () => setScreen("home")
   });else if (screen === "debate") body = h(Debate, {
     active: active,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: loreText(loreEntries, { scope: "debate" }),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "dream") body = h(Dream, {
     active: active,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: worldbook,
     rels: rels,
@@ -11153,11 +11053,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const text = info.mode === "forchar"
         ? uNm + "替" + who + "算了一卦（" + (info.cards || "") + "）：" + String(info.summary || "").slice(0, 90)
         : who + "为" + uNm + "解了一次塔罗" + (info.question ? "（问的是：" + String(info.question).slice(0, 30) + "）" : "") + "：" + String(info.summary || "").slice(0, 90);
-      // 占卜不进记忆库（她 2026-08-25：「为啥塔罗也进记忆库了，不要这个！」）。
-      // 记忆库是给「你俩之间真的发生过什么」用的，一卦牌不是那种东西，
-      // 攒多了还会把真正的事挤出召回名额。下面那句 charThought 仍旧进「Ta 眼里」——
-      // 那是他私心里对牌的反应，属于印象不属于事实。
-      void text;
+      addMemEntry({ text: text, charIds: [charId], knownBy: [charId], source: "tarot", ts: Date.now(), open: false });
       // charThought 是「Ta 私心里对这几张牌的反应」——正是印象的原料,别再扔掉
       const th = String(info.charThought || "").trim();
       if (th && window.Gaze && !settingsFor(charId).engineerEyes && info.mode !== "forchar") {
@@ -11165,7 +11061,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       }
     },
     active: active,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: worldbook,
     rels: rels,
@@ -11175,7 +11071,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onForwardToChat: forwardTarotToChat,
     onBack: () => setScreen("home")
   });else if (screen === "dreamjournal") body = h(window.DreamJournalApp, {
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     couples: couples,
     toast: toast,
@@ -11196,7 +11092,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {
     active: bgActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: worldbook,
     moods: moods,
@@ -11207,7 +11103,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onBack: () => setScreen("home")
   });else if (screen === "memo") body = h(window.Memo, {
     active: bgActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: worldbook,
     moods: moods,
@@ -11217,14 +11113,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "capsule") body = h(window.CapsuleApp, {
     active: active,
     apiFor: apiFor, // 胶囊回信/反向埋=TA 亲笔，跟随专线（v48.37）
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     ctxFor: ctxFor,
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "pomodoro") body = h(Pomodoro, {
     active: bgActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: worldbook,
     moods: moods,
@@ -11234,7 +11130,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     // 小游戏需要规则推演与长程角色演绎，统一走线下创作线路。
     active: offlineActive,
     bgActive: offlineActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     worldbook: worldbook,
     moods: moods,
@@ -11246,7 +11142,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
@@ -11257,7 +11153,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     // 文风预设台：一处生产，线下/小剧场/同人文三处消费。只在这里改预设本身，
     // 三处吃不吃各自有开关；开关关着＝行为和以前一模一样。
     active: offlineActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     toast: toast,
     onBack: backFromStyleLab
@@ -11265,7 +11161,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     // 帮手：改文风/人设/外貌、往记忆库加条目、查「为什么没生效」。
     // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。
     active: offlineActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
     onAddMemories: (charId, items) => (items || []).forEach(txt =>
@@ -11275,7 +11171,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "impression") body = h(ImpressionApp, {
     // 月度印象：写字走线下创作线路（要文学性），素材自己从存储层取
     active: offlineActive,
-    characters: liveChars,
+    characters: characters,
     groups: groups,          // 群聊也是素材：她和某些角色大半的话都在群里说
     profile: profile,
     toast: toast,
@@ -11283,7 +11179,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "fanfic") body = h(FanficApp, {
     // 同人文（含续章、书评、穿越互动）统一走线下创作线路。
     active: offlineActive,
-    characters: liveChars,
+    characters: characters,
     profile: profile,
     groups: groups,
     worldbook: worldbook,
@@ -11294,7 +11190,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onBack: () => setScreen("home")
   });else if (screen === "weekly") body = h(WeeklyApp, {
     active: active,
-    characters: liveChars,
+    characters: characters,
     groups: groups,
     profile: profile,
     worldbook: worldbook,
@@ -11302,7 +11198,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onBack: () => setScreen("home")
   });else if (screen === "memlib") body = h(MemoryLib, {
     entries: memLib,
-    characters: liveChars,
+    characters: characters,
     focusChar: activeChar,
     busy: sending,
     cfg: memCfg,
@@ -11338,7 +11234,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onUseLegacyMemory: useLegacyMemoryMirror,
     emoBusy: emoBusy
   });else if (screen === "diary") body = h(Diary, {
-    characters: liveChars,
+    characters: characters,
     diaries: diaries,
     profile: profile,
     genBusy: diaryBusy,
@@ -11353,7 +11249,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     toast: toast
   });else if (screen === "listen") body = h(ListenTogether, {
     listen: listen,
-    characters: liveChars,
+    characters: characters,
     onBack: exitListen,
     onSetDisc: setListenDisc,
     onSetCover: setSongCover,
@@ -11389,7 +11285,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     gen: gen.listen,
     genCharPl: gen.charPlaylist
   });else if (screen === "calendar") body = h(Calendar, {
-    characters: liveChars,
+    characters: characters,
     calendar: calendar,
     profile: profile,
     period: period,
@@ -11412,7 +11308,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     },
     bgApiId: bgApiId,
     onSetBgApi: setBgApi,
-    characters: liveChars,
+    characters: characters,
     coupleQACustom: coupleQACustom,
     onSaveCustomQA: saveCoupleQACustom,
     onAssignVoice: (charId, voiceId) => {
@@ -11509,14 +11405,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const scc = stateCardChar || activeChar;
     return stateCardOpen && scc && /*#__PURE__*/React.createElement(StateCard, {
       character: scc,
-      isNpc: !!scc.npc,
       affinity: Math.round(affOf(scc.id)),
       mood: moods[scc.id],
       // 心声过了时效就不再展示:宁可空着,也别把两小时前的念头当成「此刻在想」
       state: (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: stateHist[scc.id] || [],
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
-      gazeOn: !!window.Gaze && !settingsFor(scc.id).engineerEyes && !scc.npc,
+      gazeOn: !!window.Gaze && !settingsFor(scc.id).engineerEyes,
       uName: profile.name || "你",
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,
@@ -11609,7 +11504,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onSetOnline: id => { setActiveId(id); saveJSON("x_activeApi", id); toast("线上已切换为 " + (((apiProfiles || []).find(p => p.id === id) || {}).name || ((apiProfiles || []).find(p => p.id === id) || {}).model || "该线路")); },
     onSetOffline: id => { setOfflineApiId(id); saveJSON("x_offlineApi", id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("线下已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
-    characters: liveChars,
+    characters: characters,
     onCreate: createGroup,
     onClose: () => setNewGroupOpen(false)
   }), profileOpen && /*#__PURE__*/React.createElement(ProfileSheet, {

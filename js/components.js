@@ -3952,6 +3952,106 @@ function CallScreen({
   const dragRef = useRef({ dragging: false, moved: false, grabX: 0, grabY: 0 });
   // 通话台词懒 TTS：点那条才合成（缓存在 ttsSpeak 里，重播免费）；一次只放一条（共用 useTtsPlayer）
   const tp = useTtsPlayer();
+  // —— 真声通话档（v55.98）：耳朵=书房 Mac 的 whisper（earsTranscribe），嗓子=ttsSpeak 自动播，
+  //    脑子=onSend 走这通电话原有的对话引擎（全套人设记忆）。单人通话+配了音色+两头都配置了才出现。
+  const canLive = !isGroup && typeof voiceEarsReady === "function" && voiceEarsReady() && typeof ttsReady === "function" && ttsReady() && !!primary.voiceId;
+  const [live, setLive] = useState(false);
+  const [liveSt, setLiveSt] = useState("");
+  const lv = useRef({ ctx: null, node: null, stream: null, buf: [], talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0, aud: null });
+  const liveRef = useRef(false); liveRef.current = live;
+  const sendingRef = useRef(false); sendingRef.current = !!sending;
+  const lvEncode = chunks => { // Float32(16k) → 16k mono WAV
+    let len = 0; chunks.forEach(c => len += c.length);
+    const pcm = new Int16Array(len); let o = 0;
+    chunks.forEach(c => { for (let i = 0; i < c.length; i++) pcm[o++] = Math.max(-1, Math.min(1, c[i])) * 0x7FFF; });
+    const b = new ArrayBuffer(44 + pcm.length * 2), v = new DataView(b);
+    const w = (pp, str) => { for (let i = 0; i < str.length; i++) v.setUint8(pp + i, str.charCodeAt(i)); };
+    w(0, "RIFF"); v.setUint32(4, 36 + pcm.length * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 16000, true); v.setUint32(28, 32000, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, pcm.length * 2, true);
+    new Int16Array(b, 44).set(pcm); return new Blob([b], { type: "audio/wav" });
+  };
+  const lvFlush = async () => {
+    const st = lv.current; const chunks = st.buf; st.buf = []; st.talking = false; st.speech = 0; st.silent = 0;
+    const total = chunks.reduce((a, c) => a + c.length, 0);
+    if (total < 16000 * 0.4) return; // 短于0.4秒的碎响不送
+    st.busy++; setLiveSt("识别中…");
+    try {
+      const d = await earsTranscribe(lvEncode(chunks));
+      const text = (d && d.text || "").trim();
+      if (text && liveRef.current) onSend(text);
+    } catch (e) { setLiveSt("识别失败，再说一遍"); }
+    finally { st.busy--; if (liveRef.current) setLiveSt(s2 => s2 === "识别中…" ? "听着呢" : s2); }
+  };
+  const lvStart = async () => {
+    try {
+      const st = lv.current;
+      st.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      st.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const sr = st.ctx.sampleRate; // iOS 不一定给 48k，按实际采样率降采样
+      await st.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([
+        "registerProcessor('cl-tap',class extends AudioWorkletProcessor{process(i){if(i[0]&&i[0][0])this.port.postMessage(i[0][0].slice(0));return true;}});"
+      ], { type: "text/javascript" })));
+      const src = st.ctx.createMediaStreamSource(st.stream);
+      st.node = new AudioWorkletNode(st.ctx, "cl-tap"); src.connect(st.node);
+      st.last = performance.now(); st.played = (msgs || []).length;
+      st.node.port.onmessage = e => {
+        const now = performance.now(), dt = now - st.last; st.last = now;
+        if (!liveRef.current) return;
+        if (st.busy > 0 || sendingRef.current) { st.buf = []; st.talking = false; st.silent = 0; return; } // 半双工：我说话/引擎在想时闭麦
+        const f = e.data; let sum = 0; for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
+        const rms = Math.sqrt(sum / f.length);
+        const voiced = rms > 0.012;
+        if (voiced) { if (!st.talking) { st.talking = true; st.speech = 0; } st.silent = 0; }
+        else if (st.talking) st.silent += dt;
+        if (st.talking) {
+          st.speech += dt;
+          const ratio = sr / 16000, n = Math.floor(f.length / ratio), out = new Float32Array(n);
+          for (let i = 0; i < n; i++) out[i] = f[Math.floor(i * ratio)];
+          st.buf.push(out);
+          const limit = st.speech > 3000 ? 1350 : 900;
+          if (st.silent >= limit || st.speech >= 60000) lvFlush();
+        }
+      };
+      setLive(true); setLiveSt("听着呢");
+    } catch (e) { setLiveSt("麦克风打不开：" + (e && e.message || e)); }
+  };
+  const lvStop = () => {
+    const st = lv.current;
+    try { st.node && st.node.disconnect(); } catch (e) {}
+    try { st.ctx && st.ctx.close(); } catch (e) {}
+    try { st.stream && st.stream.getTracks().forEach(t2 => t2.stop()); } catch (e) {}
+    try { st.aud && st.aud.pause(); } catch (e) {}
+    st.buf = []; st.talking = false; st.busy = 0;
+    setLive(false); setLiveSt("");
+  };
+  useEffect(() => () => lvStop(), []);
+  // 真声档自动播对方新台词（懒TTS同款合成，busy 闸门挡住自听）
+  useEffect(() => {
+    if (!live) return;
+    const st = lv.current; const L = msgs || [];
+    (async () => {
+      while (st.played < L.length) {
+        const m = L[st.played++];
+        if (!m || m.role === "user" || m.act || !m.content) continue;
+        const spk2 = m.senderId ? (participants || []).find(c => c.id === m.senderId) : primary;
+        if (!spk2 || !spk2.voiceId) continue;
+        st.busy++; setLiveSt("对方说话中…");
+        try {
+          const blob = await ttsSpeak(m.content, spk2.voiceId);
+          const url = URL.createObjectURL(blob);
+          await new Promise(res => {
+            const aud = new Audio(url); st.aud = aud;
+            aud.onended = () => { URL.revokeObjectURL(url); res(); };
+            aud.onerror = () => { URL.revokeObjectURL(url); res(); };
+            aud.play().catch(() => res());
+          });
+        } catch (e) {}
+        finally { st.busy--; }
+      }
+      if (liveRef.current) setLiveSt("听着呢");
+    })();
+  }, [live, (msgs || []).length]);
   useEffect(() => {
     const i = setInterval(() => setSec(s => { secRef.current = s + 1; return s + 1; }), 1000);
     return () => clearInterval(i);
@@ -4084,12 +4184,19 @@ function CallScreen({
       fontSize: 11,
       color: "rgba(255,255,255,0.5)"
     }
-  }, (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说…"), h("div", {
+  }, (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说…"), live && liveSt && h("div", {
+    className: "px-6 pb-1",
+    style: { fontFamily: F_BODY, fontSize: 11, color: "#95d16f" }
+  }, "🎙 " + liveSt), h("div", {
     className: "shrink-0 flex items-center gap-2 px-4 py-3",
     style: {
       paddingBottom: "calc(env(safe-area-inset-bottom) + 4px)"
     }
-  }, h("input", {
+  }, canLive && h("button", {
+    onClick: () => live ? lvStop() : lvStart(),
+    className: "shrink-0 flex items-center justify-center",
+    style: { width: 42, height: 42, borderRadius: 999, background: live ? "#4a9d6e" : "rgba(255,255,255,0.2)" }
+  }, h(Svg, { size: 18, color: "#fff", sw: 2 }, h("path", { d: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" }), h("path", { d: "M5 11a7 7 0 0 0 14 0" }), h("path", { d: "M12 18v3" }))), h("input", {
     value: input,
     onChange: e => setInput(e.target.value),
     onKeyDown: e => e.key === "Enter" && send(),

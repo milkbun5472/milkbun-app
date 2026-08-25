@@ -3759,6 +3759,44 @@ function CotConfig({ toast, activeProfile }) {
 }
 // 图像 API（角色自拍）设置：开关 + 端点/密钥/模型/尺寸/质量。存 x_imgApi（图本身进 IndexedDB 不在这）。
 // MiniMax 语音 TTS 配置：懒生成（点开语音那条才合成收费），成品缓存在本机重播免费
+function VoiceEarsConfig({ toast }) {
+  const t = useTheme();
+  const [c, setC] = useState(loadVoiceEars());
+  const set = patch => setC(saveVoiceEars(patch));
+  const [testing, setTesting] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const test = async () => {
+    if (testing) return;
+    setTesting(true); setMsg(null);
+    try {
+      const a = loadVoiceEars();
+      if (!a.base || !a.k) throw new Error("地址和门锁都要填");
+      const r = await fetchT(a.base + "/health?k=" + encodeURIComponent(a.k), {}, 15000);
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error || ("HTTP " + r.status));
+      setMsg({ ok: true, text: "✅ 耳朵在线（模型 " + (d.model || "?") + "）。通话界面会出现🎙真声按钮。" });
+    } catch (e) { setMsg({ ok: false, text: "连不上：" + (e && e.message || e) + "——书房 Mac 的话筒间服务要开着，门锁要对。" }); }
+    setTesting(false);
+  };
+  const inp = (label, key, ph) => /*#__PURE__*/React.createElement("div", { className: "mb-2" },
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
+    /*#__PURE__*/React.createElement("input", {
+      value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
+      className: "w-full outline-none px-3 py-2 rounded-xl",
+      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
+    }));
+  return /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
+      "真声通话的耳朵：书房 Mac 上的语音识别服务。填好后，单人通话里会多一个🎙按钮——按下就是真的用声音聊，识别在书房、脑子和嗓子都在本机。两栏留空=功能隐藏。"),
+    inp("识别服务地址", "base", "https://…ts.net/voice"),
+    inp("门锁 k", "k", "voice-token"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: test, disabled: testing,
+      className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
+      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" }
+    }, testing ? "测试中…" : "🔬 测一下耳朵"),
+    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
+}
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
   const t = useTheme();
   const [c, setC] = useState(loadTtsApi());
@@ -4468,6 +4506,8 @@ function Config({
     toast: toast,
     characters: characters,
     onAssignVoice: onAssignVoice
+  })), fold("api-ears", "真声通话耳朵", "书房识别服务地址与门锁", /*#__PURE__*/React.createElement(VoiceEarsConfig, {
+    toast: toast
   }))), tab === "sense" && fold("sense-main", "时间、位置与通知", "角色感知与锁屏通知", /*#__PURE__*/React.createElement(SenseConfig, {
     prefs: prefs,
     onSave: onSavePrefs,
