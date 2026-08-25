@@ -8,7 +8,10 @@ import { execSync } from "node:child_process";
 
 const num = v => { const [a, b] = String(v).split("."); return Number(a) * 1000 + Number(b); };
 const all = [];
-const push = t => String(t || "").replace(/v?(\d{2})\.(\d{2})/g, (_, a, b) => { all.push(a + "." + b); return _; });
+// ⚠️次版本号允许三位：2026-08-25 我把 55.99 递成了 55.100（该进位没进位）。
+// 旧正则只吃两位，会把「55.100」读成「55.10」——那正是这个脚本开头写着要防的
+// 那种倒退：读成 55.10 之后下一版就发 55.11，缓存指纹直接退回四十几版之前。
+const push = t => String(t || "").replace(/v?(\d{2,3})\.(\d{2,3})/g, (_, a, b) => { all.push(a + "." + b); return _; });
 
 push(readFileSync("js/app.js", "utf8").match(/APP_VERSION\s*=\s*"v([\d.]+)"/)?.[1]);
 push(readFileSync("index.html", "utf8").match(/\?v=[\d.]+/g)?.join(" "));
@@ -20,7 +23,16 @@ try { push(execSync("git log --format=%s -60", { encoding: "utf8" })); } catch (
 const top = all.sort((x, y) => num(x) - num(y)).pop();
 if (!top) { console.error("找不到任何版本号"); process.exit(1); }
 const [maj, mi] = top.split(".");
-const next = process.argv[2] || maj + "." + String(Number(mi) + 1).padStart(2, "0");
+// 次版本号满 99 就进位（她 2026-08-25：「55.100 应该是 56.00 才对」）。
+// 旧写法是 String(99 + 1).padStart(2,"0") = "100"，padStart 对三位数是空操作，
+// 于是悄悄长出一个 55.100 这种没人认得的号。
+const bumped = () => {
+  const M = Number(maj), m = Number(mi);
+  return m >= 99
+    ? String(M + 1).padStart(2, "0") + ".00"
+    : String(M).padStart(2, "0") + "." + String(m + 1).padStart(2, "0");
+};
+const next = process.argv[2] || bumped();
 if (num(next) <= num(top)) { console.error("新版本 " + next + " 不高于现有最大 " + top + "，拒绝倒退"); process.exit(1); }
 
 // 只同步「跟着发布版本走」的那几个文件；别的模块保留各自的独立指纹
