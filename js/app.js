@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.13";
+const APP_VERSION = "v56.14";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2752,44 +2752,94 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       });
       return out.join("\n");
     })(),
+    // ==== 论坛回声（她 2026-08-25 拍板重做）====
+    // 她问「他们在帖子里回复过的东西呢？怎么喂不会太多内容分散模型注意力失去活人感」。
+    // 判据不是【喂多少】，是【这一轮用不用得上】——论坛回声十轮里九轮用不上，
+    // 而它以前【每轮都在】，等于每轮往上下文里掺一把用不上的沙子。
+    // 这一轮已经撞过两次同类事故：群聊人设从 200 字堆到一万五千字反而更像模板；
+    // 「批发市场」恰恰是上下文很多、这一轮输入只有八个字，模型没东西抓只好抓先验。
+    //
+    // 四条改动：
+    //   ① 按需触发，不再常驻（她拍板）
+    //   ② 他在别人帖子下的发言：只在【后来有人回他】时才给——那时它才活着、才可能被提起
+    //   ③ 别人在他帖子下的话：只给他会在意的（回他的/抬杠的/热评），别让一个热帖塞满额度
+    //   ④ 按时间倒序 + 3 天窗口；老帖自然掉出去
+    // 触发放宽了：宁可多发一轮，也别让她说「我昨天那个」时他一脸茫然。
     forumEcho: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const posts = forumPostsRef.current || [];
       const cmts = forumCommentsRef.current || {};
       const meName = profile.name || "对方";
-      const lines = [];
-      // 我在 TA 帖子下的评论
-      posts.filter(p => p.authorId === char.id && isForumCharAuthor(p)).slice(0, 4).forEach(p => {
+      const now = Date.now(), WINDOW = 3 * 86400000, FRESH = 8 * 3600000;
+      const isCharPost = p => p.authorId === char.id && isForumCharAuthor(p);
+      const myPub = p => p.authorType === "me" && !p.anon && p.board !== "匿名吧";
+
+      // —— 触发闸 ——
+      const said = typeof lastUserTurnText === "function" ? lastUserTurnText(chatsRef.current[char.id] || []) : "";
+      const asked = /论坛|贴吧|帖|楼|网上|网友|评论区|回复我|发的那个|水/.test(String(said || ""));
+      // 刚有动静：他的帖最近被回过、或她最近发过公开帖、或他最近发过帖
+      const freshHit = posts.some(p => {
+        if (now - (p.ts || 0) > FRESH) return false;
+        return isCharPost(p) || myPub(p);
+      }) || posts.filter(isCharPost).some(p => (cmts[p.id] || []).some(f =>
+        (now - (f.ts || 0) <= FRESH) || (f.replies || []).some(r => now - (r.ts || 0) <= FRESH)));
+      if (!asked && !freshHit) return "";
+
+      // —— 攒候选，每条带时间，最后按时间倒序取 ——
+      const cand = [];
+      const push = (ts, text) => { if (text && now - ts <= WINDOW) cand.push({ ts: ts || 0, text: text }); };
+
+      posts.filter(isCharPost).forEach(p => {
+        const fl = cmts[p.id] || [];
+        // 她在他帖子下说的话
         const myOn = [];
-        (cmts[p.id] || []).forEach(f => { if (f.authorType === "me") myOn.push(f.content); (f.replies || []).forEach(r => { if (r.authorType === "me") myOn.push(r.content); }); });
-        if (myOn.length) lines.push("你发的帖「" + p.title + "」下，" + meName + "评论了：" + myOn.slice(0, 3).map(x => "“" + String(x).slice(0, 40) + "”").join("；"));
-      });
-      // 楼下回复：只认【你自己发的帖】下的动静（v48.42 她点名）——你回过的【路人/NPC 帖】不再灌进聊天 prompt，
-      //   你在论坛只该知道「自己发的帖」和「用户转发给你的帖」（后者本就作为 forumshare 卡进了聊天历史，天然可见）。
-      posts.filter(p => p.authorId === char.id && isForumCharAuthor(p)).forEach(p => { (cmts[p.id] || []).forEach(f => {
-        if ((f.replies || []).length) {
-          const rs = f.replies.slice(0, 3).map(r => (r.authorType === "me" ? meName : r.authorName) + "：" + String(r.content).slice(0, 30));
-          lines.push("你的帖「" + p.title + "」下，" + (f.authorType === "me" ? meName + "评论的那条" : (f.authorName || "有人") + "评论的那条") + "（“" + String(f.content).slice(0, 24) + "”）又有人回：" + rs.join("；"));
+        fl.forEach(f => {
+          if (f.authorType === "me") myOn.push({ ts: f.ts, c: f.content });
+          (f.replies || []).forEach(r => { if (r.authorType === "me") myOn.push({ ts: r.ts, c: r.content }); });
+        });
+        if (myOn.length) {
+          const last = myOn[myOn.length - 1];
+          push(last.ts || p.ts, "你发的帖「" + p.title + "」下，" + meName + "评论了："
+            + myOn.slice(-2).map(x => "“" + String(x.c).slice(0, 40) + "”").join("、"));
         }
-      }); });
-      // ⭐她自己公开发的帖（她 2026-08-25：「论坛行为怎么喂回聊天比较合理」）。
-      // 原来 forumEcho 只喂【角色自己发的帖】——她发的帖角色一个字都不知道，
-      // 可他明明关注着她的账号，这在现实里说不通。
-      // 边界照 v48.42 那条老规矩延伸：只给【公开的】。
-      //   给：她用大号发的帖、底下谁回了、这个角色自己有没有去回
-      //   不给：匿名吧、她的小号——那正是她不想让人对上号的东西，一个字都不许漏
-      const myPub = posts.filter(p => p.authorType === "me" && !p.anon && p.board !== "匿名吧").slice(0, 3);
-      myPub.forEach(p => {
-        const fl = (cmts[p.id] || []);
-        const mine = fl.filter(f => f.authorId === char.id || (f.replies || []).some(r => r.authorId === char.id));
+        // ③ 别人在他帖子下的话：只给他会在意的——回他自己那层的、明确回他的、或点赞高的热评
+        fl.forEach(f => {
+          const reps = f.replies || [];
+          const worth = f.isOp || f.authorId === char.id || (f.likeCount || 0) >= 120;
+          if (!reps.length || !worth) return;
+          const rs = reps.slice(-2).map(r => (r.authorType === "me" ? meName : (r.authorName || "有人")) + "：" + String(r.content).slice(0, 30));
+          push((reps[reps.length - 1] || {}).ts || f.ts,
+            "你的帖「" + p.title + "」里你那条（“" + String(f.content || "").slice(0, 22) + "”）有人回：" + rs.join("；"));
+        });
+      });
+
+      // ② 他在【别人】帖子下的发言：只在后来有人回他时才给
+      posts.filter(p => !isCharPost(p)).forEach(p => {
+        (cmts[p.id] || []).forEach(f => {
+          if (f.authorId !== char.id) return;
+          const reps = f.replies || [];
+          if (!reps.length) return;   // 没人理的那一句嘴，她永远不会提，不占额度
+          const rs = reps.slice(-2).map(r => (r.authorType === "me" ? meName : (r.authorName || "有人")) + "：" + String(r.content).slice(0, 30));
+          push((reps[reps.length - 1] || {}).ts || f.ts,
+            "你在「" + (p.authorName || "别人") + "」的帖「" + String(p.title || "").slice(0, 16) + "」下说过“"
+            + String(f.content || "").slice(0, 26) + "”，有人回你：" + rs.join("；"));
+        });
+      });
+
+      // 她自己公开发的帖（只给公开的；匿名吧和小号一个字都不许漏）
+      posts.filter(myPub).forEach(p => {
+        const fl = cmts[p.id] || [];
+        const mine = fl.some(f => f.authorId === char.id || (f.replies || []).some(r => r.authorId === char.id));
         const others = fl.filter(f => f.authorType !== "me").slice(0, 2)
           .map(f => (f.authorName || "有人") + "：" + String(f.content || "").slice(0, 28));
-        lines.push(meName + "在「" + p.board + "」发了帖「" + p.title + "」"
+        push(p.ts, meName + "在「" + p.board + "」发了帖「" + p.title + "」"
           + (p.body ? "（" + String(p.body).replace(/\s+/g, " ").slice(0, 40) + "）" : "")
           + (others.length ? "，楼下有人回：" + others.join("；") : "，还没什么人回")
-          + (mine.length ? "。你也在下面回过。" : "。"));
+          + (mine ? "。你也在下面回过。" : "。"));
       });
-      return lines.slice(0, 6).join("\n");
+
+      // ④ 最近的先占位，老的自然掉出去
+      return cand.sort((a, b) => b.ts - a.ts).slice(0, 6).map(x => x.text).join("\n");
     })(),
     // 查手机内容（歌单/浏览器/视频/备忘/录音）不再喂进聊天 prompt（v48.42 她点名）——
     // 那些是「查手机」推演出来给你偷看的，不该占聊天上下文。查手机 App 里照常显示，数据(phones)一点没动。
