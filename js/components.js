@@ -5267,6 +5267,7 @@ function MsgMenu({
 function StateCard({
   character,
   affinity,
+  isNpc,
   mood,
   state,
   history,
@@ -5320,7 +5321,7 @@ function StateCard({
     ) : h(Fragment, null, !state && !dm && /*#__PURE__*/React.createElement(Empty, {
     text: "还没有状态",
     sub: "和 Ta 聊几句，状态会自动生成"
-  }), dm && /*#__PURE__*/React.createElement(GlassCard, {
+  }), dm && !isNpc && /*#__PURE__*/React.createElement(GlassCard, {
     style: {
       padding: 16,
       marginBottom: 12,
@@ -5349,7 +5350,7 @@ function StateCard({
       color: t.fog,
       fontFamily: F_BODY
     }
-  }, " · 默认，聊几句会变化"))), /*#__PURE__*/React.createElement(GlassCard, {
+  }, " · 默认，聊几句会变化"))), !isNpc && /*#__PURE__*/React.createElement(GlassCard, {
     style: {
       padding: 16,
       marginBottom: 12,

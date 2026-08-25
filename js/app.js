@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.06";
+const APP_VERSION = "v56.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5984,7 +5984,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
             // 心声 → 共享 states[spk.id]（就是私聊心声卡读的那套）；有 thought 才进历史
             const rawGThink = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
             const gThink = rawGThink && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(rawGThink) : rawGThink;
-            if (spk && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
+            if (spk && !spk.npc && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
             if (spk && (gThink || moodLabel || gWear || gAction)) {
               const liveState = statesRef.current[spk.id] || {};
               const stateNow = Date.now();
@@ -11504,13 +11504,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const scc = stateCardChar || activeChar;
     return stateCardOpen && scc && /*#__PURE__*/React.createElement(StateCard, {
       character: scc,
+      isNpc: !!scc.npc,
       affinity: Math.round(affOf(scc.id)),
       mood: moods[scc.id],
       // 心声过了时效就不再展示:宁可空着,也别把两小时前的念头当成「此刻在想」
       state: (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: stateHist[scc.id] || [],
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
-      gazeOn: !!window.Gaze && !settingsFor(scc.id).engineerEyes,
+      gazeOn: !!window.Gaze && !settingsFor(scc.id).engineerEyes && !scc.npc,
       uName: profile.name || "你",
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,

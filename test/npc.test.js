@@ -106,6 +106,24 @@ test("简介能展开看全文，也能就地改", () => {
   assert.doesNotMatch(wrap, /h\("button", \{ onClick: \(\) => openEdit/, "关系卡本体不能再是 button");
 });
 
+// 她 2026-08-25 看到陆闻也有一张实时状态卡，问是不是正常的。
+// 三样是真写的（穿着/动作/心声，跟群里那一轮同一次调用带回来，白得的，留着）；
+// 两样是【假的】——心情显示默认「平静」、好感显示默认 50，而写入早被挡掉了，
+// 它们永远不会动。卡上还写着「默认，聊几句会变化」——那是在骗人，比不显示更坏。
+test("配角的状态卡不许摆出永远不会动的心情和好感", () => {
+  assert.match(app, /isNpc: !!scc\.npc,/);
+  assert.match(comp, /dm && !isNpc && /, "实时心情那张卡");
+  assert.match(comp, /默认，聊几句会变化"\)\)\), !isNpc && /, "好感度那张卡");
+  // 穿着/动作/心声照旧显示——那些是真的
+  assert.doesNotMatch(comp, /!isNpc && .*hideWearAction/);
+});
+
+// 印象卡是「从私下往来长出来的」，而配角跟她根本没有私聊——这一处的【写】之前漏挡了
+test("配角长不出印象卡", () => {
+  assert.match(app, /if \(spk && !spk\.npc && item\.impression && window\.Gaze/);
+  assert.match(app, /gazeOn: .*&& !scc\.npc,/);
+});
+
 test("② 只能进主人的群", () => {
   assert.match(comp, /c\.npc && !memberIds\.includes\(c\.id\) && memberIds\.includes\(c\.ownerId\)/,
     "主人不在这个群里，配角就不该出现在加人选单里");
