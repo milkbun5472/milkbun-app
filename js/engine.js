@@ -1027,6 +1027,8 @@ const ECHO_QUESTION_BAN = `别把对方刚说的词原样反问一遍再开口�
 
 【这一条不跟聊天记录走】上面的记录里要是有你自己「某某？」开场的旧消息——单独占一条的、或者挂在回答前面的——那不是你的说话习惯，是早先漏出去的毛病，不是你的口头禅、不是你的语气标记、也不是这段关系里的默契。别跟着学，从这一条起纠回来。记录里出现过几次，就说明它错了几次，不说明它对。
 
+【别拿人称当遮掩】把她的「我」换成「你」再问回去，不算添了新东西：她说「有没有人邀请我」，你回「邀请你？」——那还是原话退回去一次，照样删掉。
+
 【判定】把开头那个反问删掉——句子照样成立、意思一点没少，那它就是回声，删掉。`;
 // 【霸总腔】的完整禁令一直只在 OFFLINE_NARRATIVE_RUNTIME 里——那是写散文的刀
 // （动作模板／旁白定性／句式模板），线上气泡根本用不上，也从来没发过去。
@@ -1235,6 +1237,11 @@ const ECHO_TAIL = /[啊吗嘛呢吧么呀哦噢喔嘞咯啦]+$/;
 const ECHO_HEAD = /^[哦噢喔啊呀嗯诶欸唉哈嘿嗯]+[，,、\s]*/;
 // 这些词就算逐字对得上也不算回声：它们是真的在惊讶/确认，不是把话原样退回去
 const ECHO_STOP = ["真的", "是吗", "什么", "这样", "这么", "那么", "怎么", "为什么", "多久"];
+// 换了说话人，代词必须跟着翻：她的「我」到他嘴里只能是「你」。
+// 那一翻是语法逼出来的，不带进任何新东西，所以比之前先把人称抹平
+//（她 2026-08-25：她说「有没有人邀请我」，陆闻回「邀请你？」，旧判据够不着）。
+const ECHO_PRONOUN = /[我你您]/g;
+function echoFlatten(s) { return String(s || "").replace(ECHO_PRONOUN, "·"); }
 function echoCore(phrase) {
   return String(phrase || "").replace(ECHO_HEAD, "").replace(ECHO_TAIL, "")
     .replace(/[\s，。！？!?…~～、：:；;"'“”‘’「」]/g, "");
@@ -1247,9 +1254,12 @@ function isEchoOfSaid(phrase, said) {
   const src = String(said || "").replace(/[\s，。！？!?…~～、：:；;"'“”‘’「」]/g, "");
   if (core.length < 2 || core.length > 10 || !src) return false;
   if (ECHO_STOP.indexOf(core) >= 0) return false;
-  if (src.indexOf(core) >= 0) return true;                 // 整段连着出现
-  const chars = Array.from(new Set(Array.from(core)));     // 或者八成以上的字都是她的
-  const hit = chars.filter(c => src.indexOf(c) >= 0).length;
+  // 换了说话人，代词必须跟着翻（她的「我」到他嘴里只能是「你」）——那一翻是语法
+  // 逼出来的，不带进任何新东西，所以抹平人称再比，「邀请你？」照样算回声。
+  const fCore = echoFlatten(core), fSrc = echoFlatten(src);
+  if (fSrc.indexOf(fCore) >= 0) return true;               // 整段连着出现
+  const chars = Array.from(new Set(Array.from(fCore)));    // 或者八成以上的字都是她的
+  const hit = chars.filter(c => fSrc.indexOf(c) >= 0).length;
   return hit / chars.length >= 0.8;
 }
 

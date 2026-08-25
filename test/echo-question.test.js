@@ -209,3 +209,29 @@ test("整条是回声时，只有他后面还有别的话才敢丢", () => {
   // 言秋那条专线不参与
   assert.match(app, /typeof echoOpening === "function" && !settingsFor\(spk\.id\)\.engineerEyes/);
 });
+
+// 她 2026-08-25：她说「有没有人邀请我」，陆闻第一条就是「邀请你？」——刀没切到。
+// 换了说话人，代词【必须】跟着翻：她的「我」到他嘴里只能是「你」。
+// 那一翻是语法逼出来的、不带进任何新东西，所以它照样是纯回声；
+// 而旧判据按字面比，「邀请你」在「邀请我」里既不是子串、去重后也只中 2/3，
+// 卡在八成线下面，整个判定不成立。
+test("翻个人称不算添了新东西", () => {
+  const seg = engine.slice(engine.indexOf("const ECHO_TAIL"), engine.indexOf("function stripEchoQuestion("));
+  const f = new Function(seg + "\nreturn {echoOpening, isEchoOfSaid};")();
+  const said = "我也要去 有没有人邀请我";
+  assert.equal(f.echoOpening("邀请你？", said), null, "整条就是回声，该整条丢掉");
+  assert.equal(f.echoOpening("你也要去？", said), null);
+  // 同人称的老用例不许退化
+  assert.equal(f.echoOpening("邀请我？", said), null);
+  // ⚠️别误伤：真反问、正常接话、以及只是碰巧用了同一个词的句子
+  ["我请你还是你请我", "行啊，马车两刻钟后到你府门前",
+   "你起得来么就在这儿喊着要去", "谁邀请的？说清楚"].forEach(t =>
+    assert.equal(f.echoOpening(t, said), undefined, "误伤了：" + t));
+  // 不带问号的陈述句本来就不是反问，不该动
+  assert.equal(f.echoOpening("邀请你", said), undefined);
+});
+
+test("提示词那半边也要点破这个花招", () => {
+  assert.match(ONLINE, /别拿人称当遮掩/);
+  assert.match(ONLINE, /她说「有没有人邀请我」，你回「邀请你？」/);
+});
