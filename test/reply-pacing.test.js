@@ -46,5 +46,7 @@ test("读句规则与气泡节奏拆开，并铺到线下与群聊", () => {
   const app = fs.readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
   const engine = fs.readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
   assert.match(app, /ReplyPacing\.reading\(\)/, "群聊线上要接入读句规则");
-  assert.equal((engine.match(/ReplyPacing\.reading\(\)/g) || []).length, 2, "线下单聊与群线下各接入一次");
+  // 注释里也会提到这个名字（v55.96 就撑到过 3）——数之前先把注释行滤掉
+  const codeOnly = src => src.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+  assert.equal((codeOnly(engine).match(/ReplyPacing\.reading\(\)/g) || []).length, 2, "线下单聊与群线下各接入一次");
 });

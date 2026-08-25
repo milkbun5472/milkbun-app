@@ -37,7 +37,7 @@ test("四处都要真的拼进去，不能再只是声明", () => {
   // 单聊线上：v2 每轮任务（现行路径）
   assert.match(app, /_normalThoughtTurnHint \+ "\\n" \+ MOOD_TURN_RULE/, "单聊线上·v2");
   // 单聊线上：旧全量任务串（非 anthropic 线路走这条，漏了就换条线路又不动）
-  assert.match(app, /" \+ MOOD_TURN_RULE \+ "\\n【输出】只输出一个 JSON/, "单聊线上·全量");
+  assert.match(app, /" \+ MOOD_TURN_RULE \+ crossSamenessHint\(charId\) \+ "\\n【输出】只输出一个 JSON/, "单聊线上·全量");
   // 群线上：mood 字段只在开了记忆互通时才发，规则跟着字段走
   assert.match(app, /两项只更新共享状态，绝不写进 text 气泡。\\n" \+ MOOD_TURN_RULE/, "群线上");
   // 单聊线下 / 群线下
