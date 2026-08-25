@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.16";
+const APP_VERSION = "v56.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8519,7 +8519,18 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const relLines = isSearch ? [] : forumRelLines(poolChars, opChar);
     const relBlock = relLines.length ? "\n【在场角色之间的关系——同帖出现的角色按真实身份互动，绝不当陌生人（该是兄弟/恋人/对头/师徒就用那样的口吻，别客气疏离）】\n" + relLines.slice(0, 24).join("\n") + "\n" : "";
     // 楼主规则：别自问自答、别把谁的名字写成「楼主」
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。"
+    // 楼主是她本人时，得说清楚那是【他们认识的那个人】——否则只看到一个网名，
+    // 角色只能按陌生人科普。大号要认出她，小号知道是她但必须装不认识（她 2026-08-25）。
+    const meOwn = post.authorType === "me" && !post.anon && post.board !== "匿名吧";
+    const meRule = !meOwn ? "" : ("\n【楼主「" + opName + "」就是你们认识的那个人·她的公开账号】\n"
+      + "· 用【大号】回复的角色：你一眼认得出是她，就按你和她真实的关系说话——该关心就关心、该调侃就调侃、该教训就教训。"
+      + "**别用对陌生人科普的腔**（「建议你拿手机在侧后方录个视频」那种），你跟她说话不是这个语气。\n"
+      + "· ⚠️但这是【公开楼】：别在正文里点破你和她是什么关系，也别把只有你俩知道的事当众说出来——"
+      + "认得出是熟人、语气自然带着熟悉感就够了，剩下的留到私聊。\n"
+      + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
+      + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
+      + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**";
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
@@ -8542,8 +8553,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         : "【楼主网名「" + opName + "」】楼主这轮可以回楼回应大家（针对已有楼层，reply_to_floor + is_op=true），别自问自答开新话题。"
           + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**";
       const opGround = forumOpGroundingFor(opChar, post);
+      // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
+      const opRule2Full = opRule2 + meRule;
       return {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2 + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + (post.body || "") + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " 部分楼可带 replies 楼中楼（1-3 条追评/接梗/对骂）。",
         schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\",\"guestName\":\"一次性路人才填\",\"guestHandle\":\"路人id\",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\",\"replies\":[]}]}",
         maxTokens: 7200
       };
