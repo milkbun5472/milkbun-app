@@ -343,9 +343,45 @@ function CastForm({
 // TIES (directed)
 // ============================================================
 const REL_PRESETS = ["恋人", "暧昧", "朋友", "挚友", "家人", "兄妹", "同事", "上下级", "师生", "对手", "陌生人", "前任", "单向暗恋", "青梅竹马"];
+// 配角的简介：默认收两行，点一下展开【全文】，还能就地改（她 2026-08-25：
+// 「简介打不开看全部」）。配角没有自己的资料页，所以读和改都得落在这儿。
+function NpcBrief({ npc, onSave, compact }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const text = String(npc.persona || "").trim();
+  return h("div", { style: { marginTop: compact ? 2 : 8 } },
+    h("button", {
+      onClick: e => { e.stopPropagation(); setOpen(o => !o); setDraft(null); },
+      className: "w-full text-left active:opacity-60"
+    },
+      h("div", {
+        style: {
+          fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.55, color: t.fog, whiteSpace: "pre-wrap",
+          ...(open ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" })
+        }
+      }, text || "（还没有简介）"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, display: "inline-block", marginTop: 4 } },
+        open ? "收起" : "展开简介")),
+    open && onSave ? h("div", { style: { marginTop: 8 } },
+      draft == null
+        ? h("button", { onClick: e => { e.stopPropagation(); setDraft(text); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "✏️ 改简介")
+        : h("div", null,
+            h("textarea", {
+              value: draft, onChange: e => setDraft(e.target.value), rows: 10,
+              onClick: e => e.stopPropagation(),
+              className: "w-full bg-transparent outline-none resize-none",
+              style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px" }
+            }),
+            h("div", { className: "flex gap-2", style: { marginTop: 6 } },
+              h("button", { onClick: e => { e.stopPropagation(); onSave(npc.id, draft); setDraft(null); }, className: "active:opacity-70", style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 9, padding: "7px 16px", fontFamily: F_DISPLAY, fontSize: 13 } }, "保存"),
+              h("button", { onClick: e => { e.stopPropagation(); setDraft(null); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "7px 8px" } }, "取消")))) : null);
+}
 function Ties({
   characters,
+  allChars,
   rels,
+  onSaveNpcBrief,
   profile,
   onBack,
   onSave,
@@ -358,13 +394,15 @@ function Ties({
   const [comp, setComp] = useState(null); // composer state | null
   const [view, setView] = useState(null); // null=角色列表 / participant id=该角色关系详情
   const me = profile.name || "我";
-  const nameOf = id => id === "me" ? me : (characters.find(c => c.id === id) || {}).name || "?";
-  const charOf = id => id === "me" ? null : characters.find(c => c.id === id);
+  const all = allChars || characters;   // 解析用全量（含 NPC）
+  const nameOf = id => id === "me" ? me : (all.find(c => c.id === id) || {}).name || "?";
+  const charOf = id => id === "me" ? null : all.find(c => c.id === id);
+  const npcOf = id => { const c = all.find(x => x.id === id); return c && c.npc ? c : null; };
   const edge = (from, to) => rels[from + "->" + to];
 
   // ---- reconstruct relationship cards from directed edges ----
   const canon = (x, y) => x === "me" ? [x, y] : y === "me" ? [y, x] : x < y ? [x, y] : [y, x];
-  const exists = id => id === "me" || characters.some(c => c.id === id);
+  const exists = id => id === "me" || all.some(c => c.id === id);   // 配角也算数，否则他那段关系整条消失
   const seen = {};
   const cards = [];
   Object.keys(rels).forEach(k => {
@@ -520,6 +558,24 @@ function Ties({
       h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 17, color: t.ink } }, labelText || "未命名"),
       noteText && h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, noteText));
   };
+  // 伙伴是配角时，关系卡下面直接挂他的简介——配角没有自己的资料页，
+  // 这儿是唯一能读到全文、也能改的地方（她 2026-08-25：「简介打不开看全部」）。
+  // ⚠️外层不能再用 <button>：简介框里有 textarea 和按钮，嵌不进 button。
+  const DetailRowWrap = ({ selfId, card }) => {
+    const other = card.a === selfId ? card.b : card.a;
+    const npc = npcOf(other);
+    if (!npc) return h(DetailRow, { selfId: selfId, card: card });
+    const e = edge(selfId, other) || edge(other, selfId) || {};
+    return h("div", { className: "mb-2.5", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "14px 16px" } },
+      h("div", { onClick: () => openEdit(card.a, card.b), className: "active:opacity-70", style: { cursor: "pointer" } },
+        h("div", { className: "flex items-center gap-2 mb-2" },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.fog } }, "⇄"),
+          h(Chip, { id: other }),
+          h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "只在群里出场")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 17, color: t.ink } }, e.label || "未命名")),
+      h(NpcBrief, { npc: npc, onSave: onSaveNpcBrief }),
+      onDeleteNpc ? h("button", { onClick: () => onDeleteNpc(npc.id), className: "active:opacity-60", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除这个配角") : null);
+  };
 
   // ---- 详情视图 ----
   if (view !== null) {
@@ -535,9 +591,9 @@ function Ties({
               h(Empty, { text: "还没有关系", sub: "点右上「＋」为 TA 新增一段关系" }))
           : h(Fragment, null,
               h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, mine.length + " 段关系")),
-              mine.map(c => h(DetailRow, { key: c.a + "|" + c.b, selfId: view, card: c })))),
+              mine.map(c => h(DetailRowWrap, { key: c.a + "|" + c.b, selfId: view, card: c })))),
       comp && h(RelComposer, {
-        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, npcsOf, npcBusy,
+        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy,
         valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
       }));
   }
@@ -555,12 +611,12 @@ function Ties({
             h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, "点角色查看 TA 的关系")),
             participants.map(p => h(RosterRow, { key: p.id, id: p.id })))),
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, npcsOf, npcBusy,
+      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onDeleteNpc, npcsOf, npcBusy }) {
+function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onDeleteNpc, onSaveNpcBrief, npcsOf, npcBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -652,8 +708,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
         },
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
-              String(n.persona || "").replace(/\s+/g, " "))),
+            h(NpcBrief, { npc: n, onSave: onSaveNpcBrief, compact: true })),
           onDeleteNpc ? h("button", { onClick: () => onDeleteNpc(n.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除") : null)))) : null
     ) : h(Fragment, null,
 

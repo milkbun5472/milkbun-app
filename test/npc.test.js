@@ -37,7 +37,7 @@ test("递给 UI 的角色列表默认不含 NPC", () => {
   assert.equal(codeOnly(app).indexOf("characters: characters,"), -1, "还有地方把全量递给了 UI");
   assert.ok((app.match(/characters: liveChars,/g) || []).length > 30);
   // 只有真的要按 id 找群成员的两处显式拿全量
-  assert.equal((app.match(/allChars: characters,/g) || []).length, 2, "聊天列表的群头像 + 群聊页");
+  assert.equal((app.match(/allChars: characters,/g) || []).length, 3, "聊天列表的群头像 + 群聊页 + 关系页");
   assert.match(comp, /const memberById = id => \(allChars \|\| characters\)\.find/);
 });
 
@@ -79,6 +79,31 @@ test("加人选单把有关系的排在前面单独一组", () => {
   assert.match(comp, /"和群里的人有关系的"/);
   assert.match(comp, /"其他角色"/, "其余角色仍要列出来，不砍掉");
   assert.match(app, /rels: rels,/, "群设置要拿得到关系表");
+});
+
+// 她 2026-08-25：裴照川的关系页显示「TIES · 0」——陆闻明明已经生成了。
+// 真凶是 exists() 拿不含 NPC 的列表去校验关系两头，整条被滤掉。
+test("配角那段关系要在角色的关系页里显示出来", () => {
+  assert.match(screens, /const all = allChars \|\| characters;/);
+  assert.match(screens, /const exists = id => id === "me" \|\| all\.some\(c => c\.id === id\);/);
+  assert.match(screens, /const nameOf = id => id === "me" \? me : \(all\.find/);
+  // 名册（左边那张角色列表）仍然只列真角色，配角只作为伙伴出现在详情里
+  assert.match(screens, /const participants = \[\{ id: "me" \}, \.\.\.characters\.map/);
+});
+
+// 她 2026-08-25：「简介打不开看全部」。配角没有自己的资料页，
+// 读全文和改都只能落在关系页里。
+test("简介能展开看全文，也能就地改", () => {
+  assert.match(screens, /function NpcBrief\(\{ npc, onSave, compact \}\)/);
+  assert.match(screens, /open \? "收起" : "展开简介"/);
+  assert.match(screens, /WebkitLineClamp: 2/, "收起时只显示两行");
+  assert.match(screens, /✏️ 改简介/);
+  assert.match(app, /onSaveNpcBrief: \(id, text\) =>/);
+  // 关系详情里和生成清单里用的是同一个框
+  assert.equal((screens.match(/h\(NpcBrief, \{/g) || []).length, 2);
+  // ⚠️外层原本是 <button>，简介框里有 textarea 和按钮，嵌不进去
+  const wrap = screens.slice(screens.indexOf("const DetailRowWrap"), screens.indexOf("// ---- 详情视图 ----"));
+  assert.doesNotMatch(wrap, /h\("button", \{ onClick: \(\) => openEdit/, "关系卡本体不能再是 button");
 });
 
 test("② 只能进主人的群", () => {

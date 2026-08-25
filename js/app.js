@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.04";
+const APP_VERSION = "v56.05";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10927,7 +10927,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onSave: saveRel,
     // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。
     // NPC 本来就是「某个角色身边的一段关系」，跟「我和角色」「角色之间」并排才对。
+    allChars: characters,   // 关系伙伴要按 id 解析；配角也算数，否则他那段关系整条消失
     npcsOf: npcsOf,
+    onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
     npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
     onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
     onDeleteNpc: id => {
