@@ -6453,6 +6453,7 @@ function GroupThread({
   groups,
   characters,
   allChars,
+  rels,
   messages,
   sending,
   profile,
@@ -7121,6 +7122,7 @@ function GroupThread({
     group: group,
     characters: characters,
     allChars: allChars,
+    rels: rels,
     directives: directives,
     onRemoveDirective: onRemoveDirective,
     onSetDirectiveTurns: onSetDirectiveTurns,
@@ -7455,7 +7457,7 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
-function GroupSettingsSheet({ gs, group, characters, allChars, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClearChat, onClose }) {
+function GroupSettingsSheet({ gs, group, characters, allChars, rels, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
   const [privN, setPrivN] = useState(gs.privateCtxN || 0);
@@ -7495,7 +7497,16 @@ function GroupSettingsSheet({ gs, group, characters, allChars, directives, onRem
   // characters 这个 prop 已经是不含 NPC 的 liveChars，所以要从 allChars 里另取。
   const npcOutsiders = (allChars || []).filter(c =>
     c && c.npc && !memberIds.includes(c.id) && memberIds.includes(c.ownerId));
-  const addable = outsiders.concat(npcOutsiders);
+  // 「进去再拉人，可以从他已有关系里面拉」（她 2026-08-25）：
+  // 和群里某位成员有关系的人排在前面单独一组——这才是她真正会拉的那些人；
+  // 其余角色照旧列在下面，不砍掉。
+  const relatedTo = id => (memberIds || []).some(mid =>
+    (rels || {})[mid + "->" + id] || (rels || {})[id + "->" + mid]);
+  const pool = outsiders.concat(npcOutsiders);
+  const nearby = pool.filter(c => c.npc || relatedTo(c.id));
+  const nearbyIds = new Set(nearby.map(c => c.id));
+  const rest = pool.filter(c => !nearbyIds.has(c.id));
+  const addable = nearby.concat(rest);
   const spec = !!gs.spectate;
 
   const row = (label, note, val, set) => h("div", { className: "flex items-center justify-between pt-5" },
@@ -7526,10 +7537,13 @@ function GroupSettingsSheet({ gs, group, characters, allChars, directives, onRem
       addOpen && h("div", { className: "mb-2 rounded-xl", style: { border: "1px solid " + t.line, padding: "4px 4px" } },
         addable.length === 0
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 10px" } }, "没有可加的角色了。")
-          : addable.map(c => h("button", { key: c.id, onClick: () => { onAddMember(c.id); setAddOpen(false); }, className: "w-full flex items-center gap-3 py-2 px-2 active:opacity-60" },
+          : addable.map(c => h(Fragment, { key: c.id },
+              (nearby.length && c === nearby[0]) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "6px 10px 2px" } }, "和群里的人有关系的") : null,
+              (rest.length && c === rest[0]) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "8px 10px 2px" } }, "其他角色") : null,
+              h("button", { onClick: () => { onAddMember(c.id); setAddOpen(false); }, className: "w-full flex items-center gap-3 py-2 px-2 active:opacity-60" },
               h(Avatar, { character: c, size: 30, radius: 7 }),
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
-              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加入")))),
+              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加入"))))),
       members.map(c => h("div", { key: c.id, className: "flex items-center gap-3 py-2" },
         h(Avatar, { character: c, size: 32, radius: 8 }),
         h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
@@ -7639,12 +7653,12 @@ function NewGroupSheet({
     }
   }, "新建群聊"), /*#__PURE__*/React.createElement("button", {
     onClick: () => {
-      if (name.trim() && sel.length >= 2) onCreate(name.trim(), sel, spectate);
+      if (name.trim() && sel.length >= 1) onCreate(name.trim(), sel, spectate);
     },
-    disabled: !name.trim() || sel.length < 2
+    disabled: !name.trim() || sel.length < 1
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
-    color: name.trim() && sel.length >= 2 ? t.ink : t.line
+    color: name.trim() && sel.length >= 1 ? t.ink : t.line
   }))), h("div", {
     className: "flex items-center justify-between rounded-xl px-3 py-2.5 mb-4",
     style: {
@@ -7735,11 +7749,6 @@ function NewGroupSheet({
 function ContactDetail({
   character,
   affinity,
-  npcs = [],
-  onCreateNpc,
-  onOpenNpc,
-  onDeleteNpc,
-  npcBusy,
   onBack,
   onChat,
   onSaveRemark,
@@ -7751,38 +7760,6 @@ function ContactDetail({
 }) {
   const t = useTheme();
   const [remark, setRemark] = useState(character.remark || "");
-  const [npcAsk, setNpcAsk] = useState("");
-  const [npcArmed, setNpcArmed] = useState(null);   // 两步删除：她在手机上按不动 confirm 弹窗
-  // 「TA 身边的人」：只在群里出场的配角。她填一句要谁（人设里提过的名字、
-  // 或者「他的属下」这种位置），一次调用生成简介+双向关系。
-  const npcPanel = onCreateNpc ? h("div", { className: "pt-6", style: { borderTop: "1px solid " + t.line, marginTop: 4 } },
-    h(Eyebrow, { style: { marginBottom: 6 } }, "TA 身边的人"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginBottom: 9 } },
-      "只在群聊里出场的配角：没有单聊、不发朋友圈、不占后台生成。写一句你要谁——人设里提到过的名字（如「陆闻」），或者一个位置（如「他的属下」）——会按 " + (character.remark || character.name) + " 的人设生成一份小简介和你俩的关系。删掉 " + (character.remark || character.name) + " 时他们会一起走。"),
-    h("div", { className: "flex gap-2", style: { marginBottom: (npcs && npcs.length) ? 12 : 0 } },
-      h("input", {
-        value: npcAsk, onChange: e => setNpcAsk(e.target.value),
-        placeholder: "陆闻 / 他的属下 / 她师姐",
-        style: { flex: 1, minWidth: 0, outline: "none", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", fontFamily: F_BODY, fontSize: 13.5, color: t.ink }
-      }),
-      h("button", {
-        onClick: () => { const v = npcAsk.trim(); if (!v || npcBusy) return; setNpcAsk(""); onCreateNpc(v); },
-        className: "active:opacity-70 shrink-0",
-        style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 10, padding: "0 16px", fontFamily: F_DISPLAY, fontSize: 14, opacity: (npcAsk.trim() && !npcBusy) ? 1 : 0.4 }
-      }, npcBusy ? "生成中…" : "生成")),
-    h("div", { className: "space-y-2" }, (npcs || []).map(n => h("div", {
-      key: n.id,
-      style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
-    },
-      h("div", { style: { flex: 1, minWidth: 0 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.name),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, String(n.persona || "").replace(/\s+/g, " ")),
-        onOpenNpc && h("button", { onClick: () => onOpenNpc(n), className: "active:opacity-60", style: { marginTop: 5, fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: "1px 0" } }, "编辑简介")),
-      onDeleteNpc && h("button", {
-        onClick: () => { if (npcArmed === n.id) { setNpcArmed(null); onDeleteNpc(n.id); } else setNpcArmed(n.id); },
-        className: "active:opacity-60 shrink-0",
-        style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" }
-      }, npcArmed === n.id ? "确定删？" : "删除"))))) : null;
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col"
   }, /*#__PURE__*/React.createElement(Head, {
@@ -7863,7 +7840,7 @@ function ContactDetail({
   }, "发消息"), /*#__PURE__*/React.createElement(IChevR, {
     size: 16,
     color: t.fog
-  })), npcPanel, /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement("button", {
     onClick: onOpenState,
     className: "w-full flex items-center justify-between py-4",
     style: {

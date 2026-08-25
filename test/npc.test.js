@@ -6,6 +6,7 @@ const root = path.join(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
+const screens = fs.readFileSync(path.join(root, "js/screens.js"), "utf8");
 const codeOnly = src => src.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
 
 // 她 2026-08-25 定的四条：① 没有心情/好感 ② 只能进主人的群
@@ -50,11 +51,42 @@ test("① 没有心情、没有好感度", () => {
   assert.match(app, /if \(c\.npc\) \{/, "群线上 memberDesc 要有配角分支");
 });
 
+// 她 2026-08-25 第二轮：「找不到」——原先塞在资料卡里。
+// NPC 本来就是「某个角色身边的一段关系」，入口该跟「我和角色」「角色之间」并排。
+test("入口在【关系】的 + 里，跟另外两种并排；资料卡里那份要撤干净", () => {
+  assert.match(screens, /seg\("npc", c\.tab, \(\) => set\(\{ tab: "npc" \}\), "NPC"\)/);
+  assert.match(screens, /c\.tab === "npc" \? h\(Fragment, null,/);
+  assert.match(screens, /placeholder: "陆闻 \/ 他的属下 \/ 她师姐"/);
+  // NPC 那一支没有「关系」可存，右上角的勾要藏起来，别让她按了没反应
+  assert.match(screens, /c\.tab !== "npc" && h\("button", \{ onClick: onSave/);
+  // 两个入口只留一个
+  assert.equal(comp.indexOf("npcPanel"), -1, "资料卡那份没撤干净");
+  assert.equal(app.indexOf("onOpenNpc"), -1);
+  assert.match(app, /npcsOf: npcsOf,/, "关系页要拿得到某个角色身边已有的人");
+});
+
+// 「添加群聊的时候要放宽，可以只放我和角色进去，进去再拉人」
+test("建群只要一个角色就能建", () => {
+  assert.match(comp, /if \(name\.trim\(\) && sel\.length >= 1\) onCreate/);
+  assert.match(comp, /disabled: !name\.trim\(\) \|\| sel\.length < 1/);
+  assert.equal((comp.match(/sel\.length >= 2|sel\.length < 2/g) || []).length, 0, "还留着两人起的门槛");
+});
+
+// 「进去再拉人，可以从他已有关系里面拉」
+test("加人选单把有关系的排在前面单独一组", () => {
+  assert.match(comp, /const relatedTo = id => \(memberIds \|\| \[\]\)\.some/);
+  assert.match(comp, /const nearby = pool\.filter\(c => c\.npc \|\| relatedTo\(c\.id\)\)/);
+  assert.match(comp, /"和群里的人有关系的"/);
+  assert.match(comp, /"其他角色"/, "其余角色仍要列出来，不砍掉");
+  assert.match(app, /rels: rels,/, "群设置要拿得到关系表");
+});
+
 test("② 只能进主人的群", () => {
   assert.match(comp, /c\.npc && !memberIds\.includes\(c\.id\) && memberIds\.includes\(c\.ownerId\)/,
     "主人不在这个群里，配角就不该出现在加人选单里");
-  // 建群时也进不来：NewGroupSheet 拿的是 liveChars
-  assert.match(comp, /const addable = outsiders\.concat\(npcOutsiders\);/);
+  // 建群时也进不来：NewGroupSheet 拿的是 liveChars（不含配角）
+  assert.match(comp, /const pool = outsiders\.concat\(npcOutsiders\);/);
+  assert.match(comp, /const addable = nearby\.concat\(rest\);/);
 });
 
 test("③ 跟着主人一起删，并从所有群里摘干净", () => {

@@ -348,7 +348,11 @@ function Ties({
   rels,
   profile,
   onBack,
-  onSave
+  onSave,
+  onCreateNpc,
+  onDeleteNpc,
+  npcsOf,
+  npcBusy
 }) {
   const t = useTheme();
   const [comp, setComp] = useState(null); // composer state | null
@@ -374,7 +378,7 @@ function Ties({
 
   // ---- open composer ----
   const openNew = () => setComp({
-    edit: false, tab: "me", meChar: characters[0] ? characters[0].id : "",
+    edit: false, tab: "me", meChar: characters[0] ? characters[0].id : "", npcAsk: "",
     pair: characters.length >= 2 ? [characters[0].id, characters[1].id] : [],
     label: "", dir: "double", single: "fwd", split: false, note: "", noteFwd: "", noteBwd: ""
   });
@@ -533,7 +537,7 @@ function Ties({
               h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, mine.length + " 段关系")),
               mine.map(c => h(DetailRow, { key: c.a + "|" + c.b, selfId: view, card: c })))),
       comp && h(RelComposer, {
-        comp, setComp, characters, profile, me, nameOf,
+        comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, npcsOf, npcBusy,
         valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
       }));
   }
@@ -551,12 +555,12 @@ function Ties({
             h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, "点角色查看 TA 的关系")),
             participants.map(p => h(RosterRow, { key: p.id, id: p.id })))),
     comp && h(RelComposer, {
-      comp, setComp, characters, profile, me, nameOf,
+      comp, setComp, characters, profile, me, nameOf, onCreateNpc, onDeleteNpc, npcsOf, npcBusy,
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }));
 }
 
-function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose }) {
+function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, onSave, onDelete, onClose, onCreateNpc, onDeleteNpc, npcsOf, npcBusy }) {
   const t = useTheme();
   const c = comp;
   const set = patch => setComp({ ...c, ...patch });
@@ -607,12 +611,51 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, c.edit ? "编辑关系" : "新增关系"),
       h("div", { className: "flex items-center gap-3" },
         c.edit && h("button", { onClick: onDelete, className: "active:opacity-50" }, h(ITrash, { size: 18, color: t.fog })),
-        h("button", { onClick: onSave, disabled: !valid, className: "active:opacity-50", style: { opacity: valid ? 1 : 0.35 } }, h(ICheck, { size: 20, color: t.ink })))),
+        c.tab !== "npc" && h("button", { onClick: onSave, disabled: !valid, className: "active:opacity-50", style: { opacity: valid ? 1 : 0.35 } }, h(ICheck, { size: 20, color: t.ink })))),
 
-    // tab: 我和角色 / 角色之间
+    // tab: 我和角色 / 角色之间 / NPC
+    // NPC 本来就是「某个角色身边的一段关系」，入口放这儿她才找得到（她 2026-08-25：
+    // 我原先塞在资料卡里，她说找不到）。
     h("div", { className: "flex gap-2 mb-5" },
       seg("me", c.tab, () => set({ tab: "me" }), "我和角色"),
-      seg("chars", c.tab, () => set({ tab: "chars" }), "角色之间")),
+      seg("chars", c.tab, () => set({ tab: "chars" }), "角色之间"),
+      onCreateNpc ? seg("npc", c.tab, () => set({ tab: "npc" }), "NPC") : null),
+
+    // NPC 分支：不是填关系，是生成一个只在群里出场的配角。
+    // 它除了人设什么都没有——没有单聊、没有心情好感、不进任何后台生成。
+    c.tab === "npc" ? h(Fragment, null,
+      h(Eyebrow, { style: { marginBottom: 10 } }, "算在谁身边"),
+      h("div", { className: "grid grid-cols-2 gap-2 mb-5" },
+        characters.map(ch => pickCard(ch.id, c.meChar === ch.id, () => set({ meChar: ch.id })))),
+      h(Eyebrow, { style: { marginBottom: 8 } }, "要生成谁"),
+      h("input", {
+        value: c.npcAsk || "", onChange: e => set({ npcAsk: e.target.value }),
+        placeholder: "陆闻 / 他的属下 / 她师姐",
+        className: "w-full bg-transparent outline-none pb-2",
+        style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
+      }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
+        "写人设里提到过的名字，或者一个位置（「他的属下」）。会按 " + (nameOf(c.meChar) || "这个角色")
+        + " 的人设生成一份几百字的小简介，并自动建好你俩的关系。\n配角只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 "
+        + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
+      h("button", {
+        onClick: () => { const v = String(c.npcAsk || "").trim(); if (!v || !c.meChar || npcBusy) return; onCreateNpc(c.meChar, v); set({ npcAsk: "" }); },
+        className: "w-full active:opacity-70",
+        style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
+          opacity: (String(c.npcAsk || "").trim() && c.meChar && !npcBusy) ? 1 : 0.4 }
+      }, npcBusy ? "生成中…" : "生成"),
+      (npcsOf ? npcsOf(c.meChar) : []).length ? h("div", { style: { marginTop: 18 } },
+        h(Eyebrow, { style: { marginBottom: 8 } }, nameOf(c.meChar) + " 身边已有的"),
+        h("div", { className: "space-y-2" }, npcsOf(c.meChar).map(n => h("div", {
+          key: n.id,
+          style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+        },
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, n.name),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+              String(n.persona || "").replace(/\s+/g, " "))),
+          onDeleteNpc ? h("button", { onClick: () => onDeleteNpc(n.id), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, padding: "0 2px" } }, "删除") : null)))) : null
+    ) : h(Fragment, null,
 
     // participants
     h(Eyebrow, { style: { marginBottom: 10 } }, c.tab === "me" ? "选择角色" : "选择两位角色"),
@@ -664,7 +707,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
           descBox(c.noteFwd, v => set({ noteFwd: v }), "写清楚这段关系的背景、张力和禁忌。"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "12px 0 4px" } }, nB + " 眼中的 " + nA),
           descBox(c.noteBwd, v => set({ noteBwd: v }), "写清楚这段关系的背景、张力和禁忌。"))
-      : descBox(c.note, v => set({ note: v }), "写清楚这段关系的背景、张力和禁忌。"));
+      : descBox(c.note, v => set({ note: v }), "写清楚这段关系的背景、张力和禁忌。")));
 }
 
 // ============================================================

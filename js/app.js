@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.03";
+const APP_VERSION = "v56.04";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10839,6 +10839,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     groups: groups,
     characters: liveChars,
     allChars: characters,   // 群成员/群设置要按 id 找人；加人选单另有规矩（NPC 只能进主人的群）
+    rels: rels,             // 加人选单要按「已有关系」分组（她 2026-08-25）
     messages: groupChats[activeGroup.id] || [],
     sending: sending,
     profile: profile,
@@ -10907,17 +10908,6 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "contact" && activeChar) body = /*#__PURE__*/React.createElement(ContactDetail, {
     character: activeChar,
     affinity: Math.round(affOf(activeChar.id)),
-    // 「TA 身边的人」：NPC 只挂在主角色的资料卡里，通讯录/聊天列表一概不显示
-    npcs: npcsOf(activeChar.id),
-    npcBusy: laneBusy("npc:" + activeChar.id),
-    onCreateNpc: ask => createNpc(activeChar.id, ask),
-    // 编辑简介直接复用普通角色的编辑页——NPC 本来就是同一种东西，白得一个完整编辑器
-    onOpenNpc: c => { setEditingChar(c); setScreen("castForm"); },
-    onDeleteNpc: id => {
-      pC(p => p.filter(c => c.id !== id));
-      setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
-      toast("已删除");
-    },
     onBack: () => setScreen("messages"),
     onChat: () => {
       clearUnread(activeChar.id);
@@ -10934,7 +10924,17 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     rels: rels,
     profile: profile,
     onBack: goHome,
-    onSave: saveRel
+    onSave: saveRel,
+    // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。
+    // NPC 本来就是「某个角色身边的一段关系」，跟「我和角色」「角色之间」并排才对。
+    npcsOf: npcsOf,
+    npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
+    onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
+    onDeleteNpc: id => {
+      pC(p => p.filter(c => c.id !== id));
+      setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
+      toast("已删除");
+    }
   });else if (screen === "lifestyle") body = h(Lifestyle, {
     characters: liveChars,
     schedules: schedules,
