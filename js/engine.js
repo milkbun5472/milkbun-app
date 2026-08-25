@@ -3124,25 +3124,59 @@ function _transKey(text) {
   for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
   return s.length + "_" + h.toString(36);
 }
+// 缓存值有两种形状：v55.99 存的是裸字符串，现在存 {zh, by}。读的时候都认。
 function transCacheGet(text) {
-  try { return (JSON.parse(localStorage.getItem(TRANS_CACHE_KEY) || "{}") || {})[_transKey(text)] || ""; }
-  catch (e) { return ""; }
+  try {
+    const v = (JSON.parse(localStorage.getItem(TRANS_CACHE_KEY) || "{}") || {})[_transKey(text)];
+    if (!v) return null;
+    return typeof v === "string" ? { zh: v, by: "" } : v;
+  } catch (e) { return null; }
 }
-function transCachePut(text, zh) {
+function transCachePut(text, zh, by) {
   try {
     const m = JSON.parse(localStorage.getItem(TRANS_CACHE_KEY) || "{}") || {};
-    m[_transKey(text)] = zh;
+    m[_transKey(text)] = { zh: zh, by: by || "" };
     const keys = Object.keys(m);
     if (keys.length > TRANS_CACHE_MAX) keys.slice(0, keys.length - TRANS_CACHE_MAX).forEach(k => delete m[k]);
     localStorage.setItem(TRANS_CACHE_KEY, JSON.stringify(m));
   } catch (e) {}
 }
-// 走后台线路（和注音、记忆整理同一条），不占聊天线路、也不进聊天上下文。
-async function translateToZh(text) {
-  const cached = transCacheGet(text);
-  if (cached) return cached;
+// translatableLang 已经判出语种了，直接给免费接口用（它们的 auto 检测都不太靠谱）
+const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "外语": "auto" };
+async function _fetchJSON(url, ms) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), ms || 8000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  } finally { clearTimeout(to); }
+}
+// 免费引擎①：Google 的 gtx 端点。不要 key、CORS 开放、质量最好。
+// ⚠️国内直连多半不通——所以它只是【第一顺位】，失败立刻让位，绝不卡着。
+async function _transGoogle(text, src) {
+  const u = "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t"
+    + "&sl=" + encodeURIComponent(src || "auto") + "&tl=zh-CN&q=" + encodeURIComponent(text);
+  const d = await _fetchJSON(u, 7000);
+  const zh = (Array.isArray(d) && Array.isArray(d[0]) ? d[0] : []).map(x => (x && x[0]) || "").join("").trim();
+  if (!zh) throw new Error("空结果");
+  return zh;
+}
+// 免费引擎②：MyMemory。匿名每天 1000 词，CORS 开放，欧洲的机器国内通常连得上。
+async function _transMyMemory(text, src) {
+  const u = "https://api.mymemory.translated.net/get?q=" + encodeURIComponent(text)
+    + "&langpair=" + encodeURIComponent((src && src !== "auto" ? src : "en") + "|zh-CN");
+  const d = await _fetchJSON(u, 8000);
+  const zh = String((d && d.responseData && d.responseData.translatedText) || "").trim();
+  // 额度用尽/出错时它会把错误话放进 translatedText 当正文回来（跟中转站一个毛病）
+  if (!zh || /MYMEMORY WARNING|QUERY LENGTH LIMIT|INVALID/i.test(zh)) throw new Error(zh ? zh.slice(0, 60) : "空结果");
+  return zh;
+}
+// 兜底：用后台线路让模型翻。要花钱，但一条聊天消息只是几百 token，
+// 而且译文进缓存、同一句只花一次。
+async function _transModel(text) {
   const p = ttsHelperProfile();
-  if (!p || !p.apiKey || !p.model) throw new Error("没配后台线路：去 设置·API 选一条「后台任务」用的线路");
+  if (!p || !p.apiKey || !p.model) throw new Error("免费接口没通，后台线路也没配");
   const sys = "你是翻译。把用户发来的这段话翻译成简体中文。\n"
     + "· 只输出译文，不要原文、不要注音、不要解释、不要引号、不要「译：」这类前缀。\n"
     + "· 保留原话的语气和口吻（撒娇、调侃、生气、正式都照搬），这是聊天消息不是公文。\n"
@@ -3151,8 +3185,31 @@ async function translateToZh(text) {
   const raw = await callAI(p, sys, [{ role: "user", content: String(text || "") }], { maxTokens: 1200, timeout: 45000 });
   const zh = String(raw || "").trim().replace(/^[「『"']|[」』"']$/g, "").trim();
   if (!zh) throw new Error("上游没有返回译文");
-  transCachePut(text, zh);
   return zh;
+}
+// 免费优先，一级一级往下退；每一级都短超时，绝不让她对着「翻译中…」干等。
+// 返回 { zh, by }：by 会显示在展开区里，她一眼就能看出这条花没花钱。
+async function translateToZh(text, lang) {
+  const cached = transCacheGet(text);
+  if (cached && cached.zh) return cached;
+  const src = TRANS_LANG_CODE[lang] || "auto";
+  const chain = [
+    { by: "免费", run: () => _transGoogle(text, src) },
+    { by: "免费", run: () => _transMyMemory(text, src) },
+    { by: "模型", run: () => _transModel(text) }
+  ];
+  const errs = [];
+  const names = ["Google", "MyMemory", "模型"];
+  for (let i = 0; i < chain.length; i++) {
+    try {
+      const zh = await chain[i].run();
+      transCachePut(text, zh, chain[i].by);
+      return { zh: zh, by: chain[i].by };
+    } catch (e) { errs.push(names[i] + "：" + String((e && e.message) || e).slice(0, 70)); }
+  }
+  // 三级都挂了要把三条原因都报出来——只报最后一条的话，她看到「后台线路没配」
+  // 会以为是自己没配，其实前面两个免费的是网络不通。
+  throw new Error("三条都没翻成 · " + errs.join("；"));
 }
 
 // 日语汉字 → 假名读音（v47.93）：MiniMax 对「寝」这类中日共用汉字压不住会读成中文，

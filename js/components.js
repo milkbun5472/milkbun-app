@@ -4356,7 +4356,9 @@ function TransText({ text, isU }) {
   const t = useTheme();
   const lang = typeof translatableLang === "function" ? translatableLang(text) : "";
   const [open, setOpen] = useState(false);
-  const [zh, setZh] = useState(() => (lang && typeof transCacheGet === "function" ? transCacheGet(text) : ""));
+  const cached = lang && typeof transCacheGet === "function" ? transCacheGet(text) : null;
+  const [zh, setZh] = useState(() => (cached && cached.zh) || "");
+  const [by, setBy] = useState(() => (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   if (!lang) return text;
@@ -4368,7 +4370,7 @@ function TransText({ text, isU }) {
     setOpen(true);
     if (zh || busy) return;
     setBusy(true); setErr("");
-    try { setZh(await translateToZh(text)); }
+    try { const r = await translateToZh(text, lang); setZh(r.zh); setBy(r.by || ""); }
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };
@@ -4381,7 +4383,7 @@ function TransText({ text, isU }) {
         padding: "0 5px", borderRadius: 5, border: "1px solid " + fg, opacity: 0.42, color: fg }
     }, open ? "收起" : "译"),
     open && h("span", { style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
-      h("span", { style: { display: "block", fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang),
+      h("span", { style: { display: "block", fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang + (by ? " · " + by : "")),
       h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1 } },
         busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
 }
