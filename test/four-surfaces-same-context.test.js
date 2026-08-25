@@ -50,8 +50,9 @@ test("四处旧的固定截断一个都不许留着", () => {
   ["(c.persona || \"（暂无设定）\").slice(0, 260)", "(c.persona || \"（暂无设定）\").slice(0, 200)"].forEach(x =>
     assert.ok(engine.indexOf(x) < 0, "engine.js 还留着 " + x));
   // 四处都改走同一个函数
-  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 2, "线上群 + 投票");
-  assert.equal((engine.match(/groupPersonaText\(c\.persona/g) || []).length, 2, "群线下 + 群 OOC");
+  // v56.03 起每处群人设都多一条 NPC 分支（配角走 NPC_PERSONA_CAP 小额度）
+  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 3, "线上群（真角色+配角） + 投票");
+  assert.equal((engine.match(/groupPersonaText\(c\.persona/g) || []).length, 3, "群线下（真角色+配角） + 群 OOC");
 });
 
 test("群聊线上补上心情/好感/印象卡", () => {
@@ -110,8 +111,9 @@ test("写：封闭群一个字都不回流主线", () => {
   assert.match(app, /if \(!gsFor\(groupId\)\.memoryInterop\) return; \/\/ 记忆分区/);
   // 群线下的好感/心情/状态卡——以前一道闸都没有
   assert.match(app, /const gOffSealed = groupClosed\(group\.id\);/);
-  assert.match(app, /if \(!gOffSealed && b\.senderId && typeof b\.affinityDelta === "number"\) bumpAff/);
-  assert.match(app, /if \(!gOffSealed && b\.senderId && b\.mood && b\.mood\.label\) setMoodFor/);
+  // v56.03 起同一行还多挡了 NPC（配角没有心情/好感），闭群那道闸原样还在
+  assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId && typeof b\.affinityDelta === "number"\) bumpAff/);
+  assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId && b\.mood && b\.mood\.label\) setMoodFor/);
   assert.match(app, /if \(!gOffSealed && b\.senderId && \(gOffThought \|\| \(b\.mood && b\.mood\.label\)\)\)/);
   // 动态计数器：线上线下都要堵
   assert.match(app, /if \(!groupClosed\(groupId\)\) _gspoke\.forEach/, "群聊线上");

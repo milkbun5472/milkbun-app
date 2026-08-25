@@ -45,7 +45,7 @@ test("禁用词表：把别的角色刚说过的短句收集起来当模板证�
   const j = app.indexOf("  const ctxFor = (char, ctxOpts) =>");
   assert.ok(i > 0 && j > i);
   const body = app.slice(i, j);
-  const mk = ctx => new Function("chatsRef", body + "\nreturn {crossSamenessHint, crossSamenessBlocklist};")(ctx);
+  const mk = ctx => new Function("chatsRef", "characters", body + "\nreturn {crossSamenessHint, crossSamenessBlocklist};")(ctx, []);
   const now = Date.now();
   const ctx = { current: {
     shen: [

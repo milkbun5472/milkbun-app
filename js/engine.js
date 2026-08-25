@@ -3085,6 +3085,39 @@ function ttsHelperProfile() {
     return list.find(p => p.id === bgId) || null;
   } catch (e) { return null; }
 }
+// ==== NPC 生成（她 2026-08-25）====
+// 她在主角色档案里填一句「要谁」——可以是人设里提到的名字（陆闻），
+// 也可以是一个位置（「他的属下」）——一次调用生成几百字小简介 + 双向关系，
+// 然后就能拉进群一起聊。不做单聊、不做心情好感、不进任何后台循环。
+async function generateNpc(p, hostChar, ask, takenNames) {
+  const host = (hostChar && hostChar.name) || "这个角色";
+  const persona = String((hostChar && hostChar.persona) || "").replace(/\s+/g, " ").slice(0, 4000);
+  const taken = (takenNames || []).filter(Boolean);
+  const sys = "你在为一个角色扮演 App 补一位【配角】。这位配角只会出现在群聊里，不会单独出场。\n\n"
+    + "【主角色】" + host + "\n" + (persona ? "【主角色的人设】\n" + persona + "\n" : "")
+    + "\n【要生成谁】用户填的是：「" + String(ask || "").trim() + "」。\n"
+    + "· 如果这是【人设里已经提到过的人】，就按人设里已有的信息把他补完整，绝不改写人设里已经写死的事。\n"
+    + "· 如果这是一个【位置或身份】（如「他的属下」「她的师姐」），就为这个位置造一个具体的人，起一个和主角色同一个时代、同一个世界的名字。\n"
+    + (taken.length ? "· 已经有这几位了，名字和身份都别重复：" + taken.join("、") + "。\n" : "")
+    + "\n【怎么写】\n"
+    + "· brief 写 300~500 字，第二人称写给这位配角本人看（「你是…」）：他是谁、做什么的、和主角色怎么认识的、性格什么样、说话什么调子、此刻大概在忙什么。\n"
+    + "· 要具体到能照着演：给他一两个只属于他的习惯、口头禅或在意的事，别写成「忠心耿耿、办事得力」这种履历。\n"
+    + "· 世界观、时代、称谓一律跟着主角色走：主角色是古代人，配角就不能有手机；主角色是现代人，配角就别说「属下」。\n"
+    + "· ⚠️他不认识用户，也不知道用户和主角色是什么关系——绝不许在简介里写任何关于用户的事。\n"
+    + "· ⚠️不许给他安排和用户的感情线、不许写他暗恋谁、不许写他和主角色的暧昧。他就是个配角。\n"
+    + "\n【输出】只输出 JSON，不要代码块：\n"
+    + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话（如：我的副将，跟了我八年）","relToHost":"这个人眼里主角色是谁，一句话（如：我的主子，也是把我从死人堆里拖出来的人）"}';
+  const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 2000, timeout: 90000 });
+  const d = parseJSONLoose(raw);
+  if (!d || !d.name || !d.brief) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
+  return {
+    name: String(d.name).trim().slice(0, 24),
+    brief: String(d.brief).trim().slice(0, 1500),
+    relFromHost: String(d.relFromHost || "").trim().slice(0, 60),
+    relToHost: String(d.relToHost || "").trim().slice(0, 60)
+  };
+}
+
 // ==== 外语气泡按需翻译（她 2026-08-25：角色发了别的语言，点一下像语音那样把气泡撑开显示中文）====
 // 设计三条：
 // ① 判定必须【保守】——宁可漏，不可把中文消息误判成外语，那样每条底下都挂个「译」很吵。
@@ -3450,6 +3483,8 @@ function offlineStyleExamplesBlock(examples, label, maxItems) {
 // 她按次计费，上下文长一点不多花钱；每人给到 6000 封顶、总预算 30000，
 // 五个人以内谁都不用被砍。人再多才按份额收，地板 1500。
 const GROUP_PERSONA_BUDGET = 30000, GROUP_PERSONA_EACH_MAX = 6000;
+// NPC 是配角，几百字就够；不参与按人数平分，也别把主角色的额度吃掉。
+const NPC_PERSONA_CAP = 900;
 function groupPersonaBudget(memberCount) {
   const n = Math.max(1, Number(memberCount) || 1);
   return Math.min(GROUP_PERSONA_EACH_MAX, Math.max(1500, Math.floor(GROUP_PERSONA_BUDGET / n)));
@@ -3967,8 +4002,14 @@ async function generateOfflineGroup(p, ctx, session) {
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && Number(n.remaining) > 0 ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
   const cotT = loadOfflineNoCotModels().includes(cotModelKey) ? "" : cotThink({ char: members.map(c => c.name).join("、") || "在场角色", user: userName });
-  const gPersonaCap = groupPersonaBudget(members.length);
-  const memberDesc = members.map(c => "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap)
+  // 预算按【真角色】人数分：配角不参与平分，也别把主角色的额度吃掉
+  const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
+  // NPC 是只在群里出场的配角：没有心情、好感、印象卡、长出来的自我、年龄、行程、
+  // 情侣状态——那些都是「这个主角色是谁」的层。（她 2026-08-25 拍板，同群线上）
+  const memberDesc = members.map(c => c.npc
+    ? "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
+      + ((ctx.npcOwnerName && ctx.npcOwnerName[c.id]) ? "\n〔这是 " + ctx.npcOwnerName[c.id] + " 身边的人，只在群里出场〕" : "")
+    : "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap)
     + ((ctx.memberGrown && ctx.memberGrown[c.id]) ? "\n〔" + c.name + " 长出来的自我（这段日子经历沉淀下来的、是 TA 当下真实的一部分，自然体现在言行里，别当台词复述）〕\n" + ctx.memberGrown[c.id] : "")
     // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有
     + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
