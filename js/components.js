@@ -3105,10 +3105,7 @@ function ChatThread({
     if (!el) return;
     if (!inited.current) {
       inited.current = true;
-      el.scrollTop = el.scrollHeight; // 首次进入：立刻落底
-      const t1 = setTimeout(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, 60);
-      const t2 = setTimeout(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, 280);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      return pinToBottom(el); // 首次进入：钉到底，直到图片/字体都加载完或她自己上翻
     }
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
@@ -4348,6 +4345,38 @@ function giftFmtLeft(ms) {
   if (m >= 60) { const hh = Math.floor(m / 60); return hh + "小时" + (m % 60 ? (m % 60) + "分" : ""); }
   const s = Math.ceil(ms / 1000);
   return m > 0 ? m + "分" + (s % 60) + "秒" : (s % 60) + "秒";
+}
+// 进聊天必须落在最新一条上。旧写法是「立刻 + 60ms + 280ms」三枪定时器——
+// 但头像、自拍、表情、贴纸、聊天背景、网页字体全是异步的：它们加载完内容会变高，
+// 而这三枪早打完了，于是停在半空，她得自己往下翻（她 2026-08-25 报）。
+// 改成【盯着内容高度】：进入后的一小段窗口里，内容一变高就重新落底。
+// ⚠️她一旦自己往上翻就立刻停手，绝不跟她抢滚动条。
+function pinToBottom(el, ms) {
+  if (!el) return () => {};
+  let stopped = false, lastH = -1;
+  const halt = () => { stopped = true; };
+  const pin = () => {
+    if (stopped || !el.isConnected) return;
+    if (el.scrollHeight !== lastH) { lastH = el.scrollHeight; el.scrollTop = el.scrollHeight; }
+  };
+  const opt = { passive: true };
+  // 她自己动手的三种方式；纯 touchstart（点一下气泡）不算，所以听 touchmove
+  el.addEventListener("touchmove", halt, opt);
+  el.addEventListener("wheel", halt, opt);
+  el.addEventListener("keydown", halt);
+  // 图片解码完成会冒到这里（capture 才收得到 img 的 load）——这是最准的一枪
+  el.addEventListener("load", pin, true);
+  pin();
+  const iv = setInterval(pin, 80);           // 字体/布局这类没有 load 事件的兜底
+  const done = setTimeout(halt, ms || 2500);
+  return () => {
+    stopped = true;
+    clearInterval(iv); clearTimeout(done);
+    el.removeEventListener("touchmove", halt, opt);
+    el.removeEventListener("wheel", halt, opt);
+    el.removeEventListener("keydown", halt);
+    el.removeEventListener("load", pin, true);
+  };
 }
 // 外语气泡：点一下把气泡撑开、下面显示中文（她 2026-08-25 要的，形状照抄上面的语音转文字）。
 // 绝大多数消息是中文 → translatableLang 返回空串 → 直接把原字符串还回去，不多包一层 DOM、零开销。
@@ -6502,10 +6531,7 @@ function GroupThread({
     if (!el) return;
     if (!inited.current) {
       inited.current = true;
-      el.scrollTop = el.scrollHeight; // 首次进入群聊：立刻落底
-      const t1 = setTimeout(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, 60);
-      const t2 = setTimeout(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, 280);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+      return pinToBottom(el); // 首次进入群聊：同上
     }
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
