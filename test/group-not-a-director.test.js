@@ -84,3 +84,21 @@ test("旧的 asPrivate 那份还在，但普通群不再靠它", () => {
   const i = app.indexOf("if (asPrivate) dir =");
   assert.match(app.slice(i, i + 700), /萍水相逢/, "两人旁观局那份别删");
 });
+
+// v55.91 加完这条之后她报「阿朝阿暮也很怪了」：
+// v55.90 那组截图里他俩还是家常斗嘴（「你晚上要是敢做甜的排骨汤，你自己全喝完」），
+// v55.92 变成合伙圈地排外（「我们家不缺古董」「你少操心别人家的事」
+// 「别半夜翻墙进来就行」）。「不熟」被读成了「敌意」，而他俩本来就是一对，
+// 于是变成两个人抱团对付新来的。
+test("不熟是要试探，不是要排外", () => {
+  const rule = engine.slice(engine.indexOf("const GROUP_IN_CHARACTER"),
+                            engine.indexOf("`;", engine.indexOf("const GROUP_IN_CHARACTER")));
+  assert.match(rule, /不熟＝还不了解、要试探，不等于敌意/);
+  // 点名她截图里那几句圈地话
+  assert.match(rule, /我们家不缺X/);
+  assert.match(rule, /你少操心别人家的事/);
+  assert.match(rule, /本来就熟的几个人也不许因为多了个生人就抱团对外/);
+  // 要给出正向的替代，不能只说「别怎样」
+  assert.match(rule, /好奇、客气、打量、随口开个不痛不痒的玩笑/);
+  assert.match(rule, /敌意要有具体的来由才成立/);
+});

@@ -501,15 +501,30 @@ function upstreamErrorInContent(text) {
   return "";
 }
 // 三种协议分支共用：拿到正文先过这一关，是上游错误就当错误抛，别冒充模型的话往下走。
-function assertNotUpstreamError(t, model) {
+function callDiag(model, promptChars, maxTokens, t0) {
+  const secs = Math.round((Date.now() - t0) / 100) / 10;
+  return "〔" + (model || "未知模型")
+    + "｜提示词约 " + Math.round(promptChars / 1000) + "k 字"
+    + "｜输出上限 " + maxTokens + " tok"
+    + "｜等了 " + secs + " 秒"
+    + (secs < 8 ? "＝上游直接打回来了（拦截／格式／配额），不是超时" : "＝等到一半才断，像超时或冷启动") + "〕";
+}
+function assertNotUpstreamError(t, model, diag) {
   const hit = upstreamErrorInContent(t);
   if (!hit) return t;
   throw new Error("线路报错（不是模型写的正文）：" + hit.replace(/\s+/g, " ").slice(0, 300)
-    + "\n——" + (model ? "「" + model + "」" : "这条线路") + "此刻没跑起来（多半是上游拦了、配额/密钥不通、或这个模型不稳）。换条线路或换个模型再试。");
+    + "\n——" + (model ? "「" + model + "」" : "这条线路") + "此刻没跑起来（多半是上游拦了、配额/密钥不通、或这个模型不稳）。换条线路或换个模型再试。"
+    + (diag ? "\n" + diag : ""));
 }
 async function callAI(p, system, messages, opts) {
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
+  // 失败时她在手机上看不到 console，只能看气泡。把「这一次到底发了多大、等了多久」
+  // 一起报出来：几乎瞬间失败 = 上游把请求打回来了（拦截/格式/配额）；
+  // 等了几十秒才失败 = 超时/冷启动。这两种的修法完全不同，不该靠猜。
+  const _t0 = Date.now();
+  const _promptChars = String(system || "").length
+    + (messages || []).reduce((n, m) => n + String((m && m.content) || "").length, 0);
   const base = (p.baseUrl || "").replace(/\/$/, "");
   const fmt = detectFormat(p);
   const model = p.model;
@@ -663,8 +678,8 @@ async function callAI(p, system, messages, opts) {
       }
     } catch (e) {}
     const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
-    if (!t) throw new Error("模型返回为空" + (d.stop_reason ? "（停止原因：" + d.stop_reason + "）" : "（上游没有返回正文）"));
-    return assertNotUpstreamError(t, model);
+    if (!t) throw new Error("模型返回为空" + (d.stop_reason ? "（停止原因：" + d.stop_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
+    return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
   }
   if (fmt === "gemini") {
     const gBody = {
@@ -699,9 +714,9 @@ async function callAI(p, system, messages, opts) {
     if (!t) {
       const reason = d.candidates && d.candidates[0] && d.candidates[0].finishReason;
       const blocked = d.promptFeedback && d.promptFeedback.blockReason;
-      throw new Error("模型返回为空" + (reason || blocked ? "（停止原因：" + (reason || blocked) + "）" : "（上游没有返回正文）"));
+      throw new Error("模型返回为空" + (reason || blocked ? "（停止原因：" + (reason || blocked) + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
     }
-    return assertNotUpstreamError(t, model);
+    return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
   }
   const root = base.endsWith("/v1") ? base : base + "/v1";
   // openai 兼容：同样兜底——推理类模型（o系/部分中转）不吃 temperature，报错就去掉重试一次
@@ -789,8 +804,8 @@ async function callAI(p, system, messages, opts) {
   } catch (e) {}
   const choice = d.choices && d.choices[0];
   const t = (choice && choice.message && choice.message.content || "").trim();
-  if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）"));
-  return assertNotUpstreamError(t, model);
+  if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
+  return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
 }
 function repairJSON(t) {
   // 走查字符，补全被截断的字符串与括号，尽力把残缺 JSON 修成可解析
@@ -1056,7 +1071,8 @@ const GROUP_IN_CHARACTER = `【你不是在导演他们，你就是在场的每�
 · **别拿身份当挡箭牌**：被调侃、被安排活儿、被顶撞的时候，「你敢让我做这个」「我不做」「你那X怕是不想要了」这种拿位分压回去的反应是最省事的写法，也是最假的。真的人会先有具体的反应——愿不愿意、觉得好不好笑、在不在意说话的这个人——身份最多是他随手挑的一种说法。
 · **判定**：把这一条里的头衔和身份词全删掉。剩下的话如果就什么都不是了，那写的是标签不是人，重写。
 
-【彼此不熟就照不熟来】没有明确设定过两个人之间关系的，就按刚认识／萍水相逢那样试探着相处：别凭空当成旧识、有旧怨、或本来就是一伙的，也别一上来就靠地位互相定位。`;
+【彼此不熟就照不熟来】没有明确设定过两个人之间关系的，就按刚认识／萍水相逢那样试探着相处：别凭空当成旧识、有旧怨、或本来就是一伙的，也别一上来就靠地位互相定位。
+⚠️**不熟＝还不了解、要试探，不等于敌意**：不许因此排挤、划界、把新来的当入侵者。「我们家不缺X」「你少操心别人家的事」「别半夜翻墙进来」这类圈地话尤其别拿来开场；本来就熟的几个人也不许因为多了个生人就抱团对外。刚认识的人之间最常见的是好奇、客气、打量、随口开个不痛不痒的玩笑——敌意要有具体的来由才成立，没有来由就别演。`;
 const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】
 完全代入当前角色，通过手机即时通讯与对方聊天。word 只包含角色此刻真正会发送出去的内容，不写旁白、动作、神态、心理活动、括号说明或舞台提示。
 

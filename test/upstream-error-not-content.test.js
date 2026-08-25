@@ -44,7 +44,7 @@ test("角色真的说话不许被误伤", () => {
 });
 
 test("三种协议分支都要过这一关，不许有一条漏网", () => {
-  assert.equal((engine.match(/return assertNotUpstreamError\(t, model\);/g) || []).length, 3,
+  assert.equal((engine.match(/return assertNotUpstreamError\(t, model, callDiag\(model, _promptChars, maxTokens, _t0\)\);/g) || []).length, 3,
     "anthropic / gemini / openai 三条 return t 都要包上");
   assert.doesNotMatch(engine, /\n    return t;\n  \}\n  if \(fmt === "gemini"\)/, "anthropic 那条别漏");
   const fn = engine.slice(engine.indexOf("function assertNotUpstreamError"),
@@ -59,4 +59,28 @@ test("群聊那条失败提示不再把原文砍到 40 字", () => {
   const line = app.slice(i - 120, i + 260);
   assert.match(line, /t\.slice\(0, 200\)/);
   assert.doesNotMatch(line, /t\.slice\(0, 40\)/);
+});
+
+// 她 2026-08-25 追报：flash 只有【第一轮】失败，第二轮开始就没问题。
+// 上游是个黑盒，不该继续猜；她在手机上也看不到 console，只能看气泡。
+// 所以每条失败都带上「发了多大、等了多久」——下次再失败一眼就能定性。
+test("失败时要报清楚这一次到底发了多大、等了多久", () => {
+  const seg2 = engine.slice(engine.indexOf("function callDiag"), engine.indexOf("function assertNotUpstreamError"));
+  const callDiag = new Function(seg2 + "\nreturn callDiag;")();
+  const fast = callDiag("gemini-2.5-flash", 15200, 5900, Date.now() - 800);
+  assert.match(fast, /gemini-2\.5-flash/);
+  assert.match(fast, /提示词约 15k 字/);
+  assert.match(fast, /输出上限 5900 tok/);
+  assert.match(fast, /上游直接打回来了/, "秒失败要判成打回，不是超时");
+  const slow = callDiag("gemini-2.5-flash", 15200, 5900, Date.now() - 47000);
+  assert.match(slow, /像超时或冷启动/);
+  assert.doesNotMatch(slow, /上游直接打回来了/);
+});
+
+test("「模型返回为空」那三处也要带诊断，不然只剩一句空话", () => {
+  assert.equal((engine.match(/callDiag\(model, _promptChars, maxTokens, _t0\)/g) || []).length, 6,
+    "3 处 return + 3 处返回为空");
+  // 提示词规模必须把 system 和 messages 都算上，只算一头会看不出真实体量
+  assert.match(engine, /const _promptChars = String\(system \|\| ""\)\.length/);
+  assert.match(engine, /reduce\(\(n, m\) => n \+ String\(\(m && m\.content\) \|\| ""\)\.length, 0\)/);
 });
