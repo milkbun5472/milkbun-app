@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.18";
+const APP_VERSION = "v56.19";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8594,7 +8594,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         const list = cs.map((x, i) => buildForumFloor(x, i + 2, base, i, post)).filter(Boolean).map((f, i) => ({
           ...f, floor: i + 2, visibleAt: forumCommentVisibleAt(base, i, salt), ts: forumCommentVisibleAt(base, i, salt)
         }));
-        setForumComments(prev => prev[post.id] ? prev : (() => { const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n; })());
+        setForumComments(prev => prev[post.id] ? prev : (() => { const n = { ...prev, [post.id]: forumFloorOrder(list) }; saveJSON("x_forumComments", n); return n; })());
       }
     } catch (e) { toast("加载评论失败：" + e.message); }
     finally { forumCInflightRef.current[post.id] = false; setGen(g => ({ ...g, forumC: null })); }
@@ -8605,9 +8605,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forumMore: post.id }));
     try {
-      const existing = forumCommentsRef.current[post.id] || [];
+      const existing = forumFloorOrder(forumCommentsRef.current[post.id] || []);
+      // 报给模型的只能是【已经露面】的楼——排在几小时后的队里那些她自己都还没看到，
+      // 让模型去接那种楼，回出来的话就成了对空气说的。防重复发言的名单仍看全部楼层。
+      const shownFloors = existing.filter(f => !f.visibleAt || Number(f.visibleAt) <= Date.now());
       const repliedChars = forumRepliedCharCells(existing);
-      const d = await runProbeRetry(active, forumWorldCtx(), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
+      const d = await runProbeRetry(active, forumWorldCtx(), forumCommentProbe(post, "10-16", { round2: true, existingFloors: shownFloors, repliedChars }));
       let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
       if (!cs.length) throw new Error("没有更多");
       const base = Date.now();
@@ -8632,7 +8635,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           const adds = subInserts.filter(s => s.floorId === f.id).map(s => s.reply);
           return adds.length ? { ...f, replies: [...(f.replies || []), ...adds] } : f;
         });
-        list = [...list, ...more];
+        list = forumFloorOrder([...list, ...more]);
         const n = { ...prev, [post.id]: list }; saveJSON("x_forumComments", n); return n;
       });
       bumpReplyBy(post.id, more.length + subInserts.length);
@@ -8866,9 +8869,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     if (!post) { const q2 = forumMineQueue(); delete q2[hitId]; forumMineQueueSave(q2); return; }
     forumWaveBusyRef.current = true;
     try {
-      const existing = forumCommentsRef.current[hitId] || [];
+      const existing = forumFloorOrder(forumCommentsRef.current[hitId] || []);
+      const shownFloors = existing.filter(f => !f.visibleAt || Number(f.visibleAt) <= Date.now());
       const d = await runProbeRetry(p, forumWorldCtx(),
-        forumCommentProbe(post, "1-2", { round2: true, existingFloors: existing, repliedChars: forumRepliedCharCells(existing) }));
+        forumCommentProbe(post, "1-2", { round2: true, existingFloors: shownFloors, repliedChars: forumRepliedCharCells(existing) }));
       const cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content).slice(0, 2);
       if (cs.length) {
         const base = Date.now(), start = existing.length + 2;
@@ -8891,7 +8895,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
               const adds = subInserts.filter(x => x.floorId === f.id).map(x => x.reply);
               return adds.length ? { ...f, replies: [...(f.replies || []), ...adds] } : f;
             });
-            const n = { ...prev, [hitId]: [...list, ...more] };
+            const n = { ...prev, [hitId]: forumFloorOrder([...list, ...more]) };
             saveJSON("x_forumComments", n); return n;
           });
           bumpReplyBy(hitId, more.length + subInserts.length);
@@ -8936,7 +8940,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
     const floor = { id: fid, authorId: "me", authorType: "me", authorName: forumMe.handle || profile.name || "我", authorHandle: forumMe.handle || profile.name || "me", floor: floorNo, content: text, ts: base, likeCount: 0, replies: [] };
-    setForumComments(prev => { const n = { ...prev, [post.id]: [...(prev[post.id] || []), floor] }; saveJSON("x_forumComments", n); return n; });
+    setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveJSON("x_forumComments", n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId);
     bumpReplyBy(post.id, 1);
     genRepliesToMe(post, fid, text);

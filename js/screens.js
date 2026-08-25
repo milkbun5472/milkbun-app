@@ -1142,6 +1142,19 @@ function WorldBookEntrySheet({ entry, characters, onClose, onSave, onDelete }) {
 const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
 // FORUM_AV_EMOJI 已删（v56.12）：论坛头像不再画 emoji，改走 autoAvatarSrc。
 function forumHash(str) { let h = 2166136261; str = String(str || ""); for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+// 楼号 = 到场顺序，不是「生成时排第几」。（v56.19，她 2026-08-25 报：9 楼下面直接跳 16 楼）
+// 病因：楼号在生成那一刻按数组下标发死（existing.length+2），可楼层是按 visibleAt
+// 分批解锁的——10-15 楼还排在几小时后的队里占着号，随后一波「现在就发生」的
+// 回帖拿到 16 号却立刻可见，于是 9 楼底下冒出个 16 楼，中间全是空号。
+// 号改成按真实到场时间现算：还没到点的楼层排在所有已到场楼层之后，空号不存在。
+// 已看过的楼永远不会被重编号（新来的 visibleAt 一定不早于所有已可见的楼）。
+const forumFloorArrivedAt = f => Number((f && (f.visibleAt || f.ts)) || 0);
+function forumFloorOrder(floors) {
+  return (Array.isArray(floors) ? floors : [])
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => (forumFloorArrivedAt(a.f) - forumFloorArrivedAt(b.f)) || (a.i - b.i))
+    .map((x, n) => (x.f && x.f.floor === n + 2) ? x.f : { ...x.f, floor: n + 2 });
+}
 function fmtNum(n) { n = Number(n) || 0; if (n >= 10000) return (n / 10000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, "") + "万"; return String(n); }
 function forumAge(ts) { if (!ts) return "新人"; const d = Math.floor((Date.now() - ts) / 86400000); if (d < 30) return "吧龄 " + Math.max(d, 1) + " 天"; const mo = Math.floor(d / 30); if (mo < 12) return "吧龄 " + mo + " 个月"; return "吧龄 " + (d / 365).toFixed(1) + " 年"; }
 // 论坛路人/常驻/小号的头像。原来画的是 FORUM_AV_EMOJI 里的 🐧🐸🐱 —— 她 2026-08-25
@@ -1239,7 +1252,7 @@ function Forum({
   const followedChars = (characters || []).filter(c => flw.includes(c.id));
   const npcFollowSet = new Set(npcFollows);
   const forumVisible = x => !x || !x.visibleAt || Number(x.visibleAt) <= forumNow;
-  const floorArrivedAt = x => Number((x && (x.visibleAt || x.ts)) || 0);
+  const floorArrivedAt = forumFloorArrivedAt;
   const postLastActivity = p => (cmts[p.id] || []).filter(forumVisible).reduce((latest, f) => {
     const replyLatest = (f.replies || []).reduce((n, r) => Math.max(n, Number(r.ts || 0)), 0);
     return Math.max(latest, floorArrivedAt(f), replyLatest);
@@ -1434,7 +1447,7 @@ function Forum({
   // ---- 帖子详情 ----
   function detail() {
     const p = open;
-    const allFloors = cmts[p.id] || [];
+    const allFloors = forumFloorOrder(cmts[p.id] || []);
     const list = allFloors.filter(forumVisible);
     const waitingFloors = Math.max(0, allFloors.length - list.length);
     const loadingC = gen && gen.forumC === p.id;
