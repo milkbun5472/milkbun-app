@@ -3495,7 +3495,7 @@ function ChatThread({
     return m.reasoning ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
   }).map(({ m, i, part, last }) => {
     // 思考链画在这一组回复的上方（part:-1 是插进来的伪条目，不是真气泡）
-    if (part === -1) return h("div", { key: "rz" + i, className: "flex justify-start" }, h(ReasoningBlock, { m: m }));
+    if (part === -1) return h(ReasoningBlock, { key: "rz" + i, m: m });
     if (m.recalled) return /*#__PURE__*/React.createElement("div", {
       key: i,
       className: "text-center py-1.5"
@@ -5141,15 +5141,16 @@ function ReasoningBlock({ m }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const secs = m.reasonMs ? (m.reasonMs / 1000).toFixed(1) + "s" : "";
-  return h("div", { className: "px-2 py-1", style: { maxWidth: "84%" } },
-    h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden" } },
-      h("button", { onClick: () => setOpen(v => !v), className: "w-full flex items-center gap-2 px-3 py-2 active:opacity-70", style: { textAlign: "left" } },
-        h("span", { style: { fontSize: 12 } }, "💡"),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "深度思考"),
-        secs ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "(" + secs + ")") : null,
-        m.reasonModel ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: "auto", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.reasonModel) : null,
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: m.reasonModel ? 6 : "auto", transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
-      open ? h("div", { className: "px-3 pb-3", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap", borderTop: "1px solid " + t.line, paddingTop: 8 } }, m.reasoning) : null));
+  // v56.43：她说上一版「太大块太显眼」。改成一行字加一个箭头，没有框，
+  // 紧贴第一个气泡上方；展开时也不套框，只在左边留一道细线表示这是附属内容。
+  return h("div", { style: { maxWidth: "84%", margin: "0 0 2px 46px" } },
+    h("button", { onClick: () => setOpen(v => !v), className: "flex items-center gap-1.5 active:opacity-60", style: { textAlign: "left", maxWidth: "100%", padding: "1px 0" } },
+      h("span", { style: { fontSize: 10.5, opacity: 0.75 } }, "💡"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } },
+        "深度思考" + (secs ? " " + secs : "")),
+      m.reasonModel ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.line, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "· " + m.reasonModel) : null,
+      h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
+    open ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap", borderLeft: "2px solid " + t.line, paddingLeft: 9, margin: "3px 0 5px" } }, m.reasoning) : null);
 }
 // 转发的聊天记录（v56.38）。原来是把整段原话直接塞进一个气泡里——十条八条的
 // 转过去就是一堵墙（她 2026-08-26 截图）。改成微信那种卡片：标题 + 两行预览 + 「聊天记录」，

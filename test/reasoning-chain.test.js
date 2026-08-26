@@ -53,10 +53,11 @@ test("一轮只挂一份，画在这组回复上方", () => {
   const seg = app.slice(app.indexOf("let _reasonLeft"), app.indexOf("if (words.length && window.Notify)"));
   assert.match(seg, /const _takeReason = \(\) => \{ const r = _reasonLeft; _reasonLeft = null; return r \|\| \{\}; \}/, "取一次就消费掉");
   assert.match(seg, /\.\.\._takeReason\(\)/);
-  assert.match(comp, /if \(part === -1\) return h\("div", \{ key: "rz" \+ i/, "用伪条目插在前面，别去动那条几十个分支的 if 链");
+  assert.match(comp, /if \(part === -1\) return h\(ReasoningBlock, \{ key: "rz" \+ i, m: m \}\);/, "用伪条目插在前面，别去动那条几十个分支的 if 链");
 });
 
-test("默认收起，点箭头展开；顺带把模型名和耗时露出来", () => {
+// 她 2026-08-26：「太大块太显眼了，做就一行字和箭头没有框，放第一个气泡上面越近越好」
+test("收起时就是一行字加一个箭头，没有框，紧贴气泡", () => {
   const i = comp.indexOf("function ReasoningBlock(");
   assert.ok(i > 0);
   const seg = comp.slice(i, comp.indexOf("// 转发的聊天记录（v56.38）"));
@@ -65,4 +66,9 @@ test("默认收起，点箭头展开；顺带把模型名和耗时露出来", ()
   assert.match(seg, /m\.reasonModel/, "模型名要露出来——她要靠它看中转有没有掺水");
   assert.match(seg, /reasonMs \/ 1000\)\.toFixed\(1\) \+ "s"/);
   assert.match(seg, /transform: open \? "rotate\(180deg\)" : "none"/);
+  // 一行：整条都是 nowrap，长模型名只许省略号，不许换行把它撑成一块
+  assert.ok(!/borderRadius: 12/.test(seg) && !/border: "1px solid " \+ t\.line/.test(seg), "收起那一行不许有框");
+  assert.match(seg, /margin: "0 0 2px 46px"/, "紧贴下面那个气泡，并和头像对齐");
+  assert.ok((seg.match(/whiteSpace: "nowrap"/g) || []).length >= 2, "文字和模型名都不许换行");
+  assert.match(seg, /textOverflow: "ellipsis"/);
 });
