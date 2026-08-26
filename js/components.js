@@ -5141,15 +5141,16 @@ function ReasoningBlock({ m }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const secs = m.reasonMs ? (m.reasonMs / 1000).toFixed(1) + "s" : "";
-  // v56.43：她说上一版「太大块太显眼」。改成一行字加一个箭头，没有框，
-  // 紧贴第一个气泡上方；展开时也不套框，只在左边留一道细线表示这是附属内容。
-  return h("div", { style: { maxWidth: "84%", margin: "0 0 2px 46px" } },
-    h("button", { onClick: () => setOpen(v => !v), className: "flex items-center gap-1.5 active:opacity-60", style: { textAlign: "left", maxWidth: "100%", padding: "1px 0" } },
-      h("span", { style: { fontSize: 10.5, opacity: 0.75 } }, "💡"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } },
+  // v56.45：她说别飘在屏幕中间，要贴左边。左边距归零＝和头像那一列对齐，
+  // 整块顶到消息区最左侧；模型名 flex:1 + 省略号，箭头 shrink-0，长名字也压不出第二行。
+  return h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } },
+    h("button", { onClick: () => setOpen(v => !v), className: "flex items-center gap-1.5 active:opacity-60",
+      style: { textAlign: "left", width: "100%", padding: "1px 0", overflow: "hidden" } },
+      h("span", { className: "shrink-0", style: { fontSize: 10.5, opacity: 0.75 } }, "💡"),
+      h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } },
         "深度思考" + (secs ? " " + secs : "")),
-      m.reasonModel ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.line, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "· " + m.reasonModel) : null,
-      h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
+      m.reasonModel ? h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.line, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "· " + m.reasonModel) : h("span", { style: { flex: 1 } }),
+      h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
     open ? h("div", { style: { borderLeft: "2px solid " + t.line, paddingLeft: 9, margin: "3px 0 5px" } },
       m.reasonFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, marginBottom: 3 } }, "来自字段 " + m.reasonFrom) : null,
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap" } }, m.reasoning)) : null);

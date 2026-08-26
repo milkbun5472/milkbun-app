@@ -80,7 +80,8 @@ test("收起时就是一行字加一个箭头，没有框，紧贴气泡", () =>
   assert.match(seg, /transform: open \? "rotate\(180deg\)" : "none"/);
   // 一行：整条都是 nowrap，长模型名只许省略号，不许换行把它撑成一块
   assert.ok(!/borderRadius: 12/.test(seg) && !/border: "1px solid " \+ t\.line/.test(seg), "收起那一行不许有框");
-  assert.match(seg, /margin: "0 0 2px 46px"/, "紧贴下面那个气泡，并和头像对齐");
+  assert.match(seg, /margin: "0 0 2px 0"/, "顶到消息区最左边——她 2026-08-26：别飘在屏幕中间");
+  assert.match(seg, /flex: 1, minWidth: 0/, "模型名再长也只许省略号，不许把这一行撑成两行");
   assert.ok((seg.match(/whiteSpace: "nowrap"/g) || []).length >= 2, "文字和模型名都不许换行");
   assert.match(seg, /textOverflow: "ellipsis"/);
 });
