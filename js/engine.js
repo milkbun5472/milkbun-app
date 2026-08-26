@@ -3009,7 +3009,7 @@ function voiceEarsReady(a) { a = a || loadVoiceEars(); return !!(a.base && a.k);
 async function earsTranscribe(wavBlob) {
   const a = loadVoiceEars();
   if (!voiceEarsReady(a)) throw new Error("没配置真声耳朵（设置 · API）");
-  const r = await fetchT(a.base + "/transcribe?k=" + encodeURIComponent(a.k), { method: "POST", body: wavBlob }, 60000);
+  const r = await fetchT(a.base + "/transcribe?k=" + encodeURIComponent(a.k), { method: "POST", body: wavBlob, headers: { "X-Voice-Source": "app" } }, 60000);
   const d = await r.json();
   if (!r.ok || !d.ok) throw new Error("识别失败：" + (d.error || ("HTTP " + r.status)));
   return d;

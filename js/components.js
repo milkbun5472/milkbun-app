@@ -3966,6 +3966,7 @@ function CallScreen({
   const lv = useRef({ ctx: null, node: null, stream: null, buf: [], talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0, aud: null });
   const liveRef = useRef(false); liveRef.current = live;
   const sendingRef = useRef(false); sendingRef.current = !!sending;
+  const msgsRef = useRef(msgs); msgsRef.current = msgs || [];
   const lvEncode = chunks => { // Float32(16k) → 16k mono WAV
     let len = 0; chunks.forEach(c => len += c.length);
     const pcm = new Int16Array(len); let o = 0;
@@ -4037,10 +4038,12 @@ function CallScreen({
   // 真声档自动播对方新台词（懒TTS同款合成，busy 闸门挡住自听）
   useEffect(() => {
     if (!live) return;
-    const st = lv.current; const L = msgs || [];
+    const st = lv.current;
+    if (st.speaking) return; // 播报锁：多气泡同时到达时只跑一个播报循环，防四重唱
+    st.speaking = true;
     (async () => {
-      while (st.played < L.length) {
-        const m = L[st.played++];
+      while (liveRef.current && st.played < msgsRef.current.length) {
+        const m = msgsRef.current[st.played++];
         if (!m || m.role === "user" || m.act || !m.content) continue;
         const spk2 = m.senderId ? (participants || []).find(c => c.id === m.senderId) : primary;
         if (!spk2 || !spk2.voiceId) continue;
@@ -4057,6 +4060,7 @@ function CallScreen({
         } catch (e) {}
         finally { st.busy--; }
       }
+      st.speaking = false;
       if (liveRef.current) setLiveSt("听着呢");
     })();
   }, [live, (msgs || []).length]);
