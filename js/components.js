@@ -1086,6 +1086,17 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     if (isCharView) {
       const plan = ((schedules || {})[view] || {})[dk];
       const seqs = plan && Array.isArray(plan.seqs) ? (typeof schedFillEnds === "function" ? schedFillEnds(plan.seqs) : plan.seqs) : [];
+      // 昨晚睡到跨日的那一截，接到今天凌晨（她 2026-08-26：24 点之后第二天不接着显示睡觉）
+      if (typeof schedSleepCarry === "function") {
+        const prevKey = typeof schedShiftDayKey === "function" ? schedShiftDayKey(dk, -1) : null;
+        const carry = prevKey ? schedSleepCarry(((schedules || {})[view] || {})[prevKey], plan) : null;
+        if (carry) {
+          const st = toMyMin(carry.from), en = st + (carry.to - carry.from);
+          if (st < 1440) out.push({ key: "carry", from: st, to: Math.min(1440, en), title: carry.title, location: carry.location,
+            icon: CAL_SEQ_ICON.sleep, color: CAL_SEQ_TINT.sleep, ai: true, dev: null, carry: true,
+            charFrom: tzShift ? "00:00" : "", charTo: tzShift ? calHM(carry.to) : "" });
+        }
+      }
       seqs.forEach((s, i) => {
         const cst = calMinOf(s.time); if (cst == null) return;
         let cen = calMinOf(s.end); if (cen == null || cen <= cst) cen = Math.min(1440, cst + 60);

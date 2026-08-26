@@ -816,11 +816,34 @@ function schedFillEnds(seqs) {
     if (st == null) return s;
     let e = null;
     for (let j = i + 1; j < arr.length; j++) { const n = min(arr[j] && arr[j].time); if (n != null) { e = n; break; } }
-    // 顶到下一段，但最多 3 小时：中间空着的是「没排事」，不是「这件事做了一下午」
-    e = (e == null || e <= st) ? st + 60 : Math.min(e, st + 180);
-    e = Math.min(1440, e);
+    // 顶到下一段，但最多 3 小时：中间空着的是「没排事」，不是「这件事做了一下午」。
+    // ⚠️就寝是唯一的例外：人本来就要睡七八个小时，封顶 3 小时会让全员只睡到凌晨四点
+    //（她 2026-08-26 抓到）。睡觉一律顶到下一段；是当天最后一段就睡到 24:00 跨日。
+    const isSleep = s && s.type === "sleep";
+    if (isSleep) e = (e == null || e <= st) ? 1440 : e;
+    else {
+      e = (e == null || e <= st) ? st + 60 : Math.min(e, st + 180);
+      e = Math.min(1440, e);
+    }
     return Object.assign({}, s, { end: (e >= 1440 ? "24" : pad2(Math.floor(e / 60))) + ":" + pad2(e % 60), _endAuto: true });
   });
+}
+// 跨日的觉（v56.47）：日程是一天一份的，昨晚 23:40 睡下、end 记到 24:00，
+// 到了第二天那份里就没人接着了——她 2026-08-26：「24点之后第二天凌晨也不会接上继续显示睡觉」。
+// 这里按【昨天最后一段是不是睡觉、有没有睡到 24:00】现算出今天凌晨那一截，
+// 睡到今天第一段开始为止（通常就是「起床」那一段）。算出来的是角色当地分钟数。
+function schedSleepCarry(prevPlan, todayPlan) {
+  const prev = prevPlan && Array.isArray(prevPlan.seqs) ? schedFillEnds(prevPlan.seqs) : [];
+  const last = prev[prev.length - 1];
+  if (!last || last.type !== "sleep") return null;
+  const endMin = (() => { const m = /(\d{1,2}):(\d{2})/.exec(String(last.end || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; })();
+  if (endMin == null || endMin < 1440) return null;         // 没睡到跨日就没得接
+  const today = todayPlan && Array.isArray(todayPlan.seqs) ? schedFillEnds(todayPlan.seqs) : [];
+  let wake = null;
+  for (const x of today) { const m = /(\d{1,2}):(\d{2})/.exec(String(x.time || "")); if (m) { wake = (+m[1]) * 60 + (+m[2]); break; } }
+  if (wake == null) wake = 8 * 60;                           // 今天还没排：按睡到早上八点画
+  if (wake <= 0) return null;
+  return { from: 0, to: wake, title: last.title || "睡着", location: last.location || "", type: "sleep", carry: true };
 }
 function schedActIcon(type) { return { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GMoon, sleep: GMoon, social: GChat, out: GWalk }[type] || GBrief; }
 // 角色本地时区 - 我本地 的分钟差（char.tz 如 "+8"/"-5"/"+5.5"/""跟随系统）。异地恋用。

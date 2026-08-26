@@ -6,8 +6,9 @@ const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const app = read("app.js"), engine = read("engine.js"), screens = read("screens.js");
 
 const i = screens.indexOf("function schedFillEnds(");
-const schedFillEnds = new Function('function pad2(n){return String(n).padStart(2,"0")}\n'
-  + screens.slice(i, screens.indexOf("\nfunction schedActIcon")) + "\nreturn schedFillEnds;")();
+const _sched = new Function('function pad2(n){return String(n).padStart(2,"0")}\n'
+  + screens.slice(i, screens.indexOf("\nfunction schedActIcon")) + "\nreturn { schedFillEnds, schedSleepCarry };")();
+const schedFillEnds = _sched.schedFillEnds, schedSleepCarry = _sched.schedSleepCarry;
 
 test("每段都有结束时刻，块才画得出高度", () => {
   const r = schedFillEnds([{ time: "08:00", title: "a" }, { time: "10:00", end: "12:00", title: "b" }]);
@@ -121,4 +122,43 @@ test("接下来三天喂给单聊，群聊仍然只有此刻那一行", () => {
   assert.match(seg, /还没发生，别说成已经做了/);
   const brief = app.slice(app.indexOf("const schedBriefFor"), app.indexOf("const schedBriefFor") + 700);
   assert.ok(!brief.includes("接下来"), "群聊那条只给此刻，是写着理由的显式差异");
+});
+
+// 她 2026-08-26：「睡觉都只有三个小时这对吗，大家好像都这样」
+// ——v56.30 那个「自动补时长最多 3 小时」的封顶，睡觉正是唯一不该封顶的一档。
+test("睡觉不封顶三小时，顶到下一段；当天最后一段就睡到 24:00", () => {
+  const r1 = schedFillEnds([{ time: "23:40", title: "洗漱、准备睡", type: "sleep" }]);
+  assert.equal(r1[0].end, "24:00", "最后一段睡觉要睡过午夜");
+  const r2 = schedFillEnds([{ time: "13:00", title: "补觉", type: "sleep" }, { time: "18:30", title: "出门吃饭", type: "meal" }]);
+  assert.equal(r2[0].end, "18:30", "睡觉一路顶到下一段，不许被 3 小时截断");
+  // 别的活动照旧封顶，免得一个下午只排一件事就画成一大块
+  const r3 = schedFillEnds([{ time: "13:30", title: "做实验", type: "work" }, { time: "23:00", title: "睡", type: "sleep" }]);
+  assert.equal(r3[0].end, "16:30");
+});
+
+// 她同一条：「24点之后第二天凌晨也不会接上继续显示睡觉」
+test("昨晚睡到跨日的，第二天凌晨接上", () => {
+  const prev = { seqs: [{ time: "08:00", title: "起床", type: "coffee" }, { time: "23:40", title: "洗漱、准备睡", type: "sleep" }] };
+  const c = schedSleepCarry(prev, { seqs: [{ time: "07:30", title: "起床", type: "coffee" }] });
+  assert.equal(c.from, 0);
+  assert.equal(c.to, 450, "睡到今天第一段开始（07:30）为止");
+  assert.equal(c.carry, true);
+  // 今天还没排 → 按睡到早上八点画，不留空
+  assert.equal(schedSleepCarry(prev, null).to, 480);
+  // 昨天不是以睡觉收尾 / 没睡过午夜 → 什么都不接
+  assert.equal(schedSleepCarry({ seqs: [{ time: "20:00", title: "看剧", type: "rest" }] }, { seqs: [] }), null);
+  assert.equal(schedSleepCarry({ seqs: [{ time: "22:00", end: "23:00", title: "小睡", type: "sleep" }] }, { seqs: [] }), null);
+});
+
+test("日历真的把这一截画出来了", () => {
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  const seg = comp.slice(comp.indexOf("const blocksOn = dk =>"), comp.indexOf("const dayHasAnything"));
+  assert.match(seg, /schedSleepCarry\(\(\(schedules \|\| \{\}\)\[view\] \|\| \{\}\)\[prevKey\], plan\)/);
+  assert.match(seg, /key: "carry"/);
+  assert.match(seg, /toMyMin\(carry\.from\)/, "接觉这一截也要走时差换算");
+});
+
+test("提示词也明说了就寝该多长", () => {
+  assert.match(engine, /人要睡七八个小时，不是三小时/);
+  assert.match(engine, /type="sleep" 那一段的 end 一律写 "24:00"/);
 });
