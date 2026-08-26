@@ -29,10 +29,19 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     return URLRequest(url: parts.url!, cachePolicy: .reloadIgnoringLocalAndRemoteCacheData, timeoutInterval: 30)
   }
 
+  // 真声通话:网页(正式站)请求麦克风时直接放行——系统级麦克风授权仍由 iOS 首次弹窗把关,
+  // 这里只是免去 WKWebView 每次通话都再弹一层网页级询问。
+  @available(iOS 15.0, *)
+  func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+    decisionHandler(.grant)
+  }
+
   override func viewDidLoad() {
     super.viewDidLoad()
     // 静音保活的资格证:playback 类别 + mixWithOthers,不抢别的 app 的声音
-    try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers])
+    // 真声通话(2026-08-25)要录音:.playback 只出不进,换 .playAndRecord;
+    // defaultToSpeaker=通话外放不憋听筒,mixWithOthers 保住静音保活不抢别家声音
+    try? AVAudioSession.sharedInstance().setCategory(.playAndRecord, options: [.mixWithOthers, .defaultToSpeaker, .allowBluetooth])
     let cfg = WKWebViewConfiguration()
     cfg.allowsInlineMediaPlayback = true
     cfg.mediaTypesRequiringUserActionForPlayback = []
@@ -56,6 +65,7 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     webView.configuration.userContentController.addUserScript(fakeStandalone)
     webView.navigationDelegate = self
     webView.uiDelegate = self
+    // （真声通话麦克风放行见下方 requestMediaCapturePermissionFor 代理方法）
     view.backgroundColor = UIColor(red: 0.925, green: 0.910, blue: 0.882, alpha: 1) // 站内米白,刘海区同色补齐
     webView.scrollView.bounces = false
     webView.allowsBackForwardNavigationGestures = true
