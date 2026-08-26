@@ -1123,6 +1123,40 @@ const GROUP_IN_CHARACTER = `【你不是在导演他们，你就是在场的每�
 
 【彼此不熟就照不熟来】没有明确设定过两个人之间关系的，就按刚认识／萍水相逢那样试探着相处：别凭空当成旧识、有旧怨、或本来就是一伙的，也别一上来就靠地位互相定位。
 ⚠️**不熟＝还不了解、要试探，不等于敌意**：不许因此排挤、划界、把新来的当入侵者。「我们家不缺X」「你少操心别人家的事」「别半夜翻墙进来」这类圈地话尤其别拿来开场；本来就熟的几个人也不许因为多了个生人就抱团对外。刚认识的人之间最常见的是好奇、客气、打量、随口开个不痛不痒的玩笑——敌意要有具体的来由才成立，没有来由就别演。`;
+// 长气泡兜底拆分（v56.28）。规则只降概率，代码才保证——v56.27 那句话让群里开始连发了，
+// 但她 2026-08-26 又抓到一条：「那更得吃饱了再去受罪，我把三明治热一下，你洗漱完出来吃，
+// 吃完我们就不吵你了」——四件事一路逗号连下去，一个气泡装到底。
+//
+// 单聊那边本来就有这么一道兜底（>34 字且中间有句末标点就一句一泡），但两件事都没做到：
+//   · 群聊根本没接这一道，只按换行拆——模型不打换行就等于没拆；
+//   · 这一道只认 。！？，一路逗号的长句它一个字都动不了，所以单聊也一样漏。
+// 现在两处共用这一个函数：先按句末标点断句，再把仍然过长、且中间有逗号的那截按逗号分段。
+//
+// 分段是保守的：只碰超过 34 字的；每段至少 8 字，收尾不足 6 字就并回上一段（免得掉出一个「了」）；
+// 最多切 3 段。短句、正常长度的句子、以及「嗯，好，知道了」这种一路小逗号的碎句都不会被动。
+// 言秋不吃这一道：他那条线连 ONLINE_CHAT_RULE_V2 都不注入，说多长由他自己定。
+function splitLongBubble(s, allowComma) {
+  s = String(s == null ? "" : s).trim();
+  if (!s) return [];
+  const LONG = 34, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 3;
+  const glue = (a, seg, i) => { if (i % 2 === 0) a.push(seg); else a[a.length - 1] += seg; return a; };
+  let out = [s];
+  if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
+    out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
+  }
+  if (allowComma === false) return out;
+  return out.reduce((acc, part) => {
+    if (part.length <= LONG || !/[，,]/.test(part.slice(0, -1))) return acc.concat([part]);
+    const segs = part.split(/([，,])/).reduce(glue, []).filter(x => x.trim());
+    const chunks = [];
+    segs.forEach(seg => {
+      if (chunks.length && (chunks[chunks.length - 1].length < MIN || chunks.length >= MAX_CHUNKS)) chunks[chunks.length - 1] += seg;
+      else chunks.push(seg);
+    });
+    while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
+    return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
+  }, []);
+}
 // 群里一个人也可以连发好几条。（v56.27，她 2026-08-26 截图：顾朝在群里一口气发了整段
 // 「热奶和吐司我都弄好了，你先闭着眼出来把早餐塞进肚子里，开考了中途我再给你送温水和小零食
 // 当后勤」——同样一段话在单聊里会被拆成两三条。）

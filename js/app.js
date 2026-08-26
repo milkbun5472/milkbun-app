@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.27";
+const APP_VERSION = "v56.28";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4986,15 +4986,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       words = words.reduce((acc, w) => acc.concat(String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).filter(Boolean);
-      // ② 再把仍塞了一大段（多句）的按句末标点拆成一句一泡
-      words = words.reduce((acc, w) => {
-        const s = String(w);
-        if (s.length > 34 && /[。！？!?]/.test(s.slice(0, -1))) {
-          const parts = s.split(/([。！？!?]+)/).reduce((a, seg, i) => { if (i % 2 === 0) a.push(seg); else a[a.length - 1] += seg; return a; }, []).map(x => x.trim()).filter(Boolean);
-          return acc.concat(parts.length ? parts : [s]);
-        }
-        return acc.concat([s]);
-      }, []);
+      // ② 再把仍塞了一大段（多句）的按句末标点拆成一句一泡；一路逗号连下去的长句同样拆
+      //    （splitLongBubble 两档合一，群聊用的是同一个函数——见 engine.js 上方那段）
+      words = words.reduce((acc, w) => acc.concat(splitLongBubble(w, !_s.engineerEyes)), []);
       // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
       //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
       //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
@@ -5958,7 +5952,10 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
           } else {
             // 按换行把一坨拆成多条气泡（首条带引用），避免整段挤在一个气泡里
             const rawLines = window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/);
-            const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean);
+            // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
+            const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
+            const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean)
+              .reduce((acc, x) => acc.concat(splitLongBubble(x, gAllowComma)), []);
             const gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
