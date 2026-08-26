@@ -3988,6 +3988,7 @@ function CallScreen({
     const rec = new SR();
     rec.lang = "zh-CN"; rec.continuous = true; rec.interimResults = true;
     rec.onresult = e => {
+      st.recAlive = true; // 看门狗：真吐过结果才算活
       if (!liveRef.current) return;
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -4000,7 +4001,11 @@ function CallScreen({
     rec.onend = () => { // continuous 也会自己断，450ms 自动重启是命门
       if (st.recWanted && liveRef.current) st.recTimer = setTimeout(() => { try { rec.start(); } catch (e2) {} }, 450);
     };
-    rec.onerror = ev => { if (ev.error === "not-allowed") { setLiveSt("麦克风权限被拒"); lvStop(); } };
+    rec.onaudiostart = () => { st.recAlive = true; };
+    rec.onerror = ev => {
+      if (ev.error === "not-allowed") { setLiveSt("麦克风权限被拒"); lvStop(); }
+      else if (ev.error === "service-not-allowed" || ev.error === "audio-capture") st.recDead = true; // 假货实锤，看门狗会切
+    };
     st.rec = rec; st.recWanted = true;
     try { rec.start(); } catch (e2) { return false; }
     return true;
@@ -4063,7 +4068,20 @@ function CallScreen({
       const us = st.ttsCtx.createBufferSource(); us.buffer = ub; us.connect(st.ttsCtx.destination); us.start(0);
       st.played = (msgs || []).length;
       let mode = "";
-      if (recStart()) { mode = "原生识别"; }
+      st.recAlive = false; st.recDead = false;
+      if (recStart()) {
+        mode = "原生识别";
+        // WKWebView 阴招：识别对象存在也肯 start，但永远不吐结果。6秒看门狗验活，假货自动切书房耳
+        setTimeout(async () => {
+          const st2 = lv.current;
+          if (!liveRef.current || st2.recAlive) return;
+          if (typeof voiceEarsReady === "function" && voiceEarsReady()) {
+            recPause(); st2.rec = null;
+            try { await workletStart(); setLiveSt("听着呢（原生哑了，切书房识别）"); }
+            catch (e3) { setLiveSt("原生识别哑了，书房耳也开不了：" + (e3 && e3.message || e3)); }
+          } else setLiveSt("原生识别没反应，且没配书房耳朵——去设置填「真声通话耳朵」");
+        }, 6000);
+      }
       else if (typeof voiceEarsReady === "function" && voiceEarsReady()) { await workletStart(); mode = "书房识别"; }
       else throw new Error("这台浏览器不支持语音识别，且没配书房耳朵");
       setLive(true); setLiveSt("听着呢（" + mode + "）");
