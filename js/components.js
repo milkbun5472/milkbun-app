@@ -3631,7 +3631,9 @@ function ChatThread({
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
+      h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
+        h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
+        last && subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
@@ -5153,6 +5155,14 @@ function chatForwardTitle(m) {
   if (names.length === 1) return names[0] + "的聊天记录";
   return "聊天记录";
 }
+// 「8月26日 13:05」；今年内不写年份，跨年才写
+function chatForwardTime(ts) {
+  const n = Number(ts); if (!n) return "";
+  const d = new Date(n), now = new Date();
+  const hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const md = (d.getMonth() + 1) + "月" + d.getDate() + "日";
+  return (d.getFullYear() === now.getFullYear() ? "" : d.getFullYear() + "年") + md + " " + hm;
+}
 function ChatForwardCard({ m, isU, onOpen }) {
   const t = useTheme();
   const items = chatForwardItems(m);
@@ -5176,7 +5186,9 @@ function ChatForwardSheet({ m, onClose }) {
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 2 } }, chatForwardTitle(m)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, items.length + " 条 · 转发的聊天记录"),
       items.map((it, i) => h("div", { key: i, style: { marginBottom: 12 } },
-        it.name ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 3 } }, it.name) : null,
+        (it.name || it.ts) ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 3 } },
+          it.name ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, it.name) : null,
+          it.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.line } }, chatForwardTime(it.ts)) : null) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } }, it.text)))));
 }
 function ForumShareCard({ m, isU }) {
@@ -7285,9 +7297,13 @@ function GroupThread({
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
         h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 112 })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    if (m.kind === "chatforward") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
-      m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-      h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }));
+    if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+      h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
+        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+        h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
+        subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
+      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
       m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
       h(ForumShareCard, { m: m, isU: m.role === "user" }));

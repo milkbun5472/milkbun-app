@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.38";
+const APP_VERSION = "v56.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11273,7 +11273,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onForward: (msgs, destination) => {
       const items = msgs.map(m => ({
         name: m.role === "user" ? profile.name || "我" : activeChar.name,
-        text: m.content || ""
+        text: m.content || "",
+        ts: m.ts || null            // 微信的转发记录每条都带时刻，展开时显示
       }));
       const content = "【转发的聊天记录】\n" + items.map(it => it.name + "：" + it.text).join("\n");
       const msg = {
@@ -11327,7 +11328,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
       const items = msgs.map(m => ({
         name: m.role === "user" ? (profile.name || "我") : (m.senderName || "群成员"),
-        text: m.content || (m.kind === "poll" ? "[投票] " + (m.title || "") : m.kind === "redpacket" ? "[红包] " + (m.message || "") : "")
+        text: m.content || (m.kind === "poll" ? "[投票] " + (m.title || "") : m.kind === "redpacket" ? "[红包] " + (m.message || "") : ""),
+        ts: m.ts || null
       }));
       const content = "【转发的群聊记录 · " + sourceGroup.name + "】\n" + items.map(it => it.name + "：" + it.text).join("\n");
       const msg = { role: "user", kind: "chatforward", content, forward: { sourceType: "group", sourceId: sourceGroup.id, from: sourceGroup.name, items }, ts: Date.now(), read: false };
