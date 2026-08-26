@@ -4113,6 +4113,15 @@ function CallScreen({
         if (!spk2 || !spk2.voiceId) continue;
         if (!paused) { paused = true; recPause(); } // 说话前闭耳，防自问自答
         st.busy++; setLiveSt("对方说话中…");
+        // ⭐流水线预取：播这条前先把下一条的合成悄悄发出去（ttsSpeak 自带缓存，轮到它时秒中）
+        for (let k = st.played; k < msgsRef.current.length; k++) {
+          const nm = msgsRef.current[k];
+          if (nm && nm.role !== "user" && !nm.act && nm.content) {
+            const nspk = nm.senderId ? (participants || []).find(c => c.id === nm.senderId) : primary;
+            if (nspk && nspk.voiceId) { ttsSpeak(nm.content, nspk.voiceId).catch(() => {}); }
+            break;
+          }
+        }
         try {
           const blob = await ttsSpeak(m.content, spk2.voiceId);
           const abuf = await st.ttsCtx.decodeAudioData(await blob.arrayBuffer());
