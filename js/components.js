@@ -3489,10 +3489,13 @@ function ChatThread({
     // 账本回流（CC/Stack-chan）的一行可能是逐字摘录的长段落：显示时按空行拆成多个气泡，数据不动
     if (m && m.ledgerImported && !m.recalled && !m.kind && typeof m.content === "string" && /\n\s*\n/.test(m.content)) {
       const parts = m.content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
-      if (parts.length > 1) return parts.map((p, k) => ({ m: { ...m, content: p }, i, part: k, last: k === parts.length - 1 }));
+      if (parts.length > 1) return [...(m.reasoning ? [{ m, i, part: -1, last: false }] : []),
+        ...parts.map((p, k) => ({ m: { ...m, content: p }, i, part: k, last: k === parts.length - 1 }))];
     }
-    return [{ m, i, part: 0, last: true }];
+    return m.reasoning ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
   }).map(({ m, i, part, last }) => {
+    // 思考链画在这一组回复的上方（part:-1 是插进来的伪条目，不是真气泡）
+    if (part === -1) return h("div", { key: "rz" + i, className: "flex justify-start" }, h(ReasoningBlock, { m: m }));
     if (m.recalled) return /*#__PURE__*/React.createElement("div", {
       key: i,
       className: "text-center py-1.5"
@@ -5129,6 +5132,25 @@ function CallInviteCard({ m, isU, onAccept, onDecline }) {
         h("button", { onClick: () => onAccept && onAccept(m), className: "flex-1 py-2.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint, fontWeight: 600 } }, "接听"))));
 }
 // 转发的贴吧帖子卡片（私聊/群聊都用）
+// 模型思考链（v56.42，她 2026-08-26 要的）。用途她说得很清楚：
+//   ① 出了奇怪的回复，能看见它当时在想什么，好对症下药；
+//   ② 中转有没有偷偷换便宜模型——会不会返回思考链本身就是一条线索。
+// 默认收起，点箭头展开。这是【模型】在想「我该怎么回」，和角色的「心声」不是一回事，
+// 所以样式上刻意做得像调试面板，不像剧情。
+function ReasoningBlock({ m }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const secs = m.reasonMs ? (m.reasonMs / 1000).toFixed(1) + "s" : "";
+  return h("div", { className: "px-2 py-1", style: { maxWidth: "84%" } },
+    h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden" } },
+      h("button", { onClick: () => setOpen(v => !v), className: "w-full flex items-center gap-2 px-3 py-2 active:opacity-70", style: { textAlign: "left" } },
+        h("span", { style: { fontSize: 12 } }, "💡"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "深度思考"),
+        secs ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "(" + secs + ")") : null,
+        m.reasonModel ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: "auto", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.reasonModel) : null,
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: m.reasonModel ? 6 : "auto", transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
+      open ? h("div", { className: "px-3 pb-3", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap", borderTop: "1px solid " + t.line, paddingTop: 8 } }, m.reasoning) : null));
+}
 // 转发的聊天记录（v56.38）。原来是把整段原话直接塞进一个气泡里——十条八条的
 // 转过去就是一堵墙（她 2026-08-26 截图）。改成微信那种卡片：标题 + 两行预览 + 「聊天记录」，
 // 点开才看全部。标题按 items 里出现过几个人算：两个人＝「A和B的聊天记录」，三个以上＝「群聊的聊天记录」，
@@ -8424,6 +8446,8 @@ function ChatSettings({
   const [sumThresh, setSumThresh] = useState(settings.sumThresh || 150);
   const [sumBuffer, setSumBuffer] = useState(settings.sumBuffer || 20);
   const [autoMoment, setAutoMoment] = useState(!!settings.autoMoment);
+  // 模型思考链（v56.42）：默认关。她要它是为了看模型当时在想什么、以及验中转有没有换模型。
+  const [showReasoning, setShowReasoning] = useState(!!settings.showReasoning);
   const [proactive, setProactive] = useState(!!settings.proactive);
   const [defaultOffline, setDefaultOffline] = useState(!!settings.defaultOffline);
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
@@ -8475,6 +8499,7 @@ function ChatSettings({
       sumThresh,
       sumBuffer,
       autoMoment,
+      showReasoning,
       proactive,
       proactiveMin: proactiveHr * 60,
       showMyAvatar,
@@ -8537,7 +8562,11 @@ function ChatSettings({
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
-    dispRow("显示已读", showRead, setShowRead)),
+    dispRow("显示已读", showRead, setShowRead),
+    dispRow("显示模型思考链", showReasoning, setShowReasoning),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+      "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"
+      + "只有支持思考链的模型才有；开着却一直不出现，说明这条线路的模型不返回它。")),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),

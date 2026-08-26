@@ -543,6 +543,16 @@ async function callAI(p, system, messages, opts) {
   // 一起报出来：几乎瞬间失败 = 上游把请求打回来了（拦截/格式/配额）；
   // 等了几十秒才失败 = 超时/冷启动。这两种的修法完全不同，不该靠猜。
   const _t0 = Date.now();
+  // 思考链（v56.42，她 2026-08-26 要的）：调用方递一个空盒子 opts.meta 进来，引擎把
+  // 上游返回的推理过程和耗时放进去。用出参而不是模块级变量——后台那些调用是并发的，
+  // 共享一个「上一次」必然串台。
+  const _meta = (opts && opts.meta && typeof opts.meta === "object") ? opts.meta : null;
+  const _putMeta = (reasoning) => {
+    if (!_meta) return;
+    _meta.model = model; _meta.ms = Date.now() - _t0;
+    const r = String(reasoning == null ? "" : reasoning).trim();
+    if (r) _meta.reasoning = r;
+  };
   const _promptChars = String(system || "").length
     + (messages || []).reduce((n, m) => n + String((m && m.content) || "").length, 0);
   const base = (p.baseUrl || "").replace(/\/$/, "");
@@ -697,6 +707,7 @@ async function callAI(p, system, messages, opts) {
         if (rec.cr || rec.cw) console.log("[缓存] 读" + rec.cr + " 写" + rec.cw + " 新输入" + rec.in + " 输出" + rec.out + " tok 指纹" + (rec.ph || "-") + (rec.cr ? "（命中！读的部分只按一折收）" : "（首次/过期/前缀变了→写缓存，命中后 1 小时内读就省）"));
       }
     } catch (e) {}
+    _putMeta((d.content || []).filter(b => b && b.type === "thinking").map(b => b.thinking || b.text || "").join("\n"));
     const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
     if (!t) throw new Error("模型返回为空" + (d.stop_reason ? "（停止原因：" + d.stop_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
     return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
@@ -712,10 +723,10 @@ async function callAI(p, system, messages, opts) {
         role: m.role === "assistant" ? "model" : "user",
         parts: m._geminiParts || [{ text: m.content }]
       })),
-      generationConfig: {
+      generationConfig: Object.assign({
         temperature: temp,
         maxOutputTokens: maxTokens
-      }
+      }, opts.wantReasoning ? { thinkingConfig: { includeThoughts: true } } : null)
     };
     captureWirePayload("gemini", base + "/v1beta/models/" + model + ":generateContent", gBody, opts, "primary");
     // 走代理时函数按 ROUTES 里该引用名的 style 贴钥匙（google 原生线要 goog 头风格）
@@ -730,7 +741,8 @@ async function callAI(p, system, messages, opts) {
     const d = await r.json();
     if (d.error) throw new Error(d.error.message);
     const parts = d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [];
-    const t = parts.map(x => x.text || "").join("").trim();
+    _putMeta(parts.filter(x => x && x.thought).map(x => x.text || "").join("\n"));
+    const t = parts.filter(x => !(x && x.thought)).map(x => x.text || "").join("").trim();
     if (!t) {
       const reason = d.candidates && d.candidates[0] && d.candidates[0].finishReason;
       const blocked = d.promptFeedback && d.promptFeedback.blockReason;
@@ -823,7 +835,9 @@ async function callAI(p, system, messages, opts) {
     if (typeof window !== "undefined") { (window.__usage = window.__usage || []).push(rec2); if (window.__usage.length > 30) window.__usage.shift(); }
   } catch (e) {}
   const choice = d.choices && d.choices[0];
-  const t = (choice && choice.message && choice.message.content || "").trim();
+  const _msg = choice && choice.message;
+  _putMeta(_msg && (_msg.reasoning_content || _msg.reasoning));
+  const t = (_msg && _msg.content || "").trim();
   if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
   return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
 }
