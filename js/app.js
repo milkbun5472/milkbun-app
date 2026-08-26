@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.34";
+const APP_VERSION = "v56.35";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2927,8 +2927,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // —— 今日日历三视角 ——
       const w = evTitles(cal.world && cal.world[tK]);
       if (w) lines.push("今天这个世界里：" + w + "（大家都知道的公共事件，聊到可自然带出）。");
-      if (canSeeMine) { const mn = evTitles(cal.mine && cal.mine[tK]); if (mn) lines.push("今天 " + uName + " 的日历上有：" + mn + "（Ta 让你能看到，可自然关心/问起，别生硬报）。"); }
-      const cn = evTitles(cal.chars && cal.chars[char.id] && cal.chars[char.id][tK]);
+      // 手填的带时刻日程（x_calEvents）和上面那层无时刻的全天事件合在同一句里报，
+      // 别为它单开一段——常驻上下文能少一段是一段（她按次计费）。
+      const timedTitles = (ownerKey) => {
+        try {
+          const dayK = schedDayKey(today);
+          return (typeof calEventsOnDay === "function" ? calEventsOnDay(calEventsRef.current, ownerKey, dayK) : [])
+            .slice(0, 4).map(e => (e._allDay ? "" : (e._from + " ")) + e.title).filter(Boolean).join("、");
+        } catch (e) { return ""; }
+      };
+      if (canSeeMine) {
+        const mn = [evTitles(cal.mine && cal.mine[tK]), timedTitles("mine")].filter(Boolean).join("、");
+        if (mn) lines.push("今天 " + uName + " 的日历上有：" + mn + "（Ta 让你能看到，可自然关心/问起，别生硬报）。");
+      }
+      const cn = [evTitles(cal.chars && cal.chars[char.id] && cal.chars[char.id][tK]), timedTitles(char.id)].filter(Boolean).join("、");
       if (cn) lines.push("你自己今天的安排：" + cn + "（你清楚，自然反映到状态和语气里）。");
       return lines.join("\n");
     })(),
@@ -6691,7 +6703,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       startDate: ev.startDate, endDate: ev.endDate || ev.startDate,
       startTime: ev.startTime || "", endTime: ev.endTime || "",
       title: String(ev.title || "").trim(), location: String(ev.location || "").trim(),
-      icon: ev.icon || "", color: ev.color || "", note: String(ev.note || "").trim(),
+      icon: ev.icon || "", color: ev.color || "", repeat: ev.repeat || "none", note: String(ev.note || "").trim(),
       createdAt: ev.createdAt || Date.now(), updatedAt: Date.now()
     };
     if (!clean.title || !clean.startDate) { toast("至少要有日期和事项"); return null; }
@@ -6709,8 +6721,19 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   window.calMyUpcoming = (days) => {
     const n = Math.max(1, Number(days) || 30), out = [];
     const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    const t0k = schedDayKey(t0);
     (calEventsRef.current || []).forEach(e => {
       if (!e || e.owner !== "mine") return;
+      if (e.repeat && e.repeat !== "none") {
+        // 重复的：从今天往后找第一次落点，找到就报那一天
+        for (let i = 0; i <= n; i++) {
+          const k = schedShiftDayKey(t0k, i);
+          if (!calRepeatOn(e.startDate, e.repeat, k)) continue;
+          out.push({ id: e.id, title: e.title, date: k, endDate: k, time: e.startTime || "", location: e.location || "", icon: e.icon || "", repeat: e.repeat, days: i });
+          break;
+        }
+        return;
+      }
       const end = calEvParseDay(e.endDate || e.startDate);
       if (!end || end < t0) return;
       const st = calEvParseDay(e.startDate); if (!st) return;
@@ -6721,6 +6744,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     return out.sort((a, b) => (a.date === b.date ? String(a.time).localeCompare(String(b.time)) : String(a.date).localeCompare(String(b.date))));
   };
   window.calOpenFromMemo = () => { setScreen("calendar"); };
+  window.memoGoApp = () => { setScreen("memo"); };
   // ---- 日历 / calendar ----
   const saveCalendar = next => { setCalendar(next); saveJSON("x_calendar", next); };
   const cloneCal = prev => ({ world: { ...(prev.world || {}) }, chars: { ...(prev.chars || {}) }, mine: { ...(prev.mine || {}) } });

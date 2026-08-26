@@ -1047,7 +1047,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const chars = characters || [];
   const curChar = chars.find(c => c.id === view) || null;
   const isCharView = !!curChar;
-  const store = view === "world" ? (cal.world || {}) : view === "mine" ? (cal.mine || {}) : ((cal.chars || {})[view] || {});
+  // 「世界」并进「我的」：它原本只有全天事件、只往顶部那条塞东西，不值得占一个视角。
+  // 数据仍然两个桶——世界事件是【所有角色都知道】的，我的日历要看可见名单，喂进提示词的
+  // 也是两句不同的话。合并的只是这块屏。世界那条前面挂个 🌐 区分。
+  const store = view === "mine" ? (cal.mine || {}) : ((cal.chars || {})[view] || {});
+  const worldStore = cal.world || {};
   const pmap = view === "mine" ? periodMap(per) : {};
   const shift = n => setYm(p => { const dt = new Date(p.y, p.m + n, 1); return { y: dt.getFullYear(), m: dt.getMonth() }; });
 
@@ -1062,7 +1066,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     if (lf) out.push({ text: "🎊 " + lf, kind: "fest" });
     const bd = view === "mine" ? parseBd(profile && profile.birthday) : (curChar ? parseBd(curChar.birthday) : null);
     if (bd && bd.mo === a[1] && bd.dd === a[2]) out.push({ text: "🎂 " + (view === "mine" ? "我的生日" : (curChar.remark || curChar.name) + " 生日"), kind: "bd" });
-    if (view === "mine" && window.memoRemindersOnDay) (window.memoRemindersOnDay(a[0], a[1], a[2]) || []).forEach(r => out.push({ text: "⏰ " + (r.title || r), kind: "memo" }));
+    if (view === "mine" && window.memoRemindersOnDay) (window.memoRemindersOnDay(a[0], a[1], a[2]) || []).forEach(r => {
+      if (r && r.startTime) return;   // 有时刻的画成块，不再挤在顶部
+      out.push({ text: "⏰ " + (r.title || r), kind: "memo", id: r && r.id });
+    });
+    if (view === "mine") (worldStore[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: "🌐 " + e.title, note: e.note, id: e.id, kind: "world" }));
     (store[legacyKeyOf(dk)] || []).forEach(e => out.push({ text: e.title, note: e.note, id: e.id, kind: "cal" }));
     calEventsOnDay(calEvents, view, dk).filter(e => e._allDay).forEach(e => out.push({ text: (e.icon ? e.icon + " " : "") + e.title, id: e.id, kind: "timed", ev: e }));
     return out;
@@ -1086,6 +1094,17 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       out.push({ key: e.id, from: st, to: (en0 == null || en0 <= st) ? Math.min(1440, st + 60) : en0,
         title: e.title, location: e.location || "", icon: e.icon || "📌", color: e._color, ai: false, ev: e });
     });
+    // 备忘录里填了时刻的提醒，也落在时间轴上（她 2026-08-26）。点开跳回备忘录看同一份详情。
+    if (view === "mine" && window.memoRemindersOnDay) {
+      const a = dk.split("-").map(Number);
+      (window.memoRemindersOnDay(a[0], a[1], a[2]) || []).forEach(r => {
+        if (!r || !r.startTime) return;
+        const st = calMinOf(r.startTime); if (st == null) return;
+        const en = calMinOf(r.endTime);
+        out.push({ key: "memo:" + r.id, from: st, to: (en == null || en <= st) ? Math.min(1440, st + 60) : en,
+          title: r.title || "提醒", location: r.note || "", icon: "⏰", color: "#e2d6f2", ai: false, memo: r, done: !!r.done });
+      });
+    }
     return out.sort((a, b) => a.from - b.from);
   };
   const dayHasAnything = dk => allDayOn(dk).length > 0 || blocksOn(dk).length > 0;
@@ -1105,6 +1124,10 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       h("button", { onClick: () => shift(1), className: "active:opacity-50 px-2", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "›")),
     h("div", { className: "shrink-0 px-3", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)" } },
       CAL_DOW.map((w, i) => h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, paddingBottom: 6 } }, w))),
+    view === "mine" ? h("div", { className: "shrink-0 flex items-center gap-3 px-4 pb-2 flex-wrap" },
+      ["period", "fertile", "ov", "safe"].map(k => h("span", { key: k, className: "flex items-center gap-1" },
+        h("span", { style: { width: 9, height: 9, borderRadius: 999, background: PERIOD_COLORS[k] } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, PERIOD_LABELS[k])))) : null,
     h("div", { className: "flex-1 overflow-y-auto px-3 pb-24", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", alignContent: "start" } },
       cells.map((d, i) => {
         if (d === null) return h("div", { key: i });
@@ -1145,11 +1168,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
 
   const blockNode = (b, dk) => {
     const top = yOf(b.from), hgt = Math.max(26, (b.to - b.from) * CAL_PX_PER_MIN - 3);
-    return h("button", { key: b.key, onClick: () => setDayEv({ b, dk }),
+    return h("button", { key: b.key, onClick: () => { if (b.memo && typeof window.memoOpenReminder === "function") window.memoOpenReminder(b.memo.id); else setDayEv({ b, dk }); },
       className: "absolute active:opacity-70 text-left",
       style: { left: 2, right: 2, top: top, height: hgt, background: b.color + (b.ai ? "88" : "cc"), borderLeft: "3px solid " + b.color,
         borderRadius: 7, padding: "4px 6px", overflow: "hidden", boxShadow: b.dev ? "0 0 0 1.5px #c25a4a inset" : "none" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25 } }, (b.icon ? b.icon + " " : "") + b.title),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } }, (b.icon ? b.icon + " " : "") + b.title),
       hgt > 40 && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 1, lineHeight: 1.3 } },
         calHM(b.from) + "–" + (b.to >= 1440 ? "24:00" : calHM(b.to)) + (b.location ? " · " + b.location : "")));
   };
@@ -1196,12 +1219,12 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       h("div", { style: { flex: 1, display: "flex", height: gridH + 90 } }, dayList.map(dayColumn))));
   // ---- 人物条 ----
   const personRow = h("div", { className: "shrink-0 flex gap-3 px-5 pb-3 overflow-x-auto", style: { WebkitOverflowScrolling: "touch" } },
-    [{ id: "mine", name: "我", c: null }, { id: "world", name: "世界", c: null }]
+    [{ id: "mine", name: "我", c: null }]
       .concat(chars.map(c => ({ id: c.id, name: c.remark || c.name, c })))
       .map(v => h("button", { key: v.id, onClick: () => setView(v.id), className: "shrink-0 flex flex-col items-center gap-1 active:opacity-60", style: { width: 54 } },
         h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 999,
           border: view === v.id ? "2px solid " + t.ink : "2px solid transparent", background: t.bg2, overflow: "hidden" } },
-          v.c ? h(Avatar, { character: v.c, size: 38, radius: 999 }) : h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, v.id === "mine" ? "我" : "🌐")),
+          v.c ? h(Avatar, { character: v.c, size: 38, radius: 999 }) : h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "我")),
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: view === v.id ? t.ink : t.fog, maxWidth: 54, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.name))));
 
   const visSet = per.visibleTo || [];
@@ -1220,7 +1243,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       fab && h("div", { style: { position: "absolute", right: 0, bottom: 62, width: 190, background: "#fff", borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.16)", overflow: "hidden" } },
         h("button", { onClick: () => { setFab(false); setForm({ owner: view, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
         isCharView && h("button", { onClick: () => { setFab(false); onGenWeek && onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
-        view !== "mine" && h("button", { onClick: () => { setFab(false); setGenOpen(true); }, disabled: busy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, "🗓　AI 生成本月事件")),
+        h("button", { onClick: () => { setFab(false); setGenOpen(true); }, disabled: busy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } },
+          view === "mine" ? "🌐　AI 生成本月世界大事" : "🗓　AI 生成本月事件")),
       h("button", { onClick: () => setFab(v => !v), className: "active:opacity-70 flex items-center justify-center", style: { width: 52, height: 52, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 26, boxShadow: "0 8px 22px rgba(0,0,0,0.22)" } }, fab ? "×" : "＋")),
 
     form && h(CalEventForm, { initial: form, owner: view, ownerName: view === "mine" ? "我" : view === "world" ? "世界" : (curChar ? (curChar.remark || curChar.name) : ""), 
@@ -1273,10 +1297,10 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     // AI 生成本月（沿用旧的全天事件那一层）
     genOpen && h(Sheet, { onClose: () => setGenOpen(false) },
       h("div", { className: "px-1 pb-2" },
-        h(Eyebrow, { style: { marginBottom: 8 } }, "AI 生成 " + (ym.m + 1) + " 月 · " + (view === "world" ? "世界事件" : (curChar ? (curChar.remark || curChar.name) : ""))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, view === "world" ? "生成整月的公共大事（大家都知道的那种）" : "生成这位角色这个月自己的事"),
+        h(Eyebrow, { style: { marginBottom: 8 } }, "AI 生成 " + (ym.m + 1) + " 月 · " + (view === "mine" ? "世界大事" : (curChar ? (curChar.remark || curChar.name) : ""))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, view === "mine" ? "生成整月的公共大事（所有角色都知道的那种，会挂 🌐 显示）" : "生成这位角色这个月自己的事"),
         h("input", { value: genPrompt, onChange: e => setGenPrompt(e.target.value), placeholder: "想要什么样的事件？（可留空）", className: "w-full outline-none", style: { padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, marginBottom: 10 } }),
-        h("button", { onClick: () => { onGenMonth(view, ym.y, ym.m, genPrompt); setGenOpen(false); setGenPrompt(""); }, disabled: busy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px 0" } }, busy ? "生成中…" : "生成"))),
+        h("button", { onClick: () => { onGenMonth(view === "mine" ? "world" : view, ym.y, ym.m, genPrompt); setGenOpen(false); setGenPrompt(""); }, disabled: busy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px 0" } }, busy ? "生成中…" : "生成"))),
     busy && h("div", { className: "absolute inset-x-0 bottom-6 flex justify-center" }, h(Spinner, { label: "AI 正在生成…" })));
 }
 // 负荷/工时那一行（只有角色视角、且当天有 AI 排的行程才显示）
@@ -1301,12 +1325,16 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
   const [loc, setLoc] = useState(ini.location || "");
   const [icon, setIcon] = useState(ini.icon || "");
   const [color, setColor] = useState(ini.color || "");
+  // 重复（v56.35，她 2026-08-26：「跟备忘录一样」）——用的是同一套规则（calRepeatOn）
+  const [repeat, setRepeat] = useState(ini.repeat || "none");
   const allDay = !stt;
+  const rec = repeat !== "none";
   const inSt = { width: "100%", outline: "none", padding: "11px 13px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14.5, color: t.ink };
   const lbl = s => h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 5 } }, s);
   const save = () => {
     if (!title.trim() || !sd) return;
-    onSave({ id: ini.id, owner: ini.owner || owner, startDate: sd, endDate: ed || sd, startTime: stt, endTime: stt ? ett : "", title: title.trim(), location: loc.trim(), icon, color, createdAt: ini.createdAt });
+    // 重复的一律单日：跨天 + 重复叠在一起讲不清楚，备忘录那边也是单日
+    onSave({ id: ini.id, owner: ini.owner || owner, startDate: sd, endDate: rec ? sd : (ed || sd), startTime: stt, endTime: stt ? ett : "", title: title.trim(), location: loc.trim(), icon, color, repeat, createdAt: ini.createdAt });
   };
   return h(Sheet, { onClose, tall: true },
     h("div", { className: "px-1 pb-3" },
@@ -1317,13 +1345,31 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
       ownerName && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "记在「" + ownerName + "」名下"),
       h("div", { className: "flex gap-3", style: { marginBottom: 12 } },
         h("div", { style: { flex: 1, minWidth: 0 } }, lbl("开始日期"), h("input", { type: "date", value: sd, onChange: e => { setSd(e.target.value); if (!ed || ed < e.target.value) setEd(e.target.value); }, style: inSt })),
-        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("结束日期"), h("input", { type: "date", value: ed, min: sd, onChange: e => setEd(e.target.value), style: inSt }))),
+        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("结束日期"), h("input", { type: "date", value: rec ? sd : ed, min: sd, disabled: rec, onChange: e => setEd(e.target.value), style: Object.assign({}, inSt, rec ? { opacity: 0.45 } : null) }))),
+      rec ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: -6, marginBottom: 12 } }, "重复的日程按单日算，日期这一栏只用来定从哪天起") : null,
       h("div", { className: "flex gap-3", style: { marginBottom: 12 } },
         h("div", { style: { flex: 1, minWidth: 0 } }, lbl("开始时间"), h("input", { type: "time", value: stt, onChange: e => setStt(e.target.value), style: inSt })),
         h("div", { style: { flex: 1, minWidth: 0 } }, lbl("结束时间"), h("input", { type: "time", value: ett, disabled: allDay, onChange: e => setEtt(e.target.value), style: Object.assign({}, inSt, allDay ? { opacity: 0.45 } : null) }))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: -6, marginBottom: 12 } }, allDay ? "开始时间留空 = 全天事件（画在顶部那条）" : "留空开始时间就变回全天"),
       h("div", { style: { marginBottom: 12 } }, lbl("事项"), h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "例如：部门周会", style: inSt })),
       h("div", { style: { marginBottom: 14 } }, lbl("地点"), h("input", { value: loc, onChange: e => setLoc(e.target.value), placeholder: "例如：公司会议室 / 家里 / 商场", style: inSt })),
+      lbl("重复"),
+      h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 6 } },
+        (typeof CAL_REPEAT_OPTIONS !== "undefined" ? CAL_REPEAT_OPTIONS : [["none", "不重复"]]).map(([v, l]) =>
+          h("button", { key: v, onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0",
+            style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 13px", borderRadius: 999,
+              background: repeat === v ? t.ink : "transparent", color: repeat === v ? t.bg2 : t.sub, border: "1px solid " + (repeat === v ? t.ink : t.line) } }, l))),
+      rec ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, lineHeight: 1.6, background: t.bg2, borderRadius: 10, padding: "8px 11px", marginBottom: 14 } },
+        (() => {
+          const d = sd ? new Date(sd.split("-")[0], sd.split("-")[1] - 1, sd.split("-")[2]) : null;
+          const W = ["日", "一", "二", "三", "四", "五", "六"];
+          if (!d) return "选个日期";
+          if (repeat === "weekly") return "从这天起，每周" + W[d.getDay()] + "一次。";
+          if (repeat === "biweekly") return "从这天起，每两周的周" + W[d.getDay()] + "一次。";
+          if (repeat === "monthly") return "每月 " + d.getDate() + " 号" + (d.getDate() >= 29 ? "（碰上没这天的短月，自动落到当月最后一天）" : "") + "。";
+          if (repeat === "monthlyEnd") return "每月最后一天（自动适配 28/29/30/31）。";
+          return "每年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日。";
+        })()) : h("div", { style: { marginBottom: 8 } }),
       lbl("图标（点选，再点一次取消）"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: 7, marginBottom: 14 } },
         CAL_EVENT_ICONS.map(ic => h("button", { key: ic, onClick: () => setIcon(icon === ic ? "" : ic), className: "active:opacity-60",

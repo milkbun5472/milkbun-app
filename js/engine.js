@@ -1179,6 +1179,26 @@ function calEvAutoColor(id) {
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
   return CAL_EVENT_COLORS[(h >>> 0) % CAL_EVENT_COLORS.length];
 }
+// 重复规则（v56.35）：和备忘录提醒【完全同一套】——她 2026-08-26 说「跟备忘录一样」，
+// 那就别自己另发明一套，两边行为必须逐条对得上。
+// none 不重复 · weekly 每周(同星期) · biweekly 每两周 · monthly 每月(同号，短月压到月底)
+// · monthlyEnd 每月最后一天 · yearly 每年(同月日)
+const CAL_REPEAT_OPTIONS = [["none", "不重复"], ["weekly", "每周"], ["biweekly", "每两周"], ["monthly", "每月"], ["monthlyEnd", "每月最后一天"], ["yearly", "每年"]];
+function calLastDayOfMonth(y, m1) { return new Date(y, m1, 0).getDate(); }
+function calRepeatOn(startDate, repeat, dayKey) {
+  const a = calEvParseDay(startDate), d = calEvParseDay(dayKey);
+  if (!a || !d) return false;
+  a.setHours(0, 0, 0, 0); d.setHours(0, 0, 0, 0);
+  const rp = repeat || "none";
+  if (rp === "none") return d.getTime() === a.getTime();
+  if (rp === "monthlyEnd") return d.getDate() === calLastDayOfMonth(d.getFullYear(), d.getMonth() + 1);
+  if (rp === "monthly") return d.getDate() === Math.min(a.getDate(), calLastDayOfMonth(d.getFullYear(), d.getMonth() + 1));
+  if (rp === "yearly") return d.getMonth() === a.getMonth() && d.getDate() === Math.min(a.getDate(), calLastDayOfMonth(d.getFullYear(), d.getMonth() + 1));
+  if (d < a) return false;                                   // 每周/每两周：锚点之前不算
+  if (rp === "weekly") return d.getDay() === a.getDay();
+  if (rp === "biweekly") return Math.round((d - a) / 86400000) % 14 === 0;
+  return false;
+}
 // 某一天该显示哪些手动事件。跨天事件在每一天各出现一次，并给出【这一天之内】的起止：
 // 首日 = 开始时刻→24:00，中间整天，末日 = 00:00→结束时刻。没填时刻的算全天。
 function calEventsOnDay(events, owner, dayKey) {
@@ -1186,15 +1206,19 @@ function calEventsOnDay(events, owner, dayKey) {
   if (!day) return [];
   return (Array.isArray(events) ? events : []).filter(e => {
     if (!e || String(e.owner) !== String(owner)) return false;
+    // 重复的一律按【单日】算：跨天 + 重复叠在一起没法讲清楚，备忘录那边也是单日
+    if (e.repeat && e.repeat !== "none") return calRepeatOn(e.startDate, e.repeat, dayKey);
     const s = calEvParseDay(e.startDate), en = calEvParseDay(e.endDate || e.startDate);
     return s && en && day >= s && day <= en;
   }).map(e => {
-    const first = String(e.startDate) === String(dayKey);
-    const last = String(e.endDate || e.startDate) === String(dayKey);
+    const rec = !!(e.repeat && e.repeat !== "none");
+    const first = rec || String(e.startDate) === String(dayKey);
+    const last = rec || String(e.endDate || e.startDate) === String(dayKey);
     const allDay = !e.startTime;
     return Object.assign({}, e, {
       _allDay: allDay,
-      _spans: String(e.startDate) !== String(e.endDate || e.startDate),
+      _repeats: rec,
+      _spans: !rec && String(e.startDate) !== String(e.endDate || e.startDate),
       _from: allDay ? "" : (first ? e.startTime : "00:00"),
       _to: allDay ? "" : (last ? (e.endTime || "24:00") : "24:00"),
       _color: e.color || calEvAutoColor(e.id)

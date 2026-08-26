@@ -124,6 +124,12 @@
     try { const dt = new Date(y, m1 - 1, d); const data = loadData(); return (data.reminders || []).filter(r => occursOn(r, dt)); }
     catch (e) { return []; }
   };
+  // 日历那边点一块带时刻的提醒 → 跳回备忘录、直接把这条的详情打开。
+  // 她 2026-08-26：「点开可以看细节跟备忘录那边打开细节是一样的」——那就别在日历里
+  // 复刻一份详情（批注、可见角色、打勾），直接把她送到【同一个】详情面板去。
+  window.memoOpenReminder = function (id) {
+    try { window.__memoOpenId = id; if (typeof window.memoGoApp === "function") window.memoGoApp(); } catch (e) {}
+  };
   // 最近的 n 条未完成提醒（逾期在前，按临近排）—— 供主屏备忘录小组件
   window.memoUpcoming = function (n) {
     try {
@@ -259,13 +265,17 @@
     const [note, setNote] = useState(r.note || "");
     const [repeat, setRepeat] = useState(r.repeat || "none");
     const [anchor, setAnchor] = useState(getAnchor(r) || ymdStr(new Date()));
+    // 起止时刻（v56.35，她 2026-08-26 要的）：填了就不再只挂在日历顶部，
+    // 而是落进那天的时间轴、跟别的日程一样是一块。留空＝全天，行为和以前一模一样。
+    const [startTime, setStartTime] = useState(r.startTime || "");
+    const [endTime, setEndTime] = useState(r.endTime || "");
     const aDate = parseYmd(anchor);
     const save = () => {
       if (!title.trim()) { props.toast && props.toast("写点要提醒的事"); return; }
       if (!parseYmd(anchor)) { props.toast && props.toast("选个日期"); return; }
       // 只存 anchor+repeat；清掉旧的 year/month/day 字段免得歧义
       const clean = Object.assign({}, r); delete clean.year; delete clean.month; delete clean.day;
-      props.onSave(Object.assign(clean, { id: r.id || uid("r"), title: title.trim(), note: note.trim(), repeat: repeat, anchor: anchor, done: !!r.done, visibleTo: r.visibleTo || [], comments: r.comments || [], createdTs: r.createdTs || Date.now() }));
+      props.onSave(Object.assign(clean, { id: r.id || uid("r"), title: title.trim(), note: note.trim(), repeat: repeat, anchor: anchor, startTime: startTime || "", endTime: startTime ? (endTime || "") : "", done: !!r.done, visibleTo: r.visibleTo || [], comments: r.comments || [], createdTs: r.createdTs || Date.now() }));
     };
     const inp = { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14.5, color: t.ink, outline: "none" };
     const rchip = (v, lbl) => h("button", { onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, background: repeat === v ? ACCENT : "transparent", color: repeat === v ? "#fff" : t.sub, border: "1px solid " + (repeat === v ? ACCENT : t.line) } }, lbl);
@@ -284,6 +294,11 @@
       h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注（可空）", style: Object.assign({}, inp, { marginBottom: 14 }) }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, repeat === "monthlyEnd" ? "日期（月底模式下只用来定从哪个月起）" : "日期"),
       h("input", { type: "date", value: anchor, onChange: e => setAnchor(e.target.value), style: Object.assign({}, inp, { marginBottom: 14 }) }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "时间（留空＝全天，只挂在日历顶部）"),
+      h("div", { className: "flex gap-3", style: { marginBottom: 5 } },
+        h("input", { type: "time", value: startTime, onChange: e => setStartTime(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }) }),
+        h("input", { type: "time", value: endTime, disabled: !startTime, onChange: e => setEndTime(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }, startTime ? null : { opacity: 0.45 }) })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 14 } }, startTime ? "会画在日历那天的时间轴上" : "全天：画在日历顶部那一条"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "重复"),
       h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, rchip("none", "不重复"), rchip("weekly", "每周"), rchip("biweekly", "每两周"), rchip("monthly", "每月"), rchip("monthlyEnd", "每月最后一天"), rchip("yearly", "每年")),
       explain && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, lineHeight: 1.5, background: ACCENT + "10", borderRadius: 10, padding: "8px 11px" } }, explain),
@@ -319,6 +334,13 @@
     const [tab, setTab] = useState("reminders");   // reminders | notes
     const [form, setForm] = useState(null);        // {kind:'reminder'|'note', item?}
     const [detail, setDetail] = useState(null);    // {kind, id}
+    // 从日历点某条提醒进来：memoOpenReminder 把 id 放在 __memoOpenId，这里接住并打开详情
+    useEffect(() => {
+      const want = typeof window !== "undefined" ? window.__memoOpenId : null;
+      if (!want) return;
+      window.__memoOpenId = null;
+      setTab("reminders"); setDetail({ kind: "reminder", id: want });
+    }, []);
     const [visFor, setVisFor] = useState(null);    // 正在设可见角色的 {kind,id}
     const persist = updater => setData(prev => { const n = typeof updater === "function" ? updater(prev) : updater; saveData(n); return n; });
 
@@ -396,7 +418,7 @@
         h("button", { onClick: e => { e.stopPropagation(); autoReactDone(r); upReminder(r.id, { done: !r.done }); }, className: "shrink-0 active:opacity-60", style: { width: 24, height: 24, borderRadius: 999, border: "2px solid " + (done ? ACCENT : t.line), background: done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 } }, done ? "✓" : ""),
         h("div", { style: { flex: 1, minWidth: 0 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.title),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, reminderDateText(r) + " · " + repeatLabel(r.repeat) + ((r.comments || []).length ? " · 💬" + r.comments.length : "") + ((r.visibleTo || []).length ? " · 👁" + r.visibleTo.length : ""))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, reminderDateText(r) + (r.startTime ? " " + r.startTime + (r.endTime ? "–" + r.endTime : "") : "") + " · " + repeatLabel(r.repeat) + ((r.comments || []).length ? " · 💬" + r.comments.length : "") + ((r.visibleTo || []).length ? " · 👁" + r.visibleTo.length : ""))),
         !done && days != null && h("span", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: cdColor(days, t), background: cdColor(days, t) + "18", borderRadius: 999, padding: "3px 10px" } }, cdLabel(days)));
     };
     // 备忘行

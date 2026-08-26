@@ -152,6 +152,75 @@ test("同一条事件永远同一个颜色", () => {
   assert.equal(ctx.calEvAutoColor("ce_abc"), ctx.calEvAutoColor("ce_abc"));
 });
 
+// 她 2026-08-26：「跟备忘录一样」——那就用同一套规则，别自己另发明一套
+test("重复规则和备忘录逐条对得上", () => {
+  const { ctx } = harness();
+  const on = (start, rp, day) => ctx.calRepeatOn(start, rp, day);
+  assert.equal(on("2026-08-26", "none", "2026-08-26"), true);
+  assert.equal(on("2026-08-26", "none", "2026-08-27"), false);
+  assert.equal(on("2026-08-26", "weekly", "2026-09-02"), true);
+  assert.equal(on("2026-08-26", "weekly", "2026-08-19"), false, "锚点之前不算");
+  assert.equal(on("2026-08-26", "biweekly", "2026-09-09"), true);
+  assert.equal(on("2026-08-26", "biweekly", "2026-09-02"), false);
+  assert.equal(on("2026-08-31", "monthly", "2026-09-30"), true, "短月压到月底");
+  assert.equal(on("2026-01-15", "monthlyEnd", "2026-02-28"), true);
+  assert.equal(on("2020-02-29", "yearly", "2026-02-28"), true);
+});
+
+test("重复的日程按单日算，不和跨天混在一起", () => {
+  const { ctx } = harness();
+  const ev = [{ id: "r", owner: "mine", startDate: "2026-08-26", endDate: "2026-08-30", repeat: "weekly", startTime: "09:00", endTime: "10:00", title: "周会" }];
+  assert.equal(ctx.calEventsOnDay(ev, "mine", "2026-08-26").length, 1);
+  assert.equal(ctx.calEventsOnDay(ev, "mine", "2026-08-27").length, 0, "重复的就别再按 endDate 铺开");
+  assert.equal(ctx.calEventsOnDay(ev, "mine", "2026-09-02").length, 1);
+  assert.equal(ctx.calEventsOnDay(ev, "mine", "2026-08-26")[0]._repeats, true);
+});
+
+// 她 2026-08-26：「颜色注释现在看不到了你帮我弄回来」
+test("经期四个阶段的颜色注释还在", () => {
+  const { ctx, setOverrides } = harness();
+  setOverrides({});
+  const tree = ctx.Calendar(props());
+  const texts = [];
+  (function walk(x) { if (!x) return; if (Array.isArray(x)) return x.forEach(walk);
+    if (typeof x === "string") return texts.push(x);
+    if (x.type !== undefined) { walk(x.ch); walk(x.props && x.props.children); } })(tree);
+  ["经期", "排卵期", "排卵日", "安全期"].forEach(w => assert.ok(texts.includes(w), "图例里少了「" + w + "」"));
+});
+
+// 她 2026-08-26：「世界日程只是在顶部放东西的话那还不如把世界和我的日历合并成一个」
+test("世界并进我的：只剩一个「我」的档，世界事件挂 🌐", () => {
+  const { ctx, setOverrides } = harness();
+  setOverrides({});
+  const tree = ctx.Calendar(props());
+  const texts = [];
+  (function walk(x) { if (!x) return; if (Array.isArray(x)) return x.forEach(walk);
+    if (typeof x === "string") return texts.push(x);
+    if (x.type !== undefined) { walk(x.ch); walk(x.props && x.props.children); } })(tree);
+  assert.ok(!texts.includes("世界"), "人物条里不该再有单独的「世界」档");
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  assert.match(comp2, /worldStore\[legacyKeyOf\(dk\)\] \|\| \[\]\)\.forEach\(e => out\.push\(\{ text: "🌐 "/, "世界事件仍要显示，挂 🌐 区分");
+  assert.match(comp2, /onGenMonth\(view === "mine" \? "world" : view/, "在「我的」里生成的仍写进世界那个桶");
+});
+
+// 她 2026-08-26：「备忘录日程也要开开始结束时间…落在实际时间段，点开可以看细节跟备忘录那边一样」
+test("备忘录提醒填了时刻就落在时间轴上，点开跳回备忘录同一份详情", () => {
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  assert.match(comp2, /if \(!r \|\| !r\.startTime\) return;/, "有时刻的才画成块");
+  assert.match(comp2, /if \(r && r\.startTime\) return;\s*\/\/ 有时刻的画成块/, "有时刻的就别再挤在顶部");
+  assert.match(comp2, /b\.memo && typeof window\.memoOpenReminder === "function"/, "点块要跳回备忘录");
+  assert.match(memo, /window\.memoOpenReminder = /);
+  assert.match(memo, /startTime: startTime \|\| ""/, "提醒表单要存起始时刻");
+  assert.match(memo, /window\.__memoOpenId/, "备忘录要接得住这个跳转");
+  assert.match(app, /window\.memoGoApp = \(\) => \{ setScreen\("memo"\); \}/);
+});
+
+test("日历上手填的日程角色也看得见", () => {
+  assert.match(app, /const timedTitles = \(ownerKey\) =>/);
+  assert.match(app, /Ta 让你能看到，可自然关心\/问起/);
+  assert.match(app, /你自己今天的安排：/);
+});
+
 // 三层各存各的：AI 行程、手填带时刻的、无时刻的全天事件。合并只在显示层发生。
 test("手填事件另起一个仓，不塞进 AI 排的 seqs 里", () => {
   assert.match(app, /saveJSON\("x_calEvents", next\)/);
