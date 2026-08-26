@@ -109,6 +109,30 @@ test("刻度和事件块对得上：整点块的 top 必须等于那条整点线
     "10:00 开始的块没落在 10:00 那条线上：块 " + JSON.stringify(tops.block.map(b => b.top)) + " vs 线 " + (tenLabel.top + 6));
 });
 
+// 她 2026-08-26：角色在日本、和她有时差，可日程还是按「正常时间」画的。
+// 刻度和「此刻」红线是【她的】时间，块却是 TA 当地时刻——不换算就永远对不上。
+test("异地角色的块按她的时间摆位，块上写 TA 当地时刻", () => {
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  assert.match(comp2, /const tzShift = isCharView && typeof schedTzShiftMin === "function" \? schedTzShiftMin\(curChar\) : 0/);
+  assert.match(comp2, /const toMyMin = m => \(m == null \? null : \(\(\(m - tzShift\) % 1440\) \+ 1440\) % 1440\)/);
+  const seg = comp2.slice(comp2.indexOf("const blocksOn = dk =>"), comp2.indexOf("const dayHasAnything"));
+  assert.match(seg, /let st = toMyMin\(cst\), en = st \+ \(cen - cst\)/, "块长度不变，只是整体挪位");
+  assert.match(seg, /if \(en > 1440\) en = 1440;/, "换算后跨天的截在这一天里，别画成溢出");
+  assert.match(seg, /charFrom: tzShift \? s\.time : ""/, "块上仍写 TA 当地时刻——他嘴里说的是这个");
+  assert.match(comp2, /b\.charFrom \? b\.charFrom \+ "–"/);
+  assert.match(comp2, /格子按你的时间，块上写的是 TA 当地时刻/, "得在界面上说清楚，不然更糊涂");
+});
+
+test("同时区的角色一个字都不变", () => {
+  const { ctx } = harness();
+  // tzShift=0 时 toMyMin 是恒等的：这条靠公式本身保证，钉住免得哪天加了偏移
+  const toMyMin = (m, tzShift) => (m == null ? null : (((m - tzShift) % 1440) + 1440) % 1440);
+  assert.equal(toMyMin(600, 0), 600);
+  assert.equal(toMyMin(600, 60), 540, "TA 快 1 小时：TA 的 10:00 是她的 09:00");
+  assert.equal(toMyMin(30, 60), 1410, "跨过零点要绕回去，不能变成负数");
+  assert.ok(ctx);
+});
+
 test("表头不在滚动区里——它一变高就会把整条时间轴顶歪", () => {
   const comp2 = fs.readFileSync(R("components.js"), "utf8");
   const i = comp2.indexOf("const dayView = () =>");

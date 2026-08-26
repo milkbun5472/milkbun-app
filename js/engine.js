@@ -3545,6 +3545,40 @@ async function _transModel(text) {
 }
 // 免费优先，一级一级往下退；每一级都短超时，绝不让她对着「翻译中…」干等。
 // 返回 { zh, by }：by 会显示在展开区里，她一眼就能看出这条花没花钱。
+// 长文翻译（v56.46，思考链用）：免费那两家都是 GET 带 query，整段几千字塞进 URL 会被
+// 截断或直接失败。按段落切成 ~900 字一块，逐块走 translateToZh（顺带每块各自进缓存，
+// 重开时基本瞬间出）。切块只在【空行/句末】切，不从句子中间劈开。
+async function translateLongToZh(text, lang) {
+  const src = String(text == null ? "" : text);
+  const LIMIT = 900;
+  if (src.length <= LIMIT) return translateToZh(src, lang);
+  const chunks = [];
+  let buf = "";
+  src.split(/(\n{2,})/).forEach(seg => {
+    if (!seg) return;
+    if ((buf + seg).length <= LIMIT) { buf += seg; return; }
+    if (buf.trim()) chunks.push(buf);
+    if (seg.length <= LIMIT) { buf = seg; return; }
+    // 还是太长：按句末标点再切
+    let rest = seg;
+    while (rest.length > LIMIT) {
+      let cut = rest.lastIndexOf(". ", LIMIT);
+      if (cut < LIMIT * 0.4) cut = rest.lastIndexOf(" ", LIMIT);
+      if (cut < LIMIT * 0.4) cut = LIMIT - 1;   // slice(0,cut+1) 才不会超出 LIMIT
+      chunks.push(rest.slice(0, cut + 1));
+      rest = rest.slice(cut + 1);
+    }
+    buf = rest;
+  });
+  if (buf.trim()) chunks.push(buf);
+  const outs = [];
+  let by = "";
+  for (const c of chunks) {
+    const r = await translateToZh(c.trim(), lang);
+    outs.push(r.zh); by = by || r.by;
+  }
+  return { zh: outs.join("\n\n"), by: by };
+}
 async function translateToZh(text, lang) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;

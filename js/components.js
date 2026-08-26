@@ -1075,6 +1075,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     calEventsOnDay(calEvents, view, dk).filter(e => e._allDay).forEach(e => out.push({ text: (e.icon ? e.icon + " " : "") + e.title, id: e.id, kind: "timed", ev: e }));
     return out;
   };
+  // 异地：TA 的行程是按 TA 当地时刻排的，而这张表的刻度和「此刻」红线是【你的】时间。
+  // 不换算的话，TA 的 16:20 会画在你的 16:20 上，红线和他的一天永远对不上（她 2026-08-26
+  // 报的正是这个：角色在日本，日程却按正常时间画）。所以：位置按你的时间，块上写 TA 当地时刻。
+  const tzShift = isCharView && typeof schedTzShiftMin === "function" ? schedTzShiftMin(curChar) : 0;
+  const toMyMin = m => (m == null ? null : (((m - tzShift) % 1440) + 1440) % 1440);
   // 时间块：AI 行程 + 手填带时刻的
   const blocksOn = dk => {
     const out = [];
@@ -1082,10 +1087,16 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       const plan = ((schedules || {})[view] || {})[dk];
       const seqs = plan && Array.isArray(plan.seqs) ? (typeof schedFillEnds === "function" ? schedFillEnds(plan.seqs) : plan.seqs) : [];
       seqs.forEach((s, i) => {
-        const st = calMinOf(s.time); if (st == null) return;
-        let en = calMinOf(s.end); if (en == null || en <= st) en = Math.min(1440, st + 60);
+        const cst = calMinOf(s.time); if (cst == null) return;
+        let cen = calMinOf(s.end); if (cen == null || cen <= cst) cen = Math.min(1440, cst + 60);
+        let st = toMyMin(cst), en = st + (cen - cst);
+        // 换算后跨到你这边的前一天/后一天：截在这一天里画，别画成负高度或溢出
+        if (en > 1440) en = 1440;
+        if (st >= 1440) return;
         out.push({ key: "s" + i, from: st, to: en, title: s.title || "", location: s.location || "",
-          icon: CAL_SEQ_ICON[s.type] || "📌", color: CAL_SEQ_TINT[s.type] || "#e6e2da", ai: true, dev: s.deviation || null, raw: s });
+          icon: CAL_SEQ_ICON[s.type] || "📌", color: CAL_SEQ_TINT[s.type] || "#e6e2da", ai: true, dev: s.deviation || null, raw: s,
+          // 块上仍写 TA 当地时刻——他嘴里说的是这个
+          charFrom: tzShift ? s.time : "", charTo: tzShift ? (s.end || "") : "" });
       });
     }
     calEventsOnDay(calEvents, view, dk).filter(e => !e._allDay).forEach(e => {
@@ -1176,7 +1187,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         borderRadius: 7, padding: "4px 6px", overflow: "hidden", boxShadow: b.dev ? "0 0 0 1.5px #c25a4a inset" : "none" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } }, (b.icon ? b.icon + " " : "") + b.title),
       hgt > 40 && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 1, lineHeight: 1.3 } },
-        calHM(b.from) + "–" + (b.to >= 1440 ? "24:00" : calHM(b.to)) + (b.location ? " · " + b.location : "")));
+        (b.charFrom ? b.charFrom + "–" + (b.charTo || "") : calHM(b.from) + "–" + (b.to >= 1440 ? "24:00" : calHM(b.to))) + (b.location ? " · " + b.location : "")));
   };
   // 表头和时间轴必须【分开两层】：刻度列和事件列共用同一个滚动内容的 y=0。
   // v56.33 那版把表头塞在滚动区里、刻度列拿 paddingTop:52 去凑——表头高度是变的
@@ -1207,6 +1218,8 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 999, marginTop: 2,
           background: d.key === daySel ? t.ink : "transparent", color: d.key === daySel ? t.bg2 : (d.key === todayKey ? "#c25a4a" : t.ink),
           fontFamily: F_DISPLAY, fontSize: 15 } }, d.n)))),
+    tzShift ? h("div", { className: "shrink-0 px-4 pb-1", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } },
+      "TA 比你" + (tzShift > 0 ? "快 " : "慢 ") + (Math.abs(tzShift) % 60 ? (Math.abs(tzShift) / 60).toFixed(1) : Math.abs(tzShift) / 60) + " 小时 · 格子按你的时间，块上写的是 TA 当地时刻") : null,
     // 表头行（不滚）
     h("div", { className: "shrink-0 flex", style: { borderBottom: "1px solid " + t.line, background: t.bg } },
       h("div", { className: "shrink-0", style: { width: 44 } }),
@@ -5140,7 +5153,20 @@ function CallInviteCard({ m, isU, onAccept, onDecline }) {
 function ReasoningBlock({ m }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
+  const [zh, setZh] = useState("");
+  const [tBusy, setTBusy] = useState(false);
+  const [tErr, setTErr] = useState("");
+  const [showZh, setShowZh] = useState(false);
   const secs = m.reasonMs ? (m.reasonMs / 1000).toFixed(1) + "s" : "";
+  // 思考链基本都是英文，给它一个译键（走和气泡同一条免费链，长文自动切块）
+  const rLang = typeof translatableLang === "function" ? translatableLang(m.reasoning) : "";
+  const doTrans = async () => {
+    if (zh) { setShowZh(v => !v); return; }
+    setTBusy(true); setTErr("");
+    try { const r = await translateLongToZh(m.reasoning, rLang); setZh(r.zh); setShowZh(true); }
+    catch (e) { setTErr(String((e && e.message) || e)); }
+    finally { setTBusy(false); }
+  };
   // v56.45：她说别飘在屏幕中间，要贴左边。左边距归零＝和头像那一列对齐，
   // 整块顶到消息区最左侧；模型名 flex:1 + 省略号，箭头 shrink-0，长名字也压不出第二行。
   return h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } },
@@ -5152,8 +5178,13 @@ function ReasoningBlock({ m }) {
       m.reasonModel ? h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.line, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "· " + m.reasonModel) : h("span", { style: { flex: 1 } }),
       h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
     open ? h("div", { style: { borderLeft: "2px solid " + t.line, paddingLeft: 9, margin: "3px 0 5px" } },
-      m.reasonFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, marginBottom: 3 } }, "来自字段 " + m.reasonFrom) : null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap" } }, m.reasoning)) : null);
+      h("div", { className: "flex items-center gap-2", style: { marginBottom: 3 } },
+        m.reasonFrom ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line } }, "来自字段 " + m.reasonFrom) : null,
+        rLang ? h("button", { onClick: doTrans, disabled: tBusy, className: "active:opacity-60 disabled:opacity-50",
+          style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 5, padding: "0 5px" } },
+          tBusy ? "翻译中…" : zh ? (showZh ? "看原文" : "看译文") : "译") : null),
+      tErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#c25a4a", marginBottom: 3 } }, tErr) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap" } }, showZh && zh ? zh : m.reasoning)) : null);
 }
 // 转发的聊天记录（v56.38）。原来是把整段原话直接塞进一个气泡里——十条八条的
 // 转过去就是一堵墙（她 2026-08-26 截图）。改成微信那种卡片：标题 + 两行预览 + 「聊天记录」，

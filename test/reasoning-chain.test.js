@@ -79,9 +79,47 @@ test("收起时就是一行字加一个箭头，没有框，紧贴气泡", () =>
   assert.match(seg, /reasonMs \/ 1000\)\.toFixed\(1\) \+ "s"/);
   assert.match(seg, /transform: open \? "rotate\(180deg\)" : "none"/);
   // 一行：整条都是 nowrap，长模型名只许省略号，不许换行把它撑成一块
-  assert.ok(!/borderRadius: 12/.test(seg) && !/border: "1px solid " \+ t\.line/.test(seg), "收起那一行不许有框");
+  const collapsed = seg.slice(seg.indexOf('h("button", { onClick: () => setOpen'), seg.indexOf("open ? h("));
+  assert.ok(!/borderRadius: 12/.test(collapsed) && !/border: "1px solid/.test(collapsed), "收起那一行不许有框");
   assert.match(seg, /margin: "0 0 2px 0"/, "顶到消息区最左边——她 2026-08-26：别飘在屏幕中间");
   assert.match(seg, /flex: 1, minWidth: 0/, "模型名再长也只许省略号，不许把这一行撑成两行");
   assert.ok((seg.match(/whiteSpace: "nowrap"/g) || []).length >= 2, "文字和模型名都不许换行");
   assert.match(seg, /textOverflow: "ellipsis"/);
+});
+
+// 她 2026-08-26：「能不能给思考这块也安个翻译键就用免费翻译的」。
+// 免费那两家都是 GET 带 query，整段几千字塞进 URL 会被截断或直接失败，所以要切块。
+test("长文翻译按段落切块，每块不超过 900 字，内容不丢", async () => {
+  const vm2 = require("node:vm");
+  const i2 = engine.indexOf("async function translateLongToZh");
+  const seg = engine.slice(i2, engine.indexOf("async function translateToZh(text, lang) {"));
+  const run = async src => {
+    const calls = [];
+    const f = new Function("translateToZh", seg + "\nreturn translateLongToZh;")(async t => { calls.push(t); return { zh: t, by: "免费" }; });
+    const r = await f(src, "en");
+    return { calls, zh: r.zh };
+  };
+  const norm = x => x.replace(/\s+/g, " ").trim();
+  const para = n => Array.from({ length: n }, (_, k) => "Paragraph " + k + ". " + "x".repeat(200)).join("\n\n");
+
+  const short = await run("Hello world");
+  assert.equal(short.calls.length, 1, "短文本不该被切");
+
+  const many = await run(para(8));
+  assert.ok(many.calls.length >= 2, "长文本要切开");
+  many.calls.forEach(c => assert.ok(c.length <= 900, "块太长会被免费接口截断：" + c.length));
+  assert.equal(norm(many.zh), norm(para(8)), "切了又拼回来，一个字都不能少");
+
+  // 单个段落本身就超长时，从句末切，不从词中间劈
+  const oneLong = await run(("A".repeat(50) + ". ").repeat(60));
+  oneLong.calls.forEach(c => assert.ok(c.length <= 900, c.length));
+  assert.equal(norm(oneLong.zh), norm(("A".repeat(50) + ". ").repeat(60)));
+});
+
+test("译键走免费链，长了自动切块", () => {
+  const i2 = comp.indexOf("function ReasoningBlock(");
+  const seg = comp.slice(i2, comp.indexOf("// 转发的聊天记录（v56.38）"));
+  assert.match(seg, /translateLongToZh\(m\.reasoning, rLang\)/);
+  assert.match(seg, /translatableLang\(m\.reasoning\)/, "不是外文就别显示译键");
+  assert.match(seg, /showZh && zh \? zh : m\.reasoning/, "译文和原文可以来回切");
 });
