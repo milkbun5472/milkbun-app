@@ -3211,6 +3211,7 @@ function ChatThread({
   const bk = block || {};
   const dsp = disp || {};
   const [recallView, setRecallView] = useState(null);
+  const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [archView, setArchView] = useState(null); // null | "loading" | [归档消息数组]
   const meAv = { name: (profile && profile.name) || "我", color: (profile && profile.color) || t.tint, avatarImage: profile && profile.avatarImage };
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
@@ -3628,6 +3629,10 @@ function ChatThread({
         style: { borderRadius: 12, cursor: "pointer", outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 }
       }, h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 118 })),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    if (m.kind === "chatforward") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
+      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(ForumShareCard, { m: m, isU: m.role === "user" }),
@@ -4031,6 +4036,7 @@ function ChatThread({
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, recallView.origText || "（空）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, recallView.reason || "（没说）")),
+  fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }),
   Array.isArray(archView) && h(Sheet, { onClose: () => setArchView(null), tall: true },
     h(Eyebrow, { style: { marginBottom: 8 } }, "更早的聊天 · 云端归档"),
     archView.length === 0
@@ -5042,7 +5048,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const nameOf = m => m.role === "user" ? (meName || "我") : (m.senderName || (chars && chars[0] && (chars[0].remark || chars[0].name)) || "TA");
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-  const kindTag = m => m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "emote" ? "表情" : null;
+  const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "emote" ? "表情" : null;
   const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " ¥" + m.amount : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
   const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
   const kw = q.trim();
@@ -5127,6 +5133,52 @@ function CallInviteCard({ m, isU, onAccept, onDecline }) {
         h("button", { onClick: () => onAccept && onAccept(m), className: "flex-1 py-2.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.tint, fontWeight: 600 } }, "接听"))));
 }
 // 转发的贴吧帖子卡片（私聊/群聊都用）
+// 转发的聊天记录（v56.38）。原来是把整段原话直接塞进一个气泡里——十条八条的
+// 转过去就是一堵墙（她 2026-08-26 截图）。改成微信那种卡片：标题 + 两行预览 + 「聊天记录」，
+// 点开才看全部。标题按 items 里出现过几个人算：两个人＝「A和B的聊天记录」，三个以上＝「群聊的聊天记录」，
+// 所以老消息不用迁移也能显示对。
+function chatForwardItems(m) {
+  const f = (m && m.forward) || {};
+  if (Array.isArray(f.items) && f.items.length) return f.items;
+  // 极老的消息只有正文：从「【转发的聊天记录】」那段文本里还原
+  const lines = String((m && m.content) || "").split("\n").slice(1);
+  return lines.map(l => { const k = l.indexOf("："); return k > 0 ? { name: l.slice(0, k), text: l.slice(k + 1) } : { name: "", text: l }; }).filter(x => x.text);
+}
+function chatForwardTitle(m) {
+  const items = chatForwardItems(m);
+  const names = [];
+  items.forEach(it => { const n = (it && it.name) || ""; if (n && names.indexOf(n) < 0) names.push(n); });
+  if (names.length >= 3) return "群聊的聊天记录";
+  if (names.length === 2) return names[0] + "和" + names[1] + "的聊天记录";
+  if (names.length === 1) return names[0] + "的聊天记录";
+  return "聊天记录";
+}
+function ChatForwardCard({ m, isU, onOpen }) {
+  const t = useTheme();
+  const items = chatForwardItems(m);
+  const preview = items.slice(0, 2);
+  return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
+    h("button", { onClick: () => onOpen && onOpen(m), className: "active:opacity-70 text-left",
+      style: { width: 242, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { className: "px-3.5 pt-3 pb-2.5" },
+        h("div", { className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.35, color: t.ink } }, chatForwardTitle(m)),
+        h("div", { style: { marginTop: 6 } }, preview.map((it, i) => h("div", { key: i, className: "line-clamp-1",
+          style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog } }, (it.name ? it.name + ": " : "") + it.text))),
+        items.length > preview.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.fog } }, "…") : null),
+      h("div", { className: "px-3.5 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "聊天记录")));
+}
+// 点开看全部
+function ChatForwardSheet({ m, onClose }) {
+  const t = useTheme();
+  const items = chatForwardItems(m);
+  return h(Sheet, { onClose: onClose, tall: true },
+    h("div", { className: "px-1 pb-2" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 2 } }, chatForwardTitle(m)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, items.length + " 条 · 转发的聊天记录"),
+      items.map((it, i) => h("div", { key: i, style: { marginBottom: 12 } },
+        it.name ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 3 } }, it.name) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } }, it.text)))));
+}
 function ForumShareCard({ m, isU }) {
   const t = useTheme();
   const p = m.post || {};
@@ -6953,6 +7005,7 @@ function GroupThread({
   const [fwdPick, setFwdPick] = useState(false);
   const pressTimer = useRef(null);
   const [gRecallView, setGRecallView] = useState(null);
+  const [fwdView, setFwdView] = useState(null);   // 点开的转发聊天记录卡
   const [sheet, setSheet] = useState(null); // "settings"|"poll"|"rp"
   const [rpView, setRpView] = useState(null); // index of redpacket detail
   const [geoOpen, setGeoOpen] = useState(false);
@@ -7232,6 +7285,9 @@ function GroupThread({
         m.role !== "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
         h(EmoteBubble, { url: m.url, keyword: m.keyword, max: 112 })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
+    if (m.kind === "chatforward") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
+      m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
+      h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }));
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
       m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
       h(ForumShareCard, { m: m, isU: m.role === "user" }));
@@ -7557,7 +7613,8 @@ function GroupThread({
     h(Eyebrow, { style: { marginBottom: 8 } }, (gRecallView.senderName || "TA") + " 撤回的消息"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, gRecallView.origText || "（空）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, gRecallView.reason || "（没说）")), sheet === "settings" && h(GroupSettingsSheet, {
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, gRecallView.reason || "（没说）")),
+  fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }), sheet === "settings" && h(GroupSettingsSheet, {
     gs: gs,
     group: group,
     characters: characters,
