@@ -203,6 +203,19 @@ test("世界并进我的：只剩一个「我」的档，世界事件挂 🌐", 
   assert.match(comp2, /onGenMonth\(view === "mine" \? "world" : view/, "在「我的」里生成的仍写进世界那个桶");
 });
 
+// 她 2026-08-26：「日历和日程合并了那其实是不是不需要这个 ai 生成本月事件了，
+// 可以直接在我的日历界面生成全部世界大事」——角色的日子已经由一周排程整天整天排出来了，
+// 再来一层月度事件是重复的。
+test("月度事件生成只留在「我」这档，角色那边退场", () => {
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  const i = comp2.indexOf("fab && h(\"div\"");
+  const seg = comp2.slice(i, comp2.indexOf("setFab(v => !v)", i));
+  assert.match(seg, /view === "mine" && h\("button".*?setGenOpen\(true\)/s, "这个入口要挂在 mine 上");
+  assert.ok(!/AI 生成本月事件/.test(seg), "角色那档的「AI 生成本月事件」要撤掉");
+  assert.match(seg, /🌐　AI 生成本月世界大事/);
+  assert.match(seg, /isCharView && h\("button".*?onGenWeek/s, "角色那档留的是排一周");
+});
+
 // 她 2026-08-26：「备忘录日程也要开开始结束时间…落在实际时间段，点开可以看细节跟备忘录那边一样」
 test("备忘录提醒填了时刻就落在时间轴上，点开跳回备忘录同一份详情", () => {
   const comp2 = fs.readFileSync(R("components.js"), "utf8");
@@ -213,6 +226,21 @@ test("备忘录提醒填了时刻就落在时间轴上，点开跳回备忘录�
   assert.match(memo, /startTime: startTime \|\| ""/, "提醒表单要存起始时刻");
   assert.match(memo, /window\.__memoOpenId/, "备忘录要接得住这个跳转");
   assert.match(app, /window\.memoGoApp = \(\) => \{ setScreen\("memo"\); \}/);
+});
+
+// 她 2026-08-26：「从日历进的日程我想退出来返回日历而不是备忘录，从备忘录进的才返回备忘录」
+test("从日历进的提醒，看完了要送回日历；自己在备忘录点开的照旧留在备忘录", () => {
+  assert.match(memo, /const \[fromCal, setFromCal\] = useState\(false\)/);
+  assert.match(memo, /setDetail\(\{ kind: "reminder", id: want \}\); setFromCal\(true\)/, "只有跳进来那一次才立旗子");
+  assert.match(memo, /const leaveIfFromCal = \(\) => \{[\s\S]{0,240}?setFromCal\(false\)/);
+  // 三个出口都要送回去：关详情、返回键、编辑表单关掉（含保存和删除）
+  assert.match(memo, /const closeDetail = \(\) => \{ setDetail\(null\); leaveIfFromCal\(\); \}/);
+  assert.match(memo, /const backOut = \(\) => \{ if \(!leaveIfFromCal\(\)\) props\.onBack/);
+  assert.match(memo, /onClose: \(\) => \{ setForm\(null\); leaveIfFromCal\(\); \}, onSave: r => \{ saveReminder\(r\); setForm\(null\); leaveIfFromCal\(\); \}/);
+  assert.match(memo, /onClose: closeDetail, tall: true/, "详情面板关掉走的是 closeDetail");
+  assert.match(memo, /onBack: backOut/);
+  // 中途点「编辑」只是把详情换成表单，旗子必须留着，否则会当场弹回日历
+  assert.match(memo, /setForm\(\{ kind: "reminder", item: curReminder \}\); setDetail\(null\); \}/, "编辑那一步不许调 closeDetail");
 });
 
 test("日历上手填的日程角色也看得见", () => {

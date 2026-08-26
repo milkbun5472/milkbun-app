@@ -334,13 +334,26 @@
     const [tab, setTab] = useState("reminders");   // reminders | notes
     const [form, setForm] = useState(null);        // {kind:'reminder'|'note', item?}
     const [detail, setDetail] = useState(null);    // {kind, id}
-    // 从日历点某条提醒进来：memoOpenReminder 把 id 放在 __memoOpenId，这里接住并打开详情
+    // 从日历点某条提醒进来：memoOpenReminder 把 id 放在 __memoOpenId，这里接住并打开详情。
+    // fromCal 记着「是从日历过来的」——她 2026-08-26：从日历进的，退出来要回日历，
+    // 不能把她扔在备忘录里；从备忘录自己点开的照旧留在备忘录。
+    const [fromCal, setFromCal] = useState(false);
     useEffect(() => {
       const want = typeof window !== "undefined" ? window.__memoOpenId : null;
       if (!want) return;
       window.__memoOpenId = null;
-      setTab("reminders"); setDetail({ kind: "reminder", id: want });
+      setTab("reminders"); setDetail({ kind: "reminder", id: want }); setFromCal(true);
     }, []);
+    // 从日历来的：任何一种「看完了」都送回日历——关详情、删掉、或者编辑完关掉表单。
+    // 中途点「编辑」不算看完，那一步只是把详情换成表单，旗子要留着。
+    const leaveIfFromCal = () => {
+      if (!fromCal) return false;
+      setFromCal(false);
+      if (typeof window.calOpenFromMemo === "function") { window.calOpenFromMemo(); return true; }
+      return false;
+    };
+    const closeDetail = () => { setDetail(null); leaveIfFromCal(); };
+    const backOut = () => { if (!leaveIfFromCal()) props.onBack && props.onBack(); };
     const [visFor, setVisFor] = useState(null);    // 正在设可见角色的 {kind,id}
     const persist = updater => setData(prev => { const n = typeof updater === "function" ? updater(prev) : updater; saveData(n); return n; });
 
@@ -435,7 +448,7 @@
     const visTarget = visFor && (visFor.kind === "reminder" ? (data.reminders || []).find(r => r.id === visFor.id) : (data.notes || []).find(n => n.id === visFor.id));
 
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h(Head, { zh: "备忘录", en: "Memo", onBack: props.onBack,
+      h(Head, { zh: "备忘录", en: "Memo", onBack: backOut,
         right: h("button", { onClick: () => setForm({ kind: tab === "notes" ? "note" : "reminder" }), className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 24, color: ACCENT, lineHeight: 1 } }, "＋") }),
       h("div", { className: "shrink-0 flex gap-2 px-5 pb-2" }, tabBtn("reminders", "⏰ 提醒"), tabBtn("notes", "📝 备忘")),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-6" },
@@ -447,11 +460,11 @@
             : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "70px 20px", lineHeight: 1.9 } }, "还没有备忘\n点右上角 ＋ 随手记点什么"))),
 
       // 新建/编辑表单
-      form && form.kind === "reminder" && h(ReminderForm, { initial: form.item, toast: props.toast, onClose: () => setForm(null), onSave: r => { saveReminder(r); setForm(null); }, onDelete: delReminder }),
+      form && form.kind === "reminder" && h(ReminderForm, { initial: form.item, toast: props.toast, onClose: () => { setForm(null); leaveIfFromCal(); }, onSave: r => { saveReminder(r); setForm(null); leaveIfFromCal(); }, onDelete: id => { delReminder(id); leaveIfFromCal(); } }),
       form && form.kind === "note" && h(NoteForm, { initial: form.item, toast: props.toast, onClose: () => setForm(null), onSave: n => { saveNote(n); setForm(null); }, onDelete: delNote }),
 
       // 提醒详情
-      curReminder && h(Sheet, { onClose: () => setDetail(null), tall: true },
+      curReminder && h(Sheet, { onClose: closeDetail, tall: true },
         h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
           h("div", { style: { flex: 1 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, textDecoration: curReminder.done ? "line-through" : "none" } }, curReminder.title),
