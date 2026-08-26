@@ -11636,8 +11636,8 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "tarot") body = h(Tarot, {
-    // 占卜落地(2026-08-18):以前解完就躺进存档,角色下次聊天完全不知道自己给她算过命。
-    // 写一条记忆(不标 open,占卜不是待办),并把角色私心里那句 charThought 送进「Ta 眼里」。
+    // 占卜只留在塔罗历史；不把随机牌面写成正式记忆。
+    // 角色私心里那句 charThought 仍可送进「Ta 眼里」，它是当下印象，不是事实记忆。
     onReadingDone: (charId, info) => {
       if (!charId || !info) return;
       const who = (characters.find(c => c.id === charId) || {}).name || "Ta";
