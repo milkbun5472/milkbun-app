@@ -3959,15 +3959,17 @@ function CallScreen({
   const dragRef = useRef({ dragging: false, moved: false, grabX: 0, grabY: 0 });
   // 通话台词懒 TTS：点那条才合成（缓存在 ttsSpeak 里，重播免费）；一次只放一条（共用 useTtsPlayer）
   const tp = useTtsPlayer();
-  // —— 真声通话档（v55.98）：耳朵=书房 Mac 的 whisper（earsTranscribe），嗓子=ttsSpeak 自动播，
-  //    脑子=onSend 走这通电话原有的对话引擎（全套人设记忆）。单人通话+配了音色+两头都配置了才出现。
+  // —— 真声通话档 v2（v56.23）：主耳=浏览器原生 SpeechRecognition（免费/实时/自带断句），
+  //    书房 whisper 降级为兜底；播放=Web Audio+手势解锁（iOS PWA 拦非手势 audio.play，
+  //    点🎙那一瞬先播1帧静音点亮 AudioContext）。脑子不变：onSend 走这通电话原有引擎。
   const [live, setLive] = useState(false);
   const [liveSt, setLiveSt] = useState("");
-  const lv = useRef({ ctx: null, node: null, stream: null, buf: [], talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0, aud: null });
+  const lv = useRef({ rec: null, recWanted: false, recTimer: null, ctx: null, node: null, stream: null,
+    buf: [], talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0, speaking: false, ttsCtx: null, src: null });
   const liveRef = useRef(false); liveRef.current = live;
   const sendingRef = useRef(false); sendingRef.current = !!sending;
   const msgsRef = useRef(msgs); msgsRef.current = msgs || [];
-  const lvEncode = chunks => { // Float32(16k) → 16k mono WAV
+  const lvEncode = chunks => { // Float32(16k) → 16k mono WAV（whisper 兜底路径用）
     let len = 0; chunks.forEach(c => len += c.length);
     const pcm = new Int16Array(len); let o = 0;
     chunks.forEach(c => { for (let i = 0; i < c.length; i++) pcm[o++] = Math.max(-1, Math.min(1, c[i])) * 0x7FFF; });
@@ -3978,10 +3980,38 @@ function CallScreen({
     v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, pcm.length * 2, true);
     new Int16Array(b, 44).set(pcm); return new Blob([b], { type: "audio/wav" });
   };
+  // —— 主耳：原生 SpeechRecognition ——
+  const recStart = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return false;
+    const st = lv.current;
+    const rec = new SR();
+    rec.lang = "zh-CN"; rec.continuous = true; rec.interimResults = true;
+    rec.onresult = e => {
+      if (!liveRef.current) return;
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const piece = ((e.results[i][0] || {}).transcript || "").trim();
+        if (e.results[i].isFinal) { if (piece && !st.busy && !sendingRef.current) onSend(piece); }
+        else interim += piece;
+      }
+      if (interim) setLiveSt("你：" + interim.slice(-24));
+    };
+    rec.onend = () => { // continuous 也会自己断，450ms 自动重启是命门
+      if (st.recWanted && liveRef.current) st.recTimer = setTimeout(() => { try { rec.start(); } catch (e2) {} }, 450);
+    };
+    rec.onerror = ev => { if (ev.error === "not-allowed") { setLiveSt("麦克风权限被拒"); lvStop(); } };
+    st.rec = rec; st.recWanted = true;
+    try { rec.start(); } catch (e2) { return false; }
+    return true;
+  };
+  const recPause = () => { const st = lv.current; st.recWanted = false; clearTimeout(st.recTimer); try { st.rec && st.rec.stop(); } catch (e2) {} };
+  const recResume = () => { const st = lv.current; if (!st.rec || !liveRef.current) return; st.recWanted = true; try { st.rec.start(); } catch (e2) {} };
+  // —— 兜底耳：书房 whisper（老路径） ——
   const lvFlush = async () => {
     const st = lv.current; const chunks = st.buf; st.buf = []; st.talking = false; st.speech = 0; st.silent = 0;
     const total = chunks.reduce((a, c) => a + c.length, 0);
-    if (total < 16000 * 0.4) return; // 短于0.4秒的碎响不送
+    if (total < 16000 * 0.4) return;
     st.busy++; setLiveSt("识别中…");
     try {
       const d = await earsTranscribe(lvEncode(chunks));
@@ -3990,78 +4020,96 @@ function CallScreen({
     } catch (e) { setLiveSt("识别失败，再说一遍"); }
     finally { st.busy--; if (liveRef.current) setLiveSt(s2 => s2 === "识别中…" ? "听着呢" : s2); }
   };
+  const workletStart = async () => {
+    const st = lv.current;
+    st.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    st.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    try { await st.ctx.resume(); } catch (e2) {}
+    if (!st.ctx.audioWorklet) throw new Error("这台设备不支持 AudioWorklet");
+    const sr = st.ctx.sampleRate;
+    await st.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([
+      "registerProcessor('cl-tap',class extends AudioWorkletProcessor{process(i){if(i[0]&&i[0][0])this.port.postMessage(i[0][0].slice(0));return true;}});"
+    ], { type: "text/javascript" })));
+    const src = st.ctx.createMediaStreamSource(st.stream);
+    st.node = new AudioWorkletNode(st.ctx, "cl-tap"); src.connect(st.node);
+    st.last = performance.now();
+    st.node.port.onmessage = e => {
+      const now = performance.now(), dt = now - st.last; st.last = now;
+      if (!liveRef.current) return;
+      if (st.busy > 0 || sendingRef.current) { st.buf = []; st.talking = false; st.silent = 0; return; }
+      const f = e.data; let sum = 0; for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
+      const rms = Math.sqrt(sum / f.length);
+      const voiced = rms > 0.012;
+      if (voiced) { if (!st.talking) { st.talking = true; st.speech = 0; } st.silent = 0; }
+      else if (st.talking) st.silent += dt;
+      if (st.talking) {
+        st.speech += dt;
+        const ratio = sr / 16000, n = Math.floor(f.length / ratio), out = new Float32Array(n);
+        for (let i = 0; i < n; i++) out[i] = f[Math.floor(i * ratio)];
+        st.buf.push(out);
+        const limit = st.speech > 3000 ? 1350 : 900;
+        if (st.silent >= limit || st.speech >= 60000) lvFlush();
+      }
+    };
+  };
   const lvStart = async () => {
     try {
       const st = lv.current;
-      st.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      st.ctx = new (window.AudioContext || window.webkitAudioContext)();
-      try { await st.ctx.resume(); } catch (e2) {}
-      if (!st.ctx.audioWorklet) throw new Error("这台设备的浏览器内核不支持 AudioWorklet");
-      const sr = st.ctx.sampleRate; // iOS 不一定给 48k，按实际采样率降采样
-      await st.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([
-        "registerProcessor('cl-tap',class extends AudioWorkletProcessor{process(i){if(i[0]&&i[0][0])this.port.postMessage(i[0][0].slice(0));return true;}});"
-      ], { type: "text/javascript" })));
-      const src = st.ctx.createMediaStreamSource(st.stream);
-      st.node = new AudioWorkletNode(st.ctx, "cl-tap"); src.connect(st.node);
-      st.last = performance.now(); st.played = (msgs || []).length;
-      st.node.port.onmessage = e => {
-        const now = performance.now(), dt = now - st.last; st.last = now;
-        if (!liveRef.current) return;
-        if (st.busy > 0 || sendingRef.current) { st.buf = []; st.talking = false; st.silent = 0; return; } // 半双工：我说话/引擎在想时闭麦
-        const f = e.data; let sum = 0; for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
-        const rms = Math.sqrt(sum / f.length);
-        const voiced = rms > 0.012;
-        if (voiced) { if (!st.talking) { st.talking = true; st.speech = 0; } st.silent = 0; }
-        else if (st.talking) st.silent += dt;
-        if (st.talking) {
-          st.speech += dt;
-          const ratio = sr / 16000, n = Math.floor(f.length / ratio), out = new Float32Array(n);
-          for (let i = 0; i < n; i++) out[i] = f[Math.floor(i * ratio)];
-          st.buf.push(out);
-          const limit = st.speech > 3000 ? 1350 : 900;
-          if (st.silent >= limit || st.speech >= 60000) lvFlush();
-        }
-      };
-      setLive(true); setLiveSt("听着呢");
-    } catch (e) { setLiveSt("麦克风打不开：" + (e && e.message || e)); }
+      // 手势里点亮 TTS 的 AudioContext：播1帧静音解锁，之后异步语音 iOS 也放行
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!st.ttsCtx || st.ttsCtx.state === "closed") st.ttsCtx = new AC();
+      try { await st.ttsCtx.resume(); } catch (e2) {}
+      const ub = st.ttsCtx.createBuffer(1, 1, 22050);
+      const us = st.ttsCtx.createBufferSource(); us.buffer = ub; us.connect(st.ttsCtx.destination); us.start(0);
+      st.played = (msgs || []).length;
+      let mode = "";
+      if (recStart()) { mode = "原生识别"; }
+      else if (typeof voiceEarsReady === "function" && voiceEarsReady()) { await workletStart(); mode = "书房识别"; }
+      else throw new Error("这台浏览器不支持语音识别，且没配书房耳朵");
+      setLive(true); setLiveSt("听着呢（" + mode + "）");
+    } catch (e) { setLiveSt("开不了麦：" + (e && e.message || e)); }
   };
   const lvStop = () => {
     const st = lv.current;
+    recPause(); st.rec = null;
     try { st.node && st.node.disconnect(); } catch (e) {}
     try { st.ctx && st.ctx.close(); } catch (e) {}
     try { st.stream && st.stream.getTracks().forEach(t2 => t2.stop()); } catch (e) {}
-    try { st.aud && st.aud.pause(); } catch (e) {}
-    st.buf = []; st.talking = false; st.busy = 0;
+    try { st.src && st.src.stop(); } catch (e) {}
+    st.buf = []; st.talking = false; st.busy = 0; st.speaking = false;
     setLive(false); setLiveSt("");
   };
   useEffect(() => () => lvStop(), []);
-  // 真声档自动播对方新台词（懒TTS同款合成，busy 闸门挡住自听）
+  // —— 嘴：对方新台词自动播（Web Audio 队列，半双工：播时暂停识别） ——
   useEffect(() => {
     if (!live) return;
     const st = lv.current;
-    if (st.speaking) return; // 播报锁：多气泡同时到达时只跑一个播报循环，防四重唱
+    if (st.speaking) return; // 播报锁：防多气泡齐唱
     st.speaking = true;
     (async () => {
+      let paused = false;
       while (liveRef.current && st.played < msgsRef.current.length) {
         const m = msgsRef.current[st.played++];
         if (!m || m.role === "user" || m.act || !m.content) continue;
         const spk2 = m.senderId ? (participants || []).find(c => c.id === m.senderId) : primary;
         if (!spk2 || !spk2.voiceId) continue;
+        if (!paused) { paused = true; recPause(); } // 说话前闭耳，防自问自答
         st.busy++; setLiveSt("对方说话中…");
         try {
           const blob = await ttsSpeak(m.content, spk2.voiceId);
-          const url = URL.createObjectURL(blob);
+          const abuf = await st.ttsCtx.decodeAudioData(await blob.arrayBuffer());
           await new Promise(res => {
-            const aud = new Audio(url); st.aud = aud;
-            aud.onended = () => { URL.revokeObjectURL(url); res(); };
-            aud.onerror = () => { URL.revokeObjectURL(url); res(); };
-            aud.play().catch(() => res());
+            const srcN = st.ttsCtx.createBufferSource(); st.src = srcN;
+            srcN.buffer = abuf; srcN.connect(st.ttsCtx.destination);
+            const safety = setTimeout(res, abuf.duration * 1000 + 3000);
+            srcN.onended = () => { clearTimeout(safety); res(); };
+            srcN.start(0);
           });
         } catch (e) {}
         finally { st.busy--; }
       }
       st.speaking = false;
-      if (liveRef.current) setLiveSt("听着呢");
+      if (liveRef.current) { setLiveSt("听着呢"); if (paused) setTimeout(recResume, 300); }
     })();
   }, [live, (msgs || []).length]);
   useEffect(() => {
@@ -4079,7 +4127,9 @@ function CallScreen({
   const isGroup = people.length > 1;
   const title = people.map(c => c.remark || c.name).join("、");
   // 真声档开关条件放这儿：isGroup/primary 声明之后（放前面吃过 TDZ 崩屏）
-  const canLive = !isGroup && typeof voiceEarsReady === "function" && voiceEarsReady() && typeof ttsReady === "function" && ttsReady() && !!primary.voiceId;
+  // 有原生识别就不再要求书房耳朵；嗓子(ttsReady+音色)仍是硬条件
+  const canLive = !isGroup && typeof ttsReady === "function" && ttsReady() && !!primary.voiceId
+    && (!!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof voiceEarsReady === "function" && voiceEarsReady()));
   const send = () => {
     if (!input.trim() || sending) return;
     onSend(input.trim());
