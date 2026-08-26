@@ -76,13 +76,17 @@ test("聊天列表顶部有搜索，名字和最后一条消息都能搜", () =>
   assert.match(comp, /没搜到「/, "搜不到要有话说，别只剩一片空白");
 });
 
-// 她 2026-08-26 问：加了皇帝 NPC 以后他会出现在朋友圈评论吗
-test("朋友圈评论者名单是算出来的，NPC 也在里面", () => {
+// 她 2026-08-26 问：加了皇帝 NPC 以后他会出现在朋友圈评论吗 → 熟人名单要真的写进提示词。
+// 但她随后拦下了「只能从名单里挑」那版：「原本其他角色能看到他们的同学舍友评论还挺有意思的
+// 不要收紧」——所以名单是【优先】，不是【白名单】。
+test("熟人名单写进提示词，但只当优先人选、不封死", () => {
   const seg = app.slice(app.indexOf("const genMoment = async char =>"), app.indexOf("const likeMoment"));
   assert.match(seg, /const peerNames = /);
   assert.match(seg, /liveChars\.forEach\(o => \{ if \(rels\[char\.id \+ "->" \+ o\.id\] \|\| rels\[o\.id \+ "->" \+ char\.id\]\)/, "任一方向有关系就算");
   assert.match(seg, /npcsOf\(char\.id\)\.forEach\(add\)/, "自己的 NPC 也要算进来");
-  assert.match(seg, /评论者只能从这份名单里挑/);
   assert.match(seg, /peerNames\.join\("、"\)/, "得把名字真的写进提示词，光说「从关系网里挑」不算");
-  assert.match(seg, /一条评论都别生成/, "一个熟人都没有时的兜底");
+  assert.match(seg, /【优先】人选/);
+  assert.match(seg, /也【不限于】这些人/, "同学舍友那种没建卡的人还得能来评论");
+  assert.match(seg, /同学、舍友、同事、下属、邻居、旧友/);
+  assert.ok(!/只能从这份名单里挑/.test(seg), "别再退回白名单那版");
 });
