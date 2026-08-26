@@ -66,6 +66,58 @@ test("日历的每个分支都渲染得出来", () => {
   assert.ok(nodeCount(ctx.CalWidget({ now: new Date(), calendar: props().calendar, onOpen: () => {}, period: props().period })) > 30);
 });
 
+// 她 2026-08-26 截图：17:00–19:00 的块贴在 19:00 的刻度旁边，整体错开一格。
+// 病因是刻度列拿写死的 paddingTop:52 去凑表头高度——而表头是变高的（日期两行 +
+// 最多三条全天事件）。现在表头独立成一行，刻度和事件从同一个 y=0 起算。
+// 这条不看代码长什么样，直接量渲染出来的坐标。
+test("刻度和事件块对得上：整点块的 top 必须等于那条整点线的 top", () => {
+  const { ctx, setOverrides } = harness();
+  setOverrides({ mine: "c1", month: "day" });
+  const tree = ctx.Calendar(props());
+  const tops = { line: [], label: [], block: [] };
+  // 把祖先身上的 paddingTop / marginTop 一路累加进来——那个 52px 的偏移就藏在这儿，
+  // 只量各自容器内部的 top 是量不出来的。
+  (function walk(x, off) {
+    if (!x) return;
+    if (Array.isArray(x)) return x.forEach(n => walk(n, off));
+    if (x.type === undefined) return;
+    const st = (x.props && x.props.style) || {};
+    const abs = st.position === "absolute";
+    if (abs && typeof st.top === "number") {
+      const y = st.top + off;
+      if (st.height === 1) tops.line.push(y);
+      else if (st.fontSize === 10 && typeof x.ch[0] === "string") tops.label.push({ top: y, text: x.ch[0] });
+    }
+    if (x.props && x.props.className && String(x.props.className).indexOf("absolute") >= 0 && typeof st.top === "number") tops.block.push({ top: st.top + off, h: st.height });
+    const inner = abs ? off + (Number(st.paddingTop) || 0) : off + (Number(st.paddingTop) || 0) + (Number(st.marginTop) || 0);
+    walk(x.ch, inner); walk(x.props && x.props.children, inner);
+  })(tree, 0);
+  assert.ok(tops.line.length >= 8, "整点线没画出来");
+  assert.ok(tops.label.length >= 8, "刻度文字没画出来");
+  assert.ok(tops.block.length >= 2, "事件块没画出来：" + tops.block.length);
+
+  // 刻度文字是把基线往上抬 6px 画的，所以 label.top + 6 就是那条线的位置
+  const lineSet = new Set(tops.line);
+  tops.label.forEach(l => {
+    if (!/^\d{2}:00$/.test(l.text)) return;
+    assert.ok(lineSet.has(l.top + 6), l.text + " 的刻度（top=" + l.top + "）旁边没有对应的整点线");
+  });
+  // 10:00 起的那个块（测试数据里的「跑实验」）必须正好落在 10:00 那条线上
+  const tenLabel = tops.label.find(l => l.text === "10:00");
+  assert.ok(tenLabel, "没有 10:00 这一格");
+  assert.ok(tops.block.some(b => Math.abs(b.top - (tenLabel.top + 6)) < 0.01),
+    "10:00 开始的块没落在 10:00 那条线上：块 " + JSON.stringify(tops.block.map(b => b.top)) + " vs 线 " + (tenLabel.top + 6));
+});
+
+test("表头不在滚动区里——它一变高就会把整条时间轴顶歪", () => {
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  const i = comp2.indexOf("const dayView = () =>");
+  const seg = comp2.slice(i, comp2.indexOf("// ---- 人物条 ----", i));
+  assert.ok(!/paddingTop:\s*\d/.test(seg), "刻度列不许再拿写死的 paddingTop 去凑表头高度");
+  assert.match(seg, /表头行（不滚）/);
+  assert.match(seg, /dayList\.map\(dayHeader\)/);
+});
+
 // 重名会把先来的那个函数整个换掉，而且一声不吭
 test("月历那行农历小字没跟已有的同名函数撞车", () => {
   const { ctx } = harness();

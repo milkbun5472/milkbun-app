@@ -1153,23 +1153,28 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       hgt > 40 && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 1, lineHeight: 1.3 } },
         calHM(b.from) + "–" + (b.to >= 1440 ? "24:00" : calHM(b.to)) + (b.location ? " · " + b.location : "")));
   };
-  const dayColumn = dk => {
+  // 表头和时间轴必须【分开两层】：刻度列和事件列共用同一个滚动内容的 y=0。
+  // v56.33 那版把表头塞在滚动区里、刻度列拿 paddingTop:52 去凑——表头高度是变的
+  // （日期两行 + 最多三条全天事件），凑不准，块就整体往下错一格（她 2026-08-26 截图：
+  // 17:00 的块贴在 19:00 的刻度旁边）。现在表头独立成一行，谁也不用猜谁的高度。
+  const dayHeader = dk => {
     const a = dk.split("-").map(Number);
-    const ad = allDayOn(dk), bl = blocksOn(dk);
+    const ad = allDayOn(dk);
     const lun = typeof calLunarCell === "function" ? calLunarCell(new Date(a[0], a[1] - 1, a[2])) : { text: "" };
-    return h("div", { key: dk, style: { flex: 1, minWidth: 0, borderLeft: "1px solid " + t.line } },
-      h("div", { className: "sticky top-0 z-10 px-2 pt-2 pb-1.5", style: { background: t.bg, borderBottom: "1px solid " + t.line } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: dk === todayKey ? "#c25a4a" : t.ink, textAlign: "center" } },
-          a[1] + "月" + a[2] + "日 · " + CAL_DOW[new Date(a[0], a[1] - 1, a[2]).getDay()]),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "center" } }, lun.text),
-        ad.length ? h("div", { style: { marginTop: 4, display: "flex", flexDirection: "column", gap: 2 } },
-          ad.slice(0, 3).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, background: t.bg2, borderRadius: 5, padding: "2px 5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text))) : null),
-      h("div", { style: { position: "relative", height: (range.hi - range.lo) * CAL_PX_PER_MIN + 12 } },
-        Array.from({ length: (range.hi - range.lo) / 60 + 1 }, (_, i) => h("div", { key: i, style: { position: "absolute", left: 0, right: 0, top: i * 60 * CAL_PX_PER_MIN, height: 1, background: t.line, opacity: 0.55 } })),
-        bl.map(b => blockNode(b, dk)),
-        dk === todayKey && nowMin >= range.lo && nowMin <= range.hi
-          ? h("div", { style: { position: "absolute", left: 0, right: 0, top: yOf(nowMin), height: 2, background: "#c25a4a", zIndex: 5 } }) : null));
+    return h("div", { key: dk, className: "px-2 pt-2 pb-1.5", style: { flex: 1, minWidth: 0, borderLeft: "1px solid " + t.line } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: dk === todayKey ? "#c25a4a" : t.ink, textAlign: "center" } },
+        a[1] + "月" + a[2] + "日 · " + CAL_DOW[new Date(a[0], a[1] - 1, a[2]).getDay()]),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "center" } }, lun.text),
+      ad.length ? h("div", { style: { marginTop: 4, display: "flex", flexDirection: "column", gap: 2 } },
+        ad.slice(0, 3).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, background: t.bg2, borderRadius: 5, padding: "2px 5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text))) : null);
   };
+  const hourRows = (range.hi - range.lo) / 60 + 1;
+  const gridH = (range.hi - range.lo) * CAL_PX_PER_MIN;
+  const dayColumn = dk => h("div", { key: dk, style: { flex: 1, minWidth: 0, position: "relative", height: gridH, borderLeft: "1px solid " + t.line } },
+    Array.from({ length: hourRows }, (_, i) => h("div", { key: i, style: { position: "absolute", left: 0, right: 0, top: i * 60 * CAL_PX_PER_MIN, height: 1, background: t.line, opacity: 0.55 } })),
+    blocksOn(dk).map(b => blockNode(b, dk)),
+    dk === todayKey && nowMin >= range.lo && nowMin <= range.hi
+      ? h("div", { style: { position: "absolute", left: 0, right: 0, top: yOf(nowMin), height: 2, background: "#c25a4a", zIndex: 5 } }) : null);
   const dayView = () => h("div", { className: "flex-1 flex flex-col min-h-0" },
     h("div", { className: "shrink-0 px-3 pb-2", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 } },
       weekStrip.map(d => h("button", { key: d.key, onClick: () => setDaySel(d.key), className: "flex flex-col items-center active:opacity-60", style: { padding: "3px 0" } },
@@ -1177,13 +1182,18 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 999, marginTop: 2,
           background: d.key === daySel ? t.ink : "transparent", color: d.key === daySel ? t.bg2 : (d.key === todayKey ? "#c25a4a" : t.ink),
           fontFamily: F_DISPLAY, fontSize: 15 } }, d.n)))),
-    h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { display: "flex" } },
-      h("div", { className: "shrink-0", style: { width: 44, position: "relative", paddingTop: 52 } },
-        Array.from({ length: (range.hi - range.lo) / 60 + 1 }, (_, i) => h("div", { key: i, style: { position: "absolute", right: 5, top: i * 60 * CAL_PX_PER_MIN - 6, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, calHM(range.lo + i * 60))),
+    // 表头行（不滚）
+    h("div", { className: "shrink-0 flex", style: { borderBottom: "1px solid " + t.line, background: t.bg } },
+      h("div", { className: "shrink-0", style: { width: 44 } }),
+      h("div", { style: { flex: 1, display: "flex" } }, dayList.map(dayHeader))),
+    // 时间轴（滚）：刻度列和事件列都从内容 y=0 起算，天然对齐
+    h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { display: "flex", alignItems: "flex-start" } },
+      h("div", { className: "shrink-0", style: { width: 44, position: "relative", height: gridH + 90 } },
+        Array.from({ length: hourRows }, (_, i) => h("div", { key: i, style: { position: "absolute", right: 5, top: i * 60 * CAL_PX_PER_MIN - 6, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, calHM(range.lo + i * 60))),
         nowMin >= range.lo && nowMin <= range.hi && dayList.indexOf(todayKey) >= 0
           ? h("div", { style: { position: "absolute", right: 3, top: yOf(nowMin) - 8, background: "#c25a4a", color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 4, padding: "1px 4px" } }, calHM(nowMin)) : null),
-      h("div", { style: { flex: 1, display: "flex", paddingTop: 0 } }, dayList.map(dayColumn))));
-
+      // 底下多留 90px：最后一格不会被右下角那个 ＋ 压住
+      h("div", { style: { flex: 1, display: "flex", height: gridH + 90 } }, dayList.map(dayColumn))));
   // ---- 人物条 ----
   const personRow = h("div", { className: "shrink-0 flex gap-3 px-5 pb-3 overflow-x-auto", style: { WebkitOverflowScrolling: "touch" } },
     [{ id: "mine", name: "我", c: null }, { id: "world", name: "世界", c: null }]
