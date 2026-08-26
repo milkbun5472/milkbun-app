@@ -1,0 +1,88 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const read = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
+const app = read("app.js"), engine = read("engine.js"), screens = read("screens.js");
+
+const i = screens.indexOf("function schedFillEnds(");
+const schedFillEnds = new Function('function pad2(n){return String(n).padStart(2,"0")}\n'
+  + screens.slice(i, screens.indexOf("\nfunction schedActIcon")) + "\nreturn schedFillEnds;")();
+
+test("每段都有结束时刻，块才画得出高度", () => {
+  const r = schedFillEnds([{ time: "08:00", title: "a" }, { time: "10:00", end: "12:00", title: "b" }]);
+  assert.equal(r[0].end, "10:00", "顶到下一段开始");
+  assert.equal(r[1].end, "12:00", "模型自己填的不许被改写");
+});
+
+test("自动补的时长最多三小时——中间空着的是没排事，不是干了一下午", () => {
+  const r = schedFillEnds([{ time: "13:30", title: "x" }, { time: "23:40", title: "y" }]);
+  assert.equal(r[0].end, "16:30");
+});
+
+test("跨午夜收口写 24:00，不绕回 00:00（那会画成负高度）", () => {
+  assert.equal(schedFillEnds([{ time: "23:40", title: "睡" }])[0].end, "24:00");
+});
+
+test("没有时刻的段落原样放过，不硬编一个 end", () => {
+  const r = schedFillEnds([{ title: "没写时间" }]);
+  assert.equal(r[0].end, undefined);
+});
+
+// 她 2026-08-26：「有时候会以发生了的口吻排日程，不知道是不是模型不够聪明」——
+// 不是模型的锅：schemaHint 里仅有的两个具体样例本身就是过去时，模型能抄的只有它们。
+test("schema 样例不许是过去时", () => {
+  const bad = ["扫了遍报错日志", "洗漱后睡了"];
+  bad.forEach(x => assert.ok(!app.includes(x), "这个过去时样例还在：" + x));
+  assert.match(app, /\\"title\\":\\"洗漱、准备睡\\"/, "换成中性说法");
+});
+
+test("时态与结束时刻是明写的规矩，不是靠样例暗示", () => {
+  assert.match(engine, /const SCHED_TENSE_RULE = /);
+  assert.match(engine, /const SCHED_END_RULE = /);
+  const tense = engine.slice(engine.indexOf("const SCHED_TENSE_RULE"), engine.indexOf("const SCHED_END_RULE"));
+  assert.match(tense, /这一段的开始时刻在此刻之后吗/, "要给一句可判定的尺子");
+});
+
+// 三处生成日程的路子都得吃这两条：当天推演 / 一周计划 / 白天自发改计划
+test("三条生成路径都发时态和结束时刻规矩", () => {
+  const code = app.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  const hits = (code.match(/SCHED_END_RULE/g) || []).length;
+  assert.equal(hits, 3, "当天推演 / 一周计划 / 自发改计划，一处都不能漏，实际 " + hits);
+  assert.equal((code.match(/SCHED_TENSE_RULE/g) || []).length, 3);
+});
+
+test("三条路径落盘时都过 schedFillEnds", () => {
+  assert.equal((app.match(/schedFillEnds\(/g) || []).length, 3);
+});
+
+// 她 2026-08-26 订正了我算错的账：一次调用生成 7 天比 7 次调用便宜
+test("一周一次调用，未来那几天是计划、不许带偏差", () => {
+  const j = app.indexOf("const genScheduleWeek = async");
+  assert.ok(j > 0);
+  const seg = app.slice(j, app.indexOf("const schedGenAllToday", j));
+  assert.match(seg, /SCHED_PLAN_DAYS/);
+  assert.match(seg, /deviation: \(key === today &&/, "只有今天可以有偏差");
+  assert.match(seg, /kind: key === today \? "live" : "plan"/);
+  assert.match(seg, /if \(!want\.includes\(key\)\) return;/, "模型自己编的日期要丢掉");
+  assert.match(seg, /还没发生】整天都是计划/, "每天的性质要标死，别让模型猜");
+});
+
+test("计划日变成当天时翻牌子，不重排——落差是活人感的来源", () => {
+  const j = app.indexOf("const schedGenAllToday = async");
+  const seg = app.slice(j, app.indexOf("const schedMaybeSelfRevise", j));
+  assert.match(seg, /p\.kind === "plan"\) saveSchedDay\(c\.id, k, \{ \.\.\.p, kind: "live" \}\)/);
+  assert.match(seg, /genScheduleWeek\(c, \{ silent: true \}\)/);
+  assert.ok(!/genScheduleDay\(c,/.test(seg), "自动补日程不再一天一次调用");
+});
+
+// 她 2026-08-26：「先试试喂接下来3天的行程」
+test("接下来三天喂给单聊，群聊仍然只有此刻那一行", () => {
+  const j = app.indexOf("const schedNowFor");
+  const seg = app.slice(j, app.indexOf("const schedNowBriefFor", j));
+  assert.match(seg, /for \(let i = 1; i <= 3; i\+\+\)/);
+  assert.match(seg, /seqs\.slice\(0, 4\)/, "每天最多四项，她按次计费");
+  assert.match(seg, /还没发生，别说成已经做了/);
+  const brief = app.slice(app.indexOf("const schedBriefFor"), app.indexOf("const schedBriefFor") + 700);
+  assert.ok(!brief.includes("接下来"), "群聊那条只给此刻，是写着理由的显式差异");
+});

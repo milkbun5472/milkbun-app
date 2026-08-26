@@ -803,6 +803,25 @@ function schedWeek(today, localTodayKey) {
     return { key, date: dd, dowL: SCHED_DOW_EN[dd.getDay()][0], dateNum: String(dd.getDate()).padStart(2, "0"), isToday: key === tk, isPast: key < tk, isFuture: key > tk };
   });
 }
+// 结束时刻（v56.30）。seqs 原来只有开始时刻，苹果日历式的块要 start+end 才画得出高度。
+// AI 现在会一起生成 end；旧数据和漏填的按「顶到下一段开始、最多 3 小时」补，最后一段给 60 分钟
+//（不封顶的话，一个下午只排了一件事就会画成四五个小时的大块——那中间其实是没排事）。
+// 跨午夜（23:40 → 次日 00:30）按同一天的 24:00 收口，不往回画成负高度。
+function schedFillEnds(seqs) {
+  const arr = Array.isArray(seqs) ? seqs : [];
+  const min = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  return arr.map((s, i) => {
+    if (s && s.end && min(s.end) != null) return s;
+    const st = min(s && s.time);
+    if (st == null) return s;
+    let e = null;
+    for (let j = i + 1; j < arr.length; j++) { const n = min(arr[j] && arr[j].time); if (n != null) { e = n; break; } }
+    // 顶到下一段，但最多 3 小时：中间空着的是「没排事」，不是「这件事做了一下午」
+    e = (e == null || e <= st) ? st + 60 : Math.min(e, st + 180);
+    e = Math.min(1440, e);
+    return Object.assign({}, s, { end: (e >= 1440 ? "24" : pad2(Math.floor(e / 60))) + ":" + pad2(e % 60), _endAuto: true });
+  });
+}
 function schedActIcon(type) { return { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GMoon, sleep: GMoon, social: GChat, out: GWalk }[type] || GBrief; }
 // 角色本地时区 - 我本地 的分钟差（char.tz 如 "+8"/"-5"/"+5.5"/""跟随系统）。异地恋用。
 function schedTzShiftMin(char) {

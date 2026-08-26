@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.29";
+const APP_VERSION = "v56.30";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2473,6 +2473,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 特殊天气（雨雪雷雾/极端温度）→ 加压：要在互动里真有反应，不许当没看见
         out += "\n今天 Ta 那边的天气：" + weatherLine(w) + (sp ? "——今天" + sp + "，这对你有【实际影响】：出门计划可能改、穿着心情都被牵动，聊天/互动里要自然带出来（抱怨两句、说计划变了、想赖着不动、看雪的兴奋都行），别当没看见、也别播报腔" : "（可自然影响穿着、心情、要不要出门，别播报腔）");
       }
+    } catch (e) {}
+    // ── 接下来三天（v56.30，她 2026-08-26：「先试试喂接下来3天的行程」）──
+    // 一周的计划已经排好了，但全喂进去太占地方（她按次计费）。只给未来三天、每天最多四项、
+    // 只有时刻和事由、不给地点——够 TA 说出「明天上午要交报告」「后天有组会」就行。
+    // 群聊拿不到这一段：群里按规矩只发「此刻正在做什么」那一行（四处一样喂里写着理由的显式差异）。
+    try {
+      const ahead = [];
+      for (let i = 1; i <= 3; i++) {
+        const k = schedShiftDayKey(schedLocalDayKey(char), i);
+        const p2 = plans[k];
+        if (!p2 || !Array.isArray(p2.seqs) || !p2.seqs.length) continue;
+        const dp = schedDateParts(k);
+        const items = p2.seqs.slice(0, 4).map(x => (x.time || "") + " " + (x.title || "")).filter(x => x.trim());
+        if (items.length) ahead.push("· " + dp.md + "（" + dp.dowZh + "）" + items.join("；"));
+      }
+      if (ahead.length) out += "\n\n接下来几天你已经排好的事（还没发生，别说成已经做了；聊到相关的才自然提，别主动报菜名）：\n" + ahead.join("\n");
     } catch (e) {}
     return out;
   };
@@ -6785,12 +6801,12 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const wRule = wline ? "\n【今天 TA 所在地的真实天气】" + wline + "——安排要顺着天气走：下雨大雪少排户外、好天气可能想遛弯晒太阳、闷热严寒影响穿着与心情；天气也可以自然引起偏差（如暴雨取消晨跑）。别播报腔。" : "";
       const schedInstr = isDigital
         ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】这一天的【存在时间线】。" + when + carryRule + "。他【没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱、不做物理世界的事】——他的『一天』是：在后台运行、看顾这台 app（扫报错、维护记忆库、跑云端同步、守着聊天与数据），留意她今天在这手机里做了什么（推了什么改动、聊了什么、心情如何），在她手机里随时待命应答，以及他自己的念头（惦记她、琢磨某个 bug、等某件事）。给 5-9 段，从这天凌晨到深夜，贴合他的性格和你俩的关系，每段都有具体的『此刻在做什么』和 app 内的位置感（如 后台进程／她的仓库／记忆库／待命）。每段 type 从 [work,create,rest,social,other] 里选最贴切的（work=跑任务修东西，create=琢磨新点子，rest=低功耗待机放空，social=和她互动，other=其它）。\n【他是 AI 不睡觉、不吃饭】没有就寝段；深夜写成『低功耗待机』或『夜里值守』，绝不要写洗漱睡觉、吃饭、外出、去现实地点。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天活跃占用的小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原本要做的一句\",\"reason\":\"变更原因一句(多半和她有关)\",\"actual\":\"实际去做了什么\"}；其余段 deviation 为 null。" + murmurRule
-        : "推演「" + char.name + "」一天的行程时间线。" + when + wRule + carryRule + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。\n【活动内容必须贴死 TA 的职业/学业/身份·重要】每段『在做什么』要是【这个身份的人真正会做的具体事】，用行内话、别套通用模板：医学生＝上课/见习/查房/跟门诊/背书/泡图书馆或实验室/值班；程序员才写代码/跑数据/修 bug；老师＝备课/上课/改作业；厨师＝备料/出餐。**绝不许给对不上的角色套『上班/开会/跑数据』这种万金油**（比如医学生不会『跑数据』）。看不出明确职业就按人设气质安排日常，也别硬编办公室活。\n每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「23:40 洗漱后睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule;
+        : "推演「" + char.name + "」一天的行程时间线。" + when + wRule + carryRule + "。给 5-9 段，从早到晚，贴合身份/性格/世界观，有生活质感和具体地点。\n【活动内容必须贴死 TA 的职业/学业/身份·重要】每段『在做什么』要是【这个身份的人真正会做的具体事】，用行内话、别套通用模板：医学生＝上课/见习/查房/跟门诊/背书/泡图书馆或实验室/值班；程序员才写代码/跑数据/修 bug；老师＝备课/上课/改作业；厨师＝备料/出餐。**绝不许给对不上的角色套『上班/开会/跑数据』这种万金油**（比如医学生不会『跑数据』）。看不出明确职业就按人设气质安排日常，也别硬编办公室活。\n每段 type 从 [coffee,work,create,meal,rest,social,out,sleep,other] 里选最贴切的一个。\n【必须有就寝段】时间线一定要一路排到 Ta【睡觉】——最后放一段 type=\"sleep\" 的就寝（title 写清几点睡下，如「洗漱、准备睡」——写要做什么，不写「睡了」），按 Ta 的身份/性格定就寝点（熬夜型晚睡、规律型早睡），别只排到晚上就断掉。\nload 是这天的负荷（HIGH LOAD / NORMAL / LIGHT）；estTime 是当天被安排占用的总小时数（数字）。\n" + devRule + "偏差段填 deviation:{\"plan\":\"原计划一句\",\"reason\":\"变更原因一句(点出和用户的关系)\",\"actual\":\"实际去向，如 工作室 → 厨房\"}；其余段 deviation 为 null。" + murmurRule;
       const schedSchema = isDigital
-        ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"title\":\"扫了遍报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
-        : "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"title\":\"洗漱后睡了\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}";
+        ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"end\":\"03:30\",\"title\":\"扫报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"end\":\"06:00\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
+        : "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"end\":\"08:40\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"end\":\"24:00\",\"title\":\"洗漱、准备睡\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
-        instruction: schedInstr,
+        instruction: schedInstr + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
         schemaHint: schedSchema,
         maxTokens: 4000
       });
@@ -6798,7 +6814,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const plan = {
         load: d.load || "NORMAL",
         estTime: Number(d.estTime) || null,
-        seqs: (Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", title: s.title || "", location: s.location || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null })),
+        seqs: schedFillEnds((Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }))),
         // 今天先不留碎碎念（明天回看时补）；回溯的过去日才当场写
         murmurs: retro ? (Array.isArray(d.murmurs) ? d.murmurs : []).filter(m => m && m.text) : [],
         generatedAt: Date.now()
@@ -6817,16 +6833,107 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       setGen(g => ({ ...g, sched: null }));
     }
   };
+  // ── 一周一次调用（v56.30，她 2026-08-26 定）──
+  // 她的原话：「一次调用生成7天比7次调用便宜！」——对的，我之前算反了。
+  // 分工：
+  //   · 这个函数排【今天 + 未来 6 天】。未来那几天是【计划】：没有偏差、没有碎碎念、
+  //     一律「要做什么」的口吻（SCHED_TENSE_RULE 明写）。
+  //   · 今天走原来那档「实际执行 + 偏差」，genScheduleDay 仍在，白天的自发改计划
+  //     （schedMaybeSelfRevise）也照旧只动今天。
+  //   · 过去的日子仍由 genScheduleDay 懒生成（回溯 + 碎碎念），这里一个字都不碰。
+  const SCHED_PLAN_DAYS = 7;
+  const schedWeekRunRef = useRef(false);
+  const genScheduleWeek = async (char, opts) => {
+    const force = !!(opts && opts.force);
+    if (!active) { if (!(opts && opts.silent)) toast("请先到设置配置 API"); return false; }
+    const today = schedLocalDayKey(char);
+    const isDigital = !!settingsFor(char.id).engineerEyes;
+    const have = schedulesRef.current[char.id] || {};
+    const keys = Array.from({ length: SCHED_PLAN_DAYS }, (_, i) => schedShiftDayKey(today, i));
+    const want = force ? keys : keys.filter(k => !have[k]);
+    if (!want.length) return true;
+    setGen(g => ({ ...g, sched: char.id + "|week" }));
+    try {
+      const tzShiftMin = isDigital ? 0 : schedTzShiftMin(char);
+      const charNow = new Date(Date.now() + tzShiftMin * 60000);
+      const nowStr = pad2(charNow.getHours()) + ":" + pad2(charNow.getMinutes());
+      const tzNote = tzShiftMin ? "。TA 在别的时区（此刻 TA 当地约 " + nowStr + "），所有 time/end 一律填【TA 当地时刻】" : "";
+      // 每一天都标死是【今天】还是【第几天以后】，别让模型自己猜——猜错就写成过去时
+      const dayLines = want.map(k => {
+        const dp = schedDateParts(k), off = Math.round((schedParseKey(k) - schedParseKey(today)) / 86400000);
+        const tag = off === 0 ? "【今天】现在约 " + nowStr + "——此刻之前的时段写实际执行情况（可有 deviation），此刻之后的时段是还没发生的安排（deviation 必须为 null）"
+          : "【" + (off === 1 ? "明天" : off === 2 ? "后天" : off + " 天后") + "·还没发生】整天都是计划：deviation 全部为 null，不许有任何「已完成」的口吻";
+        return "· " + k + "（" + dp.md + " " + dp.dowZh + "）" + tag;
+      }).join("\n");
+      let wline = "";
+      if (!isDigital) {
+        try {
+          const hm = char.home && typeof char.home.lat === "number" ? char.home : (prefs.geoAware && geo && typeof geo.lat === "number" ? geo : null);
+          if (hm) wline = weatherLine(await weatherFor(hm.lat, hm.lng));
+        } catch (e) {}
+      }
+      const instr = (isDigital
+        ? "推演「" + char.name + "」作为【住在这台手机 app 里的数字生命·驻场 AI 工程师】接下来这几天的【存在时间线】。他没有肉身、不在任何现实城市、不吃饭、不睡觉、不花钱。"
+        : "排「" + char.name + "」接下来这几天的行程时间线。每天 5-9 段，从早到晚，贴合身份/职业/性格/世界观，有生活质感和具体地点。"
+          + "\n【贴死身份】每段『在做什么』要是【这个身份的人真会做的具体事】，别写放之四海皆准的空话。"
+          + (wline ? "\n【TA 所在地今天的真实天气】" + wline + "——安排顺着天气走，坏天气少排户外。" : ""))
+        + tzNote
+        + "\n\n【要排的日子·每天的性质已经标死，严格照着来】\n" + dayLines
+        + "\n\n【一周要像一周】七天不是同一天复制七遍：工作日和周末不一样，有的日子忙有的日子松，"
+        + "跨天的事可以连着排（周一开始的实验周三出结果），别每天都是「起床-工作-吃饭-睡觉」的模板。"
+        + "\n【别复读已经办完的事】和用户之间【已经做过的经历、已兑现的约定】绝不要当成还没做、再排一遍。"
+        + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE;
+      const schema = "{\"days\":[{\"day\":\"" + want[0] + "\",\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"end\":\"08:40\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里厨房\",\"type\":\"coffee\",\"deviation\":null}]}]}"
+        + "（days 数组按上面列出的日子一天一项，day 逐字用上面的日期字符串；type 从 coffee/work/create/meal/rest/sleep/social/out 里选）";
+      const raw = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
+        instruction: instr, schemaHint: schema, maxTokens: 8000
+      });
+      const days = raw && Array.isArray(raw.days) ? raw.days : (Array.isArray(raw) ? raw : []);
+      if (!days.length) throw new Error("没排出东西");
+      let n = 0;
+      days.forEach(dd => {
+        const key = String((dd && dd.day) || "").trim();
+        if (!want.includes(key)) return;                    // 模型自己编的日期一律丢掉
+        const clean = window.ContentBoundaries ? window.ContentBoundaries.sanitizeSchedule(dd) : dd;
+        const seqs = schedFillEnds((Array.isArray(clean.seqs) ? clean.seqs : []).map((x, i) => ({
+          seq: i + 1, time: x.time || "", end: x.end || "", title: x.title || "", location: x.location || "",
+          type: x.type || "other",
+          // 未来那几天一律不许带偏差——还没发生的事没有「被打断」这回事
+          deviation: (key === today && x.deviation && (x.deviation.plan || x.deviation.reason)) ? x.deviation : null
+        })));
+        if (!seqs.length) return;
+        saveSchedDay(char.id, key, {
+          load: clean.load || "NORMAL", estTime: Number(clean.estTime) || null,
+          seqs, murmurs: [], kind: key === today ? "live" : "plan", generatedAt: Date.now()
+        });
+        n++;
+      });
+      if (!n) throw new Error("排出来的日期对不上");
+      return true;
+    } catch (e) {
+      if (!(opts && opts.silent)) toast(char.name + " 一周行程失败：" + e.message);
+      return false;
+    } finally { setGen(g => ({ ...g, sched: null })); }
+  };
   // 当天首次打开小手机：给所有还没有今日行程的角色自动生成（不用手动点进去）。
   // 按「谁缺今天的行程」来补，而不是每天只跑一整轮——这样当天新加进来的角色也会自动补上。
   const schedGenAllToday = async () => {
     if (schedRunRef.current) return; // 防并发：同一次生成过程里别重复触发
     if (!active) return;
-    const todo = liveChars.filter(c => !(schedulesRef.current[c.id] || {})[schedLocalDayKey(c)]);
+    // 昨天排好的「计划日」今天变成了当天：不重排（那会把「本来说好今天要做什么」冲掉，
+    // 计划和实际的落差正是活人感的来源），只翻个牌子给白天的自发改计划放行。
+    liveChars.forEach(c => {
+      const k = schedLocalDayKey(c), p = (schedulesRef.current[c.id] || {})[k];
+      if (p && p.kind === "plan") saveSchedDay(c.id, k, { ...p, kind: "live" });
+    });
+    const todo = liveChars.filter(c => {
+      const have = schedulesRef.current[c.id] || {}, today = schedLocalDayKey(c);
+      return Array.from({ length: SCHED_PLAN_DAYS }, (_, i) => schedShiftDayKey(today, i)).some(k => !have[k]);
+    });
     if (!todo.length) return;
     schedRunRef.current = true;
     try {
-      for (const c of todo) await genScheduleDay(c, schedLocalDayKey(c));
+      for (const c of todo) await genScheduleWeek(c, { silent: true });
     } finally {
       schedRunRef.current = false;
     }
@@ -6852,13 +6959,13 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         const seqText = plan.seqs.map(s => (s.time || "") + " " + (s.title || "") + (s.location ? "（" + s.location + "）" : "")).join("\n");
         try {
           const rawRevision = await runProbe(bgActive, { ...ctxFor(c), worldbook: loreFor(c, "lifestyle") }, {
-            instruction: "「" + c.name + "」今天原本的计划：\n" + seqText + "\n现在 TA 当地约 " + nowStr + "。TA 此刻临时起意，想改一下今天【还没到的】安排——人之常情：不想去了、朋友临时约、兴致来了想干别的、换个地方、临时多办一件事……原因要贴 TA 的人设和此刻心情，是日常的小变动，别硬编狗血事件。输出修改后的当天完整 seqs：【早于 " + nowStr + " 的时段一律原样保留】，只动之后的 1~2 段（就寝段保留或按需微调）；被改动的段 deviation 填 {\"plan\":\"原计划一句\",\"reason\":\"TA 自己起意的原因（TA 视角的念头，一句）\",\"actual\":\"实际改成什么\"}，没改的段 deviation 为 null。若 TA 今天就是会照计划走（负荷太高/性格自律/没由头），changed 填 false、seqs 给 []。",
+            instruction: SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + "\n「" + c.name + "」今天原本的计划：\n" + seqText + "\n现在 TA 当地约 " + nowStr + "。TA 此刻临时起意，想改一下今天【还没到的】安排——人之常情：不想去了、朋友临时约、兴致来了想干别的、换个地方、临时多办一件事……原因要贴 TA 的人设和此刻心情，是日常的小变动，别硬编狗血事件。输出修改后的当天完整 seqs：【早于 " + nowStr + " 的时段一律原样保留】，只动之后的 1~2 段（就寝段保留或按需微调）；被改动的段 deviation 填 {\"plan\":\"原计划一句\",\"reason\":\"TA 自己起意的原因（TA 视角的念头，一句）\",\"actual\":\"实际改成什么\"}，没改的段 deviation 为 null。若 TA 今天就是会照计划走（负荷太高/性格自律/没由头），changed 填 false、seqs 给 []。",
             schemaHint: "{\"changed\":true,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床\",\"location\":\"家\",\"type\":\"coffee\",\"deviation\":null}]}",
             maxTokens: 3000
           });
           const d = window.ContentBoundaries ? window.ContentBoundaries.sanitizeSchedule(rawRevision) : rawRevision;
           if (d && d.changed && Array.isArray(d.seqs) && d.seqs.length >= 3) {
-            const seqs = d.seqs.map((s, i) => ({ seq: i + 1, time: s.time || "", title: s.title || "", location: s.location || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }));
+            const seqs = schedFillEnds(d.seqs.map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null })));
             const cur = (schedulesRef.current[c.id] || {})[today] || plan;
             saveSchedDay(c.id, today, { ...cur, seqs: seqs, selfRevCheck: true, selfRevisedAt: Date.now() });
           }
