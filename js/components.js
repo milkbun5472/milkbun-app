@@ -3961,7 +3961,6 @@ function CallScreen({
   const tp = useTtsPlayer();
   // —— 真声通话档（v55.98）：耳朵=书房 Mac 的 whisper（earsTranscribe），嗓子=ttsSpeak 自动播，
   //    脑子=onSend 走这通电话原有的对话引擎（全套人设记忆）。单人通话+配了音色+两头都配置了才出现。
-  const canLive = !isGroup && typeof voiceEarsReady === "function" && voiceEarsReady() && typeof ttsReady === "function" && ttsReady() && !!primary.voiceId;
   const [live, setLive] = useState(false);
   const [liveSt, setLiveSt] = useState("");
   const lv = useRef({ ctx: null, node: null, stream: null, buf: [], talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: 0, aud: null });
@@ -4073,6 +4072,8 @@ function CallScreen({
   const primary = people[0] || {};
   const isGroup = people.length > 1;
   const title = people.map(c => c.remark || c.name).join("、");
+  // 真声档开关条件放这儿：isGroup/primary 声明之后（放前面吃过 TDZ 崩屏）
+  const canLive = !isGroup && typeof voiceEarsReady === "function" && voiceEarsReady() && typeof ttsReady === "function" && ttsReady() && !!primary.voiceId;
   const send = () => {
     if (!input.trim() || sending) return;
     onSend(input.trim());
