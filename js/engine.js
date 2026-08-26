@@ -547,11 +547,13 @@ async function callAI(p, system, messages, opts) {
   // 上游返回的推理过程和耗时放进去。用出参而不是模块级变量——后台那些调用是并发的，
   // 共享一个「上一次」必然串台。
   const _meta = (opts && opts.meta && typeof opts.meta === "object") ? opts.meta : null;
-  const _putMeta = (reasoning) => {
+  // from = 这段思考是从哪个字段捞出来的。她 2026-08-26 拿同一个模型对比另一台小手机，
+  // 两边内容完全不同——「从哪个字段来的」是排查这种事最快的一根线，比猜快得多。
+  const _putMeta = (reasoning, from) => {
     if (!_meta) return;
     _meta.model = model; _meta.ms = Date.now() - _t0;
     const r = String(reasoning == null ? "" : reasoning).trim();
-    if (r) _meta.reasoning = r;
+    if (r) { _meta.reasoning = r; _meta.from = from || ""; }
   };
   const _promptChars = String(system || "").length
     + (messages || []).reduce((n, m) => n + String((m && m.content) || "").length, 0);
@@ -707,7 +709,7 @@ async function callAI(p, system, messages, opts) {
         if (rec.cr || rec.cw) console.log("[缓存] 读" + rec.cr + " 写" + rec.cw + " 新输入" + rec.in + " 输出" + rec.out + " tok 指纹" + (rec.ph || "-") + (rec.cr ? "（命中！读的部分只按一折收）" : "（首次/过期/前缀变了→写缓存，命中后 1 小时内读就省）"));
       }
     } catch (e) {}
-    _putMeta((d.content || []).filter(b => b && b.type === "thinking").map(b => b.thinking || b.text || "").join("\n"));
+    _putMeta((d.content || []).filter(b => b && b.type === "thinking").map(b => b.thinking || b.text || "").join("\n"), "anthropic:thinking");
     const t = (d.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
     if (!t) throw new Error("模型返回为空" + (d.stop_reason ? "（停止原因：" + d.stop_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
     return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
@@ -741,7 +743,7 @@ async function callAI(p, system, messages, opts) {
     const d = await r.json();
     if (d.error) throw new Error(d.error.message);
     const parts = d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [];
-    _putMeta(parts.filter(x => x && x.thought).map(x => x.text || "").join("\n"));
+    _putMeta(parts.filter(x => x && x.thought).map(x => x.text || "").join("\n"), "gemini:thought");
     const t = parts.filter(x => !(x && x.thought)).map(x => x.text || "").join("").trim();
     if (!t) {
       const reason = d.candidates && d.candidates[0] && d.candidates[0].finishReason;
@@ -836,7 +838,12 @@ async function callAI(p, system, messages, opts) {
   } catch (e) {}
   const choice = d.choices && d.choices[0];
   const _msg = choice && choice.message;
-  _putMeta(_msg && (_msg.reasoning_content || _msg.reasoning));
+  // 三个字段名都认：不同中转/模型各叫各的（DeepSeek=reasoning_content，OpenRouter=reasoning，
+  // 还有一些直接叫 thinking）。少认一个就等于这条线「没有思考链」。
+  const _rzn = _msg && (_msg.reasoning_content ? ["reasoning_content", _msg.reasoning_content]
+    : _msg.reasoning ? ["reasoning", _msg.reasoning]
+    : _msg.thinking ? ["thinking", _msg.thinking] : null);
+  if (_rzn) _putMeta(_rzn[1], "openai:" + _rzn[0]);
   const t = (_msg && _msg.content || "").trim();
   if (!t) throw new Error("模型返回为空" + (choice && choice.finish_reason ? "（停止原因：" + choice.finish_reason + "）" : "（上游没有返回正文）") + "\n" + callDiag(model, _promptChars, maxTokens, _t0));
   return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));

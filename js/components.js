@@ -5150,7 +5150,9 @@ function ReasoningBlock({ m }) {
         "深度思考" + (secs ? " " + secs : "")),
       m.reasonModel ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.line, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "· " + m.reasonModel) : null,
       h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
-    open ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap", borderLeft: "2px solid " + t.line, paddingLeft: 9, margin: "3px 0 5px" } }, m.reasoning) : null);
+    open ? h("div", { style: { borderLeft: "2px solid " + t.line, paddingLeft: 9, margin: "3px 0 5px" } },
+      m.reasonFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, marginBottom: 3 } }, "来自字段 " + m.reasonFrom) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap" } }, m.reasoning)) : null);
 }
 // 转发的聊天记录（v56.38）。原来是把整段原话直接塞进一个气泡里——十条八条的
 // 转过去就是一堵墙（她 2026-08-26 截图）。改成微信那种卡片：标题 + 两行预览 + 「聊天记录」，

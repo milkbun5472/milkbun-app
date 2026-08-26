@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.43";
+const APP_VERSION = "v56.44";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5115,14 +5115,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const recall = parsed.recall && parsed.recall.text && String(parsed.recall.text).toLowerCase() !== "null" ? parsed.recall : null;
       if (recall) {
         const mid = "rc_" + Date.now();
-        pChat(charId, p => [...p, { role: "assistant", content: String(recall.text), mid, ts: Date.now(), turnId, ...(_callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "" } : {}) }]);
+        pChat(charId, p => [...p, { role: "assistant", content: String(recall.text), mid, ts: Date.now(), turnId, ...(_callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "", reasonFrom: _callMeta.from || "" } : {}) }]);
         _callMeta.reasoning = "";   // 已经挂在撤回那条上了，别再挂一遍
         delivered = true;
         setTimeout(() => pChat(charId, p => p.map(m => m.mid === mid ? { role: "assistant", kind: "recalled", origText: String(recall.text), reason: recall.reason || "", mid, ts: m.ts, turnId } : m)), 1100);
       }
       // 思考链挂在这一轮【最先冒出来的那条】上：它属于整轮，不属于某个气泡，
       // 界面上也是画在这一组回复的上方。取一次就消费掉，别每条气泡都挂一份。
-      let _reasonLeft = _callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "" } : null;
+      let _reasonLeft = _callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "", reasonFrom: _callMeta.from || "" } : null;
       const _takeReason = () => { const r = _reasonLeft; _reasonLeft = null; return r || {}; };
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作

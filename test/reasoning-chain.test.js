@@ -20,8 +20,20 @@ test("三家协议各自的字段都接住了", () => {
   assert.match(engine, /filter\(b => b && b\.type === "thinking"\)/);
   // Gemini：带 thought 标记的 part
   assert.match(engine, /parts\.filter\(x => x && x\.thought\)/);
-  // OpenAI 兼容：DeepSeek 一类白送的 reasoning_content
-  assert.match(engine, /_msg\.reasoning_content \|\| _msg\.reasoning/);
+  // OpenAI 兼容：三个字段名都要认——不同中转/模型各叫各的，少认一个就等于「这条线没有思考链」
+  assert.match(engine, /_msg\.reasoning_content \? \["reasoning_content"/);
+  assert.match(engine, /: _msg\.reasoning \? \["reasoning"/);
+  assert.match(engine, /: _msg\.thinking \? \["thinking"/);
+});
+
+// 她 2026-08-26：同一个模型，我们这边和另一台小手机的思考链内容完全不同。
+// 「这段是从哪个字段捞出来的」是排查这种事最快的一根线。
+test("记下思考链来自哪个字段，展开时看得见", () => {
+  assert.match(engine, /const _putMeta = \(reasoning, from\) =>/);
+  ["anthropic:thinking", "gemini:thought"].forEach(x => assert.ok(engine.indexOf('"' + x + '"') > 0, x));
+  assert.match(engine, /"openai:" \+ _rzn\[0\]/);
+  assert.match(app, /reasonFrom: _callMeta\.from \|\| ""/);
+  assert.match(comp, /"来自字段 " \+ m\.reasonFrom/);
 });
 
 // 这条是真会炸的：Gemini 的思考段也是 text 部件，不按 thought 标记拆开就会被拼进正文，
