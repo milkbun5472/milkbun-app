@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.30";
+const APP_VERSION = "v56.31";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -363,6 +363,7 @@ function App() {
   giftOutRef.current = giftOut;
   carryGiftsRef.current = carryGifts;
   schedulesRef.current = schedules;
+  calEventsRef.current = calEvents;
   const [unreadMap, setUnreadMap] = useState({});
   // 角色动态保底计数：每次私聊回复给每个角色的三类动态 +1；到阈值就强制发一条（悄悄话≥15轮、朋友圈≥30轮、论坛≥50轮或3天）
   const [ambientCount, setAmbientCount] = useState({});
@@ -518,6 +519,9 @@ function App() {
   blocksRef.current = blocks;
   // 日历：{ world:{dateKey:[{id,title}]}, chars:{charId:{...}}, mine:{dateKey:[...]} }
   const [calendar, setCalendar] = useState({ world: {}, chars: {}, mine: {} });
+  // 手动日程事件（带时刻、可跨天）：[{id,owner,startDate,endDate,startTime,endTime,title,location,icon,color}]
+  const [calEvents, setCalEvents] = useState([]);
+  const calEventsRef = useRef([]);
   // 经期：周期/经期长度、实际记录的开始日、可见范围
   const [period, setPeriod] = useState({ cycleLen: 28, periodLen: 5, starts: [], visibleTo: null });
   // 给「生日主动祝福」等定时扫描用的最新引用（那个 effect 只依赖 [characters, active]，直接闭包会读到旧值）
@@ -586,6 +590,7 @@ function App() {
     setBlocks(loadJSON("x_blocks", {}));
     setStateHist(loadJSON("x_stateHist", {}));
     setCalendar(loadJSON("x_calendar", { world: {}, chars: {}, mine: {} }));
+    setCalEvents(loadJSON("x_calEvents", []));
     setPeriod(loadJSON("x_period", { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null }));
     // 一次性迁移：把之前存成 ≤1400 的单人线下输出上限抬到 4000（旧默认 1400 太紧会截断掉格式；群 g_ 的不动）
     (() => {
@@ -6676,6 +6681,46 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     toast(wipeMem ? "已清除本群线上与线下记录，并摘掉本群产生的记忆" : "已清除本群线上与线下记录");
   };
 
+  // ---- 手动日程事件（带时刻、可跨天）：x_calEvents ----
+  // 和 x_calendar（无时刻的全天事件、三视角）分开存，理由写在 engine.js 那段注释里。
+  const calEvSave = next => { setCalEvents(next); calEventsRef.current = next; saveJSON("x_calEvents", next); };
+  const saveCalTimedEvent = ev => {
+    const id = ev.id || ("ce_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36));
+    const clean = {
+      id, owner: String(ev.owner || "mine"),
+      startDate: ev.startDate, endDate: ev.endDate || ev.startDate,
+      startTime: ev.startTime || "", endTime: ev.endTime || "",
+      title: String(ev.title || "").trim(), location: String(ev.location || "").trim(),
+      icon: ev.icon || "", color: ev.color || "", note: String(ev.note || "").trim(),
+      createdAt: ev.createdAt || Date.now(), updatedAt: Date.now()
+    };
+    if (!clean.title || !clean.startDate) { toast("至少要有日期和事项"); return null; }
+    // 结束早于开始就把结束顶到开始，别存出一段负时间
+    if (clean.endDate < clean.startDate) clean.endDate = clean.startDate;
+    if (clean.startDate === clean.endDate && clean.startTime && clean.endTime && clean.endTime <= clean.startTime) clean.endTime = "";
+    const cur = calEventsRef.current || [];
+    calEvSave(cur.some(x => x.id === id) ? cur.map(x => x.id === id ? clean : x) : [...cur, clean]);
+    return clean;
+  };
+  const delCalTimedEvent = id => calEvSave((calEventsRef.current || []).filter(x => x.id !== id));
+  // 备忘录那边要看得见（她 2026-08-26：「我在七天后建了一个日程，备忘录那边也要体现出来」）。
+  // 不复制数据、只让对方读得到：双写迟早会飘——改了一边没改另一边、删了一个留下孤儿。
+  // 反方向（备忘录提醒落到日历上）本来就通着，走 window.memoRemindersOnDay。
+  window.calMyUpcoming = (days) => {
+    const n = Math.max(1, Number(days) || 30), out = [];
+    const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    (calEventsRef.current || []).forEach(e => {
+      if (!e || e.owner !== "mine") return;
+      const end = calEvParseDay(e.endDate || e.startDate);
+      if (!end || end < t0) return;
+      const st = calEvParseDay(e.startDate); if (!st) return;
+      const days2 = Math.round((Math.max(st, t0) - t0) / 86400000);
+      if (days2 > n) return;
+      out.push({ id: e.id, title: e.title, date: e.startDate, endDate: e.endDate || e.startDate, time: e.startTime || "", location: e.location || "", icon: e.icon || "", days: days2 });
+    });
+    return out.sort((a, b) => (a.date === b.date ? String(a.time).localeCompare(String(b.time)) : String(a.date).localeCompare(String(b.date))));
+  };
+  window.calOpenFromMemo = () => { setScreen("calendar"); };
   // ---- 日历 / calendar ----
   const saveCalendar = next => { setCalendar(next); saveJSON("x_calendar", next); };
   const cloneCal = prev => ({ world: { ...(prev.world || {}) }, chars: { ...(prev.chars || {}) }, mine: { ...(prev.mine || {}) } });
@@ -11133,7 +11178,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     disp: { myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: schedNowBriefFor(activeChar),
-    onOpenSched: () => { setSelSched(activeChar.id); setScreen("lifestyle"); },
+    onOpenSched: () => { setSelSched(activeChar.id); setScreen("calendar"); },
     onLongPress: handleMsgAction,
     onOpenSettings: () => setChatSettingsOpen(true),
     toast: toast,
@@ -11755,15 +11800,22 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   });else if (screen === "calendar") body = h(Calendar, {
     characters: liveChars,
     calendar: calendar,
+    calEvents: calEvents,
+    schedules: schedules,
+    initialView: selSched || undefined,
     profile: profile,
     period: period,
     busy: !!gen.calendar,
+    genWeekBusy: !!(gen.sched && String(gen.sched).indexOf("|week") > 0),
     onBack: goHome,
     onSaveEvent: saveCalEvent,
     onDelEvent: delCalEvent,
     onGenMonth: genCalMonth,
     onSavePeriod: savePeriodSettings,
-    onRecordPeriod: recordPeriodStart
+    onRecordPeriod: recordPeriodStart,
+    onSaveTimed: saveCalTimedEvent,
+    onDelTimed: delCalTimedEvent,
+    onGenWeek: c => genScheduleWeek(c, { force: true })
   });else if (screen === "config") body = /*#__PURE__*/React.createElement(Config, {
     apiProfiles: apiProfiles,
     activeId: activeId,
@@ -12036,7 +12088,7 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: schedNowBriefFor(offlineChar),
     onOpenStyleLab: goStyleLab,
-    onOpenSched: () => { setSelSched(offlineChar.id); setOfflineChar(null); setScreen("lifestyle"); } // 离开线下浮层→跳到日程（线下浮层是 z-20 会盖住日程屏，得先离开）
+    onOpenSched: () => { setSelSched(offlineChar.id); setOfflineChar(null); setScreen("calendar"); } // 离开线下浮层→跳到日历（线下浮层是 z-20 会盖住日程屏，得先离开）
   }), offlineGroup && h(GroupOfflineMode, {
     group: offlineGroup,
     profile: profile,

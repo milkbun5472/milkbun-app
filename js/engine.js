@@ -1161,6 +1161,46 @@ function splitLongBubble(s, allowComma) {
     return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
   }, []);
 }
+// ── 手动日程事件 x_calEvents（v56.31，她 2026-08-26 要的那张「新增日程」表单）──
+// 为什么另起一个仓、不塞进 x_schedules 的 seqs：
+//   · seqs 是 AI 按天推演出来的，重排会整份换掉——手填的东西不能跟着一起被冲走；
+//   · 表单有【开始日期】和【结束日期】，跨天事件在「一天一份 seqs」里没处放。
+// 也不动 x_calendar：那一层是【无时刻的全天事件】（世界/角色/我的三视角 + 可见名单），
+// 已经在给角色喂上下文了，好好的没必要推倒。两层各管各的，日视图里合并显示。
+// 一句话：x_calendar = 那天有什么事；x_calEvents = 几点到几点做什么。
+const CAL_EVENT_ICONS = ["📌", "💼", "📚", "💻", "🏃", "🏋️", "🍽️", "☕", "🎬", "🎮", "🎵", "🛒", "🛍️", "✈️", "🏥", "📞", "😴", "❤️", "🎂", "🎨", "🧹", "🐾"];
+const CAL_EVENT_COLORS = ["#bcd7f0", "#c5e6c2", "#f7dcbb", "#f6cdd6", "#dbcdf0", "#c2e6df", "#e6e2da", "#eed6f0"];
+function calEvDayKey(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function calEvParseDay(k) { const a = String(k || "").split("-").map(Number); return (a.length === 3 && a[0]) ? new Date(a[0], a[1] - 1, a[2]) : null; }
+function calEvMin(t) { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+// 自动配色：同一个事件永远同一个颜色（按 id 哈希），她不选颜色时用
+function calEvAutoColor(id) {
+  let h = 2166136261; const str = String(id || "");
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return CAL_EVENT_COLORS[(h >>> 0) % CAL_EVENT_COLORS.length];
+}
+// 某一天该显示哪些手动事件。跨天事件在每一天各出现一次，并给出【这一天之内】的起止：
+// 首日 = 开始时刻→24:00，中间整天，末日 = 00:00→结束时刻。没填时刻的算全天。
+function calEventsOnDay(events, owner, dayKey) {
+  const day = calEvParseDay(dayKey);
+  if (!day) return [];
+  return (Array.isArray(events) ? events : []).filter(e => {
+    if (!e || String(e.owner) !== String(owner)) return false;
+    const s = calEvParseDay(e.startDate), en = calEvParseDay(e.endDate || e.startDate);
+    return s && en && day >= s && day <= en;
+  }).map(e => {
+    const first = String(e.startDate) === String(dayKey);
+    const last = String(e.endDate || e.startDate) === String(dayKey);
+    const allDay = !e.startTime;
+    return Object.assign({}, e, {
+      _allDay: allDay,
+      _spans: String(e.startDate) !== String(e.endDate || e.startDate),
+      _from: allDay ? "" : (first ? e.startTime : "00:00"),
+      _to: allDay ? "" : (last ? (e.endTime || "24:00") : "24:00"),
+      _color: e.color || calEvAutoColor(e.id)
+    });
+  }).sort((a, b) => (calEvMin(a._from) == null ? -1 : calEvMin(b._from) == null ? 1 : calEvMin(a._from) - calEvMin(b._from)));
+}
 // 日程的时态与时段（v56.30）。她 2026-08-26 报「有时候会以发生了的口吻排日程」，
 // 怀疑是模型不够聪明——不是：schemaHint 里那两个仅有的具体样例本身就是过去时
 //（「扫了遍报错日志」「洗漱后睡了」），模型能抄的只有它们。样例已改成中性说法，
@@ -4518,6 +4558,20 @@ function lunarToSolar(y, m, d, isLeap) {
   days += d - 1;
   const t = new Date(lunarNewYearUTC(y) + days * 86400000);
   return new Date(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
+}
+// 月历格子里那行农历小字（v56.31）：初一那天写月名（七月/腊月），其余写日名（初二…三十）。
+// 有农历节日就直接写节日名——和苹果日历一样，那天最值得说的就是它。
+// ⚠️不叫 lunarDayLabel：下面早就有一个同名函数（吃日号、返回「廿三」这种），
+// 函数声明后来者覆盖先来者，重名会把那个悄悄换掉。日名日名直接复用它。
+function calLunarCell(dateObj) {
+  try {
+    const f = typeof lunarFestivalOn === "function" ? lunarFestivalOn(dateObj) : null;
+    if (f) return { text: f, hi: true };
+    const l = solarToLunar(dateObj);
+    if (!l) return { text: "", hi: false };
+    if (l.d === 1) return { text: (l.isLeap ? "闰" : "") + (LUNAR_MON_LABEL[l.m] || ""), hi: true };
+    return { text: lunarDayLabel(l.d) || "", hi: false };
+  } catch (e) { return { text: "", hi: false }; }
 }
 // 中文月日：正月/冬月/腊月、初一/十五/廿三/三十 这些都要认
 const LUNAR_MON_ZH = { "正": 1, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10, "冬": 11, "十一": 11, "腊": 12, "十二": 12 };

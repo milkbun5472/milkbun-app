@@ -369,6 +369,25 @@
 
     const tabBtn = (k, lbl) => h("button", { onClick: () => setTab(k), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14.5, padding: "9px 0", color: tab === k ? "#fff" : t.sub, background: tab === k ? ACCENT : "transparent", borderRadius: 12 } }, lbl);
 
+    // 日历里【我的】日程也在这儿露一面（她 2026-08-26：「在日历建的日程，备忘录那边也要体现出来」）。
+    // 只读：数据仍然只有日历那一份，点了跳回日历改。不做双写——改了一边没改另一边、
+    // 删了一个留下孤儿，这种飘是迟早的事。
+    const calUpcoming = (typeof window.calMyUpcoming === "function" ? window.calMyUpcoming(30) : []) || [];
+    const calSection = () => calUpcoming.length ? h("div", { style: { marginBottom: 16 } },
+      h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.1em", color: t.fog } }, "日历里的日程 · 30 天内"),
+        h("button", { onClick: () => { typeof window.calOpenFromMemo === "function" && window.calOpenFromMemo(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: ACCENT } }, "去日历 ›")),
+      h("div", { className: "flex flex-col gap-2" }, calUpcoming.slice(0, 8).map(e => h("button", {
+        key: e.id, onClick: () => { typeof window.calOpenFromMemo === "function" && window.calOpenFromMemo(); },
+        className: "w-full active:opacity-70 flex items-center gap-2.5",
+        style: { textAlign: "left", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "9px 12px" }
+      },
+        h("span", { className: "shrink-0", style: { fontSize: 15 } }, e.icon || "🗓️"),
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } },
+            e.date.slice(5).replace("-", "月") + "日" + (e.time ? " " + e.time : " 全天") + (e.location ? " · " + e.location : ""))),
+        h("span", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog } }, e.days === 0 ? "今天" : e.days === 1 ? "明天" : e.days + " 天后"))))) : null;
     // 提醒行
     const reminderRow = r => {
       const days = window.memoNextDays(r);
@@ -399,8 +418,9 @@
       h("div", { className: "shrink-0 flex gap-2 px-5 pb-2" }, tabBtn("reminders", "⏰ 提醒"), tabBtn("notes", "📝 备忘")),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-6" },
         tab === "reminders"
-          ? (reminders.length ? h("div", { className: "flex flex-col gap-2.5" }, reminders.map(reminderRow))
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "70px 20px", lineHeight: 1.9 } }, "还没有提醒\n点右上角 ＋ 记一件要记住的事\n（交房租、复诊、谁的生日…）"))
+          ? h("div", null, calSection(),
+            reminders.length ? h("div", { className: "flex flex-col gap-2.5" }, reminders.map(reminderRow))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: calUpcoming.length ? "34px 20px" : "70px 20px", lineHeight: 1.9 } }, "还没有提醒\n点右上角 ＋ 记一件要记住的事\n（交房租、复诊、谁的生日…）"))
           : (notes.length ? h("div", { className: "flex flex-col gap-2.5" }, notes.map(noteRow))
             : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "70px 20px", lineHeight: 1.9 } }, "还没有备忘\n点右上角 ＋ 随手记点什么"))),
 
