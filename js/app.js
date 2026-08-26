@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.32";
+const APP_VERSION = "v56.33";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6894,7 +6894,9 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     const today = schedLocalDayKey(char);
     const isDigital = !!settingsFor(char.id).engineerEyes;
     const have = schedulesRef.current[char.id] || {};
-    const keys = Array.from({ length: SCHED_PLAN_DAYS }, (_, i) => schedShiftDayKey(today, i));
+    const from = (opts && opts.from) || today;
+    const count = Math.max(1, Math.min(SCHED_PLAN_DAYS, Number(opts && opts.count) || SCHED_PLAN_DAYS));
+    const keys = Array.from({ length: count }, (_, i) => schedShiftDayKey(from, i));
     const want = force ? keys : keys.filter(k => !have[k]);
     if (!want.length) return true;
     setGen(g => ({ ...g, sched: char.id + "|week" }));
@@ -6962,6 +6964,16 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
   };
   // 当天首次打开小手机：给所有还没有今日行程的角色自动生成（不用手动点进去）。
   // 按「谁缺今天的行程」来补，而不是每天只跑一整轮——这样当天新加进来的角色也会自动补上。
+  // ── 什么时候排（v56.33，她 2026-08-26：「怎么自己不会停一直在排！只有周天0点开始排下一周」）──
+  // 上一版的判据是「未来七天里只要缺一天就重排」。模型一次很难真吐满 7 天，缺口一直在，
+  // 于是每次切回前台都重排一遍——那是在烧她的钱。
+  // 改成【按周记账】：一个角色、一个周次，只排一次，成没成都记账。
+  //   · 周日 0 点起 → 排【下一周】(周一~周日)，一周一次；
+  //   · 引导（新角色 / 头一回用）：今天完全没日程 → 补【今天到本周日】，也只补一次；
+  //   · 失败也写账，最多补三次、每次至少隔两小时。宁可当天没日程，也不许它循环烧钱。
+  const SCHED_WEEK_MARK_KEY = "x_schedWeekMark";
+  const SCHED_WEEK_RETRY_MS = 2 * 3600000, SCHED_WEEK_MAX_TRIES = 3;
+  const schedMondayOf = dayKey => schedShiftDayKey(dayKey, -((schedParseKey(dayKey).getDay() + 6) % 7));
   const schedGenAllToday = async () => {
     if (schedRunRef.current) return; // 防并发：同一次生成过程里别重复触发
     if (!active) return;
@@ -6971,14 +6983,35 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       const k = schedLocalDayKey(c), p = (schedulesRef.current[c.id] || {})[k];
       if (p && p.kind === "plan") saveSchedDay(c.id, k, { ...p, kind: "live" });
     });
-    const todo = liveChars.filter(c => {
-      const have = schedulesRef.current[c.id] || {}, today = schedLocalDayKey(c);
-      return Array.from({ length: SCHED_PLAN_DAYS }, (_, i) => schedShiftDayKey(today, i)).some(k => !have[k]);
+    const marks = loadJSON(SCHED_WEEK_MARK_KEY, {}) || {};
+    const now = Date.now(), jobs = [];
+    liveChars.forEach(c => {
+      const today = schedLocalDayKey(c);
+      const dowMon = (schedParseKey(today).getDay() + 6) % 7;   // 周一=0 … 周日=6
+      const thisMon = schedMondayOf(today), nextMon = schedShiftDayKey(thisMon, 7);
+      const have = schedulesRef.current[c.id] || {};
+      const pick = (weekKey, from, count) => {
+        const id = c.id + "|" + weekKey, m = marks[id];
+        if (m && (m.tries >= SCHED_WEEK_MAX_TRIES || now - m.ts < SCHED_WEEK_RETRY_MS)) return;
+        jobs.push({ c, from, count, id, tries: m ? m.tries : 0 });
+      };
+      if (dowMon === 6) pick(nextMon, nextMon, 7);              // 周日 0 点起排下一周
+      if (!have[today]) pick(thisMon, today, 7 - dowMon);       // 引导：补到本周日为止
     });
-    if (!todo.length) return;
+    if (!jobs.length) return;
     schedRunRef.current = true;
     try {
-      for (const c of todo) await genScheduleWeek(c, { silent: true });
+      for (const j of jobs) {
+        let ok = false;
+        try { ok = await genScheduleWeek(j.c, { from: j.from, count: j.count, silent: true }); } catch (e) {}
+        // ⚠️成败都记账：不记的话失败一次就会每次切回前台重来一遍
+        const cur = loadJSON(SCHED_WEEK_MARK_KEY, {}) || {};
+        cur[j.id] = { ts: Date.now(), tries: ok ? SCHED_WEEK_MAX_TRIES : j.tries + 1 };
+        // 只留最近 40 条，别让这本账越攒越厚
+        const ks = Object.keys(cur);
+        if (ks.length > 40) ks.sort((a, b) => (cur[a].ts || 0) - (cur[b].ts || 0)).slice(0, ks.length - 40).forEach(k => delete cur[k]);
+        saveJSON(SCHED_WEEK_MARK_KEY, cur);
+      }
     } finally {
       schedRunRef.current = false;
     }
@@ -11815,7 +11848,14 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
     onRecordPeriod: recordPeriodStart,
     onSaveTimed: saveCalTimedEvent,
     onDelTimed: delCalTimedEvent,
-    onGenWeek: c => genScheduleWeek(c, { force: true })
+    // 手动重排：只重排【今天到本周日】。手动这一下也记账，免得随后自动那档又跑一遍。
+    onGenWeek: async c => {
+      const today = schedLocalDayKey(c), dowMon = (schedParseKey(today).getDay() + 6) % 7;
+      const ok = await genScheduleWeek(c, { force: true, from: today, count: 7 - dowMon });
+      const cur = loadJSON(SCHED_WEEK_MARK_KEY, {}) || {};
+      cur[c.id + "|" + schedMondayOf(today)] = { ts: Date.now(), tries: ok ? SCHED_WEEK_MAX_TRIES : 1 };
+      saveJSON(SCHED_WEEK_MARK_KEY, cur);
+    }
   });else if (screen === "config") body = /*#__PURE__*/React.createElement(Config, {
     apiProfiles: apiProfiles,
     activeId: activeId,

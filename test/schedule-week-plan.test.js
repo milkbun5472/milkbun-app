@@ -72,8 +72,44 @@ test("计划日变成当天时翻牌子，不重排——落差是活人感的�
   const j = app.indexOf("const schedGenAllToday = async");
   const seg = app.slice(j, app.indexOf("const schedMaybeSelfRevise", j));
   assert.match(seg, /p\.kind === "plan"\) saveSchedDay\(c\.id, k, \{ \.\.\.p, kind: "live" \}\)/);
-  assert.match(seg, /genScheduleWeek\(c, \{ silent: true \}\)/);
   assert.ok(!/genScheduleDay\(c,/.test(seg), "自动补日程不再一天一次调用");
+});
+
+// 她 2026-08-26：「日历怎么自己不会停一直在排！我要它只有周天0点开始排下一周的」。
+// 上一版判据是「未来七天里只要缺一天就重排」——模型很难一次真吐满 7 天，缺口一直在，
+// 于是每次切回前台都重排一遍，烧的是她的钱。
+test("按周记账：一个角色一个周次只排一次，成没成都记账", () => {
+  const j = app.indexOf("const schedGenAllToday = async");
+  const seg = app.slice(j, app.indexOf("const schedMaybeSelfRevise", j));
+  assert.match(seg, /dowMon === 6\) pick\(nextMon, nextMon, 7\)/, "周日 0 点起排下一周");
+  assert.match(seg, /if \(!have\[today\]\) pick\(thisMon, today, 7 - dowMon\)/, "引导只补到本周日");
+  assert.match(seg, /m\.tries >= SCHED_WEEK_MAX_TRIES \|\| now - m\.ts < SCHED_WEEK_RETRY_MS/, "退避");
+  assert.match(seg, /cur\[j\.id\] = \{ ts: Date\.now\(\), tries: ok \? SCHED_WEEK_MAX_TRIES : j\.tries \+ 1 \}/,
+    "失败也必须记账，不记就会每次切回前台重来");
+  assert.ok(!/some\(k => !have\[k\]\)/.test(seg), "「缺一天就重排」那条判据必须已经删掉");
+  assert.match(app, /SCHED_WEEK_MARK_KEY = "x_schedWeekMark"/);
+});
+
+// 便宜池（bgActive）——她 2026-08-26 问的，日程一律不许走主池
+test("三条排日程的路都走后台便宜池", () => {
+  ["const genScheduleDay = async", "const genScheduleWeek = async", "const schedMaybeSelfRevise = async"].forEach(anchor => {
+    const k = app.indexOf(anchor);
+    assert.ok(k > 0, anchor);
+    const seg = app.slice(k, k + 6000);
+    const call = /runProbe(?:Retry)?\(\s*(\w+)/.exec(seg);
+    assert.ok(call, anchor + " 里没找到 runProbe");
+    assert.equal(call[1], "bgActive", anchor + " 走的是 " + call[1] + "，不是便宜池");
+  });
+});
+
+// 周一=0…周日=6：算错一天，整档就会在错的日子触发
+test("周一算 0、周日算 6，周日那天正好落在触发点上", () => {
+  const dowMon = d => (d.getDay() + 6) % 7;
+  assert.equal(dowMon(new Date(2026, 7, 24)), 0, "8/24 是周一");
+  assert.equal(dowMon(new Date(2026, 7, 30)), 6, "8/30 是周日");
+  // 引导批次的天数 = 7 - dowMon：周一补 7 天、周日只补今天这一天
+  assert.equal(7 - dowMon(new Date(2026, 7, 24)), 7);
+  assert.equal(7 - dowMon(new Date(2026, 7, 30)), 1);
 });
 
 // 她 2026-08-26：「先试试喂接下来3天的行程」
