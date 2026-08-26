@@ -4258,14 +4258,18 @@ function EmbedApiConfig({ toast }) {
   const [rebuild, setRebuild] = useState(null); // {busy,done,total,msg}
   const runRebuild = async () => {
     if (typeof ensureMemVecs !== "function") { toast && toast("模块没加载"); return; }
-    let lib = []; try { lib = JSON.parse(localStorage.getItem("x_memLib") || "[]"); } catch (e) {}
+    // 必须走 loadJSON：x_memLib 早就搬进 IDB 文字仓了（IDB_TEXT_PREFIXES），localStorage 里那份
+    // 迁移成功后是被删掉的。直接 localStorage.getItem 读出来永远是 null，于是记忆库满满当当，
+    // 这个按钮却一口咬定「记忆库是空的」。（她 2026-08-26 截图；loadJSON 内部有 localStorage 兜底。）
+    let lib = [];
+    try { lib = loadJSON("x_memLib", []); } catch (e) {}
     if (!Array.isArray(lib) || !lib.length) { toast && toast("记忆库是空的，没什么可嵌"); return; }
     setRebuild({ busy: true, done: 0, total: 0 });
     try {
       const n = await ensureMemVecs(lib, { onProgress: (done, total) => setRebuild({ busy: true, done, total }) });
       // v48.29 顺手把世界书词条的向量也建了（带关键词的词条语义补捞用）
       let loreN = 0;
-      try { const loreLib = JSON.parse(localStorage.getItem("x_loreEntries") || "[]"); if (typeof ensureLoreVecs === "function" && Array.isArray(loreLib) && loreLib.length) loreN = await ensureLoreVecs(loreLib); } catch (e) {}
+      try { const loreLib = loadJSON("x_loreEntries", []); if (typeof ensureLoreVecs === "function" && Array.isArray(loreLib) && loreLib.length) loreN = await ensureLoreVecs(loreLib); } catch (e) {}
       const loreMsg = loreN > 0 ? "世界书也新嵌了 " + loreN + " 条词条。" : "";
       setRebuild({ busy: false, msg: n > 0 ? ("✅ 建好了：这次新嵌 " + n + " 条，记忆库共 " + lib.length + " 条全部就绪。" + loreMsg + "之后新记忆/词条入库会自动补嵌，不用再点。") : ("✅ 索引已是最新：" + lib.length + " 条记忆全都有向量。" + loreMsg) });
     } catch (e) { setRebuild({ busy: false, msg: "❌ 建到一半断了：" + String((e && e.message) || e) + "\n已嵌好的不白费，再点一次会从缺的地方继续。" }); }
