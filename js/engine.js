@@ -1179,6 +1179,42 @@ function calEvAutoColor(id) {
   for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
   return CAL_EVENT_COLORS[(h >>> 0) % CAL_EVENT_COLORS.length];
 }
+// 通讯录首字母（v56.40，她 2026-08-26 要微信那种 A-Z 分组）。
+// 不带拼音表：用 Intl.Collator 的拼音排序，拿每个字母组里最小的那个字当锚点比大小。
+// 开机自检一次——万一某台设备的 ICU 没带拼音排序，全体落到 #，至少不会乱排。
+// 生僻姓的多音字（曾/查/单/仇）会按常用读音归组，微信也一样，认了。
+const PINYIN_ANCHORS = [["A", "阿"], ["B", "八"], ["C", "嚓"], ["D", "咑"], ["E", "妸"], ["F", "发"], ["G", "旮"],
+  ["H", "铪"], ["J", "丌"], ["K", "咔"], ["L", "垃"], ["M", "妈"], ["N", "拏"], ["O", "噢"], ["P", "趴"],
+  ["Q", "七"], ["R", "呥"], ["S", "仨"], ["T", "他"], ["W", "屲"], ["X", "夕"], ["Y", "丫"], ["Z", "帀"]];
+const _pyCollator = (() => {
+  try {
+    const c = new Intl.Collator("zh-Hans-CN-u-co-pinyin");
+    return (c.compare("啊", "吧") < 0 && c.compare("张", "阿") > 0) ? c : null;
+  } catch (e) { return null; }
+})();
+function pinyinInitial(str) {
+  const c = String(str == null ? "" : str).trim().charAt(0);
+  if (!c) return "#";
+  if (/[a-zA-Z]/.test(c)) return c.toUpperCase();
+  if (!_pyCollator || !/[\u4e00-\u9fa5]/.test(c)) return "#";
+  let hit = "#";
+  for (let i = 0; i < PINYIN_ANCHORS.length; i++) {
+    if (_pyCollator.compare(c, PINYIN_ANCHORS[i][1]) >= 0) hit = PINYIN_ANCHORS[i][0]; else break;
+  }
+  return hit;
+}
+// 按首字母分组排序。有备注按备注、没有按本名（她 2026-08-26 明说的）。# 一律排最后。
+function pinyinSections(list, nameOf) {
+  const name = nameOf || (x => (x && (x.remark || x.name)) || "");
+  const buckets = {};
+  (Array.isArray(list) ? list : []).forEach(x => {
+    const k = pinyinInitial(name(x));
+    (buckets[k] || (buckets[k] = [])).push(x);
+  });
+  const cmp = _pyCollator ? ((a, b) => _pyCollator.compare(name(a), name(b))) : ((a, b) => String(name(a)).localeCompare(String(name(b))));
+  return Object.keys(buckets).sort((a, b) => (a === "#" ? 1 : b === "#" ? -1 : (a < b ? -1 : a > b ? 1 : 0)))
+    .map(k => ({ letter: k, items: buckets[k].slice().sort(cmp) }));
+}
 // 重复规则（v56.35）：和备忘录提醒【完全同一套】——她 2026-08-26 说「跟备忘录一样」，
 // 那就别自己另发明一套，两边行为必须逐条对得上。
 // none 不重复 · weekly 每周(同星期) · biweekly 每两周 · monthly 每月(同号，短月压到月底)

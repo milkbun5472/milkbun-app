@@ -2145,6 +2145,8 @@ function Messages({
   const setTab = onTab || setTabInner;
   const [composeOpen, setComposeOpen] = useState(false);
   const [groupMgr, setGroupMgr] = useState(false);
+  const [groupList, setGroupList] = useState(false);   // 通讯录里的「群聊」入口
+  const [q, setQ] = useState("");                       // 聊天列表顶部搜索（她 2026-08-26）
   const TITLES = {
     chats: "聊天",
     contacts: "通讯录",
@@ -2176,6 +2178,16 @@ function Messages({
     ...characters.map(c => { const msgs = chats[c.id] || []; const last = msgs[msgs.length - 1]; return { key: "c_" + c.id, id: c.id, type: "char", c: c, last: last, ts: Math.max(last ? (last.ts || 0) : 0, offLast[c.id] || 0) }; })
   ];
   chatItems.sort((a, b) => { const pa = pinnedSet.has(a.id), pb = pinnedSet.has(b.id); if (pa !== pb) return pa ? -1 : 1; return b.ts - a.ts; });
+  // 搜索：名字/备注/群名先匹配，再看最后一条消息的正文——想找哪个聊天框就直接打字
+  const kw = q.trim().toLowerCase();
+  const hitItem = it => {
+    if (!kw) return true;
+    const nm = it.type === "group" ? (it.g.name || "") : ((it.c.remark || "") + " " + (it.c.name || ""));
+    if (nm.toLowerCase().indexOf(kw) >= 0) return true;
+    const lastTxt = it.last && (it.last.content || "");
+    return String(lastTxt).toLowerCase().indexOf(kw) >= 0;
+  };
+  const shownItems = chatItems.filter(hitItem);
   // 长按置顶：按住 ~0.5s 触发 onTogglePin，并拦掉随后的点击（避免误进聊天）
   const pressT = useRef({}); const longFired = useRef(false);
   const startPress = id => { longFired.current = false; clearTimeout(pressT.current[id]); pressT.current[id] = setTimeout(() => { longFired.current = true; onTogglePin && onTogglePin(id); }, 500); };
@@ -2232,92 +2244,58 @@ function Messages({
   })) : null)), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto"
   }, tab === "chats" && /*#__PURE__*/React.createElement("div", null,
+    h("div", { className: "px-4 pt-1 pb-2" },
+      h("div", { className: "flex items-center gap-2 px-3", style: { background: t.bg2, borderRadius: 10, border: "1px solid " + t.line } },
+        h(Svg, { size: 15, color: t.fog, sw: 1.9 }, h("circle", { cx: 11, cy: 11, r: 7 }), h("path", { d: "M20 20l-3.5-3.5" })),
+        h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索",
+          className: "flex-1 outline-none", style: { background: "transparent", padding: "8px 0", fontFamily: F_BODY, fontSize: 14, color: t.ink } }),
+        q ? h("button", { onClick: () => setQ(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, padding: "0 2px" } }, "×") : null)),
     characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或名录录入角色" }),
-    chatItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it))
-  ), tab === "contacts" && /*#__PURE__*/React.createElement("div", {
-    className: "py-1"
-  }, h("button", {
-    onClick: () => setGroupMgr(true),
-    className: "w-full flex items-center justify-between px-5 py-3 active:bg-black/5",
-    style: {
-      borderBottom: `1px solid ${t.line}`
-    }
-  }, h("div", {
-    className: "flex items-center gap-3"
-  }, h(Svg, {
-    size: 20,
-    color: t.tint,
-    sw: 1.7
-  }, h("circle", {
-    cx: 9,
-    cy: 7,
-    r: 3
-  }), h("path", {
-    d: "M15 21v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1"
-  }), h("path", {
-    d: "M16 3.5a3 3 0 010 6"
-  }), h("path", {
-    d: "M22 21v-1a4 4 0 00-3-3.8"
-  })), h("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink
-    }
-  }, "好友分组"), friendGroups.length > 0 && h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog
-    }
-  }, friendGroups.length + " 组")), h(IChevR, {
-    size: 15,
-    color: t.line
-  })), characters.length === 0 ? /*#__PURE__*/React.createElement(Empty, {
-    text: "通讯录是空的",
-    sub: "去名录录入角色"
-  }) : characters.map(c => /*#__PURE__*/React.createElement("button", {
-    key: c.id,
-    onClick: () => onOpenContact(c),
-    className: "w-full flex items-center gap-3 px-5 py-3 active:bg-black/5",
-    style: {
-      borderBottom: `1px solid ${t.line}`
-    }
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    character: c,
-    size: 42,
-    radius: 9
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 text-left"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink
-    }
-  }, c.remark || c.name), c.remark && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog
-    }
-  }, c.name), friendGroups.filter(g => g.memberIds.includes(c.id)).length > 0 && h("div", {
-    className: "flex flex-wrap gap-1 mt-1"
-  }, friendGroups.filter(g => g.memberIds.includes(c.id)).map(g => h("span", {
-    key: g.id,
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10,
-      color: t.sub,
-      background: t.bg,
-      border: `1px solid ${t.line}`,
-      borderRadius: 999,
-      padding: "1px 7px"
-    }
-  }, g.name)))), /*#__PURE__*/React.createElement(IChevR, {
-    size: 15,
-    color: t.line
-  })))), tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
+    kw && shownItems.length === 0 ? h(Empty, { text: "没搜到「" + q.trim() + "」", sub: "换个名字或关键词试试" }) : null,
+    shownItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it))
+  ), tab === "contacts" && (() => {
+    // 通讯录（v56.40，她 2026-08-26 要微信那样）：顶上两个收纳入口，下面按首字母分组，右边一条 A-Z 索引。
+    // 有备注按备注的首字母，没备注按本名——她明说的。
+    const secs = typeof pinyinSections === "function" ? pinyinSections(characters) : [{ letter: "#", items: characters }];
+    const entry = (label, sub, colors, icon, onClick) => h("button", { key: label, onClick: onClick,
+      className: "w-full flex items-center justify-between px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
+      h("div", { className: "flex items-center gap-3" },
+        h("span", { className: "flex items-center justify-center shrink-0", style: { width: 34, height: 34, borderRadius: 9, background: colors } },
+          h(Svg, { size: 19, color: "#fff", sw: 1.9 }, icon)),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, label),
+        sub ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, sub) : null),
+      h(IChevR, { size: 15, color: t.line }));
+    const jump = L => { try { const el = document.getElementById("mcontact-" + L); if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" }); } catch (e) {} };
+    return h("div", { className: "py-1", style: { position: "relative" } },
+      entry("群聊", (groups || []).length ? (groups || []).length + " 个" : "", "#4cae4c",
+        [h("circle", { key: "a", cx: 9, cy: 7, r: 3 }), h("path", { key: "b", d: "M15 21v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1" }), h("path", { key: "c", d: "M16 3.5a3 3 0 010 6" }), h("path", { key: "d", d: "M22 21v-1a4 4 0 00-3-3.8" })],
+        () => setGroupList(true)),
+      entry("标签", friendGroups.length ? friendGroups.length + " 组" : "", "#3d7de0",
+        [h("path", { key: "a", d: "M20.6 12.6L12 4H4v8l8.6 8.6a2 2 0 002.8 0l5.2-5.2a2 2 0 000-2.8z" }), h("circle", { key: "b", cx: 8, cy: 8, r: 1.3 })],
+        () => setGroupMgr(true)),
+      characters.length === 0
+        ? h(Empty, { text: "通讯录是空的", sub: "去名录录入角色" })
+        : h("div", { style: { paddingRight: 22 } }, secs.map(sec => h("div", { key: sec.letter, id: "mcontact-" + sec.letter },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, sec.letter),
+            sec.items.map(c => h("button", { key: c.id, onClick: () => onOpenContact(c),
+              className: "w-full flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line } },
+              h(Avatar, { character: c, size: 42, radius: 9 }),
+              h("div", { className: "flex-1 text-left" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
+                c.remark ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, c.name) : null,
+                friendGroups.filter(g => g.memberIds.includes(c.id)).length
+                  ? h("div", { className: "flex flex-wrap gap-1 mt-1" }, friendGroups.filter(g => g.memberIds.includes(c.id)).map(g => h("span", { key: g.id,
+                      style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 7px" } }, g.name)))
+                  : null),
+              h(IChevR, { size: 15, color: t.line }))))))
+      ,
+      // 右侧 A-Z 索引条：只列真的有人的那些字母
+      characters.length > 6 && secs.length > 1
+        ? h("div", { style: { position: "absolute", right: 2, top: 96, bottom: 8, width: 18, display: "flex", flexDirection: "column", justifyContent: "center", gap: 1, zIndex: 5 } },
+            secs.map(sec => h("button", { key: sec.letter, onClick: () => jump(sec.letter), className: "active:opacity-50",
+              style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.15, color: t.fog, padding: "0" } }, sec.letter)))
+        : null);
+  })(), tab === "moments" && /*#__PURE__*/React.createElement(MomentsFeed, {
     characters: characters,
     moments: moments,
     profile: profile,
@@ -2419,7 +2397,23 @@ function Messages({
     characters,
     onPost: onPostMoment,
     onClose: () => setComposeOpen(false)
-  }), groupMgr && h(GroupManager, {
+  }), groupList && h(Sheet, { onClose: () => setGroupList(false), tall: true },
+    h("div", { className: "px-1 pb-2" },
+      h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, "群聊"),
+        h("button", { onClick: () => { setGroupList(false); onNewGroup && onNewGroup(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "＋ 新建群聊")),
+      (groups || []).length === 0
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "40px 0", lineHeight: 1.9 } }, "还没有群聊\n点右上角建一个")
+        : (groups || []).map(g => h("button", { key: g.id, onClick: () => { setGroupList(false); onOpenGroup && onOpenGroup(g); },
+            className: "w-full flex items-center gap-3 py-2.5 active:opacity-70", style: { borderBottom: "1px solid " + t.line, textAlign: "left" } },
+            h("div", { className: "grid grid-cols-2 gap-0.5 p-0.5 shrink-0", style: { width: 40, height: 40, borderRadius: 9, background: t.bg, overflow: "hidden" } },
+              (g.memberIds || []).slice(0, 4).map((mid, k) => { const m = (allChars || characters).find(x => x.id === mid);
+                return h("div", { key: k, style: { overflow: "hidden", borderRadius: 3 } }, m ? h(Avatar, { character: m, size: 18, radius: 3 }) : null); })),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
+            h(IChevR, { size: 15, color: t.line })))))
+  , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
     onSave: list => {

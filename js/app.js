@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.39";
+const APP_VERSION = "v56.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8299,8 +8299,22 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
         ? "\n\n**【不许复读】TA 最近已经发过下面这些朋友圈，这一条【绝对不要】再写同一件事、同一种心情或雷同句式，换一件全新的事、一个新角度：**\n" + recentPosts.map((c, i) => (i + 1) + "、" + c.slice(0, 60)).join("\n")
         : "";
       const livedMaterial = ambientMaterialFor(char, { limit: 20 });
+      // 「评论者从关系网里挑」原来只是一句抽象的话——关系网确实在上下文里（leanWriteCtx 没砍它），
+      // 但模型得自己去那一段里翻。把名字直接点出来，命中率完全不是一回事。
+      // 名单＝和 TA 有【任一方向】关系的角色 + TA 自己的 NPC（她 2026-08-26 问的皇帝 NPC 走的正是这条）。
+      const peerNames = (() => {
+        const seen = new Set(), out = [];
+        const add = o => {
+          if (!o || o.id === char.id) return;
+          const n = o.remark || o.name;
+          if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+        };
+        liveChars.forEach(o => { if (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id]) add(o); });
+        npcsOf(char.id).forEach(add);   // TA 自己的配角天然算熟人（她 2026-08-26 问的皇帝 NPC）
+        return out;
+      })();
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
-        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。**大约一半概率配一张图**——如果这条适合配图，就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），不配图就填 null。再生成认识的其他角色对这条的 0-3 条评论（评论者从关系网里挑）。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
+        instruction: "以「" + char.name + "」身份发一条朋友圈：心情/日常/感想，1-4句，有角色味道，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。**大约一半概率配一张图**——如果这条适合配图，就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），不配图就填 null。再生成认识的其他角色对这条的 0-3 条评论。**评论者只能从这份名单里挑：" + (peerNames.length ? peerNames.join("、") : "（TA 目前没有已建立关系的人，那就一条评论都别生成）") + "**——这些是 TA 真正认识的人，别现编名字、别让不在名单上的人冒出来；名单里也不是每个人都得出现，谁真会关心这条谁才出现，宁可只有一条或没有。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
         schemaHint: "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
       });
       const content = String(d && d.content || "").trim();
