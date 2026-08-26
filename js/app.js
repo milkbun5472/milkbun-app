@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.48";
+const APP_VERSION = "v56.50";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -216,6 +216,11 @@ function App() {
   const [yanqiuMoments, setYanqiuMoments] = useState([]); // 秋声墙云端快照：只供数字生命言秋本人接续
   const [momentsCover, setMomentsCover] = useState({}); // { me: dataURI, [charId]: dataURI } 朋友圈封面
   const [momTarget, setMomTarget] = useState(null);     // 朋友圈个人页目标 { id, isMe }
+  // 约回（v56.49，她 2026-08-26：「他们会说等我 xxx 再找你，能不能真的主动发」）：
+  // [{id, charId, dueTs, about, createdTs}]。到点就发，不看积温攒没攒够；
+  // 那段时间她没开 app 就一直欠着，下次开 app 补上——app 不开就没有任何东西在跑。
+  const [promises, setPromises] = useState([]);
+  const promisesRef = useRef([]); promisesRef.current = promises;
   const [friendGroups, setFriendGroups] = useState([]);
   const [schedules, setSchedules] = useState({});
   const [snoops, setSnoops] = useState({});
@@ -591,6 +596,7 @@ function App() {
     setStateHist(loadJSON("x_stateHist", {}));
     setCalendar(loadJSON("x_calendar", { world: {}, chars: {}, mine: {} }));
     setCalEvents(loadJSON("x_calEvents", []));
+    setPromises(loadJSON("x_promises", []));
     setPeriod(loadJSON("x_period", { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null }));
     // 一次性迁移：把之前存成 ≤1400 的单人线下输出上限抬到 4000（旧默认 1400 太紧会截断掉格式；群 g_ 的不动）
     (() => {
@@ -3313,6 +3319,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 设了「允许 Ta 主动发消息」的角色，闲置超过设定间隔 → 在主屏/任意页也主动发一条，落成未读红点，你随缘点进去看。
       // viewRef 命中「正在看这个聊天/线下浮层开着这个角色」时跳过（那种由前台 20s 定时器即时负责，避免双发）；
       // 按角色当地作息只在 8~23 点发，别半夜 ping。一次一个错峰。
+      // ── 约回（v56.49）：他亲口说过「等我 xxx 再找你」，到点就发 ──
+      // 排在积温前面，而且【不看积温、不看 45 分钟底线】——那是「攒够思念才开口」的门槛，
+      // 这条是他自己许下的约，性质不一样。也不看时段：app 不开就不会跑，能跑说明她醒着。
+      // 她那段时间没开 app → 这条一直欠着，下次开 app 补上（她 2026-08-26 明说要这样）。
+      try {
+        const due = (promisesRef.current || []).filter(x => x && x.dueTs && Date.now() >= x.dueTs);
+        for (const pm of due) {
+          const c = liveChars.find(x => x.id === pm.charId);
+          const drop = () => setPromises(p => { const n = p.filter(x => x.id !== pm.id); promisesRef.current = n; saveJSON("x_promises", n); return n; });
+          if (!c) { drop(); continue; }                       // 角色没了，约也没了
+          if (!settingsFor(pm.charId).proactive) { drop(); continue; }
+          if (laneBusy("c:" + pm.charId)) continue;           // 正在生成，下一轮再说
+          if (currentlyTogetherWithChar(pm.charId)) continue; // 人就在旁边，不用发消息
+          if (viewRef.current.charId === pm.charId) continue; // 她正看着这个聊天，前台那套负责
+          drop();
+          jiwenFiredRef.current[pm.charId] = Date.now();      // 刚发过，别让积温紧跟着再来一条
+          const late = Math.round((Date.now() - pm.dueTs) / 60000);
+          replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late } });
+          return;                                             // 一次一个，错峰
+        }
+      } catch (e) {}
       try {
         for (const c of characters) {
           const cid = c.id;
@@ -4408,6 +4435,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 否则群成员列表里会留下一串找不到人的 id。
     const doomed = new Set([id, ...npcsOf(id).map(c => c.id)]);
     pC(p => p.filter(c => !doomed.has(c.id)));
+    setPromises(p => { const n = p.filter(x => x && !doomed.has(x.charId)); promisesRef.current = n; saveJSON("x_promises", n); return n; });
     setGroups(prev => {
       const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => !doomed.has(x)) }));
       saveJSON("x_groups", n);
@@ -4545,7 +4573,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
     //   杀掉「连发两轮/你还在打字他就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
-    if (opts.proactive && !opts.tf && history.length) {
+    if (opts.proactive && !opts.tf && !opts.promise && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return false;
     }
@@ -4609,7 +4637,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _lastVisibleTs = history.length ? Number(history[history.length - 1].ts) || 0 : 0;
       const _lastAnyInteractionTs = Math.max(_lastVisibleTs, latestSharedInteractionTs(charId));
       const proactiveFreshStart = !!opts.proactive && (!_lastAnyInteractionTs || Date.now() - _lastAnyInteractionTs >= 40 * 60000);
-      const proactiveHint = opts.tf ? tfHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      // 约回（v56.49）：他自己说过「等我 xxx 再找你」，现在到点了。这跟「攒够思念忽然想聊」
+      // 不是一回事——他是【说好了要回来】，所以开口方式也不同：直接兑现那句话。
+      const promiseHint = opts.promise ? ("\n\n【此刻·你说好了要回来找 Ta】刚才你亲口说过：等" + (opts.promise.about || "忙完这阵") + "就来找 Ta。现在那件事结束了，你回来了。"
+        + (opts.promise.lateMin > 25 ? "比说好的晚了大约 " + (opts.promise.lateMin >= 120 ? Math.round(opts.promise.lateMin / 60) + " 小时" : opts.promise.lateMin + " 分钟") + "——真人拖了这么久会自己提一句（不必郑重道歉，一句「刚忙完」「拖到现在」就够）。" : "")
+        + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**别当没这回事重新起一个话题**，也别把「我回来了」翻来覆去说三遍。1~3 条短消息。") : "";
+      const proactiveHint = opts.promise ? promiseHint : opts.tf ? tfHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。把这当成一段新的聊天开场：优先从你此刻正在做的事、刚遇到的小事、突然想到的东西、天气/饭点/行程、想分享或想问的新鲜话题里，自然挑一个开口。**不要默认续接聊天记录最后一句，也不要延续上一轮的委屈、焦虑、兴奋或争执情绪。**只有历史里存在明确没回答的问题、已经约好的事、承诺或仍未解决的真实开环，而且此刻确实会想到它时，才轻轻接回；普通旧话题已经结束就让它结束。1~2 条短消息，像真人隔一阵重新来敲门，不复述旧话、不质问为什么没回。"
           : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
@@ -4739,7 +4772,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
-      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call"];
+      const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
       if (emotes.length) { openCaps.push("emote"); capState.push("emote 关键词：" + emotes.map(e => e.keyword).join(" / ")); }
       if (_s.autoMoment) openCaps.push("moment");
@@ -4789,7 +4822,8 @@ ${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 【能力使用总则】下面这些能力是你手机里真实可用的功能，不是摆设：想给 TA 点杯奶茶就填 gift、想让 TA 看看此刻的自己就发 photo、想听声音就直接 call、聊到兴头突然想唱给 TA 听就来条 voice、心血来潮就发条 moment——真人谈恋爱本来就会做这些事，想到了就大方用，不必攒着等特殊时刻。多数回合用不上是常态，但连着几十轮一个能力都没动过，说明你把它们忘了，而不是你克制。唯一需要克制的是【字段】不是【话】：字段用不用，都绝不影响你话多、热情、连发、跑题、疯癫——性格照常全开，别把任何克制渗进语气里。
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
-能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。`;
+能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
+laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。没说过就【省略】，绝不许为了制造互动硬填。`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
       const selfTask = _s.engineerEyes
@@ -4985,6 +5019,20 @@ silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"
       // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
       // 状态卡就【冻住不变】（动作一直不改、衣服换场景也不换）。逐个从 raw 里正则抠回来，别只救气泡。
       const salvageStr = key => { const m = String(raw || "").match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')); if (m) { try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return m[1]; } } return null; };
+      // 约回：他这轮说了「等我…再找你」→ 记下什么时候该回来。到点由 tick 直接发，不看积温。
+      try {
+        const lp = parsed.laterPromise;
+        const mins = lp && Number(lp.minutes);
+        if (lp && Number.isFinite(mins) && mins >= 5 && mins <= 60 * 24) {
+          const due = Date.now() + mins * 60000;
+          const row = { id: "pm_" + Date.now().toString(36), charId: charId, dueTs: due, about: String(lp.about || "").slice(0, 120), createdTs: Date.now() };
+          setPromises(p => {
+            // 同一个人只留最新那一个：他又说了一次「等我忙完」，就以最新的为准，别攒一堆
+            const n = [...p.filter(x => x && x.charId !== charId), row];
+            promisesRef.current = n; saveJSON("x_promises", n); return n;
+          });
+        }
+      } catch (e) {}
       if (parsed.action == null) { const v = salvageStr("action"); if (v) parsed.action = v; }
       if (parsed.wearing == null) { const v = salvageStr("wearing"); if (v) parsed.wearing = v; }
       if (parsed.thought == null) { const v = salvageStr("thought"); if (v) parsed.thought = v; }
