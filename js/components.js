@@ -3994,6 +3994,8 @@ function CallScreen({
       const st = lv.current;
       st.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
       st.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      try { await st.ctx.resume(); } catch (e2) {}
+      if (!st.ctx.audioWorklet) throw new Error("这台设备的浏览器内核不支持 AudioWorklet");
       const sr = st.ctx.sampleRate; // iOS 不一定给 48k，按实际采样率降采样
       await st.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([
         "registerProcessor('cl-tap',class extends AudioWorkletProcessor{process(i){if(i[0]&&i[0][0])this.port.postMessage(i[0][0].slice(0));return true;}});"
@@ -4192,9 +4194,9 @@ function CallScreen({
       fontSize: 11,
       color: "rgba(255,255,255,0.5)"
     }
-  }, (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说…"), live && liveSt && h("div", {
+  }, (isGroup ? "对方" : (primary.remark || primary.name || "对方")) + " 正在说…"), liveSt && h("div", {
     className: "px-6 pb-1",
-    style: { fontFamily: F_BODY, fontSize: 11, color: "#95d16f" }
+    style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
   }, "🎙 " + liveSt), h("div", {
     className: "shrink-0 flex items-center gap-2 px-4 py-3",
     style: {
@@ -4215,7 +4217,8 @@ function CallScreen({
       fontSize: 14,
       color: "#fff",
       background: "rgba(255,255,255,0.14)",
-      border: "none"
+      border: "none",
+      minWidth: 0
     }
   }), h("button", {
     onClick: send,
