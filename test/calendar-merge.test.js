@@ -133,6 +133,33 @@ test("同时区的角色一个字都不变", () => {
   assert.ok(ctx);
 });
 
+// 她 2026-08-26：「点到27号凌晨那块就拉不下来只能到5.00了」——
+// 范围原来是按「当天有没有更早的块」现算的，27 号第一件事在 05:00，凌晨那五小时整段不画。
+test("时间轴永远是整 24 小时，凌晨拉得上去", () => {
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  assert.match(comp2, /const range = \{ lo: 0, hi: 24 \* 60 \};/);
+  assert.ok(!/lo = Math\.min\(lo, Math\.floor\(b\.from \/ 60\)/.test(comp2), "别再按当天的块去缩范围");
+  // 真量一遍：刻度必须从 00:00 一直排到 24:00
+  const { ctx, setOverrides } = harness();
+  setOverrides({ mine: "c1", month: "day" });
+  const labels = [];
+  (function walk(x) { if (!x) return; if (Array.isArray(x)) return x.forEach(walk);
+    if (x.type === undefined) return;
+    const st = (x.props && x.props.style) || {};
+    if (st.position === "absolute" && st.fontSize === 10 && typeof x.ch[0] === "string" && /^\d{2}:00$/.test(x.ch[0])) labels.push(x.ch[0]);
+    walk(x.ch); walk(x.props && x.props.children); })(ctx.Calendar(props()));
+  assert.ok(labels.includes("00:00"), "凌晨那一格必须在：" + labels.slice(0, 5).join(","));
+  assert.ok(labels.includes("24:00"));
+  assert.equal(labels.length, 25, "00:00 到 24:00 共 25 条刻度");
+});
+
+test("进日视图自动滚到该看的地方，不是一片凌晨空白", () => {
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  const seg = comp2.slice(comp2.indexOf("useEffect(() => {\n    if (mode !== \"day\""), comp2.indexOf("const blockNode"));
+  assert.match(seg, /dayList\.indexOf\(todayKey\) >= 0\) at = nowMin - 90/, "有今天就滚到此刻前一个半小时");
+  assert.match(seg, /Math\.min\.apply\(null, firsts\) : 8 \* 60\) - 30/, "否则滚到当天第一件事之前半小时");
+});
+
 test("表头不在滚动区里——它一变高就会把整条时间轴顶歪", () => {
   const comp2 = fs.readFileSync(R("components.js"), "utf8");
   const i = comp2.indexOf("const dayView = () =>");

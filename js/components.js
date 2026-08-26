@@ -1178,16 +1178,23 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     const st = new Date(d); st.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     return Array.from({ length: 7 }, (_, i) => { const dd = new Date(st); dd.setDate(st.getDate() + i);
       return { key: calPadKey(dd.getFullYear(), dd.getMonth(), dd.getDate()), n: dd.getDate(), dow: CAL_DOW[dd.getDay()], date: dd }; }); })();
-  // 时间轴范围：默认 6:00–24:00，有更早/更晚的块就撑开
-  const range = (() => { let lo = 6 * 60, hi = 24 * 60;
-    dayList.forEach(dk => blocksOn(dk).forEach(b => { lo = Math.min(lo, Math.floor(b.from / 60) * 60); hi = Math.max(hi, Math.ceil(b.to / 60) * 60); }));
-    return { lo, hi }; })();
+  // 时间轴永远是整 24 小时（v56.48）。原来按「当天有没有更早的块」现算范围，结果
+  // 27 号第一件事在 05:00，00:00–05:00 就整段不画、怎么拉都拉不上去（她 2026-08-26）；
+  // 而且每天起点还不一样，来回翻很晕。现在一律 00:00–24:00，靠自动滚到该看的地方。
+  const range = { lo: 0, hi: 24 * 60 };
   const nowMin = today.getHours() * 60 + today.getMinutes();
   const yOf = min => (min - range.lo) * CAL_PX_PER_MIN;
+  // 打开时滚到该看的地方：这两天里有今天就滚到「此刻」前一个半小时；
+  // 否则滚到当天第一件事之前半小时——不然一进来面对的是一整片凌晨的空白。
   useEffect(() => {
     if (mode !== "day" || !scrollRef.current) return;
-    const target = Math.max(0, yOf(Math.max(range.lo, nowMin - 90)));
-    scrollRef.current.scrollTop = target;
+    let at;
+    if (dayList.indexOf(todayKey) >= 0) at = nowMin - 90;
+    else {
+      const firsts = dayList.map(dk => { const b = blocksOn(dk); return b.length ? b[0].from : null; }).filter(x => x != null);
+      at = (firsts.length ? Math.min.apply(null, firsts) : 8 * 60) - 30;
+    }
+    scrollRef.current.scrollTop = Math.max(0, yOf(Math.max(range.lo, at)));
   }, [mode, daySel]);
 
   const blockNode = (b, dk) => {
