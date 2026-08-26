@@ -1116,19 +1116,22 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   };
 
   // ---- 月视图 ----
+  // v56.37：她 2026-08-26 拿 float 那个日历对比，「他的每一个比我们的大」。
+  // 「日历 / CALENDAR」那个大标题占掉了整整一屏顶——删掉，头像条上移，
+  // 格子改成【按剩下的高度平分】(gridAutoRows:1fr)，六行铺满一屏，日期和农历都放大。
   const cells = calCells(ym.y, ym.m);
-  const monthView = () => h("div", { className: "flex-1 flex flex-col min-h-0" },
-    h("div", { className: "shrink-0 flex items-center justify-between px-5 pt-1 pb-2" },
-      h("button", { onClick: () => shift(-1), className: "active:opacity-50 px-2", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "‹"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: t.ink, letterSpacing: "0.02em" } }, ["一","二","三","四","五","六","七","八","九","十","十一","十二"][ym.m] + "月"),
-      h("button", { onClick: () => shift(1), className: "active:opacity-50 px-2", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "›")),
-    h("div", { className: "shrink-0 px-3", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)" } },
-      CAL_DOW.map((w, i) => h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, paddingBottom: 6 } }, w))),
-    view === "mine" ? h("div", { className: "shrink-0 flex items-center gap-3 px-4 pb-2 flex-wrap" },
+  const monthView = () => h("div", { className: "flex-1 flex flex-col min-h-0 px-3" },
+    h("div", { className: "shrink-0 flex items-center justify-between px-2 pt-1 pb-1" },
+      h("button", { onClick: () => shift(-1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "‹"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 34, color: t.ink, letterSpacing: "0.02em" } }, ["一","二","三","四","五","六","七","八","九","十","十一","十二"][ym.m] + "月"),
+      h("button", { onClick: () => shift(1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "›")),
+    view === "mine" ? h("div", { className: "shrink-0 flex items-center gap-3 px-2 pb-1 flex-wrap" },
       ["period", "fertile", "ov", "safe"].map(k => h("span", { key: k, className: "flex items-center gap-1" },
         h("span", { style: { width: 9, height: 9, borderRadius: 999, background: PERIOD_COLORS[k] } }),
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, PERIOD_LABELS[k])))) : null,
-    h("div", { className: "flex-1 overflow-y-auto px-3 pb-24", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", alignContent: "start" } },
+    h("div", { className: "shrink-0", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)" } },
+      CAL_DOW.map((w, i) => h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, paddingBottom: 5 } }, w))),
+    h("div", { className: "flex-1 min-h-0", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "1fr", paddingBottom: 6 } },
       cells.map((d, i) => {
         if (d === null) return h("div", { key: i });
         const dk = calPadKey(ym.y, ym.m, d);
@@ -1137,15 +1140,14 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         const pk = pmap[ym.y + "-" + (ym.m + 1) + "-" + d];
         const dots = dotsOn(dk);
         return h("button", { key: i, onClick: () => { setDaySel(dk); setMode("day"); },
-          className: "active:opacity-60 flex flex-col items-center", style: { padding: "5px 0 3px", borderTop: "1px solid " + t.line } },
-          h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 999,
+          className: "active:opacity-60 flex flex-col items-center justify-center", style: { minHeight: 0, borderTop: "1px solid " + t.line } },
+          h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 999,
             background: isT ? "#c25a4a" : (pk ? PERIOD_COLORS[pk.t] + "33" : "transparent"),
-            fontFamily: F_DISPLAY, fontSize: 16, color: isT ? "#fff" : t.ink } }, d),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 9, lineHeight: 1.4, marginTop: 1, color: lun.hi ? "#c25a4a" : t.fog, height: 12, overflow: "hidden", maxWidth: "100%" } }, lun.text),
-          h("span", { style: { display: "flex", gap: 2, height: 6, marginTop: 1 } },
-            dots.map((c, j) => h("span", { key: j, style: { width: 4, height: 4, borderRadius: 999, background: c } }))));
+            fontFamily: F_DISPLAY, fontSize: 19, color: isT ? "#fff" : t.ink } }, d),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, lineHeight: 1.3, marginTop: 1, color: lun.hi ? "#c25a4a" : t.fog, maxWidth: "100%", overflow: "hidden", whiteSpace: "nowrap" } }, lun.text),
+          h("span", { style: { display: "flex", gap: 2.5, height: 6, marginTop: 2 } },
+            dots.map((c, j) => h("span", { key: j, style: { width: 5, height: 5, borderRadius: 999, background: c } }))));
       })));
-
   // ---- 日视图（两天并排 + 时间轴）----
   const dayList = (() => { const a = daySel.split("-").map(Number); const d0 = new Date(a[0], a[1] - 1, a[2]);
     const d1 = new Date(d0); d1.setDate(d0.getDate() + 1);
@@ -1218,7 +1220,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       // 底下多留 90px：最后一格不会被右下角那个 ＋ 压住
       h("div", { style: { flex: 1, display: "flex", height: gridH + 90 } }, dayList.map(dayColumn))));
   // ---- 人物条 ----
-  const personRow = h("div", { className: "shrink-0 flex gap-3 px-5 pb-3 overflow-x-auto", style: { WebkitOverflowScrolling: "touch" } },
+  const personRow = h("div", { className: "shrink-0 flex gap-3 px-4 pb-2 overflow-x-auto", style: { WebkitOverflowScrolling: "touch" } },
     [{ id: "mine", name: "我", c: null }]
       .concat(chars.map(c => ({ id: c.id, name: c.remark || c.name, c })))
       .map(v => h("button", { key: v.id, onClick: () => setView(v.id), className: "shrink-0 flex flex-col items-center gap-1 active:opacity-60", style: { width: 54 } },
@@ -1231,10 +1233,15 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const toggleVis = id => onSavePeriod({ visibleTo: visSet.includes(id) ? visSet.filter(x => x !== id) : [...visSet, id] });
 
   return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
-    h(Head, { zh: "日历", en: "Calendar", onBack: mode === "day" ? () => setMode("month") : onBack,
-      right: h("div", { className: "flex items-center gap-3" },
-        view === "mine" && h("button", { onClick: () => { setPCyc(per.cycleLen || 28); setPLen(per.periodLen || 5); setPSet(true); }, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "经期"),
-        h("button", { onClick: () => { setDaySel(todayKey); setYm({ y: today.getFullYear(), m: today.getMonth() }); }, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "今天")) }),
+    // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
+    // 白占掉小半屏，删了（她 2026-08-26 对比 float：「他的每一个比我们的大」）。
+    h("div", { className: "shrink-0 flex items-center justify-between px-4 pt-4 pb-2" },
+      h("button", { onClick: mode === "day" ? () => setMode("month") : onBack, className: "flex items-center gap-1.5 active:opacity-50 -ml-1", style: { padding: "4px 6px" } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog, lineHeight: 1 } }, "‹"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, mode === "day" ? (ym.m + 1) + "月" : ym.y + "年")),
+      h("div", { className: "flex items-center gap-3" },
+        view === "mine" && h("button", { onClick: () => { setPCyc(per.cycleLen || 28); setPLen(per.periodLen || 5); setPSet(true); }, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "经期"),
+        h("button", { onClick: () => { setDaySel(todayKey); setYm({ y: today.getFullYear(), m: today.getMonth() }); setMode("month"); }, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "今天"))),
     personRow,
     mode === "month" ? monthView() : dayView(),
 

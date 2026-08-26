@@ -203,6 +203,35 @@ test("世界并进我的：只剩一个「我」的档，世界事件挂 🌐", 
   assert.match(comp2, /onGenMonth\(view === "mine" \? "world" : view/, "在「我的」里生成的仍写进世界那个桶");
 });
 
+// 她 2026-08-26 拿 float 那个日历对比：「他的每一个比我们的大」——
+// 「日历 / CALENDAR」那个大标题白占掉小半屏，删掉，头像条上移，格子按剩下的高度平分。
+test("月视图铺满剩下的高度，不再被大标题挤扁", () => {
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  const i = comp2.indexOf("const monthView = () =>");
+  const seg = comp2.slice(i, comp2.indexOf("// ---- 日视图", i));
+  assert.match(seg, /gridAutoRows: "1fr"/, "行高要按剩余高度平分，不能是内容高度");
+  assert.ok(!/overflow-y-auto/.test(seg), "一个月本来就该一屏放下，不该出现滚动");
+  assert.ok(!/pb-24/.test(seg));
+  // 日期和农历都放大了
+  assert.match(seg, /width: 36, height: 36/);
+  assert.match(seg, /fontSize: 19, color: isT/);
+});
+
+test("顶栏收成一行，不再有「日历 / CALENDAR」大标题", () => {
+  const { ctx, setOverrides } = harness();
+  setOverrides({});
+  const texts = [];
+  (function walk(x) { if (!x) return; if (Array.isArray(x)) return x.forEach(walk);
+    if (typeof x === "string") return texts.push(x);
+    if (x.type !== undefined) { walk(x.ch); walk(x.props && x.props.children); } })(ctx.Calendar(props()));
+  assert.ok(!texts.includes("Calendar"), "英文副标题该没了");
+  assert.ok(texts.some(x => /^\d{4}年$/.test(x)), "左上角改成年份：" + JSON.stringify(texts.slice(0, 12)));
+  assert.ok(texts.includes("今天"));
+  const comp2 = fs.readFileSync(R("components.js"), "utf8");
+  const i = comp2.indexOf("function Calendar({");
+  assert.ok(!/h\(Head, \{ zh: "日历"/.test(comp2.slice(i, comp2.indexOf("function calPlanLoadLine", i))), "Calendar 不该再用 Head");
+});
+
 // 她 2026-08-26：「日历和日程合并了那其实是不是不需要这个 ai 生成本月事件了，
 // 可以直接在我的日历界面生成全部世界大事」——角色的日子已经由一周排程整天整天排出来了，
 // 再来一层月度事件是重复的。
