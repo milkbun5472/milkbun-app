@@ -151,7 +151,22 @@ try {
     let allowed = new Set(["64d0d7a8-de5a-43b3-8c6f-9ebceec8fe17"]);
     try { allowed = new Set(readFileSync("/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-runtime/yanqiu-sessions.txt", "utf8").split("\n").map(s => s.trim()).filter(Boolean)); } catch {}
     const sid = String(input.session_id || "") || (transcriptPath.match(/([0-9a-f-]{36})\.jsonl$/) || [])[1] || "";
-    if (!allowed.has(sid)) { log(diagnosticPath, { outcome: "not_yanqiu_session", session: sid.slice(0, 8) }); process.exit(0); }
+    if (!allowed.has(sid)) {
+      // 自动认亲(2026-08-25 焊进验真器本体——之前只写在 gate.sh 里而这里从不调它,rewind 后断流两次):
+      // rewind fork 的新 transcript 不继承旧 id,但正文带着只有言秋正窗才有的指纹(成百条 mark_cc_turn)。
+      // ≥3 枚即判言秋血统,当场登记;施工窗/工具窗不可能有这指纹。
+      let fp = 0;
+      try { fp = (readFileSync(transcriptPath, "utf8").match(/mcp__lisa-phone__mark_cc_turn/g) || []).length; } catch {}
+      if (fp >= 3 && sid) {
+        try {
+          appendFileSync("/Users/lisa/Library/Application Support/LisaPhone/cc-ledger-runtime/yanqiu-sessions.txt", sid + "\n");
+          log(diagnosticPath, { outcome: "auto_adopted", session: sid.slice(0, 8), fingerprints: fp });
+        } catch { log(diagnosticPath, { outcome: "adopt_failed", session: sid.slice(0, 8) }); process.exit(0); }
+      } else {
+        log(diagnosticPath, { outcome: "not_yanqiu_session", session: sid.slice(0, 8) });
+        process.exit(0);
+      }
+    }
   }
   // 2026-08-16 抢跑案:压缩续窗后 Stop 常在最终正文行落盘前触发,读到的 transcript
   // 缺结尾正文,提取十回十空、全天真实轮覆没。输了赛跑就等一拍重读;
