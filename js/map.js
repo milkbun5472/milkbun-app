@@ -227,9 +227,11 @@
       const ctl = new AbortController(); routeAbortRef.current = ctl;
       setRouteBusy(true);
       clearRoute(); setSteps(null); setStepsOpen(false);
-      // simplified 很关键：full 的跨城路线可返回一万多个折线点，iPhone WebView
-      // 会在建 polyline 时直接被内存杀掉；转弯步骤仍由 steps=true 保留。
-      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=simplified&geometries=geojson&steps=true", { signal: ctl.signal })
+      // iPhone 壳的内存红线：OSRM 即使 overview=simplified，只要 steps=true，
+      // 仍会把每一步的完整 geometry 塞进 JSON（温尼伯→温哥华约 57 万字符）；
+      // WebView 解析时会整页被系统杀掉。v1 先取轻量路线/里程/时间，不取逐步导航，
+      // 同一路线响应可降到约 1KB。以后要步骤必须由服务端裁掉 step geometry 再给手机。
+      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=simplified&geometries=geojson&steps=false", { signal: ctl.signal })
         .then(function (r) { if (!r.ok) throw new Error("route_" + r.status); return r.json(); })
         .then(function (d) {
           if (ctl.signal.aborted) return;
@@ -240,11 +242,7 @@
           line.addTo(map); routeLayerRef.current = line;
           try { map.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {}
           setRoute({ km: (rt.distance / 1000).toFixed(rt.distance > 20000 ? 0 : 1), min: Math.round(rt.duration / 60) });
-          const st = ((rt.legs && rt.legs[0] && rt.legs[0].steps) || []).map(function (s) {
-            const loc = s.maneuver && s.maneuver.location;
-            return { pos: loc ? [loc[1], loc[0]] : null, text: stepText(s), dist: s.distance };
-          }).filter(function (s) { return s.pos; });
-          setSteps(st.length ? st : null);
+          setSteps(null);
         }).catch(function (e) { if (!ctl.signal.aborted && typeof toast === "function") toast("路线服务暂时没响应"); })
         .finally(function () { if (routeAbortRef.current === ctl) { routeAbortRef.current = null; setRouteBusy(false); } });
     };
