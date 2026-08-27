@@ -35,3 +35,34 @@ assert.equal(guard.normalizeAction("顾朝的手停在屏幕上。", "顾朝"), 
 assert.equal(guard.normalizeAction("我把手机倒扣在桌上。", "顾朝"), "我把手机倒扣在桌上。");
 
 console.log("thought voice guard tests passed");
+
+// 她 2026-08-27：「心声又在收拾我了」——
+// 「一万五拿来当包夜费……这人真是无法无天了，待会儿买完菜回去看我怎么收拾她。」
+// 和「这笔账我记下了」是同一个动作：给这一轮盖个戳、把处置推到以后。旧判据差一步没够着。
+[
+  "一万五拿来当包夜费……这人真是无法无天了，待会儿买完菜回去看我怎么收拾她。",
+  "回头跟她算账",
+  "这人真是无法无天了",
+  "回去好好收拾你",
+  "改天治治她"
+].forEach(text => assert.equal(guard.accept(text), null, "该拦下：" + text));
+
+// 判据要窄：真正是「盖章收尾」的是【把处置推到以后】那一下——
+// 光一句「收拾她一顿」还只是气话，前面挂上「回头／待会儿／改天」才是给这一轮归档。
+// 收拾东西、收拾屋子一个都不许误伤。
+assert.equal(guard.accept("收拾这丫头一顿"), "收拾她一顿", "没带时间钩子的气话不拦，只换称呼");
+[
+  "回去还得收拾一下屋子，乱得下不去脚",
+  "等下要不要顺手把她那件外套也收拾出来",
+  "番茄有点软，挑了半天也没几个像样的",
+  "她今天笑起来眼睛弯的，跟去年冬天那次一样",
+  "困，想睡了"
+].forEach(text => assert.ok(guard.accept(text), "不该拦：" + text));
+
+// 提示词那半也要点名，并说清这类狠话该去哪儿
+{
+  const fs2 = require("node:fs"), path2 = require("node:path");
+  const app = fs2.readFileSync(path2.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /『这人真是无法无天了』『回去看我怎么收拾她』『回头跟她算账』/);
+  assert.match(app, /这类狠话本来就是【说得出口的】：真要撂就写进 word 让 TA 听见/);
+}

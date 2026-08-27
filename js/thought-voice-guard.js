@@ -26,7 +26,13 @@
     // 「她是挑衅，这笔账我记下了」)。这是旁白在结案,不是人在想事情——正在想的时候
     // 根本还没想明白对方什么意思。判词单独出现也算:它本身就是想完了的产物。
     const verdict = new RegExp("(?:" + other + "|这|那)(?:这)?(?:是|就是|分明是|根本是|纯粹是|无非是)(?:在)?\\s*(?:挑衅|示威|试探|挑事|找茬|报复|示弱|撒娇|求关注|演戏|装的|故意的|做给我看)");
-    const ledger = /(?:这笔账|这一笔|这账|这本账).{0,8}(?:记下|记住|先记|算在|留着)|我(?:先)?(?:记下了|记住了)。?$|倒要看看(?:她|他|TA)?(?:能|想|要)/;
+    // 「回头再收拾她」这一族和上面的记账是同一个动作：给这一轮盖个戳、把处置推到以后
+    //（她 2026-08-27：「心声又在收拾我了」——「这人真是无法无天了，待会儿买完菜回去看我怎么收拾她」）。
+    // 判据要窄：只认【收拾／算账／教训】直接跟着人的那种，「回去收拾一下屋子」碰不到。
+    // 而且这类狠话本来就是【说得出口的】——真要撂，写进 word 让她听见，不该躺在心声里。
+    const ledger = /(?:这笔账|这一笔|这账|这本账).{0,8}(?:记下|记住|先记|算在|留着)|我(?:先)?(?:记下了|记住了)。?$|倒要看看(?:她|他|TA)?(?:能|想|要)|(?:回头|回去|回来|待会儿?|等会儿?|等下|一会儿|改天|晚点|明天|下次)[^。！？!?]{0,14}(?:收拾|教训|治治)\s*(?:她|他|TA|你)|(?:回头|回去|回来|待会儿?|等会儿?|等下|一会儿|改天|晚点|明天|下次)[^。！？!?]{0,14}(?:跟|和|找)?\s*(?:她|他|TA|你)?\s*(?:好好)?算(?:账|总账)/;
+    // 「这人真是无法无天了」也是判词，只是骂的是人不是行为——那串定性词里没有这一族
+    const verdictLoose = /(?:这人|这家伙|这女人|这丫头|某人)\s*(?:真是|真的是|简直|可真是)?\s*(?:无法无天|翻天|反了|越来越|不像话|太不像话|越发)/;
     const selfPerformance = /(?:我(?:得|要|应该|需要|最好)|得|需要|最好).{0,12}(?:表现出一种|表现得|显得|营造出|呈现出|摆出).{0,24}(?:感觉|样子|态度|语气|形象|反应)?/;
     const selfPresentation = /(?:让自己|把自己|给人).{0,12}(?:看起来|显得|表现得|呈现得|感觉).{0,24}/;
     const hasRecap = recap.test(text);
@@ -36,7 +42,7 @@
     if (directorTerms.test(text)) return { ok: false, reason: "director-language" };
     if (selfPerformance.test(text) || selfPresentation.test(text)) return { ok: false, reason: "self-performance-direction" };
     if (stratCompare.test(text) || wrapup.test(text)) return { ok: false, reason: "post-hoc-planning" };
-    if (verdict.test(text) || ledger.test(text)) return { ok: false, reason: "verdict-and-filing" };
+    if (verdict.test(text) || verdictLoose.test(text) || ledger.test(text)) return { ok: false, reason: "verdict-and-filing" };
     if (hasReplyPlan && (hasRecap || hasClassify)) return { ok: false, reason: "recap-and-reply-plan" };
     if (hasRecap && hasClassify) return { ok: false, reason: "user-analysis" };
     return { ok: true, reason: "inner-voice" };
