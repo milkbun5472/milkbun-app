@@ -7260,10 +7260,15 @@ function GroupThread({
   // 记忆互通关掉时本来就不会自发，这颗开关也就不出现——免得按了没反应
   gs.memoryInterop && chatMode !== "ooc" ? h("button", {
     onClick: () => onSaveSettings && onSaveSettings({ autoChat: gHold }),
-    className: "active:opacity-60 shrink-0",
+    className: "active:opacity-50 shrink-0",
     title: gHold ? "等我接话中 · 点一下让他们可以自己聊" : "他们可以自己聊 · 点一下改成等我接话",
-    style: { width: 26, height: 26, borderRadius: 999, border: "1.5px solid " + t.ink, background: gHold ? "transparent" : t.ink }
-  }) : null,
+    // 跟旁边那颗齿轮同一个分量：细线图标、不带底盘。v56.82 那颗实心圆点太重也太大了（她说「略丑…有点大」）。
+    // 关掉时图标褪成 t.fog 再压一道斜杠，就是通用的「静音」样子，一眼分得出。
+    style: { position: "relative", display: "flex", alignItems: "center" }
+  }, h(GChat, { size: 19, color: gHold ? t.fog : t.ink }),
+    gHold ? h("span", {
+      style: { position: "absolute", left: 1, top: "50%", width: 17, height: 1.3, borderRadius: 1, background: t.fog, transform: "rotate(-45deg)", transformOrigin: "center" }
+    }) : null) : null,
   h("button", {
     onClick: () => setSheet("settings"),
     className: "active:opacity-50"

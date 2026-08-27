@@ -15,7 +15,7 @@ const scan = (() => {
 
 // —— 把真的那段巡检抠出来跑，别拿模型推理代替测量 ——
 // 环境全是桩：群、设置、成员、额度卡、replyGroup 只记账不发请求。
-function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true, autoChat = true }) {
+function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true, autoChat = true, holdAfter = 0, resumeAfterMin = 0 }) {
   const src = (() => {
     const i = app.indexOf("const scanAutoGroups = () => {");
     return app.slice(i, app.indexOf("\n    };", i) + 6);
@@ -59,6 +59,10 @@ function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.
     NOW = T0 + t;
     const before = calls.length;
     scan();
+    // 中途翻成白色（等我接话）：她在第 holdAfter 轮之后按了那颗圆点
+    if (holdAfter && calls.length >= holdAfter) gs.autoChat = false;
+    // 过一阵再翻回黑色
+    if (resumeAfterMin && (NOW - T0) / 60000 >= resumeAfterMin) gs.autoChat = true;
     if (calls.length > before) {                 // 这一轮真的发了几条，额度卡照实扣
       for (let k = 0; k < perRound; k++) chat.push({ role: "assistant", ts: NOW + k * 700 });
       NOW += perRound * 700;
@@ -177,4 +181,16 @@ test("那颗圆点翻的就是群设置里的 autoChat，不另立一个会打�
 
 test("巡检那边照旧认这个开关，一个字没改", () => {
   assert.match(scan, /if \(!gs\.memoryInterop \|\| gs\.autoChat === false\) continue;/);
+});
+
+// 她 2026-08-27 问：「我原来开了他们 5 轮，他们聊到第三轮我换成白色，能把后面俩停了吗」
+test("聊到第三轮换成白色，后面两轮真的停得住", () => {
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, holdAfter: 3 });
+  assert.equal(got.length, 3, "该停在第 3 轮，实际发了 " + got.length + " 轮");
+});
+
+test("再翻回黑色，接着把剩下那两轮聊完（额度卡没被清掉）", () => {
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, holdAfter: 3, resumeAfterMin: 40, hours: 3 });
+  assert.equal(got.length, 5, "翻回来该接着聊满 5 轮，实际 " + got.length + " 轮");
+  assert.ok(got[3].minute > 40, "第 4 轮该发生在翻回来之后，实际 " + got[3].minute + " 分");
 });
