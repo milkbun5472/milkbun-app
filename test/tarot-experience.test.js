@@ -34,6 +34,15 @@ test("桌边追问单独留在塔罗存档，不直写正式记忆或主聊天",
   assert.doesNotMatch(follow, /saveJSON\("x_chat:/);
 });
 
+test("给角色算一卦的转发按钮在牌面前可见，并明确回执", () => {
+  const questionAt = tarot.indexOf('s.mode !== "daily" && s.question');
+  const forwardAt = tarot.indexOf('"把这一卦转发给 " + s.charName');
+  const cardsAt = tarot.indexOf('// 牌阵', questionAt);
+  assert.ok(questionAt >= 0 && forwardAt > questionAt && forwardAt < cardsAt);
+  assert.match(tarot, /setForwarded\(true\)/);
+  assert.match(tarot, /已转发给/);
+});
+
 test("店主只作为低存在感环境，不替角色解牌", () => {
   assert.match(tarot, /const SHOP_MOMENTS/);
   assert.match(tarot, /店主退到书架后面，把这张小桌留给你们/);

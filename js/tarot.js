@@ -536,6 +536,7 @@
     const s = props.session;
     const m = MODES[s.mode] || {};
     const [fwd, setFwd] = useState(false);
+    const [forwarded, setForwarded] = useState(false);
     const [followups, setFollowups] = useState(Array.isArray(s.followups) ? s.followups : []);
     const [followText, setFollowText] = useState("");
     const [followBusy, setFollowBusy] = useState(false);
@@ -578,7 +579,10 @@
     const doForward = async () => {
       if (fwd || !props.onForwardToChat) return;
       setFwd(true);
-      try { await props.onForwardToChat(s); } finally { setFwd(false); }
+      try {
+        await props.onForwardToChat(s);
+        setForwarded(true);
+      } finally { setFwd(false); }
     };
     const sendFollowup = async () => {
       const text = followText.trim();
@@ -606,6 +610,13 @@
         s.shopMoment ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, margin: "5px 0 12px", paddingLeft: 9, borderLeft: "2px solid " + GOLD } }, s.shopMoment) : null,
         s.consent && s.consent.line ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 10 } }, s.charName + "入座前说：『" + s.consent.line + "』") : null,
         s.mode !== "daily" && s.question ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, fontStyle: "italic", marginBottom: 16 } }, "「" + s.question + "」") : h("div", { style: { height: 12 } }),
+        // 「给角色算一卦」的主动作必须在牌面之前看得见，不能埋到整篇解读和追问区之后。
+        s.mode === "forchar" && props.onForwardToChat ? h("button", {
+          onClick: doForward, disabled: fwd || forwarded, className: "w-full active:opacity-80",
+          style: { margin: "0 0 18px", fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700,
+            color: forwarded ? ACCENT : "#fff", background: forwarded ? "rgba(74,63,107,.08)" : (fwd ? t.fog : ACCENT),
+            border: forwarded ? "1px solid rgba(74,63,107,.22)" : "1px solid transparent", borderRadius: 12, padding: "12px 0" }
+        }, fwd ? "正在转发…" : (forwarded ? "✓ 已转发给 " + s.charName : "把这一卦转发给 " + s.charName)) : null,
         // 牌阵
         h("div", { style: { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 22 } },
           cards.map((c, i) => cardTile(c, (s.spread || [])[i] || "", i))),
@@ -636,9 +647,7 @@
               style: { flex: 1, minWidth: 0, resize: "none", outline: "none", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "9px 10px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5 } }),
             h("button", { onClick: sendFollowup, disabled: followBusy || !followText.trim(), className: "active:opacity-70",
               style: { flexShrink: 0, width: 48, height: 48, borderRadius: 12, color: "#fff", background: followBusy || !followText.trim() ? t.fog : ACCENT, fontFamily: F_BODY, fontSize: 12 } }, followBusy ? "…" : "说"))) : null,
-        // 给角色算一卦：转发给 Ta
-        s.mode === "forchar" && props.onForwardToChat ? h("button", { onClick: doForward, disabled: fwd, className: "w-full active:opacity-80",
-          style: { marginTop: 18, fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700, color: "#fff", background: fwd ? t.fog : ACCENT, borderRadius: 12, padding: "12px 0" } }, fwd ? "正在转发…" : "把这一卦转发给 " + s.charName) : null));
+        null));
   }
 
   window.Tarot = Tarot;
