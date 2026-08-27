@@ -8542,6 +8542,30 @@ function ChatSettings({
   const temperamentWords = () => temperamentText.split(/[\n、，,;；]+/).map(x => x.trim()).filter(Boolean);
   const bgFileRef = useRef(null);
   const cNm = character.remark || character.name;
+  // 角色自己的「现在谁在影响我」说明书。只读 live gate / live state，绝不在设置页里偷偷开阀。
+  // 她 2026-08-27 要的是人话影响，不是再抄一排工程数字。
+  const innerLifeImpact = (() => {
+    const Gate = typeof window !== "undefined" && window.InnerLifePromotionGate;
+    const gateOf = name => Gate && Gate.state ? Gate.state(name, character.id) : { mode: "shadow", emergencyOff: false };
+    const aGate = gateOf("A"), eGate = gateOf("E");
+    const live = [], shadow = [];
+    if (eGate.mode === "pilot" && !eGate.emergencyOff) live.push({
+      key: "E", title: "余温 · 已开启", tone: "暖色",
+      text: "你点回复时，上一段交流留下的心情色彩和没说完的注意点，可能轻轻带进这一轮。只影响当下衔接，不会冒充经历、不会写进记忆，也不会强拉旧话题。"
+    });
+    if (aGate.mode === "pilot" && !aGate.emergencyOff) live.push({
+      key: "A", title: "立体情绪 · 已开启", tone: "情绪",
+      text: "受伤、生气、焦虑、温暖和疲劳会作为背景偏色轻调语气；它不能替 TA 决定说什么，单轮变化也有封顶。"
+    });
+    live.push({
+      key: "jiwen", title: "积温 · 已开启", tone: "主动性",
+      text: "只影响 TA 什么时候主动来找你，以及主动开口时的轻微姿态；不会改普通聊天回复。" + (jiwenState ? " 当前读数：想靠近 " + Number(jiwenState.connection || 0).toFixed(2) + "，傲娇 " + Number(jiwenState.pride || 0).toFixed(2) + "，心情 " + Number(jiwenState.valence || 0).toFixed(2) + "。" : " 当前还没有可显示的读数。")
+    });
+    if (aGate.mode !== "pilot" || aGate.emergencyOff) shadow.push("A 情绪立体化：只观察，不影响语气");
+    if (aShadowPanel && aShadowPanel.bReport && aShadowPanel.bReport.pilot) shadow.push("B 关系轴：只观察，不制造伤口或关系转折");
+    shadow.push("C 睡眠意识：只计算作息，不拦消息、不代替 TA 发言");
+    return { live, shadow };
+  })();
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),
     h(Toggle, { on: val, onChange: () => set(v => !v) }));
@@ -8587,7 +8611,18 @@ function ChatSettings({
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
     color: t.ink
-  }))), h(SettingSection, { title: "线路与身份", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
+  }))), h(SettingSection, { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
+      "这里只列真正接上行为的模块；“观察中”不会进入提示词，也不会改变 TA。"),
+    innerLifeImpact.live.map(item => h("div", { key: item.key, style: { marginTop: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
+      h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, item.title),
+        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: "#4a8b68", border: "1px solid #4a8b68", borderRadius: 999, padding: "2px 7px" } }, item.tone)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.7, marginTop: 6, whiteSpace: "pre-wrap" } }, item.text))),
+    h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
+      h(Eyebrow, null, "仍在观察 · 不影响 TA"),
+      innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text)))),
+  h(SettingSection, { title: "线路与身份", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "API 线路"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 4 } }, cNm + " 用哪条线路说话/写字——单聊·通话·线下·OOC·日记·朋友圈·情书·交换日记·时光胶囊·欲望盒子(灵光独白/小满盘点/毕业蜕变)，全走这条。给特别的人配本人的模型（如接 fable）。群聊多人同台、以及后台体力活（记忆抽取/行程钱包/观测者纸条）仍走全局，不受影响。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
