@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.56";
+const APP_VERSION = "v56.57";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2473,7 +2473,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const next = disp[idx + 1];
     let out = "今日安排（负荷 " + (s.load || "") + "）：\n" + disp.map(x => (x._charTime || x.time || "") + " " + x.title + (x.location ? "（" + x.location + "）" : "") + (x.deviation ? "［临时改动：" + (x.deviation.reason || "") + "］" : "")).join("\n");
     if (cur) out += "\n\n此刻（你当地约 " + (cur._charTime || cur.time || "") + "）Ta 正在：" + cur.title + (cur.location ? "，在 " + cur.location : "") + (cur.deviation ? "（这段是临时改动：" + (cur.deviation.reason || "") + "）" : "");
-    else out += "\n\n此刻还没到今天第一项，Ta 大概刚开始一天 / 还没起。";
+    else {
+      const cy = schedCarryNowFor(char);
+      out += cy
+        ? "\n\n此刻是你当地的凌晨，今天第一项（" + cy.wake + "）还没到——你还在昨晚那一觉里" + (cy.location ? "，在 " + cy.location : "") + "。若这时候还在跟 Ta 说话，那就是没睡着/被吵醒/熬着没睡，按那个状态来，别当成一天已经开始了。"
+        : "\n\n此刻还没到今天第一项，Ta 大概刚开始一天 / 还没起。";
+    }
     if (next) out += "\n待会儿：" + (next._charTime || next.time || "") + " " + next.title;
     // 天气搭日程便车进聊天（读缓存，零请求零新增常驻）：TA 家乡的天气，没设家乡用用户所在地
     try {
@@ -2530,6 +2535,34 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return (hr >= 8 && hr <= 23) ? "awake" : "asleep";
     } catch (e) { return "awake"; }
   };
+  // 过了 0 点那一截（v56.57，她 2026-08-27 报「聊天界面日程都显示还没开始今天的安排」）：
+  // 日程是一天一份的，昨晚 23:40 睡下、end 记到 24:00，今天这份里没人接着——
+  // 于是从 0 点到今天第一项之间，schedCurrentSeqIdx 一个都选不中，返回 -1。
+  // 日历那边 v56.47 已经用 schedSleepCarry 把这一截画出来了，状态这几处一直没跟上
+  //（.claude/rules/four-surfaces-same-context.md：这一层当初只写在一处，别处没跟上）。
+  // charAwakeState 早就按「今天第一项之前＝还没醒」判 asleep，这里跟它同一个假设。
+  const schedCarryNowFor = char => {
+    try {
+      if (!char) return null;
+      const plans = schedulesRef.current[char.id] || {};
+      const todayKey = schedLocalDayKey(char);
+      const today = plans[todayKey] || plans[schedDayKey(new Date())];
+      if (!today || !Array.isArray(today.seqs) || !today.seqs.length) return null;
+      const mm = t => { const x = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return x ? (+x[1]) * 60 + (+x[2]) : null; };
+      const firstMin = mm(today.seqs[0].time);
+      const nowMin = charLocalMin(char);
+      if (firstMin == null || nowMin >= firstMin) return null;   // 今天已经开场了，用不上这一截
+      const carry = typeof schedSleepCarry === "function"
+        ? schedSleepCarry(plans[schedShiftDayKey(todayKey, -1)], today) : null;
+      // 标题一律归一成「睡着」：昨晚最后那段叫「洗漱、准备睡」，凌晨三点拿它当"此刻正在做"是错的
+      return {
+        title: "睡着",
+        location: (carry && carry.location) || "",
+        wake: today.seqs[0].time || "",
+        carried: !!carry
+      };
+    } catch (e) { return null; }
+  };
   const schedNowBriefFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
@@ -2538,7 +2571,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const disp = schedDisplaySeqs(char, s.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
     const cur = idx >= 0 ? disp[idx] : null;
-    if (!cur) return { time: "", title: "还没开始今天的安排", location: "", dev: false };
+    if (!cur) {
+      const cy = schedCarryNowFor(char);
+      if (cy) return { time: "", title: cy.title, location: cy.location, type: "sleep", dev: false };
+      return { time: "", title: "还没开始今天的安排", location: "", dev: false };
+    }
     return { time: cur._myLabel || cur.time || "", title: cur.title || "", location: cur.location || "", type: cur.type || "other", dev: !!cur.deviation };
   };
   // 好友地图：所有角色此刻在做什么（供 pin 定位偏移 + 标签）
@@ -2684,7 +2721,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const disp = schedDisplaySeqs(char, sc.seqs);
       const idx = schedCurrentSeqIdx(disp, true, char);
       const cur = idx >= 0 ? disp[idx] : null;
-      if (!cur) return "";
+      if (!cur) {
+        const cy = schedCarryNowFor(char);
+        return cy ? cy.title + (cy.location ? "，在 " + cy.location : "") : "";
+      }
       return cur.title + (cur.location ? "，在 " + cur.location : "");
     } catch (e) { return ""; }
   };
