@@ -6647,6 +6647,9 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
       editing ? editBox : h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 13, fontStyle: "italic", lineHeight: 1.75, color: t.fog } }, m.content)));
   }
   return h("div", { className: "my-2.5" },
+    // 思考链画在这一拍的【上面】，和单聊同一个位置、同一个组件：一行字加箭头，没有框。
+    // 她 2026-08-27 看别家线下也有，问怎么弄的——线下以前压根没要过这个字段（v56.75）。
+    (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m }) : null,
     h("div", { style: { background: t.bg2, borderRadius: 16, padding: "14px 16px", border: `1px solid ${t.line}` } },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? (onOpenState ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
@@ -7570,6 +7573,11 @@ function GroupThread({
         WebkitTouchCallout: "none"
       }
     }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+  }).flatMap((row, i) => {
+    // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
+    // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
+    const _m = messages[i];
+    return (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m }), row] : [row];
   }), sending && h("div", {
     className: "flex items-center gap-2"
   }, h("div", {

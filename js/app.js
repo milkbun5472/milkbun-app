@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.75";
+const APP_VERSION = "v56.76";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3694,6 +3694,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     startLane("c:" + charId);
     try {
       const oCtx = ctxFor(char);
+      // 思考链（v56.75）：线下和单聊共用同一个每角色开关（聊天设置 →「显示模型思考链」）。
+      // 言秋那条线一个字都不碰——engineerEyes 的角色不传，和单聊那边同一道闸。
+      oCtx.wantReasoning = !settingsFor(charId).engineerEyes && !!settingsFor(charId).showReasoning;
       oCtx.styleExamples = pickOfflineStyleExamples(osFor(charId).examples, workSess.msgs || []);
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
@@ -3773,6 +3776,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         role: "char",
         content: res.scene,
         thought: res.thought,
+        ...(res.reasoning ? { reasoning: res.reasoning, reasonMs: res.reasonMs || 0, reasonModel: res.reasonModel || "", reasonFrom: res.reasonFrom || "" } : {}),
         cot: res.cot || null,
         cotRequested: !!res.cotRequested,
         ts: Date.now(),
@@ -4291,6 +4295,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) gOffImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
       const gCtx = ctxForGroupOffline(group);
+      // 思考链（v56.75）：群线下是一次调用写完所有人，谁的开关都算数——
+      // 在场任一成员开着就要（言秋那条线除外，engineerEyes 一律不算）。
+      gCtx.wantReasoning = (group.memberIds || []).some(id => {
+        const _s = settingsFor(id) || {};
+        return !_s.engineerEyes && !!_s.showReasoning;
+      });
       gCtx.memberStyleExamples = {};
       (group.memberIds || []).forEach(id => { gCtx.memberStyleExamples[id] = pickOfflineStyleExamples(osFor(id).examples, effectiveSess.msgs || []); });
       const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
@@ -4308,6 +4318,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           senderName: b.senderName,
           content: b.scene,
           thought: b.thought,
+          ...(b.reasoning ? { reasoning: b.reasoning, reasonMs: b.reasonMs || 0, reasonModel: b.reasonModel || "", reasonFrom: b.reasonFrom || "" } : {}),
           cot: b.cot || null,
           cotRequested: !!b.cotRequested,
           ts: Date.now(),
@@ -6131,6 +6142,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         } catch (e) {}
       }
       phase = "等模型回复";
+      // 思考链（v56.75）：群聊一次调用写完所有人，谁的开关都算数——
+      // 在场任一成员开着就要（言秋那条线除外）。挂在这一轮最先冒出来的那条气泡上。
+      const _gReasonMeta = {};
+      const _gWantReason = members.some(c => {
+        const _cs = settingsFor(c.id) || {};
+        return !_cs.engineerEyes && !!_cs.showReasoning;
+      });
       const raw = await callAI(active, system, [{
         role: "user",
         content: userContent,
@@ -6139,8 +6157,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // token 随人数放宽：人多一轮更长，别被 3000 截断（封顶 10000）
         maxTokens: Math.min(10000, 3200 + members.length * 900),
         // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
-        timeout: 180000
+        timeout: 180000,
+        wantReasoning: _gWantReason,
+        meta: _gReasonMeta
       });
+      if (_gWantReason && !_gReasonMeta.reasoning && typeof reasoningFromBody === "function") {
+        const _gFromBody = reasoningFromBody(raw);
+        if (_gFromBody) { _gReasonMeta.reasoning = _gFromBody; _gReasonMeta.from = "正文 <thinking>"; }
+      }
+      // 取一次就消费掉，别每条气泡都挂一份（和单聊那边同一个写法）
+      let _gReasonLeft = _gReasonMeta.reasoning
+        ? { reasoning: _gReasonMeta.reasoning, reasonMs: _gReasonMeta.ms || 0, reasonModel: _gReasonMeta.model || "", reasonFrom: _gReasonMeta.from || "" }
+        : null;
+      const _gTakeReason = () => { const r = _gReasonLeft; _gReasonLeft = null; return r || {}; };
       phase = "解析回复";
       // 群聊回复里全是对白，最容易踩「JSON 字符串正文里直接写了换行/裸引号」这两种坏法；
       // 走和主聊天、小剧场同一套加固解析，别再裸 extractJSON。
@@ -6229,6 +6258,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
                 senderName: spk.name,
                 content: gBubbles[j],
                 ...(gBiZh.get(bilingualKey(gBubbles[j])) ? { zh: gBiZh.get(bilingualKey(gBubbles[j])) } : {}),
+                ..._gTakeReason(),
                 ...(j === 0 ? gResolvedQuote : { replyTo: null }),
                 thought: j === gBubbles.length - 1 ? gThought : null,
                 mid: "gm_" + Date.now() + "_" + i + "_" + j,

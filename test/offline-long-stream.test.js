@@ -15,7 +15,7 @@ test("大请求走流式，短请求保持原路", () => {
   assert.match(engine, /两三分钟不吐一个字节/, "为什么要流式，得写在代码里");
   // 主调用 + 纯文本兜底两处都要带上（补写那一路 v55.62 起整个不存在了）
   assert.match(engine, /maxTokens: generationBudget,\n      stream: wantStreamOffline,/, "主调用");
-  assert.match(engine, /\{ maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wireScope: "offline"/, "纯文本兜底");
+  assert.match(engine, /\{ maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline"/, "纯文本兜底");
 });
 
 test("流式是安全替换：中转不支持会自动退回普通解析", () => {

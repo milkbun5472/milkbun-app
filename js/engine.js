@@ -4064,6 +4064,20 @@ function offlineMinimumSceneChars(value) {
 }
 
 
+// 思考链的第二个来源（v56.75）：有些中转把推理直接塞进正文的 <thinking>…</thinking> 里，
+// 而不是 reasoning_content / thought 那类字段。字段拿不到时再从正文捞一次。
+// 只读不改正文——正文该怎么解析还怎么解析（我们的正文是 JSON，标记块本来就会被 extractJSON 跳过）。
+// 全角尖括号也认：她那条线上见过模型打成 ＜thinking＞。
+function reasoningFromBody(text) {
+  const raw = String(text == null ? "" : text);
+  if (!raw) return "";
+  const open = raw.search(/[<＜]think(?:ing)?[>＞]/i);
+  if (open < 0) return "";
+  const after = raw.slice(open).replace(/^[<＜]think(?:ing)?[>＞]/i, "");
+  const close = after.search(/[<＜]\/think(?:ing)?[>＞]/i);
+  // 没有收尾标记＝模型忘了闭合或被截断，后面整段都算思考
+  return (close < 0 ? after : after.slice(0, close)).trim();
+}
 async function generateOffline(p, ctx, session) {
   const char = ctx.char;
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -4199,11 +4213,17 @@ async function generateOffline(p, ctx, session) {
   const canStream = routeCanStream(p);
   const generationBudget = generationMaxTokens;
   const wantStreamOffline = canStream && generationBudget >= 3000;
+  // 线下也给思考链（v56.75，她 2026-08-27）：和单聊同一个每角色开关，同一套 meta 出参。
+  // 言秋那条线一个字都不碰——ctx.notRoleplay 的角色 app 侧压根不会把 wantReasoning 传进来。
+  const _reasonMeta = {};
+  const _wantReason = !isDigital && !!ctx.wantReasoning;
   try {
     raw = await callAI(p, system, hist, {
       maxTokens: generationBudget,
       stream: wantStreamOffline,
       timeout: 180000,
+      wantReasoning: _wantReason,
+      meta: _reasonMeta,
       wireScope: "offline",
       wireMeta: {
         charId: char.id,
@@ -4236,7 +4256,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true } });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -4284,8 +4304,16 @@ async function generateOffline(p, ctx, session) {
   let rendererRepeatsAfter = offlineRepeatedDimensionCount(scene);
   if (singlePassRevisionRequested) rewriteLengthRatio = draftScene.length ? scene.length / draftScene.length : 1;
   const affinityDelta = Number.isFinite(parsed.affinityDelta) ? Math.max(-5, Math.min(5, parsed.affinityDelta)) : 0;
+  if (_wantReason && !_reasonMeta.reasoning) {
+    const _fromBody = reasoningFromBody(raw);
+    if (_fromBody) { _reasonMeta.reasoning = _fromBody; _reasonMeta.from = "正文 <thinking>"; }
+  }
   return {
     scene,
+    reasoning: _reasonMeta.reasoning || "",
+    reasonMs: _reasonMeta.ms || 0,
+    reasonModel: _reasonMeta.model || "",
+    reasonFrom: _reasonMeta.from || "",
     cot: sp.cot,
     // 开关开启就保留入口；保险回退或模型漏掉标记时明确显示“本轮未返回”，不整行消失。
     cotRequested: !!requestedCotT,
@@ -4515,8 +4543,11 @@ async function generateOfflineGroup(p, ctx, session) {
   }
   let raw;
   let usedCot = !!cotT;
+  // 思考链（v56.75）：和单人线下同一套 meta 出参；整批只想一次，挂在第一个 beat 上
+  const _reasonMeta = {};
+  const _wantReason = !!ctx.wantReasoning;
   try {
-    raw = await callAI(p, system, hist, { maxTokens: gBudget, timeout: 180000 });
+    raw = await callAI(p, system, hist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -4526,7 +4557,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: gBudget, timeout: 180000 });
+    raw = await callAI(p, plainSystem, plainHist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -4566,6 +4597,16 @@ async function generateOfflineGroup(p, ctx, session) {
   // 群聊线下：整批只想一次，把这次思考挂在第一个 beat 上（供「看TA怎么想的」展开）
   if (out.length && sp.cot) out[0].cot = sp.cot;
   if (out.length && cotT) out[0].cotRequested = true;
+  if (_wantReason && !_reasonMeta.reasoning) {
+    const _fromBody = reasoningFromBody(raw);
+    if (_fromBody) { _reasonMeta.reasoning = _fromBody; _reasonMeta.from = "正文 <thinking>"; }
+  }
+  if (out.length && _reasonMeta.reasoning) {
+    out[0].reasoning = _reasonMeta.reasoning;
+    out[0].reasonMs = _reasonMeta.ms || 0;
+    out[0].reasonModel = _reasonMeta.model || "";
+    out[0].reasonFrom = _reasonMeta.from || "";
+  }
   return out;
 }
 async function summarizeOfflineGroup(p, ctx, session) {
