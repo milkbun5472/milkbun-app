@@ -1738,7 +1738,7 @@ function Forum({
   else { title = forumUnreadTotal > 0 ? "论坛 · " + forumUnreadTotal + " 条新回复" : "论坛"; bodyEl = homeFeed(); rightEl = (tab === "收藏" || tab === "关注") ? null : h("button", { onClick: () => onGenBoard(tab), disabled: gen && gen.forum === tab, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 19, color: t.ink })); }
 
   return h("div", { className: "h-full flex flex-col" },
-    h("div", { className: "shrink-0 px-4 pb-2 flex items-center gap-3", style: { paddingTop: safeTop(16), borderBottom: (inSub || nav === "home") ? "none" : `1px solid ${t.line}` } },
+    h("div", { className: "shrink-0 px-4 pt-4 pb-2 flex items-center gap-3", style: { borderBottom: (inSub || nav === "home") ? "none" : `1px solid ${t.line}` } },
       h("button", { onClick: backFn || onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
       h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, title),
       h("div", { className: "flex items-center gap-3.5" }, (!inSub) && h("button", { onClick: () => setSettingsOpen(true), className: "active:opacity-50" }, h(GConfig, { size: 18, color: t.ink })), rightEl)),
@@ -1845,7 +1845,7 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
   const doGen = (append) => onGen(cat, search, append);
 
   // ---------- 顶栏（搜索 + 刷新）----------
-  const topBar = h("div", { className: "shrink-0 px-4 pb-2 flex items-center gap-3", style: { paddingTop: safeTop(16), background: t.bg2, borderBottom: "1px solid " + t.line } },
+  const topBar = h("div", { className: "shrink-0 px-4 pt-4 pb-2 flex items-center gap-3", style: { background: t.bg2, borderBottom: "1px solid " + t.line } },
     h("button", { onClick: onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
     h("div", { className: "flex-1 flex items-center gap-2 px-4 h-9", style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 999 } },
       h(ISearch, { size: 15, color: t.fog }),
@@ -2030,7 +2030,7 @@ function KinshipBill({ card, character, onBack, onRaise }) {
   const remaining = Math.round(((card.limit || 0) - (card.used || 0)) * 100) / 100;
   const ledger = card.ledger || [];
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), background: t.bg2, borderBottom: "1px solid " + t.line } },
+    h("div", { className: "shrink-0 px-4 pt-5 pb-3 flex items-center gap-3", style: { background: t.bg2, borderBottom: "1px solid " + t.line } },
       h("button", { onClick: onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, (c.name || "") + " 的亲属卡")),
     h("div", { className: "flex-1 overflow-y-auto" },
@@ -7450,7 +7450,7 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
   };
   if (view === "cards") {
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), background: t.bg2, borderBottom: "1px solid " + t.line } },
+      h("div", { className: "shrink-0 px-4 pt-5 pb-3 flex items-center gap-3", style: { background: t.bg2, borderBottom: "1px solid " + t.line } },
         h("button", { onClick: () => setView("main"), className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "亲属卡"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: "auto" } }, "角色给你的卡 · 刷他们的钱")),
@@ -7472,7 +7472,7 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
           })));
   }
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h("div", { className: "shrink-0 px-4 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20), background: t.bg2, borderBottom: "1px solid " + t.line } },
+    h("div", { className: "shrink-0 px-4 pt-5 pb-3 flex items-center gap-3", style: { background: t.bg2, borderBottom: "1px solid " + t.line } },
       h("button", { onClick: onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "我的钱包"),
       h("button", { onClick: () => setView("cards"), className: "ml-auto active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#fff", background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null)),
@@ -7697,7 +7697,7 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
 
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
     // Header
-    h("div", { className: "shrink-0 px-6 pb-4 flex items-start justify-between", style: { paddingTop: safeTop(24) } },
+    h("div", { className: "shrink-0 px-6 pt-6 pb-4 flex items-start justify-between" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 34, color: t.ink, lineHeight: 1 } }, "Emote Matrix"),
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: "0.3em", color: t.fog, marginTop: 6 } }, "EXPRESSION & MIMICRY")),

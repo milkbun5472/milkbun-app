@@ -230,7 +230,7 @@
       : ["帮我把现在的文风改得更克制一点", "照我贴的这段范文写一份文风预设", "帮我给某个角色改改人设"];
 
     return h("div", { style: S.wrap },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid " + t.line } },
         h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
         h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "帮手"),
         h("button", { onClick: () => setMode("chat"), style: S.chip(mode === "chat") }, "改东西"),

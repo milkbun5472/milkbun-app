@@ -184,7 +184,7 @@
     // ---- 往期回看 ----
     if (view === "archive") {
       return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-        h("div", { className: "shrink-0 px-5 pb-3 flex items-center gap-3", style: { paddingTop: safeTop(20) } },
+        h("div", { className: "shrink-0 px-5 pt-5 pb-3 flex items-center gap-3" },
           h("button", { onClick: () => setView("setup"), className: "active:opacity-50", style: { background: "transparent", border: "none" } }, h(IArrow, { size: 19, color: t.ink })),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "专注记录")),
         h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
@@ -237,7 +237,7 @@
     // ---- 落地 / setup ----
     const cur = charOf(charId);
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between", style: { paddingTop: safeTop(20) } },
+      h("div", { className: "shrink-0 px-5 pt-5 pb-2 flex items-center justify-between" },
         h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center gap-2", style: { background: "transparent", border: "none" } },
           h(IArrow, { size: 18, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, letterSpacing: "0.16em", color: t.ink } }, "BACK")),
         h("button", { onClick: () => setView("archive"), className: "active:opacity-70 flex items-center gap-2", style: { border: "1px solid " + t.line, borderRadius: 999, padding: "7px 14px", background: t.bg2 } },

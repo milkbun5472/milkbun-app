@@ -344,7 +344,7 @@
         : null);
 
     return h("div", { style: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg } },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid " + t.line } },
         h("button", { onClick: props.onBack, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
         h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "文风预设台"),
         h("button", { onClick: () => setTab("build"), style: S.chip(tab === "build") }, "搭预设"),

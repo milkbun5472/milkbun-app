@@ -348,7 +348,7 @@
       wrap: { position: "relative", height: "100%", display: "flex", flexDirection: "column", background: t.bg },
       btn: on => ({ padding: "6px 12px", borderRadius: 999, border: "1px solid " + (on ? t.accent : t.line), background: on ? t.accent : "transparent", color: on ? "#fff" : t.ink, fontFamily: F_BODY, fontSize: 12 })
     };
-    const header = (title, right) => h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", paddingTop: safeTop(10), borderBottom: "1px solid " + t.line } },
+    const header = (title, right) => h("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid " + t.line } },
       h("button", { onClick: back, style: { background: "none", border: "none", color: t.ink, fontSize: 19, padding: "2px 6px" } }, "←"),
       h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, title), right || null);
     function back() {
