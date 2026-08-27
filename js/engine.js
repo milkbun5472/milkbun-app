@@ -3477,6 +3477,43 @@ function translatableLang(text) {
   if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
   return "";
 }
+// 双语（v56.56，她 2026-08-26 的主意）：与其事后拿免费接口去翻——那东西把
+// 「傘さすか迷うレベルで湿気すごい」翻成「您可能会迷失在雨伞中」——不如让模型
+// 生成的时候顺手带出来。它知道上下文、知道这个人怎么说话，译得根本不是一个水平；
+// 而且她按次计费，多这几十个 token 一分钱不多花。
+// 约定：那一条气泡写成「原文 | 中文」。用竖线是因为它几乎不会出现在正常聊天里。
+// 守卫从严——宁可当成普通一句放过去，也不能把带竖线的正常消息劈成两半：
+//   ① 有且只有一根竖线；② 两边都非空；③ 右边必须有汉字；④ 两边不能一模一样。
+//   ⑤ 左边必须【看得出是外语】——有假名/谚文/西里尔/拉丁字母都行，
+//      唯独「有汉字、又一个外文字符都没有」的那种是正常中文，不许劈：
+//      「价格 3|5 元」是她随手打的一句话，不是双语。
+function splitBilingual(text) {
+  const t = String(text == null ? "" : text);
+  const i = t.indexOf("|");
+  if (i <= 0 || i !== t.lastIndexOf("|")) return null;
+  const orig = t.slice(0, i).trim(), zh = t.slice(i + 1).trim();
+  if (!orig || !zh) return null;
+  if (!/[\u4e00-\u9fff]/.test(zh)) return null;
+  if (orig === zh) return null;
+  const foreign = /[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(orig);
+  if (/[\u4e00-\u9fff]/.test(orig) && !foreign) return null;
+  return { text: orig, zh: zh };
+}
+// 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
+// stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。
+function bilingualKey(s) {
+  return String(s == null ? "" : s).replace(/[\u3002\uff0e.\s]+$/, "");
+}
+// 提示词那一半：单聊说「这个角色」，群里点名说是谁——两处用同一段字，
+// 免得又变成「这一层只写在一处」（.claude/rules/four-surfaces-same-context.md）。
+function bilingualRule(who) {
+  const w = who ? "\u300c" + who + "\u300d" : "\u8fd9\u4e2a\u89d2\u8272";
+  return "\u3010\u53cc\u8bed\u3011" + w + "\u5f00\u7740\u300c\u5916\u8bed\u6d88\u606f\u81ea\u5e26\u4e2d\u8bd1\u300d\uff1a\u51e1\u662f TA \u8fd9\u4e00\u6761\u8bf4\u7684\u3010\u4e0d\u662f\u4e2d\u6587\u3011\uff0c\u5c31\u628a\u8fd9\u4e00\u6761\u5199\u6210\u300c\u539f\u6587 | \u4e2d\u6587\u300d"
+    + "\u2014\u2014\u4e00\u6839\u7ad6\u7ebf\uff08|\uff09\u9694\u5f00\uff0c\u5de6\u8fb9\u539f\u539f\u672c\u672c\u5c31\u662f TA \u8981\u8bf4\u7684\u90a3\u53e5\u5916\u8bed\uff08\u522b\u6539\u5199\u3001\u522b\u52a0\u6ce8\u97f3\uff09\uff0c\u53f3\u8fb9\u662f\u5b83\u7684\u4e2d\u6587\u610f\u601d\u3002"
+    + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
+    + "\u8bf4\u4e2d\u6587\u7684\u90a3\u4e9b\u6761\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
+    + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002";
+}
 const TRANS_CACHE_KEY = "x_transCache";
 const TRANS_CACHE_MAX = 400;
 function _transKey(text) {

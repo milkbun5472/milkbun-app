@@ -96,7 +96,7 @@ test("中文消息零开销：不多包一层 DOM", () => {
 });
 
 test("单聊和群聊两处气泡都接上了", () => {
-  assert.equal((comp.match(/h\(TransText, \{ text: m\.content, isU: isU \}\)/g) || []).length, 2);
+  assert.equal((comp.match(/h\(TransText, \{ text: m\.content, isU: isU, zhReady: m\.zh \}\)/g) || []).length, 2);
   // 撤回的那条正文是「已撤回」占位，不该挂译按钮
   assert.match(comp, /m\.recalled \? m\.content : h\(TransText/);
 });

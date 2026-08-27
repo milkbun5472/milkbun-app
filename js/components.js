@@ -3839,7 +3839,7 @@ function ChatThread({
         fontSize: 10.5,
         opacity: 0.7
       }
-    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU })), !selMode && !m.kind && last && subLine(m) && /*#__PURE__*/React.createElement("span", {
+    }, m.dir === "toChar" ? "转账" : "转账给你"))) : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), !selMode && !m.kind && last && subLine(m) && /*#__PURE__*/React.createElement("span", {
       style: {
         fontFamily: F_BODY,
         fontSize: 9.5,
@@ -4859,13 +4859,19 @@ function pinToBottom(el, ms) {
 // 外语气泡：点一下把气泡撑开、下面显示中文（她 2026-08-25 要的，形状照抄上面的语音转文字）。
 // 绝大多数消息是中文 → translatableLang 返回空串 → 直接把原字符串还回去，不多包一层 DOM、零开销。
 // 点了才调 API（她按次计费），译文按原文缓存，同一句再出现免费。
-function TransText({ text, isU }) {
+// zhReady = 模型生成这条的时候自己带出来的中译（双语开关，v56.56）。
+// 有它就不再跑免费接口——那东西把「傘さすか迷うレベルで湿気すごい」翻成
+// 「您可能会迷失在雨伞中」；说这句话的人自己译，根本不是一个水平。
+// 译键的位置和展开样式一个字不改：她 2026-08-26 说了「我喜欢在旁边可以按翻译」。
+function TransText({ text, isU, zhReady }) {
   const t = useTheme();
-  const lang = typeof translatableLang === "function" ? translatableLang(text) : "";
+  const _lang = typeof translatableLang === "function" ? translatableLang(text) : "";
+  // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准
+  const lang = zhReady ? (_lang || "外语") : _lang;
   const [open, setOpen] = useState(false);
-  const cached = lang && typeof transCacheGet === "function" ? transCacheGet(text) : null;
-  const [zh, setZh] = useState(() => (cached && cached.zh) || "");
-  const [by, setBy] = useState(() => (cached && cached.by) || "");
+  const cached = lang && !zhReady && typeof transCacheGet === "function" ? transCacheGet(text) : null;
+  const [zh, setZh] = useState(() => zhReady || (cached && cached.zh) || "");
+  const [by, setBy] = useState(() => zhReady ? "他自己给的" : (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   // ⚠️提前 return 必须排在所有 hook 之后：卡在 useEffect 前面就是条件调用 hook，
@@ -7559,7 +7565,7 @@ function GroupThread({
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none"
       }
-    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU })), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
+    }, bubbleSticker(isU), m.recalled ? m.content : h(TransText, { text: m.content, isU: isU, zhReady: m.zh })), !m.recalled && subLine(m) && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, subLine(m))), isU && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 })));
   }), sending && h("div", {
     className: "flex items-center gap-2"
   }, h("div", {
@@ -8504,6 +8510,8 @@ function ChatSettings({
   const [autoMoment, setAutoMoment] = useState(!!settings.autoMoment);
   // 模型思考链（v56.42）：默认关。她要它是为了看模型当时在想什么、以及验中转有没有换模型。
   const [showReasoning, setShowReasoning] = useState(!!settings.showReasoning);
+  // 双语（v56.56）：让模型生成的时候顺手把中译一起给出来，替掉事后调免费接口那条路
+  const [bilingual, setBilingual] = useState(!!settings.bilingual);
   const [proactive, setProactive] = useState(!!settings.proactive);
   const [defaultOffline, setDefaultOffline] = useState(!!settings.defaultOffline);
   const [proactiveHr, setProactiveHr] = useState(Math.max(1, Math.round((settings.proactiveMin || 120) / 60)));
@@ -8556,6 +8564,7 @@ function ChatSettings({
       sumBuffer,
       autoMoment,
       showReasoning,
+      bilingual,
       proactive,
       proactiveMin: proactiveHr * 60,
       showMyAvatar,
@@ -8622,7 +8631,11 @@ function ChatSettings({
     dispRow("显示模型思考链", showReasoning, setShowReasoning),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"
-      + "只有支持思考链的模型才有；开着却一直不出现，说明这条线路的模型不返回它。")),
+      + "只有支持思考链的模型才有；开着却一直不出现，说明这条线路的模型不返回它。"),
+    dispRow("外语消息自带中译", bilingual, setBilingual),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+      "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来，点气泡旁边的「译」直接展开——"
+      + "不再走免费翻译接口。说这句话的人自己译，语气和上下文都对得上。中文消息不受影响。")),
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),

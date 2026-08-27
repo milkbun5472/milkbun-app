@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.55";
+const APP_VERSION = "v56.56";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4876,6 +4876,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       const capabilityHint = "\n【本轮开放能力】" + openCaps.join(", ") + (capState.length ? "\n【本轮能力状态】\n" + capState.join("\n") : "");
+      // 双语（v56.56）：常量本身按角色稳定，放进 stable 段不影响历史缓存命中
+      const _bilingualOn = !_s.engineerEyes && !!_s.bilingual && typeof bilingualRule === "function";
+      const _biRuleLine = _bilingualOn ? "\n" + bilingualRule("") : "";
       const _normalProtocolStable = `
 
 【生成与输出协议】
@@ -4897,7 +4900,7 @@ ${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
-laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。没说过就【省略】，绝不许为了制造互动硬填。`;
+laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
       const selfTask = _s.engineerEyes
@@ -5145,9 +5148,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       words = words.reduce((acc, w) => acc.concat(String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).filter(Boolean);
+      // ①.8 双语（v56.56）：把「原文 | 中文」劈开——中译单独收着，原文照常往下走拆泡那一串。
+      //      必须排在拆泡【之前】：不然长句会被从中间断开，竖线两边各落进一个气泡。
       // ② 再把仍塞了一大段（多句）的按句末标点拆成一句一泡；一路逗号连下去的长句同样拆
       //    （splitLongBubble 两档合一，群聊用的是同一个函数——见 engine.js 上方那段）
-      words = words.reduce((acc, w) => acc.concat(splitLongBubble(w, !_s.engineerEyes)), []);
+      //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
+      const _biZh = new Map();
+      words = words.reduce((acc, w) => {
+        const bi = _bilingualOn ? splitBilingual(w) : null;
+        const parts = splitLongBubble(bi ? bi.text : w, !_s.engineerEyes);
+        // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
+        if (bi && parts.length) _biZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
+        return acc.concat(parts);
+      }, []);
       // ②.5 打字体标点兜底（v54.81）：削掉每一泡句尾那个句号。放在拆泡【之后】——
       //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
       //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
@@ -5256,6 +5269,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         pChat(charId, p => [...p, {
           role: "assistant",
           content: words[i],
+          ...(_biZh.get(bilingualKey(words[i])) ? { zh: _biZh.get(bilingualKey(words[i])) } : {}),
           replyTo: i === 0 && !recall ? quote : null,
           ts: _tsOf(i),
           turnId,
@@ -5918,6 +5932,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
       const gGrowthHint = gEvolveNames.length ? "\n\n【这些成员会成长·不冻在原卡里：" + gEvolveNames.join("、") + "】\n他们的人设卡是【起点和底色】不是牢笼：硬核（身份／世界观／说话底色／明确边界／真实发生过的重要经历）绝不因几轮相处被改写或软化；但软层（和用户亲近的方式／处理冲突闹别扭的习惯／偏好／勇气／信任／对未来怎么选）允许被各自『长出来的自我』推着长成新样子。只有【已沉淀成正式人格档案（上面那段『长出来的自我』）】的成长才算数、才可盖过原卡软倾向；最近几轮的经历只能让 TA 当下有所松动，不等于人格已永久改变。冲突时：明确硬设定与边界 ＞ 已固化的成长 ＞ 原卡软倾向 ＞ 通用默认。**其余在场成员照旧严格贴合各自原卡、不适用本条。**" : "";
+      // 双语（v56.56）：开关是【每个角色自己的】聊天设置，群里就按各人自己那一档来——
+      // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊有的层群聊也要有，
+      // 别又变成同一件事只写在单聊那一处。线下（叙事正文）没有译键、也切不出「原文|译文」
+      // 这个单位，所以那两处不接——这是写明理由的差异，不是漏。
+      const gBiHint = (typeof bilingualRule === "function"
+        ? members.filter(c => !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => "\n\n" + bilingualRule(c.name) + "（只对 " + c.name + "，别的成员照常写。）").join("")
+        : "");
       const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
       let interop = "";
       // ⭐封闭群改成【只进不出】（她 2026-08-24：「长出来的自我、记忆库这些要只进不出，
@@ -6012,7 +6033,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           // 群里只剩一个人时「写谁那一条」是空问句，直接点名，别让模型去解一个没有分支的选择题
           : "完全代入「" + ((members[0] || {}).name || "在场的角色") + "」，")
         + "\n\n" + GROUP_MULTI_BUBBLE;
-      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + "\n\n" + STOCK_REPLY_BAN + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + GROUP_IN_CHARACTER + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + "\n\n" + STOCK_REPLY_BAN + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + GROUP_IN_CHARACTER + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -6123,8 +6144,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             const rawLines = window.GroupIdentityGuard ? window.GroupIdentityGuard.splitBubbles(item.text) : String(item.text || "").split(/\n+/);
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
+            // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
+            const gBiOn = !!(settingsFor(spk.id) || {}).bilingual;
+            const gBiZh = new Map();
             const gLines = rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).filter(Boolean)
-              .reduce((acc, x) => acc.concat(splitLongBubble(x, gAllowComma)), []);
+              .reduce((acc, x) => {
+                const bi = gBiOn ? splitBilingual(x) : null;
+                const parts = splitLongBubble(bi ? bi.text : x, gAllowComma);
+                if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
+                return acc.concat(parts);
+              }, []);
             const gBubbles = gLines.length ? gLines : [stripAiStamp(item.text || "")].filter(Boolean);
             // 记忆互通时把心声挂在末条气泡上显示
             const gThought = gs.memoryInterop && item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
@@ -6136,6 +6165,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
                 senderId: spk.id,
                 senderName: spk.name,
                 content: gBubbles[j],
+                ...(gBiZh.get(bilingualKey(gBubbles[j])) ? { zh: gBiZh.get(bilingualKey(gBubbles[j])) } : {}),
                 ...(j === 0 ? gResolvedQuote : { replyTo: null }),
                 thought: j === gBubbles.length - 1 ? gThought : null,
                 mid: "gm_" + Date.now() + "_" + i + "_" + j,
@@ -12236,6 +12266,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             timeSec: s.timeSec,
             showRead: s.showRead,
             showReasoning: s.showReasoning,
+            bilingual: !!s.bilingual,
             selfP: s.selfP,
             userP: s.userP,
             describeMe: s.describeMe,

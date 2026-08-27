@@ -44,7 +44,7 @@ test("译键留在气泡旁边，长按菜单里不许有翻译", () => {
 
 // 提前 return 卡在 hook 前面＝条件调用 hook，同一条消息编辑过就会对不上、当场炸
 test("TransText 的提前 return 排在所有 hook 之后", () => {
-  const i = comp.indexOf("function TransText({ text, isU })");
+  const i = comp.indexOf("function TransText({ text, isU, zhReady })");
   const body = comp.slice(i, comp.indexOf("// 语音消息：", i));
   const lastHook = Math.max(body.lastIndexOf("useState("), body.lastIndexOf("useEffect("));
   const early = body.indexOf("if (!lang) return text;");
@@ -52,7 +52,7 @@ test("TransText 的提前 return 排在所有 hook 之后", () => {
 });
 
 test("长消息走切块版，别整段塞进 GET 的 query 里", () => {
-  const i = comp.indexOf("function TransText({ text, isU })");
+  const i = comp.indexOf("function TransText({ text, isU, zhReady })");
   const body = comp.slice(i, comp.indexOf("// 语音消息：", i));
   assert.match(body, /translateLongToZh\(text, lang\)/);
 });
