@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.74";
+const APP_VERSION = "v56.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8314,7 +8314,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const ls = splitSayLine(stripName(sy) || "");
           for (const ln of ls) {
             if (ln.act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: ln.act });
-            else pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: ln.speech });
+            else {
+              pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: ln.speech });
+              // v56.70 首句提速：气泡落地瞬间就预热 TTS 合成（ttsSpeak 自带缓存），
+              // 播放循环轮到它时直接缓存命中——首句等待从「合成+播放」缩到只剩「播放」
+              try { if (char.voiceId && typeof ttsSpeak === "function") ttsSpeak(ln.speech, char.voiceId).catch(() => {}); } catch (e) {}
+            }
             streamedLines++;
           }
         };
