@@ -15,7 +15,7 @@ const scan = (() => {
 
 // —— 把真的那段巡检抠出来跑，别拿模型推理代替测量 ——
 // 环境全是桩：群、设置、成员、额度卡、replyGroup 只记账不发请求。
-function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true }) {
+function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true, autoChat = true }) {
   const src = (() => {
     const i = app.indexOf("const scanAutoGroups = () => {");
     return app.slice(i, app.indexOf("\n    };", i) + 6);
@@ -24,7 +24,7 @@ function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.
   const T0 = Date.UTC(2026, 7, 27, 2, 0, 0);   // 真实时间轴，别从 0 起（会假装每个人的认领冷却都没过）
   let NOW = T0;
   const store = {}, calls = [];
-  const gs = { memoryInterop: true, autoChat: true, autoChatMin: minutes, autoChatRounds: rounds, autoChatMaxMsg: maxMsg, autoChatResetHours: 24 };
+  const gs = { memoryInterop: true, autoChat: autoChat, autoChatMin: minutes, autoChatRounds: rounds, autoChatMaxMsg: maxMsg, autoChatResetHours: 24 };
   const chat = [{ role: "user", ts: T0 }];      // 她先说了一句 → 开一张新额度卡
   const env = {
     groups: [{ id: G, memberIds: ["c1", "c2"] }],
@@ -158,31 +158,23 @@ test("黑键那一下要把她最后那句话的时间一起记上", () => {
   assert.match(seg, /resetAutoChatCycle\(groupId, _lastUserTs, true\)/, "找到的时间要传进去");
 });
 
-// 她 2026-08-27：「有时候只是我还没来得及接话」——她说完、他们答完，
-// 这一段的第一轮自发要把话头留给她一会儿，别马上自己聊开。
-test("她刚说完话，第一轮自发要多等；聊起来之后照常按间隔走", () => {
-  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50 });
-  assert.equal(got.length, 5, "该跑的轮数一轮不能少");
-  const first = got[0].minute;
-  const step = got[1].minute - got[0].minute;
-  assert.ok(first > step * 2, "第一轮该明显比后面慢：第一轮 " + first + " 分，后面每轮 " + step + " 分");
-  assert.ok(first < 13, "也别等太久，实际 " + first + " 分");
-  got.slice(1).forEach((x, i) => {
-    const d = x.minute - got[i].minute;
-    assert.ok(Math.abs(d - step) < 0.5, "第 " + (i + 2) + " 轮之后的间隔该回到正常值，实际 " + d + " 分");
-  });
+// 「有时候只是我还没来得及接话」原本是靠猜的（第一轮多等三倍）。v56.80 改成她自己说了算：
+// 顶栏那颗圆点白＝等我接话，群设置里的 autoChat 直接关掉，巡检压根不碰这个群。
+// 所以这里只要证明【关掉就一轮都不发】，不再有需要调的宽限倍数。
+test("关掉自发就一轮都不发——白色那一档是真的停", () => {
+  const off = drive({ minutes: 3, rounds: 5, maxMsg: 50, autoChat: false });
+  assert.equal(off.length, 0, "关掉了还发了 " + off.length + " 轮");
 });
 
-test("按过黑键的那一段不等——那是她明说了要他们聊", () => {
-  const kicked = drive({ minutes: 3, rounds: 5, maxMsg: 50, kicked: true });
-  const plain = drive({ minutes: 3, rounds: 5, maxMsg: 50 });
-  assert.ok(kicked[0].minute < plain[0].minute,
-    "黑键那一段第一轮该更快：黑键 " + kicked[0].minute + " 分，平常 " + plain[0].minute + " 分");
+test("那颗圆点翻的就是群设置里的 autoChat，不另立一个会打架的状态", () => {
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  assert.match(comp, /const gHold = gs\.autoChat === false;/, "白/黑读的就是 autoChat");
+  assert.match(comp, /onSaveSettings\(\{ autoChat: gHold \}\)/, "点一下就翻它");
+  // 状态要看得见：底下那颗按钮跟着变色，顶栏副标题也写一句
+  assert.match(comp, /background: gHold \? t\.bg2 : t\.ink/, "底下那颗按钮没跟着变白");
+  assert.match(comp, /gHold \? " · 等我接话" : ""/, "顶栏没写出当前是哪一档");
 });
 
-test("宽限只挡第一轮，挡不住已经聊起来的那几轮", () => {
-  const src = app.slice(app.indexOf("const scanAutoGroups = () => {"));
-  assert.match(src, /if \(rounds === 0 && !cycle\.kicked\) \{\n\s*const sinceUser/, "条件得同时看轮数和黑键");
-  assert.match(src, /sinceUser < gap \* AUTO_FIRST_ROUND_GRACE\) continue;/);
-  assert.match(app, /const AUTO_FIRST_ROUND_GRACE = 3;/, "倍数要有名字，别裸写在判断里");
+test("巡检那边照旧认这个开关，一个字没改", () => {
+  assert.match(scan, /if \(!gs\.memoryInterop \|\| gs\.autoChat === false\) continue;/);
 });

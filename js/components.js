@@ -7204,6 +7204,9 @@ function GroupThread({
     setPhotoOpen(false);
   };
   const gChatBg = settings && settings.chatBg;
+  // 白＝等我接话（他们不自己聊），黑＝他们可以自己去聊。翻的就是群设置里那个「群里自发聊天」，
+  // 不另立一个会跟它打架的状态（她 2026-08-27 定的形状：开关放设置旁，状态画在底下那颗按钮上）。
+  const gHold = gs.autoChat === false;
   return h("div", {
     className: "h-full flex flex-col",
     style: gChatBg ? {
@@ -7253,7 +7256,15 @@ function GroupThread({
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
     }
-  }, chatMode === "ooc" ? "OOC 指令 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换")), h("button", {
+  }, chatMode === "ooc" ? "OOC 指令 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换" + (gHold ? " · 等我接话" : ""))),
+  // 记忆互通关掉时本来就不会自发，这颗开关也就不出现——免得按了没反应
+  gs.memoryInterop && chatMode !== "ooc" ? h("button", {
+    onClick: () => onSaveSettings && onSaveSettings({ autoChat: gHold }),
+    className: "active:opacity-60 shrink-0",
+    title: gHold ? "等我接话中 · 点一下让他们可以自己聊" : "他们可以自己聊 · 点一下改成等我接话",
+    style: { width: 26, height: 26, borderRadius: 999, border: "1.5px solid " + t.ink, background: gHold ? "transparent" : t.ink }
+  }) : null,
+  h("button", {
     onClick: () => setSheet("settings"),
     className: "active:opacity-50"
   }, h(GConfig, {
@@ -7694,13 +7705,15 @@ function GroupThread({
   })), chatMode !== "ooc" && h("button", {
     onClick: onReply,
     disabled: sending,
-    title: gs.spectate ? "让他们继续" : "让他们回复",
+    // 白的时候按它＝只让他们回一轮，回完仍旧等你；黑的时候＝回一轮并开一段自发
+    title: gHold ? (gs.spectate ? "让他们演一轮（回完仍旧等你）" : "让他们回一轮（回完仍旧等你）") : (gs.spectate ? "让他们继续" : "让他们回复"),
     className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0",
     style: {
       width: 40,
       height: 40,
       borderRadius: 999,
-      background: t.ink
+      background: gHold ? t.bg2 : t.ink,
+      border: gHold ? "1.5px solid " + t.ink : "none"
     }
   }, sending ? h("div", {
     className: "flex gap-0.5"
@@ -7708,12 +7721,12 @@ function GroupThread({
     key: i,
     className: "w-1 h-1 rounded-full animate-pulse",
     style: {
-      background: t.bg2,
+      background: gHold ? t.ink : t.bg2,
       animationDelay: i * 0.15 + "s"
     }
   }))) : h(ISpark, {
     size: 19,
-    color: t.bg2
+    color: gHold ? t.ink : t.bg2
   }))), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
     h(Eyebrow, { style: { marginBottom: 8 } }, (gRecallView.senderName || "TA") + " 撤回的消息"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, gRecallView.origText || "（空）"),
@@ -8158,7 +8171,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
       ? sliderRow("带入私聊条数", "互通时，每位成员最近多少条私聊会被实时带进群聊上下文（0＝只带长期记忆）。", privN, setPrivN, 0, 30, 2, " 条")
       : sliderRow("入群前上文条数", "封闭群的前情提要：抓每位成员『入群前』和你的私聊各最近多少条当背景（0＝不带）。开了记忆互通就用不上、自动让位给实时抽取。", preJoinN, setPreJoinN, 0, 20, 1, " 条"),
     interop && row("群里自己聊起来", "开互通后，你不看着这个群也没关系：只要 App 还活着，成员就会自己顺着聊，聊出来的内容会在消息页挂未读。额度到顶会歇一阵，时间到或你再开口就恢复。", autoChat, setAutoChat),
-    interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（绕着这个数上下浮动，不死板）。嫌太闹就往大调。你刚说完话的那一段，第一轮会多等两倍——免得你还没来得及接话，他们就自己聊开了。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
+    interop && autoChat && sliderRow("自发间隔", "两轮自发之间隔多久（绕着这个数上下浮动，不死板）。嫌太闹就往大调。想让他们先别聊、把话头留给你，点顶栏设置左边那颗圆点——它会变白，底下那颗按钮也跟着变白。", autoChatMin, setAutoChatMin, 1, 60, 1, " 分钟"),
     interop && autoChat && sliderRow("自发轮数上限", "这一段自发最多聊几【轮】就停。和下面的总条数上限【谁先到就停】。", autoChatRounds, setAutoChatRounds, 1, 30, 1, " 轮"),
     interop && autoChat && sliderRow("自发总条数上限", "这一整段自发（跨所有轮）总共最多生成多少【条】。每轮从剩余额度里扣（如上限50、首轮发8条，下轮上限就剩42）。和轮数上限谁先到都停。", autoChatMaxMsg, setAutoChatMaxMsg, 10, 100, 5, " 条"),
     interop && autoChat && sliderRow("额度刷新周期", "达到轮数或总条数上限后，安静多久再自动开一段。你亲自发言或按黑色回复键会立即刷新，不必等。", autoChatResetHours, setAutoChatResetHours, 1, 48, 1, " 小时"),

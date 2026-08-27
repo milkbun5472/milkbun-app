@@ -3148,9 +3148,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   不必 cue 你、互相接话/抬杠也行。replyGroup 空输入本就会自发续聊（喂「请群成员顺着上面的对话自然继续聊」）。
   //   不要求你正盯着那个群：App 还活着时可在别的页面生成，pGChat 会正常挂群未读；iOS 杀进程后仍需未来的云端任务。
   //   防跑飞：自主生成到上限就歇；到顶后过 X 小时自动续杯，你发消息 或 按黑色回复键也会立即续杯。
-  // 她刚开过口的那一段，第一轮自发要等【自发间隔 × 这个倍数】才动——留出她接话的时间。
-  // 设 3 分钟就是 7~11 分钟之后他们才会自己聊起来；一旦聊起来了，后面几轮照常按 3 分钟走。
-  const AUTO_FIRST_ROUND_GRACE = 3;
   const autoChatRoundsRef = useRef({}); // 每群：距上次你开口/按回复键以来，已自主生成了几轮
   const autoChatMsgsRef = useRef({});   // 每群：这一段自发累计已生成多少条（总条数上限用，跨轮累加、递减预算）
   // 额度卡只存在本机：刷新/重开 App 不会绕过上限，但不进入 x_ 云存档，不碰聊天与记忆路径。
@@ -3217,14 +3214,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //（她 2026-08-27 掐着表：「过了三分钟没有」）。现在 3 分钟就是 2.4~3.6，那个数字是平均值。
         const gap = mins * 60000 * (0.8 + Math.random() * 0.4);
         if (now - (last.ts || 0) < gap) continue;
-        // 「有时候只是我还没来得及接话」（她 2026-08-27）：她说完一句、他们答完，
-        // 这一段的【第一轮】自发要多等一会儿，把话头留给她。等他们已经自己聊起来了
-        //（rounds ≥ 1）就照常按间隔走——那时候话头本来就在他们手里。
-        // 按黑键开的那一段不等：那是她明说了要他们聊。
-        if (rounds === 0 && !cycle.kicked) {
-          const sinceUser = now - (Number(cycle.lastUserTs) || 0);
-          if (cycle.lastUserTs && sinceUser < gap * AUTO_FIRST_ROUND_GRACE) continue;
-        }
         const gm = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
         if (!gm.length) continue;
         // ⭐人格/欲望只驱动【起聊】那一下（v56.64，她 2026-08-27：「主动发了一轮就不继续了，
