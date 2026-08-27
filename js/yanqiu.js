@@ -64,7 +64,7 @@
       finally { setBusyId(null); }
     };
     return h("div", { className: "h-full flex flex-col", style: { background: C.bg } },
-      h("div", { className: "flex items-center justify-between px-4 pt-3 pb-2", style: { borderBottom: "1px solid " + C.line } },
+      h("div", { className: "flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(12), borderBottom: "1px solid " + C.line } },
         h("button", { onClick: onBack, className: "active:opacity-60", style: { fontSize: 15, color: C.sub, fontFamily: "'Archivo','Noto Serif SC',sans-serif" } }, "‹ 返回"),
         h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, fontWeight: 600, color: C.ink } }, "秋声"),
         h("button", { onClick: load, className: "active:opacity-60", style: { fontSize: 13, color: C.fog } }, "刷新")),
