@@ -3421,10 +3421,9 @@ function ChatThread({
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
     style: dsp.chatBg ? {
-      backgroundImage: "url(\"" + resolveImg(dsp.chatBg) + "\")",
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat"
+      // 壁纸改由 app 根节点铺满（含刘海区），这里透明让它透上来——和主屏同一套，
+      // 免得顶上那条 safe-area 空带跟壁纸拼出一条缝（v56.61）
+      background: "transparent"
     } : {
       background: BUBBLE_SKIN.chatBg || t.bg // 皮肤的全局聊天背景；单聊自己设过图的优先
     }

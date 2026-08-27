@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.60";
+const APP_VERSION = "v56.61";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12203,19 +12203,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     },
     toast: toast
   });
+  // iOS 刘海那一条（v56.61 · 只在单聊里试，别处一个字不动）——
+  // 「垫一条空带、界面放在它下面」这套结构是对的，主屏和底部白边都靠它撑着
+  //（.claude/rules/home-screen-layout.md：根节点和 Home 的 100vh 不许动）。
+  // 真正的毛病只在【那条空带涂什么颜色】：它一直跟着根节点涂 theme.bg，
+  // 而单聊顶栏是 t.bg2 或者聊天壁纸，于是顶上横出一条纸白色。
+  // 下面只改颜色，任何高度、任何结构都没碰。
+  const _imgUrl = u => "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(u) : u) + ")";
+  const _threadBg = (screen === "thread" && activeChar) ? (settingsFor(activeChar.id).chatBg || "") : "";
+  // 有聊天壁纸时按主屏那套来：壁纸铺到根节点，单聊自身透明，让它一路遮到刘海区
+  const _rootBg = (screen === "home" && wallpaper) ? _imgUrl(wallpaper)
+    : _threadBg ? _imgUrl(_threadBg)
+    : theme.bg;
+  const _safeTop = { height: "env(safe-area-inset-top)" };
+  if (screen === "thread") {
+    // 没壁纸就直接涂顶栏那个色；有壁纸就跟顶栏一样蒙一层半透明白 + 毛玻璃，接得上
+    if (_threadBg) Object.assign(_safeTop, { background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" });
+    else Object.assign(_safeTop, { background: theme.bg2 });
+  }
   return /*#__PURE__*/React.createElement(ThemeContext.Provider, {
     value: theme
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-full flex flex-col relative overflow-hidden",
     style: {
-      // 主屏时把壁纸铺到根节点（含顶部 safe-area 刘海区），Home 自身透明 → 壁纸一路遮到顶，无白边
-      background: (screen === "home" && wallpaper) ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) + ")" : theme.bg,
+      background: _rootBg,
       height: "100vh" // 100vh=large viewport，撑到物理屏底（不用 100dvh/fixed，dvh 只到 WebKit 可视区会露白）
     }
   }, isStandalone ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: "env(safe-area-inset-top)"
-    },
+    style: _safeTop,
     className: "shrink-0"
   }) : null, /*#__PURE__*/React.createElement(DevBadges, null), (function () {
     // 配件·常驻激活/急停浮层（安全铁律①③）：仅在解锁+已连+进了某个 opt-in 角色的【单聊 或 线下】里出现
