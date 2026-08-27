@@ -81,7 +81,7 @@ test("禁用词表只给句子，不给是谁说的——这不是把 A 的私�
 });
 
 test("单聊两条路径都要吃到禁用词表（漏一条换线路又变批发）", () => {
-  assert.match(app, /MOOD_TURN_RULE \+ crossSamenessHint\(charId\) \+ _biTurnLine\)\.replace/, "v2 每轮任务");
+  assert.match(app, /MOOD_TURN_RULE \+ crossSamenessHint\(charId\) \+ _biTurnLine \+ _turnClosing\)\.replace/, "v2 每轮任务");
   assert.match(app, /MOOD_TURN_RULE \+ crossSamenessHint\(charId\) \+ "\\n【输出】/, "旧全量任务串");
   // 群聊不该有这一层，理由要写在代码里
   const why = app.slice(app.indexOf("const CROSS_SAMENESS_WINDOW_MS") - 700, app.indexOf("const CROSS_SAMENESS_WINDOW_MS"));

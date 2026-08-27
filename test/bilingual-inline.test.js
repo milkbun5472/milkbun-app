@@ -64,7 +64,7 @@ test("每轮再提醒一次，单聊和群聊都要有", () => {
 
 test("提醒真的挂进了每轮那一串，不是声明完没人用", () => {
   assert.match(appCode, /const _biTurnLine = _bilingualOn && typeof bilingualTurnHint === "function"/, "单聊没声明");
-  assert.match(appCode, /crossSamenessHint\(charId\) \+ _biTurnLine\)/, "单聊声明了却没拼进每轮任务串——就是 v55.95 那个形状");
+  assert.match(appCode, /crossSamenessHint\(charId\) \+ _biTurnLine \+/, "单聊声明了却没拼进每轮任务串——就是 v55.95 那个形状");
   assert.match(appCode, /userContent \+= "\\n\\n" \+ _biTurnNames\.map\(c => bilingualTurnHint\(c\.name\)\)\.join/, "群聊没拼进每轮");
 });
 

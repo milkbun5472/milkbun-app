@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.77";
+const APP_VERSION = "v56.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5007,7 +5007,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 每轮再提醒一次（v56.77）：系统里那段 bilingualRule 是稳定前缀，隔几轮模型就忘了。
       // 这一句挂在每轮任务串里——历史缓存模式下它拼在最后一条用户消息末尾，离得最近。
       const _biTurnLine = _bilingualOn && typeof bilingualTurnHint === "function" ? "\n" + bilingualTurnHint("") : "";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine).replace(/用户/g, uName);
+      // 收尾（v56.78，她 2026-08-27：「群聊的思考链能看出它在想怎么演，单聊还是在 summarize」）：
+      // 单聊这一轮的末尾堆着十来段字段作业（能力清单、心声、心情、穿着、动作、禁用词表…），
+      // 模型读到的【最后两千字全是记账】，于是它的思考也跟着变成清点和复述。
+      // 群聊末尾是「输出一个数组，谁说什么」——任务本身就是演，思考自然也在演。
+      // 这里把【要演的那件事】放回最后一句，让它临落笔前想的是这个人此刻的反应，不是流水账。
+      // ⚠️这是提示词层的引导，不是保证——思考链是模型自己的，我们只能改它最后读到什么。
+      // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
+      // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
+      const _turnClosing = "\n【收尾·这一轮真正要做的事】上面那些字段是回完话【顺手记的账】，不是这一轮的任务。"
+        + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样一条条发出去。"
+        + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
+        + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
       const _taskFull = _s.engineerEyes ? _digitalTaskFull : _normalTaskV2;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       const _primer = _s.engineerEyes
