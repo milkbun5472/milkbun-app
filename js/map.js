@@ -160,11 +160,11 @@
   }
 
   // 真·地点搜索（OSM Nominatim，免费无 key）：搜全世界任何地方，中文优先
-  function nomSearch(q, near) {
+  function nomSearch(q, near, signal) {
     // near=[lat,lng] 时用 viewbox 就近加权(bounded=0 只偏好不封死)——同名地点先出你城市附近的
     const vb = near ? "&viewbox=" + (near[1] - 0.6) + "," + (near[0] + 0.6) + "," + (near[1] + 0.6) + "," + (near[0] - 0.6) + "&bounded=0" : "";
-    return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q))
-      .then(function (r) { return r.json(); })
+    return fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=zh" + vb + "&q=" + encodeURIComponent(q), { signal: signal })
+      .then(function (r) { if (!r.ok) throw new Error("search_" + r.status); return r.json(); })
       .then(function (list) { return (list || []).map(function (x) { return { name: (x.display_name || "").split(",").slice(0, 2).join(","), full: x.display_name, lat: parseFloat(x.lat), lng: parseFloat(x.lon) }; }); });
   }
 
@@ -180,11 +180,25 @@
     const [pin, setPin] = useState(null);         // 临时地点钉 {pos:[lat,lng], name}
     const [route, setRoute] = useState(null);     // {km, min} 当前画着的路线
     const routeLayerRef = useRef(null);
+    const searchAbortRef = useRef(null);
+    const routeAbortRef = useRef(null);
+    const [routeBusy, setRouteBusy] = useState(false);
+    useEffect(function () {
+      return function () {
+        if (searchAbortRef.current) searchAbortRef.current.abort();
+        if (routeAbortRef.current) routeAbortRef.current.abort();
+      };
+    }, []);
     const clearRoute = function () { if (routeLayerRef.current && mapRef.current) { try { mapRef.current.removeLayer(routeLayerRef.current); } catch (e) {} } routeLayerRef.current = null; setRoute(null); };
     const doPlaceSearch = function () {
       if (!pq.trim() || pBusy) return;
+      if (searchAbortRef.current) searchAbortRef.current.abort();
+      const ctl = new AbortController(); searchAbortRef.current = ctl;
       setPBusy(true); setPRes(null);
-      nomSearch(pq.trim(), livePos || (anchor ? [anchor.lat, anchor.lng] : null)).then(function (r) { setPRes(r); }).catch(function () { setPRes([]); }).finally(function () { setPBusy(false); });
+      nomSearch(pq.trim(), livePos || (anchor ? [anchor.lat, anchor.lng] : null), ctl.signal)
+        .then(function (r) { if (!ctl.signal.aborted) setPRes(r); })
+        .catch(function (e) { if (!ctl.signal.aborted) { setPRes([]); if (typeof toast === "function") toast("地点搜索暂时没响应"); } })
+        .finally(function () { if (searchAbortRef.current === ctl) { searchAbortRef.current = null; setPBusy(false); } });
     };
     const goPlace = function (p) {
       clearRoute(); setPRes(null); setPq("");
@@ -208,22 +222,31 @@
     const [stepsOpen, setStepsOpen] = useState(false);
     const routeTo = function (dest) {
       const from = livePos || (anchor ? [anchor.lat, anchor.lng] : null);
-      if (!from || !dest) return;
+      if (!from || !dest || routeBusy) return;
+      if (routeAbortRef.current) routeAbortRef.current.abort();
+      const ctl = new AbortController(); routeAbortRef.current = ctl;
+      setRouteBusy(true);
       clearRoute(); setSteps(null); setStepsOpen(false);
-      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=full&geometries=geojson&steps=true")
-        .then(function (r) { return r.json(); })
+      // simplified 很关键：full 的跨城路线可返回一万多个折线点，iPhone WebView
+      // 会在建 polyline 时直接被内存杀掉；转弯步骤仍由 steps=true 保留。
+      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=simplified&geometries=geojson&steps=true", { signal: ctl.signal })
+        .then(function (r) { if (!r.ok) throw new Error("route_" + r.status); return r.json(); })
         .then(function (d) {
-          const rt = d && d.routes && d.routes[0]; if (!rt || !mapRef.current) return;
-          const line = L.polyline(rt.geometry.coordinates.map(function (c) { return [c[1], c[0]]; }), { color: "#3f6d8c", weight: 5, opacity: 0.85 });
-          line.addTo(mapRef.current); routeLayerRef.current = line;
-          try { mapRef.current.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {}
+          if (ctl.signal.aborted) return;
+          const rt = d && d.routes && d.routes[0]; const map = mapRef.current;
+          const coords = rt && rt.geometry && rt.geometry.coordinates;
+          if (!rt || !map || !Array.isArray(coords) || !coords.length) throw new Error("route_empty");
+          const line = window.L.polyline(coords.map(function (c) { return [c[1], c[0]]; }), { color: "#3f6d8c", weight: 5, opacity: 0.85 });
+          line.addTo(map); routeLayerRef.current = line;
+          try { map.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {}
           setRoute({ km: (rt.distance / 1000).toFixed(rt.distance > 20000 ? 0 : 1), min: Math.round(rt.duration / 60) });
           const st = ((rt.legs && rt.legs[0] && rt.legs[0].steps) || []).map(function (s) {
             const loc = s.maneuver && s.maneuver.location;
             return { pos: loc ? [loc[1], loc[0]] : null, text: stepText(s), dist: s.distance };
           }).filter(function (s) { return s.pos; });
           setSteps(st.length ? st : null);
-        }).catch(function () {});
+        }).catch(function (e) { if (!ctl.signal.aborted && typeof toast === "function") toast("路线服务暂时没响应"); })
+        .finally(function () { if (routeAbortRef.current === ctl) { routeAbortRef.current = null; setRouteBusy(false); } });
     };
     // 实时「下一个转弯」：拿你此刻位置找最近的下一步，像真导航一样报「XX 米后 左转」
     const nextTurn = (function () {
@@ -295,7 +318,7 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📍 " + pin.name),
                 route ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginTop: 2 } }, "🚗 " + route.km + " km · 约 " + route.min + " 分钟") : null),
               route && steps ? h("button", { onClick: function () { setStepsOpen(!stepsOpen); }, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "7px 12px" } }, stepsOpen ? "收起" : "步骤") : null,
-              h("button", { onClick: function () { routeTo(pin.pos); }, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#3f6d8c", borderRadius: 999, padding: "7px 14px" } }, "路线"),
+              h("button", { onClick: function () { routeTo(pin.pos); }, disabled: routeBusy, className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#3f6d8c", borderRadius: 999, padding: "7px 14px", opacity: routeBusy ? 0.65 : 1 } }, routeBusy ? "算路中…" : "路线"),
               h("button", { onClick: function () { setPin(null); clearRoute(); setSteps(null); }, className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "7px 4px" } }, "✕")) : null,
             // 实时下一步提示（真导航横幅）：绿牌报「XX 米后 干什么」，随你移动自己刷新
             (route && nextTurn) ? h("div", { style: { position: "absolute", top: 62, left: 12, right: 12, zIndex: 1200, background: "#2e5e46", borderRadius: 14, padding: "10px 16px", boxShadow: "0 6px 20px rgba(0,0,0,.25)", display: "flex", alignItems: "center", gap: 12 } },
