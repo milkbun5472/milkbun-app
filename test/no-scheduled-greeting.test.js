@@ -24,7 +24,7 @@ test("定时早晚安整块下线：判定、窗口、去重、投递四样都�
 
 test("真正挂念的那条路一根都不许动：积温主动照旧", () => {
   assert.match(app, /jiwenFiredRef\.current\[cid\] = Date\.now\(\);/);
-  assert.match(app, /replyNow\(cid, "", null, \{ proactive: true, jiwen: jwStyle \}\)/, "线上主动");
+  assert.match(app, /replyNow\(cid, "", null, \{ proactive: true, jiwen: jwStyle,/, "线上主动");
   assert.match(app, /if \(activeOffScene\) offlineReply\(cid\);/, "线下自己动一拍");
   assert.match(app, /opts\.jiwen \? "jiwen"/, "出口分类还得认得积温");
   // 45 秒一轮的 tick 与 14 秒首踢都还在，积温靠它推进

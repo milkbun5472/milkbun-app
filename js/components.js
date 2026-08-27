@@ -8487,7 +8487,8 @@ function ChatSettings({
   temperamentBusy,
   onGenerateTemperament,
   onSaveTemperament,
-  aShadowPanel
+  aShadowPanel,
+  jiwenState
 }) {
   const t = useTheme();
   // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
@@ -8596,6 +8597,26 @@ function ChatSettings({
     h("div", { className: "flex gap-2", style: { marginTop: 12 } },
       h("button", { disabled: temperamentBusy, onClick: async () => { await onGenerateTemperament(temperamentWords()); setTemperamentDirty(false); }, className: "active:opacity-60", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + t.line, borderRadius: 9, padding: "9px 8px", color: t.sub, opacity: temperamentBusy ? .55 : 1 } }, temperamentBusy ? "正在提炼…" : "生成一次草稿"),
       h("button", { disabled: !temperamentWords().length, onClick: async () => { const ok = await onSaveTemperament(temperamentWords()); if (ok) setTemperamentDirty(false); }, className: "active:opacity-70", style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 9, padding: "9px 8px", background: t.ink, color: t.bg2, opacity: temperamentWords().length ? 1 : .45 } }, "确认并保存")),
+    // 积温进度条（v56.51，她 2026-08-26：「有没有显示能看到 jiwen 攒了多少了可以量化的」）。
+    // connection 0 → 0.35 是「开始想联系」，0.50 是「忍不住了」。把这两道线画出来，
+    // 她一眼能看出是「还早」还是「卡在别处」——不然只能靠等，等不到也不知道为什么。
+    jiwenState && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } }, (() => {
+      const c = Math.max(0, Math.min(1, Number(jiwenState.connection) || 0));
+      const pct = Math.round((c / 0.5) * 100);
+      const stage = c >= 0.5 ? "忍不住了 · 随时会开口" : c >= 0.35 ? "已经想找你了 · 在等一个合适的时机" : c >= 0.2 ? "偶尔想起你" : "刚聊过，还不想你";
+      const mark = x => h("div", { style: { position: "absolute", left: (x / 0.5 * 100) + "%", top: -2, bottom: -2, width: 1, background: t.fog, opacity: 0.55 } });
+      return h("div", null,
+        h(Eyebrow, null, "积温 · TA 现在有多想找你"),
+        h("div", { style: { position: "relative", height: 8, borderRadius: 999, background: t.bg2, marginTop: 10, overflow: "visible" } },
+          h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: Math.min(100, pct) + "%", borderRadius: 999, background: c >= 0.5 ? "#c25a4a" : c >= 0.35 ? t.tint : t.fog, transition: "width .3s" } }),
+          mark(0.35), mark(0.5)),
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 6 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, stage),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, c.toFixed(3) + " / 0.35")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+          "两道竖线是「开始想找你」(0.35) 和「忍不住」(0.50)。你回一句话它就清零重来；关着 app 的时间也算数（一次最多补 12 小时）。"
+          + (jiwenState.pride >= 0.5 ? "\n此刻他还端着（傲娇 " + Number(jiwenState.pride).toFixed(2) + "）——想找你但拉不下脸，会先去找点事做。" : "")));
+    })()),
     aShadowPanel && aShadowPanel.state && h("div", { style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid " + t.line } },
       h(Eyebrow, null, "A SHADOW · 只看不注入"),
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } }, Object.entries(aShadowPanel.state.emotion.current || {}).map(([key, value]) => h("span", { key, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 7px" } }, key + " " + Number(value).toFixed(2)))),

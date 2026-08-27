@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.50";
+const APP_VERSION = "v56.51";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2504,6 +2504,32 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return out;
   };
   // 结构化「此刻在做什么/在哪」——给聊天顶栏用（联动今日日程）。没今日日程就返回 null。顶栏在我这边，用我这边时刻。
+  // TA 此刻醒着吗（v56.51，她 2026-08-26：「应该改成大部分时间按他们醒着的时间，
+  // 不止是 8-23 点，偶尔要是半夜突然想念了也能发一句」）。
+  // 先看今天的行程：落在 type=sleep 那一段里就是睡着。没有行程就退回 8-23 这条老尺子。
+  // 返回 "awake" / "asleep"；睡着时调用方仍可按小概率放行（半夜惊醒想你）。
+  const charAwakeState = char => {
+    try {
+      const plans = schedulesRef.current[char.id] || {};
+      const p = plans[schedLocalDayKey(char)];
+      const seqs = p && Array.isArray(p.seqs) && typeof schedFillEnds === "function" ? schedFillEnds(p.seqs) : null;
+      const nowMin = charLocalMin(char);
+      if (seqs && seqs.length) {
+        const mm = t => { const x = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return x ? (+x[1]) * 60 + (+x[2]) : null; };
+        for (const q of seqs) {
+          const a = mm(q.time), b = mm(q.end);
+          if (a == null || b == null) continue;
+          if (nowMin >= a && nowMin < b) return q.type === "sleep" ? "asleep" : "awake";
+        }
+        // 不在任何一段里：昨晚那一觉可能还没醒（今天第一段开始之前）
+        const first = mm(seqs[0].time);
+        if (first != null && nowMin < first) return "asleep";
+        return "awake";
+      }
+      const hr = Math.floor(nowMin / 60);
+      return (hr >= 8 && hr <= 23) ? "awake" : "asleep";
+    } catch (e) { return "awake"; }
+  };
   const schedNowBriefFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
@@ -3336,7 +3362,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           drop();
           jiwenFiredRef.current[pm.charId] = Date.now();      // 刚发过，别让积温紧跟着再来一条
           const late = Math.round((Date.now() - pm.dueTs) / 60000);
-          replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late } });
+          // 约回的时间戳补到【说好的那一刻】：她开 app 时看到的是「他当时就来找过你」
+          replyNow(pm.charId, "", null, { proactive: true, promise: { about: pm.about, lateMin: late },
+            backdateTs: pm.dueTs < Date.now() - 60000 ? pm.dueTs : 0 });
           return;                                             // 一次一个，错峰
         }
       } catch (e) {}
@@ -3368,12 +3396,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (Date.now() - lastInteract < floorMin * 60000) continue;
           if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) continue; // jiwen 说「还没想到要联系」→ 不动
           if (Date.now() - (jiwenFiredRef.current[cid] || 0) < 25 * 60000) continue;
-          const hr = Math.floor(charLocalMin(c) / 60); if (hr < 8 || hr > 23) continue;
+          // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
+          // 她要的就是这个——「偶尔要是半夜突然想念了也能发一句」，但别变成半夜刷屏。
+          if (charAwakeState(c) === "asleep") {
+            const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
+            if (!forced || Math.random() > 0.12) continue;
+          }
           jiwenFiredRef.current[cid] = Date.now();
           let jwStyle = "";
           try { const eng = getJiwen(c); if (eng && jw) { jwStyle = (eng.getStyleGuidance() + "\n" + eng.getPromptContext()).trim(); eng.applyDelta({ connection: -0.28 }); } } catch (e) {} // 注入当前五轴语气 + 发完泄一点思念(别下一tick又触发)
+          // 这条消息真正「想发」的时刻：越过阈值那一刻。夹在【上次互动之后】和【一分钟前】之间，
+          // 免得排到历史里去、或者干脆写成未来。
+          const _cross = jiwenCrossedRef.current[cid] || 0;
+          const _back = _cross ? Math.max(lastInteract + 60000, Math.min(_cross, Date.now() - 60000)) : 0;
+          jiwenCrossedRef.current[cid] = 0;
           if (activeOffScene) offlineReply(cid);                                 // 思念攒够 → 线下自己动一拍
-          else replyNow(cid, "", null, { proactive: true, jiwen: jwStyle });     // → 线上主动一条
+          else replyNow(cid, "", null, { proactive: true, jiwen: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 });
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
       } catch (e) {}
@@ -3391,7 +3429,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️阶段一【只推进状态+观测，触发不真发消息】——结果 stash 到 window.__jiwen 供调参；阶段二再放开去驱动主动消息。
   const jiwenRef = useRef({});          // charId -> 引擎实例（缓存，保住闭包内 valence 边际递减记录）
   const jiwenTickRef = useRef({});      // charId -> 上次 tick 毫秒
-  const jiwenLastUserRef = useRef({});  // charId -> 上次已知用户最新消息 ts（对方回话→思念清零）
+  // charId -> 上次已知用户最新消息 ts（对方回话→思念清零）。
+  // ⚠️必须持久化（v56.51）：原来是个纯内存 ref，每次开 app 都是空的 → 第一次 tick 时
+  // 「用户最新消息比记录的新」永远成立 → resetConnection() 把思念清零。于是她每隔一两小时
+  // 开一次 app，积温就被清一次，永远到不了 0.35 的 contact 阈值——她 2026-08-26：
+  // 「jiwen 也没用，主动消息绝对都开了的一个人没有」。开机从 x_jiwenSeen 读回来。
+  const jiwenLastUserRef = useRef(null);
+  const jiwenSeen = () => {
+    if (!jiwenLastUserRef.current) jiwenLastUserRef.current = loadJSON("x_jiwenSeen", {}) || {};
+    return jiwenLastUserRef.current;
+  };
+  const jiwenSeenSet = (cid, ts) => { const m = jiwenSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
+  const jiwenCrossedRef = useRef({});   // charId -> 思念越过 contact 阈值的那一刻（补记时算出来的，用来给消息补时间戳）
   const jiwenFiredRef = useRef({});     // charId -> 上次 jiwen 驱动主动消息的 ts（防同一轮心理动机反复触发刷屏，v48.80 阶段二）
   const getJiwen = char => {
     if (!char || typeof createJiwen !== "function") return null;
@@ -3430,9 +3479,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 对方（用户）最新消息比上次记录的新 → 思念清零（闭环，不碰任何发送路径）
         let lastUserTs = latestUserSharedInteractionTs(char.id);
         for (let i = arr.length - 1; i >= 0; i--) { if (arr[i] && arr[i].role === "user") { lastUserTs = Math.max(lastUserTs, arr[i].ts || 0); break; } }
-        if (lastUserTs && lastUserTs > (jiwenLastUserRef.current[char.id] || 0)) {
-          jiwenLastUserRef.current[char.id] = lastUserTs;
-          try { await eng.resetConnection(); } catch (e) {}
+        const seenTs = jiwenSeen()[char.id] || 0;
+        if (lastUserTs && lastUserTs > seenTs) {
+          jiwenSeenSet(char.id, lastUserTs);
+          // 首次见到这个角色（还没有记录）时不清零：那不是「她刚回话」，
+          // 只是我们第一次认识这段历史。清了就等于每装一次 app 都从零开始。
+          if (seenTs) { try { await eng.resetConnection(); } catch (e) {} }
         }
         // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，jiwen 内部封顶 60 分钟）
         let baseTs = jiwenTickRef.current[char.id];
@@ -3445,7 +3497,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             // 后台补记（v48.81，她点名）：eng.tick 单次内部封顶 60min，长时间关 app 会算不足→重开该想你也不想。
             //   按 60min 分块喂满真实离开时间，总量封顶 12h（防离开一周回来直接「崩溃级」思念，那样太粘）。
             let credit = Math.min(mins, 720);
-            do { const chunk = Math.min(credit, 60); triggers = await eng.tick(chunk); credit -= chunk; } while (credit > 0.2);
+            // 记下【思念是在哪一刻越过阈值的】：她 2026-08-26 说另一台小手机能看到
+            // 「我没开 app 那段时间里发的消息」，时间戳落在那个空档里而不是全堆在打开这一刻。
+            // 补记是按 60 分钟一块喂的，所以哪一块开始出现 contact，那一刻就是真正想联系的时间。
+            let done = 0, crossed = null;
+            do {
+              const chunk = Math.min(credit, 60);
+              triggers = await eng.tick(chunk); credit -= chunk; done += chunk;
+              if (crossed == null && triggers && triggers.some(t => t.action === "contact")) crossed = baseTs + done * 60000;
+            } while (credit > 0.2);
+            if (crossed != null) jiwenCrossedRef.current[char.id] = crossed;
           } else triggers = eng.checkThresholds();
           window.__jiwen[char.id] = { name: char.name, summary: eng.getStateSummary(), triggers, state: await eng.getState() };
         } catch (e) {}
@@ -5171,6 +5232,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 思考链挂在这一轮【最先冒出来的那条】上：它属于整轮，不属于某个气泡，
       // 界面上也是画在这一组回复的上方。取一次就消费掉，别每条气泡都挂一份。
       let _reasonLeft = _callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "", reasonFrom: _callMeta.from || "" } : null;
+      // 补时间戳（v56.51）：她关着 app 的那段时间里「本该发出」的消息，时间落在那个空档里，
+      // 而不是全堆在她打开的这一刻。多条气泡按顺序往后错开几十秒，像真的一条条发的。
+      const _bd = Number(opts.backdateTs) || 0;
+      const _tsOf = i => (_bd && _bd < Date.now() ? Math.min(Date.now() - 1000, _bd + i * 45000) : Date.now());
       const _takeReason = () => { const r = _reasonLeft; _reasonLeft = null; return r || {}; };
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
@@ -5179,7 +5244,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           role: "assistant",
           content: words[i],
           replyTo: i === 0 && !recall ? quote : null,
-          ts: Date.now(),
+          ts: _tsOf(i),
           turnId,
           ..._takeReason()
         }]);
@@ -12099,6 +12164,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onGenerateTemperament: generateTemperamentDraft,
     onSaveTemperament: saveTemperamentAnchors,
     aShadowPanel: aShadowPanel,
+    jiwenState: (typeof window !== "undefined" && window.__jiwen && window.__jiwen[activeChar.id] && window.__jiwen[activeChar.id].state) || null,
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);

@@ -54,7 +54,12 @@ test("三条生成路径都发时态和结束时刻规矩", () => {
 });
 
 test("三条路径落盘时都过 schedFillEnds", () => {
-  assert.equal((app.match(/schedFillEnds\(/g) || []).length, 3);
+  // 三条生成路径各一处 + charAwakeState 拿它判「此刻是不是睡着」（v56.51）
+  assert.equal((app.match(/schedFillEnds\(/g) || []).length, 4);
+  ["const genScheduleDay = async", "const genScheduleWeek = async", "const schedMaybeSelfRevise = async"].forEach(anchor => {
+    const k = app.indexOf(anchor);
+    assert.match(app.slice(k, k + 7000), /schedFillEnds\(/, anchor + " 落盘时没过 schedFillEnds");
+  });
 });
 
 // 她 2026-08-26 订正了我算错的账：一次调用生成 7 天比 7 次调用便宜
