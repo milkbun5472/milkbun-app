@@ -83,7 +83,7 @@ test("中文消息零开销：不多包一层 DOM", () => {
   const c = comp.slice(comp.indexOf("function TransText"), comp.indexOf("// 语音消息："));
   assert.match(c, /if \(!lang\) return text;/, "不是外语就把原字符串原样还回去");
   // 形状照抄语音转文字：点一下展开、上面一条分隔线、一个小标签、下面正文
-  assert.match(c, /setOpen\(o?p?e?n? ?=?>? ?false\)|setOpen\(true\)/);
+  assert.match(c, /setOpen\(v => !v\)/, "点一下开、再点一下收");
   assert.match(c, /borderTop: "1px solid "/);
   assert.match(c, /"译自" \+ lang \+ \(by \? " · " \+ by : ""\)/, "要标出是免费翻的还是模型翻的——她一眼能看出花没花钱");
   assert.match(c, /翻译中…/);

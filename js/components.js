@@ -4868,19 +4868,21 @@ function TransText({ text, isU }) {
   const [by, setBy] = useState(() => (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  if (!lang) return text;
-  const fg = isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink);
-  const MONO = "'Archivo','SF Mono',ui-monospace,monospace";
-  const tap = async e => {
-    e.stopPropagation();
-    if (open) { setOpen(false); return; }
-    setOpen(true);
+  // ⚠️提前 return 必须排在所有 hook 之后：卡在 useEffect 前面就是条件调用 hook，
+  // 同一条消息文字一变（编辑过）hook 数量就对不上，React 会当场炸。
+  const run = async () => {
     if (zh || busy) return;
     setBusy(true); setErr("");
-    try { const r = await translateToZh(text, lang); setZh(r.zh); setBy(r.by || ""); }
+    // 长消息走切块版：免费接口是 GET 带 query，整段太长会被截断或直接失败
+    try { const r = await translateLongToZh(text, lang); setZh(r.zh); setBy(r.by || ""); }
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };
+  useEffect(() => { if (open && lang) run(); }, [open, lang]);
+  if (!lang) return text;
+  const fg = isU ? BUBBLE_SKIN.myText : (BUBBLE_SKIN.charText || t.ink);
+  const MONO = "'Archivo','SF Mono',ui-monospace,monospace";
+  const tap = e => { e.stopPropagation(); setOpen(v => !v); };
   return h("span", null,
     h("span", { onClick: tap, style: { cursor: "pointer" } }, text),
     h("span", {

@@ -3464,13 +3464,16 @@ function translatableLang(text) {
   const hangul = count(/[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/g);
   const cyr    = count(/[\u0400-\u04ff]/g);
   const latin  = count(/[A-Za-z\u00c0-\u024f]/g);
-  // 假名和谚文是【决定性】的：中文里不会出现，见到就是日文/韩文，哪怕句中还有汉字
-  if (kana >= 2) return "日文";
-  if (hangul >= 2) return "韩文";
-  if (cyr >= 4) return "俄文";
-  // 拉丁字母要严格得多：必须【一个汉字都没有】，而且够长，才算整句外语。
-  // 这样「回一句Over」「发个OK」「hi」都不会被挂上标签。
-  if (han === 0 && latin >= 8) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
+  // 假名和谚文是【决定性】的：中文里不会出现，见到一个就是日文/韩文，哪怕句中还有汉字。
+  // v56.54 从 ≥2 放到 ≥1：「明日は雨か」只有两个假名还行，可「今夜も残業」这种
+  // 汉字为主的句子会被漏掉——而那正是她最需要翻的一类。
+  if (kana >= 1) return "日文";
+  if (hangul >= 1) return "韩文";
+  if (cyr >= 2) return "俄文";
+  // 拉丁字母仍要求【一个汉字都没有】——「这个 deadline 我 handle 不了」她自己读得懂，
+  // 挂个译键只是碍眼。但长度从 8 放到 6：Bonjour(7)、Merci beaucoup 都该给，
+  // OK(2)/Over(4)/Sorry(5) 仍然不给。
+  if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
   return "";
 }
 const TRANS_CACHE_KEY = "x_transCache";
