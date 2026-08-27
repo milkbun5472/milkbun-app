@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.76";
+const APP_VERSION = "v56.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5004,7 +5004,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "请在 wearing 写角色进入当前活动后实际穿着的一句话；不得照抄与新地点或新活动不相符的旧值。七点在家吃早餐可以仍穿睡衣，十点切到出门行程就必须重新判断并换成适合出门的衣服。只更新状态，不要为了交字段在 word 里表演换衣过程。"
         : "";
       const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId)).replace(/用户/g, uName);
+      // 每轮再提醒一次（v56.77）：系统里那段 bilingualRule 是稳定前缀，隔几轮模型就忘了。
+      // 这一句挂在每轮任务串里——历史缓存模式下它拼在最后一条用户消息末尾，离得最近。
+      const _biTurnLine = _bilingualOn && typeof bilingualTurnHint === "function" ? "\n" + bilingualTurnHint("") : "";
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine).replace(/用户/g, uName);
       const _taskFull = _s.engineerEyes ? _digitalTaskFull : _normalTaskV2;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       const _primer = _s.engineerEyes
@@ -6124,6 +6127,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "这一轮就当 TA 不在场，你们几个自己把话题往下聊：接彼此的梗、说自己的事、互相拌嘴都行。"
         + "**绝不许出现「怎么不说话」「是不是不理我了」「人呢」「@" + (profile.name || "用户") + "」这类冲着 TA 要回应的话，也不许因此闹脾气或反复提起 TA。**"
         + "TA 什么时候插话都可以，到时候再自然接住就是了。";
+      // 双语·每轮提醒（v56.77）：gBiHint 在系统里只发一次，这里按人再补一句短的
+      {
+        const _biTurnNames = typeof bilingualTurnHint === "function"
+          ? members.filter(c => !c.npc && (settingsFor(c.id) || {}).bilingual) : [];
+        if (_biTurnNames.length) userContent += "\n\n" + _biTurnNames.map(c => bilingualTurnHint(c.name)).join("\n");
+      }
       if (rgOpts.auto && Array.isArray(rgOpts.urgeCharIds) && rgOpts.urgeCharIds.length) {
         const urgeNames = members.filter(c => rgOpts.urgeCharIds.includes(c.id)).map(c => c.name);
         if (urgeNames.length) userContent += "\n\n【这轮自然动念】" + urgeNames.join("、") + " 此刻先想在群里说点什么：由 TA 自然先开口，其他人可顺势接话。不要解释这是系统触发，也别把『想念值』说出来。";

@@ -3491,6 +3491,14 @@ function translatableLang(text) {
 // ⚠️主屏是唯一的例外，仍旧留着根节点那条空带：它和 Home 的 height:100vh 是配好的一对，
 //   动了就散架（v56.58 亲测，见 .claude/rules/home-screen-layout.md）。
 function safeTop(px) { return "calc(env(safe-area-inset-top, 0px) + " + (Number(px) || 0) + "px)"; }
+// 每轮再提醒一次（v56.77）：一条规则只在系统提示里声明一次，模型隔几轮就忘。
+// 这做法是从 mingruis-miya 看来的（AGPL，只读了它的提示词编排、没取用代码）——
+// 它把翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的。
+// 短句只负责【提醒】，格式和边界仍以上面那段 bilingualRule 为准，别在这儿重写一遍。
+function bilingualTurnHint(who) {
+  const w = who ? "\u300c" + who + "\u300d" : "\u4f60";
+  return "\u3010\u672c\u8f6e\u00b7\u53cc\u8bed\u3011" + w + "\u8fd9\u4e00\u8f6e\u91cc\u51e1\u662f\u3010\u4e0d\u662f\u4e2d\u6587\u3011\u7684\u90a3\u51e0\u6761\uff0c\u5199\u6210\u300c\u539f\u6587 | \u4e2d\u6587\u300d\uff1b\u8bf4\u4e2d\u6587\u7684\u90a3\u4e9b\u6761\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3002";
+}
 // 双语（v56.56，她 2026-08-26 的主意）：与其事后拿免费接口去翻——那东西把
 // 「傘さすか迷うレベルで湿気すごい」翻成「您可能会迷失在雨伞中」——不如让模型
 // 生成的时候顺手带出来。它知道上下文、知道这个人怎么说话，译得根本不是一个水平；

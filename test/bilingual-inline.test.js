@@ -42,6 +42,37 @@ test("句尾那个句号被削掉之后，还找得回中译", () => {
   assert.equal(bilingualKey("It's cold."), bilingualKey("It's cold"));
 });
 
+// mingruis-miya 把翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的
+//（AGPL，只读了它的提示词编排、没取用代码）。一条规则只声明一次，模型隔几轮就忘——
+// 这正是规则文件里 v55.95 那条教训的反面。
+test("每轮再提醒一次，单聊和群聊都要有", () => {
+  const grab2 = name => {
+    const i = engine.indexOf("function " + name);
+    assert.ok(i >= 0, name + " 没了");
+    return engine.slice(i, engine.indexOf("\n}\n", i) + 3);
+  };
+  const turnHint = new Function(grab2("bilingualTurnHint") + "\nreturn bilingualTurnHint;")();
+  assert.match(turnHint(""), /本轮·双语/);
+  assert.match(turnHint("阿屿"), /「阿屿」/, "群里要点名");
+  [turnHint(""), turnHint("阿屿")].forEach(x => {
+    assert.match(x, /原文 \| 中文/, "格式要带上");
+    assert.match(x, /一根竖线都别加/, "中文那些条的边界也要带上");
+  });
+  // 短句只负责提醒，别把整段规则又抄一遍——那会把每轮的上下文撑肥
+  assert.ok(turnHint("").length < 90, "这一句要短，现在 " + turnHint("").length + " 字");
+});
+
+test("提醒真的挂进了每轮那一串，不是声明完没人用", () => {
+  assert.match(appCode, /const _biTurnLine = _bilingualOn && typeof bilingualTurnHint === "function"/, "单聊没声明");
+  assert.match(appCode, /crossSamenessHint\(charId\) \+ _biTurnLine\)/, "单聊声明了却没拼进每轮任务串——就是 v55.95 那个形状");
+  assert.match(appCode, /userContent \+= "\\n\\n" \+ _biTurnNames\.map\(c => bilingualTurnHint\(c\.name\)\)\.join/, "群聊没拼进每轮");
+});
+
+test("没开双语的角色一个字都不多发", () => {
+  assert.match(appCode, /_bilingualOn && typeof bilingualTurnHint/, "单聊要看开关");
+  assert.match(appCode, /members\.filter\(c => !c\.npc && \(settingsFor\(c\.id\) \|\| \{\}\)\.bilingual\)/, "群聊要按成员筛");
+});
+
 test("提示词单聊说「这个角色」，群里点名说是谁", () => {
   assert.ok(/这个角色/.test(bilingualRule("")));
   assert.ok(/「裴照川」/.test(bilingualRule("裴照川")));
