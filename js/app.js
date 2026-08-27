@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.86";
+const APP_VERSION = "v56.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5050,11 +5050,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 群聊末尾是「输出一个数组，谁说什么」——任务本身就是演，思考自然也在演。
       // 这里把【要演的那件事】放回最后一句，让它临落笔前想的是这个人此刻的反应，不是流水账。
       // ⚠️这是提示词层的引导，不是保证——思考链是模型自己的，我们只能改它最后读到什么。
+      // ⚠️v56.86 我在这儿加过一句「不许比较措辞、列备选说法」，当天就撤了：
+      //   她那条「『又学了一天』なら、さらっと言うなら…とか…」不是模型漏话，是那个角色的人设
+      //   ——他会懂不懂地教她几句日语。列几种说法正是他该做的事。
+      //   看着像「模型在想事情」的输出，先问一句这是不是这个人本来就会做的，别急着禁。
       // 只加在单聊线上：群聊本来就没这毛病；线下那一轮的任务是写一整段场景，不是「一条条发微信」，
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
       const _turnClosing = "\n【收尾·这一轮真正要做的事】上面那些字段是回完话【顺手记的账】，不是这一轮的任务。"
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样一条条发出去。"
-        + "word 里【只放你真正要发出去的那几句话】——不许在里面比较措辞、列几个备选说法、或解释自己为什么这么说；那些属于你自己的思考，不是发给 TA 的消息。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);

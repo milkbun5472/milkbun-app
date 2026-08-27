@@ -151,11 +151,3 @@ test("没开双语的角色，字段说明是空串——一个字都不多发",
   assert.match(appCode, /const _biWordSpec = _bilingualOn\n\s*\? "（这个角色开着双语/);
   assert.match(appCode, /members\.some\(c => !c\.npc && \(settingsFor\(c\.id\) \|\| \{\}\)\.bilingual\)\)\n\s*\? "（开了双语的成员/);
 });
-
-// 她那条「『又学了一天』なら、さらっと言うなら…とか…」的气泡：模型在比较措辞，漏进了正文
-test("word 里只放真要发出去的话，不许列备选措辞", () => {
-  const i = appCode.indexOf("const _turnClosing =");
-  const seg = appCode.slice(i, i + 900);
-  assert.match(seg, /只放你真正要发出去的那几句话/);
-  assert.match(seg, /不许在里面比较措辞、列几个备选说法/);
-});
