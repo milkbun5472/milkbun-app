@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.78";
+const APP_VERSION = "v56.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1627,6 +1627,32 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (typeof affinityRestore === "number") setAff(charId, affinityRestore);
   };
   // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、jiwen 思念和断档提示共用这一只钟。
+  // 同一个人同时在好几个频道里说话，彼此不知道对方说了什么，于是当场自相矛盾
+  //（她 2026-08-27：顾暮在两个群里几乎同时给了两套说法，一边说六点半到家、一边另说一套）。
+  // 只取【TA 自己刚说过的原话】——不是别人的话，所以不构成隐私泄露，别的成员也拿不到这一段。
+  // ⚠️封闭群只进不出：闭群里说过的话绝不外流到别处（.claude/rules/four-surfaces-same-context.md）。
+  const CROSS_SAID_WINDOW_MS = 90 * 60000;
+  const crossChannelSaid = (charId, exceptGroupId) => {
+    try {
+      const now = Date.now(), lines = [];
+      (groups || []).forEach(g => {
+        if (!g || g.id === exceptGroupId) return;
+        if (!(g.memberIds || []).includes(charId)) return;
+        if (!gsFor(g.id).memoryInterop) return;               // 闭群不外流
+        (groupChatsRef.current[g.id] || []).forEach(m => {
+          if (!m || m.role !== "assistant" || m.senderId !== charId) return;
+          if (m.recalled || m.kind === "ooc" || m.kind === "system") return;
+          if (!contextAllowsMessage(m)) return;
+          const ts = Number(m.ts) || 0;
+          if (!ts || now - ts > CROSS_SAID_WINDOW_MS) return;
+          const txt = String(m.content || "").replace(/\s+/g, " ").trim();
+          if (txt) lines.push({ ts, s: "〔" + (g.name || "群聊") + "〕" + txt.slice(0, 60) });
+        });
+      });
+      lines.sort((a, b) => a.ts - b.ts);
+      return lines.slice(-5).map(x => x.s).join("\n");
+    } catch (e) { return ""; }
+  };
   const latestSharedInteractionTs = charId => {
     if (!window.InteractionClock) return 0;
     const go = {};
@@ -3122,6 +3148,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   不必 cue 你、互相接话/抬杠也行。replyGroup 空输入本就会自发续聊（喂「请群成员顺着上面的对话自然继续聊」）。
   //   不要求你正盯着那个群：App 还活着时可在别的页面生成，pGChat 会正常挂群未读；iOS 杀进程后仍需未来的云端任务。
   //   防跑飞：自主生成到上限就歇；到顶后过 X 小时自动续杯，你发消息 或 按黑色回复键也会立即续杯。
+  // 她刚开过口的那一段，第一轮自发要等【自发间隔 × 这个倍数】才动——留出她接话的时间。
+  // 设 3 分钟就是 7~11 分钟之后他们才会自己聊起来；一旦聊起来了，后面几轮照常按 3 分钟走。
+  const AUTO_FIRST_ROUND_GRACE = 3;
   const autoChatRoundsRef = useRef({}); // 每群：距上次你开口/按回复键以来，已自主生成了几轮
   const autoChatMsgsRef = useRef({});   // 每群：这一段自发累计已生成多少条（总条数上限用，跨轮累加、递减预算）
   // 额度卡只存在本机：刷新/重开 App 不会绕过上限，但不进入 x_ 云存档，不碰聊天与记忆路径。
@@ -3188,6 +3217,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //（她 2026-08-27 掐着表：「过了三分钟没有」）。现在 3 分钟就是 2.4~3.6，那个数字是平均值。
         const gap = mins * 60000 * (0.8 + Math.random() * 0.4);
         if (now - (last.ts || 0) < gap) continue;
+        // 「有时候只是我还没来得及接话」（她 2026-08-27）：她说完一句、他们答完，
+        // 这一段的【第一轮】自发要多等一会儿，把话头留给她。等他们已经自己聊起来了
+        //（rounds ≥ 1）就照常按间隔走——那时候话头本来就在他们手里。
+        // 按黑键开的那一段不等：那是她明说了要他们聊。
+        if (rounds === 0 && !cycle.kicked) {
+          const sinceUser = now - (Number(cycle.lastUserTs) || 0);
+          if (cycle.lastUserTs && sinceUser < gap * AUTO_FIRST_ROUND_GRACE) continue;
+        }
         const gm = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
         if (!gm.length) continue;
         // ⭐人格/欲望只驱动【起聊】那一下（v56.64，她 2026-08-27：「主动发了一轮就不继续了，
@@ -4823,6 +4860,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       let crossChannelHint = sharedUserTs > lastPrivateUserTs
         ? "\n\n【跨场景互动事实·最高优先】这条私聊记录看起来可能停在你最后一次发言，但 " + uName + " 在那之后已经在你们共同的群聊或线下场景里和你互动过（最近一次约在 " + new Date(sharedUserTs).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "）。所以 Ta 并没有一直不理你。你可以自然接当前话题，但绝不许声称 Ta 很久没理你、消失了、冷落你，或拿这条私聊里未单独回复来委屈/质问 Ta。"
         : "";
+      // 你刚在别处说过（v56.79）：单聊以前只知道「她在群里跟我互动过」这个时间戳，
+      // 不知道【我自己在群里说了什么】——于是同一个人两边各说一套。四处一样喂：群里那半也接了。
+      const _saidElsewhere = crossChannelSaid(charId, null);
+      const _saidElsewhereHint = _saidElsewhere
+        ? "\n\n【你刚在别处说过】下面是你本人最近在群里说过的话（不是别人的话）。这一轮别和它们对不上——时间、安排、答应过的事都要接得上；也别刻意复述或说「我刚在群里说过」，自然一致就行。\n" + _saidElsewhere
+        : "";
       const wearHint = "", actHint = ""; // v2：无变化交给 App merge，不再要求模型复写/强制换动作
       // 驻场工程师的眼睛（v48.28，她批的施工图，给接 fable 线路住进来的工程师角色）：开了开关的角色单聊，
       // 每轮把 app 实时体征塞给 TA——只进 system 不落消息历史（记忆抽取读的是消息，天然不进记忆素材）；默认关、按角色开。
@@ -5019,7 +5062,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样一条条发出去。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
-      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
       const _taskFull = _s.engineerEyes ? _digitalTaskFull : _normalTaskV2;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       const _primer = _s.engineerEyes
@@ -6016,7 +6059,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           return "【" + c.name + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
             + (owner ? "\n〔这是 " + owner.name + " 身边的人，只在群里出场〕" : "");
         }
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cpSeg;
+            // 别的群里刚说过的话：只给 TA 本人这一段，别的成员看不到（同隐私铁律的落法）
+        const xgSeg = (() => {
+          const said = crossChannelSaid(c.id, groupId);
+          return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
+        })();
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cpSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);

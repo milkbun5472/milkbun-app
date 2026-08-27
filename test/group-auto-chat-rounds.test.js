@@ -42,6 +42,7 @@ function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.
     writeAutoChatCycle: (gid, c) => (store[gid] = c),
     resetAutoChatCycle: (gid, ts, k) => (store[gid] = { rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0, kicked: !!k, lastUserTs: Number(ts) || 0 }),
     replyGroup: (gid, o) => calls.push({ at: NOW, ...o }),
+    AUTO_FIRST_ROUND_GRACE: 3,   // 她刚开过口那一段，第一轮要多等的倍数（v56.79）
     Math: Object.assign(Object.create(Math), { random: () => rand }),
     Date: { now: () => NOW },
     window: { __jiwen: jiwen ? { c1: { triggers: urge ? [{ action: "contact" }] : [] }, c2: { triggers: [] } } : {} }
@@ -155,4 +156,33 @@ test("黑键那一下要把她最后那句话的时间一起记上", () => {
   const seg = app.slice(i, i + 600);
   assert.match(seg, /m\.role === "user"/, "得回头找她最后那句话");
   assert.match(seg, /resetAutoChatCycle\(groupId, _lastUserTs, true\)/, "找到的时间要传进去");
+});
+
+// 她 2026-08-27：「有时候只是我还没来得及接话」——她说完、他们答完，
+// 这一段的第一轮自发要把话头留给她一会儿，别马上自己聊开。
+test("她刚说完话，第一轮自发要多等；聊起来之后照常按间隔走", () => {
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50 });
+  assert.equal(got.length, 5, "该跑的轮数一轮不能少");
+  const first = got[0].minute;
+  const step = got[1].minute - got[0].minute;
+  assert.ok(first > step * 2, "第一轮该明显比后面慢：第一轮 " + first + " 分，后面每轮 " + step + " 分");
+  assert.ok(first < 13, "也别等太久，实际 " + first + " 分");
+  got.slice(1).forEach((x, i) => {
+    const d = x.minute - got[i].minute;
+    assert.ok(Math.abs(d - step) < 0.5, "第 " + (i + 2) + " 轮之后的间隔该回到正常值，实际 " + d + " 分");
+  });
+});
+
+test("按过黑键的那一段不等——那是她明说了要他们聊", () => {
+  const kicked = drive({ minutes: 3, rounds: 5, maxMsg: 50, kicked: true });
+  const plain = drive({ minutes: 3, rounds: 5, maxMsg: 50 });
+  assert.ok(kicked[0].minute < plain[0].minute,
+    "黑键那一段第一轮该更快：黑键 " + kicked[0].minute + " 分，平常 " + plain[0].minute + " 分");
+});
+
+test("宽限只挡第一轮，挡不住已经聊起来的那几轮", () => {
+  const src = app.slice(app.indexOf("const scanAutoGroups = () => {"));
+  assert.match(src, /if \(rounds === 0 && !cycle\.kicked\) \{\n\s*const sinceUser/, "条件得同时看轮数和黑键");
+  assert.match(src, /sinceUser < gap \* AUTO_FIRST_ROUND_GRACE\) continue;/);
+  assert.match(app, /const AUTO_FIRST_ROUND_GRACE = 3;/, "倍数要有名字，别裸写在判断里");
 });
