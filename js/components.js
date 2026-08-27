@@ -156,9 +156,10 @@ function Head({
 }) {
   const t = useTheme();
   return /*#__PURE__*/React.createElement("div", {
-    className: "shrink-0 px-6 pt-5 pb-3",
+    className: "shrink-0 px-6 pb-3",
     style: {
-      background: t.bg
+      background: t.bg,
+      paddingTop: safeTop(20)
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-between mb-4"
@@ -1266,7 +1267,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   return h("div", { className: "h-full flex flex-col", style: { position: "relative" } },
     // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
     // 白占掉小半屏，删了（她 2026-08-26 对比 float：「他的每一个比我们的大」）。
-    h("div", { className: "shrink-0 flex items-center justify-between px-4 pt-4 pb-2" },
+    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(16) } },
       h("button", { onClick: mode === "day" ? () => setMode("month") : onBack, className: "flex items-center gap-1.5 active:opacity-50 -ml-1", style: { padding: "4px 6px" } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog, lineHeight: 1 } }, "‹"),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, mode === "day" ? (ym.m + 1) + "月" : ym.y + "年")),
@@ -2245,8 +2246,9 @@ function Messages({
       background: t.bg2
     }
   }, h("div", {
-    className: "shrink-0 px-5 pt-5 pb-3",
+    className: "shrink-0 px-5 pb-3",
     style: {
+      paddingTop: safeTop(20),
       background: t.bg2,
       borderBottom: `1px solid ${t.line}`
     }
@@ -3421,18 +3423,17 @@ function ChatThread({
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
     style: dsp.chatBg ? {
-      // 壁纸改由 app 根节点铺满（含刘海区），这里透明让它透上来——和主屏同一套，
-      // 免得顶上那条 safe-area 空带跟壁纸拼出一条缝（v56.61）
-      background: "transparent"
+      backgroundImage: "url(\"" + resolveImg(dsp.chatBg) + "\")",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat"
     } : {
       background: BUBBLE_SKIN.chatBg || t.bg // 皮肤的全局聊天背景；单聊自己设过图的优先
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     style: {
-      // 刘海那一条归顶栏自己管（v56.61.1）：它和状态栏合成一个元素、一层毛玻璃，
-      // 中间不再有缝。上面的根节点在单聊时不再垫空带（app.js 里 _safeTop）。
-      paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)",
+      paddingTop: safeTop(20),
       background: dsp.chatBg ? "rgba(255,255,255,0.55)" : t.bg2,
       backdropFilter: dsp.chatBg ? "blur(8px)" : "none",
       WebkitBackdropFilter: dsp.chatBg ? "blur(8px)" : "none",
@@ -6426,7 +6427,7 @@ function OfflineMode({
 
   // ---- 往期回看 ----
   if (readView) {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
@@ -6438,7 +6439,7 @@ function OfflineMode({
 
   // ---- setup ----
   if (view === "setup") {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: exit, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "赴约 · " + cName),
@@ -6480,8 +6481,8 @@ function OfflineMode({
 
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", paddingTop: "env(safe-area-inset-top)" } : { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
-    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : { background: t.bg } },
+    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, cName + " ⌄"),
@@ -6855,7 +6856,7 @@ function GroupOfflineMode({
 
   // ---- 往期回看 ----
   if (readView) {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => setReadView(null), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(readView.startTs)),
@@ -6871,7 +6872,7 @@ function GroupOfflineMode({
 
   // ---- setup ----
   if (view === "setup") {
-    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
+    return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: safeTop(0) } },
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: exit, className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "赴约 · " + gName),
@@ -6967,8 +6968,8 @@ function GroupOfflineMode({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, left ? "还会影响接下来 " + left + " 轮" : "已结束 · 下轮不再注入")),
         onDeleteNote && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
     }));
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", paddingTop: "env(safe-area-inset-top)" } : { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
-    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : { background: t.bg } },
+    h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, gName + " ⌄"),
@@ -7211,8 +7212,9 @@ function GroupThread({
       background: BUBBLE_SKIN.chatBg || t.bg // 群聊也吃皮肤的全局聊天背景
     }
   }, h("div", {
-    className: "shrink-0 px-4 pt-5 pb-3 flex items-center gap-3",
+    className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     style: {
+      paddingTop: safeTop(20),
       background: gChatBg ? "rgba(255,255,255,0.55)" : t.bg2,
       backdropFilter: gChatBg ? "blur(8px)" : "none",
       WebkitBackdropFilter: gChatBg ? "blur(8px)" : "none",

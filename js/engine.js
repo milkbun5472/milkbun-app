@@ -3477,6 +3477,16 @@ function translatableLang(text) {
   if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
   return "";
 }
+// iOS 刘海（v56.63）：状态栏那一条归各个界面的顶栏自己吃——顶栏和状态栏是同一个
+// 元素、同一层底色/毛玻璃，中间没有交界，也就没有缝。
+// v56.61 试过「根节点垫一条空带、把它涂成顶栏的颜色」：不行。两个元素各挂一层
+// backdrop-filter，各自采样、各自在边缘钳位，交界处必然留一道亮线——那就是她看见的白带。
+// 做法是照 ai-virtual-phone 的聊天页看来的（AGPL，只读了它的 CSS 布局，没有取用代码）：
+// 它的消息区 absolute inset-0 铺满整屏、顶栏 absolute top:0 浮在上面自己吃掉刘海，
+// 全程没有那条空带。
+// ⚠️主屏是唯一的例外，仍旧留着根节点那条空带：它和 Home 的 height:100vh 是配好的一对，
+//   动了就散架（v56.58 亲测，见 .claude/rules/home-screen-layout.md）。
+function safeTop(px) { return "calc(env(safe-area-inset-top, 0px) + " + (Number(px) || 0) + "px)"; }
 // 双语（v56.56，她 2026-08-26 的主意）：与其事后拿免费接口去翻——那东西把
 // 「傘さすか迷うレベルで湿気すごい」翻成「您可能会迷失在雨伞中」——不如让模型
 // 生成的时候顺手带出来。它知道上下文、知道这个人怎么说话，译得根本不是一个水平；

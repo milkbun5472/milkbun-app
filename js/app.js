@@ -12203,30 +12203,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     },
     toast: toast
   });
-  // iOS 刘海那一条（v56.61 · 只在单聊里试，别处一个字不动）——
-  // 「垫一条空带、界面放在它下面」这套结构是对的，主屏和底部白边都靠它撑着
-  //（.claude/rules/home-screen-layout.md：根节点和 Home 的 100vh 不许动）。
-  // 真正的毛病只在【那条空带涂什么颜色】：它一直跟着根节点涂 theme.bg，
-  // 而单聊顶栏是 t.bg2 或者聊天壁纸，于是顶上横出一条纸白色。
-  // 下面只改颜色，任何高度、任何结构都没碰。
-  const _imgUrl = u => "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(u) : u) + ")";
-  const _threadBg = (screen === "thread" && activeChar) ? (settingsFor(activeChar.id).chatBg || "") : "";
-  // 有聊天壁纸时按主屏那套来：壁纸铺到根节点，单聊自身透明，让它一路遮到刘海区
-  const _rootBg = (screen === "home" && wallpaper) ? _imgUrl(wallpaper)
-    : _threadBg ? _imgUrl(_threadBg)
-    : theme.bg;
-  // v56.61 把这条空带和顶栏各涂各的色，两个元素、两层毛玻璃，交界处那道缝就是她看见的白边。
-  // 去 ai-virtual-phone 翻了一遍（AGPL，只看做法不抄代码）：它的聊天页【压根没有这条空带】——
-  // 消息区 absolute inset-0 从屏幕最顶铺到最底，顶栏 absolute top:0 浮在上面、自己把刘海吃掉。
-  // 所以正解是【合成一个元素】：单聊时空带高度归零，刘海那一条交给顶栏自己的 paddingTop。
-  // 结构照旧（顶栏仍是普通 flex 子元素，不改成浮层），只是它的上边界从空带下沿挪到屏幕顶。
-  const _safeTop = { height: screen === "thread" ? 0 : "env(safe-area-inset-top)" };
+  // 刘海那一条归各个界面的顶栏自己吃（v56.63，见 engine.js 的 safeTop）：
+  // 顶栏和状态栏是同一个元素，中间没有交界，也就没有缝。
+  // ⚠️主屏是唯一的例外，仍旧留着这条空带——它和 Home 的 height:100vh 是配好的一对，
+  //   拆掉底部快捷栏当场被顶上去（v56.58 亲测，.claude/rules/home-screen-layout.md）。
+  const _safeTop = { height: screen === "home" ? "env(safe-area-inset-top)" : 0 };
   return /*#__PURE__*/React.createElement(ThemeContext.Provider, {
     value: theme
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-full flex flex-col relative overflow-hidden",
     style: {
-      background: _rootBg,
+      // 主屏时把壁纸铺到根节点（含顶部 safe-area 刘海区），Home 自身透明 → 壁纸一路遮到顶，无白边
+      background: (screen === "home" && wallpaper) ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) + ")" : theme.bg,
       height: "100vh" // 100vh=large viewport，撑到物理屏底（不用 100dvh/fixed，dvh 只到 WebKit 可视区会露白）
     }
   }, isStandalone ? /*#__PURE__*/React.createElement("div", {
