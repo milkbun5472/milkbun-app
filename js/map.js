@@ -70,10 +70,17 @@
       const inter = !o.static;
       const map = L.map(elRef.current, {
         zoomControl: !!o.zoomControl, dragging: inter, scrollWheelZoom: inter, doubleClickZoom: inter,
-        boxZoom: inter, keyboard: inter, touchZoom: inter, tap: inter, attributionControl: false
+        boxZoom: inter, keyboard: inter, touchZoom: inter, tap: inter, attributionControl: true
       });
-      // CARTO Voyager 瓦片：带 {r} 高清视网膜版,手机上不再糊成一团(她 8/20 嫌"潦草"的真凶=OSM 默认瓦片无 retina)
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 19, subdomains: "abcd", attribution: "© OpenStreetMap © CARTO" }).addTo(map);
+      // Esri World Street Map 允许免 Key 取图；detectRetina 会在高清屏自动请求
+      // 更高一级的四张瓦片，手机上仍然清楚。不要再用 CARTO 匿名端点：
+      // 它会直接把 “API KEY REQUIRED” 烙进图片，前端无法去掉。
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        detectRetina: true,
+        attribution: 'Tiles &copy; Esri'
+      }).addTo(map);
       map.setView([31.23, 121.47], 3);
       mapRef.current = map;
       lgRef.current = L.layerGroup().addTo(map);
