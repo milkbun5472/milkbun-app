@@ -3630,7 +3630,11 @@ function ChatThread({
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "flex " + (m.role === "user" ? "justify-end" : "justify-start"),
       style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 }
-    }, h(TransferCard, { m: m, isU: m.role === "user", onRespond: onRespondTransfer }));
+    }, h(TransferCard, {
+      m: m, isU: m.role === "user", onRespond: onRespondTransfer,
+      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
+      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
+    }));
     if (m.kind === "geo") return h(GeoCard, {
       key: i,
       m: m,
@@ -5345,16 +5349,19 @@ function PayLaterCard({ m }) {
 function TransferCard({
   m,
   isU,
-  onRespond
+  onRespond,
+  avatar,
+  myAvatar
 }) {
   const t = useTheme();
   const pending = m.status === "pending";
   const canAct = pending && m.dir === "toMe"; // 我是收款方，可操作
   const statusLabel = m.status === "accepted" ? "已收款" : m.status === "returned" ? "已退回" : m.dir === "toChar" ? "等待 TA 接受" : "待接收";
   const stamp = m.status === "accepted" ? "RECEIVED" : m.status === "returned" ? "RETURNED" : "SENT";
+  // 头像跟位置卡同一个摆法：对方的在左、我的在右（她 2026-08-27：「转账旁边没有头像」）
   return h("div", {
-    className: "py-1 flex " + (isU ? "justify-end" : "justify-start")
-  }, h("div", {
+    className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start")
+  }, !isU && avatar, h("div", {
     style: {
       width: 250,
       background: "#fff",
@@ -5427,7 +5434,7 @@ function TransferCard({
       fontSize: 11,
       color: t.fog
     }
-  }, statusLabel)));
+  }, statusLabel)), isU && myAvatar);
 }
 // 情侣邀请卡片（用户发出，角色自行接受/婉拒）
 function CoupleInviteCard({
@@ -7443,7 +7450,9 @@ function GroupThread({
     }, "转账给 " + m.toName), h(TransferCard, {
       m: m,
       isU: m.role === "user",
-      onRespond: onRespondTransfer
+      onRespond: onRespondTransfer,
+      avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
+      myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 })
     }));
     if (m.kind === "selfie") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),

@@ -56,7 +56,7 @@ test("几种不该发的情况各自处理：人没了就销约，正在忙就�
 });
 
 test("约回不该被防连发闸拦掉", () => {
-  assert.match(app, /if \(opts\.proactive && !opts\.tf && !opts\.promise && history\.length\)/);
+  assert.match(app, /if \(opts\.proactive && !opts\.promise && history\.length\)/);
 });
 
 test("开口方式和「忽然想你」不一样：兑现那句话，别重开话题", () => {

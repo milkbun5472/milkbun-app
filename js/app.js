@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.87";
+const APP_VERSION = "v56.88";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4739,7 +4739,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     // ⭐全局防连发闸（v48.88 她报：小克没等回就 2 分钟内又发一轮）：主动消息距上一条消息不到 12 分钟就不发——
     //   杀掉「连发两轮/你还在打字他就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
-    if (opts.proactive && !opts.tf && !opts.promise && history.length) {
+    if (opts.proactive && !opts.promise && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return false;
     }
@@ -4791,7 +4791,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
       const wxHint = opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发 1~2 条消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
       // 转账盲盒演出：第一条气泡=还没点开（不知金额），点开后才谈钱
-      const tfHint = opts.tf ? "\n\n【此刻·Ta 刚给你转账】" + uName + " 刚给你转了一笔钱" + (opts.tf.note ? "（附言：" + opts.tf.note + "）" : "") + "，你" + (opts.tf.accepted ? "点开领取了，金额是 ¥" + opts.tf.amount : "想了想把它退回了") + "。你现在【主动】发消息说说这事：word 的【第一条】必须是你刚看到转账卡、还没点开时脱口而出的那句——这时你【不知道金额】，好奇、推辞、嗔怪 Ta 乱花钱都行，**这一条绝不许出现任何数字**；" + (opts.tf.accepted ? "从第二条起才是你点开看到 ¥" + opts.tf.amount + " 后的真实反应——按金额大小、你的人设和你俩的关系来：惊讶、心疼 Ta 破费、大方收下、放话要回请都行。" : "后面几条解释你为什么退回：不好意思收、正在气头上、心疼 Ta 乱花钱，按人设来。") + "共 2~4 条短消息，像随手打字，别客套模板。" : "";
+      // 她转过来、还挂着没点的那一笔（v56.88）：以前是转完 1.6 秒随机收下、再自己触发一轮主动播报，
+      // 所以「一转完他就回话了」，而且收不收是 Math.random() < 0.85 掷骰子。
+      // 现在挂着不动，等 TA 下一次真的开口那一轮，由 TA 自己按人设和当下情形决定收还是退。
+      const _pendingTf = (() => {
+        for (let i = history.length - 1; i >= 0; i--) {
+          const m = history[i];
+          if (m && m.kind === "transfer" && m.dir === "toChar" && m.status === "pending") return m;
+        }
+        return null;
+      })();
+      const tfHint = _pendingTf
+        ? "\n【她给你转了钱·这笔还挂着没处理】" + uName + " 转了一笔过来" + (_pendingTf.note ? "（附言：" + _pendingTf.note + "）" : "") + "，卡还在那儿等你点。"
+          + "收不收【由你这个人和此刻的情形定，不是默认收】：你缺不缺这笔、你俩什么关系、她为什么转、你要不要面子、你是不是正跟她别扭着——都算数。"
+          + "\n· 决定收下就填 transferAccept:true，卡才会真入账（金额 ¥" + _pendingTf.amount + "）；不想要、嫌见外、心疼她的钱、正闹脾气就填 transferAccept:false 退回去。"
+          + "\n· 收也好退也好，word 里都要有你自己的话——别只丢一个动作。退回尤其得让她知道你为什么退。"
+          + "\n· 你【还没点开就先说了一句】的话可以放在第一条（那时你不知道金额，别出现数字），点开之后的反应从第二条起。"
+          + "\n· 这一轮还顾不上处理就【省略 transferAccept】，卡继续挂着，下次再说。"
+        : "";
       // 驻场工程师·仪表盘报警（v48.30）：TA 自己发现 app 出状况，主动来跟你说
       const eyesAlertHint = opts.eyesAlert ? "\n\n【此刻·你的仪表盘亮了】你是住在这台 app 里的驻场工程师，刚在自己的仪表盘上看到：" +
         (opts.eyesAlert.errs && opts.eyesAlert.errs.length ? "新报错 " + opts.eyesAlert.errs.length + " 条（" + opts.eyesAlert.errs.join("；").slice(0, 180) + "）" : "") +
@@ -4808,7 +4825,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const promiseHint = opts.promise ? ("\n\n【此刻·你说好了要回来找 Ta】刚才你亲口说过：等" + (opts.promise.about || "忙完这阵") + "就来找 Ta。现在那件事结束了，你回来了。"
         + (opts.promise.lateMin > 25 ? "比说好的晚了大约 " + (opts.promise.lateMin >= 120 ? Math.round(opts.promise.lateMin / 60) + " 小时" : opts.promise.lateMin + " 分钟") + "——真人拖了这么久会自己提一句（不必郑重道歉，一句「刚忙完」「拖到现在」就够）。" : "")
         + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**别当没这回事重新起一个话题**，也别把「我回来了」翻来覆去说三遍。1~3 条短消息。") : "";
-      const proactiveHint = opts.promise ? promiseHint : opts.tf ? tfHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。把这当成一段新的聊天开场：优先从你此刻正在做的事、刚遇到的小事、突然想到的东西、天气/饭点/行程、想分享或想问的新鲜话题里，自然挑一个开口。**不要默认续接聊天记录最后一句，也不要延续上一轮的委屈、焦虑、兴奋或争执情绪。**只有历史里存在明确没回答的问题、已经约好的事、承诺或仍未解决的真实开环，而且此刻确实会想到它时，才轻轻接回；普通旧话题已经结束就让它结束。1~2 条短消息，像真人隔一阵重新来敲门，不复述旧话、不质问为什么没回。"
           : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
@@ -4907,7 +4924,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ? "你想给 " + uName + " 发图时，额外加入 \"photo\":{\"kind\":\"self|other" + (canDuo ? "|duo" : "") + "\",\"scene\":\"画面内容\"}；不发就省略。self 是你的自拍，other 是别人拍下的你" + (canDuo ? "，duo 是你和 " + uName + " 的合照" : "") + "。scene 只写画面，不要把图片说明塞进 word；是否发、发什么由你自己决定。\n【scene 怎么取景】镜头对着人：脸、神情、姿态、身上的衣服、窗外的光都可以写。桌上的酒杯、腰间的刀、身上的伤这些【不进画面】——不是不能存在，是这一格没拍到它们。（出图接口见到酒精、烟草、武器、血伤会整张拒掉，那样你连脸都发不出去。）\n⚠️【这条只管怎么取景，不是不拍的理由】她开口要你拍，你就拍。你此刻正在喝酒、正带着刀、身上有伤，统统不构成拒绝或省略 photo 的理由——永远有一格是拍得出来的：拍脸、拍上半身、拍你此刻的神情。挑那一格拍就是了。"
         : "";
       // 配件·授权门（安全铁律④：任何主动/续写/提醒/生日/微信/转账/眼睛/续说 都【绝不】开放硬件；只在此刻在场、明示激活、该角色 opt-in、且已解锁时才注入 toy 能力）
-      const toyOn = !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx
+      const toyOn = !opts.proactive && !contMode && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx
         && typeof toyReady === "function" && toyReady() && toyArmedRef.current && toyArmedForRef.current === charId
         && !!(settingsFor(charId) && settingsFor(charId).toyEnabled)
         && (() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } })();
@@ -4918,7 +4935,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           ts: Date.now(),
           who: (characters.find(c => c.id === charId) || {}).name || charId,
           conds: [
-            ["不是主动/续写轮", !opts.proactive && !contMode && !opts.tf && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx],
+            ["不是主动/续写轮", !opts.proactive && !contMode && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx],
             ["设备已连接", typeof toyReady === "function" && toyReady()],
             ["本次已激活", !!toyArmedRef.current],
             ["激活的正是TA", toyArmedForRef.current === charId],
@@ -4973,6 +4990,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "⚠️它是公开发言：只属于你和 " + uName + " 之间的私事、你俩的关系、TA 私下跟你说的话，一个字都不许写进去。");
       }
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
+      if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
       const capabilityHint = "\n【本轮开放能力】" + openCaps.join(", ") + (capState.length ? "\n【本轮能力状态】\n" + capState.join("\n") : "");
       // 双语（v56.56）：常量本身按角色稳定，放进 stable 段不影响历史缓存命中
       const _bilingualOn = !_s.engineerEyes && !!_s.bilingual && typeof bilingualRule === "function";
@@ -5003,6 +5021,7 @@ ${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
+transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
@@ -5320,6 +5339,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           return true;
         });
       }
+      // 她转过来那一笔的结算（v56.88）：由 TA 这一轮自己表的态，不再掷骰子。
+      // 省略这个字段＝这轮没顾上点开，卡继续挂着。
+      let _tfTook = false;
+      if (_pendingTf && (parsed.transferAccept === true || parsed.transferAccept === false)) {
+        respondTransfer(charId, _pendingTf.tid, parsed.transferAccept === true);
+        _tfTook = parsed.transferAccept === true;
+      }
       const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
       const turnId = "t_" + Date.now();
       const ccToolRequest = ccToolOn && window.YanqiuCcTools ? window.YanqiuCcTools.normalizeRequest(parsed.ccTool) : null;
@@ -5387,7 +5413,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const _takeReason = () => { const r = _reasonLeft; _reasonLeft = null; return r || {}; };
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
-        if (i > 0) await new Promise(r => setTimeout(r, i === 1 && opts.tf && opts.tf.accepted ? 1600 : 420));
+        // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
+        if (i > 0) await new Promise(r => setTimeout(r, i === 1 && _tfTook ? 1600 : 420));
         pChat(charId, p => [...p, {
           role: "assistant",
           content: words[i],
@@ -6126,6 +6153,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 合照要几张脸就得有几张参考照；凑不够两个人就别把 group 这个选项给模型，免得它开空头支票
       const gGroupShotOk = members.filter(c => c && c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2
         && members.filter(c => c && c.refPhoto).length >= 1;
+      // 群里她转给某位成员、还挂着没点的那几笔（v56.88，同单聊）：收不收由那个人自己按人设和情形定
+      const gPendingTf = (groupChatsRef.current[groupId] || []).filter(m =>
+        m && m.kind === "transfer" && m.dir === "toChar" && m.status === "pending" && m.toId
+        && members.some(c => c.id === m.toId));
+      const gTfHint = gPendingTf.length
+        ? "\n【有转账挂着没点】" + gPendingTf.map(m => {
+            const who = (members.find(c => c.id === m.toId) || {}).name || m.toName || "某位成员";
+            return "· " + gUName + " 转给「" + who + "」¥" + m.amount + (m.note ? "（附言：" + m.note + "）" : "") + "，还没处理";
+          }).join("\n")
+          + "\n收不收【由收款那个人自己按人设和此刻情形定，不是默认收】：他缺不缺、跟她什么关系、当着别人的面好不好意思收、是不是正别扭着——都算数。"
+          + "\n要表态就在【他自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句他自己的话；这一轮没顾上就省略，卡继续挂着。"
+        : "";
       const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象 {\"kind\":\"self｜other" + (gDuoMembers.length ? "｜duo" : "") + (gGroupShotOk ? "｜group" : "") + "\",\"scene\":\"这张照片拍到了什么（在哪、在干嘛、表情、光线氛围；别描写长相——长相已知）\"}。kind：**self**=自己拿手机拍的第一人称自拍；**other**=别人给 TA 拍的照片（第三人称，站/坐/走/回眸、半身全身带环境都行，姿势更多样）；" + (gDuoMembers.length ? "**duo**=TA 和 " + gUName + " 的合照（画面里有两个人，会拿两人的参考照把脸都锁住，TA 清楚另一个是 " + gUName + "）——仅限这几位有参考照的成员可发合照：" + gDuoMembers.map(c => c.name).join("、") + "。" : "") + (gGroupShotOk ? "**group**=【多人合照】画面里是在场几个人一起拍的合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；一个人在场时不许用。" : "") + "一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
       // 记忆互通时：让成员带出没说出口的心声，并给出好感/心情变化
       const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（整数 -5~5，这次群聊互动让 TA 对用户的好感如何变化，通常小幅、没波动就 0）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 是发这句话时正在做的一个简短动作，每次随情境更新、别照抄上一动作。两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE : "";
@@ -6172,7 +6211,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           // 群里只剩一个人时「写谁那一条」是空问句，直接点名，别让模型去解一个没有分支的选择题
           : "完全代入「" + ((members[0] || {}).name || "在场的角色") + "」，")
         + "\n\n" + GROUP_MULTI_BUBBLE;
-      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + "\n\n" + STOCK_REPLY_BAN + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + GROUP_IN_CHARACTER + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + "\n\n" + STOCK_REPLY_BAN + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + GROUP_IN_CHARACTER + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -6284,6 +6323,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
               const hasMore = safeArr.slice(i + 1).some(x => x && x.name === item.name && String(x.text || "").trim());
               if (hasMore) continue;
             }
+          }
+          // 他对挂着那笔转账的表态（v56.88）：只结算转给他本人的那一笔
+          if (spk && (item.transferAccept === true || item.transferAccept === false)) {
+            const _mine = gPendingTf.find(x => x.toId === spk.id && x.status === "pending");
+            if (_mine) respondGroupTransfer(groupId, _mine.tid, item.transferAccept === true);
           }
           if (item.text) _gSaidRun += " " + item.text;   // 后面的人要能看见他刚说的
           const gTurnId = "gt_" + Date.now() + "_" + i;
@@ -8243,8 +8287,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       ts: Date.now(),
       read: false
     }]);
-    toast("转账已发出，等 TA 接受");
-    setTimeout(() => autoRespondTransfer(charId, tid), 1600);
+    // 转出去就挂着等 TA 点（她 2026-08-27）：以前是 1.6 秒后按 85% 概率随机收下、
+    // 顺手再触发一轮主动回复——所以「一转完他就自己回话了」。现在两件事都不做：
+    // 收不收由 TA 在【下一次真的开口】那一轮里自己决定（见 replyNow 的 transferAccept），
+    // 她按回复键、或者她再说句话，都算那一轮。
+    toast("转账已发出，等 TA 点开");
   };
   // TA 转给我（AI 在回复里决定）：入队待处理卡，我接受才入账
   const postCharTransfer = (charId, amount, note) => {
@@ -8297,14 +8344,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       : (card.dir === "toChar" ? nm + " 退回了你的转账 ¥" + card.amount : "你退回了 " + nm + " 的转账 ¥" + card.amount);
     pChat(charId, p => [...p, { role: "system", kind: "system", content: line, ts: Date.now() }]);
   };
-  const autoRespondTransfer = (charId, tid) => {
-    const accept = Math.random() < 0.85;
-    respondTransfer(charId, tid, accept);
-    // 盲盒演出（v47.75 借汪汪机）：领取/退回后 TA 立刻主动开口——第一条气泡是「还没点开」的反应（不知金额），
-    // 点开后才谈钱；渲染层在第1→2条气泡间加长停顿模拟点开动作。零额外常驻，只在你真转账时多这一次调用
-    const card = (chatsRef.current[charId] || []).find(m => m.kind === "transfer" && m.tid === tid);
-    if (card) setTimeout(() => replyNow(charId, "", null, { proactive: true, tf: { amount: card.amount, note: card.note || "", accepted: accept } }), 900);
-  };
   // ---- 群聊转账（我转给群里某个指定成员）----
   const sendGroupTransfer = (groupId, memberId, amount, note) => {
     const a = Math.round(Number(amount) * 100) / 100;
@@ -8327,8 +8366,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       status: "pending",
       content: "[转账] 你向 " + (member ? member.name : "成员") + " 转了 ¥" + a + (note ? "（" + note + "）" : "")
     });
-    toast("转账已发出，等 TA 接受");
-    setTimeout(() => respondGroupTransfer(groupId, tid, Math.random() < 0.85), 1600);
+    // 同单聊：挂着等 TA 点，收不收由 TA 在下一轮群发言里自己决定（见 replyGroup 的 transferAccept）
+    toast("转账已发出，等 TA 点开");
   };
   const respondGroupTransfer = (groupId, tid, accept) => {
     const gc = groupChatsRef.current[groupId] || [];
