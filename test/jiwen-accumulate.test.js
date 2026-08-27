@@ -90,8 +90,16 @@ test("补时间戳的算式不会把消息排到历史里或未来", () => {
 });
 
 // 她 2026-08-26：「有没有显示能看到 jiwen 攒了多少了可以量化的一个进度条」
-test("聊天设置里有积温进度条，两道阈值都画出来", () => {
-  assert.match(comp, /jiwenState && h\("div"/);
+test("积温进度条就在「允许 Ta 主动发消息」那个开关底下", () => {
+  // 她 2026-08-26：「没看到在哪呢宝宝」——第一版塞进了「内在性情」那个折叠诊断区，
+  // 她根本不会去那儿找。挪到「主动消息」这一节，紧贴那个开关。
+  const secStart = comp.indexOf('h(SettingSection, { title: "主动消息');
+  const barAt = comp.indexOf("// 积温进度条（v56.51");
+  const nextSec = comp.indexOf("h(SettingSection", secStart + 10);
+  assert.ok(barAt > secStart && barAt < nextSec, "进度条必须落在「主动消息」这一节里");
+  // 状态还没算出来时也要说一句，别只留一片空白让她以为没做
+  assert.match(comp, /if \(!jiwenState\) return h\("div", null,/);
+  assert.match(comp, /还没算出来。开机后十几秒才跑第一轮/);
   assert.match(comp, /积温 · TA 现在有多想找你/);
   assert.match(comp, /mark\(0\.35\), mark\(0\.5\)/, "两道线都要画");
   assert.match(comp, /忍不住了 · 随时会开口/);
