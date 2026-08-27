@@ -183,6 +183,11 @@
     const [pin, setPin] = useState(null);         // 临时地点钉 {pos:[lat,lng], name}
     const [route, setRoute] = useState(null);     // {km, min} 当前画着的路线
     const routeLayerRef = useRef(null);
+    const routePathRef = useRef([]);              // [[lat,lng]]，只在本机做偏航判断
+    const routeDestRef = useRef(null);
+    const offRouteRef = useRef({ hits: 0, lastReroute: 0 });
+    const spokenRef = useRef(new Set());
+    const gpsAccuracyRef = useRef(Infinity);
     const searchAbortRef = useRef(null);
     const routeAbortRef = useRef(null);
     const [routeBusy, setRouteBusy] = useState(false);
@@ -192,7 +197,11 @@
         if (routeAbortRef.current) routeAbortRef.current.abort();
       };
     }, []);
-    const clearRoute = function () { if (routeLayerRef.current && mapRef.current) { try { mapRef.current.removeLayer(routeLayerRef.current); } catch (e) {} } routeLayerRef.current = null; setRoute(null); };
+    const clearRoute = function () {
+      if (routeLayerRef.current && mapRef.current) { try { mapRef.current.removeLayer(routeLayerRef.current); } catch (e) {} }
+      routeLayerRef.current = null; routePathRef.current = []; routeDestRef.current = null;
+      offRouteRef.current.hits = 0; spokenRef.current.clear(); setRoute(null);
+    };
     const doPlaceSearch = function () {
       if (!pq.trim() || pBusy) return;
       if (searchAbortRef.current) searchAbortRef.current.abort();
@@ -223,25 +232,29 @@
     const havM = function (a, b) { const R = 6371000, dLa = (b[0] - a[0]) * Math.PI / 180, dLo = (b[1] - a[1]) * Math.PI / 180, la = a[0] * Math.PI / 180, lb = b[0] * Math.PI / 180; const x = Math.sin(dLa / 2) * Math.sin(dLa / 2) + Math.cos(la) * Math.cos(lb) * Math.sin(dLo / 2) * Math.sin(dLo / 2); return 2 * R * Math.asin(Math.sqrt(x)); };
     const [steps, setSteps] = useState(null);       // 转弯步骤 [{pos,text,dist}]
     const [stepsOpen, setStepsOpen] = useState(false);
-    const routeTo = function (dest) {
+    const routeTo = function (dest, automatic) {
       const from = livePos || (anchor ? [anchor.lat, anchor.lng] : null);
       if (!from || !dest || routeBusy) return;
       if (routeAbortRef.current) routeAbortRef.current.abort();
       const ctl = new AbortController(); routeAbortRef.current = ctl;
       setRouteBusy(true);
       clearRoute(); setSteps(null); setStepsOpen(false);
+      routeDestRef.current = dest.slice();
       const applyRoute = function (rt) {
           const map = mapRef.current; const coords = rt && rt.geometry;
           if (!rt || !map || !Array.isArray(coords) || !coords.length) throw new Error("route_empty");
           const line = window.L.polyline(coords.map(function (c) { return [c[1], c[0]]; }), { color: "#3f6d8c", weight: 5, opacity: 0.85 });
           line.addTo(map); routeLayerRef.current = line;
-          try { map.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {}
+          routePathRef.current = coords.map(function (c) { return [c[1], c[0]]; });
+          if (!automatic) { try { map.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {} }
           setRoute({ km: (rt.distance / 1000).toFixed(rt.distance > 20000 ? 0 : 1), min: Math.round(rt.duration / 60) });
           const st = (rt.steps || []).map(function (s) {
             const loc = s && s.maneuver && s.maneuver.location;
             return loc && loc.length === 2 ? { pos: [loc[1], loc[0]], text: stepText(s), dist: s.distance || 0 } : null;
           }).filter(Boolean);
+          spokenRef.current.clear(); offRouteRef.current.hits = 0;
           setSteps(st.length ? st : null);
+          if (automatic && typeof toast === "function") toast("已按当前位置重新规划路线");
       };
       const fallback = function () {
         // 故障回退永远 steps=false；绝不让手机重新吞逐步 geometry。
@@ -266,15 +279,49 @@
       for (var i = 0; i < steps.length; i++) { const dd = havM(livePos, steps[i].pos); if (dd < bd) { bd = dd; best = i; } }
       const nx = (bd < 40 && best + 1 < steps.length) ? steps[best + 1] : steps[best]; // 已到达这步跳下一步
       const m = Math.round(havM(livePos, nx.pos));
-      return { text: nx.text, m: m };
+      return { text: nx.text, m: m, index: (bd < 40 && best + 1 < steps.length) ? best + 1 : best };
     })();
     useEffect(function () {
       if (!navigator.geolocation) return;
       const id = navigator.geolocation.watchPosition(
-        function (p) { setLivePos([p.coords.latitude, p.coords.longitude]); },
+        function (p) { gpsAccuracyRef.current = Number(p.coords.accuracy || Infinity); setLivePos([p.coords.latitude, p.coords.longitude]); },
         function () {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
       return function () { try { navigator.geolocation.clearWatch(id); } catch (e) {} };
     }, []);
+    // 点到路线折线的近似距离（局部等距投影，城市导航足够准确）。
+    const routeDistanceM = function (p, path) {
+      if (!p || !path || path.length < 2) return Infinity;
+      const kLat = 111320, kLng = 111320 * Math.cos(p[0] * Math.PI / 180); let best = Infinity;
+      for (var i = 1; i < path.length; i++) {
+        const ax = (path[i - 1][1] - p[1]) * kLng, ay = (path[i - 1][0] - p[0]) * kLat;
+        const bx = (path[i][1] - p[1]) * kLng, by = (path[i][0] - p[0]) * kLat;
+        const dx = bx - ax, dy = by - ay, den = dx * dx + dy * dy;
+        const u = den ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / den)) : 0;
+        best = Math.min(best, Math.hypot(ax + u * dx, ay + u * dy));
+      }
+      return best;
+    };
+    // 连续三次偏离 180m 才重算（给简化路线和 GPS 漂移留余量）；定位精度太差不判，且 45 秒内最多重算一次。
+    useEffect(function () {
+      const path = routePathRef.current, dest = routeDestRef.current;
+      if (!route || !livePos || !dest || path.length < 2 || gpsAccuracyRef.current > 100) return;
+      const state = offRouteRef.current, away = routeDistanceM(livePos, path) > 180;
+      state.hits = away ? state.hits + 1 : 0;
+      if (state.hits >= 3 && Date.now() - state.lastReroute > 45000 && !routeAbortRef.current) {
+        state.hits = 0; state.lastReroute = Date.now(); routeTo(dest, true);
+      }
+    }, [livePos]);
+    // 临近同一个转弯分档播报；每档只说一次，不打断正在播放的提示。
+    useEffect(function () {
+      if (!nextTurn || !window.speechSynthesis || document.visibilityState === "hidden") return;
+      const band = nextTurn.m <= 80 ? "now" : nextTurn.m <= 300 ? "near" : nextTurn.m <= 800 ? "ahead" : "";
+      if (!band) return;
+      const key = nextTurn.index + ":" + band;
+      if (spokenRef.current.has(key) || window.speechSynthesis.speaking) return;
+      const lead = band === "now" ? "现在" : (nextTurn.m + "米后");
+      const utter = new window.SpeechSynthesisUtterance(lead + "，" + nextTurn.text);
+      utter.lang = "zh-CN"; utter.rate = 1.02; spokenRef.current.add(key); window.speechSynthesis.speak(utter);
+    }, [nextTurn && nextTurn.index, nextTurn && (nextTurn.m <= 80 ? "now" : nextTurn.m <= 300 ? "near" : nextTurn.m <= 800 ? "ahead" : "")]);
     const mapRef = useRef(null);
     const allPtsRef = useRef([]);
     const centeredRef = useRef(false);
