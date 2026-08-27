@@ -15,7 +15,7 @@ const scan = (() => {
 
 // —— 把真的那段巡检抠出来跑，别拿模型推理代替测量 ——
 // 环境全是桩：群、设置、成员、额度卡、replyGroup 只记账不发请求。
-function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2 }) {
+function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true }) {
   const src = (() => {
     const i = app.indexOf("const scanAutoGroups = () => {");
     return app.slice(i, app.indexOf("\n    };", i) + 6);
@@ -40,13 +40,20 @@ function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.
     autoChatRoundsRef: { current: {} },
     autoChatMsgsRef: { current: {} },
     writeAutoChatCycle: (gid, c) => (store[gid] = c),
-    resetAutoChatCycle: (gid, ts) => (store[gid] = { rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0, lastUserTs: Number(ts) || 0 }),
+    resetAutoChatCycle: (gid, ts, k) => (store[gid] = { rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0, kicked: !!k, lastUserTs: Number(ts) || 0 }),
     replyGroup: (gid, o) => calls.push({ at: NOW, ...o }),
     Math: Object.assign(Object.create(Math), { random: () => rand }),
     Date: { now: () => NOW },
-    window: { __jiwen: jiwen ? { c1: { triggers: [{ action: "contact" }] }, c2: { triggers: [] } } : {} }
+    window: { __jiwen: jiwen ? { c1: { triggers: urge ? [{ action: "contact" }] : [] }, c2: { triggers: [] } } : {} }
   };
   const scan = new Function(...Object.keys(env), src + "\nreturn scanAutoGroups;")(...Object.values(env));
+  // 黑色回复键那一下：replyGroup 里 !rgOpts.auto 走的就是这几句
+  //（那一轮不记轮数、不吃条数额度；lastUserTs 一起记上，免得下一拍被当成新消息再 reset）
+  if (kicked) {
+    let lastU = 0;
+    for (let i = chat.length - 1; i >= 0; i--) if (chat[i].role === "user") { lastU = chat[i].ts; break; }
+    env.resetAutoChatCycle(G, lastU, true);
+  }
   for (let t = 0; t < hours * 3600000; t += 20000) {
     NOW = T0 + t;
     const before = calls.length;
@@ -89,7 +96,7 @@ test("设 3 分钟就该是 3 分钟上下，不是一律往后拖", () => {
 test("动念只管起聊那一下，后面几轮不再要新的思念", () => {
   const i = scan.indexOf("let urgeChars = [];");
   assert.ok(i > 0, "urgeChars 的声明变了");
-  const gate = scan.indexOf("if (rounds === 0) {", i);
+  const gate = scan.indexOf("if (rounds === 0 && !cycle.kicked) {", i);
   assert.ok(gate > i, "没有把动念这道门收进【第一轮】里");
   const seg = scan.slice(gate, gate + 1100);
   assert.match(seg, /if \(anyJiwen && !urgeChars\.length\) continue;/, "起聊仍要有人真想找她");
@@ -113,7 +120,39 @@ test("每一轮照旧记账，额度卡跨重开仍然有效", () => {
 });
 
 test("没配 jiwen 的群照旧纯闲置触发，一个字没变", () => {
-  const gate = scan.indexOf("if (rounds === 0) {");
+  const gate = scan.indexOf("if (rounds === 0 && !cycle.kicked) {");
   const seg = scan.slice(gate, gate + 1100);
   assert.match(seg, /let anyJiwen = false;/, "没 jiwen 的群该直接放行");
+});
+
+// 她 2026-08-27：「就是要按黑键之后无视 jiwen」——她已经明说了要他们聊，
+// 别再让「此刻有没有人想我」这道门拦着自发链条接上。
+test("按过黑键的那一段，第一轮不等谁动念", () => {
+  const cold = drive({ minutes: 3, rounds: 5, maxMsg: 50, jiwen: true, urge: false });
+  assert.equal(cold.length, 0, "没人动念、也没按黑键 → 本来就不该起聊");
+  const kicked = drive({ minutes: 3, rounds: 5, maxMsg: 50, jiwen: true, urge: false, kicked: true });
+  assert.equal(kicked.length, 5, "按过黑键就该一路接满 5 轮，实际 " + kicked.length + " 轮");
+});
+
+test("她自己发言开的那张卡不带这个标记——正常说话，起聊照旧由人格驱动", () => {
+  const src = app.slice(app.indexOf("const scanAutoGroups = () => {"));
+  assert.match(src, /resetAutoChatCycle\(gid, last\.ts\);/, "用户消息那一路不许传 kicked");
+  assert.match(app, /resetAutoChatCycle\(groupId, _lastUserTs, true\);/, "黑键那一路要传 kicked");
+});
+
+test("kicked 只管这一段的第一轮，发过就消掉", () => {
+  const src = app.slice(app.indexOf("const scanAutoGroups = () => {"));
+  assert.match(src, /rounds: rounds \+ 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0, kicked: false/,
+    "起聊之后要把标记清掉，别跨过下一次额度刷新还赖着");
+  assert.match(src, /if \(rounds === 0 && !cycle\.kicked\)/, "动念那道门要认这个标记");
+});
+
+// 上面那条差点漏掉：黑键 reset 时不记 lastUserTs，下一拍巡检就会把她那句话
+// 当成没处理过的新消息、再 reset 一次，顺手把 kicked 抹掉——按了等于没按。
+test("黑键那一下要把她最后那句话的时间一起记上", () => {
+  const i = app.indexOf("if (!rgOpts.auto) {");
+  assert.ok(i > 0, "黑键那一路的写法变了");
+  const seg = app.slice(i, i + 600);
+  assert.match(seg, /m\.role === "user"/, "得回头找她最后那句话");
+  assert.match(seg, /resetAutoChatCycle\(groupId, _lastUserTs, true\)/, "找到的时间要传进去");
 });

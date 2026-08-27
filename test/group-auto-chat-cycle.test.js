@@ -16,7 +16,7 @@ test("群聊自发额度持久化且到顶后按小时自动刷新", () => {
 
 test("用户新发言和黑色回复键都能立即刷新额度", () => {
   assert.match(app, /last\.role === "user"[\s\S]*resetAutoChatCycle\(gid, last\.ts\)/);
-  assert.match(app, /if \(!rgOpts\.auto\) resetAutoChatCycle\(groupId\)/);
+  assert.match(app, /if \(!rgOpts\.auto\) \{[\s\S]*?resetAutoChatCycle\(groupId, _lastUserTs, true\);/);
   assert.match(app, /lastUserTs/);
 });
 

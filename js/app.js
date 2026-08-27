@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.72";
+const APP_VERSION = "v56.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3138,8 +3138,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     autoChatMsgsRef.current[gid] = cycle.msgs || 0;
     return cycle;
   };
-  const resetAutoChatCycle = (gid, lastUserTs) => writeAutoChatCycle(gid, {
-    rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0,
+  // kicked＝这张额度卡是她【亲手按黑色回复键／让他们继续】开出来的（v56.73）。
+  // 带着这个标记时，本段的第一轮自发不再等谁动念——她已经明说了要他们聊。
+  // 她自己发言开出来的卡不带这个标记：那是正常说话，起聊仍旧由人格驱动。
+  const resetAutoChatCycle = (gid, lastUserTs, kicked) => writeAutoChatCycle(gid, {
+    rounds: 0, msgs: 0, cappedAt: 0, resetAt: 0, kicked: !!kicked,
     lastUserTs: Number(lastUserTs) || Number((autoChatCycleRef.current[gid] || {}).lastUserTs) || 0
   });
   const addAutoChatMessages = (gid, count) => {
@@ -3194,7 +3197,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 后面几轮是【同一场对话在往下接】，本来就不该再要一份新的思念——刹车交给
         // 轮数上限、总条数上限和闲置间隔，那三样才是她在设置里调的东西。
         let urgeChars = [];
-        if (rounds === 0) {
+        if (rounds === 0 && !cycle.kicked) {
           let anyJiwen = false;
           gm.forEach(c => {
             const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id];
@@ -3209,7 +3212,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
           });
         }
-        cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0 });
+        // kicked 只管这一段的第一轮：发过就消掉，别让它跨过下一次额度刷新还赖着
+        cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0, kicked: false });
         replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar, urgeCharIds: urgeChars.map(c => c.id) });
         break;
       }
@@ -5883,7 +5887,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
     if (laneBusy("g:" + groupId)) return;
-    if (!rgOpts.auto) resetAutoChatCycle(groupId); // 黑色回复键/让他们继续：立即开一张全新额度卡
+    // 黑色回复键 / 让他们继续：立即开一张全新额度卡，且这一段起聊不等动念。
+    // lastUserTs 必须一起记上她【最后那句话】的时间——否则下一次巡检会把它当成
+    // 一条没处理过的新用户消息，再 reset 一次、顺手把 kicked 抹掉，白按。
+    if (!rgOpts.auto) {
+      const _gch = groupChatsRef.current[groupId] || [];
+      let _lastUserTs = 0;
+      for (let i = _gch.length - 1; i >= 0; i--) { const m = _gch[i]; if (m && m.role === "user") { _lastUserTs = Number(m.ts) || 0; break; } }
+      resetAutoChatCycle(groupId, _lastUserTs, true);
+    }
     const group = groups.find(g => g.id === groupId);
     const members = group.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
     const gs = gsFor(groupId);
