@@ -32,37 +32,37 @@ test("只留一把尺子 safeTop，别一处一处手写 calc", () => {
   assert.match(eng, /env\(safe-area-inset-top, 0px\)/, "要带 0px 兜底：非 PWA 打开时这个变量是空的");
 });
 
-const SCREENS = ("Home Cast CastForm Messages MomentsProfile MyWallet KinshipBill ChatThread GroupThread " +
-  "ContactDetail Ties Lifestyle PhoneCarry Carry CharWallet EmoteMatrix Favorites Forum Shop Us WorldBook " +
-  "StudyApp ReadTogether Debate Dream Tarot DreamJournalApp YanqiuMomentsApp RescueConsole VpsCodexApp " +
-  "LoungeEntryApp Ledger CodexApp Memo CapsuleApp Pomodoro Games TheaterApp StyleLabApp AssistantApp " +
-  "ImpressionApp FanficApp WeeklyApp MemoryLib Diary ListenTogether Calendar Config CharMap").split(" ");
-
-const bodyOf = name => {
-  for (const [f, s] of SRC) {
-    let i = -1;
-    for (const p of ["function " + name + "(", "const " + name + " = ", name + "({"]) {
-      i = s.indexOf(p);
-      if (i >= 0) break;
-    }
-    if (i < 0) continue;
-    const rest = s.slice(i + 10);
-    const m = /\n(function |const [A-Z])/.exec(rest);
-    return { file: f, body: s.slice(i, i + 10 + (m ? m.index : 60000)) };
-  }
-  return null;
+// v56.63 的普查只问「这个组件里出现过 Head 没有」，于是漏了一整类：
+// 某个分支（列表页／空状态）用 Head，真正显示的那个分支自己写顶栏。
+// 查手机、行程、日记、随身全是这个形状，她 2026-08-27 撞到查手机那页顶栏钻进刘海里。
+// 改成【逐个顶栏】查：所有 shrink-0 + pt-N 的 className，附近没有 safeTop 的一律报出来；
+// 确实不是顶栏的写进 INNER 里，连理由一起。
+const INNER = {
+  "components.js|shrink-0 flex items-center justify-between px-2 pt-1 pb-1": "日历月视图里的月份切换行，上面还有日历自己的顶栏",
+  "components.js|flex justify-center gap-1.5 pt-2 shrink-0": "主屏页码点——主屏不许动",
+  "components.js|relative shrink-0 px-4 pt-1": "主屏 dock 区——主屏不许动",
+  "components.js|shrink-0 pt-10 pb-3 flex flex-col items-center": "通话浮层内部；外壳自己已经让开了刘海",
+  "components.js|shrink-0 px-5 pt-5 pb-3 flex items-center gap-3": "通话记录浮层内部；外壳自己已经让开了刘海",
+  "components.js|active:opacity-50 shrink-0 pt-0.5": "记录行里的删除按钮，不是顶栏",
+  "codex.js|px-5 pt-2 pb-3 shrink-0": "搜索框那一行，上面还有 Head",
+  "vps-codex.js|px-4 pt-2 shrink-0": "底部输入行，让的是下边",
+  "phone.js|shrink-0 flex items-center gap-3 px-5 pt-6 pb-4": "接在 Head 底下的一行，不是顶栏"
 };
 
-test("每个整屏界面都自己让开刘海（用共用顶栏 Head，或自己写 safeTop）", () => {
-  const missing = [];
-  SCREENS.forEach(n => {
-    const got = bodyOf(n);
-    if (!got) { missing.push(n + "（没找到这个组件）"); return; }
-    const usesHead = /(React\.createElement|h)\(\s*Head\b/.test(got.body);
-    const usesSafe = got.body.includes("safeTop(") || got.body.includes("safe-area-inset-top");
-    if (!usesHead && !usesSafe) missing.push(n + " (" + got.file + ")");
+test("逐个顶栏查：谁没让开刘海就报谁的名字", () => {
+  const bad = [];
+  SRC.forEach(([f, src]) => {
+    const re = /className: "([^"]*\bshrink-0\b[^"]*\bpt-\d[^"]*|[^"]*\bpt-\d[^"]*\bshrink-0\b[^"]*)"/g;
+    let m;
+    while ((m = re.exec(src))) {
+      const near = src.slice(m.index + m[0].length, m.index + m[0].length + 200);
+      if (near.includes("safeTop(") || near.includes("safe-area-inset-top")) continue;
+      const key = f + "|" + m[1];
+      if (INNER[key]) continue;
+      bad.push(key + "  (第 " + (src.slice(0, m.index).split("\n").length) + " 行)");
+    }
   });
-  assert.deepEqual(missing, [], "这些界面顶上会被刘海压住：\n  " + missing.join("\n  "));
+  assert.deepEqual(bad, [], "这些顶栏会被刘海压住；确实不是顶栏的写进 INNER 并说明理由：\n  " + bad.join("\n  "));
 });
 
 // Head 一个人盖住三十几个界面——它要是掉了，一片一起掉

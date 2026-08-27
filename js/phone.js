@@ -966,7 +966,8 @@ function PhoneCarry({
       background: t.bg
     }
   }, h("div", {
-    className: "shrink-0 px-5 pt-5 pb-3 flex items-center justify-between"
+    className: "shrink-0 px-5 pb-3 flex items-center justify-between",
+    style: { paddingTop: safeTop(20) }
   }, h("button", {
     onClick: () => setInList(true),
     className: "active:opacity-50"
