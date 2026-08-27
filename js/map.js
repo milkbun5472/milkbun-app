@@ -256,7 +256,10 @@
         .catch(function (e) { if (!ctl.signal.aborted && typeof toast === "function") toast("路线服务暂时没响应"); })
         .finally(function () { if (routeAbortRef.current === ctl) { routeAbortRef.current = null; setRouteBusy(false); } });
     };
-    // 实时「下一个转弯」：拿你此刻位置找最近的下一步，像真导航一样报「XX 米后 左转」
+    // 你自己的实时位置（像苹果地图蓝点）：进地图就持续 watchPosition，离开清掉。仅前台生效。
+    const [livePos, setLivePos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
+    // 必须放在 livePos 初始化之后：steps 从 null 变成数组后的下一次渲染会真的读取
+    // livePos；若计算块排在 useState 前，会命中 const 暂时性死区，整页直接崩掉。
     const nextTurn = (function () {
       if (!steps || !livePos) return null;
       let best = 0, bd = Infinity;
@@ -265,8 +268,6 @@
       const m = Math.round(havM(livePos, nx.pos));
       return { text: nx.text, m: m };
     })();
-    // 你自己的实时位置（像苹果地图蓝点）：进地图就持续 watchPosition，离开清掉。仅前台生效。
-    const [livePos, setLivePos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
     useEffect(function () {
       if (!navigator.geolocation) return;
       const id = navigator.geolocation.watchPosition(
