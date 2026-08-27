@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.68";
+const APP_VERSION = "v56.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8283,16 +8283,60 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const whoCalled = callerIsChar ? "【谁打的这通电话】是【你】主动拨给 " + uName + " 的、Ta 接起来了——是你想找 Ta，别搞反成 Ta 打给你、更别问 Ta『不是你打给我的吗』。" : "【谁打的这通电话】是 " + uName + " 打给你的、你接了。";
         if (typeof primeQueryVec === "function") await primeQueryVec(recentChatText(char)); // 向量记忆预热（ctxFor 的检索用的是聊天文本）
         const sys = buildBundle(ctxFor(char)) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**" + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]" + (isVideo ? ",\"action\":\"此刻动作神态一句(必填)\"" : "") + "}。say 里只放你说出口的话，不要加名字前缀、不要旁白、不要括号。";
-        const raw = await callAI(apiFor(char.id), sys, hist, { maxTokens: 2400 });
+        // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词
+        // 就立刻落气泡（CallScreen 的逐气泡 TTS 流水线自然跟上=模型还在写后半句，前半句已经开口）。
+        // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
+        let streamedLines = 0;
+        const pushSayNow = sy => {
+          const ls = splitSayLine(stripName(sy) || "");
+          for (const ln of ls) {
+            if (ln.act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: ln.act });
+            else pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: ln.speech });
+            streamedLines++;
+          }
+        };
+        const sayStreamer = (() => {
+          let all = "", inArr = false, done = false;
+          return delta => {
+            if (done) return;
+            all += delta;
+            if (!inArr) {
+              const m2 = /"say"\s*:\s*\[/.exec(all);
+              if (!m2) return;
+              all = all.slice(m2.index + m2[0].length); inArr = true;
+            }
+            // 逐字符找完整 JSON 字符串元素；撞到 ] （数组收尾）就停
+            while (true) {
+              let i = 0;
+              while (i < all.length && (all[i] === " " || all[i] === "," || all[i] === "\n" || all[i] === "\r" || all[i] === "\t")) i++;
+              if (i < all.length && all[i] === "]") { done = true; return; }
+              if (i >= all.length || all[i] !== '"') return;
+              let j = i + 1, esc = false, closed = -1;
+              for (; j < all.length; j++) {
+                const ch = all[j];
+                if (esc) { esc = false; continue; }
+                if (ch === "\\") { esc = true; continue; }
+                if (ch === '"') { closed = j; break; }
+              }
+              if (closed < 0) return; // 字符串还没写完，等下一段
+              let sy = null;
+              try { sy = JSON.parse(all.slice(i, closed + 1)); } catch (e) {}
+              all = all.slice(closed + 1);
+              if (sy) { try { pushSayNow(sy); } catch (e) {} }
+            }
+          };
+        })();
+        const raw = await callAI(apiFor(char.id), sys, hist, { maxTokens: 2400, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
         says = says.map(stripName).filter(Boolean);
-        if (!says.length) says = sayFallback(raw); // 解析失败也别吐生 JSON，正则抠出气泡
+        if (!says.length && !streamedLines) says = sayFallback(raw); // 解析失败也别吐生 JSON，正则抠出气泡（流式已落过的轮不再兜底，防双份）
         if (isVideo && d.action) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: String(d.action).replace(/[（）()]/g, "").trim() });
         // 把每条 say 里夹带的动作/多句摊平成有序气泡（动作单独居中、说话各自成条）
+        // 流式轮已实时落过 streamedLines 条——这里只补对账后多出来的尾巴（通常为 0）
         const lines = says.reduce((acc, sy) => acc.concat(splitSayLine(sy)), []);
-        for (let i = 0; i < lines.length; i++) {
-          if (i > 0) await new Promise(r => setTimeout(r, 550));
+        for (let i = streamedLines; i < lines.length; i++) {
+          if (i > streamedLines) await new Promise(r => setTimeout(r, 550));
           if (lines[i].act) pushMsg({ role: "char", act: true, senderId: char.id, senderName: char.name, content: lines[i].act });
           else pushMsg({ role: "char", senderId: char.id, senderName: char.name, content: lines[i].speech });
         }

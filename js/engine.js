@@ -778,7 +778,11 @@ async function callAI(p, system, messages, opts) {
         let event; try { event = JSON.parse(raw); } catch (e) { return; }
         if (event.error) error = event.error;
         const choice = event.choices && event.choices[0];
-        if (choice && choice.delta && choice.delta.content) text += choice.delta.content;
+        if (choice && choice.delta && choice.delta.content) {
+          text += choice.delta.content;
+          // v56.26 GPT-Live：调用方给了 onDelta 就边收边喂（通话逐句 TTS 抢跑用）；回调炸了不拦流
+          try { if (opts && typeof opts.onDelta === "function") opts.onDelta(choice.delta.content, text); } catch (e) {}
+        }
         if (event.usage) usage = event.usage;
       };
       // 流式超时分型(审计一刀·三审定):fetchT 只管到响应头,此后 reader.read() 原本裸奔——
