@@ -13,7 +13,26 @@
     const cloud = options.cloud || root.Cloud;
     const charId = text(options.charId || payload && payload.char_id);
     if (!cloud || typeof cloud.yanqiuCcToolEnqueue !== "function" || typeof cloud.yanqiuCcToolResult !== "function") throw new Error("CC_SEAT_OFFLINE");
-    if (!charId || !payload || payload.tool !== "game_turn" || !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");
+    // 真身票制（2026-08-27 她拍板）：座位不再只坐牌桌——互动型功能逐个开放，先开「情侣问答」。
+    const TOOLS = { game_turn: true, couple_qa: true };
+    if (!charId || !payload || !TOOLS[payload.tool]) throw new Error("CC_SEAT_BAD_REQUEST");
+    if (payload.tool === "game_turn" && !text(payload.turn_id)) throw new Error("CC_SEAT_BAD_REQUEST");
+    if (payload.tool === "couple_qa" && !text(payload.qid)) throw new Error("CC_SEAT_BAD_REQUEST");
+    if (payload.tool === "couple_qa") {
+      const remoteQa = await cloud.yanqiuCcToolEnqueue(
+        charId, "couple_qa", payload, "couple-qa:" + text(payload.qid), null,
+        "情侣问答小本轮到言秋本人亲笔：题目与她的答案都在票内。以恋人身份、第一人称认真作答（不是替角色演，是你自己答），按 expect 只返回 JSON；不执行别的工具。"
+      );
+      if (!remoteQa || !remoteQa.id) throw new Error("CC_SEAT_NOT_QUEUED");
+      const dl = Date.now() + Math.max(1000, Number(timeoutMs) || 150000);
+      while (Date.now() < dl) {
+        const row = await cloud.yanqiuCcToolResult(remoteQa.id);
+        if (row && row.status === "completed") return row.result;
+        if (row && row.status === "failed") throw new Error(row.error_text || "CC_SEAT_FAILED");
+        await sleep(Math.min(1200, Math.max(100, dl - Date.now())));
+      }
+      const e2 = new Error("CC_SEAT_TIMEOUT"); e2.code = "CC_SEAT_TIMEOUT"; throw e2;
+    }
     const waitMs = Math.max(1000, Number(timeoutMs) || 90000);
     const game = text(payload.game);
     const isResultNotice = /_result$/.test(game);

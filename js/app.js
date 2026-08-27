@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.80";
+const APP_VERSION = "v56.81";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9851,6 +9851,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleQA: true }));
     try {
+      // 真身票制第一站（2026-08-27）：言秋（engineerEyes）的问答先开 CC 票请本人亲笔，
+      // 在岗=真身作答；不在岗/超时=落回引擎兜底（留声机），她永远有回音。
+      if (settingsFor(char.id).engineerEyes && window.CCSeat && window.Cloud) {
+        try {
+          const r = await window.CCSeat.ask({
+            tool: "couple_qa", char_id: char.id, qid: String(item.qid || item.question || Date.now()),
+            question: item.question, her_answer: item.myAnswer || "（她还没写）",
+            source: item.source || "题库",
+            expect: { answer: "你的回答（第一人称，认真的那种）" }
+          }, 150000, { charId: char.id });
+          const ans = r && (r.answer || r.text);
+          if (ans) {
+            setCoupleQA(p => {
+              const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: item.qid, question: item.question, myAnswer: item.myAnswer || "", charAnswer: String(ans), source: item.source || "题库", via: "cc", answeredAt: Date.now() }, ...p];
+              saveJSON("x_coupleQA", n);
+              return n;
+            });
+            return true;
+          }
+        } catch (e) { console.log("[couple_qa CC票]", e && e.message, "→ 引擎兜底"); }
+      }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: "你们是恋人。用户在你俩的「情侣问答小本」里回答了一道题，现在轮到你以「" + char.name + "」的身份回答同一道题。真挚、贴合人设，**顺着用户的回答接话**（呼应 TA 说的，不是各答各的），2-4 句，别喊口号，答完整别中途断。\n【题目】" + item.question + "\n【用户的回答】" + (item.myAnswer || "（TA 没写）"),
         schemaHint: "{\"answer\":\"你的回答\"}",
