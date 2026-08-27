@@ -21,7 +21,8 @@ test("积温说明不冒充普通回复的人格控制器", () => {
   assert.match(source, /积温 · 已开启/);
   assert.match(source, /只影响 TA 什么时候主动来找你/);
   assert.match(source, /不会改普通聊天回复/);
-  assert.match(source, /想靠近 .*傲娇 .*心情 /);
+  assert.match(source, /详细进度就在下方/);
+  assert.match(source, /renderJiwenGauge\(\)/);
 });
 
 test("未开闸的 A B C 均写清只观察", () => {
