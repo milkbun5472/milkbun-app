@@ -3428,8 +3428,11 @@ function ChatThread({
       background: BUBBLE_SKIN.chatBg || t.bg // 皮肤的全局聊天背景；单聊自己设过图的优先
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "shrink-0 px-4 pt-5 pb-3 flex items-center gap-3",
+    className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     style: {
+      // 刘海那一条归顶栏自己管（v56.61.1）：它和状态栏合成一个元素、一层毛玻璃，
+      // 中间不再有缝。上面的根节点在单聊时不再垫空带（app.js 里 _safeTop）。
+      paddingTop: "calc(env(safe-area-inset-top, 0px) + 20px)",
       background: dsp.chatBg ? "rgba(255,255,255,0.55)" : t.bg2,
       backdropFilter: dsp.chatBg ? "blur(8px)" : "none",
       WebkitBackdropFilter: dsp.chatBg ? "blur(8px)" : "none",

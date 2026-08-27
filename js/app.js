@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.61";
+const APP_VERSION = "v56.62";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12215,12 +12215,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const _rootBg = (screen === "home" && wallpaper) ? _imgUrl(wallpaper)
     : _threadBg ? _imgUrl(_threadBg)
     : theme.bg;
-  const _safeTop = { height: "env(safe-area-inset-top)" };
-  if (screen === "thread") {
-    // 没壁纸就直接涂顶栏那个色；有壁纸就跟顶栏一样蒙一层半透明白 + 毛玻璃，接得上
-    if (_threadBg) Object.assign(_safeTop, { background: "rgba(255,255,255,0.55)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" });
-    else Object.assign(_safeTop, { background: theme.bg2 });
-  }
+  // v56.61 把这条空带和顶栏各涂各的色，两个元素、两层毛玻璃，交界处那道缝就是她看见的白边。
+  // 去 ai-virtual-phone 翻了一遍（AGPL，只看做法不抄代码）：它的聊天页【压根没有这条空带】——
+  // 消息区 absolute inset-0 从屏幕最顶铺到最底，顶栏 absolute top:0 浮在上面、自己把刘海吃掉。
+  // 所以正解是【合成一个元素】：单聊时空带高度归零，刘海那一条交给顶栏自己的 paddingTop。
+  // 结构照旧（顶栏仍是普通 flex 子元素，不改成浮层），只是它的上边界从空带下沿挪到屏幕顶。
+  const _safeTop = { height: screen === "thread" ? 0 : "env(safe-area-inset-top)" };
   return /*#__PURE__*/React.createElement(ThemeContext.Provider, {
     value: theme
   }, /*#__PURE__*/React.createElement("div", {

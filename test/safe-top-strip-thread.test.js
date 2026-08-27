@@ -17,22 +17,25 @@ test("100vh 那一套原封不动——这是底部白边的最终解法", () =>
   [html, app, comp].forEach(s => assert.doesNotMatch(s, /[:=]\s*["']?\d+dvh/, "不许真的用上 dvh"));
 });
 
-test("刘海那条空带还在，高度还是 env(safe-area-inset-top)", () => {
-  assert.match(app, /const _safeTop = \{ height: "env\(safe-area-inset-top\)" \};/, "空带的高度被改了");
+// ai-virtual-phone 的聊天页压根没有这条空带：消息区 absolute inset-0 铺满整屏，
+// 顶栏浮在上面、自己把刘海吃掉。两个元素两层毛玻璃才会在交界处留缝——那就是白边。
+test("单聊时空带归零，别处照旧留着", () => {
+  assert.match(app, /const _safeTop = \{ height: screen === "thread" \? 0 : "env\(safe-area-inset-top\)" \};/,
+    "空带的高度写法被改了");
   assert.match(app, /isStandalone \? \/\*#__PURE__\*\/React\.createElement\("div", \{\s*style: _safeTop,/,
     "空带不在原来的位置上了");
 });
 
-// 白带的真正病因：那条空带一直跟着根节点涂 theme.bg，而单聊顶栏是 t.bg2 或聊天壁纸
-test("单聊时那条空带涂顶栏的颜色，不再涂 theme.bg", () => {
-  const i = app.indexOf('if (screen === "thread") {');
-  assert.ok(i > 0, "没有这一段");
-  const seg = app.slice(i, i + 420);
-  assert.match(seg, /background: theme\.bg2/, "没壁纸时该跟顶栏一个色");
-  assert.match(seg, /background: "rgba\(255,255,255,0\.55\)", backdropFilter: "blur\(8px\)"/,
-    "有壁纸时该跟顶栏一样蒙半透明白 + 毛玻璃");
+test("空带归零那一份高度，由单聊顶栏自己接住", () => {
+  const i = comp.indexOf('className: "shrink-0 px-4 pb-3 flex items-center gap-3"');
+  assert.ok(i > 0, "单聊顶栏的 class 变了");
+  const seg = comp.slice(i, i + 420);
+  assert.match(seg, /paddingTop: "calc\(env\(safe-area-inset-top, 0px\) \+ 20px\)"/, "顶栏没把刘海吃下去");
+  assert.match(seg, /background: dsp\.chatBg \? "rgba\(255,255,255,0\.55\)" : t\.bg2/, "顶栏底色不该变");
+  assert.doesNotMatch(seg, /pt-5/, "别再留 tailwind 的 pt-5，会和 paddingTop 打架");
 });
 
+// 白带的真正病因：那条空带一直跟着根节点涂 theme.bg，而单聊顶栏是 t.bg2 或聊天壁纸
 // 试水就只试单聊：别的界面这一版必须一个像素都不变
 test("只在单聊里试，别处一个字不动", () => {
   const i = app.indexOf("const _safeTop =");
