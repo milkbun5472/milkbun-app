@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.54";
+const APP_VERSION = "v56.55";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2977,6 +2977,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return lines.join("\n");
     })(),
     financeNote: (typeof ledgerNoteFor === "function" ? ledgerNoteFor(char.id) : ""),
+    ownWalletNote: (() => {
+      try {
+        const w = charWalletRef.current[char.id];
+        if (!w || !w.init) return "";
+        const bal = Number(w.balance) || 0;
+        const inc = Number(w.monthlyIncome) || 0;
+        let line = "你自己卡里现在有 " + Math.round(bal) + " 元" + (inc ? "，月收入约 " + Math.round(inc) + " 元" : "") + "。";
+        if (bal < 0) line += "**你已经透支了**（欠着 " + Math.round(-bal) + " 元）：这阵子只买必需品，能省则省，绝不可能再掏钱给别人或大手大脚。";
+        else if (inc && bal < inc * 0.3) line += "手头很紧，花钱会明显收敛。";
+        line += "【重要】要转账/送东西/请客之前先掂量这个数：**绝不许承诺或转出超过你余额的钱**，也别为了显得慷慨编一个你拿不出来的数字。真的想给但给不起，就照实说手头紧。";
+        return line;
+      } catch (e) { return ""; }
+    })(),
     memoNote: (typeof memoNoteFor === "function" ? memoNoteFor(char.id) : ""),
     listenLog: (() => {
       const L = listenRef.current || {};
@@ -7700,7 +7713,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   }, [screen]);
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
   useEffect(() => {
-    if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); };
+    if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); };
   }, [active, characters.length]);
   // 回到前台 / 重新聚焦：也自动补今日行程。PWA 常驻不重载页面时，光靠上面的首次加载不够——
   // 切回来那一下补一次。schedGenAllToday 只补【缺今天】的角色、已有则空跑，安全省 api。
@@ -7715,7 +7728,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const schedDayRef = useRef("");
   useEffect(() => {
     const k = liveChars.map(c => c.id + ":" + schedLocalDayKey(c)).join("|");
-    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; }
+    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; }
   }, [now]);
 
   // ---- 查手机：每个 app 独立生成/刷新 ----
@@ -7921,7 +7934,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const genDailySpend = async (char, dayKey, rec) => {
     const plan = (schedulesRef.current[char.id] || {})[dayKey];
     const schedText = plan && Array.isArray(plan.seqs) ? plan.seqs.map(s => (s.time || "") + " " + s.title + (s.location ? "（" + s.location + "）" : "")).join("；") : "";
+    const bal = Number(rec.balance) || 0;
+    const broke = bal <= 0;
     const fallback = () => {
+      if (broke) return [{ item: "只买了口吃的", amount: Math.max(5, Math.round(8 + Math.random() * 12)) }];
       const est = Math.max(8, Math.round(((Number(rec.fixedMonthly) || 1800) / 30) * (0.5 + Math.random())));
       return [{ item: "日常开销", amount: est }];
     };
@@ -7929,11 +7945,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     try {
       const dp = schedDateParts(dayKey);
       const d = await runProbe(bgActive, ctxFor(char), {
-        instruction: "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。",
+        instruction: (broke
+          ? "⚠️TA 现在【已经透支】（卡里 " + Math.round(bal) + " 元），正在借钱过日子：这一天只可能有【最低限度的必需开销】（一顿便宜的饭、通勤），总额不超过 40 元，能不花就不花。\n"
+          : "TA 卡里现在有 " + Math.round(bal) + " 元" + ((Number(rec.monthlyIncome) || 0) && bal < (Number(rec.monthlyIncome) || 0) * 0.3 ? "，手头很紧，这几天花钱明显收敛。" : "。") + "\n")
+          + "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。",
         schemaHint: "{\"buys\":[{\"item\":\"楼下便利店饭团+冰美式\",\"amount\":18},{\"item\":\"地铁通勤往返\",\"amount\":8}]}",
         maxTokens: 800
       });
       const buys = (Array.isArray(d.buys) ? d.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0) })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
+      // 代码侧封顶：透支的人一天花不出 40 块以上（模型有时不听）
+      if (broke) {
+        let left = 40, out = [];
+        for (const b of buys) { if (left <= 0) break; const amt = Math.min(b.amount, left); if (amt >= 1) { out.push({ item: b.item, amount: amt }); left -= amt; } }
+        return out;
+      }
       return buys; // 空数组=这天没花钱，合法
     } catch (e) {
       return fallback();
@@ -7966,6 +7991,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       charWalletRef.current = n;
       return n;
     });
+  };
+  // 每天自动补一次账（v56.55）。她 2026-08-26：「我的钱包新角色过了好几天还是没出现日常消费」——
+  // 病根是 catchUpWallet 只有【打开那个角色的钱包页】时才跑（screens.js 里那个 useEffect），
+  // 她不去翻就永远不结算。挂到跨天那一拍上，全员补一次；一人一天一次调用，走便宜池。
+  const walletCatchRunRef = useRef(false);
+  const walletCatchAllToday = async () => {
+    if (walletCatchRunRef.current) return;
+    walletCatchRunRef.current = true;
+    try {
+      for (const c of liveChars) {
+        const rec = charWalletRef.current[c.id];
+        if (!rec || !rec.init) continue;       // 还没建档的不动，建档要她自己点
+        await catchUpWallet(c);
+      }
+    } finally { walletCatchRunRef.current = false; }
   };
   // 补账：把 lastDailyKey 之后、到【昨天】为止漏掉的每天日常消费补上（最多补 14 天）
   const catchUpWallet = async char => {
@@ -8014,8 +8054,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   // TA 转给我（AI 在回复里决定）：入队待处理卡，我接受才入账
   const postCharTransfer = (charId, amount, note) => {
-    const a = Math.round(Number(amount) * 100) / 100;
+    let a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
+    // 掏不出来的钱不许掏（她 2026-08-26：阿屿转了 15000，人直接欠到 -14000 还在涨）。
+    // 提示词里已经告诉他余额了，这里是代码侧的保证：封顶到他真有的钱，一分不剩就不转。
+    const _w = charWalletRef.current[charId];
+    if (_w && _w.init) {
+      const bal = Number(_w.balance) || 0;
+      if (bal <= 0) return;
+      if (a > bal) a = Math.round(bal * 100) / 100;
+    }
     const char = characters.find(c => c.id === charId);
     pChat(charId, p => [...p, {
       role: "assistant",
