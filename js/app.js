@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.69";
+const APP_VERSION = "v56.70";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3182,22 +3182,30 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const mins = Math.max(1, gs.autoChatMin || 8);
         const gap = mins * 60000 * (1 + Math.random() * 0.5); // 抖动 1~1.5×，别死板每 N 分钟一次
         if (now - (last.ts || 0) < gap) continue;
-        // ⭐人格/欲望驱动起聊：有 jiwen 的群要等至少一位成员此刻真有 contact 动念；没配 jiwen 的群退回纯闲置触发。
         const gm = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
         if (!gm.length) continue;
-        let anyJiwen = false; const urgeChars = [];
-        gm.forEach(c => {
-          const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id];
-          if (!jw) return;
-          anyJiwen = true;
-          // 同一份思念只能被一个出口认领；群聊认领后 25 分钟内，单聊巡检不会再拿旧快照重复发。
-          if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (jiwenFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
-        });
-        if (anyJiwen && !urgeChars.length) continue;
-        urgeChars.forEach(c => {
-          jiwenFiredRef.current[c.id] = now;
-          try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
-        });
+        // ⭐人格/欲望只驱动【起聊】那一下（v56.64，她 2026-08-27：「主动发了一轮就不继续了，
+        // 都没到设定的最大轮数」）。以前每一轮都要求有人此刻正想找她——可认领动念的同时会给
+        // 本人记 25 分钟冷却、还泄掉 0.28 的 connection，而自发间隔默认才 8 分钟：
+        // 第二轮永远等不到人，轮数上限设成几都只发一轮。
+        // 后面几轮是【同一场对话在往下接】，本来就不该再要一份新的思念——刹车交给
+        // 轮数上限、总条数上限和闲置间隔，那三样才是她在设置里调的东西。
+        let urgeChars = [];
+        if (rounds === 0) {
+          let anyJiwen = false;
+          gm.forEach(c => {
+            const jw = typeof window !== "undefined" && window.__jiwen && window.__jiwen[c.id];
+            if (!jw) return;
+            anyJiwen = true;
+            // 同一份思念只能被一个出口认领；群聊认领后 25 分钟内，单聊巡检不会再拿旧快照重复发。
+            if (jw.triggers && jw.triggers.some(tr => tr.action === "contact") && now - (jiwenFiredRef.current[c.id] || 0) >= 25 * 60000) urgeChars.push(c);
+          });
+          if (anyJiwen && !urgeChars.length) continue;
+          urgeChars.forEach(c => {
+            jiwenFiredRef.current[c.id] = now;
+            try { const eng = getJiwen(c); if (eng) eng.applyDelta({ connection: -0.28 }); } catch (e) {}
+          });
+        }
         cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0 });
         replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar, urgeCharIds: urgeChars.map(c => c.id) });
         break;
