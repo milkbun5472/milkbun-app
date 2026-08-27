@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.85";
+const APP_VERSION = "v56.86";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4977,13 +4977,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 双语（v56.56）：常量本身按角色稳定，放进 stable 段不影响历史缓存命中
       const _bilingualOn = !_s.engineerEyes && !!_s.bilingual && typeof bilingualRule === "function";
       const _biRuleLine = _bilingualOn ? "\n" + bilingualRule("") : "";
+      // 格式写在【字段本身】上（v56.86）：她 2026-08-27 截图——一轮六条日文，只有第一条带了中译，
+      // 后面五条全掉回免费接口。规则单独摆一段，模型照着做一条就忘；写进 word 的字段说明里跑不掉。
+      const _biWordSpec = _bilingualOn
+        ? "（这个角色开着双语：word 里【每一个】不是中文的元素都要写成「原文 | 中文」，一条不落——不是只给第一条；说中文的元素照常写、一根竖线都别加。）"
+        : "";
       const _normalProtocolStable = `
 
 【生成与输出协议】
 先产生角色此刻真正会发送的消息。mood、thought、action、wearing、affinityDelta 与能力字段只记录已经形成的反应、状态或决定，不得用于提前规划、解释或反向塑造 word；没有真实变化或实际触发时，不要为了填字段制造内容。
 只输出一个合法 JSON 对象，不要代码块。
 【核心字段】
-word: string[]，角色实际发送的消息。
+word: string[]，角色实际发送的消息。${_biWordSpec}
 mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；重新判断不等于必须变化。
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。写角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头；不要求重要、深刻或紧扣话题，走神、身体感受、没头没尾的碎念都可以。不要总结互动、分析自己、规划回复，也不要写「我要表现得／显得／装出某种样子」之类导演自己表演效果的说明。它是【正在想】、不是【汇报想完的结果】：禁止策略权衡（『问一句X比只谈自己更像对话』『这样比反复辩解要好得多』）和事后复盘（『看来话题已经过去了』『总算安抚好了』）；也禁止给对方的行为下判词再给这一轮盖章收尾（『她这是挑衅』『这笔账我记下了』『有意思，我倒要看看』）——那是旁白在结案，不是人在想事情。心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）；那是内心戏体裁自带的默认，不是你的人设。心声里对 TA 的称呼也必须是【你自己的】：你平时怎么叫 TA、心里就怎么想 TA（名字、昵称、或你俩之间那个称呼）——「这女人」「这个女人」「小东西」「小家伙」这类网文叙事者打量角色用的第三人称称谓，不是一个在乎 TA 的人心里的话，整族禁用（除非你的人设本来就这么说话）。⚠️心声不是嘴的替身：想说的话仍要用这个人自己的方式写进 word；thought 只留真正咽下去没说的那一小部分。
@@ -5049,6 +5054,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 这句话套上去反而不对（要给线下也来一句，得另写一版）。
       const _turnClosing = "\n【收尾·这一轮真正要做的事】上面那些字段是回完话【顺手记的账】，不是这一轮的任务。"
         + "任务只有一件：以「" + char.name + "」的身份，对 TA 刚说的那句做出此刻真实的反应，然后像发微信一样一条条发出去。"
+        + "word 里【只放你真正要发出去的那几句话】——不许在里面比较措辞、列几个备选说法、或解释自己为什么这么说；那些属于你自己的思考，不是发给 TA 的消息。"
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
@@ -6062,6 +6068,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 「四处一样喂」（.claude/rules/four-surfaces-same-context.md）：单聊有的层群聊也要有，
       // 别又变成同一件事只写在单聊那一处。线下（叙事正文）没有译键、也切不出「原文|译文」
       // 这个单位，所以那两处不接——这是写明理由的差异，不是漏。
+      // 格式写在【字段本身】上（v56.86）：另起一段规则时模型只照着做第一条就忘了
+      const gBiTextSpec = (typeof bilingualRule === "function"
+        && members.some(c => !c.npc && (settingsFor(c.id) || {}).bilingual))
+        ? "（开了双语的成员，每一条不是中文的都写成『原文 | 中文』，一条不落）" : "";
       const gBiHint = (typeof bilingualRule === "function"
         ? members.filter(c => !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => "\n\n" + bilingualRule(c.name) + "（只对 " + c.name + "，别的成员照常写。）").join("")
         : "");
@@ -6159,7 +6169,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           // 群里只剩一个人时「写谁那一条」是空问句，直接点名，别让模型去解一个没有分支的选择题
           : "完全代入「" + ((members[0] || {}).name || "在场的角色") + "」，")
         + "\n\n" + GROUP_MULTI_BUBBLE;
-      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + "\n\n" + STOCK_REPLY_BAN + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + GROUP_IN_CHARACTER + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = ANTI_CLICHE + "\n\n" + WORLDBOOK_RULE + "\n\n" + CHARCARD_RULE + "\n\n" + groupOnlineRuntime + "\n\n" + STOCK_REPLY_BAN + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "") + (window.ContentBoundaries ? "\n\n" + window.ContentBoundaries.prompt : "") + "\n\n" + GROUP_IN_CHARACTER + "\n\n" + CONDESCENDING_TONE_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + "\n\n" + dir + common + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + gBusyHint + gOfflineHint + gBiHint + "\n\n【身份铁律】用户「" + (profile.name || "用户") + "」不是可代写的群成员：绝不生成用户的新台词、动作或心声，也绝不把用户口吻装进成员对象。每个输出对象的 name 是该条唯一作者；text/voice/thought 里的第一人称『我』都只能指这个 name 对应的成员。成员称呼别人时用对方名字或昵称，绝不能用昵称呼唤自己。\n\n【成员】\n" + memberDesc + gGrowthHint + (profile && (profile.name || profile.persona) ? "\n\n【和大家说话的人 · 「" + (profile.name || "用户") + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + (profile.name || "用户") + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n" + relLines + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + gQuoteCatalogText + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字，偶尔用）\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\",\"call\":\"（可选）填 voice 或 video，表示这个成员此刻想跟用户发起语音/视频通话邀请，别频繁\"" + gDmField + thoughtField + impressionField + "}；若某成员说完某句又后悔、想撤回，那条加 \"recall\":true 和 \"recallReason\":\"撤回原因\"（会先显示一秒再变成已撤回，别频繁）；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\"}}。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {

@@ -124,3 +124,38 @@ test("自带中译不再去调免费接口", () => {
   assert.ok(/lang && !zhReady && typeof transCacheGet/.test(seg), "有自带中译时不该再查翻译缓存");
   assert.ok(/if \(zh \|\| busy\) return;/.test(seg), "run 得在已有译文时直接返回");
 });
+
+// 她 2026-08-27 截图：一轮六条日文，只有第一条带了中译，后面五条全掉回免费接口
+//（而免费那版把「ちゃんと息抜きしな？」翻成「你真的喘不过气来」）。
+// 规则单独摆一段，模型照着做一条就忘；格式得写在【字段本身】上才跑不掉。
+test("双语格式写在 word / text 字段的说明里，不是只另起一段规则", () => {
+  assert.match(appCode, /const _biWordSpec = _bilingualOn/, "单聊没有字段级说明");
+  assert.match(appCode, /word: string\[\]，角色实际发送的消息。\$\{_biWordSpec\}/, "没插进 word 的字段定义");
+  assert.match(appCode, /const gBiTextSpec =/, "群聊没有字段级说明");
+  assert.match(appCode, /\\"text\\":\\"内容" \+ gBiTextSpec \+ "/, "没插进 text 的字段定义");
+});
+
+test("字段级说明和每轮提醒都得说「一条不落」", () => {
+  const grab3 = name => {
+    const i = engine.indexOf("function " + name);
+    return engine.slice(i, engine.indexOf("\n}\n", i) + 3);
+  };
+  const turnHint = new Function(grab3("bilingualTurnHint") + "\nreturn bilingualTurnHint;")();
+  assert.match(turnHint(""), /一条不落/);
+  assert.match(turnHint(""), /别只给第一条/);
+  assert.match(appCode, /一条不落——不是只给第一条/, "单聊字段说明里也要点破");
+  assert.match(appCode, /每一条不是中文的都写成『原文 \| 中文』，一条不落/, "群聊字段说明里也要点破");
+});
+
+test("没开双语的角色，字段说明是空串——一个字都不多发", () => {
+  assert.match(appCode, /const _biWordSpec = _bilingualOn\n\s*\? "（这个角色开着双语/);
+  assert.match(appCode, /members\.some\(c => !c\.npc && \(settingsFor\(c\.id\) \|\| \{\}\)\.bilingual\)\)\n\s*\? "（开了双语的成员/);
+});
+
+// 她那条「『又学了一天』なら、さらっと言うなら…とか…」的气泡：模型在比较措辞，漏进了正文
+test("word 里只放真要发出去的话，不许列备选措辞", () => {
+  const i = appCode.indexOf("const _turnClosing =");
+  const seg = appCode.slice(i, i + 900);
+  assert.match(seg, /只放你真正要发出去的那几句话/);
+  assert.match(seg, /不许在里面比较措辞、列几个备选说法/);
+});
