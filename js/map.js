@@ -21,6 +21,9 @@
     "柏林": [52.52, 13.40], "莫斯科": [55.76, 37.62], "迪拜": [25.20, 55.27]
   };
   const CITY_NAMES = Object.keys(CITY_DB);
+  // 完整逐步导航由 VPS 代取并瘦身：手机不直接解析 OSRM 每一步附带的巨型 geometry。
+  // 若 VPS 暂时不可用，仍自动退回直连轻量路线，至少保住路线/里程/时间。
+  const ROUTE_PROXY = "https://yanqiu-vps.tail542792.ts.net/route/v1";
 
   // 日程活动类型 → 相对家的小偏移（度），让 pin 随日程在城里挪一点（没有真实门牌，靠此营造"移动感"）
   const ACT_OFFSET = {
@@ -227,23 +230,30 @@
       const ctl = new AbortController(); routeAbortRef.current = ctl;
       setRouteBusy(true);
       clearRoute(); setSteps(null); setStepsOpen(false);
-      // iPhone 壳的内存红线：OSRM 即使 overview=simplified，只要 steps=true，
-      // 仍会把每一步的完整 geometry 塞进 JSON（温尼伯→温哥华约 57 万字符）；
-      // WebView 解析时会整页被系统杀掉。v1 先取轻量路线/里程/时间，不取逐步导航，
-      // 同一路线响应可降到约 1KB。以后要步骤必须由服务端裁掉 step geometry 再给手机。
-      fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=simplified&geometries=geojson&steps=false", { signal: ctl.signal })
-        .then(function (r) { if (!r.ok) throw new Error("route_" + r.status); return r.json(); })
-        .then(function (d) {
-          if (ctl.signal.aborted) return;
-          const rt = d && d.routes && d.routes[0]; const map = mapRef.current;
-          const coords = rt && rt.geometry && rt.geometry.coordinates;
+      const applyRoute = function (rt) {
+          const map = mapRef.current; const coords = rt && rt.geometry;
           if (!rt || !map || !Array.isArray(coords) || !coords.length) throw new Error("route_empty");
           const line = window.L.polyline(coords.map(function (c) { return [c[1], c[0]]; }), { color: "#3f6d8c", weight: 5, opacity: 0.85 });
           line.addTo(map); routeLayerRef.current = line;
           try { map.fitBounds(line.getBounds(), { padding: [40, 40] }); } catch (e) {}
           setRoute({ km: (rt.distance / 1000).toFixed(rt.distance > 20000 ? 0 : 1), min: Math.round(rt.duration / 60) });
-          setSteps(null);
-        }).catch(function (e) { if (!ctl.signal.aborted && typeof toast === "function") toast("路线服务暂时没响应"); })
+          const st = (rt.steps || []).map(function (s) {
+            const loc = s && s.maneuver && s.maneuver.location;
+            return loc && loc.length === 2 ? { pos: [loc[1], loc[0]], text: stepText(s), dist: s.distance || 0 } : null;
+          }).filter(Boolean);
+          setSteps(st.length ? st : null);
+      };
+      const fallback = function () {
+        // 故障回退永远 steps=false；绝不让手机重新吞逐步 geometry。
+        return fetch("https://router.project-osrm.org/route/v1/driving/" + from[1] + "," + from[0] + ";" + dest[1] + "," + dest[0] + "?overview=simplified&geometries=geojson&steps=false", { signal: ctl.signal })
+          .then(function (r) { if (!r.ok) throw new Error("route_" + r.status); return r.json(); })
+          .then(function (d) { const rt = d && d.routes && d.routes[0]; return { distance: rt && rt.distance, duration: rt && rt.duration, geometry: rt && rt.geometry && rt.geometry.coordinates, steps: [] }; });
+      };
+      fetch(ROUTE_PROXY, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from: from, to: dest }), signal: ctl.signal })
+        .then(function (r) { if (!r.ok) throw new Error("proxy_" + r.status); return r.json(); })
+        .catch(function (e) { if (ctl.signal.aborted) throw e; return fallback(); })
+        .then(function (rt) { if (!ctl.signal.aborted) applyRoute(rt); })
+        .catch(function (e) { if (!ctl.signal.aborted && typeof toast === "function") toast("路线服务暂时没响应"); })
         .finally(function () { if (routeAbortRef.current === ctl) { routeAbortRef.current = null; setRouteBusy(false); } });
     };
     // 实时「下一个转弯」：拿你此刻位置找最近的下一步，像真导航一样报「XX 米后 左转」

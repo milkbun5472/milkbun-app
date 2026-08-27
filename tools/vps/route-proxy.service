@@ -1,0 +1,15 @@
+[Unit]
+Description=Lisa Phone memory-safe route proxy
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/services/route-proxy
+ExecStart=/usr/bin/node /home/ubuntu/services/route-proxy/route-proxy.mjs
+Restart=on-failure
+RestartSec=3
+Environment=HOST=127.0.0.1
+Environment=PORT=8796
+
+[Install]
+WantedBy=default.target
