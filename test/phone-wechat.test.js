@@ -37,14 +37,25 @@ test("真实聊天只从本人私聊和本人所在群聊读取并先喂给生�
   assert.match(app, /const memberIds = group\.memberIds \|\| \[\]/);
   assert.match(app, /if \(!memberIds\.includes\(char\.id\)\) continue/);
   assert.match(app, /const groupState = gsFor\(group\.id\)/);
-  assert.match(app, /const isSpectate = !!groupState\.spectate/);
+  assert.match(app, /const isSpectate = groupPhoneKind\(group, groupState, groupHistory\) === "spectate"/);
   assert.match(app, /phoneWechatDigest\(char\)/);
   assert.match(phone, /const chats = \[\.\.\.actual, \.\.\.generated\]/);
 });
 
 test("查手机排除普通封闭群，但保留旁观对话", () => {
   assert.match(app, /if \(!isSpectate && !groupState\.memoryInterop\) continue;/);
-  assert.match(app, /const isSpectate = !!groupState\.spectate/);
+  assert.match(app, /const groupPhoneKind = \(group, state, history\) =>/);
+  assert.match(app, /hasNarration/);
+  assert.match(app, /hasLisaSpeech/);
+  assert.match(app, /return state && state\.spectate \? "spectate" : "group"/);
+});
+
+test("普通三人群和同一对角色的两人旁观局不会再按人数混淆", () => {
+  assert.match(app, /roomKind: spectate \? "spectate" : "group"/);
+  assert.match(app, /group && group\.roomKind === "spectate"/);
+  assert.match(app, /group && group\.roomKind === "group"/);
+  assert.match(app, /m\.role === "narration"/);
+  assert.match(app, /m\.role === "user"/);
 });
 
 test("两人旁观显示为私聊，三人以上仍显示群聊", () => {

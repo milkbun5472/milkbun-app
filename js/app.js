@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.39";
+const APP_VERSION = "v57.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7085,6 +7085,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       id: "g_" + Date.now(),
       name,
       memberIds,
+      // 不能再只把房间身份塞在 x_groupSettings：普通的「Lisa + 两名角色」和
+      // 「两名角色旁观」拥有完全相同的 memberIds，设置若曾丢失/串位，查手机
+      // 就会把三人群错认成两人私聊。新房把身份跟房间本体一起保存；老房由
+      // phoneWechatActual 结合真实消息角色做兼容判定。
+      roomKind: spectate ? "spectate" : "group",
       createdTs: Date.now()
     };
     setGroups(p => {
@@ -8290,6 +8295,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // TA 与另一个人的私聊。同一对成员可能先后建过不止一个旁观房间：查手机
     // 只保留最近说过话的那条，不能让同一个人重复出现成好几个“私聊”。
     const spectatePrivateByPair = new Map();
+    // 老数据里 spectate 只存于另一份 groupSettings，曾经出现过设置丢失或串位。
+    // 消息本身是更可靠的证据：普通群里 Lisa 的话是 user；旁观房里导演输入是
+    // narration。显式 roomKind 只供新房使用，旧房按证据优先、最后才回退设置。
+    const groupPhoneKind = (group, state, history) => {
+      const rows = Array.isArray(history) ? history : [];
+      const hasNarration = rows.some(m => m && !m.recalled && m.role === "narration");
+      const hasLisaSpeech = rows.some(m => m && !m.recalled && m.role === "user" && m.kind !== "ooc" && m.kind !== "system");
+      if (group && group.roomKind === "spectate") return "spectate";
+      if (group && group.roomKind === "group") return "group";
+      // Lisa 真正在里面说过话，是普通群最强的老数据证据；即使某次导演提示
+      // 遗留了一条 narration，也不能因此把三人群降格成角色二人私聊。
+      if (hasLisaSpeech) return "group";
+      if (hasNarration) return "spectate";
+      return state && state.spectate ? "spectate" : "group";
+    };
     const direct = clean(chatsRef.current[char.id]);
     if (direct.length) {
       const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content), ts: m.ts || 0 }));
@@ -8300,11 +8320,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const memberIds = group.memberIds || [];
       if (!memberIds.includes(char.id)) continue;
       const groupState = gsFor(group.id);
-      const isSpectate = !!groupState.spectate;
+      const groupHistory = groupChatsRef.current[group.id] || [];
+      const isSpectate = groupPhoneKind(group, groupState, groupHistory) === "spectate";
       // 普通封闭群是用户另开的密封剧情线，不属于角色真实手机；旁观局则是
       // 群内角色彼此真实发生的对话，即使不向主线回流，也应在他们手机里看见。
       if (!isSpectate && !groupState.memoryInterop) continue;
-      const raw = clean(groupChatsRef.current[group.id]);
+      const raw = clean(groupHistory);
       if (!raw.length) continue;
       const spectatePrivate = isSpectate && memberIds.length === 2;
       const other = spectatePrivate ? memberIds.map(id => characters.find(c => c.id === id)).find(c => c && c.id !== char.id) : null;
