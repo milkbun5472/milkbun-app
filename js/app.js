@@ -3187,7 +3187,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️ctxN 是【聊天记录带几条】，不该被线下拍子占掉名额：以前 online.concat(offline) 之后
       // 才切最近 ctxN 条，开着一场四十拍的线下时，五十个名额几乎全被线下占走，实测线上只剩
       // 195 字进得来。所以两边【各自】先切，再按时间戳合流。
-      const OFF_BEATS = 12; // 线下最多带这么多拍进来（再往前由本场滚动摘要和记忆库兜底）
+      // 线下最多往回看这么多条（他和她的一起数）。摘录的意义不只是省字数，是【同样的字数
+      // 能往回看更远】：全给原文时六拍就把限额占满了，摘完能装下二十拍的对话。
+      // 再往前由本场滚动摘要和记忆库兜底。
+      const OFF_BEATS = 40;
       // 【短期窗覆盖天数】这根拉条一直是摆设（她 2026-08-28 问「记忆库这些拉条是摆设吗」）：
       // recentDays 只出现在默认值、滑条和滑条底下那句说明里，从来没有一行代码读过它，
       // 而那句说明写的是「最近这些天说的话一定带进上下文（消死区）」——一天都没兑现过。
@@ -3200,7 +3203,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const onlineWindow = floorTs
         ? online.filter((m, k) => k >= online.length - ctxN || (m.ts || 0) >= floorTs).slice(-Math.max(ctxN, FLOOR_MAX))
         : online.slice(-ctxN);
-      const all = onlineWindow.concat(offline.slice(-OFF_BEATS)).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      const offSlice = offline.slice(-OFF_BEATS);
+      const all = onlineWindow.concat(offSlice).sort((a, b) => (a.ts || 0) - (b.ts || 0));
       if (!all.length) return "";
       const wantStart = 0;
       const lines = [];
@@ -3251,6 +3255,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         });
         return out.join("");
       };
+      // 短线下什么都不该丢：跑了六轮就切回线上时，那点字数根本占不满线下这份限额，
+      // 却照样被摘掉了描写，而滚动摘要要攒够 50 条才跑、这时候一个字都没有（她 2026-08-28 问到）。
+      // 所以先算一遍：这几拍原样带进去要是装得下，就全给原文，一个字不摘。
+      const offNeedsDigest = offSlice.reduce((n, m) => n + String(m.content || "").length + 20, 0) > offCap;
       let used = 0, usedOff = 0, offSeen = 0;
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
         const m = all[i];
@@ -3260,7 +3268,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const dateAnchor = m.role === "user" && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "";
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : char.name);
         // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
-        const body = (isOff && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
+        const body = (isOff && offNeedsDigest && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
         const line = speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");
         const cost = line.length + 1;
         const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去

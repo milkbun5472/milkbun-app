@@ -90,7 +90,8 @@ const BEAT = "画的那道墨痕在夜风里彻底发硬了，笑一下都扯着
   + "窗外更漏敲了三下，院子里有人提着灯笼走过，光在窗纸上拖出一道长影。";
 
 test("最近三拍给原文，更早的只留对话和它前后各一句", () => {
-  const beats = Array.from({ length: 8 }, (_, k) => ({ role: "assistant", ts: 500 + k, _surface: "offline", content: k + "｜" + BEAT }));
+  // 要先跑得够长、线下那份限额装不下原文，摘录才会触发（短线下一个字都不摘）
+  const beats = Array.from({ length: 30 }, (_, k) => ({ role: "assistant", ts: 500 + k, _surface: "offline", content: k + "｜" + BEAT }));
   const r = recent([], beats, 16000);
   const tail = r.lines.slice(-3), head = r.lines.slice(0, -3);
   tail.forEach(l => assert.ok(l.indexOf("窗外更漏敲了三下") > 0, "最近三拍必须是原文：" + l));
@@ -105,8 +106,8 @@ test("最近三拍给原文，更早的只留对话和它前后各一句", () =>
 });
 
 test("整拍一句对话都没有时只留首句——不整条丢掉，滚动摘要总落后几拍", () => {
-  const mute = "他起身走到窗边，把半开的窗合上。夜风一下子断了，烛火重新立直。墙上的影子不再晃。";
-  const beats = Array.from({ length: 6 }, (_, k) => ({ role: "assistant", ts: 600 + k, _surface: "offline", content: k + "｜" + mute }));
+  const mute = "他起身走到窗边，把半开的窗合上。夜风一下子断了，烛火重新立直。墙上的影子不再晃。".repeat(3);
+  const beats = Array.from({ length: 30 }, (_, k) => ({ role: "assistant", ts: 600 + k, _surface: "offline", content: k + "｜" + mute }));
   const head = recent([], beats, 16000).lines.slice(0, -3);
   head.forEach(l => {
     assert.ok(l.indexOf("他起身走到窗边") > 0, "首句该留：" + l);
@@ -175,4 +176,21 @@ test("地板不是无底洞：几天里聊了五百条，取最近三百条", ()
   const chatty = spread(500, "多", 2, now);
   assert.equal(recent(chatty, [], 1000, 50, 7).lines.length, 300);
   assert.match(app, /const FLOOR_MAX = 300;/);
+});
+
+// 她 2026-08-28 问：「一次线下只跑了六轮没到摘要门槛，回到线上是怎么喂进去的？」
+// ——滚动摘要要攒够 50 条才跑，六轮时一个字都没有。所以短线下什么都不能丢。
+test("短线下一个字都不摘：装得下就全给原文", () => {
+  const short = Array.from({ length: 12 }, (_, k) => ({ role: "assistant", ts: 700 + k, _surface: "offline", content: k + "｜" + BEAT }));
+  recent([], short, 16000).lines.forEach(l =>
+    assert.ok(l.indexOf("窗外更漏敲了三下") > 0, "短线下不该摘：" + l));
+  assert.match(app, /const offNeedsDigest = offSlice\.reduce/);
+});
+
+test("摘录换来的是往回看得更远，不只是省字数", () => {
+  assert.match(app, /const OFF_BEATS = 40;/);
+  const long = Array.from({ length: 30 }, (_, k) => ({ role: "assistant", ts: 800 + k, _surface: "offline", content: k + "｜" + BEAT }));
+  const r = recent([], long, 16000);
+  assert.ok(r.lines.length >= 15, "摘完之后带进来的拍数反而变少了：" + r.lines.length);
+  assert.ok(r.usedOff <= 3000, "线下仍要卡在自己那份限额里：" + r.usedOff);
 });
