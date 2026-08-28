@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.94";
+const APP_VERSION = "v56.95";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4580,8 +4580,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 一起听：记住从哪儿进来的 → 退出/悬浮球点回时回到原处（如聊天时打开悬浮切歌，切完回聊天）
   const listenReturnRef = useRef("home");
-  const goListen = () => { setScreen(s => { if (s !== "listen") listenReturnRef.current = s; return "listen"; }); };
-  const exitListen = () => { const r = listenReturnRef.current || "home"; if (r === "home") goHome(); else setScreen(r); };
+  // 线下浮层是 z-20，会盖住听歌屏：从线下点音乐浮窗只 setScreen("listen") 的话，屏切了但被浮层盖着，
+  // 看上去就是「点了没反应」（她 2026-08-28 报）。和 onOpenSched 跳日历是同一个坑：得先收浮层。
+  // 收了还要能回去——退出听歌时按原样把那层放回来，别把她扔回聊天列表。
+  const listenReturnOfflineRef = useRef(null);
+  const goListen = () => {
+    setScreen(s => { if (s !== "listen") listenReturnRef.current = s; return "listen"; });
+    if (offlineChar || offlineGroup) {
+      listenReturnOfflineRef.current = offlineChar ? { kind: "char", v: offlineChar } : { kind: "group", v: offlineGroup };
+      setOfflineChar(null); setOfflineGroup(null);
+    }
+  };
+  const exitListen = () => {
+    const back = listenReturnOfflineRef.current;
+    listenReturnOfflineRef.current = null;
+    const r = listenReturnRef.current || "home";
+    if (r === "home") goHome(); else setScreen(r);
+    if (back) { if (back.kind === "char") setOfflineChar(back.v); else setOfflineGroup(back.v); }
+  };
   const saveChar = c => {
     pC(p => p.some(x => x.id === c.id) ? p.map(x => x.id === c.id ? c : x) : [...p, c]);
     setScreen("cast");
