@@ -425,6 +425,40 @@ test("队友私念与单人团", () => {
   assert.match(src, /绝不改检定判定与规则公平/);
 });
 
+// ---- 2026-08-28 второй批体验修:大地图/闲聊/行头/背景锁脸/自由行动掷骰 ----
+test("舆图可拖可捏:单套 pointer 处理两指,拖动不算点选,视口有夹紧", () => {
+  assert.match(src, /touchAction: "none"/);
+  assert.match(src, /ids\.length === 2/, "双指捏合与单指平移在同一套处理器里,两指时不再各自为政");
+  assert.match(src, /const clampVB = /, "视口夹在地图边界内,拖不出白茫茫");
+  assert.match(src, /if \(!mapPtr\.current\.moved\) setSelNode/, "拖完松手不误选节点");
+  assert.match(src, /k: Math\.min\(6,/, "缩放有上限");
+});
+
+test("闲聊模式:说话走加戏不推进,行动按钮变闲聊", () => {
+  assert.match(src, /if \(chatMode\) return addBeat\(text\)/);
+  assert.match(src, /让队友们自然接话/);
+  assert.match(src, /闲聊两句\(不推进剧情、不动状态\)/);
+});
+
+test("行头:开团生成、出图锁定,合照里逐人标穿着", () => {
+  assert.match(src, /\\"outfits\\":\[\{/, "开团设定里生成每人行头(SHAPE 里是转义引号)");
+  assert.match(src, /photoOutfit: outfitOf\(ch\.name\)/, "单人/合照主角锁行头(小剧场 charOutfit 同一课)");
+  assert.match(src, /outfit: outfitOf\(uName\)/, "她自己的行头也锁");
+  assert.match(src, /服装严格按各自括号里的行头/);
+});
+
+test("锁脸不必挤前景:背景里的人也要认得出是谁", () => {
+  assert.match(src, /人物不必都挤在前景/);
+  assert.match(src, /远处的人也要凭对应参考图的五官发型看得出是谁/);
+});
+
+test("自由输入的行动也掷骰:守密人报 needCheck→客户端掷→续写,只许要一次", () => {
+  assert.match(src, /scene 写到出手前的悬点就停住/, "先停在悬点,不许直接写成败");
+  assert.match(src, /nck && declaration && \(!extra \|\| !extra\.length\) && mode !== "resolve"/, "只认亲笔宣言轮的 needCheck,续写轮/选项轮不连环要骰");
+  assert.match(src, /绝不再报 needCheck/, "续写轮明令收口");
+  assert.match(src, /\|\| camp\.party\[0\]/, "没点名就默认她自己出手");
+});
+
 // ---- 秘典:开团即生成,落幕前不给看 ----
 test("秘典落幕解密,不在过程中泄底", () => {
   assert.match(src, /玩家永远不可见/);
