@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.07";
+const APP_VERSION = "v57.08";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3185,7 +3185,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 才切最近 ctxN 条，开着一场四十拍的线下时，五十个名额几乎全被线下占走，实测线上只剩
       // 195 字进得来。所以两边【各自】先切，再按时间戳合流。
       const OFF_BEATS = 12; // 线下最多带这么多拍进来（再往前由本场滚动摘要和记忆库兜底）
-      const all = online.slice(-ctxN).concat(offline.slice(-OFF_BEATS)).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      // 【短期窗覆盖天数】这根拉条一直是摆设（她 2026-08-28 问「记忆库这些拉条是摆设吗」）：
+      // recentDays 只出现在默认值、滑条和滑条底下那句说明里，从来没有一行代码读过它，
+      // 而那句说明写的是「最近这些天说的话一定带进上下文（消死区）」——一天都没兑现过。
+      // 现在它是【地板】：落在这几天里的【聊天记录】既不受 ctxN 条数限制，也不被字符预算挤掉。
+      // 只保聊天不保线下——线下描写正是要防的那个挤占方，让它跟着地板一起免检就白改了。
+      // 时间线是从新往旧走的，地板内的消息必然排在最前，所以预算判据里加一个 inFloor 就够。
+      const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));
+      const floorTs = recentDays ? Date.now() - recentDays * 86400000 : 0;
+      const FLOOR_MAX = 300; // 地板也不是无底洞：真在几天里聊了三百条以上，取最近三百条
+      const onlineWindow = floorTs
+        ? online.filter((m, k) => k >= online.length - ctxN || (m.ts || 0) >= floorTs).slice(-Math.max(ctxN, FLOOR_MAX))
+        : online.slice(-ctxN);
+      const all = onlineWindow.concat(offline.slice(-OFF_BEATS)).sort((a, b) => (a.ts || 0) - (b.ts || 0));
       if (!all.length) return "";
       const wantStart = 0;
       const lines = [];
@@ -3225,8 +3237,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const body = (isOff && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
         const line = speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");
         const cost = line.length + 1;
+        const inFloor = !isOff && floorTs && (m.ts || 0) >= floorTs; // 这几天的聊天记录一定带进去
         if (isOff && usedOff && usedOff + cost > offCap) continue; // 线下超了自己那份就跳过，但继续往回找线上的
-        if (used + cost > budget && lines.length) break;           // 总预算仍以召回设置那根拉条为准
+        if (!inFloor && used + cost > budget && lines.length) break; // 总预算仍以召回设置那根拉条为准
         used += cost;
         if (isOff) usedOff += cost;
         lines.push(line);

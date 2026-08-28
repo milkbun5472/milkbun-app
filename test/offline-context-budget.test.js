@@ -46,10 +46,11 @@ const recent = (() => {
   const j = app.indexOf('      return lines.reverse().join("\\n");', i);
   // lines 在函数里是【从新往旧】攒的，正式返回前才 reverse——这里对齐成正式顺序
   const body = app.slice(i, j) + '      return { lines: lines.slice().reverse(), used, usedOff };';
-  return (online, offline, budget, ctxN = 50) => new Function(
+  return (online, offline, budget, ctxN = 50, days = 0) => new Function(
     "online", "offline", "settingsFor", "char", "profile", "memCfgRef", "window",
     body.replace("const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));", "const ctxN = " + ctxN + ";")
-        .replace("const budget = memCfgRef.current.recentBudget || 8000;", "const budget = " + budget + ";"))
+        .replace("const budget = memCfgRef.current.recentBudget || 8000;", "const budget = " + budget + ";")
+        .replace("const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));", "const recentDays = " + days + ";"))
     (online, offline, () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {});
 })();
 
@@ -95,4 +96,50 @@ test("最近三拍给原文，更早的压成摘录——有对话留对话，�
 
 test("她自己在线下打的字不占「最近三拍」的名额", () => {
   assert.match(app, /if \(isOff && m\.role !== "user"\) offSeen\+\+;/);
+});
+
+// ---- 短期窗覆盖天数：这根拉条以前是纯摆设 ----
+// 她 2026-08-28 问「记忆库这些拉条是摆设吗」。recentDays 只出现在默认值、滑条和滑条
+// 底下那句「最近这些天说的话一定带进上下文（消死区）」里，从来没有一行代码读过它。
+const DAY = 86400000;
+const spread = (n, prefix, agoDays, now) =>
+  Array.from({ length: n }, (_, k) => ({
+    role: k % 2 ? "user" : "assistant", content: prefix + k, _surface: "online",
+    ts: now - agoDays * DAY + k * Math.floor((agoDays * DAY) / (n + 1))
+  }));
+
+test("recentDays 必须真的被读到，不是只躺在默认值和滑条里", () => {
+  assert.match(app, /Number\(memCfgRef\.current\.recentDays \?\? 3\)/, "没人读它就等于没写");
+  assert.match(app, /const floorTs = recentDays \? Date\.now\(\) - recentDays \* 86400000 : 0;/);
+  assert.match(app, /if \(!inFloor && used \+ cost > budget && lines\.length\) break;/, "地板要能顶住字符预算");
+});
+
+test("落在这几天里的聊天记录，既不受 ctxN 条数限制、也不被预算挤掉", () => {
+  const now = Date.now();
+  const recentMsgs = spread(200, "新", 6, now);
+  const oldMsgs = spread(300, "老", 20, now).map(m => ({ ...m, ts: now - 20 * DAY + (m.ts % 1000) }));
+  const all = oldMsgs.concat(recentMsgs).sort((a, b) => a.ts - b.ts);
+  const off = recent(all, [], 1000, 50, 0);   // 地板关：ctxN 说了算
+  const on7 = recent(all, [], 1000, 50, 7);   // 地板 7 天
+  assert.equal(off.lines.length, 50, "地板关掉时仍按 ctxN 走");
+  assert.equal(on7.lines.filter(l => l.indexOf(": 新") > 0).length, 200, "最近六天的两百条没全带进来");
+  assert.ok(on7.used > 1000, "地板没顶住字符预算，被 1000 字截了");
+});
+
+test("地板只保聊天记录，不保线下描写——线下仍受自己那份限额", () => {
+  const now = Date.now();
+  const on = spread(50, "聊", 6, now);
+  const off = Array.from({ length: 40 }, (_, k) => ({
+    role: k % 2 ? "user" : "assistant", content: "描".repeat(k % 2 ? 15 : 300),
+    ts: now - 3600000 + k * 1000, _surface: "offline"
+  }));
+  const r = recent(on, off, 8000, 50, 7);
+  assert.ok(r.usedOff <= Math.min(Math.round(8000 * 0.3), 3000), "线下跟着地板一起免检了：" + r.usedOff);
+});
+
+test("地板不是无底洞：几天里聊了五百条，取最近三百条", () => {
+  const now = Date.now();
+  const chatty = spread(500, "多", 2, now);
+  assert.equal(recent(chatty, [], 1000, 50, 7).lines.length, 300);
+  assert.match(app, /const FLOOR_MAX = 300;/);
 });

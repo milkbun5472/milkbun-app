@@ -49,9 +49,13 @@ test("未结束单人线下按设置条数接入线上私聊并按真实时间�
 
 test("普通角色线上生成按 ctxN 合并当前线下逐条记录，言秋专线不动", () => {
   const recentChat = app.slice(app.indexOf("recentChat: (() =>"), app.indexOf("groupRecent:", app.indexOf("recentChat: (() =>")));
-  // v57.06：两边【各自】先切再合流。以前是 concat 之后才切最近 ctxN 条，开着一场四十拍的
+  // v57.07：两边【各自】先切再合流。以前是 concat 之后才切最近 ctxN 条，开着一场四十拍的
   // 线下时五十个名额几乎全被线下占走，实测线上只剩 195 字进得来。
-  assert.match(recentChat, /online\.slice\(-ctxN\)\.concat\(offline\.slice\(-OFF_BEATS\)\)\.sort/);
+  // v57.08：线上那一侧的取数改叫 onlineWindow——它在 ctxN 之外还要保住【短期窗覆盖天数】
+  // 那根拉条圈定的最近几天（floorTs）。
+  assert.match(recentChat, /const onlineWindow = floorTs/);
+  assert.match(recentChat, /onlineWindow\.concat\(offline\.slice\(-OFF_BEATS\)\)\.sort/);
+  assert.match(recentChat, /: online\.slice\(-ctxN\);/, "地板关掉时仍按 ctxN 走");
   assert.match(recentChat, /Math\.max\(0, Number\(settingsFor\(char\.id\)\.ctxN/);
   assert.match(recentChat, /settingsFor\(char\.id\)\.engineerEyes/);
   assert.match(recentChat, /【线下场景】/);
