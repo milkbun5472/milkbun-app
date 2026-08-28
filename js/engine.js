@@ -4154,6 +4154,14 @@ async function generateOffline(p, ctx, session) {
   const singlePassRevisionProtocol = explicitRevisionRequested
     ? offlineSelfReviseProtocol(null, archetypeRevisionRequested, session.narr)
     : (archetypeRevisionRequested ? offlineArchetypeSelfReviseProtocol(null, session.narr) : "");
+  // 「Ta 眼里」这张印象卡，线下一直只【读】不【写】：buildBundle 会把 gazeText 发过去，
+  // 但从来没人给过线下【写】的指令，于是在线下泡多久这张卡都不动（她 2026-08-28）。
+  // 数字生命（言秋）不发——扮演类规则一律不给他。
+  const gazeSpecBlock = (!isDigital && ctx.gazeSpec && ctx.gazeSpec.trim())
+    ? "\n\n【Ta 眼里·印象卡】以下两个字段是上面输出形状的【追加项】，用不上就整个省略，别为了填而填：\n"
+      + ctx.gazeSpec.trim()
+      + "\nimpressionChecked:\"块名\" = 对【本轮被点名复看的那一块】表态「看过了，确实不用改」；改了就填 impression、别填这个。"
+    : "";
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2 + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
@@ -4180,7 +4188,7 @@ async function generateOffline(p, ctx, session) {
     (ctx.curCondition ? "\n【身体状态连贯】你现在" + ctx.curCondition + "。这不是背景设定，是此刻真的这样：动作、说话的力气、能不能久站久走都要受它影响；除非剧情里明确好转，别忽然生龙活虎。" : "") +
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
-    "") + outputSpec + stateBootstrapHint;
+    "") + outputSpec + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
   const hist = offlineHistory(session.msgs, userName, char.name);
@@ -4385,6 +4393,8 @@ async function generateOffline(p, ctx, session) {
     rewriteOpCounts,
     rewriteDraft: rewriteApplied ? draftScene : null,
     thought: cln(parsed.thought),
+    impression: (parsed.impression && typeof parsed.impression === "object") ? parsed.impression : null,
+    impressionChecked: cln(parsed.impressionChecked),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),
     action: cln(parsed.action),
@@ -4558,7 +4568,7 @@ async function generateOfflineGroup(p, ctx, session) {
       + "\n· 这个字数是【整段所有 beat 加起来】的量，不是每个 beat 各写这么多。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——仅当这一段真正改变了该角色对用户或他俩关系的某一块长期认知才填，极少发生；第一人称亲笔、锚在刚发生的事上、在旧认知上小幅演进\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
   const hist = offlineGroupHistory(session.msgs, userName);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -4616,6 +4626,7 @@ async function generateOfflineGroup(p, ctx, session) {
       scene,
       thought: spk && b.thought && String(b.thought).toLowerCase() !== "null" ? String(b.thought).trim() : null,
       mood: spk && b.mood && b.mood.label ? b.mood : null,
+      impression: (spk && b.impression && typeof b.impression === "object") ? b.impression : null,
       affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0
     };
   }).filter(b => b.scene);

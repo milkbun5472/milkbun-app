@@ -47,10 +47,14 @@ test("计数器归零/累加的判据对得上 thought 那只", () => {
   assert.match(fn, /if \(n === \(Number\(live\.moodSkips\) \|\| 0\)\) return;/, "没变化就别白写一次盘");
 });
 
-test("计数写完之后才读 liveState，否则会被下一句盖掉", () => {
+test("计数写完之后才读 liveState，中间也不许再有人写 statesRef", () => {
   const off = app.indexOf("else _moodSkip(charId, false);");
   const live = app.indexOf("const liveState = statesRef.current[charId] || {};", off);
-  assert.ok(live > off && live - off < 400, "线下：liveState 必须在 _moodSkip 之后读");
+  assert.ok(live > off, "线下：liveState 必须在 _moodSkip 之后读");
+  // 中间夹进别的层是允许的（v57.01 把 Ta 眼里的写回放在这儿），但它们不能碰实时状态，
+  // 否则 liveState 会读到旧的、再被下一句整份盖回去。
+  const between = app.slice(off, live);
+  assert.doesNotMatch(between, /setStateFor\(|statesRef\.current =/, "夹在中间的代码写了 statesRef：\n" + between);
 });
 
 // 她 2026-08-28：「为啥线下也还是不会换实时心情？王爷一直在『好笑』」。

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.01";
+const APP_VERSION = "v57.02";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3756,6 +3756,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 言秋那条线一个字都不碰——engineerEyes 的角色不传，和单聊那边同一道闸。
       oCtx.wantReasoning = !settingsFor(charId).engineerEyes && !!settingsFor(charId).showReasoning;
       oCtx.styleExamples = pickOfflineStyleExamples(osFor(charId).examples, workSess.msgs || []);
+      // 「Ta 眼里」以前只有单聊线上在写：线下读得到这张卡（buildBundle 发 gazeText），
+      // 却从来没收到过【写】的指令，于是线下泡多久它都不动（她 2026-08-28）。
+      // 点名轮询的计数也只有线上在推，线下再久也不算一轮。言秋不塑形，照旧排除。
+      oCtx.gazeSpec = (!settingsFor(charId).engineerEyes && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
       oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
@@ -3859,6 +3863,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // v55.67 改成每轮必填。这里再加一只计数器：还是不回就说出来，别又变成静默失败。
       if (res.mood && res.mood.label) { setMoodFor(charId, { ...res.mood, ts: Date.now() }); _moodSkip(charId, true); }
       else _moodSkip(charId, false);
+      // Ta 眼里：线下也写。判据和线上完全一样——写了就清零、没写就计一轮，
+      // 数出来才分得清「这阵子真没变化」和「它压根不写」。
+      if (window.Gaze && !settingsFor(charId).engineerEyes) {
+        let _offImpWrote = false;
+        if (res.impression) { try { _offImpWrote = window.Gaze.applyParsed(charId, res.impression); } catch (e) {} }
+        if (!_offImpWrote && res.impressionChecked && window.Gaze.markChecked) {
+          try {
+            const _offCk = window.Gaze.normKey("", String(res.impressionChecked));
+            if (_offCk) _offImpWrote = window.Gaze.markChecked(charId, _offCk);
+          } catch (e) {}
+        }
+        if (!_offImpWrote) { try { window.Gaze.tick(charId); } catch (e) {} }
+      }
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
       const liveState = statesRef.current[charId] || {};
       const ost = {};
@@ -4391,6 +4408,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有心情/好感
         if (!gOffSealed && !_bNpc && b.senderId && typeof b.affinityDelta === "number") bumpAff(b.senderId, b.affinityDelta, b.mood && b.mood.label);
         if (!gOffSealed && !_bNpc && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
+        // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
+        if (!gOffSealed && !_bNpc && b.senderId && b.impression && window.Gaze && !settingsFor(b.senderId).engineerEyes) {
+          try { window.Gaze.applyParsed(b.senderId, b.impression); } catch (e) {}
+        }
         // 群线下心声同样过守卫再进共享状态卡（导演稿/演技备注拦在卡外，消息内原文照旧）
         const gOffThought = b.thought && window.ThoughtVoiceGuard ? window.ThoughtVoiceGuard.accept(b.thought) : b.thought;
         if (!gOffSealed && b.senderId && (gOffThought || (b.mood && b.mood.label))) {
