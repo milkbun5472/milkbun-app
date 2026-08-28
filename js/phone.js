@@ -36,12 +36,35 @@ const PHONE_APPS = [{
   zh: "视频"
 }];
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
-// 桌面只负责摆放入口：Dock 四个常驻，其余 App 分到两屏；任何已有 App 都不能在改桌面时丢掉。
+// 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
   ["notes", "album", "shopping", "forum"],
   ["recordings", "video", "settings"]
 ];
+const PHONE_DESKTOP_LAYOUTS = [{
+  id: "social", label: "SOCIAL",
+  dock: ["calls", "wechat", "browser", "music"],
+  pages: [["notes", "album", "shopping", "forum"], ["recordings", "video", "settings"]],
+  widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "music" }, { key: "refresh" }], [{ key: "album" }, { key: "settings" }]]
+}, {
+  id: "archive", label: "ARCHIVE",
+  dock: ["calls", "wechat", "notes", "browser"],
+  pages: [["music", "album", "settings", "recordings"], ["shopping", "forum", "video"]],
+  widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "settings" }, { key: "refresh" }], [{ key: "album", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
+}, {
+  id: "media", label: "MEDIA",
+  dock: ["calls", "wechat", "music", "album"],
+  pages: [["notes", "browser", "shopping", "forum"], ["recordings", "video", "settings"]],
+  widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "video", span: 2, size: "wide" }, { key: "settings", span: 2, size: "wide" }]]
+}, {
+  id: "wander", label: "WANDER",
+  dock: ["calls", "wechat", "browser", "album"],
+  pages: [["notes", "shopping", "music", "forum"], ["recordings", "video", "settings"]],
+  widgets: [[{ key: "browser", span: 2, size: "hero" }, { key: "music" }, { key: "refresh" }], [{ key: "notes" }, { key: "album" }]]
+}];
+const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
+const phoneDesktopLayout = char => PHONE_DESKTOP_LAYOUTS[phoneStableHash(char && (char.id || char.name)) % PHONE_DESKTOP_LAYOUTS.length];
 const strColor = s => AV_COLORS[[...String(s || "?")].reduce((a, c) => a + c.charCodeAt(0), 0) % AV_COLORS.length];
 const parseMins = s => {
   s = String(s || "");
@@ -1007,47 +1030,61 @@ function PhoneCarry({
     onBack: () => setOpen(null)
   });
   const wall = strColor(char.id || char.name);
-  const pages = PHONE_DESKTOP_PAGES.map((keys, pageIndex) => h("section", {
+  const layout = phoneDesktopLayout(char);
+  const widgetData = key => key === "video" ? (data.video_day || data.video_night) : data[key];
+  const widgetCopy = key => {
+    const fallback = {
+      wechat: "点开看看最近和谁说过话", notes: "最近没有留下新备忘", browser: "最近没有浏览记录",
+      music: "还没有播放记录", album: "相册还没翻过", video: "最近没有观看记录"
+    }[key] || "还没有内容";
+    return latestLine(widgetData(key), fallback);
+  };
+  const deskWidget = spec => {
+    const key = spec.key;
+    const wide = spec.span === 2;
+    const hero = spec.size === "hero";
+    const dark = key === "music" || key === "video";
+    if (key === "refresh") return h("button", {
+      key,
+      onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey,
+      className: "text-left active:opacity-70 disabled:opacity-50",
+      style: {
+        gridColumn: wide ? "span 2" : "span 1", minHeight: hero ? 124 : 104, padding: 15, borderRadius: 23,
+        background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)"
+      }
+    }, h(IRefresh, { size: 19, color: t.ink }), h("div", {
+      style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginTop: 12 }
+    }, busyKey === "__all__" ? "正在翻整部手机…" : "刷新全部 App"));
+    const app = appByKey(key);
+    const isScreen = key === "settings";
+    return h("button", {
+      key,
+      onClick: () => openApp(app), className: "text-left active:opacity-70",
+      style: {
+        gridColumn: wide ? "span 2" : "span 1", minHeight: hero ? 124 : spec.size === "wide" ? 108 : 104,
+        padding: hero ? 17 : 15, borderRadius: hero ? 25 : 23,
+        background: dark ? "rgba(30,29,27,.88)" : "rgba(255,255,255,.72)",
+        color: dark ? "#fff" : t.ink, border: dark ? "none" : "1px solid rgba(255,255,255,.72)",
+        boxShadow: hero ? "0 12px 28px rgba(35,31,25,.09)" : "none"
+      }
+    }, h("div", { className: "flex items-center justify-between" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, isScreen ? "屏幕使用" : app.zh),
+      h(PGlyph, { k: key, size: 19, color: dark ? "#fff" : t.ink })),
+    isScreen ? h("div", {
+      style: { fontFamily: F_DISPLAY, fontSize: hero ? 31 : 26, marginTop: hero ? 21 : 15 }
+    }, data.settings && data.settings.screenTime || "--") : h("div", {
+      style: {
+        fontFamily: F_DISPLAY, fontSize: hero ? 18 : 14, lineHeight: 1.42,
+        marginTop: hero ? 20 : 13, display: "-webkit-box", WebkitLineClamp: hero ? 2 : 2,
+        WebkitBoxOrient: "vertical", overflow: "hidden"
+      }
+    }, widgetCopy(key)));
+  };
+  const pages = layout.pages.map((keys, pageIndex) => h("section", {
     key: pageIndex,
     className: "h-full min-w-full overflow-y-auto px-5 pt-3 pb-5",
     style: { scrollSnapAlign: "start", scrollSnapStop: "always" }
-  }, pageIndex === 0 ? h("div", {
-    className: "grid grid-cols-2 gap-3 mb-6"
-  }, h("button", {
-    onClick: () => openApp(appByKey("wechat")),
-    className: "col-span-2 text-left active:opacity-70",
-    style: {
-      minHeight: 124, padding: 17, borderRadius: 25,
-      background: "rgba(255,255,255,.78)", border: "1px solid rgba(255,255,255,.72)",
-      boxShadow: "0 12px 28px rgba(35,31,25,.09)"
-    }
-  }, h("div", { className: "flex items-center justify-between" },
-  h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: ".12em" } }, "最近消息"),
-  h(PGlyph, { k: "wechat", size: 19, color: t.ink })),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.45, color: t.ink, marginTop: 18 } }, latestLine(data.wechat, "点开看看最近和谁说过话"))),
-  h("button", {
-    onClick: () => openApp(appByKey("music")), className: "text-left active:opacity-70",
-    style: { minHeight: 104, padding: 15, borderRadius: 23, background: "rgba(30,29,27,.88)", color: "#fff" }
-  }, h(PGlyph, { k: "music", size: 19, color: "#fff" }),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, marginTop: 12 } }, latestLine(data.music, "还没有播放记录"))),
-  h("button", {
-    onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey,
-    className: "text-left active:opacity-70 disabled:opacity-50",
-    style: { minHeight: 104, padding: 15, borderRadius: 23, background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)" }
-  }, h(IRefresh, { size: 19, color: t.ink }),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginTop: 12 } }, busyKey === "__all__" ? "正在翻整部手机…" : "刷新全部 App"))) : h("div", {
-    className: "grid grid-cols-2 gap-3 mb-6"
-  }, h("button", {
-    onClick: () => openApp(appByKey("album")), className: "text-left active:opacity-70",
-    style: { minHeight: 154, padding: 17, borderRadius: 25, background: "rgba(255,255,255,.74)", border: "1px solid rgba(255,255,255,.72)" }
-  }, h(PGlyph, { k: "album", size: 21, color: t.ink }),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, marginTop: 30 } }, latestLine(data.album, "相册还没翻过"))),
-  h("button", {
-    onClick: () => openApp(appByKey("settings")), className: "text-left active:opacity-70",
-    style: { minHeight: 154, padding: 17, borderRadius: 25, background: "rgba(255,255,255,.54)", border: "1px solid rgba(255,255,255,.66)" }
-  }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: ".12em" } }, "屏幕使用"),
-  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 29, color: t.ink, marginTop: 26 } }, data.settings && data.settings.screenTime || "--"),
-  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, "今天的数字生活"))),
+  }, h("div", { className: "grid grid-cols-2 gap-3 mb-6" }, (layout.widgets[pageIndex] || []).map(deskWidget)),
   h("div", { className: "grid grid-cols-4 gap-x-2 gap-y-6" }, keys.map(k => appIcon(appByKey(k), false)))));
   return h("div", {
     className: "h-full flex flex-col overflow-hidden",
@@ -1063,7 +1100,7 @@ function PhoneCarry({
   h("div", { className: "shrink-0 px-5 pt-1 pb-2 flex items-end justify-between" },
   h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 28, color: t.ink, lineHeight: 1.05 } }, char.remark || char.name),
   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, "向左滑还有一页")),
-  h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".17em", color: t.fog } }, "HOME")),
+  h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".17em", color: t.fog } }, layout.label)),
   h("div", {
     ref: deskRef,
     className: "flex-1 min-h-0 flex overflow-x-auto",
@@ -1074,12 +1111,12 @@ function PhoneCarry({
     },
     style: { scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }
   }, pages),
-  h("div", { className: "shrink-0 flex justify-center gap-1.5 py-1" }, PHONE_DESKTOP_PAGES.map((_, i) => h("button", {
+  h("div", { className: "shrink-0 flex justify-center gap-1.5 py-1" }, layout.pages.map((_, i) => h("button", {
     key: i, onClick: () => deskRef.current && deskRef.current.scrollTo({ left: deskRef.current.clientWidth * i, behavior: "smooth" }),
     "aria-label": "第 " + (i + 1) + " 页",
     style: { width: i === deskPage ? 15 : 6, height: 6, borderRadius: 9, background: i === deskPage ? t.ink : "rgba(30,28,24,.25)", transition: "all .2s" }
   }))),
-  h("div", { className: "shrink-0 mx-4 mb-3 px-3 py-2.5 grid grid-cols-4", style: { borderRadius: 25, background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.74)", boxShadow: "0 12px 30px rgba(35,31,25,.11)" } }, PHONE_DOCK_KEYS.map(k => appIcon(appByKey(k), true))), pick && h(Sheet, {
+  h("div", { className: "shrink-0 mx-4 mb-3 px-3 py-2.5 grid grid-cols-4", style: { borderRadius: 25, background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.74)", boxShadow: "0 12px 30px rgba(35,31,25,.11)" } }, layout.dock.map(k => appIcon(appByKey(k), true))), pick && h(Sheet, {
     onClose: () => setPick(false)
   }, h(Eyebrow, {
     style: {
