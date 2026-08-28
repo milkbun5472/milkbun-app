@@ -81,6 +81,9 @@ test("接线：写了就清零，没写就计一轮", () => {
   assert.match(app, /_impWrote = window\.Gaze\.applyParsed\(char\.id, parsed\.impression\)/);
   assert.match(app, /if \(!_impWrote\) \{ try \{ window\.Gaze\.tick\(char\.id\); \}/);
   assert.match(app, /不数的话两者长得一模一样/, "分不清「真没变化」和「压根不写」，就只能干等");
-  // 言秋那条专线不参与
-  assert.match(app, /if \(window\.Gaze && !_s\.engineerEyes\)/);
+  // 言秋那条专线不参与；侧房还要过写回闸（v57.18：看不见印象卡的房不许整块重写它）
+  assert.match(app, /if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
+  // 线下那一路也要有同一套接线（v57.02），而且不受房间开关影响——线下不是房间
+  assert.match(app, /if \(window\.Gaze && !settingsFor\(charId\)\.engineerEyes\) \{/);
+  assert.match(app, /window\.Gaze\.tick\(charId\)/);
 });

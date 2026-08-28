@@ -24,6 +24,8 @@
       ["roomHistory", "保留本房聊天", "始终保留这间房自己的完整时间线"],
       ["memoryCandidate", "进入记忆候选", "重要内容可进入候选箱，仍需现有记忆闸判断"],
       ["sharedState", "影响共同状态", "允许这间房更新关系、情绪、动作等共享状态"],
+      ["stateMood", "其中·改写心情", "关掉后这间房不改主线的实时心情（需先开「影响共同状态」）"],
+      ["stateGaze", "其中·改写印象卡", "关掉后这间房不改「Ta 眼里」（需先开「影响共同状态」）"],
       ["mainSummary", "给主房留交接", "离开侧房后，给主房一份可追溯的房间摘要"]
     ]
   };
@@ -49,6 +51,10 @@
       mainCursorTs: Number(src.mainCursorTs || 0),
       summaryCursorTs: Number(src.summaryCursorTs || 0),
       summaryFrame: String(src.summaryFrame || "我们刚刚在另一间房里经历了这些："),
+      // 交接是拼进 system 的、每轮都发，而且不过 ChatContextWindow 的秤——
+      // 摘要一条能到两三千字，六条比整个历史窗口预算还大（她 2026-08-28 让查的冲突①）。
+      carryCount: Math.max(1, Math.min(6, Number(src.carryCount || 4))),
+      carryChars: Math.max(150, Math.min(1500, Number(src.carryChars || 600))),
       updatedAt: Number(src.updatedAt || Date.now())
     };
   }
@@ -105,14 +111,35 @@
         .sort((a, b) => Number(b.updated_at || 0) - Number(a.updated_at || 0));
     } catch (_) { return []; }
   }
+  // 写回闸。sharedState 是总开关，心情和印象卡各自还有一道。
+  // ⚠️最要紧的一条：认知里关了「关系与内在状态」时，这两样一律不许写——
+  // 心情要拿上一轮当起点（MOOD_TURN_RULE 明写「是起点不是答案」），印象卡更是【整块重写】，
+  // 让一间看不见旧内容的房去覆盖它，等于凭空抹掉。自定义房能配出 innerLife=false + sharedState=true
+  // 这个组合，所以这道闸必须在代码里，不能只靠开关摆着好看。
+  function canWrite(room, kind) {
+    if (!room) return true;                         // 没有房间概念＝主线本身
+    const w = room.writeback || {}, c = room.cognition || {};
+    if (!w.sharedState) return false;
+    if (kind === "mood" || kind === "gaze") {
+      if (kind === "mood" && w.stateMood === false) return false;
+      if (kind === "gaze" && w.stateGaze === false) return false;
+      if (!c.innerLife) return false;
+    }
+    return true;
+  }
   function prompt(room, mainMessages) {
     if (!room) return "";
     const c = room.cognition || {}, a = room.actions || {}, w = room.writeback || {};
     const allowedActions = GROUPS.actions.filter(([k]) => a[k]).map(([, label]) => label);
     if (room.id === MAIN_ID) {
-      const carried = listSummaries(room.personId).slice(-6);
+      const nCarry = Math.max(1, Math.min(6, Number(room.carryCount || 4)));
+      const capCarry = Math.max(150, Math.min(1500, Number(room.carryChars || 600)));
+      const carried = listSummaries(room.personId).slice(-nCarry);
       if (!carried.length) return "";
-      return "\n\n【从其他房间带回的交接｜是已经发生过的背景，不是对方刚发来的新消息】\n" + carried.map(x => "·「" + (x.roomName || "侧房") + "」：" + String(x.frame || "") + String(x.summary || "")).join("\n");
+      return "\n\n【从其他房间带回的交接｜是已经发生过的背景，不是对方刚发来的新消息】\n" + carried.map(function (x) {
+        const body = String(x.frame || "") + String(x.summary || "");
+        return "·「" + (x.roomName || "侧房") + "」：" + (body.length > capCarry ? body.slice(0, capCarry) + "…" : body);
+      }).join("\n");
     }
     const lines = ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");
@@ -129,5 +156,5 @@
     }
     return "\n\n" + lines.join("\n");
   }
-  return { STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, readSummaries, addSummary, listSummaries, studySessionsFor, prompt };
+  return { STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, readSummaries, addSummary, listSummaries, studySessionsFor, canWrite, prompt };
 });

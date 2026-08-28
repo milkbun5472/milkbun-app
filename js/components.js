@@ -8596,6 +8596,24 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
     group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
     !draft.main && group("actions", "本房玩法", "只决定这间侧房里，Ta 可以自然提议哪些活动。"),
     group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
+    // 看不见就不许改：认知里关了「关系与内在状态」时，这间房读不到旧心情、读不到印象卡原文。
+    // 心情要拿上一轮当起点，印象卡是【整块重写】——凭空覆盖等于抹掉。闸在代码里（ChatRooms.canWrite），
+    // 这里只是把原因说清楚，别让她以为开关坏了。
+    !draft.main && draft.writeback && draft.writeback.sharedState && draft.cognition && !draft.cognition.innerLife &&
+      h("div", { style: { marginTop: 8, padding: "10px 11px", borderRadius: 11, border: "1px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6 } },
+        "⚠️「认知权限 · 关系与内在状态」是关着的，所以这间房看不到旧的心情和印象卡。这两样即使在上面打开也【不会】写回主线——看不见就不许覆盖。想让它改，先把那一项打开。"),
+    draft.main && h("div", { style: { marginTop: 18 } },
+      h(Eyebrow, null, "从侧房带回的交接"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 10px", lineHeight: 1.6 } },
+        "这些交接每轮都会随主聊天发出去，而且不占历史窗口的额度——带多带长都会稀释掉真正在聊的事。"),
+      [["carryCount", "带回最近几条", 1, 6, 1, " 条", "只带最近这么多份侧房交接。"],
+       ["carryChars", "每条最多带多少字", 150, 1500, 50, " 字", "超出的截掉。想看全的去那间房自己翻。"]]
+        .map(([k, label, mn, mx, st, unit, note]) => h("div", { key: k, style: { marginBottom: 14 } },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.accent } }, (draft[k] || (k === "carryCount" ? 4 : 600)) + unit)),
+          h(Slider, { value: Number(draft[k] || (k === "carryCount" ? 4 : 600)), min: mn, max: mx, step: st, onChange: v => patch({ [k]: v }) }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, note)))),
     !draft.main && draft.writeback && draft.writeback.mainSummary && h("div", { style: { marginTop: 18, padding: "14px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
       h(Eyebrow, null, "带回主聊天"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, margin: "6px 0 9px" } }, "只整理上次摘要以后新增的内容。开头既是交接语气，也是主聊天理解这段经历的框。"),
