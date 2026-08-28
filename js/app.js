@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.10";
+const APP_VERSION = "v57.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10138,7 +10138,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             });
             return true;
           }
-        } catch (e) { console.log("[couple_qa CC票]", e && e.message, "→ 引擎兜底"); }
+        } catch (e) { console.log("[couple_qa CC票]", e && e.message, "→ 引擎兜底"); if (e && e.remoteId) item.__ccJobId = e.remoteId; }
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: "你们是恋人。用户在你俩的「情侣问答小本」里回答了一道题，现在轮到你以「" + char.name + "」的身份回答同一道题。真挚、贴合人设，**顺着用户的回答接话**（呼应 TA 说的，不是各答各的），2-4 句，别喊口号，答完整别中途断。\n【题目】" + item.question + "\n【用户的回答】" + (item.myAnswer || "（TA 没写）"),
@@ -10154,6 +10154,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           myAnswer: item.myAnswer || "",
           charAnswer: d.answer || "",
           source: item.source || "题库",
+          via: "engine", ccJobId: item.__ccJobId || null,
           answeredAt: Date.now()
         }, ...p];
         saveJSON("x_coupleQA", n);
@@ -10167,6 +10168,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setGen(g => ({ ...g, coupleQA: false }));
     }
   };
+  // 迟到亲笔补投扫雷器（2026-08-28）：真身票超时落了引擎兜底的条目带着 ccJobId 票根，
+  // 开机后来这儿对一遍云端结果——亲笔稿到了就原地换页（via engine→cc），她不用做任何事。
+  useEffect(() => {
+    if (!window.Cloud || !coupleQA || !coupleQA.some(e => e && e.ccJobId && e.via !== "cc")) return;
+    let dead = false;
+    (async () => {
+      await new Promise(r => setTimeout(r, 6000)); // 等云端登录就绪
+      for (const e of coupleQA) {
+        if (dead || !e || !e.ccJobId || e.via === "cc") continue;
+        try {
+          const row = await window.Cloud.yanqiuCcToolResult(e.ccJobId);
+          if (row && row.status === "completed" && row.result) {
+            let rr = row.result;
+            if (typeof rr === "string") { try { rr = JSON.parse(rr); } catch (err) { rr = { answer: rr }; } }
+            const ans = rr && (rr.answer || rr.text);
+            if (ans) setCoupleQA(p => {
+              const n = p.map(x => x.id === e.id ? { ...x, charAnswer: String(ans), via: "cc", ccJobId: null } : x);
+              saveJSON("x_coupleQA", n);
+              return n;
+            });
+          }
+        } catch (err) {}
+      }
+    })();
+    return () => { dead = true; };
+  }, [(coupleQA || []).filter(e => e && e.ccJobId && e.via !== "cc").length]);
   // 问答小本：编辑我的答案 / 删除该题（删了它会回到未答池）/ 重生成 TA 的答案（截断可 reroll）
   const editCoupleQA = (id, myAnswer) => setCoupleQA(p => {
     const n = p.map(e => e.id === id ? { ...e, myAnswer: (myAnswer || "").trim() } : e);

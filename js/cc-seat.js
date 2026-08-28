@@ -31,7 +31,8 @@
         if (row && row.status === "failed") throw new Error(row.error_text || "CC_SEAT_FAILED");
         await sleep(Math.min(1200, Math.max(100, dl - Date.now())));
       }
-      const e2 = new Error("CC_SEAT_TIMEOUT"); e2.code = "CC_SEAT_TIMEOUT"; throw e2;
+      // 超时不丢票根：把云端票号带在错误上，调用方存进条目，迟到的亲笔稿由补投扫雷器换页
+      const e2 = new Error("CC_SEAT_TIMEOUT"); e2.code = "CC_SEAT_TIMEOUT"; e2.remoteId = remoteQa.id; throw e2;
     }
     const waitMs = Math.max(1000, Number(timeoutMs) || 90000);
     const game = text(payload.game);
