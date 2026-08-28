@@ -458,9 +458,18 @@ function GlassIcon({
   label,
   onClick,
   badge,
-  soon
+  soon,
+  appKey
 }) {
   const t = useTheme();
+  const [, redrawThemeIcon] = useState(0);
+  useEffect(() => {
+    const fn = () => redrawThemeIcon(x => x + 1);
+    window.addEventListener("lisa-theme-change", fn);
+    return () => window.removeEventListener("lisa-theme-change", fn);
+  }, []);
+  const customIcon = appKey && window.ThemeStudio ? window.ThemeStudio.iconRef(appKey) : "";
+  const customSrc = customIcon ? (typeof resolveImg === "function" ? resolveImg(customIcon) : customIcon) : "";
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
     className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform",
@@ -477,7 +486,11 @@ function GlassIcon({
       border: "1px solid rgba(255,255,255,0.7)",
       boxShadow: "0 4px 14px rgba(30,28,24,0.1), inset 0 1px 1px rgba(255,255,255,0.9)"
     }
-  }, /*#__PURE__*/React.createElement(G, {
+  }, customSrc ? /*#__PURE__*/React.createElement("img", {
+    src: customSrc,
+    alt: "",
+    style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 16 }
+  }) : /*#__PURE__*/React.createElement(G, {
     size: 27,
     color: t.ink,
     sw: 1.7
@@ -549,7 +562,7 @@ function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
       // 3 列 + 明确行列距：4 列时图标(62px)把宽度挤满、贴在一起没空隙
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", rowGap: 20, columnGap: 14, justifyItems: "center" } },
         (apps || []).map(a => h("div", { key: a.key, className: "relative", style: { animation: arrange ? "wk-jiggle .32s ease-in-out infinite" : "none" } },
-          h(GlassIcon, { G: a.G, label: a.zh, soon: a.soon, onClick: () => { if (!arrange) onPick(a); } }),
+          h(GlassIcon, { G: a.G, label: a.zh, appKey: a.key, soon: a.soon, onClick: () => { if (!arrange) onPick(a); } }),
           arrange && h("button", { onClick: () => onRemove && onRemove(a.key), className: "absolute flex items-center justify-center active:opacity-70", style: { top: -7, left: 2, width: 21, height: 21, borderRadius: 999, background: t.ink, color: "#fff", fontSize: 12, lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 3 } }, "✕")))),
       onRemove ? h("div", { className: "flex justify-center", style: { marginTop: 18 } },
         h("button", { onClick: () => setArrange(a => !a), style: { fontFamily: F_BODY, fontSize: 12.5, color: arrange ? t.ink : t.fog, fontWeight: arrange ? 700 : 400, padding: "5px 16px", borderRadius: 999, background: "rgba(255,255,255,0.55)", border: "1px solid " + t.line } }, arrange ? "完成" : "整理（取出 app）")) : null,
@@ -1870,7 +1883,7 @@ function Home({
     let gCol = "span 1", gRow = "auto";
     if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather" || it.which === "ledger") { gCol = "span 2"; } else if (it.which === "muyu" || it.which === "wheel") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
     let inner;
-    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
+    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
       const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
       inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onOpen: function () { if (!editMode) setOpenFolder(key); } });
@@ -1970,6 +1983,7 @@ function Home({
     }
   }, dock.map(a => /*#__PURE__*/React.createElement(GlassIcon, {
     key: a.key,
+    appKey: a.key,
     G: a.G,
     label: a.zh,
     badge: a.badge,

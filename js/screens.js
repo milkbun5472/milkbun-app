@@ -4757,7 +4757,7 @@ function Config(props) {
     home: ["设置", "Config"], api: ["API 设置", "API Settings"], apiText: ["文字模型", "Text Models"],
     apiImage: ["图像 API", "Image API"], apiTts: ["语音 API", "Voice API"], apiEmbed: ["向量记忆", "Embedding"],
     apiEars: ["真声耳朵", "Voice Ears"], apiCache: ["额度与缓存", "Usage"], sense: ["感知", "Sense"],
-    cot: ["创作小稿", "Draft"], qa: ["情侣问答", "Questions"], theme: ["外观与壁纸", "Appearance"],
+    cot: ["创作小稿", "Draft"], qa: ["情侣问答", "Questions"], theme: ["外观与壁纸", "Appearance"], themeStudio: ["主题工作台", "Theme Studio"],
     bubble: ["聊天气泡", "Bubble Skin"], data: ["数据管理", "Data"], debug: ["上下文诊断", "Context"], toy: ["本地配件", "Accessories"]
   };
   const m = meta[page] || meta.home;
@@ -4773,6 +4773,7 @@ function Config(props) {
         h(ConfigTile, { icon: "✎", title: "创作小稿", sub: "检查方式、预设与模型保险", onClick: () => setPage("cot") }),
         h(ConfigTile, { icon: "?", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa") }),
         h(ConfigTile, { icon: "◐", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
+        h(ConfigTile, { icon: "✦", title: "主题工作台", sub: "图标、页面 CSS、主题包与应用前预览", onClick: () => setPage("themeStudio") }),
         h(ConfigTile, { icon: "◒", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
         h(ConfigTile, { icon: "▤", title: "数据管理", sub: "备份、迁移、存储与清理", onClick: () => setPage("data") }),
         h(ConfigTile, { icon: "⌁", title: "上下文诊断", sub: "只读查看模型实际收到的内容", onClick: () => setPage("debug") }),
@@ -4794,6 +4795,7 @@ function Config(props) {
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "qa" && section(h(CoupleQAConfig, { characters: props.characters, custom: props.coupleQACustom, onSave: props.onSaveCustomQA, toast: props.toast })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper })),
+      page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),

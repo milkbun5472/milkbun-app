@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.24";
+const APP_VERSION = "v57.25";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -200,6 +200,9 @@ function App() {
   const isStandalone = typeof window !== "undefined" && (window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches);
   const [now, setNow] = useState(new Date());
   const [screen, setScreen] = useState("home");
+  useEffect(() => {
+    document.documentElement.setAttribute("data-lisa-screen", screen || "home");
+  }, [screen]);
   // 当前正在看哪个聊天（供未读红点判断：在看就不累加）
   const viewRef = useRef({ screen: "home", charId: null });
   // 置顶的聊天/群 id 集合
