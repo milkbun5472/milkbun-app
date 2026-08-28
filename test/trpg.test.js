@@ -592,7 +592,7 @@ test("骰子账与模组包", () => {
 test("输出天花板统一给满:按次计费,上限不省钱只会截断", () => {
   assert.match(src, /const TOK_MAX = 65535/);
   assert.ok(!/maxTokens: \d/.test(src), "不再有零散的小上限");
-  assert.equal((src.match(/maxTokens: TOK_MAX/g) || []).length, 8, "八处调用全走天花板");
+  assert.ok((src.match(/maxTokens: TOK_MAX/g) || []).length >= 8, "所有调用全走天花板");
 });
 
 // ---- 骰子桌五件套 + 冒险小分队 ----
@@ -640,14 +640,26 @@ test("成长骰:成功过的属性才有资格,d100 高于现值才 +5,封顶 90
   assert.equal(growthRolls(strong, [{ who: "A", statKey: "phy", tier: "ok" }], () => 0.99).length, 0, "90 封顶不再长");
 });
 
-test("冒险小分队:老卡自动进场、重掷不洗老卡、落幕写回", () => {
-  assert.match(src, /x_trpgSquad/, "老卡库跟随 x_ 云同步");
-  assert.match(src, /veteran: true, runs: v\.runs \|\| 0/, "有老卡就带老卡进场");
-  assert.match(src, /全队都是老卡——成长是打出来的,不重掷/, "重掷属性洗不掉老卡");
-  assert.match(src, /saveSquad\(sq\)/, "落幕把成长与旧伤写回");
-  assert.match(src, /⚔ 冒险小分队/, "入口页有小分队卡");
-  assert.match(src, /退役\?成长与旧伤都会清掉/, "退役=换新卡,互不冲突");
-  assert.match(src, /scars: \(m\.effects \|\| \[\]\)\.filter\(e => e\.scar\)/, "只有 scar 跟着老卡走,普通状态不带");
+test("冒险小分队 v2:多队立户、数值建队掷定、成长只归所属队", () => {
+  assert.match(src, /x_trpgSquads/, "多小分队库,跟随 x_ 云同步");
+  assert.match(src, /x_trpgSquad"/, "旧单队库一次性迁移,老卡不丢");
+  assert.match(src, /数值在【组建队伍时】就掷定/, "建队即定数值");
+  assert.match(src, /小队A\n?.{0,10}体魄\+5,不影响他在小队B的卡|体魄\+5,不影响他在小队B/, "A队的成长进不了B队");
+  assert.match(src, /homeSquad = sqv\.squads\.find\(x => x\.id === camp\.squadId\)/, "落幕只写回这团所属的队");
+  assert.match(src, /解散「" \+ sq\.name/, "整队解散,不影响已开的团");
+  assert.match(src, /先点右上角 ＋ 组建一支小分队/, "开团必须先有队");
+  assert.match(src, /建队,去开团/, "组建页一键转开团");
+  assert.ok(!/rerollDraftStats/.test(src), "预览页重掷退场——数值建队定");
+});
+
+test("收藏世界与图库", () => {
+  assert.match(src, /x_trpgWorlds/, "世界收藏只存长期为真的世界观+地图");
+  assert.match(src, /世界观与区域节点一个字不许改/, "用收藏开新局:世界不动,故事全新");
+  assert.match(src, /🌍 收藏世界/);
+  assert.match(src, /x_trpgGallery/, "图库独立存,删团不删图");
+  assert.match(src, /galAdd\(\{ campId: camp\.id/, "封面与当拍画面出图即归档");
+  assert.match(src, /删团也不丢/, "图库文案说清了这一点");
+  assert.match(src, /🎲 开团\(带一支小分队进新世界\)/, "＋菜单:开团/组建队伍");
 });
 
 // ---- 秘典:开团即生成,落幕前不给看 ----

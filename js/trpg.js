@@ -30,9 +30,11 @@
         const needSnap = (c.msgs || []).some(m => m.snap && (m.snap.items || []).some(x => typeof x === "string"));
         // v57.21:老团的成员补发命运点(按气运),没有的字段一律给默认
         const needFate = (c.party || []).some(m => m.fate == null);
-        if (!needTop && !needSnap && !needFate) return c;
+        const needSquad = !c.squadId;
+        if (!needTop && !needSnap && !needFate && !needSquad) return c;
         changed = true;
         return Object.assign({}, c, {
+          squadId: c.squadId || "sq_legacy",
           items: itemsFix(c.items),
           party: (c.party || []).map(m => m.fate == null ? Object.assign({}, m, { fate: fateOf(m.stats && m.stats.luck) }) : m),
           msgs: (c.msgs || []).map(m => m.snap ? Object.assign({}, m, { snap: Object.assign({}, m.snap, { items: itemsFix(m.snap.items) }) }) : m)
@@ -800,11 +802,30 @@
   // 全让它挑,它每次都掷出同一个众数
   const POOL_EVENT = ["不速之客闯入", "环境突变(天气/坍塌/断电/走水)", "一件要紧的东西丢了或坏了", "有人露出破绽", "突然出现时限:再不动手就来不及", "一个旧相识在最坏的时机出现", "一件看似无关的小事,其实连着真相", "队伍里有人的旧事被戳到", "一桩好运从天而降,但带着钩子", "对头忽然抛来橄榄枝"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
-  // 冒险小分队(她 2026-08-28 要的):跨团角色卡,存 x_trpgSquad(跟随 x_ 云同步)。
-  // 打完一团,成长骰结果与旧伤(scar)写回老卡;下次开团同一人自动带老卡进场——
-  // 战役里的他和主线的他互不相干,和「新团重掷的新卡」也不冲突(有老卡就用老卡)。
-  const loadSquad = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgSquad") || "{}"); return v && typeof v === "object" && v.members ? v : { members: {} }; } catch (e) { return { members: {} }; } };
-  const saveSquad = sq => { try { localStorage.setItem("x_trpgSquad", JSON.stringify(sq)); } catch (e) {} };
+  // 冒险小分队 v2(她 2026-08-28 定稿):【多支】小分队各自立户,存 x_trpgSquads。
+  // 数值在【组建队伍时】就掷定;成长与旧伤只写回所属那支队——同一个人在小队A
+  // 体魄+5,不影响他在小队B的卡;新建队伍从零掷,不继承任何旧队。
+  const loadSquads = () => {
+    try {
+      let v = JSON.parse(localStorage.getItem("x_trpgSquads") || "null");
+      if (!v || !Array.isArray(v.squads)) {
+        // 旧单队库(x_trpgSquad)一次性迁成第一支队,老卡一张不丢
+        let ms = [];
+        try { const old = JSON.parse(localStorage.getItem("x_trpgSquad") || "null"); if (old && old.members) ms = Object.keys(old.members).map(k => old.members[k]); } catch (e) {}
+        v = { squads: ms.length ? [{ id: "sq_legacy", name: "冒险小分队", ts: Date.now(), runs: ms.reduce((n, m) => Math.max(n, m.runs || 0), 0), members: ms.map(m => ({ key: m.key, name: m.name, stats: m.stats, feats: m.feats || [], scars: m.scars || [], runs: m.runs || 0 })) }] : [] };
+        try { localStorage.setItem("x_trpgSquads", JSON.stringify(v)); } catch (e) {}
+      }
+      return v;
+    } catch (e) { return { squads: [] }; }
+  };
+  const saveSquads = v => { try { localStorage.setItem("x_trpgSquads", JSON.stringify(v)); } catch (e) {} };
+  // 世界收藏(x_trpgWorlds):只存【长期为真】的世界观+地图;用它重开时,章节/目标/
+  // 秘典/种子全部重新生成——同一个世界,另一个故事(小剧场收藏基线同一课)
+  const loadWorlds = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgWorlds") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  const saveWorlds = v => { try { localStorage.setItem("x_trpgWorlds", JSON.stringify(v)); } catch (e) {} };
+  // 跑团图库(x_trpgGallery):封面与当拍画面出图即归档;删掉那一轮跑团,图也不丢
+  const loadGal = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgGallery") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  const saveGalList = v => { try { localStorage.setItem("x_trpgGallery", JSON.stringify(v)); } catch (e) {} };
   // 输出天花板:她按次计费,上限不省钱只会截断——统一给满(同 StylePresets.OUT_CEILING,
   // 中转会自行 clamp 到模型上限;思考型模型的推理也从这里扣,给大不多花一分钱)
   const TOK_MAX = 65535;
@@ -864,7 +885,12 @@
     const [modOpen, setModOpen] = useState(false);   // 导入模组面板
     const [modTxt, setModTxt] = useState("");        // 模组 JSON 粘贴缓冲
     const [diceOpen, setDiceOpen] = useState(false); // 骰子账展开
-    const [squadTick, setSquadTick] = useState(0);   // 小分队退役后强制重画用
+    const [squadTick, setSquadTick] = useState(0);   // 小分队增删后强制重画用
+    const [pickSquadId, setPickSquadId] = useState(null); // 开团带哪支小分队
+    const [plusMenu, setPlusMenu] = useState(false); // 入口 ＋ 菜单(开团/组建队伍)
+    const [squadName, setSquadName] = useState("");  // 组建队伍:队名
+    const [bmRolls, setBmRolls] = useState({});      // 组建队伍:每人建队时掷定的数值
+    const [galView, setGalView] = useState(null);    // 图库大图:item|null
     const [input, setInput] = useState("");
     const [note, setNote] = useState("");       // 跟守密人咬耳朵:一次性幕后指示
     const [noteOpen, setNoteOpen] = useState(false);
@@ -883,6 +909,18 @@
     const campsRef = useRef(null);
     const sumBusyRef = useRef(false);
     const update = fn => setCamps(p => { const n = fn(p.slice()); persist(n); return n; });
+    // 图库:出过的图永久归档——删掉那一轮跑团,图还在
+    const galAdd = entry => { const list = loadGal(); if (list.some(x => x.img === entry.img)) return; saveGalList([Object.assign({ id: rid("tg_") }, entry)].concat(list)); };
+    useEffect(() => {
+      // 图库上线前已出过的封面与画面,一次性补档(按图引用去重)
+      const have = {}; loadGal().forEach(x => have[x.img] = 1);
+      const add = [];
+      (campsRef.current || camps).forEach(c => {
+        (c.msgs || []).forEach(m => { if (m.role === "photo" && m.img && !have[m.img]) { have[m.img] = 1; add.push({ id: rid("tg_"), campId: c.id, campTitle: c.title, img: m.img, ts: m.ts || Date.now(), kind: "shot" }); } });
+        if (c.cover && !have[c.cover]) { have[c.cover] = 1; add.push({ id: rid("tg_"), campId: c.id, campTitle: c.title, img: c.cover, ts: c.coverTs || Date.now(), kind: "cover" }); }
+      });
+      if (add.length) saveGalList(add.concat(loadGal()).sort((a, b) => b.ts - a.ts));
+    }, []);
     useEffect(() => { campsRef.current = camps; });
     const camp = camps.find(c => c.id === playId) || null;
     // 地图布局:由 (战役id, 骨架) 决定的纯函数,毫秒级;memo 一下免得每次打字都重算
@@ -899,17 +937,9 @@
     // 人设给全文、封顶 6000(四处一样喂·落地要求4:截断出来的空白由训练先验补上,
     // 那就是霸总;跑团一队至多 1+4 人,谁都不该被砍)
     const personaOf = ch => String((ch && (ch.persona || ch.name)) || "").slice(0, 6000);
-    // 建队:小分队里有老卡就用老卡(属性/专长/旧伤全带上,fresh 掷骰只给新人);
-    // veteran 标记让「重掷属性」只掷新人——老卡的成长是打出来的,不许一键洗掉
-    const buildParty = members => {
-      const sq = loadSquad().members || {};
-      const mk = (key, name, freshStats) => {
-        const v = sq[key];
-        if (v && v.stats) return { key, name, hp: 100, maxHp: 100, stats: Object.assign({}, v.stats), fate: fateOf(v.stats.luck), effects: (v.scars || []).map(e => Object.assign({}, e)), feats: (v.feats || []).map(f => Object.assign({}, f)), veteran: true, runs: v.runs || 0 };
-        return { key, name, hp: 100, maxHp: 100, stats: freshStats, fate: fateOf(freshStats.luck), effects: [], feats: [] };
-      };
-      return [mk("user", uName, rollStats())].concat(members.map(ch => mk(ch.id, ch.name, personaNudge(rollStats(), ch.persona))));
-    };
+    // 出团建卡:整队从选定的小分队里出——数值是组建队伍时掷定的,这里只是取卡;
+    // 旧伤(scar)带上,专长带上,命运点按气运现算;出过团的标 veteran
+    const buildParty = squad => (squad.members || []).map(m => ({ key: m.key, name: m.key === "user" ? uName : m.name, hp: 100, maxHp: 100, stats: Object.assign({}, m.stats), fate: fateOf(m.stats.luck), effects: (m.scars || []).map(e => Object.assign({}, e)), feats: (m.feats || []).map(f => Object.assign({}, f)), veteran: (m.runs || 0) > 0, runs: m.runs || 0 }));
     const partyBlock = c => c.party.map(m => {
       const line = m.name + ":HP " + m.hp + "/" + (m.maxHp || 100) + " · " + STATS.map(([k, zh]) => zh + m.stats[k]).join(" ")
         + ((m.feats || []).length ? " · 专长:" + m.feats.map(f => f.name + "(" + STAT_ZH[f.stat] + ")").join("、") : "")
@@ -994,8 +1024,11 @@
       };
     };
     const genSetup = async () => {
-      const members = pickIds.map(charOf).filter(Boolean);
-      // 不拉队友=单人团:NPC 与世界把陪伴和对手戏补足
+      const squadsAll = loadSquads().squads;
+      const squad = squadsAll.find(x => x.id === pickSquadId) || squadsAll[0];
+      if (!squad) return props.toast("先点右上角 ＋ 组建一支小分队");
+      const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
+      // 队里只有你=单人团:NPC 与世界把陪伴和对手戏补足
       if (!props.active) return props.toast("请先配置线下 API");
       setBusy(true); setBusyWhat("守密人在搭台前(世界与地图)…");
       try {
@@ -1026,13 +1059,45 @@
         const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes.map(n => Object.assign({ region: r.name }, n))) : [];
         const startNode = mapRegions ? (findNode(allNodes, p.place) || allNodes[0]) : null;
         stages.forEach(s => { if (mapRegions) { const nd = findNode(allNodes, s.place); s.place = nd ? nd.name : ""; } });
-        // 属性此刻就掷好摆给她看;命运点跟气运走;有老卡的成员自动带老卡进场
-        const party = buildParty(members);
-        let d = { partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, place: s.place || "", done: false, note: null })), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, choices: normChoices(p.choices, party), party };
+        // 卡从小分队里取:数值建队时已定,成长归这支队
+        const party = buildParty(squad);
+        let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, place: s.place || "", done: false, note: null })), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, choices: normChoices(p.choices, party), party };
         setBusyWhat("守密人在写幕后底牌…");
         const bs = await backstage(d);
         if (bs) d = Object.assign({}, d, bs);
         else props.toast("台前搭好了,但幕后底牌没写成——预览里点「补幕后」重试", 7000);
+        setDraft(d);
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+    };
+    // 收藏的世界开新局:世界观与地图一个字不改,重新生成开局/各章/开场/选项,
+    // 幕后(秘典/种子/私念)整套重写——同一个世界,另一个故事
+    const genFromWorld = async w => {
+      const squadsAll = loadSquads().squads;
+      const squad = squadsAll.find(x => x.id === pickSquadId) || squadsAll[0];
+      if (!squad) return props.toast("先点右上角 ＋ 组建一支小分队");
+      if (!props.active) return props.toast("请先配置线下 API");
+      const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
+      setBusy(true); setBusyWhat("在这个世界里另起一个故事…");
+      try {
+        const SHAPE_W = "{\"hook\":\"开局处境(2-3句,全新的)\",\"stages\":[{\"goal\":\"每章一步具体可判定的事\",\"hint\":\"守密人自用思路\",\"place\":\"必须用地图里已有的节点名\"}],\"place\":\"开局地点(已有节点名)\",\"opening\":\"开场正文(第二人称『你』,6-10句,悬着收尾)\",\"choices\":[\"开局 2-4 个行动选项\"]}";
+        const past = camps.filter(c => c.world === w.world).slice(0, 6).map(c => String(c.hook || "").slice(0, 40)).join(";");
+        const sys = "基于下面这套【固定的世界与地图】开一局全新的跑团:世界观与区域节点一个字不许改,但主线、开局处境、开场全部另起——换时间点、换事件、换队伍被卷入的理由都行,幅度要大到一眼是另一个故事。主线 4-5 章分布在【不同区域】的节点上。绝不复述以往开过的局。\n" + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_W;
+        const user = "【固定世界】" + w.world + "\n【固定地图】\n" + (w.regions || []).map(r => r.name + "(" + r.terrain + ")·节点:" + r.nodes.map(n => n.name).join("/")).join("\n") + "\n【玩家】" + uName + (members.length ? "\n" + members.map(ch => "【队友·" + ch.name + " 人设】\n" + personaOf(ch)).join("\n\n") : "") + (past ? "\n【这个世界已开过的局(务必避开)】" + past : "");
+        const p2 = parseObj(await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 }));
+        if (!p2 || !String(p2.opening || "").trim()) throw new Error("这个世界的新故事没生成出来");
+        const stages = (Array.isArray(p2.stages) ? p2.stages : []).map(x => x && x.goal ? { goal: String(x.goal), hint: String(x.hint || ""), place: String(x.place || "").trim() } : null).filter(Boolean).slice(0, 6);
+        if (stages.length < 2) throw new Error("章节没生成够,再试一次");
+        const mapRegions = w.regions || null;
+        const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes) : [];
+        const startNode = mapRegions ? (findNode(allNodes, p2.place) || allNodes[0]) : null;
+        stages.forEach(x => { if (mapRegions) { const nd = findNode(allNodes, x.place); x.place = nd ? nd.name : ""; } });
+        const party = buildParty(squad);
+        let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: w.style || style, title: w.title, world: w.world, hook: p2.hook || "", stages: stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "", done: false, note: null })), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: p2.opening, choices: normChoices(p2.choices, party), party };
+        if (w.limits) setLimitsTxt(String(w.limits));
+        setBusyWhat("守密人在写幕后底牌…");
+        const bs = await backstage(d);
+        if (bs) d = Object.assign({}, d, bs);
+        else props.toast("台前搭好了,但幕后没写成——预览里点「补幕后」", 7000);
         setDraft(d);
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
@@ -1047,14 +1112,10 @@
         setDraft(dd => dd && Object.assign({}, dd, bs));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
-    const rerollDraftStats = () => setDraft(d => {
-      if (!d) return d;
-      if (d.party.every(m => m.veteran)) { props.toast("全队都是老卡——成长是打出来的,不重掷;想用新卡先在小分队里退役"); return d; }
-      return Object.assign({}, d, { party: d.party.map(m => { if (m.veteran) return m; const stats = m.key === "user" ? rollStats() : personaNudge(rollStats(), (charOf(m.key) || {}).persona); return Object.assign({}, m, { stats, fate: fateOf(stats.luck) }); }) });
-    });
+    // (v57.37 起数值在组建队伍时掷定,预览页不再重掷——想换数值去建一支新队)
     const acceptDraft = () => {
       const openMsg = { id: rid("rm_"), role: "gm", content: draft.opening, ts: Date.now(), snap: { hp: draft.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: draft.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: [], clues: [], stageIdx: 0, place: draft.place, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], gauge: draft.gauge ? draft.gauge.val : null, clocks: [], quests: [], seeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), npcs: [], time: { day: 1, part: "晨" }, effects: {}, choices: draft.choices } };
-      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, style: draft.style || "classic", world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, gauge: draft.gauge || null, outfits: draft.outfits || {}, sideSeeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), myline: draft.myline || "", limits: limitsTxt.trim(), clocks: [], guesses: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, party: draft.party, items: [], clues: [], choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
+      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), squadId: draft.squadId || "", squadName: draft.squadName || "", partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, style: draft.style || "classic", world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, gauge: draft.gauge || null, outfits: draft.outfits || {}, sideSeeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), myline: draft.myline || "", limits: limitsTxt.trim(), clocks: [], guesses: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, party: draft.party, items: [], clues: [], choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
       update(list => [c, ...list]); setDraft(null); setKw(""); setPlayId(c.id); setView("play"); setPanelOpen(false);
     };
 
@@ -1427,13 +1488,19 @@
         // 结果连同旧伤写回小分队老卡——下一团的 TA 就是带着这些来的
         const rollRecs = camp.msgs.filter(m => m.role === "roll" && m.who && m.statKey);
         const growth = growthRolls(camp.party, rollRecs, Math.random);
-        const sq = loadSquad();
-        camp.party.forEach(m => {
-          const ups = {};
-          growth.forEach(g => { if (g.key === m.key && g.to > g.from) ups[g.stat] = g.to; });
-          sq.members[m.key] = { key: m.key, name: m.name, stats: Object.assign({}, m.stats, ups), feats: (m.feats || []).map(f => Object.assign({}, f)), scars: (m.effects || []).filter(e => e.scar).map(e => Object.assign({}, e)), runs: ((sq.members[m.key] || {}).runs || 0) + 1, ts: Date.now() };
-        });
-        saveSquad(sq);
+        // 只写回这团所属的小分队——小队A的成长永远进不了小队B的卡
+        const sqv = loadSquads();
+        const homeSquad = sqv.squads.find(x => x.id === camp.squadId);
+        if (homeSquad) {
+          camp.party.forEach(m => {
+            const ups = {};
+            growth.forEach(g => { if (g.key === m.key && g.to > g.from) ups[g.stat] = g.to; });
+            const card = homeSquad.members.find(x => x.key === m.key);
+            if (card) { card.stats = Object.assign({}, m.stats, ups); card.feats = (m.feats || []).map(f => Object.assign({}, f)); card.scars = (m.effects || []).filter(e => e.scar).map(e => Object.assign({}, e)); card.runs = (card.runs || 0) + 1; }
+          });
+          homeSquad.runs = (homeSquad.runs || 0) + 1;
+          saveSquads(sqv);
+        }
         update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: { paras: p.paras.map(x => String(x || "").trim()).filter(Boolean), closing: String(p.closing || "").trim(), untold: (Array.isArray(p.untold) ? p.untold : []).map(x => String(x || "").trim()).filter(Boolean), myline: String(p.myline || "").trim(), growth: growth, revealed: 0 } })));
         setEndAsk(null); setFinalAct("");
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
@@ -1509,7 +1576,8 @@
           if (take) bgTook = true;
           return Object.assign({}, c, { cover: ref, coverTs: Date.now(), bg: take ? ref : c.bg });
         }));
-        props.toast(bgTook ? "封面出好了,已当作背景;+菜单里可看整张、存相册" : "封面出好了(这场团有你自己的背景图,没动它)", 6000);
+        galAdd({ campId: camp.id, campTitle: camp.title, img: ref, ts: Date.now(), kind: "cover" });
+        props.toast(bgTook ? "封面出好了,已当作背景并进图库" : "封面出好了,已进图库(这场团有你自己的背景图,没动它)", 6000);
       } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     // 当拍画面:可选一位队友入镜锁脸(她 2026-08-28 抓的:三个陌生人背影看着怪)。
@@ -1590,6 +1658,7 @@
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
         update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "photo", img: ref, lockChar: ch ? ch.id : undefined, ts: Date.now() }]) })));
+        galAdd({ campId: camp.id, campTitle: camp.title, img: ref, ts: Date.now(), kind: "shot" });
       } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     // 重画沿用同一位入镜人(锁谁的脸记在图上)
@@ -1678,7 +1747,7 @@
     })();
 
     if (view === "create") {
-      const toggle = id => setPickIds(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.length >= 4 ? (props.toast("队伍最多 4 名队友"), p) : p.concat([id]));
+
       const preview = draft && h("div", { style: S.card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
         [["世界", draft.world], ["开局处境", draft.hook],
@@ -1704,17 +1773,25 @@
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开团"),
           h("button", { onClick: genSetup, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
-          h("button", { onClick: rerollDraftStats, style: S.btn(false) }, "重掷属性"),
+          draft.mapRegions ? h("button", { onClick: () => { saveWorlds([{ id: rid("tw_"), title: draft.title, world: draft.world, regions: draft.mapRegions, style: draft.style || "classic", limits: limitsTxt.trim(), ts: Date.now() }].concat(loadWorlds())); props.toast("世界已收藏——下次开团可以用它另起一个故事(章节秘典全新生成)"); }, style: S.btn(false) }, "🌍 收藏世界") : null,
+
           // 幕后没写成(或模组换了队友)时:台前不动,单独补底牌
           !String(draft.dossier.truth || "").trim() || !(draft.party.slice(1).every(m => (m.feats || []).length) && Object.keys(draft.outfits || {}).length)
             ? h("button", { onClick: redoBackstage, disabled: busy, style: Object.assign({}, S.btn(false), { borderColor: "#8a6d3b", color: "#8a6d3b" }) }, busy ? "在写…" : "✎ 补幕后")
             : null));
       return h("div", { style: S.wrap }, badges(), header("新开跑团"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-          h("div", { style: S.card }, h("div", { style: S.lbl }, "拉队友入队(0-4 名;一个不拉=单人团,NPC 陪你走)"),
-            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 } },
-              props.characters.map(c => h("div", { key: c.id, onClick: () => toggle(c.id), style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 6px", borderRadius: 999, border: "1.5px solid " + (pickIds.indexOf(c.id) >= 0 ? t.ink : t.line), background: pickIds.indexOf(c.id) >= 0 ? t.ink : "transparent" } },
-                avatarOf(c, 24), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: pickIds.indexOf(c.id) >= 0 ? t.bg2 : t.ink } }, c.name + (loadSquad().members[c.id] ? " ⚔" : "")))))),
+          h("div", { style: S.card }, h("div", { style: S.lbl }, "带哪支小分队进团(数值建队时已掷定;队伍的成长只归那支队)"),
+            (() => {
+              const sqs = loadSquads().squads;
+              if (!sqs.length) return h("div", { style: { marginTop: 4 } },
+                h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog }) }, "还没有小分队。"),
+                h("button", { onClick: () => { setSquadName("小分队一"); setPickIds([]); setBmRolls({ user: rollStats() }); setView("squadNew"); }, style: Object.assign({ marginTop: 6 }, S.btn(true)) }, "⚔ 先去组建队伍"));
+              const cur = pickSquadId || sqs[0].id;
+              return h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 } },
+                sqs.map(sq => h("button", { key: sq.id, onClick: () => setPickSquadId(sq.id), style: Object.assign({}, S.btn(cur === sq.id), { textAlign: "left" }) },
+                  "⚔ " + sq.name + "(" + sq.members.length + "人" + (sq.runs ? "·出团" + sq.runs + "次" : "·新队") + ")")));
+            })()),
           h("div", { style: S.card }, h("div", { style: S.lbl }, "关键词(选填:世界/主线/氛围,如「西幻 盗墓 诙谐」)"),
             h("textarea", { value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=掷骰子定世界与主线", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
             h("div", { style: S.lbl }, "难度"),
@@ -1732,19 +1809,33 @@
                 try {
                   const mod = JSON.parse(modTxt.trim());
                   if (!mod || mod.kind !== "trpg-module" || !mod.world || !Array.isArray(mod.stages)) throw new Error("不是有效的跑团模组");
-                  const members = pickIds.map(charOf).filter(Boolean);
-                  const party = buildParty(members);
+                  const squadsAll = loadSquads().squads;
+                  const squad = squadsAll.find(x => x.id === pickSquadId) || squadsAll[0];
+                  if (!squad) throw new Error("先点右上角 ＋ 组建一支小分队");
+                  const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
+                  const party = buildParty(squad);
                   const mapRegions = normRegions(mod.regions);
                   const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes) : [];
                   const startNode = mapRegions ? (findNode(allNodes, mod.place) || allNodes[0]) : null;
                   // 模组保台本(世界/章节/秘典/种子),crew 相关(私念/行头/专长/暗线)是空的——
                   // 预览里点「补幕后」按当前队伍现配;backstage 只补空不覆盖,台本动不了
-                  setDraft({ partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: mod.stages.map(x => ({ goal: String(x.goal || ""), hint: String(x.hint || ""), place: String(x.place || ""), done: false, note: null })).filter(x => x.goal), dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), choices: [], party });
+                  setDraft({ squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: mod.stages.map(x => ({ goal: String(x.goal || ""), hint: String(x.hint || ""), place: String(x.place || ""), done: false, note: null })).filter(x => x.goal), dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), choices: [], party });
                   if (mod.limits) setLimitsTxt(String(mod.limits));
                   setModOpen(false);
                   props.toast("模组已装载——预览里点「补幕后」给这批队友配私念/行头/专长", 7000);
                 } catch (e) { props.toast("导入失败:" + (e.message || "JSON 坏了")); }
               }, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, "用模组开团")) : null),
+          (() => {
+            const ws = loadWorlds();
+            if (!ws.length || draft) return null;
+            return h("div", { style: S.card }, h("div", { style: S.lbl }, "收藏的世界(用它开团=同一个世界另起一个故事)"),
+              ws.map(w => h("div", { key: w.id, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 } },
+                h("div", { style: { flex: 1, minWidth: 0 } },
+                  h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5 }) }, "🌍 " + w.title),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(w.world || "").slice(0, 40) + "…")),
+                h("button", { onClick: () => genFromWorld(w), disabled: busy, style: S.btn(true) }, busy ? "…" : "用它开团"),
+                h("button", { onClick: () => { if (confirm("删除这个收藏的世界?")) { saveWorlds(loadWorlds().filter(x => x.id !== w.id)); setSquadTick(x => x + 1); } }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删")))); 
+          })(),
           preview));
     }
 
@@ -1868,6 +1959,7 @@
             const txt = JSON.stringify(mod);
             try { navigator.clipboard.writeText(txt).then(() => props.toast("模组已复制:世界/章节/秘典/种子都在里面,开团页「导入模组」可重开或分享", 7000), () => props.toast("复制失败,再试一次")); } catch (e) { props.toast("复制失败:" + (e.message || "")); }
           }, style: S.btn(false) }, "📦 打包模组"),
+          camp.mapRegions ? h("button", { onClick: () => { saveWorlds([{ id: rid("tw_"), title: camp.title, world: camp.world, regions: camp.mapRegions, style: camp.style || "classic", limits: camp.limits || "", ts: Date.now() }].concat(loadWorlds())); props.toast("世界已收藏——开团页可用它另起一个故事"); }, style: S.btn(false) }, "🌍 收藏此世界") : null,
           !camp.ended && h("button", { onClick: () => { if (confirm("提前收团?守密人会就此写终章落幕。")) { setPanelOpen(false); setEndAsk({ forced: true }); } }, disabled: busy, style: S.btn(false) }, "谢幕收团"),
           h("button", { onClick: () => delCamp(camp.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此团")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "长按任意一拍可从那里分支回溯——状态按当拍快照恢复,原团一个字不动。")));
@@ -2138,28 +2230,89 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginLeft: 4 } }, (c.ended ? "已落幕 · " : "") + "第" + Math.min(c.stageIdx + 1, c.stages.length) + "/" + c.stages.length + "章 · " + c.msgs.length + "拍")),
         h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, c.world));
     };
-    const squadCard = (() => {
-      const members = Object.keys(loadSquad().members || {}).map(k => loadSquad().members[k]).sort((a, b) => (b.runs || 0) - (a.runs || 0));
-      if (!members.length) return null;
-      return h("div", { key: "squad" + squadTick, style: S.card },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "⚔ 冒险小分队"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 8, lineHeight: 1.7 } }, "出过团的老卡:成长与旧伤都记在这,下次开团同一人自动带老卡进场;退役=下团重新掷新卡。"),
-        members.map(v => {
-          const ch = v.key === "user" ? { name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color } : (charOf(v.key) || { name: v.name });
-          return h("div", { key: v.key, style: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 } },
-            avatarOf(ch, 30),
-            h("div", { style: { flex: 1, minWidth: 0 } },
-              h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5 }) }, v.name + " · 出团" + (v.runs || 0) + "次"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, STATS.map(([k, zh]) => zh + (v.stats || {})[k]).join(" ") + ((v.feats || []).length ? " · " + v.feats.map(f => f.name).join("、") : "")),
-              (v.scars || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e" } }, "旧伤:" + v.scars.map(e => e.name).join("、")) : null),
-            h("button", { onClick: () => { if (!confirm("让「" + v.name + "」的老卡退役?成长与旧伤都会清掉,下团重新掷新卡。")) return; const sq = loadSquad(); delete sq.members[v.key]; saveSquad(sq); setSquadTick(x => x + 1); }, style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "退役"));
-        }));
-    })();
-    return h("div", { style: S.wrap }, badges(), header("跑团", h("button", { onClick: () => { setDraft(null); setKw(""); setPickIds([]); setView("create"); }, style: S.btn(true) }, "新开跑团")),
+    // ---- 组建队伍(她 2026-08-28 定稿:数值在这里掷定,进什么副本都用这套) ----
+    if (view === "squadNew") {
+      const togglePick = id => {
+        if (pickIds.indexOf(id) >= 0) { setPickIds(p => p.filter(x => x !== id)); return; }
+        if (pickIds.length >= 4) return props.toast("一支小分队最多 4 名队友");
+        const ch = charOf(id);
+        setBmRolls(r => r[id] ? r : Object.assign({}, r, { [id]: personaNudge(rollStats(), ch && ch.persona) }));
+        setPickIds(p => p.concat([id]));
+      };
+      const roster = [{ key: "user", name: uName }].concat(pickIds.map(id => ({ key: id, name: (charOf(id) || {}).name || "?" })));
+      return h("div", { style: S.wrap }, badges(), header("组建小分队"),
+        h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          h("div", { style: S.card }, h("div", { style: S.lbl }, "队名"),
+            h("input", { value: squadName, onChange: e => setSquadName(e.target.value), placeholder: "比如「家园号勘探组」", style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" } })),
+          h("div", { style: S.card }, h("div", { style: S.lbl }, "拉队友(0-4 名;一个不拉=你的单人队)"),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 } },
+              props.characters.map(c => h("div", { key: c.id, onClick: () => togglePick(c.id), style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 6px", borderRadius: 999, border: "1.5px solid " + (pickIds.indexOf(c.id) >= 0 ? t.ink : t.line), background: pickIds.indexOf(c.id) >= 0 ? t.ink : "transparent" } },
+                avatarOf(c, 24), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: pickIds.indexOf(c.id) >= 0 ? t.bg2 : t.ink } }, c.name))))),
+          h("div", { style: S.card }, h("div", { style: S.lbl }, "建队数值(3d6×5,队友按人设微调;建好就定,成长靠打)"),
+            roster.map(m => { const st = m.key === "user" ? (bmRolls.user || {}) : (bmRolls[m.key] || {});
+              return h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, m.name + ":" + STATS.map(([k, zh]) => zh + " " + (st[k] || "?")).join(" · ") + " · ✦×" + fateOf(st.luck)); }),
+            h("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } },
+              h("button", { onClick: () => { const r = { user: rollStats() }; pickIds.forEach(id => { r[id] = personaNudge(rollStats(), (charOf(id) || {}).persona); }); setBmRolls(r); }, style: S.btn(false) }, "重掷全队"),
+              h("button", { onClick: () => {
+                const name = squadName.trim();
+                if (!name) return props.toast("先给队伍起个名字");
+                const v = loadSquads();
+                if (v.squads.some(x => x.name === name)) return props.toast("已经有叫这个名字的队了");
+                const members = roster.map(m => ({ key: m.key, name: m.name, stats: Object.assign({}, m.key === "user" ? (bmRolls.user || rollStats()) : (bmRolls[m.key] || rollStats())), feats: [], scars: [], runs: 0 }));
+                const sq = { id: rid("sq_"), name, ts: Date.now(), runs: 0, members };
+                v.squads.unshift(sq); saveSquads(v);
+                setPickSquadId(sq.id); setSquadTick(x => x + 1);
+                props.toast("「" + name + "」组建好了——数值已定,专长会在第一次开团时按世界配");
+                setDraft(null); setKw(""); setView("create");
+              }, style: S.btn(true) }, "⚔ 建队,去开团")))));
+    }
+
+    // ---- 图库(和小剧场一样:出过的图永久归档,删团不删图) ----
+    if (view === "gallery") {
+      const gal = loadGal();
+      const viewer = galView && h("div", { onClick: () => setGalView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
+        h("img", { src: imgSrc(galView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + (galView.campTitle || "") + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
+        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
+          h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
+          h("button", { onClick: () => { const id = galView.id; if (!confirm("从图库删掉这张?")) return; setGalView(null); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+      return h("div", { style: S.wrap }, badges(), header("跑团图库"), viewer,
+        h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
+          gal.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            gal.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },
+              h("img", { src: imgSrc(x.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+              x.kind === "cover" ? h("div", { style: { position: "absolute", left: 4, top: 4, padding: "1px 5px", borderRadius: 6, background: "rgba(20,18,16,.66)", color: "#f0ece4", fontFamily: F_BODY, fontSize: 9 } }, "封面") : null)))
+          : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没有图。", h("br"), "跑团里出过的封面和当拍画面都会自动收在这,删团也不丢。")));
+    }
+
+    // ---- 入口:小分队 + 战役列表;右上=图库+加号菜单 ----
+    const squads = loadSquads().squads;
+    const squadsBlock = squads.length ? squads.map(sq => h("div", { key: sq.id + squadTick, style: S.card },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, "⚔ " + sq.name + (sq.runs ? " · 出团" + sq.runs + "次" : " · 新队")),
+        h("button", { onClick: () => { if (!confirm("解散「" + sq.name + "」?这支队的成长与旧伤会一起消失(不影响已开的团)。")) return; const v = loadSquads(); v.squads = v.squads.filter(x => x.id !== sq.id); saveSquads(v); setSquadTick(x => x + 1); }, style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "解散")),
+      sq.members.map(v => {
+        const ch = v.key === "user" ? { name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color } : (charOf(v.key) || { name: v.name });
+        return h("div", { key: v.key, style: { display: "flex", alignItems: "flex-start", gap: 8, marginTop: 6 } },
+          avatarOf(ch, 26),
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, v.name + (v.runs ? " · 出团" + v.runs + "次" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, STATS.map(([k, zh]) => zh + (v.stats || {})[k]).join(" ") + ((v.feats || []).length ? " · " + v.feats.map(f => f.name).join("、") : "")),
+            (v.scars || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e" } }, "旧伤:" + v.scars.map(e => e.name).join("、")) : null));
+      }))) : null;
+    const plusSheet = plusMenu && h("div", { onClick: () => setPlusMenu(false), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+        [["🎲 开团(带一支小分队进新世界)", () => { setPlusMenu(false); setDraft(null); setKw(""); setView("create"); }],
+         ["⚔ 组建队伍(数值此刻掷定,成长归这支队)", () => { setPlusMenu(false); setSquadName("小分队" + "一二三四五六七八九十".charAt(Math.min(9, loadSquads().squads.length))); setPickIds([]); setBmRolls({ user: rollStats() }); setView("squadNew"); }],
+         ["取消", () => setPlusMenu(false)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none", textAlign: "center" } }, label))));
+    return h("div", { style: S.wrap }, badges(), plusSheet,
+      header("跑团", h("div", { style: { display: "flex", gap: 6 } },
+        h("button", { onClick: () => { setGalView(null); setView("gallery"); }, style: S.btn(false) }, "🖼 图库"),
+        h("button", { onClick: () => setPlusMenu(true), style: Object.assign({}, S.btn(true), { padding: "7px 16px" }) }, "＋"))),
       h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-        squadCard,
+        squadsBlock,
         camps.length ? camps.map(campCard)
-        : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没开过团。", h("br"), "拉上几个人,掷一把骰子,去另一个世界走一遭。")));
+        : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没开过团。", h("br"), "点右上角 ＋:先组建一支小分队,再带他们去另一个世界走一遭。")));
   }
   if (inApp) window.TrpgApp = TrpgApp;
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
