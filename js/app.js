@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.00";
+const APP_VERSION = "v57.01";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5298,15 +5298,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!parsed) parsed = { word: salvageWords() };
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
-        const a = room.actions || {}, w = room.writeback || {};
+        const w = room.writeback || {};
         // 照片、地图是聊天原生能力，不做房间开关。
         // 朋友圈、论坛与钱包只归主聊天；侧房不会偷偷触发这些全局动作。
         if (!room.main) {
           parsed.moment = null; parsed.momentComment = null;
           parsed.transfer = null; parsed.gift = null; parsed.kinshipcard = null;
         }
-        if (!a.games) parsed.game = null;
-        if (!a.study) parsed.study = null;
         // 日记不授权给角色代写；专用日记信箱走自己的链，不经过聊天回复协议。
         parsed.diary = null;
         if (!w.sharedState) {

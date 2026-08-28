@@ -8576,7 +8576,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, embedded })
       h(Eyebrow, null, "主线同步"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
     group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
-    group("actions", "额外行动", "只管一起学和小游戏。照片、地图是聊天原生能力；朋友圈、论坛和钱包只归主聊天；日记不交给角色代写。"),
+    !draft.main && group("actions", "本房玩法", "只决定这间侧房里，Ta 可以自然提议哪些活动。"),
     group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
     h("div", { className: "flex gap-2", style: { marginTop: 20, paddingBottom: 12 } },
       h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),

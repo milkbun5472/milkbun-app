@@ -33,8 +33,12 @@ test("three permission groups persist independently, including main chat actions
 
 test("room action switches expose only explicit extras", () => {
   assert.deepEqual(Rooms.GROUPS.actions.map(([key]) => key), ["study", "games"]);
+  assert.equal(Rooms.prompt(Rooms.get("p1", "main"), []), "");
   const side = Rooms.create("p1", "侧房", "everyday");
-  assert.match(Rooms.prompt(side, []), /侧房不触发朋友圈、论坛、钱包或日记/);
+  assert.match(Rooms.prompt(side, []), /本房可提议的活动/);
+  side.actions.study = false;
+  side.actions.games = false;
+  assert.doesNotMatch(Rooms.prompt(side, []), /本房可提议的活动/);
 });
 
 test("isolated preset keeps only its own history and receives no main delta", () => {

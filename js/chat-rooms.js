@@ -16,8 +16,8 @@
       ["otherScenes", "群聊与线下", "可参考共同群聊和线下相处留下的事实"]
     ],
     actions: [
-      ["study", "一起学", "可发起或继续学习 Session"],
-      ["games", "小游戏", "可邀请、入局或执行游戏动作"]
+      ["study", "一起学", "允许在本房自然提议一起学"],
+      ["games", "小游戏", "允许在本房自然提议玩小游戏"]
     ],
     writeback: [
       ["roomHistory", "保留本房聊天", "始终保留这间房自己的完整时间线"],
@@ -35,14 +35,14 @@
 
   const clone = obj => JSON.parse(JSON.stringify(obj));
   const id = () => "room_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
-  const mainRoom = personId => ({ id: MAIN_ID, personId: String(personId), createdAt: 0, updatedAt: Date.now(), ...clone(PRESETS.everyday), name: "主聊天", main: true, preset: "everyday" });
+  const mainRoom = personId => ({ id: MAIN_ID, personId: String(personId), createdAt: 0, updatedAt: Date.now(), ...clone(PRESETS.everyday), actions: bools(GROUPS.actions, false), name: "主聊天", main: true, preset: "everyday" });
   function normalize(room, personId) {
     const base = room && room.id === MAIN_ID ? mainRoom(personId) : { id: room && room.id || id(), personId: String(personId), name: "新房间", main: false, createdAt: Date.now(), updatedAt: Date.now(), preset: "everyday", ...clone(PRESETS.everyday) };
     const src = room || {};
     return {
       ...base, ...src, personId: String(personId), name: String(src.name || base.name).trim().slice(0, 24) || base.name,
       cognition: { ...base.cognition, ...(src.cognition || {}) },
-      actions: { ...base.actions, ...(src.actions || {}) },
+      actions: base.main ? bools(GROUPS.actions, false) : { ...base.actions, ...(src.actions || {}) },
       writeback: { ...base.writeback, ...(src.writeback || {}) },
       syncMode: ["follow", "ask", "frozen"].includes(src.syncMode) ? src.syncMode : base.syncMode,
       mainCursorTs: Number(src.mainCursorTs || 0), updatedAt: Number(src.updatedAt || Date.now())
@@ -87,13 +87,10 @@
     if (!room) return "";
     const c = room.cognition || {}, a = room.actions || {}, w = room.writeback || {};
     const allowedActions = GROUPS.actions.filter(([k]) => a[k]).map(([, label]) => label);
-    const lines = room.id === MAIN_ID ? ["【主聊天行动权限】这是你们的主聊天。"] : ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
-    if (room.id === MAIN_ID) {
-      lines.push("【额外行动权限】当前可主动发起：" + (allowedActions.length ? allowedActions.join("、") : "无") + "。论坛和朋友圈仍按主聊天原有触发规则工作；照片、地图是聊天原生能力；钱包只属于主聊天；不要代替本人写日记。");
-      return "\n\n" + lines.join("\n");
-    }
+    if (room.id === MAIN_ID) return "";
+    const lines = ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");
-    lines.push("【额外行动权限】本房" + (allowedActions.length ? "可主动发起：" + allowedActions.join("、") : "不额外开放一起学或小游戏") + "。照片、地图仍是聊天原生能力；侧房不触发朋友圈、论坛、钱包或日记。");
+    if (allowedActions.length) lines.push("【本房可提议的活动】" + allowedActions.join("、") + "。只需在真的想做时自然开口，不要把它当作每轮任务，也不要假装界面已经打开。");
     lines.push("【写回边界】" + (w.sharedState ? "本房可影响共同状态" : "本房不改变主房关系、情绪、动作等共同状态") + "；" + (w.memoryCandidate ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
     if (c.mainDelta && room.syncMode !== "frozen" && Array.isArray(mainMessages)) {
       const since = Number(room.mainCursorTs || room.createdAt || 0);
