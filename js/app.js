@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.06";
+const APP_VERSION = "v57.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3179,22 +3179,56 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           .filter(m => m && m.content && m.kind !== "ooc" && m.role !== "system")
           .map(m => ({ ...m, role: m.role === "char" ? "assistant" : m.role, _surface: "offline" })) : [];
       }
-      const all = online.concat(offline).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      if (!all.length) return "";
       const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));
       if (!ctxN) return "";
-      const wantStart = Math.max(0, all.length - ctxN);
+      // ⚠️ctxN 是【聊天记录带几条】，不该被线下拍子占掉名额：以前 online.concat(offline) 之后
+      // 才切最近 ctxN 条，开着一场四十拍的线下时，五十个名额几乎全被线下占走，实测线上只剩
+      // 195 字进得来。所以两边【各自】先切，再按时间戳合流。
+      const OFF_BEATS = 12; // 线下最多带这么多拍进来（再往前由本场滚动摘要和记忆库兜底）
+      const all = online.slice(-ctxN).concat(offline.slice(-OFF_BEATS)).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      if (!all.length) return "";
+      const wantStart = 0;
       const lines = [];
       const uName = profile.name || "用户";
       const budget = memCfgRef.current.recentBudget || 8000; // 字符预算(召回设置可调)：从最近往回收，攒够就停（老而仍在窗内的事由自动抽取+摘要兜底）
-      let used = 0;
+      // 她 2026-08-28：「跑了很多长线下，一堆没用的描写占着字数，本来可以带更多密度的聊天记录都被描写占满了」。
+      // 实测（8000 字预算、线下一拍 300 字）：线下拿走 6120 字，线上只剩 635 字——九成预算给了描写；
+      // 沉浸长文一拍 800 字时，整个窗口只装得下 19 条，ctxN 那个 50 根本到不了。
+      // 病根是两种密度完全不同的东西按同一种货币（字符）抢同一份预算：一拍线下描写和一条 13 字的
+      // 气泡，带进来的「发生了什么」差不多，占的字数差二十几倍。
+      // 两条闸：① 线下单独限额，最多拿走三成、封顶 3000 字，拿不完的还给线上；
+      //        ② 只有最近三拍给原文（衔接靠逐字），更早的压成摘录——有对话取对话，没有就取句首。
+      const OFF_VERBATIM = 3, OFF_EXCERPT = 70;
+      const offCap = Math.min(Math.round(budget * 0.3), 3000);
+      const offlineBeatDigest = text => {
+        const t = String(text || "").replace(/\s+/g, " ").trim();
+        const quoted = (t.match(/[「“][^」”]{2,}[」”]/g) || []).map(x => x.slice(1, -1));
+        // 有对话就留「这一拍谁做了什么」+ 说的话；没有对话就退回句首——
+        // 动作和决定基本都在句首，环境和感官在句尾，砍尾巴比砍头亏得少。
+        let core = t;
+        if (quoted.length) {
+          const q = t.indexOf(t.match(/[「“]/)[0]);
+          const head = t.slice(0, Math.min(q, 26)).replace(/[，。、；：]$/, "");
+          core = (head ? head + "：" : "") + quoted.join("／");
+        }
+        return core.length > OFF_EXCERPT ? core.slice(0, OFF_EXCERPT) + "…" : core;
+      };
+      let used = 0, usedOff = 0, offSeen = 0;
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
         const m = all[i];
+        const isOff = m._surface === "offline";
+        // 只数他的拍子：她自己在线下打的字本来就短，不该占掉「最近三拍给原文」的名额
+        if (isOff && m.role !== "user") offSeen++;
         const dateAnchor = m.role === "user" && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "";
         const speaker = m.role === "user" ? uName : (m.role === "narration" ? "【线下场景】" : char.name);
-        const line = speaker + ": " + m.content + (dateAnchor ? " " + dateAnchor : "");
-        used += line.length + 1;
-        if (used > budget && lines.length) break; // 超预算就停，但至少保底一条
+        // 线下的老拍子压成摘录；她自己在线下打的字很短，照原文走
+        const body = (isOff && m.role !== "user" && offSeen > OFF_VERBATIM) ? offlineBeatDigest(m.content) : m.content;
+        const line = speaker + ": " + body + (dateAnchor ? " " + dateAnchor : "");
+        const cost = line.length + 1;
+        if (isOff && usedOff && usedOff + cost > offCap) continue; // 线下超了自己那份就跳过，但继续往回找线上的
+        if (used + cost > budget && lines.length) break;           // 总预算仍以召回设置那根拉条为准
+        used += cost;
+        if (isOff) usedOff += cost;
         lines.push(line);
       }
       return lines.reverse().join("\n");
