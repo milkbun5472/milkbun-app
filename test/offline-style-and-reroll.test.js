@@ -90,7 +90,11 @@ test("长文风要在尾部重申，否则被前面几千字稀释", () => {
   assert.match(engine, /〔再说一遍·文体以用户设定的文风为准〕/);
   assert.match(engine, /写完扫一眼它的禁区清单再交/);
   // 必须真的挂进最终尾注
-  assert.match(engine, /const finalNudge = tailNudge \+ \(isDigital \? "" : userActionTail\) \+ characterSupplyTail \+ styleTail;/);
+  // 尾注还可以再插别的层（v57.04 加了「已经讲过的往事」），但文风必须仍排在最末——
+  // 它和通用叙事准则冲突时以它为准，所以它要离生成最近。
+  const nudge = engine.match(/const finalNudge = [^;]+;/)[0];
+  assert.match(nudge, /tailNudge \+ \(isDigital \? "" : userActionTail\) \+ characterSupplyTail/);
+  assert.match(nudge, /\+ styleTail;$/, "文风重申被挤到中间了：" + nudge);
   // 短文风不折腾（内置那几条一句话的没必要重申）
   assert.match(engine, /styleText\.length > 200/);
 });

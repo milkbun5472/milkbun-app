@@ -1412,6 +1412,12 @@ const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】
 
 角色本人可以解释自己的感受；不要由叙述额外替角色归纳人格、判断情绪分量或把普通瞬间升华成结论。
 
+【别拿身世当填充】
+人设卡里最显眼的那段往事（当质子的十二年、幼年被送走、那场变故），是这个人为什么变成现在这样的【原因】，不是每一轮都要重讲一遍的【素材】。要凑篇幅、要给这一刻添点重量的时候，它永远是最便宜、最先被抓过来的那一段——于是同一段童年在一场线下里被翻来覆去讲上五六遍。
+· 回忆不是免费的重量。一段往事在这场线下里出现过一次，它就已经用掉了；下次再想往回想，换一件没讲过的，或者干脆不回想。
+· 眼前正在发生的事，本身就够写。他此刻在做什么、注意到了什么、怎么判断眼前这个人——这些才是这一轮的内容；把它换成一段童年，是把这一轮让给了过去。
+· **判定**：把这段回忆整段删掉——这一轮真正发生的事一点没少、这个人一点没变模糊，那它就是填充，删掉。
+
 先让这一刻真实发生，再决定哪些部分值得写下来。`;
 
 const OFFLINE_INTIMATE_RUNTIME = `【场景连续补充】
@@ -3947,6 +3953,38 @@ function groupPersonaText(persona, budget) {
   return t.length <= b ? t : t.slice(0, b) + "…〔人设过长，按在场人数分到的额度截断〕";
 }
 
+// 每轮都在回闪同一段身世（她 2026-08-28：王爷人设卡写了当十二年质子，线下每一轮都在
+// 「十二岁那年刚到京城」）。回忆是最便宜的填充：要凑篇幅、要给这一刻添点重量时，
+// 卡里最显眼的那段往事永远是第一个被抓过来的，而且每一轮它都觉得「这次真用得上」。
+// 规则只能降概率——照 crossChannelSaid 那套给它一份【已经讲过的】摆回面前：
+// 讲过的往事就是用掉了，不许再讲一遍。
+// 只认开头那几个把叙事拉回过去的路标，不做语义判断——宁可漏，也别把「今年」「明年」
+// 这种当下时间语当成回忆抓进来。
+const FLASHBACK_CUE = /(?:[一二三四五六七八九十百千零〇\d]+\s*岁那年|[一二三四五六七八九十百千零〇\d]+\s*年前|那一年|当年|早年间|早年|幼时|小时候|年少时|从前|初到|刚到[^，。；！？\n]{0,10}的时候|后来长大)/;
+const FLASHBACK_MAX = 5;      // 最多摆五条，再多是给上下文添堵
+const FLASHBACK_CHARS = 44;   // 每条只要够她认出是哪一段就行
+function offlineFlashbacksSaid(scenes) {
+  const seen = new Set(), out = [];
+  (scenes || []).forEach(text => {
+    String(text || "").split(/[。！？\n]+/).forEach(sent => {
+      const t = sent.trim();
+      if (t.length < 6 || !FLASHBACK_CUE.test(t)) return;
+      const excerpt = t.length > FLASHBACK_CHARS ? t.slice(0, FLASHBACK_CHARS) + "…" : t;
+      const key = excerpt.replace(/\s+/g, "");
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(excerpt);
+    });
+  });
+  return out.slice(-FLASHBACK_MAX);
+}
+function offlineFlashbackBlock(scenes) {
+  const said = offlineFlashbacksSaid(scenes);
+  if (!said.length) return "";
+  return "\n\n〔这场线下里你已经往回讲过的事〕\n" + said.map(x => "· " + x).join("\n")
+    + "\n这几段用掉了。这一轮不要再讲一遍，也不要换个说法重讲；真想往回想，就换一件没讲过的，或者干脆不回想——眼前正在发生的事本身就够写。";
+}
+
 function offlineHistory(msgs, userName, charName) {
   const g = [];
   let prevTs = 0;
@@ -4228,7 +4266,10 @@ async function generateOffline(p, ctx, session) {
       + "句式、意象、比喻用不用、情绪怎么呈现、段落怎么分、哪些词不许出现，全部按它；"
       + "它和通用叙事准则冲突的地方，以它为准。写完扫一眼它的禁区清单再交。"
     : "";
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + styleTail;
+  // 已经讲过的往事摆回它面前（放尾部：这条只有离生成最近才压得住）。数字生命不发。
+  const flashbackTail = isDigital ? "" : offlineFlashbackBlock(
+    (session.msgs || []).filter(m => m && m.role === "char" && !isOocMsg(m)).map(m => m.content));
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + flashbackTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: "（继续）" + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -4583,8 +4624,11 @@ async function generateOfflineGroup(p, ctx, session) {
     Math.max(Number(session.maxTokens) || 1900, session.minWords ? window.StylePresets.outTokens(session.minWords) : 0));
   const gContinueCue = session.autonomousContinue && window.OfflineContinuation ? window.OfflineContinuation.cue(true) : "";
   const gTail = gContinueCue + (session.rerollAvoid ? "\n\n〔★这是【重写】，不是续写：上一次这一段写的是「" + offlineRerollExcerpt(session.rerollAvoid) + "」——这次【必须给一个明显不同的版本】：换不同的开头、动作、语气、由谁开口、侧重或走向。\n把同一串事写得更细、更长、更华丽，也不算换——要换的是【这一段怎么走】：从哪儿起、中间按什么顺序推进、重心落在谁身上、停在哪里。\n收尾同理：上一版怎么收的（不管收在一句话、一个动作还是一片沉默上）这次换一种收法，它收尾处出现的那些具体的东西（人名、地名、物件、要去做的事）一个都别再搬出来。\n上一版若是靠【提出下一步安排】收的（去哪儿、见谁、吃什么），这次换个停法——行程里的事仍然是真的，但这一段没有义务以它收尾。\n交稿前把两版的最后几句并排看：两边都出现的具体名词（地名、人名、吃的、物件）一个都不许留。\n绝不许把原来那版换几个近义词又交上来。〕" : "") + "\n\n〔幕后提醒，绝不出现在正文里：【★场景一致·别乱编物件·最优先】桌上在吃/喝什么、身边有什么东西、身处什么地方，一律以【前文已经写过的】为准——前文只有排骨汤，就只有排骨汤，绝不凭空冒出前文没出现过的具体物件（和牛/菌菇/红酒之类）；每个成员写的东西也要和别人已经写过的对得上；记不清就模糊带过（『碗里的汤』『面前的菜』），别硬编一个新的具体名字。①【比喻限额·最要紧】整段【最多出现一次「像/仿佛/如同/像是/宛如」的比喻】，只在真能让画面更具体时才用；其余一律直白写字面发生了什么——绝不给每个动作/眼神/声音都套比喻（禁『像一把冰锥』『像被雨水洗过的天空』『像失而复得的珍宝』『眼神像一潭深水』这类），【尤其禁把人比成动物】（像只大型犬/猫科动物/幼兽/小兽一律不许），也禁往颈窝/怀里『蹭/蹭了蹭』；『眸/眸子/瞳仁』一律写『眼睛』，别给人贴『洞穿一切的清醒』『毫不掩饰的欢喜』这种抽象情绪结论；②反陈词滥调清单全程生效——禁通用小动作（挑眉/勾唇/垂眸/轻笑/喉结滚动）和空转大词；写到亲密/情欲时八股最凶：上面的用词禁令表、「别把身体写成机器」、「别套通用情欲模板动作」照样守死；③各角色声纹别互相同化，这一轮的句式/意象/开头不许和上一轮雷同；④" + (gWantLong ? "写够上面要求的篇幅，把这几个 beat 写足写透，别注水也别偷懒写短" : "宁可短而准，别长而油") + "；" + (cotT ? "⑤先写创作小稿标记块，再写正文 JSON。" : "") + (notes.length ? "⑥本轮短期导演提示必须实际落实：" + notes.join("；") + "。" : "") + "〕";
-  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gTail };
-  else hist.push({ role: "user", content: "（继续）" + gTail });
+  // 群线下同理：回忆是最便宜的填充，人多了只会更容易各自翻各自的老账
+  const gFlashbackTail = offlineFlashbackBlock(
+    (session.msgs || []).filter(m => m && m.role === "char" && m.kind !== "ooc").map(m => m.content));
+  if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gTail };
+  else hist.push({ role: "user", content: "（继续）" + gFlashbackTail + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-2) };
