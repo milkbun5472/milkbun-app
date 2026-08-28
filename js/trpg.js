@@ -96,11 +96,15 @@
     }).filter(Boolean);
   }
   // 把守密人一回合的 JSON 落进战役状态。只信字段不信散文;名字对不上的伤害丢弃;
-  // 单次增减夹在 ±40,HP 落地夹在 [0,上限]。返回 {camp, sysLine}——sysLine 是给
-  // 玩家看的状态变化小结(获得/失去/伤势),状态变化不该只藏在叙事里。
+  // 单次增减夹在 ±40,HP 落地夹在 [0,上限]。返回 {camp, chips, sysLine}——
+  // chips 是钉在那一拍正文旁的数值角标(米娅分镜馆偷来的点子:数字和造成它的
+  // 故事绑在一起,不藏进面板);sysLine 是同一份信息的文字版,兼容旧渲染。
+  // 注意和米娅的差别:角标只从【真的落了账】的变化里长出来——名字对不上被丢弃的,
+  // 角标也不出现,绝不渲染一个没生效的变化骗人。
   function applyTurnPayload(camp, p) {
     const next = Object.assign({}, camp);
     const notes = [];
+    const chips = [];
     next.party = camp.party.map(m => Object.assign({}, m));
     (Array.isArray(p.hp) ? p.hp : []).forEach(row => {
       if (!row || typeof row !== "object") return;
@@ -109,13 +113,14 @@
       if (!m || !d) return;
       m.hp = Math.max(0, Math.min(m.maxHp || 100, (m.hp || 0) + d));
       notes.push(m.name + " HP" + (d > 0 ? "+" : "") + d);
+      chips.push({ k: d > 0 ? "hpup" : "hp", txt: m.name + " HP" + (d > 0 ? "+" : "") + d + " →" + m.hp });
     });
     const items = camp.items.slice();
-    (Array.isArray(p.gain) ? p.gain : []).forEach(x => { const s = String(x || "").trim(); if (s && items.indexOf(s) < 0) { items.push(s); notes.push("获得「" + s + "」"); } });
-    (Array.isArray(p.lose) ? p.lose : []).forEach(x => { const s = String(x || "").trim(); const i = items.indexOf(s); if (i >= 0) { items.splice(i, 1); notes.push("失去「" + s + "」"); } });
+    (Array.isArray(p.gain) ? p.gain : []).forEach(x => { const s = String(x || "").trim(); if (s && items.indexOf(s) < 0) { items.push(s); notes.push("获得「" + s + "」"); chips.push({ k: "gain", txt: "得·" + s }); } });
+    (Array.isArray(p.lose) ? p.lose : []).forEach(x => { const s = String(x || "").trim(); const i = items.indexOf(s); if (i >= 0) { items.splice(i, 1); notes.push("失去「" + s + "」"); chips.push({ k: "lose", txt: "失·" + s }); } });
     next.items = items;
     const clues = camp.clues.slice();
-    (Array.isArray(p.clue) ? p.clue : []).forEach(x => { const s = String(x || "").trim(); if (s && clues.indexOf(s) < 0) { clues.push(s); notes.push("📌 新线索"); } });
+    (Array.isArray(p.clue) ? p.clue : []).forEach(x => { const s = String(x || "").trim(); if (s && clues.indexOf(s) < 0) { clues.push(s); notes.push("📌 新线索"); chips.push({ k: "clue", txt: "📌 " + (s.length > 18 ? s.slice(0, 18) + "…" : s) }); } });
     next.clues = clues;
     if (typeof p.place === "string" && p.place.trim()) next.place = p.place.trim();
     next.choices = normChoices(p.choices, next.party);
@@ -123,8 +128,58 @@
     // (小剧场 goalReached 同款闸)。章节只有 stageIdx 一个计数器,不会两处各记各的。
     if (p.stageDone && camp.stageIdx < camp.stages.length) next.pendingStage = String(p.stageNote || "").trim() || "这一章看起来到落点了";
     if (p.ending) next.pendingEnd = String(p.endNote || "").trim() || "故事似乎走到了可以落幕的地方";
-    return { camp: next, sysLine: notes.join(" · ") };
+    return { camp: next, chips, sysLine: notes.join(" · ") };
   }
+
+  // ---- 手绘旅程图(纯函数) ----
+  // 参考 ai-virtual-phone 地图引擎拆解后的结论:留矢量、丢栅格。这里只要一条
+  // 蜿蜒小径 + 章节节点;种子取战役 id,同一场团每次画出来一模一样。
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const hashStr = s => { let h2 = 5381; s = String(s || ""); for (let i = 0; i < s.length; i++) h2 = (h2 * 33 + s.charCodeAt(i)) >>> 0; return h2; };
+  // n 章 → 起点 + n 个节点,x 单调向右,y 蜿蜒;画布 340×120,四边留白
+  function journeyLayout(seed, n, w, h) {
+    w = w || 340; h = h || 120;
+    const rand = mulberry32(hashStr(seed));
+    const phase = rand() * Math.PI * 2;
+    const nodes = [];
+    const total = n + 1; // 起点 + 各章
+    for (let i = 0; i < total; i++) {
+      const f = total > 1 ? i / (total - 1) : 0;
+      const x = 24 + f * (w - 48);
+      let y = h / 2 + Math.sin(f * Math.PI * 2.1 + phase) * (h * 0.24) + (rand() - 0.5) * (h * 0.14);
+      y = Math.max(20, Math.min(h - 20, y));
+      nodes.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
+    }
+    return nodes;
+  }
+  // 手绘感:把折线重采样后加垂直抖动;描两遍(不同抖动、不同透明度)就有铅笔味。
+  // 端点不抖——路必须真的从节点出发、到节点为止。
+  function jitterPts(points, rand, amp, perSeg) {
+    perSeg = perSeg || 5;
+    const out = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const nx = -dy / len, ny = dx / len; // 单位法向
+      for (let k = 0; k < perSeg; k++) {
+        const t2 = k / perSeg;
+        const j = (i === 0 && k === 0) ? 0 : (rand() - 0.5) * 2 * amp;
+        out.push({ x: a.x + dx * t2 + nx * j, y: a.y + dy * t2 + ny * j });
+      }
+    }
+    out.push({ x: points[points.length - 1].x, y: points[points.length - 1].y });
+    return out;
+  }
+  const ptsToPath = pts => pts.map((p2, i) => (i ? "L" : "M") + p2.x.toFixed(1) + " " + p2.y.toFixed(1)).join("");
   // 历史折叠:守密人→assistant,其余(玩家/骰子/系统)全并进 user 侧,
   // 连续同侧合成一条——上游对连续同角色消息的容忍度不一,不赌。
   function foldHist(msgs) {
@@ -452,8 +507,9 @@
           if (c.id !== camp.id) return c;
           const r = applyTurnPayload(c, p);
           const nc = r.camp;
-          const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, choices: nc.choices } }]);
-          if (r.sysLine) msgs.push({ id: rid("rm_"), role: "sys", content: r.sysLine, ts: Date.now() });
+          // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
+          // 旧存档里已有的 sys 行仍照常渲染
+          const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, choices: nc.choices } }]);
           return Object.assign({}, nc, { msgs });
         }));
         setNote(""); setNoteOpen(false); setDice(false);
@@ -479,6 +535,33 @@
       turn(c.text, [{ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }]);
     };
     const send = () => { const text = input.trim(); if (!text) return; setInput(""); turn(text, null, true); };
+    // 追加一笔(米娅「加戏不推进」的分法):就当前场景补一小段戏——队友拌嘴、环境
+    // 细节、NPC 一句闲话。不推进剧情、不动任何状态、不换选项,时钟原地不动。
+    // 咬耳朵便签照吃(一次性),想点名「让谁多两句」就写在便签里。
+    const addBeat = async () => {
+      if (!camp || busy) return;
+      if (!props.active) return props.toast("请先配置线下 API");
+      setPlusOpen(false); setBusy(true); setBusyWhat("守密人在补这一笔…");
+      try {
+        const sys = [narrativeCore(),
+          "【跑团·追加一笔(平行时空,不提这是游戏)】就【当前场景的这一刻】补一小段戏(2-5句):队友之间的互动、环境里的细节、NPC 的一句闲话、某人没说出口的小动作。写到谁就完全代入谁的性格与声口(人设在下方)。",
+          "【铁律】只加戏,不推进:不引入新事件、不揭示新线索、不造成任何伤害或得失、不替 " + uName + " 行动或代答;写完就停,不给选项。",
+          personaBlocks(camp),
+          "【世界】" + String(camp.world || "").slice(0, 800),
+          "【当前状态】地点:" + camp.place + "\n" + partyBlock(camp),
+          note.trim() ? "【幕后指示(务必遵循,正文绝不提及)】" + note.trim() : null,
+          "【输出】只输出 JSON:{\"scene\":\"补的这一小段\"}"
+        ].filter(Boolean).join("\n\n");
+        const hist = foldHist(camp.msgs.slice(camp.sumCount || 0)).slice(-24);
+        if (!hist.length || hist[hist.length - 1].role !== "user") hist.push({ role: "user", content: "(就此刻补一笔)" });
+        const raw = await callAI(props.active, sys, hist, { maxTokens: 2400, timeout: 180000 });
+        const p = parseTurnPayload(raw);
+        if (!p) throw new Error("这一笔没能解析出来,再试一次");
+        // 状态一个字不动:快照原样抄当前值,分支回溯仍然对账
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), extra: true, snap: { hp: c.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: c.items, clues: c.clues, stageIdx: c.stageIdx, place: c.place, choices: c.choices } }]) })));
+        setNote(""); setNoteOpen(false);
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+    };
     const confirmStage = ok => update(list => list.map(c => c.id !== camp.id ? c : ok
       ? Object.assign({}, c, { pendingStage: false, stages: c.stages.map((s, i) => i !== c.stageIdx ? s : Object.assign({}, s, { done: true, note: typeof c.pendingStage === "string" ? c.pendingStage : null })), stageIdx: Math.min(c.stages.length, c.stageIdx + 1) })
       : Object.assign({}, c, { pendingStage: false })));
@@ -672,7 +755,38 @@
 
     if (view === "play" && camp) {
       const cur = camp.stages[camp.stageIdx] || null;
+      // 手绘旅程图:一条铅笔小径,走过的节点点亮,当前位置插小旗;未到的章节是虚圈。
+      // 种子=战役id → 同一场团永远画同一条路;分支出去的新团(新id)会长出自己的路。
+      const journey = (() => {
+        const NUM = ["一", "二", "三", "四", "五", "六", "七", "八"];
+        const nodes = journeyLayout(camp.id, camp.stages.length);
+        const rand = mulberry32(hashStr(camp.id) ^ 0x9e37);
+        const p1 = ptsToPath(jitterPts(nodes, rand, 1.6));
+        const p2 = ptsToPath(jitterPts(nodes, rand, 1.6));
+        const markerNode = nodes[camp.ended ? nodes.length - 1 : Math.min(camp.stageIdx + 1, nodes.length - 1)];
+        return h("div", { style: { marginBottom: 8 } },
+          h("div", { style: S.lbl }, "旅程"),
+          h("svg", { viewBox: "0 0 340 120", style: { width: "100%", display: "block", borderRadius: 10, background: t.bg } },
+            // 小径描两遍:抖动不同、深浅不同,就有铅笔手绘味
+            h("path", { d: p1, fill: "none", stroke: t.fog, strokeWidth: 1.6, strokeLinecap: "round", strokeDasharray: "5 4", opacity: 0.55 }),
+            h("path", { d: p2, fill: "none", stroke: t.ink, strokeWidth: 1.1, strokeLinecap: "round", strokeDasharray: "6 5", opacity: 0.5 }),
+            nodes.map((nd, i) => {
+              if (i === 0) return h("g", { key: "n0" },
+                h("circle", { cx: nd.x, cy: nd.y, r: 4, fill: t.ink }),
+                h("text", { x: nd.x, y: nd.y + 16, textAnchor: "middle", fontSize: 9, fill: t.fog, fontFamily: F_BODY }, "起点"));
+              const si = i - 1;
+              const done = !!(camp.stages[si] && camp.stages[si].done);
+              const curHere = !camp.ended && si === camp.stageIdx;
+              const future = !done && !curHere;
+              return h("g", { key: "n" + i },
+                h("circle", { cx: nd.x, cy: nd.y, r: curHere ? 6.5 : 5, fill: done ? t.ink : t.bg2, stroke: future ? t.fog : t.ink, strokeWidth: curHere ? 2 : 1.2, strokeDasharray: future ? "2.5 2.5" : "none" }),
+                done ? h("path", { d: "M" + (nd.x - 2.4) + " " + nd.y + "l1.8 2 3-4", fill: "none", stroke: t.bg2, strokeWidth: 1.4, strokeLinecap: "round" }) : null,
+                h("text", { x: nd.x, y: nd.y + 17, textAnchor: "middle", fontSize: 9, fill: future ? t.fog : t.ink, fontFamily: F_BODY }, future ? "?" : "第" + (NUM[si] || si + 1) + "章"));
+            }),
+            markerNode ? h("text", { x: markerNode.x, y: markerNode.y - 10, textAnchor: "middle", fontSize: 12 }, camp.ended ? "🏕" : "🚩") : null));
+      })();
       const panel = panelOpen && h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", maxHeight: "56vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }) },
+        journey,
         h("div", { style: S.lbl }, "队伍"),
         camp.party.map(m => h("div", { key: m.key, style: { marginBottom: 6 } },
           h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5, display: "flex", justifyContent: "space-between" }) }, h("span", null, m.name), h("span", { style: { color: m.hp <= 25 ? "#a4442e" : t.sub } }, "HP " + m.hp + "/" + (m.maxHp || 100))),
@@ -724,7 +838,14 @@
         ? h("div", { key: m.id, style: { margin: "8px 20px", textAlign: "center", fontFamily: "monospace", fontSize: 11.5, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 10, padding: "6px 10px" } }, "🎲 " + m.content)
         : m.role === "sys"
         ? h("div", { key: m.id, style: { margin: "6px 20px", textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.content)
-        : h("div", { key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: Object.assign({ margin: "10px 14px" }, S.txt) }, m.content));
+        : h("div", { key: m.id, onPointerDown: () => pressMsg(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px" } },
+            h("div", { style: S.txt }, m.content),
+            // 数值角标:钉在造成它的这一拍正文脚下,红=掉血 绿=回血 墨=得 灰=失 金=线索
+            m.chips && m.chips.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 } },
+              m.chips.map((ch, i) => {
+                const col = ch.k === "hp" ? "#a4442e" : ch.k === "hpup" ? "#5a7d5a" : ch.k === "clue" ? "#8a6d3b" : ch.k === "lose" ? t.fog : t.ink;
+                return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10, color: col, border: "1px solid " + col + "55", background: t.bg2, borderRadius: 999, padding: "2px 8px" } }, ch.txt);
+              })) : null));
       const msgSheet = msgMenu && h("div", { onClick: () => setMsgMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "从这一拍岔开一条新团:这一拍之前原样保留(HP/物品/章节都按当时恢复),之后的重演。原团一个字不动。"),
@@ -766,6 +887,7 @@
           plusOpen ? h("div", { key: "pl", style: { display: "flex", gap: 8, padding: "8px 14px 0", flexWrap: "wrap" } },
             h("button", { onClick: () => setDice(v => !v), style: S.btn(dice) }, "🎲 剧情骰" + (dice ? "·已上膛" : "")),
             h("button", { onClick: () => setNoteOpen(v => !v), style: S.btn(noteOpen || !!note.trim()) }, "() 咬耳朵"),
+            h("button", { onClick: addBeat, disabled: busy, style: S.btn(false) }, "✍ 追加一笔"),
             h("button", { onClick: genShot, disabled: busy, style: S.btn(false) }, "📷 当拍画面"),
             h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, camp.cover ? "🎞 重出封面" : "🎞 封面图"),
             camp.cover ? h("button", { onClick: () => { setPlusOpen(false); setBigView({ img: camp.cover, title: camp.title + " · 封面" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
@@ -804,5 +926,5 @@
   }
   if (inApp) window.TrpgApp = TrpgApp;
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines };
+  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts };
 })();

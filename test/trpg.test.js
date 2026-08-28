@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines } = require("../js/trpg.js");
+const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts } = require("../js/trpg.js");
 
 // ============================================================
 // 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
@@ -180,6 +180,45 @@ test("shotSafeLines 过滤暴力/亲密句,过滤空了由调用方给中性备�
 test("出图不锁脸:跑团是群像,人物远景/背影/剪影", () => {
   assert.match(src, /不描绘清晰五官/);
   assert.match(src, /generateSelfieImage\(prompt, null/, "封面与当拍画面都不传参考照——多张脸锁一半更吓人");
+});
+
+// ---- 数值角标:只从真落账的变化长出来,绝不渲染没生效的变化骗人(米娅的教训) ----
+test("chips 与落账一一对应:被丢弃的伤害不出角标", () => {
+  const { chips } = applyTurnPayload(camp0(), { hp: [{ name: "查无此人", delta: -30 }, { name: "裴照川", delta: -10 }], gain: ["铜钥匙", "火漆信"], clue: ["管家没说实话", "新线索一条"] });
+  const txts = chips.map(c => c.txt).join("|");
+  assert.ok(!/查无此人/.test(txts), "名字对不上→没落账→没角标");
+  assert.match(txts, /裴照川 HP-10 →90/, "角标带落地后的现值");
+  assert.ok(!/火漆信/.test(txts), "重复获得没落账,也没角标");
+  assert.match(txts, /铜钥匙/);
+  assert.ok(!/管家没说实话/.test(txts), "重复线索同理");
+});
+
+// ---- 旅程图:纯函数、种子稳定 ----
+test("journeyLayout:同种子同路,x 单调向右,y 不出画布", () => {
+  const a = journeyLayout("rpg_test1", 5), b = journeyLayout("rpg_test1", 5);
+  assert.deepEqual(a, b, "同一场团永远画同一条路");
+  assert.equal(a.length, 6, "起点 + 5 章");
+  for (let i = 1; i < a.length; i++) assert.ok(a[i].x > a[i - 1].x, "小径向右走");
+  a.forEach(nd => assert.ok(nd.y >= 20 && nd.y <= 100, "y 在画布留白内"));
+  const c = journeyLayout("rpg_test2", 5);
+  assert.notDeepEqual(a, c, "不同的团长不同的路");
+});
+
+test("jitterPts:端点纹丝不动——路必须真的从节点出发到节点为止", () => {
+  const pts = [{ x: 10, y: 50 }, { x: 100, y: 30 }, { x: 200, y: 70 }];
+  const out = jitterPts(pts, mulberry32(hashStr("seed")), 2);
+  assert.deepEqual(out[0], pts[0]);
+  assert.deepEqual(out[out.length - 1], pts[pts.length - 1]);
+  assert.ok(out.length > pts.length, "中间重采样加密了");
+});
+
+// ---- 追加一笔:加戏不推进 ----
+test("追加一笔:不动状态、不换选项、时钟原地", () => {
+  const at = src.indexOf("const addBeat");
+  const fn = src.slice(at, src.indexOf("const confirmStage"));
+  assert.match(fn, /只加戏,不推进/);
+  assert.ok(!/applyTurnPayload/.test(fn), "追加一笔绝不走状态落账");
+  assert.match(fn, /choices: c\.choices/, "快照里选项原样保留");
 });
 
 // ---- 秘典:开团即生成,落幕前不给看 ----
