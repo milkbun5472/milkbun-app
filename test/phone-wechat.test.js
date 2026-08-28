@@ -13,6 +13,9 @@ test("微信手机页有聊天、联系人、朋友圈、我四块", () => {
   assert.match(phone, /\["me", "我"\]/);
   assert.match(phone, /function WechatNavIcon/);
   assert.match(phone, /shrink-0 grid grid-cols-4/);
+  assert.match(phone, /aria-label": "刷新微信"/);
+  assert.match(phone, /appKey !== "wechat" && h\(Head/);
+  assert.match(phone, /h\("span"[^\n]+"搜索"/);
 });
 
 test("微信一次生成五个新会话、五个关系联系人和三条朋友圈", () => {
