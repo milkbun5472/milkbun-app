@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts } = require("../js/trpg.js");
+const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem } = require("../js/trpg.js");
 
 // ============================================================
 // 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
@@ -106,12 +106,78 @@ test("applyTurnPayload:单次增减夹 ±40,HP 落地夹 [0,上限]", () => {
   assert.equal(c2.party[0].hp, 0, "见底是 0,不出负数");
 });
 
-test("applyTurnPayload:物品与线索去重,失去只减真有的", () => {
-  const { camp, sysLine } = applyTurnPayload(camp0(), { gain: ["火漆信", "铜钥匙"], lose: ["不存在的东西"], clue: ["管家没说实话", "地窖有第二个出口"] });
-  assert.deepEqual(camp.items, ["火漆信", "铜钥匙"], "重复获得不翻倍,凭空失去不报账");
+test("applyTurnPayload:物品带归属计数,凭空失去不报账,线索去重", () => {
+  const { camp, sysLine } = applyTurnPayload(camp0(), { gain: ["火漆信", { name: "铜钥匙", who: "裴照川" }], lose: ["不存在的东西"], clue: ["管家没说实话", "地窖有第二个出口"] });
+  // 同名同持有人=叠数量(v57.17 起物品是 {name,holder,n},不再是去重字符串)
+  assert.deepEqual(camp.items, [{ name: "火漆信", holder: "队伍", n: 2 }, { name: "铜钥匙", holder: "裴照川", n: 1 }]);
   assert.equal(camp.clues.length, 2);
   assert.match(sysLine, /铜钥匙/);
   assert.ok(!/不存在的东西/.test(sysLine));
+});
+
+test("物品转手 hand:to 必须在队,数量>1 拆一件;lose 优先扣指定持有人", () => {
+  const base = Object.assign(camp0(), { items: [{ name: "绷带", holder: "队伍", n: 2 }, { name: "火漆信", holder: "Lisa", n: 1 }] });
+  const r1 = applyTurnPayload(base, { hand: [{ name: "绷带", to: "裴照川" }, { name: "火漆信", from: "Lisa", to: "查无此人" }] });
+  assert.deepEqual(r1.camp.items.find(it => it.holder === "裴照川"), { name: "绷带", holder: "裴照川", n: 1 }, "拆一件转给他");
+  assert.equal(r1.camp.items.find(it => it.name === "绷带" && it.holder === "队伍").n, 1);
+  assert.equal(r1.camp.items.find(it => it.name === "火漆信").holder, "队伍", "转给队里没有的人=归队伍公用");
+  const r2 = applyTurnPayload(r1.camp, { lose: [{ name: "绷带", who: "裴照川" }] });
+  assert.ok(!r2.camp.items.some(it => it.name === "绷带" && it.holder === "裴照川"), "指定了持有人就扣那个人的");
+  assert.ok(r2.camp.items.some(it => it.name === "绷带" && it.holder === "队伍"), "队伍那件不受牵连");
+});
+
+test("itemsFix 老存档字符串就地升格;hasItem 认名不认归属", () => {
+  assert.deepEqual(itemsFix(["铜钥匙", { name: "绷带", holder: "Lisa", n: 3 }]),
+    [{ name: "铜钥匙", holder: "队伍", n: 1 }, { name: "绷带", holder: "Lisa", n: 3 }]);
+  assert.equal(fmtItem({ name: "绷带", holder: "Lisa", n: 3 }), "绷带×3(Lisa)");
+  assert.ok(hasItem(["铜钥匙"], "铜钥匙"), "旧格式也认");
+  assert.ok(!hasItem([{ name: "绷带", holder: "Lisa", n: 1 }], "铜钥匙"));
+});
+
+// ---- Codex 五修的钉子 ----
+test("HP 先按人聚合再封顶:同一轮三条 -40 也只掉 40", () => {
+  const { camp } = applyTurnPayload(camp0(), { hp: [{ name: "裴照川", delta: -40 }, { name: "裴照川", delta: -40 }, { name: "照川", delta: -40 }] });
+  assert.equal(camp.party[1].hp, 60, "别名也归并到同一个人,净变化封顶 ±40");
+});
+
+test("属性否定窗口:「不擅长交际」是减分不是加分", () => {
+  const base = { phy: 50, agi: 50, wit: 50, cha: 50, luck: 50 };
+  assert.equal(personaNudge(base, "他不擅长交际,常年独来独往。").cha, 40, "否定的长处按短板算");
+  assert.equal(personaNudge(base, "她交际手腕圆滑老练。").cha, 60, "没否定照常加");
+  assert.equal(personaNudge(base, "他不爱运动,体格却意外结实。").phy, 40, "「不爱/常年运动」的否定窗口");
+});
+
+test("骰子落地即铁案:失败不回滚、重试沿用原骰、撤回只给没掷过的拍", () => {
+  const at = src.indexOf("const turn = async");
+  const fn = src.slice(at, src.indexOf("const retractTail"));
+  assert.ok(!/added\.indexOf/.test(fn), "失败路径不再按 id 撤消息");
+  assert.match(fn, /骰子与宣言都还在/);
+  assert.match(src, /沿用已掷的骰子/);
+  assert.match(src, /tailHasRoll \? null|!tailHasRoll \?/, "撤回重写只在这一拍没掷过骰子时出现");
+  assert.match(src, /tailHasCC/, "重试轮不重开言秋亲笔票");
+});
+
+test("推进/落幕否决留回执,守密人下一拍看得见", () => {
+  assert.match(src, /判定:本章目标还没有真实达成/);
+  assert.match(src, /判定:故事还没到落幕的时候/);
+});
+
+test("终章归还玩家主权:先问最后一笔,留空也不替她做主", () => {
+  assert.match(src, /最后,你做什么、说什么/);
+  assert.match(src, /不改写、不扩大、不替她追加任何新的决定/);
+  assert.match(src, /绝不替她决定去留、原谅谁、选择谁/);
+});
+
+test("锁语义改诚实:缺物品叫硬闯,先确认再动手", () => {
+  assert.match(src, /⚠缺/);
+  assert.match(src, /硬闯试试\?守密人会让硬闯付出代价/);
+  assert.ok(!/🔒/.test(src), "不再画一把点得开的锁");
+});
+
+test("休整拍:不推进主线,恢复封顶 +15,队友各提看法", () => {
+  assert.match(src, /〔休整拍〕/);
+  assert.match(src, /每人至多 \+15/);
+  assert.match(src, /不报 stageDone/);
 });
 
 test("章节推进只挂待确认,只有一个计数器(参考项目两处计数会漂)", () => {
@@ -188,9 +254,9 @@ test("chips 与落账一一对应:被丢弃的伤害不出角标", () => {
   const txts = chips.map(c => c.txt).join("|");
   assert.ok(!/查无此人/.test(txts), "名字对不上→没落账→没角标");
   assert.match(txts, /裴照川 HP-10 →90/, "角标带落地后的现值");
-  assert.ok(!/火漆信/.test(txts), "重复获得没落账,也没角标");
+  assert.match(txts, /火漆信/, "再得一件=叠数量,真落账了就有角标");
   assert.match(txts, /铜钥匙/);
-  assert.ok(!/管家没说实话/.test(txts), "重复线索同理");
+  assert.ok(!/管家没说实话/.test(txts), "重复线索没落账,没角标");
 });
 
 // ---- 旅程图:纯函数、种子稳定 ----
