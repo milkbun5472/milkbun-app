@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.11";
+const APP_VERSION = "v57.13";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12460,6 +12460,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     moods: moods,
     // 注入最近聊天抓人设用（只读，不写回记忆）
     recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "user" ? (profile.name || "用户") : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
+    isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
+    toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "trpg") body = h(window.TrpgApp, {
+    // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
+    // 平行时空天然隔离主线(四处一样喂·合法差异,理由见 trpg.js 头注)
+    active: offlineActive,
+    characters: liveChars,
+    profile: profile,
+    // 言秋的座位:队友宣言走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     toast: toast,
     onBack: () => setScreen("home")

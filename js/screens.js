@@ -5675,7 +5675,7 @@ const STORAGE_KEY_LABELS = [
   ["x_wallpaper", "壁纸"], ["x_moments", "朋友圈"], ["x_characters", "角色档案·人设(图片已迁图库)"], ["x_profile", "我的档案(图片已迁图库)"],
   ["x_memLib", "记忆库"], ["x_memories", "长期记忆"], ["x_diaries", "日记"],
   ["x_weekly_issues", "周刊往期"], ["x_study_sessions", "一起学会话"], ["x_read_books", "一起读书架与批注"],
-  ["x_debate_saves", "辩论存档"], ["x_dream_saves", "梦境存档"], ["x_tarot_saves", "塔罗存档"], ["x_ledger", "记账本"],
+  ["x_debate_saves", "辩论存档"], ["x_dream_saves", "梦境存档"], ["x_tarot_saves", "塔罗存档"], ["x_trpg", "跑团存档"], ["x_ledger", "记账本"],
   ["x_forumPosts", "论坛帖子"], ["x_forumComments", "论坛评论"], ["x_fanfic", "同人文"],
   ["x_carry", "随身物"], ["x_selfie", "自拍(缩略)"], ["x_coupleExDiary", "交换日记"],
   ["x_capsule", "时光胶囊"], ["x_schedules", "角色日程"], ["x_promises", "角色说好要回来找你的约"], ["x_calEvents", "日历里手填的日程"], ["x_couple", "情侣空间"],

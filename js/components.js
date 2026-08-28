@@ -1518,6 +1518,7 @@ function Home({
     vpscodex: { kind: "app", zh: "值班室", G: GDuty },
     loungeapp: { kind: "app", zh: "三席会客", G: GLounge },
     theater: { kind: "app", zh: "小剧场", G: window.GTheater || GDream },
+    trpg: { kind: "app", zh: "跑团", G: window.GTrpg || GGame },
     impression: { kind: "app", zh: "月度印象", G: window.GImpression || GDream },
     assistant: { kind: "app", zh: "帮手", G: window.GAssist || GDuty },
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty }
@@ -1527,7 +1528,7 @@ function Home({
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "phone", "w_music", "w_map"],
     ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
-    ["lore", "memlib", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
+    ["lore", "memlib", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "trpg", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
     ["capsule", "w_muyu", "w_weather", "w_wheel"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
