@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.15";
+const APP_VERSION = "v57.16";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3170,7 +3170,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const online = (chatsRef.current[char.id] || [])
         .filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m))
         .map(m => ({ ...m, _surface: "online" }));
-      let offline = [];
+      let offline = [], offSummary = "";
       if (!settingsFor(char.id).engineerEyes) {
         let list = offlinesRef.current[char.id];
         if (!list) { list = loadJSON("x_offline:" + char.id, []); offlinesRef.current = { ...offlinesRef.current, [char.id]: list }; }
@@ -3178,6 +3178,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         offline = active ? (active.msgs || [])
           .filter(m => m && m.content && m.kind !== "ooc" && m.role !== "system")
           .map(m => ({ ...m, role: m.role === "char" ? "assistant" : m.role, _surface: "offline" })) : [];
+        // 老拍子被摘掉的那些（写景、感官、没带对话的过场）不是丢了——本场的滚动摘要
+        // （maybeSummarizeOffline 攒的 sess.summary）就是它们的去处，这里把它带上来。
+        offSummary = (active && active.summary ? String(active.summary).trim() : "").slice(-1200);
       }
       const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));
       if (!ctxN) return "";
@@ -3212,18 +3215,41 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //        ② 只有最近三拍给原文（衔接靠逐字），更早的压成摘录——有对话取对话，没有就取句首。
       const OFF_VERBATIM = 3, OFF_EXCERPT = 70;
       const offCap = Math.min(Math.round(budget * 0.3), 3000);
+      // 她 2026-08-28 定的取法：**只留对话符里的东西和它前后各一句**，其余全交给滚动摘要。
+      // 老拍子里真正影响后面接话的是「谁说了什么、说这句之前之后在干什么」；写景和感官
+      // 是这一刻的质感，过了这一刻就只剩占字数。
+      // 切句时不能在引号里断开——「拿友谊堵我，倒真亏你想得出来。」里那个句号属于台词。
+      const splitSents = t => {
+        const out = []; let cur = "", depth = 0;
+        for (const ch of t) {
+          if (ch === "「" || ch === "“") depth++;
+          else if (ch === "」" || ch === "”") depth = Math.max(0, depth - 1);
+          cur += ch;
+          if (!depth && (ch === "」" || ch === "”" || /[。！？…]/.test(ch))) { out.push(cur); cur = ""; }
+        }
+        if (cur.trim()) out.push(cur);
+        return out;
+      };
       const offlineBeatDigest = text => {
         const t = String(text || "").replace(/\s+/g, " ").trim();
-        const quoted = (t.match(/[「“][^」”]{2,}[」”]/g) || []).map(x => x.slice(1, -1));
-        // 有对话就留「这一拍谁做了什么」+ 说的话；没有对话就退回句首——
-        // 动作和决定基本都在句首，环境和感官在句尾，砍尾巴比砍头亏得少。
-        let core = t;
-        if (quoted.length) {
-          const q = t.indexOf(t.match(/[「“]/)[0]);
-          const head = t.slice(0, Math.min(q, 26)).replace(/[，。、；：]$/, "");
-          core = (head ? head + "：" : "") + quoted.join("／");
+        if (!t) return "";
+        const sents = splitSents(t);
+        const hasQ = sents.map(x => /[「“]/.test(x));
+        // 整拍一句对话都没有：只留首句（动作和决定在句首），剩下的交给摘要。
+        // 不整条丢掉是因为滚动摘要总落后几拍（OFF_SUM_BUFFER），纯动作的拍子会直接断片。
+        if (!hasQ.some(Boolean)) {
+          const head = sents[0] || t;
+          return head.length > OFF_EXCERPT ? head.slice(0, OFF_EXCERPT) + "…" : head;
         }
-        return core.length > OFF_EXCERPT ? core.slice(0, OFF_EXCERPT) + "…" : core;
+        const keep = new Set();
+        hasQ.forEach((q, k) => { if (q) { keep.add(k - 1); keep.add(k); keep.add(k + 1); } });
+        const out = []; let gap = false;
+        sents.forEach((x, k) => {
+          if (!keep.has(k)) { gap = true; return; }
+          if (gap && out.length) out.push("…");
+          out.push(x.trim()); gap = false;
+        });
+        return out.join("");
       };
       let used = 0, usedOff = 0, offSeen = 0;
       for (let i = all.length - 1; i >= wantStart && i >= 0; i--) {
@@ -3244,7 +3270,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (isOff) usedOff += cost;
         lines.push(line);
       }
-      return lines.reverse().join("\n");
+      lines.reverse();
+      if (offSummary) lines.unshift("【这场线下前面发生过的（摘要）】\n" + offSummary);
+      return lines.join("\n");
     })()
   });
   // 后台保活已并进「一起听」：播放里那首「静音保活」曲目即占住 iOS 音频会话（见 playSong 的 keepalive 分支）。
