@@ -2441,6 +2441,12 @@ function normalizeImgApiProfile(p, index) {
 function loadImgApiProfiles() {
   let raw = null;
   try { raw = JSON.parse(localStorage.getItem("x_imgApi") || "null"); } catch (e) {}
+  // 有两版实验 UI 曾直接保存数组，或把站点叫 sites。只读兼容并在下次编辑时正规化，
+  // 绝不因为容器形状不同就显示一张空白卡、让用户误以为旧站点丢了。
+  if (Array.isArray(raw)) raw = { version: 2, profiles: raw, activeId: raw[0] && raw[0].id };
+  if (raw && !Array.isArray(raw.profiles) && Array.isArray(raw.sites)) {
+    raw = Object.assign({}, raw, { profiles: raw.sites, activeId: raw.activeId || raw.sites[0] && raw.sites[0].id });
+  }
   // v54.99：旧版单站配置原地迁移成多站容器，仍复用 x_imgApi，云备份无需改协议。
   if (raw && Array.isArray(raw.profiles)) {
     const profiles = raw.profiles.length ? raw.profiles.map(normalizeImgApiProfile) : [normalizeImgApiProfile(null, 0)];

@@ -16,12 +16,12 @@ test("image API upgrades the existing x_imgApi key to switchable profiles", () =
 });
 
 test("image API settings can add, copy, rename, switch, and delete sites", () => {
-  assert.match(screens, /当前图像站点 · 线上照片与小剧场共用/);
+  assert.match(screens, /已保存 " \+ store\.profiles\.length \+ " 条/);
   assert.match(screens, /const switchSite = id =>/);
-  assert.match(screens, /const addSite = copy =>/);
-  assert.match(screens, /复制当前/);
+  assert.match(screens, /const addSite = \(copy, source\) =>/);
+  assert.match(screens, /复制副本/);
   assert.match(screens, /name: e\.target\.value/);
-  assert.match(screens, /const removeSite = \(\) =>/);
+  assert.match(screens, /const removeSite = id =>/);
 });
 
 test("all image calls continue to resolve the active profile through loadImgApi", () => {

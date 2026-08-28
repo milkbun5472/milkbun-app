@@ -3930,22 +3930,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
   };
   const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
-  if (!editing) return h("div", null,
-    h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
-      h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "图像站点"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点进去单独编辑")),
-      h("button", { onClick: () => addSite(false), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增站点")),
-    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, store.profiles.map(p =>
-      h("div", { key: p.id, onClick: () => { switchSite(p.id); setEditing(true); }, className: "active:opacity-75", style: { minHeight: 120, padding: "13px", borderRadius: 18, cursor: "pointer", background: t.bg2, border: "1px solid " + t.line, display: "flex", flexDirection: "column", boxShadow: "0 7px 18px rgba(60,50,40,.05)" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
-        h("div", { className: "flex", style: { gap: 9, marginTop: "auto", paddingTop: 9 } },
-          h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink } }, "编辑"),
-          h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "复制副本"),
-          store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null)))));
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
-    h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 12 } }, "← 返回图像站点"),
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "语音 TTS · 角色真发声"),
@@ -4220,7 +4205,22 @@ function ImageApiConfig({ toast }) {
   };
   const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
+  if (!editing) return h("div", null,
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "图像站点"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "已保存 " + store.profiles.length + " 条 · 点卡片单独编辑")),
+      h("button", { onClick: () => addSite(false), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增站点")),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, store.profiles.map(p =>
+      h("div", { key: p.id, onClick: () => { switchSite(p.id); setEditing(true); }, className: "active:opacity-75", style: { minHeight: 120, padding: "13px", borderRadius: 18, cursor: "pointer", background: t.bg2, border: "1px solid " + t.line, display: "flex", flexDirection: "column", boxShadow: "0 7px 18px rgba(60,50,40,.05)" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        h("div", { className: "flex", style: { gap: 9, marginTop: "auto", paddingTop: 9 } },
+          h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink } }, "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "复制副本"),
+          store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null)))));
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
+    h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 12 } }, "← 返回图像站点"),
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像 API · 角色照片"),
@@ -4445,7 +4445,6 @@ function CtxDebug({ characters, getBundle }) {
   const [cid, setCid] = useState(null);
   const [text, setText] = useState("");
   const [open, setOpen] = useState({});
-  const [folded, setFolded] = useState(true); // v48.38：调试工具默认折起，点标题展开
   const [wireOn, setWireOn] = useState(() => typeof window !== "undefined" && !!window.__offlineWireCaptureEnabled);
   const [wireRows, setWireRows] = useState(() => typeof window !== "undefined" ? (window.__offlineWireCaptures || []).slice() : []);
   const refreshWire = () => setWireRows(typeof window !== "undefined" ? (window.__offlineWireCaptures || []).slice() : []);
@@ -4504,11 +4503,9 @@ function CtxDebug({ characters, getBundle }) {
       return { title: m ? m[0] : (i === 0 ? "【开头】" : "【段落 " + (i + 1) + "】"), body: p };
     });
   })();
-  return h("div", { style: { marginTop: 28 } },
-    h("button", { onClick: () => setFolded(f => !f), className: "w-full flex items-center justify-between active:opacity-60", style: { padding: "2px 0", marginBottom: 8 } },
-      h(Eyebrow, null, "上下文透视"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: folded ? "none" : "rotate(90deg)", display: "inline-block" } }, "›")),
-    folded ? null : h(React.Fragment, null,
+  return h("div", { style: { marginTop: 10 } },
+    h(Eyebrow, { style: { marginBottom: 8 } }, "上下文透视"),
+    h(React.Fragment, null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } }, "看看此刻和 TA 聊天时，到底喂了什么给模型（人设 / 记忆 / 世界书 / 行程…按段拆开）。角色变笨、OOC、忘事时来这里排查是哪一段出了问题。"),
     h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 12px", marginBottom: 12, background: t.bg2 } },
       h("div", { className: "flex items-center justify-between gap-2" },
@@ -4804,7 +4801,7 @@ function Config(props) {
 }
 
 function ApiConfig({
-  profiles,
+  profiles = [],
   activeId,
   offlineApiId,
   onSetOfflineApi,
@@ -4830,6 +4827,13 @@ function ApiConfig({
   const [fetching, setFetching] = useState(false);
   const [editing, setEditing] = useState(false);
   const cur = list.find(p => p.id === curId) || list[0];
+  useEffect(() => {
+    // 凭证保险箱可能比设置页晚一拍还原。只在列表页接收外部真值，编辑途中不覆盖用户输入。
+    if (!editing && Array.isArray(profiles) && profiles.length) {
+      setList(profiles);
+      setCurId(id => profiles.some(p => p.id === id) ? id : (activeId || profiles[0].id));
+    }
+  }, [profiles, activeId, editing]);
   const upd = patch => setList(l => l.map(p => p.id === cur.id ? {
     ...p,
     ...patch
@@ -4880,6 +4884,15 @@ function ApiConfig({
       setFetching(false);
     }
   };
+  const routeBox = (title, sub, selectedId, setter, noneLabel) => !setter ? null : h(ConfigPanel, null,
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, title),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 11 } }, sub),
+    h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+      [{ id: null, name: noneLabel }].concat(list).map(p => {
+        const on = (selectedId || null) === (p.id || null);
+        return h("button", { key: p.id || title, onClick: () => setter(p.id || null), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 12px" } }, p.name || p.model || "未命名配置");
+      })));
   if (!editing) return h("div", null,
     onSetModelFloat && h(ConfigPanel, null,
       h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
@@ -4904,7 +4917,9 @@ function ApiConfig({
           h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, "编辑"),
           h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "复制副本"),
           list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "删除") : null,
-          p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "主") : null)))));
+          p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "主") : null)))),
+    routeBox("线下与创作模型", "单人/群线下、小游戏、日记、同人文与穿越互动统一从这里选，不再绑在某一张 API 编辑卡里。", offlineApiId, onSetOfflineApi, "跟随线上主模型"),
+    routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。", bgApiId, onSetBgApi, "跟随主模型"));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
   false && onSetModelFloat && h("div", { style: { marginTop: 2, marginBottom: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, background: t.bg2 } },
@@ -5104,7 +5119,7 @@ function ApiConfig({
       border: `1px solid ${t.line}`,
       borderRadius: 6
     }
-  }, "删除此配置")), onSetOfflineApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
+  }, "删除此配置")), false && onSetOfflineApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "线下与创作 API"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下、群线下、小游戏、日记、同人文与穿越互动都走这里；线下 OOC、滚动总结和结束总结也跟随这条线路。角色若在名录里指定了专属线路，角色专属内容仍永远优先走自己的专线；不选＝跟随线上主模型。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
@@ -5112,7 +5127,7 @@ function ApiConfig({
         const on = (offlineApiId || null) === (p.id || null);
         return h("button", { key: p.id || "offline-none", onClick: () => onSetOfflineApi(p.id || null), className: "active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 13px" } }, p.name || p.model || "未命名配置");
-      }))), onSetBgApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
+      }))), false && onSetBgApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "后台任务 API（省钱可选）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "抽取记忆 / 日程 / 钱包 / 查手机 / 随身物 / 购物 / 便签墙 / 心情日历 / 记账 / 番茄钟 这些后台活，走一个便宜的按量小模型（如 gemini-flash-nothinking），不动聊天/日记/同人这些创作类。不选＝跟主模型用同一个。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
@@ -5812,37 +5827,52 @@ function DataConfig({
   const [part, setPart] = useState("");
   const [innerLifeOpen, setInnerLifeOpen] = useState(false);
   const ref = useRef(null);
-  const fold = (id, title, sub, child, danger) => h(ConfigFold, {
-    title: title, sub: sub, danger: danger, open: part === id,
-    onToggle: () => setPart(v => v === id ? "" : id)
-  }, child);
+  const items = [
+    { id: "inner-life", title: "人格试点", sub: "余温、潮汐与角色影响", icon: "◌" },
+    { id: "storage", title: "本地空间", sub: "占用、归档与清理", icon: "▥" },
+    { id: "photos", title: "本机照片库", sub: "聊天照片与照片桥", icon: "▧" },
+    { id: "cloud", title: "云同步", sub: "账号、存档与同步状态", icon: "↻" },
+    { id: "backup", title: "导入与导出", sub: "备份与换设备恢复", icon: "⇅" },
+    { id: "danger", title: "危险操作", sub: "不可撤销的数据清理", icon: "!", danger: true }
+  ];
   const button = (label, onClick, primary) => h("button", {
     onClick: onClick, className: "w-full py-3 active:opacity-70",
     style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, borderRadius: 7,
       color: primary ? t.bg2 : t.ink, background: primary ? t.ink : "transparent",
       border: primary ? "none" : "1px solid " + t.line }
   }, label);
+  const current = items.find(x => x.id === part);
+  let content = null;
+  if (part === "inner-life") content = h("div", { style: { paddingTop: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "在这里查看每个角色的余温影响，并一次给全部角色开启前台试点。"),
+    button("打开 E 余温与潮汐仪表", () => setInnerLifeOpen(true), true));
+  if (part === "storage") content = h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld });
+  if (part === "photos") content = h(LocalPhotoLibrary, { toast: toast });
+  if (part === "cloud") content = h(CloudSync, { toast: toast });
+  if (part === "backup") content = h("div", { style: { paddingTop: 8 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
+    button("导出全部数据（.json）", onExport, true),
+    button("导入备份恢复", () => ref.current && ref.current.click(), false),
+    h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
+      const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
+    } }));
+  if (part === "danger") content = h("div", { style: { paddingTop: 8 } },
+    !c ? button("清空所有数据", () => setC(true), false) : h("div", null,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 12 } }, "确定清空全部数据？无法撤销。建议先导出。"),
+      h("div", { className: "flex gap-3" },
+        h("button", { onClick: () => setC(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.line, color: t.ink, borderRadius: 6 } }, "取消"),
+        h("button", { onClick: onClearAll, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, background: t.accent, color: "#fff", borderRadius: 6 } }, "确定"))));
   return h("div", { style: { paddingTop: 4 } },
     innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { characters: characters || [], onClose: () => setInnerLifeOpen(false) }) : null,
-    fold("inner-life", "人格试点", "E 余温开阀、影响次数与紧急回滚", h("div", { style: { paddingTop: 8 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "在这里查看每个角色的余温影响，并一次给全部角色开启前台试点。"),
-      button("打开 E 余温与潮汐仪表", () => setInnerLifeOpen(true), true))),
-    fold("storage", "本地空间", "查看占用、归档聊天和清理可再生数据", h(StorageMeter, { onOffloadChats: onOffloadChats, onPruneOld: onPruneOld })),
-    fold("photos", "本机照片库", "聊天照片、相册导入与给言秋看的照片桥", h(LocalPhotoLibrary, { toast: toast })),
-    fold("cloud", "云同步", "账号、云端存档与同步状态", h(CloudSync, { toast: toast })),
-    fold("backup", "导入与导出", "换设备或清缓存前备份全部数据", h("div", { style: { paddingTop: 8 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
-      button("导出全部数据（.json）", onExport, true),
-      button("导入备份恢复", () => ref.current && ref.current.click(), false),
-      h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
-        const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
-      } }))),
-    fold("danger", "危险操作", "清空全部本机数据（不可撤销）", h("div", { style: { paddingTop: 8 } },
-      !c ? button("清空所有数据", () => setC(true), false) : h("div", null,
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 12 } }, "确定清空全部数据？无法撤销。建议先导出。"),
-        h("div", { className: "flex gap-3" },
-          h("button", { onClick: () => setC(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.line, color: t.ink, borderRadius: 6 } }, "取消"),
-          h("button", { onClick: onClearAll, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13, background: t.accent, color: "#fff", borderRadius: 6 } }, "确定")))), true));
+    !part ? h(ConfigTileGrid, null, items.map(item => h(ConfigTile, {
+      key: item.id, title: item.title, sub: item.sub, icon: item.icon,
+      danger: item.danger, onClick: () => setPart(item.id)
+    }))) : h("div", null,
+      h("button", { onClick: () => { setPart(""); setC(false); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 14 } }, "← 返回数据管理"),
+      h("div", { style: { border: "1px solid " + (current && current.danger ? "rgba(190,90,75,.35)" : t.line), background: t.bg2, borderRadius: 16, padding: "18px 16px" } },
+        h(Eyebrow, { style: { marginBottom: 5, color: current && current.danger ? t.accent : t.fog } }, current ? current.title : "数据管理"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 10 } }, current ? current.sub : ""),
+        content)));
 }
 // ============================================================
 // MEMORY LIBRARY 记忆库
