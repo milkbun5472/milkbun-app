@@ -5898,7 +5898,11 @@ function StateCard({
     }
   }, "实时状态同步中")), hist.length > 0 && h("button", { onClick: () => setShowHist(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 11px" } }, showHist ? "返回" : "看历史")),
     gazeOn && window.GazePage ? h("div", { className: "flex mb-4", style: { borderBottom: "1px solid " + t.line } },
-      [["now", "此刻"], ["gaze", "Ta 眼里"]].map(([k, label]) => h("button", { key: k, onClick: () => setPage(k), style: { flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, color: page === k ? t.ink : t.fog, background: "transparent", border: "none", borderBottom: "2px solid " + (page === k ? t.ink : "transparent") } }, label))) : null,
+      [["now", "此刻"], ["gaze", "Ta 眼里"]].map(([k, label]) => h("button", { key: k, onClick: () => setPage(k), style: { position: "relative", flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, color: page === k ? t.ink : t.fog, background: "transparent", border: "none", borderBottom: "2px solid " + (page === k ? t.ink : "transparent") } },
+        label,
+        // 红点得在【她还没点进去】的时候就看得见，不然这一层等于没有（她 2026-08-27）
+        (k === "gaze" && window.Gaze && window.Gaze.unseenCount && window.Gaze.unseenCount(character.id) > 0)
+          ? h("span", { style: { display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "#c2705a", marginLeft: 5, verticalAlign: "middle" } }) : null))) : null,
     page === "gaze" && gazeOn && window.GazePage ? h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", onSeed: onGazeSeed, seedBusy: gazeSeedBusy }) :
     showHist ? h("div", { className: "space-y-3" },
       h(Eyebrow, { style: { marginBottom: 2 } }, "心声历史 · " + hist.length + " 条"),

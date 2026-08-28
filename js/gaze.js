@@ -27,6 +27,12 @@
     box.blocks[k] = { text: t, ts: Date.now() };
     box.turns = 0;                       // 写过了就重新数
     d[charId] = box; persist(d);
+    // 他改了这一块 → 她当然还没看过新的。直接清掉这一块的已读，
+    // 别去比时间戳：同一毫秒内改写会让 ts 和 seen 相等，红点就永远亮不起来（测试逮到的）。
+    try {
+      const sd = loadSeen(); const mine = sd[charId];
+      if (mine && mine[k] != null) { delete mine[k]; sd[charId] = mine; persistSeen(sd); }
+    } catch (e) {}
     return true;
   }
   // 协议里塞回的 impression 字段(单聊/群聊共用解析)
@@ -80,6 +86,38 @@
   }
   const hasAny = charId => Object.keys(boxOf(load(), charId).blocks).length > 0;
 
+  // ---- 红点(她 2026-08-27 要的)----
+  // 这张卡是角色自己慢慢改的,不改则已、一改就是他对她的看法变了——那正是她想被叫住的时刻。
+  // 存一份「她上次看这一块是什么时候」,块的 ts 比它新就是没看过。
+  // 已读只存本机:它是「这台设备上她看没看过」,不是印象卡的内容。
+  // ⚠️不能用 x_ 前缀——那个前缀会被云同步捡走(见 cloud.js),
+  //   另一台设备的旧已读表推上来会把红点乱清一气。同 lisa_group_auto_cycle_v1 的处理。
+  const SEEN_KEY = "lisa_gaze_seen_v1";
+  const loadSeen = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "{}"); } catch (e) { return {}; } };
+  const persistSeen = d => { try { localStorage.setItem(SEEN_KEY, JSON.stringify(d)); } catch (e) {} };
+  function unseenKeys(charId) {
+    const box = boxOf(load(), charId), seen = (loadSeen() || {})[charId] || {};
+    return Object.keys(KEYS).filter(k => {
+      const b = box.blocks[k];
+      return b && b.text && (Number(b.ts) || 0) > (Number(seen[k]) || 0);
+    });
+  }
+  const unseenCount = charId => unseenKeys(charId).length;
+  function markSeen(charId, k) {
+    const box = boxOf(load(), charId), b = box.blocks[k];
+    if (!b) return;
+    const d = loadSeen(); const mine = d[charId] || {};
+    mine[k] = Number(b.ts) || Date.now();
+    d[charId] = mine; persistSeen(d);
+  }
+  // 全部改写记录:合并当前块和旧版快照,按时间倒序——「收纳」那一档就是这张表
+  function revisions(charId) {
+    const box = boxOf(load(), charId), out = [];
+    Object.keys(KEYS).forEach(k => { const b = box.blocks[k]; if (b && b.text) out.push({ k, text: b.text, ts: Number(b.ts) || 0, now: true }); });
+    (box.hist || []).forEach(x => { if (KEYS[x.k]) out.push({ k: x.k, text: x.old, ts: Number(x.ts) || 0, now: false }); });
+    return out.sort((a, b) => b.ts - a.ts);
+  }
+
   // ---- 信纸页面(嵌在状态卡里,参考 2026-08-17 Lisa 给的拍立得信纸样张) ----
   const EN = { "me.person": "WHO SHE IS", "me.soft": "SOFT SPOTS", "me.like": "WEAKNESS FOR", "me.recent": "THESE DAYS", "me.unread": "STILL UNREAD", "us.what": "WHAT WE ARE", "us.how": "OUR WAYS", "us.marks": "MILESTONES", "us.elephant": "UNSPOKEN", "us.want": "HOPES & FEARS" };
   const PAPER = "#fbf5ea", INKSOFT = "#5c5244", GOLD = "#ac8a5b", BLUSH = "#e8c9bd";
@@ -87,7 +125,14 @@
   function GazePage({ charId, charName, uName, onSeed, seedBusy }) {
     const [side, setSide] = useState("me");
     const [openK, setOpenK] = useState(null); // 展开成信纸的块 key
+    const [allOpen, setAllOpen] = useState(false); // 「历次改写」总表
+    const [seenTick, setSeenTick] = useState(0);   // 标记已读后要重画红点
     const box = boxOf(load(), charId);
+    const unseen = new Set(unseenKeys(charId));
+    void seenTick;
+    // 展开一块信纸＝她看过这一块了，红点就该灭
+    const openBlock = k => { setOpenK(k); markSeen(charId, k); setSeenTick(x => x + 1); };
+    const dot = extra => h("span", { style: Object.assign({ display: "inline-block", width: 7, height: 7, borderRadius: 999, background: "#c2705a", boxShadow: "0 0 0 2px rgba(255,253,248,.9)" }, extra || {}) });
     const defs = side === "me" ? ME : US;
     // Sheet 容器带 transform,fixed 会锚到 Sheet 而非屏幕 → 信纸必须 portal 到 body 才能居中
     const full = openK && ReactDOM.createPortal(
@@ -99,27 +144,52 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || "他还没往这想过。"),
           box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + new Date(box.blocks[openK].ts).toLocaleDateString("zh-CN")),
           (box.hist || []).filter(x => x.k === openK).length ? h("div", { style: { marginTop: 20, borderTop: "1px dashed rgba(120,100,70,.25)", paddingTop: 12 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 3, color: GOLD, marginBottom: 8 } }, "他从前是这么想的"),
-            box.hist.filter(x => x.k === openK).slice(0, 6).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN"))))) : null)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 3, color: GOLD, marginBottom: 8 } },
+              "他从前是这么想的 · 改过 " + box.hist.filter(x => x.k === openK).length + " 次"),
+            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN"))))) : null)),
+      document.body);
+    // 「收纳」那一档(她 2026-08-27):以前每一块的旧版只埋在自己那张信纸最底下,
+    // 想回看「他从前都怎么写我的」得一块一块点开。这里把十块的现行版和全部旧版
+    // 按时间倒序摊在一起,一次看完这张卡是怎么长成现在这样的。
+    const revs = revisions(charId);
+    const allSheet = allOpen && ReactDOM.createPortal(
+      h("div", { onClick: () => setAllOpen(false), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+        h("div", { onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "78vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, borderRadius: 4, padding: "34px 24px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
+          tape(),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 4, color: GOLD, marginBottom: 4 } }, "EVERY VERSION"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 4, letterSpacing: 2 } }, "他从前都怎么写的"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginBottom: 16 } }, "共 " + revs.length + " 版 · 最新的在最上面"),
+          revs.length ? revs.map((x, i) => h("div", { key: i, style: { marginBottom: 16, paddingBottom: 14, borderBottom: i === revs.length - 1 ? "none" : "1px dashed rgba(120,100,70,.2)" } },
+            h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 4 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 2, color: GOLD } }, KEYS[x.k]),
+              x.now ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1, color: "#fff", background: GOLD, borderRadius: 999, padding: "1px 6px" } }, "现在") : null,
+              h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9, color: "rgba(172,138,91,.7)" } }, x.ts ? new Date(x.ts).toLocaleDateString("zh-CN") : "")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: x.now ? INKSOFT : "rgba(92,82,68,.62)", lineHeight: 2, whiteSpace: "pre-wrap" } }, x.text)))
+            : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "rgba(92,82,68,.5)", lineHeight: 2 } }, "他还没写过什么。"))),
       document.body);
     return h("div", { style: { margin: "-4px -6px 0", padding: "18px 14px 26px", borderRadius: 18, background: "linear-gradient(168deg, #f8f2e6, #f6ecdf 46%, #f2e2d6 78%, " + BLUSH + "40)" } },
       h("div", { style: { textAlign: "right", padding: "2px 6px 14px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, letterSpacing: 6, color: GOLD, textShadow: "0 1px 0 rgba(255,255,255,.6)" } }, side === "me" ? "关于我" : "关于我们"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 5, color: "rgba(172,138,91,.55)", marginTop: 3 } }, side === "me" ? "SHE, THROUGH HIS EYES" : "LOVE IS ALL YOU NEED")),
       h("div", { style: { display: "flex", gap: 10, marginBottom: 16 } },
-        [["me", "关于我"], ["us", "关于我们"]].map(([k, label]) => h("button", { key: k, onClick: () => setSide(k), style: { flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3, borderRadius: 999, border: "1px solid " + (side === k ? GOLD : "rgba(172,138,91,.35)"), color: side === k ? "#fff" : GOLD, background: side === k ? GOLD : "rgba(255,255,255,.45)" } }, label))),
+        [["me", "关于我"], ["us", "关于我们"]].map(([k, label]) => h("button", { key: k, onClick: () => setSide(k), style: { position: "relative", flex: 1, padding: "8px 0", fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 3, borderRadius: 999, border: "1px solid " + (side === k ? GOLD : "rgba(172,138,91,.35)"), color: side === k ? "#fff" : GOLD, background: side === k ? GOLD : "rgba(255,255,255,.45)" } },
+          label,
+          [...unseen].some(x => x.indexOf(k + ".") === 0) ? dot({ position: "absolute", top: 6, right: 12 }) : null))),
       !hasAny(charId) ? h("div", { style: { textAlign: "center", padding: "30px 10px" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: INKSOFT, lineHeight: 2.2, marginBottom: 16 } }, "这里还是空的。", h("br"), "让 " + charName + " 第一次把心里的这些写下来?"),
         onSeed ? h("button", { onClick: onSeed, disabled: seedBusy, style: { padding: "10px 26px", borderRadius: 999, fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: 2, border: "none", background: GOLD, color: "#fff", boxShadow: "0 4px 14px rgba(172,138,91,.4)" } }, seedBusy ? "他在想…" : "让他写写看") : null) : null,
       defs.map(([k, name], i) => { const fk = side + "." + k; const b = box.blocks[fk];
-        return h("div", { key: fk, onClick: () => setOpenK(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
+        return h("div", { key: fk, onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
           tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
+          unseen.has(fk) ? dot({ position: "absolute", top: 9, right: 10 }) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 3.5, color: GOLD, marginBottom: 3 } }, EN[fk] || ""),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : "他还没往这想过。"),
           b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
-      full);
+      revs.length ? h("button", { onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
+        "他从前都怎么写的 · 共 " + revs.length + " 版") : null,
+      full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions };
   window.GazePage = GazePage;
 })();
