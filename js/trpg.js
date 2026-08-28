@@ -1130,7 +1130,29 @@
         const cutNote = hadCut ? "\n【这一拍要画相邻的一瞬】原文里有激烈的内容,已从描述里拿掉;改画紧挨着它之前或之后的一个瞬间,把那股劲留在环境、距离和光线上。" : "";
         const duo = !!(ch && ch.refPhoto && props.profile && props.profile.refPhoto);
         let prompt, minimalPrompt, refs;
+        let out = null;
         if (ch) {
+          // 先试【全员合照】(她 2026-08-28 要的):把所有有参考照的队友 + 她自己的脸
+          // 一起递上去。引擎侧参考照是硬条件——那一枪要么全锁成,要么整枪失败抛错,
+          // 绝不悄悄少锁几张;失败了再退到只锁选中的这位(+她)。
+          const lockables = camp.partyIds.map(charOf).filter(c2 => c2 && c2.refPhoto);
+          const userRef = props.profile && props.profile.refPhoto;
+          const groupRefs = lockables.map(c2 => c2.refPhoto).concat(userRef ? [userRef] : []);
+          const nAll = groupRefs.length;
+          const tryGroup = nAll > (duo ? 2 : 1); // 全员比「只锁主角」多出至少一张脸才值得先试
+          if (tryGroup) {
+            const castLine = lockables.map((c2, i) => "第" + (i + 1) + "张参考图=" + c2.name + "的脸").concat(userRef ? ["第" + (lockables.length + 1) + "张参考图=" + uName + "(玩家)的脸"] : []).join(";");
+            const groupPrompt = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一场跑团冒险,与角色原设定的时代/职业无关】\n【世界】" + String(camp.world || "").slice(0, 300) + "\n【地点】" + (camp.place || "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent
+              + "\n【合照·参考图对照(共" + nAll + "张,按顺序)】" + castLine + "。画面里正好这 " + nAll + " 个人——每个人的五官与发型严格按对应的那张参考图还原,绝不混用参考图,人数不多不少。\n【画面聚焦】" + ch.name + " 此刻的神态与动作,其余人围绕这一刻各有反应。服装、道具、环境必须符合上述世界观;构图取此刻最有张力的一瞬。" + SHOT_SAFE + cutNote;
+            const groupMinimal = "第三人称旁观的电影剧照:一支 " + nAll + " 人的队伍同框。【参考图对照(按顺序)】" + castLine + ";每个人五官严格按对应参考图还原,人数不多不少。人物衣着完整,画面含蓄、可公开展示。";
+            setBusyWhat("正在画这一拍(先试全员合照·锁 " + nAll + " 张脸)…");
+            try {
+              out = await generateSelfieImage(groupPrompt, groupRefs, { minimalPrompt: groupMinimal });
+            } catch (eg) {
+              props.toast("全员合照没锁成,退而只锁 " + ch.name + (duo ? " 和你" : "") + "…(" + String(eg && eg.message || eg).slice(0, 60) + ")", 7000);
+              setBusyWhat("正在画这一拍(锁" + ch.name + "的脸)…");
+            }
+          }
           // 跑团只继承【这张脸】:persona 换成本团世界,免得主线的职业装束/时代乱入
           // (小剧场 if 线同一课);服装按世界观由场景描述给
           const visualPersona = [String(camp.world || "").slice(0, 400), ch.name + " 正随队伍在这场冒险途中。"].filter(Boolean).join("\n");
@@ -1152,13 +1174,14 @@
           minimalPrompt = "一张奇幻冒险故事里的电影感场景画面:【" + (camp.place || "野外") + "】,远景处几个小小的旅人身影,不描绘五官,画面含蓄、可公开展示。";
           refs = null;
         }
-        let out;
-        try {
-          out = await generateSelfieImage(prompt, refs, { minimalPrompt: minimalPrompt });
-        } catch (e1) {
-          if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
-          props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
-          out = await generateSelfieImage(minimalPrompt, refs ? refs.slice(0, duo ? 2 : 1) : null);
+        if (!out) {
+          try {
+            out = await generateSelfieImage(prompt, refs, { minimalPrompt: minimalPrompt });
+          } catch (e1) {
+            if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
+            props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
+            out = await generateSelfieImage(minimalPrompt, refs ? refs.slice(0, duo ? 2 : 1) : null);
+          }
         }
         if (!out || !out.blob) throw new Error("没出图");
         // 降级不无声无息:脸没锁上要说出来(小剧场同款)
@@ -1393,7 +1416,7 @@
       // 选谁入镜:有参考照的队友挑一位锁脸(你自己有参考照就自动合照),或只拍场景
       const shotSheet = shotPick && h("div", { onClick: () => setShotPick(false), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "选谁入镜(锁 TA 的脸" + (props.profile && props.profile.refPhoto ? ",你也有参考照,会自动拍成合照" : "") + ");其余队友退到远景虚化。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "选一位当画面主角:会先试把【所有】有参考照的脸一起锁上" + (props.profile && props.profile.refPhoto ? "(含你自己)" : "") + ";全员没锁成再退到只锁 TA" + (props.profile && props.profile.refPhoto ? " 和你" : "") + ",其余人远景虚化。"),
           camp.partyIds.map(charOf).filter(c2 => c2 && c2.refPhoto).map(c2 =>
             h("button", { key: c2.id, onClick: () => genShot(c2), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 4px", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, avatarOf(c2, 28), c2.name)),
           h("button", { onClick: () => genShot(null), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "🏞 只拍场景(不锁脸)"),

@@ -243,13 +243,17 @@ test("shotSafeLines 过滤暴力/亲密句,过滤空了由调用方给中性备�
   assert.deepEqual(shotSafeLines([], () => false), []);
 });
 
-test("出图:封面不锁脸;当拍画面可选一位队友入镜锁脸,其余远景虚化", () => {
+test("出图:封面不锁脸;当拍画面先试全员合照,退档只锁主角", () => {
   assert.match(src, /不描绘清晰五官/);
   assert.match(src, /generateSelfieImage\(prompt, null/, "封面海报仍不传参考照");
-  assert.match(src, /选谁入镜/, "拍图前挑入镜人(她 2026-08-28:三个陌生人背影看着怪)");
-  assert.match(src, /其余同行者若入画,一律远景虚化/, "锁一位,别的脸不硬画");
+  assert.match(src, /其余同行者若入画,一律远景虚化/, "退档后:锁主角,别的脸不硬画");
   assert.match(src, /persona: visualPersona/, "只继承这张脸,不带主线职业装束(小剧场 if 线同一课)");
   assert.match(src, /lockChar: ch \? ch\.id : undefined/, "重画沿用同一位入镜人");
+  // 全员合照(她 2026-08-28 要的):参考图逐张点名对照,人数封死;失败才退档
+  assert.match(src, /张参考图=" \+ c2\.name/, "参考图按顺序逐张点名是谁的脸");
+  assert.match(src, /人数不多不少/);
+  assert.match(src, /全员合照没锁成,退而只锁/, "退档要说出口,不无声降级");
+  assert.match(src, /nAll > \(duo \? 2 : 1\)/, "全员并不比只锁主角多脸时,不白烧一枪");
 });
 
 test("need 剥掉持有人/数量尾巴,hasItem 互相包含(有药不再显示缺)", () => {
