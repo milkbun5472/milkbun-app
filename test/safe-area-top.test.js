@@ -46,7 +46,8 @@ const INNER = {
   "components.js|active:opacity-50 shrink-0 pt-0.5": "记录行里的删除按钮，不是顶栏",
   "codex.js|px-5 pt-2 pb-3 shrink-0": "搜索框那一行，上面还有 Head",
   "vps-codex.js|px-4 pt-2 shrink-0": "底部输入行，让的是下边",
-  "phone.js|shrink-0 flex items-center gap-3 px-5 pt-6 pb-4": "接在 Head 底下的一行，不是顶栏"
+  "phone.js|shrink-0 flex items-center gap-3 px-5 pt-6 pb-4": "接在 Head 底下的一行，不是顶栏",
+  "phone.js|shrink-0 px-5 pt-1 pb-2 flex items-end justify-between": "角色手机状态栏下面的桌面标题行，不是顶栏"
 };
 
 test("逐个顶栏查：谁没让开刘海就报谁的名字", () => {

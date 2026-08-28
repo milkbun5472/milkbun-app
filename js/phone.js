@@ -36,6 +36,12 @@ const PHONE_APPS = [{
   zh: "视频"
 }];
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
+// 桌面只负责摆放入口：Dock 四个常驻，其余 App 分到两屏；任何已有 App 都不能在改桌面时丢掉。
+const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
+const PHONE_DESKTOP_PAGES = [
+  ["notes", "album", "shopping", "forum"],
+  ["recordings", "video", "settings"]
+];
 const strColor = s => AV_COLORS[[...String(s || "?")].reduce((a, c) => a + c.charCodeAt(0), 0) % AV_COLORS.length];
 const parseMins = s => {
   s = String(s || "");
@@ -907,6 +913,8 @@ function PhoneCarry({
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
+  const [deskPage, setDeskPage] = useState(0);
+  const deskRef = useRef(null);
   const [inList, setInList] = useState(true); // 先看通讯录列表，点某人才进 Ta 的手机
   // 绿点 = 有数据且还没看过；打开即消，刷新全部时重新点亮
   const [seen, setSeen] = useState(() => loadJSON("x_phoneSeen", {}));
@@ -952,6 +960,44 @@ function PhoneCarry({
   }
   const data = phones[char.id] || {};
   const hasData = a => a.key === "video" ? data.video_day || data.video_night : data[a.key];
+  const appByKey = k => PHONE_APPS.find(a => a.key === k);
+  const openApp = a => {
+    if (!a || a.soon) return;
+    markSeen(char.id, a.key);
+    setOpen(a.key);
+  };
+  const latestLine = (value, fallback) => {
+    if (!value) return fallback;
+    const pool = value.chats || value.items || value.songs || value.apps;
+    const x = Array.isArray(pool) && pool[0];
+    return String((x && (x.last || x.title || x.caption || x.name || x.transcript)) || value.desc || value.playlist || value.screenTime || fallback);
+  };
+  const appIcon = (a, compact) => h("button", {
+    key: a.key,
+    onClick: () => openApp(a),
+    className: "flex flex-col items-center active:opacity-60",
+    style: { gap: compact ? 4 : 7, minWidth: 0 }
+  }, h("div", {
+    className: "relative flex items-center justify-center",
+    style: {
+      width: compact ? 46 : 56,
+      height: compact ? 46 : 56,
+      borderRadius: compact ? 14 : 17,
+      background: "rgba(255,255,255,.88)",
+      border: "1px solid rgba(255,255,255,.72)",
+      boxShadow: "0 8px 22px rgba(28,25,20,.10)"
+    }
+  }, h(PGlyph, { k: a.key, size: compact ? 23 : 27, color: t.ink }), hasData(a) && !isSeen(char.id, a.key) && h("span", {
+    style: {
+      position: "absolute", top: -3, right: -3, width: 10, height: 10,
+      borderRadius: 9, background: "#78bd58", border: "2px solid rgba(255,255,255,.95)"
+    }
+  })), !compact && h("span", {
+    style: {
+      width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      fontFamily: F_BODY, fontSize: 11, color: t.ink, textShadow: "0 1px 8px rgba(255,255,255,.85)"
+    }
+  }, a.zh));
   if (open) return h(PhoneApp, {
     appKey: open,
     char,
@@ -960,116 +1006,80 @@ function PhoneCarry({
     onGen: onGenApp,
     onBack: () => setOpen(null)
   });
+  const wall = strColor(char.id || char.name);
+  const pages = PHONE_DESKTOP_PAGES.map((keys, pageIndex) => h("section", {
+    key: pageIndex,
+    className: "h-full min-w-full overflow-y-auto px-5 pt-3 pb-5",
+    style: { scrollSnapAlign: "start", scrollSnapStop: "always" }
+  }, pageIndex === 0 ? h("div", {
+    className: "grid grid-cols-2 gap-3 mb-6"
+  }, h("button", {
+    onClick: () => openApp(appByKey("wechat")),
+    className: "col-span-2 text-left active:opacity-70",
+    style: {
+      minHeight: 124, padding: 17, borderRadius: 25,
+      background: "rgba(255,255,255,.78)", border: "1px solid rgba(255,255,255,.72)",
+      boxShadow: "0 12px 28px rgba(35,31,25,.09)"
+    }
+  }, h("div", { className: "flex items-center justify-between" },
+  h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: ".12em" } }, "最近消息"),
+  h(PGlyph, { k: "wechat", size: 19, color: t.ink })),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.45, color: t.ink, marginTop: 18 } }, latestLine(data.wechat, "点开看看最近和谁说过话"))),
+  h("button", {
+    onClick: () => openApp(appByKey("music")), className: "text-left active:opacity-70",
+    style: { minHeight: 104, padding: 15, borderRadius: 23, background: "rgba(30,29,27,.88)", color: "#fff" }
+  }, h(PGlyph, { k: "music", size: 19, color: "#fff" }),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, marginTop: 12 } }, latestLine(data.music, "还没有播放记录"))),
+  h("button", {
+    onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey,
+    className: "text-left active:opacity-70 disabled:opacity-50",
+    style: { minHeight: 104, padding: 15, borderRadius: 23, background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)" }
+  }, h(IRefresh, { size: 19, color: t.ink }),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginTop: 12 } }, busyKey === "__all__" ? "正在翻整部手机…" : "刷新全部 App"))) : h("div", {
+    className: "grid grid-cols-2 gap-3 mb-6"
+  }, h("button", {
+    onClick: () => openApp(appByKey("album")), className: "text-left active:opacity-70",
+    style: { minHeight: 154, padding: 17, borderRadius: 25, background: "rgba(255,255,255,.74)", border: "1px solid rgba(255,255,255,.72)" }
+  }, h(PGlyph, { k: "album", size: 21, color: t.ink }),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, marginTop: 30 } }, latestLine(data.album, "相册还没翻过"))),
+  h("button", {
+    onClick: () => openApp(appByKey("settings")), className: "text-left active:opacity-70",
+    style: { minHeight: 154, padding: 17, borderRadius: 25, background: "rgba(255,255,255,.54)", border: "1px solid rgba(255,255,255,.66)" }
+  }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: ".12em" } }, "屏幕使用"),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 29, color: t.ink, marginTop: 26 } }, data.settings && data.settings.screenTime || "--"),
+  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, "今天的数字生活"))),
+  h("div", { className: "grid grid-cols-4 gap-x-2 gap-y-6" }, keys.map(k => appIcon(appByKey(k), false)))));
   return h("div", {
-    className: "h-full flex flex-col",
+    className: "h-full flex flex-col overflow-hidden",
     style: {
-      background: t.bg
+      background: `radial-gradient(circle at 82% 12%,rgba(255,255,255,.80),transparent 31%),linear-gradient(155deg,${wall}35 0%,#eee8dc 56%,${wall}22 100%)`
     }
   }, h("div", {
-    className: "shrink-0 px-5 pb-3 flex items-center justify-between",
-    style: { paddingTop: safeTop(20) }
-  }, h("button", {
-    onClick: () => setInList(true),
-    className: "active:opacity-50"
-  }, h(IArrow, {
-    size: 19,
-    color: t.ink
-  })), h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink
-    }
-  }, char.name + " 的手机"), h("div", {
-    className: "flex items-center gap-3"
-  }, h("button", {
-    onClick: () => setPick(true),
-    className: "active:opacity-50"
-  }, h(Avatar, {
-    character: char,
-    size: 24,
-    radius: 6
-  })), h("button", {
-    onClick: () => { clearSeen(char.id); onGenAll(char); },
-    disabled: !!busyKey,
-    className: "active:opacity-50 disabled:opacity-40"
-  }, h(IRefresh, {
-    size: 18,
-    color: t.ink
-  })))), h("div", {
-    className: "flex-1 overflow-y-auto px-4 pb-8"
-  }, h("div", {
-    className: "rounded-[28px] px-5 pt-7 pb-8",
-    style: {
-      background: "linear-gradient(170deg,#fbfaf7,#f1eee7)",
-      border: `1px solid ${t.line}`
-    }
-  }, h("div", {
-    className: "flex flex-col items-center mb-7"
-  }, h(Avatar, {
-    character: char,
-    size: 74,
-    radius: 22
-  }), h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 18,
-      color: t.ink,
-      marginTop: 10,
-      letterSpacing: "0.02em"
-    }
-  }, (char.name || "") + "'S PHONE"), busyKey === "__all__" ? h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog,
-      marginTop: 4
-    }
-  }, "正在生成全部…") : h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog,
-      marginTop: 4
-    }
-  }, "点右上角刷新全部 · 或点开单个 App 生成")), h("div", {
-    className: "grid grid-cols-4 gap-y-6 gap-x-2"
-  }, PHONE_APPS.map(a => h("button", {
-    key: a.key,
-    onClick: () => a.soon ? null : (markSeen(char.id, a.key), setOpen(a.key)),
-    className: "flex flex-col items-center gap-1.5 active:opacity-60"
-  }, h("div", {
-    className: "relative flex items-center justify-center",
-    style: {
-      width: 52,
-      height: 52,
-      borderRadius: 15,
-      background: "#fff",
-      border: `1px solid ${t.line}`,
-      opacity: a.soon ? 0.5 : 1
-    }
-  }, h(PGlyph, {
-    k: a.key,
-    size: 26,
-    color: a.soon ? t.fog : t.ink
-  }), hasData(a) && !a.soon && !isSeen(char.id, a.key) && h("span", {
-    style: {
-      position: "absolute",
-      top: -3,
-      right: -3,
-      width: 9,
-      height: 9,
-      borderRadius: 9,
-      background: "#95d16f",
-      border: "1.5px solid #fff"
-    }
-  })), h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.sub
-    }
-  }, a.zh))))), pick && h(Sheet, {
+    className: "shrink-0 px-5 pb-2 flex items-center justify-between",
+    style: { paddingTop: safeTop(10) }
+  }, h("button", { onClick: () => setInList(true), className: "active:opacity-50", "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
+  h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 600, color: t.ink } }, new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })),
+  h("button", { onClick: () => setPick(true), className: "active:opacity-50", "aria-label": "切换角色" }, h(Avatar, { character: char, size: 28, radius: 9 }))),
+  h("div", { className: "shrink-0 px-5 pt-1 pb-2 flex items-end justify-between" },
+  h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 28, color: t.ink, lineHeight: 1.05 } }, char.remark || char.name),
+  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } }, "向左滑还有一页")),
+  h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".17em", color: t.fog } }, "HOME")),
+  h("div", {
+    ref: deskRef,
+    className: "flex-1 min-h-0 flex overflow-x-auto",
+    onScroll: e => {
+      const el = e.currentTarget;
+      const n = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+      if (n !== deskPage) setDeskPage(n);
+    },
+    style: { scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }
+  }, pages),
+  h("div", { className: "shrink-0 flex justify-center gap-1.5 py-1" }, PHONE_DESKTOP_PAGES.map((_, i) => h("button", {
+    key: i, onClick: () => deskRef.current && deskRef.current.scrollTo({ left: deskRef.current.clientWidth * i, behavior: "smooth" }),
+    "aria-label": "第 " + (i + 1) + " 页",
+    style: { width: i === deskPage ? 15 : 6, height: 6, borderRadius: 9, background: i === deskPage ? t.ink : "rgba(30,28,24,.25)", transition: "all .2s" }
+  }))),
+  h("div", { className: "shrink-0 mx-4 mb-3 px-3 py-2.5 grid grid-cols-4", style: { borderRadius: 25, background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.74)", boxShadow: "0 12px 30px rgba(35,31,25,.11)" } }, PHONE_DOCK_KEYS.map(k => appIcon(appByKey(k), true))), pick && h(Sheet, {
     onClose: () => setPick(false)
   }, h(Eyebrow, {
     style: {
@@ -1095,7 +1105,7 @@ function PhoneCarry({
       fontSize: 16,
       color: t.ink
     }
-  }, c.name)))))));
+  }, c.name))))));
 }
 
 // 各 app 的推演任务
@@ -1162,4 +1172,3 @@ function phoneProbeSpec(key, char, rel) {
     schemaHint: "{}"
   };
 }
-
