@@ -718,6 +718,9 @@
   // 全让它挑,它每次都掷出同一个众数
   const POOL_EVENT = ["不速之客闯入", "环境突变(天气/坍塌/断电/走水)", "一件要紧的东西丢了或坏了", "有人露出破绽", "突然出现时限:再不动手就来不及", "一个旧相识在最坏的时机出现", "一件看似无关的小事,其实连着真相", "队伍里有人的旧事被戳到", "一桩好运从天而降,但带着钩子", "对头忽然抛来橄榄枝"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
+  // 输出天花板:她按次计费,上限不省钱只会截断——统一给满(同 StylePresets.OUT_CEILING,
+  // 中转会自行 clamp 到模型上限;思考型模型的推理也从这里扣,给大不多花一分钱)
+  const TOK_MAX = 65535;
 
   // ---- 出图的安全过滤(纯函数) ----
   // 图像接口要的是【画面上看得见什么】,不是小说正文;敏感句直接进 prompt 会被
@@ -844,7 +847,7 @@
         + "\n【主线各章】" + base.stages.map((x, i) => "第" + (i + 1) + "章:" + x.goal + (x.place ? "@" + x.place : "")).join(";")
         + (crew.length ? "\n\n" + crew.map(x => "【队友·" + x.m.name + " 人设】\n" + (x.ch ? personaOf(x.ch) : x.m.name)).join("\n\n") : "");
       let p = null;
-      try { p = parseObj(await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 6400, timeout: 300000 })); } catch (e) { p = null; }
+      try { p = parseObj(await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 })); } catch (e) { p = null; }
       if (!p) return null;
       const party = base.party.map(m => Object.assign({}, m));
       (Array.isArray(p.feats) ? p.feats : []).forEach(f => {
@@ -909,12 +912,12 @@
         const user = "【玩家】" + uName + "\n\n" + members.map(ch => "【队友·" + ch.name + " 人设】\n" + personaOf(ch)).join("\n\n")
           + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame
           + (prior ? "\n\n【已经开过的团(务必避开,换皮重来也算重复)】" + prior : "");
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 5200, timeout: 300000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 });
         let p = parseObj(raw);
         if (!p) {
           // 内容多半已经写出来了,只是没按 JSON——花一次小调用原样归类,不整局重烧
           const sys2 = "下面是一段已写好的内容,但没按要求输出 JSON。把它【原样整理】成这个形状:\n" + SHAPE_A + "\n【铁律】只搬运归类,一个字不改写;原文没有的字段留空。只输出 JSON,不要代码块。";
-          try { p = parseObj(await callAI(props.active, sys2, [{ role: "user", content: String(raw || "").slice(0, 10000) }], { maxTokens: 5200, timeout: 150000 })); } catch (e) { p = null; }
+          try { p = parseObj(await callAI(props.active, sys2, [{ role: "user", content: String(raw || "").slice(0, 10000) }], { maxTokens: TOK_MAX, timeout: 150000 })); } catch (e) { p = null; }
         }
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
         const stages = (Array.isArray(p.stages) ? p.stages : []).map(s => typeof s === "string" ? { goal: s, hint: "" } : s && s.goal ? { goal: String(s.goal), hint: String(s.hint || ""), place: String(s.place || "").trim() } : null).filter(Boolean).slice(0, 6);
@@ -1021,7 +1024,7 @@
         const prev = c.ledger && LEDGER_KEYS.some(k => (c.ledger[k] || []).length) ? c.ledger : null;
         const sys = "把跑团剧情压缩进一本【前情账本】,不是写摘要散文。合并旧账本与新增剧情,输出四类条目,每条一句话:\n· timeline:已经发生的关键事件,按先后。\n· facts:已确立的事实(身份、真相碎片、约定)。\n· openThreads:【还没了结的线】——悬着的威胁、没兑现的承诺、没答的问题。宁可多留。\n· objects:重要物件在谁手上、什么状态。没有就空数组。\n旧账本条目除非被推翻或了结,一律保留。只输出 JSON:{\"timeline\":[],\"facts\":[],\"openThreads\":[],\"objects\":[]}";
         const user = (prev ? "【旧账本】\n" + JSON.stringify(prev) + "\n\n" : "") + "【新增剧情】\n" + seg;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 2200, timeout: 120000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 120000 });
         const p2 = extractJSON(raw) || {};
         const nxt = {};
         LEDGER_KEYS.forEach(k => { nxt[k] = (Array.isArray(p2[k]) ? p2[k] : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 14); });
@@ -1118,7 +1121,7 @@
           + (mode === "resolve" ? "\n〔续写检定结果〕上面最新的〔检定〕就是刚才那个动作的命运:按其等级把结果写完,接着往下走;这个动作不再需要检定,绝不再报 needCheck。" : "");
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
-        const raw = await callAI(props.active, sys, hist, { maxTokens: (window.StylePresets ? window.StylePresets.outTokens(1400) : 6000), timeout: 300000 });
+        const raw = await callAI(props.active, sys, hist, { maxTokens: TOK_MAX, timeout: 300000 });
         const p = parseTurnPayload(raw);
         if (!p) throw new Error("守密人的话没能解析成剧情,已拦住协议原文;再按一次重试");
         update(list => list.map(c => {
@@ -1203,7 +1206,7 @@
         const hist = foldHist(camp.msgs.slice(camp.sumCount || 0)).slice(-24);
         if (text) hist.push({ role: "user", content: text });
         else if (!hist.length || hist[hist.length - 1].role !== "user") hist.push({ role: "user", content: "(就此刻补一笔)" });
-        const raw = await callAI(props.active, sys, hist, { maxTokens: 2400, timeout: 180000 });
+        const raw = await callAI(props.active, sys, hist, { maxTokens: TOK_MAX, timeout: 180000 });
         if (text) {
           // 闲聊簇:她那句 + 队友接话,合成一条可折叠的气泡消息;失败就把话还给输入框,史里不留残尾
           const p = parseObj(raw);
@@ -1233,7 +1236,7 @@
       try {
         const sys = "你是这场跑团的守密人。玩家把手头线索拼成了一条推测。你【只】判断一件事:顺着它去查值不值得花功夫——绝不透露推测对错,绝不剧透真相与伏笔,note 里一个字的秘典内容都不许漏。只输出 JSON:{\"verdict\":\"worth 或 shaky(worth=值得验证;shaky=根基还不稳)\",\"note\":\"一句不剧透的点评(≤30字)\"}";
         const user = "【秘典(仅供你判断,绝不外泄)】真相:" + camp.dossier.truth + "\n翻转:" + camp.dossier.twist + "\n【已亮出的线索】" + (camp.clues.join(";") || "无") + "\n【玩家的推测】" + g.text;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 600, timeout: 90000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 90000 });
         const p = parseObj(raw);
         if (!p || !p.verdict) throw new Error("守密人没给出判定" + rawHint(raw));
         const verdict = /worth|值得/.test(String(p.verdict)) ? "worth" : "shaky";
@@ -1257,7 +1260,7 @@
           + (camp.myline ? "\n她一路揣着一条暗线:「" + camp.myline + "」——在 myline 里评一句它最终走到了哪(达成/半途/背离,以及代价),不写进正文段落。" : "")
           + "\n另外盘点:秘典里有哪些真相与伏笔到最后也没来得及揭开(untold,没有就空数组)。\n只输出 JSON:{\"paras\":[\"段落\"],\"closing\":\"最后一句(≤30字)\",\"untold\":[],\"myline\":\"暗线判词(没暗线就空)\"}";
         const user = "【世界】" + camp.world + "\n【秘典】真相:" + camp.dossier.truth + "\n翻转:" + camp.dossier.twist + "\n【各章】" + camp.stages.map((s, i) => s.goal + (s.done ? "(✓)" : i === camp.stageIdx ? "(进行中)" : "(未到)")).join(";") + "\n【已揭示线索】" + (camp.clues.join(";") || "无") + (camp.summary ? "\n【前情】\n" + camp.summary : "") + "\n【最近剧情】\n" + recent;
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 4000, timeout: 300000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 });
         const p = parseObj(raw);
         if (!p || !Array.isArray(p.paras) || !p.paras.length) throw new Error("终章没写出来" + rawHint(raw));
         update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: { paras: p.paras.map(x => String(x || "").trim()).filter(Boolean), closing: String(p.closing || "").trim(), untold: (Array.isArray(p.untold) ? p.untold : []).map(x => String(x || "").trim()).filter(Boolean), myline: String(p.myline || "").trim(), revealed: 0 } })));

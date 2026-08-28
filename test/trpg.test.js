@@ -589,6 +589,12 @@ test("骰子账与模组包", () => {
   assert.match(src, /sideSeeds: \(Array\.isArray\(mod\.seeds\) \? mod\.seeds : \[\]\)\.map\(x => Object\.assign\(\{\}, x, \{ used: false \}\)\)/, "导入时种子全部复位");
 });
 
+test("输出天花板统一给满:按次计费,上限不省钱只会截断", () => {
+  assert.match(src, /const TOK_MAX = 65535/);
+  assert.ok(!/maxTokens: \d/.test(src), "不再有零散的小上限");
+  assert.equal((src.match(/maxTokens: TOK_MAX/g) || []).length, 8, "八处调用全走天花板");
+});
+
 // ---- 秘典:开团即生成,落幕前不给看 ----
 test("秘典落幕解密,不在过程中泄底", () => {
   assert.match(src, /玩家永远不可见/);
