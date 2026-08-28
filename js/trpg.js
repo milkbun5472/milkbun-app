@@ -16,7 +16,7 @@
 (function () {
   // node --test 会直接 require 这份文件跑纯函数,那边没有 React/window——顶层一律守卫
   const inApp = typeof window !== "undefined" && typeof React !== "undefined";
-  const useState = inApp ? React.useState : null, useRef = inApp ? React.useRef : null, useEffect = inApp ? React.useEffect : null;
+  const useState = inApp ? React.useState : null, useRef = inApp ? React.useRef : null, useEffect = inApp ? React.useEffect : null, useMemo = inApp ? React.useMemo : null;
   // 图标:一枚二十面骰(六边形 + 内三角),挂进 REG 的 window.GTrpg
   if (inApp) window.GTrpg = p => h(Svg, p, h("path", { d: "M12 2.4l8.3 4.8v9.6L12 21.6l-8.3-4.8V7.2z" }), h("path", { d: "M12 7.4l4.6 7.8H7.4z" }), h("path", { d: "M12 2.4v5M3.7 7.2l3.7 8M20.3 7.2l-3.7 8M12 21.6l-4.6-6.4M12 21.6l4.6-6.4" }));
 
@@ -150,7 +150,7 @@
   // 角标也不出现,绝不渲染一个没生效的变化骗人。
   // HP 先【按人聚合】再夹 ±40(Codex 抓的:以前单条夹 ±40,同一轮写三条 -40
   // 照样一拍掉 120;现在同一人的多条先合计,每人每拍净变化封顶 ±40)。
-  function applyTurnPayload(camp, p) {
+  function applyTurnPayload(camp, p, opts) {
     const next = Object.assign({}, camp);
     const notes = [];
     const chips = [];
@@ -218,6 +218,20 @@
     (Array.isArray(p.clue) ? p.clue : []).forEach(x => { const s = String(x || "").trim(); if (s && clues.indexOf(s) < 0) { clues.push(s); notes.push("📌 新线索"); chips.push({ k: "clue", txt: "📌 " + (s.length > 18 ? s.slice(0, 18) + "…" : s) }); } });
     next.clues = clues;
     if (typeof p.place === "string" && p.place.trim()) next.place = p.place.trim();
+    // 位置跟着地图走(opts.nodes=这场团的地图节点):玩家点了「前往」以那个为准;
+    // 否则守密人报的 place 能对上节点名,队伍就真的挪到那儿——地图和叙事一本账
+    const nds = opts && opts.nodes;
+    if (nds && nds.length) {
+      const target = (opts.travelTo ? findNode(nds, opts.travelTo) : null) || (typeof p.place === "string" && p.place.trim() ? findNode(nds, p.place) : null);
+      if (target && target.name !== camp.pos) {
+        next.pos = target.name; next.place = target.name;
+        const vis = (camp.visited || []).slice();
+        if (vis.indexOf(target.name) < 0) vis.push(target.name);
+        next.visited = vis;
+        notes.push("抵达「" + target.name + "」");
+        chips.push({ k: "move", txt: "🧭 抵达·" + target.name });
+      }
+    }
     next.choices = normChoices(p.choices, next.party);
     // 章节推进和落幕都只挂【待确认】,由玩家点头才算数——防守密人自导自演一步通关
     // (小剧场 goalReached 同款闸)。章节只有 stageIdx 一个计数器,不会两处各记各的。
@@ -275,6 +289,191 @@
     return out;
   }
   const ptsToPath = pts => pts.map((p2, i) => (i ? "L" : "M") + p2.x.toFixed(1) + " " + p2.y.toFixed(1)).join("");
+
+  // ---- 大地图(纯函数,全矢量) ----
+  // 参考 ai-virtual-phone 地图引擎拆解后的取舍:留下它的灵魂两件事——
+  //   ① 模型宣告的【区域接壤关系】驱动力导向布局:说风语镇挨着暗影林,地图上就真挨着;
+  //   ② 道路和可行走图【同一趟循环】生成:画出来的路永远等于能走的边,不会两张皮。
+  // 丢掉它的栅格化重活(120×90 网格/行军方块/Dijkstra 描边):全走矢量,毫秒级出图,
+  // 不卡主线程也不用存大 blob——布局由 (战役id, 骨架) 决定,每次现算,张张一样。
+  function normRegions(raw) {
+    const TERR = ["山地", "平原", "森林", "水泽", "荒漠", "城郭"];
+    const KIND = ["城镇", "遗迹", "野外", "地标"];
+    const seen = {};
+    const regions = (Array.isArray(raw) ? raw : []).map(r => {
+      if (!r || typeof r !== "object") return null;
+      const name = String(r.name || "").trim().slice(0, 8);
+      if (!name || seen[name]) return null;
+      seen[name] = 1;
+      const nseen = {};
+      const nodes = (Array.isArray(r.nodes) ? r.nodes : []).map(n => {
+        if (typeof n === "string") n = { name: n };
+        if (!n || typeof n !== "object") return null;
+        const nm = String(n.name || "").trim().slice(0, 10);
+        if (!nm || nseen[nm]) return null;
+        nseen[nm] = 1;
+        return { name: nm, kind: KIND.indexOf(n.kind) >= 0 ? n.kind : "野外", hook: String(n.hook || "").trim().slice(0, 60) };
+      }).filter(Boolean).slice(0, 3);
+      if (!nodes.length) nodes.push({ name: name, kind: "地标", hook: "" });
+      return { name, terrain: TERR.indexOf(r.terrain) >= 0 ? r.terrain : "平原", adj: (Array.isArray(r.adj) ? r.adj : []).map(x => String(x || "").trim()).filter(Boolean), nodes };
+    }).filter(Boolean).slice(0, 6);
+    // 接壤只认双方都存在的名字,并补成对称;谁都不挨的孤区随后由道路兜底接上
+    const names = regions.map(r => r.name);
+    regions.forEach(r => { r.adj = r.adj.filter(a => a !== r.name && names.indexOf(a) >= 0); });
+    regions.forEach(r => r.adj.forEach(a => { const o = regions.find(x => x.name === a); if (o && o.adj.indexOf(r.name) < 0) o.adj.push(r.name); }));
+    return regions.length >= 2 ? regions : null;
+  }
+  // 力导向:接壤的区域互相拉近(弹簧),不接壤的互相推开,整体轻轻向画布中心收
+  function forceLayout(regions, rand, W, H) {
+    const n = regions.length;
+    const pos = [];
+    for (let i = 0; i < n; i++) {
+      // 最远点撒种:每个新中心从 24 个随机候选里挑离已有中心最远的那个
+      let best = null, bd = -1;
+      for (let t = 0; t < 24; t++) {
+        const c = { x: W * (0.18 + rand() * 0.64), y: H * (0.18 + rand() * 0.64) };
+        const d = pos.length ? Math.min.apply(null, pos.map(p2 => (p2.x - c.x) ** 2 + (p2.y - c.y) ** 2)) : 1e9;
+        if (d > bd) { bd = d; best = c; }
+      }
+      pos.push(best);
+    }
+    const target = Math.min(W, H) / 2.1;
+    for (let it = 0; it < 60; it++) {
+      const f = pos.map(() => ({ x: 0, y: 0 }));
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+        const dx = pos[j].x - pos[i].x, dy = pos[j].y - pos[i].y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const linked = regions[i].adj.indexOf(regions[j].name) >= 0;
+        const k = linked ? (d - target) * 0.02 : Math.min(0, (d - target * 1.25)) * 0.03;
+        f[i].x += dx / d * k; f[i].y += dy / d * k;
+        f[j].x -= dx / d * k; f[j].y -= dy / d * k;
+      }
+      pos.forEach((p2, i) => {
+        p2.x += f[i].x + (W / 2 - p2.x) * 0.004;
+        p2.y += f[i].y + (H / 2 - p2.y) * 0.004;
+        p2.x = Math.max(W * 0.14, Math.min(W * 0.86, p2.x));
+        p2.y = Math.max(H * 0.14, Math.min(H * 0.86, p2.y));
+      });
+    }
+    return pos;
+  }
+  // Chaikin 切角(闭合):每段取 1/4 与 3/4 点,两轮下来折线就圆润成手绘团块
+  function chaikinClosed(pts, iters) {
+    for (let it = 0; it < (iters || 2); it++) {
+      const out = [];
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i], b = pts[(i + 1) % pts.length];
+        out.push({ x: a.x * 0.75 + b.x * 0.25, y: a.y * 0.75 + b.y * 0.25 });
+        out.push({ x: a.x * 0.25 + b.x * 0.75, y: a.y * 0.25 + b.y * 0.75 });
+      }
+      pts = out;
+    }
+    return pts;
+  }
+  // 区域团块:极坐标 24 根射线,半径带噪声,并被「到最近邻中心距离」软钳住——
+  // 这就是不用 Dijkstra 也能让边界互相退让的省事法
+  function regionBlob(center, others, rand, baseR) {
+    const pts = [];
+    const RAYS = 24;
+    const jit = []; for (let i = 0; i < RAYS; i++) jit.push(0.72 + rand() * 0.56);
+    for (let i = 0; i < RAYS; i++) {
+      const a = i / RAYS * Math.PI * 2;
+      let r = baseR * (jit[i] + jit[(i + 1) % RAYS]) / 2;
+      others.forEach(o => {
+        const d = Math.sqrt((o.x - center.x) ** 2 + (o.y - center.y) ** 2);
+        const toward = Math.cos(a - Math.atan2(o.y - center.y, o.x - center.x));
+        if (toward > 0) r = Math.min(r, d * (0.62 - 0.1 * toward));
+      });
+      pts.push({ x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r });
+    }
+    const sm = chaikinClosed(pts, 2);
+    return sm.map((p2, i) => (i ? "L" : "M") + p2.x.toFixed(1) + " " + p2.y.toFixed(1)).join("") + "Z";
+  }
+  // 并查集:跨区兜底连通用
+  function unionFind(n) {
+    const pa = Array.from({ length: n }, (_, i) => i);
+    const find = x => (pa[x] === x ? x : (pa[x] = find(pa[x])));
+    return { find, union: (a, b) => { const ra = find(a), rb = find(b); if (ra === rb) return false; pa[ra] = rb; return true; } };
+  }
+  // 总装:布局 → 团块 → 节点(环带拒绝采样) → 道路+通行图(同一趟循环记 edges)
+  function mapBuild(seed, regionsRaw, W, H) {
+    W = W || 360; H = H || 300;
+    const regions = normRegions(regionsRaw);
+    if (!regions) return null;
+    const rand = mulberry32(hashStr(seed) ^ 0x51ab);
+    const centers = forceLayout(regions, rand, W, H);
+    const baseR = Math.min(W, H) / (regions.length <= 3 ? 3.4 : 4.2);
+    const outR = regions.map((r, i) => regionBlob(centers[i], centers.filter((_, j) => j !== i), rand, baseR));
+    // 节点:围着区域中心的环带里撒,彼此至少隔 30;第一个节点就放中心(区域首府感)
+    const nodes = [];
+    regions.forEach((r, i) => {
+      r.nodes.forEach((nd, k) => {
+        let p2 = null;
+        if (k === 0) p2 = { x: centers[i].x, y: centers[i].y };
+        else {
+          for (let t = 0; t < 40 && !p2; t++) {
+            const a = rand() * Math.PI * 2, rr = baseR * (0.35 + rand() * 0.45);
+            const c = { x: centers[i].x + Math.cos(a) * rr, y: centers[i].y + Math.sin(a) * rr };
+            if (c.x < 16 || c.x > W - 16 || c.y < 20 || c.y > H - 20) continue;
+            if (nodes.every(x => (x.x - c.x) ** 2 + (x.y - c.y) ** 2 > 30 * 30)) p2 = c;
+          }
+          if (!p2) p2 = { x: centers[i].x + (rand() - 0.5) * baseR, y: centers[i].y + (rand() - 0.5) * baseR };
+        }
+        nodes.push({ name: nd.name, kind: nd.kind, hook: nd.hook, region: r.name, ri: i, x: Math.round(p2.x * 10) / 10, y: Math.round(p2.y * 10) / 10 });
+      });
+    });
+    // 道路与 edges 同一趟生成:区内相邻节点连成链;跨区按【接壤关系】连两区最近的一对节点;
+    // 最后并查集查连通,不通的补最短桥(模型的 adj 写漏了也不会出孤岛)
+    const roads = [];
+    const edges = [];
+    const dist2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+    const bend = (a, b) => {
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const off = (rand() - 0.5) * Math.min(30, len * 0.35);
+      return "M" + a.x + " " + a.y + "Q" + (mx - dy / len * off).toFixed(1) + " " + (my + dx / len * off).toFixed(1) + " " + b.x + " " + b.y;
+    };
+    const link = (a, b) => {
+      if (edges.some(e => (e[0] === a.name && e[1] === b.name) || (e[0] === b.name && e[1] === a.name))) return;
+      edges.push([a.name, b.name]);
+      roads.push({ d: bend(a, b), a: a.name, b: b.name });
+    };
+    regions.forEach((r, i) => {
+      const mine = nodes.filter(x => x.ri === i);
+      for (let k = 1; k < mine.length; k++) {
+        let best = mine[0], bd = 1e18;
+        for (let j = 0; j < k; j++) { const d = dist2(mine[k], mine[j]); if (d < bd) { bd = d; best = mine[j]; } }
+        link(mine[k], best);
+      }
+    });
+    regions.forEach((r, i) => r.adj.forEach(an => {
+      const j = regions.findIndex(x => x.name === an);
+      if (j <= i) return;
+      let pair = null, bd = 1e18;
+      nodes.filter(x => x.ri === i).forEach(a => nodes.filter(x => x.ri === j).forEach(b => { const d = dist2(a, b); if (d < bd) { bd = d; pair = [a, b]; } }));
+      if (pair) link(pair[0], pair[1]);
+    }));
+    const uf = unionFind(nodes.length);
+    edges.forEach(e => uf.union(nodes.findIndex(x => x.name === e[0]), nodes.findIndex(x => x.name === e[1])));
+    for (let guard = 0; guard < nodes.length; guard++) {
+      const comps = {};
+      nodes.forEach((x, i) => { const r = uf.find(i); (comps[r] = comps[r] || []).push(i); });
+      const keys = Object.keys(comps);
+      if (keys.length <= 1) break;
+      let pair = null, bd = 1e18;
+      comps[keys[0]].forEach(a => { for (let ki = 1; ki < keys.length; ki++) comps[keys[ki]].forEach(b => { const d = dist2(nodes[a], nodes[b]); if (d < bd) { bd = d; pair = [a, b]; } }); });
+      if (!pair) break;
+      link(nodes[pair[0]], nodes[pair[1]]);
+      uf.union(pair[0], pair[1]);
+    }
+    return { W, H, regions: regions.map((r, i) => ({ name: r.name, terrain: r.terrain, cx: Math.round(centers[i].x), cy: Math.round(centers[i].y), blob: outR[i] })), nodes, roads, edges };
+  }
+  const mapAdjacent = (edges, name) => (edges || []).reduce((out, e) => { if (e[0] === name) out.push(e[1]); else if (e[1] === name) out.push(e[0]); return out; }, []);
+  const findNode = (nodes, name) => {
+    const n = String(name || "").trim();
+    if (!n) return null;
+    return (nodes || []).find(x => x.name === n) || (nodes || []).find(x => x.name && (n.indexOf(x.name) >= 0 || x.name.indexOf(n) >= 0)) || null;
+  };
   // 历史折叠:守密人→assistant,其余(玩家/骰子/系统)全并进 user 侧,
   // 连续同侧合成一条——上游对连续同角色消息的容忍度不一,不赌。
   function foldHist(msgs) {
@@ -426,6 +625,11 @@
     const update = fn => setCamps(p => { const n = fn(p.slice()); persist(n); return n; });
     useEffect(() => { campsRef.current = camps; });
     const camp = camps.find(c => c.id === playId) || null;
+    // 地图布局:由 (战役id, 骨架) 决定的纯函数,毫秒级;memo 一下免得每次打字都重算
+    const nodesOf = c => (c && c.mapRegions) ? c.mapRegions.flatMap(r => r.nodes) : [];
+    const builtMap = useMemo(() => (camp && camp.mapRegions) ? mapBuild(camp.id, camp.mapRegions) : null, [camp && camp.id]);
+    const [mapOpen, setMapOpen] = useState(false);
+    const [selNode, setSelNode] = useState(null);
     const msgCount = camp ? camp.msgs.length : 0;
     useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgCount, playId]);
     const charOf = id => props.characters.find(c => c.id === id) || null;
@@ -443,7 +647,7 @@
     }).join("\n\n");
 
     // ---- 开团 ----
-    const SHAPE_SETUP = "{\"title\":\"这场跑团的短名字(≤10字)\",\"world\":\"世界观与背景:这个世界怎么运转、此地是哪儿、空气里是什么味道(3-5句,只写长期为真的)\",\"hook\":\"开局处境:队伍此刻为什么聚在这里、眼前正在发生什么(2-3句)\",\"stages\":[{\"goal\":\"第一章要达成的具体一步\",\"hint\":\"守密人自用的一句推进思路\"}],\"truth\":\"藏在整件事背后的真相(玩家不可见)\",\"twist\":\"中段翻转:什么时刻、以什么方式掀出来(玩家不可见)\",\"secrets\":\"关键 NPC 各自瞒着什么(玩家不可见,每人一句)\",\"endgame\":\"故事可能的几种结局方向(玩家不可见)\",\"place\":\"开局地点(≤8字)\",\"opening\":\"开场正文\",\"choices\":[\"开局给玩家的 2-4 个行动选项\"]}";
+    const SHAPE_SETUP = "{\"title\":\"这场跑团的短名字(≤10字)\",\"world\":\"世界观与背景:这个世界怎么运转、此地是哪儿、空气里是什么味道(3-5句,只写长期为真的)\",\"hook\":\"开局处境:队伍此刻为什么聚在这里、眼前正在发生什么(2-3句)\",\"regions\":[{\"name\":\"区域名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"接壤的区域名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这里藏着什么(一句,写给守密人)\"}]}],\"stages\":[{\"goal\":\"第一章要达成的具体一步\",\"hint\":\"守密人自用的一句推进思路\",\"place\":\"这一章的目标在哪个地点(必须用 regions 里的节点名)\"}],\"truth\":\"藏在整件事背后的真相(玩家不可见)\",\"twist\":\"中段翻转:什么时刻、以什么方式掀出来(玩家不可见)\",\"secrets\":\"关键 NPC 各自瞒着什么(玩家不可见,每人一句)\",\"endgame\":\"故事可能的几种结局方向(玩家不可见)\",\"place\":\"开局地点(必须用 regions 里的节点名)\",\"opening\":\"开场正文\",\"choices\":[\"开局给玩家的 2-4 个行动选项\"]}";
     const genSetup = async () => {
       const members = pickIds.map(charOf).filter(Boolean);
       if (!members.length) return props.toast("先拉至少一个队友入队");
@@ -453,33 +657,39 @@
         const frame = kw.trim() ? "" : "\n\n【本团取景框(骰子已掷好,三项照办)】\n世界:" + pick(POOL_WORLD) + "\n主线原型:" + pick(POOL_QUEST) + "\n基调:" + pick(POOL_TONE);
         const prior = camps.slice(0, 8).map(c => c.title + "(" + String(c.world || "").slice(0, 24) + ")").join(";");
         const sys = "你在为一场文字跑团做【开团设定】。玩家是 " + uName + ",队友是下面这些角色——保留他们的性格、说话方式与真实能力,把身份处境放进这个新世界(可以贴近原设定,也可以是平行身份,以和世界咬合为准)。\n"
-          + "主线拆成 4-5 章(stages),每章 goal 是一步【具体、可判定】的事(找到/救出/潜入/揭穿/带到),不是抽象状态;各章连起来是一条完整的弧。\n"
+          + "世界要落在一张地图上:regions 给 3-5 个区域,每区 1-3 个节点(地点)。adj 写谁和谁接壤——这决定地图上它们真的相邻;节点的 hook 是守密人自用的一句底(这里埋着什么),玩家看不到。主线各章要分布在【不同区域】的节点上,逼着队伍真的赶路。\n"
+          + "主线拆成 4-5 章(stages),每章 goal 是一步【具体、可判定】的事(找到/救出/潜入/揭穿/带到),不是抽象状态;各章连起来是一条完整的弧;place 必须严格用 regions 里已有的节点名。\n"
           + "秘典字段(truth/twist/secrets/endgame)是守密人自用的底牌:truth 要经得起推敲,twist 要在中段真正颠一次盘,secrets 让沿途 NPC 都各怀心事。玩家看不到这些,所以写实话,别写宣传语。\n"
           + "opening 是写给玩家的开场正文(第二人称『你』,6-10句):把队伍放进一个正在发生、必须行动的时刻,交代此地与在场的人,悬着收尾;绝不替 " + uName + " 做决定。开场即可让一两个队友有一句进场的话或动作,声口要各是各的。\n"
           + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_SETUP;
         const user = "【玩家】" + uName + "\n\n" + members.map(ch => "【队友·" + ch.name + " 人设】\n" + personaOf(ch)).join("\n\n")
           + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame
           + (prior ? "\n\n【已经开过的团(务必避开,换皮重来也算重复)】" + prior : "");
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 6400, timeout: 300000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 7600, timeout: 300000 });
         let p = parseObj(raw);
         if (!p) {
           // 内容多半已经写出来了,只是没按 JSON——花一次小调用原样归类,不整局重烧
           const sys2 = "下面是一段已写好的内容,但没按要求输出 JSON。把它【原样整理】成这个形状:\n" + SHAPE_SETUP + "\n【铁律】只搬运归类,一个字不改写;原文没有的字段留空。只输出 JSON,不要代码块。";
-          try { p = parseObj(await callAI(props.active, sys2, [{ role: "user", content: String(raw || "").slice(0, 9000) }], { maxTokens: 6400, timeout: 150000 })); } catch (e) { p = null; }
+          try { p = parseObj(await callAI(props.active, sys2, [{ role: "user", content: String(raw || "").slice(0, 10000) }], { maxTokens: 7600, timeout: 150000 })); } catch (e) { p = null; }
         }
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
-        const stages = (Array.isArray(p.stages) ? p.stages : []).map(s => typeof s === "string" ? { goal: s, hint: "" } : s && s.goal ? { goal: String(s.goal), hint: String(s.hint || "") } : null).filter(Boolean).slice(0, 6);
+        const stages = (Array.isArray(p.stages) ? p.stages : []).map(s => typeof s === "string" ? { goal: s, hint: "" } : s && s.goal ? { goal: String(s.goal), hint: String(s.hint || ""), place: String(s.place || "").trim() } : null).filter(Boolean).slice(0, 6);
         if (!String(p.world || "").trim() || !String(p.opening || "").trim() || stages.length < 2) throw new Error("设定缺了关键部分(世界/开场/章节),再试一次");
+        // 地图骨架:坏了/缺了不整局报废——这场团就退化成没有地图的纯叙事团,别的照玩
+        const mapRegions = normRegions(p.regions);
+        const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes.map(n => Object.assign({ region: r.name }, n))) : [];
+        const startNode = mapRegions ? (findNode(allNodes, p.place) || allNodes[0]) : null;
+        stages.forEach(s => { if (mapRegions) { const nd = findNode(allNodes, s.place); s.place = nd ? nd.name : ""; } });
         // 属性此刻就掷好摆给她看;「换一版」重生成设定,「重掷属性」只重掷数值
         const party = [{ key: "user", name: uName, hp: 100, maxHp: 100, stats: rollStats() }]
           .concat(members.map(ch => ({ key: ch.id, name: ch.name, hp: 100, maxHp: 100, stats: personaNudge(rollStats(), ch.persona) })));
-        setDraft({ partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, done: false, note: null })), dossier: { truth: p.truth || "", twist: p.twist || "", secrets: p.secrets || "", endgame: p.endgame || "" }, place: String(p.place || "").trim() || "起点", opening: p.opening, choices: normChoices(p.choices, party), party });
+        setDraft({ partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, place: s.place || "", done: false, note: null })), dossier: { truth: p.truth || "", twist: p.twist || "", secrets: p.secrets || "", endgame: p.endgame || "" }, mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, choices: normChoices(p.choices, party), party });
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     const rerollDraftStats = () => setDraft(d => d && Object.assign({}, d, { party: d.party.map(m => Object.assign({}, m, { stats: m.key === "user" ? rollStats() : personaNudge(rollStats(), (charOf(m.key) || {}).persona) })) }));
     const acceptDraft = () => {
-      const openMsg = { id: rid("rm_"), role: "gm", content: draft.opening, ts: Date.now(), snap: { hp: draft.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: [], clues: [], stageIdx: 0, place: draft.place, choices: draft.choices } };
-      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, place: draft.place, party: draft.party, items: [], clues: [], choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
+      const openMsg = { id: rid("rm_"), role: "gm", content: draft.opening, ts: Date.now(), snap: { hp: draft.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: [], clues: [], stageIdx: 0, place: draft.place, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], choices: draft.choices } };
+      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, party: draft.party, items: [], clues: [], choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
       update(list => [c, ...list]); setDraft(null); setKw(""); setPlayId(c.id); setView("play"); setPanelOpen(false);
     };
 
@@ -532,7 +742,7 @@
 
     // ---- 一回合 ----
     const gmSys = c => {
-      const stageLines = c.stages.map((s, i) => (i < c.stageIdx ? "✓ " : i === c.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= c.stageIdx ? s.goal : "(未揭晓,推进到才亮出)") + (i === c.stageIdx && s.hint ? "〔推进思路:" + s.hint + "〕" : "")).join("\n");
+      const stageLines = c.stages.map((s, i) => (i < c.stageIdx ? "✓ " : i === c.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= c.stageIdx ? s.goal + (s.place ? "〔在:" + s.place + "〕" : "") : "(未揭晓,推进到才亮出)") + (i === c.stageIdx && s.hint ? "〔推进思路:" + s.hint + "〕" : "")).join("\n");
       const dd = DIFF[c.difficulty] || DIFF.normal;
       return [narrativeCore(),
         "【跑团·守密人(独立平行时空)】你是这场文字跑团的守密人(GM):叙述世界、扮演一切 NPC,并【完全代入】下面每一位队友本人——写到谁,就是谁在说话行事,用 TA 自己的性格、声口和真实能力(人设在下方),不是在旁边描写一个标签。这是与主线完全无关的平行时空:不引用主线聊天里发生过的事,正文里也不提这是游戏或扮演。",
@@ -541,6 +751,7 @@
         personaBlocks(c),
         "【世界】" + c.world + (c.hook ? "\n【开局处境】" + c.hook : ""),
         "【守密人秘典(玩家永远不可见,不得在正文中直接说破)】\n真相:" + c.dossier.truth + "\n中段翻转:" + c.dossier.twist + "\nNPC 各自的心事:" + c.dossier.secrets + "\n结局方向:" + c.dossier.endgame + "\n伏笔要一点点埋,已经亮给玩家的线索见下方【线索】,别重复埋同一颗。",
+        c.mapRegions ? "【地图(区域·接壤·节点)】\n" + c.mapRegions.map(r => r.name + "(" + r.terrain + ")" + (r.adj.length ? "·接壤:" + r.adj.join("、") : "") + "\n  " + r.nodes.map(n => n.name + "〔" + n.kind + (n.hook ? ":" + n.hook : "") + "〕").join(" / ")).join("\n") + "\n队伍现在位于「" + (c.pos || c.place) + "」。place 只许写地图上已有的节点名;跨节点移动由玩家在地图上发起(会带〔赶路〕指令),你不要自行把队伍挪去别的节点。节点〔〕里的底是你埋的料,按剧情一点点抖,不要一次说穿。" : null,
         "【主线各章】\n" + stageLines + "\n" + (c.stageIdx >= c.stages.length
           ? "各章均已完成:剧情朝落幕收束,把还悬着的线一一收拢,时机成熟就报 ending。"
           : "只有当前章(→)的目标在剧情里【真实发生】后才报 stageDone;一次只推进一章,不许跳章,更不许自导自演替玩家完成。全部章节完成、或剧情自然走到终点时,才报 ending。"),
@@ -599,7 +810,8 @@
         }
         const sys = gmSys(camp);
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
-        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍落脚休整——让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "");
+        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍落脚休整——让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
+          + (mode && mode.travel ? "\n〔赶路〕队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "");
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
         const raw = await callAI(props.active, sys, hist, { maxTokens: (window.StylePresets ? window.StylePresets.outTokens(1400) : 6000), timeout: 300000 });
@@ -607,11 +819,11 @@
         if (!p) throw new Error("守密人的话没能解析成剧情,已拦住协议原文;再按一次重试");
         update(list => list.map(c => {
           if (c.id !== camp.id) return c;
-          const r = applyTurnPayload(c, p);
+          const r = applyTurnPayload(c, p, { travelTo: mode && mode.travel, nodes: nodesOf(c) });
           const nc = r.camp;
           // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
           // 旧存档里已有的 sys 行仍照常渲染
-          const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, choices: nc.choices } }]);
+          const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, pos: nc.pos || "", visited: (nc.visited || []).slice(), choices: nc.choices } }]);
           return Object.assign({}, nc, { msgs });
         }));
         setNote(""); setNoteOpen(false); setDice(false);
@@ -673,7 +885,7 @@
         const p = parseTurnPayload(raw);
         if (!p) throw new Error("这一笔没能解析出来,再试一次");
         // 状态一个字不动:快照原样抄当前值,分支回溯仍然对账
-        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), extra: true, snap: { hp: c.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: c.items, clues: c.clues, stageIdx: c.stageIdx, place: c.place, choices: c.choices } }]) })));
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), extra: true, snap: { hp: c.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), items: c.items, clues: c.clues, stageIdx: c.stageIdx, place: c.place, pos: c.pos || "", visited: (c.visited || []).slice(), choices: c.choices } }]) })));
         setNote(""); setNoteOpen(false);
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
@@ -721,6 +933,8 @@
         msgs: kept, ended: false, epilogue: null, pendingStage: false, pendingEnd: false,
         party: camp.party.map(m => Object.assign({}, m, { hp: snap.hp[m.name] != null ? snap.hp[m.name] : m.hp })),
         items: itemsFix(snap.items), clues: snap.clues.slice(), stageIdx: snap.stageIdx, place: snap.place,
+        // 旧快照没存过位置就沿用现值(没有地图的团两者都空,无感)
+        pos: snap.pos != null ? snap.pos : (camp.pos || ""), visited: Array.isArray(snap.visited) ? snap.visited.slice() : (camp.visited || []).slice(),
         choices: (snap.choices || []).slice(),
         stages: camp.stages.map((s, i) => i < snap.stageIdx ? s : Object.assign({}, s, { done: false, note: null })),
         summary: keepLedger ? camp.summary : "", ledger: keepLedger ? camp.ledger : null,
@@ -856,7 +1070,9 @@
       const toggle = id => setPickIds(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.length >= 4 ? (props.toast("队伍最多 4 名队友"), p) : p.concat([id]));
       const preview = draft && h("div", { style: S.card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
-        [["世界", draft.world], ["开局处境", draft.hook], ["第一章", draft.stages[0] && draft.stages[0].goal], ["后面还有", (draft.stages.length - 1) + " 章(走到才揭晓)"], ["开场", draft.opening]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, String(v))) : null),
+        [["世界", draft.world], ["开局处境", draft.hook],
+         ["地图", draft.mapRegions ? draft.mapRegions.length + " 个区域 · " + draft.mapRegions.reduce((n, r) => n + r.nodes.length, 0) + " 个地点,开局在「" + (draft.pos || "?") + "」(迷雾里的走近了才亮)" : "这一版没长出地图(不影响开团,按纯叙事走)"],
+         ["第一章", draft.stages[0] && (draft.stages[0].goal + (draft.stages[0].place ? "〔在:" + draft.stages[0].place + "〕" : ""))], ["后面还有", (draft.stages.length - 1) + " 章(走到才揭晓)"], ["开场", draft.opening]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, String(v))) : null),
         h("div", { style: S.lbl }, "队伍属性(3d6×5;队友按人设微调)"),
         draft.party.map(m => h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, m.name + ":" + STATS.map(([k, zh]) => zh + " " + m.stats[k]).join(" · "))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "6px 0 8px" } }, "守密人还写好了一份秘典(真相、伏笔与翻转)——落幕之前不给看。"),
@@ -1003,11 +1219,66 @@
       const tailHasRoll = tailMsgs.some(m => m.role === "roll");
       // 卡死自救:没在忙、没有选项、也没有待确认横幅时,给一条「让守密人继续」的路
       const stuck = !busy && !camp.ended && !pendingRetry && !camp.choices.length && !camp.pendingStage && !camp.pendingEnd;
+      // 大地图浮层:迷雾按「去过/听说过(与去过的地方有路相连)/未知」三档;
+      // 章节星标只标已揭晓的章;当前位置一圈脉冲。点节点看详情,相邻才能「前往」。
+      const TERR_TINT = { 山地: "#d9d0c2", 平原: "#dde2cd", 森林: "#cfdac8", 水泽: "#cdd8dc", 荒漠: "#e4d9c2", 城郭: "#ddd3d6" };
+      const mapLayer = (mapOpen && builtMap) ? (() => {
+        const visited = {}; (camp.visited || []).forEach(n => visited[n] = 1);
+        const frontier = {};
+        builtMap.edges.forEach(e => {
+          if (visited[e[0]] && !visited[e[1]]) frontier[e[1]] = 1;
+          if (visited[e[1]] && !visited[e[0]]) frontier[e[0]] = 1;
+        });
+        const starAt = {}; camp.stages.forEach((s, i) => { if (i <= camp.stageIdx && s.place) starAt[s.place] = true; });
+        const sel = selNode ? builtMap.nodes.find(n => n.name === selNode) : null;
+        const adjToPos = mapAdjacent(builtMap.edges, camp.pos);
+        const canGo = sel && !busy && !camp.ended && !pendingRetry && sel.name !== camp.pos && adjToPos.indexOf(sel.name) >= 0;
+        return h("div", { style: { position: "fixed", inset: 0, zIndex: 130, background: t.bg, display: "flex", flexDirection: "column" } },
+          h("div", { style: S.top },
+            h("button", { onClick: () => { setMapOpen(false); setSelNode(null); }, style: { fontSize: 18, color: t.ink, background: "none", border: "none", padding: "0 4px" } }, "←"),
+            h("div", { style: S.h1 }, "舆图 · " + camp.title),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "队伍在「" + (camp.pos || camp.place) + "」")),
+          h("div", { style: { flex: 1, overflowY: "auto", padding: "12px 10px" } },
+            h("svg", { viewBox: "0 0 " + builtMap.W + " " + builtMap.H, style: { width: "100%", display: "block", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+              builtMap.regions.map(r => h("path", { key: "b" + r.name, d: r.blob, fill: TERR_TINT[r.terrain] || t.bg, stroke: t.line, strokeWidth: 1, opacity: 0.75 })),
+              builtMap.regions.map(r => h("text", { key: "t" + r.name, x: r.cx, y: r.cy - 16, textAnchor: "middle", fontSize: 11, fill: t.fog, fontFamily: F_DISPLAY, opacity: 0.85 }, r.name)),
+              builtMap.roads.map((rd, i) => {
+                // 迷雾也罩路:两端都没去过/听说过的路不画
+                const seen = n => visited[n] || frontier[n];
+                if (!(seen(rd.a) && seen(rd.b))) return null;
+                return h("path", { key: "r" + i, d: rd.d, fill: "none", stroke: t.fog, strokeWidth: 1.2, strokeDasharray: "5 4", strokeLinecap: "round", opacity: 0.65 });
+              }),
+              builtMap.nodes.map(nd => {
+                const isV = !!visited[nd.name], isF = !isV && !!frontier[nd.name];
+                if (!isV && !isF) return null;
+                const here = nd.name === camp.pos;
+                return h("g", { key: nd.name, onClick: () => setSelNode(nd.name) },
+                  here ? h("circle", { cx: nd.x, cy: nd.y, r: 9, fill: "none", stroke: t.ink, strokeWidth: 1 },
+                    h("animate", { attributeName: "r", values: "7;12;7", dur: "1.8s", repeatCount: "indefinite" }),
+                    h("animate", { attributeName: "opacity", values: ".8;.1;.8", dur: "1.8s", repeatCount: "indefinite" })) : null,
+                  h("circle", { cx: nd.x, cy: nd.y, r: isV ? 5 : 4.5, fill: isV ? t.ink : t.bg2, stroke: isV ? t.ink : t.fog, strokeWidth: 1.2, strokeDasharray: isF ? "2.5 2.5" : "none" }),
+                  starAt[nd.name] ? h("text", { x: nd.x + 7, y: nd.y - 6, fontSize: 10, fill: "#8a6d3b" }, "★") : null,
+                  h("text", { x: nd.x, y: nd.y + 16, textAnchor: "middle", fontSize: 9.5, fill: isV ? t.ink : t.fog, fontFamily: F_BODY, stroke: t.bg2, strokeWidth: 3, paintOrder: "stroke" }, nd.name),
+                  // 隐形大热区:手指点得准的秘诀(视觉 5px,热区 16px)
+                  h("circle", { cx: nd.x, cy: nd.y, r: 16, fill: "transparent" }));
+              })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.8, margin: "10px 4px 0" } }, "实心=去过 · 虚圈=听说过的方向 · ★=章节目标 · 没亮的地方是迷雾,走近了才知道。")),
+          sel ? h("div", { style: { borderTop: "1px solid " + t.line, background: t.bg2, padding: "12px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, sel.name + (starAt[sel.name] ? " ★" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 3 } }, sel.region + " · " + sel.kind + " · " + (visited[sel.name] ? "去过" : "只是听说过的方向")),
+            h("div", { style: { display: "flex", gap: 8, marginTop: 9 } },
+              sel.name === camp.pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 0" } }, "队伍就在这里")
+              : canGo ? h("button", { onClick: () => { setMapOpen(false); setSelNode(null); turn("(动身前往「" + sel.name + "」)", null, { travel: sel.name }); }, style: S.btn(true) }, "动身前往")
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 0" } }, busy ? "这一拍还没落定" : "太远了——路要一步步走,先去相邻的地点"),
+              h("button", { onClick: () => setSelNode(null), style: S.btn(false) }, "收起"))) : null);
+      })() : null;
       return h("div", { style: S.wrap }, badges(),
         camp.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(camp.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
-        ceremonyLayer, msgSheet, photoSheet, bigViewer,
+        ceremonyLayer, msgSheet, photoSheet, bigViewer, mapLayer,
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } },
-        header(camp.title + " · " + (camp.place || ""), h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "队伍与线索")),
+        header(camp.title + " · " + (camp.place || ""), h("div", { style: { display: "flex", gap: 6 } },
+          builtMap ? h("button", { onClick: () => { setSelNode(camp.pos || null); setMapOpen(true); }, style: S.btn(false) }, "🗺 舆图") : null,
+          h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "队伍与线索"))),
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow, epFlow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "守密人在推演命运…") : null),
@@ -1071,5 +1342,5 @@
   }
   if (inApp) window.TrpgApp = TrpgApp;
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits };
+  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode };
 })();

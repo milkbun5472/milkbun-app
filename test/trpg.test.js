@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem } = require("../js/trpg.js");
+const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode } = require("../js/trpg.js");
 
 // ============================================================
 // 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
@@ -285,6 +285,62 @@ test("追加一笔:不动状态、不换选项、时钟原地", () => {
   assert.match(fn, /只加戏,不推进/);
   assert.ok(!/applyTurnPayload/.test(fn), "追加一笔绝不走状态落账");
   assert.match(fn, /choices: c\.choices/, "快照里选项原样保留");
+});
+
+// ---- 大地图:接壤驱动布局,路和可走图同一趟生成 ----
+const RAW_REGIONS = [
+  { name: "风语镇", terrain: "平原", adj: ["暗影林"], nodes: [{ name: "老磨坊", kind: "城镇", hook: "磨坊主见过那封信" }, { name: "河渡口", kind: "野外" }] },
+  { name: "暗影林", terrain: "森林", adj: ["风语镇", "不存在的区"], nodes: [{ name: "猎人小屋", kind: "地标" }] },
+  { name: "灰岩堡", terrain: "山地", adj: [], nodes: [{ name: "堡门", kind: "城郭不合法的kind" }] }
+];
+
+test("normRegions:接壤只认存在的名字并补对称,kind 不合法就归野外", () => {
+  const rs = normRegions(RAW_REGIONS);
+  assert.equal(rs.length, 3);
+  assert.deepEqual(rs[0].adj, ["暗影林"]);
+  assert.deepEqual(rs[1].adj, ["风语镇"], "不存在的区被过滤");
+  assert.equal(rs[2].nodes[0].kind, "野外");
+  assert.equal(normRegions([RAW_REGIONS[0]]), null, "少于 2 个区不成图");
+});
+
+test("mapBuild:同种子同图;节点在画布内;路的条数=可走边的条数(同一趟生成)", () => {
+  const a = mapBuild("rpg_seed1", RAW_REGIONS), b = mapBuild("rpg_seed1", RAW_REGIONS);
+  assert.deepEqual(a, b, "布局是 (种子,骨架) 的纯函数");
+  assert.equal(a.nodes.length, 4);
+  a.nodes.forEach(n => assert.ok(n.x > 0 && n.x < a.W && n.y > 0 && n.y < a.H));
+  assert.equal(a.roads.length, a.edges.length, "画出来的路永远等于能走的边——两者同一循环里生成");
+});
+
+test("mapBuild:模型漏写接壤也不出孤岛,所有节点连通", () => {
+  // 灰岩堡 adj 为空 → 靠并查集兜底补桥
+  const m = mapBuild("rpg_seed2", RAW_REGIONS);
+  const seen = { [m.nodes[0].name]: 1 };
+  const queue = [m.nodes[0].name];
+  while (queue.length) {
+    const cur = queue.shift();
+    mapAdjacent(m.edges, cur).forEach(nx => { if (!seen[nx]) { seen[nx] = 1; queue.push(nx); } });
+  }
+  assert.equal(Object.keys(seen).length, m.nodes.length, "从任一节点出发走得到全图");
+});
+
+test("位置只跟节点表走:前往优先,place 模糊对上也算,对不上不动", () => {
+  const nodes = normRegions(RAW_REGIONS).flatMap(r => r.nodes);
+  const base = Object.assign(camp0(), { pos: "老磨坊", visited: ["老磨坊"] });
+  const r1 = applyTurnPayload(base, { place: "猎人小屋" }, { nodes });
+  assert.equal(r1.camp.pos, "猎人小屋");
+  assert.deepEqual(r1.camp.visited, ["老磨坊", "猎人小屋"]);
+  assert.match(r1.chips.map(c => c.txt).join("|"), /抵达·猎人小屋/);
+  const r2 = applyTurnPayload(base, { place: "没有这个地方" }, { nodes });
+  assert.equal(r2.camp.pos, "老磨坊", "对不上节点名就不挪队伍");
+  const r3 = applyTurnPayload(base, { place: "猎人小屋" }, { nodes, travelTo: "河渡口" });
+  assert.equal(r3.camp.pos, "河渡口", "玩家亲点的「前往」优先于守密人的 place");
+});
+
+test("地图接线:迷雾不渲染未知节点,快照带位置,守密人不许自行挪队", () => {
+  assert.match(src, /if \(!isV && !isF\) return null/, "没去过也没听说过的节点不进 DOM");
+  assert.match(src, /pos: nc\.pos \|\| ""/, "每拍快照记位置,分支回溯不迷路");
+  assert.match(src, /你不要自行把队伍挪去别的节点/);
+  assert.match(src, /r: 16, fill: "transparent"/, "隐形大热区,手指点得准");
 });
 
 // ---- 秘典:开团即生成,落幕前不给看 ----
