@@ -3930,7 +3930,22 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
   };
   const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
+  if (!editing) return h("div", null,
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "图像站点"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点进去单独编辑")),
+      h("button", { onClick: () => addSite(false), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增站点")),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, store.profiles.map(p =>
+      h("div", { key: p.id, onClick: () => { switchSite(p.id); setEditing(true); }, className: "active:opacity-75", style: { minHeight: 120, padding: "13px", borderRadius: 18, cursor: "pointer", background: t.bg2, border: "1px solid " + t.line, display: "flex", flexDirection: "column", boxShadow: "0 7px 18px rgba(60,50,40,.05)" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        h("div", { className: "flex", style: { gap: 9, marginTop: "auto", paddingTop: 9 } },
+          h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink } }, "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "复制副本"),
+          store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null)))));
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
+    h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 12 } }, "← 返回图像站点"),
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "语音 TTS · 角色真发声"),
@@ -4128,6 +4143,7 @@ function AvatarPoolConfig({ toast }) {
 function ImageApiConfig({ toast }) {
   const t = useTheme();
   const [store, setStore] = useState(() => (typeof loadImgApiProfiles === "function" ? loadImgApiProfiles() : { activeId: "legacy", profiles: [Object.assign({ id: "legacy", name: "图像站 1" }, typeof loadImgApi === "function" ? loadImgApi() : {})] }));
+  const [editing, setEditing] = useState(false);
   const c = store.profiles.find(p => p.id === store.activeId) || store.profiles[0];
   const persist = next => { const clean = typeof saveImgApiProfiles === "function" ? saveImgApiProfiles(next) : next; setStore(clean); return clean; };
   const set = patch => {
@@ -4141,7 +4157,7 @@ function ImageApiConfig({ toast }) {
     const from = source || c;
     const base = copy ? Object.assign({}, from) : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
     const profile = Object.assign({}, base, { id, name: copy ? ((from.name || "图像站") + " · 副本") : ("图像站 " + n) });
-    persist({ version: 2, activeId: id, profiles: store.profiles.concat(profile) }); setModels([]); setTestRes(null);
+    persist({ version: 2, activeId: id, profiles: store.profiles.concat(profile) }); setModels([]); setTestRes(null); setEditing(true);
     toast && toast(copy ? "已复制并切到新站点" : "已新增图像站");
   };
   const removeSite = id => {
@@ -4210,7 +4226,7 @@ function ImageApiConfig({ toast }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像 API · 角色照片"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接一个 OpenAI 兼容的图像接口（gpt-image 类）。开了之后，给角色填了『外貌/参考照』的，聊天里会偶尔发照片（自拍／别人拍的／和你的合照）。想要合照，还要在「我的面具」里填你自己的外貌或传参考照。按张计费、比文字贵，别乱开；生成的图只存在本机、不进云同步。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启角色自拍（按张计费）" : "已关闭"); } })),
-    h("div", { style: { marginTop: 12, padding: "13px 12px", borderRadius: 18, background: t.bg2, border: "1px solid " + t.line } },
+    false && h("div", { style: { marginTop: 12, padding: "13px 12px", borderRadius: 18, background: t.bg2, border: "1px solid " + t.line } },
       h("div", { className: "flex items-center justify-between", style: { gap: 8, marginBottom: 8 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像站点"),
         h("div", { className: "flex", style: { gap: 6 } },
@@ -4229,6 +4245,7 @@ function ImageApiConfig({ toast }) {
       h("div", { className: "flex items-center", style: { gap: 7, marginTop: 9 } },
         h("input", { value: c.name || "", onChange: e => set({ name: e.target.value }), placeholder: "站点名称", style: Object.assign({}, inSt, { flex: 1, padding: "7px 10px", fontSize: 12.5 }) }),
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "当前卡片名称"))),
+    row("站点名称", h("input", { value: c.name || "", onChange: e => set({ name: e.target.value }), placeholder: "给这个图像站起个名字", style: inSt })),
     c.enabled ? h("div", { className: "pt-3" },
       row("接口地址 Base URL", h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "如 https://xxx.com（会自动补 /v1/images）", style: inSt })),
       row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "sk-…", type: "password", style: inSt })),
@@ -4580,6 +4597,15 @@ function ConfigTileGrid({ children }) {
   return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12, paddingTop: 12 } }, children);
 }
 
+function ConfigPanel({ children, flush }) {
+  const t = useTheme();
+  return h("div", { style: {
+    marginTop: 12, marginBottom: 14, padding: flush ? 0 : "16px 15px", overflow: "hidden",
+    borderRadius: 22, background: t.bg2, border: "1px solid " + t.line,
+    boxShadow: "0 9px 24px rgba(60,50,40,.045)"
+  } }, children);
+}
+
 function LegacyConfig({
   apiProfiles,
   activeId,
@@ -4739,9 +4765,10 @@ function Config(props) {
   };
   const m = meta[page] || meta.home;
   const back = page === "home" ? props.onBack : () => (/^api[A-Z]/.test(page) ? setPage("api") : setPage("home"));
-  const section = child => h("div", { style: { paddingTop: 8, paddingBottom: 30 } }, child);
+  const section = child => h("div", { style: { paddingTop: 4, paddingBottom: 30 } }, h(ConfigPanel, null, child));
+  const eyebrow = page === "home" ? h("span", { onClick: e => { e.stopPropagation(); toyKnock(); }, style: { display: "inline-block", padding: "5px 16px 5px 0" } }, m[1]) : m[1];
   return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: m[0], en: m[1], onBack: back }),
+    h(Head, { zh: m[0], en: eyebrow, onBack: back }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
       page === "home" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "⌘", title: "API 与模型", sub: "文字、图像、语音、向量与真声接口", onClick: () => setPage("api") }),
@@ -4750,7 +4777,7 @@ function Config(props) {
         h(ConfigTile, { icon: "?", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa") }),
         h(ConfigTile, { icon: "◐", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
         h(ConfigTile, { icon: "◒", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
-        h(ConfigTile, { icon: "▤", title: "数据管理", sub: "备份、迁移、存储与清理", onClick: () => { toyKnock(); setPage("data"); } }),
+        h(ConfigTile, { icon: "▤", title: "数据管理", sub: "备份、迁移、存储与清理", onClick: () => setPage("data") }),
         h(ConfigTile, { icon: "⌁", title: "上下文诊断", sub: "只读查看模型实际收到的内容", onClick: () => setPage("debug") }),
         toyUnlocked && typeof ToyConfig === "function" ? h(ConfigTile, { icon: "◇", title: "本地配件", sub: "仅本机的隐藏配件设置", onClick: () => setPage("toy"), wide: true }) : null),
       page === "api" && h(ConfigTileGrid, null,
@@ -4801,6 +4828,7 @@ function ApiConfig({
   const [dd, setDd] = useState(false);
   const [models, setModels] = useState([]);
   const [fetching, setFetching] = useState(false);
+  const [editing, setEditing] = useState(false);
   const cur = list.find(p => p.id === curId) || list[0];
   const upd = patch => setList(l => l.map(p => p.id === cur.id ? {
     ...p,
@@ -4819,6 +4847,7 @@ function ApiConfig({
     setCurId(np.id);
     setModels([]);
     setDd(false);
+    setEditing(true);
   };
   const duplicateProfile = source => {
     const np = {
@@ -4826,7 +4855,7 @@ function ApiConfig({
       id: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
       name: (String(source.name || source.model || "API").trim() || "API") + " · 副本"
     };
-    setList(l => [...l, np]); setCurId(np.id); setModels([]); setDd(false);
+    setList(l => [...l, np]); setCurId(np.id); setModels([]); setDd(false); setEditing(true);
     toast && toast("副本已建立，改好后点保存");
   };
   const removeProfile = source => {
@@ -4851,14 +4880,40 @@ function ApiConfig({
       setFetching(false);
     }
   };
+  if (!editing) return h("div", null,
+    onSetModelFloat && h(ConfigPanel, null,
+      h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
+        h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "模型快速切换浮窗"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "线上、线下分别切换；角色专线不受影响。")),
+        h("button", { onClick: () => onSetModelFloat(!modelFloatOn), style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
+          h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 18, marginBottom: 10 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "API 方案"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点进去单独编辑")),
+      h("button", { onClick: addNew, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增方案")),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, list.map(p =>
+      h("div", { key: p.id, onClick: () => { setCurId(p.id); setModels([]); setDd(false); setEditing(true); }, className: "active:opacity-75", style: {
+        minHeight: 124, padding: "13px 13px 10px", borderRadius: 18, cursor: "pointer",
+        background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 7px 18px rgba(60,50,40,.05)", display: "flex", flexDirection: "column"
+      } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name || "未命名配置"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        h("div", { className: "flex items-center", style: { gap: 9, marginTop: "auto", paddingTop: 10 } },
+          h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "复制副本"),
+          list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "删除") : null,
+          p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "主") : null)))));
   return /*#__PURE__*/React.createElement("div", null,
-  onSetModelFloat && h("div", { style: { marginTop: 2, marginBottom: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, background: t.bg2 } },
+  h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
+  false && onSetModelFloat && h("div", { style: { marginTop: 2, marginBottom: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, background: t.bg2 } },
     h("div", null,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "模型快速切换浮窗"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "开启后显示右侧 AI 圆点；线上、线下分别切换，角色专线不受影响。")),
     h("button", { onClick: () => onSetModelFloat(!modelFloatOn), className: "active:opacity-70", style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
       h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } }))),
-  h("div", { style: { marginTop: 12, marginBottom: 22 } },
+  false && h("div", { style: { marginTop: 12, marginBottom: 22 } },
     h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "API 方案"),
