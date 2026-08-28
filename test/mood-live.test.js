@@ -5,6 +5,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 
 // 她 2026-08-24：「实时心情也好久不会变了」。
 // 病根不在管道（setMoodFor 一直好好的），在线下协议自己写着：
@@ -56,4 +57,15 @@ test("计数写完之后才读 liveState，否则会被下一句盖掉", () => {
   const off = app.indexOf("else _moodSkip(charId, false);");
   const live = app.indexOf("const liveState = statesRef.current[charId] || {};", off);
   assert.ok(live > off && live - off < 400, "线下：liveState 必须在 _moodSkip 之后读");
+});
+
+// 她 2026-08-28：「为啥线下也还是不会换实时心情？王爷一直在『好笑』」。
+// 看着不动有两种完全不同的病：模型每轮都报了同一个词，和这个角色的心情【压根没人写过】
+// （闭群只进不出、配角被挡、模型漏字段）。卡上不写上次写入时间，这两种分不开。
+test("实时心情卡要摆出上次写入时间，别让「没人写过」看起来像「一直是这个心情」", () => {
+  assert.match(comp, /上次写入：" \+ timeAgo\(dm\.ts\)/);
+  assert.match(comp, /!dm\.def && dm\.ts \?/, "默认心情没有写入时间可摆，别显示");
+  const i = comp.indexOf("上次写入：");
+  assert.ok(comp.lastIndexOf("实时心情", i) > 0 && i - comp.lastIndexOf("实时心情", i) < 1500,
+    "这一行得挂在实时心情那张卡上");
 });

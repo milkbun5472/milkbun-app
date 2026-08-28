@@ -113,7 +113,8 @@ test("简介能展开看全文，也能就地改", () => {
 test("配角的状态卡不许摆出永远不会动的心情和好感", () => {
   assert.match(app, /isNpc: !!scc\.npc,/);
   assert.match(comp, /dm && !isNpc && /, "实时心情那张卡");
-  assert.match(comp, /默认，聊几句会变化"\)\)\), !isNpc && /, "好感度那张卡");
+  // 心情卡尾部现在多了一行「上次写入：…」（v56.96 的诊断），好感度卡仍要紧跟其后并挡住配角
+  assert.match(comp, /上次写入：" \+ timeAgo\(dm\.ts\)\) : null\), !isNpc && /, "好感度那张卡");
   // 穿着/动作/心声照旧显示——那些是真的
   assert.doesNotMatch(comp, /!isNpc && .*hideWearAction/);
 });

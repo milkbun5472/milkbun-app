@@ -5955,7 +5955,17 @@ function StateCard({
       color: t.fog,
       fontFamily: F_BODY
     }
-  }, " · 默认，聊几句会变化"))), !isNpc && /*#__PURE__*/React.createElement(GlassCard, {
+  }, " · 默认，聊几句会变化")),
+  // 心情看着“不会变”时，分不清是模型每轮都报了同一个词，还是压根没人写过它。
+  // 把上一次写入时间摆出来，一眼就能分（她 2026-08-28 问「为啥线下也不换实时心情」）。
+  !dm.def && dm.ts ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontFamily: F_BODY,
+      fontSize: 11,
+      color: t.fog,
+      marginTop: 4
+    }
+  }, "上次写入：" + timeAgo(dm.ts)) : null), !isNpc && /*#__PURE__*/React.createElement(GlassCard, {
     style: {
       padding: 16,
       marginBottom: 12,
