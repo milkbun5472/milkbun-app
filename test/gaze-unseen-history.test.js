@@ -91,22 +91,44 @@ test("改写即清已读——别靠时间戳，同一毫秒会失效", () => {
 
 // 她 2026-08-27：「8.16 到现在都没有改过」——机制通的，是模型每次都选了「照旧省略」，
 // 而那句劝的话自己还留着这个出口。攒够更多轮就不再问，直接要一块。
-test("攒到 FORCE_TURNS 就从劝升级成必须动一块", () => {
+// 她 2026-08-27：「那其他块岂不是永远没有改的机会了」——
+// 上一版给的「挑不出就写 recent」会让 recent 变成万能出口，另外九块照样冻着。
+// 改成按【最久没被碰过】轮询点名；写过或复看过都算碰过，碰完排到队尾。
+test("点名轮询：写过或看过都算碰过，下一轮换别的块", () => {
   const { G } = loadGaze();
-  G.apply("c5", "me", "person", "起点");
-  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("c5");
-  const soft = G.spec("Lisa", "c5");
-  assert.match(soft, /真的什么都没变,就照旧省略/, "这一档还是劝");
-  assert.ok(!/本轮必须动一块/.test(soft));
-  for (let i = 0; i < G.FORCE_TURNS; i++) G.tick("c5");
-  const hard = G.spec("Lisa", "c5");
-  assert.match(hard, /【本轮必须动一块】/);
-  assert.match(hard, /不许省略/);
-  assert.ok(!/照旧省略/.test(hard), "硬的那一档不能再留「省略」这个出口");
-  assert.match(hard, /me\.recent\(最近的她\)/, "得给一个挑不出来时的落点");
-  // 写了就归零，别一直硬着
-  G.apply("c5", "me", "recent", "这阵子她忙得没怎么说话");
-  assert.ok(!/本轮必须动一块/.test(G.spec("Lisa", "c5")), "写过就该松回去");
+  G.apply("c7", "me", "person", "起点");
+  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("c7");
+  const first = G.dueBlock("c7").k;
+  assert.notEqual(first, "me.person", "刚写过的那块不该被点名");
+  // 说「看过了不用改」也算碰过 → 排到队尾
+  G.markChecked("c7", first);
+  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("c7");
+  assert.notEqual(G.dueBlock("c7").k, first, "复看过还点同一块，就等于没轮转");
+  // 十块轮一圈，一块都不会被落下
+  const seen = new Set([first]);
+  for (let n = 0; n < 12; n++) {
+    const k = G.dueBlock("c7").k;
+    seen.add(k); G.markChecked("c7", k);
+  }
+  assert.equal(seen.size, Object.keys(G.KEYS).length, "轮一圈该把十块都点到");
+});
+
+test("复看不亮红点，但要在卡片上说一句「又想了一遍·没改」", () => {
+  const { G } = loadGaze();
+  G.apply("c8", "me", "soft", "怕被丢下");
+  G.markSeen("c8", "me.soft");
+  G.markChecked("c8", "me.soft");
+  assert.equal(G.unseenCount("c8"), 0, "只是复看，没改内容，不该亮红点");
+  assert.ok(G.checkedAt("c8", "me.soft") > 0);
+  const gaze = fs.readFileSync(path.join(__dirname, "..", "js", "gaze.js"), "utf8");
+  assert.match(gaze, /又想了一遍 · 没改/, "卡片上没写出来的话，「没改」看着就像被忘了");
+});
+
+test("app 侧真的把 impressionChecked 接住了", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /parsed\.impressionChecked && window\.Gaze\.markChecked/, "没接");
+  assert.match(app, /window\.Gaze\.normKey\("", String\(parsed\.impressionChecked\)\)/, "块名也要走容错");
+  assert.match(app, /impressionChecked:"块名"=对【本轮被点名复看的那一块】表态/, "字段字典里没写");
 });
 
 // 以前块名写歪就静悄悄丢掉，看上去就是「他从来不写」

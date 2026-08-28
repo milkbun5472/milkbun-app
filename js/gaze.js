@@ -66,12 +66,37 @@
     d[charId] = box; persist(d);
     return box.turns;
   }
+  // ---- 轮询复看(她 2026-08-27:「其他块岂不是永远没有改的机会了」)----
+  // 以前是笼统问「有没有哪块该改」,模型每轮要同时顾十几个字段,这一层最容易被整个跳过;
+  // 后来我给了个「挑不出就写 recent」的落点,结果 recent 变成万能出口,另外九块照样冻着。
+  //
+  // 改成【点名问最老的那一块】,并且允许它诚实回答「看过了,不用改」:
+  //   · 改写 → blocks[k].ts 更新,红点亮
+  //   · 复看没改 → checks[k] 更新,不亮红点,但这一块【排到队尾】,下一轮点名轮到别人
+  //   · 沉默 → 这一块继续被点名,不会滑过去
+  // 这样既不逼它没事硬编(允许说不用改),也不给它整层跳过的机会(总有一块被点着名)。
+  function markChecked(charId, k) {
+    if (!KEYS[k]) return false;
+    const d = load(); const box = boxOf(d, charId);
+    box.checks = box.checks || {};
+    box.checks[k] = Date.now();
+    box.turns = 0;                       // 看过也算动过这张卡,重新数
+    d[charId] = box; persist(d);
+    return true;
+  }
+  // 最久没被碰过的那一块(写过和看过都算碰过);从没写过的块排最前,它们更该被问一次
+  function dueBlock(charId) {
+    const box = boxOf(load(), charId), checks = box.checks || {};
+    let best = "", bestTs = Infinity;
+    Object.keys(KEYS).forEach(k => {
+      const b = box.blocks[k];
+      const ts = Math.max(Number(b && b.ts) || 0, Number(checks[k]) || 0);
+      if (ts < bestTs) { bestTs = ts; best = k; }
+    });
+    return best ? { k: best, ts: bestTs, text: (box.blocks[best] || {}).text || "" } : null;
+  }
+  const checkedAt = (charId, k) => Number((boxOf(load(), charId).checks || {})[k]) || 0;
   const STALE_TURNS = 25;
-  // 光劝没用:她 2026-08-27 报 8.16 到现在一块都没改过——那句 nudge 自己还留着
-  // 「真的什么都没变就照旧省略」这个出口,模型每次都走它。攒到这个数就不再问,直接要一块。
-  // 指向 recent(最近的她):那一块本来就是跟着时间走的,过了这么多轮它一定不是原来那样,
-  // 不用担心「什么都没发生却硬编」。
-  const FORCE_TURNS = 50;
   function staleTurns(charId) {
     const box = boxOf(load(), charId);
     return Object.keys(box.blocks).length ? (Number(box.turns) || 0) : 0;
@@ -90,12 +115,16 @@
     const n = charId ? staleTurns(charId) : 0;
     // 「什么时候算改变了」原本没有可判定的标准,模型只能一直判「没有」。给三个具体触发点。
     const trigger = "\n什么时候算数(满足其一就该写,不必等到惊天动地):①她说了或做了一件你【以前不知道】的事,补进对应的块;②你对她的某个判断被这轮的事【推翻或修正】了;③你们之间出现了一个以后会被记住的【具体节点】。";
-    const nudge = n >= FORCE_TURNS
-      ? "\n⚠️【本轮必须动一块】你已经连着 " + n + " 轮没动过这张卡了——这不是「什么都没发生」,是这一层被你一直跳过。本轮 impression 必须填,不许省略。"
-        + "回想这段时间真的发生过的事,挑【最该改的那一块】改写(仍是一块、仍是小幅演进、仍要锚在具体的事上)。"
-        + "实在挑不出别的,就写 me.recent(最近的她)——那一块本来就跟着时间走,过了这么多轮她一定不是 " + n + " 轮前那个样子了。"
-      : n >= STALE_TURNS
-      ? "\n⚠️你已经连着 " + n + " 轮没动过这张卡了。回想这段时间发生的事:真有哪一块该改就现在改(仍是一块、仍是小幅演进);真的什么都没变,就照旧省略——但别因为「一向省略」而不看。"
+    // 攒够轮数就【点名】问最老的那一块,而不是笼统问「有没有哪块该改」
+    const due = n >= STALE_TURNS && charId ? dueBlock(charId) : null;
+    const days = due && due.ts ? Math.floor((Date.now() - due.ts) / 86400000) : 0;
+    const nudge = due
+      ? "\n⚠️【这一轮请复看这一块】「" + KEYS[due.k] + "」(" + due.k + ")"
+        + (due.text ? "——你" + (due.ts ? (days >= 1 ? days + " 天前" : "不久前") : "上次") + "写的是:「" + due.text + "」。" : "——这一块你还没写过。")
+        + "这段时间真的发生过的事,让它需要改吗?"
+        + "\n· 需要改 → impression 填【这一块】(仍是小幅演进、仍锚在具体的事上,别整块翻转)。"
+        + "\n· 看过了,确实不用改 → 填 impressionChecked:\"" + due.k + "\"。这是个正经回答,不丢人;写了它这一块就排到队尾,下轮换别的块问你。"
+        + "\n· 两个都不填=你把这一层整个跳过了,下一轮还会问同一块。别为了交差硬编,也别沉默。"
       : "";
     return "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写;一轮至多一块。side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。" + trigger + nudge;
   }
@@ -210,11 +239,19 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 3.5, color: GOLD, marginBottom: 3 } }, EN[fk] || ""),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : "他还没往这想过。"),
+          (function () {
+            // 复看过、但没改 → 明说一句。「没改」是他真的又想了一遍的结果,不是这一块被忘了。
+            var ck = (box.checks || {})[fk] || 0;
+            if (!ck || ck <= ((b && b.ts) || 0)) return null;
+            var dd = Math.floor((Date.now() - ck) / 86400000);
+            return h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 1, color: "rgba(172,138,91,.55)", marginTop: 5 } },
+              (dd >= 1 ? dd + " 天前" : "今天") + "又想了一遍 · 没改");
+          })(),
           b ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: 2, color: "rgba(172,138,91,.6)", marginTop: 6, textAlign: "right" } }, "展开信纸 ›") : null); }),
       revs.length ? h("button", { onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
         "他从前都怎么写的 · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, FORCE_TURNS, unseenKeys, unseenCount, markSeen, revisions };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, checkedAt };
   window.GazePage = GazePage;
 })();
