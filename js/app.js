@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.97";
+const APP_VERSION = "v56.98";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5299,13 +5299,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
         const a = room.actions || {}, w = room.writeback || {};
-        if (!a.moments) { parsed.moment = null; parsed.momentComment = null; }
-        if (!a.photos) parsed.photo = null;
-        if (!a.map) parsed.location = null;
-        if (!a.wallet) { parsed.transfer = null; parsed.gift = null; parsed.kinshipcard = null; }
+        // 照片、地图是聊天原生能力，不做房间开关。
+        // 朋友圈、论坛与钱包只归主聊天；侧房不会偷偷触发这些全局动作。
+        if (!room.main) {
+          parsed.moment = null; parsed.momentComment = null;
+          parsed.transfer = null; parsed.gift = null; parsed.kinshipcard = null;
+        }
         if (!a.games) parsed.game = null;
         if (!a.study) parsed.study = null;
-        if (!a.diary) parsed.diary = null;
+        // 日记不授权给角色代写；专用日记信箱走自己的链，不经过聊天回复协议。
+        parsed.diary = null;
         if (!w.sharedState) {
           parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
           parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
@@ -11832,7 +11835,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
-    onOpenRooms: () => setChatRoomsOpen(true),
+    onOpenRooms: () => setChatSettingsOpen(true),
     toast: toast,
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
@@ -12632,6 +12635,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSaveTemperament: saveTemperamentAnchors,
     aShadowPanel: aShadowPanel,
     jiwenState: (typeof window !== "undefined" && window.__jiwen && window.__jiwen[activeChar.id] && window.__jiwen[activeChar.id].state) || null,
+    activeRoomId: activeRoomId,
+    onSelectRoom: (roomId, close) => {
+      setActiveRoomId(roomId || "main");
+      if (close) setChatSettingsOpen(false);
+    },
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);

@@ -20,15 +20,21 @@ test("main chat and every side room use independent history keys", () => {
 
 test("three permission groups persist independently, including main chat actions", () => {
   const main = Rooms.get("p1", "main");
-  main.actions.wallet = false;
+  main.actions.study = false;
   main.cognition.formalMemory = false;
   main.writeback.sharedState = true;
   Rooms.save("p1", main);
   const again = Rooms.get("p1", "main");
-  assert.equal(again.actions.wallet, false);
+  assert.equal(again.actions.study, false);
   assert.equal(again.cognition.formalMemory, false);
   assert.equal(again.writeback.sharedState, true);
-  assert.equal(Rooms.list("p1")[0].actions.wallet, false);
+  assert.equal(Rooms.list("p1")[0].actions.study, false);
+});
+
+test("room action switches expose only explicit extras", () => {
+  assert.deepEqual(Rooms.GROUPS.actions.map(([key]) => key), ["study", "games"]);
+  const side = Rooms.create("p1", "侧房", "everyday");
+  assert.match(Rooms.prompt(side, []), /侧房不触发朋友圈、论坛、钱包或日记/);
 });
 
 test("isolated preset keeps only its own history and receives no main delta", () => {

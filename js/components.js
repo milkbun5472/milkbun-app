@@ -3273,7 +3273,7 @@ function ChatThread({
   const inited = useRef(false); // 首次进入聊天：瞬间落底，不用 smooth（否则从顶部慢慢滚像跳到很上面）
   const pressTimer = useRef(null);
   const cName = character.remark || character.name;
-  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["anon", "匿名箱", "forum"], ["moments", "朋友圈", "wechat"], ["transfer", "转账", "wallet"], ["pat", "拍一拍", "wechat"]];
+  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["anon", "匿名箱", "forum"], ["moments", "朋友圈", "wechat"], ["transfer", "转账", "wallet"], ["pat", "拍一拍", "wechat"]].filter(([key]) => room && !room.main ? !["anon", "moments", "transfer"].includes(key) : true);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -3480,15 +3480,14 @@ function ChatThread({
     size: 20,
     color: t.ink
   }))),
-  room && h("button", {
-    onClick: onOpenRooms,
-    className: "shrink-0 w-full flex items-center active:opacity-70",
+  room && !room.main && h("div", {
+    className: "shrink-0 w-full flex items-center",
     style: { padding: "7px 16px", gap: 8, background: dsp.chatBg ? "rgba(255,255,255,0.45)" : t.bg2, borderBottom: "1px solid " + t.line }
   },
     h("span", { style: { width: 7, height: 7, borderRadius: 99, background: room.main ? t.fog : t.tint } }),
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, room.name),
     !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "手动补课" : "独立时间线"),
-    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "换房 / 设置")
+    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "侧房")
   ),
   // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
   schedNow && h("button", {
@@ -8531,14 +8530,14 @@ function SettingSection({ title, open, onToggle, danger, children }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
     open ? h("div", { className: "pb-3" }, children) : null);
 }
-function ChatRoomSheet({ character, activeRoomId, onSelect, onClose }) {
+function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, embedded }) {
   const t = useTheme();
   const Kit = window.ChatRooms;
   const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
   const [editingId, setEditingId] = useState(activeRoomId || "main");
   const [draft, setDraft] = useState(() => Kit ? Kit.get(character.id, activeRoomId || "main") : null);
   const [creating, setCreating] = useState(false);
-  if (!Kit || !draft) return h(Sheet, { onClose, tall: true }, "房间模块未加载");
+  if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); };
   const patch = p => setDraft(d => ({ ...d, ...p }));
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
@@ -8557,25 +8556,35 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose }) {
     const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true);
   };
-  return h(Sheet, { onClose, tall: true },
+  const editor = h("div", { style: { minWidth: 0 } },
     h("div", { className: "flex items-center justify-between" }, h("div", null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "房间与权限"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "同一个人，不同房间各有自己的聊天与门钥匙")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, draft.name),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, draft.main ? "主聊天的额外权限" : "独立聊天记录与房间边界")),
       h("button", { onClick: save, style: { fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "保存")),
-    h("div", { className: "flex gap-2 overflow-x-auto", style: { margin: "16px -4px 0", padding: "0 4px 6px" } },
-      rooms.map(r => h("button", { key: r.id, onClick: () => pick(r.id), style: { flexShrink: 0, padding: "8px 13px", borderRadius: 999, border: "1px solid " + (editingId === r.id ? t.ink : t.line), background: editingId === r.id ? t.ink : "transparent", color: editingId === r.id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12 } }, r.name)),
-      [["everyday","＋日常"],["focused","＋专注"],["isolated","＋隔离"]].map(([preset, label]) => h("button", { key: preset, onClick: () => add(preset), style: { flexShrink: 0, padding: "8px 11px", borderRadius: 999, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 11.5 } }, label))),
     h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), disabled: draft.main, placeholder: "给房间起个名字", style: { width: "100%", marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 16, outline: "none", opacity: draft.main ? .65 : 1 } }),
     !draft.main && h("div", { style: { marginTop: 14 } },
       h(Eyebrow, null, "主线同步"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
     group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
-    group("actions", "行动权限", "决定这间房能实际调用哪些 App / Agent 能力；主聊天也可以关。"),
+    group("actions", "额外行动", "只管一起学和小游戏。照片、地图是聊天原生能力；朋友圈、论坛和钱包只归主聊天；日记不交给角色代写。"),
     group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
     h("div", { className: "flex gap-2", style: { marginTop: 20, paddingBottom: 12 } },
       h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),
       !draft.main && !creating && h("button", { onClick: () => { if (!window.confirm("删除房间入口？本房记录先保留，不会被硬删。")) return; Kit.remove(character.id, draft.id); setRooms(Kit.list(character.id)); pick("main"); }, style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
     ));
+  const sidebar = h("div", { style: { minWidth: 0, paddingRight: 10, borderRight: "1px solid " + t.line } },
+    h(Eyebrow, null, "房间"),
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginTop: 10 } },
+      rooms.map(r => h("button", { key: r.id, onClick: () => pick(r.id), style: { width: "100%", padding: "9px 8px", borderRadius: 11, border: "1px solid " + (editingId === r.id ? t.ink : t.line), background: editingId === r.id ? t.ink : "transparent", color: editingId === r.id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11.5, textAlign: "left", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name))),
+    h("div", { style: { marginTop: 15, paddingTop: 12, borderTop: "1px dashed " + t.line } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginBottom: 7 } }, "新建"),
+      [["everyday","日常房"],["focused","专注房"],["isolated","隔离房"]].map(([preset, label]) => h("button", { key: preset, onClick: () => add(preset), style: { width: "100%", display: "block", padding: "7px 6px", marginBottom: 6, borderRadius: 9, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 10.5, textAlign: "left" } }, "＋ " + label))));
+  const content = h("div", null,
+    !embedded && h("div", { style: { marginBottom: 15 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "房间与权限"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "同一个人，不同房间各有自己的聊天与门钥匙")),
+    h("div", { style: { display: "grid", gridTemplateColumns: "minmax(92px, 31%) minmax(0, 1fr)", gap: 12, alignItems: "start" } }, sidebar, editor));
+  return embedded ? content : h(Sheet, { onClose, tall: true }, content);
 }
 window.ChatRoomSheet = ChatRoomSheet;
 
@@ -8599,7 +8608,9 @@ function ChatSettings({
   onGenerateTemperament,
   onSaveTemperament,
   aShadowPanel,
-  jiwenState
+  jiwenState,
+  activeRoomId,
+  onSelectRoom
 }) {
   const t = useTheme();
   // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
@@ -8696,6 +8707,7 @@ function ChatSettings({
     h("div", { className: "flex gap-1" }, opts.map(o => h("button", { key: o.v, onClick: () => set(o.v), style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999, background: val === o.v ? t.ink : "transparent", color: val === o.v ? t.bg2 : t.fog, border: "1px solid " + (val === o.v ? t.ink : t.line) } }, o.t))));
   const show = (tab, props, ...children) => settingsTab === tab ? h(SettingSection, props, ...children) : null;
   const settingPages = [
+    { key: "rooms", icon: "⌂", title: "房间与权限", sub: "切换、新建房间，配置认知、行动与写回边界", tint: "#477f88" },
     { key: "relate", icon: "♡", title: "相处与主动", sub: "内在状态、性情、主动联系与线下相处", tint: "#d97c86" },
     { key: "route", icon: "⌁", title: "线路与身份", sub: "角色专属 API 与驻场能力", tint: "#6693c7" },
     { key: "look", icon: "◐", title: "聊天外观", sub: "头像、时间、已读、视角与背景", tint: "#9b7bc4" },
@@ -8759,7 +8771,14 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_BODY, fontSize: 18, color: t.line, marginTop: "auto", alignSelf: "flex-end" } }, "›")
     ))),
     h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
-      "房间的认知、行动与写回权限在聊天顶部「换房 / 设置」里管理；这里保留这个人的长期聊天设置。")),
+      "房间决定当前对话看得见什么、能主动做什么、会写回哪里；其余分类保存这个人的长期聊天设置。")),
+  settingsTab === "rooms" && h(ChatRoomSheet, {
+    embedded: true,
+    character,
+    activeRoomId: activeRoomId || "main",
+    onSelect: (roomId, close) => onSelectRoom && onSelectRoom(roomId, close),
+    onClose: () => setSettingsTab("")
+  }),
   show("relate", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
       "这里只列真正接上行为的模块；“观察中”不会进入提示词，也不会改变 TA。"),

@@ -16,15 +16,8 @@
       ["otherScenes", "群聊与线下", "可参考共同群聊和线下相处留下的事实"]
     ],
     actions: [
-      ["forum", "论坛", "可发帖、回复或浏览论坛"],
-      ["moments", "朋友圈", "可发动态、点赞和评论"],
-      ["calendar", "日程", "可读取或操作日程"],
       ["study", "一起学", "可发起或继续学习 Session"],
-      ["games", "小游戏", "可邀请、入局或执行游戏动作"],
-      ["photos", "照片", "可发送或查看真实照片"],
-      ["map", "地图与位置", "可读取位置、路线和导航"],
-      ["wallet", "钱包", "可转账、送礼或操作共同消费"],
-      ["diary", "日记", "可读取或写入日记"]
+      ["games", "小游戏", "可邀请、入局或执行游戏动作"]
     ],
     writeback: [
       ["roomHistory", "保留本房聊天", "始终保留这间房自己的完整时间线"],
@@ -36,7 +29,7 @@
   const bools = (entries, on) => Object.fromEntries(entries.map(([key]) => [key, !!on]));
   const PRESETS = {
     everyday: { label: "日常侧房", note: "跟得上主线，也能自然使用常用功能", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true) }, syncMode: "follow" },
-    focused: { label: "专注房", note: "保留共同背景，但行动和写回更克制", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true, calendar: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
+    focused: { label: "专注房", note: "保留共同背景，但行动和写回更克制", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
     isolated: { label: "隔离房", note: "不补主线、不影响共同状态，只留本房记录", cognition: { ...bools(GROUPS.cognition, false), schedule: true }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" }
   };
 
@@ -96,11 +89,11 @@
     const allowedActions = GROUPS.actions.filter(([k]) => a[k]).map(([, label]) => label);
     const lines = room.id === MAIN_ID ? ["【主聊天行动权限】这是你们的主聊天。"] : ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
     if (room.id === MAIN_ID) {
-      lines.push("【行动权限】当前允许使用：" + (allowedActions.length ? allowedActions.join("、") : "无外部行动") + "。未开放的能力可以自然提议，但不能假装已经执行。");
+      lines.push("【额外行动权限】当前可主动发起：" + (allowedActions.length ? allowedActions.join("、") : "无") + "。论坛和朋友圈仍按主聊天原有触发规则工作；照片、地图是聊天原生能力；钱包只属于主聊天；不要代替本人写日记。");
       return "\n\n" + lines.join("\n");
     }
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");
-    lines.push("【行动权限】本房" + (allowedActions.length ? "允许使用：" + allowedActions.join("、") : "不允许调用外部行动") + "。没有列出的能力不得擅自执行；可以自然说想做，但不能假装已经做成。");
+    lines.push("【额外行动权限】本房" + (allowedActions.length ? "可主动发起：" + allowedActions.join("、") : "不额外开放一起学或小游戏") + "。照片、地图仍是聊天原生能力；侧房不触发朋友圈、论坛、钱包或日记。");
     lines.push("【写回边界】" + (w.sharedState ? "本房可影响共同状态" : "本房不改变主房关系、情绪、动作等共同状态") + "；" + (w.memoryCandidate ? "重要内容可经过既有闸进入记忆候选" : "本房内容不进入正式记忆或候选") + "；" + (w.mainSummary ? "离房时可以形成一份可追溯交接" : "不向主房生成交接") + "。");
     if (c.mainDelta && room.syncMode !== "frozen" && Array.isArray(mainMessages)) {
       const since = Number(room.mainCursorTs || room.createdAt || 0);
