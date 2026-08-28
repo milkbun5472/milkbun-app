@@ -8157,6 +8157,9 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const [autoChatMaxMsg, setAutoChatMaxMsg] = useState(gs.autoChatMaxMsg || 50);
   const [autoChatResetHours, setAutoChatResetHours] = useState(gs.autoChatResetHours || 24);
   const [gDefaultOffline, setGDefaultOffline] = useState(!!gs.defaultOffline);
+  // 建完群就再也改不了名（她 2026-08-28 找了一圈没找到）——「群名称」那个输入框
+  // 一直只在 NewGroupSheet 里，设置页从来没有过。
+  const [gName, setGName] = useState((group && group.name) || "");
   const bgFileRef = useRef(null);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -8204,7 +8207,20 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
-      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, defaultOffline: gDefaultOffline, name: gName }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+
+    // 群名（改完点右上角的勾才生效，和别的设置一样）
+    h("div", { className: "pt-4" },
+      h("input", {
+        value: gName,
+        onChange: e => setGName(e.target.value),
+        placeholder: "群名称",
+        maxLength: 24,
+        className: "w-full outline-none pb-2",
+        style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, borderBottom: "1px solid " + t.line, background: "transparent" }
+      }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.55 } },
+        "改名后，这个群产生的记忆会跟着换标签，不会变成找不回来的孤儿。")),
 
     // 成员管理
     h("div", { className: "pt-5" },

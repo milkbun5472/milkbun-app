@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.37";
+const APP_VERSION = "v57.38";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7103,6 +7103,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_groups", n);
     return n;
   });
+  // 改群名（她 2026-08-28：建完群就再也改不了了）。
+  // ⚠️不能只改 groups 里那个字段：群产生的记忆打的是「群聊 + 群名」这对 tag
+  //（见上面 memTagsForGroup 那段注释——groupId 是本地字段，云端同步一圈回来就没了，
+  // 只有 tags 活得下来），清群记录的兜底匹配也认这对 tag。改完名不迁 tag，
+  // 旧记忆就变成孤儿：召不回来、清群时也删不掉。所以名字和 tag 一起改。
+  const renameGroup = (groupId, rawName) => {
+    const name = String(rawName || "").trim().slice(0, 24);
+    const g = (groups || []).find(x => x.id === groupId);
+    if (!g || !name || name === g.name) return;
+    const old = g.name;
+    updateGroup(groupId, { name });
+    if (old) {
+      let moved = 0;
+      const next = memLibRef.current.map(e => {
+        const tg = Array.isArray(e && e.tags) ? e.tags : [];
+        if (tg.indexOf("群聊") < 0 || tg.indexOf(old) < 0) return e;
+        moved++;
+        return { ...e, tags: tg.map(x => x === old ? name : x) };
+      });
+      if (moved) saveMemLib(next);
+      toast(moved ? "已改名，并迁走 " + moved + " 条本群记忆的标签" : "已改名");
+    } else toast("已改名");
+  };
   const deleteGroup = groupId => {
     setGroups(p => { const n = p.filter(g => g.id !== groupId); saveJSON("x_groups", n); return n; });
     setGroupChats(p => { const n = { ...p }; delete n[groupId]; return n; });
@@ -12188,7 +12211,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         toast("已转发给 " + (toChar.remark || toChar.name));
       }
     },
-    onSaveSettings: patch => saveGroupSettings(activeGroup.id, patch),
+    onSaveSettings: patch => {
+      // 群名住在 group 上、别的住在 groupSettings 上，进来时是一份 patch，这里拆开
+      const { name: _gname, ...rest } = patch || {};
+      if (_gname != null) renameGroup(activeGroup.id, _gname);
+      if (Object.keys(rest).length) saveGroupSettings(activeGroup.id, rest);
+    },
     onOpenMemberState: memberId => { const c = characters.find(x => x.id === memberId); if (c) { setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true); } },
     onStartPoll: (title, options, anon) => startPoll(activeGroup.id, title, options, anon),
     onGenVotes: idx => genPollVotes(activeGroup.id, idx),
