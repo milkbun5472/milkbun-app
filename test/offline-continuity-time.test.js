@@ -54,7 +54,9 @@ test("普通角色线上生成按 ctxN 合并当前线下逐条记录，言秋�
   // v57.08：线上那一侧的取数改叫 onlineWindow——它在 ctxN 之外还要保住【短期窗覆盖天数】
   // 那根拉条圈定的最近几天（floorTs）。
   assert.match(recentChat, /const onlineWindow = floorTs/);
-  assert.match(recentChat, /onlineWindow\.concat\(offline\.slice\(-OFF_BEATS\)\)\.sort/);
+  // v57.13：线下那一侧先切成 offSlice（还要拿它算装不装得下、要不要摘录）
+  assert.match(recentChat, /const offSlice = offline\.slice\(-OFF_BEATS\);/);
+  assert.match(recentChat, /onlineWindow\.concat\(offSlice\)\.sort/);
   assert.match(recentChat, /: online\.slice\(-ctxN\);/, "地板关掉时仍按 ctxN 走");
   assert.match(recentChat, /Math\.max\(0, Number\(settingsFor\(char\.id\)\.ctxN/);
   assert.match(recentChat, /settingsFor\(char\.id\)\.engineerEyes/);
