@@ -246,6 +246,40 @@ const WeChatThread = (c, char, t) => h("div", null, h(Eyebrow, {
   }, m.text));
 })));
 
+function WeChatView({ d, char, t, setSheet, profile }) {
+  const [tab, setTab] = useState("chats");
+  const arr = a => Array.isArray(a) ? a : [];
+  const actual = arr(d.actualChats), generated = arr(d.chats);
+  const meName = profile && profile.name || "Lisa";
+  const chatRow = (c, i, real) => h("button", {
+    key: (real ? "r" : "g") + i + (c.id || c.name || ""),
+    onClick: () => c.messages && c.messages.length && setSheet(WeChatThread(c, char, t)),
+    className: "w-full text-left py-3 flex items-center gap-3 active:opacity-60",
+    style: { borderTop: `1px solid ${t.line}` }
+  }, h(Avatar, { character: { name: c.name, color: strColor(c.name) }, size: 43, radius: c.type === "group" ? 13 : 999 }), h("div", { className: "flex-1 min-w-0" },
+    h("div", { className: "flex items-baseline justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, c.time || "")),
+    h("div", { className: "flex items-center gap-1.5", style: { marginTop: 2 } }, real && h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 9, color: t.tint, padding: "1px 5px", borderRadius: 999, background: t.bg2 } }, "真实"), h("span", { style: { minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || ""))));
+  const contactRow = (c, i) => h("button", {
+    key: "c" + i + (c.name || ""),
+    onClick: () => setSheet(h("div", null, h("div", { className: "flex items-center gap-3 mb-5" }, h(Avatar, { character: { name: c.name, color: strColor(c.name) }, size: 58, radius: 16 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 3 } }, c.name))), h(Eyebrow, { style: { marginBottom: 7 } }, "TA 眼里的这个人"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.sub } }, c.intro || "没有留下更多介绍。"))),
+    className: "w-full text-left py-3 flex items-center gap-3 active:opacity-60", style: { borderTop: `1px solid ${t.line}` }
+  }, h(Avatar, { character: { name: c.name, color: strColor(c.name) }, size: 42, radius: 12 }), h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.intro || c.name)));
+  const moments = arr(d.moments), accounts = arr(d.me && d.me.accounts);
+  let body;
+  if (tab === "chats") body = h("div", null,
+    actual.length ? h("div", null, h(Eyebrow, { style: { margin: "4px 0 8px" } }, "手机里已有的聊天 · " + actual.length), actual.map((c, i) => chatRow(c, i, true))) : null,
+    h(Eyebrow, { style: { margin: actual.length ? "20px 0 8px" : "4px 0 8px" } }, "其他会话 · " + generated.length), generated.map((c, i) => chatRow(c, i, false)));
+  else if (tab === "contacts") {
+    const contacts = [{ name: meName, remark: meName, intro: "置顶联系人。你们真实的关系与共同经历，以主聊天和记忆为准。" }, ...arr(d.contacts)];
+    body = h("div", null, h(Eyebrow, { style: { margin: "4px 0 8px" } }, "联系人 · " + contacts.length), contacts.map(contactRow));
+  } else if (tab === "moments") body = h("div", { className: "space-y-5" }, moments.map((m, i) => h("div", { key: "m" + i, className: "flex gap-3 pb-5", style: { borderBottom: `1px solid ${t.line}` } }, h(Avatar, { character: { name: m.author, color: strColor(m.author) }, size: 40, radius: 11 }), h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.tint } }, m.author), h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: t.ink, marginTop: 5 } }, m.content), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, m.time || ""), arr(m.likes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, background: t.bg2, padding: "7px 9px", marginTop: 8, borderRadius: "9px 9px 0 0" } }, "♡ " + arr(m.likes).join("、")) : null, arr(m.comments).length ? h("div", { style: { background: t.bg2, padding: "5px 9px 8px", borderRadius: arr(m.likes).length ? "0 0 9px 9px" : 9 } }, arr(m.comments).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 11.8, lineHeight: 1.55, color: t.sub } }, h("b", { style: { color: t.tint } }, (x.from || "朋友") + "："), x.text))) : null))));
+  else body = h("div", null, h("div", { className: "flex items-center gap-4 py-4" }, h(Avatar, { character: char, size: 68, radius: 17 }), h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: t.ink } }, char.remark || char.name), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.fog, marginTop: 5 } }, d.me && d.me.signature || "还没有写朋友圈签名。"))), h("button", {
+    onClick: () => setSheet(h("div", null, h(Eyebrow, { style: { marginBottom: 14 } }, "最近读过的公众号文章"), accounts.map((a, i) => h("div", { key: i, className: "pb-5 mb-5", style: { borderBottom: `1px solid ${t.line}` } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.5, color: t.ink } }, a.title), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, [a.source, a.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 10 } }, a.summary), h(Eyebrow, { style: { marginTop: 14, marginBottom: 5 } }, char.name + " 看完想了什么"), h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.ink, fontStyle: "italic" } }, a.thought))))), className: "w-full mt-5 p-4 flex items-center justify-between text-left active:opacity-60", style: { borderRadius: 16, border: `1px solid ${t.line}`, background: t.bg2 }
+  }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "公众号"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, "最近读过 " + accounts.length + " 篇 · 点开看感想")), h(IChevR, { size: 16, color: t.fog })));
+  const tabs = [["chats", "聊天"], ["contacts", "联系人"], ["moments", "朋友圈"], ["me", "我"]];
+  return h("div", { style: { animation: "fadeUp .3s ease both", paddingBottom: 64 } }, body, h("div", { className: "grid grid-cols-4", style: { position: "sticky", bottom: -16, zIndex: 5, margin: "24px -24px -16px", padding: "10px 8px calc(10px + env(safe-area-inset-bottom))", background: "rgba(248,247,243,.96)", backdropFilter: "blur(16px)", borderTop: `1px solid ${t.line}` } }, tabs.map(([k, label]) => h("button", { key: k, onClick: () => setTab(k), className: "py-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: tab === k ? t.tint : t.fog, fontWeight: tab === k ? 700 : 400 } }, label))));
+}
+
 // 相册：可把喜欢的照片收藏进 x_phoneKeep（按角色分组），刷新全部/单个都不会覆盖它
 function AlbumView({ d, char, t, setSheet }) {
   const [keep, setKeep] = useState(() => loadJSON("x_phoneKeep", {}));
@@ -333,45 +367,7 @@ function renderPhoneModule(key, d, ctx) {
     }
   }, kids);
   const arr = a => a || [];
-  if (key === "wechat") return wrap(arr(d.chats).map((c, i) => h("button", {
-    key: i,
-    onClick: () => c.messages && c.messages.length && setSheet(WeChatThread(c, char, t)),
-    className: "w-full text-left py-3 flex items-center gap-3",
-    style: line
-  }, h(Avatar, {
-    character: {
-      name: c.name,
-      color: strColor(c.name)
-    },
-    size: 42,
-    radius: 12
-  }), h("div", {
-    className: "flex-1 min-w-0"
-  }, h("div", {
-    className: "flex items-baseline justify-between gap-2"
-  }, h("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink
-    }
-  }, c.name), h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: t.fog
-    }
-  }, c.time)), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12.5,
-      color: t.fog,
-      marginTop: 2,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    }
-  }, c.last)))));
+  if (key === "wechat") return h(WeChatView, { d, char, t, setSheet, profile: ctx.profile });
   if (key === "notes") return wrap(arr(d.items).map((it, i) => h("button", {
     key: i,
     onClick: () => setSheet(DetailSheet(it.title, it.detail, t)),
@@ -823,13 +819,16 @@ function PhoneApp({
   charData,
   busyKey,
   onGen,
-  onBack
+  onBack,
+  profile,
+  actualWechat
 }) {
   const t = useTheme();
   const [sheet, setSheet] = useState(null);
   const [vtab, setVtab] = useState(null); // 视频子版块：day / night，默认不选
   const zh = PHONE_LABEL[appKey];
-  const data = charData[appKey];
+  const rawData = charData[appKey];
+  const data = appKey === "wechat" && rawData ? { ...rawData, actualChats: actualWechat || [] } : rawData;
   const loading = busyKey === appKey;
   const isVideo = appKey === "video";
   // 打开非视频版块：直接生成，失败退回上一级（不再显示中间的「生成」页）
@@ -893,7 +892,8 @@ function PhoneApp({
   });else content = renderPhoneModule(appKey, data, {
     t,
     char,
-    setSheet
+    setSheet,
+    profile
   });
   const refreshKey = isVideo ? vtab ? "video_" + vtab : null : appKey;
   return h("div", {
@@ -931,7 +931,8 @@ function PhoneCarry({
   onSel,
   onGenApp,
   onGenAll,
-  profile
+  profile,
+  actualWechatFor
 }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
@@ -1027,6 +1028,8 @@ function PhoneCarry({
     charData: data,
     busyKey: busyKey === "__all__" ? open : busyKey,
     onGen: onGenApp,
+    profile,
+    actualWechat: actualWechatFor ? actualWechatFor(char) : [],
     onBack: () => setOpen(null)
   });
   const wall = strColor(char.id || char.name);
@@ -1146,13 +1149,13 @@ function PhoneCarry({
 }
 
 // 各 app 的推演任务
-function phoneProbeSpec(key, char, rel) {
+function phoneProbeSpec(key, char, rel, actualWechat) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
     wechat: {
-      instruction: "推演此刻「" + char.name + "」微信里的聊天列表（3-4 个会话，不含与用户本人的对话）。" + relHint + "每个会话给出对方名字、最后一条消息、时间；并给出这段最近对话（不超过 6 条，来回都有，from 为对方名字或「" + char.name + "」本人）。贴合人物关系与近况。",
-      schemaHint: "{\"chats\":[{\"name\":\"对方名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"对方名或" + char.name + "\",\"text\":\"内容\"}]}]}",
-      maxTokens: 3000
+      instruction: "推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 3-6 条对话。contacts 正好 5 个，不含用户 Lisa：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体关系简介 intro。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己的朋友圈签名，并给最近看过的 3 篇公众号文章：标题、公众号、时间、摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
+      schemaHint: "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与简介\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"signature\":\"朋友圈签名\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"文章讲了什么\",\"thought\":\"TA的感想\"}]}}",
+      maxTokens: 12000
     },
     notes: {
       instruction: "推演「" + char.name + "」备忘录里的几条笔记（3-5 条），每条有标题、时间，点开能看正文细节。贴合身份与当下心境。",

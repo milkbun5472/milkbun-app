@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.32";
+const APP_VERSION = "v57.33";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8253,6 +8253,46 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return [...set];
   };
   const phoneKeyLabel = key => PHONE_LABEL[key] || (key === "video_day" ? "白天视频" : key === "video_night" ? "深夜视频" : key);
+  const phoneWechatActual = char => {
+    if (!char) return [];
+    const meName = profile.name || "Lisa";
+    const stamp = ts => {
+      if (!ts) return "";
+      const d = new Date(ts);
+      return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+    };
+    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-6);
+    const sessions = [];
+    const direct = clean(chatsRef.current[char.id]);
+    if (direct.length) {
+      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, text: String(m.content), ts: m.ts || 0 }));
+      const last = messages[messages.length - 1];
+      sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
+    }
+    for (const group of groups) {
+      if (!(group.memberIds || []).includes(char.id)) continue;
+      const raw = clean(groupChatsRef.current[group.id]);
+      if (!raw.length) continue;
+      const spectate = !!gsFor(group.id).spectate && (group.memberIds || []).length === 2;
+      const other = spectate ? (group.memberIds || []).map(id => characters.find(c => c.id === id)).find(c => c && c.id !== char.id) : null;
+      const messages = raw.map(m => {
+        let from = meName;
+        if (m.role !== "user") {
+          const sender = characters.find(c => c.id === m.senderId);
+          from = m.senderName || (sender && sender.name) || char.name;
+        }
+        return { from, text: String(m.content), ts: m.ts || 0 };
+      });
+      const last = messages[messages.length - 1];
+      sessions.push({ id: "actual:group:" + group.id, type: spectate ? "private" : "group", name: spectate && other ? (other.remark || other.name) : (group.name || "群聊"), time: stamp(last.ts), last: last.text, ts: last.ts, messages });
+    }
+    return sessions.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  };
+  const phoneWechatDigest = char => {
+    const actual = phoneWechatActual(char);
+    if (!actual.length) return "目前没有可用的真实聊天。";
+    return "【真实已有会话，先阅读，只能避重、不得改写】\n" + actual.slice(0, 8).map(c => "- " + (c.type === "group" ? "群聊" : "私聊") + "「" + c.name + "」\n" + c.messages.map(m => "  " + m.from + "：" + m.text).join("\n")).join("\n");
+  };
   const savePhoneApp = (charId, key, d) => {
     setPhones(p => {
       const cur = p[charId] || {};
@@ -8973,7 +9013,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       phoneApp: key
     }));
     try {
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char)));
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : ""));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -9001,7 +9041,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     let ok = 0;
     for (const key of keys) {
       try {
-        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char)));
+        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : ""));
         savePhoneApp(char.id, key, d);
         ok++;
       } catch (e) {/* 单个失败不中断其余 */}
@@ -12224,7 +12264,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSel: setSelPhone,
     onGenApp: genPhoneApp,
     onGenAll: genPhoneAll,
-    profile: profile
+    profile: profile,
+    actualWechatFor: phoneWechatActual
   });else if (screen === "carry") body = h(Carry, {
     characters: liveChars,
     carry: carry,
