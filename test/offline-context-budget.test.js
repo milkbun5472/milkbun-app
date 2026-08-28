@@ -43,15 +43,16 @@ test("三场结束的线下不再把 prompt 撑到预算的 1.6 倍", () => {
 const recent = (() => {
   const i = app.indexOf("      const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));");
   assert.ok(i > 0, "recentChat 那段没了");
-  const j = app.indexOf('      return lines.reverse().join("\\n");', i);
+  const j = app.indexOf('      lines.reverse();', i);
+  assert.ok(j > i, "收尾那几行变了");
   // lines 在函数里是【从新往旧】攒的，正式返回前才 reverse——这里对齐成正式顺序
   const body = app.slice(i, j) + '      return { lines: lines.slice().reverse(), used, usedOff };';
   return (online, offline, budget, ctxN = 50, days = 0) => new Function(
-    "online", "offline", "settingsFor", "char", "profile", "memCfgRef", "window",
+    "online", "offline", "offSummary", "settingsFor", "char", "profile", "memCfgRef", "window",
     body.replace("const ctxN = Math.max(0, Number(settingsFor(char.id).ctxN ?? 50));", "const ctxN = " + ctxN + ";")
         .replace("const budget = memCfgRef.current.recentBudget || 8000;", "const budget = " + budget + ";")
         .replace("const recentDays = Math.max(0, Number(memCfgRef.current.recentDays ?? 3));", "const recentDays = " + days + ";"))
-    (online, offline, () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {});
+    (online, offline, "", () => ({}), { id: "c", name: "裴照川" }, { name: "Lisa" }, { current: {} }, {});
 })();
 
 let ts = 0;
@@ -81,17 +82,49 @@ test("线下超了自己那份要继续往回找线上的，不是整个循环�
   assert.match(app, /if \(isOff && usedOff && usedOff \+ cost > offCap\) continue;/);
 });
 
-test("最近三拍给原文，更早的压成摘录——有对话留对话，没有就留句首", () => {
-  const beat = "他把宣纸推过去，指节在桌沿敲了一下。「拿友谊堵我，倒真亏你想得出来。」夜风从半开的窗缝里挤进来，把烛火压得矮了一截，墙上的影子跟着晃了晃，屋里安静得能听见糖糕碎在齿间的声音。";
-  const beats = Array.from({ length: 8 }, (_, k) => ({ role: "assistant", ts: 500 + k, _surface: "offline", content: k + "｜" + beat }));
+// B2（她 2026-08-28 定的取法）：老拍子**只留对话符里的东西和它前后各一句**，
+// 其余交给本场滚动摘要。真正影响后面接话的是「谁说了什么、说这句之前之后在干什么」，
+// 写景和感官过了这一刻就只剩占字数。
+const BEAT = "画的那道墨痕在夜风里彻底发硬了，笑一下都扯着皮肉。他没动，只把宣纸又往前推了半寸。"
+  + "她伸手去够那块糖糕。「退什么退，你给我回来。」他终于开口，声音压得很低。"
+  + "窗外更漏敲了三下，院子里有人提着灯笼走过，光在窗纸上拖出一道长影。";
+
+test("最近三拍给原文，更早的只留对话和它前后各一句", () => {
+  const beats = Array.from({ length: 8 }, (_, k) => ({ role: "assistant", ts: 500 + k, _surface: "offline", content: k + "｜" + BEAT }));
   const r = recent([], beats, 16000);
   const tail = r.lines.slice(-3), head = r.lines.slice(0, -3);
-  tail.forEach(l => assert.ok(l.indexOf("夜风从半开的窗缝里") > 0, "最近三拍必须是原文：" + l));
+  tail.forEach(l => assert.ok(l.indexOf("窗外更漏敲了三下") > 0, "最近三拍必须是原文：" + l));
+  assert.ok(head.length >= 4, "老拍子太少，测不出来");
   head.forEach(l => {
-    assert.ok(l.indexOf("夜风从半开的窗缝里") < 0, "老拍子的描写没被压掉：" + l);
-    assert.ok(l.indexOf("拿友谊堵我") > 0, "对话被压没了：" + l);
-    assert.ok(l.indexOf("他把宣纸推过去") > 0, "这一拍做了什么被压没了：" + l);
+    assert.ok(l.indexOf("退什么退，你给我回来") > 0, "对话被压没了：" + l);
+    assert.ok(l.indexOf("她伸手去够那块糖糕") > 0, "对话前那一句该留：" + l);
+    assert.ok(l.indexOf("他终于开口") > 0, "对话后那一句该留：" + l);
+    assert.ok(l.indexOf("窗外更漏敲了三下") < 0, "离对话两句远的写景没被压掉：" + l);
+    assert.ok(l.indexOf("画的那道墨痕") < 0, "离对话两句远的写景没被压掉：" + l);
   });
+});
+
+test("整拍一句对话都没有时只留首句——不整条丢掉，滚动摘要总落后几拍", () => {
+  const mute = "他起身走到窗边，把半开的窗合上。夜风一下子断了，烛火重新立直。墙上的影子不再晃。";
+  const beats = Array.from({ length: 6 }, (_, k) => ({ role: "assistant", ts: 600 + k, _surface: "offline", content: k + "｜" + mute }));
+  const head = recent([], beats, 16000).lines.slice(0, -3);
+  head.forEach(l => {
+    assert.ok(l.indexOf("他起身走到窗边") > 0, "首句该留：" + l);
+    assert.ok(l.indexOf("墙上的影子不再晃") < 0, "后面的写景该压掉：" + l);
+  });
+});
+
+test("切句不许切进引号里——台词里的句号是台词的", () => {
+  const i2 = app.indexOf("      const splitSents = t => {");
+  const j2 = app.indexOf("      const offlineBeatDigest = text => {", i2);
+  const splitSents = new Function(app.slice(i2, j2) + "return splitSents;")();
+  const got = splitSents("他敲了一下桌子。「拿友谊堵我，倒真亏你想得出来。」她没接。");
+  assert.deepEqual(got, ["他敲了一下桌子。", "「拿友谊堵我，倒真亏你想得出来。」", "她没接。"]);
+});
+
+test("被摘掉的那些不是丢了：本场滚动摘要要带上来", () => {
+  assert.match(app, /offSummary = \(active && active\.summary \? String\(active\.summary\)\.trim\(\) : ""\)\.slice\(-1200\)/);
+  assert.match(app, /if \(offSummary\) lines\.unshift\("【这场线下前面发生过的（摘要）】/);
 });
 
 test("她自己在线下打的字不占「最近三拍」的名额", () => {
