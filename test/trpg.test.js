@@ -365,6 +365,62 @@ test("地图接线:迷雾不渲染未知节点,快照带位置,守密人不许�
   assert.match(src, /r: 16, fill: "transparent"/, "隐形大热区,手指点得准");
 });
 
+// ---- Codex 加菜:状态条/时钟/命运点/私念/线索板/单人团 ----
+test("专属状态条:单拍夹 ±15,坏的那头角标才红", () => {
+  const base = Object.assign(camp0(), { gauge: { name: "理智", val: 50, max: 100, bad: "low", rule: "" } });
+  const r1 = applyTurnPayload(base, { gauge: -99 });
+  assert.equal(r1.camp.gauge.val, 35, "-99 夹成 -15");
+  assert.equal(r1.chips.find(c => c.txt.indexOf("理智") >= 0).k, "hp", "理智是 low 坏,跌=红");
+  const r2 = applyTurnPayload(base, { gauge: 10 });
+  assert.equal(r2.chips.find(c => c.txt.indexOf("理智") >= 0).k, "hpup", "理智涨=绿");
+  const high = Object.assign(camp0(), { gauge: { name: "警戒", val: 50, max: 100, bad: "high" } });
+  assert.equal(applyTurnPayload(high, { gauge: 10 }).chips[0].k, "hp", "警戒是 high 坏,涨=红");
+  assert.equal(applyTurnPayload(camp0(), { gauge: -10 }).camp.gauge, undefined, "没配状态条的团不凭空长");
+});
+
+test("威胁时钟:建钟/推进夹±2/走满亮红/done 拆钟/至多3座", () => {
+  const base = Object.assign(camp0(), { clocks: [] });
+  const r1 = applyTurnPayload(base, { clock: [{ name: "仪式将成", delta: 1, max: 6 }] });
+  assert.deepEqual(r1.camp.clocks, [{ name: "仪式将成", filled: 1, max: 6 }]);
+  const r2 = applyTurnPayload(r1.camp, { clock: [{ name: "仪式将成", delta: 9 }] });
+  assert.equal(r2.camp.clocks[0].filled, 3, "单拍至多 +2");
+  const full = Object.assign(camp0(), { clocks: [{ name: "追兵", filled: 5, max: 6 }] });
+  const r3 = applyTurnPayload(full, { clock: [{ name: "追兵", delta: 1 }] });
+  assert.match(r3.chips.map(c => c.txt).join("|"), /追兵 6\/6·走满!/);
+  const r4 = applyTurnPayload(r3.camp, { clock: [{ name: "追兵", done: true }] });
+  assert.equal(r4.camp.clocks.length, 0, "爆发后拆钟");
+  const three = Object.assign(camp0(), { clocks: [{ name: "a", filled: 0, max: 6 }, { name: "b", filled: 0, max: 6 }, { name: "c", filled: 0, max: 6 }] });
+  assert.equal(applyTurnPayload(three, { clock: [{ name: "d", delta: 1 }] }).camp.clocks.length, 3, "第四座不收");
+});
+
+test("命运点:跟气运走;只在失败后可花;重掷只许一次;花掉立扣", () => {
+  const { rollStats: rs } = require("../js/trpg.js");
+  const fate = src.match(/const fateOf = luck =>[^;]+;/);
+  assert.ok(fate, "fateOf 存在");
+  assert.match(src, /offer = c\.fate > 0 && !c\.rerolled && \(grade\.tier === "fail" \|\| grade\.tier === "fumble"\)/, "成功不给花,重掷过不给再花");
+  assert.match(src, /重掷\(花1枚,新结果必须认\)/);
+  assert.match(src, /grade\.tier === "fumble" \? h\("button", \{ onClick: fateSoften/, "以失败论只对大失败开放");
+  assert.match(src, /spendFate\(c\.mKey\)/, "花掉立扣队伍账,不等回合结算");
+  assert.match(src, /花" \+ res\.spent\.length \+ "枚命运点/, "花点记进检定行,守密人看得见");
+});
+
+test("线索板:守密人只裁值不值得查,绝不判对错", () => {
+  assert.match(src, /绝不透露推测对错/);
+  assert.match(src, /值得验证/);
+  assert.match(src, /根基还不稳/);
+  assert.match(src, /把线索拼成一条推论记下来/);
+});
+
+test("队友私念与单人团", () => {
+  assert.match(src, /队友的私念\(同样保密/, "私念进秘典,守密人按它演");
+  assert.match(src, /不许把队友演成只会附和的陪跑/);
+  assert.match(src, /队友们一路藏着的私念/, "落幕解密时亮给她看");
+  assert.match(src, /这是一场【单人团】/, "不拉队友也开得成");
+  assert.ok(!/先拉至少一个队友入队/.test(src), "旧的人数门槛拆掉了");
+  assert.match(src, /守密风格·/, "风格只进叙事口味");
+  assert.match(src, /绝不改检定判定与规则公平/);
+});
+
 // ---- 秘典:开团即生成,落幕前不给看 ----
 test("秘典落幕解密,不在过程中泄底", () => {
   assert.match(src, /玩家永远不可见/);
