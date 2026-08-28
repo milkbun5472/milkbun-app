@@ -34,10 +34,29 @@ test("微信一次生成五个新会话、五个关系联系人和三条朋友�
 
 test("真实聊天只从本人私聊和本人所在群聊读取并先喂给生成器", () => {
   assert.match(app, /chatsRef\.current\[char\.id\]/);
-  assert.match(app, /\(group\.memberIds \|\| \[\]\)\.includes\(char\.id\)/);
-  assert.match(app, /gsFor\(group\.id\)\.spectate/);
+  assert.match(app, /const memberIds = group\.memberIds \|\| \[\]/);
+  assert.match(app, /if \(!memberIds\.includes\(char\.id\)\) continue/);
+  assert.match(app, /const groupState = gsFor\(group\.id\)/);
+  assert.match(app, /const isSpectate = !!groupState\.spectate/);
   assert.match(app, /phoneWechatDigest\(char\)/);
   assert.match(phone, /const chats = \[\.\.\.actual, \.\.\.generated\]/);
+});
+
+test("查手机排除普通封闭群，但保留旁观对话", () => {
+  assert.match(app, /if \(!isSpectate && !groupState\.memoryInterop\) continue;/);
+  assert.match(app, /const isSpectate = !!groupState\.spectate/);
+});
+
+test("两人旁观显示为私聊，三人以上仍显示群聊", () => {
+  assert.match(app, /const spectatePrivate = isSpectate && memberIds\.length === 2/);
+  assert.match(app, /type: spectatePrivate \? "private" : "group"/);
+});
+
+test("同一对成员的多个两人旁观房只保留最近一条", () => {
+  assert.match(app, /const spectatePrivateByPair = new Map\(\)/);
+  assert.match(app, /const pairKey = memberIds\.map\(String\)\.sort\(\)\.join\("\|"\)/);
+  assert.match(app, /if \(!prev \|\| \(session\.ts \|\| 0\) > \(prev\.ts \|\| 0\)\) spectatePrivateByPair\.set\(pairKey, session\)/);
+  assert.match(app, /sessions\.push\(\.\.\.spectatePrivateByPair\.values\(\)\)/);
 });
 
 test("联系人固定补入 Lisa，公众号文章可点开查看感想", () => {
