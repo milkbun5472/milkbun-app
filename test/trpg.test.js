@@ -475,6 +475,67 @@ test("自由输入的行动也掷骰:守密人报 needCheck→客户端掷→续
   assert.match(src, /\|\| camp\.party\[0\]/, "没点名就默认她自己出手");
 });
 
+// ---- Codex 第二批加菜:任务日志/名册/状态效果/专长/时间/修正/休团 ----
+test("支线任务日志:add 开线,状态流转,凭空 done 不生线", () => {
+  const r1 = applyTurnPayload(camp0(), { quest: [{ name: "齿轮与心跳", op: "add", note: "搜集发条零件" }] });
+  assert.deepEqual(r1.camp.quests.map(q => [q.name, q.status]), [["齿轮与心跳", "open"]]);
+  const r2 = applyTurnPayload(r1.camp, { quest: [{ name: "齿轮与心跳", op: "done" }] });
+  assert.equal(r2.camp.quests[0].status, "done");
+  assert.match(r2.chips.map(c => c.txt).join("|"), /齿轮与心跳·完成/);
+  const r3 = applyTurnPayload(camp0(), { quest: [{ name: "没开过的线", op: "done" }] });
+  assert.equal((r3.camp.quests || []).length, 0, "没 add 过的线不能凭空完成");
+});
+
+test("NPC 名册:按名 upsert,死亡出角标,note 只是玩家已知", () => {
+  const r1 = applyTurnPayload(camp0(), { npc: [{ name: "奥菲利亚", role: "巡逻队长", stance: "友" }] });
+  assert.equal(r1.camp.npcs[0].stance, "友");
+  const r2 = applyTurnPayload(r1.camp, { npc: [{ name: "奥菲利亚", stance: "敌", alive: false }] });
+  assert.equal(r2.camp.npcs.length, 1, "同名 upsert 不重复建档");
+  assert.equal(r2.camp.npcs[0].alive, false);
+  assert.match(r2.chips.map(c => c.txt).join("|"), /† 奥菲利亚/);
+});
+
+test("状态效果:每人至多4个,remove 解除,查无此人丢弃", () => {
+  const r1 = applyTurnPayload(camp0(), { effect: [{ who: "裴照川", name: "中毒", note: "每拍隐痛,解药可解" }, { who: "查无此人", name: "恐惧" }] });
+  assert.deepEqual(r1.camp.party[1].effects.map(e => e.name), ["中毒"]);
+  assert.equal((r1.camp.party[0].effects || []).length, 0);
+  const r2 = applyTurnPayload(r1.camp, { effect: [{ who: "裴照川", name: "中毒", op: "remove" }] });
+  assert.equal(r2.camp.party[1].effects.length, 0);
+  assert.match(r2.chips.map(c => c.txt).join("|"), /中毒解除/);
+});
+
+test("团内时间只向前:倒流丢弃,单拍至多跨两天", () => {
+  const base = Object.assign(camp0(), { time: { day: 3, part: "暮" } });
+  assert.equal(applyTurnPayload(base, { time: { day: 2, part: "晨" } }).camp.time.day, 3, "回到昨天?不行");
+  assert.equal(applyTurnPayload(base, { time: { day: 3, part: "晨" } }).camp.time.part, "暮", "同日倒退时辰也不行");
+  const r = applyTurnPayload(base, { time: { day: 9, part: "夜" } });
+  assert.equal(r.camp.time.day, 5, "一拍最多跨 2 天");
+  assert.equal(applyTurnPayload(base, { time: { day: 3, part: "夜" } }).camp.time.part, "夜", "正常往前走没问题");
+});
+
+test("专长:检定贴合时 +15,写进检定行", () => {
+  assert.match(src, /statVal: Math\.min\(95, member\.stats\[statKey\] \+ \(feat \? 15 : 0\)\)/, "加成封顶95");
+  assert.match(src, /含专长·/, "仪式上写明加成来源");
+  assert.match(src, /把机会点给有这门手艺的人/, "守密人被教了怎么用 feat");
+  const party = camp0().party;
+  const out = normChoices([{ text: "包扎", check: { stat: "wit", who: "裴照川", feat: "急救" } }], party);
+  assert.equal(out[0].check.feat, "急救", "选项上的 feat 存下来了");
+});
+
+test("GM 手动修正:每笔都写〔修正〕系统行,守密人看得见", () => {
+  assert.match(src, /修正·" \+ uName \+ " 手动/, "修正入史");
+  assert.match(src, /✎ 修正/);
+  assert.match(src, /点一条轮换状态/, "支线可改");
+  assert.match(src, /补记一件/, "物品可补记");
+});
+
+test("休团回来横幅:12小时零成本,看完点掉", () => {
+  assert.match(src, /12 \* 3600 \* 1000/, "隔半天以上才出现");
+  assert.match(src, /休团回来 · 第/, "带时间地点");
+  assert.match(src, /上回说到——/, "带最后一拍的尾巴");
+  assert.match(src, /接上,继续/);
+});
+
 // ---- 秘典:开团即生成,落幕前不给看 ----
 test("秘典落幕解密,不在过程中泄底", () => {
   assert.match(src, /玩家永远不可见/);
