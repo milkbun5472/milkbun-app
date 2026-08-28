@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v56.95";
+const APP_VERSION = "v56.96";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -411,6 +411,9 @@ function App() {
   const [modelFloatOn, setModelFloatOn] = useState(() => !!loadJSON("x_modelFloatOn", false));
   const [bgApiId, setBgApiId] = useState(null); // 后台机械任务专用便宜 API；空=不运行 cheap_required，绝不偷用主池
   const [activeChar, setActiveChar] = useState(null);
+  const [activeRoomId, setActiveRoomId] = useState("main");
+  const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
+  useEffect(() => { setActiveRoomId("main"); setChatRoomsOpen(false); }, [activeChar && activeChar.id]);
   const [activeGroup, setActiveGroup] = useState(null);
   // 记录此刻在看的聊天，供未读红点判断
   viewRef.current = { screen, charId: screen === "gthread" ? (activeGroup && activeGroup.id) : (activeChar && activeChar.id) };
@@ -1325,16 +1328,19 @@ function App() {
     // x_chat 已归 IDB 文字仓管理；saveJSON 内部先写 WAL、逐字验真后落 IDB 并销账。
     chatsRef.current = { ...p, [id]: n };
     // 未读红点：新增的角色消息若此刻没在看这个聊天，累加未读条数（推到微任务里，别在 reducer 里改别的 state）
+    const sideRoom = window.ChatRooms && window.ChatRooms.isSideKey(id);
+    const personId = sideRoom ? window.ChatRooms.personFromKey(id) : id;
     if (n.length > pl.length) {
       const ledgerAdded = n.slice(pl.length).filter(contextAllowsMessage);
-      queueLedger("private", id, ledgerAdded, null, id);
-      ledgerAdded.forEach(m => observeSomatic(id, m, m && m.ledgerKey ? "cc_ledger" : "private", "symbolic"));
+      // 侧房默认不冒充主聊天写入跨端账本；是否进入记忆/共享状态由房间写回权限另行决定。
+      if (!sideRoom) queueLedger("private", id, ledgerAdded, null, id);
+      if (!sideRoom) ledgerAdded.forEach(m => observeSomatic(id, m, m && m.ledgerKey ? "cc_ledger" : "private", "symbolic"));
       // 旁白是场景事实，不是 Lisa 亲口说的话；兼容旧版曾误存成 role=user+kind=narration 的记录。
-      n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "narration" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
-      if (ledgerAdded.some(m => m && (m.role === "user" || m.role === "assistant") && m.content)) setTimeout(() => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.scheduleAfterglow(id, n.filter(contextAllowsMessage), moods[id], Date.now()); } catch (e) {} }, 0);
+      if (!sideRoom) n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "narration" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
+      if (!sideRoom && ledgerAdded.some(m => m && (m.role === "user" || m.role === "assistant") && m.content)) setTimeout(() => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.scheduleAfterglow(personId, n.filter(contextAllowsMessage), moods[personId], Date.now()); } catch (e) {} }, 0);
       const added = n.slice(pl.length).filter(m => m && m.role === "assistant" && m.kind !== "system" && m.kind !== "silence").length;
-      const viewing = viewRef.current.screen === "thread" && viewRef.current.charId === id;
-      if (added > 0 && !viewing) setTimeout(() => bumpUnread(id, added), 0);
+      const viewing = viewRef.current.screen === "thread" && viewRef.current.charId === personId;
+      if (!sideRoom && added > 0 && !viewing) setTimeout(() => bumpUnread(personId, added), 0);
     }
     return {
       ...p,
@@ -4697,9 +4703,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 
   // ---- single chat ----
   // 只把用户消息放进对话，不触发 AI（可连发多条）
-  const pushUser = (charId, text) => {
+  const pushUser = (charId, text, chatKey) => {
     const b = blocksRef.current[charId] || {};
-    pChat(charId, p => [...p, {
+    pChat(chatKey || charId, p => [...p, {
       role: "user",
       content: text,
       blocked: !!(b.iBlocked || b.theyBlocked),
@@ -4709,11 +4715,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 拍一拍：只追加那行灰字、【不自动触发回复】（省 API 钱）。角色下次回复时会在历史里看到"被拍过"，
   // 由模型【按人设决定要不要 cue】——爱闹的会提/回拍，高冷正忙的可以当没看见。她 2026-07-12 拍板要这个行为。
-  const patChar = charId => {
+  const patChar = (charId, chatKey) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
     const b = blocksRef.current[charId] || {};
-    pChat(charId, p => [...p, { role: "user", kind: "pat", content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now(), read: false, blocked: !!(b.iBlocked || b.theyBlocked) }]);
+    pChat(chatKey || charId, p => [...p, { role: "user", kind: "pat", content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now(), read: false, blocked: !!(b.iBlocked || b.theyBlocked) }]);
   };
   // 让 AI 基于当前全部对话回复一次（可选把输入框里最后一条一起带上）
   // 连续几轮「要了却没拍」的计数，按角色分开（只用来判断要不要提示，不落库）
@@ -4736,8 +4742,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const replyNow = async (charId, extraText, mode, opts) => {
     opts = opts || {};
+    const chatKey = opts.chatKey || charId;
+    const room = opts.room || null;
     let delivered = false;
-    if (laneBusy("c:" + charId)) return false;
+    if (laneBusy("c:" + chatKey)) return false;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
     if (opts.proactive) {
       const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
@@ -4746,7 +4754,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
     }
     const char = characters.find(c => c.id === charId);
-    let base = chatsRef.current[charId] || [];
+    let base = chatsRef.current[chatKey] || [];
     if (extraText != null && extraText !== "") {
       const um = {
         role: "user",
@@ -4754,7 +4762,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         ts: Date.now(),
         read: false
       };
-      pChat(charId, p => [...p, um]);
+      pChat(chatKey, p => [...p, um]);
       base = [...base, um];
     }
     const history = base.filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true));
@@ -4785,10 +4793,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return false;
     }
-    try { window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
+    try { if (!room || (room.writeback && room.writeback.sharedState)) window.DesireDriveShadow && window.DesireDriveShadow.observe(charId, opts.proactive ? "time" : "message"); } catch (e) {}
     // 「续说」模式：用户没发新消息、对话最后一条是角色自己的话——让 TA 主动接着往下说（否则模型收到自说自话的历史容易返回空）
     const contMode = !opts.proactive && !opts.ccToolResume && history[history.length - 1] && history[history.length - 1].role !== "user";
-    startLane("c:" + charId);
+    startLane("c:" + chatKey);
     try {
       if (!active) throw new Error("请先到设置配置 API");
       const _s = settingsFor(charId);
@@ -4817,7 +4825,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 识别正确后照样发送稳定 system + 历史断点；内容与预算一字不裁。
       const _histCache = (typeof detectFormat === "function" ? detectFormat(_route) : "openai") === "anthropic";
       const _singleHistoryLayout = _histCache || _engineerChat;
-      const _bundleFull = buildBundle(_singleHistoryLayout ? { ...ctxFor(char, { chat: true }), recentChat: "" } : ctxFor(char, { chat: true }));
+      const _roomCtx = ctxFor(char, { chat: true });
+      if (room && room.id !== "main") _roomCtx.recentChat = "";
+      if (room && room.cognition) {
+        const rc = room.cognition;
+        if (!rc.formalMemory) { _roomCtx.memory = ""; _roomCtx.memLib = []; _roomCtx.ccContinuity = ""; _roomCtx.yanqiuWall = ""; }
+        if (!rc.innerLife) { _roomCtx.moodLabel = null; _roomCtx.moodNote = ""; _roomCtx.gazeText = ""; _roomCtx.personaGrown = ""; _roomCtx.personaEvolve = false; }
+        if (!rc.schedule) { _roomCtx.schedNow = ""; _roomCtx.timeAware = false; _roomCtx.geo = null; }
+        if (!rc.otherScenes) { _roomCtx.offlineNow = ""; _roomCtx.groupEcho = ""; _roomCtx.groupOfflineEcho = ""; _roomCtx.forumEcho = ""; _roomCtx.momentLog = ""; }
+      }
+      const _bundleFull = buildBundle(_singleHistoryLayout ? { ..._roomCtx, recentChat: "" } : _roomCtx);
       let bundle = _bundleFull, bundleStable = _bundleFull, bundleVolatile = "";
       if (_singleHistoryLayout) {
         const _cutTime = _bundleFull.indexOf("【当前真实时间】");
@@ -5124,7 +5141,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       const _normalTaskV2 = ("\n\n【本轮】先以「" + char.name + "」本人此刻的真实反应回复上面的消息；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHint + jiwenHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + crossSamenessHint(charId) + _biTurnLine + _turnClosing).replace(/用户/g, uName);
-      const _taskFull = _s.engineerEyes ? _digitalTaskFull : _normalTaskV2;
+      const _roomHint = window.ChatRooms && room ? window.ChatRooms.prompt(room, chatsRef.current[charId] || []) : "";
+      const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       const _primer = _s.engineerEyes
         ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。"
@@ -5278,6 +5296,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
+      if (room) {
+        const a = room.actions || {}, w = room.writeback || {};
+        if (!a.moments) { parsed.moment = null; parsed.momentComment = null; }
+        if (!a.photos) parsed.photo = null;
+        if (!a.map) parsed.location = null;
+        if (!a.wallet) { parsed.transfer = null; parsed.gift = null; parsed.kinshipcard = null; }
+        if (!a.games) parsed.game = null;
+        if (!a.study) parsed.study = null;
+        if (!a.diary) parsed.diary = null;
+        if (!w.sharedState) {
+          parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
+          parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
+        }
+      }
       // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
       // 状态卡就【冻住不变】（动作一直不改、衣服换场景也不换）。逐个从 raw 里正则抠回来，别只救气泡。
       const salvageStr = key => { const m = String(raw || "").match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"')); if (m) { try { return JSON.parse('"' + m[1] + '"'); } catch (e) { return m[1]; } } return null; };
@@ -5302,6 +5335,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 旧逻辑只认对象，字符串会整轮静默丢弃，状态卡看起来就像彻底冻住。
       if (typeof parsed.mood === "string" && parsed.mood.trim() && parsed.mood.toLowerCase() !== "null") parsed.mood = { label: parsed.mood.trim() };
       if (!parsed.mood || !parsed.mood.label) { const v = salvageStr("label"); if (v) parsed.mood = { ...(parsed.mood || {}), label: v }; }
+      // salvage 会从坏 JSON 再捞一次状态字段；隔离房必须在它之后再封一次，不能从侧门污染主房。
+      const _roomSharesState = !room || !!(room.writeback && room.writeback.sharedState);
+      if (!_roomSharesState) {
+        parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
+        parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
+      }
       // 模型有时会把「分析用户意图 → 规划怎么回复」塞进 thought；那是任务草稿，不是角色心声。
       // 保存前做结构闸：命中就宁可本轮没有新心声，也绝不让导演稿污染心声历史。
       if (parsed.thought != null && window.ThoughtVoiceGuard) {
@@ -5315,7 +5354,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
       // 印象卡:写了就清零、没写就计一轮。数出来才知道是「这阵子真没变化」还是
       // 「它压根不写」——不数的话两者长得一模一样（她 2026-08-24）。
-      if (window.Gaze && !_s.engineerEyes) {
+      if (_roomSharesState && window.Gaze && !_s.engineerEyes) {
         let _impWrote = false;
         if (parsed.impression) { try { _impWrote = window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
         // 「看过了，确实不用改」也是正经回答（v56.94）：记一次复看，这一块排到队尾，
@@ -5329,7 +5368,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         if (!_impWrote) { try { window.Gaze.tick(char.id); } catch (e) {} }
       }
       // mark user msg read
-      pChat(charId, p => p.map(m => m.role === "user" ? {
+      pChat(chatKey, p => p.map(m => m.role === "user" ? {
         ...m,
         read: true
       } : m));
@@ -5402,7 +5441,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const turnId = "t_" + Date.now();
       const ccToolRequest = ccToolOn && window.YanqiuCcTools ? window.YanqiuCcTools.normalizeRequest(parsed.ccTool) : null;
       if (ccToolOn && parsed.ccTool && !ccToolRequest) {
-        pChat(charId, p => [...p, { role: "assistant", kind: "system", content: "（CC 只读工具请求无效，未入队；请使用已开放工具的准确名称。）", ts: Date.now(), turnId }]);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "system", content: "（CC 只读工具请求无效，未入队；请使用已开放工具的准确名称。）", ts: Date.now(), turnId }]);
       }
       if (ccToolRequest) {
         try {
@@ -5429,7 +5468,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           delivered = true;
         } catch (error) {
           const denied = /没有批准/.test(String(error && error.message || error));
-          pChat(charId, p => [...p, { role: "assistant", kind: "system", content: denied
+          pChat(chatKey, p => [...p, { role: "assistant", kind: "system", content: denied
             ? "（你没有允许这次 CC 操作）"
             : "（CC 工具暂时没接通，任务已停止：" + String(error && error.message || error).slice(0, 120) + "）", ts: Date.now(), turnId }]);
         }
@@ -5437,7 +5476,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 沉默权（v47.75 借汪汪机）：TA 这轮选择已读不回——只在自然回复场景生效（主动/续说不许沉默）。
       // 留一条 silence 标记（灰字居中、不计未读），心情等状态照常更新；其余输出（表情/语音/礼物…）全部作废
       if (parsed.silent === true && !opts.proactive && !contMode) {
-        pChat(charId, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
         delivered = true;
         words = []; emoteWordKws.length = 0;
         parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null;
@@ -5450,10 +5489,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const recall = parsed.recall && parsed.recall.text && String(parsed.recall.text).toLowerCase() !== "null" ? parsed.recall : null;
       if (recall) {
         const mid = "rc_" + Date.now();
-        pChat(charId, p => [...p, { role: "assistant", content: String(recall.text), mid, ts: Date.now(), turnId, ...(_callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "", reasonFrom: _callMeta.from || "" } : {}) }]);
+        pChat(chatKey, p => [...p, { role: "assistant", content: String(recall.text), mid, ts: Date.now(), turnId, ...(_callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "", reasonFrom: _callMeta.from || "" } : {}) }]);
         _callMeta.reasoning = "";   // 已经挂在撤回那条上了，别再挂一遍
         delivered = true;
-        setTimeout(() => pChat(charId, p => p.map(m => m.mid === mid ? { role: "assistant", kind: "recalled", origText: String(recall.text), reason: recall.reason || "", mid, ts: m.ts, turnId } : m)), 1100);
+        setTimeout(() => pChat(chatKey, p => p.map(m => m.mid === mid ? { role: "assistant", kind: "recalled", origText: String(recall.text), reason: recall.reason || "", mid, ts: m.ts, turnId } : m)), 1100);
       }
       // 思考链挂在这一轮【最先冒出来的那条】上：它属于整轮，不属于某个气泡，
       // 界面上也是画在这一组回复的上方。取一次就消费掉，别每条气泡都挂一份。
@@ -5467,7 +5506,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
         if (i > 0) await new Promise(r => setTimeout(r, i === 1 && _tfTook ? 1600 : 420));
-        pChat(charId, p => [...p, {
+        pChat(chatKey, p => [...p, {
           role: "assistant",
           content: words[i],
           ...(_biZh.get(bilingualKey(words[i])) ? { zh: _biZh.get(bilingualKey(words[i])) } : {}),
@@ -5492,7 +5531,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           if (match && !_seenEmote.has(match.id || match.keyword)) {
             _seenEmote.add(match.id || match.keyword);
             await new Promise(r => setTimeout(r, 420));
-            pChat(charId, p => [...p, { role: "assistant", kind: "emote", url: match.url, keyword: match.keyword, content: "[表情] " + match.keyword, ts: Date.now(), turnId }]);
+            pChat(chatKey, p => [...p, { role: "assistant", kind: "emote", url: match.url, keyword: match.keyword, content: "[表情] " + match.keyword, ts: Date.now(), turnId }]);
             delivered = true;
           }
         }
@@ -5505,7 +5544,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const vt = String(typeof raw === "object" && raw ? (raw.t || raw.text || "") : raw).trim();
         if (!vt) continue;
         const vEmo = typeof raw === "object" && raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
-        pChat(charId, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
         delivered = true;
       }
       // TA 发来一张自拍（接了图像 API + 该角色填了外貌/参考照才有）：先占位「拍照中」，异步生成后替换成真图
@@ -5539,7 +5578,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady() && (char.appearance || char.refPhoto)) {
         const sid = "sf_" + Date.now();
         await new Promise(r => setTimeout(r, 420));
-        pChat(charId, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: null, pending: true, desc: photoScene, photoKind, ts: Date.now(), turnId, read: false }]);
         delivered = true;
         (async () => {
           try {
@@ -5549,7 +5588,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             const freshCond = freshLiveStateValue(st, "condition");
             // 连贯参考图:把这个角色最近一张已生成的自拍一并喂进去,治「十分钟前灰卫衣、
             // 现在突然黑衬衫」。只取 6 小时内的——更早的场景早换了,拿它当锚反而错。
-            const prevShot = (chatsRef.current[charId] || []).slice().reverse()
+            const prevShot = (chatsRef.current[chatKey] || []).slice().reverse()
               .find(m => m && m.kind === "selfie" && m.imgKey && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
             // 人物原始参考照永远比上一张生成图可信。上一张一旦画错脸，重 roll 若继续
             // 把它塞回 edits，就会把错误当成新的身份锚并一代代繁殖。只有完全没有原始
@@ -5574,13 +5613,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
               // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
               const back = await idbImgGet(key).catch(() => null);
               if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-              pChat(charId, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
+              pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
             } else if (out.url) {
               // 跨域取不到 blob，直接用图片 URL 显示
-              pChat(charId, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
+              pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
             } else { throw new Error("没拿到图"); }
           } catch (e) {
-            pChat(charId, p => p.map(m => m.sid === sid ? { ...m, pending: false, failed: true } : m));
+            pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, failed: true } : m));
             const em = String(e.message || "");
             // 配额/模型类报错 → 指路：多半是图像模型名不对或该模型没配额
             // ⚠️顺序要紧：审核拒绝的原话里常带「misclassified by the upstream model」，
@@ -5614,7 +5653,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const callMode = parsed.call && ["voice", "video"].includes(String(parsed.call).toLowerCase()) ? String(parsed.call).toLowerCase() : null;
       if (callMode) {
         await new Promise(r => setTimeout(r, 420));
-        pChat(charId, p => [...p, { role: "assistant", kind: "callinvite", mode: callMode, content: "[" + (callMode === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId, read: false }]);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "callinvite", mode: callMode, content: "[" + (callMode === "video" ? "视频" : "语音") + "通话邀请]", ts: Date.now(), turnId, read: false }]);
         delivered = true;
       }
       // TA 拉黑用户
@@ -5622,7 +5661,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 拉黑的【原因和时刻】必须留下来：解除判定要拿它当尺子，
         // 以前只存了个 true，判词只能空对空地"看你诚不诚恳"（她 2026-08-20 说太容易解除）
         setBlockFor(charId, { theyBlocked: true, reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
-        pChat(charId, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), ts: Date.now() }]);
+        pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), ts: Date.now() }]);
         delivered = true;
       }
       // TA 说要去补朋友圈评论 → 真的发到我最新那条朋友圈下
@@ -5658,7 +5697,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // TA 主动邀请一起听 → 在聊天里发一张「一起听邀请」卡
       if (parsed.listenInvite && typeof parsed.listenInvite === "object" && (parsed.listenInvite.song || parsed.listenInvite.say)) {
         const inv = parsed.listenInvite;
-        pChat(charId, p => [...p, { role: "assistant", kind: "listeninvite", turnId: "li_" + Date.now(), song: inv.song ? String(inv.song).trim() : "", say: inv.say ? String(inv.say).trim() : "", content: "[一起听邀请]" + (inv.say ? " " + inv.say : ""), ts: Date.now(), read: false }]);
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "listeninvite", turnId: "li_" + Date.now(), song: inv.song ? String(inv.song).trim() : "", say: inv.say ? String(inv.say).trim() : "", content: "[一起听邀请]" + (inv.say ? " " + inv.say : ""), ts: Date.now(), read: false }]);
         delivered = true;
       }
       // TA 主动转账 / 发位置 / 给亲属卡
@@ -5666,7 +5705,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name)); delivered = true; }
       if (parsed.location && (parsed.location.name || parsed.location.coords)) {
-        pChat(charId, p => [...p, {
+        pChat(chatKey, p => [...p, {
         role: "assistant",
         turnId: "geo_" + Date.now(),
         kind: "geo",
@@ -5773,8 +5812,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         setStateFor(charId, ns);
         pushStateHist(charId, ns);
       }
-      setTimeout(() => maybeSummarize(charId), 100);
-      setTimeout(() => maybeAutoExtract(charId), 300);
+      const _roomMayRemember = !room || !!(room.writeback && room.writeback.memoryCandidate);
+      if (_roomMayRemember) {
+        setTimeout(() => maybeSummarize(charId), 100);
+        setTimeout(() => maybeAutoExtract(charId), 300);
+      }
       // P0-2 冷却的 turn 计数：只在该角色完成一次正常回复后 +1（后台/预览/touch:false 不计）
       try { if (!opts.proactive && delivered) window.RecallShadow && window.RecallShadow.turnDone(charId); } catch (e2) {}
       if (delivered && eLiveProjection && window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.commitLiveProjection) {
@@ -5782,7 +5824,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }
       return delivered;
     } catch (e) {
-      pChat(charId, p => [...p, {
+      pChat(chatKey, p => [...p, {
         role: "assistant",
         kind: "system",
         contextExcluded: true,
@@ -5793,7 +5835,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }]);
       return false;
     } finally {
-      endLane("c:" + charId);
+      endLane("c:" + chatKey);
     }
   };
   // CC 工具结果是异步的：云端完成后先作为隐藏系统事实落进同一私聊，
@@ -5895,8 +5937,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     toast("已收藏");
   };
   const delFavorite = id => setFavorites(p => { const n = p.filter(f => f.id !== id); saveJSON("x_favorites", n); return n; });
-  const handleMsgAction = (act, idx) => {
-    const msgs = chats[activeChar.id] || [];
+  const handleMsgAction = (act, idx, sourceKey) => {
+    const threadKey = sourceKey || activeChar.id;
+    const isSideRoom = !!(window.ChatRooms && window.ChatRooms.isSideKey(threadKey));
+    const msgs = chats[threadKey] || [];
     const m = msgs[idx];
     if (act === "fav") { addFavorite(activeChar.id, m); return; }
     if (act === "copy") {
@@ -5904,7 +5948,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       toast("已复制");
     } else if (act === "recall") {
       const orig = m;
-      pChat(activeChar.id, p => {
+      pChat(threadKey, p => {
         const next = p.map((x, i) => i === idx ? { ...x, recalled: true } : x);
         try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "recall", charId: activeChar.id, before: p, after: next, targetIndex: idx }); } catch (e) {}
         return next;
@@ -5912,7 +5956,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (orig && orig.role === "user" && orig.content) reactToMyRecall(activeChar.id, orig.content);
     } else if (act === "edit") {
       const cid = activeChar.id;
-      setEditMsg({ content: m.content || "", onSave: nv => pChat(cid, p => {
+      setEditMsg({ content: m.content || "", onSave: nv => pChat(threadKey, p => {
         const next = p.map((x, i) => i === idx ? { ...x, content: nv } : x);
         try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "edit", charId: cid, before: p, after: next, targetIndex: idx }); } catch (e) {}
         return next;
@@ -5940,23 +5984,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[turnId]};
         const removed=branch.removed,removedTurns=branch.turnIds;
         // 共享账本也只做软删；离线时进入专用 outbox，联网后补盖 deleted_at。
-        try {
+        if (!isSideRoom) try {
           const y = ledgerYanqiu();
           if (y && String(y.id) === String(activeChar.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "private", threadId: y.id }, removed);
         } catch (e) {}
         // 旧分支副作用回滚：只撤销“证据全部来自该角色旧 turn”的自动记忆；数据库同步为软删。
         const journal = loadJSON("x_rerollMemoryJournal", {}),doomed=new Set();
         removedTurns.forEach(id=>(journal[activeChar.id+"|"+id]||[]).forEach(memId=>doomed.add(String(memId))));
-        if (doomed.size) saveMemLib(memLibRef.current.filter(e => !doomed.has(String(e && e.id))));
+        if (!isSideRoom && doomed.size) saveMemLib(memLibRef.current.filter(e => !doomed.has(String(e && e.id))));
         let journalChanged=false;removedTurns.forEach(id=>{const key=activeChar.id+"|"+id;if(journal[key]){delete journal[key];journalChanged=true;}});
-        if(journalChanged)saveJSON("x_rerollMemoryJournal",journal);
+        if(!isSideRoom&&journalChanged)saveJSON("x_rerollMemoryJournal",journal);
         // 心声/心情/动作/穿着恢复到该 turn 之前；新回复随后从这份真实状态继续。
-        rollbackCharTurns(activeChar.id,removedTurns,false);
+        if (!isSideRoom) rollbackCharTurns(activeChar.id,removedTurns,false);
         // 抽取书签退回旧分支之前，让新分支能重新参加自动抽取。
         const firstTs = Math.min(...removed.map(x => Number(x.ts) || Date.now()));
-        if (Number.isFinite(firstTs)) memExtractMarkRef.current[activeChar.id] = Math.min(memExtractMarkRef.current[activeChar.id] || firstTs, firstTs - 1);
+        if (!isSideRoom && Number.isFinite(firstTs)) memExtractMarkRef.current[activeChar.id] = Math.min(memExtractMarkRef.current[activeChar.id] || firstTs, firstTs - 1);
         // 正常回合：删掉这一轮 AI 回复（保留用户最后一条）重生成
-        pChat(activeChar.id, p => {
+        pChat(threadKey, p => {
           const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,turnId):branch;
           const next=liveBranch.after;
           try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll",surface:"private", charId: activeChar.id, before: p, after: next, targetIndex: liveBranch.start, turnId }); } catch (e) {}
@@ -5969,19 +6013,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[]};
         const removedTurns=branch.turnIds||[],journal=loadJSON("x_rerollMemoryJournal",{}),doomed=new Set();
         removedTurns.forEach(id=>(journal[activeChar.id+"|"+id]||[]).forEach(memId=>doomed.add(String(memId))));
-        if(doomed.size)saveMemLib(memLibRef.current.filter(e=>!doomed.has(String(e&&e.id))));
+        if(!isSideRoom&&doomed.size)saveMemLib(memLibRef.current.filter(e=>!doomed.has(String(e&&e.id))));
         let journalChanged=false;removedTurns.forEach(id=>{const key=activeChar.id+"|"+id;if(journal[key]){delete journal[key];journalChanged=true;}});
-        if(journalChanged)saveJSON("x_rerollMemoryJournal",journal);
-        rollbackCharTurns(activeChar.id,removedTurns,true);
-        try{const y=ledgerYanqiu();if(y&&String(y.id)===String(activeChar.id)&&window.ChatLedgerShadow)window.ChatLedgerShadow.invalidate({charId:y.id,threadType:"private",threadId:y.id},branch.removed);}catch(e){}
-        pChat(activeChar.id, p => {
+        if(!isSideRoom&&journalChanged)saveJSON("x_rerollMemoryJournal",journal);
+        if (!isSideRoom) rollbackCharTurns(activeChar.id,removedTurns,true);
+        if (!isSideRoom) try{const y=ledgerYanqiu();if(y&&String(y.id)===String(activeChar.id)&&window.ChatLedgerShadow)window.ChatLedgerShadow.invalidate({charId:y.id,threadType:"private",threadId:y.id},branch.removed);}catch(e){}
+        pChat(threadKey, p => {
           const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,null):branch;
           const next=liveBranch.after;
           try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll",surface:"private_legacy", charId: activeChar.id, before: p, after: next, targetIndex: liveBranch.start }); } catch (e) {}
           return next;
         });
       }
-      setTimeout(() => replyNow(activeChar.id), 200);
+      setTimeout(() => {
+        const roomId = window.ChatRooms && window.ChatRooms.isSideKey(threadKey) ? String(threadKey).split("::room::")[1] : "main";
+        const rerollRoom = window.ChatRooms ? window.ChatRooms.get(activeChar.id, roomId) : null;
+        replyNow(activeChar.id, null, null, { chatKey: threadKey, room: rerollRoom });
+      }, 200);
     }
   };
 
@@ -11761,15 +11809,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     character: activeChar,
     characters: liveChars,
     groups: groups,
-    messages: chats[activeChar.id] || [],
+    messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     sending: sending,
     onBack: () => setScreen("messages"),
-    onSend: txt => pushUser(activeChar.id, txt),
+    onSend: txt => pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onReply: extraText => {
       const b = blocks[activeChar.id] || {};
       if (b.iBlocked) return blockedReaction(activeChar.id);
       if (b.theyBlocked) { toast("TA 拉黑了你，点消息旁的 ! 申请解除"); return; }
-      return replyNow(activeChar.id, extraText);
+      const room = window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
+      const chatKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
     block: blocks[activeChar.id] || null,
     onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea),
@@ -11779,19 +11829,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onOpenState: () => { setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: schedNowBriefFor(activeChar),
     onOpenSched: () => { setSelSched(activeChar.id); setScreen("calendar"); },
-    onLongPress: handleMsgAction,
+    onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onOpenSettings: () => setChatSettingsOpen(true),
+    room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
+    onOpenRooms: () => setChatRoomsOpen(true),
     toast: toast,
-    onSendRich: msg => pChat(activeChar.id, p => [...p, msg]),
-    onPat: () => patChar(activeChar.id),
+    onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
+    onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onStartCall: m => startCall([activeChar], m, null, "me"),
     onAcceptCall: m => { pChat(activeChar.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); startCall([activeChar], m.mode, null, activeChar.id); },
     onDeclineCall: m => { pChat(activeChar.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了 TA 的" + (m.mode === "video" ? "视频" : "语音") + "通话邀请", ts: Date.now() }]); },
     onAcceptListen: acceptListenInvite,
     emotes: emotesForCharMine(activeChar.id),
     onManageEmotes: () => setScreen("emotes"),
-    archCount: chatArch[activeChar.id] || 0,
-    onLoadOlder: loadChatArchive,
+    archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
+    onLoadOlder: activeRoomId === "main" ? loadChatArchive : null,
     myBalance: wallet,
     onSendTransfer: (amount, note) => sendTransfer(activeChar.id, amount, note),
     onRespondTransfer: (tid, accept) => respondTransfer(activeChar.id, tid, accept),
@@ -11802,13 +11854,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onOOC: text => oocReply(activeChar.id, text),
     onDeleteMessages: indices => {
       const set = new Set(indices);
-      const picked = (chatsRef.current[activeChar.id] || []).filter((_, i) => set.has(i));
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const picked = (chatsRef.current[threadKey] || []).filter((_, i) => set.has(i));
       const imported = picked.filter(m => m && m.ledgerImported && m.ledgerKey);
       // 跨端原话只能软删：本地先变成撤回占位，云端再盖 tombstone；普通本地消息保持原来的本机删除行为。
-      pChat(activeChar.id, p => p.map((m, i) => set.has(i) && m && m.ledgerImported ? { ...m, recalled: true } : m).filter((m, i) => !set.has(i) || (m && m.ledgerImported)));
+      pChat(threadKey, p => p.map((m, i) => set.has(i) && m && m.ledgerImported ? { ...m, recalled: true } : m).filter((m, i) => !set.has(i) || (m && m.ledgerImported)));
       if (imported.length && window.Cloud) window.Cloud.chatMessagesSoftDelete(imported.map(m => m.ledgerKey)).catch(e => {
         const failed = new Set(imported.map(m => m.ledgerKey));
-        pChat(activeChar.id, p => p.map(m => m && failed.has(m.ledgerKey) ? { ...m, recalled: false } : m));
+        pChat(threadKey, p => p.map(m => m && failed.has(m.ledgerKey) ? { ...m, recalled: false } : m));
         toast("跨端消息云端没删成，已恢复，请联网后重试：" + String((e && e.message) || e));
       });
       toast("已删除 " + indices.length + " 条");
@@ -12563,7 +12616,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     init: editMsg.content,
     onCancel: () => setEditMsg(null),
     onSave: nv => { editMsg.onSave(nv); setEditMsg(null); }
-  }), chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
+  }), chatRoomsOpen && activeChar && window.ChatRoomSheet ? h(window.ChatRoomSheet, {
+    character: activeChar,
+    activeRoomId,
+    onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) setChatRoomsOpen(false); },
+    onClose: () => setChatRoomsOpen(false)
+  }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
     settings: settingsFor(activeChar.id),
     apiProfiles: apiProfiles,

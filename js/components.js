@@ -3204,6 +3204,8 @@ function ChatThread({
   onOpenSched,
   onLongPress,
   onOpenSettings,
+  room,
+  onOpenRooms,
   onRecall,
   onReroll,
   onReply,
@@ -3478,6 +3480,16 @@ function ChatThread({
     size: 20,
     color: t.ink
   }))),
+  room && h("button", {
+    onClick: onOpenRooms,
+    className: "shrink-0 w-full flex items-center active:opacity-70",
+    style: { padding: "7px 16px", gap: 8, background: dsp.chatBg ? "rgba(255,255,255,0.45)" : t.bg2, borderBottom: "1px solid " + t.line }
+  },
+    h("span", { style: { width: 7, height: 7, borderRadius: 99, background: room.main ? t.fog : t.tint } }),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, room.name),
+    !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "手动补课" : "独立时间线"),
+    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: t.tint } }, "换房 / 设置")
+  ),
   // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
   schedNow && h("button", {
     onClick: onOpenSched,
@@ -8519,6 +8531,54 @@ function SettingSection({ title, open, onToggle, danger, children }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
     open ? h("div", { className: "pb-3" }, children) : null);
 }
+function ChatRoomSheet({ character, activeRoomId, onSelect, onClose }) {
+  const t = useTheme();
+  const Kit = window.ChatRooms;
+  const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
+  const [editingId, setEditingId] = useState(activeRoomId || "main");
+  const [draft, setDraft] = useState(() => Kit ? Kit.get(character.id, activeRoomId || "main") : null);
+  const [creating, setCreating] = useState(false);
+  if (!Kit || !draft) return h(Sheet, { onClose, tall: true }, "房间模块未加载");
+  const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); };
+  const patch = p => setDraft(d => ({ ...d, ...p }));
+  const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
+    h(Eyebrow, null, title),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
+    Kit.GROUPS[key].map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
+      h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, note)),
+      h(Toggle, { on: !!draft[key][k], onChange: () => patch({ [key]: { ...draft[key], [k]: !draft[key][k] } }) })
+    )));
+  const save = () => {
+    const saved = Kit.save(character.id, draft); setRooms(Kit.list(character.id)); setDraft(saved); setCreating(false);
+    onSelect(saved.id, false);
+    return saved;
+  };
+  const add = preset => {
+    const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
+    setDraft(d); setEditingId(d.id); setCreating(true);
+  };
+  return h(Sheet, { onClose, tall: true },
+    h("div", { className: "flex items-center justify-between" }, h("div", null,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "房间与权限"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "同一个人，不同房间各有自己的聊天与门钥匙")),
+      h("button", { onClick: save, style: { fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "保存")),
+    h("div", { className: "flex gap-2 overflow-x-auto", style: { margin: "16px -4px 0", padding: "0 4px 6px" } },
+      rooms.map(r => h("button", { key: r.id, onClick: () => pick(r.id), style: { flexShrink: 0, padding: "8px 13px", borderRadius: 999, border: "1px solid " + (editingId === r.id ? t.ink : t.line), background: editingId === r.id ? t.ink : "transparent", color: editingId === r.id ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12 } }, r.name)),
+      [["everyday","＋日常"],["focused","＋专注"],["isolated","＋隔离"]].map(([preset, label]) => h("button", { key: preset, onClick: () => add(preset), style: { flexShrink: 0, padding: "8px 11px", borderRadius: 999, border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 11.5 } }, label))),
+    h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), disabled: draft.main, placeholder: "给房间起个名字", style: { width: "100%", marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 16, outline: "none", opacity: draft.main ? .65 : 1 } }),
+    !draft.main && h("div", { style: { marginTop: 14 } },
+      h(Eyebrow, null, "主线同步"),
+      h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
+    group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
+    group("actions", "行动权限", "决定这间房能实际调用哪些 App / Agent 能力；主聊天也可以关。"),
+    group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
+    h("div", { className: "flex gap-2", style: { marginTop: 20, paddingBottom: 12 } },
+      h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),
+      !draft.main && !creating && h("button", { onClick: () => { if (!window.confirm("删除房间入口？本房记录先保留，不会被硬删。")) return; Kit.remove(character.id, draft.id); setRooms(Kit.list(character.id)); pick("main"); }, style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
+    ));
+}
+window.ChatRoomSheet = ChatRoomSheet;
+
 function ChatSettings({
   character,
   settings,
@@ -8544,6 +8604,7 @@ function ChatSettings({
   const t = useTheme();
   // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
   const [openSec, setOpenSec] = useState("");
+  const [settingsTab, setSettingsTab] = useState("relate");
   const sec = key => ({ open: openSec === key, onToggle: () => setOpenSec(v => v === key ? "" : key) });
   const [remark, setRemark] = useState(character.remark || "");
   const [patSig, setPatSig] = useState(character.patSig || "");
@@ -8632,6 +8693,7 @@ function ChatSettings({
   const persRow = (label, val, set, opts) => h("div", { className: "flex items-center justify-between pt-3" },
     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, label),
     h("div", { className: "flex gap-1" }, opts.map(o => h("button", { key: o.v, onClick: () => set(o.v), style: { fontFamily: F_BODY, fontSize: 12, padding: "5px 11px", borderRadius: 999, background: val === o.v ? t.ink : "transparent", color: val === o.v ? t.bg2 : t.fog, border: "1px solid " + (val === o.v ? t.ink : t.line) } }, o.t))));
+  const show = (tab, props, ...children) => settingsTab === tab ? h(SettingSection, props, ...children) : null;
   return /*#__PURE__*/React.createElement(Sheet, {
     onClose: onClose,
     tall: true
@@ -8671,7 +8733,9 @@ function ChatSettings({
   }, /*#__PURE__*/React.createElement(ICheck, {
     size: 19,
     color: t.ink
-  }))), h(SettingSection, { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
+  }))), h("div", { className: "flex gap-2 overflow-x-auto", style: { margin: "12px -4px 8px", padding: "0 4px 7px" } },
+    [["relate","相处"],["route","线路"],["look","外观"],["memory","记忆"],["safety","安全"]].map(([key, label]) => h("button", { key, onClick: () => { setSettingsTab(key); setOpenSec(""); }, style: { flexShrink: 0, padding: "8px 14px", borderRadius: 999, border: "1px solid " + (settingsTab === key ? t.ink : t.line), background: settingsTab === key ? t.ink : "transparent", color: settingsTab === key ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12 } }, label))),
+  show("relate", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
       "这里只列真正接上行为的模块；“观察中”不会进入提示词，也不会改变 TA。"),
     innerLifeImpact.live.map(item => h("div", { key: item.key, style: { marginTop: 10, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2 } },
@@ -8683,7 +8747,7 @@ function ChatSettings({
     h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
       h(Eyebrow, null, "仍在观察 · 不影响 TA"),
       innerLifeImpact.shadow.map(text => h("div", { key: text, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, marginTop: 5 } }, "○ " + text)))),
-  h(SettingSection, { title: "线路与身份", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
+  show("route", { title: "线路与身份", ...sec("route") }, (apiProfiles && apiProfiles.length > 1) ? h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "API 线路"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 4 } }, cNm + " 用哪条线路说话/写字——单聊·通话·线下·OOC·日记·朋友圈·情书·交换日记·时光胶囊·欲望盒子(灵光独白/小满盘点/毕业蜕变)，全走这条。给特别的人配本人的模型（如接 fable）。群聊多人同台、以及后台体力活（记忆抽取/行程钱包/观测者纸条）仍走全局，不受影响。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
@@ -8698,7 +8762,7 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "驻场工程师的眼睛"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "让 " + cNm + " 看得见这台 app 的体征：版本、存储占用、今日消息量、最近报错。适合住进项目的工程师角色。")),
       h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) })))),
-  h(SettingSection, { title: "内在性情 · 性情锚点", ...sec("temperament") },
+  show("relate", { title: "内在性情 · 性情锚点", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       "这是 A 情绪影子的性情底稿。只有你点按钮才会调用一次后台 API；模型只提议词，数值由本地固定规则计算。现在不会进 prompt，也不会改变 Ta 的语气。"),
     h("textarea", { value: temperamentText, onChange: e => { setTemperamentText(e.target.value); setTemperamentDirty(true); }, placeholder: "每行一个词，例如：\n敏感\n嘴硬\n温柔", rows: 6,
@@ -8722,7 +8786,7 @@ function ChatSettings({
         "后台检测 " + Number(aShadowPanel.bReport.calls || 0) + " 次 · 失败 " + Number(aShadowPanel.bReport.failures || 0) + " · 平均 " + Number(aShadowPanel.bReport.avgLatencyMs || 0) + "ms", h("br"),
         "候选 " + Number(aShadowPanel.bReport.rawCandidates || 0) + " → 有效 " + Number(aShadowPanel.bReport.validCandidates || 0) + " · 玩笑拦截 " + Number(aShadowPanel.bReport.playfulBlocked || 0), h("br"),
         "进入 " + Number(aShadowPanel.bReport.entered || 0) + " · 退出 " + Number(aShadowPanel.bReport.exited || 0) + " · 真修复解锁 " + Number(aShadowPanel.bReport.repairUnlocked || 0) + " · 假修复拦截 " + Number(aShadowPanel.bReport.fakeRepairBlocked || 0)))),
-  h(SettingSection, { title: "外观 · 气泡 / 背景 / 备注", ...sec("look") }, h("div", { className: "pt-2" },
+  show("look", { title: "外观 · 气泡 / 背景 / 备注", ...sec("look") }, h("div", { className: "pt-2" },
     h(Eyebrow, { style: { marginBottom: 2 } }, "气泡显示"),
     dispRow("显示我的头像", showMyAvatar, setShowMyAvatar),
     dispRow("显示时间戳", showTime, setShowTime),
@@ -8759,7 +8823,7 @@ function ChatSettings({
     value: patSig,
     onChange: e => setPatSig(e.target.value),
     placeholder: "如：的脑袋、的猫耳朵"
-  }))), h(SettingSection, { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
+  }))), show("relate", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
     style: {
@@ -8840,7 +8904,7 @@ function ChatSettings({
     className: "pt-3"
   }, h("div", {
     style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 }
-  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), h(SettingSection, { title: "线下相处 · 默认在一起", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), h(SettingSection, { title: "记忆与上下文", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
+  }, "什么时候来找你，由 TA 此刻的心情决定——你越久没理 TA、TA 越想你，才会主动开口（不再是死板的固定间隔）。你好好道过晚安 TA 涨得慢，敷衍两句 TA 更快想你。⚠️手机彻底杀掉后台期间发不出，但你重开时 TA 会补上这段想念。"))), show("relate", { title: "线下相处 · 默认在一起", ...sec("off") }, h("div", { className: "flex items-center justify-between pt-5" }, h("div", { style: { paddingRight: 12 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "默认进线下（同居 / 常在一起）"), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "点进这个聊天默认直接进线下相处（面对面叙事），随时可跳回线上；关着就跟以前一样默认线上。适合同居 / 几乎总在一起的 TA。")), h("button", { onClick: () => setDefaultOffline(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: defaultOffline ? t.tint : t.line, position: "relative", transition: "background .2s" } }, h("span", { style: { position: "absolute", top: 3, left: defaultOffline ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } })))), show("memory", { title: "记忆与上下文", ...sec("mem") }, /*#__PURE__*/React.createElement("div", {
     className: "pt-6"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-baseline justify-between mb-1"
@@ -8965,7 +9029,7 @@ function ChatSettings({
         memory && h("button", { onClick: onClearMemory, style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "清空这段记忆"))
     : h("div", { className: "flex items-center gap-2" },
         h("button", { onClick: () => { onSaveMemory && onSaveMemory(memEdit.trim()); setMemEdit(null); }, className: "active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 9, padding: "8px 18px" } }, "保存记忆"),
-        h("button", { onClick: () => setMemEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "8px 10px" } }, "取消")))), h(SettingSection, { title: "危险区 · 拉黑 / 清除", danger: true, ...sec("danger") }, toyUnlocked ? h("div", { className: "pt-6" },
+        h("button", { onClick: () => setMemEdit(null), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "8px 10px" } }, "取消")))), show("safety", { title: "危险区 · 拉黑 / 清除", danger: true, ...sec("danger") }, toyUnlocked ? h("div", { className: "pt-6" },
     h(Eyebrow, { style: { marginBottom: 6 } }, "配件"),
     h("div", { className: "flex items-center justify-between" },
       h("div", { className: "pr-3" },
@@ -8990,7 +9054,7 @@ function ChatSettings({
       ? h("div", { className: "flex gap-2" },
           h("button", { onClick: () => setConfirmClear(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
           h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除线上线下+记忆" : "清除线上与线下"))
-      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录"))), h(SettingSection, { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
+      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录"))), show("memory", { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
     className: "pt-6"
   }, h(Eyebrow, {
     style: {
