@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode } = require("../js/trpg.js");
+const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls } = require("../js/trpg.js");
 
 // ============================================================
 // 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
@@ -403,7 +403,7 @@ test("命运点:跟气运走;只在失败后可花;重掷只许一次;花掉立�
   assert.ok(fate, "fateOf 存在");
   assert.match(src, /offer = c\.fate > 0 && !c\.rerolled && \(grade\.tier === "fail" \|\| grade\.tier === "fumble"\)/, "成功不给花,重掷过不给再花");
   assert.match(src, /重掷\(花1枚,新结果必须认\)/);
-  assert.match(src, /grade\.tier === "fumble" \? h\("button", \{ onClick: fateSoften/, "以失败论只对大失败开放");
+  assert.match(src, /ceremony\.grade\.tier === "fumble" \? btn\("✦ 以失败论/, "以失败论只对大失败开放");
   assert.match(src, /spendFate\(c\.mKey\)/, "花掉立扣队伍账,不等回合结算");
   assert.match(src, /花" \+ res\.spent\.length \+ "枚命运点/, "花点记进检定行,守密人看得见");
 });
@@ -514,8 +514,8 @@ test("团内时间只向前:倒流丢弃,单拍至多跨两天", () => {
 });
 
 test("专长:检定贴合时 +15,写进检定行", () => {
-  assert.match(src, /statVal: Math\.min\(95, member\.stats\[statKey\] \+ \(feat \? 15 : 0\)\)/, "加成封顶95");
-  assert.match(src, /含专长·/, "仪式上写明加成来源");
+  assert.match(src, /const ceremonyEff = c => Math\.min\(95, c\.base/, "所有加成(专长/协力/交易)合计后封顶95");
+  assert.match(src, /专长·" \+ res\.feat \+ "\+15/, "检定行写明专长加成");
   assert.match(src, /把机会点给有这门手艺的人/, "守密人被教了怎么用 feat");
   const party = camp0().party;
   const out = normChoices([{ text: "包扎", check: { stat: "wit", who: "裴照川", feat: "急救" } }], party);
@@ -593,6 +593,61 @@ test("输出天花板统一给满:按次计费,上限不省钱只会截断", () 
   assert.match(src, /const TOK_MAX = 65535/);
   assert.ok(!/maxTokens: \d/.test(src), "不再有零散的小上限");
   assert.equal((src.match(/maxTokens: TOK_MAX/g) || []).length, 8, "八处调用全走天花板");
+});
+
+// ---- 骰子桌五件套 + 冒险小分队 ----
+test("对抗骰:档高者胜,同档骰点小者胜,再平守方胜", () => {
+  const g = (t2) => ({ tier: t2 });
+  assert.equal(decideOpposed(g("hard"), 20, g("ok"), 10), "win", "档高压过点数");
+  assert.equal(decideOpposed(g("ok"), 12, g("ok"), 40), "win", "同档掷得低=发挥好");
+  assert.equal(decideOpposed(g("ok"), 30, g("ok"), 30), "lose", "全平守方胜——进攻要赢就得真赢");
+  assert.equal(decideOpposed(g("fumble"), 96, g("fail"), 80), "lose");
+  assert.match(src, /档高者胜;检定行里的「对抗胜\/负」是铁案/, "守密人被教了照对抗结果叙");
+});
+
+test("伤害骰口径与协力/交易的规则", () => {
+  assert.equal(harmZh(3), "擦伤"); assert.equal(harmZh(12), "结结实实");
+  assert.equal(harmZh(19), "重创"); assert.equal(harmZh(20), "几乎致命");
+  assert.match(src, /hp 字段按这颗骰的轻重写,别自己另拍数/);
+  assert.match(src, /大失败要连累协力者/, "协力共担后果");
+  assert.match(src, /代价【无论成败必然兑现】/, "魔鬼交易不许赖账");
+  assert.match(src, /协力\(共担后果\):/, "仪式里出手前可点协力");
+  assert.match(src, /😈 魔鬼交易:\+15/, "开了价才有交易按钮");
+});
+
+test("重伤表与失控表:见底当场掷,重伤是 scar 会跟老卡走", () => {
+  const base = camp0();
+  base.party[1].hp = 10;
+  const r = applyTurnPayload(base, { hp: [{ name: "裴照川", delta: -30 }] }, { rand: () => 0 });
+  assert.equal(r.camp.party[1].hp, 0);
+  assert.equal(r.camp.party[1].effects[0].name, "断了肋骨", "rand=0 取表第一条");
+  assert.equal(r.camp.party[1].effects[0].scar, true, "重伤留疤");
+  const gb = Object.assign(camp0(), { gauge: { name: "理智", val: 10, max: 100, bad: "low" } });
+  const r2 = applyTurnPayload(gb, { gauge: -15 }, { rand: () => 0 });
+  assert.equal(r2.camp.party[0].effects[0].name, "歇斯底里", "理智见底玩家掷失控表");
+  const r3 = applyTurnPayload(Object.assign(camp0(), { gauge: { name: "理智", val: 0, max: 100, bad: "low" } }), { gauge: -5 }, { rand: () => 0 });
+  assert.equal((r3.camp.party[0].effects || []).length, 0, "本来就见底不重复掷——只在跨线那拍");
+});
+
+test("成长骰:成功过的属性才有资格,d100 高于现值才 +5,封顶 90", () => {
+  const party = camp0().party;
+  const recs = [{ who: "Lisa", statKey: "agi", tier: "ok" }, { who: "Lisa", statKey: "wit", tier: "fail" }, { who: "裴照川", statKey: "wit", tier: "crit" }];
+  const g = growthRolls(party, recs, () => 0.99);
+  assert.deepEqual(g.map(x => [x.name, x.stat, x.to]), [["Lisa", "agi", 55], ["裴照川", "wit", 75]], "失败过的 wit 不给 Lisa 长");
+  const g2 = growthRolls(party, recs, () => 0);
+  assert.ok(g2.every(x => x.to === x.from), "掷不过现值就不长");
+  const strong = [{ key: "u", name: "A", stats: { phy: 90, agi: 50, wit: 50, cha: 50, luck: 50 } }];
+  assert.equal(growthRolls(strong, [{ who: "A", statKey: "phy", tier: "ok" }], () => 0.99).length, 0, "90 封顶不再长");
+});
+
+test("冒险小分队:老卡自动进场、重掷不洗老卡、落幕写回", () => {
+  assert.match(src, /x_trpgSquad/, "老卡库跟随 x_ 云同步");
+  assert.match(src, /veteran: true, runs: v\.runs \|\| 0/, "有老卡就带老卡进场");
+  assert.match(src, /全队都是老卡——成长是打出来的,不重掷/, "重掷属性洗不掉老卡");
+  assert.match(src, /saveSquad\(sq\)/, "落幕把成长与旧伤写回");
+  assert.match(src, /⚔ 冒险小分队/, "入口页有小分队卡");
+  assert.match(src, /退役\?成长与旧伤都会清掉/, "退役=换新卡,互不冲突");
+  assert.match(src, /scars: \(m\.effects \|\| \[\]\)\.filter\(e => e\.scar\)/, "只有 scar 跟着老卡走,普通状态不带");
 });
 
 // ---- 秘典:开团即生成,落幕前不给看 ----

@@ -109,6 +109,55 @@
     return { tier: "fail", zh: "失败" };
   }
 
+  // ---- 对抗骰/伤害骰/两张表(纯函数) ----
+  // 对抗:双方各掷各判五档,档高者胜;同档骰点小者胜(掷得低=发挥好);再平守方胜——
+  // 进攻方要赢就得真赢,不给和稀泥的平局
+  const TIER_RANK = { crit: 4, hard: 3, ok: 2, fail: 1, fumble: 0 };
+  function decideOpposed(ourGrade, ourRoll, theirGrade, theirRoll) {
+    const a = TIER_RANK[ourGrade.tier], b = TIER_RANK[theirGrade.tier];
+    if (a !== b) return a > b ? "win" : "lose";
+    if (ourRoll !== theirRoll) return ourRoll < theirRoll ? "win" : "lose";
+    return "lose";
+  }
+  // 伤害骰 d20 的轻重口径(写给守密人,也写给玩家看)
+  const harmZh = d => d >= 20 ? "几乎致命" : d >= 13 ? "重创" : d >= 6 ? "结结实实" : "擦伤";
+  // 重伤表:HP 见底那一刻客户端直接掷,变成带后遗症的状态(scar 会跟着老卡进下一团)
+  const POOL_WOUND = [
+    { name: "断了肋骨", note: "牵扯就疼,使不上大力" },
+    { name: "腿上重伤", note: "赶路慢半拍,身手吃紧" },
+    { name: "头部重击", note: "时不时眩晕,记不清事" },
+    { name: "手臂骨折", note: "只剩一只手能用" },
+    { name: "深创未愈", note: "一动就可能再裂开" },
+    { name: "失血过多", note: "脸色惨白,久站发虚" }
+  ];
+  // 失控表:理智/压力类状态条触底时掷(挂在玩家身上,不留疤,团内有效)
+  const POOL_BREAK = [
+    { name: "歇斯底里", note: "压不住声音和手抖" },
+    { name: "僵住", note: "关键时刻动不了" },
+    { name: "逃避现实", note: "坚信刚才没发生" },
+    { name: "偏执", note: "觉得有人瞒着自己" },
+    { name: "暴怒", note: "先动手后讲理" },
+    { name: "麻木", note: "对危险失去反应" }
+  ];
+  // 落幕成长骰(COC 式):这团用过且【成功过】的属性才有资格长——掷 d100 高于现值
+  // 才 +5(越强越难再长),封顶 90。rolls 来自骰子账的结构化记录 {who,statKey,tier}。
+  function growthRolls(party, rollRecs, rand) {
+    rand = rand || Math.random;
+    const out = [];
+    party.forEach(m => {
+      const okStats = {};
+      (rollRecs || []).forEach(r => { if (r.who === m.name && TIER_RANK[r.tier] >= 2 && STAT_ZH[r.statKey]) okStats[r.statKey] = 1; });
+      Object.keys(okStats).forEach(k => {
+        const cur = m.stats[k];
+        if (cur >= 90) return;
+        const roll = 1 + Math.floor(rand() * 100);
+        if (roll > cur) out.push({ name: m.name, key: m.key, stat: k, from: cur, to: Math.min(90, cur + 5), roll });
+        else out.push({ name: m.name, key: m.key, stat: k, from: cur, to: cur, roll });
+      });
+    });
+    return out;
+  }
+
   // ---- 回合协议(纯函数) ----
   // 名字校验:先全等,再互相包含;都对不上就丢弃——绝不把伤害安到不存在的人头上,
   // 也绝不猜。参考项目的教训:模糊正则落账,一个同义词就静默丢效果或安错人。
@@ -131,7 +180,14 @@
       const rawCheck = c.check && typeof c.check === "object" ? c.check : null;
       if (rawCheck && STAT_ZH[rawCheck.stat]) {
         const who = rawCheck.who ? findMember(party, rawCheck.who) : null;
-        check = { stat: rawCheck.stat, who: who ? who.name : null, feat: String(rawCheck.feat || "").trim().slice(0, 6) || null };
+        // vs=对抗骰(对面的名字与本事值),bargain=魔鬼交易开价,harm=会见血(补伤害骰);
+        // 哪部分不合法就只丢哪部分,检定本体还在
+        let vs = null;
+        if (rawCheck.vs && typeof rawCheck.vs === "object" && String(rawCheck.vs.name || "").trim()) {
+          const v = Math.round(Number(rawCheck.vs.val));
+          if (v) vs = { name: String(rawCheck.vs.name).trim().slice(0, 8), val: Math.max(20, Math.min(90, v)) };
+        }
+        check = { stat: rawCheck.stat, who: who ? who.name : null, feat: String(rawCheck.feat || "").trim().slice(0, 6) || null, vs, bargain: String(rawCheck.bargain || "").trim().slice(0, 24) || null, harm: rawCheck.harm === true };
       }
       const need = itemNameNorm(c.need) || null; // 收进来就剥掉持有人/数量尾巴,显示与核对都干净
       return { text, check, need };
@@ -179,12 +235,24 @@
       if (!m || !d) return;
       hpSum[m.name] = (hpSum[m.name] || 0) + d;
     });
+    const rand = (opts && opts.rand) || Math.random;
     next.party.forEach(m => {
       const d = Math.max(-40, Math.min(40, hpSum[m.name] || 0));
       if (!d) return;
-      m.hp = Math.max(0, Math.min(m.maxHp || 100, (m.hp || 0) + d));
+      const before = m.hp || 0;
+      m.hp = Math.max(0, Math.min(m.maxHp || 100, before + d));
       notes.push(m.name + " HP" + (d > 0 ? "+" : "") + d);
       chips.push({ k: d > 0 ? "hpup" : "hp", txt: m.name + " HP" + (d > 0 ? "+" : "") + d + " →" + m.hp });
+      // 重伤表:这一拍被打到见底,当场掷一条后遗症(scar 会跟着老卡进下一团)
+      if (before > 0 && m.hp === 0) {
+        const w = POOL_WOUND[Math.floor(rand() * POOL_WOUND.length)];
+        m.effects = (m.effects || []).map(e => Object.assign({}, e));
+        if (m.effects.length < 4 && !m.effects.some(e => e.name === w.name)) {
+          m.effects.push({ name: w.name, note: w.note, scar: true });
+          notes.push(m.name + " 落下重伤「" + w.name + "」");
+          chips.push({ k: "hp", txt: "🩹 重伤·" + m.name + "·" + w.name });
+        }
+      }
     });
     // gain 可带持有人;同名同持有人=叠数量。lose 按名扣(给了持有人就只扣那个人的)。
     // hand 转手:to 必须在队(找不到就归「队伍」公用),from 可省。
@@ -357,6 +425,20 @@
         if (forward) {
           next.time = { day: nd, part: PARTS[pi] };
           chips.push({ k: "lose", txt: "🕯 第" + nd + "日·" + PARTS[pi] });
+        }
+      }
+    }
+    // 失控表:状态条这一拍触到坏的那头(理智见底/警戒涨满),玩家当场掷一条失控
+    if (next.gauge && camp.gauge) {
+      const hitBad = next.gauge.bad === "low" ? (next.gauge.val === 0 && camp.gauge.val > 0) : (next.gauge.val >= next.gauge.max && camp.gauge.val < camp.gauge.max);
+      const me = next.party[0];
+      if (hitBad && me) {
+        const b = POOL_BREAK[Math.floor(rand() * POOL_BREAK.length)];
+        me.effects = (me.effects || []).map(e => Object.assign({}, e));
+        if (me.effects.length < 4 && !me.effects.some(e => e.name === b.name)) {
+          me.effects.push({ name: b.name, note: b.note });
+          notes.push(me.name + " 失控「" + b.name + "」");
+          chips.push({ k: "hp", txt: "🌀 失控·" + b.name });
         }
       }
     }
@@ -718,6 +800,11 @@
   // 全让它挑,它每次都掷出同一个众数
   const POOL_EVENT = ["不速之客闯入", "环境突变(天气/坍塌/断电/走水)", "一件要紧的东西丢了或坏了", "有人露出破绽", "突然出现时限:再不动手就来不及", "一个旧相识在最坏的时机出现", "一件看似无关的小事,其实连着真相", "队伍里有人的旧事被戳到", "一桩好运从天而降,但带着钩子", "对头忽然抛来橄榄枝"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
+  // 冒险小分队(她 2026-08-28 要的):跨团角色卡,存 x_trpgSquad(跟随 x_ 云同步)。
+  // 打完一团,成长骰结果与旧伤(scar)写回老卡;下次开团同一人自动带老卡进场——
+  // 战役里的他和主线的他互不相干,和「新团重掷的新卡」也不冲突(有老卡就用老卡)。
+  const loadSquad = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgSquad") || "{}"); return v && typeof v === "object" && v.members ? v : { members: {} }; } catch (e) { return { members: {} }; } };
+  const saveSquad = sq => { try { localStorage.setItem("x_trpgSquad", JSON.stringify(sq)); } catch (e) {} };
   // 输出天花板:她按次计费,上限不省钱只会截断——统一给满(同 StylePresets.OUT_CEILING,
   // 中转会自行 clamp 到模型上限;思考型模型的推理也从这里扣,给大不多花一分钱)
   const TOK_MAX = 65535;
@@ -777,6 +864,7 @@
     const [modOpen, setModOpen] = useState(false);   // 导入模组面板
     const [modTxt, setModTxt] = useState("");        // 模组 JSON 粘贴缓冲
     const [diceOpen, setDiceOpen] = useState(false); // 骰子账展开
+    const [squadTick, setSquadTick] = useState(0);   // 小分队退役后强制重画用
     const [input, setInput] = useState("");
     const [note, setNote] = useState("");       // 跟守密人咬耳朵:一次性幕后指示
     const [noteOpen, setNoteOpen] = useState(false);
@@ -811,6 +899,17 @@
     // 人设给全文、封顶 6000(四处一样喂·落地要求4:截断出来的空白由训练先验补上,
     // 那就是霸总;跑团一队至多 1+4 人,谁都不该被砍)
     const personaOf = ch => String((ch && (ch.persona || ch.name)) || "").slice(0, 6000);
+    // 建队:小分队里有老卡就用老卡(属性/专长/旧伤全带上,fresh 掷骰只给新人);
+    // veteran 标记让「重掷属性」只掷新人——老卡的成长是打出来的,不许一键洗掉
+    const buildParty = members => {
+      const sq = loadSquad().members || {};
+      const mk = (key, name, freshStats) => {
+        const v = sq[key];
+        if (v && v.stats) return { key, name, hp: 100, maxHp: 100, stats: Object.assign({}, v.stats), fate: fateOf(v.stats.luck), effects: (v.scars || []).map(e => Object.assign({}, e)), feats: (v.feats || []).map(f => Object.assign({}, f)), veteran: true, runs: v.runs || 0 };
+        return { key, name, hp: 100, maxHp: 100, stats: freshStats, fate: fateOf(freshStats.luck), effects: [], feats: [] };
+      };
+      return [mk("user", uName, rollStats())].concat(members.map(ch => mk(ch.id, ch.name, personaNudge(rollStats(), ch.persona))));
+    };
     const partyBlock = c => c.party.map(m => {
       const line = m.name + ":HP " + m.hp + "/" + (m.maxHp || 100) + " · " + STATS.map(([k, zh]) => zh + m.stats[k]).join(" ")
         + ((m.feats || []).length ? " · 专长:" + m.feats.map(f => f.name + "(" + STAT_ZH[f.stat] + ")").join("、") : "")
@@ -927,10 +1026,8 @@
         const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes.map(n => Object.assign({ region: r.name }, n))) : [];
         const startNode = mapRegions ? (findNode(allNodes, p.place) || allNodes[0]) : null;
         stages.forEach(s => { if (mapRegions) { const nd = findNode(allNodes, s.place); s.place = nd ? nd.name : ""; } });
-        // 属性此刻就掷好摆给她看;命运点跟气运走
-        const mkMember = (key, name, stats) => ({ key, name, hp: 100, maxHp: 100, stats, fate: fateOf(stats.luck), effects: [], feats: [] });
-        const party = [mkMember("user", uName, rollStats())]
-          .concat(members.map(ch => mkMember(ch.id, ch.name, personaNudge(rollStats(), ch.persona))));
+        // 属性此刻就掷好摆给她看;命运点跟气运走;有老卡的成员自动带老卡进场
+        const party = buildParty(members);
         let d = { partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, place: s.place || "", done: false, note: null })), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, choices: normChoices(p.choices, party), party };
         setBusyWhat("守密人在写幕后底牌…");
         const bs = await backstage(d);
@@ -950,7 +1047,11 @@
         setDraft(dd => dd && Object.assign({}, dd, bs));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
-    const rerollDraftStats = () => setDraft(d => d && Object.assign({}, d, { party: d.party.map(m => { const stats = m.key === "user" ? rollStats() : personaNudge(rollStats(), (charOf(m.key) || {}).persona); return Object.assign({}, m, { stats, fate: fateOf(stats.luck) }); }) }));
+    const rerollDraftStats = () => setDraft(d => {
+      if (!d) return d;
+      if (d.party.every(m => m.veteran)) { props.toast("全队都是老卡——成长是打出来的,不重掷;想用新卡先在小分队里退役"); return d; }
+      return Object.assign({}, d, { party: d.party.map(m => { if (m.veteran) return m; const stats = m.key === "user" ? rollStats() : personaNudge(rollStats(), (charOf(m.key) || {}).persona); return Object.assign({}, m, { stats, fate: fateOf(stats.luck) }); }) });
+    });
     const acceptDraft = () => {
       const openMsg = { id: rid("rm_"), role: "gm", content: draft.opening, ts: Date.now(), snap: { hp: draft.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: draft.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: [], clues: [], stageIdx: 0, place: draft.place, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], gauge: draft.gauge ? draft.gauge.val : null, clocks: [], quests: [], seeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), npcs: [], time: { day: 1, part: "晨" }, effects: {}, choices: draft.choices } };
       const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, style: draft.style || "classic", world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, gauge: draft.gauge || null, outfits: draft.outfits || {}, sideSeeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), myline: draft.myline || "", limits: limitsTxt.trim(), clocks: [], guesses: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, party: draft.party, items: [], clues: [], choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
@@ -958,20 +1059,67 @@
     };
 
     // ---- 检定仪式:她亲手按「掷」,数字滚一秒落定 ----
-    // 延迟是客户端零成本的,但骰子必须是这一回合的情绪高点,不是一行日志。
-    // 命运点(Codex 点的菜):失败/大失败落定后,掷骰人若还有 ✦,可以花 1 枚——
-    //   ✦重掷:必须接受新结果,一次检定只许重掷一次;
-    //   ✦以失败论:只把大失败降成普通失败。
-    // 没得花(点数用尽/结果不坏/已重掷过)就停 1.2 秒自动收——原手感不变。
-    // featName:检定贴合掷骰人的专长时 +15(名字先全等再互相包含才算贴合)
+    // 这一层是跑团的情绪高点,五件套全在这里:
+    //   协力:出手前点一位队友搭手 +10(协力者共担后果,大失败连累);
+    //   魔鬼交易:守密人开了价才有——+15,但代价【无论成败必然兑现】;
+    //   命运点:失败/大失败落定后可花(重掷必认/大失败降级),对抗时只救自己这颗骰;
+    //   对抗骰:对面的骰子当着你的面滚——档高者胜,同档骰点小者胜,再平守方胜;
+    //   伤害骰:见血的对抗补一颗 d20,轻重按它叙。
+    const normCheckObj = raw => {
+      if (!raw || typeof raw !== "object" || !STAT_ZH[raw.stat]) return null;
+      let vs = null;
+      if (raw.vs && typeof raw.vs === "object" && String(raw.vs.name || "").trim()) {
+        const v = Math.round(Number(raw.vs.val));
+        if (v) vs = { name: String(raw.vs.name).trim().slice(0, 8), val: Math.max(20, Math.min(90, v)) };
+      }
+      return { stat: raw.stat, who: raw.who || null, feat: String(raw.feat || "").trim().slice(0, 6) || null, vs, bargain: String(raw.bargain || "").trim().slice(0, 24) || null, harm: raw.harm === true };
+    };
     const featMatch = (member, featName) => {
       if (!featName) return null;
       const n = String(featName).trim();
       return (member.feats || []).find(f => f.name === n || f.name.indexOf(n) >= 0 || n.indexOf(f.name) >= 0) || null;
     };
-    const runCeremony = (member, statKey, featName) => new Promise(resolve => {
-      const feat = featMatch(member, featName);
-      setCeremony({ mKey: member.key, who: member.name, statZh: STAT_ZH[statKey], statVal: Math.min(95, member.stats[statKey] + (feat ? 15 : 0)), feat: feat ? feat.name : null, fate: member.fate || 0, phase: "ready", roll: 0, grade: null, rerolled: false, spent: [], resolve });
+    const ceremonyEff = c => Math.min(95, c.base + (c.feat ? 15 : 0) + (c.assist ? 10 : 0) + (c.bargainOn ? 15 : 0));
+    const runCeremony = (member, chk) => new Promise(resolve => {
+      const feat = featMatch(member, chk.feat);
+      const mates = camp.party.filter(x => x.key !== member.key && x.hp > 0).map(x => ({ key: x.key, name: x.name }));
+      setCeremony({ mKey: member.key, who: member.name, statKey: chk.stat, statZh: STAT_ZH[chk.stat], base: member.stats[chk.stat], feat: feat ? feat.name : null, assist: null, mates, bargainText: chk.bargain || null, bargainOn: false, vs: chk.vs || null, harm: !!chk.harm, fate: member.fate || 0, phase: "ready", roll: 0, grade: null, vsRoll: null, vsGrade: null, opposed: null, harmRoll: null, rerolled: false, spent: [], resolve });
+    });
+    const ceremonyFinish = () => setCeremony(c => {
+      if (c && c.resolve) c.resolve({ roll: c.roll, grade: c.grade, effVal: ceremonyEff(c), feat: c.feat, assist: c.assist, bargainOn: c.bargainOn, bargainText: c.bargainText, vs: c.vs, vsRoll: c.vsRoll, vsGrade: c.vsGrade, opposed: c.opposed, harmRoll: c.harmRoll, spent: c.spent });
+      return null;
+    });
+    // 我方骰落定之后的接力:对抗→对面掷;见血→伤害骰;都完了→收
+    const ceremonyNext = () => setCeremony(c => {
+      if (!c) return c;
+      if (c.vs && c.vsRoll == null) {
+        const t0 = Date.now();
+        const iv = setInterval(() => {
+          if (Date.now() - t0 > 800) {
+            clearInterval(iv);
+            const vr = 1 + Math.floor(Math.random() * 100);
+            setCeremony(cc => {
+              if (!cc) return cc;
+              const vg = gradeCheck(vr, cc.vs.val);
+              setTimeout(ceremonyNext, 1200);
+              return Object.assign({}, cc, { vsRoll: vr, vsGrade: vg, opposed: decideOpposed(cc.grade, cc.roll, vg, vr) });
+            });
+          } else setCeremony(cc => cc && Object.assign({}, cc, { vsRoll: 1 + Math.floor(Math.random() * 100) }));
+        }, 55);
+        return Object.assign({}, c, { phase: "vsroll" });
+      }
+      if (c.harm && c.harmRoll == null) {
+        const t0 = Date.now();
+        const iv = setInterval(() => {
+          if (Date.now() - t0 > 700) {
+            clearInterval(iv);
+            setCeremony(cc => { if (!cc) return cc; setTimeout(ceremonyNext, 1000); return Object.assign({}, cc, { harmRoll: 1 + Math.floor(Math.random() * 20), phase: "harm" }); });
+          } else setCeremony(cc => cc && Object.assign({}, cc, { harmRoll: 1 + Math.floor(Math.random() * 20), phase: "harm" }));
+        }, 55);
+        return Object.assign({}, c, { phase: "harm" });
+      }
+      setTimeout(ceremonyFinish, 500);
+      return Object.assign({}, c, { phase: "final" });
     });
     const ceremonyRoll = () => {
       setCeremony(c => c && Object.assign({}, c, { phase: "rolling" }));
@@ -982,9 +1130,9 @@
           const roll = 1 + Math.floor(Math.random() * 100);
           setCeremony(c => {
             if (!c) return c;
-            const grade = gradeCheck(roll, c.statVal);
+            const grade = gradeCheck(roll, ceremonyEff(c));
             const offer = c.fate > 0 && !c.rerolled && (grade.tier === "fail" || grade.tier === "fumble");
-            if (!offer) setTimeout(() => setCeremony(cc => { if (cc && cc.resolve) cc.resolve({ roll: cc.roll, grade: cc.grade, spent: cc.spent, feat: cc.feat }); return null; }), 1300);
+            if (!offer) setTimeout(ceremonyNext, 1200);
             return Object.assign({}, c, { phase: "done", roll, grade, offer });
           });
         } else setCeremony(c => c && Object.assign({}, c, { roll: 1 + Math.floor(Math.random() * 100) }));
@@ -1001,11 +1149,22 @@
     const fateSoften = () => setCeremony(c => {
       if (!c || c.phase !== "done" || !c.offer || c.grade.tier !== "fumble") return c;
       spendFate(c.mKey);
-      const next = Object.assign({}, c, { fate: c.fate - 1, offer: false, spent: c.spent.concat(["大失败以失败论"]), grade: { tier: "fail", zh: "失败(命运点庇护)" } });
-      setTimeout(() => setCeremony(cc => { if (cc && cc.resolve) cc.resolve({ roll: cc.roll, grade: cc.grade, spent: cc.spent, feat: cc.feat }); return null; }), 1200);
-      return next;
+      setTimeout(ceremonyNext, 1100);
+      return Object.assign({}, c, { fate: c.fate - 1, offer: false, spent: c.spent.concat(["大失败以失败论"]), grade: { tier: "fail", zh: "失败(命运点庇护)" } });
     });
-    const ceremonyAccept = () => setCeremony(c => { if (c && c.resolve) c.resolve({ roll: c.roll, grade: c.grade, spent: c.spent, feat: c.feat }); return null; });
+    const ceremonyAccept = () => setCeremony(c => { if (!c) return c; setTimeout(ceremonyNext, 60); return Object.assign({}, c, { offer: false }); });
+    // 检定行:把这一掷的全部真相写成一行铁案(守密人照它叙,成长骰也从这里记账)
+    const rollLine = (fated, m, chk, res) => {
+      const boost = [res.feat ? "专长·" + res.feat + "+15" : null, res.assist ? res.assist.name + "协力+10" : null, res.bargainOn ? "魔鬼交易+15" : null].filter(Boolean);
+      let line = fated + m.name + " 的「" + STAT_ZH[chk.stat] + "」检定:d100=" + res.roll + " / " + res.effVal + (boost.length ? "(" + boost.join(",") + ")" : "") + " → " + res.grade.zh;
+      if (res.vs) line += ";对抗「" + res.vs.name + "(" + res.vs.val + ")」d100=" + res.vsRoll + "→" + res.vsGrade.zh + " ⇒ " + (res.opposed === "win" ? "对抗胜" : "对抗负");
+      if (res.harmRoll != null) line += "〔伤害骰d20=" + res.harmRoll + "·" + harmZh(res.harmRoll) + "〕";
+      if (res.bargainOn) line += "〔魔鬼交易成立,代价必兑现:" + res.bargainText + "〕";
+      if (res.assist) line += "〔" + res.assist.name + " 协力,共担后果〕";
+      if (res.spent && res.spent.length) line += "〔花" + res.spent.length + "枚命运点:" + res.spent.join("、") + "〕";
+      return line;
+    };
+    const rollRec = (m, chk, res) => ({ who: m.name, statKey: chk.stat, tier: res.opposed ? (res.opposed === "win" ? (TIER_RANK[res.grade.tier] >= 2 ? res.grade.tier : "ok") : "fail") : res.grade.tier });
 
     // ---- 滚动摘要(超过 48 条把最老的压进前情账本,只留近 32 条逐句喂) ----
     const maybeSummarize = async campId => {
@@ -1063,8 +1222,8 @@
         "【行动顺序】危险或交战的拍,在 order 里报本拍的行动顺序(按身手与处境排,含 NPC 时也只排队伍成员);平时省略——别拿先攻打断叙事。",
         dd.play ? "【难度·" + dd.name + "】" + dd.play : null,
         (STYLES[c.style] && STYLES[c.style].text) ? "【守密风格·" + STYLES[c.style].name + "】" + STYLES[c.style].text + " 风格只改叙事口味与事件密度,绝不改检定判定与规则公平。" : null,
-        "【检定规则】骰子由客户端掷,你【绝不自己编骰子结果】。历史里的〔检定〕行是既定事实,必须按其等级叙事:大成功给意外之喜;困难成功干净利落;成功达成但可以有小瑕疵;失败让局面复杂化但留有余地;大失败要有戏剧性代价——但检定失败永远制造新的戏,不判死、不判死胡同。需要碰运气的选项才挂 check(stat 取 phy体魄/agi身手/wit头脑/cha谈吐/luck气运;who 填该出手的队伍成员名,谁都能试就填 null——null 时措辞必须任何人都做得来)。不是每个选项都要检定,说句话不用掷骰。选项贴合某位成员专长时在 check 里带 feat:\"专长名\"(那个人掷会 +15)——把机会点给有这门手艺的人。need 只挂「有这件东西才走得顺」的选项,而且【只写物品名本身】——绝不带持有人和数量(写「浓缩催吐解毒剂」,不写「浓缩催吐解毒剂(陆衍)」);玩家没有它仍可能硬闯,硬闯你要让它付出代价或临场挂检定;真正没有就绝无可能的事,不要做成选项。\n【玩家自由输入的行动也要掷骰】" + uName + " 亲笔写的行动若明显要碰运气(强行/潜入/撬锁/行骗/跳跃/夺取/硬拼这类),不要直接写成败:scene 写到出手前的悬点就停住,同时在 needCheck 里报 {\"stat\":\"…\",\"who\":\"该掷骰的人(通常是 " + uName + ",队友代劳就写队友名)\"}——客户端掷完骰会让你续写。历史里已有这个动作的〔检定〕结果时绝不再报 needCheck;说话、观察、不碰运气的动作也不报。",
-        "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定。",
+        "【检定规则】骰子由客户端掷,你【绝不自己编骰子结果】。历史里的〔检定〕行是既定事实,必须按其等级叙事:大成功给意外之喜;困难成功干净利落;成功达成但可以有小瑕疵;失败让局面复杂化但留有余地;大失败要有戏剧性代价——但检定失败永远制造新的戏,不判死、不判死胡同。需要碰运气的选项才挂 check(stat 取 phy体魄/agi身手/wit头脑/cha谈吐/luck气运;who 填该出手的队伍成员名,谁都能试就填 null——null 时措辞必须任何人都做得来)。不是每个选项都要检定,说句话不用掷骰。选项贴合某位成员专长时在 check 里带 feat:\"专长名\"(那个人掷会 +15)——把机会点给有这门手艺的人。\n【对抗骰】和活物较劲(潜行vs警觉/说服vs戒心/角力/追逐)的检定带 vs:{\"name\":\"对面是谁\",\"val\":对面的本事20-90}:双方各掷各判,档高者胜;检定行里的「对抗胜/负」是铁案,照它叙。\n【魔鬼交易】难而有戏的检定可以【偶尔】开价 bargain:\"代价一句\"(玩家可选+15换这个代价)——代价【无论成败必然兑现】,你要真的兑现,而且要是有分量的代价(惊动谁/欠下什么/留下痕迹),不许开空头价。\n【伤害骰】会见血的对抗带 harm:true——客户端补掷一颗 d20:1-5擦伤/6-12结结实实/13-19重创/20几乎致命;受伤方按检定胜负定,hp 字段按这颗骰的轻重写,别自己另拍数。\n【协力】检定行里出现「X协力」时,X 也暴露在这次行动的后果里——大失败要连累协力者,别只罚出手的人。need 只挂「有这件东西才走得顺」的选项,而且【只写物品名本身】——绝不带持有人和数量(写「浓缩催吐解毒剂」,不写「浓缩催吐解毒剂(陆衍)」);玩家没有它仍可能硬闯,硬闯你要让它付出代价或临场挂检定;真正没有就绝无可能的事,不要做成选项。\n【玩家自由输入的行动也要掷骰】" + uName + " 亲笔写的行动若明显要碰运气(强行/潜入/撬锁/行骗/跳跃/夺取/硬拼这类),不要直接写成败:scene 写到出手前的悬点就停住,同时在 needCheck 里报 {\"stat\":\"…\",\"who\":\"该掷骰的人(通常是 " + uName + ",队友代劳就写队友名)\"}——客户端掷完骰会让你续写。历史里已有这个动作的〔检定〕结果时绝不再报 needCheck;说话、观察、不碰运气的动作也不报。",
+        "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定——归零那拍客户端会掷一条〔重伤〕后遗症挂到 TA 身上,把它织进叙事。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
         "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
       ].filter(Boolean).join("\n\n");
@@ -1137,14 +1296,14 @@
         // 她亲笔写的行动要碰运气时,守密人在悬点停住并报 needCheck——这里接力掷骰,
         // 掷完带着结果自动续写。只认「本回合确有亲笔宣言、还没掷过骰、不是续写轮」
         // 的 needCheck,免得连环要骰;续写轮明令不得再报。
-        const nck = p.needCheck && typeof p.needCheck === "object" && STAT_ZH[p.needCheck.stat] ? p.needCheck : null;
+        const nck = normCheckObj(p.needCheck);
         if (nck && declaration && (!extra || !extra.length) && mode !== "resolve" && !camp.ended) {
           setTimeout(async () => {
             // 没点名(或点了不在队的)就默认是她自己出手——这是她亲笔的行动
             const m = (nck.who ? findMember(camp.party, nck.who) : null) || camp.party[0];
-            const res = await runCeremony(m, nck.stat, nck.feat);
-            const line = m.name + " 的「" + STAT_ZH[nck.stat] + "」检定:d100=" + res.roll + " / " + (m.stats[nck.stat] + (res.feat ? 15 : 0)) + (res.feat ? "(专长·" + res.feat + "+15)" : "") + " → " + res.grade.zh + (res.spent && res.spent.length ? "〔花" + res.spent.length + "枚命运点:" + res.spent.join("、") + "〕" : "");
-            turn("", [{ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }], "resolve");
+            const res = await runCeremony(m, nck);
+            const line = rollLine("", m, nck, res);
+            turn("", [Object.assign({ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }, rollRec(m, nck, res))], "resolve");
           }, 80);
         } else setTimeout(() => maybeSummarize(camp.id), 400);
       } catch (e) {
@@ -1175,10 +1334,11 @@
       let m = c.check.who ? findMember(camp.party, c.check.who) : null;
       let fated = "";
       if (!m) { m = camp.party[Math.floor(Math.random() * camp.party.length)]; fated = "命运选中了 " + m.name + " —— "; }
-      const res = await runCeremony(m, c.check.stat, c.check.feat);
-      const line = fated + m.name + " 的「" + STAT_ZH[c.check.stat] + "」检定:d100=" + res.roll + " / " + (m.stats[c.check.stat] + (res.feat ? 15 : 0)) + (res.feat ? "(专长·" + res.feat + "+15)" : "") + " → " + res.grade.zh + (res.spent && res.spent.length ? "〔花" + res.spent.length + "枚命运点:" + res.spent.join("、") + "〕" : "");
-      // 检定行作为既定事实和宣言一起入史;之后哪怕生成失败也不撤——重试沿用这颗骰子
-      turn(c.text, [{ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }]);
+      const res = await runCeremony(m, c.check);
+      const line = rollLine(fated, m, c.check, res);
+      // 检定行作为既定事实和宣言一起入史;之后哪怕生成失败也不撤——重试沿用这颗骰子。
+      // 结构化字段(who/statKey/tier)是落幕成长骰的账本
+      turn(c.text, [Object.assign({ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }, rollRec(m, c.check, res))]);
     };
     const send = () => { const text = input.trim(); if (!text) return; setInput(""); if (chatMode) return addBeat(text); turn(text); };
     // 追加一笔(米娅「加戏不推进」的分法):就当前场景补一小段戏——队友拌嘴、环境
@@ -1263,7 +1423,18 @@
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 });
         const p = parseObj(raw);
         if (!p || !Array.isArray(p.paras) || !p.paras.length) throw new Error("终章没写出来" + rawHint(raw));
-        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: { paras: p.paras.map(x => String(x || "").trim()).filter(Boolean), closing: String(p.closing || "").trim(), untold: (Array.isArray(p.untold) ? p.untold : []).map(x => String(x || "").trim()).filter(Boolean), myline: String(p.myline || "").trim(), revealed: 0 } })));
+        // 落幕成长骰(COC 式):这团用过且成功过的属性掷 d100,高于现值才 +5;
+        // 结果连同旧伤写回小分队老卡——下一团的 TA 就是带着这些来的
+        const rollRecs = camp.msgs.filter(m => m.role === "roll" && m.who && m.statKey);
+        const growth = growthRolls(camp.party, rollRecs, Math.random);
+        const sq = loadSquad();
+        camp.party.forEach(m => {
+          const ups = {};
+          growth.forEach(g => { if (g.key === m.key && g.to > g.from) ups[g.stat] = g.to; });
+          sq.members[m.key] = { key: m.key, name: m.name, stats: Object.assign({}, m.stats, ups), feats: (m.feats || []).map(f => Object.assign({}, f)), scars: (m.effects || []).filter(e => e.scar).map(e => Object.assign({}, e)), runs: ((sq.members[m.key] || {}).runs || 0) + 1, ts: Date.now() };
+        });
+        saveSquad(sq);
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: { paras: p.paras.map(x => String(x || "").trim()).filter(Boolean), closing: String(p.closing || "").trim(), untold: (Array.isArray(p.untold) ? p.untold : []).map(x => String(x || "").trim()).filter(Boolean), myline: String(p.myline || "").trim(), growth: growth, revealed: 0 } })));
         setEndAsk(null); setFinalAct("");
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
@@ -1468,17 +1639,43 @@
       h("div", { style: S.h1 }, title), right || null);
 
     // 检定仪式浮层:她亲手按「掷」;结果落定后停一拍自动收
-    const ceremonyLayer = ceremony && h("div", { style: { position: "fixed", inset: 0, zIndex: 160, background: "rgba(20,18,16,.9)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#d9d3c8" } }, ceremony.who + " · " + ceremony.statZh + "检定(目标 ≤" + ceremony.statVal + (ceremony.feat ? ",含专长·" + ceremony.feat + "+15" : "") + ")" + (ceremony.fate > 0 ? " · ✦×" + ceremony.fate : "")),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 64, color: ceremony.phase === "done" ? (ceremony.grade.tier === "crit" || ceremony.grade.tier === "hard" ? "#e8c76a" : ceremony.grade.tier === "ok" ? "#f0ece4" : "#e8a08c") : "#f0ece4", minHeight: 80 } }, ceremony.phase === "ready" ? "?" : String(ceremony.roll)),
-      ceremony.phase === "ready"
-        ? h("button", { onClick: ceremonyRoll, style: { padding: "10px 34px", borderRadius: 14, fontFamily: F_DISPLAY, fontSize: 16, border: "1px solid #f0ece4", background: "transparent", color: "#f0ece4" } }, "掷")
-        : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#d9d3c8", minHeight: 24 } }, ceremony.phase === "done" ? ceremony.grade.zh : "…"),
-      // 命运点抉择:只在失败/大失败落定、还有点数、且没重掷过时出现
-      ceremony.phase === "done" && ceremony.offer ? h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", padding: "0 20px" } },
-        h("button", { onClick: fateReroll, style: { padding: "9px 18px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, border: "1px solid #e8c76a", background: "transparent", color: "#e8c76a" } }, "✦ 重掷(花1枚,新结果必须认)"),
-        ceremony.grade.tier === "fumble" ? h("button", { onClick: fateSoften, style: { padding: "9px 18px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, border: "1px solid #e8c76a", background: "transparent", color: "#e8c76a" } }, "✦ 以失败论(花1枚)") : null,
-        h("button", { onClick: ceremonyAccept, style: { padding: "9px 18px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, border: "1px solid #d9d3c8", background: "transparent", color: "#d9d3c8" } }, "认了")) : null);
+    const ceremonyLayer = ceremony && (() => {
+      const eff = ceremonyEff(ceremony);
+      const boost = [ceremony.feat ? "专长+15" : null, ceremony.assist ? ceremony.assist.name + "协力+10" : null, ceremony.bargainOn ? "交易+15" : null].filter(Boolean).join("·");
+      const dieCol = g => !g ? "#f0ece4" : (g.tier === "crit" || g.tier === "hard") ? "#e8c76a" : g.tier === "ok" ? "#f0ece4" : "#e8a08c";
+      const btn = (label, fn, col) => h("button", { onClick: fn, style: { padding: "9px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13, border: "1px solid " + (col || "#d9d3c8"), background: "transparent", color: col || "#d9d3c8" } }, label);
+      return h("div", { style: { position: "fixed", inset: 0, zIndex: 160, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 13, padding: "0 18px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#d9d3c8", textAlign: "center" } }, ceremony.who + " · " + ceremony.statZh + "检定(目标 ≤" + eff + (boost ? "," + boost : "") + ")" + (ceremony.fate > 0 ? " · ✦×" + ceremony.fate : "")),
+        // 对抗:两颗骰并排——你的在左,对面的在右当着你的面滚
+        ceremony.vs
+          ? h("div", { style: { display: "flex", alignItems: "center", gap: 26 } },
+              h("div", { style: { textAlign: "center" } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 56, color: dieCol(ceremony.phase !== "ready" && ceremony.phase !== "rolling" ? ceremony.grade : null), minHeight: 68 } }, ceremony.phase === "ready" ? "?" : String(ceremony.roll)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8" } }, ceremony.who + (ceremony.grade && ceremony.phase !== "rolling" ? "·" + ceremony.grade.zh : ""))),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#8a8378" } }, "VS"),
+              h("div", { style: { textAlign: "center", opacity: ceremony.vsRoll == null && ceremony.phase !== "vsroll" ? 0.45 : 1 } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 56, color: dieCol(ceremony.opposed ? ceremony.vsGrade : null), minHeight: 68 } }, ceremony.vsRoll == null ? "?" : String(ceremony.vsRoll)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8" } }, ceremony.vs.name + "(" + ceremony.vs.val + ")" + (ceremony.opposed && ceremony.vsGrade ? "·" + ceremony.vsGrade.zh : ""))))
+          : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 64, color: dieCol(ceremony.phase !== "ready" && ceremony.phase !== "rolling" ? ceremony.grade : null), minHeight: 80 } }, ceremony.phase === "ready" ? "?" : String(ceremony.roll)),
+        // 判词行:对抗给终局,普通给档位;伤害骰单独一行
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#d9d3c8", minHeight: 24, textAlign: "center" } },
+          ceremony.opposed ? (ceremony.opposed === "win" ? "对 抗 胜" : "对 抗 负")
+          : (ceremony.phase === "done" || ceremony.phase === "final" || ceremony.phase === "harm") && ceremony.grade ? ceremony.grade.zh
+          : ceremony.phase === "ready" ? "" : "…"),
+        ceremony.harmRoll != null ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#e8a08c" } }, "伤害骰 d20=" + ceremony.harmRoll + " · " + harmZh(ceremony.harmRoll)) : null,
+        // 出手前的三个决定:掷 / 协力 / 魔鬼交易
+        ceremony.phase === "ready" ? h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10 } },
+          ceremony.mates.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8378", alignSelf: "center" } }, "协力(共担后果):"),
+            ceremony.mates.map(mt => h("button", { key: mt.key, onClick: () => setCeremony(c => c && Object.assign({}, c, { assist: c.assist && c.assist.key === mt.key ? null : mt })), style: { padding: "5px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.assist && ceremony.assist.key === mt.key ? "#e8c76a" : "#d9d3c8" } }, mt.name))) : null,
+          ceremony.bargainText ? h("button", { onClick: () => setCeremony(c => c && Object.assign({}, c, { bargainOn: !c.bargainOn })), style: { padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (ceremony.bargainOn ? "#e8c76a" : "#8a8378"), background: "transparent", color: ceremony.bargainOn ? "#e8c76a" : "#d9d3c8", maxWidth: 300 } }, (ceremony.bargainOn ? "😈 已接受交易" : "😈 魔鬼交易:+15") + "(代价:" + ceremony.bargainText + ")") : null,
+          h("button", { onClick: ceremonyRoll, style: { padding: "10px 34px", borderRadius: 14, fontFamily: F_DISPLAY, fontSize: 16, border: "1px solid #f0ece4", background: "transparent", color: "#f0ece4" } }, "掷")) : null,
+        // 命运点抉择:只在失败/大失败落定、还有点数、且没重掷过时出现(对抗时救的是你这颗骰)
+        ceremony.phase === "done" && ceremony.offer ? h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" } },
+          btn("✦ 重掷(花1枚,新结果必须认)", fateReroll, "#e8c76a"),
+          ceremony.grade.tier === "fumble" ? btn("✦ 以失败论(花1枚)", fateSoften, "#e8c76a") : null,
+          btn("认了", ceremonyAccept)) : null);
+    })();
 
     if (view === "create") {
       const toggle = id => setPickIds(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.length >= 4 ? (props.toast("队伍最多 4 名队友"), p) : p.concat([id]));
@@ -1491,7 +1688,7 @@
          ["队友私念", (draft.dossier.mates || []).length ? "每人揣着一份(守密人保管,落幕才解密)" : null],
          ["第一章", draft.stages[0] && (draft.stages[0].goal + (draft.stages[0].place ? "〔在:" + draft.stages[0].place + "〕" : ""))], ["后面还有", (draft.stages.length - 1) + " 章(走到才揭晓)"], ["开场", draft.opening]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, String(v))) : null),
         h("div", { style: S.lbl }, "队伍属性(3d6×5;队友按人设微调)"),
-        draft.party.map(m => h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, m.name + ":" + STATS.map(([k, zh]) => zh + " " + m.stats[k]).join(" · ") + " · ✦×" + m.fate)),
+        draft.party.map(m => h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, m.name + (m.veteran ? "〔⚔老卡·第" + ((m.runs || 0) + 1) + "次出团〕" : "") + ":" + STATS.map(([k, zh]) => zh + " " + m.stats[k]).join(" · ") + " · ✦×" + m.fate + ((m.effects || []).some(e => e.scar) ? " · 旧伤:" + m.effects.filter(e => e.scar).map(e => e.name).join("、") : ""))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "6px 0 8px" } }, String(draft.dossier.truth || "").trim()
           ? "守密人写好了秘典(真相/翻转/私念)" + ((draft.sideSeeds || []).length ? ",还在各区埋了 " + draft.sideSeeds.length + " 条支线种子(触发条件各不相同)" : "") + "——落幕之前不给看。"
           : "⚠ 幕后底牌还没写成(秘典/私念/专长/种子都缺)——点下面的「补幕后」。"),
@@ -1517,7 +1714,7 @@
           h("div", { style: S.card }, h("div", { style: S.lbl }, "拉队友入队(0-4 名;一个不拉=单人团,NPC 陪你走)"),
             h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 } },
               props.characters.map(c => h("div", { key: c.id, onClick: () => toggle(c.id), style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 6px", borderRadius: 999, border: "1.5px solid " + (pickIds.indexOf(c.id) >= 0 ? t.ink : t.line), background: pickIds.indexOf(c.id) >= 0 ? t.ink : "transparent" } },
-                avatarOf(c, 24), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: pickIds.indexOf(c.id) >= 0 ? t.bg2 : t.ink } }, c.name))))),
+                avatarOf(c, 24), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: pickIds.indexOf(c.id) >= 0 ? t.bg2 : t.ink } }, c.name + (loadSquad().members[c.id] ? " ⚔" : "")))))),
           h("div", { style: S.card }, h("div", { style: S.lbl }, "关键词(选填:世界/主线/氛围,如「西幻 盗墓 诙谐」)"),
             h("textarea", { value: kw, onChange: e => setKw(e.target.value), rows: 2, placeholder: "空着=掷骰子定世界与主线", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none" } }),
             h("div", { style: S.lbl }, "难度"),
@@ -1536,8 +1733,7 @@
                   const mod = JSON.parse(modTxt.trim());
                   if (!mod || mod.kind !== "trpg-module" || !mod.world || !Array.isArray(mod.stages)) throw new Error("不是有效的跑团模组");
                   const members = pickIds.map(charOf).filter(Boolean);
-                  const mkMember = (key, name, stats) => ({ key, name, hp: 100, maxHp: 100, stats, fate: fateOf(stats.luck), effects: [], feats: [] });
-                  const party = [mkMember("user", uName, rollStats())].concat(members.map(ch => mkMember(ch.id, ch.name, personaNudge(rollStats(), ch.persona))));
+                  const party = buildParty(members);
                   const mapRegions = normRegions(mod.regions);
                   const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes) : [];
                   const startNode = mapRegions ? (findNode(allNodes, mod.place) || allNodes[0]) : null;
@@ -1726,6 +1922,11 @@
                (camp.dossier.mates || []).length ? h("div", { style: { marginBottom: 6 } },
                  h("div", { style: S.lbl }, "队友们一路藏着的私念"),
                  camp.dossier.mates.map(m => h("div", { key: m.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 3 }) }, m.name + ":想要·" + m.want + (m.fear ? " / 最怕·" + m.fear : "") + (m.line ? " / 底线·" + m.line : "")))) : null,
+               (ep.growth || []).length ? h("div", { style: { marginBottom: 6 } },
+                 h("div", { style: S.lbl }, "成长骰(这团用过且成功过的本事才有资格长)"),
+                 ep.growth.map((g, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, color: g.to > g.from ? "#5a7d5a" : t.fog }) },
+                   g.name + " " + STAT_ZH[g.stat] + ":d100=" + g.roll + (g.to > g.from ? " → " + g.from + "→" + g.to + " ✦长进了" : " → 没超过 " + g.from + ",这门还得再练"))),
+                 h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "成长与旧伤已写回冒险小分队的老卡——下一团 TA 带着这些来。")) : null,
                camp.myline ? h("div", { style: { marginBottom: 6 } }, h("div", { style: S.lbl }, "你的暗线"), h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, "「" + camp.myline + "」" + (ep.myline ? " —— " + ep.myline : ""))) : null,
                ep.untold && ep.untold.length ? h("div", null, h("div", { style: S.lbl }, "没来得及揭开的"), ep.untold.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12 }) }, "· " + x))) : null)]);
       const flow = camp.msgs.map(m => m.role === "photo"
@@ -1937,12 +2138,30 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginLeft: 4 } }, (c.ended ? "已落幕 · " : "") + "第" + Math.min(c.stageIdx + 1, c.stages.length) + "/" + c.stages.length + "章 · " + c.msgs.length + "拍")),
         h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, c.world));
     };
+    const squadCard = (() => {
+      const members = Object.keys(loadSquad().members || {}).map(k => loadSquad().members[k]).sort((a, b) => (b.runs || 0) - (a.runs || 0));
+      if (!members.length) return null;
+      return h("div", { key: "squad" + squadTick, style: S.card },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "⚔ 冒险小分队"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 8, lineHeight: 1.7 } }, "出过团的老卡:成长与旧伤都记在这,下次开团同一人自动带老卡进场;退役=下团重新掷新卡。"),
+        members.map(v => {
+          const ch = v.key === "user" ? { name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color } : (charOf(v.key) || { name: v.name });
+          return h("div", { key: v.key, style: { display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 } },
+            avatarOf(ch, 30),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5 }) }, v.name + " · 出团" + (v.runs || 0) + "次"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, STATS.map(([k, zh]) => zh + (v.stats || {})[k]).join(" ") + ((v.feats || []).length ? " · " + v.feats.map(f => f.name).join("、") : "")),
+              (v.scars || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e" } }, "旧伤:" + v.scars.map(e => e.name).join("、")) : null),
+            h("button", { onClick: () => { if (!confirm("让「" + v.name + "」的老卡退役?成长与旧伤都会清掉,下团重新掷新卡。")) return; const sq = loadSquad(); delete sq.members[v.key]; saveSquad(sq); setSquadTick(x => x + 1); }, style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "退役"));
+        }));
+    })();
     return h("div", { style: S.wrap }, badges(), header("跑团", h("button", { onClick: () => { setDraft(null); setKw(""); setPickIds([]); setView("create"); }, style: S.btn(true) }, "新开跑团")),
       h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+        squadCard,
         camps.length ? camps.map(campCard)
         : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没开过团。", h("br"), "拉上几个人,掷一把骰子,去另一个世界走一遭。")));
   }
   if (inApp) window.TrpgApp = TrpgApp;
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode };
+  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls };
 })();
