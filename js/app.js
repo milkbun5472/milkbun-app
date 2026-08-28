@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.33";
+const APP_VERSION = "v57.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8261,13 +8261,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = new Date(ts);
       return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
     };
-    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-6);
+    const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-12);
     const sessions = [];
     const direct = clean(chatsRef.current[char.id]);
     if (direct.length) {
-      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, text: String(m.content), ts: m.ts || 0 }));
+      const messages = direct.map(m => ({ from: m.role === "user" ? meName : char.name, avatarImage: m.role === "user" ? profile.avatarImage : char.avatarImage, text: String(m.content), ts: m.ts || 0 }));
       const last = messages[messages.length - 1];
-      sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
+      sessions.push({ id: "actual:private:" + char.id, type: "private", name: meName, avatarImage: profile.avatarImage, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
     }
     for (const group of groups) {
       if (!(group.memberIds || []).includes(char.id)) continue;
@@ -8281,10 +8281,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const sender = characters.find(c => c.id === m.senderId);
           from = m.senderName || (sender && sender.name) || char.name;
         }
-        return { from, text: String(m.content), ts: m.ts || 0 };
+        const sender = m.role === "user" ? null : characters.find(c => c.id === m.senderId);
+        return { from, avatarImage: m.role === "user" ? profile.avatarImage : sender && sender.avatarImage, text: String(m.content), ts: m.ts || 0 };
       });
       const last = messages[messages.length - 1];
-      sessions.push({ id: "actual:group:" + group.id, type: spectate ? "private" : "group", name: spectate && other ? (other.remark || other.name) : (group.name || "群聊"), time: stamp(last.ts), last: last.text, ts: last.ts, messages });
+      const groupAvatar = group.avatarImage || group.avatar || ((group.memberIds || []).map(id => characters.find(c => c.id === id)).find(c => c && c.avatarImage) || {}).avatarImage;
+      sessions.push({ id: "actual:group:" + group.id, type: spectate ? "private" : "group", name: spectate && other ? (other.remark || other.name) : (group.name || "群聊"), avatarImage: spectate && other ? other.avatarImage : groupAvatar, time: stamp(last.ts), last: last.text, ts: last.ts, messages });
     }
     return sessions.sort((a, b) => (b.ts || 0) - (a.ts || 0));
   };
