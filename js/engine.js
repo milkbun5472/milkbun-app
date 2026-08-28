@@ -3515,6 +3515,12 @@ function translatableLang(text) {
 // ⚠️主屏是唯一的例外，仍旧留着根节点那条空带：它和 Home 的 height:100vh 是配好的一对，
 //   动了就散架（v56.58 亲测，见 .claude/rules/home-screen-layout.md）。
 function safeTop(px) { return "calc(env(safe-area-inset-top, 0px) + " + (Number(px) || 0) + "px)"; }
+// 底部输入栏的下内边距。她 2026-08-28：「线下的输入框比线上高一截」——
+// 三条输入栏的高度本来只差这一个值：线上吃 0.4 条安全区，单聊线下吃【满】一条再加 4px
+// （iPhone 上 34px 的安全区，两者差二十多像素），群线下是 0.4 条加 4px。
+// 别的都一样（px-3 py-2.5、输入框 px-4 py-2.5、按钮 40×40），所以统一成一个常量，
+// 免得以后又各自漂走。⚠️主屏那条空带不归这里管，见 .claude/rules/home-screen-layout.md。
+const COMPOSER_PAD_BOTTOM = "calc(env(safe-area-inset-bottom) * 0.4)";
 // 每轮再提醒一次（v56.77）：一条规则只在系统提示里声明一次，模型隔几轮就忘。
 // 这做法是从 mingruis-miya 看来的（AGPL，只读了它的提示词编排、没取用代码）——
 // 它把翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的。
