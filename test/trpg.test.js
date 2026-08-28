@@ -536,6 +536,59 @@ test("休团回来横幅:12小时零成本,看完点掉", () => {
   assert.match(src, /接上,继续/);
 });
 
+// ---- Codex 清单收尾 + 两段式开团 + 区域支线种子 ----
+test("两段式开团:台前专心搭世界,幕后专心写底牌,幕后失败可单独补", () => {
+  assert.match(src, /const SHAPE_A = /);
+  assert.match(src, /const SHAPE_B = /);
+  assert.match(src, /只写这些,写透它们;秘典底牌、队友私念、支线这些幕后另有一枪/, "台前不被幕后分心");
+  assert.match(src, /专心写幕后底牌/);
+  assert.match(src, /✎ 补幕后/, "幕后失败不废局,预览里单独补");
+  assert.match(src, /一律【只补空,不覆盖】|只补空不覆盖/, "补幕后动不了已有的台本(模组导入靠这个保台)");
+});
+
+test("支线种子:端出即作废,fuzzy 同名也认", () => {
+  const base = Object.assign(camp0(), { sideSeeds: [{ name: "齿轮与心跳", region: "钟楼", trigger: "到达钟楼", hook: "x", used: false }, { name: "另一条", region: "", trigger: "", hook: "", used: false }] });
+  const r = applyTurnPayload(base, { quest: [{ name: "齿轮与心跳", op: "add" }] });
+  assert.equal(r.camp.sideSeeds[0].used, true, "被端出来的种子作废");
+  assert.equal(r.camp.sideSeeds[1].used, false, "别的种子不动");
+  assert.match(src, /触发条件在剧情里【真实满足】时才把种子端出来/, "条件没满足不许硬塞");
+});
+
+test("支线随时暂离/重拾:零成本,写〔支线〕记录给守密人看", () => {
+  assert.match(src, /⏸ 暂离/);
+  assert.match(src, /▶ 重拾/);
+  assert.match(src, /支线·" \+ uName \+ " 决定/, "她的决定入史");
+  assert.match(src, /暂离的线留着钩子等她回头,别硬拽/);
+});
+
+test("简化先攻:只在危险拍出顺序标尺,名字要在队", () => {
+  const r = applyTurnPayload(camp0(), { order: ["裴照川", "查无此人", "Lisa", "裴照川"] });
+  assert.match(r.chips.map(c => c.txt).join("|"), /⚔ 顺序:裴照川→Lisa/, "去重+过滤陌生名");
+  const r2 = applyTurnPayload(camp0(), { order: ["只有一个人"] });
+  assert.ok(!r2.chips.some(c => c.txt.indexOf("顺序") >= 0), "凑不齐两人不出顺序");
+  assert.match(src, /平时省略——别拿先攻打断叙事/);
+});
+
+test("安全线:最高优先级,淡出处理", () => {
+  assert.match(src, /安全线\(最高优先级,压过一切风格与剧情需要\)/);
+  assert.match(src, /淡出换景处理,不描写过程/);
+  assert.match(src, /limits: limitsTxt\.trim\(\)/, "开团时存进战役");
+});
+
+test("玩家暗线:候选可挑可自写,守密人不点破,落幕给判词", () => {
+  assert.match(src, /只有你和玩家知道,队友与 NPC 都不知道/);
+  assert.match(src, /绝不替玩家推进、绝不点破/);
+  assert.match(src, /暗线判词/, "终章评它走到了哪");
+  assert.match(src, /已选暗线:/);
+});
+
+test("骰子账与模组包", () => {
+  assert.match(src, /🎲 骰子账 · /, "检定历史单独可查");
+  assert.match(src, /kind: "trpg-module"/, "打包模组");
+  assert.match(src, /用模组开团/, "可导入重开");
+  assert.match(src, /sideSeeds: \(Array\.isArray\(mod\.seeds\) \? mod\.seeds : \[\]\)\.map\(x => Object\.assign\(\{\}, x, \{ used: false \}\)\)/, "导入时种子全部复位");
+});
+
 // ---- 秘典:开团即生成,落幕前不给看 ----
 test("秘典落幕解密,不在过程中泄底", () => {
   assert.match(src, /玩家永远不可见/);

@@ -270,6 +270,7 @@
     next.clocks = clocks;
     // 任务日志(支线):quest 字段记账——add 开新支线(至多 10 条),done/fail/pause/open
     // 改状态;名字先全等再互相包含。主线仍走 stages,这里只管支线。
+    const addedQuests = [];
     const quests = (camp.quests || []).map(q => Object.assign({}, q));
     (Array.isArray(p.quest) ? p.quest : []).forEach(row => {
       if (!row || typeof row !== "object") return;
@@ -281,6 +282,7 @@
         if (op !== "add" || quests.length >= 10) return;
         q = { name, status: "open", note: String(row.note || "").trim().slice(0, 44), ts: Date.now() };
         quests.push(q);
+        addedQuests.push(name);
         notes.push("支线「" + name + "」");
         chips.push({ k: "clue", txt: "📜 支线·" + name });
         return;
@@ -295,6 +297,19 @@
       if (row.note) q.note = String(row.note).trim().slice(0, 44);
     });
     next.quests = quests;
+    // 支线种子:被端出来(quest add 同名)就作废,不重复端
+    if ((camp.sideSeeds || []).length && addedQuests.length) {
+      next.sideSeeds = camp.sideSeeds.map(sd => {
+        if (sd.used) return sd;
+        const hit = addedQuests.some(n => n === sd.name || n.indexOf(sd.name) >= 0 || sd.name.indexOf(n) >= 0);
+        return hit ? Object.assign({}, sd, { used: true }) : sd;
+      });
+    }
+    // 简化先攻:危险/交战拍守密人给行动顺序,只是叙事标尺,不掷先攻骰
+    if (Array.isArray(p.order)) {
+      const names = p.order.map(x => { const m = findMember(next.party, x); return m ? m.name : null; }).filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+      if (names.length >= 2) chips.push({ k: "lose", txt: "⚔ 顺序:" + names.join("→") });
+    }
     // NPC 名册:按名 upsert(至多 20 人);note 只存玩家已知的信息,秘密仍在秘典
     const npcs = (camp.npcs || []).map(n => Object.assign({}, n));
     (Array.isArray(p.npc) ? p.npc : []).forEach(row => {
@@ -754,6 +769,11 @@
     const [fixMode, setFixMode] = useState(false);   // GM 手动修正:改 HP/物品/状态/支线/名册
     const [fixItem, setFixItem] = useState("");      // 修正模式:补记物品的输入缓冲
     const [resumeSeen, setResumeSeen] = useState(null); // 休团回来横幅:本次会话已收起的团 id
+    const [limitsTxt, setLimitsTxt] = useState("");  // 安全线:开团前写的雷点
+    const [mylineTxt, setMylineTxt] = useState("");  // 暗线:自写候选缓冲
+    const [modOpen, setModOpen] = useState(false);   // 导入模组面板
+    const [modTxt, setModTxt] = useState("");        // 模组 JSON 粘贴缓冲
+    const [diceOpen, setDiceOpen] = useState(false); // 骰子账展开
     const [input, setInput] = useState("");
     const [note, setNote] = useState("");       // 跟守密人咬耳朵:一次性幕后指示
     const [noteOpen, setNoteOpen] = useState(false);
@@ -800,35 +820,101 @@
     }).join("\n\n");
 
     // ---- 开团 ----
-    const SHAPE_SETUP = "{\"title\":\"这场跑团的短名字(≤10字)\",\"world\":\"世界观与背景:这个世界怎么运转、此地是哪儿、空气里是什么味道(3-5句,只写长期为真的)\",\"hook\":\"开局处境:队伍此刻为什么聚在这里、眼前正在发生什么(2-3句)\",\"regions\":[{\"name\":\"区域名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"接壤的区域名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这里藏着什么(一句,写给守密人)\"}]}],\"stages\":[{\"goal\":\"第一章要达成的具体一步\",\"hint\":\"守密人自用的一句推进思路\",\"place\":\"这一章的目标在哪个地点(必须用 regions 里的节点名)\"}],\"gauge\":{\"name\":\"这场团专属的副状态条(≤4字,按题材选:理智/警戒/补给/声望/追兵…)\",\"start\":50,\"max\":100,\"bad\":\"high或low(哪头是坏事:警戒涨满出事=high,理智见底出事=low)\",\"rule\":\"一句话:什么事让它涨、什么事让它跌\"},\"truth\":\"藏在整件事背后的真相(玩家不可见)\",\"twist\":\"中段翻转:什么时刻、以什么方式掀出来(玩家不可见)\",\"secrets\":\"关键 NPC 各自瞒着什么(玩家不可见,每人一句)\",\"endgame\":\"故事可能的几种结局方向(玩家不可见)\",\"mates\":[{\"name\":\"队友名(严格用队友的名字)\",\"want\":\"此行真正想得到什么(玩家不可见)\",\"fear\":\"最怕发生什么\",\"line\":\"不会跨的底线\",\"clash\":\"什么情况下会和队伍唱反调\"}],\"outfits\":[{\"name\":\"成员名(每位队友和玩家都要一条)\",\"outfit\":\"TA 在这个世界的行头:材质/形制/颜色/关键配件,一句话具体到能照着画\"}],\"feats\":[{\"name\":\"成员名(每人都要)\",\"list\":[{\"name\":\"专长名(2-4字,如 急救/开锁/追踪/辩才)\",\"stat\":\"挂在哪维上:phy|agi|wit|cha|luck\"}]}],\"place\":\"开局地点(必须用 regions 里的节点名)\",\"opening\":\"开场正文\",\"choices\":[\"开局给玩家的 2-4 个行动选项\"]}";
+    // ===== 开团:两段式(她 2026-08-28 问到点上:一口气写全会摊薄注意力) =====
+    // 台前(A):世界/地图/章节/开场——必须一气呵成的那部分,单独一枪写透。
+    // 幕后(B):拿着台前成品专心写底牌——秘典/私念/行头/专长/状态条/每区支线种子/
+    //   玩家暗线候选。它看得见完整的台前所以写得深;而且失败不废局,预览里可「补幕后」。
+    const SHAPE_A = "{\"title\":\"这场跑团的短名字(≤10字)\",\"world\":\"世界观与背景:这个世界怎么运转、此地是哪儿、空气里是什么味道(3-5句,只写长期为真的)\",\"hook\":\"开局处境:队伍此刻为什么聚在这里、眼前正在发生什么(2-3句)\",\"regions\":[{\"name\":\"区域名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"接壤的区域名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这里藏着什么(一句,写给守密人)\"}]}],\"stages\":[{\"goal\":\"第一章要达成的具体一步\",\"hint\":\"守密人自用的一句推进思路\",\"place\":\"这一章的目标在哪个地点(必须用 regions 里的节点名)\"}],\"place\":\"开局地点(必须用 regions 里的节点名)\",\"opening\":\"开场正文\",\"choices\":[\"开局给玩家的 2-4 个行动选项\"]}";
+    const SHAPE_B = "{\"truth\":\"藏在整件事背后的真相\",\"twist\":\"中段翻转:什么时刻、以什么方式掀出来\",\"secrets\":\"关键 NPC 各自瞒着什么(每人一句)\",\"endgame\":\"故事可能的几种结局方向\",\"gauge\":{\"name\":\"专属状态条(≤4字:理智/警戒/补给/声望/追兵…)\",\"start\":50,\"max\":100,\"bad\":\"high或low(哪头是坏事)\",\"rule\":\"什么事让它涨、什么事让它跌\"},\"mates\":[{\"name\":\"队友名(严格用队友的名字)\",\"want\":\"此行真正想得到什么\",\"fear\":\"最怕发生什么\",\"line\":\"不会跨的底线\",\"clash\":\"什么情况下会和队伍唱反调\"}],\"outfits\":[{\"name\":\"成员名(每位队友和玩家都要)\",\"outfit\":\"TA 在这个世界的行头:材质/形制/颜色/关键配件,一句能照着画\"}],\"feats\":[{\"name\":\"成员名(每人都要)\",\"list\":[{\"name\":\"专长名(2-4字,如 急救/开锁/追踪/辩才)\",\"stat\":\"phy|agi|wit|cha|luck\"}]}],\"seeds\":[{\"name\":\"支线名(≤10字)\",\"region\":\"所在区域名(严格用地图里的区域名)\",\"trigger\":\"触发条件:到达某节点/结识某人/拿到某物/时间到第几日…(一句,各不相同)\",\"hook\":\"这条支线的底,写给守密人\"}],\"myline\":[\"给玩家本人的暗线候选:2-3条,每条一句话的秘密目标(第一人称,和主线有张力但不冲突)\"]}";
+    // 幕后(B):写底牌。base 里已有的核心字段(真相/种子等)一律【只补空,不覆盖】——
+    // 模组导入的团保台本,新团全空自然全生成
+    const backstage = async base => {
+      const crew = base.party.slice(1).map(m => ({ m, ch: charOf(m.key) }));
+      const sys = "一场文字跑团的台前(世界/地图/章节/开场)已经搭好了,你现在【专心写幕后底牌】——玩家看不到这些,所以写实话,别写宣传语。\n"
+        + "truth 要经得起推敲;twist 要在中段真正颠一次盘;secrets 让沿途 NPC 各怀心事。\n"
+        + "gauge 按题材配一根专属状态条,写清哪头是坏事、什么让它动。\n"
+        + (crew.length ? "mates 给每位队友写只有守密人知道的私念——让他们不只是陪跑。\n" : "这是单人团,mates 给空数组。\n")
+        + "outfits 给每位队友和玩家各写一句这个世界的行头(出图锁装用),符合时代与身份。\n"
+        + "feats 按人设与题材给每人 1-2 个专长,从 TA 的职业与经历里长出来,别人人一样。\n"
+        + "seeds 给【每个区域】埋 1-2 条支线种子:各有不同的触发条件,从节点的底和这个区域的处境里长出来;玩家看不到,触发条件满足时你才端出来。\n"
+        + "myline 给玩家本人 2-3 条暗线候选:她会挑一条当自己的秘密目标(队友不知道)。\n"
+        + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_B;
+      const user = "【玩家】" + uName + "\n【世界】" + base.world + (base.hook ? "\n【开局处境】" + base.hook : "")
+        + (base.mapRegions ? "\n【地图】\n" + base.mapRegions.map(r => r.name + "(" + r.terrain + ")·节点:" + r.nodes.map(n => n.name + "〔" + (n.hook || n.kind) + "〕").join("/")).join("\n") : "")
+        + "\n【主线各章】" + base.stages.map((x, i) => "第" + (i + 1) + "章:" + x.goal + (x.place ? "@" + x.place : "")).join(";")
+        + (crew.length ? "\n\n" + crew.map(x => "【队友·" + x.m.name + " 人设】\n" + (x.ch ? personaOf(x.ch) : x.m.name)).join("\n\n") : "");
+      let p = null;
+      try { p = parseObj(await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 6400, timeout: 300000 })); } catch (e) { p = null; }
+      if (!p) return null;
+      const party = base.party.map(m => Object.assign({}, m));
+      (Array.isArray(p.feats) ? p.feats : []).forEach(f => {
+        if (!f || typeof f !== "object") return;
+        const mem = findMember(party, f.name);
+        if (!mem || (mem.feats || []).length) return;
+        mem.feats = (Array.isArray(f.list) ? f.list : []).map(x => x && typeof x === "object" && String(x.name || "").trim() && STAT_ZH[x.stat] ? { name: String(x.name).trim().slice(0, 6), stat: x.stat } : null).filter(Boolean).slice(0, 2);
+      });
+      const gRaw = p.gauge && typeof p.gauge === "object" ? p.gauge : null;
+      const gauge = base.gauge || (gRaw && String(gRaw.name || "").trim() ? (() => {
+        const g = { name: String(gRaw.name).trim().slice(0, 4), max: Math.max(20, Math.min(100, Math.round(Number(gRaw.max) || 100))), val: Math.max(0, Math.min(100, Math.round(Number(gRaw.start) || 50))), bad: gRaw.bad === "low" ? "low" : "high", rule: String(gRaw.rule || "").trim().slice(0, 60) };
+        g.val = Math.min(g.val, g.max); return g;
+      })() : null);
+      const mates = (base.dossier && (base.dossier.mates || []).length) ? base.dossier.mates : (Array.isArray(p.mates) ? p.mates : []).map(m => {
+        if (!m || typeof m !== "object") return null;
+        const mem = findMember(party.slice(1), m.name);
+        return mem ? { name: mem.name, want: String(m.want || "").trim(), fear: String(m.fear || "").trim(), line: String(m.line || "").trim(), clash: String(m.clash || "").trim() } : null;
+      }).filter(Boolean);
+      const outfits = Object.assign({}, base.outfits || {});
+      (Array.isArray(p.outfits) ? p.outfits : []).forEach(o => {
+        if (!o || typeof o !== "object") return;
+        const mem = findMember(party, o.name);
+        const v = String(o.outfit || "").trim().slice(0, 80);
+        if (mem && v && !outfits[mem.name]) outfits[mem.name] = v;
+      });
+      const regionNames = (base.mapRegions || []).map(r => r.name);
+      const perRegion = {};
+      const seeds = (base.sideSeeds && base.sideSeeds.length) ? base.sideSeeds : (Array.isArray(p.seeds) ? p.seeds : []).map(x => {
+        if (!x || typeof x !== "object") return null;
+        const name = String(x.name || "").trim().slice(0, 10);
+        const region = regionNames.indexOf(String(x.region || "").trim()) >= 0 ? String(x.region).trim() : "";
+        if (!name) return null;
+        perRegion[region] = (perRegion[region] || 0) + 1;
+        if (perRegion[region] > 2) return null;
+        return { name, region, trigger: String(x.trigger || "").trim().slice(0, 30), hook: String(x.hook || "").trim().slice(0, 60), used: false };
+      }).filter(Boolean).slice(0, 8);
+      const d0 = base.dossier || {};
+      return {
+        party,
+        gauge,
+        outfits,
+        sideSeeds: seeds,
+        mylineOptions: (Array.isArray(p.myline) ? p.myline : []).map(x => String(x || "").trim().slice(0, 44)).filter(Boolean).slice(0, 3),
+        dossier: { truth: d0.truth || String(p.truth || ""), twist: d0.twist || String(p.twist || ""), secrets: d0.secrets || String(p.secrets || ""), endgame: d0.endgame || String(p.endgame || ""), mates: mates }
+      };
+    };
     const genSetup = async () => {
       const members = pickIds.map(charOf).filter(Boolean);
-      // 不拉队友=单人团(Codex 点的菜):NPC 与世界把陪伴和对手戏补足
+      // 不拉队友=单人团:NPC 与世界把陪伴和对手戏补足
       if (!props.active) return props.toast("请先配置线下 API");
-      setBusy(true); setBusyWhat("守密人在搭这个世界…");
+      setBusy(true); setBusyWhat("守密人在搭台前(世界与地图)…");
       try {
         const frame = kw.trim() ? "" : "\n\n【本团取景框(骰子已掷好,三项照办)】\n世界:" + pick(POOL_WORLD) + "\n主线原型:" + pick(POOL_QUEST) + "\n基调:" + pick(POOL_TONE);
         const prior = camps.slice(0, 8).map(c => c.title + "(" + String(c.world || "").slice(0, 24) + ")").join(";");
-        const sys = "你在为一场文字跑团做【开团设定】。玩家是 " + uName + (members.length
-            ? ",队友是下面这些角色——保留他们的性格、说话方式与真实能力,把身份处境放进这个新世界(可以贴近原设定,也可以是平行身份,以和世界咬合为准)。mates 给每位队友写一份只有守密人知道的私念:此行真正想要什么、最怕什么、底线在哪、何时会唱反调——让他们不只是陪跑。"
-            : "。这是一场【单人团】:没有队友同行,mates 给空数组;NPC 与世界要把陪伴、对手戏和信息来源都补足,别让 " + uName + " 对着空气说话。") + "\n"
-          + "gauge 按题材给这场团配一根【专属状态条】(调查怪谈=理智,潜入=警戒,生存=补给,权谋=声望,逃亡=追兵距离…),写清哪头是坏事、什么让它动。\n"
-          + "outfits 给每位队友和玩家各写一句在这个世界的行头(出图时按它锁定服装,别让原设定的衣服乱入),必须符合世界的时代与身份。\n"
-          + "feats 按人设与题材给每人 1-2 个专长(急救/开锁/追踪/辩才/驯兽…):从 TA 的职业与经历里长出来,别人人一样。\n"
+        const sys = "你在为一场文字跑团搭【台前】:世界、地图、主线与开场——只写这些,写透它们;秘典底牌、队友私念、支线这些幕后另有一枪,这里一个字都不用管。玩家是 " + uName + (members.length
+            ? ",队友是下面这些角色——保留他们的性格、说话方式与真实能力,把身份处境放进这个新世界(可以贴近原设定,也可以是平行身份,以和世界咬合为准)。"
+            : "。这是一场【单人团】:没有队友同行,NPC 与世界要把陪伴、对手戏和信息来源都补足,别让 " + uName + " 对着空气说话。") + "\n"
           + "世界要落在一张地图上:regions 给 3-5 个区域,每区 1-3 个节点(地点)。adj 写谁和谁接壤——这决定地图上它们真的相邻;节点的 hook 是守密人自用的一句底(这里埋着什么),玩家看不到。主线各章要分布在【不同区域】的节点上,逼着队伍真的赶路。\n"
           + "主线拆成 4-5 章(stages),每章 goal 是一步【具体、可判定】的事(找到/救出/潜入/揭穿/带到),不是抽象状态;各章连起来是一条完整的弧;place 必须严格用 regions 里已有的节点名。\n"
-          + "秘典字段(truth/twist/secrets/endgame)是守密人自用的底牌:truth 要经得起推敲,twist 要在中段真正颠一次盘,secrets 让沿途 NPC 都各怀心事。玩家看不到这些,所以写实话,别写宣传语。\n"
           + "opening 是写给玩家的开场正文(第二人称『你』,6-10句):把队伍放进一个正在发生、必须行动的时刻,交代此地与在场的人,悬着收尾;绝不替 " + uName + " 做决定。开场即可让一两个队友有一句进场的话或动作,声口要各是各的。\n"
-          + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_SETUP;
+          + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_A;
         const user = "【玩家】" + uName + "\n\n" + members.map(ch => "【队友·" + ch.name + " 人设】\n" + personaOf(ch)).join("\n\n")
           + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame
           + (prior ? "\n\n【已经开过的团(务必避开,换皮重来也算重复)】" + prior : "");
-        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 7600, timeout: 300000 });
+        const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 5200, timeout: 300000 });
         let p = parseObj(raw);
         if (!p) {
           // 内容多半已经写出来了,只是没按 JSON——花一次小调用原样归类,不整局重烧
-          const sys2 = "下面是一段已写好的内容,但没按要求输出 JSON。把它【原样整理】成这个形状:\n" + SHAPE_SETUP + "\n【铁律】只搬运归类,一个字不改写;原文没有的字段留空。只输出 JSON,不要代码块。";
-          try { p = parseObj(await callAI(props.active, sys2, [{ role: "user", content: String(raw || "").slice(0, 10000) }], { maxTokens: 7600, timeout: 150000 })); } catch (e) { p = null; }
+          const sys2 = "下面是一段已写好的内容,但没按要求输出 JSON。把它【原样整理】成这个形状:\n" + SHAPE_A + "\n【铁律】只搬运归类,一个字不改写;原文没有的字段留空。只输出 JSON,不要代码块。";
+          try { p = parseObj(await callAI(props.active, sys2, [{ role: "user", content: String(raw || "").slice(0, 10000) }], { maxTokens: 5200, timeout: 150000 })); } catch (e) { p = null; }
         }
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
         const stages = (Array.isArray(p.stages) ? p.stages : []).map(s => typeof s === "string" ? { goal: s, hint: "" } : s && s.goal ? { goal: String(s.goal), hint: String(s.hint || ""), place: String(s.place || "").trim() } : null).filter(Boolean).slice(0, 6);
@@ -838,48 +924,33 @@
         const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes.map(n => Object.assign({ region: r.name }, n))) : [];
         const startNode = mapRegions ? (findNode(allNodes, p.place) || allNodes[0]) : null;
         stages.forEach(s => { if (mapRegions) { const nd = findNode(allNodes, s.place); s.place = nd ? nd.name : ""; } });
-        // 属性此刻就掷好摆给她看;「换一版」重生成设定,「重掷属性」只重掷数值。
-        // 命运点跟气运走:命越好越经得起重掷
+        // 属性此刻就掷好摆给她看;命运点跟气运走
         const mkMember = (key, name, stats) => ({ key, name, hp: 100, maxHp: 100, stats, fate: fateOf(stats.luck), effects: [], feats: [] });
         const party = [mkMember("user", uName, rollStats())]
           .concat(members.map(ch => mkMember(ch.id, ch.name, personaNudge(rollStats(), ch.persona))));
-        // 专长:开团发 1-2 个,检定贴合专长时 +15(在 ceremony 里加,不改底层属性)
-        (Array.isArray(p.feats) ? p.feats : []).forEach(f => {
-          if (!f || typeof f !== "object") return;
-          const mem = findMember(party, f.name);
-          if (!mem) return;
-          mem.feats = (Array.isArray(f.list) ? f.list : []).map(x => x && typeof x === "object" && String(x.name || "").trim() && STAT_ZH[x.stat] ? { name: String(x.name).trim().slice(0, 6), stat: x.stat } : null).filter(Boolean).slice(0, 2);
-        });
-        // 副状态条与队友私念:坏了就没有,不影响开团
-        const gRaw = p.gauge && typeof p.gauge === "object" ? p.gauge : null;
-        const gauge = gRaw && String(gRaw.name || "").trim() ? {
-          name: String(gRaw.name).trim().slice(0, 4),
-          max: Math.max(20, Math.min(100, Math.round(Number(gRaw.max) || 100))),
-          val: Math.max(0, Math.min(100, Math.round(Number(gRaw.start) || 50))),
-          bad: gRaw.bad === "low" ? "low" : "high",
-          rule: String(gRaw.rule || "").trim().slice(0, 60)
-        } : null;
-        if (gauge) gauge.val = Math.min(gauge.val, gauge.max);
-        const mates = (Array.isArray(p.mates) ? p.mates : []).map(m => {
-          if (!m || typeof m !== "object") return null;
-          const mem = findMember(party.slice(1), m.name);
-          return mem ? { name: mem.name, want: String(m.want || "").trim(), fear: String(m.fear || "").trim(), line: String(m.line || "").trim(), clash: String(m.clash || "").trim() } : null;
-        }).filter(Boolean);
-        // 行头:出图时锁定服装用(小剧场 charOutfit 同一课——不锁每张随机,照抄主线又串世界)
-        const outfits = {};
-        (Array.isArray(p.outfits) ? p.outfits : []).forEach(o => {
-          if (!o || typeof o !== "object") return;
-          const mem = findMember(party, o.name);
-          const v = String(o.outfit || "").trim().slice(0, 80);
-          if (mem && v) outfits[mem.name] = v;
-        });
-        setDraft({ partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, place: s.place || "", done: false, note: null })), dossier: { truth: p.truth || "", twist: p.twist || "", secrets: p.secrets || "", endgame: p.endgame || "", mates: mates }, gauge: gauge, outfits: outfits, mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, choices: normChoices(p.choices, party), party });
+        let d = { partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(s => ({ goal: s.goal, hint: s.hint, place: s.place || "", done: false, note: null })), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, choices: normChoices(p.choices, party), party };
+        setBusyWhat("守密人在写幕后底牌…");
+        const bs = await backstage(d);
+        if (bs) d = Object.assign({}, d, bs);
+        else props.toast("台前搭好了,但幕后底牌没写成——预览里点「补幕后」重试", 7000);
+        setDraft(d);
+      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+    };
+    // 预览里的「补幕后」:台前不动,只重写(或补写)底牌;模组导入的团也走这里配 crew
+    const redoBackstage = async () => {
+      if (!draft || busy) return;
+      if (!props.active) return props.toast("请先配置线下 API");
+      setBusy(true); setBusyWhat("守密人在写幕后底牌…");
+      try {
+        const bs = await backstage(draft);
+        if (!bs) throw new Error("幕后还是没写成,再试一次");
+        setDraft(dd => dd && Object.assign({}, dd, bs));
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     const rerollDraftStats = () => setDraft(d => d && Object.assign({}, d, { party: d.party.map(m => { const stats = m.key === "user" ? rollStats() : personaNudge(rollStats(), (charOf(m.key) || {}).persona); return Object.assign({}, m, { stats, fate: fateOf(stats.luck) }); }) }));
     const acceptDraft = () => {
-      const openMsg = { id: rid("rm_"), role: "gm", content: draft.opening, ts: Date.now(), snap: { hp: draft.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: draft.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: [], clues: [], stageIdx: 0, place: draft.place, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], gauge: draft.gauge ? draft.gauge.val : null, clocks: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, effects: {}, choices: draft.choices } };
-      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, style: draft.style || "classic", world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, gauge: draft.gauge || null, outfits: draft.outfits || {}, clocks: [], guesses: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, party: draft.party, items: [], clues: [], choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
+      const openMsg = { id: rid("rm_"), role: "gm", content: draft.opening, ts: Date.now(), snap: { hp: draft.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: draft.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: [], clues: [], stageIdx: 0, place: draft.place, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], gauge: draft.gauge ? draft.gauge.val : null, clocks: [], quests: [], seeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), npcs: [], time: { day: 1, part: "晨" }, effects: {}, choices: draft.choices } };
+      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, style: draft.style || "classic", world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, gauge: draft.gauge || null, outfits: draft.outfits || {}, sideSeeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), myline: draft.myline || "", limits: limitsTxt.trim(), clocks: [], guesses: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, party: draft.party, items: [], clues: [], choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
       update(list => [c, ...list]); setDraft(null); setKw(""); setPlayId(c.id); setView("play"); setPanelOpen(false);
     };
 
@@ -965,6 +1036,7 @@
       const stageLines = c.stages.map((s, i) => (i < c.stageIdx ? "✓ " : i === c.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= c.stageIdx ? s.goal + (s.place ? "〔在:" + s.place + "〕" : "") : "(未揭晓,推进到才亮出)") + (i === c.stageIdx && s.hint ? "〔推进思路:" + s.hint + "〕" : "")).join("\n");
       const dd = DIFF[c.difficulty] || DIFF.normal;
       return [narrativeCore(),
+        c.limits ? "【安全线(最高优先级,压过一切风格与剧情需要)】以下内容绝不出现、也不擦边:" + c.limits + "。剧情逼近时淡出换景处理,不描写过程,也不拿它当威胁渲染。" : null,
         "【跑团·守密人(独立平行时空)】你是这场文字跑团的守密人(GM):叙述世界、扮演一切 NPC,并【完全代入】下面每一位队友本人——写到谁,就是谁在说话行事,用 TA 自己的性格、声口和真实能力(人设在下方),不是在旁边描写一个标签。这是与主线完全无关的平行时空:不引用主线聊天里发生过的事,正文里也不提这是游戏或扮演。",
         "【玩家主权】" + uName + " 的行动、台词和决定永远由 Ta 本人输入:你只写世界、NPC 与队友,绝不替 " + uName + " 做动作、说台词、下决定;写到需要 Ta 抉择的位置就停下来给选项。",
         ABILITY_RULE,
@@ -972,6 +1044,8 @@
         "【世界】" + c.world + (c.hook ? "\n【开局处境】" + c.hook : ""),
         "【守密人秘典(玩家永远不可见,不得在正文中直接说破)】\n真相:" + c.dossier.truth + "\n中段翻转:" + c.dossier.twist + "\nNPC 各自的心事:" + c.dossier.secrets + "\n结局方向:" + c.dossier.endgame
           + ((c.dossier.mates || []).length ? "\n【队友的私念(同样保密;按各自的私念演——该坚持坚持、该隐瞒隐瞒,时机到了可以主动提支线或唱反调,不许把队友演成只会附和的陪跑)】\n" + c.dossier.mates.map(m => m.name + ":想要·" + m.want + ";最怕·" + m.fear + ";底线·" + m.line + ";会唱反调·" + m.clash).join("\n") : "")
+          + (((c.sideSeeds || []).filter(sd => !sd.used).length) ? "\n【支线种子(玩家不可见)】\n" + c.sideSeeds.filter(sd => !sd.used).map(sd => "「" + sd.name + "」@" + (sd.region || "?") + "·触发:" + sd.trigger + (sd.hook ? "·底:" + sd.hook : "")).join("\n") + "\n触发条件在剧情里【真实满足】时才把种子端出来(quest add 同名),端出即作废;条件没满足绝不硬塞。" : "")
+          + (c.myline ? "\n【玩家的暗线(只有你和玩家知道,队友与 NPC 都不知道)】" + c.myline + "——制造让它靠近或受试探的机会,但绝不替玩家推进、绝不点破、绝不让队友看出来。" : "")
           + "\n伏笔要一点点埋,已经亮给玩家的线索见下方【线索】,别重复埋同一颗。",
         c.gauge ? "【专属状态条·" + c.gauge.name + "】当前 " + c.gauge.val + "/" + c.gauge.max + "(" + (c.gauge.bad === "high" ? "涨满出大事" : "见底出大事") + ")。规则:" + (c.gauge.rule || "按剧情增减") + "。变化写进 gauge 字段(整数,单拍 ±15 以内);逼近坏的那头时叙事要有压迫感,真到头必须立刻爆发成事件,不许拖。" : null,
         "【威胁时钟】把「正在逼近的坏事」做成 0~6 格的钟(clock 字段:新钟给 name+max,推进给 name+delta,解除给 name+done):检定失败、大失败或队伍拖延时优先给相关的钟 +1;钟走满必须立刻让它爆发成事件,爆发后报 done 拆钟。同时最多 3 座,别滥设。" + ((c.clocks || []).length ? "\n当前的钟:" + c.clocks.map(x => "「" + x.name + "」" + x.filled + "/" + x.max + (x.filled >= x.max ? "(已走满,本拍必须爆发)" : "")).join(" ") : ""),
@@ -982,13 +1056,14 @@
         "【当前状态(以此为准,不凭记忆)】\n时间:第" + ((c.time || {}).day || 1) + "日·" + ((c.time || {}).part || "晨") + "\n地点:" + c.place + "\n" + partyBlock(c) + "\n物品(名称×数量(持有人),不写持有人=队伍公用):" + (itemsFix(c.items).map(fmtItem).join("、") || "无") + "\n线索:" + (c.clues.map((x, i) => (i + 1) + "." + x).join(" ") || "尚无"),
         "【团内时间】每拍在 time 里报当前 {\"day\":N,\"part\":\"晨|午|暮|夜\"}——时间只向前;赶路、休整、搜查都要花时间,别让一天塞下十件大事;有期限的事用威胁钟表达,别只口头说「快来不及了」。",
         "【NPC 名册(出过场的都要记账,前后一致,不许换名换设)】" + ((c.npcs || []).length ? "\n" + c.npcs.map(n => n.name + (n.alive ? "" : "(已死)") + "·" + (n.role || "?") + "·" + n.stance + (n.note ? "·玩家已知:" + n.note : "")).join("\n") : "尚无") + "\n新 NPC 出场、身份揭示、立场变化、死亡,都写进 npc 字段(name/role/stance 友|敌|未明/alive/note);note 只写【玩家已经知道的】,他们的秘密仍在秘典里。",
-        "【支线】" + ((c.quests || []).filter(q => q.status === "open" || q.status === "paused").length ? "\n" + c.quests.filter(q => q.status !== "done" && q.status !== "failed").map(q => "「" + q.name + "」" + (q.status === "paused" ? "(暂缓)" : "") + (q.note ? ":" + q.note : "")).join("\n") : "尚无") + "\n支线从节点的底、队友的私念、NPC 的难处里自然长出来,用 quest 字段记账(op: add/done/fail/pause);同时开着的别超过 3 条,完成或走死了要及时销账。",
+        "【支线】" + ((c.quests || []).filter(q => q.status === "open" || q.status === "paused").length ? "\n" + c.quests.filter(q => q.status !== "done" && q.status !== "failed").map(q => "「" + q.name + "」" + (q.status === "paused" ? "(暂缓)" : "") + (q.note ? ":" + q.note : "")).join("\n") : "尚无") + "\n支线从种子、节点的底、队友的私念、NPC 的难处里自然长出来,用 quest 字段记账(op: add/done/fail/pause);同时开着的别超过 3 条,完成或走死了要及时销账。玩家随时可以暂离支线(史里会有一条〔支线〕记录)——尊重她的节奏,暂离的线留着钩子等她回头,别硬拽。",
+        "【行动顺序】危险或交战的拍,在 order 里报本拍的行动顺序(按身手与处境排,含 NPC 时也只排队伍成员);平时省略——别拿先攻打断叙事。",
         dd.play ? "【难度·" + dd.name + "】" + dd.play : null,
         (STYLES[c.style] && STYLES[c.style].text) ? "【守密风格·" + STYLES[c.style].name + "】" + STYLES[c.style].text + " 风格只改叙事口味与事件密度,绝不改检定判定与规则公平。" : null,
         "【检定规则】骰子由客户端掷,你【绝不自己编骰子结果】。历史里的〔检定〕行是既定事实,必须按其等级叙事:大成功给意外之喜;困难成功干净利落;成功达成但可以有小瑕疵;失败让局面复杂化但留有余地;大失败要有戏剧性代价——但检定失败永远制造新的戏,不判死、不判死胡同。需要碰运气的选项才挂 check(stat 取 phy体魄/agi身手/wit头脑/cha谈吐/luck气运;who 填该出手的队伍成员名,谁都能试就填 null——null 时措辞必须任何人都做得来)。不是每个选项都要检定,说句话不用掷骰。选项贴合某位成员专长时在 check 里带 feat:\"专长名\"(那个人掷会 +15)——把机会点给有这门手艺的人。need 只挂「有这件东西才走得顺」的选项,而且【只写物品名本身】——绝不带持有人和数量(写「浓缩催吐解毒剂」,不写「浓缩催吐解毒剂(陆衍)」);玩家没有它仍可能硬闯,硬闯你要让它付出代价或临场挂检定;真正没有就绝无可能的事,不要做成选项。\n【玩家自由输入的行动也要掷骰】" + uName + " 亲笔写的行动若明显要碰运气(强行/潜入/撬锁/行骗/跳跃/夺取/硬拼这类),不要直接写成败:scene 写到出手前的悬点就停住,同时在 needCheck 里报 {\"stat\":\"…\",\"who\":\"该掷骰的人(通常是 " + uName + ",队友代劳就写队友名)\"}——客户端掷完骰会让你续写。历史里已有这个动作的〔检定〕结果时绝不再报 needCheck;说话、观察、不碰运气的动作也不报。",
         "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
-        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
+        "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"gauge\":0,\"clock\":[{\"name\":\"威胁钟名\",\"delta\":1,\"max\":6,\"done\":false}],\"quest\":[{\"name\":\"支线名\",\"op\":\"add|done|fail|pause\",\"note\":\"一句\"}],\"npc\":[{\"name\":\"人名\",\"role\":\"身份\",\"stance\":\"友|敌|未明\",\"alive\":true,\"note\":\"玩家已知的\"}],\"effect\":[{\"who\":\"成员名\",\"name\":\"状态名\",\"op\":\"add|remove\",\"note\":\"影响与解除条件\"}],\"time\":{\"day\":1,\"part\":\"暮\"},\"order\":[],\"needCheck\":null,\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
       ].filter(Boolean).join("\n\n");
     };
     // 言秋在队里时,他这一回合的言行先递 CC 亲笔(瘦身票:不发人设卡与反八股——
@@ -1052,7 +1127,7 @@
           const nc = r.camp;
           // 数值角标钉在这一拍的正文上(chips),不再另发一条居中系统行;
           // 旧存档里已有的 sys 行仍照常渲染
-          const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: nc.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, pos: nc.pos || "", visited: (nc.visited || []).slice(), gauge: nc.gauge ? nc.gauge.val : null, clocks: (nc.clocks || []).map(x => Object.assign({}, x)), quests: (nc.quests || []).map(x => Object.assign({}, x)), npcs: (nc.npcs || []).map(x => Object.assign({}, x)), time: nc.time ? Object.assign({}, nc.time) : null, effects: nc.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: nc.choices } }]);
+          const msgs = c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), chips: r.chips.length ? r.chips : undefined, snap: { hp: nc.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: nc.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: nc.items, clues: nc.clues, stageIdx: nc.stageIdx, place: nc.place, pos: nc.pos || "", visited: (nc.visited || []).slice(), gauge: nc.gauge ? nc.gauge.val : null, clocks: (nc.clocks || []).map(x => Object.assign({}, x)), quests: (nc.quests || []).map(x => Object.assign({}, x)), seeds: (nc.sideSeeds || []).map(x => Object.assign({}, x)), npcs: (nc.npcs || []).map(x => Object.assign({}, x)), time: nc.time ? Object.assign({}, nc.time) : null, effects: nc.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: nc.choices } }]);
           return Object.assign({}, nc, { msgs });
         }));
         setNote(""); setNoteOpen(false); setDice(false);
@@ -1139,7 +1214,7 @@
           const p = parseTurnPayload(raw);
           if (!p) throw new Error("这一笔没能解析出来,再试一次");
           // 状态一个字不动:快照原样抄当前值,分支回溯仍然对账
-          update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), extra: true, snap: { hp: c.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: c.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: c.items, clues: c.clues, stageIdx: c.stageIdx, place: c.place, pos: c.pos || "", visited: (c.visited || []).slice(), gauge: c.gauge ? c.gauge.val : null, clocks: (c.clocks || []).map(x => Object.assign({}, x)), quests: (c.quests || []).map(x => Object.assign({}, x)), npcs: (c.npcs || []).map(x => Object.assign({}, x)), time: c.time ? Object.assign({}, c.time) : null, effects: c.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: c.choices } }]) })));
+          update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), extra: true, snap: { hp: c.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: c.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: c.items, clues: c.clues, stageIdx: c.stageIdx, place: c.place, pos: c.pos || "", visited: (c.visited || []).slice(), gauge: c.gauge ? c.gauge.val : null, clocks: (c.clocks || []).map(x => Object.assign({}, x)), quests: (c.quests || []).map(x => Object.assign({}, x)), seeds: (c.sideSeeds || []).map(x => Object.assign({}, x)), npcs: (c.npcs || []).map(x => Object.assign({}, x)), time: c.time ? Object.assign({}, c.time) : null, effects: c.party.reduce((m, x) => (m[x.name] = (x.effects || []).map(e => Object.assign({}, e)), m), {}), choices: c.choices } }]) })));
         }
         setNote(""); setNoteOpen(false);
       } catch (e) { if (text) setInput(text); props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
@@ -1178,12 +1253,14 @@
         const sys = narrativeCore() + "\n\n【终章】为这场跑团写落幕:5-8 段,顺序是——世界因这场冒险变成了什么样;沿途关键 NPC 各自的下场;每位队友的归处(各一段,声口各是各的);最后是 " + uName + " 的那一段。每段 2-4 句,落在具体的画面上,不写总结陈词。"
           + (fa ? "\n【" + uName + " 的最后一笔(她亲笔写下的,终章最后一段必须以此为准,如实织入:只补画面与余韵,不改写、不扩大、不替她追加任何新的决定)】" + fa
                 : "\n【" + uName + " 的段落只写画面,不替她做主】她没有留下最后一笔,所以她那一段只写她此刻身在何处、眼前是什么样的画面,收在开放的余韵上——绝不替她决定去留、原谅谁、选择谁或说出任何承诺。")
-          + (forced ? "\n剧情是中途收束的,就写到走到的地方为止,把没走完的路留成余味,不硬圆。" : "") + "\n另外盘点:秘典里有哪些真相与伏笔到最后也没来得及揭开(untold,没有就空数组)。\n只输出 JSON:{\"paras\":[\"段落\"],\"closing\":\"最后一句(≤30字)\",\"untold\":[]}";
+          + (forced ? "\n剧情是中途收束的,就写到走到的地方为止,把没走完的路留成余味,不硬圆。" : "")
+          + (camp.myline ? "\n她一路揣着一条暗线:「" + camp.myline + "」——在 myline 里评一句它最终走到了哪(达成/半途/背离,以及代价),不写进正文段落。" : "")
+          + "\n另外盘点:秘典里有哪些真相与伏笔到最后也没来得及揭开(untold,没有就空数组)。\n只输出 JSON:{\"paras\":[\"段落\"],\"closing\":\"最后一句(≤30字)\",\"untold\":[],\"myline\":\"暗线判词(没暗线就空)\"}";
         const user = "【世界】" + camp.world + "\n【秘典】真相:" + camp.dossier.truth + "\n翻转:" + camp.dossier.twist + "\n【各章】" + camp.stages.map((s, i) => s.goal + (s.done ? "(✓)" : i === camp.stageIdx ? "(进行中)" : "(未到)")).join(";") + "\n【已揭示线索】" + (camp.clues.join(";") || "无") + (camp.summary ? "\n【前情】\n" + camp.summary : "") + "\n【最近剧情】\n" + recent;
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: 4000, timeout: 300000 });
         const p = parseObj(raw);
         if (!p || !Array.isArray(p.paras) || !p.paras.length) throw new Error("终章没写出来" + rawHint(raw));
-        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: { paras: p.paras.map(x => String(x || "").trim()).filter(Boolean), closing: String(p.closing || "").trim(), untold: (Array.isArray(p.untold) ? p.untold : []).map(x => String(x || "").trim()).filter(Boolean), revealed: 0 } })));
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { ended: true, pendingEnd: false, epilogue: { paras: p.paras.map(x => String(x || "").trim()).filter(Boolean), closing: String(p.closing || "").trim(), untold: (Array.isArray(p.untold) ? p.untold : []).map(x => String(x || "").trim()).filter(Boolean), myline: String(p.myline || "").trim(), revealed: 0 } })));
         setEndAsk(null); setFinalAct("");
       } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
@@ -1204,6 +1281,7 @@
         msgs: kept, ended: false, epilogue: null, pendingStage: false, pendingEnd: false,
         party: camp.party.map(m => Object.assign({}, m, { hp: snap.hp[m.name] != null ? snap.hp[m.name] : m.hp, fate: (snap.fate && snap.fate[m.name] != null) ? snap.fate[m.name] : m.fate, effects: (snap.effects && Array.isArray(snap.effects[m.name])) ? snap.effects[m.name].map(e => Object.assign({}, e)) : (m.effects || []).map(e => Object.assign({}, e)) })),
         quests: Array.isArray(snap.quests) ? snap.quests.map(x => Object.assign({}, x)) : (camp.quests || []).map(x => Object.assign({}, x)),
+        sideSeeds: Array.isArray(snap.seeds) ? snap.seeds.map(x => Object.assign({}, x)) : (camp.sideSeeds || []).map(x => Object.assign({}, x)),
         npcs: Array.isArray(snap.npcs) ? snap.npcs.map(x => Object.assign({}, x)) : (camp.npcs || []).map(x => Object.assign({}, x)),
         time: snap.time ? Object.assign({}, snap.time) : (camp.time ? Object.assign({}, camp.time) : null),
         gauge: camp.gauge ? Object.assign({}, camp.gauge, { val: snap.gauge != null ? snap.gauge : camp.gauge.val }) : null,
@@ -1411,11 +1489,26 @@
          ["第一章", draft.stages[0] && (draft.stages[0].goal + (draft.stages[0].place ? "〔在:" + draft.stages[0].place + "〕" : ""))], ["后面还有", (draft.stages.length - 1) + " 章(走到才揭晓)"], ["开场", draft.opening]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 8 } }, h("div", { style: S.lbl }, k), h("div", { style: S.txt }, String(v))) : null),
         h("div", { style: S.lbl }, "队伍属性(3d6×5;队友按人设微调)"),
         draft.party.map(m => h("div", { key: m.key, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, m.name + ":" + STATS.map(([k, zh]) => zh + " " + m.stats[k]).join(" · ") + " · ✦×" + m.fate)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "6px 0 8px" } }, "守密人还写好了一份秘典(真相、伏笔与翻转)——落幕之前不给看。"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "6px 0 8px" } }, String(draft.dossier.truth || "").trim()
+          ? "守密人写好了秘典(真相/翻转/私念)" + ((draft.sideSeeds || []).length ? ",还在各区埋了 " + draft.sideSeeds.length + " 条支线种子(触发条件各不相同)" : "") + "——落幕之前不给看。"
+          : "⚠ 幕后底牌还没写成(秘典/私念/专长/种子都缺)——点下面的「补幕后」。"),
+        h("div", { style: { marginBottom: 8 } },
+          h("div", { style: S.lbl }, "你的暗线(只有你和守密人知道,队友不知道;落幕才揭晓)"),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 4 } },
+            (draft.mylineOptions || []).map((o, i) => h("button", { key: i, onClick: () => setDraft(dd => Object.assign({}, dd, { myline: dd.myline === o ? "" : o })), style: Object.assign({}, S.btn(draft.myline === o), { textAlign: "left" }) }, o)),
+            h("button", { onClick: () => setDraft(dd => Object.assign({}, dd, { myline: "" })), style: S.btn(!draft.myline) }, "不要暗线")),
+          h("div", { style: { display: "flex", gap: 6 } },
+            h("input", { value: mylineTxt, onChange: e => setMylineTxt(e.target.value), placeholder: "或者自己写一条秘密目标…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none" } }),
+            h("button", { onClick: () => { const v = mylineTxt.trim(); if (!v) return; setMylineTxt(""); setDraft(dd => Object.assign({}, dd, { myline: v.slice(0, 44) })); }, style: S.btn(false) }, "用这条")),
+          draft.myline ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a6d3b", marginTop: 4 } }, "✦ 已选暗线:" + draft.myline) : null),
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开团"),
           h("button", { onClick: genSetup, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
-          h("button", { onClick: rerollDraftStats, style: S.btn(false) }, "重掷属性")));
+          h("button", { onClick: rerollDraftStats, style: S.btn(false) }, "重掷属性"),
+          // 幕后没写成(或模组换了队友)时:台前不动,单独补底牌
+          !String(draft.dossier.truth || "").trim() || !(draft.party.slice(1).every(m => (m.feats || []).length) && Object.keys(draft.outfits || {}).length)
+            ? h("button", { onClick: redoBackstage, disabled: busy, style: Object.assign({}, S.btn(false), { borderColor: "#8a6d3b", color: "#8a6d3b" }) }, busy ? "在写…" : "✎ 补幕后")
+            : null));
       return h("div", { style: S.wrap }, badges(), header("新开跑团"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { style: S.card }, h("div", { style: S.lbl }, "拉队友入队(0-4 名;一个不拉=单人团,NPC 陪你走)"),
@@ -1428,7 +1521,31 @@
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } }, ["easy", "normal", "hard"].map(k => h("button", { key: k, onClick: () => setDiff(k), style: S.btn(diff === k) }, DIFF[k].name))),
             h("div", { style: S.lbl }, "守密风格(只改叙事口味,不改规则公平)"),
             h("div", { style: { display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" } }, Object.keys(STYLES).map(k => h("button", { key: k, onClick: () => setStyle(k), style: S.btn(style === k) }, STYLES[k].name))),
-            !draft && h("button", { onClick: genSetup, disabled: busy, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, busy ? "在搭世界…" : "生成设定")),
+            h("div", { style: S.lbl }, "安全线(选填:绝不想出现的内容,守密人最高优先级遵守)"),
+            h("textarea", { value: limitsTxt, onChange: e => setLimitsTxt(e.target.value), rows: 1, placeholder: "如「虫群、孩子受伤、背叛后无法挽回」,留空=不设", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", marginBottom: 4 } }),
+            !draft && h("div", { style: { display: "flex", gap: 8, marginTop: 4 } },
+              h("button", { onClick: genSetup, disabled: busy, style: S.btn(true) }, busy ? "在搭…" : "生成设定"),
+              h("button", { onClick: () => setModOpen(v => !v), style: S.btn(modOpen) }, "📦 导入模组")),
+            !draft && modOpen ? h("div", { style: { marginTop: 6 } },
+              h("textarea", { value: modTxt, onChange: e => setModTxt(e.target.value), rows: 3, placeholder: "把打包的模组 JSON 粘到这里——同一场世界换批队友重开,或者玩别人分享的团", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10, color: t.ink, resize: "vertical", outline: "none" } }),
+              h("button", { onClick: () => {
+                try {
+                  const mod = JSON.parse(modTxt.trim());
+                  if (!mod || mod.kind !== "trpg-module" || !mod.world || !Array.isArray(mod.stages)) throw new Error("不是有效的跑团模组");
+                  const members = pickIds.map(charOf).filter(Boolean);
+                  const mkMember = (key, name, stats) => ({ key, name, hp: 100, maxHp: 100, stats, fate: fateOf(stats.luck), effects: [], feats: [] });
+                  const party = [mkMember("user", uName, rollStats())].concat(members.map(ch => mkMember(ch.id, ch.name, personaNudge(rollStats(), ch.persona))));
+                  const mapRegions = normRegions(mod.regions);
+                  const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes) : [];
+                  const startNode = mapRegions ? (findNode(allNodes, mod.place) || allNodes[0]) : null;
+                  // 模组保台本(世界/章节/秘典/种子),crew 相关(私念/行头/专长/暗线)是空的——
+                  // 预览里点「补幕后」按当前队伍现配;backstage 只补空不覆盖,台本动不了
+                  setDraft({ partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: mod.stages.map(x => ({ goal: String(x.goal || ""), hint: String(x.hint || ""), place: String(x.place || ""), done: false, note: null })).filter(x => x.goal), dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), choices: [], party });
+                  if (mod.limits) setLimitsTxt(String(mod.limits));
+                  setModOpen(false);
+                  props.toast("模组已装载——预览里点「补幕后」给这批队友配私念/行头/专长", 7000);
+                } catch (e) { props.toast("导入失败:" + (e.message || "JSON 坏了")); }
+              }, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, "用模组开团")) : null),
           preview));
     }
 
@@ -1503,7 +1620,12 @@
           camp.quests.map(q => {
             const icon = { open: "○", done: "✓", failed: "✗", paused: "⏸" }[q.status] || "○";
             const col = q.status === "done" ? "#5a7d5a" : q.status === "failed" ? "#a4442e" : q.status === "paused" ? t.fog : t.ink;
-            return h("div", { key: q.name, onClick: () => { if (!fixMode) return; const order = ["open", "done", "failed", "paused"]; const nxt = order[(order.indexOf(q.status) + 1) % 4]; applyFix("把支线「" + q.name + "」改为" + ({ open: "进行中", done: "完成", failed: "失败", paused: "暂缓" }[nxt]), c => Object.assign({}, c, { quests: c.quests.map(x => x.name !== q.name ? x : Object.assign({}, x, { status: nxt })) })); }, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: col, cursor: fixMode ? "pointer" : "default" }) }, icon + " " + q.name + (q.note ? ":" + q.note : ""));
+            const questFlip = to => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { quests: c.quests.map(x => x.name !== q.name ? x : Object.assign({}, x, { status: to })), msgs: c.msgs.concat([{ id: rid("rm_"), role: "sys", content: "支线·" + uName + " 决定" + (to === "paused" ? "暂缓「" + q.name + "」,先做别的" : "重拾「" + q.name + "」"), ts: Date.now() }]) })));
+            return h("div", { key: q.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: col, display: "flex", alignItems: "center", gap: 5 }) },
+              h("span", { onClick: () => { if (!fixMode) return; const order = ["open", "done", "failed", "paused"]; const nxt = order[(order.indexOf(q.status) + 1) % 4]; applyFix("把支线「" + q.name + "」改为" + ({ open: "进行中", done: "完成", failed: "失败", paused: "暂缓" }[nxt]), c => Object.assign({}, c, { quests: c.quests.map(x => x.name !== q.name ? x : Object.assign({}, x, { status: nxt })) })); }, style: { cursor: fixMode ? "pointer" : "default", flex: 1 } }, icon + " " + q.name + (q.note ? ":" + q.note : "")),
+              // 随时暂离/重拾(她 2026-08-28 要的):不烧调用,写一条〔支线〕记录守密人就知道了
+              !fixMode && q.status === "open" ? h("button", { onClick: () => questFlip("paused"), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "⏸ 暂离") : null,
+              !fixMode && q.status === "paused" ? h("button", { onClick: () => questFlip("open"), style: { fontFamily: F_BODY, fontSize: 10, color: t.ink, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "▶ 重拾") : null);
           })) : null,
         // NPC 名册:立场 🟢友 🔴敌 ⚪未明,†=已死;只显示玩家已知的
         (camp.npcs || []).length ? h("div", null,
@@ -1534,7 +1656,19 @@
         !camp.ended ? h("div", { style: { display: "flex", gap: 6, marginBottom: 4 } },
           h("input", { value: guessTxt, onChange: e => setGuessTxt(e.target.value), placeholder: "把线索拼成一条推论记下来…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none" } },),
           h("button", { onClick: () => { const txt = guessTxt.trim(); if (!txt) return; setGuessTxt(""); update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { guesses: (c.guesses || []).concat([{ id: rid("rg_"), text: txt, verdict: null, note: "", ts: Date.now() }]) }))); }, style: S.btn(false) }, "记下")) : null,
+        (() => {
+          const rolls = camp.msgs.filter(m => m.role === "roll");
+          return rolls.length ? h("div", null,
+            h("div", { onClick: () => setDiceOpen(v => !v), style: Object.assign({}, S.lbl, { marginTop: 6, cursor: "pointer" }) }, "🎲 骰子账 · " + rolls.length + " 次 " + (diceOpen ? "▴" : "▾")),
+            diceOpen ? rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content)) : null) : null;
+        })(),
         h("div", { style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" } },
+          h("button", { onClick: () => {
+            // 打包模组:台前+底牌+种子,不带存档与队伍——换队友重开时「补幕后」会重配 crew
+            const mod = { v: 1, kind: "trpg-module", title: camp.title, world: camp.world, hook: camp.hook, regions: camp.mapRegions, stages: camp.stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "" })), dossier: { truth: camp.dossier.truth, twist: camp.dossier.twist, secrets: camp.dossier.secrets, endgame: camp.dossier.endgame }, gauge: camp.gauge ? Object.assign({}, camp.gauge) : null, seeds: (camp.sideSeeds || []).map(x => Object.assign({}, x, { used: false })), style: camp.style || "classic", limits: camp.limits || "", opening: (camp.msgs[0] && camp.msgs[0].content) || "", place: camp.stages.length && camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.place : camp.place };
+            const txt = JSON.stringify(mod);
+            try { navigator.clipboard.writeText(txt).then(() => props.toast("模组已复制:世界/章节/秘典/种子都在里面,开团页「导入模组」可重开或分享", 7000), () => props.toast("复制失败,再试一次")); } catch (e) { props.toast("复制失败:" + (e.message || "")); }
+          }, style: S.btn(false) }, "📦 打包模组"),
           !camp.ended && h("button", { onClick: () => { if (confirm("提前收团?守密人会就此写终章落幕。")) { setPanelOpen(false); setEndAsk({ forced: true }); } }, disabled: busy, style: S.btn(false) }, "谢幕收团"),
           h("button", { onClick: () => delCamp(camp.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此团")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "长按任意一拍可从那里分支回溯——状态按当拍快照恢复,原团一个字不动。")));
@@ -1589,6 +1723,7 @@
                (camp.dossier.mates || []).length ? h("div", { style: { marginBottom: 6 } },
                  h("div", { style: S.lbl }, "队友们一路藏着的私念"),
                  camp.dossier.mates.map(m => h("div", { key: m.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 3 }) }, m.name + ":想要·" + m.want + (m.fear ? " / 最怕·" + m.fear : "") + (m.line ? " / 底线·" + m.line : "")))) : null,
+               camp.myline ? h("div", { style: { marginBottom: 6 } }, h("div", { style: S.lbl }, "你的暗线"), h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, "「" + camp.myline + "」" + (ep.myline ? " —— " + ep.myline : ""))) : null,
                ep.untold && ep.untold.length ? h("div", null, h("div", { style: S.lbl }, "没来得及揭开的"), ep.untold.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12 }) }, "· " + x))) : null)]);
       const flow = camp.msgs.map(m => m.role === "photo"
         ? h("div", { key: m.id, onPointerDown: () => pressPhoto(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), onClick: () => setBigView({ img: m.img, title: camp.title }), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
