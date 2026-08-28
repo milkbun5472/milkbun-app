@@ -703,9 +703,9 @@
     const t = useTheme();
     const mode = props.mode; // 'teach' | 'nv1'
     const want = mode === "nv1" ? 2 : 1;
-    const [subject, setSubject] = useState("");
+    const [subject, setSubject] = useState(String(props.initialSubject || ""));
     const [level, setLevel] = useState("");
-    const [picked, setPicked] = useState([]);
+    const [picked, setPicked] = useState(props.initialCharacterId ? [String(props.initialCharacterId)] : []);
     const [busy, setBusy] = useState(false);
     const [confirmUnfit, setConfirmUnfit] = useState(null); // 认真教判定不够格时的弹窗 {ability, teacher}
     const field = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "10px 12px", width: "100%" };
@@ -1448,7 +1448,18 @@
     const [tick, setTick] = useState(0); // 强制从库重读
     const [openId, setOpenId] = useState(null);   // session id（thread）
     const [curId, setCurId] = useState(null);      // curriculum id（console）
+    const entryHandledRef = useRef("");
     function refresh() { setTick(function (x) { return x + 1; }); }
+
+    useEffect(function () {
+      const e = props.entry;
+      if (!e || !e.key || entryHandledRef.current === e.key) return;
+      entryHandledRef.current = e.key;
+      if (e.mode === "resume" && e.sessionId && loadSessions().some(function (s) { return String(s.id) === String(e.sessionId); })) {
+        setOpenId(String(e.sessionId)); setView("thread"); return;
+      }
+      if (e.mode === "propose") { setTab("teach"); setView("newCurriculum"); }
+    }, [props.entry && props.entry.key]);
 
     const sessions = loadSessions();
     const curricula = loadCurricula();
@@ -1456,6 +1467,8 @@
     if (view === "newCurriculum") {
       return h(NewCurriculum, {
         mode: tab, active: props.active, bgActive: props.bgActive, characters: props.characters, worldbook: props.worldbook, toast: props.toast,
+        initialSubject: props.entry && props.entry.mode === "propose" ? props.entry.subject : "",
+        initialCharacterId: props.entry && props.entry.mode === "propose" ? props.entry.characterId : "",
         onBack: function () { setView("home"); },
         onCreated: function (cur) { setCurId(cur.id); setView("console"); }, // 落到控制台，自己开第一节
         // 认真教判定不够格→用户选「改为一起研究」：建 costudy session 直接进聊天

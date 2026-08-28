@@ -3217,6 +3217,7 @@ function ChatThread({
   onAcceptCall,
   onDeclineCall,
   onAcceptListen,
+  onOpenStudyInvite,
   onSendTransfer,
   onRespondTransfer,
   makeCoords,
@@ -3733,6 +3734,13 @@ function ChatThread({
         m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", lineHeight: 1.5, marginBottom: m.song ? 4 : 8 } }, m.say) : null,
         m.song ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#f0d9a8", marginBottom: 8 } }, "《" + m.song + "》") : null,
         h("button", { onClick: () => onAcceptListen && onAcceptListen(character.id, m.song || ""), className: "w-full active:opacity-80", style: { background: "#fff", color: "#17171b", fontFamily: F_DISPLAY, fontSize: 14, padding: "8px", borderRadius: 10 } }, "和 TA 一起听 →")));
+    if (m.kind === "studyinvite") return h("div", { key: i, className: "py-2 flex items-start gap-2 justify-start" },
+      h(Avatar, { character: character, size: 34, radius: 10 }),
+      h("div", { style: { maxWidth: "82%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 12px" } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".14em", color: t.fog, marginBottom: 5 } }, m.mode === "resume" ? "继续一起学" : "一起学邀请"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 4 } }, m.subject || m.sessionTitle || "一起学点什么"),
+        m.say ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.65, whiteSpace: "pre-wrap" } }, m.say) : null,
+        h("button", { onClick: function () { onOpenStudyInvite && onOpenStudyInvite(m); }, className: "active:opacity-70", style: { marginTop: 9, width: "100%", padding: "8px 10px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, m.mode === "resume" ? "继续这门课" : "看看课程草案")));
     const isU = m.role === "user";
     return /*#__PURE__*/React.createElement("div", {
       key: part ? i + ":" + part : i,
@@ -8540,13 +8548,14 @@ function SettingSection({ title, open, onToggle, danger, children }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: t.fog, transition: "transform .2s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
     open ? h("div", { className: "pb-3" }, children) : null);
 }
-function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, embedded }) {
+function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize, embedded }) {
   const t = useTheme();
   const Kit = window.ChatRooms;
   const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
   const [editingId, setEditingId] = useState(activeRoomId || "main");
   const [draft, setDraft] = useState(() => Kit ? Kit.get(character.id, activeRoomId || "main") : null);
   const [creating, setCreating] = useState(false);
+  const [summaryBusy, setSummaryBusy] = useState(false);
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); };
   const patch = p => setDraft(d => ({ ...d, ...p }));
@@ -8566,6 +8575,14 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, embedded })
     const p = Kit.PRESETS[preset], d = Kit.normalize({ id: "room_" + Date.now().toString(36), name: p.label, preset, ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true);
   };
+  const summaryPresets = [
+    ["我们刚刚在另一间房里经历了这些：", "共同经历"],
+    ["这是你做的一场梦。梦里发生了这些：", "一场梦"],
+    ["这是我们的课外补习小课堂。刚才我们一起学了这些：", "补习小课堂"],
+    ["这是只属于我们这间房的一段侧章：", "秘密侧章"]
+  ];
+  const roomMsgs = !draft.main ? loadJSON("x_chat:" + Kit.chatKey(character.id, draft.id), []) : [];
+  const unsummarized = roomMsgs.filter(m => m && Number(m.ts || 0) > Number(draft.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
   const editor = h("div", { style: { minWidth: 0 } },
     h("div", { className: "flex items-center justify-between" }, h("div", null,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, draft.name),
@@ -8578,10 +8595,19 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, embedded })
     group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
     !draft.main && group("actions", "本房玩法", "只决定这间侧房里，Ta 可以自然提议哪些活动。"),
     group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
+    !draft.main && draft.writeback && draft.writeback.mainSummary && h("div", { style: { marginTop: 18, padding: "14px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
+      h(Eyebrow, null, "带回主聊天"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, margin: "6px 0 9px" } }, "只整理上次摘要以后新增的内容。开头既是交接语气，也是主聊天理解这段经历的框。"),
+      h("div", { className: "flex flex-wrap gap-1.5", style: { marginBottom: 8 } }, summaryPresets.map(([v, l]) => h("button", { key: l, onClick: () => patch({ summaryFrame: v }), style: { padding: "5px 8px", borderRadius: 999, border: "1px solid " + (draft.summaryFrame === v ? t.ink : t.line), background: draft.summaryFrame === v ? t.ink : "transparent", color: draft.summaryFrame === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 10.5 } }, l))),
+      h("textarea", { value: draft.summaryFrame || "", onChange: e => patch({ summaryFrame: e.target.value }), rows: 3, placeholder: "自己写交接开头……", style: { width: "100%", resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 9 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "尚未整理 " + unsummarized.length + " 条"),
+        h("button", { disabled: summaryBusy || !unsummarized.length, onClick: async () => { if (!onSummarize || summaryBusy) return; setSummaryBusy(true); try { const saved = await onSummarize(draft, draft.summaryFrame || ""); if (saved) { setDraft(saved); setRooms(Kit.list(character.id)); } } finally { setSummaryBusy(false); } }, style: { padding: "8px 11px", borderRadius: 10, background: t.ink, color: t.bg2, opacity: summaryBusy || !unsummarized.length ? .45 : 1, fontFamily: F_BODY, fontSize: 11.5 } }, summaryBusy ? "整理中…" : "摘要并带回")
+      )),
     h("div", { className: "flex gap-2", style: { marginTop: 20, paddingBottom: 12 } },
       h("button", { onClick: () => { const saved = creating ? save() : Kit.save(character.id, draft); onSelect(saved.id, true); }, style: { flex: 1, padding: 12, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink } }, "进入这间房"),
       !draft.main && !creating && h("button", { onClick: () => { if (!window.confirm("删除房间入口？本房记录先保留，不会被硬删。")) return; Kit.remove(character.id, draft.id); setRooms(Kit.list(character.id)); pick("main"); }, style: { padding: "12px 16px", borderRadius: 12, border: "1px solid " + t.accent, color: t.accent, fontFamily: F_BODY } }, "删除")
-    ));
+      ));
   const sidebar = h("div", { style: { minWidth: 0, paddingRight: 10, borderRight: "1px solid " + t.line } },
     h(Eyebrow, null, "房间"),
     h("div", { style: { display: "flex", flexDirection: "column", gap: 7, marginTop: 10 } },
@@ -8620,7 +8646,8 @@ function ChatSettings({
   aShadowPanel,
   jiwenState,
   activeRoomId,
-  onSelectRoom
+  onSelectRoom,
+  onSummarizeRoom
 }) {
   const t = useTheme();
   // 哪个分区展开（"" = 全收起，进来先是一屏标题）；点已开的再点收起
@@ -8787,6 +8814,7 @@ function ChatSettings({
     character,
     activeRoomId: activeRoomId || "main",
     onSelect: (roomId, close) => onSelectRoom && onSelectRoom(roomId, close),
+    onSummarize: onSummarizeRoom,
     onClose: () => setSettingsTab("")
   }),
   show("relate", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },

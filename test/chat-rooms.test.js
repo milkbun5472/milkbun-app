@@ -9,7 +9,7 @@ global.localStorage = {
 };
 const Rooms = require("../js/chat-rooms.js");
 
-test.beforeEach(() => bag.clear());
+test.beforeEach(() => { bag.clear(); delete global.window; });
 
 test("main chat and every side room use independent history keys", () => {
   const side = Rooms.create("p1", "只聊这件事", "focused");
@@ -67,4 +67,21 @@ test("person rooms never leak into another person's room list", () => {
   Rooms.create("p2", "乙的房", "focused");
   assert.deepEqual(Rooms.list("p1").map(r => r.name), ["主聊天", "甲的房"]);
   assert.deepEqual(Rooms.list("p2").map(r => r.name), ["主聊天", "乙的房"]);
+});
+
+test("side-room summaries return only to the matching person's main prompt", () => {
+  Rooms.addSummary({ personId: "p1", roomId: "r1", roomName: "梦里", frame: "这是你做的一场梦：", summary: "我们在雪地走了一圈。" });
+  assert.match(Rooms.prompt(Rooms.get("p1", "main"), []), /我们在雪地走了一圈/);
+  assert.doesNotMatch(Rooms.prompt(Rooms.get("p2", "main"), []), /我们在雪地走了一圈/);
+});
+
+test("study-enabled room lists only this character's existing sessions", () => {
+  global.window = { Study: { loadSessions: () => [
+    { id: "mine", teacher_id: "p1", subject: "日语", updated_at: 20 },
+    { id: "other", teacher_id: "p2", subject: "吉他", updated_at: 30 }
+  ] } };
+  const room = Rooms.create("p1", "补习角", "focused");
+  const prompt = Rooms.prompt(room, []);
+  assert.match(prompt, /sessionId=mine/);
+  assert.doesNotMatch(prompt, /sessionId=other/);
 });

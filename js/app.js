@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.03";
+const APP_VERSION = "v57.04";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -413,6 +413,7 @@ function App() {
   const [activeChar, setActiveChar] = useState(null);
   const [activeRoomId, setActiveRoomId] = useState("main");
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
+  const [studyEntry, setStudyEntry] = useState(null);
   useEffect(() => { setActiveRoomId("main"); setChatRoomsOpen(false); }, [activeChar && activeChar.id]);
   const [activeGroup, setActiveGroup] = useState(null);
   // 记录此刻在看的聊天，供未读红点判断
@@ -1347,6 +1348,32 @@ function App() {
       [id]: n
     };
   });
+  const summarizeChatRoom = async (character, room, frame) => {
+    if (!window.ChatRooms || !character || !room || room.main) return null;
+    const key = window.ChatRooms.chatKey(character.id, room.id);
+    const all = chatsRef.current[key] || loadJSON("x_chat:" + key, []);
+    const fresh = all.filter(m => m && Number(m.ts || 0) > Number(room.summaryCursorTs || 0)
+      && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
+    if (!fresh.length) { toast("上次摘要以后还没有新对话"); return null; }
+    const toTs = Math.max.apply(null, fresh.map(m => Number(m.ts || 0)));
+    const transcript = fresh.map(m => (m.role === "user" ? (profile.name || "Lisa") : character.name) + "：" + String(m.content)).join("\n");
+    try {
+      const raw = await callAI(apiFor(character.id),
+        "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。",
+        [{ role: "user", content: "房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript }],
+        { maxTokens: 2400, timeout: 120000 });
+      const summary = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
+      if (!summary) throw new Error("模型没有返回摘要");
+      window.ChatRooms.addSummary({ personId: character.id, roomId: room.id, roomName: room.name, frame: String(frame || ""), summary, fromTs: Number(room.summaryCursorTs || 0), toTs });
+      const saved = window.ChatRooms.save(character.id, { ...room, summaryFrame: String(frame || ""), summaryCursorTs: toTs });
+      pChat(character.id, p => [...p, { id: "room_sum_" + Date.now(), role: "system", kind: "system", ts: Date.now(), content: "从「" + room.name + "」带回主聊天\n" + String(frame || "") + summary }]);
+      toast("已把这段经历带回主聊天");
+      return saved;
+    } catch (e) {
+      toast("摘要失败：" + (e && e.message ? e.message : "请重试"));
+      return null;
+    }
+  };
   // ---- 聊天云归档：本地只留最近 N 条，更早的存云端（一条不丢 + 省本地空间）----
   const CHAT_KEEP_LOCAL = 200; // 每个角色本地保留的最近条数
   // 把某角色本地超出保留窗口的旧消息归档到云端、再从本地裁掉。⭐先确认云端写成功，才裁本地——任何失败都不裁、零丢失。
@@ -5071,6 +5098,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
+      const roomStudySessions = room && !room.main && room.actions && room.actions.study && !_s.engineerEyes && window.ChatRooms
+        ? window.ChatRooms.studySessionsFor(charId).slice(0, 6) : [];
+      const roomStudyOn = !!(room && !room.main && room.actions && room.actions.study && !_s.engineerEyes);
+      if (roomStudyOn) {
+        openCaps.push("studyInvite");
+        capState.push("studyInvite：只有你此刻真的想邀请一起学才填写。已有合适旧课时用 {mode:\"resume\",sessionId:\"上面列出的真实ID\",subject:\"主题\",say:\"邀请语\"}；没有合适旧课时用 {mode:\"propose\",sessionId:null,subject:\"你拟的课程主题\",say:\"为什么想一起学、建议从哪一点开始\"}。不能声称课程已经创建，最终由 Lisa 点卡片确认；不邀请就省略。" + (roomStudySessions.length ? " 可续课程：" + roomStudySessions.map(s => (s.id + "=" + (s.title || s.subject || "未命名"))).join("；") : " 当前没有可续课程。"));
+      }
       const capabilityHint = "\n【本轮开放能力】" + openCaps.join(", ") + (capState.length ? "\n【本轮能力状态】\n" + capState.join("\n") : "");
       // 双语（v56.56）：常量本身按角色稳定，放进 stable 段不影响历史缓存命中
       const _bilingualOn = !_s.engineerEyes && !!_s.bilingual && typeof bilingualRule === "function";
@@ -5461,6 +5495,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }
       const quote = parsed.quote && String(parsed.quote).toLowerCase() !== "null" ? String(parsed.quote) : null;
       const turnId = "t_" + Date.now();
+      if (roomStudyOn && parsed.studyInvite && typeof parsed.studyInvite === "object") {
+        const inv = parsed.studyInvite;
+        const mode = inv.mode === "resume" ? "resume" : "propose";
+        const existing = mode === "resume" ? roomStudySessions.find(s => String(s.id) === String(inv.sessionId || "")) : null;
+        if (mode !== "resume" || existing) {
+          pChat(chatKey, p => [...p, {
+            role: "assistant", kind: "studyinvite", mode: existing ? "resume" : "propose",
+            sessionId: existing ? existing.id : null,
+            sessionTitle: existing ? (existing.title || existing.subject || "继续上课") : "",
+            subject: String((existing && existing.subject) || inv.subject || "").trim().slice(0, 120),
+            say: String(inv.say || "").trim().slice(0, 500), ts: Date.now(), turnId, read: false
+          }]);
+          delivered = true;
+        }
+      }
       const ccToolRequest = ccToolOn && window.YanqiuCcTools ? window.YanqiuCcTools.normalizeRequest(parsed.ccTool) : null;
       if (ccToolOn && parsed.ccTool && !ccToolRequest) {
         pChat(chatKey, p => [...p, { role: "assistant", kind: "system", content: "（CC 只读工具请求无效，未入队；请使用已开放工具的准确名称。）", ts: Date.now(), turnId }]);
@@ -5843,6 +5892,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       try { if (!opts.proactive && delivered) window.RecallShadow && window.RecallShadow.turnDone(charId); } catch (e2) {}
       if (delivered && eLiveProjection && window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.commitLiveProjection) {
         try { await window.InnerLifeETidalShadow.commitLiveProjection(charId, eLiveProjection.anchor, Date.now()); } catch (e) {}
+      }
+      // 侧房成功接住主房近况后才推进游标；失败轮不推进，避免“看似同步、其实漏读”。
+      if (delivered && room && !room.main && room.cognition && room.cognition.mainDelta && window.ChatRooms) {
+        const mainRows = chatsRef.current[charId] || [];
+        const seenTo = mainRows.reduce((n, m) => Math.max(n, Number(m && m.ts || 0)), Number(room.mainCursorTs || 0));
+        if (seenTo > Number(room.mainCursorTs || 0)) window.ChatRooms.save(charId, { ...room, mainCursorTs: seenTo });
       }
       return delivered;
     } catch (e) {
@@ -11862,6 +11917,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onAcceptCall: m => { pChat(activeChar.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); startCall([activeChar], m.mode, null, activeChar.id); },
     onDeclineCall: m => { pChat(activeChar.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了 TA 的" + (m.mode === "video" ? "视频" : "语音") + "通话邀请", ts: Date.now() }]); },
     onAcceptListen: acceptListenInvite,
+    onOpenStudyInvite: m => {
+      setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id });
+      setScreen("study");
+    },
     emotes: emotesForCharMine(activeChar.id),
     onManageEmotes: () => setScreen("emotes"),
     archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
@@ -12203,6 +12262,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     profile: profile,
     worldbook: worldbook,
     toast: toast,
+    entry: studyEntry,
     onBack: () => setScreen("home")
   });else if (screen === "read") body = h(ReadTogether, {
     active: active,
@@ -12642,6 +12702,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     character: activeChar,
     activeRoomId,
     onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) setChatRoomsOpen(false); },
+    onSummarize: (room, frame) => summarizeChatRoom(activeChar, room, frame),
     onClose: () => setChatRoomsOpen(false)
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
@@ -12659,6 +12720,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setActiveRoomId(roomId || "main");
       if (close) setChatSettingsOpen(false);
     },
+    onSummarizeRoom: (room, frame) => summarizeChatRoom(activeChar, room, frame),
     onSaveMemory: text => { setMemFor(activeChar.id, text); toast("长期记忆已保存"); },
     onSave: s => {
       saveRemark(activeChar.id, s.remark);
