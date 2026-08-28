@@ -458,9 +458,18 @@ function GlassIcon({
   label,
   onClick,
   badge,
-  soon
+  soon,
+  appKey
 }) {
   const t = useTheme();
+  const [, redrawThemeIcon] = useState(0);
+  useEffect(() => {
+    const fn = () => redrawThemeIcon(x => x + 1);
+    window.addEventListener("lisa-theme-change", fn);
+    return () => window.removeEventListener("lisa-theme-change", fn);
+  }, []);
+  const customIcon = appKey && window.ThemeStudio ? window.ThemeStudio.iconRef(appKey) : "";
+  const customSrc = customIcon ? (typeof resolveImg === "function" ? resolveImg(customIcon) : customIcon) : "";
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
     className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform",
@@ -477,7 +486,11 @@ function GlassIcon({
       border: "1px solid rgba(255,255,255,0.7)",
       boxShadow: "0 4px 14px rgba(30,28,24,0.1), inset 0 1px 1px rgba(255,255,255,0.9)"
     }
-  }, /*#__PURE__*/React.createElement(G, {
+  }, customSrc ? /*#__PURE__*/React.createElement("img", {
+    src: customSrc,
+    alt: "",
+    style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 16 }
+  }) : /*#__PURE__*/React.createElement(G, {
     size: 27,
     color: t.ink,
     sw: 1.7
@@ -549,7 +562,7 @@ function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
       // 3 列 + 明确行列距：4 列时图标(62px)把宽度挤满、贴在一起没空隙
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", rowGap: 20, columnGap: 14, justifyItems: "center" } },
         (apps || []).map(a => h("div", { key: a.key, className: "relative", style: { animation: arrange ? "wk-jiggle .32s ease-in-out infinite" : "none" } },
-          h(GlassIcon, { G: a.G, label: a.zh, soon: a.soon, onClick: () => { if (!arrange) onPick(a); } }),
+          h(GlassIcon, { G: a.G, label: a.zh, appKey: a.key, soon: a.soon, onClick: () => { if (!arrange) onPick(a); } }),
           arrange && h("button", { onClick: () => onRemove && onRemove(a.key), className: "absolute flex items-center justify-center active:opacity-70", style: { top: -7, left: 2, width: 21, height: 21, borderRadius: 999, background: t.ink, color: "#fff", fontSize: 12, lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 3 } }, "✕")))),
       onRemove ? h("div", { className: "flex justify-center", style: { marginTop: 18 } },
         h("button", { onClick: () => setArrange(a => !a), style: { fontFamily: F_BODY, fontSize: 12.5, color: arrange ? t.ink : t.fog, fontWeight: arrange ? 700 : 400, padding: "5px 16px", borderRadius: 999, background: "rgba(255,255,255,0.55)", border: "1px solid " + t.line } }, arrange ? "完成" : "整理（取出 app）")) : null,
@@ -1870,7 +1883,7 @@ function Home({
     let gCol = "span 1", gRow = "auto";
     if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather" || it.which === "ledger") { gCol = "span 2"; } else if (it.which === "muyu" || it.which === "wheel") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
     let inner;
-    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
+    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
       const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
       inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onOpen: function () { if (!editMode) setOpenFolder(key); } });
@@ -1970,6 +1983,7 @@ function Home({
     }
   }, dock.map(a => /*#__PURE__*/React.createElement(GlassIcon, {
     key: a.key,
+    appKey: a.key,
     G: a.G,
     label: a.zh,
     badge: a.badge,
@@ -8596,6 +8610,24 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
     group("cognition", "认知权限", "决定这间房里的对话能参考哪些共同生活背景。"),
     !draft.main && group("actions", "本房玩法", "只决定这间侧房里，Ta 可以自然提议哪些活动。"),
     group("writeback", "写回权限", "决定房里发生的事是否走出现有记忆闸、影响共享状态。"),
+    // 看不见就不许改：认知里关了「关系与内在状态」时，这间房读不到旧心情、读不到印象卡原文。
+    // 心情要拿上一轮当起点，印象卡是【整块重写】——凭空覆盖等于抹掉。闸在代码里（ChatRooms.canWrite），
+    // 这里只是把原因说清楚，别让她以为开关坏了。
+    !draft.main && draft.writeback && draft.writeback.sharedState && draft.cognition && !draft.cognition.innerLife &&
+      h("div", { style: { marginTop: 8, padding: "10px 11px", borderRadius: 11, border: "1px dashed " + t.accent, color: t.accent, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6 } },
+        "⚠️「认知权限 · 关系与内在状态」是关着的，所以这间房看不到旧的心情和印象卡。这两样即使在上面打开也【不会】写回主线——看不见就不许覆盖。想让它改，先把那一项打开。"),
+    draft.main && h("div", { style: { marginTop: 18 } },
+      h(Eyebrow, null, "从侧房带回的交接"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 10px", lineHeight: 1.6 } },
+        "这些交接每轮都会随主聊天发出去，而且不占历史窗口的额度——带多带长都会稀释掉真正在聊的事。"),
+      [["carryCount", "带回最近几条", 1, 6, 1, " 条", "只带最近这么多份侧房交接。"],
+       ["carryChars", "每条最多带多少字", 150, 1500, 50, " 字", "超出的截掉。想看全的去那间房自己翻。"]]
+        .map(([k, label, mn, mx, st, unit, note]) => h("div", { key: k, style: { marginBottom: 14 } },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.accent } }, (draft[k] || (k === "carryCount" ? 4 : 600)) + unit)),
+          h(Slider, { value: Number(draft[k] || (k === "carryCount" ? 4 : 600)), min: mn, max: mx, step: st, onChange: v => patch({ [k]: v }) }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, note)))),
     !draft.main && draft.writeback && draft.writeback.mainSummary && h("div", { style: { marginTop: 18, padding: "14px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
       h(Eyebrow, null, "带回主聊天"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, margin: "6px 0 9px" } }, "只整理上次摘要以后新增的内容。开头既是交接语气，也是主聊天理解这段经历的框。"),

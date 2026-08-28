@@ -36,7 +36,7 @@ const next = process.argv[2] || bumped();
 if (num(next) <= num(top)) { console.error("新版本 " + next + " 不高于现有最大 " + top + "，拒绝倒退"); process.exit(1); }
 
 // 只同步「跟着发布版本走」的那几个文件；别的模块保留各自的独立指纹
-const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab"];
+const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab", "theme-studio", "theme-studio-ui"];
 let html = readFileSync("index.html", "utf8");
 CORE.forEach(f => { html = html.replace(new RegExp(f + "\\.js\\?v=[\\d.]+", "g"), f + ".js?v=" + next); });
 html = html.replace(/manifest\.json\?v=[\d.]+/, "manifest.json?v=" + next);

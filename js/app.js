@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.23";
+const APP_VERSION = "v57.26";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -200,6 +200,9 @@ function App() {
   const isStandalone = typeof window !== "undefined" && (window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches);
   const [now, setNow] = useState(new Date());
   const [screen, setScreen] = useState("home");
+  useEffect(() => {
+    document.documentElement.setAttribute("data-lisa-screen", screen || "home");
+  }, [screen]);
   // 当前正在看哪个聊天（供未读红点判断：在看就不累加）
   const viewRef = useRef({ screen: "home", charId: null });
   // 置顶的聊天/群 id 集合
@@ -5449,6 +5452,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
           parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
         }
+        // 心情和印象卡各自还有一道闸，而且【看不见就不许改】：认知里关了「关系与内在状态」时，
+        // 这间房读不到旧心情、读不到印象卡原文，却照样能覆盖它们——心情要拿上一轮当起点，
+        // 印象卡更是整块重写，凭空覆盖等于抹掉（她 2026-08-28 让查的冲突③）。
+        if (window.ChatRooms && window.ChatRooms.canWrite) {
+          if (!window.ChatRooms.canWrite(room, "mood")) parsed.mood = null;
+          if (!window.ChatRooms.canWrite(room, "gaze")) parsed.impression = null;
+        }
       }
       // 兜底补捞标量字段：坏 JSON / 只 salvage 到 word 时，动作 action、穿着 wearing、心声 thought、心情 mood 常常整条丢，
       // 状态卡就【冻住不变】（动作一直不改、衣服换场景也不换）。逐个从 raw 里正则抠回来，别只救气泡。
@@ -5476,10 +5486,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (!parsed.mood || !parsed.mood.label) { const v = salvageStr("label"); if (v) parsed.mood = { ...(parsed.mood || {}), label: v }; }
       // salvage 会从坏 JSON 再捞一次状态字段；隔离房必须在它之后再封一次，不能从侧门污染主房。
       const _roomSharesState = !room || !!(room.writeback && room.writeback.sharedState);
+      const _roomCanWrite = kind => !window.ChatRooms || !window.ChatRooms.canWrite || window.ChatRooms.canWrite(room, kind);
       if (!_roomSharesState) {
         parsed.mood = null; parsed.thought = null; parsed.action = null; parsed.wearing = null;
         parsed.affinityDelta = 0; parsed.impression = null; parsed.laterPromise = null;
       }
+      // salvage 会把 mood 从坏 JSON 里再捞一次，所以那两道细闸也要在它之后再封一遍
+      if (!_roomCanWrite("mood")) parsed.mood = null;
+      if (!_roomCanWrite("gaze")) parsed.impression = null;
       // 模型有时会把「分析用户意图 → 规划怎么回复」塞进 thought；那是任务草稿，不是角色心声。
       // 保存前做结构闸：命中就宁可本轮没有新心声，也绝不让导演稿污染心声历史。
       if (parsed.thought != null && window.ThoughtVoiceGuard) {
@@ -5493,7 +5507,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
       // 印象卡:写了就清零、没写就计一轮。数出来才知道是「这阵子真没变化」还是
       // 「它压根不写」——不数的话两者长得一模一样（她 2026-08-24）。
-      if (_roomSharesState && window.Gaze && !_s.engineerEyes) {
+      if (_roomCanWrite("gaze") && window.Gaze && !_s.engineerEyes) {
         let _impWrote = false;
         if (parsed.impression) { try { _impWrote = window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
         // 「看过了，确实不用改」也是正经回答（v56.94）：记一次复看，这一块排到队尾，
