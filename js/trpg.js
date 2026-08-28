@@ -525,13 +525,16 @@
     if (!n) return null;
     return (nodes || []).find(x => x.name === n) || (nodes || []).find(x => x.name && (n.indexOf(x.name) >= 0 || x.name.indexOf(n) >= 0)) || null;
   };
-  // 历史折叠:守密人→assistant,其余(玩家/骰子/系统)全并进 user 侧,
+  // 历史折叠:守密人→assistant,其余(玩家/骰子/系统/闲聊)全并进 user 侧,
   // 连续同侧合成一条——上游对连续同角色消息的容忍度不一,不赌。
+  // 闲聊簇压成一行带标记喂回去:守密人该知道大家唠过什么,但那不是剧情正文。
   function foldHist(msgs) {
     const out = [];
     (msgs || []).forEach(m => {
       const role = m.role === "gm" ? "assistant" : "user";
-      const content = (m.role === "roll" || m.role === "sys" ? "〔" + m.content + "〕" : m.content) || "";
+      const content = m.role === "chat"
+        ? "〔闲聊〕" + (m.lines || []).map(l => l.name + ":" + l.text + (l.act ? "(" + l.act + ")" : "")).join(" / ")
+        : (m.role === "roll" || m.role === "sys" ? "〔" + m.content + "〕" : m.content) || "";
       if (!content) return;
       if (out.length && out[out.length - 1].role === role) out[out.length - 1] = { role, content: out[out.length - 1].content + "\n" + content };
       else out.push({ role, content });
@@ -842,7 +845,9 @@
       const done = (c.sumSig && c.sumSig === histSig(all.slice(0, c.sumCount || 0))) ? (c.sumCount || 0) : 0;
       if (all.length - done <= 48) return;
       const cut = all.length - 32;
-      const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => (m.role === "user" ? uName : m.role === "gm" ? "守密人" : "·") + ":" + m.content).join("\n").slice(0, 9000);
+      const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => m.role === "chat"
+        ? "闲聊:" + (m.lines || []).map(l => l.name + ":" + l.text).join(" / ")
+        : (m.role === "user" ? uName : m.role === "gm" ? "守密人" : "·") + ":" + m.content).join("\n").slice(0, 9000);
       sumBusyRef.current = true;
       try {
         const prev = c.ledger && LEDGER_KEYS.some(k => (c.ledger[k] || []).length) ? c.ledger : null;
@@ -1005,31 +1010,39 @@
     const addBeat = async text => {
       if (!camp || busy) return;
       if (!props.active) return props.toast("请先配置线下 API");
-      const local = text ? [{ id: rid("rm_"), role: "user", content: text, ts: Date.now() }] : [];
-      if (local.length) update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat(local) })));
-      const liveMsgs = camp.msgs.concat(local);
       setPlusOpen(false); setBusy(true); setBusyWhat(text ? "队友们在接话…" : "守密人在补这一笔…");
       try {
         const sys = [narrativeCore(),
           text
-            ? "【跑团·闲聊(平行时空,不提这是游戏)】" + uName + " 刚说了句话——让队友们自然接话:各用各的声口,可以拌嘴、可以打趣、可以岔开、也可以有人没接住;就是一段行进途中的闲谈(2-6句)。"
+            ? "【跑团·闲聊(平行时空,不提这是游戏)】" + uName + " 刚说了句话——让队友们自然接话:各用各的声口,可以拌嘴、可以打趣、可以岔开、也可以有人没接住;就是一段行进途中的闲谈。绝不替 " + uName + " 说话。"
             : "【跑团·追加一笔(平行时空,不提这是游戏)】就【当前场景的这一刻】补一小段戏(2-5句):队友之间的互动、环境里的细节、NPC 的一句闲话、某人没说出口的小动作。写到谁就完全代入谁的性格与声口(人设在下方)。",
           "【铁律】只加戏,不推进:不引入新事件、不揭示新线索、不造成任何伤害或得失、不替 " + uName + " 行动或代答;写完就停,不给选项。",
           personaBlocks(camp),
           "【世界】" + String(camp.world || "").slice(0, 800),
           "【当前状态】地点:" + camp.place + "\n" + partyBlock(camp),
           note.trim() ? "【幕后指示(务必遵循,正文绝不提及)】" + note.trim() : null,
-          "【输出】只输出 JSON:{\"scene\":\"补的这一小段\"}"
+          text
+            ? "【输出】队友的接话拆成一条条,像群聊气泡;act 是随手的小动作(可空)。只输出 JSON:{\"lines\":[{\"name\":\"谁(队友或在场NPC,绝不是" + uName + ")\",\"text\":\"说的话\",\"act\":\"小动作(可空)\"}]}(2-6条)"
+            : "【输出】只输出 JSON:{\"scene\":\"补的这一小段\"}"
         ].filter(Boolean).join("\n\n");
-        const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-24);
-        if (!hist.length || hist[hist.length - 1].role !== "user") hist.push({ role: "user", content: "(就此刻补一笔)" });
+        const hist = foldHist(camp.msgs.slice(camp.sumCount || 0)).slice(-24);
+        if (text) hist.push({ role: "user", content: text });
+        else if (!hist.length || hist[hist.length - 1].role !== "user") hist.push({ role: "user", content: "(就此刻补一笔)" });
         const raw = await callAI(props.active, sys, hist, { maxTokens: 2400, timeout: 180000 });
-        const p = parseTurnPayload(raw);
-        if (!p) throw new Error("这一笔没能解析出来,再试一次");
-        // 状态一个字不动:快照原样抄当前值,分支回溯仍然对账
-        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), extra: true, snap: { hp: c.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: c.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: c.items, clues: c.clues, stageIdx: c.stageIdx, place: c.place, pos: c.pos || "", visited: (c.visited || []).slice(), gauge: c.gauge ? c.gauge.val : null, clocks: (c.clocks || []).map(x => Object.assign({}, x)), choices: c.choices } }]) })));
+        if (text) {
+          // 闲聊簇:她那句 + 队友接话,合成一条可折叠的气泡消息;失败就把话还给输入框,史里不留残尾
+          const p = parseObj(raw);
+          const lines = (p && Array.isArray(p.lines) ? p.lines : []).map(l => l && typeof l === "object" ? { name: String(l.name || "").trim().slice(0, 12), text: String(l.text || "").trim(), act: String(l.act || "").trim().slice(0, 40) } : null).filter(l => l && l.name && l.name !== uName && l.text).slice(0, 6);
+          if (!lines.length) throw new Error("队友们没接上话,再说一次试试");
+          update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "chat", lines: [{ name: uName, text: text, act: "" }].concat(lines), ts: Date.now(), fold: false }]) })));
+        } else {
+          const p = parseTurnPayload(raw);
+          if (!p) throw new Error("这一笔没能解析出来,再试一次");
+          // 状态一个字不动:快照原样抄当前值,分支回溯仍然对账
+          update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "gm", content: p.scene, ts: Date.now(), extra: true, snap: { hp: c.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: c.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: c.items, clues: c.clues, stageIdx: c.stageIdx, place: c.place, pos: c.pos || "", visited: (c.visited || []).slice(), gauge: c.gauge ? c.gauge.val : null, clocks: (c.clocks || []).map(x => Object.assign({}, x)), choices: c.choices } }]) })));
+        }
         setNote(""); setNoteOpen(false);
-      } catch (e) { props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+      } catch (e) { if (text) setInput(text); props.toast("生成失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
     // 否决要留回执(Codex 抓的:以前点「还没有」只清横幅,守密人不知道被否过,
     // 下一拍可能又报完成):否决写成一条幕后事实进史,守密人下一拍就看得见
@@ -1348,7 +1361,11 @@
             }),
             markerNode ? h("text", { x: markerNode.x, y: markerNode.y - 10, textAnchor: "middle", fontSize: 12 }, camp.ended ? "🏕" : "🚩") : null));
       })();
-      const panel = panelOpen && h("div", { style: Object.assign({}, S.card, { margin: "8px 14px", maxHeight: "56vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }) },
+      // 队伍与线索:右侧抽屉(她 2026-08-28 定的)——顶部条只能给 56vh,侧边整条高度
+      // 都是它的,旅程/状态条/时钟/主线/物品/线索/推测一屏看得更全;点侧幕收起
+      const panel = panelOpen && h("div", null,
+        h("div", { onClick: () => setPanelOpen(false), style: { position: "fixed", inset: 0, zIndex: 118, background: "rgba(30,28,24,.35)" } }),
+        h("div", { style: { position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 119, width: "82%", maxWidth: 340, background: t.bg2, borderLeft: "1px solid " + t.line, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "calc(env(safe-area-inset-top, 0px) + 16px) 14px calc(env(safe-area-inset-bottom, 0px) + 24px)", boxShadow: "-8px 0 24px rgba(0,0,0,.08)" } },
         journey,
         h("div", { style: S.lbl }, "队伍"),
         camp.party.map(m => h("div", { key: m.key, style: { marginBottom: 6 } },
@@ -1385,7 +1402,7 @@
         h("div", { style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" } },
           !camp.ended && h("button", { onClick: () => { if (confirm("提前收团?守密人会就此写终章落幕。")) { setPanelOpen(false); setEndAsk({ forced: true }); } }, disabled: busy, style: S.btn(false) }, "谢幕收团"),
           h("button", { onClick: () => delCamp(camp.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此团")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "长按任意一拍可从那里分支回溯——状态按当拍快照恢复,原团一个字不动。"));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "长按任意一拍可从那里分支回溯——状态按当拍快照恢复,原团一个字不动。")));
       const downed = camp.party.filter(m => m.hp <= 0);
       // 终章问询卡:落幕前把「最后一笔」的笔递回她手里(可留空交给命运,但留空
       // 也只写画面不替她做主)
@@ -1428,6 +1445,16 @@
                ep.untold && ep.untold.length ? h("div", null, h("div", { style: S.lbl }, "没来得及揭开的"), ep.untold.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12 }) }, "· " + x))) : null)]);
       const flow = camp.msgs.map(m => m.role === "photo"
         ? h("div", { key: m.id, onPointerDown: () => pressPhoto(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), onClick: () => setBigView({ img: m.img, title: camp.title }), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
+        // 闲聊簇:群聊式气泡,点头部折叠——收起来只剩一行,不淹主剧情(她 2026-08-28 定的)
+        : m.role === "chat"
+        ? h("div", { key: m.id, style: { margin: "10px 14px", borderRadius: 14, border: "1px dashed " + t.line, background: t.bg2 } },
+            h("div", { onClick: () => update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.map(x => x.id !== m.id ? x : Object.assign({}, x, { fold: !x.fold })) }))), style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 12px", fontFamily: F_BODY, fontSize: 11, color: t.fog } },
+              h("span", null, "💬 闲聊 · " + (m.lines || []).length + " 句"), h("span", null, m.fold ? "展开 ▾" : "收起 ▴")),
+            !m.fold ? h("div", { style: { padding: "0 10px 10px" } }, (m.lines || []).map((l, i) => l.name === uName
+              ? h("div", { key: i, style: { textAlign: "right", margin: "6px 0" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "7px 11px", borderRadius: 13, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text))
+              : h("div", { key: i, style: { margin: "6px 0" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 2 } }, l.name + (l.act ? " （" + l.act + "）" : "")),
+                  h("span", { style: { display: "inline-block", maxWidth: "82%", padding: "7px 11px", borderRadius: 13, background: t.bg, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, l.text)))) : null)
         : m.role === "user"
         ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
         : m.role === "roll"

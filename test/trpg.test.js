@@ -440,6 +440,22 @@ test("闲聊模式:说话走加戏不推进,行动按钮变闲聊", () => {
   assert.match(src, /闲聊两句\(不推进剧情、不动状态\)/);
 });
 
+test("闲聊是可折叠的气泡簇,不淹主剧情;喂回守密人时压成一行", () => {
+  assert.match(src, /role: "chat", lines: \[\{ name: uName, text: text/, "她那句+队友接话合成一条簇");
+  assert.match(src, /fold: !x\.fold/, "点头部折叠,折叠状态存进消息本身");
+  assert.match(src, /💬 闲聊 · /, "折起来只剩一行");
+  // foldHist 纯函数:闲聊压成一行标记喂回,守密人知道唠过什么但不当剧情正文
+  const out = foldHist([{ role: "gm", content: "夜里下雨。" }, { role: "chat", lines: [{ name: "Lisa", text: "饿了", act: "" }, { name: "顾朝", text: "还有干粮", act: "翻包" }] }]);
+  assert.equal(out.length, 2);
+  assert.match(out[1].content, /〔闲聊〕Lisa:饿了 \/ 顾朝:还有干粮\(翻包\)/);
+  assert.equal(out[1].role, "user");
+});
+
+test("队伍与线索是右侧抽屉,不再是 56vh 顶部条", () => {
+  assert.match(src, /position: "fixed", top: 0, right: 0, bottom: 0/, "整条侧边高度都归它");
+  assert.ok(!/maxHeight: "56vh"/.test(src), "旧顶部条退场");
+});
+
 test("行头:开团生成、出图锁定,合照里逐人标穿着", () => {
   assert.match(src, /\\"outfits\\":\[\{/, "开团设定里生成每人行头(SHAPE 里是转义引号)");
   assert.match(src, /photoOutfit: outfitOf\(ch\.name\)/, "单人/合照主角锁行头(小剧场 charOutfit 同一课)");
