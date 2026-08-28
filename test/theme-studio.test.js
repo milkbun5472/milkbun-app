@@ -38,3 +38,12 @@ test("主题配置归一化且保留图标和页面草稿", () => {
   assert.equal(p.pageCSS.home, ".x{}");
   assert.equal(p.version, 1);
 });
+
+test("主题工作台在设置内提供隔离的实时草稿预览", () => {
+  const ui = fs.readFileSync("js/theme-studio-ui.js", "utf8");
+  assert.match(ui, /应用前预览/);
+  assert.match(ui, /草稿实时显示在这里，不会改动正在使用的主题/);
+  assert.match(ui, /title:\s*"主题样式预览"/);
+  assert.match(ui, /sandbox:\s*""/);
+  assert.match(ui, /srcDoc:\s*previewDoc/);
+});
