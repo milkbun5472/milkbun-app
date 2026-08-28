@@ -7,7 +7,7 @@ const src = fs.readFileSync(path.join(root, "js/trpg.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
-const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember } = require("../js/trpg.js");
+const { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines } = require("../js/trpg.js");
 
 // ============================================================
 // 跑团(v57.13):参考 ai-virtual-phone 冒险玩法的【思路】自研。
@@ -166,6 +166,20 @@ test("GM 消息带状态快照,分支从快照恢复", () => {
   assert.match(src, /snap: \{ hp: /, "每拍守密人消息要存状态快照");
   assert.match(src, /branchedFrom/, "分支要记来路");
   assert.match(src, /hp: snap\.hp\[m\.name\]/, "分支恢复 HP 按快照,不是照抄现值");
+});
+
+// ---- 出图:敏感句不进图像 prompt(上游审核读的就是原文),群像不锁脸 ----
+test("shotSafeLines 过滤暴力/亲密句,过滤空了由调用方给中性备胎", () => {
+  const kept = shotSafeLines(["队伍围着篝火分粮食", "他拔刀抵住来人的喉咙", "血顺着石阶流下来"], () => false);
+  assert.deepEqual(kept, ["队伍围着篝火分粮食"]);
+  // 亲密判定走注入的函数(浏览器里接 offlineRegisterExplicitText)
+  assert.deepEqual(shotSafeLines(["普通一句", "亲密一句"], t => t === "亲密一句"), ["普通一句"]);
+  assert.deepEqual(shotSafeLines([], () => false), []);
+});
+
+test("出图不锁脸:跑团是群像,人物远景/背影/剪影", () => {
+  assert.match(src, /不描绘清晰五官/);
+  assert.match(src, /generateSelfieImage\(prompt, null/, "封面与当拍画面都不传参考照——多张脸锁一半更吓人");
 });
 
 // ---- 秘典:开团即生成,落幕前不给看 ----

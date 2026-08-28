@@ -224,6 +224,16 @@
   const POOL_EVENT = ["不速之客闯入", "环境突变(天气/坍塌/断电/走水)", "一件要紧的东西丢了或坏了", "有人露出破绽", "突然出现时限:再不动手就来不及", "一个旧相识在最坏的时机出现", "一件看似无关的小事,其实连着真相", "队伍里有人的旧事被戳到", "一桩好运从天而降,但带着钩子", "对头忽然抛来橄榄枝"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
 
+  // ---- 出图的安全过滤(纯函数) ----
+  // 图像接口要的是【画面上看得见什么】,不是小说正文;敏感句直接进 prompt 会被
+  // 上游审核整张拒掉(小剧场 2026-08-18 的老案子)。暴力与亲密分开算,过滤后
+  // 空了就退回「地点+气氛」的中性一瞬,这一拍不至于被掏空。
+  const SHOT_VIOLENT_RE = /刀|刃|血|尸|伤口|掐|勒|捅|砍|割|窒息|尖叫|喘息|呻吟|哭喊|挣扎|绑|铐|药|毒|枪|箭|烧死|溺/;
+  function shotSafeLines(lines, isSex) {
+    const sexFn = isSex || (t => typeof offlineRegisterExplicitText === "function" && offlineRegisterExplicitText(t));
+    return (lines || []).filter(s => s && !SHOT_VIOLENT_RE.test(String(s)) && !sexFn(String(s)));
+  }
+
   // 能力≠性格(与 games.js 的 SKILL_RULE 同一条纪律;那边是模块内常量拿不到,这里
   // 按同样的意思重申——四处一样喂的是纪律本身,不是必须同一个变量)
   const ABILITY_RULE = "【能力与性格分开】队友玩得多好由 TA 的职业、训练与人生经历决定;性格只决定 TA 怎么说话、什么语气。绝不因为性格软/憨/开朗就把 TA 演成推理拉垮、关键时刻掉链子。";
@@ -254,6 +264,9 @@
     const [plusOpen, setPlusOpen] = useState(false);
     const [ceremony, setCeremony] = useState(null); // 检定仪式:{who,statZh,statVal,phase:"ready"|"rolling"|"done",roll,grade,resolve}
     const [msgMenu, setMsgMenu] = useState(null);
+    const [photoMenu, setPhotoMenu] = useState(null); // 长按画面弹出的操作单:msg|null
+    const [bigView, setBigView] = useState(null);     // 点开看整张:{img,title}|null
+    const fileRef = useRef(null);
     const pressRef = useRef(null);
     const scrollRef = useRef(null);
     const campsRef = useRef(null);
@@ -349,7 +362,7 @@
       const done = (c.sumSig && c.sumSig === histSig(all.slice(0, c.sumCount || 0))) ? (c.sumCount || 0) : 0;
       if (all.length - done <= 48) return;
       const cut = all.length - 32;
-      const seg = all.slice(done, cut).map(m => (m.role === "user" ? uName : m.role === "gm" ? "守密人" : "·") + ":" + m.content).join("\n").slice(0, 9000);
+      const seg = all.slice(done, cut).filter(m => m.role !== "photo").map(m => (m.role === "user" ? uName : m.role === "gm" ? "守密人" : "·") + ":" + m.content).join("\n").slice(0, 9000);
       sumBusyRef.current = true;
       try {
         const prev = c.ledger && LEDGER_KEYS.some(k => (c.ledger[k] || []).length) ? c.ledger : null;
@@ -513,7 +526,93 @@
     };
     const delCamp = id => { if (!confirm("删除这场跑团和全部记录?")) return; setPlayId(null); setView("list"); update(list => list.filter(c => c.id !== id)); };
     const pressMsg = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setMsgMenu(m), 550); };
+    const pressPhoto = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setPhotoMenu(m), 550); };
     const pressEnd = () => clearTimeout(pressRef.current);
+
+    // ---- 出图(复用小剧场那套已实测的管道:generateSelfieImage + imgToVault) ----
+    // 跑团是 1+N 的群像,多张脸一起锁既不可靠、锁一半更吓人——所以这里【不锁脸】:
+    // 封面画世界主视觉,当拍画面里人物一律远景/背影/剪影。要看清脸去小剧场,这边看世界。
+    const SHOT_SAFE = "\n【画面尺度】必须是可公开展示的画面:衣着完整整齐,不露骨、不裸露,画面里不出现凶器、伤口、血迹与尸体;张力靠构图、距离、环境与光影表达。";
+    const NO_FACE = "人物一律以远景、背影或剪影入画,画得很小、不看镜头、不描绘清晰五官——重点是世界与此刻的气氛,不是人像。";
+    const genCover = async () => {
+      if (!camp || busy) return;
+      if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
+      setPlusOpen(false); setBusy(true); setBusyWhat("正在画封面…出图慢,别退出这一页");
+      props.toast("开始画封面了,出图要等一会儿…", 6000);
+      try {
+        const prompt = "这场跑团战役的【封面海报】:一张能代表整个故事的电影感主视觉,不是某一场戏的抓拍。构图留白,有电影海报的气场。\n"
+          + "【世界】" + String(camp.world || "").slice(0, 400) + "\n"
+          + "【此刻的舞台】" + (camp.place || "") + "\n"
+          + "【要画出的东西】这个世界的质地(时代、光线、地貌或街景的特征),以及一支 " + camp.party.length + " 人的冒险小队正要出发/深入的感觉。" + NO_FACE
+          + "\n**别画成人物立绘或证件照**,要有场景、有纵深、有故事将启的气氛。" + SHOT_SAFE;
+        const minimalPrompt = "一张奇幻冒险故事的电影感海报:辽阔场景与纵深,远景处几个小小的旅人背影,不描绘五官,画面含蓄、可公开展示。";
+        const out = await generateSelfieImage(prompt, null, { minimalPrompt: minimalPrompt });
+        if (!out || !out.blob) throw new Error("没出图");
+        const durl = await blobToDataUrl(out.blob);
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        // 封面顺手当背景,但绝不覆盖她自己传的背景(小剧场同款分寸)
+        let bgTook = false;
+        update(list => list.map(c => {
+          if (c.id !== camp.id) return c;
+          const take = !c.bg || c.bg === c.cover;
+          if (take) bgTook = true;
+          return Object.assign({}, c, { cover: ref, coverTs: Date.now(), bg: take ? ref : c.bg });
+        }));
+        props.toast(bgTook ? "封面出好了,已当作背景;+菜单里可看整张、存相册" : "封面出好了(这场团有你自己的背景图,没动它)", 6000);
+      } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+    };
+    const genShot = async () => {
+      if (!camp || busy) return;
+      if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
+      setPlusOpen(false); setBusy(true); setBusyWhat("正在画这一拍的画面…");
+      props.toast("开始画这一拍了,出图要等一会儿…", 6000);
+      try {
+        const rows = camp.msgs.filter(m => m.role === "gm" || m.role === "user").slice(-4).map(m => (m.role === "user" ? uName : "") + String(m.content || ""));
+        const kept = shotSafeLines(rows).join("\n").slice(-240);
+        const hadCut = kept.length < rows.join("\n").length;
+        const recent = kept || ("队伍此刻正在" + (camp.place || "路上") + ",气氛紧绷。");
+        const prompt = "第三人称旁观的电影画面(不是自拍,人物不看镜头)。\n"
+          + "【世界】" + String(camp.world || "").slice(0, 300) + "\n【地点】" + (camp.place || "") + "\n"
+          + "【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n"
+          + NO_FACE + " 服装、道具、环境必须符合上述世界观;构图取此刻最有张力的一瞬。" + SHOT_SAFE
+          + (hadCut ? "\n【这一拍要画相邻的一瞬】原文里有激烈的内容,已从描述里拿掉;改画紧挨着它之前或之后的一个瞬间,把那股劲留在环境、距离和光线上。" : "");
+        const minimalPrompt = "一张奇幻冒险故事里的电影感场景画面:【" + (camp.place || "野外") + "】,远景处几个小小的旅人身影,不描绘五官,画面含蓄、可公开展示。";
+        let out;
+        try {
+          out = await generateSelfieImage(prompt, null, { minimalPrompt: minimalPrompt });
+        } catch (e1) {
+          if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
+          props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
+          out = await generateSelfieImage(minimalPrompt, null);
+        }
+        if (!out || !out.blob) throw new Error("没出图");
+        const durl = await blobToDataUrl(out.blob);
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "photo", img: ref, ts: Date.now() }]) })));
+      } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
+    };
+    const rerollShot = m => { if (busy) return; update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.filter(x => x.id !== m.id) }))); setTimeout(genShot, 60); };
+    // 存进手机系统相册:iOS 在分享单里选「存储图像」(小剧场同款)
+    const saveToAlbum = async ref => {
+      try {
+        let blob = null;
+        if (String(ref).indexOf("iv_") === 0 && typeof imgVaultFetchBlob === "function") blob = await imgVaultFetchBlob(ref);
+        if (!blob) blob = await (await fetch(imgSrc(ref))).blob();
+        const file = new File([blob], "trpg_" + Date.now() + ".png", { type: blob.type || "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] });
+        else { window.open(URL.createObjectURL(blob), "_blank"); props.toast("在新页长按图片存储"); }
+      } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
+    };
+    const onBgFile = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = "";
+      if (!f || !camp) return;
+      try {
+        const durl = typeof resizeImageFile === "function" ? await resizeImageFile(f, 1600, 0.85) : await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+        const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { bg: ref })));
+        setPlusOpen(false);
+      } catch (err) { props.toast("背景设置失败"); }
+    };
 
     // ---- UI ----
     const badges = () => (typeof DevBadges === "function" ? h(DevBadges) : null);
@@ -617,7 +716,9 @@
                h("div", { style: S.lbl }, "秘典解密(守密人开团时写下的底牌)"),
                [["真相", camp.dossier.truth], ["中段翻转", camp.dossier.twist], ["NPC 的心事", camp.dossier.secrets]].map(([k, v]) => v ? h("div", { key: k, style: { marginBottom: 6 } }, h("div", { style: S.lbl }, k), h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, v)) : null),
                ep.untold && ep.untold.length ? h("div", null, h("div", { style: S.lbl }, "没来得及揭开的"), ep.untold.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12 }) }, "· " + x))) : null)]);
-      const flow = camp.msgs.map(m => m.role === "user"
+      const flow = camp.msgs.map(m => m.role === "photo"
+        ? h("div", { key: m.id, onPointerDown: () => pressPhoto(m), onPointerUp: pressEnd, onPointerMove: pressEnd, onPointerLeave: pressEnd, onContextMenu: e => e.preventDefault(), style: { margin: "10px 14px", textAlign: "center" } }, h("img", { src: imgSrc(m.img), onClick: () => setBigView({ img: m.img, title: camp.title }), style: { maxWidth: "86%", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.18)" } }))
+        : m.role === "user"
         ? h("div", { key: m.id, style: { margin: "10px 14px", textAlign: "right" } }, h("span", { style: { display: "inline-block", maxWidth: "82%", textAlign: "left", padding: "9px 13px", borderRadius: 15, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m.content))
         : m.role === "roll"
         ? h("div", { key: m.id, style: { margin: "8px 20px", textAlign: "center", fontFamily: "monospace", fontSize: 11.5, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 10, padding: "6px 10px" } }, "🎲 " + m.content)
@@ -628,9 +729,23 @@
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "从这一拍岔开一条新团:这一拍之前原样保留(HP/物品/章节都按当时恢复),之后的重演。原团一个字不动。"),
           [["⑂ 从这里分支", () => branchFrom(msgMenu)], ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+      const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          [["重画这张", () => { const m = photoMenu; setPhotoMenu(null); rerollShot(m); }],
+           ["保存到手机相册", () => { const m = photoMenu; setPhotoMenu(null); saveToAlbum(m.img); }],
+           ["取消", () => setPhotoMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+      // 大图查看器(objectFit:contain 看整张,可存相册)
+      const bigViewer = bigView && h("div", { onClick: () => setBigView(null), style: { position: "fixed", inset: 0, zIndex: 150, background: "rgba(20,18,16,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 14px calc(env(safe-area-inset-bottom, 0px) + 20px)" } },
+        h("img", { src: imgSrc(bigView.img), onClick: e => e.stopPropagation(), style: { maxWidth: "100%", maxHeight: "72vh", borderRadius: 10, objectFit: "contain" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, bigView.title || camp.title),
+        h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
+          h("button", { onClick: () => saveToAlbum(bigView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册")));
       // 卡死自救:没在忙、没有选项、也没有待确认横幅时,给一条「让守密人继续」的路
       const stuck = !busy && !camp.ended && !camp.choices.length && !camp.pendingStage && !camp.pendingEnd;
-      return h("div", { style: S.wrap }, badges(), ceremonyLayer, msgSheet,
+      return h("div", { style: S.wrap }, badges(),
+        camp.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(camp.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
+        ceremonyLayer, msgSheet, photoSheet, bigViewer,
+        h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } },
         header(camp.title + " · " + (camp.place || ""), h("button", { onClick: () => setPanelOpen(v => !v), style: S.btn(false) }, panelOpen ? "收起" : "队伍与线索")),
         panel, banner,
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow, epFlow,
@@ -650,18 +765,30 @@
             h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 2, placeholder: "跟守密人咬耳朵(只给下一回合的幕后指示,不入剧情):比如「节奏快一点」「让某人多点戏」", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", outline: "none" } })) : null,
           plusOpen ? h("div", { key: "pl", style: { display: "flex", gap: 8, padding: "8px 14px 0", flexWrap: "wrap" } },
             h("button", { onClick: () => setDice(v => !v), style: S.btn(dice) }, "🎲 剧情骰" + (dice ? "·已上膛" : "")),
-            h("button", { onClick: () => setNoteOpen(v => !v), style: S.btn(noteOpen || !!note.trim()) }, "() 咬耳朵")) : null,
+            h("button", { onClick: () => setNoteOpen(v => !v), style: S.btn(noteOpen || !!note.trim()) }, "() 咬耳朵"),
+            h("button", { onClick: genShot, disabled: busy, style: S.btn(false) }, "📷 当拍画面"),
+            h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, camp.cover ? "🎞 重出封面" : "🎞 封面图"),
+            camp.cover ? h("button", { onClick: () => { setPlusOpen(false); setBigView({ img: camp.cover, title: camp.title + " · 封面" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
+            camp.cover && camp.bg !== camp.cover ? h("button", { onClick: () => { update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { bg: camp.cover }))); setPlusOpen(false); props.toast("封面已铺成背景"); }, style: S.btn(false) }, "🖼 封面当背景") : null,
+            h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: S.btn(false) }, "🖼 传背景图"),
+            camp.bg ? h("button", { onClick: () => { update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { bg: null }))); setPlusOpen(false); }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "清除背景") : null) : null,
           h("div", { key: "in", style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)" } },
+            h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
             h("button", { onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
             h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
             h("button", { onClick: send, disabled: busy, style: S.btn(true) }, "行动"))
-        ]);
+        ]));
     }
 
     // 入口:战役列表
     const campCard = c => {
       const members = [null].concat(c.partyIds.map(charOf));
-      return h("div", { key: c.id, onClick: () => { setPlayId(c.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }) },
+      // 有封面就压进卡片当底:图上要压字,盖一层足够厚的渐变,先保证读得清(小剧场同款)
+      const coverBg = c.cover ? {
+        backgroundImage: "linear-gradient(90deg, rgba(240,236,228,.94) 0%, rgba(240,236,228,.82) 52%, rgba(240,236,228,.35) 100%), url(" + imgSrc(c.cover) + ")",
+        backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
+      } : null;
+      return h("div", { key: c.id, onClick: () => { setPlayId(c.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
         h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + c.title + "」和全部记录?")) update(list => list.filter(x => x.id !== c.id)); }, style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, c.title),
         c.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "⑂ 分支自「" + (c.branchedFrom.title || "原团") + "」第 " + (c.branchedFrom.at || 0) + " 拍") : null,
@@ -677,5 +804,5 @@
   }
   if (inApp) window.TrpgApp = TrpgApp;
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember };
+  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines };
 })();
