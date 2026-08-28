@@ -4135,18 +4135,20 @@ function ImageApiConfig({ toast }) {
     persist(Object.assign({}, store, { profiles }));
   };
   const switchSite = id => { persist(Object.assign({}, store, { activeId: id })); setModels([]); setTestRes(null); toast && toast("已切换图像站"); };
-  const addSite = copy => {
+  const addSite = (copy, source) => {
     const n = store.profiles.length + 1;
     const id = "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
-    const base = copy ? Object.assign({}, c) : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
-    const profile = Object.assign({}, base, { id, name: copy ? ((c.name || "图像站") + " 副本") : ("图像站 " + n) });
+    const from = source || c;
+    const base = copy ? Object.assign({}, from) : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
+    const profile = Object.assign({}, base, { id, name: copy ? ((from.name || "图像站") + " · 副本") : ("图像站 " + n) });
     persist({ version: 2, activeId: id, profiles: store.profiles.concat(profile) }); setModels([]); setTestRes(null);
     toast && toast(copy ? "已复制并切到新站点" : "已新增图像站");
   };
-  const removeSite = () => {
+  const removeSite = id => {
     if (store.profiles.length <= 1) { toast && toast("至少保留一个图像站"); return; }
-    if (!window.confirm("删除图像站「" + (c.name || "未命名") + "」？只删本站配置。")) return;
-    const profiles = store.profiles.filter(p => p.id !== store.activeId);
+    const target = store.profiles.find(p => p.id === (id || store.activeId)) || c;
+    if (!window.confirm("删除图像站「" + (target.name || "未命名") + "」？只删本站配置。")) return;
+    const profiles = store.profiles.filter(p => p.id !== target.id);
     persist({ version: 2, activeId: profiles[0].id, profiles }); setModels([]); setTestRes(null); toast && toast("已删除并切到另一个图像站");
   };
   const [models, setModels] = useState([]);
@@ -4208,16 +4210,25 @@ function ImageApiConfig({ toast }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像 API · 角色照片"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接一个 OpenAI 兼容的图像接口（gpt-image 类）。开了之后，给角色填了『外貌/参考照』的，聊天里会偶尔发照片（自拍／别人拍的／和你的合照）。想要合照，还要在「我的面具」里填你自己的外貌或传参考照。按张计费、比文字贵，别乱开；生成的图只存在本机、不进云同步。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启角色自拍（按张计费）" : "已关闭"); } })),
-    h("div", { style: { marginTop: 12, padding: "11px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { marginTop: 12, padding: "13px 12px", borderRadius: 18, background: t.bg2, border: "1px solid " + t.line } },
       h("div", { className: "flex items-center justify-between", style: { gap: 8, marginBottom: 8 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "当前图像站点 · 线上照片与小剧场共用"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "图像站点"),
         h("div", { className: "flex", style: { gap: 6 } },
           h("button", { onClick: () => addSite(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "＋新增"),
-          h("button", { onClick: () => addSite(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "复制当前"))),
-      h("div", { className: "flex", style: { gap: 6, overflowX: "auto", paddingBottom: 3 } }, store.profiles.map(p => h("button", { key: p.id, onClick: () => switchSite(p.id), className: "shrink-0 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, padding: "7px 10px", borderRadius: 999, border: "1px solid " + (p.id === store.activeId ? t.ink : t.line), background: p.id === store.activeId ? t.ink : t.bg, color: p.id === store.activeId ? t.bg : t.sub } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")))),
+          h("button", { onClick: () => addSite(true, c), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "5px 8px", border: "1px solid " + t.line, borderRadius: 8 } }, "复制当前"))),
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 9, marginBottom: 10 } }, store.profiles.map(p => {
+        const selected = p.id === store.activeId;
+        return h("div", { key: p.id, onClick: () => switchSite(p.id), className: "active:opacity-75", style: { minHeight: 112, padding: "12px", borderRadius: 15, cursor: "pointer", background: t.bg, border: "1.5px solid " + (selected ? t.ink : t.line), display: "flex", flexDirection: "column" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.enabled && p.baseUrl && p.apiKey ? "● " : "○ ") + (p.name || "未命名")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选模型"),
+          h("div", { className: "flex", style: { gap: 10, marginTop: "auto", paddingTop: 8 } },
+            h("button", { onClick: e => { e.stopPropagation(); switchSite(p.id); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, selected ? "编辑中" : "编辑"),
+            h("button", { onClick: e => { e.stopPropagation(); addSite(true, p); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "复制副本"),
+            store.profiles.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeSite(p.id); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: "#b55b51" } }, "删除") : null));
+      })),
       h("div", { className: "flex items-center", style: { gap: 7, marginTop: 9 } },
         h("input", { value: c.name || "", onChange: e => set({ name: e.target.value }), placeholder: "站点名称", style: Object.assign({}, inSt, { flex: 1, padding: "7px 10px", fontSize: 12.5 }) }),
-        h("button", { onClick: removeSite, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b55b51", padding: "7px 9px", border: "1px solid rgba(181,91,81,.35)", borderRadius: 8 } }, "删除本站"))),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "当前卡片名称"))),
     c.enabled ? h("div", { className: "pt-3" },
       row("接口地址 Base URL", h("input", { value: c.baseUrl || "", onChange: e => set({ baseUrl: e.target.value }), placeholder: "如 https://xxx.com（会自动补 /v1/images）", style: inSt })),
       row("密钥 API Key", h("input", { value: c.apiKey || "", onChange: e => set({ apiKey: e.target.value }), placeholder: "sk-…", type: "password", style: inSt })),
@@ -4551,7 +4562,25 @@ function ConfigFold({ title, sub, open, onToggle, children, danger }) {
     open ? h("div", { style: { paddingBottom: 18 } }, children) : null);
 }
 
-function Config({
+function ConfigTile({ icon, title, sub, onClick, wide }) {
+  const t = useTheme();
+  return h("button", { onClick, className: "active:opacity-70", style: {
+    gridColumn: wide ? "1 / -1" : "auto", minHeight: wide ? 108 : 144, padding: "18px 17px",
+    borderRadius: 22, textAlign: "left", background: t.bg2, border: "1px solid " + t.line,
+    boxShadow: "0 9px 24px rgba(60,50,40,.055)", display: "flex", flexDirection: "column", justifyContent: "space-between"
+  } },
+    h("div", null,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55, marginTop: 5 } }, sub)),
+    h("div", { className: "flex items-end justify-between", style: { marginTop: 14 } },
+      h("span", { style: { fontSize: 27, lineHeight: 1 } }, icon || "·"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 22, color: t.fog } }, "›")));
+}
+function ConfigTileGrid({ children }) {
+  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 12, paddingTop: 12 } }, children);
+}
+
+function LegacyConfig({
   apiProfiles,
   activeId,
   offlineApiId,
@@ -4688,6 +4717,65 @@ function Config({
     toast: toast
   })))));
 }
+
+function Config(props) {
+  const [page, setPage] = useState("home");
+  const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });
+  const toyKnockRef = React.useRef({ n: 0, ts: 0 });
+  const toyKnock = () => {
+    const now = Date.now(), k = toyKnockRef.current;
+    k.n = now - k.ts < 1500 ? k.n + 1 : 1; k.ts = now;
+    if (k.n < 7) return;
+    k.n = 0; const next = !toyUnlocked; setToyUnlocked(next);
+    try { localStorage.setItem("x_toyUnlocked", next ? "1" : "0"); } catch (e) {}
+    props.toast && props.toast(next ? "已解锁配件" : "已隐藏配件");
+  };
+  const meta = {
+    home: ["设置", "Config"], api: ["API 设置", "API Settings"], apiText: ["文字模型", "Text Models"],
+    apiImage: ["图像 API", "Image API"], apiTts: ["语音 API", "Voice API"], apiEmbed: ["向量记忆", "Embedding"],
+    apiEars: ["真声耳朵", "Voice Ears"], apiCache: ["额度与缓存", "Usage"], sense: ["感知", "Sense"],
+    cot: ["创作小稿", "Draft"], qa: ["情侣问答", "Questions"], theme: ["外观与壁纸", "Appearance"],
+    bubble: ["聊天气泡", "Bubble Skin"], data: ["数据管理", "Data"], debug: ["上下文诊断", "Context"], toy: ["本地配件", "Accessories"]
+  };
+  const m = meta[page] || meta.home;
+  const back = page === "home" ? props.onBack : () => (/^api[A-Z]/.test(page) ? setPage("api") : setPage("home"));
+  const section = child => h("div", { style: { paddingTop: 8, paddingBottom: 30 } }, child);
+  return h("div", { className: "h-full flex flex-col" },
+    h(Head, { zh: m[0], en: m[1], onBack: back }),
+    h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
+      page === "home" && h(ConfigTileGrid, null,
+        h(ConfigTile, { icon: "⌘", title: "API 与模型", sub: "文字、图像、语音、向量与真声接口", onClick: () => setPage("api") }),
+        h(ConfigTile, { icon: "◉", title: "感知", sub: "时间、位置与锁屏通知", onClick: () => setPage("sense") }),
+        h(ConfigTile, { icon: "✎", title: "创作小稿", sub: "检查方式、预设与模型保险", onClick: () => setPage("cot") }),
+        h(ConfigTile, { icon: "?", title: "情侣问答", sub: "按角色管理自定义题目", onClick: () => setPage("qa") }),
+        h(ConfigTile, { icon: "◐", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
+        h(ConfigTile, { icon: "◒", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
+        h(ConfigTile, { icon: "▤", title: "数据管理", sub: "备份、迁移、存储与清理", onClick: () => { toyKnock(); setPage("data"); } }),
+        h(ConfigTile, { icon: "⌁", title: "上下文诊断", sub: "只读查看模型实际收到的内容", onClick: () => setPage("debug") }),
+        toyUnlocked && typeof ToyConfig === "function" ? h(ConfigTile, { icon: "◇", title: "本地配件", sub: "仅本机的隐藏配件设置", onClick: () => setPage("toy"), wide: true }) : null),
+      page === "api" && h(ConfigTileGrid, null,
+        h(ConfigTile, { icon: "⌨", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
+        h(ConfigTile, { icon: "▧", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
+        h(ConfigTile, { icon: "◖", title: "语音 API", sub: "MiniMax TTS、克隆音色与指派", onClick: () => setPage("apiTts") }),
+        h(ConfigTile, { icon: "∞", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
+        h(ConfigTile, { icon: "◉", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
+        h(ConfigTile, { icon: "≋", title: "额度与缓存", sub: "缓存命中与调用读数", onClick: () => setPage("apiCache"), wide: true })),
+      page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
+      page === "apiImage" && section(h(React.Fragment, null, h(ImageApiConfig, { toast: props.toast }), h(AvatarPoolConfig, { toast: props.toast }))),
+      page === "apiTts" && section(h(TtsApiConfig, { toast: props.toast, characters: props.characters, onAssignVoice: props.onAssignVoice })),
+      page === "apiEmbed" && section(h(EmbedApiConfig, { toast: props.toast })),
+      page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
+      page === "apiCache" && section(h(CacheStatCard, null)),
+      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, toast: props.toast })),
+      page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
+      page === "qa" && section(h(CoupleQAConfig, { characters: props.characters, custom: props.coupleQACustom, onSave: props.onSaveCustomQA, toast: props.toast })),
+      page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper })),
+      page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
+      page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, toast: props.toast })),
+      page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
+      page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
+}
+
 function ApiConfig({
   profiles,
   activeId,
@@ -4732,11 +4820,24 @@ function ApiConfig({
     setModels([]);
     setDd(false);
   };
-  const removeCur = () => {
+  const duplicateProfile = source => {
+    const np = {
+      ...source,
+      id: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+      name: (String(source.name || source.model || "API").trim() || "API") + " · 副本"
+    };
+    setList(l => [...l, np]); setCurId(np.id); setModels([]); setDd(false);
+    toast && toast("副本已建立，改好后点保存");
+  };
+  const removeProfile = source => {
     if (list.length <= 1) return;
-    const nl = list.filter(p => p.id !== cur.id);
+    if (!confirm("删除 API 方案「" + (source.name || source.model || "未命名配置") + "」？")) return;
+    const nl = list.filter(p => p.id !== source.id);
     setList(nl);
-    setCurId(nl[0].id);
+    if (curId === source.id) setCurId(nl[0].id);
+  };
+  const removeCur = () => {
+    removeProfile(cur);
   };
   const pull = async () => {
     setFetching(true);
@@ -4757,45 +4858,28 @@ function ApiConfig({
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "开启后显示右侧 AI 圆点；线上、线下分别切换，角色专线不受影响。")),
     h("button", { onClick: () => onSetModelFloat(!modelFloatOn), className: "active:opacity-70", style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
       h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } }))),
+  h("div", { style: { marginTop: 12, marginBottom: 22 } },
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "API 方案"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "一张卡一条线路 · 点卡片编辑")),
+      h("button", { onClick: addNew, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "9px 15px" } }, "＋ 新增方案")),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } }, list.map(p => {
+      const selected = p.id === curId;
+      return h("div", { key: p.id, onClick: () => { setCurId(p.id); setModels([]); setDd(false); }, className: "active:opacity-75", style: {
+        minHeight: 124, padding: "13px 13px 10px", borderRadius: 18, cursor: "pointer",
+        background: t.bg2, border: "1.5px solid " + (selected ? t.ink : t.line),
+        boxShadow: selected ? "0 7px 18px rgba(60,50,40,.08)" : "none", display: "flex", flexDirection: "column"
+      } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name || "未命名配置"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.45, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        h("div", { className: "flex items-center", style: { gap: 10, marginTop: "auto", paddingTop: 10 } },
+          h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setModels([]); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: selected ? t.ink : t.sub } }, selected ? "编辑中" : "编辑"),
+          h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "复制副本"),
+          list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "删除") : null,
+          p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "主") : null));
+    }))),
   /*#__PURE__*/React.createElement(LineField, {
-    zh: "选择配置",
-    en: "Profile",
-    right: /*#__PURE__*/React.createElement("button", {
-      onClick: addNew,
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 11,
-        color: t.ink
-      }
-    }, "+ 新建")
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => setDd(!dd),
-    className: "w-full flex items-center justify-between"
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 20,
-      color: cur.name ? t.ink : t.fog
-    }
-  }, cur.name || "未命名配置"), /*#__PURE__*/React.createElement(IChevD, {
-    size: 18,
-    color: t.fog
-  })), dd && /*#__PURE__*/React.createElement("div", {
-    className: "mt-2 space-y-1"
-  }, list.map(p => /*#__PURE__*/React.createElement("button", {
-    key: p.id,
-    onClick: () => {
-      setCurId(p.id);
-      setModels([]);
-      setDd(false);
-    },
-    className: "w-full text-left py-1.5",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 14,
-      color: p.id === curId ? t.ink : t.fog
-    }
-  }, p.name || "未命名", p.id === curId ? " ·" : "")))), /*#__PURE__*/React.createElement(LineField, {
     zh: "配置名称",
     en: "Name"
   }, /*#__PURE__*/React.createElement(LineInput, {
@@ -4940,8 +5024,6 @@ function ApiConfig({
       temperature: v
     })
   })),
-  // 向量记忆：独立 embedding API（和聊天模型分开填）
-  h(EmbedApiConfig, { toast: toast }),
   /*#__PURE__*/React.createElement("div", {
     className: "flex gap-3 mt-8"
   }, /*#__PURE__*/React.createElement("button", {
