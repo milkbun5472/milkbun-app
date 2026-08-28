@@ -88,3 +88,37 @@ test("改写即清已读——别靠时间戳，同一毫秒会失效", () => {
   assert.match(gaze, /if \(mine && mine\[k\] != null\) \{ delete mine\[k\]/, "apply 里没清这一块的已读");
   assert.match(gaze, /同一毫秒内改写会让 ts 和 seen 相等/, "把这个坑写在代码里，免得下次有人改回去比时间戳");
 });
+
+// 她 2026-08-27：「8.16 到现在都没有改过」——机制通的，是模型每次都选了「照旧省略」，
+// 而那句劝的话自己还留着这个出口。攒够更多轮就不再问，直接要一块。
+test("攒到 FORCE_TURNS 就从劝升级成必须动一块", () => {
+  const { G } = loadGaze();
+  G.apply("c5", "me", "person", "起点");
+  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("c5");
+  const soft = G.spec("Lisa", "c5");
+  assert.match(soft, /真的什么都没变,就照旧省略/, "这一档还是劝");
+  assert.ok(!/本轮必须动一块/.test(soft));
+  for (let i = 0; i < G.FORCE_TURNS; i++) G.tick("c5");
+  const hard = G.spec("Lisa", "c5");
+  assert.match(hard, /【本轮必须动一块】/);
+  assert.match(hard, /不许省略/);
+  assert.ok(!/照旧省略/.test(hard), "硬的那一档不能再留「省略」这个出口");
+  assert.match(hard, /me\.recent\(最近的她\)/, "得给一个挑不出来时的落点");
+  // 写了就归零，别一直硬着
+  G.apply("c5", "me", "recent", "这阵子她忙得没怎么说话");
+  assert.ok(!/本轮必须动一块/.test(G.spec("Lisa", "c5")), "写过就该松回去");
+});
+
+// 以前块名写歪就静悄悄丢掉，看上去就是「他从来不写」
+test("块名写成中文、或把 side 塞进 block，都要认得出来", () => {
+  const { G } = loadGaze();
+  assert.equal(G.normKey("me", "person"), "me.person");
+  assert.equal(G.normKey("", "me.person"), "me.person", "block 里带了 side");
+  assert.equal(G.normKey("me", "me.person"), "me.person", "两边都带也认");
+  assert.equal(G.normKey("", "她是个什么样的人"), "me.person", "写的是中文块名");
+  assert.equal(G.normKey("us", "what"), "us.what");
+  assert.equal(G.normKey("me", "不存在的块"), "", "真不认识的还是要拒");
+  // 认出来之后要真的写进去
+  assert.equal(G.applyParsed("c6", { side: "", block: "她是个什么样的人", text: "她比看起来能扛" }), true);
+  assert.equal(G.revisions("c6").filter(x => x.k === "me.person" && x.now).length, 1);
+});

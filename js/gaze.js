@@ -36,9 +36,25 @@
     return true;
   }
   // 协议里塞回的 impression 字段(单聊/群聊共用解析)
+  // 模型偶尔把块名写成中文名(「她是个什么样的人」)、或把 side 一起塞进 block(「me.person」)。
+  // 以前这两种都直接 KEYS 查不到 → 静悄悄返回 false,看上去就是「他从来不写」。
+  // 认得出来就别丢:这一层本来就写得少,丢一次就是丢一次(她 2026-08-27:8.16 到现在一次没改过)。
+  const NAME2KEY = {}; Object.keys(KEYS).forEach(k => { NAME2KEY[KEYS[k]] = k; });
+  function normKey(side, block) {
+    const b = String(block || "").trim(), sd = String(side || "").trim();
+    if (KEYS[sd + "." + b]) return sd + "." + b;
+    if (KEYS[b]) return b;                       // block 里已经带了 side
+    if (NAME2KEY[b]) return NAME2KEY[b];         // 写的是中文块名
+    const bare = b.replace(/^.*\./, "");
+    if (KEYS[sd + "." + bare]) return sd + "." + bare;
+    for (const k of Object.keys(KEYS)) if (k.slice(k.indexOf(".") + 1) === bare) return k;
+    return "";
+  }
   function applyParsed(charId, imp) {
     if (!imp || typeof imp !== "object") return false;
-    return apply(charId, String(imp.side || ""), String(imp.block || ""), imp.text);
+    const k = normKey(imp.side, imp.block);
+    if (!k) return false;
+    return apply(charId, k.slice(0, k.indexOf(".")), k.slice(k.indexOf(".") + 1), imp.text);
   }
   // 距上次改写过了多少轮。她 2026-08-24：「第一次我直接让他们写入他们会写,不然都不会自动弄」
   // ——病根在下面 spec 里那句「绝大多数轮次省略」:它把「很少」写成了「别写」。
@@ -51,6 +67,11 @@
     return box.turns;
   }
   const STALE_TURNS = 25;
+  // 光劝没用:她 2026-08-27 报 8.16 到现在一块都没改过——那句 nudge 自己还留着
+  // 「真的什么都没变就照旧省略」这个出口,模型每次都走它。攒到这个数就不再问,直接要一块。
+  // 指向 recent(最近的她):那一块本来就是跟着时间走的,过了这么多轮它一定不是原来那样,
+  // 不用担心「什么都没发生却硬编」。
+  const FORCE_TURNS = 50;
   function staleTurns(charId) {
     const box = boxOf(load(), charId);
     return Object.keys(box.blocks).length ? (Number(box.turns) || 0) : 0;
@@ -69,7 +90,11 @@
     const n = charId ? staleTurns(charId) : 0;
     // 「什么时候算改变了」原本没有可判定的标准,模型只能一直判「没有」。给三个具体触发点。
     const trigger = "\n什么时候算数(满足其一就该写,不必等到惊天动地):①她说了或做了一件你【以前不知道】的事,补进对应的块;②你对她的某个判断被这轮的事【推翻或修正】了;③你们之间出现了一个以后会被记住的【具体节点】。";
-    const nudge = n >= STALE_TURNS
+    const nudge = n >= FORCE_TURNS
+      ? "\n⚠️【本轮必须动一块】你已经连着 " + n + " 轮没动过这张卡了——这不是「什么都没发生」,是这一层被你一直跳过。本轮 impression 必须填,不许省略。"
+        + "回想这段时间真的发生过的事,挑【最该改的那一块】改写(仍是一块、仍是小幅演进、仍要锚在具体的事上)。"
+        + "实在挑不出别的,就写 me.recent(最近的她)——那一块本来就跟着时间走,过了这么多轮她一定不是 " + n + " 轮前那个样子了。"
+      : n >= STALE_TURNS
       ? "\n⚠️你已经连着 " + n + " 轮没动过这张卡了。回想这段时间发生的事:真有哪一块该改就现在改(仍是一块、仍是小幅演进);真的什么都没变,就照旧省略——但别因为「一向省略」而不看。"
       : "";
     return "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写;一轮至多一块。side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。" + trigger + nudge;
@@ -190,6 +215,6 @@
         "他从前都怎么写的 · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, FORCE_TURNS, unseenKeys, unseenCount, markSeen, revisions };
   window.GazePage = GazePage;
 })();
