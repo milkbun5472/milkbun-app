@@ -243,9 +243,31 @@ test("shotSafeLines 过滤暴力/亲密句,过滤空了由调用方给中性备�
   assert.deepEqual(shotSafeLines([], () => false), []);
 });
 
-test("出图不锁脸:跑团是群像,人物远景/背影/剪影", () => {
+test("出图:封面不锁脸;当拍画面可选一位队友入镜锁脸,其余远景虚化", () => {
   assert.match(src, /不描绘清晰五官/);
-  assert.match(src, /generateSelfieImage\(prompt, null/, "封面与当拍画面都不传参考照——多张脸锁一半更吓人");
+  assert.match(src, /generateSelfieImage\(prompt, null/, "封面海报仍不传参考照");
+  assert.match(src, /选谁入镜/, "拍图前挑入镜人(她 2026-08-28:三个陌生人背影看着怪)");
+  assert.match(src, /其余同行者若入画,一律远景虚化/, "锁一位,别的脸不硬画");
+  assert.match(src, /persona: visualPersona/, "只继承这张脸,不带主线职业装束(小剧场 if 线同一课)");
+  assert.match(src, /lockChar: ch \? ch\.id : undefined/, "重画沿用同一位入镜人");
+});
+
+test("need 剥掉持有人/数量尾巴,hasItem 互相包含(有药不再显示缺)", () => {
+  const party = camp0().party;
+  const out = normChoices([{ text: "灌药", need: "浓缩催吐解毒剂(陆衍)" }, { text: "点数", need: "绷带×2" }], party);
+  assert.equal(out[0].need, "浓缩催吐解毒剂", "守密人照抄物品表格式也不怕");
+  assert.equal(out[1].need, "绷带");
+  const items = [{ name: "浓缩催吐解毒剂", holder: "陆衍", n: 1 }];
+  assert.ok(hasItem(items, "浓缩催吐解毒剂(陆衍)"));
+  assert.ok(hasItem(items, "解毒剂"), "简称也认(互相包含)");
+  assert.ok(!hasItem(items, "铜钥匙"));
+  assert.match(src, /只写物品名本身】——绝不带持有人和数量/, "并且明令守密人别写尾巴");
+});
+
+test("休整贴场景:室内不支帐篷", () => {
+  assert.match(src, /休整的形式必须贴合此刻身处的场景/);
+  assert.match(src, /不要千篇一律地支帐篷/);
+  assert.match(src, /队伍暂且停下,就地休整/, "宣言也不再写死「扎营」");
 });
 
 // ---- 数值角标:只从真落账的变化长出来,绝不渲染没生效的变化骗人(米娅的教训) ----

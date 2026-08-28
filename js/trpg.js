@@ -127,7 +127,7 @@
         const who = rawCheck.who ? findMember(party, rawCheck.who) : null;
         check = { stat: rawCheck.stat, who: who ? who.name : null };
       }
-      const need = String(c.need || "").trim() || null;
+      const need = itemNameNorm(c.need) || null; // 收进来就剥掉持有人/数量尾巴,显示与核对都干净
       return { text, check, need };
     }).filter(Boolean);
   }
@@ -142,7 +142,17 @@
     }).filter(Boolean);
   }
   const fmtItem = it => it.name + (it.n > 1 ? "×" + it.n : "") + (it.holder && it.holder !== "队伍" ? "(" + it.holder + ")" : "");
-  const hasItem = (items, name) => itemsFix(items).some(it => it.name === String(name || "").trim());
+  // need/物品名归一:剥掉「×2」和「(持有人)」尾巴。她 2026-08-28 实测抓的坑:
+  // 物品表按 fmtItem 格式喂给守密人,它出选项时把「解毒剂(陆衍)」整串当 need,
+  // 客户端只认全等 → 明明有药却显示「缺」。
+  const itemNameNorm = s => String(s || "").trim().replace(/×\d+$/, "").replace(/[(（][^)）]*[)）]$/, "").trim();
+  const hasItem = (items, name) => {
+    const n = itemNameNorm(name);
+    if (!n) return false;
+    const fixed = itemsFix(items);
+    // 全等优先,再互相包含(「解毒剂」该认得「浓缩催吐解毒剂」)
+    return fixed.some(it => it.name === n) || fixed.some(it => it.name.indexOf(n) >= 0 || n.indexOf(it.name) >= 0);
+  };
   // 把守密人一回合的 JSON 落进战役状态。只信字段不信散文;名字对不上的伤害丢弃;
   // 返回 {camp, chips, sysLine}——chips 是钉在那一拍正文旁的数值角标(米娅分镜馆
   // 偷来的点子:数字和造成它的故事绑在一起,不藏进面板);sysLine 是文字版,兼容旧渲染。
@@ -616,6 +626,7 @@
     const [endAsk, setEndAsk] = useState(null);   // 落幕前问「最后,你做什么」:null | {forced}
     const [finalAct, setFinalAct] = useState(""); // 她的最后一笔(可空)
     const [photoMenu, setPhotoMenu] = useState(null); // 长按画面弹出的操作单:msg|null
+    const [shotPick, setShotPick] = useState(false);  // 拍图前选谁入镜(锁脸)的抽屉
     const [bigView, setBigView] = useState(null);     // 点开看整张:{img,title}|null
     const fileRef = useRef(null);
     const pressRef = useRef(null);
@@ -757,7 +768,7 @@
           : "只有当前章(→)的目标在剧情里【真实发生】后才报 stageDone;一次只推进一章,不许跳章,更不许自导自演替玩家完成。全部章节完成、或剧情自然走到终点时,才报 ending。"),
         "【当前状态(以此为准,不凭记忆)】\n地点:" + c.place + "\n" + partyBlock(c) + "\n物品(名称×数量(持有人),不写持有人=队伍公用):" + (itemsFix(c.items).map(fmtItem).join("、") || "无") + "\n线索:" + (c.clues.map((x, i) => (i + 1) + "." + x).join(" ") || "尚无"),
         dd.play ? "【难度·" + dd.name + "】" + dd.play : null,
-        "【检定规则】骰子由客户端掷,你【绝不自己编骰子结果】。历史里的〔检定〕行是既定事实,必须按其等级叙事:大成功给意外之喜;困难成功干净利落;成功达成但可以有小瑕疵;失败让局面复杂化但留有余地;大失败要有戏剧性代价——但检定失败永远制造新的戏,不判死、不判死胡同。需要碰运气的选项才挂 check(stat 取 phy体魄/agi身手/wit头脑/cha谈吐/luck气运;who 填该出手的队伍成员名,谁都能试就填 null——null 时措辞必须任何人都做得来)。不是每个选项都要检定,说句话不用掷骰。need 只挂「有这件东西才走得顺」的选项——玩家没有它仍可能硬闯,硬闯你要让它付出代价或临场挂检定;真正没有就绝无可能的事,不要做成选项。",
+        "【检定规则】骰子由客户端掷,你【绝不自己编骰子结果】。历史里的〔检定〕行是既定事实,必须按其等级叙事:大成功给意外之喜;困难成功干净利落;成功达成但可以有小瑕疵;失败让局面复杂化但留有余地;大失败要有戏剧性代价——但检定失败永远制造新的戏,不判死、不判死胡同。需要碰运气的选项才挂 check(stat 取 phy体魄/agi身手/wit头脑/cha谈吐/luck气运;who 填该出手的队伍成员名,谁都能试就填 null——null 时措辞必须任何人都做得来)。不是每个选项都要检定,说句话不用掷骰。need 只挂「有这件东西才走得顺」的选项,而且【只写物品名本身】——绝不带持有人和数量(写「浓缩催吐解毒剂」,不写「浓缩催吐解毒剂(陆衍)」);玩家没有它仍可能硬闯,硬闯你要让它付出代价或临场挂检定;真正没有就绝无可能的事,不要做成选项。",
         "【状态纪律】一切状态变化只通过 JSON 字段报告:掉血/受伤/恢复写进 hp(name 必须严格用上面状态表里的名字;同一人同一拍只写一条,净变化不超过 ±40);拿到东西写 gain(可带 who=拿到的人,队伍公用就省略),失去写 lose(可带 who),东西在成员间转手写 hand:[{\"name\":\"物品\",\"from\":\"谁(可省)\",\"to\":\"谁\"}];新揭示的重要信息写进 clue。正文里发生了、字段里没写=没发生。HP 归零是倒下/濒死,不是死亡;要不要就此落幕由玩家决定。",
         c.summary ? "【前情提要(早前剧情已浓缩,接着往下,别倒回去复述)】\n" + c.summary : null,
         "【输出】叙事正文写进 scene(第二人称称玩家为『你』,NPC 与队友的对话用引号;一回合只推进一小步,留足玩家行动空间;结尾给 2-4 个 choices,至少一个朝当前章目标去,危险的选项要让人看得出险)。只输出 JSON:{\"scene\":\"正文\",\"place\":\"当前地点(没变可省略)\",\"choices\":[{\"text\":\"选项\",\"check\":{\"stat\":\"agi\",\"who\":null}|null,\"need\":null|\"需要的物品\"}],\"hp\":[{\"name\":\"成员名\",\"delta\":-10}],\"gain\":[{\"name\":\"物品\",\"who\":\"持有人(队伍公用省略)\"}],\"lose\":[],\"hand\":[],\"clue\":[],\"stageDone\":false,\"stageNote\":null,\"ending\":false,\"endNote\":null}"
@@ -810,7 +821,7 @@
         }
         const sys = gmSys(camp);
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
-        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍落脚休整——让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
+        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
           + (mode && mode.travel ? "\n〔赶路〕队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "");
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
@@ -983,37 +994,63 @@
         props.toast(bgTook ? "封面出好了,已当作背景;+菜单里可看整张、存相册" : "封面出好了(这场团有你自己的背景图,没动它)", 6000);
       } catch (e) { props.toast("封面没出来:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
-    const genShot = async () => {
+    // 当拍画面:可选一位队友入镜锁脸(她 2026-08-28 抓的:三个陌生人背影看着怪)。
+    // 选了人→走小剧场同款 buildPhotoPrompt 锁脸管道,她自己有参考照就自动合照双锁;
+    // 其余队友一律退到远景虚化。没选人→旧的纯场景版。多于两张脸仍然不锁——
+    // 锁一半更吓人,这条底线不动。
+    const genShot = async ch => {
       if (!camp || busy) return;
       if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast("请先配置图像 API");
-      setPlusOpen(false); setBusy(true); setBusyWhat("正在画这一拍的画面…");
+      setPlusOpen(false); setShotPick(false); setBusy(true); setBusyWhat(ch ? "正在画这一拍(锁" + ch.name + "的脸)…" : "正在画这一拍的画面…");
       props.toast("开始画这一拍了,出图要等一会儿…", 6000);
       try {
         const rows = camp.msgs.filter(m => m.role === "gm" || m.role === "user").slice(-4).map(m => (m.role === "user" ? uName : "") + String(m.content || ""));
         const kept = shotSafeLines(rows).join("\n").slice(-240);
         const hadCut = kept.length < rows.join("\n").length;
         const recent = kept || ("队伍此刻正在" + (camp.place || "路上") + ",气氛紧绷。");
-        const prompt = "第三人称旁观的电影画面(不是自拍,人物不看镜头)。\n"
-          + "【世界】" + String(camp.world || "").slice(0, 300) + "\n【地点】" + (camp.place || "") + "\n"
-          + "【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n"
-          + NO_FACE + " 服装、道具、环境必须符合上述世界观;构图取此刻最有张力的一瞬。" + SHOT_SAFE
-          + (hadCut ? "\n【这一拍要画相邻的一瞬】原文里有激烈的内容,已从描述里拿掉;改画紧挨着它之前或之后的一个瞬间,把那股劲留在环境、距离和光线上。" : "");
-        const minimalPrompt = "一张奇幻冒险故事里的电影感场景画面:【" + (camp.place || "野外") + "】,远景处几个小小的旅人身影,不描绘五官,画面含蓄、可公开展示。";
+        const cutNote = hadCut ? "\n【这一拍要画相邻的一瞬】原文里有激烈的内容,已从描述里拿掉;改画紧挨着它之前或之后的一个瞬间,把那股劲留在环境、距离和光线上。" : "";
+        const duo = !!(ch && ch.refPhoto && props.profile && props.profile.refPhoto);
+        let prompt, minimalPrompt, refs;
+        if (ch) {
+          // 跑团只继承【这张脸】:persona 换成本团世界,免得主线的职业装束/时代乱入
+          // (小剧场 if 线同一课);服装按世界观由场景描述给
+          const visualPersona = [String(camp.world || "").slice(0, 400), ch.name + " 正随队伍在这场冒险途中。"].filter(Boolean).join("\n");
+          const styledChar = Object.assign({}, ch, { persona: visualPersona, photoOutfit: "" });
+          const sceneDesc = "第三人称旁观的电影剧照(人物不看镜头,不是自拍)。\n【这是一场跑团冒险,与角色原设定的时代/职业无关】\n【世界】" + String(camp.world || "").slice(0, 300) + "\n【地点】" + (camp.place || "") + "\n【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent
+            + "\n【画面聚焦】" + ch.name + (duo ? " 与 " + uName : "") + " 此刻的神态与动作;其余同行者若入画,一律远景虚化、不描绘五官。服装、道具、环境必须符合上述世界观;构图取此刻最有张力的一瞬。" + SHOT_SAFE + cutNote;
+          prompt = typeof buildPhotoPrompt === "function"
+            ? buildPhotoPrompt(styledChar, sceneDesc, null, { kind: duo ? "duo" : "other", me: duo ? props.profile : null, cinematic: true })
+            : sceneDesc;
+          minimalPrompt = typeof buildMinimalPhotoPrompt === "function"
+            ? buildMinimalPhotoPrompt(styledChar, { kind: duo ? "duo" : "other" })
+            : "第三人称旁观的电影剧照,人物衣着完整,画面含蓄、可公开展示。";
+          refs = (duo ? [ch.refPhoto, props.profile.refPhoto] : [ch.refPhoto]).filter(Boolean);
+        } else {
+          prompt = "第三人称旁观的电影画面(不是自拍,人物不看镜头)。\n"
+            + "【世界】" + String(camp.world || "").slice(0, 300) + "\n【地点】" + (camp.place || "") + "\n"
+            + "【此刻正在发生(画最近剧情的当下一瞬)】\n" + recent + "\n"
+            + NO_FACE + " 服装、道具、环境必须符合上述世界观;构图取此刻最有张力的一瞬。" + SHOT_SAFE + cutNote;
+          minimalPrompt = "一张奇幻冒险故事里的电影感场景画面:【" + (camp.place || "野外") + "】,远景处几个小小的旅人身影,不描绘五官,画面含蓄、可公开展示。";
+          refs = null;
+        }
         let out;
         try {
-          out = await generateSelfieImage(prompt, null, { minimalPrompt: minimalPrompt });
+          out = await generateSelfieImage(prompt, refs, { minimalPrompt: minimalPrompt });
         } catch (e1) {
           if (!/safety|policy|内容政策|too long|sensitive|reject/i.test(String(e1 && e1.message || e1))) throw e1;
           props.toast("这一拍的描述被审核挡了,换成简版再试一次…");
-          out = await generateSelfieImage(minimalPrompt, null);
+          out = await generateSelfieImage(minimalPrompt, refs ? refs.slice(0, duo ? 2 : 1) : null);
         }
         if (!out || !out.blob) throw new Error("没出图");
+        // 降级不无声无息:脸没锁上要说出来(小剧场同款)
+        if (ch && out.degraded) props.toast(out.degraded === "duo-single-ref" ? "只锁了 " + ch.name + " 的脸" : "没用上参考照——脸可能不像" + (out.refError ? ":" + out.refError : ""), 7000);
         const durl = await blobToDataUrl(out.blob);
         const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
-        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "photo", img: ref, ts: Date.now() }]) })));
+        update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.concat([{ id: rid("rm_"), role: "photo", img: ref, lockChar: ch ? ch.id : undefined, ts: Date.now() }]) })));
       } catch (e) { props.toast("出图失败:" + (e.message || "重试")); } finally { setBusy(false); setBusyWhat(""); }
     };
-    const rerollShot = m => { if (busy) return; update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.filter(x => x.id !== m.id) }))); setTimeout(genShot, 60); };
+    // 重画沿用同一位入镜人(锁谁的脸记在图上)
+    const rerollShot = m => { if (busy) return; const lockCh = m.lockChar ? charOf(m.lockChar) : null; update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.filter(x => x.id !== m.id) }))); setTimeout(() => genShot(lockCh), 60); };
     // 存进手机系统相册:iOS 在分享单里选「存储图像」(小剧场同款)
     const saveToAlbum = async ref => {
       try {
@@ -1200,6 +1237,14 @@
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "从这一拍岔开一条新团:这一拍之前原样保留(HP/物品/章节都按当时恢复),之后的重演。原团一个字不动。"),
           [["⑂ 从这里分支", () => branchFrom(msgMenu)], ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+      // 选谁入镜:有参考照的队友挑一位锁脸(你自己有参考照就自动合照),或只拍场景
+      const shotSheet = shotPick && h("div", { onClick: () => setShotPick(false), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } }, "选谁入镜(锁 TA 的脸" + (props.profile && props.profile.refPhoto ? ",你也有参考照,会自动拍成合照" : "") + ");其余队友退到远景虚化。"),
+          camp.partyIds.map(charOf).filter(c2 => c2 && c2.refPhoto).map(c2 =>
+            h("button", { key: c2.id, onClick: () => genShot(c2), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 4px", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, avatarOf(c2, 28), c2.name)),
+          h("button", { onClick: () => genShot(null), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "🏞 只拍场景(不锁脸)"),
+          h("button", { onClick: () => setShotPick(false), style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: t.fog, background: "transparent", border: "none", borderTop: "1px solid " + t.line } }, "取消")));
       const photoSheet = photoMenu && h("div", { onClick: () => setPhotoMenu(null), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           [["重画这张", () => { const m = photoMenu; setPhotoMenu(null); rerollShot(m); }],
@@ -1274,7 +1319,7 @@
       })() : null;
       return h("div", { style: S.wrap }, badges(),
         camp.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(camp.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
-        ceremonyLayer, msgSheet, photoSheet, bigViewer, mapLayer,
+        ceremonyLayer, msgSheet, photoSheet, shotSheet, bigViewer, mapLayer,
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } },
         header(camp.title + " · " + (camp.place || ""), h("div", { style: { display: "flex", gap: 6 } },
           builtMap ? h("button", { onClick: () => { setSelNode(camp.pos || null); setMapOpen(true); }, style: S.btn(false) }, "🗺 舆图") : null,
@@ -1303,8 +1348,8 @@
             h("button", { onClick: () => setDice(v => !v), style: S.btn(dice) }, "🎲 剧情骰" + (dice ? "·已上膛" : "")),
             h("button", { onClick: () => setNoteOpen(v => !v), style: S.btn(noteOpen || !!note.trim()) }, "() 咬耳朵"),
             h("button", { onClick: addBeat, disabled: busy, style: S.btn(false) }, "✍ 追加一笔"),
-            h("button", { onClick: () => { setPlusOpen(false); turn("(队伍找了处落脚地,扎营休整)", null, "rest"); }, disabled: busy, style: S.btn(false) }, "🏕 休整一拍"),
-            h("button", { onClick: genShot, disabled: busy, style: S.btn(false) }, "📷 当拍画面"),
+            h("button", { onClick: () => { setPlusOpen(false); turn("(队伍暂且停下,就地休整)", null, "rest"); }, disabled: busy, style: S.btn(false) }, "🏕 休整一拍"),
+            h("button", { onClick: () => { const lockables = camp.partyIds.map(charOf).filter(c2 => c2 && c2.refPhoto); if (lockables.length) { setPlusOpen(false); setShotPick(true); } else genShot(null); }, disabled: busy, style: S.btn(false) }, "📷 当拍画面"),
             h("button", { onClick: genCover, disabled: busy, style: S.btn(false) }, camp.cover ? "🎞 重出封面" : "🎞 封面图"),
             camp.cover ? h("button", { onClick: () => { setPlusOpen(false); setBigView({ img: camp.cover, title: camp.title + " · 封面" }); }, style: S.btn(false) }, "🔍 看封面整张") : null,
             camp.cover && camp.bg !== camp.cover ? h("button", { onClick: () => { update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { bg: camp.cover }))); setPlusOpen(false); props.toast("封面已铺成背景"); }, style: S.btn(false) }, "🖼 封面当背景") : null,
