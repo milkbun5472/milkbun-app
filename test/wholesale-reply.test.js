@@ -45,7 +45,8 @@ test("禁用词表：把别的角色刚说过的短句收集起来当模板证�
   const j = app.indexOf("  const ctxFor = (char, ctxOpts) =>");
   assert.ok(i > 0 && j > i);
   const body = app.slice(i, j);
-  const mk = ctx => new Function("chatsRef", "characters", body + "\nreturn {crossSamenessHint, crossSamenessBlocklist};")(ctx, []);
+  const mk = (ctx, hist) => new Function("chatsRef", "characters", "stateHistRef", body
+    + "\nreturn {crossSamenessHint, crossSamenessBlocklist, crossThoughtBlocklist};")(ctx, [], hist || { current: {} });
   const now = Date.now();
   const ctx = { current: {
     shen: [
@@ -87,4 +88,39 @@ test("单聊两条路径都要吃到禁用词表（漏一条换线路又变批�
   const why = app.slice(app.indexOf("const CROSS_SAMENESS_WINDOW_MS") - 700, app.indexOf("const CROSS_SAMENESS_WINDOW_MS"));
   assert.match(why, /群聊没有这个问题/);
   assert.match(why, /一次调用写完所有人/);
+});
+
+// 她 2026-08-27：「自从不能回去收拾我之后，大家都在回去要捏我脸了」。
+// 封词封不住——封掉一个说法，模型换个词照填那个位置。所以：
+//   ① 心声也要进那张「别处已经出现过」的表（以前只收气泡，心声一层没管）
+//   ② 提示词封的是【那个位置】，不是某个词
+test("心声也进禁用表：几个人心里冒出同一个套路要被抓住", () => {
+  const i = app.indexOf("const CROSS_SAMENESS_WINDOW_MS");
+  const j = app.indexOf("  const ctxFor = (char, ctxOpts) =>");
+  const body = app.slice(i, j);
+  const mk = (ctx, hist) => new Function("chatsRef", "characters", "stateHistRef", body
+    + "\nreturn {crossSamenessHint, crossThoughtBlocklist};")(ctx, [], hist);
+  const now = Date.now();
+  const hist = { current: {
+    shen: [{ thought: "待会儿买完菜回去要捏她脸", ts: now - 3 * 60000 }],
+    pei: [{ thought: "回头非得捏一下她的脸不可", ts: now - 6 * 60000 }],
+    old: [{ thought: "这句太久了不该再算数", ts: now - 90 * 60000 }],
+    me: [{ thought: "本人自己的心声不该进自己的表", ts: now - 2 * 60000 }]
+  } };
+  const api = mk({ current: {} }, hist);
+  const got = api.crossThoughtBlocklist("me");
+  assert.ok(got.includes("待会儿买完菜回去要捏她脸"));
+  assert.ok(got.includes("回头非得捏一下她的脸不可"));
+  assert.ok(!got.some(x => /太久了/.test(x)), "半小时以外的不算");
+  assert.ok(!got.some(x => /本人自己/.test(x)), "自己的心声不进自己的表");
+  const hint = api.crossSamenessHint("me");
+  assert.match(hint, /【心声也别和别处重样】/);
+  assert.match(hint, /换个说法说同一件事也算重样/);
+});
+
+test("提示词封的是那个位置，不是某个词", () => {
+  assert.match(app, /心声可以没有结尾/);
+  assert.match(app, /不管那句是狠话还是甜话/, "甜话也算——否则封了收拾就换成捏脸");
+  assert.match(app, /收拾她／捏她脸／亲她一下／买点什么回去/, "把换过的那几个说法都点出来当例子");
+  assert.match(app, /那个【位置】本身就是旁白在结案/);
 });
