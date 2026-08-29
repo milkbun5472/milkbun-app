@@ -1303,7 +1303,98 @@ function PhoneCarry({
 }
 
 // 各 app 的推演任务
-function phoneProbeSpec(key, char, rel, actualWechat) {
+// ============================================================
+// 同一部手机不许复读（她 2026-08-29：「差不多同一时间刷新的话素材都差不多，
+// 就算功能不一样还是会说的大差不差的」）
+//
+// 病因在结构，不在哪个 app 的提示词写坏了：runProbe 给每个 app 发的
+// system 是【引擎前言 + buildBundle(ctx) + 这个 app 的 instruction】，
+// 而 buildBundle(ctx) 十二次逐字相同。同一份上下文喂十二遍，模型每次都会
+// 抓住其中最显眼的那件事（昨晚那场架、这趟出门），然后换十二种格式重讲一遍：
+// 备忘录里记它、搜索框里搜它、买的东西为它、听的歌为它、录音里叹它。
+//
+// 所以要两层一起上（规则降概率，代码才保证）：
+//   ① 代码层——把这轮别的 app 已经写出来的东西回喂给下一个，明确禁止重讲。
+//      这跟朋友圈那份【不许复读】和微信那份【真实会话避重】是同一个形状。
+//   ② 规则层——每个 app 除了输出格式，还要有自己的【取材层】和【时间窗】，
+//      让它们靠结构分开，而不是靠运气分开。
+// ============================================================
+
+// 每个 app 站的位置：他在这个 app 里是「对谁」的样子，以及往回捞多久。
+// 时间窗尤其重要——现在所有 app 默认都在写「这几天」，相册本该跨年、
+// 购物本该跨月，全挤在同一个窗口里，撞车是必然的。
+const PHONE_ANGLE = {
+  wechat: "【取材层】有别人在场时的他。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
+  notes: "【取材层】完全没人看的时候，他打字给自己的。清单、待办、半句话、气话、抄下来的一行字都行，不必是完整的想法，也不必每条都有情绪。【时间窗】这一两周。",
+  recordings: "【取材层】他说出口、但没打算给任何人听的。会有语气词、停顿、说到一半的句子——**只有打字打不出来、只能说出来的东西才会被录下来**，这是它和备忘录的分界。【时间窗】这一两周。",
+  calls: "【取材层】他和外面世界的例行往来：工作、家里、办事、推销、打错的。这里大部分是杂事，不是感情戏。【时间窗】这一周。",
+  browser: "【取材层】一个人闲着、脑子没在想正事的时候搜的东西。可以很无聊、很实用、很没道理，也可以是查一个当场想不起来的词。【时间窗】这几天。",
+  shopping: "【取材层】他花钱的方式。买了什么比想了什么更暴露人；日用、囤货、冲动、给别人买的，都算。【时间窗】这一个月。",
+  video: "【取材层】他消磨时间的口味，不是他的心事。【时间窗】这几天。",
+  video_day: "【取材层】他消磨时间的口味，不是他的心事。刷视频多半是没在想什么的时候。【时间窗】这几天。",
+  video_night: "【取材层】深夜、独自一人、没打算被任何人看见的欲望。【时间窗】这阵子。",
+  forum: "【取材层】匿名的他。在这里他敢说在别处不敢说的话。【时间窗】这几天。",
+  album: "【取材层】过去。**相册的主体不是这几天**，而是几个月到几年沉下来的东西：旧的人、去过的地方、早就结束的事。只有一两张属于最近。【时间窗】跨月跨年。",
+  music: "【取材层】情绪的形状，不是事件。歌单反映他这阵子整个人处在什么状态里，**不要一首歌对应一件具体的事**。【时间窗】这阵子。",
+  settings: "【取材层】纯数字，不承载情节。",
+  wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。"
+};
+
+// 从已存下来的各 app 数据里抽一行代表，喂给下一个 app 当【已经写过】清单。
+// 只抽标题/名字这一层，不抽正文——目的是让模型认出「这件事被人写过了」，
+// 不是把别的 app 的内容再塞一份进上下文（她按次计费，也按字数付钱）。
+const pArr = a => Array.isArray(a) ? a : [];
+const PHONE_DIGEST_PICK = {
+  wechat: d => pArr(d.chats).slice(0, 3).map(c => (c.name || "") + "：" + (c.last || ""))
+    .concat(pArr(d.moments).slice(0, 2).map(m => "朋友圈「" + String(m.content || "").slice(0, 30) + "」")),
+  notes: d => pArr(d.items).map(x => x.title),
+  calls: d => pArr(d.items).slice(0, 4).map(x => x.name),
+  browser: d => pArr(d.items).map(x => x.title),
+  shopping: d => pArr(d.items).map(x => x.name + (x.price ? " " + x.price : "")),
+  album: d => pArr(d.items).slice(0, 4).map(x => x.caption),
+  forum: d => pArr(d.items).map(x => x.title),
+  music: d => [d.playlist, d.desc].concat(pArr(d.songs).slice(0, 4).map(s => s.name)),
+  recordings: d => pArr(d.items).map(x => x.name),
+  video_day: d => pArr(d.items).map(x => x.title),
+  video_night: d => pArr(d.items).map(x => x.title),
+  settings: () => [],
+  wallet: () => []
+};
+
+// charData = phones[charId]，形如 { notes:{items,_at}, browser:{...}, ... }
+function phoneRoundDigest(charData, exceptKey, cap) {
+  const lines = [];
+  Object.keys(PHONE_DIGEST_PICK).forEach(k => {
+    if (k === exceptKey) return;
+    const d = charData && charData[k];
+    if (!d) return;
+    let picked = [];
+    try { picked = PHONE_DIGEST_PICK[k](d) || []; } catch (e) { picked = []; }
+    picked = picked.map(x => String(x || "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 4);
+    if (picked.length) lines.push("- " + (PHONE_LABEL[k] || (k === "video_day" ? "视频·白天" : k === "video_night" ? "视频·深夜" : k)) + "：" + picked.join("｜"));
+  });
+  const max = cap || 900;
+  const out = [];
+  let used = 0;
+  for (const l of lines) {
+    const s = l.length > 120 ? l.slice(0, 120) : l;
+    if (used + s.length > max) break;
+    out.push(s);
+    used += s.length;
+  }
+  return out;
+}
+
+function phoneAvoidBlock(lines) {
+  if (!lines || !lines.length) return "";
+  return "\n\n【同一部手机 · 不许复读】这轮他手机里别的 app 已经写了下面这些：\n" + lines.join("\n")
+    + "\n**换一件别的事写。**一个人的手机里不会所有 app 都在说同一件事——备忘录记的、搜索框里搜的、买的东西、听的歌，本来就来自他生活里互不相干的角落，"
+    + "很多东西跟你以为最重要的那件事根本没关系。\n"
+    + "上面已经出现过的事，这里【只能写它的侧面或后果】，绝不许重讲一遍：别处写了他在等一个消息，这里可以是他等的时候顺手买的东西，但不能又写一遍他在等。\n"
+    + "优先去写上面完全没提到的、属于他自己的另一条线：工作、家里、旧朋友、身体、钱、没做完的事、纯粹的无聊。";
+}
+
+function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
     wechat: {
@@ -1362,8 +1453,13 @@ function phoneProbeSpec(key, char, rel, actualWechat) {
       maxTokens: 3200
     }
   };
-  return S[key] || {
+  const spec = S[key] || {
     instruction: "推演内容",
     schemaHint: "{}"
   };
+  // 取材层 + 时间窗 + 不许复读：三样都拼在 instruction 上。
+  // 拼在这里而不是各 app 的 instruction 里，是为了【四处一样喂】——
+  // 新加一个 app 时不必记得手动补，漏不掉（.claude/rules/four-surfaces-same-context.md）。
+  const angle = PHONE_ANGLE[key] ? "\n\n" + PHONE_ANGLE[key] : "";
+  return { ...spec, instruction: spec.instruction + angle + phoneAvoidBlock(avoidLines) };
 }

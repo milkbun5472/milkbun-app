@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.43";
+const APP_VERSION = "v57.44";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9075,7 +9075,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       phoneApp: key
     }));
     try {
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : ""));
+      // 单个 app 重刷：拿手机里【已经存着的别的 app】当避重清单，
+      // 免得单独刷备忘录时又把微信里那件事重写一遍。
+      const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -9101,9 +9104,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 视频拆成白天/深夜两次；其余按 app 生成
     const keys = PHONE_APPS.filter(a => !a.soon).reduce((acc, a) => acc.concat(a.key === "video" ? ["video_day", "video_night"] : [a.key]), []);
     let ok = 0;
+    // 全刷是十二次串行调用，喂的 buildBundle 一字不差；不互相避重的话，
+    // 模型会抓住上下文里最显眼的那件事，换十二种格式重讲一遍
+    //（她 2026-08-29：「同一时间刷新素材都差不多，功能不一样还是说的大差不差」）。
+    // 这里边生成边攒清单往后传：第一个 app 定调，后面每个都被告知别人写过什么。
+    // 从空开始而不是从旧数据开始——全刷会把旧的全换掉，拿旧的避重等于避了个寂寞。
+    const fresh = {};
     for (const key of keys) {
       try {
-        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : ""));
+        const avoid = phoneRoundDigest(fresh, key);
+        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid));
+        fresh[key] = d;
         savePhoneApp(char.id, key, d);
         ok++;
       } catch (e) {/* 单个失败不中断其余 */}
