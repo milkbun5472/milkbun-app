@@ -74,6 +74,15 @@ test("来信排除 Lisa、彼此独立；采访可抽无素材角色但不得把
   assert.match(app, /characters: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\)/, "言秋不能进入普通角色周刊");
 });
 
+test("采访素材包含互通群完整上下文与可回流侧房，并把有素材钉成机械事实", () => {
+  const w = fs.readFileSync(path.join(__dirname, "../js/weekly.js"), "utf8");
+  assert.match(w, /room\.writeback && room\.writeback\.mainSummary/, "只允许可交接侧房进入周刊，隔离房不得外流");
+  assert.match(w, /ChatRooms\.chatKey\(c\.id, room\.id\)/, "侧房必须读取自己的独立聊天键");
+  assert.match(w, /participantIds\.forEach\(function \(id\) \{ pushPC\(id, ts, line\); \}\)/, "互通群的完整同场上下文应归入每位在场成员，而非只收本人台词");
+  assert.match(w, /【机械核验，不得推翻】本期采集器为 /, "提示词必须明示机械素材计数");
+  assert.match(w, /禁止写成没聊天、久未联系、被冷落或关系变淡/, "有素材时禁止模型改写为关系断联");
+});
+
 test("周刊素材兼容云账本 ISO 时间与旧备份时间字段", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   assert.match(w, /function messageTime\(m\)/, "素材窗口必须先归一化消息时间");

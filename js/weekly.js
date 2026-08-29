@@ -395,10 +395,31 @@
         pushPC(c.id, ts, line);       // 单聊两边都算这个角色的素材（含上下文）
         global.push({ ts: ts, line: line });
       });
+      // 侧房是独立的 x_chat:<person>::room::<roomId> 时间线。以前周刊只扫主房，
+      // 所以明明在「日常侧房 / 专注房」聊过，专访仍会误判成这周没见面。
+      // 只收允许给主房留交接的房间；隔离房仍严格留在本房，不向周刊外流。
+      if (typeof window !== "undefined" && window.ChatRooms && typeof window.ChatRooms.list === "function" && typeof window.ChatRooms.chatKey === "function") {
+        window.ChatRooms.list(c.id).filter(function (room) {
+          return room && !room.main && room.writeback && room.writeback.mainSummary;
+        }).forEach(function (room) {
+          loadJSON("x_chat:" + window.ChatRooms.chatKey(c.id, room.id), []).forEach(function (m) {
+            if (!inWin(m, win)) return;
+            const txt = cleanMsg(m); if (!txt) return;
+            const ts = messageTime(m);
+            const who = m.role === "user" ? uName : c.name;
+            const line = "【侧房·" + (room.name || "未命名") + "】" + who + "：" + txt;
+            pushPC(c.id, ts, line);
+            global.push({ ts: ts, line: line });
+          });
+        });
+      }
     });
     (groups || []).forEach(function (g) {
       // 封闭群（未开记忆互通）＝记忆不进也不出，绝不喂进周刊的任何版块（她点名）
       if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
+      const participantIds = (g.memberIds || []).map(String).filter(function (id) {
+        return (characters || []).some(function (c) { return String(c.id) === id; });
+      });
       loadJSON("x_gchat:" + g.id, []).forEach(function (m) {
         if (!inWin(m, win)) return;
         const txt = cleanMsg(m); if (!txt) return;
@@ -407,8 +428,11 @@
         if (m.role === "user") who = uName;
         else if (m.role === "narration") who = "旁白";
         else who = m.senderName || "某人";
-        global.push({ ts: ts, line: "【" + g.name + "】" + who + "：" + txt });
-        if (m.senderId && m.role !== "user" && m.role !== "narration") pushPC(m.senderId, ts, who + "：" + txt);
+        const line = "【" + g.name + "】" + who + "：" + txt;
+        global.push({ ts: ts, line: line });
+        // 专访需要的是「这个人在场的完整一段对话」，不是只摘 TA 自己的台词。
+        // 否则 Lisa 在群里明明和 TA 说过话，perChar 仍只剩零碎回答，模型就会误判没聊。
+        participantIds.forEach(function (id) { pushPC(id, ts, line); });
       });
     });
     global.sort(function (a, b) { return a.ts - b.ts; });
@@ -522,6 +546,7 @@
     const ownLines = ownVoiceLines(material, char.name);
     const uName = userName || "我";
     const persona = (char.persona || "（暂无设定，据名字合理发挥其性格）").trim();
+    const materialCount = String(material || "").split("\n").filter(function (x) { return x.trim(); }).length;
     const sys =
       ANTI_CLICHE +
       "\n\n" + CHARCARD_RULE +
@@ -533,6 +558,8 @@
         "\n这些是他本人的原话，用来校准词汇、句长、断句、口癖、攻击性与礼貌度。回答里不要整句照抄，但语感必须是同一个人；遮住名字也该认得出。" : "") +
       "\n【本周出场人物（人名铁律用）】" + char.name + "、" + uName + NAME_GUARD +
       "\n\n【本期报道窗口】" + (reportLabel || "上一完整周") + "。这里只描述本期采编取材范围，不等于角色最近一次聊天的日期。\n" +
+      "【机械核验，不得推翻】本期采集器为 " + char.name + " 收录了 " + materialCount + " 条上下文。" +
+      (materialCount ? "这明确表示本期窗口内有真实互动；禁止写成没聊天、久未联系、被冷落或关系变淡。\n" : "本期确实没有可引用片段，但也不能据此推断现实中的最近联系状态。\n") +
       "【本期收录到的 " + char.name + " 真实记录】\n" +
       (material && material.trim() ? material : "（本期报道窗口没有收录到可引用片段。这只表示本期缺稿；绝不等于最近没聊天、没人理他、关系变淡或久未联系。）") +
       "\n\n【任务 · 产出两块】\n" +
