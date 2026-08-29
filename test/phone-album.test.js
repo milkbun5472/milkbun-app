@@ -6,20 +6,31 @@ const path = require("node:path");
 const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
 
 test("相册是图库、精选集、收藏夹三页完整界面", () => {
-  assert.match(phone, /\["library", "▦", "图库"\]/);
-  assert.match(phone, /\["collections", "▣", "精选集"\]/);
-  assert.match(phone, /\["saved", "♡", "收藏夹"\]/);
+  assert.match(phone, /\["library", "图库"\]/);
+  assert.match(phone, /\["collections", "精选集"\]/);
+  assert.match(phone, /\["saved", "收藏夹"\]/);
+  assert.match(phone, /function AlbumNavIcon/);
   assert.match(phone, /appKey !== "wechat" && appKey !== "album"/);
 });
 
-test("精选集固定四类且二十张时每类机械保底四张", () => {
+test("精选集固定五类且二十五张时每类机械保底四张", () => {
+  assert.match(phone, /回忆/);
   assert.match(phone, /个人收藏/);
   assert.match(phone, /最近保存/);
   assert.match(phone, /私密/);
   assert.match(phone, /最近删除/);
-  assert.match(phone, /items\.length >= 16/);
+  assert.match(phone, /items\.length >= 20/);
   assert.match(phone, /buckets\[a\.key\]\.length < 4/);
-  assert.match(phone, /正好 20 张互不重复的照片/);
+  assert.match(phone, /正好 25 张互不重复的照片/);
+  assert.match(phone, /memory或favorite或saved或private或deleted/);
+  assert.match(phone, /scrollSnapType: "x mandatory"/);
+  assert.match(phone, /回忆与四本相簿/);
+});
+
+test("图库按真实年月分组且禁止相对星期日期", () => {
+  assert.match(phone, /m\[1\] \+ "年" \+ Number\(m\[2\]\) \+ "月"/);
+  assert.match(phone, /date 必须写真实完整日期 YYYY-MM-DD HH:mm/);
+  assert.match(phone, /禁止写周三、周五、昨天、最近等相对日期/);
 });
 
 test("照片详情含日期、画面介绍、单独想法框和收藏按钮", () => {
