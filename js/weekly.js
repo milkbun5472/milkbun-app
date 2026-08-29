@@ -315,8 +315,9 @@
     const current = reportWindow(now), weekKeys = {};
     const gset = loadJSON("x_groupSettings", {});
     function remember(m) {
-      if (!m || !m.ts || !cleanMsg(m) || m.ts >= current.start) return;
-      const shifted = new Date(m.ts);
+      const ts = messageTime(m);
+      if (!m || !Number.isFinite(ts) || !cleanMsg(m) || ts >= current.start) return;
+      const shifted = new Date(ts);
       shifted.setHours(shifted.getHours() - WEEKLY_REFRESH_HOUR);
       const monday = new Date(shifted);
       monday.setHours(WEEKLY_REFRESH_HOUR, 0, 0, 0);
@@ -362,7 +363,22 @@
     if (m.kind === "voice") c = "（语音）" + c;
     return c;
   }
-  function inWin(ts, win) { return ts != null && ts >= win.start && ts <= win.end; }
+  // 历史消息大多用毫秒时间戳；云账本/旧备份也可能留下 ISO 字符串或 created_at。
+  // 周刊若直接拿字符串和数字比较，会把真实聊过的整段静默漏掉。
+  function messageTime(m) {
+    if (m == null) return NaN;
+    const raw = typeof m === "object"
+      ? (m.ts != null ? m.ts : (m.createdAt != null ? m.createdAt : (m.created_at != null ? m.created_at :
+        (m.occurredAt != null ? m.occurredAt : (m.occurred_at != null ? m.occurred_at : m.timestamp)))))
+      : m;
+    if (typeof raw === "number") return Number.isFinite(raw) ? raw : NaN;
+    if (typeof raw === "string" && /^\d+(?:\.\d+)?$/.test(raw.trim())) {
+      const n = Number(raw); return Number.isFinite(n) ? n : NaN;
+    }
+    const parsed = Date.parse(raw);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  }
+  function inWin(ts, win) { const t = messageTime(ts); return Number.isFinite(t) && t >= win.start && t <= win.end; }
   // 返回 { perChar:{charId:[{ts,line}]}, global:[{ts,line}] }
   function weekMaterial(win, characters, groups, userName) {
     const uName = userName || "我";
@@ -371,26 +387,28 @@
     const pushPC = function (id, ts, line) { (perChar[id] = perChar[id] || []).push({ ts: ts, line: line }); };
     (characters || []).forEach(function (c) {
       loadJSON("x_chat:" + c.id, []).forEach(function (m) {
-        if (!inWin(m.ts, win)) return;
+        if (!inWin(m, win)) return;
         const txt = cleanMsg(m); if (!txt) return;
+        const ts = messageTime(m);
         const who = m.role === "user" ? uName : c.name;
         const line = who + "：" + txt;
-        pushPC(c.id, m.ts, line);       // 单聊两边都算这个角色的素材（含上下文）
-        global.push({ ts: m.ts, line: line });
+        pushPC(c.id, ts, line);       // 单聊两边都算这个角色的素材（含上下文）
+        global.push({ ts: ts, line: line });
       });
     });
     (groups || []).forEach(function (g) {
       // 封闭群（未开记忆互通）＝记忆不进也不出，绝不喂进周刊的任何版块（她点名）
       if (!(gset[g.id] && gset[g.id].memoryInterop)) return;
       loadJSON("x_gchat:" + g.id, []).forEach(function (m) {
-        if (!inWin(m.ts, win)) return;
+        if (!inWin(m, win)) return;
         const txt = cleanMsg(m); if (!txt) return;
+        const ts = messageTime(m);
         let who;
         if (m.role === "user") who = uName;
         else if (m.role === "narration") who = "旁白";
         else who = m.senderName || "某人";
-        global.push({ ts: m.ts, line: "【" + g.name + "】" + who + "：" + txt });
-        if (m.senderId && m.role !== "user" && m.role !== "narration") pushPC(m.senderId, m.ts, who + "：" + txt);
+        global.push({ ts: ts, line: "【" + g.name + "】" + who + "：" + txt });
+        if (m.senderId && m.role !== "user" && m.role !== "narration") pushPC(m.senderId, ts, who + "：" + txt);
       });
     });
     global.sort(function (a, b) { return a.ts - b.ts; });
@@ -500,7 +518,7 @@
       .filter(function (x) { return x.length >= 4 && x.length <= 60; })
       .slice(-10);
   }
-  async function genInterview(active, char, material, userName) {
+  async function genInterview(active, char, material, userName, reportLabel) {
     const ownLines = ownVoiceLines(material, char.name);
     const uName = userName || "我";
     const persona = (char.persona || "（暂无设定，据名字合理发挥其性格）").trim();
@@ -514,11 +532,14 @@
       (ownLines.length ? "\n\n【" + char.name + " 本周真实说过的话 · 声纹最高优先】\n" + ownLines.map(function (x, k) { return (k + 1) + ". " + x; }).join("\n") +
         "\n这些是他本人的原话，用来校准词汇、句长、断句、口癖、攻击性与礼貌度。回答里不要整句照抄，但语感必须是同一个人；遮住名字也该认得出。" : "") +
       "\n【本周出场人物（人名铁律用）】" + char.name + "、" + uName + NAME_GUARD +
-      "\n\n【本周 " + char.name + " 与「" + uName + "」及旁人相处的真实记录（采访与花边都只能就这里发生过的事来问、来爆，不得凭空捏造情节）】\n" +
-      (material && material.trim() ? material : "（本周几乎没有 " + char.name + " 的记录。）") +
+      "\n\n【本期报道窗口】" + (reportLabel || "上一完整周") + "。这里只描述本期采编取材范围，不等于角色最近一次聊天的日期。\n" +
+      "【本期收录到的 " + char.name + " 真实记录】\n" +
+      (material && material.trim() ? material : "（本期报道窗口没有收录到可引用片段。这只表示本期缺稿；绝不等于最近没聊天、没人理他、关系变淡或久未联系。）") +
       "\n\n【任务 · 产出两块】\n" +
       "① 专访：你作为一个真的想问出东西的记者，就本周记录做一段 4~6 轮 Q&A。采访必须像现场交锋，不是拿现成答案倒推一道送分题。\n" +
-      "· 先找记录里尚有解释空间的矛盾、代价、动机或关系变化再发问；问题只给必要背景，不许把答案、结论或角色原话先塞进题干。\n" +
+      "· 采访主题优先属于 " + char.name + " 自己：这一周的生活、工作/学业、兴趣、观察、烦恼、选择或怪念头。只有素材本身真的涉及关系时才可顺带追问，整篇绝不能默认围绕他和 " + uName + " 的关系。\n" +
+      "· 有记录时，先找记录里尚有解释空间的矛盾、代价或动机再发问；问题只给必要背景，不许把答案、结论或角色原话先塞进题干。\n" +
+      "· 没有记录时，做一篇不依赖具体事件的人物近况访谈：从角色自己的生活与兴趣切入。不得声称他这周没和 " + uName + " 聊、被冷落、感情淡了，也不得编造具体发生过的事。\n" +
       "· 问题要有递进：开场切入 → 追到一个具体关节 → 根据上一答追问或质疑。至少一问让对方不太好答；至少一问必须真正承接上一答，不能彼此独立。\n" +
       "· 记者可以判断错。" + char.name + " 可以纠正前提、回避、反问、拆台或拒答，不必配合记者把预设答案说完整。\n" +
       "· " + char.name + " 必须 IN CHARACTER 回答——语气／态度／软肋／口癖严格贴合角色卡；回答先像人在现场说话，再考虑信息完整，绝不滑成标准好人腔、客服腔或总结稿。\n" +
@@ -814,9 +835,9 @@
     const empty = mat.global.length === 0;
     const blocks = weekBlocks(mat.global); // 带编号的素材块：各版面轮流认领，认走的别人看不到
     const weekVoices = voicesForWeek(win.key, loadIssues(), win.start); // 每期三块，整池轮抽
-    // 没有本周素材的人不进自动采访池。以前为了“缺席也是新闻”把全员补进来，
-    // 结果模型会把明明聊过、但素材源没接到的人写成“感情淡了”。宁缺毋滥。
-    const interviewPool = charsWithMat.slice();
+    // 采访可以抽到本期没素材的人：这时采访 TA 自己的生活与兴趣，不能把编辑部缺稿
+    // 误写成“最近没聊天 / 感情淡了”。有无素材只改变提问依据，不改变入选资格。
+    const interviewPool = (characters || []).slice();
     const letterAuthors = letterPickFor(win.key, charsWithMat, loadIssues(), win.start);
     const total = 1 + Math.min(3, interviewPool.length) + weekVoices.length + 1; // +1 = 资料室(语录/数据/更正/中缝/来信合并为一次调用)
     let done = 0;
@@ -835,13 +856,13 @@
 
     // 采访版
     const entries = [];
-    // 只采访本周确实抓到素材的人；洗牌袋轮换，没抽中的仍可手动补。
+    // 全角色洗牌袋轮换；没素材者走人物近况访谈，没抽中的仍可手动补。
     const pickIds = interviewPickFor(win.key, interviewPool.map(function (c) { return c.id; }), loadIssues(), win.start);
     const picked = pickIds.map(function (id) { return interviewPool.find(function (c) { return c.id === id; }); }).filter(Boolean);
     for (const c of picked) {
       tick("采访 " + c.name);
       try {
-        const iv = await genInterview(active, c, linesToText(mat.perChar[c.id] || [], 4000), userName);
+        const iv = await genInterview(active, c, linesToText(mat.perChar[c.id] || [], 4000), userName, win.label);
         entries.push(Object.assign({ id: uid("iv"), charId: c.id, charName: c.name, auto: true }, iv));
       } catch (e) { /* 单角色硬失败就跳过，不拖垮整期 */ }
       done++;
@@ -1363,8 +1384,7 @@
       try {
         const mat = window.Weekly.weekMaterial(win, [char], props.groups || [], props.userName);
         const lines = mat.perChar[char.id] || [];
-        if (!lines.length) { props.toast(char.name + " 本周没有记录，采访不出来"); return; }
-        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(lines, 4000), props.userName);
+        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(lines, 4000), props.userName, win.label);
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (sec) {
             if (sec.type !== "interview") return sec;
@@ -1382,7 +1402,7 @@
       setBusyUnit(entry.id);
       try {
         const mat = window.Weekly.weekMaterial(win, [char], props.groups || [], props.userName);
-        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(mat.perChar[char.id], 4000), props.userName);
+        const fresh = await window.Weekly.genInterview(props.active, char, window.Weekly.linesToText(mat.perChar[char.id], 4000), props.userName, win.label);
         props.onPatch(issue.id, function (iss) {
           iss.sections = iss.sections.map(function (s) {
             if (s.type !== "interview") return s;

@@ -58,16 +58,28 @@ test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次",
   assert.match(w, /const total = 1 \+ Math\.min\(3, interviewPool\.length\) \+ weekVoices\.length \+ 1;/, "有足够角色时每期固定采访三人");
 });
 
-test("来信排除 Lisa、彼此独立并按角色轮换；采访只抽本周真有素材的人", () => {
+test("来信排除 Lisa、彼此独立；采访可抽无素材角色但不得把缺稿写成关系事实", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(w, /function letterPickFor\(/, "来信要有独立于采访的轮换袋");
   assert.match(w, /function normalizeLetters\(/, "模型署名必须经过机械白名单");
   assert.match(w, /用户「" \+ uName \+ "」不是写信人，绝不能替用户写信/, "Lisa 不能再被模型当固定第三封");
   assert.match(w, /不得回复、接续、纠正、引用或点评另一封信/, "来信不能再串成一问一答");
-  assert.match(w, /const interviewPool = charsWithMat\.slice\(\)/, "无素材角色不得被自动采访");
-  assert.doesNotMatch(w, /const interviewPool = charsWithMat\.concat/, "不能再拿全员给采访池补位");
+  assert.match(w, /const interviewPool = \(characters \|\| \[\]\)\.slice\(\)/, "采访池应包含全角色，无素材也能做人物近况采访");
+  assert.match(w, /这只表示本期缺稿；绝不等于最近没聊天、没人理他、关系变淡或久未联系/, "缺稿不能被模型升级成关系事实");
+  assert.match(w, /整篇绝不能默认围绕他和 /, "采访主题不能默认围绕 Lisa 与角色的关系");
+  assert.match(w, /没和 .* 聊、被冷落、感情淡了/, "无素材采访要有明确机械语义闸");
+  assert.doesNotMatch(w, /本周没有记录，采访不出来/, "手动补采访也必须允许无素材人物近况访谈");
+  assert.match(w, /genInterview\(props\.active, char,[^\n]*props\.userName, win\.label\)/, "补采访与重刷也要知道真实报道窗口，不能把本期误说成最近");
   assert.match(app, /characters: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\)/, "言秋不能进入普通角色周刊");
+});
+
+test("周刊素材兼容云账本 ISO 时间与旧备份时间字段", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  assert.match(w, /function messageTime\(m\)/, "素材窗口必须先归一化消息时间");
+  assert.match(w, /m\.occurred_at/, "CC/云账本时间字段不能漏");
+  assert.match(w, /Date\.parse\(raw\)/, "ISO 时间必须能进入报道窗口");
+  assert.match(w, /if \(!inWin\(m, win\)\) return;/, "采集必须使用完整消息做时间兼容");
 });
 
 test("来信洗牌袋走完整轮，署名白名单拒绝 Lisa、串信与重复作者", () => {
