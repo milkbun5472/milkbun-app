@@ -12,13 +12,15 @@ const phoneSrc = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "
 const appSrc = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 const P = new Function(phoneSrc + `
-  return { phoneRoundDigest, phoneAvoidBlock, phoneProbeSpec, PHONE_ANGLE, PHONE_APPS, PHONE_DIGEST_PICK };
+  return { phoneRoundDigest, phoneAvoidBlock, phoneProbeSpec, PHONE_ANGLE, PHONE_APPS, PHONE_DIGEST_PICK, PHONE_LIVE_KEYS };
 `)();
 
 const char = { id: "c1", name: "裴照川" };
 
 test("每个可查 App 都有自己的取材层和时间窗，没有一个漏网", () => {
-  const keys = P.PHONE_APPS.reduce((a, x) => a.concat(x.key === "video" ? ["video_day", "video_night"] : [x.key]), []);
+  // 接真数据的 app 不由模型生成，本来就没有取材层
+  const keys = P.PHONE_APPS.filter(x => P.PHONE_LIVE_KEYS.indexOf(x.key) < 0)
+    .reduce((a, x) => a.concat(x.key === "video" ? ["video_day", "video_night"] : [x.key]), []);
   keys.forEach(k => {
     assert.ok(P.PHONE_ANGLE[k], k + " 没有取材层");
     assert.match(P.PHONE_ANGLE[k], /【取材层】/);
@@ -46,12 +48,12 @@ test("phoneRoundDigest 从各 App 已存数据里抽出代表行", () => {
   const lines = P.phoneRoundDigest({
     notes: { items: [{ title: "买猫粮" }, { title: "别再等了" }] },
     browser: { items: [{ title: "失眠怎么办" }] },
-    music: { playlist: "深夜", desc: "睡不着", songs: [{ name: "如果没有你" }] }
+    recordings: { items: [{ name: "凌晨三点" }] }
   }, "shopping");
   const joined = lines.join("\n");
   assert.match(joined, /备忘录：买猫粮｜别再等了/);
   assert.match(joined, /浏览器：失眠怎么办/);
-  assert.match(joined, /音乐：深夜｜睡不着｜如果没有你/);
+  assert.match(joined, /录音：凌晨三点/);
 });
 
 test("正在生成的那个 App 自己不进避重清单", () => {
@@ -64,7 +66,7 @@ test("避重清单有字数上限，不会把整部手机塞进 prompt", () => {
   const lines = P.phoneRoundDigest({
     notes: long(), browser: long(), shopping: long(), forum: long(),
     recordings: long(), album: long(), video_day: long(), video_night: long()
-  }, "music");
+  }, "calls");
   const total = lines.join("\n").length;
   assert.ok(total <= 900, "避重清单 " + total + " 字，超了 900 上限");
   assert.ok(lines.length > 0, "上限不该把清单整个砍空");

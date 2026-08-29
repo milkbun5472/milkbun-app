@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.44";
+const APP_VERSION = "v57.45";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6328,7 +6328,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const gPersonaCap = groupPersonaBudget(members.filter(c => !c.npc).length);
       const memberDesc = members.map(c => {
         const ph = (phones || {})[c.id] || {};
-        const pn = ph.music && ph.music.songs && ph.music.songs.length ? "（TA 最近在听：" + ph.music.songs.slice(0, 4).map(s => s.name).join("、") + "，对上了能认出来）" : "";
+        // 原来读 phones[].music（查手机单独生成的那份），现在音乐接的是「一起听」
+        // 里归到他名下的真歌单——她点得动、也是同一份，不会两边对不上。
+        const _pl = (listenRef.current.playlists || []).find(x => x.charId === c.id);
+        const _pls = (_pl && _pl.songs) || [];
+        const pn = _pls.length ? "（TA 最近在听：" + _pls.slice(0, 4).map(s => s.title).join("、") + "，对上了能认出来）" : "";
         const st = statesRef.current[c.id] || {};
         const freshWearing = freshLiveStateValue(st, "wearing"), freshAction = freshLiveStateValue(st, "action");
         const live = gs.memoryInterop && (freshWearing || freshAction) ? "\n当前状态（只供后台保持连续，不写进聊天气泡）：" + [freshWearing && "穿着=" + freshWearing, freshAction && "上一动作=" + freshAction].filter(Boolean).join("；") : "";
@@ -9102,7 +9106,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       phoneApp: "__all__"
     }));
     // 视频拆成白天/深夜两次；其余按 app 生成
-    const keys = PHONE_APPS.filter(a => !a.soon).reduce((acc, a) => acc.concat(a.key === "video" ? ["video_day", "video_night"] : [a.key]), []);
+    // 论坛和音乐接的是真数据（真论坛 / 一起听那张歌单），不进生成队列：
+    // 全刷从此少两次调用，而且它们永远和 App 里那份是同一个东西。
+    const keys = PHONE_APPS.filter(a => !a.soon && PHONE_LIVE_KEYS.indexOf(a.key) < 0).reduce((acc, a) => acc.concat(a.key === "video" ? ["video_day", "video_night"] : [a.key]), []);
     let ok = 0;
     // 全刷是十二次串行调用，喂的 buildBundle 一字不差；不互相避重的话，
     // 模型会抓住上下文里最显眼的那件事，换十二种格式重讲一遍
@@ -9446,6 +9452,43 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return { authorType: "character", authorName: char.name, authorHandle: m.handle };
   };
   const isForumCharAuthor = x => !!(x && String(x.authorType || "").startsWith("character"));
+  // 查手机 · 论坛：接【真论坛】，不再另生成一份光有标题的假货（她 2026-08-29）。
+  // 论坛界面里她只看得见「匿名用户」和一个不认识的小号——哪些是他发的，
+  // 只有翻他手机才知道。所以三个账号一起打包摆过去：查手机就是面具掉下来的地方。
+  const phoneForumFor = char => {
+    if (!char) return null;
+    const meta = charForumMeta(char);
+    const posts = forumPostsRef.current || [], cmts = forumCommentsRef.current || {};
+    const meName = profile.name || "我";
+    const clean = x => String(x || "").replace(/\s+/g, " ").trim();
+    const packReply = r => ({ name: r.authorType === "me" ? meName : (r.authorName || "网友"), text: clean(r.content).slice(0, 160), mine: r.authorType === "me", ts: r.ts || 0 });
+    const packPost = p => {
+      const fl = cmts[p.id] || [];
+      const flat = [];
+      let total = 0;
+      fl.forEach(f => { total++; flat.push(packReply(f)); (f.replies || []).forEach(r => { total++; flat.push(packReply(r)); }); });
+      return { id: p.id, board: p.board, title: clean(p.title), body: String(p.body || ""), ts: p.ts || 0, replyCount: total, replies: flat.sort((a, b) => a.ts - b.ts).slice(0, 10) };
+    };
+    // 他在【别人】帖子底下留的话——这一层比帖子更暴露人，单独给一栏
+    const saidUnder = type => {
+      const out = [];
+      posts.forEach(p => {
+        if (p.authorId === char.id && isForumCharAuthor(p)) return;
+        const row = (f, back) => ({ postId: p.id, postTitle: clean(p.title), board: p.board, text: clean(f.content).slice(0, 220), ts: f.ts || 0, backCount: back });
+        (cmts[p.id] || []).forEach(f => {
+          if (f.authorId === char.id && f.authorType === type) out.push(row(f, (f.replies || []).length));
+          (f.replies || []).forEach(r => { if (r.authorId === char.id && r.authorType === type) out.push(row(r, 0)); });
+        });
+      });
+      return out.sort((a, b) => b.ts - a.ts).slice(0, 20);
+    };
+    const by = type => posts.filter(p => p && p.authorId === char.id && p.authorType === type).sort((a, b) => b.ts - a.ts).map(packPost);
+    return [
+      { key: "main", label: "大号", name: meta.handle, handle: "@" + meta.handle, bio: meta.bio, followers: meta.followers, following: meta.following, joinTs: meta.joinTs, posts: by("character"), comments: saidUnder("character") },
+      { key: "alt", label: "小号", name: meta.altName, handle: "@" + meta.altHandle, bio: meta.altBio, followers: meta.altFollowers, following: meta.altFollowing, joinTs: meta.altJoinTs, posts: by("character_alt"), comments: saidUnder("character_alt") },
+      { key: "anon", label: "匿名", name: "匿名用户", handle: "@anonymous", bio: "不署名才敢说的话。论坛里没有一个人知道这些是他发的。", posts: by("character_anon"), comments: saidUnder("character_anon") }
+    ];
+  };
   // runProbe 简单重试：单次结构化内容偶尔截断/解析失败，重试一次
   const runProbeRetry = async (p, ctx, probe) => { try { return await runProbe(p, ctx, probe); } catch (e) { return await runProbe(p, ctx, probe); } };
   // 写入帖子并对该版块做 NPC 硬上限清理（删最旧 NPC 帖，角色帖免疫）
@@ -11230,46 +11273,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const parseWants = rec => {
         let raw = rec && Array.isArray(rec.songs) ? rec.songs : Array.isArray(rec) ? rec : (rec && (rec.list || rec.data || rec.result || rec.tracks)) || [];
         return (Array.isArray(raw) ? raw : []).map(w => {
-          if (typeof w === "string") { const parts = w.replace(/^\d+[.、)\s]+/, "").split(/\s*[-–—/]\s*/); return { title: (parts[0] || "").replace(/^《|》$/g, "").trim(), artist: (parts[1] || "").trim() }; }
-          return { title: String((w && (w.title || w.name || w.song)) || "").trim(), artist: String((w && (w.artist || w.singer || w.by)) || "").trim() };
+          if (typeof w === "string") { const parts = w.replace(/^\d+[.、)\s]+/, "").split(/\s*[-–—/]\s*/); return { title: (parts[0] || "").replace(/^《|》$/g, "").trim(), artist: (parts[1] || "").trim(), note: "" }; }
+          return {
+            title: String((w && (w.title || w.name || w.song)) || "").trim(),
+            artist: String((w && (w.artist || w.singer || w.by)) || "").trim(),
+            // 心境：这首歌对 TA 意味着什么（她 2026-08-29 点名，查手机的音乐页看得到）
+            note: String((w && (w.note || w.thought || w.why || w.mood)) || "").replace(/\s+/g, " ").trim().slice(0, 60)
+          };
         }).filter(s => s.title);
       };
       const probeOnce = async nudge => {
         try {
           const rec = await runProbe(active, cleanCtx, {
-            instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **15 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组要尽量凑满 15 个元素。**" + avoidStr + (nudge || "") + " 只给歌，别写解释别写序号。",
-            schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\"}]}（songs 尽量给 15 个元素）", maxTokens: 2200
+            instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n每首还要写一句 note：**你什么时候会循环这一首、循环的时候你是什么状态**。第一人称，一句话二十来字，落在一个具体的场景或身体感觉上（在哪、在干嘛、几点、心里在想什么）。不要乐评腔，不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话；换个角色就说得通的 note 就是写坏了。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
+            schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\",\"note\":\"第一人称一句：什么时候循环它、那时你什么状态\"}]}（songs 必须 18 个元素）", maxTokens: 3600
           });
           return parseWants(rec);
         } catch (e) { return []; }
       };
-      // 多要一些候选（网易云搜不到会掉一部分），不够就再刷一两轮凑
-      let wants = await probeOnce("");
-      let tries = 0;
-      while (wants.length < 12 && tries < 2) {
-        tries++;
-        const more = await probeOnce("上次给少了，这次再多给一些不一样的歌，把 15 首凑够。");
-        const seen = new Set(wants.map(s => s.title));
-        more.forEach(s => { if (s.title && !seen.has(s.title)) { seen.add(s.title); wants.push(s); } });
-      }
-      wants = wants.slice(0, 18);
-      if (!wants.length) { toast("没生成出歌，重试下"); return; }
       const searchOne = async kw => {
         try { const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(kw) + "&limit=1&timestamp=" + Date.now()); const d = await r.json(); return (d && d.result && d.result.songs && d.result.songs[0]) || null; } catch (e) { return null; }
       };
-      const added = [];
-      for (const w of wants) {
-        if (added.length >= 14) break;
-        let hit = await searchOne((w.title + " " + (w.artist || "")).trim());
-        if (!hit) hit = await searchOne(w.title); // 带歌手搜不到 → 只用歌名再试
-        if (!hit) continue;
-        const nid = String(hit.id);
-        if (added.some(a => a.neteaseId === nid) || existingIds.has(nid)) continue; // 跳过本轮重复 + 歌单里已有的
-        const cover = ((hit.album || hit.al || {}).picUrl) || null;
-        const artist = (hit.artists || hit.ar || []).map(a => a.name).filter(Boolean).join(" / ") || (w.artist || "");
-        added.push({ id: "sg_" + Date.now() + "_" + nid, source: "netease", neteaseId: nid, title: hit.name || w.title, artist, cover, ts: Date.now() });
+      // 【为什么以前刷不到最低数】（她 2026-08-29：「以前根本刷不到要求的最低数」）
+      // 旧逻辑的重试条件是【模型给了几个候选】（wants.length < 12），可她看到的是
+      // 【最后真进歌单几首】。候选到入库中间还要过两道漏斗：网易云搜不到的直接丢、
+      // 歌单里已经有的跳过。模型老老实实给了 15 个候选、循环立刻满足退出，
+      // 结果搜没搜到、重没重复一概不管，最后进去六七首也照样收工。
+      // 现在改成【按结果重试】：不够就再要一轮，且只搜没试过的候选。
+      const TARGET = 12, HARD_CAP = 16, MAX_ROUNDS = 3;
+      const wants = [], added = [];
+      const seenTitle = new Set(), tried = new Set();
+      let miss = 0, dup = 0;
+      for (let round = 1; round <= MAX_ROUNDS && added.length < TARGET; round++) {
+        const got = await probeOnce(round === 1 ? "" : "\n【上一轮只凑到 " + added.length + " 首】其中有些歌搜不到、有些和已有的重了。这轮换一批【更好搜、更主流平台上确实有】的歌，别再给上面那些。");
+        got.forEach(w => { const k = w.title.toLowerCase(); if (!seenTitle.has(k)) { seenTitle.add(k); wants.push(w); } });
+        for (const w of wants) {
+          if (added.length >= HARD_CAP) break;
+          const k = w.title.toLowerCase();
+          if (tried.has(k)) continue;
+          tried.add(k);
+          let hit = await searchOne((w.title + " " + (w.artist || "")).trim());
+          if (!hit) hit = await searchOne(w.title); // 带歌手搜不到 → 只用歌名再试
+          if (!hit) { miss++; continue; }
+          const nid = String(hit.id);
+          if (added.some(a => a.neteaseId === nid) || existingIds.has(nid)) { dup++; continue; } // 跳过本轮重复 + 歌单里已有的
+          const cover = ((hit.album || hit.al || {}).picUrl) || null;
+          const artist = (hit.artists || hit.ar || []).map(a => a.name).filter(Boolean).join(" / ") || (w.artist || "");
+          added.push({ id: "sg_" + Date.now() + "_" + nid, source: "netease", neteaseId: nid, title: hit.name || w.title, artist, cover, note: w.note || "", ts: Date.now() });
+        }
       }
-      if (!added.length) { toast("网易云没搜到这些歌（换个接口或稍后再试）"); return; }
+      if (!wants.length) { toast("没生成出歌，重试下"); return; }
+      if (!added.length) { toast("这轮 " + wants.length + " 首网易云一首都没搜到（换个接口或稍后再试）"); return; }
       // 往已有歌单里【追加】新歌、按 neteaseId + 歌名歌手去重；没有就新建
       let freshCount = 0;
       saveListen(p => {
@@ -11286,8 +11340,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         freshCount = added.length;
         return { ...p, playlists: [{ id: "pl_" + Date.now(), name: char.name + "的歌单", charId: char.id, cover: added[0].cover || null, songs: added, ts: Date.now() }, ...pls] };
       });
-      if (!existingSongs.length) toast(char.name + " 的歌单好了 · " + added.length + " 首");
-      else if (freshCount) toast("给 " + char.name + " 的歌单又添了 " + freshCount + " 首" + (added.length - freshCount > 0 ? "（跳过 " + (added.length - freshCount) + " 首重复）" : ""));
+      // 没凑够就明说没凑够、以及卡在哪一道（搜不到 / 已经有了），
+      // 别报一个「好了」让她以为这就是全部（版本号铁律 0 的同一条：只报真实发生的事）
+      const shortNote = added.length < TARGET
+        ? "（只凑到 " + added.length + " 首" + [miss ? "网易云搜不到 " + miss + " 首" : "", dup ? "重复 " + dup + " 首" : ""].filter(Boolean).map(x => "，" + x).join("") + "，再点一次可以继续加）"
+        : "";
+      if (!existingSongs.length) toast(char.name + " 的歌单好了 · " + added.length + " 首" + shortNote);
+      else if (freshCount) toast("给 " + char.name + " 的歌单又添了 " + freshCount + " 首" + (added.length - freshCount > 0 ? "（跳过 " + (added.length - freshCount) + " 首重复）" : shortNote));
       else toast("这轮推的歌都已经在歌单里了，没新增");
     } catch (e) { toast("生成失败：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, charPlaylist: null })); }
@@ -12343,7 +12402,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onGenApp: genPhoneApp,
     onGenAll: genPhoneAll,
     profile: profile,
-    actualWechatFor: phoneWechatActual
+    actualWechatFor: phoneWechatActual,
+    forumAccountsFor: phoneForumFor,
+    playlistFor: cid => (listen.playlists || []).find(x => x.charId === cid) || null,
+    onGenPlaylist: genCharPlaylist,
+    playlistBusyId: gen.charPlaylist,
+    onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); }
   });else if (screen === "carry") body = h(Carry, {
     characters: liveChars,
     carry: carry,

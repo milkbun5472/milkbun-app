@@ -36,6 +36,12 @@ const PHONE_APPS = [{
   zh: "视频"
 }];
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
+// 接真数据的 app：不调模型、不存进 phones，直接读 App 里那份真的。
+// 论坛读 x_forumPosts（他真发过的帖，连小号和匿名一起），
+// 音乐读「一起听」里归到他名下的那张歌单（点开就能放）。
+// 以前这两个各自另生成一份，等于同一个人有两套互不相干的论坛痕迹和歌单，
+// 而且手机里那份点不动、也不会因为他真去发帖而变。
+const PHONE_LIVE_KEYS = ["forum", "music"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
@@ -655,77 +661,94 @@ function renderPhoneModule(key, d, ctx) {
     color: t.line
   })))));
   if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
-  if (key === "forum") return wrap(arr(d.items).map((it, i) => h("div", {
-    key: i,
-    className: "py-3.5",
-    style: line
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink,
-      lineHeight: 1.4
-    }
-  }, it.title), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: t.fog,
-      marginTop: 4
-    }
-  }, it.time))));
-  if (key === "music") return h("div", {
-    style: {
-      animation: "fadeUp .3s ease both"
-    }
-  }, h("div", {
-    className: "mb-5"
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 22,
-      color: t.ink
-    }
-  }, d.playlist || "歌单"), d.desc && h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.fog,
-      marginTop: 4
-    }
-  }, d.desc)), arr(d.songs).map((s, i) => h("div", {
-    key: i,
-    className: "py-2.5 flex items-center gap-3",
-    style: {
-      borderTop: `1px solid ${t.line}`
-    }
-  }, h("span", {
-    style: {
-      fontFamily: "'Archivo',sans-serif",
-      fontSize: 11,
-      color: t.fog,
-      width: 20
-    }
-  }, String(i + 1).padStart(2, "0")), h(PGlyph, {
-    k: "music",
-    size: 15,
-    color: t.fog
-  }), h("div", {
-    className: "flex-1 min-w-0"
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 14,
-      color: t.ink
-    }
-  }, s.name), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog,
-      marginTop: 1
-    }
-  }, s.artist)))));
+  // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
+  // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
+  // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
+  if (key === "forum") {
+    const accounts = arr(ctx.forumAccounts);
+    if (!accounts.length) return h(Empty, { text: "论坛还没有他的痕迹", sub: "等他去论坛发帖或回帖之后再来翻" });
+    const acc = accounts.find(a => a.key === ctx.forumTab) || accounts[0];
+    const fmtTs = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+    const tabs = h("div", { className: "flex gap-2 mb-4" }, accounts.map(a => h("button", {
+      key: a.key,
+      onClick: () => ctx.setForumTab && ctx.setForumTab(a.key),
+      className: "active:opacity-60",
+      style: {
+        fontFamily: F_BODY, fontSize: 12, padding: "5px 13px", borderRadius: 999,
+        border: "1px solid " + (a.key === acc.key ? t.ink : t.line),
+        background: a.key === acc.key ? t.ink : "transparent",
+        color: a.key === acc.key ? t.bg : t.sub
+      }
+    }, a.label + " · " + ((a.posts || []).length + (a.comments || []).length))));
+    const head = h("div", { className: "mb-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, acc.name || "—"),
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, marginTop: 3 } }, acc.handle || ""),
+      acc.bio && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 7, lineHeight: 1.5 } }, acc.bio),
+      (acc.followers != null || acc.joinTs) && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } },
+        [acc.followers != null ? acc.followers + " 关注者" : "", acc.following != null ? "关注 " + acc.following : "", acc.joinTs ? fmtTs(acc.joinTs).slice(0, -6) + " 注册" : ""].filter(Boolean).join(" · ")));
+    const postRow = (it, i) => h("button", {
+      key: "p" + i,
+      onClick: () => setSheet(h("div", null,
+        h(Eyebrow, { style: { marginBottom: 10 } }, (it.board || "论坛") + " · " + fmtTs(it.ts)),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.35 } }, it.title),
+        it.body && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 12, lineHeight: 1.75, whiteSpace: "pre-wrap" } }, it.body),
+        arr(it.replies).length ? h("div", { className: "mt-5" },
+          h(Eyebrow, { style: { marginBottom: 8 } }, "楼下 " + it.replyCount + " 条"),
+          arr(it.replies).map((r, j) => h("div", { key: j, className: "py-2", style: { borderTop: "1px solid " + t.line } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: r.mine ? t.accent : t.fog } }, r.name + "："),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, r.text)))) : null)),
+      className: "w-full text-left py-3.5 active:opacity-60",
+      style: line
+    }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.4 } }, it.title),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } },
+      [it.board, fmtTs(it.ts), it.replyCount ? it.replyCount + " 条回复" : "还没人回"].filter(Boolean).join(" · ")));
+    const cmtRow = (it, i) => h("div", { key: "c" + i, className: "py-3.5", style: line },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.65 } }, it.text),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } },
+        "在「" + it.postTitle.slice(0, 18) + "」下 · " + fmtTs(it.ts) + (it.backCount ? " · 有 " + it.backCount + " 人回他" : "")));
+    const posts = arr(acc.posts), cmts = arr(acc.comments);
+    return h("div", { style: { animation: "fadeUp .3s ease both" } }, tabs, head,
+      posts.length ? h("div", { className: "mb-6" }, h(Eyebrow, { style: { marginBottom: 4 } }, "发过的帖"), posts.map(postRow)) : null,
+      cmts.length ? h("div", null, h(Eyebrow, { style: { marginBottom: 4 } }, "在别人楼下说的话"), cmts.map(cmtRow)) : null,
+      (!posts.length && !cmts.length) ? h(Empty, { text: "这个号还是空的", sub: acc.key === "anon" ? "他还没用匿名发过什么" : "他还没用这个号露过面" }) : null);
+  }
+  // ── 音乐：接【一起听】里那张真歌单 ──
+  // 以前这儿单独生成一份，于是同一个人有两张互不相干的歌单，
+  // 手机里这张还点不动。现在读同一份数据，点开就能放，并且每首带他自己的心境。
+  if (key === "music") {
+    const pl = ctx.playlist;
+    const songs = arr(pl && pl.songs);
+    if (!songs.length) return h("div", { className: "py-6" }, h(Empty, {
+      text: "他还没有歌单",
+      sub: "「一起听」里给他生成一张，这里就能看到"
+    }), h("button", {
+      onClick: () => ctx.onGenPlaylist && ctx.onGenPlaylist(),
+      disabled: !!ctx.playlistBusy,
+      className: "w-full mt-4 py-3 active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: ctx.playlistBusy ? .5 : 1 }
+    }, ctx.playlistBusy ? "正在想他会听什么…" : "给他生成一张"));
+    return h("div", { style: { animation: "fadeUp .3s ease both" } },
+      h("div", { className: "mb-5" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, pl.name || "歌单"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, songs.length + " 首 · 和「一起听」里是同一张")),
+      songs.map((s, i) => {
+        const note = String(s.note || "").trim();
+        return h("button", {
+          key: s.id || i,
+          onClick: () => ctx.onPlaySong && ctx.onPlaySong(s),
+          className: "w-full text-left py-2.5 flex items-start gap-3 active:opacity-60",
+          style: { borderTop: `1px solid ${t.line}` }
+        }, h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, width: 20, paddingTop: 3 } }, String(i + 1).padStart(2, "0")),
+        s.cover
+          ? h("img", { src: s.cover, alt: "", style: { width: 34, height: 34, borderRadius: 6, objectFit: "cover", flexShrink: 0 } })
+          : h("div", { style: { width: 34, height: 34, borderRadius: 6, background: t.bg2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "music", size: 15, color: t.fog })),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, s.title),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, s.artist),
+          // 心境：他为什么会循环这一首（她 2026-08-29 点名要在查手机这边看得到）
+          note && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.6, paddingLeft: 8, borderLeft: "2px solid " + t.line } }, note)));
+      }));
+  }
   if (key === "settings") {
     const apps = arr(d.apps),
       mins = apps.map(a => parseMins(a.time)),
@@ -972,7 +995,8 @@ function PhoneApp({
   onGen,
   onBack,
   profile,
-  actualWechat
+  actualWechat,
+  live
 }) {
   const t = useTheme();
   const [sheet, setSheet] = useState(null);
@@ -982,9 +1006,11 @@ function PhoneApp({
   const data = appKey === "wechat" && rawData ? { ...rawData, actualChats: actualWechat || [] } : rawData;
   const loading = busyKey === appKey;
   const isVideo = appKey === "video";
+  const isLive = PHONE_LIVE_KEYS.indexOf(appKey) >= 0;
+  const [forumTab, setForumTab] = useState("main");
   // 打开非视频版块：直接生成，失败退回上一级（不再显示中间的「生成」页）
   useEffect(() => {
-    if (isVideo || charData[appKey]) return;
+    if (isVideo || isLive || charData[appKey]) return;
     let alive = true;
     Promise.resolve(onGen(char, appKey)).then(ok => { if (alive && ok === false) onBack(); });
     return () => { alive = false; };
@@ -1047,9 +1073,13 @@ function PhoneApp({
     profile,
     onBack,
     onRefresh: () => onGen(char, appKey),
-    refreshing: !!busyKey
+    refreshing: !!busyKey,
+    forumTab,
+    setForumTab,
+    ...(live || {})
   });
-  const refreshKey = isVideo ? vtab ? "video_" + vtab : null : appKey;
+  // 接真数据的 app 没有「重刷」这回事——它跟着他真去论坛发帖、真加歌单在变。
+  const refreshKey = isLive ? null : isVideo ? vtab ? "video_" + vtab : null : appKey;
   return h("div", {
     className: "h-full flex flex-col",
     style: {
@@ -1086,7 +1116,12 @@ function PhoneCarry({
   onGenApp,
   onGenAll,
   profile,
-  actualWechatFor
+  actualWechatFor,
+  forumAccountsFor,
+  playlistFor,
+  onGenPlaylist,
+  playlistBusyId,
+  onPlaySong
 }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
@@ -1137,7 +1172,21 @@ function PhoneCarry({
               h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "›")))))));
   }
   const data = phones[char.id] || {};
-  const hasData = a => a.key === "video" ? data.video_day || data.video_night : data[a.key];
+  // 真数据这两个不看 phones，看 App 里那份真的
+  const liveForum = forumAccountsFor ? forumAccountsFor(char) : null;
+  const livePlaylist = playlistFor ? playlistFor(char.id) : null;
+  const liveCtx = {
+    forumAccounts: liveForum,
+    playlist: livePlaylist,
+    onGenPlaylist: () => onGenPlaylist && onGenPlaylist(char),
+    playlistBusy: playlistBusyId === char.id,
+    onPlaySong: s => onPlaySong && onPlaySong(s)
+  };
+  const liveCount = k => k === "forum"
+    ? (liveForum || []).reduce((n, a) => n + (a.posts || []).length + (a.comments || []).length, 0)
+    : ((livePlaylist && livePlaylist.songs) || []).length;
+  const hasData = a => PHONE_LIVE_KEYS.indexOf(a.key) >= 0 ? liveCount(a.key) > 0
+    : a.key === "video" ? data.video_day || data.video_night : data[a.key];
   const appByKey = k => PHONE_APPS.find(a => a.key === k);
   const openApp = a => {
     if (!a || a.soon) return;
@@ -1184,6 +1233,7 @@ function PhoneCarry({
     onGen: onGenApp,
     profile,
     actualWechat: actualWechatFor ? actualWechatFor(char) : [],
+    live: liveCtx,
     onBack: () => setOpen(null)
   });
   const wall = strColor(char.id || char.name);
@@ -1192,8 +1242,16 @@ function PhoneCarry({
   const widgetCopy = key => {
     const fallback = {
       wechat: "点开看看最近和谁说过话", notes: "最近没有留下新备忘", browser: "最近没有浏览记录",
-      music: "还没有播放记录", album: "相册还没翻过", video: "最近没有观看记录"
+      music: "他还没有歌单", album: "相册还没翻过", video: "最近没有观看记录",
+      forum: "论坛上还没有他的痕迹"
     }[key] || "还没有内容";
+    // 真数据这两个走自己那份，不然桌面小组件永远显示兜底话
+    if (key === "music") { const sg = ((livePlaylist && livePlaylist.songs) || [])[0]; return sg ? (livePlaylist.name || "歌单") + " · " + sg.title : fallback; }
+    if (key === "forum") {
+      const all = (liveForum || []).reduce((a, x) => a.concat((x.posts || []).map(p => ({ ts: p.ts, s: p.title })), (x.comments || []).map(c => ({ ts: c.ts, s: c.text }))), []);
+      const last = all.sort((a, b) => b.ts - a.ts)[0];
+      return last ? String(last.s || "").slice(0, 40) : fallback;
+    }
     return latestLine(widgetData(key), fallback);
   };
   const deskWidget = spec => {
@@ -1333,9 +1391,7 @@ const PHONE_ANGLE = {
   video: "【取材层】他消磨时间的口味，不是他的心事。【时间窗】这几天。",
   video_day: "【取材层】他消磨时间的口味，不是他的心事。刷视频多半是没在想什么的时候。【时间窗】这几天。",
   video_night: "【取材层】深夜、独自一人、没打算被任何人看见的欲望。【时间窗】这阵子。",
-  forum: "【取材层】匿名的他。在这里他敢说在别处不敢说的话。【时间窗】这几天。",
   album: "【取材层】过去。**相册的主体不是这几天**，而是几个月到几年沉下来的东西：旧的人、去过的地方、早就结束的事。只有一两张属于最近。【时间窗】跨月跨年。",
-  music: "【取材层】情绪的形状，不是事件。歌单反映他这阵子整个人处在什么状态里，**不要一首歌对应一件具体的事**。【时间窗】这阵子。",
   settings: "【取材层】纯数字，不承载情节。",
   wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。"
 };
@@ -1352,8 +1408,6 @@ const PHONE_DIGEST_PICK = {
   browser: d => pArr(d.items).map(x => x.title),
   shopping: d => pArr(d.items).map(x => x.name + (x.price ? " " + x.price : "")),
   album: d => pArr(d.items).slice(0, 4).map(x => x.caption),
-  forum: d => pArr(d.items).map(x => x.title),
-  music: d => [d.playlist, d.desc].concat(pArr(d.songs).slice(0, 4).map(s => s.name)),
   recordings: d => pArr(d.items).map(x => x.name),
   video_day: d => pArr(d.items).map(x => x.title),
   video_night: d => pArr(d.items).map(x => x.title),
@@ -1422,14 +1476,6 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       instruction: "推演「" + char.name + "」手机相册里正好 25 张互不重复的照片。时间跨度要自然；date 必须写真实完整日期 YYYY-MM-DD HH:mm，必须带年份，禁止写周三、周五、昨天、最近等相对日期。每张分进且只分进五类之一：回忆(memory)、个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张、不必平均。memory 是 TA 真正会反复翻看的重要瞬间，不是普通随手拍。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
       schemaHint: "{\"items\":[{\"id\":\"p01\",\"caption\":\"很短的标题\",\"date\":\"2026-08-28 18:42\",\"category\":\"memory或favorite或saved或private或deleted\",\"desc\":\"照片实际画面描述\",\"thought\":\"TA对此的私人想法\"}]}",
       maxTokens: 12000
-    },
-    forum: {
-      instruction: "推演「" + char.name + "」最近在论坛发的帖子标题（3-5 条）和时间，受最近对话与心情影响。只要标题，不需要正文。",
-      schemaHint: "{\"items\":[{\"title\":\"帖子标题\",\"time\":\"2小时前\"}]}"
-    },
-    music: {
-      instruction: "根据「" + char.name + "」的性格取一个歌单名，列出歌单里的歌（5-8 首）。必须是真实存在的歌，给出真实歌名和歌手，不要编造。",
-      schemaHint: "{\"playlist\":\"歌单名\",\"desc\":\"一句话描述\",\"songs\":[{\"name\":\"歌名\",\"artist\":\"歌手\"}]}"
     },
     settings: {
       instruction: "推演「" + char.name + "」的屏幕使用时间，像 iOS：日均总时长，以及各 App 单独的使用时长（5-7 个，从多到少）。贴合性格。",
