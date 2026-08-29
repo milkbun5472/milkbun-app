@@ -369,6 +369,24 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing }) {
   const [tab, setTab] = useState("collections");
   const [opened, setOpened] = useState(null);
   const [photo, setPhoto] = useState(null);
+  const scrollRef = useRef(null);
+  const returnScroll = useRef({ top: 0, pending: false });
+  const openPhoto = p => {
+    returnScroll.current = { top: scrollRef.current ? scrollRef.current.scrollTop : 0, pending: false };
+    setPhoto(p);
+  };
+  const closePhoto = () => {
+    returnScroll.current.pending = true;
+    setPhoto(null);
+  };
+  useEffect(() => {
+    if (photo || !returnScroll.current.pending) return;
+    const top = returnScroll.current.top;
+    returnScroll.current.pending = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = top;
+    }));
+  }, [photo, opened, tab]);
   const arr = a => a || [];
   const albums = [
     { key: "memory", label: "回忆" },
@@ -429,7 +447,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing }) {
         h("span", { style: { position: "absolute", width: "46%", height: "70%", borderRadius: "46% 54% 30% 70%", right: `${-8 + (seed >> 5) % 20}%`, bottom: "-12%", background: "rgba(18,18,24,.28)", transform: `rotate(${seed % 28 - 14}deg)` } }),
         h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, it.caption || "照片")));
   };
-  const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, onClick: () => setPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
+  const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, onClick: () => openPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
     isSaved(it) ? h("span", { style: { position: "absolute", top: 6, right: 6, width: 23, height: 23, borderRadius: 99, background: "rgba(255,255,255,.9)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 13, color: "#ff375f", filled: true })) : null,
     it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "已删除") : null);
   const grid = (list, rounded, cols) => h("div", { className: `grid ${cols === 2 ? "grid-cols-2 gap-2" : "grid-cols-3 gap-0.5"}` }, list.map((x, i) => tile(x, i, rounded)));
@@ -437,15 +455,15 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing }) {
     h("button", { onClick: back || onBack, "aria-label": "返回", className: "active:opacity-50", style: { width: 36, fontSize: 29, lineHeight: 1, color: "#111" } }, "‹"),
     h("div", { className: "flex-1 min-w-0 text-center" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700, lineHeight: 1.15, color: "#111" } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#8e8e93", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
-  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "7px 20px calc(env(safe-area-inset-bottom) + 7px)", background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "图库"], ["collections", "精选集"], ["saved", "收藏夹"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center active:opacity-60", style: { color: tab === k ? "#0a84ff" : "#8e8e93", fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 3 } }, label))));
-  if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome("照片", photo.date || photo.time || "日期未记", () => setPhoto(null)), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 20px 30px" } },
+  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px calc(env(safe-area-inset-bottom) * 0.4 + 4px)", minHeight: 54, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "图库"], ["collections", "精选集"], ["saved", "收藏夹"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? "#0a84ff" : "#8e8e93", fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
+  if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome("照片", photo.date || photo.time || "日期未记", closePhoto), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 20px 30px" } },
     h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", borderRadius: 20, overflow: "hidden", boxShadow: "0 14px 32px rgba(0,0,0,.12)" } }, art(photo, 20)),
     h("div", { className: "flex items-start justify-between gap-4", style: { padding: "22px 3px 14px" } }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, photo.caption || "照片"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: "#666", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。")), h("button", { onClick: () => toggle(photo), className: "active:scale-90", style: { flex: "0 0 auto", width: 42, height: 42, borderRadius: 99, background: "#f2f2f7", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 20, color: isSaved(photo) ? "#ff375f" : "#777", filled: isSaved(photo) }))),
     h("div", { style: { marginTop: 8, borderRadius: 17, background: "#f2f2f7", padding: "17px 18px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: "#8e8e93", marginBottom: 9 } }, char.name + " 对这张照片的想法"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#222", whiteSpace: "pre-wrap" } }, photo.thought || "TA 没有为这张照片留下想法。"))));
   if (opened) {
     const meta = albums.find(a => a.key === opened);
     const list = items.filter(p => p.category === opened);
-    return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome(meta ? meta.label : "相簿", list.length + " 张", () => setOpened(null)), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "8px 20px 28px" } }, grid(list, true, 3)), nav);
+    return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome(meta ? meta.label : "相簿", list.length + " 张", () => setOpened(null)), h("div", { ref: scrollRef, className: "flex-1 overflow-y-auto", style: { padding: "8px 20px 28px" } }, grid(list, true, 3)), nav);
   }
   const library = h("div", { style: { paddingTop: 14, paddingBottom: 26 } }, (() => {
     const groups = [];
@@ -454,7 +472,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing }) {
   })());
   const memoryItems = items.filter(p => p.category === "memory");
   const fixedAlbums = albums.filter(a => a.key !== "memory");
-  const memoryCard = p => h("button", { key: sig(p), onClick: () => setPhoto(p), className: "shrink-0 text-left active:opacity-70", style: { width: "72%", scrollSnapAlign: "start" } },
+  const memoryCard = p => h("button", { key: sig(p), onClick: () => openPhoto(p), className: "shrink-0 text-left active:opacity-70", style: { width: "72%", scrollSnapAlign: "start" } },
     h("div", { style: { position: "relative", height: 232, borderRadius: 22, overflow: "hidden", background: "#ddd", boxShadow: "0 12px 26px rgba(0,0,0,.10)" } },
       art(p, 22),
       h("div", { style: { position: "absolute", inset: "42% 0 0", background: "linear-gradient(transparent,rgba(0,0,0,.72))" } }),
@@ -479,7 +497,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing }) {
   const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
   const title = tab === "library" ? "图库" : tab === "saved" ? "收藏夹" : "精选集";
   const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? "回忆与四本相簿 · 共 " + items.length + " 张" : saved.length + " 张 · 刷新也不会丢";
-  return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff", animation: "fadeUp .3s ease both" } }, chrome(title, sub, onBack), h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
+  return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff", animation: "fadeUp .3s ease both" } }, chrome(title, sub, onBack), h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
 }
 
 // 各 app 详情内容

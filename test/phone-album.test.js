@@ -33,6 +33,17 @@ test("图库按真实年月分组且禁止相对星期日期", () => {
   assert.match(phone, /禁止写周三、周五、昨天、最近等相对日期/);
 });
 
+test("相册底栏沿用聊天输入栏的四成安全区，不再垫高一截", () => {
+  assert.match(phone, /padding: "5px 20px calc\(env\(safe-area-inset-bottom\) \* 0\.4 \+ 4px\)"/);
+  assert.doesNotMatch(phone, /padding: "7px 20px calc\(env\(safe-area-inset-bottom\) \+ 7px\)"/);
+});
+
+test("照片详情返回恢复进入前的滚动位置", () => {
+  assert.match(phone, /returnScroll\.current = \{ top: scrollRef\.current \? scrollRef\.current\.scrollTop : 0/);
+  assert.match(phone, /scrollRef\.current\.scrollTop = top/);
+  assert.match(phone, /chrome\("照片", photo\.date \|\| photo\.time \|\| "日期未记", closePhoto\)/);
+});
+
 test("照片详情含日期、画面介绍、单独想法框和收藏按钮", () => {
   assert.match(phone, /photo\.date \|\| photo\.time/);
   assert.match(phone, /photo\.desc \|\| "没有留下介绍。"/);
