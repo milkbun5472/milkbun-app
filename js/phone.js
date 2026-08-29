@@ -238,6 +238,29 @@ function phoneTimeline(charData, live, nowTs) {
   return ahead.concat(past, loose);
 }
 // ─────────────────────────────────────────────────────────────
+// 钱：花钱的那几个 app 得知道他有多少钱
+// ─────────────────────────────────────────────────────────────
+// 钱包那边算着他的存款、月收入、固定支出，购物和外卖却各编各的价钱——
+// 一个月俸微薄的小官照样下单六百八十文的袍子，两边说的不是同一个人。
+// 这一块只是把钱包那份【读过来】发给它们，不生成任何东西。
+const PHONE_MONEY_KEYS = ["shopping", "takeout"];
+function phoneMoneyBlock(appKey, money) {
+  if (PHONE_MONEY_KEYS.indexOf(appKey) < 0 || !money) return "";
+  const n = v => (v == null || !isFinite(Number(v))) ? null : Math.round(Number(v));
+  const bits = [];
+  if (n(money.balance) != null) bits.push("手头（可动用）约 " + n(money.balance));
+  if (n(money.monthlyIncome)) bits.push("每月进账约 " + n(money.monthlyIncome));
+  if (n(money.fixedMonthly)) bits.push("每月固定要出 " + n(money.fixedMonthly));
+  if (!bits.length && !money.spendingNote) return "";
+  let out = "\n\n【他的钱】" + bits.join("；") + "。";
+  if (money.spendingNote) out += "他对花钱的态度：" + String(money.spendingNote).slice(0, 200);
+  out += "\n**金额必须落在这个水平上**：买不起的东西他就是买不起，别让他随手下单一笔够他过半个月的单子。"
+    + "手头紧的时候，想买清单会变长、真下单的会变少——那种落差本身就是内容。"
+    + (n(money.balance) != null && n(money.balance) <= 0 ? "他现在已经透支了：这一轮不该有任何非必需的下单。" : "");
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────
 // 身份层：一个人的号码、账号、住址、忌口，不该每刷一次就换一个
 // ─────────────────────────────────────────────────────────────
 // 每次刷新都是整份重生成，于是他的外卖 id、微信号、收货地址、忌口，刷一次换一批。
@@ -3570,7 +3593,7 @@ function phoneAvoidBlock(lines) {
     + "优先去写上面完全没提到的、属于他自己的另一条线：工作、家里、旧朋友、身体、钱、没做完的事、纯粹的无聊。";
 }
 
-function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known) {
+function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
     wechat: {
@@ -3746,5 +3769,5 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known) {
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneIdentityBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) };
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) };
 }

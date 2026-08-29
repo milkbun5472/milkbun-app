@@ -99,7 +99,7 @@ test("两次生成的调用点都把旧那份传过去了", () => {
   // 第一个右括号就把匹配截断了，抓到的永远是半句。整行取。
   const calls = (appSrc.match(/^.*phoneProbeSpec\(.*$/gm) || []);
   assert.ok(calls.length >= 2, "找不到两处生成调用");
-  calls.forEach(c => assert.match(c, /avoid, known\)/, "这处没把身份传过去：" + c.trim().slice(0, 100)));
+  calls.forEach(c => assert.match(c, /avoid, known,/, "这处没把身份传过去：" + c.trim().slice(0, 100)));
   // known 必须走 ref：全刷是一个 app 接一个写的，闭包里的 phones 会是旧的
   assert.match(appSrc, /const known = \(\(phonesRef\.current \|\| \{\}\)\[char\.id\] \|\| \{\}\)\[key\]/);
   const m = appSrc.match(/const known = /g) || [];

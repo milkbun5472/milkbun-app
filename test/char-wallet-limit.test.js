@@ -42,9 +42,11 @@ test("补账不再只在打开钱包页时跑", () => {
   const seg = app.slice(i, i + 700);
   assert.match(seg, /for \(const c of liveChars\)/, "走 liveChars，别把 NPC 卷进会花钱的循环");
   assert.match(seg, /if \(!rec \|\| !rec\.init\) continue;/, "没建档的不动，建档要她自己点");
-  // 开机那一拍和跨天那一拍都要接上：只接跨天的话，隔夜再开就赶不上了
-  assert.equal((app.match(/\.then\(\(\) => walletCatchAllToday\(\)\)/g) || []).length, 2,
-    "开机 + 跨天各一处");
+  // 三拍都要接上：开机、回前台、跨天。
+  // 这条原来冻在 2，于是「回到前台」那一路漏了整整一版没人发现——常驻 PWA 切回来
+  // 是最常走的一条路，钱包因此要等整页重载才结算（v57.69 补上）。
+  assert.equal((app.match(/\.then\(\(\) => walletCatchAllToday\(\)\)/g) || []).length, 3,
+    "开机 / 回前台 / 跨天，各一处");
 });
 
 test("补账本身的守卫还在：只补到昨天，最多 14 天", () => {

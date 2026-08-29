@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.69";
+const APP_VERSION = "v57.70";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8277,7 +8277,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 切回来那一下补一次。schedGenAllToday 只补【缺今天】的角色、已有则空跑，安全省 api。
   useEffect(() => {
     if (!loaded) return;
-    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; };
+    // ⚠️这一路本来漏了 walletCatchAllToday——开 app 那一拍和跨天那一拍都有，唯独这儿没有。
+    // 而常驻 PWA 切回前台是最常走的一条路，于是她的钱包常常要等整页重载才结算。
+    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; };
     document.addEventListener("visibilitychange", kick);
     window.addEventListener("focus", kick);
     return () => { document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); };
@@ -8289,6 +8291,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; }
   }, [now]);
 
+  // 钱包那份读过来，发给花钱的那几个 app（购物/外卖）。只读不写。
+  // 不接的话，一个月俸微薄的小官照样下单六百八十文的袍子——两边说的不是同一个人。
+  const phoneMoneyFor = char => {
+    const w = (charWalletRef.current || {})[char && char.id];
+    if (!w || !w.init) return null;
+    return {
+      balance: Number(w.balance) || 0,
+      monthlyIncome: Number(w.monthlyIncome) || 0,
+      fixedMonthly: Number(w.fixedMonthly) || 0,
+      spendingNote: (w.notes && w.notes.spending) || ""
+    };
+  };
   // ---- 查手机：每个 app 独立生成/刷新 ----
   const relatedNames = char => {
     const set = new Set();
@@ -8584,7 +8598,40 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
   };
   // 生成某天的日常消费（按当天日程+人设，逐笔列具体买了什么），无 API/失败则用固定支出估算兜底
-  const genDailySpend = async (char, dayKey, rec) => {
+  // 那一天他手机上【真的下过】的单子：外卖和购物。
+  // 不接的话钱包会自己再编一顿饭，同一天里出现两笔吃饭钱——两边说的不是同一天。
+  // 只读手机数据，不生成任何东西。
+  const phoneOrdersOnDay = (charId, dayKey) => {
+    const box = ((phonesRef.current || {})[charId]) || {};
+    const day = schedParseKey(dayKey);
+    if (!day) return [];
+    const sameDay = ts => {
+      if (ts == null) return false;
+      const d = new Date(ts);
+      return d.getFullYear() === day.getFullYear() && d.getMonth() === day.getMonth() && d.getDate() === day.getDate();
+    };
+    // ⚠️相对时间要按【那一天】解析，不是按今天：一条写着「昨天 12:10」的订单，
+    // 说的是它被写下来那会儿的昨天。手机数据存进去时已经把时刻算死成 _ts 了
+    //（见 phoneFreezeTime），优先用它；没有 _ts 的才现解析。
+    const tsOf = x => (x && x._ts != null) ? x._ts
+      : (typeof phoneWhenTs === "function" ? phoneWhenTs(x && (x.time || x.date), Date.now()) : null);
+    const out = [];
+    const A = a => Array.isArray(a) ? a : [];
+    A((box.takeout || {}).orders).forEach(o => {
+      if (!o || !sameDay(tsOf(o))) return;
+      const amt = Math.abs(Number(o.amount) || 0);
+      if (!amt) return;
+      out.push({ item: String(o.main || o.shop || "外卖").slice(0, 30), amount: amt, src: "takeout", key: String(o.shop || "") + "|" + String(o.main || "") });
+    });
+    A((box.shopping || {}).orders).forEach(o => {
+      if (!o || !sameDay(tsOf(o))) return;
+      const amt = Math.abs(Number(o.paid) || 0);
+      if (!amt) return;
+      out.push({ item: String(o.title || o.shop || "网购").slice(0, 30), amount: amt, src: "shopping", key: String(o.shop || "") + "|" + String(o.title || "") });
+    });
+    return out.slice(0, 8);
+  };
+  const genDailySpend = async (char, dayKey, rec, already) => {
     const plan = (schedulesRef.current[char.id] || {})[dayKey];
     const schedText = plan && Array.isArray(plan.seqs) ? plan.seqs.map(s => (s.time || "") + " " + s.title + (s.location ? "（" + s.location + "）" : "")).join("；") : "";
     const bal = Number(rec.balance) || 0;
@@ -8594,15 +8641,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const est = Math.max(8, Math.round(((Number(rec.fixedMonthly) || 1800) / 30) * (0.5 + Math.random())));
       return [{ item: "日常开销", amount: est }];
     };
-    if (!active) return fallback();
+    if (!active) return already && already.length ? [] : fallback();
     try {
       const dp = schedDateParts(dayKey);
+      // 手机上那几单已经入过账了。不说清楚的话模型会再编一顿饭，同一天两笔吃饭钱。
+      const doneBlock = (already || []).length
+        ? "\n【这一天他手机上已经记下的开销，已经入账了，不要重复也不要再写同类的】" +
+          already.map(b => b.item + " " + Math.round(b.amount)).join("；") +
+          "。你只补【这几笔之外】还花了什么；如果这一天光这几笔就够了，buys 给空数组。"
+        : "";
       const d = await runProbe(bgActive, ctxFor(char), {
         instruction: (broke
           ? "⚠️TA 现在【已经透支】（卡里 " + Math.round(bal) + " 元），正在借钱过日子：这一天只可能有【最低限度的必需开销】（一顿便宜的饭、通勤），总额不超过 40 元，能不花就不花。\n"
           : "TA 卡里现在有 " + Math.round(bal) + " 元" + ((Number(rec.monthlyIncome) || 0) && bal < (Number(rec.monthlyIncome) || 0) * 0.3 ? "，手头很紧，这几天花钱明显收敛。" : "。") + "\n")
-          + "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。",
-        schemaHint: "{\"buys\":[{\"item\":\"楼下便利店饭团+冰美式\",\"amount\":18},{\"item\":\"地铁通勤往返\",\"amount\":8}]}",
+          + "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。" + doneBlock,
+        schemaHint: "{\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18}]}",
         maxTokens: 800
       });
       const buys = (Array.isArray(d.buys) ? d.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0) })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
@@ -8621,7 +8674,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const applyWalletDay = async (char, dayKey) => {
     const rec = charWalletRef.current[char.id];
     if (!rec || !rec.init) return;
-    const buys = await genDailySpend(char, dayKey, rec);
+    // 先把那天手机上真有的单子入账，再让模型补【这几笔之外】还花了什么
+    const already = phoneOrdersOnDay(char.id, dayKey);
+    const buys = await genDailySpend(char, dayKey, rec, already);
     const parts = schedParseKey(dayKey);
     const isFirst = parts.getDate() === 1;
     const dayTs = new Date(parts); dayTs.setHours(23, 0, 0, 0);
@@ -8634,6 +8689,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const inc = r2((Number(cur.monthlyIncome) || 0) - (Number(cur.fixedMonthly) || 0));
         if (inc) { bal = r2(bal + inc); chron.push(mk(inc, "月度收支 · 工资到账 − 固定支出", "monthly", dayTs.getTime() - 1000, bal)); }
       }
+      // 手机上真下过的单子：kind "order"，带 srcKey 防止补账跑两遍时记重
+      const seenSrc = {};
+      (cur.ledger || []).forEach(e => { if (e && e.srcKey) seenSrc[e.srcKey] = 1 });
+      (already || []).forEach((b, i) => {
+        const sk = dayKey + "|" + b.src + "|" + b.key;
+        if (seenSrc[sk]) return;
+        seenSrc[sk] = 1;
+        bal = r2(bal - Math.abs(b.amount));
+        const e = mk(-Math.abs(b.amount), b.item + (b.src === "takeout" ? " · 外卖" : " · 网购"), "order", dayTs.getTime() - 60000 + i * 1000, bal);
+        e.srcKey = sk;
+        chron.push(e);
+      });
       (buys || []).forEach((b, i) => {
         if (!b || !b.amount) return;
         bal = r2(bal - Math.abs(b.amount));
@@ -9119,7 +9186,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known));
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char)));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -9160,7 +9227,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，他的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known));
+        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char)));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         ok++;
