@@ -58,19 +58,35 @@ test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次",
   assert.match(w, /const total = 1 \+ Math\.min\(3, interviewPool\.length\) \+ weekVoices\.length \+ 1;/, "有足够角色时每期固定采访三人");
 });
 
-test("十种媒体腔与四个编辑部页面都有独立纸张皮肤", () => {
+test("十种媒体腔与四个编辑部页面都有独立纸张、字体与结构色", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const lookSeg = w.slice(w.indexOf("const VOICE_LOOK = {"), w.indexOf("function lookOf"));
   ["victorian", "cyberpunk", "republican", "editorial", "naturalist", "noir", "tabloid", "markets", "tribunal", "sportsdesk"].forEach(id => {
     assert.match(lookSeg, new RegExp(id + ":[\\s\\S]*?paper:"), id + " 不能只换字体，必须有自己的纸张");
+    assert.match(lookSeg, new RegExp(id + ":[\\s\\S]*?titleFace:[\\s\\S]*?bodyFace:"), id + " 标题和正文必须有独立字族");
+    assert.match(lookSeg, new RegExp(id + ":[\\s\\S]*?tint:[\\s\\S]*?pale:"), id + " 内页必须有结构色块");
   });
   assert.match(w, /const SECTION_LOOK = \{/);
+  const sectionSeg = w.slice(w.indexOf("const SECTION_LOOK = {"), w.indexOf("function pageLook"));
   ["cover", "desk", "letters", "interview"].forEach(id => {
-    assert.match(w, new RegExp(id + ":[\\s\\S]*?pattern:"), id + " 页面要有独立背景纹理");
+    assert.match(sectionSeg, new RegExp(id + ": \\{[^\\n]*tint:[^\\n]*pale:"), id + " 页面要有独立结构色");
   });
   assert.match(w, /function pageLook\(sub, medias\)/, "翻版时要跟着切整页皮肤");
   assert.match(w, /backgroundColor: L\.paper/, "皮肤要真正落到页面背景，不是只写配置");
-  assert.match(w, /background: L\.card/, "文章要有与纸张配套的阅读层");
+  assert.match(w, /background: L\.tint/, "内页要用实色块承担版面结构");
+  assert.match(w, /writingMode: "vertical-rl"/, "竖版参考里的竖排边栏要真正竖排，不能逐字换行");
+  assert.match(w, /fontFamily: L\.titleFace/, "媒体标题必须使用对应栏目字族");
+  assert.match(w, /fontFamily: L\.bodyFace/, "媒体正文必须使用对应栏目字族");
+  assert.match(w, /wordBreak: "keep-all"/, "内页标题不能拆成一个字一行");
+});
+
+test("来信、资料室与采访目录都改成编辑网格而非旧卡片列表", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
+  assert.match(issue, /LETTER " \+ String\(i \+ 1\)\.padStart/, "来信要有刊物编号");
+  assert.match(issue, /FACTS \/ QUOTES/, "资料室要有竖版边栏");
+  assert.match(issue, /borderTop: "5px solid " \+ SECTION_LOOK\.interview\.tint/, "采访人物索引要用编辑部横梁");
+  assert.doesNotMatch(issue, /boxShadow: on \? "0 2px 8px/, "采访索引不能继续是浮起的圆角卡片");
 });
 
 test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在封面内", () => {
