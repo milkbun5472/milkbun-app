@@ -8,7 +8,9 @@ const engine = read("engine.js"), app = read("app.js");
 const i = engine.indexOf("function splitLongBubble(");
 assert.ok(i > 0, "函数还在");
 const seg = engine.slice(i, engine.indexOf("\n}", i) + 2);
-const splitLongBubble = new Function(seg + "\nreturn splitLongBubble;")();
+// v57.78 起还要带上千分位那三个小工具（它们在函数上面几行）
+const helpers = engine.slice(engine.indexOf("const BUBBLE_NUMSEP"), i);
+const splitLongBubble = new Function(helpers + seg + "\nreturn splitLongBubble;")();
 
 // 她 2026-08-26 抓的那两条：v56.27 之后群里确实开始连发了，但一路逗号连下去的长句
 // 仍然一个气泡装到底——规则只降概率，代码才保证。
@@ -68,4 +70,35 @@ test("单聊和群聊走的是同一个函数", () => {
   assert.match(app, /splitLongBubble\(bi \? bi\.text : x, gAllowComma\)/, "群聊线上");
   assert.match(app, /const gAllowComma = !\(settingsFor\(spk\.id\) \|\| \{\}\)\.engineerEyes/, "群里也按发言人豁免言秋");
   assert.equal((app.match(/splitLongBubble\(/g) || []).length, 2, "只该有这两处调用");
+});
+
+// 她 2026-08-29 截图：一段算账的话被切成「现在现值是 150」「000 乘以 0.312」
+// 「也就是 46」「800」——千分位那个逗号被当成了句子边界。
+test("千分位不是句子边界：数字不许被切成两个气泡", () => {
+  assert.deepEqual(
+    splitLongBubble("现在现值是 150,000 乘以 0.312，也就是 46,800", true),
+    ["现在现值是 150,000 乘以 0.312", "也就是 46,800"]);
+  assert.deepEqual(
+    splitLongBubble("油罐的初始入账价值应该是 846,800", true),
+    ["油罐的初始入账价值应该是 846,800"]);
+  assert.deepEqual(splitLongBubble("1,234,567 这个数字很大", true), ["1,234,567 这个数字很大"]);
+  // 全角逗号夹在数字中间也一样（模型偶尔会用全角）
+  assert.deepEqual(splitLongBubble("总共是 12，345 元这么多钱", true), ["总共是 12,345 元这么多钱"]);
+  // 不许影响真正该拆的地方（这句 26 字，过了 22 的门槛）
+  assert.deepEqual(
+    splitLongBubble("我今天去了菜市场，买了一堆菜，然后回家做饭了，累死我了", true),
+    ["我今天去了菜市场", "买了一堆菜，然后回家做饭了，累死我了"]);
+  // 数字后面跟真逗号（后面不是数字）该照拆
+  assert.deepEqual(
+    splitLongBubble("这一单是 68 块钱，我已经付过了，你别再转给我了", true),
+    ["这一单是 68 块钱", "我已经付过了，你别再转给我了"]);
+  // 关了逗号拆分的那一路（engineerEyes）也不能把数字弄坏
+  assert.deepEqual(
+    splitLongBubble("账上余额还有 46,800 块钱。这个月的开销完全够用了，不用担心", false),
+    ["账上余额还有 46,800 块钱。", "这个月的开销完全够用了，不用担心"]);
+  // 哨兵字符不许漏进正文
+  const SENT = String.fromCharCode(1);
+  ["现在现值是 150,000", "1,000", "没有数字的一句话"].forEach(x =>
+    splitLongBubble(x, true).forEach(y =>
+      assert.ok(y.indexOf(SENT) < 0, "哨兵漏进正文了：" + JSON.stringify(y))));
 });

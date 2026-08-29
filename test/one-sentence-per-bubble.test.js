@@ -40,7 +40,9 @@ test("兜底门槛照旧 22，靠提示词管风格、靠代码管急救", () =>
   const i = eng.indexOf("function splitLongBubble(s, allowComma)");
   const seg = eng.slice(i, i + 300);
   assert.match(seg, /const LONG = 22, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 4;/, "门槛被动过了");
-  const fn = new Function(eng.slice(i, eng.indexOf("\n}\n", i) + 3) + "\nreturn splitLongBubble;")();
+  // v57.78 起函数上面还有三个千分位小工具，得一起带上
+  const helpers = eng.slice(eng.indexOf("const BUBBLE_NUMSEP"), i);
+  const fn = new Function(helpers + eng.slice(i, eng.indexOf("\n}\n", i) + 3) + "\nreturn splitLongBubble;")();
   // 她圈出来的那两条正卡在门槛底下：代码救不了，得靠提示词让模型自己一句一条
   assert.equal(fn("给你点了，但必须先把热三明治吃完才准喝", true).length, 1);
   assert.equal(fn("不然下次生理期肚子疼某些人又要找我算账了", true).length, 1);

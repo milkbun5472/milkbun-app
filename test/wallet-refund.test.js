@@ -10,7 +10,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
 
 const onDay = app.match(/const phoneOrdersOnDay = \(charId, dayKey\) => \{[\s\S]*?\n  \};/)[0];
-const refund = app.match(/const phoneRefundSweep = charId => \{[\s\S]*?\n  \};/);
+const refund = app.match(/const phoneReconcile = charId => \{[\s\S]*?\n  \};/);
 
 test("取消/退款/退货的单不入账", () => {
   assert.match(onDay, /const DEAD = \//, "没有判死状态的规则");
@@ -37,17 +37,19 @@ test("去重指纹优先用订单自己的永久 id", () => {
 });
 
 test("已经扣过的钱，订单变成取消/退款时补回来", () => {
-  assert.ok(refund, "找不到 phoneRefundSweep");
+  assert.ok(refund, "找不到 phoneReconcile");
   const fn = refund[0];
-  assert.match(fn, /kind: "refund"/, "退款没有自己的流水类型");
-  assert.match(fn, /refundOf: a\.srcKey/, "退款没记是冲哪一笔的");
+  // v57.78 起 kind 是 mk() 的一个参数，不再是字面量对象里的 key
+  assert.match(fn, /"refund", 1000 \+ i/, "退款没有自己的流水类型");
+  assert.match(fn, /refundOf: e\.srcKey/, "退款没记是冲哪一笔的");
   assert.match(fn, /if \(!e \|\| !e\.srcKey \|\| e\.refundOf \|\| backed\[e\.srcKey\]\) return;/,
     "同一笔可能被退两次");
-  assert.match(fn, /delta: a\.amount/, "退款该是进账（正数）");
+  // 退款是进账：mk 的第一个参数是正的 Math.abs(...)，不是负号开头
+  assert.match(fn, /mk\(Math\.abs\(Number\(e\.delta\) \|\| 0\), dead\[tail\] \+ " · 退款"/, "退款该是进账（正数）");
   // 只在购物/外卖刷完之后跑——别的 app 不会产生取消单
-  assert.match(app, /\(key === "shopping" \|\| key === "takeout"\) && typeof phoneRefundSweep === "function"/);
+  assert.match(app, /if \(key === "shopping" \|\| key === "takeout"\) \{/);
   // 跟归档一样是锦上添花，不能连累刷新
-  const hook = app.match(/if \(\(key === "shopping" \|\| key === "takeout"\)[\s\S]{0,200}/)[0];
+  const hook = app.match(/if \(key === "shopping" \|\| key === "takeout"\) \{[\s\S]{0,200}/)[0];
   assert.match(hook, /try \{/, "回冲没包 try，写坏了会把整次刷新弄挂");
 });
 
@@ -58,4 +60,38 @@ test("不回头重算旧日期——只补差额", () => {
   assert.ok(fn.indexOf("applyWalletDay") < 0 && fn.indexOf("genDailySpend") < 0,
     "退款回冲不该去重算某一天，那会重新生成一天的开销");
   assert.match(fn, /ledger: \[\.\.\.rows\.reverse\(\), \.\.\.led\]/, "该是往流水里补一笔，不是改旧的那笔");
+});
+
+// ── 核账：只补差额，不整份重算 ──────────────────────────────
+
+test("最近 30 天里漏扣的旧订单会补记上", () => {
+  // 钱包每天只结算到昨天、结过的日期不再回扫。刷新手机后如果多出一张上周的旧单，
+  // 那笔从来没扣过——核账把它补上（只补一笔，不去重算那一天）。
+  const fn = refund[0];
+  assert.match(app, /const PHONE_RECHECK_DAYS = 30;/);
+  assert.match(fn, /for \(let i = 1; i <= PHONE_RECHECK_DAYS; i\+\+\)/);
+  assert.match(fn, /phoneOrdersOnDay\(charId, dk\)/, "没按天去读手机上的单");
+  assert.match(fn, /if \(have\[k\] \|\| dead\[/, "已经扣过的、或者已经取消的，都不许再补一笔");
+  assert.match(fn, /补记/, "补记的流水没标出来是哪一天的单");
+});
+
+test("补记落在当下，不回插到旧日期——否则 running balance 会乱", () => {
+  const fn = refund[0];
+  assert.match(fn, /ts: Date\.now\(\) \+ i/, "补记用了旧日期的时间戳");
+  assert.match(fn, /bal = r2\(bal \+ delta\)/, "余额没顺着往下算");
+  // 不许去重算某一天
+  assert.ok(fn.indexOf("applyWalletDay") < 0 && fn.indexOf("genDailySpend") < 0);
+});
+
+test("本月消费/单数从钱包流水求和，不用模型编的那两个数", () => {
+  const ms = app.match(/const phoneMonthStatsFor = char => \{[\s\S]*?\n  \};/);
+  assert.ok(ms, "找不到 phoneMonthStatsFor");
+  assert.match(ms[0], /if \(!e \|\| !e\.srcKey\) return;/, "把日常开销也算进「本月网购」了");
+  assert.match(ms[0], /if \(e\.refundOf\) \{[\s\S]{0,120}spend = r2\(out\[src\]\.spend - /, "退款没从本月消费里减掉");
+  assert.match(ms[0], /if \(out\[k\]\.spend < 0\) out\[k\]\.spend = 0;/, "退上个月的单会让本月消费变成负数");
+  // 界面以钱包为准，钱包没建档才退回模型那份
+  const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
+  assert.match(phone, /ms \? Number\(ms\.spend\)\.toFixed\(2\) : \(acc\.monthSpend/, "购物页没改用钱包的数");
+  assert.match(phone, /ms \? fmtMoney\(ms\.spend\) : \(acc\.monthSpend/, "外卖页没改用钱包的数");
+  assert.match(phone, /这两个只是占位，界面会用钱包的真实流水覆盖它们/, "提示词没说明这两个数会被覆盖");
 });

@@ -2034,7 +2034,7 @@ const WISH_COVERS = [
 ];
 const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
-function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats }) {
   const [tab, setTab] = useState("home");
   const [sheet, setSheet] = useState(null);
   const scrollRef = useRef(null);
@@ -2043,6 +2043,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const acc = (data.account && typeof data.account === "object") ? data.account : {};
+  // 钱包算出来的本月数（没建钱包档就是 null，那时退回模型给的数）
+  const ms = (monthStats && typeof monthStats === "object" && isFinite(Number(monthStats.spend))) ? monthStats : null;
   const habit = (data.habit && typeof data.habit === "object") ? data.habit : {};
   const initial = String(char.name || "?").trim().slice(0, 1);
   const card = (kids, extra) => h("div", { style: Object.assign({ background: SHOP_CARD, borderRadius: 18, padding: "18px 18px", marginBottom: 14 }, extra || {}) }, kids);
@@ -2073,8 +2075,10 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_DIM, marginTop: 5 } }, "会员号 " + acc.uid) : null,
         acc.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "#77777f", marginTop: 6, lineHeight: 1.5 } }, acc.style) : null)),
     h("div", { key: "nums", className: "flex", style: { marginTop: 18, paddingTop: 16, borderTop: "1px solid #efeff3" } },
-      [[acc.monthSpend != null ? Number(acc.monthSpend).toFixed(2) : "--", "本月消费"],
-       [acc.monthOrders != null ? shopInt(acc.monthOrders) : "--", "本月订单"],
+      // 本月消费/订单数以【钱包流水】为准。模型编的那两个数和真实扣款对不上，
+      // 界面上两处说着不同的钱（Codex 2026-08-29 指出）。钱包没建档才退回模型那份。
+      [[ms ? Number(ms.spend).toFixed(2) : (acc.monthSpend != null ? Number(acc.monthSpend).toFixed(2) : "--"), "本月消费"],
+       [ms ? shopInt(ms.orders) : (acc.monthOrders != null ? shopInt(acc.monthOrders) : "--"), "本月订单"],
        [acc.points != null ? shopInt(acc.points) : "--", "积分"]].map(([n, l], i) => h("div", { key: i, className: "flex-1 text-center" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_INK } }, n),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_DIM, marginTop: 4 } }, l)))),
@@ -2274,7 +2278,7 @@ const TAKE_AMBER = "#f5a623";
 const TAKE_BG = "#f4f2ee";
 const TAKE_INK = "#231f1a";
 const TAKE_DIM = "#9c968c";
-function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats }) {
   const [tab, setTab] = useState("home");
   const [open, setOpen] = useState(null);
   const scrollRef = useRef(null);
@@ -2282,6 +2286,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const acc = (data.account && typeof data.account === "object") ? data.account : {};
+  // 钱包算出来的本月数（没建钱包档就是 null，那时退回模型给的数）
+  const ms = (monthStats && typeof monthStats === "object" && isFinite(Number(monthStats.spend))) ? monthStats : null;
   const taste = (data.taste && typeof data.taste === "object") ? data.taste : {};
   const today = (data.today && typeof data.today === "object") ? data.today : {};
   const live = A(data.live), orders = A(data.orders), shops = A(data.shops), addrs = A(data.addrs);
@@ -2314,8 +2320,10 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: TAKE_INK } }, acc.name || char.remark || char.name),
           acc.member ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a8791f", background: "rgba(245,166,35,.16)", borderRadius: 999, padding: "3px 10px" } }, acc.member) : null),
         acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 5 } }, "账号 " + acc.uid) : null)),
-    (acc.monthOrders != null || acc.monthSpend != null) ? h("div", { key: "n", className: "flex", style: { marginTop: 15, paddingTop: 13, borderTop: "1px solid #f3f1ec" } },
-      [[acc.monthOrders != null ? acc.monthOrders : "--", "本月单数"], [acc.monthSpend != null ? fmtMoney(acc.monthSpend) : "--", "本月吃掉"]].map(([n, l], i) =>
+    (ms || acc.monthOrders != null || acc.monthSpend != null) ? h("div", { key: "n", className: "flex", style: { marginTop: 15, paddingTop: 13, borderTop: "1px solid #f3f1ec" } },
+      // 同上：以钱包流水为准，没建档才用模型那份
+      [[ms ? ms.orders : (acc.monthOrders != null ? acc.monthOrders : "--"), "本月单数"],
+       [ms ? fmtMoney(ms.spend) : (acc.monthSpend != null ? fmtMoney(acc.monthSpend) : "--"), "本月吃掉"]].map(([n, l], i) =>
         h("div", { key: i, className: "flex-1" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: TAKE_INK } }, n),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginTop: 3 } }, l)))) : null,
@@ -3617,8 +3625,8 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "notes") return h(StickyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["shopping"] });
+  if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, monthStats: (ctx.monthStats || {})["takeout"] });
   if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
@@ -3836,6 +3844,7 @@ function PhoneCarry({
   onPlaySong,
   calendarFor,
   vitalsFor,
+  monthStatsFor,
   archives,
   autoOn,
   onToggleAuto,
@@ -3953,6 +3962,8 @@ function PhoneCarry({
     calendar: calendarFor ? calendarFor(char) : null,
     // 健康的每日快照（趋势）。报告本身照旧每次重写，这一条是另存的轻量线。
     vitals: vitalsFor ? vitalsFor(char.id) : null,
+    // 本月消费/单数以钱包流水为准，不用模型编的那两个数
+    monthStats: monthStatsFor ? monthStatsFor(char) : null,
     // 偷看转发：手机里的东西只有【转发了】才进他的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk)
   };
@@ -4387,7 +4398,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     shopping: {
       instruction: "推演「" + char.name + "」网购 App 的整个界面。" + relHint + "\n"
         + "**所有金额、店铺、商品都必须贴合他的身份、时代和谋生方式**：古代角色买的是他那个世界里买得到的东西、逛的是那种铺子；普通人就是普通消费水平，不许人人都很有钱。\n\n"
-        + "account 账户：name（**他在这个平台上的昵称**，不是本名照抄）、uid（会员号，一串数字）、member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格）、monthSpend（本月消费，数字）、monthOrders（本月订单数）、points（积分）、persona（一句更狠的购物性格：他买东西时最像他自己的那个毛病）。\n"
+        + "account 账户：name（**他在这个平台上的昵称**，不是本名照抄）、uid（会员号，一串数字）、member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格）、monthSpend（本月消费，数字）、monthOrders（本月订单数）——**这两个只是占位，界面会用钱包的真实流水覆盖它们，给个大致数就行，别为它们编细节**、points（积分）、persona（一句更狠的购物性格：他买东西时最像他自己的那个毛病）。\n"
         + "shipping 在途包裹 **2-3 件**：status（派送中/运输中/已揽收）、eta（如「今日 18:00 前」）、shop、title（商品全名带规格）、progress（0-100 整数）、carrier、tail（运单尾号）、amount（数字）。\n"
         + "cart 购物车 **4-6 件**：shop、title、spec（颜色/尺码/款式）、price（现价数字）、was（原价数字，可为 0）、promo（优惠标签，可空）、qty。购物车装的是【还没下决心的东西】。\n"
         + "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想买，一句他自己的话**）。\n"

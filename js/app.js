@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.77";
+const APP_VERSION = "v57.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8453,9 +8453,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   const savePhoneApp = (charId, key, d) => {
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
-    // 购物/外卖刷完可能多出「已取消/已退款」的单：把之前扣过的那几笔补回来。
-    if ((key === "shopping" || key === "takeout") && typeof phoneRefundSweep === "function") {
-      try { setTimeout(() => phoneRefundSweep(charId), 0); } catch (e) {/* 回冲失败不连累刷新 */}
+    // 购物/外卖刷完：核一次最近 30 天的账（漏扣的补上、取消的退回来）。
+    // 放进 setTimeout 是为了让 setPhones 先落地——核账读的是 phonesRef。
+    if (key === "shopping" || key === "takeout") {
+      try { setTimeout(() => phoneReconcile(charId), 0); } catch (e) {/* 核账失败不连累刷新 */}
     }
     // 健康：另抽一条极轻的每日快照。跟归档一样是锦上添花，写坏了不能连累正事。
     if (key === "health" && typeof phoneVitalOf === "function") {
@@ -8737,14 +8738,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     });
     return out.slice(0, 8);
   };
-  // 退款回冲：已经入过账、但现在手机上标成取消/退款的那些，把钱补回来。
-  // 只补差额、不重算整天——旧日期结过就不再回头扫，那条规矩不动。
-  const phoneRefundSweep = charId => {
+  // ── 核账：只补差额，不整份重算（Codex 2026-08-29 提）──────
+  // 钱包每天只结算到昨天，结过的日期不再回扫——这条规矩不动（否则会把那天的
+  // 日常开销重新生成一遍）。但刷新手机之后有两种差额会漏掉：
+  //   ① 新冒出来的旧订单（模型这次写了一张上周的单）——从没扣过；
+  //   ② 已经扣过、现在标成取消/退款的——钱该还回来。
+  // 两边都只【补一笔】进流水，不改旧账、不重算某一天。
+  // 补记落在当下的时间戳上，label 里写明是哪一天的单——真账房也是这么补的，
+  // 而且这样 running balance 不会被回插的条目搅乱。
+  const PHONE_RECHECK_DAYS = 30;
+  const phoneReconcile = charId => {
+    const rec = (charWalletRef.current || {})[charId];
+    if (!rec || !rec.init) return;
     const box = ((phonesRef.current || {})[charId]) || {};
     const A = a => Array.isArray(a) ? a : [];
     const DEAD = /取消|退款|退货|已退|失败|关闭/;
     const fp = (o, a) => String(o.id || o.orderId || "").trim()
       || (String(o.shop || "") + "|" + String(o.title || o.main || "") + "|" + a);
+    // 现在手机上标成死单的那些
     const dead = {};
     A((box.takeout || {}).orders).forEach(o => {
       if (o && DEAD.test(String(o.status || ""))) dead["takeout|" + fp(o, Math.abs(Number(o.amount) || 0))] = String(o.main || o.shop || "外卖");
@@ -8752,34 +8763,73 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     A((box.shopping || {}).orders).forEach(o => {
       if (o && DEAD.test(String(o.status || ""))) dead["shopping|" + fp(o, Math.abs(Number(o.paid) || 0))] = String(o.title || o.shop || "网购");
     });
-    if (!Object.keys(dead).length) return;
+    // 最近 30 天里手机上真有的活单（含它属于哪一天）
+    const want = {};
+    const today = new Date();
+    for (let i = 1; i <= PHONE_RECHECK_DAYS; i++) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const dk = schedDayKey(d);
+      phoneOrdersOnDay(charId, dk).forEach(b => { want[dk + "|" + b.src + "|" + b.key] = { day: dk, item: b.item, amount: b.amount }; });
+    }
     setCharWallet(p => {
       const cur = p[charId];
       if (!cur || !cur.init) return p;
       const led = cur.ledger || [];
-      const backed = {};
-      led.forEach(e => { if (e && e.refundOf) backed[e.refundOf] = 1 });
-      // srcKey 形如 "日期|来源|指纹"，去掉日期那一段和 dead 的键对齐
-      const adds = [];
+      const have = {}, backed = {};
       led.forEach(e => {
+        if (!e) return;
+        if (e.srcKey && !e.refundOf) have[e.srcKey] = 1;
+        if (e.refundOf) backed[e.refundOf] = 1;
+      });
+      const rows = [];
+      let bal = Number(cur.balance) || 0;
+      const mk = (delta, label, kind, i, ext) => {
+        bal = r2(bal + delta);
+        return Object.assign({ id: "cw_rc_" + Date.now() + "_" + i, ts: Date.now() + i, delta, after: bal, label, kind }, ext || {});
+      };
+      // ① 漏扣的补上（只补，不重算那一天的日常开销）
+      Object.keys(want).forEach((k, i) => {
+        if (have[k] || dead[k.split("|").slice(1).join("|")]) return;
+        have[k] = 1;
+        const w = want[k];
+        rows.push(mk(-Math.abs(w.amount), w.item + " · 补记 " + String(w.day).slice(5), "order", i, { srcKey: k }));
+      });
+      // ② 已经扣过、现在取消了的，把钱还回来
+      led.forEach((e, i) => {
         if (!e || !e.srcKey || e.refundOf || backed[e.srcKey]) return;
         const tail = String(e.srcKey).split("|").slice(1).join("|");
         if (!dead[tail]) return;
         backed[e.srcKey] = 1;
-        adds.push({ srcKey: e.srcKey, amount: Math.abs(Number(e.delta) || 0), label: dead[tail] });
+        rows.push(mk(Math.abs(Number(e.delta) || 0), dead[tail] + " · 退款", "refund", 1000 + i, { refundOf: e.srcKey }));
       });
-      if (!adds.length) return p;
-      let bal = Number(cur.balance) || 0;
-      const rows = adds.map((a, i) => {
-        bal = r2(bal + a.amount);
-        return { id: "cw_rf_" + Date.now() + "_" + i, ts: Date.now(), delta: a.amount, after: bal,
-          label: a.label + " · 退款", kind: "refund", refundOf: a.srcKey };
-      });
+      if (!rows.length) return p;
       const n = { ...p, [charId]: { ...cur, balance: bal, ledger: [...rows.reverse(), ...led] } };
       saveJSON("x_charWallet", n);
       charWalletRef.current = n;
       return n;
     });
+  };
+  // 手机页上那几个「本月消费 / 本月单数」不再用模型编的数字，直接从钱包流水求和。
+  // 模型给的那两个数和真实扣款对不上，界面上两处说着不同的钱（Codex 指出）。
+  const phoneMonthStatsFor = char => {
+    const rec = (charWalletRef.current || {})[char && char.id];
+    if (!rec || !rec.init) return null;
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const out = { shopping: { spend: 0, orders: 0 }, takeout: { spend: 0, orders: 0 } };
+    (rec.ledger || []).forEach(e => {
+      if (!e || !e.srcKey) return;
+      const d = new Date(e.ts);
+      if (d.getFullYear() !== y || d.getMonth() !== m) return;
+      const src = String(e.srcKey).split("|")[1];
+      if (!out[src]) return;
+      if (e.refundOf) { out[src].spend = r2(out[src].spend - Math.abs(Number(e.delta) || 0)); return; }
+      out[src].spend = r2(out[src].spend + Math.abs(Number(e.delta) || 0));
+      out[src].orders++;
+    });
+    // 退款可能把某一栏冲成负数（上个月的单这个月退），别显示负的消费
+    Object.keys(out).forEach(k => { if (out[k].spend < 0) out[k].spend = 0; });
+    return out;
   };
   const genDailySpend = async (char, dayKey, rec, already) => {
     const plan = (schedulesRef.current[char.id] || {})[dayKey];
@@ -12757,6 +12807,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     calendarFor: phoneCalendarFor,
     archives: phoneArch,
     vitalsFor: cid => (phoneVitals || {})[cid] || [],
+    monthStatsFor: phoneMonthStatsFor,
     autoOn: phoneAuto.on || {},
     onToggleAuto: phoneAutoToggle,
     onGenPlaylist: genCharPlaylist,

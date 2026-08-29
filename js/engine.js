@@ -1172,8 +1172,16 @@ const GROUP_IN_CHARACTER = `【你不是在导演他们，你就是在场的每�
 // 34 放过了「早饭给你热在微波炉里了，热美式和三明治，自己记得拿出来吃」这种三小句 28 字的，
 // 而那正是她两次说「还是很长」的那一档。22 上面这批真句子逐条看过，没有一条被切碎。
 // 言秋不吃这一道：他那条线连 ONLINE_CHAT_RULE_V2 都不注入，说多长由他自己定。
+// ⚠️千分位不是句子边界。「现在现值是 150,000 乘以 0.312，也就是 46,800」
+// 被逗号一切就成了「现在现值是 150」「000 乘以 0.312」「也就是 46」「800」——
+// 她 2026-08-29 截图，一串数字被切成好几个气泡。
+// 切之前先把【夹在数字中间】的逗号换成哨兵，切完再换回来。
+// 不用 lookbehind 是为了不挑运行环境（她是 iPhone PWA）。
+const BUBBLE_NUMSEP = "\u0001";
+const bubbleProtectNum = x => String(x).replace(/(\d)[，,](?=\d)/g, "$1" + BUBBLE_NUMSEP);
+const bubbleRestoreNum = x => String(x).split(BUBBLE_NUMSEP).join(",");
 function splitLongBubble(s, allowComma) {
-  s = String(s == null ? "" : s).trim();
+  s = bubbleProtectNum(String(s == null ? "" : s).trim());
   if (!s) return [];
   const LONG = 22, MIN = 8, TAIL_MIN = 6, MAX_CHUNKS = 4;
   const glue = (a, seg, i) => { if (i % 2 === 0) a.push(seg); else a[a.length - 1] += seg; return a; };
@@ -1181,7 +1189,7 @@ function splitLongBubble(s, allowComma) {
   if (s.length > LONG && /[。！？!?]/.test(s.slice(0, -1))) {
     out = s.split(/([。！？!?]+)/).reduce(glue, []).map(x => x.trim()).filter(Boolean);
   }
-  if (allowComma === false) return out;
+  if (allowComma === false) return out.map(bubbleRestoreNum);
   return out.reduce((acc, part) => {
     if (part.length <= LONG || !/[，,]/.test(part.slice(0, -1))) return acc.concat([part]);
     const segs = part.split(/([，,])/).reduce(glue, []).filter(x => x.trim());
@@ -1192,7 +1200,7 @@ function splitLongBubble(s, allowComma) {
     });
     while (chunks.length > 1 && chunks[chunks.length - 1].replace(/[，,]\s*$/, "").length < TAIL_MIN) chunks[chunks.length - 2] += chunks.pop();
     return acc.concat(chunks.map(x => x.replace(/[，,]\s*$/, "").trim()).filter(Boolean));
-  }, []);
+  }, []).map(bubbleRestoreNum);
 }
 // ── 手动日程事件 x_calEvents（v56.31，她 2026-08-26 要的那张「新增日程」表单）──
 // 为什么另起一个仓、不塞进 x_schedules 的 seqs：
