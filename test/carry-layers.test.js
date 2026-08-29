@@ -240,8 +240,9 @@ test("列表和详情画的是同一件衣服——剪影只有一份", () => {
   assert.match(screens, /function clothFigure\(o\) \{/);
   // 两处都调它，谁也别再自己画一遍
   assert.equal((screens.match(/clothFigure\(\{/g) || []).length, 2, "列表一处、详情一处，多出来的就是又抄了一遍");
-  assert.match(screens, /clothFigure\(\{ tone: c, long, w: 88, pinned: isPinned\(it\), t \}\)/, "列表没走共用那份");
-  assert.match(screens, /clothFigure\(\{ tone: cl, long: sheet\._long, w: 104, pinned: isPinned\(sheet\), t \}\)/, "详情没走共用那份");
+  // 别冻宽度——两处的尺寸以后还会调。守的是【都走同一个 clothFigure、都把钉住态传进去】。
+  assert.match(screens, /clothFigure\(\{ tone: c, long, w: \d+, pinned: isPinned\(it\), t \}\)/, "列表没走共用那份");
+  assert.match(screens, /clothFigure\(\{ tone: cl, long: sheet\._long, w: \d+, pinned: isPinned\(sheet\), t \}\)/, "详情没走共用那份");
   // 剪影本身也只有一份
   assert.match(screens, /const CLOTH_CLIP_LONG = "polygon\(/);
   assert.match(screens, /const CLOTH_CLIP_SHORT = "polygon\(/);
@@ -267,7 +268,7 @@ test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不�
 test("详情页把这件衣服本身画进去，底色也取自它自己", () => {
   const i = screens.indexOf("      const pinRow = onTogglePin");
   const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
-  assert.match(seg, /clothRgba\(cl\.base, 0\.16\)/, "顶部那层氛围底没取这件衣服的布色");
+  assert.match(seg, /clothRgba\(cl\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件衣服的布色");
   assert.match(seg, /if \(!cl\) return h\(Sheet/, "别的栏（包内/口袋/珍藏）没有布色，要走回原来那份");
   assert.match(seg, /sheet\._occ \? h\("div"[\s\S]{0,200}?"OCCASION"/, "场合的 eyebrow 该是英文标签");
   // ⚠️toUpperCase 对中文是空操作，会把同一个场合名原样印两遍
@@ -286,4 +287,28 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
   assert.match(seg, /minWidth: "100%", width: "max-content"/, "杆要铺满整格");
   // 整页那层柜内的光只给衣柜，别的栏不该变色
   assert.match(screens, /style: sec\.closet \? \{ background: "linear-gradient\(180deg,rgba\(74,58,40/, "整页的柜内光没有只给衣柜");
+});
+
+// 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」
+test("衣柜详情是居中的一扇柜门，不是从底下滑上来的半页", () => {
+  const i = screens.indexOf("      // 衣柜版：不走从底下滑上来的半页");
+  assert.ok(i > 0, "找不到衣柜版详情");
+  const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
+  assert.doesNotMatch(seg, /h\(Sheet, \{/, "又退回半页式 Sheet 了");
+  assert.match(seg, /className: "absolute inset-0 flex items-center justify-center/, "框要居中");
+  assert.match(seg, /animation: "caseOpen/, "开门那下动画");
+  // 框本身要像柜门：木框 + 内板 + 门把手，且颜色一律叠在主题色上
+  assert.match(seg, /repeating-linear-gradient\(90deg/, "木纹");
+  assert.match(seg, /borderRadius: 4, background: "linear-gradient\(90deg,rgba\(56,42,28/, "门把手");
+  assert.match(seg, /inset 0 0 0 1px rgba\(56,42,28/, "内板的镶板凹槽");
+  assert.doesNotMatch(seg, /background: "#[0-9a-fA-F]{6}"/, "别写死颜色，换主题就脱节了");
+  // 长文本要能滚，别把内容顶出屏幕
+  assert.match(seg, /className: "overflow-y-auto"[\s\S]{0,140}?maxHeight: "calc\(\d+vh/, "内容得能滚");
+  // 别的栏仍旧走原来那份半页
+  assert.match(screens, /if \(!cl\) return h\(Sheet, \{ onClose: \(\) => setSheet\(null\), tall: true \}/, "包内/口袋/珍藏该照旧");
+});
+
+test("caseOpen 这个动画真的定义过（只写在 style 里等于没有）", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+  assert.match(html, /@keyframes caseOpen/, "index.html 里没定义 caseOpen，动画就是空转的");
 });

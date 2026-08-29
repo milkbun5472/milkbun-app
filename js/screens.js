@@ -8495,27 +8495,57 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         h(Eyebrow, { style: { marginBottom: 8 } }, sheet.name),
         sheet.note && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginBottom: 12, lineHeight: 1.7 } }, sheet.note),
         think, pinRow);
-      // 衣柜版：左边挂着这一身，右边是它的来头。整片的底色取自这件衣服自己的布色——
-      // 打开红袍就是暖红调，打开月白就是青白调，每件衣服的详情都是它自己的样子。
-      return h(Sheet, { onClose: () => setSheet(null), tall: true },
+      // 衣柜版：不走从底下滑上来的半页，改成【居中的一扇柜门】——
+      // 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」。
+      // 外面一圈木框、里面一块内板、右边一个门把手，整片的氛围底取自这件衣服的布色：
+      // 打开红袍是暖红调，打开月白是青白调。
+      return h("div", {
+        className: "absolute inset-0 flex items-center justify-center z-50 px-6",
+        style: { background: "rgba(20,19,15,0.46)", backdropFilter: "blur(3px)" },
+        onClick: () => setSheet(null)
+      },
         h("div", {
+          onClick: e => e.stopPropagation(),
           style: {
-            position: "absolute", left: 0, right: 0, top: 0, height: 210, pointerEvents: "none",
-            background: "linear-gradient(180deg," + clothRgba(cl.base, 0.16) + " 0%," + clothRgba(cl.base, 0.03) + " 62%,rgba(0,0,0,0) 100%)",
-            borderRadius: "26px 26px 0 0"
+            position: "relative", width: "min(88vw, 348px)", maxHeight: "82vh",
+            padding: 13, borderRadius: 21,
+            // 木框：暖褐叠在主题底色上，不写死颜色。够深才看得出是木头——
+            // 太淡的话整个框就退回成一张白卡片了。
+            background: t.bg2,
+            backgroundImage: "repeating-linear-gradient(90deg,rgba(0,0,0,.055) 0px,rgba(0,0,0,.055) 1px,rgba(255,255,255,.05) 1px,rgba(255,255,255,.05) 4px),"
+              + "linear-gradient(152deg,rgba(74,58,40,.34) 0%,rgba(74,58,40,.56) 42%,rgba(74,58,40,.40) 72%,rgba(74,58,40,.58) 100%)",
+            boxShadow: "0 22px 54px rgba(0,0,0,.36), inset 0 1.5px 0 rgba(255,255,255,.40), inset 0 -1.5px 0 rgba(0,0,0,.20)",
+            animation: "caseOpen .26s ease both"
           }
-        }),
-        h("div", { style: { position: "relative" } },
-          h("div", { className: "flex items-start", style: { gap: 16, marginBottom: 4 } },
-            h("div", { className: "shrink-0" }, clothFigure({ tone: cl, long: sheet._long, w: 104, pinned: isPinned(sheet), t })),
-            h("div", { className: "flex-1 min-w-0", style: { paddingTop: 12 } },
-              // ⚠️别对中文用 toUpperCase()——它是空操作，会把同一个场合名原样印两遍。
-              // 上面那行英文标签是 eyebrow（和 app 里别处「CONTACTS · 2」同一套），下面才是场合本身。
-              sheet._occ ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 4 } }, "OCCASION") : null,
-              sheet._occ ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 8 } }, sheet._occ) : null,
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, lineHeight: 1.3, letterSpacing: "0.01em" } }, sheet.name),
-              sheet.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 7, lineHeight: 1.7 } }, sheet.note) : null)),
-          think, pinRow));
+        },
+          // 门把手：柜门上那个小小的竖把手
+          h("div", { style: { position: "absolute", right: -4, top: "50%", marginTop: -17, width: 8, height: 34, borderRadius: 4, background: "linear-gradient(90deg,rgba(56,42,28,.92),rgba(56,42,28,.55))", boxShadow: "0 2px 5px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.28)" } }),
+          // 内板
+          h("div", {
+            style: {
+              position: "relative", borderRadius: 13, overflow: "hidden", background: t.bg2,
+              boxShadow: "0 -1px 0 rgba(255,255,255,.30), inset 0 0 0 1px rgba(56,42,28,.30), inset 0 4px 11px rgba(74,58,40,.16)"
+            }
+          },
+            h("div", {
+              style: {
+                position: "absolute", left: 0, right: 0, top: 0, height: 200, pointerEvents: "none",
+                background: "linear-gradient(180deg," + clothRgba(cl.base, 0.17) + " 0%," + clothRgba(cl.base, 0.03) + " 64%,rgba(0,0,0,0) 100%)"
+              }
+            }),
+            h("div", { className: "overflow-y-auto", style: { position: "relative", maxHeight: "calc(82vh - 26px)", padding: "20px 20px 22px" } },
+              h("div", { className: "flex items-start", style: { gap: 14, marginBottom: 4 } },
+                // 衣服后面一根短杆：它是从柜子里取出来给你看的那一件
+                h("div", { className: "shrink-0", style: { position: "relative", paddingTop: 8 } },
+                  h("div", { style: { position: "absolute", top: 12, left: -8, right: -8, height: 3.5, borderRadius: 2, background: "linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(150,128,100,.8) 45%,rgba(74,58,40,.6) 100%)" } }),
+                  clothFigure({ tone: cl, long: sheet._long, w: 96, pinned: isPinned(sheet), t })),
+                h("div", { className: "flex-1 min-w-0", style: { paddingTop: 10 } },
+                  // ⚠️别对中文用 toUpperCase()——它是空操作，会把同一个场合名原样印两遍。
+                  sheet._occ ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.18em", color: t.fog, marginBottom: 4 } }, "OCCASION") : null,
+                  sheet._occ ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginBottom: 7 } }, sheet._occ) : null,
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.32, letterSpacing: "0.01em", wordBreak: "break-word" } }, sheet.name),
+                  sheet.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6, lineHeight: 1.7 } }, sheet.note) : null)),
+              think, pinRow))));
     })(),
     openGift && h(Sheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
