@@ -8193,8 +8193,20 @@ const clothIsDark = hex => {
 function toneFrom(table, fallback, it, i) {
   // 命中的那个词也带出来：包内详情要显示「铜」「纸」「布」——
   // 那不是我另编的标签，是从这件东西自己的名字里真读出来的。
-  const pick = txt => { for (const [re, hex] of table) { const m = txt.match(re); if (m) return [hex, m[0]]; } return null; };
-  const hit = pick(String((it && it.name) || "")) || pick(String((it && it.note) || ""));
+  // ⚠️词表项第三格 nameOnly＝【只许在名字里认，不许在 note 里认】。
+  // note 说的常常是「它在哪／谁给的／什么时候用」，不是「它什么做的」：
+  //   「亚克力立牌／静静躺在包内侧口袋」——「袋」是位置，被当成了布
+  //   「AirPods耳机盒／贴着动画联名贴纸」——「纸」是别的东西的材质
+  // 这两个都是她 2026-08-29 真机截图里抓出来的。单字词在 note 里尤其容易误伤。
+  const pick = (txt, nameRound) => {
+    for (const row of table) {
+      if (!nameRound && row[2]) continue;
+      const m = txt.match(row[0]);
+      if (m) return [row[1], row[3] || m[0]];
+    }
+    return null;
+  };
+  const hit = pick(String((it && it.name) || ""), true) || pick(String((it && it.note) || ""), false);
   const base = hit ? hit[0] : fallback[(i || 0) % fallback.length];
   return Object.assign(toneOf(base), { word: hit ? hit[1] : "" });
 }
@@ -8236,26 +8248,49 @@ function carryClosetText(box, cap) {
 // 铜的钥匙、纸的票根、布的香囊、瓷的小瓶，材质本身就是这件东西最像它自己的地方。
 // ⚠️同 CLOTH_TONES：顺序＝优先级，长词排前面。
 const STUFF_TONES = [
+  // —— 现代材质（她的角色不都是古人；原先这一栏一个现代词都没有）——
+  [/亚克力|有机玻璃|树脂/, "#cbd8dd"],
+  [/硅胶|橡胶/, "#9aa39b"],
+  [/塑料|塑胶|PVC|pvc/, "#b9c3c9"],
+  [/不锈钢|合金|金属|铝/, "#8d949c", false, "金属"],   // ⚠️必须排在「金」前面：金属徽章不是金子
+  [/帆布|牛仔|涤纶|尼龙/, "#a8a693"],
+  [/耳机|手机|充电|数码|电子|电池|AirPods|airpods/, "#6f7a85", false, "电子"],
+  // —— 传统材质 ——
   [/黄铜|铜/, "#b08d57"],
   [/白银|银/, "#b9bec6"],
-  [/鎏金|金箔|金/, "#c3a13a"],
+  [/鎏金|金箔|镀金|金/, "#c3a13a"],
   [/铁|钢|铸|刃|刀|剑|匕/, "#79808a"],
   [/琉璃|玻璃|镜/, "#a9c2cd"],
   [/瓷|陶|釉/, "#bfd0d6"],
   [/玉|翡|珏|珠|石|砚/, "#a3bcae"],
-  [/皮|革|鞣/, "#8a6247"],
+  [/皮革|真皮|皮/, "#8a6247"],
   [/檀|木|竹|藤|漆/, "#9c7b53"],
-  [/纸|信|笺|票|条|册|书|本|帖|契|方子|药方/, "#dcc9a2"],
-  [/绢|帕|布|囊|袋|绳|绦|线|棉|麻|荷包/, "#bfae91"],
-  [/药|丸|膏|散|瓶|罐|壶/, "#c0a682"],
-  [/糖|果|饼|干粮|吃食|点心/, "#dfb587"],
-  [/香|熏|脂|粉/, "#c9b0be"],
-  [/钱|银子|铜板|碎银|票号/, "#c8ae6a"]
+  // —— 以下这些既可能是材质、也可能是【别的东西】或【位置】，只许在名字里认 ——
+  [/纸|信|笺|票|册|帖|契|方子|药方/, "#dcc9a2", true],
+  [/绢|帕|布|囊|绳|绦|棉|麻|荷包/, "#bfae91", true],
+  [/药|丸|膏|散|瓶|罐|壶/, "#c0a682", true],
+  [/糖|果|饼|干粮|吃食|点心/, "#dfb587", true],
+  [/香|熏|脂|粉/, "#c9b0be", true],
+  [/钱|银子|铜板|碎银|票号/, "#c8ae6a", true],
+  [/条|本|书|袋|线|盒/, "#c9bda6", true]
 ];
 const STUFF_FALLBACK = ["#b3aca0", "#a7b0b6", "#bdb0aa", "#a9b3a6", "#b5aebc", "#c0b498"];
 const stuffTone = (it, i) => toneFrom(STUFF_TONES, STUFF_FALLBACK, it, i);
 // 牌子歪多少：按名字算一个稳定的小角度。一正一反太死板，真随机又会每次重排都跳，
 // 同一件东西的角度得永远一样。
+// 两列怎么分：奇偶分列的话，三件东西会变成左二右一、右边空一大块
+//（她 2026-08-29 真机截图）。改成【谁矮往谁那儿放】，按名字和 note 的长度估个高。
+function stuffColumns(items) {
+  const cols = [[], []], hgt = [0, 0];
+  (items || []).forEach((it, i) => {
+    const n = String(it.name || "").length, d = String(it.note || "").length;
+    const est = 34 + Math.ceil(n / 7) * 19 + Math.min(3, Math.ceil(d / 9)) * 17;
+    const c = hgt[0] <= hgt[1] ? 0 : 1;
+    cols[c].push({ it, i });
+    hgt[c] += est + 10;
+  });
+  return cols;
+}
 function stuffTilt(name) {
   let n = 0;
   const s = String(name || "");
@@ -8405,7 +8440,7 @@ function carryProbeSpec(key, char, known, pinned, material) {
   };
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onGen, onGenGiftThought, onBack }) {
+function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenGiftThought, onBack }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -8519,8 +8554,8 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         h("div", { style: { position: "absolute", left: 0, top: 7, bottom: 7, width: 5, borderRadius: "0 3px 3px 0", background: "linear-gradient(180deg," + c.light + "," + c.base + " 55%," + c.dark2 + ")", boxShadow: "1px 0 2px rgba(0,0,0,.10)" } }),
         h("div", { className: "flex items-start", style: { gap: 7 } },
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.35, wordBreak: "break-word" } }, it.name),
-            it.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, it.note) : null),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, lineHeight: 1.38, wordBreak: "break-word" } }, it.name),
+            it.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.note) : null),
           on ? h("span", { title: "钉住了，刷新不会换掉", style: { fontSize: 10, lineHeight: 1.6, color: c.ink, flexShrink: 0 } }, "◆") : null));
     };
     content = !items.length
@@ -8540,7 +8575,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
             }
           },
             h("div", { className: "grid grid-cols-2", style: { gap: "0 10px" } },
-              [0, 1].map(col => h("div", { key: col }, items.filter((_, i) => i % 2 === col).map((it, k) => card(it, k * 2 + col)))))));
+              stuffColumns(items).map((col, ci) => h("div", { key: ci }, col.map(x => card(x.it, x.i)))))));
   } else {
     const items = (data && data.items) || [];
     content = items.length === 0
@@ -8574,19 +8609,27 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     sheet && (() => {
       const tone = sheet._tone || sheet._stuff || null;   // 有色的才走柜门框
       const isCloth = !!sheet._tone;
-      const pinRow = onTogglePin ? h("div", { style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
-        h("button", {
-          onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
-          className: "w-full py-2.5 active:opacity-70",
-          style: {
-            fontFamily: F_BODY, fontSize: 13, borderRadius: 999,
-            border: "1px solid " + (isPinned(sheet) ? (tone ? clothRgba(tone.ink, 0.55) : t.accent) : t.line),
-            background: isPinned(sheet) ? (tone ? clothRgba(tone.ink, 0.07) : "transparent") : "transparent",
-            color: isPinned(sheet) ? (tone ? tone.ink : t.accent) : t.ink
-          }
-        }, isPinned(sheet) ? "◆ 钉住了 · 点一下松开" : "钉住这一件"),
+      const pinRow = (onTogglePin || onPeek) ? h("div", { style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
+        h("div", { className: "flex", style: { gap: 8 } },
+          onTogglePin ? h("button", {
+            onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
+            className: "flex-1 py-2.5 active:opacity-70",
+            style: {
+              fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999,
+              border: "1px solid " + (isPinned(sheet) ? (tone ? clothRgba(tone.ink, 0.55) : t.accent) : t.line),
+              background: isPinned(sheet) ? (tone ? clothRgba(tone.ink, 0.07) : "transparent") : "transparent",
+              color: isPinned(sheet) ? (tone ? tone.ink : t.accent) : t.ink
+            }
+          }, isPinned(sheet) ? "◆ 钉住了" : "钉住这一件") : null,
+          // 摆到他面前：和查手机那条链是同一张卡（v57.96）
+          onPeek ? h("button", {
+            onClick: () => { onPeek(char.id, sectionKey, sheet); setSheet(null); },
+            className: "flex-1 py-2.5 active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
+          }, "摆到他面前") : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
-          "钉住的东西刷新时不会被换掉。没钉住的也不是每次都换——一次最多换两件。")) : null;
+          (onTogglePin ? "钉住的东西刷新时不会被换掉，没钉住的一次最多换两件。" : "")
+          + (onPeek ? "「摆到他面前」会在聊天里发一条——他会知道你翻过。" : ""))) : null;
       const think = h("div", { style: { marginTop: tone ? 18 : 0 } },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: tone ? tone.ink : t.accent, marginBottom: 7 } }, char.name + " 的想法"),
         h("div", {
@@ -8664,9 +8707,16 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         ? h(Spinner, { label: "让 " + char.name + " 说说…" })
         : openGift.thought
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, openGift.thought)
-          : h("button", { onClick: () => onGenGiftThought(char.id, openGift.id, openGift.name), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "让 " + char.name + " 说说对它的想法")));
+          : h("button", { onClick: () => onGenGiftThought(char.id, openGift.id, openGift.name), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "让 " + char.name + " 说说对它的想法"),
+      // 礼物是你送的，他本来就知道你知道——所以这一条走 open 档，不带「被撞破」那层
+      onPeek ? h("div", { style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
+        h("button", {
+          onClick: () => { onPeek(char.id, sectionKey, { name: openGift.name, note: "你送的" }); setOpenGiftId(null); },
+          className: "w-full py-2.5 active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
+        }, "在聊天里提起它")) : null));
 }
-function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, onBack, onSel, onGen, onGenAll, onGenGiftThought, onTogglePin }) {
+function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, onBack, onSel, onGen, onGenAll, onGenGiftThought, onTogglePin, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -8752,7 +8802,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   const data = carry[char.id] || {};
   const gifts = (carryGifts && carryGifts[char.id]) || [];
   const hasData = s => s.gifts ? gifts.length > 0 : !!data[s.key];
-  if (open) return h(CarrySection, { char, sectionKey: open, data: data[open], gifts, busyKey: busyKey === "__all__" ? open : busyKey, giftBusy, pinned: ((carryPins || {})[char.id] || {})[open] || [], onTogglePin, onGen, onGenGiftThought, onBack: () => setOpen(null) });
+  if (open) return h(CarrySection, { char, sectionKey: open, data: data[open], gifts, busyKey: busyKey === "__all__" ? open : busyKey, giftBusy, pinned: ((carryPins || {})[char.id] || {})[open] || [], onTogglePin, onPeek, onGen, onGenGiftThought, onBack: () => setOpen(null) });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块
   // 写着斜体英文、下面空着三分之二屏，谁也不知道每一栏里装的是什么。
   // 每一格露出【这一栏里真实那几件东西的颜色】：衣柜是布色，包内/口袋/珍藏是材质色。

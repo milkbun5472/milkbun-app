@@ -259,14 +259,14 @@ test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不�
   assert.ok(!F2.clothIsDark(pale.dark), "先确认 dark 确实不够深（所以才需要 ink）");
   // clothShift 要返回 hex，算出来的色才能再兑透明度
   assert.match(F2.clothShift("#b8433c", -0.5), /^#[0-9a-f]{6}$/);
-  const i = screens.indexOf("      const pinRow = onTogglePin");
+  const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
   const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
   assert.doesNotMatch(seg, /tone\.dark\b/, "详情页的文字和描边不许用 dark，要用 ink");
   assert.match(seg, /clothRgba\(tone\.ink, 0?\.\d+\)/, "想法那条竖线要用 ink");
 });
 
 test("详情页把这件衣服本身画进去，底色也取自它自己", () => {
-  const i = screens.indexOf("      const pinRow = onTogglePin");
+  const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
   const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
   assert.match(seg, /clothRgba\(tone\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件东西自己的色");
   assert.match(seg, /if \(!tone\) return h\(Sheet/, "没有色的（收到的礼物那种）要走回原来那份半页");
@@ -292,7 +292,7 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
 
 // 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」
 test("随身物详情是居中的一扇柜门，不是从底下滑上来的半页", () => {
-  const i = screens.indexOf("      const pinRow = onTogglePin");
+  const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
   assert.ok(i > 0, "找不到详情那一段");
   const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
   // 有色的那一路一律走居中的柜门框；半页 Sheet 只剩【没有色时】那一条退路，
@@ -364,7 +364,7 @@ test("认色这件事只写一处，衣柜和包内共用", () => {
   assert.match(screens, /const clothTone = \(set, i\) => toneFrom\(CLOTH_TONES, CLOTH_FALLBACK, set, i\)/);
   assert.match(screens, /const stuffTone = \(it, i\) => toneFrom\(STUFF_TONES, STUFF_FALLBACK, it, i\)/);
   // 「名字优先于 note」这条规则只该有一份实现
-  assert.equal((screens.match(/pick\(String\(\(it && it\.name\) \|\| ""\)\)/g) || []).length, 1,
+  assert.equal((screens.match(/pick\(String\(\(it && it\.name\) \|\| ""\), true\)/g) || []).length, 1,
     "认色的规则又被抄了一遍——改了一处另一处就跟不上");
 });
 
@@ -421,4 +421,78 @@ test("切换角色那个弹层挪出了滚动容器", () => {
   const i = screens.indexOf("    // ⚠️这个弹层以前写在滚动容器");
   const before = screens.slice(screens.indexOf("  // 一格一格的抽屉"), i);
   assert.doesNotMatch(before, /overflow-y-auto/, "柜子那一屏不该再套一层滚动容器把弹层困在里面");
+});
+
+// ── 摆到他面前（她 2026-08-29：「再做跟查手机一样可以发给他的功能吧」）──
+test("随身物也能摆到他面前，和查手机共用同一张卡", () => {
+  assert.match(app, /const CARRY_PEEK = \{/);
+  assert.match(app, /const forwardCarryToChat = \(charId, sectionKey, item\) => \{/);
+  assert.match(app, /forwardPhonePeekToChat\(char, \{/, "没走查手机那条现成的链，等于又抄了一套");
+  assert.match(screens, /onPeek\(char\.id, sectionKey, sheet\); setSheet\(null\)/, "详情里没有这个按钮");
+  // 五栏各自的档位：包/口袋/衣柜是「你翻的」，珍藏是「他藏着的」，礼物是「你送的」
+  const conf = app.match(/const CARRY_PEEK = \{[\s\S]*?\n  \};/)[0];
+  assert.match(conf, /bag:\s+\{ what: "包",\s+tier: "quiet"/);
+  assert.match(conf, /outfit:\s+\{ what: "衣柜", tier: "quiet"/);
+  assert.match(conf, /trinket: \{ what: "东西", tier: "hidden"/, "珍藏是他藏着的东西");
+  assert.match(conf, /gifts:\s+\{ what: "东西", tier: "open"/, "礼物是你送的，他本来就知道你知道");
+  // 珍藏那一档的「藏起来」不能沿用手机那套说法（小号／深夜／删掉的）
+  assert.match(conf, /hiddenWhat: "他一直贴身收着的/);
+});
+
+test("摆过去的只有东西本身，绝不带他的心声", () => {
+  const i = app.indexOf("  const forwardCarryToChat = (charId, sectionKey, item) => {");
+  const seg = app.slice(i, app.indexOf("\n  };", i));
+  assert.match(seg, /title: item\.name/);
+  assert.match(seg, /text: item\.note \|\| ""/);
+  assert.doesNotMatch(seg, /thought/, "thought 是他对这件东西没说出口的想法，摆过去就把张力泄了");
+  // 界面那边传进来的是整个 sheet 对象，所以这一层必须自己挑字段，不能整份转发
+  assert.doesNotMatch(seg, /Object\.assign\(\{\}, item\)|\.\.\.item/, "别整份转发，会把 thought 一起带过去");
+});
+
+test("判词跟着翻的是什么走，不再写死「手机」", () => {
+  assert.match(app, /const phonePeekTag = \(tier, what, hiddenWhat\) =>/);
+  assert.doesNotMatch(app, /const PHONE_PEEK_TAG = \{/, "旧的写死版还在");
+  assert.match(app, /是她自己翻你" \+ what \+ "翻到的/);
+  // 卡片上那行小字同理
+  assert.match(R("components.js"), /"翻他" \+ \(p\.what \|\| "手机"\) \+ " · "/);
+});
+
+// 她 2026-08-29 真机截图抓出来的三个
+test("材质词表认得现代的东西，「金属」不是「金」", () => {
+  const F4 = (() => {
+    const pre = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));
+    const head = screens.slice(screens.indexOf("const STUFF_TONES"), screens.indexOf("// 一件挂着的衣服"));
+    return new Function(pre + head + "\nreturn { stuffTone, stuffColumns };")();
+  })();
+  const w = (n, note) => F4.stuffTone({ name: n, note: note || "" }, 0).word;
+  // ⚠️「金属」必须排在「金」前面，否则金属徽章会被判成鎏金色
+  assert.equal(w("冷门动画金属徽章", ""), "金属");
+  assert.equal(w("亚克力立牌", ""), "亚克力");
+  assert.equal(w("AirPods耳机盒", ""), "电子", "命中英文牌子名时该显示中文");
+  assert.equal(w("帆布托特包", ""), "帆布");
+  // note 里说的常是「它在哪／谁给的」，不是「它什么做的」：这两条是真机截图里的原样
+  assert.equal(w("兵头九门的亚克力立牌", "未拆封，静静躺在包内侧口袋"), "亚克力", "被 note 里的「口袋」抢走了");
+  assert.equal(w("旧怀表", "外壳贴着低调的动画联名贴纸"), "", "被 note 里的「贴纸」抢走了");
+  // 但明确的材质词仍旧可以从 note 里读——「一串钥匙／铜的」那种
+  assert.equal(w("一串钥匙", "铜的"), "铜");
+});
+
+test("两列按高度分，不是按奇偶分", () => {
+  const F5 = (() => {
+    const pre = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));
+    const head = screens.slice(screens.indexOf("const STUFF_TONES"), screens.indexOf("// 一件挂着的衣服"));
+    return new Function(pre + head + "\nreturn stuffColumns;")();
+  })();
+  const it = n => ({ name: n, note: "一句差不多长的说明文字" });
+  // 奇偶分列的话三件会变成左二右一、右边空一大块（她 2026-08-29 真机截图）
+  const three = F5([it("甲"), it("乙"), it("丙")]).map(c => c.length);
+  assert.deepEqual(three, [2, 1]);
+  // 区分度在这里：第一件很长、后两件很短。
+  // 奇偶分列会得到 [长,短乙] / [短甲]（左边更高更歪）；按高度分该是 [长] / [短甲,短乙]。
+  const cols = F5([
+    { name: "名字很长很长很长的一件东西要占好几行", note: "说明也很长很长很长很长很长很长很长很长很长很长" },
+    { name: "甲", note: "" }, { name: "乙", note: "" }
+  ]).map(c => c.map(x => x.it.name));
+  assert.deepEqual(cols, [["名字很长很长很长的一件东西要占好几行"], ["甲", "乙"]],
+    "两列还是按奇偶分的——长的那件后面不该再堆东西");
 });

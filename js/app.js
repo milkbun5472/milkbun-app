@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.95";
+const APP_VERSION = "v57.96";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10338,25 +10338,58 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 他给你看过的、他没说但你看得见的、他压根藏起来的，三种反应完全不同。
   // 框架整个写进 content：它跟着这条消息本身走，所以单聊线上、线下、群里读到的都是同一份，
   // 不必在四处各挂一个钩子（.claude/rules/four-surfaces-same-context.md）。
-  const PHONE_PEEK_TAG = {
+  // ⚠️这段判词以前把「手机」写死在里面（v57.96 之前）。随身物也走这条链之后，
+  // 翻的是他的包，模型收到的却是「她翻过我手机」——对不上就演不对。
+  // what＝她翻的是什么（手机／包／衣柜），hiddenWhat＝这一档「藏起来」在这个语境里长什么样。
+  const phonePeekTag = (tier, what, hiddenWhat) => ({
     open: "｜（这东西他本来就没瞒着你，就当她随口提起。）",
-    quiet: "｜（**他没告诉过你这个，是她自己翻你手机翻到的。**他此刻在意的多半不是这条内容本身，而是「她翻过我手机、还翻到了这里」。不动声色、笑着揭过去、反问她还看了什么、恼、或者干脆坦白——按你的人设和你俩现在的关系来，别一上来就配合地把内容解释一遍。）",
-    hidden: "｜（**这是他藏起来的东西**：匿名的／小号的／深夜的／删掉的／设了私密的。他从没打算让任何人看到，尤其是她。现在被摆到台面上了。**这一刻发生的不是「她问了个问题」，是「他被撞破了」。**你有权不答、反问、翻脸、装作没听懂，也有权承认；唯独不许像客服一样顺从地解释一遍。）"
-  };
+    quiet: "｜（**他没告诉过你这个，是她自己翻你" + what + "翻到的。**他此刻在意的多半不是这条内容本身，而是「她翻过我" + what + "、还翻到了这里」。不动声色、笑着揭过去、反问她还看了什么、恼、或者干脆坦白——按你的人设和你俩现在的关系来，别一上来就配合地把内容解释一遍。）",
+    hidden: "｜（**这是他藏起来的东西**：" + (hiddenWhat || "匿名的／小号的／深夜的／删掉的／设了私密的") + "。他从没打算让任何人看到，尤其是她。现在被摆到台面上了。**这一刻发生的不是「她问了个问题」，是「他被撞破了」。**你有权不答、反问、翻脸、装作没听懂，也有权承认；唯独不许像客服一样顺从地解释一遍。）"
+  }[tier]);
+  // peek.what：翻的是「手机」还是他的「包」「衣柜」（v57.96 随身物也走这条链）。
+  // peek.lead：整句话的开头，随身物那边不套「在你的〈X〉里看到了」这个句式。
   const forwardPhonePeekToChat = (char, peek) => {
     if (!char || !peek) return;
-    const tier = PHONE_PEEK_TAG[peek.tier] ? peek.tier : "quiet";
+    const tier = ["open", "quiet", "hidden"].includes(peek.tier) ? peek.tier : "quiet";
     const label = String(peek.label || "手机");
+    const what = String(peek.what || "手机");
     const title = String(peek.title || "").replace(/\s+/g, " ").trim().slice(0, 60);
     const text = String(peek.text || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    const lead = String(peek.lead || ("[我翻了你的手机]在你的〈" + label + "〉里看到了："));
     pChat(char.id, p => [...p, {
       role: "user", kind: "phonepeek",
-      peek: { label, title, text, tier },
-      content: "[我翻了你的手机]在你的〈" + label + "〉里看到了："
-        + (title ? "《" + title + "》" : "") + (text ? (title ? "｜" : "") + text : "") + PHONE_PEEK_TAG[tier],
+      peek: { label, title, text, tier, what },
+      content: lead + (title ? "《" + title + "》" : "") + (text ? (title ? "｜" : "") + text : "") + phonePeekTag(tier, what, peek.hiddenWhat),
       ts: Date.now(), read: false
     }]);
-    toast("已转发给 " + (char.remark || char.name) + "（他会知道你翻了手机）");
+    toast("已摆到 " + (char.remark || char.name) + " 面前（他会知道你翻了他的" + what + "）");
+  };
+  // 随身物 → 聊天。和查手机共用 phonepeek 这张卡，只是翻的东西不一样。
+  // ⚠️只发 name 和 note，【绝不发 thought】——那是他对这件东西没说出口的想法。
+  // 你翻到了那样东西，不等于你知道它对他意味着什么；把心声也一起摆上台面，
+  // 反而把「被撞破」那一下的张力泄掉了。
+  const CARRY_PEEK = {
+    bag:     { what: "包",   tier: "quiet",  lead: "[我翻了你的包]看到你包里有：" },
+    pocket:  { what: "口袋", tier: "quiet",  lead: "[我翻了你的口袋]摸出来一样东西：" },
+    outfit:  { what: "衣柜", tier: "quiet",  lead: "[我翻了你的衣柜]看到那一身：" },
+    trinket: { what: "东西", tier: "hidden", lead: "[我翻到了你一直收着的东西]：",
+      hiddenWhat: "他一直贴身收着的、有来历的、从没跟人提起过的那几样" },
+    gifts:   { what: "东西", tier: "open",   lead: "[我提起你收着的那件礼物]：" }
+  };
+  const forwardCarryToChat = (charId, sectionKey, item) => {
+    const char = characters.find(c => c.id === charId);
+    const conf = CARRY_PEEK[sectionKey];
+    if (!char || !conf || !item || !String(item.name || "").trim()) return;
+    const sec = (typeof CARRY_SECTIONS !== "undefined" ? CARRY_SECTIONS : []).find(x => x.key === sectionKey);
+    forwardPhonePeekToChat(char, {
+      label: (sec && sec.zh) || sectionKey,
+      what: conf.what,
+      tier: conf.tier,
+      lead: conf.lead,
+      hiddenWhat: conf.hiddenWhat,
+      title: item.name,
+      text: item.note || ""
+    });
   };
   // 转发帖子到群聊：只 push 卡片（群反应可由用户点「让他们回复」触发）
   const forwardPostToGroup = (post, groupId) => {
@@ -13013,6 +13046,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     carryGifts: carryGifts,
     carryPins: carryPins,
     onTogglePin: toggleCarryPin,
+    onPeek: forwardCarryToChat,
     selId: selCarry,
     busyKey: gen.carrySec,
     giftBusy: gen.giftThought,

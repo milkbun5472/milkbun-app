@@ -22,18 +22,22 @@ test("手机内容不常驻上下文，只有转发才进聊天", () => {
 });
 
 test("转发的语境是「她翻了你的手机」，不是他自己提起的", () => {
-  assert.match(peekFn[0], /\[我翻了你的手机\]在你的〈/);
+  assert.match(peekFn[0], /\[我翻了你的手机\]在你的〈/);   // 查手机那一路的默认开场，没传 lead 时用它
   assert.equal(peekFn[0].indexOf("role: \"user\""), peekFn[0].lastIndexOf("role: \"user\""));
   assert.match(peekFn[0], /kind: "phonepeek"/);
 });
 
 test("三档语境各自写死了他该有的反应边界", () => {
-  const tag = app.match(/const PHONE_PEEK_TAG = \{[\s\S]*?\n  \};/);
-  assert.ok(tag, "找不到 PHONE_PEEK_TAG");
+  // v57.96：随身物也走这条链之后，「手机」不再写死在判词里——
+  // 翻的是他的包，模型收到的却是「她翻过我手机」，对不上就演不对。
+  const tag = app.match(/const phonePeekTag = \(tier, what, hiddenWhat\) => \(\{[\s\S]*?\n  \}\[tier\]\);/);
+  assert.ok(tag, "找不到 phonePeekTag");
   const s = tag[0];
   ["open", "quiet", "hidden"].forEach(k => assert.ok(s.includes(k + ":"), k + " 这一档没有"));
-  // quiet：他在意的是「被翻了」，不是内容本身
-  assert.match(s, /是她自己翻你手机翻到的/);
+  // quiet：他在意的是「被翻了」，不是内容本身。翻的是什么由 what 说了算
+  assert.match(s, /是她自己翻你" \+ what \+ "翻到的/);
+  assert.match(s, /她翻过我" \+ what \+ "、还翻到了这里/);
+  assert.doesNotMatch(s, /翻你手机翻到的/, "「手机」又被写死回判词里了");
   assert.match(s, /别一上来就配合地把内容解释一遍/);
   // hidden：被撞破，不是被问
   assert.match(s, /不是「她问了个问题」，是「他被撞破了」/);
@@ -42,8 +46,9 @@ test("三档语境各自写死了他该有的反应边界", () => {
 
 test("框架写在 content 里，所以线上线下群聊读到的是同一份", () => {
   // 不是四处各挂一个钩子，是让它跟着消息本身走
-  assert.match(peekFn[0], /content: "\[我翻了你的手机\]/);
-  assert.match(peekFn[0], /PHONE_PEEK_TAG\[tier\]/);
+  assert.match(peekFn[0], /const lead = String\(peek\.lead \|\| \("\[我翻了你的手机\]/);
+  assert.match(peekFn[0], /content: lead \+/);
+  assert.match(peekFn[0], /phonePeekTag\(tier, what, peek\.hiddenWhat\)/);
   assert.match(app, /不必在四处各挂一个钩子/);
 });
 
@@ -76,7 +81,7 @@ test("没主动说的日常内容走 quiet 档", () => {
 test("聊天里这条渲染成偷看卡，藏起来的那档一眼看得出不一样", () => {
   assert.match(comp, /function PhonePeekCard\(\{ m, isU \}\)/);
   assert.match(comp, /const hid = p\.tier === "hidden";/);
-  assert.match(comp, /"翻他手机 · "/);
+  assert.match(comp, /"翻他" \+ \(p\.what \|\| "手机"\) \+ " · "/);
   assert.match(comp, /if \(m\.kind === "phonepeek"\)/);
   // 卡片读 m.peek，不把带反应指令的 content 原样显示出来
   assert.match(comp, /const p = m\.peek \|\| \{\};/);
