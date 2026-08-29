@@ -106,7 +106,7 @@ test("未知 key 仍返回可用的兜底 spec", () => {
 });
 
 test("全刷是边生成边攒清单，且从空开始而不是拿旧数据避重", () => {
-  const block = appSrc.match(/const genPhoneAll = async char => \{[\s\S]*?\n  \};/);
+  const block = appSrc.match(/const genPhoneAll = async \(char, weekly\) => \{[\s\S]*?\n  \};/);
   assert.ok(block, "找不到 genPhoneAll");
   const s = block[0];
   assert.match(s, /const fresh = \{\}/);
@@ -117,9 +117,9 @@ test("全刷是边生成边攒清单，且从空开始而不是拿旧数据避�
 });
 
 test("单个 App 重刷拿手机里已存的别的 App 避重", () => {
-  const block = appSrc.match(/const genPhoneApp = async \(char, key\) => \{[\s\S]*?\n  \};/);
+  const block = appSrc.match(/const genPhoneApp = async \(char, key, weekly\) => \{[\s\S]*?\n  \};/);
   assert.ok(block, "找不到 genPhoneApp");
   assert.match(block[0], /phoneRoundDigest\(\(phones \|\| \{\}\)\[char\.id\] \|\| \{\}, key\)/);
-  // v57.66 起多一个 known（上一轮那份，沿用身份）；v57.69 起再多一个钱包简报
-  assert.match(block[0], /phoneWechatDigest\(char\) : "", avoid, known, phoneMoneyFor\(char\)\)/);
+  // v57.66 起多一个 known（沿用身份）；v57.69 钱包简报；v57.76 例行刷新标记
+  assert.match(block[0], /phoneWechatDigest\(char\) : "", avoid, known, phoneMoneyFor\(char\), weekly\)/);
 });

@@ -173,7 +173,7 @@ test("买东西的风格是长期的，但归 🌱 不归 🔒——人的口味
 });
 
 test("相册的「最近删除」是回收站不是相簿：过 30 天自动退出", () => {
-  const A = new Function(phoneSrc + "; return { phoneExpireTrash, PHONE_TRASH_DAYS, phoneMergeSaved };")();
+  const A = new Function(phoneSrc + "; return { phoneExpireTrash: phoneAlbumTidy, PHONE_TRASH_DAYS, phoneMergeSaved };")();
   assert.equal(A.PHONE_TRASH_DAYS, 30);
   const day = n => "2026-" + String(new Date(NOW - n * 86400000).getMonth() + 1).padStart(2, "0") + "-" + String(new Date(NOW - n * 86400000).getDate()).padStart(2, "0") + " 12:00";
   const out = A.phoneExpireTrash({ items: [

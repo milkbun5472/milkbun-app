@@ -98,14 +98,21 @@ test("🌱 和 🔒 一起生效，互不干扰", () => {
 
 // ── ♻️ 名册必须能出 ────────────────────────────────────────
 
-test("♻️ 名册不许累积：常联系、黑名单、关注列表", () => {
-  // 常联系的人会换，拉黑的也可能被放出来。累积等于黑名单只进不出，攒成坟场。
-  [["calls", "frequent"], ["calls", "blocked"], ["liked", "follows"]].forEach(([app, f]) =>
-    assert.ok(!(P.PHONE_GROW[app] && P.PHONE_GROW[app][f]),
-      app + "." + f + " 是名册（现在有哪些），不该累积"));
-  // 日志那几条还在
-  [["calls", "calls"], ["calls", "sms"], ["calls", "voicemail"], ["liked", "items"]].forEach(([app, f]) =>
-    assert.ok(P.PHONE_GROW[app][f] > 0, app + "." + f + " 是日志，该累积"));
+test("名册走【累积 + 墓碑】，不是 ♻️ 重掷也不是只进不出", () => {
+  // v57.75 我先把它们改成了 ♻️，v57.76 改回累积 —— 理由：♻️ 的字段压根不发回给
+  // 模型，它每次会凭空编一份新黑名单，比只进不出还糟。
+  // 正解是累积保稳定 + retired 保能出去。
+  const R = new Function(phoneSrc + "; return { PHONE_RETIRE };")();
+  [["calls", "frequent"], ["calls", "blocked"], ["liked", "follows"], ["liked", "drafts"],
+   ["browser", "marks"], ["shopping", "wish"], ["takeout", "wish"]].forEach(([app, f]) => {
+    assert.ok(P.PHONE_GROW[app] && P.PHONE_GROW[app][f] > 0, app + "." + f + " 该累积（保稳定）");
+    assert.ok(R.PHONE_RETIRE[app] && R.PHONE_RETIRE[app][f], app + "." + f + " 没有墓碑，只进不出");
+  });
+  // 日志那几条不需要墓碑：发生过就是发生过
+  [["calls", "calls"], ["calls", "sms"], ["liked", "items"], ["notes", "items"]].forEach(([app, f]) => {
+    assert.ok(P.PHONE_GROW[app][f] > 0);
+    assert.ok(!(R.PHONE_RETIRE[app] && R.PHONE_RETIRE[app][f]), app + "." + f + " 是日志，不该有退出机制");
+  });
 });
 
 test("同一条路径不许同时登记在两层里", () => {

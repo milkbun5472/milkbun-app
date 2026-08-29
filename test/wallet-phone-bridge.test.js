@@ -49,7 +49,7 @@ test("两处生成调用都把钱包简报传下去了", () => {
   // 「一层只写在一处，别处没跟上」：全刷漏了的话，点一次刷新全部他就又乱花钱
   const calls = appSrc.match(/^.*phoneProbeSpec\(.*$/gm) || [];
   assert.ok(calls.length >= 2);
-  calls.forEach(c => assert.match(c, /phoneMoneyFor\(char\)\)/, "这处没传钱包简报：" + c.trim().slice(0, 90)));
+  calls.forEach(c => assert.match(c, /phoneMoneyFor\(char\), weekly\)/, "这处没传钱包简报：" + c.trim().slice(0, 90)));
   assert.match(appSrc, /const phoneMoneyFor = char => \{/);
   // 只读不写
   const m = appSrc.match(/const phoneMoneyFor = char => \{[\s\S]*?\n  \};/)[0];

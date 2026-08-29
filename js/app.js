@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.75";
+const APP_VERSION = "v57.76";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -539,6 +539,14 @@ function App() {
   // 查手机时间线的归档：刷新会整份覆盖某个 app，旧痕迹本来就没了。
   // 覆盖之前先把旧那份抽成时间线条目存这儿，那条线才会越来越长。
   const [phoneArch, setPhoneArch] = useState({});
+  // 健康的每日轻量快照：一个综合分 + 几个核心指标，一天一条，留 90 天。
+  // 健康报告本身照旧每次重写（它代表今天，不是病历）；趋势另存。
+  const [phoneVitals, setPhoneVitals] = useState({});
+  // 每周自动刷手机：{ on:{charId:true}, done:{charId:"2026-W35"} }
+  // 默认全关——她按次计费，默认开会吓人；一个一个角色自己开。
+  const [phoneAuto, setPhoneAuto] = useState({ on: {}, done: {} });
+  const phoneAutoRef = useRef({ on: {}, done: {} });
+  phoneAutoRef.current = phoneAuto;
   const [calEvents, setCalEvents] = useState([]);
   const calEventsRef = useRef([]);
   calEventsRef.current = calEvents;   // ⚠️紧跟声明写，别挪到上面那堆 ref 同步里去——那儿在声明之前，TDZ 会当场白屏
@@ -612,6 +620,8 @@ function App() {
     setCalendar(loadJSON("x_calendar", { world: {}, chars: {}, mine: {} }));
     setCalEvents(loadJSON("x_calEvents", []));
     setPhoneArch(loadJSON("x_phoneArch", {}));
+    setPhoneVitals(loadJSON("x_phoneVitals", {}));
+    { const a = loadJSON("x_phoneAuto", { on: {}, done: {} }); setPhoneAuto({ on: a.on || {}, done: a.done || {} }); }
     setPromises(loadJSON("x_promises", []));
     setPeriod(loadJSON("x_period", { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null }));
     // 一次性迁移：把之前存成 ≤1400 的单人线下输出上限抬到 4000（旧默认 1400 太紧会截断掉格式；群 g_ 的不动）
@@ -8271,7 +8281,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   }, [screen]);
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
   useEffect(() => {
-    if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); };
+    if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()).then(() => phoneWeeklySweep()); };
   }, [active, characters.length]);
   // 回到前台 / 重新聚焦：也自动补今日行程。PWA 常驻不重载页面时，光靠上面的首次加载不够——
   // 切回来那一下补一次。schedGenAllToday 只补【缺今天】的角色、已有则空跑，安全省 api。
@@ -8279,7 +8289,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!loaded) return;
     // ⚠️这一路本来漏了 walletCatchAllToday——开 app 那一拍和跨天那一拍都有，唯独这儿没有。
     // 而常驻 PWA 切回前台是最常走的一条路，于是她的钱包常常要等整页重载才结算。
-    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; };
+    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()).then(() => phoneWeeklySweep()); }; };
     document.addEventListener("visibilitychange", kick);
     window.addEventListener("focus", kick);
     return () => { document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); };
@@ -8288,9 +8298,45 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const schedDayRef = useRef("");
   useEffect(() => {
     const k = liveChars.map(c => c.id + ":" + schedLocalDayKey(c)).join("|");
-    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()); }; }
+    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()).then(() => phoneWeeklySweep()); }; }
   }, [now]);
 
+  // ── 每周一次的例行刷新 ────────────────────────────────────
+  // 她 2026-08-29：「每周一凌晨 0:00 刷新一次，抓的是上一周的素材，和周刊一样」。
+  // ⚠️实现上不是闹钟：PWA 后台不跑代码，半夜没人替你调模型。所以它跟行程和
+  // 钱包补账走同一个形状——【进入新的一周之后，你第一次打开 App 或切回前台时补刷】，
+  // 靠 done[charId] 这个「上次刷到哪一周」的游标防重复。
+  // 一次唤起只补【一个】角色：全刷是十几次串行调用，五个角色一起补要跑几分钟，
+  // 而且一次把这一周的钱全花完。补完一个就收手，下次唤起再补下一个。
+  const phoneWeekRunRef = useRef(false);
+  const phoneWeeklySweep = async () => {
+    if (phoneWeekRunRef.current || !active) return;
+    const wk = typeof phoneWeekKey === "function" ? phoneWeekKey(Date.now()) : null;
+    if (!wk) return;
+    const box = phoneAutoRef.current || { on: {}, done: {} };
+    const due = liveChars.find(c => c && box.on && box.on[c.id] && (box.done || {})[c.id] !== wk);
+    if (!due) return;
+    phoneWeekRunRef.current = true;
+    try {
+      // 先记游标再刷：中途失败也不该在下一次唤起时又整份重刷一遍（那是十几次调用）。
+      // 想补就她自己进去点刷新。
+      setPhoneAuto(p => {
+        const n = { on: { ...(p.on || {}) }, done: { ...(p.done || {}), [due.id]: wk } };
+        phoneAutoRef.current = n;
+        saveJSON("x_phoneAuto", n);
+        return n;
+      });
+      await genPhoneAll(due, true);
+    } catch (e) {/* 例行刷新失败不打扰她 */ } finally { phoneWeekRunRef.current = false; }
+  };
+  const phoneAutoToggle = charId => setPhoneAuto(p => {
+    const on = { ...(p.on || {}) };
+    if (on[charId]) delete on[charId]; else on[charId] = true;
+    const n = { on, done: { ...(p.done || {}) } };
+    phoneAutoRef.current = n;
+    saveJSON("x_phoneAuto", n);
+    return n;
+  });
   // 钱包那份读过来，发给花钱的那几个 app（购物/外卖）。只读不写。
   // 不接的话，一个月俸微薄的小官照样下单六百八十文的袍子——两边说的不是同一个人。
   const phoneMoneyFor = char => {
@@ -8407,6 +8453,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   const savePhoneApp = (charId, key, d) => {
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
+    // 健康：另抽一条极轻的每日快照。跟归档一样是锦上添花，写坏了不能连累正事。
+    if (key === "health" && typeof phoneVitalOf === "function") {
+      try {
+        const v = phoneVitalOf(d, Date.now());
+        if (v) setPhoneVitals(p => {
+          const n = { ...p, [charId]: phoneVitalMerge(p[charId], v) };
+          try { saveJSON("x_phoneVitals", n); } catch (e) { return p; }
+          return n;
+        });
+      } catch (e) {/* 抽不出来就算了 */}
+    }
     setPhones(p => {
       const cur = p[charId] || {};
       // 身份盖回来 + 日志并进来。提示词里已经把「这些别改」「这些已经有了」都发回去了，
@@ -9206,7 +9263,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setAnonBusy(false);
     }
   };
-  const genPhoneApp = async (char, key) => {
+  const genPhoneApp = async (char, key, weekly) => {
     if (!active) {
       toast("请先到设置配置 API");
       return false;
@@ -9222,7 +9279,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char)));
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -9235,7 +9292,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       }));
     }
   };
-  const genPhoneAll = async char => {
+  const genPhoneAll = async (char, weekly) => {
     if (!active) {
       toast("请先到设置配置 API");
       return;
@@ -9263,7 +9320,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，他的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char)));
+        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         ok++;
@@ -12642,6 +12699,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     playlistFor: cid => (listen.playlists || []).find(x => x.charId === cid) || null,
     calendarFor: phoneCalendarFor,
     archives: phoneArch,
+    vitalsFor: cid => (phoneVitals || {})[cid] || [],
+    autoOn: phoneAuto.on || {},
+    onToggleAuto: phoneAutoToggle,
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },

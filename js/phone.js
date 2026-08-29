@@ -408,15 +408,14 @@ function phoneEvolveBlock(appKey, oldData) {
 const PHONE_GROW = {
   wechat: { chats: 14, moments: 14, contacts: 24, "me.accounts": 12 },
   notes: { items: 24 },
-  // ⚠️常联系和黑名单是【名册】不是日志：常联系的人会换，拉黑的也可能被放出来。
-  // 累积等于黑名单只进不出，攒成一座坟场（Codex 2026-08-29 指出）。它们走 ♻️。
-  calls: { calls: 30, sms: 20, voicemail: 12 },
+  calls: { calls: 30, sms: 20, voicemail: 12, frequent: 12, blocked: 10 },
   browser: { searches: 44, marks: 14, private: 10 },
   shopping: { orders: 36, wish: 24, viewed: 24, shops: 18, gifts: 20 },
   takeout: { orders: 36, shops: 18, wish: 16, together: 16 },
-  album: { items: 80 },
-  // follows 同理是名册——会取关。drafts 暂留累积（草稿的退出机制另做）。
-  liked: { items: 36, mine: 16, drafts: 12 },
+  // 相册的收口交给 phoneAlbumTidy（要先判重、再按五类保底分配额）。
+  // 在这一步就砍到 80 的话，数量少的那一类会先被挤掉，保底就没得保了。
+  album: { items: 400 },
+  liked: { items: 36, mine: 16, drafts: 12, follows: 20 },
   bili: { items: 34 },
   latenight: { items: 34 },
   clipboard: { items: 24 },
@@ -424,14 +423,91 @@ const PHONE_GROW = {
   // 所以一律累积——它本来就不是「最近怎么样」，是「一直以来欠着什么」。
   tally: { debts: 14, policies: 10, statements: 22, treasures: 18, appraisals: 16 }
 };
+// ── 每周自动刷一次（她 2026-08-29 定：像周刊，抓上一周的素材）──
+// ⚠️不是真的「周一 0:00 有个定时器在跑」——PWA 后台不执行代码，
+// 半夜没人会替你调模型。真实含义是：**进入新的一周之后，你第一次打开 App
+// （或切回前台）时补刷一次**。跟行程、钱包补账完全一样的形状，靠一个
+// 「上次刷到哪一周」的游标防重复，而不是靠闹钟。
+// 周从【周一】起算，跟她说的「周一 0:00」对齐。
+function phoneWeekKey(d) {
+  const x = new Date(d || Date.now());
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));   // 退到本周一
+  return x.getFullYear() + "-W" + String(Math.floor((x.getTime() - new Date(x.getFullYear(), 0, 1).getTime()) / 604800000) + 1).padStart(2, "0");
+}
+// 周刊式刷新时告诉模型取材的时间窗。平时手动刷不发这一段。
+const PHONE_WEEKLY_HINT = "\n\n【这一次是每周一次的例行刷新】写的是**过去这一周**新发生的事，"
+  + "不是从头再编一遍他这个人。上面列出来的旧东西该留的留着，你补的是这七天里多出来的那些。"
+  + "一周该有一周的量：不必每一栏都塞满，有些栏这一周本来就没什么新的。";
+
+// ── 健康的趋势：另存每日轻量快照，不把整份报告天天累计 ──────
+// 健康那一份【全部 ♻️ 是对的】——它代表今天，不是病历。
+// 但「这一周睡得怎么样」是真的想知道的东西，所以每次刷新另外抽一条极轻的
+// 快照存起来：一个综合分 + 几个核心指标，一天一条，留 90 天。
+// 整份报告天天累计是错的（Codex 指出）：那不是趋势，那是一堆重复的长文。
+const PHONE_VITAL_DAYS = 90;
+const PHONE_VITAL_MARKS = 10;
+function phoneVitalOf(healthData, nowTs) {
+  const d = (healthData && typeof healthData === "object") ? healthData : null;
+  if (!d) return null;
+  const today = d.today && typeof d.today === "object" ? d.today : {};
+  const score = Number(today.score);
+  const cards = Array.isArray(d.cards) ? d.cards : [];
+  const marks = {};
+  cards.slice(0, PHONE_VITAL_MARKS).forEach(c => {
+    if (!c || typeof c !== "object") return;
+    const n = String(c.name || "").trim();
+    const v = Number(c.score);
+    if (n && isFinite(v)) marks[n] = Math.round(v);
+  });
+  if (!isFinite(score) && !Object.keys(marks).length) return null;
+  const dt = new Date(nowTs || Date.now());
+  return {
+    day: dt.getFullYear() + "-" + String(dt.getMonth() + 1).padStart(2, "0") + "-" + String(dt.getDate()).padStart(2, "0"),
+    score: isFinite(score) ? Math.round(score) : null,
+    marks: marks
+  };
+}
+// 一天一条，同一天覆盖（一天刷好几次只留最后那次）；留 90 天
+function phoneVitalMerge(prev, add) {
+  if (!add) return Array.isArray(prev) ? prev : [];
+  const list = (Array.isArray(prev) ? prev : []).filter(x => x && x.day !== add.day);
+  list.push(add);
+  list.sort((a, b) => String(a.day) < String(b.day) ? 1 : -1);
+  return list.slice(0, PHONE_VITAL_DAYS);
+}
+
+// ── 名册：累积保稳定，墓碑保能出去 ─────────────────────────
+// 书签会取消收藏、草稿会发出去或删掉、关注会取关、黑名单里的人会被放出来、
+// 想买的会买到手或不想要了。这几样不是日志（不是「发生过什么」），是名册
+// （「现在有哪些」）——但也不能做成 ♻️ 每次重掷：♻️ 的字段压根不发回给模型，
+// 它会每次凭空编一份新黑名单，比只进不出还糟。
+//
+// 所以走【累积 + 墓碑】：名单原样发回去，还在的照抄，不在了的写进 retired。
+// ⚠️关键是必须【显式】退出——累积层里「没写」等于「还在」，不等于「删了」。
+// 提示词里这句话是这一层的全部：不写不算删，要删就写进 retired。
+const PHONE_RETIRE = {
+  browser: { marks: "书签" },
+  liked: { follows: "关注的人", drafts: "草稿箱" },
+  calls: { frequent: "常联系", blocked: "黑名单" },
+  shopping: { wish: "想买清单" },
+  takeout: { wish: "想吃的" }
+};
+// 一行在名单上叫什么（用来和 retired 里的名字对上）
+const phoneRowName = x => {
+  if (!x || typeof x !== "object") return String(x == null ? "" : x);
+  return ["name", "title", "caption", "q", "text", "shop", "who"]
+    .map(k => (typeof x[k] === "string" ? x[k].trim() : "")).filter(Boolean)[0] || "";
+};
+// 名字对名字：去掉空白和标点再比，模型回写时标点常常飘
+const phoneNameNorm = v => String(v == null ? "" : v).replace(/[\s。，、,.!！?？:：;；"'「」『』（）()\[\]【】~～·-]/g, "");
 // 明确【不累积】的（当前状态，每次刷新照实重写）——写出来是为了别人来看的时候
 // 知道这不是漏了：
 //   browser.tabs（现在开着哪些）、shopping.cart / shopping.shipping（购物车与在途）、
 //   takeout.today / takeout.live（今天这单与在途）、takeout.week（本周吃了什么）、
 //   health.*（今天的身体状况，每天重算）、*.coupons（会过期）、
 //   *.account.month* / points（本月统计）、latenight.me.lastAt / note、
-//   calls.frequent / calls.blocked（常联系与黑名单是名册，会换人也会放人出来）、
-//   liked.follows（会取关）
+//   latenight.me.note
 const PHONE_TIME_FIELDS = ["time", "date", "savedAt", "lastAt"];
 const phoneTimeField = x => (x && typeof x === "object") ? PHONE_TIME_FIELDS.find(k => typeof x[k] === "string" && x[k].trim()) : undefined;
 // 一行的身份：由内容决定，不用模型自己编的 id（那玩意儿每次都变，或者反过来撞车）
@@ -505,18 +581,77 @@ function phoneMergeShelves(oldData, newData, nowTs) {
   newSh.forEach(sh => { if (sh && sh.name && !used[String(sh.name)]) out.push(sh) });
   return { ...newData, shelves: out.slice(0, PHONE_SHELF_CAP) };
 }
+// ── 相册单开一路：回收站会过期、五类要留住、同一张照片别攒两份 ──
 // 相册的「最近删除」是个回收站，不是相簿：iOS 里 30 天就自动清空。
 // 累积层不管的话，删掉的照片会永远躺在那儿，越攒越多（Codex 2026-08-29 指出）。
 const PHONE_TRASH_DAYS = 30;
-function phoneExpireTrash(data, nowTs) {
+const PHONE_ALBUM_CATS = ["memory", "favorite", "saved", "private", "deleted"];
+const PHONE_ALBUM_CAP = 80;
+// 满仓时每一类的保底。不设保底的话，某一类（比如「私密」本来就只有一两张）
+// 会被数量大的那类挤到一张不剩——相册就退化成一本流水账（Codex 提的）。
+const PHONE_ALBUM_MIN = 8;
+// 同一张照片换个说法就攒两份（现在只按标题+日期认人）。真语义判重要跑向量，
+// 那太重了。这里用一条【启发式】：同一天里，两条标题去掉标点空白之后，
+// 一方包含另一方、或者头六个字一样，就认成同一张，留新的那条。
+// 它挡不住完全换一套说法的情况——那种只能靠模型自己不重复写；
+// 但「秒撤回的邀请记录」和「那条秒撤回的邀请记录。」这类最常见的重复能挡住。
+const phoneCapNorm = v => String(v == null ? "" : v).replace(/[\s。，、,.!！?？:：;；"'「」『』（）()\[\]【】~～·-]/g, "");
+function phoneSamePhoto(a, b, nowTs) {
+  const da = a._ts != null ? a._ts : phoneWhenTs(a.date, nowTs);
+  const db = b._ts != null ? b._ts : phoneWhenTs(b.date, nowTs);
+  if (da == null || db == null) return false;
+  const d1 = new Date(da), d2 = new Date(db);
+  if (d1.getFullYear() !== d2.getFullYear() || d1.getMonth() !== d2.getMonth() || d1.getDate() !== d2.getDate()) return false;
+  const ca = phoneCapNorm(a.caption), cb = phoneCapNorm(b.caption);
+  if (!ca || !cb) return false;
+  if (ca === cb) return true;
+  if (ca.indexOf(cb) >= 0 || cb.indexOf(ca) >= 0) return true;
+  if (ca.length >= 6 && cb.length >= 6 && ca.slice(0, 6) === cb.slice(0, 6)) return true;
+  // 字重排：「秒撤回的那条邀请记录」和「那条秒撤回的邀请记录」——模型改写时
+  // 最爱换语序，字一个没变。字排序后相同就是同一张。
+  const sortCh = v => [...v].sort().join("");
+  if (ca.length >= 5 && sortCh(ca) === sortCh(cb)) return true;
+  // 近似：同一天里字重合度很高的也算同一张（改写常常只换掉一两个字）
+  if (ca.length >= 6 && cb.length >= 6) {
+    const A2 = new Set([...ca]), B2 = new Set([...cb]);
+    let inter = 0;
+    A2.forEach(c => { if (B2.has(c)) inter++; });
+    const jac = inter / (A2.size + B2.size - inter);
+    if (jac >= 0.85) return true;
+  }
+  return false;
+}
+function phoneAlbumTidy(data, nowTs) {
   if (!data || !Array.isArray(data.items)) return data;
-  const floor = (nowTs || Date.now()) - PHONE_TRASH_DAYS * 86400000;
-  const kept = data.items.filter(x => {
-    if (!x || x.category !== "deleted") return true;
-    const ts = x._ts != null ? x._ts : phoneWhenTs(x.date, nowTs);
-    return ts == null || ts >= floor;      // 认不出日期的留着，不瞎删
+  const now = nowTs || Date.now();
+  const floor = now - PHONE_TRASH_DAYS * 86400000;
+  // ① 回收站过期（认不出日期的留着，不瞎删）
+  let items = data.items.filter(x => {
+    if (!x || typeof x !== "object") return false;
+    if (x.category !== "deleted") return true;
+    const ts = x._ts != null ? x._ts : phoneWhenTs(x.date, now);
+    return ts == null || ts >= floor;
   });
-  return kept.length === data.items.length ? data : { ...data, items: kept };
+  // ② 语义判重：留先出现的那条（列表是新在前，所以留的是新的）
+  const kept = [];
+  items.forEach(x => { if (!kept.some(y => phoneSamePhoto(x, y, now))) kept.push(x); });
+  items = kept;
+  // ③ 五类保底再补齐到总量上限
+  if (items.length > PHONE_ALBUM_CAP) {
+    const picked = [], taken = {};
+    PHONE_ALBUM_CATS.forEach(cat => {
+      items.forEach(x => {
+        if (x.category !== cat) return;
+        const n = picked.filter(y => y.category === cat).length;
+        if (n >= PHONE_ALBUM_MIN) return;
+        picked.push(x); taken[items.indexOf(x)] = 1;
+      });
+    });
+    items.forEach((x, i) => { if (!taken[i] && picked.length < PHONE_ALBUM_CAP) picked.push(x); });
+    // 按原来的先后（新在前）排回去
+    items = items.filter(x => picked.indexOf(x) >= 0).slice(0, PHONE_ALBUM_CAP);
+  }
+  return items.length === data.items.length ? data : { ...data, items: items };
 }
 function phoneGrowMerge(appKey, oldData, newData, nowTs) {
   if (appKey === "reading") return phoneMergeShelves(oldData, newData, nowTs);
@@ -524,13 +659,19 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
   if (!conf || !newData || typeof newData !== "object") return newData;
   const out = JSON.parse(JSON.stringify(newData));
   const now = nowTs || Date.now();
+  const retired = (newData && newData.retired && typeof newData.retired === "object") ? newData.retired : {};
   Object.keys(conf).forEach(field => {
     const fresh = phoneGetPath(out, field);
     const old = oldData ? phoneGetPath(oldData, field) : null;
     if (!Array.isArray(fresh) && !Array.isArray(old)) return;
-    phoneSetPath(out, field, phoneGrowList(fresh, old, conf[field], now));
+    let list = phoneGrowList(fresh, old, conf[field], now);
+    // 墓碑：模型显式说这几个已经不在名单上了
+    const gone = (Array.isArray(retired[field]) ? retired[field] : []).map(phoneNameNorm).filter(Boolean);
+    if (gone.length) list = list.filter(x => gone.indexOf(phoneNameNorm(phoneRowName(x))) < 0);
+    phoneSetPath(out, field, list);
   });
-  return appKey === "album" ? phoneExpireTrash(out, now) : out;
+  delete out.retired;    // 它是一条指令，不是要存下来的内容
+  return appKey === "album" ? phoneAlbumTidy(out, now) : out;
 }
 // 存进去的那一份：新生成的 + 沿用的身份 + 并进来的日志
 function phoneMergeSaved(appKey, oldData, newData, nowTs) {
@@ -539,13 +680,37 @@ function phoneMergeSaved(appKey, oldData, newData, nowTs) {
   return phoneGrowMerge(appKey, oldData,
     phoneEvolveMerge(appKey, oldData, phoneKeepIdentity(appKey, oldData, newData)), nowTs);
 }
+// 名册发回去。跟 phoneSelfAvoidBlock 说的是相反的话：
+// 日志那些「别再写一遍」，名册这些「还在的请照抄回来」。
+function phoneRosterBlock(appKey, known) {
+  const conf = PHONE_RETIRE[appKey];
+  if (!conf || !known) return "";
+  const lines = [];
+  Object.keys(conf).forEach(field => {
+    const arr = phoneGetPath(known, field);
+    if (!Array.isArray(arr) || !arr.length) return;
+    const names = arr.map(phoneRowName).filter(Boolean).slice(0, 24);
+    if (names.length) lines.push("- " + conf[field] + "（" + field + "）：" + names.join("｜"));
+  });
+  if (!lines.length) return "";
+  return "\n\n【他这几份名单上现在有这些】\n" + lines.join("\n")
+    + "\n**还在名单上的请原样照抄回来**（连名字一起，别改写），这几份是「现在有哪些」不是「这次新增了哪些」。"
+    + "\n**已经不在了的，写进 retired**：取消收藏的书签、发出去或删掉的草稿、取关的人、放出黑名单的人、买到手或不想要了的东西。"
+    + " retired 的格式是 {\"字段名\":[\"那一条在名单上的名字\"]}，名字要和上面列的对得上。"
+    + "\n⚠️**光是不写它不算删掉**——不写等于它还在。要它消失就必须写进 retired。"
+    + "\n大多数轮次 retired 是空的：名单本来就该慢慢变，不是每次换一批。";
+}
 // 同一个 app 里已经攒着的那些，回喂给模型：别把已经有的再写一遍。
 // 这跟跨 app 的 phoneAvoidBlock 是同一个形状，只是范围换成了自己。
 function phoneSelfAvoidBlock(appKey, known) {
   const conf = PHONE_GROW[appKey];
   if (!conf || !known) return "";
+  const roster = PHONE_RETIRE[appKey] || {};
   const lines = [];
   Object.keys(conf).forEach(field => {
+    // 名册那几栏走 phoneRosterBlock，说的是「照抄回来」；
+    // 这儿说的是「别再写一遍」——同一栏两句相反的话，模型必然写歪。
+    if (roster[field]) return;
     const arr = phoneGetPath(known, field);
     if (!Array.isArray(arr) || !arr.length) return;
     const picked = arr.slice(0, 12).map(x => {
@@ -2153,7 +2318,7 @@ const HEALTH_GROUPS = [
   { key: "mind", zh: "心神", glyph: "liked" },
   { key: "intake", zh: "摄入", glyph: "takeout" }
 ];
-function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals }) {
   const [tab, setTab] = useState("body");
   const scrollRef = useRef(null);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
@@ -2256,6 +2421,28 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: HEALTH_INK, lineHeight: 1 } }, today.score != null ? today.score : "--"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: HEALTH_DIM, marginTop: 3 } }, "综合")))));
+  // ── 这一段时间的综合分（每日轻量快照，不是把整份报告天天累计）──
+  // 报告本身代表【今天】，每次照实重写；趋势另存一条一天一个数的线。
+  const vt = A(vitals).filter(x => x && x.score != null && isFinite(Number(x.score))).slice(0, 30).reverse();
+  const trendSec = vt.length >= 2 ? h("section", { key: "vt", style: { marginTop: 16 } },
+    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 10 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: HEALTH_INK } }, "这些天的综合分"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, vt.length + " 天")),
+    h("div", { style: { display: "flex", alignItems: "flex-end", gap: 3, height: 56, padding: "0 2px" } },
+      vt.map((x, i) => {
+        const v = Math.max(0, Math.min(100, Number(x.score)));
+        const last = i === vt.length - 1;
+        return h("div", {
+          key: x.day || i, title: x.day + " · " + v,
+          style: {
+            flex: 1, minWidth: 0, height: Math.max(4, Math.round(v * 0.54)) + "px", borderRadius: 3,
+            background: last ? HEALTH_INK : "rgba(31,29,26,.16)"
+          }
+        });
+      })),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 6 } },
+      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: HEALTH_DIM } }, String(vt[0].day || "").slice(5)),
+      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: HEALTH_DIM } }, "今天"))) : null;
   // ── 今日轨迹 ──
   const timeline = A(data.timeline);
   const timelineSec = timeline.length ? h("section", { key: "tl" },
@@ -2288,7 +2475,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const PAGES = HEALTH_GROUPS.map(g => ({
     key: g.key, zh: g.zh, glyph: g.glyph,
     secs: (g.key === "body" ? [headCard] : []).concat(layoutCards(byGroup(g.key)))
-  })).concat([{ key: "track", zh: "轨迹", glyph: "calendar", secs: [timelineSec, insightSec].filter(Boolean) }]);
+  })).concat([{ key: "track", zh: "轨迹", glyph: "calendar", secs: [trendSec, timelineSec, insightSec].filter(Boolean) }]);
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
   const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
@@ -3306,7 +3493,7 @@ function renderPhoneModule(key, d, ctx) {
   }
   if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek, vitals: ctx.vitals });
   if (key === "liked") return h(PlazaView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calendar") return h(CalendarView, { d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "bili") return h(BiliView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -3422,7 +3609,10 @@ function PhoneCarry({
   playlistBusyId,
   onPlaySong,
   calendarFor,
+  vitalsFor,
   archives,
+  autoOn,
+  onToggleAuto,
   onPeek
 }) {
   const t = useTheme();
@@ -3490,15 +3680,33 @@ function PhoneCarry({
               h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.18em", color: t.fog, marginTop: 3 } }, "CONTACTS · " + characters.length))),
           // 角色列表：在手机屏内下滑
           h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-1" },
-            characters.map(c => h("button", {
-              key: c.id, onClick: () => { onSel(c.id); setOpen(null); setLocked(true); setInList(false); },
-              className: "w-full flex items-center gap-3 py-3 active:opacity-60", style: { borderBottom: "1px solid " + t.line }
+            characters.map(c => h("div", {
+              key: c.id, className: "w-full flex items-center gap-3", style: { borderBottom: "1px solid " + t.line }
             },
-              h(Avatar, { character: c, size: 44, radius: 13 }),
-              h("div", { className: "flex-1 min-w-0 text-left" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 1 } }, "翻翻 Ta 的手机")),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "›")))))));
+              h("button", {
+                onClick: () => { onSel(c.id); setOpen(null); setLocked(true); setInList(false); },
+                className: "flex-1 min-w-0 flex items-center gap-3 py-3 active:opacity-60 text-left"
+              },
+                h(Avatar, { character: c, size: 44, radius: 13 }),
+                h("div", { className: "flex-1 min-w-0" },
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 1 } },
+                    (autoOn || {})[c.id] ? "每周自动刷一次" : "翻翻 Ta 的手机"))),
+              // 每周自动刷的开关。默认关——她按次计费，默认开会吓人。
+              // ⚠️必须和那一行并排、不能套在里面：按钮不许嵌按钮。
+              // 放在这儿而不是设置里：开关和「这是谁的手机」得在同一个地方看得见。
+              onToggleAuto ? h("button", {
+                onClick: () => onToggleAuto(c.id),
+                className: "active:opacity-60 shrink-0",
+                "aria-label": "每周自动刷新 " + (c.remark || c.name),
+                style: {
+                  fontFamily: F_BODY, fontSize: 10.5, padding: "4px 10px", borderRadius: 99,
+                  background: (autoOn || {})[c.id] ? t.ink : "transparent",
+                  color: (autoOn || {})[c.id] ? "#fff" : t.fog,
+                  border: "1px solid " + ((autoOn || {})[c.id] ? t.ink : t.line)
+                }
+              }, "每周") : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: 20, color: t.fog, flexShrink: 0 } }, "\u203a")))))));
   }
   const data = phones[char.id] || {};
   // 真数据这两个不看 phones，看 App 里那份真的
@@ -3512,6 +3720,8 @@ function PhoneCarry({
     onPlaySong: s => onPlaySong && onPlaySong(s),
     // 日历接 App 里那份真的：他自己那格日历 + 带时刻的日程 + 他答应过她的事
     calendar: calendarFor ? calendarFor(char) : null,
+    // 健康的每日快照（趋势）。报告本身照旧每次重写，这一条是另存的轻量线。
+    vitals: vitalsFor ? vitalsFor(char.id) : null,
     // 偷看转发：手机里的东西只有【转发了】才进他的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk)
   };
@@ -3849,7 +4059,7 @@ function phoneAvoidBlock(lines) {
     + "优先去写上面完全没提到的、属于他自己的另一条线：工作、家里、旧朋友、身体、钱、没做完的事、纯粹的无聊。";
 }
 
-function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) {
+function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
     wechat: {
@@ -3881,7 +4091,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
         + "**留言是单向的，本身就说明对方联系不上他**——所以这几条里应该有他一直没听的那条。\n\n"
         + "frequent 常联系 **3-5 个**：name、count（通话次数）、why（一句为什么总跟这人通话）。**电话打给谁，和微信聊得多的，往往不是同一批人**：电话给的是办事的、家里的、以及不方便打字的。\n\n"
         + "blocked 拦截名单 **1-3 个**：name、why（一句为什么拉黑的）。可以是骗子，也可以是他不想再接的人。" + relHint,
-      schemaHint: "{\"me\":{\"number\":\"他的号码\"},\"calls\":[{\"name\":\"对方称呼\",\"number\":\"号码\",\"dir\":\"in\",\"time\":\"今天 09:12\",\"duration\":\"04:32\",\"answered\":true,\"gist\":\"这通说了什么\",\"thought\":\"他的想法\"}],\"sms\":[{\"name\":\"发信方\",\"number\":\"号码\",\"kind\":\"通知\",\"time\":\"时间\",\"unread\":false,\"msgs\":[{\"from\":\"they\",\"text\":\"内容\",\"time\":\"时间\"}],\"thought\":\"可空\"}],\"voicemail\":[{\"from\":\"谁留的\",\"time\":\"时间\",\"duration\":\"0:41\",\"transcript\":\"留言转成的字\",\"heard\":false,\"thought\":\"他的想法\"}],\"frequent\":[{\"name\":\"谁\",\"count\":14,\"why\":\"为什么总跟这人通话\"}],\"blocked\":[{\"name\":\"谁\",\"why\":\"为什么拉黑\"}]}"
+      schemaHint: "{\"me\":{\"number\":\"他的号码\"},\"calls\":[{\"name\":\"对方称呼\",\"number\":\"号码\",\"dir\":\"in\",\"time\":\"今天 09:12\",\"duration\":\"04:32\",\"answered\":true,\"gist\":\"这通说了什么\",\"thought\":\"他的想法\"}],\"sms\":[{\"name\":\"发信方\",\"number\":\"号码\",\"kind\":\"通知\",\"time\":\"时间\",\"unread\":false,\"msgs\":[{\"from\":\"they\",\"text\":\"内容\",\"time\":\"时间\"}],\"thought\":\"可空\"}],\"voicemail\":[{\"from\":\"谁留的\",\"time\":\"时间\",\"duration\":\"0:41\",\"transcript\":\"留言转成的字\",\"heard\":false,\"thought\":\"他的想法\"}],\"frequent\":[{\"name\":\"谁\",\"count\":14,\"why\":\"为什么总跟这人通话\"}],\"blocked\":[{\"name\":\"谁\",\"why\":\"为什么拉黑\"}],\"retired\":{\"frequent\":[\"不再常联系的\"],\"blocked\":[\"放出黑名单的\"]}}"
     },
     browser: {
       instruction: "推演「" + char.name + "」浏览器里的全部东西。\n\n"
@@ -3896,7 +4106,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
         + "marks 书签 **3-4 个文件夹**：name（文件夹名，按他自己的分法起，不是「工作」「学习」这种）、items（2-4 条，各有 title 和 site）。**书签是他觉得以后还用得着的东西**，所以里面会有很久没点过的旧东西。\n\n"
         + "private 无痕标签页 **1-3 个**：title、site、gist。**这是他专门开了不留记录的那几页**，和上面那些不是一回事。\n\n"
         + "所有内容都要贴合他的身份和时代——古代角色的\"浏览器\"是他那个世界里查东西的方式，别硬套现代网站。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"昵称\",\"uid\":\"账号\"},\"tabs\":[{\"title\":\"网页标题\",\"site\":\"站点\",\"age\":\"开了多久\",\"pinned\":false,\"cover\":0,\"gist\":\"这页上写着什么\"}],\"searches\":[{\"q\":\"他敲进去的原话\",\"time\":\"时间\",\"site\":\"在哪搜的\",\"opened\":\"他点开那条的 source\",\"results\":[{\"source\":\"哪个站或哪个号\",\"title\":\"结果标题\",\"excerpt\":\"摘要……\"}]}],\"marks\":[{\"name\":\"文件夹名\",\"items\":[{\"title\":\"标题\",\"site\":\"站点\"}]}],\"private\":[{\"title\":\"标题\",\"site\":\"站点\",\"gist\":\"这页上写着什么\"}]}"
+      schemaHint: "{\"me\":{\"name\":\"昵称\",\"uid\":\"账号\"},\"tabs\":[{\"title\":\"网页标题\",\"site\":\"站点\",\"age\":\"开了多久\",\"pinned\":false,\"cover\":0,\"gist\":\"这页上写着什么\"}],\"searches\":[{\"q\":\"他敲进去的原话\",\"time\":\"时间\",\"site\":\"在哪搜的\",\"opened\":\"他点开那条的 source\",\"results\":[{\"source\":\"哪个站或哪个号\",\"title\":\"结果标题\",\"excerpt\":\"摘要……\"}]}],\"marks\":[{\"name\":\"文件夹名\",\"items\":[{\"title\":\"标题\",\"site\":\"站点\"}]}],\"private\":[{\"title\":\"标题\",\"site\":\"站点\",\"gist\":\"这页上写着什么\"}],\"retired\":{\"marks\":[\"已经取消收藏的书签名\"]}}"
     },
     shopping: {
       instruction: "推演「" + char.name + "」网购 App 的整个界面。" + relHint + "\n"
@@ -3914,7 +4124,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
         + "addrs 收货地址 **2-3 条**：label（地址别名）、tail（尾号）、detail（详细到门房怎么放的那种备注）、isDefault（只有一条 true）。**其中一条应当是「他常去的另一个地方」**，不是自己家。\n"
         + "gifts 相关往来 **3-5 条**：who（给谁买的，用他嘴里对那个人的叫法）、title、note（**一句只有他会写的备注**，如「嘴上说着不喜欢我吵，接了油纸包自己一口气吃了三块」）。\n"
         + "monthNote：本月购物概况，一段 60-110 字，账房口吻，别抒情。tail：最后一句他自己的念叨，一两句，可以很得意也可以很没出息。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\"}"
+      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\",\"retired\":{\"wish\":[\"买到手或不想要了的\"]}}"
     },
     album: {
       instruction: "推演「" + char.name + "」手机相册里正好 25 张互不重复的照片。时间跨度要自然；date 必须写真实完整日期 YYYY-MM-DD HH:mm，必须带年份，禁止写周三、周五、昨天、最近等相对日期。每张分进且只分进五类之一：回忆(memory)、个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张、不必平均。memory 是 TA 真正会反复翻看的重要瞬间，不是普通随手拍。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
@@ -3941,7 +4151,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
         + "**drafts 1-3 条：他写了却一直没发出去的草稿。**这是这个 app 最狠的一格——写完了、存着、就是没点发送。可以是矫情的、丢人的、太露骨的、或者写给某个具体的人却不敢发的。每条：title、excerpt、tags（1-3 个）、savedAt（存了多久，写成一句）。\n"
         + "**他发出去的、他赞过的、和他没发出去的，可以完全是三个人**：发出去的是他愿意给人看的，赞过的是他自己，草稿箱里的是他不敢承认的。\n"
         + "follows：他关注的 **4-6 个**账号，name ＋一句 desc。别全是正经账号。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"频道名\",\"频道名\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"频道\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}]}"
+      schemaHint: "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"频道名\",\"频道名\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"频道\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}],\"retired\":{\"follows\":[\"取关了的\"],\"drafts\":[\"发出去或删掉的草稿标题\"]}}"
     },
     health: {
       instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
@@ -3977,7 +4187,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
         + "wish 想吃清单 **3-5 条**：title（想吃的东西，可以很长很具体）、when（**什么时候会突然想起它**——写那个当下他在哪、在受什么罪、嘴里是什么味）。\n\n"
         + "together 一起点过 **3-4 条**：who（**用他嘴里对那个人的叫法**，不是规规矩矩的本名——那个称呼本身就该看得出他俩什么关系）、items（点了什么）、story（一段 40-70 字，那顿饭上发生了什么，要具体、要有画面、可以很好笑）。\n\n"
         + "monthNote：本周点餐概况，一段 70-110 字。tail：最后一两句他自己的念叨。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"week\":[{\"day\":\"一\",\"meals\":[{\"t\":\"早\",\"text\":\"吃了什么\"}]}],\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"together\":[{\"who\":\"他嘴里对那人的叫法\",\"items\":\"点了什么\",\"story\":\"那顿饭上发生了什么\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\"}"
+      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"week\":[{\"day\":\"一\",\"meals\":[{\"t\":\"早\",\"text\":\"吃了什么\"}]}],\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"together\":[{\"who\":\"他嘴里对那人的叫法\",\"items\":\"点了什么\",\"story\":\"那顿饭上发生了什么\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\",\"retired\":{\"wish\":[\"不惦记了的\"]}}"
     },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"
@@ -4044,5 +4254,5 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) };
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "") };
 }
