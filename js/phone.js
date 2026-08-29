@@ -351,73 +351,101 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing }) 
   return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, topBar, h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, body), h("div", { className: "shrink-0 grid grid-cols-4", style: { minHeight: 61, paddingBottom: "env(safe-area-inset-bottom)", background: "rgba(250,250,250,.98)", borderTop: "1px solid #ddd" } }, navs.map(([k, label]) => h("button", { key: k, onClick: () => setTab(k), className: "flex flex-col items-center justify-center gap-0.5 active:opacity-60", style: { color: tab === k ? "#07c160" : "#777" } }, h(WechatNavIcon, { kind: k, active: tab === k }), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5 } }, label)))));
 }
 
-// 相册：可把喜欢的照片收藏进 x_phoneKeep（按角色分组），刷新全部/单个都不会覆盖它
-function AlbumView({ d, char, t, setSheet }) {
+// 相册：iPhone 风图库 / 精选集 / 收藏夹。
+// 收藏仍独立存在 x_phoneKeep，刷新推演只换本轮相册，不覆盖 Lisa 留下的收藏。
+function AlbumView({ d, char, t, onBack, onRefresh, refreshing }) {
   const [keep, setKeep] = useState(() => loadJSON("x_phoneKeep", {}));
+  const [tab, setTab] = useState("collections");
+  const [opened, setOpened] = useState(null);
+  const [photo, setPhoto] = useState(null);
   const arr = a => a || [];
-  const sig = p => (p.caption || "") + "|" + (p.desc || ""); // 照片无 id，用标题+描述判重
+  const albums = [
+    { key: "favorite", label: "个人收藏" },
+    { key: "saved", label: "最近保存" },
+    { key: "private", label: "私密" },
+    { key: "deleted", label: "最近删除" }
+  ];
+  const canon = v => ({ "个人收藏": "favorite", "最近保存": "saved", "私密": "private", "最近删除": "deleted" }[v] || (["favorite", "saved", "private", "deleted"].includes(v) ? v : ""));
+  const dateMs = p => {
+    const n = Date.parse(String(p && (p.date || p.time) || ""));
+    return Number.isFinite(n) ? n : 0;
+  };
+  // 模型偶尔分配失衡：20 张时机械挪动超额项，保证四册各至少 4 张；
+  // 老的 4–6 张相册不伪造照片，照已有内容展示，刷新后才升级到新版 20 张。
+  const normalize = source => {
+    const items = arr(source).map((p, i) => ({ ...p, _albumId: p.id || (String(p.caption || "照片") + "|" + String(p.date || p.time || "") + "|" + i), category: canon(p.category) }));
+    const buckets = Object.fromEntries(albums.map(a => [a.key, []]));
+    const loose = [];
+    items.forEach(p => (p.category ? buckets[p.category] : loose).push(p));
+    if (items.length >= 16) {
+      for (const a of albums) while (buckets[a.key].length < 4) {
+        let donor = albums.map(x => buckets[x.key]).sort((x, y) => y.length - x.length)[0];
+        const moved = loose.shift() || (donor && donor.length > 4 ? donor.pop() : null);
+        if (!moved) break;
+        moved.category = a.key; buckets[a.key].push(moved);
+      }
+    }
+    let li = 0;
+    loose.forEach(p => { const k = albums[li++ % albums.length].key; p.category = k; buckets[k].push(p); });
+    return albums.flatMap(a => buckets[a.key]).sort((a, b) => dateMs(b) - dateMs(a));
+  };
+  const items = normalize(d.items);
+  // id 优先；没有 id 的旧数据用内容指纹。不要把本轮数组下标写进收藏指纹，
+  // 否则同一张照片在下次刷新排序变化后会被误当成另一张。
+  const sig = p => p.id || (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
   const saved = arr(keep[char.id]);
   const isSaved = p => saved.some(s => sig(s) === sig(p));
   const toggle = p => setKeep(prev => {
     const list = arr(prev[char.id]);
     const exists = list.some(s => sig(s) === sig(p));
-    const nl = exists ? list.filter(s => sig(s) !== sig(p)) : [{ caption: p.caption || "照片", desc: p.desc || "", _at: Date.now() }, ...list];
+    const nl = exists ? list.filter(s => sig(s) !== sig(p)) : [{ ...p, _at: Date.now() }, ...list];
     const n = { ...prev, [char.id]: nl };
     saveJSON("x_phoneKeep", n);
     return n;
   });
-  const tile = (it, i) => h("div", {
-    key: i,
-    style: { position: "relative" }
-  }, h("button", {
-    onClick: () => setSheet(DetailSheet(it.caption || "照片", it.desc, t)),
-    className: "active:opacity-70 w-full"
-  }, h("div", {
-    style: {
-      position: "relative",
-      width: "100%",
-      paddingBottom: "100%",
-      borderRadius: 12,
-      overflow: "hidden",
-      background: "linear-gradient(135deg,#d8d3c8,#b3ada0)"
-    }
-  }, h("div", {
-    style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }
-  }, h(PGlyph, { k: "album", size: 22, color: "rgba(255,255,255,0.85)" }))), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10,
-      color: t.fog,
-      marginTop: 4,
-      textAlign: "center",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    }
-  }, it.caption), it._at ? h("div", {
-    style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, marginTop: 1, textAlign: "center" }
-  }, "收藏于 " + ymd(new Date(it._at))) : null), h("button", {
-    onClick: e => { e.stopPropagation(); toggle(it); },
-    className: "active:opacity-60",
-    style: {
-      position: "absolute",
-      top: 5,
-      right: 5,
-      width: 24,
-      height: 24,
-      borderRadius: 999,
-      background: "rgba(0,0,0,0.32)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }
-  }, h(IHeart, { size: 13, color: "#fff", filled: isSaved(it) })));
-  const grid = items => h("div", { className: "grid grid-cols-3 gap-2" }, items.map(tile));
-  return h("div", {
-    style: { animation: "fadeUp .3s ease both" }
-  }, saved.length ? h("div", {
-    style: { marginBottom: 18 }
-  }, h(Eyebrow, { style: { marginBottom: 10 } }, "收藏 · " + saved.length), grid(saved)) : null, saved.length ? h(Eyebrow, { style: { marginBottom: 10 } }, "相册") : null, grid(arr(d.items)));
+  // 零 API 的程序化缩略图：按照片内容稳定生成不同色光、景深与构图；不是灰色占位，
+  // 也不会为 20 张照片额外烧生图额度。若将来数据带 imageRef/imageUrl，会优先显示真图。
+  const art = (it, radius) => {
+    const seed = phoneStableHash((it.caption || "") + (it.desc || ""));
+    const hue = seed % 360, hue2 = (hue + 45 + seed % 70) % 360;
+    // imageRef 可能是本机保险箱键，不是浏览器可直接加载的网址；这里只接真正 URL。
+    const img = it.imageUrl || it.imgUrl;
+    return h("div", { style: { position: "absolute", inset: 0, overflow: "hidden", borderRadius: radius || 0,
+      background: img ? "#ddd" : `linear-gradient(${110 + seed % 80}deg,hsl(${hue} 42% 75%),hsl(${hue2} 48% 37%))` } },
+      img ? h("img", { src: img, alt: it.caption || "照片", style: { width: "100%", height: "100%", objectFit: "cover" } }) : h(React.Fragment, null,
+        h("span", { style: { position: "absolute", width: "72%", height: "72%", borderRadius: "50%", left: `${-12 + seed % 35}%`, top: `${-8 + (seed >> 3) % 35}%`, background: "rgba(255,255,255,.28)", filter: "blur(10px)" } }),
+        h("span", { style: { position: "absolute", width: "46%", height: "70%", borderRadius: "46% 54% 30% 70%", right: `${-8 + (seed >> 5) % 20}%`, bottom: "-12%", background: "rgba(18,18,24,.28)", transform: `rotate(${seed % 28 - 14}deg)` } }),
+        h("span", { style: { position: "absolute", left: 9, right: 9, bottom: 8, color: "rgba(255,255,255,.92)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.25, textShadow: "0 1px 4px rgba(0,0,0,.45)", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, it.caption || "照片")));
+  };
+  const tile = (it, i, rounded) => h("button", { key: sig(it) + ":" + i, onClick: () => setPhoto(it), className: "active:opacity-70", style: { position: "relative", aspectRatio: "1 / 1", overflow: "hidden", borderRadius: rounded ? 14 : 0, minWidth: 0 } }, art(it, rounded ? 14 : 0),
+    isSaved(it) ? h("span", { style: { position: "absolute", top: 6, right: 6, width: 23, height: 23, borderRadius: 99, background: "rgba(255,255,255,.9)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 13, color: "#ff375f", filled: true })) : null,
+    it.category === "private" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "锁") : it.category === "deleted" ? h("span", { style: { position: "absolute", left: 6, bottom: 6, borderRadius: 7, padding: "2px 5px", color: "#fff", background: "rgba(0,0,0,.5)", fontSize: 9 } }, "已删除") : null);
+  const grid = (list, rounded, cols) => h("div", { className: `grid ${cols === 2 ? "grid-cols-2 gap-2" : "grid-cols-3 gap-0.5"}` }, list.map((x, i) => tile(x, i, rounded)));
+  const circleButton = (label, child, action) => h("button", { onClick: action, "aria-label": label, className: "active:opacity-55", style: { width: 46, height: 46, borderRadius: 99, background: "rgba(242,242,247,.95)", display: "flex", alignItems: "center", justifyContent: "center", color: "#111" } }, child);
+  const chrome = (title, sub, back) => h("div", { className: "shrink-0", style: { padding: `${safeTop(14)} 22px 12px`, background: "rgba(255,255,255,.96)" } },
+    h("div", { className: "flex items-center justify-between" }, circleButton("返回", h(IArrow, { size: 18, color: "#111" }), back || onBack), circleButton("刷新相册", h(IRefresh, { size: 18, color: "#111" }), onRefresh)),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 35, lineHeight: 1.05, color: "#111", marginTop: 24 } }, title),
+    sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#777", marginTop: 8 } }, sub) : null);
+  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "7px 20px calc(env(safe-area-inset-bottom) + 7px)", background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "▦", "图库"], ["collections", "▣", "精选集"], ["saved", "♡", "收藏夹"]].map(([k, icon, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center active:opacity-60", style: { color: tab === k ? "#0a84ff" : "#8e8e93", fontFamily: F_BODY, fontSize: 10.5 } }, h("span", { style: { fontSize: 24, lineHeight: 1 } }, icon), h("span", { style: { marginTop: 3 } }, label))));
+  if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome("照片", photo.date || photo.time || "日期未记", () => setPhoto(null)), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 20px 30px" } },
+    h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", borderRadius: 20, overflow: "hidden", boxShadow: "0 14px 32px rgba(0,0,0,.12)" } }, art(photo, 20)),
+    h("div", { className: "flex items-start justify-between gap-4", style: { padding: "22px 3px 14px" } }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, photo.caption || "照片"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: "#666", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。")), h("button", { onClick: () => toggle(photo), className: "active:scale-90", style: { flex: "0 0 auto", width: 42, height: 42, borderRadius: 99, background: "#f2f2f7", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 20, color: isSaved(photo) ? "#ff375f" : "#777", filled: isSaved(photo) }))),
+    h("div", { style: { marginTop: 8, borderRadius: 17, background: "#f2f2f7", padding: "17px 18px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: "#8e8e93", marginBottom: 9 } }, char.name + " 对这张照片的想法"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#222", whiteSpace: "pre-wrap" } }, photo.thought || "TA 没有为这张照片留下想法。"))));
+  if (opened) {
+    const meta = albums.find(a => a.key === opened);
+    const list = items.filter(p => p.category === opened);
+    return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome(meta ? meta.label : "相簿", list.length + " 张", () => setOpened(null)), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "8px 20px 28px" } }, grid(list, true, 3)), nav);
+  }
+  const library = h("div", { style: { paddingBottom: 26 } }, (() => {
+    const groups = [];
+    items.forEach(p => { const raw = p.date || p.time || "日期未记"; const label = String(raw).split(/[ T]/)[0] || raw; let g = groups.find(x => x.label === label); if (!g) { g = { label, list: [] }; groups.push(g); } g.list.push(p); });
+    return groups.map((g, i) => h("section", { key: g.label + i, style: { marginBottom: 22 } }, h("div", { className: "flex justify-between", style: { padding: "0 20px 10px", fontFamily: F_DISPLAY, fontSize: 16, color: "#444" } }, h("span", null, g.label), h("span", { style: { color: "#999", fontFamily: F_BODY, fontSize: 12 } }, g.list.length)), grid(g.list, false, 3)));
+  })());
+  const collections = h("div", { style: { padding: "4px 20px 30px" } }, h("div", { className: "grid grid-cols-2 gap-x-3 gap-y-6" }, albums.map(a => { const list = items.filter(p => p.category === a.key); const cover = list[0]; return h("button", { key: a.key, onClick: () => setOpened(a.key), className: "text-left active:opacity-65", style: { minWidth: 0 } }, h("div", { style: { position: "relative", aspectRatio: "1 / 1", borderRadius: 18, overflow: "hidden", background: "#eee" } }, cover ? art(cover, 18) : null), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#111", marginTop: 9 } }, a.label), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8e8e93", marginTop: 3 } }, list.length)); })), h("div", { style: { height: 30 } }));
+  const favorites = h("div", { style: { padding: "4px 20px 30px" } }, saved.length ? grid(saved, true, 3) : h("div", { style: { textAlign: "center", padding: "70px 18px", color: "#8e8e93", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8 } }, "还没有收藏照片。\n点开一张照片，再点爱心就会一直留在这里。"));
+  const title = tab === "library" ? "图库" : tab === "saved" ? "收藏夹" : "精选集";
+  const sub = tab === "library" && items.length ? ((items[items.length - 1].date || items[items.length - 1].time || "") + " – " + (items[0].date || items[0].time || "")) : tab === "collections" ? "四本相簿 · 共 " + items.length + " 张" : saved.length + " 张 · 刷新也不会丢";
+  return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff", animation: "fadeUp .3s ease both" } }, chrome(title, sub, onBack), h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, tab === "library" ? library : tab === "saved" ? favorites : collections), nav);
 }
 
 // 各 app 详情内容
@@ -574,7 +602,7 @@ function renderPhoneModule(key, d, ctx) {
     size: 14,
     color: t.line
   })))));
-  if (key === "album") return h(AlbumView, { d, char, t, setSheet });
+  if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
   if (key === "forum") return wrap(arr(d.items).map((it, i) => h("div", {
     key: i,
     className: "py-3.5",
@@ -975,7 +1003,7 @@ function PhoneApp({
     style: {
       background: t.bg
     }
-  }, appKey !== "wechat" && h(Head, {
+  }, appKey !== "wechat" && appKey !== "album" && h(Head, {
     zh,
     en: char.name,
     onBack,
@@ -988,7 +1016,7 @@ function PhoneApp({
       color: t.ink
     }))
   }), h("div", {
-    className: appKey === "wechat" ? "flex-1 min-h-0 overflow-hidden" : "flex-1 overflow-y-auto px-6 py-4"
+    className: appKey === "wechat" || appKey === "album" ? "flex-1 min-h-0 overflow-hidden" : "flex-1 overflow-y-auto px-6 py-4"
   }, content), sheet && h(Sheet, {
     onClose: () => setSheet(null),
     tall: true
@@ -1248,8 +1276,9 @@ function phoneProbeSpec(key, char, rel, actualWechat) {
       schemaHint: "{\"items\":[{\"name\":\"商品\",\"price\":\"¥128\",\"time\":\"3天前\",\"thought\":\"想法\"}]}"
     },
     album: {
-      instruction: "推演「" + char.name + "」相册里的几张照片（4-6 张）。照片本身看不到，只给一句话标题和时间，点开看这张照片内容的文字描述。",
-      schemaHint: "{\"items\":[{\"caption\":\"一句话\",\"time\":\"周日 下午\",\"desc\":\"照片内容的文字描述\"}]}"
+      instruction: "推演「" + char.name + "」手机相册里正好 20 张互不重复的照片。时间跨度要自然、按真实照片日期写 YYYY-MM-DD HH:mm；每张分进且只分进四类之一：个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张，不必平均。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
+      schemaHint: "{\"items\":[{\"id\":\"p01\",\"caption\":\"很短的标题\",\"date\":\"2026-08-28 18:42\",\"category\":\"favorite或saved或private或deleted\",\"desc\":\"照片实际画面描述\",\"thought\":\"TA对此的私人想法\"}]}",
+      maxTokens: 9000
     },
     forum: {
       instruction: "推演「" + char.name + "」最近在论坛发的帖子标题（3-5 条）和时间，受最近对话与心情影响。只要标题，不需要正文。",
