@@ -8080,7 +8080,10 @@ const CARRY_SECTIONS = [
 ];
 // 衣柜的硬边界。件数不写死在提示词里（写死了谁的衣柜都一样满），
 // 但上限得由代码守着——模型高兴起来能给一个借住在别人家的人排出四十套。
-const CLOSET_MAX_OCCASIONS = 6, CLOSET_MAX_SETS = 4, CLOSET_MAX_TOTAL = 24;
+// v57.85 放宽：单场合 4 套太紧——「上朝」这种场合真讲究的人就是有五六套，
+// 而她要的正是「同一个场合也能多几套」。上限只是防模型排出四十套的那道闸，
+// 不该反过来替角色决定他有多少衣服。
+const CLOSET_MAX_OCCASIONS = 6, CLOSET_MAX_SETS = 6, CLOSET_MAX_TOTAL = 30;
 // 读衣柜：新形状按场合分组，旧形状是一条平的 items。两种都得认得（她手机上已经有旧数据）。
 function closetGroups(data) {
   if (!data) return [];
@@ -8129,6 +8132,64 @@ function carryContextText(box, pins, opts) {
   const cap = Math.max(120, Number(opts && opts.cap) || 700);
   const out = lines.join("\n");
   return out.length > cap ? out.slice(0, cap) + "…" : out;
+}
+// ── 衣柜的布料色 ──────────────────────────────────────────
+// 她 2026-08-29：「页面略丑」。衣柜以前是一串文字加箭头——衣服是最视觉的东西，
+// 做成通讯录列表最亏。改成一根挂衣杆、杆上挂着布。
+// 布的颜色【从这一套自己的名字和 note 里提】：绯色→红、月白→淡青白、玄色→近黑。
+// 所以配色是从内容长出来的，不是随手配的一组好看的色——换个角色，衣柜就是另一片颜色。
+// ⚠️顺序＝优先级，长词必须排在短词前面：「月白」要先于「白」，「青灰」要先于「青」和「灰」。
+const CLOTH_TONES = [
+  [/月白|月色/, "#dbe4e2"],
+  [/青灰|灰蓝|烟灰/, "#8d99a6"],
+  [/黛|靛|藏青|藏蓝/, "#43526b"],
+  [/绛|酒红|枣红|殷红/, "#7d3038"],
+  [/绯|朱|丹|赤|大红|正红|胭脂|红/, "#b8433c"],
+  [/藕|粉|桃|杏粉/, "#dba7a8"],
+  [/玄|墨|乌|皂|黑/, "#31313a"],
+  [/素|缟|雪|霜|纯白|洁白|白/, "#efe9dd"],
+  [/宝蓝|天青|蔚|蓝/, "#3f6183"],
+  // ⚠️别收「松」和「苍」：「领口洗松了」「苍老」会被当成松绿、苍青（v57.85 实测踩到）
+  [/翠|碧|竹|绿/, "#5f7d57"],
+  [/青/, "#5d7f72"],
+  [/紫|藤|绀/, "#6a5580"],
+  [/明黄|鹅黄|杏黄|姜黄|秋香|黄/, "#cfa94e"],
+  [/鎏金|金/, "#c0972d"],
+  [/银|霜白/, "#c3c8ce"],
+  [/褐|棕|茶|驼|栗|赭|咖/, "#8a6544"],
+  [/米|象牙|奶|卡其/, "#e2d7bf"],
+  [/灰/, "#9aa0a6"]
+];
+// 一件都没提颜色时的兜底：一组低饱和的布色，按次序发，同一场合里几套不会撞成一片
+// 长款：袍、直裰、氅、大衣、风衣、裙——剪影更长、下摆更展
+const CLOTH_LONG = /袍|裰|氅|褙|褂|衫|裙|长衣|大衣|风衣|斗篷|披风|连衣|旗袍|和服|浴衣|礼服|长裙|外套|大氅|朝服|官服|常服|道服|僧衣|法衣|中衣|深衣/;
+const CLOTH_FALLBACK = ["#b6ada0", "#a3aeb5", "#bdafab", "#a7b2a3", "#b6adbd", "#c2b49a"];
+const clothHex = h6 => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(h6 || ""));
+  if (!m) return [180, 175, 165];
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+// 往白（k>0）或往黑（k<0）混，用来给同一块布做出受光面和垂坠的暗部
+const clothShift = (hex, k) => {
+  const [r, g, b] = clothHex(hex);
+  const to = k >= 0 ? 255 : 0, a = Math.abs(k);
+  const mix = c => Math.round(c + (to - c) * a);
+  return "rgb(" + mix(r) + "," + mix(g) + "," + mix(b) + ")";
+};
+// 布够不够深——决定钉住那个记号该用浅色还是深色画在布上
+const clothIsDark = hex => {
+  const [r, g, b] = clothHex(hex);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 150;
+};
+function clothTone(set, i) {
+  // 名字里的颜色永远比 note 里的可信：「灰卫衣 / 领口洗松了」该是灰的，
+  // 一起搜就会被 note 里那些不是颜色的字抢走。所以先只搜名字，名字里没有才退到 note。
+  const pick = txt => { for (const [re, hex] of CLOTH_TONES) if (re.test(txt)) return hex; return ""; };
+  const base = pick(String((set && set.name) || ""))
+    || pick(String((set && set.note) || ""))
+    || CLOTH_FALLBACK[(i || 0) % CLOTH_FALLBACK.length];
+  return { base, light: clothShift(base, 0.22), dark: clothShift(base, -0.16), dark2: clothShift(base, -0.3), onDark: clothIsDark(base) };
 }
 // 给出图端的衣柜：比聊天那份更细（要料子和颜色，出图看的就是这些），但仍要控长。
 function carryClosetText(box, cap) {
@@ -8279,22 +8340,73 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
   } else if (loading || !data) {
     content = h(Spinner, { label: "正在翻看 " + sec.zh + "…" });
   } else if (sec.closet) {
-    // 衣柜按场合分组。旧的平清单会被 closetGroups 归到一个没有场合名的组里，照样看得见。
+    // 一根挂衣杆，杆上挂着布（她 2026-08-29「页面略丑」）。
+    // 每个场合一根杆、横着滑；布的颜色从这一套自己的名字里提（见 clothTone）。
     const groups = closetGroups(data);
     const total = groups.reduce((n, g) => n + g.sets.length, 0);
+    let seq = -1;   // 布色兜底按全柜次序发，免得同一场合里几套撞成一片
+    // 一件挂着的衣服 = 衣架（SVG 钩＋肩线）＋ 一片按剪影裁出来的布。
+    // ⚠️阴影用 drop-shadow 不用 box-shadow：box-shadow 画在盒子上，会被 clipPath 一起裁掉；
+    // drop-shadow 跟着剪影走，浅色的衣服才不会在米色背景上糊成一片。
+    const hanger = (it, gi, si) => {
+      seq++;
+      const c = clothTone(it, seq);
+      const on = isPinned(it);
+      const long = CLOTH_LONG.test(String(it.name || "") + " " + String(it.note || ""));
+      return h("button", {
+        key: gi + "_" + si,
+        onClick: () => setSheet(it),
+        className: "shrink-0 text-left active:opacity-75",
+        style: { width: 98, paddingRight: 10, WebkitTapHighlightColor: "transparent" }
+      },
+        // 衣架：钩挂在杆上，肩线往两边斜下去。衣服用负 margin 压上来，
+        // 把衣架的中段盖住、只露出两端搭在肩上——真的挂衣架就是这个样子。
+        h("svg", { width: 88, height: 30, viewBox: "0 0 88 30", fill: "none", style: { display: "block" } },
+          h("path", { d: "M44 13c0-10 7-10 7-3", stroke: t.sub, strokeWidth: 1.8, strokeLinecap: "round" }),
+          h("path", { d: "M44 13v3", stroke: t.sub, strokeWidth: 1.8, strokeLinecap: "round" }),
+          h("path", { d: "M7 27 44 16l37 11", stroke: t.fog, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" })),
+        // 布区定高：长衫短衣从同一条肩线往下垂，底不齐是对的，
+        // 但下面的名字要对齐——所以留一格最高的位子，衣服顶对齐地放进去。
+        h("div", { style: { height: 122, marginTop: -18 } },
+        // 布：一件衣服的剪影。长衫（袍/裰/氅/大衣/裙）比短衣长、下摆也更展——
+        // 一柜子全是同一个剪影，古代袍子和现代卫衣长得一模一样，那就白画了。
+        h("div", {
+          style: {
+            position: "relative", width: 88, height: long ? 122 : 98,
+            background: "linear-gradient(160deg," + c.light + " 0%," + c.base + " 44%," + c.dark + " 100%)",
+            clipPath: long
+              ? "polygon(34% 0, 50% 8%, 66% 0, 100% 17%, 86% 30%, 96% 100%, 4% 100%, 14% 30%, 0 17%)"
+              : "polygon(34% 0, 50% 10%, 66% 0, 100% 21%, 86% 38%, 90% 100%, 10% 100%, 14% 38%, 0 21%)",
+            filter: "drop-shadow(0 2px 3px rgba(0,0,0,.16))"
+          }
+        },
+          // 垂坠：一条竖向的淡高光 + 下摆的暗部，让平色块有布的厚度
+          h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,255,0) 6%,rgba(255,255,255,.18) 32%,rgba(255,255,255,0) 58%)" } }),
+          h("div", { style: { position: "absolute", inset: 0, background: "rgba(238,232,220,.10)" } }),
+          h("div", { style: { position: "absolute", inset: 0, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.09)" } }),
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 34, background: "linear-gradient(180deg,rgba(0,0,0,0)," + c.dark2 + ")", opacity: 0.5 } }),
+          on ? h("div", {
+            title: "钉住了，刷新不会换掉",
+            style: { position: "absolute", top: 26, left: 0, right: 0, textAlign: "center", fontSize: 10, lineHeight: 1, color: c.onDark ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.4)" }
+          }, "◆") : null)),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word" } }, it.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2, lineHeight: 1.5, minHeight: 28, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.note || ""));
+    };
+    // 一根杆横着滑。杆铺满【整行】而不是只到最后一件为止——挂衣杆本来就是通到柜子两头的。
+    const rail = sets => h("div", { className: "overflow-x-auto", style: { marginLeft: -4, marginRight: -20, paddingBottom: 2, scrollbarWidth: "none" } },
+      h("div", { style: { position: "relative", minWidth: "100%", width: "max-content", paddingLeft: 4 } },
+        h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: 2, background: "linear-gradient(180deg," + t.line + "," + t.fog + ")", opacity: 0.85 } }),
+        h("div", { className: "flex" }, sets)));
     content = !total
       ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的")
       : h("div", { style: { animation: "fadeUp .3s ease both" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingBottom: 10 } },
-            groups.length > 1 ? groups.length + " 种场合 · 共 " + total + " 套" : total + " 套"),
-          groups.map((g, gi) => h("div", { key: gi, style: { marginBottom: 22 } },
-            g.occasion ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.accent, letterSpacing: "0.04em", paddingBottom: 4, marginBottom: 2, borderBottom: "1px solid " + t.line } },
-              g.occasion + (g.sets.length > 1 ? " · " + g.sets.length + " 套" : "")) : null,
-            g.sets.map((it, i) => h("button", { key: i, onClick: () => setSheet(it), className: "w-full text-left flex items-start justify-between gap-3 py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
-              h("div", { className: "min-w-0 flex-1" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, it.name, pinDot(it)),
-                it.note && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, it.note)),
-              h(IChevR, { size: 15, color: t.line, style: { marginTop: 3 } }))))));
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, paddingBottom: 14 } },
+            (groups.length > 1 ? groups.length + " OCCASIONS · " : "") + total + " SETS"),
+          groups.map((g, gi) => h("div", { key: gi, style: { marginBottom: 20 } },
+            g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, g.sets.length + " 套")) : null,
+            rail(g.sets.map((it, si) => hanger(it, gi, si))))));
   } else {
     const items = (data && data.items) || [];
     content = items.length === 0
@@ -8306,8 +8418,16 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
           h(IChevR, { size: 15, color: t.line, style: { marginTop: 3 } }))));
   }
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: sec.zh, en: char.name, onBack, right: !isGifts && h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 py-4" }, content),
+    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
+    // 以前这里是 Head 那块 30px 大标题＋大段留白，一屏先被标题吃掉五分之一。
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { background: t.bg, paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, sec.zh),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
+      h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
+        !isGifts ? h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, "aria-label": "重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) : null)),
+    h("div", { className: "flex-1 overflow-y-auto px-5 pt-2 pb-8" }, content),
     sheet && h(Sheet, { onClose: () => setSheet(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, sheet.name),
       sheet.note && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginBottom: 12, lineHeight: 1.7 } }, sheet.note),

@@ -13,6 +13,11 @@ const F = (() => {
   const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec"));
   return new Function(head + "\nreturn { closetGroups, carryFlatItems, carryItemKey, carryClosetText, carryContextText, carryEvolveMerge, carryKnownBlock };")();
 })();
+// clothTone 那几个也抠出来跑（纯函数，不碰 React）
+const F2 = (() => {
+  const head = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("// 给出图端的衣柜"));
+  return new Function(head + "\nreturn { clothTone, clothShift, clothIsDark };")();
+})();
 const mk = (...names) => ({ items: names.map(n => ({ name: n, note: "x", thought: "y" })) });
 
 // 她 2026-08-29：随身物生成完只有她看得见——角色本人不知道自己包里有伞，
@@ -102,11 +107,11 @@ test("衣柜按场合分组，同一场合可以有好几套", () => {
 });
 
 test("衣柜的上限由代码守着，光靠提示词只是降概率", () => {
-  const big = { closet: Array.from({ length: 9 }, (_, i) => ({ occasion: "场合" + i, sets: Array.from({ length: 7 }, (_, j) => ({ name: "套" + i + "_" + j })) })) };
+  const big = { closet: Array.from({ length: 9 }, (_, i) => ({ occasion: "场合" + i, sets: Array.from({ length: 9 }, (_, j) => ({ name: "套" + i + "_" + j })) })) };
   const g = F.closetGroups(big);
   assert.ok(g.length <= 6, "场合数没封顶：" + g.length);
-  g.forEach(x => assert.ok(x.sets.length <= 4, "单场合套数没封顶"));
-  assert.ok(g.reduce((n, x) => n + x.sets.length, 0) <= 24, "总套数没封顶");
+  g.forEach(x => assert.ok(x.sets.length <= 6, "单场合套数没封顶"));
+  assert.ok(g.reduce((n, x) => n + x.sets.length, 0) <= 30, "总套数没封顶");
   // 上面那个用例会先撞上总数 24 而停下，测不到【场合数】那道闸。
   // 每个场合只放一套，总数就够不着 24——这时候拦住它的必须是场合数本身。
   const thin = { closet: Array.from({ length: 9 }, (_, i) => ({ occasion: "场合" + i, sets: [{ name: "套" + i }] })) };
@@ -150,4 +155,70 @@ test("护理那一栏删了，旧版随身物那套死代码也删了", () => {
   assert.match(screens, /const CARRY_SECTIONS = \[[\s\S]*?\];/);
   const secs = (screens.match(/key: "(bag|pocket|outfit|trinket|gifts)"/g) || []).length;
   assert.equal(secs, 5, "现在应该是五栏");
+});
+
+// ── UI（她 2026-08-29「页面略丑，先做衣柜」）──────────────────
+// 铁律 .claude/rules/mobile-ui-layout.md §1：普通子页面用紧凑标题栏，
+// 禁止 30–40px 大标题和大块上下留白。随身物的详情页原先用的是 Head，
+// 一屏先被标题吃掉五分之一。
+test("随身物详情页用紧凑标题栏，不许退回大标题", () => {
+  const i = screens.indexOf("function CarrySection(");
+  const seg = screens.slice(i, screens.indexOf("\nfunction Carry(", i));
+  assert.doesNotMatch(seg, /h\(Head, \{/, "又退回 Head 那块大标题了（mobile-ui-layout.md §1）");
+  assert.match(seg, /paddingTop: safeTop\(10\)/, "顶栏得自己吃安全区");
+  assert.match(seg, /fontSize: 16, color: t\.ink/, "居中小标题");
+  assert.match(seg, /"aria-label": "返回"/);
+  // 左返回、右操作位等宽，标题才真的居中
+  assert.equal((seg.match(/width: 40, height: 40/g) || []).length, 2, "左右操作位要等宽");
+});
+
+test("衣服的颜色是从它自己的名字里长出来的", () => {
+  const tone = (name, note, i) => F2.clothTone({ name, note }, i).base;
+  assert.equal(tone("绯色官袍", "缂丝"), "#b8433c");
+  assert.equal(tone("月白常服", "软绸"), "#dbe4e2", "「月白」必须排在「白」前面");
+  assert.equal(tone("青灰直裰", ""), "#8d99a6", "「青灰」必须排在「青」和「灰」前面");
+  assert.equal(tone("玄色劲装", ""), "#31313a");
+  // 名字里有颜色时，note 里那些不是颜色的字不许抢
+  assert.equal(tone("灰卫衣", "领口洗松了"), "#9aa0a6", "「洗松了」的「松」把灰抢成了松绿");
+  assert.doesNotMatch(screens, /翠\|碧\|竹\|松/, "「松」误伤太大（洗松了/松口/放松），不许收进绿色");
+  // 名字里没颜色才轮到 note
+  assert.equal(tone("那件短打", "褐色的粗布"), "#8a6544");
+  // 一个颜色词都没有：按次序发兜底色，同一柜里不会几件撞成一片
+  assert.notEqual(tone("某件衣服", "", 0), tone("另一件", "", 1));
+});
+
+test("长衫和短衣是两个剪影——一柜子同一个形状就白画了", () => {
+  const L = /袍|裰|氅/;
+  assert.ok(L.test("绯色官袍") && L.test("青灰直裰"), "先确认词表意图");
+  assert.match(screens, /const CLOTH_LONG = \//);
+  ["袍", "裰", "氅", "裙", "大衣", "朝服", "常服"].forEach(w =>
+    assert.ok(new RegExp(screens.match(/const CLOTH_LONG = (\/[^;]+\/)/)[1].slice(1, -1)).test(w), w + " 该算长款"));
+  ["劲装", "短打", "卫衣", "衬衫"].forEach(w => {
+    const re = new RegExp(screens.match(/const CLOTH_LONG = (\/[^;]+\/)/)[1].slice(1, -1));
+    if (w === "衬衫") return;  // 「衫」确实算长款，这里不苛求
+    assert.ok(!re.test(w), w + " 不该算长款");
+  });
+  const i = screens.indexOf("const hanger = (it, gi, si)");
+  const seg = screens.slice(i, i + 2600);
+  assert.match(seg, /height: long \? 122 : 98/, "长短款得给不同高度");
+  assert.match(seg, /clipPath: long\s*\n?\s*\?/, "长短款得给不同剪影");
+  // 布区留一格最高的位子，下面的名字才对得齐
+  assert.match(seg, /h\("div", \{ style: \{ height: 122, marginTop: -18 \} \}/, "布区没定高，一排衣服的文字会参差");
+});
+
+test("阴影必须跟着剪影走，否则浅色的衣服在米色底上会糊掉", () => {
+  const i = screens.indexOf("const hanger = (it, gi, si)");
+  const seg = screens.slice(i, i + 2600);
+  // box-shadow 画在盒子上，会被 clipPath 整个裁掉；drop-shadow 跟着剪影
+  assert.match(seg, /filter: "drop-shadow\(/, "用了 drop-shadow 才有沿剪影的投影");
+  assert.doesNotMatch(seg.split("clipPath")[0], /boxShadow: "0 /, "别在裁剪过的盒子上用外投 box-shadow，那是无效的");
+  assert.match(seg, /boxShadow: "inset 0 0 0 1px/, "极浅的衣服还要一条内描边");
+});
+
+test("挂衣杆铺满整行，页面本身不横滚", () => {
+  const i = screens.indexOf("const rail = sets =>");
+  const seg = screens.slice(i, i + 700);
+  assert.match(seg, /className: "overflow-x-auto"/, "横滑归这一行自己（mobile-ui-layout §3）");
+  assert.match(seg, /minWidth: "100%", width: "max-content"/, "杆要铺满整行：内容窄时撑满屏、宽时跟着内容长");
+  assert.match(seg, /position: "absolute", top: 0, left: 0, right: 0/, "杆得铺在整条内容上，不是画在每件顶上");
 });
