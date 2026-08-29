@@ -3705,6 +3705,10 @@ function ChatThread({
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(FicShareCard, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    // 逛购物 app 时拿给他看的那件东西（v57.98）
+    if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
+      h(ShopAskCard, { m: m }),
+      dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "phonepeek") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(PhonePeekCard, { m: m, isU: m.role === "user" }),
@@ -5326,6 +5330,22 @@ function ForumShareCard({ m, isU }) {
 }
 // 查手机偷看卡：她把他手机里的一样东西摆到了他面前。
 // tier 决定这张卡长什么样——藏起来的那一档要一眼看得出气氛不一样。
+// 「这个好不好看」——拿给他看的那件商品。用购物页那套橙，一眼认得出是从哪儿来的。
+function ShopAskCard({ m }) {
+  const t = useTheme();
+  const a = m.ask || {};
+  return h("div", { style: { width: 216, borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid #ececf0", boxShadow: "0 1px 4px rgba(0,0,0,.06)" } },
+    h("div", { style: { height: 4, background: "linear-gradient(90deg,#ff5000,#ff9500)" } }),
+    h("div", { style: { padding: "10px 12px 11px" } },
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.16em", color: "#ff5000" } }, "SHOPPING"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#20202a", lineHeight: 1.45, marginTop: 5 } }, a.name || ""),
+      a.desc ? h("div", { className: "inline-block", style: { marginTop: 5, padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: "#ff5000", background: "#fff2ea", borderRadius: 3 } }, a.desc) : null,
+      h("div", { className: "flex items-end justify-between", style: { marginTop: 7 } },
+        a.price != null ? h("div", { style: { lineHeight: 1 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, fontWeight: 700, color: "#ff4000" } }, "¥"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700, color: "#ff4000" } }, a.price)) : h("span"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#9a9aa6" } }, "在问你的意见"))));
+}
 function PhonePeekCard({ m, isU }) {
   const t = useTheme();
   const p = m.peek || {};

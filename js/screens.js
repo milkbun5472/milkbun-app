@@ -1806,6 +1806,41 @@ function Forum({
 // 分类横滑；点分类后按右上角刷新生成该类商品；+ 加入购物车；
 // 购物车多选结算：代付 / 购买 / 送礼 / 亲属卡；我的：待发货(倒计时)→待收货(使用/转赠)
 // ============================================================
+// ── 购物页的配色（她 2026-08-29：「界面做好看可以参考淘宝配色」）──────
+// 这一页故意不跟主题走：购物 app 本来就该有自己的视觉语言，
+// 和查手机里那个网购 app 是同一套橙（SHOP_ORANGE），两处才像同一件事。
+const MSHOP = {
+  orange: "#ff5000",     // 主色：按钮、选中态、标签
+  price: "#ff4000",      // 价钱
+  soft: "#fff2ea",       // 橙色标签的底
+  bg: "#f4f4f6",         // 页面底（浅灰，不是米——米色一片就没有货架感）
+  card: "#ffffff",
+  ink: "#20202a",
+  sub: "#6b6b78",
+  dim: "#9a9aa6",
+  line: "#ececf0"
+};
+// 商品图位以前是把商品名用斜体再写一遍——一张卡里名字印两遍，
+// 那 120px 高的地方等于白占（她 2026-08-29 截图）。
+// 没有真图就别假装有图：改成【从名字认出品类】的色块 + 一个大字。
+// 认法和随身物的材质色共用 toneFrom：顺序＝优先级，名字优先于描述。
+const SHOP_TONES = [
+  [/四件套|床品|被|枕|毯|床单|家纺/, "#a8c4a2"],
+  [/咖啡|茶|奶|饮|酒|水/, "#c69a63"],
+  [/零食|肉|果|菜|米|面|油|吃|食|饼|糖|巧克力/, "#e0a45c"],
+  [/耳机|耳塞|手机|电脑|充电|数码|键盘|鼠标|相机|电子|平板|AirPods|airpods|蓝牙/, "#7d8b9e", false, "数码"],
+  [/口红|面膜|护肤|精华|香水|化妆|美妆|洗面|防晒/, "#d59bb0"],
+  [/衣|裤|裙|鞋|袜|外套|卫衣|衬衫|帽|包|围巾/, "#c9a3b4"],
+  [/沙发|桌|椅|床|柜|灯|架|收纳|家具/, "#b08d63"],
+  [/杯|碗|盘|壶|锅|勺|筷|餐具|瓷/, "#8fadb8"],
+  [/书|本|笔|纸|文具/, "#c8b58e"],
+  [/香薰|蜡烛|花|绿植|摆件/, "#b0a8c4"]
+];
+const SHOP_FALLBACK = ["#b3b0bb", "#b6ada0", "#a6b3b0", "#bdb0a8", "#aeb0bd"];
+const shopTone = (it, i) => toneFrom(SHOP_TONES, SHOP_FALLBACK, it, i);
+// 品类标：显示命中的那个词（「咖啡」「四件套」「数码」）。它是从商品名里真读出来的，
+// 不是我另贴的标签；认不出品类就不显示，别硬安一个。
+// ⚠️别拿商品名的第一个字当大字——那多半是「北」「冷」「小」「高」这种修饰词，没有信息。
 const SHOP_CATS = [
   { key: "recommend", zh: "推荐" },
   { key: "food", zh: "外卖" },
@@ -1821,7 +1856,7 @@ function shopFmtLeft(ms) {
   if (hr > 0) return hr + "小时" + (m % 60) + "分";
   return m > 0 ? m + "分" + (s % 60) + "秒" : (s % 60) + "秒";
 }
-function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, toast }) {
+function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState("home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -1829,6 +1864,8 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
   const [sel, setSel] = useState([]); // 选中的购物车 uid
   const [sheet, setSheet] = useState(null); // "actions" | "gift" | "paylater" | "kinship" | {kind:"regift",orderId}
   const [now, setNow] = useState(Date.now());
+  const [detail, setDetail] = useState(null);   // 点开的那件商品（以前商品根本点不进去）
+  const [askFor, setAskFor] = useState(null);   // 拿给谁看
   useEffect(() => {
     const iv = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(iv);
@@ -1845,129 +1882,215 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
   const doGen = (append) => onGen(cat, search, append);
 
   // ---------- 顶栏（搜索 + 刷新）----------
-  const topBar = h("div", { className: "shrink-0 px-4 pb-2 flex items-center gap-3", style: { paddingTop: safeTop(16), background: t.bg2, borderBottom: "1px solid " + t.line } },
-    h("button", { onClick: onBack, className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
-    h("div", { className: "flex-1 flex items-center gap-2 px-4 h-9", style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 999 } },
-      h(ISearch, { size: 15, color: t.fog }),
+  const topBar = h("div", { className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: safeTop(14), background: MSHOP.card } },
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 shrink-0 flex items-center justify-center", style: { width: 34, height: 34, marginLeft: -6 } }, h(IArrow, { size: 19, color: MSHOP.ink })),
+    // 搜索条：橙色描边＋右端一颗橙色搜索钮，这是淘宝那条最认得出来的东西
+    h("div", { className: "flex-1 flex items-center h-9", style: { background: "#fff", border: "1.5px solid " + MSHOP.orange, borderRadius: 999, paddingLeft: 12, paddingRight: 3 } },
+      h(ISearch, { size: 14, color: MSHOP.orange }),
       h("input", {
         value: search, onChange: e => setSearch(e.target.value),
         onKeyDown: e => { if (e.key === "Enter") doGen(false); },
         placeholder: "搜索宝贝…",
         className: "flex-1 bg-transparent outline-none",
-        style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink }
-      })),
-    h("button", { onClick: () => doGen(false), disabled: busy, className: "active:opacity-50 disabled:opacity-40" },
-      busy ? h(IPulse, { size: 20, color: t.tint }) : h(IRefresh, { size: 20, color: t.ink })));
+        style: { fontFamily: F_BODY, fontSize: 13, color: MSHOP.ink, marginLeft: 7, minWidth: 0 }
+      }),
+      h("button", {
+        onClick: () => doGen(false), disabled: busy,
+        className: "shrink-0 active:opacity-70 disabled:opacity-50 flex items-center justify-center",
+        style: { height: 28, padding: "0 15px", borderRadius: 999, background: MSHOP.orange, fontFamily: F_BODY, fontSize: 12.5, color: "#fff" }
+      }, busy ? "找…" : "搜索")),
+    h("button", { onClick: () => doGen(false), disabled: busy, "aria-label": "换一批", className: "active:opacity-50 disabled:opacity-40 shrink-0 flex items-center justify-center", style: { width: 32, height: 32 } },
+      busy ? h(IPulse, { size: 19, color: MSHOP.orange }) : h(IRefresh, { size: 19, color: MSHOP.sub })));
 
   // ---------- 分类横滑 ----------
-  const catRow = h("div", { className: "shrink-0 flex gap-5 px-5 py-3 overflow-x-auto", style: { background: t.bg2, borderBottom: "1px solid " + t.line, WebkitOverflowScrolling: "touch" } },
+  const catRow = h("div", { className: "shrink-0 flex gap-6 px-4 pb-2 overflow-x-auto", style: { background: MSHOP.card, borderBottom: "1px solid " + MSHOP.line, WebkitOverflowScrolling: "touch", scrollbarWidth: "none" } },
     SHOP_CATS.map(c => h("button", {
       key: c.key, onClick: () => setCat(c.key),
-      className: "shrink-0 pb-1 active:opacity-60",
-      style: { borderBottom: cat === c.key ? "2px solid " + t.ink : "2px solid transparent" }
-    }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: cat === c.key ? 18 : 16, color: cat === c.key ? t.ink : t.fog, whiteSpace: "nowrap" } }, c.zh))));
+      className: "shrink-0 relative active:opacity-60",
+      style: { paddingBottom: 7 }
+    },
+      h("span", { style: { fontFamily: F_BODY, fontSize: cat === c.key ? 15.5 : 14, fontWeight: cat === c.key ? 700 : 400, color: cat === c.key ? MSHOP.ink : MSHOP.sub, whiteSpace: "nowrap" } }, c.zh),
+      cat === c.key ? h("span", { style: { position: "absolute", left: "50%", bottom: 0, width: 18, height: 3, marginLeft: -9, borderRadius: 2, background: MSHOP.orange } }) : null)));
 
   // ---------- 首页：商品流 ----------
   const homeView = h("div", { className: "flex-1 flex flex-col min-h-0" }, topBar, catRow,
-    h("div", { className: "flex-1 overflow-y-auto px-3 py-3", style: { background: t.bg } },
+    h("div", { className: "flex-1 overflow-y-auto px-2.5 py-2.5", style: { background: MSHOP.bg } },
       list.length === 0
         ? h("div", { className: "text-center", style: { paddingTop: 80 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: t.fog } }, busy ? "正在为你挑好物…" : "这个分类还没有商品。\n点右上角刷新，看看有什么。"),
             !busy && h("button", { onClick: () => doGen(false), className: "mt-4 px-5 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "刷新商品"))
         : h("div", null,
-            h("div", { className: "grid grid-cols-2 gap-3" }, list.map(it => h("div", { key: it.uid, style: { background: t.bg2, borderRadius: 14, overflow: "hidden", border: "1px solid " + t.line } },
-              h("div", { className: "flex items-center justify-center", style: { height: 120, background: t.bg } },
-                h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15, color: t.fog, padding: "0 12px", textAlign: "center" } }, it.name)),
-              h("div", { className: "p-2.5" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.25, minHeight: 36 } }, it.name),
-                it.desc && h("div", { className: "mt-1.5 inline-block px-2 py-0.5", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, background: t.bg, borderRadius: 5 } }, it.desc),
-                h("div", { className: "flex items-end justify-between mt-2" },
-                  h("div", { className: "min-w-0" },
-                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.accent } }, "¥"),
-                    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.accent } }, it.price),
-                    it.sales && h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, it.sales)),
-                  h("button", { onClick: () => { onAddCart(it); toast("已加入购物车"); }, className: "shrink-0 active:scale-90", style: { width: 30, height: 30, borderRadius: 999, border: "1.5px solid " + t.ink, color: t.ink, fontSize: 20, lineHeight: "26px", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IPlus, { size: 16, color: t.ink }))))))),
+            h("div", { className: "grid grid-cols-2 gap-2.5" }, list.map((it, gi) => {
+              const c = shopTone(it, gi);
+              return h("button", { key: it.uid, onClick: () => setDetail(it), className: "text-left active:opacity-85", style: { background: MSHOP.card, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.06)", WebkitTapHighlightColor: "transparent" } },
+                // 图位：没有真图就别假装有图。一块从名字认出来的品类色 + 右下角的品类标。
+                h("div", { style: { position: "relative", height: 112, background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)" } },
+                  h("div", { style: { position: "absolute", inset: 0, background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
+                  c.word ? h("div", { style: { position: "absolute", right: 7, bottom: 7, padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10, color: c.ink } }, c.word) : null),
+                h("div", { style: { padding: "8px 9px 10px" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink, lineHeight: 1.42, minHeight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
+                  it.desc ? h("div", { className: "inline-block", style: { marginTop: 5, padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: MSHOP.orange, background: MSHOP.soft, borderRadius: 3 } }, it.desc) : null,
+                  h("div", { className: "flex items-end justify-between", style: { marginTop: 6 } },
+                    h("div", { className: "min-w-0" },
+                      h("div", { style: { lineHeight: 1 } },
+                        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: MSHOP.price, fontWeight: 700 } }, "¥"),
+                        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: MSHOP.price, fontWeight: 700, letterSpacing: "-0.02em" } }, it.price)),
+                      it.sales ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim, marginTop: 3 } }, it.sales) : null),
+                    h("button", {
+                      onClick: e => { e.stopPropagation(); onAddCart(it); toast("已加入购物车"); },
+                      "aria-label": "加入购物车",
+                      className: "shrink-0 active:scale-90 flex items-center justify-center",
+                      style: { width: 28, height: 28, borderRadius: 999, background: MSHOP.orange, boxShadow: "0 1px 4px rgba(255,80,0,.35)" }
+                    }, h(IPlus, { size: 15, color: "#fff" })))));
+            })),
             h("button", { onClick: () => doGen(true), disabled: busy, className: "w-full mt-4 mb-2 py-3 active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12.5, letterSpacing: "0.1em", color: t.fog } }, busy ? "加载中…" : "继续看 ↓"))));
 
   // ---------- 购物车 ----------
+  const shopHead = (zh, right) => h("div", { className: "shrink-0 px-4 pb-2.5 flex items-center", style: { paddingTop: safeTop(12), background: MSHOP.card, borderBottom: "1px solid " + MSHOP.line } },
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: MSHOP.ink })),
+    h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 15.5, fontWeight: 600, color: MSHOP.ink } }, zh),
+    h("div", { className: "flex items-center justify-end", style: { width: 40, height: 40 } }, right || null));
   const cartView = h("div", { className: "flex-1 flex flex-col min-h-0" },
-    h(Head, { zh: "购物车", en: "Cart", onBack: onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-5 py-2", style: { background: t.bg } },
+    shopHead("购物车"),
+    h("div", { className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
       cartItems.length === 0
-        ? h("div", { className: "text-center", style: { paddingTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "购物车是空的")
-        : cartItems.map(it => {
+        ? h("div", { className: "text-center", style: { paddingTop: 80, fontFamily: F_BODY, fontSize: 13, color: MSHOP.dim } }, "购物车是空的")
+        : cartItems.map((it, ci) => {
             const on = sel.includes(it.uid);
-            return h("div", { key: it.uid, className: "flex items-center gap-3 py-3.5", style: { borderBottom: "1px solid " + t.line } },
-              h("button", { onClick: () => toggleSel(it.uid), className: "shrink-0 active:opacity-60", style: { width: 22, height: 22, borderRadius: 999, border: "1.5px solid " + (on ? t.tint : t.line), background: on ? t.tint : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on && h(ICheck, { size: 13, color: "#fff" })),
-              h("div", { className: "flex items-center justify-center shrink-0", style: { width: 52, height: 52, borderRadius: 10, background: t.bg2 } }, h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 11, color: t.fog } }, "ITEM")),
+            const c = shopTone(it, ci);
+            return h("div", { key: it.uid, className: "flex items-center gap-3", style: { background: MSHOP.card, borderRadius: 11, padding: "11px 12px", marginBottom: 9, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
+              h("button", { onClick: () => toggleSel(it.uid), "aria-label": "选中", className: "shrink-0 active:opacity-60", style: { width: 21, height: 21, borderRadius: 999, border: "1.5px solid " + (on ? MSHOP.orange : "#d6d6de"), background: on ? MSHOP.orange : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 12, color: "#fff" }) : null),
+              // 缩略图位：和商品流那边同一套品类色，一眼认得出是同一件东西
+              h("div", { className: "shrink-0 relative", style: { width: 54, height: 54, borderRadius: 9, background: "linear-gradient(150deg," + c.light + "," + c.base + " 60%," + c.dark + ")" } },
+                c.word ? h("span", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: F_BODY, fontSize: 9, color: "rgba(255,255,255,.92)" } }, c.word) : null),
               h("div", { className: "flex-1 min-w-0" },
-                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, it.name),
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent, marginTop: 3 } }, "¥" + it.price)),
-              h("button", { onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, className: "shrink-0 active:opacity-50 p-1" }, h(ITrash, { size: 16, color: t.fog })));
+                h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, fontWeight: 700, color: MSHOP.price, marginTop: 4 } }, "¥" + it.price)),
+              h("button", { onClick: () => { onRemoveCart(it.uid); setSel(p => p.filter(x => x !== it.uid)); }, "aria-label": "删除", className: "shrink-0 active:opacity-50 p-1" }, h(ITrash, { size: 16, color: MSHOP.dim })));
           })),
-    cartItems.length > 0 && h("div", { className: "shrink-0 px-5 py-3 flex items-center gap-3", style: { background: t.bg2, borderTop: "1px solid " + t.line } },
+    cartItems.length > 0 && h("div", { className: "shrink-0 px-4 py-2.5 flex items-center gap-3", style: { background: MSHOP.card, borderTop: "1px solid " + MSHOP.line } },
       h("button", { onClick: () => setSel(sel.length === cartItems.length ? [] : cartItems.map(x => x.uid)), className: "active:opacity-60 flex items-center gap-2" },
-        h("span", { style: { width: 20, height: 20, borderRadius: 999, border: "1.5px solid " + (sel.length === cartItems.length && cartItems.length ? t.tint : t.line), background: sel.length === cartItems.length && cartItems.length ? t.tint : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, sel.length === cartItems.length && cartItems.length ? h(ICheck, { size: 12, color: "#fff" }) : null),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "全选")),
+        h("span", { style: { width: 20, height: 20, borderRadius: 999, border: "1.5px solid " + (sel.length === cartItems.length && cartItems.length ? MSHOP.orange : "#d6d6de"), background: sel.length === cartItems.length && cartItems.length ? MSHOP.orange : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, sel.length === cartItems.length && cartItems.length ? h(ICheck, { size: 12, color: "#fff" }) : null),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.sub } }, "全选")),
       h("div", { className: "flex-1 text-right" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "合计 "),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.accent } }, "¥" + selTotal)),
-      h("button", { onClick: () => { if (!selItems.length) { toast("请先选择商品"); return; } setSheet("actions"); }, className: "px-6 py-2.5 active:opacity-80", style: { fontFamily: F_DISPLAY, fontSize: 15, background: selItems.length ? t.ink : t.line, color: t.bg2, borderRadius: 999 } }, "结算(" + selItems.length + ")")));
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.sub } }, "合计 "),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, fontWeight: 700, color: MSHOP.price } }, "¥"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, fontWeight: 700, color: MSHOP.price } }, selTotal)),
+      h("button", { onClick: () => { if (!selItems.length) { toast("请先选择商品"); return; } setSheet("actions"); }, className: "px-6 py-2.5 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 600, background: selItems.length ? MSHOP.orange : "#d8d8e0", color: "#fff", borderRadius: 999, boxShadow: selItems.length ? "0 2px 8px rgba(255,80,0,.32)" : "none" } }, "结算 " + (selItems.length || ""))));
 
   // ---------- 我的（订单）----------
   const myView = h("div", { className: "flex-1 flex flex-col min-h-0" },
-    h(Head, { zh: "我的", en: "Orders", onBack: onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-5 py-3", style: { background: t.bg } },
+    shopHead("我的"),
+    h("div", { className: "flex-1 overflow-y-auto px-3 py-3", style: { background: MSHOP.bg } },
       // 待发货
-      h(Eyebrow, { style: { marginBottom: 8 } }, "待发货 · " + shipping.length),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "待发货 · " + shipping.length),
       shipping.length === 0
-        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 18 } }, "暂无待发货")
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, marginBottom: 18 } }, "暂无待发货")
         : h("div", { className: "space-y-2", style: { marginBottom: 18 } }, shipping.map(o => {
             const left = o.arriveTs - now;
-            return h("div", { key: o.id, className: "p-3.5", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
+            return h("div", { key: o.id, className: "p-3.5", style: { background: MSHOP.card, borderRadius: 11, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
               h("div", { className: "flex items-center justify-between" },
                 h("div", { className: "min-w-0 flex-1" },
-                  h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, o.name),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, (o.price ? "¥" + o.price : "") + (o.price && o.payLabel ? " · " : "") + (o.payLabel || (o.price ? "" : "礼物")))),
+                  h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink, lineHeight: 1.4 } }, o.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.dim, marginTop: 3 } }, (o.price ? "¥" + o.price : "") + (o.price && o.payLabel ? " · " : "") + (o.payLabel || (o.price ? "" : "礼物")))),
                 h("div", { className: "text-right shrink-0 ml-3" },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "还有"),
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.tint } }, shopFmtLeft(left)))));
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim } }, "还有"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: MSHOP.orange } }, shopFmtLeft(left)))));
           })),
       // 待收货
-      h(Eyebrow, { style: { marginBottom: 8 } }, "待收货 · " + receiving.length),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "待收货 · " + receiving.length),
       receiving.length === 0
-        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginBottom: 18 } }, "暂无待收货")
-        : h("div", { className: "space-y-2", style: { marginBottom: 18 } }, receiving.map(o => h("div", { key: o.id, className: "p-3.5", style: { background: t.bg2, borderRadius: 12, border: "1px solid " + t.line } },
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, marginBottom: 18 } }, "暂无待收货")
+        : h("div", { className: "space-y-2", style: { marginBottom: 18 } }, receiving.map(o => h("div", { key: o.id, className: "p-3.5", style: { background: MSHOP.card, borderRadius: 11, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
             h("div", { className: "flex items-center justify-between mb-2.5" },
               h("div", { className: "min-w-0 flex-1" },
-                h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, o.name),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink, lineHeight: 1.4 } }, o.name),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f8a54", marginTop: 2 } }, "已送达" + (o.fromCharId ? " · " + (charById(o.fromCharId) ? charById(o.fromCharId).name : "") + " 送的" : ""))),
-              o.price ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.accent } }, "¥" + o.price) : null),
+              o.price ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, fontWeight: 700, color: MSHOP.price } }, "¥" + o.price) : null),
             h("div", { className: "flex gap-2" },
-              h("button", { onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "使用"),
-              h("button", { onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + t.ink, color: t.ink, borderRadius: 8 } }, "转赠"))))),
+              h("button", { onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "使用"),
+              h("button", { onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"))))),
       // 我的物品
-      h(Eyebrow, { style: { marginBottom: 8 } }, "我的物品 · " + (inventory || []).length),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · " + (inventory || []).length),
       (inventory || []).length === 0
-        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, paddingBottom: 20 } }, "还没有已入库的物品")
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, paddingBottom: 20 } }, "还没有已入库的物品")
         : h("div", { style: { paddingBottom: 24 } }, (inventory || []).map((it, i) => {
             const giver = it.fromCharId ? charById(it.fromCharId) : null;
             const sub = (giver ? (giver.name + " 送") : "购买") + (it.addedTs ? " · " + new Date(it.addedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" }) : "");
-            return h("div", { key: it.id || i, className: "flex items-center justify-between py-3", style: { borderBottom: "1px solid " + t.line } },
+            return h("div", { key: it.id || i, className: "flex items-center justify-between", style: { background: MSHOP.card, borderRadius: 11, padding: "11px 13px", marginBottom: 8, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
               h("div", { className: "min-w-0" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, it.name, it.qty > 1 ? h("span", { style: { fontSize: 11, color: t.fog } }, " ×" + it.qty) : null),
-                sub && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, sub)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink } }, it.name, it.qty > 1 ? h("span", { style: { fontSize: 11, color: MSHOP.dim } }, " ×" + it.qty) : null),
+                sub && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim, marginTop: 3 } }, sub)),
               giver && h(Avatar, { character: giver, size: 26, radius: 7 }));
           }))));
 
-  // ---------- 底部 tab ----------
-  const bottomNav = h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + t.line, background: t.bg2 } },
-    [["home", "首页", GShop], ["cart", "购物车", GBag], ["my", "我的", GUser]].map(([k, zh, G]) => h("button", {
-      key: k, onClick: () => setNav(k), className: "flex-1 py-2.5 flex flex-col items-center gap-1 active:opacity-60 relative"
+  // ---------- 商品详情（以前商品根本点不进去，只能点那颗加购钮）----------
+  const detailEl = detail ? (() => {
+    const c = shopTone(detail, 0);
+    const chars = characters || [];
+    return h("div", {
+      className: "absolute inset-0 flex items-end z-50",
+      style: { background: "rgba(20,19,25,0.42)" },
+      onClick: () => { setDetail(null); setAskFor(null); }
     },
-      h(G, { size: 21, color: nav === k ? t.ink : t.fog }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: nav === k ? t.ink : t.fog } }, zh),
-      k === "cart" && cartItems.length > 0 && h("span", { style: { position: "absolute", top: 4, right: "50%", marginRight: -18, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 999, padding: "0 5px", lineHeight: "15px" } }, String(cartItems.length)))));
+      h("div", {
+        onClick: e => e.stopPropagation(),
+        className: "w-full",
+        style: { background: MSHOP.card, borderRadius: "18px 18px 0 0", maxHeight: "84vh", overflowY: "auto", animation: "fadeUp .26s ease both", paddingBottom: COMPOSER_PAD_BOTTOM }
+      },
+        h("div", { style: { position: "relative", height: 180, background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)", borderRadius: "18px 18px 0 0" } },
+          h("div", { style: { position: "absolute", inset: 0, borderRadius: "18px 18px 0 0", background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
+          c.word ? h("div", { style: { position: "absolute", right: 12, bottom: 12, padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,.85)", fontFamily: F_BODY, fontSize: 11, color: c.ink } }, c.word) : null,
+          h("button", { onClick: () => setDetail(null), "aria-label": "关闭", className: "active:opacity-70", style: { position: "absolute", left: 12, top: 12, width: 30, height: 30, borderRadius: 999, background: "rgba(255,255,255,.85)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 15, color: MSHOP.ink } }, "✕")),
+        h("div", { style: { padding: "14px 16px 16px" } },
+          h("div", { style: { lineHeight: 1 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, fontWeight: 700, color: MSHOP.price } }, "¥"),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 30, fontWeight: 700, color: MSHOP.price, letterSpacing: "-0.02em" } }, detail.price),
+            detail.sales ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginLeft: 10 } }, detail.sales) : null),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: MSHOP.ink, lineHeight: 1.5, marginTop: 9 } }, detail.name),
+          detail.desc ? h("div", { className: "inline-block", style: { marginTop: 8, padding: "3px 9px", fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.orange, background: MSHOP.soft, borderRadius: 4 } }, detail.desc) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.dim, marginTop: 12, lineHeight: 1.7 } },
+            "钱包里还有 ¥" + (Math.round((Number(wallet) || 0) * 100) / 100)
+              + ((Number(wallet) || 0) < (Number(detail.price) || 0) ? "——这件买不起，可以让他代付或用亲属卡。" : "")),
+          // 拿给谁看：买之前问问他。和随身物「摆到他面前」是同一个动作语言，
+          // 但语境相反——那边是他被撞破，这边是我主动拿给你看。
+          (onAskChar && chars.length) ? h("div", { style: { marginTop: 14, paddingTop: 13, borderTop: "1px solid " + MSHOP.line } },
+            askFor === null
+              ? h("button", {
+                  onClick: () => setAskFor(chars.length === 1 ? chars[0].id : ""),
+                  className: "w-full py-2.5 active:opacity-75",
+                  style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 999, border: "1px solid " + MSHOP.orange, color: MSHOP.orange }
+                }, "拿给他看看 · 问问值不值得买")
+              : h("div", null,
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 9 } }, "拿给谁看"),
+                  h("div", { className: "flex flex-wrap", style: { gap: 8 } }, chars.map(ch => h("button", {
+                    key: ch.id,
+                    onClick: () => { onAskChar(ch.id, detail); setAskFor(null); setDetail(null); },
+                    className: "flex items-center active:opacity-70",
+                    style: { gap: 6, padding: "5px 11px 5px 5px", borderRadius: 999, background: MSHOP.bg }
+                  }, h(Avatar, { character: ch, size: 24, radius: 999 }),
+                     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink } }, ch.remark || ch.name)))))) : null,
+          h("div", { className: "flex", style: { gap: 9, marginTop: 16 } },
+            h("button", {
+              onClick: () => { onAddCart(detail); toast("已加入购物车"); setDetail(null); },
+              className: "flex-1 py-3 active:opacity-80",
+              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, borderRadius: 999, background: "linear-gradient(90deg,#ff9500,#ff7000)", color: "#fff" }
+            }, "加入购物车"),
+            h("button", {
+              onClick: () => { onAddCart(detail); setDetail(null); setNav("cart"); },
+              className: "flex-1 py-3 active:opacity-80",
+              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, borderRadius: 999, background: "linear-gradient(90deg,#ff5000,#ff2d00)", color: "#fff", boxShadow: "0 3px 10px rgba(255,60,0,.32)" }
+            }, "去结算")))));
+  })() : null;
+
+  // ---------- 底部 tab ----------
+  const bottomNav = h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + MSHOP.line, background: MSHOP.card, paddingBottom: COMPOSER_PAD_BOTTOM } },
+    [["home", "首页", GShop], ["cart", "购物车", GBag], ["my", "我的", GUser]].map(([k, zh, G]) => h("button", {
+      key: k, onClick: () => setNav(k), className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60 relative"
+    },
+      h(G, { size: 21, color: nav === k ? MSHOP.orange : MSHOP.dim }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: nav === k ? MSHOP.orange : MSHOP.dim, fontWeight: nav === k ? 600 : 400 } }, zh),
+      k === "cart" && cartItems.length > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -18, background: MSHOP.price, color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 999, padding: "0 5px", lineHeight: "15px" } }, String(cartItems.length)))));
 
   // ---------- 结算动作 / 对象选择 Sheet ----------
   const chip = (label, onClick, primary) => h("button", { onClick, className: "w-full py-3 active:opacity-75", style: { fontFamily: F_DISPLAY, fontSize: 16, borderRadius: 12, marginBottom: 10, background: primary ? t.ink : t.bg2, color: primary ? t.bg2 : t.ink, border: primary ? "none" : "1px solid " + t.line } }, label);
@@ -2016,6 +2139,7 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
 
   return h("div", { className: "h-full flex flex-col" },
     nav === "home" ? homeView : nav === "cart" ? cartView : myView,
+    detailEl,
     bottomNav,
     sheetEl);
 }

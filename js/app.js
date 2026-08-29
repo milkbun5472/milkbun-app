@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.98";
+const APP_VERSION = "v57.99";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10364,6 +10364,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }]);
     toast("已摆到 " + (char.remark || char.name) + " 面前（他会知道你翻了他的" + what + "）");
   };
+  // 逛购物 app 时问问他：把这件商品发进和他的聊天，问值不值得买。
+  // 和「摆到他面前」是同一个动作语言，但语境完全相反——那边是他被撞破，
+  // 这边是我主动拿给你看。所以【不能】复用 phonepeek 那张卡和那段判词。
+  const askCharAboutItem = (charId, item) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char || !item || !String(item.name || "").trim()) return;
+    const name = String(item.name).replace(/\s+/g, " ").trim().slice(0, 60);
+    const price = Number(item.price);
+    const desc = String(item.desc || "").replace(/\s+/g, " ").trim().slice(0, 40);
+    pChat(char.id, p => [...p, {
+      role: "user", kind: "shopask",
+      ask: { name, price: isFinite(price) ? price : null, desc },
+      content: "[我在逛购物 app，把一件东西拿给你看]《" + name + "》"
+        + (desc ? "｜" + desc : "") + (isFinite(price) ? "｜¥" + price : "")
+        + "｜（她在问你的意见，不是在通知你。按你的人设和你俩的关系来：真觉得好就说好、"
+        + "觉得贵／没必要／她已经有一个了就直说、也可以借机说要给她买、或者压根不懂这东西是干嘛的。"
+        + "**别当客服念参数**，也别一律附和。）",
+      ts: Date.now(), read: false
+    }]);
+    toast("已拿给 " + (char.remark || char.name) + " 看");
+  };
   // 随身物 → 聊天。和查手机共用 phonepeek 这张卡，只是翻的东西不一样。
   // ⚠️只发 name 和 note，【绝不发 thought】——那是他对这件东西没说出口的想法。
   // 你翻到了那样东西，不等于你知道它对他意味着什么；把心声也一起摆上台面，
@@ -13136,6 +13157,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onAddCart: addToCart,
     onRemoveCart: uid => removeCartUids([uid]),
     onCheckout: checkout,
+    onAskChar: askCharAboutItem,
     onReceiveUse: receiveUse,
     onReceiveGift: receiveGift,
     toast: toast
