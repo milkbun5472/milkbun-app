@@ -1094,7 +1094,9 @@
       h("div", { style: { position: "absolute", width: 52, height: 9, left: -9, bottom: 122, background: ck.inks[2], transform: "rotate(-9deg)", opacity: .55, pointerEvents: "none" } }),
       h("div", { className: "flex items-center justify-between", style: { paddingTop: safeTop(8), minHeight: 50, position: "relative", zIndex: 2 } },
         h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: coverInk })),
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "ISSUE #" + (props.num || "—"))),
+        h("div", { className: "flex items-center", style: { gap: 5 } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "ISSUE #" + (props.num || "—")),
+          h("button", { onClick: props.onTools, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -10, color: coverInk, fontFamily: "Arial,sans-serif", fontSize: 27, fontWeight: 300, lineHeight: 1 }, "aria-label": "周刊工具" }, "+"))),
       h("div", { style: { position: "absolute", right: 10, top: 84, width: 43, height: 43, borderRadius: "50%", background: ck.inks[3], color: ck.dark ? "#171515" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Archivo',sans-serif", fontSize: 8, lineHeight: 1.15, textAlign: "center", letterSpacing: ".08em", transform: "rotate(8deg)", boxShadow: "0 3px 12px rgba(0,0,0,.12)", whiteSpace: "pre-line", pointerEvents: "none" } }, "ISSUE\n" + (props.num || "—")),
       // 封面报头
       h("div", { style: { textAlign: "center", padding: "4px 0 12px", borderBottom: "1.5px solid " + (ck.dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)") } },
@@ -1112,6 +1114,46 @@
             L.it.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 2 } }, L.it.meta) : null);
         })),
       h("div", { style: { position: "absolute", right: 12, bottom: 10, fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "TAP A HEADLINE"));
+  }
+
+  function WeeklyToolsSheet(props) {
+    const t = useTheme();
+    const mode = props.mode || "menu";
+    const panelTitle = mode === "voices" ? "补文风" : mode === "interviews" ? "补采访" : "本期工具";
+    const baseButton = { width: "100%", padding: "13px 14px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 14, textAlign: "left" };
+    let body = null;
+    if (mode === "voices") {
+      body = h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginBottom: 12 } }, "已出可直接翻阅；未抽中或旧刊半成品，可以单独补进本期。手动补版不占下期轮抽。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 8 } }, (props.voiceStates || []).map(function (item) {
+          const v = item.voice, on = props.busyUnit === ("add_voice_" + v.id);
+          const label = item.state === "ready" ? (v.name + " · 已出") : item.state === "broken" ? (on ? "修复中…" : v.name + " · 待修复") : (on ? "补版中…" : v.name + " · 未抽中");
+          return h("button", { key: v.id, disabled: !!props.busyUnit && !on, onClick: function () { props.onVoice(item); }, className: "active:opacity-60",
+            style: { padding: "8px 11px", borderRadius: 999, border: "1px solid " + (item.state === "broken" ? t.accent : t.line), color: item.state === "ready" ? t.sub : t.ink, fontFamily: F_BODY, fontSize: 11.5, opacity: props.busyUnit && !on ? .55 : 1 } }, label);
+        })));
+    } else if (mode === "interviews") {
+      const missing = props.missingInterviews || [];
+      body = h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.fog, marginBottom: 12 } }, "每期自动采访至多三人。这里可以临时补一位，补出来的不占轮次。"),
+        missing.length ? h("div", { className: "flex flex-wrap", style: { gap: 8 } }, missing.map(function (c) {
+          const on = props.busyUnit === ("add_" + c.id);
+          return h("button", { key: c.id, disabled: !!props.busyUnit && !on, onClick: function () { props.onInterview(c); }, className: "active:opacity-60",
+            style: { padding: "8px 12px", borderRadius: 999, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12, opacity: props.busyUnit && !on ? .55 : 1 } }, on ? "采访中…" : c.name);
+        })) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "8px 0" } }, "这期已经采访过所有人了。"));
+    } else {
+      body = h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 } },
+        h("button", { onClick: props.onShelf, className: "active:opacity-60", style: baseButton }, "往期"),
+        h("button", { onClick: props.onRefresh, disabled: props.refreshBusy, className: "active:opacity-60", style: Object.assign({}, baseButton, { opacity: props.refreshBusy ? .5 : 1 }) }, props.refreshBusy ? "刷新中…" : "刷新本期"),
+        h("button", { onClick: function () { props.onMode("voices"); }, className: "active:opacity-60", style: baseButton }, "补文风"),
+        h("button", { onClick: function () { props.onMode("interviews"); }, className: "active:opacity-60", style: baseButton }, "补采访"));
+    }
+    return h("div", { onClick: props.onClose, style: { position: "absolute", inset: 0, zIndex: 50, background: "rgba(20,18,16,.30)", display: "flex", alignItems: "flex-end" } },
+      h("div", { onClick: function (e) { e.stopPropagation(); }, style: { width: "100%", maxHeight: "72%", overflowY: "auto", background: t.bg, borderRadius: "22px 22px 0 0", padding: "18px 18px calc(env(safe-area-inset-bottom) * .4 + 18px)", boxShadow: "0 -12px 36px rgba(0,0,0,.15)" } },
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 15 } },
+          mode !== "menu" ? h("button", { onClick: function () { props.onMode("menu"); }, className: "active:opacity-50", style: { width: 40, height: 36, marginLeft: -8, color: t.ink } }, h(IArrow, { size: 18, color: t.ink })) : h("div", { style: { width: 32 } }),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, panelTitle),
+          h("button", { onClick: props.onClose, className: "active:opacity-50", style: { width: 40, height: 36, marginRight: -8, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "关闭")),
+        body));
   }
 
   // 版块详情里的「重刷」行（版块名已在顶栏 Head 显示，这里不重复标题）
@@ -1202,6 +1244,7 @@
     const [busyUnit, setBusyUnit] = useState(null);
     const [sub, setSub] = useState(null);   // null=目录 | {kind:'cover'} | {kind:'interview'} | {kind:'media',id}
     const [ivSel, setIvSel] = useState(0);
+    const [tools, setTools] = useState(null); // null | menu | voices | interviews
     const [turn, setTurn] = useState({ dir: "next", n: 0 });
     const cover = (issue.sections || []).find(function (s) { return s.type === "cover"; });
     const iv = (issue.sections || []).find(function (s) { return s.type === "interview"; });
@@ -1411,6 +1454,8 @@
       const ready = raw && mediaHasContent(raw);
       return { voice: v, sec: ready ? raw : null, state: ready ? "ready" : (raw ? "broken" : "missing") };
     });
+    const interviewedIds = new Set(((iv && iv.entries) || []).map(function (e) { return e.charId; }));
+    const missingInterviews = (props.characters || []).filter(function (c) { return !interviewedIds.has(c.id); });
     const pageIndex = pages.findIndex(function (p) { return p.key === currentPageKey; });
     if (detail && pageIndex >= 0) {
       const prev = pageIndex > 0 ? pages[pageIndex - 1] : null;
@@ -1425,7 +1470,7 @@
     const scrollRef = React.useRef(null);
     React.useEffect(function () { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [sub && sub.kind, sub && sub.id, ivSel]);
     const activeLook = pageLook(sub, medias);
-    return h("div", { className: "h-full flex flex-col", style: pageBackground(activeLook) },
+    return h("div", { className: "h-full flex flex-col", style: Object.assign({ position: "relative" }, pageBackground(activeLook)) },
       h(WeeklyMotionStyles),
       sub ? h(WeeklyHead, { zh: headZh, en: headEn, look: activeLook, onBack: function () { goSub(null, "prev"); } }) : null,
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { color: activeLook.ink } },
@@ -1434,6 +1479,7 @@
         detail ? h("div", { style: { padding: "18px 22px 48px" } }, detail) : h("div", null,
           h(CoverPage, {
             issueKey: issue.key, num: num, label: issue.label, target: window.Weekly.nextRefreshTime(), onBack: props.onBack,
+            onTools: function () { setTools("menu"); },
             items: [].concat(
               cover ? [{ en: "FRONT PAGE", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
               deskSec ? [{ en: "THE DESK", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
@@ -1443,18 +1489,16 @@
                 const v = voiceOf(sec.voiceId);
                 return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };
               }))
-          }),
-          h("div", { style: { margin: "18px 22px 0", padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: t.fog, marginBottom: 5 } }, "ALL EDITIONS · 全部文风状态"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginBottom: 9 } }, "每期从完整文风池轮抽三种。已出可直接翻阅；未抽中可补版；旧刊半成品会标为待修复，不再无声消失。"),
-            h("div", { className: "flex flex-wrap", style: { gap: 7 } }, voiceStates.map(function (item) {
-              const v = item.voice, on = busyUnit === ("add_voice_" + v.id);
-              const label = item.state === "ready" ? (v.name + " · 已出") : item.state === "broken" ? (on ? "修复中…" : v.name + " · 待修复") : (on ? "补版中…" : v.name + " · 未抽中");
-              return h("button", { key: v.id, disabled: !!busyUnit && !on,
-                onClick: function () { if (item.state === "ready") goSub({ kind: "media", id: item.sec.id }, "next"); else addMediaVoice(v); },
-                className: "active:opacity-60", style: { padding: "6px 10px", borderRadius: 999, border: "1px solid " + (item.state === "broken" ? t.accent : t.line), color: item.state === "ready" ? t.sub : t.ink, fontFamily: F_BODY, fontSize: 11.5, opacity: busyUnit && !on ? .55 : 1 } }, label);
-            }))),
-          h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, margin: "26px 22px 42px" } }, "— 点 版 块 进 入 阅 读 —"))))));
+          }))))),
+      tools ? h(WeeklyToolsSheet, {
+        mode: tools, busyUnit: busyUnit, refreshBusy: props.refreshBusy,
+        voiceStates: voiceStates, missingInterviews: missingInterviews,
+        onClose: function () { setTools(null); }, onMode: setTools,
+        onShelf: function () { setTools(null); props.onShelf(); },
+        onRefresh: function () { setTools(null); props.onRefresh(); },
+        onVoice: function (item) { if (item.state === "ready") { setTools(null); goSub({ kind: "media", id: item.sec.id }, "next"); } else addMediaVoice(item.voice); },
+        onInterview: addInterview
+      }) : null);
   }
 
   // 往期书架
@@ -1539,7 +1583,9 @@
       const iss = issues.find(function (x) { return x.id === openId; });
       if (iss) return h(IssueView, {
         issue: iss, issues: issues, active: props.active, characters: props.characters || [], groups: props.groups || [],
-        userName: userName, toast: props.toast, onPatch: patchIssue, onBack: function () { setView(currentIssue && currentIssue.id === openId ? "cover" : "shelf"); }
+        userName: userName, toast: props.toast, onPatch: patchIssue, refreshBusy: gen.busy,
+        onRefresh: doGenerate, onShelf: function () { setView("shelf"); },
+        onBack: function () { setView(currentIssue && currentIssue.id === openId ? "cover" : "shelf"); }
       });
       setOpenId(null); setView("cover"); return null;
     }

@@ -76,7 +76,7 @@ test("十种媒体腔与四个编辑部页面都有独立纸张皮肤", () => {
 test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在封面内", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
-  const cover = w.slice(w.indexOf("function CoverPage"), w.indexOf("function RegenRow"));
+  const cover = w.slice(w.indexOf("function CoverPage"), w.indexOf("function WeeklyToolsSheet"));
   assert.match(w, /function WeeklyHead[\s\S]*?paddingTop: safeTop\(10\)/, "紧凑顶栏必须自己吃安全区");
   assert.doesNotMatch(w, /h\(Head, \{ zh: "周刊"/, "周刊主页不能再套通用大标题 Head");
   assert.match(issue, /className: "flex-1 min-h-0 overflow-y-auto"/, "周刊正文要是唯一全屏滚动层");
@@ -88,8 +88,22 @@ test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在�
   assert.match(cover, /paddingTop: safeTop\(8\)/, "封面自己的返回键必须吃安全区");
   assert.match(cover, /h\(Countdown, \{ target: props\.target/, "倒计时必须进入蓝色封面报头");
   assert.match(cover, /Math\.min\(98 - slot\.w/, "封面变宽后右栏标题可以真正走到右侧，但不能溢出");
+  assert.match(cover, /onClick: props\.onTools[\s\S]*?aria-label": "周刊工具"/, "封面右上角必须保留统一工具入口");
   assert.doesNotMatch(cover, /boxShadow: "0 10px 30px/);
   assert.doesNotMatch(cover, /border: "1px solid/);
+});
+
+test("周刊封面工具统一收纳往期、刷新、补文风和补采访", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
+  const sheet = w.slice(w.indexOf("function WeeklyToolsSheet"), w.indexOf("// 版块详情里的"));
+  assert.match(sheet, /"往期"/);
+  assert.match(sheet, /"刷新本期"/);
+  assert.match(sheet, /"补文风"/);
+  assert.match(sheet, /"补采访"/);
+  assert.doesNotMatch(issue, /ALL EDITIONS · 全部文风状态/, "文风设置不能继续挂在封面下面破坏整页渲染");
+  assert.match(issue, /tools \? h\(WeeklyToolsSheet/, "工具面板必须只在点加号后出现");
+  assert.match(issue, /onShelf: function \(\) \{ setTools\(null\); props\.onShelf\(\); \}/, "往期入口必须真正接回书架");
 });
 
 test("周刊倒计时按七天周期绘制进度条", () => {
@@ -140,7 +154,7 @@ test("补刊按实际报道周归位，并显示期号与装订进度", () => {
   assert.match(w, /补到第 /, "补刊中要显示正在补哪一期");
   assert.match(w, /props\.progress\.done \+ "\/" \+ props\.progress\.total/, "补刊中要显示版块进度");
   assert.match(w, /voiceId: v\.id, auto: false/, "手动补文风必须标记为不占轮抽");
-  assert.match(w, /ALL EDITIONS · 全部文风状态/, "目录要以完整池为准，不能让半成品文风无声消失");
+  assert.match(w, /未抽中或旧刊半成品/, "补文风工具要以完整池为准，不能让半成品文风无声消失");
   assert.match(w, /数据待修复|待修复/, "旧刊半成品要显式提供修复入口");
   assert.match(w, /normalizeVoiceId\(s\.voiceId\)/, "旧刊 voiceId 的空格和大小写要兼容");
 });
