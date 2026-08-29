@@ -6,15 +6,46 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const tarot = fs.readFileSync(path.join(root, "js/tarot.js"), "utf8");
 
-test("塔罗保留原入口并增加六种可选牌阵", () => {
+test("塔罗保留原入口、六种内置牌阵和 1 至 8 位自定义牌阵", () => {
   for (const mode of ["reading", "relation", "daily", "forchar"]) {
     assert.match(tarot, new RegExp(mode + ":\\s*\\{"));
   }
   for (const spread of ["guide", "single", "timeline", "love", "relation5", "choice"]) {
     assert.match(tarot, new RegExp(spread + ":\\s*\\{"));
   }
-  assert.match(tarot, /const spread = m\.daily \? m\.spread/);
-  assert.match(tarot, /const cards = draw\(spread\.length\)/);
+  assert.match(tarot, /const allSpreads = Object\.assign\(\{\}, SPREADS\)/);
+  assert.match(tarot, /x_tarot_custom_spreads/);
+  assert.match(tarot, /positions\.length < 1 \|\| positions\.length > 8/);
+  assert.match(tarot, /自己写 1～8 个牌位/);
+});
+
+test("新占卜由用户亲手选牌且模型看不到未选牌", () => {
+  assert.match(tarot, /const \[deal, setDeal\]/);
+  assert.match(tarot, /chosen\.length !== spread\.length/);
+  assert.match(tarot, /const cards = deal\.chosen\.map\(i => deal\.pool\[i\]\)/);
+  assert.match(tarot, /模型看不到没选中的牌/);
+  assert.match(tarot, /revealed: \[\], supplements: \[\]/);
+});
+
+test("结果页逐张翻牌并提供不耗模型的本地牌义", () => {
+  assert.match(tarot, /function cardReference\(c\)/);
+  assert.match(tarot, /const oldSession = !Array\.isArray\(s\.revealed\)/);
+  assert.match(tarot, /const allRevealed = cards\.every/);
+  assert.match(tarot, /全部翻完才揭示完整解读/);
+  assert.match(tarot, /allRevealed \? \(s\.reads \|\| \[\]\)\.map/);
+});
+
+test("补牌精确挂到牌位且整副最多三张", () => {
+  assert.match(tarot, /async function readSupplement/);
+  assert.match(tarot, /supplements\.length >= 3/);
+  assert.match(tarot, /posIndex: i/);
+  assert.match(tarot, /为这个牌位补一张/);
+});
+
+test("塔罗详情返回后恢复历史滚动位置", () => {
+  assert.match(tarot, /const homeScrollRef = useRef\(null\)/);
+  assert.match(tarot, /homeScrollTop\.current = homeScrollRef\.current\.scrollTop/);
+  assert.match(tarot, /homeScrollRef\.current\.scrollTop = top/);
 });
 
 test("角色可自己选问题，给角色算卦前允许接受犹豫或拒绝", () => {

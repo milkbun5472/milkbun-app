@@ -33,6 +33,25 @@
     return shuffle(DECK).slice(0, n).map(c => ({ name: c.name, major: c.major, rev: Math.random() < 0.34 }));
   }
   const cardLabel = c => c.name + "（" + (c.rev ? "逆位" : "正位") + "）";
+  const MAJOR_KEYS = {
+    "愚者":"启程、自由、未知", "魔术师":"行动、资源、创造", "女祭司":"直觉、沉默、隐情", "皇后":"滋养、丰盛、感受",
+    "皇帝":"秩序、边界、掌控", "教皇":"传统、承诺、教导", "恋人":"选择、联结、价值", "战车":"推进、意志、方向",
+    "力量":"温柔的勇气、自持", "隐者":"独处、寻找、内省", "命运之轮":"转折、周期、机会", "正义":"因果、判断、平衡",
+    "倒吊人":"停顿、换角度、让渡", "死神":"结束、蜕变、更新", "节制":"调和、耐心、疗愈", "恶魔":"执念、诱惑、束缚",
+    "高塔":"突变、真相、瓦解", "星星":"希望、修复、指引", "月亮":"迷雾、潜意识、不安", "太阳":"明朗、生命力、喜悦",
+    "审判":"召唤、醒悟、复盘", "世界":"完成、整合、新阶段"
+  };
+  const SUIT_KEYS = { "权杖":"行动与欲望", "圣杯":"情感与关系", "宝剑":"思想与冲突", "星币":"现实、身体与资源" };
+  const RANK_KEYS = { "王牌":"一颗种子", "二":"权衡与两端", "三":"生长与协作", "四":"稳定与停驻", "五":"摩擦与缺口", "六":"过渡与回馈", "七":"考验与坚持", "八":"推进与束缚", "九":"临界与守成", "十":"抵达与负担", "侍从":"消息与初学", "骑士":"追逐与执行", "王后":"内在成熟", "国王":"外在掌控" };
+  function cardReference(c) {
+    let core = MAJOR_KEYS[c.name] || "";
+    if (!core) {
+      const suit = SUITS.find(s => c.name.indexOf(s) === 0) || "";
+      const rank = RANKS.find(r => c.name === suit + r) || "";
+      core = (SUIT_KEYS[suit] || "当下经验") + "；" + (RANK_KEYS[rank] || "变化中的阶段");
+    }
+    return { keywords: core, text: c.rev ? "逆位提醒：这股力量可能受阻、过量或转向内在；先看哪里失衡，不急着把它圆成好事。" : "正位提示：这股力量正在较直接地显现；结合牌位，看它邀请你承认、推进或守住什么。" };
+  }
   function fmtDate(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
   // 一次占卜里可被搜索命中的所有文字（角色名/问题/牌名/每日各角色/收束）
   function sessionText(s) {
@@ -102,6 +121,9 @@
     choice: { zh: "A / B 选择", hint: "不替你决定，只照见两条路", positions: ["选择 A 的代价与走向", "选择 B 的代价与走向"] }
   };
   const DEFAULT_SPREAD = { reading: "guide", relation: "love", forchar: "timeline" };
+  const CUSTOM_SPREAD_KEY = "x_tarot_custom_spreads";
+  function loadCustomSpreads() { return loadJSON(CUSTOM_SPREAD_KEY, []).filter(x => x && x.id && Array.isArray(x.positions)); }
+  function saveCustomSpreads(list) { saveJSON(CUSTOM_SPREAD_KEY, list); }
   const SHOP_MOMENTS = [
     "店主把洗好的牌放回深色绒布上，没催你开口。",
     "窗边的风铃轻轻碰了一声，桌上的灯只照亮牌面。",
@@ -187,6 +209,16 @@
     return { reads: reads, summary: String(p.summary || "").trim(), charThought: String(p.charThought || "").trim() };
   }
 
+  async function readSupplement(active, session, char, uName, pos, card) {
+    const ref = cardReference(card);
+    const sys = AC() + HONEST + "\n\n你就是「" + session.charName + "」本人，仍坐在 " + uName + " 对面。" +
+      "刚才的整副牌已经解完；现在只为【" + pos + "】补了一张牌。用你自己的口吻补充 50~130 字：说明它澄清了什么、推翻了什么或加重了什么。不要重做整副解牌，不要报幕。" +
+      "\n【人设】" + String(char && char.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 700) +
+      "\n【原问题】" + (session.question || "未明说") + "\n【原收束】" + String(session.summary || "").slice(0, 500) +
+      "\n【补牌】" + cardLabel(card) + "\n【本地牌义锚点】" + ref.keywords + "；" + ref.text;
+    return String(await callAI(active, sys, [{ role: "user", content: "把这张补牌接到刚才的牌位上。" }], { maxTokens: 1000 }) || "").trim();
+  }
+
   // ============================================================
   // 模型：每日一牌 —— 今天【同一张牌】，多个角色各自解读；一次调用返回每人一句当日签
   // 注入很克制（只给此刻心情一词 + 很短的近况），避免喧宾夺主把解读搞乱。返回按传入顺序对齐 [{text}]
@@ -218,6 +250,8 @@
     const [histQ, setHistQ] = useState("");       // 历史搜索
     const [histType, setHistType] = useState("all"); // 历史类型筛选
     const [histExp, setHistExp] = useState({});   // 各类别是否已展开全部
+    const homeScrollRef = useRef(null);
+    const homeScrollTop = useRef(0);
     const lpTimer = useRef(null), lpFired = useRef(false);
     const [confirmDel, setConfirmDel] = useState(null); // 待确认删除的占卜 id
 
@@ -227,6 +261,15 @@
     const startLP = id => { lpFired.current = false; lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 550); };
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
     const confirmNode = confirmDel ? h(ConfirmDialog, { title: "撕掉这次占卜？", body: "删掉后就找不回来了。", confirmLabel: "撕掉", danger: true, onConfirm: () => doDel(confirmDel), onCancel: () => setConfirmDel(null) }) : null;
+    const openSession = id => {
+      if (homeScrollRef.current) homeScrollTop.current = homeScrollRef.current.scrollTop;
+      setView("s:" + id);
+    };
+    React.useEffect(() => {
+      if (view !== "home" || !homeScrollRef.current) return;
+      const top = homeScrollTop.current;
+      requestAnimationFrame(() => { if (homeScrollRef.current) homeScrollRef.current.scrollTop = top; });
+    }, [view]);
 
     if (view.indexOf("mode:") === 0) {
       return h(Setup, {
@@ -269,7 +312,7 @@
         : (s.mode === "reading" && s.question ? "问：" + s.question : s.charName);
       return h("div", {
         key: s.id,
-        onClick: () => { if (lpFired.current) { lpFired.current = false; return; } setView("s:" + s.id); },
+        onClick: () => { if (lpFired.current) { lpFired.current = false; return; } openSession(s.id); },
         onContextMenu: e => { e.preventDefault(); delSession(s.id); },
         onTouchStart: () => startLP(s.id), onTouchEnd: cancelLP, onTouchMove: cancelLP, onTouchCancel: cancelLP,
         onMouseDown: () => startLP(s.id), onMouseUp: cancelLP, onMouseLeave: cancelLP,
@@ -285,7 +328,7 @@
 
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: "塔罗", en: "Tarot", onBack: props.onBack }),
-      h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
+      h("div", { ref: homeScrollRef, className: "flex-1 overflow-y-auto px-5 pb-8" },
         h("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 } },
           Object.keys(MODES).map(k => {
             const m = MODES[k];
@@ -350,6 +393,11 @@
     const [spreadKey, setSpreadKey] = useState(DEFAULT_SPREAD[props.modeKey] || "guide");
     const [questionOwner, setQuestionOwner] = useState("user");
     const [gate, setGate] = useState(null); // 角色接受/犹豫/拒绝的当面回应
+    const [customSpreads, setCustomSpreads] = useState(loadCustomSpreads);
+    const [spreadEditor, setSpreadEditor] = useState(false);
+    const [spreadName, setSpreadName] = useState("");
+    const [spreadPositions, setSpreadPositions] = useState("");
+    const [deal, setDeal] = useState(null); // 先在本地选牌，选完才调用模型解牌
     const [shopMoment] = useState(pickShopMoment);
     const bgKey = "tarot:active";
     const bg = window.BackgroundGeneration;
@@ -367,7 +415,9 @@
     const uName = (props.profile && props.profile.name) || "我";
     const isDailyAll = m.daily && dailyAll;
     const supportsQuestionOwner = props.modeKey === "reading" || props.modeKey === "forchar";
-    const spread = m.daily ? m.spread : ((SPREADS[spreadKey] && SPREADS[spreadKey].positions) || m.spread);
+    const allSpreads = Object.assign({}, SPREADS);
+    customSpreads.forEach(x => { allSpreads["custom:" + x.id] = { zh: x.name, hint: x.positions.join(" · "), positions: x.positions, custom: true, id: x.id }; });
+    const spread = m.daily ? m.spread : ((allSpreads[spreadKey] && allSpreads[spreadKey].positions) || m.spread);
 
     const moodOf = id => { const mo = props.moods && props.moods[id]; return mo && mo.label ? String(mo.label) : ""; };
 
@@ -409,7 +459,7 @@
       const c = props.characters.find(x => x.id === charId);
       setBusy(true); setPhase("正在洗牌…");
       try {
-        const run = async update => {
+        const prepare = async update => {
           let finalQuestion = q.trim();
           let intent = null;
           if (props.modeKey === "forchar" || (props.modeKey === "reading" && questionOwner === "character")) {
@@ -426,7 +476,27 @@
             if (questionOwner === "character" || !finalQuestion) finalQuestion = intent.question || (props.modeKey === "forchar" ? "我此刻最该看清什么" : "我最近最该留意什么");
           }
           update(null, "正在洗牌…");
-          const cards = draw(spread.length);
+          return { finalQuestion: finalQuestion, intent: intent };
+        };
+        const prepared = bg ? await bg.start(bgKey, { label: "正在洗牌…" }, prepare) : await prepare(() => {});
+        if (prepared && prepared.refused) { setBusy(false); setPhase(""); return; }
+        const poolSize = Math.max(12, Math.min(24, spread.length * 3));
+        setDeal({
+          pool: shuffle(DECK).slice(0, poolSize).map(c0 => ({ name: c0.name, major: c0.major, rev: Math.random() < 0.34 })),
+          chosen: [], finalQuestion: prepared.finalQuestion, intent: prepared.intent
+        });
+        setBusy(false); setPhase("");
+      } catch (e) { props.toast && props.toast("牌没摊开：" + (e.message || "重试")); setBusy(false); setPhase(""); }
+    };
+
+    const finishDeal = async () => {
+      if (!deal || deal.chosen.length !== spread.length) { props.toast && props.toast("还要选满 " + spread.length + " 张牌"); return; }
+      const c = props.characters.find(x => x.id === charId);
+      const rels = props.rels || {};
+      setBusy(true); setPhase("牌已选好，" + c.name + "正在解读…");
+      try {
+        const run = async update => {
+          const cards = deal.chosen.map(i => deal.pool[i]);
           update(null, "牌已摊开，" + c.name + "正在解读…");
           const r1 = rels[c.id + "->me"], r2 = rels["me->" + c.id];
           const relText = [r2 && r2.label ? "你把 Ta 当作：" + r2.label : "", r1 && r1.label ? "Ta 把你当作：" + r1.label : ""].filter(Boolean).join("；");
@@ -434,21 +504,31 @@
           const out = await readSpread(props.active, {
             mode: props.modeKey, cards: cards, spread: spread,
             charName: c.name, charPersona: c.persona || "", uName: uName,
-            question: finalQuestion, relText: relText,
+            question: deal.finalQuestion, relText: relText,
             band: (props.modeKey === "relation" || props.modeKey === "reading") ? affBand(aff) : "",
             voiceRef: recentChat(c.id, uName, c.name), mood: moodOf(c.id), worldbook: props.worldbook
           });
           const session = { id: "tr_" + Date.now(), mode: props.modeKey, charId: c.id, charName: c.name,
-            question: finalQuestion, questionOwner: questionOwner, spreadKey: spreadKey, spread: spread,
+            question: deal.finalQuestion, questionOwner: questionOwner, spreadKey: spreadKey, spread: spread,
             cards: cards, reads: out.reads, summary: out.summary, charThought: out.charThought,
-            consent: intent ? { decision: intent.decision, line: intent.line } : null,
-            shopMoment: shopMoment, followups: [], ts: Date.now() };
+            consent: deal.intent ? { decision: deal.intent.decision, line: deal.intent.line } : null,
+            shopMoment: shopMoment, revealed: [], supplements: [], followups: [], ts: Date.now() };
           props.onDone(session);
           return session;
         };
-        const result = bg ? await bg.start(bgKey, { label: "正在洗牌…" }, run) : await run(() => {});
-        if (result && result.refused) { setBusy(false); setPhase(""); }
+        if (bg) await bg.start(bgKey, { label: phase || "正在解读…" }, run); else await run(() => {});
       } catch (e) { props.toast && props.toast("牌没摊开：" + (e.message || "重试")); setBusy(false); setPhase(""); }
+    };
+
+    const saveSpread = () => {
+      const name = spreadName.trim();
+      const positions = spreadPositions.split(/\n|，|,/).map(x => x.trim()).filter(Boolean);
+      if (!name) { props.toast && props.toast("给牌阵起个名字"); return; }
+      if (positions.length < 1 || positions.length > 8) { props.toast && props.toast("牌位请写 1～8 个"); return; }
+      const item = { id: "cs_" + Date.now(), name: name.slice(0, 18), positions: positions.map(x => x.slice(0, 30)) };
+      const next = customSpreads.concat(item);
+      setCustomSpreads(next); saveCustomSpreads(next); setSpreadKey("custom:" + item.id);
+      setSpreadEditor(false); setSpreadName(""); setSpreadPositions("");
     };
 
     const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3 };
@@ -458,6 +538,32 @@
       h("div", { className: "flex-1 flex flex-col items-center justify-center px-8" },
         h("div", { style: { fontSize: 40, color: ACCENT, marginBottom: 18 } }, m.icon),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, textAlign: "center" } }, phase || "…")));
+
+    if (deal) {
+      const chosen = deal.chosen || [];
+      const toggleCard = i => setDeal(prev => {
+        const has = prev.chosen.indexOf(i) >= 0;
+        const next = has ? prev.chosen.filter(x => x !== i) : (prev.chosen.length < spread.length ? prev.chosen.concat(i) : prev.chosen);
+        return { ...prev, chosen: next };
+      });
+      return h("div", { className: "h-full flex flex-col" },
+        h(Head, { zh: "亲手选牌", en: "Choose Your Cards", onBack: () => setDeal(null) }),
+        h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginBottom: 15 } }, "凭第一眼选 " + spread.length + " 张。模型看不到没选中的牌，也不会替你挑。"),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + Math.min(4, spread.length) + ",minmax(0,1fr))", gap: 7, marginBottom: 18 } },
+            spread.map((pos, i) => h("div", { key: pos + i, style: { minHeight: 54, padding: "7px 5px", borderRadius: 9, border: "1px solid " + (chosen[i] != null ? GOLD : t.line), background: chosen[i] != null ? "rgba(184,145,80,.08)" : t.bg2, textAlign: "center" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginBottom: 4 } }, "第 " + (i + 1) + " 张"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, lineHeight: 1.3 } }, pos)))),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 9 } }, deal.pool.map((c0, i) => {
+            const selectedAt = chosen.indexOf(i), on = selectedAt >= 0;
+            return h("button", { key: "back" + i, onClick: () => toggleCard(i), className: "active:opacity-70",
+              style: { position: "relative", aspectRatio: "2/3.25", borderRadius: 9, border: "1px solid " + (on ? GOLD : "rgba(184,145,80,.38)"), background: "linear-gradient(145deg,#241f38," + ACCENT + ")", boxShadow: on ? "0 0 0 2px rgba(184,145,80,.22)" : "none", color: GOLD } },
+              h("div", { style: { position: "absolute", inset: 5, border: "1px solid rgba(184,145,80,.32)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, on ? String(selectedAt + 1) : "✦"));
+          })),
+          h("div", { style: { textAlign: "center", marginTop: 14, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "已选 " + chosen.length + " / " + spread.length)),
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
+          h("button", { onClick: finishDeal, disabled: chosen.length !== spread.length, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: chosen.length === spread.length ? ACCENT : t.fog, borderRadius: 12, padding: "13px 0" } }, "请 " + ((props.characters.find(x => x.id === charId) || {}).name || "Ta") + " 解牌")));
+    }
 
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: m.zh, en: m.en, onBack: props.onCancel }),
@@ -480,13 +586,20 @@
           })),
         !m.daily ? h("div", { style: label }, "怎么摊牌") : null,
         !m.daily ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 20 } },
-          Object.keys(SPREADS).map(k => {
-            const sp = SPREADS[k], on = spreadKey === k;
+          Object.keys(allSpreads).map(k => {
+            const sp = allSpreads[k], on = spreadKey === k;
             return h("button", { key: k, onClick: () => setSpreadKey(k), className: "active:opacity-70",
               style: { minHeight: 62, padding: "9px 10px", textAlign: "left", background: on ? "rgba(74,63,107,0.1)" : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 11 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, fontWeight: on ? 700 : 500 } }, sp.zh),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3, lineHeight: 1.4 } }, sp.hint));
-          })) : null,
+          }),
+          h("button", { onClick: () => setSpreadEditor(v => !v), className: "active:opacity-70", style: { minHeight: 62, padding: "9px 10px", textAlign: "left", background: t.bg2, border: "1px dashed " + ACCENT, borderRadius: 11 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: ACCENT, fontWeight: 700 } }, "＋ 自定义牌阵"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "自己写 1～8 个牌位"))) : null,
+        spreadEditor ? h("div", { style: { margin: "-10px 0 20px", padding: 12, background: "rgba(74,63,107,.05)", border: "1px solid rgba(74,63,107,.18)", borderRadius: 12 } },
+          h("input", { value: spreadName, onChange: e => setSpreadName(e.target.value), placeholder: "牌阵名字", style: { width: "100%", marginBottom: 8, padding: "9px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", fontFamily: F_BODY, fontSize: 13 } }),
+          h("textarea", { value: spreadPositions, onChange: e => setSpreadPositions(e.target.value), rows: 4, placeholder: "每行一个牌位\n如：我真正想要的\n我没看见的阻碍\n下一步", style: { width: "100%", padding: "9px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none", resize: "none", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55 } }),
+          h("button", { onClick: saveSpread, className: "w-full active:opacity-75", style: { marginTop: 8, padding: "9px 0", borderRadius: 9, color: "#fff", background: ACCENT, fontFamily: F_BODY, fontSize: 12.5 } }, "保存并选中")) : null,
         supportsQuestionOwner ? h("div", { style: label }, "谁来定这次的问题") : null,
         supportsQuestionOwner ? h("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
           [["user", props.modeKey === "forchar" ? "我替 Ta 问" : "我来问"], ["character", "让 Ta 自己问"]].map(it => h("button", {
@@ -507,9 +620,9 @@
           m.daily ? "今天只有【一张】牌，所有人解读同一张。" : "会摊开 " + spread.length + " 张牌：" + spread.join(" · ") + "。",
           h("br"), "牌是随机抽出的，模型只解读、不挑牌。")
       ),
-      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom))", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
+      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
         h("button", { onClick: go, className: "w-full active:opacity-80",
-          style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, "洗牌 · 摊开")));
+          style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, m.daily ? "翻开今日牌" : "洗牌 · 去选牌")));
   }
 
   // ============================================================
@@ -540,18 +653,24 @@
     const [followups, setFollowups] = useState(Array.isArray(s.followups) ? s.followups : []);
     const [followText, setFollowText] = useState("");
     const [followBusy, setFollowBusy] = useState(false);
+    const oldSession = !Array.isArray(s.revealed);
+    const [revealed, setRevealed] = useState(oldSession ? (s.cards || []).map((_, i) => i) : s.revealed);
+    const [supplements, setSupplements] = useState(Array.isArray(s.supplements) ? s.supplements : []);
+    const [suppBusy, setSuppBusy] = useState(null);
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 解牌朗读（懒合成，重听免费）
     const chOf = function (id) { return (props.characters || []).find(function (c) { return c.id === id; }); };
     const char = chOf(s.charId);
     const dot = function (k, text, spk) { return (tp && spk && typeof TtsDot === "function") ? h(TtsDot, { k: k, text: text, spk: spk, tp: tp }) : null; };
 
     // 一张牌片
-    const cardTile = (c, pos, i, small) => h("div", { key: "c" + i, style: { flex: small ? "0 0 auto" : "1 1 0", width: small ? 74 : "auto", minWidth: small ? 74 : 88, maxWidth: small ? 74 : 130 } },
-      h("div", { style: { position: "relative", aspectRatio: "2/3.4", borderRadius: 11, background: "linear-gradient(160deg," + ACCENT + ",#241f38)", border: "1px solid rgba(184,145,80,0.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden" } },
+    const cardTile = (c, pos, i, small, faceUp, onFlip) => h("div", { key: "c" + i, style: { flex: small ? "0 0 auto" : "1 1 0", width: small ? 74 : "auto", minWidth: small ? 74 : 88, maxWidth: small ? 74 : 130 } },
+      h("button", { onClick: onFlip || null, disabled: !onFlip, className: onFlip ? "active:opacity-80" : "", style: { width: "100%", position: "relative", aspectRatio: "2/3.4", borderRadius: 11, background: "linear-gradient(160deg," + ACCENT + ",#241f38)", border: "1px solid rgba(184,145,80,0.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", transition: "transform .35s ease", transform: faceUp === false ? "rotateY(180deg)" : "rotateY(0deg)" } },
+        faceUp === false ? h("div", { style: { position: "absolute", inset: 7, border: "1px solid rgba(184,145,80,.5)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: GOLD, fontSize: small ? 17 : 24, transform: "rotateY(180deg)" } }, "✦") : null,
+        faceUp === false ? null : [
         h("div", { style: { position: "absolute", top: 6, left: 8, fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: 1, color: "rgba(184,145,80,0.85)" } }, c.major ? "ARCANA" : ""),
         h("div", { style: { fontSize: small ? 17 : 22, color: GOLD, marginBottom: 8, transform: c.rev ? "rotate(180deg)" : "none" } }, m.icon || "✦"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: small ? 13 : 15, color: "#f4efe4", textAlign: "center", lineHeight: 1.25 } }, c.name),
-        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: small ? 9 : 10, color: c.rev ? "#e0a3a3" : "rgba(244,239,228,0.7)", border: "1px solid rgba(184,145,80,0.4)", borderRadius: 999, padding: "1px 8px" } }, c.rev ? "逆位" : "正位")),
+        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: small ? 9 : 10, color: c.rev ? "#e0a3a3" : "rgba(244,239,228,0.7)", border: "1px solid rgba(184,145,80,0.4)", borderRadius: 999, padding: "1px 8px" } }, c.rev ? "逆位" : "正位")]),
       pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 6 } }, pos) : null);
 
     // ---- 每日一牌：今天【一张】牌，各角色解读同一张 ----
@@ -563,7 +682,7 @@
         h("div", { className: "flex-1 overflow-y-auto px-5 pb-10" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14, textAlign: "center" } }, fmtDate(s.ts) + " · 今天的牌"),
           // 今天这一张牌（全体共用）
-          dc ? h("div", { style: { display: "flex", justifyContent: "center", marginBottom: 8 } }, cardTile(dc, "", 0, false)) : null,
+          dc ? h("div", { style: { display: "flex", justifyContent: "center", marginBottom: 8 } }, cardTile(dc, "", 0, false, true)) : null,
           dc ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 22 } }, cardLabel(dc)) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: t.sub, marginBottom: 12, letterSpacing: .3 } }, "各人怎么看这张牌"),
           entries.map((e, i) => h("div", { key: i, style: { marginBottom: 15, paddingBottom: 15, borderBottom: i < entries.length - 1 ? "1px solid " + t.line : "none" } },
@@ -599,6 +718,31 @@
         props.toast && props.toast("桌边的话没接上：" + (e.message || "重试"));
       } finally { setFollowBusy(false); }
     };
+    const revealCard = i => {
+      if (revealed.indexOf(i) >= 0) return;
+      const next = revealed.concat(i);
+      setRevealed(next);
+      props.onUpdate && props.onUpdate({ ...s, revealed: next, supplements: supplements });
+    };
+    const allRevealed = cards.every((_, i) => revealed.indexOf(i) >= 0);
+    const addSupplement = async (i, pos) => {
+      if (suppBusy != null) return;
+      if (supplements.length >= 3) { props.toast && props.toast("一副牌最多补 3 张"); return; }
+      const card = draw(1)[0];
+      setSuppBusy(i);
+      let text = "";
+      try {
+        text = await readSupplement(props.active, s, char, (props.profile && props.profile.name) || "Lisa", pos, card);
+      } catch (e) {
+        text = cardReference(card).text;
+        props.toast && props.toast("补牌解读没接上，先保留了牌面");
+      }
+      const item = { id: "tsp_" + Date.now(), posIndex: i, pos: pos, card: card, text: text, ts: Date.now() };
+      const next = supplements.concat(item);
+      setSupplements(next);
+      props.onUpdate && props.onUpdate({ ...s, revealed: revealed, supplements: next });
+      setSuppBusy(null);
+    };
 
     return h("div", { className: "h-full flex flex-col" },
       h(Head, { zh: m.zh || "占卜", en: m.en, onBack: props.onBack }),
@@ -619,24 +763,35 @@
         }, fwd ? "正在转发…" : (forwarded ? "✓ 已转发给 " + s.charName : "把这一卦转发给 " + s.charName)) : null,
         // 牌阵
         h("div", { style: { display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 22 } },
-          cards.map((c, i) => cardTile(c, (s.spread || [])[i] || "", i))),
+          cards.map((c, i) => cardTile(c, (s.spread || [])[i] || "", i, false, revealed.indexOf(i) >= 0, () => revealCard(i)))),
+        h("div", { style: { margin: "-6px 0 18px", fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center" } },
+          allRevealed ? "牌已全部翻开 · 可按牌位补牌（全局最多 3 张）" : "逐张点牌翻开；全部翻完才揭示完整解读"),
+        cards.map((c, i) => revealed.indexOf(i) < 0 ? null : h("div", { key: "ref" + i, style: { marginBottom: 9, padding: "9px 11px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: GOLD, marginBottom: 3 } }, ((s.spread || [])[i] || "第 " + (i + 1) + " 张") + " · " + cardReference(c).keywords),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.6 } }, cardReference(c).text))),
         // 逐张解读
-        (s.reads || []).map((r, i) => h("div", { key: "r" + i, style: { marginBottom: 16 } },
+        allRevealed ? (s.reads || []).map((r, i) => h("div", { key: "r" + i, style: { marginBottom: 16 } },
           h("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 5 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, color: ACCENT, background: "rgba(74,63,107,0.1)", borderRadius: 6, padding: "1px 8px" } }, r.pos || (s.spread || [])[i] || ("第" + (i + 1) + "张")),
             cards[i] ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, cardLabel(cards[i])) : null,
             dot("tr" + i, r.text, char)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, r.text))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink, whiteSpace: "pre-wrap" } }, r.text),
+          supplements.filter(x => x.posIndex === i).map((x, j) => h("div", { key: x.id || ("sp" + i + j), style: { display: "flex", gap: 10, marginTop: 10, padding: 10, borderRadius: 11, background: "rgba(184,145,80,.07)", border: "1px solid rgba(184,145,80,.24)" } },
+            cardTile(x.card, "补牌", 100 + i * 10 + j, true, true),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: GOLD, fontWeight: 700, marginBottom: 4 } }, cardLabel(x.card) + " · " + cardReference(x.card).keywords),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.65 } }, x.text)))),
+          supplements.length < 3 ? h("button", { onClick: () => addSupplement(i, r.pos || (s.spread || [])[i] || "这个牌位"), disabled: suppBusy != null, className: "active:opacity-70", style: { marginTop: 9, fontFamily: F_BODY, fontSize: 11.5, color: ACCENT, border: "1px dashed rgba(74,63,107,.35)", borderRadius: 999, padding: "5px 10px" } }, suppBusy === i ? "正在补牌…" : "＋ 为这个牌位补一张") : null)) : null,
         // 收束
-        s.summary ? h("div", { style: { marginTop: 8, padding: "14px 16px", background: "rgba(74,63,107,0.06)", border: "1px solid rgba(74,63,107,0.22)", borderRadius: 13 } },
+        allRevealed && s.summary ? h("div", { style: { marginTop: 8, padding: "14px 16px", background: "rgba(74,63,107,0.06)", border: "1px solid rgba(74,63,107,0.22)", borderRadius: 13 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: ACCENT, marginBottom: 6 } }, "牌面的话"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink } }, s.summary)) : null,
         // 角色本人对这几张牌的想法
-        s.charThought ? h("div", { style: { marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 13 } },
+        allRevealed && s.charThought ? h("div", { style: { marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 13 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: GOLD, flexShrink: 0 } }, s.charName + "："),
           h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: t.ink, fontStyle: "italic" } }, s.charThought),
           dot("tct", s.charThought, char)) : null,
-        char ? h("div", { style: { marginTop: 20, paddingTop: 17, borderTop: "1px solid " + t.line } },
+        allRevealed && char ? h("div", { style: { marginTop: 20, paddingTop: 17, borderTop: "1px solid " + t.line } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 3 } }, "小桌边继续聊"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 11 } }, "追问只留在这次占卜里；转发进聊天后，才会进入聊天上下文。"),
           followups.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 } }, followups.map(x => h("div", {
