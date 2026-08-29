@@ -117,11 +117,57 @@ test("避重抽取表能从新 app 的真实形状里抽出东西", () => {
     reading: FIXTURES.reading, liked: FIXTURES.liked, orders: FIXTURES.orders,
     clipboard: FIXTURES.clipboard, calendar: FIXTURES.calendar, health: FIXTURES.health
   }, "notes").join("\n");
-  assert.match(lines, /阅读：长夜/);
+  assert.match(lines, /阅读：京华杂谈与消遣/);
   assert.match(lines, /赞过：一个人吃饭的十种办法/);
   assert.match(lines, /订单：馄饨/);
   assert.match(lines, /剪贴板：其实我/);
   assert.match(lines, /日历：体检/);
   // 健康是纯数字，不参与避重（它跟别的 app 不会撞题）
   assert.doesNotMatch(lines, /健康：/);
+});
+
+test("阅读：书架页、我的页、点开一本书的详情页都能渲", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.reading, char, t: { ink: "#111", bg: "#fff", bg2: "#eee", line: "#ddd", fog: "#999", sub: "#555" }, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  assert.doesNotThrow(() => loadPhone().ReadingView(props), "书架页炸了");
+  // useState 顺序：0=tab, 1=book
+  assert.doesNotThrow(() => loadPhone({ 0: "mine" }).ReadingView(props), "我的页炸了");
+  const b = { ...F.reading.shelves[0].books[0], _shelf: "京华杂谈与消遣", _no: 1 };
+  assert.doesNotThrow(() => loadPhone({ 1: b }).ReadingView(props), "书详情页炸了");
+  // 数据没来／形状不对时也不能炸
+  [null, {}, { shelves: "x", archive: 3 }, { shelves: [{ books: "x" }] }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone().ReadingView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  const { onPeek, ...noPeek } = props;
+  assert.doesNotThrow(() => loadPhone({ 1: b }).ReadingView(noPeek), "没有 onPeek 时书详情炸了");
+});
+
+test("五个书架各有自己的配色，且深色那一档字是浅的", () => {
+  const P = loadPhone();
+  assert.equal(P.READ_PALETTES.length, 5);
+  P.READ_PALETTES.forEach((p, i) => {
+    assert.ok(p.card && p.ink && p.text && Array.isArray(p.spine) && p.spine.length === 2, "第 " + i + " 档配色不全");
+  });
+  assert.equal(P.READ_PALETTES.filter(p => p.dark).length, 1, "深色书脊应当只有一档");
+});
+
+test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
+  const P = loadPhone();
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading"]);
+  assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
+  assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
+});
+
+test("阅读的推演任务把书架名、真书、批注三条都钉死了", () => {
+  const P = loadPhone();
+  const spec = P.phoneProbeSpec("reading", char, [], "", []);
+  assert.match(spec.instruction, /正好 5 个书架、正好 30 本书/);
+  assert.match(spec.instruction, /书架名\*\*不是分类标签\*\*/);
+  assert.match(spec.instruction, /不许写「历史」「科幻」「文学」「哲学」/);
+  assert.match(spec.instruction, /是他在他所处的时代和世界里拿得到的/);
+  assert.match(spec.instruction, /不许写读后感/);
+  assert.match(spec.instruction, /换个角色也说得通的批注就是写坏了/);
+  assert.match(spec.schemaHint, /"shelves"/);
+  assert.match(spec.schemaHint, /"archive"/);
+  // 30 本带批注，输出上限不能还留在默认的 2600
+  assert.ok(spec.maxTokens >= 20000, "上限只有 " + spec.maxTokens + "，30 本书会被截断");
 });

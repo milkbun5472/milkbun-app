@@ -10,7 +10,9 @@ test("相册是图库、精选集、收藏夹三页完整界面", () => {
   assert.match(phone, /\["collections", "精选集"\]/);
   assert.match(phone, /\["saved", "收藏夹"\]/);
   assert.match(phone, /function AlbumNavIcon/);
-  assert.match(phone, /appKey !== "wechat" && appKey !== "album"/);
+  // 相册自己画整屏，不套外层 Head——v57.48 起这条由 FULL_BLEED_KEYS 表达
+  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading"\];/);
+  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
 });
 
 test("精选集固定五类且二十五张时每类机械保底四张", () => {

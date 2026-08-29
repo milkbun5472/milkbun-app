@@ -53,7 +53,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, PGlyph, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, PGlyph, READ_PALETTES, FULL_BLEED_KEYS, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -69,7 +69,16 @@ const FIXTURES = {
   recordings: { items: [{ name: "凌晨三点", time: "昨天 23:40", transcript: "……算了", thought: "说不出口" }] },
   video_day: { items: [{ title: "修表", up: "老李", tag: "手工", duration: "08:24" }] },
   video_night: { items: [{ title: "夜", duration: "00:18:42", tags: ["a", "b"], thought: "…" }] },
-  reading: { items: [{ title: "长夜", author: "某人", progress: 62, lastAt: "昨晚 23:40", marks: [{ quote: "他把伞收了", note: "" }, { quote: "没有人等他", note: "像" }] }] },
+  reading: {
+    shelves: [
+      { name: "京华杂谈与消遣", slug: "bizarre", books: [
+        { title: "东京梦华录", author: "孟元老", readAt: "卷七·饮食果子", quote: "", note: "看到里面写市井夜市的煎白肠和澄沙团子，突然觉得京城这些年也没变多少。" },
+        { title: "醉翁谈录", author: "罗烨", readAt: "还没翻开", quote: "灯下一盏残茶", note: "买来压着一摞折子，一直没动。" }] },
+      { name: "怎么对付某个麻烦精", slug: "managing_troublemaker", books: [
+        { title: "反经", author: "赵蕤", readAt: "第 3 章", quote: "", note: "没什么用，她根本不按这里头写的来。" }] }
+    ],
+    archive: { favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", plan: { title: "闲情偶寄", author: "李渔" } }
+  },
   liked: { follows: [{ name: "猫猫日报", desc: "撸猫" }], items: [{ author: "阿七", kind: "图文", content: "一个人吃饭的十种办法", tag: "生活", time: "3天前", act: "收藏" }] },
   orders: { items: [{ type: "外卖", title: "馄饨", amount: 24, time: "昨天 23:41", addr: "家", note: "麻烦轻一点敲门" }, { type: "打车", title: "公司→家", amount: 38, time: "前天 01:10" }] },
   health: { restingHr: 62, weekNote: "本周平均睡眠 5.9 小时。", week: [{ day: "周一", date: "8月24日", sleepStart: "01:20", sleepEnd: "07:05", hours: 5.8, steps: 4200 }, { day: "周二", date: "8月25日", sleepStart: "03:10", sleepEnd: "08:00", hours: 4.8, steps: 900 }] },

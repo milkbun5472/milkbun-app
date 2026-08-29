@@ -60,6 +60,9 @@ const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 以前这两个各自另生成一份，等于同一个人有两套互不相干的论坛痕迹和歌单，
 // 而且手机里那份点不动、也不会因为他真去发帖而变。
 const PHONE_LIVE_KEYS = ["forum", "music"];
+// 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
+// 否则会叠出两层标题栏。
+const FULL_BLEED_KEYS = ["wechat", "album", "reading"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
@@ -541,6 +544,148 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 }
 
 // 各 app 详情内容
+// ============================================================
+// 阅读 —— 五个书架、三十本书（她 2026-08-29 给了参考稿）
+// 书架名不是分类标签，是【他自己给这堆书起的名字】：
+// 「导师以为我在看的论文」「凌晨两点的关东煮哲学」「怎么对付某个麻烦精」——
+// 一看名字就知道是谁的书架。点开一本能看到他读到哪、划了哪句、写了什么批注。
+// 「我的」里是阅读档案：最爱的一本、本周读了多久、打算下一本读什么。
+// ============================================================
+const READ_PALETTES = [
+  { card: "#dcead6", tint: "#9dbf92", ink: "#39492f", spine: ["#bcd8b1", "#e6f0e0"], text: "#33422b" },
+  { card: "#ece7dd", tint: "#c3b8a3", ink: "#4a4335", spine: ["#e7e0d2", "#f6f2ea"], text: "#4a4335" },
+  { card: "#d7e2ea", tint: "#93aec2", ink: "#2f3d48", spine: ["#39424c", "#232a32"], text: "#f2f4f6", dark: true },
+  { card: "#efdde4", tint: "#d3aab9", ink: "#4d3a41", spine: ["#f0cfda", "#faeaf0"], text: "#4d3a41" },
+  { card: "#eae4cd", tint: "#c4b98d", ink: "#4a4632", spine: ["#e4dcbe", "#f4f0e2"], text: "#4a4632" }
+];
+function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("shelf");
+  const [book, setBook] = useState(null);
+  const scrollRef = useRef(null);
+  const returnScroll = useRef({ top: 0, pending: false });
+  const shelves = (Array.isArray(d && d.shelves) ? d.shelves : []).filter(x => x && typeof x === "object");
+  const total = shelves.reduce((n, sh) => n + (Array.isArray(sh.books) ? sh.books.length : 0), 0);
+  const archive = (d && typeof d.archive === "object" && d.archive) || {};
+  // 详情返回要回到原来的位置（.claude/rules/mobile-ui-layout.md §3）
+  const openBook = (b, sh, i) => {
+    returnScroll.current = { top: scrollRef.current ? scrollRef.current.scrollTop : 0, pending: false };
+    setBook({ ...b, _shelf: sh.name || "", _no: i + 1 });
+  };
+  const closeBook = () => { returnScroll.current.pending = true; setBook(null); };
+  useEffect(() => {
+    if (book || !returnScroll.current.pending) return;
+    const top = returnScroll.current.top;
+    returnScroll.current.pending = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = top; }));
+  }, [book, tab]);
+  const PAPER = "#efece4";
+  const chrome = h("div", {
+    className: "shrink-0 flex items-center px-4 pb-2",
+    style: { paddingTop: safeTop(10), minHeight: 54, background: PAPER }
+  }, h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#3a3730" })),
+  h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#3a3730" } }, char.remark || char.name),
+  h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#3a3730" })));
+  // 左边那一列活页装订孔
+  const rings = h("div", {
+    "aria-hidden": "true",
+    style: { position: "absolute", left: 6, top: 16, bottom: 16, width: 14, display: "flex", flexDirection: "column", justifyContent: "space-around", pointerEvents: "none" }
+  }, [0, 1, 2, 3, 4, 5, 6].map(i => h("span", { key: i, style: { width: 11, height: 11, borderRadius: 99, border: "1.5px solid rgba(120,112,96,.28)" } })));
+  const spine = (b, sh, i, pal) => h("button", {
+    key: i,
+    onClick: () => openBook(b, sh, i),
+    className: "shrink-0 active:opacity-70 text-left",
+    style: {
+      width: 108, height: 148, borderRadius: "3px 9px 9px 3px", position: "relative", overflow: "hidden",
+      background: `linear-gradient(150deg, ${pal.spine[0]}, ${pal.spine[1]})`,
+      boxShadow: "0 7px 16px rgba(60,54,40,.16)", padding: "16px 13px"
+    }
+  }, h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 9, background: "linear-gradient(90deg,rgba(0,0,0,.06),#fdfcf8 40%,#f1efe8)" } }),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.35, color: pal.text, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", paddingRight: 6 } }, b.title || "无题"),
+  h("div", { style: { position: "absolute", left: 13, bottom: 14, right: 18, fontFamily: F_BODY, fontSize: 10, color: pal.dark ? "rgba(255,255,255,.68)" : "rgba(60,54,40,.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.author || ""));
+  const shelfCard = (sh, si) => {
+    const pal = READ_PALETTES[si % READ_PALETTES.length];
+    const books = Array.isArray(sh.books) ? sh.books : [];
+    const no = String(si + 1).padStart(2, "0");
+    return h("section", { key: si, style: { position: "relative", marginBottom: 26, paddingLeft: 26 } }, rings,
+      h("div", { className: "relative" },
+        h("div", { style: { background: pal.card, borderRadius: "14px 14px 0 0", padding: "14px 16px 30px", marginRight: 34 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: pal.ink } },
+            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 600, marginRight: 9 } }, no), sh.name || "没起名的一架"),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: "rgba(60,54,40,.42)", marginTop: 5 } }, "/ " + (sh.slug || "shelf"))),
+        h("div", { style: { position: "absolute", right: 0, top: 30, background: pal.card, borderRadius: "8px 8px 0 0", padding: "6px 10px", fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".12em", color: "rgba(60,54,40,.5)" } }, "NO. " + no),
+        h("div", {
+          className: "flex gap-3 overflow-x-auto",
+          style: { marginTop: -18, padding: "14px 14px 16px", borderRadius: 14, background: pal.tint + "66", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }
+        }, books.length ? books.map((b, i) => spine(b, sh, i, pal))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(60,54,40,.5)", padding: "48px 8px" } }, "这一架还是空的"))));
+  };
+  const shelfPage = h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px", background: PAPER } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: "#3a3730", padding: "6px 0 2px 26px" } }, "书架"),
+    h("div", { className: "flex items-center gap-3", style: { padding: "10px 26px 18px" } },
+      h("div", { style: { flex: 1, height: 1, background: "rgba(120,112,96,.22)" } }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(60,54,40,.5)" } }, "共 " + total + " 本书"),
+      h("div", { style: { flex: 1, height: 1, background: "rgba(120,112,96,.22)" } })),
+    shelves.length ? shelves.map(shelfCard) : h(Empty, { text: "书架还是空的", sub: "点右上角让他把书架摆出来" }));
+  const archRow = (label, main, sub) => h("div", { className: "py-4", style: { borderBottom: "1px solid rgba(120,112,96,.16)" } },
+    h("div", { className: "flex items-baseline gap-5" },
+      h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.5)" } }, label),
+      h("div", { className: "min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#33302a", lineHeight: 1.3 } }, main || "—"),
+        sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(60,54,40,.5)", marginTop: 3 } }, sub) : null)));
+  const fav = (archive.favorite && typeof archive.favorite === "object") ? archive.favorite : {};
+  const plan = (archive.plan && typeof archive.plan === "object") ? archive.plan : {};
+  const minePage = h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 22px 24px", background: PAPER } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: "#3a3730", padding: "6px 0 14px" } }, "阅读档案"),
+    archRow("最爱", fav.title, fav.author),
+    archRow("本周", archive.weekTime, null),
+    archRow("计划", plan.title, plan.author),
+    onPeek ? h("button", {
+      onClick: () => onPeek({ tier: "quiet", label: "阅读档案", title: "他最近在读的", text: [fav.title ? "最爱《" + fav.title + "》" : "", archive.weekTime ? "本周读了 " + archive.weekTime : "", plan.title ? "打算读《" + plan.title + "》" : ""].filter(Boolean).join("｜") }),
+      className: "w-full active:opacity-60",
+      style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(120,112,96,.3)", color: "#3a3730" }
+    }, "转发给 TA · 他会知道你翻了手机") : null);
+  const nav = h("div", {
+    className: "shrink-0 grid grid-cols-2",
+    style: { padding: "5px 30px calc(env(safe-area-inset-bottom) * 0.4 + 4px)", minHeight: 54, background: "rgba(252,251,247,.97)", borderTop: "1px solid rgba(120,112,96,.18)" }
+  }, [["shelf", "书架"], ["mine", "我的"]].map(([k, label]) => h("button", {
+    key: k, onClick: () => { setTab(k); setBook(null); },
+    className: "flex flex-col items-center justify-center active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === k ? "#4a6b3f" : "rgba(60,54,40,.45)" }
+  }, h("div", { style: { width: 30, height: 22, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: tab === k ? "rgba(157,191,146,.42)" : "transparent" } },
+    h(PGlyph, { k: k === "shelf" ? "reading" : "liked", size: 15, color: tab === k ? "#3f5c36" : "rgba(60,54,40,.45)" })),
+  h("span", { style: { marginTop: 2 } }, label))));
+  // 一本书的详情：书签 + 书名作者 + 读到 + 划的那句 + 批注
+  const detail = book ? h("div", {
+    className: "absolute inset-0 flex flex-col justify-center px-4",
+    style: { background: "rgba(58,55,48,.34)", zIndex: 30 },
+    onClick: closeBook
+  }, h("div", {
+    onClick: e => e.stopPropagation(),
+    style: { background: "#faf7ef", borderRadius: 16, maxHeight: "82%", overflowY: "auto", boxShadow: "0 22px 50px rgba(40,36,28,.28)" }
+  }, h("div", { className: "relative flex items-center justify-between px-4", style: { minHeight: 62, borderBottom: "1px solid rgba(120,112,96,.16)" } },
+    h("button", { onClick: closeBook, "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 99, border: "1px solid rgba(120,112,96,.28)", fontSize: 15, color: "#6a6355" } }, "✕"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(60,54,40,.45)", textAlign: "right" } }, (book._shelf || "书架") + " · Vol." + String(book._no).padStart(2, "0")),
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -12, marginLeft: -17, width: 34, height: 42, background: "#f2efe6", clipPath: "polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)" } })),
+  h("div", { style: { padding: "22px 22px 26px" } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1.25, color: "#2f2c26" } }, book.title || "无题"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "rgba(60,54,40,.5)", marginTop: 7 } }, book.author || ""),
+    book.readAt ? h("div", { style: { marginTop: 20, borderLeft: "3px solid #9dbf92", background: "#f4f1e8", padding: "14px 16px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.45)" } }, "读到"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#2f2c26", marginTop: 6 } }, book.readAt)) : null,
+    book.quote ? h("div", { style: { marginTop: 12, borderLeft: "3px solid #c4b98d", background: "#f4f1e8", padding: "14px 16px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.45)" } }, "他划的一句"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: "#2f2c26", marginTop: 6 } }, book.quote)) : null,
+    book.note ? h("div", { style: { marginTop: 12, borderLeft: "3px solid #d3aab9", background: "#f4f1e8", padding: "14px 16px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.45)" } }, "批注"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: "#2f2c26", marginTop: 6, whiteSpace: "pre-wrap" } }, book.note)) : null,
+    onPeek ? h("button", {
+      onClick: () => onPeek({ tier: "quiet", label: "他读的书", title: "《" + (book.title || "") + "》" + (book.readAt ? " · " + book.readAt : ""), text: [book.quote ? "他划了：" + book.quote : "", book.note].filter(Boolean).join("｜") }),
+      className: "w-full active:opacity-60",
+      style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(120,112,96,.3)", color: "#3a3730" }
+    }, "转发给 TA · 他会知道你翻了手机") : null))) : null;
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: PAPER } },
+    chrome, tab === "shelf" ? shelfPage : minePage, nav, detail);
+}
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -805,25 +950,7 @@ function renderPhoneModule(key, d, ctx) {
           note && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.6, paddingLeft: 8, borderLeft: "2px solid " + t.line } }, note)));
       }));
   }
-  // ── 阅读：进度条 + 划线。划线才是这个 app 的东西，书单只是背景 ──
-  if (key === "reading") return wrap(arr(d.items).map((b, i) => h("div", { key: i, className: "py-4", style: line },
-    h("div", { className: "flex items-baseline gap-2" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, b.title),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, b.author || "")),
-    h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
-      h("div", { style: { flex: 1, height: 3, borderRadius: 3, background: t.line, overflow: "hidden" } },
-        h("div", { style: { width: Math.max(0, Math.min(100, Number(b.progress) || 0)) + "%", height: "100%", background: t.ink } })),
-      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog } }, (Number(b.progress) || 0) + "%")),
-    b.lastAt ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "上次读：" + b.lastAt) : null,
-    arr(b.marks).map((mk, j) => h("button", {
-      key: j,
-      onClick: () => setSheet(DetailSheet("《" + (b.title || "") + "》里划的一句",
-        "「" + (mk.quote || "") + "」" + (mk.note ? "\n\n页边写着：" + mk.note : "\n\n（他没有写批注）"), t,
-        peekFoot("quiet", "他在《" + (b.title || "") + "》里划的线", mk.quote, mk.note))),
-      className: "w-full text-left active:opacity-60",
-      style: { marginTop: 12, paddingLeft: 10, borderLeft: "2px solid " + (mk.note ? t.ink : t.line) }
-    }, h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.sub } }, mk.quote),
-    mk.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 3 } }, "— " + mk.note) : null)))));
+  if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   // ── 赞过：他不会写下来，但他会点 ──
   if (key === "liked") return wrap([
     arr(d.follows).length ? h("div", { key: "f", className: "pb-4" },
@@ -1265,7 +1392,7 @@ function PhoneApp({
     style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
   }, liveTitle),
   h("div", { style: { width: 40, height: 40 } })) :
-  appKey !== "wechat" && appKey !== "album" && h(Head, {
+  FULL_BLEED_KEYS.indexOf(appKey) < 0 && h(Head, {
     zh,
     en: char.name,
     onBack,
@@ -1278,7 +1405,7 @@ function PhoneApp({
       color: t.ink
     }))
   }), h("div", {
-    className: appKey === "wechat" || appKey === "album" ? "flex-1 min-h-0 overflow-hidden" : isLive ? "flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-5" : "flex-1 overflow-y-auto px-6 py-4"
+    className: FULL_BLEED_KEYS.indexOf(appKey) >= 0 ? "flex-1 min-h-0 overflow-hidden" : isLive ? "flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-5" : "flex-1 overflow-y-auto px-6 py-4"
   }, content), sheet && h(Sheet, {
     onClose: () => setSheet(null),
     tall: true
@@ -1580,7 +1707,7 @@ const PHONE_ANGLE = {
   video_day: "【取材层】他消磨时间的口味，不是他的心事。刷视频多半是没在想什么的时候。【时间窗】这几天。",
   video_night: "【取材层】深夜、独自一人、没打算被任何人看见的欲望。【时间窗】这阵子。",
   album: "【取材层】过去。**相册的主体不是这几天**，而是几个月到几年沉下来的东西：旧的人、去过的地方、早就结束的事。只有一两张属于最近。【时间窗】跨月跨年。",
-  reading: "【取材层】他一个人读到某一句停下来的那个瞬间。**划线是不打算给任何人看的动作**，所以它比书单诚实得多。【时间窗】这几周，书可以读了很久还没读完。",
+  reading: "【取材层】他一个人读到某一句停下来的那个瞬间。**批注和划线是不打算给任何人看的动作**，所以它比书单诚实得多；书架怎么分、怎么起名，也是他自己对自己的说法。【时间窗】跨年，一架书是攒出来的，不是这个月买的。",
   liked: "【取材层】他不会写下来、但会顺手点的东西。点赞和收藏没有措辞、不用解释，所以最诚实。【时间窗】这一两个月。",
   orders: "【取材层】他和现实生活打交道的痕迹：吃什么、几点吃、去哪、东西送到谁那儿。【时间窗】这两周。",
   health: "【取材层】纯数字，不承载情节，也不许在里面写心情——数字自己会说话。【时间窗】最近七天。",
@@ -1605,7 +1732,7 @@ const PHONE_DIGEST_PICK = {
   recordings: d => pArr(d.items).map(x => x.name),
   video_day: d => pArr(d.items).map(x => x.title),
   video_night: d => pArr(d.items).map(x => x.title),
-  reading: d => pArr(d.items).map(x => x.title).concat(pArr(d.items).reduce((a, b) => a.concat(pArr(b.marks).slice(0, 1).map(m => m.quote)), [])),
+  reading: d => pArr(d.shelves).map(x => x.name).concat(pArr(d.shelves).reduce((a, sh) => a.concat(pArr(sh.books).slice(0, 2).map(b => b.title)), [])),
   liked: d => pArr(d.items).map(x => x.content),
   orders: d => pArr(d.items).map(x => x.title),
   health: () => [],
@@ -1678,9 +1805,16 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       maxTokens: 12000
     },
     reading: {
-      instruction: "推演「" + char.name + "」正在读的书或长文（2-3 本，可以有一本读了很久还卡在前面）。每本给 title、author、progress（0-100 整数）、lastAt（上次翻开是什么时候，如「昨晚 23:40」「上周三」）。\nmarks 是他划的线，每本 1-3 条：quote 是**书里的原句**（10-45 字，不是他的读后感）；note 是他在页边写的字——**多数划线是没有批注的，note 就填空字符串**，真写了也只是两三个字或半句话。\n**划线比书单重要得多**：挑那些【说不清他为什么在这一句停下来】的句子。别选金句、鸡汤、名人名言，也别选那种一看就是用来发朋友圈的漂亮话。一个人真正划下的往往是很普通的一句，只是刚好戳到他自己的事。",
-      schemaHint: "{\"items\":[{\"title\":\"书名\",\"author\":\"作者\",\"progress\":62,\"lastAt\":\"昨晚 23:40\",\"marks\":[{\"quote\":\"他划下的原句\",\"note\":\"页边两三个字，多数留空\"}]}]}",
-      maxTokens: 3200
+      instruction: "推演「" + char.name + "」手机读书 App 里的整个书架。**正好 5 个书架、正好 30 本书（每架 6 本）。**\n\n"
+        + "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲，像这样：「导师以为我在看的论文」「凌晨两点的关东煮哲学」「怎么对付某个麻烦精」「偶尔翻两页的杂食储备」。**一看名字就知道是谁的书架。**每架另配一个英文 slug（小写下划线，如 midnight_wander）。\n"
+        + "五个里至少有一个是【只有他会有的】：跟他的职业、他正在应付的麻烦、他藏着的身份、或者某个具体的人有关。" + relHint + "\n\n"
+        + "【书必须是真的】真实存在、书名和作者都对得上，而且【是他在他所处的时代和世界里拿得到的】：古代角色的架子上不许出现现代出版物，现代角色可以有古籍和译本。同一架里的书要像同一个人挑的。\n\n"
+        + "【每本都要有】title、author；readAt = 他读到哪儿（「卷七·饮食果子」「第 3 章」「214 页」都行，**允许有几本写「还没翻开」或「读了两页就放下了」**）；note = 他的批注，40-90 字，第一人称。\n"
+        + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头（比如「改天带你去城南找找，看能不能把书里的几样凑齐」）。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
+        + "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n"
+        + "【阅读档案 archive】favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；plan = 他打算下一本读的（title+author）。",
+      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"卷七·饮食果子\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}",
+      maxTokens: 30000
     },
     liked: {
       instruction: "推演「" + char.name + "」在一个图文/短视频社区（类似小红书、豆瓣那种半熟人平台，不是微信）里点过赞和收藏的东西（6-9 条）。每条给 author（发的人的昵称）、kind（图文/视频/长文/评论 之一）、content（那条内容本身是什么，一句话说清）、tag（分区标签）、time、act（赞 或 收藏）。\n**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。所以这里应该出现他【不会主动跟人说、也不觉得需要解释】的部分——某种审美偏好、某个人、某类身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议。也可以有很没意思的（食谱、装修、通勤路线）。\n另外给 follows：他关注的 3-5 个账号，name ＋一句 desc 说明那号是干嘛的。别全是正经账号。" + relHint,
