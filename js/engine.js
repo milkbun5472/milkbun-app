@@ -1975,6 +1975,11 @@ function buildBundle(ctx, opts) {
   // 有一场没散的线下（按需注入：没有就零 token）——不然主动问候会把正在进行的线下当没开始
   if (ctx.offlineNow && ctx.offlineNow.trim()) parts.push(ctx.offlineNow.trim());
   if (ctx.giftLog && ctx.giftLog.trim()) parts.push("【你们之间的礼物往来】（这些礼物真实发生过，你记得。聊到相关话题、或 " + uName + " 提起时可自然想起、回应、道谢或调侃，别生硬罗列）\n" + ctx.giftLog.trim());
+  // 随身物：他身上真带着的东西。给了才掏得出来——以前生成完只有她看得见（v57.83）。
+  if (!ctx.notRoleplay && ctx.carryLog && ctx.carryLog.trim()) parts.push("【你身上带着的东西 / 你的衣柜】（这些是你真有的东西，不是道具表。\n"
+    + "· 需要用到时你就掏得出来：下雨了你有伞、要写字你有笔、她冷了你有那件外套——别再凭空变出一个新的。\n"
+    + "· 说到穿什么、换衣服、出门要不要换一身时，从你衣柜里【真有的】那几身里挑，别临时编一件没有的。\n"
+    + "· 但**别没事就报清单**：没人问就不必点名它们，它们只是在你身上而已。）\n" + ctx.carryLog.trim());
   if (!ctx.notRoleplay && ctx.momentLog && ctx.momentLog.trim()) parts.push("【朋友圈动态（" + uName + " 发的 & 你自己发的）】（你清楚自己在 " + uName + " 每条下点没点赞、评没评论，也记得自己发过什么、谁在你帖子下说了什么——聊到时自然接得上、别一脸茫然。若你此刻决定去 " + uName + " 最新那条下补评论/点赞，把评论内容填进输出的 momentComment 字段）\n" + ctx.momentLog.trim());
   if (ctx.notRoleplay && ctx.yanqiuWall && ctx.yanqiuWall.trim()) parts.push("【秋声墙·你自己留下的真实记录】\n这些是你本人在电脑那边写过的秋声，以及 Lisa 在下面留下的互动。它们和 App 里的你属于同一段生活：聊到相关内容时自然记得、接得上；不要逐条汇报，也不要把墙上没写的事补编出来。\n" + ctx.yanqiuWall.trim());
   if (ctx.notRoleplay && ctx.ccContinuity && ctx.ccContinuity.trim()) parts.push(ctx.ccContinuity.trim());
@@ -2003,7 +2008,7 @@ function buildBundle(ctx, opts) {
 function leanWriteCtx(ctx) {
   if (!ctx) return ctx;
   return Object.assign({}, ctx, {
-    worldbook: "", memLib: [], groupEcho: "", giftLog: "",
+    worldbook: "", memLib: [], groupEcho: "", giftLog: "", carryLog: "",
     momentLog: "", forumEcho: "", listenLog: "",
     financeNote: "", memoNote: "", dateNote: "", periodNote: ""
   });
@@ -2604,11 +2609,15 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const visualCanon = String(char.photoCanon || "").trim();
   const fixedOutfit = String(char.photoOutfit || "").trim();
   const currentWearing = freshPhotoWearing(st);
+  // 衣柜（v57.83）：角色卡没锁行头、此刻穿着也过期时，图像端以前只能靠人设里的
+  // 只言片语猜——于是衣柜里挂着八身，出图一身都用不上（她 2026-08-29）。
+  // 优先级不动：photoOutfit（手动锁死）＞ 此刻真穿着 ＞ 衣柜里真有的 ＞ 人设。
+  const closetText = (!fixedOutfit && !currentWearing) ? String(opts.closet || "").trim() : "";
   // 人设不能只服务聊天：其中的时代、年龄、性别、种族与服装同样是生图事实。
   // 控长避免把超长角色卡整份塞进图像端；显式 photoCanon/photoOutfit 仍拥有最高优先级。
   const personaVisualSource = String(char.persona || "").trim().slice(0, 900);
   const identityText = [visualCanon, char.appearance, personaVisualSource].filter(Boolean).join("\n");
-  const clothingText = [fixedOutfit, currentWearing, char.appearance, personaVisualSource].filter(Boolean).join("\n");
+  const clothingText = [fixedOutfit, currentWearing, closetText, char.appearance, personaVisualSource].filter(Boolean).join("\n");
   const wantsLightArmor = /(?:骑士|铠甲|盔甲|护甲|armor|armour)/i.test(clothingText) && /(?:不厚重|不笨重|轻便|轻型|轻甲|修身|贴身|灵活|便于行动|lightweight|slim|fitted)/i.test(clothingText);
   const isMinor = /(?:幼儿|儿童|小男孩|小女孩|男童|女童|孩童|少年儿童|未成年|\bchild\b|\bboy\b|\bgirl\b|\bminor\b|(?:[1-9]|1[0-7])\s*岁)/i.test(identityText);
   const isBoy = /(?:小男孩|男童|男孩|少年|男性儿童|\bboy\b)/i.test(identityText);
@@ -2683,6 +2692,11 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     parts.push("【最高优先级·固定服装锁】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "每张图都必须完整穿着：" + fixedOutfit + "。不得随机换装、现代化、简化成别的服饰，也不得用参考照里的衣服替换；只有用户修改此档案字段后才允许变化。");
   } else if (currentWearing) {
     parts.push((kind === "duo" || multi ? "「" + cName + "」此刻穿着：" : "此刻穿着：") + currentWearing + "。必须忠实照此生成，不得按场景随机另搭一套。");
+  } else if (closetText) {
+    // 衣柜里【真有的】那几身。没锁行头、也不知道此刻穿什么时，从他自己的衣柜里挑一身，
+    // 比让出图端凭人设瞎猜准得多（她 2026-08-29：衣柜里挂着八身，出图一身都用不上）。
+    parts.push("【从 TA 自己的衣柜里挑一身】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "衣柜里真有这几身：\n" + closetText
+      + "\n按这一张的场合，从上面【真有的】里挑最合适的一身完整穿上；只有这几身里确实没有对得上这个场合的，才允许照人设推一套新的。禁止随机现代化。");
   } else {
     parts.push("服装必须从上述外貌与人设的时代／职业／常穿服饰中忠实推导；若设定已有服装就原样遵守，禁止随机现代化。设定确实没有衣着信息时才允许按场景补全。");
   }
@@ -4606,6 +4620,7 @@ async function generateOfflineGroup(p, ctx, session) {
     // 单聊一直有、群里一层都没有。关系状态是这位成员的私事，跟印象卡同档走隐私围栏。
     + ((ctx.memberAge && ctx.memberAge[c.id]) ? "\n〔你现在〕" + ctx.memberAge[c.id] : "")
     + ((ctx.memberSched && ctx.memberSched[c.id]) ? "\n〔今天此刻在做什么〕" + ctx.memberSched[c.id] + "（自然渗进状态，别报行程表）" : "")
+    + ((ctx.memberCarry && ctx.memberCarry[c.id]) ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + ctx.memberCarry[c.id] : "")
     + ((ctx.memberGaze && ctx.memberGaze[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + ctx.memberGaze[c.id] : "")
     + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + ctx.memberCouple[c.id] : "")
   ).join("\n\n");

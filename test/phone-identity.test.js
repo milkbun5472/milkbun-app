@@ -157,7 +157,14 @@ test("两处生成调用都把旧那份传过去了", () => {
   const calls = (appSrc.match(/^.*phoneProbeSpec\(.*$/gm) || []);
   assert.ok(calls.length >= 2, "找不到两处生成调用");
   calls.forEach(c => assert.match(c, /avoid, known,/, "这处没把身份传过去：" + c.trim().slice(0, 100)));
-  assert.equal((appSrc.match(/const known = /g) || []).length, 2, "两处调用点都要各自读一次 known");
+  // 要守的是【每个调用点自己读一次】，不是全文件恰好有两处 known
+  //（随身物 v57.83 也用了同一个变量名，数全文件会误伤）。
+  calls.forEach(c => {
+    const i = appSrc.indexOf(c);
+    const before = appSrc.slice(Math.max(0, i - 400), i);
+    assert.match(before, /const known = \(\(phonesRef\.current \|\| \{\}\)\[char\.id\] \|\| \{\}\)\[key\];/,
+      "这处调用点没有自己读一次 known，可能在跟别处共用一个变量");
+  });
 });
 
 test("存进去之前代码把四层按顺序走一遍（规则降概率，代码才保证）", () => {

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.83";
+const APP_VERSION = "v57.84";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -227,7 +227,6 @@ function App() {
   const [friendGroups, setFriendGroups] = useState([]);
   const [schedules, setSchedules] = useState({});
   const [snoops, setSnoops] = useState({});
-  const [carries, setCarries] = useState({});
   const [phones, setPhones] = useState({});
   // 全刷是一个 app 接一个 app 地写的，闭包里的 phones 到第二个 app 就是旧的了。
   // 归档要读「即将被覆盖的那份」，必须走 ref 拿最新的。⚠️紧跟声明写，别挪去上面
@@ -368,13 +367,18 @@ function App() {
   const [giftOut, setGiftOut] = useState([]); // 送给角色、在途的礼物 [{id,charId,name,arriveTs,cat}]
   const [carry, setCarry] = useState({}); // 角色随身物品 {charId:{sectionKey:{items}}}
   const [carryGifts, setCarryGifts] = useState({}); // 角色收到的礼物(永久) {charId:[{id,name,receivedTs}]}
+  const [carryPins, setCarryPins] = useState({});   // 🔒 她钉住的随身物 {charId:{sectionKey:[name,...]}}
   const [selCarry, setSelCarry] = useState(null); // 随身物品选中的角色
   const giftOutRef = useRef([]);
   const carryGiftsRef = useRef({});
+  const carryPinsRef = useRef({});
+  const carryRef = useRef({});
   ordersRef.current = orders;
   kinshipCardsRef.current = kinshipCards;
   giftOutRef.current = giftOut;
   carryGiftsRef.current = carryGifts;
+  carryPinsRef.current = carryPins;
+  carryRef.current = carry;
   schedulesRef.current = schedules;
   const [unreadMap, setUnreadMap] = useState({});
   // 角色动态保底计数：每次私聊回复给每个角色的三类动态 +1；到阈值就强制发一条（悄悄话≥15轮、朋友圈≥30轮、论坛≥50轮或3天）
@@ -611,7 +615,6 @@ function App() {
     setFriendGroups(loadJSON("x_friendGroups", []));
     { const oldSchedules = loadJSON("x_schedules", {}); setSchedules(window.ContentBoundaries ? window.ContentBoundaries.sanitizeScheduleBook(oldSchedules) : oldSchedules); }
     setSnoops(loadJSON("x_snoops", {}));
-    setCarries(loadJSON("x_carries", {}));
     setPhones(loadJSON("x_phone", {}));
     setDiaries(sortDiaryBook(loadJSON("x_diaries", {})));
     setAnon(loadJSON("x_anon", {}));
@@ -737,6 +740,7 @@ function App() {
     setGiftOut(loadJSON("x_giftOut", []));
     setCarry(loadJSON("x_carry", {}));
     setCarryGifts(loadJSON("x_carryGifts", {}));
+    setCarryPins(loadJSON("x_carryPins", {}));
     setUnreadMap(loadJSON("x_unread", {}));
     setAmbientCount(loadJSON("x_ambientCount", {}));
     setGreetLog(loadJSON("x_greetLog", {}));
@@ -2933,6 +2937,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (got.length) parts.push("用户送给你过：" + got.slice(-8).join("、"));
       return parts.join("；");
     })(),
+    // 随身物：他身上带着什么、衣柜里挂着什么。以前这一整块只有她看得见——
+    // 角色本人不知道自己包里有伞，出图也不知道他衣柜里有哪几身（她 2026-08-29）。
+    // 言秋不发：他不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
+    carryLog: (typeof carryContextText === "function" && !settingsFor(char.id).engineerEyes)
+      ? carryContextText(carryRef.current[char.id], carryPinsRef.current[char.id]) : "",
     momentLog: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const out = [];
@@ -3883,6 +3892,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     (s.msgs || []).some(m => m && m.sid === sid)
       ? { ...s, msgs: s.msgs.map(m => m && m.sid === sid ? { ...m, ...patch } : m) }
       : s));
+  // 出图时的衣柜：没锁行头、也不知道此刻穿什么时，从他自己衣柜里真有的那几身里挑。
+  // 小剧场/同人不走这里——那是平行时空，有自己的一套行头锁。
+  const closetTextFor = charId => (typeof carryClosetText === "function")
+    ? carryClosetText((carryRef.current || {})[charId]) : "";
   // 线下能不能拍：接了图像 API + 这个人有外貌或参考照。合照另要两张参考照都在。
   const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
   const offlinePhotoCanDuo = char => !!(char && char.refPhoto && profile && profile.refPhoto);
@@ -3939,7 +3952,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const contBlobKey = refs.length === 0 && prevShot ? prevShot.imgKey : null;
       if (contBlobKey) refs.push(contBlobKey);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
-      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 });
+      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, closet: closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 });
       const minimalPrompt = buildMinimalPhotoPrompt(char, { kind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -4417,6 +4430,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!c || c.npc) return;            // 配角没有年龄这一层
         const a = ageLineFor(c);
         if (a) m[id] = a;
+      });
+      return m;
+    })(),
+    // 随身物（四处一样喂）：和线上群聊同一份、同一个额度
+    memberCarry: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        if ((characters.find(x => x.id === id) || {}).npc) return;   // 配角没有随身物
+        const txt = (typeof carryContextText === "function")
+          ? carryContextText((carryRef.current || {})[id], (carryPinsRef.current || {})[id], { cap: 260 }) : "";
+        if (txt) m[id] = txt;
       });
       return m;
     })(),
@@ -5936,7 +5960,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             const contBlobKey = refs.length === 0 && prevShot ? prevShot.imgKey : null;
             if (contBlobKey) refs.push(contBlobKey);
             const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-            const photoOpts = { kind: photoKind, me, contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };
+            const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };
             // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
             const prompt = buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
             // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
@@ -6538,7 +6562,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const said = crossChannelSaid(c.id, groupId);
           return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
         })();
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cpSeg + xgSeg;
+        // 随身物（四处一样喂）：他身上带着什么、衣柜里挂着什么。群里比单聊更省着给——
+        // 一人一份摊开会撑爆上下文，而她按次计费。
+        const cySeg = (() => {
+          const txt = (typeof carryContextText === "function")
+            ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "";
+          return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : "";
+        })();
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cySeg + cpSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -6872,7 +6903,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
                 const refs = gCast ? gCast.map(x => x.refPhoto)
                   : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
                   : [spk.refPhoto].filter(Boolean);
-                const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast } : { kind: gPhotoKind, me };
+                const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: closetTextFor(spk.id) };
                 const prompt = buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
                 const gMinimal = buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
                 const out = await generateSelfieImage(prompt, refs.length ? refs : null, { minimalPrompt: gMinimal });
@@ -7954,37 +7985,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setGen(g => ({
         ...g,
         snoop: false
-      }));
-    }
-  };
-  const genCarry = async char => {
-    setGen(g => ({
-      ...g,
-      carry: true
-    }));
-    setSelPhone(char.id);
-    try {
-      const d = await runProbe(bgActive, ctxFor(char), {
-        instruction: "推演此刻「" + char.name + "」随身携带的物品（4-7 件），反映身份、习惯与心境，可有透露心事的小物。物品可带 detail 供点开细看。",
-        schemaHint: "{\"items\":[{\"name\":\"物品\",\"note\":\"简述\",\"detail\":\"点开后的细节(可选)\"}]}"
-      });
-      setCarries(p => {
-        const n = {
-          ...p,
-          [char.id]: {
-            ...d,
-            generatedAt: Date.now()
-          }
-        };
-        saveJSON("x_carries", n);
-        return n;
-      });
-    } catch (e) {
-      toast("刷新失败：" + e.message);
-    } finally {
-      setGen(g => ({
-        ...g,
-        carry: false
       }));
     }
   };
@@ -12276,6 +12276,41 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_carry", n);
     return n;
   });
+  // 随身物的素材：他网购真签收的 + 她送到的礼物。喂进去让模型自然写进包里/衣柜里，
+  // 而不是直接塞条目——直接塞就长成一座只进不出的坟场（她 2026-08-29：和购物/钱包接上）。
+  const carryMaterialFor = charId => {
+    const DEAD = /取消|退款|退货|已退|失败|关闭|待收货|派送|运输|揽收/;
+    const box = ((phonesRef.current || {})[charId]) || {};
+    const rows = Array.isArray((box.shopping || {}).orders) ? box.shopping.orders : [];
+    const seen = new Set();
+    const bought = [];
+    rows.forEach(o => {
+      if (!o || DEAD.test(String(o.status || ""))) return;
+      // 一单里可能有好几件，件名比单名更像「东西」
+      const names = (Array.isArray(o.items) && o.items.length ? o.items.map(x => x && x.name) : [o.title])
+        .map(x => String(x || "").trim()).filter(Boolean);
+      names.forEach(n => { if (!seen.has(n)) { seen.add(n); bought.push(n); } });
+    });
+    return {
+      bought: bought.slice(0, 10),
+      gifts: ((carryGiftsRef.current || {})[charId] || []).map(g => String(g.name || "").trim()).filter(Boolean).slice(-8)
+    };
+  };
+  // 🔒 她钉住的那几件：刷新时一件都不许掉。随身物没有「号码/账号 id」那种客观硬字段，
+  // 唯一说得清「这件绝不许换」的人是她（.claude/rules/phone-data-layers.md）。
+  const toggleCarryPin = (charId, key, name) => setCarryPins(p => {
+    const nm = String(name || "").trim();
+    if (!nm) return p;
+    const box = { ...(p[charId] || {}) };
+    const list = (box[key] || []).slice();
+    const i = list.findIndex(x => String(x).replace(/\s+/g, "") === nm.replace(/\s+/g, ""));
+    if (i >= 0) list.splice(i, 1); else list.push(nm);
+    box[key] = list;
+    const n = { ...p, [charId]: box };
+    saveJSON("x_carryPins", n);
+    return n;
+  });
+  const carryPinsFor = (charId, key) => ((carryPinsRef.current || {})[charId] || {})[key] || [];
   // ---- 表情包字典 ----
   // 先确认落盘成功、再更新页面。旧逻辑反过来：localStorage 写满时页面会假装导入成功，
   // 一刷新整套消失。表情包属于用户资产，绝不能用「看起来成功」掩盖持久化失败。
@@ -12372,8 +12407,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setSelCarry(char.id);
     setGen(g => ({ ...g, carrySec: key }));
     try {
-      const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char));
-      saveCarrySection(char.id, key, d);
+      const known = (carryRef.current[char.id] || {})[key] || null;
+      const pins = carryPinsFor(char.id, key);
+      const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id)));
+      // 🌱 收口：钉住的一件不许掉，其余一次最多真换两件。
+      // 光靠提示词说「默认照抄回来」只是降概率，代码这一道才是保证。
+      saveCarrySection(char.id, key, carryEvolveMerge(key, known, d, pins));
       return true;
     } catch (e) {
       toast(key + " 生成失败：" + e.message);
@@ -12411,8 +12450,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const keys = CARRY_SECTIONS.filter(s => !s.gifts).map(s => s.key);
     for (const key of keys) {
       try {
-        const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char));
-        saveCarrySection(char.id, key, d);
+        const known = (carryRef.current[char.id] || {})[key] || null;
+        const pins = carryPinsFor(char.id, key);
+        const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id)));
+        saveCarrySection(char.id, key, carryEvolveMerge(key, known, d, pins));
       } catch (e) {/* skip */}
     }
     setGen(g => ({ ...g, carrySec: null }));
@@ -12970,6 +13011,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     characters: liveChars,
     carry: carry,
     carryGifts: carryGifts,
+    carryPins: carryPins,
+    onTogglePin: toggleCarryPin,
     selId: selCarry,
     busyKey: gen.carrySec,
     giftBusy: gen.giftThought,

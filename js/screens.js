@@ -8069,30 +8069,182 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
 // ============================================================
 // 随身物品 Carry —— 翻角色随身携带的东西（像查手机，各版块 AI 刷新）+ 收到的礼物永久区
 // ============================================================
+// v57.83：「护理」删掉了——它和查手机里的健康报告重了，对非现代角色也别扭。
+// 后续想加新板块从这里加（她 2026-08-29「我们再想想后续有啥可以加的」）。
 const CARRY_SECTIONS = [
   { key: "bag", zh: "包内", en: "Bag" },
   { key: "pocket", zh: "口袋", en: "Pocket" },
-  { key: "outfit", zh: "衣柜", en: "Wardrobe" },
+  { key: "outfit", zh: "衣柜", en: "Wardrobe", closet: true },
   { key: "trinket", zh: "珍藏小物", en: "Trinkets" },
-  { key: "care", zh: "护理", en: "Care" },
   { key: "gifts", zh: "收到的礼物", en: "Gifts", gifts: true }
 ];
-function carryProbeSpec(key, char) {
+// 衣柜的硬边界。件数不写死在提示词里（写死了谁的衣柜都一样满），
+// 但上限得由代码守着——模型高兴起来能给一个借住在别人家的人排出四十套。
+const CLOSET_MAX_OCCASIONS = 6, CLOSET_MAX_SETS = 4, CLOSET_MAX_TOTAL = 24;
+// 读衣柜：新形状按场合分组，旧形状是一条平的 items。两种都得认得（她手机上已经有旧数据）。
+function closetGroups(data) {
+  if (!data) return [];
+  const raw = Array.isArray(data.closet) ? data.closet : null;
+  if (raw) {
+    const out = [];
+    let total = 0;
+    raw.slice(0, CLOSET_MAX_OCCASIONS).forEach(g => {
+      if (!g || typeof g !== "object") return;
+      const occasion = String(g.occasion || g.name || "").trim();
+      const sets = (Array.isArray(g.sets) ? g.sets : []).filter(x => x && String(x.name || "").trim());
+      const room = Math.max(0, Math.min(CLOSET_MAX_SETS, CLOSET_MAX_TOTAL - total));
+      if (!occasion || !sets.length || !room) return;
+      out.push({ occasion, sets: sets.slice(0, room) });
+      total += Math.min(sets.length, room);
+    });
+    if (out.length) return out;
+  }
+  // 旧数据：一条平的清单，归到一个没有场合名的组里，照样看得见
+  const items = (Array.isArray(data.items) ? data.items : []).filter(x => x && String(x.name || "").trim());
+  return items.length ? [{ occasion: "", sets: items.slice(0, CLOSET_MAX_TOTAL) }] : [];
+}
+// 随身物摘要，喂给角色本人（她 2026-08-29：这一整块以前一个字都不进上下文，
+// 是「声明了、生成了、从没被引用过」那个病的原样重演——衣柜里挂着八件衣服，
+// 出图时一件都用不上；包里那把伞，聊天里他掏不出来）。
+// 控长：只发【有什么】，不发 thought（那是给她看的私人批注），也不发 note 的全文。
+function carryContextText(box, pins, opts) {
+  const b = box || {};
+  const lines = [];
+  const pinOf = k => new Set((((pins || {})[k]) || []).map(x => String(x).replace(/\s+/g, "").trim()));
+  const NAMES = { bag: "身上带着", pocket: "口袋里", trinket: "一直收着的" };
+  ["bag", "pocket", "trinket"].forEach(k => {
+    const p = pinOf(k);
+    // 钉住的排前面：那几件是她认定「这个人身上绝不会没有的东西」
+    const items = carryFlatItems(k, b[k]).slice()
+      .sort((a, c) => (p.has(carryItemKey(c)) ? 1 : 0) - (p.has(carryItemKey(a)) ? 1 : 0));
+    const names = items.slice(0, 8).map(it => String(it.name).trim()).filter(Boolean);
+    if (names.length) lines.push("· " + NAMES[k] + "：" + names.join("、"));
+  });
+  const groups = closetGroups(b.outfit);
+  if (groups.length) {
+    const rows = groups.slice(0, 5).map(g => (g.occasion ? g.occasion + "：" : "") + g.sets.slice(0, 4).map(x => String(x.name).trim()).join("、"));
+    lines.push("· 衣柜里：" + rows.join("；"));
+  }
+  if (!lines.length) return "";
+  const cap = Math.max(120, Number(opts && opts.cap) || 700);
+  const out = lines.join("\n");
+  return out.length > cap ? out.slice(0, cap) + "…" : out;
+}
+// 给出图端的衣柜：比聊天那份更细（要料子和颜色，出图看的就是这些），但仍要控长。
+function carryClosetText(box, cap) {
+  const groups = closetGroups(box && box.outfit);
+  if (!groups.length) return "";
+  const rows = [];
+  groups.slice(0, 5).forEach(g => {
+    g.sets.slice(0, 3).forEach(x => {
+      const nm = String(x.name || "").trim();
+      if (!nm) return;
+      const note = String(x.note || "").replace(/\s+/g, " ").trim().slice(0, 60);
+      rows.push("· " + (g.occasion ? "【" + g.occasion + "】" : "") + nm + (note ? "：" + note : ""));
+    });
+  });
+  const out = rows.join("\n");
+  const lim = Math.max(120, Number(cap) || 600);
+  return out.length > lim ? out.slice(0, lim) + "…" : out;
+}
+// ── 随身物的四层（照查手机那套落，见 .claude/rules/phone-data-layers.md）──────
+// 判据一：这一栏变了，是「他变了」还是「系统忘了」？
+// 随身物比手机更该稳：你身上带着的东西本来就是几个月不动的，
+// 刷一次全换掉＝换了个人（她 2026-08-29 点名的病）。所以这里【没有 ♻️ 层】：
+//   🔒 = 她亲手钉住的那几件（那块玉、那把刀）＋ 收到的礼物（本来就永久）
+//   🌱 = 四栏物品，默认沿用，一次最多真换掉两件
+// 钉住这件事只能由她来做：随身物没有「号码/账号 id」那种客观的硬字段，
+// 唯一说得清「这件绝不许换」的人是她。
+const CARRY_CHURN = 2;
+const carryItemKey = it => String((it && it.name) || "").replace(/\s+/g, "").trim();
+// 把一栏里的所有条目摊平（衣柜是分组的，别的是平的），改动统计和钉住共用同一把尺子
+function carryFlatItems(key, data) {
+  if (!data) return [];
+  if (key === "outfit") return closetGroups(data).reduce((a, g) => a.concat(g.sets), []);
+  return (Array.isArray(data.items) ? data.items : []).filter(x => x && String(x.name || "").trim());
+}
+// 🌱 收口：模型交回来的这一份，和上一份比对着改
+function carryEvolveMerge(key, oldData, newData, pinned) {
+  if (!oldData || !newData || typeof newData !== "object") return newData;
+  const oldItems = carryFlatItems(key, oldData);
+  if (!oldItems.length) return newData;
+  const pins = new Set((pinned || []).map(x => String(x).replace(/\s+/g, "").trim()).filter(Boolean));
+  const newKeys = new Set(carryFlatItems(key, newData).map(carryItemKey));
+  // ① 钉住的那几件一件都不许掉——模型漏了就原样补回去
+  const missingPins = oldItems.filter(it => pins.has(carryItemKey(it)) && !newKeys.has(carryItemKey(it)));
+  // ② 一次最多真换掉 CARRY_CHURN 件；换多了的，把旧的补回来
+  const gone = oldItems.filter(it => !pins.has(carryItemKey(it)) && !newKeys.has(carryItemKey(it)));
+  const putBack = missingPins.concat(gone.slice(0, Math.max(0, gone.length - CARRY_CHURN)));
+  if (!putBack.length) return newData;
+  if (key === "outfit") {
+    const groups = closetGroups(newData).map(g => ({ occasion: g.occasion, sets: g.sets.slice() }));
+    const home = groups[0] || (groups[0] = { occasion: "", sets: [] });
+    putBack.forEach(it => home.sets.push(it));
+    return { ...newData, closet: groups };
+  }
+  return { ...newData, items: carryFlatItems(key, newData).concat(putBack) };
+}
+// 旧的那一份要喂回提示词：不说清楚「上次身上是这些」，模型每次都从零编一个人
+function carryKnownBlock(key, oldData, pinned) {
+  const items = carryFlatItems(key, oldData);
+  if (!items.length) return "";
+  const pins = new Set((pinned || []).map(x => String(x).replace(/\s+/g, "").trim()).filter(Boolean));
+  const pinNames = items.filter(it => pins.has(carryItemKey(it))).map(it => it.name);
+  let out = "\n\n【上一次翻他这一栏，里面是这些】\n" + items.map(it => "· " + it.name + (it.note ? "（" + String(it.note).replace(/\s+/g, " ").slice(0, 40) + "）" : "")).join("\n")
+    + "\n**默认原样照抄回来**——一个人身上带的东西本来就是几个月不变的，不是每次翻都换一套。"
+    + "\n这一次最多换掉两件，而且要有理由（用完了、丢了、坏了、换季了、最近发生的事让他添了一件）；没有理由就一件都别动。"
+    + "\n照抄的那些名字要逐字一样，别改写成近义词——改了名字就等于换了一件。";
+  if (pinNames.length) out += "\n\n【这几件她钉住了，绝对不许换掉、不许改名】\n" + pinNames.map(x => "· " + x).join("\n");
+  return out;
+}
+// 「他最近真到手的东西」：网购签收的 + 她送到的礼物。不直接塞成条目——
+// 那会长成一座只进不出的数据坟场；而是当【素材】喂进去，让模型自己把该随身带的
+// 那几件自然编进包里/衣柜里（她 2026-08-29：和购物/钱包接上）。
+function carryMaterialBlock(key, material) {
+  const bought = (material && material.bought) || [];
+  const gifts = (material && material.gifts) || [];
+  if (!bought.length && !gifts.length) return "";
+  let out = "\n\n【他最近真到手的东西】（这些是真花过钱、真送到手的，不是让你罗列）";
+  if (bought.length) out += "\n· 他自己买的：" + bought.slice(0, 10).join("、");
+  if (gifts.length) out += "\n· 她送的：" + gifts.slice(0, 8).join("、");
+  out += "\n里面**如果有该随身带着 / 该挂进衣柜的**，就自然写进这一栏（用他自己的叫法，note 里可以带上「哪儿来的」）。"
+    + "\n消耗掉的、用不上的、和这一栏不搭的，就别硬塞——**没有一件对得上就一件都不写**，这不是清单核对。";
+  return out;
+}
+function carryProbeSpec(key, char, known, pinned, material) {
   const nm = char.name;
   const tail = "每件除了 name、note(一句状态/来历) 外，再写 thought：「" + nm + "」对这件东西的私人想法/批注（为什么带它、和谁有关、藏了什么心事），点开细看用，贴人设、可以更私密。**thought 每件都要写完整，别写一半。**";
-  const cnt = "**务必给满数量，一件都不能少；宁可每条描述精简一点，也要凑齐件数。**";
+  // 件数不再写死。写死了「正好 5 件」，一个身无长物的人也被逼着凑满五件——
+  // 而【他有多少东西】本身就是人物信息（她 2026-08-29：衣柜大小跟人设走）。
+  const many = "**有几件由这个人决定**：他的身份、处境、讲究程度、有没有条件置办——揣着最后几个铜板的人和王府里的人，不该翻出一样多的东西。少也要少得有道理，别为了凑数硬编。";
   const hint = "{\"items\":[{\"name\":\"物品\",\"note\":\"备注\",\"thought\":\"TA 对这件东西的私人想法\"}]}";
   const S = {
-    bag: { instruction: "推演「" + nm + "」此刻包里/随身携带的东西（正好 5 件），贴合人设、职业与当下心境。" + cnt + tail, schemaHint: hint },
-    pocket: { instruction: "推演「" + nm + "」口袋里的零碎小东西（正好 5 件，如钥匙、票根、糖、纸条），私人贴身。" + cnt + tail, schemaHint: hint },
-    outfit: { instruction: "推演「" + nm + "」衣柜里的衣物——挂着的、常穿的、压箱底的，涵盖不同季节/场合（外套/上衣/裤或裙/鞋/配饰等，6-8 件），风格与材质贴合 TA 的人设、身份与审美，note 写材质/颜色/风格/来历或什么场合穿。" + cnt + tail, schemaHint: hint },
-    trinket: { instruction: "推演「" + nm + "」随身的小物件/护身符/珍藏（正好 5 件），带情感重量与故事。" + cnt + tail, schemaHint: hint },
-    care: { instruction: "推演「" + nm + "」随身的护理/药品/日常保养品（正好 5 件），透露健康与生活习惯。" + cnt + tail, schemaHint: hint }
+    bag: { instruction: "推演「" + nm + "」此刻包里/随身携带的东西，贴合人设、职业与当下心境。" + many + tail, schemaHint: hint },
+    pocket: { instruction: "推演「" + nm + "」口袋里的零碎小东西（钥匙、票根、糖、纸条这一类，私人贴身）。" + many + tail, schemaHint: hint },
+    trinket: { instruction: "推演「" + nm + "」随身的小物件/护身符/珍藏，带情感重量与故事。" + many + tail, schemaHint: hint },
+    // 衣柜按【场合】分组，同一个场合可以有好几套（她 2026-08-29）：
+    // 一个人在同一种场合下反复挑中的那几套，正是「他有偏好」的证据。
+    outfit: {
+      instruction: "推演「" + nm + "」的衣柜，按【场合】分组。"
+        + "\n【衣柜有多大由这个人决定】场合分几类、每类有几套，全看他的身份、处境、有没有条件置办、讲不讲究——"
+        + "王府里的人和借住在别人家的人，衣柜不该一样大。**衣柜的规模本身就是人物信息**，别把谁都排成满满一柜。"
+        + "\n【同一个场合可以有好几套】他在同一种场合下反复挑中的那几套，彼此只有细微差别（颜色、料子、新旧、配的东西不同）——"
+        + "那正是一个人有偏好的证据。真讲究的人这里就该厚，不在乎穿什么的人一个场合一套也够。"
+        + "\n【场合怎么分】按他真过的日子分，不是按季节表分：他每天要去的地方、要见的人、要撑的场面、独自在家的时候、以及那些不常有但一定得有的场合。场合名要带上他那个世界的说法。"
+        + "\n每套的 name 是这一身的叫法，note 写它由什么组成、什么料子颜色、什么时候穿、哪儿来的。" + tail,
+      schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身的叫法\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}"
+    }
   };
-  return { maxTokens: 4000, ...(S[key] || S.bag) };
+  const spec = S[key] || S.bag;
+  return {
+    maxTokens: key === "outfit" ? 6000 : 4000,
+    ...spec,
+    // 🌱：上一份原样喂回去，钉住的点名不许动
+    instruction: spec.instruction + carryMaterialBlock(key, material) + carryKnownBlock(key, known, pinned)
+  };
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, onGen, onGenGiftThought, onBack }) {
+function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onGen, onGenGiftThought, onBack }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -8108,6 +8260,11 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, onGen,
     // eslint-disable-next-line
   }, [sectionKey]);
   const openGift = (gifts || []).find(g => g.id === openGiftId) || null;
+  const pinSet = new Set((pinned || []).map(x => String(x).replace(/\s+/g, "").trim()).filter(Boolean));
+  const isPinned = it => pinSet.has(carryItemKey(it));
+  // 钉住＝这件东西不许被下一次刷新换掉。随身物没有「号码/账号 id」那种客观硬字段，
+  // 唯一说得清「这件绝不许换」的人是她（.claude/rules/phone-data-layers.md 的 🔒 层）。
+  const pinDot = it => isPinned(it) ? h("span", { title: "钉住了，刷新不会换掉", style: { fontSize: 11, color: t.accent, marginLeft: 6 } }, "\u25c6") : null;
   let content;
   if (isGifts) {
     content = (gifts || []).length === 0
@@ -8121,13 +8278,30 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, onGen,
           h(IChevR, { size: 15, color: t.line }))));
   } else if (loading || !data) {
     content = h(Spinner, { label: "正在翻看 " + sec.zh + "…" });
+  } else if (sec.closet) {
+    // 衣柜按场合分组。旧的平清单会被 closetGroups 归到一个没有场合名的组里，照样看得见。
+    const groups = closetGroups(data);
+    const total = groups.reduce((n, g) => n + g.sets.length, 0);
+    content = !total
+      ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的")
+      : h("div", { style: { animation: "fadeUp .3s ease both" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingBottom: 10 } },
+            groups.length > 1 ? groups.length + " 种场合 · 共 " + total + " 套" : total + " 套"),
+          groups.map((g, gi) => h("div", { key: gi, style: { marginBottom: 22 } },
+            g.occasion ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.accent, letterSpacing: "0.04em", paddingBottom: 4, marginBottom: 2, borderBottom: "1px solid " + t.line } },
+              g.occasion + (g.sets.length > 1 ? " · " + g.sets.length + " 套" : "")) : null,
+            g.sets.map((it, i) => h("button", { key: i, onClick: () => setSheet(it), className: "w-full text-left flex items-start justify-between gap-3 py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
+              h("div", { className: "min-w-0 flex-1" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, it.name, pinDot(it)),
+                it.note && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, it.note)),
+              h(IChevR, { size: 15, color: t.line, style: { marginTop: 3 } }))))));
   } else {
     const items = (data && data.items) || [];
     content = items.length === 0
       ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "空空如也")
       : h("div", { style: { animation: "fadeUp .3s ease both" } }, items.map((it, i) => h("button", { key: i, onClick: () => setSheet(it), className: "w-full text-left flex items-start justify-between gap-3 py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
           h("div", { className: "min-w-0 flex-1" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, it.name),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, it.name, pinDot(it)),
             it.note && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, it.note)),
           h(IChevR, { size: 15, color: t.line, style: { marginTop: 3 } }))));
   }
@@ -8138,7 +8312,15 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, onGen,
       h(Eyebrow, { style: { marginBottom: 8 } }, sheet.name),
       sheet.note && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginBottom: 12, lineHeight: 1.7 } }, sheet.note),
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sheet.thought || "（TA 没多说什么）")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sheet.thought || "（TA 没多说什么）"),
+      onTogglePin ? h("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid " + t.line } },
+        h("button", {
+          onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
+          className: "w-full py-2.5 active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 999, border: "1px solid " + (isPinned(sheet) ? t.accent : t.line), color: isPinned(sheet) ? t.accent : t.ink }
+        }, isPinned(sheet) ? "\u25c6 钉住了 · 点一下松开" : "钉住这一件"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
+          "钉住的东西刷新时不会被换掉。没钉住的也不是每次都换——一次最多换两件。")) : null),
     openGift && h(Sheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
@@ -8149,7 +8331,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, onGen,
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, openGift.thought)
           : h("button", { onClick: () => onGenGiftThought(char.id, openGift.id, openGift.name), className: "w-full py-2.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, border: "1px solid " + t.ink, borderRadius: 999, color: t.ink } }, "让 " + char.name + " 说说对它的想法")));
 }
-function Carry({ characters, carry, carryGifts, selId, busyKey, giftBusy, onBack, onSel, onGen, onGenAll, onGenGiftThought }) {
+function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, onBack, onSel, onGen, onGenAll, onGenGiftThought, onTogglePin }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -8180,7 +8362,7 @@ function Carry({ characters, carry, carryGifts, selId, busyKey, giftBusy, onBack
   const data = carry[char.id] || {};
   const gifts = (carryGifts && carryGifts[char.id]) || [];
   const hasData = s => s.gifts ? gifts.length > 0 : !!data[s.key];
-  if (open) return h(CarrySection, { char, sectionKey: open, data: data[open], gifts, busyKey: busyKey === "__all__" ? open : busyKey, giftBusy, onGen, onGenGiftThought, onBack: () => setOpen(null) });
+  if (open) return h(CarrySection, { char, sectionKey: open, data: data[open], gifts, busyKey: busyKey === "__all__" ? open : busyKey, giftBusy, pinned: ((carryPins || {})[char.id] || {})[open] || [], onTogglePin, onGen, onGenGiftThought, onBack: () => setOpen(null) });
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
     h("div", { className: "shrink-0 px-5 pb-3 flex items-center justify-between", style: { paddingTop: safeTop(20) } },
       h("button", { onClick: () => setInBox(true), className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
