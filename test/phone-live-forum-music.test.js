@@ -99,3 +99,23 @@ test("歌单按【真进歌单几首】重试，不是按模型给了几个候�
   assert.match(s, /网易云搜不到 " \+ miss/);
   assert.match(s, /重复 " \+ dup/);
 });
+
+// ── 归档必须发生在覆盖之前，而且绝不许拖累这次刷新 ──
+// 浏览器里够不到 savePhoneApp（它是组件内的闭包），这一层只能静态验。
+test("刷新时先归档旧那份，再整份覆盖", () => {
+  const m = appSrc.match(/const savePhoneApp = \(charId, key, d\) => \{[\s\S]*?\n  \};/);
+  assert.ok(m, "找不到 savePhoneApp");
+  const fn = m[0];
+  const iArch = fn.indexOf("archivePhoneApp(");
+  const iWrite = fn.indexOf("setPhones(");
+  assert.ok(iArch >= 0, "刷新没归档旧内容——那条时间线永远长不起来");
+  assert.ok(iArch < iWrite, "归档必须排在覆盖前面，不然读到的已经是新数据了");
+  // 必须走 ref 读最新的：全刷是一个 app 接一个写的，闭包里的 phones 到第二个就旧了
+  assert.match(fn, /phonesRef\.current/, "归档读的是闭包里的旧 phones");
+
+  const a = appSrc.match(/const archivePhoneApp = \(charId, key, oldData\) => \{[\s\S]*?\n  \};/);
+  assert.ok(a, "找不到 archivePhoneApp");
+  // 归档是锦上添花：写坏了（localStorage 满会抛 QuotaExceeded）也不能连累手机内容
+  assert.match(a[0], /try \{/, "归档没包 try——存满时会把整次刷新一起弄挂");
+  assert.match(a[0], /phoneArchCapAll/, "没做全局封顶");
+});

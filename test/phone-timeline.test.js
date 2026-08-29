@@ -12,30 +12,38 @@ const SRC = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8"
 // 只抽纯函数那一段跑，不碰 React。
 // ⚠️vm 里造出来的数组属于另一个 realm，deepStrictEqual 会判「结构相同但不是同一个 Array」，
 // 所以比较前一律 Array.from 拉回本 realm。
-function loadPure() {
-  const want = ["const PHONE_APPS =", "PHONE_LABEL =", "phoneStableHash =", "PHONE_CN_NUM =", "phoneNum =",
-    "function phoneWhenTs", "phoneEntryId =", "function phoneTimeline", "function phoneDayLabel", "phoneClock ="];
+function sliceDecls(want) {
   const lines = SRC.split("\n");
   const chunks = [];
   for (const w of want) {
     const i = lines.findIndex(l => l.includes(w));
     assert.ok(i >= 0, "源码里找不到 " + w);
-    // 从这一行起，配平花括号取到该声明结束
     let depth = 0, out = [], started = false;
     for (let j = i; j < lines.length; j++) {
       out.push(lines[j]);
       for (const ch of lines[j]) { if (ch === "{") { depth++; started = true; } else if (ch === "}") depth--; }
       if (started && depth === 0) break;
-      if (!started && /;\s*$/.test(lines[j])) break;
+      // 单行声明到分号为止。行尾常跟一条 // 注释，先剥掉再判，
+      // 否则这一条会一直往下吞，把后面几个声明一起抓进来（重复声明当场报错）。
+      if (!started && /;\s*(\/\/.*)?$/.test(lines[j])) break;
     }
     chunks.push(out.join("\n"));
   }
+  return chunks.join("\n");
+}
+function runDecls(want, exportNames) {
   const ctx = { console };
   vm.createContext(ctx);
-  vm.runInContext(chunks.join("\n") + "\n;this.API={phoneWhenTs,phoneTimeline,phoneDayLabel,phoneClock,phoneEntryId,phoneNum};", ctx);
+  vm.runInContext(sliceDecls(want) + "\n;this.API={" + exportNames.join(",") + "};", ctx);
   return ctx.API;
 }
-const P = loadPure();
+
+const BASE = ["const PHONE_APPS =", "PHONE_LABEL =", "phoneStableHash =", "PHONE_CN_NUM =", "phoneNum =",
+  "function phoneWhenTs", "phoneEntryId =", "function phoneTimeline"];
+
+const P = runDecls(BASE.concat(["function phoneDayLabel", "phoneClock ="]),
+  ["phoneWhenTs", "phoneTimeline", "phoneDayLabel", "phoneClock", "phoneEntryId", "phoneNum"]);
+
 
 // 2026-08-29 周六 15:00，固定住，免得测试半夜跑起来结果不一样
 const NOW = new Date(2026, 7, 29, 15, 0, 0, 0).getTime();
@@ -264,4 +272,99 @@ test("只有日历那一路能算「还没发生」", () => {
   // 生成的那两条留在过去，而且倒序
   const rest = tl.slice(1);
   assert.deepStrictEqual(Array.from(rest, r => r.title), ["下午那条", "程策"]);
+});
+
+// ── 归档 ────────────────────────────────────────────────────
+// 刷新会整份覆盖某个 app，旧痕迹本来就没了——时间线于是只是「当前快照的重排」。
+// 归档层的活儿：覆盖之前先把旧那份存下来，那条线才会越来越长。
+
+const PA = runDecls(BASE.concat([
+  "PHONE_ARCH_CAP =", "PHONE_ARCH_DAYS =", "phoneArchTrim =",
+  "function phoneArchiveFrom", "function phoneArchMerge", "function phoneTimelineWithArchive"
+]), ["phoneArchiveFrom", "phoneArchMerge", "phoneTimelineWithArchive", "PHONE_ARCH_CAP", "PHONE_ARCH_DAYS"]);
+
+test("归档存的是精简版，正文截短，指纹跟当前那份对得上", () => {
+  const long = "x".repeat(400);
+  const add = Array.from(PA.phoneArchiveFrom("notes", { items: [{ kind: "typed", title: "算了", time: "今天 01:03", body: long }] }, NOW));
+  assert.strictEqual(add.length, 1);
+  assert.ok(add[0].text.length <= 120, "归档正文没截短，白占存储");
+  // 指纹必须和当前那份一致，否则同一条会在时间线里出现两遍
+  const cur = Array.from(P.phoneTimeline({ notes: { items: [{ kind: "typed", title: "算了", time: "今天 01:03", body: long }] } }, null, NOW));
+  assert.strictEqual(add[0].id, cur[0].id);
+});
+
+test("并归档：同一条刷两次只留一份，先到的那份为准", () => {
+  const a = Array.from(PA.phoneArchiveFrom("notes", { items: [{ kind: "typed", title: "算了", time: "今天 01:03", body: "" }] }, NOW));
+  const merged = Array.from(PA.phoneArchMerge(a, a, NOW));
+  assert.strictEqual(merged.length, 1);
+});
+
+test("归档砍掉太旧的和超量的", () => {
+  const mk = (n, daysAgo) => Array.from({ length: n }, (_, i) => ({
+    id: "k" + daysAgo + "_" + i, app: "notes", ts: NOW - daysAgo * 86400000 - i * 1000, title: "t" + i, text: "", when: ""
+  }));
+  const old = mk(5, PA.PHONE_ARCH_DAYS + 3);          // 超过留存天数
+  const fresh = mk(PA.PHONE_ARCH_CAP + 40, 1);        // 超过条数上限
+  const merged = Array.from(PA.phoneArchMerge(old, fresh, NOW));
+  assert.strictEqual(merged.length, PA.PHONE_ARCH_CAP, "没砍到上限");
+  assert.ok(!merged.some(r => r.ts < NOW - PA.PHONE_ARCH_DAYS * 86400000), "太旧的还留着");
+  // 砍的是最旧的那些，不是随便砍
+  const ts = merged.map(r => r.ts);
+  assert.deepStrictEqual(ts, [...ts].sort((a, b) => b - a));
+});
+
+test("认不出时间的不进归档（它在线上没位置，留着只占地方）", () => {
+  const add = Array.from(PA.phoneArchiveFrom("liked", { items: [{ author: "a", title: "没头没尾", excerpt: "x", time: "改天" }] }, NOW));
+  assert.strictEqual(Array.from(PA.phoneArchMerge([], add, NOW)).length, 0);
+});
+
+test("时间线 = 当前 ∪ 归档；被顶掉的打 gone，且不重复出现", () => {
+  const cur = { notes: { items: [{ kind: "typed", title: "新的那条", time: "今天 10:00", body: "" }] } };
+  const arch = Array.from(PA.phoneArchiveFrom("notes", {
+    items: [
+      { kind: "typed", title: "新的那条", time: "今天 10:00", body: "" },   // 和当前重复
+      { kind: "typed", title: "上一轮那条", time: "昨天 22:00", body: "" }  // 已经被顶掉
+    ]
+  }, NOW));
+  const tl = Array.from(PA.phoneTimelineWithArchive(cur, null, arch, NOW));
+  assert.deepStrictEqual(Array.from(tl, r => r.title), ["新的那条", "上一轮那条"]);
+  assert.ok(!tl[0].gone, "当前还在的不该标 gone");
+  assert.ok(tl[1].gone, "被顶掉的没标 gone —— 界面会给一个点过去是空的按钮");
+});
+
+test("归档不打乱未来那一段的位置", () => {
+  const arch = Array.from(PA.phoneArchiveFrom("notes", { items: [{ kind: "typed", title: "上周写的", time: "上周", body: "" }] }, NOW));
+  const tl = Array.from(PA.phoneTimelineWithArchive({}, {
+    calendar: { items: [{ title: "明天要去", date: "2026-08-30", time: "09:00", kind: "日程" }] }
+  }, arch, NOW));
+  assert.strictEqual(tl[0].title, "明天要去");
+  assert.ok(tl[0].ahead);
+  assert.strictEqual(tl[1].title, "上周写的");
+});
+
+test("没有归档时行为和以前一模一样", () => {
+  for (const empty of [null, undefined, [], "不是数组"]) {
+    const a = Array.from(PA.phoneTimelineWithArchive(DATA, null, empty, NOW), r => r.id);
+    const b = Array.from(P.phoneTimeline(DATA, null, NOW), r => r.id);
+    assert.deepStrictEqual(a, b);
+  }
+});
+
+test("全库超量时从最旧的开始扔，不按角色平均砍", () => {
+  const PC = runDecls(BASE.concat(["PHONE_ARCH_CAP =", "PHONE_ARCH_DAYS =", "PHONE_ARCH_CAP_ALL =",
+    "phoneArchTrim =", "function phoneArchiveFrom", "function phoneArchMerge", "function phoneArchCapAll"]),
+    ["phoneArchCapAll", "PHONE_ARCH_CAP_ALL"]);
+  const mk = (tag, n, base) => Array.from({ length: n }, (_, i) => ({ id: tag + i, app: "notes", ts: base - i * 1000, title: tag, text: "", when: "" }));
+  const N = PC.PHONE_ARCH_CAP_ALL;
+  const map = { 翻得多的: mk("a", N, NOW), 很久没翻的: mk("b", 400, NOW - 86400000 * 60) };
+  const out = PC.phoneArchCapAll(map);
+  let total = 0;
+  Object.keys(out).forEach(k => { total += out[k].length });
+  assert.strictEqual(total, N, "全局没砍到上限");
+  // 翻得多的那个角色本来就该留得多，不许为了「公平」把它砍掉一半
+  assert.strictEqual((out["翻得多的"] || []).length, N);
+  assert.strictEqual((out["很久没翻的"] || []).length, 0);
+  // 没超量就原样返回
+  const small = { x: mk("c", 3, NOW) };
+  assert.strictEqual(PC.phoneArchCapAll(small), small);
 });

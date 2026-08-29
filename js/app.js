@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.64";
+const APP_VERSION = "v57.65";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -229,6 +229,11 @@ function App() {
   const [snoops, setSnoops] = useState({});
   const [carries, setCarries] = useState({});
   const [phones, setPhones] = useState({});
+  // 全刷是一个 app 接一个 app 地写的，闭包里的 phones 到第二个 app 就是旧的了。
+  // 归档要读「即将被覆盖的那份」，必须走 ref 拿最新的。⚠️紧跟声明写，别挪去上面
+  // 那堆 ref 同步里——那儿在声明之前，TDZ 会当场白屏。
+  const phonesRef = useRef({});
+  phonesRef.current = phones;
   const [diaries, setDiaries] = useState({});
   const diariesRef = useRef(diaries);
   diariesRef.current = diaries; // 日记最新记录（自动补写时读最新）
@@ -531,6 +536,9 @@ function App() {
   // 日历：{ world:{dateKey:[{id,title}]}, chars:{charId:{...}}, mine:{dateKey:[...]} }
   const [calendar, setCalendar] = useState({ world: {}, chars: {}, mine: {} });
   // 手动日程事件（带时刻、可跨天）：[{id,owner,startDate,endDate,startTime,endTime,title,location,icon,color}]
+  // 查手机时间线的归档：刷新会整份覆盖某个 app，旧痕迹本来就没了。
+  // 覆盖之前先把旧那份抽成时间线条目存这儿，那条线才会越来越长。
+  const [phoneArch, setPhoneArch] = useState({});
   const [calEvents, setCalEvents] = useState([]);
   const calEventsRef = useRef([]);
   calEventsRef.current = calEvents;   // ⚠️紧跟声明写，别挪到上面那堆 ref 同步里去——那儿在声明之前，TDZ 会当场白屏
@@ -603,6 +611,7 @@ function App() {
     setStateHist(loadJSON("x_stateHist", {}));
     setCalendar(loadJSON("x_calendar", { world: {}, chars: {}, mine: {} }));
     setCalEvents(loadJSON("x_calEvents", []));
+    setPhoneArch(loadJSON("x_phoneArch", {}));
     setPromises(loadJSON("x_promises", []));
     setPeriod(loadJSON("x_period", { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null }));
     // 一次性迁移：把之前存成 ≤1400 的单人线下输出上限抬到 4000（旧默认 1400 太紧会截断掉格式；群 g_ 的不动）
@@ -8364,7 +8373,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!actual.length) return "目前没有可用的真实聊天。";
     return "【真实已有会话，先阅读，只能避重、不得改写】\n" + actual.slice(0, 8).map(c => "- " + (c.type === "group" ? "群聊" : "私聊") + "「" + c.name + "」\n" + c.messages.map(m => "  " + m.from + "：" + m.text).join("\n")).join("\n");
   };
+  // 刷新是【整份覆盖】某个 app，旧痕迹本来就没了，时间线于是只剩当前快照。
+  // 所以覆盖之前先把旧那份抽成时间线条目归档起来（她 2026-08-29 一眼看出来的）。
+  // ⚠️时间戳在归档这一刻算死：「昨天 21:03」隔一周再解析就漂到别的日子去了。
+  // ⚠️归档是锦上添花，绝不许拖累正事——整段包在 try 里，写坏了就当没归档，
+  //   手机内容照写不误（localStorage 满了会直接抛 QuotaExceeded）。
+  const archivePhoneApp = (charId, key, oldData) => {
+    if (!oldData || typeof phoneArchiveFrom !== "function") return;
+    try {
+      const now = Date.now();
+      const add = phoneArchiveFrom(key, oldData, now);
+      if (!add.length) return;
+      setPhoneArch(a => {
+        const n = phoneArchCapAll({ ...a, [charId]: phoneArchMerge(a[charId], add, now) });
+        try { saveJSON("x_phoneArch", n); } catch (e) { return a; }
+        return n;
+      });
+    } catch (e) { /* 归档失败就算了，不影响这次刷新 */ }
+  };
   const savePhoneApp = (charId, key, d) => {
+    archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     setPhones(p => {
       const cur = p[charId] || {};
       const entry = {
@@ -12503,6 +12531,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     forumAccountsFor: phoneForumFor,
     playlistFor: cid => (listen.playlists || []).find(x => x.charId === cid) || null,
     calendarFor: phoneCalendarFor,
+    archives: phoneArch,
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },

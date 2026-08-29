@@ -237,6 +237,88 @@ function phoneTimeline(charData, live, nowTs) {
   const loose = out.filter(x => x.ts == null);
   return ahead.concat(past, loose);
 }
+// ─────────────────────────────────────────────────────────────
+// 归档：刷新会整份覆盖某个 app，旧痕迹就没了
+// ─────────────────────────────────────────────────────────────
+// savePhoneApp 是【整份覆盖】那个 app 的数据。所以在加这一层之前，时间线其实
+// 只是「当前快照的重排」：刷新一次，昨天翻到的东西全消失，delta 也就退化成
+// 「这次刷了哪几个 app」。她 2026-08-29 一眼看出来了。
+//
+// 修法不多花一次调用：覆盖之前，先把旧那份抽成时间线条目存起来。
+// 时间线 =「归档 ∪ 当前」，靠指纹去重，同一条刷两次不会出现两遍。
+//
+// ⚠️时间戳必须在【归档那一刻】就算死。「昨天 21:03」这种相对写法，隔一周再解析
+// 就漂到别的日子去了；存的时候它还是当时那个意思，之后就不许再重算。
+const PHONE_ARCH_CAP = 500;          // 每人封顶条数
+const PHONE_ARCH_DAYS = 90;          // 只留这么多天内的
+// 全局再封一道。每人 500 条乘上角色数就上去了——一条约 300 字节（正文/心声各截到
+// 120 字，localStorage 按 UTF-16 存），十个角色满仓就是一两兆，而她的存档本来
+// 就在跟 5MB 抢地方，x_ 开头还会跟着云备份一起走。超了就从最旧的开始扔。
+const PHONE_ARCH_CAP_ALL = 2500;
+// 归档存的是精简版：正文和心声各截到 120 字。整条时间线只显示一两行，
+// 存全文纯粹是拿 localStorage 换看不见的东西（她的存档本来就紧）。
+const phoneArchTrim = r => ({
+  app: r.app, tag: r.tag, when: r.when, ts: r.ts, id: r.id,
+  title: String(r.title || "").slice(0, 60),
+  text: String(r.text || "").slice(0, 120),
+  thought: String(r.thought || "").slice(0, 120)
+});
+// 把某个 app 【即将被覆盖】的那份数据抽成时间线条目
+function phoneArchiveFrom(appKey, oldData, nowTs) {
+  if (!appKey || !oldData) return [];
+  const box = {};
+  box[appKey] = oldData;
+  try { return phoneTimeline(box, null, nowTs || Date.now()).map(phoneArchTrim); } catch (e) { return []; }
+}
+// 并进归档：指纹去重（先到的那份为准，保住它当初算出来的时刻），
+// 然后砍掉太旧的、超量的。认不出时间的不进归档——它在线上没有位置，留着只占地方。
+function phoneArchMerge(prev, add, nowTs) {
+  const now = nowTs || Date.now();
+  const floor = now - PHONE_ARCH_DAYS * 86400000;
+  const seen = {};
+  const out = [];
+  (Array.isArray(prev) ? prev : []).concat(Array.isArray(add) ? add : []).forEach(r => {
+    if (!r || !r.id || r.ts == null) return;
+    if (r.ts < floor) return;
+    if (seen[r.id]) return;
+    seen[r.id] = 1;
+    out.push(r);
+  });
+  out.sort((a, b) => b.ts - a.ts);
+  return out.slice(0, PHONE_ARCH_CAP);
+}
+// 全库超量时按时间从最旧的开始扔（不是按角色平均砍——翻得多的那个角色
+// 本来就该留得多）。返回新的整张表。
+function phoneArchCapAll(map) {
+  const m = (map && typeof map === "object") ? map : {};
+  const ids = Object.keys(m);
+  let total = 0;
+  ids.forEach(k => { total += (Array.isArray(m[k]) ? m[k] : []).length });
+  if (total <= PHONE_ARCH_CAP_ALL) return m;
+  const all = [];
+  ids.forEach(k => (Array.isArray(m[k]) ? m[k] : []).forEach(r => { if (r && r.ts != null) all.push({ k, r }) }));
+  all.sort((a, b) => b.r.ts - a.r.ts);
+  const out = {};
+  all.slice(0, PHONE_ARCH_CAP_ALL).forEach(x => { (out[x.k] = out[x.k] || []).push(x.r) });
+  return out;
+}
+// 时间线读的那份：当前的 + 归档里当前已经没有的。
+// 归档独有的那些打上 gone —— 它们在 app 里已经被后来的内容顶掉了，
+// 界面上不能再给一个「去便签里看」的按钮，点过去是空的。
+function phoneTimelineWithArchive(charData, live, archive, nowTs) {
+  const now = nowTs || Date.now();
+  const cur = phoneTimeline(charData, live, now);
+  const have = {};
+  cur.forEach(r => { have[r.id] = 1 });
+  const old = (Array.isArray(archive) ? archive : [])
+    .filter(r => r && r.id && !have[r.id] && r.ts != null)
+    .map(r => ({ ...r, appZh: PHONE_LABEL[r.app] || r.app, gone: true }));
+  if (!old.length) return cur;
+  const ahead = cur.filter(r => r.ahead);
+  const rest = cur.filter(r => !r.ahead).concat(old).filter(r => r.ts != null).sort((a, b) => b.ts - a.ts);
+  const loose = cur.filter(r => !r.ahead && r.ts == null);
+  return ahead.concat(rest, loose);
+}
 // 今天/昨天/前天/8月28日 周五 —— 时间线按天分段用的标题
 function phoneDayLabel(ts, nowTs) {
   if (ts == null) return "时间不详";
@@ -423,7 +505,8 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
   h("div", { className: "flex-1 min-w-0", style: { paddingBottom: 14, paddingTop: 7 } },
     h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 3 } },
       h(PGlyph, { k: r.app, size: 12, color: t.fog }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, r.appZh + (r.tag ? " · " + r.tag : ""))),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+        r.appZh + (r.tag ? " · " + r.tag : "") + (r.gone ? " · 已被顶掉" : ""))),
     r.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, r.title),
     r.text && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
       r.text.length > 52 ? r.text.slice(0, 52) + "…" : r.text)));
@@ -438,7 +521,9 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
     // 只看新增
     h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
-        list.length ? "把 " + list.length + " 条痕迹按时间排在一起" : "还没有翻出任何东西"),
+        list.length
+          ? (() => { const g = list.filter(r => r.gone).length; return "把 " + list.length + " 条痕迹按时间排在一起" + (g ? "，其中 " + g + " 条只在这儿还留着" : ""); })()
+          : "还没有翻出任何东西"),
       newCount > 0 && h("button", {
         onClick: () => setOnlyNew(v => !v),
         className: "active:opacity-60",
@@ -473,11 +558,15 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       sheet.thought && h("div", {
         style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12, paddingLeft: 10, borderLeft: "2px solid " + t.line, wordBreak: "break-word" }
       }, sheet.thought),
-      h("button", {
-        onClick: () => { const a = sheet.app; setSheet(null); onOpenApp && onOpenApp(a); },
-        className: "w-full mt-6 py-3 active:opacity-60",
-        style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
-      }, "去" + sheet.appZh + "里看"),
+      // 归档里那些已经被后来的内容顶掉了，app 里点过去是空的——不给按钮，明说
+      sheet.gone
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 18, lineHeight: 1.75 } },
+            "这条已经被后来刷新的内容顶掉了，" + sheet.appZh + "里翻不到了，只剩时间线上这一份。")
+        : h("button", {
+            onClick: () => { const a = sheet.app; setSheet(null); onOpenApp && onOpenApp(a); },
+            className: "w-full mt-6 py-3 active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
+          }, "去" + sheet.appZh + "里看"),
       // 转发那一层照旧走 onPeek，绝不因为点开就自动发出去（她 2026-08-29 被吓过一次）
       onPeek && h("button", {
         onClick: () => onPeek({ tier: "quiet", label: sheet.appZh + (sheet.tag ? " · " + sheet.tag : ""), title: sheet.title, text: sheet.text || sheet.thought }),
@@ -2844,6 +2933,7 @@ function PhoneCarry({
   playlistBusyId,
   onPlaySong,
   calendarFor,
+  archives,
   onPeek
 }) {
   const t = useTheme();
@@ -2939,7 +3029,7 @@ function PhoneCarry({
   // ── 时间线 + delta ──────────────────────────────────────────
   // 时间线不生成任何东西：它把上面那些 app 已经翻出来的碎片按时间串起来。
   // delta 就是「这一串里，上次翻完之后才出现的那些」。
-  const tlRows = phoneTimeline(data, liveCtx, Date.now());
+  const tlRows = phoneTimelineWithArchive(data, liveCtx, (archives || {})[char.id], Date.now());
   const seenIds = (mark[char.id] || {}).ids || {};
   const newIds = {};
   let newCount = 0;
