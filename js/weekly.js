@@ -1225,6 +1225,32 @@
     const s = props.sec; const v = voiceOf(s.voiceId);
     const arts = s.articles || [];
     const L = lookOf(s.voiceId);
+    function articleBody(a, compact) {
+      const paras = (a.body || "").split(/\n+/).filter(Boolean);
+      return h("div", null, paras.map(function (p, j) {
+        const first = !compact && j === 0 && p.length > 6;
+        return h("div", { key: j, style: { fontFamily: L.bodyFace, fontSize: compact ? 12.5 : (L.face === "mono" ? 13.5 : 14.5), color: "inherit", lineHeight: compact ? 1.72 : (s.voiceId === "tabloid" ? 1.68 : 1.9), marginBottom: compact ? 8 : 10, whiteSpace: "pre-wrap", opacity: .96, textAlign: L.face === "serif" ? "justify" : "left" } },
+          first ? h("span", { style: { float: "left", fontFamily: L.titleFace, fontSize: 42, fontWeight: 700, lineHeight: .88, color: L.tint, marginRight: 7, marginTop: 5 } }, p.slice(0, 1)) : null,
+          first ? p.slice(1) : p);
+      }));
+    }
+    function pairedArticle(a, i, side) {
+      const filled = side === "left";
+      return h("article", { key: i, style: { minWidth: 0, alignSelf: "stretch", padding: filled ? "14px 13px 16px" : "14px 0 16px 13px", background: filled ? L.pale : "transparent", borderTop: "6px solid " + L.tint, color: L.ink } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, fontWeight: 700, letterSpacing: ".18em", color: L.tint, marginBottom: 10 } }, "0" + (i + 1) + " / SHORT READ"),
+        h("div", { style: { fontFamily: L.titleFace, fontSize: s.voiceId === "tabloid" ? 20 : 17.5, fontWeight: L.face === "mono" || s.voiceId === "tabloid" ? 700 : 600, color: L.ink, lineHeight: 1.24, marginBottom: 12, wordBreak: "keep-all", overflowWrap: "break-word" } }, a.title),
+        articleBody(a, true));
+    }
+    function wideArticle(a, i) {
+      const decoFirst = i % 2 === 1;
+      const deco = h("div", { style: { minHeight: 154, background: L.tint, color: s.voiceId === "cyberpunk" || s.voiceId === "noir" ? L.paper : "#fffaf4", padding: "13px 9px", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" } },
+        h("span", { style: { fontFamily: L.titleFace, fontSize: 25, lineHeight: 1 } }, L.deco),
+        h("span", { style: { writingMode: "vertical-rl", fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".18em" } }, "FEATURE 0" + (i + 1)));
+      const copy = h("div", { style: { minWidth: 0, padding: decoFirst ? "3px 0 2px 17px" : "3px 17px 2px 0" } },
+        h("div", { style: { fontFamily: L.titleFace, fontSize: s.voiceId === "tabloid" ? 25 : 21, fontWeight: L.face === "mono" || s.voiceId === "tabloid" ? 700 : 600, color: L.ink, lineHeight: 1.2, marginBottom: 13, wordBreak: "keep-all", overflowWrap: "break-word" } }, a.title),
+        articleBody(a, false));
+      return h("article", { key: i, style: { display: "grid", gridTemplateColumns: decoFirst ? "66px minmax(0,1fr)" : "minmax(0,1fr) 66px", alignItems: "start", margin: "0 18px 32px", paddingBottom: 24, borderBottom: "1px solid " + L.tint + "55" } }, decoFirst ? deco : copy, decoFirst ? copy : deco);
+    }
     return h("div", { style: { color: L.ink, margin: "0 -10px", paddingBottom: 8 } },
       // 内页报头与封面共用“色块当骨头”的语言，但每栏使用自己的字号和字体。
       h("div", { style: { display: "grid", gridTemplateColumns: "1fr 74px", minHeight: 112, marginBottom: 22 } },
@@ -1235,24 +1261,14 @@
           h("span", { style: { fontSize: 17 } }, L.deco),
           h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".14em", writingMode: "vertical-rl", textTransform: "uppercase" } }, "WEEKLY EDITION"))),
       h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
-      arts.map(function (a, i) {
-        const paras = (a.body || "").split(/\n+/).filter(Boolean);
-        const firstArticle = i === 0;
-        return h("article", { key: i, style: { margin: firstArticle ? "0 0 30px" : "0 18px 30px", paddingBottom: 24, borderBottom: i < arts.length - 1 ? "1px solid " + L.tint + "55" : "none" } },
-          h("div", { style: firstArticle
-            ? { width: "88%", margin: "0 0 18px auto", padding: "18px 19px", background: L.pale, borderLeft: "8px solid " + L.tint }
-            : { display: "grid", gridTemplateColumns: "34px 1fr", gap: 11, alignItems: "start", marginBottom: 13 } },
-            firstArticle ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".22em", color: L.tint, textTransform: "uppercase", marginBottom: 8 } }, "LEAD · " + String(i + 1).padStart(2, "0"))
-              : h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, fontWeight: 700, color: L.tint, borderTop: "4px solid " + L.tint, paddingTop: 7 } }, String(i + 1).padStart(2, "0")),
-            h("div", { style: { fontFamily: L.titleFace, fontSize: firstArticle ? (s.voiceId === "tabloid" ? 27 : 24) : 20, fontWeight: L.face === "mono" || s.voiceId === "tabloid" ? 700 : 600, color: L.ink, lineHeight: 1.2, letterSpacing: L.face === "mono" ? ".01em" : "-.01em", textTransform: s.voiceId === "cyberpunk" ? "uppercase" : "none", wordBreak: "keep-all", overflowWrap: "break-word" } }, a.title)),
-          h("div", { style: { margin: "0 18px" } }, paras.map(function (p, j) {
-            const first = j === 0 && p.length > 6;
-            return h("div", { key: j, style: { fontFamily: L.bodyFace, fontSize: L.face === "mono" ? 13.5 : 14.5, color: L.ink, lineHeight: s.voiceId === "tabloid" ? 1.68 : 1.9, marginBottom: 10, whiteSpace: "pre-wrap", opacity: .96, textAlign: L.face === "serif" ? "justify" : "left" } },
-              // 首段首字放大成落款字，只在第一段做一次
-              first ? h("span", { style: { float: "left", fontFamily: L.titleFace, fontSize: 42, fontWeight: 700, lineHeight: .88, color: L.tint, marginRight: 7, marginTop: 5 } }, p.slice(0, 1)) : null,
-              first ? p.slice(1) : p);
-          })));
-      }));
+      arts[0] ? h("article", { style: { margin: "0 0 32px", paddingBottom: 24, borderBottom: "1px solid " + L.tint + "55" } },
+        h("div", { style: { width: "88%", margin: "0 0 18px auto", padding: "18px 19px", background: L.pale, borderLeft: "8px solid " + L.tint } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".22em", color: L.tint, textTransform: "uppercase", marginBottom: 8 } }, "LEAD · 01"),
+          h("div", { style: { fontFamily: L.titleFace, fontSize: s.voiceId === "tabloid" ? 27 : 24, fontWeight: L.face === "mono" || s.voiceId === "tabloid" ? 700 : 600, color: L.ink, lineHeight: 1.2, wordBreak: "keep-all", overflowWrap: "break-word" } }, arts[0].title)),
+        h("div", { style: { margin: "0 18px" } }, articleBody(arts[0], false))) : null,
+      arts.length >= 3 ? h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, margin: "0 18px 34px", alignItems: "stretch" } }, pairedArticle(arts[1], 1, "left"), pairedArticle(arts[2], 2, "right")) : null,
+      arts.length === 2 ? wideArticle(arts[1], 1) : null,
+      arts.slice(3).map(function (a, offset) { return wideArticle(a, offset + 3); }));
   }
 
   function IssueView(props) {

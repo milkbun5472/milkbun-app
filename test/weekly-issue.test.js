@@ -89,6 +89,16 @@ test("来信、资料室与采访目录都改成编辑网格而非旧卡片列�
   assert.doesNotMatch(issue, /boxShadow: on \? "0 2px 8px/, "采访索引不能继续是浮起的圆角卡片");
 });
 
+test("媒体内页有头稿、双栏短稿和色块侧栏三种版式", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const media = w.slice(w.indexOf("function MediaDetail"), w.indexOf("function IssueView"));
+  assert.match(media, /function pairedArticle/, "短稿需要能两篇并排");
+  assert.match(media, /gridTemplateColumns: "minmax\(0,1fr\) minmax\(0,1fr\)"/, "双栏必须是等宽可收缩网格");
+  assert.match(media, /function wideArticle/, "长稿需要独立的不对称版式");
+  assert.match(media, /gridTemplateColumns: decoFirst \? "66px minmax\(0,1fr\)"/, "长稿旁要有结构色侧栏");
+  assert.match(media, /background: L\.tint/, "装饰必须使用栏目结构色，不是漂浮贴纸");
+});
+
 test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在封面内", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
