@@ -1146,6 +1146,30 @@ const PHOTO_NO_EXCUSE = `【发照片时不许替这张照片找补】「等我�
 · 光线、环境、氛围怎么写都行，那是 scene 的事（写给出图看的）；气泡里不用再解释一遍这张照片长什么样、为什么不够好。
 · 拍之前要不要拖一拍、拍完说什么，按【这个人此刻真会做的】来：可以直接甩过去、可以只回一个字、可以嘴硬、可以顺口讲一句跟照片无关的事、也可以什么都不说只发图。
 · 真要挑剔照片本身，得是【这个人特有的】那种挑剔（他嫌自己那天的衣服、嫌旁边那人入镜、嫌这个角度显得傻），不是通用的「光线不好别嫌弃」。`;
+// 线下拍照（她 2026-08-29：「我想要线下生图功能，这样在一块的时候可以生成合照」）。
+// 和线上单聊共用同一个 photo 字段、同一组 kind，只是取景的【理由】不同：线上是隔着
+// 手机给对方看自己，线下是你俩此刻真的在同一个地方，某一格值得留下来。
+// duo 只在两张参考照都在时才开口——一张真一张编，脸就毁了（和线上同一条规矩）。
+function offlinePhotoHint(userName, charName, canDuo, isGroup) {
+  const who = isGroup ? "TA" : "你";
+  const kinds = ["**self**=" + who + "自己举着手机拍的第一人称自拍",
+    "**other**=" + userName + "替 " + who + "拍下的那一张（第三人称，站坐走停、回头、半身全身带环境都行，取景比自拍自由得多）"];
+  if (canDuo) kinds.push("**duo**=" + who + "和 " + userName + " 的合照（画面里是两个人，会拿两人各自的参考照把两张脸都锁住）");
+  return "\n【photo 拍一张】" + (isGroup ? "在场成员" : "你") + "和 " + userName + " 此刻【真的在同一个地方】，"
+    + "所以照片是当场拍的，不是隔着手机发过去的。这一拍里有值得留下来的画面（凑在一起、光线正好、"
+    + (canDuo ? "对方举起手机要合影、你自己想留一张我俩的、" : "")
+    + "刚做成一件事、吃到一顿好的、走到一个地方），就填 photo；没有就 photo:null。"
+    + "\n形状：{\"kind\":\"" + (canDuo ? "self｜other｜duo" : "self｜other") + "\",\"scene\":\"这一格拍到了什么\"}。"
+    + kinds.join("；") + "。"
+    + (canDuo ? "\n**在一块的时候合照是最自然的那一张**——" + userName + " 没开口你也可以自己举起手机；你清楚镜头里另一个人就是 " + userName + "。" : "")
+    + "\n【scene 怎么写】写这一格的画面：在哪、在干嘛、什么表情、什么光。"
+    + "别写长相（长相由参考照锁住，写了反而打架），别写这一段的来龙去脉（出图看不懂剧情），"
+    + "**别把还没发生的、镜头外的、心里想的写进去**——它只是一格，不是这一拍的摘要。"
+    + "桌上的酒、手里的烟、腰间的刀、身上的血伤【不进画面】：不是不存在，是这一格没拍到；带上它们整张会被审核拒掉，连脸都出不来。"
+    + "\n⚠️这条只管取景，不是不拍的理由。她开口要拍，你就拍——正在喝酒、带着刀、身上有伤都不构成省略 photo 的理由，永远有一格拍得出来：拍脸、拍上半身、拍此刻的神情。"
+    + "\n**画面只能写进 photo.scene，绝不许写进 scene 正文里假装拍过**——正文里就照常写这个人的动作和话（举起手机、凑过去、说一句什么），真图交给 photo 字段；不填 photo 就等于这一拍没拍。"
+    + "\n" + PHOTO_NO_EXCUSE;
+}
 const GROUP_IN_CHARACTER = `【你不是在导演他们，你就是在场的每一个人】
 轮到写谁那一条，你就【是】那个人在打字、在场，不是站在旁边替他写台词。每一条都从【这个具体的人此刻真实的判断、心情、说话习惯】里出来，不是从「他这种人该有的样子」里出来。
 
@@ -4012,7 +4036,13 @@ function offlineHistory(msgs, userName, charName) {
     const surface = m._surface === "online" ? "【线上私聊】" : "";
     if (m.role === "char") {
       const l = g[g.length - 1];
-      const c = gap + stamp + surface + (m.content || "");
+      // 线下真拍下来的那一格：和线上同一个落法——说明它【已经拍过了】，
+      // 免得下一拍又说自己没拍过、或者原样再拍一张（她 2026-08-29）。
+      const shot = m.kind === "selfie"
+        ? (m.failed ? "【这里试着拍了一张，但图没出来】"
+          : "【这一刻已经实际拍下一张" + (m.photoKind === "duo" ? "你和" + userName + "的合照" : m.photoKind === "other" ? userName + "替你拍的照片" : "自拍") + "，是你亲手做过的事，不得说没拍过、也别马上原样再拍一张】" + (m.desc ? "画面：" + m.desc : ""))
+        : "";
+      const c = gap + stamp + surface + (shot || m.content || "");
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
       const raw = m.content || "";
@@ -4201,6 +4231,9 @@ async function generateOffline(p, ctx, session) {
   // 配件（线下·授权门在 app 侧算好传进 session.toyOn；线下天然是用户在场当面，无后台顾虑）
   const toyHint = session.toyOn ? "\n【toy 配件·此刻已授权】你和" + userName + "此刻线下面对面、且开了「配件」——你的动作和话能【真的作用到 Ta 身上】。这一段情境到了（亲密、挑逗、想让 Ta 有反应、按住 Ta 别乱动）你可以填 toy:{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":1到20整数,\"duration\":秒数1到90,\"reason\":\"配合这段的哪个动作/哪句话\"}，否则 toy:null。**节奏跟叙事走**：推进升温→intensity 渐强；故意吊着/停下→pattern 用 edge 或压到 1；一个命令/一个动作点到 Ta→pattern 用 pulse 短脉冲。pattern：teasing 若即若离偶尔一下／steady 稳定持续／wave 起伏／pulse 一下一下点名／edge 推到顶再骤降／ramp 一路往上推不回落／hold 高位稳住不退潮／throb 心跳般的双击／flutter 高频细颤酥麻／tide 绵长的长潮起落／knock 三下轻叩后静默／surge 潜伏后突然拉满。**一段想持续久就直接把 duration 拉长（最多 90 秒）**，长段落用 hold/tide/ramp。**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。先有叙事、动作配合叙事，别每段都发。强度我这边有上限，超了会被压到上限。" : "";
   const digitalToyHint = session.toyOn ? "\n【配件】此刻配件已由 " + userName + " 当场授权并连到她身上。你想实际控制它时，可使用 toy：pattern 为 teasing/steady/wave/pulse/edge/ramp/hold/throb/flutter/tide/knock/surge，intensity 1-20，duration 1-90 秒；**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。是否使用、何时使用、用什么节奏由你自己决定。" : "";
+  // 线下拍照能力（app 侧算好 photoOn / photoDuo 传进来：接了图像 API、这个人有外貌或参考照、
+  // 没在冷却里）。数字生命不发——扮演类规则一律不给他。
+  const offPhotoHint = (!isDigital && session.photoOn) ? offlinePhotoHint(userName, char.name, !!session.photoDuo, false) : "";
   const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":整数1-20,\"duration\":秒1-90,\"reason\":\"配合哪句/哪个动作\"}" : "";
   // v52.88 A/B：预检已命中的普通单人线下，把“首稿 → 表达编辑”折叠进同一次 completion。
   // JSON 字段按 draftScene → scene 排列；模型生成 scene 时，首稿已经成为它最近的上下文，
@@ -4222,7 +4255,9 @@ async function generateOffline(p, ctx, session) {
     : "";
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
-    : "\n\n" + OFFLINE_PROTOCOL_V2 + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
+    : "\n\n" + OFFLINE_PROTOCOL_V2
+      + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。它是上面输出形状的追加项。" : "")
+      + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
@@ -4246,6 +4281,7 @@ async function generateOffline(p, ctx, session) {
     (ctx.curCondition ? "\n【身体状态连贯】你现在" + ctx.curCondition + "。这不是背景设定，是此刻真的这样：动作、说话的力气、能不能久站久走都要受它影响；除非剧情里明确好转，别忽然生龙活虎。" : "") +
     (session.priorSummary ? "\n【这场线下的前情提要（早先发生的、已浓缩进记忆，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
     toyHint +
+    offPhotoHint +
     "") + outputSpec + stateBootstrapHint + gazeSpecBlock;
   // v52.77：恢复正常首遍生成；首次跨越后的 scene 再交给同模型做删除优先的受约束编辑。
   // 最终只有编辑稿进入 session history，首遍草稿仅用于本轮内存诊断。
@@ -4460,7 +4496,10 @@ async function generateOffline(p, ctx, session) {
     wearing: cln(parsed.wearing),
     action: cln(parsed.action),
     affinityDelta,
-    toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null
+    toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null,
+    // 线下拍下的那一格。kind 由 app 再核一遍（duo 要两张参考照都在才作数）。
+    photo: (session.photoOn && parsed.photo && typeof parsed.photo === "object" && String(parsed.photo.scene || "").trim())
+      ? { kind: String(parsed.photo.kind || "self"), scene: String(parsed.photo.scene).trim() } : null
   };
 }
 // 结束线下时把整段浓缩成一条记忆（第三人称，供存入记忆库）
@@ -4493,7 +4532,12 @@ function offlineGroupHistory(msgs, userName) {
       : "";
     const stamp = ts ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
-      const c = gap + stamp + (m.senderName ? m.senderName + "：" : "") + (m.content || "");
+      // 拍下来的那一格（和单人线下同一个落法）：说明已经拍过了，别再原样拍一张。
+      const shot = m.kind === "selfie"
+        ? (m.failed ? "【这里试着拍了一张，但图没出来】"
+          : "【已经实际拍下一张" + (m.photoKind === "group" ? "在场几个人的合影" : m.photoKind === "duo" ? "TA 和" + userName + "的合照" : m.photoKind === "other" ? userName + "替 TA 拍的照片" : "自拍") + "，别说没拍过、也别马上原样再拍一张】" + (m.desc ? "画面：" + m.desc : ""))
+        : "";
+      const c = gap + stamp + (m.senderName ? m.senderName + "：" : "") + (shot || m.content || "");
       const l = g[g.length - 1];
       if (l && l.role === "assistant") l.content += "\n" + c; else g.push({ role: "assistant", content: c });
     } else {
@@ -4628,8 +4672,17 @@ async function generateOfflineGroup(p, ctx, session) {
     (session.minWords ? "\n" + window.StylePresets.wordRule(session.minWords)
       + "\n· 这个字数是【整段所有 beat 加起来】的量，不是每个 beat 各写这么多。" : "") +
     (notes.length ? "\n【临时导演提示（务必遵循）】" + notes.join("；") : "") +
+    // 群线下拍照（四处一样喂：单人线下有的，群线下也得有）。app 侧算好谁能拍、
+    // 谁能合照、够不够人拍多人合影。
+    ((session.photoMembers || []).length
+      ? "\n" + offlinePhotoHint(userName, "", (session.photoDuoMembers || []).length > 0, true)
+        + "\n【谁能拍】只有这几位能填 photo：" + (session.photoMembers || []).join("、") + "。"
+        + ((session.photoDuoMembers || []).length ? "其中能和 " + userName + " 合照（duo）的只有：" + (session.photoDuoMembers || []).join("、") + "。" : "")
+        + (session.photoGroupOk ? "另有 **group**＝在场几个人一起拍的合影（每个人的脸都拿各自参考照锁住）——大家正好凑在一处、有人起哄拍一张、或聊到「我们几个」时用它；只有一个人在场时不许用。" : "")
+        + "整轮最多一个 beat 带 photo，别每个人都拍。"
+      : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——仅当这一段真正改变了该角色对用户或他俩关系的某一块长期认知才填，极少发生；第一人称亲笔、锚在刚发生的事上、在旧认知上小幅演进\"}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
+    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）整数-5到5，这段相处让该角色对用户的好感如何变化，通常小幅、没波动就0\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——仅当这一段真正改变了该角色对用户或他俩关系的某一块长期认知才填，极少发生；第一人称亲笔、锚在刚发生的事上、在旧认知上小幅演进\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~5 个 beat，让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + c.name + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。";
   const hist = offlineGroupHistory(session.msgs, userName);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -4691,7 +4744,10 @@ async function generateOfflineGroup(p, ctx, session) {
       thought: spk && b.thought && String(b.thought).toLowerCase() !== "null" ? String(b.thought).trim() : null,
       mood: spk && b.mood && b.mood.label ? b.mood : null,
       impression: (spk && b.impression && typeof b.impression === "object") ? b.impression : null,
-      affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0
+      affinityDelta: spk && typeof b.affinityDelta === "number" ? b.affinityDelta : 0,
+      // 这一拍拍下的那一格。kind 由 app 再核一遍（谁能拍、够不够参考照都在那边算）。
+      photo: (spk && b.photo && typeof b.photo === "object" && String(b.photo.scene || "").trim())
+        ? { kind: String(b.photo.kind || "self"), scene: String(b.photo.scene).trim() } : null
     };
   }).filter(b => b.scene);
   // 回声式反问兜底：只削【第一个角色 beat】开头那一声——后面的 beat 是别人在接话，

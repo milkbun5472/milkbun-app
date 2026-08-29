@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.81";
+const APP_VERSION = "v57.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3871,6 +3871,130 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       memExtractMarkOffRef.current[charId] = all[all.length - 1].ts || Date.now();
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
   };
+  // ── 线下拍照 ────────────────────────────────────────────────
+  // 她 2026-08-29：「我想要线下生图功能，这样在一块的时候可以生成合照」。
+  // 两条路都走这一个函数：模型自己在某一拍填了 photo，和她自己按【拍一张】。
+  // 一层写在一处——出图、降级提示、存 IDB、回读验证只有这一份。
+  const patchOffMsg = (charId, sid, patch) => pOffline(charId, list => list.map(s =>
+    (s.msgs || []).some(m => m && m.sid === sid)
+      ? { ...s, msgs: s.msgs.map(m => m && m.sid === sid ? { ...m, ...patch } : m) }
+      : s));
+  const patchGOffMsg = (groupId, sid, patch) => pGOffline(groupId, list => list.map(s =>
+    (s.msgs || []).some(m => m && m.sid === sid)
+      ? { ...s, msgs: s.msgs.map(m => m && m.sid === sid ? { ...m, ...patch } : m) }
+      : s));
+  // 线下能不能拍：接了图像 API + 这个人有外貌或参考照。合照另要两张参考照都在。
+  const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
+  const offlinePhotoCanDuo = char => !!(char && char.refPhoto && profile && profile.refPhoto);
+  // 一份出图，两处线下（单人 / 群）共用。arg：
+  //   char    这张照片是谁的（拿他的参考照锁脸、读他的状态卡）
+  //   groupId 有值就落进群线下那份会话，没有就落进和 char 的单人线下
+  //   kind    self｜other｜duo｜group
+  //   cast    仅 group：镜头里点名的那几位（顺序＝参考图顺序，错位脸就串）
+  const runOfflineShot = async (arg) => {
+    const char = arg && arg.char;
+    const groupId = arg && arg.groupId;
+    const scene = String((arg && arg.scene) || "").trim();
+    if (!char || !offlinePhotoCan(char) || !scene) return false;
+    // 合照必须两张参考照都在，否则降级成「她替他拍的单人照」——绝不一张真一张编。
+    let kind = ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
+    if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
+    let cast = kind === "group" ? (arg.cast || []) : null;
+    if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
+    const sid = "sf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    const row = { id: "c_" + Date.now(), role: "char", kind: "selfie", sid, imgKey: null, pending: true, desc: scene, photoKind: kind, ts: Date.now() };
+    const push = extra => {
+      const r = { ...row, ...extra };
+      if (groupId) pushGOffMsg(groupId, { ...r, id: "gc_" + Date.now(), senderId: char.id, senderName: char.name });
+      else pushOffMsg(char.id, r);
+    };
+    // 占位先挂上，好让她知道在拍——但【图秒回或秒挂】的时候不要挂：
+    // 线下那份是 durable 键，两次写进得太近会撞上 WAL 的读回自检（后一次盖掉前一次
+    // 正在核对的那一版），控制台就报一声 read-back mismatch。中间隔一下就没这回事，
+    // 而秒失败的那种（配错 key、断网）本来也不需要先转一圈圈。
+    let placed = false;
+    const place = () => { if (!placed) { placed = true; push(); } };
+    const holdTimer = setTimeout(place, 300);
+    const patch = q => {
+      clearTimeout(holdTimer);
+      if (!placed) { placed = true; push(q); return; }
+      return groupId ? patchGOffMsg(groupId, sid, q) : patchOffMsg(char.id, sid, q);
+    };
+    try {
+      const st = statesRef.current[char.id] || {};
+      const me = { name: (profile && profile.name) || "我", appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto };
+      const freshPlace = freshLiveStateValue(st, "place");
+      const freshCond = freshLiveStateValue(st, "condition");
+      // 连贯参考图：这一场线下里这个人最近一张已生成的图，只取 6 小时内的。
+      // 原始参考照永远比生成图可信，只有完全没有参考照时才让生成图临时当锚。
+      const sessList = groupId ? (groupOfflinesRef.current[groupId] || []) : (offlinesRef.current[char.id] || []);
+      const sess = sessList.find(x => !x.endTs) || { msgs: [] };
+      const prevShot = (sess.msgs || []).slice().reverse()
+        .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid
+          && (!groupId || String(m.senderId || "") === String(char.id))
+          && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
+      const refs = cast ? cast.map(x => x.refPhoto).filter(Boolean)
+        : kind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean)
+        : [char.refPhoto].filter(Boolean);
+      const contBlobKey = refs.length === 0 && prevShot ? prevShot.imgKey : null;
+      if (contBlobKey) refs.push(contBlobKey);
+      const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
+      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 });
+      const minimalPrompt = buildMinimalPhotoPrompt(char, { kind, cast });
+      const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
+      if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
+      if (out.blob) {
+        const key = "img_" + char.id + "_" + sid;
+        await idbImgPut(key, out.blob);
+        const back = await idbImgGet(key).catch(() => null);
+        if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，重拍一张多半就好）");
+        patch({ pending: false, imgKey: key });
+      } else if (out.url) {
+        patch({ pending: false, imgUrl: out.url });
+      } else { throw new Error("没拿到图"); }
+      return true;
+    } catch (e) {
+      patch({ pending: false, failed: true });
+      const em = String((e && e.message) || "");
+      const isSafety = /safety|policy|内容政策|content policy|moderat|sensitive|blocked|rejected|违反/i.test(em);
+      toast("这张没拍成：" + (isSafety
+        ? "上游审核拒了（换措辞、只拍人像都试过了）。多半是这一格的画面里有它敏感的词——换个平静点的时刻，或者直接说「拍张脸就行」。原始报错：" + em
+        : /quota|available|not\s*found|额度|配额|无可用|不存在|无权限|permission|model_not|invalid_model/i.test(em)
+        ? "图像模型没配额或名字不对——去 设置·图像API 点「拉取模型」换一个你中转站真有货的。原始报错：" + em
+        : (em || "重试")), 9000);
+      return false;
+    }
+  };
+  // 群线下当场拍一张合影：点名单＝在场有参考照的成员（第一位当拍照的那个）+ 用户。
+  const groupOfflineShotNow = async groupId => {
+    const group = groups.find(g => String(g.id) === String(groupId));
+    if (!group) return;
+    const withRef = groupMembers(group).filter(c => c && c.refPhoto);
+    const cast = withRef.slice(0, (profile && profile.refPhoto) ? 3 : 4)
+      .map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
+    if (profile && profile.refPhoto) cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto });
+    if (cast.length < 2 || !withRef.length) { toast("合影要在场至少两个人有参考照，才能把脸都锁住——去给他们（或你自己）各传一张", 9000); return; }
+    const shooter = withRef[0];
+    const st = statesRef.current[shooter.id] || {};
+    const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "place")].map(x => String(x || "").trim()).filter(Boolean);
+    await runOfflineShot({ char: shooter, groupId, kind: "group", scene: bits.length ? bits.join("，") : "几个人凑在一起，平静的自然光", cast });
+  };
+  const groupOfflineCanShoot = group => {
+    if (!group || !((typeof imgApiReady === "function") && imgApiReady())) return false;
+    return groupMembers(group).filter(c => c && c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
+  };
+  // 她自己按【拍一张】：零模型调用。画面从此刻的状态卡长出来——
+  // 「在哪、在干嘛、穿什么」正好就是一格照片需要的全部，不必再花一次调用去问模型。
+  const offlineShotNow = async (charId, kind) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char) return;
+    if (!offlinePhotoCan(char)) { toast("先去 设置·图像API 接一个图像模型，再给 " + char.name + " 填上外貌或参考照"); return; }
+    if (kind === "duo" && !offlinePhotoCanDuo(char)) { toast("合照要你俩各自的参考照都在，才能把两张脸都锁住——去「我」那页传一张你的，再给 " + char.name + " 传一张", 9000); return; }
+    const st = statesRef.current[charId] || {};
+    const bits = [freshLiveStateValue(st, "action"), freshLiveStateValue(st, "wearing")].map(x => String(x || "").trim()).filter(Boolean);
+    const scene = bits.length ? bits.join("，") : "此刻的样子，平静的自然光";
+    await runOfflineShot({ char, kind, scene });
+  };
   const genOfflineFrom = async (charId, workSess) => {
     const char = characters.find(c => c.id === charId);
     if (!offlineApiFor(charId)) {
@@ -3925,7 +4049,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
         try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      // 线下拍照：接了图像 API、这个人有外貌或参考照、没在冷却里才把 photo 这个能力给他。
+      // 冷却和线上共用一份 photoCooldownState（它认 role 是 char 还是 assistant）。
+      const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
+      const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
         const _got = res.minimumLengthShortCount || res.minimumLengthChars || 0;
@@ -3987,6 +4115,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           .filter(x => x.intensity > 0);
         if (_segs.length) (typeof toyPlaySeq === "function" ? toyPlaySeq(_segs) : toyPlay(_segs[0])).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
       }
+      // 这一拍真拍下了一张：不 await，让正文先落地，图自己在后面补进来。
+      if (res.photo && res.photo.scene) runOfflineShot({ char, kind: res.photo.kind, scene: res.photo.scene });
       // 线下相处也影响好感与心情（跟私聊一样）
       if (Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
       tickAmbient(charId, {}); // 线下也计动态保底（她 2026-07-13 点名）——在线下泡久了，动态计数不冻结
@@ -4510,7 +4640,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       });
       gCtx.memberStyleExamples = {};
       (group.memberIds || []).forEach(id => { gCtx.memberStyleExamples[id] = pickOfflineStyleExamples(osFor(id).examples, effectiveSess.msgs || []); });
-      const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+      // 群线下拍照（四处一样喂）：谁接了图像 API 又有外貌/参考照、谁没在冷却里。
+      // 合照另要两张参考照都在；多人合影要凑得齐两个人的参考照。
+      const _gShooters = ((typeof imgApiReady === "function") && imgApiReady())
+        ? (gCtx.members || []).filter(c => c && (c.appearance || c.refPhoto) && !photoCooldownState(_gWindow, c.id).cooling) : [];
+      const _gDuo = _gShooters.filter(c => c.refPhoto && profile && profile.refPhoto);
+      const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
+      const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
+        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
@@ -4532,6 +4669,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           generated: true,
           turnId: goTurnId
         });
+        // 这一拍真拍下了一张（四处一样喂：单人线下有的，群线下也有）。
+        // 多人合影的点名单＝拍照那位排第一 + 在场其余有参考照的 + 用户，
+        // 顺序就是参考图顺序，错位了脸就串（duo 当年的老毛病）。上限 4 人。
+        if (b.photo && b.photo.scene && b.senderId) {
+          const _shooter = (gCtx.members || []).find(c => c.id === b.senderId);
+          let _cast = null;
+          if (_shooter && b.photo.kind === "group") {
+            const withRef = [_shooter].concat((gCtx.members || []).filter(c => c.id !== _shooter.id)).filter(c => c && c.refPhoto);
+            _cast = withRef.slice(0, (profile && profile.refPhoto) ? 3 : 4).map(c => ({ id: c.id, name: c.name, appearance: c.appearance, refPhoto: c.refPhoto }));
+            if (profile && profile.refPhoto) _cast.push({ id: "__me", name: profile.name || "我", appearance: profile.appearance, refPhoto: profile.refPhoto });
+          }
+          if (_shooter) runOfflineShot({ char: _shooter, groupId: group.id, kind: b.photo.kind, scene: b.photo.scene, cast: _cast });
+        }
         // 多人线下也影响各角色对用户的好感与心情——但【封闭群不写回主线】
         // （她 2026-08-24「只进不出，封闭群不应该影响主要世界」）。
         // 这三处以前一道闸都没有：闭群里演什么，好感、心情、状态卡就跟着变，
@@ -4890,7 +5040,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (last < 0) return { cooling: false, explicitlyAsked: false, assistantTurns: Infinity };
     const after = list.slice(last + 1);
     const explicitlyAsked = after.some(m => m && m.role === "user" && PHOTO_REQUEST_RE.test(String(m.content || m.desc || "")));
-    const turns = new Set(after.filter(m => m && m.role === "assistant" && (!senderId || String(m.senderId || "") === String(senderId)) && m.kind !== "selfie").map(m => m.turnId || ("m:" + m.ts)));
+    // 线下那份 msgs 里角色的 role 是 "char"（线上是 "assistant"）。只认 assistant 的话
+    // 线下永远数不满三轮，冷却一旦开起来就再也不解除（她 2026-08-29 要线下生图时发现）。
+    const turns = new Set(after.filter(m => m && (m.role === "assistant" || m.role === "char") && (!senderId || String(m.senderId || "") === String(senderId)) && m.kind !== "selfie").map(m => m.turnId || ("m:" + m.ts)));
     return { cooling: !explicitlyAsked && turns.size < 3, explicitlyAsked, assistantTurns: turns.size };
   };
   const replyNow = async (charId, extraText, mode, opts) => {
@@ -12906,8 +13058,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     characters: liveChars,
     couples: couples,
     whispers: whispers,
-    // 合照墙：从和 TA 的单聊里捞出所有「我俩合照」(photoKind:"duo")，投进情侣空间的相册
-    duoPhotosFor: cid => (chats[cid] || []).filter(m => m && m.kind === "selfie" && m.photoKind === "duo" && !m.pending && !m.failed && (m.imgKey || m.imgUrl)).map(m => ({ imgKey: m.imgKey, imgUrl: m.imgUrl, ts: m.ts, desc: m.desc })),
+    // 合照墙：捞出所有「我俩合照」(photoKind:"duo")，投进情侣空间的相册。
+    // 线上单聊 + 线下都捞（v57.79）——线下当场拍的那些才是真在一块拍的，
+    // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
+    duoPhotosFor: cid => {
+      const ok = m => m && m.kind === "selfie" && m.photoKind === "duo" && !m.pending && !m.failed && (m.imgKey || m.imgUrl);
+      const pick = m => ({ imgKey: m.imgKey, imgUrl: m.imgUrl, ts: m.ts, desc: m.desc });
+      // 线下那份是【进了线下才加载】的，没开过就还在 localStorage 里躺着——
+      // 只读内存等于「今天没进过线下的角色，合照墙上就少一半」。
+      const sessions = offlines[cid] || loadJSON("x_offline:" + cid, []);
+      const off = (Array.isArray(sessions) ? sessions : []).reduce((a, sess) => a.concat((sess && sess.msgs || []).filter(ok).map(pick)), []);
+      return (chats[cid] || []).filter(ok).map(pick).concat(off).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    },
     onBack: goHome,
     onInvite: sendCoupleInvite,
     onUnlink: unlinkCouple,
@@ -13558,6 +13720,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onStart: opts => startOffline(offlineChar.id, opts),
     onSend: txt => offlineSend(offlineChar.id, txt),
     onSendPhoto: photo => offlineSendPhoto(offlineChar.id, photo),
+    // 当场拍一张（她 2026-08-29 要的线下生图）。零模型调用，只花一次出图。
+    onShoot: kind => offlineShotNow(offlineChar.id, kind),
+    canShoot: offlinePhotoCan(offlineChar),
+    canShootDuo: offlinePhotoCanDuo(offlineChar),
     onReply: txt => offlineReply(offlineChar.id, txt),
     onOOC: txt => offlineOOC(offlineChar.id, txt),
     onAddNote: n => offlineAddNote(offlineChar.id, n),
@@ -13585,6 +13751,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onStart: opts => startGroupOffline(offlineGroup.id, opts),
     onSend: txt => groupOfflineSend(offlineGroup.id, txt),
     onSendPhoto: photo => groupOfflineSendPhoto(offlineGroup.id, photo),
+    onShoot: () => groupOfflineShotNow(offlineGroup.id),
+    canShoot: groupOfflineCanShoot(offlineGroup),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
     onAddNote: n => groupOfflineAddNote(offlineGroup.id, n),
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),

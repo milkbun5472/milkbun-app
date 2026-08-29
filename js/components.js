@@ -6212,6 +6212,9 @@ function OfflineMode({
   onStart,
   onSend,
   onSendPhoto,
+  onShoot,
+  canShoot,
+  canShootDuo,
   onReply,
   onOOC,
   onAddNote,
@@ -6607,7 +6610,26 @@ function OfflineMode({
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
       !oocMode && h("button", { onClick: reply, disabled: sending, title: "让 Ta 演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
-    photoOpen && sheet("给 Ta 看一张照片", h("div", null,
+    photoOpen && sheet("照片", h("div", null,
+      // 当场拍一张：你俩此刻真的在同一个地方，这一格是现拍的。零模型调用——
+      // 画面直接从状态卡（此刻在干嘛、穿什么）长出来，只花一次出图的钱。
+      onShoot ? h("div", { className: "mb-4" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } },
+          canShoot ? "当场拍一张（照此刻的样子出图）" : "接一个图像模型、再给 Ta 填上外貌或参考照，就能当场拍了"),
+        h("div", { className: "flex gap-2" }, [
+          ["duo", "我俩合照", canShoot && canShootDuo],
+          ["other", "我替 Ta 拍", canShoot],
+          ["self", "让 Ta 自拍", canShoot]
+        ].map(([k, label, ok]) => h("button", {
+          key: k,
+          onClick: () => { if (!ok) return; setPhotoOpen(false); onShoot(k); },
+          disabled: !ok,
+          className: "flex-1 py-2.5 active:opacity-70 disabled:opacity-30",
+          style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+        }, label))),
+        (canShoot && !canShootDuo) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "合照要你俩各自的参考照都在，才能把两张脸都锁住") : null,
+        h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "或者，给 Ta 看你手机里的一张")) : null,
       h("button", { onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full mb-3 active:opacity-70", style: { minHeight: 150, border: "1px dashed " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg } },
         photoImg ? h("img", { src: photoImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
       h("input", { ref: photoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1600, 0.86).then(setPhotoImg); e.target.value = ""; } }),
@@ -6669,7 +6691,8 @@ function SelfieBubble({ m }) {
       h("div", { style: { fontSize: 22 } }, "📷"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "拍照中…"));
   }
-  if (m.failed) return note("自拍没拍成");
+  // 合照/别人拍的那两种也走这个气泡，写死「自拍」会说错话（v57.79）
+  if (m.failed) return note((m.photoKind === "group" ? "合影" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "这张" : "自拍") + "没拍成");
   if (imgErr) return note(m.imgUrl && !url ? "图的临时链接已过期，看过就没啦" : "图数据坏了，显示不出来");
   if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: box },
@@ -6703,6 +6726,17 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
   const offSpeech = typeof extractSpeech === "function" ? extractSpeech(m.content) : m.content;
   const timeEl = m.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, opacity: 0.7, letterSpacing: 0.3, flexShrink: 0 } }, fmtStamp(m.ts)) : null;
   const meChar = { name: (meProfile && meProfile.name) || "我", avatarImage: meProfile && meProfile.avatarImage, color: (meProfile && meProfile.color) || "#7a6cf0" };
+  // 线下当场拍下来的那一格（她 2026-08-29 要的合照）。和线上单聊同一个气泡组件，
+  // 只是外面套的是线下这张卡：有头像、有名字、有时间、能删。
+  if (m.kind === "selfie") return h("div", { className: "my-2.5" },
+    h("div", { style: { background: t.bg2, borderRadius: 16, padding: "14px 16px", border: "1px solid " + t.line } },
+      h("div", { className: "flex items-center gap-2.5 mb-2.5" },
+        spk ? h(Avatar, { character: spk, size: 28, radius: 14 }) : null,
+        h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub } },
+          (m.senderName || (spk && spk.name) || "") + (m.photoKind === "group" ? " · 大家的合影" : m.photoKind === "duo" ? " · 我俩" : m.photoKind === "other" ? " · 我替 TA 拍的" : " · 自拍")),
+        timeEl,
+        (editable && onDelete) ? h("button", { onClick: () => onDelete(m.id, msgIndex), className: "active:opacity-50", title: "删除" }, h(ITrash, { size: 15, color: t.fog })) : null),
+      h(SelfieBubble, { m: m })));
   const iconBtn = (Ic, fn, title, dis) => h("button", { onClick: fn, disabled: dis, className: "active:opacity-50 disabled:opacity-30", title: title }, h(Ic, { size: 15, color: t.fog }));
   const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0" },
     (!isUser && !isNarr && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
@@ -6749,6 +6783,8 @@ function GroupOfflineMode({
   onStart,
   onSend,
   onSendPhoto,
+  onShoot,
+  canShoot,
   onReply,
   onAddNote,
   onDeleteNote,
@@ -7091,7 +7127,19 @@ function GroupOfflineMode({
       h("input", { value: input, onChange: e => setInput(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: oocMode ? "OOC：直接和模型说，可让它调整或问状态…" : "说话，或写你的动作…", className: "flex-1 outline-none px-4 py-2.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 } }),
       h("button", { onClick: send, disabled: sending || !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
       !oocMode && h("button", { onClick: reply, disabled: sending, title: "让他们演绎", className: "active:opacity-70 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, sending ? h("div", { className: "flex gap-0.5" }, [0, 1, 2].map(i => h("span", { key: i, className: "w-1 h-1 rounded-full animate-pulse", style: { background: t.bg2, animationDelay: i * 0.15 + "s" } }))) : h(ISpark, { size: 19, color: t.bg2 }))),
-    photoOpen && sheet("给大家看一张照片", h("div", null,
+    photoOpen && sheet("照片", h("div", null,
+      // 当场拍一张合影：大家此刻真在同一个地方。零模型调用，只花一次出图。
+      onShoot ? h("div", { className: "mb-4" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } },
+          canShoot ? "当场拍一张合影（每个人的脸都拿各自参考照锁住）" : "合影要在场至少两个人有参考照，才能把脸都锁住"),
+        h("button", {
+          onClick: () => { if (!canShoot) return; setPhotoOpen(false); onShoot("group"); },
+          disabled: !canShoot,
+          className: "w-full py-2.5 active:opacity-70 disabled:opacity-30",
+          style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
+        }, "拍张合影"),
+        h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, "或者，给大家看你手机里的一张")) : null,
       h("button", { onClick: () => photoFileRef.current && photoFileRef.current.click(), className: "w-full mb-3 active:opacity-70", style: { minHeight: 150, border: "1px dashed " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg } },
         photoImg ? h("img", { src: photoImg, style: { display: "block", width: "100%", maxHeight: 280, objectFit: "contain" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 1.8 } }, "点这里选择照片\n相机或相册都可以")),
       h("input", { ref: photoFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1600, 0.86).then(setPhotoImg); e.target.value = ""; } }),
