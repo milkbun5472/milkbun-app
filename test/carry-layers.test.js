@@ -18,6 +18,16 @@ const F2 = (() => {
   const head = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("// 给出图端的衣柜"));
   return new Function(head + "\nreturn { clothTone, clothShift, clothIsDark };")();
 })();
+const bodyOfFn = head => {
+  const i = screens.indexOf(head);
+  assert.ok(i > 0, "找不到 " + head);
+  let d = 0;
+  for (let k = screens.indexOf("{", i + head.length - 2); k < screens.length; k++) {
+    if (screens[k] === "{") d++;
+    else if (screens[k] === "}" && --d === 0) return screens.slice(i, k + 1);
+  }
+  throw new Error("配不上括号：" + head);
+};
 const mk = (...names) => ({ items: names.map(n => ({ name: n, note: "x", thought: "y" })) });
 
 // 她 2026-08-29：随身物生成完只有她看得见——角色本人不知道自己包里有伞，
@@ -198,17 +208,15 @@ test("长衫和短衣是两个剪影——一柜子同一个形状就白画了",
     if (w === "衬衫") return;  // 「衫」确实算长款，这里不苛求
     assert.ok(!re.test(w), w + " 不该算长款");
   });
-  const i = screens.indexOf("const hanger = (it, gi, si)");
-  const seg = screens.slice(i, i + 2600);
-  assert.match(seg, /height: long \? 122 : 98/, "长短款得给不同高度");
-  assert.match(seg, /clipPath: long\s*\n?\s*\?/, "长短款得给不同剪影");
-  // 布区留一格最高的位子，下面的名字才对得齐
-  assert.match(seg, /h\("div", \{ style: \{ height: 122, marginTop: -18 \} \}/, "布区没定高，一排衣服的文字会参差");
+  const seg = bodyOfFn("function clothFigure(o) {");
+  assert.match(seg, /const bodyH = Math\.round\(\(o\.long \? 122 : 98\) \* k\)/, "长短款得给不同高度");
+  assert.match(seg, /clipPath: o\.long \? CLOTH_CLIP_LONG : CLOTH_CLIP_SHORT/, "长短款得给不同剪影");
+  // 布区留一格最高的位子（按同一个比例缩放），下面的名字才对得齐
+  assert.match(seg, /height: Math\.round\(122 \* k\)/, "布区没定高，一排衣服的文字会参差");
 });
 
 test("阴影必须跟着剪影走，否则浅色的衣服在米色底上会糊掉", () => {
-  const i = screens.indexOf("const hanger = (it, gi, si)");
-  const seg = screens.slice(i, i + 2600);
+  const seg = bodyOfFn("function clothFigure(o) {");
   // box-shadow 画在盒子上，会被 clipPath 整个裁掉；drop-shadow 跟着剪影
   assert.match(seg, /filter: "drop-shadow\(/, "用了 drop-shadow 才有沿剪影的投影");
   assert.doesNotMatch(seg.split("clipPath")[0], /boxShadow: "0 /, "别在裁剪过的盒子上用外投 box-shadow，那是无效的");
@@ -216,9 +224,66 @@ test("阴影必须跟着剪影走，否则浅色的衣服在米色底上会糊�
 });
 
 test("挂衣杆铺满整行，页面本身不横滚", () => {
-  const i = screens.indexOf("const rail = sets =>");
-  const seg = screens.slice(i, i + 700);
+  const i = screens.indexOf("    const bay = sets =>");
+  const seg = screens.slice(i, i + 1800);
   assert.match(seg, /className: "overflow-x-auto"/, "横滑归这一行自己（mobile-ui-layout §3）");
   assert.match(seg, /minWidth: "100%", width: "max-content"/, "杆要铺满整行：内容窄时撑满屏、宽时跟着内容长");
-  assert.match(seg, /position: "absolute", top: 0, left: 0, right: 0/, "杆得铺在整条内容上，不是画在每件顶上");
+  // 杆是一条 absolute 的横条，左右都铺出去（负值＝铺到 padding 外，两头压在立柱下）——
+  // 而不是画在每件衣服顶上再靠相邻拼起来（那样 gap 一断，杆就断了）。
+  assert.match(seg, /position: "absolute", top: \d+, left: -?\d+, right: -?\d+, height: [\d.]+, borderRadius/,
+    "杆得铺在整条内容上，不是画在每件顶上");
+});
+
+// ── v57.87 UI 二轮（她 2026-08-29：「米白略单调，没有适配的风格」
+//    「点开衣服显示的页面也还是 default 丑丑的没有设计感」）──────
+test("列表和详情画的是同一件衣服——剪影只有一份", () => {
+  assert.match(screens, /function clothFigure\(o\) \{/);
+  // 两处都调它，谁也别再自己画一遍
+  assert.equal((screens.match(/clothFigure\(\{/g) || []).length, 2, "列表一处、详情一处，多出来的就是又抄了一遍");
+  assert.match(screens, /clothFigure\(\{ tone: c, long, w: 88, pinned: isPinned\(it\), t \}\)/, "列表没走共用那份");
+  assert.match(screens, /clothFigure\(\{ tone: cl, long: sheet\._long, w: 104, pinned: isPinned\(sheet\), t \}\)/, "详情没走共用那份");
+  // 剪影本身也只有一份
+  assert.match(screens, /const CLOTH_CLIP_LONG = "polygon\(/);
+  assert.match(screens, /const CLOTH_CLIP_SHORT = "polygon\(/);
+  assert.equal((screens.match(/polygon\(34% 0/g) || []).length, 2, "剪影的坐标不许再抄第三份");
+});
+
+test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不许糊掉", () => {
+  ["月白常服", "素色朝服", "藕荷寝衣", "绯色官袍", "玄色劲装", "青灰直裰"].forEach((n, i) => {
+    const c = F2.clothTone({ name: n, note: "" }, i);
+    assert.ok(F2.clothIsDark(c.ink), n + " 的 ink 不够深，写在浅底上会看不见：" + c.ink);
+  });
+  // 直接拿 dark 会出事：浅布的 dark 仍旧是浅的
+  const pale = F2.clothTone({ name: "月白常服", note: "" }, 0);
+  assert.ok(!F2.clothIsDark(pale.dark), "先确认 dark 确实不够深（所以才需要 ink）");
+  // clothShift 要返回 hex，算出来的色才能再兑透明度
+  assert.match(F2.clothShift("#b8433c", -0.5), /^#[0-9a-f]{6}$/);
+  const i = screens.indexOf("      const pinRow = onTogglePin");
+  const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
+  assert.doesNotMatch(seg, /cl\.dark/, "详情页的文字和描边不许用 dark，要用 ink");
+  assert.match(seg, /clothRgba\(cl\.ink, 0\.45\)/, "想法那条竖线要用 ink");
+});
+
+test("详情页把这件衣服本身画进去，底色也取自它自己", () => {
+  const i = screens.indexOf("      const pinRow = onTogglePin");
+  const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
+  assert.match(seg, /clothRgba\(cl\.base, 0\.16\)/, "顶部那层氛围底没取这件衣服的布色");
+  assert.match(seg, /if \(!cl\) return h\(Sheet/, "别的栏（包内/口袋/珍藏）没有布色，要走回原来那份");
+  assert.match(seg, /sheet\._occ \? h\("div"[\s\S]{0,200}?"OCCASION"/, "场合的 eyebrow 该是英文标签");
+  // ⚠️toUpperCase 对中文是空操作，会把同一个场合名原样印两遍
+  // 只看代码，别把提醒这件事的注释本身当成犯规
+  const code = seg.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.doesNotMatch(code, /toUpperCase\(\)/, "别对中文场合名用 toUpperCase——它会印两遍一样的字");
+});
+
+test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
+  const i = screens.indexOf("    const bay = sets =>");
+  const seg = screens.slice(i, i + 1800);
+  assert.match(seg, /rgba\(74,58,40/, "隔间要用半透明暖褐叠在主题底色上");
+  assert.doesNotMatch(seg, /background: "#[0-9a-fA-F]{6}"/, "别写死颜色，换主题就脱节了");
+  assert.match(seg, /position: "absolute", top: 0, bottom: 0, left: 0/, "左立柱");
+  assert.match(seg, /position: "absolute", top: 0, bottom: 0, right: 0/, "右立柱");
+  assert.match(seg, /minWidth: "100%", width: "max-content"/, "杆要铺满整格");
+  // 整页那层柜内的光只给衣柜，别的栏不该变色
+  assert.match(screens, /style: sec\.closet \? \{ background: "linear-gradient\(180deg,rgba\(74,58,40/, "整页的柜内光没有只给衣柜");
 });

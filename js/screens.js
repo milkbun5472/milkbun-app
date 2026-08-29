@@ -8170,13 +8170,15 @@ const clothHex = h6 => {
   const n = parseInt(m[1], 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
-// 往白（k>0）或往黑（k<0）混，用来给同一块布做出受光面和垂坠的暗部
+// 往白（k>0）或往黑（k<0）混，用来给同一块布做出受光面和垂坠的暗部。
+// 返回 hex 而不是 rgb()，这样算出来的色还能再交给 clothRgba 兑透明度。
 const clothShift = (hex, k) => {
   const [r, g, b] = clothHex(hex);
   const to = k >= 0 ? 255 : 0, a = Math.abs(k);
-  const mix = c => Math.round(c + (to - c) * a);
-  return "rgb(" + mix(r) + "," + mix(g) + "," + mix(b) + ")";
+  const mix = c => Math.round(c + (to - c) * a).toString(16).padStart(2, "0");
+  return "#" + mix(r) + mix(g) + mix(b);
 };
+const clothRgba = (hex, a) => { const [r, g, b] = clothHex(hex); return "rgba(" + r + "," + g + "," + b + "," + a + ")"; };
 // 布够不够深——决定钉住那个记号该用浅色还是深色画在布上
 const clothIsDark = hex => {
   const [r, g, b] = clothHex(hex);
@@ -8189,7 +8191,17 @@ function clothTone(set, i) {
   const base = pick(String((set && set.name) || ""))
     || pick(String((set && set.note) || ""))
     || CLOTH_FALLBACK[(i || 0) % CLOTH_FALLBACK.length];
-  return { base, light: clothShift(base, 0.22), dark: clothShift(base, -0.16), dark2: clothShift(base, -0.3), onDark: clothIsDark(base) };
+  const onDark = clothIsDark(base);
+  return {
+    base,
+    light: clothShift(base, 0.22),
+    dark: clothShift(base, -0.16),
+    dark2: clothShift(base, -0.3),
+    onDark,
+    // 这块布的墨色：够深到能当文字和描边用。直接拿 dark 会出事——
+    // 月白、素色那种浅布的 dark 仍旧是浅的，写在浅底上根本看不见（实测踩到）。
+    ink: onDark ? base : clothShift(base, -0.55)
+  };
 }
 // 给出图端的衣柜：比聊天那份更细（要料子和颜色，出图看的就是这些），但仍要控长。
 function carryClosetText(box, cap) {
@@ -8207,6 +8219,40 @@ function carryClosetText(box, cap) {
   const out = rows.join("\n");
   const lim = Math.max(120, Number(cap) || 600);
   return out.length > lim ? out.slice(0, lim) + "…" : out;
+}
+// 一件挂着的衣服：衣架（钩＋肩线）＋ 按剪影裁出来的布。
+// 列表上的小挂件和详情页里的大图是同一件衣服，所以画法只有这一份——
+// 两处各画一遍，改了一处另一处就跟不上（这个形状在这个仓库里出现过太多次了）。
+// ⚠️阴影用 drop-shadow 不用 box-shadow：box-shadow 画在盒子上，会被 clipPath 一起裁掉；
+// drop-shadow 跟着剪影走，浅色的衣服才不会在浅底上糊成一片。
+const CLOTH_CLIP_LONG = "polygon(34% 0, 50% 8%, 66% 0, 100% 17%, 86% 30%, 96% 100%, 4% 100%, 14% 30%, 0 17%)";
+const CLOTH_CLIP_SHORT = "polygon(34% 0, 50% 10%, 66% 0, 100% 21%, 86% 38%, 90% 100%, 10% 100%, 14% 38%, 0 21%)";
+function clothFigure(o) {
+  const c = o.tone, w = o.w || 88, k = w / 88;                 // k：以 88 宽那一版为基准整体缩放
+  const bodyH = Math.round((o.long ? 122 : 98) * k);
+  const t = o.t;
+  return h("div", { style: { width: w } },
+    o.hanger === false ? null : h("svg", { width: w, height: Math.round(30 * k), viewBox: "0 0 88 30", fill: "none", style: { display: "block" } },
+      h("path", { d: "M44 13c0-10 7-10 7-3", stroke: t.sub, strokeWidth: 1.8, strokeLinecap: "round" }),
+      h("path", { d: "M44 13v3", stroke: t.sub, strokeWidth: 1.8, strokeLinecap: "round" }),
+      h("path", { d: "M7 27 44 16l37 11", stroke: t.fog, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" })),
+    h("div", { style: { height: Math.round(122 * k), marginTop: o.hanger === false ? 0 : Math.round(-18 * k) } },
+      h("div", {
+        style: {
+          position: "relative", width: w, height: bodyH,
+          background: "linear-gradient(160deg," + c.light + " 0%," + c.base + " 44%," + c.dark + " 100%)",
+          clipPath: o.long ? CLOTH_CLIP_LONG : CLOTH_CLIP_SHORT,
+          filter: "drop-shadow(0 " + Math.round(2 * k) + "px " + Math.round(3 * k) + "px rgba(0,0,0,.16))"
+        }
+      },
+        h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,255,0) 6%,rgba(255,255,255,.18) 32%,rgba(255,255,255,0) 58%)" } }),
+        h("div", { style: { position: "absolute", inset: 0, background: "rgba(238,232,220,.10)" } }),
+        h("div", { style: { position: "absolute", inset: 0, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.09)" } }),
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: Math.round(34 * k), background: "linear-gradient(180deg,rgba(0,0,0,0)," + c.dark2 + ")", opacity: 0.5 } }),
+        o.pinned ? h("div", {
+          title: "钉住了，刷新不会换掉",
+          style: { position: "absolute", top: Math.round(26 * k), left: 0, right: 0, textAlign: "center", fontSize: Math.round(10 * k), lineHeight: 1, color: c.onDark ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.4)" }
+        }, "◆") : null)));
 }
 // ── 随身物的四层（照查手机那套落，见 .claude/rules/phone-data-layers.md）──────
 // 判据一：这一栏变了，是「他变了」还是「系统忘了」？
@@ -8345,68 +8391,53 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     const groups = closetGroups(data);
     const total = groups.reduce((n, g) => n + g.sets.length, 0);
     let seq = -1;   // 布色兜底按全柜次序发，免得同一场合里几套撞成一片
-    // 一件挂着的衣服 = 衣架（SVG 钩＋肩线）＋ 一片按剪影裁出来的布。
-    // ⚠️阴影用 drop-shadow 不用 box-shadow：box-shadow 画在盒子上，会被 clipPath 一起裁掉；
-    // drop-shadow 跟着剪影走，浅色的衣服才不会在米色背景上糊成一片。
-    const hanger = (it, gi, si) => {
+    const hanger = (it, g, gi, si) => {
       seq++;
       const c = clothTone(it, seq);
-      const on = isPinned(it);
       const long = CLOTH_LONG.test(String(it.name || "") + " " + String(it.note || ""));
       return h("button", {
         key: gi + "_" + si,
-        onClick: () => setSheet(it),
+        onClick: () => setSheet(Object.assign({}, it, { _occ: g.occasion, _tone: c, _long: long })),
         className: "shrink-0 text-left active:opacity-75",
         style: { width: 98, paddingRight: 10, WebkitTapHighlightColor: "transparent" }
       },
-        // 衣架：钩挂在杆上，肩线往两边斜下去。衣服用负 margin 压上来，
-        // 把衣架的中段盖住、只露出两端搭在肩上——真的挂衣架就是这个样子。
-        h("svg", { width: 88, height: 30, viewBox: "0 0 88 30", fill: "none", style: { display: "block" } },
-          h("path", { d: "M44 13c0-10 7-10 7-3", stroke: t.sub, strokeWidth: 1.8, strokeLinecap: "round" }),
-          h("path", { d: "M44 13v3", stroke: t.sub, strokeWidth: 1.8, strokeLinecap: "round" }),
-          h("path", { d: "M7 27 44 16l37 11", stroke: t.fog, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round" })),
-        // 布区定高：长衫短衣从同一条肩线往下垂，底不齐是对的，
-        // 但下面的名字要对齐——所以留一格最高的位子，衣服顶对齐地放进去。
-        h("div", { style: { height: 122, marginTop: -18 } },
-        // 布：一件衣服的剪影。长衫（袍/裰/氅/大衣/裙）比短衣长、下摆也更展——
-        // 一柜子全是同一个剪影，古代袍子和现代卫衣长得一模一样，那就白画了。
-        h("div", {
-          style: {
-            position: "relative", width: 88, height: long ? 122 : 98,
-            background: "linear-gradient(160deg," + c.light + " 0%," + c.base + " 44%," + c.dark + " 100%)",
-            clipPath: long
-              ? "polygon(34% 0, 50% 8%, 66% 0, 100% 17%, 86% 30%, 96% 100%, 4% 100%, 14% 30%, 0 17%)"
-              : "polygon(34% 0, 50% 10%, 66% 0, 100% 21%, 86% 38%, 90% 100%, 10% 100%, 14% 38%, 0 21%)",
-            filter: "drop-shadow(0 2px 3px rgba(0,0,0,.16))"
-          }
-        },
-          // 垂坠：一条竖向的淡高光 + 下摆的暗部，让平色块有布的厚度
-          h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(255,255,255,0) 6%,rgba(255,255,255,.18) 32%,rgba(255,255,255,0) 58%)" } }),
-          h("div", { style: { position: "absolute", inset: 0, background: "rgba(238,232,220,.10)" } }),
-          h("div", { style: { position: "absolute", inset: 0, boxShadow: "inset 0 0 0 1px rgba(0,0,0,.09)" } }),
-          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 34, background: "linear-gradient(180deg,rgba(0,0,0,0)," + c.dark2 + ")", opacity: 0.5 } }),
-          on ? h("div", {
-            title: "钉住了，刷新不会换掉",
-            style: { position: "absolute", top: 26, left: 0, right: 0, textAlign: "center", fontSize: 10, lineHeight: 1, color: c.onDark ? "rgba(255,255,255,.88)" : "rgba(0,0,0,.4)" }
-          }, "◆") : null)),
+        clothFigure({ tone: c, long, w: 88, pinned: isPinned(it), t }),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word" } }, it.name),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2, lineHeight: 1.5, minHeight: 28, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.note || ""));
     };
-    // 一根杆横着滑。杆铺满【整行】而不是只到最后一件为止——挂衣杆本来就是通到柜子两头的。
-    const rail = sets => h("div", { className: "overflow-x-auto", style: { marginLeft: -4, marginRight: -20, paddingBottom: 2, scrollbarWidth: "none" } },
-      h("div", { style: { position: "relative", minWidth: "100%", width: "max-content", paddingLeft: 4 } },
-        h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, height: 3, borderRadius: 2, background: "linear-gradient(180deg," + t.line + "," + t.fog + ")", opacity: 0.85 } }),
-        h("div", { className: "flex" }, sets)));
+    // 一格隔间：柜子里的一层。她 2026-08-29 说「页面颜色的米白略单调，没有适配的风格」——
+    // 病根是整页只有一个底色，衣服像贴在纸上而不是挂在柜子里。
+    // 隔间比页面底色深一点点（用半透明黑叠，跟着主题走、不写死颜色），
+    // 两侧立柱撑着杆，底下一条柜板线，上方一层柔光——纵深就出来了。
+    const bay = sets => h("div", {
+      style: {
+        position: "relative", borderRadius: 14, overflow: "hidden",
+        background: "linear-gradient(180deg,rgba(74,58,40,.125) 0%,rgba(74,58,40,.04) 32%,rgba(74,58,40,.085) 100%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(74,58,40,.14)"
+      }
+    },
+      // 两侧立柱：杆架在它们上面
+      h("div", { style: { position: "absolute", top: 0, bottom: 0, left: 0, width: 9, background: "linear-gradient(90deg,rgba(74,58,40,.17),rgba(74,58,40,0))", pointerEvents: "none" } }),
+      h("div", { style: { position: "absolute", top: 0, bottom: 0, right: 0, width: 9, background: "linear-gradient(270deg,rgba(74,58,40,.17),rgba(74,58,40,0))", pointerEvents: "none", zIndex: 1 } }),
+      // 柜板：这一层的底
+      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 4, background: "linear-gradient(180deg,rgba(74,58,40,.22),rgba(74,58,40,.06))", pointerEvents: "none" } }),
+      // 挂衣杆：架在两根立柱之间，铺满整格
+      h("div", { className: "overflow-x-auto", style: { padding: "0 10px 14px", scrollbarWidth: "none" } },
+        h("div", { style: { position: "relative", minWidth: "100%", width: "max-content", paddingTop: 11 } },
+          h("div", { style: { position: "absolute", top: 15, left: -14, right: -14, height: 3.5, borderRadius: 2, background: "linear-gradient(180deg,rgba(255,255,255,.7) 0%,rgba(150,128,100,.75) 45%,rgba(74,58,40,.55) 100%)" } }),
+          h("div", { className: "flex" }, sets))));
     content = !total
       ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "衣柜是空的")
       : h("div", { style: { animation: "fadeUp .3s ease both" } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, paddingBottom: 14 } },
-            (groups.length > 1 ? groups.length + " OCCASIONS · " : "") + total + " SETS"),
+          h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 14, paddingTop: 2 } },
+            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, whiteSpace: "nowrap" } },
+              (groups.length > 1 ? groups.length + " OCCASIONS · " : "") + total + " SETS"),
+            h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg,rgba(74,58,40,.16),rgba(74,58,40,0))" } })),
           groups.map((g, gi) => h("div", { key: gi, style: { marginBottom: 20 } },
             g.occasion ? h("div", { className: "flex items-baseline gap-2", style: { marginBottom: 7 } },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, g.occasion),
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, g.sets.length + " 套")) : null,
-            rail(g.sets.map((it, si) => hanger(it, gi, si))))));
+            bay(g.sets.map((it, si) => hanger(it, g, gi, si))))));
   } else {
     const items = (data && data.items) || [];
     content = items.length === 0
@@ -8427,20 +8458,65 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
       h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
         !isGifts ? h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, "aria-label": "重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) : null)),
-    h("div", { className: "flex-1 overflow-y-auto px-5 pt-2 pb-8" }, content),
-    sheet && h(Sheet, { onClose: () => setSheet(null), tall: true },
-      h(Eyebrow, { style: { marginBottom: 8 } }, sheet.name),
-      sheet.note && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginBottom: 12, lineHeight: 1.7 } }, sheet.note),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, sheet.thought || "（TA 没多说什么）"),
-      onTogglePin ? h("div", { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid " + t.line } },
+    // 衣柜整页比别的栏暖一档、上下各压一层光——柜门打开时里头就是这个样子。
+    // 她 2026-08-29：「页面颜色的米白略单调，没有适配的风格」。
+    // 用半透明的暖褐叠在主题底色上，不写死颜色，换主题一样跟着走。
+    h("div", {
+      className: "flex-1 overflow-y-auto px-5 pt-2 pb-8",
+      style: sec.closet ? { background: "linear-gradient(180deg,rgba(74,58,40,.055) 0%,rgba(74,58,40,.012) 22%,rgba(74,58,40,.012) 74%,rgba(74,58,40,.05) 100%)" } : null
+    }, content),
+    // 详情。衣柜那一路把【这件衣服本身】画进去——她 2026-08-29：
+    // 「点开衣服显示的页面也还是 default 丑丑的没有设计感」。
+    // 病根是详情里只有三段文字，那件刚点开的衣服一点都没出现。
+    sheet && (() => {
+      const cl = sheet._tone || null;            // 衣柜进来的才有布色
+      const pinRow = onTogglePin ? h("div", { style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h("button", {
           onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
           className: "w-full py-2.5 active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 999, border: "1px solid " + (isPinned(sheet) ? t.accent : t.line), color: isPinned(sheet) ? t.accent : t.ink }
+          style: {
+            fontFamily: F_BODY, fontSize: 13, borderRadius: 999,
+            border: "1px solid " + (isPinned(sheet) ? (cl ? clothRgba(cl.ink, 0.55) : t.accent) : t.line),
+            background: isPinned(sheet) ? (cl ? clothRgba(cl.ink, 0.07) : "transparent") : "transparent",
+            color: isPinned(sheet) ? (cl ? cl.ink : t.accent) : t.ink
+          }
         }, isPinned(sheet) ? "\u25c6 钉住了 · 点一下松开" : "钉住这一件"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6, textAlign: "center" } },
-          "钉住的东西刷新时不会被换掉。没钉住的也不是每次都换——一次最多换两件。")) : null),
+          "钉住的东西刷新时不会被换掉。没钉住的也不是每次都换——一次最多换两件。")) : null;
+      const think = h("div", { style: { marginTop: cl ? 18 : 0 } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: cl ? cl.ink : t.accent, marginBottom: 7 } }, char.name + " 的想法"),
+        h("div", {
+          style: {
+            fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap",
+            paddingLeft: 13, borderLeft: "2px solid " + (cl ? clothRgba(cl.ink, 0.45) : t.line)
+          }
+        }, sheet.thought || "（TA 没多说什么）"));
+      if (!cl) return h(Sheet, { onClose: () => setSheet(null), tall: true },
+        h(Eyebrow, { style: { marginBottom: 8 } }, sheet.name),
+        sheet.note && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, marginBottom: 12, lineHeight: 1.7 } }, sheet.note),
+        think, pinRow);
+      // 衣柜版：左边挂着这一身，右边是它的来头。整片的底色取自这件衣服自己的布色——
+      // 打开红袍就是暖红调，打开月白就是青白调，每件衣服的详情都是它自己的样子。
+      return h(Sheet, { onClose: () => setSheet(null), tall: true },
+        h("div", {
+          style: {
+            position: "absolute", left: 0, right: 0, top: 0, height: 210, pointerEvents: "none",
+            background: "linear-gradient(180deg," + clothRgba(cl.base, 0.16) + " 0%," + clothRgba(cl.base, 0.03) + " 62%,rgba(0,0,0,0) 100%)",
+            borderRadius: "26px 26px 0 0"
+          }
+        }),
+        h("div", { style: { position: "relative" } },
+          h("div", { className: "flex items-start", style: { gap: 16, marginBottom: 4 } },
+            h("div", { className: "shrink-0" }, clothFigure({ tone: cl, long: sheet._long, w: 104, pinned: isPinned(sheet), t })),
+            h("div", { className: "flex-1 min-w-0", style: { paddingTop: 12 } },
+              // ⚠️别对中文用 toUpperCase()——它是空操作，会把同一个场合名原样印两遍。
+              // 上面那行英文标签是 eyebrow（和 app 里别处「CONTACTS · 2」同一套），下面才是场合本身。
+              sheet._occ ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 4 } }, "OCCASION") : null,
+              sheet._occ ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 8 } }, sheet._occ) : null,
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, lineHeight: 1.3, letterSpacing: "0.01em" } }, sheet.name),
+              sheet.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 7, lineHeight: 1.7 } }, sheet.note) : null)),
+          think, pinRow));
+    })(),
     openGift && h(Sheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
