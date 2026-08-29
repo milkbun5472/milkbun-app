@@ -54,7 +54,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, PhoneCallsView, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -65,7 +65,16 @@ const FIXTURES = {
     { kind: "typed", title: "买猫粮", time: "昨天 21:03", body: "顺便看看猫砂", color: 0 },
     { kind: "voice", title: "算了", time: "昨天 23:40", duration: "0:37", body: "本来想说……算了，你别管。", color: 4 }
   ] },
-  calls: { items: [{ name: "妈", dir: "in", time: "今天 09:12", connected: true, duration: "04:32" }] },
+  calls: {
+    me: { number: "1390000" },
+    calls: [{ name: "程策", number: "1390011", dir: "in", time: "今天 09:12", duration: "04:32", answered: true, gist: "问西北那批马鞍到没到。", thought: "他比我还急。" },
+            { name: "", number: "1885522", dir: "in", time: "昨天 23:41", duration: "", answered: false, gist: "没接。那会儿正在她院里。", thought: "陌生号，深更半夜，接了准没好事。" }],
+    sms: [{ name: "钱庄", number: "9550", kind: "通知", time: "今天 10:02", unread: false, msgs: [{ from: "they", text: "您尾号3391的账上八月支出三千二百文。", time: "10:02" }], thought: "" },
+          { name: "陆闻", number: "1390077", kind: "人", time: "昨天 19:40", unread: true, msgs: [{ from: "they", text: "府里传信的路断了，用这个报个平安。", time: "19:40" }], thought: "他知道我不爱回这个。" }],
+    voicemail: [{ from: "母亲", time: "前天 21:10", duration: "0:41", transcript: "……算了，你忙你的。就是问一句，别的没有。", heard: false, thought: "留着，回头再听。" }],
+    frequent: [{ name: "程策", count: 14, why: "军中的事只能电话说，写下来落痕迹。" }],
+    blocked: [{ name: "一个自称能通门路的", why: "第三回打来，直接拉了。" }]
+  },
   browser: {
     me: { name: "不留痕", uid: "br_88213" },
     tabs: [{ title: "西北军饷历年拨付表", site: "户部archive", age: "开了 11 天", pinned: true, cover: 0, gist: "一张对不上的账。" },

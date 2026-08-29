@@ -41,7 +41,7 @@ test("每个 app 都真的被 renderPhoneModule 接住了，没有一个掉回 n
   [["wechat", "WeChatViewFull"], ["album", "AlbumView"], ["reading", "ReadingView"],
    ["shopping", "ShoppingView"], ["takeout", "TakeoutView"], ["health", "HealthView"],
    ["bili", "BiliView"], ["latenight", "LateNightView"], ["liked", "PlazaView"], ["calendar", "CalendarView"],
-   ["notes", "StickyView"], ["clipboard", "ClipView"], ["browser", "BrowserView"]]
+   ["notes", "StickyView"], ["clipboard", "ClipView"], ["browser", "BrowserView"], ["calls", "PhoneCallsView"]]
     .forEach(([k, comp]) => {
       const node = P.renderPhoneModule(k, FIXTURES[k] || null, { ...ctxBase, t, ...LIVE });
       assert.equal(node.type, comp, k + " 挂到了 " + node.type + "，不是 " + comp);
@@ -233,7 +233,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
-  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser"]);
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls"]);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
@@ -711,4 +711,48 @@ test("设置那个 app 是删掉了，不是留着不用", () => {
   // 桌面小组件里那个「屏幕使用」特例也跟着删了
   assert.doesNotMatch(SRC, /isScreen/);
   assert.doesNotMatch(SRC, /data\.settings && data\.settings\.screenTime/);
+});
+
+test("电话：通话 / 短信 / 信箱 / 联系人 四页都能渲", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.calls, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  ["calls", "sms", "vm", "people"].forEach(k =>
+    assert.doesNotThrow(() => loadPhone({ 0: k }).PhoneCallsView(props), k + " 这一页炸了"));
+  [{ kind: "call", x: F.calls.calls[1] }, { kind: "sms", x: F.calls.sms[1] }, { kind: "vm", x: F.calls.voicemail[0] }, { kind: "call", x: {} }]
+    .forEach((o, i) => assert.doesNotThrow(() => loadPhone({ 1: o }).PhoneCallsView(props), "详情 " + i + " 炸了"));
+  [null, {}, { calls: "x", sms: [{ msgs: 3 }], voicemail: 5, frequent: "y", blocked: [{}] }].forEach((d, i) =>
+    ["calls", "sms", "vm", "people"].forEach(k =>
+      assert.doesNotThrow(() => loadPhone({ 0: k }).PhoneCallsView({ ...props, d }), "脏数据 " + i + " 在 " + k + " 页炸了")));
+});
+
+test("电话的重点是没接通的那些，而且每通都有他自己的想法", () => {
+  const P = loadPhone();
+  const spec = P.phoneProbeSpec("calls", char, [], "", []);
+  assert.match(spec.instruction, /真正有东西的是没接通的那些/);
+  assert.match(spec.instruction, /\*\*至少三条是没接通的\*\*/);
+  assert.match(spec.instruction, /每一条不接的理由都不一样/);
+  assert.match(spec.instruction, /\*\*他对这通电话的真实想法\*\*/);
+  assert.match(spec.schemaHint, /"thought"/);
+  // 未接在界面上要看得出来
+  assert.match(SRC, /const missed = x\.answered === false/);
+  assert.match(SRC, /color: missed \? CALL_RED/);
+  // 语音留言：单向的，所以要有他一直没听的那条
+  assert.match(spec.instruction, /留言是单向的，本身就说明对方联系不上他/);
+  assert.match(SRC, /他一直没听/);
+});
+
+test("短信和微信收发的东西必须区分开", () => {
+  // 她 2026-08-29：「可以把短信也做进去。但是要区分开短信和微信会发送和接收到的内容」
+  const P = loadPhone();
+  const spec = P.phoneProbeSpec("calls", char, [], "", []);
+  assert.match(spec.instruction, /短信和微信收发的东西完全不是一回事，别把微信那套搬过来/);
+  assert.match(spec.instruction, /短信里\*\*绝大多数不是人\*\*/);
+  assert.match(spec.instruction, /熟人一旦出现在短信里，必有一个理由/);
+  assert.match(spec.instruction, /日常闲聊属于微信，不属于这里/);
+  assert.match(spec.instruction, /几乎没有表情、没有连发、没有撒娇/);
+  assert.match(spec.schemaHint, /"kind"/);
+  // 界面上「通知」和「人」两种样式分得开
+  assert.match(SRC, /const isNotice = x\.kind !== "人"/);
+  // 电话和微信的常联系人不是同一批
+  assert.match(spec.instruction, /电话打给谁，和微信聊得多的，往往不是同一批人/);
 });

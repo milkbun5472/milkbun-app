@@ -60,7 +60,7 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
@@ -2097,6 +2097,169 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 13px 22px" } }, page.body),
     detail);
 }
+// ============================================================
+// 电话 —— 通话 / 短信 / 信箱 / 联系人（她 2026-08-29 拍板留下并重做）
+// 这个 app 真正有东西的是【没接通的那些】：谁打来他不接、他打给谁一直打不通、
+// 深夜那通只有几十秒的。每一条都带他自己的想法。
+// 短信单独一页，而且和微信收发的东西**完全不是一回事**——那条分界写在提示词里，
+// 界面上也用「通知/人」两种样式把它显出来。
+// ============================================================
+const CALL_BG = "#f2f2f7";
+const CALL_INK = "#1c1c1e";
+const CALL_DIM = "#8e8e93";
+const CALL_BLUE = "#0a84ff";
+const CALL_RED = "#ff3b30";
+function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("calls");
+  const [open, setOpen] = useState(null);
+  const scrollRef = useRef(null);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
+  const A = a => Array.isArray(a) ? a : [];
+  const data = (d && typeof d === "object") ? d : {};
+  const me = (data.me && typeof data.me === "object") ? data.me : {};
+  const calls = A(data.calls).filter(x => x && typeof x === "object");
+  const sms = A(data.sms).filter(x => x && typeof x === "object");
+  const vm = A(data.voicemail).filter(x => x && typeof x === "object");
+  const freq = A(data.frequent).filter(x => x && typeof x === "object");
+  const blocked = A(data.blocked).filter(x => x && typeof x === "object");
+  const missedN = calls.filter(x => x.answered === false).length;
+  const unheardN = vm.filter(x => x.heard === false).length;
+  const unreadN = sms.filter(x => x.unread).length;
+  const peekBtn = (tier, label, title, text) => onPeek ? h("button", {
+    onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
+    className: "w-full active:opacity-60",
+    style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5,
+      border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.42)" : "#e2e2e7"), color: tier === "hidden" ? "#b6473c" : "#55555c" }
+  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机") : null;
+  const groupCard = kids => h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } }, kids);
+  const secLabel = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: CALL_DIM, padding: "14px 4px 8px" } }, txt);
+  // ── 通话记录：iOS 那种列表，未接标红 ──
+  const callRow = (x, i) => {
+    const missed = x.answered === false;
+    const isIn = x.dir === "in";
+    return h("button", {
+      key: i, onClick: () => setOpen({ kind: "call", x: x }),
+      className: "w-full text-left active:opacity-60 flex items-center",
+      style: { gap: 12, padding: "12px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
+    }, h("span", { "aria-hidden": "true", style: { width: 26, flexShrink: 0, textAlign: "center", fontSize: 15, color: missed ? CALL_RED : CALL_DIM } }, isIn ? "↙" : "↗"),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: missed ? CALL_RED : CALL_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name || x.number || "陌生号码"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM, marginTop: 3 } },
+        [isIn ? "来电" : "拨出", missed ? "未接通" : (x.duration || "")].filter(Boolean).join(" · "))),
+    h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: CALL_DIM } }, x.time || ""));
+  };
+  const callsPage = calls.length ? h("div", null,
+    missedN ? h("div", { style: { background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#c0392b" } },
+      "这周有 " + missedN + " 通没接通") : null,
+    groupCard(calls.map(callRow)))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "没有通话记录");
+  // ── 短信：通知类和人分开画 ──
+  const smsRow = (x, i) => {
+    const isNotice = x.kind !== "人";
+    return h("button", {
+      key: i, onClick: () => setOpen({ kind: "sms", x: x }),
+      className: "w-full text-left active:opacity-60 flex items-start",
+      style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
+    }, h("div", { style: { width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+      background: isNotice ? "#eef0f4" : "#dcefe4", color: isNotice ? "#7b828c" : "#3f7a58", fontFamily: F_DISPLAY, fontSize: 14 } },
+      isNotice ? "#" : String(x.name || "?").trim().slice(0, 1)),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { className: "flex items-center", style: { gap: 6 } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: CALL_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name || x.number || ""),
+        x.unread ? h("span", { style: { width: 7, height: 7, borderRadius: 99, background: CALL_BLUE, flexShrink: 0 } }) : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: CALL_DIM, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+        ((A(x.msgs)[A(x.msgs).length - 1] || {}).text) || "")),
+    h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: CALL_DIM } }, x.time || ""));
+  };
+  const smsPage = sms.length ? h("div", null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: CALL_DIM, padding: "2px 4px 11px" } },
+      "短信里多半不是人——验证码、账目、催缴、送货、骗子。熟人出现在这儿，总有个理由。"),
+    groupCard(sms.map(smsRow)))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "没有短信");
+  // ── 语音信箱 ──
+  const vmPage = vm.length ? h("div", null,
+    unheardN ? h("div", { style: { background: "rgba(10,132,255,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#1a5fb4" } },
+      "有 " + unheardN + " 条他一直没听") : null,
+    vm.map((x, i) => h("button", {
+      key: i, onClick: () => setOpen({ kind: "vm", x: x }),
+      className: "w-full text-left active:opacity-60",
+      style: { background: "#fff", borderRadius: 14, padding: "15px 16px", marginBottom: 10, borderLeft: x.heard === false ? "3px solid " + CALL_BLUE : "3px solid transparent" }
+    }, h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: CALL_INK } }, x.from || ""),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, [x.time, x.duration].filter(Boolean).join(" · "))),
+    x.transcript ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "#5b5b62", marginTop: 8, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.transcript) : null,
+    x.heard === false ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: CALL_BLUE, marginTop: 8 } }, "未听") : null)))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "信箱是空的");
+  // ── 联系人 + 拦截 ──
+  const peoplePage = h("div", null,
+    me.number ? h("div", { style: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 14 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "他的号码"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: CALL_INK, marginTop: 5 } }, me.number)) : null,
+    freq.length ? h("div", null, secLabel("常联系"),
+      groupCard(freq.map((x, i) => h("div", { key: i, style: { padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" } },
+        h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: CALL_INK } }, x.name || ""),
+          x.count != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: CALL_DIM } }, x.count + " 通") : null),
+        x.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: CALL_DIM, marginTop: 5 } }, x.why) : null)))) : null,
+    blocked.length ? h("div", null, secLabel("拦截名单"),
+      groupCard(blocked.map((x, i) => h("div", { key: i, style: { padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: CALL_INK } }, x.name || ""),
+        x.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#b6473c", marginTop: 5 } }, x.why) : null))),
+      onPeek ? peekBtn("hidden", "他的拦截名单", "他拉黑了谁", blocked.map(x => (x.name || "") + "：" + (x.why || "")).join("｜")) : null) : null,
+    (!freq.length && !blocked.length && !me.number)
+      ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "还没有联系人") : null);
+  // ── 详情 ──
+  const detail = open ? (function () {
+    const x = open.x || {};
+    const isCall = open.kind === "call", isSms = open.kind === "sms", isVm = open.kind === "vm";
+    const missed = isCall && x.answered === false;
+    return h("div", { className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,20,24,.42)", zIndex: 30 }, onClick: () => setOpen(null) },
+      h("div", { onClick: e => e.stopPropagation(),
+        style: { background: "#fff", borderRadius: "20px 20px 0 0", maxHeight: "84%", overflowY: "auto", padding: "18px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" } },
+        h("div", { className: "flex items-start justify-between", style: { gap: 10 } },
+          h("div", { className: "min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.35, color: missed ? CALL_RED : CALL_INK } }, x.name || x.from || x.number || "陌生号码"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM, marginTop: 5 } },
+              [x.number, x.time, isCall ? (missed ? "未接通" : (x.dir === "in" ? "来电 " : "拨出 ") + (x.duration || "")) : "", isVm ? x.duration : "", isSms ? (x.kind === "人" ? "短信 · 人" : "短信 · 通知") : ""].filter(Boolean).join(" · "))),
+          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: CALL_DIM, padding: "0 4px" } }, "✕")),
+        // 短信：气泡串。收到的靠左灰、他发的靠右蓝
+        isSms ? h("div", { style: { marginTop: 16 } }, A(x.msgs).map((m2, j) => {
+          const mine = m2.from === "me";
+          return h("div", { key: j, className: "flex", style: { justifyContent: mine ? "flex-end" : "flex-start", marginTop: j ? 9 : 0 } },
+            h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m2.text || ""));
+        })) : null,
+        isVm && x.transcript ? h("div", { style: { marginTop: 16, background: "#f5f5f8", borderRadius: 12, padding: "14px 15px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "留言转文字" + (x.heard === false ? " · 他一直没听" : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, x.transcript)) : null,
+        isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: "#4b4b53" } }, x.gist) : null,
+        x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: CALL_INK } }, x.thought) : null,
+        peekBtn("quiet",
+          isCall ? (missed ? "他没接的一通电话" : "他的通话记录") : isSms ? "他收到的短信" : "有人给他留的言",
+          x.name || x.from || x.number,
+          [isCall ? (missed ? "没接通" : x.duration) : "", x.gist, x.transcript, A(x.msgs).map(m2 => m2.text).join(" / "), x.thought].filter(Boolean).join("｜"))));
+  })() : null;
+  const PAGES = [
+    { key: "calls", zh: "通话", body: callsPage, badge: missedN },
+    { key: "sms", zh: "短信", body: smsPage, badge: unreadN },
+    { key: "vm", zh: "信箱", body: vmPage, badge: unheardN },
+    { key: "people", zh: "联系人", body: peoplePage }
+  ];
+  const page = PAGES.find(x => x.key === tab) || PAGES[0];
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CALL_BG } },
+    h("div", { className: "shrink-0", style: { paddingTop: safeTop(10) } },
+      h("div", { className: "flex items-center px-4 pb-2" },
+        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CALL_INK })),
+        h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: CALL_INK } }, page.zh),
+        h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: CALL_INK }))),
+      h("div", { className: "flex px-3 pb-2", style: { gap: 4 } }, PAGES.map(pg => h("button", {
+        key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 4px", borderRadius: 9,
+          background: tab === pg.key ? "#fff" : "transparent", color: tab === pg.key ? CALL_INK : CALL_DIM,
+          boxShadow: tab === pg.key ? "0 1px 4px rgba(30,30,40,.10)" : "none" }
+      }, pg.zh + (pg.badge ? " " + pg.badge : ""))))),
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 14px 22px" } }, page.body),
+    detail);
+}
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -2129,45 +2292,7 @@ function renderPhoneModule(key, d, ctx) {
   }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : tier === "open" ? "转发给 TA" : "转发给 TA · 他会知道你翻了手机") : null;
   if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
   if (key === "notes") return h(StickyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "calls") return wrap(arr(d.items).map((it, i) => {
-    const missed = it.connected === false;
-    const out = it.dir === "out";
-    const mark = missed ? "✕" : out ? "↗" : "↙";
-    return h("div", {
-      key: i,
-      className: "py-3 flex items-center gap-3",
-      style: line
-    }, h("span", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 15,
-        width: 16,
-        textAlign: "center",
-        color: missed ? t.accent : t.tint
-      }
-    }, mark), h("div", {
-      className: "flex-1"
-    }, h("div", {
-      style: {
-        fontFamily: F_DISPLAY,
-        fontSize: 14.5,
-        color: missed ? t.accent : t.ink
-      }
-    }, it.name), h("div", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 10.5,
-        color: t.fog,
-        marginTop: 2
-      }
-    }, (out ? "去电" : "来电") + (missed ? " · 未接" : it.duration ? " · " + it.duration : " · 已接"))), h("span", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 10.5,
-        color: t.fog
-      }
-    }, it.time));
-  }));
+  if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -2660,7 +2785,7 @@ function PhoneCarry({
 const PHONE_ANGLE = {
   wechat: "【取材层】有别人在场时的他。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
   notes: "【取材层】完全没人看的时候，他留给自己的东西——打字的和说出口的都在这儿。录下来的那些是**打字打不出来、只能说出来**的，这是它和打字条的分界。【时间窗】这一两周。",
-  calls: "【取材层】他和外面世界的例行往来：工作、家里、办事、推销、打错的。这里大部分是杂事，不是感情戏。【时间窗】这一周。",
+  calls: "【取材层】他和外面世界打交道时留下的硬痕迹：谁打来他不接、谁给他留了言、哪些人只配收到短信。**电话记录里最有东西的是没接通的那些。**【时间窗】这一周。",
   browser: "【取材层】没人看着的时候他自己去找的东西。搜索框里的人是不修饰的——会打错字、会问很蠢的问题、会反复搜同一件事。【时间窗】这几天，标签页可以开了很久。",
   shopping: "【取材层】他花钱的方式。买了什么、想买没买、绝不买什么、送到谁家——这四样加起来比他自己说的任何一句都准。【时间窗】这一个月，想买清单可以惦记很久。",
   bili: "【取材层】他消磨时间的口味，不是他的心事——刷视频多半是没在想什么的时候。弹幕是例外：那是他忍不住开口的地方。【时间窗】这几天。",
@@ -2683,7 +2808,7 @@ const PHONE_DIGEST_PICK = {
   wechat: d => pArr(d.chats).slice(0, 3).map(c => (c.name || "") + "：" + (c.last || ""))
     .concat(pArr(d.moments).slice(0, 2).map(m => "朋友圈「" + String(m.content || "").slice(0, 30) + "」")),
   notes: d => pArr(d.items).map(x => x.title),
-  calls: d => pArr(d.items).slice(0, 4).map(x => x.name),
+  calls: d => pArr(d.calls).slice(0, 4).map(x => x.name || x.number).concat(pArr(d.sms).map(x => x.name)),
   browser: d => pArr(d.tabs).map(x => x.title).concat(pArr(d.searches).map(x => x.q)),
   shopping: d => pArr(d.orders).map(x => x.title).concat(pArr(d.wish).map(x => x.title), pArr(d.cart).map(x => x.title)),
   album: d => pArr(d.items).slice(0, 4).map(x => x.caption),
@@ -2750,8 +2875,20 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       schemaHint: "{\"items\":[{\"kind\":\"typed\",\"title\":\"很短的抬头\",\"time\":\"昨天 21:03\",\"body\":\"正文\",\"color\":2},{\"kind\":\"voice\",\"title\":\"抬头\",\"time\":\"昨天 23:40\",\"duration\":\"0:37\",\"body\":\"录音转成的字，不通顺\",\"color\":4}]}"
     },
     calls: {
-      instruction: "推演「" + char.name + "」最近的通话记录（4-7 条）。" + relHint + "给出通话人、来电(in)还是拨出(out)、时间、是否接通、通话时长（未接为空）。时长要合理。",
-      schemaHint: "{\"items\":[{\"name\":\"通话人\",\"dir\":\"in或out\",\"time\":\"今天 09:12\",\"connected\":true,\"duration\":\"04:32\"}]}"
+      instruction: "推演「" + char.name + "」手机上的电话和短信。\n\n"
+        + "me：number（他自己的号码）。\n\n"
+        + "calls 通话记录 **8-12 条**：name（对方怎么称呼，陌生号就留空）、number、dir（in 来电 / out 拨出）、time、duration（接通了才写；没接通留空）、answered（true/false）、gist（这通说了什么，一句；没接通就写没接通时他在干嘛）、thought（**他对这通电话的真实想法**，一句，可以刻薄、可以敷衍、可以是没接的理由）。\n"
+        + "**这个 app 真正有东西的是没接通的那些**：谁打来他不接、他打给谁一直打不通、深夜那通只有几十秒的、同一个人一天打了好几遍。**至少三条是没接通的**，而且每一条不接的理由都不一样（在忙、不想接、故意晾着、没听见、正跟别人在一起）。\n\n"
+        + "sms 短信 **5-8 串**：name、number、kind（通知 或 人）、time、unread（true/false）、msgs（1-4 条，各有 from = they／me、text、time）、thought（他对这串的想法，可空）。\n"
+        + "**⚠️短信和微信收发的东西完全不是一回事，别把微信那套搬过来。**\n"
+        + "短信里**绝大多数不是人**：验证码、账目通知、催缴、店家提醒、送货、推销、以及骗子。这些一条就是一条，没有来回，语气是机器或者陌生人的。kind=通知 的那几串占多数。\n"
+        + "**熟人一旦出现在短信里，必有一个理由**：那会儿联不上网、对方被他删了或拉黑了、手机不在身边、或者是必须留个凭据的正事。**写熟人短信时，那个理由要能从内容里看出来**，不能写成日常闲聊——日常闲聊属于微信，不属于这里。\n"
+        + "短信也**几乎没有表情、没有连发、没有撒娇**，句子是完整的、生硬的、像在办事。\n\n"
+        + "voicemail 语音信箱 **2-4 条**：from、time、duration、transcript（留言转成的字，**要有停顿、改口、说到一半的句子**）、heard（他听没听过）、thought。\n"
+        + "**留言是单向的，本身就说明对方联系不上他**——所以这几条里应该有他一直没听的那条。\n\n"
+        + "frequent 常联系 **3-5 个**：name、count（通话次数）、why（一句为什么总跟这人通话）。**电话打给谁，和微信聊得多的，往往不是同一批人**：电话给的是办事的、家里的、以及不方便打字的。\n\n"
+        + "blocked 拦截名单 **1-3 个**：name、why（一句为什么拉黑的）。可以是骗子，也可以是他不想再接的人。" + relHint,
+      schemaHint: "{\"me\":{\"number\":\"他的号码\"},\"calls\":[{\"name\":\"对方称呼\",\"number\":\"号码\",\"dir\":\"in\",\"time\":\"今天 09:12\",\"duration\":\"04:32\",\"answered\":true,\"gist\":\"这通说了什么\",\"thought\":\"他的想法\"}],\"sms\":[{\"name\":\"发信方\",\"number\":\"号码\",\"kind\":\"通知\",\"time\":\"时间\",\"unread\":false,\"msgs\":[{\"from\":\"they\",\"text\":\"内容\",\"time\":\"时间\"}],\"thought\":\"可空\"}],\"voicemail\":[{\"from\":\"谁留的\",\"time\":\"时间\",\"duration\":\"0:41\",\"transcript\":\"留言转成的字\",\"heard\":false,\"thought\":\"他的想法\"}],\"frequent\":[{\"name\":\"谁\",\"count\":14,\"why\":\"为什么总跟这人通话\"}],\"blocked\":[{\"name\":\"谁\",\"why\":\"为什么拉黑\"}]}"
     },
     browser: {
       instruction: "推演「" + char.name + "」浏览器里的全部东西。\n\n"
