@@ -978,9 +978,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     }, pg.badge > 99 ? "99+" : pg.badge) : null),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
   const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10), background: "transparent" } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.86)", boxShadow: "0 4px 14px rgba(30,25,20,.10)" } }, h(IArrow, { size: 19, color: SHOP_INK })),
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: SHOP_INK })),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.86)", boxShadow: "0 4px 14px rgba(30,25,20,.10)" } }, h(IRefresh, { size: 18, color: SHOP_INK })));
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: SHOP_INK })));
   // ── 详情弹层：看全文的地方，也是唯一能转发的地方 ──
   const sheetNode = sheet && sheet.kind === "wish" ? (function () {
     const it = sheet.it || {};
@@ -1241,9 +1241,9 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
   const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.72)" } }, h(IArrow, { size: 19, color: TAKE_INK })),
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#7a6428" })),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#6a5a2a" } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.72)" } }, h(IRefresh, { size: 18, color: TAKE_INK })));
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: "#7a6428" })));
   const nav = h("div", {
     className: "shrink-0 grid grid-cols-4",
     style: { padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
@@ -1486,7 +1486,9 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const v = open.v || {};
     return h("div", { className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 30 } },
       h("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "linear-gradient(140deg," + cover(open.i)[0] + "," + cover(open.i)[1] + ")", flexShrink: 0, paddingTop: safeTop(0) } },
-        h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { position: "absolute", zIndex: 2, left: 8, top: safeTop(8), width: 36, height: 36, borderRadius: 99, background: "rgba(0,0,0,.32)" } }, h(IArrow, { size: 18, color: "#fff" })),
+        // 压在封面上：不套圆框，改成顶部一条从暗到透明的渐变把图标托住
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: safeTop(56), background: "linear-gradient(180deg,rgba(0,0,0,.34),transparent)", pointerEvents: "none" } }),
+        h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { position: "absolute", zIndex: 2, left: 6, top: safeTop(6), width: 40, height: 40 } }, h(IArrow, { size: 20, color: "#fff" })),
         // ⚠️这层播放按钮是 inset:0 铺满的装饰，必须 pointerEvents:none，
         // 否则它盖在返回键上面、把点击整个吃掉（她 2026-08-29 报「退出键是死的」）
         h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" } },
@@ -1640,7 +1642,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     onClick: e => e.stopPropagation(),
     style: { background: "#fff", borderRadius: "20px 20px 0 0", maxHeight: "84%", overflowY: "auto", padding: "0 0 calc(env(safe-area-inset-bottom) * 0.4 + 20px)" }
   }, h("div", { style: { height: 138, background: "linear-gradient(150deg," + cover(open.cover)[0] + "," + cover(open.cover)[1] + ")", borderRadius: "20px 20px 0 0", position: "relative" } },
-    h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { position: "absolute", right: 12, top: 12, width: 30, height: 30, borderRadius: 99, background: "rgba(255,255,255,.8)", fontSize: 14, color: "#55555c" } }, "✕")),
+    h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { position: "absolute", right: 10, top: 10, width: 34, height: 34, fontSize: 17, color: "rgba(255,255,255,.92)", textShadow: "0 1px 4px rgba(0,0,0,.35)" } }, "✕")),
   h("div", { style: { padding: "16px 20px 0" } },
     h("div", { className: "flex items-center gap-2.5" },
       h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 13 } }, String(open.author || "?").trim().slice(0, 1)),
@@ -1685,6 +1687,9 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           kind === "draft" ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a8a8b0" } }, "未发布") : null),
         h("div", { style: { padding: "9px 10px 11px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.title || ""),
+          A(x.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginTop: 7 } }, A(x.tags).slice(0, 3).map((tg, j) => h("span", {
+            key: j, style: { fontFamily: F_BODY, fontSize: 10, color: "#5f7fb8", background: "#eef2f8", borderRadius: 999, padding: "2px 7px" }
+          }, "#" + tg))) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: kind === "draft" ? "#c0554f" : PLAZA_DIM, marginTop: 7 } },
             kind === "draft" ? (x.savedAt || "没发出去") : [x.time, x.likes != null ? "♥ " + x.likes : ""].filter(Boolean).join(" · "))))))
     : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: PLAZA_DIM } },
@@ -2726,12 +2731,12 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
     shopping: {
       instruction: "推演「" + char.name + "」网购 App 的整个界面。" + relHint + "\n"
         + "**所有金额、店铺、商品都必须贴合他的身份、时代和谋生方式**：古代角色买的是他那个世界里买得到的东西、逛的是那种铺子；普通人就是普通消费水平，不许人人都很有钱。\n\n"
-        + "account 账户：name（**他在这个平台上的昵称**，不是本名照抄）、uid（会员号，一串数字）、member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格，如「实用利落兼带几件扎眼红衣」）、monthSpend（本月消费，数字）、monthOrders（本月订单数）、points（积分）、persona（一句更狠的购物性格，如「买东西极快但退换极少，嫌麻烦多过心疼银子」）。\n"
+        + "account 账户：name（**他在这个平台上的昵称**，不是本名照抄）、uid（会员号，一串数字）、member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格）、monthSpend（本月消费，数字）、monthOrders（本月订单数）、points（积分）、persona（一句更狠的购物性格：他买东西时最像他自己的那个毛病）。\n"
         + "shipping 在途包裹 **2-3 件**：status（派送中/运输中/已揽收）、eta（如「今日 18:00 前」）、shop、title（商品全名带规格）、progress（0-100 整数）、carrier、tail（运单尾号）、amount（数字）。\n"
-        + "cart 购物车 **4-6 件**：shop、title、spec（颜色/尺码/款式）、price（现价数字）、was（原价数字，可为 0）、promo（如「跨店满减」「包邮」「买二立减」，可空）、qty。购物车装的是【还没下决心的东西】。\n"
+        + "cart 购物车 **4-6 件**：shop、title、spec（颜色/尺码/款式）、price（现价数字）、was（原价数字，可为 0）、promo（优惠标签，可空）、qty。购物车装的是【还没下决心的东西】。\n"
         + "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想买，一句他自己的话**）。\n"
         + "**why 这一栏是整个 app 里最重要的东西**：它要暴露他的私心、旧事和惦记的人（「某人不是喜欢红的么，买来扣她脖子上」「刀柄弧度很像当年父亲留下的那把」「府里那张被陆闻拍裂了一条缝」）。不许写「质量好」「性价比高」这种。\n"
-        + "orders 我的订单 **6-8 单**：shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右，如「食品特产」「微信支付」）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n"
+        + "orders 我的订单 **6-8 单**：shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右：品类和付款方式各一个）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n"
         + "habit 购物习惯：budget（单笔预算区间）、buys（常买什么）、avoids（**绝不买什么**——这一条比常买更像人）、how（下单习惯，什么时候翻、还不还价）。\n"
         + "shops 常逛店铺 **3-4 家**：name、cat（品类）、why（一句为什么是这家，要具体到掌柜脾气、货色成色这种）。\n"
         + "coupons 优惠券 **2-3 张**：rule（如「满300减50」）、name、scope（哪家或哪类可用）、until（到期日）。\n"
@@ -2739,7 +2744,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
         + "addrs 收货地址 **2-3 条**：label（地址别名）、tail（尾号）、detail（详细到门房怎么放的那种备注）、isDefault（只有一条 true）。**其中一条应当是「他常去的另一个地方」**，不是自己家。\n"
         + "gifts 相关往来 **3-5 条**：who（给谁买的，用他嘴里对那个人的叫法）、title、note（**一句只有他会写的备注**，如「嘴上说着不喜欢我吵，接了油纸包自己一口气吃了三块」）。\n"
         + "monthNote：本月购物概况，一段 60-110 字，账房口吻，别抒情。tail：最后一句他自己的念叨，一两句，可以很得意也可以很没出息。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员名\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\"}"
+      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\"}"
     },
     album: {
       instruction: "推演「" + char.name + "」手机相册里正好 25 张互不重复的照片。时间跨度要自然；date 必须写真实完整日期 YYYY-MM-DD HH:mm，必须带年份，禁止写周三、周五、昨天、最近等相对日期。每张分进且只分进五类之一：回忆(memory)、个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张、不必平均。memory 是 TA 真正会反复翻看的重要瞬间，不是普通随手拍。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
@@ -2747,74 +2752,74 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
     },
     reading: {
       instruction: "推演「" + char.name + "」手机读书 App 里的整个书架。**正好 5 个书架、正好 30 本书（每架 6 本）。**\n\n"
-        + "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲，像这样：「导师以为我在看的论文」「凌晨两点的关东煮哲学」「怎么对付某个麻烦精」「偶尔翻两页的杂食储备」。**一看名字就知道是谁的书架。**每架另配一个英文 slug（小写下划线，如 midnight_wander）。\n"
+        + "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲——**一看名字就知道是谁的书架**，而且换个角色这名字就不成立了。每架另配一个英文 slug（小写下划线，如 midnight_wander）。\n"
         + "五个里至少有一个是【只有他会有的】：跟他的职业、他正在应付的麻烦、他藏着的身份、或者某个具体的人有关。" + relHint + "\n\n"
         + "【书必须是真的】真实存在、书名和作者都对得上，而且【是他在他所处的时代和世界里拿得到的】：古代角色的架子上不许出现现代出版物，现代角色可以有古籍和译本。同一架里的书要像同一个人挑的。\n\n"
         + "【每本都要有】title、author；readAt = 他读到哪儿（「卷七·饮食果子」「第 3 章」「214 页」都行，**允许有几本写「还没翻开」或「读了两页就放下了」**）；note = 他的批注，40-90 字，第一人称。\n"
-        + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头（比如「改天带你去城南找找，看能不能把书里的几样凑齐」）。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
+        + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头、一个当场冒出来的打算。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
         + "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n"
         + "【阅读档案 archive】name = **他在这个读书 app 上的昵称**（不是本名照抄）；uid = 书友号（一串数字）；favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；weekGoal = **他给自己定的每周阅读目标**（同样格式，如「5小时」；定得高还是低本身就是这个人的样子，也完全允许他这周没读到）；plan = 他打算下一本读的（title+author）。",
-      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"卷七·饮食果子\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
+      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"读到哪儿\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
     },
     liked: {
       instruction: "推演「" + char.name + "」在小红书那样的图文社区里的账号。\n"
-        + "me：name（**他在这儿的昵称**，不是本名照抄；这种号往往随手起、有点敷衍或自嘲）、xhsId（一串数字号）、bio（一句简介，可以很敷衍甚至只有几个字）、tag（个人页上那颗小药丸，如「24岁」「京城」「不常上线」）、posts（发过几条）、following、followers、likes（获赞与收藏总数）。**粉丝数按他这个人合理，多数人很少。**\n"
-        + "tabs：他常看的频道 **4-6 个**，按他的口味起名（如「附近」「装修」「野钓」「减脂」「古着」）。\n"
-        + "items **10-12 条**他【赞过或收藏过】的笔记，每条：author、title（社区那种口吻，可以是「谁懂啊」「求求了」这种）、excerpt（正文一两句）、tab、tags（1-3 个）、likes、act（赞 或 收藏）、time、cover（0-5 的整数，定封面色）。\n"
+        + "me：name（**他在这儿的昵称**，不是本名照抄；这种号往往随手起、有点敷衍或自嘲）、xhsId（一串数字号）、bio（一句简介，可以很敷衍甚至只有几个字）、tag（个人页上那颗小药丸：年纪、所在地、或一句自嘲，二选一）、posts（发过几条）、following、followers、likes（获赞与收藏总数）。**粉丝数按他这个人合理，多数人很少。**\n"
+        + "tabs：他常看的频道 **4-6 个**，按他的口味起名（按他真正会点进去的东西起名，别用平台默认那几个大类）。\n"
+        + "items **10-12 条**他【赞过或收藏过】的笔记，每条：author、title（社区那种口吻——夸张、口语、像在跟人诉苦或炫耀）、excerpt（正文一两句）、tab、tags（1-3 个）、likes、act（赞 或 收藏）、time、cover（0-5 的整数，定封面色）。\n"
         + "**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。这十来条要出现他【不主动说、也不觉得需要解释】的部分——某种审美、某个身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议、一件他偷偷惦记的事。也要有很没意思的（做饭、通勤、修东西），别每条都深刻。\n"
-        + "mine **2-4 条**他自己发出去的笔记：title、excerpt、likes、time、cover。\n"
-        + "**drafts 1-3 条：他写了却一直没发出去的草稿。**这是这个 app 最狠的一格——写完了、存着、就是没点发送。可以是矫情的、丢人的、太露骨的、或者写给某个具体的人却不敢发的。每条：title、excerpt、savedAt（存了多久，如「存了 11 天」）。\n"
+        + "mine **2-4 条**他自己发出去的笔记：title、excerpt、tags（1-3 个，和他赞的那些是同一套标签体系）、likes、time、cover。\n"
+        + "**drafts 1-3 条：他写了却一直没发出去的草稿。**这是这个 app 最狠的一格——写完了、存着、就是没点发送。可以是矫情的、丢人的、太露骨的、或者写给某个具体的人却不敢发的。每条：title、excerpt、tags（1-3 个）、savedAt（存了多久，写成一句）。\n"
         + "**他发出去的、他赞过的、和他没发出去的，可以完全是三个人**：发出去的是他愿意给人看的，赞过的是他自己，草稿箱里的是他不敢承认的。\n"
         + "follows：他关注的 **4-6 个**账号，name ＋一句 desc。别全是正经账号。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"附近\",\"野钓\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"野钓\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}]}"
+      schemaHint: "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"频道名\",\"频道名\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"频道\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}]}"
     },
     health: {
       instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
         + "cards **12-14 张指标卡**，group 分三档、每档 4-5 张：body（身体：睡眠、活动、心跳、消耗、恢复这类）、mind（心神：情绪、静心、社交、私密的身体反应这类）、intake（摄入与消耗：喝的、吃的、以及他花在传消息上的时间）。wide=true 的整宽卡每档 1-2 张，其余为窄卡。\n\n"
-        + "【这个 app 的灵魂 · 指标名要长成他世界里的样子】**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」，那一项对他来说是「玉简传信」；「正念冥想」对他是「调息定神」；「社交电量」可以是「应酬耗神」。现代角色就用现代说法。**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**\n\n"
-        + "【每张卡都要有】name（指标名，见上）、group、wide、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，如「欠佳」「达标」「情绪剧烈」「神思难平」）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
-        + "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：一个在京城办差的王爷是「搜查厢房 / 官署穿行 / 日常散步」，一个读研的学生是「实验室往返 / 通勤 / 散步」。同样一张「饮水」卡：王爷是「官署苦茶 / 某人案头凉茶 / 日常饮水」，学生是「咖啡因摄入 / 纯水摄入 / 饮水频次」。**换个角色还照样成立的三项，就是写坏了。**\n\n"
+        + "【这个 app 的灵魂 · 指标名要长成他世界里的样子】**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」，所以那一项在他那儿必须换成他会用的说法；「正念冥想」「社交电量」这类现代词同理。现代角色就用现代说法。**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**\n\n"
+        + "【每张卡都要有】name（指标名，见上）、group、wide、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
+        + "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：三项拆的应该是**他今天真正走过的那几段路、真正喝下去的那几样东西**，名字要带上地点、场合、或某个具体的人。**换个角色还照样成立的三项，就是写坏了。**\n\n"
         + "【note】用体检报告那种冷静的观测口吻写，但内容必须是**他今天真实经历过的事**：熬夜看什么看到几点、为什么突然心跳飙起来、去了哪、跟谁吵了、吃了什么没吃成什么。不许写「建议保持规律作息」这类套话。\n"
         + "【quote】切回他本人的口气，带脾气、带私心，可以刻薄可以得意，和上面那段冷静叙述形成反差。\n\n"
         + "today：score（今日综合分 0-100 整数）、label（一句今天的总评，很短）。\n"
         + "timeline **4-6 条**：time（HH:mm）、tag（两三个字的类别，用上面那些指标名里的词）、text（一句 25-45 字，说清那个时刻身体发生了什么、为什么）。按时间顺序。\n"
-        + "insights **正好 3 条**：title（一个短判断，如「情绪与生理强关联」「作息弹性良好」）、text（一段 30-55 字的解释）。\n"
+        + "insights **正好 3 条**：title（一个短判断，像体检报告小标题那样）、text（一段 30-55 字的解释）。\n"
         + "tail：最后一句他自己的话，一两句。",
-      schemaHint: "{\"today\":{\"score\":74,\"label\":\"一句总评\"},\"cards\":[{\"name\":\"指标名\",\"group\":\"body\",\"wide\":true,\"score\":68,\"value\":\"6.2\",\"unit\":\"h\",\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"week\":[62,55,70,48,66,58,72],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"睡眠\",\"text\":\"一句\"}],\"insights\":[{\"title\":\"短判断\",\"text\":\"一段\"}],\"tail\":\"最后一句\"}"
+      schemaHint: "{\"today\":{\"score\":74,\"label\":\"一句总评\"},\"cards\":[{\"name\":\"指标名\",\"group\":\"body\",\"wide\":true,\"score\":68,\"value\":\"6.2\",\"unit\":\"h\",\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"week\":[62,55,70,48,66,58,72],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"两三个字的类别\",\"text\":\"一句\"}],\"insights\":[{\"title\":\"短判断\",\"text\":\"一段\"}],\"tail\":\"最后一句\"}"
     },
     clipboard: {
       instruction: "推演「" + char.name + "」手机剪贴板里最近躺着的东西（5-7 条）。每条给 text（复制的原文）、from（从哪个 app 复制的）、time、sent（true=后来发出去了；false=复制了但一直没发）。\n**必须至少有一条 sent=false，而且是他打给某个具体的人、却始终没发出去的话。**这是「差一点就说了」的物证，是这个 app 唯一重要的东西。它不必长，可以只有半句，可以很难看、很没出息、说到一半停住。\n其余的可以很杂很无聊：验证码、快递单号、店铺地址、一个人名、一句歌词、一个链接。别每条都深情。" + relHint,
-      schemaHint: "{\"items\":[{\"text\":\"复制的原文\",\"from\":\"微信\",\"time\":\"昨天 02:11\",\"sent\":false}]}"
+      schemaHint: "{\"items\":[{\"text\":\"复制的原文\",\"from\":\"从哪个 app 复制的\",\"time\":\"昨天 02:11\",\"sent\":false}]}"
     },
     takeout: {
       instruction: "推演「" + char.name + "」点餐 App 的整个界面。" + relHint + "\n"
         + "**所有店铺、菜名、价格都要贴合他的身份、时代和谋生方式**：古代角色是从街市的铺子叫吃食、由跑腿送到门上；现代角色就是正常外卖。别人人都点贵的。\n\n"
-        + "account：name（**他在这个平台上的昵称**，不是本名照抄；这种账号名往往随手起、有点敷衍或自嘲）、uid（平台号，一串数字或字母数字）、member（会员等级的叫法，按平台在他世界里的说法起）、monthOrders、monthSpend（数字）、persona（一句他点餐的性格，如「饿到极限才想起吃，点完又嫌等得久」）。\n\n"
-        + "today 今日推荐（一条）：addrLabel（送到哪，如「家」）、addrDetail、date（如「8月28日 周五」）、meal（早餐/午餐/晚餐/夜宵）、shop、rating（店铺评分，如「4.6」）、eta（如「12:45送达」）、delivery（配送方式的叫法）、main（主推那道菜，**带规格**，如「红焖滩羊排配烤馕（小份/微辣/多蒜少盐）」）、amount（数字）、status、note（下单备注）。\n\n"
-        + "shops 常点商家 **4-5 家**：name、cat、times（如「点过 24 次」）、usual（他每次都点的）、why（一句为什么总是这家，具体到掌柜脾气、火候、开到几时）、last（上次什么时候）、cover（0-5 整数定色）。\n\n"
+        + "account：name（**他在这个平台上的昵称**，不是本名照抄；这种账号名往往随手起、有点敷衍或自嘲）、uid（平台号，一串数字或字母数字）、member（会员等级的叫法，按这个平台在他世界里的说法起）、monthOrders、monthSpend（数字）、persona（一句他点餐的性格：他叫外卖时最像他自己的那个毛病）。\n\n"
+        + "today 今日推荐（一条）：addrLabel（送到哪，一两个字的地方别名）、addrDetail、date（如「8月28日 周五」）、meal（早餐/午餐/晚餐/夜宵）、shop、rating（店铺评分，如「4.6」）、eta（如「12:45送达」）、delivery（配送方式的叫法）、main（主推那道菜，**后面用括号带上他每次都要的规格**）、amount（数字）、status、note（下单备注）。\n\n"
+        + "shops 常点商家 **4-5 家**：name、cat、times（点过多少次，写成一句）、usual（他每次都点的）、why（一句为什么总是这家，具体到掌柜脾气、火候、开到几时）、last（上次什么时候）、cover（0-5 整数定色）。\n\n"
         + "live 正在送的 **0-2 单**：status、eta、shop、items（一句话说清点了什么）、rider、step（0-3 的整数：0已下单 1商家接单 2配送中 3待送达）、amount、note。\n\n"
-        + "orders 我的订单 **6-8 单**：shop、time、meal（餐次）、status、main（主菜一行）、items（1-3 样，各有 name、spec 规格、qty、price）、pack（包装费数字）、fee（配送费数字）、amount（实付数字）、stars（1-5 整数）、rating（他写的评价，一句，很实在）、tags（2-3 个，如「西北菜/羊肉」「午餐」「银票月结」）、addr、note（**下单备注**）、reason（**为什么这一单**，一句，可以牵涉到人）。\n"
-        + "**note 那一栏是这个 app 的重点**：「不要香菜」「放门口就行」「麻烦轻一点敲门，家里有人在睡」——这三条是三个不同的人。宁可留空也别写成客服模板。**至少一单是深夜的，至少一单是送到别人那儿的。**\n\n"
-        + "taste 口味：spicyTags（辣度，2-3 个短词的数组）、avoidTags（**忌口，3-4 个**——这一组比爱吃什么更像人，而且要具体到「御膳房那种绵软膻气的假羊肉」这种，别只写「香菜」）、likeTags（偏好，3-4 个）、budget（一句预算）、habit（一句点餐习惯，什么时辰点、为什么点）。\n\n"
+        + "orders 我的订单 **6-8 单**：shop、time、meal（餐次）、status、main（主菜一行）、items（1-3 样，各有 name、spec 规格、qty、price）、pack（包装费数字）、fee（配送费数字）、amount（实付数字）、stars（1-5 整数）、rating（他写的评价，一句，很实在）、tags（2-3 个：品类、餐次、付款方式各一个）、addr、note（**下单备注**）、reason（**为什么这一单**，一句，可以牵涉到人）。\n"
+        + "**note 那一栏是这个 app 的重点**：同样一句备注，写给谁、护着谁、怕吵着谁，是三个不同的人。要像真人当场打的字，宁可留空也别写成客服模板。**至少一单是深夜的，至少一单是送到别人那儿的。**\n\n"
+        + "taste 口味：spicyTags（辣度，2-3 个短词的数组）、avoidTags（**忌口，3-4 个**——这一组比爱吃什么更像人。**别只写食材名**，要写清他嫌它哪一点，越具体越像他）、likeTags（偏好，3-4 个）、budget（一句预算）、habit（一句点餐习惯，什么时辰点、为什么点）。\n\n"
         + "week 本周吃什么 **正好 7 天**：day（一到日）、meals（1-3 条，各有 t=早/午/晚/夜 和 text=吃了什么，可以写「未点送」表示那顿没叫）。\n\n"
-        + "coupons 红包卡券 **2-4 张**：amount（如「50」或「免跑腿脚钱2文」）、unit（如「元」，amount 已经是整句时留空）、name（券名，按他世界里的叫法）、scope（哪家可用）、until（到期）。\n\n"
-        + "addrs 常用地址 **2-3 条**：label（**括号里带一句身份说明**，如「王府侧院（本人）」「某人的窝（投喂）」）、tail（尾号数字）、detail（详细到怎么送、怎么放，如「走后巷角门敲三声」「门没锁直接推，搁石桌上」）、isDefault（只有一条 true）。**其中一条应当是【他常去投喂的另一个地方】，不是自己住处。**\n\n"
-        + "wish 想吃清单 **3-5 条**：title（想吃的东西，可以很长很具体）、when（**什么时候会突然想起它**，如「宫里宴饮喝了一肚子温吞没味的名贵御酒时」）。\n\n"
-        + "together 一起点过 **3-4 条**：who（**用他嘴里对那个人的叫法**，如「某位扬言要纳侧房的祖宗」「陆闻那个嘴碎编修」）、items（点了什么）、story（一段 40-70 字，那顿饭上发生了什么，要具体、要有画面、可以很好笑）。\n\n"
+        + "coupons 红包卡券 **2-4 张**：amount（如「50」或「免跑腿脚钱2文」）、unit（如「元」，amount 已经是整句时留空）、name（券名，按他世界里的叫法起，别用现代满减券的套话）、scope（哪家可用）、until（到期）。\n\n"
+        + "addrs 常用地址 **2-3 条**：label（地址别名，**后面用括号补一句这是谁的地方／去干嘛的**）、tail（尾号数字）、detail（详细到怎么送、怎么放、进哪个门——**要具体到只有常来的人才写得出**）、isDefault（只有一条 true）。**其中一条应当是【他常去投喂的另一个地方】，不是自己住处。**\n\n"
+        + "wish 想吃清单 **3-5 条**：title（想吃的东西，可以很长很具体）、when（**什么时候会突然想起它**——写那个当下他在哪、在受什么罪、嘴里是什么味）。\n\n"
+        + "together 一起点过 **3-4 条**：who（**用他嘴里对那个人的叫法**，不是规规矩矩的本名——那个称呼本身就该看得出他俩什么关系）、items（点了什么）、story（一段 40-70 字，那顿饭上发生了什么，要具体、要有画面、可以很好笑）。\n\n"
         + "monthNote：本周点餐概况，一段 70-110 字。tail：最后一两句他自己的念叨。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员名\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"专送\",\"main\":\"主推菜（规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"伙计小赵\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"小份/微辣\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"西北菜/羊肉\",\"午餐\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"偏好微辣\"],\"avoidTags\":[\"生姜丝\"],\"likeTags\":[\"西北风味牛羊肉\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"week\":[{\"day\":\"一\",\"meals\":[{\"t\":\"早\",\"text\":\"吃了什么\"}]}],\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"王府侧院（本人）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"together\":[{\"who\":\"他嘴里对那人的叫法\",\"items\":\"点了什么\",\"story\":\"那顿饭上发生了什么\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\"}"
+      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"week\":[{\"day\":\"一\",\"meals\":[{\"t\":\"早\",\"text\":\"吃了什么\"}]}],\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"together\":[{\"who\":\"他嘴里对那人的叫法\",\"items\":\"点了什么\",\"story\":\"那顿饭上发生了什么\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\"}"
     },
     calendar: {
       instruction: "推演「" + char.name + "」日历和提醒事项里的东西（**10-14 条**，覆盖前后两周）。\n"
         + "monthLabel：这些事所在的月份，写成「8月」这种。\n"
         + "每条：title、date（YYYY-MM-DD，**必须是真实完整日期**，用来落在月历格子上）、time（如「14:00」，全天事项留空）、kind（事件 或 提醒）、done（true/false）、postponed（往后推过几次，整数，多数是 0）、note（可留空）、who（跟谁的，可留空）。\n"
-        + "**推迟次数是这个 app 的重点**：一件推了四次的小事，比四件按时完成的大事更能说明这个人。至少有一条 postponed 在 3 以上，而且它应该是件很小、很容易做完、但他就是一直不做的事（去看个大夫、回一封信、修个东西）。\n"
+        + "**推迟次数是这个 app 的重点**：一件推了四次的小事，比四件按时完成的大事更能说明这个人。至少有一条 postponed 在 3 以上，而且它应该是件很小、很容易做完、但他就是一直不做的事——那种一分钟就能办完、却拖了半个月的事。\n"
         + "三种都要有：他给自己设的、和别人约好的、以及一直没去做的。已经过去的日子里要有已完成的，也要有那天根本没做的。" + relHint,
       schemaHint: "{\"monthLabel\":\"8月\",\"items\":[{\"title\":\"事情\",\"date\":\"2026-09-02\",\"time\":\"14:00\",\"kind\":\"提醒\",\"done\":false,\"postponed\":0,\"note\":\"可空\",\"who\":\"可空\"}]}"
     },
     settings: {
       instruction: "推演「" + char.name + "」的屏幕使用时间，像 iOS：日均总时长，以及各 App 单独的使用时长（5-7 个，从多到少）。贴合性格。",
-      schemaHint: "{\"screenTime\":\"6小时12分\",\"apps\":[{\"name\":\"微信\",\"time\":\"2小时3分\"}]}"
+      schemaHint: "{\"screenTime\":\"6小时12分\",\"apps\":[{\"name\":\"app 名\",\"time\":\"2小时3分\"}]}"
     },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"
@@ -2823,7 +2828,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
         + "items **正好 10 条**视频，每条：title（真实感的视频标题，长短不一，可以有那种很长的标题党）、up（UP主名）、tab（属于上面哪个分区）、duration（如 08:24 / 1:12:05，按内容类型给合理长度）、views（播放量，如「12.4万」「873」）、danmaku（弹幕数，数字）、desc（视频简介一两句）、thought（**他看完的真实想法**，一句，可以很敷衍、可以骂、可以只是「行吧」）。\n"
         + "**myDanmaku：他自己在这个视频里发过的弹幕，0-3 条。**这是这个 app 最好的东西——**弹幕是他忍不住开口的地方**，短、脱口而出、没措辞，跟他在别处说话的样子可以完全不同。多数视频他是不发弹幕的（留空数组），只在真被戳到时才发。弹幕要短（十几个字以内），像真弹幕：可以是吐槽、接梗、数字刷屏、突然一句真心话。\n"
         + "【内容要贴人设】十条要有层次：他真正在追的、随手点开的、无聊到底的、别人推给他的、以及一两条跟他职业或麻烦事有关的。别十条都是同一类。视频要像那个世界里真会有的东西——不必强行套现代，但要是他刷得到的。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"用户名\",\"uid\":\"3947201\",\"level\":5,\"followers\":128,\"fans\":37,\"coins\":412},\"tabs\":[\"推荐\",\"科技\"],\"items\":[{\"title\":\"视频标题\",\"up\":\"UP主\",\"tab\":\"科技\",\"duration\":\"08:24\",\"views\":\"12.4万\",\"danmaku\":320,\"desc\":\"简介\",\"thought\":\"他看完的想法\",\"myDanmaku\":[\"他发的弹幕\"]}]}"
+      schemaHint: "{\"me\":{\"name\":\"用户名\",\"uid\":\"3947201\",\"level\":5,\"followers\":128,\"fans\":37,\"coins\":412},\"tabs\":[\"分区名\",\"分区名\"],\"items\":[{\"title\":\"视频标题\",\"up\":\"UP主\",\"tab\":\"分区\",\"duration\":\"08:24\",\"views\":\"12.4万\",\"danmaku\":320,\"desc\":\"简介\",\"thought\":\"他看完的想法\",\"myDanmaku\":[\"他发的弹幕\"]}]}"
     },
     latenight: {
       instruction: "推演「" + char.name + "」深夜独自看的小电影（**正好 10 条**）。**大胆贴合人物欲望**，不要含糊其辞、不要写成文艺片。\n"
@@ -2834,7 +2839,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
     },
     wallet: {
       instruction: "推演「" + char.name + "」的财务档案。**最重要：收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，money 要贴合 TA 真实的谋生方式。** 收入来源 incomes（1-3 项，name+category+amount 数字）——category 从 TA 实际的谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；**只有当人设明确是富家子弟、继承人、家境优渥时，才可以出现「家族供养/信托」这类收入，否则绝对不要默认套用家族收入。** 普通人就是普通收入、金额可以不高甚至拮据。monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白，透露财力与消费态度）；dailyPool 15-25 条日常消费模板（每条 items 一句话描述当天买了啥，amount 数字，反映其真实生活水平）；可选 gifts 送礼转账。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。",
-      schemaHint: "{\"incomes\":[{\"name\":\"公司月薪\",\"category\":\"工资\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"},\"dailyPool\":[{\"items\":\"地铁+便利店午饭\",\"amount\":42}],\"gifts\":[{\"date\":\"6月20日\",\"name\":\"给朋友的生日礼物\",\"amount\":200}]}"
+      schemaHint: "{\"incomes\":[{\"name\":\"收入来源\",\"category\":\"类别\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"},\"dailyPool\":[{\"items\":\"当天买了啥\",\"amount\":42}],\"gifts\":[{\"date\":\"6月20日\",\"name\":\"送了什么\",\"amount\":200}]}"
     }
   };
   const spec = S[key] || {

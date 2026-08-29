@@ -369,11 +369,9 @@ test("健康的推演任务把「按角色世界改名」和「三项要角色�
   const spec = P.phoneProbeSpec("health", char, [], "", []);
   // 她 2026-08-29：「玉简传信其实是微信，他觉得王爷不用微信就改了个词」
   assert.match(spec.instruction, /指标名要长成他世界里的样子/);
-  assert.match(spec.instruction, /玉简传信/);
   assert.match(spec.instruction, /不要照搬现代体检报告的词/);
   // 她 2026-08-29：「同一个类别每一个角色的那三个计数都是不一样的」
   assert.match(spec.instruction, /它们的名字必须是这个角色专属的，绝不能用通用标签/);
-  assert.match(spec.instruction, /搜查厢房 \/ 官署穿行 \/ 日常散步/);
   assert.match(spec.instruction, /换个角色还照样成立的三项，就是写坏了/);
   assert.match(spec.instruction, /cards \*\*12-14 张指标卡\*\*/);
   assert.match(spec.instruction, /timeline \*\*4-6 条\*\*/);
@@ -388,13 +386,12 @@ test("外卖照参考稿配齐了十来块，重点几栏都钉死了", () => {
   ["account", "today", "shops", "live", "orders", "taste", "week", "coupons", "addrs", "wish", "together", "monthNote"]
     .forEach(k => assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 这一块没在 schema 里"));
   assert.match(spec.instruction, /note 那一栏是这个 app 的重点/);
-  assert.match(spec.instruction, /麻烦轻一点敲门，家里有人在睡/);
   assert.match(spec.instruction, /\*\*至少一单是深夜的，至少一单是送到别人那儿的。\*\*/);
   // 忌口那组比爱吃的更像人，要求具体
   assert.match(spec.instruction, /这一组比爱吃什么更像人/);
-  assert.match(spec.instruction, /御膳房那种绵软膻气的假羊肉/);
+  assert.match(spec.instruction, /别只写食材名/);
   // 地址标签要带括号身份、要有一条是去投喂别人的
-  assert.match(spec.instruction, /王府侧院（本人）/);
+  assert.match(spec.instruction, /后面用括号补一句这是谁的地方/);
   assert.match(spec.instruction, /其中一条应当是【他常去投喂的另一个地方】/);
   // 想吃清单的 when、一起点过的 who 都是最见人的地方
   assert.match(spec.instruction, /什么时候会突然想起它/);
@@ -525,7 +522,7 @@ test("token 全放开：runProbe 的默认也不再是 2600", () => {
 test("B站详情页的返回键点得动——铺满的播放按钮不许吃掉点击", () => {
   // 她 2026-08-29：「视频点进去退出键是死的」
   assert.match(SRC, /inset: 0[^}]*pointerEvents: "none"/);
-  assert.match(SRC, /position: "absolute", zIndex: 2, left: 8, top: safeTop\(8\)/);
+  assert.match(SRC, /position: "absolute", zIndex: 2, left: 6, top: safeTop\(6\)/);
 });
 
 test("解析失败会自动重来一次，不用她自己点第二遍", () => {
@@ -615,4 +612,47 @@ test("小红书「我的」按参考稿来，并且有草稿箱", () => {
   assert.match(spec.instruction, /可以完全是三个人/);
   assert.match(spec.schemaHint, /"drafts"/);
   assert.match(spec.schemaHint, /"xhsId"/);
+});
+
+test("提示词里不许再塞具体的内容示范（.claude/rules/prompt-no-content-samples.md）", () => {
+  // 她 2026-08-29：「现在模型都在抄格式了，以后提示词都不要塞特定格式的」
+  // 写得越好的例子被抄得越狠——它就是那一栏里唯一可复制的东西。
+  const P = loadPhone();
+  const keys = P.PHONE_APPS.map(a => a.key).filter(k => P.PHONE_LIVE_KEYS.indexOf(k) < 0);
+  const BANNED = ["某位扬言要纳侧房的祖宗", "陆闻那个嘴碎编修", "王府侧院（本人）", "某人的窝（投喂）",
+    "走后巷角门敲三声", "门没锁直接推", "宫里宴饮喝了一肚子温吞没味", "御膳房那种绵软膻气的假羊肉",
+    "红焖滩羊排配烤馕", "不要香菜", "放门口就行", "麻烦轻一点敲门", "导师以为我在看的论文",
+    "凌晨两点的关东煮哲学", "怎么对付某个麻烦精", "改天带你去城南找找", "搜查厢房", "官署苦茶",
+    "玉简传信", "调息定神", "情绪与生理强关联", "实用利落兼带几件扎眼红衣", "买东西极快但退换极少",
+    "饿到极限才想起吃", "谁懂啊", "西北菜/羊肉", "伙计小赵"];
+  keys.forEach(k => {
+    const spec = P.phoneProbeSpec(k, char, [], "", []);
+    BANNED.forEach(b => {
+      assert.ok(spec.instruction.indexOf(b) < 0, k + " 的推演任务里还留着可照抄的内容示范：" + b);
+      assert.ok(spec.schemaHint.indexOf(b) < 0, k + " 的 schemaHint 里还留着可照抄的内容示范：" + b);
+    });
+  });
+  // 格式示范照留——照抄「08:24」没问题，它只是在说时长长什么样
+  assert.match(P.phoneProbeSpec("bili", char, [], "", []).instruction, /08:24/);
+  assert.match(P.phoneProbeSpec("calendar", char, [], "", []).instruction, /YYYY-MM-DD/);
+});
+
+test("小红书自己的笔记和草稿也有标签", () => {
+  const P = loadPhone();
+  const spec = P.phoneProbeSpec("liked", char, [], "", []);
+  assert.match(spec.instruction, /mine \*\*2-4 条\*\*他自己发出去的笔记：title、excerpt、tags/);
+  assert.match(spec.instruction, /title、excerpt、tags（1-3 个）、savedAt/);
+  assert.ok(/"mine":\[\{[^\]]*"tags"/.test(spec.schemaHint), "mine 的 schema 里没有 tags");
+  assert.ok(/"drafts":\[\{[^\]]*"tags"/.test(spec.schemaHint), "drafts 的 schema 里没有 tags");
+  // 卡片上要画出来
+  assert.match(SRC, /A\(x\.tags\)\.length \? h\("div", \{ className: "flex flex-wrap"/);
+});
+
+test("顶栏的返回和刷新不再套白圆框", () => {
+  // 她 2026-08-29：「好多界面的返回和刷新都是在圆框里面的，弄掉弄好看的」
+  assert.doesNotMatch(SRC, /borderRadius: 99, background: "rgba\(255,255,255,\.86\)"/);
+  assert.doesNotMatch(SRC, /borderRadius: 99, background: "rgba\(255,255,255,\.72\)"/);
+  assert.doesNotMatch(SRC, /borderRadius: 99, background: "rgba\(0,0,0,\.32\)"/);
+  // 压在封面上的那颗改用一条渐变把图标托住，而不是套个圆
+  assert.match(SRC, /linear-gradient\(180deg,rgba\(0,0,0,\.34\),transparent\)/);
 });

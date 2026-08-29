@@ -104,8 +104,8 @@ const FIXTURES = {
     tabs: ["附近", "野钓", "旧物"],
     items: [{ author: "阿七", title: "一个人吃饭的十种办法", excerpt: "第三种最省事。", tab: "附近", tags: ["独居"], likes: 1204, act: "收藏", time: "3天前", cover: 1 },
             { author: "老周", title: "谁懂啊这把刀磨了三个月", excerpt: "刃口终于服帖了。", tab: "旧物", tags: ["磨刀"], likes: 88, act: "赞", time: "上周", cover: 3 }],
-    mine: [{ title: "夜里的城南", excerpt: "没人。", likes: 12, time: "上周", cover: 2 }],
-    drafts: [{ title: "写给某个不看的人", excerpt: "算了。", savedAt: "存了 11 天" }],
+    mine: [{ title: "夜里的城南", excerpt: "没人。", tags: ["夜路"], likes: 12, time: "上周", cover: 2 }],
+    drafts: [{ title: "写给某个不看的人", excerpt: "算了。", tags: ["没发"], savedAt: "存了 11 天" }],
     follows: [{ name: "斫木记", desc: "做木工的" }]
   },
   health: {
