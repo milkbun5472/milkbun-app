@@ -907,16 +907,16 @@
   // 每个媒体腔一套自己的视觉:同样的字排成一样的样子，那还是四篇一样的东西。
   // tint=版块主色 / rule=分隔线画法 / face=正文字体取向 / deco=版头装饰字符
   const VOICE_LOOK = {
-    victorian:  { tint: "#7a5c3e", rule: "double", face: "serif",  deco: "❦", eyebrow: "letterpress" },
-    cyberpunk:  { tint: "#2f6b6e", rule: "dashed", face: "mono",   deco: "▮▮▯", eyebrow: "datastream" },
-    republican: { tint: "#8a4a52", rule: "solid",  face: "serif",  deco: "❁", eyebrow: "old shanghai" },
-    editorial:  { tint: "#3a3a3a", rule: "thick",  face: "serif",  deco: "—", eyebrow: "editorial" },
-    naturalist: { tint: "#4f6b45", rule: "dotted", face: "mono",   deco: "✿", eyebrow: "field notes" },
-    noir:       { tint: "#4a4550", rule: "solid",  face: "mono",   deco: "▲", eyebrow: "case file" },
-    tabloid:    { tint: "#b23830", rule: "thick",  face: "sans",   deco: "★", eyebrow: "exclusive" },
-    markets:    { tint: "#24605a", rule: "dashed", face: "mono",   deco: "↗", eyebrow: "closing bell" },
-    tribunal:   { tint: "#614a3b", rule: "double", face: "serif",  deco: "§", eyebrow: "hearing record" },
-    sportsdesk: { tint: "#285e8a", rule: "thick",  face: "sans",   deco: "●", eyebrow: "match report" }
+    victorian:  { tint: "#765337", rule: "double", face: "serif", deco: "❦", eyebrow: "letterpress", ink: "#35271d", muted: "#806e5d", paper: "#f4ead6", card: "rgba(255,250,239,.76)", pattern: "radial-gradient(rgba(83,55,31,.10) .7px,transparent .9px)", patternSize: "7px 7px", edge: "double", radius: 2 },
+    cyberpunk:  { tint: "#63e0d6", rule: "dashed", face: "mono", deco: "▮▮▯", eyebrow: "datastream", ink: "#d9fffb", muted: "#78aaa8", paper: "#101b21", card: "rgba(15,43,49,.86)", pattern: "linear-gradient(rgba(75,221,210,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(75,221,210,.08) 1px,transparent 1px)", patternSize: "22px 22px", edge: "solid", radius: 0 },
+    republican: { tint: "#9b3f49", rule: "solid", face: "serif", deco: "❁", eyebrow: "old shanghai", ink: "#352a28", muted: "#8b746d", paper: "#f2e8d8", card: "rgba(255,251,241,.80)", pattern: "repeating-linear-gradient(0deg,rgba(118,78,58,.035) 0 1px,transparent 1px 5px)", patternSize: "auto", edge: "solid", radius: 1 },
+    editorial:  { tint: "#171717", rule: "thick", face: "serif", deco: "—", eyebrow: "editorial", ink: "#171717", muted: "#666", paper: "#f5f3ed", card: "rgba(255,255,255,.72)", pattern: "linear-gradient(90deg,transparent 49.75%,rgba(0,0,0,.045) 50%,transparent 50.25%)", patternSize: "100% 100%", edge: "solid", radius: 0 },
+    naturalist: { tint: "#47724b", rule: "dotted", face: "mono", deco: "✿", eyebrow: "field notes", ink: "#263d2b", muted: "#758472", paper: "#edf2e5", card: "rgba(250,253,244,.76)", pattern: "linear-gradient(rgba(65,104,69,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(65,104,69,.07) 1px,transparent 1px)", patternSize: "18px 18px", edge: "dotted", radius: 12 },
+    noir:       { tint: "#d0b46f", rule: "solid", face: "mono", deco: "▲", eyebrow: "case file", ink: "#eee9df", muted: "#9d9a97", paper: "#202124", card: "rgba(49,50,53,.88)", pattern: "repeating-linear-gradient(135deg,rgba(255,255,255,.025) 0 1px,transparent 1px 8px)", patternSize: "auto", edge: "solid", radius: 3 },
+    tabloid:    { tint: "#d12f28", rule: "thick", face: "sans", deco: "★", eyebrow: "exclusive", ink: "#171717", muted: "#76635b", paper: "#fff1d6", card: "#fffaf0", pattern: "radial-gradient(rgba(209,47,40,.09) 1px,transparent 1.2px)", patternSize: "10px 10px", edge: "solid", radius: 0 },
+    markets:    { tint: "#167164", rule: "dashed", face: "mono", deco: "↗", eyebrow: "closing bell", ink: "#173a34", muted: "#617e78", paper: "#e5f0e9", card: "rgba(247,252,248,.80)", pattern: "linear-gradient(rgba(22,113,100,.07) 1px,transparent 1px)", patternSize: "100% 20px", edge: "solid", radius: 5 },
+    tribunal:   { tint: "#75523a", rule: "double", face: "serif", deco: "§", eyebrow: "hearing record", ink: "#33271f", muted: "#84766c", paper: "#eee8dd", card: "rgba(255,252,246,.82)", pattern: "linear-gradient(90deg,transparent 31px,rgba(147,59,59,.15) 32px,transparent 33px),repeating-linear-gradient(0deg,transparent 0 27px,rgba(70,70,70,.07) 28px)", patternSize: "auto", edge: "double", radius: 1 },
+    sportsdesk: { tint: "#2369a1", rule: "thick", face: "sans", deco: "●", eyebrow: "match report", ink: "#142d43", muted: "#667d90", paper: "#e8f1f7", card: "rgba(249,252,255,.84)", pattern: "repeating-linear-gradient(90deg,rgba(35,105,161,.055) 0 1px,transparent 1px 34px)", patternSize: "auto", edge: "solid", radius: 9 }
   };
   function lookOf(id) { return VOICE_LOOK[id] || VOICE_LOOK.editorial; }
   function WeeklyMotionStyles() {
@@ -983,6 +983,23 @@
         "repeating-linear-gradient(15deg, rgba(0,0,0,.010) 0 1px, transparent 1px 7px)," +
         "radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.5), transparent 60%)"
     };
+  }
+  const SECTION_LOOK = {
+    cover: { ink: "#2f241d", muted: "#816d5d", paper: "#efe4d2", card: "rgba(255,252,244,.78)", tint: "#9a4b3e", pattern: "repeating-linear-gradient(115deg,rgba(91,54,34,.035) 0 1px,transparent 1px 7px)" },
+    desk: { ink: "#1f2a2d", muted: "#708086", paper: "#e7edeb", card: "rgba(250,253,252,.82)", tint: "#41666a", pattern: "linear-gradient(rgba(49,94,96,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(49,94,96,.07) 1px,transparent 1px)", patternSize: "20px 20px" },
+    letters: { ink: "#382e36", muted: "#8b7485", paper: "#f2e8ee", card: "rgba(255,251,253,.84)", tint: "#995d7e", pattern: "radial-gradient(ellipse at top right,rgba(153,93,126,.13),transparent 40%),repeating-linear-gradient(0deg,transparent 0 29px,rgba(120,84,107,.07) 30px)" },
+    interview: { ink: "#2b2630", muted: "#827789", paper: "#eeeaf1", card: "rgba(255,255,255,.72)", tint: "#765b86", pattern: "linear-gradient(135deg,rgba(118,91,134,.08) 0 1px,transparent 1px 18px)" },
+    contents: { ink: "#25221e", muted: "#827b70", paper: "#ece8df", card: "rgba(255,255,255,.60)", tint: "#876755", pattern: "repeating-linear-gradient(115deg,rgba(0,0,0,.018) 0 1px,transparent 1px 5px)" }
+  };
+  function pageLook(sub, medias) {
+    if (sub && sub.kind === "media") {
+      const sec = (medias || []).find(function (s) { return s.id === sub.id; });
+      return lookOf(sec && sec.voiceId);
+    }
+    return SECTION_LOOK[(sub && sub.kind) || "contents"] || SECTION_LOOK.contents;
+  }
+  function pageBackground(L) {
+    return { backgroundColor: L.paper, backgroundImage: L.pattern, backgroundSize: L.patternSize || "auto", color: L.ink };
   }
   function Masthead(props) {
     const t = useTheme();
@@ -1126,7 +1143,7 @@
 
   // 一个媒体腔版块详情：3~4 篇小报
   function MediaDetail(props) {
-    const t = useTheme(); const s = props.sec; const v = voiceOf(s.voiceId);
+    const s = props.sec; const v = voiceOf(s.voiceId);
     const arts = s.articles || [];
     const L = lookOf(s.voiceId);
     // 每块的分隔线按自己的性格画：双线 / 虚线 / 点线 / 粗线
@@ -1134,7 +1151,7 @@
       : L.rule === "dashed" ? { borderBottom: "1px dashed " + L.tint }
       : L.rule === "dotted" ? { borderBottom: "1.5px dotted " + L.tint }
       : L.rule === "thick" ? { borderBottom: "2px solid " + L.tint } : { borderBottom: "1px solid " + L.tint };
-    return h("div", null,
+    return h("div", { style: { color: L.ink, padding: "18px 16px 4px", margin: "0 -8px", background: L.card, border: (L.edge === "double" ? "3px double " : "1px " + L.edge + " ") + L.tint, borderRadius: L.radius, boxShadow: s.voiceId === "cyberpunk" ? "0 0 24px rgba(64,220,210,.10)" : "0 10px 28px rgba(40,30,20,.07)" } },
       // 版头：装饰字符 + 刊名条，颜色是这块自己的
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4 } },
         h("span", { style: { fontSize: 13, color: L.tint, opacity: .7 } }, L.deco),
@@ -1144,12 +1161,12 @@
       arts.map(function (a, i) {
         const paras = (a.body || "").split(/\n+/).filter(Boolean);
         return h("article", { key: i, style: Object.assign({ marginBottom: 24, paddingBottom: 20 }, i < arts.length - 1 ? sep : { }) },
-          h("div", { style: { fontFamily: faceOf(L.face), fontSize: 21, fontWeight: L.face === "mono" ? 600 : 400, color: t.ink, lineHeight: 1.28, marginBottom: 4, letterSpacing: L.face === "mono" ? ".02em" : "0" } }, a.title),
+          h("div", { style: { fontFamily: faceOf(L.face), fontSize: s.voiceId === "tabloid" ? 25 : 21, fontWeight: L.face === "mono" || s.voiceId === "tabloid" ? 700 : 400, color: L.ink, lineHeight: 1.22, marginBottom: 4, letterSpacing: L.face === "mono" ? ".02em" : "0", textTransform: s.voiceId === "cyberpunk" ? "uppercase" : "none" } }, a.title),
           // 标题底下一道短色条，长度固定，像栏目章
           h("div", { style: { width: 34, height: 2, background: L.tint, opacity: .6, marginBottom: 10 } }),
           paras.map(function (p, j) {
             const first = j === 0 && p.length > 6;
-            return h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.85, marginBottom: 9, whiteSpace: "pre-wrap" } },
+            return h("div", { key: j, style: { fontFamily: L.face === "mono" ? "ui-monospace,'SFMono-Regular',monospace" : F_BODY, fontSize: 14.5, color: L.ink, lineHeight: s.voiceId === "editorial" ? 1.72 : 1.85, marginBottom: 9, whiteSpace: "pre-wrap", opacity: .96 } },
               // 首段首字放大成落款字，只在第一段做一次
               first ? h("span", { style: { float: "left", fontFamily: F_DISPLAY, fontSize: 40, lineHeight: .92, color: L.tint, marginRight: 6, marginTop: 2 } }, p.slice(0, 1)) : null,
               first ? p.slice(1) : p);
@@ -1384,10 +1401,11 @@
     // 换版块必须回到顶部：不然点进采访版是停在上一版的滚动位置，还得自己往上滑（她 2026-08-18 报）
     const scrollRef = React.useRef(null);
     React.useEffect(function () { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [sub && sub.kind, sub && sub.id, ivSel]);
-    return h("div", { className: "h-full flex flex-col", style: paperStyle(t) },
+    const activeLook = pageLook(sub, medias);
+    return h("div", { className: "h-full flex flex-col", style: pageBackground(activeLook) },
       h(WeeklyMotionStyles),
       h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { goSub(null, "prev"); } : props.onBack }),
-      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-10 pb-16" },
+      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-10 pb-16", style: { color: activeLook.ink } },
         h("div", { className: "weekly-page-stage" },
         h("div", { key: currentPageKey + ":" + turn.n, className: turn.dir === "prev" ? "weekly-page-prev" : "weekly-page-next" },
         detail ? detail : h("div", null,

@@ -58,6 +58,21 @@ test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次",
   assert.match(w, /const total = 1 \+ Math\.min\(3, interviewPool\.length\) \+ weekVoices\.length \+ 1;/, "有足够角色时每期固定采访三人");
 });
 
+test("十种媒体腔与四个编辑部页面都有独立纸张皮肤", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const lookSeg = w.slice(w.indexOf("const VOICE_LOOK = {"), w.indexOf("function lookOf"));
+  ["victorian", "cyberpunk", "republican", "editorial", "naturalist", "noir", "tabloid", "markets", "tribunal", "sportsdesk"].forEach(id => {
+    assert.match(lookSeg, new RegExp(id + ":[\\s\\S]*?paper:"), id + " 不能只换字体，必须有自己的纸张");
+  });
+  assert.match(w, /const SECTION_LOOK = \{/);
+  ["cover", "desk", "letters", "interview"].forEach(id => {
+    assert.match(w, new RegExp(id + ":[\\s\\S]*?pattern:"), id + " 页面要有独立背景纹理");
+  });
+  assert.match(w, /function pageLook\(sub, medias\)/, "翻版时要跟着切整页皮肤");
+  assert.match(w, /backgroundColor: L\.paper/, "皮肤要真正落到页面背景，不是只写配置");
+  assert.match(w, /background: L\.card/, "文章要有与纸张配套的阅读层");
+});
+
 // 采访轮换(2026-08-18 Lisa):每期至多 3 人，抽完一轮才允许重复；
 // 手动补的那些不算被抽过，下一轮照样能抽到。
 test("采访洗牌袋：满一轮才重复，手动补的不占轮次", () => {
