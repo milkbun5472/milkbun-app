@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.65";
+const APP_VERSION = "v57.66";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8395,8 +8395,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     setPhones(p => {
       const cur = p[charId] || {};
+      // 身份层盖回来。提示词里已经把这几项发回去要求原样沿用了，但那只是降概率——
+      // 模型漏抄一次，他的收货地址就换了。规则降概率，代码才保证。
       const entry = {
-        ...d,
+        ...(typeof phoneKeepIdentity === "function" ? phoneKeepIdentity(key, cur[key], d) : d),
         _at: Date.now()
       };
       if (key === "wallet") { entry._startDate = ymd(new Date()); entry.extra = (cur.wallet && Number(cur.wallet.extra)) || 0; } // 记账起点；保留转账等外部收支
@@ -9115,7 +9117,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 单个 app 重刷：拿手机里【已经存着的别的 app】当避重清单，
       // 免得单独刷备忘录时又把微信里那件事重写一遍。
       const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid));
+      // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
+      const known = ((phonesRef.current || {})[char.id] || {})[key];
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -9153,7 +9157,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       try {
         setGen(g => ({ ...g, phoneApp: "__all__:" + key }));
         const avoid = phoneRoundDigest(fresh, key);
-        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid));
+        // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
+        // 全刷不是换一个人，他的号码住址忌口一律沿用。
+        const known = ((phonesRef.current || {})[char.id] || {})[key];
+        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         ok++;

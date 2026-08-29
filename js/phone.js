@@ -238,6 +238,73 @@ function phoneTimeline(charData, live, nowTs) {
   return ahead.concat(past, loose);
 }
 // ─────────────────────────────────────────────────────────────
+// 身份层：一个人的号码、账号、住址、忌口，不该每刷一次就换一个
+// ─────────────────────────────────────────────────────────────
+// 每次刷新都是整份重生成，于是他的外卖 id、微信号、收货地址、忌口，刷一次换一批。
+// 那不是「手机在被使用」，那是「每次都换了个人」。
+//
+// 所以把每个 app 拆成两层：
+//   · 身份层——号码、账号、昵称、住址、长期口味。第一次长出来就钉死，之后只沿用。
+//   · 痕迹层——聊天、搜索、订单、便签。每次刷新写新的，那才是「最近发生了什么」。
+//
+// 钉死之后还要【喂回提示词】：不然模型不知道他的收货地址是哪儿，写出来的订单
+// 会送去另一个地方，界面上一半是钉死的旧地址、一半是新编的，比不钉更乱。
+//
+// 判据：这一栏如果这周和上周不一样，是「他变了」还是「系统忘了」？
+// 是后者的，就该钉死。忌口和常去的店属于后者——人不会每周换一次忌口。
+const PHONE_STICKY = {
+  wechat: ["me.wechatName", "me.wechatId", "me.signature", "userContact"],
+  calls: ["me.number"],
+  browser: ["me.name", "me.uid"],
+  shopping: ["account.name", "account.uid", "account.member", "account.persona", "addrs", "habit"],
+  takeout: ["account.name", "account.uid", "account.member", "account.persona", "addrs", "taste"],
+  liked: ["me.name", "me.xhsId", "me.bio", "me.tag"],
+  bili: ["me.name", "me.uid"],
+  latenight: ["me.uid"],
+  reading: ["archive.name", "archive.uid"]
+};
+const phoneGetPath = (obj, path) => String(path || "").split(".").reduce((o, k) => (o && typeof o === "object") ? o[k] : undefined, obj);
+const phoneSetPath = (obj, path, val) => {
+  const ks = String(path || "").split(".");
+  let cur = obj;
+  for (let i = 0; i < ks.length - 1; i++) {
+    if (!cur[ks[i]] || typeof cur[ks[i]] !== "object") cur[ks[i]] = {};
+    cur = cur[ks[i]];
+  }
+  cur[ks[ks.length - 1]] = val;
+};
+const phoneHasVal = v => !(v == null || v === "" || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length));
+// 新生成的那份 + 旧那份里的身份 = 存进去的那份
+function phoneKeepIdentity(appKey, oldData, newData) {
+  const paths = PHONE_STICKY[appKey];
+  if (!paths || !oldData || !newData || typeof newData !== "object") return newData;
+  const out = JSON.parse(JSON.stringify(newData));
+  paths.forEach(pt => {
+    const v = phoneGetPath(oldData, pt);
+    if (phoneHasVal(v)) phoneSetPath(out, pt, v);
+  });
+  return out;
+}
+// 钉死的身份要喂回提示词，否则模型编的内容跟钉死的对不上
+function phoneIdentityBlock(appKey, oldData) {
+  const paths = PHONE_STICKY[appKey];
+  if (!paths || !oldData) return "";
+  const lines = [];
+  paths.forEach(pt => {
+    const v = phoneGetPath(oldData, pt);
+    if (!phoneHasVal(v)) return;
+    let txt;
+    if (typeof v === "string" || typeof v === "number") txt = String(v);
+    else txt = JSON.stringify(v);
+    if (txt.length > 300) txt = txt.slice(0, 300) + "…";
+    lines.push("- " + pt + "：" + txt);
+  });
+  if (!lines.length) return "";
+  return "\n\n【这些是他早就定下来的，原样沿用，一个字都不要改】\n" + lines.join("\n")
+    + "\n新写的内容必须和上面这些对得上（地址、账号、称呼、忌口都照这份来）。这几项照抄回你的输出里，别另编一份。";
+}
+
+// ─────────────────────────────────────────────────────────────
 // 归档：刷新会整份覆盖某个 app，旧痕迹就没了
 // ─────────────────────────────────────────────────────────────
 // savePhoneApp 是【整份覆盖】那个 app 的数据。所以在加这一层之前，时间线其实
@@ -251,10 +318,10 @@ function phoneTimeline(charData, live, nowTs) {
 // 就漂到别的日子去了；存的时候它还是当时那个意思，之后就不许再重算。
 const PHONE_ARCH_CAP = 500;          // 每人封顶条数
 const PHONE_ARCH_DAYS = 90;          // 只留这么多天内的
-// 全局再封一道。每人 500 条乘上角色数就上去了——一条约 300 字节（正文/心声各截到
-// 120 字，localStorage 按 UTF-16 存），十个角色满仓就是一两兆，而她的存档本来
-// 就在跟 5MB 抢地方，x_ 开头还会跟着云备份一起走。超了就从最旧的开始扔。
-const PHONE_ARCH_CAP_ALL = 2500;
+// 全局再封一道。她 2026-08-29 搬进 VPS 之后不再跟 localStorage 那 5MB 抢地方，
+// 所以这道放宽了——但不能没有：无上限的日志迟早会把加载和云同步拖慢。
+// 超了从最旧的开始扔。
+const PHONE_ARCH_CAP_ALL = 20000;
 // 归档存的是精简版：正文和心声各截到 120 字。整条时间线只显示一两行，
 // 存全文纯粹是拿 localStorage 换看不见的东西（她的存档本来就紧）。
 const phoneArchTrim = r => ({
@@ -3354,7 +3421,7 @@ function phoneAvoidBlock(lines) {
     + "优先去写上面完全没提到的、属于他自己的另一条线：工作、家里、旧朋友、身体、钱、没做完的事、纯粹的无聊。";
 }
 
-function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
+function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
     wechat: {
@@ -3527,5 +3594,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
   // 思考型模型的推理 token 也从这里扣，压小了推理吃完、正文只剩两百来字。
   // 以前这里每个 app 各写一个数（2200~30000），相册和微信被截断过就是因为那个数拍小了。
   // 控制篇幅的活儿交给 instruction 里写的条数和字数，不是拿额度去掐。
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneAvoidBlock(avoidLines) };
+  // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
+  // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
+  // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneIdentityBlock(key, known) + phoneAvoidBlock(avoidLines) };
 }

@@ -120,5 +120,6 @@ test("单个 App 重刷拿手机里已存的别的 App 避重", () => {
   const block = appSrc.match(/const genPhoneApp = async \(char, key\) => \{[\s\S]*?\n  \};/);
   assert.ok(block, "找不到 genPhoneApp");
   assert.match(block[0], /phoneRoundDigest\(\(phones \|\| \{\}\)\[char\.id\] \|\| \{\}, key\)/);
-  assert.match(block[0], /phoneWechatDigest\(char\) : "", avoid\)/);
+  // v57.66 起最后还多一个 known（上一轮那份，用来沿用身份）
+  assert.match(block[0], /phoneWechatDigest\(char\) : "", avoid, known\)/);
 });
