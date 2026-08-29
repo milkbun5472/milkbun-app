@@ -54,7 +54,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, PhoneCarry, PhoneApp, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, PhoneCallsView, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, PhoneCarry, PhoneApp, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, PhoneCallsView, TallyView, TimelineView, LockScreen, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -190,6 +190,27 @@ const FIXTURES = {
     tail: "城南老头的糖糕还是得催伙计跑快点，冰化了就腻。"
   },
   clipboard: { items: [{ text: "其实我", from: "微信", time: "昨天 02:11", sent: false }, { text: "SF1234567", from: "短信", time: "今天", sent: true }] },
+  tally: {
+    debts: [
+      { title: "答应带她去吃城南那家，一直拖着", dir: "mine", note: "宫里的事一件接一件。得补。" },
+      { title: "那条撤回的消息，她还没给个说法", dir: "theirs", note: "点错了我不信。" },
+      { title: "台阶到底七级还是九级", dir: "open", note: "争了三年，她当裁判也没裁明白。" }
+    ],
+    policies: [
+      { name: "口出狂言应急救驾险", scope: "因她嘴欠被人盯上时的全套解围", terms: "认错态度良好", clause: "承保人负责当街拦下并带回。" }
+    ],
+    statements: [
+      { text: "撤回也没用，看见了就是看见了。", heat: "执拗" },
+      { text: "别乱跑，跟着我。", heat: "轻" }
+    ],
+    treasures: [
+      { title: "秒撤回的那条邀请记录", kind: "瞬间", worth: "无可估量" },
+      { title: "嫌御膳房羊膻的挑食证据", kind: "习惯", worth: "连城之璧" }
+    ],
+    appraisals: [
+      { q: "王府里到底谁说了算？", a: "明面上是我，实际看今天做的是不是酥酪。" }
+    ]
+  },
   calendar: {
     monthLabel: "9月",
     items: [{ title: "去看眼睛", date: "2026-09-02", time: "14:00", kind: "提醒", done: false, postponed: 4, note: "上个月就说要去", who: "" },

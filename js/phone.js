@@ -51,7 +51,12 @@ const PHONE_APPS = [{
   key: "takeout",
   zh: "外卖"
 }, {
-  // 时间线不推演任何东西，它只把上面那 16 个 app 已经翻出来的碎片按时间串起来。
+  // 账本：他心里给这段关系记的账。跟钱包不是一回事——钱包记钱，这儿记
+  // 没结清的东西（欠着的、兜过的底、放过的狠话、舍不得的、拿不准的）。
+  key: "tally",
+  zh: "账本"
+}, {
+  // 时间线不推演任何东西，它只把上面那些 app 已经翻出来的碎片按时间串起来。
   // 所以它同时属于 PHONE_LIVE_KEYS（不调模型、不进 phones）。
   key: "timeline",
   zh: "时间线"
@@ -68,32 +73,32 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
   ["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"],
-  ["reading", "bili", "health", "clipboard", "takeout", "latenight"]
+  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally"]
 ];
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight"]],
+  pages: [["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["timeline", "reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight"]],
+  pages: [["timeline", "reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight", "tally"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["timeline", "bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight"]],
+  pages: [["timeline", "bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight", "tally"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "bili", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["timeline", "notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight"]],
+  pages: [["timeline", "notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight", "tally"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -354,7 +359,10 @@ const PHONE_GROW = {
   liked: { items: 36, mine: 16, drafts: 12, follows: 20 },
   bili: { items: 34 },
   latenight: { items: 34 },
-  clipboard: { items: 24 }
+  clipboard: { items: 24 },
+  // 账本这几栏都是【长期挂着】的东西：欠着的没还、放过的话没收回、舍不得的一直舍不得。
+  // 所以一律累积——它本来就不是「最近怎么样」，是「一直以来欠着什么」。
+  tally: { debts: 14, policies: 10, statements: 22, treasures: 18, appraisals: 16 }
 };
 // 明确【不累积】的（当前状态，每次刷新照实重写）——写出来是为了别人来看的时候
 // 知道这不是漏了：
@@ -692,13 +700,139 @@ function PGlyph({
     cart: [C(9.5, 20, 1.4), C(17.5, 20, 1.4), P("M2 3h3l2.6 12.2a1.6 1.6 0 001.6 1.3h8.4a1.6 1.6 0 001.6-1.3L21 7H6")],
     orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")],
     takeout: [P("M3 11h18a9 9 0 01-18 0z"), P("M2.5 20.5h19"), P("M12 3.2v2.4M8.6 4.4l.9 1.6M15.4 4.4l-.9 1.6")],
-    timeline: [P("M7 3v18"), C(7, 7, 2.1), C(7, 13.4, 2.1), C(7, 19.6, 1.6), P("M11.5 7h8.5M11.5 13.4h6.5M11.5 19.6h4.5")]
+    timeline: [P("M7 3v18"), C(7, 7, 2.1), C(7, 13.4, 2.1), C(7, 19.6, 1.6), P("M11.5 7h8.5M11.5 13.4h6.5M11.5 19.6h4.5")],
+    tally: [P("M5 3.2h14v17.6H5z"), P("M9 3.2v17.6"), P("M12 7.6h4.2M12 11.6h4.2M12 15.6h2.6"), P("M6.4 8.6l1.2 1.2 1.4-2.2")]
   };
   return h(Svg, {
     size,
     color,
     sw: 1.5
   }, ...(kids[k] || []));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 账本：他心里给这段关系记的那本账
+// ─────────────────────────────────────────────────────────────
+// 五栏各有各的腔调，界面也就各长各的样子——挤成一个样式就白分了。
+//   负债 = 两栏对账（他欠 / 她欠 / 悬着）
+//   保单 = 条款卡（虚线框、条目式）
+//   声明 = 一句一张的盖章卡
+//   藏品 = 横滑的估价牌
+//   估值 = 问答
+const TALLY_BG = "#f4f2ee", TALLY_INK = "#1f1d1a", TALLY_DIM = "#8b8578", TALLY_LINE = "rgba(31,29,26,.12)";
+const TALLY_DIR = { mine: { zh: "他欠", c: "#b6473c" }, theirs: { zh: "记着", c: "#3f7f8a" }, open: { zh: "还悬着", c: "#8b8578" } };
+const TALLY_TABS = [
+  { k: "debts", zh: "没结清", en: "OPEN" },
+  { k: "policies", zh: "兜底", en: "COVER" },
+  { k: "statements", zh: "定论", en: "STAMP" },
+  { k: "treasures", zh: "估价", en: "WORTH" },
+  { k: "appraisals", zh: "自问", en: "ASK" }
+];
+function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("debts");
+  const [open, setOpen] = useState(null);
+  const A = a => Array.isArray(a) ? a : [];
+  const data = (d && typeof d === "object") ? d : {};
+  const S = v => String(v == null ? "" : v).trim();
+  const count = k => A(data[k]).filter(x => x && typeof x === "object").length;
+  const card = (kids, key, onClick, dashed) => h(onClick ? "button" : "div", {
+    key, onClick, className: onClick ? "w-full text-left active:opacity-70" : "",
+    style: {
+      display: "block", background: dashed ? "transparent" : "#fff", borderRadius: 18, padding: "15px 16px", marginBottom: 10,
+      border: dashed ? "1px dashed " + TALLY_LINE : "1px solid rgba(31,29,26,.06)",
+      boxShadow: dashed ? "none" : "0 2px 10px rgba(31,29,26,.045)"
+    }
+  }, kids);
+  const peekBtn = (label, title, text) => onPeek ? h("button", {
+    onClick: e => { e.stopPropagation(); onPeek({ tier: "hidden", label: "账本 · " + label, title, text }); },
+    className: "active:opacity-60",
+    style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, padding: "6px 12px", borderRadius: 99, border: "1px solid rgba(182,71,60,.4)", color: "#b6473c" }
+  }, "摆到他面前") : null;
+
+  let body = null;
+  if (tab === "debts") {
+    const rows = A(data.debts).filter(x => x && typeof x === "object");
+    body = rows.length ? rows.map((x, i) => {
+      const dir = TALLY_DIR[S(x.dir)] || TALLY_DIR.open;
+      return card([
+        h("div", { key: "h", style: { display: "flex", alignItems: "flex-start", gap: 9 } },
+          h("span", {
+            style: {
+              fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 99, flexShrink: 0, marginTop: 2,
+              background: dir.c + "1c", color: dir.c
+            }
+          }, dir.zh),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: TALLY_INK, wordBreak: "break-word" } }, S(x.title))),
+        S(x.note) ? h("div", { key: "n", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: TALLY_DIM, marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + TALLY_LINE, wordBreak: "break-word" } }, S(x.note)) : null,
+        peekBtn("没结清", S(x.title), S(x.note))
+      ], "d" + i);
+    }) : null;
+  } else if (tab === "policies") {
+    const rows = A(data.policies).filter(x => x && typeof x === "object");
+    body = rows.length ? rows.map((x, i) => card([
+      h("div", { key: "h", style: { display: "flex", alignItems: "flex-start", gap: 10 } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: TALLY_INK, wordBreak: "break-word" } }, S(x.name)),
+        S(x.terms) ? h("span", {
+          style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 9px", borderRadius: 8, background: "rgba(31,29,26,.05)", color: TALLY_DIM, flexShrink: 0, maxWidth: 150, wordBreak: "break-word", lineHeight: 1.45 }
+        }, S(x.terms)) : null),
+      S(x.scope) ? h("div", { key: "s", style: { fontFamily: F_BODY, fontSize: 11.5, color: TALLY_DIM, marginTop: 7, wordBreak: "break-word" } }, S(x.scope)) : null,
+      S(x.clause) ? h("div", { key: "c", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: TALLY_INK, marginTop: 8, wordBreak: "break-word" } }, S(x.clause)) : null,
+      peekBtn("兜底", S(x.name), S(x.clause) || S(x.scope))
+    ], "p" + i, null, true)) : null;
+  } else if (tab === "statements") {
+    const rows = A(data.statements).filter(x => x && typeof x === "object");
+    body = rows.length ? rows.map((x, i) => card([
+      S(x.heat) ? h("span", {
+        key: "t", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM, marginBottom: 9 }
+      }, S(x.heat)) : null,
+      h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.65, color: TALLY_INK, wordBreak: "break-word" } }, S(x.text)),
+      peekBtn("定论", S(x.text), "")
+    ], "s" + i)) : null;
+  } else if (tab === "treasures") {
+    const rows = A(data.treasures).filter(x => x && typeof x === "object");
+    body = rows.length ? rows.map((x, i) => card([
+      h("div", { key: "k", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 } },
+        S(x.kind) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM } }, S(x.kind)) : h("span"),
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".17em", color: TALLY_DIM } }, "LOT " + String(i + 1).padStart(2, "0"))),
+      h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: TALLY_INK, wordBreak: "break-word" } }, S(x.title)),
+      S(x.worth) ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, color: TALLY_DIM, marginTop: 7, wordBreak: "break-word" } }, S(x.worth)) : null,
+      peekBtn("估价", S(x.title), S(x.worth))
+    ], "tr" + i)) : null;
+  } else {
+    const rows = A(data.appraisals).filter(x => x && typeof x === "object");
+    body = rows.length ? rows.map((x, i) => card([
+      h("div", { key: "q", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.55, color: TALLY_INK, wordBreak: "break-word" } }, S(x.q)),
+      S(x.a) ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: TALLY_DIM, marginTop: 9, wordBreak: "break-word" } }, S(x.a)) : null,
+      peekBtn("自问", S(x.q), S(x.a))
+    ], "a" + i)) : null;
+  }
+
+  return h("div", { className: "h-full flex flex-col", style: { background: TALLY_BG } },
+    h("div", { className: "shrink-0 px-4 pb-1 flex items-center gap-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: TALLY_INK })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, letterSpacing: ".24em", color: TALLY_INK } }, "TALLY"),
+      h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
+        onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_INK })) : null)),
+    h("div", { className: "shrink-0 px-5 pb-3" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TALLY_DIM, lineHeight: 1.7 } },
+        "这本账不记钱。记的是他和你之间还没结清的东西。")),
+    // 五栏切换：横滑，别挤成一行小字
+    h("div", {
+      className: "shrink-0 flex gap-2 px-5 pb-3 overflow-x-auto",
+      style: { scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }
+    }, TALLY_TABS.map(x => h("button", {
+      key: x.k, onClick: () => { setTab(x.k); setOpen(null); },
+      className: "active:opacity-60",
+      style: {
+        flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, padding: "7px 14px", borderRadius: 99,
+        background: tab === x.k ? TALLY_INK : "rgba(31,29,26,.05)",
+        color: tab === x.k ? "#fff" : TALLY_DIM,
+        border: "1px solid " + (tab === x.k ? TALLY_INK : "transparent")
+      }
+    }, x.zh + (count(x.k) ? " " + count(x.k) : "")))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+      body || h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TALLY_DIM, textAlign: "center", padding: "60px 20px", lineHeight: 1.9 } },
+        "这一栏还是空的。")));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -3062,6 +3196,7 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "calendar") return h(CalendarView, { d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "bili") return h(BiliView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "latenight") return h(LateNightView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "tally") return h(TallyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "timeline") return h(TimelineView, {
     rows: ctx.timelineRows, char, t, onBack: ctx.onBack, onOpenApp: ctx.onOpenApp, onPeek: ctx.onPeek,
     newIds: ctx.newIds, newCount: ctx.newCount, onMarkRead: ctx.onMarkRead
@@ -3375,7 +3510,7 @@ function PhoneCarry({
       music: "他还没有歌单", album: "相册还没翻过", bili: "最近没有观看记录", latenight: "深夜台还是空的",
       forum: "论坛上还没有他的痕迹", reading: "最近没在读什么", liked: "还没点过什么",
       health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的",
-      timeline: "先刷一遍手机，这里才串得起来"
+      timeline: "先刷一遍手机，这里才串得起来", tally: "他还没给你们记账"
     }[key] || "还没有内容";
     // 真数据这几个走自己那份，不然桌面小组件永远显示兜底话
     if (key === "timeline") {
@@ -3535,7 +3670,8 @@ const PHONE_ANGLE = {
   health: "【取材层】他的身体和心神这一天经历了什么。**指标名和细分项都要长成这个角色世界里的样子**，不是通用体检报告。【时间窗】今天为主，一周做背景。",
   clipboard: "【取材层】他复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
   takeout: "【取材层】他怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
-  wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。"
+  wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。",
+  tally: "【取材层】他心里给这段关系记的那本账——欠着的、兜过的底、放过的狠话、舍不得的、拿不准的。**这本账不记钱**，钱在钱包里；这儿记的是没结清的东西。【时间窗】从认识到现在，横跨很久；大多数条目应该已经挂了一阵子了。"
 };
 
 // 从已存下来的各 app 数据里抽一行代表，喂给下一个 app 当【已经写过】清单。
@@ -3557,7 +3693,8 @@ const PHONE_DIGEST_PICK = {
   health: d => pArr(d.cards).map(x => x.name + "·" + (x.tag || "")),
   clipboard: d => pArr(d.items).map(x => x.text),
   takeout: d => pArr(d.orders).map(x => x.shop + "·" + ((pArr(x.items)[0] || {}).name || "")).concat(pArr(d.shops).map(x => x.name), pArr(d.wish).map(x => x.title)),
-  wallet: () => []
+  wallet: () => [],
+  tally: d => pArr(d.debts).map(x => x.title).concat(pArr(d.statements).map(x => x.text), pArr(d.treasures).map(x => x.title))
 };
 
 // charData = phones[charId]，形如 { notes:{items,_at}, browser:{...}, ... }
@@ -3747,6 +3884,22 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
         + "【这一栏最容易写坏的地方】不要默认每个人的欲望都往「支配 / 占有 / 强势」那一头去。那是最省事的答案，**也是换成任何一个角色都照样成立的答案——照样成立就等于没写**。有人要的是被照顾，有人要的是自己失控，有人要的是被当成平等的人，有人只是想有一段不必说话的时间。他要哪一种，从他的人设长出来，不从这个题材的惯例长出来。\n"
         + "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要落到具体的场合、身份、动作或情境上，**别用那种换个角色照样贴得上的形容词**。",
       schemaHint: "{\"me\":{\"uid\":\"u_7741903\",\"lastAt\":\"前天 03:12\",\"note\":\"一句旁白\"},\"items\":[{\"title\":\"标题\",\"duration\":\"00:18:42\",\"tags\":[\"tag1\",\"tag2\"],\"views\":\"3.2万\",\"thought\":\"想法\"}]}"
+    },
+    tally: {
+      instruction: "推演「" + char.name + "」心里给他和用户之间记的那本账。\n"
+        + "**这本账不记钱**——钱是钱包的事。这儿记的是【没结清的东西】：欠着的、兜过的底、放过的狠话、舍不得的、拿不准的。\n"
+        + "所有内容必须从【他和用户之间真实发生过的事】里长出来（关系、记忆、印象、这阵子的来往）；写不出具体的，那一栏宁可少给两条，也不要拿泛泛的关系描述凑数。\n\n"
+        + "五栏，各自的写法：\n"
+        + "① debts（4-7 条）没结清的账。每条：title 一句话说清欠的是什么、dir 填 mine（他欠用户）/ theirs（用户欠他）/ open（两个人都没说清、悬着）、note 一句他自己怎么想这笔。\n"
+        + "   ⚠️theirs 那几条**不是他在讨债**——写成他自己惦记着的一件还没完的事，主语是他的在意，不是对方的亏欠。写成指责就是写坏了。三种都要有，别一边倒。\n"
+        + "② policies（2-4 条）他给对方兜的底，**写成保险条款那种腔调**：name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n"
+        + "   条款体的用处是**逼他把感情写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。\n"
+        + "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）。\n"
+        + "④ treasures（3-5 条）他心里估价最高的东西，**用估值的语言说**：title 那样东西是什么（可以是一个瞬间、一个习惯、一份证据）、kind 归成哪一类、worth 他给的估价（用估价的口吻，不是数字）。\n"
+        + "⑤ appraisals（3-5 条）他自己给自己的定论，问答体：q 一个悬着的问题（这个问题得是他真会在心里问自己的）、a 他的答案，一到两句，说死不留余地。\n\n"
+        + "【最容易写坏的地方】这本账要能一眼看出是【这两个人】的账。换成任何一对角色都照样成立的条目就是写坏了——那种句子只是在描述「有点在乎对方」，谁都能写。"
+        + "每一条都要能指回一件具体的事：某次没做到的、某次替对方挡下的、某句被记住的话、某个他不肯承认自己在留意的细节。",
+      schemaHint: "{\"debts\":[{\"title\":\"欠的是什么\",\"dir\":\"mine或theirs或open\",\"note\":\"他怎么想这笔\"}],\"policies\":[{\"name\":\"险种名\",\"scope\":\"承保范围\",\"terms\":\"理赔条件\",\"clause\":\"条款正文\"}],\"statements\":[{\"text\":\"他会亲口说的一句\",\"heat\":\"这句话的温度\"}],\"treasures\":[{\"title\":\"那样东西\",\"kind\":\"归哪一类\",\"worth\":\"他给的估价\"}],\"appraisals\":[{\"q\":\"悬着的问题\",\"a\":\"他的答案\"}]}"
     },
     wallet: {
       instruction: "推演「" + char.name + "」的财务档案。**最重要：收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，money 要贴合 TA 真实的谋生方式。** 收入来源 incomes（1-3 项，name+category+amount 数字）——category 从 TA 实际的谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；**只有当人设明确是富家子弟、继承人、家境优渥时，才可以出现「家族供养/信托」这类收入，否则绝对不要默认套用家族收入。** 普通人就是普通收入、金额可以不高甚至拮据。monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白，透露财力与消费态度）；dailyPool 15-25 条日常消费模板（每条 items 一句话描述当天买了啥，amount 数字，反映其真实生活水平）；可选 gifts 送礼转账。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。",
