@@ -58,6 +58,56 @@ test("周刊有纸感与分版视觉，换版回顶，且资料室只调一次",
   assert.match(w, /const total = 1 \+ Math\.min\(3, interviewPool\.length\) \+ weekVoices\.length \+ 1;/, "有足够角色时每期固定采访三人");
 });
 
+test("来信排除 Lisa、彼此独立并按角色轮换；采访只抽本周真有素材的人", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(w, /function letterPickFor\(/, "来信要有独立于采访的轮换袋");
+  assert.match(w, /function normalizeLetters\(/, "模型署名必须经过机械白名单");
+  assert.match(w, /用户「" \+ uName \+ "」不是写信人，绝不能替用户写信/, "Lisa 不能再被模型当固定第三封");
+  assert.match(w, /不得回复、接续、纠正、引用或点评另一封信/, "来信不能再串成一问一答");
+  assert.match(w, /const interviewPool = charsWithMat\.slice\(\)/, "无素材角色不得被自动采访");
+  assert.doesNotMatch(w, /const interviewPool = charsWithMat\.concat/, "不能再拿全员给采访池补位");
+  assert.match(app, /characters: liveChars\.filter\(c => !settingsFor\(c\.id\)\.engineerEyes\)/, "言秋不能进入普通角色周刊");
+});
+
+test("来信洗牌袋走完整轮，署名白名单拒绝 Lisa、串信与重复作者", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const grab = name => {
+    const i = w.indexOf("  function " + name);
+    assert.ok(i >= 0, "缺少函数 " + name);
+    let d = 0, j = i;
+    for (; j < w.length; j++) { if (w[j] === "{") d++; else if (w[j] === "}") { d--; if (!d) { j++; break; } } }
+    return w.slice(i, j);
+  };
+  const m = new Function(
+    "function issueStart(x){ return Number(x&&x.weekOf&&x.weekOf.start)||0; }\n" +
+    grab("seeded") + "\n" + grab("letterPickFor") + "\n" + grab("normalizeLetters") +
+    "\n; return { letterPickFor, normalizeLetters };"
+  )();
+  const chars = ["a", "b", "c", "d", "e"].map(id => ({ id, name: id.toUpperCase() }));
+  const past = [], seen = {};
+  for (let k = 1; k <= 4; k++) {
+    const pick = m.letterPickFor("W" + k, chars, past, k);
+    assert.equal(pick.length, 3, "每期三位不同角色来信");
+    assert.equal(new Set(pick.map(c => c.id)).size, 3, "同一期作者不能重复");
+    pick.forEach(c => { seen[c.id] = (seen[c.id] || 0) + 1; });
+    past.push({ key: "W" + k, weekOf: { start: k }, sections: [{ type: "letters", letters: pick.map(c => ({ authorId: c.id, from: c.name, auto: true })) }] });
+  }
+  const counts = chars.map(c => seen[c.id] || 0);
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, "来信轮次要均匀：" + JSON.stringify(seen));
+
+  const chosen = chars.slice(0, 3);
+  const normalized = m.normalizeLetters([
+    { from: "Lisa", body: "模型擅自替 Lisa 写的信" },
+    { from: "A", body: "第一封", reply: "不该成为串信入口" },
+    { from: "A", body: "同一个人重复署名" },
+    { from: "D", body: "本期没被选中的人" },
+    { from: "B", body: "第二封" }
+  ], chosen);
+  assert.deepEqual(normalized.map(x => x.from), ["A", "B"], "只收本期白名单且每人至多一封");
+  assert.equal(normalized[0].authorId, "a", "落库要保留稳定角色 id，不能只靠名字轮换");
+});
+
 test("十种媒体腔与四个编辑部页面都有独立纸张、字体与结构色", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const lookSeg = w.slice(w.indexOf("const VOICE_LOOK = {"), w.indexOf("function lookOf"));

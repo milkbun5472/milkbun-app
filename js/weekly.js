@@ -239,6 +239,53 @@
     return out;
   }
 
+  // 来信作者轮换：只让【本周真的有素材的角色】写，每期三人，整轮走完才重复。
+  // Lisa 是周刊的读者/当事人，不再被模型抓来当固定第三封；往期老刊只有署名，
+  // 所以回放同时兼容新字段 authorId 与旧字段 from。
+  function letterPickFor(issueKey, characters, pastIssues, weekStart) {
+    const chars = (characters || []).filter(function (c, i, a) {
+      return c && c.id && a.findIndex(function (x) { return x && x.id === c.id; }) === i;
+    });
+    if (chars.length <= 3) return chars;
+    const ids = chars.map(function (c) { return c.id; });
+    const idByName = {};
+    chars.forEach(function (c) { idByName[String(c.name || "").trim()] = c.id; });
+    const cut = Number(weekStart) || Infinity;
+    const past = (pastIssues || []).filter(function (x) { return issueStart(x) < cut; })
+      .slice().sort(function (a, b) { return issueStart(a) - issueStart(b); });
+    let bag = ids.slice();
+    past.forEach(function (iss) {
+      if (iss.key === issueKey) return;
+      const sec = (iss.sections || []).find(function (x) { return x.type === "letters"; });
+      ((sec && sec.letters) || []).filter(function (x) { return x && x.auto !== false; }).forEach(function (x) {
+        const id = x.authorId || idByName[String(x.from || "").trim()];
+        const k = bag.indexOf(id);
+        if (k > -1) bag.splice(k, 1);
+        if (!bag.length) bag = ids.slice();
+      });
+    });
+    const r = seeded("letter" + issueKey), out = [];
+    while (out.length < 3 && ids.length) {
+      if (!bag.length) bag = ids.filter(function (id) { return out.indexOf(id) < 0; });
+      if (!bag.length) break;
+      const id = bag.splice(Math.floor(r() * bag.length), 1)[0];
+      if (out.indexOf(id) < 0) out.push(id);
+    }
+    return out.map(function (id) { return chars.find(function (c) { return c.id === id; }); }).filter(Boolean);
+  }
+
+  function normalizeLetters(raw, authors) {
+    const allowed = {};
+    (authors || []).forEach(function (c) { if (c && c.id && c.name) allowed[String(c.name).trim()] = c; });
+    const seen = {};
+    return (Array.isArray(raw) ? raw : []).map(function (x) {
+      const from = String((x && x.from) || "").trim(), c = allowed[from];
+      if (!c || seen[c.id]) return null;
+      seen[c.id] = true;
+      return { authorId: c.id, auto: true, from: c.name, body: String((x && x.body) || "").trim(), reply: String((x && x.reply) || "").trim() };
+    }).filter(function (x) { return x && x.body; }).slice(0, 3);
+  }
+
   // ---- 报道周窗口 & 闸门 ---------------------------------------------
   function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
   function fmtRange(a, b) { return (a.getMonth() + 1) + "/" + a.getDate() + "–" + (b.getMonth() + 1) + "/" + b.getDate(); }
@@ -495,7 +542,8 @@
 
   // 语录榜 + 数据版：一次调用出两块。语录必须逐字来自真实记录（拿回来还要在本地验一遍），
   // 数据全部本地算好后喂进去，模型只写标题与点评——数字一个都不许改。
-  async function genDeskPage(active, globalText, stats, uName) {
+  async function genDeskPage(active, globalText, stats, uName, personasBlock, empty, letterAuthors) {
+    const letterNames = (letterAuthors || []).map(function (c) { return c.name; }).filter(Boolean);
     const statLines = [
       "本周共 " + stats.total + " 条消息",
       stats.talkers.length ? "说话最多：" + stats.talkers.map(function (x) { return x.who + " " + x.n + " 条"; }).join("、") : "",
@@ -520,10 +568,11 @@
       "上一期的具体内容你并不知道,所以只许纠正这种鸡毛蒜皮,不许纠正剧情事实。没什么可更正就留空字符串。" +
       "\n\n【四、分类广告】写 2~3 条极短的分类广告/寻物启事(每条≤26 字),必须由本周真实发生过的事引出:丢了的东西、想换掉的习惯、招人一起做的事。" +
       "写成报纸中缝那种一句话广告,不解释、不署名、允许荒诞,但引子必须真。" +
-      "\n\n【五、读者来信】写 3~4 封短信(每封 40~90 字),写信人就是下面这些当事人本人:" +
-      "\n· 每封一个不同的署名者(用「" + uName + "」或角色本名),同一个人不写两封。" +
+      "\n\n【五、读者来信】写 " + letterNames.length + " 封彼此独立的短信(每封 40~90 字)。本期作者固定为：「" + letterNames.join("」「") + "」。" +
+      "\n· 只能由上面这些角色署名，每人恰好一封；用户「" + uName + "」不是写信人，绝不能替用户写信。" +
       "\n· 必须是【这个人自己的立场和口气】:他在意什么、替谁说话、嘴硬还是直说,全照他的人设与本周表现。" +
-      "\n· 允许互相抬杠、纠正、阴阳怪气、替自己辩解,也允许有人完全跑题;不许写成千篇一律的读后感。" +
+      "\n· 每封信都是单独投给编辑部的，写信人看不到另外几封。不得回复、接续、纠正、引用或点评另一封信；不许拼成一问一答的连续对话。" +
+      "\n· 可以替自己辩解、跑题或阴阳怪气，但对象必须来自本周真实事件，不许写成千篇一律的读后感。" +
       "\n· 编者按(reply)至多给一封,≤18 字,其余留空。" +
       (empty ? "\n· 本周素材极少:那就写成抱怨没什么可写、或纯粹跑题的闲话,不要硬编剧情。" : "") +
       "\n\n【写信人声纹】\n" + String(personasBlock || "") +
@@ -539,34 +588,31 @@
     const desk = (d && d.desk) || {};
     const notes = Array.isArray(desk.notes) ? desk.notes.map(function (x) { return String(x || "").trim(); }) : [];
     const ads = (d && Array.isArray(d.ads) ? d.ads : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean).slice(0, 3);
-    const letters = (d && Array.isArray(d.letters) ? d.letters : []).map(function (x) {
-      return { from: String((x && x.from) || "").trim(), body: String((x && x.body) || "").trim(), reply: String((x && x.reply) || "").trim() };
-    }).filter(function (x) { return x.from && x.body; }).slice(0, 4);
+    const letters = normalizeLetters(d && d.letters, letterAuthors);
     return { quotes: quotes, correction: String((d && d.correction) || "").trim(), ads: ads, letters: letters,
       desk: { title: String(desk.title || "本周数据").trim(), rows: statLines.map(function (line, i) { return { line: line, note: notes[i] || "" }; }) } };
   }
 
   // 读者来信：让角色互相对本周的事发言。四个媒体腔换的是口音，这里换的是【立场】，
   // 同一件事在不同人嘴里长得不一样，这才是真正的多视角。
-  async function genLetters(active, personasBlock, globalText, uName, empty) {
+  async function genLetters(active, personasBlock, globalText, uName, empty, letterAuthors) {
+    const letterNames = (letterAuthors || []).map(function (c) { return c.name; }).filter(Boolean);
     const sys = ANTI_CLICHE + "\n\n" + CHARCARD_RULE +
       "\n\n你是周刊「读者来信」版的编辑。本周有几位读者写信来谈论刊登过的事——他们本人就是当事人或旁观者。" +
       "\n\n【写信人声纹（严格贴合，各写各的）】\n" + personasBlock +
       "\n\n【本周真实发生的事（只能就这里的事写，不许编新情节）】\n" + String(globalText || "").slice(-5000) +
       (empty ? "\n\n【空周处理】本周几乎没有素材：那就写成抱怨没什么可写、或纯粹跑题的闲话，不要硬编剧情。" : "") +
-      "\n\n【任务】写 3~4 封短信，每封 40~90 字：" +
-      "\n· 每封一个不同的署名者，署名用「" + uName + "」或角色本名；同一个人不写两封。" +
+      "\n\n【任务】写 " + letterNames.length + " 封彼此独立的短信，每封 40~90 字。本期作者固定为：「" + letterNames.join("」「") + "」：" +
+      "\n· 只能由上面这些角色署名，每人恰好一封；用户「" + uName + "」不是写信人，绝不能替用户写信。" +
       "\n· 信里必须是【这个人自己的立场和口气】：他在意的点、他会替谁说话、他嘴硬还是直说，全照他的人设与本周表现。" +
-      "\n· 允许互相抬杠、纠正、阴阳怪气，允许有人替自己辩解，允许有人完全跑题去说别的事。" +
+      "\n· 每封信都是单独投给编辑部的，彼此看不见。不得回复、接续、纠正、引用或点评另一封信，不得组成一问一答。" +
+      "\n· 可以替自己辩解、跑题或阴阳怪气，但只能针对本周真实事件。" +
       "\n· 不许写成千篇一律的读后感，也不许几封都在夸同一件事。" +
       "\n· 编辑可以给其中至多一封加一句极短的编者按（reply，≤18 字），其余留空。" +
       "\n\n【输出】只输出一个 JSON，不要代码块：\n" +
       '{"letters":[{"from":"署名","body":"信的正文","reply":"编者按或空字符串"}]}';
     const d = await genJSON(active, sys, "开始整理本周来信。", 2600);
-    const list = (d && Array.isArray(d.letters)) ? d.letters : [];
-    return list.map(function (x) {
-      return { from: String((x && x.from) || "").trim(), body: String((x && x.body) || "").trim(), reply: String((x && x.reply) || "").trim() };
-    }).filter(function (x) { return x.from && x.body; }).slice(0, 4);
+    return normalizeLetters(d && d.letters, letterAuthors);
   }
 
   // 媒体腔版块：把整周素材用某种腔重新叙事化，一版出 3~4 篇独立小报
@@ -768,7 +814,10 @@
     const empty = mat.global.length === 0;
     const blocks = weekBlocks(mat.global); // 带编号的素材块：各版面轮流认领，认走的别人看不到
     const weekVoices = voicesForWeek(win.key, loadIssues(), win.start); // 每期三块，整池轮抽
-    const interviewPool = charsWithMat.concat((characters || []).filter(function (c) { return !charsWithMat.some(function (x) { return x.id === c.id; }); }));
+    // 没有本周素材的人不进自动采访池。以前为了“缺席也是新闻”把全员补进来，
+    // 结果模型会把明明聊过、但素材源没接到的人写成“感情淡了”。宁缺毋滥。
+    const interviewPool = charsWithMat.slice();
+    const letterAuthors = letterPickFor(win.key, charsWithMat, loadIssues(), win.start);
     const total = 1 + Math.min(3, interviewPool.length) + weekVoices.length + 1; // +1 = 资料室(语录/数据/更正/中缝/来信合并为一次调用)
     let done = 0;
     const tick = function (label) { if (onProgress) onProgress(done, total, label); };
@@ -786,8 +835,7 @@
 
     // 采访版
     const entries = [];
-    // 有至少 3 个角色时固定采访 3 人；本周没发言的人也可被抽中，缺席本身就是可问的新闻。
-    // 洗牌袋轮换；没抽中的仍可手动补，且不占轮次。
+    // 只采访本周确实抓到素材的人；洗牌袋轮换，没抽中的仍可手动补。
     const pickIds = interviewPickFor(win.key, interviewPool.map(function (c) { return c.id; }), loadIssues(), win.start);
     const picked = pickIds.map(function (id) { return interviewPool.find(function (c) { return c.id === id; }); }).filter(Boolean);
     for (const c of picked) {
@@ -836,13 +884,13 @@
       const stats = weeklyStats(mat, characters, userName);
       // 语录/数据/更正/中缝/来信共用这一次调用:它们用的都是同一份 globalText,
       // 分成两次纯属浪费。整期调用数因此是 1(头版)+N(专访)+1(媒体腔批量)+1(资料室)。
-      desk = await genDeskPage(active, globalText, stats, userName, personasFor(charsWithMat, userName), empty);
+      desk = await genDeskPage(active, globalText, stats, userName, personasFor(letterAuthors, userName), empty, letterAuthors);
     } catch (e) { desk = null; }
     done++;
     const letters = (desk && desk.letters) || [];
     // 批量那次万一没给出来信,单独补一次,不让整块消失
     if (!letters.length && !empty) {
-      try { const L = await genLetters(active, personasFor(charsWithMat, userName), globalText, userName, empty); L.forEach(function (x) { letters.push(x); }); } catch (e) {}
+      try { const L = await genLetters(active, personasFor(letterAuthors, userName), globalText, userName, empty, letterAuthors); L.forEach(function (x) { letters.push(x); }); } catch (e) {}
     }
     tick("装订成刊");
     const sections = [cover, { id: uid("sec"), type: "interview", entries: entries }]
@@ -898,7 +946,8 @@
     genCover: genCover, genInterview: genInterview, genMedia: genMedia, generateIssue: generateIssue,
     claimedEvents: claimedEvents, claimedBlocks: claimedBlocks, eventKey: eventKey,
     weekBlocks: weekBlocks, blocksToText: blocksToText, pickOrder: pickOrder,
-    weeklyStats: weeklyStats, genDeskPage: genDeskPage, genLetters: genLetters, voicesForWeek: voicesForWeek, interviewPickFor: interviewPickFor
+    weeklyStats: weeklyStats, genDeskPage: genDeskPage, genLetters: genLetters, voicesForWeek: voicesForWeek, interviewPickFor: interviewPickFor,
+    letterPickFor: letterPickFor, normalizeLetters: normalizeLetters
   };
 
   // ============================================================
