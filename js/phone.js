@@ -26,9 +26,6 @@ const PHONE_APPS = [{
   key: "music",
   zh: "音乐"
 }, {
-  key: "settings",
-  zh: "设置"
-}, {
   key: "bili",
   zh: "视频"
 }, {
@@ -63,32 +60,32 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
   ["notes", "album", "liked", "forum", "shopping", "calendar"],
-  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "settings"]
+  ["reading", "bili", "health", "clipboard", "takeout", "latenight"]
 ];
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight", "settings"]],
+  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight"]],
   widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["reading", "clipboard", "calendar", "album", "music", "takeout", "settings"], ["shopping", "forum", "liked", "bili", "health", "latenight"]],
+  pages: [["reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight"]],
   widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight", "settings"]],
+  pages: [["bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight"]],
   widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "bili", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight", "settings"]],
+  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight"]],
   widgets: [[{ key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -188,7 +185,6 @@ function PGlyph({
     album: [R(3, 4, 18, 16, 2), C(8.5, 9, 1.5), P("M21 16l-5-5L5 20")],
     forum: [P("M21 15a2 2 0 01-2 2H8l-4 4V5a2 2 0 012-2h13a2 2 0 012 2z"), P("M8 9h8M8 12h5")],
     music: [P("M9 18V5l12-2v13"), C(6, 18, 3), C(18, 16, 3)],
-    settings: [C(12, 12, 3), P("M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 010-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 014 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 010 4h-.1a1.6 1.6 0 00-1.5 1z")],
     mic: [R(9, 2, 6, 12, 3), P("M5 10v2a7 7 0 0014 0v-2"), P("M12 19v3")],
     bili: [R(2.5, 6.5, 19, 14, 3.4), P("M7.5 2.6l3 3.9M16.5 2.6l-3 3.9"), h("polygon", {
       points: "10,10.5 15.5,13.5 10,16.5",
@@ -1977,6 +1973,130 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: DIM } }, "剪贴板是空的")),
     detail);
 }
+// ============================================================
+// 浏览器 —— 仿真浏览器（她 2026-08-29 点名）
+// 四页：标签页 / 搜索 / 书签 / 无痕
+// 这个 app 的两个爆点：
+//   ① 一堆没关的标签页是这个人脑子的横截面——尤其那个开了很久、他自己也说不清
+//      为什么不关的；
+//   ② 搜索词比访问过的网页更暴露人：人在搜索框里是不修饰的。
+// 无痕那一页整个走 hidden 档：那是他专门开了不留记录的。
+// ============================================================
+const BR_BG = "#f2f2f5";
+const BR_INK = "#1c1c1e";
+const BR_DIM = "#8e8e93";
+const BR_BLUE = "#2f6fdb";
+const BR_COVERS = [["#cfd9e8", "#e6ecf5"], ["#e8d7cf", "#f4e9e3"], ["#d3e4d6", "#e8f1ea"],
+  ["#e5dbef", "#f1ebf7"], ["#e9e3cc", "#f4f0e2"], ["#cfe3e8", "#e6f0f3"]];
+function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("tabs");
+  const [open, setOpen] = useState(null);
+  const scrollRef = useRef(null);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
+  const A = a => Array.isArray(a) ? a : [];
+  const data = (d && typeof d === "object") ? d : {};
+  const me = (data.me && typeof data.me === "object") ? data.me : {};
+  const tabs = A(data.tabs).filter(x => x && typeof x === "object");
+  const searches = A(data.searches).filter(x => x && typeof x === "object");
+  const marks = A(data.marks).filter(x => x && typeof x === "object");
+  const priv = A(data.private).filter(x => x && typeof x === "object");
+  const cov = n => BR_COVERS[(Number(n) || 0) % BR_COVERS.length];
+  const peekBtn = (tier, label, title, text) => onPeek ? h("button", {
+    onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
+    className: "w-full active:opacity-60",
+    style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5,
+      border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.42)" : "#e2e2e7"), color: tier === "hidden" ? "#b6473c" : "#55555c" }
+  }, tier === "hidden" ? "摆到 TA 面前 · 这是他没打算留痕的" : "转发给 TA · 他会知道你翻了手机") : null;
+  // ── 标签页：卡片网格，仿 Safari 那个标签墙 ──
+  const tabCard = (x, i, isPriv) => h("button", {
+    key: i, onClick: () => setOpen({ ...x, _priv: isPriv }), className: "text-left active:opacity-75",
+    style: { background: isPriv ? "#26262b" : "#fff", borderRadius: 13, overflow: "hidden", minWidth: 0,
+      border: x.pinned ? "1.5px solid " + BR_BLUE : "1px solid " + (isPriv ? "#33333a" : "#e8e8ed") }
+  }, h("div", { style: { height: 84, position: "relative", background: isPriv ? "linear-gradient(150deg,#33333c,#22222a)" : "linear-gradient(150deg," + cov(x.cover != null ? x.cover : i)[0] + "," + cov(x.cover != null ? x.cover : i)[1] + ")" } },
+    x.pinned ? h("span", { style: { position: "absolute", left: 7, top: 7, fontFamily: F_BODY, fontSize: 9.5, color: "#fff", background: BR_BLUE, borderRadius: 5, padding: "2px 7px" } }, "钉住") : null,
+    x.age ? h("span", { style: { position: "absolute", right: 7, bottom: 7, fontFamily: F_BODY, fontSize: 9.5, color: isPriv ? "rgba(255,255,255,.7)" : "rgba(40,40,50,.6)", background: isPriv ? "rgba(0,0,0,.4)" : "rgba(255,255,255,.72)", borderRadius: 5, padding: "2px 7px" } }, x.age) : null),
+  h("div", { style: { padding: "9px 10px 11px" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: isPriv ? "#e6e6ea" : BR_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.title || ""),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: isPriv ? "rgba(230,230,234,.5)" : BR_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.site || "")));
+  const tabsPage = tabs.length
+    ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, tabs.map((x, i) => tabCard(x, i, false)))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "一个标签页都没开着");
+  // ── 搜索记录：按时间列，搜索框的样子 ──
+  const searchPage = searches.length ? h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
+    searches.map((x, i) => h("button", {
+      key: i, onClick: () => setOpen({ title: x.q, site: x.site, gist: "", _search: true, time: x.time }),
+      className: "w-full text-left active:opacity-60 flex items-center",
+      style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
+    }, h("span", { "aria-hidden": "true", style: { width: 26, height: 26, borderRadius: 99, flexShrink: 0, background: "#f0f0f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: BR_DIM } }, "⌕"),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: BR_INK, wordBreak: "break-word" } }, x.q || ""),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BR_DIM, marginTop: 4 } }, [x.time, x.site].filter(Boolean).join(" · "))))))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "没有搜索记录");
+  // ── 书签：文件夹分组 ──
+  const markPage = marks.length ? h("div", null, marks.map((f, i) => h("div", { key: i, style: { marginBottom: 14 } },
+    h("div", { className: "flex items-center", style: { gap: 7, padding: "2px 4px 9px" } },
+      h("span", { "aria-hidden": "true", style: { width: 15, height: 12, borderRadius: "2px 4px 4px 4px", background: "#f0c264", flexShrink: 0 } }),
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: BR_INK } }, f.name || ""),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: BR_DIM } }, A(f.items).length + " 条")),
+    h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
+      A(f.items).map((x, j) => h("button", {
+        key: j, onClick: () => setOpen({ ...x, _mark: f.name }),
+        className: "w-full text-left active:opacity-60",
+        style: { padding: "12px 14px", borderTop: j ? "1px solid #f1f1f4" : "none" }
+      }, h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, color: BR_INK } }, x.title || ""),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BR_DIM, marginTop: 4 } }, x.site || "")))))))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "还没有书签");
+  const privPage = h("div", null,
+    h("div", { style: { background: "#26262b", borderRadius: 14, padding: "15px 16px", marginBottom: 14 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#e6e6ea" } }, "无痕浏览"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: "rgba(230,230,234,.55)", marginTop: 6 } }, "他专门开了不留记录的那几页。关掉就没了——只是还没关。")),
+    priv.length ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, priv.map((x, i) => tabCard(x, i, true)))
+      : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "这会儿没有无痕页"));
+  const detail = open ? (function () {
+    const isPriv = !!open._priv;
+    return h("div", { className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,20,24,.42)", zIndex: 30 }, onClick: () => setOpen(null) },
+      h("div", { onClick: e => e.stopPropagation(),
+        style: { background: isPriv ? "#26262b" : "#fff", borderRadius: "20px 20px 0 0", maxHeight: "82%", overflowY: "auto", padding: "18px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" } },
+        h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
+          h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 8, height: 34, borderRadius: 10, background: isPriv ? "#33333a" : "#f0f0f4", padding: "0 12px" } },
+            h("span", { "aria-hidden": "true", style: { fontSize: 11, color: isPriv ? "rgba(230,230,234,.55)" : BR_DIM } }, open._search ? "⌕" : "🔒"),
+            h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: isPriv ? "rgba(230,230,234,.7)" : "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, open.site || (open._search ? "搜索" : ""))),
+          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: isPriv ? "rgba(230,230,234,.6)" : BR_DIM, padding: "0 4px" } }, "✕")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.5, color: isPriv ? "#e6e6ea" : BR_INK, marginTop: 16, wordBreak: "break-word" } }, open.title || ""),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: isPriv ? "rgba(230,230,234,.5)" : BR_DIM, marginTop: 8 } },
+          [open.time, open.age, open._mark ? "书签 · " + open._mark : "", open.pinned ? "钉住的" : ""].filter(Boolean).join(" · ")),
+        open.gist ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: isPriv ? "rgba(230,230,234,.86)" : "#4b4b53", marginTop: 14 } }, open.gist) : null,
+        peekBtn(isPriv ? "hidden" : "quiet",
+          isPriv ? "他的无痕标签页" : open._search ? "他搜过的" : open._mark ? "他的书签" : "他没关的标签页",
+          open.title, [open.site, open.gist, open.age].filter(Boolean).join("｜"))));
+  })() : null;
+  const PAGES = [
+    { key: "tabs", zh: "标签页", glyph: "browser", body: tabsPage, badge: tabs.length },
+    { key: "search", zh: "搜索", glyph: "notes", body: searchPage, badge: searches.length },
+    { key: "marks", zh: "书签", glyph: "reading", body: markPage },
+    { key: "priv", zh: "无痕", glyph: "latenight", body: privPage, badge: priv.length }
+  ];
+  const page = PAGES.find(x => x.key === tab) || PAGES[0];
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BR_BG } },
+    h("div", { className: "shrink-0", style: { paddingTop: safeTop(10) } },
+      h("div", { className: "flex items-center px-3 pb-2", style: { gap: 9 } },
+        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IArrow, { size: 18, color: BR_INK })),
+        // 地址栏：真浏览器的样子
+        h("div", { className: "flex-1 min-w-0 flex items-center", style: { gap: 7, height: 34, borderRadius: 11, background: "#e6e6ea", padding: "0 12px" } },
+          h("span", { "aria-hidden": "true", style: { fontSize: 10.5, color: BR_DIM } }, "🔒"),
+          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, color: "#55555c", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            me.name ? me.name + (me.uid ? " · " + me.uid : "") : (char.remark || char.name) + " 的浏览器")),
+        h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center shrink-0", style: { width: 36, height: 36 } }, h(IRefresh, { size: 17, color: BR_INK }))),
+      h("div", { className: "flex px-3 pb-2", style: { gap: 4 } }, PAGES.map(pg => h("button", {
+        key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); }, className: "flex-1 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 12.5, padding: "7px 4px", borderRadius: 9,
+          background: tab === pg.key ? "#fff" : "transparent",
+          color: tab === pg.key ? (pg.key === "priv" ? "#b6473c" : BR_INK) : BR_DIM,
+          boxShadow: tab === pg.key ? "0 1px 4px rgba(30,30,40,.10)" : "none" }
+      }, pg.zh + (pg.badge ? " " + pg.badge : "")))) ),
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 13px 22px" } }, page.body),
+    detail);
+}
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -2048,43 +2168,7 @@ function renderPhoneModule(key, d, ctx) {
       }
     }, it.time));
   }));
-  if (key === "browser") return wrap(arr(d.items).map((it, i) => h("button", {
-    key: i,
-    onClick: () => setSheet(DetailSheet(it.title, (it.url ? "🔗 " + it.url + "\n\n" : "") + (it.content || ""), t, peekFoot("quiet", "浏览记录", it.title, it.content))),
-    className: "w-full text-left py-3.5 flex items-start justify-between gap-3",
-    style: line
-  }, h("div", {
-    className: "flex-1 min-w-0"
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 14.5,
-      color: t.ink
-    }
-  }, it.title), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.tint,
-      marginTop: 2,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    }
-  }, it.url), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: t.fog,
-      marginTop: 2
-    }
-  }, it.time)), h(IChevR, {
-    size: 14,
-    color: t.line,
-    style: {
-      marginTop: 3
-    }
-  }))));
+  if (key === "browser") return h(BrowserView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -2184,68 +2268,6 @@ function renderPhoneModule(key, d, ctx) {
       }));
   }
   if (key === "reading") return h(ReadingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "settings") {
-    const apps = arr(d.apps),
-      mins = apps.map(a => parseMins(a.time)),
-      max = Math.max(1, ...mins);
-    return h("div", {
-      style: {
-        animation: "fadeUp .3s ease both"
-      }
-    }, h("div", {
-      className: "mb-6 text-center py-5",
-      style: {
-        borderRadius: 16,
-        background: t.bg2,
-        border: `1px solid ${t.line}`
-      }
-    }, h(Eyebrow, null, "日均屏幕使用时间"), h("div", {
-      style: {
-        fontFamily: F_DISPLAY,
-        fontSize: 30,
-        color: t.ink,
-        marginTop: 6
-      }
-    }, d.screenTime || "—")), h(Eyebrow, {
-      style: {
-        marginBottom: 12
-      }
-    }, "各 App 使用"), apps.map((a, i) => h("div", {
-      key: i,
-      className: "py-2.5",
-      style: i > 0 ? {
-        borderTop: `1px solid ${t.line}`
-      } : null
-    }, h("div", {
-      className: "flex items-baseline justify-between mb-1.5"
-    }, h("span", {
-      style: {
-        fontFamily: F_DISPLAY,
-        fontSize: 14,
-        color: t.ink
-      }
-    }, a.name), h("span", {
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 11,
-        color: t.fog
-      }
-    }, a.time)), h("div", {
-      style: {
-        height: 6,
-        borderRadius: 6,
-        background: t.line,
-        overflow: "hidden"
-      }
-    }, h("div", {
-      style: {
-        height: "100%",
-        width: Math.round(mins[i] / max * 100) + "%",
-        background: t.tint,
-        borderRadius: 6
-      }
-    })))));
-  }
   if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "liked") return h(PlazaView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -2443,7 +2465,7 @@ function PhoneCarry({
     if (!value) return fallback;
     const pool = value.chats || value.items || value.songs || value.apps || value.week;
     const x = Array.isArray(pool) && pool[0];
-    return String((x && (x.last || x.title || x.caption || x.name || x.transcript || x.content || x.text || (x.day && x.hours != null ? x.day + " 睡了 " + x.hours + " 小时" : ""))) || value.desc || value.playlist || value.screenTime || value.weekNote || fallback);
+    return String((x && (x.last || x.title || x.caption || x.name || x.transcript || x.content || x.text || (x.day && x.hours != null ? x.day + " 睡了 " + x.hours + " 小时" : ""))) || value.desc || value.playlist || value.weekNote || fallback);
   };
   const appIcon = (a, compact) => h("button", {
     key: a.key,
@@ -2528,7 +2550,6 @@ function PhoneCarry({
       style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginTop: 12 }
     }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻整部手机…") : "刷新全部 App"));
     const app = appByKey(key);
-    const isScreen = key === "settings";
     return h("button", {
       key,
       onClick: () => openApp(app), className: "text-left active:opacity-70",
@@ -2540,11 +2561,9 @@ function PhoneCarry({
         boxShadow: hero ? "0 12px 28px rgba(35,31,25,.09)" : "none"
       }
     }, h("div", { className: "flex items-center justify-between" },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, isScreen ? "屏幕使用" : app.zh),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, app.zh),
       h(PGlyph, { k: key, size: 19, color: dark ? "#fff" : t.ink })),
-    isScreen ? h("div", {
-      style: { fontFamily: F_DISPLAY, fontSize: hero ? 31 : 26, marginTop: hero ? 21 : 15 }
-    }, data.settings && data.settings.screenTime || "--") : h("div", {
+    h("div", {
       style: {
         fontFamily: F_DISPLAY, fontSize: hero ? 18 : 14, lineHeight: 1.42,
         marginTop: hero ? 20 : 13, display: "-webkit-box", WebkitLineClamp: hero ? 2 : 2,
@@ -2642,7 +2661,7 @@ const PHONE_ANGLE = {
   wechat: "【取材层】有别人在场时的他。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
   notes: "【取材层】完全没人看的时候，他留给自己的东西——打字的和说出口的都在这儿。录下来的那些是**打字打不出来、只能说出来**的，这是它和打字条的分界。【时间窗】这一两周。",
   calls: "【取材层】他和外面世界的例行往来：工作、家里、办事、推销、打错的。这里大部分是杂事，不是感情戏。【时间窗】这一周。",
-  browser: "【取材层】一个人闲着、脑子没在想正事的时候搜的东西。可以很无聊、很实用、很没道理，也可以是查一个当场想不起来的词。【时间窗】这几天。",
+  browser: "【取材层】没人看着的时候他自己去找的东西。搜索框里的人是不修饰的——会打错字、会问很蠢的问题、会反复搜同一件事。【时间窗】这几天，标签页可以开了很久。",
   shopping: "【取材层】他花钱的方式。买了什么、想买没买、绝不买什么、送到谁家——这四样加起来比他自己说的任何一句都准。【时间窗】这一个月，想买清单可以惦记很久。",
   bili: "【取材层】他消磨时间的口味，不是他的心事——刷视频多半是没在想什么的时候。弹幕是例外：那是他忍不住开口的地方。【时间窗】这几天。",
   latenight: "【取材层】深夜、独自一人、没打算被任何人看见的欲望。【时间窗】这阵子。",
@@ -2653,7 +2672,6 @@ const PHONE_ANGLE = {
   clipboard: "【取材层】他复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
   calendar: "【取材层】他给自己排的事，以及他一直没去做的事。【时间窗】前后两周。",
   takeout: "【取材层】他怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
-  settings: "【取材层】纯数字，不承载情节。",
   wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。"
 };
 
@@ -2666,7 +2684,7 @@ const PHONE_DIGEST_PICK = {
     .concat(pArr(d.moments).slice(0, 2).map(m => "朋友圈「" + String(m.content || "").slice(0, 30) + "」")),
   notes: d => pArr(d.items).map(x => x.title),
   calls: d => pArr(d.items).slice(0, 4).map(x => x.name),
-  browser: d => pArr(d.items).map(x => x.title),
+  browser: d => pArr(d.tabs).map(x => x.title).concat(pArr(d.searches).map(x => x.q)),
   shopping: d => pArr(d.orders).map(x => x.title).concat(pArr(d.wish).map(x => x.title), pArr(d.cart).map(x => x.title)),
   album: d => pArr(d.items).slice(0, 4).map(x => x.caption),
   bili: d => pArr(d.items).map(x => x.title),
@@ -2677,7 +2695,6 @@ const PHONE_DIGEST_PICK = {
   clipboard: d => pArr(d.items).map(x => x.text),
   calendar: d => pArr(d.items).map(x => x.title),
   takeout: d => pArr(d.orders).map(x => x.shop + "·" + ((pArr(x.items)[0] || {}).name || "")).concat(pArr(d.shops).map(x => x.name), pArr(d.wish).map(x => x.title)),
-  settings: () => [],
   wallet: () => []
 };
 
@@ -2737,8 +2754,16 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       schemaHint: "{\"items\":[{\"name\":\"通话人\",\"dir\":\"in或out\",\"time\":\"今天 09:12\",\"connected\":true,\"duration\":\"04:32\"}]}"
     },
     browser: {
-      instruction: "推演「" + char.name + "」浏览器最近的浏览记录（3-5 条），有网址和标题，点开看具体内容摘要。反映兴趣与心境。",
-      schemaHint: "{\"items\":[{\"title\":\"网页标题\",\"url\":\"www...\",\"time\":\"13:40\",\"content\":\"内容摘要\"}]}"
+      instruction: "推演「" + char.name + "」浏览器里的全部东西。\n\n"
+        + "me：他浏览器同步账号的昵称（不是本名照抄）和 uid。\n\n"
+        + "tabs 没关掉的标签页 **8-12 个**：title（网页标题）、site（站点名或域名）、age（这一页开了多久，写成一句）、pinned（true/false，钉住的最多 2 个）、cover（0-5 整数定色）、gist（这一页上写着什么，一句）。\n"
+        + "**一堆没关的标签页是这个人脑子的横截面**：有他正在办的正事、有查到一半忘了的、有想买没买的、有半夜看了没退出的、有开了很久舍不得关的。**至少有一个是开了很久、他自己也说不清为什么不关的。**\n\n"
+        + "searches 搜索记录 **10-14 条**：q（他敲进搜索框的原话）、time、site（在哪儿搜的，可空）。\n"
+        + "**搜索词比访问过的网页更暴露人**：人在搜索框里是不修饰的，会打错字、会问很蠢的问题、会反复搜同一件事、会在半夜搜白天绝不会问出口的东西。所以这十几条里要有：实用的、丢人的、重复搜过的、以及一两条他绝不会告诉任何人他搜过的。\n\n"
+        + "marks 书签 **3-4 个文件夹**：name（文件夹名，按他自己的分法起，不是「工作」「学习」这种）、items（2-4 条，各有 title 和 site）。**书签是他觉得以后还用得着的东西**，所以里面会有很久没点过的旧东西。\n\n"
+        + "private 无痕标签页 **1-3 个**：title、site、gist。**这是他专门开了不留记录的那几页**，和上面那些不是一回事。\n\n"
+        + "所有内容都要贴合他的身份和时代——古代角色的\"浏览器\"是他那个世界里查东西的方式，别硬套现代网站。" + relHint,
+      schemaHint: "{\"me\":{\"name\":\"昵称\",\"uid\":\"账号\"},\"tabs\":[{\"title\":\"网页标题\",\"site\":\"站点\",\"age\":\"开了多久\",\"pinned\":false,\"cover\":0,\"gist\":\"这页上写着什么\"}],\"searches\":[{\"q\":\"他敲进去的原话\",\"time\":\"时间\",\"site\":\"在哪搜的\"}],\"marks\":[{\"name\":\"文件夹名\",\"items\":[{\"title\":\"标题\",\"site\":\"站点\"}]}],\"private\":[{\"title\":\"标题\",\"site\":\"站点\",\"gist\":\"这页上写着什么\"}]}"
     },
     shopping: {
       instruction: "推演「" + char.name + "」网购 App 的整个界面。" + relHint + "\n"
@@ -2828,10 +2853,6 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
         + "**推迟次数是这个 app 的重点**：一件推了四次的小事，比四件按时完成的大事更能说明这个人。至少有一条 postponed 在 3 以上，而且它应该是件很小、很容易做完、但他就是一直不做的事——那种一分钟就能办完、却拖了半个月的事。\n"
         + "三种都要有：他给自己设的、和别人约好的、以及一直没去做的。已经过去的日子里要有已完成的，也要有那天根本没做的。" + relHint,
       schemaHint: "{\"monthLabel\":\"8月\",\"items\":[{\"title\":\"事情\",\"date\":\"2026-09-02\",\"time\":\"14:00\",\"kind\":\"提醒\",\"done\":false,\"postponed\":0,\"note\":\"可空\",\"who\":\"可空\"}]}"
-    },
-    settings: {
-      instruction: "推演「" + char.name + "」的屏幕使用时间，像 iOS：日均总时长，以及各 App 单独的使用时长（5-7 个，从多到少）。贴合性格。",
-      schemaHint: "{\"screenTime\":\"6小时12分\",\"apps\":[{\"name\":\"app 名\",\"time\":\"2小时3分\"}]}"
     },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"

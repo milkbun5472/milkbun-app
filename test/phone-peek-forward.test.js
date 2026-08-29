@@ -60,8 +60,9 @@ test("他没瞒着的东西走 open 档，别当成撞破", () => {
 });
 
 test("没主动说的日常内容走 quiet 档", () => {
-  ["浏览记录"].forEach(l =>
-    assert.ok(phone.includes('peekFoot("quiet", "' + l + '"'), l + " 没接转发"));
+  // v57.60 浏览器也成了自绘整屏的组件，转发走它自己的 peekBtn
+  ["他搜过的", "他没关的标签页", "他的书签"].forEach(l =>
+    assert.ok(phone.includes('"' + l + '"'), l + " 没接转发"));
   // v57.56：备忘录和录音合成「便签」，转发走 StickyView 自己那颗按钮
   ["他的便签", "他录的一条"].forEach(l =>
     assert.ok(phone.includes('label: voice ? "他录的一条" : "他的便签"') || phone.includes('"' + l + '"'), l + " 没接转发"));

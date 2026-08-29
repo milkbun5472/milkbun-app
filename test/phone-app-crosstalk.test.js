@@ -48,7 +48,7 @@ test("便签里打字的和录下来的有明确分界，不是同一件事写�
 
 test("phoneRoundDigest 从各 App 已存数据里抽出代表行", () => {
   const lines = P.phoneRoundDigest({
-    browser: { items: [{ title: "失眠怎么办" }] },
+    browser: { searches: [{ q: "失眠怎么办" }] },
     notes: { items: [{ title: "凌晨三点" }] }
   }, "shopping");
   const joined = lines.join("\n");

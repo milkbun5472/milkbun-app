@@ -41,7 +41,7 @@ test("每个 app 都真的被 renderPhoneModule 接住了，没有一个掉回 n
   [["wechat", "WeChatViewFull"], ["album", "AlbumView"], ["reading", "ReadingView"],
    ["shopping", "ShoppingView"], ["takeout", "TakeoutView"], ["health", "HealthView"],
    ["bili", "BiliView"], ["latenight", "LateNightView"], ["liked", "PlazaView"], ["calendar", "CalendarView"],
-   ["notes", "StickyView"], ["clipboard", "ClipView"]]
+   ["notes", "StickyView"], ["clipboard", "ClipView"], ["browser", "BrowserView"]]
     .forEach(([k, comp]) => {
       const node = P.renderPhoneModule(k, FIXTURES[k] || null, { ...ctxBase, t, ...LIVE });
       assert.equal(node.type, comp, k + " 挂到了 " + node.type + "，不是 " + comp);
@@ -121,7 +121,7 @@ test("每个 app 在四套桌面布局里都有入口，一个都不许找不到
 test("新加的这几个 app 都配齐了：推演任务、取材层、避重抽取、假数据", () => {
   const P = loadPhone();
   // v57.50：订单并进购物了（她给的参考稿本来就是一整个购物 app，两个并存必然复读）
-  ["reading", "liked", "shopping", "health", "clipboard", "calendar", "bili", "latenight", "takeout"].forEach(k => {
+  ["reading", "liked", "shopping", "health", "clipboard", "calendar", "bili", "latenight", "takeout", "browser"].forEach(k => {
     const spec = P.phoneProbeSpec(k, char, [], "", []);
     assert.notEqual(spec.schemaHint, "{}", k + " 没有自己的推演任务");
     assert.ok(spec.instruction.length > 120, k + " 的推演任务写得太薄");
@@ -233,7 +233,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
-  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"]);
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser"]);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
@@ -675,4 +675,40 @@ test("视频和深夜台的账号在界面上看得见", () => {
   assert.doesNotMatch(SRC, /me\.name \+ " · Lv" \+ \(me\.level \|\| 1\)/);
   // 深夜台那串号单独做成一枚方框标签
   assert.match(SRC, /me\.uid \? me\.uid : "未登记"/);
+});
+
+test("浏览器做成真浏览器：标签页 / 搜索 / 书签 / 无痕", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const P = loadPhone();
+  const props = { d: F.browser, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  ["tabs", "search", "marks", "priv"].forEach(k =>
+    assert.doesNotThrow(() => loadPhone({ 0: k }).BrowserView(props), k + " 这一页炸了"));
+  assert.doesNotThrow(() => loadPhone({ 1: { ...F.browser.tabs[0] } }).BrowserView(props), "标签详情炸了");
+  assert.doesNotThrow(() => loadPhone({ 1: { ...F.browser.private[0], _priv: true } }).BrowserView(props), "无痕详情炸了");
+  [null, {}, { tabs: "x", searches: 3, marks: [{ items: "y" }], private: 5 }].forEach((d, i) =>
+    ["tabs", "search", "marks", "priv"].forEach(k =>
+      assert.doesNotThrow(() => loadPhone({ 0: k }).BrowserView({ ...props, d }), "脏数据 " + i + " 在 " + k + " 页炸了")));
+  // 地址栏 + 四个页签
+  assert.match(SRC, /const PAGES = \[\n    \{ key: "tabs", zh: "标签页"/);
+  assert.match(SRC, /zh: "无痕"/);
+  // 无痕整页走 hidden 档
+  assert.match(SRC, /peekBtn\(isPriv \? "hidden" : "quiet"/);
+  const spec = P.phoneProbeSpec("browser", char, [], "", []);
+  ["tabs", "searches", "marks", "private"].forEach(k =>
+    assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 不在 schema 里"));
+  assert.match(spec.instruction, /一堆没关的标签页是这个人脑子的横截面/);
+  assert.match(spec.instruction, /至少有一个是开了很久、他自己也说不清为什么不关的/);
+  assert.match(spec.instruction, /搜索词比访问过的网页更暴露人/);
+  assert.match(spec.instruction, /这是他专门开了不留记录的那几页/);
+});
+
+test("设置那个 app 是删掉了，不是留着不用", () => {
+  const P = loadPhone();
+  assert.ok(!P.PHONE_APPS.some(a => a.key === "settings"), "settings 还在册");
+  assert.equal(P.PHONE_ANGLE.settings, undefined);
+  assert.equal(P.PHONE_DIGEST_PICK.settings, undefined);
+  assert.equal(P.phoneProbeSpec("settings", char, [], "", []).schemaHint, "{}");
+  // 桌面小组件里那个「屏幕使用」特例也跟着删了
+  assert.doesNotMatch(SRC, /isScreen/);
+  assert.doesNotMatch(SRC, /data\.settings && data\.settings\.screenTime/);
 });

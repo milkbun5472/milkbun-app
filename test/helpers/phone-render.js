@@ -54,7 +54,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -66,7 +66,15 @@ const FIXTURES = {
     { kind: "voice", title: "算了", time: "昨天 23:40", duration: "0:37", body: "本来想说……算了，你别管。", color: 4 }
   ] },
   calls: { items: [{ name: "妈", dir: "in", time: "今天 09:12", connected: true, duration: "04:32" }] },
-  browser: { items: [{ title: "失眠怎么办", url: "www.x.com", time: "13:40", content: "一堆废话" }] },
+  browser: {
+    me: { name: "不留痕", uid: "br_88213" },
+    tabs: [{ title: "西北军饷历年拨付表", site: "户部archive", age: "开了 11 天", pinned: true, cover: 0, gist: "一张对不上的账。" },
+           { title: "失眠怎么办", site: "问答", age: "开了 2 小时", pinned: false, cover: 2, gist: "" }],
+    searches: [{ q: "羊肉膻味怎么去干净", time: "今天 11:20", site: "" },
+               { q: "她说算了是什么意思", time: "昨天 02:41", site: "" }],
+    marks: [{ name: "以后再算的账", items: [{ title: "陇右三年粮册", site: "档" }, { title: "旧部名录", site: "档" }] }],
+    private: [{ title: "夜里那页", site: "—", gist: "关掉就没了。" }]
+  },
   shopping: {
     account: { name: "只买合用的", uid: "1043827", member: "黑金御令会员", style: "实用利落兼带几件扎眼红衣", monthSpend: 3260.5, monthOrders: 8, points: 18420, persona: "买东西极快但退换极少，嫌麻烦多过心疼银子" },
     shipping: [{ status: "派送中", eta: "今日 18:00 前", shop: "西市恒泰皮货行", title: "熟制牛皮马鞍垫配铜扣（深赭色/加厚骑乘款）", progress: 78, carrier: "顺丰速运", tail: "9042", amount: 340 }],
@@ -88,7 +96,6 @@ const FIXTURES = {
     tail: "程策那马鞍垫子今天该送到了。还有那身红袍子，改天穿过去看看谁比谁好看。"
   },
   album: { items: [{ id: "p01", caption: "锁死的代码注释", date: "2026-08-28 18:42", category: "private", desc: "屏幕", thought: "别看" }] },
-  settings: { screenTime: "6小时12分", apps: [{ name: "微信", time: "2小时3分" }] },
   reading: {
     shelves: [
       { name: "京华杂谈与消遣", slug: "bizarre", books: [
