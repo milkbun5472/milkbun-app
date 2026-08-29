@@ -12,7 +12,7 @@ test("相册是图库、精选集、收藏夹三页完整界面", () => {
   assert.match(phone, /function AlbumNavIcon/);
   // 相册自己画整屏，不套外层 Head——v57.48 起这条由 FULL_BLEED_KEYS 表达
   assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"\];/);
-  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
+  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
 });
 
 test("精选集固定五类且二十五张时每类机械保底四张", () => {

@@ -234,7 +234,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
   assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"]);
-  assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
+  assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
 
@@ -406,8 +406,8 @@ test("每个有账号的 app 都给了他自己的平台 ID", () => {
    ["reading", /"uid"/], ["liked", /"xhsId"/], ["wechat", /"wechatId"/]]
     .forEach(([k, re]) => assert.match(P.phoneProbeSpec(k, char, [], "", []).schemaHint, re, k + " 没有平台 ID"));
   // 而且要在界面上看得见，不是只存着
-  assert.match(SRC, /" · UID " \+ me\.uid/);
-  assert.match(SRC, /"ID " \+ me\.uid/);
+  assert.match(SRC, /"UID " \+ me\.uid/);
+  assert.match(SRC, /me\.uid \? me\.uid : "未登记"/);
   assert.match(SRC, /"会员号 " \+ acc\.uid/);
   assert.match(SRC, /"书友号 " \+ archive\.uid/);
   assert.match(SRC, /"账号 " \+ acc\.uid/);
@@ -655,4 +655,24 @@ test("顶栏的返回和刷新不再套白圆框", () => {
   assert.doesNotMatch(SRC, /borderRadius: 99, background: "rgba\(0,0,0,\.32\)"/);
   // 压在封面上的那颗改用一条渐变把图标托住，而不是套个圆
   assert.match(SRC, /linear-gradient\(180deg,rgba\(0,0,0,\.34\),transparent\)/);
+});
+
+test("从 app 退回桌面时回到原来那一页，不弹回第一页", () => {
+  // 她 2026-08-29：「点开第二页的 app 后退后又回到第一页了，每次都得翻回来好累」
+  // 病因：点进 app 时桌面整个卸载，回来重挂 scrollLeft 就是 0。
+  assert.match(SRC, /const deskPageRef = useRef\(0\);/);
+  assert.match(SRC, /deskPageRef\.current = deskPage;/);
+  assert.match(SRC, /deskRef\.current\.scrollLeft = deskRef\.current\.clientWidth \* n;/);
+  assert.match(SRC, /\}, \[open, inList\]\);/);
+});
+
+test("视频和深夜台的账号在界面上看得见", () => {
+  // 她 2026-08-29：「视频的 uid 昵称和深夜台的 id 在哪儿呢我没看到」
+  // 原来只塞在搜索框的占位文字里，等于没有。
+  assert.match(SRC, /他自己的账号条：昵称 \+ 等级 \+ UID/);
+  assert.match(SRC, /"LV" \+ me\.level/);
+  assert.match(SRC, /"UID " \+ me\.uid/);
+  assert.doesNotMatch(SRC, /me\.name \+ " · Lv" \+ \(me\.level \|\| 1\)/);
+  // 深夜台那串号单独做成一枚方框标签
+  assert.match(SRC, /me\.uid \? me\.uid : "未登记"/);
 });

@@ -1521,8 +1521,17 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { className: "flex items-center gap-2.5 px-3 pb-2.5" },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IArrow, { size: 18, color: BILI_INK })),
       h("div", { className: "flex-1 min-w-0 flex items-center", style: { height: 32, borderRadius: 99, background: "#f1f2f3", padding: "0 13px" } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: BILI_DIM, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, me.name ? me.name + " · Lv" + (me.level || 1) + (me.uid ? " · UID " + me.uid : "") : "搜索")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: BILI_DIM } }, "搜索")),
       h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 34, height: 34 } }, h(IRefresh, { size: 17, color: BILI_INK }))),
+    // 他自己的账号条：昵称 + 等级 + UID（她 2026-08-29 说找不到，原来只藏在搜索框占位里）
+    (me.name || me.uid) ? h("div", { className: "flex items-center px-3 pb-2.5", style: { gap: 10 } },
+      h("div", { style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + BILI_PINK + "," + BILI_BLUE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15 } }, String(me.name || char.name || "?").trim().slice(0, 1)),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { className: "flex items-center", style: { gap: 6 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: BILI_INK } }, me.name || char.name),
+          me.level ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: "#fff", background: BILI_PINK, borderRadius: 5, padding: "2px 6px" } }, "LV" + me.level) : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: BILI_DIM, marginTop: 3 } },
+          [me.uid ? "UID " + me.uid : "", me.fans != null ? me.fans + " 粉丝" : "", me.coins != null ? me.coins + " 硬币" : ""].filter(Boolean).join(" · ")))) : null,
     h("div", { className: "flex gap-1 px-3 pb-2 overflow-x-auto", style: { scrollbarWidth: "none" } }, tabs.map((tb, i) => h("button", {
       key: i, onClick: () => setTab(i), className: "shrink-0 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: 13, padding: "6px 12px", borderRadius: 999, color: i === tab ? BILI_PINK : "#61666d", background: i === tab ? "rgba(251,114,153,.10)" : "transparent", fontWeight: i === tab ? 600 : 400 }
@@ -1581,7 +1590,9 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK }))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 24px" } },
       (me.lastAt || me.note) ? h("div", { style: { padding: "10px 0 16px", borderBottom: "1px solid rgba(232,227,230,.08)", marginBottom: 4 } },
-        (me.uid || me.lastAt) ? h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".16em", color: DIM } }, [me.uid ? "ID " + me.uid : "", me.lastAt ? "上次 " + me.lastAt : ""].filter(Boolean).join("   ")) : null,
+        (me.uid || me.lastAt) ? h("div", { className: "flex items-center justify-between" },
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: ".14em", color: "rgba(232,227,230,.66)", border: "1px solid rgba(232,227,230,.18)", borderRadius: 6, padding: "3px 9px" } }, me.uid ? me.uid : "未登记"),
+          me.lastAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: DIM } }, "上次 " + me.lastAt) : null) : null,
         me.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "rgba(232,227,230,.62)", marginTop: 8 } }, me.note) : null) : null,
       items.length ? items.map(row) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: DIM } }, "深夜台还是空的")),
     detail);
@@ -2301,14 +2312,9 @@ function PhoneApp({
       background: t.bg
     }
   },
-  // 紧凑标题栏：返回键 + 居中小标题 + 右侧等宽操作位（.claude/rules/mobile-ui-layout.md §1）。
-  // 论坛和音乐这两页的内容本来就是一长条列表，30px 大标题＋大段留白白吃掉小半屏；
-  // 名字（歌单名 / 当前账号）直接放进标题栏，正文里就不用再重复一遍
-  //（她 2026-08-29：「把顶部那一大块字删了，整体在屏幕显示多一点」）。
-  // 只改这两页，别的 app 维持原样——一次改一处，能亲眼验的才算数。
-  isLive ? h("div", {
+  FULL_BLEED_KEYS.indexOf(appKey) < 0 && h("div", {
     className: "shrink-0 px-4 pb-2 flex items-center gap-2",
-    style: { background: t.bg, paddingTop: safeTop(8) }
+    style: { background: t.bg, paddingTop: safeTop(10) }
   }, h("button", {
     onClick: onBack, className: "active:opacity-50 flex items-center justify-center",
     style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回"
@@ -2316,22 +2322,16 @@ function PhoneApp({
   h("div", {
     className: "flex-1 min-w-0 text-center",
     style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, liveTitle),
-  h("div", { style: { width: 40, height: 40 } })) :
-  FULL_BLEED_KEYS.indexOf(appKey) < 0 && h(Head, {
-    zh,
-    en: char.name,
-    onBack,
-    right: refreshKey && h("button", {
+  }, isLive ? liveTitle : zh),
+  h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
+    refreshKey ? h("button", {
       onClick: () => onGen(char, refreshKey),
       disabled: !!busyKey,
-      className: "active:opacity-50 disabled:opacity-40"
-    }, h(IRefresh, {
-      size: 18,
-      color: t.ink
-    }))
-  }), h("div", {
-    className: FULL_BLEED_KEYS.indexOf(appKey) >= 0 ? "flex-1 min-h-0 overflow-hidden" : isLive ? "flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-5" : "flex-1 overflow-y-auto px-6 py-4"
+      "aria-label": "重新推演",
+      className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center",
+      style: { width: 40, height: 40 }
+    }, h(IRefresh, { size: 18, color: t.ink })) : null)), h("div", {
+    className: FULL_BLEED_KEYS.indexOf(appKey) >= 0 ? "flex-1 min-h-0 overflow-hidden" : "flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-5"
   }, content), sheet && h(Sheet, {
     onClose: () => setSheet(null),
     tall: true
@@ -2362,6 +2362,10 @@ function PhoneCarry({
   const [open, setOpen] = useState(null);
   const [deskPage, setDeskPage] = useState(0);
   const deskRef = useRef(null);
+  // 点进 app 时桌面整个卸载，回来重挂就在第一页了——每次都得再翻一遍
+  //（她 2026-08-29：「每次都得翻回来好累」）。回来后按记着的页码归位。
+  const deskPageRef = useRef(0);
+  deskPageRef.current = deskPage;
   const [inList, setInList] = useState(true); // 先看通讯录列表，点某人才进 Ta 的手机
   // 绿点 = 有数据且还没看过；打开即消，刷新全部时重新点亮
   const [seen, setSeen] = useState(() => loadJSON("x_phoneSeen", {}));
@@ -2467,6 +2471,14 @@ function PhoneCarry({
       fontFamily: F_BODY, fontSize: 11, color: t.ink, textShadow: "0 1px 8px rgba(255,255,255,.85)"
     }
   }, a.zh));
+  useEffect(() => {
+    if (open || !deskRef.current || inList) return;
+    const el = deskRef.current, n = deskPageRef.current;
+    if (!n) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (deskRef.current) deskRef.current.scrollLeft = deskRef.current.clientWidth * n;
+    }));
+  }, [open, inList]);
   if (open) return h(PhoneApp, {
     appKey: open,
     char,

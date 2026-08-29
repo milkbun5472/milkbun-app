@@ -81,17 +81,18 @@ test("聊天里这条渲染成偷看卡，藏起来的那档一眼看得出不�
   assert.match(comp, /const p = m\.peek \|\| \{\};/);
 });
 
-test("论坛和音乐用紧凑标题栏，不再顶一块 30px 大标题", () => {
-  // mobile-ui-layout.md §1：返回键 + 居中小标题 + 右侧等宽操作位
-  assert.match(phone, /isLive \? h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
-  assert.match(phone, /paddingTop: safeTop\(8\)/);
+test("所有非整屏的 app 共用同一条紧凑标题栏", () => {
+  // mobile-ui-layout.md §1：返回键 + 居中小标题 + 右侧等宽操作位。
+  // v57.59 起电话/浏览器/设置也并进来了——它们是最后三个还顶着 30px 大标题的
+  //（她 2026-08-29：「有个界面没做但是忘记是哪个了」）。
+  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
+  assert.match(phone, /paddingTop: safeTop\(10\)/);
   assert.match(phone, /const liveTitle = appKey === "music"/);
+  assert.match(phone, /isLive \? liveTitle : zh/);
   // 右侧等宽占位，标题才真的居中
-  assert.match(phone, /h\("div", \{ style: \{ width: 40, height: 40 \} \}\)\) :/);
-  // 别的 app 一个都没动
-  // v57.48 起改由 FULL_BLEED_KEYS 判定（阅读也自己画整屏了），别的 app 仍然走通用 Head
-  assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
-  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"\];/);
+  assert.match(phone, /h\("div", \{ style: \{ width: 40, height: 40, display: "flex"/);
+  // 通用大 Head 在查手机里已经没人用了
+  assert.doesNotMatch(phone, /h\(Head, \{\n    zh,/);
 });
 
 test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () => {
