@@ -68,7 +68,7 @@ const FIXTURES = {
   calls: { items: [{ name: "妈", dir: "in", time: "今天 09:12", connected: true, duration: "04:32" }] },
   browser: { items: [{ title: "失眠怎么办", url: "www.x.com", time: "13:40", content: "一堆废话" }] },
   shopping: {
-    account: { member: "黑金御令会员", style: "实用利落兼带几件扎眼红衣", monthSpend: 3260.5, monthOrders: 8, points: 18420, persona: "买东西极快但退换极少，嫌麻烦多过心疼银子" },
+    account: { name: "只买合用的", uid: "1043827", member: "黑金御令会员", style: "实用利落兼带几件扎眼红衣", monthSpend: 3260.5, monthOrders: 8, points: 18420, persona: "买东西极快但退换极少，嫌麻烦多过心疼银子" },
     shipping: [{ status: "派送中", eta: "今日 18:00 前", shop: "西市恒泰皮货行", title: "熟制牛皮马鞍垫配铜扣（深赭色/加厚骑乘款）", progress: 78, carrier: "顺丰速运", tail: "9042", amount: 340 }],
     cart: [{ shop: "江南织造局京城分号", title: "苏绣暗纹朱红广袖圆领袍", spec: "朱红配暗金云纹/尺码185", price: 680, was: 880, promo: "跨店满减", qty: 1 }],
     wish: [{ title: "纯手工织金大红妆花缎云肩", shop: "姑苏云锦织造", price: 420, why: "某人不是喜欢红的么，买来扣她脖子上" },
@@ -97,7 +97,7 @@ const FIXTURES = {
       { name: "怎么对付某个麻烦精", slug: "managing_troublemaker", books: [
         { title: "反经", author: "赵蕤", readAt: "第 3 章", quote: "", note: "没什么用，她根本不按这里头写的来。" }] }
     ],
-    archive: { favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", weekGoal: "5小时", plan: { title: "闲情偶寄", author: "李渔" } }
+    archive: { name: "夜读客", uid: "7742019", favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", weekGoal: "5小时", plan: { title: "闲情偶寄", author: "李渔" } }
   },
   liked: {
     me: { name: "不点灯", xhsId: "159193450", bio: "", tag: "京城", posts: 2, following: 86, followers: 21, likes: 153 },
@@ -151,14 +151,27 @@ const FIXTURES = {
     tail: "恋爱申请表都填完了，考官人呢？我已经到老地方了。"
   },
   takeout: {
-    account: { member: "常客", monthOrders: 22, monthSpend: 1180, persona: "饿到极限才想起吃，点完又嫌等得久" },
-    live: [{ status: "正在派送", eta: "预计 12 分钟后送达", shop: "城南老赵糕点铺", items: "桂花糖糕两包", rider: "跑腿阿七", progress: 60, amount: 48, note: "放门房即可，别通报" }],
-    orders: [{ shop: "西市羊汤馆", time: "昨天 23:41", status: "已送达", items: [{ name: "重料羊肉锅子", qty: 1, price: 42 }], amount: 42, note: "麻烦轻一点敲门，家里有人在睡", addr: "甜水井胡同第三进院落", rating: "汤还是那个味。", reason: "她说饿，我懒得听她再念一遍" }],
-    shops: [{ name: "城南老赵糕点铺", cat: "点心", times: "点过 14 次", usual: "桂花糖糕、酥皮酪干", why: "老赵手上有准头，糖糕从不齁" }],
-    taste: { spicy: "能吃，但不主动点", avoid: "甜腻花果酒", habit: "多在深夜回府后才点", time: "亥时前后" },
-    addrs: [{ label: "王府侧门", detail: "送至门房裴忠处", isDefault: true }, { label: "常去小院", detail: "甜水井胡同，放门墩即可", isDefault: false }],
-    monthNote: "八月吃食开销一千一百余文，大半在夜里。",
-    tail: "下回她再说饿，我就把整个铺子端过去。"
+    account: { name: "夜里叫吃的", uid: "88412037", member: "常客", monthOrders: 22, monthSpend: 1180, persona: "饿到极限才想起吃，点完又嫌等得久" },
+    today: { addrLabel: "家", addrDetail: "宣武坊靖安王府东路侧院书斋", date: "8月28日 周五", meal: "午餐", shop: "西市老马家·正宗西北羊肉馆", rating: "4.6", eta: "12:45送达", delivery: "跑腿专送", main: "红焖滩羊排配烤馕（小份/微辣/多蒜少盐）", amount: 68.5, status: "已送达", note: "趁热吃，烤馕另外油纸包，勿闷软" },
+    shops: [{ name: "西市老马家", cat: "西北菜", times: "点过 24 次", usual: "红焖滩羊排", why: "京城里唯一一把西北羊肉火候", last: "今天中午", cover: 0 },
+            { name: "城南徐记冷食铺", cat: "点心", times: "点过 18 次", usual: "老字号凉糖糕", why: "那脾气坏的老头手艺没得挑", last: "昨天", cover: 1 }],
+    live: [{ status: "已送达", eta: "已于13:30送达", shop: "城南徐记冷食铺", items: "冰镇杏酪酥糕（少糖）×2、酸梅熟水×1", rider: "伙计小赵", step: 3, amount: 42, note: "" }],
+    orders: [{ shop: "西市老马家·正宗西北羊肉馆", time: "今天 12:10", meal: "午餐", status: "已完成", main: "红焖滩羊排配烤馕",
+      items: [{ name: "红焖滩羊排配烤馕", spec: "小份/微辣/多蒜少盐", qty: 1, price: 52 }, { name: "羊杂清汤", spec: "去香菜/加白胡椒", qty: 1, price: 14.5 }],
+      pack: 0, fee: 2, amount: 68.5, stars: 5, rating: "羊肉膻味去得干净，比宫里御膳房焖得透。",
+      tags: ["西北菜/羊肉", "午餐", "银票月结"], addr: "宣武坊靖安王府东路侧院书斋", note: "多放蒜头，免香菜", reason: "看了一上午西北送来的烂账，换换嘴里寡淡气" }],
+    taste: { spicyTags: ["偏好微辣", "重胡椒与孜然提味", "忌死辣"], avoidTags: ["御膳房那种绵软膻气的假羊肉", "生姜丝", "过多死甜"], likeTags: ["西北风味牛羊肉", "烤得极脆的面饼", "井水镇透的凉糖糕"], budget: "单人日常30-80两文银等值铜子，宴客无上限", habit: "作息不定，午间看账必点硬菜，深夜常需热汤" },
+    week: [{ day: "一", meals: [{ t: "早", text: "王记葱油千层火烧×2" }, { t: "午", text: "太白居清蒸江鲈鱼" }, { t: "晚", text: "西市老马家大盘手抓羊肉" }] },
+           { day: "二", meals: [{ t: "早", text: "府内杂粮粥（未点送）" }, { t: "晚", text: "城南徐记冷糖糕（送她）" }] }],
+    coupons: [{ amount: "50", unit: "元", name: "老马家熟客月俸帖", scope: "西市老马家·正宗西北羊肉馆", until: "8月31日" },
+              { amount: "免跑腿脚钱2文", unit: "", name: "徐记消暑引子", scope: "城南徐记冷食铺", until: "9月5日" }],
+    addrs: [{ label: "王府侧院（本人）", tail: "3391", detail: "宣武坊靖安王府东路侧院书斋（走后巷角门敲三声）", isDefault: true },
+            { label: "某人的窝（投喂）", tail: "8824", detail: "柳林胡同七号院西厢房（门没锁直接推，搁石桌上）", isDefault: false }],
+    wish: [{ title: "大塞外雪夜里现杀现烤的整只焦皮羊", when: "宫里宴饮喝了一肚子温吞没味的名贵御酒时" }],
+    together: [{ who: "某位扬言要纳侧房的祖宗", items: "城南徐记凉糖糕（双份）+ 冰镇杏酪", story: "嘴上喊着不吃厨房做多的点心，结果一盒四个她一个人吃掉三个半，最后还嫌芝麻粘牙。" },
+               { who: "陆闻那个嘴碎编修", items: "刘胡子铁板炙烤羊排 + 散装烧刀子酒", story: "两个人就着两盘焦肉吵了一整晚西北军饷到底卡在工部还是户部，谁也没说服谁。" }],
+    monthNote: "本周单子多是老马家的羊肉和徐记的甜食。宫里御膳房的饭菜依然难以下咽。",
+    tail: "城南老头的糖糕还是得催伙计跑快点，冰化了就腻。"
   },
   clipboard: { items: [{ text: "其实我", from: "微信", time: "昨天 02:11", sent: false }, { text: "SF1234567", from: "短信", time: "今天", sent: true }] },
   calendar: {
@@ -168,13 +181,13 @@ const FIXTURES = {
             { title: "跟老周吃饭", date: "2026-09-06", time: "19:00", kind: "事件", done: false, postponed: 1, note: "", who: "老周" }]
   },
   bili: {
-    me: { name: "夜奔的马", level: 5, followers: 128, fans: 37, coins: 412 },
+    me: { name: "夜奔的马", uid: "3947201", level: 5, followers: 128, fans: 37, coins: 412 },
     tabs: ["推荐", "科技", "生活"],
     items: [{ title: "老木匠三天复原一张宋代圈椅，全程无钉", up: "斫木记", tab: "生活", duration: "18:24", views: "12.4万", danmaku: 320, desc: "全榫卯。", thought: "手比嘴老实。", myDanmaku: ["这一榫开得漂亮"] },
             { title: "一个人守夜的第 400 天", up: "更漏声", tab: "推荐", duration: "08:02", views: "873", danmaku: 12, desc: "夜里的城。", thought: "行吧。", myDanmaku: [] }]
   },
   latenight: {
-    me: { lastAt: "前天 03:12", note: "看完就删，第二天照样装没事。" },
+    me: { uid: "u_7741903", lastAt: "前天 03:12", note: "看完就删，第二天照样装没事。" },
     items: [{ title: "夜", duration: "00:18:42", tags: ["旧衣", "灯下"], views: "3.2万", thought: "想到某人穿红的样子。" }]
   }
 };

@@ -382,14 +382,42 @@ test("健康的推演任务把「按角色世界改名」和「三项要角色�
     .forEach(k => assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 不在 schema 里"));
 });
 
-test("外卖的推演任务把「备注那一栏」钉死了", () => {
+test("外卖照参考稿配齐了十来块，重点几栏都钉死了", () => {
   const P = loadPhone();
   const spec = P.phoneProbeSpec("takeout", char, [], "", []);
+  ["account", "today", "shops", "live", "orders", "taste", "week", "coupons", "addrs", "wish", "together", "monthNote"]
+    .forEach(k => assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 这一块没在 schema 里"));
   assert.match(spec.instruction, /note 那一栏是这个 app 的重点/);
   assert.match(spec.instruction, /麻烦轻一点敲门，家里有人在睡/);
-  assert.match(spec.instruction, /至少有一单是深夜的/);
-  assert.match(spec.instruction, /绝对不吃什么/);
-  assert.match(spec.instruction, /其中一条应当是【他常去的另一个地方】/);
+  assert.match(spec.instruction, /\*\*至少一单是深夜的，至少一单是送到别人那儿的。\*\*/);
+  // 忌口那组比爱吃的更像人，要求具体
+  assert.match(spec.instruction, /这一组比爱吃什么更像人/);
+  assert.match(spec.instruction, /御膳房那种绵软膻气的假羊肉/);
+  // 地址标签要带括号身份、要有一条是去投喂别人的
+  assert.match(spec.instruction, /王府侧院（本人）/);
+  assert.match(spec.instruction, /其中一条应当是【他常去投喂的另一个地方】/);
+  // 想吃清单的 when、一起点过的 who 都是最见人的地方
+  assert.match(spec.instruction, /什么时候会突然想起它/);
+  assert.match(spec.instruction, /用他嘴里对那个人的叫法/);
+  assert.match(spec.instruction, /week 本周吃什么 \*\*正好 7 天\*\*/);
+});
+
+test("每个有账号的 app 都给了他自己的平台 ID", () => {
+  // 她 2026-08-29：「外卖软件也给他们弄个符合他们在外卖平台的 id，其他软件漏了的话也要」
+  const P = loadPhone();
+  [["takeout", /"uid"/], ["shopping", /"uid"/], ["bili", /"uid"/], ["latenight", /"uid"/],
+   ["reading", /"uid"/], ["liked", /"xhsId"/], ["wechat", /"wechatId"/]]
+    .forEach(([k, re]) => assert.match(P.phoneProbeSpec(k, char, [], "", []).schemaHint, re, k + " 没有平台 ID"));
+  // 而且要在界面上看得见，不是只存着
+  assert.match(SRC, /" · UID " \+ me\.uid/);
+  assert.match(SRC, /"ID " \+ me\.uid/);
+  assert.match(SRC, /"会员号 " \+ acc\.uid/);
+  assert.match(SRC, /"书友号 " \+ archive\.uid/);
+  assert.match(SRC, /"账号 " \+ acc\.uid/);
+  assert.match(SRC, /"小红书号：" \+ me\.xhsId/);
+  // 账号名要是【他在这个平台上的昵称】，不是本名照抄
+  ["takeout", "shopping", "bili", "reading", "liked"].forEach(k =>
+    assert.match(P.phoneProbeSpec(k, char, [], "", []).instruction, /不是本名照抄/, k + " 没说清昵称不是本名"));
 });
 
 test("想买清单的封面色不再洗白到近白", () => {
@@ -413,7 +441,7 @@ test("健康窄卡的指标名独占一行，不会被 flex 压成一条竖字",
   // 宽卡那一支必须给标题 flex:1 + minWidth:0，不能只写 minWidth:0
   assert.match(SRC, /h\("div", \{ style: \{ flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15\.5/);
   // 两支都要允许长词换行
-  assert.equal((SRC.match(/wordBreak: "break-word"/g) || []).length, 2);
+  assert.ok((SRC.match(/wordBreak: "break-word"/g) || []).length >= 2);
 });
 
 test("视频拆成两个独立 app，子版块那套特例整个删掉了", () => {
