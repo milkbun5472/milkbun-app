@@ -6,7 +6,7 @@ const PHONE_APPS = [{
   zh: "微信"
 }, {
   key: "notes",
-  zh: "备忘录"
+  zh: "便签"
 }, {
   key: "calls",
   zh: "电话"
@@ -28,9 +28,6 @@ const PHONE_APPS = [{
 }, {
   key: "settings",
   zh: "设置"
-}, {
-  key: "recordings",
-  zh: "录音"
 }, {
   key: "bili",
   zh: "视频"
@@ -66,32 +63,32 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
   ["notes", "album", "liked", "forum", "shopping", "calendar"],
-  ["reading", "recordings", "bili", "health", "clipboard", "takeout", "latenight", "settings"]
+  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "settings"]
 ];
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "recordings", "bili", "health", "clipboard", "takeout", "latenight", "settings"]],
+  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight", "settings"]],
   widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["reading", "clipboard", "calendar", "album", "music", "takeout", "recordings"], ["shopping", "forum", "liked", "bili", "health", "latenight", "settings"]],
+  pages: [["reading", "clipboard", "calendar", "album", "music", "takeout", "settings"], ["shopping", "forum", "liked", "bili", "health", "latenight"]],
   widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["recordings", "health", "clipboard", "calendar", "takeout", "latenight", "settings"]],
+  pages: [["bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight", "settings"]],
   widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "bili", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "recordings", "bili", "clipboard", "forum", "latenight", "settings"]],
+  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight", "settings"]],
   widgets: [[{ key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -183,7 +180,7 @@ function PGlyph({
   });
   const kids = {
     wechat: [P("M21 11.5a8.5 8.5 0 01-8.5 8.5 8.5 8.5 0 01-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 013.5 11.5 8.5 8.5 0 0112 3a8.5 8.5 0 019 8.5z")],
-    notes: [R(5, 3, 14, 18, 2), P("M8 8h8M8 12h8M8 16h5")],
+    notes: [P("M4.5 4.2h15v10.6l-4.4 4.4H4.5z"), P("M19.5 14.8h-4.4v4.4"), P("M8 8.4h8M8 11.8h6")],
     calls: [P("M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z")],
     browser: [C(12, 12, 9), P("M16.2 7.8l-2.1 6.4-6.4 2.1 2.1-6.4 6.4-2.1z")],
     shopping: [P("M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"), P("M3 6h18"), P("M16 10a4 4 0 01-8 0")],
@@ -192,7 +189,7 @@ function PGlyph({
     forum: [P("M21 15a2 2 0 01-2 2H8l-4 4V5a2 2 0 012-2h13a2 2 0 012 2z"), P("M8 9h8M8 12h5")],
     music: [P("M9 18V5l12-2v13"), C(6, 18, 3), C(18, 16, 3)],
     settings: [C(12, 12, 3), P("M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.6 1.6 0 00-1-1.5 1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H3a2 2 0 010-4h.1a1.6 1.6 0 001.5-1 1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V3a2 2 0 014 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H21a2 2 0 010 4h-.1a1.6 1.6 0 00-1.5 1z")],
-    recordings: [R(9, 2, 6, 12, 3), P("M5 10v2a7 7 0 0014 0v-2"), P("M12 19v3")],
+    mic: [R(9, 2, 6, 12, 3), P("M5 10v2a7 7 0 0014 0v-2"), P("M12 19v3")],
     bili: [R(2.5, 6.5, 19, 14, 3.4), P("M7.5 2.6l3 3.9M16.5 2.6l-3 3.9"), h("polygon", {
       points: "10,10.5 15.5,13.5 10,16.5",
       fill: color,
@@ -1540,10 +1537,12 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: open.act === "收藏" ? "#e8a33d" : "#b0b0b8" } }, "★ 收藏"),
       h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: PLAZA_DIM } }, open.act === "收藏" ? "他收藏了这条" : "他点了赞")),
     onPeek ? h("button", {
-      onClick: () => onPeek({ tier: "quiet", label: "他" + (open.act === "收藏" ? "收藏" : "赞") + "过的", title: open.title, text: [open.author, open.excerpt].filter(Boolean).join("｜") }),
+      onClick: () => onPeek(open._draft
+        ? { tier: "hidden", label: "小红书草稿箱", title: open.title, text: [open.excerpt, open.savedAt].filter(Boolean).join("｜") }
+        : { tier: "quiet", label: "他" + (open.act === "收藏" ? "收藏" : "赞") + "过的", title: open.title, text: [open.author, open.excerpt].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
       style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
-    }, "转发给 TA · 他会知道你翻了手机") : null))) : null;
+    }, open._draft ? "摆到 TA 面前 · 这是他没发出去的" : "转发给 TA · 他会知道你翻了手机") : null))) : null;
   const followPage = h("div", { style: { padding: "4px 0" } },
     follows.length ? follows.map((f, i) => h("div", { key: i, className: "flex items-center gap-3", style: { background: "#fff", borderRadius: 14, padding: "14px 15px", marginBottom: 10 } },
       h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
@@ -1551,24 +1550,54 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: PLAZA_INK } }, f.name || ""),
         f.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: PLAZA_DIM, marginTop: 4 } }, f.desc) : null)))
       : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, "他谁也没关注"));
-  const minePage = h("div", null,
-    h("div", { style: { background: "#fff", borderRadius: 16, padding: "18px 18px", marginBottom: 14 } },
-      h("div", { className: "flex items-center gap-3.5" },
-        h("div", { style: { width: 56, height: 56, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 24 } }, String(me.name || char.name || "?").trim().slice(0, 1)),
+  // ── 「我的」：照小红书个人页（她 2026-08-29 给了参考稿）──
+  // 大背景 + 头像 + 小红书号 + 三个数字 + 简介 + 药丸标签，
+  // 底下 笔记 / 收藏 / 草稿 三个 tab；草稿带锁——那是他写了却没发的。
+  const drafts = A(data.drafts).filter(x => x && typeof x === "object");
+  const saved = items.filter(x => x.act === "收藏");
+  const [mtab, setMtab] = useState("note");
+  const gridOf = (list, kind) => list.length
+    ? h("div", { className: "grid grid-cols-2", style: { gap: 9, alignItems: "start" } },
+        list.map((x, i) => h("button", {
+          key: i, onClick: () => kind === "draft" ? setOpen({ ...x, _draft: true }) : setOpen(x),
+          className: "text-left active:opacity-75",
+          style: { background: "#fff", borderRadius: 12, overflow: "hidden", minWidth: 0, border: kind === "draft" ? "1px dashed #d8d8de" : "none" }
+        }, h("div", { style: { aspectRatio: kind === "draft" ? "1 / 0.6" : "1 / " + [1.2, 0.85, 1.05, 0.95][i % 4], background: kind === "draft" ? "#f4f4f6" : "linear-gradient(150deg," + cover(x.cover != null ? x.cover : i)[0] + "," + cover(x.cover != null ? x.cover : i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center" } },
+          kind === "draft" ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a8a8b0" } }, "未发布") : null),
+        h("div", { style: { padding: "9px 10px 11px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, color: PLAZA_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x.title || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: kind === "draft" ? "#c0554f" : PLAZA_DIM, marginTop: 7 } },
+            kind === "draft" ? (x.savedAt || "没发出去") : [x.time, x.likes != null ? "♥ " + x.likes : ""].filter(Boolean).join(" · "))))))
+    : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: PLAZA_DIM } },
+        kind === "draft" ? "草稿箱是空的" : kind === "save" ? "他没收藏过什么" : "他一条也没发过");
+  const mineTab = (k, label, n, lock) => h("button", {
+    key: k, onClick: () => setMtab(k), className: "flex items-center active:opacity-60",
+    style: { gap: 4, paddingBottom: 7, borderBottom: "2px solid " + (mtab === k ? PLAZA_RED : "transparent") }
+  }, lock ? h("span", { style: { fontSize: 10, color: mtab === k ? PLAZA_INK : "#b0b0b8" } }, "🔒") : null,
+  h("span", { style: { fontFamily: F_DISPLAY, fontSize: mtab === k ? 16 : 15, color: mtab === k ? PLAZA_INK : "#b0b0b8" } }, label),
+  n ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#b0b0b8" } }, n) : null);
+  const minePage = h("div", { style: { margin: "-10px -12px 0" } },
+    // 顶部大背景卡
+    h("div", { style: { position: "relative", background: "linear-gradient(150deg,#8f97a8,#c8ccd4 55%,#e7e3dd)", padding: "26px 20px 22px" } },
+      h("div", { className: "flex items-center", style: { gap: 15 } },
+        h("div", { style: { width: 74, height: 74, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg,#ffd0d6," + PLAZA_RED + ")", border: "3px solid rgba(255,255,255,.85)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 30 } }, String(me.name || char.name || "?").trim().slice(0, 1)),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: PLAZA_INK } }, me.name || char.name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: PLAZA_DIM, marginTop: 5 } }, me.bio || "这人没写简介"))),
-      h("div", { className: "flex", style: { marginTop: 16, paddingTop: 14, borderTop: "1px solid #f1f1f4" } },
-        [[me.posts, "笔记"], [me.following, "关注"], [me.followers, "粉丝"]].map(([n, l], i) => h("div", { key: i, className: "flex-1" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: PLAZA_INK } }, n != null ? n : "--"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: PLAZA_DIM, marginTop: 3 } }, l))))),
-    mine.length ? h("div", null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: PLAZA_DIM, padding: "2px 4px 10px" } }, "他自己发的"),
-      mine.map((x, i) => h("div", { key: i, style: { background: "#fff", borderRadius: 14, padding: "15px 16px", marginBottom: 10 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: PLAZA_INK } }, x.title || ""),
-        x.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "#6b6b73", marginTop: 7 } }, x.excerpt) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: PLAZA_DIM, marginTop: 9 } }, [x.time, x.likes != null ? "♥ " + x.likes : ""].filter(Boolean).join(" · ")))))
-      : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, "他一条也没发过"));
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,.28)" } }, me.name || char.name),
+          me.xhsId ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.86)", marginTop: 5 } }, "小红书号：" + me.xhsId) : null)),
+      h("div", { className: "flex", style: { gap: 26, marginTop: 18 } },
+        [[me.following, "关注"], [me.followers, "粉丝"], [me.likes, "获赞与收藏"]].map(([n, l], i) => h("div", { key: i },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: "#fff" } }, n != null ? n : "--"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.82)", marginLeft: 5 } }, l)))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#fff", marginTop: 16 } }, me.bio || "这人没写简介"),
+      me.tag ? h("span", { style: { display: "inline-block", marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(255,255,255,.22)", borderRadius: 999, padding: "4px 12px" } }, me.tag) : null),
+    // tab 条
+    h("div", { style: { background: "#fff", borderRadius: "16px 16px 0 0", marginTop: -14, position: "relative", padding: "16px 18px 0" } },
+      h("div", { className: "flex", style: { gap: 22, borderBottom: "1px solid #f1f1f4" } },
+        mineTab("note", "笔记", mine.length, false),
+        mineTab("save", "收藏", saved.length, false),
+        mineTab("draft", "草稿", drafts.length, true)),
+      h("div", { style: { padding: "14px 0 20px" } },
+        mtab === "note" ? gridOf(mine, "note") : mtab === "save" ? gridOf(saved, "save") : gridOf(drafts, "draft"))));
   const PAGES = [
     { key: "feed", zh: "首页", glyph: "liked", body: (function () {
       const chans2 = ["发现"].concat(A(data.tabs).filter(x => typeof x === "string").slice(0, 5));
@@ -1687,6 +1716,132 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         : h("div", { style: { padding: "40px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CAL_DIM } }, sel ? "这天没有安排" : "日历上还没有东西")),
     detail);
 }
+// ============================================================
+// 便签 —— 备忘录和录音合成一个（她 2026-08-29）
+// 它们本来就是同一件事的两种载体：没人看的时候他留给自己的东西。
+// 一个是打的，一个是说的；**只有打字打不出来的才会被录下来**，这是分界。
+// 界面：一墙彩色便利贴，微微歪着，录音那种带波形条和时长。
+// ============================================================
+const STICKY_COLORS = [
+  { bg: "#fdf0a9", edge: "#f3e07f", ink: "#4a4222" },
+  { bg: "#c9e8f7", edge: "#a9d6ec", ink: "#1f3b49" },
+  { bg: "#f9cfd8", edge: "#efb7c3", ink: "#4c2831" },
+  { bg: "#d3edcb", edge: "#b6dfab", ink: "#28401f" },
+  { bg: "#e6dcf5", edge: "#d2c3ec", ink: "#372a4b" },
+  { bg: "#ffd8b8", edge: "#f6c199", ink: "#4d3018" }
+];
+const STICKY_BG = "#efeae0";
+function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [open, setOpen] = useState(null);
+  const A = a => Array.isArray(a) ? a : [];
+  const items = A((d && d.items)).filter(x => x && typeof x === "object");
+  const pal = n => STICKY_COLORS[(Number(n) || 0) % STICKY_COLORS.length];
+  const tilt = i => [-1.6, 1.2, -0.8, 1.8, -1.2, 0.9][i % 6];
+  const wave = (c, n) => h("div", { "aria-hidden": "true", className: "flex items-end", style: { gap: 2, height: 15, marginTop: 9 } },
+    Array.from({ length: n || 18 }, (_, j) => h("span", {
+      key: j, style: { width: 2, borderRadius: 2, background: c, opacity: .55, height: 4 + ((j * 7) % 11) }
+    })));
+  const note = (it, i) => {
+    const c = pal(it.color != null ? it.color : i);
+    const voice = it.kind === "voice";
+    return h("button", {
+      key: i, onClick: () => setOpen(it), className: "text-left active:opacity-80",
+      style: {
+        background: c.bg, borderRadius: 3, padding: "13px 13px 15px", minWidth: 0,
+        transform: "rotate(" + tilt(i) + "deg)",
+        boxShadow: "0 6px 14px rgba(70,60,40,.13), inset 0 -14px 18px -14px " + c.edge
+      }
+    }, h("div", { className: "flex items-center", style: { gap: 5, marginBottom: 7 } },
+      voice ? h(PGlyph, { k: "mic", size: 11, color: c.ink }) : null,
+      h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: c.ink, opacity: .6 } }, (voice && it.duration ? it.duration + " · " : "") + (it.time || ""))),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, color: c.ink, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.title || ""),
+    it.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: c.ink, opacity: .74, marginTop: 6, display: "-webkit-box", WebkitLineClamp: voice ? 3 : 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.body) : null,
+    voice ? wave(c.ink, 20) : null);
+  };
+  const cols = [[], []];
+  items.forEach((it, i) => cols[i % 2].push(note(it, i)));
+  const detail = open ? (function () {
+    const c = pal(open.color);
+    const voice = open.kind === "voice";
+    return h("div", { className: "absolute inset-0 flex flex-col justify-center px-5", style: { background: "rgba(60,52,38,.36)", zIndex: 30 }, onClick: () => setOpen(null) },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: c.bg, borderRadius: 4, padding: "22px 20px 24px", maxHeight: "80%", overflowY: "auto", boxShadow: "0 20px 44px rgba(50,42,28,.32)" } },
+        h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
+          h("div", { className: "flex items-center", style: { gap: 6 } },
+            voice ? h(PGlyph, { k: "mic", size: 13, color: c.ink }) : null,
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: c.ink, opacity: .62 } }, (voice ? "录音 " + (open.duration || "") + " · " : "") + (open.time || ""))),
+          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: c.ink, opacity: .6, padding: "0 4px" } }, "✕")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.45, color: c.ink } }, open.title || ""),
+        voice ? wave(c.ink, 34) : null,
+        open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, open.body) : null,
+        onPeek ? h("button", {
+          onClick: () => onPeek({ tier: "quiet", label: voice ? "他录的一条" : "他的便签", title: open.title, text: open.body }),
+          className: "w-full active:opacity-60",
+          style: { marginTop: 20, padding: "12px 0", borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + c.edge, color: c.ink }
+        }, "转发给 TA · 他会知道你翻了手机") : null));
+  })() : null;
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: STICKY_BG } },
+    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#4a4438" })),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#4a4438" } }, "便签"),
+      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#4a4438" }))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 14px 26px" } },
+      items.length
+        ? h("div", { className: "grid grid-cols-2", style: { gap: 13, alignItems: "start" } },
+            cols.map((col, ci) => h("div", { key: ci, style: { display: "flex", flexDirection: "column", gap: 13 } }, col)))
+        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: "#a09884" } }, "还没有便签，点右上角刷一次")),
+    detail);
+}
+// ============================================================
+// 剪贴板 —— 一叠复制过的纸条。最重要的不是内容，是【发没发出去】。
+// 没发出去的那条单独一档：纸条压在最上面、红边、单独标出来。
+// ============================================================
+function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [open, setOpen] = useState(null);
+  const A = a => Array.isArray(a) ? a : [];
+  const items = A((d && d.items)).filter(x => x && typeof x === "object");
+  const held = items.filter(x => x.sent === false);
+  const sent = items.filter(x => x.sent !== false);
+  const BG = "#1a1a1d", CARD = "#252529", INK = "#e9e9ec", DIM = "rgba(233,233,236,.44)", HOT = "#e0736b";
+  const slip = (it, i, isHeld) => h("button", {
+    key: i, onClick: () => setOpen(it), className: "w-full text-left active:opacity-75",
+    style: {
+      background: CARD, borderRadius: 12, padding: "15px 16px", marginBottom: 10,
+      borderLeft: isHeld ? "3px solid " + HOT : "3px solid rgba(233,233,236,.14)"
+    }
+  }, h("div", {
+    style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: INK, display: "-webkit-box", WebkitLineClamp: isHeld ? 4 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
+  }, it.text || ""),
+  h("div", { className: "flex items-center", style: { gap: 7, marginTop: 10 } },
+    it.from ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: DIM, border: "1px solid rgba(233,233,236,.16)", borderRadius: 6, padding: "2px 7px" } }, it.from) : null,
+    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: DIM } }, it.time || ""),
+    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: isHeld ? HOT : DIM } }, isHeld ? "一直没发出去" : "已发出")));
+  const detail = open ? (function () {
+    const isHeld = open.sent === false;
+    return h("div", { className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(0,0,0,.55)", zIndex: 30 }, onClick: () => setOpen(null) },
+      h("div", { onClick: e => e.stopPropagation(), style: { background: CARD, borderRadius: "20px 20px 0 0", padding: "20px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)", maxHeight: "82%", overflowY: "auto", borderTop: isHeld ? "2px solid " + HOT : "none" } },
+        h("div", { className: "flex items-center justify-between gap-3" },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: isHeld ? HOT : DIM } }, [open.from, open.time, isHeld ? "复制了，一直没发出去" : "已发出"].filter(Boolean).join(" · ")),
+          h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: DIM, padding: "0 4px" } }, "✕")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 2, color: INK, marginTop: 16, whiteSpace: "pre-wrap" } }, open.text || ""),
+        onPeek ? h("button", {
+          onClick: () => onPeek({ tier: isHeld ? "hidden" : "quiet", label: isHeld ? "剪贴板里没发出去的一段" : "剪贴板", title: open.from || "", text: open.text }),
+          className: "w-full active:opacity-60",
+          style: { marginTop: 22, padding: "13px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (isHeld ? "rgba(224,115,107,.5)" : "rgba(233,233,236,.2)"), color: isHeld ? HOT : INK }
+        }, isHeld ? "摆到 TA 面前 · 这是他没发出去的" : "转发给 TA · 他会知道你翻了手机") : null));
+  })() : null;
+  const sec = (title, list, isHeld) => list.length ? h("section", { key: title },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".18em", color: isHeld ? HOT : DIM, padding: "4px 2px 9px" } }, title),
+    list.map((x, i) => slip(x, i, isHeld))) : null;
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BG } },
+    h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: INK })),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: INK } }, "剪贴板"),
+      h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: INK }))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
+      items.length ? [sec("差一点就发出去", held, true), sec("复制过的", sent, false)]
+        : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: DIM } }, "剪贴板是空的")),
+    detail);
+}
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -1718,33 +1873,7 @@ function renderPhoneModule(key, d, ctx) {
     }
   }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : tier === "open" ? "转发给 TA" : "转发给 TA · 他会知道你翻了手机") : null;
   if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
-  if (key === "notes") return wrap(arr(d.items).map((it, i) => h("button", {
-    key: i,
-    onClick: () => setSheet(DetailSheet(it.title, it.detail, t, peekFoot("quiet", "备忘录", it.title, it.detail))),
-    className: "w-full text-left py-3.5 flex items-start justify-between gap-3",
-    style: line
-  }, h("div", {
-    className: "flex-1"
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: t.ink
-    }
-  }, it.title), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: t.fog,
-      marginTop: 3
-    }
-  }, it.time)), h(IChevR, {
-    size: 14,
-    color: t.line,
-    style: {
-      marginTop: 4
-    }
-  }))));
+  if (key === "notes") return h(StickyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return wrap(arr(d.items).map((it, i) => {
     const missed = it.connected === false;
     const out = it.dir === "out";
@@ -1982,66 +2111,7 @@ function renderPhoneModule(key, d, ctx) {
       }
     })))));
   }
-  if (key === "recordings") return wrap(arr(d.items).map((it, i) => h("button", {
-    key: i,
-    onClick: () => setSheet(RecSheet(it, t, peekFoot("quiet", "录音", it.name, it.transcript))),
-    className: "w-full text-left py-3.5 flex items-center justify-between gap-3",
-    style: line
-  }, h("div", {
-    className: "flex items-center gap-3 flex-1 min-w-0"
-  }, h("div", {
-    style: {
-      width: 34,
-      height: 34,
-      borderRadius: 10,
-      flexShrink: 0,
-      background: t.bg2,
-      border: `1px solid ${t.line}`,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center"
-    }
-  }, h(PGlyph, {
-    k: "recordings",
-    size: 16,
-    color: t.tint
-  })), h("div", {
-    className: "flex-1 min-w-0"
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 14.5,
-      color: t.ink,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    }
-  }, it.name), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: t.fog,
-      marginTop: 2
-    }
-  }, it.time))), h(IChevR, {
-    size: 14,
-    color: t.line
-  }))));
-  // ── 剪贴板：复制了却一直没发出去的那条，是「差一点就说了」的物证 ──
-  //（v57.54 删旧代码时把这一段一起切掉了，整页白屏；v57.55 补回）
-  if (key === "clipboard") return wrap(arr(d.items).map((it, i) => {
-    const held = it.sent === false;
-    return h("button", {
-      key: i,
-      onClick: () => setSheet(DetailSheet(it.from || "剪贴板", it.text, t,
-        peekFoot(held ? "hidden" : "quiet", held ? "剪贴板里没发出去的一段" : "剪贴板", it.from || "", it.text))),
-      className: "w-full text-left py-3.5 active:opacity-60", style: line
-    }, h("div", {
-      style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: t.ink, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }
-    }, it.text), h("div", {
-      style: { fontFamily: F_BODY, fontSize: 10.5, color: held ? "#b6473c" : t.fog, marginTop: 5 }
-    }, [it.from, it.time, held ? "复制了，一直没发出去" : "已发出"].filter(Boolean).join(" · ")));
-  }));
+  if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "liked") return h(PlazaView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calendar") return h(CalendarView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -2434,8 +2504,7 @@ function PhoneCarry({
 // 购物本该跨月，全挤在同一个窗口里，撞车是必然的。
 const PHONE_ANGLE = {
   wechat: "【取材层】有别人在场时的他。这里每句话都是说给某个具体的人听的，会挑措辞、会留一手。【时间窗】这几天。",
-  notes: "【取材层】完全没人看的时候，他打字给自己的。清单、待办、半句话、气话、抄下来的一行字都行，不必是完整的想法，也不必每条都有情绪。【时间窗】这一两周。",
-  recordings: "【取材层】他说出口、但没打算给任何人听的。会有语气词、停顿、说到一半的句子——**只有打字打不出来、只能说出来的东西才会被录下来**，这是它和备忘录的分界。【时间窗】这一两周。",
+  notes: "【取材层】完全没人看的时候，他留给自己的东西——打字的和说出口的都在这儿。录下来的那些是**打字打不出来、只能说出来**的，这是它和打字条的分界。【时间窗】这一两周。",
   calls: "【取材层】他和外面世界的例行往来：工作、家里、办事、推销、打错的。这里大部分是杂事，不是感情戏。【时间窗】这一周。",
   browser: "【取材层】一个人闲着、脑子没在想正事的时候搜的东西。可以很无聊、很实用、很没道理，也可以是查一个当场想不起来的词。【时间窗】这几天。",
   shopping: "【取材层】他花钱的方式。买了什么、想买没买、绝不买什么、送到谁家——这四样加起来比他自己说的任何一句都准。【时间窗】这一个月，想买清单可以惦记很久。",
@@ -2464,7 +2533,6 @@ const PHONE_DIGEST_PICK = {
   browser: d => pArr(d.items).map(x => x.title),
   shopping: d => pArr(d.orders).map(x => x.title).concat(pArr(d.wish).map(x => x.title), pArr(d.cart).map(x => x.title)),
   album: d => pArr(d.items).slice(0, 4).map(x => x.caption),
-  recordings: d => pArr(d.items).map(x => x.name),
   bili: d => pArr(d.items).map(x => x.title),
   latenight: d => pArr(d.items).map(x => x.title),
   reading: d => pArr(d.shelves).map(x => x.name).concat(pArr(d.shelves).reduce((a, sh) => a.concat(pArr(sh.books).slice(0, 2).map(b => b.title)), [])),
@@ -2518,8 +2586,15 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       schemaHint: "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"Lisa\",\"remark\":\"TA给Lisa的微信备注\",\"intro\":\"TA对Lisa具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
     },
     notes: {
-      instruction: "推演「" + char.name + "」备忘录里的几条笔记（3-5 条），每条有标题、时间，点开能看正文细节。贴合身份与当下心境。",
-      schemaHint: "{\"items\":[{\"title\":\"标题\",\"time\":\"昨天 21:03\",\"detail\":\"正文\"}]}"
+      instruction: "推演「" + char.name + "」手机便签里的东西（**8-12 条**）。这里既有他打字记下的，也有他说出口录下来的——**两种混在一起，本来就是一个 app**。\n"
+        + "每条：kind（typed = 打字的 / voice = 录音的）、title（很短的一句抬头，可以就是正文第一句）、time、body（正文）、color（0-5 的整数，定便签颜色）。\n"
+        + "kind=voice 的另给 duration（如 0:37 / 2:14）；它的 body 就是那段录音转成的字。\n\n"
+        + "【两种要真的不一样，这是这个 app 唯一重要的事】\n"
+        + "**打字的**：清单、待办、半句话、气话、抄下来的一行字、一串数字、一个地址。不必是完整的想法，很多条根本没有情绪。可以短到只有四五个字。\n"
+        + "**录下来的**：**只有打字打不出来、必须说出口的东西才会被录**。所以它有语气词、有停顿、有说到一半改口、有自己都嫌烦的叹气；转成字之后是不通顺的。录音在总数里是少数（三分之一以内），而且往往在深夜、在路上、在刚吵完架之后。\n"
+        + "如果两种写出来一个味道，就等于这个 app 白做了。\n\n"
+        + "【长短要差得开】有的一行，有的一大段。不许每条都是同一个长度、同一个句式。" + relHint,
+      schemaHint: "{\"items\":[{\"kind\":\"typed\",\"title\":\"很短的抬头\",\"time\":\"昨天 21:03\",\"body\":\"正文\",\"color\":2},{\"kind\":\"voice\",\"title\":\"抬头\",\"time\":\"昨天 23:40\",\"duration\":\"0:37\",\"body\":\"录音转成的字，不通顺\",\"color\":4}]}"
     },
     calls: {
       instruction: "推演「" + char.name + "」最近的通话记录（4-7 条）。" + relHint + "给出通话人、来电(in)还是拨出(out)、时间、是否接通、通话时长（未接为空）。时长要合理。",
@@ -2563,14 +2638,16 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"卷七·饮食果子\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
     },
     liked: {
-      instruction: "推演「" + char.name + "」在一个图文社区（双列瀑布流那种，人人发生活、发攻略、发碎碎念；不是微信、不是论坛）里的账号。\n"
-        + "me：name（他在这儿的昵称）、bio（一句简介，可以很敷衍甚至空着不写）、posts（他自己发过几条，多数人很少）、following、followers（数字，按他这个人合理）。\n"
+      instruction: "推演「" + char.name + "」在小红书那样的图文社区里的账号。\n"
+        + "me：name（昵称）、xhsId（一串数字号）、bio（一句简介，可以很敷衍甚至只有几个字）、tag（个人页上那颗小药丸，如「24岁」「京城」「不常上线」）、posts（发过几条）、following、followers、likes（获赞与收藏总数）。**粉丝数按他这个人合理，多数人很少。**\n"
         + "tabs：他常看的频道 **4-6 个**，按他的口味起名（如「附近」「装修」「野钓」「减脂」「古着」）。\n"
-        + "items **10-12 条**他【赞过或收藏过】的帖子，每条：author（发帖人昵称）、title（帖子标题，社区风格——可以带 emoji 感、可以是「谁懂啊」这种口吻）、excerpt（正文摘出来的一两句）、tab（频道）、tags（1-3 个标签）、likes（点赞数）、act（赞 或 收藏）、time、cover（一个 0-5 的整数，决定封面色调）。\n"
-        + "**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。所以这十来条要出现他【不主动说、也不觉得需要解释】的部分——某种审美、某个身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议、一件他偷偷惦记的事。也要有很没意思的（做饭、通勤、修东西），别每条都深刻。\n"
-        + "mine **1-3 条**他自己发过的帖：title、excerpt、likes、time。**他发的和他赞的可以完全不是一个画风**——发出去的是他愿意给人看的，赞过的才是他自己。\n"
-        + "follows：他关注的 **4-6 个**账号，name ＋一句 desc 说明那号是干嘛的。别全是正经账号。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"昵称\",\"bio\":\"简介\",\"posts\":3,\"following\":86,\"followers\":21},\"tabs\":[\"附近\",\"野钓\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"帖子标题\",\"excerpt\":\"正文一两句\",\"tab\":\"野钓\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他自己发的\",\"excerpt\":\"正文\",\"likes\":12,\"time\":\"上周\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}]}"
+        + "items **10-12 条**他【赞过或收藏过】的笔记，每条：author、title（社区那种口吻，可以是「谁懂啊」「求求了」这种）、excerpt（正文一两句）、tab、tags（1-3 个）、likes、act（赞 或 收藏）、time、cover（0-5 的整数，定封面色）。\n"
+        + "**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。这十来条要出现他【不主动说、也不觉得需要解释】的部分——某种审美、某个身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议、一件他偷偷惦记的事。也要有很没意思的（做饭、通勤、修东西），别每条都深刻。\n"
+        + "mine **2-4 条**他自己发出去的笔记：title、excerpt、likes、time、cover。\n"
+        + "**drafts 1-3 条：他写了却一直没发出去的草稿。**这是这个 app 最狠的一格——写完了、存着、就是没点发送。可以是矫情的、丢人的、太露骨的、或者写给某个具体的人却不敢发的。每条：title、excerpt、savedAt（存了多久，如「存了 11 天」）。\n"
+        + "**他发出去的、他赞过的、和他没发出去的，可以完全是三个人**：发出去的是他愿意给人看的，赞过的是他自己，草稿箱里的是他不敢承认的。\n"
+        + "follows：他关注的 **4-6 个**账号，name ＋一句 desc。别全是正经账号。" + relHint,
+      schemaHint: "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"附近\",\"野钓\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"野钓\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}]}"
     },
     health: {
       instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
@@ -2615,10 +2692,6 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
     settings: {
       instruction: "推演「" + char.name + "」的屏幕使用时间，像 iOS：日均总时长，以及各 App 单独的使用时长（5-7 个，从多到少）。贴合性格。",
       schemaHint: "{\"screenTime\":\"6小时12分\",\"apps\":[{\"name\":\"微信\",\"time\":\"2小时3分\"}]}"
-    },
-    recordings: {
-      instruction: "推演「" + char.name + "」录音 App 里的几条录音（3-5 条），有名字和时间，点开看录音转文字内容以及 Ta 的内心想法。",
-      schemaHint: "{\"items\":[{\"name\":\"录音名\",\"time\":\"昨天 23:40\",\"transcript\":\"转文字内容\",\"thought\":\"内心想法\"}]}"
     },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"

@@ -54,14 +54,17 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
 // 每个 app 一份「模型会返回的样子」的假数据，字段照 schemaHint 来
 const FIXTURES = {
   wechat: { chats: [{ type: "private", name: "老张", last: "到了说一声", time: "14:20", messages: [{ from: "老张", text: "到了说一声" }] }], userContact: { name: "Lisa", remark: "L", intro: "她" }, contacts: [{ name: "老张", remark: "张", intro: "同事" }], moments: [{ author: "老张", time: "2小时前", content: "下雨了", likes: ["A"], comments: [{ from: "B", text: "嗯" }] }], me: { wechatName: "屿", wechatId: "sy", signature: "…", accounts: [{ title: "文", source: "号", time: "昨晚", summary: "s", thought: "t" }] } },
-  notes: { items: [{ title: "买猫粮", time: "昨天 21:03", detail: "顺便看看猫砂" }] },
+  notes: { items: [
+    { kind: "typed", title: "买猫粮", time: "昨天 21:03", body: "顺便看看猫砂", color: 0 },
+    { kind: "voice", title: "算了", time: "昨天 23:40", duration: "0:37", body: "本来想说……算了，你别管。", color: 4 }
+  ] },
   calls: { items: [{ name: "妈", dir: "in", time: "今天 09:12", connected: true, duration: "04:32" }] },
   browser: { items: [{ title: "失眠怎么办", url: "www.x.com", time: "13:40", content: "一堆废话" }] },
   shopping: {
@@ -86,7 +89,6 @@ const FIXTURES = {
   },
   album: { items: [{ id: "p01", caption: "锁死的代码注释", date: "2026-08-28 18:42", category: "private", desc: "屏幕", thought: "别看" }] },
   settings: { screenTime: "6小时12分", apps: [{ name: "微信", time: "2小时3分" }] },
-  recordings: { items: [{ name: "凌晨三点", time: "昨天 23:40", transcript: "……算了", thought: "说不出口" }] },
   reading: {
     shelves: [
       { name: "京华杂谈与消遣", slug: "bizarre", books: [
@@ -98,11 +100,12 @@ const FIXTURES = {
     archive: { favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", weekGoal: "5小时", plan: { title: "闲情偶寄", author: "李渔" } }
   },
   liked: {
-    me: { name: "不点灯", bio: "", posts: 2, following: 86, followers: 21 },
+    me: { name: "不点灯", xhsId: "159193450", bio: "", tag: "京城", posts: 2, following: 86, followers: 21, likes: 153 },
     tabs: ["附近", "野钓", "旧物"],
     items: [{ author: "阿七", title: "一个人吃饭的十种办法", excerpt: "第三种最省事。", tab: "附近", tags: ["独居"], likes: 1204, act: "收藏", time: "3天前", cover: 1 },
             { author: "老周", title: "谁懂啊这把刀磨了三个月", excerpt: "刃口终于服帖了。", tab: "旧物", tags: ["磨刀"], likes: 88, act: "赞", time: "上周", cover: 3 }],
-    mine: [{ title: "夜里的城南", excerpt: "没人。", likes: 12, time: "上周" }],
+    mine: [{ title: "夜里的城南", excerpt: "没人。", likes: 12, time: "上周", cover: 2 }],
+    drafts: [{ title: "写给某个不看的人", excerpt: "算了。", savedAt: "存了 11 天" }],
     follows: [{ name: "斫木记", desc: "做木工的" }]
   },
   health: {

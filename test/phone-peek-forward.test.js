@@ -60,8 +60,11 @@ test("他没瞒着的东西走 open 档，别当成撞破", () => {
 });
 
 test("没主动说的日常内容走 quiet 档", () => {
-  ["备忘录", "浏览记录", "录音"].forEach(l =>
+  ["浏览记录"].forEach(l =>
     assert.ok(phone.includes('peekFoot("quiet", "' + l + '"'), l + " 没接转发"));
+  // v57.56：备忘录和录音合成「便签」，转发走 StickyView 自己那颗按钮
+  ["他的便签", "他录的一条"].forEach(l =>
+    assert.ok(phone.includes('label: voice ? "他录的一条" : "他的便签"') || phone.includes('"' + l + '"'), l + " 没接转发"));
   // 购物 v57.50 起是自己画整屏的组件：整卡可点的走 onPeek({label:...})，
   // 卡底带按钮的走 peekBtn(...)，两种都算接上了
   ["想买清单", "他的订单", "购物习惯", "他给谁买的东西"].forEach(l =>
@@ -88,7 +91,7 @@ test("论坛和音乐用紧凑标题栏，不再顶一块 30px 大标题", () =>
   // 别的 app 一个都没动
   // v57.48 起改由 FULL_BLEED_KEYS 判定（阅读也自己画整屏了），别的 app 仍然走通用 Head
   assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
-  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar"\];/);
+  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"\];/);
 });
 
 test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () => {

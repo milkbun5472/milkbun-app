@@ -39,21 +39,21 @@ test("时间窗真的把 App 岔开了，不是全挤在「这几天」", () => 
   assert.doesNotMatch(P.PHONE_ANGLE.album, /【时间窗】这几天/);
 });
 
-test("备忘录和录音有明确分界，不是同一件事写两遍", () => {
-  assert.match(P.PHONE_ANGLE.notes, /打字/);
-  assert.match(P.PHONE_ANGLE.recordings, /只能说出来/);
+test("便签里打字的和录下来的有明确分界，不是同一件事写两遍", () => {
+  // v57.56 合成一个 app 了；分界从「两个 app」变成「同一个 app 里的两种 kind」
+  assert.match(P.PHONE_ANGLE.notes, /打字的和说出口的都在这儿/);
+  assert.match(P.PHONE_ANGLE.notes, /只能说出来/);
+  assert.equal(P.PHONE_ANGLE.recordings, undefined, "录音的取材层该跟着 app 一起删掉");
 });
 
 test("phoneRoundDigest 从各 App 已存数据里抽出代表行", () => {
   const lines = P.phoneRoundDigest({
-    notes: { items: [{ title: "买猫粮" }, { title: "别再等了" }] },
     browser: { items: [{ title: "失眠怎么办" }] },
-    recordings: { items: [{ name: "凌晨三点" }] }
+    notes: { items: [{ title: "凌晨三点" }] }
   }, "shopping");
   const joined = lines.join("\n");
-  assert.match(joined, /备忘录：买猫粮｜别再等了/);
   assert.match(joined, /浏览器：失眠怎么办/);
-  assert.match(joined, /录音：凌晨三点/);
+  assert.match(joined, /便签：凌晨三点/);
 });
 
 test("正在生成的那个 App 自己不进避重清单", () => {

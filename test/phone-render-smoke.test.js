@@ -40,7 +40,8 @@ test("每个 app 都真的被 renderPhoneModule 接住了，没有一个掉回 n
   // 每个自己画整屏的 app 都要挂到自己的组件上，不能只是 wrap 一个列表
   [["wechat", "WeChatViewFull"], ["album", "AlbumView"], ["reading", "ReadingView"],
    ["shopping", "ShoppingView"], ["takeout", "TakeoutView"], ["health", "HealthView"],
-   ["bili", "BiliView"], ["latenight", "LateNightView"], ["liked", "PlazaView"], ["calendar", "CalendarView"]]
+   ["bili", "BiliView"], ["latenight", "LateNightView"], ["liked", "PlazaView"], ["calendar", "CalendarView"],
+   ["notes", "StickyView"], ["clipboard", "ClipView"]]
     .forEach(([k, comp]) => {
       const node = P.renderPhoneModule(k, FIXTURES[k] || null, { ...ctxBase, t, ...LIVE });
       assert.equal(node.type, comp, k + " 挂到了 " + node.type + "，不是 " + comp);
@@ -232,7 +233,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
-  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar"]);
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard"]);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
@@ -526,4 +527,64 @@ test("赞过改名小红书，界面也照小红书来", () => {
   assert.match(SRC, /"★ 收藏"/);
   // 图标换了，不再是心形
   assert.doesNotMatch(SRC, /liked: \[P\("M20\.8 6\.6a5 5 0/);
+});
+
+test("便签：备忘录和录音合成一个，两种在数据里分得开", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const P = loadPhone();
+  const props = { d: F.notes, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  assert.doesNotThrow(() => P.StickyView(props), "便签墙炸了");
+  assert.doesNotThrow(() => loadPhone({ 0: F.notes.items[1] }).StickyView(props), "录音便签详情炸了");
+  [null, {}, { items: "x" }, { items: [{ color: "z" }, { kind: "voice" }] }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone().StickyView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  // 录音那个 app 必须是删掉，不是留着不用
+  assert.ok(!P.PHONE_APPS.some(a => a.key === "recordings"), "recordings 还在册");
+  assert.equal(P.PHONE_LABEL.notes, "便签");
+  assert.equal(P.PHONE_DIGEST_PICK.recordings, undefined);
+  // 提示词里把两种的分界写死了
+  const spec = P.phoneProbeSpec("notes", char, [], "", []);
+  assert.match(spec.instruction, /只有打字打不出来、必须说出口的东西才会被录/);
+  assert.match(spec.instruction, /如果两种写出来一个味道，就等于这个 app 白做了/);
+  assert.match(spec.schemaHint, /"kind"/);
+  assert.match(spec.schemaHint, /"duration"/);
+  // 六种便签颜色，字色都压得住
+  assert.equal(P.STICKY_COLORS.length, 6);
+  P.STICKY_COLORS.forEach((c, i) => {
+    const l = hex => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };
+    assert.ok(l(c.bg) - l(c.ink) > 0.4, "第 " + i + " 张便签的字在纸上读不出来");
+  });
+});
+
+test("剪贴板：没发出去的单独一档，走 hidden", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.clipboard, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  assert.doesNotThrow(() => loadPhone().ClipView(props), "剪贴板炸了");
+  assert.doesNotThrow(() => loadPhone({ 0: F.clipboard.items[0] }).ClipView(props), "详情炸了");
+  [null, {}, { items: "x" }, { items: [{}] }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone().ClipView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  assert.match(SRC, /sec\("差一点就发出去", held, true\)/);
+  assert.match(SRC, /tier: isHeld \? "hidden" : "quiet"/);
+});
+
+test("小红书「我的」按参考稿来，并且有草稿箱", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.liked, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  // useState 顺序：0=tab 1=open 2=chan 3=mtab
+  ["note", "save", "draft"].forEach(k =>
+    assert.doesNotThrow(() => loadPhone({ 0: "mine", 3: k }).PlazaView(props), k + " 这一栏炸了"));
+  assert.doesNotThrow(() => loadPhone({ 1: { ...F.liked.drafts[0], _draft: true } }).PlazaView(props), "草稿详情炸了");
+  [null, {}, { drafts: "x", me: 3 }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone({ 0: "mine" }).PlazaView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  // 个人页该有的几样
+  assert.match(SRC, /"小红书号：" \+ me\.xhsId/);
+  assert.match(SRC, /\[\[me\.following, "关注"\], \[me\.followers, "粉丝"\], \[me\.likes, "获赞与收藏"\]\]/);
+  assert.match(SRC, /mineTab\("draft", "草稿", drafts\.length, true\)/);
+  // 草稿是他没发出去的 → hidden 档
+  assert.match(SRC, /tier: "hidden", label: "小红书草稿箱"/);
+  // 提示词里把三者的分野写死了
+  const spec = loadPhone().phoneProbeSpec("liked", char, [], "", []);
+  assert.match(spec.instruction, /drafts 1-3 条：他写了却一直没发出去的草稿/);
+  assert.match(spec.instruction, /可以完全是三个人/);
+  assert.match(spec.schemaHint, /"drafts"/);
+  assert.match(spec.schemaHint, /"xhsId"/);
 });
