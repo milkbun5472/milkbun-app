@@ -367,3 +367,58 @@ test("认色这件事只写一处，衣柜和包内共用", () => {
   assert.equal((screens.match(/pick\(String\(\(it && it\.name\) \|\| ""\)\)/g) || []).length, 1,
     "认色的规则又被抄了一遍——改了一处另一处就跟不上");
 });
+
+// ── 入口两屏（她 2026-08-29「做吧宝宝」）────────────────────
+// 原先：进随身物先看到一个盒子，点开是五个白方块写着斜体英文，
+// 下面空着三分之二屏——谁也不知道每一栏里装的是什么。
+test("版块页是一个立着的柜子，每一格露出那一栏真实的颜色", () => {
+  const i = screens.indexOf("  // 一格一格的抽屉，摞成一个立着的柜子");
+  assert.ok(i > 0, "找不到柜子那一屏");
+  const seg = screens.slice(i, screens.indexOf("\n    // ⚠️这个弹层以前写在滚动容器", i));
+  // 颜色来自真数据，衣柜用布色、别的用材质色——不是我另配的一组装饰色
+  assert.match(seg, /const tone = sec\.closet \? clothTone : stuffTone/, "预览色没按栏取对");
+  assert.match(seg, /carryFlatItems\(sec\.key, data\[sec\.key\]\)/, "预览色没从真数据取");
+  assert.match(seg, /const namesOf = sec =>/, "光有颜色不知道装着什么，得念几个名字");
+  assert.match(seg, /const countOf = sec =>/);
+  // 抽屉：拉手、柜脚、落地的影
+  assert.match(seg, /borderRadius: 4, background: "linear-gradient\(90deg,rgba\(56,42,28/, "抽屉拉手");
+  assert.match(seg, /柜脚/, "柜脚");
+  assert.match(seg, /落地的影/, "落地的影");
+  // 空的那几格也要有节奏，别只剩一行灰字
+  assert.match(seg, /border: "1px dashed rgba\(74,58,40/, "空槽");
+  // 抽屉给固定高度、柜子不硬撑满屏（撑满的话内容只占上面一半，下面全空）
+  assert.doesNotMatch(seg, /className: "flex-1 min-h-0 w-full text-left/, "抽屉又被 flex-1 撑高了");
+  assert.doesNotMatch(seg, /background: "#[0-9a-fA-F]{6}"/, "别写死颜色，换主题就脱节了");
+});
+
+test("进随身物是一扇对开的柜门，不是盒子", () => {
+  const i = screens.indexOf("  // 进随身物的第一屏：一扇关着的对开柜门");
+  assert.ok(i > 0, "找不到柜门那一屏");
+  const seg = screens.slice(i, screens.indexOf("\n  const data = carry[char.id]", i));
+  assert.doesNotMatch(seg, /CARRY"\)\)\),\s*\n\s*h\("div", \{ style: \{ fontFamily: F_BODY, fontSize: 12/, "旧的盒子还在");
+  assert.match(seg, /transform: boxOpen \? "rotateY\(" \+ \(side === "left" \? "-\d+deg" : "\d+deg"\)/, "两扇门要往两边转开");
+  assert.match(seg, /transformOrigin: side \+ " center"/, "门轴在外侧边");
+  assert.match(seg, /pointerEvents: boxOpen \? "none" : "auto"/, "门开了就不该再挡住里面的头像");
+  assert.match(seg, /tabIndex: boxOpen \? -1 : 0/, "开了的门也不该再被键盘选中");
+  // ⚠️内壁必须不透光，否则外框那层竖木纹会从柜子里透上来，门一开看到的还是门
+  assert.match(seg, /background: t\.bg2,\s*\n\s*backgroundImage: "linear-gradient\(180deg,rgba\(74,58,40/, "柜内壁透光了");
+  assert.match(seg, /inset 13px 0 18px -14px/, "内壁的侧影——柜子是有深度的");
+});
+
+test("两处入口也用紧凑标题栏（mobile-ui-layout §1）", () => {
+  const box = screens.slice(screens.indexOf("  // 进随身物的第一屏"), screens.indexOf("\n  const data = carry[char.id]"));
+  const cab = screens.slice(screens.indexOf("  // 一格一格的抽屉"), screens.indexOf("\n    // ⚠️这个弹层以前写在滚动容器"));
+  [["柜门屏", box], ["柜子屏", cab]].forEach(([name, seg]) => {
+    assert.doesNotMatch(seg, /h\(Head, \{/, name + " 又退回 Head 那块大标题了");
+    assert.match(seg, /paddingTop: safeTop\(10\)/, name + " 顶栏得自己吃安全区");
+    assert.equal((seg.match(/width: 40, height: 40/g) || []).length, 2, name + " 左右操作位要等宽，标题才真居中");
+  });
+});
+
+test("切换角色那个弹层挪出了滚动容器", () => {
+  // 遮罩是 absolute inset-0：写在 overflow-y-auto 里面的话，它只盖得住内容区、盖不住顶栏
+  assert.match(screens, /⚠️这个弹层以前写在滚动容器【里面】/);
+  const i = screens.indexOf("    // ⚠️这个弹层以前写在滚动容器");
+  const before = screens.slice(screens.indexOf("  // 一格一格的抽屉"), i);
+  assert.doesNotMatch(before, /overflow-y-auto/, "柜子那一屏不该再套一层滚动容器把弹层困在里面");
+});

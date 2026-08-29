@@ -8679,48 +8679,194 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   const clearSeen = cid => setSeen(p => { const n = { ...p }; delete n[cid]; saveJSON("x_carrySeen", n); return n; });
   const char = characters.find(c => c.id === selId) || characters[0];
   if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "随身物", en: "Carry", onBack }), h(Empty, { text: "还没有角色", sub: "先去名录录入一位" }));
-  // 盒子首页：点开盒子 → 角色头像跳出来 → 点头像才进 Ta 的随身物
+  // 进随身物的第一屏：一扇关着的对开柜门，点一下门向两边开，里头挂着这些人。
+  // 原先这里是个盒子——内页已经全改成柜子了，门口还摆个盒子对不上（她 2026-08-29）。
+  const doorFace = {
+    background: t.bg2,
+    backgroundImage: "repeating-linear-gradient(90deg,rgba(0,0,0,.055) 0px,rgba(0,0,0,.055) 1px,rgba(255,255,255,.05) 1px,rgba(255,255,255,.05) 4px),"
+      + "linear-gradient(152deg,rgba(74,58,40,.32) 0%,rgba(74,58,40,.54) 46%,rgba(74,58,40,.38) 100%)"
+  };
   if (inBox) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h(Head, { zh: "随身物", en: "Carry", onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-10 flex flex-col items-center" },
-      h("button", { onClick: () => setBoxOpen(v => !v), className: "active:opacity-90", style: { marginTop: 26, position: "relative", width: 156, height: 128 } },
-        // 盖子
-        h("div", { style: { position: "absolute", top: boxOpen ? -18 : 2, left: -7, right: -7, height: 30, borderRadius: 8, background: "linear-gradient(180deg,#e7dcc6,#d4c4a6)", border: "1px solid " + t.line, transform: boxOpen ? "rotate(-7deg)" : "none", transformOrigin: "left center", transition: "all .28s ease", boxShadow: "0 5px 12px rgba(0,0,0,0.12)" } }),
-        // 盒身
-        h("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, height: 100, borderRadius: "5px 5px 14px 14px", background: "linear-gradient(180deg,#f0e8d8,#ddd0b6)", border: "1px solid " + t.line, boxShadow: "inset 0 6px 14px rgba(0,0,0,0.08)", display: "flex", alignItems: "center", justifyContent: "center" } },
-          boxOpen ? null : h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15, color: t.fog, letterSpacing: "0.08em" } }, "CARRY"))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 16 } }, boxOpen ? "点头像，翻翻 Ta 的随身物" : "点一下打开盒子"),
-      boxOpen ? h("div", { className: "grid grid-cols-3 gap-x-3 gap-y-5", style: { marginTop: 24, width: "100%", animation: "fadeUp .32s ease" } },
-        characters.map(c => h("button", { key: c.id, onClick: () => { onSel(c.id); setOpen(null); setInBox(false); }, className: "flex flex-col items-center gap-1.5 active:opacity-70" },
-          h(Avatar, { character: c, size: 62, radius: 17 }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 84 } }, c.remark || c.name)))) : null));
+    h("div", { className: "shrink-0 px-4 pb-2 flex items-center", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "随身物"),
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.18em", color: t.fog, marginTop: 2 } }, "CARRY")),
+      h("div", { style: { width: 40, height: 40 } })),
+    h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-4" },
+      h("div", {
+        className: "flex-1 min-h-0 relative",
+        style: {
+          borderRadius: 18, padding: 9, overflow: "hidden",
+          background: t.bg2,
+          backgroundImage: doorFace.backgroundImage,
+          boxShadow: "0 12px 30px rgba(74,58,40,.20), inset 0 1.5px 0 rgba(255,255,255,.4), inset 0 -1.5px 0 rgba(0,0,0,.18)",
+          perspective: "900px"
+        }
+      },
+        // 柜内：门开了才看得见的那些人
+        h("div", {
+          className: "h-full min-h-0 overflow-y-auto",
+          style: {
+            borderRadius: 11, padding: "16px 12px",
+            // ⚠️内壁必须不透光：只叠半透明的话，外框那层竖木纹会从柜子里透上来，
+            // 门一开看到的还是门（v57.95 实测）。所以底色用不透明的 t.bg2 打底。
+            background: t.bg2,
+            backgroundImage: "linear-gradient(180deg,rgba(74,58,40,.22) 0%,rgba(74,58,40,.07) 24%,rgba(74,58,40,.14) 100%)",
+            // 两侧的内壁侧影：柜子是有深度的，不是一块贴着的板
+            boxShadow: "inset 0 4px 14px rgba(74,58,40,.26), inset 13px 0 18px -14px rgba(74,58,40,.5), inset -13px 0 18px -14px rgba(74,58,40,.5)"
+          }
+        },
+          characters.length === 0
+            ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "还没有角色")
+            : h("div", { className: "grid grid-cols-3 gap-x-3 gap-y-5" }, characters.map(c => h("button", {
+                key: c.id,
+                onClick: () => { onSel(c.id); setOpen(null); setInBox(false); },
+                className: "flex flex-col items-center gap-1.5 active:opacity-70"
+              },
+                h(Avatar, { character: c, size: 62, radius: 17 }),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 84 } }, c.remark || c.name))))),
+        // 两扇门：点一下向两边开。开了就不再挡路（pointerEvents 关掉）
+        [["l", "left"], ["r", "right"]].map(([k, side]) => h("button", {
+          key: k,
+          onClick: () => setBoxOpen(true),
+          "aria-label": boxOpen ? "" : "打开柜门",
+          "aria-hidden": boxOpen ? "true" : null,
+          tabIndex: boxOpen ? -1 : 0,
+          style: Object.assign({
+            position: "absolute", top: 0, bottom: 0, width: "50%", [side]: 0,
+            transformOrigin: side + " center",
+            transform: boxOpen ? "rotateY(" + (side === "left" ? "-102deg" : "102deg") + ")" : "rotateY(0deg)",
+            transition: "transform .62s cubic-bezier(.36,.66,.28,1)",
+            pointerEvents: boxOpen ? "none" : "auto",
+            boxShadow: side === "left" ? "inset -14px 0 22px -14px rgba(0,0,0,.45)" : "inset 14px 0 22px -14px rgba(0,0,0,.45)",
+            WebkitTapHighlightColor: "transparent"
+          }, doorFace)
+        },
+          // 把手：贴着门缝那一侧
+          h("span", { style: { position: "absolute", [side === "left" ? "right" : "left"]: 9, top: "50%", marginTop: -18, width: 8, height: 36, borderRadius: 4, background: "linear-gradient(90deg,rgba(56,42,28,.9),rgba(56,42,28,.5))", boxShadow: "0 2px 5px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.28)" } }),
+          // 门上的镶板线
+          h("span", { style: { position: "absolute", inset: 16, borderRadius: 8, boxShadow: "inset 0 0 0 1px rgba(255,255,255,.16), 0 0 0 1px rgba(56,42,28,.20)" } })))),
+      h("div", { className: "shrink-0 text-center", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, paddingTop: 12 } },
+        boxOpen ? "点头像，翻翻 Ta 的随身物" : "点一下拉开柜门")));
   const data = carry[char.id] || {};
   const gifts = (carryGifts && carryGifts[char.id]) || [];
   const hasData = s => s.gifts ? gifts.length > 0 : !!data[s.key];
   if (open) return h(CarrySection, { char, sectionKey: open, data: data[open], gifts, busyKey: busyKey === "__all__" ? open : busyKey, giftBusy, pinned: ((carryPins || {})[char.id] || {})[open] || [], onTogglePin, onGen, onGenGiftThought, onBack: () => setOpen(null) });
+  // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块
+  // 写着斜体英文、下面空着三分之二屏，谁也不知道每一栏里装的是什么。
+  // 每一格露出【这一栏里真实那几件东西的颜色】：衣柜是布色，包内/口袋/珍藏是材质色。
+  // 换个角色，整个柜子就是另一片颜色。
+  const swatches = sec => {
+    if (sec.gifts) return gifts.slice(-6).map(() => null);   // 礼物没有色，用心形占位
+    const rows = carryFlatItems(sec.key, data[sec.key]);
+    const tone = sec.closet ? clothTone : stuffTone;
+    return rows.slice(0, 6).map((it, i) => tone(it, i));
+  };
+  // 前几件的名字，一行念完就够——这一格里装的到底是什么，颜色说不全
+  const namesOf = sec => {
+    if (sec.gifts) return gifts.slice(-4).map(g => g.name).filter(Boolean).join(" · ");
+    if (!data[sec.key]) return "";
+    return carryFlatItems(sec.key, data[sec.key]).slice(0, 4).map(x => x.name).filter(Boolean).join(" · ");
+  };
+  const countOf = sec => {
+    if (sec.gifts) return gifts.length ? gifts.length + " 件" : "";
+    if (!data[sec.key]) return "";
+    if (sec.closet) {
+      const g = closetGroups(data[sec.key]);
+      const n = g.reduce((a, x) => a + x.sets.length, 0);
+      return n ? (g.length > 1 ? g.length + " 场合 · " + n + " 套" : n + " 套") : "";
+    }
+    const n = carryFlatItems(sec.key, data[sec.key]).length;
+    return n ? n + " 件" : "";
+  };
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-    h("div", { className: "shrink-0 px-5 pb-3 flex items-center justify-between", style: { paddingTop: safeTop(20) } },
-      h("button", { onClick: () => setInBox(true), className: "active:opacity-50" }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, char.name + " 的随身物"),
-      h("div", { className: "flex items-center gap-3" },
-        h("button", { onClick: () => setPick(true), className: "active:opacity-50" }, h(Avatar, { character: char, size: 24, radius: 6 })),
-        h("button", { onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey, className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })))),
-    h("div", { className: "flex-1 overflow-y-auto px-4 pb-8" },
-      h("div", { className: "rounded-[28px] px-5 pt-7 pb-8", style: { background: "linear-gradient(170deg,#fbfaf7,#f1eee7)", border: "1px solid " + t.line } },
-        h("div", { className: "flex flex-col items-center mb-7" },
-          h(Avatar, { character: char, size: 74, radius: 22 }),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginTop: 10, letterSpacing: "0.02em" } }, (char.name || "") + " · CARRY"),
-          busyKey === "__all__"
-            ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "正在翻看全部…")
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "点右上角刷新全部 · 或点开单个版块")),
-        h("div", { className: "grid grid-cols-3 gap-y-6 gap-x-2" }, CARRY_SECTIONS.map(s => h("button", { key: s.key, onClick: () => { markSeen(char.id, s.key); setOpen(s.key); }, className: "flex flex-col items-center gap-1.5 active:opacity-60" },
-          h("div", { className: "relative flex items-center justify-center", style: { width: 54, height: 54, borderRadius: 16, background: "#fff", border: "1px solid " + t.line } },
-            s.gifts ? h(IHeart, { size: 22, color: t.accent }) : h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, color: t.ink } }, s.en),
-            hasData(s) && !isSeen(char.id, s.key) && h("span", { style: { position: "absolute", top: -3, right: -3, width: 9, height: 9, borderRadius: 9, background: s.gifts ? t.accent : "#95d16f", border: "1.5px solid #fff" } })),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, s.zh))))),
+    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
+    h("div", { className: "shrink-0 px-4 pb-2 flex items-center", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: () => setInBox(true), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "随身物"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } },
+          busyKey === "__all__" ? "正在一栏一栏翻…" : char.name)),
+      h("div", { className: "flex items-center justify-center gap-1", style: { width: 40, height: 40 } },
+        h("button", { onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })))),
+    h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-5" },
+      // 柜身：木框裹着一摞抽屉，和详情那扇柜门是同一套木色
+      h("div", {
+        className: "shrink-0 flex flex-col",
+        style: {
+          padding: 9, borderRadius: 18,
+          background: t.bg2,
+          backgroundImage: "repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0px,rgba(0,0,0,.05) 1px,rgba(255,255,255,.045) 1px,rgba(255,255,255,.045) 4px),"
+            + "linear-gradient(152deg,rgba(74,58,40,.30) 0%,rgba(74,58,40,.50) 44%,rgba(74,58,40,.36) 74%,rgba(74,58,40,.52) 100%)",
+          boxShadow: "0 10px 26px rgba(74,58,40,.18), inset 0 1.5px 0 rgba(255,255,255,.4), inset 0 -1.5px 0 rgba(0,0,0,.18)"
+        }
+      },
+        // 柜顶：一块小铭牌，点它换角色
+        h("button", {
+          onClick: () => setPick(true),
+          className: "shrink-0 w-full flex items-center active:opacity-70",
+          style: { gap: 9, padding: "7px 10px 8px", borderRadius: "10px 10px 4px 4px", background: "rgba(255,255,255,.32)", boxShadow: "inset 0 0 0 1px rgba(74,58,40,.16)", marginBottom: 7 }
+        },
+          h(Avatar, { character: char, size: 26, radius: 8 }),
+          h("div", { className: "flex-1 min-w-0 text-left" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, lineHeight: 1.2 } }, char.name),
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.18em", color: t.fog, marginTop: 2 } }, "CARRY")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "换个人"),
+          h(IChevR, { size: 13, color: t.fog })),
+        // 抽屉：平分剩下的高度，撑满柜身
+        h("div", { className: "flex flex-col", style: { gap: 7 } },
+          CARRY_SECTIONS.map(sec => {
+            const sw = swatches(sec);
+            const cnt = countOf(sec);
+            const isNew = hasData(sec) && !isSeen(char.id, sec.key);
+            const busy = busyKey === sec.key || busyKey === "__all__";
+            return h("button", {
+              key: sec.key,
+              onClick: () => { markSeen(char.id, sec.key); setOpen(sec.key); },
+              className: "shrink-0 w-full text-left active:opacity-80 relative",
+              style: {
+                borderRadius: 9, padding: "12px 34px 13px 13px",
+                background: "linear-gradient(180deg,rgba(255,255,255,.56) 0%,rgba(255,255,255,.34) 58%,rgba(74,58,40,.03) 100%)",
+                boxShadow: "inset 0 0 0 1px rgba(74,58,40,.18), 0 1px 0 rgba(255,255,255,.34)",
+                WebkitTapHighlightColor: "transparent"
+              }
+            },
+              // 抽屉拉手
+              h("div", { style: { position: "absolute", right: 11, top: "50%", marginTop: -9, width: 9, height: 18, borderRadius: 4, background: "linear-gradient(90deg,rgba(56,42,28,.72),rgba(56,42,28,.38))", boxShadow: "0 1px 2px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.3)" } }),
+              h("div", { className: "flex items-baseline", style: { gap: 7 } },
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, letterSpacing: "0.02em" } }, sec.zh),
+                h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: "0.16em", color: t.fog } }, (sec.en || "").toUpperCase()),
+                h("span", { className: "flex-1" }),
+                cnt ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub } }, cnt) : null,
+                isNew ? h("span", { style: { width: 7, height: 7, borderRadius: 7, background: sec.gifts ? t.accent : "#7fb85f", boxShadow: "0 0 0 1.5px rgba(255,255,255,.7)" } }) : null),
+              // 这一栏里真实那几件东西的颜色
+              h("div", { className: "flex items-center", style: { gap: 4.5, marginTop: 8 } },
+                busy
+                  ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "正在翻…")
+                  : sw.length
+                    ? sw.map((c, i) => c
+                        ? h("span", { key: i, style: { width: 21, height: 21, borderRadius: 6, background: "linear-gradient(155deg," + c.light + "," + c.base + " 55%," + c.dark + ")", boxShadow: "inset 0 0 0 1px rgba(0,0,0,.11), 0 1px 2px rgba(0,0,0,.10)" } })
+                        : h(IHeart, { key: i, size: 16, color: t.accent }))
+                    : h(React.Fragment, null,
+                        [0, 1, 2].map(i => h("span", { key: i, style: { width: 21, height: 21, borderRadius: 6, border: "1px dashed rgba(74,58,40,.24)" } })),
+                        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 4 } },
+                          sec.gifts ? "还没收到你送的东西" : "点开就去翻"))),
+              // 光有颜色还是不知道装着什么：把里头前几件的名字念一遍
+              namesOf(sec) ? h("div", {
+                style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 7, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+              }, namesOf(sec)) : null);
+          })),
+        // 柜脚：两只小脚，柜子才落地
+        h("div", { className: "shrink-0 flex justify-between", style: { padding: "6px 18px 0" } },
+          [0, 1].map(i => h("span", { key: i, style: { width: 22, height: 6, borderRadius: "0 0 4px 4px", background: "linear-gradient(180deg,rgba(56,42,28,.5),rgba(56,42,28,.16))" } })))),
+      // 落地的影：柜子立在地上，不是浮着的
+      h("div", { className: "shrink-0", style: { height: 14, margin: "0 22px", borderRadius: "0 0 40px 40px", background: "radial-gradient(60% 100% at 50% 0%,rgba(74,58,40,.20),rgba(74,58,40,0) 72%)" } })),
+    // ⚠️这个弹层以前写在滚动容器【里面】——遮罩是 absolute inset-0，
+    // 于是它只盖得住内容区，盖不住顶栏。挪到最外层才是整屏的弹层。
     pick && h(Sheet, { onClose: () => setPick(false) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "切换角色"),
       h("div", { className: "space-y-1 max-h-72 overflow-y-auto" }, characters.map(c => h("button", { key: c.id, onClick: () => { onSel(c.id); setPick(false); setOpen(null); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
         h(Avatar, { character: c, size: 34, radius: 7 }),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name)))))));
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name))))));
 }
