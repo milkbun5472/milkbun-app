@@ -242,7 +242,7 @@ test("列表和详情画的是同一件衣服——剪影只有一份", () => {
   assert.equal((screens.match(/clothFigure\(\{/g) || []).length, 2, "列表一处、详情一处，多出来的就是又抄了一遍");
   // 别冻宽度——两处的尺寸以后还会调。守的是【都走同一个 clothFigure、都把钉住态传进去】。
   assert.match(screens, /clothFigure\(\{ tone: c, long, w: \d+, pinned: isPinned\(it\), t \}\)/, "列表没走共用那份");
-  assert.match(screens, /clothFigure\(\{ tone: cl, long: sheet\._long, w: \d+, pinned: isPinned\(sheet\), t \}\)/, "详情没走共用那份");
+  assert.match(screens, /clothFigure\(\{ tone, long: sheet\._long, w: \d+, pinned: isPinned\(sheet\), t \}\)/, "详情没走共用那份");
   // 剪影本身也只有一份
   assert.match(screens, /const CLOTH_CLIP_LONG = "polygon\(/);
   assert.match(screens, /const CLOTH_CLIP_SHORT = "polygon\(/);
@@ -261,16 +261,17 @@ test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不�
   assert.match(F2.clothShift("#b8433c", -0.5), /^#[0-9a-f]{6}$/);
   const i = screens.indexOf("      const pinRow = onTogglePin");
   const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
-  assert.doesNotMatch(seg, /cl\.dark/, "详情页的文字和描边不许用 dark，要用 ink");
-  assert.match(seg, /clothRgba\(cl\.ink, 0\.45\)/, "想法那条竖线要用 ink");
+  assert.doesNotMatch(seg, /tone\.dark\b/, "详情页的文字和描边不许用 dark，要用 ink");
+  assert.match(seg, /clothRgba\(tone\.ink, 0?\.\d+\)/, "想法那条竖线要用 ink");
 });
 
 test("详情页把这件衣服本身画进去，底色也取自它自己", () => {
   const i = screens.indexOf("      const pinRow = onTogglePin");
   const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
-  assert.match(seg, /clothRgba\(cl\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件衣服的布色");
-  assert.match(seg, /if \(!cl\) return h\(Sheet/, "别的栏（包内/口袋/珍藏）没有布色，要走回原来那份");
-  assert.match(seg, /sheet\._occ \? h\("div"[\s\S]{0,200}?"OCCASION"/, "场合的 eyebrow 该是英文标签");
+  assert.match(seg, /clothRgba\(tone\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件东西自己的色");
+  assert.match(seg, /if \(!tone\) return h\(Sheet/, "没有色的（收到的礼物那种）要走回原来那份半页");
+  assert.match(seg, /label\("OCCASION", sheet\._occ\)/, "衣柜那一路的 eyebrow 是场合");
+  assert.match(seg, /label\("MATERIAL", tone\.word\)/, "东西那一路的 eyebrow 是材质");
   // ⚠️toUpperCase 对中文是空操作，会把同一个场合名原样印两遍
   // 只看代码，别把提醒这件事的注释本身当成犯规
   const code = seg.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
@@ -290,11 +291,13 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
 });
 
 // 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」
-test("衣柜详情是居中的一扇柜门，不是从底下滑上来的半页", () => {
-  const i = screens.indexOf("      // 衣柜版：不走从底下滑上来的半页");
-  assert.ok(i > 0, "找不到衣柜版详情");
+test("随身物详情是居中的一扇柜门，不是从底下滑上来的半页", () => {
+  const i = screens.indexOf("      const pinRow = onTogglePin");
+  assert.ok(i > 0, "找不到详情那一段");
   const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
-  assert.doesNotMatch(seg, /h\(Sheet, \{/, "又退回半页式 Sheet 了");
+  // 有色的那一路一律走居中的柜门框；半页 Sheet 只剩【没有色时】那一条退路，
+  // 所以这一段里 h(Sheet 至多出现一次，多了就是又退回半页了。
+  assert.ok((seg.match(/h\(Sheet, \{/g) || []).length <= 1, "又退回半页式 Sheet 了");
   assert.match(seg, /className: "absolute inset-0 flex items-center justify-center/, "框要居中");
   assert.match(seg, /animation: "caseOpen/, "开门那下动画");
   // 框本身要像柜门：木框 + 内板 + 门把手，且颜色一律叠在主题色上
@@ -305,10 +308,62 @@ test("衣柜详情是居中的一扇柜门，不是从底下滑上来的半页",
   // 长文本要能滚，别把内容顶出屏幕
   assert.match(seg, /className: "overflow-y-auto"[\s\S]{0,140}?maxHeight: "calc\(\d+vh/, "内容得能滚");
   // 别的栏仍旧走原来那份半页
-  assert.match(screens, /if \(!cl\) return h\(Sheet, \{ onClose: \(\) => setSheet\(null\), tall: true \}/, "包内/口袋/珍藏该照旧");
+  assert.match(screens, /if \(!tone\) return h\(Sheet, \{ onClose: \(\) => setSheet\(null\), tall: true \}/, "没有色的那一路该有个退路");
 });
 
 test("caseOpen 这个动画真的定义过（只写在 style 里等于没有）", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
   assert.match(html, /@keyframes caseOpen/, "index.html 里没定义 caseOpen，动画就是空转的");
+});
+
+// ── 包内（她 2026-08-29：「下一个做包内吧」）────────────────
+// 衣柜能成立是因为「衣服」有唯一原型（一件衣服的剪影）＋ 颜色变化。
+// 包里的东西没有共同形状——伞、钥匙、糖、纸条、药瓶画不完也画不像。
+// 所以这一栏认的不是【它长什么样】，是【它是什么做的】。
+test("包内认材质，不认形状", () => {
+  const F3 = (() => {
+    const head = screens.slice(screens.indexOf("const STUFF_TONES"), screens.indexOf("// 一件挂着的衣服"));
+    const pre = screens.slice(screens.indexOf("const CLOTH_TONES"), screens.indexOf("const STUFF_TONES"));
+    return new Function(pre + head + "\nreturn { stuffTone, stuffTilt };")();
+  })();
+  const w = (n, note) => F3.stuffTone({ name: n, note: note || "" }, 0).word;
+  assert.equal(w("油纸伞", "伞骨断过一根"), "纸");
+  assert.equal(w("一串钥匙", "铜的"), "铜", "名字里没材质就该退到 note");
+  assert.equal(w("素绢帕子", ""), "绢");
+  assert.equal(w("一小瓶伤药", ""), "瓶");
+  assert.equal(w("一颗饴糖", ""), "糖");
+  assert.equal(w("旧怀表", ""), "", "认不出来就别硬安一个");
+  // 认不出的按次序发兜底色，一屏里不会几件撞成一片
+  const a = F3.stuffTone({ name: "甲", note: "" }, 0), b = F3.stuffTone({ name: "乙", note: "" }, 1);
+  assert.notEqual(a.base, b.base);
+  // 歪斜要按名字稳定：真随机的话每次重排都会跳
+  assert.equal(F3.stuffTilt("油纸伞"), F3.stuffTilt("油纸伞"));
+  assert.ok(Math.abs(F3.stuffTilt("一串钥匙")) <= 0.9);
+});
+
+test("包内是一只倒出来的包：拉链、内衬、错落的牌子", () => {
+  assert.match(screens, /function zipper\(t\) \{/, "包最有辨识度的是拉链");
+  assert.match(screens, /repeating-linear-gradient\(90deg,rgba\(74,58,40,\.42\)/, "拉链的齿");
+  assert.match(screens, /\{ key: "bag", zh: "包内", en: "Bag", stuff: true, zip: true \}/, "包内才有拉链");
+  assert.match(screens, /\{ key: "pocket", zh: "口袋", en: "Pocket", stuff: true \}/, "口袋走同一套但没拉链");
+  assert.match(screens, /\{ key: "trinket", zh: "珍藏小物", en: "Trinkets", stuff: true \}/, "珍藏也走同一套");
+  const i = screens.indexOf("  } else if (sec.stuff) {");
+  assert.ok(i > 0, "找不到包内那一路");
+  const seg = screens.slice(i, screens.indexOf("\n  } else {", i));
+  assert.match(seg, /sec\.zip \? zipper\(t\) : null/, "拉链只给包内");
+  assert.match(seg, /transform: "rotate\(" \+ stuffTilt\(it\.name\) \+ "deg\)"/, "牌子要歪着摆才像倒出来的");
+  assert.match(seg, /clothRgba\(c\.base, 0?\.\d+\)/, "牌子要染上它的材质色");
+  assert.match(seg, /grid grid-cols-2/, "两列错落");
+  assert.doesNotMatch(seg, /background: "#[0-9a-fA-F]{6}"/, "别写死颜色，换主题就脱节了");
+  // 内衬和衣柜的隔间是同一套暖褐叠色
+  assert.match(seg, /rgba\(74,58,40/, "内衬");
+});
+
+test("认色这件事只写一处，衣柜和包内共用", () => {
+  assert.match(screens, /function toneFrom\(table, fallback, it, i\) \{/);
+  assert.match(screens, /const clothTone = \(set, i\) => toneFrom\(CLOTH_TONES, CLOTH_FALLBACK, set, i\)/);
+  assert.match(screens, /const stuffTone = \(it, i\) => toneFrom\(STUFF_TONES, STUFF_FALLBACK, it, i\)/);
+  // 「名字优先于 note」这条规则只该有一份实现
+  assert.equal((screens.match(/pick\(String\(\(it && it\.name\) \|\| ""\)\)/g) || []).length, 1,
+    "认色的规则又被抄了一遍——改了一处另一处就跟不上");
 });
