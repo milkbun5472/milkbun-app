@@ -29,6 +29,7 @@ function makeEnv(forceState) {
     loadJSON: (_k, d) => d,
     saveJSON: () => {},
     safeTop: px => "calc(env(safe-area-inset-top, 0px) + " + px + "px)",
+    COMPOSER_PAD_BOTTOM: "calc(env(safe-area-inset-bottom) * 0.4)",
     resetStateIdx: () => { stateIdx = 0; }
   };
   // 别的文件里的组件：不写死名单，直接从源码里扫出来补桩。
@@ -53,7 +54,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, PGlyph, READ_PALETTES, FULL_BLEED_KEYS, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, PGlyph, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -77,7 +78,7 @@ const FIXTURES = {
       { name: "怎么对付某个麻烦精", slug: "managing_troublemaker", books: [
         { title: "反经", author: "赵蕤", readAt: "第 3 章", quote: "", note: "没什么用，她根本不按这里头写的来。" }] }
     ],
-    archive: { favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", plan: { title: "闲情偶寄", author: "李渔" } }
+    archive: { favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", weekGoal: "5小时", plan: { title: "闲情偶寄", author: "李渔" } }
   },
   liked: { follows: [{ name: "猫猫日报", desc: "撸猫" }], items: [{ author: "阿七", kind: "图文", content: "一个人吃饭的十种办法", tag: "生活", time: "3天前", act: "收藏" }] },
   orders: { items: [{ type: "外卖", title: "馄饨", amount: 24, time: "昨天 23:41", addr: "家", note: "麻烦轻一点敲门" }, { type: "打车", title: "公司→家", amount: 38, time: "前天 01:10" }] },

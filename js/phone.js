@@ -199,7 +199,8 @@ function PGlyph({
     orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")],
     health: [P("M2.5 12.5H6l2.2-6.4 3.3 12.4 2.6-8.2 1.6 2.2h5.8")],
     clipboard: [R(6, 3.5, 12, 17.5, 2.2), R(9, 1.6, 6, 4, 1.2), P("M9.5 11.5h5M9.5 15.5h3.5")],
-    calendar: [R(3, 5, 18, 16, 2.4), P("M3 10h18M8 2.6v4.4M16 2.6v4.4")]
+    calendar: [R(3, 5, 18, 16, 2.4), P("M3 10h18M8 2.6v4.4M16 2.6v4.4")],
+    me: [C(12, 8, 3.7), P("M4.8 20.6a7.2 7.2 0 0114.4 0")]
   };
   return h(Svg, {
     size,
@@ -489,7 +490,9 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("button", { onClick: back || onBack, "aria-label": "返回", className: "active:opacity-50", style: { width: 36, fontSize: 29, lineHeight: 1, color: "#111" } }, "‹"),
     h("div", { className: "flex-1 min-w-0 text-center" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, fontWeight: 700, lineHeight: 1.15, color: "#111" } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "#8e8e93", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sub) : null),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "刷新相册", className: "active:opacity-50 disabled:opacity-35", style: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" } }, h(IRefresh, { size: 18, color: "#333" })));
-  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px calc(env(safe-area-inset-bottom) * 0.4 + 4px)", minHeight: 54, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "图库"], ["collections", "精选集"], ["saved", "收藏夹"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? "#0a84ff" : "#8e8e93", fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
+  // 高度以主聊天输入栏为标尺：只吃 0.4 条底部安全区，不再 +4px、也不用 minHeight 垫高
+  // （.claude/rules/mobile-ui-layout.md §2）
+  const nav = h("div", { className: "shrink-0 grid grid-cols-3", style: { padding: "5px 20px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(250,250,252,.97)", borderTop: "1px solid #e5e5ea" } }, [["library", "图库"], ["collections", "精选集"], ["saved", "收藏夹"]].map(([k, label]) => h("button", { key: k, onClick: () => { setTab(k); setOpened(null); }, className: "flex flex-col items-center justify-center active:opacity-60", style: { color: tab === k ? "#0a84ff" : "#8e8e93", fontFamily: F_BODY, fontSize: 10.5 } }, h(AlbumNavIcon, { kind: k, active: tab === k }), h("span", { style: { marginTop: 2 } }, label))));
   if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome("照片", photo.date || photo.time || "日期未记", closePhoto), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 20px 30px" } },
     h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", borderRadius: 20, overflow: "hidden", boxShadow: "0 14px 32px rgba(0,0,0,.12)" } }, art(photo, 20)),
     h("div", { className: "flex items-start justify-between gap-4", style: { padding: "22px 3px 14px" } }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, photo.caption || "照片"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: "#666", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。")), h("button", { onClick: () => toggle(photo), className: "active:scale-90", style: { flex: "0 0 auto", width: 42, height: 42, borderRadius: 99, background: "#f2f2f7", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 20, color: isSaved(photo) ? "#ff375f" : "#777", filled: isSaved(photo) }))),
@@ -552,12 +555,35 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // 「我的」里是阅读档案：最爱的一本、本周读了多久、打算下一本读什么。
 // ============================================================
 const READ_PALETTES = [
-  { card: "#dcead6", tint: "#9dbf92", ink: "#39492f", spine: ["#bcd8b1", "#e6f0e0"], text: "#33422b" },
-  { card: "#ece7dd", tint: "#c3b8a3", ink: "#4a4335", spine: ["#e7e0d2", "#f6f2ea"], text: "#4a4335" },
-  { card: "#d7e2ea", tint: "#93aec2", ink: "#2f3d48", spine: ["#39424c", "#232a32"], text: "#f2f4f6", dark: true },
-  { card: "#efdde4", tint: "#d3aab9", ink: "#4d3a41", spine: ["#f0cfda", "#faeaf0"], text: "#4d3a41" },
-  { card: "#eae4cd", tint: "#c4b98d", ink: "#4a4632", spine: ["#e4dcbe", "#f4f0e2"], text: "#4a4632" }
+  { id: "sage",  accent: "#9dc49a", shelf: "rgba(157,196,154,.12)", rail: "rgba(157,196,154,.20)", spine: ["#a9c9a2", "#d0e0c7"], text: "#22301f" },
+  { id: "sand",  accent: "#d3bd91", shelf: "rgba(211,189,145,.12)", rail: "rgba(211,189,145,.20)", spine: ["#d6c39a", "#ebe0c5"], text: "#33291a" },
+  { id: "steel", accent: "#93b1cc", shelf: "rgba(147,177,204,.12)", rail: "rgba(147,177,204,.20)", spine: ["#9db7d0", "#c9d9e7"], text: "#1d2a35" },
+  { id: "rose",  accent: "#d3a2b0", shelf: "rgba(211,162,176,.12)", rail: "rgba(211,162,176,.20)", spine: ["#d6a9b6", "#edd1d9"], text: "#341f27" },
+  { id: "amber", accent: "#d9a97e", shelf: "rgba(217,169,126,.12)", rail: "rgba(217,169,126,.20)", spine: ["#dcae86", "#f1d7bc"], text: "#35240f" }
 ];
+// 深色阅读底：暖黑，不是纯灰黑（纯灰黑配暖色书脊会发脏）
+const READ_BG = "#15140f";
+const READ_CARD = "#1e1c16";
+const READ_INK = "#ece6d8";
+const READ_DIM = "rgba(236,230,216,.45)";
+const READ_LINE = "rgba(236,230,216,.13)";
+// 本周阅读目标环：颜色就是「离目标还有多远」，不用再写一行字解释
+const readGoalColor = p => p >= 1 ? "#8fc98a" : p >= 0.66 ? "#d7c07a" : p >= 0.33 ? "#dda86e" : "#d4826a";
+// 「7小时5分」→ 425
+const readMinutes = v => {
+  const str = String(v || "");
+  const hh = /(\d+)\s*(?:小时|个?小?时|h)/i.exec(str);
+  const mm = /(\d+)\s*(?:分钟|分|min)/i.exec(str);
+  const n = (hh ? Number(hh[1]) * 60 : 0) + (mm ? Number(mm[1]) : 0);
+  if (n) return n;
+  const bare = /^\s*(\d+(?:\.\d+)?)\s*$/.exec(str);
+  return bare ? Math.round(Number(bare[1]) * 60) : 0;
+};
+const readFmtMin = n => {
+  n = Math.max(0, Math.round(Number(n) || 0));
+  const hh = Math.floor(n / 60), mm = n % 60;
+  return hh ? hh + " 小时" + (mm ? " " + mm + " 分" : "") : mm + " 分";
+};
 function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const [tab, setTab] = useState("shelf");
   const [book, setBook] = useState(null);
@@ -565,6 +591,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const returnScroll = useRef({ top: 0, pending: false });
   const shelves = (Array.isArray(d && d.shelves) ? d.shelves : []).filter(x => x && typeof x === "object");
   const total = shelves.reduce((n, sh) => n + (Array.isArray(sh.books) ? sh.books.length : 0), 0);
+  const marked = shelves.reduce((n, sh) => n + (Array.isArray(sh.books) ? sh.books.filter(b => b && String(b.quote || "").trim()).length : 0), 0);
   const archive = (d && typeof d.archive === "object" && d.archive) || {};
   // 详情返回要回到原来的位置（.claude/rules/mobile-ui-layout.md §3）
   const openBook = (b, sh, i) => {
@@ -578,112 +605,143 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     returnScroll.current.pending = false;
     requestAnimationFrame(() => requestAnimationFrame(() => { if (scrollRef.current) scrollRef.current.scrollTop = top; }));
   }, [book, tab]);
-  const PAPER = "#efece4";
+  const palOf = i => READ_PALETTES[i % READ_PALETTES.length];
   const chrome = h("div", {
     className: "shrink-0 flex items-center px-4 pb-2",
-    style: { paddingTop: safeTop(10), minHeight: 54, background: PAPER }
-  }, h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#3a3730" })),
-  h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#3a3730" } }, char.remark || char.name),
-  h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#3a3730" })));
+    style: { paddingTop: safeTop(10), minHeight: 52, background: READ_BG }
+  }, h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: READ_INK })),
+  h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: READ_INK } }, tab === "shelf" ? "书架" : "阅读档案"),
+  h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演书架", className: "active:opacity-50 disabled:opacity-35 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: READ_INK })));
   // 左边那一列活页装订孔
   const rings = h("div", {
     "aria-hidden": "true",
-    style: { position: "absolute", left: 6, top: 16, bottom: 16, width: 14, display: "flex", flexDirection: "column", justifyContent: "space-around", pointerEvents: "none" }
-  }, [0, 1, 2, 3, 4, 5, 6].map(i => h("span", { key: i, style: { width: 11, height: 11, borderRadius: 99, border: "1.5px solid rgba(120,112,96,.28)" } })));
+    style: { position: "absolute", left: 5, top: 18, bottom: 14, width: 13, display: "flex", flexDirection: "column", justifyContent: "space-around", pointerEvents: "none" }
+  }, [0, 1, 2, 3, 4, 5, 6].map(i => h("span", { key: i, style: { width: 10, height: 10, borderRadius: 99, border: "1.5px solid rgba(236,230,216,.17)" } })));
+  // 书脊：深底上一律浅色书脊配深字——保证每一架都看得清，也不会有哪一架糊进背景
+  const spineStyle = (pal, w, ht) => ({
+    width: w, height: ht, borderRadius: "3px 8px 8px 3px", position: "relative", overflow: "hidden",
+    background: "linear-gradient(152deg," + pal.spine[0] + "," + pal.spine[1] + ")",
+    boxShadow: "0 8px 18px rgba(0,0,0,.42)", padding: "15px 12px", flexShrink: 0
+  });
+  const spineEdge = h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 8, background: "linear-gradient(90deg,rgba(0,0,0,.10),#fbf8f0 45%,#eee9dd)" } });
   const spine = (b, sh, i, pal) => h("button", {
-    key: i,
-    onClick: () => openBook(b, sh, i),
-    className: "shrink-0 active:opacity-70 text-left",
-    style: {
-      width: 108, height: 148, borderRadius: "3px 9px 9px 3px", position: "relative", overflow: "hidden",
-      background: `linear-gradient(150deg, ${pal.spine[0]}, ${pal.spine[1]})`,
-      boxShadow: "0 7px 16px rgba(60,54,40,.16)", padding: "16px 13px"
-    }
-  }, h("div", { "aria-hidden": "true", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: 9, background: "linear-gradient(90deg,rgba(0,0,0,.06),#fdfcf8 40%,#f1efe8)" } }),
+    key: i, onClick: () => openBook(b, sh, i), className: "active:opacity-70 text-left", style: spineStyle(pal, 106, 146)
+  }, spineEdge,
   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.35, color: pal.text, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", paddingRight: 6 } }, b.title || "无题"),
-  h("div", { style: { position: "absolute", left: 13, bottom: 14, right: 18, fontFamily: F_BODY, fontSize: 10, color: pal.dark ? "rgba(255,255,255,.68)" : "rgba(60,54,40,.55)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.author || ""));
+  h("div", { style: { position: "absolute", left: 12, bottom: 13, right: 17, fontFamily: F_BODY, fontSize: 10, color: "rgba(0,0,0,.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.author || ""));
   const shelfCard = (sh, si) => {
-    const pal = READ_PALETTES[si % READ_PALETTES.length];
+    const pal = palOf(si);
     const books = Array.isArray(sh.books) ? sh.books : [];
     const no = String(si + 1).padStart(2, "0");
-    return h("section", { key: si, style: { position: "relative", marginBottom: 26, paddingLeft: 26 } }, rings,
+    return h("section", { key: si, style: { position: "relative", marginBottom: 24, paddingLeft: 24 } }, rings,
       h("div", { className: "relative" },
-        h("div", { style: { background: pal.card, borderRadius: "14px 14px 0 0", padding: "14px 16px 30px", marginRight: 34 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: pal.ink } },
-            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 600, marginRight: 9 } }, no), sh.name || "没起名的一架"),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: "rgba(60,54,40,.42)", marginTop: 5 } }, "/ " + (sh.slug || "shelf"))),
-        h("div", { style: { position: "absolute", right: 0, top: 30, background: pal.card, borderRadius: "8px 8px 0 0", padding: "6px 10px", fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".12em", color: "rgba(60,54,40,.5)" } }, "NO. " + no),
+        h("div", { style: { background: pal.shelf, borderRadius: "13px 13px 0 0", padding: "13px 15px 28px", marginRight: 32, borderTop: "2px solid " + pal.accent } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18.5, lineHeight: 1.28, color: READ_INK } },
+            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 600, marginRight: 9, color: pal.accent } }, no), sh.name || "没起名的一架"),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: READ_DIM, marginTop: 5 } }, "/ " + (sh.slug || "shelf"))),
+        h("div", { style: { position: "absolute", right: 0, top: 28, background: pal.shelf, borderRadius: "8px 8px 0 0", padding: "6px 10px", fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".12em", color: pal.accent } }, "NO. " + no),
         h("div", {
           className: "flex gap-3 overflow-x-auto",
-          style: { marginTop: -18, padding: "14px 14px 16px", borderRadius: 14, background: pal.tint + "66", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }
+          style: { marginTop: -16, padding: "13px 13px 15px", borderRadius: 13, background: pal.rail, WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }
         }, books.length ? books.map((b, i) => spine(b, sh, i, pal))
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(60,54,40,.5)", padding: "48px 8px" } }, "这一架还是空的"))));
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: READ_DIM, padding: "48px 8px" } }, "这一架还是空的"))));
   };
-  const shelfPage = h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px", background: PAPER } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: "#3a3730", padding: "6px 0 2px 26px" } }, "书架"),
-    h("div", { className: "flex items-center gap-3", style: { padding: "10px 26px 18px" } },
-      h("div", { style: { flex: 1, height: 1, background: "rgba(120,112,96,.22)" } }),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(60,54,40,.5)" } }, "共 " + total + " 本书"),
-      h("div", { style: { flex: 1, height: 1, background: "rgba(120,112,96,.22)" } })),
-    shelves.length ? shelves.map(shelfCard) : h(Empty, { text: "书架还是空的", sub: "点右上角让他把书架摆出来" }));
-  const archRow = (label, main, sub) => h("div", { className: "py-4", style: { borderBottom: "1px solid rgba(120,112,96,.16)" } },
-    h("div", { className: "flex items-baseline gap-5" },
-      h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.5)" } }, label),
-      h("div", { className: "min-w-0" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: "#33302a", lineHeight: 1.3 } }, main || "—"),
-        sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(60,54,40,.5)", marginTop: 3 } }, sub) : null)));
+  const shelfPage = h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "2px 16px 20px", background: READ_BG } },
+    h("div", { className: "flex items-center gap-3", style: { padding: "8px 24px 16px" } },
+      h("div", { style: { flex: 1, height: 1, background: READ_LINE } }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: READ_DIM } }, "共 " + total + " 本书"),
+      h("div", { style: { flex: 1, height: 1, background: READ_LINE } })),
+    shelves.length ? shelves.map(shelfCard) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: READ_DIM } }, "书架还是空的，点右上角让他把书摆出来"));
+  // ── 阅读档案 ──
+  // iOS 图书那种目标环：颜色本身就是进度，不用再写一句「完成度 62%」
+  const goalRing = (pct, size) => {
+    const r = (size - 15) / 2, circ = 2 * Math.PI * r, p = Math.max(0, Math.min(1, pct));
+    const col = readGoalColor(p);
+    const cx = size / 2;
+    return h("svg", { width: size, height: size, viewBox: "0 0 " + size + " " + size, "aria-hidden": "true" },
+      h("circle", { cx: cx, cy: cx, r: r, fill: "none", stroke: "rgba(236,230,216,.10)", strokeWidth: 12 }),
+      h("circle", {
+        cx: cx, cy: cx, r: r, fill: "none", stroke: col, strokeWidth: 12, strokeLinecap: "round",
+        strokeDasharray: circ, strokeDashoffset: circ * (1 - p), transform: "rotate(-90 " + cx + " " + cx + ")"
+      }));
+  };
   const fav = (archive.favorite && typeof archive.favorite === "object") ? archive.favorite : {};
   const plan = (archive.plan && typeof archive.plan === "object") ? archive.plan : {};
-  const minePage = h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 22px 24px", background: PAPER } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: "#3a3730", padding: "6px 0 14px" } }, "阅读档案"),
-    archRow("最爱", fav.title, fav.author),
-    archRow("本周", archive.weekTime, null),
-    archRow("计划", plan.title, plan.author),
+  const doneMin = readMinutes(archive.weekTime);
+  const goalMin = readMinutes(archive.weekGoal) || 300;
+  const pct = goalMin ? doneMin / goalMin : 0;
+  const miniBook = (b, pal, label) => h("div", { className: "flex items-center gap-4" },
+    h("div", { style: spineStyle(pal, 62, 88) }, spineEdge,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 10.5, lineHeight: 1.3, color: pal.text, display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden", paddingRight: 4 } }, (b && b.title) || "—")),
+    h("div", { className: "flex-1 min-w-0" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, label),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: READ_INK, marginTop: 5 } }, (b && b.title) || "—"),
+      (b && b.author) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM, marginTop: 4 } }, b.author) : null));
+  const statCell = (n, label) => h("div", { className: "flex-1 text-center" },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: READ_INK } }, n),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: READ_DIM, marginTop: 3 } }, label));
+  const minePage = h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 22px", background: READ_BG } },
+    h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "22px 20px" } },
+      h("div", { className: "flex items-center gap-5" },
+        h("div", { style: { position: "relative", width: 108, height: 108, flexShrink: 0 } }, goalRing(pct, 108),
+          h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: READ_INK, lineHeight: 1 } }, Math.round(Math.min(1, pct) * 100) + "%"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: READ_DIM, marginTop: 4 } }, "本周目标"))),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, "这周读了"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: READ_INK, marginTop: 4 } }, archive.weekTime || readFmtMin(doneMin)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM, marginTop: 6 } },
+            pct >= 1 ? "已经超过他给自己定的 " + readFmtMin(goalMin) : "离 " + readFmtMin(goalMin) + " 还差 " + readFmtMin(goalMin - doneMin)))),
+      h("div", { className: "flex", style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid " + READ_LINE } },
+        statCell(total, "本书"), statCell(shelves.length, "个书架"), statCell(marked, "处划线"))),
+    h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 14 } }, miniBook(fav, palOf(0), "最爱的一本")),
+    h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 12 } }, miniBook(plan, palOf(2), "打算下一本读")),
     onPeek ? h("button", {
-      onClick: () => onPeek({ tier: "quiet", label: "阅读档案", title: "他最近在读的", text: [fav.title ? "最爱《" + fav.title + "》" : "", archive.weekTime ? "本周读了 " + archive.weekTime : "", plan.title ? "打算读《" + plan.title + "》" : ""].filter(Boolean).join("｜") }),
+      onClick: () => onPeek({ tier: "quiet", label: "阅读档案", title: "他最近在读的", text: [fav.title ? "最爱《" + fav.title + "》" : "", archive.weekTime ? "这周读了 " + archive.weekTime : "", plan.title ? "打算读《" + plan.title + "》" : ""].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
-      style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(120,112,96,.3)", color: "#3a3730" }
+      style: { marginTop: 18, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + READ_LINE, color: READ_INK }
     }, "转发给 TA · 他会知道你翻了手机") : null);
+  // 内页底栏：高度以主聊天输入栏为标尺（.claude/rules/mobile-ui-layout.md §2）——
+  // 只吃 0.4 条底部安全区，不许再 + Npx，也不给 minHeight 垫高
   const nav = h("div", {
     className: "shrink-0 grid grid-cols-2",
-    style: { padding: "5px 30px calc(env(safe-area-inset-bottom) * 0.4 + 4px)", minHeight: 54, background: "rgba(252,251,247,.97)", borderTop: "1px solid rgba(120,112,96,.18)" }
+    style: { padding: "5px 30px", paddingBottom: COMPOSER_PAD_BOTTOM, background: READ_CARD, borderTop: "1px solid " + READ_LINE }
   }, [["shelf", "书架"], ["mine", "我的"]].map(([k, label]) => h("button", {
     key: k, onClick: () => { setTab(k); setBook(null); },
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === k ? "#4a6b3f" : "rgba(60,54,40,.45)" }
-  }, h("div", { style: { width: 30, height: 22, borderRadius: 11, display: "flex", alignItems: "center", justifyContent: "center", background: tab === k ? "rgba(157,191,146,.42)" : "transparent" } },
-    h(PGlyph, { k: k === "shelf" ? "reading" : "liked", size: 15, color: tab === k ? "#3f5c36" : "rgba(60,54,40,.45)" })),
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === k ? "#9dc49a" : READ_DIM, paddingTop: 2, paddingBottom: 2 }
+  }, h("div", { style: { width: 30, height: 20, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: tab === k ? "rgba(157,196,154,.18)" : "transparent" } },
+    h(PGlyph, { k: k === "shelf" ? "reading" : "me", size: 14, color: tab === k ? "#9dc49a" : READ_DIM })),
   h("span", { style: { marginTop: 2 } }, label))));
   // 一本书的详情：书签 + 书名作者 + 读到 + 划的那句 + 批注
   const detail = book ? h("div", {
     className: "absolute inset-0 flex flex-col justify-center px-4",
-    style: { background: "rgba(58,55,48,.34)", zIndex: 30 },
-    onClick: closeBook
+    style: { background: "rgba(6,6,4,.62)", zIndex: 30 }, onClick: closeBook
   }, h("div", {
     onClick: e => e.stopPropagation(),
-    style: { background: "#faf7ef", borderRadius: 16, maxHeight: "82%", overflowY: "auto", boxShadow: "0 22px 50px rgba(40,36,28,.28)" }
-  }, h("div", { className: "relative flex items-center justify-between px-4", style: { minHeight: 62, borderBottom: "1px solid rgba(120,112,96,.16)" } },
-    h("button", { onClick: closeBook, "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 99, border: "1px solid rgba(120,112,96,.28)", fontSize: 15, color: "#6a6355" } }, "✕"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(60,54,40,.45)", textAlign: "right" } }, (book._shelf || "书架") + " · Vol." + String(book._no).padStart(2, "0")),
-    h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -12, marginLeft: -17, width: 34, height: 42, background: "#f2efe6", clipPath: "polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)" } })),
+    style: { background: READ_CARD, borderRadius: 16, maxHeight: "82%", overflowY: "auto", boxShadow: "0 22px 50px rgba(0,0,0,.55)" }
+  }, h("div", { className: "relative flex items-center justify-between px-4", style: { minHeight: 60, borderBottom: "1px solid " + READ_LINE } },
+    h("button", { onClick: closeBook, "aria-label": "关闭", className: "active:opacity-60 flex items-center justify-center", style: { width: 34, height: 34, borderRadius: 99, border: "1px solid " + READ_LINE, fontSize: 15, color: READ_DIM } }, "✕"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: READ_DIM, textAlign: "right" } }, (book._shelf || "书架") + " · Vol." + String(book._no).padStart(2, "0")),
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -11, marginLeft: -16, width: 32, height: 40, background: "#2a2720", clipPath: "polygon(0 0,100% 0,100% 100%,50% 76%,0 100%)" } })),
   h("div", { style: { padding: "22px 22px 26px" } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1.25, color: "#2f2c26" } }, book.title || "无题"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "rgba(60,54,40,.5)", marginTop: 7 } }, book.author || ""),
-    book.readAt ? h("div", { style: { marginTop: 20, borderLeft: "3px solid #9dbf92", background: "#f4f1e8", padding: "14px 16px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.45)" } }, "读到"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#2f2c26", marginTop: 6 } }, book.readAt)) : null,
-    book.quote ? h("div", { style: { marginTop: 12, borderLeft: "3px solid #c4b98d", background: "#f4f1e8", padding: "14px 16px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.45)" } }, "他划的一句"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: "#2f2c26", marginTop: 6 } }, book.quote)) : null,
-    book.note ? h("div", { style: { marginTop: 12, borderLeft: "3px solid #d3aab9", background: "#f4f1e8", padding: "14px 16px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(60,54,40,.45)" } }, "批注"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: "#2f2c26", marginTop: 6, whiteSpace: "pre-wrap" } }, book.note)) : null,
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1.25, color: READ_INK } }, book.title || "无题"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: READ_DIM, marginTop: 7 } }, book.author || ""),
+    book.readAt ? h("div", { style: { marginTop: 20, borderLeft: "3px solid #9dc49a", background: "rgba(157,196,154,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "读到"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: READ_INK, marginTop: 6 } }, book.readAt)) : null,
+    book.quote ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "他划的一句"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, book.quote)) : null,
+    book.note ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "批注"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, book.note)) : null,
     onPeek ? h("button", {
       onClick: () => onPeek({ tier: "quiet", label: "他读的书", title: "《" + (book.title || "") + "》" + (book.readAt ? " · " + book.readAt : ""), text: [book.quote ? "他划了：" + book.quote : "", book.note].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
-      style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(120,112,96,.3)", color: "#3a3730" }
+      style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + READ_LINE, color: READ_INK }
     }, "转发给 TA · 他会知道你翻了手机") : null))) : null;
-  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: PAPER } },
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: READ_BG } },
     chrome, tab === "shelf" ? shelfPage : minePage, nav, detail);
 }
 function renderPhoneModule(key, d, ctx) {
@@ -1812,8 +1870,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
         + "【每本都要有】title、author；readAt = 他读到哪儿（「卷七·饮食果子」「第 3 章」「214 页」都行，**允许有几本写「还没翻开」或「读了两页就放下了」**）；note = 他的批注，40-90 字，第一人称。\n"
         + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头（比如「改天带你去城南找找，看能不能把书里的几样凑齐」）。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
         + "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n"
-        + "【阅读档案 archive】favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；plan = 他打算下一本读的（title+author）。",
-      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"卷七·饮食果子\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}",
+        + "【阅读档案 archive】favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；weekGoal = **他给自己定的每周阅读目标**（同样格式，如「5小时」；定得高还是低本身就是这个人的样子，也完全允许他这周没读到）；plan = 他打算下一本读的（title+author）。",
+      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"卷七·饮食果子\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}",
       maxTokens: 30000
     },
     liked: {

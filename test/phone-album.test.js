@@ -36,7 +36,10 @@ test("图库按真实年月分组且禁止相对星期日期", () => {
 });
 
 test("相册底栏沿用聊天输入栏的四成安全区，不再垫高一截", () => {
-  assert.match(phone, /padding: "5px 20px calc\(env\(safe-area-inset-bottom\) \* 0\.4 \+ 4px\)"/);
+  // 原来钉的是 "...* 0.4 + 4px" 加 minHeight:54——那还是在垫高，和这条测试自己的名字打架。
+  // mobile-ui-layout.md §2 要求以主聊天输入栏为标尺：只吃 0.4 条安全区，不加 Npx、不用 minHeight。
+  assert.match(phone, /paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba\(250,250,252,\.97\)"/);
+  assert.doesNotMatch(phone, /safe-area-inset-bottom\) \* 0\.4 \+ 4px/);
   assert.doesNotMatch(phone, /padding: "7px 20px calc\(env\(safe-area-inset-bottom\) \+ 7px\)"/);
 });
 

@@ -141,13 +141,73 @@ test("阅读：书架页、我的页、点开一本书的详情页都能渲", ()
   assert.doesNotThrow(() => loadPhone({ 1: b }).ReadingView(noPeek), "没有 onPeek 时书详情炸了");
 });
 
-test("五个书架各有自己的配色，且深色那一档字是浅的", () => {
+// 深色阅读模式（她 2026-08-29：「书架背景做深色阅读模式的颜色，
+// 确保书架的书颜色在深色模式下不会打架、不会显示不明显」）
+const lum = hex => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255;
+};
+test("书架是深色阅读底，五档配色齐全", () => {
   const P = loadPhone();
   assert.equal(P.READ_PALETTES.length, 5);
+  assert.ok(lum(P.READ_BG) < 0.2, "背景不够深，不像阅读模式：" + P.READ_BG);
+  assert.ok(lum(P.READ_INK) > 0.75, "正文色在深底上不够亮：" + P.READ_INK);
   P.READ_PALETTES.forEach((p, i) => {
-    assert.ok(p.card && p.ink && p.text && Array.isArray(p.spine) && p.spine.length === 2, "第 " + i + " 档配色不全");
+    assert.ok(p.id && p.accent && p.shelf && p.rail && p.text, "第 " + i + " 档配色不全");
+    assert.ok(Array.isArray(p.spine) && p.spine.length === 2, "第 " + i + " 档没有书脊渐变");
   });
-  assert.equal(P.READ_PALETTES.filter(p => p.dark).length, 1, "深色书脊应当只有一档");
+});
+
+test("深底上没有一架书会糊掉，书脊上的字也读得出来", () => {
+  const P = loadPhone();
+  const bg = lum(P.READ_BG);
+  P.READ_PALETTES.forEach(p => {
+    p.spine.forEach(c => {
+      const l = lum(c);
+      assert.ok(l !== null, p.id + " 的书脊色不是六位十六进制：" + c);
+      // 书脊必须比背景亮一大截，否则整架书糊进深色背景里
+      assert.ok(l - bg > 0.35, p.id + " 的书脊 " + c + " 在深底上太暗，会看不见");
+    });
+    // 浅书脊配深字：书名才读得出来
+    assert.ok(lum(p.spine[0]) - lum(p.text) > 0.35, p.id + " 书脊和书名字色对比不够");
+    // 五档亮度要拉平，不能有哪一架明显比别人暗
+    assert.ok(Math.abs(lum(p.spine[0]) - lum(P.READ_PALETTES[0].spine[0])) < 0.16, p.id + " 这一架和别人亮度差太多，会显得它没内容");
+  });
+});
+
+test("阅读档案有本周目标环，颜色就是完成度", () => {
+  const P = loadPhone();
+  assert.equal(P.readMinutes("7小时5分"), 425);
+  assert.equal(P.readMinutes("5小时"), 300);
+  assert.equal(P.readMinutes("20分钟"), 20);
+  assert.equal(P.readMinutes(""), 0);
+  assert.equal(P.readFmtMin(425), "7 小时 5 分");
+  assert.equal(P.readFmtMin(300), "5 小时");
+  assert.equal(P.readFmtMin(20), "20 分");
+  // 差得远是暖红，接近是琥珀，达标是绿——四档互不相同
+  const cols = [0.1, 0.4, 0.8, 1.2].map(P.readGoalColor);
+  assert.equal(new Set(cols).size, 4, "目标环的四档颜色应当互不相同");
+  assert.equal(P.readGoalColor(1), P.readGoalColor(2), "达标之后就一直是达标色");
+  // 环本身要画得出来
+  assert.match(SRC, /strokeDashoffset: circ \* \(1 - p\)/);
+  assert.match(SRC, /readMinutes\(archive\.weekGoal\) \|\| 300/);
+});
+
+test("顶栏写的是「书架 / 阅读档案」，不是角色名", () => {
+  assert.match(SRC, /tab === "shelf" \? "书架" : "阅读档案"/);
+});
+
+test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () => {
+  // .claude/rules/mobile-ui-layout.md §2
+  const navs = SRC.match(/const nav = h\("div", \{[\s\S]{0,400}?\}\s*\}/g) || [];
+  assert.ok(navs.length >= 2, "阅读和相册各该有一条内页底栏");
+  navs.forEach(n => {
+    assert.ok(n.includes("paddingBottom: COMPOSER_PAD_BOTTOM"), "底栏没用输入栏那把尺：" + n.slice(0, 90));
+    assert.ok(!/safe-area-inset-bottom\) \* 0\.4 \+ \d/.test(n), "底栏又在 +Npx 垫高");
+    assert.ok(!/minHeight: 5\d/.test(n), "底栏又用 minHeight 垫高");
+  });
 });
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
