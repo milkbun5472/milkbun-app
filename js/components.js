@@ -3705,6 +3705,10 @@ function ChatThread({
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(FicShareCard, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    if (m.kind === "phonepeek") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(PhonePeekCard, { m: m, isU: m.role === "user" }),
+      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h("div", {
@@ -5319,6 +5323,20 @@ function ForumShareCard({ m, isU }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.3, color: t.ink, marginTop: 5 } }, p.title || ""),
         p.body && h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: t.sub, marginTop: 4 } }, p.body),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, p.anon ? "匿名 · " + (p.authorName || "") : (p.authorName || "")))));
+}
+// 查手机偷看卡：她把他手机里的一样东西摆到了他面前。
+// tier 决定这张卡长什么样——藏起来的那一档要一眼看得出气氛不一样。
+function PhonePeekCard({ m, isU }) {
+  const t = useTheme();
+  const p = m.peek || {};
+  const hid = p.tier === "hidden";
+  return h("div", { className: "py-1 flex " + (isU ? "justify-end" : "justify-start") },
+    h("div", { style: { width: 242, borderRadius: 14, overflow: "hidden", background: hid ? "rgba(182,71,60,.07)" : t.bg2, border: "1px solid " + (hid ? "rgba(182,71,60,.32)" : t.line) } },
+      h("div", { className: "px-3.5 pt-3 pb-3" },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.16em", color: hid ? "#b6473c" : t.fog } }, "翻他手机 · " + (p.label || "")),
+        p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.3, color: t.ink, marginTop: 5 } }, p.title),
+        p.text && h("div", { className: "line-clamp-3", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 4 } }, p.text),
+        hid && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b6473c", marginTop: 7 } }, "这是他藏起来的"))));
 }
 // 同人文分享卡
 function FicShareCard({ m, isU }) {

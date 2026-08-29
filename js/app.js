@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.45";
+const APP_VERSION = "v57.46";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8064,7 +8064,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (Date.now() - (ts[kind] || 0) < 4 * 3600000) return;
     ts[kind] = Date.now(); saveJSON("x_ambientTs", ts);
     try {
-      if (kind === "forum") { const bs = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
+      // 匿名吧原来和别的版块等权（1/6），而匿名吧整批都是匿名身份——这是匿名占比过高的
+      // 第三个来源。按真实论坛的样子加权：日常/吐槽/兴趣是主流，匿名吧只留一格。
+      if (kind === "forum") { const bs = ["吐槽吧", "吐槽吧", "日常吧", "日常吧", "求助吧", "兴趣吧", "兴趣吧", "脑洞吧", "脑洞吧", "匿名吧"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
       else if (kind === "moments") { if (characters.length) await genMoment(characters[Math.floor(Math.random() * characters.length)]); }
       else if (kind === "whisper") { const ps = liveChars.filter(c => couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
     } catch (e) {/* 静默 */}
@@ -8081,11 +8083,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 别重复上一贴（她 2026-07-24：都在线下、发的帖和上次一样）：把 TA 自己最近那贴喂进去当"要避开的"，逼它写新事
       const myLast = (forumPostsRef.current || []).filter(p => p.authorId === char.id).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
       const myAutoPosts = (forumPostsRef.current || []).filter(p => p.authorId === char.id && p.triggerSource === "auto");
-      const forceAnon = myAutoPosts.length >= 2 && (myAutoPosts.length % 5 === 2) && !myAutoPosts.slice(0, 5).some(p => p.board === "匿名吧");
+      // 原来是 1/5 帖强制匿名、且只看最近 5 帖有没有匿名过——叠上「模型自己也会挑匿名」
+      // 和「随机版块 1/6 命中匿名吧」，最后匿名占比高得离谱（她 2026-08-29 报）。压到 1/9，
+      // 回看窗口拉到 8 帖：匿名要稀有才有分量，天天匿名等于没有匿名。
+      const forceAnon = myAutoPosts.length >= 4 && (myAutoPosts.length % 9 === 4) && !myAutoPosts.slice(0, 8).some(p => p.board === "匿名吧");
       const forumHabit = charForumMeta(char);
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。【Ta 长期稳定的论坛习惯】常逛：" + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + "；通常偏向：" + (forumHabit.identityBias === "alt" ? "固定小号" : "大号") + "。优先按习惯行动，但遇到真正不适合常用身份的内容可以例外。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
+        instruction: "以「" + char.name + "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一），并自行决定 identity=main（大号）、alt（固定小号）或 anonymous（匿名；匿名吧必须用 anonymous）。\n【三个身份怎么分工·她 2026-08-29 报「有些角色从来没用过大号，匿名比例也很大」】**大号是他在论坛上的默认身份，十次里有七八次都该是 main**——日常、兴趣、吐槽、求助本来就不需要遮，真人绝大多数话都是顶着自己的名字说的。固定小号只在【不想让认识他的人看见、但也算不上见不得人】时才用（太幼稚、太丧、和公开形象不符）。匿名只留给【这件事绝不能和他这个人产生任何关联】的极少数时候。**别因为内容稍微私人一点就躲进小号或匿名**——那不是谨慎，那是把这个人从论坛上抹掉了。\n【Ta 长期稳定的论坛习惯】常逛：" + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + "；真需要遮一下的时候，他习惯用" + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat,
         schemaHint: "{\"board\":\"吐槽/日常/求助/兴趣/脑洞/匿名 之一\",\"identity\":\"main|alt|anonymous\",\"title\":\"标题\",\"body\":\"正文2-4句\"}"
       });
       // 模型可能回「吐槽」也可能回「吐槽吧」，统一归到四版块的正式名（否则帖子 board 不在 FORUM_BOARDS，版块/关注页都筛不到）
@@ -9118,6 +9123,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const fresh = {};
     for (const key of keys) {
       try {
+        setGen(g => ({ ...g, phoneApp: "__all__:" + key }));
         const avoid = phoneRoundDigest(fresh, key);
         const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid));
         fresh[key] = d;
@@ -9381,16 +9387,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const FORUM_ALT_NAMES = ["潮汐背面", "纸箱里的月亮", "低电量漫游", "未读草稿", "玻璃杯沿", "倒数第二排", "雨停再走", "临时观众", "不响的铃", "偏航一厘米", "凌晨便利店", "折叠地图"];
   const FORUM_HABIT_PRESETS = [
     { boards: ["日常吧", "兴趣吧"], participation: "潜水为主，碰到真有兴趣的细节才回", replyStyle: "短评、偶尔分享自己的小经验", identityBias: "main" },
-    { boards: ["吐槽吧", "脑洞吧"], participation: "爱接梗和盖楼，较少认真开长帖", replyStyle: "嘴快、有梗，但正事会收", identityBias: "alt" },
+    { boards: ["吐槽吧", "脑洞吧"], participation: "爱接梗和盖楼，较少认真开长帖", replyStyle: "嘴快、有梗，但正事会收", identityBias: "main" },
     { boards: ["求助吧", "兴趣吧"], participation: "更爱认真回复别人，自己发帖不频繁", replyStyle: "具体、分点、反感空话", identityBias: "main" },
-    { boards: ["匿名吧", "日常吧"], participation: "平时安静，积累到有话才发", replyStyle: "克制，只说自己确定的部分", identityBias: "alt" },
-    { boards: ["兴趣吧", "脑洞吧"], participation: "会主动开话题，也愿意跟熟楼", replyStyle: "好奇、会追问具体细节", identityBias: "alt" },
+    { boards: ["日常吧", "求助吧"], participation: "平时安静，积累到有话才发", replyStyle: "克制，只说自己确定的部分", identityBias: "alt" },
+    { boards: ["兴趣吧", "脑洞吧"], participation: "会主动开话题，也愿意跟熟楼", replyStyle: "好奇、会追问具体细节", identityBias: "main" },
     { boards: ["吐槽吧", "求助吧"], participation: "看得多回得少，遇到原则问题会开口", replyStyle: "直接、有边界、不跟风", identityBias: "main" }
   ];
   const charForumMeta = c => { const m = (forumCharMetaRef.current[c.id]) || {}; const hh = forumHash(c.id); const altName = m.altName || FORUM_ALT_NAMES[hh % FORUM_ALT_NAMES.length]; const habit = FORUM_HABIT_PRESETS[hh % FORUM_HABIT_PRESETS.length]; return { handle: m.handle || c.name, bio: m.bio != null ? m.bio : (c.motto || ""), joinTs: m.joinTs || (FORUM_EPOCH + (hh % 600) * 86400000), following: m.following != null ? m.following : (20 + hh % 380), followers: m.followers != null ? m.followers : (300 + (hh * 7) % 60000), altName, altHandle: m.altHandle || ("side_" + hh.toString(36).slice(0, 6)), altBio: m.altBio || (habit.participation + "。" + habit.replyStyle), altAvatarSeed: m.altAvatarSeed || ((m.altHandle || "side_" + hh.toString(36)) + ":mask"), altJoinTs: m.altJoinTs || (FORUM_EPOCH + ((hh * 13) % 760) * 86400000), altFollowing: m.altFollowing != null ? m.altFollowing : (8 + hh % 140), altFollowers: m.altFollowers != null ? m.altFollowers : (30 + (hh * 11) % 6800), boardPrefs: Array.isArray(m.boardPrefs) && m.boardPrefs.length ? m.boardPrefs : habit.boards, participation: m.participation || habit.participation, replyStyle: m.replyStyle || habit.replyStyle, identityBias: m.identityBias || habit.identityBias }; };
   // 在逛论坛的角色（默认全部；被 forumOff 关掉的不算）
   const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id));
-  const forumCharList = () => forumActiveChars().map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜常用" + (m.identityBias === "alt" ? "小号" : "大号") + "）"; }).join("；");
+  const forumCharList = () => forumActiveChars().map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；");
   const toggleForumChar = charId => setForumOff(prev => { const n = prev.includes(charId) ? prev.filter(x => x !== charId) : [...prev, charId]; saveJSON("x_forumOff", n); return n; });
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   const forumWorldCtx = () => ({ char: { name: "论坛网友", persona: "你在推演这个世界里形形色色的普通网友，不是某个特定角色，风格各异。" }, chars: characters, rels, worldbook, profile, timeAware: prefs.timeAware });
@@ -9805,6 +9811,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       ts: Date.now(), read: false
     }]);
     toast("已转发给 " + (toChar.remark || toChar.name));
+  };
+  // ───────── 查手机 · 转发给他 ─────────
+  // 她 2026-08-29 拍板：**只有转发才注入**。不许把每次刷手机刷出来的一堆东西常驻上下文——
+  // 那既贵又假（他会莫名其妙知道她根本没看过的东西）。
+  // 真正的难点不是把内容送过去，是送过去时【语境是她翻了他的手机】。同一条信息，
+  // 他给你看过的、他没说但你看得见的、他压根藏起来的，三种反应完全不同。
+  // 框架整个写进 content：它跟着这条消息本身走，所以单聊线上、线下、群里读到的都是同一份，
+  // 不必在四处各挂一个钩子（.claude/rules/four-surfaces-same-context.md）。
+  const PHONE_PEEK_TAG = {
+    open: "｜（这东西他本来就没瞒着你，就当她随口提起。）",
+    quiet: "｜（**他没告诉过你这个，是她自己翻你手机翻到的。**他此刻在意的多半不是这条内容本身，而是「她翻过我手机、还翻到了这里」。不动声色、笑着揭过去、反问她还看了什么、恼、或者干脆坦白——按你的人设和你俩现在的关系来，别一上来就配合地把内容解释一遍。）",
+    hidden: "｜（**这是他藏起来的东西**：匿名的／小号的／深夜的／删掉的／设了私密的。他从没打算让任何人看到，尤其是她。现在被摆到台面上了。**这一刻发生的不是「她问了个问题」，是「他被撞破了」。**你有权不答、反问、翻脸、装作没听懂，也有权承认；唯独不许像客服一样顺从地解释一遍。）"
+  };
+  const forwardPhonePeekToChat = (char, peek) => {
+    if (!char || !peek) return;
+    const tier = PHONE_PEEK_TAG[peek.tier] ? peek.tier : "quiet";
+    const label = String(peek.label || "手机");
+    const title = String(peek.title || "").replace(/\s+/g, " ").trim().slice(0, 60);
+    const text = String(peek.text || "").replace(/\s+/g, " ").trim().slice(0, 300);
+    pChat(char.id, p => [...p, {
+      role: "user", kind: "phonepeek",
+      peek: { label, title, text, tier },
+      content: "[我翻了你的手机]在你的〈" + label + "〉里看到了："
+        + (title ? "《" + title + "》" : "") + (text ? (title ? "｜" : "") + text : "") + PHONE_PEEK_TAG[tier],
+      ts: Date.now(), read: false
+    }]);
+    toast("已转发给 " + (char.remark || char.name) + "（他会知道你翻了手机）");
   };
   // 转发帖子到群聊：只 push 卡片（群反应可由用户点「让他们回复」触发）
   const forwardPostToGroup = (post, groupId) => {
@@ -12407,7 +12440,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     playlistFor: cid => (listen.playlists || []).find(x => x.charId === cid) || null,
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
-    onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); }
+    onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },
+    onPeek: forwardPhonePeekToChat
   });else if (screen === "carry") body = h(Carry, {
     characters: liveChars,
     carry: carry,

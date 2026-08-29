@@ -182,7 +182,7 @@ function PGlyph({
 }
 
 // 点开某条看细节的通用 sheet 内容（在事件里构造，需显式传 t）
-const DetailSheet = (title, body, t) => h("div", null, h(Eyebrow, {
+const DetailSheet = (title, body, t, foot) => h("div", null, h(Eyebrow, {
   style: {
     marginBottom: 8
   }
@@ -194,8 +194,8 @@ const DetailSheet = (title, body, t) => h("div", null, h(Eyebrow, {
     color: t.ink,
     whiteSpace: "pre-wrap"
   }
-}, body || "（无内容）"));
-const RecSheet = (it, t) => h("div", null, h(Eyebrow, {
+}, body || "（无内容）"), foot || null);
+const RecSheet = (it, t, foot) => h("div", null, h(Eyebrow, {
   style: {
     marginBottom: 8
   }
@@ -225,7 +225,7 @@ const RecSheet = (it, t) => h("div", null, h(Eyebrow, {
     color: t.sub,
     fontStyle: "italic"
   }
-}, it.thought)));
+}, it.thought)), foot || null);
 const WeChatThread = (c, char, t) => h("div", null, h(Eyebrow, {
   style: {
     marginBottom: 12
@@ -465,7 +465,16 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing }) {
   if (photo) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#fff" } }, chrome("照片", photo.date || photo.time || "日期未记", closePhoto), h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 20px 30px" } },
     h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1.12", borderRadius: 20, overflow: "hidden", boxShadow: "0 14px 32px rgba(0,0,0,.12)" } }, art(photo, 20)),
     h("div", { className: "flex items-start justify-between gap-4", style: { padding: "22px 3px 14px" } }, h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, color: "#111" } }, photo.caption || "照片"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: "#666", marginTop: 8, whiteSpace: "pre-wrap" } }, photo.desc || "没有留下介绍。")), h("button", { onClick: () => toggle(photo), className: "active:scale-90", style: { flex: "0 0 auto", width: 42, height: 42, borderRadius: 99, background: "#f2f2f7", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IHeart, { size: 20, color: isSaved(photo) ? "#ff375f" : "#777", filled: isSaved(photo) }))),
-    h("div", { style: { marginTop: 8, borderRadius: 17, background: "#f2f2f7", padding: "17px 18px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: "#8e8e93", marginBottom: 9 } }, char.name + " 对这张照片的想法"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#222", whiteSpace: "pre-wrap" } }, photo.thought || "TA 没有为这张照片留下想法。"))));
+    h("div", { style: { marginTop: 8, borderRadius: 17, background: "#f2f2f7", padding: "17px 18px" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: "#8e8e93", marginBottom: 9 } }, char.name + " 对这张照片的想法"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#222", whiteSpace: "pre-wrap" } }, photo.thought || "TA 没有为这张照片留下想法。")),
+    onPeek ? (function () {
+      // 私密和最近删除是他藏起来的；回忆/收藏/最近保存只是他没主动提起
+      const hid = photo.category === "private" || photo.category === "deleted";
+      return h("button", {
+        onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·最近删除" : photo.category === "private" ? "相册·私密" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
+        className: "w-full active:opacity-60",
+        style: { marginTop: 10, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (hid ? "rgba(200,80,70,.45)" : "#d9d9de"), color: hid ? "#b6473c" : "#333" }
+      }, hid ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机");
+    })() : null));
   if (opened) {
     const meta = albums.find(a => a.key === opened);
     const list = items.filter(p => p.category === opened);
@@ -524,10 +533,24 @@ function renderPhoneModule(key, d, ctx) {
     }
   }, kids);
   const arr = a => a || [];
+  // 【偷看转发】她 2026-08-29 定的规矩：手机里的东西不常驻上下文，**转发了才注入**，
+  // 而且注入时的语境必须是「她翻了他的手机」。tier 决定他该有什么反应：
+  //   open   = 他本来就没瞒着（歌单、大号发的帖）
+  //   quiet  = 你看得见但他没主动说（备忘录、购物、浏览器、录音、普通照片）
+  //   hidden = 他压根没打算让任何人知道（小号、匿名、深夜、私密、最近删除）
+  const peekFoot = (tier, label, title, text) => ctx.onPeek ? h("button", {
+    onClick: () => ctx.onPeek({ tier, label, title, text }),
+    className: "w-full mt-6 py-3 active:opacity-60",
+    style: {
+      fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13,
+      border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.45)" : t.line),
+      color: tier === "hidden" ? "#b6473c" : t.ink
+    }
+  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : tier === "open" ? "转发给 TA" : "转发给 TA · 他会知道你翻了手机") : null;
   if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
   if (key === "notes") return wrap(arr(d.items).map((it, i) => h("button", {
     key: i,
-    onClick: () => setSheet(DetailSheet(it.title, it.detail, t)),
+    onClick: () => setSheet(DetailSheet(it.title, it.detail, t, peekFoot("quiet", "备忘录", it.title, it.detail))),
     className: "w-full text-left py-3.5 flex items-start justify-between gap-3",
     style: line
   }, h("div", {
@@ -593,7 +616,7 @@ function renderPhoneModule(key, d, ctx) {
   }));
   if (key === "browser") return wrap(arr(d.items).map((it, i) => h("button", {
     key: i,
-    onClick: () => setSheet(DetailSheet(it.title, (it.url ? "🔗 " + it.url + "\n\n" : "") + (it.content || ""), t)),
+    onClick: () => setSheet(DetailSheet(it.title, (it.url ? "🔗 " + it.url + "\n\n" : "") + (it.content || ""), t, peekFoot("quiet", "浏览记录", it.title, it.content))),
     className: "w-full text-left py-3.5 flex items-start justify-between gap-3",
     style: line
   }, h("div", {
@@ -630,7 +653,7 @@ function renderPhoneModule(key, d, ctx) {
   }))));
   if (key === "shopping") return wrap(arr(d.items).map((it, i) => h("button", {
     key: i,
-    onClick: () => setSheet(DetailSheet(it.name, it.thought, t)),
+    onClick: () => setSheet(DetailSheet(it.name, it.thought, t, peekFoot("quiet", "购物", it.name + (it.price ? " " + it.price : ""), it.thought))),
     className: "w-full text-left py-3.5 flex items-start justify-between gap-3",
     style: line
   }, h("div", {
@@ -660,7 +683,7 @@ function renderPhoneModule(key, d, ctx) {
     size: 14,
     color: t.line
   })))));
-  if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
+  if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
   // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
@@ -680,12 +703,10 @@ function renderPhoneModule(key, d, ctx) {
         color: a.key === acc.key ? t.bg : t.sub
       }
     }, a.label + " · " + ((a.posts || []).length + (a.comments || []).length))));
-    const head = h("div", { className: "mb-5" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, acc.name || "—"),
-      h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, marginTop: 3 } }, acc.handle || ""),
-      acc.bio && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 7, lineHeight: 1.5 } }, acc.bio),
-      (acc.followers != null || acc.joinTs) && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } },
-        [acc.followers != null ? acc.followers + " 关注者" : "", acc.following != null ? "关注 " + acc.following : "", acc.joinTs ? fmtTs(acc.joinTs).slice(0, -6) + " 注册" : ""].filter(Boolean).join(" · ")));
+    // 顶部只留一行小字：名字进顶栏了，这里不再重复一遍大标题（mobile-ui-layout.md §1）
+    const head = h("div", { className: "mb-3", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
+      [acc.handle || "", acc.followers != null ? acc.followers + " 关注者" : "", acc.joinTs ? fmtTs(acc.joinTs).slice(0, -6) + " 注册" : ""].filter(Boolean).join(" · "),
+      acc.bio ? h("div", { style: { color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, acc.bio) : null);
     const postRow = (it, i) => h("button", {
       key: "p" + i,
       onClick: () => setSheet(h("div", null,
@@ -696,7 +717,8 @@ function renderPhoneModule(key, d, ctx) {
           h(Eyebrow, { style: { marginBottom: 8 } }, "楼下 " + it.replyCount + " 条"),
           arr(it.replies).map((r, j) => h("div", { key: j, className: "py-2", style: { borderTop: "1px solid " + t.line } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: r.mine ? t.accent : t.fog } }, r.name + "："),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, r.text)))) : null)),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, r.text)))) : null,
+        peekFoot(acc.key === "main" ? "open" : "hidden", acc.key === "main" ? "论坛（大号）" : acc.key === "alt" ? "论坛小号「" + (acc.name || "") + "」" : "论坛匿名帖", it.title, it.body))),
       className: "w-full text-left py-3.5 active:opacity-60",
       style: line
     }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.4 } }, it.title),
@@ -727,15 +749,23 @@ function renderPhoneModule(key, d, ctx) {
       className: "w-full mt-4 py-3 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: ctx.playlistBusy ? .5 : 1 }
     }, ctx.playlistBusy ? "正在想他会听什么…" : "给他生成一张"));
+    // 歌单名进顶栏了，这里不再放一块大字（mobile-ui-layout.md §1：普通子页面用紧凑标题栏）
     return h("div", { style: { animation: "fadeUp .3s ease both" } },
-      h("div", { className: "mb-5" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, pl.name || "歌单"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, songs.length + " 首 · 和「一起听」里是同一张")),
+      h("div", { className: "mb-2", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, songs.length + " 首 · 和「一起听」是同一张"),
       songs.map((s, i) => {
         const note = String(s.note || "").trim();
         return h("button", {
           key: s.id || i,
-          onClick: () => ctx.onPlaySong && ctx.onPlaySong(s),
+          onClick: () => setSheet(h("div", null,
+            h(Eyebrow, { style: { marginBottom: 8 } }, s.title),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, s.artist),
+            note && h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, marginTop: 14 } }, note),
+            h("button", {
+              onClick: () => ctx.onPlaySong && ctx.onPlaySong(s),
+              className: "w-full mt-6 py-3 active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
+            }, "放这首"),
+            peekFoot("open", "歌单", s.title + (s.artist ? " · " + s.artist : ""), note))),
           className: "w-full text-left py-2.5 flex items-start gap-3 active:opacity-60",
           style: { borderTop: `1px solid ${t.line}` }
         }, h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: t.fog, width: 20, paddingTop: 3 } }, String(i + 1).padStart(2, "0")),
@@ -813,7 +843,7 @@ function renderPhoneModule(key, d, ctx) {
   }
   if (key === "recordings") return wrap(arr(d.items).map((it, i) => h("button", {
     key: i,
-    onClick: () => setSheet(RecSheet(it, t)),
+    onClick: () => setSheet(RecSheet(it, t, peekFoot("quiet", "录音", it.name, it.transcript))),
     className: "w-full text-left py-3.5 flex items-center justify-between gap-3",
     style: line
   }, h("div", {
@@ -915,7 +945,7 @@ function renderPhoneModule(key, d, ctx) {
   }, (v.up || "") + (v.tag ? " · " + v.tag : ""))))));
   if (key === "video_night") return wrap(arr(d.items).map((v, i) => h("button", {
     key: i,
-    onClick: () => setSheet(DetailSheet(v.title, v.thought, t)),
+    onClick: () => setSheet(DetailSheet(v.title, v.thought, t, peekFoot("hidden", "深夜看的视频", v.title, v.thought))),
     className: "w-full text-left py-3 flex gap-3",
     style: {
       borderTop: `1px solid ${t.line}`
@@ -1062,9 +1092,9 @@ function PhoneApp({
     }) : h(Spinner, {
       label: "正在读取…"
     }));
-  } else if (loading) content = h(Spinner, {
+  } else if (loading && !data) content = h(Spinner, {
     label: "正在读取 " + zh + "…"
-  });else if (!data) content = h(Spinner, {
+  });else if (!data && !isLive) content = h(Spinner, {
     label: "正在读取 " + zh + "…"
   });else content = renderPhoneModule(appKey, data, {
     t,
@@ -1080,12 +1110,33 @@ function PhoneApp({
   });
   // 接真数据的 app 没有「重刷」这回事——它跟着他真去论坛发帖、真加歌单在变。
   const refreshKey = isLive ? null : isVideo ? vtab ? "video_" + vtab : null : appKey;
+  const liveTitle = appKey === "music"
+    ? (((live || {}).playlist || {}).name || "音乐")
+    : (() => { const a = ((live || {}).forumAccounts || []).find(x => x.key === forumTab); return a ? a.label + " · " + (a.name || "") : "论坛"; })();
   return h("div", {
     className: "h-full flex flex-col",
     style: {
       background: t.bg
     }
-  }, appKey !== "wechat" && appKey !== "album" && h(Head, {
+  },
+  // 紧凑标题栏：返回键 + 居中小标题 + 右侧等宽操作位（.claude/rules/mobile-ui-layout.md §1）。
+  // 论坛和音乐这两页的内容本来就是一长条列表，30px 大标题＋大段留白白吃掉小半屏；
+  // 名字（歌单名 / 当前账号）直接放进标题栏，正文里就不用再重复一遍
+  //（她 2026-08-29：「把顶部那一大块字删了，整体在屏幕显示多一点」）。
+  // 只改这两页，别的 app 维持原样——一次改一处，能亲眼验的才算数。
+  isLive ? h("div", {
+    className: "shrink-0 px-4 pb-2 flex items-center gap-2",
+    style: { background: t.bg, paddingTop: safeTop(8) }
+  }, h("button", {
+    onClick: onBack, className: "active:opacity-50 flex items-center justify-center",
+    style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回"
+  }, h(IArrow, { size: 19, color: t.ink })),
+  h("div", {
+    className: "flex-1 min-w-0 text-center",
+    style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+  }, liveTitle),
+  h("div", { style: { width: 40, height: 40 } })) :
+  appKey !== "wechat" && appKey !== "album" && h(Head, {
     zh,
     en: char.name,
     onBack,
@@ -1098,7 +1149,7 @@ function PhoneApp({
       color: t.ink
     }))
   }), h("div", {
-    className: appKey === "wechat" || appKey === "album" ? "flex-1 min-h-0 overflow-hidden" : "flex-1 overflow-y-auto px-6 py-4"
+    className: appKey === "wechat" || appKey === "album" ? "flex-1 min-h-0 overflow-hidden" : isLive ? "flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-5" : "flex-1 overflow-y-auto px-6 py-4"
   }, content), sheet && h(Sheet, {
     onClose: () => setSheet(null),
     tall: true
@@ -1121,7 +1172,8 @@ function PhoneCarry({
   playlistFor,
   onGenPlaylist,
   playlistBusyId,
-  onPlaySong
+  onPlaySong,
+  onPeek
 }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
@@ -1134,6 +1186,8 @@ function PhoneCarry({
   const isSeen = (cid, k) => !!(seen[cid] && seen[cid][k]);
   const markSeen = (cid, k) => setSeen(p => { const n = { ...p, [cid]: { ...(p[cid] || {}), [k]: true } }; saveJSON("x_phoneSeen", n); return n; });
   const clearSeen = cid => setSeen(p => { const n = { ...p }; delete n[cid]; saveJSON("x_phoneSeen", n); return n; });
+  const allNowKey = String(busyKey || "").indexOf("__all__") === 0 ? (String(busyKey).split(":")[1] || "__all__") : null;
+  const isAllRun = String(busyKey || "").indexOf("__all__") === 0;
   const char = characters.find(c => c.id === selId) || characters[0];
   if (!char) return h("div", {
     className: "h-full flex flex-col"
@@ -1180,7 +1234,9 @@ function PhoneCarry({
     playlist: livePlaylist,
     onGenPlaylist: () => onGenPlaylist && onGenPlaylist(char),
     playlistBusy: playlistBusyId === char.id,
-    onPlaySong: s => onPlaySong && onPlaySong(s)
+    onPlaySong: s => onPlaySong && onPlaySong(s),
+    // 偷看转发：手机里的东西只有【转发了】才进他的上下文（她 2026-08-29 定的）
+    onPeek: pk => onPeek && onPeek(char, pk)
   };
   const liveCount = k => k === "forum"
     ? (liveForum || []).reduce((n, a) => n + (a.posts || []).length + (a.comments || []).length, 0)
@@ -1229,7 +1285,9 @@ function PhoneCarry({
     appKey: open,
     char,
     charData: data,
-    busyKey: busyKey === "__all__" ? open : busyKey,
+    // 全刷时 busyKey 是 "__all__:当前那个 key"。以前不分是谁，一律当成「打开的这个正在生成」，
+    // 于是全刷期间随便点哪个 app 都是一个转不完的圈，看起来就像卡死了（她 2026-08-29 报音乐打不开）。
+    busyKey: allNowKey || busyKey,
     onGen: onGenApp,
     profile,
     actualWechat: actualWechatFor ? actualWechatFor(char) : [],
@@ -1269,7 +1327,7 @@ function PhoneCarry({
       }
     }, h(IRefresh, { size: 19, color: t.ink }), h("div", {
       style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginTop: 12 }
-    }, busyKey === "__all__" ? "正在翻整部手机…" : "刷新全部 App"));
+    }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻整部手机…") : "刷新全部 App"));
     const app = appByKey(key);
     const isScreen = key === "settings";
     return h("button", {
