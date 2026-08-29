@@ -13,11 +13,12 @@ test("查手机桌面是全屏双页、可横滑并保留底部 Dock", () => {
   assert.match(src, /deskRef\.current\.scrollTo/);
 });
 
-test("原有 11 个可查 App 没在桌面改造里丢入口", () => {
-  const all = [...src.matchAll(/key: "(wechat|notes|calls|browser|shopping|album|forum|music|settings|recordings|video)"/g)]
-    .map(m => m[1]);
-  const declared = [...new Set(all)];
-  assert.deepEqual(declared.sort(), ["album", "browser", "calls", "forum", "music", "notes", "recordings", "settings", "shopping", "video", "wechat"]);
+test("17 个可查 App 一个都没在桌面上丢入口", () => {
+  // v57.47 加了阅读/赞过/订单/健康/剪贴板/日历六个
+  const block = src.match(/const PHONE_APPS = \[([\s\S]*?)\n\];/)[1];
+  const declared = [...new Set([...block.matchAll(/key: "([a-z]+)"/g)].map(m => m[1]))];
+  assert.deepEqual(declared.sort(), ["album", "browser", "calendar", "calls", "clipboard", "forum", "health",
+    "liked", "music", "notes", "orders", "reading", "recordings", "settings", "shopping", "video", "wechat"]);
 
   const dock = src.match(/const PHONE_DOCK_KEYS = \[([^\]]+)\]/)[1];
   const pages = src.match(/const PHONE_DESKTOP_PAGES = \[([\s\S]*?)\n\];/)[1];
