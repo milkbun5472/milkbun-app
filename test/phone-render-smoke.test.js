@@ -233,14 +233,43 @@ test("阅读的推演任务把书架名、真书、批注三条都钉死了", ()
   assert.ok(spec.maxTokens >= 20000, "上限只有 " + spec.maxTokens + "，30 本书会被截断");
 });
 
-test("购物：整页、脏数据、无 onPeek 都能渲", () => {
+test("购物：四个页签、想买详情、脏数据、无 onPeek 都能渲", () => {
   const { FIXTURES: F } = require("./helpers/phone-render.js");
   const props = { d: F.shopping, char, t: { ink: "#111", bg: "#fff", bg2: "#eee", line: "#ddd", fog: "#999", sub: "#555" }, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
-  assert.doesNotThrow(() => loadPhone().ShoppingView(props), "购物页炸了");
+  // useState 顺序：0=tab, 1=sheet
+  ["home", "cart", "order", "mine"].forEach(k =>
+    assert.doesNotThrow(() => loadPhone({ 0: k }).ShoppingView(props), k + " 这一页炸了"));
+  // 想买清单的详情弹层
+  assert.doesNotThrow(() => loadPhone({ 1: { kind: "wish", it: F.shopping.wish[0] } }).ShoppingView(props), "想买详情炸了");
+  assert.doesNotThrow(() => loadPhone({ 1: { kind: "wish", it: {} } }).ShoppingView(props), "想买详情遇到空条目炸了");
   [null, {}, { account: 3, cart: "x", orders: [{ items: "x", tags: 5 }], addrs: [{}] }].forEach((d, i) =>
-    assert.doesNotThrow(() => loadPhone().ShoppingView({ ...props, d }), "脏数据 " + i + " 炸了"));
+    ["home", "cart", "order", "mine"].forEach(k =>
+      assert.doesNotThrow(() => loadPhone({ 0: k }).ShoppingView({ ...props, d }), "脏数据 " + i + " 在 " + k + " 页炸了")));
   const { onPeek, ...noPeek } = props;
-  assert.doesNotThrow(() => loadPhone().ShoppingView(noPeek), "没有 onPeek 时炸了");
+  assert.doesNotThrow(() => loadPhone({ 1: { kind: "wish", it: F.shopping.wish[0] } }).ShoppingView(noPeek), "没有 onPeek 时炸了");
+});
+
+test("购物分成四页，每一块内容都落在某一页里，没有孤儿", () => {
+  const m = SRC.match(/const PAGES = \[[\s\S]*?\n  \];/);
+  assert.ok(m, "找不到分页表");
+  const placed = m[0];
+  ["accountCard", "shipSec", "wishSec", "cartSec", "couponSec", "viewSec", "orderSec",
+   "habitSec", "shopSec", "addrSec", "giftSec", "monthSec"].forEach(sec =>
+    assert.ok(placed.includes(sec), sec + " 没被分到任何一页，会看不见"));
+  // 每一块只出现一次，别在两页里重复
+  ["accountCard", "cartSec", "orderSec", "monthSec"].forEach(sec =>
+    assert.equal((placed.match(new RegExp(sec, "g")) || []).length, 1, sec + " 在两页里重复了"));
+  // 底栏还是那把尺
+  assert.match(SRC, /className: "shrink-0 grid grid-cols-4",\n    style: \{ padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM/);
+});
+
+test("列表项点开是看，不是发——转发只在详情里那颗按钮上", () => {
+  // 她 2026-08-29：「想买清单我怎么点开想看全部备注直接发送了」
+  // 转发是不可逆动作，绝不能挂在列表项的 onClick 上
+  assert.match(SRC, /onClick: \(\) => setSheet\(\{ kind: "wish", it: it \}\)/);
+  assert.doesNotMatch(SRC, /onClick: \(\) => onPeek && onPeek\(/);
+  // 换页要回到顶部，但同一页开关详情不该把位置弄丢
+  assert.match(SRC, /useEffect\(\(\) => \{ if \(scrollRef\.current\) scrollRef\.current\.scrollTop = 0; \}, \[tab\]\)/);
 });
 
 test("购物的推演任务把「为什么想买」和「不是自己家的地址」钉死了", () => {

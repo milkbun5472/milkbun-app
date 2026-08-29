@@ -197,7 +197,9 @@ function PGlyph({
     health: [P("M2.5 12.5H6l2.2-6.4 3.3 12.4 2.6-8.2 1.6 2.2h5.8")],
     clipboard: [R(6, 3.5, 12, 17.5, 2.2), R(9, 1.6, 6, 4, 1.2), P("M9.5 11.5h5M9.5 15.5h3.5")],
     calendar: [R(3, 5, 18, 16, 2.4), P("M3 10h18M8 2.6v4.4M16 2.6v4.4")],
-    me: [C(12, 8, 3.7), P("M4.8 20.6a7.2 7.2 0 0114.4 0")]
+    me: [C(12, 8, 3.7), P("M4.8 20.6a7.2 7.2 0 0114.4 0")],
+    cart: [C(9.5, 20, 1.4), C(17.5, 20, 1.4), P("M2 3h3l2.6 12.2a1.6 1.6 0 001.6 1.3h8.4a1.6 1.6 0 001.6-1.3L21 7H6")],
+    orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")]
   };
   return h(Svg, {
     size,
@@ -756,6 +758,11 @@ const SHOP_DIM = "#9a9aa4";
 const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
 function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("home");
+  const [sheet, setSheet] = useState(null);
+  const scrollRef = useRef(null);
+  // 换页回到顶部；同一页内来回开详情不动位置
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const acc = (data.account && typeof data.account === "object") ? data.account : {};
@@ -833,7 +840,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const wishSec = wish.length ? h("section", { key: "wish" }, secTitle("想买清单", "种草 " + wish.length),
     h("div", { className: "grid grid-cols-2 gap-3", style: { marginBottom: 14 } }, wish.map((it, i) => h("button", {
       key: i, className: "text-left active:opacity-70",
-      onClick: () => onPeek && onPeek({ tier: "quiet", label: "想买清单", title: it.title, text: [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜") }),
+      // ⚠️点开是看，不是发。转发一律要走详情里那颗单独的按钮——
+      // 列表项直接触发转发是不可逆动作，手一滑就发出去了（她 2026-08-29 中招）。
+      onClick: () => setSheet({ kind: "wish", it: it }),
       style: { background: SHOP_CARD, borderRadius: 16, overflow: "hidden" }
     }, h("div", { style: { height: 96, background: "linear-gradient(150deg," + ["#c9c9d1", "#ffb79a", "#e6d7b6", "#c3d3e2", "#d8c6d6"][i % 5] + ",#f2f2f6)", display: "flex", alignItems: "center", justifyContent: "center" } },
       h("div", { style: { width: 46, height: 46, borderRadius: 13, background: "rgba(255,255,255,.62)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 19, color: "#5d5d66" } }, String(it.title || "?").trim().slice(0, 1))),
@@ -922,16 +931,60 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本月购物概况"),
     data.monthNote ? card(h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#3f3f47" } }, data.monthNote)) : null,
     data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "#a6a6ae", textAlign: "center", padding: "6px 14px 4px" } }, data.tail) : null) : null;
-  const anything = accountCard && (shipping.length || cart.length || wish.length || orders.length || shops.length || data.monthNote);
+  // ── 分页：照真购物 App 的样子分四页，别一屏拉到底 ──
+  const PAGES = [
+    { key: "home",  zh: "首页",   glyph: "shopping", secs: [accountCard, shipSec, wishSec] },
+    { key: "cart",  zh: "购物车", glyph: "cart",     secs: [cartSec, couponSec, viewSec], badge: cart.length },
+    { key: "order", zh: "订单",   glyph: "orders",   secs: [orderSec], badge: orders.length },
+    { key: "mine",  zh: "我的",   glyph: "me",       secs: [habitSec, shopSec, addrSec, giftSec, monthSec] }
+  ];
+  const page = PAGES.find(x => x.key === tab) || PAGES[0];
+  const body = page.secs.filter(Boolean);
+  const emptyWord = { home: "还没有购物记录，点右上角刷一次", cart: "购物车是空的", order: "还没有订单", mine: "还没有这个人的购物档案" }[page.key];
+  const nav = h("div", {
+    className: "shrink-0 grid grid-cols-4",
+    style: { padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e8e8ee" }
+  }, PAGES.map(pg => h("button", {
+    key: pg.key, onClick: () => { setTab(pg.key); setSheet(null); },
+    className: "flex flex-col items-center justify-center active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? SHOP_ORANGE : SHOP_DIM, paddingTop: 2, paddingBottom: 2 }
+  }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
+    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? SHOP_ORANGE : SHOP_DIM }),
+    pg.badge ? h("span", {
+      style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: SHOP_ORANGE, color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }
+    }, pg.badge > 99 ? "99+" : pg.badge) : null),
+  h("span", { style: { marginTop: 2 } }, pg.zh))));
   const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10), background: "transparent" } },
     h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.86)", boxShadow: "0 4px 14px rgba(30,25,20,.10)" } }, h(IArrow, { size: 19, color: SHOP_INK })),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, page.zh),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.86)", boxShadow: "0 4px 14px rgba(30,25,20,.10)" } }, h(IRefresh, { size: 18, color: SHOP_INK })));
+  // ── 详情弹层：看全文的地方，也是唯一能转发的地方 ──
+  const sheetNode = sheet && sheet.kind === "wish" ? (function () {
+    const it = sheet.it || {};
+    return h("div", {
+      className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,18,16,.42)", zIndex: 30 },
+      onClick: () => setSheet(null)
+    }, h("div", {
+      onClick: e => e.stopPropagation(),
+      style: { background: SHOP_CARD, borderRadius: "20px 20px 0 0", maxHeight: "84%", overflowY: "auto", padding: "20px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 20px)" }
+    }, h("div", { className: "flex items-start justify-between gap-3" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, "想买清单"),
+      h("button", { onClick: () => setSheet(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: SHOP_DIM, padding: "0 4px" } }, "✕")),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.4, color: SHOP_INK, marginTop: 10 } }, it.title || ""),
+    it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, marginTop: 7 } }, it.shop) : null,
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_ORANGE, marginTop: 10 } }, shopMoney(it.price)),
+    it.why ? h("div", { style: { background: "#f5f5f8", borderRadius: 13, padding: "14px 15px", marginTop: 16 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM } }, "他为什么想买"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "#3f3f47", marginTop: 7, whiteSpace: "pre-wrap" } }, it.why)) : null,
+    peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜"))));
+  })() : null;
   return h("div", {
-    className: "h-full min-h-0 flex flex-col",
+    className: "h-full min-h-0 flex flex-col relative",
     style: { background: "linear-gradient(178deg,#ffe6d8 0%,#eeeaf4 22%," + SHOP_BG + " 46%," + SHOP_BG + " 100%)" }
-  }, chrome, h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 28px" } },
-    accountCard, shipSec, cartSec, wishSec, orderSec, habitSec, shopSec, couponSec, viewSec, addrSec, giftSec, monthSec,
-    !anything ? h("div", { style: { padding: "50px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, "还没有购物记录，点右上角刷一次") : null));
+  }, chrome,
+  h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
+    body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord)),
+  nav, sheetNode);
 }
 function renderPhoneModule(key, d, ctx) {
   const {
