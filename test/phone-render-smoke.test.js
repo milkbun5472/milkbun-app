@@ -28,6 +28,25 @@ test("每个 app 都能拿着正常数据渲出来，一个都不炸", () => {
   });
 });
 
+test("每个 app 都真的被 renderPhoneModule 接住了，没有一个掉回 null", () => {
+  // v57.54 健康白屏就是这么漏出去的：组件写好了、冒烟测试直接调组件也过了，
+  // 但 renderPhoneModule 里那行挂载被我删旧代码时连带切掉，于是这个 key 掉到
+  // 函数末尾 return null——整页空白。测组件不等于测路由。
+  const { P, t, keys } = renderKeys();
+  keys.forEach(k => {
+    const node = P.renderPhoneModule(k, FIXTURES[k] || null, { ...ctxBase, t, ...LIVE });
+    assert.ok(node && typeof node === "object", k + " 没有被接住，会白屏");
+  });
+  // 每个自己画整屏的 app 都要挂到自己的组件上，不能只是 wrap 一个列表
+  [["wechat", "WeChatViewFull"], ["album", "AlbumView"], ["reading", "ReadingView"],
+   ["shopping", "ShoppingView"], ["takeout", "TakeoutView"], ["health", "HealthView"],
+   ["bili", "BiliView"], ["latenight", "LateNightView"], ["liked", "PlazaView"], ["calendar", "CalendarView"]]
+    .forEach(([k, comp]) => {
+      const node = P.renderPhoneModule(k, FIXTURES[k] || null, { ...ctxBase, t, ...LIVE });
+      assert.equal(node.type, comp, k + " 挂到了 " + node.type + "，不是 " + comp);
+    });
+});
+
 test("数据是空对象时也不炸（模型返回 {} 是常事）", () => {
   const { P, t, keys } = renderKeys();
   keys.forEach(k => assert.doesNotThrow(
@@ -119,7 +138,7 @@ test("避重抽取表能从新 app 的真实形状里抽出东西", () => {
     clipboard: FIXTURES.clipboard, calendar: FIXTURES.calendar, health: FIXTURES.health
   }, "notes").join("\n");
   assert.match(lines, /阅读：京华杂谈与消遣/);
-  assert.match(lines, /赞过：一个人吃饭的十种办法｜谁懂啊这把刀磨了三个月/);
+  assert.match(lines, /小红书：一个人吃饭的十种办法｜谁懂啊这把刀磨了三个月/);
   assert.match(lines, /购物：古法手作冰镇桂花糖糕组合/);
   assert.match(lines, /剪贴板：其实我/);
   assert.match(lines, /日历：去看眼睛/);
@@ -472,4 +491,39 @@ test("token 全放开：runProbe 的默认也不再是 2600", () => {
   assert.match(eng, /probe\.maxTokens \|\| \(window\.StylePresets && window\.StylePresets\.OUT_CEILING\) \|\| 65535/);
   const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
   assert.doesNotMatch(app, /maxTokens: 3600/);
+});
+
+test("B站详情页的返回键点得动——铺满的播放按钮不许吃掉点击", () => {
+  // 她 2026-08-29：「视频点进去退出键是死的」
+  assert.match(SRC, /inset: 0[^}]*pointerEvents: "none"/);
+  assert.match(SRC, /position: "absolute", zIndex: 2, left: 8, top: safeTop\(8\)/);
+});
+
+test("解析失败会自动重来一次，不用她自己点第二遍", () => {
+  const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.match(eng, /上一次的输出没能解析/);
+  assert.match(eng, /parsed = extractJSON\(again\)/);
+  // 重试仍失败才报错，且报的是原文
+  assert.match(eng, /if \(!parsed\) throw new Error\("解析失败：/);
+});
+
+test("手机里那两块大标题都换成紧凑栏了", () => {
+  // 她 2026-08-29：「进入手机主页那一大块角色名也删了」「查手机 whose phone 也删了」
+  assert.doesNotMatch(SRC, /en: "Whose Phone"/);
+  assert.doesNotMatch(SRC, /fontSize: 28, color: t\.ink, lineHeight: 1\.05/);
+  assert.match(SRC, /}, "查手机"\),/);
+});
+
+test("赞过改名小红书，界面也照小红书来", () => {
+  const P = loadPhone();
+  assert.equal(P.PHONE_LABEL.liked, "小红书");
+  // 顶部是居中的频道 tab，不是一个页名
+  assert.match(SRC, /const chans = \["发现"\]\.concat/);
+  assert.match(SRC, /borderBottom: i === chan \? "2px solid " \+ PLAZA_RED/);
+  // 卡片作者行带小头像
+  assert.match(SRC, /width: 17, height: 17, borderRadius: 99/);
+  // 详情底部是赞/收藏那条操作栏
+  assert.match(SRC, /"★ 收藏"/);
+  // 图标换了，不再是心形
+  assert.doesNotMatch(SRC, /liked: \[P\("M20\.8 6\.6a5 5 0/);
 });

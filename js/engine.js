@@ -5060,7 +5060,19 @@ async function runProbe(p, ctx, probe) {
     if (!tooBig(e) || want <= 8000) throw e;
     raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
   }
-  const parsed = extractJSON(raw);
+  let parsed = extractJSON(raw);
+  // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
+  // 输出没收好（多写了一句话、JSON 少个括号），重来一次就好了。按次计费，
+  // 让她自己去点第二次是没道理的；重试一次仍然失败才报错。
+  if (!parsed) {
+    try {
+      const again = await callAI(p, system + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、不要前后多说一个字、所有括号引号都要闭合。",
+        [{ role: "user", content: "重来一次。" }], { maxTokens: want });
+      parsed = extractJSON(again);
+      if (parsed) return parsed;
+      raw = again;
+    } catch (e) {/* 用第一次的原文报错，信息更接近病因 */}
+  }
   if (!parsed) throw new Error("解析失败：" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 90));
   return parsed;
 }
