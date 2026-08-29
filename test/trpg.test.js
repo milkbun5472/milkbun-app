@@ -470,9 +470,16 @@ test("锁脸不必挤前景:背景里的人也要认得出是谁", () => {
 
 test("自由输入的行动也掷骰:守密人报 needCheck→客户端掷→续写,只许要一次", () => {
   assert.match(src, /scene 写到出手前的悬点就停住/, "先停在悬点,不许直接写成败");
-  assert.match(src, /nck && declaration && \(!extra \|\| !extra\.length\) && mode !== "resolve"/, "只认亲笔宣言轮的 needCheck,续写轮/选项轮不连环要骰");
+  // 验行为不验长相(opus 8/29 抓的「冻源码」病):守卫必须同时含 declaration 与
+  // mode!=="resolve",表达式怎么长(比如加了 ccTry 的「赌」)不冻
+  {
+    const guard = src.match(/nck &&[^\n]*&& mode !== "resolve"[^\n]*\{/);
+    assert.ok(guard, "needCheck 守卫必须存在且以 mode!==\"resolve\" 拦住续写轮");
+    assert.ok(/declaration/.test(guard[0]), "守卫必须认亲笔宣言轮");
+    assert.ok(/!extra \|\| !extra\.length/.test(guard[0]), "选项轮(带 extra)不连环要骰");
+  }
   assert.match(src, /绝不再报 needCheck/, "续写轮明令收口");
-  assert.match(src, /\|\| camp\.party\[0\]/, "没点名就默认她自己出手");
+  assert.match(src, /\|\| camp\.party\[0\]/, "没点名兜底最终仍落到她自己");
 });
 
 // ---- Codex 第二批加菜:任务日志/名册/状态效果/专长/时间/修正/休团 ----
