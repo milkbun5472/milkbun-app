@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.71";
+const APP_VERSION = "v57.72";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8488,13 +8488,45 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     adjustCharBalance(charId, tv - charBalanceOf(charId), "手动调整余额", "manual");
   };
   // 生成/推演角色财务档案（首开与刷新共用），返回 prof 或 null
+  // 账户与欠账的清洗。模型会把金额写成「¥1,200」「一千二」这种，也会把 dir 写成
+  // 「我欠」「欠我」——界面靠 dir 分左右两边，写歪了整栏就反了，这里全部归一。
+  // primary = 他随身可动用的那笔，日常花销从这儿出。它的额度由钱包余额说了算，
+  // 不是模型给的数——不然「贴身荷包 2850」和上面的余额 2850 会被当成两笔钱加两遍。
+  // 模型忘了标或者标了好几处，都在这儿归一：只留第一处，一处都没有就把第一条当它。
+  const walletAccounts = prof => {
+    const list = ((prof && Array.isArray(prof.accounts)) ? prof.accounts : [])
+      .filter(x => x && String(x.name || "").trim())
+      .map(x => ({
+        name: String(x.name).trim().slice(0, 24),
+        kind: String(x.kind || "").trim().slice(0, 12),
+        tail: String(x.tail == null ? "" : x.tail).trim().slice(0, 8),
+        hold: Math.max(0, numClean(x.hold)),
+        primary: x.primary === true || x.primary === "true",
+        note: String(x.note || "").trim().slice(0, 80)
+      })).slice(0, 5);
+    if (!list.length) return list;
+    let seen = false;
+    list.forEach(a => { if (a.primary && !seen) seen = true; else a.primary = false; });
+    if (!seen) list[0].primary = true;
+    return list;
+  };
+  const walletDebts = prof => ((prof && Array.isArray(prof.debts)) ? prof.debts : [])
+    .filter(x => x && String(x.who || "").trim() && numClean(x.amount) > 0)
+    .map(x => ({
+      who: String(x.who).trim().slice(0, 20),
+      amount: numClean(x.amount),
+      // 认不出来的一律当「他欠人」——这一档更常见，也更不容易读成向她讨债
+      dir: /owed|欠我|别人欠|人欠/.test(String(x.dir || "")) ? "owed" : "owe",
+      why: String(x.why || "").trim().slice(0, 80),
+      since: String(x.since || "").trim().slice(0, 16)
+    })).slice(0, 6);
   const genWalletProfile = async char => {
     if (!active) return null;
     // 数字生命/驻场 AI：没有工资、消费、理财这回事——不调 LLM，直接给固定「无经济」档案。
     // baseBalance 归 0，她转账/亲属卡照常从 0 累加（转账入口保留，只是不编现实收支）。
     if (settingsFor(char.id).engineerEyes) {
       return {
-        incomes: [], monthlyIncome: 0, fixedMonthly: 0, baseBalance: 0, investAssets: 0,
+        incomes: [], monthlyIncome: 0, fixedMonthly: 0, baseBalance: 0, investAssets: 0, accounts: [], debts: [],
         notes: {
           income: "你是住在这台 app 里的 AI，不靠工资生活，也没有谋生这回事。",
           savings: "这里只存着她转给你的——你不需要钱，但她给的你都留着，当念想。",
@@ -8505,8 +8537,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
     try {
       return await runProbe(bgActive, ctxFor(char), {
-        instruction: "推演「" + char.name + "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**",
-        schemaHint: "{\"incomes\":[{\"name\":\"公司月薪\",\"category\":\"工资\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}",
+        instruction: "推演「" + char.name + "」的财务档案。**收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，贴合 TA 真实的谋生方式。** incomes（1-3 项，name+category+amount 数字，category 从 TA 实际谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；只有明确富家子弟/继承人/家境优渥时才可出现「家族供养/信托」，否则绝不默认套用家族收入，普通人就普通收入甚至拮据）；monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额（作为钱包初始余额）；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白）；accounts（2-4 处，钱分几处放着：name 这一处叫什么、kind 是什么性质、tail 末四位或编号、hold 这一处放着多少、note 一句他自己为什么把钱放这儿——**一个人把钱分几处、各放多少，本身就在说他是什么人**：有人只有一个存钱的地方，有人分五处谁也不知道全貌。**其中必须【正好有一处】标 primary:true**，那是他随身可动用的那笔（日常花销都从这儿出），它的 hold 会被钱包余额覆盖，随便填；其余各处的 hold 是【另外存着的】，和 baseBalance 不重叠）；debts（0-4 笔，只写【真的是钱】的欠账，人情不算：who 谁、amount 数字、dir 填 owe（他欠人）或 owed（人欠他）、why 一句怎么欠上的、since 大概多久了）。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。**【币种铁律】这是微信钱包，全部金额一律用【人民币】计价，就算 TA 在国外留学/工作/生活也照人民币的量级来（普通留学生月生活费/打工收入换算成人民币通常几千，别写成几十万那种日元/韩元量级的数字）——当作全世界都用微信、一切都以人民币结算。**",
+        schemaHint: "{\"incomes\":[{\"name\":\"收入来源\",\"category\":\"类别\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"accounts\":[{\"name\":\"这一处叫什么\",\"kind\":\"什么性质\",\"tail\":\"末四位或编号\",\"hold\":12000,\"primary\":false,\"note\":\"他为什么把钱放这儿\"}],\"debts\":[{\"who\":\"跟谁\",\"amount\":800,\"dir\":\"owe\",\"why\":\"怎么欠上的\",\"since\":\"多久了\"}],\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"}}",
         // notes(4段批注)在 JSON 最后，思考型模型截断先丢它→放宽 token 防「刷新后批注没了」
         maxTokens: 4000
       });
@@ -8542,6 +8574,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           monthlyIncome: prof ? numClean(prof.monthlyIncome) : 0,
           fixedMonthly: prof ? numClean(prof.fixedMonthly) : 0,
           investAssets: prof ? numClean(prof.investAssets) : 0,
+          accounts: walletAccounts(prof),
+          debts: walletDebts(prof),
           notes: (prof && prof.notes) || {},
           ledger: reflow.reverse(),
           // 设成前一天，这样初始化当天的日常消费也会被 catchUp 补上（否则设立那天永远空白）
@@ -8585,6 +8619,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           monthlyIncome: numClean(prof.monthlyIncome) || cur.monthlyIncome || 0,
           fixedMonthly: numClean(prof.fixedMonthly) || cur.fixedMonthly || 0,
           investAssets: numClean(prof.investAssets) || cur.investAssets || 0,
+          accounts: walletAccounts(prof).length ? walletAccounts(prof) : (cur.accounts || []),
+          debts: walletDebts(prof).length ? walletDebts(prof) : (cur.debts || []),
           notes: newNotes,
           ledger: reflow.reverse()
         } };
@@ -12625,6 +12661,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   });else if (screen === "cwallet") body = h(CharWallet, {
     characters: liveChars,
     charWallet: charWallet,
+    profile: profile,
     selId: selCWallet,
     busyKey: gen.cwallet,
     hasApi: !!active,

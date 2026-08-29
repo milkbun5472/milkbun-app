@@ -7676,7 +7676,7 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
 // 角色钱包 CharWallet —— 主页独立 app：花名册 → 单角色钱包（持久 running balance）
 // 首开生成资产档案，转账/红包/礼物/亲属卡实时加减余额，每天 23 点按日程补日常消费
 // ============================================================
-function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh }) {
+function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh }) {
   const t = useTheme();
   const chars = characters || [];
   const cw = charWallet || {};
@@ -7718,6 +7718,26 @@ function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, on
   const rec = cw[char.id];
   const loading = busyKey === char.id;
   const ledger = (rec && rec.ledger) || [];
+  const accounts = (rec && Array.isArray(rec.accounts)) ? rec.accounts : [];
+  const debts = (rec && Array.isArray(rec.debts)) ? rec.debts : [];
+  // primary 那一处放的就是钱包余额本身（流水走它）。它的 hold 不采信模型给的数，
+  // 直接用 balance——否则同一笔钱会在「余额」和「另存」里各算一遍。
+  const bal0 = Number(rec && rec.balance) || 0;
+  const acctRows = accounts.map(a => a.primary ? { ...a, hold: bal0 } : a);
+  const heldTotal = acctRows.reduce((n, a) => n + (a.primary ? 0 : (Number(a.hold) || 0)), 0);
+  const assetTotal = heldTotal + bal0;
+  // 为她花的：不额外生成，从已有流水里筛。
+  // 转账（她收到的那些）+ 名目里点到她名字的单子（送到她那儿的外卖、买给她的东西）。
+  // 靠名字匹配确实不严密，但比另起一套「是不是为她买的」标记诚实——
+  // 那个标记要模型每单都判断一次，判错了这一栏就在撒谎。
+  const meName = String((profile && profile.name) || "").trim();
+  const forHer = ledger.filter(e => {
+    if (!e || !(Number(e.delta) < 0)) return false;
+    if (e.kind === "transfer") return true;
+    const L = String(e.label || "");
+    return !!(meName && meName.length >= 2 && L.indexOf(meName) >= 0);
+  });
+  const forHerTotal = forHer.reduce((n, e) => n + Math.abs(Number(e.delta) || 0), 0);
   const notes = (rec && rec.notes) || {};
   const incomes = (rec && rec.incomes) || [];
   const saveEdit = () => { const v = Number(amt); if (!isNaN(v)) onSetBalance(char.id, v); setEditing(false); setAmt(""); };
@@ -7795,6 +7815,57 @@ function CharWallet({ characters, charWallet, selId, busyKey, hasApi, onBack, on
         h("div", { key: "iv", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "持有资产"),
         h("div", { key: "ivv", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 2 } }, fmtMoney((rec && rec.investAssets) || 0)),
         note(notes.invest)
+      ]) : null,
+      // 钱分几处放着。一个人把钱分几处、各放多少，本身就在说他是什么人——
+      // 有人只有一个存钱的地方，有人分五处谁也不知道全貌。
+      // 随身可动用的那笔就是上面的余额；这里列的是【另外存着的】，两边不重复计。
+      acctRows.length ? cardBox([
+        h("div", { key: "ah", className: "flex items-center justify-between mb-1" }, secTitle("钱放在哪儿"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "总共 " + fmtMoney(assetTotal))),
+        h("div", { key: "ab", className: "space-y-2" }, acctRows.map((a, i) => h("div", {
+          key: i, style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" }
+        },
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, wordBreak: "break-word" } }, a.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
+            [a.kind, a.tail ? "尾号 " + a.tail : "", a.primary ? "随身 · 流水走这儿" : ""].filter(Boolean).join(" · ")),
+          a.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 5, lineHeight: 1.6, wordBreak: "break-word" } }, a.note) : null),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flexShrink: 0, paddingTop: 1 } }, fmtMoney(a.hold)))))
+      ]) : null,
+      // 欠账。只收【真的是钱】的——人情债不在这儿，它属于查手机那本账。
+      debts.length ? cardBox([
+        secTitle("欠账"),
+        h("div", { key: "db", className: "space-y-2" }, debts.map((d, i) => {
+          const mine = d.dir === "owe";
+          return h("div", {
+            key: i, style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" }
+          },
+          h("span", {
+            style: {
+              fontFamily: F_BODY, fontSize: 10.5, padding: "2px 7px", borderRadius: 99, flexShrink: 0, marginTop: 2,
+              background: mine ? "rgba(196,85,63,.11)" : "rgba(63,138,84,.11)", color: mine ? "#b6473c" : "#3f8a54"
+            }
+          }, mine ? "他欠" : "欠他"),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, wordBreak: "break-word" } }, d.who),
+            d.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, d.why) : null,
+            d.since ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, d.since) : null),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: mine ? "#b6473c" : "#3f8a54", flexShrink: 0, paddingTop: 1 } },
+            (mine ? "−" : "+") + fmtMoney(d.amount)))
+        }))
+      ]) : null,
+      // 为她花的。不额外生成——从已有流水里筛出来，转账和送到她那儿的单子都算。
+      // 她翻钱包最想看的就是这一栏。
+      forHer.length ? cardBox([
+        h("div", { key: "fh", className: "flex items-center justify-between mb-1" }, secTitle("为你花的"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, fmtMoney(forHerTotal))),
+        h("div", { key: "fb", className: "space-y-1" }, forHer.slice(0, 12).map((e, i) => h("div", {
+          key: e.id || i, style: { display: "flex", gap: 10, alignItems: "baseline", padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" }
+        },
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, wordBreak: "break-word" } }, e.label),
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta)))))),
+        forHer.length > 12 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 12) + " 笔") : null
       ]) : null,
       // 日常消费（按日程每天扣的那笔）
       cardBox([
