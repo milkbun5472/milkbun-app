@@ -2514,6 +2514,18 @@ function PhoneCarry({
   const deskPageRef = useRef(0);
   deskPageRef.current = deskPage;
   const [inList, setInList] = useState(true); // 先看通讯录列表，点某人才进 Ta 的手机
+  // ⚠️这个 effect 必须待在所有 return 上面。它原来写在函数中段（通讯录那个 return
+  // 之后），于是列表页少调一次 hook、桌面页多调一次——从列表点进某人手机的那一下，
+  // React 数出来的 hook 变多了，直接抛 #310 整页白（她 2026-08-29：查手机页面直接崩了）。
+  // 提前 return 的组件里，hook 一律排在最前面，条件写进 effect 体内。
+  useEffect(() => {
+    if (open || inList || !deskRef.current) return;
+    const n = deskPageRef.current;
+    if (!n) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (deskRef.current) deskRef.current.scrollLeft = deskRef.current.clientWidth * n;
+    }));
+  }, [open, inList]);
   // 绿点 = 有数据且还没看过；打开即消，刷新全部时重新点亮
   const [seen, setSeen] = useState(() => loadJSON("x_phoneSeen", {}));
   const isSeen = (cid, k) => !!(seen[cid] && seen[cid][k]);
@@ -2618,14 +2630,6 @@ function PhoneCarry({
       fontFamily: F_BODY, fontSize: 11, color: t.ink, textShadow: "0 1px 8px rgba(255,255,255,.85)"
     }
   }, a.zh));
-  useEffect(() => {
-    if (open || !deskRef.current || inList) return;
-    const el = deskRef.current, n = deskPageRef.current;
-    if (!n) return;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (deskRef.current) deskRef.current.scrollLeft = deskRef.current.clientWidth * n;
-    }));
-  }, [open, inList]);
   if (open) return h(PhoneApp, {
     appKey: open,
     char,
