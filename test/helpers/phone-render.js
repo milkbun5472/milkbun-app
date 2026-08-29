@@ -54,7 +54,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, PGlyph, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -100,7 +100,58 @@ const FIXTURES = {
     archive: { favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", weekGoal: "5小时", plan: { title: "闲情偶寄", author: "李渔" } }
   },
   liked: { follows: [{ name: "猫猫日报", desc: "撸猫" }], items: [{ author: "阿七", kind: "图文", content: "一个人吃饭的十种办法", tag: "生活", time: "3天前", act: "收藏" }] },
-  health: { restingHr: 62, weekNote: "本周平均睡眠 5.9 小时。", week: [{ day: "周一", date: "8月24日", sleepStart: "01:20", sleepEnd: "07:05", hours: 5.8, steps: 4200 }, { day: "周二", date: "8月25日", sleepStart: "03:10", sleepEnd: "08:00", hours: 4.8, steps: 900 }] },
+  health: {
+    today: { score: 74, label: "熬了半宿，白天却跑了一整天" },
+    cards: [
+      { name: "睡眠质量", group: "body", wide: true, score: 68, value: "6.2", unit: "h", tag: "欠佳",
+        note: "昨夜因西北旧部送来的几封暗折多看了半宿，寅时才阖眼。睡眠浅且多梦，醒来时略有头痛。",
+        stats: [{ k: "入睡时刻", v: "02:15" }, { k: "深度睡眠", v: "1.1h" }, { k: "清醒次数", v: "3次" }],
+        week: [62, 55, 70, 48, 66, 58, 72], quote: "十二年了，在京城这破地方就没怎么睡踏实过。" },
+      { name: "步数", group: "body", wide: false, score: 85, value: "11420", unit: "步", tag: "达标",
+        note: "除开骑马路程，在某人府邸里把东厢房、西厢房和后院彻底搜了个底朝天。",
+        stats: [{ k: "搜查厢房", v: "3200步" }, { k: "官署穿行", v: "4100步" }, { k: "日常散步", v: "4120步" }],
+        week: [40, 55, 62, 70, 58, 80, 92], quote: "把她那破院子翻了个遍，连根红线都没瞧见。" },
+      { name: "运动质量", group: "body", wide: false, score: 88, value: "45", unit: "min", tag: "高强度",
+        note: "申时接到某人要纳侧房的消息，自王府一路策马狂奔过朱雀街。",
+        stats: [{ k: "疾驰骑行", v: "28min" }, { k: "翻墙潜入", v: "5min" }, { k: "高负荷间歇", v: "12min" }],
+        week: [30, 45, 60, 55, 70, 88, 90], quote: "为了逮某个嘴里没准话的家伙，马鞍都磨坏了。" },
+      { name: "情绪状态", group: "mind", wide: true, score: 80, value: "起伏", unit: "", tag: "亢奋气恼",
+        note: "上午在官署应付朝臣颇感无聊厌烦；午后因对方荒唐戏言骤然动怒发酸。",
+        stats: [{ k: "朝堂烦躁度", v: "60%" }, { k: "吃醋暴躁值", v: "95%" }, { k: "得逞愉悦度", v: "88%" }],
+        week: [50, 44, 38, 60, 72, 66, 80], quote: "嘴上嫌我吵，我看她拿着那张纸半天没憋出屁来。" },
+      { name: "社交能量", group: "mind", wide: false, score: 85, value: "极高", unit: "", tag: "过度倾注",
+        note: "在朝堂与旧部间维持一贯的假笑与周旋，社交电量原本已见底。",
+        stats: [{ k: "虚与委蛇", v: "15%" }, { k: "质问拆台", v: "50%" }, { k: "长篇定论", v: "35%" }],
+        week: [55, 60, 48, 70, 66, 78, 85], quote: "外人面前说三分留七分，对她真是一点没藏住。" },
+      { name: "玉简传信", group: "intake", wide: false, score: 65, value: "5.2", unit: "h", tag: "频繁回信",
+        note: "本在琢磨西北送来的旧账，偏生你一条接一条扯谎闹腾。",
+        stats: [{ k: "胡同赶路查信", v: "1.4 h" }, { k: "按要求拟长表", v: "2.1 h" }, { k: "日常闲聊拌嘴", v: "1.7 h" }],
+        week: [40, 52, 60, 44, 70, 66, 65], quote: "大半时间都在盯你那些胡言乱语。" },
+      { name: "饮水", group: "intake", wide: false, score: 70, value: "1800", unit: "ml", tag: "基本充足",
+        note: "上午在鸿胪寺饮了两盏劣质苦茶，午后一路疾奔口干舌燥。",
+        stats: [{ k: "官署苦茶", v: "600ml" }, { k: "某人案头凉茶", v: "500ml" }, { k: "日常饮水", v: "700ml" }],
+        week: [60, 66, 70, 62, 74, 70, 70], quote: "她那的茶泡得跟刷锅水一样，也就我咽得下。" }
+    ],
+    timeline: [
+      { time: "02:34", tag: "睡眠", text: "看暗折到寅时才入睡，睡眠时间被严重压缩。" },
+      { time: "13:15", tag: "心率", text: "听闻某人要纳侧房，心率突增至126bpm。" }
+    ],
+    insights: [
+      { title: "情绪与生理强关联", text: "特定亲密互动消息能瞬间打破午后的倦怠，促使心率与体温双重上升。" },
+      { title: "作息弹性良好", text: "即使连续熬夜，短时间的调息也能快速恢复精力。" }
+    ],
+    tail: "恋爱申请表都填完了，考官人呢？我已经到老地方了。"
+  },
+  takeout: {
+    account: { member: "常客", monthOrders: 22, monthSpend: 1180, persona: "饿到极限才想起吃，点完又嫌等得久" },
+    live: [{ status: "正在派送", eta: "预计 12 分钟后送达", shop: "城南老赵糕点铺", items: "桂花糖糕两包", rider: "跑腿阿七", progress: 60, amount: 48, note: "放门房即可，别通报" }],
+    orders: [{ shop: "西市羊汤馆", time: "昨天 23:41", status: "已送达", items: [{ name: "重料羊肉锅子", qty: 1, price: 42 }], amount: 42, note: "麻烦轻一点敲门，家里有人在睡", addr: "甜水井胡同第三进院落", rating: "汤还是那个味。", reason: "她说饿，我懒得听她再念一遍" }],
+    shops: [{ name: "城南老赵糕点铺", cat: "点心", times: "点过 14 次", usual: "桂花糖糕、酥皮酪干", why: "老赵手上有准头，糖糕从不齁" }],
+    taste: { spicy: "能吃，但不主动点", avoid: "甜腻花果酒", habit: "多在深夜回府后才点", time: "亥时前后" },
+    addrs: [{ label: "王府侧门", detail: "送至门房裴忠处", isDefault: true }, { label: "常去小院", detail: "甜水井胡同，放门墩即可", isDefault: false }],
+    monthNote: "八月吃食开销一千一百余文，大半在夜里。",
+    tail: "下回她再说饿，我就把整个铺子端过去。"
+  },
   clipboard: { items: [{ text: "其实我", from: "微信", time: "昨天 02:11", sent: false }, { text: "SF1234567", from: "短信", time: "今天", sent: true }] },
   calendar: { items: [{ title: "体检", when: "9月2日 14:00", kind: "提醒", done: false, postponed: 4, note: "" }, { title: "交房租", when: "每月1号", kind: "事件", done: true, postponed: 0 }] }
 };

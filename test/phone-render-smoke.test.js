@@ -123,8 +123,8 @@ test("避重抽取表能从新 app 的真实形状里抽出东西", () => {
   assert.match(lines, /购物：古法手作冰镇桂花糖糕组合/);
   assert.match(lines, /剪贴板：其实我/);
   assert.match(lines, /日历：体检/);
-  // 健康是纯数字，不参与避重（它跟别的 app 不会撞题）
-  assert.doesNotMatch(lines, /健康：/);
+  // 健康 v57.52 起也进避重：指标名是模型自己起的，和别处撞题是有可能的
+  assert.match(lines, /健康：睡眠质量/);
 });
 
 test("阅读：书架页、我的页、点开一本书的详情页都能渲", () => {
@@ -213,7 +213,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
-  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping"]);
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health"]);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
@@ -308,4 +308,80 @@ test("查手机所有推演的输出天花板统一给满，不再一个 app 一
   // 各 app 自己那行 maxTokens 必须是删掉，不是留着被覆盖
   assert.doesNotMatch(SRC, /maxTokens: \d+\n/);
   assert.match(SRC, /const PHONE_OUT_CEILING = 65535;/);
+});
+
+test("外卖：三页、脏数据、无 onPeek 都能渲", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.takeout, char, t: { ink: "#111", bg: "#fff", bg2: "#eee", line: "#ddd", fog: "#999", sub: "#555" }, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  ["home", "order", "mine"].forEach(k =>
+    assert.doesNotThrow(() => loadPhone({ 0: k }).TakeoutView(props), k + " 这一页炸了"));
+  [null, {}, { live: "x", orders: [{ items: 3 }], addrs: [{}], taste: 5 }].forEach((d, i) =>
+    ["home", "order", "mine"].forEach(k =>
+      assert.doesNotThrow(() => loadPhone({ 0: k }).TakeoutView({ ...props, d }), "脏数据 " + i + " 在 " + k + " 页炸了")));
+  const { onPeek, ...noPeek } = props;
+  assert.doesNotThrow(() => loadPhone().TakeoutView(noPeek), "没有 onPeek 时炸了");
+});
+
+test("健康：四页、脏数据、无 onPeek 都能渲", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.health, char, t: { ink: "#111", bg: "#fff", bg2: "#eee", line: "#ddd", fog: "#999", sub: "#555" }, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  ["body", "mind", "intake", "track"].forEach(k =>
+    assert.doesNotThrow(() => loadPhone({ 0: k }).HealthView(props), k + " 这一页炸了"));
+  [null, {}, { cards: "x", timeline: 3, insights: [{}], today: 7 },
+   { cards: [{ stats: "x", week: "y" }, { wide: true }, {}] }].forEach((d, i) =>
+    ["body", "mind", "intake", "track"].forEach(k =>
+      assert.doesNotThrow(() => loadPhone({ 0: k }).HealthView({ ...props, d }), "脏数据 " + i + " 在 " + k + " 页炸了")));
+  const { onPeek, ...noPeek } = props;
+  assert.doesNotThrow(() => loadPhone().HealthView(noPeek), "没有 onPeek 时炸了");
+});
+
+test("健康卡按 group 分页，窄卡两两并排、宽卡整行", () => {
+  const P = loadPhone();
+  assert.deepEqual(P.HEALTH_GROUPS.map(g => g.key), ["body", "mind", "intake"]);
+  // 分页是按数据里的 group 走的，不靠指标名——指标名是模型按角色世界起的，
+  // 写死名字的话，「玉简传信」这种就会掉到页外看不见
+  assert.match(SRC, /const byGroup = g => cards\.filter\(c => \(c\.group \|\| "body"\) === g\)/);
+  assert.match(SRC, /if \(buf\.length === 2\)/);
+  assert.doesNotMatch(SRC, /c\.name === "睡眠/);
+});
+
+test("健康的推演任务把「按角色世界改名」和「三项要角色专属」钉死了", () => {
+  const P = loadPhone();
+  const spec = P.phoneProbeSpec("health", char, [], "", []);
+  // 她 2026-08-29：「玉简传信其实是微信，他觉得王爷不用微信就改了个词」
+  assert.match(spec.instruction, /指标名要长成他世界里的样子/);
+  assert.match(spec.instruction, /玉简传信/);
+  assert.match(spec.instruction, /不要照搬现代体检报告的词/);
+  // 她 2026-08-29：「同一个类别每一个角色的那三个计数都是不一样的」
+  assert.match(spec.instruction, /它们的名字必须是这个角色专属的，绝不能用通用标签/);
+  assert.match(spec.instruction, /搜查厢房 \/ 官署穿行 \/ 日常散步/);
+  assert.match(spec.instruction, /换个角色还照样成立的三项，就是写坏了/);
+  assert.match(spec.instruction, /cards \*\*12-14 张指标卡\*\*/);
+  assert.match(spec.instruction, /timeline \*\*4-6 条\*\*/);
+  assert.match(spec.instruction, /insights \*\*正好 3 条\*\*/);
+  ["today", "cards", "stats", "week", "timeline", "insights", "tail"]
+    .forEach(k => assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 不在 schema 里"));
+});
+
+test("外卖的推演任务把「备注那一栏」钉死了", () => {
+  const P = loadPhone();
+  const spec = P.phoneProbeSpec("takeout", char, [], "", []);
+  assert.match(spec.instruction, /note 那一栏是这个 app 的重点/);
+  assert.match(spec.instruction, /麻烦轻一点敲门，家里有人在睡/);
+  assert.match(spec.instruction, /至少有一单是深夜的/);
+  assert.match(spec.instruction, /绝对不吃什么/);
+  assert.match(spec.instruction, /其中一条应当是【他常去的另一个地方】/);
+});
+
+test("想买清单的封面色不再洗白到近白", () => {
+  const P = loadPhone();
+  // 她 2026-08-29：「第四个框颜色没盖住」——原来第二档统一渐变到 #f2f2f6
+  assert.equal(P.WISH_COVERS.length, 5);
+  P.WISH_COVERS.forEach((pair, i) => {
+    assert.equal(pair.length, 2, "第 " + i + " 档封面不是两档色");
+    const l = hex => { const n = parseInt(hex.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };
+    assert.ok(l(pair[1]) < 0.95, "第 " + i + " 档的浅端 " + pair[1] + " 太接近白，看着像没铺满");
+    assert.ok(l(pair[1]) > l(pair[0]), "第 " + i + " 档应当是深→浅");
+  });
+  assert.doesNotMatch(SRC, /\+ ",#f2f2f6\)"/);
 });

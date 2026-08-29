@@ -87,7 +87,7 @@ test("论坛和音乐用紧凑标题栏，不再顶一块 30px 大标题", () =>
   // 别的 app 一个都没动
   // v57.48 起改由 FULL_BLEED_KEYS 判定（阅读也自己画整屏了），别的 app 仍然走通用 Head
   assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
-  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping"\];/);
+  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health"\];/);
 });
 
 test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () => {

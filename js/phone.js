@@ -49,6 +49,9 @@ const PHONE_APPS = [{
 }, {
   key: "calendar",
   zh: "日历"
+}, {
+  key: "takeout",
+  zh: "外卖"
 }];
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 接真数据的 app：不调模型、不存进 phones，直接读 App 里那份真的。
@@ -60,32 +63,32 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
   ["notes", "album", "liked", "forum", "shopping", "calendar"],
-  ["reading", "recordings", "video", "health", "clipboard", "settings"]
+  ["reading", "recordings", "video", "health", "clipboard", "takeout", "settings"]
 ];
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "recordings", "video", "health", "clipboard", "settings"]],
+  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "recordings", "video", "health", "clipboard", "takeout", "settings"]],
   widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["reading", "clipboard", "calendar", "album", "music", "settings", "recordings"], ["shopping", "forum", "liked", "video", "health"]],
+  pages: [["reading", "clipboard", "calendar", "album", "music", "takeout", "recordings"], ["shopping", "forum", "liked", "video", "health", "settings"]],
   widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["video", "liked", "forum", "browser", "notes", "reading", "shopping"], ["recordings", "health", "clipboard", "calendar", "settings"]],
+  pages: [["video", "liked", "forum", "browser", "notes", "reading", "shopping"], ["recordings", "health", "clipboard", "calendar", "takeout", "settings"]],
   widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "video", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "forum"], ["liked", "recordings", "video", "clipboard", "settings"]],
+  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "recordings", "video", "clipboard", "forum", "settings"]],
   widgets: [[{ key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -199,7 +202,8 @@ function PGlyph({
     calendar: [R(3, 5, 18, 16, 2.4), P("M3 10h18M8 2.6v4.4M16 2.6v4.4")],
     me: [C(12, 8, 3.7), P("M4.8 20.6a7.2 7.2 0 0114.4 0")],
     cart: [C(9.5, 20, 1.4), C(17.5, 20, 1.4), P("M2 3h3l2.6 12.2a1.6 1.6 0 001.6 1.3h8.4a1.6 1.6 0 001.6-1.3L21 7H6")],
-    orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")]
+    orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")],
+    takeout: [P("M3 11h18a9 9 0 01-18 0z"), P("M2.5 20.5h19"), P("M12 3.2v2.4M8.6 4.4l.9 1.6M15.4 4.4l-.9 1.6")]
   };
   return h(Svg, {
     size,
@@ -755,6 +759,16 @@ const SHOP_BG = "#f1f1f6";
 const SHOP_CARD = "#ffffff";
 const SHOP_INK = "#1b1b1f";
 const SHOP_DIM = "#9a9aa4";
+// 想买清单的封面色。原来第二档统一渐变到 #f2f2f6（近白），浅色那几档（米、蓝）
+// 走到一半就洗白了，看着像色块没铺满（她 2026-08-29 报「第四个框颜色没盖住」）。
+// 改成同色系深→浅两档，整块封面都还是那个颜色。
+const WISH_COVERS = [
+  ["#c6c6d0", "#e3e3ea"],
+  ["#ffb094", "#ffd3bd"],
+  ["#e2d0a8", "#f0e5cd"],
+  ["#b9cddf", "#d9e6f0"],
+  ["#d2bcd0", "#e9dae7"]
+];
 const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shopInt = n => Number(n || 0).toLocaleString("en-US");
 function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
@@ -844,7 +858,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       // 列表项直接触发转发是不可逆动作，手一滑就发出去了（她 2026-08-29 中招）。
       onClick: () => setSheet({ kind: "wish", it: it }),
       style: { background: SHOP_CARD, borderRadius: 16, overflow: "hidden" }
-    }, h("div", { style: { height: 96, background: "linear-gradient(150deg," + ["#c9c9d1", "#ffb79a", "#e6d7b6", "#c3d3e2", "#d8c6d6"][i % 5] + ",#f2f2f6)", display: "flex", alignItems: "center", justifyContent: "center" } },
+    }, h("div", { style: { height: 96, background: "linear-gradient(150deg," + WISH_COVERS[i % WISH_COVERS.length][0] + "," + WISH_COVERS[i % WISH_COVERS.length][1] + ")", display: "flex", alignItems: "center", justifyContent: "center" } },
       h("div", { style: { width: 46, height: 46, borderRadius: 13, background: "rgba(255,255,255,.62)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 19, color: "#5d5d66" } }, String(it.title || "?").trim().slice(0, 1))),
     h("div", { style: { padding: "12px 13px 15px" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.4, color: SHOP_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.title || ""),
@@ -986,6 +1000,316 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord)),
   nav, sheetNode);
 }
+// ============================================================
+// 外卖 —— 他怎么把自己喂饱（她 2026-08-29 点名先搭个框）
+// 备注那一栏比吃什么更暴露人：「不要香菜」「放门口就行」
+// 「麻烦轻一点敲门，家里有人在睡」——这三条是三个不同的人。
+// 三页：点餐（在送 + 常点的店）· 订单 · 我的（口味 / 地址 / 月结）
+// ============================================================
+const TAKE_AMBER = "#f5a623";
+const TAKE_BG = "#f4f2ee";
+const TAKE_INK = "#231f1a";
+const TAKE_DIM = "#9c968c";
+function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("home");
+  const [sheet, setSheet] = useState(null);
+  const scrollRef = useRef(null);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
+  const A = a => Array.isArray(a) ? a : [];
+  const data = (d && typeof d === "object") ? d : {};
+  const acc = (data.account && typeof data.account === "object") ? data.account : {};
+  const taste = (data.taste && typeof data.taste === "object") ? data.taste : {};
+  const live = A(data.live), orders = A(data.orders), shops = A(data.shops), addrs = A(data.addrs);
+  const card = (kids, extra) => h("div", { style: Object.assign({ background: "#fff", borderRadius: 18, padding: "17px 17px", marginBottom: 13 }, extra || {}) }, kids);
+  const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "6px 4px 11px" } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: TAKE_INK } }, title),
+    right ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM } }, right) : null);
+  const peekBtn = (tier, label, title, text) => onPeek ? h("button", {
+    onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
+    className: "w-full active:opacity-60",
+    style: {
+      marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12,
+      border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e6e2da"), color: tier === "hidden" ? "#b6473c" : "#5b564e"
+    }
+  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机") : null;
+  const noteLine = txt => h("div", { style: { marginTop: 10, background: "rgba(245,166,35,.10)", borderRadius: 10, padding: "9px 12px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: "#7a6640" } }, "备注：" + txt);
+  // ── 账户条 ──
+  const accCard = card([
+    h("div", { key: "a", className: "flex items-center gap-3" },
+      h("div", { style: { width: 46, height: 46, borderRadius: 14, flexShrink: 0, background: "linear-gradient(150deg,#ffc861," + TAKE_AMBER + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "takeout", size: 22, color: "#fff" })),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: TAKE_INK } }, char.remark || char.name),
+        acc.member ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_AMBER, marginTop: 3 } }, acc.member) : null)),
+    (acc.monthOrders != null || acc.monthSpend != null) ? h("div", { key: "n", className: "flex", style: { marginTop: 15, paddingTop: 13, borderTop: "1px solid #f1efea" } },
+      [[acc.monthOrders != null ? acc.monthOrders : "--", "本月单数"], [acc.monthSpend != null ? fmtMoney(acc.monthSpend) : "--", "本月吃掉"]].map(([n, l], i) =>
+        h("div", { key: i, className: "flex-1" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: TAKE_INK } }, n),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginTop: 3 } }, l)))) : null,
+    acc.persona ? h("div", { key: "p", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#5b564e" } }, acc.persona) : null
+  ]);
+  // ── 正在送 ──
+  const liveSec = live.length ? h("section", { key: "lv" }, secTitle("正在送", live.length + " 单"),
+    live.map((it, i) => card([
+      h("div", { key: "a", className: "flex items-baseline justify-between gap-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_AMBER } }, it.status || "配送中"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM } }, it.eta || "")),
+      it.shop ? h("div", { key: "s", style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM, marginTop: 9 } }, it.shop) : null,
+      it.items ? h("div", { key: "i", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: TAKE_INK, marginTop: 5 } }, it.items) : null,
+      h("div", { key: "b", style: { height: 4, borderRadius: 4, background: "#f0eee9", marginTop: 13, overflow: "hidden" } },
+        h("div", { style: { width: Math.max(0, Math.min(100, Number(it.progress) || 0)) + "%", height: "100%", borderRadius: 4, background: TAKE_AMBER } })),
+      h("div", { key: "c", className: "flex items-baseline justify-between", style: { marginTop: 11 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM } }, it.rider || ""),
+        it.amount != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: TAKE_AMBER } }, fmtMoney(it.amount)) : null),
+      it.note ? h("div", { key: "n" }, noteLine(it.note)) : null
+    ], { key: i }))) : null;
+  // ── 常点的店 ──
+  const shopSec = shops.length ? h("section", { key: "sp" }, secTitle("常点的店"),
+    card(shops.map((sp, i) => h("div", { key: i, style: { padding: "13px 0", borderTop: i ? "1px solid #f1efea" : "none" } },
+      h("div", { className: "flex items-baseline justify-between gap-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, sp.name || ""),
+        sp.times ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_AMBER } }, sp.times) : null),
+      sp.cat ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 4 } }, sp.cat) : null,
+      sp.usual ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.65, color: "#5b564e", marginTop: 6 } }, "常点：" + sp.usual) : null,
+      sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: "#8d8880", marginTop: 5 } }, sp.why) : null)))) : null;
+  // ── 我的订单 ──
+  const orderSec = orders.length ? h("section", { key: "od" }, secTitle("我的订单", orders.length + " 单"),
+    orders.map((o, i) => card([
+      h("div", { key: "h", className: "flex items-baseline justify-between gap-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, o.shop || ""),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: o.status === "已取消" ? TAKE_DIM : "#3fa363" } }, o.status || "")),
+      o.time ? h("div", { key: "t", style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM, marginTop: 5 } }, o.time) : null,
+      A(o.items).length ? h("div", { key: "it", style: { background: "#f7f5f1", borderRadius: 12, padding: "12px 13px", marginTop: 11 } },
+        A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { marginTop: j ? 9 : 0 } },
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: "#4d4842" } }, x.name || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4d4842", flexShrink: 0, minWidth: 52, textAlign: "right" } }, fmtMoney(x.price))))) : null,
+      o.note ? h("div", { key: "n" }, noteLine(o.note)) : null,
+      h("div", { key: "p", className: "flex items-baseline justify-between", style: { marginTop: 12 } },
+        o.addr ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b3aea6" } }, o.addr) : h("span", null),
+        o.amount != null ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: TAKE_AMBER } }, fmtMoney(o.amount)) : null),
+      o.rating ? h("div", { key: "r", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#8d8880", marginTop: 10 } }, o.rating) : null,
+      o.reason ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#4d4842", marginTop: 8 } }, o.reason) : null,
+      h("div", { key: "pk" }, peekBtn("quiet", "他点的外卖", (o.shop || "") + (A(o.items)[0] ? " · " + A(o.items)[0].name : ""), [o.note ? "备注：" + o.note : "", o.reason, o.addr].filter(Boolean).join("｜")))
+    ], { key: i }))) : null;
+  // ── 口味 ──
+  const tasteRows = [["吃辣", taste.spicy], ["不吃", taste.avoid], ["习惯", taste.habit], ["时辰", taste.time]].filter(x => x[1]);
+  const tasteSec = tasteRows.length ? h("section", { key: "ts" }, secTitle("口味"),
+    card(tasteRows.map(([k, v], i) => h("div", { key: i, className: "flex gap-5", style: { padding: "13px 0", borderTop: i ? "1px solid #f1efea" : "none" } },
+      h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, k),
+      h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.6, color: TAKE_INK } }, v)))),
+    peekBtn("quiet", "他的口味", "他吃东西的样子", tasteRows.map(([k, v]) => k + "：" + v).join("｜"))) : null;
+  // ── 常用地址（不是自己住处的那条走 hidden） ──
+  const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("常用地址"),
+    card(addrs.map((a, i) => h("div", { key: i, style: { padding: "13px 0", borderTop: i ? "1px solid #f1efea" : "none" } },
+      h("div", { className: "flex items-center gap-2" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: TAKE_INK } }, a.label || ""),
+        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#3d7dd8", background: "rgba(61,125,216,.10)", borderRadius: 6, padding: "3px 8px" } }, "默认") : null),
+      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#8d8880", marginTop: 6 } }, a.detail) : null,
+      !a.isDefault ? h("div", null, peekBtn("hidden", "外卖常用地址", a.label, a.detail)) : null)))) : null;
+  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本月吃饭"),
+    data.monthNote ? card(h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: "#4d4842" } }, data.monthNote)) : null,
+    data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "#a8a29a", textAlign: "center", padding: "4px 14px" } }, data.tail) : null) : null;
+  const PAGES = [
+    { key: "home", zh: "点餐", glyph: "takeout", secs: [accCard, liveSec, shopSec], badge: live.length },
+    { key: "order", zh: "订单", glyph: "orders", secs: [orderSec], badge: orders.length },
+    { key: "mine", zh: "我的", glyph: "me", secs: [tasteSec, addrSec, monthSec] }
+  ];
+  const page = PAGES.find(x => x.key === tab) || PAGES[0];
+  const body = page.secs.filter(Boolean);
+  const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.88)", boxShadow: "0 4px 14px rgba(40,32,20,.10)" } }, h(IArrow, { size: 19, color: TAKE_INK })),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, page.zh),
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.88)", boxShadow: "0 4px 14px rgba(40,32,20,.10)" } }, h(IRefresh, { size: 18, color: TAKE_INK })));
+  const nav = h("div", {
+    className: "shrink-0 grid grid-cols-3",
+    style: { padding: "5px 16px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #eae6df" }
+  }, PAGES.map(pg => h("button", {
+    key: pg.key, onClick: () => { setTab(pg.key); setSheet(null); },
+    className: "flex flex-col items-center justify-center active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? TAKE_AMBER : TAKE_DIM, paddingTop: 2, paddingBottom: 2 }
+  }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
+    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? TAKE_AMBER : TAKE_DIM }),
+    pg.badge ? h("span", { style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: TAKE_AMBER, color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge > 99 ? "99+" : pg.badge) : null),
+  h("span", { style: { marginTop: 2 } }, pg.zh))));
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "linear-gradient(178deg,#fff0d8 0%,#f6f2ea 20%," + TAKE_BG + " 44%," + TAKE_BG + " 100%)" } },
+    chrome,
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
+      body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这一页还是空的，点右上角刷一次")),
+    nav);
+}
+// ============================================================
+// 健康 —— 十几张指标卡 + 今日轨迹 + 健康洞察（她 2026-08-29 给了参考稿）
+// 这个 app 的灵魂是两条她亲口点出来的：
+//   ① 指标名会按角色的世界改名——「玉简传信」其实就是微信/屏幕时间，
+//      模型自己觉得「王爷不用微信」就换了个词。这不是 bug，是最好的部分。
+//   ② 同一张卡下面那三个细分项，每个角色都不一样：同样是步数，
+//      王爷是「搜查厢房 / 官署穿行 / 日常散步」，学生是「实验室往返 / 通勤 / 散步」。
+// 所以这里的模板是死的（分数 / 大数 / 标签 / 叙述 / 三项 / 周条 / 一句话），
+// 里面每一个字都是生成的，代码不预设任何指标名。
+// ============================================================
+const HEALTH_HUES = [
+  { bar: "#b9a7dd", chip: "rgba(185,167,221,.20)", chipInk: "#6a55a0", bar2: "#cfc2e8", ink: "#5b4a8c" },
+  { bar: "#8fc79a", chip: "rgba(143,199,154,.20)", chipInk: "#3f7a4d", bar2: "#bfe0c6", ink: "#3f7a4d" },
+  { bar: "#8fb8dd", chip: "rgba(143,184,221,.20)", chipInk: "#3d6d96", bar2: "#c2d9ec", ink: "#3d6d96" },
+  { bar: "#e59aa8", chip: "rgba(229,154,168,.20)", chipInk: "#a5495c", bar2: "#f2c6ce", ink: "#a5495c" },
+  { bar: "#dfbc86", chip: "rgba(223,188,134,.22)", chipInk: "#8a6529", bar2: "#eeddbe", ink: "#8a6529" },
+  { bar: "#8ccbc0", chip: "rgba(140,203,192,.20)", chipInk: "#357c70", bar2: "#c1e3dd", ink: "#357c70" }
+];
+const HEALTH_BG = "#eef0f3";
+const HEALTH_INK = "#22252a";
+const HEALTH_DIM = "#9aa0a8";
+const HEALTH_GROUPS = [
+  { key: "body", zh: "体征", glyph: "health" },
+  { key: "mind", zh: "心神", glyph: "liked" },
+  { key: "intake", zh: "摄入", glyph: "takeout" }
+];
+function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("body");
+  const scrollRef = useRef(null);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [tab]);
+  const A = a => Array.isArray(a) ? a : [];
+  const data = (d && typeof d === "object") ? d : {};
+  const cards = A(data.cards).filter(x => x && typeof x === "object");
+  const today = (data.today && typeof data.today === "object") ? data.today : {};
+  const hueOf = i => HEALTH_HUES[i % HEALTH_HUES.length];
+  const peekBtn = (label, title, text) => onPeek ? h("button", {
+    onClick: e => { e.stopPropagation(); onPeek({ tier: "quiet", label, title, text }); },
+    className: "w-full active:opacity-60",
+    style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12, border: "1px solid #e2e5e9", color: "#5c6169" }
+  }, "转发给 TA · 他会知道你翻了手机") : null;
+  // 一周条：底浅顶深的胶囊，跟参考稿一样
+  const weekBars = (arr, hue) => {
+    const vals = A(arr).slice(0, 7).map(v => Math.max(0, Math.min(100, Number(v) || 0)));
+    if (!vals.length) return null;
+    const days = ["一", "二", "三", "四", "五", "六", "日"];
+    return h("div", { className: "flex items-end", style: { gap: 6, marginTop: 16 } }, vals.map((v, i) => h("div", {
+      key: i, className: "flex-1 flex flex-col items-center", style: { gap: 5 }
+    }, h("div", { style: { width: "100%", height: 42, borderRadius: 7, background: hue.chip, position: "relative", overflow: "hidden" } },
+      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: Math.round(42 * v / 100), background: hue.bar2 } })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: HEALTH_DIM } }, days[i] || ""))));
+  };
+  const statGrid = stats => {
+    const rows = A(stats).filter(x => x && (x.k || x.v)).slice(0, 3);
+    if (!rows.length) return null;
+    return h("div", { className: "grid grid-cols-2", style: { gap: "12px 14px", marginTop: 15, paddingTop: 14, borderTop: "1px solid #eff1f4" } },
+      rows.map((x, i) => h("div", { key: i, style: i === 2 ? { gridColumn: "1 / -1" } : null },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: HEALTH_DIM } }, x.k || ""),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: HEALTH_INK, marginTop: 3 } }, x.v || ""))));
+  };
+  const metricCard = (c, i, narrow) => {
+    const hue = hueOf(i);
+    return h("div", { key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13, flex: narrow ? 1 : "none", minWidth: 0 } },
+      h("div", { "aria-hidden": "true", style: { height: 4, background: hue.bar } }),
+      h("div", { style: { padding: narrow ? "15px 14px 17px" : "17px 18px 19px" } },
+        h("div", { className: "flex items-start justify-between gap-2" },
+          h("div", { className: "flex items-start gap-2.5 min-w-0" },
+            h("div", { style: { width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
+              h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: HEALTH_INK, minWidth: 0 } }, c.name || "")),
+          c.score != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
+        h("div", { className: "flex items-end gap-2 flex-wrap", style: { marginTop: 14 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 33, lineHeight: 1.05, color: HEALTH_INK } }, c.value != null ? String(c.value) : "--",
+            c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: HEALTH_DIM, marginLeft: 3 } }, c.unit) : null),
+          c.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.4, color: hue.chipInk, background: hue.chip, borderRadius: 11, padding: "5px 11px", marginBottom: 3 } }, c.tag) : null),
+        c.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#4a4f57", marginTop: 13 } }, c.note) : null,
+        statGrid(c.stats),
+        weekBars(c.week, hue),
+        c.quote ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#a9aeb6", marginTop: 15, fontStyle: "italic" } }, "「" + c.quote + "」") : null,
+        !narrow ? h("div", null, peekBtn("健康 · " + (c.name || ""), (c.name || "") + " " + (c.value != null ? c.value : "") + (c.unit || ""), [c.tag, c.note, c.quote].filter(Boolean).join("｜"))) : null));
+  };
+  // 窄卡两两并排（照参考稿），宽卡整行
+  const layoutCards = list => {
+    const out = [];
+    let buf = [];
+    let idx = 0;
+    list.forEach(c => {
+      const i = idx++;
+      if (c.wide) {
+        if (buf.length) { out.push(h("div", { key: "r" + out.length, className: "flex items-start", style: { gap: 12 } }, buf)); buf = []; }
+        out.push(metricCard(c, i, false));
+      } else {
+        buf.push(metricCard(c, i, true));
+        if (buf.length === 2) { out.push(h("div", { key: "r" + out.length, className: "flex items-start", style: { gap: 12 } }, buf)); buf = []; }
+      }
+    });
+    if (buf.length) out.push(h("div", { key: "r" + out.length, className: "flex items-start", style: { gap: 12 } }, buf));
+    return out;
+  };
+  // ── 头卡：叠纸 + 今日综合分环 ──
+  const headCard = h("div", { key: "hd", style: { position: "relative", marginBottom: 22 } },
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 10, right: 22, top: -8, height: 46, borderRadius: 16, background: "rgba(255,255,255,.5)" } }),
+    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 4, right: 14, top: -4, height: 46, borderRadius: 16, background: "rgba(255,255,255,.75)" } }),
+    h("div", { style: { position: "relative", background: "#fff", borderRadius: 18, padding: "22px 20px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 10px 26px rgba(40,45,55,.07)" } },
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM } }, "ARCHIVE · WELLNESS"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: HEALTH_INK, marginTop: 6 } }, "健康"),
+        today.label ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: HEALTH_DIM, marginTop: 6 } }, today.label) : null),
+      h("div", { style: { position: "relative", width: 92, height: 92, flexShrink: 0 } },
+        (function () {
+          const p = Math.max(0, Math.min(100, Number(today.score) || 0)) / 100;
+          const r = 39, circ = 2 * Math.PI * r;
+          return h("svg", { width: 92, height: 92, viewBox: "0 0 92 92", "aria-hidden": "true" },
+            h("circle", { cx: 46, cy: 46, r: r, fill: "none", stroke: "#eceef2", strokeWidth: 6 }),
+            h("circle", { cx: 46, cy: 46, r: r, fill: "none", stroke: p >= 0.8 ? "#8fc79a" : p >= 0.5 ? "#dfbc86" : "#e0937d", strokeWidth: 6, strokeLinecap: "round", strokeDasharray: circ, strokeDashoffset: circ * (1 - p), transform: "rotate(-90 46 46)" }));
+        })(),
+        h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: HEALTH_INK, lineHeight: 1 } }, today.score != null ? today.score : "--"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: HEALTH_DIM, marginTop: 3 } }, "综合")))));
+  // ── 今日轨迹 ──
+  const timeline = A(data.timeline);
+  const timelineSec = timeline.length ? h("section", { key: "tl" },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM, padding: "4px 4px 4px" } }, "TIMELINE"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "0 4px 14px" } }, "今日轨迹"),
+    timeline.map((it, i) => {
+      const hue = hueOf(i);
+      return h("div", { key: i, style: { background: "#fff", borderRadius: 14, borderLeft: "4px solid " + hue.bar, padding: "14px 16px", marginBottom: 11 } },
+        h("div", { className: "flex items-center gap-2.5" },
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12.5, color: HEALTH_DIM } }, it.time || ""),
+          it.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: hue.chipInk, background: hue.chip, borderRadius: 8, padding: "3px 9px" } }, it.tag) : null),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#3f444b", marginTop: 8 } }, it.text || ""));
+    })) : null;
+  // ── 健康洞察 ──
+  const insights = A(data.insights);
+  const insightSec = insights.length ? h("section", { key: "in", style: { marginTop: 22 } },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM, padding: "4px 4px 4px" } }, "INSIGHT"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "0 4px 14px" } }, "健康洞察"),
+    insights.map((it, i) => {
+      const hue = hueOf(i + 2);
+      return h("div", { key: i, style: { background: hue.chip, borderRadius: 16, padding: "17px 18px", marginBottom: 12 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: hue.chipInk } }, it.title || ""),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#43484f", marginTop: 8 } }, it.text || ""));
+    }),
+    data.tail ? h("div", null,
+      h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: "#cfd4da", margin: "20px auto 14px" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#9aa0a8", textAlign: "center", padding: "0 10px" } }, data.tail)) : null,
+    onPeek ? peekBtn("健康洞察", "他今天的身体", insights.map(x => (x.title || "") + "：" + (x.text || "")).join("｜")) : null) : null;
+  const byGroup = g => cards.filter(c => (c.group || "body") === g);
+  const PAGES = HEALTH_GROUPS.map(g => ({
+    key: g.key, zh: g.zh, glyph: g.glyph,
+    secs: (g.key === "body" ? [headCard] : []).concat(layoutCards(byGroup(g.key)))
+  })).concat([{ key: "track", zh: "轨迹", glyph: "calendar", secs: [timelineSec, insightSec].filter(Boolean) }]);
+  const page = PAGES.find(x => x.key === tab) || PAGES[0];
+  const body = page.secs.filter(Boolean);
+  const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#5c6169" })),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: HEALTH_INK } }, page.zh),
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#5c6169" })));
+  const nav = h("div", {
+    className: "shrink-0 grid grid-cols-4",
+    style: { padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e5e8ec" }
+  }, PAGES.map(pg => h("button", {
+    key: pg.key, onClick: () => setTab(pg.key),
+    className: "flex flex-col items-center justify-center active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? "#5b4a8c" : HEALTH_DIM, paddingTop: 2, paddingBottom: 2 }
+  }, h("div", { style: { width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
+    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? "#5b4a8c" : HEALTH_DIM })),
+  h("span", { style: { marginTop: 2 } }, pg.zh))));
+  return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "linear-gradient(180deg,#f6f7f9 0%," + HEALTH_BG + " 40%," + HEALTH_BG + " 100%)" } },
+    chrome,
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 16px 24px" } },
+      body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: HEALTH_DIM } }, "这一页还是空的，点右上角刷一次")),
+    nav);
+}
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -1123,6 +1447,7 @@ function renderPhoneModule(key, d, ctx) {
     }
   }))));
   if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "takeout") return h(TakeoutView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
@@ -1237,33 +1562,7 @@ function renderPhoneModule(key, d, ctx) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } },
       [(it.act || "赞") + "过", it.author, it.kind, it.tag, it.time].filter(Boolean).join(" · "))))
   ]);
-  // ── 健康：数字自己会说话，不替它解释 ──
-  if (key === "health") {
-    const wk = arr(d.week);
-    const hrs = wk.map(x => Number(x.hours) || 0);
-    const maxH = Math.max(8, ...hrs, 0);
-    const avg = hrs.length ? (hrs.reduce((a, b) => a + b, 0) / hrs.length).toFixed(1) : null;
-    return wrap([
-      h("div", { key: "hd", className: "flex gap-8 mb-5" },
-        h("div", null, h(Eyebrow, { style: { marginBottom: 4 } }, "静息心率"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: t.ink } }, d.restingHr != null ? d.restingHr : "--")),
-        h("div", null, h(Eyebrow, { style: { marginBottom: 4 } }, "平均睡眠"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: t.ink } }, avg != null ? avg + " h" : "--"))),
-      h("div", { key: "bars", className: "flex items-end gap-2", style: { height: 104 } }, wk.map((x, i) => h("div", {
-        key: i, className: "flex-1 flex flex-col items-center", style: { gap: 5 }
-      }, h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: t.fog } }, (Number(x.hours) || 0).toFixed(1)),
-      h("div", { style: { width: "100%", height: Math.round(66 * (Number(x.hours) || 0) / maxH), borderRadius: 4, background: (Number(x.hours) || 0) < 6 ? "#c2705f" : t.ink } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog } }, x.day || "")))),
-      h("div", { key: "rows", style: { marginTop: 18 } }, wk.map((x, i) => h("div", {
-        key: i, className: "py-2 flex items-center justify-between gap-3", style: line
-      }, h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, [x.day, x.date].filter(Boolean).join(" ")),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
-        [(x.sleepStart || "?") + "–" + (x.sleepEnd || "?"), x.steps != null ? x.steps + " 步" : ""].filter(Boolean).join(" · "))))),
-      d.weekNote ? h("div", { key: "n", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 14, lineHeight: 1.7 } }, d.weekNote) : null,
-      h("div", { key: "pk" }, peekFoot("quiet", "健康记录", "他这一周的睡眠",
-        wk.map(x => (x.day || "") + " " + (x.sleepStart || "?") + " 睡 " + (Number(x.hours) || 0) + "h").join("；")))
-    ]);
-  }
+  if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   // ── 剪贴板：复制了却一直没发出去的那条，是「差一点就说了」的物证 ──
   if (key === "clipboard") return wrap(arr(d.items).map((it, i) => {
     const held = it.sent === false;
@@ -1815,7 +2114,7 @@ function PhoneCarry({
       wechat: "点开看看最近和谁说过话", notes: "最近没有留下新备忘", browser: "最近没有浏览记录",
       music: "他还没有歌单", album: "相册还没翻过", video: "最近没有观看记录",
       forum: "论坛上还没有他的痕迹", reading: "最近没在读什么", liked: "还没点过什么",
-      health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排"
+      health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的"
     }[key] || "还没有内容";
     // 真数据这两个走自己那份，不然桌面小组件永远显示兜底话
     if (key === "music") { const sg = ((livePlaylist && livePlaylist.songs) || [])[0]; return sg ? (livePlaylist.name || "歌单") + " · " + sg.title : fallback; }
@@ -1966,9 +2265,10 @@ const PHONE_ANGLE = {
   album: "【取材层】过去。**相册的主体不是这几天**，而是几个月到几年沉下来的东西：旧的人、去过的地方、早就结束的事。只有一两张属于最近。【时间窗】跨月跨年。",
   reading: "【取材层】他一个人读到某一句停下来的那个瞬间。**批注和划线是不打算给任何人看的动作**，所以它比书单诚实得多；书架怎么分、怎么起名，也是他自己对自己的说法。【时间窗】跨年，一架书是攒出来的，不是这个月买的。",
   liked: "【取材层】他不会写下来、但会顺手点的东西。点赞和收藏没有措辞、不用解释，所以最诚实。【时间窗】这一两个月。",
-  health: "【取材层】纯数字，不承载情节，也不许在里面写心情——数字自己会说话。【时间窗】最近七天。",
+  health: "【取材层】他的身体和心神这一天经历了什么。**指标名和细分项都要长成这个角色世界里的样子**，不是通用体检报告。【时间窗】今天为主，一周做背景。",
   clipboard: "【取材层】他复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
   calendar: "【取材层】他给自己排的事，以及他一直没去做的事。【时间窗】前后两周。",
+  takeout: "【取材层】他怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
   settings: "【取材层】纯数字，不承载情节。",
   wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。"
 };
@@ -1990,9 +2290,10 @@ const PHONE_DIGEST_PICK = {
   video_night: d => pArr(d.items).map(x => x.title),
   reading: d => pArr(d.shelves).map(x => x.name).concat(pArr(d.shelves).reduce((a, sh) => a.concat(pArr(sh.books).slice(0, 2).map(b => b.title)), [])),
   liked: d => pArr(d.items).map(x => x.content),
-  health: () => [],
+  health: d => pArr(d.cards).map(x => x.name + "·" + (x.tag || "")),
   clipboard: d => pArr(d.items).map(x => x.text),
   calendar: d => pArr(d.items).map(x => x.title),
+  takeout: d => pArr(d.orders).map(x => x.shop + "·" + (pArr(x.items)[0] || {}).name).concat(pArr(d.shops).map(x => x.name)),
   settings: () => [],
   wallet: () => []
 };
@@ -2087,12 +2388,36 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       schemaHint: "{\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}],\"items\":[{\"author\":\"发的人\",\"kind\":\"图文\",\"content\":\"内容是什么\",\"tag\":\"分区\",\"time\":\"3天前\",\"act\":\"赞\"}]}"
     },
     health: {
-      instruction: "推演「" + char.name + "」最近七天的健康数据。week 正好 7 条，从七天前到昨天，每条给 day（周几）、date（M月D日）、sleepStart（入睡时间 HH:mm）、sleepEnd（醒来 HH:mm）、hours（睡了几小时，一位小数）、steps（步数整数）。另给 restingHr（静息心率整数）和 weekNote（一句话，要用健康 App 那种干巴巴的周报口吻）。\n**这些数字必须和他这七天真实经历过的事对得上**：熬夜那晚就该是三四点，出门多的那天步数就该高，心里翻腾的时候睡眠时长会短会碎，休息日可以睡到很晚。\n**不要在 weekNote 里替数字解释情绪**——数字自己会说话，写成「本周睡眠不足，可能与压力有关」就毁了。",
-      schemaHint: "{\"restingHr\":62,\"weekNote\":\"干巴巴一句话\",\"week\":[{\"day\":\"周一\",\"date\":\"8月24日\",\"sleepStart\":\"01:20\",\"sleepEnd\":\"07:05\",\"hours\":5.8,\"steps\":4200}]}"
+      instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
+        + "cards **12-14 张指标卡**，group 分三档、每档 4-5 张：body（身体：睡眠、活动、心跳、消耗、恢复这类）、mind（心神：情绪、静心、社交、私密的身体反应这类）、intake（摄入与消耗：喝的、吃的、以及他花在传消息上的时间）。wide=true 的整宽卡每档 1-2 张，其余为窄卡。\n\n"
+        + "【这个 app 的灵魂 · 指标名要长成他世界里的样子】**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」，那一项对他来说是「玉简传信」；「正念冥想」对他是「调息定神」；「社交电量」可以是「应酬耗神」。现代角色就用现代说法。**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**\n\n"
+        + "【每张卡都要有】name（指标名，见上）、group、wide、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，如「欠佳」「达标」「情绪剧烈」「神思难平」）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
+        + "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：一个在京城办差的王爷是「搜查厢房 / 官署穿行 / 日常散步」，一个读研的学生是「实验室往返 / 通勤 / 散步」。同样一张「饮水」卡：王爷是「官署苦茶 / 某人案头凉茶 / 日常饮水」，学生是「咖啡因摄入 / 纯水摄入 / 饮水频次」。**换个角色还照样成立的三项，就是写坏了。**\n\n"
+        + "【note】用体检报告那种冷静的观测口吻写，但内容必须是**他今天真实经历过的事**：熬夜看什么看到几点、为什么突然心跳飙起来、去了哪、跟谁吵了、吃了什么没吃成什么。不许写「建议保持规律作息」这类套话。\n"
+        + "【quote】切回他本人的口气，带脾气、带私心，可以刻薄可以得意，和上面那段冷静叙述形成反差。\n\n"
+        + "today：score（今日综合分 0-100 整数）、label（一句今天的总评，很短）。\n"
+        + "timeline **4-6 条**：time（HH:mm）、tag（两三个字的类别，用上面那些指标名里的词）、text（一句 25-45 字，说清那个时刻身体发生了什么、为什么）。按时间顺序。\n"
+        + "insights **正好 3 条**：title（一个短判断，如「情绪与生理强关联」「作息弹性良好」）、text（一段 30-55 字的解释）。\n"
+        + "tail：最后一句他自己的话，一两句。",
+      schemaHint: "{\"today\":{\"score\":74,\"label\":\"一句总评\"},\"cards\":[{\"name\":\"指标名\",\"group\":\"body\",\"wide\":true,\"score\":68,\"value\":\"6.2\",\"unit\":\"h\",\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"week\":[62,55,70,48,66,58,72],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"睡眠\",\"text\":\"一句\"}],\"insights\":[{\"title\":\"短判断\",\"text\":\"一段\"}],\"tail\":\"最后一句\"}"
     },
     clipboard: {
       instruction: "推演「" + char.name + "」手机剪贴板里最近躺着的东西（5-7 条）。每条给 text（复制的原文）、from（从哪个 app 复制的）、time、sent（true=后来发出去了；false=复制了但一直没发）。\n**必须至少有一条 sent=false，而且是他打给某个具体的人、却始终没发出去的话。**这是「差一点就说了」的物证，是这个 app 唯一重要的东西。它不必长，可以只有半句，可以很难看、很没出息、说到一半停住。\n其余的可以很杂很无聊：验证码、快递单号、店铺地址、一个人名、一句歌词、一个链接。别每条都深情。" + relHint,
       schemaHint: "{\"items\":[{\"text\":\"复制的原文\",\"from\":\"微信\",\"time\":\"昨天 02:11\",\"sent\":false}]}"
+    },
+    takeout: {
+      instruction: "推演「" + char.name + "」点餐 App 的界面。" + relHint + "\n"
+        + "**所有店铺、菜名、价格都要贴合他的身份、时代和谋生方式**：古代角色是从街市的铺子叫吃食、由跑腿送到门上；现代角色就是正常外卖。别人人都点贵的。\n\n"
+        + "account：member（会员等级叫法）、monthOrders（本月单数）、monthSpend（本月花了多少，数字）、persona（一句他点餐的性格，如「饿到极限才想起吃，点完又嫌等得久」）。\n"
+        + "live 正在送的 **0-2 单**（可以一单都没有）：status（已接单/备餐中/骑手取餐/正在派送）、eta（如「预计 12 分钟后送达」）、shop、items（一句话说清点了什么）、rider（送的人怎么称呼）、progress（0-100 整数）、amount（数字）、note（下单备注，可空）。\n"
+        + "orders 我的订单 **6-8 单**：shop、time（如「昨天 23:41」）、status（已送达/已取消/退过款）、items（1-3 样，各有 name、qty、price）、amount（实付数字）、note（**下单备注**，可空）、addr（送到哪）、rating（他给的评价，一句，很短很实在，可空）、reason（**为什么这一单**，一句，可以牵涉到人）。\n"
+        + "**note 那一栏是这个 app 的重点**：「不要香菜」「放门口就行」「麻烦轻一点敲门，家里有人在睡」——这三条是三个不同的人。每条都要像真人当场打的字，宁可留空也别写成客服模板。\n"
+        + "**至少有一单是深夜的，至少有一单是送到别人那儿的（给谁点的）。**\n"
+        + "shops 常点的店 **3-4 家**：name、cat（品类）、times（如「点过 14 次」）、usual（他每次都点的那几样）、why（一句为什么总是这家，具体到味道、老板、开到几点这种）。\n"
+        + "taste 口味：spicy（吃辣程度）、avoid（**绝对不吃什么**——这一条比爱吃什么更像人）、habit（点餐习惯，什么时候点、点多少、剩不剩）、time（一天里常在什么时辰点）。\n"
+        + "addrs 常用地址 **2-3 条**：label、detail（详细到怎么放的备注）、isDefault（只有一条 true）。其中一条应当是【他常去的另一个地方】，不是自己住处。\n"
+        + "monthNote：本月吃饭概况，一段 50-90 字，账房口吻，别抒情。tail：最后一句他自己的念叨。",
+      schemaHint: "{\"account\":{\"member\":\"会员名\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"live\":[{\"status\":\"正在派送\",\"eta\":\"预计 12 分钟后送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人\",\"progress\":60,\"amount\":38,\"note\":\"备注\"}],\"orders\":[{\"shop\":\"店\",\"time\":\"昨天 23:41\",\"status\":\"已送达\",\"items\":[{\"name\":\"菜名\",\"qty\":1,\"price\":24}],\"amount\":38,\"note\":\"下单备注\",\"addr\":\"送到哪\",\"rating\":\"一句评价\",\"reason\":\"为什么这一单\"}],\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 14 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\"}],\"taste\":{\"spicy\":\"...\",\"avoid\":\"...\",\"habit\":\"...\",\"time\":\"...\"},\"addrs\":[{\"label\":\"别名\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"monthNote\":\"一段\",\"tail\":\"最后一句\"}"
     },
     calendar: {
       instruction: "推演「" + char.name + "」日历和提醒事项里的东西（6-9 条），前后两周。每条给 title、when（如「9月2日 14:00」或「每周三」）、kind（事件 或 提醒）、done（true/false）、postponed（往后推过几次，整数，多数是 0）、note（可留空）。\n**推迟次数是这个 app 的重点**：一件推了四次的小事，比四件按时完成的大事更能说明这个人。至少有一条 postponed 在 3 以上，而且它应该是件很小、很容易做完、但他就是一直不做的事。\n三种都要有：他给自己设的、和别人约好的、以及一直没去做的。" + relHint,
