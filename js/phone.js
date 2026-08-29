@@ -305,6 +305,132 @@ function phoneIdentityBlock(appKey, oldData) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 累积层：日志该越攒越长，当前状态该照实重写
+// ─────────────────────────────────────────────────────────────
+// 上面钉死了身份，这里管剩下那些。剩下的又分两种，别混：
+//
+//   · 【日志】——通话、便签、订单、搜索、看过的视频。它们是「发生过的事」，
+//     发生过就不该消失。新的并进旧的，攒到上限从最旧的挤掉。
+//   · 【当前状态】——购物车、在途包裹、开着的标签页、本月消费、今天的健康。
+//     它们是「此刻是什么样」，每次刷新照实重写才对。攒起来反而是错的：
+//     购物车里堆着三个月前的东西，那不叫真实，那叫没清过。
+//
+// 判据：这一栏说的是「发生过什么」还是「现在是什么样」？前者累积，后者重写。
+//
+// ⚠️相对时间会变成谎话。存下来的是「今天 09:12」这个字符串，一周后它还写着
+// 「今天」。所以并进来的那一刻就把时刻算死（_ts），并且在它不再是今天的时候
+// 把显示的那行改写成绝对写法——只改一次，之后不再动。
+const PHONE_GROW = {
+  wechat: { chats: 14, moments: 14, contacts: 24, "me.accounts": 12 },
+  notes: { items: 24 },
+  calls: { calls: 30, sms: 20, voicemail: 12, frequent: 12, blocked: 10 },
+  browser: { searches: 44, marks: 14, private: 10 },
+  shopping: { orders: 36, wish: 24, viewed: 24, shops: 18, gifts: 20 },
+  takeout: { orders: 36, shops: 18, wish: 16, together: 16 },
+  album: { items: 80 },
+  liked: { items: 36, mine: 16, drafts: 12, follows: 20 },
+  bili: { items: 34 },
+  latenight: { items: 34 },
+  clipboard: { items: 24 }
+};
+// 明确【不累积】的（当前状态，每次刷新照实重写）——写出来是为了别人来看的时候
+// 知道这不是漏了：
+//   browser.tabs（现在开着哪些）、shopping.cart / shopping.shipping（购物车与在途）、
+//   takeout.today / takeout.live（今天这单与在途）、takeout.week（本周吃了什么）、
+//   health.*（今天的身体状况，每天重算）、reading.shelves（一整架书是重排的）、
+//   *.coupons（会过期）、*.account.month* / points（本月统计）、
+//   latenight.me.lastAt / note（上次是什么时候）
+const PHONE_TIME_FIELDS = ["time", "date", "savedAt", "lastAt"];
+const phoneTimeField = x => (x && typeof x === "object") ? PHONE_TIME_FIELDS.find(k => typeof x[k] === "string" && x[k].trim()) : undefined;
+// 一行的身份：由内容决定，不用模型自己编的 id（那玩意儿每次都变，或者反过来撞车）
+const phoneRowKey = x => {
+  if (!x || typeof x !== "object") return String(x);
+  // 只认【一个】标识字段 + 时刻。取两个的话，正文改一个字就成了新的一条——
+  // 模型重写同一件事时措辞总会变，那样永远认不出是同一条，会攒成两份。
+  const word = ["title", "caption", "q", "text", "content", "main", "shop", "name", "body", "excerpt", "transcript", "from", "author", "number"]
+    .map(k => (typeof x[k] === "string" ? x[k].trim() : "")).filter(Boolean)[0];
+  const f = phoneTimeField(x);
+  return (word || JSON.stringify(x).slice(0, 90)) + "@" + (f ? x[f] : "");
+};
+// 「今天 09:12」存久了就是谎话，落成绝对写法。只落一次（_abs），之后不再动。
+function phoneFreezeTime(x, nowTs) {
+  const f = phoneTimeField(x);
+  if (!f) return x;
+  const ts = x._ts != null ? x._ts : phoneWhenTs(x[f], nowTs);
+  if (ts == null) return x;
+  const out = { ...x, _ts: ts };
+  if (out._abs) return out;
+  const d = new Date(ts), n = new Date(nowTs);
+  const sameDay = d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+  if (sameDay) return out;                 // 还是今天，「今天 09:12」没说错，先留着
+  // 只改写【相对】写法。本来就写成绝对日期的别动——相册跨年，把
+  // 「2024-03-11 18:42」改成「3月11日」会丢掉年份，下次一解析就认成今年。
+  if (!/今|昨|前天|刚刚|刚才|天前|分钟前|小时前|周|星期|礼拜|月前|存了|放了|开了|过了/.test(String(x[f]))) { out._abs = 1; return out; }
+  const hm = /(\d{1,2})\s*[:：]\s*(\d{2})/.test(String(x[f]));
+  out[f] = (d.getFullYear() !== n.getFullYear() ? d.getFullYear() + "年" : "")
+    + (d.getMonth() + 1) + "月" + d.getDate() + "日"
+    + (hm ? " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") : "");
+  out._abs = 1;
+  return out;
+}
+// 新的并进旧的：新的在前（同一条以新的为准），有时刻的按时间倒序，攒到上限挤掉最旧的
+function phoneGrowList(fresh, old, cap, nowTs) {
+  const A = a => Array.isArray(a) ? a : [];
+  const now = nowTs || Date.now();
+  const seen = {};
+  const out = [];
+  A(fresh).concat(A(old)).forEach(x => {
+    if (x == null) return;
+    const frozen = (x && typeof x === "object") ? phoneFreezeTime(x, now) : x;
+    const k = phoneRowKey(frozen);
+    if (seen[k]) return;
+    seen[k] = 1;
+    out.push(frozen);
+  });
+  // 全都认得出时刻才排序——一半有一半没有的话，排完顺序更乱
+  if (out.length && out.every(x => x && typeof x === "object" && x._ts != null)) out.sort((a, b) => b._ts - a._ts);
+  return out.slice(0, cap || 30);
+}
+function phoneGrowMerge(appKey, oldData, newData, nowTs) {
+  const conf = PHONE_GROW[appKey];
+  if (!conf || !newData || typeof newData !== "object") return newData;
+  const out = JSON.parse(JSON.stringify(newData));
+  const now = nowTs || Date.now();
+  Object.keys(conf).forEach(field => {
+    const fresh = phoneGetPath(out, field);
+    const old = oldData ? phoneGetPath(oldData, field) : null;
+    if (!Array.isArray(fresh) && !Array.isArray(old)) return;
+    phoneSetPath(out, field, phoneGrowList(fresh, old, conf[field], now));
+  });
+  return out;
+}
+// 存进去的那一份：新生成的 + 沿用的身份 + 并进来的日志
+function phoneMergeSaved(appKey, oldData, newData, nowTs) {
+  return phoneGrowMerge(appKey, oldData, phoneKeepIdentity(appKey, oldData, newData), nowTs);
+}
+// 同一个 app 里已经攒着的那些，回喂给模型：别把已经有的再写一遍。
+// 这跟跨 app 的 phoneAvoidBlock 是同一个形状，只是范围换成了自己。
+function phoneSelfAvoidBlock(appKey, known) {
+  const conf = PHONE_GROW[appKey];
+  if (!conf || !known) return "";
+  const lines = [];
+  Object.keys(conf).forEach(field => {
+    const arr = phoneGetPath(known, field);
+    if (!Array.isArray(arr) || !arr.length) return;
+    const picked = arr.slice(0, 12).map(x => {
+      if (!x || typeof x !== "object") return String(x || "");
+      return ["title", "caption", "q", "text", "name", "shop", "main"].map(k => typeof x[k] === "string" ? x[k].trim() : "").filter(Boolean)[0] || "";
+    }).filter(Boolean);
+    if (picked.length) lines.push("- " + field + "：" + picked.join("｜"));
+  });
+  if (!lines.length) return "";
+  let body = lines.join("\n");
+  if (body.length > 1200) body = body.slice(0, 1200) + "…";
+  return "\n\n【这个 app 里已经攒着这些了，不要再写一遍】\n" + body
+    + "\n你这次写的是【新发生的】，和上面这些都不一样的东西。旧的会自己留在下面，不用你重复。";
+}
+
+// ─────────────────────────────────────────────────────────────
 // 归档：刷新会整份覆盖某个 app，旧痕迹就没了
 // ─────────────────────────────────────────────────────────────
 // savePhoneApp 是【整份覆盖】那个 app 的数据。所以在加这一层之前，时间线其实
@@ -3597,5 +3723,5 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known) {
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneIdentityBlock(key, known) + phoneAvoidBlock(avoidLines) };
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneIdentityBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) };
 }

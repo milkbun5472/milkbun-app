@@ -109,5 +109,7 @@ test("两次生成的调用点都把旧那份传过去了", () => {
 test("存进去之前代码再盖一道（规则降概率，代码才保证）", () => {
   const m = appSrc.match(/const savePhoneApp = \(charId, key, d\) => \{[\s\S]*?\n  \};/);
   assert.ok(m);
-  assert.match(m[0], /phoneKeepIdentity\(key, cur\[key\], d\)/, "写入时没把身份盖回来——模型漏抄一次地址就变了");
+  // v57.67 起身份和累积合到 phoneMergeSaved 一路里（它内部先 phoneKeepIdentity 再并日志）
+  assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, Date\.now\(\)\)/, "写入时没把身份盖回来——模型漏抄一次地址就变了");
+  assert.match(phoneSrc, /function phoneMergeSaved[\s\S]{0,240}phoneKeepIdentity\(appKey, oldData, newData\)/, "合并那一路里没调身份保留");
 });

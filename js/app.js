@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.66";
+const APP_VERSION = "v57.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8395,10 +8395,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     setPhones(p => {
       const cur = p[charId] || {};
-      // 身份层盖回来。提示词里已经把这几项发回去要求原样沿用了，但那只是降概率——
-      // 模型漏抄一次，他的收货地址就换了。规则降概率，代码才保证。
+      // 身份盖回来 + 日志并进来。提示词里已经把「这些别改」「这些已经有了」都发回去了，
+      // 但那只是降概率——模型漏抄一次地址就变了、重写一遍就多一条。规则降概率，代码才保证。
       const entry = {
-        ...(typeof phoneKeepIdentity === "function" ? phoneKeepIdentity(key, cur[key], d) : d),
+        ...(typeof phoneMergeSaved === "function" ? phoneMergeSaved(key, cur[key], d, Date.now()) : d),
         _at: Date.now()
       };
       if (key === "wallet") { entry._startDate = ymd(new Date()); entry.extra = (cur.wallet && Number(cur.wallet.extra)) || 0; } // 记账起点；保留转账等外部收支
