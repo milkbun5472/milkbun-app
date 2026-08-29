@@ -1856,7 +1856,7 @@ function shopFmtLeft(ms) {
   if (hr > 0) return hr + "小时" + (m % 60) + "分";
   return m > 0 ? m + "分" + (s % 60) + "秒" : (s % 60) + "秒";
 }
-function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, toast }) {
+function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState("home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -1878,6 +1878,9 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
   const shipping = (orders || []).filter(o => o.status === "shipping");
   const receiving = (orders || []).filter(o => o.status === "receiving");
   const charById = id => (characters || []).find(c => c.id === id);
+  const wishList = wish || [];
+  const wishKey = n => String(n || "").replace(/\s+/g, "");
+  const inWish = it => wishList.some(x => wishKey(x.name) === wishKey(it && it.name));
   const toggleSel = uid => setSel(p => p.includes(uid) ? p.filter(x => x !== uid) : [...p, uid]);
   const doGen = (append) => onGen(cat, search, append);
 
@@ -1926,7 +1929,13 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
                 // 图位：没有真图就别假装有图。一块从名字认出来的品类色 + 右下角的品类标。
                 h("div", { style: { position: "relative", height: 112, background: "linear-gradient(150deg," + c.light + " 0%," + c.base + " 58%," + c.dark + " 100%)" } },
                   h("div", { style: { position: "absolute", inset: 0, background: "repeating-linear-gradient(58deg,rgba(255,255,255,.07) 0px,rgba(255,255,255,.07) 1px,rgba(255,255,255,0) 1px,rgba(255,255,255,0) 7px)" } }),
-                  c.word ? h("div", { style: { position: "absolute", right: 7, bottom: 7, padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10, color: c.ink } }, c.word) : null),
+                  c.word ? h("div", { style: { position: "absolute", right: 7, bottom: 7, padding: "2px 7px", borderRadius: 999, background: "rgba(255,255,255,.82)", fontFamily: F_BODY, fontSize: 10, color: c.ink } }, c.word) : null,
+                  onToggleWish ? h("button", {
+                    onClick: e => { e.stopPropagation(); onToggleWish(it); },
+                    "aria-label": inWish(it) ? "不想要了" : "想要",
+                    className: "active:scale-90 flex items-center justify-center",
+                    style: { position: "absolute", right: 6, top: 6, width: 26, height: 26, borderRadius: 999, background: "rgba(255,255,255,.85)" }
+                  }, h(IHeart, { size: 14, color: inWish(it) ? MSHOP.price : "#b9b9c2" })) : null),
                 h("div", { style: { padding: "8px 9px 10px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink, lineHeight: 1.42, minHeight: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.name),
                   it.desc ? h("div", { className: "inline-block", style: { marginTop: 5, padding: "1.5px 6px", fontFamily: F_BODY, fontSize: 10, color: MSHOP.orange, background: MSHOP.soft, borderRadius: 3 } }, it.desc) : null,
@@ -2010,19 +2019,56 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
             h("div", { className: "flex gap-2" },
               h("button", { onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "使用"),
               h("button", { onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"))))),
-      // 我的物品
+      // 想要清单：看上了但没买的。它真正的用处在【他知道你想要什么】——
+      // 单子会进他的上下文，他记不记得、送不送，是他自己的事。
+      wishList.length ? h("div", null,
+        h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 8, paddingLeft: 2 } },
+          h(IHeart, { size: 12, color: MSHOP.price }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub } }, "想要的 · " + wishList.length),
+          h("span", { className: "flex-1" }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim } }, "他们看得到")),
+        h("div", { style: { marginBottom: 18 } }, wishList.map((w, wi) => {
+          const c = shopTone(w, wi);
+          return h("div", { key: w.uid || wi, className: "flex items-center gap-3", style: { background: MSHOP.card, borderRadius: 11, padding: "9px 11px", marginBottom: 8, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
+            h("div", { className: "shrink-0", style: { width: 38, height: 38, borderRadius: 8, background: "linear-gradient(150deg," + c.light + "," + c.base + " 60%," + c.dark + ")" } }),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink } }, w.name),
+              Number(w.price) ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, fontWeight: 700, color: MSHOP.price, marginTop: 2 } }, "¥" + w.price) : null),
+            onToggleWish ? h("button", { onClick: () => onToggleWish(w), "aria-label": "不想要了", className: "shrink-0 active:opacity-60 p-1" }, h(IHeart, { size: 15, color: MSHOP.price })) : null);
+        }))) : null,
+      // 我的物品：按【怎么来的】归组——自己买的一堆，谁送的各一堆。
+      // 原先是一条条纯文字，东西一多就分不清哪件是谁给的（她 2026-08-29）。
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · " + (inventory || []).length),
       (inventory || []).length === 0
         ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.dim, paddingBottom: 20 } }, "还没有已入库的物品")
-        : h("div", { style: { paddingBottom: 24 } }, (inventory || []).map((it, i) => {
-            const giver = it.fromCharId ? charById(it.fromCharId) : null;
-            const sub = (giver ? (giver.name + " 送") : "购买") + (it.addedTs ? " · " + new Date(it.addedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" }) : "");
-            return h("div", { key: it.id || i, className: "flex items-center justify-between", style: { background: MSHOP.card, borderRadius: 11, padding: "11px 13px", marginBottom: 8, boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
-              h("div", { className: "min-w-0" },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink } }, it.name, it.qty > 1 ? h("span", { style: { fontSize: 11, color: MSHOP.dim } }, " ×" + it.qty) : null),
-                sub && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim, marginTop: 3 } }, sub)),
-              giver && h(Avatar, { character: giver, size: 26, radius: 7 }));
-          }))));
+        : h("div", { style: { paddingBottom: 24 } }, (() => {
+            const groups = [];
+            const byKey = {};
+            (inventory || []).forEach(it => {
+              const k = it.fromCharId || "__me";
+              if (!byKey[k]) { byKey[k] = { key: k, giver: it.fromCharId ? charById(it.fromCharId) : null, items: [] }; groups.push(byKey[k]); }
+              byKey[k].items.push(it);
+            });
+            // 自己买的排最后：别人送的才是要一眼看见的
+            groups.sort((a, b) => (a.key === "__me" ? 1 : 0) - (b.key === "__me" ? 1 : 0));
+            return groups.map(g => h("div", { key: g.key, style: { marginBottom: 14 } },
+              h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 7, paddingLeft: 2 } },
+                g.giver ? h(Avatar, { character: g.giver, size: 20, radius: 999 }) : null,
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: g.giver ? MSHOP.ink : MSHOP.sub } },
+                  g.giver ? (g.giver.remark || g.giver.name) + " 送的" : "自己买的"),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MSHOP.dim } }, "· " + g.items.length)),
+              h("div", { className: "grid grid-cols-3", style: { gap: 8 } }, g.items.map((it, i) => {
+                const c = shopTone(it, i);
+                return h("div", { key: it.id || i, style: { background: MSHOP.card, borderRadius: 10, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.05)" } },
+                  h("div", { style: { position: "relative", height: 56, background: "linear-gradient(150deg," + c.light + "," + c.base + " 60%," + c.dark + ")" } },
+                    c.word ? h("span", { style: { position: "absolute", right: 5, bottom: 4, fontFamily: F_BODY, fontSize: 8.5, color: "rgba(255,255,255,.9)" } }, c.word) : null,
+                    it.qty > 1 ? h("span", { style: { position: "absolute", left: 5, top: 5, padding: "0 5px", borderRadius: 999, background: "rgba(0,0,0,.32)", fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px", color: "#fff" } }, "×" + it.qty) : null),
+                  h("div", { style: { padding: "6px 7px 8px" } },
+                    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.ink, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", minHeight: 30 } }, it.name),
+                    it.addedTs ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: MSHOP.dim, marginTop: 3 } },
+                      new Date(it.addedTs).toLocaleDateString("zh-CN", { month: "numeric", day: "numeric" })) : null));
+              }))));
+            })())));
 
   // ---------- 商品详情（以前商品根本点不进去，只能点那颗加购钮）----------
   const detailEl = detail ? (() => {
@@ -2070,7 +2116,14 @@ function Shop({ wallet, cart, orders, inventory, characters, groups, kinshipCard
                     style: { gap: 6, padding: "5px 11px 5px 5px", borderRadius: 999, background: MSHOP.bg }
                   }, h(Avatar, { character: ch, size: 24, radius: 999 }),
                      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: MSHOP.ink } }, ch.remark || ch.name)))))) : null,
-          h("div", { className: "flex", style: { gap: 9, marginTop: 16 } },
+          h("div", { className: "flex items-center", style: { gap: 9, marginTop: 16 } },
+            onToggleWish ? h("button", {
+              onClick: () => onToggleWish(detail),
+              className: "shrink-0 flex flex-col items-center justify-center active:opacity-70",
+              style: { width: 50, height: 46 }
+            },
+              h(IHeart, { size: 19, color: inWish(detail) ? MSHOP.price : "#b0b0ba" }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: inWish(detail) ? MSHOP.price : MSHOP.dim, marginTop: 2 } }, inWish(detail) ? "已想要" : "想要")) : null,
             h("button", {
               onClick: () => { onAddCart(detail); toast("已加入购物车"); setDetail(null); },
               className: "flex-1 py-3 active:opacity-80",
@@ -8663,19 +8716,51 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
   if (isGifts) {
     content = (gifts || []).length === 0
       ? h("div", { className: "text-center", style: { paddingTop: 60, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: t.fog } }, "还没收到你送的礼物。\n在购物 App 结算时选「送礼」，\n送达后会永久留在这里。")
-      : h("div", {
-          style: {
-            borderRadius: 15, padding: "4px 12px 2px",
-            background: "linear-gradient(180deg," + carryTint("gifts", .10) + " 0%," + carryTint("gifts", .035) + " 32%," + carryTint("gifts", .07) + " 100%)",
-            boxShadow: "inset 0 2px 8px " + carryTint("gifts", .13) + ", inset 0 -1px 0 rgba(255,255,255,.4)"
-          }
-        }, (gifts || []).map(g => h("button", { key: g.id, onClick: () => { setOpenGiftId(g.id); if (!g.thought && giftBusy !== g.id) onGenGiftThought(char.id, g.id, g.name); }, className: "w-full text-left flex items-center justify-between py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
-          h("div", { className: "flex items-center gap-3 min-w-0" },
-            h(IHeart, { size: 17, color: t.accent }),
-            h("div", { className: "min-w-0" },
-              h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, g.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, "收到于 " + new Date(g.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" }) + (g.thought ? " · 点看 TA 的想法" : "")))),
-          h(IChevR, { size: 15, color: t.line }))));
+      : (() => {
+          // 礼物做成一只只礼盒，按【哪个月送的】归组——原先是一条条纯文字，
+          // 送得多了就看不出送礼的节奏（她 2026-08-29）。
+          // 品类色走购物页那套（礼物本来就是从购物 app 送出去的），不是材质色。
+          const rows = (gifts || []).slice().sort((a, b) => (b.receivedTs || 0) - (a.receivedTs || 0));
+          const groups = [];
+          const byKey = {};
+          rows.forEach((g, i) => {
+            const d = new Date(g.receivedTs || 0);
+            const k = isFinite(d.getTime()) ? d.getFullYear() + "-" + (d.getMonth() + 1) : "?";
+            if (!byKey[k]) { byKey[k] = { key: k, label: isFinite(d.getTime()) ? d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月" : "不知道什么时候", items: [] }; groups.push(byKey[k]); }
+            byKey[k].items.push([g, i]);
+          });
+          return h("div", {
+            style: {
+              borderRadius: 15, padding: "12px 11px 4px",
+              background: "linear-gradient(180deg," + carryTint("gifts", .10) + " 0%," + carryTint("gifts", .035) + " 32%," + carryTint("gifts", .07) + " 100%)",
+              boxShadow: "inset 0 2px 8px " + carryTint("gifts", .13) + ", inset 0 -1px 0 rgba(255,255,255,.4)"
+            }
+          }, groups.map(grp => h("div", { key: grp.key, style: { marginBottom: 12 } },
+            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 7, paddingLeft: 2 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, grp.label),
+              h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint("gifts", .22) + ",rgba(0,0,0,0))" } }),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, grp.items.length + " 件")),
+            grp.items.map(([g, gi]) => {
+              const c = (typeof shopTone === "function" ? shopTone(g, gi) : null);
+              return h("button", {
+                key: g.id,
+                onClick: () => { setOpenGiftId(g.id); if (!g.thought && giftBusy !== g.id) onGenGiftThought(char.id, g.id, g.name); },
+                className: "w-full text-left flex items-center active:opacity-70",
+                style: { gap: 11, background: t.bg2, borderRadius: 11, padding: "9px 11px", marginBottom: 8, boxShadow: "0 1px 3px " + carryTint("gifts", .16) }
+              },
+                // 礼盒：品类色的小方块 + 一条十字丝带
+                h("div", { className: "shrink-0 relative", style: { width: 40, height: 40, borderRadius: 7, background: c ? "linear-gradient(150deg," + c.light + "," + c.base + " 58%," + c.dark + ")" : t.line, overflow: "hidden" } },
+                  h("span", { style: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 5, marginLeft: -2.5, background: "rgba(255,255,255,.55)" } }),
+                  h("span", { style: { position: "absolute", top: "50%", left: 0, right: 0, height: 5, marginTop: -2.5, background: "rgba(255,255,255,.55)" } }),
+                  h("span", { style: { position: "absolute", left: "50%", top: "50%", width: 9, height: 9, marginLeft: -4.5, marginTop: -4.5, borderRadius: 999, background: "rgba(255,255,255,.85)" } })),
+                h("div", { className: "flex-1 min-w-0" },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, g.name),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } },
+                    new Date(g.receivedTs).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })
+                      + (g.thought ? " · 他说了点什么" : ""))),
+                h(IChevR, { size: 14, color: t.line }));
+            }))));
+        })();
   } else if (loading || !data) {
     content = h(Spinner, { label: "正在翻看 " + sec.zh + "…" });
   } else if (sec.closet) {

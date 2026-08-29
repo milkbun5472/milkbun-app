@@ -178,8 +178,12 @@ test("随身物详情页用紧凑标题栏，不许退回大标题", () => {
   assert.match(seg, /paddingTop: safeTop\(10\)/, "顶栏得自己吃安全区");
   assert.match(seg, /fontSize: 16, color: t\.ink/, "居中小标题");
   assert.match(seg, /"aria-label": "返回"/);
-  // 左返回、右操作位等宽，标题才真的居中
-  assert.equal((seg.match(/width: 40, height: 40/g) || []).length, 2, "左右操作位要等宽");
+  // 左返回、右操作位等宽，标题才真的居中。
+  // ⚠️只在顶栏那一段里数——整个 CarrySection 里 40×40 的东西不止顶栏
+  //（礼盒那个方块正好也是 40×40，v57.100 撞上过）。
+  const bar = seg.slice(seg.indexOf("    // 紧凑标题栏"), seg.indexOf("    // 衣柜整页比别的栏暖一档"));
+  assert.ok(bar, "找不到顶栏那一段");
+  assert.equal((bar.match(/width: 40, height: 40/g) || []).length, 2, "左右操作位要等宽");
 });
 
 test("衣服的颜色是从它自己的名字里长出来的", () => {

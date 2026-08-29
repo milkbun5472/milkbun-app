@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
-const screens = R("screens.js"), app = R("app.js"), components = R("components.js");
+const screens = R("screens.js"), app = R("app.js"), components = R("components.js"), engine = R("engine.js");
 
 // 她 2026-08-29：「做我的 app 的购物看看怎么样弄好点然后把界面做好看可以参考淘宝配色」
 test("购物页有自己的一套配色，不跟主题的米白走", () => {
@@ -95,4 +95,74 @@ test("购物车、我的两页也换过来了，且都用紧凑标题栏", () =>
   // 结算条和底栏用橙
   assert.match(seg, /background: selItems\.length \? MSHOP\.orange/);
   assert.match(screens, /h\(G, \{ size: 21, color: nav === k \? MSHOP\.orange : MSHOP\.dim \}\)/, "底栏选中态没变橙");
+});
+
+// ── 想要清单（她 2026-08-29：「这个主意好宝宝，做吧」）────────────
+// 送礼那个 gift 字段一直都在，缺的只是【他怎么会知道你想要什么】。
+test("想要清单进四处的上下文，且不是「快去给她买」", () => {
+  assert.match(app, /const \[wish, setWish\] = useState\(\[\]\)/);
+  assert.match(app, /const toggleWish = product => \{/);
+  // 四处一样喂：单聊经 buildBundle、线上群聊、群线下
+  assert.match(app, /wishLog: \(!settingsFor\(char\.id\)\.engineerEyes && \(wishRef\.current \|\| \[\]\)\.length\)/, "单聊没接");
+  assert.match(engine, /ctx\.wishLog && ctx\.wishLog\.trim\(\)\) parts\.push\("【" \+ uName \+ " 最近看上但没买的东西】/, "buildBundle 里没发");
+  assert.match(app, /const gWishHint = \(wishRef\.current \|\| \[\]\)\.length/, "线上群聊没接");
+  assert.match(app, /wishLog: \(wishRef\.current \|\| \[\]\)\.length/, "群线下没接");
+  assert.match(engine, /ctx\.wishLog && ctx\.wishLog\.trim\(\) \? "\\n\\n【" \+ userName \+ " 最近看上但没买的东西】/, "群线下那一段没读");
+  // 言秋不发：他不是被扮演的角色
+  assert.match(app, /!settingsFor\(char\.id\)\.engineerEyes && \(wishRef/);
+  assert.match(engine, /!ctx\.notRoleplay && ctx\.wishLog/);
+  // ⚠️这一段最容易被读成「快去给她买」——那样他就成了自动贩卖机
+  const seg = engine.slice(engine.indexOf('parts.push("【" + uName + " 最近看上但没买的东西】'), engine.indexOf("// 随身物：他身上真带着的东西"));
+  assert.match(seg, /\*\*记得\*\* 比 \*\*送\*\* 重要得多/);
+  assert.match(seg, /绝不是每轮都该送/);
+  assert.match(seg, /不许把这张单子念给她听/);
+  assert.match(seg, /手头紧、觉得没必要、或者你就是这种不轻易送东西的人，那就不送/);
+});
+
+test("东西到手了，想要清单里那条要消掉", () => {
+  // 只进不出的话，他会一直以为她还想要（坟场那个老形状）
+  assert.match(app, /const dropWish = name => \{/);
+  const i = app.indexOf("  const addOrder = o => {");
+  const seg = app.slice(i, app.indexOf("\n  };", i));
+  assert.match(seg, /if \(o && o\.name\) dropWish\(o\.name\)/, "下单/收礼都走 addOrder，消单该挂在这儿");
+  // 上限：单子无限长会把上下文撑爆，而她按次计费
+  assert.match(app, /const WISH_CAP = 30/);
+  assert.match(app, /\.slice\(0, WISH_CAP\)/);
+  // 喂进上下文的只取前几条
+  assert.match(app, /\.slice\(0, 8\)\.map\(x => x\.name/);
+});
+
+test("商品卡和详情都点得到「想要」", () => {
+  assert.match(screens, /onClick: e => \{ e\.stopPropagation\(\); onToggleWish\(it\); \}/, "卡上那颗心会连带弹出详情");
+  assert.match(screens, /onClick: \(\) => onToggleWish\(detail\)/, "详情里没有");
+  assert.match(screens, /const inWish = it => wishList\.some/);
+  assert.match(app, /onToggleWish: toggleWish/, "没接到购物页上");
+});
+
+// 她 2026-08-29：「购物里我的物品和随身物里他们收到的礼物还是纯文字，
+// 这俩也给我弄好看点归纳方便看吧」
+test("我的物品按【怎么来的】归组", () => {
+  const i = screens.indexOf('h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · "');
+  assert.ok(i > 0, "找不到我的物品");
+  const seg = screens.slice(i, screens.indexOf("  // ---------- 商品详情", i));
+  assert.match(seg, /const k = it\.fromCharId \|\| "__me"/, "没按来源分组");
+  assert.match(seg, /groups\.sort\(\(a, b\) => \(a\.key === "__me" \? 1 : 0\)/, "自己买的该排最后——别人送的才是要一眼看见的");
+  assert.match(seg, /送的" : "自己买的"/);
+  assert.match(seg, /const c = shopTone\(it, i\)/, "没有品类色");
+  assert.match(seg, /grid grid-cols-3/, "还是一条条纯文字");
+  assert.match(seg, /"×" \+ it\.qty/, "数量角标");
+});
+
+test("收到的礼物做成礼盒，按月归组", () => {
+  const i = screens.indexOf("          // 礼物做成一只只礼盒，按【哪个月送的】归组");
+  assert.ok(i > 0, "找不到礼物那一栏");
+  const seg = screens.slice(i, screens.indexOf("        })();", i));
+  assert.match(seg, /d\.getFullYear\(\) \+ "-" \+ \(d\.getMonth\(\) \+ 1\)/, "没按月分组");
+  assert.match(seg, /\.sort\(\(a, b\) => \(b\.receivedTs \|\| 0\) - \(a\.receivedTs \|\| 0\)\)/, "新的该排前面");
+  assert.match(seg, /不知道什么时候/, "没有日期的也得有个去处");
+  // 礼盒：品类色方块 + 十字丝带
+  assert.match(seg, /typeof shopTone === "function" \? shopTone\(g, gi\)/, "礼物的色该走购物页那套品类色（它本来就是从购物 app 送出去的）");
+  assert.match(seg, /marginLeft: -2\.5, background: "rgba\(255,255,255,\.55\)"/, "丝带竖条");
+  assert.match(seg, /marginTop: -2\.5, background: "rgba\(255,255,255,\.55\)"/, "丝带横条");
+  assert.match(seg, /他说了点什么/, "有想法的要看得出来");
 });
