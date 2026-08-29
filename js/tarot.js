@@ -21,16 +21,25 @@
   const MAJORS = ["愚者", "魔术师", "女祭司", "皇后", "皇帝", "教皇", "恋人", "战车", "力量", "隐者", "命运之轮", "正义", "倒吊人", "死神", "节制", "恶魔", "高塔", "星星", "月亮", "太阳", "审判", "世界"];
   const SUITS = ["权杖", "圣杯", "宝剑", "星币"];
   const RANKS = ["王牌", "二", "三", "四", "五", "六", "七", "八", "九", "十", "侍从", "骑士", "王后", "国王"];
+  const MAJOR_FILES = ["00-TheFool", "01-TheMagician", "02-TheHighPriestess", "03-TheEmpress", "04-TheEmperor", "05-TheHierophant", "06-TheLovers", "07-TheChariot", "08-Strength", "09-TheHermit", "10-WheelOfFortune", "11-Justice", "12-TheHangedMan", "13-Death", "14-Temperance", "15-TheDevil", "16-TheTower", "17-TheStar", "18-TheMoon", "19-TheSun", "20-Judgement", "21-TheWorld"];
+  const SUIT_FILES = { "权杖": "Wands", "圣杯": "Cups", "宝剑": "Swords", "星币": "Pentacles" };
+  const cardAsset = file => "assets/tarot-rws/" + file + ".jpg";
   function buildDeck() {
-    const d = MAJORS.map(n => ({ name: n, major: true }));
-    SUITS.forEach(s => RANKS.forEach(r => d.push({ name: s + r, major: false })));
+    const d = MAJORS.map((n, i) => ({ name: n, major: true, image: cardAsset(MAJOR_FILES[i]) }));
+    SUITS.forEach(s => RANKS.forEach((r, i) => d.push({ name: s + r, major: false, image: cardAsset(SUIT_FILES[s] + String(i + 1).padStart(2, "0")) })));
     return d; // 78 张
   }
   const DECK = buildDeck();
   const shuffle = arr => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  // 抽 n 张互不相同的牌，各自随机正/逆位（纯本地随机，模型完全不参与选牌）
+  // 抽 n 张互不相同的牌，各自随机正/逆位（纯本地随机；模型看不到没选中的牌，也完全不参与选牌）
   function draw(n) {
-    return shuffle(DECK).slice(0, n).map(c => ({ name: c.name, major: c.major, rev: Math.random() < 0.34 }));
+    return shuffle(DECK).slice(0, n).map(c => ({ name: c.name, major: c.major, image: c.image, rev: Math.random() < 0.34 }));
+  }
+  function cardImage(c) {
+    if (!c) return "";
+    if (c.image) return c.image;
+    const found = DECK.find(x => x.name === c.name);
+    return found ? found.image : "";
   }
   const cardLabel = c => c.name + "（" + (c.rev ? "逆位" : "正位") + "）";
   const MAJOR_KEYS = {
@@ -55,7 +64,7 @@
   function fmtDate(ts) { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); }
   // 一次占卜里可被搜索命中的所有文字（角色名/问题/牌名/每日各角色/收束）
   function sessionText(s) {
-    const parts = [s.charName || "", s.question || "", s.summary || ""];
+    const parts = [s.charName || "", s.question || "", s.summary || "", s.readerSummary || ""];
     if (s.card) parts.push(s.card.name);
     (s.cards || []).forEach(c => c && parts.push(c.name));
     (s.entries || []).forEach(e => e && parts.push(e.charName || ""));
@@ -171,7 +180,10 @@
   // ============================================================
   async function readSpread(active, ctx) {
     const { mode, cards, spread, charName, charPersona, uName, question, relText, band, voiceRef, mood, worldbook } = ctx;
-    const cardList = cards.map((c, i) => (i + 1) + "、【" + spread[i] + "】" + cardLabel(c)).join("\n");
+    const cardList = cards.map((c, i) => {
+      const ref = cardReference(c);
+      return (i + 1) + "、【" + spread[i] + "】" + cardLabel(c) + "\n本地牌义锚点：" + ref.keywords + "；" + ref.text;
+    }).join("\n\n");
     let voice, view, thoughtAsk;
     if (mode === "reading") {
       voice = "你就是「" + charName + "」本人，正坐在 " + uName + " 对面替 Ta 摊牌解读。全程用第一人称、你自己的口吻和性格说话，像真的在跟 " + uName + " 讲，别当中立的解牌机器。你对 " + uName + " 的态度（" + (band || "说不清的距离") + "）会自然渗进你怎么解、语气软还是硬、点到为止还是掏心窝。";
@@ -197,16 +209,17 @@
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 500) : "") +
       "\n\n" + view +
       "\n\n【摊开的牌】\n" + cardList +
-      "\n\n【怎么解】\n· 逐张解：每张牌结合它所在的位置、正位或逆位的含义来讲，别背牌义词典，要落到具体的处境/情绪/建议上，每张 40~90 字。\n" +
+      "\n\n【怎么解】\n· 逐张解：每张牌结合它所在的位置、正位或逆位的含义来讲，别背牌义词典，要落到具体的处境/情绪/建议上，每张 80~180 字。\n" +
       "· 正位、逆位要真的解出差别，别把逆位也当正位讲。\n" +
-      "· summary（40~110 字）：把几张牌连成一句话的走向或一句真心的提醒。\n" +
+      "· summary（50~120 字）：把几张牌连成一句话的走向或一句真心的提醒。\n" +
+      "· readerSummary（220~520 字）：最后以占卜师视角重新综合全副牌。必须明确牌与牌之间怎样互相加强、抵消或转折，结合问题给出当下判断、风险和可执行建议；忠于以上本地牌义锚点，不要写成空泛心灵鸡汤，也不要复述逐张解读。\n" +
       "· " + thoughtAsk + "（20~50 字）。\n" +
-      "【输出】只输出 JSON：{\"reads\":[{\"pos\":\"位置名\",\"text\":\"这张牌的解读\"}...],\"summary\":\"收束\",\"charThought\":\"角色本人的一句反应\"}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始解牌。" }], { maxTokens: 3500 });
+      "【输出】只输出 JSON：{\"reads\":[{\"pos\":\"位置名\",\"text\":\"这张牌的解读\"}...],\"summary\":\"短收束\",\"readerSummary\":\"占卜师综合总结\",\"charThought\":\"角色本人的一句反应\"}。别加解释、别加代码块。";
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始解牌。" }], { maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535 });
     const p = extractJSON(raw) || {};
     let reads = Array.isArray(p.reads) ? p.reads.filter(r => r && r.text).map((r, i) => ({ pos: r.pos || spread[i] || "", text: String(r.text).trim() })) : [];
     if (!reads.length) reads = [{ pos: spread[0] || "", text: String(raw || "牌面模糊，重试。").trim() }];
-    return { reads: reads, summary: String(p.summary || "").trim(), charThought: String(p.charThought || "").trim() };
+    return { reads: reads, summary: String(p.summary || "").trim(), readerSummary: String(p.readerSummary || p.summary || "").trim(), charThought: String(p.charThought || "").trim() };
   }
 
   async function readSupplement(active, session, char, uName, pos, card) {
@@ -283,7 +296,7 @@
             if (props.onReadingDone && !skipHook) {
               const cardsOf = x => (x.cards || []).map(c => c.name).join("、") || (x.card ? x.card.name : "");
               if (session.mode === "daily") (session.entries || []).forEach(e => e && e.charId && props.onReadingDone(e.charId, { mode: "daily", summary: e.summary || e.text || "", charThought: e.charThought || "", cards: session.card ? session.card.name : "", question: "" }));
-              else if (session.charId) props.onReadingDone(session.charId, { mode: session.mode, summary: session.summary || "", charThought: session.charThought || "", cards: cardsOf(session), question: session.question || "" });
+              else if (session.charId) props.onReadingDone(session.charId, { mode: session.mode, summary: session.readerSummary || session.summary || "", charThought: session.charThought || "", cards: cardsOf(session), question: session.question || "" });
             }
           } catch (e) {}
           setView("s:" + session.id);
@@ -480,10 +493,9 @@
         };
         const prepared = bg ? await bg.start(bgKey, { label: "正在洗牌…" }, prepare) : await prepare(() => {});
         if (prepared && prepared.refused) { setBusy(false); setPhase(""); return; }
-        const poolSize = Math.max(12, Math.min(24, spread.length * 3));
         setDeal({
-          pool: shuffle(DECK).slice(0, poolSize).map(c0 => ({ name: c0.name, major: c0.major, rev: Math.random() < 0.34 })),
-          chosen: [], finalQuestion: prepared.finalQuestion, intent: prepared.intent
+          pool: shuffle(DECK).map(c0 => ({ name: c0.name, major: c0.major, image: c0.image, rev: Math.random() < 0.34 })),
+          chosen: [], pending: null, shuffleNo: 1, finalQuestion: prepared.finalQuestion, intent: prepared.intent
         });
         setBusy(false); setPhase("");
       } catch (e) { props.toast && props.toast("牌没摊开：" + (e.message || "重试")); setBusy(false); setPhase(""); }
@@ -510,7 +522,7 @@
           });
           const session = { id: "tr_" + Date.now(), mode: props.modeKey, charId: c.id, charName: c.name,
             question: deal.finalQuestion, questionOwner: questionOwner, spreadKey: spreadKey, spread: spread,
-            cards: cards, reads: out.reads, summary: out.summary, charThought: out.charThought,
+            cards: cards, reads: out.reads, summary: out.summary, readerSummary: out.readerSummary, charThought: out.charThought,
             consent: deal.intent ? { decision: deal.intent.decision, line: deal.intent.line } : null,
             shopMoment: shopMoment, revealed: [], supplements: [], followups: [], ts: Date.now() };
           props.onDone(session);
@@ -541,28 +553,33 @@
 
     if (deal) {
       const chosen = deal.chosen || [];
-      const toggleCard = i => setDeal(prev => {
-        const has = prev.chosen.indexOf(i) >= 0;
-        const next = has ? prev.chosen.filter(x => x !== i) : (prev.chosen.length < spread.length ? prev.chosen.concat(i) : prev.chosen);
-        return { ...prev, chosen: next };
-      });
+      const pickCard = i => setDeal(prev => prev.chosen.indexOf(i) >= 0 || prev.chosen.length >= spread.length ? prev : { ...prev, pending: prev.pending === i ? null : i });
+      const confirmCard = () => setDeal(prev => prev.pending == null || prev.chosen.indexOf(prev.pending) >= 0 || prev.chosen.length >= spread.length ? prev : { ...prev, chosen: prev.chosen.concat(prev.pending), pending: null });
+      const reshuffle = () => setDeal(prev => ({ ...prev, pool: shuffle(DECK).map(c0 => ({ name: c0.name, major: c0.major, image: c0.image, rev: Math.random() < 0.34 })), chosen: [], pending: null, shuffleNo: (prev.shuffleNo || 1) + 1 }));
       return h("div", { className: "h-full flex flex-col" },
         h(Head, { zh: "亲手选牌", en: "Choose Your Cards", onBack: () => setDeal(null) }),
-        h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginBottom: 15 } }, "凭第一眼选 " + spread.length + " 张。模型看不到没选中的牌，也不会替你挑。"),
+        h("div", { className: "flex-1 overflow-y-auto px-5 pb-40" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginBottom: 13 } }, "先洗牌，再凭第一眼点一张。牌会抬起；按确认后才算抽到。牌背不会提前泄露牌面。"),
+          h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 13 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "完整 78 张 · 第 " + (deal.shuffleNo || 1) + " 次洗牌"),
+            h("button", { onClick: reshuffle, className: "active:opacity-70", style: { flexShrink: 0, padding: "7px 11px", borderRadius: 999, border: "1px solid " + t.line, color: ACCENT, background: t.bg2, fontFamily: F_BODY, fontSize: 11.5 } }, chosen.length ? "重新洗牌（清空已选）" : "↻ 洗牌")),
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + Math.min(4, spread.length) + ",minmax(0,1fr))", gap: 7, marginBottom: 18 } },
             spread.map((pos, i) => h("div", { key: pos + i, style: { minHeight: 54, padding: "7px 5px", borderRadius: 9, border: "1px solid " + (chosen[i] != null ? GOLD : t.line), background: chosen[i] != null ? "rgba(184,145,80,.08)" : t.bg2, textAlign: "center" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginBottom: 4 } }, "第 " + (i + 1) + " 张"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.ink, lineHeight: 1.3 } }, pos)))),
-          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 9 } }, deal.pool.map((c0, i) => {
-            const selectedAt = chosen.indexOf(i), on = selectedAt >= 0;
-            return h("button", { key: "back" + i, onClick: () => toggleCard(i), className: "active:opacity-70",
-              style: { position: "relative", aspectRatio: "2/3.25", borderRadius: 9, border: "1px solid " + (on ? GOLD : "rgba(184,145,80,.38)"), background: "linear-gradient(145deg,#241f38," + ACCENT + ")", boxShadow: on ? "0 0 0 2px rgba(184,145,80,.22)" : "none", color: GOLD } },
-              h("div", { style: { position: "absolute", inset: 5, border: "1px solid rgba(184,145,80,.32)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, on ? String(selectedAt + 1) : "✦"));
-          })),
-          h("div", { style: { textAlign: "center", marginTop: 14, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "已选 " + chosen.length + " / " + spread.length)),
-        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
-          h("button", { onClick: finishDeal, disabled: chosen.length !== spread.length, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: chosen.length === spread.length ? ACCENT : t.fog, borderRadius: 12, padding: "13px 0" } }, "请 " + ((props.characters.find(x => x.id === charId) || {}).name || "Ta") + " 解牌")));
+          h("div", { style: { overflowX: "auto", WebkitOverflowScrolling: "touch", margin: "0 -20px", padding: "8px 20px 12px" } },
+            h("div", { style: { position: "relative", width: 630, height: 244, margin: "0 auto" } }, deal.pool.map((c0, i) => {
+              const row = i < 39 ? 0 : 1, col = i % 39, selectedAt = chosen.indexOf(i), committed = selectedAt >= 0, pending = deal.pending === i;
+              const curve = Math.abs(col - 19) * .16;
+              return h("button", { key: "back" + i, onClick: () => pickCard(i), disabled: committed, "aria-label": committed ? "第 " + (selectedAt + 1) + " 张已选" : "牌背 " + (i + 1), className: "active:opacity-80",
+                style: { position: "absolute", left: col * 14.6, top: row * 112 + curve + (pending ? -20 : committed ? -10 : 0), width: 62, height: 100, zIndex: pending ? 300 : committed ? 220 + selectedAt : i + 1, borderRadius: 8, border: "1px solid " + (pending || committed ? GOLD : "rgba(184,145,80,.42)"), background: "linear-gradient(145deg,#211c34," + ACCENT + ")", boxShadow: pending ? "0 10px 20px rgba(35,28,58,.28),0 0 0 2px rgba(184,145,80,.22)" : "0 2px 4px rgba(25,20,40,.16)", color: GOLD, transition: "top .18s ease,box-shadow .18s ease", transform: "rotate(" + ((col - 19) * .18) + "deg)" } },
+                h("div", { style: { position: "absolute", inset: 5, border: "1px solid rgba(184,145,80,.4)", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17, background: "radial-gradient(circle,rgba(184,145,80,.1),transparent 62%)" } }, committed ? String(selectedAt + 1) : "✦"));
+            }))),
+          h("div", { style: { minHeight: 45, textAlign: "center", fontFamily: F_BODY, fontSize: 11.5, color: deal.pending == null ? t.fog : ACCENT, lineHeight: 1.6 } }, deal.pending == null ? (chosen.length === spread.length ? "牌已选齐，可以摆上桌了。" : "点一张牌，它会从牌阵里抬起来。") : "这张还没有翻开。确认后，它会成为第 " + (chosen.length + 1) + " 张。"),
+          h("div", { style: { textAlign: "center", marginTop: 5, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "已选 " + chosen.length + " / " + spread.length)),
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 20px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 82%,transparent)" } },
+          deal.pending != null ? h("button", { onClick: confirmCard, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: ACCENT, borderRadius: 12, padding: "13px 0" } }, "确认选择第 " + (chosen.length + 1) + " 张") :
+            h("button", { onClick: finishDeal, disabled: chosen.length !== spread.length, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: chosen.length === spread.length ? ACCENT : t.fog, borderRadius: 12, padding: "13px 0" } }, chosen.length === spread.length ? "把 " + spread.length + " 张牌摆上桌" : "先选满 " + spread.length + " 张")));
     }
 
     return h("div", { className: "h-full flex flex-col" },
@@ -638,7 +655,7 @@
       "\n【原问题】" + (session.question || "未明说") +
       "\n【牌面】" + cards +
       "\n【刚才的解读】\n" + reads.slice(0, 1800) +
-      "\n【收束】" + String(session.summary || "").slice(0, 600);
+      "\n【占卜师总结】" + String(session.readerSummary || session.summary || "").slice(0, 1800);
     const msgs = (history || []).slice(-10).map(x => ({ role: x.role === "assistant" ? "assistant" : "user", content: x.content }));
     msgs.push({ role: "user", content: question });
     return String(await callAI(active, sys, msgs, { maxTokens: 1400 }) || "").trim();
@@ -667,10 +684,10 @@
       h("button", { onClick: onFlip || null, disabled: !onFlip, className: onFlip ? "active:opacity-80" : "", style: { width: "100%", position: "relative", aspectRatio: "2/3.4", borderRadius: 11, background: "linear-gradient(160deg," + ACCENT + ",#241f38)", border: "1px solid rgba(184,145,80,0.5)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 8, overflow: "hidden", transition: "transform .35s ease", transform: faceUp === false ? "rotateY(180deg)" : "rotateY(0deg)" } },
         faceUp === false ? h("div", { style: { position: "absolute", inset: 7, border: "1px solid rgba(184,145,80,.5)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", color: GOLD, fontSize: small ? 17 : 24, transform: "rotateY(180deg)" } }, "✦") : null,
         faceUp === false ? null : [
-        h("div", { style: { position: "absolute", top: 6, left: 8, fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: 1, color: "rgba(184,145,80,0.85)" } }, c.major ? "ARCANA" : ""),
-        h("div", { style: { fontSize: small ? 17 : 22, color: GOLD, marginBottom: 8, transform: c.rev ? "rotate(180deg)" : "none" } }, m.icon || "✦"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: small ? 13 : 15, color: "#f4efe4", textAlign: "center", lineHeight: 1.25 } }, c.name),
-        h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: small ? 9 : 10, color: c.rev ? "#e0a3a3" : "rgba(244,239,228,0.7)", border: "1px solid rgba(184,145,80,0.4)", borderRadius: 999, padding: "1px 8px" } }, c.rev ? "逆位" : "正位")]),
+        h("img", { src: cardImage(c), alt: c.name, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: c.rev ? "rotate(180deg) scale(1.02)" : "scale(1.02)", transformOrigin: "center", background: "#e8dfcf" } }),
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "42%", background: "linear-gradient(transparent,rgba(20,15,28,.88))" } }),
+        h("div", { style: { position: "absolute", left: 5, right: 5, bottom: 6, fontFamily: F_DISPLAY, fontSize: small ? 11.5 : 13.5, color: "#fff", textAlign: "center", lineHeight: 1.2, textShadow: "0 1px 2px #000" } }, c.name),
+        h("div", { style: { position: "absolute", right: 5, top: 5, fontFamily: F_BODY, fontSize: small ? 8 : 9, color: "#fff", background: c.rev ? "rgba(137,64,77,.86)" : "rgba(42,74,58,.82)", borderRadius: 999, padding: "2px 6px" } }, c.rev ? "逆" : "正")]),
       pos ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 6 } }, pos) : null);
 
     // ---- 每日一牌：今天【一张】牌，各角色解读同一张 ----
@@ -782,10 +799,10 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: GOLD, fontWeight: 700, marginBottom: 4 } }, cardLabel(x.card) + " · " + cardReference(x.card).keywords),
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, lineHeight: 1.65 } }, x.text)))),
           supplements.length < 3 ? h("button", { onClick: () => addSupplement(i, r.pos || (s.spread || [])[i] || "这个牌位"), disabled: suppBusy != null, className: "active:opacity-70", style: { marginTop: 9, fontFamily: F_BODY, fontSize: 11.5, color: ACCENT, border: "1px dashed rgba(74,63,107,.35)", borderRadius: 999, padding: "5px 10px" } }, suppBusy === i ? "正在补牌…" : "＋ 为这个牌位补一张") : null)) : null,
-        // 收束
-        allRevealed && s.summary ? h("div", { style: { marginTop: 8, padding: "14px 16px", background: "rgba(74,63,107,0.06)", border: "1px solid rgba(74,63,107,0.22)", borderRadius: 13 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: .5, color: ACCENT, marginBottom: 6 } }, "牌面的话"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: t.ink } }, s.summary)) : null,
+        // 占卜师综合收束：旧存档没有 readerSummary 时回退到原 summary。
+        allRevealed && (s.readerSummary || s.summary) ? h("div", { style: { marginTop: 8, padding: "16px 17px", background: "linear-gradient(145deg,rgba(74,63,107,.08),rgba(184,145,80,.07))", border: "1px solid rgba(74,63,107,0.24)", borderRadius: 13 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: ACCENT, marginBottom: 7 } }, "占卜师总结 · READER'S SYNTHESIS"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, whiteSpace: "pre-wrap" } }, s.readerSummary || s.summary)) : null,
         // 角色本人对这几张牌的想法
         allRevealed && s.charThought ? h("div", { style: { marginTop: 12, display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 13 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: GOLD, flexShrink: 0 } }, s.charName + "："),

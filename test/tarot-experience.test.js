@@ -21,10 +21,33 @@ test("塔罗保留原入口、六种内置牌阵和 1 至 8 位自定义牌阵",
 
 test("新占卜由用户亲手选牌且模型看不到未选牌", () => {
   assert.match(tarot, /const \[deal, setDeal\]/);
+  assert.match(tarot, /完整 78 张/);
+  assert.match(tarot, /pool: shuffle\(DECK\)\.map/);
+  assert.match(tarot, /pending: null, shuffleNo: 1/);
+  assert.match(tarot, /const confirmCard/);
+  assert.match(tarot, /重新洗牌（清空已选）/);
+  assert.match(tarot, /牌会抬起；按确认后才算抽到/);
   assert.match(tarot, /chosen\.length !== spread\.length/);
   assert.match(tarot, /const cards = deal\.chosen\.map\(i => deal\.pool\[i\]\)/);
   assert.match(tarot, /模型看不到没选中的牌/);
   assert.match(tarot, /revealed: \[\], supplements: \[\]/);
+});
+
+test("78 张真实牌面使用本地图片并兼容旧存档", () => {
+  assert.match(tarot, /const MAJOR_FILES =/);
+  assert.match(tarot, /assets\/tarot-rws\//);
+  assert.match(tarot, /function cardImage\(c\)/);
+  assert.match(tarot, /h\("img", \{ src: cardImage\(c\)/);
+  const cards = fs.readdirSync(path.join(root, "assets/tarot-rws")).filter(x => /\.jpg$/i.test(x));
+  assert.equal(cards.length, 78);
+});
+
+test("解牌输出包含高预算的占卜师综合总结", () => {
+  assert.match(tarot, /readerSummary（220~520 字）/);
+  assert.match(tarot, /StylePresets\.OUT_CEILING/);
+  assert.match(tarot, /\|\| 65535/);
+  assert.match(tarot, /占卜师总结 · READER'S SYNTHESIS/);
+  assert.match(tarot, /readerSummary: out\.readerSummary/);
 });
 
 test("结果页逐张翻牌并提供不耗模型的本地牌义", () => {
