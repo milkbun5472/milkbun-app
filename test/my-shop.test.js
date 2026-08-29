@@ -166,3 +166,58 @@ test("收到的礼物做成礼盒，按月归组", () => {
   assert.match(seg, /marginTop: -2\.5, background: "rgba\(255,255,255,\.55\)"/, "丝带横条");
   assert.match(seg, /他说了点什么/, "有想法的要看得出来");
 });
+
+// ── 送达时间（她 2026-08-29：「购物到达时间也改一下逻辑，吃的快一点，别的你看着调」）──
+const DELIVER = (() => {
+  const i = app.indexOf("  const CAT_DELIVER = {");
+  const j = app.indexOf("  const saveOrders");
+  assert.ok(i > 0 && j > i, "抠不出送达那几个函数");
+  return new Function(app.slice(i, j) + "\nreturn { CAT_DELIVER, deliverMsForCat, guessDeliverCat };")();
+})();
+
+test("角色送东西时 cat 是 null——得从名字猜，不然一杯奶茶要等三小时", () => {
+  // 这是真正的病：postCharGift 传 cat: null，落进默认档（原先 3~6 小时）
+  assert.match(app, /const guessDeliverCat = name => \{/);
+  assert.equal(DELIVER.guessDeliverCat("一杯生椰拿铁"), "food");
+  assert.equal(DELIVER.guessDeliverCat("麻辣烫外卖"), "food");
+  assert.equal(DELIVER.guessDeliverCat("一束向日葵"), "flower");
+  assert.equal(DELIVER.guessDeliverCat("羊毛围巾"), "fashion");
+  assert.equal(DELIVER.guessDeliverCat("AirPods Pro"), "digital", "英文牌子名也得认得");
+  assert.equal(DELIVER.guessDeliverCat("懒人沙发豆袋"), "furniture");
+  assert.equal(DELIVER.guessDeliverCat("某个说不清的东西"), null, "猜不出就别硬猜");
+  // 三条下单链都要把名字传下去
+  assert.match(app, /deliverMsForCat\(o\.cat, o\.name\)/, "addOrder 没传名字");
+  assert.match(app, /deliverMsForCat\(cat, itemName\)/, "送礼给角色那条没传名字");
+  // 猜出来的品类要存进订单，界面才知道说「骑手在路上」还是「运输中」
+  assert.match(app, /cat: \(o && o\.cat\) \|\| guessDeliverCat\(o && o\.name\) \|\| null/);
+});
+
+test("吃的最快，别的按东西的性质排开", () => {
+  const mins = (cat, name) => Math.round(DELIVER.deliverMsForCat(cat, name) / 60000);
+  const range = (cat, name) => {
+    let lo = Infinity, hi = 0;
+    for (let i = 0; i < 200; i++) { const m = mins(cat, name); lo = Math.min(lo, m); hi = Math.max(hi, m); }
+    return [lo, hi];
+  };
+  const food = range(null, "一杯生椰拿铁");
+  assert.ok(food[1] <= 20, "吃的还是太慢：" + food.join("~") + " 分钟");
+  assert.ok(food[0] >= 5, "太快就没有「在路上」那回事了：" + food.join("~"));
+  // 排序：吃 < 花 < 服饰/美妆 < 数码 < 情趣 < 家具
+  const order = ["food", "flower", "fashion", "digital", "adult", "furniture"];
+  const tops = order.map(k => DELIVER.CAT_DELIVER[k][1]);
+  tops.forEach((v, i) => { if (i) assert.ok(v >= tops[i - 1], order[i] + " 该比 " + order[i - 1] + " 慢或持平"); });
+  // 都得比改之前短：原先最慢的家具是 12~24 小时
+  assert.ok(DELIVER.CAT_DELIVER.furniture[1] <= 600, "家具还是太久");
+  Object.keys(DELIVER.CAT_DELIVER).forEach(k =>
+    assert.ok(DELIVER.CAT_DELIVER[k][1] <= 600, k + " 超过十小时，她早忘了这回事"));
+});
+
+test("在途那一栏说得清是什么在路上，东西到了底栏会提醒", () => {
+  assert.match(screens, /const SHOP_SHIP_WORD = \{ food: "骑手在路上"/);
+  assert.match(screens, /shopShipWord\(o\.cat\)/, "在途文案没跟品类走");
+  // 「使用」对一杯奶茶和一条围巾都不对，这个动作其实是「收下」
+  assert.match(screens, /\}, "收下"\)/);
+  assert.doesNotMatch(screens, /\}, "使用"\)/);
+  // 送达不弹提示（4 秒一轮会打断她），改成底栏点个红点
+  assert.match(screens, /k === "my" && receiving\.length > 0 && h\("span"/);
+});

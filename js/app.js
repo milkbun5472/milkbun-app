@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.00";
+const APP_VERSION = "v58.01";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12004,8 +12004,40 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 购物 Shopping —— 商品流生成 / 购物车 / 结算(购买·送礼·代付·亲属卡) / 待发货待收货
   // ============================================================
   // 各品类送达用时（分钟区间）——外卖约半小时，实物几小时到一两天
-  const CAT_DELIVER = { food: [25, 35], beauty: [180, 360], digital: [240, 480], fashion: [180, 360], adult: [240, 480], recommend: [180, 360], furniture: [720, 1440] };
-  const deliverMsForCat = cat => { const r = CAT_DELIVER[cat] || [180, 360]; return Math.round((r[0] + Math.random() * (r[1] - r[0])) * 60000); };
+  // 送达用时（分钟区间）。她 2026-08-29：「吃的快一点，别的你看着调」。
+  // 原先外卖 25~35 分钟，其余 3~8 小时、家具 12~24 小时——等到她早忘了这回事。
+  // 时间是真实流逝的（4 秒轮询比时间戳），app 关着照样在走，所以设多长就是多长。
+  const CAT_DELIVER = {
+    food: [8, 18],          // 吃的喝的：一顿饭的工夫
+    flower: [20, 40],       // 花：同城当日达
+    beauty: [90, 180],
+    fashion: [90, 180],
+    recommend: [90, 180],
+    digital: [120, 240],
+    adult: [180, 300],      // 隐私包装慢一点，也贴这个语境
+    furniture: [300, 600]   // 大件确实慢，但一天太久了
+  };
+  // ⚠️真正的病不在时长表：角色主动送东西时 cat 传的是 null（postCharGift），
+  // 于是他说「给你点了杯奶茶」，你要等【三到六小时】才收到（默认档）。
+  // 从名字猜一下品类，这条链才对得上。词表和购物页那套品类色是同一个形状。
+  const DELIVER_GUESS = [
+    [/奶茶|咖啡|拿铁|美式|外卖|饭|面|粥|汤|烧烤|火锅|寿司|蛋糕|甜品|点心|糖|巧克力|水果|零食|饮|茶|酒|便当|三明治|披萨|炸鸡|麻辣烫|关东煮|冰淇淋|雪糕|包子|馄饨|烤肉|小吃/, "food"],
+    [/花束|玫瑰|向日葵|捧花|鲜花|花/, "flower"],
+    [/口红|面膜|护肤|精华|香水|化妆|洗面|防晒/, "beauty"],
+    [/耳机|手机|电脑|充电|数码|键盘|鼠标|相机|平板|电子|AirPods|airpods|iPad|iPhone|Switch|Kindle/, "digital"],
+    [/沙发|桌|椅|床|柜|书架|落地灯|家具/, "furniture"],
+    [/衣|裤|裙|鞋|袜|外套|卫衣|衬衫|帽|围巾|包/, "fashion"]
+  ];
+  const guessDeliverCat = name => {
+    const n = String(name || "");
+    for (const [re, k] of DELIVER_GUESS) if (re.test(n)) return k;
+    return null;
+  };
+  const deliverMsForCat = (cat, name) => {
+    const key = CAT_DELIVER[cat] ? cat : guessDeliverCat(name);
+    const r = CAT_DELIVER[key] || CAT_DELIVER.recommend;
+    return Math.round((r[0] + Math.random() * (r[1] - r[0])) * 60000);
+  };
   const saveOrders = updater => setOrders(p => {
     const n = typeof updater === "function" ? updater(p) : updater;
     ordersRef.current = n;
@@ -12018,12 +12050,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return saveOrders(p => [{
     id: "od_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
     status: "shipping",
-    arriveTs: Date.now() + deliverMsForCat(o.cat),
+    arriveTs: Date.now() + deliverMsForCat(o.cat, o.name),
     ts: Date.now(),
     fromCharId: null,
     payLabel: "",
-    cat: null,
-    ...o
+    ...o,
+    // 猜出来的品类也存下来——界面要靠它决定说「骑手在路上」还是「运输中」
+    cat: (o && o.cat) || guessDeliverCat(o && o.name) || null
   }, ...p]);
   };
   const promoteOrders = () => {
@@ -12141,7 +12174,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const char = characters.find(c => c.id === charId);
     if (!char) return;
     const giftId = "gf_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-    const arriveTs = Date.now() + deliverMsForCat(cat);
+    const arriveTs = Date.now() + deliverMsForCat(cat, itemName);
     pChat(charId, p => [...p, { role: "user", kind: "gift", dir: "toChar", giftId, arriveTs, delivered: false, item: { name: itemName }, content: "[礼物] 送给你：" + itemName, ts: Date.now(), read: true }]);
     setGiftOut(p => { const n = [...p, { id: giftId, charId, name: itemName, arriveTs, cat: cat || null }]; giftOutRef.current = n; saveJSON("x_giftOut", n); return n; });
     toast("礼物已下单，送给 " + (char.remark || char.name) + "，在路上");

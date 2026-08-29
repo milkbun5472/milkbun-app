@@ -1850,6 +1850,10 @@ const SHOP_CATS = [
   { key: "furniture", zh: "家具" },
   { key: "adult", zh: "情趣" }
 ];
+// 在途那一栏的说法跟品类走：吃的是骑手在跑，别的是在路上（v58.01）。
+// 「还有 8 分」和「还有 5 小时」是两件不一样的事，一句「还有」说不清。
+const SHOP_SHIP_WORD = { food: "骑手在路上", flower: "同城派送中", furniture: "大件运输中" };
+const shopShipWord = cat => SHOP_SHIP_WORD[cat] || "运输中";
 function shopFmtLeft(ms) {
   if (ms <= 0) return "即将送达";
   const s = Math.ceil(ms / 1000), m = Math.floor(s / 60), hr = Math.floor(m / 60);
@@ -2003,7 +2007,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
                   h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: MSHOP.ink, lineHeight: 1.4 } }, o.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MSHOP.dim, marginTop: 3 } }, (o.price ? "¥" + o.price : "") + (o.price && o.payLabel ? " · " : "") + (o.payLabel || (o.price ? "" : "礼物")))),
                 h("div", { className: "text-right shrink-0 ml-3" },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim } }, "还有"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: MSHOP.dim } }, shopShipWord(o.cat)),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600, color: MSHOP.orange } }, shopFmtLeft(left)))));
           })),
       // 待收货
@@ -2017,7 +2021,7 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f8a54", marginTop: 2 } }, "已送达" + (o.fromCharId ? " · " + (charById(o.fromCharId) ? charById(o.fromCharId).name : "") + " 送的" : ""))),
               o.price ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, fontWeight: 700, color: MSHOP.price } }, "¥" + o.price) : null),
             h("div", { className: "flex gap-2" },
-              h("button", { onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "使用"),
+              h("button", { onClick: () => onReceiveUse(o.id), className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, background: MSHOP.orange, color: "#fff", borderRadius: 999, boxShadow: "0 2px 7px rgba(255,80,0,.3)" } }, "收下"),
               h("button", { onClick: () => { if (!(characters || []).length) { toast("还没有角色可转赠"); return; } setSheet({ kind: "regift", orderId: o.id }); }, className: "flex-1 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + MSHOP.orange, color: MSHOP.orange, borderRadius: 999 } }, "转赠"))))),
       // 想要清单：看上了但没买的。它真正的用处在【他知道你想要什么】——
       // 单子会进他的上下文，他记不记得、送不送，是他自己的事。
@@ -2143,7 +2147,10 @@ function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinsh
     },
       h(G, { size: 21, color: nav === k ? MSHOP.orange : MSHOP.dim }),
       h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: nav === k ? MSHOP.orange : MSHOP.dim, fontWeight: nav === k ? 600 : 400 } }, zh),
-      k === "cart" && cartItems.length > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -18, background: MSHOP.price, color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 999, padding: "0 5px", lineHeight: "15px" } }, String(cartItems.length)))));
+      k === "cart" && cartItems.length > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -18, background: MSHOP.price, color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 999, padding: "0 5px", lineHeight: "15px" } }, String(cartItems.length)),
+      // 东西到了她得知道。送达只翻卡片状态、不弹提示（4 秒一轮，弹起来会打断她在做的事），
+      // 所以在底栏点一个红点——标准做法，不打扰。
+      k === "my" && receiving.length > 0 && h("span", { style: { position: "absolute", top: 4, right: "50%", marginRight: -14, width: 8, height: 8, borderRadius: 999, background: MSHOP.price, boxShadow: "0 0 0 1.5px " + MSHOP.card } }))));
 
   // ---------- 结算动作 / 对象选择 Sheet ----------
   const chip = (label, onClick, primary) => h("button", { onClick, className: "w-full py-3 active:opacity-75", style: { fontFamily: F_DISPLAY, fontSize: 16, borderRadius: 12, marginBottom: 10, background: primary ? t.ink : t.bg2, color: primary ? t.bg2 : t.ink, border: primary ? "none" : "1px solid " + t.line } }, label);
