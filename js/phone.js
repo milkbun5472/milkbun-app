@@ -41,9 +41,6 @@ const PHONE_APPS = [{
   key: "liked",
   zh: "赞过"
 }, {
-  key: "orders",
-  zh: "订单"
-}, {
   key: "health",
   zh: "健康"
 }, {
@@ -59,36 +56,37 @@ const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 音乐读「一起听」里归到他名下的那张歌单（点开就能放）。
 // 以前这两个各自另生成一份，等于同一个人有两套互不相干的论坛痕迹和歌单，
 // 而且手机里那份点不动、也不会因为他真去发帖而变。
+const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会自行 clamp 到模型上限
 const PHONE_LIVE_KEYS = ["forum", "music"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
-  ["notes", "album", "liked", "forum", "shopping", "orders", "calendar"],
+  ["notes", "album", "liked", "forum", "shopping", "calendar"],
   ["reading", "recordings", "video", "health", "clipboard", "settings"]
 ];
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["notes", "album", "liked", "forum", "shopping", "orders", "calendar"], ["reading", "recordings", "video", "health", "clipboard", "settings"]],
+  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "recordings", "video", "health", "clipboard", "settings"]],
   widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["reading", "clipboard", "calendar", "album", "music", "settings", "recordings"], ["shopping", "orders", "forum", "liked", "video", "health"]],
+  pages: [["reading", "clipboard", "calendar", "album", "music", "settings", "recordings"], ["shopping", "forum", "liked", "video", "health"]],
   widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["video", "liked", "forum", "browser", "notes", "reading", "shopping"], ["recordings", "orders", "health", "clipboard", "calendar", "settings"]],
+  pages: [["video", "liked", "forum", "browser", "notes", "reading", "shopping"], ["recordings", "health", "clipboard", "calendar", "settings"]],
   widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "video", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "forum"], ["orders", "liked", "recordings", "video", "clipboard", "settings"]],
-  widgets: [[{ key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "orders" }, { key: "clipboard" }]]
+  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "forum"], ["liked", "recordings", "video", "clipboard", "settings"]],
+  widgets: [[{ key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
 const phoneDesktopLayout = char => PHONE_DESKTOP_LAYOUTS[phoneStableHash(char && (char.id || char.name)) % PHONE_DESKTOP_LAYOUTS.length];
@@ -196,7 +194,6 @@ function PGlyph({
     })],
     reading: [P("M12 6.6C10.5 5.1 8 4.3 5 4.3V19c3 0 5.5.8 7 2.3 1.5-1.5 4-2.3 7-2.3V4.3c-3 0-5.5.8-7 2.3z"), P("M12 6.6V21.3")],
     liked: [P("M20.8 6.6a5 5 0 00-7-.4L12 7.8l-1.8-1.6a5 5 0 10-6.8 7.3l8.6 8.1 8.6-8.1a5 5 0 00.2-6.9z")],
-    orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")],
     health: [P("M2.5 12.5H6l2.2-6.4 3.3 12.4 2.6-8.2 1.6 2.2h5.8")],
     clipboard: [R(6, 3.5, 12, 17.5, 2.2), R(9, 1.6, 6, 4, 1.2), P("M9.5 11.5h5M9.5 15.5h3.5")],
     calendar: [R(3, 5, 18, 16, 2.4), P("M3 10h18M8 2.6v4.4M16 2.6v4.4")],
@@ -744,6 +741,198 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: READ_BG } },
     chrome, tab === "shelf" ? shelfPage : minePage, nav, detail);
 }
+// ============================================================
+// 购物 —— 一整个网购 App（她 2026-08-29 给了参考稿）
+// 原来的「购物」是一串商品清单、「订单」是外卖打车流水，两个喂同一份上下文必然复读。
+// 合成一个：账户 / 在途 / 购物车 / 想买 / 订单 / 习惯 / 店铺 / 券 / 浏览 / 地址 / 往来 / 月结。
+// 真正值钱的是三栏：想买清单的「为什么想买」、订单的「下单理由」、往来的「一句备注」，
+// 以及那条不是自己家的收货地址。
+// ============================================================
+const SHOP_ORANGE = "#ff6a2b";
+const SHOP_BG = "#f1f1f6";
+const SHOP_CARD = "#ffffff";
+const SHOP_INK = "#1b1b1f";
+const SHOP_DIM = "#9a9aa4";
+const shopMoney = n => "¥" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const shopInt = n => Number(n || 0).toLocaleString("en-US");
+function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const A = a => Array.isArray(a) ? a : [];
+  const data = (d && typeof d === "object") ? d : {};
+  const acc = (data.account && typeof data.account === "object") ? data.account : {};
+  const habit = (data.habit && typeof data.habit === "object") ? data.habit : {};
+  const initial = String(char.name || "?").trim().slice(0, 1);
+  const card = (kids, extra) => h("div", { style: Object.assign({ background: SHOP_CARD, borderRadius: 18, padding: "18px 18px", marginBottom: 14 }, extra || {}) }, kids);
+  const secTitle = (title, right) => h("div", { className: "flex items-baseline justify-between", style: { padding: "6px 4px 12px" } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: SHOP_INK } }, title),
+    right ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, right) : null);
+  const tag = (txt, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: SHOP_DIM, background: "#f4f4f7", borderRadius: 7, padding: "3px 9px" } }, txt);
+  const peekBtn = (tier, label, title, text) => onPeek ? h("button", {
+    onClick: e => { e.stopPropagation(); onPeek({ tier, label, title, text }); },
+    className: "active:opacity-60",
+    style: {
+      marginTop: 12, width: "100%", padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12,
+      border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e4e4ea"), color: tier === "hidden" ? "#b6473c" : "#55555e"
+    }
+  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机") : null;
+  const thumb = (txt, bg, fg) => h("div", {
+    "aria-hidden": "true",
+    style: { width: 56, height: 56, borderRadius: 15, flexShrink: 0, background: bg || "#f2f2f6", color: fg || "#8a8a94", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 21 }
+  }, String(txt || "?").trim().slice(0, 1));
+  // ── 账户卡 ──
+  const accountCard = card([
+    h("div", { key: "top", className: "flex items-center gap-4" },
+      h("div", { style: { width: 76, height: 76, borderRadius: 22, flexShrink: 0, background: "linear-gradient(150deg,#ff8a4c," + SHOP_ORANGE + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 30, boxShadow: "0 10px 22px rgba(255,106,43,.32)" } }, initial),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { className: "flex items-center gap-2 flex-wrap" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: SHOP_INK } }, char.name),
+          acc.member ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_ORANGE, background: "rgba(255,106,43,.10)", borderRadius: 999, padding: "4px 11px" } }, acc.member) : null),
+        acc.style ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "#77777f", marginTop: 6, lineHeight: 1.5 } }, acc.style) : null)),
+    h("div", { key: "nums", className: "flex", style: { marginTop: 18, paddingTop: 16, borderTop: "1px solid #efeff3" } },
+      [[acc.monthSpend != null ? Number(acc.monthSpend).toFixed(2) : "--", "本月消费"],
+       [acc.monthOrders != null ? shopInt(acc.monthOrders) : "--", "本月订单"],
+       [acc.points != null ? shopInt(acc.points) : "--", "积分"]].map(([n, l], i) => h("div", { key: i, className: "flex-1 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_INK } }, n),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_DIM, marginTop: 4 } }, l)))),
+    acc.persona ? h("div", { key: "p", style: { marginTop: 16, background: "#f5f5f8", borderRadius: 13, padding: "13px 15px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: "#4b4b53" } }, acc.persona) : null
+  ]);
+  // ── 在途包裹（时间轴） ──
+  const shipping = A(data.shipping);
+  const shipSec = shipping.length ? h("section", { key: "ship" }, secTitle("在途包裹", shipping.length + " 件"),
+    h("div", { style: { position: "relative", paddingLeft: 22 } },
+      h("div", { "aria-hidden": "true", style: { position: "absolute", left: 6, top: 12, bottom: 26, width: 2, background: "rgba(255,106,43,.28)" } }),
+      shipping.map((it, i) => h("div", { key: i, style: { position: "relative", marginBottom: 12 } },
+        h("span", { "aria-hidden": "true", style: { position: "absolute", left: -22, top: 16, width: 13, height: 13, borderRadius: 99, background: SHOP_ORANGE, border: "3px solid " + SHOP_BG } }),
+        card([
+          h("div", { key: "a", className: "flex items-baseline justify-between gap-3" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_ORANGE } }, it.status || "运输中"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.eta || "")),
+          it.shop ? h("div", { key: "b", style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, marginTop: 9 } }, it.shop) : null,
+          h("div", { key: "c", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: SHOP_INK, marginTop: 5 } }, it.title || ""),
+          h("div", { key: "d", style: { height: 4, borderRadius: 4, background: "#eeeef2", marginTop: 14, overflow: "hidden" } },
+            h("div", { style: { width: Math.max(0, Math.min(100, Number(it.progress) || 0)) + "%", height: "100%", borderRadius: 4, background: SHOP_ORANGE } })),
+          h("div", { key: "e", className: "flex items-baseline justify-between", style: { marginTop: 12 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, [it.carrier, it.tail ? "尾号 " + it.tail : ""].filter(Boolean).join(" · ")),
+            it.amount != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_ORANGE } }, shopMoney(it.amount)) : null)
+        ], { marginBottom: 0 }))))) : null;
+  // ── 购物车 ──
+  const cart = A(data.cart);
+  const cartSec = cart.length ? h("section", { key: "cart" }, secTitle("购物车", cart.length + " 件待结算"),
+    card(cart.map((it, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "14px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+      thumb(it.title),
+      h("div", { className: "flex-1 min-w-0" },
+        it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, it.shop) : null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: SHOP_INK, marginTop: 3 } }, it.title || ""),
+        it.spec ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 4 } }, it.spec) : null,
+        h("div", { className: "flex items-center gap-2 flex-wrap", style: { marginTop: 8 } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_ORANGE } }, shopMoney(it.price)),
+          Number(it.was) > Number(it.price) ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "#b9b9c2", textDecoration: "line-through" } }, shopMoney(it.was)) : null,
+          it.promo ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: SHOP_ORANGE, background: "rgba(255,106,43,.10)", borderRadius: 7, padding: "3px 8px" } }, it.promo) : null,
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, "×" + (it.qty || 1)))))))) : null;
+  // ── 想买清单（两列卡片；why 是这一格的命） ──
+  const wish = A(data.wish);
+  const wishSec = wish.length ? h("section", { key: "wish" }, secTitle("想买清单", "种草 " + wish.length),
+    h("div", { className: "grid grid-cols-2 gap-3", style: { marginBottom: 14 } }, wish.map((it, i) => h("button", {
+      key: i, className: "text-left active:opacity-70",
+      onClick: () => onPeek && onPeek({ tier: "quiet", label: "想买清单", title: it.title, text: [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜") }),
+      style: { background: SHOP_CARD, borderRadius: 16, overflow: "hidden" }
+    }, h("div", { style: { height: 96, background: "linear-gradient(150deg," + ["#c9c9d1", "#ffb79a", "#e6d7b6", "#c3d3e2", "#d8c6d6"][i % 5] + ",#f2f2f6)", display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { style: { width: 46, height: 46, borderRadius: 13, background: "rgba(255,255,255,.62)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 19, color: "#5d5d66" } }, String(it.title || "?").trim().slice(0, 1))),
+    h("div", { style: { padding: "12px 13px 15px" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.4, color: SHOP_INK, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.title || ""),
+      it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 6 } }, it.shop) : null,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_ORANGE, marginTop: 7 } }, shopMoney(it.price)),
+      it.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: "#84848d", marginTop: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, it.why) : null))))) : null;
+  // ── 我的订单 ──
+  const orders = A(data.orders);
+  const orderSec = orders.length ? h("section", { key: "ord" }, secTitle("我的订单", orders.length + " 单"),
+    orders.map((o, i) => card([
+      h("div", { key: "h", className: "flex items-baseline justify-between gap-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, o.shop || ""),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: o.status === "已取消" ? SHOP_DIM : "#3fa363" } }, o.status || "")),
+      o.time ? h("div", { key: "t", style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } }, o.time) : null,
+      o.title ? h("div", { key: "n", style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.45, color: SHOP_INK, marginTop: 10 } }, o.title) : null,
+      A(o.items).length ? h("div", { key: "it", style: { background: "#f5f5f8", borderRadius: 13, padding: "13px 14px", marginTop: 12 } },
+        A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start gap-3", style: { padding: j ? "10px 0 0" : "0", borderTop: j ? "1px solid #e9e9ee" : "none", marginTop: j ? 10 : 0 } },
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: "#4b4b53" } }, (x.name || "") + (x.spec ? " · " + x.spec : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#4b4b53", flexShrink: 0, minWidth: 54, textAlign: "right" } }, shopMoney(x.price))))) : null,
+      h("div", { key: "p", className: "flex items-baseline justify-between", style: { marginTop: 13 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, "运费 " + shopMoney(o.ship)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_ORANGE } }, "实付 ", h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15 } }, shopMoney(o.paid)))),
+      A(o.tags).length ? h("div", { key: "g", className: "flex gap-2 flex-wrap", style: { marginTop: 12 } }, A(o.tags).map(tag)) : null,
+      o.review ? h("div", { key: "r", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#7d7d86", marginTop: 13 } }, o.review) : null,
+      o.reason ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#4b4b53", marginTop: 9 } }, o.reason) : null,
+      o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b3b3bb", marginTop: 11 } }, o.addr) : null,
+      h("div", { key: "pk" }, peekBtn("quiet", "他的订单", o.title || o.shop, [o.reason, o.review, o.addr].filter(Boolean).join("｜")))
+    ], { key: i }))) : null;
+  // ── 购物习惯 ──
+  const habitRows = [["预算", habit.budget], ["常买", habit.buys], ["不买", habit.avoids], ["习惯", habit.how]].filter(x => x[1]);
+  const habitSec = habitRows.length ? h("section", { key: "hb" }, secTitle("购物习惯"),
+    card(habitRows.map(([k, v], i) => h("div", { key: i, className: "flex gap-5", style: { padding: "14px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+      h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, k),
+      h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: SHOP_INK } }, v)))),
+    peekBtn("quiet", "购物习惯", "他买东西的样子", habitRows.map(([k, v]) => k + "：" + v).join("｜"))) : null;
+  // ── 常逛店铺 ──
+  const shops = A(data.shops);
+  const shopSec = shops.length ? h("section", { key: "sh" }, secTitle("常逛店铺"),
+    card(shops.map((sp, i) => h("div", { key: i, className: "flex gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+      thumb(sp.name),
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_INK } }, sp.name || ""),
+        sp.cat ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 3 } }, sp.cat) : null,
+        sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: "#84848d", marginTop: 6 } }, sp.why) : null))))) : null;
+  // ── 优惠券 ──
+  const coupons = A(data.coupons);
+  const couponSec = coupons.length ? h("section", { key: "cp" }, secTitle("优惠券"),
+    card(coupons.map((c, i) => h("div", { key: i, className: "flex items-stretch", style: { background: "rgba(255,106,43,.07)", borderRadius: 13, overflow: "hidden", marginTop: i ? 11 : 0 } },
+      h("div", { style: { width: 118, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px 6px", borderRight: "1px dashed rgba(255,106,43,.36)", fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_ORANGE, textAlign: "center", lineHeight: 1.3 } }, c.rule || ""),
+      h("div", { style: { flex: 1, minWidth: 0, padding: "14px 15px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: SHOP_INK } }, c.name || ""),
+        c.scope ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } }, c.scope) : null,
+        c.until ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginTop: 5 } }, "至 " + c.until) : null))))) : null;
+  // ── 最近浏览 ──
+  const viewed = A(data.viewed);
+  const viewSec = viewed.length ? h("section", { key: "vw" }, secTitle("最近浏览"),
+    card(viewed.map((v, i) => h("div", { key: i, className: "flex items-start gap-3", style: { padding: "13px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+      h("div", { className: "flex-1 min-w-0" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.45, color: SHOP_INK } }, v.title || ""),
+        v.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 5 } }, v.shop) : null),
+      h("div", { style: { flexShrink: 0, textAlign: "right" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: SHOP_ORANGE } }, shopMoney(v.price)),
+        v.time ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM, marginTop: 4 } }, v.time) : null)))))  : null;
+  // ── 收货地址（不是自己家的那条走 hidden） ──
+  const addrs = A(data.addrs);
+  const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("收货地址"),
+    card(addrs.map((a, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+      h("div", { className: "flex items-center gap-2" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: SHOP_INK } }, a.label || ""),
+        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#3d7dd8", background: "rgba(61,125,216,.10)", borderRadius: 6, padding: "3px 8px" } }, "默认") : null,
+        a.tail ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM, marginLeft: "auto" } }, a.tail) : null),
+      a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#84848d", marginTop: 7 } }, a.detail) : null,
+      !a.isDefault ? h("div", null, peekBtn("hidden", "收货地址", a.label, a.detail)) : null)))) : null;
+  // ── 相关往来 ──
+  const gifts = A(data.gifts);
+  const giftSec = gifts.length ? h("section", { key: "gf" }, secTitle("相关往来"),
+    card(gifts.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, g.who || ""),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: SHOP_INK, marginTop: 6 } }, g.title || ""),
+      g.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#84848d", marginTop: 7 } }, g.note) : null,
+      h("div", null, peekBtn("quiet", "他给谁买的东西", (g.who || "") + " · " + (g.title || ""), g.note))))))  : null;
+  // ── 本月概况 ──
+  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本月购物概况"),
+    data.monthNote ? card(h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#3f3f47" } }, data.monthNote)) : null,
+    data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "#a6a6ae", textAlign: "center", padding: "6px 14px 4px" } }, data.tail) : null) : null;
+  const anything = accountCard && (shipping.length || cart.length || wish.length || orders.length || shops.length || data.monthNote);
+  const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10), background: "transparent" } },
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.86)", boxShadow: "0 4px 14px rgba(30,25,20,.10)" } }, h(IArrow, { size: 19, color: SHOP_INK })),
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 99, background: "rgba(255,255,255,.86)", boxShadow: "0 4px 14px rgba(30,25,20,.10)" } }, h(IRefresh, { size: 18, color: SHOP_INK })));
+  return h("div", {
+    className: "h-full min-h-0 flex flex-col",
+    style: { background: "linear-gradient(178deg,#ffe6d8 0%,#eeeaf4 22%," + SHOP_BG + " 46%," + SHOP_BG + " 100%)" }
+  }, chrome, h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 28px" } },
+    accountCard, shipSec, cartSec, wishSec, orderSec, habitSec, shopSec, couponSec, viewSec, addrSec, giftSec, monthSec,
+    !anything ? h("div", { style: { padding: "50px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, "还没有购物记录，点右上角刷一次") : null));
+}
 function renderPhoneModule(key, d, ctx) {
   const {
     t,
@@ -880,38 +1069,7 @@ function renderPhoneModule(key, d, ctx) {
       marginTop: 3
     }
   }))));
-  if (key === "shopping") return wrap(arr(d.items).map((it, i) => h("button", {
-    key: i,
-    onClick: () => setSheet(DetailSheet(it.name, it.thought, t, peekFoot("quiet", "购物", it.name + (it.price ? " " + it.price : ""), it.thought))),
-    className: "w-full text-left py-3.5 flex items-start justify-between gap-3",
-    style: line
-  }, h("div", {
-    className: "flex-1"
-  }, h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 14.5,
-      color: t.ink
-    }
-  }, it.name), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: t.fog,
-      marginTop: 2
-    }
-  }, it.time)), h("div", {
-    className: "flex items-center gap-2"
-  }, h("span", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 14,
-      color: t.accent
-    }
-  }, it.price), h(IChevR, {
-    size: 14,
-    color: t.line
-  })))));
+  if (key === "shopping") return h(ShoppingView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "album") return h(AlbumView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   // ── 论坛：接【真论坛】，不再另生成一份光有标题的假货 ──
   // 论坛界面里她只看得见「匿名用户」和一个不认识的小号；哪些是他发的，
@@ -1026,18 +1184,6 @@ function renderPhoneModule(key, d, ctx) {
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } },
       [(it.act || "赞") + "过", it.author, it.kind, it.tag, it.time].filter(Boolean).join(" · "))))
   ]);
-  // ── 订单：外卖／打车／快递。备注那一栏比买了什么更暴露人 ──
-  if (key === "orders") return wrap(arr(d.items).map((it, i) => h("button", {
-    key: i,
-    onClick: () => setSheet(DetailSheet(it.title,
-      [it.type, it.time, it.addr, it.note ? "备注：" + it.note : "", it.amount != null ? fmtMoney(it.amount) : ""].filter(Boolean).join("\n"), t,
-      peekFoot("quiet", it.type || "订单", it.title, [it.addr, it.note].filter(Boolean).join("｜")))),
-    className: "w-full text-left py-3.5 flex items-start justify-between gap-3 active:opacity-60", style: line
-  }, h("div", { className: "flex-1 min-w-0" },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, lineHeight: 1.4 } }, it.title),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, [it.type, it.time, it.addr].filter(Boolean).join(" · ")),
-    it.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4 } }, "备注：" + it.note) : null),
-  it.amount != null ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, color: t.ink, flexShrink: 0, paddingTop: 2 } }, fmtMoney(it.amount)) : null)));
   // ── 健康：数字自己会说话，不替它解释 ──
   if (key === "health") {
     const wk = arr(d.week);
@@ -1616,7 +1762,7 @@ function PhoneCarry({
       wechat: "点开看看最近和谁说过话", notes: "最近没有留下新备忘", browser: "最近没有浏览记录",
       music: "他还没有歌单", album: "相册还没翻过", video: "最近没有观看记录",
       forum: "论坛上还没有他的痕迹", reading: "最近没在读什么", liked: "还没点过什么",
-      orders: "最近没下过单", health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排"
+      health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排"
     }[key] || "还没有内容";
     // 真数据这两个走自己那份，不然桌面小组件永远显示兜底话
     if (key === "music") { const sg = ((livePlaylist && livePlaylist.songs) || [])[0]; return sg ? (livePlaylist.name || "歌单") + " · " + sg.title : fallback; }
@@ -1760,14 +1906,13 @@ const PHONE_ANGLE = {
   recordings: "【取材层】他说出口、但没打算给任何人听的。会有语气词、停顿、说到一半的句子——**只有打字打不出来、只能说出来的东西才会被录下来**，这是它和备忘录的分界。【时间窗】这一两周。",
   calls: "【取材层】他和外面世界的例行往来：工作、家里、办事、推销、打错的。这里大部分是杂事，不是感情戏。【时间窗】这一周。",
   browser: "【取材层】一个人闲着、脑子没在想正事的时候搜的东西。可以很无聊、很实用、很没道理，也可以是查一个当场想不起来的词。【时间窗】这几天。",
-  shopping: "【取材层】他花钱的方式。买了什么比想了什么更暴露人；日用、囤货、冲动、给别人买的，都算。【时间窗】这一个月。",
+  shopping: "【取材层】他花钱的方式。买了什么、想买没买、绝不买什么、送到谁家——这四样加起来比他自己说的任何一句都准。【时间窗】这一个月，想买清单可以惦记很久。",
   video: "【取材层】他消磨时间的口味，不是他的心事。【时间窗】这几天。",
   video_day: "【取材层】他消磨时间的口味，不是他的心事。刷视频多半是没在想什么的时候。【时间窗】这几天。",
   video_night: "【取材层】深夜、独自一人、没打算被任何人看见的欲望。【时间窗】这阵子。",
   album: "【取材层】过去。**相册的主体不是这几天**，而是几个月到几年沉下来的东西：旧的人、去过的地方、早就结束的事。只有一两张属于最近。【时间窗】跨月跨年。",
   reading: "【取材层】他一个人读到某一句停下来的那个瞬间。**批注和划线是不打算给任何人看的动作**，所以它比书单诚实得多；书架怎么分、怎么起名，也是他自己对自己的说法。【时间窗】跨年，一架书是攒出来的，不是这个月买的。",
   liked: "【取材层】他不会写下来、但会顺手点的东西。点赞和收藏没有措辞、不用解释，所以最诚实。【时间窗】这一两个月。",
-  orders: "【取材层】他和现实生活打交道的痕迹：吃什么、几点吃、去哪、东西送到谁那儿。【时间窗】这两周。",
   health: "【取材层】纯数字，不承载情节，也不许在里面写心情——数字自己会说话。【时间窗】最近七天。",
   clipboard: "【取材层】他复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
   calendar: "【取材层】他给自己排的事，以及他一直没去做的事。【时间窗】前后两周。",
@@ -1785,14 +1930,13 @@ const PHONE_DIGEST_PICK = {
   notes: d => pArr(d.items).map(x => x.title),
   calls: d => pArr(d.items).slice(0, 4).map(x => x.name),
   browser: d => pArr(d.items).map(x => x.title),
-  shopping: d => pArr(d.items).map(x => x.name + (x.price ? " " + x.price : "")),
+  shopping: d => pArr(d.orders).map(x => x.title).concat(pArr(d.wish).map(x => x.title), pArr(d.cart).map(x => x.title)),
   album: d => pArr(d.items).slice(0, 4).map(x => x.caption),
   recordings: d => pArr(d.items).map(x => x.name),
   video_day: d => pArr(d.items).map(x => x.title),
   video_night: d => pArr(d.items).map(x => x.title),
   reading: d => pArr(d.shelves).map(x => x.name).concat(pArr(d.shelves).reduce((a, sh) => a.concat(pArr(sh.books).slice(0, 2).map(b => b.title)), [])),
   liked: d => pArr(d.items).map(x => x.content),
-  orders: d => pArr(d.items).map(x => x.title),
   health: () => [],
   clipboard: d => pArr(d.items).map(x => x.text),
   calendar: d => pArr(d.items).map(x => x.title),
@@ -1838,8 +1982,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
   const S = {
     wechat: {
       instruction: "推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户 Lisa：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写 Lisa：name 固定 Lisa，但 remark 必须是 TA 真会给 Lisa 起的微信备注，intro 必须写 TA 对 Lisa 的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
-      schemaHint: "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"Lisa\",\"remark\":\"TA给Lisa的微信备注\",\"intro\":\"TA对Lisa具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}",
-      maxTokens: 12000
+      schemaHint: "{\"chats\":[{\"type\":\"private或group\",\"name\":\"会话名\",\"last\":\"最后一条\",\"time\":\"14:20\",\"messages\":[{\"from\":\"说话人\",\"text\":\"内容\"}]}],\"userContact\":{\"name\":\"Lisa\",\"remark\":\"TA给Lisa的微信备注\",\"intro\":\"TA对Lisa具体而私人的感想\"},\"contacts\":[{\"name\":\"本名\",\"remark\":\"TA的备注\",\"intro\":\"关系与感想\"}],\"moments\":[{\"author\":\"联系人\",\"time\":\"2小时前\",\"content\":\"朋友圈正文\",\"likes\":[\"姓名\"],\"comments\":[{\"from\":\"姓名\",\"text\":\"评论\"}]}],\"me\":{\"wechatName\":\"TA的微信昵称\",\"wechatId\":\"微信号\",\"signature\":\"本轮生成的朋友圈签名\",\"accounts\":[{\"title\":\"文章标题\",\"source\":\"公众号\",\"time\":\"昨晚\",\"summary\":\"较完整文章摘要\",\"thought\":\"TA的感想\"}]}}"
     },
     notes: {
       instruction: "推演「" + char.name + "」备忘录里的几条笔记（3-5 条），每条有标题、时间，点开能看正文细节。贴合身份与当下心境。",
@@ -1854,13 +1997,26 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       schemaHint: "{\"items\":[{\"title\":\"网页标题\",\"url\":\"www...\",\"time\":\"13:40\",\"content\":\"内容摘要\"}]}"
     },
     shopping: {
-      instruction: "推演「" + char.name + "」最近买过的东西（3-6 件），有名称和价格，点开看 Ta 为什么想买的想法。",
-      schemaHint: "{\"items\":[{\"name\":\"商品\",\"price\":\"¥128\",\"time\":\"3天前\",\"thought\":\"想法\"}]}"
+      instruction: "推演「" + char.name + "」网购 App 的整个界面。" + relHint + "\n"
+        + "**所有金额、店铺、商品都必须贴合他的身份、时代和谋生方式**：古代角色买的是他那个世界里买得到的东西、逛的是那种铺子；普通人就是普通消费水平，不许人人都很有钱。\n\n"
+        + "account 账户：member（会员等级的名字，按平台在他世界里的叫法起，可以带点调侃）、style（一句话概括他的购物风格，如「实用利落兼带几件扎眼红衣」）、monthSpend（本月消费，数字）、monthOrders（本月订单数）、points（积分）、persona（一句更狠的购物性格，如「买东西极快但退换极少，嫌麻烦多过心疼银子」）。\n"
+        + "shipping 在途包裹 **2-3 件**：status（派送中/运输中/已揽收）、eta（如「今日 18:00 前」）、shop、title（商品全名带规格）、progress（0-100 整数）、carrier、tail（运单尾号）、amount（数字）。\n"
+        + "cart 购物车 **4-6 件**：shop、title、spec（颜色/尺码/款式）、price（现价数字）、was（原价数字，可为 0）、promo（如「跨店满减」「包邮」「买二立减」，可空）、qty。购物车装的是【还没下决心的东西】。\n"
+        + "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想买，一句他自己的话**）。\n"
+        + "**why 这一栏是整个 app 里最重要的东西**：它要暴露他的私心、旧事和惦记的人（「某人不是喜欢红的么，买来扣她脖子上」「刀柄弧度很像当年父亲留下的那把」「府里那张被陆闻拍裂了一条缝」）。不许写「质量好」「性价比高」这种。\n"
+        + "orders 我的订单 **6-8 单**：shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右，如「食品特产」「微信支付」）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n"
+        + "habit 购物习惯：budget（单笔预算区间）、buys（常买什么）、avoids（**绝不买什么**——这一条比常买更像人）、how（下单习惯，什么时候翻、还不还价）。\n"
+        + "shops 常逛店铺 **3-4 家**：name、cat（品类）、why（一句为什么是这家，要具体到掌柜脾气、货色成色这种）。\n"
+        + "coupons 优惠券 **2-3 张**：rule（如「满300减50」）、name、scope（哪家或哪类可用）、until（到期日）。\n"
+        + "viewed 最近浏览 **5-7 条**：title、shop、price、time。**看了没买的东西和购物车里的要错开**，那是另一层心思。\n"
+        + "addrs 收货地址 **2-3 条**：label（地址别名）、tail（尾号）、detail（详细到门房怎么放的那种备注）、isDefault（只有一条 true）。**其中一条应当是「他常去的另一个地方」**，不是自己家。\n"
+        + "gifts 相关往来 **3-5 条**：who（给谁买的，用他嘴里对那个人的叫法）、title、note（**一句只有他会写的备注**，如「嘴上说着不喜欢我吵，接了油纸包自己一口气吃了三块」）。\n"
+        + "monthNote：本月购物概况，一段 60-110 字，账房口吻，别抒情。tail：最后一句他自己的念叨，一两句，可以很得意也可以很没出息。",
+      schemaHint: "{\"account\":{\"member\":\"会员名\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\"}"
     },
     album: {
       instruction: "推演「" + char.name + "」手机相册里正好 25 张互不重复的照片。时间跨度要自然；date 必须写真实完整日期 YYYY-MM-DD HH:mm，必须带年份，禁止写周三、周五、昨天、最近等相对日期。每张分进且只分进五类之一：回忆(memory)、个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张、不必平均。memory 是 TA 真正会反复翻看的重要瞬间，不是普通随手拍。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
-      schemaHint: "{\"items\":[{\"id\":\"p01\",\"caption\":\"很短的标题\",\"date\":\"2026-08-28 18:42\",\"category\":\"memory或favorite或saved或private或deleted\",\"desc\":\"照片实际画面描述\",\"thought\":\"TA对此的私人想法\"}]}",
-      maxTokens: 12000
+      schemaHint: "{\"items\":[{\"id\":\"p01\",\"caption\":\"很短的标题\",\"date\":\"2026-08-28 18:42\",\"category\":\"memory或favorite或saved或private或deleted\",\"desc\":\"照片实际画面描述\",\"thought\":\"TA对此的私人想法\"}]}"
     },
     reading: {
       instruction: "推演「" + char.name + "」手机读书 App 里的整个书架。**正好 5 个书架、正好 30 本书（每架 6 本）。**\n\n"
@@ -1871,33 +2027,23 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
         + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头（比如「改天带你去城南找找，看能不能把书里的几样凑齐」）。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
         + "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n"
         + "【阅读档案 archive】favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；weekGoal = **他给自己定的每周阅读目标**（同样格式，如「5小时」；定得高还是低本身就是这个人的样子，也完全允许他这周没读到）；plan = 他打算下一本读的（title+author）。",
-      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"卷七·饮食果子\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}",
-      maxTokens: 30000
+      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"slug\":\"english_slug\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"卷七·饮食果子\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
     },
     liked: {
       instruction: "推演「" + char.name + "」在一个图文/短视频社区（类似小红书、豆瓣那种半熟人平台，不是微信）里点过赞和收藏的东西（6-9 条）。每条给 author（发的人的昵称）、kind（图文/视频/长文/评论 之一）、content（那条内容本身是什么，一句话说清）、tag（分区标签）、time、act（赞 或 收藏）。\n**点赞记录是一个人最诚实的东西**：他不会写下来，但他会点。所以这里应该出现他【不会主动跟人说、也不觉得需要解释】的部分——某种审美偏好、某个人、某类身体或情绪上的需要、一个他嘴上不承认的爱好、一条他其实想照做的建议。也可以有很没意思的（食谱、装修、通勤路线）。\n另外给 follows：他关注的 3-5 个账号，name ＋一句 desc 说明那号是干嘛的。别全是正经账号。" + relHint,
-      schemaHint: "{\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}],\"items\":[{\"author\":\"发的人\",\"kind\":\"图文\",\"content\":\"内容是什么\",\"tag\":\"分区\",\"time\":\"3天前\",\"act\":\"赞\"}]}",
-      maxTokens: 3000
-    },
-    orders: {
-      instruction: "推演「" + char.name + "」最近的订单记录（6-9 条），外卖、打车、快递混在一起。每条给 type（外卖/打车/快递 之一）、title（买了什么，或「从哪到哪」）、amount（纯数字，元）、time（如「昨天 23:41」）、addr（送到哪／到哪，可留空）、note（下单备注，可留空）。\n**备注那一栏是这个 app 的重点**：「不要香菜」「放门口就行」「麻烦轻一点敲门，家里有人在睡」——这三条是三个不同的人。每条备注都要像真人当场打的字，宁可留空也不要写得像客服模板。\n金额和消费水平严格按他的身份来，别人人都点贵的。深夜的单、送到别人家的单、替别人点的单都可以有。" + relHint,
-      schemaHint: "{\"items\":[{\"type\":\"外卖\",\"title\":\"买了什么或从哪到哪\",\"amount\":38,\"time\":\"昨天 23:41\",\"addr\":\"送到哪\",\"note\":\"下单备注，可空\"}]}",
-      maxTokens: 2600
+      schemaHint: "{\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}],\"items\":[{\"author\":\"发的人\",\"kind\":\"图文\",\"content\":\"内容是什么\",\"tag\":\"分区\",\"time\":\"3天前\",\"act\":\"赞\"}]}"
     },
     health: {
       instruction: "推演「" + char.name + "」最近七天的健康数据。week 正好 7 条，从七天前到昨天，每条给 day（周几）、date（M月D日）、sleepStart（入睡时间 HH:mm）、sleepEnd（醒来 HH:mm）、hours（睡了几小时，一位小数）、steps（步数整数）。另给 restingHr（静息心率整数）和 weekNote（一句话，要用健康 App 那种干巴巴的周报口吻）。\n**这些数字必须和他这七天真实经历过的事对得上**：熬夜那晚就该是三四点，出门多的那天步数就该高，心里翻腾的时候睡眠时长会短会碎，休息日可以睡到很晚。\n**不要在 weekNote 里替数字解释情绪**——数字自己会说话，写成「本周睡眠不足，可能与压力有关」就毁了。",
-      schemaHint: "{\"restingHr\":62,\"weekNote\":\"干巴巴一句话\",\"week\":[{\"day\":\"周一\",\"date\":\"8月24日\",\"sleepStart\":\"01:20\",\"sleepEnd\":\"07:05\",\"hours\":5.8,\"steps\":4200}]}",
-      maxTokens: 2200
+      schemaHint: "{\"restingHr\":62,\"weekNote\":\"干巴巴一句话\",\"week\":[{\"day\":\"周一\",\"date\":\"8月24日\",\"sleepStart\":\"01:20\",\"sleepEnd\":\"07:05\",\"hours\":5.8,\"steps\":4200}]}"
     },
     clipboard: {
       instruction: "推演「" + char.name + "」手机剪贴板里最近躺着的东西（5-7 条）。每条给 text（复制的原文）、from（从哪个 app 复制的）、time、sent（true=后来发出去了；false=复制了但一直没发）。\n**必须至少有一条 sent=false，而且是他打给某个具体的人、却始终没发出去的话。**这是「差一点就说了」的物证，是这个 app 唯一重要的东西。它不必长，可以只有半句，可以很难看、很没出息、说到一半停住。\n其余的可以很杂很无聊：验证码、快递单号、店铺地址、一个人名、一句歌词、一个链接。别每条都深情。" + relHint,
-      schemaHint: "{\"items\":[{\"text\":\"复制的原文\",\"from\":\"微信\",\"time\":\"昨天 02:11\",\"sent\":false}]}",
-      maxTokens: 2400
+      schemaHint: "{\"items\":[{\"text\":\"复制的原文\",\"from\":\"微信\",\"time\":\"昨天 02:11\",\"sent\":false}]}"
     },
     calendar: {
       instruction: "推演「" + char.name + "」日历和提醒事项里的东西（6-9 条），前后两周。每条给 title、when（如「9月2日 14:00」或「每周三」）、kind（事件 或 提醒）、done（true/false）、postponed（往后推过几次，整数，多数是 0）、note（可留空）。\n**推迟次数是这个 app 的重点**：一件推了四次的小事，比四件按时完成的大事更能说明这个人。至少有一条 postponed 在 3 以上，而且它应该是件很小、很容易做完、但他就是一直不做的事。\n三种都要有：他给自己设的、和别人约好的、以及一直没去做的。" + relHint,
-      schemaHint: "{\"items\":[{\"title\":\"事情\",\"when\":\"9月2日 14:00\",\"kind\":\"提醒\",\"done\":false,\"postponed\":0,\"note\":\"可空\"}]}",
-      maxTokens: 2400
+      schemaHint: "{\"items\":[{\"title\":\"事情\",\"when\":\"9月2日 14:00\",\"kind\":\"提醒\",\"done\":false,\"postponed\":0,\"note\":\"可空\"}]}"
     },
     settings: {
       instruction: "推演「" + char.name + "」的屏幕使用时间，像 iOS：日均总时长，以及各 App 单独的使用时长（5-7 个，从多到少）。贴合性格。",
@@ -1917,8 +2063,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
     },
     wallet: {
       instruction: "推演「" + char.name + "」的财务档案。**最重要：收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，money 要贴合 TA 真实的谋生方式。** 收入来源 incomes（1-3 项，name+category+amount 数字）——category 从 TA 实际的谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；**只有当人设明确是富家子弟、继承人、家境优渥时，才可以出现「家族供养/信托」这类收入，否则绝对不要默认套用家族收入。** 普通人就是普通收入、金额可以不高甚至拮据。monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白，透露财力与消费态度）；dailyPool 15-25 条日常消费模板（每条 items 一句话描述当天买了啥，amount 数字，反映其真实生活水平）；可选 gifts 送礼转账。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。",
-      schemaHint: "{\"incomes\":[{\"name\":\"公司月薪\",\"category\":\"工资\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"},\"dailyPool\":[{\"items\":\"地铁+便利店午饭\",\"amount\":42}],\"gifts\":[{\"date\":\"6月20日\",\"name\":\"给朋友的生日礼物\",\"amount\":200}]}",
-      maxTokens: 3200
+      schemaHint: "{\"incomes\":[{\"name\":\"公司月薪\",\"category\":\"工资\",\"amount\":11000}],\"monthlyIncome\":11000,\"fixedMonthly\":6800,\"baseBalance\":38400,\"investAssets\":15000,\"notes\":{\"income\":\"...\",\"savings\":\"...\",\"invest\":\"...\",\"spending\":\"...\"},\"dailyPool\":[{\"items\":\"地铁+便利店午饭\",\"amount\":42}],\"gifts\":[{\"date\":\"6月20日\",\"name\":\"给朋友的生日礼物\",\"amount\":200}]}"
     }
   };
   const spec = S[key] || {
@@ -1929,5 +2074,10 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
   // 拼在这里而不是各 app 的 instruction 里，是为了【四处一样喂】——
   // 新加一个 app 时不必记得手动补，漏不掉（.claude/rules/four-surfaces-same-context.md）。
   const angle = PHONE_ANGLE[key] ? "\n\n" + PHONE_ANGLE[key] : "";
-  return { ...spec, instruction: spec.instruction + angle + phoneAvoidBlock(avoidLines) };
+  // 输出天花板统一给满（同 StylePresets.OUT_CEILING / trpg 的 TOK_MAX）。
+  // max_tokens 是【天花板】不是预付款：她按次计费，给大了不多花一分钱，给小了才要命——
+  // 思考型模型的推理 token 也从这里扣，压小了推理吃完、正文只剩两百来字。
+  // 以前这里每个 app 各写一个数（2200~30000），相册和微信被截断过就是因为那个数拍小了。
+  // 控制篇幅的活儿交给 instruction 里写的条数和字数，不是拿额度去掐。
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneAvoidBlock(avoidLines) };
 }

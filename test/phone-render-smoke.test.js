@@ -98,9 +98,10 @@ test("每个 app 在四套桌面布局里都有入口，一个都不许找不到
   keys.forEach(k => assert.ok(fb.indexOf(k) >= 0, "兜底布局里找不到 " + k));
 });
 
-test("新加的六个 app 都配齐了：推演任务、取材层、避重抽取、假数据", () => {
+test("新加的这几个 app 都配齐了：推演任务、取材层、避重抽取、假数据", () => {
   const P = loadPhone();
-  ["reading", "liked", "orders", "health", "clipboard", "calendar"].forEach(k => {
+  // v57.50：订单并进购物了（她给的参考稿本来就是一整个购物 app，两个并存必然复读）
+  ["reading", "liked", "shopping", "health", "clipboard", "calendar"].forEach(k => {
     const spec = P.phoneProbeSpec(k, char, [], "", []);
     assert.notEqual(spec.schemaHint, "{}", k + " 没有自己的推演任务");
     assert.ok(spec.instruction.length > 120, k + " 的推演任务写得太薄");
@@ -114,12 +115,12 @@ test("新加的六个 app 都配齐了：推演任务、取材层、避重抽取
 test("避重抽取表能从新 app 的真实形状里抽出东西", () => {
   const P = loadPhone();
   const lines = P.phoneRoundDigest({
-    reading: FIXTURES.reading, liked: FIXTURES.liked, orders: FIXTURES.orders,
+    reading: FIXTURES.reading, liked: FIXTURES.liked, shopping: FIXTURES.shopping,
     clipboard: FIXTURES.clipboard, calendar: FIXTURES.calendar, health: FIXTURES.health
   }, "notes").join("\n");
   assert.match(lines, /阅读：京华杂谈与消遣/);
   assert.match(lines, /赞过：一个人吃饭的十种办法/);
-  assert.match(lines, /订单：馄饨/);
+  assert.match(lines, /购物：古法手作冰镇桂花糖糕组合/);
   assert.match(lines, /剪贴板：其实我/);
   assert.match(lines, /日历：体检/);
   // 健康是纯数字，不参与避重（它跟别的 app 不会撞题）
@@ -212,7 +213,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
-  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading"]);
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping"]);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
@@ -230,4 +231,52 @@ test("阅读的推演任务把书架名、真书、批注三条都钉死了", ()
   assert.match(spec.schemaHint, /"archive"/);
   // 30 本带批注，输出上限不能还留在默认的 2600
   assert.ok(spec.maxTokens >= 20000, "上限只有 " + spec.maxTokens + "，30 本书会被截断");
+});
+
+test("购物：整页、脏数据、无 onPeek 都能渲", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.shopping, char, t: { ink: "#111", bg: "#fff", bg2: "#eee", line: "#ddd", fog: "#999", sub: "#555" }, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  assert.doesNotThrow(() => loadPhone().ShoppingView(props), "购物页炸了");
+  [null, {}, { account: 3, cart: "x", orders: [{ items: "x", tags: 5 }], addrs: [{}] }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone().ShoppingView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  const { onPeek, ...noPeek } = props;
+  assert.doesNotThrow(() => loadPhone().ShoppingView(noPeek), "没有 onPeek 时炸了");
+});
+
+test("购物的推演任务把「为什么想买」和「不是自己家的地址」钉死了", () => {
+  const P = loadPhone();
+  const spec = P.phoneProbeSpec("shopping", char, [], "", []);
+  // 十一块内容都要点到名
+  ["account", "shipping", "cart", "wish", "orders", "habit", "shops", "coupons", "viewed", "addrs", "gifts", "monthNote"]
+    .forEach(k => assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 这一块没在 schema 里"));
+  // 每块的条数都要写死，不然模型爱给几条给几条
+  assert.match(spec.instruction, /shipping 在途包裹 \*\*2-3 件\*\*/);
+  assert.match(spec.instruction, /cart 购物车 \*\*4-6 件\*\*/);
+  assert.match(spec.instruction, /wish 想买清单 \*\*4-6 件\*\*/);
+  assert.match(spec.instruction, /orders 我的订单 \*\*6-8 单\*\*/);
+  assert.match(spec.instruction, /shops 常逛店铺 \*\*3-4 家\*\*/);
+  assert.match(spec.instruction, /coupons 优惠券 \*\*2-3 张\*\*/);
+  assert.match(spec.instruction, /viewed 最近浏览 \*\*5-7 条\*\*/);
+  assert.match(spec.instruction, /addrs 收货地址 \*\*2-3 条\*\*/);
+  assert.match(spec.instruction, /gifts 相关往来 \*\*3-5 条\*\*/);
+  // 值钱的那几栏
+  assert.match(spec.instruction, /why 这一栏是整个 app 里最重要的东西/);
+  assert.match(spec.instruction, /不许写「质量好」「性价比高」这种/);
+  assert.match(spec.instruction, /绝不买什么.*这一条比常买更像人/s);
+  assert.match(spec.instruction, /其中一条应当是「他常去的另一个地方」/);
+  assert.match(spec.instruction, /看了没买的东西和购物车里的要错开/);
+});
+
+test("购物里非默认地址走 hidden 档——那不是购物信息，是他常去谁家", () => {
+  assert.match(SRC, /!a\.isDefault \? h\("div", null, peekBtn\("hidden", "收货地址"/);
+});
+
+test("查手机所有推演的输出天花板统一给满，不再一个 app 一个数", () => {
+  const P = loadPhone();
+  const keys = P.PHONE_APPS.reduce((a, x) => a.concat(x.key === "video" ? ["video_day", "video_night"] : [x.key]), [])
+    .filter(k => P.PHONE_LIVE_KEYS.indexOf(k) < 0);
+  keys.forEach(k => assert.equal(P.phoneProbeSpec(k, char, [], "", []).maxTokens, 65535, k + " 的天花板不是给满的"));
+  // 各 app 自己那行 maxTokens 必须是删掉，不是留着被覆盖
+  assert.doesNotMatch(SRC, /maxTokens: \d+\n/);
+  assert.match(SRC, /const PHONE_OUT_CEILING = 65535;/);
 });

@@ -92,9 +92,10 @@ test("没有避重清单时不拼空块，只带取材层", () => {
   const spec = P.phoneProbeSpec("notes", char, [], "", []);
   assert.doesNotMatch(spec.instruction, /不许复读/);
   assert.match(spec.instruction, /【取材层】/);
-  // schemaHint 和 maxTokens 原样保留，没被包装弄丢
+  // schemaHint 原样保留，没被包装弄丢；maxTokens 则统一给满
+  //（v57.50：max_tokens 是天花板不是预付款，按次计费下压小了只会截断正文）
   assert.match(spec.schemaHint, /"items"/);
-  assert.equal(P.phoneProbeSpec("album", char, [], "", []).maxTokens, 12000);
+  assert.equal(P.phoneProbeSpec("album", char, [], "", []).maxTokens, 65535);
 });
 
 test("未知 key 仍返回可用的兜底 spec", () => {

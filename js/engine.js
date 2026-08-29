@@ -5045,12 +5045,18 @@ async function oocAskGroup(p, ctx, question) {
 }
 async function runProbe(p, ctx, probe) {
   const system = "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。\n\n" + buildBundle(ctx) + "\n\n【推演任务】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
-  const raw = await callAI(p, system, [{
-    role: "user",
-    content: "开始。"
-  }], {
-    maxTokens: probe.maxTokens || 2600
-  });
+  const want = probe.maxTokens || 2600;
+  // 天花板给满是对的（给大了不多花钱，给小了会截断正文），但少数中转不 clamp、
+  // 而是直接报 max_tokens 超模型上限。只为这一种错退一档重试，别为它给所有人降配
+  //（形状照抄 StylePresets 里那个 tooBig）。
+  const tooBig = e => /max_tokens|max output|maximum.*token|too large|invalid.*token/i.test(String((e && e.message) || e || ""));
+  let raw;
+  try {
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want });
+  } catch (e) {
+    if (!tooBig(e) || want <= 8000) throw e;
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+  }
   const parsed = extractJSON(raw);
   if (!parsed) throw new Error("解析失败：" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 90));
   return parsed;

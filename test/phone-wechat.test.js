@@ -15,7 +15,7 @@ test("微信手机页有聊天、联系人、朋友圈、我四块", () => {
   assert.match(phone, /shrink-0 grid grid-cols-4/);
   assert.match(phone, /aria-label": "刷新微信"/);
   // 微信自己画整屏，不套外层 Head——v57.48 起这条由 FULL_BLEED_KEYS 表达
-  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading"\];/);
+  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping"\];/);
   assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
   assert.match(phone, /h\("span"[^\n]+"搜索"/);
   assert.match(phone, /const topBar = tab === "chats" \? searchHead : tab === "contacts" \? contactsHead : plainHead/);
@@ -27,7 +27,9 @@ test("微信一次生成五个新会话、五个关系联系人和三条朋友�
   assert.match(phone, /正好 5 个互不相同的新会话/);
   assert.match(phone, /contacts 正好 5 个/);
   assert.match(phone, /moments 正好 3 条/);
-  assert.match(phone, /maxTokens: 12000/);
+  // 输出天花板统一给满（PHONE_OUT_CEILING），不再一个 app 一个数
+  assert.match(phone, /const PHONE_OUT_CEILING = 65535;/);
+  assert.match(phone, /maxTokens: PHONE_OUT_CEILING/);
   assert.match(phone, /signature/);
   assert.match(phone, /accounts/);
   assert.match(phone, /userContact/);
