@@ -73,17 +73,31 @@ test("十种媒体腔与四个编辑部页面都有独立纸张皮肤", () => {
   assert.match(w, /background: L\.card/, "文章要有与纸张配套的阅读层");
 });
 
-test("周刊复用查手机式紧凑顶栏，封面整页铺开而不是纸卡套纸卡", () => {
+test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在封面内", () => {
   const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
   const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
   const cover = w.slice(w.indexOf("function CoverPage"), w.indexOf("function RegenRow"));
   assert.match(w, /function WeeklyHead[\s\S]*?paddingTop: safeTop\(10\)/, "紧凑顶栏必须自己吃安全区");
   assert.doesNotMatch(w, /h\(Head, \{ zh: "周刊"/, "周刊主页不能再套通用大标题 Head");
   assert.match(issue, /className: "flex-1 min-h-0 overflow-y-auto"/, "周刊正文要是唯一全屏滚动层");
+  assert.match(issue, /sub \? h\(WeeklyHead/, "只有内页才显示紧凑顶栏，封面不能再被米色标题块截断");
+  assert.match(issue, /target: window\.Weekly\.nextRefreshTime\(\), onBack: props\.onBack/, "倒计时和返回键都要交给封面自身渲染");
+  assert.doesNotMatch(issue, /padding: "14px 20px 0" \} }, h\(Countdown/, "倒计时不能悬在封面外另占一块");
   assert.doesNotMatch(issue, /overflow-y-auto px-10/, "封面不能再被左右四十像素夹成卡片");
   assert.match(cover, /width: "100%"/);
+  assert.match(cover, /paddingTop: safeTop\(8\)/, "封面自己的返回键必须吃安全区");
+  assert.match(cover, /h\(Countdown, \{ target: props\.target/, "倒计时必须进入蓝色封面报头");
+  assert.match(cover, /Math\.min\(98 - slot\.w/, "封面变宽后右栏标题可以真正走到右侧，但不能溢出");
   assert.doesNotMatch(cover, /boxShadow: "0 10px 30px/);
   assert.doesNotMatch(cover, /border: "1px solid/);
+});
+
+test("周刊倒计时按七天周期绘制进度条", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const timer = w.slice(w.indexOf("function Countdown"), w.indexOf("function CoverPage"));
+  assert.match(timer, /const week = 7 \* 86400000/);
+  assert.match(timer, /1 - ms \/ week/);
+  assert.match(timer, /width: \(progress \* 100\)\.toFixed\(2\) \+ "%"/);
 });
 
 // 采访轮换(2026-08-18 Lisa):每期至多 3 人，抽完一轮才允许重复；

@@ -1047,13 +1047,19 @@
 
   // 距下一刊倒计时（每分钟走一次）
   function Countdown(props) {
-    const t = useTheme();
     const [now, setNow] = useState(Date.now());
     useEffect(function () { const id = setInterval(function () { setNow(Date.now()); }, 60000); return function () { clearInterval(id); }; }, []);
     const ms = Math.max(0, props.target - now);
     const d = Math.floor(ms / 86400000), hh = Math.floor((ms % 86400000) / 3600000), mm = Math.floor((ms % 3600000) / 60000);
     const txt = ms <= 0 ? "新一期已可刷新" : ("距下一刊 " + (d > 0 ? d + " 天 " : "") + hh + " 时 " + mm + " 分");
-    return h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.16em", textTransform: "uppercase", fontSize: 10, color: t.fog, marginBottom: 18 } }, txt);
+    const week = 7 * 86400000;
+    const progress = ms <= 0 ? 1 : Math.max(0, Math.min(1, 1 - ms / week));
+    const ink = props.ink || "rgba(0,0,0,.46)";
+    const track = props.track || "rgba(0,0,0,.13)";
+    return h("div", { style: { width: "100%", textAlign: "center", marginTop: 10 } },
+      h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.14em", textTransform: "uppercase", fontSize: 8.5, color: ink } }, txt),
+      h("div", { style: { height: 3, borderRadius: 999, background: track, overflow: "hidden", marginTop: 7 } },
+        h("div", { style: { width: (progress * 100).toFixed(2) + "%", height: "100%", borderRadius: 999, background: props.fill || ink, transition: "width .35s ease" } })));
   }
 
   // 目录一行（点进去看单个版块）
@@ -1070,7 +1076,7 @@
       return {
         it: it,
         top: slot.top + (r() * 5 - 2.5),
-        left: Math.max(2, Math.min(38, slot.left + (r() * 6 - 3))),
+        left: Math.max(2, Math.min(98 - slot.w, slot.left + (r() * 6 - 3))),
         w: slot.w,
         h: slot.h,
         size: Math.max(17, (String(it.title || "").length > 16 ? 18 : 19 + Math.round(r() * 7))),
@@ -1081,15 +1087,21 @@
       };
     });
     const sub = ck.dark ? "rgba(255,255,255,.62)" : "rgba(0,0,0,.45)";
-    return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", width: "100%", minHeight: "calc(100vh - 54px)", padding: "18px 22px 42px" }, ck.style) },
+    const coverInk = ck.dark ? "#f4efe6" : "#232019";
+    const progressTrack = ck.dark ? "rgba(255,255,255,.18)" : "rgba(0,0,0,.13)";
+    return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", width: "100%", minHeight: "100vh", padding: "0 22px 42px" }, ck.style) },
       h("div", { style: { position: "absolute", width: 108, height: 108, borderRadius: "50%", right: -52, top: 128, border: "18px solid " + ck.inks[1], opacity: .16, pointerEvents: "none" } }),
       h("div", { style: { position: "absolute", width: 52, height: 9, left: -9, bottom: 122, background: ck.inks[2], transform: "rotate(-9deg)", opacity: .55, pointerEvents: "none" } }),
-      h("div", { style: { position: "absolute", right: 10, top: 78, width: 43, height: 43, borderRadius: "50%", background: ck.inks[3], color: ck.dark ? "#171515" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Archivo',sans-serif", fontSize: 8, lineHeight: 1.15, textAlign: "center", letterSpacing: ".08em", transform: "rotate(8deg)", boxShadow: "0 3px 12px rgba(0,0,0,.12)", whiteSpace: "pre-line", pointerEvents: "none" } }, "ISSUE\n" + (props.num || "—")),
+      h("div", { className: "flex items-center justify-between", style: { paddingTop: safeTop(8), minHeight: 50, position: "relative", zIndex: 2 } },
+        h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: coverInk })),
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "ISSUE #" + (props.num || "—"))),
+      h("div", { style: { position: "absolute", right: 10, top: 84, width: 43, height: 43, borderRadius: "50%", background: ck.inks[3], color: ck.dark ? "#171515" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Archivo',sans-serif", fontSize: 8, lineHeight: 1.15, textAlign: "center", letterSpacing: ".08em", transform: "rotate(8deg)", boxShadow: "0 3px 12px rgba(0,0,0,.12)", whiteSpace: "pre-line", pointerEvents: "none" } }, "ISSUE\n" + (props.num || "—")),
       // 封面报头
-      h("div", { style: { textAlign: "center", paddingBottom: 10, borderBottom: "1.5px solid " + (ck.dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)") } },
+      h("div", { style: { textAlign: "center", padding: "4px 0 12px", borderBottom: "1.5px solid " + (ck.dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)") } },
         h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.4em", fontSize: 8, color: sub, textTransform: "uppercase" } }, "THE WEEKLY"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 38, letterSpacing: "0.14em", textIndent: "0.14em", color: ck.dark ? "#f4efe6" : "#232019", lineHeight: 1.1 } }, "周刊"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, marginTop: 2 } }, "第 " + (props.num || "—") + " 期　·　" + (props.label || ""))),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 38, letterSpacing: "0.14em", textIndent: "0.14em", color: coverInk, lineHeight: 1.1 } }, "周刊"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, marginTop: 2 } }, "第 " + (props.num || "—") + " 期　·　" + (props.label || "")),
+        h(Countdown, { target: props.target, ink: sub, track: progressTrack, fill: ck.inks[1] })),
       // 散落的标题
       h("div", { style: { position: "relative", height: 474, marginTop: 6 } },
         laid.map(function (L, i) {
@@ -1415,14 +1427,13 @@
     const activeLook = pageLook(sub, medias);
     return h("div", { className: "h-full flex flex-col", style: pageBackground(activeLook) },
       h(WeeklyMotionStyles),
-      h(WeeklyHead, { zh: headZh, en: headEn, look: activeLook, onBack: sub ? function () { goSub(null, "prev"); } : props.onBack }),
+      sub ? h(WeeklyHead, { zh: headZh, en: headEn, look: activeLook, onBack: function () { goSub(null, "prev"); } }) : null,
       h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { color: activeLook.ink } },
         h("div", { className: "weekly-page-stage" },
         h("div", { key: currentPageKey + ":" + turn.n, className: turn.dir === "prev" ? "weekly-page-prev" : "weekly-page-next" },
         detail ? h("div", { style: { padding: "18px 22px 48px" } }, detail) : h("div", null,
-          h("div", { style: { padding: "14px 20px 0" } }, h(Countdown, { target: window.Weekly.nextRefreshTime() })),
           h(CoverPage, {
-            issueKey: issue.key, num: num, label: issue.label,
+            issueKey: issue.key, num: num, label: issue.label, target: window.Weekly.nextRefreshTime(), onBack: props.onBack,
             items: [].concat(
               cover ? [{ en: "FRONT PAGE", title: cover.headline, meta: "头版", onOpen: function () { goSub({ kind: "cover" }, "next"); } }] : [],
               deskSec ? [{ en: "THE DESK", title: (deskSec.desk && deskSec.desk.title) || "本周数据", meta: "资料室 · " + (deskSec.quotes || []).length + " 句语录", onOpen: function () { goSub({ kind: "desk" }, "next"); } }] : [],
