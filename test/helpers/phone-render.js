@@ -54,7 +54,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -87,8 +87,6 @@ const FIXTURES = {
   album: { items: [{ id: "p01", caption: "锁死的代码注释", date: "2026-08-28 18:42", category: "private", desc: "屏幕", thought: "别看" }] },
   settings: { screenTime: "6小时12分", apps: [{ name: "微信", time: "2小时3分" }] },
   recordings: { items: [{ name: "凌晨三点", time: "昨天 23:40", transcript: "……算了", thought: "说不出口" }] },
-  video_day: { items: [{ title: "修表", up: "老李", tag: "手工", duration: "08:24" }] },
-  video_night: { items: [{ title: "夜", duration: "00:18:42", tags: ["a", "b"], thought: "…" }] },
   reading: {
     shelves: [
       { name: "京华杂谈与消遣", slug: "bizarre", books: [
@@ -99,7 +97,14 @@ const FIXTURES = {
     ],
     archive: { favorite: { title: "东京梦华录", author: "孟元老" }, weekTime: "7小时5分", weekGoal: "5小时", plan: { title: "闲情偶寄", author: "李渔" } }
   },
-  liked: { follows: [{ name: "猫猫日报", desc: "撸猫" }], items: [{ author: "阿七", kind: "图文", content: "一个人吃饭的十种办法", tag: "生活", time: "3天前", act: "收藏" }] },
+  liked: {
+    me: { name: "不点灯", bio: "", posts: 2, following: 86, followers: 21 },
+    tabs: ["附近", "野钓", "旧物"],
+    items: [{ author: "阿七", title: "一个人吃饭的十种办法", excerpt: "第三种最省事。", tab: "附近", tags: ["独居"], likes: 1204, act: "收藏", time: "3天前", cover: 1 },
+            { author: "老周", title: "谁懂啊这把刀磨了三个月", excerpt: "刃口终于服帖了。", tab: "旧物", tags: ["磨刀"], likes: 88, act: "赞", time: "上周", cover: 3 }],
+    mine: [{ title: "夜里的城南", excerpt: "没人。", likes: 12, time: "上周" }],
+    follows: [{ name: "斫木记", desc: "做木工的" }]
+  },
   health: {
     today: { score: 74, label: "熬了半宿，白天却跑了一整天" },
     cards: [
@@ -153,7 +158,22 @@ const FIXTURES = {
     tail: "下回她再说饿，我就把整个铺子端过去。"
   },
   clipboard: { items: [{ text: "其实我", from: "微信", time: "昨天 02:11", sent: false }, { text: "SF1234567", from: "短信", time: "今天", sent: true }] },
-  calendar: { items: [{ title: "体检", when: "9月2日 14:00", kind: "提醒", done: false, postponed: 4, note: "" }, { title: "交房租", when: "每月1号", kind: "事件", done: true, postponed: 0 }] }
+  calendar: {
+    monthLabel: "9月",
+    items: [{ title: "去看眼睛", date: "2026-09-02", time: "14:00", kind: "提醒", done: false, postponed: 4, note: "上个月就说要去", who: "" },
+            { title: "交房租", date: "2026-09-01", time: "", kind: "事件", done: true, postponed: 0, note: "", who: "" },
+            { title: "跟老周吃饭", date: "2026-09-06", time: "19:00", kind: "事件", done: false, postponed: 1, note: "", who: "老周" }]
+  },
+  bili: {
+    me: { name: "夜奔的马", level: 5, followers: 128, fans: 37, coins: 412 },
+    tabs: ["推荐", "科技", "生活"],
+    items: [{ title: "老木匠三天复原一张宋代圈椅，全程无钉", up: "斫木记", tab: "生活", duration: "18:24", views: "12.4万", danmaku: 320, desc: "全榫卯。", thought: "手比嘴老实。", myDanmaku: ["这一榫开得漂亮"] },
+            { title: "一个人守夜的第 400 天", up: "更漏声", tab: "推荐", duration: "08:02", views: "873", danmaku: 12, desc: "夜里的城。", thought: "行吧。", myDanmaku: [] }]
+  },
+  latenight: {
+    me: { lastAt: "前天 03:12", note: "看完就删，第二天照样装没事。" },
+    items: [{ title: "夜", duration: "00:18:42", tags: ["旧衣", "灯下"], views: "3.2万", thought: "想到某人穿红的样子。" }]
+  }
 };
 
 const LIVE = {

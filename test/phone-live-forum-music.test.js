@@ -31,8 +31,9 @@ test("全刷跳过接真数据的两个，少两次调用", () => {
 
 test("接真数据的 app 不自动生成、也不给重刷按钮", () => {
   assert.match(phoneSrc, /const isLive = PHONE_LIVE_KEYS\.indexOf\(appKey\) >= 0/);
-  assert.match(phoneSrc, /if \(isVideo \|\| isLive \|\| charData\[appKey\]\) return;/);
-  assert.match(phoneSrc, /const refreshKey = isLive \? null :/);
+  // v57.54 起视频不再是带子版块的特例，这里只剩接真数据的判断
+  assert.match(phoneSrc, /if \(isLive \|\| charData\[appKey\]\) return;/);
+  assert.match(phoneSrc, /const refreshKey = isLive \? null : appKey;/);
 });
 
 test("三个账号都打包过去了，匿名号也在", () => {

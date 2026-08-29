@@ -48,7 +48,8 @@ test("框架写在 content 里，所以线上线下群聊读到的是同一份",
 });
 
 test("藏起来的东西走 hidden 档：小号、匿名、深夜、私密、最近删除", () => {
-  assert.match(phone, /peekFoot\("hidden", "深夜看的视频"/);
+  // v57.54：深夜台成了独立 app，整个走 hidden 档
+  assert.match(phone, /onPeek\(\{ tier: "hidden", label: "深夜台"/);
   assert.match(phone, /acc\.key === "main" \? "open" : "hidden"/);
   // 相册按分类判：private / deleted 是藏起来的，其余只是没主动说
   assert.match(phone, /const hid = photo\.category === "private" \|\| photo\.category === "deleted";/);
@@ -87,7 +88,7 @@ test("论坛和音乐用紧凑标题栏，不再顶一块 30px 大标题", () =>
   // 别的 app 一个都没动
   // v57.48 起改由 FULL_BLEED_KEYS 判定（阅读也自己画整屏了），别的 app 仍然走通用 Head
   assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
-  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health"\];/);
+  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar"\];/);
 });
 
 test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () => {
@@ -95,7 +96,8 @@ test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () 
   assert.match(phone, /const allNowKey = String\(busyKey \|\| ""\)\.indexOf\("__all__"\) === 0/);
   assert.match(phone, /busyKey: allNowKey \|\| busyKey,/);
   // 已经有内容的 app 不该被 spinner 顶掉
-  assert.match(phone, /\} else if \(loading && !data\) content = h\(Spinner/);
+  // v57.54 起视频不再是特例，这条判断从 else-if 变成了链首的 if
+  assert.match(phone, /let content;\n  if \(loading && !data\) content = h\(Spinner/);
 });
 
 test("大号是默认身份，小号和匿名各有明确用途", () => {

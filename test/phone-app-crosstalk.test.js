@@ -20,7 +20,7 @@ const char = { id: "c1", name: "裴照川" };
 test("每个可查 App 都有自己的取材层和时间窗，没有一个漏网", () => {
   // 接真数据的 app 不由模型生成，本来就没有取材层
   const keys = P.PHONE_APPS.filter(x => P.PHONE_LIVE_KEYS.indexOf(x.key) < 0)
-    .reduce((a, x) => a.concat(x.key === "video" ? ["video_day", "video_night"] : [x.key]), []);
+    .map(x => x.key);   // v57.54 起视频拆成 bili / latenight 两个独立 app，不再有子键
   keys.forEach(k => {
     assert.ok(P.PHONE_ANGLE[k], k + " 没有取材层");
     assert.match(P.PHONE_ANGLE[k], /【取材层】/);

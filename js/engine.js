@@ -5045,7 +5045,10 @@ async function oocAskGroup(p, ctx, question) {
 }
 async function runProbe(p, ctx, probe) {
   const system = "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。\n\n" + buildBundle(ctx) + "\n\n【推演任务】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
-  const want = probe.maxTokens || 2600;
+  // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
+  // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
+  // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。
+  const want = probe.maxTokens || (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535;
   // 天花板给满是对的（给大了不多花钱，给小了会截断正文），但少数中转不 clamp、
   // 而是直接报 max_tokens 超模型上限。只为这一种错退一档重试，别为它给所有人降配
   //（形状照抄 StylePresets 里那个 tooBig）。

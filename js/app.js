@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.53";
+const APP_VERSION = "v57.54";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9113,7 +9113,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 视频拆成白天/深夜两次；其余按 app 生成
     // 论坛和音乐接的是真数据（真论坛 / 一起听那张歌单），不进生成队列：
     // 全刷从此少两次调用，而且它们永远和 App 里那份是同一个东西。
-    const keys = PHONE_APPS.filter(a => !a.soon && PHONE_LIVE_KEYS.indexOf(a.key) < 0).reduce((acc, a) => acc.concat(a.key === "video" ? ["video_day", "video_night"] : [a.key]), []);
+    const keys = PHONE_APPS.filter(a => !a.soon && PHONE_LIVE_KEYS.indexOf(a.key) < 0).map(a => a.key);
     let ok = 0;
     // 全刷是十二次串行调用，喂的 buildBundle 一字不差；不互相避重的话，
     // 模型会抓住上下文里最显眼的那件事，换十二种格式重讲一遍
@@ -9935,7 +9935,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: "贴吧里有 3-5 个陌生网友私信了你（items 数组务必 3-5 条，别只给 1-2 条）。" + sourceBlock + baseRule,
         schemaHint: "{\"items\":[{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"curious\",\"opening\":\"第一句私信\"},{\"npcName\":\"网名\",\"tagline\":\"简介\",\"attitude\":\"friendly\",\"opening\":\"第一句私信\"}]}",
-        maxTokens: 3600
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : [])).filter(x => x && x.opening);
       if (!items.length) throw new Error("没有新私信");
@@ -11319,7 +11318,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         try {
           const rec = await runProbe(active, cleanCtx, {
             instruction: "你是「" + char.name + "」。**完全按你自己的人设、成长背景、性格和音乐口味**，一次性列出 **18 首**你自己私下真会单曲循环、真实存在、能在主流平台搜到的歌（华语/欧美/日韩都行，别编造不存在的歌，风格可多样）。**别照抄任何你手机里在听/最近听过/用户刚搜过或已有的歌，要发自内心喜欢的。songs 数组必须给满 18 个元素，给少了这次就白跑了。**\n每首还要写一句 note：**这一首对你意味着什么**。第一人称，你自己的口气。\n【形状必须散开，不许套模板】她 2026-08-29 报「备注有点不自然」——上一版全都写成「……的时候」，十九条一个句式，等于一条都没写。所以：**绝对不许每条都用「……的时候」「……时」收尾，全篇这种收尾最多两条**。有的写一个具体场景，有的写一句评价，有的写一个突然冒出来的念头，有的是抱怨，有的只有三五个字（「循环了一个月。」「不知道为什么。」「难听，但戒不掉。」），有的是半句没说完的话。长短要差得很开。\n【这不是恋爱歌单】**大多数歌跟用户没有关系**。你自己的活计、旧事、烦躁、无聊、走过的某段路、某个早就不联系的人，都可以占满一首歌。全部歌里提到用户的最多三四首，别每首都往那儿绕。\n【写的是你，不是歌】不要评价旋律、编曲、歌词写得多好，也不要写「这首歌很治愈/很有力量/让我想起某段时光」这种谁都能说的话。换个角色还说得通的 note 就是写坏了。" + avoidStr + (nudge || "") + " 别写序号别写解释。",
-            schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\",\"note\":\"第一人称一句，长短形状各不相同\"}]}（songs 必须 18 个元素）", maxTokens: 3600
+            schemaHint: "{\"songs\":[{\"title\":\"某首歌\",\"artist\":\"某歌手\",\"note\":\"第一人称一句，长短形状各不相同\"}]}（songs 必须 18 个元素）", maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535
           });
           return parseWants(rec);
         } catch (e) { return []; }

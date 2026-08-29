@@ -12,7 +12,7 @@ const ctxBase = { char, profile: { name: "Lisa" }, onBack: () => {}, onRefresh: 
 const renderKeys = () => {
   const P = loadPhone();
   const t = { ink: "#111", bg: "#fff", bg2: "#eee", line: "#ddd", fog: "#999", sub: "#555", tint: "#c90", accent: "#c90" };
-  const keys = P.PHONE_APPS.reduce((a, x) => a.concat(x.key === "video" ? ["video_day", "video_night"] : [x.key]), []);
+  const keys = P.PHONE_APPS.map(x => x.key);
   return { P, t, keys };
 };
 
@@ -101,7 +101,7 @@ test("每个 app 在四套桌面布局里都有入口，一个都不许找不到
 test("新加的这几个 app 都配齐了：推演任务、取材层、避重抽取、假数据", () => {
   const P = loadPhone();
   // v57.50：订单并进购物了（她给的参考稿本来就是一整个购物 app，两个并存必然复读）
-  ["reading", "liked", "shopping", "health", "clipboard", "calendar"].forEach(k => {
+  ["reading", "liked", "shopping", "health", "clipboard", "calendar", "bili", "latenight", "takeout"].forEach(k => {
     const spec = P.phoneProbeSpec(k, char, [], "", []);
     assert.notEqual(spec.schemaHint, "{}", k + " 没有自己的推演任务");
     assert.ok(spec.instruction.length > 120, k + " 的推演任务写得太薄");
@@ -119,10 +119,10 @@ test("避重抽取表能从新 app 的真实形状里抽出东西", () => {
     clipboard: FIXTURES.clipboard, calendar: FIXTURES.calendar, health: FIXTURES.health
   }, "notes").join("\n");
   assert.match(lines, /阅读：京华杂谈与消遣/);
-  assert.match(lines, /赞过：一个人吃饭的十种办法/);
+  assert.match(lines, /赞过：一个人吃饭的十种办法｜谁懂啊这把刀磨了三个月/);
   assert.match(lines, /购物：古法手作冰镇桂花糖糕组合/);
   assert.match(lines, /剪贴板：其实我/);
-  assert.match(lines, /日历：体检/);
+  assert.match(lines, /日历：去看眼睛/);
   // 健康 v57.52 起也进避重：指标名是模型自己起的，和别处撞题是有可能的
   assert.match(lines, /健康：睡眠质量/);
 });
@@ -213,7 +213,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
-  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health"]);
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar"]);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\(Head, \{/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
@@ -302,8 +302,7 @@ test("购物里非默认地址走 hidden 档——那不是购物信息，是他
 
 test("查手机所有推演的输出天花板统一给满，不再一个 app 一个数", () => {
   const P = loadPhone();
-  const keys = P.PHONE_APPS.reduce((a, x) => a.concat(x.key === "video" ? ["video_day", "video_night"] : [x.key]), [])
-    .filter(k => P.PHONE_LIVE_KEYS.indexOf(k) < 0);
+  const keys = P.PHONE_APPS.map(x => x.key).filter(k => P.PHONE_LIVE_KEYS.indexOf(k) < 0);
   keys.forEach(k => assert.equal(P.phoneProbeSpec(k, char, [], "", []).maxTokens, 65535, k + " 的天花板不是给满的"));
   // 各 app 自己那行 maxTokens 必须是删掉，不是留着被覆盖
   assert.doesNotMatch(SRC, /maxTokens: \d+\n/);
@@ -395,4 +394,82 @@ test("健康窄卡的指标名独占一行，不会被 flex 压成一条竖字",
   assert.match(SRC, /h\("div", \{ style: \{ flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15\.5/);
   // 两支都要允许长词换行
   assert.equal((SRC.match(/wordBreak: "break-word"/g) || []).length, 2);
+});
+
+test("视频拆成两个独立 app，子版块那套特例整个删掉了", () => {
+  const P = loadPhone();
+  const keys = P.PHONE_APPS.map(a => a.key);
+  assert.ok(keys.includes("bili") && keys.includes("latenight"), "两个新 app 没入册");
+  assert.ok(!keys.includes("video"), "旧的 video 还在");
+  // 旧的 vtab / isVideo / video_day 那套必须是删掉，不是留着不用
+  ["isVideo", "vtab", "video_day", "video_night", "genVideo"].forEach(n =>
+    assert.ok(!SRC.includes(n), n + " 还留在源码里"));
+  // 全刷不再拆子键
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.doesNotMatch(app, /\["video_day", "video_night"\]/);
+});
+
+test("视频（B站）：列表、详情、脏数据都能渲，弹幕是重点", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.bili, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  assert.doesNotThrow(() => loadPhone().BiliView(props), "列表炸了");
+  assert.doesNotThrow(() => loadPhone({ 1: { v: F.bili.items[0], i: 0 } }).BiliView(props), "详情炸了");
+  assert.doesNotThrow(() => loadPhone({ 1: { v: {}, i: 0 } }).BiliView(props), "空条目详情炸了");
+  [null, {}, { items: "x", tabs: 3, me: 5 }, { items: [{ myDanmaku: "x" }] }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone().BiliView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  const spec = loadPhone().phoneProbeSpec("bili", char, [], "", []);
+  assert.match(spec.instruction, /items \*\*正好 10 条\*\*/);
+  assert.match(spec.instruction, /弹幕是他忍不住开口的地方/);
+  assert.match(spec.schemaHint, /"myDanmaku"/);
+});
+
+test("深夜台：尺度没被改小，仍然是 10 条", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.latenight, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  assert.doesNotThrow(() => loadPhone().LateNightView(props), "列表炸了");
+  assert.doesNotThrow(() => loadPhone({ 0: F.latenight.items[0] }).LateNightView(props), "详情炸了");
+  [null, {}, { items: [{ tags: "x" }] }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone().LateNightView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  const spec = loadPhone().phoneProbeSpec("latenight", char, [], "", []);
+  assert.match(spec.instruction, /正好 10 条/);
+  // 她 2026-08-29 明确说「尺度不要改」
+  assert.match(spec.instruction, /\*\*大胆贴合人物欲望\*\*/);
+  assert.match(spec.instruction, /不要含糊其辞/);
+  // 深夜台整个走 hidden 档转发
+  assert.match(SRC, /onPeek\(\{ tier: "hidden", label: "深夜台"/);
+});
+
+test("广场：三页、详情、脏数据都能渲", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.liked, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  ["feed", "follow", "mine"].forEach(k =>
+    assert.doesNotThrow(() => loadPhone({ 0: k }).PlazaView(props), k + " 页炸了"));
+  assert.doesNotThrow(() => loadPhone({ 1: F.liked.items[0] }).PlazaView(props), "详情炸了");
+  [null, {}, { items: "x", mine: 3, follows: 5, me: 1 }, { items: [{ tags: "x", cover: "z" }] }].forEach((d, i) =>
+    ["feed", "follow", "mine"].forEach(k =>
+      assert.doesNotThrow(() => loadPhone({ 0: k }).PlazaView({ ...props, d }), "脏数据 " + i + " 在 " + k + " 页炸了")));
+});
+
+test("日历：月历格子按真实日期落位，推迟多的标红", () => {
+  const { FIXTURES: F } = require("./helpers/phone-render.js");
+  const props = { d: F.calendar, char, t: {}, onBack: () => {}, onRefresh: () => {}, refreshing: false, onPeek: () => {} };
+  assert.doesNotThrow(() => loadPhone().CalendarView(props), "月历炸了");
+  assert.doesNotThrow(() => loadPhone({ 1: 2 }).CalendarView(props), "选中某天炸了");
+  assert.doesNotThrow(() => loadPhone({ 0: F.calendar.items[0] }).CalendarView(props), "详情炸了");
+  [null, {}, { items: "x" }, { items: [{ date: "乱写" }, { date: "2026-13-40" }] }].forEach((d, i) =>
+    assert.doesNotThrow(() => loadPhone().CalendarView({ ...props, d }), "脏数据 " + i + " 炸了"));
+  // 日期必须是 YYYY-MM-DD 才能落格子
+  assert.match(SRC, /\/\^\(\\d\{4\}\)-\(\\d\{1,2\}\)-\(\\d\{1,2\}\)\//);
+  assert.match(SRC, /const late = x => Number\(x\.postponed\) >= 2/);
+  const spec = loadPhone().phoneProbeSpec("calendar", char, [], "", []);
+  assert.match(spec.instruction, /必须是真实完整日期/);
+  assert.match(spec.instruction, /至少有一条 postponed 在 3 以上/);
+});
+
+test("token 全放开：runProbe 的默认也不再是 2600", () => {
+  const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  assert.doesNotMatch(eng, /probe\.maxTokens \|\| 2600/);
+  assert.match(eng, /probe\.maxTokens \|\| \(window\.StylePresets && window\.StylePresets\.OUT_CEILING\) \|\| 65535/);
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.doesNotMatch(app, /maxTokens: 3600/);
 });
