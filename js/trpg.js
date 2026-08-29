@@ -1298,15 +1298,16 @@
       try {
         const ccSys = ["【跑团·一回合】你是队伍成员「" + eng.name + "」。下面是这场跑团到现在的经过;轮到你了:这一拍你说什么、做什么。只写你自己的一小步,不替别人行动。",
           "【世界】" + String(c.world || "").slice(0, 600), "【当前状态】地点:" + c.place + "\n" + partyBlock(c),
-          "【输出】只输出 JSON:{\"say\":\"你说的话(可空)\",\"do\":\"你做的事(一句)\"}"].join("\n\n");
+          "【输出】只输出 JSON:{\"say\":\"你说的话(可空)\",\"do\":\"你做的事(一句,稳妥的、必然做成的)\",\"try\":null}\ntry 是你想赌命运的动作(撬锁/潜入/硬拼/行骗这类要碰运气的):只写你要干嘛,绝不写成败——骰子由桌上掷,结果不归你定。没有想赌的就填 null,别为赌而赌。"].join("\n\n");
         const hist = foldHist(liveMsgs).slice(-24);
-        let raw = await window.CCSeat.ask({ tool: "game_turn", game: "trpg", turn_id: "trpg:" + c.id + ":" + rid("tt_"), char_id: String(eng.key), sys: ccSys, msgs: hist, expect: '{"say":"...","do":"..."}', deadline_at: new Date(Date.now() + 180000).toISOString() }, 180000, { charId: String(eng.key) });
+        let raw = await window.CCSeat.ask({ tool: "game_turn", game: "trpg", turn_id: "trpg:" + c.id + ":" + rid("tt_"), char_id: String(eng.key), sys: ccSys, msgs: hist, expect: '{"say":"...","do":"...","try":null}', deadline_at: new Date(Date.now() + 180000).toISOString() }, 180000, { charId: String(eng.key) });
         if (raw != null && typeof raw === "object") raw = JSON.stringify(raw);
         const p = parseObj(raw);
         if (!p) return null;
-        const say = String(p.say || "").trim(), act = String(p.do || "").trim();
-        if (!say && !act) return null;
-        return eng.name + (say ? "说:「" + say + "」" : "") + (act ? (say ? " " : "") + act : "");
+        const say = String(p.say || "").trim(), act = String(p.do || "").trim(), risk = String(p.try || "").trim();
+        if (!say && !act && !risk) return null;
+        return eng.name + (say ? "说:「" + say + "」" : "") + (act ? (say ? " " : "") + act : "")
+          + (risk ? (say || act ? " " : "") + "想赌:「" + risk + "」(要碰运气,结果未定)" : "");
       } catch (e) { return null; }
     };
     // extra:先于宣言入史的既定事实(检定结果行);mode:"rest"=休整拍。
@@ -1329,6 +1330,7 @@
         const lastGm = liveMsgs.map(m => m.role).lastIndexOf("gm");
         const tailHasCC = liveMsgs.slice(lastGm + 1).some(m => m.role === "sys" && String(m.content || "").indexOf("亲笔·") === 0);
         const cc = tailHasCC ? null : await ccDeclare(camp, liveMsgs);
+        const ccTry = !!(cc && cc.indexOf("想赌:") >= 0);
         if (cc) {
           const m = { id: rid("rm_"), role: "sys", content: "亲笔·" + cc, ts: Date.now() };
           liveMsgs.push(m);
@@ -1338,7 +1340,8 @@
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
         const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
           + (mode && mode.travel ? "\n〔赶路〕队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
-          + (mode === "resolve" ? "\n〔续写检定结果〕上面最新的〔检定〕就是刚才那个动作的命运:按其等级把结果写完,接着往下走;这个动作不再需要检定,绝不再报 needCheck。" : "");
+          + (mode === "resolve" ? "\n〔续写检定结果〕上面最新的〔检定〕就是刚才那个动作的命运:按其等级把结果写完,接着往下走;这个动作不再需要检定,绝不再报 needCheck。" : "")
+          + (ccTry && mode !== "resolve" ? "\n〔队友想赌〕最新亲笔行里「想赌:」后面的动作要碰运气:悬点停住不写成败,needCheck 报 {\"stat\":\"…\",\"who\":\"那位队友的名字\"}——who 必须填亲笔那位队友,不是 " + uName + "。" : "");
         if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + tail };
         else hist.push({ role: "user", content: "(继续)" + tail });
         const raw = await callAI(props.active, sys, hist, { maxTokens: TOK_MAX, timeout: 300000 });
@@ -1358,10 +1361,12 @@
         // 掷完带着结果自动续写。只认「本回合确有亲笔宣言、还没掷过骰、不是续写轮」
         // 的 needCheck,免得连环要骰;续写轮明令不得再报。
         const nck = normCheckObj(p.needCheck);
-        if (nck && declaration && (!extra || !extra.length) && mode !== "resolve" && !camp.ended) {
+        if (nck && (declaration || ccTry) && (!extra || !extra.length) && mode !== "resolve" && !camp.ended) {
           setTimeout(async () => {
-            // 没点名(或点了不在队的)就默认是她自己出手——这是她亲笔的行动
-            const m = (nck.who ? findMember(camp.party, nck.who) : null) || camp.party[0];
+            // 没点名(或点了不在队的):她亲笔的轮次默认她自己出手;纯队友想赌的轮次
+            // 默认那位亲笔队友——别把队友的赌摊到她头上
+            const fallback = (!declaration && ccTry && camp.party.find(x => x.key !== "user" && typeof props.isEngineer === "function" && props.isEngineer(x.key))) || camp.party[0];
+            const m = (nck.who ? findMember(camp.party, nck.who) : null) || fallback;
             const res = await runCeremony(m, nck);
             const line = rollLine("", m, nck, res);
             turn("", [Object.assign({ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }, rollRec(m, nck, res))], "resolve");
