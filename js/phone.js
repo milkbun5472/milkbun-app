@@ -1201,12 +1201,23 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     return h("div", { key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13, flex: narrow ? 1 : "none", minWidth: 0 } },
       h("div", { "aria-hidden": "true", style: { height: 4, background: hue.bar } }),
       h("div", { style: { padding: narrow ? "15px 14px 17px" : "17px 18px 19px" } },
-        h("div", { className: "flex items-start justify-between gap-2" },
-          h("div", { className: "flex items-start gap-2.5 min-w-0" },
-            h("div", { style: { width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
-              h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: HEALTH_INK, minWidth: 0 } }, c.name || "")),
-          c.score != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
+        // ⚠️指标名是模型起的，可能长到「静息与应激心率」七个字。窄卡里如果让它跟
+        // 图标和分数挤在同一行，flex 会把它压到 min-content——中文任何位置都能断，
+        // min-content 就是一个字宽，于是标题竖成一条（她 2026-08-29 报）。
+        // 所以窄卡改成两行：图标＋分数占一行，名字自己独占一整行。
+        narrow
+          ? h("div", null,
+              h("div", { className: "flex items-center justify-between" },
+                h("div", { style: { width: 30, height: 30, borderRadius: 10, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
+                  h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
+                c.score != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.35, color: HEALTH_INK, marginTop: 9, wordBreak: "break-word" } }, c.name || ""))
+          : h("div", { className: "flex items-start justify-between gap-3" },
+              h("div", { className: "flex items-start gap-2.5", style: { flex: 1, minWidth: 0 } },
+                h("div", { style: { width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
+                  h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
+                h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: HEALTH_INK, wordBreak: "break-word" } }, c.name || "")),
+              c.score != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
         h("div", { className: "flex items-end gap-2 flex-wrap", style: { marginTop: 14 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 33, lineHeight: 1.05, color: HEALTH_INK } }, c.value != null ? String(c.value) : "--",
             c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: HEALTH_DIM, marginLeft: 3 } }, c.unit) : null),

@@ -65,6 +65,20 @@ test("歌单里每首歌带心境，并且在查手机看得到", () => {
   assert.match(phoneSrc, /const note = String\(s\.note \|\| ""\)\.trim\(\)/);
 });
 
+test("歌单备注不许套同一个句式（她 2026-08-29：「有点不自然」）", () => {
+  // 病根在我这条提示词：上一版问的是「你什么时候会循环这一首」，
+  // 模型就老实答「……的时候」，十九条一个句式。
+  assert.doesNotMatch(appSrc, /你什么时候会循环这一首/);
+  assert.match(appSrc, /绝对不许每条都用「……的时候」「……时」收尾/);
+  assert.match(appSrc, /有的只有三五个字/);
+  assert.match(appSrc, /长短要差得很开/);
+  // 也不许写成恋爱周报
+  assert.match(appSrc, /这不是恋爱歌单/);
+  assert.match(appSrc, /提到用户的最多三四首/);
+  // 仍然禁乐评腔
+  assert.match(appSrc, /不要评价旋律、编曲、歌词写得多好/);
+});
+
 test("歌单按【真进歌单几首】重试，不是按模型给了几个候选", () => {
   const m = appSrc.match(/const genCharPlaylist = async char => \{[\s\S]*?\n  \};/);
   assert.ok(m, "找不到 genCharPlaylist");

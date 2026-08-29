@@ -385,3 +385,14 @@ test("想买清单的封面色不再洗白到近白", () => {
   });
   assert.doesNotMatch(SRC, /\+ ",#f2f2f6\)"/);
 });
+
+test("健康窄卡的指标名独占一行，不会被 flex 压成一条竖字", () => {
+  // 她 2026-08-29：「这种竖着的标题不会自己换行，弄的好长一条」
+  // 病因：中文任何位置都能断，min-content 就是一个字宽；窄卡里名字和图标、分数
+  // 挤在同一 flex 行，就被压到一个字宽竖下去了。
+  assert.match(SRC, /narrow\n\s*\? h\("div", null,/);
+  // 宽卡那一支必须给标题 flex:1 + minWidth:0，不能只写 minWidth:0
+  assert.match(SRC, /h\("div", \{ style: \{ flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15\.5/);
+  // 两支都要允许长词换行
+  assert.equal((SRC.match(/wordBreak: "break-word"/g) || []).length, 2);
+});
