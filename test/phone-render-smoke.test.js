@@ -121,7 +121,8 @@ test("每个 app 在四套桌面布局里都有入口，一个都不许找不到
 test("新加的这几个 app 都配齐了：推演任务、取材层、避重抽取、假数据", () => {
   const P = loadPhone();
   // v57.50：订单并进购物了（她给的参考稿本来就是一整个购物 app，两个并存必然复读）
-  ["reading", "liked", "shopping", "health", "clipboard", "calendar", "bili", "latenight", "takeout", "browser"].forEach(k => {
+  // v57.64：日历改接真数据（App 里那份日历/日程/答应过的事），它的推演任务整个删了
+  ["reading", "liked", "shopping", "health", "clipboard", "bili", "latenight", "takeout", "browser"].forEach(k => {
     const spec = P.phoneProbeSpec(k, char, [], "", []);
     assert.notEqual(spec.schemaHint, "{}", k + " 没有自己的推演任务");
     assert.ok(spec.instruction.length > 120, k + " 的推演任务写得太薄");
@@ -136,13 +137,12 @@ test("避重抽取表能从新 app 的真实形状里抽出东西", () => {
   const P = loadPhone();
   const lines = P.phoneRoundDigest({
     reading: FIXTURES.reading, liked: FIXTURES.liked, shopping: FIXTURES.shopping,
-    clipboard: FIXTURES.clipboard, calendar: FIXTURES.calendar, health: FIXTURES.health
+    clipboard: FIXTURES.clipboard, health: FIXTURES.health
   }, "notes").join("\n");
   assert.match(lines, /阅读：京华杂谈与消遣/);
   assert.match(lines, /小红书：一个人吃饭的十种办法｜谁懂啊这把刀磨了三个月/);
   assert.match(lines, /购物：古法手作冰镇桂花糖糕组合/);
   assert.match(lines, /剪贴板：其实我/);
-  assert.match(lines, /日历：去看眼睛/);
   // 健康 v57.52 起也进避重：指标名是模型自己起的，和别处撞题是有可能的
   assert.match(lines, /健康：睡眠质量/);
 });
@@ -233,7 +233,7 @@ test("内页底栏以主聊天输入栏为标尺，不许再 +Npx 垫高", () =>
 
 test("自己画整屏的 app 不再套外层 Head，免得两层标题栏", () => {
   const P = loadPhone();
-  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls"]);
+  assert.deepEqual(P.FULL_BLEED_KEYS, ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline"]);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
   assert.match(SRC, /FULL_BLEED_KEYS\.indexOf\(appKey\) >= 0 \? "flex-1 min-h-0 overflow-hidden"/);
 });
@@ -478,8 +478,16 @@ test("深夜台：尺度没被改小，仍然是 10 条", () => {
   const spec = loadPhone().phoneProbeSpec("latenight", char, [], "", []);
   assert.match(spec.instruction, /正好 10 条/);
   // 她 2026-08-29 明确说「尺度不要改」
-  assert.match(spec.instruction, /\*\*大胆贴合人物欲望\*\*/);
+  assert.match(spec.instruction, /尺度该多大就多大/);
   assert.match(spec.instruction, /不要含糊其辞/);
+  assert.match(spec.instruction, /不要写成文艺片/);
+  // 同一天她报：所有人都往强势占有那个方向生成。病因不是哪个词写坏了，是这一栏
+  // 除了「一个角色 + 深夜看的片」几乎没别的约束，空白由训练先验补上，而这个题材的
+  // 先验就是支配。治法是把维度铺开，让他必须先在几根互不相干的轴上各选一头。
+  assert.match(spec.instruction, /支配 \/ 占有 \/ 强势/, "没挡住「所有人都往强势占有写」这个默认答案");
+  assert.match(spec.instruction, /换成任何一个角色都照样成立的答案/, "没写清判据");
+  const axes = spec.instruction.match(/\n· /g) || [];
+  assert.ok(axes.length >= 5, "欲望的轴少于 5 根，铺不开就还是会塌回同一个方向（现在 " + axes.length + " 根）");
   // 深夜台整个走 hidden 档转发
   assert.match(SRC, /onPeek\(\{ tier: "hidden", label: "深夜台"/);
 });
@@ -505,10 +513,28 @@ test("日历：月历格子按真实日期落位，推迟多的标红", () => {
     assert.doesNotThrow(() => loadPhone().CalendarView({ ...props, d }), "脏数据 " + i + " 炸了"));
   // 日期必须是 YYYY-MM-DD 才能落格子
   assert.match(SRC, /\/\^\(\\d\{4\}\)-\(\\d\{1,2\}\)-\(\\d\{1,2\}\)\//);
-  assert.match(SRC, /const late = x => Number\(x\.postponed\) >= 2/);
-  const spec = loadPhone().phoneProbeSpec("calendar", char, [], "", []);
-  assert.match(spec.instruction, /必须是真实完整日期/);
-  assert.match(spec.instruction, /至少有一条 postponed 在 3 以上/);
+  assert.match(SRC, /const late = x => Number\(x\.postponed\) >= 2 \|\| !!x\.overdue/);
+  // v57.64：日历不再自己生成，读 App 里那份真的
+  assert.equal(loadPhone().phoneProbeSpec("calendar", char, [], "", []).schemaHint, "{}", "日历还留着推演任务");
+  assert.match(SRC, /if \(key === "calendar"\) return h\(CalendarView, \{ d: ctx\.calendar \|\| d/);
+});
+
+test("日历接的是 App 里那三份真的：他自己那格、带时刻的日程、答应过的事", () => {
+  const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  const m = app.match(/const phoneCalendarFor = char => \{[\s\S]*?\n  \};/);
+  assert.ok(m, "找不到 phoneCalendarFor");
+  const fn = m[0];
+  assert.match(fn, /calendar && calendar\.chars/, "没读 x_calendar 里他自己那格");
+  assert.match(fn, /calEventsRef\.current/, "没读带时刻的日程");
+  assert.match(fn, /promisesRef\.current/, "没读他答应过的事");
+  assert.match(fn, /schedulesRef\.current/, "没读已经推演过的行程");
+  // 三个来源日期写法不一样（"2026-8-31" vs "2026-08-29"），必须统一补零，
+  // 否则日历里一半写「8月31日」一半写「08月29日」
+  assert.match(fn, /padStart\(2, "0"\)/, "日期没统一补零");
+  // 「推迟 N 次」是个具体事实，没有任何地方真数过——不许为了染红就编一个数字
+  assert.ok(fn.indexOf("postponed: late ? 3") < 0, "又在用伪造的推迟次数把条目染红");
+  assert.match(fn, /overdue: !!late/, "过期该用 overdue 表示");
+  assert.match(app, /calendarFor: phoneCalendarFor/, "没接到 PhoneCarry 上");
 });
 
 test("token 全放开：runProbe 的默认也不再是 2600", () => {
@@ -634,7 +660,8 @@ test("提示词里不许再塞具体的内容示范（.claude/rules/prompt-no-co
   });
   // 格式示范照留——照抄「08:24」没问题，它只是在说时长长什么样
   assert.match(P.phoneProbeSpec("bili", char, [], "", []).instruction, /08:24/);
-  assert.match(P.phoneProbeSpec("calendar", char, [], "", []).instruction, /YYYY-MM-DD/);
+  // 时长、时刻这类【格式示范】照留——照抄「00:18:42」没问题，它只是在说时长长什么样
+  assert.match(P.phoneProbeSpec("latenight", char, [], "", []).instruction, /00:18:42/);
 });
 
 test("小红书自己的笔记和草稿也有标签", () => {

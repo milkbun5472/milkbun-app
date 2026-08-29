@@ -10,8 +10,12 @@ const phoneSrc = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "
 const appSrc = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const P = new Function(phoneSrc + "; return { PHONE_LIVE_KEYS, PHONE_APPS, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec };")();
 
-test("论坛和音乐从生成管线里整个撤掉了，不是留着说「这个别用」", () => {
-  assert.deepEqual(P.PHONE_LIVE_KEYS, ["forum", "music"]);
+// v57.64 起 live 从两个变成四个：
+//   calendar 也接了真数据（App 里那份日历/日程/答应过的事）；
+//   timeline 压根不生成任何东西，它只把别的 app 已经翻出来的碎片按时间串起来。
+// 「不生成」这件事必须在代码里是真的：没有取材层、没有 probe spec、不进全刷。
+test("接真数据的那几个从生成管线里整个撤掉了，不是留着说「这个别用」", () => {
+  assert.deepEqual(P.PHONE_LIVE_KEYS, ["forum", "music", "calendar", "timeline"]);
   P.PHONE_LIVE_KEYS.forEach(k => {
     assert.equal(P.PHONE_ANGLE[k], undefined, k + " 还留着取材层");
     assert.equal(P.PHONE_DIGEST_PICK[k], undefined, k + " 还留在避重清单抽取表里");
@@ -20,10 +24,10 @@ test("论坛和音乐从生成管线里整个撤掉了，不是留着说「这�
   });
   // 但桌面入口还在，图标没丢
   const keys = P.PHONE_APPS.map(a => a.key);
-  assert.ok(keys.includes("forum") && keys.includes("music"));
+  P.PHONE_LIVE_KEYS.forEach(k => assert.ok(keys.includes(k), k + " 的桌面图标丢了"));
 });
 
-test("全刷跳过接真数据的两个，少两次调用", () => {
+test("全刷跳过接真数据的那几个，少几次调用", () => {
   const m = appSrc.match(/const keys = PHONE_APPS\.filter\(.*/);
   assert.ok(m, "找不到全刷的 keys");
   assert.match(m[0], /PHONE_LIVE_KEYS\.indexOf\(a\.key\) < 0/);

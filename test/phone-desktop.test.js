@@ -13,17 +13,18 @@ test("查手机桌面是全屏双页、可横滑并保留底部 Dock", () => {
   assert.match(src, /deskRef\.current\.scrollTo/);
 });
 
-test("16 个可查 App 一个都没在桌面上丢入口", () => {
+test("17 个 App 一个都没在桌面上丢入口", () => {
   // v57.60 设置删了（她：「设置感觉没啥用了可以删了」）
   // v57.56 录音并进便签（本来就是同一件事的两种载体）
   // v57.47 加了阅读/赞过/订单/健康/剪贴板/日历六个；
   // v57.50 订单并进购物（参考稿本来就是一整个购物 app，两个并存必然复读）；
   // v57.52 加了外卖（吃什么、几点吃、送到谁那儿，和网购不重叠）
+  // v57.64 加了时间线：它不推演任何东西，只把上面这些已经翻出来的碎片按时间串起来
   const block = src.match(/const PHONE_APPS = \[([\s\S]*?)\n\];/)[1];
   const declared = [...new Set([...block.matchAll(/key: "([a-z]+)"/g)].map(m => m[1]))];
   assert.deepEqual(declared.sort(), ["album", "browser", "calendar", "calls", "clipboard", "forum", "health",
     "liked", "music", "notes", "reading", "shopping", "takeout", "wechat"]
-    .concat(["bili", "latenight"]).sort());
+    .concat(["bili", "latenight", "timeline"]).sort());
 
   const dock = src.match(/const PHONE_DOCK_KEYS = \[([^\]]+)\]/)[1];
   const pages = src.match(/const PHONE_DESKTOP_PAGES = \[([\s\S]*?)\n\];/)[1];

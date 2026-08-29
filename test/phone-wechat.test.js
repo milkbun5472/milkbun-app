@@ -15,7 +15,7 @@ test("微信手机页有聊天、联系人、朋友圈、我四块", () => {
   assert.match(phone, /shrink-0 grid grid-cols-4/);
   assert.match(phone, /aria-label": "刷新微信"/);
   // 微信自己画整屏，不套外层 Head——v57.48 起这条由 FULL_BLEED_KEYS 表达
-  assert.match(phone, /const FULL_BLEED_KEYS = \["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls"\];/);
+  assert.match(phone, /const FULL_BLEED_KEYS = \[[^\]]*"wechat"[^\]]*\];/);
   assert.match(phone, /FULL_BLEED_KEYS\.indexOf\(appKey\) < 0 && h\("div", \{\n    className: "shrink-0 px-4 pb-2 flex items-center gap-2"/);
   assert.match(phone, /h\("span"[^\n]+"搜索"/);
   assert.match(phone, /const topBar = tab === "chats" \? searchHead : tab === "contacts" \? contactsHead : plainHead/);

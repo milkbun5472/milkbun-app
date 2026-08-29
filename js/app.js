@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.63";
+const APP_VERSION = "v57.64";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9495,6 +9495,71 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       { key: "anon", label: "匿名", name: "匿名用户", handle: "@anonymous", bio: "不署名才敢说的话。论坛里没有一个人知道这些是他发的。", posts: by("character_anon"), comments: saidUnder("character_anon") }
     ];
   };
+  // 查手机 · 日历：接【真日历】，不再另生成一份假的（她 2026-08-29）。
+  // App 里已经有他自己那格日历、有带时刻的日程、有他答应过她的事——手机里却在
+  // 另生成一套，等于同一个人有两本互不相干的日程，手机那本还不会因为他真排了
+  // 什么而变。跟论坛和音乐是同一个病，这里一起接掉。
+  // 翻到他日历上真的写着某一天有事，比生成出来的任何一条都重。
+  const phoneCalendarFor = char => {
+    if (!char) return null;
+    const S = v => String(v == null ? "" : v).trim();
+    // 三个来源的日期写法不一样（x_calendar 是 "2026-8-31"，calEvents 是 "2026-08-29"），
+    // 统一补零，免得日历界面上一半写「8月31日」一半写「08月29日」
+    const DK = v => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(S(v)); return m ? m[1] + "-" + String(+m[2]).padStart(2, "0") + "-" + String(+m[3]).padStart(2, "0") : S(v); };
+    const items = [];
+    // ① x_calendar.chars[charId]：无时刻的全天事件，键是 "YYYY-M-D"
+    const box = ((calendar && calendar.chars) || {})[char.id] || {};
+    Object.keys(box).forEach(dk => {
+      (box[dk] || []).forEach(ev => {
+        if (!ev || !S(ev.title)) return;
+        items.push({ title: S(ev.title).slice(0, 40), date: DK(dk), time: "", kind: "事件", done: false, postponed: 0, note: S(ev.note).slice(0, 120), who: "" });
+      });
+    });
+    // ② x_calEvents：他名下带时刻的日程
+    (calEventsRef.current || []).forEach(e => {
+      if (!e || e.owner !== char.id || !S(e.title) || !S(e.startDate)) return;
+      items.push({
+        title: S(e.title).slice(0, 40), date: DK(e.startDate), time: S(e.startTime), kind: "日程",
+        done: false, postponed: 0, note: [S(e.location), S(e.note)].filter(Boolean).join(" · ").slice(0, 120), who: ""
+      });
+    });
+    // ③ x_promises：他答应过她、还没兑现的事。日历上这一格最有杀伤力——
+    //    它在那儿摆着，日子一天天过去，他没做。
+    (promisesRef.current || []).forEach(pm => {
+      if (!pm || pm.charId !== char.id || !S(pm.about)) return;
+      const due = new Date(Number(pm.dueTs) || Date.now());
+      const late = Number(pm.dueTs) && Number(pm.dueTs) < Date.now();
+      items.push({
+        title: S(pm.about).slice(0, 40),
+        date: DK(due.getFullYear() + "-" + (due.getMonth() + 1) + "-" + due.getDate()),
+        time: "", kind: "答应过", done: false,
+        // 不许编「推迟 N 次」——没有任何地方真的数过。只说确实为真的那件事：
+        // 日子过了，他还没做。日历界面会因为 overdue 把这条染红。
+        postponed: 0, overdue: !!late, note: "他答应过的。", who: profile.name || "我"
+      });
+    });
+    // ④ x_schedules[charId]：已经推演过的那几天，每一段行程占一条
+    const plans = (schedulesRef.current || {})[char.id] || {};
+    Object.keys(plans).sort().slice(-10).forEach(dk => {
+      const p = plans[dk] || {};
+      (Array.isArray(p.seqs) ? p.seqs : []).forEach(sq => {
+        if (!sq || !S(sq.title)) return;
+        items.push({
+          title: S(sq.title).slice(0, 40), date: DK(dk), time: S(sq.time), kind: "行程",
+          done: true, postponed: 0, note: S(sq.location).slice(0, 120), who: ""
+        });
+      });
+    });
+    // 同一天同一件事只留一条（日程和行程可能撞车），并封顶——日历是拿来看的，不是拿来倒的
+    const seen = {}, out = [];
+    items.forEach(x => {
+      const k = x.date + "|" + x.time + "|" + x.title;
+      if (seen[k]) return;
+      seen[k] = 1;
+      out.push(x);
+    });
+    return { items: out.slice(0, 160) };
+  };
   // runProbe 简单重试：单次结构化内容偶尔截断/解析失败，重试一次
   const runProbeRetry = async (p, ctx, probe) => { try { return await runProbe(p, ctx, probe); } catch (e) { return await runProbe(p, ctx, probe); } };
   // 写入帖子并对该版块做 NPC 硬上限清理（删最旧 NPC 帖，角色帖免疫）
@@ -12437,6 +12502,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     actualWechatFor: phoneWechatActual,
     forumAccountsFor: phoneForumFor,
     playlistFor: cid => (listen.playlists || []).find(x => x.charId === cid) || null,
+    calendarFor: phoneCalendarFor,
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
     onPlaySong: sg => { const pl = (listenRef.current.playlists || []).find(x => x.charId === selPhone); playSong(sg, ((pl && pl.songs) || []).map(x => x.id)); },

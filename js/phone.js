@@ -1,5 +1,6 @@
 // ============================================================
-// 查手机 — 仿 iOS 桌面：12 个 app，每个独立生成/刷新，点进去看细节
+// 查手机 — 仿 iOS 桌面：锁屏 → 桌面 → 各 app。生成的那些各自独立刷新；
+// 论坛/音乐/日历读 App 里的真数据；时间线不生成，只把翻出来的碎片按时间串起来。
 // ============================================================
 const PHONE_APPS = [{
   key: "wechat",
@@ -49,6 +50,11 @@ const PHONE_APPS = [{
 }, {
   key: "takeout",
   zh: "外卖"
+}, {
+  // 时间线不推演任何东西，它只把上面那 16 个 app 已经翻出来的碎片按时间串起来。
+  // 所以它同时属于 PHONE_LIVE_KEYS（不调模型、不进 phones）。
+  key: "timeline",
+  zh: "时间线"
 }];
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 接真数据的 app：不调模型、不存进 phones，直接读 App 里那份真的。
@@ -57,39 +63,199 @@ const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 以前这两个各自另生成一份，等于同一个人有两套互不相干的论坛痕迹和歌单，
 // 而且手机里那份点不动、也不会因为他真去发帖而变。
 const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会自行 clamp 到模型上限
-const PHONE_LIVE_KEYS = ["forum", "music"];
+// 日历接的是 App 里那份真的（x_calendar 里他自己的那格 + 带时刻的日程 + 他答应过她的事），
+// 不再另生成一份假的——翻到他日历上真的写着某一天有事，比生成出来的任何一条都重。
+const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
-  ["notes", "album", "liked", "forum", "shopping", "calendar"],
+  ["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"],
   ["reading", "bili", "health", "clipboard", "takeout", "latenight"]
 ];
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight"]],
-  widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
+  pages: [["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight"]],
+  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight"]],
-  widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
+  pages: [["timeline", "reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight"]],
+  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight"]],
-  widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "bili", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
+  pages: [["timeline", "bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight"]],
+  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "bili", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight"]],
-  widgets: [[{ key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
+  pages: [["timeline", "notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight"]],
+  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
 const phoneDesktopLayout = char => PHONE_DESKTOP_LAYOUTS[phoneStableHash(char && (char.id || char.name)) % PHONE_DESKTOP_LAYOUTS.length];
+
+// ─────────────────────────────────────────────────────────────
+// 时间线：把 16 个 app 的碎片按时间串成一条线
+// ─────────────────────────────────────────────────────────────
+// 单看每个 app，里面那些条目都挺平的：一通未接来电、一段没发出去的话、一个
+// 深夜看完的视频、一条只有两个字的便签。可它们都带时间——按时间排一下，
+// 就是他一个晚上的完整心路。这一层不生成任何新内容，只是把已经翻出来的东西
+// 重新放在一起看；刷新一次手机的成本一分没多，看到的东西完全不一样。
+//
+// 难在时间。模型写出来的时间串写法五花八门：「今天 09:12」「昨天 21:03」
+// 「14:20」「3天前」「上周」「2026-08-28 18:42」「8月28日 14:15」「存了 11 天」。
+// 要排到同一根轴上，第一步就是把这些全换算成毫秒。
+const PHONE_CN_NUM = { "零": 0, "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9 };
+const phoneNum = v => {
+  const s = String(v == null ? "" : v).trim();
+  if (/^\d+$/.test(s)) return +s;
+  const m = /^([零一两二三四五六七八九]?)十([零一两二三四五六七八九]?)$/.exec(s);
+  if (m) return (m[1] ? PHONE_CN_NUM[m[1]] : 1) * 10 + (m[2] ? PHONE_CN_NUM[m[2]] : 0);
+  return PHONE_CN_NUM[s] != null ? PHONE_CN_NUM[s] : 0;
+};
+// 认不出来的一律返回 null。宁可让它落进「时间不详」那一格，也不许瞎猜一个
+// 时刻排进去——时间线只要有一条排错位，整条线讲的故事就是假的。
+function phoneWhenTs(raw, nowTs) {
+  if (typeof raw === "number" && raw > 1e11) return raw;
+  const now = new Date(nowTs || Date.now());
+  const s = String(raw == null ? "" : raw).trim();
+  if (!s) return null;
+  if (/^\d{12,}$/.test(s)) return Number(s);
+  const hm = /(\d{1,2})\s*[:：]\s*(\d{2})/.exec(s);
+  const H = hm ? Math.min(23, +hm[1]) : null;
+  const M = hm ? Math.min(59, +hm[2]) : null;
+  // defH：只知道是哪天、不知道几点时用的默认时刻。「昨晚」给 22 点、「今早」给 8 点，
+  // 不是为了准，是为了让同一天里「晚上那条」排在「白天那条」后面。
+  const at = (d, defH) => { d.setHours(H == null ? (defH == null ? 12 : defH) : H, M == null ? 0 : M, 0, 0); return d.getTime(); };
+  const ago = n => { const d = new Date(now); d.setDate(d.getDate() - n); return d; };
+  let m;
+  if ((m = /(\d{4})\s*[-/年]\s*(\d{1,2})\s*[-/月]\s*(\d{1,2})/.exec(s))) return at(new Date(+m[1], +m[2] - 1, +m[3]), 12);
+  if ((m = /(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/.exec(s))) {
+    const d = new Date(now.getFullYear(), +m[1] - 1, +m[2]);
+    // 手机里的痕迹都是【已经发生过的】。八月里看到「12月28日」，那是去年的，
+    // 不是四个月后的。所以只要落在未来超过几天，一律退一年。
+    //（真有未来日期的只有日历，那一路走的是 YYYY-MM-DD 那一支，不经过这儿。）
+    if (d.getTime() - now.getTime() > 86400000 * 7) d.setFullYear(d.getFullYear() - 1);
+    return at(d, 12);
+  }
+  if (/刚刚|刚才/.test(s)) return now.getTime() - 300000;
+  if (/大前天/.test(s)) return at(ago(3), 21);
+  if (/前天/.test(s)) return at(ago(2), 21);
+  if (/昨/.test(s)) return at(ago(1), /晚|夜/.test(s) ? 22 : 15);
+  if (/今/.test(s)) return at(new Date(now), /晚|夜/.test(s) ? 21 : /早|晨/.test(s) ? 8 : null);
+  if ((m = /(\d+|[零一两二三四五六七八九十]+)\s*分钟前/.exec(s))) return now.getTime() - phoneNum(m[1]) * 60000;
+  if ((m = /(?:开了|过了|存了|放了)?\s*(\d+|[零一两二三四五六七八九十]+)\s*(?:个)?\s*小时(?:前)?/.exec(s))) return now.getTime() - phoneNum(m[1]) * 3600000;
+  if ((m = /(?:开了|过了|存了|放了)?\s*(\d+|[零一两二三四五六七八九十]+)\s*天(?:前)?/.exec(s))) return at(ago(phoneNum(m[1])), 12);
+  if ((m = /(\d+|[零一两二三四五六七八九十]+)\s*(?:个)?\s*(?:周|星期|礼拜)前/.exec(s))) return at(ago(phoneNum(m[1]) * 7), 12);
+  if (/上(?:个)?(?:周|星期|礼拜)/.test(s)) return at(ago(7), 12);
+  if (/(?:本|这)(?:周|星期|礼拜)/.test(s)) return at(ago(3), 12);
+  if ((m = /(\d+|[零一两二三四五六七八九十]+)\s*(?:个)?月前/.exec(s))) return at(ago(phoneNum(m[1]) * 30), 12);
+  if (/上(?:个)?月/.test(s)) return at(ago(30), 12);
+  if (hm) return at(new Date(now), null);   // 光有 HH:MM 没有日期 → 当成今天
+  return null;
+}
+// 每条的指纹。delta（「这次比上次多出来的」）靠它认人，所以只能由内容决定，
+// 不能掺进数组下标或生成时刻——不然刷新一次全变新的，delta 就废了。
+const phoneEntryId = (app, title, text, when) =>
+  app + "|" + phoneStableHash([app, title, text, when].join("~|~")).toString(36);
+
+function phoneTimeline(charData, live, nowTs) {
+  const now = nowTs || Date.now();
+  const d = (charData && typeof charData === "object") ? charData : {};
+  const L = (live && typeof live === "object") ? live : {};
+  const A = a => Array.isArray(a) ? a : [];
+  const S = v => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+  const out = [];
+  const push = (app, tag, when, title, text, thought) => {
+    const ti = S(title), tx = S(text);
+    if (!ti && !tx) return;
+    const w = S(when);
+    out.push({
+      app, appZh: PHONE_LABEL[app] || app, tag, when: w, ts: phoneWhenTs(when, now),
+      title: ti.slice(0, 60), text: tx.slice(0, 220), thought: S(thought).slice(0, 220),
+      id: phoneEntryId(app, ti, tx, w)
+    });
+  };
+  const g = k => (d[k] && typeof d[k] === "object") ? d[k] : {};
+
+  A(g("wechat").chats).forEach(x => x && push("wechat", "聊天", x.time, x.name, x.last));
+  A(g("wechat").moments).forEach(x => x && push("wechat", "朋友圈", x.time, (S(x.author) || "谁") + " 发了条朋友圈", x.content));
+
+  A(g("notes").items).forEach(x => x && push("notes", x.kind === "voice" ? "录音" : "便签", x.time, x.title, x.body));
+
+  A(g("calls").calls).forEach(x => x && push("calls", x.answered === false ? "未接" : (x.dir === "out" ? "拨出" : "来电"),
+    x.time, S(x.name) || S(x.number) || "陌生号", x.gist, x.thought));
+  A(g("calls").sms).forEach(x => x && push("calls", "短信", x.time, S(x.name) || S(x.number), (A(x.msgs)[0] || {}).text, x.thought));
+  A(g("calls").voicemail).forEach(x => x && push("calls", "语音信箱", x.time, S(x.from) + " 留了言", x.transcript, x.thought));
+
+  A(g("browser").searches).forEach(x => x && push("browser", "搜索", x.time, x.q, x.site));
+  A(g("browser").tabs).forEach(x => x && push("browser", "开着没关", x.age, x.title, x.gist));
+
+  A(g("shopping").orders).forEach(x => x && push("shopping", S(x.status) || "订单", x.time, x.title, S(x.shop) + (x.reason ? " · " + S(x.reason) : "")));
+  A(g("shopping").viewed).forEach(x => x && push("shopping", "看过没买", x.time, x.title, x.shop));
+
+  A(g("album").items).forEach(x => x && push("album", x.category === "private" ? "私密相册" : "相册", x.date, x.caption, x.desc, x.thought));
+
+  A(g("liked").items).forEach(x => x && push("liked", S(x.act) || "小红书", x.time, x.title, x.excerpt));
+  A(g("liked").mine).forEach(x => x && push("liked", "自己发的", x.time, x.title, x.excerpt));
+  A(g("liked").drafts).forEach(x => x && push("liked", "草稿没发", x.savedAt, x.title, x.excerpt));
+
+  A(g("health").timeline).forEach(x => x && push("health", S(x.tag) || "健康", x.time, x.text, ""));
+
+  A(g("clipboard").items).forEach(x => x && push("clipboard", x.sent ? "复制过" : "没发出去", x.time, x.text, S(x.from) ? "从" + S(x.from) + "里复制的" : ""));
+
+  A(g("takeout").orders).forEach(x => x && push("takeout", S(x.status) || "外卖", x.time, x.main || x.shop, S(x.shop) + (x.reason ? " · " + S(x.reason) : "")));
+
+  const ln = g("latenight");
+  if (ln.me && ln.me.lastAt) push("latenight", "深夜台", ln.me.lastAt, "半夜又开了一次", ln.me.note);
+
+  // 真数据这两层走 live，不看 phones（跟 app 里其他地方一个规矩）
+  A(L.forumAccounts).forEach(a => {
+    if (!a) return;
+    A(a.posts).forEach(p => p && push("forum", S(a.label) + "发帖", p.ts, p.title, p.body));
+    A(a.comments).forEach(c => c && push("forum", S(a.label) + "回帖", c.ts, "在「" + S(c.postTitle) + "」下面说", c.text));
+  });
+  A((L.calendar || g("calendar")).items).forEach(x => x && push("calendar", S(x.kind) || "日程",
+    S(x.date) + (S(x.time) ? " " + S(x.time) : ""), x.title, x.note));
+
+  // 三段：还没发生的（正序，摆最前）、已经发生的（倒序）、认不出时间的（沉底）。
+  // 日历接真数据之后时间线里才第一次有「未来」——一起倒序排的话，后天的事会压在
+  // 今天上面，整条线读起来是乱的。未来归未来，走过的路归走过的路。
+  // ⚠️只有日历那一路能算「还没发生」。别的 app 全是【推演出来的今天】——模型写
+  // 一整天的痕迹时不管现在几点，你早上七点翻手机，它照样会写「今天 14:20」。
+  // 那不是预告，那是这一天的记录。要是照时钟去判，早上翻手机会看到大半天的事
+  // 被推到「未来」那一段去，今天这一格反而空了。
+  const soon = now + 3600000;   // 一小时内的算「刚刚过去」
+  const canAhead = x => x.app === "calendar";
+  const ahead = out.filter(x => x.ts != null && x.ts > soon && canAhead(x)).sort((a, b) => a.ts - b.ts).map(x => ({ ...x, ahead: true }));
+  const past = out.filter(x => x.ts != null && !(x.ts > soon && canAhead(x))).sort((a, b) => b.ts - a.ts);
+  const loose = out.filter(x => x.ts == null);
+  return ahead.concat(past, loose);
+}
+// 今天/昨天/前天/8月28日 周五 —— 时间线按天分段用的标题
+function phoneDayLabel(ts, nowTs) {
+  if (ts == null) return "时间不详";
+  const now = new Date(nowTs || Date.now()), d = new Date(ts);
+  const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day0(now) - day0(d)) / 86400000);
+  if (diff === 0) return "今天";
+  if (diff === 1) return "昨天";
+  if (diff === 2) return "前天";
+  if (diff === -1) return "明天";
+  if (diff === -2) return "后天";
+  const dow = "日一二三四五六"[d.getDay()];
+  return (d.getFullYear() === now.getFullYear() ? "" : d.getFullYear() + "年") + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + dow;
+}
+const phoneClock = ts => {
+  if (ts == null) return "";
+  const d = new Date(ts);
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+};
 const strColor = s => AV_COLORS[[...String(s || "?")].reduce((a, c) => a + c.charCodeAt(0), 0) % AV_COLORS.length];
 const parseMins = s => {
   s = String(s || "");
@@ -204,13 +370,178 @@ function PGlyph({
     me: [C(12, 8, 3.7), P("M4.8 20.6a7.2 7.2 0 0114.4 0")],
     cart: [C(9.5, 20, 1.4), C(17.5, 20, 1.4), P("M2 3h3l2.6 12.2a1.6 1.6 0 001.6 1.3h8.4a1.6 1.6 0 001.6-1.3L21 7H6")],
     orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")],
-    takeout: [P("M3 11h18a9 9 0 01-18 0z"), P("M2.5 20.5h19"), P("M12 3.2v2.4M8.6 4.4l.9 1.6M15.4 4.4l-.9 1.6")]
+    takeout: [P("M3 11h18a9 9 0 01-18 0z"), P("M2.5 20.5h19"), P("M12 3.2v2.4M8.6 4.4l.9 1.6M15.4 4.4l-.9 1.6")],
+    timeline: [P("M7 3v18"), C(7, 7, 2.1), C(7, 13.4, 2.1), C(7, 19.6, 1.6), P("M11.5 7h8.5M11.5 13.4h6.5M11.5 19.6h4.5")]
   };
   return h(Svg, {
     size,
     color,
     sw: 1.5
   }, ...(kids[k] || []));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 时间线视图
+// ─────────────────────────────────────────────────────────────
+// 每条左边是时刻，右边是内容，中间一条竖轴把一天串起来。
+// 新增的（上次翻完之后才出现的）左侧有一个实心点，顶上可以切「只看新增」。
+function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCount, onMarkRead }) {
+  const [onlyNew, setOnlyNew] = useState(false);
+  const [sheet, setSheet] = useState(null);
+  const list = Array.isArray(rows) ? rows : [];
+  const isNew = r => !!(newIds && newIds[r.id]);
+  const shown = onlyNew ? list.filter(isNew) : list;
+  const now = Date.now();
+  // 按天切段
+  const groups = [];
+  shown.forEach(r => {
+    // 未来那一段要单独标。不然「今天 20:00 还没去」和「今天 14:20 已经发生」
+    // 会落进同一个「今天」标题下，中间还夹着「后天」，读起来是乱的。
+    const label = (r.ahead ? "接下来 · " : "") + phoneDayLabel(r.ts, now);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.rows.push(r); else groups.push({ label, rows: [r] });
+  });
+  const TL_DOT = "#c4553f";
+  const row = (r, first, last) => h("button", {
+    key: r.id,
+    onClick: () => setSheet(r),
+    className: "w-full text-left active:opacity-60",
+    style: { display: "flex", gap: 12, padding: "0 2px" }
+  },
+  // 左侧：时刻 + 竖轴
+  h("div", { style: { width: 46, flexShrink: 0, textAlign: "right", paddingTop: 11 } },
+    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11.5, color: isNew(r) ? TL_DOT : t.fog } },
+      r.ts == null ? "—" : phoneClock(r.ts))),
+  h("div", { style: { width: 15, flexShrink: 0, position: "relative", display: "flex", justifyContent: "center" } },
+    h("span", { style: { position: "absolute", top: first ? 15 : 0, bottom: last ? "auto" : 0, height: last ? 0 : "auto", width: 1, background: t.line } }),
+    h("span", {
+      style: {
+        position: "absolute", top: 12, width: isNew(r) ? 9 : 6, height: isNew(r) ? 9 : 6, borderRadius: 9,
+        background: isNew(r) ? TL_DOT : t.bg, border: "1.5px solid " + (isNew(r) ? TL_DOT : t.line)
+      }
+    })),
+  h("div", { className: "flex-1 min-w-0", style: { paddingBottom: 14, paddingTop: 7 } },
+    h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 3 } },
+      h(PGlyph, { k: r.app, size: 12, color: t.fog }),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, r.appZh + (r.tag ? " · " + r.tag : ""))),
+    r.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, r.title),
+    r.text && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
+      r.text.length > 52 ? r.text.slice(0, 52) + "…" : r.text)));
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", {
+      className: "shrink-0 px-4 pb-2 flex items-center gap-2",
+      style: { background: t.bg, paddingTop: safeTop(10) }
+    },
+    h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: t.ink })),
+    h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "时间线"),
+    h("div", { style: { width: 40, height: 40 } })),
+    // 只看新增
+    h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
+        list.length ? "把 " + list.length + " 条痕迹按时间排在一起" : "还没有翻出任何东西"),
+      newCount > 0 && h("button", {
+        onClick: () => setOnlyNew(v => !v),
+        className: "active:opacity-60",
+        style: {
+          fontFamily: F_BODY, fontSize: 11, padding: "4px 11px", borderRadius: 99,
+          background: onlyNew ? TL_DOT : "transparent", color: onlyNew ? "#fff" : TL_DOT,
+          border: "1px solid " + (onlyNew ? TL_DOT : "rgba(196,85,63,.4)")
+        }
+      }, "只看新增 " + newCount)),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
+      !shown.length && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "56px 20px", lineHeight: 1.9 } },
+        onlyNew ? "上次翻完之后，他手机上没有新东西。" : "先在桌面上刷一遍，这里才会有东西串起来。"),
+      groups.map((g, gi) => h("div", { key: g.label + gi },
+        h("div", {
+          style: {
+            fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".17em",
+            color: t.fog, padding: "16px 0 8px 61px"
+          }
+        }, g.label.toUpperCase()),
+        g.rows.map((r, i) => row(r, i === 0, i === g.rows.length - 1 && gi === groups.length - 1))))),
+    newCount > 0 && h("div", { className: "shrink-0 px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+      h("button", {
+        onClick: onMarkRead, className: "w-full py-3 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.sub }
+      }, "这 " + newCount + " 条都看过了")),
+    sheet && h(Sheet, { onClose: () => setSheet(null), tall: true },
+      h(Eyebrow, { style: { marginBottom: 8 } }, sheet.appZh + (sheet.tag ? " · " + sheet.tag : "")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, sheet.title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5 } },
+        sheet.ts == null ? "时间不详（原文写的是「" + sheet.when + "」）" : phoneDayLabel(sheet.ts, now) + " " + phoneClock(sheet.ts)),
+      sheet.text && h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: t.ink, marginTop: 14, wordBreak: "break-word" } }, sheet.text),
+      sheet.thought && h("div", {
+        style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12, paddingLeft: 10, borderLeft: "2px solid " + t.line, wordBreak: "break-word" }
+      }, sheet.thought),
+      h("button", {
+        onClick: () => { const a = sheet.app; setSheet(null); onOpenApp && onOpenApp(a); },
+        className: "w-full mt-6 py-3 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
+      }, "去" + sheet.appZh + "里看"),
+      // 转发那一层照旧走 onPeek，绝不因为点开就自动发出去（她 2026-08-29 被吓过一次）
+      onPeek && h("button", {
+        onClick: () => onPeek({ tier: "quiet", label: sheet.appZh + (sheet.tag ? " · " + sheet.tag : ""), title: sheet.title, text: sheet.text || sheet.thought }),
+        className: "w-full mt-2 py-3 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
+      }, "转发给 TA · 他会知道你翻了手机")));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 锁屏：拿起他手机的第一眼
+// ─────────────────────────────────────────────────────────────
+// 一叠还没点开的通知横幅，每条只露半句——要看全文得进去。
+// 通知就是 delta：上次翻完之后才出现的那些。没有新的就摆最近几条，灰着。
+function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTimeline }) {
+  const now = new Date();
+  const wall = strColor(char && (char.id || char.name));
+  // 通知说的是【刚发生了什么】，不是日程提醒——所以还没发生的那一段不进锁屏
+  const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead);
+  const fresh = list.filter(r => newIds && newIds[r.id]);
+  const pool = (fresh.length ? fresh : list).slice(0, 5);
+  const dim = !fresh.length;
+  const dow = "日一二三四五六"[now.getDay()];
+  const card = r => h("button", {
+    key: r.id,
+    onClick: () => onOpenApp && onOpenApp(r.app),
+    className: "w-full text-left active:opacity-70",
+    style: {
+      display: "block", padding: "11px 13px", borderRadius: 17, marginBottom: 8,
+      background: dim ? "rgba(255,255,255,.42)" : "rgba(255,255,255,.72)",
+      border: "1px solid rgba(255,255,255,.6)",
+      backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)"
+    }
+  }, h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+    h(PGlyph, { k: r.app, size: 12, color: "rgba(30,28,24,.55)" }),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "rgba(30,28,24,.55)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.appZh + (r.tag ? " · " + r.tag : "")),
+    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: "rgba(30,28,24,.45)" } }, r.ts == null ? "" : phoneClock(r.ts))),
+  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: "#1e1c18", lineHeight: 1.45, wordBreak: "break-word" } },
+    (r.title || r.text || "").slice(0, 22) + ((r.title || r.text || "").length > 22 ? "…" : "")),
+  r.text && r.title && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(30,28,24,.6)", lineHeight: 1.55, marginTop: 2, wordBreak: "break-word" } },
+    r.text.slice(0, 26) + (r.text.length > 26 ? "…" : "")));
+  return h("div", {
+    className: "h-full flex flex-col",
+    style: { background: "linear-gradient(168deg," + wall + " 0%, rgba(245,243,238,.94) 62%, #f3f1ec 100%)" }
+  },
+  h("div", { className: "shrink-0 px-6", style: { paddingTop: safeTop(30) } },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, letterSpacing: ".2em", color: "rgba(30,28,24,.5)" } },
+      (now.getMonth() + 1) + "月" + now.getDate() + "日 星期" + dow),
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 300, fontSize: 68, lineHeight: 1.06, color: "#1e1c18", marginTop: 2 } },
+      String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(30,28,24,.55)", marginTop: 6 } },
+      (char && char.name || "TA") + " 的手机" + (newCount > 0 ? " · " + newCount + " 条新的" : ""))),
+  h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pt-5" },
+    !pool.length && h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(30,28,24,.5)", textAlign: "center", padding: "40px 20px", lineHeight: 1.9 } },
+      "锁屏上什么都没有。解锁进去刷一遍吧。"),
+    pool.map(card),
+    newCount > pool.length && h("button", {
+      onClick: onTimeline, className: "w-full active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(30,28,24,.6)", padding: "6px 0 2px" }
+    }, "还有 " + (newCount - pool.length) + " 条 · 全部看")),
+  h("div", { className: "shrink-0 px-6", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+    h("button", {
+      onClick: onUnlock, className: "w-full active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(30,28,24,.62)", padding: "16px 0 10px" }
+    }, "解锁 · 进他的桌面")));
 }
 
 // 点开某条看细节的通用 sheet 内容（在事件里构造，需显式传 t）
@@ -1788,7 +2119,10 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const days = new Date(cy, cm, 0).getDate();
   const onDay = dd => dated.filter(r => r.at.y === cy && r.at.m === cm && r.at.d === dd).map(r => r.x);
   const isToday = dd => now.getFullYear() === cy && now.getMonth() + 1 === cm && now.getDate() === dd;
-  const late = x => Number(x.postponed) >= 2;
+  const late = x => Number(x.postponed) >= 2 || !!x.overdue;
+  // 日期这一栏原来直接切字符串，"2026-8-31" 和 "2026-08-29" 两种写法会显示成
+  // 「8月31日」和「08月29日」两个样子。统一按解析出来的年月日重排。
+  const calDay = v => { const a = parse(v); return a ? a.m + "月" + a.d + "日" : ""; };
   const cells = [];
   for (let i = 0; i < lead; i++) cells.push(h("div", { key: "p" + i }));
   for (let dd = 1; dd <= days; dd++) {
@@ -1811,7 +2145,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   h("div", { style: { flex: 1, minWidth: 0 } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.45, color: x.done ? CAL_DIM : CAL_INK, textDecoration: x.done ? "line-through" : "none" } }, x.title || ""),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: late(x) ? CAL_RED : CAL_DIM, marginTop: 5 } },
-      [String(x.date || "").slice(5).replace("-", "月") + (String(x.date || "") ? "日" : ""), x.time, x.kind, x.who, Number(x.postponed) > 0 ? "推迟 " + x.postponed + " 次" : ""].filter(Boolean).join(" · "))));
+      [calDay(x.date), x.time, x.kind, x.who, Number(x.postponed) > 0 ? "推迟 " + x.postponed + " 次" : (x.overdue ? "早该做了" : "")].filter(Boolean).join(" · "))));
   const detail = open ? h("div", {
     className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,20,22,.4)", zIndex: 30 }, onClick: () => setOpen(null)
   }, h("div", {
@@ -1822,10 +2156,11 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("button", { onClick: () => setOpen(null), "aria-label": "关闭", className: "active:opacity-60", style: { fontSize: 15, color: CAL_DIM, padding: "0 4px" } }, "✕")),
   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.4, color: CAL_INK, marginTop: 10 } }, open.title || ""),
   open.who ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: CAL_DIM, marginTop: 7 } }, "和 " + open.who) : null,
-  Number(open.postponed) > 0 ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次") : null,
+  Number(open.postponed) > 0 ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
+    : open.overdue ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "日子早过了，他还没做。") : null,
   open.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: "#4b4b53", marginTop: 13 } }, open.note) : null,
   onPeek ? h("button", {
-    onClick: () => onPeek({ tier: "quiet", label: open.kind === "提醒" ? "提醒事项" : "日历", title: open.title, text: [open.date, open.who ? "和 " + open.who : "", open.note, Number(open.postponed) > 0 ? "推迟过 " + open.postponed + " 次" : ""].filter(Boolean).join("｜") }),
+    onClick: () => onPeek({ tier: "quiet", label: open.kind === "提醒" ? "提醒事项" : "日历", title: open.title, text: [open.date, open.who ? "和 " + open.who : "", open.note, Number(open.postponed) > 0 ? "推迟过 " + open.postponed + " 次" : (open.overdue ? "日子早过了" : "")].filter(Boolean).join("｜") }),
     className: "w-full active:opacity-60",
     style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
   }, "转发给 TA · 他会知道你翻了手机") : null)) : null;
@@ -2396,9 +2731,13 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "clipboard") return h(ClipView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "health") return h(HealthView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "liked") return h(PlazaView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
-  if (key === "calendar") return h(CalendarView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "calendar") return h(CalendarView, { d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "bili") return h(BiliView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "latenight") return h(LateNightView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "timeline") return h(TimelineView, {
+    rows: ctx.timelineRows, char, t, onBack: ctx.onBack, onOpenApp: ctx.onOpenApp, onPeek: ctx.onPeek,
+    newIds: ctx.newIds, newCount: ctx.newCount, onMarkRead: ctx.onMarkRead
+  });
   return null;
 }
 
@@ -2452,7 +2791,9 @@ function PhoneApp({
   const refreshKey = isLive ? null : appKey;
   const liveTitle = appKey === "music"
     ? (((live || {}).playlist || {}).name || "音乐")
-    : (() => { const a = ((live || {}).forumAccounts || []).find(x => x.key === forumTab); return a ? a.label + " · " + (a.name || "") : "论坛"; })();
+    : appKey === "forum"
+      ? (() => { const a = ((live || {}).forumAccounts || []).find(x => x.key === forumTab); return a ? a.label + " · " + (a.name || "") : "论坛"; })()
+      : zh;
   return h("div", {
     className: "h-full flex flex-col",
     style: {
@@ -2502,6 +2843,7 @@ function PhoneCarry({
   onGenPlaylist,
   playlistBusyId,
   onPlaySong,
+  calendarFor,
   onPeek
 }) {
   const t = useTheme();
@@ -2526,6 +2868,11 @@ function PhoneCarry({
       if (deskRef.current) deskRef.current.scrollLeft = deskRef.current.clientWidth * n;
     }));
   }, [open, inList]);
+  // 锁屏：拿起他手机的第一眼，不该直接是一片图标网格
+  const [locked, setLocked] = useState(true);
+  // delta 账本：上次翻完时手机上有哪些条目。x_phoneMark[charId].ids = { 指纹: 1 }
+  // 指纹只由内容决定（见 phoneEntryId），所以他没动的东西不会因为你又翻了一次就变新。
+  const [mark, setMark] = useState(() => loadJSON("x_phoneMark", {}));
   // 绿点 = 有数据且还没看过；打开即消，刷新全部时重新点亮
   const [seen, setSeen] = useState(() => loadJSON("x_phoneSeen", {}));
   const isSeen = (cid, k) => !!(seen[cid] && seen[cid][k]);
@@ -2565,7 +2912,7 @@ function PhoneCarry({
           // 角色列表：在手机屏内下滑
           h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-1" },
             characters.map(c => h("button", {
-              key: c.id, onClick: () => { onSel(c.id); setOpen(null); setInList(false); },
+              key: c.id, onClick: () => { onSel(c.id); setOpen(null); setLocked(true); setInList(false); },
               className: "w-full flex items-center gap-3 py-3 active:opacity-60", style: { borderBottom: "1px solid " + t.line }
             },
               h(Avatar, { character: c, size: 44, radius: 13 }),
@@ -2584,18 +2931,54 @@ function PhoneCarry({
     onGenPlaylist: () => onGenPlaylist && onGenPlaylist(char),
     playlistBusy: playlistBusyId === char.id,
     onPlaySong: s => onPlaySong && onPlaySong(s),
+    // 日历接 App 里那份真的：他自己那格日历 + 带时刻的日程 + 他答应过她的事
+    calendar: calendarFor ? calendarFor(char) : null,
     // 偷看转发：手机里的东西只有【转发了】才进他的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk)
   };
-  const liveCount = k => k === "forum"
-    ? (liveForum || []).reduce((n, a) => n + (a.posts || []).length + (a.comments || []).length, 0)
-    : ((livePlaylist && livePlaylist.songs) || []).length;
+  // ── 时间线 + delta ──────────────────────────────────────────
+  // 时间线不生成任何东西：它把上面那些 app 已经翻出来的碎片按时间串起来。
+  // delta 就是「这一串里，上次翻完之后才出现的那些」。
+  const tlRows = phoneTimeline(data, liveCtx, Date.now());
+  const seenIds = (mark[char.id] || {}).ids || {};
+  const newIds = {};
+  let newCount = 0;
+  tlRows.forEach(r => { if (!seenIds[r.id]) { newIds[r.id] = 1; newCount++; } });
+  // 记账本封顶：只留最近这一批的指纹。手机内容本来就是滚动覆盖的，
+  // 留着几千条早就不存在的指纹只会把 localStorage 撑爆。
+  const MARK_CAP = 900;
+  const markRead = ids => {
+    if (!ids || !ids.length) return;
+    setMark(p => {
+      const cur = (p[char.id] || {}).ids || {};
+      const merged = { ...cur };
+      ids.forEach(id => { merged[id] = 1 });
+      const keys = Object.keys(merged);
+      const kept = keys.length > MARK_CAP ? keys.slice(keys.length - MARK_CAP) : keys;
+      const box = {};
+      kept.forEach(k => { box[k] = 1 });
+      const n = { ...p, [char.id]: { ids: box, at: Date.now() } };
+      saveJSON("x_phoneMark", n);
+      return n;
+    });
+  };
+  const markAppRead = k => markRead(tlRows.filter(r => r.app === k).map(r => r.id));
+  const liveCount = k => {
+    if (k === "forum") return (liveForum || []).reduce((n, a) => n + (a.posts || []).length + (a.comments || []).length, 0);
+    if (k === "music") return ((livePlaylist && livePlaylist.songs) || []).length;
+    if (k === "calendar") return ((liveCtx.calendar || {}).items || []).length;
+    if (k === "timeline") return tlRows.length;
+    return 0;
+  };
   const hasData = a => PHONE_LIVE_KEYS.indexOf(a.key) >= 0 ? liveCount(a.key) > 0
     : data[a.key];
   const appByKey = k => PHONE_APPS.find(a => a.key === k);
   const openApp = a => {
     if (!a || a.soon) return;
     markSeen(char.id, a.key);
+    // 桌面绿点和时间线的「新」得是同一件事——不然她明明刚在便签里读完，
+    // 时间线里那几条还标着新，两处对不上。
+    if (a.key !== "timeline") markAppRead(a.key);
     setOpen(a.key);
   };
   const latestLine = (value, fallback) => {
@@ -2640,8 +3023,19 @@ function PhoneCarry({
     onGen: onGenApp,
     profile,
     actualWechat: actualWechatFor ? actualWechatFor(char) : [],
-    live: liveCtx,
+    live: {
+      ...liveCtx,
+      timelineRows: tlRows, newIds, newCount,
+      onMarkRead: () => markRead(tlRows.map(r => r.id)),
+      onOpenApp: k => { const a = appByKey(k); if (a) openApp(a); }
+    },
     onBack: () => setOpen(null)
+  });
+  if (locked) return h(LockScreen, {
+    char, t, rows: tlRows, newIds, newCount,
+    onUnlock: () => setLocked(false),
+    onTimeline: () => { setLocked(false); setOpen("timeline"); },
+    onOpenApp: k => { setLocked(false); const a = appByKey(k); if (a) openApp(a); }
   });
   const wall = strColor(char.id || char.name);
   const layout = phoneDesktopLayout(char);
@@ -2651,9 +3045,20 @@ function PhoneCarry({
       wechat: "点开看看最近和谁说过话", notes: "最近没有留下新备忘", browser: "最近没有浏览记录",
       music: "他还没有歌单", album: "相册还没翻过", bili: "最近没有观看记录", latenight: "深夜台还是空的",
       forum: "论坛上还没有他的痕迹", reading: "最近没在读什么", liked: "还没点过什么",
-      health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的"
+      health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的",
+      timeline: "先刷一遍手机，这里才串得起来"
     }[key] || "还没有内容";
-    // 真数据这两个走自己那份，不然桌面小组件永远显示兜底话
+    // 真数据这几个走自己那份，不然桌面小组件永远显示兜底话
+    if (key === "timeline") {
+      // 小组件说的是「他最近干了什么」，不是待办清单，所以跳过还没发生的那几条
+      const r = tlRows.find(x => !x.ahead) || tlRows[0];
+      if (!r) return fallback;
+      return (newCount > 0 ? newCount + " 条新的 · " : "") + (r.ts == null ? "" : phoneClock(r.ts) + " ") + (r.title || r.text || "");
+    }
+    if (key === "calendar") {
+      const ci = ((liveCtx.calendar || {}).items || [])[0];
+      return ci ? (ci.date ? String(ci.date).replace(/^\d{4}-/, "") + " " : "") + ci.title : fallback;
+    }
     if (key === "music") { const sg = ((livePlaylist && livePlaylist.songs) || [])[0]; return sg ? (livePlaylist.name || "歌单") + " · " + sg.title : fallback; }
     if (key === "forum") {
       const all = (liveForum || []).reduce((a, x) => a.concat((x.posts || []).map(p => ({ ts: p.ts, s: p.title })), (x.comments || []).map(c => ({ ts: c.ts, s: c.text }))), []);
@@ -2714,7 +3119,7 @@ function PhoneCarry({
   }, h("div", {
     className: "shrink-0 px-5 pb-2 flex items-center justify-between",
     style: { paddingTop: safeTop(20) }
-  }, h("button", { onClick: () => setInList(true), className: "active:opacity-50", "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
+  }, h("button", { onClick: () => { setInList(true); setLocked(true); }, className: "active:opacity-50", "aria-label": "返回通讯录" }, h(IArrow, { size: 19, color: t.ink })),
   h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 600, color: t.ink } }, new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })),
   h("button", { onClick: () => setPick(true), className: "active:opacity-50", "aria-label": "切换角色" }, h(Avatar, { character: char, size: 28, radius: 9 }))),
   // 名字和头像顶栏已经有了，这儿不再顶一大块（她 2026-08-29：「那一大块角色名也删了吧」）
@@ -2750,6 +3155,7 @@ function PhoneCarry({
       onSel(c.id);
       setPick(false);
       setOpen(null);
+      setLocked(true);
     },
     className: "w-full flex items-center gap-3 py-2.5 active:opacity-60"
   }, h(Avatar, {
@@ -2799,7 +3205,6 @@ const PHONE_ANGLE = {
   liked: "【取材层】他不会写下来、但会顺手点的东西。点赞和收藏没有措辞、不用解释，所以最诚实。【时间窗】这一两个月。",
   health: "【取材层】他的身体和心神这一天经历了什么。**指标名和细分项都要长成这个角色世界里的样子**，不是通用体检报告。【时间窗】今天为主，一周做背景。",
   clipboard: "【取材层】他复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
-  calendar: "【取材层】他给自己排的事，以及他一直没去做的事。【时间窗】前后两周。",
   takeout: "【取材层】他怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
   wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。"
 };
@@ -2822,7 +3227,6 @@ const PHONE_DIGEST_PICK = {
   liked: d => pArr(d.items).map(x => x.title).concat(pArr(d.mine).map(x => x.title)),
   health: d => pArr(d.cards).map(x => x.name + "·" + (x.tag || "")),
   clipboard: d => pArr(d.items).map(x => x.text),
-  calendar: d => pArr(d.items).map(x => x.title),
   takeout: d => pArr(d.orders).map(x => x.shop + "·" + ((pArr(x.items)[0] || {}).name || "")).concat(pArr(d.shops).map(x => x.name), pArr(d.wish).map(x => x.title)),
   wallet: () => []
 };
@@ -2987,14 +3391,6 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
         + "monthNote：本周点餐概况，一段 70-110 字。tail：最后一两句他自己的念叨。",
       schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"week\":[{\"day\":\"一\",\"meals\":[{\"t\":\"早\",\"text\":\"吃了什么\"}]}],\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"together\":[{\"who\":\"他嘴里对那人的叫法\",\"items\":\"点了什么\",\"story\":\"那顿饭上发生了什么\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\"}"
     },
-    calendar: {
-      instruction: "推演「" + char.name + "」日历和提醒事项里的东西（**10-14 条**，覆盖前后两周）。\n"
-        + "monthLabel：这些事所在的月份，写成「8月」这种。\n"
-        + "每条：title、date（YYYY-MM-DD，**必须是真实完整日期**，用来落在月历格子上）、time（如「14:00」，全天事项留空）、kind（事件 或 提醒）、done（true/false）、postponed（往后推过几次，整数，多数是 0）、note（可留空）、who（跟谁的，可留空）。\n"
-        + "**推迟次数是这个 app 的重点**：一件推了四次的小事，比四件按时完成的大事更能说明这个人。至少有一条 postponed 在 3 以上，而且它应该是件很小、很容易做完、但他就是一直不做的事——那种一分钟就能办完、却拖了半个月的事。\n"
-        + "三种都要有：他给自己设的、和别人约好的、以及一直没去做的。已经过去的日子里要有已完成的，也要有那天根本没做的。" + relHint,
-      schemaHint: "{\"monthLabel\":\"8月\",\"items\":[{\"title\":\"事情\",\"date\":\"2026-09-02\",\"time\":\"14:00\",\"kind\":\"提醒\",\"done\":false,\"postponed\":0,\"note\":\"可空\",\"who\":\"可空\"}]}"
-    },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"
         + "me：他自己的账号——name（**他给自己取的用户名**，不是本名照抄；这种名字往往随手起、有点中二或自嘲）、uid（一串数字）、level（1-6 整数）、followers（关注了多少人，数字）、fans（粉丝数，数字，多数人很少）、coins（硬币数）。\n"
@@ -3005,10 +3401,22 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines) {
       schemaHint: "{\"me\":{\"name\":\"用户名\",\"uid\":\"3947201\",\"level\":5,\"followers\":128,\"fans\":37,\"coins\":412},\"tabs\":[\"分区名\",\"分区名\"],\"items\":[{\"title\":\"视频标题\",\"up\":\"UP主\",\"tab\":\"分区\",\"duration\":\"08:24\",\"views\":\"12.4万\",\"danmaku\":320,\"desc\":\"简介\",\"thought\":\"他看完的想法\",\"myDanmaku\":[\"他发的弹幕\"]}]}"
     },
     latenight: {
-      instruction: "推演「" + char.name + "」深夜独自看的小电影（**正好 10 条**）。**大胆贴合人物欲望**，不要含糊其辞、不要写成文艺片。\n"
-        + "每条：title（标题）、duration（如 00:18:42 / 01:45:20，符合这类片子的合理长度）、tags（2-4 个标签的字符串数组）、views（播放量）、thought（点开时他的真实想法，一句，赤裸、不修饰）。\n"
+      instruction: "推演「" + char.name + "」深夜独自看的小电影（**正好 10 条**）。尺度该多大就多大，不要含糊其辞、不要写成文艺片。\n"
+        + "每条：title（标题）、duration（如 00:18:42 / 01:45:20，符合这类片子的合理长度）、tags（2-4 个标签的字符串数组）、views（播放量）、thought（点开那一秒他在想什么，一句，赤裸、不修饰）。\n"
         + "另给 me：uid（这种站子上他没有名字，只有一串数字或字母）、lastAt（上次是什么时候，如「前天 03:12」）、note（一句他自己都不愿承认的旁白）。\n"
-        + "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要具体，别用「性感」「诱惑」这种谁都能写的词。",
+        // 病：所有角色都往「强势占有」那一头写（她 2026-08-29 报）。那不是哪个词写坏了，
+        // 是这一栏除了「一个角色 + 深夜看的片」几乎没给别的约束，剩下的空白由训练先验补上，
+        // 而这个题材的先验就是支配。治法跟人设被截断那次一样：不是加禁令，是把维度铺开，
+        // 让他必须先在几根互不相干的轴上各选一头，答案才有地方长出来。
+        + "【先定他站在哪几根轴上，再写这十条】欲望不是一条从轻到重的直线，是好几根互不相干的轴。动笔前先想清楚这个人在下面每一根上偏向哪一头，**再让十条分散落在不同的轴上**：\n"
+        + "· 他要的是自己掌控局面，还是要有人替他拿主意，还是根本不在这条轴上；\n"
+        + "· 他是在看别人，还是在想象自己被看；\n"
+        + "· 他要陌生、一次性的，还是要认识很久的那种熟；\n"
+        + "· 他要用力和快，还是要慢和长；\n"
+        + "· 要不要有情节、有没有对话，还是根本不需要；\n"
+        + "· 他代入的是哪一边——也可能哪边都不代入，只是在旁边看着。\n"
+        + "【这一栏最容易写坏的地方】不要默认每个人的欲望都往「支配 / 占有 / 强势」那一头去。那是最省事的答案，**也是换成任何一个角色都照样成立的答案——照样成立就等于没写**。有人要的是被照顾，有人要的是自己失控，有人要的是被当成平等的人，有人只是想有一段不必说话的时间。他要哪一种，从他的人设长出来，不从这个题材的惯例长出来。\n"
+        + "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要落到具体的场合、身份、动作或情境上，**别用那种换个角色照样贴得上的形容词**。",
       schemaHint: "{\"me\":{\"uid\":\"u_7741903\",\"lastAt\":\"前天 03:12\",\"note\":\"一句旁白\"},\"items\":[{\"title\":\"标题\",\"duration\":\"00:18:42\",\"tags\":[\"tag1\",\"tag2\"],\"views\":\"3.2万\",\"thought\":\"想法\"}]}"
     },
     wallet: {
