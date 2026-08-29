@@ -79,8 +79,13 @@ const FIXTURES = {
     me: { name: "不留痕", uid: "br_88213" },
     tabs: [{ title: "西北军饷历年拨付表", site: "户部archive", age: "开了 11 天", pinned: true, cover: 0, gist: "一张对不上的账。" },
            { title: "失眠怎么办", site: "问答", age: "开了 2 小时", pinned: false, cover: 2, gist: "" }],
-    searches: [{ q: "羊肉膻味怎么去干净", time: "今天 11:20", site: "" },
-               { q: "她说算了是什么意思", time: "昨天 02:41", site: "" }],
+    searches: [{ q: "羊肉膻味怎么去干净", time: "今天 11:20", site: "", opened: "庖厨杂记", results: [
+                 { source: "庖厨杂记", title: "去膻三法：先浸后焯，最后一步九成人不知道", excerpt: "冷水下锅只是第一步……真正要紧的是……" },
+                 { source: "西市食肆见闻", title: "为什么酒楼的羊肉没有腥味", excerpt: "后厨老师傅说，关键在于……" }] },
+               { q: "她说算了是什么意思", time: "昨天 02:41", site: "", opened: "情感解码站", results: [
+                 { source: "医馆问答", title: "「算了」通常代表对方已经放弃沟通", excerpt: "从语用学角度，这类词往往出现在……" },
+                 { source: "情感解码站", title: "女生说算了的真实概率有多大？", excerpt: "谢邀。九成不是真的算了……" },
+                 { source: "闲话本", title: "十句口是心非的话对照表", excerpt: "第三条最多人栽……" }] }],
     marks: [{ name: "以后再算的账", items: [{ title: "陇右三年粮册", site: "档" }, { title: "旧部名录", site: "档" }] }],
     private: [{ title: "夜里那页", site: "—", gist: "关掉就没了。" }]
   },

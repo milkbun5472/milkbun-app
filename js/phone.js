@@ -2821,7 +2821,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   // ── 搜索记录：按时间列，搜索框的样子 ──
   const searchPage = searches.length ? h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } },
     searches.map((x, i) => h("button", {
-      key: i, onClick: () => setOpen({ title: x.q, site: x.site, gist: "", _search: true, time: x.time }),
+      key: i, onClick: () => setOpen({ title: x.q, site: x.site, gist: "", _search: true, time: x.time, results: x.results, opened: x.opened }),
       className: "w-full text-left active:opacity-60 flex items-center",
       style: { gap: 11, padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" }
     }, h("span", { "aria-hidden": "true", style: { width: 26, height: 26, borderRadius: 99, flexShrink: 0, background: "#f0f0f4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: BR_DIM } }, "⌕"),
@@ -2849,7 +2849,45 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: "rgba(230,230,234,.55)", marginTop: 6 } }, "他专门开了不留记录的那几页。关掉就没了——只是还没关。")),
     priv.length ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, priv.map((x, i) => tabCard(x, i, true)))
       : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "这会儿没有无痕页"));
-  const detail = open ? (function () {
+  // 搜索记录点进去 = 那一次搜索的【结果页】。
+  // 「搜了什么」只有一半；另一半是【他点开了哪一条】——那才是他真正想知道的东西。
+  const searchPage2 = open && open._search ? (function () {
+    const rs = A(open.results).filter(x => x && typeof x === "object");
+    // 结果数不问模型要：拿搜索词算一个稳定的数，每次进来都一样。
+    // 它只是页面上的装饰，不该为它多花一次调用，更不该每次刷新跳一个数。
+    const total = 12000 + phoneStableHash(open.title || "") % 880000;
+    const shown = total.toLocaleString("en-US");
+    return h("div", { className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 30 } },
+      h("div", { className: "shrink-0", style: { paddingTop: safeTop(8), borderBottom: "1px solid #ececf0" } },
+        h("div", { className: "flex items-start px-3 pb-3", style: { gap: 6 } },
+          h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center shrink-0", style: { width: 40, height: 40, marginTop: -4 } }, h(IArrow, { size: 19, color: BR_INK })),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.45, color: BR_INK, wordBreak: "break-word", paddingTop: 4, paddingRight: 8 } }, open.title || ""))),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fafafc" } },
+        h("div", { className: "flex items-center", style: { gap: 11, padding: "20px 0 10px" } },
+          h("span", { "aria-hidden": "true", style: { fontSize: 17, color: BR_DIM } }, "⌕"),
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 15, color: BR_INK, wordBreak: "break-word" } }, open.title || "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a8a8b0", paddingBottom: 16, borderBottom: "1px solid #ececf0" } },
+          "找到约 " + shown + " 条结果" + (open.time ? "　|　搜索于 " + open.time : "")),
+        rs.length ? rs.map((r, i) => {
+          const src = String(r.source || "").trim();
+          const isOpened = !!r.opened || (open.opened && String(open.opened) === src);
+          return h("div", { key: i, style: { padding: "18px 0", borderBottom: i === rs.length - 1 ? "none" : "1px solid #ececf0" } },
+            h("div", { className: "flex items-center", style: { gap: 9, marginBottom: 8 } },
+              h("span", {
+                "aria-hidden": "true",
+                style: { width: 22, height: 22, borderRadius: 99, flexShrink: 0, background: "#efeff3", color: "#7a7a84", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11 }
+              }, src.slice(0, 1) || "?"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6b6b74", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, src),
+              isOpened ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#c4553f", background: "rgba(196,85,63,.1)", borderRadius: 99, padding: "2px 8px", flexShrink: 0 } }, "他点开了这条") : null),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#1a4fbd", wordBreak: "break-word" } }, String(r.title || "")),
+            r.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#8b8b93", marginTop: 7, wordBreak: "break-word" } }, String(r.excerpt)) : null);
+        }) : h("div", { style: { padding: "50px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM, lineHeight: 1.9 } },
+          "这条搜索记录里没存下结果。\n重新推演一次浏览器就有了。"),
+        h("div", { style: { paddingTop: 18 } },
+          peekBtn("quiet", "他搜过的", open.title,
+            [open.time, rs.length ? "他翻到的：" + rs.map(r => String(r.title || "")).filter(Boolean).slice(0, 3).join(" / ") : ""].filter(Boolean).join("｜")))));
+  })() : null;
+  const detail = open && !open._search ? (function () {
     const isPriv = !!open._priv;
     return h("div", { className: "absolute inset-0 flex flex-col justify-end", style: { background: "rgba(20,20,24,.42)", zIndex: 30 }, onClick: () => setOpen(null) },
       h("div", { onClick: e => e.stopPropagation(),
@@ -2892,7 +2930,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           boxShadow: tab === pg.key ? "0 1px 4px rgba(30,30,40,.10)" : "none" }
       }, pg.zh + (pg.badge ? " " + pg.badge : "")))) ),
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 13px 22px" } }, page.body),
-    detail);
+    searchPage2, detail);
 }
 // ============================================================
 // 电话 —— 通话 / 短信 / 信箱 / 联系人（她 2026-08-29 拍板留下并重做）
@@ -3455,26 +3493,30 @@ function PhoneCarry({
     key: a.key,
     onClick: () => openApp(a),
     className: "flex flex-col items-center active:opacity-60",
-    style: { gap: compact ? 4 : 7, minWidth: 0 }
+    style: { gap: compact ? 3 : 7, minWidth: 0 }
   }, h("div", {
     className: "relative flex items-center justify-center",
     style: {
-      width: compact ? 46 : 56,
-      height: compact ? 46 : 56,
-      borderRadius: compact ? 14 : 17,
+      width: compact ? 44 : 56,
+      height: compact ? 44 : 56,
+      borderRadius: compact ? 13 : 17,
       background: "rgba(255,255,255,.88)",
       border: "1px solid rgba(255,255,255,.72)",
       boxShadow: "0 8px 22px rgba(28,25,20,.10)"
     }
-  }, h(PGlyph, { k: a.key, size: compact ? 23 : 27, color: t.ink }), hasData(a) && !isSeen(char.id, a.key) && h("span", {
+  }, h(PGlyph, { k: a.key, size: compact ? 22 : 27, color: t.ink }), hasData(a) && !isSeen(char.id, a.key) && h("span", {
     style: {
       position: "absolute", top: -3, right: -3, width: 10, height: 10,
       borderRadius: 9, background: "#78bd58", border: "2px solid rgba(255,255,255,.95)"
     }
-  })), !compact && h("span", {
+  })), h("span", {
+    // ⚠️dock 那排也要写名字。浏览器在四套布局里有三套只在 dock，没有名字就等于
+    // 这个 app 不存在（她 2026-08-29：「我的查手机浏览器怎么找不到了」）。
+    // iOS 的 dock 不写字，但这不是 iOS，是「翻他手机」——找得到比像不像重要。
     style: {
       width: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-      fontFamily: F_BODY, fontSize: 11, color: t.ink, textShadow: "0 1px 8px rgba(255,255,255,.85)"
+      fontFamily: F_BODY, fontSize: compact ? 9.5 : 11, color: t.ink,
+      textShadow: compact ? "none" : "0 1px 8px rgba(255,255,255,.85)"
     }
   }, a.zh));
   if (open) return h(PhoneApp, {
@@ -3605,7 +3647,7 @@ function PhoneCarry({
     "aria-label": "第 " + (i + 1) + " 页",
     style: { width: i === deskPage ? 15 : 6, height: 6, borderRadius: 9, background: i === deskPage ? t.ink : "rgba(30,28,24,.25)", transition: "all .2s" }
   }))),
-  h("div", { className: "shrink-0 mx-4 mb-3 px-3 py-2.5 grid grid-cols-4", style: { borderRadius: 25, background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.74)", boxShadow: "0 12px 30px rgba(35,31,25,.11)" } }, layout.dock.map(k => appIcon(appByKey(k), true))), pick && h(Sheet, {
+  h("div", { className: "shrink-0 mx-4 mb-3 px-3 py-2 grid grid-cols-4", style: { borderRadius: 25, background: "rgba(255,255,255,.66)", border: "1px solid rgba(255,255,255,.74)", boxShadow: "0 12px 30px rgba(35,31,25,.11)" } }, layout.dock.map(k => appIcon(appByKey(k), true))), pick && h(Sheet, {
     onClose: () => setPick(false)
   }, h(Eyebrow, {
     style: {
@@ -3769,12 +3811,15 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
         + "me：他浏览器同步账号的昵称（不是本名照抄）和 uid。\n\n"
         + "tabs 没关掉的标签页 **8-12 个**：title（网页标题）、site（站点名或域名）、age（这一页开了多久，写成一句）、pinned（true/false，钉住的最多 2 个）、cover（0-5 整数定色）、gist（这一页上写着什么，一句）。\n"
         + "**一堆没关的标签页是这个人脑子的横截面**：有他正在办的正事、有查到一半忘了的、有想买没买的、有半夜看了没退出的、有开了很久舍不得关的。**至少有一个是开了很久、他自己也说不清为什么不关的。**\n\n"
-        + "searches 搜索记录 **10-14 条**：q（他敲进搜索框的原话）、time、site（在哪儿搜的，可空）。\n"
-        + "**搜索词比访问过的网页更暴露人**：人在搜索框里是不修饰的，会打错字、会问很蠢的问题、会反复搜同一件事、会在半夜搜白天绝不会问出口的东西。所以这十几条里要有：实用的、丢人的、重复搜过的、以及一两条他绝不会告诉任何人他搜过的。\n\n"
+        + "searches 搜索记录 **10-14 条**：q（他敲进搜索框的原话）、time、site（在哪儿搜的，可空）、results（这一次搜出来的结果，2-4 条）、opened（这几条里他真正点开的那条的 source，填其中一个）。\n"
+        + "**搜索词比访问过的网页更暴露人**：人在搜索框里是不修饰的，会打错字、会问很蠢的问题、会反复搜同一件事、会在半夜搜白天绝不会问出口的东西。所以这十几条里要有：实用的、丢人的、重复搜过的、以及一两条他绝不会告诉任何人他搜过的。\n"
+        + "results 每条：source（哪个站/哪个号发的）、title（那条结果的标题）、excerpt（摘要，一两句，像搜索结果页里那截被掐头去尾的正文，可以用「……」表示截断）。\n"
+        + "**这一层要写成【搜索引擎会返回什么】，不是【他想看到什么】**：结果里该有权威一点的、有营销号味的、有答非所问的，也可以有一条正好戳到他心事的。\n"
+        + "**opened 才是这一栏真正的东西**——搜了什么只说明他在想什么，点开了哪一条才说明他信谁、他到底想确认什么。这两个不必一致：他可以搜得很正经，然后点开最不正经的那条。\n\n"
         + "marks 书签 **3-4 个文件夹**：name（文件夹名，按他自己的分法起，不是「工作」「学习」这种）、items（2-4 条，各有 title 和 site）。**书签是他觉得以后还用得着的东西**，所以里面会有很久没点过的旧东西。\n\n"
         + "private 无痕标签页 **1-3 个**：title、site、gist。**这是他专门开了不留记录的那几页**，和上面那些不是一回事。\n\n"
         + "所有内容都要贴合他的身份和时代——古代角色的\"浏览器\"是他那个世界里查东西的方式，别硬套现代网站。" + relHint,
-      schemaHint: "{\"me\":{\"name\":\"昵称\",\"uid\":\"账号\"},\"tabs\":[{\"title\":\"网页标题\",\"site\":\"站点\",\"age\":\"开了多久\",\"pinned\":false,\"cover\":0,\"gist\":\"这页上写着什么\"}],\"searches\":[{\"q\":\"他敲进去的原话\",\"time\":\"时间\",\"site\":\"在哪搜的\"}],\"marks\":[{\"name\":\"文件夹名\",\"items\":[{\"title\":\"标题\",\"site\":\"站点\"}]}],\"private\":[{\"title\":\"标题\",\"site\":\"站点\",\"gist\":\"这页上写着什么\"}]}"
+      schemaHint: "{\"me\":{\"name\":\"昵称\",\"uid\":\"账号\"},\"tabs\":[{\"title\":\"网页标题\",\"site\":\"站点\",\"age\":\"开了多久\",\"pinned\":false,\"cover\":0,\"gist\":\"这页上写着什么\"}],\"searches\":[{\"q\":\"他敲进去的原话\",\"time\":\"时间\",\"site\":\"在哪搜的\",\"opened\":\"他点开那条的 source\",\"results\":[{\"source\":\"哪个站或哪个号\",\"title\":\"结果标题\",\"excerpt\":\"摘要……\"}]}],\"marks\":[{\"name\":\"文件夹名\",\"items\":[{\"title\":\"标题\",\"site\":\"站点\"}]}],\"private\":[{\"title\":\"标题\",\"site\":\"站点\",\"gist\":\"这页上写着什么\"}]}"
     },
     shopping: {
       instruction: "推演「" + char.name + "」网购 App 的整个界面。" + relHint + "\n"
