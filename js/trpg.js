@@ -1953,8 +1953,23 @@
           h("button", { onClick: () => { const txt = guessTxt.trim(); if (!txt) return; setGuessTxt(""); update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { guesses: (c.guesses || []).concat([{ id: rid("rg_"), text: txt, verdict: null, note: "", ts: Date.now() }]) }))); }, style: S.btn(false) }, "记下")) : null,
         (() => {
           const rolls = camp.msgs.filter(m => m.role === "roll");
+          // 欧非榜:纯本地统计,一行 API 不花。成功=ok 及以上;欧皇看大成功密度,非酋看大失败密度
+          const board = (() => {
+            const acc = {};
+            rolls.forEach(r => { if (!r.who || !r.tier) return; const a = acc[r.who] || (acc[r.who] = { n: 0, ok: 0, crit: 0, fumble: 0 }); a.n++; if (TIER_RANK[r.tier] >= 2) a.ok++; if (r.tier === "crit") a.crit++; if (r.tier === "fumble") a.fumble++; });
+            const rows = Object.keys(acc).map(name => Object.assign({ name }, acc[name])).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
+            if (rows.length < 1 || rolls.length < 3) return null;
+            const lucky = rows.slice().sort((a, b) => (b.crit / b.n) - (a.crit / a.n))[0];
+            const cursed = rows.slice().sort((a, b) => (b.fumble / b.n) - (a.fumble / a.n))[0];
+            return h("div", { style: { margin: "4px 0 2px" } }, rows.map(x => h("div", { key: x.name, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, lineHeight: 1.6 } },
+              x.name + " 掷" + x.n + " 成" + x.ok + "(" + Math.round(x.ok * 100 / x.n) + "%)"
+              + (x.crit ? " 🌟×" + x.crit : "") + (x.fumble ? " 💥×" + x.fumble : "")
+              + (lucky && lucky.name === x.name && lucky.crit > 0 ? " ·欧皇" : "")
+              + (cursed && cursed.name === x.name && cursed.fumble > 0 ? " ·非酋" : ""))));
+          })();
           return rolls.length ? h("div", null,
             h("div", { onClick: () => setDiceOpen(v => !v), style: Object.assign({}, S.lbl, { marginTop: 6, cursor: "pointer" }) }, "🎲 骰子账 · " + rolls.length + " 次 " + (diceOpen ? "▴" : "▾")),
+            diceOpen ? board : null,
             diceOpen ? rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content)) : null) : null;
         })(),
         h("div", { style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" } },
