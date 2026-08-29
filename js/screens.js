@@ -8071,6 +8071,15 @@ function Favorites({ favorites, characters, onBack, onDelete }) {
 // ============================================================
 // v57.83：「护理」删掉了——它和查手机里的健康报告重了，对非现代角色也别扭。
 // 后续想加新板块从这里加（她 2026-08-29「我们再想想后续有啥可以加的」）。
+// 每一栏自己的调子。她 2026-08-29：「里面的背景都是一样的米色有点单调」——
+// 之前四栏共用一组写死的暖褐（74,58,40），点进哪一栏都是同一片米。
+// tint 是这一栏底色的色相（rgb 三元组，永远以半透明叠在主题底色上，换主题照样跟着走）：
+//   包内＝帆布内衬的暖褐 · 口袋＝更深更灰（口袋里本来就是暗的）
+//   珍藏＝绒布盒子的紫褐 · 衣柜＝木 · 礼物＝暖红
+const CARRY_TINT = {
+  bag: "74,58,40", pocket: "44,48,56", trinket: "86,46,62", outfit: "74,58,40", gifts: "132,62,58"
+};
+const carryTint = (key, a) => "rgba(" + (CARRY_TINT[key] || CARRY_TINT.bag) + "," + a + ")";
 const CARRY_SECTIONS = [
   { key: "bag", zh: "包内", en: "Bag", stuff: true, zip: true },
   { key: "pocket", zh: "口袋", en: "Pocket", stuff: true },
@@ -8299,8 +8308,9 @@ function stuffTilt(name) {
 }
 // 拉链：包内那一栏的顶。包最有辨识度的就是这条拉链，而且纯 CSS 画得出来——
 // 上下两排齿、中间一道缝、右头一个拉头。
-function zipper(t) {
-  const tooth = "repeating-linear-gradient(90deg,rgba(74,58,40,.42) 0px,rgba(74,58,40,.42) 3px,rgba(0,0,0,0) 3px,rgba(0,0,0,0) 6.5px)";
+function zipper(t, tint) {
+  const c = tint || "rgba(74,58,40,.42)";
+  const tooth = "repeating-linear-gradient(90deg," + c + " 0px," + c + " 3px,rgba(0,0,0,0) 3px,rgba(0,0,0,0) 6.5px)";
   return h("div", { className: "relative", style: { height: 20, marginBottom: 14 } },
     h("div", { style: { position: "absolute", left: 0, right: 26, top: 4, height: 5, background: tooth, borderRadius: 1 } }),
     h("div", { style: { position: "absolute", left: 0, right: 26, top: 11, height: 5, background: tooth, borderRadius: 1, backgroundPosition: "3px 0" } }),
@@ -8407,7 +8417,52 @@ function carryMaterialBlock(key, material) {
     + "\n消耗掉的、用不上的、和这一栏不搭的，就别硬塞——**没有一件对得上就一件都不写**，这不是清单核对。";
   return out;
 }
-function carryProbeSpec(key, char, known, pinned, material) {
+// 同一件东西只能待在一个地方。四栏各自生成、谁也不知道别栏写过什么，
+// 于是同一个立牌、同一枚徽章、同一个小本子在「包内」和「珍藏小物」里各出现一遍
+//（她 2026-08-29 真机截图）。查手机那边一直有跨 app 的避重，这里以前一条都没有。
+// 名字规范化：去掉空格和括号里的补充（「立牌（未拆封）」和「立牌」是同一件）
+const carryNameNorm = n => String(n || "").replace(/[（(【\[][^）)】\]]*[）)】\]]/g, "").replace(/[\s·，,。、]/g, "").trim();
+// 两件东西算不算同一件：规范化后相等，或者【长的那个包住短的】且短的够长
+//（「伞」这种一个字的不做包含判断，否则「伞」会吃掉「油纸伞」和「阳伞」两件不同的东西）
+function carrySameThing(a, b) {
+  const x = carryNameNorm(a), y = carryNameNorm(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const short = x.length <= y.length ? x : y, long = short === x ? y : x;
+  return short.length >= 4 && long.indexOf(short) >= 0;
+}
+// 别栏已经有的那些（含礼物——你送的东西也不该在包里再冒出来一次）
+function carryElsewhere(key, box, gifts) {
+  const out = [];
+  Object.keys(box || {}).forEach(k => {
+    if (k === key) return;
+    carryFlatItems(k, box[k]).forEach(it => { if (it && it.name) out.push({ where: k, name: it.name }); });
+  });
+  (gifts || []).forEach(g => { if (g && g.name) out.push({ where: "gifts", name: g.name }); });
+  return out;
+}
+function carryAvoidBlock(rows) {
+  if (!rows || !rows.length) return "";
+  const zh = { bag: "包内", pocket: "口袋", outfit: "衣柜", trinket: "珍藏小物", gifts: "收到的礼物" };
+  const by = {};
+  rows.slice(0, 40).forEach(r => { (by[r.where] = by[r.where] || []).push(r.name); });
+  return "\n\n【这些东西已经在他别处了，一件都别再写】\n"
+    + Object.keys(by).map(k => "· " + (zh[k] || k) + "：" + by[k].join("、")).join("\n")
+    + "\n**同一件东西只能待在一个地方。**哪怕你觉得某件更该归这一栏，也不许在这儿重写一遍——"
+    + "换一件真正属于这一栏的；实在没有可换的，就少写一件。";
+}
+// 代码这一道：模型照样会重复，写进去之前把撞名的删掉。新生成的让步给已经在别处的。
+function carryDedupe(key, data, elsewhere) {
+  if (!data || !elsewhere || !elsewhere.length) return data;
+  const dup = it => elsewhere.some(r => carrySameThing(r.name, it && it.name));
+  if (key === "outfit") {
+    const groups = closetGroups(data).map(g => ({ occasion: g.occasion, sets: g.sets.filter(x => !dup(x)) })).filter(g => g.sets.length);
+    return { ...data, closet: groups };
+  }
+  const items = carryFlatItems(key, data).filter(x => !dup(x));
+  return { ...data, items };
+}
+function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
   const nm = char.name;
   const tail = "每件除了 name、note(一句状态/来历) 外，再写 thought：「" + nm + "」对这件东西的私人想法/批注（为什么带它、和谁有关、藏了什么心事），点开细看用，贴人设、可以更私密。**thought 每件都要写完整，别写一半。**";
   // 件数不再写死。写死了「正好 5 件」，一个身无长物的人也被逼着凑满五件——
@@ -8415,9 +8470,27 @@ function carryProbeSpec(key, char, known, pinned, material) {
   const many = "**有几件由这个人决定**：他的身份、处境、讲究程度、有没有条件置办——揣着最后几个铜板的人和王府里的人，不该翻出一样多的东西。少也要少得有道理，别为了凑数硬编。";
   const hint = "{\"items\":[{\"name\":\"物品\",\"note\":\"备注\",\"thought\":\"TA 对这件东西的私人想法\"}]}";
   const S = {
-    bag: { instruction: "推演「" + nm + "」此刻包里/随身携带的东西，贴合人设、职业与当下心境。" + many + tail, schemaHint: hint },
-    pocket: { instruction: "推演「" + nm + "」口袋里的零碎小东西（钥匙、票根、糖、纸条这一类，私人贴身）。" + many + tail, schemaHint: hint },
-    trinket: { instruction: "推演「" + nm + "」随身的小物件/护身符/珍藏，带情感重量与故事。" + many + tail, schemaHint: hint },
+    // ⚠️这三栏的分工必须说死。原先写的是「包里/随身携带的东西」「随身的小物件/珍藏」——
+    // 界限模糊，于是同一个立牌、同一枚徽章、同一个小本子在两栏里各写了一遍
+    //（她 2026-08-29 真机截图）。判据是【为什么它在他身上】：要用 / 摸得到 / 舍不得。
+    bag: {
+      instruction: "推演「" + nm + "」此刻包里带着的东西。"
+        + "\n【这一栏的判据：他【出门要用】的东西】拿走它，他今天某件事就办不成——干活的家伙、路上要吃要喝的、"
+        + "要交给谁的、防着天气的。**不写那些纯粹因为舍不得才带着的**，那些归「珍藏小物」。" + many + tail,
+      schemaHint: hint
+    },
+    pocket: {
+      instruction: "推演「" + nm + "」口袋里的零碎小东西。"
+        + "\n【这一栏的判据：伸手就摸得到】小到能一直揣着、掏出来不费事，而且他常常无意识地摸到它——"
+        + "钥匙、票根、糖、揉皱的纸、硬币这一类。**不写包里那些要翻半天才拿得出来的**。" + many + tail,
+      schemaHint: hint
+    },
+    trinket: {
+      instruction: "推演「" + nm + "」一直收着的那几样小东西。"
+        + "\n【这一栏的判据：一点用都没有，他还是带着】它办不成任何事，留着只因为它牵着一个人、一件事、一段日子。"
+        + "**能派上用场的一律不写**，那些归「包内」或「口袋」。这一栏宁可只有两三件，也不许拿有用的东西凑数。" + many + tail,
+      schemaHint: hint
+    },
     // 衣柜按【场合】分组，同一个场合可以有好几套（她 2026-08-29）：
     // 一个人在同一种场合下反复挑中的那几套，正是「他有偏好」的证据。
     outfit: {
@@ -8436,7 +8509,8 @@ function carryProbeSpec(key, char, known, pinned, material) {
     maxTokens: key === "outfit" ? 6000 : 4000,
     ...spec,
     // 🌱：上一份原样喂回去，钉住的点名不许动
-    instruction: spec.instruction + carryMaterialBlock(key, material) + carryKnownBlock(key, known, pinned)
+    instruction: spec.instruction + carryMaterialBlock(key, material)
+      + carryAvoidBlock(elsewhere) + carryKnownBlock(key, known, pinned)
   };
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
@@ -8465,7 +8539,13 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
   if (isGifts) {
     content = (gifts || []).length === 0
       ? h("div", { className: "text-center", style: { paddingTop: 60, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: t.fog } }, "还没收到你送的礼物。\n在购物 App 结算时选「送礼」，\n送达后会永久留在这里。")
-      : h("div", null, (gifts || []).map(g => h("button", { key: g.id, onClick: () => { setOpenGiftId(g.id); if (!g.thought && giftBusy !== g.id) onGenGiftThought(char.id, g.id, g.name); }, className: "w-full text-left flex items-center justify-between py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
+      : h("div", {
+          style: {
+            borderRadius: 15, padding: "4px 12px 2px",
+            background: "linear-gradient(180deg," + carryTint("gifts", .10) + " 0%," + carryTint("gifts", .035) + " 32%," + carryTint("gifts", .07) + " 100%)",
+            boxShadow: "inset 0 2px 8px " + carryTint("gifts", .13) + ", inset 0 -1px 0 rgba(255,255,255,.4)"
+          }
+        }, (gifts || []).map(g => h("button", { key: g.id, onClick: () => { setOpenGiftId(g.id); if (!g.thought && giftBusy !== g.id) onGenGiftThought(char.id, g.id, g.name); }, className: "w-full text-left flex items-center justify-between py-3.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
           h("div", { className: "flex items-center gap-3 min-w-0" },
             h(IHeart, { size: 17, color: t.accent }),
             h("div", { className: "min-w-0" },
@@ -8501,8 +8581,8 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     const bay = sets => h("div", {
       style: {
         position: "relative", borderRadius: 14, overflow: "hidden",
-        background: "linear-gradient(180deg,rgba(74,58,40,.125) 0%,rgba(74,58,40,.04) 32%,rgba(74,58,40,.085) 100%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 rgba(74,58,40,.14)"
+        background: "linear-gradient(180deg," + carryTint("outfit", .125) + " 0%," + carryTint("outfit", .04) + " 32%," + carryTint("outfit", .085) + " 100%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,.55), inset 0 -1px 0 " + carryTint("outfit", .14)
       }
     },
       // 两侧立柱：杆架在它们上面
@@ -8546,7 +8626,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
           padding: "11px 12px 12px 16px", marginBottom: 10,
           // 一件件轻微歪着，像随手摆下的；角度按次序来回换，不用随机（随机会每次重排都跳）
           transform: "rotate(" + stuffTilt(it.name) + "deg)",
-          boxShadow: "0 2px 6px rgba(74,58,40,.14), inset 0 0 0 1px rgba(74,58,40,.10)",
+          boxShadow: "0 2px 6px " + carryTint(sectionKey, .15) + ", inset 0 0 0 1px " + carryTint(sectionKey, .11),
           WebkitTapHighlightColor: "transparent"
         }
       },
@@ -8561,17 +8641,21 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     content = !items.length
       ? h("div", { className: "text-center", style: { paddingTop: 40, fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "空空如也")
       : h("div", { style: { animation: "fadeUp .3s ease both" } },
-          sec.zip ? zipper(t) : null,
+          sec.zip ? zipper(t, carryTint(sectionKey, .42)) : null,
           h("div", { className: "flex items-center", style: { gap: 9, paddingBottom: 12 } },
             h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.fog, whiteSpace: "nowrap" } },
               items.length + " ITEMS"),
-            h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg,rgba(74,58,40,.16),rgba(74,58,40,0))" } })),
+            h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint(sectionKey, .18) + ",rgba(0,0,0,0))" } })),
           // 内衬：东西倒在这块布上
           h("div", {
             style: {
               borderRadius: 15, padding: "13px 11px 4px",
-              background: "linear-gradient(180deg,rgba(74,58,40,.115) 0%,rgba(74,58,40,.045) 30%,rgba(74,58,40,.08) 100%)",
-              boxShadow: "inset 0 2px 8px rgba(74,58,40,.14), inset 0 -1px 0 rgba(255,255,255,.4)"
+              // 珍藏那一栏的内衬是【绒】：斜向的极细纹路，和包里的帆布、口袋的布不一样
+              backgroundImage: (sectionKey === "trinket"
+                  ? "repeating-linear-gradient(48deg,rgba(255,255,255,.075) 0px,rgba(255,255,255,.075) 1px,rgba(0,0,0,.035) 1px,rgba(0,0,0,.035) 3px),"
+                  : "")
+                + "linear-gradient(180deg," + carryTint(sectionKey, .17) + " 0%," + carryTint(sectionKey, .07) + " 30%," + carryTint(sectionKey, .12) + " 100%)",
+              boxShadow: "inset 0 2px 8px " + carryTint(sectionKey, .16) + ", inset 0 -1px 0 rgba(255,255,255,.4)"
             }
           },
             h("div", { className: "grid grid-cols-2", style: { gap: "0 10px" } },
@@ -8601,7 +8685,7 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
     // 用半透明的暖褐叠在主题底色上，不写死颜色，换主题一样跟着走。
     h("div", {
       className: "flex-1 overflow-y-auto px-5 pt-2 pb-8",
-      style: sec.closet ? { background: "linear-gradient(180deg,rgba(74,58,40,.055) 0%,rgba(74,58,40,.012) 22%,rgba(74,58,40,.012) 74%,rgba(74,58,40,.05) 100%)" } : null
+      style: { background: "linear-gradient(180deg," + carryTint(sectionKey, .10) + " 0%," + carryTint(sectionKey, .03) + " 24%," + carryTint(sectionKey, .028) + " 72%," + carryTint(sectionKey, .085) + " 100%)" }
     }, content),
     // 详情。随身物整块共用【同一扇居中的柜门】（她 2026-08-29 拿真机截图点名：
     // 「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」），

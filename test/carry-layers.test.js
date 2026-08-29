@@ -286,8 +286,8 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
   assert.match(seg, /position: "absolute", top: 0, bottom: 0, left: 0/, "左立柱");
   assert.match(seg, /position: "absolute", top: 0, bottom: 0, right: 0/, "右立柱");
   assert.match(seg, /minWidth: "100%", width: "max-content"/, "杆要铺满整格");
-  // 整页那层柜内的光只给衣柜，别的栏不该变色
-  assert.match(screens, /style: sec\.closet \? \{ background: "linear-gradient\(180deg,rgba\(74,58,40/, "整页的柜内光没有只给衣柜");
+  // v57.97 起每一栏都有整页底色，但各用各的 tint（她：「背景都是一样的米色有点单调」）
+  assert.match(screens, /style: \{ background: "linear-gradient\(180deg," \+ carryTint\(sectionKey/, "整页底色没走 tint");
 });
 
 // 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」
@@ -342,21 +342,21 @@ test("包内认材质，不认形状", () => {
 });
 
 test("包内是一只倒出来的包：拉链、内衬、错落的牌子", () => {
-  assert.match(screens, /function zipper\(t\) \{/, "包最有辨识度的是拉链");
-  assert.match(screens, /repeating-linear-gradient\(90deg,rgba\(74,58,40,\.42\)/, "拉链的齿");
+  assert.match(screens, /function zipper\(t, tint\) \{/, "包最有辨识度的是拉链");
+  assert.match(screens, /const tooth = "repeating-linear-gradient\(90deg," \+ c \+ /, "拉链的齿");
   assert.match(screens, /\{ key: "bag", zh: "包内", en: "Bag", stuff: true, zip: true \}/, "包内才有拉链");
   assert.match(screens, /\{ key: "pocket", zh: "口袋", en: "Pocket", stuff: true \}/, "口袋走同一套但没拉链");
   assert.match(screens, /\{ key: "trinket", zh: "珍藏小物", en: "Trinkets", stuff: true \}/, "珍藏也走同一套");
   const i = screens.indexOf("  } else if (sec.stuff) {");
   assert.ok(i > 0, "找不到包内那一路");
   const seg = screens.slice(i, screens.indexOf("\n  } else {", i));
-  assert.match(seg, /sec\.zip \? zipper\(t\) : null/, "拉链只给包内");
+  assert.match(seg, /sec\.zip \? zipper\(t, carryTint\(sectionKey, \.42\)\) : null/, "拉链只给包内，颜色跟着这一栏走");
   assert.match(seg, /transform: "rotate\(" \+ stuffTilt\(it\.name\) \+ "deg\)"/, "牌子要歪着摆才像倒出来的");
   assert.match(seg, /clothRgba\(c\.base, 0?\.\d+\)/, "牌子要染上它的材质色");
   assert.match(seg, /grid grid-cols-2/, "两列错落");
   assert.doesNotMatch(seg, /background: "#[0-9a-fA-F]{6}"/, "别写死颜色，换主题就脱节了");
-  // 内衬和衣柜的隔间是同一套暖褐叠色
-  assert.match(seg, /rgba\(74,58,40/, "内衬");
+  // 内衬走这一栏自己的 tint（v57.97 起五栏各有各的调子）
+  assert.match(seg, /boxShadow: "inset 0 2px 8px " \+ carryTint\(sectionKey/, "内衬");
 });
 
 test("认色这件事只写一处，衣柜和包内共用", () => {
@@ -495,4 +495,80 @@ test("两列按高度分，不是按奇偶分", () => {
   ]).map(c => c.map(x => x.it.name));
   assert.deepEqual(cols, [["名字很长很长很长的一件东西要占好几行"], ["甲", "乙"]],
     "两列还是按奇偶分的——长的那件后面不该再堆东西");
+});
+
+// ── 同一件东西不许在两处（她 2026-08-29 真机截图：包内和珍藏里都有
+//    立牌、徽章、小本子）。四栏各自生成、谁也不知道别栏写过什么。
+const F6 = (() => {
+  const head = screens.slice(screens.indexOf("const CLOSET_MAX_OCCASIONS"), screens.indexOf("function carryProbeSpec"));
+  return new Function(head + "\nreturn { carrySameThing, carryDedupe, carryElsewhere, carryAvoidBlock, carryNameNorm };")();
+})();
+
+test("认得出「是不是同一件东西」，又不至于把不同的东西并掉", () => {
+  // 她截图里那三对
+  assert.ok(F6.carrySameThing("兵头九门的亚克力立牌", "兵头九门的亚克力立牌（未拆封）"));
+  assert.ok(F6.carrySameThing("冷门动画金属徽章", "帆布包上的冷门动画金属徽章"));
+  assert.ok(F6.carrySameThing("随身记词小本子", "随身记词小本子"));
+  // 短名字不做包含判断，否则一件会吃掉好几件不同的东西
+  assert.ok(!F6.carrySameThing("伞", "油纸伞"));
+  assert.ok(!F6.carrySameThing("玉", "玉佩"));
+  assert.ok(!F6.carrySameThing("", "什么"));
+});
+
+test("生成时把别栏已有的喂过去，写回来之前再删一道", () => {
+  const box = { bag: { items: [{ name: "随身记词小本子" }, { name: "油纸伞" }] } };
+  const el = F6.carryElsewhere("trinket", box, [{ name: "羊毛围巾" }]);
+  assert.deepEqual(el.map(r => r.where + ":" + r.name),
+    ["bag:随身记词小本子", "bag:油纸伞", "gifts:羊毛围巾"], "礼物也该算在「别处」里");
+  // 提示词那一半
+  const blk = F6.carryAvoidBlock(el);
+  assert.match(blk, /这些东西已经在他别处了，一件都别再写/);
+  assert.match(blk, /同一件东西只能待在一个地方/);
+  assert.match(blk, /· 包内：随身记词小本子、油纸伞/);
+  assert.match(blk, /· 收到的礼物：羊毛围巾/);
+  assert.equal(F6.carryAvoidBlock([]), "", "别处什么都没有时别发这一段");
+  // 代码那一半：规则降概率，代码才保证
+  const out = F6.carryDedupe("trinket", { items: [{ name: "随身记词小本子" }, { name: "一块旧玉" }, { name: "羊毛围巾" }] }, el);
+  assert.deepEqual(out.items.map(x => x.name), ["一块旧玉"]);
+  // 衣柜是分组的，去重不能把它拍平
+  const closet = { closet: [{ occasion: "上朝", sets: [{ name: "绯色官袍" }, { name: "油纸伞" }] }, { occasion: "在家", sets: [{ name: "油纸伞" }] }] };
+  const c2 = F6.carryDedupe("outfit", closet, el);
+  assert.deepEqual(c2.closet.map(g => g.occasion + "/" + g.sets.length), ["上朝/1"], "整组空了就该整组去掉");
+});
+
+test("三栏的分工用判据说死，不再是三句意思差不多的话", () => {
+  const i = screens.indexOf("    bag: {\n      instruction:");
+  assert.ok(i > 0, "找不到三栏的 instruction");
+  const seg = screens.slice(i, screens.indexOf("    // 衣柜按【场合】分组", i));
+  assert.match(seg, /他【出门要用】的东西/, "包内：要用");
+  assert.match(seg, /伸手就摸得到/, "口袋：摸得到");
+  assert.match(seg, /一点用都没有，他还是带着/, "珍藏：舍不得");
+  // 三条判据要互相点名，模型才知道该把一件东西放哪
+  assert.match(seg, /那些归「珍藏小物」/);
+  assert.match(seg, /那些归「包内」或「口袋」/);
+  assert.match(seg, /宁可只有两三件，也不许拿有用的东西凑数/);
+});
+
+test("刷新全部时用本地攒的账，不读还没落地的 carryRef", () => {
+  const i = app.indexOf("  const genCarryAll = async char => {");
+  const seg = app.slice(i, app.indexOf("\n  };", i));
+  assert.match(seg, /const sofar = \{ \.\.\.\(carryRef\.current\[char\.id\] \|\| \{\}\) \};/);
+  assert.match(seg, /carryElsewhere\(key, sofar,/, "读 carryRef 的话，一栏一栏串下来时读到的是上一帧");
+  assert.match(seg, /sofar\[key\] = merged;/, "生成完要记进本地这份账，下一栏才避得开");
+});
+
+// 她 2026-08-29：「里面的背景都是一样的米色有点单调」
+test("每一栏有自己的调子，而且都是叠色不写死", () => {
+  assert.match(screens, /const CARRY_TINT = \{/);
+  const tint = screens.match(/const CARRY_TINT = \{[\s\S]*?\n\};/)[0];
+  ["bag", "pocket", "trinket", "outfit", "gifts"].forEach(k => assert.ok(tint.includes(k + ":"), k + " 没有自己的色"));
+  // 五栏不能全是同一个值（那就等于没分）
+  const vals = new Set((tint.match(/"(\d+,\d+,\d+)"/g) || []));
+  assert.ok(vals.size >= 3, "至少要分出三种调子，现在只有 " + vals.size + " 种");
+  assert.match(screens, /const carryTint = \(key, a\) => "rgba\("/);
+  // 整页底色不再只给衣柜
+  assert.match(screens, /style: \{ background: "linear-gradient\(180deg," \+ carryTint\(sectionKey/);
+  assert.doesNotMatch(screens, /style: sec\.closet \? \{ background: "linear-gradient/, "整页底色又只剩衣柜有了");
+  // 珍藏的内衬是绒：斜纹，和包里的帆布、口袋的布不一样
+  assert.match(screens, /sectionKey === "trinket"\s*\n?\s*\? "repeating-linear-gradient\(48deg/);
 });

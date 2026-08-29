@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.96";
+const APP_VERSION = "v57.97";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12442,10 +12442,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     try {
       const known = (carryRef.current[char.id] || {})[key] || null;
       const pins = carryPinsFor(char.id, key);
-      const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id)));
+      // 别栏已经有的那些：喂进去说「别再写一遍」，写回来之前再删一道
+      const other = carryElsewhere(key, carryRef.current[char.id], (carryGiftsRef.current || {})[char.id]);
+      const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id), other));
       // 🌱 收口：钉住的一件不许掉，其余一次最多真换两件。
-      // 光靠提示词说「默认照抄回来」只是降概率，代码这一道才是保证。
-      saveCarrySection(char.id, key, carryEvolveMerge(key, known, d, pins));
+      // 光靠提示词说「默认照抄回来」只是降概率，代码这一道才是保证。跨栏撞名同理。
+      saveCarrySection(char.id, key, carryEvolveMerge(key, known, carryDedupe(key, d, other), pins));
       return true;
     } catch (e) {
       toast(key + " 生成失败：" + e.message);
@@ -12481,12 +12483,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setSelCarry(char.id);
     setGen(g => ({ ...g, carrySec: "__all__" }));
     const keys = CARRY_SECTIONS.filter(s => !s.gifts).map(s => s.key);
+    const sofar = { ...(carryRef.current[char.id] || {}) };
     for (const key of keys) {
       try {
         const known = (carryRef.current[char.id] || {})[key] || null;
         const pins = carryPinsFor(char.id, key);
-        const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id)));
-        saveCarrySection(char.id, key, carryEvolveMerge(key, known, d, pins));
+        // ⚠️ carryRef 跟着 setCarry 走，要下一帧才更新；一栏一栏串下来时读它会读到旧的，
+        // 于是「刷新全部」正好是最容易前后撞名的那条路。用本地这份边生成边攒的账。
+        const other = carryElsewhere(key, sofar, (carryGiftsRef.current || {})[char.id]);
+        const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id), other));
+        const merged = carryEvolveMerge(key, known, carryDedupe(key, d, other), pins);
+        sofar[key] = merged;
+        saveCarrySection(char.id, key, merged);
       } catch (e) {/* skip */}
     }
     setGen(g => ({ ...g, carrySec: null }));
