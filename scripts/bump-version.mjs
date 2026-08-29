@@ -36,9 +36,24 @@ const next = process.argv[2] || bumped();
 if (num(next) <= num(top)) { console.error("新版本 " + next + " 不高于现有最大 " + top + "，拒绝倒退"); process.exit(1); }
 
 // 只同步「跟着发布版本走」的那几个文件；别的模块保留各自的独立指纹
-const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab", "theme-studio", "theme-studio-ui"];
+const CORE = ["app", "engine", "cloud", "screens", "components", "codex", "core", "theater", "fanfic", "assistant", "style-presets", "style-lab", "theme-studio", "theme-studio-ui", "phone"];
 let html = readFileSync("index.html", "utf8");
 CORE.forEach(f => { html = html.replace(new RegExp(f + "\\.js\\?v=[\\d.]+", "g"), f + ".js?v=" + next); });
+
+// ⚠️不在 CORE 里的模块也会被改动，改了却不换 ?v= 就等于没发出去——
+// 浏览器照旧吃缓存里那份旧的，用户拿到的是【新 app.js + 旧模块】的混合体，
+// 整页崩在最意想不到的地方（她 2026-08-29：查手机直接崩；phone.js 从 v57.43 起
+// 十八个版本没换过指纹）。所以这里兜一道：本次改动过的 js 文件，一律换新指纹。
+// 这一步跑在 git add 之前，diff 拿到的正是这一版要发的东西。
+let touched = [];
+try {
+  touched = execSync("git diff --name-only HEAD -- js/ && git diff --name-only --cached HEAD -- js/", { encoding: "utf8" })
+    .split("\n").map(x => x.trim()).filter(x => x.endsWith(".js"))
+    .map(x => x.replace(/^js\//, "").replace(/\.js$/, ""));
+} catch (e) { touched = []; }
+const extra = [...new Set(touched)].filter(f => !CORE.includes(f));
+extra.forEach(f => { html = html.replace(new RegExp(f + "\\.js\\?v=[\\d.]+", "g"), f + ".js?v=" + next); });
+if (extra.length) console.log("顺带换指纹（改了但不在 CORE 里）：" + extra.join("、"));
 html = html.replace(/manifest\.json\?v=[\d.]+/, "manifest.json?v=" + next);
 writeFileSync("index.html", html);
 writeFileSync("js/app.js", readFileSync("js/app.js", "utf8").replace(/APP_VERSION\s*=\s*"v[\d.]+"/, 'APP_VERSION = "v' + next + '"'));
