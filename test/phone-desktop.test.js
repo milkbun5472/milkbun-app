@@ -13,7 +13,7 @@ test("查手机桌面是全屏双页、可横滑并保留底部 Dock", () => {
   assert.match(src, /deskRef\.current\.scrollTo/);
 });
 
-test("18 个 App 一个都没在桌面上丢入口", () => {
+test("19 个 App 一个都没在桌面上丢入口", () => {
   // v57.60 设置删了（她：「设置感觉没啥用了可以删了」）
   // v57.56 录音并进便签（本来就是同一件事的两种载体）
   // v57.47 加了阅读/赞过/订单/健康/剪贴板/日历六个；
@@ -21,11 +21,12 @@ test("18 个 App 一个都没在桌面上丢入口", () => {
   // v57.52 加了外卖（吃什么、几点吃、送到谁那儿，和网购不重叠）
   // v57.64 加了时间线：它不推演任何东西，只把上面这些已经翻出来的碎片按时间串起来
   // v57.73 加了账本：他心里给这段关系记的那本账（不记钱，钱在钱包）
+  // v57.77 加了邮件：他对外那一面（正式腔和私下说话的落差）
   const block = src.match(/const PHONE_APPS = \[([\s\S]*?)\n\];/)[1];
   const declared = [...new Set([...block.matchAll(/key: "([a-z]+)"/g)].map(m => m[1]))];
   assert.deepEqual(declared.sort(), ["album", "browser", "calendar", "calls", "clipboard", "forum", "health",
     "liked", "music", "notes", "reading", "shopping", "takeout", "wechat"]
-    .concat(["bili", "latenight", "timeline", "tally"]).sort());
+    .concat(["bili", "latenight", "timeline", "tally", "mail"]).sort());
 
   const dock = src.match(/const PHONE_DOCK_KEYS = \[([^\]]+)\]/)[1];
   const pages = src.match(/const PHONE_DESKTOP_PAGES = \[([\s\S]*?)\n\];/)[1];

@@ -20,8 +20,9 @@ const char = { name: "某人" };
 test("🔒 只收真·身份：号码、账号 id、过敏与真忌口", () => {
   // 判据：这一栏变了，是「他变了」还是「系统忘了」？只有换个人才会变的才进这层。
   const flat = Object.keys(P.PHONE_STICKY).reduce((a, k) => a.concat(P.PHONE_STICKY[k]), []);
+  // 邮箱地址和账号 id 是一回事：换了就是换了个账号
   flat.forEach(pt => assert.ok(
-    /(uid|Id|number|avoidTags)$/.test(pt),
+    /(uid|Id|number|addr|avoidTags)$/.test(pt),
     pt + " 不该硬钉死——它会随关系和生活变，属于 🌱"));
 });
 

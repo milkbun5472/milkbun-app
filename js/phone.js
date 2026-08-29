@@ -51,6 +51,11 @@ const PHONE_APPS = [{
   key: "takeout",
   zh: "外卖"
 }, {
+  // 邮件：他对外那一面。跟微信不撞车——微信是熟人和随口，邮件是**正式的**：
+  // 工作、账单、订阅、学校。真正有东西的是【正式腔和他私下说话的落差】。
+  key: "mail",
+  zh: "邮件"
+}, {
   // 账本：他心里给这段关系记的账。跟钱包不是一回事——钱包记钱，这儿记
   // 没结清的东西（欠着的、兜过的底、放过的狠话、舍不得的、拿不准的）。
   key: "tally",
@@ -73,32 +78,32 @@ const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会�
 const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
   ["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"],
-  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally"]
+  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally", "mail"]
 ];
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally"]],
+  pages: [["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally", "mail"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["timeline", "reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight", "tally"]],
+  pages: [["timeline", "reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight", "tally", "mail"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["timeline", "bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight", "tally"]],
+  pages: [["timeline", "bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight", "tally", "mail"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "bili", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["timeline", "notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight", "tally"]],
+  pages: [["timeline", "notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight", "tally", "mail"]],
   widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -216,6 +221,8 @@ function phoneTimeline(charData, live, nowTs) {
 
   A(g("takeout").orders).forEach(x => x && push("takeout", S(x.status) || "外卖", x.time, x.main || x.shop, S(x.shop) + (x.reason ? " · " + S(x.reason) : "")));
 
+  A(g("mail").inbox).forEach(x => x && push("mail", S(x.kind) || "收件", x.time, x.subject, S(x.from) + (x.preview ? " · " + S(x.preview) : ""), x.thought));
+  A(g("mail").sent).forEach(x => x && push("mail", "发出去的", x.time, x.subject, "寄给 " + S(x.to)));
   const ln = g("latenight");
   if (ln.me && ln.me.lastAt) push("latenight", "深夜台", ln.me.lastAt, "半夜又开了一次", ln.me.note);
 
@@ -295,7 +302,8 @@ const PHONE_STICKY = {
   liked: ["me.xhsId"],
   bili: ["me.uid"],
   latenight: ["me.uid"],
-  reading: ["archive.uid"]
+  reading: ["archive.uid"],
+  mail: ["me.addr"]
 };
 // 🌱 默认沿用、允许变。跟 ♻️ 的区别：♻️ 每次照实重写，🌱 要有理由才动。
 const PHONE_EVOLVE = {
@@ -308,7 +316,8 @@ const PHONE_EVOLVE = {
     "taste.spicyTags", "taste.likeTags", "taste.budget", "taste.habit"],
   liked: ["me.name", "me.bio", "me.tag"],
   bili: ["me.name"],
-  reading: ["archive.name", "archive.favorite"]
+  reading: ["archive.name", "archive.favorite"],
+  mail: ["me.name", "me.sign"]
 };
 // 一次刷新最多允许几项 🌱 真的改动。光靠提示词说「别乱改」只是降概率，
 // 模型高兴起来能把六项一起换掉——那 🌱 就退化成 ♻️ 了。超出的按旧值回填。
@@ -421,7 +430,8 @@ const PHONE_GROW = {
   clipboard: { items: 24 },
   // 账本这几栏都是【长期挂着】的东西：欠着的没还、放过的话没收回、舍不得的一直舍不得。
   // 所以一律累积——它本来就不是「最近怎么样」，是「一直以来欠着什么」。
-  tally: { debts: 14, policies: 10, statements: 22, treasures: 18, appraisals: 16 }
+  tally: { debts: 14, policies: 10, statements: 22, treasures: 18, appraisals: 16 },
+  mail: { inbox: 30, sent: 20, drafts: 10 }
 };
 // ── 每周自动刷一次（她 2026-08-29 定：像周刊，抓上一周的素材）──
 // ⚠️不是真的「周一 0:00 有个定时器在跑」——PWA 后台不执行代码，
@@ -491,7 +501,9 @@ const PHONE_RETIRE = {
   liked: { follows: "关注的人", drafts: "草稿箱" },
   calls: { frequent: "常联系", blocked: "黑名单" },
   shopping: { wish: "想买清单" },
-  takeout: { wish: "想吃的" }
+  takeout: { wish: "想吃的" },
+  // 草稿会发出去或删掉，是名册不是日志
+  mail: { drafts: "草稿箱" }
 };
 // 一行在名单上叫什么（用来和 retired 里的名字对上）
 const phoneRowName = x => {
@@ -808,6 +820,68 @@ function phoneTimelineWithArchive(charData, live, archive, nowTs) {
   const loose = cur.filter(r => !r.ahead && r.ts == null);
   return ahead.concat(rest, loose);
 }
+// ─────────────────────────────────────────────────────────────
+// 全局搜索：在他手机里搜一个词
+// ─────────────────────────────────────────────────────────────
+// 所有偷看动作里最真的一个是【搜自己的名字】——看她在他手机的几个角落出现过、
+// 以什么名字出现的。不调模型：时间线已经把各 app 的碎片规范化了，
+// 再补上时间线不收的那几栏（联系人、想买、口味、账本、书、名单）就够了。
+function phoneSearchExtra(charData, live) {
+  const d = (charData && typeof charData === "object") ? charData : {};
+  const L = (live && typeof live === "object") ? live : {};
+  const A = a => Array.isArray(a) ? a : [];
+  const S = v => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+  const g = k => (d[k] && typeof d[k] === "object") ? d[k] : {};
+  const out = [];
+  const add = (app, tag, title, text) => {
+    const ti = S(title), tx = S(text);
+    if (!ti && !tx) return;
+    out.push({ app, appZh: PHONE_LABEL[app] || app, tag, when: "", ts: null,
+      title: ti.slice(0, 60), text: tx.slice(0, 220), thought: "",
+      id: phoneEntryId(app, ti, tx, tag) });
+  };
+  A(g("wechat").contacts).forEach(x => x && add("wechat", "联系人", S(x.name) + (x.remark ? "（备注：" + S(x.remark) + "）" : ""), x.intro));
+  const uc = g("wechat").userContact;
+  if (uc) add("wechat", "他给你的备注", S(uc.name) + "（备注：" + S(uc.remark) + "）", uc.intro);
+  A(g("calls").frequent).forEach(x => x && add("calls", "常联系", x.name, x.why));
+  A(g("calls").blocked).forEach(x => x && add("calls", "黑名单", x.name, x.why));
+  A(g("browser").marks).forEach(f => f && A(f.items).forEach(x => x && add("browser", "书签 · " + S(f.name), x.title, x.site)));
+  A(g("shopping").wish).forEach(x => x && add("shopping", "想买没买", x.title, x.why));
+  A(g("shopping").gifts).forEach(x => x && add("shopping", "送出去的", x.title, S(x.who) + "｜" + S(x.note)));
+  A(g("takeout").wish).forEach(x => x && add("takeout", "想吃的", x.title, x.when));
+  A(g("takeout").together).forEach(x => x && add("takeout", "一起吃过", x.who, S(x.items) + "｜" + S(x.story)));
+  A(g("liked").follows).forEach(x => x && add("liked", "关注的人", x.name, x.desc));
+  A(g("reading").shelves).forEach(sh => sh && A(sh.books).forEach(b => b && add("reading", "书架 · " + S(sh.name), b.title, S(b.author) + "｜" + S(b.note))));
+  const tl = g("tally");
+  A(tl.debts).forEach(x => x && add("tally", "没结清", x.title, x.note));
+  A(tl.policies).forEach(x => x && add("tally", "兜底", x.name, S(x.clause) || S(x.scope)));
+  A(tl.statements).forEach(x => x && add("tally", "定论", x.text, x.heat));
+  A(tl.treasures).forEach(x => x && add("tally", "估价", x.title, x.worth));
+  A(tl.appraisals).forEach(x => x && add("tally", "自问", x.q, x.a));
+  A(g("mail").drafts).forEach(x => x && add("mail", "写了没发", x.subject, S(x.to) + "｜" + S(x.body)));
+  A(L.forumAccounts).forEach(a => a && add("forum", S(a.label) + "账号", S(a.name), a.bio));
+  A(((L.playlist || {}).songs)).forEach(x => x && add("music", "歌单", S(x.title) + " · " + S(x.artist), x.note));
+  return out;
+}
+// 一个词在这部手机里出现在哪儿。词不区分大小写、去掉空白再比。
+function phoneSearch(rows, extra, q) {
+  const needle = String(q == null ? "" : q).replace(/\s+/g, "").toLowerCase();
+  if (needle.length < 1) return [];
+  const hay = x => (String(x.title || "") + " " + String(x.text || "") + " " + String(x.thought || "") + " " + String(x.appZh || "") + " " + String(x.tag || ""))
+    .replace(/\s+/g, "").toLowerCase();
+  const seen = {};
+  const out = [];
+  (Array.isArray(rows) ? rows : []).concat(Array.isArray(extra) ? extra : []).forEach(x => {
+    if (!x || seen[x.id]) return;
+    if (hay(x).indexOf(needle) < 0) return;
+    seen[x.id] = 1;
+    out.push(x);
+  });
+  // 有时刻的按时间倒序在前，没时刻的（联系人、名单、账本这些）跟在后面
+  const timed = out.filter(x => x.ts != null).sort((a, b) => b.ts - a.ts);
+  return timed.concat(out.filter(x => x.ts == null));
+}
+
 // 今天/昨天/前天/8月28日 周五 —— 时间线按天分段用的标题
 function phoneDayLabel(ts, nowTs) {
   if (ts == null) return "时间不详";
@@ -943,13 +1017,133 @@ function PGlyph({
     orders: [P("M6 2h12v20l-2-1.5L14 22l-2-1.5L10 22l-2-1.5L6 22z"), P("M9.5 7.5h5M9.5 11.5h5M9.5 15.5h3")],
     takeout: [P("M3 11h18a9 9 0 01-18 0z"), P("M2.5 20.5h19"), P("M12 3.2v2.4M8.6 4.4l.9 1.6M15.4 4.4l-.9 1.6")],
     timeline: [P("M7 3v18"), C(7, 7, 2.1), C(7, 13.4, 2.1), C(7, 19.6, 1.6), P("M11.5 7h8.5M11.5 13.4h6.5M11.5 19.6h4.5")],
-    tally: [P("M5 3.2h14v17.6H5z"), P("M9 3.2v17.6"), P("M12 7.6h4.2M12 11.6h4.2M12 15.6h2.6"), P("M6.4 8.6l1.2 1.2 1.4-2.2")]
+    tally: [P("M5 3.2h14v17.6H5z"), P("M9 3.2v17.6"), P("M12 7.6h4.2M12 11.6h4.2M12 15.6h2.6"), P("M6.4 8.6l1.2 1.2 1.4-2.2")],
+    mail: [R(2.6, 5, 18.8, 14, 2.6), P("M2.6 7.2l9.4 6.4 9.4-6.4")]
   };
   return h(Svg, {
     size,
     color,
     sw: 1.5
   }, ...(kids[k] || []));
+}
+
+// ─────────────────────────────────────────────────────────────
+// 邮件：他对外那一面
+// ─────────────────────────────────────────────────────────────
+// 这个 app 的全部意义是【落差】：邮件里的他是对陌生人和上级说话的样子，
+// 客气、绕、留余地；而同一个人在便签里骂的是另一句。
+// 界面照着真邮箱做：列表只露主题和那一截，点进去才是全文。
+const MAIL_BG = "#f2f4f7", MAIL_INK = "#1b1f26", MAIL_DIM = "#8a919c", MAIL_LINE = "#e3e7ec", MAIL_BLUE = "#2f6fd0";
+const MAIL_TABS = [{ k: "inbox", zh: "收件箱" }, { k: "sent", zh: "发出去的" }, { k: "drafts", zh: "草稿" }];
+function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
+  const [tab, setTab] = useState("inbox");
+  const [open, setOpen] = useState(null);
+  const A = a => Array.isArray(a) ? a : [];
+  const S = v => String(v == null ? "" : v).trim();
+  const data = (d && typeof d === "object") ? d : {};
+  const me = (data.me && typeof data.me === "object") ? data.me : {};
+  const rows = k => A(data[k]).filter(x => x && typeof x === "object");
+  const who = x => S(x.from) || S(x.to) || "—";
+  const unreadN = rows("inbox").filter(x => x.unread).length;
+
+  const listRow = (x, i, kind) => h("button", {
+    key: i, onClick: () => setOpen({ ...x, _kind: kind }),
+    className: "w-full text-left active:opacity-60",
+    style: { display: "flex", gap: 10, padding: "13px 4px", borderBottom: "1px solid " + MAIL_LINE, background: "transparent" }
+  },
+  h("span", {
+    "aria-hidden": "true",
+    style: { width: 7, height: 7, borderRadius: 99, flexShrink: 0, marginTop: 7, background: (kind === "inbox" && x.unread) ? MAIL_BLUE : "transparent" }
+  }),
+  h("div", { className: "flex-1 min-w-0" },
+    h("div", { className: "flex items-baseline", style: { gap: 8 } },
+      h("div", {
+        style: {
+          flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: MAIL_INK,
+          fontWeight: (kind === "inbox" && x.unread) ? 600 : 400,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+        }
+      }, kind === "drafts" ? ("给 " + (S(x.to) || "谁")) : who(x)),
+      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, color: MAIL_DIM, flexShrink: 0 } }, S(x.time) || S(x.savedAt))),
+    h("div", {
+      style: { fontFamily: F_BODY, fontSize: 13, color: MAIL_INK, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
+    }, S(x.subject) || "（没有主题）"),
+    h("div", {
+      style: { fontFamily: F_BODY, fontSize: 12, color: MAIL_DIM, marginTop: 2, lineHeight: 1.55,
+        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", wordBreak: "break-word" }
+    }, S(x.preview) || S(x.body)),
+    S(x.kind) && kind === "inbox" ? h("span", {
+      style: { display: "inline-block", marginTop: 6, fontFamily: F_BODY, fontSize: 10, padding: "2px 8px", borderRadius: 99, background: "#e7ebf1", color: MAIL_DIM }
+    }, S(x.kind)) : null));
+
+  const body = rows(tab).length
+    ? rows(tab).map((x, i) => listRow(x, i, tab))
+    : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: MAIL_DIM } },
+        tab === "drafts" ? "草稿箱是空的" : tab === "sent" ? "他最近没往外发什么" : "收件箱是空的");
+
+  const detail = open ? h("div", { className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 30 } },
+    h("div", { className: "shrink-0 flex items-center px-2 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + MAIL_LINE } },
+      h("button", { onClick: () => setOpen(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: MAIL_INK })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_BODY, fontSize: 12.5, color: MAIL_DIM } },
+        open._kind === "drafts" ? "草稿 · 没发出去" : open._kind === "sent" ? "已发送" : "收件箱"),
+      h("div", { style: { width: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.5, color: MAIL_INK, marginTop: 18, wordBreak: "break-word" } }, S(open.subject) || "（没有主题）"),
+      h("div", { className: "flex items-center", style: { gap: 10, marginTop: 14, paddingBottom: 14, borderBottom: "1px solid " + MAIL_LINE } },
+        h("span", {
+          "aria-hidden": "true",
+          style: { width: 34, height: 34, borderRadius: 99, flexShrink: 0, background: "#e7ebf1", color: MAIL_DIM, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 15 }
+        }, (who(open) || "?").slice(0, 1)),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: MAIL_INK, wordBreak: "break-word" } },
+            open._kind === "inbox" ? who(open) : ("给 " + (S(open.to) || "谁"))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM, marginTop: 2, wordBreak: "break-all" } },
+            [S(open.fromAddr), S(open.time) || S(open.savedAt)].filter(Boolean).join(" · ")))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 2, color: "#3c424b", marginTop: 16, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, S(open.body)),
+      // 他心里那句：邮件那套客气话之外的真话，落差就在这儿
+      S(open.thought) ? h("div", {
+        style: { marginTop: 20, background: "#f5f7fa", borderRadius: 13, padding: "13px 15px" }
+      },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM } }, "他看完心里那句"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: MAIL_INK, marginTop: 5, wordBreak: "break-word" } }, S(open.thought))) : null,
+      open._kind === "drafts" ? h("div", {
+        style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: "#b6473c", lineHeight: 1.8 }
+      }, "这封一直没发出去。" + (S(open.savedAt) ? "已经存了 " + S(open.savedAt) + "。" : "")) : null,
+      onPeek ? h("button", {
+        onClick: () => onPeek({
+          tier: open._kind === "drafts" ? "hidden" : "quiet",
+          label: open._kind === "drafts" ? "邮件 · 写了没发的那封" : open._kind === "sent" ? "他发出去的邮件" : "他收到的邮件",
+          title: S(open.subject),
+          text: [open._kind === "inbox" ? who(open) : "给 " + S(open.to), S(open.body), S(open.thought)].filter(Boolean).join("｜")
+        }),
+        className: "w-full active:opacity-60",
+        style: {
+          marginTop: 22, padding: "12px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5,
+          border: "1px solid " + (open._kind === "drafts" ? "rgba(182,71,60,.42)" : MAIL_LINE),
+          color: open._kind === "drafts" ? "#b6473c" : MAIL_INK
+        }
+      }, open._kind === "drafts" ? "摆到他面前 · 这封他没敢发" : "转发给 TA · 他会知道你翻了手机") : null)) : null;
+
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: MAIL_BG } },
+    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("div", { className: "flex items-center", style: { gap: 8 } },
+        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 38, height: 38, marginLeft: -6 } }, h(IArrow, { size: 19, color: MAIL_INK })),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: MAIL_INK } },
+            "邮件" + (unreadN ? " · " + unreadN + " 封未读" : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM, marginTop: 1, wordBreak: "break-all" } }, S(me.addr))),
+        h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-50 disabled:opacity-40 flex items-center justify-center", style: { width: 38, height: 38 } }, h(IRefresh, { size: 17, color: MAIL_INK }))),
+      h("div", { className: "flex", style: { gap: 4, marginTop: 10 } }, MAIL_TABS.map(x => h("button", {
+        key: x.k, onClick: () => { setTab(x.k); setOpen(null); },
+        className: "flex-1 active:opacity-60",
+        style: {
+          fontFamily: F_BODY, fontSize: 12.5, padding: "7px 4px", borderRadius: 9,
+          background: tab === x.k ? "#fff" : "transparent", color: tab === x.k ? MAIL_INK : MAIL_DIM,
+          border: "1px solid " + (tab === x.k ? MAIL_LINE : "transparent")
+        }
+      }, x.zh + (rows(x.k).length ? " " + rows(x.k).length : ""))))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM, background: "#fff", borderTop: "1px solid " + MAIL_LINE } }, body),
+    detail);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1082,12 +1276,17 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 // ─────────────────────────────────────────────────────────────
 // 每条左边是时刻，右边是内容，中间一条竖轴把一天串起来。
 // 新增的（上次翻完之后才出现的）左侧有一个实心点，顶上可以切「只看新增」。
-function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCount, onMarkRead }) {
-  const [onlyNew, setOnlyNew] = useState(false);
+function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCount, onMarkRead, kept, onToggleKeep }) {
+  // mode: all / new / keep —— 「我收着的」是【她自己】留的，不喂给聊天。
+  // 转发＝摆到他面前；收着＝我自己留一份。两件事，两个按钮。
+  const [mode, setMode] = useState("all");
   const [sheet, setSheet] = useState(null);
   const list = Array.isArray(rows) ? rows : [];
   const isNew = r => !!(newIds && newIds[r.id]);
-  const shown = onlyNew ? list.filter(isNew) : list;
+  const isKept = r => !!(kept && kept[r.id]);
+  const keptCount = list.filter(isKept).length;
+  const onlyNew = mode === "new";
+  const shown = mode === "new" ? list.filter(isNew) : mode === "keep" ? list.filter(isKept) : list;
   const now = Date.now();
   // 按天切段
   const groups = [];
@@ -1121,7 +1320,8 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
     h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 3 } },
       h(PGlyph, { k: r.app, size: 12, color: t.fog }),
       h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
-        r.appZh + (r.tag ? " · " + r.tag : "") + (r.gone ? " · 已被顶掉" : ""))),
+        r.appZh + (r.tag ? " · " + r.tag : "") + (r.gone ? " · 已被顶掉" : "")),
+      isKept(r) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.ink, marginLeft: "auto" } }, "收着") : null),
     r.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, r.title),
     r.text && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
       r.text.length > 52 ? r.text.slice(0, 52) + "…" : r.text)));
@@ -1139,18 +1339,30 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
         list.length
           ? (() => { const g = list.filter(r => r.gone).length; return "把 " + list.length + " 条痕迹按时间排在一起" + (g ? "，其中 " + g + " 条只在这儿还留着" : ""); })()
           : "还没有翻出任何东西"),
-      newCount > 0 && h("button", {
-        onClick: () => setOnlyNew(v => !v),
-        className: "active:opacity-60",
-        style: {
-          fontFamily: F_BODY, fontSize: 11, padding: "4px 11px", borderRadius: 99,
-          background: onlyNew ? TL_DOT : "transparent", color: onlyNew ? "#fff" : TL_DOT,
-          border: "1px solid " + (onlyNew ? TL_DOT : "rgba(196,85,63,.4)")
-        }
-      }, "只看新增 " + newCount)),
+      h("div", { className: "flex items-center", style: { gap: 6 } },
+        keptCount > 0 && h("button", {
+          onClick: () => setMode(v => v === "keep" ? "all" : "keep"),
+          className: "active:opacity-60",
+          style: {
+            fontFamily: F_BODY, fontSize: 11, padding: "4px 11px", borderRadius: 99,
+            background: mode === "keep" ? t.ink : "transparent", color: mode === "keep" ? "#fff" : t.sub,
+            border: "1px solid " + (mode === "keep" ? t.ink : t.line)
+          }
+        }, "我收着的 " + keptCount),
+        newCount > 0 && h("button", {
+          onClick: () => setMode(v => v === "new" ? "all" : "new"),
+          className: "active:opacity-60",
+          style: {
+            fontFamily: F_BODY, fontSize: 11, padding: "4px 11px", borderRadius: 99,
+            background: onlyNew ? TL_DOT : "transparent", color: onlyNew ? "#fff" : TL_DOT,
+            border: "1px solid " + (onlyNew ? TL_DOT : "rgba(196,85,63,.4)")
+          }
+        }, "只看新增 " + newCount))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
       !shown.length && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "56px 20px", lineHeight: 1.9 } },
-        onlyNew ? "上次翻完之后，他手机上没有新东西。" : "先在桌面上刷一遍，这里才会有东西串起来。"),
+        mode === "new" ? "上次翻完之后，他手机上没有新东西。"
+          : mode === "keep" ? "你还没收着什么。点开某一条，右下角有「收着」。"
+          : "先在桌面上刷一遍，这里才会有东西串起来。"),
       groups.map((g, gi) => h("div", { key: g.label + gi },
         h("div", {
           style: {
@@ -1187,7 +1399,19 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
         onClick: () => onPeek({ tier: "quiet", label: sheet.appZh + (sheet.tag ? " · " + sheet.tag : ""), title: sheet.title, text: sheet.text || sheet.thought }),
         className: "w-full mt-2 py-3 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
-      }, "转发给 TA · 他会知道你翻了手机")));
+      }, "转发给 TA · 他会知道你翻了手机"),
+      // 收着 ≠ 转发。转发是摆到他面前，收着是【她自己留一份】，
+      // 不进他的上下文、不影响任何生成——只给她自己看。
+      onToggleKeep && h("button", {
+        onClick: () => onToggleKeep(sheet.id),
+        className: "w-full mt-2 py-3 active:opacity-60",
+        style: {
+          fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13,
+          border: "1px solid " + (isKept(sheet) ? t.ink : t.line),
+          background: isKept(sheet) ? t.ink : "transparent",
+          color: isKept(sheet) ? "#fff" : t.sub
+        }
+      }, isKept(sheet) ? "已经收着了 · 再点取消" : "收着 · 只有你看得到")));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -3498,10 +3722,12 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "calendar") return h(CalendarView, { d: ctx.calendar || d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "bili") return h(BiliView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "latenight") return h(LateNightView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "mail") return h(MailView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "tally") return h(TallyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "timeline") return h(TimelineView, {
     rows: ctx.timelineRows, char, t, onBack: ctx.onBack, onOpenApp: ctx.onOpenApp, onPeek: ctx.onPeek,
-    newIds: ctx.newIds, newCount: ctx.newCount, onMarkRead: ctx.onMarkRead
+    newIds: ctx.newIds, newCount: ctx.newCount, onMarkRead: ctx.onMarkRead,
+    kept: ctx.kept, onToggleKeep: ctx.onToggleKeep
   });
   return null;
 }
@@ -3639,6 +3865,11 @@ function PhoneCarry({
   }, [open, inList]);
   // 锁屏：拿起他手机的第一眼，不该直接是一片图标网格
   const [locked, setLocked] = useState(true);
+  // 「我收着的」——她自己留的那些，只给她自己看，不进任何上下文。
+  // 转发是摆到他面前，收着是我自己留一份：两件事。
+  const [kept, setKept] = useState(() => loadJSON("x_phoneKeep", {}));
+  // 桌面顶部的全局搜索。在他手机里搜自己的名字，是所有偷看动作里最真的一个。
+  const [q, setQ] = useState("");
   // delta 账本：上次翻完时手机上有哪些条目。x_phoneMark[charId].ids = { 指纹: 1 }
   // 指纹只由内容决定（见 phoneEntryId），所以他没动的东西不会因为你又翻了一次就变新。
   const [mark, setMark] = useState(() => loadJSON("x_phoneMark", {}));
@@ -3752,6 +3983,17 @@ function PhoneCarry({
     });
   };
   const markAppRead = k => markRead(tlRows.filter(r => r.app === k).map(r => r.id));
+  const keptIds = (kept || {})[char.id] || {};
+  const toggleKeep = id => setKept(p => {
+    const box = { ...((p[char.id]) || {}) };
+    if (box[id]) delete box[id]; else box[id] = 1;
+    const n = { ...p, [char.id]: box };
+    saveJSON("x_phoneKeep", n);
+    return n;
+  });
+  // 搜索：不调模型。时间线已经把各 app 的碎片规范化了，再补上它不收的那几栏。
+  const searchExtra = phoneSearchExtra(data, liveCtx);
+  const hits = q.trim() ? phoneSearch(tlRows, searchExtra, q) : [];
   const liveCount = k => {
     if (k === "forum") return (liveForum || []).reduce((n, a) => n + (a.posts || []).length + (a.comments || []).length, 0);
     if (k === "music") return ((livePlaylist && livePlaylist.songs) || []).length;
@@ -3819,6 +4061,7 @@ function PhoneCarry({
     live: {
       ...liveCtx,
       timelineRows: tlRows, newIds, newCount,
+      kept: keptIds, onToggleKeep: toggleKeep,
       onMarkRead: () => markRead(tlRows.map(r => r.id)),
       onOpenApp: k => { const a = appByKey(k); if (a) openApp(a); }
     },
@@ -3839,7 +4082,7 @@ function PhoneCarry({
       music: "他还没有歌单", album: "相册还没翻过", bili: "最近没有观看记录", latenight: "深夜台还是空的",
       forum: "论坛上还没有他的痕迹", reading: "最近没在读什么", liked: "还没点过什么",
       health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的",
-      timeline: "先刷一遍手机，这里才串得起来", tally: "他还没给你们记账"
+      timeline: "先刷一遍手机，这里才串得起来", tally: "他还没给你们记账", mail: "邮箱还没翻过"
     }[key] || "还没有内容";
     // 真数据这几个走自己那份，不然桌面小组件永远显示兜底话
     if (key === "timeline") {
@@ -3916,10 +4159,41 @@ function PhoneCarry({
   h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 600, color: t.ink } }, new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })),
   h("button", { onClick: () => setPick(true), className: "active:opacity-50", "aria-label": "切换角色" }, h(Avatar, { character: char, size: 28, radius: 9 }))),
   // 名字和头像顶栏已经有了，这儿不再顶一大块（她 2026-08-29：「那一大块角色名也删了吧」）
-  h("div", { className: "shrink-0 px-5 pb-1 flex items-center justify-between" },
+  // 搜索条：在他手机里搜一个词。零调用——读的是已经翻出来的东西。
+  h("div", { className: "shrink-0 px-4 pb-2" },
+    h("div", {
+      className: "flex items-center",
+      style: { gap: 8, height: 34, borderRadius: 12, padding: "0 12px", background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)" }
+    },
+      h("span", { "aria-hidden": "true", style: { fontSize: 13, color: t.fog } }, "\u2315"),
+      h("input", {
+        value: q, onChange: e => setQ(e.target.value),
+        placeholder: "在他手机里搜…",
+        "aria-label": "在他手机里搜",
+        style: { flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink }
+      }),
+      q ? h("button", { onClick: () => setQ(""), "aria-label": "清空", className: "active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 2px" } }, "\u2715") : null)),
+  q.trim() ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "2px 2px 10px" } },
+      hits.length ? "在他手机里找到 " + hits.length + " 处" : "他手机里没有这个"),
+    hits.slice(0, 60).map(r => h("button", {
+      key: r.id,
+      onClick: () => { const a = appByKey(r.app); if (a) { setQ(""); openApp(a); } },
+      className: "w-full text-left active:opacity-60",
+      style: { display: "block", background: "rgba(255,255,255,.72)", borderRadius: 15, padding: "12px 14px", marginBottom: 8 }
+    },
+      h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 4 } },
+        h(PGlyph, { k: r.app, size: 12, color: t.fog }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          r.appZh + (r.tag ? " · " + r.tag : "")),
+        r.when ? h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog } }, r.when) : null),
+      r.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, lineHeight: 1.45, wordBreak: "break-word" } }, r.title) : null,
+      r.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, marginTop: 3, wordBreak: "break-word" } },
+        r.text.length > 60 ? r.text.slice(0, 60) + "…" : r.text) : null))) : null,
+  !q.trim() && h("div", { className: "shrink-0 px-5 pb-1 flex items-center justify-between" },
   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "向左滑还有一页"),
   h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: ".17em", color: t.fog } }, layout.label)),
-  h("div", {
+  !q.trim() && h("div", {
     ref: deskRef,
     className: "flex-1 min-h-0 flex overflow-x-auto",
     onScroll: e => {
@@ -3929,7 +4203,7 @@ function PhoneCarry({
     },
     style: { scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }
   }, pages),
-  h("div", { className: "shrink-0 flex justify-center gap-1.5 py-1" }, layout.pages.map((_, i) => h("button", {
+  !q.trim() && h("div", { className: "shrink-0 flex justify-center gap-1.5 py-1" }, layout.pages.map((_, i) => h("button", {
     key: i, onClick: () => deskRef.current && deskRef.current.scrollTo({ left: deskRef.current.clientWidth * i, behavior: "smooth" }),
     "aria-label": "第 " + (i + 1) + " 页",
     style: { width: i === deskPage ? 15 : 6, height: 6, borderRadius: 9, background: i === deskPage ? t.ink : "rgba(30,28,24,.25)", transition: "all .2s" }
@@ -4000,6 +4274,7 @@ const PHONE_ANGLE = {
   clipboard: "【取材层】他复制过、但不一定发出去的东西。这里最重要的不是内容，是**发没发出去**。【时间窗】这几天。",
   takeout: "【取材层】他怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
   wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。",
+  mail: "【取材层】他对外那一面：工作、账单、订阅、学校、机构。**这里的他是【对陌生人和上级说话】的样子**，跟微信里那个人是同一个，但措辞完全两回事。【时间窗】这一两周，订阅和账单可以更久。",
   tally: "【取材层】他心里给这段关系记的那本账——欠着的、兜过的底、放过的狠话、舍不得的、拿不准的。**这本账不记钱**，钱在钱包里；这儿记的是没结清的东西。【时间窗】从认识到现在，横跨很久；大多数条目应该已经挂了一阵子了。"
 };
 
@@ -4023,6 +4298,7 @@ const PHONE_DIGEST_PICK = {
   clipboard: d => pArr(d.items).map(x => x.text),
   takeout: d => pArr(d.orders).map(x => x.shop + "·" + ((pArr(x.items)[0] || {}).name || "")).concat(pArr(d.shops).map(x => x.name), pArr(d.wish).map(x => x.title)),
   wallet: () => [],
+  mail: d => pArr(d.inbox).map(x => x.subject).concat(pArr(d.sent).map(x => x.subject)),
   tally: d => pArr(d.debts).map(x => x.title).concat(pArr(d.statements).map(x => x.text), pArr(d.treasures).map(x => x.title))
 };
 
@@ -4116,7 +4392,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "cart 购物车 **4-6 件**：shop、title、spec（颜色/尺码/款式）、price（现价数字）、was（原价数字，可为 0）、promo（优惠标签，可空）、qty。购物车装的是【还没下决心的东西】。\n"
         + "wish 想买清单 **4-6 件**：title、shop、price、why（**为什么想买，一句他自己的话**）。\n"
         + "**why 这一栏是整个 app 里最重要的东西**：它要暴露他的私心、旧事和惦记的人（「某人不是喜欢红的么，买来扣她脖子上」「刀柄弧度很像当年父亲留下的那把」「府里那张被陆闻拍裂了一条缝」）。不许写「质量好」「性价比高」这种。\n"
-        + "orders 我的订单 **6-8 单**：shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右：品类和付款方式各一个）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n"
+        + "orders 我的订单 **6-8 单**：**id（这一单的编号，同一单以后刷新也必须是同一个 id——钱包靠它认账，换了 id 会被当成新的一单再扣一次钱）**、shop、status（已收货/待收货/已取消）、time、title、items（1-3 件，各有 name、spec、qty、price）、ship（运费数字）、paid（实付数字）、tags（2 个左右：品类和付款方式各一个）、review（收货后他写的一句，很短很实在）、reason（**一句下单理由**，可以牵涉到人）、addr（送到哪）。\n"
         + "habit 购物习惯：budget（单笔预算区间）、buys（常买什么）、avoids（**绝不买什么**——这一条比常买更像人）、how（下单习惯，什么时候翻、还不还价）。\n"
         + "shops 常逛店铺 **3-4 家**：name、cat（品类）、why（一句为什么是这家，要具体到掌柜脾气、货色成色这种）。\n"
         + "coupons 优惠券 **2-3 张**：rule（如「满300减50」）、name、scope（哪家或哪类可用）、until（到期日）。\n"
@@ -4124,7 +4400,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "addrs 收货地址 **2-3 条**：label（地址别名）、tail（尾号）、detail（详细到门房怎么放的那种备注）、isDefault（只有一条 true）。**其中一条应当是「他常去的另一个地方」**，不是自己家。\n"
         + "gifts 相关往来 **3-5 条**：who（给谁买的，用他嘴里对那个人的叫法）、title、note（**一句只有他会写的备注**，如「嘴上说着不喜欢我吵，接了油纸包自己一口气吃了三块」）。\n"
         + "monthNote：本月购物概况，一段 60-110 字，账房口吻，别抒情。tail：最后一句他自己的念叨，一两句，可以很得意也可以很没出息。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\",\"retired\":{\"wish\":[\"买到手或不想要了的\"]}}"
+      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"1043827\",\"member\":\"会员等级的叫法\",\"style\":\"一句购物风格\",\"monthSpend\":3260.5,\"monthOrders\":8,\"points\":18420,\"persona\":\"一句购物性格\"},\"shipping\":[{\"status\":\"派送中\",\"eta\":\"今日 18:00 前\",\"shop\":\"店铺\",\"title\":\"商品全名\",\"progress\":78,\"carrier\":\"快递\",\"tail\":\"9042\",\"amount\":340}],\"cart\":[{\"shop\":\"店铺\",\"title\":\"商品\",\"spec\":\"规格\",\"price\":680,\"was\":880,\"promo\":\"跨店满减\",\"qty\":1}],\"wish\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":560,\"why\":\"一句他自己的话\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店铺\",\"status\":\"已收货\",\"time\":\"8月28日 14:15\",\"title\":\"订单标题\",\"items\":[{\"name\":\"商品\",\"spec\":\"规格\",\"qty\":2,\"price\":48}],\"ship\":0,\"paid\":128,\"tags\":[\"食品特产\",\"微信支付\"],\"review\":\"收货一句\",\"reason\":\"下单理由\",\"addr\":\"送到哪\"}],\"habit\":{\"budget\":\"...\",\"buys\":\"...\",\"avoids\":\"...\",\"how\":\"...\"},\"shops\":[{\"name\":\"店铺\",\"cat\":\"品类\",\"why\":\"为什么是这家\"}],\"coupons\":[{\"rule\":\"满300减50\",\"name\":\"券名\",\"scope\":\"哪儿可用\",\"until\":\"8月31日\"}],\"viewed\":[{\"title\":\"商品\",\"shop\":\"店铺\",\"price\":680,\"time\":\"今天 21:15\"}],\"addrs\":[{\"label\":\"王府侧门\",\"tail\":\"4819\",\"detail\":\"详细地址与备注\",\"isDefault\":true}],\"gifts\":[{\"who\":\"给谁\",\"title\":\"东西\",\"note\":\"一句备注\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句念叨\",\"retired\":{\"wish\":[\"买到手或不想要了的\"]}}"
     },
     album: {
       instruction: "推演「" + char.name + "」手机相册里正好 25 张互不重复的照片。时间跨度要自然；date 必须写真实完整日期 YYYY-MM-DD HH:mm，必须带年份，禁止写周三、周五、昨天、最近等相对日期。每张分进且只分进五类之一：回忆(memory)、个人收藏(favorite)、最近保存(saved)、私密(private)、最近删除(deleted)，每类至少 4 张、不必平均。memory 是 TA 真正会反复翻看的重要瞬间，不是普通随手拍。caption 是很短的照片标题；desc 要具体写照片真正拍到了什么（人物、地点、构图、光线和细节），不能只写抽象心情；thought 单独写 TA 看到这张照片时真实、私人的想法。类别与内容要合理：私密不等于一律色情，最近删除也要写为什么舍不得或为什么删。",
@@ -4178,7 +4454,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "today 今日推荐（一条）：addrLabel（送到哪，一两个字的地方别名）、addrDetail、date（如「8月28日 周五」）、meal（早餐/午餐/晚餐/夜宵）、shop、rating（店铺评分，如「4.6」）、eta（如「12:45送达」）、delivery（配送方式的叫法）、main（主推那道菜，**后面用括号带上他每次都要的规格**）、amount（数字）、status、note（下单备注）。\n\n"
         + "shops 常点商家 **4-5 家**：name、cat、times（点过多少次，写成一句）、usual（他每次都点的）、why（一句为什么总是这家，具体到掌柜脾气、火候、开到几时）、last（上次什么时候）、cover（0-5 整数定色）。\n\n"
         + "live 正在送的 **0-2 单**：status、eta、shop、items（一句话说清点了什么）、rider、step（0-3 的整数：0已下单 1商家接单 2配送中 3待送达）、amount、note。\n\n"
-        + "orders 我的订单 **6-8 单**：shop、time、meal（餐次）、status、main（主菜一行）、items（1-3 样，各有 name、spec 规格、qty、price）、pack（包装费数字）、fee（配送费数字）、amount（实付数字）、stars（1-5 整数）、rating（他写的评价，一句，很实在）、tags（2-3 个：品类、餐次、付款方式各一个）、addr、note（**下单备注**）、reason（**为什么这一单**，一句，可以牵涉到人）。\n"
+        + "orders 我的订单 **6-8 单**：**id（这一单的编号，同一单以后刷新也必须是同一个 id——钱包靠它认账）**、shop、time、meal（餐次）、status、main（主菜一行）、items（1-3 样，各有 name、spec 规格、qty、price）、pack（包装费数字）、fee（配送费数字）、amount（实付数字）、stars（1-5 整数）、rating（他写的评价，一句，很实在）、tags（2-3 个：品类、餐次、付款方式各一个）、addr、note（**下单备注**）、reason（**为什么这一单**，一句，可以牵涉到人）。\n"
         + "**note 那一栏是这个 app 的重点**：同样一句备注，写给谁、护着谁、怕吵着谁，是三个不同的人。要像真人当场打的字，宁可留空也别写成客服模板。**至少一单是深夜的，至少一单是送到别人那儿的。**\n\n"
         + "taste 口味：spicyTags（辣度，2-3 个短词的数组）、avoidTags（**忌口，3-4 个**——这一组比爱吃什么更像人。**别只写食材名**，要写清他嫌它哪一点，越具体越像他）、likeTags（偏好，3-4 个）、budget（一句预算）、habit（一句点餐习惯，什么时辰点、为什么点）。\n\n"
         + "week 本周吃什么 **正好 7 天**：day（一到日）、meals（1-3 条，各有 t=早/午/晚/夜 和 text=吃了什么，可以写「未点送」表示那顿没叫）。\n\n"
@@ -4187,7 +4463,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "wish 想吃清单 **3-5 条**：title（想吃的东西，可以很长很具体）、when（**什么时候会突然想起它**——写那个当下他在哪、在受什么罪、嘴里是什么味）。\n\n"
         + "together 一起点过 **3-4 条**：who（**用他嘴里对那个人的叫法**，不是规规矩矩的本名——那个称呼本身就该看得出他俩什么关系）、items（点了什么）、story（一段 40-70 字，那顿饭上发生了什么，要具体、要有画面、可以很好笑）。\n\n"
         + "monthNote：本周点餐概况，一段 70-110 字。tail：最后一两句他自己的念叨。",
-      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"week\":[{\"day\":\"一\",\"meals\":[{\"t\":\"早\",\"text\":\"吃了什么\"}]}],\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"together\":[{\"who\":\"他嘴里对那人的叫法\",\"items\":\"点了什么\",\"story\":\"那顿饭上发生了什么\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\",\"retired\":{\"wish\":[\"不惦记了的\"]}}"
+      schemaHint: "{\"account\":{\"name\":\"平台昵称\",\"uid\":\"88412037\",\"member\":\"会员等级的叫法\",\"monthOrders\":22,\"monthSpend\":1180,\"persona\":\"一句性格\"},\"today\":{\"addrLabel\":\"家\",\"addrDetail\":\"详细地址\",\"date\":\"8月28日 周五\",\"meal\":\"午餐\",\"shop\":\"店名\",\"rating\":\"4.6\",\"eta\":\"12:45送达\",\"delivery\":\"配送方式的叫法\",\"main\":\"主推菜（他每次都要的规格）\",\"amount\":68.5,\"status\":\"已送达\",\"note\":\"备注\"},\"shops\":[{\"name\":\"店\",\"cat\":\"品类\",\"times\":\"点过 24 次\",\"usual\":\"常点\",\"why\":\"为什么总是这家\",\"last\":\"今天中午\",\"cover\":0}],\"live\":[{\"status\":\"配送中\",\"eta\":\"预计 13:30 送达\",\"shop\":\"店\",\"items\":\"点了什么\",\"rider\":\"送的人怎么称呼\",\"step\":2,\"amount\":42,\"note\":\"\"}],\"orders\":[{\"id\":\"这一单的编号，同一单永远不变\",\"shop\":\"店\",\"time\":\"今天 12:10\",\"meal\":\"午餐\",\"status\":\"已完成\",\"main\":\"主菜\",\"items\":[{\"name\":\"菜\",\"spec\":\"规格\",\"qty\":1,\"price\":52}],\"pack\":0,\"fee\":2,\"amount\":68.5,\"stars\":5,\"rating\":\"一句评价\",\"tags\":[\"品类\",\"餐次\"],\"addr\":\"送到哪\",\"note\":\"备注\",\"reason\":\"为什么这一单\"}],\"taste\":{\"spicyTags\":[\"辣度短词\"],\"avoidTags\":[\"忌口，写清嫌它哪点\"],\"likeTags\":[\"偏好短词\"],\"budget\":\"一句\",\"habit\":\"一句\"},\"week\":[{\"day\":\"一\",\"meals\":[{\"t\":\"早\",\"text\":\"吃了什么\"}]}],\"coupons\":[{\"amount\":\"50\",\"unit\":\"元\",\"name\":\"券名\",\"scope\":\"哪家可用\",\"until\":\"8月31日\"}],\"addrs\":[{\"label\":\"地址别名（这是谁的地方）\",\"tail\":\"3391\",\"detail\":\"详细与备注\",\"isDefault\":true}],\"wish\":[{\"title\":\"想吃的东西\",\"when\":\"什么时候会想起它\"}],\"together\":[{\"who\":\"他嘴里对那人的叫法\",\"items\":\"点了什么\",\"story\":\"那顿饭上发生了什么\"}],\"monthNote\":\"一段\",\"tail\":\"最后一句\",\"retired\":{\"wish\":[\"不惦记了的\"]}}"
     },
     bili: {
       instruction: "推演「" + char.name + "」白天刷的视频站（仿 bilibili）。\n"
@@ -4216,6 +4492,18 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "【这一栏最容易写坏的地方】不要默认每个人的欲望都往「支配 / 占有 / 强势」那一头去。那是最省事的答案，**也是换成任何一个角色都照样成立的答案——照样成立就等于没写**。有人要的是被照顾，有人要的是自己失控，有人要的是被当成平等的人，有人只是想有一段不必说话的时间。他要哪一种，从他的人设长出来，不从这个题材的惯例长出来。\n"
         + "【十条要有差别】不是同一个口味重复十遍：有他最常回去的那几条、有一次性点开就关的、有他自己都嫌过火的、也可以有跟某个具体的人有关的那种。标签要落到具体的场合、身份、动作或情境上，**别用那种换个角色照样贴得上的形容词**。",
       schemaHint: "{\"me\":{\"uid\":\"u_7741903\",\"lastAt\":\"前天 03:12\",\"note\":\"一句旁白\"},\"items\":[{\"title\":\"标题\",\"duration\":\"00:18:42\",\"tags\":[\"tag1\",\"tag2\"],\"views\":\"3.2万\",\"thought\":\"想法\"}]}"
+    },
+    mail: {
+      instruction: "推演「" + char.name + "」的邮箱。\n"
+        + "me：addr（他的邮箱地址，**从他的身份和年代来定**，不是随手编一串）、name（发件人显示名）、sign（邮件签名档，一到两行）。\n"
+        + "inbox 收件箱 **8-12 封**：from（谁发的）、fromAddr、subject（主题）、time、kind（这封属于哪一类）、unread（true/false）、preview（列表里露出来的那一截）、body（正文，3-6 句，写成那类邮件真正的样子）、thought（他看完心里那句，一句，可空——大多数邮件他心里什么都没有，那就留空）。\n"
+        + "sent 发出去的 **3-5 封**：to、subject、time、body（他写的正文）。\n"
+        + "drafts 草稿 **1-3 封**：to、subject、body、savedAt（存了多久）——**草稿是这个 app 最有东西的一栏**：写了没发的那封，通常是他不敢发或者不知道怎么措辞的。\n\n"
+        + "【这一栏的全部意义是【落差】】邮件里的他是【对陌生人和上级说话】的样子：客气、绕、留余地、把话说死之前先铺三层。"
+        + "**这个腔调和他私下说话的差距，就是这个 app 要给出来的东西**——同一个人，一边是邮件里那套滴水不漏的说法，一边是他在便签里骂的那句。\n"
+        + "【收件箱要杂】不是每封都重要：该有正事、有账单、有他懒得退订的推送、有群发的、有一封他一直没回的。**一直没回的那封最说明人。**\n"
+        + "【不要和微信撞车】微信是熟人和随口，这儿是正式的往来。同一件事不要在两处各写一遍。",
+      schemaHint: "{\"me\":{\"addr\":\"他的邮箱地址\",\"name\":\"发件人显示名\",\"sign\":\"签名档\"},\"inbox\":[{\"from\":\"谁发的\",\"fromAddr\":\"地址\",\"subject\":\"主题\",\"time\":\"今天 09:12\",\"kind\":\"哪一类\",\"unread\":true,\"preview\":\"列表里那一截\",\"body\":\"正文\",\"thought\":\"他心里那句\"}],\"sent\":[{\"to\":\"寄给谁\",\"subject\":\"主题\",\"time\":\"昨天 18:40\",\"body\":\"正文\"}],\"drafts\":[{\"to\":\"本来要寄给谁\",\"subject\":\"主题\",\"body\":\"正文\",\"savedAt\":\"存了多久\"}],\"retired\":{\"drafts\":[\"发出去或删掉的草稿主题\"]}}"
     },
     tally: {
       instruction: "推演「" + char.name + "」心里给他和用户之间记的那本账。\n"

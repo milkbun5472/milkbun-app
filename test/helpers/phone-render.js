@@ -54,7 +54,7 @@ function makeEnv(forceState) {
 function loadPhone(forceState) {
   const env = makeEnv(forceState);
   const names = Object.keys(env);
-  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, PhoneCarry, PhoneApp, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, PhoneCallsView, TallyView, TimelineView, LockScreen, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
+  const fn = new Function(...names, SRC + "\n;return { PHONE_APPS, PHONE_LIVE_KEYS, PHONE_LABEL, PHONE_DESKTOP_LAYOUTS, PHONE_DOCK_KEYS, PHONE_DESKTOP_PAGES, PHONE_ANGLE, PHONE_DIGEST_PICK, phoneProbeSpec, phoneRoundDigest, phoneAvoidBlock, PhoneCarry, PhoneApp, renderPhoneModule, AlbumView, ReadingView, ShoppingView, TakeoutView, HealthView, BiliView, LateNightView, PlazaView, CalendarView, StickyView, ClipView, BrowserView, PhoneCallsView, TallyView, MailView, TimelineView, LockScreen, STICKY_COLORS, PGlyph, HEALTH_GROUPS, WISH_COVERS, READ_PALETTES, READ_BG, READ_INK, FULL_BLEED_KEYS, readMinutes, readFmtMin, readGoalColor, resetStateIdx };");
   return fn(...names.map(n => env[n]));
 }
 
@@ -195,6 +195,16 @@ const FIXTURES = {
     tail: "城南老头的糖糕还是得催伙计跑快点，冰化了就腻。"
   },
   clipboard: { items: [{ text: "其实我", from: "微信", time: "昨天 02:11", sent: false }, { text: "SF1234567", from: "短信", time: "今天", sent: true }] },
+  mail: {
+    me: { addr: "peizhaochuan@jingcheng.gov", name: "裴照川", sign: "靖安王府 · 裴" },
+    inbox: [
+      { from: "户部度支司", fromAddr: "dz@hubu.gov", subject: "关于陇右三年粮册核对事宜的函", time: "今天 09:12", kind: "公务", unread: true,
+        preview: "王爷台鉴：所附三年粮册，其中丙字卷第七页与本司底档略有出入……", body: "王爷台鉴：\\n所附三年粮册，其中丙字卷第七页与本司底档略有出入，烦请核实后回复。\\n此致", thought: "略有出入。四个字盖了两万石。" },
+      { from: "西市恒泰皮货行", fromAddr: "no-reply@hengtai", subject: "您的马鞍垫已发出", time: "昨天 15:02", kind: "通知", unread: false, preview: "顺丰速运 尾号9042……", body: "您的订单已发出。", thought: "" }
+    ],
+    sent: [{ to: "程策", subject: "回：西北军饷", time: "昨天 18:40", body: "此事我已知晓，不必再问。等我回信。" }],
+    drafts: [{ to: "母亲", subject: "（无）", body: "儿一切安好，不必挂念。京中……", savedAt: "存了 23 天" }]
+  },
   tally: {
     debts: [
       { title: "答应带她去吃城南那家，一直拖着", dir: "mine", note: "宫里的事一件接一件。得补。" },

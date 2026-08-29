@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v57.76";
+const APP_VERSION = "v57.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8453,6 +8453,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   const savePhoneApp = (charId, key, d) => {
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
+    // 购物/外卖刷完可能多出「已取消/已退款」的单：把之前扣过的那几笔补回来。
+    if ((key === "shopping" || key === "takeout") && typeof phoneRefundSweep === "function") {
+      try { setTimeout(() => phoneRefundSweep(charId), 0); } catch (e) {/* 回冲失败不连累刷新 */}
+    }
     // 健康：另抽一条极轻的每日快照。跟归档一样是锦上添花，写坏了不能连累正事。
     if (key === "health" && typeof phoneVitalOf === "function") {
       try {
@@ -8710,19 +8714,72 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       : (typeof phoneWhenTs === "function" ? phoneWhenTs(x && (x.time || x.date), Date.now()) : null);
     const out = [];
     const A = a => Array.isArray(a) ? a : [];
+    // ⚠️取消/退款的订单不许扣钱（Codex 2026-08-29 指出）。原来只看金额和日期，
+    // 于是「已取消」「退款成功」照样从余额里扣走，而且没有任何一笔把钱补回来。
+    const DEAD = /取消|退款|退货|已退|失败|关闭|未付|待付/;
+    const alive = o => !DEAD.test(String(o.status || "") + String(o.state || ""));
+    // 指纹优先用订单自己的永久 id；没有 id 的老数据才退回「店铺+品名+金额」。
+    // 只用店铺+品名的话，同一天在同一家买两次一样的东西会被当成一单少扣一次，
+    // 反过来刷新时标题换个措辞又会被当成新单重扣一次。带上金额能挡住后一种。
+    const fp = (o, a) => String(o.id || o.orderId || "").trim()
+      || (String(o.shop || "") + "|" + String(o.title || o.main || "") + "|" + a);
     A((box.takeout || {}).orders).forEach(o => {
-      if (!o || !sameDay(tsOf(o))) return;
+      if (!o || !sameDay(tsOf(o)) || !alive(o)) return;
       const amt = Math.abs(Number(o.amount) || 0);
       if (!amt) return;
-      out.push({ item: String(o.main || o.shop || "外卖").slice(0, 30), amount: amt, src: "takeout", key: String(o.shop || "") + "|" + String(o.main || "") });
+      out.push({ item: String(o.main || o.shop || "外卖").slice(0, 30), amount: amt, src: "takeout", key: fp(o, amt) });
     });
     A((box.shopping || {}).orders).forEach(o => {
-      if (!o || !sameDay(tsOf(o))) return;
+      if (!o || !sameDay(tsOf(o)) || !alive(o)) return;
       const amt = Math.abs(Number(o.paid) || 0);
       if (!amt) return;
-      out.push({ item: String(o.title || o.shop || "网购").slice(0, 30), amount: amt, src: "shopping", key: String(o.shop || "") + "|" + String(o.title || "") });
+      out.push({ item: String(o.title || o.shop || "网购").slice(0, 30), amount: amt, src: "shopping", key: fp(o, amt) });
     });
     return out.slice(0, 8);
+  };
+  // 退款回冲：已经入过账、但现在手机上标成取消/退款的那些，把钱补回来。
+  // 只补差额、不重算整天——旧日期结过就不再回头扫，那条规矩不动。
+  const phoneRefundSweep = charId => {
+    const box = ((phonesRef.current || {})[charId]) || {};
+    const A = a => Array.isArray(a) ? a : [];
+    const DEAD = /取消|退款|退货|已退|失败|关闭/;
+    const fp = (o, a) => String(o.id || o.orderId || "").trim()
+      || (String(o.shop || "") + "|" + String(o.title || o.main || "") + "|" + a);
+    const dead = {};
+    A((box.takeout || {}).orders).forEach(o => {
+      if (o && DEAD.test(String(o.status || ""))) dead["takeout|" + fp(o, Math.abs(Number(o.amount) || 0))] = String(o.main || o.shop || "外卖");
+    });
+    A((box.shopping || {}).orders).forEach(o => {
+      if (o && DEAD.test(String(o.status || ""))) dead["shopping|" + fp(o, Math.abs(Number(o.paid) || 0))] = String(o.title || o.shop || "网购");
+    });
+    if (!Object.keys(dead).length) return;
+    setCharWallet(p => {
+      const cur = p[charId];
+      if (!cur || !cur.init) return p;
+      const led = cur.ledger || [];
+      const backed = {};
+      led.forEach(e => { if (e && e.refundOf) backed[e.refundOf] = 1 });
+      // srcKey 形如 "日期|来源|指纹"，去掉日期那一段和 dead 的键对齐
+      const adds = [];
+      led.forEach(e => {
+        if (!e || !e.srcKey || e.refundOf || backed[e.srcKey]) return;
+        const tail = String(e.srcKey).split("|").slice(1).join("|");
+        if (!dead[tail]) return;
+        backed[e.srcKey] = 1;
+        adds.push({ srcKey: e.srcKey, amount: Math.abs(Number(e.delta) || 0), label: dead[tail] });
+      });
+      if (!adds.length) return p;
+      let bal = Number(cur.balance) || 0;
+      const rows = adds.map((a, i) => {
+        bal = r2(bal + a.amount);
+        return { id: "cw_rf_" + Date.now() + "_" + i, ts: Date.now(), delta: a.amount, after: bal,
+          label: a.label + " · 退款", kind: "refund", refundOf: a.srcKey };
+      });
+      const n = { ...p, [charId]: { ...cur, balance: bal, ledger: [...rows.reverse(), ...led] } };
+      saveJSON("x_charWallet", n);
+      charWalletRef.current = n;
+      return n;
+    });
   };
   const genDailySpend = async (char, dayKey, rec, already) => {
     const plan = (schedulesRef.current[char.id] || {})[dayKey];
