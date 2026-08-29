@@ -87,7 +87,9 @@ test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在�
   assert.match(cover, /width: "100%"/);
   assert.match(cover, /paddingTop: safeTop\(8\)/, "封面自己的返回键必须吃安全区");
   assert.match(cover, /h\(Countdown, \{ target: props\.target/, "倒计时必须进入蓝色封面报头");
-  assert.match(cover, /Math\.min\(98 - slot\.w/, "封面变宽后右栏标题可以真正走到右侧，但不能溢出");
+  assert.match(w, /const EDITORIAL_CELLS = \[/, "封面要使用可控的编辑网格而不是随机散字");
+  assert.match(cover, /gridTemplateColumns: "repeat\(12,minmax\(0,1fr\)\)"/, "封面标题必须落在 12 栏网格里，不能越界互相压住");
+  assert.match(cover, /items\.slice\(0, EDITORIAL_CELLS\.length\)/, "七个版块都要有稳定位置");
   assert.match(cover, /onClick: props\.onTools[\s\S]*?aria-label": "周刊工具"/, "封面右上角必须保留统一工具入口");
   assert.doesNotMatch(cover, /boxShadow: "0 10px 30px/);
   assert.doesNotMatch(cover, /border: "1px solid/);

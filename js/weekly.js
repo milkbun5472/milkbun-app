@@ -966,12 +966,16 @@
     const tint = COVER_TINTS[Math.floor(r() * COVER_TINTS.length)];
     return { skin: sk, style: sk.css(tint), inks: sk.ink, dark: sk.dark };
   }
-  // 标题散落在互不相交的固定行带里。行带可以左右错落、旋转，但高度不会互相侵入；
-  // 不能再用百分比 top + 任意换行，否则两条长标题会在小屏上叠住。
-  const COVER_SLOTS = [
-    { top: 8, left: 4, w: 62, h: 72 }, { top: 84, left: 34, w: 61, h: 76 },
-    { top: 164, left: 4, w: 57, h: 72 }, { top: 240, left: 31, w: 64, h: 76 },
-    { top: 320, left: 5, w: 61, h: 72 }, { top: 396, left: 27, w: 68, h: 72 }
+  // Editorial 封面使用 12 栏隐形网格。模块大小不一、上下错位，但所有边缘都落在
+  // 同一套网格上；这是“有秩序的不规则”，不是把标题随机撒在画布上。
+  const EDITORIAL_CELLS = [
+    { col: "1 / 9", row: "1 / 3", kind: "hero", align: "left" },
+    { col: "10 / 13", row: "1 / 2", kind: "narrow", align: "right" },
+    { col: "9 / 13", row: "2 / 4", kind: "feature", align: "right" },
+    { col: "1 / 7", row: "3 / 4", kind: "wide", align: "left" },
+    { col: "1 / 5", row: "4 / 6", kind: "narrow", align: "left" },
+    { col: "5 / 10", row: "4 / 5", kind: "wide", align: "center" },
+    { col: "9 / 13", row: "5 / 6", kind: "feature", align: "right" }
   ];
   const faceOf = function (f) { return f === "mono" ? "'Archivo',ui-monospace,monospace" : F_DISPLAY; };
   // 纸感底:两层极淡的斜向条纹 + 一层柔光，比纯色背景像纸，又不至于花
@@ -1062,58 +1066,57 @@
         h("div", { style: { width: (progress * 100).toFixed(2) + "%", height: "100%", borderRadius: 999, background: props.fill || ink, transition: "width .35s ease" } })));
   }
 
-  // 目录一行（点进去看单个版块）
-  // 封面:每期的版块标题散落在封面上,点哪块进哪块。
-  // 随机的只有位置/字号/颜色/倾角,且全部限制在读得清的范围内——
-  // 深底只用浅墨、浅底只用深墨,字号下限 15px,倾角不超过 ±7°。
+  // Editorial 杂志封面：主次由版块占据的网格面积决定，随机只影响轻微的字重与色彩。
+  // 阅读顺序始终是左上主头条 → 右栏 → 下方索引，不拿“艺术感”牺牲可读性。
   function CoverPage(props) {
     const t = useTheme();
     const items = props.items || [];
     const ck = coverSkin(props.issueKey);
     const r = seeded("lay" + props.issueKey);
-    const laid = items.slice(0, COVER_SLOTS.length).map(function (it, i) {
-      const slot = COVER_SLOTS[i];
-      return {
-        it: it,
-        top: slot.top + (r() * 5 - 2.5),
-        left: Math.max(2, Math.min(98 - slot.w, slot.left + (r() * 6 - 3))),
-        w: slot.w,
-        h: slot.h,
-        size: Math.max(17, (String(it.title || "").length > 16 ? 18 : 19 + Math.round(r() * 7))),
-        rot: (r() * 8 - 4).toFixed(1),            // ±4°，留足旋转后的安全边界
-        ink: ck.inks[Math.floor(r() * ck.inks.length)],
-        face: r() < .5 ? F_DISPLAY : F_BODY,
-        weight: r() < .35 ? 600 : 400
-      };
+    const laid = items.slice(0, EDITORIAL_CELLS.length).map(function (it, i) {
+      const cell = EDITORIAL_CELLS[i];
+      const long = String(it.title || "").length > 17;
+      return { it: it, cell: cell, ink: ck.inks[i % ck.inks.length], face: i === 0 || i === 3 ? F_DISPLAY : F_BODY,
+        size: cell.kind === "hero" ? (long ? 28 : 34) : cell.kind === "feature" ? (long ? 18 : 21) : cell.kind === "wide" ? (long ? 17 : 20) : 16,
+        weight: i === 0 ? 500 : (r() < .45 ? 600 : 400) };
     });
     const sub = ck.dark ? "rgba(255,255,255,.62)" : "rgba(0,0,0,.45)";
     const coverInk = ck.dark ? "#f4efe6" : "#232019";
     const progressTrack = ck.dark ? "rgba(255,255,255,.18)" : "rgba(0,0,0,.13)";
-    return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", width: "100%", minHeight: "100vh", padding: "0 22px 42px" }, ck.style) },
-      h("div", { style: { position: "absolute", width: 108, height: 108, borderRadius: "50%", right: -52, top: 128, border: "18px solid " + ck.inks[1], opacity: .16, pointerEvents: "none" } }),
-      h("div", { style: { position: "absolute", width: 52, height: 9, left: -9, bottom: 122, background: ck.inks[2], transform: "rotate(-9deg)", opacity: .55, pointerEvents: "none" } }),
+    return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", width: "100%", minHeight: "100vh", padding: "0 20px 40px" }, ck.style) },
+      h("div", { style: { position: "absolute", width: 148, height: 148, borderRadius: "50%", right: -88, top: 150, outline: "1px solid " + ck.inks[1], opacity: .30, pointerEvents: "none" } }),
+      h("div", { style: { position: "absolute", width: 72, height: 72, left: -43, top: 410, background: ck.inks[2], transform: "rotate(27deg)", opacity: .14, pointerEvents: "none" } }),
       h("div", { className: "flex items-center justify-between", style: { paddingTop: safeTop(8), minHeight: 50, position: "relative", zIndex: 2 } },
         h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -10 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: coverInk })),
         h("div", { className: "flex items-center", style: { gap: 5 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "ISSUE #" + (props.num || "—")),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".24em", color: sub } }, "VOL. " + (props.num || "—")),
           h("button", { onClick: props.onTools, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -10, color: coverInk, fontFamily: "Arial,sans-serif", fontSize: 27, fontWeight: 300, lineHeight: 1 }, "aria-label": "周刊工具" }, "+"))),
-      h("div", { style: { position: "absolute", right: 10, top: 84, width: 43, height: 43, borderRadius: "50%", background: ck.inks[3], color: ck.dark ? "#171515" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Archivo',sans-serif", fontSize: 8, lineHeight: 1.15, textAlign: "center", letterSpacing: ".08em", transform: "rotate(8deg)", boxShadow: "0 3px 12px rgba(0,0,0,.12)", whiteSpace: "pre-line", pointerEvents: "none" } }, "ISSUE\n" + (props.num || "—")),
-      // 封面报头
-      h("div", { style: { textAlign: "center", padding: "4px 0 12px", borderBottom: "1.5px solid " + (ck.dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)") } },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: "0.4em", fontSize: 8, color: sub, textTransform: "uppercase" } }, "THE WEEKLY"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 38, letterSpacing: "0.14em", textIndent: "0.14em", color: coverInk, lineHeight: 1.1 } }, "周刊"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub, marginTop: 2 } }, "第 " + (props.num || "—") + " 期　·　" + (props.label || "")),
-        h(Countdown, { target: props.target, ink: sub, track: progressTrack, fill: ck.inks[1] })),
-      // 散落的标题
-      h("div", { style: { position: "relative", height: 474, marginTop: 6 } },
+      // 不居中的刊头：大字占左八栏，刊期与倒计时做右侧编辑注脚。
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12,minmax(0,1fr))", columnGap: 6, alignItems: "end", padding: "7px 0 16px", borderBottom: "1px solid " + (ck.dark ? "rgba(255,255,255,.32)" : "rgba(0,0,0,.32)") } },
+        h("div", { style: { gridColumn: "1 / 9" } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", letterSpacing: ".42em", fontSize: 7.5, color: sub } }, "INDEPENDENT WEEKLY"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 50, letterSpacing: ".02em", color: coverInk, lineHeight: .94, marginTop: 6 } }, "周刊")),
+        h("div", { style: { gridColumn: "9 / 13", paddingBottom: 2, borderLeft: "1px solid " + progressTrack, paddingLeft: 9 } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".18em", color: sub } }, "ISSUE " + (props.num || "—")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.45, color: sub, marginTop: 5 } }, props.label || ""),
+          h(Countdown, { target: props.target, ink: sub, track: progressTrack, fill: ck.inks[1] }))),
+      // 七块内容落在 12 栏网格里：面积决定层级，竖线和编号维持编辑秩序。
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(12,minmax(0,1fr))", gridTemplateRows: "repeat(5,104px)", columnGap: 6, rowGap: 7, marginTop: 14 } },
         laid.map(function (L, i) {
+          const c = L.cell;
+          const lineSide = i % 2 ? "borderLeft" : "borderTop";
           return h("button", { key: i, onClick: L.it.onOpen, className: "text-left active:opacity-60",
-            style: { position: "absolute", top: L.top, left: L.left + "%", width: L.w + "%", height: L.h, overflow: "hidden", transform: "rotate(" + L.rot + "deg)", transformOrigin: "left top" } },
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: "0.26em", textTransform: "uppercase", color: sub, marginBottom: 2 } }, L.it.en),
-            h("div", { style: { fontFamily: L.face, fontWeight: L.weight, fontSize: L.size, lineHeight: 1.2, color: L.ink, textShadow: ck.dark ? "0 1px 2px rgba(0,0,0,.5)" : "0 1px 0 rgba(255,255,255,.55)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, L.it.title),
-            L.it.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 2 } }, L.it.meta) : null);
+            style: Object.assign({ gridColumn: c.col, gridRow: c.row, minWidth: 0, overflow: "hidden", padding: i % 2 ? "5px 0 5px 10px" : "10px 4px 4px 0", textAlign: c.align }, { [lineSide]: "1px solid " + progressTrack }) },
+            h("div", { style: { display: "flex", alignItems: "center", justifyContent: c.align === "right" ? "flex-end" : "flex-start", gap: 6, marginBottom: 6 } },
+              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".16em", color: L.ink } }, String(i + 1).padStart(2, "0")),
+              h("span", { style: { width: c.kind === "hero" ? 34 : 16, height: 1, background: L.ink, opacity: .65 } }),
+              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".2em", textTransform: "uppercase", color: sub } }, L.it.en)),
+            h("div", { style: { fontFamily: L.face, fontWeight: L.weight, fontSize: L.size, lineHeight: 1.13, letterSpacing: c.kind === "hero" ? "-.02em" : 0, color: L.ink, textShadow: ck.dark ? "0 1px 2px rgba(0,0,0,.45)" : "none", display: "-webkit-box", WebkitLineClamp: c.kind === "hero" ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, L.it.title),
+            L.it.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginTop: 7, letterSpacing: ".05em" } }, L.it.meta) : null);
         })),
-      h("div", { style: { position: "absolute", right: 12, bottom: 10, fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".2em", color: sub } }, "TAP A HEADLINE"));
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 15 } },
+        h("div", { style: { height: 1, flex: 1, background: progressTrack } }),
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".24em", color: sub } }, "TAP A HEADLINE")));
   }
 
   function WeeklyToolsSheet(props) {
