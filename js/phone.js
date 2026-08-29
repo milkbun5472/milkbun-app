@@ -256,7 +256,7 @@ const PHONE_STICKY = {
   wechat: ["me.wechatName", "me.wechatId", "me.signature", "userContact"],
   calls: ["me.number"],
   browser: ["me.name", "me.uid"],
-  shopping: ["account.name", "account.uid", "account.member", "account.persona", "addrs", "habit"],
+  shopping: ["account.name", "account.uid", "account.member", "account.persona", "account.style", "addrs", "habit"],
   takeout: ["account.name", "account.uid", "account.member", "account.persona", "addrs", "taste"],
   liked: ["me.name", "me.xhsId", "me.bio", "me.tag"],
   bili: ["me.name", "me.uid"],
@@ -391,7 +391,30 @@ function phoneGrowList(fresh, old, cap, nowTs) {
   if (out.length && out.every(x => x && typeof x === "object" && x._ts != null)) out.sort((a, b) => b._ts - a._ts);
   return out.slice(0, cap || 30);
 }
+// 阅读单开一路：它是【两层】的（shelves[].books[]），上面那套平的配置盖不住。
+// 不处理的话，书架名每刷一次全换（她 v57.47 专门要求书架名要有脾气，等于白要），
+// 而且一架书永远只有生成那一轮的几本——攒不起来。
+// 规矩：书架按名字认人，老架子留着；每架里的书累积；新长出来的架子接在后面。
+const PHONE_SHELF_CAP = 8, PHONE_BOOK_CAP = 40;
+function phoneMergeShelves(oldData, newData, nowTs) {
+  const A = a => Array.isArray(a) ? a : [];
+  const oldSh = A(oldData && oldData.shelves), newSh = A(newData && newData.shelves);
+  if (!oldSh.length) return newData;
+  const byName = {};
+  newSh.forEach(sh => { if (sh && sh.name) byName[String(sh.name)] = sh });
+  const out = [];
+  const used = {};
+  oldSh.forEach(sh => {
+    if (!sh || !sh.name) return;
+    const n = byName[String(sh.name)];
+    used[String(sh.name)] = 1;
+    out.push({ ...sh, books: phoneGrowList(n && n.books, sh.books, PHONE_BOOK_CAP, nowTs) });
+  });
+  newSh.forEach(sh => { if (sh && sh.name && !used[String(sh.name)]) out.push(sh) });
+  return { ...newData, shelves: out.slice(0, PHONE_SHELF_CAP) };
+}
 function phoneGrowMerge(appKey, oldData, newData, nowTs) {
+  if (appKey === "reading") return phoneMergeShelves(oldData, newData, nowTs);
   const conf = PHONE_GROW[appKey];
   if (!conf || !newData || typeof newData !== "object") return newData;
   const out = JSON.parse(JSON.stringify(newData));

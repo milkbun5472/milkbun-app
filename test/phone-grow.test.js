@@ -134,3 +134,34 @@ test("本来就是绝对日期的别动——相册跨年，改写会丢年份",
   const far = P.phoneFreezeTime({ title: "更久", time: "300天前" }, NOW);
   assert.match(far.time, /^2025年/, "跨年的相对写法改写后丢了年份：" + far.time);
 });
+
+test("阅读：书架名不再每刷一次全换，每架里的书越读越多", () => {
+  // 书架是两层的（shelves[].books[]），平的那套配置盖不住。不处理的话书架名
+  // 每次重掷（她 v57.47 专门要求书架名要有脾气，等于白要），书也永远只有一轮的量。
+  const R = new Function(phoneSrc + "; return { phoneMergeShelves, PHONE_BOOK_CAP, PHONE_SHELF_CAP, phoneMergeSaved };")();
+  const old = { shelves: [{ name: "怎么对付某个麻烦精", slug: "a", books: [{ title: "反经", author: "赵蕤" }] }] };
+  const gen = { shelves: [
+    { name: "怎么对付某个麻烦精", slug: "a", books: [{ title: "论衡", author: "王充" }] },
+    { name: "刚长出来的一架", slug: "b", books: [{ title: "新书", author: "谁" }] }
+  ] };
+  const out = R.phoneMergeShelves(old, gen, NOW);
+  assert.deepEqual(Array.from(out.shelves, x => x.name), ["怎么对付某个麻烦精", "刚长出来的一架"]);
+  const books = Array.from(out.shelves[0].books, b => b.title);
+  assert.deepEqual(books, ["论衡", "反经"], "同一架里的书没累积");
+  // 第一次生成原样收下
+  assert.equal(R.phoneMergeShelves(null, gen, NOW), gen);
+  assert.equal(R.phoneMergeShelves({}, gen, NOW), gen);
+  // 走 phoneMergeSaved 也接得上，且身份（阅读档案的名字/uid）照旧钉死
+  const saved = R.phoneMergeSaved("reading",
+    { ...old, archive: { name: "夜读客", uid: "7742019" } },
+    { ...gen, archive: { name: "模型另编的", uid: "9999" } }, NOW);
+  assert.equal(saved.archive.name, "夜读客");
+  assert.equal(saved.shelves[0].books.length, 2);
+  // 脏数据
+  [[null, null], [{ shelves: "x" }, { shelves: [{ name: "a" }] }], [{ shelves: [null] }, { shelves: [] }]]
+    .forEach(([o, n]) => assert.doesNotThrow(() => R.phoneMergeShelves(o, n, NOW)));
+});
+
+test("买东西的风格跟 persona 一样是长期的，不该每刷一次重掷", () => {
+  assert.ok(P.PHONE_STICKY.shopping.includes("account.style"));
+});
