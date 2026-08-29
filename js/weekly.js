@@ -1001,6 +1001,17 @@
   function pageBackground(L) {
     return { backgroundColor: L.paper, backgroundImage: L.pattern, backgroundSize: L.patternSize || "auto", color: L.ink };
   }
+  // 周刊也按查手机/聊天详情的规矩使用紧凑顶栏。旧的通用 Head 会再摆一行
+  // 30px 大标题，白白吞掉约四分之一屏；刊名应由版面自己说，顶栏只负责导航。
+  function WeeklyHead(props) {
+    const L = props.look || SECTION_LOOK.contents;
+    return h("div", { className: "shrink-0 flex items-center px-2 pb-2", style: { paddingTop: safeTop(10), minHeight: 54, background: L.paper, borderBottom: "1px solid " + L.tint + "22", color: L.ink } },
+      h("button", { onClick: props.onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: L.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.2, color: L.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, props.zh || "周刊"),
+        props.en ? h("div", { style: { marginTop: 2, fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".18em", textTransform: "uppercase", color: L.muted } }, props.en) : null),
+      h("div", { style: { width: 40, minHeight: 40, display: "flex", alignItems: "center", justifyContent: "center" } }, props.right || null));
+  }
   function Masthead(props) {
     const t = useTheme();
     const hair = { height: 1, background: t.ink, opacity: .28 };
@@ -1070,7 +1081,7 @@
       };
     });
     const sub = ck.dark ? "rgba(255,255,255,.62)" : "rgba(0,0,0,.45)";
-    return h("div", { style: Object.assign({ position: "relative", borderRadius: 4, overflow: "hidden", minHeight: 560, padding: "16px 14px", boxShadow: "0 10px 30px rgba(0,0,0,.13)", border: "1px solid " + (ck.dark ? "rgba(255,255,255,.14)" : "rgba(0,0,0,.10)") }, ck.style) },
+    return h("div", { style: Object.assign({ position: "relative", overflow: "hidden", width: "100%", minHeight: "calc(100vh - 54px)", padding: "18px 22px 42px" }, ck.style) },
       h("div", { style: { position: "absolute", width: 108, height: 108, borderRadius: "50%", right: -52, top: 128, border: "18px solid " + ck.inks[1], opacity: .16, pointerEvents: "none" } }),
       h("div", { style: { position: "absolute", width: 52, height: 9, left: -9, bottom: 122, background: ck.inks[2], transform: "rotate(-9deg)", opacity: .55, pointerEvents: "none" } }),
       h("div", { style: { position: "absolute", right: 10, top: 78, width: 43, height: 43, borderRadius: "50%", background: ck.inks[3], color: ck.dark ? "#171515" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Archivo',sans-serif", fontSize: 8, lineHeight: 1.15, textAlign: "center", letterSpacing: ".08em", transform: "rotate(8deg)", boxShadow: "0 3px 12px rgba(0,0,0,.12)", whiteSpace: "pre-line", pointerEvents: "none" } }, "ISSUE\n" + (props.num || "—")),
@@ -1404,12 +1415,12 @@
     const activeLook = pageLook(sub, medias);
     return h("div", { className: "h-full flex flex-col", style: pageBackground(activeLook) },
       h(WeeklyMotionStyles),
-      h(Head, { zh: headZh, en: headEn, onBack: sub ? function () { goSub(null, "prev"); } : props.onBack }),
-      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-10 pb-16", style: { color: activeLook.ink } },
+      h(WeeklyHead, { zh: headZh, en: headEn, look: activeLook, onBack: sub ? function () { goSub(null, "prev"); } : props.onBack }),
+      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { color: activeLook.ink } },
         h("div", { className: "weekly-page-stage" },
         h("div", { key: currentPageKey + ":" + turn.n, className: turn.dir === "prev" ? "weekly-page-prev" : "weekly-page-next" },
-        detail ? detail : h("div", null,
-          h(Countdown, { target: window.Weekly.nextRefreshTime() }),
+        detail ? h("div", { style: { padding: "18px 22px 48px" } }, detail) : h("div", null,
+          h("div", { style: { padding: "14px 20px 0" } }, h(Countdown, { target: window.Weekly.nextRefreshTime() })),
           h(CoverPage, {
             issueKey: issue.key, num: num, label: issue.label,
             items: [].concat(
@@ -1422,7 +1433,7 @@
                 return { en: v.en, title: v.name, meta: (sec.articles || []).length + " 篇", onOpen: function () { goSub({ kind: "media", id: sec.id }, "next"); } };
               }))
           }),
-          h("div", { style: { marginTop: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
+          h("div", { style: { margin: "18px 22px 0", padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 12, background: t.bg2 } },
             h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: t.fog, marginBottom: 5 } }, "ALL EDITIONS · 全部文风状态"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, color: t.fog, marginBottom: 9 } }, "每期从完整文风池轮抽三种。已出可直接翻阅；未抽中可补版；旧刊半成品会标为待修复，不再无声消失。"),
             h("div", { className: "flex flex-wrap", style: { gap: 7 } }, voiceStates.map(function (item) {
@@ -1432,14 +1443,14 @@
                 onClick: function () { if (item.state === "ready") goSub({ kind: "media", id: item.sec.id }, "next"); else addMediaVoice(v); },
                 className: "active:opacity-60", style: { padding: "6px 10px", borderRadius: 999, border: "1px solid " + (item.state === "broken" ? t.accent : t.line), color: item.state === "ready" ? t.sub : t.ink, fontFamily: F_BODY, fontSize: 11.5, opacity: busyUnit && !on ? .55 : 1 } }, label);
             }))),
-          h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, marginTop: 26 } }, "— 点 版 块 进 入 阅 读 —"))))));
+          h("div", { style: { textAlign: "center", fontFamily: "'Archivo',sans-serif", letterSpacing: "0.2em", fontSize: 9, color: t.line, margin: "26px 22px 42px" } }, "— 点 版 块 进 入 阅 读 —"))))));
   }
 
   // 往期书架
   function Shelf(props) {
     const t = useTheme();
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h(Head, { zh: "往期", en: "BACK ISSUES", onBack: props.onBack }),
+      h(WeeklyHead, { zh: "往期", en: "BACK ISSUES", look: SECTION_LOOK.contents, onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-16" },
         props.missed.length ? h("div", { style: { margin: "2px 0 22px", padding: "15px 14px", border: "1px solid " + t.line, borderRadius: 14, background: t.bg2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "漏刊可补"),
@@ -1528,8 +1539,9 @@
 
     // cover
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h(Head, {
+      h(WeeklyHead, {
         zh: "周刊", en: "THE WEEKLY",
+        look: SECTION_LOOK.contents,
         onBack: props.onBack,
         right: (issues.length || missed.length) ? h("button", { onClick: function () { setView("shelf"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "往期") : null
       }),

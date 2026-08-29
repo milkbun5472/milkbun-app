@@ -73,6 +73,19 @@ test("十种媒体腔与四个编辑部页面都有独立纸张皮肤", () => {
   assert.match(w, /background: L\.card/, "文章要有与纸张配套的阅读层");
 });
 
+test("周刊复用查手机式紧凑顶栏，封面整页铺开而不是纸卡套纸卡", () => {
+  const w = fs.readFileSync(path.join(__dirname, "..", "js", "weekly.js"), "utf8");
+  const issue = w.slice(w.indexOf("function IssueView"), w.indexOf("// 往期书架"));
+  const cover = w.slice(w.indexOf("function CoverPage"), w.indexOf("function RegenRow"));
+  assert.match(w, /function WeeklyHead[\s\S]*?paddingTop: safeTop\(10\)/, "紧凑顶栏必须自己吃安全区");
+  assert.doesNotMatch(w, /h\(Head, \{ zh: "周刊"/, "周刊主页不能再套通用大标题 Head");
+  assert.match(issue, /className: "flex-1 min-h-0 overflow-y-auto"/, "周刊正文要是唯一全屏滚动层");
+  assert.doesNotMatch(issue, /overflow-y-auto px-10/, "封面不能再被左右四十像素夹成卡片");
+  assert.match(cover, /width: "100%"/);
+  assert.doesNotMatch(cover, /boxShadow: "0 10px 30px/);
+  assert.doesNotMatch(cover, /border: "1px solid/);
+});
+
 // 采访轮换(2026-08-18 Lisa):每期至多 3 人，抽完一轮才允许重复；
 // 手动补的那些不算被抽过，下一轮照样能抽到。
 test("采访洗牌袋：满一轮才重复，手动补的不占轮次", () => {
