@@ -1,8 +1,10 @@
-// 身份稳定：一个人的号码、账号、住址、忌口，不该每刷一次就换一个
+// 四层手机数据模型
 //
-// 每次刷新都是整份重生成，于是他的外卖 id、微信号、收货地址、忌口刷一次换一批。
-// 那不是「手机在被使用」，那是「每次都换了个人」。
-// 判据：这一栏这周和上周不一样，是「他变了」还是「系统忘了」？是后者的就该钉死。
+//   🔒 硬钉死 PHONE_STICKY —— 号码、账号 id、过敏和真忌口。变了就等于换了个人。
+//   🌱 缓慢演化 PHONE_EVOLVE —— 昵称、签名、给她的备注、对她的评价、住址、口味偏好。
+//      默认沿用，但允许变：关系会长，人会搬家。钉死等于他永远拿第一次的眼光看她。
+//   📚 累积日志 PHONE_GROW —— 发生过的事。
+//   ♻️ 当前快照（不登记）—— 只表示此刻，名册必须能出。
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -10,106 +12,159 @@ const path = require("node:path");
 
 const phoneSrc = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf8");
 const appSrc = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-const P = new Function(phoneSrc + "; return { PHONE_STICKY, phoneKeepIdentity, phoneIdentityBlock, phoneProbeSpec, PHONE_APPS, PHONE_LIVE_KEYS };")();
+const P = new Function(phoneSrc + "; return { PHONE_STICKY, PHONE_EVOLVE, PHONE_GROW, PHONE_EVOLVE_CHURN, phoneKeepIdentity, phoneEvolveMerge, phoneMergeSaved, phoneIdentityBlock, phoneEvolveBlock, phoneProbeSpec, PHONE_APPS, PHONE_LIVE_KEYS };")();
 const char = { name: "某人" };
 
-test("凡是有账号身份的 app 都登记了身份项，一个都没漏", () => {
-  // 「一层只写在一处，别处没跟上」是这个库反复犯的病。有 me/account/archive
-  // 这种身份块的 app，必须都在 PHONE_STICKY 里有一行。
+// ── 🔒 硬钉死 ──────────────────────────────────────────────
+
+test("🔒 只收真·身份：号码、账号 id、过敏与真忌口", () => {
+  // 判据：这一栏变了，是「他变了」还是「系统忘了」？只有换个人才会变的才进这层。
+  const flat = Object.keys(P.PHONE_STICKY).reduce((a, k) => a.concat(P.PHONE_STICKY[k]), []);
+  flat.forEach(pt => assert.ok(
+    /(uid|Id|number|avoidTags)$/.test(pt),
+    pt + " 不该硬钉死——它会随关系和生活变，属于 🌱"));
+});
+
+test("🔒 刷新之后账号 id 和真忌口原样留着", () => {
+  const old = { account: { uid: "1043827", name: "旧昵称" }, taste: { avoidTags: ["生姜丝"], likeTags: ["羊肉"] } };
+  const gen = { account: { uid: "9999999", name: "新昵称" }, taste: { avoidTags: ["香菜"], likeTags: ["牛肉"] } };
+  const out = P.phoneKeepIdentity("takeout", old, gen);
+  assert.equal(out.account.uid, "1043827");
+  assert.deepEqual(out.taste.avoidTags, ["生姜丝"], "过敏和真忌口是身体的事，不是心情");
+  // 🌱 那几项这一层不管
+  assert.equal(out.account.name, "新昵称");
+  assert.deepEqual(out.taste.likeTags, ["牛肉"]);
+});
+
+// ── 🌱 缓慢演化 ────────────────────────────────────────────
+
+test("🌱「对你的评价」绝不许硬钉死", () => {
+  // 钉死等于关系长了他还拿第一次见面的眼光看你（Codex 2026-08-29 指出，是我做错了）
+  assert.ok(P.PHONE_STICKY.wechat.indexOf("userContact") < 0, "对你的评价被硬钉死了");
+  assert.ok(P.PHONE_EVOLVE.wechat.indexOf("userContact") >= 0, "对你的评价该在 🌱 层");
+  // 备注、昵称、签名同理：恋爱、吵架、和好都会改
+  ["me.wechatName", "me.signature"].forEach(pt =>
+    assert.ok(P.PHONE_EVOLVE.wechat.indexOf(pt) >= 0, pt + " 该在 🌱 层"));
+});
+
+test("🌱 地址不许硬钉死——会搬家，也会多出「她家」那一条", () => {
+  ["shopping", "takeout"].forEach(k => {
+    assert.ok((P.PHONE_STICKY[k] || []).indexOf("addrs") < 0, k + " 的地址被硬钉死了");
+    assert.ok(P.PHONE_EVOLVE[k].indexOf("addrs") >= 0, k + " 的地址该在 🌱 层");
+  });
+});
+
+test("🌱 口味要拆：过敏/真忌口硬钉死，喜欢什么和预算习惯可以变", () => {
+  assert.ok(P.PHONE_STICKY.takeout.indexOf("taste.avoidTags") >= 0);
+  ["taste.spicyTags", "taste.likeTags", "taste.budget", "taste.habit"].forEach(pt =>
+    assert.ok(P.PHONE_EVOLVE.takeout.indexOf(pt) >= 0, pt + " 该在 🌱 层"));
+  // 整块 taste 不许再出现在任何一层里（那样就分不开了）
+  assert.ok(P.PHONE_STICKY.takeout.indexOf("taste") < 0 && P.PHONE_EVOLVE.takeout.indexOf("taste") < 0);
+});
+
+test("🌱 模型没给的不许把旧值抹掉", () => {
+  const old = { me: { wechatName: "屿", signature: "旧签名" }, userContact: { name: "Lisa", remark: "L" } };
+  const out = P.phoneEvolveMerge("wechat", old, { me: { wechatName: "" }, userContact: null });
+  assert.equal(out.me.wechatName, "屿");
+  assert.deepEqual(out.userContact, old.userContact);
+});
+
+test("🌱 一次刷新最多真改动两项，多的回填旧值", () => {
+  // 光靠提示词说「别乱改」只是降概率，模型高兴起来能把六项一起换掉，
+  // 那 🌱 就退化成 ♻️ 了。代码这一道是保证。
+  assert.equal(P.PHONE_EVOLVE_CHURN, 2);
+  const old = { account: { name: "甲", member: "乙", style: "丙", persona: "丁" }, addrs: [{ label: "戊" }], habit: { budget: "己" } };
+  const gen = { account: { name: "A", member: "B", style: "C", persona: "D" }, addrs: [{ label: "E" }], habit: { budget: "F" } };
+  const out = P.phoneEvolveMerge("shopping", old, gen);
+  const paths = ["account.name", "account.member", "account.style", "account.persona"];
+  const changed = paths.filter(pt => pt.split(".").reduce((o, k) => o[k], out) !== pt.split(".").reduce((o, k) => o[k], old)).length
+    + (out.addrs[0].label === "E" ? 1 : 0) + (out.habit.budget === "F" ? 1 : 0);
+  assert.equal(changed, P.PHONE_EVOLVE_CHURN, "改动没被收口，实际改了 " + changed + " 项");
+});
+
+test("🌱 以前压根没有的那一项，随新的（别留空洞）", () => {
+  const out = P.phoneEvolveMerge("wechat", { me: {} }, { me: { wechatName: "刚长出来的" } });
+  assert.equal(out.me.wechatName, "刚长出来的");
+});
+
+test("🌱 和 🔒 一起生效，互不干扰", () => {
+  const old = { account: { uid: "111", name: "老昵称" }, orders: [{ shop: "上一轮的店", time: "8月20日 12:00" }] };
+  const gen = { account: { uid: "999", name: "新昵称" }, orders: [{ shop: "这一轮的店", time: "今天 12:00" }] };
+  const out = P.phoneMergeSaved("takeout", old, gen, new Date(2026, 7, 29, 15, 0).getTime());
+  assert.equal(out.account.uid, "111", "🔒 没钉住");
+  assert.equal(out.account.name, "新昵称", "🌱 不该被钉死");
+  assert.deepEqual(Array.from(out.orders, x => x.shop), ["这一轮的店", "上一轮的店"], "📚 没攒上");
+});
+
+// ── ♻️ 名册必须能出 ────────────────────────────────────────
+
+test("♻️ 名册不许累积：常联系、黑名单、关注列表", () => {
+  // 常联系的人会换，拉黑的也可能被放出来。累积等于黑名单只进不出，攒成坟场。
+  [["calls", "frequent"], ["calls", "blocked"], ["liked", "follows"]].forEach(([app, f]) =>
+    assert.ok(!(P.PHONE_GROW[app] && P.PHONE_GROW[app][f]),
+      app + "." + f + " 是名册（现在有哪些），不该累积"));
+  // 日志那几条还在
+  [["calls", "calls"], ["calls", "sms"], ["calls", "voicemail"], ["liked", "items"]].forEach(([app, f]) =>
+    assert.ok(P.PHONE_GROW[app][f] > 0, app + "." + f + " 是日志，该累积"));
+});
+
+test("同一条路径不许同时登记在两层里", () => {
+  Object.keys(P.PHONE_EVOLVE).forEach(k => {
+    const st = P.PHONE_STICKY[k] || [];
+    P.PHONE_EVOLVE[k].forEach(pt =>
+      assert.ok(st.indexOf(pt) < 0, k + "." + pt + " 同时在 🔒 和 🌱 里，行为不确定"));
+  });
+});
+
+test("凡是有账号身份的 app，🔒 和 🌱 至少各占一条", () => {
   const { FIXTURES } = require("./helpers/phone-render.js");
-  const hasIdentity = k => {
-    const d = FIXTURES[k];
-    return !!(d && (d.me || d.account || d.archive));
-  };
   P.PHONE_APPS.map(a => a.key)
     .filter(k => P.PHONE_LIVE_KEYS.indexOf(k) < 0)
-    .filter(hasIdentity)
-    .forEach(k => assert.ok(P.PHONE_STICKY[k] && P.PHONE_STICKY[k].length, k + " 有账号身份却没登记进 PHONE_STICKY，刷一次换一个号"));
+    .filter(k => { const d = FIXTURES[k]; return !!(d && (d.me || d.account || d.archive)); })
+    .forEach(k => assert.ok((P.PHONE_STICKY[k] || []).length,
+      k + " 有账号身份却没登记 🔒，刷一次换一个号"));
 });
 
-test("刷新之后号码、账号、住址、忌口原样留着", () => {
-  const old = {
-    account: { name: "只买合用的", uid: "1043827", member: "常客", persona: "买东西极快", monthSpend: 100 },
-    addrs: [{ label: "家", detail: "老地方", isDefault: true }],
-    taste: { avoidTags: ["生姜丝"] },
-    orders: [{ shop: "旧的店", time: "上周" }]
-  };
-  const gen = {
-    account: { name: "另起的名", uid: "9999999", member: "新会员", persona: "完全另一个人", monthSpend: 250 },
-    addrs: [{ label: "别处", detail: "新编的地址", isDefault: true }],
-    taste: { avoidTags: ["香菜"] },
-    orders: [{ shop: "新的店", time: "今天" }]
-  };
-  const out = P.phoneKeepIdentity("takeout", old, gen);
-  assert.equal(out.account.name, "只买合用的");
-  assert.equal(out.account.uid, "1043827");
-  assert.equal(out.account.member, "常客");
-  assert.equal(out.account.persona, "买东西极快");
-  assert.deepEqual(out.addrs, old.addrs, "收货地址被换掉了");
-  assert.deepEqual(out.taste, old.taste, "忌口被换掉了");
-  // 痕迹层照常更新——身份钉死不等于整个 app 冻住
-  assert.equal(out.orders[0].shop, "新的店");
-  assert.equal(out.account.monthSpend, 250, "本月消费是会变的，不该被钉住");
+// ── 两块都要喂回提示词 ──────────────────────────────────────
+
+test("🔒 和 🌱 用不同的说法发回去", () => {
+  const known = { account: { uid: "1043827", name: "只买合用的" }, addrs: [{ label: "家", detail: "老地方" }],
+    taste: { avoidTags: ["生姜丝"], likeTags: ["羊肉"] } };
+  const lock = P.phoneIdentityBlock("takeout", known);
+  const grow = P.phoneEvolveBlock("takeout", known);
+  assert.match(lock, /1043827/);
+  assert.match(lock, /一个字都不要改/);
+  assert.ok(lock.indexOf("老地方") < 0, "地址不该出现在 🔒 那一段");
+  assert.match(grow, /老地方/);
+  assert.match(grow, /只买合用的/);
+  assert.match(grow, /不是永远不能变/, "🌱 那段要说清楚它可以变");
+  assert.match(grow, /最多动其中一两项/);
+  // 都拼进了推演任务
+  const ins = P.phoneProbeSpec("takeout", char, [], "", [], known).instruction;
+  assert.ok(ins.indexOf("1043827") > 0 && ins.indexOf("老地方") > 0);
+  assert.ok(P.phoneProbeSpec("takeout", char, [], "", []).instruction.indexOf("1043827") < 0);
 });
 
-test("第一次生成（还没有旧数据）原样收下，不留空洞", () => {
-  const gen = { account: { name: "刚长出来的", uid: "1" }, orders: [] };
-  assert.deepEqual(P.phoneKeepIdentity("takeout", null, gen), gen);
-  assert.deepEqual(P.phoneKeepIdentity("takeout", {}, gen), gen);
-  // 旧那份里这一项是空的，就用新的——别拿空值把刚生成的好内容盖掉
-  const out = P.phoneKeepIdentity("takeout", { account: { name: "", uid: null }, addrs: [] }, gen);
-  assert.equal(out.account.name, "刚长出来的");
-  assert.equal(out.account.uid, "1");
+test("两处生成调用都把旧那份传过去了", () => {
+  const calls = (appSrc.match(/^.*phoneProbeSpec\(.*$/gm) || []);
+  assert.ok(calls.length >= 2, "找不到两处生成调用");
+  calls.forEach(c => assert.match(c, /avoid, known,/, "这处没把身份传过去：" + c.trim().slice(0, 100)));
+  assert.equal((appSrc.match(/const known = /g) || []).length, 2, "两处调用点都要各自读一次 known");
 });
 
-test("没登记身份项的 app 原样通过", () => {
-  const gen = { items: [1, 2] };
-  assert.deepEqual(P.phoneKeepIdentity("notes", { items: [3] }, gen), gen);
-  assert.deepEqual(P.phoneKeepIdentity("不存在的app", { x: 1 }, gen), gen);
+test("存进去之前代码把四层按顺序走一遍（规则降概率，代码才保证）", () => {
+  const m = appSrc.match(/const savePhoneApp = \(charId, key, d\) => \{[\s\S]*?\n  \};/);
+  assert.ok(m);
+  assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, Date\.now\(\)\)/);
+  assert.match(phoneSrc, /function phoneMergeSaved[\s\S]{0,400}phoneEvolveMerge\(appKey, oldData, phoneKeepIdentity\(appKey, oldData, newData\)\)/,
+    "四层顺序不对：必须 🔒 → 🌱 → 📚");
 });
 
 test("脏数据不炸", () => {
   for (const [o, n] of [[null, null], [{}, null], ["字符串", { a: 1 }], [{ account: "不是对象" }, { account: { name: "x" } }], [[], {}]]) {
     assert.doesNotThrow(() => P.phoneKeepIdentity("takeout", o, n));
+    assert.doesNotThrow(() => P.phoneEvolveMerge("takeout", o, n));
   }
-});
-
-test("钉死的身份要发回提示词，否则新内容跟它对不上", () => {
-  // 光在存的时候盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
-  // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  const known = { account: { name: "只买合用的", uid: "1043827" }, addrs: [{ label: "家", detail: "老地方" }] };
-  const blk = P.phoneIdentityBlock("takeout", known);
-  assert.match(blk, /只买合用的/);
-  assert.match(blk, /1043827/);
-  assert.match(blk, /老地方/);
-  assert.match(blk, /原样沿用/);
-  // 第一次生成时不该多出这一段
   assert.equal(P.phoneIdentityBlock("takeout", null), "");
-  assert.equal(P.phoneIdentityBlock("notes", { items: [] }), "");
-  // 真的拼进了推演任务
-  const spec = P.phoneProbeSpec("takeout", char, [], "", [], known);
-  assert.ok(spec.instruction.indexOf("1043827") > 0, "身份没拼进 instruction");
-  assert.ok(P.phoneProbeSpec("takeout", char, [], "", []).instruction.indexOf("1043827") < 0);
-});
-
-test("两次生成的调用点都把旧那份传过去了", () => {
-  // 单刷和全刷是两处。「一层只写在一处，别处没跟上」——全刷漏了的话，
-  // 点一次「刷新全部」他就换了个人，而单刷看起来一切正常。
-  // 注意别用 /phoneProbeSpec\([^)]*\)/ 去抓——参数里有 relatedNames(char)，
-  // 第一个右括号就把匹配截断了，抓到的永远是半句。整行取。
-  const calls = (appSrc.match(/^.*phoneProbeSpec\(.*$/gm) || []);
-  assert.ok(calls.length >= 2, "找不到两处生成调用");
-  calls.forEach(c => assert.match(c, /avoid, known,/, "这处没把身份传过去：" + c.trim().slice(0, 100)));
-  // known 必须走 ref：全刷是一个 app 接一个写的，闭包里的 phones 会是旧的
-  assert.match(appSrc, /const known = \(\(phonesRef\.current \|\| \{\}\)\[char\.id\] \|\| \{\}\)\[key\]/);
-  const m = appSrc.match(/const known = /g) || [];
-  assert.equal(m.length, 2, "两处调用点都要各自读一次 known");
-});
-
-test("存进去之前代码再盖一道（规则降概率，代码才保证）", () => {
-  const m = appSrc.match(/const savePhoneApp = \(charId, key, d\) => \{[\s\S]*?\n  \};/);
-  assert.ok(m);
-  // v57.67 起身份和累积合到 phoneMergeSaved 一路里（它内部先 phoneKeepIdentity 再并日志）
-  assert.match(m[0], /phoneMergeSaved\(key, cur\[key\], d, Date\.now\(\)\)/, "写入时没把身份盖回来——模型漏抄一次地址就变了");
-  assert.match(phoneSrc, /function phoneMergeSaved[\s\S]{0,240}phoneKeepIdentity\(appKey, oldData, newData\)/, "合并那一路里没调身份保留");
+  assert.equal(P.phoneEvolveBlock("notes", { items: [] }), "");
 });

@@ -265,32 +265,55 @@ function phoneMoneyBlock(appKey, money) {
   return out;
 }
 
-// ─────────────────────────────────────────────────────────────
-// 身份层：一个人的号码、账号、住址、忌口，不该每刷一次就换一个
-// ─────────────────────────────────────────────────────────────
-// 每次刷新都是整份重生成，于是他的外卖 id、微信号、收货地址、忌口，刷一次换一批。
-// 那不是「手机在被使用」，那是「每次都换了个人」。
+// ═════════════════════════════════════════════════════════════
+// 四层手机数据模型
+// ═════════════════════════════════════════════════════════════
+// 刷新是整份重生成。什么该保、什么该换，不是一个开关，是【四层】：
 //
-// 所以把每个 app 拆成两层：
-//   · 身份层——号码、账号、昵称、住址、长期口味。第一次长出来就钉死，之后只沿用。
-//   · 痕迹层——聊天、搜索、订单、便签。每次刷新写新的，那才是「最近发生了什么」。
+//   🔒 硬钉死 PHONE_STICKY —— 除非手动改，永远不变。身份证一样的东西：
+//      号码、账号 id、过敏和真忌口。这些变了就等于换了个人。
+//   🌱 缓慢演化 PHONE_EVOLVE —— 默认原样沿用，但允许变。昵称、签名、
+//      给她的备注、对她的评价、住址、消费习惯、口味偏好。
+//      **不许硬钉死**：关系会长，人会搬家，评价会变——钉死等于他永远拿
+//      第一次见面的眼光看她（Codex 2026-08-29 指出，是我做错了）。
+//   📚 累积日志 PHONE_GROW —— 发生过的事，新旧合并去重，满了挤掉最旧的。
+//   ♻️ 当前快照（不登记 = 默认）—— 只表示此刻：购物车、在途、开着的标签页、
+//      今天的健康、常联系人、黑名单、关注列表。
 //
-// 钉死之后还要【喂回提示词】：不然模型不知道他的收货地址是哪儿，写出来的订单
-// 会送去另一个地方，界面上一半是钉死的旧地址、一半是新编的，比不钉更乱。
-//
-// 判据：这一栏如果这周和上周不一样，是「他变了」还是「系统忘了」？
-// 是后者的，就该钉死。忌口和常去的店属于后者——人不会每周换一次忌口。
+// 判据两问：
+//   一、这一栏变了，是「他变了」还是「系统忘了」？系统忘了 → 🔒 或 🌱。
+//   二、它说的是「发生过什么」还是「现在有哪些」？
+//       发生过 → 📚（只进不出是对的，发生过就是发生过）；
+//       现在有哪些 → ♻️（名册必须能出，只进不出的黑名单是坟场）。
 const PHONE_STICKY = {
-  wechat: ["me.wechatName", "me.wechatId", "me.signature", "userContact"],
+  wechat: ["me.wechatId"],
   calls: ["me.number"],
-  browser: ["me.name", "me.uid"],
-  shopping: ["account.name", "account.uid", "account.member", "account.persona", "account.style", "addrs", "habit"],
-  takeout: ["account.name", "account.uid", "account.member", "account.persona", "addrs", "taste"],
-  liked: ["me.name", "me.xhsId", "me.bio", "me.tag"],
-  bili: ["me.name", "me.uid"],
+  browser: ["me.uid"],
+  shopping: ["account.uid"],
+  // 过敏和真忌口属于身份：那是身体的事，不是心情
+  takeout: ["account.uid", "taste.avoidTags"],
+  liked: ["me.xhsId"],
+  bili: ["me.uid"],
   latenight: ["me.uid"],
-  reading: ["archive.name", "archive.uid"]
+  reading: ["archive.uid"]
 };
+// 🌱 默认沿用、允许变。跟 ♻️ 的区别：♻️ 每次照实重写，🌱 要有理由才动。
+const PHONE_EVOLVE = {
+  // 「对你的评价」尤其不能钉死——钉死就是关系长了他还拿第一次的眼光看你
+  wechat: ["me.wechatName", "me.signature", "userContact"],
+  browser: ["me.name"],
+  // 地址也不能钉死：会搬家，也会多出「她家」这一条
+  shopping: ["account.name", "account.member", "account.style", "account.persona", "addrs", "habit"],
+  takeout: ["account.name", "account.member", "account.persona", "addrs",
+    "taste.spicyTags", "taste.likeTags", "taste.budget", "taste.habit"],
+  liked: ["me.name", "me.bio", "me.tag"],
+  bili: ["me.name"],
+  reading: ["archive.name", "archive.favorite"]
+};
+// 一次刷新最多允许几项 🌱 真的改动。光靠提示词说「别乱改」只是降概率，
+// 模型高兴起来能把六项一起换掉——那 🌱 就退化成 ♻️ 了。超出的按旧值回填。
+const PHONE_EVOLVE_CHURN = 2;
+
 const phoneGetPath = (obj, path) => String(path || "").split(".").reduce((o, k) => (o && typeof o === "object") ? o[k] : undefined, obj);
 const phoneSetPath = (obj, path, val) => {
   const ks = String(path || "").split(".");
@@ -302,7 +325,9 @@ const phoneSetPath = (obj, path, val) => {
   cur[ks[ks.length - 1]] = val;
 };
 const phoneHasVal = v => !(v == null || v === "" || (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && !Object.keys(v).length));
-// 新生成的那份 + 旧那份里的身份 = 存进去的那份
+const phoneSame = (a, b) => { try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return a === b; } };
+
+// 🔒 新生成的那份 + 旧那份里的硬身份 = 存进去的那份
 function phoneKeepIdentity(appKey, oldData, newData) {
   const paths = PHONE_STICKY[appKey];
   if (!paths || !oldData || !newData || typeof newData !== "object") return newData;
@@ -313,7 +338,24 @@ function phoneKeepIdentity(appKey, oldData, newData) {
   });
   return out;
 }
-// 钉死的身份要喂回提示词，否则模型编的内容跟钉死的对不上
+// 🌱 空的不许把旧值抹掉；真改动一次最多 PHONE_EVOLVE_CHURN 项，超出的回填旧值
+function phoneEvolveMerge(appKey, oldData, newData) {
+  const paths = PHONE_EVOLVE[appKey];
+  if (!paths || !oldData || !newData || typeof newData !== "object") return newData;
+  const out = JSON.parse(JSON.stringify(newData));
+  let changed = 0;
+  paths.forEach(pt => {
+    const oldV = phoneGetPath(oldData, pt);
+    const newV = phoneGetPath(out, pt);
+    if (!phoneHasVal(oldV)) return;                    // 以前就没有，随新的
+    if (!phoneHasVal(newV)) { phoneSetPath(out, pt, oldV); return; }  // 模型没给，别抹掉
+    if (phoneSame(oldV, newV)) return;                  // 没动
+    changed++;
+    if (changed > PHONE_EVOLVE_CHURN) phoneSetPath(out, pt, oldV);   // 一次改太多，多的回填
+  });
+  return out;
+}
+// 🔒 要喂回提示词：不然模型不知道他的账号是什么，编的内容跟钉死的对不上
 function phoneIdentityBlock(appKey, oldData) {
   const paths = PHONE_STICKY[appKey];
   if (!paths || !oldData) return "";
@@ -321,15 +363,30 @@ function phoneIdentityBlock(appKey, oldData) {
   paths.forEach(pt => {
     const v = phoneGetPath(oldData, pt);
     if (!phoneHasVal(v)) return;
-    let txt;
-    if (typeof v === "string" || typeof v === "number") txt = String(v);
-    else txt = JSON.stringify(v);
+    let txt = (typeof v === "string" || typeof v === "number") ? String(v) : JSON.stringify(v);
     if (txt.length > 300) txt = txt.slice(0, 300) + "…";
     lines.push("- " + pt + "：" + txt);
   });
   if (!lines.length) return "";
-  return "\n\n【这些是他早就定下来的，原样沿用，一个字都不要改】\n" + lines.join("\n")
-    + "\n新写的内容必须和上面这些对得上（地址、账号、称呼、忌口都照这份来）。这几项照抄回你的输出里，别另编一份。";
+  return "\n\n【这几项是他的身份，原样照抄回来，一个字都不要改】\n" + lines.join("\n");
+}
+// 🌱 也要喂回去，但说法不一样：默认沿用，有理由才改，一次别改一片
+function phoneEvolveBlock(appKey, oldData) {
+  const paths = PHONE_EVOLVE[appKey];
+  if (!paths || !oldData) return "";
+  const lines = [];
+  paths.forEach(pt => {
+    const v = phoneGetPath(oldData, pt);
+    if (!phoneHasVal(v)) return;
+    let txt = (typeof v === "string" || typeof v === "number") ? String(v) : JSON.stringify(v);
+    if (txt.length > 300) txt = txt.slice(0, 300) + "…";
+    lines.push("- " + pt + "：" + txt);
+  });
+  if (!lines.length) return "";
+  return "\n\n【这几项是他现在的样子，默认照抄回来】\n" + lines.join("\n")
+    + "\n它们不是永远不能变——**关系真的变了、他真的搬了家、口味真的换了，就该跟着变**。"
+    + "但一次刷新最多动其中一两项，而且改了的那项要能说得出为什么改。**没有理由就原样抄回来。**"
+    + "\n新写的内容必须和上面这些对得上（地址、账号、称呼、口味都照这份来），别另编一份。";
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -351,12 +408,15 @@ function phoneIdentityBlock(appKey, oldData) {
 const PHONE_GROW = {
   wechat: { chats: 14, moments: 14, contacts: 24, "me.accounts": 12 },
   notes: { items: 24 },
-  calls: { calls: 30, sms: 20, voicemail: 12, frequent: 12, blocked: 10 },
+  // ⚠️常联系和黑名单是【名册】不是日志：常联系的人会换，拉黑的也可能被放出来。
+  // 累积等于黑名单只进不出，攒成一座坟场（Codex 2026-08-29 指出）。它们走 ♻️。
+  calls: { calls: 30, sms: 20, voicemail: 12 },
   browser: { searches: 44, marks: 14, private: 10 },
   shopping: { orders: 36, wish: 24, viewed: 24, shops: 18, gifts: 20 },
   takeout: { orders: 36, shops: 18, wish: 16, together: 16 },
   album: { items: 80 },
-  liked: { items: 36, mine: 16, drafts: 12, follows: 20 },
+  // follows 同理是名册——会取关。drafts 暂留累积（草稿的退出机制另做）。
+  liked: { items: 36, mine: 16, drafts: 12 },
   bili: { items: 34 },
   latenight: { items: 34 },
   clipboard: { items: 24 },
@@ -368,9 +428,10 @@ const PHONE_GROW = {
 // 知道这不是漏了：
 //   browser.tabs（现在开着哪些）、shopping.cart / shopping.shipping（购物车与在途）、
 //   takeout.today / takeout.live（今天这单与在途）、takeout.week（本周吃了什么）、
-//   health.*（今天的身体状况，每天重算）、reading.shelves（一整架书是重排的）、
-//   *.coupons（会过期）、*.account.month* / points（本月统计）、
-//   latenight.me.lastAt / note（上次是什么时候）
+//   health.*（今天的身体状况，每天重算）、*.coupons（会过期）、
+//   *.account.month* / points（本月统计）、latenight.me.lastAt / note、
+//   calls.frequent / calls.blocked（常联系与黑名单是名册，会换人也会放人出来）、
+//   liked.follows（会取关）
 const PHONE_TIME_FIELDS = ["time", "date", "savedAt", "lastAt"];
 const phoneTimeField = x => (x && typeof x === "object") ? PHONE_TIME_FIELDS.find(k => typeof x[k] === "string" && x[k].trim()) : undefined;
 // 一行的身份：由内容决定，不用模型自己编的 id（那玩意儿每次都变，或者反过来撞车）
@@ -444,6 +505,19 @@ function phoneMergeShelves(oldData, newData, nowTs) {
   newSh.forEach(sh => { if (sh && sh.name && !used[String(sh.name)]) out.push(sh) });
   return { ...newData, shelves: out.slice(0, PHONE_SHELF_CAP) };
 }
+// 相册的「最近删除」是个回收站，不是相簿：iOS 里 30 天就自动清空。
+// 累积层不管的话，删掉的照片会永远躺在那儿，越攒越多（Codex 2026-08-29 指出）。
+const PHONE_TRASH_DAYS = 30;
+function phoneExpireTrash(data, nowTs) {
+  if (!data || !Array.isArray(data.items)) return data;
+  const floor = (nowTs || Date.now()) - PHONE_TRASH_DAYS * 86400000;
+  const kept = data.items.filter(x => {
+    if (!x || x.category !== "deleted") return true;
+    const ts = x._ts != null ? x._ts : phoneWhenTs(x.date, nowTs);
+    return ts == null || ts >= floor;      // 认不出日期的留着，不瞎删
+  });
+  return kept.length === data.items.length ? data : { ...data, items: kept };
+}
 function phoneGrowMerge(appKey, oldData, newData, nowTs) {
   if (appKey === "reading") return phoneMergeShelves(oldData, newData, nowTs);
   const conf = PHONE_GROW[appKey];
@@ -456,11 +530,14 @@ function phoneGrowMerge(appKey, oldData, newData, nowTs) {
     if (!Array.isArray(fresh) && !Array.isArray(old)) return;
     phoneSetPath(out, field, phoneGrowList(fresh, old, conf[field], now));
   });
-  return out;
+  return appKey === "album" ? phoneExpireTrash(out, now) : out;
 }
 // 存进去的那一份：新生成的 + 沿用的身份 + 并进来的日志
 function phoneMergeSaved(appKey, oldData, newData, nowTs) {
-  return phoneGrowMerge(appKey, oldData, phoneKeepIdentity(appKey, oldData, newData), nowTs);
+  // 顺序：🔒 硬钉死盖回来 → 🌱 缓慢演化收口 → 📚 日志并进来。
+  // 剩下没登记的一律 ♻️ 照实重写。
+  return phoneGrowMerge(appKey, oldData,
+    phoneEvolveMerge(appKey, oldData, phoneKeepIdentity(appKey, oldData, newData)), nowTs);
 }
 // 同一个 app 里已经攒着的那些，回喂给模型：别把已经有的再写一遍。
 // 这跟跨 app 的 phoneAvoidBlock 是同一个形状，只是范围换成了自己。
@@ -3967,5 +4044,5 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money) 
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) };
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) };
 }

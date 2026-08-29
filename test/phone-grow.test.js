@@ -86,13 +86,16 @@ test("日志类的都登记了，别漏", () => {
   });
 });
 
-test("身份和累积一起生效，互不干扰", () => {
-  const old = { account: { name: "老账号", uid: "111" }, orders: [{ shop: "上一轮的店", time: "8月20日 12:00" }] };
-  const gen = { account: { name: "模型另编的", uid: "999" }, orders: [{ shop: "这一轮的店", time: "今天 12:00" }] };
+test("四层一起走：🔒 钉住、🌱 可变、📚 攒上、♻️ 重写", () => {
+  const old = { account: { uid: "111", name: "老昵称" }, cart: [{ title: "三个月前加的" }],
+    orders: [{ shop: "上一轮的店", time: "8月20日 12:00" }] };
+  const gen = { account: { uid: "999", name: "新昵称" }, cart: [{ title: "现在在车里的" }],
+    orders: [{ shop: "这一轮的店", time: "今天 12:00" }] };
   const out = P.phoneMergeSaved("takeout", old, gen, NOW);
-  assert.equal(out.account.name, "老账号", "身份没钉住");
-  assert.equal(out.account.uid, "111");
-  assert.deepEqual(Array.from(out.orders, x => x.shop), ["这一轮的店", "上一轮的店"], "日志没攒上");
+  assert.equal(out.account.uid, "111", "🔒 账号 id 没钉住");
+  assert.equal(out.account.name, "新昵称", "🌱 昵称被钉死了，关系长了他还叫原来那个名字");
+  assert.deepEqual(Array.from(out.orders, x => x.shop), ["这一轮的店", "上一轮的店"], "📚 日志没攒上");
+  assert.deepEqual(Array.from(out.cart, x => x.title), ["现在在车里的"], "♻️ 购物车该照实重写");
 });
 
 test("第一次生成、空数据、脏数据都不炸", () => {
@@ -154,14 +157,39 @@ test("阅读：书架名不再每刷一次全换，每架里的书越读越多",
   // 走 phoneMergeSaved 也接得上，且身份（阅读档案的名字/uid）照旧钉死
   const saved = R.phoneMergeSaved("reading",
     { ...old, archive: { name: "夜读客", uid: "7742019" } },
-    { ...gen, archive: { name: "模型另编的", uid: "9999" } }, NOW);
-  assert.equal(saved.archive.name, "夜读客");
+    { ...gen, archive: { name: "另起的名", uid: "9999" } }, NOW);
+  assert.equal(saved.archive.uid, "7742019", "🔒 档案 uid 没钉住");
+  assert.equal(saved.archive.name, "另起的名", "档案名归 🌱，不该被钉死");
   assert.equal(saved.shelves[0].books.length, 2);
   // 脏数据
   [[null, null], [{ shelves: "x" }, { shelves: [{ name: "a" }] }], [{ shelves: [null] }, { shelves: [] }]]
     .forEach(([o, n]) => assert.doesNotThrow(() => R.phoneMergeShelves(o, n, NOW)));
 });
 
-test("买东西的风格跟 persona 一样是长期的，不该每刷一次重掷", () => {
-  assert.ok(P.PHONE_STICKY.shopping.includes("account.style"));
+test("买东西的风格是长期的，但归 🌱 不归 🔒——人的口味会变，账号 id 不会", () => {
+  const E = new Function(phoneSrc + "; return { PHONE_EVOLVE, PHONE_STICKY };")();
+  assert.ok(E.PHONE_EVOLVE.shopping.includes("account.style"));
+  assert.ok(!E.PHONE_STICKY.shopping.includes("account.style"));
+});
+
+test("相册的「最近删除」是回收站不是相簿：过 30 天自动退出", () => {
+  const A = new Function(phoneSrc + "; return { phoneExpireTrash, PHONE_TRASH_DAYS, phoneMergeSaved };")();
+  assert.equal(A.PHONE_TRASH_DAYS, 30);
+  const day = n => "2026-" + String(new Date(NOW - n * 86400000).getMonth() + 1).padStart(2, "0") + "-" + String(new Date(NOW - n * 86400000).getDate()).padStart(2, "0") + " 12:00";
+  const out = A.phoneExpireTrash({ items: [
+    { caption: "刚删的", category: "deleted", date: day(3) },
+    { caption: "删了很久的", category: "deleted", date: day(60) },
+    { caption: "正常照片，多久都留着", category: "memory", date: day(400) },
+    { caption: "日期看不懂的删除项", category: "deleted", date: "改天" }
+  ] }, NOW);
+  const left = Array.from(out.items, x => x.caption);
+  assert.ok(left.includes("刚删的"));
+  assert.ok(!left.includes("删了很久的"), "删了两个月的还躺在回收站里");
+  assert.ok(left.includes("正常照片，多久都留着"), "只该清回收站，别动相簿");
+  assert.ok(left.includes("日期看不懂的删除项"), "认不出日期的不许瞎删");
+  // 走 phoneMergeSaved 那一路也生效
+  const saved = A.phoneMergeSaved("album",
+    { items: [{ caption: "删了很久的", category: "deleted", date: day(60) }] },
+    { items: [{ caption: "新照片", category: "memory", date: day(1) }] }, NOW);
+  assert.ok(!Array.from(saved.items, x => x.caption).includes("删了很久的"));
 });
