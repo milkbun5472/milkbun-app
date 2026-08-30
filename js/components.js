@@ -986,6 +986,13 @@ function MusicWidget({ listen, player, onOpen, homeSize }) {
         : h("div", { style: { width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "10px solid " + t.ink, marginLeft: 2 } })));
 }
 // 全局悬浮迷你播放器：所有界面（含主屏）都浮着；可拖动换位置（存 x_miniPos）；点一下跳回播放器
+// ⚠️层级只能是 45：比正文高（浮在所有普通界面上），但【低于半窗(z-50)和全屏 app 壳(z-60)】。
+// 她 2026-08-30 报「跑团的 ✕ 点了没反应、连确认框都不弹」——查下来不是删除坏了，是这颗
+// 药丸被她拖到了屏幕上半部，正好压在战役卡右上角的 ✕ 上：它和跑团的壳都是 zIndex 60，
+// 平级时后画的赢，于是 elementFromPoint 在那个点上返回的是播放器，手指压根碰不到 ✕。
+// （实测：✕ 中心 (353,272)，药丸停在 (142,257) 242×64 —— 正中。）
+// 悬浮小工具不许盖住整页的操作位，这是通则，不是跑团一家的事。
+const MINI_PLAYER_Z = 45;
 function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose }) {
   const t = useTheme();
   const [pos, setPos] = useState(function () { try { const s = JSON.parse(localStorage.getItem("x_miniPos")); if (s && typeof s.x === "number") return s; } catch (e) {} return null; });
@@ -1012,7 +1019,7 @@ function MiniPlayer({ song, playing, loading, onOpen, onToggle, onNext, onClose 
   const onClick = () => { if (!didDrag.current) onOpen(); };
   const place = pos ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" } : { right: 12, bottom: 84 };
   return h("div", { ref: elRef, onClick: onClick, onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
-    style: Object.assign({ position: "fixed", zIndex: 60, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
+    style: Object.assign({ position: "fixed", zIndex: MINI_PLAYER_Z, display: "flex", alignItems: "center", gap: 9, maxWidth: "78vw", touchAction: "none", cursor: "grab",
       background: "rgba(28,26,24,0.92)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderRadius: 999, padding: "6px 8px 6px 6px", boxShadow: "0 8px 26px rgba(0,0,0,0.35)" }, place) },
     h("div", { style: { flexShrink: 0, width: 38, height: 38, borderRadius: 999, background: cover ? "center/cover no-repeat url(" + cover + ")" : "radial-gradient(circle at 50% 50%, #55555c 0 36%, #2b2b30 37%)", animation: playing ? "wk-spin 9s linear infinite" : "none" } }),
     h("div", { style: { minWidth: 0, maxWidth: 118 } },
