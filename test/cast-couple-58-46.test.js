@@ -54,10 +54,6 @@ test("没填的字段照实写「—」，不冒充有值", () => {
   assert.match(cast, /cell = \(label, value, dim\)/, "空值那一格要压成灰的，跟填了的分得开");
 });
 
-test("算得出岁数就不重复写年份（一格只有 80 来 px）", () => {
-  assert.match(cast, /replace\(\/\^\\d\{4\}\[-\/\.\]\/, ""\) \+ " · " \+ age \+ "岁"/,
-    "「1997-3-15 · 29岁」会被截掉");
-});
 
 // 她 2026-08-30：「这样一个卡片还是太 plain 了……很有层次感」
 test("卡片是有层次的：书脊、装订孔、纸纹、贴上去的照片", () => {
@@ -70,6 +66,68 @@ test("卡片是有层次的：书脊、装订孔、纸纹、贴上去的照片",
   // 纸纹不许盖到书脊上（盖上去书脊就成了条纹）
   const tex = cast.slice(cast.indexOf("repeating-linear-gradient(58deg") - 240, cast.indexOf("repeating-linear-gradient(58deg"));
   assert.match(tex, /left: 8/, "纸纹盖到书脊上了");
+});
+
+// 她 2026-08-30：「生日那块显示不出来全部字段，把最右边那个笔去掉吧反正点击任意地方都能进」
+test("底部信息栏没有那支笔，三格平分", () => {
+  const strip = cast.slice(cast.indexOf('cell("TIMEZONE"'), cast.indexOf("});", cast.indexOf('cell("TIMEZONE"')));
+  assert.ok(!/IPencil/.test(strip), "那支笔又回来了，生日那格会被挤掉");
+  assert.ok(!/onEdit/.test(cast), "Cast 不该再收 onEdit——点卡片任意处就进编辑");
+  const call = app.slice(app.indexOf('screen === "cast") body'), app.indexOf('screen === "castForm"'));
+  assert.ok(!/onEdit:/.test(call), "app 那边还在递一个没人用的 onEdit");
+  assert.match(cast, /cell = \(label, value, dim\)[\s\S]{0,120}flex-1 min-w-0/, "三格得平分，不然生日又放不下");
+});
+
+test("算得出岁数就摘掉年份——公历农历都摘", () => {
+  const m = cast.match(/String\(c\.birthday\)\.replace\((\/.+?\/), "\$1"\)/);
+  assert.ok(m, "摘年份那一步没了");
+  const strip = new Function("s", "return s.replace(" + m[1] + ', "$1");');
+  assert.equal(strip("1997-3-15"), "3-15");
+  assert.equal(strip("2002/8/2"), "8/2");
+  assert.equal(strip("农历1998年腊月廿三"), "农历腊月廿三", "农历的年份也得摘，不然一格放不下");
+  assert.equal(strip("腊月廿三"), "腊月廿三", "本来就没年份的别动");
+  assert.equal(strip("3-15"), "3-15");
+});
+
+// ── 编辑档案这一页 ──────────────────────────────────────
+// 她 2026-08-30：「编辑档案里面这几块框还是很 plain 缺少设计感，背景也是纯色」
+const form = screens.slice(screens.indexOf("function CastForm("), screens.indexOf("// TIES (directed)"));
+const sect = screens.slice(screens.indexOf("function CastSection("), screens.indexOf("function Cast({"));
+
+test("这一页的底不是纯色，而且带着他自己的颜色", () => {
+  assert.match(form, /background: dossierDeskBg\(accent\)/, "还是一块纯色");
+  const desk = screens.slice(screens.indexOf("function dossierDeskBg("), screens.indexOf("function hexA("));
+  assert.ok((desk.match(/radial-gradient/g) || []).length >= 2, "那两团光没了");
+  assert.match(desk, /hexA\(a,/, "光里没有他自己的颜色，换个角色长得一模一样");
+  assert.match(desk, /repeating-linear-gradient/, "纸纹没了");
+  // 打底那层要接近中性（跟主屏同一条道理：玻璃/纸压上去会把底色放大）
+  const m = desk.match(/linear-gradient\(168deg, (#[0-9a-f]{6})[^,]*, (#[0-9a-f]{6})[^,]*, (#[0-9a-f]{6})/i);
+  assert.ok(m, "抠不出打底那层");
+  [m[1], m[2], m[3]].forEach(c => {
+    const v = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+    assert.ok(Math.max.apply(null, v) - Math.min.apply(null, v) <= 8, c + " 太黄了");
+  });
+});
+
+test("每一块分区是活页，不是白板：页签、引线、纸纹、三层影", () => {
+  assert.match(sect, /clipPath: "polygon\(50% 100%, 0 0, 100% 0\)"/, "页签底下那个豁口没了");
+  assert.match(sect, /repeating-linear-gradient\(90deg/, "抬头右边那条引线没了");
+  assert.match(sect, /left: 46, pointerEvents: "none"/, "纸纹没了，或者盖到页签上去了");
+  assert.match(sect, /background: "rgba\(255,255,255,\.42\)"/, "正文区没换一档纸色，跟抬头分不开");
+  const sh = sect.match(/boxShadow: "0 1px 2px rgba\(46,38,29,\.06\)[^"]*"/);
+  assert.ok(sh && /inset 0 1px 0/.test(sh[0]) && sh[0].split("),").length >= 3, "分区的影只剩一层了");
+});
+
+// 她 2026-08-30：「在选择底色那里加一个可以自定义颜色底块的」
+test("底色那排最后有一块自定义色", () => {
+  assert.match(form, /type: "color"/, "没有取色器");
+  assert.match(form, /onChange: e => setColor\(e\.target\.value\)/, "选了颜色没写回去");
+  assert.match(form, /const isPreset = AV_COLORS\.indexOf\(color\) >= 0;/, "分不清现在用的是预设还是自定义");
+  assert.match(form, /conic-gradient/, "自定义那块没给个一眼认得出的样子");
+  assert.match(form, /isPreset \? "none" : "2px solid " \+ t\.ink/, "用着自定义色时那块不高亮，看不出选中的是它");
+  assert.match(form, /String\(color \|\| ""\)\.toUpperCase\(\)/, "改完看不见色号");
+  // 取色器盖满那块色块本身——不许在旁边另开一个小按钮
+  assert.match(form, /position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0/);
 });
 
 // ── 情侣邀请 ────────────────────────────────────────────
