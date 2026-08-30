@@ -1525,7 +1525,11 @@ const HOME_PHOTO_FRAMES = [
   { id: "contact6", name: "胶片印样", note: "六格暗房接触印样", need: 6 },
   { id: "envelope", name: "信封夹层", note: "照片从一封信里露出来", need: 1 },
   { id: "evidence2", name: "证物档案", note: "两张照片钉进调查页", need: 2 },
-  { id: "audioPhoto", name: "留声照片", note: "一张带唱片与波形的照片", need: 1 }
+  { id: "audioPhoto", name: "留声照片", note: "一张带唱片与波形的照片", need: 1 },
+  { id: "booth4", name: "四格大头贴", note: "竖向四连的照相亭纸条", need: 4 },
+  { id: "window4", name: "窗格四联", note: "四张照片嵌进一扇窗", need: 4 },
+  { id: "postcard2", name: "旅行明信片", note: "两张带邮戳的错落卡片", need: 2 },
+  { id: "locket2", name: "双页吊坠", note: "两张心形纪念照并排收藏", need: 2 }
 ];
 function homePhotoSlotCount(frame) {
   var found = HOME_PHOTO_FRAMES.find(function (x) { return x.id === frame; });
@@ -1624,6 +1628,37 @@ function HomeDecorItem({ item, preset, now }) {
         h("div", { style: { position: "absolute", right: "3%", bottom: "7%", width: "43%", aspectRatio: "1", borderRadius: 999, background: "repeating-radial-gradient(circle,#2a2825 0 3px,#171614 3px 5px)", boxShadow: "0 6px 14px rgba(20,18,16,.28)", display: "flex", alignItems: "center", justifyContent: "center" } },
           h("div", { style: { width: "28%", height: "28%", borderRadius: 999, background: "#b95f59", border: "3px solid #e8c99f" } })),
         h("div", { style: { position: "absolute", left: "13%", right: "35%", bottom: "8%", height: 12, display: "flex", alignItems: "center", gap: 2, zIndex: 4 } }, [5, 9, 4, 11, 7, 3, 8, 5].map(function (n, i) { return h("span", { key: i, style: { flex: 1, height: n, background: "rgba(74,60,50,.62)", borderRadius: 3 } }); })));
+    } else if (frame === "booth4") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#171614" : "#d9d2c6" } },
+        h("div", { style: { position: "absolute", left: "27%", top: "3%", width: "46%", height: "94%", padding: "6px 7px 15px", display: "grid", gridTemplateRows: "repeat(4,minmax(0,1fr))", gap: 3, background: "#fffdf8", boxShadow: "0 7px 18px rgba(28,24,20,.24)", transform: "rotate(-1.5deg)" } },
+          srcs.map(function (src, i) { return photo(src, i, { minHeight: 0, border: "1px solid rgba(34,30,26,.12)" }); }),
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 4, textAlign: "center", fontFamily: "monospace", fontSize: 6, letterSpacing: ".15em", color: "#7a7065" } }, "PHOTO BOOTH")),
+        h("div", { style: { position: "absolute", right: "9%", top: "9%", width: 19, height: 38, border: "1px dashed rgba(78,66,54,.38)", borderRadius: 999, transform: "rotate(9deg)" } }));
+    } else if (frame === "window4") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, padding: 11, position: "relative", overflow: "hidden", background: dark ? "#282522" : "#ded4c2", boxShadow: "inset 0 0 0 5px rgba(91,70,48,.16)" } },
+        h("div", { style: { width: "100%", height: "100%", display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gridTemplateRows: "repeat(2,minmax(0,1fr))", gap: 7, padding: 4, background: dark ? "#4b4036" : "#f7f0e4", border: "3px solid " + (dark ? "#67584a" : "#9d8263"), boxShadow: "inset 0 0 0 2px rgba(255,255,255,.45),0 6px 13px rgba(40,31,22,.18)" } },
+          srcs.map(function (src, i) { return photo(src, i, { minWidth: 0, minHeight: 0, border: "1px solid rgba(67,50,34,.18)" }); })),
+        h("div", { style: { position: "absolute", left: "50%", top: 8, bottom: 8, width: 3, background: dark ? "#67584a" : "#9d8263", transform: "translateX(-50%)", pointerEvents: "none" } }),
+        h("div", { style: { position: "absolute", left: 8, right: 8, top: "50%", height: 3, background: dark ? "#67584a" : "#9d8263", transform: "translateY(-50%)", pointerEvents: "none" } }));
+    } else if (frame === "postcard2") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#211f1c" : "#e8dece" } },
+        [0, 1].map(function (i) {
+          var pos = i === 0 ? { left: "5%", top: "9%", transform: "rotate(-5deg)", zIndex: 1 } : { right: "4%", bottom: "8%", transform: "rotate(5deg)", zIndex: 2 };
+          return h("div", { key: i, style: Object.assign({ position: "absolute", width: "62%", height: "57%", padding: "6px 6px 15px", background: "#fffaf0", border: "1px solid rgba(92,69,43,.2)", boxShadow: "0 6px 14px rgba(36,29,22,.2)" }, pos) },
+            photo(srcs[i], i, { width: "100%", height: "100%" }),
+            h("span", { style: { position: "absolute", left: 7, bottom: 4, fontFamily: "Georgia,serif", fontSize: 7, color: "#76614d", fontStyle: "italic" } }, i ? "wish you were here" : "from somewhere"),
+            h("span", { style: { position: "absolute", right: 6, bottom: 3, width: 15, height: 12, border: "1px dashed #a56b5d", color: "#a56b5d", fontFamily: "monospace", fontSize: 6, display: "flex", alignItems: "center", justifyContent: "center" } }, "AIR"));
+        }),
+        h("div", { style: { position: "absolute", right: "8%", top: "8%", width: 31, height: 31, border: "2px solid rgba(153,77,66,.55)", borderRadius: 999, color: "rgba(153,77,66,.7)", fontFamily: "monospace", fontSize: 6, display: "flex", alignItems: "center", justifyContent: "center", transform: "rotate(12deg)" } }, "POST"));
+    } else if (frame === "locket2") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "radial-gradient(circle at 50% 45%,#332923,#171514 72%)" : "radial-gradient(circle at 50% 45%,#f3e6d0,#ddd0ba 72%)" } },
+        h("div", { style: { position: "absolute", left: "50%", top: "2%", width: 16, height: 22, border: "3px solid " + (dark ? "#ad8b55" : "#a98249"), borderRadius: 999, transform: "translateX(-50%)" } }),
+        [0, 1].map(function (i) {
+          var left = i === 0 ? "7%" : "50%";
+          return h("div", { key: i, style: { position: "absolute", left: left, top: "19%", width: "43%", height: "65%", padding: 6, background: dark ? "#8d6a3e" : "#b38a50", clipPath: "polygon(50% 8%,61% 0,78% 2%,92% 14%,100% 31%,97% 48%,86% 65%,50% 100%,14% 65%,3% 48%,0 31%,8% 14%,22% 2%,39% 0)", filter: "drop-shadow(0 6px 5px rgba(34,25,18,.24))" } },
+            photo(srcs[i], i, { width: "100%", height: "100%", clipPath: "polygon(50% 8%,62% 1%,78% 4%,91% 17%,96% 32%,92% 48%,82% 63%,50% 94%,18% 63%,8% 48%,4% 32%,9% 17%,22% 4%,38% 1%)", background: dark ? "#1c1916" : "#eee3d1" }));
+        }),
+        h("div", { style: { position: "absolute", left: "49.6%", top: "23%", bottom: "21%", width: 2, background: dark ? "rgba(224,188,116,.66)" : "rgba(119,83,38,.55)", zIndex: 4 } }));
     } else {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, position: "relative", overflow: "hidden", borderRadius: preset === "editorial" ? 0 : 7, background: dark ? "#0d0d0c" : t.bg2 } }, photo(srcs[0], 0, { width: "100%", height: "100%" }));
     }
