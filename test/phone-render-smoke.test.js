@@ -384,12 +384,14 @@ test("健康的推演任务把「按角色世界改名」和「三项要角色�
   const P = loadPhone();
   const spec = P.phoneProbeSpec("health", char, [], "", []);
   // 她 2026-08-29：「玉简传信其实是微信，他觉得王爷不用微信就改了个词」
-  assert.match(spec.instruction, /指标名要长成他世界里的样子/);
+  // v58.35 起指标项本身定死（HEALTH_SLOTS），要改的是【名字】，措辞跟着换了，意思没换
+  assert.match(spec.instruction, /这个角色的世界里真会用的名字/);
+  assert.match(spec.instruction, /换个角色还照样成立的名字，就是没改/);
   assert.match(spec.instruction, /不要照搬现代体检报告的词/);
   // 她 2026-08-29：「同一个类别每一个角色的那三个计数都是不一样的」
   assert.match(spec.instruction, /它们的名字必须是这个角色专属的，绝不能用通用标签/);
   assert.match(spec.instruction, /换个角色还照样成立的三项，就是写坏了/);
-  assert.match(spec.instruction, /cards \*\*13-16 张指标卡\*\*/);
+  assert.match(spec.instruction, /一项不多一项不少，每项写一张/);
   assert.match(spec.instruction, /timeline \*\*4-6 条\*\*/);
   assert.match(spec.instruction, /insights \*\*正好 3 条\*\*/);
   ["today", "cards", "stats", "week", "timeline", "insights", "tail"]

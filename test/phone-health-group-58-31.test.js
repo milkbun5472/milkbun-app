@@ -47,7 +47,7 @@ test("认不出来的回落到第一个 tab——宁可摆错一档，也不许�
 
 test("界面真的走这个归位函数，不是又在别处自己判一遍", () => {
   const view = grab("function HealthView(", "\nfunction ");
-  assert.match(view, /const byGroup = g => cards\.filter\(c => healthGroupOf\(c\) === g\);/,
+  assert.match(view, /const byGroup = g => cards\s*\n?\s*\.filter\(c => healthGroupOf\(c\) === g\)/,
     "分档没走 healthGroupOf，别处再判一次就又会吞卡");
   assert.ok(!/\(c\.group \|\| "body"\) === g/.test(view), "旧的那句只认三个 key 的写法还留着");
 });
@@ -56,13 +56,14 @@ test("界面真的走这个归位函数，不是又在别处自己判一遍", ()
 // 界面上多一个 tab、提示词里却没让他写这一档，那个 tab 就永远是空的
 test("私密自成一档，而且提示词真的让他写这一档", () => {
   assert.deepEqual(KEYS, ["body", "mind", "private", "intake"], "分档变了，提示词那几行得跟着改");
-  const quota = src.slice(src.indexOf("cards **13-16 张指标卡**"), src.indexOf("cards **13-16 张指标卡**") + 400);
-  assert.ok(quota.length > 40, "配额那一段找不到了");
-  KEYS.forEach(k => assert.ok(quota.indexOf(k + " **") > 0 || quota.indexOf(k + " ") > 0, "提示词里没给 " + k + " 配额"));
-  assert.match(quota, /四档都必须写满，一档都不许空着/, "没要求四档写满，私密那档十有八九又空了");
-  assert.match(src, /【private 这一档】/, "提示词里没说清 private 该写什么");
+  // v58.35 起配额由格位表接管：四档写满 = 每一档都有定死的格位（见 phone-health-slots-58-35）
+  const P2 = require("./helpers/phone-render.js").loadPhone();
+  KEYS.forEach(k => assert.ok(P2.HEALTH_SLOTS.some(x => x.group === k), k + " 这一档一个格位都没有，天生就是空的"));
+  assert.ok(P2.HEALTH_SLOTS.some(x => x.group === "private"), "私密那一档没有格位");
   // 说清楚要写成【身体的读数】，不是一段情节——不然它跟心神那档就没区别了
-  const block = src.slice(src.indexOf("【private 这一档】"), src.indexOf("【private 这一档】") + 400);
+  const mark = "【intimacy / desire / closeness 这三项】";
+  assert.ok(src.indexOf(mark) > 0, "提示词里没说清私密那几项该写什么");
+  const block = src.slice(src.indexOf(mark), src.indexOf(mark) + 400);
   assert.match(block, /写的是身体的读数，不是情节/);
   assert.match(block, /必须落在身体上、落在今天/);
 });

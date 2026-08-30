@@ -65,8 +65,8 @@ test("quote 这一栏有判据，不是光写「他自己的一句话」", () =>
 
 test("私密那一档单独钉住占有欲宣言那条路", () => {
   const ins = spec(null);
-  assert.match(ins, /【private 这一档】/);
-  assert.match(ins, /占有欲宣言和狠话/, "私密那档最容易滑的就是这个，没钉住");
+  assert.match(ins, /【intimacy \/ desire \/ closeness 这三项】/);
+  assert.match(ins, /占有欲宣言和狠话/, "私密那几项最容易滑的就是这个，没钉住");
   assert.match(ins, /那是网文腔，不是他/);
 });
 

@@ -2598,6 +2598,35 @@ const HEALTH_GROUPS = [
   { key: "private", zh: "私密", glyph: "latenight" },
   { key: "intake", zh: "摄入", glyph: "takeout" }
 ];
+// ── 固定的指标格位 ────────────────────────────────────────────
+// 她 2026-08-30：「改一下每一个人的数据类型统一一下不然有点抽象，统一了但是实际名称
+// 可以跟人设改」。所以这里定死【有哪几项、各归哪一档、谁占整宽】，
+// 而每一项【叫什么名字】仍旧由模型按角色的世界起——王爷的「步数」可以叫别的，
+// 但它还是那一项，还是在体征那一档、还是排在同一个位置。
+// slot 是不翻译的机器 key；zh 是这一项的标准含义，只在角色给它改了名时当小字副标题露出来。
+const HEALTH_SLOTS = [
+  { slot: "sleep",     zh: "睡眠质量",     group: "body",    wide: true },
+  { slot: "workout",   zh: "运动质量",     group: "body" },
+  { slot: "steps",     zh: "步数",         group: "body" },
+  { slot: "hr",        zh: "心率",         group: "body" },
+  { slot: "burn",      zh: "活动消耗",     group: "body" },
+  { slot: "recovery",  zh: "恢复指数",     group: "body" },
+  { slot: "mood",      zh: "情绪状态",     group: "mind",    wide: true },
+  { slot: "screen",    zh: "屏幕使用",     group: "mind" },
+  { slot: "mindful",   zh: "正念冥想",     group: "mind" },
+  { slot: "social",    zh: "社交能量",     group: "mind" },
+  { slot: "intimacy",  zh: "私密生理状态", group: "private", wide: true },
+  { slot: "desire",    zh: "欲念起伏",     group: "private" },
+  { slot: "closeness", zh: "亲近时的反应", group: "private" },
+  { slot: "water",     zh: "饮水",         group: "intake" },
+  { slot: "nutrition", zh: "饮食营养",     group: "intake" },
+  { slot: "calories",  zh: "摄入与消耗",   group: "intake",  wide: true }
+];
+const HEALTH_SLOT_MAP = HEALTH_SLOTS.reduce((o, x, i) => (o[x.slot] = { ...x, order: i }, o), {});
+const healthSlotOf = c => {
+  const k = String((c && c.slot) || "").trim().toLowerCase();
+  return HEALTH_SLOT_MAP[k] || null;
+};
 // 模型不一定按 key 回：会写中文（「心神」「摄入」）、写英文近义词（mood/private/diet），
 // 也会照着提示词里那句「私密的身体反应」直接回 group:"私密"。
 // 旧写法是拿 group 直接跟这三个 key 比 —— 别的一律【一张都不显示】：
@@ -2617,6 +2646,9 @@ const HEALTH_GROUP_ALIAS = (() => {
 })();
 // 认得出来就归位；认不出来的一律回落到第一个 tab——宁可摆错一档，也不许整张卡消失
 const healthGroupOf = c => {
+  // 格位是定死的：认得出 slot 就按格位归档，模型的 group 字段说什么都不算
+  const sl = healthSlotOf(c);
+  if (sl) return sl.group;
   const raw = String((c && c.group) || "").trim().toLowerCase();
   if (!raw) return "body";
   if (HEALTH_GROUPS.some(g => g.key === raw)) return raw;
@@ -2657,6 +2689,10 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: HEALTH_DIM } }, x.k || ""),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: HEALTH_INK, marginTop: 3 } }, x.v || ""))));
   };
+  // 角色给这一项改了名之后，底下用小字标一句它到底是哪一项——
+  // 不然「今日行脚」是步数还是活动消耗，只有模型自己知道（她要的「统一」就是为了这个）
+  const stdSub = c => (c._zh && String(c.name || "").trim() !== c._zh)
+    ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: HEALTH_DIM, marginTop: 3 } }, c._zh) : null;
   const metricCard = (c, i, narrow) => {
     const hue = hueOf(i);
     return h("div", { key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13, flex: narrow ? 1 : "none", minWidth: 0 } },
@@ -2672,12 +2708,15 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
                 h("div", { style: { width: 30, height: 30, borderRadius: 10, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
                   h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
                 c.score != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.35, color: HEALTH_INK, marginTop: 9, wordBreak: "break-word" } }, c.name || ""))
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.35, color: HEALTH_INK, marginTop: 9, wordBreak: "break-word" } }, c.name || ""),
+              stdSub(c))
           : h("div", { className: "flex items-start justify-between gap-3" },
               h("div", { className: "flex items-start gap-2.5", style: { flex: 1, minWidth: 0 } },
                 h("div", { style: { width: 32, height: 32, borderRadius: 10, flexShrink: 0, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
                   h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
-                h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: HEALTH_INK, wordBreak: "break-word" } }, c.name || "")),
+                h("div", { style: { flex: 1, minWidth: 0 } },
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: HEALTH_INK, wordBreak: "break-word" } }, c.name || ""),
+                  stdSub(c))),
               c.score != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
         h("div", { className: "flex items-end gap-2 flex-wrap", style: { marginTop: 14 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 33, lineHeight: 1.05, color: HEALTH_INK } }, c.value != null ? String(c.value) : "--",
@@ -2777,7 +2816,13 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
       h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: "#cfd4da", margin: "20px auto 14px" } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#9aa0a8", textAlign: "center", padding: "0 10px" } }, data.tail)) : null,
     onPeek ? peekBtn("健康洞察", "他今天的身体", insights.map(x => (x.title || "") + "：" + (x.text || "")).join("｜")) : null) : null;
-  const byGroup = g => cards.filter(c => healthGroupOf(c) === g);
+  // 同一档里按格位顺序排：这样谁的手机翻开都是同一个阅读顺序（她要的「统一」）。
+  // 认不出格位的（老存档、模型自己多写的）排在后面，不打乱定死的那几项。
+  const byGroup = g => cards.filter(c => healthGroupOf(c) === g)
+    .map((c, i) => { const sl = healthSlotOf(c); return { c: c, o: sl ? sl.order : 900 + i, sl: sl }; })
+    .sort((a, b) => a.o - b.o)
+    // 整宽也由格位定死，不然每个角色的排版还是各长各的
+    .map(x => x.sl ? { ...x.c, wide: !!x.sl.wide, _zh: x.sl.zh } : x.c);
   const PAGES = HEALTH_GROUPS.map(g => ({
     key: g.key, zh: g.zh, glyph: g.glyph,
     secs: (g.key === "body" ? [headCard] : []).concat(layoutCards(byGroup(g.key)))
@@ -4739,11 +4784,15 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     },
     health: {
       instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
-        + "cards **13-16 张指标卡**，group 分四档：body **4-5 张**（身体：睡眠、活动、心跳、消耗、恢复这类）、mind **4-5 张**（心神：情绪、静心、社交这类）、private **2-3 张**（见下）、intake **3-4 张**（摄入与消耗：喝的、吃的、以及他花在传消息上的时间）。wide=true 的整宽卡每档 1-2 张，其余为窄卡。**四档都必须写满，一档都不许空着。**\n\n"
-        + "【private 这一档】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 score / value / tag / 一周曲线，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n"
-        + "**这一档的 quote 尤其容易滑进占有欲宣言和狠话**——那是网文腔，不是他。写他当下身体上的实感、以及他拿这件事没办法的地方。\n\n"
-        + "【这个 app 的灵魂 · 指标名要长成他世界里的样子】**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」，所以那一项在他那儿必须换成他会用的说法；「正念冥想」「社交电量」这类现代词同理。现代角色就用现代说法。**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**\n\n"
-        + "【每张卡都要有】name（指标名，见上）、group、wide、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
+        + "cards **正好这 " + HEALTH_SLOTS.length + " 项，一项不多一项不少，每项写一张**。每张必须带 slot（下面括号里那个英文 key，原样照抄，不要翻译不要改）：\n"
+        + HEALTH_SLOTS.map(function (x) { return "· " + x.zh + "（slot: " + x.slot + "）"; }).join("\n") + "\n\n"
+        + "【格位是死的，名字是活的 · 这是这个 app 的骨架】上面这 " + HEALTH_SLOTS.length + " 项是**每个人都有的同一套读数**，顺序和分档由 slot 决定，你不用管，也不许增删或合并。"
+        + "你要做的是给每一项起一个**这个角色的世界里真会用的名字**放进 name：**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」「正念冥想」，那两项在他那儿必须换成他会用的说法；现代角色就用现代说法。"
+        + "**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**换个角色还照样成立的名字，就是没改。\n\n"
+        + "【intimacy / desire / closeness 这三项】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 score / value / tag / 一周曲线，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n"
+        + "**这三项的 quote 尤其容易滑进占有欲宣言和狠话**——那是网文腔，不是他。写他当下身体上的实感、以及他拿这件事没办法的地方。\n\n"
+
+        + "【每张卡都要有】slot（照抄，见上）、name（这个角色对这一项的叫法，见上）、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
         + "【quote 是这份报告里最容易写成八股的一栏，落笔前过一遍这三条】\n"
         + "① **扣着这张卡今天这个读数说话**，不是放之四海皆准的宣言。换一张卡、换一天还照样成立的，就是写坏了。\n"
         + "② 是他心里过了一下、**没打算给谁听**的半句话；不是说给人听的狠话、承诺或预告。一旦写成「我要……」「早晚……」「一定会……」这种句式，就是滑回通用腔了，重写。\n"
@@ -4755,7 +4804,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "timeline **4-6 条**：time（HH:mm）、tag（两三个字的类别，用上面那些指标名里的词）、text（一句 25-45 字，说清那个时刻身体发生了什么、为什么）。按时间顺序。\n"
         + "insights **正好 3 条**：title（一个短判断，像体检报告小标题那样）、text（一段 30-55 字的解释）。\n"
         + "tail：最后一句他自己的话，一两句。",
-      schemaHint: "{\"today\":{\"score\":74,\"label\":\"一句总评\"},\"cards\":[{\"name\":\"指标名\",\"group\":\"body\",\"wide\":true,\"score\":68,\"value\":\"6.2\",\"unit\":\"h\",\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"week\":[62,55,70,48,66,58,72],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"两三个字的类别\",\"text\":\"一句\"}],\"insights\":[{\"title\":\"短判断\",\"text\":\"一段\"}],\"tail\":\"最后一句\"}"
+      schemaHint: "{\"today\":{\"score\":74,\"label\":\"一句总评\"},\"cards\":[{\"slot\":\"上面那个英文key原样照抄\",\"name\":\"这个角色对这一项的叫法\",\"score\":68,\"value\":\"6.2\",\"unit\":\"h\",\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"week\":[62,55,70,48,66,58,72],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"两三个字的类别\",\"text\":\"一句\"}],\"insights\":[{\"title\":\"短判断\",\"text\":\"一段\"}],\"tail\":\"最后一句\"}"
     },
     clipboard: {
       instruction: "推演「" + char.name + "」手机剪贴板里最近躺着的东西（5-7 条）。每条给 text（复制的原文）、from（从哪个 app 复制的）、time、sent（true=后来发出去了；false=复制了但一直没发）。\n**必须至少有一条 sent=false，而且是他打给某个具体的人、却始终没发出去的话。**这是「差一点就说了」的物证，是这个 app 唯一重要的东西。它不必长，可以只有半句，可以很难看、很没出息、说到一半停住。\n其余的可以很杂很无聊：验证码、快递单号、店铺地址、一个人名、一句歌词、一个链接。别每条都深情。" + relHint,
