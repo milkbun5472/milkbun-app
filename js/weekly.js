@@ -1855,9 +1855,22 @@
     const gen = window.Weekly.genState();
     const busy = gen.busy && gen.key === win.key;
     const prog = busy ? gen.prog : null;
+    const autoStartedRef = useRef("");
     useEffect(function () {
       return window.Weekly.genSubscribe(function () { setIssues(loadIssues()); force(function (n) { return n + 1; }); });
     }, []);
+    useEffect(function () {
+      // 周刊原先只有手动出刊。总闸默认关闭；用户明确开启后，进入新刊期第一次打开这里才补做，
+      // 不用后台假闹钟，也不会因重渲染重复开印刷机。
+      if (!props.autoEnabled || !props.active || currentIssue || gen.busy || autoStartedRef.current === win.key) return;
+      const participants = props.autoCharacters || [];
+      if (!participants.length) return;
+      autoStartedRef.current = win.key;
+      window.Weekly.startGenerate({
+        active: props.active, characters: participants, groups: props.groups || [],
+        userName: userName, win: win, toast: props.toast
+      });
+    }, [props.autoEnabled, props.active, win.key, !!currentIssue, gen.busy, (props.autoCharacters || []).map(function (c) { return c.id; }).join("|")]);
 
     function persist(list) { setIssues(list); saveIssues(list); }
     function patchIssue(id, fn) {

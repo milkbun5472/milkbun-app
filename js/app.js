@@ -557,6 +557,23 @@ function App() {
   const [phoneAuto, setPhoneAuto] = useState({ on: {}, done: {} });
   const phoneAutoRef = useRef({ on: {}, done: {} });
   phoneAutoRef.current = phoneAuto;
+  const [autoRefreshPolicy, setAutoRefreshPolicy] = useState(() => window.AutoRefreshPolicy.normalize(null));
+  const autoRefreshRef = useRef(autoRefreshPolicy);
+  autoRefreshRef.current = autoRefreshPolicy;
+  const autoRefreshOn = (feature, charId) => window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
+  const saveAutoRefreshPolicy = next => {
+    const clean = window.AutoRefreshPolicy.normalize(next);
+    autoRefreshRef.current = clean; setAutoRefreshPolicy(clean); saveJSON(window.AutoRefreshPolicy.KEY, clean);
+  };
+  const setAutoRefreshGlobal = (feature, on) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setGlobal(autoRefreshRef.current, feature, on));
+  const setAutoRefreshChar = (feature, charId, on) => {
+    saveAutoRefreshPolicy(window.AutoRefreshPolicy.setChar(autoRefreshRef.current, feature, charId, on));
+    // 查手机旧页面仍读 x_phoneAuto.on；镜像一份只为兼容显示，真实权限以统一总闸为准。
+    if (feature === "phone") setPhoneAuto(p => {
+      const n = { on: { ...(p.on || {}), [charId]: !!on }, done: { ...(p.done || {}) } };
+      phoneAutoRef.current = n; saveJSON("x_phoneAuto", n); return n;
+    });
+  };
   const [calEvents, setCalEvents] = useState([]);
   const calEventsRef = useRef([]);
   calEventsRef.current = calEvents;   // ⚠️紧跟声明写，别挪到上面那堆 ref 同步里去——那儿在声明之前，TDZ 会当场白屏
@@ -630,7 +647,9 @@ function App() {
     setCalEvents(loadJSON("x_calEvents", []));
     setPhoneArch(loadJSON("x_phoneArch", {}));
     setPhoneVitals(loadJSON("x_phoneVitals", {}));
-    { const a = loadJSON("x_phoneAuto", { on: {}, done: {} }); setPhoneAuto({ on: a.on || {}, done: a.done || {} }); }
+    { const a = loadJSON("x_phoneAuto", { on: {}, done: {} }); setPhoneAuto({ on: a.on || {}, done: a.done || {} });
+      const policy = window.AutoRefreshPolicy.normalize(loadJSON(window.AutoRefreshPolicy.KEY, null), a.on || {});
+      autoRefreshRef.current = policy; setAutoRefreshPolicy(policy); saveJSON(window.AutoRefreshPolicy.KEY, policy); }
     setPromises(loadJSON("x_promises", []));
     setPeriod(loadJSON("x_period", { cycleLen: 28, periodLen: 5, starts: [], visibleTo: null }));
     // 一次性迁移：把之前存成 ≤1400 的单人线下输出上限抬到 4000（旧默认 1400 太紧会截断掉格式；群 g_ 的不动）
@@ -5091,6 +5110,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const room = opts.room || null;
     let delivered = false;
     if (laneBusy("c:" + chatKey)) return false;
+    if (opts.proactive && !autoRefreshOn("proactive", charId)) return false;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
     if (opts.proactive) {
       const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
@@ -7974,16 +7994,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const schedMondayOf = dayKey => schedShiftDayKey(dayKey, -((schedParseKey(dayKey).getDay() + 6) % 7));
   const schedGenAllToday = async () => {
     if (schedRunRef.current) return; // 防并发：同一次生成过程里别重复触发
-    if (!active) return;
+    if (!active || !autoRefreshOn("schedule")) return;
     // 昨天排好的「计划日」今天变成了当天：不重排（那会把「本来说好今天要做什么」冲掉，
     // 计划和实际的落差正是活人感的来源），只翻个牌子给白天的自发改计划放行。
-    liveChars.forEach(c => {
+    liveChars.filter(c => autoRefreshOn("schedule", c.id)).forEach(c => {
       const k = schedLocalDayKey(c), p = (schedulesRef.current[c.id] || {})[k];
       if (p && p.kind === "plan") saveSchedDay(c.id, k, { ...p, kind: "live" });
     });
     const marks = loadJSON(SCHED_WEEK_MARK_KEY, {}) || {};
     const now = Date.now(), jobs = [];
-    liveChars.forEach(c => {
+    liveChars.filter(c => autoRefreshOn("schedule", c.id)).forEach(c => {
       const today = schedLocalDayKey(c);
       const dowMon = (schedParseKey(today).getDay() + 6) % 7;   // 周一=0 … 周日=6
       const thisMon = schedMondayOf(today), nextMon = schedShiftDayKey(thisMon, 7);
@@ -8018,10 +8038,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 只动「此刻之后」的时段；走便宜后台池；挂在与 schedGenAllToday 相同的前台/跨天 tick 上
   const schedSelfRevRef = useRef(false);
   const schedMaybeSelfRevise = async () => {
-    if (schedSelfRevRef.current || !active || !characters.length) return;
+    if (schedSelfRevRef.current || !active || !autoRefreshOn("schedule") || !characters.length) return;
     schedSelfRevRef.current = true;
     try {
       for (const c of characters) {
+        if (!autoRefreshOn("schedule", c.id)) continue;
         const today = schedLocalDayKey(c);
         const plan = (schedulesRef.current[c.id] || {})[today];
         if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.length || plan.selfRevCheck) continue;
@@ -8256,7 +8277,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 打开日记 app 时：给还没写【昨天】日记的角色补上（每个角色一次 API，顺序执行避免并发轰炸）。
   // 相当于「每天刷新前一天的」——当时不在线也没关系，下次进来自动补齐；一天一篇，写过就跳过。
   const autoDiaryRun = async () => {
-    if (!active) return; // 先判 active 再置锁（v48.95，Codex：未配API时早退却没复位锁→停在日记页配好API也不自动补，得离开再进）
+    if (!active || !autoRefreshOn("diary")) return; // 先判 active 再置锁
     const targetTs = diaryTargetTs();
     const dayKey = new Date(targetTs).toDateString();
     // 锁按【补写的那一天】记，不再按「是否进过日记页」记：
@@ -8267,6 +8288,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     diaryRunRef.current = dayKey;
     try {
       for (const c of characters) {
+        if (!autoRefreshOn("diary", c.id)) continue;
         if (diaryWroteFor(c.id, targetTs)) continue;
         await genDiary(c.id, { manual: false });
       }
@@ -8321,7 +8343,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // #5 论坛/朋友圈/悄悄话「刷不出来」：打开对应屏时自动补一条（4h 冷却，既首访即有内容、又不每次进都轰 API）
   const ambientRunRef = useRef({});
   const autoAmbientRun = async kind => {
-    if (!active || ambientRunRef.current[kind]) return;
+    if (!active || !autoRefreshOn(kind) || ambientRunRef.current[kind]) return;
     ambientRunRef.current[kind] = true;
     const ts = loadJSON("x_ambientTs", {});
     if (Date.now() - (ts[kind] || 0) < 4 * 3600000) return;
@@ -8330,15 +8352,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 匿名吧原来和别的版块等权（1/6），而匿名吧整批都是匿名身份——这是匿名占比过高的
       // 第三个来源。按真实论坛的样子加权：日常/吐槽/兴趣是主流，匿名吧只留一格。
       if (kind === "forum") { const bs = ["吐槽吧", "吐槽吧", "日常吧", "日常吧", "求助吧", "兴趣吧", "兴趣吧", "脑洞吧", "脑洞吧", "匿名吧"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
-      else if (kind === "moments") { if (characters.length) await genMoment(characters[Math.floor(Math.random() * characters.length)]); }
-      else if (kind === "whisper") { const ps = liveChars.filter(c => couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
+      else if (kind === "moments") { const ps = characters.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) await genMoment(ps[Math.floor(Math.random() * ps.length)]); }
+      else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
     } catch (e) {/* 静默 */}
   };
   // ---- 角色动态：主屏红点通知 + 保底触发 ----
   const notifyApp = key => setAppNotif(p => { const n = { ...p, [key]: (p[key] || 0) + 1 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
   const clearAppNotif = key => setAppNotif(p => { if (!p[key]) return p; const n = { ...p, [key]: 0 }; appNotifRef.current = n; saveJSON("x_appNotif", n); return n; });
   const autoForumForChar = async char => {
-    if (!active || (forumOffRef.current || []).includes(char.id)) return;
+    if (!active || !autoRefreshOn("forum", char.id) || (forumOffRef.current || []).includes(char.id)) return;
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
       const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
@@ -8366,7 +8388,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 由 tickAmbient 按轮数稀发；封存到 7/14/30 天后。短期胶囊是“延时抵达的此刻”，不再一两天后硬装遥远未来（v53.90）。写 x_capsules，
   // 下次打开时光胶囊即见；到期主屏图标亮红点（window.capsuleDueCount 读 localStorage）。
   const autoBuryCapsuleForChar = async char => {
-    if (!active) return;
+    if (!active || !autoRefreshOn("capsule", char.id)) return;
     try {
       const autoSealDays = [7, 14, 30];
       const days = autoSealDays[Math.floor(Math.random() * autoSealDays.length)];
@@ -8390,6 +8412,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } catch (e) {}
   };
   const forceAmbient = async (char, type) => {
+    const feature = type === "moment" ? "moments" : type;
+    if (!autoRefreshOn(feature, char && char.id)) return;
     try {
       if (type === "moment") {
         const posted = await genMoment(char);
@@ -8419,12 +8443,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       lastForumTs: posted.forum ? Date.now() : (cur.lastForumTs || Date.now())
     };
     const due = [];
-    if (isCouple && n.whisper >= 15) due.push("whisper");
-    if (n.moment >= 30) due.push("moment");
-    if ((n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
+    if (autoRefreshOn("whisper", charId) && isCouple && n.whisper >= 15) due.push("whisper");
+    if (autoRefreshOn("moments", charId) && n.moment >= 30) due.push("moment");
+    if (autoRefreshOn("forum", charId) && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
     // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
-    if (isCouple && n.capsule >= 80) {
+    if (autoRefreshOn("capsule", charId) && isCouple && n.capsule >= 80) {
       const caps = loadJSON("x_capsules", []);
       const own = (Array.isArray(caps) ? caps : []).filter(x => x && x.dir === "fromChar" && x.charId === charId);
       const hasSealed = own.some(x => !x.opened);
@@ -8456,9 +8480,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 当天首次打开 / 回前台 / 跨天：给该发呆的角色补今天这一次。
   // 只跑「7 天内聊过、或盒子里还有活念想」的角色——不给闲置角色白烧 api。
   const desireMuseAllToday = async () => {
-    if (desireRunRef.current || !active || !window.DesireKit || !characters.length) return;
+    if (desireRunRef.current || !active || !autoRefreshOn("desire") || !window.DesireKit || !characters.length) return;
     const today = schedDayKey(new Date());
     const todo = liveChars.filter(c => {
+      if (!autoRefreshOn("desire", c.id)) return false;
       const b = desiresRef.current[c.id];
       if (b && b.lastMuse === today) return false;
       const msgs = (chatsRef.current[c.id] || []).filter(m => !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
@@ -8474,11 +8499,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 同样只有角色落笔、走便宜池；首次见到的盒子只记基准日不当天跑（防连环烧）；失败不记基准日、下个 tick 重试。
   const desireTendRef = useRef(false);
   const desireTendAllToday = async () => {
-    if (desireTendRef.current || !active || !window.DesireKit || !characters.length) return;
+    if (desireTendRef.current || !active || !autoRefreshOn("desire") || !window.DesireKit || !characters.length) return;
     desireTendRef.current = true;
     const today = schedDayKey(new Date());
     try {
       for (const c of characters) {
+        if (!autoRefreshOn("desire", c.id)) continue;
         if (!desiresRef.current[c.id]) continue;
         const box = DesireKit.boxOf(desiresRef.current, c.id);
         const r = DesireKit.tendDue(box, today);
@@ -8570,11 +8596,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 而且一次把这一周的钱全花完。补完一个就收手，下次唤起再补下一个。
   const phoneWeekRunRef = useRef(false);
   const phoneWeeklySweep = async () => {
-    if (phoneWeekRunRef.current || !active) return;
+    if (phoneWeekRunRef.current || !active || !autoRefreshOn("phone")) return;
     const wk = typeof phoneWeekKey === "function" ? phoneWeekKey(Date.now()) : null;
     if (!wk) return;
     const box = phoneAutoRef.current || { on: {}, done: {} };
-    const due = liveChars.find(c => c && box.on && box.on[c.id] && (box.done || {})[c.id] !== wk);
+    const due = liveChars.find(c => c && autoRefreshOn("phone", c.id) && (box.done || {})[c.id] !== wk);
     if (!due) return;
     phoneWeekRunRef.current = true;
     try {
@@ -8593,14 +8619,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       toast("每周刷新：已更新「" + (due.remark || due.name) + "」的手机");
     } catch (e) {/* 例行刷新失败不打扰她 */ } finally { phoneWeekRunRef.current = false; }
   };
-  const phoneAutoToggle = charId => setPhoneAuto(p => {
-    const on = { ...(p.on || {}) };
-    if (on[charId]) delete on[charId]; else on[charId] = true;
-    const n = { on, done: { ...(p.done || {}) } };
-    phoneAutoRef.current = n;
-    saveJSON("x_phoneAuto", n);
-    return n;
-  });
+  const phoneAutoToggle = charId => {
+    const nextOn = !autoRefreshOn("phone", charId);
+    setAutoRefreshChar("phone", charId, nextOn);
+  };
   // 钱包那份读过来，发给花钱的那几个 app（购物/外卖）。只读不写。
   // 不接的话，一个月俸微薄的小官照样下单六百八十文的袍子——两边说的不是同一个人。
   const phoneMoneyFor = char => {
@@ -9184,10 +9206,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 她不去翻就永远不结算。挂到跨天那一拍上，全员补一次；一人一天一次调用，走便宜池。
   const walletCatchRunRef = useRef(false);
   const walletCatchAllToday = async () => {
-    if (walletCatchRunRef.current) return;
+    if (walletCatchRunRef.current || !autoRefreshOn("wallet")) return;
     walletCatchRunRef.current = true;
     try {
       for (const c of liveChars) {
+        if (!autoRefreshOn("wallet", c.id)) continue;
         const rec = charWalletRef.current[c.id];
         if (!rec || !rec.init) continue;       // 还没建档的不动，建档要她自己点
         await catchUpWallet(c);
@@ -13299,7 +13322,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     archives: phoneArch,
     vitalsFor: cid => (phoneVitals || {})[cid] || [],
     monthStatsFor: phoneMonthStatsFor,
-    autoOn: phoneAuto.on || {},
+    autoOn: Object.fromEntries(liveChars.map(c => [c.id, autoRefreshOn("phone", c.id)])),
     onToggleAuto: phoneAutoToggle,
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,
@@ -13686,6 +13709,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 周刊是普通角色刊物。engineerEyes（言秋）有自己的 CC/回流生活线，
     // 不能再被整包塞进角色采访池里由模型代写“感情淡了”。
     characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    autoEnabled: autoRefreshOn("weekly"),
+    autoCharacters: liveChars.filter(c => !settingsFor(c.id).engineerEyes && autoRefreshOn("weekly", c.id)),
     groups: groups,
     profile: profile,
     worldbook: worldbook,
@@ -13818,6 +13843,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     bgApiId: bgApiId,
     onSetBgApi: setBgApi,
     characters: liveChars,
+    autoCharacters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    autoRefreshPolicy: autoRefreshPolicy,
+    onSetAutoRefreshGlobal: setAutoRefreshGlobal,
+    onSetAutoRefreshChar: setAutoRefreshChar,
     coupleQACustom: coupleQACustom,
     onSaveCustomQA: saveCoupleQACustom,
     onAssignVoice: (charId, voiceId) => {

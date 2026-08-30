@@ -4787,6 +4787,49 @@ function ConfigPanel({ children, flush }) {
   } }, children);
 }
 
+function AutoRefreshConfig(props) {
+  const t = useTheme();
+  const policy = window.AutoRefreshPolicy.normalize(props.policy);
+  const chars = props.characters || [];
+  const [open, setOpen] = useState("");
+  const groups = [
+    { id: "content", eyebrow: "AUTO CONTENT", title: "自动内容", note: "跨天、跨周或回到 App 时补齐内容。" },
+    { id: "social", eyebrow: "SOCIAL PULSE", title: "主动社交", note: "角色自己开口、发帖或留下东西。" }
+  ];
+  const charOn = (f, c) => window.AutoRefreshPolicy.enabled({
+    version: 1,
+    features: { ...policy.features, [f.id]: { ...policy.features[f.id], global: true } }
+  }, f.id, c.id);
+  return h("div", null,
+    h("div", { style: { padding: "2px 2px 14px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } },
+      "总开关关掉只会暂停，不会抹掉下面每个人的选择；手动刷新、手动写日记等按钮仍可照常使用。"),
+    groups.map(g => h("div", { key: g.id, style: { marginBottom: 22 } },
+      h("div", { style: { padding: "0 2px 9px" } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".24em", color: t.fog } }, g.eyebrow),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, marginTop: 5 } }, g.title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, g.note)),
+      window.AutoRefreshPolicy.FEATURES.filter(f => f.group === g.id).map(f => {
+        const cfg = policy.features[f.id];
+        const isOpen = open === f.id;
+        const enabledCount = chars.filter(c => charOn(f, c)).length;
+        return h("div", { key: f.id, style: { marginBottom: 11, borderRadius: 20, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 22px rgba(60,50,40,.045)", overflow: "hidden" } },
+          h("div", { className: "flex items-center justify-between", style: { padding: "15px 15px 13px", gap: 12 } },
+            h("button", { onClick: () => setOpen(isOpen ? "" : f.id), className: "flex-1 text-left active:opacity-60", style: { minWidth: 0 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, f.title),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, marginTop: 3 } }, f.sub),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: cfg.global ? t.accent : t.fog, marginTop: 7 } },
+                cfg.global ? (enabledCount + "/" + chars.length + " 人开启 · 角色范围 " + (isOpen ? "▴" : "▾")) : "总闸已暂停 · 原角色选择保留 " + (isOpen ? "▴" : "▾"))),
+            h(Toggle, { on: cfg.global, onChange: on => props.onSetGlobal(f.id, on) })),
+          isOpen ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
+            !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
+              h("div", { className: "flex items-center", style: { gap: 10, minWidth: 0 } },
+                c.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage, alt: "", style: { width: 30, height: 30, borderRadius: 10, objectFit: "cover" } }) : h("div", { style: { width: 30, height: 30, borderRadius: 10, background: t.line } }),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)),
+              h(Toggle, { on: charOn(f, c), onChange: on => props.onSetChar(f.id, c.id, on) })))) : null);
+      })))
+  );
+}
+
 function LegacyConfig({
   apiProfiles,
   activeId,
@@ -4927,6 +4970,19 @@ function LegacyConfig({
 
 function Config(props) {
   const [page, setPage] = useState("home");
+  const scrollRef = React.useRef(null);
+  React.useEffect(() => {
+    // 首页与子页共用这一只滚动容器；换页必须回页首，不能把首页的滚动位置
+    // 带进子页，否则第一张设置卡会直接藏到安全区上方。
+    const reset = () => {
+      if (document.activeElement && typeof document.activeElement.blur === "function") document.activeElement.blur();
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    };
+    reset();
+    const raf = requestAnimationFrame(() => requestAnimationFrame(reset));
+    const timer = setTimeout(reset, 120);
+    return () => { cancelAnimationFrame(raf); clearTimeout(timer); };
+  }, [page]);
   const [toyUnlocked, setToyUnlocked] = useState(() => { try { return localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) { return false; } });
   const toyKnockRef = React.useRef({ n: 0, ts: 0 });
   const toyKnock = () => {
@@ -4942,7 +4998,7 @@ function Config(props) {
     apiImage: ["图像 API", "Image API"], apiTts: ["语音 API", "Voice API"], apiEmbed: ["向量记忆", "Embedding"],
     apiEars: ["真声耳朵", "Voice Ears"], apiCache: ["额度与缓存", "Usage"], sense: ["感知", "Sense"],
     cot: ["创作小稿", "Draft"], qa: ["情侣问答", "Questions"], theme: ["外观与壁纸", "Appearance"], themeStudio: ["主题工作台", "Theme Studio"],
-    bubble: ["聊天气泡", "Bubble Skin"], data: ["数据管理", "Data"], debug: ["上下文诊断", "Context"], toy: ["本地配件", "Accessories"]
+    bubble: ["聊天气泡", "Bubble Skin"], auto: ["自动更新", "Automation"], data: ["数据管理", "Data"], debug: ["上下文诊断", "Context"], toy: ["本地配件", "Accessories"]
   };
   const m = meta[page] || meta.home;
   const back = page === "home" ? props.onBack : () => (/^api[A-Z]/.test(page) ? setPage("api") : setPage("home"));
@@ -4950,7 +5006,7 @@ function Config(props) {
   const eyebrow = page === "home" ? h("span", { onClick: e => { e.stopPropagation(); toyKnock(); }, style: { display: "inline-block", padding: "5px 16px 5px 0" } }, m[1]) : m[1];
   return h("div", { className: "h-full flex flex-col" },
     h(Head, { zh: m[0], en: eyebrow, onBack: back }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
+    h("div", { key: page || "home", ref: scrollRef, className: "flex-1 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
       page === "home" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "⌘", title: "API 与模型", sub: "文字、图像、语音、向量与真声接口", onClick: () => setPage("api") }),
         h(ConfigTile, { icon: "◉", title: "感知", sub: "时间、位置与锁屏通知", onClick: () => setPage("sense") }),
@@ -4959,6 +5015,7 @@ function Config(props) {
         h(ConfigTile, { icon: "◐", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
         h(ConfigTile, { icon: "✦", title: "主题工作台", sub: "图标、页面 CSS、主题包与应用前预览", onClick: () => setPage("themeStudio") }),
         h(ConfigTile, { icon: "◒", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
+        h(ConfigTile, { icon: "↻", title: "自动更新", sub: "总开关、逐角色范围与主动社交", onClick: e => { if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); setPage("auto"); } }),
         h(ConfigTile, { icon: "▤", title: "数据管理", sub: "备份、迁移、存储与清理", onClick: () => setPage("data") }),
         h(ConfigTile, { icon: "⌁", title: "上下文诊断", sub: "只读查看模型实际收到的内容", onClick: () => setPage("debug") }),
         toyUnlocked && typeof ToyConfig === "function" ? h(ConfigTile, { icon: "◇", title: "本地配件", sub: "仅本机的隐藏配件设置", onClick: () => setPage("toy"), wide: true }) : null),
@@ -4981,6 +5038,7 @@ function Config(props) {
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
+      page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar }),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
