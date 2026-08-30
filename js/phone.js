@@ -85,26 +85,46 @@ const PHONE_DESKTOP_PAGES = [
   ["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"],
   ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally", "mail"]
 ];
+// 桌面组件：装饰件（不是 app，点了不进任何 app，也不调任何模型）
+//   clock  一只走针的表      frame  从他相册里挑一张当相框      saying 把他写过的一句话放大
+const PHONE_DECOR = ["clock", "frame", "saying"];
+// 四种桌面【不只是换几个 key】——她 2026-08-30 问「加了一堆新功能之后这四种分别怎么排比较好」。
+// 原来四种的骨架一模一样（时间线 wide + 一个 hero + 一个小的 + 刷新），换的只是里面的名字，
+// 摆出来就是同一部手机换了四次壁纸。现在四种各有各的节奏：
+//   SOCIAL  人多话多：微信占大头，组件密、图标也多
+//   ARCHIVE 记东西的：便签当主角，几乎全是字，留白多、图标最少
+//   MEDIA   泡内容里：暗色、图片优先，两块大的压住整页
+//   WANDER  安静的：装饰件打头（表和一句话），组件少、每块都大
+// 还有一条统一的规矩：【这一页已经有组件的 app，就不在这一页再摆一个图标】——
+// 她问的「哪些留图标、哪些换组件」，答案是按页去重，而不是全局二选一。
 const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
-  pages: [["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"], ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally", "mail"]],
-  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "wechat", span: 2, size: "hero" }, { key: "liked" }, { key: "refresh" }], [{ key: "album" }, { key: "health" }]]
+  pages: [["notes", "album", "forum", "shopping"],
+          ["timeline", "liked", "clipboard", "reading", "bili", "takeout", "latenight", "tally", "mail"]],
+  widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "timeline" }, { key: "clock" }, { key: "liked", span: 2, size: "wide" }, { key: "refresh" }],
+            [{ key: "frame", span: 2, size: "tall" }, { key: "health" }, { key: "calendar" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
-  pages: [["timeline", "reading", "clipboard", "calendar", "album", "music", "takeout"], ["shopping", "forum", "liked", "bili", "health", "latenight", "tally", "mail"]],
-  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "notes", span: 2, size: "hero" }, { key: "calendar" }, { key: "refresh" }], [{ key: "reading", span: 2, size: "wide" }, { key: "music", span: 2, size: "wide" }]]
+  pages: [["album", "music", "clipboard", "calendar"],
+          ["shopping", "forum", "liked", "bili", "health", "latenight", "takeout"]],
+  widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "timeline", span: 2, size: "wide" }, { key: "tally", span: 2, size: "wide" }, { key: "refresh" }],
+            [{ key: "reading", span: 2, size: "wide" }, { key: "saying", span: 2, size: "wide" }, { key: "mail" }, { key: "clock" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
-  pages: [["timeline", "bili", "liked", "forum", "browser", "notes", "reading", "shopping"], ["health", "clipboard", "calendar", "takeout", "latenight", "tally", "mail"]],
-  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "music", span: 2, size: "hero" }, { key: "album" }, { key: "refresh" }], [{ key: "bili", span: 2, size: "wide" }, { key: "liked", span: 2, size: "wide" }]]
+  pages: [["forum", "browser", "notes", "reading"],
+          ["shopping", "clipboard", "calendar", "health", "takeout", "latenight", "tally", "mail"]],
+  widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album", span: 2, size: "wide" }, { key: "bili" }, { key: "clock" }, { key: "refresh" }],
+            [{ key: "frame", span: 2, size: "tall" }, { key: "liked" }, { key: "timeline" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
-  pages: [["timeline", "notes", "reading", "calendar", "health", "music", "shopping", "takeout"], ["liked", "bili", "clipboard", "forum", "latenight", "tally", "mail"]],
-  widgets: [[{ key: "timeline", span: 2, size: "wide" }, { key: "browser", span: 2, size: "hero" }, { key: "reading" }, { key: "refresh" }], [{ key: "shopping" }, { key: "clipboard" }]]
+  pages: [["notes", "music", "shopping", "forum"],
+          ["timeline", "liked", "bili", "clipboard", "latenight", "tally", "mail", "health"]],
+  widgets: [[{ key: "clock" }, { key: "health" }, { key: "saying", span: 2, size: "wide" }, { key: "timeline", span: 2, size: "wide" }, { key: "refresh" }],
+            [{ key: "reading" }, { key: "takeout" }, { key: "calendar", span: 2, size: "wide" }]]
 }];
 const phoneStableHash = value => [...String(value || "?")].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
 const phoneDesktopLayout = char => PHONE_DESKTOP_LAYOUTS[phoneStableHash(char && (char.id || char.name)) % PHONE_DESKTOP_LAYOUTS.length];
@@ -3879,6 +3899,10 @@ function PhoneCarry({
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
   const [deskPage, setDeskPage] = useState(0);
+  // 桌面上那只表要走针。半分钟对一次就够——画秒针的话整页每秒重渲染，不值。
+  // ⚠️跟上面那些 hook 一样，必须待在所有 return 上面（见下面那条 #310 的教训）。
+  const [deskNow, setDeskNow] = useState(() => Date.now());
+  useEffect(() => { const iv = setInterval(() => setDeskNow(Date.now()), 30000); return () => clearInterval(iv); }, []);
   const deskRef = useRef(null);
   // 点进 app 时桌面整个卸载，回来重挂就在第一页了——每次都得再翻一遍
   //（她 2026-08-29：「每次都得翻回来好累」）。回来后按记着的页码归位。
@@ -4139,50 +4163,243 @@ function PhoneCarry({
     }
     return latestLine(widgetData(key), fallback);
   };
+  // ── 桌面组件的长相 ───────────────────────────────────────────
+  // 以前所有组件共用一套：一行灰标签 + 一行黑字。音乐、健康、相册、日历长得一模一样，
+  // 摆四个上去就是四个一样的白盒子，谁是谁得读字才知道（她 2026-08-30 报的就是这个）。
+  // 下面给认得出来的那几个各自的样子；剩下的还走那套通用的（它们本来也只有一句话可说）。
+  const wRows = k => { const d = data[k]; if (!d || typeof d !== "object") return []; 
+    const arr = ["items", "chats", "history", "photos", "inbox", "orders", "cart", "timeline", "posts"]
+      .map(x => Array.isArray(d[x]) ? d[x] : null).filter(Boolean)[0];
+    return Array.isArray(arr) ? arr.filter(x => x && typeof x === "object") : []; };
+  const wText = x => ["title", "subject", "name", "text", "preview", "main", "shop", "caption", "q"]
+    .map(k => (x && typeof x[k] === "string") ? x[k].trim() : "").filter(Boolean)[0] || "";
+  const wTime = x => ["time", "at", "date", "when"].map(k => (x && typeof x[k] === "string") ? x[k].trim() : "").filter(Boolean)[0] || "";
+  const dimOn = dark => dark ? "rgba(255,255,255,.55)" : t.fog;
+  const inkOn = dark => dark ? "#fff" : t.ink;
+
+  function deskBody(key, dark, hero) {
+    const dim = dimOn(dark), ink = inkOn(dark);
+    const line = (s2, size, weight) => h("div", { style: { fontFamily: F_DISPLAY, fontSize: size || 14, color: ink, lineHeight: 1.4, fontWeight: weight || 400, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, s2);
+    const small = s2 => h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: dim, marginTop: 4 } }, s2);
+
+    // 表：走针的模拟表盘，纯装饰，不读任何数据
+    if (key === "clock") {
+      const d = new Date(deskNow), mm = d.getMinutes(), hh = d.getHours() % 12 + mm / 60;
+      const hand = (deg, len, w2, col) => h("div", { style: { position: "absolute", left: "50%", bottom: "50%", width: w2, height: len,
+        background: col, borderRadius: 9, transformOrigin: "50% 100%", transform: "translateX(-50%) rotate(" + deg + "deg)" } });
+      return h("div", { className: "flex items-center justify-center", style: { flex: 1 } },
+        h("div", { style: { position: "relative", width: 68, height: 68, borderRadius: 999, border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(35,31,25,.16)") } },
+          [0, 3, 6, 9].map(n => h("div", { key: n, style: { position: "absolute", left: "50%", top: "50%", width: 1.5, height: 5, background: dim,
+            transformOrigin: "50% 0", transform: "translate(-50%,0) rotate(" + (n * 30) + "deg) translateY(26px)" } })),
+          hand(hh * 30, 18, 2.6, ink), hand(mm * 6, 25, 1.8, ink),
+          h("div", { style: { position: "absolute", left: "50%", top: "50%", width: 5, height: 5, borderRadius: 999, background: ink, transform: "translate(-50%,-50%)" } })));
+    }
+    // 相框：从他相册里挑一张。没有真图就按标题生成一块底色——不是占位符，是一张卡片
+    if (key === "frame") {
+      const ph = wRows("album")[0];
+      const cap = ph ? (wText(ph) || "相册") : "相册还没翻过";
+      const c1 = strColor(cap), c2 = strColor(cap.slice(1) + "x");
+      return h("div", { className: "flex flex-col", style: { flex: 1 } },
+        h("div", { style: { height: 74, borderRadius: 15, marginTop: 8, background: "linear-gradient(150deg," + c1 + "cc," + c2 + "88)" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: dim, marginTop: 9 } }, cap));
+    }
+    // 一句话：把他自己写过的一句放大。挑最长的那句——短的那种「买牛奶」放大了很傻
+    if (key === "saying") {
+      const pool = [].concat(wRows("notes"), wRows("tally"), wRows("latenight"))
+        .map(x => (x.body && String(x.body).trim()) || wText(x)).filter(x => x && x.length >= 6);
+      const said = pool.sort((a2, b2) => b2.length - a2.length)[0] || "";
+      return h("div", { className: "flex flex-col justify-center", style: { flex: 1 } },
+        h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 26, lineHeight: .6, color: dim } }, "“"),
+        h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.75, color: ink, marginTop: 8,
+          display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+          said || "他还没写下什么"));
+    }
+    // 时间线：一条竖线串三个点
+    if (key === "timeline") {
+      const rows = tlRows.filter(x => !x.ahead).slice(0, 3);
+      if (!rows.length) return line("先刷一遍手机，这里才串得起来");
+      return h("div", { style: { flex: 1 } },
+        newCount > 0 ? small(newCount + " 条新的") : null,
+        h("div", { style: { position: "relative", paddingLeft: 13, marginTop: 8 } },
+          h("div", { style: { position: "absolute", left: 3, top: 5, bottom: 5, width: 1, background: dark ? "rgba(255,255,255,.24)" : "rgba(35,31,25,.14)" } }),
+          rows.map((r, i2) => h("div", { key: i2, style: { position: "relative", marginBottom: i2 < rows.length - 1 ? 7 : 0 } },
+            h("div", { style: { position: "absolute", left: -13, top: 5, width: 7, height: 7, borderRadius: 999, background: i2 ? dim : ink } }),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12.5, color: i2 ? dim : ink } },
+              (r.ts == null ? "" : phoneClock(r.ts) + "  ") + (r.title || r.text || ""))))));
+    }
+    // 微信：两条聊天，像真的消息列表
+    if (key === "wechat") {
+      const rows = ((data.wechat || {}).chats || []).slice(0, hero ? 3 : 2);
+      if (!rows.length) return line("点开看看最近和谁说过话");
+      return h("div", { style: { flex: 1, marginTop: 4 } }, rows.map((c, i2) =>
+        h("div", { key: i2, className: "flex items-center", style: { gap: 9, marginTop: i2 ? 11 : 0 } },
+          h("div", { style: { width: 26, height: 26, borderRadius: 9, flexShrink: 0, background: strColor(c.name || i2) } }),
+          h("div", { className: "min-w-0", style: { flex: 1 } },
+            h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 13, color: ink } }, c.name || "未命名"),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: dim, marginTop: 1 } }, c.preview || "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: dim, flexShrink: 0 } }, c.time || ""))));
+    }
+    // 音乐：碟 + 曲名 + 一条进度
+    if (key === "music") {
+      const sg = ((livePlaylist && livePlaylist.songs) || [])[0];
+      return h("div", { className: "flex flex-col", style: { flex: 1, marginTop: 6 } },
+        h("div", { className: "flex items-center", style: { gap: 12 } },
+          h("div", { style: { width: hero ? 46 : 36, height: hero ? 46 : 36, borderRadius: 999, flexShrink: 0,
+            background: "radial-gradient(circle at 50% 50%,rgba(255,255,255,.9) 12%," + strColor((sg && sg.title) || "?") + " 14%," + strColor((sg && sg.title) || "?") + "aa 100%)" } }),
+          h("div", { className: "min-w-0", style: { flex: 1 } },
+            h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: hero ? 16 : 13.5, color: ink } }, sg ? sg.title : "他还没有歌单"),
+            h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: dim, marginTop: 3 } },
+              sg ? ((sg.artist || "") + (livePlaylist && livePlaylist.name ? " · " + livePlaylist.name : "")) : "点开去看看"))),
+        sg ? h("div", { style: { height: 2, borderRadius: 9, marginTop: 14, background: "rgba(255,255,255,.22)" } },
+          h("div", { style: { width: "38%", height: "100%", borderRadius: 9, background: "rgba(255,255,255,.85)" } })) : null);
+    }
+    // 健康：一个综合分 + 两三项，不是一行字
+    if (key === "health") {
+      const hd = data.health || {}, today = hd.today || {};
+      const score = Number(today.score);
+      const cards = (Array.isArray(hd.cards) ? hd.cards : []).filter(c => c && c.name).slice(0, 2);
+      // 模型有时只回 today:{steps,sleep,hr}——直接摆出来就是一排英文字段名，
+      // 认不出来的字段宁可不显示，也别把 schema 露到脸上
+      const ZH = { steps: "步数", sleep: "睡眠", hr: "心率", heart: "心率", weight: "体重", water: "喝水", mood: "情绪", stress: "压力", calories: "热量" };
+      const picks = cards.length ? cards.map(c => [String(c.name).slice(0, 4), (c.score != null ? String(c.score) : (c.value || ""))])
+        : Object.keys(today).filter(k2 => k2 !== "score" && ZH[k2]).slice(0, 2).map(k2 => [ZH[k2], String(today[k2])]);
+      if (!isFinite(score) && !picks.length) return line("还没有健康记录");
+      return h("div", { className: "flex items-center", style: { flex: 1, gap: 13, marginTop: 8 } },
+        isFinite(score) ? h("div", { style: { position: "relative", width: 44, height: 44, borderRadius: 999, flexShrink: 0,
+          background: "conic-gradient(" + t.accent + " " + Math.max(0, Math.min(100, score)) + "%, rgba(35,31,25,.10) 0)" } },
+          h("div", { className: "flex items-center justify-center", style: { position: "absolute", inset: 5, borderRadius: 999, background: dark ? "#1e1d1b" : "#fff",
+            fontFamily: F_DISPLAY, fontSize: 13, color: ink } }, Math.round(score))) : null,
+        h("div", { style: { flex: 1, minWidth: 0 } }, picks.map((pk, i2) =>
+          h("div", { key: i2, className: "flex items-baseline", style: { gap: 6, marginTop: i2 ? 5 : 0 } },
+            h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: dim, flex: 1 } }, pk[0]),
+            h("span", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: ink, maxWidth: "60%" } }, pk[1])))));
+    }
+    // 相册：四宫格
+    if (key === "album") {
+      const ps = wRows("album").slice(0, 4);
+      if (!ps.length) return line("相册还没翻过");
+      // ⚠️别用 aspectRatio：两列宽的格子里，1:1 会把整块撑到 240px 高，图标就被挤出屏幕了
+      return h("div", { style: { flex: 1, marginTop: 8 } },
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 5 } },
+          [0, 1, 2, 3].map(i2 => { const ph = ps[i2];
+            return h("div", { key: i2, style: { height: 48, borderRadius: 9,
+              background: ph ? "linear-gradient(150deg," + strColor(wText(ph) || i2) + "cc," + strColor((wText(ph) || "") + "x") + "77)"
+                : (dark ? "rgba(255,255,255,.07)" : "rgba(35,31,25,.055)") } }); })),
+        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: dim, marginTop: 8 } }, wText(ps[0])));
+    }
+    // 日历：一块真正的日期，不是一行字
+    if (key === "calendar") {
+      const ci = ((liveCtx.calendar || {}).items || [])[0];
+      const d = new Date(deskNow);
+      return h("div", { className: "flex items-center", style: { flex: 1, gap: 13, marginTop: 6 } },
+        h("div", { style: { textAlign: "center", flexShrink: 0 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".1em", color: "#c2503f" } }, ["日", "一", "二", "三", "四", "五", "六"][d.getDay()]),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, lineHeight: 1.05, color: ink } }, d.getDate())),
+        h("div", { style: { flex: 1, minWidth: 0, borderLeft: "1px solid " + (dark ? "rgba(255,255,255,.2)" : "rgba(35,31,25,.12)"), paddingLeft: 12 } },
+          ci ? h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: dim } }, String(ci.date || "").replace(/^\d{4}-/, "")),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: ink, marginTop: 3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, ci.title))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: dim } }, "这几天没安排")));
+    }
+    // 便签：撕下来的一角
+    if (key === "notes") {
+      const n = wRows("notes")[0];
+      if (!n) return line("最近没有留下新备忘");
+      return h("div", { style: { flex: 1, marginTop: 8, borderRadius: 12, padding: "11px 13px",
+        background: dark ? "rgba(255,255,255,.07)" : "rgba(226,214,178,.30)", borderLeft: "3px solid " + t.accent + "88" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: hero ? 16 : 13.5, color: ink } }, wText(n)),
+        n.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: dim, marginTop: 5,
+          display: "-webkit-box", WebkitLineClamp: hero ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, n.body) : null);
+    }
+    // 阅读：一条进度
+    if (key === "reading") {
+      const r = wRows("reading")[0];
+      if (!r) return line("最近没在读什么");
+      const pg = String(r.progress || "").match(/(\d+)\s*%/);
+      return h("div", { style: { flex: 1, marginTop: 8 } },
+        line(wText(r), 13.5),
+        h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
+          h("div", { style: { flex: 1, height: 3, borderRadius: 9, background: dark ? "rgba(255,255,255,.18)" : "rgba(35,31,25,.10)" } },
+            h("div", { style: { width: (pg ? pg[1] : 30) + "%", height: "100%", borderRadius: 9, background: t.accent } })),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: dim } }, r.progress || "")));
+    }
+    // 账本：没结清的那几笔
+    if (key === "tally") {
+      const rows = wRows("tally").slice(0, 2);
+      if (!rows.length) return line("他还没给你们记账");
+      return h("div", { style: { flex: 1, marginTop: 8 } }, rows.map((x, i2) =>
+        h("div", { key: i2, className: "flex items-baseline", style: { gap: 7, marginTop: i2 ? 7 : 0 } },
+          h("span", { style: { width: 5, height: 5, borderRadius: 999, background: t.accent, flexShrink: 0 } }),
+          h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: ink, flex: 1 } }, wText(x)))));
+    }
+    // 邮件：几封 + 谁来的
+    if (key === "mail") {
+      const rows = wRows("mail").slice(0, 2);
+      if (!rows.length) return line("邮箱还没翻过");
+      return h("div", { style: { flex: 1, marginTop: 8 } }, rows.map((x, i2) =>
+        h("div", { key: i2, style: { marginTop: i2 ? 9 : 0 } },
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: ink } }, wText(x)),
+          h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: dim, marginTop: 2 } },
+            (x.from || "") + (wTime(x) ? " · " + wTime(x) : "")))));
+    }
+    return h("div", { style: { fontFamily: F_DISPLAY, fontSize: hero ? 18 : 14, lineHeight: 1.42, color: ink, marginTop: hero ? 20 : 13,
+      display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, widgetCopy(key));
+  }
+
   const deskWidget = spec => {
     const key = spec.key;
     const wide = spec.span === 2;
     const hero = spec.size === "hero";
+    const tall = spec.size === "tall";
     const dark = key === "music" || key === "latenight";
+    // 刷新是个【动作】，不是内容：以前它占一整块组件的高度，把图标整排挤到屏幕外面去。
+    // 改成一条通栏细条，省下来的一百来像素刚好够图标露出来。
     if (key === "refresh") return h("button", {
       key,
       onClick: () => { clearSeen(char.id); onGenAll(char); }, disabled: !!busyKey,
-      className: "text-left active:opacity-70 disabled:opacity-50",
+      className: "flex items-center justify-center active:opacity-70 disabled:opacity-50",
       style: {
-        gridColumn: wide ? "span 2" : "span 1", minHeight: hero ? 124 : 104, padding: 15, borderRadius: 23,
-        background: "rgba(255,255,255,.62)", border: "1px solid rgba(255,255,255,.7)"
+        gridColumn: "span 2", minHeight: 46, gap: 9, borderRadius: 16,
+        background: "rgba(255,255,255,.52)", border: "1px solid rgba(255,255,255,.66)"
       }
-    }, h(IRefresh, { size: 19, color: t.ink }), h("div", {
-      style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginTop: 12 }
+    }, h(IRefresh, { size: 15, color: t.fog }), h("span", {
+      style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub }
     }, isAllRun ? (allNowKey && PHONE_LABEL[allNowKey] ? "正在翻…" + PHONE_LABEL[allNowKey] : "正在翻整部手机…") : "刷新全部 App"));
-    const app = appByKey(key);
+    // 装饰件不是 app：表点了什么都不做，相框去相册，一句话去便签
+    const decor = PHONE_DECOR.indexOf(key) >= 0;
+    const jump = key === "frame" ? "album" : key === "saying" ? "notes" : key;
+    const app = decor ? null : appByKey(key);
+    if (!decor && !app) return null;
+    const label = decor ? { clock: "时间", frame: "相册", saying: "他写过的" }[key] : app.zh;
     return h("button", {
       key,
-      onClick: () => openApp(app), className: "text-left active:opacity-70",
+      onClick: () => { if (key === "clock") return; const a = appByKey(jump); if (a) openApp(a); },
+      className: "text-left active:opacity-70",
       style: {
-        gridColumn: wide ? "span 2" : "span 1", minHeight: hero ? 124 : spec.size === "wide" ? 108 : 104,
+        gridColumn: wide ? "span 2" : "span 1",
+        minHeight: hero ? 124 : tall ? 132 : spec.size === "wide" ? 112 : 104,
         padding: hero ? 17 : 15, borderRadius: hero ? 25 : 23,
+        display: "flex", flexDirection: "column",
         background: dark ? "rgba(30,29,27,.88)" : "rgba(255,255,255,.72)",
         color: dark ? "#fff" : t.ink, border: dark ? "none" : "1px solid rgba(255,255,255,.72)",
         boxShadow: hero ? "0 12px 28px rgba(35,31,25,.09)" : "none"
       }
-    }, h("div", { className: "flex items-center justify-between" },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, app.zh),
-      h(PGlyph, { k: key, size: 19, color: dark ? "#fff" : t.ink })),
-    h("div", {
-      style: {
-        fontFamily: F_DISPLAY, fontSize: hero ? 18 : 14, lineHeight: 1.42,
-        marginTop: hero ? 20 : 13, display: "-webkit-box", WebkitLineClamp: hero ? 2 : 2,
-        WebkitBoxOrient: "vertical", overflow: "hidden"
-      }
-    }, widgetCopy(key)));
+    }, h("div", { className: "flex items-center justify-between shrink-0" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".11em", color: dark ? "rgba(255,255,255,.62)" : t.fog } }, label),
+      decor && key === "clock" ? null : h(PGlyph, { k: decor ? jump : key, size: 19, color: dark ? "#fff" : t.ink })),
+    deskBody(key, dark, hero));
   };
   const pages = layout.pages.map((keys, pageIndex) => h("section", {
     key: pageIndex,
     className: "h-full min-w-full overflow-y-auto px-5 pt-3 pb-5",
     style: { scrollSnapAlign: "start", scrollSnapStop: "always" }
   }, h("div", { className: "grid grid-cols-2 gap-3 mb-6" }, (layout.widgets[pageIndex] || []).map(deskWidget)),
-  h("div", { className: "grid grid-cols-4 gap-x-2 gap-y-6" }, keys.map(k => appIcon(appByKey(k), false)))));
+  // 这一页已经摆了组件的 app，就不在同一页再放一个图标——她 2026-08-30 问的
+  //「哪些留图标、哪些换组件」，答案是【按页去重】：组件已经把内容摊开了，
+  // 旁边再放个同名图标只是重复一次，而且把真正需要图标的那几个挤下去。
+  h("div", { className: "grid grid-cols-4 gap-x-2 gap-y-6" },
+    keys.filter(k => !(layout.widgets[pageIndex] || []).some(w => w.key === k))
+      .map(k => appIcon(appByKey(k), false)))));
   return h("div", {
     className: "h-full flex flex-col overflow-hidden",
     style: {
