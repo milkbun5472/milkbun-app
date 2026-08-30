@@ -8007,17 +8007,14 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
   const acctRows = accounts.map(a => a.primary ? { ...a, hold: bal0 } : a);
   const heldTotal = acctRows.reduce((n, a) => n + (a.primary ? 0 : (Number(a.hold) || 0)), 0);
   const assetTotal = heldTotal + bal0;
-  // 为她花的：不额外生成，从已有流水里筛。
-  // 转账（她收到的那些）+ 名目里点到她名字的单子（送到她那儿的外卖、买给她的东西）。
-  // 靠名字匹配确实不严密，但比另起一套「是不是为她买的」标记诚实——
-  // 那个标记要模型每单都判断一次，判错了这一栏就在撒谎。
-  const meName = String((profile && profile.name) || "").trim();
-  const forHer = ledger.filter(e => {
-    if (!e || !(Number(e.delta) < 0)) return false;
-    if (e.kind === "transfer") return true;
-    const L = String(e.label || "");
-    return !!(meName && meName.length >= 2 && L.indexOf(meName) >= 0);
-  });
+  // 为她花的：只认【真的发生过】的那几种——她在 App 里亲手收到过的。
+  //   转账 / 他送来的礼物 / 红包 / 亲属卡
+  // ⚠️v58.39 起不再靠「名目里出现她的名字」来筛。以前那样筛，模型在推演当天
+  // 日常消费时随手写一句「给 Lisa 带的桂花糕」，这一栏就把它算成他为她花的钱——
+  // 可他根本没点过、她也没收到过任何东西（她 2026-08-30：「显示有好多就是编出来的」）。
+  // 少算一点也不能算错：这一栏是她翻钱包最当真的一栏。
+  const FOR_HER_KINDS = ["transfer", "gift", "redpacket", "kinship"];
+  const forHer = ledger.filter(e => e && Number(e.delta) < 0 && FOR_HER_KINDS.indexOf(e.kind) >= 0);
   const forHerTotal = forHer.reduce((n, e) => n + Math.abs(Number(e.delta) || 0), 0);
   // 还没结清的那几笔算个净额：正数是别人还欠他的，负数是他还欠人的
   const debtOpen = { net: debts.reduce((n, d) => d && !d.settledTs ? n + (d.dir === "owed" ? 1 : -1) * (Number(d.amount) || 0) : n, 0) };
@@ -8173,6 +8170,8 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
           h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, forHer.length + " 笔"),
           h("span", { style: { marginLeft: "auto", fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, fmtMoney(forHerTotal)),
           h("span", { style: { marginLeft: 8, transform: forHerOpen ? "rotate(180deg)" : "none", transition: "transform .18s ease" } }, h(IChevD, { size: 16, color: t.fog }))),
+        forHerOpen ? h("div", { key: "fn", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginBottom: 8 } },
+          "只算你真的收到过的：转账、他寄来的东西、红包、亲属卡。他行程里推演出来的日常花销不算在这儿。") : null,
         forHerOpen ? h("div", { key: "fb", className: "space-y-1" }, forHer.slice(0, 30).map((e, i) => h("div", {
           key: e.id || i, style: { display: "flex", gap: 10, alignItems: "baseline", padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" }
         },

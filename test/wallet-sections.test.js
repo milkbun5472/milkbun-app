@@ -103,15 +103,18 @@ test("界面：随身那处显示活余额，总资产不重复计", () => {
 });
 
 test("界面：为你花的是从流水里筛的，不额外生成", () => {
-  const m = scr.match(/const forHer = ledger\.filter\(e => \{[\s\S]*?\n  \}\);/);
+  const m = scr.match(/const forHer = ledger\.filter\([\s\S]{0,200}?\);/);
   assert.ok(m, "找不到 forHer");
-  assert.match(m[0], /e\.kind === "transfer"/, "转账没算进去");
-  assert.match(m[0], /meName\.length >= 2/, "名字太短（一个字）时不许拿去匹配，会误伤一大片");
   assert.match(m[0], /Number\(e\.delta\) < 0/, "进账也被当成「为她花的」了");
   // 只读流水，不调模型
   assert.ok(m[0].indexOf("runProbe") < 0);
-  // 名字从 profile 来，两边都得接上：组件签名要收，调用点要传
+  // v58.39：改成按 kind 认【真发生过】的那几种。以前是「名目里出现她的名字」，
+  // 于是模型推演当天日常消费时随手写一句「给 Lisa 带的桂花糕」也被算成他为她花的钱
+  //（她 2026-08-30：「显示有好多就是编出来的，根本没有点过给我」）。
+  assert.match(m[0], /FOR_HER_KINDS\.indexOf\(e\.kind\) >= 0/, "又改回按名字猜了");
+  assert.ok(!/L\.indexOf\(meName\)/.test(scr), "名字匹配那一套还留着");
+  // 名字仍要接上：礼物流水的名目里写的是她（在 app.js 那边），组件签名和调用点都不能断
   assert.match(scr, /function CharWallet\(\{[^)]*profile,/, "CharWallet 签名没收 profile");
   const call = app.match(/screen === "cwallet"\) body = h\(CharWallet, \{[\s\S]{0,240}/);
-  assert.ok(call && /profile: profile,/.test(call[0]), "CharWallet 的调用点没传 profile，拿不到她的名字");
+  assert.ok(call && /profile: profile,/.test(call[0]), "CharWallet 的调用点没传 profile");
 });
