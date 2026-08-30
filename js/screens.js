@@ -7733,6 +7733,9 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
   const [view, setView] = useState("archive"); // archive(默认大图) | home(目录) | entries | entry | compose
   const [curId, setCurId] = useState(characters[0] ? characters[0].id : "__me");
   const [curEntry, setCurEntry] = useState(null);
+  // 翻页：flip 记着这一下往哪边翻、翻到哪一篇；flipRef 存手指按下时的位置
+  const [flip, setFlip] = useState(null);
+  const flipRef = useRef(null);
   const [styleEdit, setStyleEdit] = useState(null);
   const [commentPick, setCommentPick] = useState(null); // entryId 正在选评论角色
   const tx = useRef(null);
@@ -7764,15 +7767,52 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
 
   // ---- 全文 ----
   if (view === "entry" && curEntry) {
-    const e = entriesOf(curId).find(x => x.id === curEntry) || curEntry;
-    return h(Fragment, null,
+    const all = entriesOf(curId);
+    const at = Math.max(0, all.findIndex(x => x.id === curEntry));
+    const e = all[at] || (all.find(x => x.id === curEntry) || curEntry);
+    // ── 翻页（她 2026-08-30 点的 A）──────────────────────────
+    // 一本本子该能一页一页翻。左滑往前（更早的一天），右滑往后（更近的一天）。
+    // ⚠️效果做成【这一页绕着装订那条边翻过去】，底下露出下一页——
+    //   不是整页平移。平移是卡片轮播，绕轴才是翻纸。
+    const prevE = all[at + 1] || null;   // 列表是新→旧，往下是更早的一天
+    const nextE = all[at - 1] || null;
+    const goTo = (target, dir) => {
+      if (!target || flip) return;
+      setFlip({ dir: dir, to: target.id });
+      setTimeout(() => { setCurEntry(target.id); setFlip(null); }, 430);
+    };
+    const onTS = ev => { flipRef.current = { x: ev.touches[0].clientX, y: ev.touches[0].clientY }; };
+    const onTE = ev => {
+      const st = flipRef.current; flipRef.current = null;
+      if (!st) return;
+      const dx = ev.changedTouches[0].clientX - st.x, dy = ev.changedTouches[0].clientY - st.y;
+      if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      if (dx < 0) goTo(prevE, "fwd"); else goTo(nextE, "back");
+    };
+    const under = flip ? all.find(x => x.id === flip.to) : null;
+    const page = (entry, style) => h("div", { style: Object.assign({ position: "absolute", inset: 0 }, style || {}) },
       h(DiaryEntryView, {
-        entry: e, char: curAuthor, isMe, chars: characters,
-        commenting: commentingId === e.id,
-        onComment: isMe ? () => setCommentPick(e.id) : null,
+        entry: entry, char: curAuthor, isMe, chars: characters,
+        commenting: commentingId === entry.id,
+        onComment: isMe ? () => setCommentPick(entry.id) : null,
         onBack: () => { setCurEntry(null); setView("entries"); },
-        onDelete: () => { onDelEntry(curId, e.id); setCurEntry(null); setView("entries"); }
-      }),
+        onDelete: () => { onDelEntry(curId, entry.id); setCurEntry(null); setView("entries"); }
+      }));
+    return h(Fragment, null,
+      h("div", { className: "h-full relative", style: { perspective: 1500, perspectiveOrigin: "0% 50%", overflow: "hidden", touchAction: "pan-y" }, onTouchStart: onTS, onTouchEnd: onTE },
+        under ? page(under, { zIndex: 1 }) : null,
+        page(e, {
+          zIndex: 2,
+          transformOrigin: flip && flip.dir === "back" ? "right center" : "left center",
+          transform: flip ? (flip.dir === "fwd" ? "rotateY(-104deg)" : "rotateY(104deg)") : "rotateY(0deg)",
+          opacity: flip ? 0.25 : 1,
+          boxShadow: flip ? "0 0 60px rgba(0,0,0,.28)" : "none",
+          transition: flip ? "transform .43s cubic-bezier(.4,.05,.35,1), opacity .43s ease, box-shadow .43s ease" : "none",
+          backfaceVisibility: "hidden"
+        }),
+        // 还剩几页：不写页码，用一排小刻度说话
+        all.length > 1 ? h("div", { className: "absolute left-0 right-0 flex items-center justify-center", style: { bottom: "calc(env(safe-area-inset-bottom) + 8px)", gap: 4, pointerEvents: "none", zIndex: 3 } },
+          all.slice(0, 12).map((x, i2) => h("span", { key: x.id, style: { width: i2 === at ? 12 : 4, height: 3, borderRadius: 999, background: t.ink, opacity: i2 === at ? .5 : .16, transition: "width .2s" } }))) : null),
       commentPick && h(DiaryCommentPickSheet, {
         characters,
         onClose: () => setCommentPick(null),

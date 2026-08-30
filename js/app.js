@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.42";
+const APP_VERSION = "v58.43";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8155,7 +8155,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         groupOfflines: diaryGroupOfflines
       }, { fromTs: ds, untilTs: de, limit: 0, userName: profile.name || "用户", charName: char.name }) : [];
       const clock = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-      const dayChatText = dayRows.map(r => "[" + clock(r.ts) + "]【" + r.source + "】" + r.speaker + "：" + r.text).join("\n");
+      // ⚠️「摆到他面前」那张卡（phonepeek / 随身物转发）的正文是 App 拼出来的机器文案：
+      //   〈想买清单〉《商品全名》｜他自己写的那句 why。整段原样进素材，模型就会把商品名
+      //   连括号里那句一起抄进日记——她 2026-08-30 报的「直接把查手机的东西原样照搬进来了」。
+      //   这里把卡片压成【发生了什么】：翻的是哪一栏、看到的东西留个短名，长文案不进素材。
+      const trimPeek = txt => String(txt || "").replace(
+        /\[我翻了你的([^\]]*)\]([^《｜]*)(《([^》]{0,14})[^》]*》)?(｜[^\n]*)?/g,
+        (m0, what, lead, _t, title) => "[她翻了我的" + (what || "手机") + "，把" + (title ? "「" + title + "」" : "看到的东西") + "摆到我面前]");
+      const dayChatText = dayRows.map(r => "[" + clock(r.ts) + "]【" + r.source + "】" + r.speaker + "：" + trimPeek(r.text)).join("\n");
       // 单独抽出角色本人当天说过的话做声纹锚点：事件材料告诉模型「写什么」，原话样本告诉模型「这个人怎么写」。
       // 只取本人、不混用户和群友；封顶 12 条避免贵线 prompt 膨胀。
       const diaryVoiceSamples = dayRows.filter(r => String(r.speaker || "") === String(char.name || "") && String(r.text || "").trim()).slice(-12).map(r => String(r.text).trim());
