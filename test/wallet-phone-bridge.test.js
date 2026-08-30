@@ -87,13 +87,18 @@ test("已入账那几笔要写进提示词，否则模型再编一顿饭", () =>
 test("回到前台那一路也要补账（开 app / 跨天 / 回前台，三处都得有）", () => {
   // 常驻 PWA 切回前台是最常走的一条路，这儿漏了她的钱包就要等整页重载才结算
   // 三拍：开 app、回前台、跨天。少一拍就有一条路上钱包不结算。
-  const hooks = appSrc.match(/walletCatchAllToday\(\)/g) || [];
-  assert.ok(hooks.length >= 3, "walletCatchAllToday 的挂点少于三拍，现在 " + hooks.length);
-  // 同一条链上的其它每日任务有几处，钱包就该有几处——别再出现「三处有、一处漏」
-  const sched = (appSrc.match(/schedMaybeSelfRevise\(\)/g) || []).length;
-  assert.equal(hooks.length, sched, "钱包补账的挂点数和行程那条链对不上（钱包 " + hooks.length + " / 行程 " + sched + "）");
-  // app.js 里有五个 const kick，别抓错——按「回前台补今日行程」那一个的内容定位
-  const kick = (appSrc.match(/^.*const kick = \(\) => \{.*schedGenAllToday.*$/gm) || [])[0];
-  assert.ok(kick, "找不到回前台那一路");
-  assert.match(kick, /walletCatchAllToday\(\)/, "回到前台那一路没接钱包补账");
+  // v58.07 起三拍不再各抄一遍，而是都走同一支 wakeSweeps——
+  // 「少一拍」这件事从「要靠数数发现」变成了结构上不可能。这里认的还是同一条不变量：
+  // 三条唤起路都得走那一支，而那一支里得有钱包补账。
+  assert.equal((appSrc.match(/wakeSweeps\(\)/g) || []).length, 3, "开 app / 回前台 / 跨天，三拍少了一拍");
+  const i = appSrc.indexOf("const wakeSweeps = async () => {");
+  assert.ok(i > 0, "找不到那一支");
+  const _i = appSrc.indexOf("const steps = [", appSrc.indexOf("const wakeSweeps = async () => {"));
+  const _steps = appSrc.slice(_i, appSrc.indexOf("];", _i));
+  // ⚠️只切 steps 那个数组：旁边注释里就有这几个名字，固定宽度的窗口抓得到它们
+  assert.match(_steps, /walletCatchAllToday/, "那一支里没有钱包补账");
+  assert.match(_steps, /schedMaybeSelfRevise/, "那一支里没有行程");
+  // 回前台那一路（常驻 PWA 最常走的一条）必须也在其中
+  const kick = (appSrc.match(/^.*const kick = \(\) => \{.*$/gm) || []).filter(x => /wakeSweeps/.test(x))[0];
+  assert.ok(kick, "回到前台那一路没接上");
 });

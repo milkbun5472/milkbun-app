@@ -19,8 +19,13 @@ test("收信口整条拆干净：没有 server_inbox，也没有投信逻辑", (
     assert.ok(!app.includes(k), "app.js 残留 " + k);
     assert.ok(!cloud.includes(k), "cloud.js 残留 " + k);
   });
-  // 开机三处 kick 里不能再叫收信口，但同排的桌面日志还得照常跑
-  assert.equal((app.match(/deliverDeskLog\(\);/g) || []).length, 3, "deliverDeskLog 三处调用要原样保留");
+  // 开机三处 kick 里不能再叫收信口，但同排的桌面日志还得照常跑。
+  // v58.07 起三拍共用一支 wakeSweeps，桌面日志跟着收进去了：从「三处各写一遍」
+  // 变成「一处写、三处走」——照常跑这件事没变，数数的认法过时了。
+  assert.equal((app.match(/deliverDeskLog\(\);/g) || []).length, 1, "桌面日志该在共用那一支里写一次");
+  assert.match(app.slice(app.indexOf("const wakeSweeps = async () => {"), app.indexOf("const wakeSweeps = async () => {") + 900),
+    /deliverDeskLog\(\);/, "桌面日志没进那一支，三拍都不会跑了");
+  assert.equal((app.match(/wakeSweeps\(\)/g) || []).length, 3, "三拍少了一拍");
 });
 
 test("工程师体检不再报夜巡脉搏，但别的体征照旧", () => {

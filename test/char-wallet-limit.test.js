@@ -45,8 +45,13 @@ test("补账不再只在打开钱包页时跑", () => {
   // 三拍都要接上：开机、回前台、跨天。
   // 这条原来冻在 2，于是「回到前台」那一路漏了整整一版没人发现——常驻 PWA 切回来
   // 是最常走的一条路，钱包因此要等整页重载才结算（v57.69 补上）。
-  assert.equal((app.match(/\.then\(\(\) => walletCatchAllToday\(\)\)/g) || []).length, 3,
-    "开机 / 回前台 / 跨天，各一处");
+  // v58.07 起三拍共用一支 wakeSweeps，不再各抄一遍；不变量没变，认法改了。
+  assert.equal((app.match(/wakeSweeps\(\)/g) || []).length, 3, "开机 / 回前台 / 跨天，各一处");
+  const _i = app.indexOf("const steps = [", app.indexOf("const wakeSweeps = async () => {"));
+  const _steps = app.slice(_i, app.indexOf("];", _i));
+  // ⚠️只切 steps 那个数组，别用固定宽度的窗口——旁边的注释里就写着这个名字，
+  // 窗口开大一点，把它从 steps 里删掉测试照样绿（这次踩到）
+  assert.match(_steps, /walletCatchAllToday/, "那一支里没有钱包补账");
 });
 
 test("补账本身的守卫还在：只补到昨天，最多 14 天", () => {

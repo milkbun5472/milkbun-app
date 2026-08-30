@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.06";
+const APP_VERSION = "v58.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8453,17 +8453,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (screen === "us") { autoAmbientRun("whisper"); clearAppNotif("whisper"); } else ambientRunRef.current.whisper = false;
     if (screen === "messages") { autoAmbientRun("moments"); clearAppNotif("moments"); } else ambientRunRef.current.moments = false;
   }, [screen]);
+  // 每次唤起要补的那一串（开 app / 切回前台 / 跨天，三处走的是同一串）。
+  // ⚠️两件事必须是这样：
+  //  ① 【一步一步 await，但每一步各自兜底】。原来是一条 .then 链、末尾挂着
+  //     phoneWeeklySweep，中间任何一步抛出来（desireMuseAllToday 就只有 try/finally、
+  //     没有 catch），后面的全部静默跳过——查手机的每周刷新那一周就白等了，
+  //     而且什么提示都没有。「挂在别人身上搭便车，别人没了它也跟着没」。
+  //  ② 【只写一处】。这一串本来在三个地方各抄了一遍，加一步就得记得改三处——
+  //     v55.x 起反复栽的就是这个形状（这一层写在三处，第四处没跟上）。
+  const wakeSweeps = async () => {
+    if (!active || !characters.length) return;
+    deliverDeskLog();
+    const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
+      desireMuseAllToday, desireTendAllToday, phoneWeeklySweep];
+    for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
+  };
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
   useEffect(() => {
-    if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()).then(() => phoneWeeklySweep()); };
+    wakeSweeps();
   }, [active, characters.length]);
   // 回到前台 / 重新聚焦：也自动补今日行程。PWA 常驻不重载页面时，光靠上面的首次加载不够——
   // 切回来那一下补一次。schedGenAllToday 只补【缺今天】的角色、已有则空跑，安全省 api。
   useEffect(() => {
     if (!loaded) return;
-    // ⚠️这一路本来漏了 walletCatchAllToday——开 app 那一拍和跨天那一拍都有，唯独这儿没有。
-    // 而常驻 PWA 切回前台是最常走的一条路，于是她的钱包常常要等整页重载才结算。
-    const kick = () => { if (document.visibilityState !== "hidden" && active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()).then(() => phoneWeeklySweep()); }; };
+    // ⚠️这一路最容易被漏：常驻 PWA 切回前台是最常走的一条，v57.69 之前这儿少接了
+    // 钱包补账，于是她的钱包常常要等整页重载才结算。三拍现在共用 wakeSweeps，
+    // 漏掉某一步这件事从「要靠数数发现」变成了结构上不可能。
+    const kick = () => { if (document.visibilityState !== "hidden") wakeSweeps(); };
     document.addEventListener("visibilitychange", kick);
     window.addEventListener("focus", kick);
     return () => { document.removeEventListener("visibilitychange", kick); window.removeEventListener("focus", kick); };
@@ -8472,7 +8488,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const schedDayRef = useRef("");
   useEffect(() => {
     const k = liveChars.map(c => c.id + ":" + schedLocalDayKey(c)).join("|");
-    if (k !== schedDayRef.current) { schedDayRef.current = k; if (active && characters.length) { deliverDeskLog(); schedGenAllToday().then(() => schedMaybeSelfRevise()).then(() => walletCatchAllToday()).then(() => desireMuseAllToday()).then(() => desireTendAllToday()).then(() => phoneWeeklySweep()); }; }
+    if (k !== schedDayRef.current) { schedDayRef.current = k; wakeSweeps(); }
   }, [now]);
 
   // ── 每周一次的例行刷新 ────────────────────────────────────
@@ -8501,6 +8517,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         return n;
       });
       await genPhoneAll(due, true);
+      // 刷完说一声：这一层原来完全无声，于是「我今天打开怎么又更新了」根本没法自己看出来。
+      // ⚠️一次唤起只补一个角色，所以开了 N 个角色就会连着 N 次唤起各刷一个——
+      // 都在同一周内、每个角色仍然只刷一次，但不说的话看起来就像天天在刷。
+      toast("每周刷新：已更新「" + (due.remark || due.name) + "」的手机");
     } catch (e) {/* 例行刷新失败不打扰她 */ } finally { phoneWeekRunRef.current = false; }
   };
   const phoneAutoToggle = charId => setPhoneAuto(p => {
@@ -9581,7 +9601,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       toast("请先到设置配置 API");
       return;
     }
-    setSelPhone(char.id);
+    // ⚠️例行刷新是【后台】跑的，别顺手改她正在看的是谁：
+    // 每周刷新在开 app 那一拍就跑了，她这会儿可能在别的页面，
+    // 等她进查手机时选中的却变成了刚被补刷的那个角色。手动全刷才该切过去。
+    if (!weekly) setSelPhone(char.id);
     setGen(g => ({
       ...g,
       phoneApp: "__all__"
