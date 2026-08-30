@@ -138,6 +138,31 @@
   // 她 2026-08-30：「把 token 也放开了写」。原来是 2000–8000 的滑杆。
   // 上限留一个：填成天文数字只会让请求直接被模型拒掉或挂到超时，那不是「放开」。
   const FIC_TOKEN_MAX = 60000;
+  // ── 书页（她 2026-08-30：「背景换成书页，设置加好几种预设，包括深夜模式的」）──
+  // ⚠️一张纸得【连纸带墨】一起给：深夜那张纸配深色墨就什么都看不见了。
+  // 所以每一张纸就是一整套主题 token，套在 ThemeContext 上——
+  // 卡片、标签、深浅交替那一套全都读 useTheme()，换纸自动跟着走，不用挨个改。
+  const FIC_PAPERS = [
+    { id: "cream", label: "米黄", hint: "旧书内页", bg: "#efe6d2", bg2: "#f7f1e2", ink: "#33291c", sub: "#5c4f3c", fog: "#a1927a", line: "#ddd0b4", accent: "#a8543f", tint: "#4a6484" },
+    { id: "plain", label: "素白", hint: "新书", bg: "#f2f1ee", bg2: "#fbfaf7", ink: "#22211e", sub: "#4d4b45", fog: "#9a978e", line: "#e0ded7", accent: "#b2543f", tint: "#41627d" },
+    { id: "kraft", label: "牛皮", hint: "毛边本", bg: "#e2d4ba", bg2: "#ece1cb", ink: "#3b2f1e", sub: "#63523a", fog: "#a39070", line: "#d0bd9c", accent: "#9d4f34", tint: "#4c6350" },
+    { id: "bamboo", label: "竹青", hint: "线装书", bg: "#e4e8dd", bg2: "#eef1e8", ink: "#242a22", sub: "#4b5347", fog: "#93998c", line: "#d2d8c8", accent: "#8a5340", tint: "#3f6459" },
+    { id: "night", label: "深夜", hint: "关灯读", bg: "#191919", bg2: "#232322", ink: "#e6e1d6", sub: "#b4aea1", fog: "#7e796e", line: "#333230", accent: "#c98d5a", tint: "#7ba0b8" },
+    { id: "ink", label: "墨蓝", hint: "深夜·冷", bg: "#161a20", bg2: "#1f242c", ink: "#dfe4ea", sub: "#a9b1bb", fog: "#767e88", line: "#2c323a", accent: "#c98d7a", tint: "#7fa8c4" }
+  ];
+  const FIC_PAPER_DEFAULT = "cream";
+  function ficPaper(cfg) {
+    const want = (cfg && cfg.paper) || FIC_PAPER_DEFAULT;
+    return FIC_PAPERS.find(function (p) { return p.id === want; }) || FIC_PAPERS[0];
+  }
+  // 纸 → 主题。⚠️只覆盖【看得见的那几个色】，别的原样继承她自己的主题，
+  // 免得换张纸把她在主题工作台调过的东西一起顶掉。
+  function ficPaperTheme(base, paper) {
+    return Object.assign({}, base || DEFAULT_THEME, {
+      bg: paper.bg, bg2: paper.bg2, ink: paper.ink, sub: paper.sub,
+      fog: paper.fog, line: paper.line, accent: paper.accent, tint: paper.tint
+    });
+  }
   function clampPerFic(v) {
     const n = Math.round(Number(v));
     if (!isFinite(n) || n <= 0) return CFG_DEFAULT.perFic;
@@ -816,8 +841,21 @@
   // 不写死黑白，她把主题调成什么样这套都成立。
   function ficTone(dark, t) {
     if (!dark) return { onDark: false, bg: t.bg2, ink: t.ink, sub: t.sub, fog: t.fog, line: t.line, cp: t.accent, num: t.fog };
+    // ⚠️纸本来就是深的（深夜／墨蓝）时，「高对比那一块」不能再拿 t.ink 当底——
+    // ink 在深色纸上是【浅】的，做出来就是一大块亮米色怼在脸上，
+    // 关灯读正好晃眼，等于把深夜模式做废了。
+    // 深纸上改成【比纸再沉一档】：还是拉得开，但整页仍然是暗的。
+    if (skinIsDark(t.bg)) {
+      const lit = "rgba(" + skinRGB(t.ink).join(",") + ",";
+      return { onDark: true, bg: skinShade(t.bg, -0.34), ink: t.ink, sub: t.sub, fog: t.fog, line: lit + ".14)", cp: t.accent, num: lit + ".30)" };
+    }
     const on = "rgba(" + skinRGB(t.bg2).join(",") + ",";
     return { onDark: true, bg: t.ink, ink: t.bg2, sub: on + ".78)", fog: on + ".46)", line: on + ".18)", cp: "#e8907e", num: on + ".32)" };
+  }
+  // 往黑里压 / 往白里提一档（k<0 变暗，k>0 变亮）
+  function skinShade(hex, k) {
+    const c = skinRGB(hex).map(function (v) { return Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k))); });
+    return "rgb(" + c.join(",") + ")";
   }
   // 作者笔名：原先一律「佚名」，一整页看下来像没人写过（AO3 上作者名是最抢眼的一行）。
   // 按 id 派生一个稳定的中文笔名——同一篇永远同一个人，同一个人写的几篇天然聚在一起。
@@ -1214,7 +1252,7 @@
         h("div", { className: "flex-1 min-w-0" }, node));
     };
     // 阅读页的皮肤压到六成：这一页要读几千字，纹理不能跟正文抢。
-    return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "READING", strength: .6 }) },
+    return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { strength: .6 }) },
       h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
         h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "flex-1 min-w-0 text-center px-1" },
@@ -1371,7 +1409,7 @@
 
     if (sub === "published") return h(MinePublished, { fics: mine, characters: props.characters, userName: props.userName, onBack: function () { setSub(null); }, onOpen: props.onOpenFic });
     if (sub === "cp") return h(MineCP, { cps: props.cps, characters: props.characters, userName: props.userName, toast: props.toast, onBack: function () { setSub(null); }, onAddCP: props.onAddCP, onDelCP: props.onDelCP });
-    if (sub === "settings") return h(MineSettings, { active: props.active, toast: props.toast, onBack: function () { setSub(null); } });
+    if (sub === "settings") return h(MineSettings, { active: props.active, toast: props.toast, onPaper: props.onPaper, onBack: function () { setSub(null); } });
 
     const row = function (label, desc, onClick) {
       return h("button", { onClick: onClick, className: "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 mb-2.5 active:opacity-70", style: { background: t.bg2, border: "1px solid " + t.line } },
@@ -1636,7 +1674,32 @@
           style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px", outline: "none" }
         }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
-          "范围 500–" + FIC_TOKEN_MAX + "。设太高的话，一次请求会很久，也更容易撞上模型自己的上限或超时。")));
+          "范围 500–" + FIC_TOKEN_MAX + "。设太高的话，一次请求会很久，也更容易撞上模型自己的上限或超时。"),
+
+        // ── 书页 ──
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "22px 0 3px" } }, "书页"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 9, lineHeight: 1.5 } },
+          "换纸连墨一起换：深夜那两张是浅字深底，关灯读不刺眼。只影响同人文这几页。"),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 } },
+          FIC_PAPERS.map(function (pp) {
+            const on = (cfg.paper || FIC_PAPER_DEFAULT) === pp.id;
+            return h("button", {
+              key: pp.id,
+              onClick: function () { patch({ paper: pp.id }); props.onPaper && props.onPaper(pp.id); },
+              className: "active:opacity-80 text-left",
+              style: {
+                background: pp.bg, borderRadius: 11, padding: "9px 10px 8px", overflow: "hidden",
+                border: "2px solid " + (on ? t.accent : "rgba(0,0,0,0.10)"),
+                boxShadow: on ? "0 0 0 2px " + t.accent + "33" : "0 1px 3px rgba(0,0,0,0.10)"
+              }
+            },
+              // 这块小样就是真的用那张纸的纸色和墨色画的，不是另配的示意色
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: pp.ink, lineHeight: 1.2 } }, pp.label),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.fog, marginTop: 2 } }, pp.hint),
+              h("div", { style: { height: 1, background: pp.line, margin: "7px 0 5px" } }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.sub, lineHeight: 1.35 } }, "灯芯爆了一下。"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: pp.accent, marginTop: 3 } }, "裴照川 × 我"));
+          }))));
   }
 
   // 作者主页资料编辑
@@ -1885,7 +1948,11 @@
   // 主组件
   // ============================================================
   function FanficApp(props) {
-    const t = useTheme();
+    const appTheme = useTheme();
+    // 她选的那张纸。⚠️用 state 存一份：在设置里换纸之后要立刻重绘，
+    // 光读 loadCfg() 不会触发渲染。
+    const [paperId, setPaperId] = useState(function () { return (loadCfg() || {}).paper || FIC_PAPER_DEFAULT; });
+    const t = ficPaperTheme(appTheme, ficPaper({ paper: paperId }));
     const [tabs, setTabs] = useState(loadTabs);
     const [fics, setFics] = useState(loadFics);
     const [cps, setCps] = useState(loadCPs);
@@ -2053,18 +2120,21 @@
     function delCP(id) { const next = cps.filter(function (c) { return c.id !== id; }); setCps(next); saveCPs(next); }
 
     // ---- 阅读页 ----
+    // ⚠️所有 return 都得包在这一层里。阅读页这一支是提前 return 的，
+    // 忘了包的话它就绕过了纸的主题——选了深夜，列表黑了、翻开还是米黄（实测踩到）。
+    const onPaper = function (node) { return h(ThemeContext.Provider, { value: t }, node); };
     if (openId) {
       const f = fics.find(function (x) { return x.id === openId; });
       if (!f) { setOpenId(null); return null; }
       const ftab = tabs.find(function (x) { return x.id === f.tabId; }) || curTab;
-      return h(Reader, {
+      return onPaper(h(Reader, {
         fic: f, tab: ftab, active: props.active, characters: cast, fwdChars: characters, profile: props.profile,
         groups: props.groups || [], userName: userName, worldbook: props.worldbook, toast: props.toast,
         // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上
         onBack: function () { setOpenId(null); setReadMap(loadRead()); },
         onUpdate: updateFic, onToggleShelf: toggleShelf, onLike: likeFic,
         onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared
-      });
+      }));
     }
 
     // ---- 各子页 ----
@@ -2073,6 +2143,7 @@
       inner = h(Publish, { tabs: tabs, characters: cast, userName: userName, toast: props.toast, onBack: function () { setView("feed"); }, onPublish: publish });
     } else if (view === "mine") {
       inner = h(Mine, { characters: cast, cps: cps, userName: userName, me: me, fics: fics, profile: props.profile, active: props.active, toast: props.toast,
+        onPaper: setPaperId,
         onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP,
         onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn });
     } else if (view === "rp") {
@@ -2158,15 +2229,16 @@
 
     // 发布/我的/rp 是全屏子页（自带返回箭头回 feed），不叠底 nav；feed/shelf 才显示底 nav
     const showNav = view === "feed" || view === "shelf";
-    // 页面皮肤（core.js 的 pageSkin）：纸纹＋光＋角上的弧＋页底那个特大词。
-    // 摊在最外层，于是发布页、我的、跑团这几个子视图也一并有底子。
-    // showNav 时把那个词抬到 tab bar 上面去，不然它整个躲在栏后面。
-    return h("div", { className: "h-full flex flex-col",
-      style: pageSkin("paper", t, { word: view === "shelf" ? "SHELF" : "FANFIC", wordLift: showNav ? "60px" : "" }) },
+    // 页面皮肤：纸纹＋光＋角上的弧。⚠️页底那个特大词【去掉了】（她 2026-08-30 点名）——
+    // 这一处是在读书，一整页压着个 FANFIC 太吵；别处还留着。
+    // 整个 App 套上她选的那张纸：卡片、标签、深浅交替全都读 useTheme()，
+    // 换张纸自动跟着走，一个组件都不用改。
+    return onPaper(
+      h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
       inner,
       showNav ? h(BottomNav, { view: view, onNav: function (k) { setView(k); } }) : null,
       gearOpen ? h(GenSheet, { tab: curTab, cps: cps, characters: cast, userName: userName, onClose: function () { setGearOpen(false); }, onConfirm: doGen }) : null,
-      tabSheet ? h(TabSheet, { tab: tabSheet.id ? tabSheet : null, onClose: function () { setTabSheet(null); }, onSave: saveTab, onDelete: delTab }) : null);
+      tabSheet ? h(TabSheet, { tab: tabSheet.id ? tabSheet : null, onClose: function () { setTabSheet(null); }, onSave: saveTab, onDelete: delTab }) : null));
   }
 
   window.FanficApp = FanficApp;

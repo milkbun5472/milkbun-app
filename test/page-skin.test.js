@@ -110,7 +110,9 @@ test("皮铺在【最外层】容器，不是滚动容器（顶部白带那条�
   assert.doesNotMatch(screens, /backgroundImage: "linear-gradient\(180deg," \+ carryTint\(sectionKey, \.10\)/,
     "旧的那条渐变还在——撤东西要删掉，不是留着");
   // 同人文：列表/书架/发布/我的/跑团 共用的最外层 + 阅读页
-  assert.match(fanfic, /style: pageSkin\("paper", t, \{ word: view === "shelf" \? "SHELF" : "FANFIC", wordLift: showNav \? "60px" : "" \}\)/);
-  assert.match(fanfic, /style: pageSkin\("paper", t, \{ word: "READING", strength: \.6 \}\)/);
+  // ⚠️v58.12 起同人文那几页【不带页底大字】了（她点名去掉）——认的是「皮还在」，
+  // 不是「那句 word 还在」。带不带 word 由 fanfic-paper-58-12 那份守着。
+  assert.match(fanfic, /style: pageSkin\("paper", t, \{ corner: true \}\)/);
+  assert.match(fanfic, /style: pageSkin\("paper", t, \{ strength: \.6 \}\)/);
   assert.match(fanfic, /pageSkin\("paper", t, \{ base: t\.bg2, corner: false, strength: \.4 \}\)/);
 });

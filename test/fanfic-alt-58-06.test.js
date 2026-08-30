@@ -9,8 +9,11 @@ const F = (() => {
   const a = fic.indexOf("  function ficTagStyle(kind, t, onDark) {");
   const b = fic.indexOf("  function FicTag(props) {");
   assert.ok(a > 0 && b > a, "抠不出 ficTone/ficTagStyle");
-  const rgb = core.slice(core.indexOf("function skinRGB(hex)"), core.indexOf("// 299/587/114"));
-  return new Function(rgb + fic.slice(a, b) + "\nreturn { ficTone, ficTagStyle, hexA };")();
+  // ⚠️ficTone 现在还用 skinIsDark（core）和 skinShade（本文件）——
+  // 抠的时候依赖要一起带上，少一个就是 "xxx is not defined"，红得跟真 bug 一样
+  const rgb = core.slice(core.indexOf("function skinRGB(hex)"), core.indexOf("// 纹理表"));
+  const shade = fic.slice(fic.indexOf("  function skinShade(hex, k) {"), fic.indexOf("\n  }", fic.indexOf("  function skinShade(hex, k) {")) + 4);
+  return new Function(rgb + shade + fic.slice(a, b) + "\nreturn { ficTone, ficTagStyle, hexA };")();
 })();
 const T = { bg: "#ece8e1", bg2: "#f6f4ef", ink: "#1b1a17", sub: "#4b493f", fog: "#96938a", line: "#ddd8cd", accent: "#c25a4a" };
 
@@ -37,9 +40,16 @@ test("深浅两套 token 都从主题算，不写死黑白", () => {
   assert.equal(l.bg, T.bg2, "浅卡＝t.bg2 底");
   assert.equal(d.ink, T.bg2, "深卡上的字得是 bg2，不是写死的白");
   assert.ok(d.onDark && !l.onDark);
-  // 深色主题下 ink 是浅的，这套照样成立（永远是「和页面拉开对比的那一块」）
+  // 深色主题／深色书页下：高对比那一块【仍然得是暗的】。
+  // v58.06 时它拿 t.ink 当底（浅色主题下 ink 是深的，成立）；
+  // v58.12 上了深夜书页才发现，深底下 ink 是【浅】的，照那么做就是一大块亮米色
+  // 怼在脸上，关灯读正好晃眼。所以这条改成认【结果是暗的】，不认它等于哪个字段。
   const DK = { bg: "#17171a", bg2: "#202024", ink: "#eae6df", sub: "#bbb", fog: "#888", line: "#333", accent: "#c98d5a" };
-  assert.equal(F.ficTone(true, DK).bg, DK.ink);
+  const dk = F.ficTone(true, DK);
+  const lum = c => { const m = String(c).match(/\d+/g); return m ? (+m[0] * 299 + +m[1] * 587 + +m[2] * 114) / 1000 : 255; };
+  assert.ok(lum(dk.bg) < 60, "深底上的高对比卡还是亮的，深夜模式就废了：" + dk.bg);
+  assert.ok(!/^#(fff|eae|f6f)/i.test(String(dk.bg)), "别拿浅色的 ink 当底");
+  assert.equal(dk.ink, DK.ink, "深底上字还是用 ink，别反过来");
   [d, l, F.ficTone(true, DK)].forEach(x => Object.keys(x).forEach(k => {
     if (k === "onDark") return;
     assert.doesNotMatch(String(x[k]), /^#(fff|000)/i, k + " 写死了黑白");
