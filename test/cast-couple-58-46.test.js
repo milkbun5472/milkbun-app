@@ -28,44 +28,48 @@ test("卡片上不再有编出来的卷宗号", () => {
   assert.doesNotMatch(cast, /FILE ·/);
 });
 
-// 一栏恒定写着同一句话＝零信息。原来没设时区就写「跟随系统」、没生日写「未录入」、
-// 谁都挂一个「在册」——三栏加起来占掉一整块，什么都没说
-test("卡上只写真的有的：没设的字段不出现", () => {
-  assert.match(cast, /if \(c\.tz\) chips\.push/, "时区没设也会写一行");
-  assert.match(cast, /if \(c\.birthday\) chips\.push/, "生日没填也会写一行");
-  assert.doesNotMatch(cast, /"跟随系统"|"未录入"/);
-  assert.doesNotMatch(cast, /"在册"/, "又挂上那个谁都有的标签了");
+// v58.48 改：她 2026-08-30「不要做 tag，做底部有信息那样：时区、生日……
+// 不要情侣天数和刚聊过和好感度」。所以卡上写的换成【放着不动也成立】的东西——
+// 好感/情侣/上次说话是关系的近况，不是档案。
+test("底部信息栏三格：时区 / 生日 / 人设厚度", () => {
+  assert.match(cast, /cell\("TIMEZONE", tz/);
+  assert.match(cast, /cell\("BIRTHDAY", bd/);
+  assert.match(cast, /cell\("PERSONA", plen/);
+  assert.doesNotMatch(cast, /chips/, "又改回小胶囊了");
 });
 
-test("好感 / 情侣 / 上次说话是真数据，从 app 那边算好递进来", () => {
-  assert.match(cast, /md\.couple === "together"/);
-  assert.match(cast, /md\.aff != null/);
-  assert.match(cast, /castAgo\(md\.lastTs, now\)/);
+test("关系的近况不进档案卡", () => {
+  // 注释里说得着这几个词（写着为什么拿掉），所以只看代码，先把注释行剥掉
+  const code = cast.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  ["好感", "affinity", "couple", "刚聊过", "castAgo", "lastTs"].forEach(k =>
+    assert.ok(!code.includes(k), "卡上又出现了「" + k + "」——那是关系近况，不是档案"));
   const call = app.slice(app.indexOf('screen === "cast") body'), app.indexOf('screen === "castForm"'));
-  assert.match(call, /aff: Math\.round\(affOf\(c\.id\)\)/, "好感没递进去");
-  assert.match(call, /couple: cp \? cp\.status : ""/, "情侣状态没递进去");
-  assert.match(call, /lastTs: lastTs/, "上次说话时间没递进去");
+  assert.ok(!/affOf|couples\[|lastTs/.test(call), "app 那边还在白算一遍近况递过来");
+  assert.ok(!/castAgo/.test(screens), "castAgo 没人用了就该删掉，不是留着");
 });
 
-test("castAgo 按真实间隔说话，未来时间不瞎猜", () => {
-  const i = screens.indexOf("function castAgo"), j = screens.indexOf("function CastSection");
-  assert.ok(i > 0 && j > i && j - i < 1200, "抠不出 castAgo");
-  const castAgo = new Function(screens.slice(i, j) + "\nreturn castAgo;")();
-  const now = new Date(2026, 7, 30, 14, 0, 0).getTime();
-  assert.equal(castAgo(0, now), "");
-  assert.equal(castAgo(now + 60000, now), "", "未来时间该闭嘴");
-  assert.equal(castAgo(now - 10 * 60000, now), "刚聊过");
-  assert.equal(castAgo(now - 3 * 3600e3, now), "3小时前");
-  assert.equal(castAgo(now - 20 * 3600e3, now), "昨天");
-  assert.equal(castAgo(now - 5 * 86400e3, now), "5天前");
-  assert.match(castAgo(now - 200 * 86400e3, now), /月.*日/);
+test("没填的字段照实写「—」，不冒充有值", () => {
+  assert.match(cast, /c\.birthday\s*\?/, "生日没填也当有值用");
+  assert.match(cast, /: "—"/, "空的那一格得有个老实的占位");
+  assert.match(cast, /cell = \(label, value, dim\)/, "空值那一格要压成灰的，跟填了的分得开");
 });
 
-// mobile-ui-layout.md：子页面禁止 30–40px 大标题和大块上下留白
-test("档案馆用紧凑标题栏，不放大标题", () => {
-  assert.doesNotMatch(cast, /fontSize: 2[5-9]|fontSize: 3\d/, "又摆了个大标题上去");
-  assert.match(cast, /paddingTop: safeTop\(8\)/);
-  assert.match(cast, /chips\.length = Math\.min\(chips\.length, 4\)/, "小标不封顶，一张卡会撑成三行");
+test("算得出岁数就不重复写年份（一格只有 80 来 px）", () => {
+  assert.match(cast, /replace\(\/\^\\d\{4\}\[-\/\.\]\/, ""\) \+ " · " \+ age \+ "岁"/,
+    "「1997-3-15 · 29岁」会被截掉");
+});
+
+// 她 2026-08-30：「这样一个卡片还是太 plain 了……很有层次感」
+test("卡片是有层次的：书脊、装订孔、纸纹、贴上去的照片", () => {
+  assert.match(cast, /装订孔/, "书脊上那三个孔没了");
+  assert.match(cast, /repeating-linear-gradient\(58deg/, "纸纹没了");
+  assert.match(cast, /transform: "rotate\(-1\.6deg\)"/, "头像不再是贴上去的照片");
+  // 三层影：贴纸的近影 + 托起来的远影 + 内圈上沿的亮线
+  const sh = cast.match(/boxShadow: "0 1px 2px rgba\(46,38,29,\.07\)[^"]*"/);
+  assert.ok(sh && /inset 0 1px 0/.test(sh[0]) && sh[0].split("),").length >= 3, "卡片的影只剩一层了");
+  // 纸纹不许盖到书脊上（盖上去书脊就成了条纹）
+  const tex = cast.slice(cast.indexOf("repeating-linear-gradient(58deg") - 240, cast.indexOf("repeating-linear-gradient(58deg"));
+  assert.match(tex, /left: 8/, "纸纹盖到书脊上了");
 });
 
 // ── 情侣邀请 ────────────────────────────────────────────

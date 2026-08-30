@@ -207,21 +207,6 @@ function castSummary(char) {
   const raw = String((char && (char.tagline || char.persona)) || "").replace(/\s+/g, " ").trim();
   return raw;
 }
-// 上一次说话是多久以前
-function castAgo(ts, nowTs) {
-  if (!ts) return "";
-  const now = nowTs || Date.now();
-  const diff = now - ts;
-  if (diff < 0) return "";
-  if (diff < 60 * 60 * 1000) return "刚聊过";
-  const d = new Date(ts), n = new Date(now);
-  const midnight = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
-  if (ts >= midnight) return Math.max(1, Math.floor(diff / 3600000)) + "小时前";
-  if (ts >= midnight - 86400000) return "昨天";
-  const days = Math.floor((midnight - ts) / 86400000) + 1;
-  if (days <= 30) return days + "天前";
-  return (d.getMonth() + 1) + "月" + d.getDate() + "日";
-}
 function CastSection({ no, title, en, tint, children }) {
   const t = useTheme();
   const accent = tint || t.tint;
@@ -240,7 +225,6 @@ function CastSection({ no, title, en, tint, children }) {
 }
 function Cast({
   characters,
-  meta,
   onBack,
   onEdit,
   onAdd,
@@ -248,47 +232,62 @@ function Cast({
   onOpenChar
 }) {
   const t = useTheme();
-  const now = Date.now();
-  const M = meta || {};
-  // 一张卡上只写【真的有】的那几条：没设时区就不出现「跟随系统」，没生日就不出现「未录入」。
-  // 一栏恒定写着同一句话＝零信息，白占一整行（她 2026-08-30 说这版「差点意思」）。
+  // 一张卡＝一份卷宗。底下那条信息栏照 Codex 那版的形状（她 2026-08-30 点名要），
+  // 但里面换成【放着不动也成立】的东西：时区、生日、人设厚度。
+  // 好感 / 情侣第几天 / 刚聊过都拿掉了——那是关系的近况，不是档案。
+  const cell = (label, value, dim) => h("div", { className: "flex-1 min-w-0", style: { padding: "8px 10px" } },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".18em", color: t.fog } }, label),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: dim ? t.fog : t.ink, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, value));
   const cards = characters.map(c => {
     const accent = c.color || t.tint;
-    const md = M[c.id] || {};
-    const chips = [];
-    if (md.couple === "together") chips.push({ k: "♥ 第 " + (md.coupleDays || 1) + " 天", hot: true });
-    else if (md.couple === "pending") chips.push({ k: "♥ 邀请待回应", hot: true });
-    if (md.aff != null) chips.push({ k: "好感 " + md.aff });
-    const ago = castAgo(md.lastTs, now);
-    if (ago) chips.push({ k: ago });
-    else chips.push({ k: "还没说过话" });
-    if (c.tz) chips.push({ k: "UTC" + (String(c.tz).startsWith("-") ? c.tz : "+" + String(c.tz).replace("+", "")) });
-    if (c.birthday) chips.push({ k: "生日 " + c.birthday });
-    chips.length = Math.min(chips.length, 4);   // 一张卡最多两行小标，再多就把卡撑成一屏只放得下两张
+    const tz = c.tz ? ("UTC" + (String(c.tz).startsWith("-") ? c.tz : "+" + String(c.tz).replace("+", ""))) : "跟随本地";
+    const age = (typeof charAge === "function" && c.birthday) ? charAge(c.birthday, Date.now()) : null;
+    // 算得出岁数时年份就是多余的（一栏只有 80 来 px，「1997-3-15 · 29岁」会被截掉）
+    const bd = c.birthday
+      ? (age != null ? String(c.birthday).replace(/^\d{4}[-/.]/, "") + " · " + age + "岁" : String(c.birthday))
+      : "—";
+    const plen = String(c.persona || "").replace(/\s/g, "").length;
     const sum = castSummary(c);
     return h("button", {
       key: c.id,
       onClick: () => onOpenChar(c),
       className: "w-full block active:opacity-90",
-      style: { position: "relative", marginBottom: 12, textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, boxShadow: "0 6px 18px rgba(46,38,29,.06)", overflow: "hidden" }
+      style: {
+        position: "relative", marginBottom: 13, textAlign: "left", overflow: "hidden",
+        background: t.bg2, border: "1px solid " + t.line, borderRadius: 17,
+        // 三层影：贴着纸的近影、托起来的远影、内圈上沿一道亮线（卡片是从纸上翘起来的）
+        boxShadow: "0 1px 2px rgba(46,38,29,.07), 0 10px 22px -8px rgba(46,38,29,.16), inset 0 1px 0 rgba(255,255,255,.9)"
+      }
     },
-      // 左侧那条是他自己的颜色——档案盒的书脊
-      h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 7, background: accent } }),
-      h("div", { className: "flex items-start gap-3.5", style: { padding: "14px 12px 12px 20px" } },
-        h("div", { className: "shrink-0" }, h(Avatar, { character: c, size: 62, radius: 15 })),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { className: "flex items-center gap-2" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
-            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "备注 " + c.remark) : null),
+      // 卷宗的书脊：他自己的颜色，右侧压一道暗线，让它看起来是「厚的」
+      h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 8, background: accent, boxShadow: "inset -1px 0 2px rgba(0,0,0,.22)" } }),
+      // 书脊上打三个装订孔
+      h("span", { style: { position: "absolute", left: 2.5, top: 0, bottom: 0, width: 3, display: "flex", flexDirection: "column", justifyContent: "space-evenly" } },
+        [0, 1, 2].map(n => h("span", { key: n, style: { width: 3, height: 3, borderRadius: 999, background: "rgba(255,255,255,.55)", boxShadow: "inset 0 1px 1px rgba(0,0,0,.3)" } }))),
+      // 纸纹：两道极细的斜线，跟日记纸皮同一套
+      h("span", { style: { position: "absolute", top: 0, right: 0, bottom: 0, left: 8, pointerEvents: "none", background: "repeating-linear-gradient(58deg, rgba(255,255,255,.42) 0px, rgba(255,255,255,.42) 1px, transparent 1px, transparent 9px), repeating-linear-gradient(-34deg, rgba(46,38,29,.018) 0px, rgba(46,38,29,.018) 1px, transparent 1px, transparent 13px)" } }),
+      // 右上角那枚卷标（档案盒侧面贴的那种），带一点点他的颜色
+      h("span", { style: { position: "absolute", right: 18, top: 0, width: 34, height: 7, borderRadius: "0 0 4px 4px", background: accent, opacity: .8 } }),
+      h("div", { className: "flex items-start gap-3.5", style: { position: "relative", padding: "16px 12px 13px 22px" } },
+        // 头像做成【贴上去的照片】：白边、投影、歪一点点
+        h("div", { className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 6px rgba(46,38,29,.22)", transform: "rotate(-1.6deg)" } },
+          h(Avatar, { character: c, size: 58, radius: 3 })),
+        h("div", { className: "flex-1 min-w-0", style: { paddingTop: 1 } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".2em", color: t.fog } }, "DOSSIER"),
+          h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
+            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null),
           sum ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"),
-          h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 9 } }, chips.map((x, n) => h("span", {
-            key: n,
-            style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap", color: x.hot ? accent : t.fog, background: x.hot ? "transparent" : "rgba(0,0,0,0.035)", border: "1px solid " + (x.hot ? accent : "transparent") }
-          }, x.k)))),
-        h("span", { onClick: e => { e.stopPropagation(); onEdit(c); }, className: "shrink-0 flex items-center justify-center active:opacity-50", style: { width: 34, height: 34 } }, h(IPencil, { size: 16, color: t.fog }))));
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"))),
+      // 底部信息栏
+      h("div", { className: "flex items-stretch", style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.34)" } },
+        cell("TIMEZONE", tz, !c.tz),
+        h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
+        cell("BIRTHDAY", bd, !c.birthday),
+        h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
+        cell("PERSONA", plen ? plen.toLocaleString() + " 字" : "空白", !plen),
+        h("span", { onClick: e => { e.stopPropagation(); onEdit(c); }, className: "flex items-center justify-center active:opacity-50", style: { width: 42, borderLeft: "1px solid " + t.line } }, h(IPencil, { size: 15, color: t.fog }))));
   });
-  const inTalk = characters.filter(c => (M[c.id] || {}).lastTs).length;
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
     // 紧凑标题栏（mobile-ui-layout.md）：返回 + 居中小标题 + 右侧等宽操作位。
     // 她 2026-08-30：「名字改了叫人格档案馆但是上面还是显示叫名录」——名字只有这一处，改就一起改。
@@ -305,11 +304,11 @@ function Cast({
       characters.length === 0
         ? h(Empty, { text: "档案馆里还没有人", sub: "点右上角 + 立第一份卷宗" })
         : [
-            // 大标题换成一条细的：一屏 844 高，原来那块 28px 标题＋留白吃掉快 200px，
+            // 大标题换成一条细的：一屏 844 高，28px 标题＋留白吃掉快 200px，
             // 只剩两张半卡看得见（mobile-ui-layout.md 也不许子页面放大标题）
             h("div", { key: "cnt", className: "flex items-baseline gap-2", style: { padding: "12px 2px 10px" } },
               h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".2em", color: t.fog } }, "CATALOGUE"),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, characters.length + " 份卷宗" + (inTalk ? " · " + inTalk + " 位在聊" : ""))),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, characters.length + " 份卷宗")),
             h("div", { key: "list" }, cards)
           ]));
 }

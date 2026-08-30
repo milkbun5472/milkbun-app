@@ -21,7 +21,14 @@ test("100vh 那一套原封不动——这是底部白边的最终解法", () =>
 test("主屏仍旧留着根节点那条空带，壁纸照旧铺在根节点上", () => {
   assert.match(app, /const _safeTop = \{ height: screen === "home" \? "env\(safe-area-inset-top\)" : 0 \};/,
     "主屏那条空带的条件被改了");
-  assert.match(app, /\(screen === "home" && wallpaper\) \? "center\/cover no-repeat url\("/, "主屏壁纸不再铺在根节点上");
+  const i = app.indexOf('background: screen === "home"');
+  const root = app.slice(i, app.indexOf('height: "100vh"', i));
+  assert.ok(i > 0 && root.length < 700, "抠不出根节点那段底");
+  assert.match(root, /center\/cover no-repeat url\(/, "主屏壁纸不再铺在根节点上");
+  assert.match(root, /HOME_PAPER_BG/, "没壁纸那块底也得画在根节点上——不然刘海那条带子接不上（v58.48）");
+  const home = comp.slice(comp.indexOf('className: "flex flex-col relative"'), comp.indexOf("overflow-hidden pt-3"));
+  assert.match(home, /background: "transparent"/, "Home 得是透明的，让根节点那层透上来");
+  assert.ok(!/gradient/.test(home), "Home 又自己画了一层底");
   assert.doesNotMatch(comp, /overflow-hidden pt-3 flex flex-col".*\n.*paddingTop/, "Home 内容区不许再补 paddingTop");
 });
 

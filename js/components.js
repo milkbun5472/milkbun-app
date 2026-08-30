@@ -478,7 +478,7 @@ function GlassPane({ radius = 17, tone, style, className, children }) {
       position: "relative",
       borderRadius: radius,
       // 填色只剩两成多，剩下的交给 backdrop-filter——这一步是「塑料板 → 玻璃」的分水岭
-      background: (tone ? tone.wash + ", " : "") + "linear-gradient(160deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.15) 52%, rgba(255,255,255,0.28) 100%)",
+      background: (tone ? tone.wash + ", " : "") + "linear-gradient(160deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.09) 52%, rgba(255,255,255,0.19) 100%)",
       backdropFilter: GLASS_BLUR,
       WebkitBackdropFilter: GLASS_BLUR,
       border: "1px solid rgba(255,255,255,0.55)",
@@ -497,7 +497,7 @@ function GlassCard({
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClick,
     style: {
-      background: "linear-gradient(160deg, rgba(255,255,255,0.54) 0%, rgba(255,255,255,0.32) 55%, rgba(255,255,255,0.44) 100%)",
+      background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)",
       backdropFilter: GLASS_BLUR,
       WebkitBackdropFilter: GLASS_BLUR,
       border: "1px solid rgba(255,255,255,0.58)",
@@ -646,7 +646,7 @@ function CalWidget({ now, calendar, onOpen, period }) {
     onClick: onOpen,
     className: "col-span-3 row-span-3 active:opacity-80 text-left",
     // height:100% + flex 列：日历撑满 3 行格高、日期行均匀铺开，下沿和旁边的 app 对齐（之前内容矮一截、底下空一块）
-    style: { height: "100%", display: "flex", flexDirection: "column", background: "linear-gradient(160deg, rgba(255,255,255,0.54) 0%, rgba(255,255,255,0.32) 55%, rgba(255,255,255,0.44) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)" }
+    style: { height: "100%", display: "flex", flexDirection: "column", background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)" }
   },
     h("div", { className: "flex items-baseline justify-between mb-2", style: { flexShrink: 0 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, (m + 1) + "月"),
@@ -967,7 +967,7 @@ function MusicWidget({ listen, player, onOpen }) {
   const discImg = (now && now.cover) || data.disc || null;
   const frac = player && player.dur ? Math.max(0, Math.min(1, (player.t || 0) / player.dur)) : 0;
   return h("button", { onClick: onOpen, className: "w-full active:opacity-85 text-left",
-    style: { marginTop: 12, background: "linear-gradient(160deg, rgba(255,255,255,0.54) 0%, rgba(255,255,255,0.32) 55%, rgba(255,255,255,0.44) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 22, padding: "12px 14px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)", display: "flex", alignItems: "center", gap: 13 } },
+    style: { marginTop: 12, background: "linear-gradient(160deg, rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.18) 55%, rgba(255,255,255,0.29) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 22, padding: "12px 14px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)", display: "flex", alignItems: "center", gap: 13 } },
     h("div", { style: { flexShrink: 0, width: 56, height: 56, borderRadius: 999, background: discImg ? "center/cover no-repeat url(" + discImg + ")" : "radial-gradient(circle at 50% 50%, #4a4a52 0 34%, #2b2b30 35%)", boxShadow: "0 3px 12px rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
       h("div", { style: { width: 14, height: 14, borderRadius: 999, background: "rgba(255,255,255,0.85)", border: "3px solid rgba(0,0,0,0.25)" } })),
     h("div", { style: { flex: 1, minWidth: 0 } },
@@ -2158,23 +2158,11 @@ function Home({
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col relative",
-    style: wallpaper ? {
+    style: {
       height: "100vh", // 保持 100vh（底部白边最终解法，勿改成 100%/dvh）
-      // 壁纸由 app 根节点铺满（含刘海区），这里透明让它透上来，避免顶部出现拼接白边
+      // 底一律由 app 根节点铺满（含刘海区），这里透明让它透上来，避免顶部出现拼接白边。
+      // 有没有壁纸都一样——没壁纸那块纸底是 core.js 的 HOME_PAPER_BG，也画在根节点上。
       background: "transparent"
-    } : {
-      height: "100vh",
-      // 没壁纸时的底：三团很淡的光 + 两道细纹（跟日记纸皮同一套做法）。
-      // 她 2026-08-30 说「米白加白色图标有点单调」——加的是光和纹理，不动任何尺寸。
-      background: [
-        "repeating-linear-gradient(58deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 7px)",
-        "repeating-linear-gradient(-32deg, rgba(27,26,23,0.022) 0px, rgba(27,26,23,0.022) 1px, transparent 1px, transparent 10px)",
-        "radial-gradient(68% 44% at 4% 2%, rgba(194,90,74,0.20), transparent 70%)",
-        "radial-gradient(60% 40% at 100% 22%, rgba(63,109,140,0.19), transparent 72%)",
-        "radial-gradient(72% 46% at 76% 98%, rgba(122,120,86,0.18), transparent 74%)",
-        "radial-gradient(46% 30% at 34% 56%, rgba(150,120,170,0.11), transparent 76%)",
-        "linear-gradient(165deg, #f2ece2 0%, #e9e0d3 52%, #dcd1c2 100%)"
-      ].join(", ")
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "relative flex-1 min-h-0 overflow-hidden pt-3 flex flex-col",
@@ -2208,7 +2196,7 @@ function Home({
     style: {
       borderRadius: 28,
       // dock 跟图标同一块玻璃，只是更大更厚（no-half-sheet 之外的另一条：一层做法只写一处）
-      background: "linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.12) 55%, rgba(255,255,255,0.22) 100%)",
+      background: "linear-gradient(160deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.08) 55%, rgba(255,255,255,0.16) 100%)",
       backdropFilter: "blur(22px) saturate(1.9) brightness(1.05)",
       WebkitBackdropFilter: "blur(22px) saturate(1.9) brightness(1.05)",
       border: "1px solid rgba(255,255,255,0.5)",

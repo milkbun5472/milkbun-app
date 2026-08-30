@@ -362,7 +362,27 @@ function appTone(key) {
     glyph: "hsl(" + hue + ",26%,32%)"
   };
 }
-if (typeof window !== "undefined") { window.appTone = appTone; }
+// 没铺壁纸时主屏那块底。**必须由 App 根节点来画**，不是 Home 自己画——
+// 根节点上面还垫着一条 env(safe-area-inset-top) 的空带（home-screen-layout.md：不许动），
+// 谁画谁负责那条带子：Home 自己画就只从带子下面开始，刘海那一条留着根节点的纯色，
+// 顶上就多一条颜色接不上的横杠（她 2026-08-30：「主界面的顶部又是坏的」）。
+// 壁纸那一支早就是这么走的（根节点铺满、Home 透明），这一支现在跟它一模一样。
+const HOME_PAPER_BG = [
+  // 两道细纸纹，给玻璃一点可折的东西
+  "repeating-linear-gradient(58deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 7px)",
+  "repeating-linear-gradient(-32deg, rgba(27,26,23,0.022) 0px, rgba(27,26,23,0.022) 1px, transparent 1px, transparent 10px)",
+  // 四团光：暖的在上、冷的在右和下
+  "radial-gradient(74% 48% at 0% -2%, rgba(200,94,78,0.30), transparent 68%)",
+  "radial-gradient(70% 46% at 104% 16%, rgba(52,108,150,0.30), transparent 70%)",
+  "radial-gradient(80% 52% at 80% 104%, rgba(88,122,100,0.26), transparent 72%)",
+  "radial-gradient(56% 38% at 28% 58%, rgba(148,114,176,0.18), transparent 74%)",
+  // ⚠️打底这一层必须【接近中性】。玻璃的 saturate(1.9) 会把它背后的颜色乘上去：
+  //   底色本身偏黄（色度 12）时，压在上面的组件就会被放大成色度 22 的米黄一片
+  //   （她 2026-08-30：「app文件夹和组件背景都还是太米黄了，我想要透一点的高级感」）。
+  //   所以颜色全交给上面那四团光——玻璃放大的是那几团光，平的地方保持干净。
+  "linear-gradient(163deg, #f1efec 0%, #e8e5e1 46%, #dbd8d4 100%)"
+].join(", ");
+if (typeof window !== "undefined") { window.appTone = appTone; window.HOME_PAPER_BG = HOME_PAPER_BG; }
 const SKIN_PATS = {
   // 纸：两道极细的斜纹交叉，看不出线，只觉得这页不是塑料
   paper: (ink, lit) => [

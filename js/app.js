@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.48";
+const APP_VERSION = "v58.49";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13125,23 +13125,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,
-    // 卡片上写的每一条都得是真的：好感、情侣、上次说话——不是编号也不是恒定的「在册」
-    meta: (() => {
-      const out = {};
-      liveChars.forEach(c => {
-        const line = chats[c.id] || [];
-        let lastTs = 0;
-        for (let i = line.length - 1; i >= 0; i--) { if (line[i] && line[i].ts) { lastTs = line[i].ts; break; } }
-        const cp = couples[c.id];
-        out[c.id] = {
-          aff: Math.round(affOf(c.id)),
-          lastTs: lastTs,
-          couple: cp ? cp.status : "",
-          coupleDays: (cp && cp.status === "together" && cp.since) ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : 0
-        };
-      });
-      return out;
-    })(),
     onBack: goHome,
     onEdit: c => {
       setEditingChar(c);
@@ -14083,8 +14066,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   }, /*#__PURE__*/React.createElement("div", {
     className: "w-full flex flex-col relative overflow-hidden",
     style: {
-      // 主屏时把壁纸铺到根节点（含顶部 safe-area 刘海区），Home 自身透明 → 壁纸一路遮到顶，无白边
-      background: (screen === "home" && wallpaper) ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) + ")" : theme.bg,
+      // 主屏时把底铺到根节点（含顶部 safe-area 刘海区），Home 自身透明 → 一路遮到顶，无白边。
+      // 有壁纸铺壁纸；没壁纸铺 HOME_PAPER_BG——这一支以前是 Home 自己画的，于是刘海那条带子
+      // 停在纯色上，顶上多一条接不上的横杠（她 2026-08-30：「主界面的顶部又是坏的」）。
+      background: screen === "home"
+        ? (wallpaper
+            ? "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(wallpaper) : wallpaper) + ")"
+            : (typeof HOME_PAPER_BG !== "undefined" ? HOME_PAPER_BG : theme.bg))
+        : theme.bg,
       height: "100vh" // 100vh=large viewport，撑到物理屏底（不用 100dvh/fixed，dvh 只到 WebKit 可视区会露白）
     }
   }, isStandalone ? /*#__PURE__*/React.createElement("div", {

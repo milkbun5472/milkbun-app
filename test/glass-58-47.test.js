@@ -47,8 +47,12 @@ test("同一份配方，四处共用，没人自己另配一套", () => {
   const dock = grab('// dock 跟图标同一块玻璃', "}\n  }, dock.map(", 900);
   assert.match(dock, /saturate\(1\.9\) brightness\(1\.05\)/, "dock 没跟上");
   // 主屏这一段里，凡是白玻璃就不许再有人手写自己那套模糊（压暗的遮罩、深色药丸不算白玻璃）
-  const home = grab("function GlassPane({", "// 默认布局：哪个 key 在哪页", 90000);
-  const raw = home.split("\n").filter(l => /backdropFilter: "blur\(\d+px\)"/.test(l) && /background: "rgba\(255,255,255/.test(l));
+  const home = grab("function GlassPane({", "// 默认布局：哪个 key 在哪页", 130000);
+  // 合法的例外：HOME_WIDGET_PRESETS 里的「雾面」——那是她一个一个组件自己挑的外观预设
+  // （六选一），本来就该跟系统那层玻璃长得不一样，名字就叫雾面。
+  const raw = home.split("\n").filter(l => /backdropFilter: "blur\(\d+px\)"/.test(l)
+    && /background: "rgba\(255,255,255/.test(l)
+    && !/id === "soft"/.test(l));
   assert.deepEqual(raw, [], "还有白玻璃自己另配了一套模糊：\n" + raw.join("\n"));
 });
 
@@ -79,7 +83,8 @@ test("铺了壁纸时字翻成白的，四处都翻", () => {
 
 // .claude/rules/home-screen-layout.md：主屏的骨架一个都不许动，这次只动上色
 test("主屏骨架没被这次改玻璃碰到", () => {
-  assert.equal((comp.match(/height: "100vh"/g) || []).length, 2);
+  // v58.48 起 Home 只剩一支（没壁纸那块底搬去了根节点，两支合并成一支）
+  assert.equal((comp.match(/height: "100vh"/g) || []).length, 1);
   assert.match(comp, /className: "relative flex-1 min-h-0 overflow-hidden pt-3 flex flex-col"/);
   assert.match(comp, /env\(safe-area-inset-top\)/);
   assert.match(comp, /COMPOSER_PAD_BOTTOM|calc\(env\(safe-area-inset-bottom\) \+ 26px\)/);
