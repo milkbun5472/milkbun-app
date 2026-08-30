@@ -78,6 +78,32 @@ function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
     h("button", { onClick: () => { if (txt.trim() && cid) { onImport(cid, txt); onClose(); } }, className: "w-full mt-3 active:opacity-70",
       style: { background: txt.trim() && cid ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, "导入并建索引"));
 }
+function castFileNo(char, index) {
+  const seed = String((char && (char.id || char.name)) || index || "FILE");
+  let hash = 17;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % 10000;
+  return String(hash || index + 1).padStart(4, "0");
+}
+function castSummary(char) {
+  const raw = String((char && (char.tagline || char.persona)) || "").replace(/\s+/g, " ").trim();
+  return raw || "尚未写入人物摘要";
+}
+function CastSection({ no, title, en, tint, children }) {
+  const t = useTheme();
+  const accent = tint || t.tint;
+  return h("section", {
+    className: "mb-4 overflow-hidden",
+    style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, boxShadow: "0 5px 18px rgba(50,42,32,.045)" }
+  },
+    h("div", { className: "flex items-stretch", style: { borderBottom: "1px solid " + t.line } },
+      h("div", { className: "flex items-center justify-center shrink-0", style: { width: 52, minHeight: 58, background: accent, color: "#fff", fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: ".12em" } }, no),
+      h("div", { className: "flex-1 min-w-0 flex items-center justify-between px-4 py-3" },
+        h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, title),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".18em", color: t.fog, marginTop: 2 } }, en)),
+        h("span", { style: { width: 20, height: 1, background: accent, opacity: .8 } }))),
+    h("div", { className: "px-4 pb-4" }, children));
+}
 function Cast({
   characters,
   onBack,
@@ -87,51 +113,59 @@ function Cast({
   onOpenChar
 }) {
   const t = useTheme();
-  return /*#__PURE__*/React.createElement("div", {
-    className: "h-full flex flex-col"
-  }, /*#__PURE__*/React.createElement(Head, {
-    zh: "名录",
-    en: "Guest List",
-    onBack: onBack,
-    right: h("div", { className: "flex items-center gap-3" },
-      onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 10px" } }, "导入角色卡") : null,
-      /*#__PURE__*/React.createElement("button", {
-        onClick: onAdd,
-        className: "active:opacity-50"
-      }, /*#__PURE__*/React.createElement(IPlus, {
-        size: 20,
-        color: t.ink
-      })))
-  }), h("div", {
-    className: "flex-1 overflow-y-auto px-5 pb-8 pt-1"
-  }, characters.length === 0 ? h(Empty, {
-    text: "名录中还没有角色",
-    sub: "点右上角 + 录入第一位"
-  }) : characters.map((c, i) => h("button", {
-    key: c.id,
-    onClick: () => onOpenChar(c),
-    className: "w-full block active:opacity-95",
-    style: { position: "relative", height: 108, marginBottom: 18, textAlign: "left" }
-  },
-    // 信封主体（开口朝右）
-    h("div", { style: { position: "absolute", inset: 0, borderRadius: 16, background: "linear-gradient(135deg,#f7f3ec 0%,#ece5d8 100%)", border: "1px solid " + t.line, boxShadow: "0 5px 16px rgba(0,0,0,0.07)", overflow: "hidden" } },
-      // 左上编号（挪到竖排右侧，避免叠字）
-      h("div", { style: { position: "absolute", left: 40, top: 14 } }, h(Eyebrow, null, "No." + String(i + 1).padStart(2, "0"))),
-      // 左侧竖排 INVITE（竖向居中，短词不超出卡片高度）
-      h("div", { style: { position: "absolute", left: 15, top: 0, bottom: 0, display: "flex", alignItems: "center" } },
-        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.3em", color: t.fog, writingMode: "vertical-rl", transform: "rotate(180deg)" } }, "INVITE")),
-      // 右侧朝右开口的封盖（V 形）
-      h("svg", { width: 80, height: "100%", viewBox: "0 0 80 108", preserveAspectRatio: "none", style: { position: "absolute", right: 0, top: 0 } },
-        h("path", { d: "M0 0 L80 54 L0 108 Z", fill: "rgba(120,100,70,0.05)" }),
-        h("path", { d: "M2 2 L78 54 L2 106", fill: "none", stroke: t.line, strokeWidth: 1.3 }))),
-    // 从右开口探出的角色名片
-    h("div", { style: { position: "absolute", right: 12, top: 12, bottom: 12, width: "60%", background: "#fff", borderRadius: 12, border: "1px solid " + t.line, boxShadow: "-9px 0 22px rgba(0,0,0,0.10)", display: "flex", alignItems: "center", gap: 12, padding: "0 14px" } },
-      h(Avatar, { character: c, size: 58, radius: 13 }),
-      h("div", { style: { minWidth: 0, flex: 1 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.1, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
-        h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, c.tagline || c.persona || "暂无设定"))),
-    // 编辑铅笔（阻止冒泡，不触发打开）
-    h("span", { onClick: e => { e.stopPropagation(); onEdit(c); }, className: "active:opacity-50", style: { position: "absolute", right: 13, top: 7, padding: 5, zIndex: 3 } }, h(IPencil, { size: 14, color: t.fog }))))));
+  const cards = characters.map((c, i) => {
+    const accent = c.color || t.tint;
+    const tzLabel = c.tz
+      ? "UTC" + (String(c.tz).startsWith("-") ? c.tz : "+" + String(c.tz).replace("+", ""))
+      : "跟随系统";
+    return h("button", {
+      key: c.id,
+      onClick: () => onOpenChar(c),
+      className: "w-full block active:opacity-90",
+      style: { position: "relative", minHeight: 174, marginBottom: 15, textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 19, boxShadow: "0 8px 24px rgba(46,38,29,.07)", overflow: "hidden" }
+    },
+      h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 9, background: accent } }),
+      h("span", { style: { position: "absolute", right: 16, top: 0, width: 54, height: 12, borderRadius: "0 0 7px 7px", background: accent, opacity: .88 } }),
+      h("div", { className: "flex", style: { minHeight: 128, padding: "17px 16px 12px 22px" } },
+        h("div", { className: "shrink-0", style: { position: "relative" } },
+          h(Avatar, { character: c, size: 92, radius: 17 }),
+          h("span", { className: "flex items-center justify-center", style: { position: "absolute", right: -6, bottom: -6, minWidth: 35, height: 35, padding: "0 7px", borderRadius: 999, background: t.ink, color: t.bg2, border: "3px solid " + t.bg2, fontFamily: F_DISPLAY, fontSize: 16 } }, String(c.name || "?").slice(0, 1))),
+        h("div", { className: "flex-1 min-w-0", style: { paddingLeft: 17 } },
+          h("div", { className: "flex items-start justify-between gap-2" },
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".16em", color: t.fog } }, "FILE · " + castFileNo(c, i)),
+            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".12em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 7px" } }, "在册")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.05, color: t.ink, marginTop: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, marginTop: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, castSummary(c)))),
+      h("div", { className: "grid", style: { gridTemplateColumns: "1fr 1fr auto", borderTop: "1px solid " + t.line, marginLeft: 9 } },
+        h("div", { style: { padding: "10px 12px", borderRight: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".16em", color: t.fog } }, "TIMEZONE"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 3 } }, tzLabel)),
+        h("div", { style: { padding: "10px 12px", borderRight: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".16em", color: t.fog } }, "BIRTHDAY"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 3 } }, c.birthday || "未录入")),
+        h("span", { onClick: e => { e.stopPropagation(); onEdit(c); }, className: "flex items-center justify-center active:opacity-50", style: { width: 48 } }, h(IPencil, { size: 16, color: t.sub }))));
+  });
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), background: t.bg, borderBottom: "1px solid " + t.line } },
+      h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 92px", minHeight: 44 } },
+        h("button", { onClick: onBack, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
+        h("div", { className: "text-center min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "名录"),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: t.fog, marginTop: 1 } }, "PERSONA ARCHIVE")),
+        h("div", { className: "flex items-center justify-end gap-1" },
+          onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 6px" } }, "导入") : null,
+          h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 38, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+      h("div", { className: "flex items-end justify-between", style: { padding: "22px 2px 16px" } },
+        h("div", null,
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".22em", color: t.fog } }, "CATALOGUE / 在册人物"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 28, color: t.ink, marginTop: 5 } }, "人格档案馆")),
+        h("div", { className: "text-right" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 30, lineHeight: 1, color: t.tint } }, characters.length),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, "份卷宗"))),
+      characters.length === 0
+        ? h(Empty, { text: "名录中还没有角色", sub: "点右上角 + 录入第一位" })
+        : cards));
 }
 function CastForm({
   initial,
@@ -187,168 +221,79 @@ function CastForm({
     ["+8", "北京 / 香港 / 新加坡 / 台北"], ["+9", "东京 / 首尔"], ["+9.5", "阿德莱德"], ["+10", "悉尼 / 墨尔本"], ["+11", "所罗门群岛"],
     ["+12", "奥克兰 / 斐济"], ["+13", "汤加"]
   ];
-  return /*#__PURE__*/React.createElement("div", {
-    className: "h-full flex flex-col"
-  }, /*#__PURE__*/React.createElement(Head, {
-    zh: initial ? "编辑档案" : "新建档案",
-    en: "Dossier",
-    onBack: onBack,
-    right: /*#__PURE__*/React.createElement("button", {
-      onClick: save,
-      style: {
-        fontFamily: "'Archivo',sans-serif",
-        fontSize: 12,
-        letterSpacing: "0.1em",
-        color: t.ink
-      }
-    }, "SAVE")
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1 overflow-y-auto px-6 pb-10"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-5 pt-2"
-  }, /*#__PURE__*/React.createElement(AvatarPicker, {
-    character: {
-      name,
-      avatarEmoji: emoji,
-      color,
-      avatarImage
-    },
-    size: 76,
-    radius: 16,
-    onPick: setAvatarImage,
-    onClear: () => setAvatarImage(null),
-    genBusy: avBusy,
-    // 头像生成：有参考照就拿它锁脸，没有就按【外貌】那一栏画。两样都没有时说清楚。
-    onGenerate: onGenAvatar ? async () => {
-      if (!refPhoto && !String(appearance || "").trim()) { toast && toast("先填【外貌】那一栏，或者传一张参考照，不然它不知道该画谁"); return; }
-      setAvBusy(true);
-      try {
-        const url = await onGenAvatar({ name, appearance, photoOutfit, photoStyle, refPhoto });
-        if (url) setAvatarImage(url);
-      } finally { setAvBusy(false); }
-    } : null
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "flex-1"
-  }, /*#__PURE__*/React.createElement("input", {
-    value: name,
-    onChange: e => setName(e.target.value),
-    placeholder: "姓名",
-    className: "w-full bg-transparent outline-none",
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 24,
-      color: t.ink
-    }
-  }), /*#__PURE__*/React.createElement("input", {
-    value: tagline,
-    onChange: e => setTagline(e.target.value),
-    placeholder: "一句话标签",
-    className: "w-full bg-transparent outline-none mt-1",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
-      color: t.fog
-    }
-  }))), /*#__PURE__*/React.createElement(LineField, {
-    zh: "底色",
-    en: "Fallback"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-3"
-  }, AV_COLORS.map(c => /*#__PURE__*/React.createElement("button", {
-    key: c,
-    onClick: () => setColor(c),
-    style: {
-      width: 26,
-      height: 26,
-      borderRadius: 6,
-      background: c,
-      outline: color === c ? `2px solid ${t.ink}` : "none",
-      outlineOffset: 2
-    }
-  })))), /*#__PURE__*/React.createElement(LineField, {
-    zh: "时区",
-    en: "Timezone"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("select", {
-    value: tz,
-    onChange: e => setTz(e.target.value),
-    className: "w-full outline-none",
-    style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", padding: "6px 0", border: "none" }
-  }, /*#__PURE__*/React.createElement("option", { value: "" }, "跟随系统（默认）"), TZ_OPTS.map(o => /*#__PURE__*/React.createElement("option", { key: o[0], value: o[0] }, "UTC" + (o[0][0] === "-" ? o[0] : "+" + o[0].replace("+", "")) + " · " + o[1]))), /*#__PURE__*/React.createElement("div", {
-    style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
-  }, "开时间感知后，Ta 会按自己所在时区报时间（可搞异地恋）。日程仍按你本地日期。"))), /*#__PURE__*/React.createElement(LineField, {
-    zh: "生日",
-    en: "Birthday"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("input", {
-    value: birthday,
-    onChange: e => setBirthday(e.target.value),
-    placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五",
-    className: "w-full bg-transparent outline-none",
-    style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" }
-  }), (function () {
-    // 就在她填生日的地方当场把年龄显示出来（她 2026-08-24：本来只做在联系人页，
-    // 她在编辑档案这一页填、当然看不见）。现算不存盘，所以填完立刻就能看到对不对，
-    // 确认无误就可以把人设正文里那句「XX岁」删掉了。
-    const age = typeof charAge === "function" ? charAge(birthday, Date.now()) : null;
-    if (age == null) return null;
-    return /*#__PURE__*/React.createElement("div", {
-      style: { fontFamily: F_BODY, fontSize: 13.5, color: t.tint, marginTop: 6, fontWeight: 600 }
-    }, "现在 " + age + " 岁", /*#__PURE__*/React.createElement("span", {
-      style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontWeight: 400, marginLeft: 8 }
-    }, "生日一过自动加一，Ta 自己也知道"));
-  })(), (function () {
-    // 两历对照：填农历就给出今年的公历，填公历就给出今年的农历（她 2026-08-24 要的
-    // 「王爷腊月廿三的生日填了农历可以换成新历两个都显示」）
-    const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(birthday) : "";
-    const born = typeof birthdayBornLabel === "function" ? birthdayBornLabel(birthday) : "";
-    if (!both && !born) return null;
-    return /*#__PURE__*/React.createElement("div", {
-      style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 }
-    }, both, born ? /*#__PURE__*/React.createElement("div", {
-      style: { color: t.fog, marginTop: 1 }
-    }, born) : null);
-  })(), /*#__PURE__*/React.createElement("div", {
-    style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }
-  }, "公历农历都能填，会自动换算成另一历、两个都显示，生日提醒也按换算后的那天。【带上年份】才会算年龄（2004-10-25 或 农历1998年腊月廿三）；只填月日就只过生日、不算岁数。算出来的年龄以这里为准，人设正文里那句「XX 岁」可以删掉了。"))), /*#__PURE__*/React.createElement(LineField, {
-    zh: "人设",
-    en: "Persona"
-  }, /*#__PURE__*/React.createElement(LineArea, {
-    value: persona,
-    onChange: e => setPersona(e.target.value),
-    rows: 12,
-    placeholder: "粘贴性格、说话风格、背景、当前关系阶段……"
-  })), h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" },
-    h("div", null,
-      h("div", { className: "flex items-center gap-3 mb-2" },
-        h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张参考照(可选)固定长相；接了图像 API 后，TA 聊天里会偶尔发照片（自拍／别人给 TA 拍的／和你的合照）")),
-      h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, [
-        ["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]
-      ].map(o => h("button", { key: o[0], type: "button", onClick: () => setPhotoStyle(o[0]), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 10px", borderRadius: 999, background: photoStyle === o[0] ? t.ink : t.bg2, color: photoStyle === o[0] ? t.bg2 : t.sub, border: "1px solid " + t.line } }, o[1]))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6, lineHeight: 1.5 } }, photoStyle === "reference" ? "沿用参考图本身的画风；二次元不会被转成真人。" : photoStyle === "anime" ? "固定生成 2D 动画／插画风，不做真人化。" : "固定生成真人生活照；这是现有角色的默认效果。"),
-      h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相/发型/身材/气质……越具体，照片越像本人。" }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "生图身份锁（可选，但儿童／非人角色建议填写）"),
-      h(LineArea, { value: photoCanon, onChange: e => setPhotoCanon(e.target.value), rows: 3, placeholder: "年龄、性别、种族、体型等不可随机的视觉事实，如：8岁小男孩，儿童体型，平坦男童胸廓" }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "固定服装锁（填写后每张都必须穿这套）"),
-      h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 3, placeholder: "如：13世纪深蓝羊毛短袍、亚麻内衫、皮腰带与棕色长靴；禁止现代服装" }))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "随身不摘的东西（每张图都在，跟换不换衣服无关）"),
-      h(LineArea, { value: photoAccessories, onChange: e => setPhotoAccessories(e.target.value), rows: 2, placeholder: "如：细框银边眼镜、左耳一枚黑色耳钉、右手无名指素圈；不填就没有。" }),
-  h(LineField, { zh: "音色 · 语音消息用", en: "Voice" },
-    h("div", null,
-      h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v =>
-        h("button", { key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg2, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
-      h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: "或直接填 voice_id（含克隆音色）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接了语音 API（设置 · 语音 TTS）并选了音色后，TA 的语音消息就能点开真听。不选=这个角色不发声。"))),
-  initial && /*#__PURE__*/React.createElement("button", {
-    onClick: () => onDelete(initial.id),
-    className: "mt-8 w-full flex items-center justify-center gap-2 py-3",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 12,
-      color: t.fog
-    }
-  }, /*#__PURE__*/React.createElement(ITrash, {
-    size: 14
-  }), " 删除这位角色")));
+  const age = typeof charAge === "function" ? charAge(birthday, Date.now()) : null;
+  const both = typeof birthdayBothLabel === "function" ? birthdayBothLabel(birthday) : "";
+  const born = typeof birthdayBornLabel === "function" ? birthdayBornLabel(birthday) : "";
+  const accent = color || t.tint;
+  const genAvatar = onGenAvatar ? async () => {
+    if (!refPhoto && !String(appearance || "").trim()) { toast && toast("先填【外貌】那一栏，或者传一张参考照，不然它不知道该画谁"); return; }
+    setAvBusy(true);
+    try {
+      const url = await onGenAvatar({ name, appearance, photoOutfit, photoStyle, refPhoto });
+      if (url) setAvatarImage(url);
+    } finally { setAvBusy(false); }
+  } : null;
+  const palette = h("div", { className: "flex gap-3 flex-wrap" }, AV_COLORS.map(c => h("button", {
+    key: c, onClick: () => setColor(c), "aria-label": "使用底色 " + c,
+    style: { width: 28, height: 28, borderRadius: 8, background: c, outline: color === c ? `2px solid ${t.ink}` : "none", outlineOffset: 2 }
+  })));
+  const timezone = h("div", null,
+    h("select", { value: tz, onChange: e => setTz(e.target.value), className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", padding: "6px 0", border: "none" } },
+      h("option", { value: "" }, "跟随系统（默认）"),
+      TZ_OPTS.map(o => h("option", { key: o[0], value: o[0] }, "UTC" + (o[0][0] === "-" ? o[0] : "+" + o[0].replace("+", "")) + " · " + o[1]))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开时间感知后，Ta 会按自己所在时区报时间；日程仍按你本地日期。"));
+  const birthdayField = h("div", null,
+    h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 农历八月十五", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
+    age == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: accent, marginTop: 6, fontWeight: 600 } }, "现在 " + age + " 岁", h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontWeight: 400, marginLeft: 8 } }, "生日后自动加一")),
+    (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填；带年份才会计算年龄。"));
+  const appearanceFields = h("div", null,
+    h("div", { className: "flex items-center gap-3 mb-3" },
+      h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55 } }, "参考照用来锁定长相；接好图像 API 后可生成生活照。")),
+    h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, [["realistic", "写实照片"], ["reference", "跟随参考图"], ["anime", "二次元插画"]].map(o => h("button", { key: o[0], type: "button", onClick: () => setPhotoStyle(o[0]), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 10px", borderRadius: 999, background: photoStyle === o[0] ? t.ink : t.bg, color: photoStyle === o[0] ? t.bg2 : t.sub, border: "1px solid " + t.line } }, o[1]))),
+    h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 5, placeholder: "长相 / 发型 / 身材 / 气质……" }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "生图身份锁"),
+    h(LineArea, { value: photoCanon, onChange: e => setPhotoCanon(e.target.value), rows: 3, placeholder: "年龄、性别、种族、体型等不可随机的视觉事实" }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "固定服装锁"),
+    h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 3, placeholder: "每张图都必须保留的服装" }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "随身不摘的东西"),
+    h(LineArea, { value: photoAccessories, onChange: e => setPhotoAccessories(e.target.value), rows: 2, placeholder: "眼镜、耳钉、戒指等固定配件" }));
+  const voiceFields = h("div", null,
+    h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
+    h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: "或直接填 voice_id（含克隆音色）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + t.line, background: t.bg } },
+      h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 72px", minHeight: 44 } },
+        h("button", { onClick: onBack, className: "flex items-center active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
+        h("div", { className: "text-center" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, initial ? "编辑档案" : "新建档案"),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: t.fog } }, "PERSONA DOSSIER")),
+        h("button", { onClick: save, className: "justify-self-end active:opacity-50", style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, letterSpacing: ".12em", color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "SAVE"))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+      h("section", { style: { position: "relative", margin: "18px 0 16px", padding: "19px 16px 17px", borderRadius: 20, background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 24px rgba(46,38,29,.07)", overflow: "hidden" } },
+        h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 9, background: accent } }),
+        h("span", { style: { position: "absolute", right: 18, top: 0, width: 58, height: 12, borderRadius: "0 0 7px 7px", background: accent } }),
+        h("div", { className: "flex items-center justify-between", style: { marginLeft: 5, marginBottom: 15 } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".18em", color: t.fog } }, "FILE · " + castFileNo(initial || { name }, 0)),
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".12em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 8px" } }, initial ? "在册" : "待归档")),
+        h("div", { className: "flex items-center gap-4", style: { marginLeft: 5 } },
+          h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 86, radius: 17, onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 25, color: t.ink } }),
+            h("input", { value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", className: "w-full bg-transparent outline-none mt-2", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }))),
+        h("div", { style: { margin: "18px 5px 0", paddingTop: 13, borderTop: "1px solid " + t.line } }, palette)),
+      h(CastSection, { no: "01", title: "人物底稿", en: "PERSONA / BACKGROUND", tint: accent },
+        h(LineField, { zh: "人设", en: "Persona" }, h(LineArea, { value: persona, onChange: e => setPersona(e.target.value), rows: 12, placeholder: "性格、说话风格、背景、当前关系阶段……" }))),
+      h(CastSection, { no: "02", title: "时间坐标", en: "TIME / PLACE", tint: accent },
+        h(LineField, { zh: "时区", en: "Timezone" }, timezone),
+        h(LineField, { zh: "生日", en: "Birthday" }, birthdayField)),
+      h(CastSection, { no: "03", title: "视觉档案", en: "VISUAL IDENTITY", tint: accent },
+        h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
+      h(CastSection, { no: "04", title: "声音档案", en: "VOICEPRINT", tint: accent },
+        h(LineField, { zh: "音色 · 语音消息用", en: "Voice" }, voiceFields)),
+      initial ? h("button", { onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));
 }
 
 // ============================================================
