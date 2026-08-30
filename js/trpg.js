@@ -45,11 +45,42 @@
           msgs: (c.msgs || []).map(m => m.snap ? Object.assign({}, m, { snap: Object.assign({}, m.snap, { items: itemsFix(m.snap.items) }) }) : m)
         });
       });
-      if (changed) { try { localStorage.setItem("x_trpg", JSON.stringify(fixed)); } catch (e) {} }
+      if (changed) lsWrite("x_trpg", fixed, "跑团存档");
       return fixed;
     } catch (e) { return []; }
   };
-  const persist = list => { try { localStorage.setItem("x_trpg", JSON.stringify(list)); } catch (e) {} };
+  // 所有写盘走这一个口子。原来每处都是 try{setItem}catch(e){} —— 写不进去【一声不吭】,
+  // 界面上那个团当场消失了,重开又原样回来,看起来就是「怎么都删不掉」
+  //(她 2026-08-30 报了两轮:补完 id 之后还是删不掉)。两种写不进去的情况:
+  //   ① localStorage 满了(她那台常年贴着 5MB)。删团是【变小】的写,把旧的整份先挪走
+  //     再写就落得下去;万一还是失败,原样放回去,绝不把一整份存档写没了。
+  //   ② 云端恢复的冻结期:cloud.js 会把 x_ 开头的写【直接丢掉】,这时候只能等。
+  // 写完读回来核一遍:没落下去就说清楚是哪一种,而不是让她以为删掉了。
+  function lsWrite(key, value, zh) {
+    var s = JSON.stringify(value);
+    var old = null;
+    try { old = localStorage.getItem(key); } catch (e) {}
+    if (old === s) return true;
+    try { localStorage.setItem(key, s); } catch (e) {
+      try { localStorage.removeItem(key); localStorage.setItem(key, s); }
+      catch (e2) {
+        if (old != null) { try { localStorage.setItem(key, old); } catch (e3) {} }   // 放回去,别把整份弄丢
+        trpgWriteFail(zh, "存储写满了——去 设置·数据管理 清一清再来");
+        return false;
+      }
+    }
+    var back = null;
+    try { back = localStorage.getItem(key); } catch (e) {}
+    if (back !== s) { trpgWriteFail(zh, "这一步没存下来(多半是云端正在恢复,等它做完再试)"); return false; }
+    return true;
+  }
+  // 写失败要说出来。toast 在组件里,这里用一个全局挂钩转一下
+  function trpgWriteFail(zh, why) {
+    var msg = (zh ? zh + "没保存成功:" : "没保存成功:") + why;
+    try { if (typeof window !== "undefined" && typeof window.__trpgToast === "function") window.__trpgToast(msg, 7000); } catch (e) {}
+    try { console.error("trpg 写盘失败:", msg); } catch (e) {}
+  }
+  const persist = list => lsWrite("x_trpg", list, "这场跑团");
   const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
 
   // ---- 属性与骰子(纯函数,供 node --test 直接跑) ----
@@ -818,23 +849,23 @@
         let ms = [];
         try { const old = JSON.parse(localStorage.getItem("x_trpgSquad") || "null"); if (old && old.members) ms = Object.keys(old.members).map(k => old.members[k]); } catch (e) {}
         v = { squads: ms.length ? [{ id: "sq_legacy", name: "冒险小分队", ts: Date.now(), runs: ms.reduce((n, m) => Math.max(n, m.runs || 0), 0), members: ms.map(m => ({ key: m.key, name: m.name, stats: m.stats, feats: m.feats || [], scars: m.scars || [], runs: m.runs || 0 })) }] : [] };
-        try { localStorage.setItem("x_trpgSquads", JSON.stringify(v)); } catch (e) {}
+        lsWrite("x_trpgSquads", v, "小分队");
       }
       return v;
     } catch (e) { return { squads: [] }; }
   };
-  const saveSquads = v => { try { localStorage.setItem("x_trpgSquads", JSON.stringify(v)); } catch (e) {} };
+  const saveSquads = v => lsWrite("x_trpgSquads", v, "小分队");
   // 世界收藏(x_trpgWorlds):只存【长期为真】的世界观+地图;用它重开时,章节/目标/
   // 秘典/种子全部重新生成——同一个世界,另一个故事(小剧场收藏基线同一课)
   const loadWorlds = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgWorlds") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
-  const saveWorlds = v => { try { localStorage.setItem("x_trpgWorlds", JSON.stringify(v)); } catch (e) {} };
+  const saveWorlds = v => lsWrite("x_trpgWorlds", v, "收藏的世界");
   // 跑团图库(x_trpgGallery):封面与当拍画面出图即归档;删掉那一轮跑团,图也不丢
   const loadGal = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgGallery") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
-  const saveGalList = v => { try { localStorage.setItem("x_trpgGallery", JSON.stringify(v)); } catch (e) {} };
+  const saveGalList = v => lsWrite("x_trpgGallery", v, "图库");
   // 墓碑:她从图库删掉的那几张。补档那一步会把团里还引用着的图【全部】收回来,
   // 所以删过一张、下次进跑团它又原样回来了——记下删过谁,补档时绕开。
   const loadGalGone = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgGalleryGone") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
-  const galTomb = img => { try { const g = loadGalGone(); if (g.indexOf(img) < 0) localStorage.setItem("x_trpgGalleryGone", JSON.stringify(g.concat([img]).slice(-400))); } catch (e) {} };
+  const galTomb = img => { const g = loadGalGone(); if (g.indexOf(img) < 0) lsWrite("x_trpgGalleryGone", g.concat([img]).slice(-400), "图库"); };
   // 输出天花板:她按次计费,上限不省钱只会截断——统一给满(同 StylePresets.OUT_CEILING,
   // 中转会自行 clamp 到模型上限;思考型模型的推理也从这里扣,给大不多花一分钱)
   const TOK_MAX = 65535;
@@ -876,6 +907,11 @@
     const [camps, setCamps] = useState(load);
     const [view, setView] = useState("list"); // list | create | play
     const [playId, setPlayId] = useState(null);
+    // 把 toast 借给模块顶层的 lsWrite 用（写盘失败要说出来，不能一声不吭）
+    useEffect(function () {
+      window.__trpgToast = props.toast;
+      return function () { if (window.__trpgToast === props.toast) delete window.__trpgToast; };
+    }, [props.toast]);
     const [busy, setBusy] = useState(false);
     const [busyWhat, setBusyWhat] = useState("");
     const [panelOpen, setPanelOpen] = useState(false);
@@ -920,7 +956,9 @@
     const scrollRef = useRef(null);
     const campsRef = useRef(null);
     const sumBusyRef = useRef(false);
-    const update = fn => setCamps(p => { const n = fn(p.slice()); persist(n); return n; });
+    // 存不下就【不改界面】：不然那个团当场消失、重开又回来，看起来就是「删不掉」。
+    // 存不下的原因由 lsWrite 弹出来（存储满 / 云端恢复冻结中）。
+    const update = fn => setCamps(p => { const n = fn(p.slice()); return persist(n) ? n : p; });
     // 图库:出过的图永久归档——删掉那一轮跑团,图还在
     const galAdd = entry => { const list = loadGal(); if (list.some(x => x.img === entry.img)) return; saveGalList([Object.assign({ id: rid("tg_") }, entry)].concat(list)); };
     useEffect(() => {

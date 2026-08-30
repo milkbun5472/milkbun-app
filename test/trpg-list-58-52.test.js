@@ -17,9 +17,10 @@ function loadWith(saved) {
     getItem: k => (k in store ? store[k] : null),
     setItem: (k, v) => { store[k] = String(v); }
   };
-  const body = grab("  const load = () => {", "  const persist = list =>", 2400);
-  const fn = new Function("localStorage", "itemsFix", "fateOf",
-    body + "\nreturn load;")(localStorage, itemsFix, () => 1);
+  const body = grab("  const load = () => {", "  // 所有写盘走这一个口子", 2400);
+  const fn = new Function("localStorage", "itemsFix", "fateOf", "lsWrite",
+    body + "\nreturn load;")(localStorage, itemsFix, () => 1,
+      (k, v) => { localStorage.setItem(k, JSON.stringify(v)); return true; });
   return { list: fn(), store };
 }
 
@@ -99,4 +100,77 @@ test("按最近动过排序，卡上写清是哪支队、上次什么时候动�
   assert.match(campAgo({ msgs: [{ ts: N - 200 * D }] }), /月.*日/);
   const card = grab("    const campCard = c => {", "    // ---- 组建队伍", 2600);
   assert.match(card, /\[c\.squadName \|\| "", campAgo\(c\)\]\.filter\(Boolean\)\.join\(" · "\)/, "卡上没写是哪支队、上次什么时候动的");
+});
+
+// ── 写不进去的时候要看得见（她 2026-08-30 第二轮：「还是删不掉宝宝」）──────────
+// 原来每处写盘都是 try{setItem}catch(e){}：写失败一声不吭，界面上那个团当场消失、
+// 重开又原样回来，看起来就是「怎么都删不掉」。实测拿云端恢复的冻结期一比就是这个样子。
+function loadLsWrite(fakeLs) {
+  const i = src.indexOf("  function lsWrite(key, value, zh) {");
+  const j = src.indexOf("  const persist = list =>", i);
+  assert.ok(i > 0 && j > i && j - i < 2600, "抠不出 lsWrite");
+  return new Function("localStorage", "window", "console",
+    src.slice(i, j) + "\nreturn lsWrite;")(fakeLs, { __trpgToast: () => {} }, { error: () => {} });
+}
+// 一个带【字节预算】的假 localStorage：写完之后总量超预算就抛 quota，
+// 跟真的一样——所以「先挪走旧的再写」这一步是真的能腾出空间，不是假装
+function fakeLs(opts) {
+  const o = opts || {};
+  const store = Object.assign({}, o.init);
+  const total = extraK => Object.keys(store).reduce((n, k) => n + store[k].length, 0) + extraK;
+  return {
+    store,
+    getItem: k => (k in store ? store[k] : null),
+    removeItem: k => { delete store[k]; },
+    setItem: (k, v) => {
+      if (o.swallow) return;               // 云端恢复冻结期：写进来直接丢掉
+      const s = String(v);
+      const after = total(s.length) - ((k in store) ? store[k].length : 0);
+      if (o.budget != null && after > o.budget) throw Object.assign(new Error("quota"), { name: "QuotaExceededError" });
+      store[k] = s;
+    }
+  };
+}
+
+test("写满了就先把旧的挪走再写——删团是变小的写，这样落得下去", () => {
+  // 预算刚好放得下现在这一份；写新的那一刻【旧的还占着】，所以第一次必然抛
+  const old = '["旧的一大坨旧的一大坨"]', nw = JSON.stringify(["剩下的"]);
+  const ls = fakeLs({ init: { x_trpg: old }, budget: old.length + nw.length - 1 });
+  const ok = loadLsWrite(ls)("x_trpg", ["剩下的"], "这场跑团");
+  assert.equal(ok, true, "写满时没有重试，删团就白点了");
+  assert.equal(ls.store.x_trpg, JSON.stringify(["剩下的"]));
+});
+
+test("两次都写不进去时，旧的原样放回去——绝不把一整份存档写没", () => {
+  // 新的比预算还大：挪走旧的也放不下，这时候必须把旧的原样放回去
+  const old = '["她的全部跑团"]';
+  const ls = fakeLs({ init: { x_trpg: old }, budget: old.length });
+  const ok = loadLsWrite(ls)("x_trpg", ["剩下的但更长更长更长更长更长更长"], "这场跑团");
+  assert.equal(ok, false);
+  assert.equal(ls.store.x_trpg, old, "写失败还把她的存档删了，这比删不掉严重得多");
+});
+
+test("写进去了但读回来不是这一份，就当没写成", () => {
+  const ls = fakeLs({ init: { x_trpg: "[]" }, swallow: true });   // 冻结期：setItem 是空操作
+  assert.equal(loadLsWrite(ls)("x_trpg", ["新的"], "这场跑团"), false, "没读回来核一遍，界面会以为删掉了");
+});
+
+test("写失败要弹出来告诉她，不是闷着", () => {
+  const fail = grab("  function trpgWriteFail(zh, why) {", "  const persist = list =>", 900);
+  assert.match(fail, /window\.__trpgToast/, "写失败没有任何提示");
+  assert.match(fail, /没保存成功/, "提示里得说明白是没存下来");
+  const hook = grab("    // 把 toast 借给模块顶层的 lsWrite 用", "    const [busy, setBusy]", 700);
+  assert.match(hook, /window\.__trpgToast = props\.toast/, "toast 没接上，弹不出来");
+  assert.match(hook, /delete window\.__trpgToast/, "离开跑团要把钩子摘掉");
+});
+
+test("存不下就不改界面——不然当场消失、重开又回来", () => {
+  const up = grab("    const update = fn => setCamps", "    // 图库:出过的图永久归档", 400);
+  assert.match(up, /return persist\(n\) \? n : p;/, "存不下还照改界面，就是「看起来删掉了其实没删」");
+});
+
+test("跑团里所有写盘都走同一个口子", () => {
+  const raw = src.split("\n").filter(l => /localStorage\.setItem\(/.test(l) && !/function lsWrite/.test(l));
+  assert.deepEqual(raw.map(l => l.trim()).filter(l => !/^var s = |^try \{ localStorage\.setItem\(key, s\)|localStorage\.setItem\(key, old\)|localStorage\.removeItem\(key\); localStorage\.setItem\(key, s\)/.test(l)),
+    [], "还有人自己写 setItem，失败了照样一声不吭：\n" + raw.join("\n"));
 });
