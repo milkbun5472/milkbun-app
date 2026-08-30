@@ -1529,7 +1529,11 @@ const HOME_PHOTO_FRAMES = [
   { id: "booth4", name: "四格大头贴", note: "竖向四连的照相亭纸条", need: 4 },
   { id: "window4", name: "窗格四联", note: "四张照片嵌进一扇窗", need: 4 },
   { id: "postcard2", name: "旅行明信片", note: "两张带邮戳的错落卡片", need: 2 },
-  { id: "locket2", name: "双页吊坠", note: "两张心形纪念照并排收藏", need: 2 }
+  { id: "locket2", name: "双页吊坠", note: "两张心形纪念照并排收藏", need: 2 },
+  { id: "magazine3", name: "杂志剪版", note: "一张头图配两格边栏", need: 3 },
+  { id: "route3", name: "旅行轨迹", note: "三张照片沿路线散开", need: 3 },
+  { id: "drawer4", name: "标本抽屉", note: "四格编号收藏柜", need: 4 },
+  { id: "timeline5", name: "记忆时间轴", note: "五张照片串成一段故事", need: 5 }
 ];
 function homePhotoSlotCount(frame) {
   var found = HOME_PHOTO_FRAMES.find(function (x) { return x.id === frame; });
@@ -1659,11 +1663,56 @@ function HomeDecorItem({ item, preset, now }) {
             photo(srcs[i], i, { width: "100%", height: "100%", clipPath: "polygon(50% 8%,62% 1%,78% 4%,91% 17%,96% 32%,92% 48%,82% 63%,50% 94%,18% 63%,8% 48%,4% 32%,9% 17%,22% 4%,38% 1%)", background: dark ? "#1c1916" : "#eee3d1" }));
         }),
         h("div", { style: { position: "absolute", left: "49.6%", top: "23%", bottom: "21%", width: 2, background: dark ? "rgba(224,188,116,.66)" : "rgba(119,83,38,.55)", zIndex: 4 } }));
+    } else if (frame === "magazine3") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", padding: 8, background: dark ? "#121212" : "#f4efe6", color: dark ? "#f6efe6" : "#201d19" } },
+        h("div", { style: { position: "absolute", left: 9, top: 5, fontFamily: "Arial Black,Arial,sans-serif", fontSize: 10, letterSpacing: "-.05em", zIndex: 4 } }, "WEEKEND"),
+        h("div", { style: { position: "absolute", right: 9, top: 6, fontFamily: "monospace", fontSize: 6, letterSpacing: ".14em", opacity: .55, zIndex: 4 } }, "VOL. 01"),
+        h("div", { style: { position: "absolute", left: 8, right: 8, top: 21, bottom: 8, display: "grid", gridTemplateColumns: "1.58fr .82fr", gridTemplateRows: "repeat(2,minmax(0,1fr))", gap: 5 } },
+          photo(srcs[0], 0, { gridRow: "1 / 3", minWidth: 0, minHeight: 0 }),
+          photo(srcs[1], 1, { minWidth: 0, minHeight: 0 }),
+          photo(srcs[2], 2, { minWidth: 0, minHeight: 0 })),
+        h("div", { style: { position: "absolute", left: 13, bottom: 14, maxWidth: "58%", padding: "3px 5px", background: dark ? "#f2e8d9" : "#201d19", color: dark ? "#181614" : "#fffaf0", fontFamily: F_DISPLAY, fontSize: 9, lineHeight: 1.15, zIndex: 5 } }, caption || "A SMALL STORY"));
+    } else if (frame === "route3") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#1e211f" : "#e8e2d2", backgroundImage: "linear-gradient(" + (dark ? "rgba(255,255,255,.04)" : "rgba(98,91,74,.08)") + " 1px,transparent 1px),linear-gradient(90deg," + (dark ? "rgba(255,255,255,.04)" : "rgba(98,91,74,.08)") + " 1px,transparent 1px)", backgroundSize: "17px 17px" } },
+        h("div", { style: { position: "absolute", left: "15%", top: "24%", width: "70%", height: "48%", border: "2px dashed " + (dark ? "rgba(226,196,132,.55)" : "rgba(117,84,52,.45)"), borderColor: (dark ? "rgba(226,196,132,.55)" : "rgba(117,84,52,.45)") + " transparent " + (dark ? "rgba(226,196,132,.55)" : "rgba(117,84,52,.45)"), borderRadius: "50%", transform: "rotate(-8deg)" } }),
+        [
+          { left: "4%", top: "8%", transform: "rotate(-6deg)" },
+          { right: "5%", top: "13%", transform: "rotate(5deg)" },
+          { left: "29%", bottom: "5%", transform: "rotate(2deg)" }
+        ].map(function (pos, i) { return h("div", { key: i, style: Object.assign({ position: "absolute", width: "42%", height: "42%", padding: "4px 4px 12px", background: "#fffaf0", boxShadow: "0 5px 12px rgba(33,27,21,.19)", zIndex: i === 2 ? 3 : 2 }, pos) },
+          photo(srcs[i], i, { width: "100%", height: "100%" }),
+          h("span", { style: { position: "absolute", left: 5, bottom: 3, fontFamily: "monospace", fontSize: 6, color: "#746757" } }, "0" + (i + 1)));
+        }),
+        ["14%", "76%", "50%"].map(function (left, i) { return h("span", { key: i, style: { position: "absolute", left: left, top: i === 2 ? "68%" : "45%", width: 9, height: 9, borderRadius: "50% 50% 50% 0", transform: "rotate(-45deg)", background: i === 1 ? "#b85d54" : "#496f6b", boxShadow: "0 2px 4px rgba(0,0,0,.18)", zIndex: 5 } }); }));
+    } else if (frame === "drawer4") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", padding: "21px 8px 8px", background: dark ? "#24201b" : "#cdbb9c", border: "4px solid " + (dark ? "#4a3b2c" : "#927657"), boxShadow: "inset 0 0 0 2px rgba(255,255,255,.14)" } },
+        h("div", { style: { position: "absolute", left: 9, top: 5, fontFamily: "Georgia,serif", fontSize: 8, letterSpacing: ".16em", color: dark ? "#dac39d" : "#5f4934" } }, "CABINET OF MOMENTS"),
+        h("div", { style: { width: "100%", height: "100%", display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gridTemplateRows: "repeat(2,minmax(0,1fr))", gap: 6 } },
+          srcs.map(function (src, i) { return h("div", { key: i, style: { position: "relative", minWidth: 0, minHeight: 0, padding: 4, background: dark ? "#332b23" : "#e8dcc5", border: "1px solid " + (dark ? "#65513d" : "#9f8568"), boxShadow: "inset 0 2px 7px rgba(35,25,17,.18)" } },
+            photo(src, i, { width: "100%", height: "100%", border: "1px solid rgba(67,48,31,.22)" }),
+            h("span", { style: { position: "absolute", right: 3, bottom: 2, minWidth: 13, padding: "1px 2px", background: "rgba(247,238,217,.83)", color: "#604b38", fontFamily: "monospace", fontSize: 6, textAlign: "center" } }, String(i + 1).padStart(2, "0")));
+          })));
+    } else if (frame === "timeline5") {
+      var timelinePos = [
+        { left: "5%", top: "8%", width: "34%", height: "34%", transform: "rotate(-5deg)" },
+        { left: "38%", top: "5%", width: "28%", height: "31%", transform: "rotate(3deg)" },
+        { right: "4%", top: "13%", width: "30%", height: "34%", transform: "rotate(6deg)" },
+        { left: "11%", bottom: "6%", width: "36%", height: "39%", transform: "rotate(3deg)" },
+        { right: "12%", bottom: "5%", width: "39%", height: "42%", transform: "rotate(-4deg)" }
+      ];
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#17191a" : "#ece7dc" } },
+        h("div", { style: { position: "absolute", left: "12%", right: "11%", top: "50%", height: 2, background: dark ? "rgba(223,192,135,.48)" : "rgba(103,84,57,.36)", transform: "rotate(4deg)" } }),
+        h("div", { style: { position: "absolute", left: "48%", top: "27%", bottom: "25%", width: 2, background: dark ? "rgba(223,192,135,.48)" : "rgba(103,84,57,.36)", transform: "rotate(-18deg)" } }),
+        timelinePos.map(function (pos, i) { return h("div", { key: i, style: Object.assign({ position: "absolute", padding: 3, paddingBottom: 9, background: "#fffdf7", boxShadow: "0 4px 10px rgba(35,29,24,.19)", zIndex: 2 + i }, pos) },
+          photo(srcs[i], i, { width: "100%", height: "100%" }),
+          h("span", { style: { position: "absolute", left: 4, bottom: 2, fontFamily: "monospace", fontSize: 5.5, color: "#786d61" } }, String(i + 1).padStart(2, "0")));
+        }),
+        h("span", { style: { position: "absolute", left: "48%", top: "45%", width: 12, height: 12, borderRadius: 999, background: "#b45d53", border: "3px solid " + (dark ? "#2a2520" : "#eee7da"), zIndex: 9 } }));
     } else {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, position: "relative", overflow: "hidden", borderRadius: preset === "editorial" ? 0 : 7, background: dark ? "#0d0d0c" : t.bg2 } }, photo(srcs[0], 0, { width: "100%", height: "100%" }));
     }
     return h("div", { style: { width: "100%", height: "100%", position: "relative", minWidth: 0, overflow: "hidden" } }, body,
-      caption ? h("div", { style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", zIndex: 4 } }, caption) : null);
+      caption && frame !== "magazine3" ? h("div", { style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", zIndex: 4 } }, caption) : null);
   }
   if (item.type === "date") {
     var d = now instanceof Date ? now : new Date();
