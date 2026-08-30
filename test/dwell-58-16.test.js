@@ -87,7 +87,7 @@ test("判断用哪个 API、就拿哪个去调——别一个判断一个调用"
 
 test("挂进去了：脚本、图标、路由", () => {
   assert.match(idx, /<script src="js\/dwell\.js\?v=/);
-  assert.match(comp, /dwell: \{ kind: "app", zh: "地方", G: GDwell \}/);
+  assert.match(comp, /dwell: \{ kind: "app", zh: "去处", G: GDwell \}/);
   assert.match(core, /const GDwell = p =>/);
   const r = app.indexOf('screen === "dwell"');
   assert.ok(r > 0, "没接路由");

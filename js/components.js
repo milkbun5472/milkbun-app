@@ -885,9 +885,11 @@ function UsWidget({ characters, couples, sweet, onOpen, dot }) {
     p ? h("div", { key: p.id, className: "flex items-center gap-3", style: { animation: "fadeUp .35s ease both" } },
       h(Avatar, { character: p, size: 44, radius: 999 }),
       h("div", { className: "flex-1 min-w-0" },
+        // 名字和天数都锁单行：右边还有一排小圆点在抢宽度，不锁的话名字会被挤成一个字一行、
+        // 「在一起第 55 天」也会断成两行，整张卡跟着长高一截（她 2026-08-30 报的就是这个）
         h("div", { className: "flex items-baseline gap-2" },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, p.remark || p.name),
-          days ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "在一起第 " + days + " 天") : null),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 } }, p.remark || p.name),
+          days ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "在一起第 " + days + " 天") : null),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 2 } },
           sv != null ? "💗 甜蜜值 " + sv : "点开去看看你们的小空间")),
       partners.length > 1 ? h("div", { className: "flex gap-1", style: { flexShrink: 0 } },
@@ -1492,6 +1494,9 @@ function Home({
   const flipRef = useRef(0); // 跨页拖拽翻页节流时间戳
   const goPage = function (np) { setPage(np); try { localStorage.setItem("x_homePage", String(np)); } catch (e) {} };
   // 注册表：所有可摆放的项（组件 w_ / app 图标 / 文件夹），供布局按 key 查
+  // ⚠️日记和备忘录【不进 REG】：日记的正门在底部 dock 上，备忘录有 w_memo 组件，
+  // 主屏再放一个图标是重复入口（她 2026-08-30 让删的）。不在 REG 里 = valid() 会把存档里
+  // 残留的这两个滤掉，安全网也不会再把它们补回主屏——v47.73 只清了一次，安全网又给补回来了。
   const REG = {
     w_card: { kind: "widget", which: "card" },
     w_cal: { kind: "widget", which: "cal" },
@@ -1508,14 +1513,14 @@ function Home({
     phone: { kind: "app", zh: "查手机", G: GPhone },
     shop: { kind: "app", zh: "购物", G: GShop },
     carry: { kind: "app", zh: "随身物", G: GCarry },
-    dwell: { kind: "app", zh: "地方", G: GDwell },
+    dwell: { kind: "app", zh: "去处", G: GDwell },
     cwallet: { kind: "app", zh: "钱包", G: GWallet },
     lore: { kind: "app", zh: "世界书", G: GLore },
     memlib: { kind: "app", zh: "记忆库", G: GMem },
-    diary: { kind: "app", zh: "日记", G: GDiary },
+
     // 记账 app 图标退场：已有 w_ledger 记账组件，点组件即可进记账（onOpenApp("ledger")）。从 REG 删掉后，
     // 存档里残留的 "ledger" key 会被 valid() 判无效丢弃、安全网也不会回填。ledger 路由本身还在，不影响功能。
-    memo: { kind: "app", zh: "备忘录", G: GMemo },
+
     study: { kind: "app", zh: "一起学", G: GStudy },
     fanfic: { kind: "app", zh: "同人文", G: GFanfic },
     weekly: { kind: "app", zh: "周刊", G: GWeekly },
@@ -1563,25 +1568,36 @@ function Home({
   // 照着 CSS 的 grid-auto-flow:dense 排一遍，算这一页真占几【行】。
   // 屏幕限的是行、不是格：24 格只有严丝合缝时才等于 6 行。2×2 的组件会留下填不满的洞，
   // 同样 24 格能排成 7 行——多出来那一行落在 overflow-hidden 的下面，看不见也点不到，跟丢了一样。
-  function rowsOf(keys) {
-    var grid = [], rows = 0;
+  function placeDense(keys) {
+    var grid = [], rows = 0, at = [];
     var free = function (r, c, w, hh) {
       for (var i = r; i < r + hh; i++) { var row = grid[i]; if (row) for (var j = c; j < c + w; j++) if (row[j]) return false; }
       return true;
     };
-    (keys || []).forEach(function (k) {
-      var s = spanOf(k); if (!s) return;
+    (keys || []).forEach(function (k, idx) {
+      var s = spanOf(k); if (!s) { at[idx] = -1; return; }
       var w = s[0], hh = s[1];
       for (var r = 0; ; r++) {
         for (var c = 0; c + w <= 4; c++) {
           if (!free(r, c, w, hh)) continue;
           for (var i = r; i < r + hh; i++) { if (!grid[i]) grid[i] = []; for (var j = c; j < c + w; j++) grid[i][j] = 1; }
+          at[idx] = r + hh - 1;
           if (r + hh > rows) rows = r + hh;
           return;
         }
       }
     });
-    return rows;
+    return { rows: rows, at: at };
+  }
+  function rowsOf(keys) { return placeDense(keys).rows; }
+  // 平时把尾巴上那几排纯空格去掉。空格是编辑态的落点，不编辑的时候它只是白占一整排（≈90px）——
+  // 她 2026-08-30：「组件之间也没那么紧凑了，原来日历底部能完全显示在屏幕上现在不行了」，
+  // 「每一页都还是可以滑动就算下面没东西」，说的都是这排看不见的空行把底下那排顶出了屏幕。
+  // 只去掉【最后一个真东西那一排之后】的空格；跟真东西同排的空格留着，那是她自己摆的洞。
+  function trimTailRows(keys) {
+    var p = placeDense(keys), last = -1;
+    (keys || []).forEach(function (k, i) { if (!SP_RE.test(k) && p.at[i] > last) last = p.at[i]; });
+    return (keys || []).filter(function (k, i) { return !SP_RE.test(k) || p.at[i] <= last; });
   }
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   // 文件夹（f_ 开头）也是合法项；躺在文件夹里的 app 视作已放置，不再回填到页面
@@ -2005,17 +2021,12 @@ function Home({
       transition: dragRef.current ? "none" : "transform .34s cubic-bezier(.22,.61,.36,1)"
     }
   }, curLayout.map(function (keys, pi) {
-    // ⭐这一页自己能上下滑（她 2026-08-30：「我其实看不到下面」）。
-    // 页面高度是死的，可里面的东西高度不是死的：名片有没有 #标签差十几像素，
-    // 日历这个月是五周还是六周差几十像素——同样是「6 行」，八月放得下、九月就顶出去了。
-    // 所以按格数、按行数都卡不住，只有让放不下的那一页自己能滑，才是永远不会漏东西的做法。
-    // 放得下的页面滑不动，跟以前一模一样；横滑翻页仍归外面那层管（touchAction:pan-y）。
-    return h("div", { key: pi, className: "px-6", style: { width: "100%", flexShrink: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", paddingBottom: 8 } },
+    return h("div", { key: pi, className: "px-6", style: { width: "100%", flexShrink: 0 } },
       pi === 0 && h("div", { className: "text-center mb-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, color: t.ink, letterSpacing: "0.01em" } }, fmtClock(now)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 2 } }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
       h("div", { className: "grid grid-cols-4 gap-y-3 gap-x-3", style: { gridAutoFlow: "dense" } },
-        (keys || []).map(function (key) { return renderItem(key); })));
+        (editMode ? (keys || []) : trimTailRows(keys)).map(function (key) { return renderItem(key); })));
   })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? t.ink : t.line, transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
     className: "relative shrink-0 px-4 pt-1",
     style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 26px)" }

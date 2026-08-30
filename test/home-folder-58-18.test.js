@@ -32,12 +32,22 @@ function makeHome(layout, folders) {
     np => { st.jumpedTo = np; });
   return { api, st, foldersRef };
 }
-const FULL = ["f_1", "cast", "ties", "phone", "cwallet", "lore", "memlib", "diary", "memo", "study",
+// 24 格塞满一页。⚠️里面只许放【当前 REG 里真有】的 key——放了已经退场的（比如 v58.22 撤掉的
+// 日记/备忘录）会被 buildLayout 滤掉，这一页就不满了，「满页」那几条测试会静悄悄地变成空转。
+const FULL = ["f_1", "cast", "ties", "phone", "cwallet", "lore", "memlib", "assistant", "capsule", "study",
   "fanfic", "weekly", "carry", "theater", "impression", "read", "debate", "dream", "tarot",
   "pomodoro", "games", "trpg", "dreamjournal", "yanqiu"];
 // goPage 是放在 setTimeout(…,0) 里的：在别的 setState updater 里同步调 setState
 // 是 React 的忌讳（updater 必须是纯的），所以推到下一拍。测试跟着等一拍。
 const tick = () => new Promise(r => setTimeout(r, 5));
+// FULL 真的塞满了没？——里面混进一个已经退场的 key，这一页就不满了，
+// 下面那几条「满页」测试会静悄悄变成空转，比失败还难发现
+test("测试用的满页样本必须真的是满的", () => {
+  const { api } = makeHome({ 0: FULL }, { f_1: { name: "杂物", keys: ["shop", "dwell"] } });
+  const kept = api.buildLayout({ 0: FULL })[0].filter(k => !/^sp_/.test(k));
+  assert.equal(kept.length, FULL.length, "FULL 里有 " + (FULL.length - kept.length) + " 个 key 在 REG 里已经没了：" +
+    FULL.filter(k => !kept.includes(k)).join(" "));
+});
 const pageOf = (L, key) => { for (let i = 0; i < L.length; i++) if ((L[i] || []).includes(key)) return i; return -1; };
 const reach = (L, fr) => {
   const s = new Set();

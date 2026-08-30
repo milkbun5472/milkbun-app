@@ -136,7 +136,7 @@
     const [item, setItem] = useState(null);
     useEffect(function () { setPlaces(char ? placesOf(char.id) : []); setOpenId(null); setZoneIdx(-1); }, [selId]);
     if (!char) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
-      h(Head, { zh: "地方", en: "Places", onBack: props.onBack }),
+      h(Head, { zh: "去处", en: "Places", onBack: props.onBack }),
       h(Empty, { text: "还没有角色" }));
 
     const busy = props.busyId;
@@ -216,7 +216,7 @@
       h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
         h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "flex-1 min-w-0 text-center" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "地方"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "去处"),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.18em", color: t.fog, marginTop: 2 } }, "PLACES")),
         h("div", { style: { width: 40 } })),
       // 换个人
