@@ -50,7 +50,15 @@ test("挂在三拍上，和行程那条链一样多", () => {
 });
 
 test("没配 API、没开开关、这周刷过了，都不动", () => {
-  assert.match(sweep[0], /if \(phoneWeekRunRef\.current \|\| !active\) return;/);
-  assert.match(sweep[0], /box\.on && box\.on\[c\.id\]/);
+  // 逐条钉住每一道闸，别把整行冻死——后来又多了一道总开关 autoRefreshOn("phone")，
+  // 那是更严，不是更松，整行冻死的话每加一道闸这条测试就红一次
+  const gate = sweep[0].slice(0, sweep[0].indexOf("\n", sweep[0].indexOf("return;")));
+  assert.match(gate, /phoneWeekRunRef\.current/, "没防重入：一次唤起可能刷两遍");
+  assert.match(gate, /!active/, "没配 API 也会往下走");
+  assert.match(gate, /return;/);
+  // 每个角色自己的开关：以前是 box.on[c.id]，后来并进了统一的 autoRefreshOn 策略。
+  // 名字换了，规矩没换——默认全关、一个一个角色自己开（她按次计费）
+  assert.match(sweep[0], /autoRefreshOn\("phone", c\.id\)/, "没按角色看开关，会把没开的人也刷了");
+  assert.match(sweep[0], /\(box\.done \|\| \{\}\)\[c\.id\] !== wk/, "没看周次游标，这周刷过了还会再刷一遍");
   assert.match(sweep[0], /if \(!due\) return;/);
 });

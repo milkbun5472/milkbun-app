@@ -64,7 +64,9 @@ test("主 app 的朋友圈走的是聊天轮数，跟查手机的每周刷新是
   // 她把两件事看成一件了：朋友圈/悄悄话/论坛是 tickAmbient 按轮数触发的
   const i = app.indexOf("  const tickAmbient = (charId, posted) => {");
   const seg = app.slice(i, i + 1500);
-  assert.match(seg, /if \(n\.moment >= 30\) due\.push\("moment"\)/, "朋友圈按轮数");
+  // ⚠️只钉【按什么触发】，别把整行冻死：前面还挂着 autoRefreshOn 那道开关，
+  // 以后再多一道条件也照样该过——这条测的是「按轮数」，不是这一行长什么样
+  assert.match(seg, /n\.moment >= 30\) due\.push\("moment"\)/, "朋友圈按轮数");
   assert.match(seg, /isCouple && n\.whisper >= 15/, "悄悄话按轮数");
   assert.match(seg, /n\.forum >= 50 \|\| Date\.now\(\) - \(n\.lastForumTs \|\| Date\.now\(\)\) >= 3 \* 86400000/, "论坛按轮数或满三天");
   // 这一支跟 phoneAuto 没有任何关系

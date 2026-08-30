@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.36";
+const APP_VERSION = "v58.37";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8352,7 +8352,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 匿名吧原来和别的版块等权（1/6），而匿名吧整批都是匿名身份——这是匿名占比过高的
       // 第三个来源。按真实论坛的样子加权：日常/吐槽/兴趣是主流，匿名吧只留一格。
       if (kind === "forum") { const bs = ["吐槽吧", "吐槽吧", "日常吧", "日常吧", "求助吧", "兴趣吧", "兴趣吧", "脑洞吧", "脑洞吧", "匿名吧"]; await genForumBoard(bs[Math.floor(Math.random() * bs.length)]); }
-      else if (kind === "moments") { const ps = characters.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) await genMoment(ps[Math.floor(Math.random() * ps.length)]); }
+      else if (kind === "moments") { const ps = liveChars.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) await genMoment(ps[Math.floor(Math.random() * ps.length)]); }
       else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
     } catch (e) {/* 静默 */}
   };
