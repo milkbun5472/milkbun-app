@@ -8886,23 +8886,27 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
             it.note && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, it.note)),
           h(IChevR, { size: 15, color: t.line, style: { marginTop: 3 } }))));
   }
-  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+  // ⚠️这一栏的底色要铺在【最外层】：铺在滚动容器上的话，顶栏在它外面——
+  // 顶上就留着一条没上色的米白带，和下面接不上（她 2026-08-29 截图）。
+  return h("div", {
+    className: "h-full flex flex-col",
+    style: {
+      background: t.bg,
+      backgroundImage: "linear-gradient(180deg," + carryTint(sectionKey, .10) + " 0%," + carryTint(sectionKey, .03) + " 24%," + carryTint(sectionKey, .028) + " 72%," + carryTint(sectionKey, .085) + " 100%)"
+    }
+  },
     // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
     // 以前这里是 Head 那块 30px 大标题＋大段留白，一屏先被标题吃掉五分之一。
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { background: t.bg, paddingTop: safeTop(10) } },
+    // 顶栏自己不上色，让外层那层底透上来。
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
       h("div", { className: "flex-1 min-w-0 text-center" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, sec.zh),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
       h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
         !isGifts ? h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, "aria-label": "重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) : null)),
-    // 衣柜整页比别的栏暖一档、上下各压一层光——柜门打开时里头就是这个样子。
-    // 她 2026-08-29：「页面颜色的米白略单调，没有适配的风格」。
-    // 用半透明的暖褐叠在主题底色上，不写死颜色，换主题一样跟着走。
-    h("div", {
-      className: "flex-1 overflow-y-auto px-5 pt-2 pb-8",
-      style: { background: "linear-gradient(180deg," + carryTint(sectionKey, .10) + " 0%," + carryTint(sectionKey, .03) + " 24%," + carryTint(sectionKey, .028) + " 72%," + carryTint(sectionKey, .085) + " 100%)" }
-    }, content),
+    // 底色在最外层（见上），这里透明就好
+    h("div", { className: "flex-1 overflow-y-auto px-5 pt-2 pb-8" }, content),
     // 详情。随身物整块共用【同一扇居中的柜门】（她 2026-08-29 拿真机截图点名：
     // 「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」），
     // 框里的头部按栏不同：衣柜挂出那一件，包内／口袋／珍藏摆出它的材质样片。

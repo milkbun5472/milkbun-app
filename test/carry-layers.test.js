@@ -291,7 +291,8 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
   assert.match(seg, /position: "absolute", top: 0, bottom: 0, right: 0/, "右立柱");
   assert.match(seg, /minWidth: "100%", width: "max-content"/, "杆要铺满整格");
   // v57.97 起每一栏都有整页底色，但各用各的 tint（她：「背景都是一样的米色有点单调」）
-  assert.match(screens, /style: \{ background: "linear-gradient\(180deg," \+ carryTint\(sectionKey/, "整页底色没走 tint");
+  // v58.02 起底色铺在【最外层】：铺在滚动容器上的话顶栏在它外面，顶上会留一条没上色的米白带
+  assert.match(screens, /backgroundImage: "linear-gradient\(180deg," \+ carryTint\(sectionKey/, "整页底色没走 tint");
 });
 
 // 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」
@@ -570,9 +571,12 @@ test("每一栏有自己的调子，而且都是叠色不写死", () => {
   const vals = new Set((tint.match(/"(\d+,\d+,\d+)"/g) || []));
   assert.ok(vals.size >= 3, "至少要分出三种调子，现在只有 " + vals.size + " 种");
   assert.match(screens, /const carryTint = \(key, a\) => "rgba\("/);
-  // 整页底色不再只给衣柜
-  assert.match(screens, /style: \{ background: "linear-gradient\(180deg," \+ carryTint\(sectionKey/);
+  // 整页底色不再只给衣柜，而且要铺在最外层（顶栏也吃得到）
+  assert.match(screens, /backgroundImage: "linear-gradient\(180deg," \+ carryTint\(sectionKey/);
   assert.doesNotMatch(screens, /style: sec\.closet \? \{ background: "linear-gradient/, "整页底色又只剩衣柜有了");
+  const shell = screens.slice(screens.indexOf("  // ⚠️这一栏的底色要铺在【最外层】"), screens.indexOf("    h(\"div\", { className: \"flex-1 overflow-y-auto px-5 pt-2 pb-8\" }"));
+  assert.ok(shell, "找不到最外层那一层");
+  assert.doesNotMatch(shell, /shrink-0 flex items-center px-4 pb-2", style: \{ background:/, "顶栏自己又上色了，会把外层那层底挡住");
   // 珍藏的内衬是绒：斜纹，和包里的帆布、口袋的布不一样
   assert.match(screens, /sectionKey === "trinket"\s*\n?\s*\? "repeating-linear-gradient\(48deg/);
 });

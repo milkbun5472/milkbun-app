@@ -114,6 +114,21 @@
   // ---- 存储 ----------------------------------------------------------
   const K_TABS = "x_fanfic_tabs";
   const K_FICS = "x_fanfic_fics";
+  // 读到哪儿了：{ ficId: { chap, ts } }。长文追更几章之后，
+  // 每次点进去都从第一章开始翻是最劝退的一件事（v58.02）。
+  const K_READ = "x_fanfic_read";
+  function loadRead() { return loadJSON(K_READ, {}) || {}; }
+  function markRead(ficId, chap) {
+    if (!ficId) return;
+    const m = loadRead();
+    m[ficId] = { chap: Math.max(0, Number(chap) || 0), ts: Date.now() };
+    // 只留最近读过的 200 篇，别让它长成坟场
+    const keys = Object.keys(m);
+    if (keys.length > 200) {
+      keys.sort(function (a, b) { return (m[b].ts || 0) - (m[a].ts || 0); }).slice(200).forEach(function (k) { delete m[k]; });
+    }
+    saveJSON(K_READ, m);
+  }
   const K_CPS = "x_fanfic_cps";
   const K_CFG = "x_fanfic_cfg"; // 生成设置：预设文风 + 每篇 max token
   const K_SHARED_STYLES = "x_offlineStyles"; // 与线下共用的本地文风库（不复制长 prompt）
@@ -461,7 +476,7 @@
   // ---- 书评：一次生成 N 条（NPC 泛读者 + 作者至少下场一次）------------
   async function genReviews(active, fic, tab, worldbook) {
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
-    const authorName = fic.author || "作者";
+    const authorName = fic.author || ficPenName(fic.id);
     const sys = ANTI_CLICHE + "\n\n" + READER_VOICE + "\n\n" +
       "他们刚读完一篇发在【" + tab.name + "】同人版、作者笔名「" + authorName + "」的同人文《" + fic.title + "》（标签：" + (fic.tags || []).join("、") + "）。" +
       "下面是正文节选，据此写具体的书评/短评（可夸可挑刺可玩梗可催更），别泛泛，别剧透式复述剧情。\n" +
@@ -489,7 +504,7 @@
   // ---- 我评论/回复 → 生成 NPC（含作者）的回复（item 3）--------------
   // 返回 [{id,author,content,isAuthor}]；挂到我那条书评/楼层的 replies 下
   async function genReplyToUser(active, fic, tab, myText, threadCtx) {
-    const authorName = fic.author || "作者";
+    const authorName = fic.author || ficPenName(fic.id);
     const excerpt = ((fic.chapters || [])[0] || {}).content || fic.body || "";
     const sys = ANTI_CLICHE + "\n\n" + READER_VOICE + "\n\n" +
       "在同人文《" + fic.title + "》（作者「" + authorName + "」）的书评区，一个读者刚发了下面这条评论/回复，其他读者和作者本人陆续来接话。\n" +
@@ -634,10 +649,11 @@
   }
 
   // 编个热度数字（稳定：按 id 派生），feed 展示用
+  // ⚠️两项各用一个独立种子、且必须走 ficHash（FNV-1a）：
+  // 原来是 h*31+c 再取模，"f2"/"f3"/"f4" 只差 1，%4000 之后还是只差 1，
+  // 三篇文一整列全是「3.2k」——一眼假。hits 用 h>>3 同理，丢的是低位。
   function ficHeat(seed) {
-    let h2 = 0; const s = String(seed || "");
-    for (let i = 0; i < s.length; i++) h2 = (h2 * 31 + s.charCodeAt(i)) >>> 0;
-    return { kudos: 30 + h2 % 4000, hits: 500 + (h2 >> 3) % 90000 };
+    return { kudos: 30 + ficHash("kudos:" + seed) % 4000, hits: 500 + ficHash("hits:" + seed) % 90000 };
   }
 
   // ---- 暴露 --------------------------------------------------
@@ -655,6 +671,57 @@
   // UI
   // ============================================================
   function fmtNum(n) { return n >= 10000 ? (n / 10000).toFixed(1) + "w" : n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n); }
+  // 稳定 hash：同一个 id 永远得到同一个笔名、同一批数字
+  // FNV-1a + 一步雪崩。⚠️别用 h*31+c 那种：它对相似的输入低位有结构，
+  // f5/f10、f6/f11、f7/f12 会连着撞出同一个笔名（实测踩到）。
+  function ficHash(s) {
+    let h2 = 2166136261 >>> 0;
+    s = String(s || "");
+    for (let i = 0; i < s.length; i++) { h2 ^= s.charCodeAt(i); h2 = Math.imul(h2, 16777619) >>> 0; }
+    h2 ^= h2 >>> 13; h2 = Math.imul(h2, 0x5bd1e995) >>> 0; h2 ^= h2 >>> 15;
+    return h2 >>> 0;
+  }
+  // ---- AO3 那套标签分色（她 2026-08-29：「可以参考 ao3 的页面」）----------
+  // AO3 最认得出的三样：左边的分级色条、成堆的分色标签、底下那行统计数字。
+  // 标签按【它在提醒你什么】分色，不是随便配色：
+  //   预警＝要不要做好心理准备 · 糖＝放心看 · 结构＝这篇是什么写法 · 其余中性
+  const FIC_TAG_KINDS = [
+    [/BE|be预警|虐|刀|慎入|预警|黑化|病娇|死亡|失忆|悲|致郁/i, "warn"],
+    [/HE|he|甜|糖|治愈|日常|温馨|轻松|沙雕|团圆/i, "sweet"],
+    [/IF线|AU|au|穿越|重生|架空|书信体|第一人称|群像|年下|年上|先婚|abo|ABO|无限流/i, "form"]
+  ];
+  function ficTagKind(tag) {
+    const s = String(tag || "");
+    for (const [re, k] of FIC_TAG_KINDS) if (re.test(s)) return k;
+    return "plain";
+  }
+  function ficTagStyle(kind, t) {
+    if (kind === "warn") return { color: "#a4342c", background: "rgba(164,52,44,.09)", border: "1px solid rgba(164,52,44,.22)" };
+    if (kind === "sweet") return { color: "#5d7a3f", background: "rgba(93,122,63,.10)", border: "1px solid rgba(93,122,63,.24)" };
+    if (kind === "form") return { color: "#4a6484", background: "rgba(74,100,132,.09)", border: "1px solid rgba(74,100,132,.22)" };
+    return { color: t.fog, background: "transparent", border: "1px solid " + t.line };
+  }
+  // 作者笔名：原先一律「佚名」，一整页看下来像没人写过（AO3 上作者名是最抢眼的一行）。
+  // 按 id 派生一个稳定的中文笔名——同一篇永远同一个人，同一个人写的几篇天然聚在一起。
+  const PEN_A = ["三更", "不周", "南风", "旧岁", "长安", "青隅", "半盏", "拾叁", "无尽", "白露", "枕流", "临江", "十七", "淮南", "云间", "折戟", "寒山", "扶苏",
+    "空山", "夜航", "松间", "槐序", "洛水", "秋渡", "斜阳", "北窗", "廿一", "残章", "微雨", "陈酿"];
+  const PEN_B = ["雪", "灯下", "客", "未眠", "旧梦", "书", "生", "无恙", "不归", "记", "拾遗", "手记", "旧事", "同学", "小酌", "闲笔",
+    "又及", "在读", "补记", "眠", "抄书", "候场", "写字", "打烊"];
+  function ficPenName(seed) {
+    // 两截各用一个【独立的种子】，不是同一个 hash 移位——
+    // 移位丢掉的是低位，剩下的高位对相邻 id 几乎不变，八篇能撞出同一个后缀（实测踩到）。
+    return PEN_A[ficHash("pen:" + seed) % PEN_A.length]
+      + PEN_B[ficHash("nib:" + seed) % PEN_B.length];
+  }
+  // 这一篇的字数（AO3 统计行里最要紧的那个数）
+  function ficWords(f) {
+    const chs = (f && f.chapters) || [];
+    const n = chs.reduce(function (a, c) { return a + String((c && c.content) || "").replace(/\s/g, "").length; }, 0);
+    return n || String((f && f.body) || "").replace(/\s/g, "").length;
+  }
+  // CP 里有没有「我」——这是这个 app 和 AO3 不一样的地方：
+  // 书架上有一半的文是写你们俩的，那一半该一眼看得出来。
+  function ficHasMe(f) { return ((f && f.cp) || []).indexOf("me") >= 0; }
   // cp token：charId | "me"（我·面具人设）；空数组=原创向。
   function meChar(profile) { return { id: "me", name: (profile && profile.name) || "我", persona: (profile && profile.persona) || "", isMe: true }; }
   function cpLabel(cp, characters, userName) {
@@ -667,39 +734,65 @@
     return (cp || []).map(function (tok) { return tok === "me" ? meChar(profile) : characters.find(function (c) { return c.id === tok; }); }).filter(Boolean);
   }
 
-  // ---------- feed 卡片 ----------
+  // ---------- feed 卡片（AO3 那套信息架构）----------
+  // 她 2026-08-29：「参考 ao3 的页面再加点我们之间的设计」。
+  // AO3 的作品卡最认得出的是三样：左边一道分级色条、成堆的分色标签、
+  // 底下那行 Words · Chapters · Kudos。原先这张卡里标题/CP/作者/摘要/标签
+  // 一律差不多大小，一眼扫过去分不出主次。
+  // 「我们之间的设计」＝那道色条标的不是分级，是【这篇里有没有我】。
+  function FicTag(props) {
+    const t = useTheme();
+    const st = ficTagStyle(ficTagKind(props.tag), t);
+    return h(props.onClick ? "button" : "span", {
+      onClick: props.onClick ? function (e) { e.stopPropagation(); props.onClick(props.tag); } : undefined,
+      className: props.onClick ? "active:opacity-60" : "",
+      style: Object.assign({ fontFamily: F_BODY, fontSize: 10, borderRadius: 4, padding: "1.5px 7px", whiteSpace: "nowrap" }, st)
+    }, props.tag);
+  }
   function FicCard(props) {
     const t = useTheme();
     const f = props.fic, characters = props.characters;
     const heat = f.stats || ficHeat(f.id);
     const chCount = (f.chapters || []).length;
+    const mine = f.source === "user";
+    const hasMe = ficHasMe(f);
+    const author = f.author || (mine ? (props.userName || "我") : ficPenName(f.id));
+    const words = ficWords(f);
+    const dot = function (txt, key) { return h("span", { key: key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, txt); };
     return h("button", {
       onClick: props.onOpen,
-      className: "w-full text-left active:opacity-80 rounded-2xl px-4 py-3.5 mb-3",
-      style: { background: t.bg2, border: "1px solid " + t.line }
+      className: "w-full text-left active:opacity-80 mb-3 relative",
+      style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, overflow: "hidden" }
     },
-      h("div", { className: "flex items-start justify-between gap-2 mb-1.5" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.25, color: t.ink, fontWeight: 500 } }, f.title),
-        f.source === "user"
-          ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.accent, borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap" } }, "我写的")
-          : null),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginBottom: 2 } }, cpLabel(f.cp, characters, props.userName)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "文 / " + (f.author || (f.source === "user" ? (props.userName || "我") : "佚名"))),
-      h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.55, marginBottom: 8 } },
-        (((f.chapters || [])[0] || {}).content || f.body || "").slice(0, 90)),
-      h("div", { className: "flex items-center gap-2 flex-wrap" },
-        (f.tags || []).slice(0, 3).map(function (tag, i) {
-          return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 8px" } }, tag);
-        }),
-        h("span", { style: { flex: 1 } }),
-        chCount > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, chCount + "章") : null,
-        h("span", {
-          onClick: function (e) { e.stopPropagation(); props.onLike && props.onLike(); },
-          className: "active:opacity-60 flex items-center gap-1",
-          style: { fontFamily: F_BODY, fontSize: 10.5, color: f.liked ? t.accent : t.fog }
-        }, h(IHeart, { size: 12, color: f.liked ? t.accent : t.fog, filled: f.liked }), fmtNum(heat.kudos + (f.liked ? 1 : 0))),
-        (f.reviews || []).length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "评 " + (f.reviews || []).length) : null,
-        f.onShelf ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, "★") : null));
+      // 左边那道：有我＝暖色，别人的 CP＝淡的。一眼分出「写我们的」和「别的」
+      h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3.5, background: hasMe ? t.accent : t.line } }),
+      h("div", { style: { padding: "12px 14px 11px 15px" } },
+        h("div", { className: "flex items-start justify-between", style: { gap: 8 } },
+          h("div", { className: "min-w-0 flex-1" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.28, color: t.ink, fontWeight: 500 } }, f.title),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, "by " + author)),
+          mine ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.accent, borderRadius: 5, padding: "2px 6px", whiteSpace: "nowrap" } }, "我写的")
+            : hasMe ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.accent, border: "1px solid " + t.accent, borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap" } }, "有我") : null),
+        // CP 单独一行，AO3 里 Relationship 就是最先看的那一条
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginTop: 7 } }, cpLabel(f.cp, characters, props.userName)),
+        // 摘要框：AO3 的 Summary 是有边界的一块，不是跟正文混在一起的一段
+        h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.65, marginTop: 8, paddingLeft: 9, borderLeft: "2px solid " + t.line } },
+          (((f.chapters || [])[0] || {}).content || f.body || "").slice(0, 90)),
+        (f.tags || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 5, marginTop: 9 } },
+          (f.tags || []).slice(0, 5).map(function (tag, i) { return h(FicTag, { key: i, tag: tag, onClick: props.onTag }); })) : null,
+        // 统计行：AO3 底下那串
+        h("div", { className: "flex items-center flex-wrap", style: { gap: 8, marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line } },
+          dot(fmtNum(words) + " 字", "w"),
+          dot(chCount + " 章", "c"),
+          h("span", {
+            onClick: function (e) { e.stopPropagation(); props.onLike && props.onLike(); },
+            className: "active:opacity-60 flex items-center gap-1",
+            style: { fontFamily: F_BODY, fontSize: 10.5, color: f.liked ? t.accent : t.fog }
+          }, h(IHeart, { size: 11, color: f.liked ? t.accent : t.fog, filled: f.liked }), fmtNum(heat.kudos + (f.liked ? 1 : 0))),
+          (f.reviews || []).length ? dot("评 " + (f.reviews || []).length, "r") : null,
+          h("span", { style: { flex: 1 } }),
+          props.readAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, props.readAt) : null,
+          f.onShelf ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, "★") : null)));
   }
 
   // ---------- 世界观 tab 栏（可横滑 + 末尾 +；自定义版块点已选再点=编辑）----------
@@ -832,7 +925,12 @@
     const [replyText, setReplyText] = useState("");
     const [newComment, setNewComment] = useState("");
     const [fwdOpen, setFwdOpen] = useState(false);
-    const [chapIdx, setChapIdx] = useState(0); // 章节翻页当前页
+    // 打开时回到上次读到的那一章（v58.02）
+    const [chapIdx, setChapIdx] = useState(function () {
+      const r = loadRead()[props.fic && props.fic.id];
+      const n = (props.fic && props.fic.chapters || []).length;
+      return r && r.chap > 0 && r.chap < n ? r.chap : 0;
+    });
     const swipeRef = React.useRef({ x: 0, y: 0 });
     // 翻到/生成新章后跳到该章开头（别落在中间，省得往回翻）
     const chapRef = React.useRef(null);
@@ -849,8 +947,10 @@
       });
     }, [chapterTaskKey]);
     const chars = cpChars(f.cp, props.characters, props.profile);
-    function goChap(to) { const chs = f.chapters || []; if (to >= 0 && to < chs.length) setChapIdx(to); }
-    const authorName = f.author || (f.source === "user" ? (props.userName || "我") : "佚名");
+    function goChap(to) { const chs = f.chapters || []; if (to >= 0 && to < chs.length) { setChapIdx(to); markRead(f.id, to); } }
+    // 进来就算读过一次——不然只看了第一章的文永远不会留下记录
+    useEffect(function () { markRead(f.id, chapIdx); }, [f.id]);
+    const authorName = f.author || (f.source === "user" ? (props.userName || "我") : ficPenName(f.id));
 
     function genOpts() { const cfg = window.Fanfic.loadCfg(); return { style: window.Fanfic.activeStyleText(cfg), perFic: cfg.perFic, chatMaterial: window.Fanfic.chatMaterialFor(chars) }; }
 
@@ -918,18 +1018,38 @@
       setBusy("");
     }
 
+    const _heat = f.stats || ficHeat(f.id);
+    const _words = ficWords(f);
+    const _hasMe = ficHasMe(f);
+    // AO3 的 work header：标题 by 作者 / 关系 / 一整块标签 / 底下那行统计。
+    // 原先这里是 Head 那块 30px 大标题「阅读」，标题本身反而排在下面（v58.02）。
+    const metaRow = function (label, node) {
+      return h("div", { className: "flex", style: { gap: 9, marginTop: 6 } },
+        h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.14em", color: t.fog, width: 58, flexShrink: 0, paddingTop: 3 } }, label),
+        h("div", { className: "flex-1 min-w-0" }, node));
+    };
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, {
-        zh: "阅读", en: props.tab.name, onBack: props.onBack,
-        right: h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: f.onShelf ? t.accent : t.fog } }, f.onShelf ? "★ 已收藏" : "☆ 收藏")
-      }),
+      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+        h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+        h("div", { className: "flex-1 min-w-0 text-center px-1" },
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.2 } }, f.title),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, props.tab.name)),
+        h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: f.onShelf ? t.accent : t.fog, minWidth: 40, textAlign: "right" } }, f.onShelf ? "★" : "☆")),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.25, color: t.ink, fontWeight: 500, marginBottom: 6 } }, f.title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "文 / " + authorName),
-        h("div", { className: "flex flex-wrap gap-1.5 mb-4" }, (f.tags || []).map(function (tag, i) {
-          return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 8px" } }, tag);
-        })),
+        h("div", { className: "flex items-start", style: { gap: 9 } },
+          h("div", { style: { width: 3.5, alignSelf: "stretch", borderRadius: 2, background: _hasMe ? t.accent : t.line, marginTop: 5 } }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.28, color: t.ink, fontWeight: 500 } }, f.title),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, "by " + authorName))),
+        metaRow("RELATION", h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName))),
+        (f.tags || []).length ? metaRow("TAGS", h("div", { className: "flex flex-wrap", style: { gap: 5 } },
+          (f.tags || []).map(function (tag, i) { return h(FicTag, { key: i, tag: tag }); }))) : null,
+        metaRow("STATS", h("div", { className: "flex flex-wrap", style: { gap: 9, fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 1 } },
+          h("span", null, fmtNum(_words) + " 字"),
+          h("span", null, (f.chapters || []).length + " 章"),
+          h("span", null, "♡ " + fmtNum(_heat.kudos + (f.liked ? 1 : 0))),
+          h("span", null, "评 " + ((f.reviews || []).length)))),
+        h("div", { style: { height: 1, background: t.line, margin: "14px 0 4px" } }),
         // 点赞 / 转发
         h("div", { className: "flex items-center gap-4 mb-5" },
           h("button", { onClick: function () { props.onLike(f.id); }, className: "active:opacity-60 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: f.liked ? t.accent : t.sub } },
@@ -956,7 +1076,12 @@
             onTouchEnd: function (e) { const s = swipeRef.current || { x: 0, y: 0 }; const dx = e.changedTouches[0].clientX - s.x, dy = e.changedTouches[0].clientY - s.y; if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return; if (dx < 0) goChap(idx + 1); else goChap(idx - 1); }
           },
             pager(true),
-            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.9, color: t.ink, whiteSpace: "pre-wrap" } }, ch.content || ""),
+            // 正文按【读小说】排：字大一档、行距松开、段与段之间留白。
+            // AO3 是不缩进＋段间距那一派，中文长文这样读着最不累（v58.02）。
+            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 2.05, color: t.ink, letterSpacing: "0.01em" } },
+              String(ch.content || "").split(/\n\s*\n|\n/).filter(function (x) { return x.trim(); }).map(function (para, pi) {
+                return h("p", { key: pi, style: { margin: "0 0 1.05em" } }, para.trim());
+              })),
             ((ch.cot || ch.cotRequested) && typeof CotReveal === "function") ? h(CotReveal, { cot: ch.cot, requested: ch.cotRequested }) : null,
             pager(false));
         })(),
@@ -1567,6 +1692,10 @@
     const [openId, setOpenId] = useState(null);
     const [gearOpen, setGearOpen] = useState(false);
     const [tabSheet, setTabSheet] = useState(null); // null | {} (new) | tabObj (edit)
+    // 点标签只看这个标签的（AO3 上最常用的那一下）
+    const [tagFilter, setTagFilter] = useState("");
+    // 读到哪儿了。关掉阅读页时重取一次，卡片上的「读到 3/8 章」才跟得上
+    const [readMap, setReadMap] = useState(loadRead);
     const FANFIC_BATCH_TASK = "fanfic:batch";
     const [busy, setBusy] = useState(function () { return !!(window.BackgroundGeneration && window.BackgroundGeneration.state(FANFIC_BATCH_TASK).busy); });
     const [genProg, setGenProg] = useState(function () { return window.BackgroundGeneration ? window.BackgroundGeneration.state(FANFIC_BATCH_TASK).progress : null; });
@@ -1713,7 +1842,8 @@
       return h(Reader, {
         fic: f, tab: ftab, active: props.active, characters: characters, profile: props.profile,
         groups: props.groups || [], userName: userName, worldbook: props.worldbook, toast: props.toast,
-        onBack: function () { setOpenId(null); },
+        // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上
+        onBack: function () { setOpenId(null); setReadMap(loadRead()); },
         onUpdate: updateFic, onToggleShelf: toggleShelf, onLike: likeFic,
         onForwardToChat: fwdChat, onForwardToGroup: fwdGroup, onChapterShared: chapterShared
       });
@@ -1732,28 +1862,46 @@
     } else {
       // feed / shelf。item 5：收藏(onShelf)的从 feed 移除、只在书架出现
       const list = fics.filter(function (f) {
+        if (tagFilter && (f.tags || []).indexOf(tagFilter) < 0) return false;
         if (view === "shelf") return f.onShelf === true;
         return f.tabId === (curTab && curTab.id) && !f.onShelf;
       }).sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
       inner = h("div", { className: "flex-1 min-h-0 flex flex-col" },
-        h(Head, {
-          zh: view === "shelf" ? "书架" : "同人文", en: view === "shelf" ? "追更中心 · Shelf" : "Fanfic",
-          onBack: props.onBack,
-          right: view === "shelf" ? h("button", { onClick: function () { const n = exportFanficAudit(tabs, loadFics(), loadCfg()); props.toast && props.toast("已导出 " + n + " 篇同人文诊断稿"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "导出") : view === "feed" ? h("div", { className: "flex items-center gap-3" },
-            h("button", { onClick: refreshTab, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "刷新"),
-            h("button", { onClick: function () { setGearOpen(true); }, disabled: busy, className: "active:opacity-60", title: "生成配置" }, h(GConfig, { size: 19, color: t.ink }))) : null
-        }),
+        // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：原先那块 30px 大标题
+        // ＋「FANFIC」副标，一屏先被吃掉五分之一，正文卡片只剩两张半。
+        h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+          h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+          h("div", { className: "flex-1 min-w-0 text-center" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, view === "shelf" ? "书架" : "同人文"),
+            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.18em", color: t.fog, marginTop: 2 } }, view === "shelf" ? "SHELF" : "FANFIC")),
+          h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } },
+            view === "shelf" ? h("button", { onClick: function () { const n = exportFanficAudit(tabs, loadFics(), loadCfg()); props.toast && props.toast("已导出 " + n + " 篇同人文诊断稿"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "导出")
+              : view === "feed" ? h(React.Fragment, null,
+                  h("button", { onClick: refreshTab, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "刷新"),
+                  h("button", { onClick: function () { setGearOpen(true); }, disabled: busy, className: "active:opacity-60", title: "生成配置" }, h(GConfig, { size: 19, color: t.ink })))
+              : null)),
         view === "feed" ? h(TabBar, {
           tabs: tabs, activeId: activeTab, onPick: setActiveTab,
           onAdd: function () { setTabSheet({}); }, onEdit: function (tb) { setTabSheet(tb); }
         }) : null,
+        // 正在按标签筛：得看得见、且随手能取消，不然点进去就出不来了
+        tagFilter ? h("div", { className: "px-5 pb-2 flex items-center", style: { gap: 8 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "只看"),
+          h(FicTag, { tag: tagFilter }),
+          h("button", { onClick: function () { setTagFilter(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.accent } }, "取消")) : null,
         // 板块简介收进固定高度的滚动框（简介写长后曾占掉三分之一屏挡文）：默认露两三行，框内下滑看全部
         view === "feed" && curTab && curTab.desc ? h("div", { className: "px-5 pb-2" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55, whiteSpace: "pre-line", maxHeight: 62, overflowY: "auto", WebkitOverflowScrolling: "touch", background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 10px" } }, curTab.desc)) : null,
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-6" },
           busy ? h(Spinner, { label: genProg && genProg.total ? ("后台生成中 " + genProg.done + "/" + genProg.total + "…可以离开本页") : "后台生成中…可以离开本页，回来会自动接上" }) : null,
           list.length ? list.map(function (f) {
-            return h(FicCard, { key: f.id, fic: f, characters: characters, userName: userName, onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); } });
+            const rd = readMap[f.id];
+            const chN = (f.chapters || []).length;
+            return h(FicCard, {
+              key: f.id, fic: f, characters: characters, userName: userName,
+              readAt: rd ? (chN > 1 && rd.chap > 0 ? "读到 " + (rd.chap + 1) + "/" + chN : "读过") : "",
+              onTag: function (tag) { setTagFilter(tag === tagFilter ? "" : tag); },
+              onOpen: function () { setOpenId(f.id); }, onLike: function () { likeFic(f.id); } });
           }) : (busy ? null : h(Empty, { text: view === "shelf" ? "书架空空" : "本版还没有同人文", sub: view === "shelf" ? "收藏或发布的篇目会留在这里追更" : "点右上角齿轮生成，或用底部加号自己写" }))));
     }
 
