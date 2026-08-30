@@ -9,8 +9,9 @@ function makeHome(layout, folders) {
   const grab = (a, b) => { const i = comp.indexOf(a); const j = comp.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出：" + a); return comp.slice(i, j); };
   const src = [
     grab("  const DEFAULT_LAYOUT = [", "  const SP_RE = /^sp_/;"),
-    "  const SP_RE = /^sp_/;\n",
-    grab("  const wOf = ", "  // 存档 + 注册表 → 完整布局"),
+    // SP_RE 到 buildLayout 之间那一整段（SP_RE / spanOf / wOf / rowsOf）一起抠，
+    // 免得以后这里多一个辅助函数、测试却只抠到其中一半
+    grab("  const SP_RE = /^sp_/;", "  // 存档 + 注册表 → 完整布局"),
     grab("  function buildLayout(saved) {", "  function persistFolders(nf)"),
     grab("  function findSlot(L, key) {", "  // 放下：from 和 to 交换位置"),
     grab("  function removeFromFolder(fid, key) {", "  function renameFolder(fid, name)")

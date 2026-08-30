@@ -1547,14 +1547,42 @@ function Home({
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
-  // 每项占的格子数（4 列制）：app/文件夹/空格=1，日历 3x3=9，地图 2x2=4，整行组件=4
-  const wOf = function (key) {
-    if (SP_RE.test(key)) return 1;
+  // 每项占几列几行（4 列制）——必须和 renderItem 里写的 gridColumn/gridRow 一模一样
+  const spanOf = function (key) {
+    if (SP_RE.test(key)) return [1, 1];
     var it = key && key.slice(0, 2) === "f_" ? { kind: "folder" } : REG[key];
-    if (!it) return 0;
-    if (it.kind !== "widget") return 1;
-    return it.which === "cal" ? 9 : it.which === "muyu" || it.which === "wheel" ? 4 : it.which === "weather" || it.which === "ledger" ? 2 : 4;
+    if (!it) return null;
+    if (it.kind !== "widget") return [1, 1];
+    if (it.which === "cal") return [3, 3];
+    if (it.which === "map" || it.which === "muyu" || it.which === "wheel") return [2, 2];
+    if (it.which === "weather" || it.which === "ledger") return [2, 1];
+    return [4, 1];
   };
+  // 每项占的格子数（4 列制）：app/文件夹/空格=1，日历 3x3=9，地图 2x2=4，整行组件=4
+  const wOf = function (key) { var s = spanOf(key); return s ? s[0] * s[1] : 0; };
+  // 照着 CSS 的 grid-auto-flow:dense 排一遍，算这一页真占几【行】。
+  // 屏幕限的是行、不是格：24 格只有严丝合缝时才等于 6 行。2×2 的组件会留下填不满的洞，
+  // 同样 24 格能排成 7 行——多出来那一行落在 overflow-hidden 的下面，看不见也点不到，跟丢了一样。
+  function rowsOf(keys) {
+    var grid = [], rows = 0;
+    var free = function (r, c, w, hh) {
+      for (var i = r; i < r + hh; i++) { var row = grid[i]; if (row) for (var j = c; j < c + w; j++) if (row[j]) return false; }
+      return true;
+    };
+    (keys || []).forEach(function (k) {
+      var s = spanOf(k); if (!s) return;
+      var w = s[0], hh = s[1];
+      for (var r = 0; ; r++) {
+        for (var c = 0; c + w <= 4; c++) {
+          if (!free(r, c, w, hh)) continue;
+          for (var i = r; i < r + hh; i++) { if (!grid[i]) grid[i] = []; for (var j = c; j < c + w; j++) grid[i][j] = 1; }
+          if (r + hh > rows) rows = r + hh;
+          return;
+        }
+      }
+    });
+    return rows;
+  }
   // 存档 + 注册表 → 完整布局：套用存档顺序，未放置的新功能补到默认页，丢弃已删除的 key
   // 文件夹（f_ 开头）也是合法项；躺在文件夹里的 app 视作已放置，不再回填到页面
   // 最后做「槽位规整」：去尾部空格 → 补空格到整行；恰好铺满且没超载时多送一空行（留挪动余地）
@@ -1602,14 +1630,17 @@ function Home({
         }
       });
     })();
-    // 页容量界限（一页最多 24 格 ≈ 6 行）：她自定义过布局后，新 app 补到满页末尾会渲染到屏幕外拿不到——
+    // 页容量界限：一页最多 24 格【并且】最多 6 行——两条都要卡。
+    // 她 2026-08-30 报「从第一页文件夹里整理出来就找不到了，1/2/3 页都是满的，后面也没有」：
+    // 东西没丢，是掉到了看不见的那一行。只按格数卡不住——2×2 的组件会留下填不满的洞，
+    // 同样 24 格能排成 7 行，第 7 行整个落在 overflow-hidden 底下，看不见也点不到。
     // 超出容量的项按原顺序整体溢到下一页开头（连锁下去，最后一页放不下就自动开新页）；空格不搬、下一页会重新补
-    var CAP = 24;
+    var CAP = 24, ROWCAP = 6;
     for (var ci = 0; ci < out.length; ci++) {
       var cw = 0, ckeep = [], cspill = [];
       (out[ci] || []).forEach(function (k) {
         var wk = wOf(k);
-        if (!cspill.length && cw + wk <= CAP) { ckeep.push(k); cw += wk; }
+        if (!cspill.length && cw + wk <= CAP && rowsOf(ckeep.concat([k])) <= ROWCAP) { ckeep.push(k); cw += wk; }
         else if (!SP_RE.test(k)) cspill.push(k);
       });
       out[ci] = ckeep;
@@ -1626,6 +1657,8 @@ function Home({
       var n = 0;
       var have = {};
       arr.forEach(function (k) { have[k] = 1; });
+      // 补位是 1×1 的，只会去填 6 行以内的洞：真项已经卡在 24 格 / 6 行以内，
+      // 剩下的洞正好是 24-wsum 个，补满不会多出第七行，所以这里不用再判一次行数
       while (wsum < target) { var sid = "sp_" + pi + "_" + n++; if (!have[sid]) { arr.push(sid); have[sid] = 1; wsum += 1; } }
       return arr;
     });
