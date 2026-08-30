@@ -8697,6 +8697,44 @@ function carryProbeSpec(key, char, known, pinned, material, elsewhere) {
       + carryAvoidBlock(elsewhere) + carryKnownBlock(key, known, pinned)
   };
 }
+// 四栏【一次写完】（她 2026-08-30：「能不能全部做 1 次调用而不是每一个一次，
+// 因为它每个内容确实不是很多」）。四次串行 → 一次，省四刀。
+//
+// ⚠️顺带解决掉一个本来就难治的病：分四次时，每一栏都不知道另外三栏写了什么，
+// 只能把别栏已有的塞进 carryAvoidBlock 说「别再写一遍」——那是事后补救，
+// 而且「刷新全部」那条路上 carryRef 还慢一帧，正好是最容易撞名的一条。
+// 一次写完之后，四栏在【同一次思考】里分配，重复从「靠提示词拦」变成「压根不会发生」。
+// 代码那道 carryDedupe 仍然留着（规则降概率，代码才保证）。
+function carryProbeSpecAll(char, known, pinned, material) {
+  const nm = char.name;
+  const one = k => carryProbeSpec(k, char, null, null, "", null);
+  const secs = ["bag", "pocket", "trinket", "outfit"];
+  const body = secs.map(function (k) {
+    const sec = CARRY_SECTIONS.find(function (x) { return x.key === k; }) || {};
+    // 各栏的判据原样搬过来，只把「推演…」那个开头换成小标题——判据本身是防串栏的关键
+    // 剥掉「推演「某某」」那个开头；衣柜那条原文是「推演「某某」的衣柜…」，
+    // 不连着把「的」也剥掉就成了「〔衣柜〕的衣柜，按场合分组」
+    return "\n\n〔" + sec.zh + "〕" + one(k).instruction.replace(/^推演「[^」]*」的?/, "");
+  }).join("");
+  return {
+    // 四栏一起出，token 得给够：分开时是 4000×3 + 6000
+    maxTokens: 16000,
+    schemaHint: "{\"bag\":{\"items\":[{\"name\":\"物品\",\"note\":\"备注\",\"thought\":\"TA 对这件东西的私人想法\"}]},"
+      + "\"pocket\":{\"items\":[...同上]},\"trinket\":{\"items\":[...同上]},"
+      + "\"outfit\":{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身的叫法\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}}",
+    instruction: "一次推演「" + nm + "」身上和柜子里的四栏东西：包内、口袋、珍藏小物、衣柜。"
+      + "\n\n⚠️【同一件东西只许出现在一栏里】四栏是一起写的，你自己分配好：一件东西是「出门要用」「伸手摸得到」"
+      + "还是「没用但舍不得」，按下面每一栏的判据挑一栏放，别在两栏里各写一遍、也别换个说法写两遍。"
+      + body
+      + carryMaterialBlock("all", material)
+      + secs.map(function (k) {
+          const kn = known && known[k];
+          const pn = pinned && pinned[k];
+          const z = (CARRY_SECTIONS.find(function (x) { return x.key === k; }) || {}).zh || k;
+          return (kn || (pn && pn.length)) ? "\n\n〔" + z + " · 上一次是这些〕" + carryKnownBlock(k, kn, pn) : "";
+        }).join("")
+  };
+}
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
 function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenGiftThought, onBack }) {
   const t = useTheme();

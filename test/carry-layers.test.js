@@ -557,11 +557,15 @@ test("三栏的分工用判据说死，不再是三句意思差不多的话", ()
 });
 
 test("刷新全部时用本地攒的账，不读还没落地的 carryRef", () => {
+  // v58.14 起四栏是【一次调用】拿回来的，串行那个成因没了；
+  // 但这条不变量还在：落盘那一圈仍然是一栏一栏写的，carryRef 要下一帧才更新，
+  // 所以 carryElsewhere 照样只能读本地这份边写边攒的账。
   const i = app.indexOf("  const genCarryAll = async char => {");
   const seg = app.slice(i, app.indexOf("\n  };", i));
   assert.match(seg, /const sofar = \{ \.\.\.\(carryRef\.current\[char\.id\] \|\| \{\}\) \};/);
-  assert.match(seg, /carryElsewhere\(key, sofar,/, "读 carryRef 的话，一栏一栏串下来时读到的是上一帧");
-  assert.match(seg, /sofar\[key\] = merged;/, "生成完要记进本地这份账，下一栏才避得开");
+  assert.match(seg, /carryElsewhere\(k, sofar,/, "读 carryRef 的话，写到第二栏时读到的还是上一帧");
+  assert.match(seg, /sofar\[k\] = merged;/, "写完一栏要记进本地这份账，下一栏才避得开");
+  assert.doesNotMatch(seg, /carryElsewhere\(k, carryRef\.current/, "直接读 carryRef 就是那个坑");
 });
 
 // 她 2026-08-29：「里面的背景都是一样的米色有点单调」

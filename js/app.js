@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.13";
+const APP_VERSION = "v58.14";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12680,26 +12680,39 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } catch (e) { toast("生成失败：" + e.message); }
     finally { setGen(g => ({ ...g, giftThought: null })); }
   };
+  // 四栏【一次调用】写完（她 2026-08-30）。原来是一栏一刀、串行四刀。
+  // 一次写完之后，四栏在同一次思考里分配，跨栏撞名从「靠 avoidBlock 事后拦」
+  // 变成压根不会发生；carryRef 慢一帧那个坑也随之消失（不再需要边攒边读的 sofar）。
   const genCarryAll = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setSelCarry(char.id);
     setGen(g => ({ ...g, carrySec: "__all__" }));
     const keys = CARRY_SECTIONS.filter(s => !s.gifts).map(s => s.key);
-    const sofar = { ...(carryRef.current[char.id] || {}) };
-    for (const key of keys) {
-      try {
-        const known = (carryRef.current[char.id] || {})[key] || null;
-        const pins = carryPinsFor(char.id, key);
-        // ⚠️ carryRef 跟着 setCarry 走，要下一帧才更新；一栏一栏串下来时读它会读到旧的，
-        // 于是「刷新全部」正好是最容易前后撞名的那条路。用本地这份边生成边攒的账。
-        const other = carryElsewhere(key, sofar, (carryGiftsRef.current || {})[char.id]);
-        const d = await runProbe(bgActive, ctxFor(char), carryProbeSpec(key, char, known, pins, carryMaterialFor(char.id), other));
-        const merged = carryEvolveMerge(key, known, carryDedupe(key, d, other), pins);
-        sofar[key] = merged;
-        saveCarrySection(char.id, key, merged);
-      } catch (e) {/* skip */}
+    try {
+      const known = {}, pins = {};
+      keys.forEach(k => { known[k] = (carryRef.current[char.id] || {})[k] || null; pins[k] = carryPinsFor(char.id, k); });
+      const all = await runProbe(bgActive, ctxFor(char), carryProbeSpecAll(char, known, pins, carryMaterialFor(char.id)));
+      if (!all || typeof all !== "object") throw new Error("没返回可用的内容");
+      // ⚠️一栏都没解析出来才算失败。少了某一栏就只留那一栏不动，
+      // 别把已经写好的三栏一起丢掉——那是一整次调用的钱。
+      let got = 0;
+      const sofar = { ...(carryRef.current[char.id] || {}) };
+      keys.forEach(k => {
+        const d = all[k];
+        if (!d || typeof d !== "object") return;
+        got++;
+        const other = carryElsewhere(k, sofar, (carryGiftsRef.current || {})[char.id]);
+        const merged = carryEvolveMerge(k, known[k], carryDedupe(k, d, other), pins[k]);
+        sofar[k] = merged;
+        saveCarrySection(char.id, k, merged);
+      });
+      if (!got) throw new Error("四栏一栏都没解析出来");
+      if (got < keys.length) toast("有 " + (keys.length - got) + " 栏这次没写出来，保持原样");
+    } catch (e) {
+      toast("随身物生成失败：" + e.message);
+    } finally {
+      setGen(g => ({ ...g, carrySec: null }));
     }
-    setGen(g => ({ ...g, carrySec: null }));
   };
 
   const saveRel = (key, label, note) => setRels(p => {
