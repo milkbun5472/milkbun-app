@@ -25,15 +25,20 @@
       const list = JSON.parse(localStorage.getItem("x_trpg") || "[]");
       // v57.17 物品升格 {name,holder,n}:老存档(含每拍快照里的)读到就地修,不另跑迁移
       let changed = false;
-      const fixed = (Array.isArray(list) ? list : []).map(c => {
+      const fixed = (Array.isArray(list) ? list : []).map((c, i) => {
         const needTop = (c.items || []).some(x => typeof x === "string");
         const needSnap = (c.msgs || []).some(m => m.snap && (m.snap.items || []).some(x => typeof x === "string"));
         // v57.21:老团的成员补发命运点(按气运),没有的字段一律给默认
         const needFate = (c.party || []).some(m => m.fate == null);
         const needSquad = !c.squadId;
-        if (!needTop && !needSnap && !needFate && !needSquad) return c;
+        // v58.51:更老的存档压根没有 id。列表用 key: c.id 渲染,几个团的 key 全是 undefined,
+        // React 就会把节点认成同一个 —— 点甲的 ✕,弹的是乙的标题、删掉的是乙。
+        // 她 2026-08-30:「跑团旧版的 x 没用删除不了」。所以读进来就把 id 补齐。
+        const needId = !c.id;
+        if (!needTop && !needSnap && !needFate && !needSquad && !needId) return c;
         changed = true;
         return Object.assign({}, c, {
+          id: c.id || ("rpg_old" + i + "_" + (c.createdAt || Date.now())),   // 同一毫秒补好几个,带上下标才不会撞
           squadId: c.squadId || "sq_legacy",
           items: itemsFix(c.items),
           party: (c.party || []).map(m => m.fate == null ? Object.assign({}, m, { fate: fateOf(m.stats && m.stats.luck) }) : m),
@@ -826,6 +831,10 @@
   // 跑团图库(x_trpgGallery):封面与当拍画面出图即归档;删掉那一轮跑团,图也不丢
   const loadGal = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgGallery") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
   const saveGalList = v => { try { localStorage.setItem("x_trpgGallery", JSON.stringify(v)); } catch (e) {} };
+  // 墓碑:她从图库删掉的那几张。补档那一步会把团里还引用着的图【全部】收回来,
+  // 所以删过一张、下次进跑团它又原样回来了——记下删过谁,补档时绕开。
+  const loadGalGone = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgGalleryGone") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  const galTomb = img => { try { const g = loadGalGone(); if (g.indexOf(img) < 0) localStorage.setItem("x_trpgGalleryGone", JSON.stringify(g.concat([img]).slice(-400))); } catch (e) {} };
   // 输出天花板:她按次计费,上限不省钱只会截断——统一给满(同 StylePresets.OUT_CEILING,
   // 中转会自行 clamp 到模型上限;思考型模型的推理也从这里扣,给大不多花一分钱)
   const TOK_MAX = 65535;
@@ -886,6 +895,9 @@
     const [modTxt, setModTxt] = useState("");        // 模组 JSON 粘贴缓冲
     const [diceOpen, setDiceOpen] = useState(false); // 骰子账展开
     const [squadTick, setSquadTick] = useState(0);   // 小分队增删后强制重画用
+    // 入口页分三格(她 2026-08-30:「队伍平时能不能收纳到哪儿不要在主页占位,主界面只留开的团,
+    // 开完的团也单独找地方收纳」)。开着的团是每天要点的,别的两样按需要才翻。
+    const [listTab, setListTab] = useState("live");  // live 在演 | done 已落幕 | squad 小分队
     const [pickSquadId, setPickSquadId] = useState(null); // 开团带哪支小分队
     const [plusMenu, setPlusMenu] = useState(false); // 入口 ＋ 菜单(开团/组建队伍)
     const [squadName, setSquadName] = useState("");  // 组建队伍:队名
@@ -914,6 +926,7 @@
     useEffect(() => {
       // 图库上线前已出过的封面与画面,一次性补档(按图引用去重)
       const have = {}; loadGal().forEach(x => have[x.img] = 1);
+      loadGalGone().forEach(img => have[img] = 1);   // 删过的不再收回来
       const add = [];
       (campsRef.current || camps).forEach(c => {
         (c.msgs || []).forEach(m => { if (m.role === "photo" && m.img && !have[m.img]) { have[m.img] = 1; add.push({ id: rid("tg_"), campId: c.id, campTitle: c.title, img: m.img, ts: m.ts || Date.now(), kind: "shot" }); } });
@@ -2233,6 +2246,22 @@
         ]));
     }
 
+    // 上一次动这个团是多久以前
+    const campAgo = c => {
+      const m = (c.msgs || [])[(c.msgs || []).length - 1];
+      const ts = (m && m.ts) || c.createdAt || 0;
+      if (!ts) return "";
+      const d = Date.now() - ts;
+      if (d < 0) return "";
+      if (d < 3600e3) return "刚动过";
+      const n = new Date(), midnight = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+      if (ts >= midnight) return Math.max(1, Math.floor(d / 3600e3)) + "小时前";
+      if (ts >= midnight - 86400e3) return "昨天";
+      const days = Math.floor((midnight - ts) / 86400e3) + 1;
+      if (days <= 30) return days + "天前";
+      const dd = new Date(ts);
+      return (dd.getMonth() + 1) + "月" + dd.getDate() + "日";
+    };
     // 入口:战役列表
     const campCard = c => {
       const members = [null].concat(c.partyIds.map(charOf));
@@ -2242,12 +2271,15 @@
         backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
       } : null;
       return h("div", { key: c.id, onClick: () => { setPlayId(c.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
-        h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + c.title + "」和全部记录?")) update(list => list.filter(x => x.id !== c.id)); }, style: { position: "absolute", top: 10, right: 10, background: "none", border: "none", color: t.fog, fontSize: 15, padding: 4 } }, "✕"),
+        h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + c.title + "」和全部记录?")) update(list => list.filter(x => x.id !== c.id)); }, style: { position: "absolute", top: 2, right: 2, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.fog, fontSize: 15, padding: 0 } }, "✕"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, c.title),
         c.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "⑂ 分支自「" + (c.branchedFrom.title || "原团") + "」第 " + (c.branchedFrom.at || 0) + " 拍") : null,
         h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 6 } },
           members.map((m, i) => i === 0 ? avatarOf({ name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color }, 22) : m ? avatarOf(m, 22) : null),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginLeft: 4 } }, (c.ended ? "已落幕 · " : "") + "第" + Math.min(c.stageIdx + 1, c.stages.length) + "/" + c.stages.length + "章 · " + c.msgs.length + "拍")),
+        // 开着好几个团时,靠这一行认出「这是哪支队的、上次动是什么时候」
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } },
+          [c.squadName || "", campAgo(c)].filter(Boolean).join(" · ")),
         h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, c.world));
     };
     // ---- 组建队伍(她 2026-08-28 定稿:数值在这里掷定,进什么副本都用这套) ----
@@ -2295,7 +2327,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + (galView.campTitle || "") + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
         h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
           h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
-          h("button", { onClick: () => { const id = galView.id; if (!confirm("从图库删掉这张?")) return; setGalView(null); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+          h("button", { onClick: () => { const id = galView.id, img = galView.img; if (!confirm("从图库删掉这张?")) return; setGalView(null); galTomb(img); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
       return h("div", { style: S.wrap }, badges(), header("跑团图库"), viewer,
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
           gal.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
@@ -2325,14 +2357,31 @@
         [["🎲 开团(带一支小分队进新世界)", () => { setPlusMenu(false); setDraft(null); setKw(""); setView("create"); }],
          ["⚔ 组建队伍(数值此刻掷定,成长归这支队)", () => { setPlusMenu(false); setSquadName("小分队" + "一二三四五六七八九十".charAt(Math.min(9, loadSquads().squads.length))); setPickIds([]); setBmRolls({ user: rollStats() }); setView("squadNew"); }],
          ["取消", () => setPlusMenu(false)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 2 ? t.fog : t.ink, background: "transparent", border: "none", borderTop: i ? "1px solid " + t.line : "none", textAlign: "center" } }, label))));
+    // 最近动过的排前面:开着好几个团时,要找的那个总在最上面
+    const lastTs = c => { const m = (c.msgs || [])[(c.msgs || []).length - 1]; return (m && m.ts) || c.createdAt || 0; };
+    const byRecent = (a, b) => lastTs(b) - lastTs(a);
+    const live = camps.filter(c => !c.ended).sort(byRecent);
+    const done = camps.filter(c => c.ended).sort(byRecent);
+    const tab = (k, label, n) => h("button", {
+      key: k, onClick: () => setListTab(k),
+      style: { flex: 1, padding: "7px 0", borderRadius: 10, border: "none", background: listTab === k ? t.bg2 : "transparent",
+               boxShadow: listTab === k ? "0 1px 3px rgba(46,38,29,.16)" : "none",
+               fontFamily: F_BODY, fontSize: 12, color: listTab === k ? t.ink : t.fog }
+    }, label + (n ? " " + n : ""));
+    const emptyLine = (a, b) => h("div", { style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, a, b ? h("br") : null, b || null);
     return h("div", { style: S.wrap }, badges(), plusSheet,
       header("跑团", h("div", { style: { display: "flex", gap: 6 } },
         h("button", { onClick: () => { setGalView(null); setView("gallery"); }, style: S.btn(false) }, "🖼 图库"),
         h("button", { onClick: () => setPlusMenu(true), style: Object.assign({}, S.btn(true), { padding: "7px 16px" }) }, "＋"))),
+      h("div", { style: { display: "flex", gap: 4, margin: "10px 14px 0", padding: 3, borderRadius: 12, background: "rgba(46,38,29,.055)" } },
+        tab("live", "在演", live.length), tab("done", "已落幕", done.length), tab("squad", "小分队", squads.length)),
       h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
-        squadsBlock,
-        camps.length ? camps.map(campCard)
-        : h("div", { style: { textAlign: "center", marginTop: 80, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, "还没开过团。", h("br"), "点右上角 ＋:先组建一支小分队,再带他们去另一个世界走一遭。")));
+        listTab === "squad"
+          ? (squadsBlock || emptyLine("还没有小分队。", "点右上角 ＋ 组建一支,数值在那时掷定。"))
+          : listTab === "done"
+            ? (done.length ? done.map(campCard) : emptyLine("还没有落幕的团。"))
+            : (live.length ? live.map(campCard)
+               : emptyLine(camps.length ? "开着的团都落幕了——去「已落幕」翻。" : "还没开过团。"))));
   }
   if (inApp) window.TrpgApp = TrpgApp;
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
