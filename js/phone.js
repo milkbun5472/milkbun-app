@@ -1,6 +1,6 @@
 // ============================================================
 // 查手机 — 仿 iOS 桌面：锁屏 → 桌面 → 各 app。生成的那些各自独立刷新；
-// 论坛/音乐/日历读 App 里的真数据；时间线不生成，只把翻出来的碎片按时间串起来。
+// 论坛/音乐/日历/匿名信箱读 App 里的真数据；时间线不生成，只把翻出来的碎片按时间串起来。
 // ============================================================
 const PHONE_APPS = [{
   key: "wechat",
@@ -61,6 +61,10 @@ const PHONE_APPS = [{
   key: "tally",
   zh: "账本"
 }, {
+  // 角色自己的匿名树洞。这里接 x_anon 真数据，不让查手机另编一套假箱子。
+  key: "anon",
+  zh: "匿名信箱"
+}, {
   // 时间线不推演任何东西，它只把上面那些 app 已经翻出来的碎片按时间串起来。
   // 所以它同时属于 PHONE_LIVE_KEYS（不调模型、不进 phones）。
   key: "timeline",
@@ -75,15 +79,15 @@ const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会自行 clamp 到模型上限
 // 日历接的是 App 里那份真的（x_calendar 里他自己的那格 + 带时刻的日程 + 他答应过她的事），
 // 不再另生成一份假的——翻到他日历上真的写着某一天有事，比生成出来的任何一条都重。
-const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "timeline"];
+const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
-const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail"];
+const FULL_BLEED_KEYS = ["wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon"];
 // 桌面只负责摆放入口。下面这份是兜底布局；真实桌面会按角色稳定选择不同布局。
 const PHONE_DOCK_KEYS = ["calls", "wechat", "browser", "music"];
 const PHONE_DESKTOP_PAGES = [
   ["timeline", "notes", "album", "liked", "forum", "shopping", "calendar"],
-  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally", "mail"]
+  ["reading", "bili", "health", "clipboard", "takeout", "latenight", "tally", "mail", "anon"]
 ];
 // 桌面组件：装饰件（不是 app，点了不进任何 app，也不调任何模型）
 //   clock  一只走针的表      frame  从他相册里挑一张当相框      saying 把他写过的一句话放大
@@ -101,28 +105,28 @@ const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "SOCIAL",
   dock: ["calls", "wechat", "browser", "music"],
   pages: [["notes", "album", "forum", "shopping"],
-          ["timeline", "liked", "clipboard", "reading", "bili", "takeout", "latenight", "tally", "mail"]],
+          ["timeline", "liked", "clipboard", "reading", "bili", "takeout", "latenight", "tally", "mail", "anon"]],
   widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "timeline" }, { key: "clock" }, { key: "liked", span: 2, size: "wide" }, { key: "refresh" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "health" }, { key: "calendar" }]]
 }, {
   id: "archive", label: "ARCHIVE",
   dock: ["calls", "wechat", "notes", "browser"],
   pages: [["album", "music", "clipboard", "calendar"],
-          ["shopping", "forum", "liked", "bili", "health", "latenight", "takeout"]],
+          ["shopping", "forum", "liked", "bili", "health", "latenight", "takeout", "anon"]],
   widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "timeline", span: 2, size: "wide" }, { key: "tally", span: 2, size: "wide" }, { key: "refresh" }],
             [{ key: "reading", span: 2, size: "wide" }, { key: "saying", span: 2, size: "wide" }, { key: "mail" }, { key: "clock" }]]
 }, {
   id: "media", label: "MEDIA",
   dock: ["calls", "wechat", "music", "album"],
   pages: [["forum", "browser", "notes", "reading"],
-          ["shopping", "clipboard", "calendar", "health", "takeout", "latenight", "tally", "mail"]],
+          ["shopping", "clipboard", "calendar", "health", "takeout", "latenight", "tally", "mail", "anon"]],
   widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album", span: 2, size: "wide" }, { key: "bili" }, { key: "clock" }, { key: "refresh" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "liked" }, { key: "timeline" }]]
 }, {
   id: "wander", label: "WANDER",
   dock: ["calls", "wechat", "browser", "album"],
   pages: [["notes", "music", "shopping", "forum"],
-          ["timeline", "liked", "bili", "clipboard", "latenight", "tally", "mail", "health"]],
+          ["timeline", "liked", "bili", "clipboard", "latenight", "tally", "mail", "health", "anon"]],
   widgets: [[{ key: "clock" }, { key: "health" }, { key: "saying", span: 2, size: "wide" }, { key: "timeline", span: 2, size: "wide" }, { key: "refresh" }],
             [{ key: "reading" }, { key: "takeout" }, { key: "calendar", span: 2, size: "wide" }]]
 }];
@@ -1062,6 +1066,7 @@ function PGlyph({
     takeout: [P("M3 11h18a9 9 0 01-18 0z"), P("M2.5 20.5h19"), P("M12 3.2v2.4M8.6 4.4l.9 1.6M15.4 4.4l-.9 1.6")],
     timeline: [P("M7 3v18"), C(7, 7, 2.1), C(7, 13.4, 2.1), C(7, 19.6, 1.6), P("M11.5 7h8.5M11.5 13.4h6.5M11.5 19.6h4.5")],
     tally: [P("M5 3.2h14v17.6H5z"), P("M9 3.2v17.6"), P("M12 7.6h4.2M12 11.6h4.2M12 15.6h2.6"), P("M6.4 8.6l1.2 1.2 1.4-2.2")],
+    anon: [P("M4 5.2h16v11.2H9l-5 4z"), P("M8.2 9.2h7.6M8.2 12.4h4.8"), P("M18.4 3.2l.5 1.1 1.1.5-1.1.5-.5 1.1-.5-1.1-1.1-.5 1.1-.5z")],
     mail: [R(2.6, 5, 18.8, 14, 2.6), P("M2.6 7.2l9.4 6.4 9.4-6.4")]
   };
   return h(Svg, {
@@ -3851,6 +3856,16 @@ function renderPhoneModule(key, d, ctx) {
   if (key === "latenight") return h(LateNightView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "mail") return h(MailView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "tally") return h(TallyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
+  if (key === "anon") return h(AnonBox, {
+    char,
+    data: ctx.anon || {},
+    busy: !!ctx.anonBusy,
+    onGenNetizen: ctx.onGenAnonQuestion,
+    onRefreshPersona: ctx.onRefreshAnonPersona,
+    onAsk: ctx.onAskAnon,
+    onDelRecord: ctx.onDelAnonRecord,
+    onClose: ctx.onBack
+  });
   if (key === "timeline") return h(TimelineView, {
     rows: ctx.timelineRows, char, t, onBack: ctx.onBack, onOpenApp: ctx.onOpenApp, onPeek: ctx.onPeek,
     newIds: ctx.newIds, newCount: ctx.newCount, onMarkRead: ctx.onMarkRead,
@@ -3965,6 +3980,12 @@ function PhoneCarry({
   calendarFor,
   vitalsFor,
   monthStatsFor,
+  anonFor,
+  anonBusy,
+  onRefreshAnonPersona,
+  onGenAnonQuestion,
+  onAskAnon,
+  onDelAnonRecord,
   archives,
   autoOn,
   onToggleAuto,
@@ -4088,6 +4109,13 @@ function PhoneCarry({
     vitals: vitalsFor ? vitalsFor(char.id) : null,
     // 本月消费/单数以钱包流水为准，不用模型编的那两个数
     monthStats: monthStatsFor ? monthStatsFor(char) : null,
+    // 匿名信箱沿用主 App 的 x_anon：同一个马甲、同一批问答、同一份删除结果。
+    anon: anonFor ? anonFor(char.id) : {},
+    anonBusy: !!anonBusy,
+    onRefreshAnonPersona: () => onRefreshAnonPersona && onRefreshAnonPersona(char),
+    onGenAnonQuestion: () => onGenAnonQuestion && onGenAnonQuestion(char),
+    onAskAnon: q => onAskAnon && onAskAnon(char, q),
+    onDelAnonRecord: ts => onDelAnonRecord && onDelAnonRecord(char.id, ts),
     // 偷看转发：手机里的东西只有【转发了】才进他的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk)
   };
@@ -4133,6 +4161,7 @@ function PhoneCarry({
     if (k === "forum") return (liveForum || []).reduce((n, a) => n + (a.posts || []).length + (a.comments || []).length, 0);
     if (k === "music") return ((livePlaylist && livePlaylist.songs) || []).length;
     if (k === "calendar") return ((liveCtx.calendar || {}).items || []).length;
+    if (k === "anon") return ((liveCtx.anon || {}).records || []).length || ((liveCtx.anon || {}).netname ? 1 : 0);
     if (k === "timeline") return tlRows.length;
     return 0;
   };
@@ -4141,6 +4170,10 @@ function PhoneCarry({
   const appByKey = k => PHONE_APPS.find(a => a.key === k);
   const openApp = a => {
     if (!a || a.soon) return;
+    // 原来的匿名正门首次打开会自动准备马甲；从查手机进也保持同一体验。
+    if (a.key === "anon" && !(liveCtx.anon || {}).netname && !anonBusy && onRefreshAnonPersona) {
+      onRefreshAnonPersona(char);
+    }
     markSeen(char.id, a.key);
     // 桌面绿点和时间线的「新」得是同一件事——不然她明明刚在便签里读完，
     // 时间线里那几条还标着新，两处对不上。
@@ -4217,7 +4250,8 @@ function PhoneCarry({
       music: "他还没有歌单", album: "相册还没翻过", bili: "最近没有观看记录", latenight: "深夜台还是空的",
       forum: "论坛上还没有他的痕迹", reading: "最近没在读什么", liked: "还没点过什么",
       health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的",
-      timeline: "先刷一遍手机，这里才串得起来", tally: "他还没给你们记账", mail: "邮箱还没翻过"
+      timeline: "先刷一遍手机，这里才串得起来", tally: "他还没给你们记账", mail: "邮箱还没翻过",
+      anon: "匿名箱里还没有问答"
     }[key] || "还没有内容";
     // 真数据这几个走自己那份，不然桌面小组件永远显示兜底话
     if (key === "timeline") {
