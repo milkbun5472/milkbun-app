@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.68";
+const APP_VERSION = "v58.69";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9753,6 +9753,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       setAnonBusy(false);
     }
   };
+  // 匿名箱的网友:【两枪】。她 2026-08-30 第二轮:
+  //   「这问题还是带着答案去问的,而且网友也不应该知道他是谁吧」
+  // 上一版是一枪打完——同一次调用里既写问题又写答案,而那一次调用吃的是完整的
+  // buildBundle(人设/记忆/关系/心情/连用户是谁都有)。于是必然两个病:
+  //   ① 写问题的那个「网友」什么都知道 → 问出「该不会是工科楼五楼那个哥们吧」
+  //   ② 它先想好答案再倒推一个正好答得上的问题 → 「你煎蛋行不行」配「今早刚煎了流心」
+  // 光在提示词里写「你不知道他是谁」只是降概率(规则降概率,代码才保证):
+  // 上下文里摆着人设,它就是会漏。所以改成【两次调用,喂的东西不一样】——
+  //   第一枪(网友):不走 runProbe、不带任何 bundle,只给【陌生人看得见的东西】:
+  //                 网名、签名、以及最近问过的几句(避重)。它没有的东西就漏不出来。
+  //   第二枪(他):照常带全套上下文,只负责【答】已经写死的这几个问题。
+  // 代价说清楚:一次「网友匿名提问」= 两次调用。换来的是问题真的从外面来。
   const genNetizenQ = async char => {
     if (!active) {
       toast("请先到设置配置 API");
@@ -9760,29 +9772,46 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
     setAnonBusy(true);
     try {
-      const nn = anon[char.id] && anon[char.id].netname || char.name;
-      // 一次几条:她 2026-08-30「放大点」。天花板也不再压——runProbe 默认就是满的,
-      // 原来这里写死 maxTokens 4200,五六条就被截在半路
+      const box = anon[char.id] || {};
+      const nn = box.netname || "匿名的博主";
       const n = 5 + Math.floor(Math.random() * 3);      // 5~7 个网友
       const tones = anonDraw(ANON_ASKER_TONE, n), angles = anonDraw(ANON_ASKER_ANGLE, n);
       const who = tones.map((tn, i) => "网友" + (i + 1) + ":" + tn + ";这一位想撬的是" + angles[i]).join("\n");
-      const past = ((anon[char.id] || {}).records || []).slice(0, 12).map(r => r.q).filter(Boolean).join(" / ");
+      // 给网友看的只有【公开的那一面】:网名、签名、以前问过的问题(不给答案,免得又从答案倒推)
+      const pastQ = (box.records || []).slice(0, 14).map(r => r.q).filter(Boolean).join(" / ");
+      const askSys = "你在写一个匿名树洞里的提问。这里【只】有一个网名和一句签名,别的一概不知道。\n"
+        + "【你看得见的全部】网名:" + nn + (box.bio ? "\n签名:" + box.bio : "") + "\n"
+        + "【你不知道的】这个人的真名、性别、年龄、职业、专业、学校、公司、住在哪、长什么样、穿什么、有没有对象、家里有谁——一个都不知道,也【不许猜、不许假设、不许暗示你认识他】。\n"
+        + "尤其不许写成「听说你们XX的人如何如何」「你是不是那个谁」——你并不知道他是哪一行的,也不认识他。\n"
+        + "只能从那个网名和签名的字面、以及树洞里公开问过的那些话去下钩子。\n"
+        + "现在有 " + n + " 个互不相识的人各写一句话问他。\n【这几位分别是谁】\n" + who + "\n"
+        + "【怎么写】站在每个人自己身上写:他为什么会点进这个树洞、他想撬的是什么。"
+        + "问题可以很笨、可以问偏、可以问到对方根本不想答的地方——你写的时候并不知道他会怎么答,也不需要知道。\n"
+        + "别每句都一样长,别都用同一个句式。"
+        + (pastQ ? "\n【这些已经问过了,不要再问一遍】" + pastQ : "")
+        + "\n【输出】只输出合法 JSON,无 markdown 无多余文字：{\"items\":[{\"question\":\"这一句问话\"}]}";
+      const rawQ = await callAI(apiFor(char.id), askSys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+      const qd = extractJSON(rawQ) || {};
+      const qs = ((qd && Array.isArray(qd.items)) ? qd.items : [])
+        .map(x => String((x && x.question) || "").trim()).filter(Boolean).slice(0, n);
+      if (!qs.length) throw new Error("网友那一枪没写出问题");
+      // 第二枪:他来答。问题已经写死了,他只能就着这几句答,倒推不了
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "树洞里有 " + n + " 个互不相识的匿名网友,各自向「" + char.name + "」(网名:" + nn + ")问了一句话。\n"
-          + "【这几位分别是谁】\n" + who + "\n"
-          + "【怎么写】先站在每个网友身上把问题问出来——问题要从【这个人是什么人、他想撬什么】长出来,"
-          + "不是从答案倒推一个正好答得上的问题。允许问到他答不上来、不想答、或者根本问偏了的地方。\n"
-          + "然后再以「" + char.name + "」的身份逐条应对:他不知道对方是谁,也【不是每条都得答】——"
-          + "被问到痛处、心情不好、或者这人惹到他了,他可以只回半句、装没看见、或者顶回去。"
-          + "真不想答的那条把 skip 置为 true,answer 留空(可在 note 里写一句他当时的反应)。\n"
-          + "别背教科书、别客服腔、别每条都一样长。"
-          + (past ? "\n【这些已经问过了,不要再问一遍】" + past : ""),
-        schemaHint: "{\"items\":[{\"question\":\"这个网友问的一句话\",\"answer\":\"他的回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时,他当时的反应(一句,可空)\"}]}"
+        instruction: "「" + char.name + "」的匿名树洞(网名:" + nn + ")里来了 " + qs.length + " 条陌生人的提问,他一条条看下来。\n"
+          + "【提问】\n" + qs.map((q, i) => (i + 1) + ". " + q).join("\n") + "\n"
+          + "逐条应对,顺序照上面来。他不知道这些人是谁,这些人也不认识他——"
+          + "所以有的问题问偏了、问得莫名其妙、或者建立在一个错的前提上,他可以直接说不是这样。\n"
+          + "【不是每条都得答】:被问到痛处、心情不好、这人让他不舒服,可以只回半句、装没看见、顶回去;"
+          + "真不想答的那条把 skip 置为 true,answer 留空,note 里写一句他当时的反应。\n"
+          + "别背教科书、别客服腔、别每条都一样长。",
+        schemaHint: "{\"items\":[{\"answer\":\"他的回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时,他当时的反应(一句,可空)\"}]}"
       });
-      let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.question ? [d] : []))).filter(x => x && x.question);
-      if (!items.length) throw new Error("没有生成内容");
+      const outs = (d && Array.isArray(d.items)) ? d.items : [];
       const base = Date.now();
-      const recs = items.map((x, i) => ({ id: "ar_" + base + "_" + i, from: "netizen", q: x.question, a: x.skip ? "" : (x.answer || ""), skip: !!x.skip, note: x.skip ? String(x.note || "") : "", ts: base - i, ansTs: base - i }));
+      const recs = qs.map((q, i) => {
+        const it = outs[i] || {};
+        return { id: "ar_" + base + "_" + i, from: "netizen", q: q, a: it.skip ? "" : String(it.answer || ""), skip: !!it.skip, note: it.skip ? String(it.note || "") : "", ts: base - i, ansTs: base - i };
+      });
       pAnon(char.id, cur => ({ ...cur, records: [...recs, ...(cur.records || [])] }));
       const nSkip = recs.filter(r => r.skip).length;
       toast("来了 " + recs.length + " 条" + (nSkip ? "，其中 " + nSkip + " 条他没答" : ""));
