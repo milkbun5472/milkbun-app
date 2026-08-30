@@ -2597,6 +2597,9 @@
                : emptyLine(camps.length ? "开着的团都落幕了——去「已落幕」翻。" : "还没开过团。"))));
   }
   if (inApp) window.TrpgApp = TrpgApp;
+  // 地图引擎(纯函数)外借给好友地图的【架空】那一半:同一套区域接壤→力导向→团块→道路,
+  // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
+  if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
   if (typeof module === "object" && module.exports) module.exports = { trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls };
 })();

@@ -423,6 +423,8 @@ function App() {
   });
   const [geo, setGeo] = useState(null);
   const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
+  const [worlds, setWorlds] = useState([]);   // 架空世界（x_worlds）：一份设定 + 区域骨架，地图每次现算
+  const [worldBusy, setWorldBusy] = useState(false);
   const [apiProfiles, setApiProfiles] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [offlineApiId, setOfflineApiId] = useState(null); // 线下正文/总结专用；空=跟随线上主 API
@@ -792,6 +794,7 @@ function App() {
     }));
     setGeo(loadJSON("x_geo", null));
     setMapMode(loadJSON("x_mapMode", "real"));
+    setWorlds(loadJSON("x_worlds", []));
     const storedApis = loadJSON("x_api", []);
     const aps = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(storedApis) : storedApis;
     setApiProfiles(aps);
@@ -9688,6 +9691,57 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const loadAnonMe = () => { try { const v = JSON.parse(localStorage.getItem("x_anonMe") || "null"); return (v && v.name) ? v : null; } catch (e) { return null; } };
   const [anonMe, setAnonMe] = useState(loadAnonMe);
   const saveAnonMe = v => { setAnonMe(v); saveJSON("x_anonMe", v); };
+  // ── 架空世界（x_worlds）─────────────────────────────────────────────────
+  // 造世界这一枪【不喂任何角色人设】：喂了它就会把世界往那个人身上拧，
+  // 跟匿名箱那一课同一个形状——上下文里摆着的东西，模型一定会用上。
+  // 存的只有【设定 + 区域骨架】，坐标一概不存：地图由 TrpgMap 力导向按世界 id
+  // 现算，同一个世界每次画出来一模一样，云同步里不多一个字节的图片。
+  const saveWorlds = list => { setWorlds(list); saveJSON("x_worlds", list); };
+  const genWorld = async (id, name, brief, done) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!brief) { toast("先写一段这个世界是什么样的"); return; }
+    setWorldBusy(true);
+    try {
+      const sys = "你在给一个人自己的架空世界铺一张舆图。他写了一段设定，你把它铺成【地图骨架】。\n"
+        + "【他写的设定】" + brief + "\n"
+        + (name ? "【世界名】" + name + "\n" : "")
+        + "【怎么铺】分 4-6 块地方。每块要有自己的性格：靠什么活着、谁说了算、外人进去先撞见什么。"
+        + "彼此之间用 adj 写清谁挨着谁——挨着的两块在图上就真的挨着，所以别把互不相干的地方硬凑在一起，也别所有地方都互相接壤。\n"
+        + "每块地方下面挂 2-3 个具体地点。地点名要一眼看得出是【这个】世界的地方，"
+        + "换到别的世界还照样成立的名字就是没写好。\n"
+        + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么，不是介绍它的来历。\n"
+        + "整张图只许从他那段设定长出来：他没写到的地方，按他那段的调子往下推，不要换成另一个类型的世界。\n"
+        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（他给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]}";
+      const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+      const d = extractJSON(raw) || {};
+      const K = window.TrpgMap;
+      const regions = K ? K.normRegions(d.regions) : null;
+      if (!regions) throw new Error("没铺出一张画得出来的地图——把设定再写具体一点");
+      const nm = (name || String(d.name || "").trim() || "无名之地").slice(0, 16);
+      const bf = String(d.brief || "").trim().slice(0, 80);
+      const wid = id || ("w_" + Date.now());
+      const names = {}; regions.forEach(r => (r.nodes || []).forEach(n => { names[n.name] = 1; }));
+      const old = (worlds || []).find(w => w.id === id);
+      // 重画会换掉整张图：钉在【已经不存在的地点】上的人自动掉下来，还在的照旧
+      const pins = {};
+      Object.keys((old && old.pins) || {}).forEach(k => { if (names[old.pins[k]]) pins[k] = old.pins[k]; });
+      const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins, createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now() };
+      saveWorlds(id ? (worlds || []).map(w => w.id === id ? next : w) : [next, ...(worlds || [])]);
+      const nNode = regions.reduce((n, r) => n + r.nodes.length, 0);
+      toast("「" + nm + "」铺开了：" + regions.length + " 块地方 · " + nNode + " 个地点");
+      if (done) done(wid);
+    } catch (e) {
+      toast("失败：" + e.message);
+    } finally { setWorldBusy(false); }
+  };
+  const saveWorld = (id, name, brief) => saveWorlds((worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt }));
+  const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
+  const pinWorld = (wid, charId, node) => saveWorlds((worlds || []).map(w => {
+    if (w.id !== wid) return w;
+    const pins = { ...(w.pins || {}) };
+    if (node) pins[charId] = node; else delete pins[charId];
+    return { ...w, pins };
+  }));
   const genAnonMe = async () => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setAnonBusy(true);
@@ -13279,6 +13333,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     mode: mapMode,
     onSetMode: m => { setMapMode(m); saveJSON("x_mapMode", m); },
     onSetHome: (charId, home) => pC(p => p.map(c => c.id === charId ? { ...c, home: home || undefined } : c)),
+    worlds: worlds,
+    worldBusy: worldBusy,
+    onGenWorld: genWorld,
+    onSaveWorld: saveWorld,
+    onDelWorld: delWorld,
+    onPinWorld: pinWorld,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,
