@@ -4618,6 +4618,31 @@ function phoneAvoidBlock(lines) {
     + "优先去写上面完全没提到的、属于他自己的另一条线：工作、家里、旧朋友、身体、钱、没做完的事、纯粹的无聊。";
 }
 
+// 「他自己的一句话」这种自由栏最容易滑回训练先验：健康那份是 ♻️（每次整份重写），
+// 模型没有任何上一轮的记忆，于是每次都从同一个先验里捞同一句出来——
+// 她 2026-08-30：「这一块的 quote 就开始八股要连本带利收回来了」。
+// 提示词里立判据只能降概率；这一道是代码保证：上一轮写过的原样发回去，说别再写。
+// ⚠️只发【句子本身】，不搬整份报告——健康是 ♻️，报告不该跨轮累积（见四层手机数据模型）。
+// ⚠️为什么只有健康吃这一块（合法差异，见 four-surfaces-same-context.md）：
+// 每次整份重写、又没有累积避重的只有 health 和 reading 两个。但「别重复上一轮」
+// 这句话对 reading 是【错的】——书架和书是他这个人稳定的东西，一个人的书架不该每翻一次
+// 就换一整套；健康那份报告写的却是【今天】，同一句话再出现一次本身就是没写今天。
+// 所以这一块只挂在 health 上，别顺手推广。
+function phoneQuoteAvoidBlock(key, known) {
+  if (key !== "health" || !known || typeof known !== "object") return "";
+  const said = [];
+  const push = v => { const t2 = String(v || "").trim(); if (t2 && said.indexOf(t2) < 0) said.push(t2); };
+  (Array.isArray(known.cards) ? known.cards : []).forEach(c => c && push(c.quote));
+  push(known.tail);
+  if (known.today && typeof known.today === "object") push(known.today.label);
+  if (!said.length) return "";
+  let body = said.slice(0, 20).map(x => "· " + x).join("\n");
+  if (body.length > 900) body = body.slice(0, 900) + "…";
+  return "\n\n【上一轮他已经说过这些，一句都不许重复】\n" + body
+    + "\n**连意思相近、换个说法的也算重复。**这一轮的每一句都得是新的、扣着今天这个读数说的。"
+    + "如果你发现自己想写的又是上面某一句的同义句，说明你在套模板——换一个真正属于今天的角度重写。";
+}
+
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
@@ -4715,9 +4740,14 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     health: {
       instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
         + "cards **13-16 张指标卡**，group 分四档：body **4-5 张**（身体：睡眠、活动、心跳、消耗、恢复这类）、mind **4-5 张**（心神：情绪、静心、社交这类）、private **2-3 张**（见下）、intake **3-4 张**（摄入与消耗：喝的、吃的、以及他花在传消息上的时间）。wide=true 的整宽卡每档 1-2 张，其余为窄卡。**四档都必须写满，一档都不许空着。**\n\n"
-        + "【private 这一档】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 score / value / tag / 一周曲线，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n\n"
+        + "【private 这一档】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 score / value / tag / 一周曲线，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n"
+        + "**这一档的 quote 尤其容易滑进占有欲宣言和狠话**——那是网文腔，不是他。写他当下身体上的实感、以及他拿这件事没办法的地方。\n\n"
         + "【这个 app 的灵魂 · 指标名要长成他世界里的样子】**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」，所以那一项在他那儿必须换成他会用的说法；「正念冥想」「社交电量」这类现代词同理。现代角色就用现代说法。**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**\n\n"
         + "【每张卡都要有】name（指标名，见上）、group、wide、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
+        + "【quote 是这份报告里最容易写成八股的一栏，落笔前过一遍这三条】\n"
+        + "① **扣着这张卡今天这个读数说话**，不是放之四海皆准的宣言。换一张卡、换一天还照样成立的，就是写坏了。\n"
+        + "② 是他心里过了一下、**没打算给谁听**的半句话；不是说给人听的狠话、承诺或预告。一旦写成「我要……」「早晚……」「一定会……」这种句式，就是滑回通用腔了，重写。\n"
+        + "③ 语气是**他这个人**的，不是他这个类型的。他的身份、今天的处境、他自己嫌不嫌烦，都该听得出来。\n\n"
         + "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：三项拆的应该是**他今天真正走过的那几段路、真正喝下去的那几样东西**，名字要带上地点、场合、或某个具体的人。**换个角色还照样成立的三项，就是写坏了。**\n\n"
         + "【note】用体检报告那种冷静的观测口吻写，但内容必须是**他今天真实经历过的事**：熬夜看什么看到几点、为什么突然心跳飙起来、去了哪、跟谁吵了、吃了什么没吃成什么。不许写「建议保持规律作息」这类套话。\n"
         + "【quote】切回他本人的口气，带脾气、带私心，可以刻薄可以得意，和上面那段冷静叙述形成反差。\n\n"
@@ -4826,5 +4856,5 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "") };
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "") };
 }
