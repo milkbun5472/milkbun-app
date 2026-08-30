@@ -23,7 +23,11 @@ test("diary prompt treats JSON fields as a container rather than a prose templat
 
 test("optional titles and signatures remain optional in storage and rendering", () => {
   assert.match(app, /titleEn: d\.titleEn \|\| ""/);
-  assert.match(screens, /entry\.titleEn \|\| entry\.titleZh \|\| dateStr/);
+  // v58.41 起日期【永远】单独写在页首那一行（不再拿它冒充标题），
+  // 所以「不取标题的人也不会开天窗」这条契约反而更硬了
+  assert.match(screens, /const dateStr = \(d\.getMonth\(\) \+ 1\) \+ "月" \+ d\.getDate\(\) \+ "日"/, "全文页不再自己写日期了？");
+  assert.match(screens, /fontSize: 27, color: t\.ink[^}]*\}\s*\}, dateStr\)/, "日期没写在页首那一行");
+  assert.match(screens, /title \? h\("div"/, "标题变成必填了？没标题的人该什么都不显示");
   assert.match(screens, /entry\.signature \?/);
 });
 

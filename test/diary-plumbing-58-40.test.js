@@ -29,8 +29,9 @@ test("落库要留住 struck / pasted，不是只抄 text 和 secret", () => {
 test("界面确实会把这两种画出来（不然存了也白存）", () => {
   const view = grab(scr, "function DiaryEntryView(", "\nfunction fmtClockShort", "DiaryEntryView");
   assert.match(view, /p\.pasted/, "贴进来的那块没画");
-  assert.match(view, /textDecoration: p\.struck \? "line-through" : "none"/, "划掉的那句没画成划掉");
-  assert.match(view, /opacity: p\.struck \? 0\.42/, "划掉的那句没淡下去");
+  assert.match(view, /h\(InkStruck, \{ text: p\.text/, "划掉的那句没画成划掉");
+  assert.match(view, /color: "rgba\(" \+ iRGB \+ ",\.5\)"/, "划掉的那句没淡下去");
+  assert.match(view, /h\(InkSecret, \{ text: p\.text/, "不肯说的那句没糊成墨");
   // 摘要不许拿划掉的半句或票根当开头，那两样单看都不成句
   const pv = grab(scr, "function diaryPreview(", "\n\n// 全文页", "diaryPreview");
   assert.match(pv, /!x\.secret && !x\.struck && !x\.pasted/);

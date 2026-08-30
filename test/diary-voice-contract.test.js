@@ -24,7 +24,11 @@ test("日记的标题、秘密、长短都不许塌缩成同一个模子", () =>
   const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
   const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
   // 界面本来就用日期兜底，所以提示词不该再把日期当成可选标题
-  assert.match(screens, /entry\.titleEn \|\| entry\.titleZh \|\| dateStr/);
+  // v58.41 起日期【永远】单独写在页首那一行（不再拿它冒充标题），
+  // 所以「不取标题的人也不会开天窗」这条契约反而更硬了
+  assert.match(screens, /const dateStr = \(d\.getMonth\(\) \+ 1\) \+ "月" \+ d\.getDate\(\) \+ "日"/, "全文页不再自己写日期了？");
+  assert.match(screens, /fontSize: 27, color: t\.ink[^}]*\}\s*\}, dateStr\)/, "日期没写在页首那一行");
+  assert.match(screens, /title \? h\("div"/, "标题变成必填了？没标题的人该什么都不显示");
   assert.match(engine, /两个字段都留空/, "不取标题的人应留空，由界面显示日期");
   assert.doesNotMatch(engine, /可以只填日期\/编号/, "旧的日期当标题的省力路径必须已移除");
   assert.match(engine, /禁止把它固定放在最后一段当收尾/);
@@ -63,7 +67,10 @@ test("涂改段、贴纸段、真实位置与逐天补齐", () => {
   assert.match(engine, /它出现在事情中间，不是结尾/, "涂改句不能变成新的收尾套路");
   assert.match(engine, /【贴进来的东西 \/ pasted】/);
   assert.match(engine, /【此刻所在】/, "位置要跟随实时状态");
-  assert.match(screens, /textDecoration: p\.struck \? "line-through" : "none"/);
+  // v58.41 起划掉不再是 CSS 下划线，是一道手画的墨杠（她要的笔触感）
+  assert.match(screens, /if \(p\.struck\) return h\("p"/, "划掉那一支没了");
+  assert.match(screens, /h\(InkStruck, \{ text: p\.text/, "划掉没用那道手画的杠");
+  assert.ok(!/textDecoration: p\.struck/.test(screens), "又改回 CSS 下划线了");
   assert.match(screens, /if \(p\.pasted\) return h\("div"/, "贴纸要单独成块，不按正文排");
   assert.match(screens, /!x\.secret && !x\.struck && !x\.pasted/, "列表摘要要跳过这两类");
   // 逐天补齐：写一天存一天，失败只丢失败那天
