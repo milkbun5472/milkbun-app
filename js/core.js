@@ -205,6 +205,8 @@ const GBag = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.cr
 const GUser = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M12 12a4 4 0 100-8 4 4 0 000 8zM5 20c0-3.3 3.1-6 7-6s7 2.7 7 6"
 }));
+// 地方：一扇门 + 门里透出来的光（不是房子外观——这个 app 讲的是「进去之后什么样」）
+const GDwell = p => h(Svg, p, h("path", { d: "M5 21V5.5a1.5 1.5 0 011.5-1.5h11A1.5 1.5 0 0119 5.5V21" }), h("path", { d: "M3 21h18" }), h("path", { d: "M12 11.5v1.2" }), h("path", { d: "M9 8.2h6M9 16.4h6" }));
 const GCarry = p => /*#__PURE__*/React.createElement(Svg, p, /*#__PURE__*/React.createElement("path", {
   d: "M7 8V6.5A2.5 2.5 0 019.5 4h5A2.5 2.5 0 0117 6.5V8M5.5 8h13a1.5 1.5 0 011.5 1.6l-.7 9A2 2 0 0117.3 20.4H6.7a2 2 0 01-2-1.8l-.7-9A1.5 1.5 0 015.5 8zM12 12v3"
 }));

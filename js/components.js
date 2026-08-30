@@ -1508,6 +1508,7 @@ function Home({
     phone: { kind: "app", zh: "查手机", G: GPhone },
     shop: { kind: "app", zh: "购物", G: GShop },
     carry: { kind: "app", zh: "随身物", G: GCarry },
+    dwell: { kind: "app", zh: "地方", G: GDwell },
     cwallet: { kind: "app", zh: "钱包", G: GWallet },
     lore: { kind: "app", zh: "世界书", G: GLore },
     memlib: { kind: "app", zh: "记忆库", G: GMem },

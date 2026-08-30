@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.16";
+const APP_VERSION = "v58.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12683,6 +12683,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 四栏【一次调用】写完（她 2026-08-30）。原来是一栏一刀、串行四刀。
   // 一次写完之后，四栏在同一次思考里分配，跨栏撞名从「靠 avoidBlock 事后拦」
   // 变成压根不会发生；carryRef 慢一帧那个坑也随之消失（不再需要边攒边读的 sofar）。
+  // 地方（她 2026-08-30）：一处地方一次调用，写出一句氛围 + 4~5 个区域 × 3 件东西。
+  // hintName 有值＝写行程里那个常去的地点；没有＝写他住的地方。
+  // prev 是上一份，原样发回去——不发的话每刷一次就是另一个屋子。
+  const genDwellPlace = async (char, hintName, prev) => {
+    // ⚠️判断和真正拿去调的必须是同一个：只看 active、却拿 bgActive 去调，
+    // 她没配后台 API 时 bgActive 是 null，报出来的是
+    //「Cannot read properties of null (reading 'baseUrl')」——她根本看不懂。
+    // 后台 API 是【可选的省钱开关】，没配就走主 API。
+    const api = bgActive || active;
+    if (!api) { toast("请先到设置配置 API"); return null; }
+    if (!window.Dwell) return null;
+    setGen(g => ({ ...g, dwell: char.id }));
+    try {
+      const d = await runProbe(api, ctxFor(char), window.Dwell.placeSpec(char, hintName, prev));
+      const place = window.Dwell.normalize(d, hintName, prev);
+      // ⚠️没解析出区域就不落盘：留个空壳在列表里，她点进去是空的，
+      // 还以为已经生成过了、不会再点一次。
+      if (!place) { toast("这次没写出来，再试一次"); return null; }
+      return window.Dwell.savePlace(char.id, place);
+    } catch (e) {
+      toast("生成失败：" + e.message);
+      return null;
+    } finally {
+      setGen(g => ({ ...g, dwell: null }));
+    }
+  };
+
   const genCarryAll = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setSelCarry(char.id);
@@ -13518,6 +13545,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onOpenRescue: () => setScreen("rescue"),
     onBack: () => setScreen("home")
   });else if (screen === "loungeapp") body = h(window.LoungeEntryApp, {
+    onBack: () => setScreen("home")
+  });else if (screen === "dwell") body = h(window.DwellApp, {
+    characters: liveChars,
+    schedules: schedules,
+    busyId: gen.dwell,
+    onGen: genDwellPlace,
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {
     active: bgActive,
