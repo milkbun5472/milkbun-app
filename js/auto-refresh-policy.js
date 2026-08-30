@@ -3,7 +3,7 @@
   const KEY = "x_autoRefreshPolicy_v1";
   const FEATURES = [
     { id: "phone", group: "content", title: "查手机", sub: "每周补刷角色手机内容", globalDefault: true, charDefault: false },
-    { id: "weekly", group: "content", title: "周刊", sub: "进入新刊期后自动装订", globalDefault: false, charDefault: true },
+    { id: "weekly", group: "content", title: "周刊", sub: "进入新刊期后自动装订", globalDefault: true, charDefault: true },
     { id: "diary", group: "content", title: "日记", sub: "每天补写前一天日记", globalDefault: true, charDefault: true },
     { id: "wallet", group: "content", title: "钱包", sub: "跨天补齐日常收支", globalDefault: true, charDefault: true },
     { id: "schedule", group: "content", title: "角色日程", sub: "每周补排与白天临时改计划", globalDefault: true, charDefault: true },
@@ -23,9 +23,10 @@
       const v = old[f.id] && typeof old[f.id] === "object" ? old[f.id] : {};
       let chars = v.chars && typeof v.chars === "object" ? { ...v.chars } : {};
       if (f.id === "phone" && !Object.keys(chars).length && legacyPhoneOn) chars = { ...legacyPhoneOn };
-      features[f.id] = { global: typeof v.global === "boolean" ? v.global : f.globalDefault, chars };
+      const migrateWeeklyOn = f.id === "weekly" && src.version === 1;
+      features[f.id] = { global: migrateWeeklyOn ? true : (typeof v.global === "boolean" ? v.global : f.globalDefault), chars };
     });
-    return { version: 1, features };
+    return { version: 2, features };
   }
   function enabled(policy, id, charId) {
     const f = byId[id]; if (!f) return false;

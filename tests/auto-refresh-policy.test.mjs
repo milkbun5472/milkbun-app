@@ -5,12 +5,12 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const Policy = require("../js/auto-refresh-policy.js");
 
-test("upgrade defaults preserve existing automatic behavior without surprising weekly calls", () => {
+test("upgrade defaults enable the audited automatic features", () => {
   const p = Policy.normalize(null);
   assert.equal(Policy.enabled(p, "diary", "c1"), true);
   assert.equal(Policy.enabled(p, "wallet", "c1"), true);
   assert.equal(Policy.enabled(p, "proactive", "c1"), true);
-  assert.equal(Policy.enabled(p, "weekly", "c1"), false);
+  assert.equal(Policy.enabled(p, "weekly", "c1"), true);
   assert.equal(Policy.enabled(p, "phone", "c1"), false);
 });
 
@@ -19,6 +19,11 @@ test("legacy phone character choices migrate into the unified policy", () => {
   assert.equal(Policy.enabled(p, "phone", "a"), true);
   assert.equal(Policy.enabled(p, "phone", "b"), false);
   assert.equal(Policy.enabled(p, "phone", "c"), false);
+});
+
+test("v1 weekly pause migrates to the newly approved automatic default", () => {
+  const p = Policy.normalize({ version: 1, features: { weekly: { global: false, chars: {} } } });
+  assert.equal(Policy.enabled(p, "weekly", "c1"), true);
 });
 
 test("global pause keeps per-character choices for later restore", () => {
