@@ -5336,7 +5336,10 @@ function AnonBox({
   busy,
   onGenNetizen,
   onRefreshPersona,
-  onAsk,
+  onDrop,
+  onOpenBox,
+  myMask,
+  onGenMask,
   onDelRecord,
   onClose
 }) {
@@ -5344,16 +5347,25 @@ function AnonBox({
   const A = ANON_INK;
   const [q, setQ] = useState("");
   const [asking, setAsking] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);   // 正在追问哪一条
+  const [tab, setTab] = useState("all");          // all | me | netizen
   const [showTop, setShowTop] = useState(false);
   const scrollRef = useRef(null);
   const records = data && data.records || [];
+  const pending = records.filter(function (r) { return r.pending; });
+  const shown = records.filter(function (r) { return tab === "all" || (tab === "me" ? r.from === "me" : r.from !== "me"); });
+  const byId = {};
+  records.forEach(function (r) { byId[r.id] = r; });
+  // 问的时候【只放进箱子】，不当场调用——攒够了再让他一次性打开（她 2026-08-30 要的）
   const submitAsk = () => {
     if (q.trim()) {
-      onAsk(q.trim());
+      onDrop(q.trim(), replyTo);
       setQ("");
       setAsking(false);
+      setReplyTo(null);
     }
   };
+  const dayOf = ts => { const d = new Date(ts || 0); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   return h("div", {
     className: "absolute inset-0 z-[70] flex flex-col",
     style: {
@@ -5429,8 +5441,19 @@ function AnonBox({
       color: A.sub,
       lineHeight: 1.6
     }
-  }, data && data.bio || "（生成中…）")), h("div", {
-    className: "px-5 py-4 flex gap-3",
+  }, data && data.bio || "（生成中…）")),
+  // 他看完箱子之后心里冒出来的那句猜测（第 7 条：我也有马甲，他会猜这马甲是谁）
+  data && data.guess ? h("div", { className: "mx-5 mt-3 px-3 py-2.5", style: { borderRadius: 10, background: "rgba(143,164,224,.12)", border: `1px dashed ${A.line}` } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginBottom: 3 } }, "Ta 好像在猜你是谁"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: A.cool } }, data.guess)) : null,
+  // 我的马甲：他答的时候对着这个身份说话
+  h("div", { className: "px-5 pt-4 pb-1 flex items-center gap-2" },
+    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flexShrink: 0 } }, "你的马甲"),
+    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: myMask ? A.ink : A.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask ? myMask.name : "还没有"),
+    myMask && myMask.bio ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask.bio) : h("span", { style: { flex: 1 } }),
+    h("button", { onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.cool, background: "none", border: `1px solid ${A.line}`, borderRadius: 8, padding: "2px 9px", flexShrink: 0 } }, myMask ? "换一个" : "生成")),
+  h("div", {
+    className: "px-5 py-3 flex gap-3",
     style: {
       borderBottom: `1px solid ${A.line}`
     }
@@ -5447,89 +5470,93 @@ function AnonBox({
       color: A.ink
     }
   }, "网友匿名提问"), h("button", {
-    onClick: () => setAsking(v => !v),
+    onClick: () => { setReplyTo(null); setAsking(v => !v); },
     disabled: busy,
     className: "flex-1 py-2.5 disabled:opacity-40 active:opacity-70",
     style: {
       borderRadius: 8,
-      background: A.ink,
-      color: A.bg,
-      fontFamily: F_BODY,
-      fontSize: 12.5
-    }
-  }, "我要匿名问")), asking && h("div", {
-    className: "px-5 py-3 flex gap-2",
-    style: {
-      borderBottom: `1px solid ${A.line}`
-    }
-  }, h("input", {
-    value: q,
-    onChange: e => setQ(e.target.value),
-    onKeyDown: e => e.key === "Enter" && submitAsk(),
-    autoFocus: true,
-    placeholder: "匿名问 Ta 一个问题…",
-    className: "flex-1 outline-none px-3 py-2 rounded-lg",
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13,
       background: A.card,
-      color: A.ink,
-      border: `1px solid ${A.line}`
-    }
-  }), h("button", {
-    onClick: submitAsk,
-    className: "px-4 rounded-lg",
-    style: {
-      background: A.ink,
-      color: A.bg,
+      border: `1px solid ${A.line}`,
       fontFamily: F_BODY,
-      fontSize: 12
+      fontSize: 12.5,
+      color: A.ink
     }
-  }, "问")), busy && h(Spinner, {
-    label: "匿名箱处理中…"
-  }), records.length === 0 && !busy && h(Empty, {
-    text: "匿名箱还是空的",
-    sub: "让网友匿名提问，或匿名问 Ta"
-  }), records.map((r, i) => h("div", {
-    key: i,
-    className: "px-5 py-4",
+  }, "写一条放进箱子")),
+  // 箱子里积着几条没看的 → 一次调用全答完
+  pending.length ? h("div", { className: "px-5 pb-3" },
+    h("button", { onClick: onOpenBox, disabled: busy, className: "w-full py-2.5 disabled:opacity-40 active:opacity-70", style: { borderRadius: 8, background: A.ink, color: A.bg, fontFamily: F_BODY, fontSize: 12.5 } },
+      "让 Ta 打开箱子（" + pending.length + " 条等着）"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginTop: 5, lineHeight: 1.6 } }, "一次看完，一次答完——他不一定每条都答。")) : null,
+  asking && h("div", {
+    className: "px-5 py-3",
     style: {
       borderBottom: `1px solid ${A.line}`
     }
-  }, h("div", {
-    className: "flex items-center gap-1.5 mb-1.5"
-  }, h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: A.bg,
-      background: r.from === "me" ? A.hot : A.cool,
-      borderRadius: 999,
-      padding: "1px 8px"
-    }
-  }, r.from === "me" ? "匿名的你" : "匿名网友"), h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 10.5,
-      color: A.fog
-    }
-  }, timeAgo(r.ts)), onDelRecord && h("button", { onClick: () => onDelRecord(r.ts), className: "active:opacity-50", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: A.hot } }, "删除")), h("div", {
-    style: {
-      fontFamily: F_DISPLAY,
-      fontSize: 15,
-      color: A.ink,
-      marginBottom: 6
-    }
-  }, r.q), h("div", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 13.5,
-      lineHeight: 1.6,
-      color: A.sub,
-      paddingLeft: 10,
-      borderLeft: `2px solid ${A.line}`
-    }
-  }, r.a)))), showTop && h("button", {
+  },
+    replyTo && byId[replyTo] ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, marginBottom: 6, lineHeight: 1.55 } }, "追问 · 针对 Ta 那句「" + String(byId[replyTo].a || "").slice(0, 28) + "…」") : null,
+    h("div", { className: "flex gap-2" },
+      h("input", {
+        value: q,
+        onChange: e => setQ(e.target.value),
+        onKeyDown: e => e.key === "Enter" && submitAsk(),
+        autoFocus: true,
+        placeholder: replyTo ? "再追问一句…" : "匿名问 Ta 一个问题…",
+        className: "flex-1 outline-none px-3 py-2 rounded-lg",
+        style: {
+          fontFamily: F_BODY,
+          fontSize: 13,
+          background: A.card,
+          color: A.ink,
+          border: `1px solid ${A.line}`
+        }
+      }), h("button", {
+        onClick: submitAsk,
+        className: "px-4 rounded-lg",
+        style: {
+          background: A.ink,
+          color: A.bg,
+          fontFamily: F_BODY,
+          fontSize: 12
+        }
+      }, "放进去"))), busy && h(Spinner, {
+    label: "匿名箱处理中…"
+  }),
+  // 我问的 / 网友问的分开看（她 2026-08-30 点名）
+  records.length ? h("div", { className: "px-5 pt-3 pb-1 flex gap-2" },
+    [["all", "全部", records.length], ["me", "我问的", records.filter(function (r) { return r.from === "me"; }).length], ["netizen", "网友问的", records.filter(function (r) { return r.from !== "me"; }).length]]
+      .map(function (x) {
+        return h("button", { key: x[0], onClick: function () { setTab(x[0]); }, className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, border: `1px solid ${tab === x[0] ? "transparent" : A.line}`, background: tab === x[0] ? A.ink : "transparent", color: tab === x[0] ? A.bg : A.sub } },
+          x[1] + (x[2] ? " " + x[2] : ""));
+      })) : null,
+  records.length === 0 && !busy && h(Empty, {
+    text: "匿名箱还是空的",
+    sub: "让网友匿名提问，或写一条放进箱子"
+  }),
+  shown.map(function (r, i) {
+    const src = r.re && byId[r.re];
+    return h("div", { key: r.id || i, className: "px-5 py-4", style: { borderBottom: `1px solid ${A.line}` } },
+      h("div", { className: "flex items-center gap-1.5 mb-1.5" },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: A.bg, background: r.from === "me" ? A.hot : A.cool, borderRadius: 999, padding: "1px 8px", flexShrink: 0 } },
+          r.from === "me" ? "我问的" : "网友问的"),
+        // 日期 + 相对时间：她 2026-08-30「每个带日期」
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, dayOf(r.ts) + " · " + timeAgo(r.ts)),
+        onDelRecord && h("button", { onClick: () => onDelRecord(r.id || r.ts), className: "active:opacity-50", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: A.hot } }, "删除")),
+      src ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, marginBottom: 4, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "追问 · 「" + String(src.a || src.q || "").slice(0, 30) + "…」") : null,
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: A.ink, marginBottom: 6 } }, r.q),
+      // 三种收场：还没看 / 看了不答 / 答了
+      r.pending
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: A.fog, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "还在箱子里，等 Ta 打开")
+        : r.skip
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: A.fog, paddingLeft: 10, borderLeft: `2px solid ${A.hot}66`, fontStyle: "italic" } }, r.note ? "（" + r.note + "）" : "（Ta 看见了，没答）")
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: A.sub, paddingLeft: 10, borderLeft: `2px solid ${A.line}` } }, r.a),
+      // 追问：接着这一条再问一句，同样先放进箱子
+      (!r.pending && !r.skip && r.a) ? h("button", {
+        onClick: () => { setReplyTo(r.id); setQ(""); setAsking(true); if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: "smooth" }); },
+        className: "active:opacity-60",
+        style: { marginTop: 8, marginLeft: 10, fontFamily: F_BODY, fontSize: 11, color: A.cool, background: "none", border: `1px solid ${A.line}`, borderRadius: 8, padding: "3px 10px" }
+      }, "追问一句") : null);
+  })), showTop && h("button", {
     onClick: () => scrollRef.current && scrollRef.current.scrollTo({ top: 0, behavior: "smooth" }),
     className: "active:opacity-60",
     style: { position: "absolute", right: 16, bottom: 22, width: 42, height: 42, borderRadius: 999, background: A.ink, color: A.bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.25)", zIndex: 20 }

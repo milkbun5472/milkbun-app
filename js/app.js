@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.66";
+const APP_VERSION = "v58.67";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9645,6 +9645,61 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return Math.abs(lat) + "° " + (lat >= 0 ? "N" : "S") + ", " + Math.abs(lng) + "° " + (lng >= 0 ? "E" : "W");
   };
   // ---- 匿名箱 ----
+  // 匿名箱的网友:【谁在问】由客户端掷骰,不交给模型。
+  // 她 2026-08-30:「网友的 prompt 也放开点,现在感觉就是带着答案去生成问题」——
+  // 病根是一次调用里让它同时写问题和答案,它会先想好答案、再倒推一个正好能答的问题,
+  // 于是每条都四平八稳。给每个网友先派一个【立场】和一个【想撬的方向】,
+  // 问题就从这个人身上长出来,而不是从答案倒推。
+  // ⚠️这里只给【维度和判据】,不给例句(prompt-no-content-samples.md):
+  //   给了例句,五条问题会一齐长成那个句式。
+  const ANON_ASKER_TONE = [
+    "把这儿当树洞的:先说自己的事,末了才顺口问你一句",
+    "阴阳怪气的:话里带刺,但不点破,让你自己听出来",
+    "认真过头的:一句话里塞两个前提,问得很具体",
+    "熟人味太重的:话里透着「我好像认识你」,但不承认",
+    "来找茬的:不相信你说的,追着一个细节要说法",
+    "口气很轻的:一副随便问问的样子,其实问到了要紧处",
+    "笨拙但真心的:句子不通顺,想问的东西很干净",
+    "夜里睡不着的:问的是自己的事,借你的嘴要一个答案",
+    "凑热闹的:跟着别人问过的话头再补一刀",
+    "冷不丁的:上来就是一个跟前面全不搭界的问题"
+  ];
+  const ANON_ASKER_ANGLE = [
+    "一个他大概不肯说的习惯",
+    "他最近变了的地方",
+    "他嘴上说不在乎、其实在意的东西",
+    "一件很小的日常琐事",
+    "他和某个人的关系",
+    "他怕的东西",
+    "他撒过的一个谎",
+    "他一个人的时候在做什么",
+    "他对自己的评价",
+    "一个他答不上来的问题",
+    "他最近在忙的事",
+    "他身上一处别人常认错的地方"
+  ];
+  const anonDraw = (pool, n) => {
+    const a = pool.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a.slice(0, n);
+  };
+  // 我在匿名箱里的马甲(她 2026-08-30 要的第 7 条)。一整套只有一个——
+  // 同一个陌生人在好几个箱子里都问过,他才有机会认出来。
+  const loadAnonMe = () => { try { const v = JSON.parse(localStorage.getItem("x_anonMe") || "null"); return (v && v.name) ? v : null; } catch (e) { return null; } };
+  const [anonMe, setAnonMe] = useState(loadAnonMe);
+  const saveAnonMe = v => { setAnonMe(v); saveJSON("x_anonMe", v); };
+  const genAnonMe = async () => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setAnonBusy(true);
+    try {
+      const d = await runProbe(apiFor((characters[0] || {}).id), { ...ctxFor(characters[0] || { name: profile.name, persona: "" }), profile },
+        { instruction: "给用户「" + (profile.name || "她") + "」设计一个【她自己】在匿名树洞里用的马甲:网名 name、第一人称签名 bio(一句)。这是她匿名向别人提问时挂着的身份,别人只看得见这两样。要像一个真的会半夜逛树洞的人,不要用她的真名,也不要一眼就认得出是她。",
+          schemaHint: "{\"name\":\"网名\",\"bio\":\"一句签名\"}" });
+      if (!d || !d.name) throw new Error("没生成出来");
+      saveAnonMe({ name: String(d.name).slice(0, 16), bio: String(d.bio || "").slice(0, 40), ts: Date.now() });
+      toast("你的匿名马甲:" + d.name);
+    } catch (e) { toast("失败:" + e.message); } finally { setAnonBusy(false); }
+  };
   const pAnon = (charId, updater) => {
     setAnon(p => {
       const cur = p[charId] || {
@@ -9660,7 +9715,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       return n;
     });
   };
-  const delAnonRecord = (charId, ts) => pAnon(charId, cur => ({ ...cur, records: (cur.records || []).filter(r => r.ts !== ts) }));
+  const delAnonRecord = (charId, key) => pAnon(charId, cur => ({ ...cur, records: (cur.records || []).filter(r => r.id !== key && r.ts !== key) }));
   const openAnon = async char => {
     setAnonChar(char);
     if ((!anon[char.id] || !anon[char.id].netname) && active) {
@@ -9706,22 +9761,95 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setAnonBusy(true);
     try {
       const nn = anon[char.id] && anon[char.id].netname || char.name;
+      // 一次几条:她 2026-08-30「放大点」。天花板也不再压——runProbe 默认就是满的,
+      // 原来这里写死 maxTokens 4200,五六条就被截在半路
+      const n = 5 + Math.floor(Math.random() * 3);      // 5~7 个网友
+      const tones = anonDraw(ANON_ASKER_TONE, n), angles = anonDraw(ANON_ASKER_ANGLE, n);
+      const who = tones.map((tn, i) => "网友" + (i + 1) + ":" + tn + ";这一位想撬的是" + angles[i]).join("\n");
+      const past = ((anon[char.id] || {}).records || []).slice(0, 12).map(r => r.q).filter(Boolean).join(" / ");
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "有几个不同的匿名网友在树洞里向「" + char.name + "」（网名：" + nn + "）各提了一个问题。**务必一次生成正好 3-5 组（items 数组必须有 3 到 5 个元素，绝不能只给 1-2 组；宁可每组的问答都精简一点，也一定要凑齐至少 3 组）**：每组含这个网友的问题 question（好奇/八卦/深度/抬杠都行，风格各异）和「" + char.name + "」的回答 answer（符合人设与此刻心情，Ta 不知道对方是谁，别背教科书、别客服腔）。",
-        schemaHint: "{\"items\":[{\"question\":\"问题\",\"answer\":\"回答\"},{\"question\":\"问题\",\"answer\":\"回答\"},{\"question\":\"问题\",\"answer\":\"回答\"}]}",
-        maxTokens: 4200
+        instruction: "树洞里有 " + n + " 个互不相识的匿名网友,各自向「" + char.name + "」(网名:" + nn + ")问了一句话。\n"
+          + "【这几位分别是谁】\n" + who + "\n"
+          + "【怎么写】先站在每个网友身上把问题问出来——问题要从【这个人是什么人、他想撬什么】长出来,"
+          + "不是从答案倒推一个正好答得上的问题。允许问到他答不上来、不想答、或者根本问偏了的地方。\n"
+          + "然后再以「" + char.name + "」的身份逐条应对:他不知道对方是谁,也【不是每条都得答】——"
+          + "被问到痛处、心情不好、或者这人惹到他了,他可以只回半句、装没看见、或者顶回去。"
+          + "真不想答的那条把 skip 置为 true,answer 留空(可在 note 里写一句他当时的反应)。\n"
+          + "别背教科书、别客服腔、别每条都一样长。"
+          + (past ? "\n【这些已经问过了,不要再问一遍】" + past : ""),
+        schemaHint: "{\"items\":[{\"question\":\"这个网友问的一句话\",\"answer\":\"他的回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时,他当时的反应(一句,可空)\"}]}"
       });
       let items = (d && Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : (d && d.question ? [d] : []))).filter(x => x && x.question);
       if (!items.length) throw new Error("没有生成内容");
       const base = Date.now();
-      const recs = items.map((x, i) => ({ from: "netizen", q: x.question, a: x.answer || "", ts: base - i }));
+      const recs = items.map((x, i) => ({ id: "ar_" + base + "_" + i, from: "netizen", q: x.question, a: x.skip ? "" : (x.answer || ""), skip: !!x.skip, note: x.skip ? String(x.note || "") : "", ts: base - i, ansTs: base - i }));
       pAnon(char.id, cur => ({ ...cur, records: [...recs, ...(cur.records || [])] }));
+      const nSkip = recs.filter(r => r.skip).length;
+      toast("来了 " + recs.length + " 条" + (nSkip ? "，其中 " + nSkip + " 条他没答" : ""));
     } catch (e) {
       toast("失败：" + e.message);
     } finally {
       setAnonBusy(false);
     }
   };
+  // 我问的:先【放进箱子】,不调用。攒够了再让他一次性打开(她 2026-08-30 要的)
+  const dropAnon = (char, q, re) => {
+    const t0 = Date.now();
+    pAnon(char.id, cur => ({ ...cur, records: [{ id: "ar_" + t0, from: "me", q, a: "", pending: true, re: re || null, ts: t0 }, ...(cur.records || [])] }));
+    toast("放进箱子了——攒够了再让 Ta 一次看完");
+  };
+  // 让他一次性打开箱子:所有还没答的一起递过去,一次调用全答
+  const openAnonBox = async char => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const cur = anon[char.id] || {};
+    const pend = (cur.records || []).filter(r => r.pending).slice().sort((a, b) => a.ts - b.ts);
+    if (!pend.length) { toast("箱子里没有等着答的"); return; }
+    setAnonBusy(true);
+    try {
+      const nn = cur.netname || char.name;
+      const mask = anonMe || null;
+      const byId = {};
+      (cur.records || []).forEach(r => { byId[r.id] = r; });
+      const list = pend.map((r, i) => {
+        const src = r.re && byId[r.re];
+        return (i + 1) + ". " + (src ? "【这是追问,针对你之前那句「" + String(src.a || "").slice(0, 60) + "」】" : "") + r.q;
+      }).join("\n");
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "「" + char.name + "」(网名:" + nn + ")打开了自己的匿名箱,里面积着 " + pend.length + " 条没看过的提问,全部来自【同一个匿名的人】"
+          + (mask ? "(马甲:" + mask.name + (mask.bio ? ",签名「" + mask.bio + "」" : "") + ")" : "") + "。\n"
+          + "【提问】\n" + list + "\n"
+          + "逐条应对,顺序照上面来。他不知道这人是谁,但一口气看完这些会有自己的判断:"
+          + "【不是每条都得答】——被问到痛处、问得太近、或者这人让他不舒服,可以只回半句、装没看见、顶回去;"
+          + "真不想答的那条把 skip 置为 true,answer 留空,note 里写一句他当时的反应。\n"
+          + "如果看完这些他心里冒出了「这人是不是我认识的某某」,把那个念头写进 guess(一句,可以猜错、可以猜得很离谱);没冒出来就留空。",
+        schemaHint: "{\"items\":[{\"answer\":\"回答(skip 为 true 时留空)\",\"skip\":false,\"note\":\"skip 为 true 时他的反应(一句,可空)\"}],\"guess\":\"他心里那句猜测(可空)\"}"
+      });
+      const items = (d && Array.isArray(d.items)) ? d.items : [];
+      if (!items.length) throw new Error("没有生成内容");
+      const now = Date.now();
+      const ansById = {};
+      pend.forEach((r, i) => { ansById[r.id] = items[i] || null; });
+      const guess = String((d && d.guess) || "").trim();
+      pAnon(char.id, c2 => ({
+        ...c2,
+        guess: guess || c2.guess || "",
+        guessTs: guess ? now : c2.guessTs,
+        records: (c2.records || []).map(r => {
+          const it = ansById[r.id];
+          if (!it) return r;
+          return { ...r, pending: false, skip: !!it.skip, note: it.skip ? String(it.note || "") : "", a: it.skip ? "" : String(it.answer || ""), ansTs: now };
+        })
+      }));
+      const nSkip = items.filter(x => x && x.skip).length;
+      toast("他看完了 " + pend.length + " 条" + (nSkip ? "，其中 " + nSkip + " 条没答" : ""));
+    } catch (e) {
+      toast("失败：" + e.message);
+    } finally {
+      setAnonBusy(false);
+    }
+  };
+  // 查手机那条路上的「随手问一句」还是当场作答（她在手机里问,不该再让她回去按一次箱子）;
+  // 匿名箱那条路走 dropAnon + openAnonBox
   const askAnon = async (char, q) => {
     if (!active) {
       toast("请先到设置配置 API");
@@ -14252,7 +14380,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onGenNetizen: () => genNetizenQ(anonChar),
     onRefreshPersona: () => refreshAnonPersona(anonChar),
     onDelRecord: ts => delAnonRecord(anonChar.id, ts),
-    onAsk: q => askAnon(anonChar, q),
+    onDrop: (q, re) => dropAnon(anonChar, q, re),
+    onOpenBox: () => openAnonBox(anonChar),
+    myMask: anonMe,
+    onGenMask: genAnonMe,
     onClose: () => setAnonChar(null)
   }), offlineChar && h(OfflineMode, {
     char: offlineChar,
