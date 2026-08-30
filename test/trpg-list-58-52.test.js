@@ -188,7 +188,7 @@ test("跑团里一处系统 confirm 都不许留", () => {
 });
 
 test("自己画的那一层：一定弹得出来，取消什么都不做", () => {
-  const sheet = grab("    const askSheet = ask && h(\"div\"", "    const imgSrc =", 1800);
+  const sheet = grab("    const askSheet = ask && h(\"div\"", "    // 面板里的一块", 1800);
   assert.match(sheet, /position: "fixed", inset: 0, zIndex: 200/, "层级不够会被别的东西盖住");
   assert.match(sheet, /onClick: \(\) => setAsk\(null\)[\s\S]{0,400}"取消"/, "没有取消，或者取消不关");
   // 点「删除」才执行，而且先关层再执行（不然动作里再弹一次会被这一层压着）

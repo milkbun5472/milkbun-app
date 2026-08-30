@@ -83,6 +83,40 @@
   const persist = list => lsWrite("x_trpg", list, "这场跑团");
   const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
 
+  // ---- 桌面(纯函数) ----
+  // 一场跑团是在桌上发生的:羊皮纸、方格坐标纸、四边被灯压暗。
+  // 灯的冷暖跟着守密人报的时辰走(camp.time.part)——晨昏暖、入夜冷,不是随便套个滤镜。
+  const TRPG_HOUR = {
+    //            那盏灯的暖              远处的冷            格子深浅  纸底(越晚越沉) 压边
+    "晨":   { warm: "rgba(226,166,96,.30)",  cool: "rgba(126,150,160,.10)", ink: .030, paper: ["#f4eee0", "#ece5d4", "#e0d8c6"], dark: .13 },
+    "昼":   { warm: "rgba(232,196,120,.22)", cool: "rgba(126,150,160,.07)", ink: .026, paper: ["#f2ece0", "#eae3d5", "#ded6c6"], dark: .12 },
+    "午":   { warm: "rgba(232,196,120,.22)", cool: "rgba(126,150,160,.07)", ink: .026, paper: ["#f2ece0", "#eae3d5", "#ded6c6"], dark: .12 },
+    "暮":   { warm: "rgba(206,102,56,.34)",  cool: "rgba(86,96,132,.18)",   ink: .034, paper: ["#eee2cf", "#e6d9c4", "#d8c9b3"], dark: .20 },
+    "夜":   { warm: "rgba(206,140,66,.20)",  cool: "rgba(52,70,116,.34)",   ink: .046, paper: ["#e4e0da", "#dcd8d2", "#cfccc7"], dark: .26 },
+    "深夜": { warm: "rgba(196,130,60,.16)",  cool: "rgba(40,56,102,.42)",   ink: .052, paper: ["#dedbd7", "#d6d3d0", "#c9c7c4"], dark: .31 }
+  };
+  function trpgHour(part) {
+    const k = String(part || "").trim();
+    return TRPG_HOUR[k] || TRPG_HOUR["昼"];
+  }
+  function trpgDeskBg(part) {
+    const H = trpgHour(part);
+    const line = "rgba(70,56,38," + H.ink + ")";
+    return [
+      // 灯:一头暖一头冷,按时辰配——晨昏偏暖,入夜整张桌子转冷
+      "radial-gradient(88% 52% at 12% -6%, " + H.warm + ", transparent 62%)",
+      "radial-gradient(84% 54% at 104% 96%, " + H.cool + ", transparent 68%)",
+      // 四边压暗——桌上只有一盏灯,越晚压得越狠
+      "radial-gradient(124% 82% at 50% 40%, rgba(46,38,28,0) 38%, rgba(46,38,28," + H.dark + ") 100%)",
+      // GM 的方格坐标纸(24px 一格)
+      "repeating-linear-gradient(0deg, " + line + " 0px, " + line + " 1px, transparent 1px, transparent 24px)",
+      "repeating-linear-gradient(90deg, " + line + " 0px, " + line + " 1px, transparent 1px, transparent 24px)",
+      // 羊皮纸的斜纹和底
+      "repeating-linear-gradient(58deg, rgba(255,255,255,.22) 0px, rgba(255,255,255,.22) 1px, transparent 1px, transparent 11px)",
+      "linear-gradient(168deg, " + H.paper[0] + " 0%, " + H.paper[1] + " 48%, " + H.paper[2] + " 100%)"
+    ].join(", ");
+  }
+
   // ---- 属性与骰子(纯函数,供 node --test 直接跑) ----
   const STATS = [["phy", "体魄"], ["agi", "身手"], ["wit", "头脑"], ["cha", "谈吐"], ["luck", "气运"]];
   const STAT_ZH = STATS.reduce((m, [k, zh]) => (m[k] = zh, m), {});
@@ -1750,11 +1784,17 @@
 
     // ---- UI ----
     const badges = () => (typeof DevBadges === "function" ? h(DevBadges) : null);
-    const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: t.bg, display: "flex", flexDirection: "column" },
-      top: { display: "flex", alignItems: "center", gap: 10, padding: "calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px", borderBottom: "1px solid " + t.line },
+    // 守密人的桌子(她 2026-08-30:「现在这个米白纯背景有点无聊,让它更贴主题一点」)。
+    // 三层:羊皮纸底 + 一张很淡的方格纸(GM 的坐标纸) + 四边压暗的烛光。
+    // 最上面那层的冷暖跟着【故事里的时辰】走——晨昏是暖的,入夜转冷。
+    // 这一层是真数据驱动的:camp.time.part 就是守密人报的时辰,不是随便挑个滤镜。
+    const deskBg = trpgDeskBg(camp && camp.time ? camp.time.part : "");
+    const S = { wrap: { position: "fixed", inset: 0, zIndex: 60, background: deskBg, display: "flex", flexDirection: "column" },
+      top: { display: "flex", alignItems: "center", gap: 10, padding: "calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px", borderBottom: "1px solid " + t.line, background: "rgba(255,255,255,.30)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
       h1: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-      btn: fill => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "transparent", color: fill ? t.bg2 : t.ink }),
-      card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line },
+      // 桌面有纹理,透明按钮会糊进去——不填色的那种也得垫一层纸才看得出是个键
+      btn: fill => ({ padding: "7px 14px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (fill ? t.ink : t.line), background: fill ? t.ink : "rgba(255,255,255,.62)", color: fill ? t.bg2 : t.ink, boxShadow: fill ? "0 2px 8px rgba(30,28,24,.22)" : "0 1px 2px rgba(46,38,29,.06)" }),
+      card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: "rgba(255,255,255,.58)", border: "1px solid " + t.line, boxShadow: "0 1px 2px rgba(46,38,29,.05), 0 8px 18px -10px rgba(46,38,29,.18)" },
       lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
       txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
     const askSheet = ask && h("div", { onClick: () => setAsk(null), style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(30,28,24,.46)", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 34px" } },
@@ -1763,6 +1803,17 @@
         h("div", { style: { display: "flex", borderTop: "1px solid " + t.line } },
           h("button", { onClick: () => setAsk(null), style: { flex: 1, padding: "13px 0", background: "none", border: "none", fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "取消"),
           h("button", { onClick: () => { const f = ask.onYes; setAsk(null); if (f) f(); }, style: { flex: 1, padding: "13px 0", background: "none", border: "none", borderLeft: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: "#a4442e" } }, ask.yes))));
+    // 面板里的一块(她 2026-08-30:「线索和目标那块要不要也做信息分块这样容易看」)。
+    // 原来八段东西共用同一种灰色小标题、连着往下淌,扫一眼分不出哪儿到哪儿。
+    // 一块 = 图标 + 标题 + 右侧操作位 + 一条细线 + 压在浅一档纸上的正文。
+    const sect = (icon, title, right, ...kids) => h.apply(null, [
+      "div", { style: { margin: "0 0 10px", borderRadius: 14, background: "rgba(255,255,255,.52)", border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.05)" } },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 11px", borderBottom: "1px solid " + t.line, background: "rgba(46,38,29,.04)" } },
+        h("span", { style: { fontSize: 11.5, opacity: .85 } }, icon),
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flex: 1 } }, title),
+        right || null),
+      h.apply(null, ["div", { style: { padding: "9px 11px 10px" } }].concat(kids))
+    ]);
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
     const avatarOf = (c, size) => (c && c.avatarImage)
       ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
@@ -1919,8 +1970,7 @@
         const p1 = ptsToPath(jitterPts(nodes, rand, 1.6));
         const p2 = ptsToPath(jitterPts(nodes, rand, 1.6));
         const markerNode = nodes[camp.ended ? nodes.length - 1 : Math.min(camp.stageIdx + 1, nodes.length - 1)];
-        return h("div", { style: { marginBottom: 8 } },
-          h("div", { style: S.lbl }, "旅程"),
+        return sect("🗺", "旅程", null,
           h("svg", { viewBox: "0 0 340 120", style: { width: "100%", display: "block", borderRadius: 10, background: t.bg } },
             // 小径描两遍:抖动不同、深浅不同,就有铅笔手绘味
             h("path", { d: p1, fill: "none", stroke: t.fog, strokeWidth: 1.6, strokeLinecap: "round", strokeDasharray: "5 4", opacity: 0.55 }),
@@ -1947,11 +1997,16 @@
       // 都是它的,旅程/状态条/时钟/主线/物品/线索/推测一屏看得更全;点侧幕收起
       const panel = panelOpen && h("div", null,
         h("div", { onClick: () => setPanelOpen(false), style: { position: "fixed", inset: 0, zIndex: 118, background: "rgba(30,28,24,.35)" } }),
-        h("div", { style: { position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 119, width: "82%", maxWidth: 340, background: t.bg2, borderLeft: "1px solid " + t.line, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "calc(env(safe-area-inset-top, 0px) + 16px) 14px calc(env(safe-area-inset-bottom, 0px) + 24px)", boxShadow: "-8px 0 24px rgba(0,0,0,.08)" } },
+        h("div", { style: { position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 119, width: "82%", maxWidth: 340, background: deskBg, borderLeft: "1px solid " + t.line, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "calc(env(safe-area-inset-top, 0px) + 16px) 14px calc(env(safe-area-inset-bottom, 0px) + 24px)", boxShadow: "-8px 0 24px rgba(0,0,0,.08)" } },
         journey,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, margin: "2px 0 8px" } }, "🕯 第" + ((camp.time || {}).day || 1) + "日·" + ((camp.time || {}).part || "晨") + " · " + (camp.place || "")),
-        h("div", { style: Object.assign({}, S.lbl, { display: "flex", justifyContent: "space-between", alignItems: "center" }) }, h("span", null, "队伍"),
-          h("button", { onClick: () => setFixMode(v => !v), style: { fontFamily: F_BODY, fontSize: 10, color: fixMode ? t.bg2 : t.fog, background: fixMode ? t.ink : "none", border: "1px solid " + (fixMode ? t.ink : t.line), borderRadius: 8, padding: "2px 8px" } }, fixMode ? "✎ 修正中" : "✎ 修正")),
+        // 此刻:这一条是整块面板的锚——先知道「哪天、什么时辰、在哪」，别的才有意义
+        h("div", { style: { display: "flex", alignItems: "center", gap: 7, margin: "4px 0 10px", padding: "7px 11px", borderRadius: 999, background: "rgba(46,38,29,.05)", border: "1px solid " + t.line } },
+          h("span", { style: { fontSize: 12 } }, "🕯"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "第" + ((camp.time || {}).day || 1) + "日 · " + ((camp.time || {}).part || "晨")),
+          h("span", { style: { width: 1, height: 11, background: t.line } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, camp.place || "")),
+        sect("👥", "队伍",
+          h("button", { onClick: () => setFixMode(v => !v), style: { fontFamily: F_BODY, fontSize: 10, color: fixMode ? t.bg2 : t.fog, background: fixMode ? t.ink : "none", border: "1px solid " + (fixMode ? t.ink : t.line), borderRadius: 8, padding: "2px 8px" } }, fixMode ? "✎ 修正中" : "✎ 修正"),
         camp.party.map(m => h("div", { key: m.key, style: { marginBottom: 6 } },
           h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center" }) }, h("span", null, m.name, m.fate ? h("span", { style: { color: "#8a6d3b", fontSize: 11 } }, " ✦×" + m.fate) : null),
             h("span", { style: { display: "flex", alignItems: "center", gap: 5 } },
@@ -1962,6 +2017,8 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, STATS.map(([k, zh]) => zh + m.stats[k]).join(" · ") + ((m.feats || []).length ? " · 专长:" + m.feats.map(f => f.name).join("、") : "")),
           (m.effects || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginTop: 3 } }, m.effects.map((e, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e", border: "1px solid #a4442e55", borderRadius: 999, padding: "1px 7px" } }, "🩸 " + e.name + (e.note ? "·" + e.note : ""),
             fixMode ? h("span", { onClick: () => applyFix("解除了 " + m.name + " 的「" + e.name + "」", c => Object.assign({}, c, { party: c.party.map(x => x.key !== m.key ? x : Object.assign({}, x, { effects: (x.effects || []).filter((_, j) => j !== i) })) })), style: { marginLeft: 4, color: t.fog } }, "✕") : null))) : null)),
+        ),
+        (camp.gauge || (camp.clocks || []).length) ? sect("⏳", "压力", null,
         camp.gauge ? h("div", { style: { marginBottom: 8 } },
           h("div", { style: Object.assign({}, S.lbl, { display: "flex", justifyContent: "space-between" }) }, h("span", null, camp.gauge.name + "(" + (camp.gauge.bad === "high" ? "涨满出事" : "见底出事") + ")"), h("span", null, camp.gauge.val + "/" + camp.gauge.max)),
           h("div", { style: { height: 5, borderRadius: 3, background: t.line, overflow: "hidden" } },
@@ -1971,11 +2028,13 @@
           camp.clocks.map(ck => h("div", { key: ck.name, style: Object.assign({}, S.txt, { fontSize: 12, display: "flex", justifyContent: "space-between", marginBottom: 2 }) },
             h("span", { style: { color: ck.filled >= ck.max ? "#a4442e" : t.ink } }, "⏰ " + ck.name),
             h("span", { style: { letterSpacing: 2, color: ck.filled >= ck.max ? "#a4442e" : t.sub } }, "●".repeat(ck.filled) + "○".repeat(Math.max(0, ck.max - ck.filled)))))) : null,
+        ) : null,
+        sect("◎", "目标", null,
         h("div", { style: S.lbl }, "主线"),
         camp.stages.map((s, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: i === camp.stageIdx ? t.ink : t.fog }) }, (s.done ? "✓ " : i === camp.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= camp.stageIdx ? s.goal : "???"))),
         // 支线任务日志:○进行 ✓完成 ✗失败 ⏸暂缓;修正模式点一下轮换状态
         (camp.quests || []).length ? h("div", null,
-          h("div", { style: Object.assign({}, S.lbl, { marginTop: 6 }) }, "支线" + (fixMode ? "(点一条轮换状态)" : "")),
+          h("div", { style: Object.assign({}, S.lbl, { marginTop: 8 }) }, "支线" + (fixMode ? "(点一条轮换状态)" : "")),
           camp.quests.map(q => {
             const icon = { open: "○", done: "✓", failed: "✗", paused: "⏸" }[q.status] || "○";
             const col = q.status === "done" ? "#5a7d5a" : q.status === "failed" ? "#a4442e" : q.status === "paused" ? t.fog : t.ink;
@@ -1986,14 +2045,17 @@
               !fixMode && q.status === "open" ? h("button", { onClick: () => questFlip("paused"), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "⏸ 暂离") : null,
               !fixMode && q.status === "paused" ? h("button", { onClick: () => questFlip("open"), style: { fontFamily: F_BODY, fontSize: 10, color: t.ink, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "▶ 重拾") : null);
           })) : null,
+        ),
+        (camp.npcs || []).length ? sect("👤", "名册", null,
         // NPC 名册:立场 🟢友 🔴敌 ⚪未明,†=已死;只显示玩家已知的
         (camp.npcs || []).length ? h("div", null,
-          h("div", { style: Object.assign({}, S.lbl, { marginTop: 6 }) }, "名册" + (fixMode ? "(点立场轮换,†标生死)" : "")),
+          fixMode ? h("div", { style: S.lbl }, "点立场轮换,† 标生死") : null,
           camp.npcs.map(n => h("div", { key: n.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: n.alive ? t.ink : t.fog, display: "flex", alignItems: "center", gap: 5 }) },
             h("span", { onClick: () => { if (!fixMode) return; const order = ["友", "敌", "未明"]; const nxt = order[(order.indexOf(n.stance) + 1) % 3]; applyFix("把「" + n.name + "」的立场改为" + nxt, c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { stance: nxt })) })); }, style: { cursor: fixMode ? "pointer" : "default" } }, n.stance === "友" ? "🟢" : n.stance === "敌" ? "🔴" : "⚪"),
             h("span", { style: { textDecoration: n.alive ? "none" : "line-through" } }, n.name + (n.role ? "·" + n.role : "") + (n.note ? " — " + n.note : "")),
             fixMode ? h("span", { onClick: () => applyFix("把「" + n.name + "」标为" + (n.alive ? "已死" : "在世"), c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { alive: !x.alive })) })), style: { marginLeft: "auto", color: t.fog } }, "†") : null))) : null,
-        h("div", { style: Object.assign({}, S.lbl, { marginTop: 6 }) }, "物品"),
+        ) : null,
+        sect("🎒", "行囊", null,
         fixMode ? h("div", null,
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 } }, itemsFix(camp.items).map((it, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px" } }, fmtItem(it),
             h("span", { onClick: () => applyFix("删掉了物品「" + it.name + "」", c => { const items = itemsFix(c.items); const j = items.findIndex(x => x.name === it.name && x.holder === it.holder); if (j >= 0) { if (items[j].n > 1) items[j] = Object.assign({}, items[j], { n: items[j].n - 1 }); else items.splice(j, 1); } return Object.assign({}, c, { items }); }), style: { marginLeft: 4, color: "#a4442e" } }, "✕")))),
@@ -2001,7 +2063,9 @@
             h("input", { value: fixItem, onChange: e => setFixItem(e.target.value), placeholder: "补记一件(可写 名称(持有人))", style: { flex: 1, padding: "5px 8px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 11, color: t.ink, outline: "none" } }),
             h("button", { onClick: () => { const raw = fixItem.trim(); if (!raw) return; const mHold = raw.match(/^(.+?)[(（]([^)）]+)[)）]$/); const nm = (mHold ? mHold[1] : raw).trim(); const hd = mHold ? mHold[2].trim() : "队伍"; setFixItem(""); applyFix("补记了物品「" + nm + "」", c => Object.assign({}, c, { items: itemsFix(c.items).concat([{ name: nm, holder: hd, n: 1 }]) })); }, style: S.btn(false) }, "补记")))
         : h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, itemsFix(camp.items).map(fmtItem).join("、") || "空空如也"),
-        h("div", { style: Object.assign({}, S.lbl, { marginTop: 6 }) }, "线索(已知事实)"),
+        ),
+        sect("🔎", "线索", null,
+        h("div", { style: S.lbl }, "已知事实"),
         camp.clues.length ? camp.clues.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, (i + 1) + ". " + x)) : h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, "尚无"),
         // 线索板·推测区:把线索拼成推论记下来;守密人只裁「值不值得验证」,不裁对错
         h("div", { style: Object.assign({}, S.lbl, { marginTop: 6 }) }, "你的推测"),
@@ -2015,6 +2079,7 @@
         !camp.ended ? h("div", { style: { display: "flex", gap: 6, marginBottom: 4 } },
           h("input", { value: guessTxt, onChange: e => setGuessTxt(e.target.value), placeholder: "把线索拼成一条推论记下来…", style: { flex: 1, padding: "6px 9px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none" } },),
           h("button", { onClick: () => { const txt = guessTxt.trim(); if (!txt) return; setGuessTxt(""); update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { guesses: (c.guesses || []).concat([{ id: rid("rg_"), text: txt, verdict: null, note: "", ts: Date.now() }]) }))); }, style: S.btn(false) }, "记下")) : null,
+        ),
         (() => {
           const rolls = camp.msgs.filter(m => m.role === "roll");
           // 欧非榜:纯本地统计,一行 API 不花。成功=ok 及以上;欧皇看大成功密度,非酋看大失败密度
@@ -2261,12 +2326,12 @@
         h("div", { ref: scrollRef, style: { flex: 1, overflowY: "auto", paddingBottom: 16 } }, flow, epFlow,
           busy ? h("div", { style: { margin: "10px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, busyWhat || "守密人在推演命运…") : null),
         camp.ended ? h("div", { style: { textAlign: "center", padding: "16px 14px calc(env(safe-area-inset-bottom, 0px) + 16px)", borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, "—— 已落幕 · 长按任意一拍可分支重走 ——")
-        : [
-          pendingRetry ? h("div", { key: "rt", style: { display: "flex", flexWrap: "wrap", gap: 7, padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
+        : h("div", { style: { borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.36)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } }, [
+          pendingRetry ? h("div", { key: "rt", style: { display: "flex", flexWrap: "wrap", gap: 7, padding: "8px 14px 0" } },
             h("button", { onClick: () => turn(""), style: S.btn(true) }, "▶ 继续这一拍" + (tailHasRoll ? "(沿用已掷的骰子)" : "")),
             // 掷过骰子就不给撤回:撤了等于洗骰子
             !tailHasRoll ? h("button", { onClick: retractTail, style: S.btn(false) }, "↩ 撤回重写") : null)
-          : (camp.choices.length || stuck) ? h("div", { key: "ch", style: { display: "flex", flexWrap: "wrap", gap: 7, padding: "8px 14px 0", borderTop: "1px solid " + t.line } },
+          : (camp.choices.length || stuck) ? h("div", { key: "ch", style: { display: "flex", flexWrap: "wrap", gap: 7, padding: "8px 14px 0" } },
             camp.choices.map((c, i) => {
               const lacking = c.need && !hasItem(camp.items, c.need);
               return h("button", { key: i, onClick: () => pickChoice(c), disabled: busy, style: Object.assign({}, S.btn(false), { textAlign: "left", opacity: lacking ? 0.7 : 1 }) },
@@ -2292,9 +2357,9 @@
           h("div", { key: "in", style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)" } },
             h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
             h("button", { onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
-            h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
+            h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
             h("button", { onClick: send, disabled: busy, style: S.btn(true) }, chatMode ? "闲聊" : "行动"))
-        ]));
+        ])));
     }
 
     // 上一次动这个团是多久以前
@@ -2436,5 +2501,5 @@
   }
   if (inApp) window.TrpgApp = TrpgApp;
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls };
+  if (typeof module === "object" && module.exports) module.exports = { trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls };
 })();
