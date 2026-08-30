@@ -572,11 +572,23 @@
   }
 
   // ============================================================
-  // 穿越（互动叙事 RP 引擎）—— 玩家穿进一篇收藏的同人文，AI 抛决策点、玩家自由输入行动
+  // 穿书（互动叙事 RP 引擎）—— 玩家穿进一篇收藏的同人文，AI 抛决策点、玩家自由输入行动
+  // ⚠️存储键 x_fanfic_rp 和 mode key 不跟着改名——那是存档，改了旧档就读不出来了
   // ============================================================
   const K_RP = "x_fanfic_rp"; // 存档数组
   function loadRP() { return loadJSON(K_RP, []); }
-  function saveRP(list) { saveJSON(K_RP, list); }
+  // 📚 累积层：存档留最近 30 局（.claude/rules/phone-data-layers.md）。
+  // 每局带整份 transcript，不封顶就是又一座坟场。
+  const RP_KEEP = 30;
+  function saveRP(list) {
+    const a = Array.isArray(list) ? list : [];
+    saveJSON(K_RP, a.length <= RP_KEEP ? a
+      : a.slice().sort(function (x, y) {
+        // ⚠️存档里没有 ts，只有 createdAt/updatedAt。写 ts 的话这个排序全是 0−0，
+        // 静默空转，留下哪 30 局全看数组本来什么顺序。
+        return (y.updatedAt || y.createdAt || 0) - (x.updatedAt || x.createdAt || 0);
+      }).slice(0, RP_KEEP));
+  }
   const RP_MODES = [
     { key: "left", label: "魂穿 · CP 左位", short: "魂穿左位" },
     { key: "right", label: "魂穿 · CP 右位", short: "魂穿右位" },
@@ -598,7 +610,7 @@
   }
   function rpRoleDesc(mode, cpChars, userName, identity) {
     const a = cpChars[0], b = cpChars[1];
-    if (mode === "left") return "玩家【魂穿成主角「" + (a ? a.name : "左位主角") + "」】——顶着 TA 的身份、外壳、人际关系登场，但言行与选择完全由玩家真实决定，可以偏离 TA 的原设（这正是穿越的乐趣）。" + (b ? "另一位主角「" + b.name + "」是对方，由你（引擎）扮演的 NPC。" : "");
+    if (mode === "left") return "玩家【魂穿成主角「" + (a ? a.name : "左位主角") + "」】——顶着 TA 的身份、外壳、人际关系登场，但言行与选择完全由玩家真实决定，可以偏离 TA 的原设（这正是穿书的乐趣）。" + (b ? "另一位主角「" + b.name + "」是对方，由你（引擎）扮演的 NPC。" : "");
     if (mode === "right") return "玩家【魂穿成主角「" + (b ? b.name : "右位主角") + "」】——顶着 TA 的身份登场，但言行由玩家决定，可偏离原设。" + (a ? "另一位主角「" + a.name + "」是对方，由你扮演的 NPC。" : "");
     if (mode === "passerby") return identity && identity.name
       ? "玩家【天降成「" + identity.name + "」】——" + (identity.role || "一个闯入这个世界的路人 / 配角") + "。原著里本没有 TA，全程就是这个固定身份，【绝不会变成原著里的主角，也绝不是现实里操作游戏的那个人】。"
@@ -622,8 +634,9 @@
   }
   // 天降模式：先确定玩家这次的固定身份（一个具体名字），供全程锚定
   async function genRPIdentity(active, fic, tab, cpChars, mode, landing, userName, worldbook) {
-    const sys = ANTI_CLICHE + "\n\n你在为一场穿越互动叙事【确定玩家这次的固定身份】。穿越方式：" + rpRoleDesc(mode, cpChars, userName, null) +
+    const sys = ANTI_CLICHE + "\n\n你在为一场穿书互动叙事【确定玩家这次的固定身份】。穿进去的方式：" + rpRoleDesc(mode, cpChars, userName, null) +
       "\n世界观：" + tab.name + "。降落点：「" + (landing && landing.label || "") + "」——" + (landing && landing.scene || "") +
+      (worldbook && worldbook.trim() ? "\n【全局世界书（这个身份要合得上里面的设定与禁忌）】\n" + worldbook.trim().slice(0, 3000) : "") +
       "\n【原著正文节选】\n" + rpStory(fic).slice(0, 2500) +
       "\n\n给玩家安排一个具体、贴合这个世界观的固定身份（" + (mode === "passerby" ? "一个原著里没有的路人 / 配角" : "一个合理有趣的身份，可与原著相关也可全新") + "）。这个身份不能是原著已有的两位主角、也不能叫『" + (userName || "用户") + "』。\n" +
       "只输出 JSON：{\"name\":\"这个身份的名字 / 称谓\",\"role\":\"一句话身份说明（职业 / 处境 / 和主角是什么关系或毫无关系）\"}";
@@ -634,21 +647,38 @@
     return { name: "无名路人", role: "一个刚好路过的陌生人" };
   }
   function buildRPSystem(fic, tab, cpChars, mode, userName, worldbook, style, identity) {
-    // 穿越 RP 里用户真的在场跟角色互动，性质同线下，所以连语气与年龄感锚一起带
+    // 穿书 RP 里用户真的在场跟角色互动，性质同线下，所以连语气与年龄感锚一起带
     const parts = [narrativeCore({ intimate: true }), FANFIC_ANTI_CLICHE];
-    parts.push("【穿越 · 互动叙事引擎】玩家『穿越』进了一篇同人文，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
+    parts.push("【穿书 · 互动叙事引擎】玩家『穿』进了一篇同人文里，你是这场互动叙事（类 CYOA 文字游戏）的引擎 / GM。");
     parts.push("【世界观：" + tab.name + "】\n" + (tab.desc || "（无额外设定）"));
-    parts.push(cpBlock(cpChars));
-    parts.push("【玩家的身份 / 穿越方式】" + rpRoleDesc(mode, cpChars, userName, identity));
+    // ⚠️天降模式下玩家【就是】场上的第三个人，这时绝不能发 cpBlock 那条
+    // 「读者/『我』不出场、不作为角色写进去」的尾巴——那和身份锚点正面打架，
+    // 一份 system 里同时说「你是闯进来的路人」和「读者不出场」，模型必然写歪。
+    // includeMe 本来就是「把『我』作为第三方写进去」那个开关，正对上这里。
+    const playerIsThirdParty = mode === "passerby" || mode === "random";
+    parts.push(cpBlock(cpChars, playerIsThirdParty
+      ? { includeMe: true, meName: (identity && identity.name) || userName || "我", mePersona: "" }
+      : {}));
+    parts.push("【玩家的身份 / 穿进去的方式】" + rpRoleDesc(mode, cpChars, userName, identity));
     parts.push(rpAnchorLine(mode, cpChars, identity));
     if (style && style.trim()) parts.push("【文风】\n" + style.trim());
+    // ⚠️世界书：这个参数一路从 RPApp 传到这儿，然后【从没被引用过】——
+    // 声明了但没人用，比压根没写更坏，看代码以为已经在发了
+    // （.claude/rules/four-surfaces-same-context.md v55.95 那条）。
+    // 同一个模块里 genBatch 一直在发，只有穿书这条链漏了。
+    if (worldbook && worldbook.trim()) {
+      if (typeof WORLDBOOK_RULE !== "undefined") parts.push(WORLDBOOK_RULE);
+      parts.push("【全局世界书（严格遵循：其中的设定/文风/禁忌一律照做；仅当与本版世界观正面冲突时才以本版为准）】\n" + worldbook.trim());
+    }
     parts.push("【原著正文（你的剧情底子；玩家的选择可改写走向，但人物设定要连贯）】\n" + rpStory(fic).slice(0, 6000));
     parts.push(RP_RULES);
     return parts.join("\n\n");
   }
   // 生成可选降落节点（3-4 个）
-  async function genLandings(active, fic, tab, cpChars, mode, userName, worldbook) {
-    const sys = ANTI_CLICHE + "\n\n你在为一场『穿进同人文』的互动叙事挑【降落节点】。玩家会这样进入：" + rpRoleDesc(mode, cpChars, userName) +
+  // 不收 worldbook：降落点是【从原著正文里挑】的，那些场景本来就已经合着世界书写成了。
+  // 留一个没人引用的参数比缺一层更坏——看代码会以为它在发。
+  async function genLandings(active, fic, tab, cpChars, mode, userName) {
+    const sys = ANTI_CLICHE + "\n\n你在为一场『穿书』的互动叙事挑【降落节点】。玩家会这样穿进去：" + rpRoleDesc(mode, cpChars, userName) +
       "\n世界观：" + tab.name + "。\n【原著正文】\n" + rpStory(fic).slice(0, 5000) +
       "\n\n从原著里挑 3-4 个适合玩家空降切入、有戏剧张力的场景当可选起点（可以是原著已有的关键场景，也可以是其缝隙里合理的时刻）。\n" +
       "只输出合法 JSON 数组：[{\"label\":\"简短场景名（≤10字）\",\"scene\":\"用【完整的一两句话】说明这个节点是什么处境、在故事哪个位置，约 20-40 字，务必把话说完整、别断在半句\"}]";
@@ -669,9 +699,34 @@
     return out;
   }
   // 组 RP 对话 messages（transcript 尾巴 + 本次行动）
+  // ⚠️原来是死板的 slice(-10)。一条叙事两三百字，十条≈五个回合——
+  // 玩到第六回合，前面做过的一切【一点痕迹都不留】，模型会把玩家早先的选择当没发生。
+  // 改成两件事：
+  //   ① 窗口按【字数预算】收，短回合能多留几轮；
+  //   ② 掉出窗口的那些【玩家自己的行动】压成一行前情带回去。
+  //      只带玩家的行动、不带叙事：玩家做过什么才是这场的骨头，
+  //      而且这条是本地拼的，不额外调一次模型（她按次计费）。
+  const RP_WINDOW_CHARS = 9000;
+  const RP_WINDOW_MIN = 10;     // 再长也至少留这么多条，别把最近几轮也挤掉
+  const RP_RECAP_CHARS = 1200;
   function rpMessages(session, newAction) {
+    const all = session.transcript || [];
+    let chars = 0, cut = all.length;
+    for (let i = all.length - 1; i >= 0; i--) {
+      const c = String(all[i].text || "").length + 24;
+      if (all.length - i > RP_WINDOW_MIN && chars + c > RP_WINDOW_CHARS) break;
+      chars += c; cut = i;
+    }
     const msgs = [];
-    (session.transcript || []).slice(-10).forEach(function (e) {
+    const dropped = all.slice(0, cut).filter(function (e) { return e.who === "me"; });
+    if (dropped.length) {
+      let recap = dropped.map(function (e) { return String(e.text || "").trim().replace(/\s+/g, " ").slice(0, 90); })
+        .filter(Boolean).join("；");
+      if (recap.length > RP_RECAP_CHARS) recap = "…" + recap.slice(-RP_RECAP_CHARS);
+      msgs.push({ role: "user", content: "【前情提要 · 更早之前我做过的事，按先后】" + recap
+        + "\n（这些已经发生过了，别当成新指令重演一遍；接着往下就好。）" });
+    }
+    all.slice(cut).forEach(function (e) {
       if (e.who === "nar") { const last = msgs[msgs.length - 1]; if (last && last.role === "assistant") last.content += "\n\n" + e.text; else msgs.push({ role: "assistant", content: e.text }); }
       else msgs.push({ role: "user", content: "【我的行动】" + e.text });
     });
@@ -684,7 +739,7 @@
     const sys = buildRPSystem(fic, tab, cpChars, session.mode, userName, worldbook, session.style, id) +
       "\n\n【本场起点】玩家从这个节点空降：「" + session.landing.label + "」——" + session.landing.scene +
       "\n\n现在写【开场】：用两三段把玩家安置进这个场景（" + (id ? "玩家这次的固定身份是「" + id.name + "」（" + id.role + "），开场自然点明并让 TA 入场" : "以玩家的身份视角") + "），营造氛围、带出在场关键人物，最后自然收在一个需要玩家做出反应/抉择的处境上，然后停下等玩家开口。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始这场穿越。" }], { maxTokens: Math.min(4000, (perFic || 3000)) });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始这场穿书。" }], { maxTokens: Math.min(4000, (perFic || 3000)) });
     return String(raw || "").trim();
   }
   // 玩家行动 → 推进 + 下一个抉择处境
@@ -736,7 +791,7 @@
   const FIC_TAG_KINDS = [
     [/BE|be预警|虐|刀|慎入|预警|黑化|病娇|死亡|失忆|悲|致郁/i, "warn"],
     [/HE|he|甜|糖|治愈|日常|温馨|轻松|沙雕|团圆/i, "sweet"],
-    [/IF线|AU|au|穿越|重生|架空|书信体|第一人称|群像|年下|年上|先婚|abo|ABO|无限流/i, "form"]
+    [/IF线|AU|au|穿越|穿书|重生|架空|书信体|第一人称|群像|年下|年上|先婚|abo|ABO|无限流/i, "form"]
   ];
   function ficTagKind(tag) {
     const s = String(tag || "");
@@ -1256,7 +1311,7 @@
         }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 } }, "发布")));
   }
 
-  // ---------- 我的页 hub（作者主页 + 我发布的 + CP管理 + 设置 + 穿越）----------
+  // ---------- 我的页 hub（作者主页 + 我发布的 + CP管理 + 设置）----------
   function Mine(props) {
     const t = useTheme();
     const [sub, setSub] = useState(null); // null | "published" | "cp" | "settings"
@@ -1297,7 +1352,6 @@
             h("div", { className: "flex items-center gap-6 mt-3 pt-3", style: { borderTop: "1px solid " + t.line } },
               stat(heat, "热度"), stat(me.fans || 0, "粉丝"), stat(me.following || 0, "关注")))),
 
-        row("穿越同人文", "选一篇以该 CP × 世界观开线上 RP", props.onEnterRP),
         row("我发布的", mine.length + " 篇 · 随时回看/追更", function () { setSub("published"); }),
         row("磕 CP 管理", (props.cps || []).length + " 对预设 · 增删改", function () { setSub("cp"); }),
         row("生成设置", "预设文风 · 篇幅", function () { setSub("settings"); })),
@@ -1566,7 +1620,7 @@
         h("button", { onClick: function () { props.onSave(m); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 } }, "保存")));
   }
 
-  // ---------- 穿越（互动叙事 RP）----------
+  // ---------- 穿书（互动叙事 RP）----------
   function RPApp(props) {
     const t = useTheme();
     const [view, setView] = useState("list"); // list | pick | setup | thread
@@ -1597,24 +1651,24 @@
     // 选文
     if (view === "pick") {
       return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: "选一篇穿越", en: "Choose", onBack: function () { setView("list"); } }),
+        h(Head, { zh: "选一篇穿进去", en: "Choose", onBack: function () { setView("list"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "只能穿越【已收藏进书架】的篇目（去 feed 里点 ☆ 收藏）"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "只能穿进【已收藏进书架】的篇目（去 feed 里点 ☆ 收藏）"),
           shelf.length ? shelf.map(function (f) {
             return h("button", { key: f.id, onClick: function () { setNewFic(f); setMode("left"); setLandings(null); setView("setup"); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, f.title),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, cpLabel(f.cp, props.characters, props.userName)));
-          }) : h(Empty, { text: "书架空空", sub: "先去收藏几篇再来穿越" })));
+          }) : h(Empty, { text: "书架空空", sub: "先去收藏几篇再来穿" })));
     }
 
-    // 设定穿越方式 + 生成降落节点
+    // 设定穿进去的方式 + 生成降落节点
     if (view === "setup") {
       const cpc = charsOf(newFic);
       const modeAvail = function (k) { if (k === "left") return true; if (k === "right") return true; return true; };
       async function makeLandings() {
         if (!props.active) { props.toast && props.toast("请先到设置配置 API"); return; }
         setBusy("land");
-        try { const lds = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName, props.worldbook); setLandings(lds); }
+        try { const lds = await window.Fanfic.genLandings(props.active, newFic, tabOf(newFic), cpc, mode, props.userName); setLandings(lds); }
         catch (e) { props.toast && props.toast(String(e.message || e)); }
         setBusy("");
       }
@@ -1625,11 +1679,11 @@
         setOpenId(sess.id); setNewFic(null); setLandings(null); setView("thread");
       }
       return h("div", { className: "h-full flex flex-col" },
-        h(Head, { zh: "穿越设定", en: "Step In", onBack: function () { setView("pick"); } }),
+        h(Head, { zh: "穿书设定", en: "Step In", onBack: function () { setView("pick"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 2 } }, newFic.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginBottom: 16 } }, cpLabel(newFic.cp, props.characters, props.userName)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "穿越方式"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 8 } }, "穿进去的方式"),
           h("div", { className: "grid grid-cols-2 gap-2 mb-6" }, RP_MODES.filter(function (m) { return modeAvail(m.key); }).map(function (m) {
             const on = mode === m.key;
             return h("button", { key: m.key, onClick: function () { setMode(m.key); setLandings(null); }, className: "text-left active:opacity-70", style: { padding: "10px 12px", borderRadius: 12, background: on ? t.ink : t.bg2, color: on ? t.bg2 : t.ink, border: "1px solid " + (on ? t.ink : t.line), fontFamily: F_BODY, fontSize: 13 } }, m.label);
@@ -1648,7 +1702,7 @@
     // 存档列表
     const sorted = sessions.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "穿越", en: "Step Into Fic", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新穿越") }),
+      h(Head, { zh: "穿书", en: "Step Into Fic", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新穿书") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "选一篇收藏的同人文穿进去：AI 抛出处境，你输入自己的行动，剧情随你改写。每篇可开无限个存档，随时保存。"),
         sorted.length ? sorted.map(function (s) {
@@ -1657,10 +1711,10 @@
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, s.ficTitle),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, window.Fanfic.rpModeLabel(s.mode) + " · " + (s.landing && s.landing.label || "") + " · " + ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步")),
             h("button", { onClick: function () { const list = window.Fanfic.loadRP().filter(function (x) { return x.id !== s.id; }); persist(list); }, className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除"));
-        }) : h(Empty, { text: "还没有穿越存档", sub: "点右上「＋ 新穿越」开始" })));
+        }) : h(Empty, { text: "还没有穿书存档", sub: "点右上「＋ 新穿书」开始" })));
   }
 
-  // 穿越会话（互动叙事）
+  // 穿书会话（互动叙事）
   function RPThread(props) {
     const t = useTheme();
     const s = props.session;
@@ -1722,7 +1776,7 @@
     function para(txt, key) { return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.95, color: t.ink, whiteSpace: "pre-wrap", margin: "0 0 14px" } }, txt); }
 
     return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "穿越中", en: window.Fanfic.rpModeLabel(s.mode), onBack: props.onBack }),
+      h(Head, { zh: "穿书中", en: window.Fanfic.rpModeLabel(s.mode), onBack: props.onBack }),
       !props.fic ? h("div", { className: "flex-1 flex items-center justify-center px-8 text-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "原篇已不在（可能取消了收藏被清理），此存档无法继续。") :
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-7 pb-8", style: { background: t.bg } },
         // 书名/起点抬头
@@ -1761,16 +1815,21 @@
     const t = useTheme();
     const items = [
       { key: "feed", label: "首页", G: IHome }, { key: "shelf", label: "书架", G: IShelf },
-      { key: "publish", label: "发布", center: true }, { key: "rp", label: "穿越", G: IPortal }, { key: "mine", label: "我的", G: GUser }
+      { key: "publish", label: "发布", center: true }, { key: "rp", label: "穿书", G: IPortal }, { key: "mine", label: "我的", G: GUser }
     ];
-    return h("div", { className: "shrink-0 flex items-end", style: { borderTop: "1px solid " + t.line, background: t.bg, paddingBottom: "env(safe-area-inset-bottom)" } },
+    // ⚠️底栏只吃 0.4 条底部安全区（COMPOSER_PAD_BOTTOM，engine.js）——
+    // 和主聊天输入栏、购物底栏同一把尺子。这里原来吃的是【整条】
+    // env(safe-area-inset-bottom)，在刘海机上比别处高出一截，
+    // 正是 .claude/rules/mobile-ui-layout.md §2 点名不许干的事。
+    // 图标 21 / 字号 10 / gap-0.5 也一并对齐购物那条底栏。
+    return h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + t.line, background: t.bg, paddingBottom: COMPOSER_PAD_BOTTOM } },
       items.map(function (it) {
         const on = props.view === it.key;
-        if (it.center) return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 flex items-center justify-center pt-1.5 pb-2" },
-          h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40, borderRadius: 999, background: t.ink } }, h(IPlus, { size: 20, color: t.bg2 })));
-        return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 flex flex-col items-center gap-1 py-2 active:opacity-60", style: { color: on ? t.ink : t.fog } },
-          h(it.G, { size: 20, color: on ? t.ink : t.fog }),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, fontWeight: on ? 600 : 400 } }, it.label));
+        if (it.center) return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex items-center justify-center" },
+          h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 999, background: t.ink } }, h(IPlus, { size: 19, color: t.bg2 })));
+        return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60", style: { color: on ? t.ink : t.fog } },
+          h(it.G, { size: 21, color: on ? t.ink : t.fog }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: on ? 600 : 400 } }, it.label));
       }));
   }
 
@@ -1966,7 +2025,7 @@
       inner = h(Publish, { tabs: tabs, characters: cast, userName: userName, toast: props.toast, onBack: function () { setView("feed"); }, onPublish: publish });
     } else if (view === "mine") {
       inner = h(Mine, { characters: cast, cps: cps, userName: userName, me: me, fics: fics, profile: props.profile, active: props.active, toast: props.toast,
-        onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP, onEnterRP: function () { setView("rp"); },
+        onBack: function () { setView("feed"); }, onAddCP: addCP, onDelCP: delCP,
         onOpenFic: function (id) { setOpenId(id); }, onSaveMe: saveMeFn });
     } else if (view === "rp") {
       inner = h(RPApp, { fics: fics, tabs: tabs, characters: cast, profile: props.profile, userName: userName, active: props.active, worldbook: props.worldbook, toast: props.toast, onBack: function () { setView("feed"); } });
