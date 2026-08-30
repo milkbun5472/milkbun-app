@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.09";
+const APP_VERSION = "v58.10";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5367,6 +5367,44 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
       const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
+      // ── 替她记一笔 / 记备忘（她 2026-08-30）────────────────────────
+      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      //   单聊线上 ✅ 就是这里。
+      //   单聊线下 ❌ 还没接——线下走的是 OFFLINE_PROTOCOL_V2 那套叙事输出，
+      //     没有这套能力字段的口子，要单开一条。【这是欠的，不是有理由不给】。
+      //   群聊 ❌ 有真理由：群里三个人，一句「帮我记一下」谁都可能填，
+      //     三个人各记一条就是三条重复账。要给的话得先定「群里由谁记」。
+      // ⚠️【按需开放】：只有她这一轮真的开口让人记，才把这两个字段发下去。
+      // 理由和论坛回声那条一样——十轮里九轮用不上的层，不该每轮都占着 prompt
+      // （.claude/rules/four-surfaces-same-context.md 里唯一允许砍层的那条判据）。
+      // 用词表粗筛就够：漏判最多是这一轮没记上、她再说一遍；每轮都发是实打实的常驻开销。
+      const _askedRecord = (function () {
+        for (let i = history.length - 1; i >= 0 && i >= history.length - 3; i--) {
+          const m = history[i];
+          if (!m || m.role !== "user") continue;
+          const txt = String(m.content || "");
+          if (/记(一笔|一下|上|下|账|个)|帮我记|记到|添.*(备忘|提醒|日程)|加.*(备忘|提醒|日程)|提醒我|别忘|记得提醒/.test(txt)) return true;
+        }
+        return false;
+      })();
+      if (_askedRecord && typeof window.memoAddByChar === "function") {
+        openCaps.push("memo");
+        capState.push("memo：她让你【替她记进备忘录】时才填。date 必须是真实的 YYYY-MM-DD——"
+          + "她说「下周三」「后天」，你按上面给的今天日期自己换算好再填，别把「下周三」原样写进去（那样这一条会被丢掉、等于没记）。"
+          + "time 写 HH:MM，没说时刻就留空。repeat 只能是 none/weekly/biweekly/monthly/monthlyEnd/yearly。"
+          + "记完这条默认只有你看得见，所以后面几天你心里该有这回事。");
+      }
+      if (_askedRecord && typeof window.ledgerAddByChar === "function") {
+        openCaps.push("ledger");
+        const _lg = (typeof window.ledgerChoices === "function" ? window.ledgerChoices() : null);
+        capState.push("ledger：她让你【替她记一笔账】时才填。"
+          + (_lg ? "currency 只能从这几个里挑：" + _lg.currencies.join(" / ")
+              + "；category 只能从这几个里挑——支出：" + _lg.expense.join(" ") + "；收入：" + _lg.income.join(" ") + "。"
+            : "")
+          + "挑不出对应的就选最接近的那一个，别自己造新的（造出来的归不进任何一栏汇总，看着记上了其实是废的）。"
+          + "date 写 YYYY-MM-DD，她说「昨天」「上周五」就自己换算好；没说就省略＝今天。note 写她说的那句缘由。"
+          + "⚠️只记【她明确报给你的那一笔】，别顺手替她把聊天里提到的别的花销也记上。");
+      }
       if (emotes.length) { openCaps.push("emote"); capState.push("emote 关键词：" + emotes.map(e => e.keyword).join(" / ")); }
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
@@ -5434,7 +5472,7 @@ ${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品"}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 impressionChecked:"块名"=对【本轮被点名复看的那一块】表态「看过了，确实不用改」；改了就填 impression、别填这个。两个都不填等于跳过。
-transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
+${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…），about 一句话写清回来是为了什么。没说过就【省略】，绝不许为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // 他依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由他本人决定。
@@ -6114,6 +6152,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const wtext = String(parsed.whisper).trim();
         setCoupleNotes(p => { const n = [{ id: "note_" + Date.now(), characterId: charId, authorId: charId, content: wtext, style: Math.floor(Math.random() * 5), createdAt: Date.now(), replies: [] }, ...p]; saveJSON("x_coupleNotes", n); return n; });
         notifyApp("whisper"); ambWhisper = true; if (window.Notify) window.Notify.push({ title: char.name + " 给你留了句悄悄话", body: wtext, tag: "wh-" + charId, charId: charId });
+      }
+      // 替她记进备忘录 / 记一笔账（她 2026-08-30）。
+      // ⚠️落盘成功才在聊天里出卡片：模型把「下周三」原样填进 date 的话 memoAddByChar 会退回 null，
+      // 这时候绝不能显示「已记下」——那就是骗她，而她多半再也不会去核对。
+      if (parsed.memo && typeof parsed.memo === "object" && typeof window.memoAddByChar === "function") {
+        const _mo = window.memoAddByChar(charId, parsed.memo);
+        if (_mo) {
+          pChat(chatKey, p => [...p, { role: "system", kind: "recorded", what: "memo", charId: charId,
+            title: _mo.title, sub: (_mo.anchor || "") + (_mo.startTime ? " " + _mo.startTime : "")
+              + (_mo.repeat && _mo.repeat !== "none" ? " · 重复" : ""),
+            note: _mo.note || "", ts: Date.now(), turnId }]);
+          delivered = true;
+        }
+      }
+      if (parsed.ledger && typeof parsed.ledger === "object" && typeof window.ledgerAddByChar === "function") {
+        const _lx = window.ledgerAddByChar(charId, parsed.ledger);
+        if (_lx) {
+          pChat(chatKey, p => [...p, { role: "system", kind: "recorded", what: "ledger", charId: charId,
+            title: (_lx.type === "income" ? "+" : "−") + (_lx.curSymbol || "") + _lx.amount + " " + _lx.category,
+            sub: _lx.date + " · " + (_lx.curLabel || _lx.currency),
+            note: _lx.note || "", ts: Date.now(), turnId }]);
+          delivered = true;
+        }
       }
       // 动态保底：每轮回复计数，很久没发就强制补一条（不影响本轮已自发的）
       if (!opts.proactive) tickAmbient(charId, { moment: !!mo, whisper: ambWhisper, forum: ambForum });

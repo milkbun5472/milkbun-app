@@ -3705,6 +3705,10 @@ function ChatThread({
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(FicShareCard, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    // 他替她记进备忘录 / 记了一笔账（v58.10）
+    if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
+      h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(RecordedCard, { m: m }));
     // 逛购物 app 时拿给他看的那件东西（v57.98）
     if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(ShopAskCard, { m: m }),
@@ -5331,6 +5335,27 @@ function ForumShareCard({ m, isU }) {
 // 查手机偷看卡：她把他手机里的一样东西摆到了他面前。
 // tier 决定这张卡长什么样——藏起来的那一档要一眼看得出气氛不一样。
 // 「这个好不好看」——拿给他看的那件商品。用购物页那套橙，一眼认得出是从哪儿来的。
+// 他替她记下的那一条：备忘录用备忘录的紫、账本用账本的墨绿——
+// 跟那两个 app 打开时看到的是同一个颜色，一眼知道这笔落在哪儿了。
+// ⚠️只有【真的落盘成功】才会走到这里（见 app.js：memoAddByChar/ledgerAddByChar 返回 null 就不出卡片）。
+// 显示「已记下」却其实没记，比不记更坏——她多半不会再去核对。
+function RecordedCard({ m }) {
+  const t = useTheme();
+  const isMemo = m.what === "memo";
+  const tone = isMemo ? "122,106,154" : "79,109,90";
+  return h("div", {
+    style: {
+      maxWidth: "78%", borderRadius: 14, padding: "10px 13px",
+      background: "rgba(" + tone + ",0.07)", border: "1px solid rgba(" + tone + ",0.22)",
+      borderLeft: "3px solid rgba(" + tone + ",0.65)"
+    }
+  },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.14em", color: "rgba(" + tone + ",0.95)", marginBottom: 4 } },
+      isMemo ? "已记进备忘录" : "已记进账本"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, lineHeight: 1.3 } }, m.title || ""),
+    m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3 } }, m.sub) : null,
+    m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, m.note) : null);
+}
 function ShopAskCard({ m }) {
   const t = useTheme();
   const a = m.ask || {};

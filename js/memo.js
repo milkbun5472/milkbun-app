@@ -99,10 +99,15 @@
         if (r.done) return;
         if (!(r.visibleTo || []).includes(charId)) return;
         const nx = nextOccur(r, today); if (!nx) return;
-        const what = "「" + r.title + "」" + (r.note ? "（" + r.note + "）" : "");
+        const what = "「" + r.title + "」" + (r.note ? "（" + r.note + "）" : "")
+          + (r.startTime ? "（" + r.startTime + "）" : "");
         if (nx.days === 0) lines.push("今天是 " + uName + " 要 " + what + " 的日子。Ta 特意让你知道这事，可自然提醒/关心一句，别硬邦邦报事项。");
         else if (nx.days > 0 && nx.days <= 2) lines.push("再过 " + nx.days + " 天 " + uName + " 要 " + what + "，你心里有数，临近了可自然提一嘴。");
         else if (nx.days < 0) lines.push(uName + " 之前记着要 " + what + "（" + (-nx.days) + " 天前就该做了、好像还没勾掉），你可以关心一下弄了没。");
+        // ⚠️【是你自己替 Ta 记的】那几条，不管还有多远都得知道。
+        // 原来只有「今天／两天内／逾期」才进上下文，于是她让他记下周三的会，
+        // 他记完转头就忘了，要到临近那两天才想起来——刚答应过的事不该是这样。
+        else if (r.byChar === charId) lines.push("是你替 " + uName + " 记下的：" + nx.days + " 天后 " + what + "。别老提，但心里有这回事。");
       });
       (d.notes || []).forEach(n => {
         if (!(n.visibleTo || []).includes(charId)) return;
@@ -111,6 +116,31 @@
       });
       return lines.slice(0, 6).join("\n");
     } catch (e) { return ""; }
+  };
+  // 角色替她记一笔（她 2026-08-30：「我跟他们说帮我记下周三十点的会，他们就真的能帮我记」）。
+  // ⚠️写入口只此一处，校验也只写一处：日期不合法就不落盘，宁可不记也别记错一条她以为记上了的事。
+  // visibleTo 默认带上【记这一笔的那个角色】——是他替她记的，他当然知道这件事。
+  const MEMO_CAP = 200;
+  window.memoAddByChar = function (charId, r) {
+    try {
+      if (!r || !String(r.title || "").trim()) return null;
+      const anchor = String(r.date || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(anchor)) return null;      // 模型给的日期必须是真日期
+      const dt = parseYmd(anchor);
+      if (!dt || isNaN(dt.getTime())) return null;
+      const t0 = String(r.time || "").trim();
+      const startTime = /^\d{1,2}:\d{2}$/.test(t0) ? t0 : "";
+      const repeat = ["none", "weekly", "biweekly", "monthly", "monthlyEnd", "yearly"].indexOf(r.repeat) >= 0 ? r.repeat : "none";
+      const d = loadData();
+      const item = {
+        id: uid("r"), title: String(r.title).trim().slice(0, 40), note: String(r.note || "").trim().slice(0, 120),
+        repeat: repeat, anchor: anchor, startTime: startTime, endTime: "", done: false,
+        visibleTo: charId ? [charId] : [], comments: [], createdTs: Date.now(), byChar: charId || ""
+      };
+      d.reminders = [item].concat(d.reminders || []).slice(0, MEMO_CAP);
+      saveData(d);
+      return item;
+    } catch (e) { return null; }
   };
   // 给 app.js 用：某提醒距下次发生几天（今天=0，逾期<0，无效=null）—— 主屏红点 + 到期主动提醒
   window.memoNextDays = function (r) { const nx = nextOccur(r, todayMid()); return nx ? nx.days : null; };

@@ -155,6 +155,78 @@
       return lines.join("\n");
     } catch (e) { return ""; }
   };
+  // ⚠️包一层：没开全局可见的角色，ledgerNoteFor 上面那段会直接 return ""，
+  // 但他【自己替她记的那几笔】仍然该知道，否则「记好了他能看到这笔」就是空话。
+  const _ledgerNoteBase = window.ledgerNoteFor;
+  window.ledgerNoteFor = function (charId) {
+    const main = _ledgerNoteBase(charId) || "";
+    const own = ledgerOwnLines(charId);
+    return [main, own].filter(Boolean).join("\n");
+  };
+
+  // 角色替她记一笔（她 2026-08-30：「我说帮我记加币 xx 元吃东西，他们也能记上」）。
+  // ⚠️币种和分类【只能从她已有的那几个里挑】：模型自己编一个 "CAD$" 或者「吃饭」出来，
+  // 这笔就永远归不进任何一栏汇总，看着记上了其实是废的。认不出就退回默认那一个。
+  // ⚠️「记好默认他们能看到这笔」＝只让他看到【这一笔】，不是把整本账开给他：
+  // 账本的可见是全局开关（settings.visibleTo），随手打开等于把她所有开销一次性交出去。
+  // 所以这里只在这一条上记 byChar，ledgerNoteFor 单独把「他自己记的那几笔」发回去。
+  const LEDGER_CAP = 2000;
+  window.ledgerAddByChar = function (charId, tx) {
+    try {
+      if (!tx) return null;
+      const amount = Math.round((Number(tx.amount) || 0) * 100) / 100;
+      if (!(amount > 0)) return null;
+      const d = loadData();
+      const curs = d.settings.currencies || DEFAULT_CURS;
+      const want = String(tx.currency || "").trim().toUpperCase();
+      const cur = curs.find(c => c.code.toUpperCase() === want)
+        || curs.find(c => String(c.label || "") === String(tx.currency || "").trim())
+        || curs[0];
+      const type = tx.type === "income" ? "income" : "expense";
+      const pool = (d.settings.cats && d.settings.cats[type]) || [];
+      const cat = pool.find(c => c.name === String(tx.category || "").trim()) || pool[pool.length - 1] || { name: "其他", emoji: "✨" };
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(String(tx.date || "")) ? tx.date : todayStr();
+      const item = {
+        // id 照手动记那一笔同一个写法（"l"+base36）——这个文件里没有 uid()，
+        // 写成 uid("t") 会抛，然后被 try/catch 静默吞掉，变成「说记上了其实没记」
+        id: "l" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36),
+        type: type, amount: amount, currency: cur.code,
+        category: cat.name, catEmoji: cat.emoji || "", date: date,
+        note: String(tx.note || "").trim().slice(0, 60), comments: [], ts: Date.now(), byChar: charId || ""
+      };
+      d.txns = [item].concat(d.txns || []).slice(0, LEDGER_CAP);
+      saveData(d);
+      return Object.assign({}, item, { curLabel: cur.label, curSymbol: cur.symbol });
+    } catch (e) { return null; }
+  };
+  // 她现在有哪几个币种、哪几个分类——发给模型当【可选项清单】。
+  // ⚠️必须发真实清单：不发的话模型只能瞎猜，猜出来的分类归不进任何一栏汇总。
+  // 这也是为什么校验那边挑不中就退回默认那一个，而不是照单收下。
+  window.ledgerChoices = function () {
+    try {
+      const d = loadData();
+      const cats = d.settings.cats || {};
+      return {
+        currencies: (d.settings.currencies || DEFAULT_CURS).map(c => c.label + "(" + c.code + ")"),
+        expense: (cats.expense || []).map(c => c.name),
+        income: (cats.income || []).map(c => c.name)
+      };
+    } catch (e) { return { currencies: [], expense: [], income: [] }; }
+  };
+  // 他自己替她记的那几笔——不受「谁能看到我的账」那个全局开关限制。
+  // 是他记的，他当然知道；但别的开销仍然只有被授权的人看得见。
+  function ledgerOwnLines(charId) {
+    try {
+      const d = loadJSON("x_ledger", null);
+      const txns = (d && Array.isArray(d.txns) ? d.txns : []).filter(t => t && t.byChar === charId).slice(0, 6);
+      if (!txns.length) return "";
+      const curs = (d.settings && d.settings.currencies) || DEFAULT_CURS;
+      return "你替 Ta 记下的几笔：" + txns.map(t => {
+        const cur = curs.find(c => c.code === t.currency) || { symbol: "" };
+        return fmtDay(t.date) + " " + t.category + " " + fmtAmt(t.amount, cur) + (t.note ? "（" + String(t.note).slice(0, 16) + "）" : "");
+      }).join("；");
+    } catch (e) { return ""; }
+  }
 
   // ============================================================
   // 模型：多个角色一次性批注同一笔账（一次调用，省 API）
