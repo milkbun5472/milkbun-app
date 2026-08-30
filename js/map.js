@@ -132,9 +132,8 @@
 
   // 蓝点 HTML（你自己的实时位置）
   function meDotHtml(size) { const s = size || 18; return "<div style='width:" + s + "px;height:" + s + "px;border-radius:50%;background:#3f6d8c;border:3px solid #fff;box-shadow:0 0 0 4px rgba(63,109,140,.28)'></div>"; }
-  // 主屏 2×2 实时小组件：迷你好友地图 + 顶部标题 + 在线人数
+  // 主屏 2×2 实时小组件：就是一张地图，不写标题（她 2026-08-30 让删的：那块白渐变盖掉上沿快 50px）
   function MapWidget({ characters, status, userGeo, onOpen }) {
-    const t = (typeof useTheme === "function") ? useTheme() : { ink: "#2b2823", fog: "#9a9082" };
     const list = characters || [];
     const mapRef = useRef(null);
     // 组件自己取一次实时定位（像苹果地图 widget 对准你），失败就退回传入的 userGeo
@@ -154,10 +153,6 @@
     return h("button", { onClick: onOpen, className: "active:opacity-90 text-left",
       style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 24, overflow: "hidden", isolation: "isolate", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 8px 30px rgba(30,28,24,0.12)", background: "#dfe6ea" } },
       h(MapCanvas, { pins: pins, opts: { static: true, zoom: 12, onReady: function (m) { mapRef.current = m; if (myPos) { try { m.setView(myPos, 12); } catch (e) {} } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
-      // 顶部渐变 + 标题
-      h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, padding: "10px 12px 18px", background: "linear-gradient(180deg,rgba(255,255,255,0.85),rgba(255,255,255,0))", pointerEvents: "none" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "好友地图"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, list.length ? list.length + " 位 · 此刻的位置" : "点开给角色设定城市")),
       pins.length === 0 ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" } },
         h("div", { style: { fontSize: 26, opacity: 0.5 } }, "🗺️")) : null);
   }
