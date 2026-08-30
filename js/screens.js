@@ -8735,22 +8735,89 @@ function carryProbeSpecAll(char, known, pinned, material) {
         }).join("")
   };
 }
+// 五栏合成一页（她 2026-08-30：「保留柜子，刷新出来内容在同一个界面显示，
+// 上下滑动看其他的，只不过点击哪一格可以优先跳转到那里」）。
+// ⚠️每一栏的内容仍然由 CarrySection 画（embedded 模式），这里只负责外壳、
+// 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
+function CarryAll(props) {
+  const t = useTheme();
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onPeek, onGen, onGenAll, onGenGiftThought, onBack, scrollTo } = props;
+  const scRef = useRef(null);
+  const secRefs = useRef({});
+  const busyAll = busyKey === "__all__";
+  // 一栏都没有就整页一次生成（四栏一次调用，不是一栏一刀）
+  useEffect(() => {
+    const empty = CARRY_SECTIONS.filter(x => !x.gifts).every(x => !data[x.key]);
+    if (empty && !busyKey && typeof onGenAll === "function") onGenAll(char);
+    // eslint-disable-next-line
+  }, [char.id]);
+  // 点哪一格进来就先滚到哪一栏。⚠️等内容铺开之后再滚——
+  // 挂载那一帧下面几栏还没高度，滚过去等于没滚。
+  useEffect(() => {
+    if (!scrollTo) return;
+    const go = () => {
+      const el = secRefs.current[scrollTo], sc = scRef.current;
+      if (el && sc) sc.scrollTop = Math.max(0, el.offsetTop - 8);
+    };
+    go();
+    const a = setTimeout(go, 60), b = setTimeout(go, 260);
+    return () => { clearTimeout(a); clearTimeout(b); };
+  }, [scrollTo, data, gifts]);
+
+  const secs = CARRY_SECTIONS.filter(x => !x.gifts || (gifts || []).length);
+  return h("div", {
+    className: "h-full flex flex-col",
+    // 整页只有一张皮：以前每栏各一张（各自的 tint），合成一页之后再按栏换底
+    // 就成了一条条色带。分栏靠小标题和那条渐隐的横线，不靠换底色。
+    style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, word: "CARRY" })
+  },
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "随身物"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
+      h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
+        h("button", { onClick: () => onGenAll(char), disabled: !!busyKey, "aria-label": "全部重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })))),
+    // 一排小标签：点哪个跳哪个（跟下面的分节标题是同一套锚点）
+    h("div", { className: "shrink-0 flex px-5 pb-2", style: { gap: 7, overflowX: "auto" } },
+      secs.map(x => h("button", {
+        key: x.key,
+        onClick: () => { const el = secRefs.current[x.key], sc = scRef.current; if (el && sc) sc.scrollTop = Math.max(0, el.offsetTop - 8); },
+        className: "shrink-0 active:opacity-60",
+        style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, color: carryTint(x.key, .95), background: carryTint(x.key, .10), border: "1px solid " + carryTint(x.key, .26) }
+      }, x.zh))),
+    h("div", { ref: scRef, className: "flex-1 overflow-y-auto px-5 pt-1 pb-10" },
+      secs.map(x => h("div", { key: x.key, ref: el => { secRefs.current[x.key] = el; } },
+        // 分节标题：这一栏的色相 + 一条渐隐的线，四栏靠它分开而不是靠换底色
+        h("div", { className: "flex items-center", style: { gap: 8, margin: "16px 0 9px" } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: carryTint(x.key, .95) } }, x.zh),
+          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.16em", color: t.fog } }, (x.en || "").toUpperCase()),
+          h("span", { style: { flex: 1, height: 1, background: "linear-gradient(90deg," + carryTint(x.key, .3) + ",rgba(0,0,0,0))" } })),
+        h(CarrySection, {
+          embedded: true, char, sectionKey: x.key, data: data[x.key], gifts,
+          busyKey: busyAll ? x.key : busyKey, giftBusy,
+          pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
+          onTogglePin, onPeek, onGen, onGenGiftThought, onBack
+        })))));
+}
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenGiftThought, onBack }) {
+function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned, onTogglePin, onPeek, onGen, onGenGiftThought, onBack, embedded }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
   const loading = busyKey === sectionKey;
   const [sheet, setSheet] = useState(null); // {name,note,thought} AI 物品
   const [openGiftId, setOpenGiftId] = useState(null);
-  // 打开非礼物版块：没内容就直接生成，失败退回上一级
+  // 打开非礼物版块：没内容就直接生成，失败退回上一级。
+  // ⚠️嵌在整页里的时候不走这条——那一页是【四栏一次调用】一起生成的，
+  // 五个嵌入块各自触发一次的话就又回到一栏一刀了。
   useEffect(() => {
-    if (isGifts || data) return;
+    if (embedded || isGifts || data) return;
     let alive = true;
     Promise.resolve(onGen(char, sectionKey)).then(ok => { if (alive && ok === false) onBack(); });
     return () => { alive = false; };
     // eslint-disable-next-line
-  }, [sectionKey]);
+  }, [sectionKey, embedded]);
   const openGift = (gifts || []).find(g => g.id === openGiftId) || null;
   const pinSet = new Set((pinned || []).map(x => String(x).replace(/\s+/g, "").trim()).filter(Boolean));
   const isPinned = it => pinSet.has(carryItemKey(it));
@@ -8929,27 +8996,9 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
   // 皮肤走 core.js 那支公共的 pageSkin：这一栏自己的色相当 tint，
   // 页底那个特大词就用这一栏本来就有的英文名（BAG / WARDROBE / GIFTS…）。
   // 衣柜和包是织物，珍藏小物和礼物走纸——纹理跟着这一栏装的是什么东西走。
-  return h("div", {
-    className: "h-full flex flex-col",
-    style: pageSkin(sec.closet || sec.zip || sectionKey === "pocket" ? "cloth" : "paper", t,
-      { tint: CARRY_TINT[sectionKey], word: sec.en })
-  },
-    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
-    // 以前这里是 Head 那块 30px 大标题＋大段留白，一屏先被标题吃掉五分之一。
-    // 顶栏自己不上色，让外层那层底透上来。
-    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
-      h("div", { className: "flex-1 min-w-0 text-center" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, sec.zh),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
-      h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
-        !isGifts ? h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, "aria-label": "重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) : null)),
-    // 底色在最外层（见上），这里透明就好
-    h("div", { className: "flex-1 overflow-y-auto px-5 pt-2 pb-8" }, content),
-    // 详情。随身物整块共用【同一扇居中的柜门】（她 2026-08-29 拿真机截图点名：
-    // 「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」），
-    // 框里的头部按栏不同：衣柜挂出那一件，包内／口袋／珍藏摆出它的材质样片。
-    sheet && (() => {
+  // 详情弹层和礼物弹层先各自算成一个节点——嵌进整页时也要跟着出，
+  // 不然点了物品没反应。
+  const sheetNode = sheet && (() => {
       const tone = sheet._tone || sheet._stuff || null;   // 有色的才走柜门框
       const isCloth = !!sheet._tone;
       const pinRow = (onTogglePin || onPeek) ? h("div", { style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
@@ -8999,8 +9048,10 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
             background: "radial-gradient(120% 120% at 32% 24%," + tone.light + " 0%," + tone.base + " 52%," + tone.dark2 + " 100%)",
             boxShadow: "0 3px 9px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.45), inset 0 -3px 8px rgba(0,0,0,.14)" } },
             isPinned(sheet) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: tone.onDark ? "rgba(255,255,255,.9)" : "rgba(0,0,0,.42)" } }, "◆") : null);
+      // fixed 不是 absolute：五栏合成一页之后，这块要盖住整屏，
+      // 不该去看祖先链上谁碰巧是 positioned、谁又开了 overflow
       return h("div", {
-        className: "absolute inset-0 flex items-center justify-center z-50 px-6",
+        className: "fixed inset-0 flex items-center justify-center z-50 px-6",
         style: { background: "rgba(20,19,15,0.46)", backdropFilter: "blur(3px)" },
         onClick: () => setSheet(null)
       },
@@ -9041,8 +9092,8 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.32, letterSpacing: "0.01em", wordBreak: "break-word" } }, sheet.name),
                   sheet.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6, lineHeight: 1.7 } }, sheet.note) : null)),
               think, pinRow))));
-    })(),
-    openGift && h(Sheet, { onClose: () => setOpenGiftId(null), tall: true },
+    })();
+  const giftNode = openGift && h(Sheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
@@ -9057,7 +9108,33 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
           onClick: () => { onPeek(char.id, sectionKey, { name: openGift.name, note: "你送的" }); setOpenGiftId(null); },
           className: "w-full py-2.5 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + t.line, color: t.ink }
-        }, "在聊天里提起它")) : null));
+        }, "在聊天里提起它")) : null);
+  // 嵌入模式（五栏合成一页时用）：外壳、皮肤、标题栏都由那一页统一画，
+  // 这里只交出内容本身 + 自己那两个弹层。
+  if (embedded) return h(React.Fragment, null, content, sheetNode, giftNode);
+
+  return h("div", {
+    className: "h-full flex flex-col",
+    style: pageSkin(sec.closet || sec.zip || sectionKey === "pocket" ? "cloth" : "paper", t,
+      { tint: CARRY_TINT[sectionKey], word: sec.en })
+  },
+    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
+    // 以前这里是 Head 那块 30px 大标题＋大段留白，一屏先被标题吃掉五分之一。
+    // 顶栏自己不上色，让外层那层底透上来。
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, sec.zh),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, char.name)),
+      h("div", { className: "flex items-center justify-center", style: { width: 40, height: 40 } },
+        !isGifts ? h("button", { onClick: () => onGen(char, sectionKey), disabled: !!busyKey, "aria-label": "重新翻一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 18, color: t.ink })) : null)),
+    // 底色在最外层（见上），这里透明就好
+    h("div", { className: "flex-1 overflow-y-auto px-5 pt-2 pb-8" }, content),
+    // 详情。随身物整块共用【同一扇居中的柜门】（她 2026-08-29 拿真机截图点名：
+    // 「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」），
+    // 框里的头部按栏不同：衣柜挂出那一件，包内／口袋／珍藏摆出它的材质样片。
+    sheetNode,
+    giftNode);
 }
 function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, onBack, onSel, onGen, onGenAll, onGenGiftThought, onTogglePin, onPeek }) {
   const t = useTheme();
@@ -9145,7 +9222,13 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   const data = carry[char.id] || {};
   const gifts = (carryGifts && carryGifts[char.id]) || [];
   const hasData = s => s.gifts ? gifts.length > 0 : !!data[s.key];
-  if (open) return h(CarrySection, { char, sectionKey: open, data: data[open], gifts, busyKey: busyKey === "__all__" ? open : busyKey, giftBusy, pinned: ((carryPins || {})[char.id] || {})[open] || [], onTogglePin, onPeek, onGen, onGenGiftThought, onBack: () => setOpen(null) });
+  // 点开哪一格，进的都是【同一页】，只是先滚到那一栏（她 2026-08-30）。
+  // 以前是一格一页、各自一次生成；现在整页共用一次调用。
+  if (open) return h(CarryAll, {
+    char, data, gifts, busyKey, giftBusy, carryPins,
+    onTogglePin, onPeek, onGen, onGenAll, onGenGiftThought,
+    scrollTo: open, onBack: () => setOpen(null)
+  });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块
   // 写着斜体英文、下面空着三分之二屏，谁也不知道每一栏里装的是什么。
   // 每一格露出【这一栏里真实那几件东西的颜色】：衣柜是布色，包内/口袋/珍藏是材质色。

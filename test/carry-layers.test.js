@@ -264,14 +264,20 @@ test("每块布有一个够深的墨色——浅色衣服的按钮和竖线不�
   // clothShift 要返回 hex，算出来的色才能再兑透明度
   assert.match(F2.clothShift("#b8433c", -0.5), /^#[0-9a-f]{6}$/);
   const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
-  const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
+  // ⚠️结束标记跟着重构变过：v58.15 把这块从行内表达式抽成了 const sheetNode = …;
+  // 收尾从「    })(),」变成了「    })();」。切不准的话窗口会一路吃到礼物那个
+  // Sheet 和整页那一段，红得跟真回退一样（这次就踩到了）。
+  const seg = screens.slice(i, screens.indexOf("\n    })();", i));
   assert.doesNotMatch(seg, /tone\.dark\b/, "详情页的文字和描边不许用 dark，要用 ink");
   assert.match(seg, /clothRgba\(tone\.ink, 0?\.\d+\)/, "想法那条竖线要用 ink");
 });
 
 test("详情页把这件衣服本身画进去，底色也取自它自己", () => {
   const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
-  const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
+  // ⚠️结束标记跟着重构变过：v58.15 把这块从行内表达式抽成了 const sheetNode = …;
+  // 收尾从「    })(),」变成了「    })();」。切不准的话窗口会一路吃到礼物那个
+  // Sheet 和整页那一段，红得跟真回退一样（这次就踩到了）。
+  const seg = screens.slice(i, screens.indexOf("\n    })();", i));
   assert.match(seg, /clothRgba\(tone\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件东西自己的色");
   assert.match(seg, /if \(!tone\) return h\(Sheet/, "没有色的（收到的礼物那种）要走回原来那份半页");
   assert.match(seg, /label\("OCCASION", sheet\._occ\)/, "衣柜那一路的 eyebrow 是场合");
@@ -279,7 +285,10 @@ test("详情页把这件衣服本身画进去，底色也取自它自己", () =>
   // ⚠️toUpperCase 对中文是空操作，会把同一个场合名原样印两遍
   // 只看代码，别把提醒这件事的注释本身当成犯规
   const code = seg.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  assert.doesNotMatch(code, /toUpperCase\(\)/, "别对中文场合名用 toUpperCase——它会印两遍一样的字");
+  // 盯的是【中文那几样】被 toUpperCase：场合名、物品名、备注。
+  // 英文眉标（sec.en 那种）用它是对的，一刀切禁掉会把对的也判成错的。
+  assert.doesNotMatch(code, /(_occ|occasion|sheet\.name|sheet\.note|\.zh)[^\n]{0,40}toUpperCase\(\)/,
+    "别对中文（场合名/物品名）用 toUpperCase——它是空操作，会把同一个字印两遍");
 });
 
 test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
@@ -301,11 +310,15 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
 test("随身物详情是居中的一扇柜门，不是从底下滑上来的半页", () => {
   const i = screens.indexOf("      const pinRow = (onTogglePin || onPeek)");
   assert.ok(i > 0, "找不到详情那一段");
-  const seg = screens.slice(i, screens.indexOf("\n    })(),", i));
+  // ⚠️结束标记跟着重构变过：v58.15 把这块从行内表达式抽成了 const sheetNode = …;
+  // 收尾从「    })(),」变成了「    })();」。切不准的话窗口会一路吃到礼物那个
+  // Sheet 和整页那一段，红得跟真回退一样（这次就踩到了）。
+  const seg = screens.slice(i, screens.indexOf("\n    })();", i));
   // 有色的那一路一律走居中的柜门框；半页 Sheet 只剩【没有色时】那一条退路，
   // 所以这一段里 h(Sheet 至多出现一次，多了就是又退回半页了。
   assert.ok((seg.match(/h\(Sheet, \{/g) || []).length <= 1, "又退回半页式 Sheet 了");
-  assert.match(seg, /className: "absolute inset-0 flex items-center justify-center/, "框要居中");
+  // v58.15 起是 fixed：五栏合成一页之后，absolute 要看祖先链上谁碰巧是 positioned
+  assert.match(seg, /className: "fixed inset-0 flex items-center justify-center/, "框要居中、且盖住整屏");
   assert.match(seg, /animation: "caseOpen/, "开门那下动画");
   // 框本身要像柜门：木框 + 内板 + 门把手，且颜色一律叠在主题色上
   assert.match(seg, /repeating-linear-gradient\(90deg/, "木纹");
