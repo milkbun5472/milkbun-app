@@ -155,6 +155,33 @@
     const want = (cfg && cfg.paper) || FIC_PAPER_DEFAULT;
     return FIC_PAPERS.find(function (p) { return p.id === want; }) || FIC_PAPERS[0];
   }
+  // 纸的小样。⚠️示范用「A × B」这种【格式示范】，不写「裴照川 × 我」——
+  // 那是【内容示范】，跟 .claude/rules/prompt-no-content-samples.md 说的是同一件事：
+  // 判据「这个例子被逐字照抄是对的还是错的」在界面上也成立，
+  // 小样是用来看纸和墨的，不是用来看谁和谁的。
+  function PaperSwatch(props) {
+    const pp = props.paper, on = props.on;
+    return h("button", {
+      onClick: props.onPick, className: "active:opacity-80 text-left",
+      style: {
+        background: pp.bg, borderRadius: 11, padding: "9px 10px 8px", overflow: "hidden",
+        border: "2px solid " + (on ? pp.accent : "rgba(128,128,128,0.28)"),
+        boxShadow: on ? "0 0 0 2px " + pp.accent + "44" : "0 1px 3px rgba(0,0,0,0.10)"
+      }
+    },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: pp.ink, lineHeight: 1.2 } }, pp.label),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.fog, marginTop: 2 } }, pp.hint),
+      h("div", { style: { height: 1, background: pp.line, margin: "7px 0 5px" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.sub, lineHeight: 1.35 } }, "灯芯爆了一下。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: pp.accent, marginTop: 3 } }, "A × B"));
+  }
+  // 这一篇用哪张纸（她 2026-08-30：「每一篇可以单独设置」）。
+  // 篇上写了就用篇的；没写就退回设置里那张【默认书页】——
+  // 列表页和新生成的篇目都得有张纸，所以默认那一档不能撤。
+  function ficPaperFor(fic, cfg) {
+    if (fic && fic.paper && FIC_PAPERS.some(function (p) { return p.id === fic.paper; })) return ficPaper({ paper: fic.paper });
+    return ficPaper(cfg);
+  }
   // 纸 → 主题。⚠️只覆盖【看得见的那几个色】，别的原样继承她自己的主题，
   // 免得换张纸把她在主题工作台调过的东西一起顶掉。
   function ficPaperTheme(base, paper) {
@@ -1138,7 +1165,11 @@
 
   // ---------- 阅读页（含追更 + 书评）----------
   function Reader(props) {
+    // 这一篇自己的纸：篇上写了用篇的，没写用默认那张（props.paper 由 FanficApp 算好传下来，
+    // 它同时也是套在外层 Provider 上的那一张——两处必须是同一张，否则头上那个色块跟正文对不上）。
     const t = useTheme();
+    const _paper = props.paper || ficPaper(loadCfg());
+    const [paperOpen, setPaperOpen] = useState(false);
     const f = props.fic;
     const [busy, setBusy] = useState("");         // 内联小操作（发书评/回复）
     const chapterTaskKey = "fanfic:chapter:" + f.id;
@@ -1258,7 +1289,12 @@
         h("div", { className: "flex-1 min-w-0 text-center px-1" },
           h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, lineHeight: 1.2 } }, f.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 1 } }, props.tab.name)),
-        h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: f.onShelf ? t.accent : t.fog, minWidth: 40, textAlign: "right" } }, f.onShelf ? "★" : "☆")),
+        h("div", { className: "flex items-center justify-end shrink-0", style: { gap: 10, minWidth: 56 } },
+          // 换这一篇的纸。⚠️只改这一篇，别的篇和默认那张都不动。
+          h("button", { onClick: function () { setPaperOpen(true); }, className: "active:opacity-60", "aria-label": "换书页",
+            style: { width: 20, height: 20, borderRadius: 5, background: _paper.bg, border: "1.5px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } },
+            h("span", { style: { width: 8, height: 1.5, background: _paper.ink, borderRadius: 1 } })),
+          h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: f.onShelf ? t.accent : t.fog } }, f.onShelf ? "★" : "☆"))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { className: "flex items-start", style: { gap: 9 } },
           h("div", { style: { width: 3.5, alignSelf: "stretch", borderRadius: 2, background: _hasMe ? t.accent : t.line, marginTop: 5 } }),
@@ -1337,6 +1373,24 @@
                   h("button", { onClick: function () { sendReply(r.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "发送"))
               : h("button", { onClick: function () { setReplyTo(r.id); setReplyText(""); }, className: "mt-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "回复"));
         }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "还没有书评，写一条或点「刷出书评」召唤一批读者。")),
+      // 只给这一篇换纸（她 2026-08-30：「每一篇可以单独设置」）
+      paperOpen ? h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: function () { setPaperOpen(false); } },
+        h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "72vh", overflowY: "auto" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "这一篇的书页"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 14px", lineHeight: 1.5 } },
+            "只换《" + f.title + "》这一篇；别的篇和默认那张都不动。"),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 } },
+            FIC_PAPERS.map(function (pp) {
+              return h(PaperSwatch, {
+                key: pp.id, paper: pp, on: _paper.id === pp.id,
+                onPick: function () { props.onSetPaper && props.onSetPaper(pp.id); setPaperOpen(false); }
+              });
+            })),
+          // 跟着默认走＝把这一篇的单独设置撤掉，不是再选一张
+          f.paper ? h("button", {
+            onClick: function () { props.onSetPaper && props.onSetPaper(""); setPaperOpen(false); },
+            className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "12px 0 2px" }
+          }, "跟着默认书页走") : null)) : null,
       fwdOpen ? h(FwdSheet, { characters: props.fwdChars || props.characters, groups: props.groups, onClose: function () { setFwdOpen(false); },
         onPickChar: function (c) { setFwdOpen(false); props.onForwardToChat && props.onForwardToChat(f, c); },
         onPickGroup: function (g) { setFwdOpen(false); props.onForwardToGroup && props.onForwardToGroup(f, g); } }) : null);
@@ -1677,28 +1731,16 @@
           "范围 500–" + FIC_TOKEN_MAX + "。设太高的话，一次请求会很久，也更容易撞上模型自己的上限或超时。"),
 
         // ── 书页 ──
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "22px 0 3px" } }, "书页"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "22px 0 3px" } }, "默认书页"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 9, lineHeight: 1.5 } },
-          "换纸连墨一起换：深夜那两张是浅字深底，关灯读不刺眼。只影响同人文这几页。"),
+          "换纸连墨一起换：深夜那两张是浅字深底，关灯读不刺眼。这里定的是【默认】那张——"
+          + "翻开某一篇之后，点右上角那个小色块可以单独给那一篇换。"),
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 } },
           FIC_PAPERS.map(function (pp) {
-            const on = (cfg.paper || FIC_PAPER_DEFAULT) === pp.id;
-            return h("button", {
-              key: pp.id,
-              onClick: function () { patch({ paper: pp.id }); props.onPaper && props.onPaper(pp.id); },
-              className: "active:opacity-80 text-left",
-              style: {
-                background: pp.bg, borderRadius: 11, padding: "9px 10px 8px", overflow: "hidden",
-                border: "2px solid " + (on ? t.accent : "rgba(0,0,0,0.10)"),
-                boxShadow: on ? "0 0 0 2px " + t.accent + "33" : "0 1px 3px rgba(0,0,0,0.10)"
-              }
-            },
-              // 这块小样就是真的用那张纸的纸色和墨色画的，不是另配的示意色
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: pp.ink, lineHeight: 1.2 } }, pp.label),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.fog, marginTop: 2 } }, pp.hint),
-              h("div", { style: { height: 1, background: pp.line, margin: "7px 0 5px" } }),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.sub, lineHeight: 1.35 } }, "灯芯爆了一下。"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: pp.accent, marginTop: 3 } }, "裴照川 × 我"));
+            return h(PaperSwatch, {
+              key: pp.id, paper: pp, on: (cfg.paper || FIC_PAPER_DEFAULT) === pp.id,
+              onPick: function () { patch({ paper: pp.id }); props.onPaper && props.onPaper(pp.id); }
+            });
           }))));
   }
 
@@ -2127,7 +2169,12 @@
       const f = fics.find(function (x) { return x.id === openId; });
       if (!f) { setOpenId(null); return null; }
       const ftab = tabs.find(function (x) { return x.id === f.tabId; }) || curTab;
-      return onPaper(h(Reader, {
+      // ⚠️这一篇用【它自己那张纸】，不是列表那张：外层 Provider 和传给 Reader 的
+      // 必须是同一张，否则头上那个小色块跟正文对不上。
+      const fPaper = ficPaperFor(f, { paper: paperId });
+      return h(ThemeContext.Provider, { value: ficPaperTheme(appTheme, fPaper) }, h(Reader, {
+        paper: fPaper,
+        onSetPaper: function (pid) { updateFic(f.id, function (x) { x.paper = pid; return x; }); },
         fic: f, tab: ftab, active: props.active, characters: cast, fwdChars: characters, profile: props.profile,
         groups: props.groups || [], userName: userName, worldbook: props.worldbook, toast: props.toast,
         // 关阅读页时把进度重取一遍，卡片上那句「读到 3/8 章」才跟得上

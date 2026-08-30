@@ -60,9 +60,14 @@ test("页底那个特大词去掉了（同人文这两页）", () => {
 });
 
 test("⚠️所有 return 都得包在纸里——阅读页那支是提前 return 的，最容易漏", () => {
+  // ⚠️FanficApp 里【每一个 return】都得罩着一层纸。认法：把所有 return 捞出来数，
+  // 一个都不许是裸的——只钉某一处的写法，下次换个写法又漏（v58.12 就是这么漏的阅读页）。
+  const body = fic.slice(fic.indexOf("  function FanficApp(props) {"), fic.indexOf("  window.FanficApp = FanficApp;"));
+  // 缩进 4~6 格、真的吐出一个元素的那几个 return（阅读页那支是 6 格，别只捞 4 格）
+  const rets = (body.match(/^ {4,6}return (h\(|onPaper\()[^\n]*/gm) || []);
+  assert.ok(rets.length >= 2, "捞不到 FanficApp 的 return：" + rets.length + " → " + rets.join(" ｜ "));
+  rets.forEach(r => assert.match(r, /onPaper\(|ThemeContext\.Provider/, "这个 return 没罩纸：" + r.trim()));
   assert.match(fic, /const onPaper = function \(node\) \{ return h\(ThemeContext\.Provider, \{ value: t \}, node\); \};/);
-  assert.match(fic, /return onPaper\(h\(Reader, \{/, "翻开一篇就掉回原来的主题了");
-  assert.match(fic, /return onPaper\(\n\s*h\("div", \{ className: "h-full flex flex-col", style: pageSkin/);
   // t 得真的是纸算出来的，不是 useTheme() 直接来的
   assert.match(fic, /const appTheme = useTheme\(\);/);
   assert.match(fic, /const t = ficPaperTheme\(appTheme, ficPaper\(\{ paper: paperId \}\)\);/);
@@ -81,9 +86,46 @@ test("深色纸上的高对比卡不许是一大块亮色——那是把深夜�
 test("在设置里换一张，立刻重绘", () => {
   assert.match(fic, /const \[paperId, setPaperId\] = useState\(function \(\) \{ return \(loadCfg\(\) \|\| \{\}\)\.paper \|\| FIC_PAPER_DEFAULT; \}\);/);
   assert.match(fic, /onPaper: setPaperId,/, "设置页换了纸，外面不知道");
-  assert.match(fic, /onClick: function \(\) \{ patch\(\{ paper: pp\.id \}\); props\.onPaper && props\.onPaper\(pp\.id\); \}/);
+  assert.match(fic, /onPick: function \(\) \{ patch\(\{ paper: pp\.id \}\); props\.onPaper && props\.onPaper\(pp\.id\); \}/);
   assert.match(fic, /onPaper: props\.onPaper,/, "Mine 没把这条线透给设置页");
   // 小样用的就是那张纸自己的色，不是另配的示意色
   assert.match(fic, /background: pp\.bg, borderRadius: 11/);
   assert.match(fic, /color: pp\.ink, lineHeight: 1\.2 \} \}, pp\.label/);
+});
+
+// 她 2026-08-30 追加：「纸页设置放同人文文章里面每一篇可以单独设置，
+// 然后 example 不要写裴照川x我，写 AxB 就行。」
+test("每一篇可以有自己的纸；没设的跟着默认走", () => {
+  const seg = fic.slice(fic.indexOf("  function ficPaperFor(fic, cfg) {"), fic.indexOf("  function ficPaperFor(fic, cfg) {") + 380);
+  assert.match(seg, /if \(fic && fic\.paper && FIC_PAPERS\.some\(/, "篇上那张没被认");
+  assert.match(seg, /return ficPaper\(cfg\);/, "没设的该退回默认那张");
+  // 阅读页用【这一篇】那张，外层 Provider 和传下去的必须是同一张
+  assert.match(fic, /const fPaper = ficPaperFor\(f, \{ paper: paperId \}\);/);
+  assert.match(fic, /h\(ThemeContext\.Provider, \{ value: ficPaperTheme\(appTheme, fPaper\) \}, h\(Reader, \{\n\s*paper: fPaper,/,
+    "外层套的纸和传给 Reader 的不是同一张，头上那个小色块会跟正文对不上");
+  // 换纸只写这一篇
+  assert.match(fic, /onSetPaper: function \(pid\) \{ updateFic\(f\.id, function \(x\) \{ x\.paper = pid; return x; \}\); \}/);
+  // 撤掉单独设置＝跟着默认走，不是再选一张
+  assert.match(fic, /f\.paper \? h\("button", \{[\s\S]{0,200}?onSetPaper && props\.onSetPaper\(""\)/);
+  assert.match(fic, /\}, "跟着默认书页走"\) : null/);
+  // 阅读页头上那个入口
+  assert.match(fic, /"aria-label": "换书页"/);
+  assert.match(fic, /background: _paper\.bg, border: "1\.5px solid " \+ t\.line/, "那个小色块该就是那张纸本身的颜色");
+});
+
+test("小样的示范写「A × B」——那是格式示范，不是内容示范", () => {
+  // 跟 prompt-no-content-samples 同一条判据：这个例子被逐字照抄，是对的还是错的？
+  // 「裴照川 × 我」照抄就是把某一对钉死在一张纸的说明里；小样是看纸和墨的。
+  assert.match(fic, /\}, "A × B"\)\);/);
+  assert.doesNotMatch(fic, /"裴照川 × 我"/, "小样里还写着具体的人");
+  // 两处（设置页 + 阅读页那个 sheet）用的是同一个组件，别画两遍
+  assert.match(fic, /function PaperSwatch\(props\)/);
+  assert.equal((fic.match(/h\(PaperSwatch, \{/g) || []).length, 2, "设置页和阅读页各一处");
+  assert.equal((fic.match(/"灯芯爆了一下。"/g) || []).length, 1, "小样只该有一份");
+});
+
+test("设置里那一档改叫【默认书页】，并说清哪儿能单独换", () => {
+  assert.match(fic, /\}, "默认书页"\)/);
+  assert.doesNotMatch(fic, /marginBottom: 9, lineHeight: 1\.5 \} \},\n\s*"换纸连墨一起换：深夜那两张是浅字深底，关灯读不刺眼。只影响同人文这几页。"/);
+  assert.match(fic, /点右上角那个小色块可以单独给那一篇换/);
 });
