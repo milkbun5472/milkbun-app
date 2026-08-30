@@ -6,7 +6,7 @@
   const STYLE_ID = "lisa-theme-studio-style";
   const PREVIEW_MS = 30000;
   const APP_ICONS = [
-    ["cast","名录"],["ties","关系"],["phone","查手机"],["shop","购物"],["carry","随身物"],
+    ["cast","人格档案馆"],["ties","关系"],["phone","查手机"],["shop","购物"],["carry","随身物"],
     ["cwallet","钱包"],["lore","世界书"],["memlib","记忆库"],["diary","日记"],["memo","备忘录"],
     ["study","一起学"],["fanfic","同人文"],["weekly","周刊"],["read","一起读"],["debate","辩论"],
     ["dream","梦境"],["tarot","塔罗"],["pomodoro","番茄钟"],["games","小游戏"],["capsule","时光胶囊"],

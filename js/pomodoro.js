@@ -148,7 +148,7 @@
 
     const start = async () => {
       const c = charOf(charId);
-      if (!c) { props.toast && props.toast("先去『名录』选/建个角色陪你"); return; }
+      if (!c) { props.toast && props.toast("先去『人格档案馆』选/建个角色陪你"); return; }
       if (!min || min < 1) { props.toast && props.toast("时长至少 1 分钟"); return; }
       setBusy(true);
       let pack;
@@ -260,7 +260,7 @@
               return h("button", { key: c.id, onClick: () => setCharId(c.id), className: "active:opacity-70", style: { flexShrink: 0, textAlign: "center", background: "transparent", border: "none" } },
                 h("div", { style: { padding: 2, borderRadius: 14, border: "2px solid " + (on ? t.ink : "transparent") } }, h(Avatar, { character: c, size: 44, radius: 11 })),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.ink : t.fog, marginTop: 4, maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name)); }))
-            : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "16px 0" } }, "先去『名录』建个角色陪你专注"),
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "16px 0" } }, "先去『人格档案馆』建个角色陪你专注"),
           h("input", { value: task, onChange: e => setTask(e.target.value), placeholder: "当前任务，如 一起看书", maxLength: 20,
             style: { width: "100%", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, background: "transparent", border: "none", outline: "none", padding: "8px 0" } }),
           h("div", { style: { borderTop: "1px dashed " + t.line, margin: "6px 0 16px" } }),

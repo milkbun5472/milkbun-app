@@ -1511,7 +1511,7 @@ function Home({
     w_muyu: { kind: "widget", which: "muyu" },
     w_ledger: { kind: "widget", which: "ledger" },
     w_wheel: { kind: "widget", which: "wheel" },
-    cast: { kind: "app", zh: "名录", G: GCast },
+    cast: { kind: "app", zh: "人格档案馆", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     phone: { kind: "app", zh: "查手机", G: GPhone },
     shop: { kind: "app", zh: "购物", G: GShop },
@@ -2350,7 +2350,7 @@ function Messages({
         h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索",
           className: "flex-1 outline-none", style: { background: "transparent", padding: "8px 0", fontFamily: F_BODY, fontSize: 14, color: t.ink } }),
         q ? h("button", { onClick: () => setQ(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, color: t.fog, padding: "0 2px" } }, "×") : null)),
-    characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或名录录入角色" }),
+    characters.length === 0 && groups.length === 0 && h(Empty, { text: "还没有对话", sub: "先去通讯录或人格档案馆录入角色" }),
     kw && shownItems.length === 0 ? h(Empty, { text: "没搜到「" + q.trim() + "」", sub: "换个名字或关键词试试" }) : null,
     shownItems.map(it => it.type === "group" ? renderGroupRow(it) : renderCharRow(it))
   ), tab === "contacts" && (() => {
@@ -2374,7 +2374,7 @@ function Messages({
         [h("path", { key: "a", d: "M20.6 12.6L12 4H4v8l8.6 8.6a2 2 0 002.8 0l5.2-5.2a2 2 0 000-2.8z" }), h("circle", { key: "b", cx: 8, cy: 8, r: 1.3 })],
         () => setGroupMgr(true)),
       characters.length === 0
-        ? h(Empty, { text: "通讯录是空的", sub: "去名录录入角色" })
+        ? h(Empty, { text: "通讯录是空的", sub: "去人格档案馆录入角色" })
         : h("div", { style: { paddingRight: 22 } }, secs.map(sec => h("div", { key: sec.letter, id: "mcontact-" + sec.letter },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, sec.letter),
             sec.items.map(c => h("button", { key: c.id, onClick: () => onOpenContact(c),
@@ -3283,6 +3283,8 @@ function ChatThread({
   onStartCall,
   onAcceptCall,
   onDeclineCall,
+  onAskCouple,
+  askingCouple,
   onAcceptListen,
   onOpenStudyInvite,
   onSendTransfer,
@@ -3722,7 +3724,9 @@ function ChatThread({
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
-    if (m.kind === "couple_invite") return h(CoupleInviteCard, { key: i, m: m, character: character });
+    if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
+      h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
+      dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     if (m.kind === "unblock_req") return h(UnblockReqCard, { key: i, m: m, character: character, onRespond: onRespondUnblock });
     if (m.kind === "recalled") return h("div", { key: i, className: "text-center my-2" }, h("button", { onClick: () => setRecallView(m), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, cName + " 撤回了一条消息 · 点看"));
     // 沉默权：TA 看了没回——一行居中灰斜体，已读不回本身就是态度
@@ -5620,22 +5624,25 @@ function TransferCard({
   }, statusLabel)), isU && myAvatar);
 }
 // 情侣邀请卡片（用户发出，角色自行接受/婉拒）
+// ⚠️不自动回应：她 2026-08-30「还会自动回复不等我说完」——发出去之后她还想再说几句，
+//   所以回应由她点这张卡上的按钮触发，那时候她说的话会一起递给 TA。
 function CoupleInviteCard({
   m,
-  character
+  character,
+  asking,
+  onAsk
 }) {
   const t = useTheme();
-  const nm = (character && character.name) || "TA";
+  const nm = (character && character.remark) || (character && character.name) || "TA";
   const info = m.status === "accepted"
     ? { stamp: "TOGETHER", label: nm + " 接受了 ♥ 你们在一起了", accent: t.accent }
     : m.status === "declined"
       ? { stamp: "DECLINED", label: nm + " 婉拒了这份邀请", accent: t.fog }
       : m.status === "failed"
-        ? { stamp: "—", label: "邀请没有得到回应", accent: t.fog }
-        : { stamp: "PENDING", label: "等待 " + nm + " 回应……", accent: t.accent };
+        ? { stamp: "—", label: "邀请没有得到回应，可以再问一次", accent: t.fog }
+        : { stamp: "PENDING", label: "想说的话说完了，再让 TA 回应", accent: t.accent };
+  const canAsk = (m.status === "pending" || m.status === "failed") && typeof onAsk === "function";
   return h("div", {
-    className: "py-1 flex justify-end"
-  }, h("div", {
     style: {
       width: 250,
       background: "#fff",
@@ -5653,7 +5660,13 @@ function CoupleInviteCard({
   }, "想和你在一起"))), h("div", {
     className: "px-4 py-2",
     style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: info.accent }
-  }, info.label)));
+  }, asking ? nm + " 正在看……" : info.label),
+    canAsk && h("button", {
+      onClick: function () { if (!asking) onAsk(m.cid); },
+      disabled: !!asking,
+      className: "w-full py-2.5 active:opacity-70",
+      style: { borderTop: "1px solid " + t.line, fontFamily: F_DISPLAY, fontSize: 15, color: asking ? t.fog : t.ink, background: "transparent" }
+    }, asking ? "等 TA 回话" : "让 TA 回应"));
 }
 // 解除拉黑申请卡片（char→我 我可接受/拒绝；我→char 显示状态）
 function UnblockReqCard({ m, character, onRespond }) {

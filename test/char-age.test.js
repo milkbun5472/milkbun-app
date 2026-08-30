@@ -75,13 +75,16 @@ test("联系人页显示年龄和生日", () => {
 // 这样可以直接把人设生日删了」。第一版只做在联系人页，而她是在【编辑档案】这一页
 // 填生日的——填完当场看不见，就等于没做。
 test("年龄要显示在她填生日的那一页，当场就能看见", () => {
-  const i = screens.indexOf('zh: "生日"');
-  const block = screens.slice(i, i + 2600);
-  assert.match(block, /const age = typeof charAge === "function" \? charAge\(birthday, Date\.now\(\)\) : null;/,
+  const i = screens.indexOf("function CastForm(");
+  const form = screens.slice(i, screens.indexOf("// TIES (directed)", i));
+  assert.ok(i > 0 && form.length > 500, "抠不出编辑档案那一页");
+  assert.match(form, /const age = typeof charAge === "function" \? charAge\(birthday, Date\.now\(\)\) : null;/,
     "要读表单里正在编辑的 birthday，不是存档里的");
-  assert.match(block, /"现在 " \+ age \+ " 岁"/);
-  assert.match(block, /if \(age == null\) return null;/, "只填月日的就别占地方");
-  assert.match(block, /生日一过自动加一，Ta 自己也知道/);
+  assert.match(form, /"现在 " \+ age \+ " 岁"/);
+  assert.match(form, /if \(age == null\) return h\("div"/, "只填月日的就别占地方");
+  assert.match(form, /生日一过自动加一，Ta 自己也知道/);
+  // 年龄那一段真的挂在「生日」那一栏底下，不是飘在别处
+  assert.match(form, /zh: "生日", en: "Birthday" \}, birthdayField\)/);
 });
 
 test("表单说明要指明「人设正文里那句 XX 岁可以删了」", () => {

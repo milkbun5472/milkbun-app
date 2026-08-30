@@ -359,7 +359,7 @@
           Object.keys(MODES).map(k => {
             const m = MODES[k];
             return h("button", {
-              key: k, onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『名录』建个角色"); return; } setView("mode:" + k); },
+              key: k, onClick: () => { if (!props.characters.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; } setView("mode:" + k); },
               className: "w-full active:opacity-80", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 13 }
             },
               h("div", { style: { width: 38, height: 38, flexShrink: 0, borderRadius: 10, background: ACCENT, color: GOLD, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 } }, m.icon),
@@ -462,7 +462,7 @@
         const existing = loadSaves().find(s => s.mode === "daily" && s.dayKey === tk);
         const c0 = props.characters.find(x => x.id === charId);
         const wantChars = isDailyAll ? props.characters : (c0 ? [c0] : []);
-        if (!wantChars.length) { props.toast && props.toast("先去『名录』建个角色"); return; }
+        if (!wantChars.length) { props.toast && props.toast("先去『人格档案馆』建个角色"); return; }
         const have = {}; (existing && existing.entries || []).forEach(e => { have[e.charId] = true; });
         const toGen = wantChars.filter(x => !have[x.id]);
         if (!toGen.length && existing) { props.onDone(existing, true); return; } // 想看的人都解过了 → 直接看(纯回看,不再回流一次)

@@ -7,18 +7,18 @@ const screens = fs.readFileSync(path.resolve(__dirname, "../js/screens.js"), "ut
 const cast = screens.slice(screens.indexOf("function Cast("), screens.indexOf("function CastForm("));
 const form = screens.slice(screens.indexOf("function CastForm("), screens.indexOf("// TIES (directed)"));
 
-test("名录使用自己的奶油纸人格档案馆视觉，而不是套用参考图", () => {
+// v58.46 改：原来这条把长相冻住了（FILE·编号 / TIMEZONE / BIRTHDAY 三个字面量）。
+// 那个 FILE 编号是拿 id 哈希出来的假卷宗号，TIMEZONE/BIRTHDAY 两栏没填时恒定写着
+// 「跟随系统」「未录入」——她 2026-08-30 说这版「差点意思」，病就在这。改成盯行为。
+test("人格档案馆自己是一套奶油纸视觉，不套用参考图", () => {
   assert.match(cast, /PERSONA ARCHIVE/);
   assert.match(cast, /人格档案馆/);
-  assert.match(cast, /FILE ·/);
-  assert.match(cast, /TIMEZONE/);
-  assert.match(cast, /BIRTHDAY/);
   assert.match(cast, /castSummary\(c\)/);
   assert.match(cast, /background: t\.bg2/);
   assert.doesNotMatch(cast, /CLASSIFIED|ARCHIVAL INFORMATION|THE INTELLIGENCE DATABASE/);
 });
 
-test("名录和编辑档案都遵守子页面安全区与单滚动容器", () => {
+test("人格档案馆和编辑档案都遵守子页面安全区与单滚动容器", () => {
   for (const source of [cast, form]) {
     assert.match(source, /paddingTop: safeTop\(8\)/);
     assert.match(source, /flex-1 min-h-0 overflow-y-auto/);

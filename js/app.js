@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.45";
+const APP_VERSION = "v58.46";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4975,11 +4975,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const [cardImportOpen, setCardImportOpen] = useState(false);
   const importCharCard = parsed => {
     const id = "char_" + Date.now();
-    pC(p => [...p, { id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: "", color: "#5a6a7d" }]);
+    pC(p => [...p, { id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: (parsed.tagline || "").slice(0, 40), color: "#5a6a7d" }]);
     if (parsed.longMem) setMemFor(id, parsed.longMem);
     (parsed.seeds || []).forEach(s => addMemEntry({ text: s.text, charIds: [id], knownBy: [id], pinned: s.pinned, source: "manual" }));
+    // 卡里的开场白（酒馆的 first_mes）落成 TA 的第一句话——原来直接丢了
+    if (parsed.greeting) pChat(id, () => [{ role: "assistant", content: parsed.greeting, ts: Date.now(), read: false }]);
     setCardImportOpen(false);
-    toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + "，去名录点开补头像/线路吧");
+    toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + (parsed.greeting ? "＋开场白" : "") + "，去人格档案馆点开补头像/线路吧");
   };
   // NPC：她填一句「要谁」，一次调用生成简介+双向关系，落成一个 npc:true 的角色。
   // 走后台线路（和记忆整理、翻译同一条），不占聊天线路。
@@ -9031,7 +9033,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 她 2026-08-30 问的两件事：
   //   ①「有别人的欠债后续会不会真的还回来增加余额」——以前【不会】。debts 只是档案上
   //     的一段字，刷新一次重编一次，跟余额毫无关系：欠他的永远收不回来，他欠的也永远不用还。
-  //   ②「如果是两个角色之间的能不能互通」——现在能：欠账里的名字如果正好是她名录里
+  //   ②「如果是两个角色之间的能不能互通」——现在能：欠账里的名字如果正好是她人格档案馆里
   //     另一个角色（本名或备注），结清时两边的钱包一起动，方向相反，一笔钱不会凭空多出来。
   // ⚠️是【她点一下】才结清，不是自动的：钱什么时候还，不该由某一轮推演替她决定。
   const walletDebtPeer = who => {
@@ -11079,21 +11081,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     setCoupleFor(char.id, { status: "pending", since: null });
     // 往聊天里发一张情侣邀请卡
     pChat(char.id, p => [...p, { role: "user", kind: "couple_invite", cid, status: "pending", content: "[情侣邀请] 想和你在一起", ts: Date.now(), read: true }]);
-    toast("邀请已送到和 " + char.name + " 的聊天");
-    // 角色延迟回应
-    setTimeout(async () => {
-      try {
-        const bundle = buildBundle(ctxFor(char));
-        const raw = await callAI(apiFor(char.id), bundle + "\n\n【场景】用户刚刚向你发出「情侣邀请」，想和你正式在一起。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}", [{ role: "user", content: "（回应情侣邀请）" }], { maxTokens: 500 });
-        const d = extractJSON(raw) || {};
-        respondCoupleInvite(char.id, cid, !!d.accept, Array.isArray(d.say) ? d.say : []);
-      } catch (e) {
-        // 失败：撤销 pending，卡片标记为无回应
-        setCoupleFor(char.id, null);
-        pChat(char.id, p => p.map(m => m.cid === cid ? { ...m, status: "failed" } : m));
-        toast("邀请回应失败：" + e.message);
-      }
-    }, 1600);
+    toast("邀请已送到和 " + char.name + " 的聊天——说完你想说的，再点卡片上「让 TA 回应」");
+  };
+  // 她点了卡片上那个按钮才回应。发出邀请到这一刻之间她说的话一并递过去——
+  // 她 2026-08-30：「还会自动回复不等我说完」。
+  const askCoupleInvite = async (charId, cid) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    if (gen.coupleAsk) return;
+    const char = characters.find(c => c.id === charId);
+    if (!char) return;
+    setGen(g => ({ ...g, coupleAsk: cid }));
+    try {
+      const line = chatsRef.current[charId] || [];
+      const at = line.findIndex(m => m.cid === cid);
+      // 邀请之后她又说的那些话（最多 12 条），照原样当对话历史递过去
+      const after = (at >= 0 ? line.slice(at + 1) : []).filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim()).slice(-12)
+        .map(m => ({ role: m.role, content: m.content }));
+      const bundle = buildBundle(ctxFor(char));
+      const raw = await callAI(apiFor(charId), bundle + "\n\n【场景】用户向你发出「情侣邀请」，想和你正式在一起" + (after.length ? "；发出之后 TA 又说了下面这些话，一起听完再回应" : "") + "。完全代入「" + char.name + "」，依据你的人设、你们的关系、对用户的好感度，决定接受还是婉拒——好感高且关系贴合才接受，否则婉拒（不必强行答应）。用即时通讯口吻回几句真心话（短句多气泡）。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]}",
+        after.concat([{ role: "user", content: "（回应情侣邀请）" }]), { maxTokens: 500 });
+      const d = extractJSON(raw) || {};
+      respondCoupleInvite(charId, cid, !!d.accept, Array.isArray(d.say) ? d.say : []);
+    } catch (e) {
+      // 失败：卡片标记成「没得到回应」，pending 留着，她可以再点一次
+      pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: "failed" } : m));
+      toast("邀请回应失败：" + e.message);
+    } finally {
+      setGen(g => ({ ...g, coupleAsk: null }));
+    }
   };
   const respondCoupleInvite = (charId, cid, accept, say) => {
     pChat(charId, p => p.map(m => m.cid === cid ? { ...m, status: accept ? "accepted" : "declined" } : m));
@@ -13110,6 +13125,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,
+    // 卡片上写的每一条都得是真的：好感、情侣、上次说话——不是编号也不是恒定的「在册」
+    meta: (() => {
+      const out = {};
+      liveChars.forEach(c => {
+        const line = chats[c.id] || [];
+        let lastTs = 0;
+        for (let i = line.length - 1; i >= 0; i--) { if (line[i] && line[i].ts) { lastTs = line[i].ts; break; } }
+        const cp = couples[c.id];
+        out[c.id] = {
+          aff: Math.round(affOf(c.id)),
+          lastTs: lastTs,
+          couple: cp ? cp.status : "",
+          coupleDays: (cp && cp.status === "together" && cp.since) ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : 0
+        };
+      });
+      return out;
+    })(),
     onBack: goHome,
     onEdit: c => {
       setEditingChar(c);
@@ -13251,6 +13283,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onStartCall: m => startCall([activeChar], m, null, "me"),
     onAcceptCall: m => { pChat(activeChar.id, p => p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "accepted" } : x)); startCall([activeChar], m.mode, null, activeChar.id); },
     onDeclineCall: m => { pChat(activeChar.id, p => [...p.map(x => (x.kind === "callinvite" && x.ts === m.ts) ? { ...x, answered: "declined" } : x), { role: "system", kind: "system", content: "你拒绝了 TA 的" + (m.mode === "video" ? "视频" : "语音") + "通话邀请", ts: Date.now() }]); },
+    onAskCouple: cid => askCoupleInvite(activeChar.id, cid),
+    askingCouple: gen.coupleAsk || null,
     onAcceptListen: acceptListenInvite,
     onOpenStudyInvite: m => {
       setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id });
@@ -14098,7 +14132,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       gazeSeedBusy: gazeSeedBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); }
     });
-  })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false) }) : null, desireBoxOpen && activeChar && window.DesireBoxSheet ? h(window.DesireBoxSheet, {
+  })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, desireBoxOpen && activeChar && window.DesireBoxSheet ? h(window.DesireBoxSheet, {
     char: activeChar,
     box: desires[activeChar.id],
     busy: desireBusy,

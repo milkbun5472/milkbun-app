@@ -644,7 +644,7 @@
                 h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, borderTopLeftRadius: 3, padding: "9px 12px", fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.55 } }, cm.text)));
           }))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "20px 0" } },
-              (props.characters && props.characters.length) ? "还没人看过这笔账，点上面让 TA 们说说" : "先去『名录』建个角色")),
+              (props.characters && props.characters.length) ? "还没人看过这笔账，点上面让 TA 们说说" : "先去『人格档案馆』建个角色")),
       pick ? h(CommentPicker, {
         characters: props.characters, moods: props.moods, affinities: props.affinities, existing: comments.map(c => c.charId),
         txn, cur, active: props.active, worldbook: props.worldbook, uName: props.uName, toast: props.toast,
@@ -858,7 +858,7 @@
                 h(Avatar, { character: c, size: 36, radius: 10 }),
                 h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, c.name),
                 h("div", { style: { width: 22, height: 22, borderRadius: 999, border: "1.5px solid " + (on ? ACCENT : t.line), background: on ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center" } }, on ? h(ICheck, { size: 13, color: "#fff" }) : null));
-            }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『名录』建个角色")) : null,
+            }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "20px 0" } }, "先去『人格档案馆』建个角色")) : null,
           // ---- 币种管理 ----
           tab === "cur" ? h(Fragment, null,
             curs.map(c => h("div", { key: c.code, style: { ...rowStyle, marginBottom: 8 } },

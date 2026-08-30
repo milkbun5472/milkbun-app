@@ -1,56 +1,179 @@
 // ============================================================
 // CAST + form
 // ============================================================
-// 角色卡一键导入（v48.30，搬家器）：整篇卡粘进来 → 自动拆 名字/人设/初始长期记忆/记忆库种子（〔置顶〕识别）。
-// 认「## 标题」分节的卡（如小克的出生证明）；没有结构的就整篇当人设，绝不导入失败。
-function parseCharCard(raw) {
-  const text = String(raw || "").replace(/\r/g, "");
-  const out = { name: "", persona: "", longMem: "", seeds: [] };
-  let m = text.match(/^#\s*([^\n·#]+?)\s*[·|]?\s*角色卡/m) || text.match(/名字[「"']([^」"']+)[」"']/);
-  if (m) out.name = m[1].trim();
-  const secs = [];
-  const re = /^##+\s*(.+)$/gm;
-  let last = null, mm;
-  while ((mm = re.exec(text))) {
-    if (last) secs.push({ title: last.title, body: text.slice(last.end, mm.index).trim() });
-    last = { title: mm[1].trim(), end: mm.index + mm[0].length };
+// 角色卡一键导入（v48.30 搬家器；v58.46 大修）：整篇卡粘进来 → 自动拆 名字/一句话/人设/长期记忆/记忆库种子。
+// 她 2026-08-30：「导入角色卡那个格式还是有点不对劲，经常导入了格式还是不对」。原来那版只认两种东西：
+// 「# 名字 · 角色卡」这一种标题，和「##」这一级分节。别的一律走「整篇当人设」的兜底——
+// 于是酒馆导出的 JSON 会被原样当人设塞进去（连大括号一起），{{char}}/{{user}} 占位符原样留着，
+// 例句脚手架（<START>、mes_example）也一起进去跟 app 自己的手机机制打架。
+
+// {{char}} / {{user}} 这类占位符 app 不认，导入时就换掉，不要留给她手动改
+function cardFillNames(text, charName, userName) {
+  return String(text || "")
+    .replace(/\{\{\s*char\s*\}\}/gi, charName || "TA")
+    .replace(/<\s*BOT\s*>/gi, charName || "TA")
+    .replace(/\{\{\s*user\s*\}\}/gi, userName || "你")
+    .replace(/<\s*USER\s*>/gi, userName || "你")
+    .replace(/\{\{\s*original\s*\}\}/gi, "")
+    .replace(/\{\{\s*random\s*:\s*([^,}]*)[^}]*\}\}/gi, "$1")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+// 酒馆卡里的例句脚手架：<START> 之后那一段是「示范怎么对话」，不是这个人是谁。
+// 塞进人设会让角色照着例句的格式说话，跟 app 自己的气泡/手机机制打架。
+function cardStripScaffold(text) {
+  let out = String(text || "");
+  const at = out.search(/<\s*START\s*>/i);
+  if (at >= 0) out = out.slice(0, at);
+  return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+// 一张卡里可能夹着的「跟 app 打架」的东西，导入前挑明，不偷偷吞掉
+function cardWarnings(text, hadExample) {
+  const w = [];
+  const t = String(text || "");
+  if (/\{\{\s*(char|user)\s*\}\}|<\s*(BOT|USER)\s*>/i.test(t)) w.push("卡里有 {{char}}/{{user}} 占位符，已经替换成角色名和你的名字");
+  if (hadExample || /<\s*START\s*>/i.test(t)) w.push("卡里有对话示例（<START> / mes_example），没有导入——它会让 TA 照着例句的格式说话");
+  if (/(手机|微信|状态栏|输出格式|回复格式|输出要求|status\s*bar)/i.test(t)) w.push("卡里像是带了「手机 / 输出格式」那种脚手架，导入后翻一眼人设，跟 app 自带的机制打架就删掉");
+  return w;
+}
+// 酒馆卡（v1 扁平 / v2 带 data / 直接一个对象）：认出来就按字段拆，不要整坨当人设
+function cardFromJSON(text) {
+  const raw = String(text || "").trim();
+  if (!(raw.startsWith("{") && raw.endsWith("}"))) return null;
+  let o;
+  try { o = JSON.parse(raw); } catch (e) { return null; }
+  if (!o || typeof o !== "object") return null;
+  const d = (o.data && typeof o.data === "object") ? o.data : o;
+  if (!d.name && !d.description && !d.personality && !d.first_mes) return null;
+  const parts = [];
+  if (d.description) parts.push(String(d.description).trim());
+  if (d.personality) parts.push("【性格】\n" + String(d.personality).trim());
+  if (d.scenario) parts.push("【当下处境】\n" + String(d.scenario).trim());
+  // 世界书（character_book）正好就是记忆库种子该装的东西
+  const book = (d.character_book && Array.isArray(d.character_book.entries)) ? d.character_book.entries : [];
+  const seeds = book.map(e => ({
+    text: String((e && (e.content || e.text)) || "").replace(/\s+/g, " ").trim(),
+    pinned: !!(e && (e.constant || e.enabled === true && e.constant))
+  })).filter(x => x.text.length > 4);
+  return {
+    name: String(d.name || "").trim(),
+    tagline: String(d.creator_notes || "").split("\n")[0].trim().slice(0, 40),
+    persona: parts.join("\n\n"),
+    longMem: "",
+    seeds: seeds,
+    greeting: String(d.first_mes || "").trim(),
+    hadExample: !!String(d.mes_example || "").trim(),
+    from: "json"
+  };
+}
+// 认得出的分节标题：# / ## / **加粗** / 【】 / [] 四种写法，外加「人设：」这种带冒号的。
+// 后三种允许值写在【同一行】上（「【一句话】永安王」），那一段算这一节的正文头。
+const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*(.+?)[ \t]*[:：]?[ \t]*|\*\*(.+?)\*\*[ \t]*[:：]?[ \t]*(.*?)[ \t]*|[【\[〔](.+?)[】\]〕][ \t]*[:：]?[ \t]*(.*?)[ \t]*|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：][ \t]*(.*?)[ \t]*)$/gm;
+// 带冒号那一种太宽（正文里随便一行「他说：」也像），所以只认这些词
+const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "初始记忆", "记忆库种子", "记忆种子", "种子", "记忆库", "开场白", "问候语", "第一句", "一句话", "标签", "外貌", "persona", "description", "memory", "greeting"];
+function parseCharCard(raw, userName) {
+  const text0 = String(raw || "").replace(/\r/g, "");
+  const asJson = cardFromJSON(text0);
+  const out = asJson || { name: "", tagline: "", persona: "", longMem: "", seeds: [], greeting: "", hadExample: false, from: "text" };
+  if (!asJson) {
+    const text = text0;
+    // 「# X · 角色卡」「名字：X」「【姓名】X」「**姓名**：X」「名字「X」」，最后才退到第一个 # 标题
+    let m = text.match(/^#\s*([^\n·#|]+?)\s*[·|｜]?\s*角色卡/m)
+      || text.match(/^[ \t]*(?:#{1,6}[ \t]*)?(?:\*\*|[【\[〔])?[ \t]*(?:名字|姓名|角色名|人物名|name)[ \t]*(?:\*\*|[】\]〕])?[ \t]*[:：]?[ \t]*[「"'\[]?([^\n」"'\]]{1,20})/im)
+      || text.match(/名字[「"']([^」"']+)[」"']/)
+      || text.match(/^#[ \t]*([^\n#]{1,20})[ \t]*$/m);
+    if (m) out.name = m[1].trim().replace(/[*_`]/g, "");
+    const secs = [];
+    let last = null, mm;
+    const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until) .trim() });
+    CARD_SEC_RE.lastIndex = 0;
+    while ((mm = CARD_SEC_RE.exec(text))) {
+      const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim();
+      const pre = (mm[3] || mm[5] || mm[7] || "").trim();
+      // 带冒号那一支只认名单里的词，别把正文里的「他说：」当成分节
+      if (mm[6] && !CARD_SEC_KWS.some(k => title.toLowerCase().includes(k))) continue;
+      if (!title) continue;
+      if (last) push(last, mm.index);
+      last = { title: title, pre: pre, end: mm.index + mm[0].length };
+    }
+    if (last) push(last, text.length);
+    const find = kws => secs.find(s => kws.some(k => s.title.toLowerCase().includes(k)));
+    // 先挑种子再挑长期记忆：「记忆库种子」里也含着「记忆」两个字
+    const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子"]);
+    const mSec = secs.find(s => !(sSec && s === sSec) && ["长期记忆", "初始记忆"].some(k => s.title.includes(k)));
+    const pSec = find(["人设", "设定", "描述", "persona", "description"]);
+    const gSec = find(["开场白", "问候语", "第一句", "greeting"]);
+    const tSec = find(["一句话", "标签", "tagline"]);
+    if (pSec) out.persona = pSec.body.trim();
+    if (mSec) out.longMem = mSec.body.trim();
+    if (gSec) out.greeting = gSec.body.trim();
+    if (tSec) out.tagline = tSec.body.trim().split("\n")[0].slice(0, 40);
+    if (sSec) {
+      out.seeds = sSec.body.split(/\n(?=\d+[\.、．)]\s*)/).map(x => x.replace(/^\d+[\.、．)]\s*/, "").replace(/\s+/g, " ").trim()).filter(x => x.length > 4).map(x => {
+        const pinned = /[〔\[【]\s*置顶\s*[〕\]】]/.test(x);
+        return { text: x.replace(/[〔\[【]\s*置顶\s*[〕\]】]/g, "").trim(), pinned };
+      });
+    }
+    if (!out.persona) out.persona = text.trim(); // 没认出结构：整篇当人设，名字留给她改
   }
-  if (last) secs.push({ title: last.title, body: text.slice(last.end).trim() });
-  const find = kws => secs.find(s => kws.some(k => s.title.includes(k)));
-  const pSec = find(["人设"]);
-  const mSec = find(["长期记忆", "初始记忆"]);
-  const sSec = find(["记忆库种子", "种子", "记忆库"]);
-  if (pSec) out.persona = pSec.body.trim();
-  if (mSec) out.longMem = mSec.body.trim();
-  if (sSec) {
-    out.seeds = sSec.body.split(/\n(?=\d+[\.、．)]\s*)/).map(s => s.replace(/^\d+[\.、．)]\s*/, "").replace(/\s+/g, " ").trim()).filter(s => s.length > 4).map(s => {
-      const pinned = /[〔\[【]\s*置顶\s*[〕\]】]/.test(s);
-      return { text: s.replace(/[〔\[【]\s*置顶\s*[〕\]】]/g, "").trim(), pinned };
-    });
-  }
-  if (!out.persona) out.persona = text.trim(); // 没认出结构：整篇当人设，名字留给用户改
+  out.warnings = cardWarnings(text0, out.hadExample);
+  // 占位符替换和例句脚手架，两条路（JSON 和纯文本）都要走一遍
+  const nm = out.name || "TA";
+  out.persona = cardFillNames(cardStripScaffold(out.persona), nm, userName);
+  out.longMem = cardFillNames(out.longMem, nm, userName);
+  out.greeting = cardFillNames(cardStripScaffold(out.greeting), nm, userName);
+  out.tagline = cardFillNames(out.tagline, nm, userName);
+  out.seeds = (out.seeds || []).map(x => ({ text: cardFillNames(x.text, nm, userName), pinned: x.pinned })).filter(x => x.text);
   return out;
 }
-function CardImportSheet({ onImport, onClose }) {
+// 整页，不是半窗（no-half-sheet.md）：这一页要装一大块粘贴框 + 解析预览 + 一串提醒，
+// 半窗先扣掉一半屏幕，预览会被挤到看不见。
+function CardImportSheet({ onImport, onClose, userName }) {
   const t = useTheme();
   const [txt, setTxt] = useState("");
-  const p = txt.trim() ? parseCharCard(txt) : null;
-  return h(Sheet, { onClose, tall: true },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 4 } }, "导入角色卡"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把整篇角色卡粘进来（支持「## 人设 / ## 长期记忆 / ## 记忆库种子」分节的卡，种子里〔置顶〕会自动置顶）——一键建档+种记忆，不用再手动逐步贴。没有分节的就整篇当人设。"),
-    h("textarea", { value: txt, onChange: e => setTxt(e.target.value), rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
-    p ? h("div", { style: { marginTop: 12, padding: "11px 13px", borderRadius: 12, background: t.bg, border: "1px solid " + t.line } },
-      h(Eyebrow, { style: { marginBottom: 6 } }, "解析预览"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.8 } },
-        "名字：" + (p.name || "（没认出来，导入后记得改）"),
-        h("br"), "人设：" + (p.persona ? p.persona.length + " 字" : "—"),
-        h("br"), "初始长期记忆：" + (p.longMem ? p.longMem.length + " 字" : "（无）"),
-        h("br"), "记忆库种子：" + (p.seeds.length ? p.seeds.length + " 条（置顶 " + p.seeds.filter(s => s.pinned).length + " 条）" : "（无）"))) : null,
-    h("button", {
-      onClick: () => { if (p && p.persona) onImport(p); },
-      className: "w-full mt-3 active:opacity-70",
-      style: { background: p && p.persona ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 }
-    }, "导入并建档"));
+  const [nameEdit, setNameEdit] = useState(null);   // null=跟着解析走，字符串=她自己改过了
+  const p = txt.trim() ? parseCharCard(txt, userName) : null;
+  const name = nameEdit != null ? nameEdit : (p ? p.name : "");
+  const line = (zh, v) => h("div", { className: "flex items-baseline gap-2", style: { marginTop: 4 } },
+    h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, zh),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, v));
+  return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), background: t.bg, borderBottom: "1px solid " + t.line } },
+      h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 52px", minHeight: 44 } },
+        h("button", { onClick: onClose, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
+        h("div", { className: "text-center min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "导入角色卡"),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: t.fog, marginTop: 1 } }, "IMPORT")),
+        h("div"))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
+        "整篇粘进来就行。认得出酒馆卡的 JSON（v1/v2，连世界书一起收成记忆种子），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。"),
+      h("textarea", { value: txt, onChange: e => { setTxt(e.target.value); setNameEdit(null); }, rows: 12, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
+      p ? h("div", { style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+        h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是酒馆卡" : "解析预览"),
+        // 名字在这里就能改——原来只能先导进去、再去档案里改一遍
+        h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, "名字"),
+          h("input", {
+            value: name, onChange: e => setNameEdit(e.target.value), placeholder: "没认出来，自己写一个",
+            className: "flex-1 min-w-0 bg-transparent outline-none",
+            style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, borderBottom: "1px solid " + t.line, padding: "2px 0" }
+          })),
+        p.tagline ? line("一句话", p.tagline) : null,
+        line("人设", p.persona ? p.persona.length + " 字" : "—"),
+        line("长期记忆", p.longMem ? p.longMem.length + " 字" : "（无）"),
+        line("记忆种子", p.seeds.length ? p.seeds.length + " 条（置顶 " + p.seeds.filter(x => x.pinned).length + " 条）" : "（无）"),
+        p.greeting ? line("开场白", p.greeting.length + " 字 · 导入后当 TA 的第一句话") : null,
+        (p.warnings || []).length ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line } },
+          p.warnings.map((w, n) => h("div", { key: n, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } }, "· " + w))) : null,
+        p.persona ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 4 } }, "人设开头长这样"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: 108, overflow: "hidden" } }, p.persona.slice(0, 220))) : null) : null,
+      h("button", {
+        onClick: () => { if (p && p.persona) onImport(Object.assign({}, p, { name: (name || "").trim() })); },
+        className: "w-full mt-4 active:opacity-70",
+        style: { background: p && p.persona ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 }
+      }, "导入并建档")));
 }
 // 长文导入记忆库（v48.83，她要「把总结的一切存进记忆库、能被 app 小克搜到」）：粘长文→切条目→绑角色→建向量索引
 function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
@@ -78,15 +201,26 @@ function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
     h("button", { onClick: () => { if (txt.trim() && cid) { onImport(cid, txt); onClose(); } }, className: "w-full mt-3 active:opacity-70",
       style: { background: txt.trim() && cid ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, "导入并建索引"));
 }
-function castFileNo(char, index) {
-  const seed = String((char && (char.id || char.name)) || index || "FILE");
-  let hash = 17;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) % 10000;
-  return String(hash || index + 1).padStart(4, "0");
-}
+// 卡片上写的每一条都得是真的。原来那个 FILE 编号是拿 id 哈希出来的假卷宗号——
+// 跟日记那条假条形码一个毛病（她 2026-08-30 让删的），这里不再有。
 function castSummary(char) {
   const raw = String((char && (char.tagline || char.persona)) || "").replace(/\s+/g, " ").trim();
-  return raw || "尚未写入人物摘要";
+  return raw;
+}
+// 上一次说话是多久以前
+function castAgo(ts, nowTs) {
+  if (!ts) return "";
+  const now = nowTs || Date.now();
+  const diff = now - ts;
+  if (diff < 0) return "";
+  if (diff < 60 * 60 * 1000) return "刚聊过";
+  const d = new Date(ts), n = new Date(now);
+  const midnight = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  if (ts >= midnight) return Math.max(1, Math.floor(diff / 3600000)) + "小时前";
+  if (ts >= midnight - 86400000) return "昨天";
+  const days = Math.floor((midnight - ts) / 86400000) + 1;
+  if (days <= 30) return days + "天前";
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日";
 }
 function CastSection({ no, title, en, tint, children }) {
   const t = useTheme();
@@ -106,6 +240,7 @@ function CastSection({ no, title, en, tint, children }) {
 }
 function Cast({
   characters,
+  meta,
   onBack,
   onEdit,
   onAdd,
@@ -113,59 +248,70 @@ function Cast({
   onOpenChar
 }) {
   const t = useTheme();
-  const cards = characters.map((c, i) => {
+  const now = Date.now();
+  const M = meta || {};
+  // 一张卡上只写【真的有】的那几条：没设时区就不出现「跟随系统」，没生日就不出现「未录入」。
+  // 一栏恒定写着同一句话＝零信息，白占一整行（她 2026-08-30 说这版「差点意思」）。
+  const cards = characters.map(c => {
     const accent = c.color || t.tint;
-    const tzLabel = c.tz
-      ? "UTC" + (String(c.tz).startsWith("-") ? c.tz : "+" + String(c.tz).replace("+", ""))
-      : "跟随系统";
+    const md = M[c.id] || {};
+    const chips = [];
+    if (md.couple === "together") chips.push({ k: "♥ 第 " + (md.coupleDays || 1) + " 天", hot: true });
+    else if (md.couple === "pending") chips.push({ k: "♥ 邀请待回应", hot: true });
+    if (md.aff != null) chips.push({ k: "好感 " + md.aff });
+    const ago = castAgo(md.lastTs, now);
+    if (ago) chips.push({ k: ago });
+    else chips.push({ k: "还没说过话" });
+    if (c.tz) chips.push({ k: "UTC" + (String(c.tz).startsWith("-") ? c.tz : "+" + String(c.tz).replace("+", "")) });
+    if (c.birthday) chips.push({ k: "生日 " + c.birthday });
+    chips.length = Math.min(chips.length, 4);   // 一张卡最多两行小标，再多就把卡撑成一屏只放得下两张
+    const sum = castSummary(c);
     return h("button", {
       key: c.id,
       onClick: () => onOpenChar(c),
       className: "w-full block active:opacity-90",
-      style: { position: "relative", minHeight: 174, marginBottom: 15, textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 19, boxShadow: "0 8px 24px rgba(46,38,29,.07)", overflow: "hidden" }
+      style: { position: "relative", marginBottom: 12, textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, boxShadow: "0 6px 18px rgba(46,38,29,.06)", overflow: "hidden" }
     },
-      h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 9, background: accent } }),
-      h("span", { style: { position: "absolute", right: 16, top: 0, width: 54, height: 12, borderRadius: "0 0 7px 7px", background: accent, opacity: .88 } }),
-      h("div", { className: "flex", style: { minHeight: 128, padding: "17px 16px 12px 22px" } },
-        h("div", { className: "shrink-0", style: { position: "relative" } },
-          h(Avatar, { character: c, size: 92, radius: 17 }),
-          h("span", { className: "flex items-center justify-center", style: { position: "absolute", right: -6, bottom: -6, minWidth: 35, height: 35, padding: "0 7px", borderRadius: 999, background: t.ink, color: t.bg2, border: "3px solid " + t.bg2, fontFamily: F_DISPLAY, fontSize: 16 } }, String(c.name || "?").slice(0, 1))),
-        h("div", { className: "flex-1 min-w-0", style: { paddingLeft: 17 } },
-          h("div", { className: "flex items-start justify-between gap-2" },
-            h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".16em", color: t.fog } }, "FILE · " + castFileNo(c, i)),
-            h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".12em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 7px" } }, "在册")),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.05, color: t.ink, marginTop: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, marginTop: 8, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, castSummary(c)))),
-      h("div", { className: "grid", style: { gridTemplateColumns: "1fr 1fr auto", borderTop: "1px solid " + t.line, marginLeft: 9 } },
-        h("div", { style: { padding: "10px 12px", borderRight: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".16em", color: t.fog } }, "TIMEZONE"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 3 } }, tzLabel)),
-        h("div", { style: { padding: "10px 12px", borderRight: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".16em", color: t.fog } }, "BIRTHDAY"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 3 } }, c.birthday || "未录入")),
-        h("span", { onClick: e => { e.stopPropagation(); onEdit(c); }, className: "flex items-center justify-center active:opacity-50", style: { width: 48 } }, h(IPencil, { size: 16, color: t.sub }))));
+      // 左侧那条是他自己的颜色——档案盒的书脊
+      h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 7, background: accent } }),
+      h("div", { className: "flex items-start gap-3.5", style: { padding: "14px 12px 12px 20px" } },
+        h("div", { className: "shrink-0" }, h(Avatar, { character: c, size: 62, radius: 15 })),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { className: "flex items-center gap-2" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
+            c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, "备注 " + c.remark) : null),
+          sum ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"),
+          h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 9 } }, chips.map((x, n) => h("span", {
+            key: n,
+            style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap", color: x.hot ? accent : t.fog, background: x.hot ? "transparent" : "rgba(0,0,0,0.035)", border: "1px solid " + (x.hot ? accent : "transparent") }
+          }, x.k)))),
+        h("span", { onClick: e => { e.stopPropagation(); onEdit(c); }, className: "shrink-0 flex items-center justify-center active:opacity-50", style: { width: 34, height: 34 } }, h(IPencil, { size: 16, color: t.fog }))));
   });
+  const inTalk = characters.filter(c => (M[c.id] || {}).lastTs).length;
   return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    // 紧凑标题栏（mobile-ui-layout.md）：返回 + 居中小标题 + 右侧等宽操作位。
+    // 她 2026-08-30：「名字改了叫人格档案馆但是上面还是显示叫名录」——名字只有这一处，改就一起改。
     h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(8), background: t.bg, borderBottom: "1px solid " + t.line } },
-      h("div", { className: "grid items-center", style: { gridTemplateColumns: "52px 1fr 92px", minHeight: 44 } },
+      h("div", { className: "grid items-center", style: { gridTemplateColumns: "76px 1fr 76px", minHeight: 44 } },
         h("button", { onClick: onBack, className: "flex items-center justify-start active:opacity-50", style: { width: 44, height: 44 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "text-center min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "名录"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "人格档案馆"),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".2em", color: t.fog, marginTop: 1 } }, "PERSONA ARCHIVE")),
         h("div", { className: "flex items-center justify-end gap-1" },
-          onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 6px" } }, "导入") : null,
-          h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 38, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))))),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
-      h("div", { className: "flex items-end justify-between", style: { padding: "22px 2px 16px" } },
-        h("div", null,
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".22em", color: t.fog } }, "CATALOGUE / 在册人物"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 28, color: t.ink, marginTop: 5 } }, "人格档案馆")),
-        h("div", { className: "text-right" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 30, lineHeight: 1, color: t.tint } }, characters.length),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, "份卷宗"))),
+          onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
+          h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))))),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       characters.length === 0
-        ? h(Empty, { text: "名录中还没有角色", sub: "点右上角 + 录入第一位" })
-        : cards));
+        ? h(Empty, { text: "档案馆里还没有人", sub: "点右上角 + 立第一份卷宗" })
+        : [
+            // 大标题换成一条细的：一屏 844 高，原来那块 28px 标题＋留白吃掉快 200px，
+            // 只剩两张半卡看得见（mobile-ui-layout.md 也不许子页面放大标题）
+            h("div", { key: "cnt", className: "flex items-baseline gap-2", style: { padding: "12px 2px 10px" } },
+              h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".2em", color: t.fog } }, "CATALOGUE"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, characters.length + " 份卷宗" + (inTalk ? " · " + inTalk + " 位在聊" : ""))),
+            h("div", { key: "list" }, cards)
+          ]));
 }
 function CastForm({
   initial,
@@ -242,11 +388,18 @@ function CastForm({
       h("option", { value: "" }, "跟随系统（默认）"),
       TZ_OPTS.map(o => h("option", { key: o[0], value: o[0] }, "UTC" + (o[0][0] === "-" ? o[0] : "+" + o[0].replace("+", "")) + " · " + o[1]))),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, "开时间感知后，Ta 会按自己所在时区报时间；日程仍按你本地日期。"));
-  const birthdayField = h("div", null,
-    h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 农历八月十五", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
-    age == null ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: accent, marginTop: 6, fontWeight: 600 } }, "现在 " + age + " 岁", h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontWeight: 400, marginLeft: 8 } }, "生日后自动加一")),
-    (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填；带年份才会计算年龄。"));
+  const birthdayField = (function () {
+    if (age == null) return h("div", null,
+      h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
+      (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填，【带上年份】才会算年龄。"));
+    return h("div", null,
+      h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: accent, marginTop: 6, fontWeight: 600 } }, "现在 " + age + " 岁",
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, fontWeight: 400, marginLeft: 8 } }, "生日一过自动加一，Ta 自己也知道")),
+      (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填，【带上年份】才会算年龄——填好之后，人设正文里那句「XX 岁」可以删掉了。"));
+  })();
   const appearanceFields = h("div", null,
     h("div", { className: "flex items-center gap-3 mb-3" },
       h(AvatarPicker, { character: { name, avatarImage: refPhoto, color }, size: 56, radius: 12, imageMaxDim: 1024, imageQuality: 0.94, onPick: setRefPhoto, onClear: () => setRefPhoto(null) }),
@@ -276,7 +429,7 @@ function CastForm({
         h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 9, background: accent } }),
         h("span", { style: { position: "absolute", right: 18, top: 0, width: 58, height: 12, borderRadius: "0 0 7px 7px", background: accent } }),
         h("div", { className: "flex items-center justify-between", style: { marginLeft: 5, marginBottom: 15 } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".18em", color: t.fog } }, "FILE · " + castFileNo(initial || { name }, 0)),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".18em", color: t.fog } }, "PERSONA DOSSIER"),
           h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".12em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 8px" } }, initial ? "在册" : "待归档")),
         h("div", { className: "flex items-center gap-4", style: { marginLeft: 5 } },
           h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 86, radius: 17, onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
@@ -563,7 +716,7 @@ function Ties({
     }),
     h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
       characters.length === 0
-        ? h(Empty, { text: "还没有角色", sub: "先去名录录入" })
+        ? h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" })
         : h(Fragment, null,
             h("div", { className: "pt-2 mb-3" }, h(Eyebrow, null, "点角色查看 TA 的关系")),
             participants.map(p => h(RosterRow, { key: p.id, id: p.id })))),
@@ -909,7 +1062,7 @@ function Lifestyle({ characters, schedules, selId, busyKey, onBack, onSel, onGen
   const tp = useRef(null);
   const idx = Math.max(0, characters.findIndex(c => c.id === selId));
   const char = characters[idx] || characters[0];
-  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "行程", en: "Lifestyle", onBack }), h(Empty, { text: "还没有角色", sub: "先去名录录入一位" }));
+  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "行程", en: "Lifestyle", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
   const todayKey = schedLocalDayKey(char);
   const plans = schedules[char.id] || {};
   const todayPlan = plans[todayKey] || plans[schedDayKey(new Date())]; // 旧设备日键只作显示兜底，新当地日程生成后自动接管
@@ -3877,7 +4030,7 @@ function CoupleQAConfig({ characters, custom, onSave, toast }) {
   const cur = chars.find(c => c.id === selId);
   const count = text.split("\n").filter(s => s.trim()).length;
   const save = () => { onSave(selId, text.split("\n")); toast("已保存 " + count + " 题"); };
-  if (!chars.length) return h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingTop: 8 } }, "还没有角色，先去名录录入一位。");
+  if (!chars.length) return h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingTop: 8 } }, "还没有角色，先去人格档案馆录入一位。");
   return h("div", null,
     h(Eyebrow, { style: { marginBottom: 8 } }, "情侣问答 · 自定义题库"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.fog, marginBottom: 12 } }, "为某个角色添加只属于你俩的问题——一行一题。内置 60 题所有角色共用；这里加的题只出现在你和该角色的问答小本，各角色之间不互通。"),
@@ -4148,7 +4301,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
                 h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 6 } }, "日语角色开：汉字按假名读，不串中文")),
               h(Toggle, { on: !!v.jpKana, onChange: on => { saveVlib(vlib.map(x => x.id === v.id ? { ...x, jpKana: on } : x)); toast && toast(on ? "日语句里的汉字会先转假名再读（每条多一次很便宜的AI转换）" : "已关闭注音"); } })),
             assignFor === v.id ? h("div", { className: "flex flex-wrap gap-2", style: { marginTop: 8 } },
-              (characters || []).length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色，先去名录建一个。") :
+              (characters || []).length === 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色，先去人格档案馆建一个。") :
               (characters || []).map(ch => h("button", { key: ch.id, onClick: () => { onAssignVoice && onAssignVoice(ch.id, v.id); setAssignFor(null); }, className: "active:opacity-70",
                 style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 13px", borderRadius: 999, background: ch.voiceId === v.id ? t.tint : "transparent", color: ch.voiceId === v.id ? "#fff" : t.ink, border: "1px solid " + (ch.voiceId === v.id ? t.tint : t.line) } }, ch.remark || ch.name))) : null);
         }))),
@@ -5310,7 +5463,7 @@ function ApiConfig({
     }
   }, "删除此配置")), false && onSetOfflineApi && h("div", { style: { marginTop: 26, paddingTop: 18, borderTop: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, "线下与创作 API"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下、群线下、小游戏、日记、同人文与穿越互动都走这里；线下 OOC、滚动总结和结束总结也跟随这条线路。角色若在名录里指定了专属线路，角色专属内容仍永远优先走自己的专线；不选＝跟随线上主模型。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "单人线下、群线下、小游戏、日记、同人文与穿越互动都走这里；线下 OOC、滚动总结和结束总结也跟随这条线路。角色若在人格档案馆里指定了专属线路，角色专属内容仍永远优先走自己的专线；不选＝跟随线上主模型。"),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       [{ id: null, name: "跟随线上主模型" }].concat(list).map(p => {
         const on = (offlineApiId || null) === (p.id || null);
@@ -7705,7 +7858,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
 
   if (!authors.length) return h("div", { className: "h-full flex flex-col" },
     h(Head, { zh: "日记", en: "Diary", onBack }),
-    h(Empty, { text: "还没有角色", sub: "先去名录录入" }));
+    h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }));
 
   // ---- 我写日记 ----
   if (view === "compose") return h(MyDiaryCompose, { onBack: () => setView("entries"), onSave: saveMyEntry });
@@ -7998,7 +8151,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     // eslint-disable-next-line
   }, [selId]);
 
-  if (!chars.length) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "钱包", en: "Wallet", onBack }), h(Empty, { text: "还没有角色", sub: "先去名录录入一位" }));
+  if (!chars.length) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "钱包", en: "Wallet", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
 
   // —— 花名册（未选角色）——
   if (!char) return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
@@ -8134,7 +8287,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
       ]) : null,
       // 欠账。只收【真的是钱】的——人情债不在这儿，它属于查手机那本账。
       // v58.38 起这一栏【真的会动余额】：点「收回」/「还清」就记一笔流水。
-      // 名字如果正好是她名录里另一个角色，两边钱包一起动，方向相反——
+      // 名字如果正好是她人格档案馆里另一个角色，两边钱包一起动，方向相反——
       // 一笔钱不会凭空多出来（她 2026-08-30 问的那两件事）。
       debts.length ? cardBox([
         h("div", { key: "dh", className: "flex items-center justify-between mb-1" }, secTitle("欠账"),
@@ -8158,7 +8311,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
                 h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, textDecoration: done ? "line-through" : "none", wordBreak: "break-word" } }, d.who),
-                // 对上她名录里另一个角色：结清时两边一起动
+                // 对上她人格档案馆里另一个角色：结清时两边一起动
                 peer ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: peer.ready ? t.tint : t.fog, border: "1px solid " + (peer.ready ? t.tint : t.line), borderRadius: 99, padding: "1px 6px", whiteSpace: "nowrap" } },
                   peer.ready ? "和 " + peer.name + " 两边对账" : peer.name + " 还没开通钱包") : null),
               d.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, d.why) : null,
@@ -9297,7 +9450,7 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
   const markSeen = (cid, k) => setSeen(p => { const n = { ...p, [cid]: { ...(p[cid] || {}), [k]: true } }; saveJSON("x_carrySeen", n); return n; });
   const clearSeen = cid => setSeen(p => { const n = { ...p }; delete n[cid]; saveJSON("x_carrySeen", n); return n; });
   const char = characters.find(c => c.id === selId) || characters[0];
-  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "随身物", en: "Carry", onBack }), h(Empty, { text: "还没有角色", sub: "先去名录录入一位" }));
+  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "随身物", en: "Carry", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
   // 进随身物的第一屏：一扇关着的对开柜门，点一下门向两边开，里头挂着这些人。
   // 原先这里是个盒子——内页已经全改成柜子了，门口还摆个盒子对不上（她 2026-08-29）。
   const doorFace = {
