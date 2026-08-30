@@ -367,7 +367,12 @@ test("健康卡按 group 分页，窄卡两两并排、宽卡整行", () => {
   assert.deepEqual(P.HEALTH_GROUPS.map(g => g.key), ["body", "mind", "intake"]);
   // 分页是按数据里的 group 走的，不靠指标名——指标名是模型按角色世界起的，
   // 写死名字的话，「玉简传信」这种就会掉到页外看不见
-  assert.match(SRC, /const byGroup = g => cards\.filter\(c => \(c\.group \|\| "body"\) === g\)/);
+  assert.match(SRC, /const byGroup = g => cards\.filter\(c => healthGroupOf\(c\) === g\)/);
+  // v58.31：group 先过一遍归位。以前是 (c.group || "body") === g，只认三个 key，
+  // 模型回中文或「私密」这种词，整张卡每个 tab 都翻不到（她 2026-08-30 报的）
+  assert.doesNotMatch(SRC, /\(c\.group \|\| "body"\) === g/);
+  assert.equal(P.healthGroupOf({ group: "私密" }), "mind");
+  assert.equal(P.healthGroupOf({ group: "谁也不认识" }), "body");
   assert.match(SRC, /if \(buf\.length === 2\)/);
   assert.doesNotMatch(SRC, /c\.name === "睡眠/);
 });

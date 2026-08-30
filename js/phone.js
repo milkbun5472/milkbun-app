@@ -2594,6 +2594,30 @@ const HEALTH_GROUPS = [
   { key: "mind", zh: "心神", glyph: "liked" },
   { key: "intake", zh: "摄入", glyph: "takeout" }
 ];
+// 模型不一定按 key 回：会写中文（「心神」「摄入」）、写英文近义词（mood/private/diet），
+// 也会照着提示词里那句「私密的身体反应」直接回 group:"私密"。
+// 旧写法是拿 group 直接跟这三个 key 比 —— 别的一律【一张都不显示】：
+// 卡还在数据里、也实实在在花了一次调用，就是每个 tab 都翻不到
+//（她 2026-08-30：「我怎么记得我们有一个私密生理状态没了，明明之前刷新还看到了的」）。
+const HEALTH_GROUP_ALIAS = (() => {
+  const m = {};
+  const put = (key, words) => words.forEach(w => { m[w] = key; });
+  put("body", ["body", "physical", "vitals", "vital", "fitness", "sleep", "体征", "身体", "生理", "体能", "睡眠"]);
+  put("mind", ["mind", "mental", "mood", "emotion", "emotional", "psych", "social", "private", "intimate", "intimacy", "sexual", "desire", "libido",
+    "心神", "心理", "情绪", "精神", "社交", "私密", "亲密", "隐私", "欲望", "性"]);
+  put("intake", ["intake", "diet", "food", "nutrition", "drink", "consumption", "output",
+    "摄入", "饮食", "进食", "营养", "消耗", "补给"]);
+  return m;
+})();
+// 认得出来就归位；认不出来的一律回落到第一个 tab——宁可摆错一档，也不许整张卡消失
+const healthGroupOf = c => {
+  const raw = String((c && c.group) || "").trim().toLowerCase();
+  if (!raw) return "body";
+  if (HEALTH_GROUPS.some(g => g.key === raw)) return raw;
+  if (HEALTH_GROUP_ALIAS[raw]) return HEALTH_GROUP_ALIAS[raw];
+  const hit = Object.keys(HEALTH_GROUP_ALIAS).find(w => raw.indexOf(w) >= 0);
+  return hit ? HEALTH_GROUP_ALIAS[hit] : "body";
+};
 function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals }) {
   const [tab, setTab] = useState("body");
   const scrollRef = useRef(null);
@@ -2747,7 +2771,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
       h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: "#cfd4da", margin: "20px auto 14px" } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#9aa0a8", textAlign: "center", padding: "0 10px" } }, data.tail)) : null,
     onPeek ? peekBtn("健康洞察", "他今天的身体", insights.map(x => (x.title || "") + "：" + (x.text || "")).join("｜")) : null) : null;
-  const byGroup = g => cards.filter(c => (c.group || "body") === g);
+  const byGroup = g => cards.filter(c => healthGroupOf(c) === g);
   const PAGES = HEALTH_GROUPS.map(g => ({
     key: g.key, zh: g.zh, glyph: g.glyph,
     secs: (g.key === "body" ? [headCard] : []).concat(layoutCards(byGroup(g.key)))
