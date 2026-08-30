@@ -2199,6 +2199,25 @@
                  ep.growth.map((g, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, color: g.to > g.from ? "#5a7d5a" : t.fog }) },
                    g.name + " " + STAT_ZH[g.stat] + ":d100=" + g.roll + (g.to > g.from ? " → " + g.from + "→" + g.to + " ✦长进了" : " → 没超过 " + g.from + ",这门还得再练"))),
                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "成长与旧伤已写回冒险小分队的老卡——下一团 TA 带着这些来。")) : null,
+               // 战报:她 2026-08-30 首团抓的「通关连句提示都没有」——结算感由这一块补,纯本地拼,零调用
+               (() => {
+                 const rolls = camp.msgs.filter(m => m.role === "roll");
+                 if (!rolls.length && !(camp.quests || []).length) return null;
+                 const acc = {};
+                 rolls.forEach(r => { if (!r.who || !r.tier) return; const a = acc[r.who] || (acc[r.who] = { n: 0, ok: 0, crit: 0, fumble: 0 }); a.n++; if (TIER_RANK[r.tier] >= 2) a.ok++; if (r.tier === "crit") a.crit++; if (r.tier === "fumble") a.fumble++; });
+                 const fated = camp.msgs.filter(m => m.role === "roll" && /命运点/.test(String(m.content || ""))).length;
+                 const scenes = rolls.filter(r => r.tier === "crit" || r.tier === "fumble").slice(-4);
+                 const qd = (camp.quests || []).filter(q => q.status === "done"), qf = (camp.quests || []).filter(q => q.status === "failed");
+                 return h("div", { style: { marginBottom: 6 } },
+                   h("div", { style: S.lbl }, "战报"),
+                   h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) },
+                     "历时 " + (((camp.time || {}).day) || 1) + " 日 · " + camp.msgs.filter(m => m.role === "gm").length + " 拍 · 章节 " + camp.stages.filter(s => s.done).length + "/" + camp.stages.length
+                     + " · 线索 " + (camp.clues || []).length + " 条 · 命运点动用 " + fated + " 次"),
+                   (camp.visited || []).length > 1 ? h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.sub }) }, "足迹:" + camp.visited.join(" → ")) : null,
+                   Object.keys(acc).map(name => { const a = acc[name]; return h("div", { key: name, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, lineHeight: 1.6 } }, name + " 掷" + a.n + " 成" + a.ok + "(" + Math.round(a.ok * 100 / Math.max(1, a.n)) + "%)" + (a.crit ? " 🌟×" + a.crit : "") + (a.fumble ? " 💥×" + a.fumble : "")); }),
+                   scenes.length ? h("div", { style: { marginTop: 3 } }, h("div", { style: Object.assign({}, S.lbl, { fontSize: 9 }) }, "名场面"), scenes.map((r, i) => h("div", { key: i, style: { fontFamily: "monospace", fontSize: 10, color: r.tier === "crit" ? "#5a7d5a" : "#a4442e", lineHeight: 1.5 } }, (r.tier === "crit" ? "🌟 " : "💥 ") + String(r.content || "").slice(0, 60)))) : null,
+                   (qd.length || qf.length) ? h("div", { style: Object.assign({}, S.txt, { fontSize: 12, marginTop: 3 }) }, "支线:" + (qd.length ? "达成「" + qd.map(q => q.name).join("」「") + "」" : "") + (qf.length ? (qd.length ? " · " : "") + "折戟「" + qf.map(q => q.name).join("」「") + "」" : "")) : null);
+               })(),
                camp.myline ? h("div", { style: { marginBottom: 6 } }, h("div", { style: S.lbl }, "你的暗线"), h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, "「" + camp.myline + "」" + (ep.myline ? " —— " + ep.myline : ""))) : null,
                ep.untold && ep.untold.length ? h("div", null, h("div", { style: S.lbl }, "没来得及揭开的"), ep.untold.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12 }) }, "· " + x))) : null)]);
       const flow = camp.msgs.map(m => m.role === "photo"
