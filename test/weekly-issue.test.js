@@ -187,6 +187,10 @@ test("周刊详情复用紧凑顶栏，封面从安全区铺满且倒计时在�
   assert.match(w, /const EDITORIAL_CELLS = \[/, "封面要使用可控的编辑网格而不是随机散字");
   assert.match(cover, /gridTemplateColumns: "repeat\(12,minmax\(0,1fr\)\)"/, "封面标题必须落在 12 栏网格里，不能越界互相压住");
   assert.match(cover, /items\.slice\(0, EDITORIAL_CELLS\.length\)/, "七个版块都要有稳定位置");
+  assert.match(cover, /items\.slice\(EDITORIAL_CELLS\.length\)/, "后来补进本期的栏目不能被固定七格封面截掉");
+  assert.match(cover, /data-weekly-cover-additions/, "后续生成内容要在封面有稳定的增刊目录入口");
+  assert.match(cover, /onClick: A\.it\.onOpen/, "增刊标题必须能点进对应正文，不能只显示占位文字");
+  assert.match(cover, /String\(A\.index \+ 1\)\.padStart\(2, "0"\)/, "新增栏目编号必须承接主版位，保持整本标题系统统一");
   assert.match(w, /const SECTION_BRICKS = \[/, "每个栏目要有自己的低饱和识别色");
   assert.match(cover, /const isSolid = i === 0 \|\| i === 2 \|\| i === 4/, "封面要用实心色块承重，不能只让文字漂着");
   assert.match(cover, /background: isSolid \? L\.color\.solid/, "栏目色块必须真正渲染到版面");

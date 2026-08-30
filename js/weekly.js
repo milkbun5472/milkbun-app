@@ -1198,6 +1198,13 @@
         size: cell.kind === "hero" ? (long ? 28 : 34) : cell.kind === "feature" ? (long ? 18 : 21) : cell.kind === "wide" ? (long ? 17 : 20) : 16,
         weight: i === 0 ? 500 : (r() < .45 ? 600 : 400) };
     });
+    // 自动抽中的栏目先占固定七块主版位；之后补采访／补文风或后台续刊的内容
+    // 不能再被封面的固定网格截掉。它们进入同一期的增刊目录，沿用封面编号、
+    // 栏目识别色与点击入口，并按 sections 的稳定顺序排列。
+    const additions = items.slice(EDITORIAL_CELLS.length).map(function (it, i) {
+      const absoluteIndex = EDITORIAL_CELLS.length + i;
+      return { it: it, index: absoluteIndex, color: ck.sections[absoluteIndex % ck.sections.length] };
+    });
     const sub = "rgba(35,32,25,.52)";
     const coverInk = "#232019";
     const progressTrack = "rgba(35,32,25,.14)";
@@ -1239,6 +1246,25 @@
             h("div", { style: { position: "relative", zIndex: 1, fontFamily: L.face, fontWeight: L.weight, fontSize: L.size, lineHeight: 1.13, letterSpacing: c.kind === "hero" ? "-.02em" : 0, color: titleInk, wordBreak: "keep-all", overflowWrap: "break-word", display: "-webkit-box", WebkitLineClamp: c.kind === "hero" ? 3 : 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, L.it.title),
             L.it.meta ? h("div", { style: { position: "relative", zIndex: 1, fontFamily: F_BODY, fontSize: 9, color: metaInk, marginTop: 7, letterSpacing: ".05em", wordBreak: "keep-all" } }, L.it.meta) : null);
         })),
+      additions.length ? h("section", { "data-weekly-cover-additions": "true", style: { marginTop: 22, borderTop: "1px solid " + progressTrack, paddingTop: 13 } },
+        h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".22em", color: sub } }, "ADDED TO THIS ISSUE"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: sub } }, "后来刊入 · " + additions.length + " 栏")),
+        h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } },
+          additions.map(function (A, i) {
+            const wide = i % 3 === 2 || additions.length === 1;
+            const solid = i % 2 === 0;
+            const titleInk = solid ? A.color.on : A.color.solid;
+            const metaInk = solid ? "rgba(255,255,255,.72)" : sub;
+            return h("button", { key: A.it.id || A.index, onClick: A.it.onOpen, className: "text-left active:opacity-60",
+              style: { minWidth: 0, minHeight: wide ? 94 : 112, gridColumn: wide ? "1 / -1" : "auto", padding: wide ? "15px 16px" : "13px 12px", position: "relative", overflow: "hidden", background: solid ? A.color.solid : A.color.pale, borderBottom: solid ? "none" : "7px solid " + A.color.solid } },
+              h("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 9 } },
+                h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".16em", color: titleInk } }, String(A.index + 1).padStart(2, "0")),
+                h("span", { style: { width: wide ? 30 : 16, height: 1, background: titleInk, opacity: .65 } }),
+                h("span", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "'Archivo',sans-serif", fontSize: 7, letterSpacing: ".16em", textTransform: "uppercase", color: metaInk } }, A.it.en || "SUPPLEMENT")),
+              h("div", { style: { fontFamily: wide ? F_DISPLAY : F_BODY, fontSize: wide ? 22 : 17, fontWeight: wide ? 500 : 600, lineHeight: 1.15, color: titleInk, wordBreak: "keep-all", overflowWrap: "break-word", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, A.it.title),
+              A.it.meta ? h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: metaInk, marginTop: 7, letterSpacing: ".04em" } }, A.it.meta) : null);
+          }))) : null,
       h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 15 } },
         h("div", { style: { height: 1, flex: 1, background: progressTrack } }),
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".24em", color: sub } }, "TAP A HEADLINE")));
