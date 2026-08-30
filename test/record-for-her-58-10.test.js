@@ -76,10 +76,39 @@ test("「他能看到这笔」＝只看到这一笔，不是整本账开给他",
   assert.match(ledSrc, /function ledgerOwnLines\(charId\)/);
 });
 
+// 她 2026-08-30 追问：「宝宝 / 帮我记一下 / 下周三10点开会 这样三个气泡可以吗」
+test("触发词表：拆成几个气泡说也认得出，而且不误伤「我记得」这类", () => {
+  // ⚠️抠【真正在跑的那一份】出来，不许在测试里另抄一份正则——
+  // 抄一份的话，改了代码没改测试，测的就是那份抄件
+  const i = app.indexOf("      const _askedRecord = (function () {");
+  const j = app.indexOf("})();", i) + 5;
+  assert.ok(i > 0 && j > i, "抠不出触发判据");
+  const gate = new Function("history", app.slice(i, j).replace("const _askedRecord =", "return"));
+  const U = t => ({ role: "user", content: t });
+  const A = t => ({ role: "assistant", content: t });
+  // 她举的例子：关键那句在中间
+  assert.equal(gate([U("宝宝"), U("帮我记一下"), U("下周三10点开会")]), true);
+  // 关键那句后面还跟几句也行；只数【她说的】，中间夹他的回复不占额度
+  assert.equal(gate([U("帮我记一下"), U("下周三10点"), U("开会"), U("哦对"), U("跟导师"), U("就这样")]), true);
+  assert.equal(gate([U("帮我记一下"), A("好"), U("下周三10点"), A("嗯"), U("开会")]), true);
+  // 六条以外就不看了——再宽就等于常驻
+  assert.equal(gate([U("帮我记一下"), U("a"), U("b"), U("c"), U("d"), U("e"), U("f")]), false);
+  // 该开的各种说法
+  ["帮我记一下", "记一下下周三开会", "帮我记加币24吃东西", "记个账", "记着下周三有个会",
+   "写进备忘录", "存进账本", "提醒我下周三开会", "别忘了下周三开会", "给我记一笔", "加个提醒"]
+    .forEach(x => assert.equal(gate([U(x)]), true, "这句该开却没开：" + x));
+  // ⚠️最容易误伤的：「记」字在这些词里跟「记下来」没关系
+  ["宝宝", "下周三10点开会", "我记得你说过", "你还记得吗", "我不记得了", "我记性不好",
+   "这个月花了好多啊", "我今天买了杯咖啡", "今天好累"]
+    .forEach(x => assert.equal(gate([U(x)]), false, "这句不该开却开了：" + x));
+});
+
 test("按需开放：她没开口让人记的轮次，这两个字段一个字都不发", () => {
   assert.match(app, /const _askedRecord = \(function \(\) \{/);
-  // 只看最近三条她说的话
-  assert.match(app, /i >= history\.length - 3/);
+  // 只看最近六条【她说的话】（他的回复不占额度）
+  assert.match(app, /let seen = 0;/);
+  assert.match(app, /i >= 0 && seen < 6/);
+  assert.match(app, /if \(!m \|\| m\.role !== "user"\) continue;\n\s*seen\+\+;/, "得只数她说的那几条");
   assert.match(app, /if \(_askedRecord && typeof window\.memoAddByChar === "function"\)/);
   assert.match(app, /if \(_askedRecord && typeof window\.ledgerAddByChar === "function"\)/);
   // 字段字典那两行也跟着开关走，不是常驻

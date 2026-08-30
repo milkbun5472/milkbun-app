@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.10";
+const APP_VERSION = "v58.11";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5378,12 +5378,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 理由和论坛回声那条一样——十轮里九轮用不上的层，不该每轮都占着 prompt
       // （.claude/rules/four-surfaces-same-context.md 里唯一允许砍层的那条判据）。
       // 用词表粗筛就够：漏判最多是这一轮没记上、她再说一遍；每轮都发是实打实的常驻开销。
+      // ⚠️这里的取舍是【不对称】的，所以词表要往宽了写：
+      //   漏判 → 这一轮没记上，她得重说一遍（她按次计费，等于白花一次）
+      //   误判 → 多发 319 字，模型没东西可记就不填这个字段，什么也不会发生
+      // 所以宁可多开，别少开。「我记得」「你还记得吗」「我记性不好」这几种
+      // 最容易误伤的说法专门试过，不会触发。
+      // 窗口取【最近 6 条她说的话】：她习惯拆成几个气泡说
+      //（「宝宝」／「帮我记一下」／「下周三10点开会」），
+      // 关键那句常常不是最后一句，卡在 3 条就容易正好漏掉。
       const _askedRecord = (function () {
-        for (let i = history.length - 1; i >= 0 && i >= history.length - 3; i--) {
+        let seen = 0;
+        for (let i = history.length - 1; i >= 0 && seen < 6; i--) {
           const m = history[i];
           if (!m || m.role !== "user") continue;
-          const txt = String(m.content || "");
-          if (/记(一笔|一下|上|下|账|个)|帮我记|记到|添.*(备忘|提醒|日程)|加.*(备忘|提醒|日程)|提醒我|别忘|记得提醒/.test(txt)) return true;
+          seen++;
+          if (/帮我记|给我记|记(一笔|一下|一条|上|下|个|着|到|进|账)|(记|写|存|加)(进|到|入).{0,4}(备忘|提醒|日程|账|本)|添.{0,3}(备忘|提醒|日程)|加.{0,3}(备忘|提醒|日程)|提醒我|别忘|记得提醒|(记|存|写).{0,3}(备忘录|账本)/.test(String(m.content || ""))) return true;
         }
         return false;
       })();
