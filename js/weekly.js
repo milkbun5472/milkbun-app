@@ -1356,24 +1356,79 @@
         articleBody(a, false));
       return h("article", { key: i, style: { display: "grid", gridTemplateColumns: decoFirst ? "66px minmax(0,1fr)" : "minmax(0,1fr) 66px", alignItems: "start", margin: "0 18px 32px", paddingBottom: 24, borderBottom: "1px solid " + L.tint + "55" } }, decoFirst ? deco : copy, decoFirst ? copy : deco);
     }
-    return h("div", { style: { color: L.ink, margin: "0 -10px", paddingBottom: 8 } },
-      // 内页报头与封面共用“色块当骨头”的语言，但每栏使用自己的字号和字体。
-      h("div", { style: { display: "grid", gridTemplateColumns: "1fr 74px", minHeight: 112, marginBottom: 22 } },
-        h("div", { style: { padding: "20px 18px 17px", background: L.tint, color: s.voiceId === "cyberpunk" || s.voiceId === "noir" ? L.paper : "#fffaf4" } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".25em", textTransform: "uppercase", opacity: .72 } }, L.eyebrow),
-          h("div", { style: { fontFamily: L.titleFace, fontSize: s.voiceId === "tabloid" ? 29 : 26, fontWeight: s.voiceId === "tabloid" || L.face === "mono" ? 700 : 600, lineHeight: 1.08, marginTop: 13 } }, v.name)),
-        h("div", { style: { background: L.pale, color: L.tint, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", padding: "14px 5px" } },
-          h("span", { style: { fontSize: 17 } }, L.deco),
-          h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".14em", writingMode: "vertical-rl", textTransform: "uppercase" } }, "WEEKLY EDITION"))),
-      h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
-      arts[0] ? h("article", { style: { margin: "0 0 32px", paddingBottom: 24, borderBottom: "1px solid " + L.tint + "55" } },
-        h("div", { style: { width: "88%", margin: "0 0 18px auto", padding: "18px 19px", background: L.pale, borderLeft: "8px solid " + L.tint } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".22em", color: L.tint, textTransform: "uppercase", marginBottom: 8 } }, "LEAD · 01"),
-          h("div", { style: { fontFamily: L.titleFace, fontSize: 30, fontWeight: L.face === "mono" || s.voiceId === "tabloid" ? 700 : 600, color: L.ink, lineHeight: 1.12, wordBreak: "keep-all", overflowWrap: "break-word" } }, arts[0].title)),
-        h("div", { style: { margin: "0 18px" } }, articleBody(arts[0], false))) : null,
-      arts.length >= 3 ? h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, margin: "0 18px 34px", alignItems: "stretch" } }, pairedArticle(arts[1], 1, "left"), pairedArticle(arts[2], 2, "right")) : null,
-      arts.length === 2 ? wideArticle(arts[1], 1) : null,
-      arts.slice(3).map(function (a, offset) { return wideArticle(a, offset + 3); }));
+    const layoutDNA = ({ tabloid: "manifesto", cyberpunk: "manifesto", tribunal: "dossier", noir: "dossier", markets: "dossier", victorian: "classic", republican: "classic", naturalist: "notes", editorial: "standard", sportsdesk: "scoreboard" })[s.voiceId] || "standard";
+    const formation = arts.length <= 2 ? "one-plus-one" : arts.length === 3 ? "pyramid" : "eye-plus-columns";
+    const stableVariant = String(s.id || s.voiceId).split("").reduce(function (n, ch) { return n + ch.charCodeAt(0); }, 0) % 2;
+    function masthead(extra) {
+      return h("div", { style: { padding: "17px 18px 15px", borderTop: "8px solid " + L.tint, borderBottom: "1px solid " + L.tint, color: L.ink, background: extra && extra.dark ? L.paper : "transparent" } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".24em", color: L.tint, textTransform: "uppercase" } }, L.eyebrow),
+        h("div", { style: { fontFamily: L.titleFace, fontSize: 25, fontWeight: 700, lineHeight: 1.08, marginTop: 8 } }, v.name));
+    }
+    function manifestoLayout() {
+      const cyber = s.voiceId === "cyberpunk";
+      return h("div", { "data-layout-dna": "manifesto", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 18 } },
+        h("div", { style: { padding: "18px", borderBottom: "10px solid " + L.tint, position: "relative" } },
+          cyber ? h("div", { style: { fontFamily: L.bodyFace, fontSize: 10, color: L.tint, marginBottom: 10 } }, "> loading dispatch_" + String(arts.length).padStart(2, "0") + "…") : h("div", { style: { position: "absolute", right: 14, top: 12, width: 48, height: 48, borderRadius: "50%", background: L.tint, color: "#fff", display: "grid", placeItems: "center", fontFamily: L.titleFace, fontSize: 21, transform: "rotate(9deg)" } }, "独家"),
+          h("div", { style: { fontFamily: L.titleFace, fontSize: cyber ? 34 : 44, fontWeight: 800, lineHeight: cyber ? 1.02 : .94, letterSpacing: cyber ? "-.03em" : "-.045em", textTransform: cyber ? "lowercase" : "uppercase", maxWidth: cyber ? "100%" : "84%" } }, arts[0] ? arts[0].title : v.name),
+          arts[0] ? h("div", { style: { marginTop: 18, borderLeft: "5px solid " + L.tint, paddingLeft: 13 } }, articleBody(arts[0], false)) : null),
+        h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
+        h("div", { style: { margin: "0 18px", display: arts.length >= 3 ? "grid" : "block", gridTemplateColumns: arts.length === 4 ? "repeat(3,minmax(0,1fr))" : "repeat(2,minmax(0,1fr))", gap: arts.length >= 3 ? 10 : 0 } }, arts.slice(1).map(function (a, i) {
+          const dense = arts.length >= 3;
+          return h("article", { key: i, style: { display: dense ? "block" : "grid", gridTemplateColumns: cyber ? "42px 1fr" : (stableVariant && i % 2 ? "1fr 64px" : "64px 1fr"), gap: 13, padding: "17px 0", borderBottom: "1px solid " + L.tint + "66", alignItems: "start", minWidth: 0 } },
+            cyber ? h("div", { style: { fontFamily: L.bodyFace, fontSize: 9, color: L.tint } }, "[0" + (i + 2) + "]") : null,
+            h("div", { style: { gridColumn: cyber ? 2 : "auto" } },
+              h("div", { style: { fontFamily: L.titleFace, fontSize: dense ? 16 : (cyber ? 19 : 25), fontWeight: 700, lineHeight: 1.05, marginBottom: 9, overflowWrap: "break-word" } }, a.title), articleBody(a, true)),
+            cyber || dense ? null : h("div", { style: { minHeight: 76, background: L.tint, color: "#fff", display: "grid", placeItems: "center", fontFamily: L.titleFace, fontSize: 26 } }, "0" + (i + 2)));
+        })));
+    }
+    function dossierLayout() {
+      return h("div", { "data-layout-dna": "dossier", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 18 } }, masthead({ dark: s.voiceId === "noir" }), h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
+        h("div", { style: { margin: "0 18px" } }, arts.map(function (a, i) {
+          if (s.voiceId === "tribunal") return h("article", { key: i, style: { padding: "17px 0", borderBottom: "2px solid " + L.tint } },
+            h("div", { style: { display: "grid", gridTemplateColumns: "34px 1fr", gap: 10 } },
+              h("b", { style: { fontFamily: "Georgia,serif", fontSize: 24, color: L.tint } }, "Q"), h("div", { style: { fontFamily: L.titleFace, fontSize: 17, fontWeight: 600, lineHeight: 1.5 } }, "争点 " + String(i + 1).padStart(2, "0") + " · " + a.title),
+              h("b", { style: { fontFamily: "Georgia,serif", fontSize: 24, color: L.muted } }, "A"), h("div", { style: { paddingLeft: i % 2 ? 16 : 0 } }, articleBody(a, false))));
+          if (s.voiceId === "markets") return h("article", { key: i, style: { padding: "13px 0 17px", borderBottom: "1px solid " + L.tint + "66" } },
+            h("div", { style: { display: "grid", gridTemplateColumns: "42px 1fr auto", gap: 9, alignItems: "baseline", padding: "7px 9px", background: i % 2 ? "transparent" : L.pale } },
+              h("b", { style: { fontFamily: L.bodyFace, color: L.tint } }, String(i + 1).padStart(2, "0")), h("div", { style: { fontFamily: L.titleFace, fontSize: 15, fontWeight: 700 } }, a.title), h("span", { style: { fontFamily: L.bodyFace, color: i % 2 ? L.muted : L.tint } }, i % 2 ? "→" : "↗")),
+            h("div", { style: { padding: "11px 9px 0" } }, articleBody(a, true)));
+          return h("article", { key: i, style: { marginBottom: 18, padding: "14px", border: "1px solid " + L.tint + "88", boxShadow: "5px 5px 0 " + L.tint + "22" } },
+            h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: L.bodyFace, fontSize: 9, color: L.tint, letterSpacing: ".12em", marginBottom: 12 } }, h("b", null, "EXHIBIT " + String.fromCharCode(65 + i)), h("span", null, a.date || "WEEKLY LOG")),
+            h("div", { style: { fontFamily: L.titleFace, fontSize: 21, fontWeight: 700, lineHeight: 1.2, marginBottom: 10 } }, a.title), articleBody(a, false));
+        })));
+    }
+    function classicLayout() {
+      return h("div", { "data-layout-dna": "classic", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 22 } },
+        h("div", { style: { width: "78%", margin: "0 auto 18px", padding: "18px 0 15px", textAlign: "center", borderTop: "3px double " + L.tint, borderBottom: "3px double " + L.tint } },
+          h("div", { style: { fontFamily: L.titleFace, fontSize: 28, fontWeight: 600, lineHeight: 1.15 } }, v.name), h("div", { style: { fontFamily: L.bodyFace, fontSize: 11, color: L.muted, marginTop: 6 } }, v.en)),
+        h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
+        h("div", { style: { width: "78%", margin: "0 auto" } }, arts.map(function (a, i) {
+          return h("article", { key: i, style: { textAlign: "center" } }, i ? h("div", { style: { color: L.tint, fontSize: 18, margin: "18px 0" } }, "❦") : null,
+            h("div", { style: { borderTop: "1px solid " + L.tint + "88", borderBottom: "1px solid " + L.tint + "88", padding: "9px 4px", fontFamily: L.titleFace, fontSize: i ? 18 : 27, fontWeight: 600, lineHeight: 1.25, marginBottom: 14 } }, a.title),
+            h("div", { style: { textAlign: "left" } }, articleBody(a, false)));
+        })));
+    }
+    function notesLayout() {
+      return h("div", { "data-layout-dna": "notes", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 18 } }, masthead(), h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
+        h("div", { style: { margin: "0 16px" } }, arts.map(function (a, i) {
+          return h("article", { key: i, style: { display: "grid", gridTemplateColumns: stableVariant ? "1fr 58px" : "58px 1fr", gap: 14, padding: "18px 0", borderBottom: "1px solid " + L.tint + "55" } },
+            stableVariant ? null : h("aside", { style: { borderRight: "1px solid " + L.tint, paddingRight: 8, writingMode: "vertical-rl", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.muted } }, "FIELD NOTE · " + String(i + 1).padStart(2, "0")),
+            h("div", null, h("div", { style: { fontFamily: L.titleFace, fontSize: i ? 18 : 26, fontWeight: 600, lineHeight: 1.2, marginBottom: 12 } }, a.title), articleBody(a, false)),
+            stableVariant ? h("aside", { style: { borderLeft: "1px solid " + L.tint, paddingLeft: 8, writingMode: "vertical-rl", fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".14em", color: L.muted } }, "OBSERVATION · " + String(i + 1).padStart(2, "0")) : null);
+        })));
+    }
+    function standardLayout() {
+      return h("div", { "data-layout-dna": "standard", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 8 } }, masthead(), h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
+        arts[0] ? h("article", { style: { margin: "0 0 32px", paddingBottom: 24, borderBottom: "1px solid " + L.tint + "55" } }, h("div", { style: { width: "88%", margin: "0 0 18px auto", padding: "18px 19px", background: L.pale, borderLeft: "8px solid " + L.tint } }, h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 7.5, letterSpacing: ".22em", color: L.tint, marginBottom: 8 } }, "LEAD · 01"), h("div", { style: { fontFamily: L.titleFace, fontSize: 30, fontWeight: 600, lineHeight: 1.12 } }, arts[0].title)), h("div", { style: { margin: "0 18px" } }, articleBody(arts[0], false))) : null,
+        arts.length >= 3 ? h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, margin: "0 18px 34px" } }, pairedArticle(arts[1], 1, "left"), pairedArticle(arts[2], 2, "right")) : null,
+        arts.length === 2 ? wideArticle(arts[1], 1) : null, arts.slice(3).map(function (a, offset) { return wideArticle(a, offset + 3); }));
+    }
+    function scoreboardLayout() {
+      return h("div", { "data-layout-dna": "scoreboard", "data-formation": formation, style: { color: L.ink, background: L.paper, paddingBottom: 18 } }, masthead(), h(RegenRow, { busy: props.busy, onRegen: props.onRegen }),
+        h("div", { style: { margin: "0 18px", display: "grid", gridTemplateColumns: arts.length >= 3 ? "1fr 1fr" : "1fr", gap: 12 } }, arts.map(function (a, i) { return h("article", { key: i, style: { gridColumn: i === 0 ? "1 / -1" : "auto", padding: i === 0 ? "18px" : "13px", background: i === 0 ? L.tint : L.pale, color: i === 0 ? "#fff" : L.ink } }, h("div", { style: { fontFamily: L.bodyFace, fontSize: 9, letterSpacing: ".16em", opacity: .72, marginBottom: 8 } }, "MATCH NOTE " + String(i + 1).padStart(2, "0")), h("div", { style: { fontFamily: L.titleFace, fontSize: i === 0 ? 29 : 17, fontWeight: 700, lineHeight: 1.12, marginBottom: 11 } }, a.title), articleBody(a, i > 0)); })));
+    }
+    const renderer = layoutDNA === "manifesto" ? manifestoLayout : layoutDNA === "dossier" ? dossierLayout : layoutDNA === "classic" ? classicLayout : layoutDNA === "notes" ? notesLayout : layoutDNA === "scoreboard" ? scoreboardLayout : standardLayout;
+    return h("div", { style: { margin: "0 -10px" } }, renderer());
   }
 
   function IssueView(props) {
