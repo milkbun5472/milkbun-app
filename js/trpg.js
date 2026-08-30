@@ -907,6 +907,12 @@
     const [camps, setCamps] = useState(load);
     const [view, setView] = useState("list"); // list | create | play
     const [playId, setPlayId] = useState(null);
+    // 不用系统的 confirm()。她 2026-08-30:「.55 根本没有确认框」——
+    // iOS 上系统弹窗会被吞掉(Safari 连着弹几次之后可以「阻止此页面的对话框」,
+    // 一旦点过就一直是 no-op,confirm() 直接返回 false),于是 ✕ 点了什么都不发生。
+    // 换成自己画的一层:一定弹得出来,长相也跟 app 一致。
+    const [ask, setAsk] = useState(null);   // {text, yes, onYes}
+    const askConfirm = (text, onYes, yes) => setAsk({ text: text, yes: yes || "删除", onYes: onYes });
     // 把 toast 借给模块顶层的 lsWrite 用（写盘失败要说出来，不能一声不吭）
     useEffect(function () {
       window.__trpgToast = props.toast;
@@ -1438,14 +1444,15 @@
       update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { msgs: c.msgs.slice(0, lastGm + 1) })));
       if (lastUser) setInput(lastUser.content);
     };
-    const pickChoice = async c => {
+    // force=她在硬闯的询问里点了「硬闯」,别再问第二遍
+    const pickChoice = async (c, force) => {
       if (busy || !camp) return;
-      if (c.need && !hasItem(camp.items, c.need)) {
+      if (!force && c.need && !hasItem(camp.items, c.need)) {
         // 不叫「锁」了(Codex 抓的:界面画着锁点了却能做,是在骗人)——这是「硬闯」,
         // 说清代价再动手;守密人那侧的规则会让硬闯付代价或临场挂检定
-        if (!confirm("没有「" + c.need + "」——硬闯试试?守密人会让硬闯付出代价。")) return;
-        return turn(c.text + "(没有「" + c.need + "」,硬闯)");
+        return askConfirm("没有「" + c.need + "」——硬闯试试?守密人会让硬闯付出代价。", () => pickChoice(c, true), "硬闯");
       }
+      if (c.need && !hasItem(camp.items, c.need)) return turn(c.text + "(没有「" + c.need + "」,硬闯)");
       if (!c.check) return turn(c.text);
       // 命运选人:守密人没点名就由客户端随机指一个——包括玩家自己
       let m = c.check.who ? findMember(camp.party, c.check.who) : null;
@@ -1598,7 +1605,7 @@
       setMsgMenu(null); setPlayId(nc.id); setPanelOpen(false);
       props.toast("岔出一条新团,原团完整保留");
     };
-    const delCamp = id => { if (!confirm("删除这场跑团和全部记录?")) return; setPlayId(null); setView("list"); update(list => list.filter(c => c.id !== id)); };
+    const delCamp = id => askConfirm("删除这场跑团和全部记录?", () => { setPlayId(null); setView("list"); update(list => list.filter(c => c.id !== id)); });
     const pressMsg = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setMsgMenu(m), 550); };
     const pressPhoto = m => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => setPhotoMenu(m), 550); };
     const pressEnd = () => clearTimeout(pressRef.current);
@@ -1750,6 +1757,12 @@
       card: { margin: "10px 14px 0", padding: 13, borderRadius: 16, background: t.bg2, border: "1px solid " + t.line },
       lbl: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 3 },
       txt: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap" } };
+    const askSheet = ask && h("div", { onClick: () => setAsk(null), style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(30,28,24,.46)", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 34px" } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 18, overflow: "hidden", boxShadow: "0 18px 44px rgba(20,18,15,.32)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.8, padding: "20px 20px 18px" } }, ask.text),
+        h("div", { style: { display: "flex", borderTop: "1px solid " + t.line } },
+          h("button", { onClick: () => setAsk(null), style: { flex: 1, padding: "13px 0", background: "none", border: "none", fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "取消"),
+          h("button", { onClick: () => { const f = ask.onYes; setAsk(null); if (f) f(); }, style: { flex: 1, padding: "13px 0", background: "none", border: "none", borderLeft: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: "#a4442e" } }, ask.yes))));
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
     const avatarOf = (c, size) => (c && c.avatarImage)
       ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
@@ -1835,7 +1848,7 @@
           !String(draft.dossier.truth || "").trim() || !(draft.party.slice(1).every(m => (m.feats || []).length) && Object.keys(draft.outfits || {}).length)
             ? h("button", { onClick: redoBackstage, disabled: busy, style: Object.assign({}, S.btn(false), { borderColor: "#8a6d3b", color: "#8a6d3b" }) }, busy ? "在写…" : "✎ 补幕后")
             : null));
-      return h("div", { style: S.wrap }, badges(), header("新开跑团"),
+      return h("div", { style: S.wrap }, badges(), askSheet, header("新开跑团"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { style: S.card }, h("div", { style: S.lbl }, "带哪支小分队进团(数值建队时已掷定;队伍的成长只归那支队)"),
             (() => {
@@ -1890,7 +1903,7 @@
                   h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5 }) }, "🌍 " + w.title),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, String(w.world || "").slice(0, 40) + "…")),
                 h("button", { onClick: () => genFromWorld(w), disabled: busy, style: S.btn(true) }, busy ? "…" : "用它开团"),
-                h("button", { onClick: () => { if (confirm("删除这个收藏的世界?")) { saveWorlds(loadWorlds().filter(x => x.id !== w.id)); setSquadTick(x => x + 1); } }, style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删")))); 
+                h("button", { onClick: () => askConfirm("删除这个收藏的世界?", () => { saveWorlds(loadWorlds().filter(x => x.id !== w.id)); setSquadTick(x => x + 1); }), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删")))); 
           })(),
           preview));
     }
@@ -2031,7 +2044,7 @@
             try { navigator.clipboard.writeText(txt).then(() => props.toast("模组已复制:世界/章节/秘典/种子都在里面,开团页「导入模组」可重开或分享", 7000), () => props.toast("复制失败,再试一次")); } catch (e) { props.toast("复制失败:" + (e.message || "")); }
           }, style: S.btn(false) }, "📦 打包模组"),
           camp.mapRegions ? h("button", { onClick: () => { saveWorlds([{ id: rid("tw_"), title: camp.title, world: camp.world, regions: camp.mapRegions, style: camp.style || "classic", limits: camp.limits || "", ts: Date.now() }].concat(loadWorlds())); props.toast("世界已收藏——开团页可用它另起一个故事"); }, style: S.btn(false) }, "🌍 收藏此世界") : null,
-          !camp.ended && h("button", { onClick: () => { if (confirm("提前收团?守密人会就此写终章落幕。")) { setPanelOpen(false); setEndAsk({ forced: true }); } }, disabled: busy, style: S.btn(false) }, "谢幕收团"),
+          !camp.ended && h("button", { onClick: () => askConfirm("提前收团?守密人会就此写终章落幕。", () => { setPanelOpen(false); setEndAsk({ forced: true }); }, "收团"), disabled: busy, style: S.btn(false) }, "谢幕收团"),
           h("button", { onClick: () => delCamp(camp.id), style: Object.assign({}, S.btn(false), { color: "#a4442e", borderColor: "#a4442e55" }) }, "删除此团")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7 } }, "长按任意一拍可从那里分支回溯——状态按当拍快照恢复,原团一个字不动。")));
       // 休团回来(Codex 点的菜):隔了半天以上再打开,先给一张「上回说到」——
@@ -2070,7 +2083,7 @@
           h("div", { style: S.txt }, downed.map(m => m.name).join("、") + " 倒下了。命悬一线不等于终局——可以继续演,让剧情给出转机;也可以就此落幕;或长按之前的一拍分支回溯。"),
           h("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
             h("button", { onClick: () => turn("(不肯认输,想办法救回" + downed.map(m => m.name).join("、") + ")"), disabled: busy, style: S.btn(true) }, "挣扎求生"),
-            h("button", { onClick: () => { if (confirm("接受这个结局?终章会照现在的惨状写。")) setEndAsk({ forced: true }); }, disabled: busy, style: S.btn(false) }, "接受结局"))) : null;
+            h("button", { onClick: () => askConfirm("接受这个结局?终章会照现在的惨状写。", () => setEndAsk({ forced: true }), "接受"), disabled: busy, style: S.btn(false) }, "接受结局"))) : null;
       // 终章逐段揭晓 + 秘典解密
       const ep = camp.ended && camp.epilogue;
       const epFlow = ep && h("div", { style: Object.assign({}, S.card, { margin: "10px 14px" }) },
@@ -2237,7 +2250,7 @@
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "7px 0" } }, busy ? "这一拍还没落定" : "太远了——路要一步步走,先去相邻的地点"),
               h("button", { onClick: () => setSelNode(null), style: S.btn(false) }, "收起"))) : null);
       })() : null;
-      return h("div", { style: S.wrap }, badges(),
+      return h("div", { style: S.wrap }, badges(), askSheet,
         camp.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(rgba(240,236,228,.8),rgba(240,236,228,.8)), url(" + imgSrc(camp.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         ceremonyLayer, msgSheet, photoSheet, shotSheet, bigViewer, mapLayer,
         h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } },
@@ -2309,7 +2322,7 @@
         backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
       } : null;
       return h("div", { key: c.id, onClick: () => { setPlayId(c.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
-        h("button", { onClick: e => { e.stopPropagation(); if (confirm("删除「" + c.title + "」和全部记录?")) update(list => list.filter(x => x.id !== c.id)); }, style: { position: "absolute", top: 2, right: 2, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.fog, fontSize: 15, padding: 0 } }, "✕"),
+        h("button", { onClick: e => { e.stopPropagation(); askConfirm("删除「" + c.title + "」和全部记录?", () => update(list => list.filter(x => x.id !== c.id))); }, style: { position: "absolute", top: 2, right: 2, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.fog, fontSize: 15, padding: 0 } }, "✕"),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, c.title),
         c.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "⑂ 分支自「" + (c.branchedFrom.title || "原团") + "」第 " + (c.branchedFrom.at || 0) + " 拍") : null,
         h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 6 } },
@@ -2330,7 +2343,7 @@
         setPickIds(p => p.concat([id]));
       };
       const roster = [{ key: "user", name: uName }].concat(pickIds.map(id => ({ key: id, name: (charOf(id) || {}).name || "?" })));
-      return h("div", { style: S.wrap }, badges(), header("组建小分队"),
+      return h("div", { style: S.wrap }, badges(), askSheet, header("组建小分队"),
         h("div", { style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
           h("div", { style: S.card }, h("div", { style: S.lbl }, "队名"),
             h("input", { value: squadName, onChange: e => setSquadName(e.target.value), placeholder: "比如「家园号勘探组」", style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" } })),
@@ -2365,8 +2378,8 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#d9d3c8", marginTop: 12, textAlign: "center" } }, (galView.kind === "cover" ? "🎞 封面 · " : "") + (galView.campTitle || "") + " · " + new Date(galView.ts).toLocaleDateString("zh-CN")),
         h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 10, marginTop: 14 } },
           h("button", { onClick: () => saveToAlbum(galView.img), style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "none", background: "#f0ece4", color: "#26231e" } }, "保存到手机相册"),
-          h("button", { onClick: () => { const id = galView.id, img = galView.img; if (!confirm("从图库删掉这张?")) return; setGalView(null); galTomb(img); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
-      return h("div", { style: S.wrap }, badges(), header("跑团图库"), viewer,
+          h("button", { onClick: () => { const id = galView.id, img = galView.img; askConfirm("从图库删掉这张?", () => { setGalView(null); galTomb(img); saveGalList(loadGal().filter(x => x.id !== id)); setSquadTick(x => x + 1); }); }, style: { padding: "8px 16px", borderRadius: 12, fontFamily: F_BODY, fontSize: 12, border: "1px solid #ffffff44", background: "transparent", color: "#e8a08c" } }, "删除")));
+      return h("div", { style: S.wrap }, badges(), askSheet, header("跑团图库"), viewer,
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 30px" } },
           gal.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
             gal.map(x => h("div", { key: x.id, onClick: () => setGalView(x), style: { width: "calc((100% - 12px) / 3)", aspectRatio: "1 / 1", borderRadius: 8, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, position: "relative" } },
@@ -2380,7 +2393,7 @@
     const squadsBlock = squads.length ? squads.map(sq => h("div", { key: sq.id + squadTick, style: S.card },
       h("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, "⚔ " + sq.name + (sq.runs ? " · 出团" + sq.runs + "次" : " · 新队")),
-        h("button", { onClick: () => { if (!confirm("解散「" + sq.name + "」?这支队的成长与旧伤会一起消失(不影响已开的团)。")) return; const v = loadSquads(); v.squads = v.squads.filter(x => x.id !== sq.id); saveSquads(v); setSquadTick(x => x + 1); }, style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "解散")),
+        h("button", { onClick: () => askConfirm("解散「" + sq.name + "」?这支队的成长与旧伤会一起消失(不影响已开的团)。", () => { const v = loadSquads(); v.squads = v.squads.filter(x => x.id !== sq.id); saveSquads(v); setSquadTick(x => x + 1); }, "解散"), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "解散")),
       sq.members.map(v => {
         const ch = v.key === "user" ? { name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color } : (charOf(v.key) || { name: v.name });
         return h("div", { key: v.key, style: { display: "flex", alignItems: "flex-start", gap: 8, marginTop: 6 } },
@@ -2407,7 +2420,7 @@
                fontFamily: F_BODY, fontSize: 12, color: listTab === k ? t.ink : t.fog }
     }, label + (n ? " " + n : ""));
     const emptyLine = (a, b) => h("div", { style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: t.fog, lineHeight: 2 } }, a, b ? h("br") : null, b || null);
-    return h("div", { style: S.wrap }, badges(), plusSheet,
+    return h("div", { style: S.wrap }, badges(), askSheet, plusSheet,
       header("跑团", h("div", { style: { display: "flex", gap: 6 } },
         h("button", { onClick: () => { setGalView(null); setView("gallery"); }, style: S.btn(false) }, "🖼 图库"),
         h("button", { onClick: () => setPlusMenu(true), style: Object.assign({}, S.btn(true), { padding: "7px 16px" }) }, "＋"))),

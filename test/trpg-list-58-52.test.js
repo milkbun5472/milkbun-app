@@ -174,3 +174,37 @@ test("跑团里所有写盘都走同一个口子", () => {
   assert.deepEqual(raw.map(l => l.trim()).filter(l => !/^var s = |^try \{ localStorage\.setItem\(key, s\)|localStorage\.setItem\(key, old\)|localStorage\.removeItem\(key\); localStorage\.setItem\(key, s\)/.test(l)),
     [], "还有人自己写 setItem，失败了照样一声不吭：\n" + raw.join("\n"));
 });
+
+// ── 不用系统弹窗（她 2026-08-30 第三轮：「.55 根本没有确认框」）───────────────
+// iOS 上系统弹窗会被吞掉（Safari 连着弹几次之后可以「阻止此页面的对话框」，
+// 一旦点过就一直是 no-op，confirm() 直接返回 false）——于是 ✕ 点了什么都不发生，
+// 连问都不问。实测把 window.confirm 改成永远返回 false，症状一模一样。
+test("跑团里一处系统 confirm 都不许留", () => {
+  const code = src.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  const left = (code.match(/[^.\w]confirm\(/g) || []);
+  assert.deepEqual(left, [], "还在用系统弹窗，那台机器上它是不弹的");
+  // 八处删除/确认全都换成了自己那一层
+  assert.ok((src.match(/askConfirm\(/g) || []).length >= 8, "有的地方漏换了");
+});
+
+test("自己画的那一层：一定弹得出来，取消什么都不做", () => {
+  const sheet = grab("    const askSheet = ask && h(\"div\"", "    const imgSrc =", 1800);
+  assert.match(sheet, /position: "fixed", inset: 0, zIndex: 200/, "层级不够会被别的东西盖住");
+  assert.match(sheet, /onClick: \(\) => setAsk\(null\)[\s\S]{0,400}"取消"/, "没有取消，或者取消不关");
+  // 点「删除」才执行，而且先关层再执行（不然动作里再弹一次会被这一层压着）
+  assert.match(sheet, /const f = ask\.onYes; setAsk\(null\); if \(f\) f\(\);/);
+});
+
+test("每一个页面都挂着这一层，不然在那一页点删除就什么都不出来", () => {
+  const rets = src.split("\n").filter(l => /return h\("div", \{ style: S\.wrap \}/.test(l));
+  assert.ok(rets.length >= 5, "S.wrap 的页面少了：" + rets.length);
+  const missed = rets.filter(l => !/askSheet/.test(l));
+  assert.deepEqual(missed, [], "这几页没挂确认层：\n" + missed.join("\n"));
+});
+
+test("硬闯问过一次就不再问第二遍", () => {
+  const pick = grab("    const pickChoice = async (c, force) => {", "    const send = () =>", 1600);
+  assert.match(pick, /if \(!force && c\.need/, "点了「硬闯」还会再弹一次，永远进不去");
+  assert.match(pick, /pickChoice\(c, true\)/);
+  assert.match(pick, /if \(c\.need && !hasItem\(camp\.items, c\.need\)\) return turn\(c\.text \+ "\(没有「"/, "硬闯之后没把「硬闯」这件事写进宣言");
+});
