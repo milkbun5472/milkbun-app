@@ -1,0 +1,126 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+
+// 把主屏布局那几个真函数抠出来跑（不碰 React、不碰 DOM）
+function makeHome(layout, folders) {
+  const grab = (a, b) => { const i = comp.indexOf(a); const j = comp.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出：" + a); return comp.slice(i, j); };
+  const src = [
+    grab("  const DEFAULT_LAYOUT = [", "  const SP_RE = /^sp_/;"),
+    "  const SP_RE = /^sp_/;\n",
+    grab("  const wOf = ", "  // 存档 + 注册表 → 完整布局"),
+    grab("  function buildLayout(saved) {", "  function persistFolders(nf)"),
+    grab("  function findSlot(L, key) {", "  // 放下：from 和 to 交换位置"),
+    grab("  function removeFromFolder(fid, key) {", "  function renameFolder(fid, name)")
+  ].join("\n");
+  // REG 每项都挂着图标组件，跑逻辑用不着
+  const regSrc = grab("  const REG = {", "\n  };") + "\n  };";
+  const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
+  const st = { layout: JSON.parse(JSON.stringify(layout)), folders: JSON.parse(JSON.stringify(folders)), jumpedTo: undefined };
+  const foldersRef = { current: st.folders };
+  const api = new Function("REG", "loadJSON", "saveJSON", "foldersRef", "page", "setLayout", "persistFolders", "goPage",
+    src + "\nreturn { buildLayout: buildLayout, removeFromFolder: removeFromFolder, findSlot: findSlot };")(
+    REG,
+    (k, d) => k === "x_homeLayout" ? st.layout : (k === "x_homeFolders" ? st.folders : d),
+    (k, v) => { if (k === "x_homeLayout") st.layout = v; if (k === "x_homeFolders") st.folders = v; },
+    foldersRef, 0,
+    fn => { const r = fn(st.layout); if (r) st.layout = r; },
+    nf => { foldersRef.current = nf; st.folders = nf; },
+    np => { st.jumpedTo = np; });
+  return { api, st, foldersRef };
+}
+const FULL = ["f_1", "cast", "ties", "phone", "cwallet", "lore", "memlib", "diary", "memo", "study",
+  "fanfic", "weekly", "carry", "theater", "impression", "read", "debate", "dream", "tarot",
+  "pomodoro", "games", "trpg", "dreamjournal", "yanqiu"];
+// goPage 是放在 setTimeout(…,0) 里的：在别的 setState updater 里同步调 setState
+// 是 React 的忌讳（updater 必须是纯的），所以推到下一拍。测试跟着等一拍。
+const tick = () => new Promise(r => setTimeout(r, 5));
+const pageOf = (L, key) => { for (let i = 0; i < L.length; i++) if ((L[i] || []).includes(key)) return i; return -1; };
+const reach = (L, fr) => {
+  const s = new Set();
+  L.forEach(a => (a || []).forEach(k => { if (!/^sp_/.test(k)) s.add(k); }));
+  Object.keys(fr.current).forEach(f => { if (s.has(f)) (fr.current[f].keys || []).forEach(k => s.add(k)); });
+  return s;
+};
+
+// 她 2026-08-30：「我把购物从第一页的文件夹整理出来，然后找不到了」
+test("从满页的文件夹里拿东西出来——东西不许丢", () => {
+  const { api, st, foldersRef } = makeHome({ 0: FULL, 1: [], 2: [], 3: [] }, { f_1: { name: "杂物", keys: ["shop", "dwell"] } });
+  api.removeFromFolder("f_1", "shop");
+  const L = api.buildLayout(st.layout);
+  assert.ok(reach(L, foldersRef).has("shop"), "购物真的不见了");
+  assert.equal(foldersRef.current.f_1.keys.indexOf("shop"), -1, "该从文件夹里拿掉");
+  // 文件夹掏空之后，那一格就变成这个 app 本身
+  const h2 = makeHome({ 0: FULL, 1: [], 2: [], 3: [] }, { f_1: { name: "杂物", keys: ["shop"] } });
+  h2.api.removeFromFolder("f_1", "shop");
+  const L2 = h2.api.buildLayout(h2.st.layout);
+  assert.equal(pageOf(L2, "shop"), 0, "文件夹只剩一个时，拿出来该占住原来那一格");
+  assert.equal(h2.foldersRef.current.f_1, undefined, "空文件夹该删掉");
+});
+
+test("⚠️这一页放不下就会被挤到下一页——得跟着翻过去，不然跟丢了一样", async () => {
+  const { api, st } = makeHome({ 0: FULL, 1: [], 2: [], 3: [] }, { f_1: { name: "杂物", keys: ["shop", "dwell"] } });
+  api.removeFromFolder("f_1", "shop");
+  await tick();
+  const L = api.buildLayout(st.layout);
+  const p = pageOf(L, "shop");
+  assert.notEqual(p, 0, "这一页本来就满了，它只能落到别页");
+  assert.equal(st.jumpedTo, p, "落在页" + p + " 却没翻过去——她还站在原来那一页找");
+  // 落点要按【规整之后】的布局算：光看 push 进去那一刻还在页 0，是错的
+  assert.match(comp, /var pos2 = findSlot\(buildLayout\(saved\), key\);/);
+  assert.match(comp, /if \(pos2 && pos2\.p !== page\) setTimeout\(function \(\) \{ goPage\(pos2\.p\); \}, 0\);/);
+});
+
+test("同一页放得下的时候别乱翻页", async () => {
+  const { api, st } = makeHome({ 0: ["f_2", "cast", "ties"], 1: [], 2: [], 3: [] }, { f_2: { name: "杂物", keys: ["shop", "dwell"] } });
+  api.removeFromFolder("f_2", "shop");
+  await tick();
+  assert.equal(pageOf(api.buildLayout(st.layout), "shop"), 0);
+  assert.equal(st.jumpedTo, undefined, "就在眼前还翻页，会把她搞晕");
+});
+
+test("每一页都满的时候也不许丢", async () => {
+  const { api, st, foldersRef } = makeHome({
+    0: FULL,
+    1: ["w_card", "w_cal", "w_music", "w_map", "w_us", "w_memo"],
+    2: ["capsule", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab", "w_weather", "w_ledger", "w_muyu", "w_wheel"],
+    3: []
+  }, { f_1: { name: "杂物", keys: ["shop", "dwell"] } });
+  api.removeFromFolder("f_1", "shop");
+  await tick();
+  const L = api.buildLayout(st.layout);
+  assert.ok(reach(L, foldersRef).has("shop"), "挤来挤去把它挤没了");
+  assert.equal(st.jumpedTo, pageOf(L, "shop"));
+});
+
+test("REG 里每个 app 在整理之后都还找得到（安全网还在）", () => {
+  const { api, st, foldersRef } = makeHome({ 0: FULL, 1: [], 2: [], 3: [] }, { f_1: { name: "杂物", keys: ["shop", "dwell"] } });
+  api.removeFromFolder("f_1", "shop");
+  api.removeFromFolder("f_1", "dwell");
+  const L = api.buildLayout(st.layout);
+  const R = reach(L, foldersRef);
+  const regSrc = comp.slice(comp.indexOf("  const REG = {"), comp.indexOf("\n  };", comp.indexOf("  const REG = {")) + 4);
+  const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
+  const missing = Object.keys(REG).filter(k => REG[k].kind === "app" && !R.has(k));
+  assert.deepEqual(missing, [], "这些 app 从主屏上消失了：" + missing.join("、"));
+});
+
+test("两道防线各自还在——它们互相兜底，行为测试分不出来", () => {
+  // ⚠️「满页就 push 到末尾」和 buildLayout 里那张安全网，任一条单独都能保住东西，
+  // 所以把其中一条改坏，上面几条行为断言【照样绿】（实测过）。
+  // 这种时候只能各钉一次，并把「为什么不是行为测试」写下来。
+  // ① 这一页没有空位时，仍然把它接在末尾（后面由容量规整挤到下一页）
+  assert.match(comp, /if \(si >= 0\) arr\[si\] = key; else arr\.push\(key\);/,
+    "满页时不接到末尾＝这一刻它谁也不属于，只能指望安全网");
+  // ② 安全网：REG 里任何 app，既不在任何页、也不在【真的摆在页上的】文件夹里，就补回默认页
+  const i = comp.indexOf("⭐安全网");
+  assert.ok(i > 0, "安全网那段注释都没了");
+  const net = comp.slice(i, i + 1300);
+  assert.match(net, /if \(REG\[key\] && REG\[key\]\.kind === "app" && !reach\[key\]\) \{/);
+  assert.match(net, /var dp = defPage\[key\] != null \? defPage\[key\] : \(out\.length - 1\);/,
+    "不知道默认页的要补到末页，不能不补");
+  // ③ 容量规整：超出的整体溢到下一页，不是丢掉
+  assert.match(comp, /if \(cspill\.length\) out\[ci \+ 1\] = cspill\.concat\(out\[ci \+ 1\] \|\| \[\]\);/);
+});

@@ -1697,7 +1697,16 @@ function Home({
       var after = fPos ? fPos.i : -1;
       for (var j = 0; j < arr.length; j++) { if (SP_RE.test(arr[j])) { if (si < 0) si = j; if (j > after) { si = j; break; } } }
       if (si >= 0) arr[si] = key; else arr.push(key);
-      return persistLayout(L);
+      var saved = persistLayout(L);
+      // ⚠️她 2026-08-30 报「从第一页的文件夹整理出来就找不到了」。
+      // 东西其实没丢：这一页满了的话 push 进来会被容量规整挤到下一页去，
+      // 而她还站在这一页上看——一声不吭地换了页，跟丢了没区别。
+      // 所以落在哪一页要按【规整之后】的布局算，然后翻过去给她看。
+      try {
+        var pos2 = findSlot(buildLayout(saved), key);
+        if (pos2 && pos2.p !== page) setTimeout(function () { goPage(pos2.p); }, 0);
+      } catch (e) {}
+      return saved;
     });
   }
   function renameFolder(fid, name) {
