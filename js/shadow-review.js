@@ -176,24 +176,9 @@
       }, personality
     };
   }
-  async function saveText(filename, text, mime) {
-    const bridge = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeExport;
-    if (bridge && typeof bridge.postMessage === "function") {
-      const result = await bridge.postMessage({ filename, text, mime: mime || "application/json" });
-      if (!result || result.ok !== true) throw new Error("原生保存面板没有打开");
-      return "native";
-    }
-    const file = new File([text], filename, { type: mime || "application/json" });
-    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-      await navigator.share({ files: [file], title: "人格转正评审包" });
-      return "share";
-    }
-    const href = URL.createObjectURL(file), a = document.createElement("a");
-    a.href = href; a.download = filename; a.style.display = "none";
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(href), 10000);
-    return "download";
-  }
+  // 存文件走 engine.js 里那一份公共的 saveTextFile（原生桥 → 分享面板 → 普通下载），
+  // 这里不再自己留一份——一层写在两处，改了一处另一处必然跟不上
+  const saveText = (filename, text, mime) => window.saveTextFile(filename, text, mime);
   async function download(characters, appVersion) {
     const data = await build(characters, appVersion), stamp = new Date().toISOString().replace(/[:.]/g, "-");
     await saveText("lisa-shadow-review-" + stamp + ".json", JSON.stringify(data, null, 2), "application/json");

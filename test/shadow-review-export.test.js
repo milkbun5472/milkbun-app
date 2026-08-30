@@ -5,6 +5,17 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "js", "shadow-review.js"), "utf8");
+const engine = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
+
+// 存文件的实现只有 engine.js 那一份（原生桥 → 分享面板 → 普通下载），
+// shadow-review 只是转调它。所以这里把真实现装进 window，测的还是真正会跑的那段。
+function withSaveTextFile(window, navigator, document) {
+  const i = engine.indexOf("async function saveTextFile"), j = engine.indexOf("\nif (typeof window", i);
+  assert.ok(i > 0 && j > i, "抠不出 engine.js 的 saveTextFile");
+  window.saveTextFile = new Function("window", "navigator", "document", "File", "URL", "setTimeout",
+    engine.slice(i, j) + "\nreturn saveTextFile;")(window, navigator, document, File, URL, () => {});
+  return window;
+}
 
 test("原生壳导出会把文件名和完整正文交给系统分享桥", async () => {
   let payload = null;
@@ -14,7 +25,7 @@ test("原生壳导出会把文件名和完整正文交给系统分享桥", async
       return { ok: true };
     } } } }
   };
-  vm.runInNewContext(source, { window, navigator: {}, document: {}, URL, Blob, File });
+  vm.runInNewContext(source, { window: withSaveTextFile(window, {}, {}), navigator: {}, document: {}, URL, Blob, File });
   const mode = await window.ShadowReview._saveText("audit.json", "{\"ok\":true}", "application/json");
   assert.equal(mode, "native");
   assert.deepEqual({ ...payload }, {
@@ -28,7 +39,7 @@ test("原生分享桥拒绝时不能继续假报导出成功", async () => {
   const window = {
     webkit: { messageHandlers: { nativeExport: { postMessage: async () => ({ ok: false }) } } }
   };
-  vm.runInNewContext(source, { window, navigator: {}, document: {}, URL, Blob, File });
+  vm.runInNewContext(source, { window: withSaveTextFile(window, {}, {}), navigator: {}, document: {}, URL, Blob, File });
   await assert.rejects(() => window.ShadowReview._saveText("audit.json", "{}"), /没有打开/);
 });
 

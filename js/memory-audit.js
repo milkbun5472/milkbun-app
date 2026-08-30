@@ -131,17 +131,11 @@
     };
   }
 
+  // 存文件一律走 engine.js 的 saveTextFile（原生桥 → 分享面板 → 普通下载）：
+  // iOS 的 PWA 里 <a download> 是不作数的，自己写一份必然又是「显示导出了、文件没出来」
   function downloadMemoryAudit(bundle) {
     const stamp = String(bundle.generatedAt || new Date().toISOString()).replace(/[:.]/g, "-");
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "lisa-memory-audit-" + stamp + ".json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    return window.saveTextFile("lisa-memory-audit-" + stamp + ".json", JSON.stringify(bundle, null, 2), "application/json");
   }
 
   window.MemoryAudit = { build: buildMemoryAuditBundle, auditRaw: auditSide, download: downloadMemoryAudit };

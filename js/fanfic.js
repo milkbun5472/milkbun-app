@@ -331,16 +331,9 @@
         };
       })
     };
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    a.href = url;
-    a.download = "lisa-fanfic-audit-" + stamp + ".json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    // 存文件走 engine.js 的 saveTextFile：iOS PWA 里 <a download> 点了什么都不会发生
+    window.saveTextFile("lisa-fanfic-audit-" + stamp + ".json", JSON.stringify(bundle, null, 2), "application/json");
     return bundle.stories.length;
   }
 

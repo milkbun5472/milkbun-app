@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.19";
+const APP_VERSION = "v58.20";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12803,13 +12803,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }, null, 2)], {
       type: "application/json"
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
-    a.click();
-    URL.revokeObjectURL(url);
-    toast("已导出备份（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "") + "）");
+    const what = "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "") + "）";
+    const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    try {
+      const via = await saveTextFile(name, await blob.text(), "application/json");
+      if (via === "cancel") toast("导出取消了，什么都没存");
+      else if (via === "share") toast("备份已交给分享面板" + what + "，在里面选「存储到文件」");
+      else toast("已导出备份" + what);
+    } catch (e) {
+      toast("导出没成功：" + (e && e.message || e) + "——数据还在，没有丢");
+    }
   };
   const doImport = file => {
     const r = new FileReader();

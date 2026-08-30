@@ -5999,6 +5999,42 @@ function LocalPhotoLibrary({ toast }) {
         }, className: "w-full", style: { color: "#fff", background: preview.bridgeId ? "rgba(190,90,75,.75)" : "rgba(92,142,128,.9)", borderRadius: 8, fontFamily: F_BODY, fontSize: 13, padding: 11, marginTop: 8, opacity: sharing ? .55 : 1 } }, sharing ? "处理中…" : (preview.bridgeId ? "撤回给言秋看的照片" : "📮 给言秋看")),
         h("button", { onClick: async () => { await idbAlbumDel(preview.imageRef); setPreview(null); await refresh(); }, className: "w-full", style: { color: "#fff", fontFamily: F_BODY, fontSize: 12, padding: 12, marginTop: 8 } }, "仅移出本机照片库"))) : null);
 }
+// 主屏排查：直接读盘上的 x_homeLayout / x_homeFolders，告诉她某个 app 现在到底在哪儿。
+// 她 2026-08-30 报「整理出来就找不到了」，而导出整包在 iOS PWA 上又导不出来——
+// 排查不能卡在「拿不到她那份数据」上，所以这里给一条不依赖文件的路：看得见、复制得走。
+function HomeLayoutProbe({ toast }) {
+  const t = useTheme();
+  const [text, setText] = useState("");
+  const build = () => {
+    let L = {}, F = {};
+    try { L = JSON.parse(localStorage.getItem("x_homeLayout") || "{}"); } catch (e) {}
+    try { F = JSON.parse(localStorage.getItem("x_homeFolders") || "{}"); } catch (e) {}
+    const lines = [];
+    const pages = Object.keys(L).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+    pages.forEach(n => {
+      const arr = (L[n] || []).filter(k => !/^sp_/.test(k));
+      lines.push("第" + (n + 1) + "页(" + arr.length + ")：" + arr.join(" "));
+    });
+    Object.keys(F).forEach(fid => {
+      const placed = pages.some(n => (L[n] || []).indexOf(fid) >= 0);
+      lines.push("文件夹「" + (F[fid].name || "") + "」" + (placed ? "" : "（没摆在任何页上）") + "：" + (F[fid].keys || []).join(" "));
+    });
+    return lines.join("\n") + "\n\n" + JSON.stringify({ x_homeLayout: L, x_homeFolders: F });
+  };
+  const go = async () => {
+    const s = build();
+    setText(s);
+    try { await navigator.clipboard.writeText(s); toast && toast("主屏布局已复制，直接粘给言秋"); }
+    catch (e) { toast && toast("复制不了，长按下面那段自己选"); }
+  };
+  return h("div", null,
+    h("button", { onClick: go, className: "w-full py-3 active:opacity-70",
+      style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, borderRadius: 7, color: t.ink, background: "transparent", border: "1px solid " + t.line } },
+      "复制主屏布局（排查图标不见了）"),
+    text ? h("textarea", { readOnly: true, value: text, rows: 8, onFocus: e => e.target.select(),
+      style: { width: "100%", marginTop: 8, padding: 8, borderRadius: 7, border: "1px solid " + t.line,
+        background: t.bg2, color: t.ink, fontFamily: "ui-monospace,monospace", fontSize: 11, lineHeight: 1.5 } }) : null);
+}
 function DataConfig({
   characters,
   onExport,
@@ -6039,6 +6075,7 @@ function DataConfig({
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.fog } }, "数据主要保存在本机浏览器；重要操作前建议先导出一份 JSON。"),
     button("导出全部数据（.json）", onExport, true),
     button("导入备份恢复", () => ref.current && ref.current.click(), false),
+    h(HomeLayoutProbe, { toast: toast }),
     h("input", { ref: ref, type: "file", accept: "application/json,.json", className: "hidden", onChange: e => {
       const f = e.target.files && e.target.files[0]; if (f) onImport(f); e.target.value = "";
     } }));

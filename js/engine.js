@@ -3436,14 +3436,46 @@ async function saveImgOriginal(ref, name) {
   } catch (e) {}
   if (!blob) return false;
   const ext = (blob.type || "").indexOf("png") >= 0 ? "png" : ((blob.type || "").indexOf("webp") >= 0 ? "webp" : "jpg");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (name || "图片") + "-" + new Date().toISOString().slice(0, 10) + "." + ext;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-  return true;
+  // 跟存文本走同一条路：iOS 的 PWA 里 <a download> 点了什么都不会发生，得先给分享面板
+  const fname = (name || "图片") + "-" + new Date().toISOString().slice(0, 10) + "." + ext;
+  const via = await saveFile(new File([blob], fname, { type: blob.type || "image/jpeg" }));
+  return via !== "cancel";
 }
 if (typeof window !== "undefined") window.saveImgOriginal = saveImgOriginal;
+// 存一份文本到本地：iOS 的 PWA 里 <a download> 是不作数的（点了什么都不会发生），
+// 所以顺序是【原生桥 → 分享面板 → 普通下载】，并且把真正走通的那条路回报出去——
+// 她 2026-08-30 报「导不出来，没有文件出来但是显示已导出数据」，就是这条：
+// 之前那份代码用的是没插进文档的 <a>、点完立刻 revokeObjectURL，然后不管成没成一律弹「已导出」。
+// 拿不到结果就抛，别再骗她说导出成功了。
+async function saveTextFile(filename, text, mime) {
+  mime = mime || "application/json";
+  const bridge = typeof window !== "undefined" && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeExport;
+  if (bridge && typeof bridge.postMessage === "function") {
+    const result = await bridge.postMessage({ filename: filename, text: text, mime: mime });
+    if (!result || result.ok !== true) throw new Error("原生保存面板没有打开");
+    return "native";
+  }
+  return saveFile(new File([text], filename, { type: mime }));
+}
+// 一个 File 落到本地：分享面板优先（iOS 唯一走得通的那条），不行再退回普通下载。
+// <a> 必须先插进文档再点、revoke 必须延后，两条都是 Safari 上的硬要求。
+async function saveFile(file) {
+  if (typeof navigator !== "undefined" && navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    try {
+      await navigator.share({ files: [file], title: file.name });
+      return "share";
+    } catch (e) {
+      if (e && (e.name === "AbortError" || /abort|cancel/i.test(String(e.message || "")))) return "cancel";
+      // 分享面板不吃这个文件（体积过大等），继续往下试普通下载
+    }
+  }
+  const href = URL.createObjectURL(file), a = document.createElement("a");
+  a.href = href; a.download = file.name; a.style.display = "none";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(href); }, 10000);
+  return "download";
+}
+if (typeof window !== "undefined") window.saveTextFile = saveTextFile;
 function resolveImg(v) { if (!v || typeof v !== "string") return v; if (v.indexOf("iv_") === 0) return _imgCache().get(v) || ""; return v; }
 // 取图统一兜底(单11,2026-08-14):iOS IDB 写后立读偶发返 null(v47.36 案卷),但 imgToVault 存图时
 // 已把 objectURL 放进内存缓存——仓库装聋就从内存拿,本会话刚挂的图绝不再因时序丢失;两路皆空才算真 miss。

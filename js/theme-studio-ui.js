@@ -18,7 +18,10 @@
     };
     const clearIcon = key => { const icons = { ...draft.icons }; delete icons[key]; patchDraft({ icons }); };
     const exportTheme = async () => {
-      try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper }); const url = URL.createObjectURL(new Blob([text], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = "lisa-theme-" + new Date().toISOString().slice(0,10) + ".json"; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); toast("主题包已导出（含真实图标素材）"); }
+      // 存文件走 engine.js 的 saveTextFile：iOS PWA 里 <a download> 点了什么都不会发生
+      try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper });
+        const via = await window.saveTextFile("lisa-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
+        toast(via === "cancel" ? "导出取消了" : via === "share" ? "主题包已交给分享面板（含真实图标素材），在里面选「存储到文件」" : "主题包已导出（含真实图标素材）"); }
       catch (e) { toast("导出失败：" + e.message); }
     };
     const importTheme = async e => {
