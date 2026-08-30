@@ -1487,6 +1487,59 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
           style: { width: 34, height: 34, borderRadius: 999, background: c, border: color === c ? "2.5px solid " + t.ink : "1px solid " + t.line } }))),
       ini.id && h("button", { onClick: () => onDelete(ini.id), className: "w-full active:opacity-70", style: { marginTop: 16, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除这条日程")));
 }
+// 主屏装饰组件共用的外观预设。预设不只换颜色，也同时规定圆角、边框、材质与留白。
+// native 专门给旧组件保留原样；其余预设既能套旧组件，也能套新加的照片框/字句卡/日期签。
+const HOME_WIDGET_PRESETS = [
+  { id: "native", name: "原生", note: "保持组件原来的样子", chip: "linear-gradient(135deg,#eee8df,#d9d0c4)" },
+  { id: "soft", name: "雾面", note: "柔软玻璃与大圆角", chip: "linear-gradient(135deg,rgba(255,255,255,.94),rgba(225,218,209,.75))" },
+  { id: "paper", name: "纸页", note: "暖纸、细线和轻阴影", chip: "linear-gradient(135deg,#fffaf0,#e8dcc8)" },
+  { id: "polaroid", name: "拍立得", note: "白边与宽下沿", chip: "linear-gradient(135deg,#fff,#e7e3dc)" },
+  { id: "film", name: "胶片", note: "深色框与内侧描边", chip: "linear-gradient(135deg,#393733,#111)" },
+  { id: "editorial", name: "编辑部", note: "利落直角和黑色细框", chip: "linear-gradient(135deg,#f6f0e6,#d9cfbf)" }
+];
+function homeWidgetPresetStyle(id, t, kind) {
+  if (!id || id === "native") return null;
+  var base = { width: "100%", height: "100%", boxSizing: "border-box", position: "relative" };
+  if (id === "soft") return Object.assign(base, { padding: kind === "photo" ? 7 : 9, borderRadius: 25, overflow: "hidden", background: "rgba(255,255,255,.52)", border: "1px solid rgba(255,255,255,.78)", boxShadow: "0 10px 28px rgba(40,34,28,.13)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" });
+  if (id === "paper") return Object.assign(base, { padding: kind === "photo" ? 9 : 12, borderRadius: 11, overflow: "hidden", background: "#fbf4e8", border: "1px solid rgba(101,83,61,.22)", boxShadow: "0 7px 18px rgba(67,51,34,.12)" });
+  if (id === "polaroid") return Object.assign(base, { padding: kind === "photo" ? "9px 9px 23px" : "12px 12px 20px", borderRadius: 6, overflow: "hidden", background: "#fffdf8", border: "1px solid rgba(35,31,27,.12)", boxShadow: "0 9px 21px rgba(35,31,27,.18)" });
+  if (id === "film") return Object.assign(base, { padding: kind === "photo" ? 9 : 12, borderRadius: 13, overflow: "hidden", color: "#f6f0e7", background: "#1f1e1b", border: "1px solid #080808", boxShadow: "inset 0 0 0 2px rgba(255,255,255,.12),0 10px 22px rgba(20,18,15,.24)" });
+  return Object.assign(base, { padding: kind === "photo" ? 7 : 11, borderRadius: 2, overflow: "hidden", background: "rgba(248,243,234,.96)", border: "1.5px solid " + t.ink, boxShadow: "4px 4px 0 rgba(30,28,24,.12)" });
+}
+function HomeDecorItem({ item, preset, now }) {
+  const t = useTheme();
+  const dark = preset === "film";
+  const ink = dark ? "#f7f1e8" : t.ink;
+  const sub = dark ? "rgba(247,241,232,.62)" : t.fog;
+  if (item.type === "photo") {
+    var src = item.imageRef && typeof resolveImg === "function" ? resolveImg(item.imageRef) : item.imageRef;
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 150, position: "relative", overflow: "hidden", borderRadius: preset === "editorial" ? 0 : 7, background: dark ? "#0d0d0c" : t.bg2 } },
+      src ? h("img", { src: src, alt: item.caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : h("div", { style: { height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: sub, fontFamily: F_BODY, fontSize: 12 } }, "照片正在回来"),
+      item.caption ? h("div", { style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, item.caption) : null);
+  }
+  if (item.type === "date") {
+    var d = now instanceof Date ? now : new Date();
+    return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 36, lineHeight: .9, letterSpacing: "-.04em" } }, String(d.getDate()).padStart(2, "0")),
+      h("div", { style: { minWidth: 0, borderLeft: "1px solid " + (dark ? "rgba(255,255,255,.24)" : t.line), paddingLeft: 10 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".18em", color: sub } }, d.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase()),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, item.text || d.toLocaleDateString("zh-CN", { weekday: "long" }))));
+  }
+  return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink, minWidth: 0 } },
+    h("div", { style: { fontFamily: "Georgia,serif", fontSize: 35, lineHeight: .7, color: dark ? "#d7b16b" : t.accent, alignSelf: "flex-start", paddingTop: 7 } }, "“"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.45, minWidth: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, item.text || "把喜欢的日子，慢慢摆在桌面上。"));
+}
+function HomePresetGrid({ value, onChange, allowNative }) {
+  const t = useTheme();
+  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10 } },
+    HOME_WIDGET_PRESETS.filter(function (p) { return allowNative || p.id !== "native"; }).map(function (p) {
+      var active = value === p.id;
+      return h("button", { key: p.id, onClick: function () { onChange(p.id); }, className: "active:opacity-70", style: { textAlign: "left", borderRadius: 16, padding: 10, background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
+        h("div", { style: { height: 34, borderRadius: p.id === "editorial" ? 2 : p.id === "polaroid" ? 5 : 11, background: p.chip, border: p.id === "editorial" ? "1px solid #24211d" : "1px solid rgba(50,45,39,.10)", marginBottom: 8, boxShadow: p.id === "polaroid" ? "0 4px 9px rgba(0,0,0,.12)" : "none" } }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, p.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: active ? "rgba(255,255,255,.62)" : t.fog, marginTop: 2 } }, p.note));
+    }));
+}
 function Home({
   now,
   characters,
@@ -1522,6 +1575,18 @@ function Home({
   const [editMode, setEditMode] = useState(false);
   const [dragKey, setDragKey] = useState(null);
   const [layout, setLayout] = useState(function () { return loadJSON("x_homeLayout", {}); });
+  // 自由添加的装饰内容与外观分开保存：换皮不碰照片/文字，移动也不碰样式。
+  const [decorations, setDecorations] = useState(function () { var v = loadJSON("x_homeDecorations", []); return Array.isArray(v) ? v : []; });
+  const decorationsRef = useRef(decorations); decorationsRef.current = decorations;
+  const [widgetStyles, setWidgetStyles] = useState(function () { var v = loadJSON("x_homeWidgetStyles", {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; });
+  const [styleKey, setStyleKey] = useState(null);
+  const [showDecorLibrary, setShowDecorLibrary] = useState(false);
+  const [decorDraftType, setDecorDraftType] = useState("photo");
+  const [decorDraftPreset, setDecorDraftPreset] = useState("soft");
+  const [decorDraftText, setDecorDraftText] = useState("");
+  const [decorDraftPhoto, setDecorDraftPhoto] = useState("");
+  const [decorBusy, setDecorBusy] = useState(false);
+  const decorFileRef = useRef(null);
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
   const [folders, setFolders] = useState(function () { return loadJSON("x_homeFolders", {}); });
   const foldersRef = useRef(folders); foldersRef.current = folders;
@@ -1591,6 +1656,8 @@ function Home({
     assistant: { kind: "app", zh: "帮手", G: window.GAssist || GDuty },
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty }
   };
+  // 装饰也是主屏注册项，但不进入安全网：用户删掉后不会被系统当成“丢失组件”补回来。
+  decorations.forEach(function (d) { if (d && d.id) REG[d.id] = { kind: "decor", which: d.type, decor: d }; });
   // 默认布局：哪个 key 在哪页、什么顺序（组件也在里面，可跨页拖）
   // v47.73：memo/diary 图标退场（备忘录有 w_memo 组件、日记进 dock 顶了情侣的位）；天气组件搬第四页
   const DEFAULT_LAYOUT = [
@@ -1606,6 +1673,11 @@ function Home({
     if (SP_RE.test(key)) return [1, 1];
     var it = key && key.slice(0, 2) === "f_" ? { kind: "folder" } : REG[key];
     if (!it) return null;
+    if (it.kind === "decor") {
+      if (it.which === "photo") return [2, 2];
+      if (it.which === "quote") return [4, 1];
+      return [2, 1];
+    }
     if (it.kind !== "widget") return [1, 1];
     if (it.which === "cal") return [3, 3];
     if (it.which === "map" || it.which === "muyu" || it.which === "wheel") return [2, 2];
@@ -1732,6 +1804,53 @@ function Home({
   }
   function persistLayout(L) { var o = {}; L.forEach(function (arr, i) { o[i] = arr; }); saveJSON("x_homeLayout", o); return o; }
   function persistFolders(nf) { foldersRef.current = nf; saveJSON("x_homeFolders", nf); setFolders(nf); }
+  function persistDecorations(nd) { decorationsRef.current = nd; saveJSON("x_homeDecorations", nd); setDecorations(nd); }
+  function setWidgetPreset(key, preset) {
+    setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[key] = preset; saveJSON("x_homeWidgetStyles", n); return n; });
+  }
+  function resetDecorDraft() { setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftPhoto(""); setDecorBusy(false); }
+  async function takeDecorPhoto(file) {
+    if (!file) return;
+    setDecorBusy(true);
+    try {
+      var data = typeof resizeImageFile === "function" ? await resizeImageFile(file, 1000, .84) : "";
+      var ref = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
+      if (!ref) throw new Error("empty photo");
+      setDecorDraftPhoto(ref);
+    } catch (e) { if (typeof toast === "function") toast("这张照片没能放进相框"); }
+    setDecorBusy(false);
+  }
+  function addDecoration() {
+    if (decorDraftType === "photo" && !decorDraftPhoto) { if (typeof toast === "function") toast("先选一张照片"); return; }
+    var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
+    var text = decorDraftText.trim();
+    var item = { id: id, type: decorDraftType, text: text || (decorDraftType === "quote" ? "把喜欢的日子，慢慢摆在桌面上。" : "今天"), imageRef: decorDraftPhoto || "", createdAt: Date.now() };
+    REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
+    persistDecorations((decorationsRef.current || []).concat([item]));
+    setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
+    setLayout(function (prev) {
+      var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
+      var pi = Math.max(0, Math.min(page, L.length - 1));
+      if (!L[pi]) L[pi] = [];
+      L[pi].push(id);
+      var saved = persistLayout(L);
+      setTimeout(function () { try { var p2 = findSlot(buildLayout(saved), id); if (p2) goPage(p2.p); } catch (e) {} }, 0);
+      return saved;
+    });
+    setShowDecorLibrary(false); resetDecorDraft();
+    if (typeof toast === "function") toast("装饰已经放到桌面上");
+  }
+  function removeDecoration(id) {
+    persistDecorations((decorationsRef.current || []).filter(function (d) { return d.id !== id; }));
+    setLayout(function (prev) {
+      var L = [], mx = Math.max(0, curLayout.length - 1);
+      for (var i = 0; i <= mx; i++) L[i] = (prev[i] || []).filter(function (k) { return k !== id; });
+      return persistLayout(L);
+    });
+    setWidgetStyles(function (prev) { var n = Object.assign({}, prev); delete n[id]; saveJSON("x_homeWidgetStyles", n); return n; });
+    setStyleKey(null);
+    if (typeof toast === "function") toast("装饰已从桌面移走");
+  }
   const kindOf = function (key) { if (key && key.slice(0, 2) === "f_") return "folder"; var it = REG[key]; return it ? it.kind : null; };
   // 在整个布局里找 key 的位置 {p,i}
   function findSlot(L, key) {
@@ -1883,7 +2002,15 @@ function Home({
         if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
       };
       if (editMode) pickUp();
-      else lpRef.current = setTimeout(function () { lpRef.current = null; pickUp(); }, 320);
+      else lpRef.current = setTimeout(function () {
+        lpRef.current = null;
+        // 普通 app / 文件夹沿用 iOS 式长按整理；组件和装饰先开共用换皮面板，面板里仍可进入整理。
+        if (kindOf(key) === "widget" || kindOf(key) === "decor") {
+          dragRef.current = null;
+          setStyleKey(key);
+          if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
+        } else pickUp();
+      }, 320);
     }
   };
   const onTM = e => {
@@ -1992,6 +2119,7 @@ function Home({
     // 组件占格：日历 3 宽 3 高（右边留一列放 app），名片/音乐整行宽
     let gCol = "span 1", gRow = "auto";
     if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather" || it.which === "ledger") { gCol = "span 2"; } else if (it.which === "muyu" || it.which === "wheel") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
+    else if (it.kind === "decor") { if (it.which === "photo") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "quote") gCol = "span 4"; else gCol = "span 2"; }
     let inner;
     if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
@@ -2008,6 +2136,10 @@ function Home({
     else if (it.which === "ledger") inner = h(LedgerWidget, { onOpen: function () { return onOpenApp("ledger"); } });
     else if (it.which === "wheel") inner = h(WheelWidget, { editMode: editMode, onReact: onWheelReact });
     else if (it.which === "map") inner = (window.MapKit ? h(window.MapKit.MapWidget, { characters: characters, status: mapStatus, userGeo: userGeo, onOpen: function () { return onOpenApp("map"); } }) : null);
+    else if (it.kind === "decor") inner = h(HomeDecorItem, { item: it.decor, preset: widgetStyles[key] || "soft", now: now });
+    const presetId = widgetStyles[key] || (it.kind === "decor" ? "soft" : "native");
+    const presetStyle = (it.kind === "widget" || it.kind === "decor") ? homeWidgetPresetStyle(presetId, t, it.kind === "decor" ? it.which : it.which) : null;
+    if (presetStyle) inner = h("div", { style: presetStyle }, inner);
     return h("div", {
       key: key, "data-appkey": key,
       style: {
@@ -2097,7 +2229,15 @@ function Home({
       padding: "7px 20px", borderRadius: 999, background: t.ink, color: t.bg2,
       fontFamily: F_BODY, fontSize: 14, fontWeight: 600, boxShadow: "0 6px 20px rgba(30,28,24,0.25)"
     }
-  }, "完成"), editMode && h("div", {
+  }, "完成"), editMode && h("button", {
+    onClick: function () { resetDecorDraft(); setShowDecorLibrary(true); },
+    style: {
+      position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 16, zIndex: 40,
+      padding: "7px 17px", borderRadius: 999, background: "rgba(255,255,255,.78)", color: t.ink,
+      border: "1px solid rgba(255,255,255,.9)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+      fontFamily: F_BODY, fontSize: 14, fontWeight: 600, boxShadow: "0 6px 20px rgba(30,28,24,0.16)"
+    }
+  }, "＋ 装饰"), editMode && h("div", {
     style: { position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) + 150px)", textAlign: "center", zIndex: 40, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, pointerEvents: "none" }
   }, "拖到虚线空格＝放到那里 · 拖到别的图标＝互换位置 · 叠在图标上停一下＝合成文件夹 · 拖到屏幕边缘换页"), dragKey && h("div", {
     ref: ghostRef,
@@ -2107,6 +2247,7 @@ function Home({
     const gi = REG[dragKey];
     if (!gi) return null;
     if (gi.kind === "app") return h(gi.G, { size: 32, color: t.ink, sw: 1.6 });
+    if (gi.kind === "decor") return h("span", { style: { fontSize: 25 } }, gi.which === "photo" ? "▣" : gi.which === "quote" ? "“" : "31");
     return h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, { card: "名片", cal: "日历", music: "音乐", map: "地图" }[gi.which] || "组件");
   })()), openFolder && folders[openFolder] && h(FolderOverlay, {
     apps: (folders[openFolder].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; }),
@@ -2115,7 +2256,31 @@ function Home({
     onRemove: function (k) { removeFromFolder(openFolder, k); },
     onClose: function () { return setOpenFolder(null); },
     onPick: function (a) { setOpenFolder(null); if (a.soon) { onSoon && onSoon(a.zh); } else { onOpenApp(a.key); } }
-  }));
+  }), styleKey && REG[styleKey] && h(Sheet, { onClose: function () { setStyleKey(null); }, tall: true },
+    h("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 18 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "组件样式"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, REG[styleKey].kind === "decor" ? "这件装饰的内容不会因为换皮消失。" : "只换外观，不改组件原来的功能。")),
+      h("button", { onClick: function () { setStyleKey(null); setEditMode(true); }, className: "active:opacity-65", style: { flexShrink: 0, borderRadius: 999, padding: "8px 13px", background: t.bg, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "整理位置")),
+    h(HomePresetGrid, { value: widgetStyles[styleKey] || (REG[styleKey].kind === "decor" ? "soft" : "native"), allowNative: REG[styleKey].kind !== "decor", onChange: function (id) { setWidgetPreset(styleKey, id); } }),
+    REG[styleKey].kind === "decor" ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 18, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
+  showDecorLibrary && h(Sheet, { onClose: function () { setShowDecorLibrary(false); resetDecorDraft(); }, tall: true },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "桌面装饰"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 16 } }, "选内容，再挑一个适合它的框。以后长按也能随时换。"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 } },
+      [["photo", "▣", "照片框"], ["quote", "“", "字句卡"], ["date", "31", "日期签"]].map(function (x) {
+        var active = decorDraftType === x[0];
+        return h("button", { key: x[0], onClick: function () { setDecorDraftType(x[0]); if (x[0] === "date" && !decorDraftText) setDecorDraftText("今天"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 5px 11px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1 } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, marginTop: 7 } }, x[2]));
+      })),
+    decorDraftType === "photo" ? h("div", { style: { marginBottom: 17 } },
+      h("input", { ref: decorFileRef, type: "file", accept: "image/*", className: "hidden", onChange: function (e) { var f = e.target.files && e.target.files[0]; takeDecorPhoto(f); e.target.value = ""; } }),
+      h("button", { onClick: function () { if (!decorBusy && decorFileRef.current) decorFileRef.current.click(); }, className: "w-full active:opacity-70", style: { height: 116, borderRadius: 17, border: "1px dashed " + t.line, background: t.bg, overflow: "hidden", color: t.sub } },
+        decorDraftPhoto ? h("img", { src: typeof resolveImg === "function" ? resolveImg(decorDraftPhoto) : decorDraftPhoto, style: { width: "100%", height: "100%", display: "block", objectFit: "cover" } }) : h("div", { style: { fontFamily: F_BODY, fontSize: 13 } }, decorBusy ? "照片正在进金库…" : "＋ 选一张照片"))) :
+      h("textarea", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, rows: 2, maxLength: 80, placeholder: decorDraftType === "quote" ? "写一句想摆在桌面上的话" : "日期旁的小标题（可不填）", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12, marginBottom: 17 } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "选择外框"),
+    h(HomePresetGrid, { value: decorDraftPreset, allowNative: false, onChange: setDecorDraftPreset }),
+    h("button", { onClick: addDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 18, borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } }, "放到桌面上")));
 }
 // 主页名片（与聊天「我」人设解耦）：昵称 + 签名 + #标签；铅笔改名片，点头像改聊天人设/头像
 function HomeCard({ card, profile, onEditCard, onEditProfile, onOpenCodex }) {
