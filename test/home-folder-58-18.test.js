@@ -8,6 +8,10 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 function makeHome(layout, folders) {
   const grab = (a, b) => { const i = comp.indexOf(a); const j = comp.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出：" + a); return comp.slice(i, j); };
   const src = [
+    // v58.52：占几格这件事被搬去了顶层的 homeItemSpan（Codex 的组件尺寸自定义），
+    // spanOf 现在是转手调它。只抠 SP_RE 那一段的话，sandbox 里 homeItemSpan 是 undefined，
+    // 六条测试一起 ReferenceError——所以连着它和它的两块料一起抠。
+    grab("const HOME_SIZE_PRESETS = [", "function homeWidgetPresetStyle("),
     grab("  const DEFAULT_LAYOUT = [", "  const SP_RE = /^sp_/;"),
     // SP_RE 到 buildLayout 之间那一整段（SP_RE / spanOf / wOf / rowsOf）一起抠，
     // 免得以后这里多一个辅助函数、测试却只抠到其中一半
@@ -21,7 +25,7 @@ function makeHome(layout, folders) {
   const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
   const st = { layout: JSON.parse(JSON.stringify(layout)), folders: JSON.parse(JSON.stringify(folders)), jumpedTo: undefined };
   const foldersRef = { current: st.folders };
-  const api = new Function("REG", "loadJSON", "saveJSON", "foldersRef", "page", "setLayout", "persistFolders", "goPage",
+  const api = new Function("REG", "loadJSON", "saveJSON", "foldersRef", "page", "setLayout", "persistFolders", "goPage", "widgetSizes",
     src + "\nreturn { buildLayout: buildLayout, removeFromFolder: removeFromFolder, findSlot: findSlot };")(
     REG,
     (k, d) => k === "x_homeLayout" ? st.layout : (k === "x_homeFolders" ? st.folders : d),
@@ -29,7 +33,8 @@ function makeHome(layout, folders) {
     foldersRef, 0,
     fn => { const r = fn(st.layout); if (r) st.layout = r; },
     nf => { foldersRef.current = nf; st.folders = nf; },
-    np => { st.jumpedTo = np; });
+    np => { st.jumpedTo = np; },
+    {});   // 没有自定义尺寸 → 每项都按默认占格
   return { api, st, foldersRef };
 }
 // 24 格塞满一页。⚠️里面只许放【当前 REG 里真有】的 key——放了已经退场的（比如 v58.22 撤掉的
