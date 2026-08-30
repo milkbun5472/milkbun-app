@@ -1517,6 +1517,23 @@ const HOME_SIZE_PRESETS = [
   { id: "wide", name: "长条", note: "4 × 1", cols: 4, rows: 1, glyph: "━" },
   { id: "large", name: "大卡", note: "4 × 2", cols: 4, rows: 2, glyph: "▰" }
 ];
+// 装饰不是换图标的文字卡：每一种都有自己的内容语义、默认尺寸和渲染骨架。
+const HOME_DECOR_TYPES = [
+  { id: "photo", glyph: "▣", name: "照片框", text: "", detail: "" },
+  { id: "quote", glyph: "“", name: "字句卡", text: "把喜欢的日子，慢慢摆在桌面上。", detail: "" },
+  { id: "date", glyph: "31", name: "日期签", text: "今天", detail: "" },
+  { id: "ticket", glyph: "票", name: "票根夹", text: "今晚的入场券", detail: "留住一场值得记住的事" },
+  { id: "letter", glyph: "✉", name: "信封", text: "给未来的一封信", detail: "慢一点拆开，也没关系。" },
+  { id: "note", glyph: "✓", name: "便利贴", text: "今天要记得：", detail: "把重要的小事留在眼前" },
+  { id: "cassette", glyph: "◉", name: "录音磁带", text: "这一刻的声音", detail: "00:00 · 留声" },
+  { id: "trinket", glyph: "◇", name: "小物陈列盒", text: "一枚被留下的小东西", detail: "它的故事还没有写完。" }
+];
+function homeDecorMeta(type) {
+  return HOME_DECOR_TYPES.find(function (x) { return x.id === type; }) || HOME_DECOR_TYPES[1];
+}
+function homeDecorHasDetail(type) {
+  return ["ticket", "letter", "note", "cassette", "trinket"].includes(type);
+}
 const HOME_PHOTO_FRAMES = [
   { id: "single", name: "单张", note: "一张照片完整铺开", need: 1 },
   { id: "film3", name: "三格胶卷", note: "横向三连，适合长条", need: 3 },
@@ -1549,6 +1566,8 @@ function defaultHomeItemSpan(it) {
   if (it.kind === "decor") {
     if (it.which === "photo") return [2, 2];
     if (it.which === "quote") return [4, 1];
+    if (it.which === "ticket" || it.which === "cassette") return [4, 1];
+    if (it.which === "letter" || it.which === "note" || it.which === "trinket") return [2, 2];
     return [2, 1];
   }
   if (it.which === "cal") return [3, 3];
@@ -1714,6 +1733,57 @@ function HomeDecorItem({ item, preset, now }) {
     return h("div", { style: { width: "100%", height: "100%", position: "relative", minWidth: 0, overflow: "hidden" } }, body,
       caption && frame !== "magazine3" ? h("div", { style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", zIndex: 4 } }, caption) : null);
   }
+  var meta = homeDecorMeta(item.type);
+  var title = item.text || meta.text;
+  var detail = item.detail || meta.detail;
+  if (item.type === "ticket") {
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 68, display: "flex", alignItems: "stretch", color: ink, overflow: "hidden", position: "relative" } },
+      h("div", { style: { flex: 1, minWidth: 0, padding: "8px 12px 8px 10px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderRight: "1px dashed " + (dark ? "rgba(255,255,255,.38)" : "rgba(89,68,46,.42)"), background: dark ? "rgba(255,255,255,.035)" : "rgba(199,156,91,.10)", clipPath: "polygon(0 0,100% 0,100% 42%,96% 50%,100% 58%,100% 100%,0 100%)" } },
+        h("div", { style: { fontFamily: "monospace", fontSize: 7, letterSpacing: ".18em", color: sub } }, "ADMIT ONE · " + String(new Date(item.createdAt || Date.now()).getFullYear())),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.22, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, detail)),
+      h("div", { style: { width: "25%", minWidth: 47, padding: "7px 5px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderLeft: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", background: dark ? "rgba(255,255,255,.06)" : "rgba(184,119,66,.13)" } },
+        h("span", { style: { fontFamily: "monospace", fontSize: 6.5, color: sub, writingMode: "vertical-rl", letterSpacing: ".12em" } }, "NO. " + String((item.createdAt || 1) % 10000).padStart(4, "0")),
+        h("span", { style: { width: "80%", height: 12, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 7px)", opacity: .6 } })));
+  }
+  if (item.type === "letter") {
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 130, position: "relative", color: ink, overflow: "hidden" } },
+      h("div", { style: { position: "absolute", left: "12%", right: "12%", top: "5%", height: "60%", padding: "11px 10px", background: dark ? "#eee5d7" : "#fffaf0", color: "#4f4437", border: "1px solid rgba(87,65,42,.18)", transform: "rotate(-2deg)", boxShadow: "0 5px 13px rgba(45,33,23,.16)" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.45, color: "#877868", marginTop: 5 } }, detail)),
+      h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: "4%", height: "57%", background: dark ? "#38322b" : "#dbc9ab", border: "1px solid " + (dark ? "#554b40" : "#b9a17c"), clipPath: "polygon(0 0,50% 55%,100% 0,100% 100%,0 100%)", zIndex: 2 } }),
+      h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: "4%", height: "55%", background: dark ? "#41392f" : "#ead9bb", clipPath: "polygon(0 100%,0 28%,50% 72%,100% 28%,100% 100%)", zIndex: 3 } }),
+      h("div", { style: { position: "absolute", left: "50%", bottom: "17%", width: 28, height: 28, transform: "translateX(-50%)", borderRadius: 999, background: "#a64d45", color: "rgba(255,238,216,.78)", boxShadow: "inset 0 0 0 3px rgba(91,35,31,.20)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 4, fontFamily: "Georgia,serif", fontSize: 12 } }, "L"));
+  }
+  if (item.type === "note") {
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 126, position: "relative", overflow: "hidden", color: dark ? "#302b24" : "#4c4437" } },
+      h("div", { style: { position: "absolute", inset: "3% 4% 5% 3%", padding: "18px 14px 12px", background: dark ? "#d8c88a" : "#f3e3a2", transform: "rotate(-1.5deg)", boxShadow: "0 8px 18px rgba(48,39,24,.18)", clipPath: "polygon(0 0,100% 0,100% 82%,87% 100%,0 100%)" } },
+        h("span", { style: { position: "absolute", width: 44, height: 11, left: "50%", top: 4, transform: "translateX(-50%) rotate(2deg)", background: "rgba(255,255,255,.48)" } }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.25 } }, title),
+        h("div", { style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 11, color: "#746650", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.4 } }, h("span", { style: { width: 10, height: 10, border: "1px solid #8a795f", flexShrink: 0, marginTop: 1 } }), h("span", null, detail)),
+        h("div", { style: { position: "absolute", right: 0, bottom: 0, width: "13%", height: "18%", background: "linear-gradient(135deg,#d3bd70 0 49%,rgba(255,255,255,.45) 51% 100%)" } })));
+  }
+  if (item.type === "cassette") {
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 72, display: "flex", alignItems: "center", gap: 11, color: ink, overflow: "hidden" } },
+      h("div", { style: { width: "44%", maxWidth: 138, height: 60, flexShrink: 0, position: "relative", borderRadius: 7, background: dark ? "#2e2c29" : "#e6ded0", border: "2px solid " + (dark ? "#8b8173" : "#74695c"), boxShadow: "inset 0 0 0 2px " + (dark ? "#151412" : "#f8f2e8") } },
+        h("div", { style: { position: "absolute", left: 10, right: 10, top: 8, height: 28, borderRadius: 4, background: dark ? "#ddd2c0" : "#f8f2e7", border: "1px solid #9e9080", display: "flex", alignItems: "center", justifyContent: "space-around" } },
+          [0, 1].map(function (i) { return h("span", { key: i, style: { width: 19, height: 19, borderRadius: 999, border: "4px dotted #72675b", background: "#d7cbb9" } }); }),
+          h("span", { style: { position: "absolute", left: "36%", right: "36%", height: 2, background: "#8c7e6e" } })),
+        h("div", { style: { position: "absolute", left: "23%", right: "23%", bottom: 4, height: 13, clipPath: "polygon(11% 0,89% 0,100% 100%,0 100%)", border: "1px solid #897b6d", background: dark ? "#171614" : "#c9bcaa" } })),
+      h("div", { style: { minWidth: 0, flex: 1 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { style: { height: 14, display: "flex", alignItems: "center", gap: 2, marginTop: 6 } }, [5, 10, 7, 13, 8, 4, 11, 6, 9, 5].map(function (n, i) { return h("span", { key: i, style: { width: 2, height: n, borderRadius: 2, background: dark ? "#d4b979" : t.accent, opacity: .75 } }); })),
+        h("div", { style: { fontFamily: "monospace", fontSize: 8, color: sub, marginTop: 2 } }, detail)));
+  }
+  if (item.type === "trinket") {
+    return h("div", { style: { width: "100%", height: "100%", minHeight: 132, position: "relative", overflow: "hidden", color: ink, border: "1px solid " + (dark ? "rgba(255,255,255,.25)" : "rgba(85,70,52,.28)"), background: dark ? "linear-gradient(150deg,#262522,#111)" : "linear-gradient(150deg,rgba(255,255,255,.46),rgba(214,201,181,.38))", boxShadow: "inset 0 0 20px rgba(255,255,255,.20)" } },
+      h("div", { style: { position: "absolute", left: "18%", right: "18%", top: "12%", height: "45%", borderRadius: "50% 50% 48% 48%", border: "1px solid " + (dark ? "#d7b872" : "#9d7744"), background: "radial-gradient(circle at 50% 38%,rgba(255,255,255,.55),transparent 36%),linear-gradient(150deg,transparent 35%," + (dark ? "#b79858" : "#bc8849") + " 36% 42%,transparent 43%)", boxShadow: "0 11px 18px rgba(40,30,20,.15)" } },
+        h("span", { style: { position: "absolute", left: "50%", top: "34%", width: 20, height: 20, transform: "translate(-50%,-50%) rotate(45deg)", border: "2px solid " + (dark ? "#e6ca85" : "#a77b42"), background: dark ? "#31302c" : "#f5ead8" } })),
+      h("div", { style: { position: "absolute", left: "9%", right: "9%", top: "59%", height: 1, background: dark ? "rgba(255,255,255,.18)" : "rgba(75,61,45,.2)" } }),
+      h("div", { style: { position: "absolute", left: 10, right: 10, bottom: 9, textAlign: "center" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, color: sub, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, detail)));
+  }
   if (item.type === "date") {
     var d = now instanceof Date ? now : new Date();
     return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink } },
@@ -1817,9 +1887,11 @@ function Home({
   const [decorDraftType, setDecorDraftType] = useState("photo");
   const [decorDraftPreset, setDecorDraftPreset] = useState("soft");
   const [decorDraftText, setDecorDraftText] = useState("");
+  const [decorDraftDetail, setDecorDraftDetail] = useState("");
   const [decorDraftFrame, setDecorDraftFrame] = useState("single");
   const [decorDraftPhotos, setDecorDraftPhotos] = useState([]);
   const [styleDecorText, setStyleDecorText] = useState("");
+  const [styleDecorDetail, setStyleDecorDetail] = useState("");
   const [styleDecorFrame, setStyleDecorFrame] = useState("single");
   const [styleDecorPhotos, setStyleDecorPhotos] = useState([]);
   const [decorBusy, setDecorBusy] = useState(false);
@@ -2047,13 +2119,14 @@ function Home({
     if (it && it.kind === "decor" && it.decor) {
       var d = it.decor;
       setStyleDecorText(d.caption || d.text || "");
+      setStyleDecorDetail(d.detail || homeDecorMeta(it.which).detail || "");
       var frame = d.frame || "single";
       setStyleDecorFrame(frame);
       setStyleDecorPhotos(normalizeHomePhotoSlots(Array.isArray(d.imageRefs) && d.imageRefs.length ? d.imageRefs : (d.imageRef ? [d.imageRef] : []), frame));
     }
     setStyleKey(key);
   }
-  function resetDecorDraft() { setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorBusy(false); }
+  function resetDecorDraft() { setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorBusy(false); }
   async function takeDecorPhoto(file, target, slot) {
     if (!file) return;
     setDecorBusy(true);
@@ -2075,11 +2148,13 @@ function Home({
   function addDecoration() {
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
     var text = decorDraftText.trim();
-    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || (decorDraftType === "quote" ? "把喜欢的日子，慢慢摆在桌面上。" : "今天")), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", createdAt: Date.now() };
+    var meta = homeDecorMeta(decorDraftType);
+    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", createdAt: Date.now() };
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
     if (decorDraftType === "photo" && decorDraftFrame !== "single") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftFrame === "film3" ? "wide" : "large"; saveJSON("x_homeWidgetSizes", n); return n; });
+    if (decorDraftType !== "photo" && decorDraftType !== "quote" && decorDraftType !== "date") setWidgetSizes(function (prev) { var n = Object.assign({}, prev); n[id] = (decorDraftType === "ticket" || decorDraftType === "cassette") ? "wide" : "square"; saveJSON("x_homeWidgetSizes", n); return n; });
     setLayout(function (prev) {
       var L = buildLayout(prev).map(function (a) { return trimTailRows(a).slice(); });
       var pi = Math.max(0, Math.min(page, L.length - 1));
@@ -2098,7 +2173,8 @@ function Home({
     if (it.which === "photo") {
       updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame });
     } else {
-      updateDecoration(styleKey, { text: styleDecorText.trim() || (it.which === "quote" ? "把喜欢的日子，慢慢摆在桌面上。" : "今天") });
+      var meta = homeDecorMeta(it.which);
+      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? (styleDecorDetail.trim() || meta.detail) : "" });
     }
     if (typeof toast === "function") toast("桌面内容已经更新");
   }
@@ -2498,7 +2574,7 @@ function Home({
     const gi = REG[dragKey];
     if (!gi) return null;
     if (gi.kind === "app") return h(gi.G, { size: 32, color: t.ink, sw: 1.6 });
-    if (gi.kind === "decor") return h("span", { style: { fontSize: 25 } }, gi.which === "photo" ? "▣" : gi.which === "quote" ? "“" : "31");
+    if (gi.kind === "decor") return h("span", { style: { fontSize: 25 } }, homeDecorMeta(gi.which).glyph);
     return h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, { card: "名片", cal: "日历", music: "音乐", map: "地图" }[gi.which] || "组件");
   })()), openFolder && folders[openFolder] && h(FolderOverlay, {
     apps: (folders[openFolder].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; }),
@@ -2520,7 +2596,9 @@ function Home({
         h(HomePhotoSlotEditor, { value: styleDecorPhotos, frame: styleDecorFrame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, "style", slot); }, onClear: function (slot) { clearDecorPhoto("style", slot); } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "每格单独点选；也可以留空，先把相框摆在桌面上。"),
         h("input", { value: styleDecorText, onChange: function (e) { setStyleDecorText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 10, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })) :
-        h("textarea", { value: styleDecorText, onChange: function (e) { setStyleDecorText(e.target.value); }, rows: 3, maxLength: 120, placeholder: REG[styleKey].which === "quote" ? "改写字句卡里的话" : "改写日期签的小标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
+        h("div", null,
+          h("textarea", { value: styleDecorText, onChange: function (e) { setStyleDecorText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "改写" + homeDecorMeta(REG[styleKey].which).name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
+          homeDecorHasDetail(REG[styleKey].which) ? h("textarea", { value: styleDecorDetail, onChange: function (e) { setStyleDecorDetail(e.target.value); }, rows: 2, maxLength: 140, placeholder: "补一句说明、日期或留给自己的小字", style: { width: "100%", marginTop: 9, resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, padding: 12 } }) : null),
       h("button", { onClick: saveStyleDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 10, borderRadius: 14, padding: "11px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 14 } }, "保存内容")) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "占格尺寸"),
     h(HomeSizeGrid, { value: widgetSizes[styleKey] || "auto", onChange: function (id) { setWidgetSize(styleKey, id); } }),
@@ -2530,18 +2608,20 @@ function Home({
   showDecorLibrary && h(Sheet, { onClose: function () { setShowDecorLibrary(false); resetDecorDraft(); }, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "桌面装饰"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, marginBottom: 16 } }, "选内容，再挑一个适合它的框。以后长按也能随时换。"),
-    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 } },
-      [["photo", "▣", "照片框"], ["quote", "“", "字句卡"], ["date", "31", "日期签"]].map(function (x) {
-        var active = decorDraftType === x[0];
-        return h("button", { key: x[0], onClick: function () { setDecorDraftType(x[0]); if (x[0] === "date" && !decorDraftText) setDecorDraftText("今天"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 5px 11px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1 } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, marginTop: 7 } }, x[2]));
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 } },
+      HOME_DECOR_TYPES.map(function (x) {
+        var active = decorDraftType === x.id;
+        return h("button", { key: x.id, onClick: function () { setDecorDraftType(x.id); setDecorDraftText(x.text || ""); setDecorDraftDetail(x.detail || ""); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, x.glyph), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, x.name));
       })),
     decorDraftType === "photo" ? h("div", { style: { marginBottom: 17 } },
       h(HomePhotoFrameGrid, { value: decorDraftFrame, onChange: function (id) { setDecorDraftFrame(id); setDecorDraftPhotos(function (prev) { return normalizeHomePhotoSlots(prev, id); }); } }),
       h(HomePhotoSlotEditor, { value: decorDraftPhotos, frame: decorDraftFrame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, "draft", slot); }, onClear: function (slot) { clearDecorPhoto("draft", slot); } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "照片可以先不放。三格相框以后也是逐格补，不会要求一次选满。"),
       h("input", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 10, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })) :
-      h("textarea", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, rows: 2, maxLength: 80, placeholder: decorDraftType === "quote" ? "写一句想摆在桌面上的话" : "日期旁的小标题（可不填）", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12, marginBottom: 17 } }),
+      h("div", { style: { marginBottom: 17 } },
+        h("textarea", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, rows: 2, maxLength: 120, placeholder: "写下" + homeDecorMeta(decorDraftType).name + "的主标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
+        homeDecorHasDetail(decorDraftType) ? h("textarea", { value: decorDraftDetail, onChange: function (e) { setDecorDraftDetail(e.target.value); }, rows: 2, maxLength: 140, placeholder: "补一句说明、日期或留给自己的小字", style: { width: "100%", marginTop: 9, resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, padding: 12 } }) : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "选择外框"),
     h(HomePresetGrid, { value: decorDraftPreset, allowNative: false, onChange: setDecorDraftPreset }),
     h("button", { onClick: addDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 18, borderRadius: 15, padding: "13px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 15 } }, "放到桌面上")));

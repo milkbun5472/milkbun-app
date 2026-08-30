@@ -21,18 +21,37 @@ test("桌面装饰把内容、样式与位置分开持久化", () => {
   assert.match(home, /imgToVault\(data\)/, "照片必须进现有图片金库，不能把大图硬塞进桌面 JSON");
 });
 
-test("组件库提供照片框、字句卡和日期签", () => {
+test("组件库提供八种可编辑装饰", () => {
   const library = between('showDecorLibrary && h(Sheet', "// 主页名片");
-  assert.match(library, /\[\["photo", "▣", "照片框"\], \["quote", "“", "字句卡"\], \["date", "31", "日期签"\]\]/);
+  assert.match(library, /HOME_DECOR_TYPES\.map/);
+  for (const [id, name] of [["photo", "照片框"], ["quote", "字句卡"], ["date", "日期签"], ["ticket", "票根夹"], ["letter", "信封"], ["note", "便利贴"], ["cassette", "录音磁带"], ["trinket", "小物陈列盒"]]) {
+    assert.match(comp, new RegExp(`id: "${id}"[\\s\\S]*?name: "${name}"`));
+  }
   assert.match(library, /放到桌面上/);
   assert.match(comp, /if \(it\.which === "photo"\) return \[2, 2\]/);
   assert.match(comp, /if \(it\.which === "quote"\) return \[4, 1\]/);
+  assert.match(comp, /if \(it\.which === "ticket" \|\| it\.which === "cassette"\) return \[4, 1\]/);
+  assert.match(comp, /if \(it\.which === "letter" \|\| it\.which === "note" \|\| it\.which === "trinket"\) return \[2, 2\]/);
   assert.doesNotMatch(library, /multiple: true/, "多格相框必须逐格选图，不能再要求一次选满");
   assert.match(library, /HomePhotoSlotEditor/);
   assert.match(library, /照片可以先不放/);
   for (const id of ["single", "film3", "fan3", "torn4", "contact6", "envelope", "evidence2", "audioPhoto", "booth4", "window4", "postcard2", "locket2", "magazine3", "route3", "drawer4", "timeline5"]) {
     assert.match(comp, new RegExp(`id: "${id}"`));
   }
+});
+
+test("五种生活装饰各有独立骨架和可编辑副文案", () => {
+  const render = between("function HomeDecorItem", "function HomePresetGrid");
+  const home = between("function Home({", "// 主页名片");
+  for (const type of ["ticket", "letter", "note", "cassette", "trinket"]) {
+    assert.match(render, new RegExp(`item\\.type === "${type}"`), `${type} 必须有自己的桌面骨架，不能只换名字`);
+  }
+  assert.match(render, /ADMIT ONE/);
+  assert.match(render, /item\.detail/);
+  assert.match(home, /decorDraftDetail/);
+  assert.match(home, /styleDecorDetail/);
+  assert.match(home, /homeDecorHasDetail/);
+  assert.match(home, /detail:/);
 });
 
 test("新增照片墙各有独立骨架且多格编辑器每行最多三格", () => {
