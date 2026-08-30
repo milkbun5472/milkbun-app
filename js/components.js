@@ -1630,10 +1630,10 @@ function Home({
         }
       });
     })();
-    // 页容量界限：一页最多 24 格【并且】最多 6 行——两条都要卡。
-    // 她 2026-08-30 报「从第一页文件夹里整理出来就找不到了，1/2/3 页都是满的，后面也没有」：
-    // 东西没丢，是掉到了看不见的那一行。只按格数卡不住——2×2 的组件会留下填不满的洞，
-    // 同样 24 格能排成 7 行，第 7 行整个落在 overflow-hidden 底下，看不见也点不到。
+    // 页容量界限：一页最多 24 格【并且】最多 6 行——两条都要卡，一页才不会无限长下去。
+    // ⚠️这两条【保证不了】东西一定看得见：行高是按内容撑的，名片有没有 #标签、
+    // 日历这个月是五周还是六周，都会让同样的「6 行」时高时矮。真正兜住看不见的是
+    // 每一页自己能上下滑（见下面渲染那段）；这里只负责别让一页堆到离谱。
     // 超出容量的项按原顺序整体溢到下一页开头（连锁下去，最后一页放不下就自动开新页）；空格不搬、下一页会重新补
     var CAP = 24, ROWCAP = 6;
     for (var ci = 0; ci < out.length; ci++) {
@@ -2005,7 +2005,12 @@ function Home({
       transition: dragRef.current ? "none" : "transform .34s cubic-bezier(.22,.61,.36,1)"
     }
   }, curLayout.map(function (keys, pi) {
-    return h("div", { key: pi, className: "px-6", style: { width: "100%", flexShrink: 0 } },
+    // ⭐这一页自己能上下滑（她 2026-08-30：「我其实看不到下面」）。
+    // 页面高度是死的，可里面的东西高度不是死的：名片有没有 #标签差十几像素，
+    // 日历这个月是五周还是六周差几十像素——同样是「6 行」，八月放得下、九月就顶出去了。
+    // 所以按格数、按行数都卡不住，只有让放不下的那一页自己能滑，才是永远不会漏东西的做法。
+    // 放得下的页面滑不动，跟以前一模一样；横滑翻页仍归外面那层管（touchAction:pan-y）。
+    return h("div", { key: pi, className: "px-6", style: { width: "100%", flexShrink: 0, overflowY: "auto", overflowX: "hidden", WebkitOverflowScrolling: "touch", paddingBottom: 8 } },
       pi === 0 && h("div", { className: "text-center mb-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, color: t.ink, letterSpacing: "0.01em" } }, fmtClock(now)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 2 } }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
