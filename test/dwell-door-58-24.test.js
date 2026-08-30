@@ -139,6 +139,24 @@ test("底衬用上一层那张图糊开——但不能用 width 撑，会被 max
   assert.match(src, /radial-gradient/, "上一层没图的时候没有兜底底衬");
 });
 
+// 她 2026-08-30：「有图的地方还是没有糊开压暗，还只是兜底的暗底」——
+// 图一直都在，是压得太狠：屋里的照片本来就暗，再盖一层 .70→.93 的黑就跟没图一样。
+// 量出来底衬平均色 (20,20,22)、冷暖差只剩 1.5；调完是 (47,39,30)、冷暖差 17.6。
+test("底衬不许把图盖没：压暗有上限，暗照片要提亮", () => {
+  const i = dwell.indexOf("const backdrop = function (p) {");
+  const src = dwell.slice(i, dwell.indexOf("\n    };", i));
+  const scrim = (src.match(/rgba\(\d+,\s*\d+,\s*\d+,\s*(\.\d+|0\.\d+|1)\)/g) || [])
+    .map(x => parseFloat(x.slice(x.lastIndexOf(",") + 1)));
+  assert.ok(scrim.length, "找不到压暗那一层");
+  const worst = Math.max.apply(null, scrim);
+  assert.ok(worst <= 0.78, "压到 " + worst + " 了——照片会被盖成一片死黑，跟没图一个样（白字对比度早就够了，不用压这么狠）");
+  const filt = src.match(/filter: "([^"]+)"/);
+  assert.ok(filt, "底衬图没有 filter");
+  assert.match(filt[1], /blur\(/, "没糊开，会跟正文抢眼睛");
+  assert.match(filt[1], /brightness\(1\.[2-9]/, "没提亮——屋里的照片本来就暗，糊开之后更暗");
+  assert.match(filt[1], /saturate\(1\./, "没加饱和，糊完只剩一团灰");
+});
+
 test("规矩写下来了，而且写的是【默认整页】", () => {
   const rule = fs.readFileSync(path.join(__dirname, "..", ".claude", "rules", "no-half-sheet.md"), "utf8");
   assert.match(rule, /默认用整页/, "没把默认说清楚");

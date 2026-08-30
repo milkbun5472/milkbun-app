@@ -237,8 +237,11 @@
             h("img", { src: (typeof resolveImg === "function" ? resolveImg(p.img) : p.img), alt: "",
               // 糊开之后边缘会透出底色，得往外多铺一圈。⚠️用 transform:scale 撑，不能用 width:116%——
               // 全局有一条 img{max-width:100%}，把宽度按回 100%，右边就空出一条（实测量出来差 31px）
-              style: { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.18)", filter: "blur(22px) saturate(.8)" } }),
-            h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(16,17,20,.70),rgba(16,17,20,.93))" } }))
+              // 屋里的照片本来就暗，糊开之后更暗——不提亮、不加饱和的话，压一层黑就跟没图一样
+              style: { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.18)", filter: "blur(26px) saturate(1.5) brightness(1.7)" } }),
+            // 压暗只压到白字读得清为止（量过：这样白字对比度还有 8:1 以上，远够）。
+            // 上一版压到 .70→.93，实测底衬平均色 (20,20,22)、冷暖差只剩 1.5——等于把图盖没了
+            h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(12,13,16,.26) 0%,rgba(12,13,16,.44) 52%,rgba(12,13,16,.68) 100%)" } }))
         : h("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(120% 80% at 50% 12%, #262b33, #14161a 72%)" } });
     };
     const darkBar = function (title, sub, right) {
