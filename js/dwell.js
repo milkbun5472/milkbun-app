@@ -79,8 +79,11 @@
         + "\n\n【每个区域 3 件东西】name 是他自己怎么称呼它；note 一句话写清楚它什么样、怎么来的、为什么在这儿；"
         + "thought 是他自己的想法，第一人称。"
         + "\n\n【唯一的判据】每一件都要能反过来说出他这个人的一件事——"
-        + "他反复做什么、在意什么、跟谁有关、什么事他一直没弄完。"
-        + "**说不出的就别写进来**：「有一张桌子」「窗边有把椅子」这种谁的地方都成立，不算。"
+        + "他反复做什么、在意什么、什么事他一直没弄完、跟他生活里的谁有关。"
+        + "**换个角色照样成立的就是写坏了**，说不出他哪一点的，别写进来。"
+        + "\n\n【这是他一个人过日子的地方】写的是他自己的日子：他的活计、他的旧事、"
+        + "他身边和家里的人、他自己的毛病和讲究。绝大多数东西跟用户没关系。"
+        + "用户至多出现在一两件里，而且得是他私底下的心思，不是摆出来给用户看的。"
         + (known ? knownBlock(known) : ""),
       schemaHint: "{\"name\":\"这地方的叫法\",\"en\":\"英文短名，两三个词\",\"ambient\":\"一句氛围\","
         + "\"zones\":[{\"name\":\"区域名\",\"en\":\"英文短名\",\"items\":[{\"name\":\"东西的叫法\",\"note\":\"一句：什么样/怎么来的/为什么在这儿\",\"thought\":\"他自己的想法，第一人称\"}]}]}"
@@ -96,6 +99,25 @@
     return "\n\n【上一次这地方是这样】\n" + lines.join("\n")
       + "\n**默认原样照抄回来**——一个人住的地方不会每次看都换一套。"
       + "真变了才改（搬动、添置、用完了、他最近在忙的事变了），一次别改太多。";
+  }
+  // ── 出图：画这个地方，画面里【没有人】────────────────────
+  // 画什么全部从这份地方数据里长出来：那一句氛围定光线冷暖，几个区域定画面里有哪几块。
+  async function genArt(place, char) {
+    const seen = (place.zones || []).slice(0, 4).map(function (z) {
+      return z.name + "（" + (z.items || []).slice(0, 3).map(function (x) { return x.name; }).join("、") + "）";
+    }).join("；");
+    const prompt = "一幅【室内场景插画】：画的是一个人住的地方或常去的地方，"
+      + "**画面里没有人、没有人影、没有正脸**。\n"
+      + "【这是什么地方】" + (place.name || "") + ((char && char.name) ? "——" + char.name + "的地方" : "") + "。\n"
+      + (place.ambient ? "【进门第一感觉·最重要】" + place.ambient
+        + "。光线冷暖、亮暗、空还是满、整洁还是乱，全部服务于这一句，画面读起来必须就是这种感觉。\n" : "")
+      + (seen ? "【画面里要看得见这几块】" + seen + "。\n" : "")
+      + "【硬性要求】不出现文字、不出现人物、不加边框；是一个真住得进去的空间，有生活痕迹，"
+      + "不是样板间也不是效果图；安静、克制；画面必须是可公开展示的。";
+    const out = await generateSelfieImage(prompt, null);
+    if (!out || !out.blob) throw new Error("图没出来");
+    const durl = await blobToDataUrl(out.blob);
+    return typeof imgToVault === "function" ? await imgToVault(durl) : durl;
   }
   function normalize(d, hintName, prev) {
     if (!d || typeof d !== "object") return null;
@@ -116,6 +138,8 @@
       name: String(d.name || hintName || "他住的地方").slice(0, 16),
       en: String(d.en || "").replace(/[^A-Za-z0-9 ]/g, "").slice(0, 24),
       ambient: String(d.ambient || "").slice(0, 120),
+      // 图原样留着：重新看一遍只该换文字。出图慢又贵，不该为了换几句话把画也重刷一遍
+      img: (prev && prev.img) || "",
       fromSched: !!hintName,
       zones: zones,
       ts: Date.now()
@@ -134,6 +158,7 @@
     const [openId, setOpenId] = useState(null);
     const [zoneIdx, setZoneIdx] = useState(-1);
     const [item, setItem] = useState(null);
+    const [drawing, setDrawing] = useState(false);
     useEffect(function () { setPlaces(char ? placesOf(char.id) : []); setOpenId(null); setZoneIdx(-1); }, [selId]);
     if (!char) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
       h(Head, { zh: "去处", en: "Places", onBack: props.onBack }),
@@ -147,6 +172,17 @@
 
     async function gen(hintName, prev) {
       if (props.onGen) { const list = await props.onGen(char, hintName, prev); if (list) setPlaces(list); }
+    }
+    async function draw(place) {
+      if (!(typeof imgApiReady === "function" && imgApiReady())) return props.toast && props.toast("请先到设置配置图像 API");
+      if (drawing) return;
+      setDrawing(true);
+      try {
+        const img = await genArt(place, char);
+        setPlaces(savePlace(char.id, Object.assign({}, place, { img: img })));
+      } catch (e) {
+        props.toast && props.toast("图没出来：" + (e.message || "再试一次"));
+      } finally { setDrawing(false); }
     }
     function del(id) {
       if (!window.confirm("删掉这个地方？下次可以重新生成。")) return;
@@ -167,6 +203,36 @@
           h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy, "aria-label": "重新看一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 17, color: t.ink })),
           h("button", { onClick: function () { del(open.id); }, "aria-label": "删掉", className: "active:opacity-50" }, h(ITrash, { size: 16, color: t.fog })))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+        // ── 这个地方长什么样 ──
+        // 细线指的是【区域】，不是画面里某个具体位置：模型画完不会告诉我们东西落在哪一格，
+        // 假装指得准就是骗人。所以位置固定、左右交错，点小签＝翻到那一块。
+        h("div", { style: { position: "relative", width: "100%", aspectRatio: "4 / 3", borderRadius: 14, overflow: "hidden",
+          border: "1px solid " + t.line, background: t.bg2, margin: "6px 0 12px" } },
+          open.img
+            ? h("img", { src: (typeof resolveImg === "function" ? resolveImg(open.img) : open.img), alt: open.name,
+                style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
+            : h("button", { onClick: function () { draw(open); }, disabled: drawing,
+                className: "absolute inset-0 flex items-center justify-center active:opacity-70 disabled:opacity-60",
+                style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } },
+                drawing ? "在画…（这一步会调一次图像 API）" : "画一张这里的样子"),
+          open.img ? h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+            (open.zones || []).slice(0, 4).map(function (z, i) {
+              const onLeft = i % 2 === 1;
+              const dot = h("div", { key: "d", style: { width: 8, height: 8, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 6px rgba(255,255,255,.24)", flexShrink: 0 } });
+              const line = h("div", { key: "l", style: { width: 18, height: 1, background: "rgba(255,255,255,.85)", flexShrink: 0 } });
+              const chip = h("button", { key: "c", onClick: function () { setZoneIdx(i); },
+                className: "active:opacity-70",
+                style: { pointerEvents: "auto", background: "rgba(30,34,40,.62)", border: "1px solid rgba(255,255,255,.45)",
+                  color: "#fff", padding: "4px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5,
+                  whiteSpace: "nowrap", backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)" } }, z.name);
+              return h("div", { key: i, style: Object.assign({ position: "absolute", top: [17, 39, 61, 82][i] + "%",
+                display: "flex", alignItems: "center", gap: 6 }, onLeft ? { left: "5%" } : { right: "5%" }) },
+                onLeft ? [chip, line, dot] : [dot, line, chip]);
+            })) : null),
+        open.img ? h("button", { onClick: function () { draw(open); }, disabled: drawing,
+          className: "active:opacity-60 disabled:opacity-50",
+          style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 12 } },
+          drawing ? "在重画…" : "重画一张") : null,
         // 一句氛围：进门第一感觉
         open.ambient ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, padding: "8px 0 4px", borderLeft: "2px solid " + ACCENT + "55", paddingLeft: 11, margin: "6px 0 16px" } }, open.ambient) : null,
         (open.zones || []).map(function (z, i) {
@@ -261,7 +327,7 @@
   }
 
   window.DwellApp = DwellApp;
-  window.Dwell = {
+  window.Dwell = { genArt: genArt,
     loadAll: loadAll, placesOf: placesOf, savePlace: savePlace, dropPlace: dropPlace,
     frequentPlaces: frequentPlaces, placeSpec: placeSpec, normalize: normalize,
     CAP_PLACES: CAP_PLACES

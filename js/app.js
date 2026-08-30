@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.22";
+const APP_VERSION = "v58.23";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12696,7 +12696,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!window.Dwell) return null;
     setGen(g => ({ ...g, dwell: char.id }));
     try {
-      const d = await runProbe(api, ctxFor(char), window.Dwell.placeSpec(char, hintName, prev));
+      // 去处写的是【他一个人过日子的地方】。她的心愿单、你俩的送礼往来、他对她的印象
+      // 这三层是纯粹的「关于她」——留着的话每一件东西都会被写成跟她有关的
+      // （她 2026-08-30：「现在生成出来东西太过于关于我了，不完全是他的生活」）。
+      // 这是【四处一样喂】里写明理由的合法差异：不是这一轮用不上，是留着会把内容带偏。
+      // 记忆和印象卡照给——他的日子本来就长在那里面。
+      const ctx = ctxFor(char);
+      ctx.wishLog = ""; ctx.giftLog = ""; ctx.gazeText = "";
+      const d = await runProbe(api, ctx, window.Dwell.placeSpec(char, hintName, prev));
       const place = window.Dwell.normalize(d, hintName, prev);
       // ⚠️没解析出区域就不落盘：留个空壳在列表里，她点进去是空的，
       // 还以为已经生成过了、不会再点一次。
@@ -13554,6 +13561,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     schedules: schedules,
     busyId: gen.dwell,
     onGen: genDwellPlace,
+    toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {
     active: bgActive,

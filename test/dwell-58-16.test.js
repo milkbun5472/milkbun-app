@@ -37,9 +37,10 @@ test("prompt 短：只给判据，不替模型写作文", () => {
   assert.ok(sp.instruction.length < 600, "又写复杂了：" + sp.instruction.length + " 字");
   ["一句氛围", "4~5 个区域", "每个区域 3 件东西", "唯一的判据"].forEach(k =>
     assert.ok(sp.instruction.indexOf(k) > 0, "少了这一段：" + k));
-  // 判据是「能反过来说出他这个人的一件事」，反例只举【谁的房间都有】那种
+  // 判据是「能反过来说出他这个人的一件事」，反面只给判据、不举例子
+  //（举了例子模型就照着那个句式抄，见 .claude/rules/prompt-no-content-samples.md）
   assert.match(sp.instruction, /每一件都要能反过来说出他这个人的一件事/);
-  assert.match(sp.instruction, /谁的地方都成立，不算/);
+  assert.match(sp.instruction, /换个角色照样成立的就是写坏了/);
   // 三层：叫法 / 一句话 / 他自己的想法
   ["name", "note", "thought"].forEach(k =>
     assert.ok(sp.schemaHint.indexOf('"' + k + '"') > 0, "schema 少了 " + k));
@@ -81,7 +82,8 @@ test("判断用哪个 API、就拿哪个去调——别一个判断一个调用"
   const seg = app.slice(i, i + 1200);
   assert.match(seg, /const api = bgActive \|\| active;/);
   assert.match(seg, /if \(!api\) \{ toast\("请先到设置配置 API"\); return null; \}/);
-  assert.match(seg, /await runProbe\(api, ctxFor\(char\)/);
+  // ctx 会先收窄一遍再拿去调（去处不发她的心愿单/送礼/印象），所以这里只认「拿的是 api 这个变量」
+  assert.match(seg, /await runProbe\(api, ctx,/);
   assert.doesNotMatch(seg, /runProbe\(bgActive,/, "判断和调用又对不上了");
 });
 
