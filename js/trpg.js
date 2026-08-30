@@ -83,6 +83,11 @@
   const persist = list => lsWrite("x_trpg", list, "这场跑团");
   const rid = pre => pre + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
 
+  // 面板每一块都能收起来(她 2026-08-30:「每一个都做可缩放吧,除了旅程队伍默认收起来」)。
+  // 默认摊开的只有这两块——一进来先看见走到哪儿了、队伍还剩多少血;别的按需要再翻。
+  const PANEL_OPEN_BY_DEFAULT = ["旅程", "队伍"];
+  const loadPanelShut = () => { try { const v = JSON.parse(localStorage.getItem("x_trpgPanelShut") || "null"); return (v && typeof v === "object") ? v : {}; } catch (e) { return {}; } };
+
   // ---- 桌面(纯函数) ----
   // 一场跑团是在桌上发生的:羊皮纸、方格坐标纸、四边被灯压暗。
   // 灯的冷暖跟着守密人报的时辰走(camp.time.part)——晨昏暖、入夜冷,不是随便套个滤镜。
@@ -946,6 +951,13 @@
     // 一旦点过就一直是 no-op,confirm() 直接返回 false),于是 ✕ 点了什么都不发生。
     // 换成自己画的一层:一定弹得出来,长相也跟 app 一致。
     const [ask, setAsk] = useState(null);   // {text, yes, onYes}
+    const [panelShut, setPanelShut] = useState(loadPanelShut);
+    const togglePanelSect = title => setPanelShut(p => {
+      const shut = p[title] != null ? !!p[title] : PANEL_OPEN_BY_DEFAULT.indexOf(title) < 0;
+      const n = Object.assign({}, p); n[title] = !shut;
+      lsWrite("x_trpgPanelShut", n, "面板的收放");
+      return n;
+    });
     const askConfirm = (text, onYes, yes) => setAsk({ text: text, yes: yes || "删除", onYes: onYes });
     // 把 toast 借给模块顶层的 lsWrite 用（写盘失败要说出来，不能一声不吭）
     useEffect(function () {
@@ -969,7 +981,6 @@
     const [mylineTxt, setMylineTxt] = useState("");  // 暗线:自写候选缓冲
     const [modOpen, setModOpen] = useState(false);   // 导入模组面板
     const [modTxt, setModTxt] = useState("");        // 模组 JSON 粘贴缓冲
-    const [diceOpen, setDiceOpen] = useState(false); // 骰子账展开
     const [squadTick, setSquadTick] = useState(0);   // 小分队增删后强制重画用
     // 入口页分三格(她 2026-08-30:「队伍平时能不能收纳到哪儿不要在主页占位,主界面只留开的团,
     // 开完的团也单独找地方收纳」)。开着的团是每天要点的,别的两样按需要才翻。
@@ -1806,14 +1817,18 @@
     // 面板里的一块(她 2026-08-30:「线索和目标那块要不要也做信息分块这样容易看」)。
     // 原来八段东西共用同一种灰色小标题、连着往下淌,扫一眼分不出哪儿到哪儿。
     // 一块 = 图标 + 标题 + 右侧操作位 + 一条细线 + 压在浅一档纸上的正文。
-    const sect = (icon, title, right, ...kids) => h.apply(null, [
-      "div", { style: { margin: "0 0 10px", borderRadius: 14, background: "rgba(255,255,255,.52)", border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.05)" } },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 11px", borderBottom: "1px solid " + t.line, background: "rgba(46,38,29,.04)" } },
-        h("span", { style: { fontSize: 11.5, opacity: .85 } }, icon),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flex: 1 } }, title),
-        right || null),
-      h.apply(null, ["div", { style: { padding: "9px 11px 10px" } }].concat(kids))
-    ]);
+    // hint = 收起来的时候表头上那句话(几章/几条/几件)——收着也还看得见个数,不用为了瞄一眼再展开
+    const sect = (icon, title, right, hint, ...kids) => {
+      const shut = panelShut[title] != null ? !!panelShut[title] : PANEL_OPEN_BY_DEFAULT.indexOf(title) < 0;
+      return h("div", { style: { margin: "0 0 10px", borderRadius: 14, background: "rgba(255,255,255,.52)", border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.05)" } },
+        h("div", { onClick: () => togglePanelSect(title), style: { display: "flex", alignItems: "center", gap: 6, padding: "7px 11px", borderBottom: shut ? "none" : "1px solid " + t.line, background: "rgba(46,38,29,.04)", cursor: "pointer" } },
+          h("span", { style: { fontSize: 11.5, opacity: .85 } }, icon),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, title),
+          hint ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, hint) : h("span", { style: { flex: 1 } }),
+          right ? h("span", { onClick: e => e.stopPropagation() }, right) : null,
+          h("span", { style: { fontSize: 9, color: t.fog, marginLeft: 4, display: "inline-block", transform: shut ? "rotate(-90deg)" : "none", transition: "transform .18s" } }, "▼")),
+        shut ? null : h.apply(null, ["div", { style: { padding: "9px 11px 10px" } }].concat(kids)));
+    };
     const imgSrc = ref => (typeof resolveImg === "function" ? resolveImg(ref) : ref);
     const avatarOf = (c, size) => (c && c.avatarImage)
       ? h("img", { src: imgSrc(c.avatarImage), style: { width: size, height: size, borderRadius: 999, objectFit: "cover", display: "block" } })
@@ -1970,7 +1985,7 @@
         const p1 = ptsToPath(jitterPts(nodes, rand, 1.6));
         const p2 = ptsToPath(jitterPts(nodes, rand, 1.6));
         const markerNode = nodes[camp.ended ? nodes.length - 1 : Math.min(camp.stageIdx + 1, nodes.length - 1)];
-        return sect("🗺", "旅程", null,
+        return sect("🗺", "旅程", null, "第" + Math.min(camp.stageIdx + 1, camp.stages.length) + "/" + camp.stages.length + "章",
           h("svg", { viewBox: "0 0 340 120", style: { width: "100%", display: "block", borderRadius: 10, background: t.bg } },
             // 小径描两遍:抖动不同、深浅不同,就有铅笔手绘味
             h("path", { d: p1, fill: "none", stroke: t.fog, strokeWidth: 1.6, strokeLinecap: "round", strokeDasharray: "5 4", opacity: 0.55 }),
@@ -2007,6 +2022,7 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, camp.place || "")),
         sect("👥", "队伍",
           h("button", { onClick: () => setFixMode(v => !v), style: { fontFamily: F_BODY, fontSize: 10, color: fixMode ? t.bg2 : t.fog, background: fixMode ? t.ink : "none", border: "1px solid " + (fixMode ? t.ink : t.line), borderRadius: 8, padding: "2px 8px" } }, fixMode ? "✎ 修正中" : "✎ 修正"),
+          camp.party.length + " 人 · 最低 HP " + camp.party.reduce((n, m) => Math.min(n, m.hp), 999),
         camp.party.map(m => h("div", { key: m.key, style: { marginBottom: 6 } },
           h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5, display: "flex", justifyContent: "space-between", alignItems: "center" }) }, h("span", null, m.name, m.fate ? h("span", { style: { color: "#8a6d3b", fontSize: 11 } }, " ✦×" + m.fate) : null),
             h("span", { style: { display: "flex", alignItems: "center", gap: 5 } },
@@ -2019,6 +2035,7 @@
             fixMode ? h("span", { onClick: () => applyFix("解除了 " + m.name + " 的「" + e.name + "」", c => Object.assign({}, c, { party: c.party.map(x => x.key !== m.key ? x : Object.assign({}, x, { effects: (x.effects || []).filter((_, j) => j !== i) })) })), style: { marginLeft: 4, color: t.fog } }, "✕") : null))) : null)),
         ),
         (camp.gauge || (camp.clocks || []).length) ? sect("⏳", "压力", null,
+          [camp.gauge ? camp.gauge.name + " " + camp.gauge.val + "/" + camp.gauge.max : "", (camp.clocks || []).length ? (camp.clocks || []).length + " 个时钟" : ""].filter(Boolean).join(" · "),
         camp.gauge ? h("div", { style: { marginBottom: 8 } },
           h("div", { style: Object.assign({}, S.lbl, { display: "flex", justifyContent: "space-between" }) }, h("span", null, camp.gauge.name + "(" + (camp.gauge.bad === "high" ? "涨满出事" : "见底出事") + ")"), h("span", null, camp.gauge.val + "/" + camp.gauge.max)),
           h("div", { style: { height: 5, borderRadius: 3, background: t.line, overflow: "hidden" } },
@@ -2030,6 +2047,7 @@
             h("span", { style: { letterSpacing: 2, color: ck.filled >= ck.max ? "#a4442e" : t.sub } }, "●".repeat(ck.filled) + "○".repeat(Math.max(0, ck.max - ck.filled)))))) : null,
         ) : null,
         sect("◎", "目标", null,
+          "第" + Math.min(camp.stageIdx + 1, camp.stages.length) + "/" + camp.stages.length + "章" + ((camp.quests || []).filter(q => q.status === "open").length ? " · 支线 " + (camp.quests || []).filter(q => q.status === "open").length + " 条在办" : ""),
         h("div", { style: S.lbl }, "主线"),
         camp.stages.map((s, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: i === camp.stageIdx ? t.ink : t.fog }) }, (s.done ? "✓ " : i === camp.stageIdx ? "→ " : "· ") + "第" + (i + 1) + "章:" + (i <= camp.stageIdx ? s.goal : "???"))),
         // 支线任务日志:○进行 ✓完成 ✗失败 ⏸暂缓;修正模式点一下轮换状态
@@ -2046,7 +2064,7 @@
               !fixMode && q.status === "paused" ? h("button", { onClick: () => questFlip("open"), style: { fontFamily: F_BODY, fontSize: 10, color: t.ink, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "1px 7px" } }, "▶ 重拾") : null);
           })) : null,
         ),
-        (camp.npcs || []).length ? sect("👤", "名册", null,
+        (camp.npcs || []).length ? sect("👤", "名册", null, camp.npcs.length + " 人",
         // NPC 名册:立场 🟢友 🔴敌 ⚪未明,†=已死;只显示玩家已知的
         (camp.npcs || []).length ? h("div", null,
           fixMode ? h("div", { style: S.lbl }, "点立场轮换,† 标生死") : null,
@@ -2055,16 +2073,25 @@
             h("span", { style: { textDecoration: n.alive ? "none" : "line-through" } }, n.name + (n.role ? "·" + n.role : "") + (n.note ? " — " + n.note : "")),
             fixMode ? h("span", { onClick: () => applyFix("把「" + n.name + "」标为" + (n.alive ? "已死" : "在世"), c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { alive: !x.alive })) })), style: { marginLeft: "auto", color: t.fog } }, "†") : null))) : null,
         ) : null,
-        sect("🎒", "行囊", null,
+        sect("🎒", "行囊", null, itemsFix(camp.items).reduce((n, x) => n + x.n, 0) + " 件",
         fixMode ? h("div", null,
           h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 } }, itemsFix(camp.items).map((it, i) => h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "2px 8px" } }, fmtItem(it),
             h("span", { onClick: () => applyFix("删掉了物品「" + it.name + "」", c => { const items = itemsFix(c.items); const j = items.findIndex(x => x.name === it.name && x.holder === it.holder); if (j >= 0) { if (items[j].n > 1) items[j] = Object.assign({}, items[j], { n: items[j].n - 1 }); else items.splice(j, 1); } return Object.assign({}, c, { items }); }), style: { marginLeft: 4, color: "#a4442e" } }, "✕")))),
           h("div", { style: { display: "flex", gap: 6, marginBottom: 4 } },
             h("input", { value: fixItem, onChange: e => setFixItem(e.target.value), placeholder: "补记一件(可写 名称(持有人))", style: { flex: 1, padding: "5px 8px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 11, color: t.ink, outline: "none" } }),
             h("button", { onClick: () => { const raw = fixItem.trim(); if (!raw) return; const mHold = raw.match(/^(.+?)[(（]([^)）]+)[)）]$/); const nm = (mHold ? mHold[1] : raw).trim(); const hd = mHold ? mHold[2].trim() : "队伍"; setFixItem(""); applyFix("补记了物品「" + nm + "」", c => Object.assign({}, c, { items: itemsFix(c.items).concat([{ name: nm, holder: hd, n: 1 }]) })); }, style: S.btn(false) }, "补记")))
-        : h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, itemsFix(camp.items).map(fmtItem).join("、") || "空空如也"),
+        : (itemsFix(camp.items).length
+            // 一件一行(她 2026-08-30:「行囊那栏现在只是用标点符号隔开,改成一列下来」)。
+            // 顿号连起来的时候,「守钟人的册子(残)(裴照川)」这种带括号的名字根本断不开
+            ? h("div", null, itemsFix(camp.items).map((it, i) => h("div", { key: i, style: { display: "flex", alignItems: "baseline", gap: 8, padding: "4px 0", borderTop: i ? "1px solid " + t.line : "none" } },
+                h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, width: 14, flexShrink: 0 } }, "·"),
+                h("span", { style: Object.assign({}, S.txt, { fontSize: 12.5, flex: 1, minWidth: 0 }) }, it.name),
+                it.n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, flexShrink: 0 } }, "×" + it.n) : null,
+                it.holder && it.holder !== "队伍" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 7px", flexShrink: 0 } }, it.holder) : null)))
+            : h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog }) }, "空空如也")),
         ),
         sect("🔎", "线索", null,
+          camp.clues.length + " 条" + ((camp.guesses || []).length ? " · 推测 " + (camp.guesses || []).length + " 条" : ""),
         h("div", { style: S.lbl }, "已知事实"),
         camp.clues.length ? camp.clues.map((x, i) => h("div", { key: i, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2 }) }, (i + 1) + ". " + x)) : h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, "尚无"),
         // 线索板·推测区:把线索拼成推论记下来;守密人只裁「值不值得验证」,不裁对错
@@ -2096,10 +2123,9 @@
               + (lucky && lucky.name === x.name && lucky.crit > 0 ? " ·欧皇" : "")
               + (cursed && cursed.name === x.name && cursed.fumble > 0 ? " ·非酋" : ""))));
           })();
-          return rolls.length ? h("div", null,
-            h("div", { onClick: () => setDiceOpen(v => !v), style: Object.assign({}, S.lbl, { marginTop: 6, cursor: "pointer" }) }, "🎲 骰子账 · " + rolls.length + " 次 " + (diceOpen ? "▴" : "▾")),
-            diceOpen ? board : null,
-            diceOpen ? rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content)) : null) : null;
+          return rolls.length ? sect("🎲", "骰子账", null, rolls.length + " 次",
+            board,
+            rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content))) : null;
         })(),
         h("div", { style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" } },
           h("button", { onClick: () => {
@@ -2379,24 +2405,53 @@
       return (dd.getMonth() + 1) + "月" + dd.getDate() + "日";
     };
     // 入口:战役列表
+    // 战役卡：一份摊在桌上的卷宗。她 2026-08-30 说「框还是有点无聊，做点有创意的」，
+    // 所以卡上多的都是【一眼能读出来的东西】：左边一枚二十面骰，骰面上刻着现在第几章；
+    // 底下一排章节点（●走过 ◎正在 ○还不知道）；封面从背景挪成右边贴上去的一张相片。
     const campCard = c => {
       const members = [null].concat(c.partyIds.map(charOf));
-      // 有封面就压进卡片当底:图上要压字,盖一层足够厚的渐变,先保证读得清(小剧场同款)
-      const coverBg = c.cover ? {
-        backgroundImage: "linear-gradient(90deg, rgba(240,236,228,.94) 0%, rgba(240,236,228,.82) 52%, rgba(240,236,228,.35) 100%), url(" + imgSrc(c.cover) + ")",
-        backgroundSize: "cover", backgroundPosition: "center", minHeight: 96
-      } : null;
-      return h("div", { key: c.id, onClick: () => { setPlayId(c.id); setView("play"); setPanelOpen(false); }, style: Object.assign({}, S.card, { cursor: "pointer", position: "relative" }, coverBg) },
-        h("button", { onClick: e => { e.stopPropagation(); askConfirm("删除「" + c.title + "」和全部记录?", () => update(list => list.filter(x => x.id !== c.id))); }, style: { position: "absolute", top: 2, right: 2, width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.fog, fontSize: 15, padding: 0 } }, "✕"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, paddingRight: 26 } }, c.title),
-        c.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, "⑂ 分支自「" + (c.branchedFrom.title || "原团") + "」第 " + (c.branchedFrom.at || 0) + " 拍") : null,
-        h("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 6 } },
-          members.map((m, i) => i === 0 ? avatarOf({ name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color }, 22) : m ? avatarOf(m, 22) : null),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginLeft: 4 } }, (c.ended ? "已落幕 · " : "") + "第" + Math.min(c.stageIdx + 1, c.stages.length) + "/" + c.stages.length + "章 · " + c.msgs.length + "拍")),
-        // 开着好几个团时,靠这一行认出「这是哪支队的、上次动是什么时候」
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } },
-          [c.squadName || "", campAgo(c)].filter(Boolean).join(" · ")),
-        h("div", { style: Object.assign({}, S.txt, { color: t.fog, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, c.world));
+      const cur = Math.min(c.stageIdx + 1, c.stages.length);
+      const tone = TRPG_HOUR[(c.time || {}).part] ? (c.time || {}).part : "昼";
+      const seal = c.ended ? "#8a8577" : "#8a6d3b";
+      return h("div", { key: c.id, onClick: () => { setPlayId(c.id); setView("play"); setPanelOpen(false); },
+        style: Object.assign({}, S.card, { cursor: "pointer", position: "relative", overflow: "hidden", padding: 0, opacity: c.ended ? .88 : 1 }) },
+        // 封面：右边贴上去的一张相片，左边留给字
+        c.cover ? h("span", { style: { position: "absolute", inset: "0 0 0 auto", width: "58%", backgroundImage: "url(" + imgSrc(c.cover) + ")", backgroundSize: "cover", backgroundPosition: "center", opacity: .9 } }) : null,
+        c.cover ? h("span", { style: { position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(246,242,234,.97) 0%, rgba(246,242,234,.93) 46%, rgba(246,242,234,.30) 100%)" } }) : null,
+        h("button", { onClick: e => { e.stopPropagation(); askConfirm("删除「" + c.title + "」和全部记录?", () => update(list => list.filter(x => x.id !== c.id))); }, style: { position: "absolute", top: 2, right: 2, width: 40, height: 40, zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: t.fog, fontSize: 15, padding: 0 } }, "✕"),
+        // 已落幕：右下角盖一枚歪着的戳
+        c.ended ? h("span", { style: { position: "absolute", right: 12, bottom: 10, transform: "rotate(-11deg)", border: "1.5px solid " + seal, color: seal, borderRadius: 6, padding: "1px 7px", fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, opacity: .8 } }, "落幕") : null,
+        h("div", { style: { position: "relative", display: "flex", gap: 11, padding: "13px 13px 0" } },
+          // 二十面骰：骰面上刻着现在走到第几章
+          h("span", { style: { position: "relative", width: 40, height: 44, flexShrink: 0 } },
+            h("svg", { viewBox: "0 0 40 44", style: { position: "absolute", inset: 0, width: "100%", height: "100%" } },
+              h("path", { d: "M20 2l16 9v22l-16 9-16-9V11z", fill: "rgba(255,255,255,.66)", stroke: seal, strokeWidth: 1.3, strokeLinejoin: "round" }),
+              h("path", { d: "M4 11l16 9 16-9M20 20v22", fill: "none", stroke: seal, strokeWidth: .8, opacity: .28 })),
+            h("span", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, fontWeight: 600, color: seal } }, String(cur))),
+          h("div", { style: { flex: 1, minWidth: 0, paddingRight: 26 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.title),
+            c.branchedFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, "⑂ 分支自「" + (c.branchedFrom.title || "原团") + "」第 " + (c.branchedFrom.at || 0) + " 拍") : null,
+            h("div", { style: Object.assign({}, S.txt, { color: t.sub, fontSize: 12, marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }) }, c.world))),
+        // 章节点：走过的实心、正在的空心大一圈、还不知道的虚线
+        h("div", { style: { position: "relative", display: "flex", alignItems: "center", gap: 5, padding: "9px 13px 0" } },
+          c.stages.map((st, i) => {
+            const passed = st.done || c.ended;
+            const here = i === c.stageIdx && !c.ended;
+            return h("span", { key: i, style: {
+              width: here ? 9 : 7, height: here ? 9 : 7, borderRadius: 999, flexShrink: 0,
+              background: passed ? seal : "transparent",
+              border: "1.5px solid " + (passed ? seal : here ? seal : t.line),
+              opacity: !passed && !here ? .7 : 1
+            } });
+          }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 3 } }, "第" + cur + "/" + c.stages.length + "章 · " + c.msgs.length + "拍")),
+        // 底沿：谁在这支队里、哪支队、上次什么时候动的
+        h("div", { style: { position: "relative", display: "flex", alignItems: "center", gap: 4, marginTop: 9, padding: "8px 13px 11px", borderTop: "1px solid " + t.line, background: "rgba(46,38,29,.035)" } },
+          members.map((m, i) => h("span", { key: i, style: { marginLeft: i ? -6 : 0, borderRadius: 999, boxShadow: "0 0 0 1.5px rgba(246,242,234,.95)" } },
+            i === 0 ? avatarOf({ name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color }, 21) : m ? avatarOf(m, 21) : null)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 6, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            [c.squadName || "", campAgo(c)].filter(Boolean).join(" · ")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, opacity: .8 } }, TRPG_HOUR[tone] === TRPG_HOUR["昼"] && tone !== "昼" ? "" : ((c.time || {}).part || ""))));
     };
     // ---- 组建队伍(她 2026-08-28 定稿:数值在这里掷定,进什么副本都用这套) ----
     if (view === "squadNew") {
@@ -2455,19 +2510,37 @@
 
     // ---- 入口:小分队 + 战役列表;右上=图库+加号菜单 ----
     const squads = loadSquads().squads;
-    const squadsBlock = squads.length ? squads.map(sq => h("div", { key: sq.id + squadTick, style: S.card },
-      h("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1 } }, "⚔ " + sq.name + (sq.runs ? " · 出团" + sq.runs + "次" : " · 新队")),
-        h("button", { onClick: () => askConfirm("解散「" + sq.name + "」?这支队的成长与旧伤会一起消失(不影响已开的团)。", () => { const v = loadSquads(); v.squads = v.squads.filter(x => x.id !== sq.id); saveSquads(v); setSquadTick(x => x + 1); }, "解散"), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px" } }, "解散")),
-      sq.members.map(v => {
-        const ch = v.key === "user" ? { name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color } : (charOf(v.key) || { name: v.name });
-        return h("div", { key: v.key, style: { display: "flex", alignItems: "flex-start", gap: 8, marginTop: 6 } },
-          avatarOf(ch, 26),
-          h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: Object.assign({}, S.txt, { fontSize: 12 }) }, v.name + (v.runs ? " · 出团" + v.runs + "次" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, STATS.map(([k, zh]) => zh + (v.stats || {})[k]).join(" ") + ((v.feats || []).length ? " · " + v.feats.map(f => f.name).join("、") : "")),
-            (v.scars || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e" } }, "旧伤:" + v.scars.map(e => e.name).join("、")) : null));
-      }))) : null;
+    // 小分队卡：一张队伍名牌。五项属性画成五根小柱子——数字并排读不出高低，
+    // 柱子一眼就看得出这个人是拿体魄吃饭还是拿脑子吃饭（她 2026-08-30：「做点有创意的」）
+    const statBars = (stats, col) => h("div", { style: { display: "flex", alignItems: "flex-end", gap: 3, height: 18 } },
+      STATS.map(([k, zh]) => h("span", { key: k, title: zh + (stats || {})[k],
+        style: { width: 5, height: Math.max(3, Math.round(((stats || {})[k] || 0) / 90 * 18)), borderRadius: 1.5, background: col, opacity: .28 + Math.min(.62, ((stats || {})[k] || 0) / 90 * .62) } })));
+    const squadsBlock = squads.length ? squads.map(sq => h("div", { key: sq.id + squadTick, style: Object.assign({}, S.card, { padding: 0, overflow: "hidden" }) },
+      h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "11px 13px 9px" } },
+        h("span", { style: { fontSize: 13 } }, "👥"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sq.name),
+        // 出团次数做成一枚布章
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: sq.runs ? "#8a6d3b" : t.fog, border: "1px solid " + (sq.runs ? "#8a6d3b66" : t.line), borderRadius: 999, padding: "2px 9px", flexShrink: 0 } }, sq.runs ? "出团 " + sq.runs + " 次" : "新队"),
+        h("button", { onClick: () => askConfirm("解散「" + sq.name + "」?这支队的成长与旧伤会一起消失(不影响已开的团)。", () => { const v = loadSquads(); v.squads = v.squads.filter(x => x.id !== sq.id); saveSquads(v); setSquadTick(x => x + 1); }, "解散"), style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: "none", border: "1px solid " + t.line, borderRadius: 8, padding: "2px 8px", flexShrink: 0 } }, "解散")),
+      h("div", { style: { borderTop: "1px solid " + t.line, background: "rgba(46,38,29,.03)" } },
+        // 柱子的表头：五根分别是什么，一支队只写一次
+        h("div", { style: { display: "flex", alignItems: "center", padding: "5px 13px 0" } },
+          h("span", { style: { flex: 1 } }),
+          h("div", { style: { display: "flex", gap: 3 } }, STATS.map(([k, zh]) => h("span", { key: k, style: { width: 5, textAlign: "center", fontFamily: F_BODY, fontSize: 7.5, color: t.fog } }, zh[0]))),
+          h("span", { style: { width: 34, flexShrink: 0 } })),
+        sq.members.map((v, i) => {
+          const ch = v.key === "user" ? { name: uName, avatarImage: props.profile && props.profile.avatarImage, color: props.profile && props.profile.color } : (charOf(v.key) || { name: v.name });
+          const col = (ch && ch.color) || "#7a6a5a";
+          return h("div", { key: v.key, style: { display: "flex", alignItems: "center", gap: 9, padding: "8px 13px", borderTop: i ? "1px solid " + t.line : "none" } },
+            avatarOf(ch, 28),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { display: "flex", alignItems: "baseline", gap: 6 } },
+                h("div", { style: Object.assign({}, S.txt, { fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }) }, v.name),
+                (v.feats || []).length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: "#8a6d3b", flexShrink: 0 } }, v.feats.map(f => f.name).join("·")) : null),
+              (v.scars || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e" } }, "旧伤:" + v.scars.map(e => e.name).join("、")) : null),
+            statBars(v.stats, col),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, width: 34, textAlign: "right", flexShrink: 0 } }, v.runs ? "×" + v.runs : ""));
+        })))) : null;
     const plusSheet = plusMenu && h("div", { onClick: () => setPlusMenu(false), style: { position: "fixed", inset: 0, zIndex: 140, background: "rgba(30,28,24,.4)", display: "flex", alignItems: "flex-end" } },
       h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
         [["🎲 开团(带一支小分队进新世界)", () => { setPlusMenu(false); setDraft(null); setKw(""); setView("create"); }],

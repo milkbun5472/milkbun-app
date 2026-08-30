@@ -48,7 +48,7 @@ test("已经齐全的存档不白写一遍", () => {
 });
 
 test("列表按 c.id 当 key——所以 id 必须齐", () => {
-  const card = grab("    const campCard = c => {", "    // ---- 组建队伍", 2600);
+  const card = grab("    const campCard = c => {", "    // ---- 组建队伍", 6000);
   assert.match(card, /key: c\.id/);
   // ✕ 的点击范围要够大：它就贴在卡片本身的 onClick 旁边，小了一歪就进团了
   const x = card.slice(card.indexOf('h("button", { onClick: e => { e.stopPropagation();'), card.indexOf('"✕"'));
@@ -98,7 +98,7 @@ test("按最近动过排序，卡上写清是哪支队、上次什么时候动�
   assert.equal(campAgo({ msgs: [], createdAt: 0 }), "");
   assert.match(campAgo({ msgs: [{ ts: N - 5 * D }] }), /天前/);
   assert.match(campAgo({ msgs: [{ ts: N - 200 * D }] }), /月.*日/);
-  const card = grab("    const campCard = c => {", "    // ---- 组建队伍", 2600);
+  const card = grab("    const campCard = c => {", "    // ---- 组建队伍", 6000);
   assert.match(card, /\[c\.squadName \|\| "", campAgo\(c\)\]\.filter\(Boolean\)\.join\(" · "\)/, "卡上没写是哪支队、上次什么时候动的");
 });
 

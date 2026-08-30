@@ -590,7 +590,7 @@ test("玩家暗线:候选可挑可自写,守密人不点破,落幕给判词", ()
 });
 
 test("骰子账与模组包", () => {
-  assert.match(src, /🎲 骰子账 · /, "检定历史单独可查");
+  assert.match(src, /sect\("🎲", "骰子账"/, "检定历史单独可查（v58.61 起是面板里的一块）");
   assert.match(src, /kind: "trpg-module"/, "打包模组");
   assert.match(src, /用模组开团/, "可导入重开");
   assert.match(src, /sideSeeds: \(Array\.isArray\(mod\.seeds\) \? mod\.seeds : \[\]\)\.map\(x => Object\.assign\(\{\}, x, \{ used: false \}\)\)/, "导入时种子全部复位");
