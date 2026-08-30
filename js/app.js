@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.39";
+const APP_VERSION = "v58.40";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8174,7 +8174,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         try { handwritten = await window.Cloud.yanqiuDiaryDraftTake(charId, targetKey); } catch (e) { handwritten = null; }
       }
       // 日记归入线下创作线路；角色专线仍最高优先（如小克接 Fable），无专线才回退全局线下主 API。
-      const d = handwritten || await generateDiary(offlineApiFor(charId), leanWriteCtx(ctx), { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
+      // ⚠️leanWriteCtx 是给贵线瘦身用的，它会把 worldbook / carryLog 一并清空。
+      // 但上面那句 loreFor(char, "diary") 是【特意按日记这个 scope 挑过的】词条——
+      // 算完又被抹掉，等于她在世界书里勾的「日记可见」从来没生效过（v55.95 那个形状）。
+      // 瘦身之后再把这几层按日记自己的需要放回去：
+      const leanCtx = leanWriteCtx(ctx);
+      leanCtx.worldbook = loreFor(char, "diary");
+      // 随身物：包里那把伞、衣柜里那件外套——日记里最见人的就是这种东西。
+      // 聊天那条链一直在发，日记这条被瘦身顺手削掉了（合法差异该有理由，这里没有）。封顶免得撑爆。
+      leanCtx.carryLog = String((typeof carryContextText === "function" ? carryContextText(carryRef.current[charId], carryPinsRef.current[charId]) : "") || "").slice(0, 900);
+      // 那一天的身体读数。⚠️不能拿 x_phone 里那份健康报告——它是 ♻️「今天」，
+      // 补写昨天的日记时读到的会是今天那份，等于拿错了一天。x_phoneVitals 是一天一条、带日期的。
+      const vRow = (typeof vitalsFor === "function" ? (vitalsFor(charId) || []) : []).find(x => x && x.day === targetKey);
+      const bodyText = vRow ? ("综合 " + (vRow.score != null ? vRow.score : "—") +
+        (vRow.marks && Object.keys(vRow.marks).length ? "｜" + Object.keys(vRow.marks).slice(0, 4).map(k => k + " " + vRow.marks[k]).join("、") : "")) : "";
+      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
@@ -8185,7 +8199,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         coords: d.coords && d.coords !== "null" ? d.coords : null,
         weather: d.weather || "",
         timeStr: d.timeStr || "",
-        paras: Array.isArray(d.paras) ? d.paras.filter(p => p && p.text).map(p => ({ text: String(p.text), secret: !!p.secret })) : [],
+        // ⚠️struck（划掉的半句）和 pasted（贴进来的票根）以前在这一步被丢掉了：
+        // 提示词让模型写、界面也会画、云端也会归一化，唯独落库这儿只抄了 text 和 secret，
+        // 所以「秘密改成划掉」写好了却一直没生效（她 2026-08-30 报的）。
+        paras: Array.isArray(d.paras) ? d.paras.filter(p => p && p.text).map(p => ({
+          text: String(p.text), secret: !!p.secret, struck: !!p.struck, pasted: !!p.pasted
+        })) : [],
         signature: d.signature || "",
         mood: d.mood || "",
         source: handwritten ? "handwritten" : (opts.manual ? "manual" : "auto")

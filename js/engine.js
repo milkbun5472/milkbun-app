@@ -5248,6 +5248,13 @@ async function generateDiary(p, ctx, opts = {}) {
   if (opts.scheduleText && opts.scheduleText.trim()) {
     parts.push("【今天的行程（用来回顾你这天在哪、做了什么、经历了什么）】\n" + opts.scheduleText.trim());
   }
+  // 那一天的身体读数（一天一条、带日期的那份，不是「今天」那张健康报告）。
+  // 睡没睡够、撑不撑得住，本来就是日记里最常出现的一件事。
+  if (opts.bodyText && opts.bodyText.trim()) {
+    parts.push("【那天的身体读数】" + opts.bodyText.trim()
+      + "\n——**不要把这几个数字抄进日记**，它只是告诉你他那天身体是什么状态；"
+      + "该体现成他写字时的精神头、几点睡的、撑不撑得住，而不是一句「今天综合分 74」。");
+  }
   if (opts.walletText && opts.walletText.trim()) {
     parts.push("【今天花的钱（真实流水，可当素材）】\n" + opts.walletText.trim() + "\n——不必逐笔罗列进日记，但如果哪笔买得开心/肉疼/是给谁买的，可以自然写进去。");
   }
