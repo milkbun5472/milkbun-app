@@ -882,14 +882,14 @@ function UsWidget({ characters, couples, sweet, onOpen, dot }) {
   const sv = svRaw != null && isFinite(svRaw) ? Math.round(svRaw * 10) / 10 : null;
   return h(GlassCard, { onClick: onOpen, style: { padding: "12px 16px", cursor: "pointer", position: "relative" } },
     dot ? h("span", { style: { position: "absolute", top: 10, right: 12, width: 8, height: 8, borderRadius: 999, background: "#e0524a" } }) : null,
+    // 「在一起第 N 天」挪到右上角：跟名字挤一行的话，名字只剩一两个字的宽度
+    //（她 2026-08-30 第二次报：「情侣空间名字又看不见了，能不能在一起x天放右上角」）
+    p && days ? h("span", { style: { position: "absolute", top: 11, right: dot ? 26 : 14, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap" } }, "在一起第 " + days + " 天") : null,
     p ? h("div", { key: p.id, className: "flex items-center gap-3", style: { animation: "fadeUp .35s ease both" } },
       h(Avatar, { character: p, size: 44, radius: 999 }),
-      h("div", { className: "flex-1 min-w-0" },
-        // 名字和天数都锁单行：右边还有一排小圆点在抢宽度，不锁的话名字会被挤成一个字一行、
-        // 「在一起第 55 天」也会断成两行，整张卡跟着长高一截（她 2026-08-30 报的就是这个）
-        h("div", { className: "flex items-baseline gap-2" },
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 } }, p.remark || p.name),
-          days ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "在一起第 " + days + " 天") : null),
+      h("div", { className: "flex-1 min-w-0", style: { paddingTop: days ? 13 : 0 } },
+        // 名字独占一行、锁单行：天数已经挪到右上角，这里整行宽度都归名字
+        h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, whiteSpace: "nowrap" } }, p.remark || p.name),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 2 } },
           sv != null ? "💗 甜蜜值 " + sv : "点开去看看你们的小空间")),
       partners.length > 1 ? h("div", { className: "flex gap-1", style: { flexShrink: 0 } },

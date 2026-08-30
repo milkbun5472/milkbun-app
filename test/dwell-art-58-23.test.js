@@ -87,16 +87,7 @@ test("去处这一路不发她的心愿单、送礼往来和他对她的印象",
   assert.ok(!/ctx\.memLib\s*=\s*/.test(src) && !/ctx\.memory\s*=\s*/.test(src), "把记忆也一起砍了，屋子会变成谁的都行");
 });
 
-test("细线小签指的是区域、点得动、最多四根", () => {
-  const i = dwell.indexOf("细线指的是【区域】");
-  assert.ok(i > 0, "找不到出图那一块了");
-  const src = dwell.slice(i, i + 2600);
-  assert.match(src, /\(open\.zones \|\| \[\]\)\.slice\(0, 4\)/, "小签没封顶，区域多了会糊成一片");
-  assert.match(src, /pointerEvents: "auto"/, "小签点不动——外面那层是 pointerEvents:none");
-  assert.match(src, /onClick: function \(\) \{ setZoneIdx\(i\); \}/, "点了小签没翻到那一块");
-  assert.match(src, /pointerEvents: "none"/, "覆盖层没设 none，会把整张图挡住");
-});
-
+// 细线小签那一条搬去了 dwell-door-58-24：改成全屏了，根数和落点都跟着变
 test("没配图像 API 就说清楚，别让她撞一句看不懂的报错", () => {
   const i = dwell.indexOf("async function draw(place) {");
   assert.ok(i > 0, "找不到出图那个动作了");

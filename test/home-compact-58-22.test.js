@@ -90,20 +90,10 @@ test("地方改叫去处", () => {
   const { api } = makeHome();
   assert.equal(api.REG.dwell.zh, "去处");
   assert.ok(!/zh: "地方"/.test(comp), "主屏图标名还有写「地方」的");
-  assert.match(dwell, /zh: "去处", en: "Places"/, "去处那一页的标题没改");
-  assert.ok(!/} }, "地方"\)/.test(dwell), "去处页面里还有个标题写着「地方」");
+  assert.match(dwell, /topBar\("去处", "PLACES"\)/, "去处那一页的标题没改");
+  assert.ok(!/["「]地方["」]/.test(dwell.split("\n").filter(l => /F_DISPLAY|topBar\(|zh:/.test(l)).join("\n")),
+    "去处页面里还有个标题写着「地方」");
 });
 
-// 她 2026-08-30 截图：情侣卡的「江识」被挤成一个字一行，「在一起第 55 天」也断成两行
-test("情侣卡的名字和天数都锁单行", () => {
-  const i = comp.indexOf("function UsWidget(");
-  assert.ok(i > 0, "找不到情侣组件了");
-  const body = comp.slice(i, comp.indexOf("\nfunction ", i + 10));
-  const lineWith = needle => body.split("\n").find(l => l.includes(needle)) || "";
-  const nameLine = lineWith("p.remark || p.name");
-  assert.match(nameLine, /whiteSpace: "nowrap"/, "名字没锁单行，被右边那排小圆点一挤就一个字一行：" + nameLine.trim());
-  assert.match(nameLine, /textOverflow: "ellipsis"/, "名字太长得用省略号收掉，不能撑高卡片");
-  const daysLine = lineWith("\"在一起第 \" + days");
-  assert.match(daysLine, /whiteSpace: "nowrap"/, "「在一起第 N 天」没锁单行，会断成两行：" + daysLine.trim());
-  assert.match(daysLine, /flexShrink: 0/, "天数没设 flexShrink:0，还是会被压窄换行");
-});
+// 情侣卡那一条搬去了 dwell-door-58-24：天数已经挪到右上角，不再跟名字挤一行
+
