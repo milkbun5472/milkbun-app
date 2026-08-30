@@ -2268,8 +2268,9 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const body = page.secs.filter(Boolean);
   const emptyWord = { home: "还没有购物记录，点右上角刷一次", cart: "购物车是空的", order: "还没有订单", mine: "还没有这个人的购物档案" }[page.key];
   const nav = h("div", {
-    className: "shrink-0 grid grid-cols-4",
-    style: { padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e8e8ee" }
+    // ⚠️列数跟着 PAGES 走：写死 grid-cols-4 的话，加一档就挤成两行
+    className: "shrink-0 grid",
+    style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e8e8ee" }
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => { setTab(pg.key); setSheet(null); },
     className: "flex flex-col items-center justify-center active:opacity-60",
@@ -2552,8 +2553,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#6a5a2a" } }, page.zh),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: "#7a6428" })));
   const nav = h("div", {
-    className: "shrink-0 grid grid-cols-4",
-    style: { padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
+    className: "shrink-0 grid",
+    style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); },
     className: "flex flex-col items-center justify-center active:opacity-60",
@@ -2592,6 +2593,9 @@ const HEALTH_DIM = "#9aa0a8";
 const HEALTH_GROUPS = [
   { key: "body", zh: "体征", glyph: "health" },
   { key: "mind", zh: "心神", glyph: "liked" },
+  // 私密单开一档（她 2026-08-30 拍板）。以前它是【心神】那一档里的一句从句，
+  // 于是十有八九根本写不出来——一句从句抢不过情绪、静心、社交那三样。
+  { key: "private", zh: "私密", glyph: "latenight" },
   { key: "intake", zh: "摄入", glyph: "takeout" }
 ];
 // 模型不一定按 key 回：会写中文（「心神」「摄入」）、写英文近义词（mood/private/diet），
@@ -2603,8 +2607,10 @@ const HEALTH_GROUP_ALIAS = (() => {
   const m = {};
   const put = (key, words) => words.forEach(w => { m[w] = key; });
   put("body", ["body", "physical", "vitals", "vital", "fitness", "sleep", "体征", "身体", "生理", "体能", "睡眠"]);
-  put("mind", ["mind", "mental", "mood", "emotion", "emotional", "psych", "social", "private", "intimate", "intimacy", "sexual", "desire", "libido",
-    "心神", "心理", "情绪", "精神", "社交", "私密", "亲密", "隐私", "欲望", "性"]);
+  put("mind", ["mind", "mental", "mood", "emotion", "emotional", "psych", "social",
+    "心神", "心理", "情绪", "精神", "社交"]);
+  put("private", ["private", "privacy", "intimate", "intimacy", "sexual", "sex", "desire", "libido", "arousal", "bodyprivate",
+    "私密", "亲密", "隐私", "欲望", "性", "情欲", "身体私密"]);
   put("intake", ["intake", "diet", "food", "nutrition", "drink", "consumption", "output",
     "摄入", "饮食", "进食", "营养", "消耗", "补给"]);
   return m;
@@ -2783,8 +2789,8 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: HEALTH_INK } }, page.zh),
     h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#5c6169" })));
   const nav = h("div", {
-    className: "shrink-0 grid grid-cols-4",
-    style: { padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e5e8ec" }
+    className: "shrink-0 grid",
+    style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 8px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e5e8ec" }
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => setTab(pg.key),
     className: "flex flex-col items-center justify-center active:opacity-60",
@@ -4708,7 +4714,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
     },
     health: {
       instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
-        + "cards **12-14 张指标卡**，group 分三档、每档 4-5 张：body（身体：睡眠、活动、心跳、消耗、恢复这类）、mind（心神：情绪、静心、社交、私密的身体反应这类）、intake（摄入与消耗：喝的、吃的、以及他花在传消息上的时间）。wide=true 的整宽卡每档 1-2 张，其余为窄卡。\n\n"
+        + "cards **13-16 张指标卡**，group 分四档：body **4-5 张**（身体：睡眠、活动、心跳、消耗、恢复这类）、mind **4-5 张**（心神：情绪、静心、社交这类）、private **2-3 张**（见下）、intake **3-4 张**（摄入与消耗：喝的、吃的、以及他花在传消息上的时间）。wide=true 的整宽卡每档 1-2 张，其余为窄卡。**四档都必须写满，一档都不许空着。**\n\n"
+        + "【private 这一档】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 score / value / tag / 一周曲线，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n\n"
         + "【这个 app 的灵魂 · 指标名要长成他世界里的样子】**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」，所以那一项在他那儿必须换成他会用的说法；「正念冥想」「社交电量」这类现代词同理。现代角色就用现代说法。**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**\n\n"
         + "【每张卡都要有】name（指标名，见上）、group、wide、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
         + "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：三项拆的应该是**他今天真正走过的那几段路、真正喝下去的那几样东西**，名字要带上地点、场合、或某个具体的人。**换个角色还照样成立的三项，就是写坏了。**\n\n"
