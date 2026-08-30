@@ -1517,6 +1517,7 @@ function Home({
     cwallet: { kind: "app", zh: "钱包", G: GWallet },
     lore: { kind: "app", zh: "世界书", G: GLore },
     memlib: { kind: "app", zh: "记忆库", G: GMem },
+    anon: { kind: "app", zh: "匿名问答", G: GForum },
 
     // 记账 app 图标退场：已有 w_ledger 记账组件，点组件即可进记账（onOpenApp("ledger")）。从 REG 删掉后，
     // 存档里残留的 "ledger" key 会被 valid() 判无效丢弃、安全网也不会回填。ledger 路由本身还在，不影响功能。
@@ -1547,7 +1548,7 @@ function Home({
   const DEFAULT_LAYOUT = [
     ["w_card", "cast", "ties", "phone", "w_music", "w_map"],
     ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
-    ["lore", "memlib", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "trpg", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
+    ["lore", "memlib", "anon", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "trpg", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
     ["capsule", "w_muyu", "w_weather", "w_wheel"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
@@ -3297,7 +3298,6 @@ function ChatThread({
   onSendTransfer,
   onRespondTransfer,
   makeCoords,
-  onOpenAnon,
   onOpenMoments,
   onOffline,
   onOOC,
@@ -3350,7 +3350,7 @@ function ChatThread({
   const inited = useRef(false); // 首次进入聊天：瞬间落底，不用 smooth（否则从顶部慢慢滚像跳到很上面）
   const pressTimer = useRef(null);
   const cName = character.remark || character.name;
-  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["anon", "匿名箱", "forum"], ["moments", "朋友圈", "wechat"], ["transfer", "转账", "wallet"], ["pat", "拍一拍", "wechat"]].filter(([key]) => room && !room.main ? !["anon", "moments", "transfer"].includes(key) : true);
+  const PANEL = [["location", "位置", "browser"], ["sticker", "表情包", "album"], ["photo", "照片", "album"], ["voicemsg", "发语音", "recordings"], ["voice", "语音通话", "calls"], ["video", "视频通话", "video"], ["calllog", "通话记录", "calls"], ["chatsearch", "查找记录", "browser"], ["moments", "朋友圈", "wechat"], ["transfer", "转账", "wallet"], ["pat", "拍一拍", "wechat"]].filter(([key]) => room && !room.main ? !["moments", "transfer"].includes(key) : true);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -3389,9 +3389,6 @@ function ChatThread({
     } else if (k === "transfer") {
       setTransferOpen(true);
       setPanelOpen(false);
-    } else if (k === "anon") {
-      setPanelOpen(false);
-      onOpenAnon && onOpenAnon();
     } else if (k === "moments") {
       setPanelOpen(false);
       onOpenMoments && onOpenMoments();
@@ -4724,6 +4721,43 @@ function CallScreen({
     d: "M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"
   })))));
 }
+// 匿名问答正门：全角色聚合。详情仍复用原来的单角色匿名主页，旧 x_anon 数据原样沿用。
+// 布局遵守 mobile-ui-layout：紧凑顶栏 + 唯一主滚动容器；滚动位置离开后可恢复。
+function AnonHub({ characters, data, busy, onOpen, onBack }) {
+  const t = useTheme();
+  const scrollRef = useRef(null);
+  useEffect(function () {
+    const n = Number(sessionStorage.getItem("x_anonHubScroll") || 0);
+    if (scrollRef.current && n > 0) scrollRef.current.scrollTop = n;
+  }, []);
+  const rows = (characters || []).map(function (char) {
+    const d = data && data[char.id] || {};
+    const records = d.records || [];
+    return { char, d, records, latest: records[0] || null };
+  });
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
+    h("div", { className: "shrink-0 px-5 flex items-center justify-between", style: { height: 62, borderBottom: `1px solid ${t.line}` } },
+      h("button", { onClick: onBack, className: "active:opacity-50", "aria-label": "返回" }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { style: { textAlign: "center" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, "匿名问答"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: t.fog, marginTop: 1 } }, "ANONYMOUS Q&A")),
+      h("div", { style: { width: 19 } })),
+    h("div", { ref: scrollRef, onScroll: function (e) { sessionStorage.setItem("x_anonHubScroll", String(e.currentTarget.scrollTop || 0)); }, className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginBottom: 16 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
+      rows.length ? h("div", { className: "grid grid-cols-2 gap-3" }, rows.map(function (row) {
+        const r = row.latest;
+        return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)" } },
+          h("div", { style: { height: 58, padding: "11px 12px", background: "linear-gradient(135deg,#6d5a78,#3f6d8c)", color: "#fff", display: "flex", alignItems: "center", gap: 9 } },
+            h(Avatar, { character: row.char, size: 38, radius: 11 }),
+            h("div", { style: { minWidth: 0 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, row.d.netname || row.char.remark || row.char.name),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, row.records.length + " 则问答"))),
+          h("div", { style: { padding: "12px 12px 13px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: t.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, row.d.bio || "点开生成 Ta 的匿名马甲"),
+            h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: r ? t.sub : t.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, r ? r.q : busy ? "正在准备…" : "还没有人问过 Ta")));
+      })) : h(Empty, { text: "还没有可以问的人" })));
+}
+
 // 匿名箱：仿 QQ 主页 + 匿名问答，记录永久保留
 function AnonBox({
   char,

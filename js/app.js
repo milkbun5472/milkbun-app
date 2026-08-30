@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.26";
+const APP_VERSION = "v58.27";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13110,7 +13110,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSendTransfer: (amount, note) => sendTransfer(activeChar.id, amount, note),
     onRespondTransfer: (tid, accept) => respondTransfer(activeChar.id, tid, accept),
     makeCoords: makeCoords,
-    onOpenAnon: () => openAnon(activeChar),
     onOpenMoments: () => openMomProfile(activeChar.id, false),
     onOffline: () => openOffline(activeChar),
     onOOC: text => oocReply(activeChar.id, text),
@@ -13277,6 +13276,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onBack: goHome,
     onSel: setSelSched,
     onGenDay: genScheduleDay
+  });else if (screen === "anon") body = h(AnonHub, {
+    characters: liveChars,
+    data: anon,
+    busy: anonBusy,
+    onOpen: openAnon,
+    onBack: goHome
   });else if (screen === "phone") body = /*#__PURE__*/React.createElement(PhoneCarry, {
     characters: liveChars,
     phones: phones,
