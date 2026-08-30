@@ -212,7 +212,9 @@
       setPlaces(dropPlace(char.id, id)); setOpenId(null); setView("places");
     }
     function back() {
-      if (view === "place") { setOpenId(null); setZoneIdx(-1); setItem(null); setView("places"); }
+      if (item) { setItem(null); }
+      else if (zone) { setZoneIdx(-1); }
+      else if (view === "place") { setOpenId(null); setZoneIdx(-1); setView("places"); }
       else if (view === "places") { setSelId(""); setView("who"); }
       else if (view === "who") { setOpening(false); setView("door"); }
       else props.onBack && props.onBack();
@@ -225,6 +227,62 @@
           sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, sub) : null),
         h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } }, right || null));
     };
+
+    // 区域页和物件页都是【整页】，不是从底下掀起来的半窗——
+    // 半窗把内容压在下半屏、上面那半还糊着一层背景，字大一点就摆不下（见 .claude/rules/no-half-sheet.md）。
+    // 底衬用这处地方的图糊开压暗：既接得上全屏那一页，又不抢正文。
+    const backdrop = function (p) {
+      return p && p.img
+        ? h("div", { style: { position: "absolute", inset: 0, overflow: "hidden" } },
+            h("img", { src: (typeof resolveImg === "function" ? resolveImg(p.img) : p.img), alt: "",
+              // 糊开之后边缘会透出底色，得往外多铺一圈。⚠️用 transform:scale 撑，不能用 width:116%——
+              // 全局有一条 img{max-width:100%}，把宽度按回 100%，右边就空出一条（实测量出来差 31px）
+              style: { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.18)", filter: "blur(22px) saturate(.8)" } }),
+            h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(16,17,20,.70),rgba(16,17,20,.93))" } }))
+        : h("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(120% 80% at 50% 12%, #262b33, #14161a 72%)" } });
+    };
+    const darkBar = function (title, sub, right) {
+      return h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+        h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#fff" })),
+        h("div", { className: "flex-1 min-w-0 text-center px-1" },
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#fff", lineHeight: 1.15 } }, title),
+          sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", marginTop: 1 } }, sub) : null),
+        h("div", { className: "flex items-center justify-end", style: { gap: 12, minWidth: 40 } }, right || null));
+    };
+
+    // ── 一件东西：整页，他的想法是这一页的主角 ─────────────────
+    if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col relative", style: { background: "#14161a" } },
+      backdrop(open),
+      h("div", { className: "relative flex flex-col h-full" },
+        darkBar(zone ? zone.name : open.name, open.name),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: "rgba(255,255,255,.42)", marginTop: 18 } }, "ONE THING"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.35, color: "#fff", marginTop: 8 } }, item.name),
+          item.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.9, color: "rgba(255,255,255,.76)", marginTop: 14 } }, item.note) : null,
+          item.thought ? h("div", { style: { marginTop: 26, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,.16)" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: "rgba(255,255,255,.48)", marginBottom: 12 } }, (char ? char.name : "他") + " 的想法"),
+            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 2.05, color: "#fff" } }, item.thought)) : null)));
+
+    // ── 一块区域：整页列这一块里的东西 ────────────────────────
+    if (view === "place" && open && zone) return h("div", { className: "h-full flex flex-col relative", style: { background: "#14161a" } },
+      backdrop(open),
+      h("div", { className: "relative flex flex-col h-full" },
+        darkBar(open.name, char ? char.name : ""),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: "rgba(255,255,255,.42)", marginTop: 18 } }, (zone.en || "ZONE").toUpperCase()),
+          h("div", { className: "flex items-baseline", style: { gap: 10, marginTop: 8, marginBottom: 20 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.3, color: "#fff", minWidth: 0 } }, zone.name),
+            h("span", { style: { flex: 1 } }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", whiteSpace: "nowrap" } }, (zone.items || []).length + " 件")),
+          (zone.items || []).map(function (x, j) {
+            return h("button", { key: j, onClick: function () { setItem(x); },
+              className: "w-full text-left active:opacity-70",
+              style: { display: "block", padding: "15px 0", borderTop: "1px solid rgba(255,255,255,.14)" } },
+              h("div", { className: "flex items-baseline", style: { gap: 11 } },
+                h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: "rgba(255,255,255,.4)", width: 20, flexShrink: 0 } }, String(j + 1).padStart(2, "0")),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#fff", lineHeight: 1.4 } }, x.name)),
+              x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(255,255,255,.6)", marginTop: 5, paddingLeft: 31 } }, x.note) : null);
+          }))));
 
     // ── 门：推开才进去 ─────────────────────────────────────
     if (view === "door" || !chars.length) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
@@ -303,30 +361,7 @@
             style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.66)", marginTop: 12 } },
             drawing ? "在画…（这一步会调一次图像 API）" : (open.img ? "重画一张" : "补一张图"))),
         busy ? h("div", { className: "absolute inset-0 flex items-center justify-center", style: { background: "rgba(0,0,0,.45)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#fff" } }, "正在重新看一遍…")) : null,
-        zone ? h(Sheet, { onClose: function () { setZoneIdx(-1); setItem(null); }, tall: true },
-          h("div", { className: "flex items-baseline", style: { gap: 8, marginBottom: 4 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, zone.name),
-            h("span", { style: { flex: 1 } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (zone.items || []).length + " 件")),
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 14 } }, (zone.en || "").toUpperCase()),
-          (zone.items || []).map(function (x, j) {
-            return h("button", {
-              key: j, onClick: function () { setItem(x); },
-              className: "w-full text-left active:opacity-70",
-              style: { display: "block", padding: "12px 0", borderTop: j ? "1px solid " + t.line : "none" }
-            },
-              h("div", { className: "flex items-baseline", style: { gap: 9 } },
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, width: 18, flexShrink: 0 } }, String(j + 1).padStart(2, "0")),
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, x.name)),
-              x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 4, paddingLeft: 27 } }, x.note) : null);
-          })) : null,
-        item ? h(Sheet, { onClose: function () { setItem(null); } },
-          h(Eyebrow, { style: { marginBottom: 8 } }, item.name),
-          item.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: t.sub } }, item.note) : null,
-          item.thought ? h("div", { style: { marginTop: 14, paddingTop: 13, borderTop: "1px solid " + t.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.1em", color: t.fog, marginBottom: 6 } }, (char ? char.name : "他") + " 的想法"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.ink } }, item.thought)) : null) : null);
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#fff" } }, "正在重新看一遍…")) : null);
     }
 
     // ── 某个人的地点列表 ──────────────────────────────────

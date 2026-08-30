@@ -103,3 +103,45 @@ test("情侣卡：天数挪到右上角，名字独占一整行", () => {
   assert.ok(!/在一起第/.test(nameLine), "名字那一行里还留着天数");
   assert.match(nameLine, /whiteSpace: "nowrap"/, "名字没锁单行");
 });
+
+// 她 2026-08-30：「这俩细节框再修修，默认不要这种半窗」→ .claude/rules/no-half-sheet.md
+test("区域和物件都是整页，不是从底下掀起来的半窗", () => {
+  assert.equal(dwell.indexOf("h(Sheet"), -1, "去处里还留着半窗：内容被压到下半屏，说明一句都放不下");
+  ["view === \"place\" && open && zone", "view === \"place\" && open && item"].forEach(k =>
+    assert.ok(dwell.includes(k), "少了这一整页：" + k));
+  // 整页得照移动端那套骨架：顶栏不缩、正文自己滚。⚠️两页各自单独看——
+  // 合成一段切片的话，改坏其中一页、另一页还留着同一串字，测试就抓不到了
+  const pages = {
+    物件页: dwell.slice(dwell.indexOf('if (view === "place" && open && item)'), dwell.indexOf('if (view === "place" && open && zone)')),
+    区域页: dwell.slice(dwell.indexOf('if (view === "place" && open && zone)'), dwell.indexOf('// ── 门：推开才进去'))
+  };
+  Object.keys(pages).forEach(function (k) {
+    assert.match(pages[k], /className: "h-full flex flex-col relative"/, k + "：整页外壳不对");
+    assert.match(pages[k], /flex-1 min-h-0 overflow-y-auto/, k + "：正文不会滚，内容长一点就看不全");
+    assert.match(pages[k], /darkBar\(/, k + "：没用整页那个顶栏");
+    assert.match(pages[k], /backdrop\(open\)/, k + "：没有底衬");
+  });
+  const src = pages.物件页;
+  // 顶栏是 darkBar 出的，在这两页之前就定义好了，得单独看
+  const bar = dwell.slice(dwell.indexOf("const darkBar = function"), dwell.indexOf("\n    };", dwell.indexOf("const darkBar = function")));
+  assert.match(bar, /shrink-0 flex items-center px-4/, "顶栏会被正文挤扁");
+  assert.match(bar, /safeTop\(10\)/, "顶栏没让开刘海");
+
+});
+
+test("底衬用上一层那张图糊开——但不能用 width 撑，会被 max-width 按回去", () => {
+  const i = dwell.indexOf("const backdrop = function (p) {");
+  assert.ok(i > 0, "找不到底衬");
+  const src = dwell.slice(i, dwell.indexOf("\n    };", i));
+  assert.match(src, /blur\(/, "底衬没糊开，会跟正文抢眼睛");
+  assert.match(src, /transform: "scale\(1\.1[0-9]?\)"/, "没往外撑：糊开之后边缘会透出底色");
+  assert.ok(!/width: "(?!100%)1[0-9][0-9]%"/.test(src), "又用 width 往外撑了——全局 img{max-width:100%} 会把它按回 100%，右边空一条");
+  assert.match(src, /radial-gradient/, "上一层没图的时候没有兜底底衬");
+});
+
+test("规矩写下来了，而且写的是【默认整页】", () => {
+  const rule = fs.readFileSync(path.join(__dirname, "..", ".claude", "rules", "no-half-sheet.md"), "utf8");
+  assert.match(rule, /默认用整页/, "没把默认说清楚");
+  assert.match(rule, /h\(Sheet/, "没指出代码里对应的是哪个东西，下一个人对不上号");
+  assert.match(rule, /需要同时看见它下面那一层吗/, "没给判据，只有结论的话照样会有人再写一个半窗");
+});
