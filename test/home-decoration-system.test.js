@@ -30,7 +30,25 @@ test("组件库提供照片框、字句卡和日期签", () => {
   assert.doesNotMatch(library, /multiple: true/, "多格相框必须逐格选图，不能再要求一次选满");
   assert.match(library, /HomePhotoSlotEditor/);
   assert.match(library, /照片可以先不放/);
-  for (const id of ["single", "film3", "fan3"]) assert.match(comp, new RegExp(`id: "${id}"`));
+  for (const id of ["single", "film3", "fan3", "torn4", "contact6", "envelope", "evidence2", "audioPhoto"]) {
+    assert.match(comp, new RegExp(`id: "${id}"`));
+  }
+});
+
+test("新增照片墙各有独立骨架且多格编辑器每行最多三格", () => {
+  const frames = between("const HOME_PHOTO_FRAMES", "function homePhotoSlotCount");
+  const render = between("function HomeDecorItem", "function HomePresetGrid");
+  const editor = between("function HomePhotoSlotEditor", "function Home({");
+  assert.match(frames, /id: "torn4"[\s\S]*need: 4/);
+  assert.match(frames, /id: "contact6"[\s\S]*need: 6/);
+  assert.match(frames, /id: "envelope"[\s\S]*need: 1/);
+  assert.match(frames, /id: "evidence2"[\s\S]*need: 2/);
+  assert.match(frames, /id: "audioPhoto"[\s\S]*need: 1/);
+  for (const frame of ["torn4", "contact6", "envelope", "evidence2", "audioPhoto"]) {
+    assert.match(render, new RegExp(`frame === "${frame}"`), `${frame} 不能只是名单，必须有自己的桌面骨架`);
+  }
+  assert.match(editor, /Math\.min\(3, photos\.length\)/,
+    "四格和六格相框的编辑器不能挤成一整行");
 });
 
 test("照片墙允许空框落桌并按槽位逐张补图", () => {

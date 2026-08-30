@@ -1520,7 +1520,12 @@ const HOME_SIZE_PRESETS = [
 const HOME_PHOTO_FRAMES = [
   { id: "single", name: "单张", note: "一张照片完整铺开", need: 1 },
   { id: "film3", name: "三格胶卷", note: "横向三连，适合长条", need: 3 },
-  { id: "fan3", name: "V 形拍立得", note: "三张错落重叠", need: 3 }
+  { id: "fan3", name: "V 形拍立得", note: "三张错落重叠", need: 3 },
+  { id: "torn4", name: "撕页拼贴", note: "四张像从手账里撕下", need: 4 },
+  { id: "contact6", name: "胶片印样", note: "六格暗房接触印样", need: 6 },
+  { id: "envelope", name: "信封夹层", note: "照片从一封信里露出来", need: 1 },
+  { id: "evidence2", name: "证物档案", note: "两张照片钉进调查页", need: 2 },
+  { id: "audioPhoto", name: "留声照片", note: "一张带唱片与波形的照片", need: 1 }
 ];
 function homePhotoSlotCount(frame) {
   var found = HOME_PHOTO_FRAMES.find(function (x) { return x.id === frame; });
@@ -1583,6 +1588,42 @@ function HomeDecorItem({ item, preset, now }) {
           var turns = [-10, 0, 10], lefts = [7, 27, 47];
           return photo(srcs[i], i, { position: "absolute", width: "47%", height: "76%", left: lefts[i] + "%", top: i === 1 ? "8%" : "15%", transform: "translateX(-10%) rotate(" + turns[i] + "deg)", transformOrigin: "50% 100%", border: "6px solid #fffdf8", borderBottomWidth: 17, borderRadius: 2, boxShadow: "0 7px 18px rgba(30,26,22,.24)", zIndex: i === 1 ? 2 : 1 });
         }));
+    } else if (frame === "torn4") {
+      var tornPos = [
+        { left: "4%", top: "5%", width: "55%", height: "48%", transform: "rotate(-4deg)", clipPath: "polygon(2% 3%,98% 0,96% 96%,4% 100%,0 46%)" },
+        { right: "3%", top: "9%", width: "42%", height: "42%", transform: "rotate(5deg)", clipPath: "polygon(3% 0,100% 4%,96% 100%,0 95%)" },
+        { left: "7%", bottom: "4%", width: "42%", height: "45%", transform: "rotate(3deg)", clipPath: "polygon(0 5%,96% 0,100% 94%,4% 100%)" },
+        { right: "5%", bottom: "5%", width: "50%", height: "47%", transform: "rotate(-3deg)", clipPath: "polygon(4% 0,100% 5%,96% 100%,0 94%)" }
+      ];
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#24211e" : "#eee3d2" } },
+        h("div", { style: { position: "absolute", left: "47%", top: "2%", width: 18, height: "48%", background: "rgba(215,184,126,.55)", transform: "rotate(14deg)", zIndex: 5 } }),
+        tornPos.map(function (pos, i) { return photo(srcs[i], i, Object.assign({ position: "absolute", border: "5px solid #fffaf0", boxShadow: "0 5px 13px rgba(40,30,22,.23)" }, pos)); }));
+    } else if (frame === "contact6") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gridTemplateRows: "repeat(2,minmax(0,1fr))", gap: 5, padding: "18px 8px 16px", background: "#171412", border: "1px solid #050505", position: "relative" } },
+        srcs.map(function (src, i) { return h("div", { key: i, style: { minWidth: 0, minHeight: 0, position: "relative" } },
+          photo(src, i, { width: "100%", height: "100%", border: "1px solid rgba(244,225,187,.55)" }),
+          h("span", { style: { position: "absolute", right: 2, bottom: 1, color: "rgba(255,239,207,.72)", fontFamily: "monospace", fontSize: 6, lineHeight: 1 } }, String(i + 1).padStart(2, "0")));
+        }),
+        h("div", { style: { position: "absolute", left: 8, top: 4, color: "rgba(255,234,192,.72)", fontFamily: "monospace", fontSize: 7, letterSpacing: ".15em" } }, "CONTACT / 36"));
+    } else if (frame === "envelope") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#24201b" : "#e8dcc8" } },
+        h("div", { style: { position: "absolute", left: "18%", top: "6%", width: "64%", height: "73%", padding: 6, paddingBottom: 16, background: "#fffdf6", transform: "rotate(-3deg)", boxShadow: "0 8px 18px rgba(54,41,29,.2)" } }, photo(srcs[0], 0, { width: "100%", height: "100%" })),
+        h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: "3%", height: "47%", background: "#d8c29e", clipPath: "polygon(0 0,50% 58%,100% 0,100% 100%,0 100%)", boxShadow: "0 -1px 0 rgba(98,72,42,.18)", zIndex: 3 } }),
+        h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: "3%", height: "47%", background: "rgba(246,231,203,.88)", clipPath: "polygon(0 100%,0 25%,50% 68%,100% 25%,100% 100%)", zIndex: 4 } }),
+        h("div", { style: { position: "absolute", right: "12%", bottom: "12%", width: 25, height: 25, borderRadius: 999, background: "#9d5547", boxShadow: "inset 0 0 0 3px rgba(91,35,31,.18)", color: "rgba(255,238,213,.78)", fontFamily: "Georgia,serif", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5 } }, "L"));
+    } else if (frame === "evidence2") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#242321" : "#eee9dc", border: "1px solid rgba(62,55,43,.24)" } },
+        h("div", { style: { position: "absolute", left: 8, top: 7, fontFamily: "monospace", fontSize: 7, color: dark ? "rgba(255,255,255,.5)" : "#725f50", letterSpacing: ".12em" } }, "EVIDENCE / " + String((now instanceof Date ? now : new Date()).getDate()).padStart(2, "0")),
+        photo(srcs[0], 0, { position: "absolute", left: "6%", top: "20%", width: "52%", height: "58%", transform: "rotate(-3deg)", border: "5px solid #fbfaf4", boxShadow: "0 5px 12px rgba(30,28,24,.2)" }),
+        photo(srcs[1], 1, { position: "absolute", right: "5%", bottom: "8%", width: "46%", height: "53%", transform: "rotate(4deg)", border: "5px solid #fbfaf4", boxShadow: "0 5px 12px rgba(30,28,24,.2)" }),
+        h("div", { style: { position: "absolute", right: "9%", top: "8%", border: "2px solid #a94e42", color: "#a94e42", padding: "3px 5px", transform: "rotate(7deg)", fontFamily: "monospace", fontSize: 7, letterSpacing: ".1em" } }, "ARCHIVED"),
+        h("div", { style: { position: "absolute", left: "27%", top: "15%", width: 9, height: 25, border: "2px solid #777", borderRadius: 999, transform: "rotate(8deg)", zIndex: 4 } }));
+    } else if (frame === "audioPhoto") {
+      body = h("div", { style: { width: "100%", height: "100%", minHeight: 145, position: "relative", overflow: "hidden", background: dark ? "#161514" : "#e8e0d5" } },
+        photo(srcs[0], 0, { position: "absolute", left: "6%", top: "8%", width: "66%", height: "76%", border: "6px solid #fffdf8", borderBottomWidth: 19, boxShadow: "0 7px 16px rgba(31,27,23,.2)" }),
+        h("div", { style: { position: "absolute", right: "3%", bottom: "7%", width: "43%", aspectRatio: "1", borderRadius: 999, background: "repeating-radial-gradient(circle,#2a2825 0 3px,#171614 3px 5px)", boxShadow: "0 6px 14px rgba(20,18,16,.28)", display: "flex", alignItems: "center", justifyContent: "center" } },
+          h("div", { style: { width: "28%", height: "28%", borderRadius: 999, background: "#b95f59", border: "3px solid #e8c99f" } })),
+        h("div", { style: { position: "absolute", left: "13%", right: "35%", bottom: "8%", height: 12, display: "flex", alignItems: "center", gap: 2, zIndex: 4 } }, [5, 9, 4, 11, 7, 3, 8, 5].map(function (n, i) { return h("span", { key: i, style: { flex: 1, height: n, background: "rgba(74,60,50,.62)", borderRadius: 3 } }); })));
     } else {
       body = h("div", { style: { width: "100%", height: "100%", minHeight: 72, position: "relative", overflow: "hidden", borderRadius: preset === "editorial" ? 0 : 7, background: dark ? "#0d0d0c" : t.bg2 } }, photo(srcs[0], 0, { width: "100%", height: "100%" }));
     }
@@ -1625,7 +1666,7 @@ function HomeSizeGrid({ value, onChange }) {
 }
 function HomePhotoFrameGrid({ value, onChange }) {
   const t = useTheme();
-  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
+  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8 } },
     HOME_PHOTO_FRAMES.map(function (p) {
       var active = (value || "single") === p.id;
       return h("button", { key: p.id, onClick: function () { onChange(p.id); }, className: "active:opacity-70", style: { minHeight: 82, borderRadius: 15, padding: "10px 5px", background: active ? t.ink : t.bg, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
@@ -1636,7 +1677,7 @@ function HomePhotoFrameGrid({ value, onChange }) {
 function HomePhotoSlotEditor({ value, frame, busy, onPick, onClear }) {
   const t = useTheme();
   var photos = normalizeHomePhotoSlots(value, frame);
-  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + photos.length + ",minmax(0,1fr))", gap: 8, marginTop: 10 } },
+  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + Math.min(3, photos.length) + ",minmax(0,1fr))", gap: 8, marginTop: 10 } },
     photos.map(function (ref, i) {
       var src = ref && typeof resolveImg === "function" ? resolveImg(ref) : ref;
       return h("div", { key: i, style: { position: "relative", minWidth: 0 } },
