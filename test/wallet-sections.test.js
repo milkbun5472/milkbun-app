@@ -22,8 +22,8 @@ const W = (() => {
     return app.slice(i, end);
   };
   const numClean = 'const numClean = v => { const n = Number(String(v == null ? "" : v).replace(/[^\\d.\\-]/g, "")); return isFinite(n) ? Math.round(n * 100) / 100 : 0; };';
-  return new Function(numClean + grab("walletAccounts") + grab("walletDebts") +
-    "; return { walletAccounts, walletDebts };")();
+  return new Function(numClean + grab("walletAccounts") + grab("debtSig") + grab("walletDebts") +
+    "; return { walletAccounts, walletDebts, debtSig };")();
 })();
 
 test("账户：只留一处 primary，一处都没标就把第一条当它", () => {
@@ -84,10 +84,11 @@ test("欠账：没名字或没金额的不算一笔", () => {
 });
 
 test("首建和重新生成两处都要存这两块（一层只写在一处，别处没跟上）", () => {
-  assert.match(app, /accounts: walletAccounts\(prof\),\n\s*debts: walletDebts\(prof\),/, "首建那处");
+  // v58.38 起 walletDebts 还要收上一份（把已结清的那几笔认回来），断言别把参数冻死
+  assert.match(app, /accounts: walletAccounts\(prof\),\n\s*debts: walletDebts\(prof[^)]*\),/, "首建那处");
   assert.match(app, /accounts: walletAccounts\(prof\)\.length \? walletAccounts\(prof\) : \(cur\.accounts \|\| \[\]\)/,
     "重新生成那处：模型这次没给就保留旧的，别把已有的抹成空");
-  assert.match(app, /debts: walletDebts\(prof\)\.length \? walletDebts\(prof\) : \(cur\.debts \|\| \[\]\)/);
+  assert.match(app, /debts: walletDebts\(prof[^)]*\)\.length \? walletDebts\(prof[^)]*\) : \(cur\.debts \|\| \[\]\)/);
   // 数字生命那份字段形状也要一致，界面才不会读到 undefined
   assert.match(app, /incomes: \[\], monthlyIncome: 0, fixedMonthly: 0, baseBalance: 0, investAssets: 0, accounts: \[\], debts: \[\],/);
 });

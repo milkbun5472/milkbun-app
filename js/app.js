@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.37";
+const APP_VERSION = "v58.38";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8861,16 +8861,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!seen) list[0].primary = true;
     return list;
   };
-  const walletDebts = prof => ((prof && Array.isArray(prof.debts)) ? prof.debts : [])
-    .filter(x => x && String(x.who || "").trim() && numClean(x.amount) > 0)
-    .map(x => ({
-      who: String(x.who).trim().slice(0, 20),
-      amount: numClean(x.amount),
-      // 认不出来的一律当「他欠人」——这一档更常见，也更不容易读成向她讨债
-      dir: /owed|欠我|别人欠|人欠/.test(String(x.dir || "")) ? "owed" : "owe",
-      why: String(x.why || "").trim().slice(0, 80),
-      since: String(x.since || "").trim().slice(0, 16)
-    })).slice(0, 6);
+  // 一笔欠账的身份：谁 + 方向 + 金额。刷新档案时靠它认出「这就是原来那一笔」，
+  // 已经结清的就不会被重新生成的档案复活（她 2026-08-30 问「后续会不会真的还回来」——
+  // 会，但结清之后就不能再冒出来一次）。
+  const debtSig = d => [String((d && d.who) || "").trim(), (d && d.dir) === "owed" ? "owed" : "owe", Math.round(numClean(d && d.amount))].join("|");
+  const walletDebts = (prof, prev) => {
+    const done = {};
+    (Array.isArray(prev) ? prev : []).forEach(d => { if (d && d.settledTs) done[debtSig(d)] = d; });
+    const out = ((prof && Array.isArray(prof.debts)) ? prof.debts : [])
+      .filter(x => x && String(x.who || "").trim() && numClean(x.amount) > 0)
+      .map(x => {
+        const d = {
+          who: String(x.who).trim().slice(0, 20),
+          amount: numClean(x.amount),
+          // 认不出来的一律当「他欠人」——这一档更常见，也更不容易读成向她讨债
+          dir: /owed|欠我|别人欠|人欠/.test(String(x.dir || "")) ? "owed" : "owe",
+          why: String(x.why || "").trim().slice(0, 80),
+          since: String(x.since || "").trim().slice(0, 16)
+        };
+        const old = done[debtSig(d)];
+        return old ? { ...d, id: old.id, settledTs: old.settledTs } : { ...d, id: "db_" + Math.random().toString(36).slice(2, 9) };
+      }).slice(0, 6);
+    // 已经结清、但这次没再生成的，也留着——她要看得见「这笔已经了了」
+    (Array.isArray(prev) ? prev : []).forEach(d => {
+      if (d && d.settledTs && !out.some(x => debtSig(x) === debtSig(d))) out.push(d);
+    });
+    return out;
+  };
   const genWalletProfile = async char => {
     if (!active) return null;
     // 数字生命/驻场 AI：没有工资、消费、理财这回事——不调 LLM，直接给固定「无经济」档案。
@@ -8926,7 +8943,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           fixedMonthly: prof ? numClean(prof.fixedMonthly) : 0,
           investAssets: prof ? numClean(prof.investAssets) : 0,
           accounts: walletAccounts(prof),
-          debts: walletDebts(prof),
+          debts: walletDebts(prof, cur.debts),
           notes: (prof && prof.notes) || {},
           ledger: reflow.reverse(),
           // 设成前一天，这样初始化当天的日常消费也会被 catchUp 补上（否则设立那天永远空白）
@@ -8971,7 +8988,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           fixedMonthly: numClean(prof.fixedMonthly) || cur.fixedMonthly || 0,
           investAssets: numClean(prof.investAssets) || cur.investAssets || 0,
           accounts: walletAccounts(prof).length ? walletAccounts(prof) : (cur.accounts || []),
-          debts: walletDebts(prof).length ? walletDebts(prof) : (cur.debts || []),
+          debts: walletDebts(prof, cur.debts).length ? walletDebts(prof, cur.debts) : (cur.debts || []),
           notes: newNotes,
           ledger: reflow.reverse()
         } };
@@ -8983,6 +9000,49 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } finally {
       setGen(g => ({ ...g, cwallet: null }));
     }
+  };
+  // ── 结清一笔欠账：真的动余额，两个角色之间还会互相对上 ──────────
+  // 她 2026-08-30 问的两件事：
+  //   ①「有别人的欠债后续会不会真的还回来增加余额」——以前【不会】。debts 只是档案上
+  //     的一段字，刷新一次重编一次，跟余额毫无关系：欠他的永远收不回来，他欠的也永远不用还。
+  //   ②「如果是两个角色之间的能不能互通」——现在能：欠账里的名字如果正好是她名录里
+  //     另一个角色（本名或备注），结清时两边的钱包一起动，方向相反，一笔钱不会凭空多出来。
+  // ⚠️是【她点一下】才结清，不是自动的：钱什么时候还，不该由某一轮推演替她决定。
+  const walletDebtPeer = who => {
+    const w = String(who || "").trim();
+    if (w.length < 2) return null;
+    return liveChars.find(c => c && (String(c.name || "").trim() === w || String(c.remark || "").trim() === w)) || null;
+  };
+  const settleDebt = (charId, debtId) => {
+    const rec = (charWalletRef.current || {})[charId];
+    const me = characters.find(c => c.id === charId);
+    const d = ((rec && rec.debts) || []).find(x => x && x.id === debtId);
+    if (!rec || !me || !d || d.settledTs) return;
+    const amt = numClean(d.amount);
+    if (!(amt > 0)) return;
+    const peer = walletDebtPeer(d.who);
+    const peerRec = peer ? (charWalletRef.current || {})[peer.id] : null;
+    const linked = !!(peerRec && peerRec.init);
+    const ts = Date.now();
+    // 他这边：欠他的收回来是 +，他欠的还出去是 −
+    const mineDelta = d.dir === "owed" ? amt : -amt;
+    const post = (target, delta, label) => {
+      setCharWallet(p => {
+        const cur = p[target]; if (!cur) return p;
+        const bal = r2((Number(cur.balance) || 0) + delta);
+        const e = { id: "cw_" + ts + "_" + Math.floor(Math.random() * 1000) + "_" + target, ts, delta, after: bal, label, kind: "debt", debtId };
+        const nd = (cur.debts || []).map(x => (x && x.id === debtId) ? { ...x, settledTs: ts } : x);
+        const n = { ...p, [target]: { ...cur, balance: bal, debts: target === charId ? nd : (cur.debts || []), ledger: [e, ...(cur.ledger || [])] } };
+        saveJSON("x_charWallet", n);
+        charWalletRef.current = n;
+        return n;
+      });
+    };
+    post(charId, mineDelta, (d.dir === "owed" ? "收回欠款 · " : "还钱 · ") + d.who);
+    if (linked) post(peer.id, -mineDelta, (d.dir === "owed" ? "还钱 · " : "收回欠款 · ") + me.name);
+    toast(linked
+      ? "结清了：" + me.name + " 和 " + peer.name + " 两边的钱包都动了"
+      : (d.dir === "owed" ? "收回 " : "还出 ") + "¥" + Math.round(amt) + "，已记进余额");
   };
   // 生成某天的日常消费（按当天日程+人设，逐笔列具体买了什么），无 API/失败则用固定支出估算兜底
   // 那一天他手机上【真的下过】的单子：外卖和购物。
@@ -13355,6 +13415,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onInit: initCharWallet,
     onCatchUp: catchUpWallet,
     onSetBalance: setCharWalletTo,
+    onSettleDebt: settleDebt,
+    debtPeerOf: who => { const c = walletDebtPeer(who); if (!c) return null; const r = (charWalletRef.current || {})[c.id]; return { id: c.id, name: c.name, ready: !!(r && r.init) }; },
     onRefresh: refreshCharAssets
   });else if (screen === "emotes") body = h(EmoteMatrix, {
     packs: emotePacks,

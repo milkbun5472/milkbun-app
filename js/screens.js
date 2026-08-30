@@ -7955,7 +7955,7 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
 // 角色钱包 CharWallet —— 主页独立 app：花名册 → 单角色钱包（持久 running balance）
 // 首开生成资产档案，转账/红包/礼物/亲属卡实时加减余额，每天 23 点按日程补日常消费
 // ============================================================
-function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh }) {
+function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh, onSettleDebt, debtPeerOf }) {
   const t = useTheme();
   const chars = characters || [];
   const cw = charWallet || {};
@@ -7963,6 +7963,8 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
   const [editing, setEditing] = useState(false);
   const [amt, setAmt] = useState("");
   const [dailyOpen, setDailyOpen] = useState(false);
+  // 「为你花的」默认收起来：她 2026-08-30「搞一个箭头可以收起来不然太长了」
+  const [forHerOpen, setForHerOpen] = useState(false);
   const [dailyDate, setDailyDate] = useState("");
   const profEmpty = r => !r || ((!r.incomes || !r.incomes.length) && !r.monthlyIncome && !r.investAssets && !(r.notes && Object.keys(r.notes).length));
   // 打开某角色：没建档就生成资产；已建档但档案是空的（首开时没 API/生成失败）且现在有 API 就补生成；否则补账
@@ -7972,7 +7974,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     if (!rec || !rec.init) onInit(char);
     else { if (profEmpty(rec) && hasApi) onRefresh(char); onCatchUp(char); }
     setEditing(false); setAmt("");
-    setDailyOpen(false); setDailyDate("");
+    setDailyOpen(false); setDailyDate(""); setForHerOpen(false);
     // eslint-disable-next-line
   }, [selId]);
 
@@ -8017,6 +8019,8 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     return !!(meName && meName.length >= 2 && L.indexOf(meName) >= 0);
   });
   const forHerTotal = forHer.reduce((n, e) => n + Math.abs(Number(e.delta) || 0), 0);
+  // 还没结清的那几笔算个净额：正数是别人还欠他的，负数是他还欠人的
+  const debtOpen = { net: debts.reduce((n, d) => d && !d.settledTs ? n + (d.dir === "owed" ? 1 : -1) * (Number(d.amount) || 0) : n, 0) };
   const notes = (rec && rec.notes) || {};
   const incomes = (rec && rec.incomes) || [];
   const saveEdit = () => { const v = Number(amt); if (!isNaN(v)) onSetBalance(char.id, v); setEditing(false); setAmt(""); };
@@ -8112,39 +8116,70 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, flexShrink: 0, paddingTop: 1 } }, fmtMoney(a.hold)))))
       ]) : null,
       // 欠账。只收【真的是钱】的——人情债不在这儿，它属于查手机那本账。
+      // v58.38 起这一栏【真的会动余额】：点「收回」/「还清」就记一笔流水。
+      // 名字如果正好是她名录里另一个角色，两边钱包一起动，方向相反——
+      // 一笔钱不会凭空多出来（她 2026-08-30 问的那两件事）。
       debts.length ? cardBox([
-        secTitle("欠账"),
+        h("div", { key: "dh", className: "flex items-center justify-between mb-1" }, secTitle("欠账"),
+          debtOpen.net !== 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: debtOpen.net > 0 ? "#3f8a54" : "#b6473c", background: t.bg, borderRadius: 999, padding: "3px 10px" } },
+            (debtOpen.net > 0 ? "净收 +" : "净欠 −") + fmtMoney(Math.abs(debtOpen.net))) : null),
         h("div", { key: "db", className: "space-y-2" }, debts.map((d, i) => {
           const mine = d.dir === "owe";
+          const done = !!d.settledTs;
+          const peer = (!done && debtPeerOf) ? debtPeerOf(d.who) : null;
           return h("div", {
-            key: i, style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" }
+            key: d.id || i, style: { padding: "10px 0", borderTop: i ? "1px solid " + t.line : "none", opacity: done ? .5 : 1 }
           },
-          h("span", {
-            style: {
-              fontFamily: F_BODY, fontSize: 10.5, padding: "2px 7px", borderRadius: 99, flexShrink: 0, marginTop: 2,
-              background: mine ? "rgba(196,85,63,.11)" : "rgba(63,138,84,.11)", color: mine ? "#b6473c" : "#3f8a54"
-            }
-          }, mine ? "他欠" : "欠他"),
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, wordBreak: "break-word" } }, d.who),
-            d.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, d.why) : null,
-            d.since ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, d.since) : null),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: mine ? "#b6473c" : "#3f8a54", flexShrink: 0, paddingTop: 1 } },
-            (mine ? "−" : "+") + fmtMoney(d.amount)))
+          h("div", { style: { display: "flex", gap: 10, alignItems: "flex-start" } },
+            h("span", {
+              style: {
+                fontFamily: F_BODY, fontSize: 10.5, padding: "2px 7px", borderRadius: 99, flexShrink: 0, marginTop: 2,
+                background: done ? "rgba(0,0,0,.05)" : mine ? "rgba(196,85,63,.11)" : "rgba(63,138,84,.11)",
+                color: done ? t.fog : mine ? "#b6473c" : "#3f8a54"
+              }
+            }, done ? "已了" : mine ? "他欠" : "欠他"),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "flex items-baseline", style: { gap: 7, flexWrap: "wrap" } },
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, textDecoration: done ? "line-through" : "none", wordBreak: "break-word" } }, d.who),
+                // 对上她名录里另一个角色：结清时两边一起动
+                peer ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: peer.ready ? t.tint : t.fog, border: "1px solid " + (peer.ready ? t.tint : t.line), borderRadius: 99, padding: "1px 6px", whiteSpace: "nowrap" } },
+                  peer.ready ? "和 " + peer.name + " 两边对账" : peer.name + " 还没开通钱包") : null),
+              d.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3, lineHeight: 1.6, wordBreak: "break-word" } }, d.why) : null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
+                done ? "已结清 · " + schedDateParts(schedDayKey(new Date(d.settledTs))).md : (d.since || ""))),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: done ? t.fog : mine ? "#b6473c" : "#3f8a54", flexShrink: 0, paddingTop: 1 } },
+              (mine ? "−" : "+") + fmtMoney(d.amount))),
+          !done && onSettleDebt ? h("button", {
+            onClick: () => {
+              const q = mine ? ("把欠 " + d.who + " 的 ¥" + Math.round(d.amount) + " 还掉？余额会少这么多。")
+                : ("收回 " + d.who + " 欠的 ¥" + Math.round(d.amount) + "？余额会多这么多。");
+              if (!window.confirm(q + (peer && peer.ready ? "\n（" + peer.name + " 那边也会同时记一笔反向的）" : ""))) return;
+              onSettleDebt(char.id, d.id);
+            },
+            className: "active:opacity-60",
+            style: { marginTop: 8, marginLeft: 44, fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "4px 13px", background: t.bg }
+          }, mine ? "还清这笔" : "收回这笔") : null)
         }))
       ]) : null,
       // 为她花的。不额外生成——从已有流水里筛出来，转账和送到她那儿的单子都算。
-      // 她翻钱包最想看的就是这一栏。
+      // 她翻钱包最想看的就是这一栏，但它会越攒越长，所以默认收起来只露总额。
       forHer.length ? cardBox([
-        h("div", { key: "fh", className: "flex items-center justify-between mb-1" }, secTitle("为你花的"),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, fmtMoney(forHerTotal))),
-        h("div", { key: "fb", className: "space-y-1" }, forHer.slice(0, 12).map((e, i) => h("div", {
+        h("button", {
+          key: "fh", onClick: () => setForHerOpen(v => !v),
+          className: "w-full flex items-center text-left active:opacity-60",
+          style: { marginBottom: forHerOpen ? 10 : 0 }
+        },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, "为你花的"),
+          h("span", { style: { marginLeft: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, forHer.length + " 笔"),
+          h("span", { style: { marginLeft: "auto", fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, fmtMoney(forHerTotal)),
+          h("span", { style: { marginLeft: 8, transform: forHerOpen ? "rotate(180deg)" : "none", transition: "transform .18s ease" } }, h(IChevD, { size: 16, color: t.fog }))),
+        forHerOpen ? h("div", { key: "fb", className: "space-y-1" }, forHer.slice(0, 30).map((e, i) => h("div", {
           key: e.id || i, style: { display: "flex", gap: 10, alignItems: "baseline", padding: "7px 0", borderTop: i ? "1px solid " + t.line : "none" }
         },
         h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, wordBreak: "break-word" } }, e.label),
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, color: t.fog, flexShrink: 0 } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta)))))),
-        forHer.length > 12 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 12) + " 笔") : null
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, fmtMoney(Math.abs(e.delta)))))) : null,
+        forHerOpen && forHer.length > 30 ? h("div", { key: "fm", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8 } }, "还有 " + (forHer.length - 30) + " 笔") : null
       ]) : null,
       // 日常消费（按日程每天扣的那笔）
       cardBox([
