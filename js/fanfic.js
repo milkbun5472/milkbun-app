@@ -762,7 +762,10 @@
     return h("button", {
       onClick: props.onOpen,
       className: "w-full text-left active:opacity-80 mb-3 relative",
-      style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, overflow: "hidden" }
+      style: Object.assign({ border: "1px solid " + t.line, borderRadius: 14, overflow: "hidden" },
+        // 卡片也上同一套皮（base 换成 bg2、不要角上的弧和大字、力度压到四成）：
+        // 列表页大半个屏都被卡片盖住，只装修页底等于没装修。
+        pageSkin("paper", t, { base: t.bg2, corner: false, strength: .4 }))
     },
       // 左边那道：有我＝暖色，别人的 CP＝淡的。一眼分出「写我们的」和「别的」
       h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 3.5, background: hasMe ? t.accent : t.line } }),
@@ -1028,7 +1031,8 @@
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.14em", color: t.fog, width: 58, flexShrink: 0, paddingTop: 3 } }, label),
         h("div", { className: "flex-1 min-w-0" }, node));
     };
-    return h("div", { className: "h-full flex flex-col" },
+    // 阅读页的皮肤压到六成：这一页要读几千字，纹理不能跟正文抢。
+    return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "READING", strength: .6 }) },
       h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
         h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "flex-1 min-w-0 text-center px-1" },
@@ -1907,7 +1911,11 @@
 
     // 发布/我的/rp 是全屏子页（自带返回箭头回 feed），不叠底 nav；feed/shelf 才显示底 nav
     const showNav = view === "feed" || view === "shelf";
-    return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    // 页面皮肤（core.js 的 pageSkin）：纸纹＋光＋角上的弧＋页底那个特大词。
+    // 摊在最外层，于是发布页、我的、跑团这几个子视图也一并有底子。
+    // showNav 时把那个词抬到 tab bar 上面去，不然它整个躲在栏后面。
+    return h("div", { className: "h-full flex flex-col",
+      style: pageSkin("paper", t, { word: view === "shelf" ? "SHELF" : "FANFIC", wordLift: showNav ? "60px" : "" }) },
       inner,
       showNav ? h(BottomNav, { view: view, onNav: function (k) { setView(k); } }) : null,
       gearOpen ? h(GenSheet, { tab: curTab, cps: cps, characters: characters, userName: userName, onClose: function () { setGearOpen(false); }, onConfirm: doGen }) : null,

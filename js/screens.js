@@ -8888,12 +8888,13 @@ function CarrySection({ char, sectionKey, data, gifts, busyKey, giftBusy, pinned
   }
   // ⚠️这一栏的底色要铺在【最外层】：铺在滚动容器上的话，顶栏在它外面——
   // 顶上就留着一条没上色的米白带，和下面接不上（她 2026-08-29 截图）。
+  // 皮肤走 core.js 那支公共的 pageSkin：这一栏自己的色相当 tint，
+  // 页底那个特大词就用这一栏本来就有的英文名（BAG / WARDROBE / GIFTS…）。
+  // 衣柜和包是织物，珍藏小物和礼物走纸——纹理跟着这一栏装的是什么东西走。
   return h("div", {
     className: "h-full flex flex-col",
-    style: {
-      background: t.bg,
-      backgroundImage: "linear-gradient(180deg," + carryTint(sectionKey, .10) + " 0%," + carryTint(sectionKey, .03) + " 24%," + carryTint(sectionKey, .028) + " 72%," + carryTint(sectionKey, .085) + " 100%)"
-    }
+    style: pageSkin(sec.closet || sec.zip || sectionKey === "pocket" ? "cloth" : "paper", t,
+      { tint: CARRY_TINT[sectionKey], word: sec.en })
   },
     // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）：返回 / 居中小标题 / 右侧等宽操作位。
     // 以前这里是 Head 那块 30px 大标题＋大段留白，一屏先被标题吃掉五分之一。

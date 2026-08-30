@@ -292,7 +292,9 @@ test("柜子的纵深只画在衣柜这一栏，别的栏照旧", () => {
   assert.match(seg, /minWidth: "100%", width: "max-content"/, "杆要铺满整格");
   // v57.97 起每一栏都有整页底色，但各用各的 tint（她：「背景都是一样的米色有点单调」）
   // v58.02 起底色铺在【最外层】：铺在滚动容器上的话顶栏在它外面，顶上会留一条没上色的米白带
-  assert.match(screens, /backgroundImage: "linear-gradient\(180deg," \+ carryTint\(sectionKey/, "整页底色没走 tint");
+  // v58.03 换成公共的 pageSkin。⚠️这里认的是【这一栏的色相真的传进去了】，
+  // 不是某一串具体的 CSS——冻长相的测试，换个画法就红，什么也没守住。
+  assert.match(screens, /style: pageSkin\([^)]*t,\s*\n?\s*\{ tint: CARRY_TINT\[sectionKey\]/, "整页底色没走这一栏自己的 tint");
 });
 
 // 她 2026-08-29：「现在页面还是这种半页式，改成整个框在中间然后框样式也像衣柜」
@@ -572,7 +574,7 @@ test("每一栏有自己的调子，而且都是叠色不写死", () => {
   assert.ok(vals.size >= 3, "至少要分出三种调子，现在只有 " + vals.size + " 种");
   assert.match(screens, /const carryTint = \(key, a\) => "rgba\("/);
   // 整页底色不再只给衣柜，而且要铺在最外层（顶栏也吃得到）
-  assert.match(screens, /backgroundImage: "linear-gradient\(180deg," \+ carryTint\(sectionKey/);
+  assert.match(screens, /\{ tint: CARRY_TINT\[sectionKey\], word: sec\.en \}/, "每一栏要带上自己的色相和自己的英文名");
   assert.doesNotMatch(screens, /style: sec\.closet \? \{ background: "linear-gradient/, "整页底色又只剩衣柜有了");
   const shell = screens.slice(screens.indexOf("  // ⚠️这一栏的底色要铺在【最外层】"), screens.indexOf("    h(\"div\", { className: \"flex-1 overflow-y-auto px-5 pt-2 pb-8\" }"));
   assert.ok(shell, "找不到最外层那一层");

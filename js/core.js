@@ -289,3 +289,147 @@ const GLounge = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 3.2 }), h("circl
 const GMemo = p => h(Svg, p, h("rect", { x: 5, y: 4, width: 14, height: 17, rx: 2 }), h("path", { d: "M9 3.5h6v2.4H9z" }), h("path", { d: "M8.4 10l1.2 1.2 2.1-2.3M8.4 15l1.2 1.2 2.1-2.3" }), h("path", { d: "M14 9.6h2.6M14 14.6h2.6" }));
 // 时光胶囊：沙漏
 const GCapsule = p => h(Svg, p, h("path", { d: "M7 3.5h10M7 20.5h10" }), h("path", { d: "M8.2 3.5v2.2c0 2.6 2.3 3.9 3.8 5.3 1.5-1.4 3.8-2.7 3.8-5.3V3.5M8.2 20.5v-2.2c0-2.6 2.3-3.9 3.8-5.3 1.5 1.4 3.8 2.7 3.8 5.3v2.2" }), h("path", { d: "M10.4 18.6h3.2" }));
+
+// ============================================================
+// 页面皮肤 pageSkin —— 让每一页长成一件东西，不是一块米白
+// ============================================================
+// 她 2026-08-30：「不要初始的米白或者单纯换色，要有设计感」。
+// 平涂是换色，加个渐变还是换色。真正把一页撑起来的是几层叠在一起：
+//   ① 底色    —— 主题给的 t.bg，不动
+//   ② 一束光  —— 大 radial，页面有了光源，米白才不是一张死平面
+//   ③ 一层纹理—— 按这一页【是什么】选：纸／信纸／方格／织物／木／夜／柔光
+//   ④ 一笔几何—— 角上一道极淡的大弧，编辑设计里让人觉得「这页是设计过的」那一笔
+//
+// ⚠️铁律：纹理和光的颜色必须【从主题算出来】，不许写死 rgba(0,0,0,…)。
+// 主题工作台允许她把 bg 调成任何颜色（包括深底），写死的黑纹在深底上就是一层脏。
+//
+// 用法（摊在页面最外层那个容器上，不是滚动容器——
+// 标题栏在滚动容器外面，只给滚动容器上色的话顶上会留一条没上色的白带）：
+//   h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t) }, ...)
+function skinRGB(hex) {
+  const s = String(hex || "").replace("#", "").trim();
+  const f = s.length === 3 ? s.split("").map(c => c + c).join("") : s.slice(0, 6);
+  const n = parseInt(f, 16);
+  if (f.length !== 6 || isNaN(n)) return [236, 232, 225];
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+// 299/587/114：和衣柜那边判「这件衣服算不算深色」用的是同一支公式
+function skinIsDark(hex) {
+  const [r, g, b] = skinRGB(hex);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+}
+
+// 纹理表：kind → 生成 [backgroundImage, backgroundSize] 的函数。
+// ink 是「压下去的那一笔」，lit 是「提上来的那一笔」——深底浅底自动对调，
+// 所以同一份纹理在米白和在墨黑上都成立。
+const SKIN_PATS = {
+  // 纸：两道极细的斜纹交叉，看不出线，只觉得这页不是塑料
+  paper: (ink, lit) => [
+    ["repeating-linear-gradient(58deg," + lit(.05) + " 0px," + lit(.05) + " 1px,transparent 1px,transparent 6px)", "auto"],
+    ["repeating-linear-gradient(-32deg," + ink(.022) + " 0px," + ink(.022) + " 1px,transparent 1px,transparent 9px)", "auto"]
+  ],
+  // 信纸：横线，行距照正文走
+  lined: (ink, lit) => [
+    ["repeating-linear-gradient(180deg,transparent 0px,transparent 27px," + ink(.05) + " 27px," + ink(.05) + " 28px)", "auto"],
+    ["linear-gradient(90deg,transparent 0 33px," + ink(.05) + " 33px 34px,transparent 34px)", "auto"]
+  ],
+  // 方格：账本、日历、行程——有格子才像「记录」
+  grid: (ink, lit) => [
+    ["repeating-linear-gradient(90deg," + ink(.035) + " 0px," + ink(.035) + " 1px,transparent 1px,transparent 23px)", "auto"],
+    ["repeating-linear-gradient(180deg," + ink(.035) + " 0px," + ink(.035) + " 1px,transparent 1px,transparent 23px)", "auto"]
+  ],
+  // 织物：经纬交叉，衣柜和随身物那一路
+  cloth: (ink, lit) => [
+    ["repeating-linear-gradient(90deg," + ink(.03) + " 0px," + ink(.03) + " 1px," + lit(.045) + " 1px," + lit(.045) + " 3px)", "auto"],
+    ["repeating-linear-gradient(180deg," + ink(.028) + " 0px," + ink(.028) + " 1px,transparent 1px,transparent 3px)", "auto"]
+  ],
+  // 木：竖纹，宽窄不齐才像木头——等宽的是条形码
+  wood: (ink, lit) => [
+    ["repeating-linear-gradient(90deg," + ink(.032) + " 0px," + ink(.032) + " 1px,transparent 1px,transparent 5px," + lit(.04) + " 5px," + lit(.04) + " 6px,transparent 6px,transparent 13px)", "auto"],
+    ["repeating-linear-gradient(90deg,transparent 0px,transparent 46px," + ink(.03) + " 46px," + ink(.03) + " 47px)", "auto"]
+  ],
+  // 夜：星点。梦、悄悄话、睡着的时候
+  night: (ink, lit) => [
+    ["radial-gradient(" + lit(.16) + " 1px,transparent 1.3px)", "17px 17px"],
+    ["radial-gradient(" + lit(.09) + " 1px,transparent 1.2px)", "29px 23px"]
+  ],
+  // 柔光：一点线都没有，只有光斑。主屏、设置这种本来就该退到后面的页
+  glass: (ink, lit) => [
+    ["radial-gradient(46% 30% at 84% 14%," + lit(.5) + " 0%,transparent 64%)", "auto"],
+    ["radial-gradient(58% 40% at 10% 74%," + ink(.045) + " 0%,transparent 68%)", "auto"],
+    ["radial-gradient(34% 22% at 24% 22%," + lit(.34) + " 0%,transparent 70%)", "auto"]
+  ]
+};
+
+// tint：这一页的色相（"r,g,b"）。不给就用主题的 accent —— 于是默认皮肤
+// 也跟着她换的主题走，不会一换主题就有一页还挂着上一套颜色。
+function pageSkin(kind, t, opts) {
+  const o = opts || {};
+  const th = t || DEFAULT_THEME;
+  // base：默认铺页面的 t.bg；传 t.bg2 就是给卡片/抽屉上同一套皮。
+  // 卡片一般要 corner:false、word 留空、strength 压到 .4 上下——
+  // 一页十几张卡，每张都带角上的弧和大字就成花布了。
+  const bg = o.base || th.bg || DEFAULT_THEME.bg;
+  const dark = skinIsDark(bg);
+  // 深底上「压下去」要用白、「提上来」要用更白；浅底反过来。
+  const inkRGB = dark ? "255,255,255" : skinRGB(th.ink || "#000").join(",");
+  const litRGB = dark ? "255,255,255" : "255,255,255";
+  const k = o.strength == null ? 1 : Number(o.strength) || 0;
+  const ink = a => "rgba(" + inkRGB + "," + (a * k * (dark ? .55 : 1)).toFixed(4) + ")";
+  const lit = a => "rgba(" + litRGB + "," + (a * k * (dark ? .5 : 1)).toFixed(4) + ")";
+  const tint = o.tint || skinRGB(th.accent || DEFAULT_THEME.accent).join(",");
+  const tinted = a => "rgba(" + tint + "," + (a * k).toFixed(4) + ")";
+
+  // 每层 [图, size, position, repeat]，后两格不写就是默认
+  const layers = [];
+  // ⑤ 页脚那个特大字：拿这一页本来就有的英文眉标（FANFIC / SHELF / WARDROBE），
+  // 放到左下角、大到出血、淡到只剩一个影子。这是编辑设计里最省事也最见效的一笔。
+  // ⚠️做成 SVG data URI 塞进 background，不做成 DOM 节点——绝对定位的兄弟节点
+  // 会盖在正文上面（定位元素永远画在非定位的在流内容之上），做成背景就没这问题，
+  // 而且每一页白得这一笔，不用挨个去加 position:relative。
+  // wordLift：页底压着 tab bar / 输入栏的页面，把这个词抬到栏上面去，
+  // 否则它整个躲在栏后面，等于没画。传 CSS 长度，如 "58px"。
+  const wm = skinWordLayer(o.word, dark ? "255,255,255" : skinRGB(th.ink).join(","), dark ? .055 : .045, o.wordLift);
+  if (wm) layers.push(wm);
+  // ④ 角上那两笔：右下一道大弧、左上一个配重。构图里一对对角的重量，
+  // 是「这页被安排过」和「这页只是铺了个底色」的分界。
+  if (o.corner !== false) {
+    layers.push(["radial-gradient(circle at 103% 99%," + tinted(.17) + " 0%," + tinted(.085) + " 24%,transparent 45%)", "auto"]);
+    layers.push(["radial-gradient(74% 30% at -8% 2%," + tinted(.10) + " 0%,transparent 60%)", "auto"]);
+  }
+  // ③ 纹理
+  (SKIN_PATS[kind] || SKIN_PATS.paper)(ink, lit).forEach(x => layers.push(x));
+  // ② 光：顶上一束、底下一沉，页面才有上下
+  layers.push(["radial-gradient(128% 62% at 50% -12%," + lit(dark ? .07 : .55) + " 0%,transparent 58%)", "auto"]);
+  layers.push(["linear-gradient(180deg," + tinted(.055) + " 0%,transparent 22%,transparent 70%," + tinted(.075) + " 100%)", "auto"]);
+  layers.push(["linear-gradient(180deg,transparent 0%,transparent 76%," + ink(.045) + " 100%)", "auto"]);
+
+  return {
+    backgroundColor: bg,
+    backgroundImage: layers.map(x => x[0]).join(","),
+    backgroundSize: layers.map(x => x[1] || "auto").join(","),
+    backgroundPosition: layers.map(x => x[2] || "0 0").join(","),
+    backgroundRepeat: layers.map(x => x[3] || "repeat").join(",")
+  };
+}
+
+// 特大页脚字。SVG 里加载不了 Archivo（外链字体在 img 语境不生效），
+// 就让它退到系统无衬线——5% 的淡影子上没人分得出字体，但少了它页面就空。
+function skinWordLayer(word, rgb, a, lift) {
+  const w = String(word || "").trim().toUpperCase().replace(/[^A-Z0-9 ·]/g, "").slice(0, 13);
+  if (w.length < 2) return null;
+  // 字号按【字数】反推，让这个词的天然宽度正好接近 1000（粗体大写约 0.68em 一个字），
+  // 再用 textLength 兜住尾差。于是不管是 SHELF 还是 WARDROBE，
+  // 出来的图都恰好 1000 宽——换算成 background-size 就是「永远铺满页宽」，
+  // 不会在窄屏上只剩半个词。lengthAdjust 只调字距不调字形，字母不会被压扁。
+  const fs = Math.round(1000 / (w.length * 0.68));
+  const hh = Math.round(fs * 0.78);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="' + hh + '">'
+    + '<text x="0" y="' + Math.round(fs * 0.72) + '" textLength="1000" lengthAdjust="spacing"'
+    + ' font-family="Helvetica,Arial,sans-serif" font-size="' + fs + '" font-weight="700"'
+    + ' fill="rgba(' + rgb + ',' + a.toFixed(3) + ')">' + w + '</text></svg>';
+  // 用单引号包 url()：payload 里的单引号已经编成 %27，而双引号包起来的话
+  // 一旦这串被塞进 HTML 的 style="" 属性里就会把属性提前闭合。
+  return ["url('data:image/svg+xml," + encodeURIComponent(svg).replace(/'/g, "%27") + "')",
+    "104% auto", "-2% " + (lift ? "calc(100% - " + lift + ")" : "100%"), "no-repeat"];
+}
