@@ -7719,8 +7719,11 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
     // 一本本子该能一页一页翻。左滑往前（更早的一天），右滑往后（更近的一天）。
     // ⚠️效果做成【这一页绕着装订那条边翻过去】，底下露出下一页——
     //   不是整页平移。平移是卡片轮播，绕轴才是翻纸。
-    const prevE = all[at + 1] || null;   // 列表是新→旧，往下是更早的一天
-    const nextE = all[at - 1] || null;
+    // 列表是新→旧，所以 at-1 是更近的一天、at+1 是更早的一天。
+    // ⚠️翻页方向照读书来：手指从右往左划＝往后翻＝翻到【更新的】那一天
+    //（她 2026-08-30：「翻页方向反了，从右到左应该是往日期后面新的翻」）。
+    const newerE = all[at - 1] || null;
+    const olderE = all[at + 1] || null;
     const goTo = (target, dir) => {
       if (!target || flip) return;
       setFlip({ dir: dir, to: target.id });
@@ -7732,7 +7735,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       if (!st) return;
       const dx = ev.changedTouches[0].clientX - st.x, dy = ev.changedTouches[0].clientY - st.y;
       if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
-      if (dx < 0) goTo(prevE, "fwd"); else goTo(nextE, "back");
+      if (dx < 0) goTo(newerE, "fwd"); else goTo(olderE, "back");
     };
     const under = flip ? all.find(x => x.id === flip.to) : null;
     const page = (entry, style) => h("div", { style: Object.assign({ position: "absolute", inset: 0 }, style || {}) },

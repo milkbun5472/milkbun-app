@@ -323,6 +323,46 @@ function skinIsDark(hex) {
 // 纹理表：kind → 生成 [backgroundImage, backgroundSize] 的函数。
 // ink 是「压下去的那一笔」，lit 是「提上来的那一笔」——深底浅底自动对调，
 // 所以同一份纹理在米白和在墨黑上都成立。
+// 主屏那 24 个图标以前是一模一样的白玻璃片，摆满一屏就是一片白
+//（她 2026-08-30：「没有壁纸是米白加白色图标，有点单调」）。
+// 给每个 app 一个自己的色相：底下透一层很淡的光，线条也往那个色偏一点——
+// 还是同一家人（都是玻璃），但认得出谁是谁。
+// ⚠️只挑【暖而闷】的十二个色相，避开荧光色：这一屏的底子是米白，跳色会很脏。
+// 主屏图标的颜色：一个 app 一个固定色相（她 2026-08-30 说没壁纸时「米白加白色图标有点单调」）
+// ⚠️不许用哈希算色相：12 个 key 撞成 8 个色，同一行里挨着的两个图标常常一个色。
+// 这里按 key 逐个点名，摆的时候就照默认布局的行序错开——相邻两个的色相至少差 40。
+const APP_TONE_HUE = {
+  cast: 210, ties: 340, phone: 168, shop: 16, carry: 88, cwallet: 152, dwell: 108,
+  lore: 250, memlib: 292, anon: 200, study: 328,
+  fanfic: 316, theater: 186, impression: 20, weekly: 206,
+  read: 158, debate: 8, dream: 248, tarot: 296,
+  pomodoro: 4, games: 190, trpg: 134, dreamjournal: 224,
+  yanqiu: 262, loungeapp: 106, rescue: 352, vpscodex: 130,
+  assistant: 174, stylelab: 316, capsule: 40,
+  diary: 226, memo: 52, ledger: 136,
+  // 底部 dock 那四个也点名（它每一页都在，不能交给哈希）
+  messages: 196, forum: 112, config: 352
+};
+// 没点名的（文件夹、以后新加的 app）才走哈希，落进上面这张表已有的色相里
+const APP_HUE_POOL = Object.keys(APP_TONE_HUE).map(function (k) { return APP_TONE_HUE[k]; })
+  .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+function appTone(key) {
+  const s = String(key || "?");
+  let hue = APP_TONE_HUE[s];
+  if (typeof hue !== "number") {
+    let x = 0;
+    for (let i = 0; i < s.length; i++) x = (x * 33 + s.charCodeAt(i)) >>> 0;
+    hue = APP_HUE_POOL[x % APP_HUE_POOL.length];
+  }
+  return {
+    hue: hue,
+    // 图标底下那层光：从左下角透上来，不铺满，免得变成一块色卡
+    wash: "radial-gradient(125% 118% at 18% 104%, hsla(" + hue + ",56%,58%,.30), hsla(" + hue + ",50%,62%,.10) 52%, transparent 74%)",
+    // 线条只往那个色偏一点点，仍然要压得住、看得清
+    glyph: "hsl(" + hue + ",26%,32%)"
+  };
+}
+if (typeof window !== "undefined") { window.appTone = appTone; }
 const SKIN_PATS = {
   // 纸：两道极细的斜纹交叉，看不出线，只觉得这页不是塑料
   paper: (ink, lit) => [

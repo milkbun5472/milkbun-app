@@ -468,7 +468,9 @@ function GlassIcon({
     window.addEventListener("lisa-theme-change", fn);
     return () => window.removeEventListener("lisa-theme-change", fn);
   }, []);
+  // 她自己换过图标的那几个不上色（那是她的图，别去染它）
   const customIcon = appKey && window.ThemeStudio ? window.ThemeStudio.iconRef(appKey) : "";
+  const tone = (!customIcon && appKey && typeof appTone === "function") ? appTone(appKey) : null;
   const customSrc = customIcon ? (typeof resolveImg === "function" ? resolveImg(customIcon) : customIcon) : "";
   return /*#__PURE__*/React.createElement("button", {
     onClick: onClick,
@@ -480,7 +482,8 @@ function GlassIcon({
       width: 62,
       height: 62,
       borderRadius: 17,
-      background: "linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.45))",
+      // 玻璃片没变（尺寸、圆角、模糊、边、投影都照旧），只是底下多透一层属于这个 app 的光
+      background: (tone ? tone.wash + ", " : "") + "linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.45))",
       backdropFilter: "blur(16px)",
       WebkitBackdropFilter: "blur(16px)",
       border: "1px solid rgba(255,255,255,0.7)",
@@ -492,7 +495,7 @@ function GlassIcon({
     style: { width: "100%", height: "100%", objectFit: "cover", borderRadius: 16 }
   }) : /*#__PURE__*/React.createElement(G, {
     size: 27,
-    color: t.ink,
+    color: tone ? tone.glyph : t.ink,
     sw: 1.7
   }), soon && /*#__PURE__*/React.createElement("span", {
     style: {
@@ -1984,31 +1987,18 @@ function Home({
       background: "transparent"
     } : {
       height: "100vh",
-      background: "linear-gradient(165deg, #efe9df 0%, #e6ddd0 55%, #ddd2c4 100%)"
+      // 没壁纸时的底：三团很淡的光 + 两道细纹（跟日记纸皮同一套做法）。
+      // 她 2026-08-30 说「米白加白色图标有点单调」——加的是光和纹理，不动任何尺寸。
+      background: [
+        "repeating-linear-gradient(58deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 7px)",
+        "repeating-linear-gradient(-32deg, rgba(27,26,23,0.022) 0px, rgba(27,26,23,0.022) 1px, transparent 1px, transparent 10px)",
+        "radial-gradient(62% 40% at 6% 4%, rgba(194,90,74,0.15), transparent 70%)",
+        "radial-gradient(54% 36% at 98% 24%, rgba(63,109,140,0.15), transparent 72%)",
+        "radial-gradient(66% 42% at 74% 96%, rgba(122,120,86,0.14), transparent 74%)",
+        "linear-gradient(165deg, #f2ece2 0%, #e9e0d3 52%, #dcd1c2 100%)"
+      ].join(", ")
     }
-  }, !wallpaper && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "absolute",
-      top: "12%",
-      left: "-10%",
-      width: 200,
-      height: 200,
-      borderRadius: 999,
-      background: "radial-gradient(circle, rgba(194,90,74,0.16), transparent 70%)",
-      filter: "blur(8px)"
-    }
-  }), !wallpaper && /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: "absolute",
-      bottom: "22%",
-      right: "-8%",
-      width: 220,
-      height: 220,
-      borderRadius: 999,
-      background: "radial-gradient(circle, rgba(63,109,140,0.14), transparent 70%)",
-      filter: "blur(8px)"
-    }
-  }), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
     className: "relative flex-1 min-h-0 overflow-hidden pt-3 flex flex-col",
     // touchAction:pan-y 把横向手势交给我们自己处理（安卓比 iOS 严：不锁就把横滑当浏览器滚动/导航抢走→翻页难）
     style: { touchAction: "pan-y" },

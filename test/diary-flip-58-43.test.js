@@ -22,11 +22,12 @@ test("翻的是纸，不是滑卡片：绕装订那条边转，底下露出下�
   assert.ok(!/translateX/.test(flipSrc), "又改回平移了——那是卡片轮播，不是翻纸");
 });
 
-test("左滑翻到更早的一天，右滑翻回更近的一天，到头就不动", () => {
-  // 列表是新→旧：往下一格（at+1）是更早的那天
-  assert.match(flipSrc, /const prevE = all\[at \+ 1\] \|\| null;/, "左滑翻的方向反了");
-  assert.match(flipSrc, /const nextE = all\[at - 1\] \|\| null;/);
-  assert.match(flipSrc, /if \(dx < 0\) goTo\(prevE, "fwd"\); else goTo\(nextE, "back"\);/);
+test("左滑翻到更新的一天，右滑翻回更早的一天，到头就不动", () => {
+  // 列表是新→旧：at-1 是更近的一天，at+1 是更早的一天。
+  // 手指从右往左划＝往后翻＝翻到【更新的】那天（照读书的方向，她 2026-08-30 纠正过一次）
+  assert.match(flipSrc, /const newerE = all\[at - 1\] \|\| null;/);
+  assert.match(flipSrc, /const olderE = all\[at \+ 1\] \|\| null;/);
+  assert.match(flipSrc, /if \(dx < 0\) goTo\(newerE, "fwd"\); else goTo\(olderE, "back"\);/, "左滑翻的方向又反了");
   assert.match(flipSrc, /if \(!target \|\| flip\) return;/, "到头还翻、或者翻的过程中还能再翻一次");
   // 竖着划不许翻页（正文本来就要上下滚）
   assert.match(flipSrc, /Math\.abs\(dx\) < Math\.abs\(dy\) \* 1\.4/, "没有方向锁，上下滚会误翻页");
