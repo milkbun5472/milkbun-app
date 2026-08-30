@@ -137,6 +137,36 @@ test("长按旧组件或装饰开换皮；普通 App 仍进原来的整理模式
   assert.match(sheet, /styleDecorText/);
 });
 
+test("装饰不是固定皮肤：内容、透明底、无边框、强调色和角标都能编辑并持久化", () => {
+  const materials = between("const HOME_DECOR_SURFACES", "const HOME_PHOTO_FRAMES");
+  const home = between("function Home({", "// 主页名片");
+  const oldDecorSheet = between("styleKey && REG[styleKey]", "showDecorLibrary && h(Sheet");
+  const newDecorSheet = between("showDecorLibrary && h(Sheet", "// 主页名片");
+
+  assert.match(materials, /id: "transparent", name: "透明底"/);
+  assert.match(materials, /id: "none", name: "无边框"/);
+  assert.match(materials, /surface === "transparent"[\s\S]*background: "transparent"/,
+    "透明底必须真的写进渲染样式，不能只是一个没接线的选项");
+  assert.match(materials, /borderMode === "none"[\s\S]*style\.border = "none"/,
+    "无边框必须真的清掉边线");
+  assert.match(comp, /function HomeDecorAppearanceEditor/);
+  assert.match(oldDecorSheet, /HomeDecorAppearanceEditor/,
+    "旧装饰长按后也必须能打开材质编辑器");
+  assert.match(newDecorSheet, /HomeDecorAppearanceEditor/,
+    "新装饰创建时必须能设置材质");
+  assert.match(home, /surface: decorDraftSurface/);
+  assert.match(home, /borderMode: decorDraftBorderMode/);
+  assert.match(home, /accent: decorDraftAccent/);
+  assert.match(home, /align: decorDraftAlign/);
+  assert.match(home, /badge: decorDraftBadge\.trim\(\)/);
+  assert.match(home, /surface: styleDecorSurface/);
+  assert.match(home, /homeDecorMaterialStyle\(it\.decor, t\)/,
+    "保存后的材质设置必须进入桌面渲染链");
+  assert.match(home, /it\.decor\.badge/);
+  assert.match(comp, /function homeDecorHasDetail\(type\) \{\s*return type !== "photo";/,
+    "除照片框外的小物都应能编辑正文与副文案");
+});
+
 test("所有组件与装饰共用独立尺寸轴，音乐会按短条或方块重排", () => {
   const home = between("function Home({", "// 主页名片");
   for (const id of ["auto", "short", "square", "wide", "large"]) {
