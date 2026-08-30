@@ -1637,8 +1637,10 @@ function Home({
       Object.keys(placedFolders).forEach(function (fid) { (F[fid].keys || []).forEach(function (k) { reach[k] = 1; }); });
       var defPage = {};
       DEFAULT_LAYOUT.forEach(function (p, dp) { p.forEach(function (k) { defPage[k] = dp; }); });
+      // v57.86 安全网扩容：widget 也救（widget 没有任何「重新添加」的 UI，掉了就是永久失踪；
+      // app/widget 一视同仁。故意退场的入口走「从 REG 删除」这条老路，见 v47.73 的 memo/diary）
       Object.keys(REG).forEach(function (key) {
-        if (REG[key] && REG[key].kind === "app" && !reach[key]) {
+        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && !reach[key]) {
           var dp = defPage[key] != null ? defPage[key] : (out.length - 1);
           if (!out[dp]) out[dp] = [];
           out[dp].push(key);

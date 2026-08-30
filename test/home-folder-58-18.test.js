@@ -128,8 +128,13 @@ test("两道防线各自还在——它们互相兜底，行为测试分不出�
   // ② 安全网：REG 里任何 app，既不在任何页、也不在【真的摆在页上的】文件夹里，就补回默认页
   const i = comp.indexOf("⭐安全网");
   assert.ok(i > 0, "安全网那段注释都没了");
-  const net = comp.slice(i, i + 1300);
-  assert.match(net, /if \(REG\[key\] && REG\[key\]\.kind === "app" && !reach\[key\]\) \{/);
+  const net = comp.slice(i, i + 1600);
+  // 验行为不验长相（8/29 军规）：守卫必须救 app 且看 reach；扩容救 widget 也合法
+  {
+    const guard = net.match(/if \(REG\[key\] && [^\n]*!reach\[key\]\) \{/);
+    assert.ok(guard, "安全网守卫必须存在且以 !reach[key] 判失踪");
+    assert.ok(/kind === "app"/.test(guard[0]), "安全网至少要救 app");
+  }
   assert.match(net, /var dp = defPage\[key\] != null \? defPage\[key\] : \(out\.length - 1\);/,
     "不知道默认页的要补到末页，不能不补");
   // ③ 容量规整：超出的整体溢到下一页，不是丢掉
