@@ -46,13 +46,16 @@ test("同一份配方，四处共用，没人自己另配一套", () => {
   assert.match(card, /backdropFilter: GLASS_BLUR/, "组件卡没用公共配方");
   const dock = grab('// dock 跟图标同一块玻璃', "}\n  }, dock.map(", 900);
   assert.match(dock, /saturate\(1\.9\) brightness\(1\.05\)/, "dock 没跟上");
-  // 主屏这一段里，凡是白玻璃就不许再有人手写自己那套模糊（压暗的遮罩、深色药丸不算白玻璃）
-  const home = grab("function GlassPane({", "// 默认布局：哪个 key 在哪页", 130000);
+  // 凡是白玻璃就不许再有人手写自己那套模糊（压暗的遮罩、深色药丸不算白玻璃）。
   // 合法的例外：HOME_WIDGET_PRESETS 里的「雾面」——那是她一个一个组件自己挑的外观预设
   // （六选一），本来就该跟系统那层玻璃长得不一样，名字就叫雾面。
-  const raw = home.split("\n").filter(l => /backdropFilter: "blur\(\d+px\)"/.test(l)
+  const from = comp.indexOf("function GlassPane({"), to = comp.indexOf("function HomeCard(");
+  assert.ok(from > 0 && to > from, "抠不出主屏那一段");
+  const raw = comp.slice(from, to).split("\n").filter(l => /backdropFilter: "blur\(\d+px\)"/.test(l)
     && /background: "rgba\(255,255,255/.test(l)
-    && !/id === "soft"/.test(l));
+    && !/id === "soft"/.test(l)
+    // 主屏拖拽时跟着手指走的那个影子：pointerEvents:none，它不是一块要看的玻璃
+    && !/pointerEvents: "none"/.test(l));
   assert.deepEqual(raw, [], "还有白玻璃自己另配了一套模糊：\n" + raw.join("\n"));
 });
 

@@ -5274,10 +5274,28 @@ function CallScreen({
     d: "M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"
   })))));
 }
+// 匿名问答的夜色（她 2026-08-30:「UI 和背景也弄符合主题一点」）。
+// 匿名是【夜里投进去的一张纸条】：整块地方比 app 别处暗一档，像半夜亮着的一个页面。
+// 底下压着两团很淡的光和一层极细的横扫线（老显示器那种），字全部换成亮色。
+const ANON_INK = {
+  bg: "#161b26", card: "rgba(255,255,255,.055)", card2: "rgba(255,255,255,.085)",
+  line: "rgba(226,232,246,.13)", ink: "#e9ecf4", sub: "rgba(233,236,244,.74)",
+  fog: "rgba(233,236,244,.44)", hot: "#e08a7a", cool: "#8fa4e0"
+};
+function anonNightBg() {
+  return [
+    "repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0px, rgba(255,255,255,.018) 1px, transparent 1px, transparent 3px)",
+    "radial-gradient(78% 44% at 8% -4%, rgba(120,104,168,.34), transparent 64%)",
+    "radial-gradient(72% 42% at 100% 22%, rgba(58,104,142,.30), transparent 66%)",
+    "radial-gradient(120% 78% at 50% 46%, rgba(8,10,16,0) 40%, rgba(8,10,16,.55) 100%)",
+    "linear-gradient(168deg, #1b2130 0%, #161b26 52%, #11151e 100%)"
+  ].join(", ");
+}
 // 匿名问答正门：全角色聚合。详情仍复用原来的单角色匿名主页，旧 x_anon 数据原样沿用。
 // 布局遵守 mobile-ui-layout：紧凑顶栏 + 唯一主滚动容器；滚动位置离开后可恢复。
 function AnonHub({ characters, data, busy, onOpen, onBack }) {
   const t = useTheme();
+  const A = ANON_INK;
   const scrollRef = useRef(null);
   useEffect(function () {
     const n = Number(sessionStorage.getItem("x_anonHubScroll") || 0);
@@ -5288,26 +5306,26 @@ function AnonHub({ characters, data, busy, onOpen, onBack }) {
     const records = d.records || [];
     return { char, d, records, latest: records[0] || null };
   });
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: t.bg, paddingTop: "env(safe-area-inset-top)" } },
-    h("div", { className: "shrink-0 px-5 flex items-center justify-between", style: { height: 62, borderBottom: `1px solid ${t.line}` } },
-      h("button", { onClick: onBack, className: "active:opacity-50", "aria-label": "返回" }, h(IArrow, { size: 19, color: t.ink })),
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg(), paddingTop: "env(safe-area-inset-top)" } },
+    h("div", { className: "shrink-0 px-5 flex items-center justify-between", style: { height: 62, borderBottom: `1px solid ${A.line}` } },
+      h("button", { onClick: onBack, className: "active:opacity-50", "aria-label": "返回" }, h(IArrow, { size: 19, color: A.ink })),
       h("div", { style: { textAlign: "center" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, "匿名问答"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: t.fog, marginTop: 1 } }, "ANONYMOUS Q&A")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: A.ink } }, "匿名问答"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: A.fog, marginTop: 1 } }, "ANONYMOUS Q&A")),
       h("div", { style: { width: 19 } })),
     h("div", { ref: scrollRef, onScroll: function (e) { sessionStorage.setItem("x_anonHubScroll", String(e.currentTarget.scrollTop || 0)); }, className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub, marginBottom: 16 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: A.sub, marginBottom: 16 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
       rows.length ? h("div", { className: "grid grid-cols-2 gap-3" }, rows.map(function (row) {
         const r = row.latest;
-        return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: t.bg2, border: `1px solid ${t.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)" } },
-          h("div", { style: { height: 58, padding: "11px 12px", background: "linear-gradient(135deg,#6d5a78,#3f6d8c)", color: "#fff", display: "flex", alignItems: "center", gap: 9 } },
+        return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: `1px solid ${A.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
+          h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#7b6690,#3f6d8c)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
             h(Avatar, { character: row.char, size: 38, radius: 11 }),
             h("div", { style: { minWidth: 0 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, row.d.netname || row.char.remark || row.char.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, row.records.length + " 则问答"))),
-          h("div", { style: { padding: "12px 12px 13px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: t.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, row.d.bio || "点开生成 Ta 的匿名马甲"),
-            h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: r ? t.sub : t.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, r ? r.q : busy ? "正在准备…" : "还没有人问过 Ta")));
+          h("div", { style: { padding: "12px 12px 13px", flex: 1, display: "flex", flexDirection: "column" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, row.d.bio || "点开生成 Ta 的匿名马甲"),
+            h("div", { style: { marginTop: "auto", paddingTop: 9, borderTop: `1px solid ${A.line}`, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: r ? A.sub : A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, r ? r.q : busy ? "正在准备…" : "还没有人问过 Ta")));
       })) : h(Empty, { text: "还没有可以问的人" })));
 }
 
@@ -5323,6 +5341,7 @@ function AnonBox({
   onClose
 }) {
   const t = useTheme();
+  const A = ANON_INK;
   const [q, setQ] = useState("");
   const [asking, setAsking] = useState(false);
   const [showTop, setShowTop] = useState(false);
@@ -5338,25 +5357,25 @@ function AnonBox({
   return h("div", {
     className: "absolute inset-0 z-[70] flex flex-col",
     style: {
-      background: t.bg,
+      background: anonNightBg(),
       paddingTop: "env(safe-area-inset-top)"
     }
   }, h("div", {
     className: "shrink-0 px-5 pt-5 pb-3 flex items-center gap-3",
     style: {
-      borderBottom: `1px solid ${t.line}`
+      borderBottom: `1px solid ${A.line}`
     }
   }, h("button", {
     onClick: onClose,
     className: "active:opacity-50"
   }, h(IArrow, {
     size: 19,
-    color: t.ink
+    color: A.ink
   })), h("span", {
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 20,
-      color: t.ink
+      color: A.ink
     }
   }, "匿名箱")), h("div", {
     ref: scrollRef,
@@ -5401,19 +5420,19 @@ function AnonBox({
   }, "🖼 主页背景 · " + data.bgDesc)), h("div", {
     className: "px-5 pt-10 pb-4",
     style: {
-      borderBottom: `1px solid ${t.line}`
+      borderBottom: `1px solid ${A.line}`
     }
   }, h("div", {
     style: {
       fontFamily: F_BODY,
       fontSize: 13,
-      color: t.sub,
+      color: A.sub,
       lineHeight: 1.6
     }
   }, data && data.bio || "（生成中…）")), h("div", {
     className: "px-5 py-4 flex gap-3",
     style: {
-      borderBottom: `1px solid ${t.line}`
+      borderBottom: `1px solid ${A.line}`
     }
   }, h("button", {
     onClick: onGenNetizen,
@@ -5421,11 +5440,11 @@ function AnonBox({
     className: "flex-1 py-2.5 disabled:opacity-40 active:opacity-70",
     style: {
       borderRadius: 8,
-      background: t.bg2,
-      border: `1px solid ${t.line}`,
+      background: A.card,
+      border: `1px solid ${A.line}`,
       fontFamily: F_BODY,
       fontSize: 12.5,
-      color: t.ink
+      color: A.ink
     }
   }, "网友匿名提问"), h("button", {
     onClick: () => setAsking(v => !v),
@@ -5433,15 +5452,15 @@ function AnonBox({
     className: "flex-1 py-2.5 disabled:opacity-40 active:opacity-70",
     style: {
       borderRadius: 8,
-      background: t.ink,
-      color: t.bg2,
+      background: A.ink,
+      color: A.bg,
       fontFamily: F_BODY,
       fontSize: 12.5
     }
   }, "我要匿名问")), asking && h("div", {
     className: "px-5 py-3 flex gap-2",
     style: {
-      borderBottom: `1px solid ${t.line}`
+      borderBottom: `1px solid ${A.line}`
     }
   }, h("input", {
     value: q,
@@ -5453,16 +5472,16 @@ function AnonBox({
     style: {
       fontFamily: F_BODY,
       fontSize: 13,
-      background: t.bg2,
-      color: t.ink,
-      border: `1px solid ${t.line}`
+      background: A.card,
+      color: A.ink,
+      border: `1px solid ${A.line}`
     }
   }), h("button", {
     onClick: submitAsk,
     className: "px-4 rounded-lg",
     style: {
-      background: t.ink,
-      color: t.bg2,
+      background: A.ink,
+      color: A.bg,
       fontFamily: F_BODY,
       fontSize: 12
     }
@@ -5475,7 +5494,7 @@ function AnonBox({
     key: i,
     className: "px-5 py-4",
     style: {
-      borderBottom: `1px solid ${t.line}`
+      borderBottom: `1px solid ${A.line}`
     }
   }, h("div", {
     className: "flex items-center gap-1.5 mb-1.5"
@@ -5483,8 +5502,8 @@ function AnonBox({
     style: {
       fontFamily: F_BODY,
       fontSize: 11,
-      color: t.bg2,
-      background: r.from === "me" ? t.accent : t.tint,
+      color: A.bg,
+      background: r.from === "me" ? A.hot : A.cool,
       borderRadius: 999,
       padding: "1px 8px"
     }
@@ -5492,13 +5511,13 @@ function AnonBox({
     style: {
       fontFamily: F_BODY,
       fontSize: 10.5,
-      color: t.fog
+      color: A.fog
     }
-  }, timeAgo(r.ts)), onDelRecord && h("button", { onClick: () => onDelRecord(r.ts), className: "active:opacity-50", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: t.accent } }, "删除")), h("div", {
+  }, timeAgo(r.ts)), onDelRecord && h("button", { onClick: () => onDelRecord(r.ts), className: "active:opacity-50", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: A.hot } }, "删除")), h("div", {
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 15,
-      color: t.ink,
+      color: A.ink,
       marginBottom: 6
     }
   }, r.q), h("div", {
@@ -5506,14 +5525,14 @@ function AnonBox({
       fontFamily: F_BODY,
       fontSize: 13.5,
       lineHeight: 1.6,
-      color: t.sub,
+      color: A.sub,
       paddingLeft: 10,
-      borderLeft: `2px solid ${t.line}`
+      borderLeft: `2px solid ${A.line}`
     }
   }, r.a)))), showTop && h("button", {
     onClick: () => scrollRef.current && scrollRef.current.scrollTo({ top: 0, behavior: "smooth" }),
     className: "active:opacity-60",
-    style: { position: "absolute", right: 16, bottom: 22, width: 42, height: 42, borderRadius: 999, background: t.ink, color: t.bg2, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.25)", zIndex: 20 }
+    style: { position: "absolute", right: 16, bottom: 22, width: 42, height: 42, borderRadius: 999, background: A.ink, color: A.bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.25)", zIndex: 20 }
   }, h("span", { style: { fontSize: 20, fontWeight: 700, lineHeight: 1 } }, "↑")));
 }
 // 转账卡片：待接受/已收/已退回；收款方 pending 时可接受/退回
