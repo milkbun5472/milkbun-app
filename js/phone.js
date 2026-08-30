@@ -3770,10 +3770,11 @@ function PhoneApp({
   }, [appKey]);
   // 视频子版块：点击 tab 时直接生成，失败退回上一级
   let content;
-  if (loading && !data) content = h(Spinner, {
-    label: "正在读取 " + zh + "…"
-  });else if (!data && !isLive) content = h(Spinner, {
-    label: "正在读取 " + zh + "…"
+  // ⚠️别写「读取」：这一步是真去调模型现编的，一次一刀（她按次计费）。
+  // 写成「读取」会让人以为只是在翻已经存好的东西，于是随手点开一个版块＝
+  // 悄悄花掉一次调用，还完全看不出来。接真数据的那几个（isLive）才是真读取。
+  if ((loading && !data) || (!data && !isLive)) content = h(Spinner, {
+    label: "正在生成 " + zh + "…（这一步会调一次模型）"
   });else content = renderPhoneModule(appKey, data, {
     t,
     char,

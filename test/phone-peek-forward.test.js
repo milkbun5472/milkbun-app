@@ -105,9 +105,17 @@ test("全刷时只有正在生成的那个 app 转圈，别的照常能看", () 
   assert.match(app, /setGen\(g => \(\{ \.\.\.g, phoneApp: "__all__:" \+ key \}\)\);/);
   assert.match(phone, /const allNowKey = String\(busyKey \|\| ""\)\.indexOf\("__all__"\) === 0/);
   assert.match(phone, /busyKey: allNowKey \|\| busyKey,/);
-  // 已经有内容的 app 不该被 spinner 顶掉
-  // v57.54 起视频不再是特例，这条判断从 else-if 变成了链首的 if
-  assert.match(phone, /let content;\n  if \(loading && !data\) content = h\(Spinner/);
+  // 已经有内容的 app 不该被 spinner 顶掉。
+  // ⚠️认的是【每一个转圈分支都带着 !data】，不是那两行长什么样：
+  // v57.54 这条从 else-if 挪成了链首的 if，v58.08 两支又并成了一支，
+  // 每挪一次冻长相的断言就红一次，可它守的那件事一直没变。
+  const _i = phone.indexOf("let content;");
+  const _blk = phone.slice(_i, phone.indexOf("else content = renderPhoneModule", _i));
+  assert.match(_blk, /content = h\(Spinner/, "转圈那一支不见了");
+  const _cond = _blk.slice(0, _blk.indexOf("content = h(Spinner"));
+  assert.ok((_cond.match(/!data/g) || []).length >= 2,
+    "转圈的条件里有一支没带 !data——已经有内容的 app 会被 spinner 顶掉：" + _cond.trim());
+  assert.match(_cond, /loading/, "正在生成这一层没了");
 });
 
 test("大号是默认身份，小号和匿名各有明确用途", () => {
