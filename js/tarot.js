@@ -120,14 +120,27 @@
   };
 
   // 牌阵和玩法分开：入口决定“为谁/为什么算”，牌阵只决定桌上怎么摊牌。
-  // 保留原来的三张指引，同时加入更适合不同问题的五种牌阵。
+  // 基础牌阵 + 主题牌阵册。主题只决定桌面位置，不预设答案，也不替牌面写剧情。
   const SPREADS = {
-    guide: { zh: "三张指引", hint: "处境 · 阻碍 · 指引", positions: ["此刻的处境", "眼前的阻碍", "给你的指引"] },
-    single: { zh: "单张直觉", hint: "只看此刻最重要的一件事", positions: ["此刻最重要的讯息"] },
-    timeline: { zh: "过去 / 现在 / 未来", hint: "看一件事怎样走到这里", positions: ["过去留下的影响", "现在的处境", "接下来的走向"] },
-    love: { zh: "感情三角", hint: "你 · Ta · 关系本身", positions: ["你的状态", "Ta 的状态", "关系本身"] },
-    relation5: { zh: "五张关系牌阵", hint: "把关系里明暗两面摊开", positions: ["你的状态", "Ta 的状态", "关系的核心", "藏着的问题", "接下来的建议"] },
-    choice: { zh: "A / B 选择", hint: "不替你决定，只照见两条路", positions: ["选择 A 的代价与走向", "选择 B 的代价与走向"] }
+    guide: { group: "basic", zh: "三张指引", hint: "处境 · 阻碍 · 指引", positions: ["此刻的处境", "眼前的阻碍", "给你的指引"] },
+    single: { group: "basic", zh: "单张直觉", hint: "只看此刻最重要的一件事", positions: ["此刻最重要的讯息"] },
+    timeline: { group: "basic", zh: "过去 / 现在 / 未来", hint: "看一件事怎样走到这里", positions: ["过去留下的影响", "现在的处境", "接下来的走向"] },
+    choice: { group: "basic", zh: "A / B 选择", hint: "不替你决定，只照见两条路", positions: ["选择 A 的代价与走向", "选择 B 的代价与走向"] },
+    love: { group: "relation", zh: "感情三角", hint: "你 · Ta · 关系本身", positions: ["你的状态", "Ta 的状态", "关系本身"] },
+    relation5: { group: "relation", zh: "关系显影", hint: "把关系里明暗两面摊开", positions: ["你的状态", "Ta 的状态", "关系的核心", "藏着的问题", "接下来的建议"] },
+    unsaid: { group: "relation", zh: "没说出口的话", hint: "表面 · 压住的 · 真正想传达的 · 如何听见", positions: ["Ta 表面给你看的", "Ta 压住没说的", "Ta 真正想让你明白的", "你该怎样理解这份沉默"] },
+    story: { group: "relation", zh: "我们的故事线", hint: "来处 · 此刻章节 · 伏笔 · 转折 · 下一页", positions: ["这段关系从哪里长出来", "你们正写到哪一章", "尚未被看见的伏笔", "下一次关键转折", "故事接着写的方向"] },
+    closeness: { group: "relation", zh: "靠近与边界", hint: "想靠近的 · 会退开的 · 安全边界 · 合适一步", positions: ["Ta 此刻想怎样靠近", "什么会让 Ta 退开", "这段关系需要守住的边界", "现在最合适的一步"] },
+    shortterm: { group: "relation", zh: "近期关系天气", hint: "现在 · 两周内 · 变数 · 建议", positions: ["关系此刻的天气", "未来两周容易发生的变化", "最大的变量", "你可以怎样回应"] },
+    blindspot: { group: "inner", zh: "我的盲点", hint: "以为 · 没看见 · 害怕承认 · 可以练习", positions: ["我以为问题是什么", "我还没看见的部分", "我害怕承认的真相", "现在可以练习的一件事"] },
+    healing: { group: "inner", zh: "伤口与修复", hint: "伤口 · 保护壳 · 真正需要 · 修复资源 · 下一步", positions: ["这处伤口正在说什么", "我用什么保护自己", "保护壳下面真正的需要", "身边可用的修复资源", "温和但真实的下一步"] },
+    desire: { group: "inner", zh: "愿望的根", hint: "想要 · 为什么 · 代价 · 滋养 · 行动", positions: ["我嘴上说想要的", "愿望真正从哪里来", "追逐它可能付出的代价", "什么能真正滋养我", "最诚实的一步行动"] }
+  };
+  const SPREAD_GROUPS = {
+    basic: { zh: "基础", hint: "通用问题与快速决策" },
+    relation: { zh: "关系", hint: "不预设甜或坏，只看牌面" },
+    inner: { zh: "自我", hint: "愿望、盲点与修复" },
+    custom: { zh: "我的", hint: "自己保存的牌阵" }
   };
   const DEFAULT_SPREAD = { reading: "guide", relation: "love", forchar: "timeline" };
   const CUSTOM_SPREAD_KEY = "x_tarot_custom_spreads";
@@ -404,6 +417,7 @@
     const [dailyAll, setDailyAll] = useState(false); // 每日一牌：一次抽全部角色
     const [q, setQ] = useState("");
     const [spreadKey, setSpreadKey] = useState(DEFAULT_SPREAD[props.modeKey] || "guide");
+    const [spreadGroup, setSpreadGroup] = useState(props.modeKey === "relation" ? "relation" : "basic");
     const [questionOwner, setQuestionOwner] = useState("user");
     const [gate, setGate] = useState(null); // 角色接受/犹豫/拒绝的当面回应
     const [customSpreads, setCustomSpreads] = useState(loadCustomSpreads);
@@ -429,7 +443,7 @@
     const isDailyAll = m.daily && dailyAll;
     const supportsQuestionOwner = props.modeKey === "reading" || props.modeKey === "forchar";
     const allSpreads = Object.assign({}, SPREADS);
-    customSpreads.forEach(x => { allSpreads["custom:" + x.id] = { zh: x.name, hint: x.positions.join(" · "), positions: x.positions, custom: true, id: x.id }; });
+    customSpreads.forEach(x => { allSpreads["custom:" + x.id] = { group: "custom", zh: x.name, hint: x.positions.join(" · "), positions: x.positions, custom: true, id: x.id }; });
     const spread = m.daily ? m.spread : ((allSpreads[spreadKey] && allSpreads[spreadKey].positions) || m.spread);
 
     const moodOf = id => { const mo = props.moods && props.moods[id]; return mo && mo.label ? String(mo.label) : ""; };
@@ -540,6 +554,7 @@
       const item = { id: "cs_" + Date.now(), name: name.slice(0, 18), positions: positions.map(x => x.slice(0, 30)) };
       const next = customSpreads.concat(item);
       setCustomSpreads(next); saveCustomSpreads(next); setSpreadKey("custom:" + item.id);
+      setSpreadGroup("custom");
       setSpreadEditor(false); setSpreadName(""); setSpreadPositions("");
     };
 
@@ -602,8 +617,14 @@
               style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "8px 15px" } }, c.name);
           })),
         !m.daily ? h("div", { style: label }, "怎么摊牌") : null,
+        !m.daily ? h("div", { style: { display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, marginBottom: 10, WebkitOverflowScrolling: "touch" } },
+          Object.keys(SPREAD_GROUPS).filter(g => g !== "custom" || customSpreads.length).map(g => {
+            const on = spreadGroup === g, meta = SPREAD_GROUPS[g];
+            return h("button", { key: g, onClick: () => setSpreadGroup(g), className: "active:opacity-70",
+              style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: on ? "#fff" : t.sub, background: on ? ACCENT : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 999, padding: "6px 12px" } }, meta.zh);
+          })) : null,
         !m.daily ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 20 } },
-          Object.keys(allSpreads).map(k => {
+          Object.keys(allSpreads).filter(k => (allSpreads[k].group || "basic") === spreadGroup).map(k => {
             const sp = allSpreads[k], on = spreadKey === k;
             return h("button", { key: k, onClick: () => setSpreadKey(k), className: "active:opacity-70",
               style: { minHeight: 62, padding: "9px 10px", textAlign: "left", background: on ? "rgba(74,63,107,0.1)" : t.bg2, border: "1px solid " + (on ? ACCENT : t.line), borderRadius: 11 } },

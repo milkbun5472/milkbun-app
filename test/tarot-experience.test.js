@@ -6,13 +6,19 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const tarot = fs.readFileSync(path.join(root, "js/tarot.js"), "utf8");
 
-test("塔罗保留原入口、六种内置牌阵和 1 至 8 位自定义牌阵", () => {
+test("塔罗保留原入口、基础与主题牌阵册和 1 至 8 位自定义牌阵", () => {
   for (const mode of ["reading", "relation", "daily", "forchar"]) {
     assert.match(tarot, new RegExp(mode + ":\\s*\\{"));
   }
-  for (const spread of ["guide", "single", "timeline", "love", "relation5", "choice"]) {
+  for (const spread of ["guide", "single", "timeline", "choice", "love", "relation5", "unsaid", "story", "closeness", "shortterm", "blindspot", "healing", "desire"]) {
     assert.match(tarot, new RegExp(spread + ":\\s*\\{"));
   }
+  assert.match(tarot, /const SPREAD_GROUPS =/);
+  assert.match(tarot, /basic: \{ zh: "基础"/);
+  assert.match(tarot, /relation: \{ zh: "关系"/);
+  assert.match(tarot, /inner: \{ zh: "自我"/);
+  assert.match(tarot, /const \[spreadGroup, setSpreadGroup\]/);
+  assert.match(tarot, /allSpreads\[k\]\.group \|\| "basic"/);
   assert.match(tarot, /const allSpreads = Object\.assign\(\{\}, SPREADS\)/);
   assert.match(tarot, /x_tarot_custom_spreads/);
   assert.match(tarot, /positions\.length < 1 \|\| positions\.length > 8/);
