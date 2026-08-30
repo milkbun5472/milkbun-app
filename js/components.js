@@ -431,21 +431,78 @@ function LineArea(props) {
     }
   });
 }
+// ============================================================
+// 液态玻璃（她 2026-08-30：「主界面背景和图标能不能弄更液态玻璃风格，
+// 然后就算放背景图也会保留液态显示」）
+// ------------------------------------------------------------
+// 原来那块「玻璃」其实是一片 85% 白的塑料板：铺了张壁纸也只看得见一层奶白，
+// 底下什么都透不上来。真玻璃靠三件事，这里三件都做：
+//   ① 透——填色压到两成多，靠 backdrop-filter 的 blur+saturate+brightness 把底下的东西
+//      吸上来（saturate 是关键：玻璃会把背后的颜色【提亮加浓】，不是磨白）
+//   ② 边——边缘要有一圈折光：内圈上下各一道亮线，四周一圈更亮的白边
+//   ③ 高光——左上一道斜的镜面反光，右下一团回弹的软光
+// 没壁纸时也成立：亮度提一点＋这一圈边，在米白底上照样看得出是一片玻璃。
+const GLASS_BLUR = "blur(14px) saturate(1.9) brightness(1.06)";
+function glassLayers(radius) {
+  return [
+    // ③ 镜面高光：左上一道斜的，右下一团软的
+    h("span", {
+      key: "spec", "aria-hidden": "true",
+      style: {
+        position: "absolute", inset: 0, borderRadius: radius, pointerEvents: "none",
+        background: "linear-gradient(148deg, rgba(255,255,255,0.62) 0%, rgba(255,255,255,0.16) 24%, rgba(255,255,255,0) 44%), radial-gradient(76% 54% at 76% 110%, rgba(255,255,255,0.32), rgba(255,255,255,0) 64%)"
+      }
+    }),
+    // ② 折光边：内圈四道亮线（上最亮，下次之），像光在玻璃壁上弯了一下
+    h("span", {
+      key: "rim", "aria-hidden": "true",
+      style: {
+        position: "absolute", inset: 0, borderRadius: radius, pointerEvents: "none",
+        boxShadow: "inset 0 1.2px 0.6px rgba(255,255,255,0.96), inset 0 -1.4px 1.4px rgba(255,255,255,0.46), inset 1.2px 0 1.2px rgba(255,255,255,0.52), inset -1.2px 0 1.2px rgba(255,255,255,0.40), inset 0 0 12px rgba(255,255,255,0.16)"
+      }
+    })
+  ];
+}
+// 图标底下那行字：铺了壁纸就翻成白字压深影（壁纸亮起来的地方墨字会糊掉），
+// 没壁纸还是墨字加一圈白晕
+function glassLabelInk(onWallpaper, t) {
+  return onWallpaper
+    ? { color: "#fff", textShadow: "0 1px 3px rgba(20,18,15,0.6), 0 0 10px rgba(20,18,15,0.35)" }
+    : { color: t.sub, textShadow: "0 1px 2px rgba(255,255,255,0.7)" };
+}
+// 一片玻璃：radius 圆角，tone 是这个 app 自己的光（可空），children 放在玻璃上面
+function GlassPane({ radius = 17, tone, style, className, children }) {
+  return h("div", {
+    className: className,
+    style: Object.assign({
+      position: "relative",
+      borderRadius: radius,
+      // 填色只剩两成多，剩下的交给 backdrop-filter——这一步是「塑料板 → 玻璃」的分水岭
+      background: (tone ? tone.wash + ", " : "") + "linear-gradient(160deg, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.15) 52%, rgba(255,255,255,0.28) 100%)",
+      backdropFilter: GLASS_BLUR,
+      WebkitBackdropFilter: GLASS_BLUR,
+      border: "1px solid rgba(255,255,255,0.55)",
+      boxShadow: "0 6px 18px rgba(30,28,24,0.14), 0 1px 3px rgba(30,28,24,0.10)"
+    }, style || {})
+  }, glassLayers(radius), children);
+}
 function GlassCard({
   children,
   style,
   onClick
 }) {
   const t = useTheme();
+  // 跟图标同一块玻璃（GLASS_BLUR），只是填得厚一点——卡里装的是字，得压得住。
+  // 铺了壁纸时组件不再是一块奶白纸板，底下的图会透上来。
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClick,
     style: {
-      background: "rgba(255,255,255,0.55)",
-      backdropFilter: "blur(20px)",
-      WebkitBackdropFilter: "blur(20px)",
-      border: "1px solid rgba(255,255,255,0.6)",
+      background: "linear-gradient(160deg, rgba(255,255,255,0.54) 0%, rgba(255,255,255,0.32) 55%, rgba(255,255,255,0.44) 100%)",
+      backdropFilter: GLASS_BLUR,
+      WebkitBackdropFilter: GLASS_BLUR,
+      border: "1px solid rgba(255,255,255,0.58)",
       borderRadius: 22,
-      boxShadow: "0 6px 24px rgba(30,28,24,0.06)",
+      boxShadow: "0 8px 26px rgba(30,28,24,0.10), inset 0 1.2px 0.6px rgba(255,255,255,0.92), inset 0 -1.4px 1.4px rgba(255,255,255,0.38)",
       ...style
     }
   }, children);
@@ -459,7 +516,8 @@ function GlassIcon({
   onClick,
   badge,
   soon,
-  appKey
+  appKey,
+  onWallpaper
 }) {
   const t = useTheme();
   const [, redrawThemeIcon] = useState(0);
@@ -476,19 +534,11 @@ function GlassIcon({
     onClick: onClick,
     className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform",
     style: soon ? { opacity: 0.5 } : null
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "relative flex items-center justify-center",
-    style: {
-      width: 62,
-      height: 62,
-      borderRadius: 17,
-      // 玻璃片没变（尺寸、圆角、模糊、边、投影都照旧），只是底下多透一层属于这个 app 的光
-      background: (tone ? tone.wash + ", " : "") + "linear-gradient(150deg, rgba(255,255,255,0.85), rgba(255,255,255,0.45))",
-      backdropFilter: "blur(16px)",
-      WebkitBackdropFilter: "blur(16px)",
-      border: "1px solid rgba(255,255,255,0.7)",
-      boxShadow: "0 4px 14px rgba(30,28,24,0.1), inset 0 1px 1px rgba(255,255,255,0.9)"
-    }
+  }, h(GlassPane, {
+    className: "flex items-center justify-center",
+    radius: 17,
+    tone: tone,
+    style: { width: 62, height: 62 }
   }, customSrc ? /*#__PURE__*/React.createElement("img", {
     src: customSrc,
     alt: "",
@@ -528,23 +578,18 @@ function GlassIcon({
       padding: "0 5px"
     }
   }, badge)), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.sub,
-      textShadow: "0 1px 2px rgba(255,255,255,0.6)"
-    }
+    style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t))
   }, label));
 }
 // 文件夹磁贴：格子里放前 4 个 app 的 2x2 迷你预览，点开弹出内部 app 网格
-function FolderIcon({ apps, label, onOpen }) {
+function FolderIcon({ apps, label, onOpen, onWallpaper }) {
   const t = useTheme();
   const preview = (apps || []).slice(0, 4);
   return h("button", { onClick: onOpen, className: "flex flex-col items-center gap-1.5 active:scale-90 transition-transform" },
-    h("div", { style: { width: 62, height: 62, borderRadius: 17, background: "rgba(255,255,255,0.35)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.6)", boxShadow: "0 4px 14px rgba(30,28,24,0.1)", display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 4, padding: 8 } },
-      preview.map((a, i) => h("div", { key: i, className: "flex items-center justify-center", style: { background: "rgba(255,255,255,0.7)", borderRadius: 7 } }, h(a.G, { size: 15, color: t.ink, sw: 1.7 }))),
+    h(GlassPane, { radius: 17, style: { width: 62, height: 62, display: "grid", gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr 1fr", gap: 4, padding: 8 } },
+      preview.map((a, i) => h("div", { key: i, className: "flex items-center justify-center", style: { background: "rgba(255,255,255,0.52)", borderRadius: 7, boxShadow: "inset 0 0.8px 0.6px rgba(255,255,255,0.9)" } }, h(a.G, { size: 15, color: t.ink, sw: 1.7 }))),
       Array.from({ length: Math.max(0, 4 - preview.length) }).map((_, i) => h("div", { key: "e" + i }))),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, textShadow: "0 1px 2px rgba(255,255,255,0.6)" } }, label));
+    h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11 }, glassLabelInk(onWallpaper, t)) }, label));
 }
 // 文件夹展开层：半透明背景 + 内部 app 网格 + 改名 + 整理模式（✕ 移回主屏）
 function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
@@ -565,7 +610,7 @@ function FolderOverlay({ apps, label, onPick, onClose, onRename, onRemove }) {
       // 3 列 + 明确行列距：4 列时图标(62px)把宽度挤满、贴在一起没空隙
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", rowGap: 20, columnGap: 14, justifyItems: "center" } },
         (apps || []).map(a => h("div", { key: a.key, className: "relative", style: { animation: arrange ? "wk-jiggle .32s ease-in-out infinite" : "none" } },
-          h(GlassIcon, { G: a.G, label: a.zh, appKey: a.key, soon: a.soon, onClick: () => { if (!arrange) onPick(a); } }),
+          h(GlassIcon, { G: a.G, label: a.zh, appKey: a.key, soon: a.soon, onWallpaper: true, onClick: () => { if (!arrange) onPick(a); } }),
           arrange && h("button", { onClick: () => onRemove && onRemove(a.key), className: "absolute flex items-center justify-center active:opacity-70", style: { top: -7, left: 2, width: 21, height: 21, borderRadius: 999, background: t.ink, color: "#fff", fontSize: 12, lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.3)", zIndex: 3 } }, "✕")))),
       onRemove ? h("div", { className: "flex justify-center", style: { marginTop: 18 } },
         h("button", { onClick: () => setArrange(a => !a), style: { fontFamily: F_BODY, fontSize: 12.5, color: arrange ? t.ink : t.fog, fontWeight: arrange ? 700 : 400, padding: "5px 16px", borderRadius: 999, background: "rgba(255,255,255,0.55)", border: "1px solid " + t.line } }, arrange ? "完成" : "整理（取出 app）")) : null,
@@ -601,7 +646,7 @@ function CalWidget({ now, calendar, onOpen, period }) {
     onClick: onOpen,
     className: "col-span-3 row-span-3 active:opacity-80 text-left",
     // height:100% + flex 列：日历撑满 3 行格高、日期行均匀铺开，下沿和旁边的 app 对齐（之前内容矮一截、底下空一块）
-    style: { height: "100%", display: "flex", flexDirection: "column", background: "rgba(255,255,255,0.55)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.65)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.1)" }
+    style: { height: "100%", display: "flex", flexDirection: "column", background: "linear-gradient(160deg, rgba(255,255,255,0.54) 0%, rgba(255,255,255,0.32) 55%, rgba(255,255,255,0.44) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)" }
   },
     h("div", { className: "flex items-baseline justify-between mb-2", style: { flexShrink: 0 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, (m + 1) + "月"),
@@ -922,7 +967,7 @@ function MusicWidget({ listen, player, onOpen }) {
   const discImg = (now && now.cover) || data.disc || null;
   const frac = player && player.dur ? Math.max(0, Math.min(1, (player.t || 0) / player.dur)) : 0;
   return h("button", { onClick: onOpen, className: "w-full active:opacity-85 text-left",
-    style: { marginTop: 12, background: "rgba(255,255,255,0.5)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.6)", borderRadius: 22, padding: "12px 14px", boxShadow: "0 8px 30px rgba(30,28,24,0.1)", display: "flex", alignItems: "center", gap: 13 } },
+    style: { marginTop: 12, background: "linear-gradient(160deg, rgba(255,255,255,0.54) 0%, rgba(255,255,255,0.32) 55%, rgba(255,255,255,0.44) 100%)", backdropFilter: GLASS_BLUR, WebkitBackdropFilter: GLASS_BLUR, border: "1px solid rgba(255,255,255,0.58)", borderRadius: 22, padding: "12px 14px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)", display: "flex", alignItems: "center", gap: 13 } },
     h("div", { style: { flexShrink: 0, width: 56, height: 56, borderRadius: 999, background: discImg ? "center/cover no-repeat url(" + discImg + ")" : "radial-gradient(circle at 50% 50%, #4a4a52 0 34%, #2b2b30 35%)", boxShadow: "0 3px 12px rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", animation: playing ? "wk-spin 9s linear infinite" : "none" } },
       h("div", { style: { width: 14, height: 14, borderRadius: 999, background: "rgba(255,255,255,0.85)", border: "3px solid rgba(0,0,0,0.25)" } })),
     h("div", { style: { flex: 1, minWidth: 0 } },
@@ -1948,10 +1993,10 @@ function Home({
     let gCol = "span 1", gRow = "auto";
     if (it.kind === "widget") { if (it.which === "cal") { gCol = "span 3"; gRow = "span 3"; } else if (it.which === "map") { gCol = "span 2"; gRow = "span 2"; } else if (it.which === "weather" || it.which === "ledger") { gCol = "span 2"; } else if (it.which === "muyu" || it.which === "wheel") { gCol = "span 2"; gRow = "span 2"; } else gCol = "span 4"; }
     let inner;
-    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
+    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
       const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
-      inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onOpen: function () { if (!editMode) setOpenFolder(key); } });
+      inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper, onOpen: function () { if (!editMode) setOpenFolder(key); } });
     }
     else if (it.which === "card") inner = h(HomeCard, { card: homeCard, profile: profile, onEditCard: onEditCard, onEditProfile: onEditProfile, onOpenCodex: function () { if (!editMode) onOpenApp("codex"); } });
     else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
@@ -1992,9 +2037,10 @@ function Home({
       background: [
         "repeating-linear-gradient(58deg, rgba(255,255,255,0.05) 0px, rgba(255,255,255,0.05) 1px, transparent 1px, transparent 7px)",
         "repeating-linear-gradient(-32deg, rgba(27,26,23,0.022) 0px, rgba(27,26,23,0.022) 1px, transparent 1px, transparent 10px)",
-        "radial-gradient(62% 40% at 6% 4%, rgba(194,90,74,0.15), transparent 70%)",
-        "radial-gradient(54% 36% at 98% 24%, rgba(63,109,140,0.15), transparent 72%)",
-        "radial-gradient(66% 42% at 74% 96%, rgba(122,120,86,0.14), transparent 74%)",
+        "radial-gradient(68% 44% at 4% 2%, rgba(194,90,74,0.20), transparent 70%)",
+        "radial-gradient(60% 40% at 100% 22%, rgba(63,109,140,0.19), transparent 72%)",
+        "radial-gradient(72% 46% at 76% 98%, rgba(122,120,86,0.18), transparent 74%)",
+        "radial-gradient(46% 30% at 34% 56%, rgba(150,120,170,0.11), transparent 76%)",
         "linear-gradient(165deg, #f2ece2 0%, #e9e0d3 52%, #dcd1c2 100%)"
       ].join(", ")
     }
@@ -2015,23 +2061,26 @@ function Home({
     }
   }, curLayout.map(function (keys, pi) {
     return h("div", { key: pi, className: "px-6", style: { width: "100%", flexShrink: 0 } },
+      // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
       pi === 0 && h("div", { className: "text-center mb-3" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, color: t.ink, letterSpacing: "0.01em" } }, fmtClock(now)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginTop: 2 } }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
+        h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },
+          wallpaper ? { color: "#fff", textShadow: "0 2px 10px rgba(20,18,15,0.45), 0 0 24px rgba(20,18,15,0.25)" } : { color: t.ink }) }, fmtClock(now)),
+        h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 13, marginTop: 2 }, glassLabelInk(!!wallpaper, t), wallpaper ? {} : { color: t.sub }) }, now.toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" }))),
       h("div", { className: "grid grid-cols-4 gap-y-3 gap-x-3", style: { gridAutoFlow: "dense" } },
         (editMode ? (keys || []) : trimTailRows(keys)).map(function (key) { return renderItem(key); })));
-  })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? t.ink : t.line, transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
+  })), curLayout.length > 1 && h("div", { className: "flex justify-center gap-1.5 pt-2 shrink-0" }, curLayout.map(function (_, pi) { return h("span", { key: pi, style: { width: pi === page ? 16 : 6, height: 6, borderRadius: 999, background: pi === page ? (wallpaper ? "rgba(255,255,255,0.95)" : t.ink) : (wallpaper ? "rgba(255,255,255,0.45)" : t.line), transition: "all .25s" } }); }))), /*#__PURE__*/React.createElement("div", {
     className: "relative shrink-0 px-4 pt-1",
     style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 26px)" }
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center justify-around px-3 py-3",
     style: {
       borderRadius: 28,
-      background: "rgba(255,255,255,0.5)",
-      backdropFilter: "blur(24px)",
-      WebkitBackdropFilter: "blur(24px)",
-      border: "1px solid rgba(255,255,255,0.65)",
-      boxShadow: "0 8px 30px rgba(30,28,24,0.12)"
+      // dock 跟图标同一块玻璃，只是更大更厚（no-half-sheet 之外的另一条：一层做法只写一处）
+      background: "linear-gradient(160deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.12) 55%, rgba(255,255,255,0.22) 100%)",
+      backdropFilter: "blur(22px) saturate(1.9) brightness(1.05)",
+      WebkitBackdropFilter: "blur(22px) saturate(1.9) brightness(1.05)",
+      border: "1px solid rgba(255,255,255,0.5)",
+      boxShadow: "0 10px 34px rgba(30,28,24,0.16), inset 0 1.2px 0.6px rgba(255,255,255,0.9), inset 0 -1.4px 1.4px rgba(255,255,255,0.4)"
     }
   }, dock.map(a => /*#__PURE__*/React.createElement(GlassIcon, {
     key: a.key,
@@ -2039,6 +2088,7 @@ function Home({
     G: a.G,
     label: a.zh,
     badge: a.badge,
+    onWallpaper: !!wallpaper,
     onClick: () => onOpenApp(a.key)
   })))), editMode && h("button", {
     onClick: exitEdit,
