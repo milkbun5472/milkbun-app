@@ -1515,6 +1515,15 @@ const HOME_PHOTO_FRAMES = [
   { id: "film3", name: "三格胶卷", note: "横向三连，适合长条", need: 3 },
   { id: "fan3", name: "V 形拍立得", note: "三张错落重叠", need: 3 }
 ];
+function homePhotoSlotCount(frame) {
+  var found = HOME_PHOTO_FRAMES.find(function (x) { return x.id === frame; });
+  return found ? found.need : 1;
+}
+// 空槽也必须是数据的一部分：三格相框可以先摆空框，之后逐格补图，不能因数组稀疏而吞掉位置。
+function normalizeHomePhotoSlots(refs, frame) {
+  var old = Array.isArray(refs) ? refs : [];
+  return Array.from({ length: homePhotoSlotCount(frame) }, function (_, i) { return old[i] || ""; });
+}
 function defaultHomeItemSpan(it) {
   if (!it || (it.kind !== "widget" && it.kind !== "decor")) return [1, 1];
   if (it.kind === "decor") {
@@ -1548,12 +1557,12 @@ function HomeDecorItem({ item, preset, now }) {
   const sub = dark ? "rgba(247,241,232,.62)" : t.fog;
   if (item.type === "photo") {
     var refs = Array.isArray(item.imageRefs) && item.imageRefs.length ? item.imageRefs : (item.imageRef ? [item.imageRef] : []);
-    var srcs = refs.slice(0, 3).map(function (ref) { return ref && typeof resolveImg === "function" ? resolveImg(ref) : ref; });
     var frame = item.frame || "single";
+    var srcs = normalizeHomePhotoSlots(refs, frame).map(function (ref) { return ref && typeof resolveImg === "function" ? resolveImg(ref) : ref; });
     var caption = item.caption || item.text || "";
     var photo = function (src, i, style) {
       return h("div", { key: i, style: Object.assign({ overflow: "hidden", background: dark ? "#0d0d0c" : t.bg2 }, style || {}) },
-        src ? h("img", { src: src, alt: caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : h("div", { style: { height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: sub, fontFamily: F_BODY, fontSize: 10 } }, "照片"));
+        src ? h("img", { src: src, alt: caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : h("div", { "aria-label": "空照片位", style: { width: "100%", height: "100%" } }));
     };
     var body;
     if (frame === "film3") {
@@ -1617,6 +1626,20 @@ function HomePhotoFrameGrid({ value, onChange }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.35, color: active ? "rgba(255,255,255,.62)" : t.fog, marginTop: 5 } }, p.note));
     }));
 }
+function HomePhotoSlotEditor({ value, frame, busy, onPick, onClear }) {
+  const t = useTheme();
+  var photos = normalizeHomePhotoSlots(value, frame);
+  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + photos.length + ",minmax(0,1fr))", gap: 8, marginTop: 10 } },
+    photos.map(function (ref, i) {
+      var src = ref && typeof resolveImg === "function" ? resolveImg(ref) : ref;
+      return h("div", { key: i, style: { position: "relative", minWidth: 0 } },
+        h("label", { className: "active:opacity-70", style: { minHeight: photos.length === 1 ? 92 : 78, borderRadius: 15, border: "1px dashed " + t.line, background: t.bg, overflow: "hidden", color: t.sub, display: "flex", alignItems: "center", justifyContent: "center", cursor: busy ? "default" : "pointer", position: "relative" } },
+          src ? h("img", { src: src, alt: "相框第 " + (i + 1) + " 张照片", style: { position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", objectFit: "cover" } }) :
+            h("div", { style: { fontFamily: F_BODY, fontSize: photos.length === 1 ? 13 : 11.5, textAlign: "center", lineHeight: 1.45, padding: 6 } }, busy ? "正在放入…" : "＋ 第 " + (i + 1) + " 张"),
+          h("input", { type: "file", accept: "image/*", className: "hidden", disabled: busy, onChange: function (e) { var file = e.target.files && e.target.files[0]; if (file) onPick(file, i); e.target.value = ""; } })),
+        ref ? h("button", { type: "button", onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClear(i); }, className: "active:opacity-65", "aria-label": "清空第 " + (i + 1) + " 张照片", style: { position: "absolute", right: 5, top: 5, zIndex: 2, width: 23, height: 23, borderRadius: 999, background: "rgba(20,19,17,.72)", color: "#fff", fontFamily: F_BODY, fontSize: 15, lineHeight: "23px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,.2)" } }, "×") : null);
+    }));
+}
 function Home({
   now,
   characters,
@@ -1668,8 +1691,6 @@ function Home({
   const [styleDecorFrame, setStyleDecorFrame] = useState("single");
   const [styleDecorPhotos, setStyleDecorPhotos] = useState([]);
   const [decorBusy, setDecorBusy] = useState(false);
-  const decorFileRef = useRef(null);
-  const stylePhotoFileRef = useRef(null);
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
   const [folders, setFolders] = useState(function () { return loadJSON("x_homeFolders", {}); });
   const foldersRef = useRef(folders); foldersRef.current = folders;
@@ -1894,35 +1915,35 @@ function Home({
     if (it && it.kind === "decor" && it.decor) {
       var d = it.decor;
       setStyleDecorText(d.caption || d.text || "");
-      setStyleDecorFrame(d.frame || "single");
-      setStyleDecorPhotos(Array.isArray(d.imageRefs) && d.imageRefs.length ? d.imageRefs.slice(0, 3) : (d.imageRef ? [d.imageRef] : []));
+      var frame = d.frame || "single";
+      setStyleDecorFrame(frame);
+      setStyleDecorPhotos(normalizeHomePhotoSlots(Array.isArray(d.imageRefs) && d.imageRefs.length ? d.imageRefs : (d.imageRef ? [d.imageRef] : []), frame));
     }
     setStyleKey(key);
   }
   function resetDecorDraft() { setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorBusy(false); }
-  async function takeDecorPhotos(files, target) {
-    var list = Array.from(files || []).slice(0, 3);
-    if (!list.length) return;
+  async function takeDecorPhoto(file, target, slot) {
+    if (!file) return;
     setDecorBusy(true);
     try {
-      var refs = [];
-      for (var i = 0; i < list.length; i++) {
-        var data = typeof resizeImageFile === "function" ? await resizeImageFile(list[i], 1000, .84) : "";
-        var ref = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
-        if (ref) refs.push(ref);
-      }
-      if (!refs.length) throw new Error("empty photo");
-      if (target === "style") setStyleDecorPhotos(refs);
-      else setDecorDraftPhotos(refs);
+      var data = typeof resizeImageFile === "function" ? await resizeImageFile(file, 1000, .84) : "";
+      var ref = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
+      if (!ref) throw new Error("empty photo");
+      var frame = target === "style" ? styleDecorFrame : decorDraftFrame;
+      var setter = target === "style" ? setStyleDecorPhotos : setDecorDraftPhotos;
+      setter(function (prev) { var next = normalizeHomePhotoSlots(prev, frame); next[slot] = ref; return next; });
     } catch (e) { if (typeof toast === "function") toast("这张照片没能放进相框"); }
     setDecorBusy(false);
   }
+  function clearDecorPhoto(target, slot) {
+    var frame = target === "style" ? styleDecorFrame : decorDraftFrame;
+    var setter = target === "style" ? setStyleDecorPhotos : setDecorDraftPhotos;
+    setter(function (prev) { var next = normalizeHomePhotoSlots(prev, frame); next[slot] = ""; return next; });
+  }
   function addDecoration() {
-    var frameInfo = HOME_PHOTO_FRAMES.find(function (x) { return x.id === decorDraftFrame; }) || HOME_PHOTO_FRAMES[0];
-    if (decorDraftType === "photo" && decorDraftPhotos.length < frameInfo.need) { if (typeof toast === "function") toast(frameInfo.need === 1 ? "先选一张照片" : "这个相框需要选 3 张照片"); return; }
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
     var text = decorDraftText.trim();
-    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || (decorDraftType === "quote" ? "把喜欢的日子，慢慢摆在桌面上。" : "今天")), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? decorDraftPhotos.slice(0, 3) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", createdAt: Date.now() };
+    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || (decorDraftType === "quote" ? "把喜欢的日子，慢慢摆在桌面上。" : "今天")), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", createdAt: Date.now() };
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
@@ -1943,9 +1964,7 @@ function Home({
     var it = styleKey && REG[styleKey];
     if (!it || it.kind !== "decor" || !it.decor) return;
     if (it.which === "photo") {
-      var frameInfo = HOME_PHOTO_FRAMES.find(function (x) { return x.id === styleDecorFrame; }) || HOME_PHOTO_FRAMES[0];
-      if (styleDecorPhotos.length < frameInfo.need) { if (typeof toast === "function") toast(frameInfo.need === 1 ? "先选一张照片" : "这个相框需要 3 张照片"); return; }
-      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: styleDecorPhotos.slice(0, 3), frame: styleDecorFrame });
+      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame });
     } else {
       updateDecoration(styleKey, { text: styleDecorText.trim() || (it.which === "quote" ? "把喜欢的日子，慢慢摆在桌面上。" : "今天") });
     }
@@ -2365,10 +2384,9 @@ function Home({
     REG[styleKey].kind === "decor" ? h("div", { style: { marginBottom: 20 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, REG[styleKey].which === "photo" ? "照片与相框" : "卡片内容"),
       REG[styleKey].which === "photo" ? h(React.Fragment, null,
-        h(HomePhotoFrameGrid, { value: styleDecorFrame, onChange: setStyleDecorFrame }),
-        h("input", { ref: stylePhotoFileRef, type: "file", accept: "image/*", multiple: true, className: "hidden", onChange: function (e) { takeDecorPhotos(e.target.files, "style"); e.target.value = ""; } }),
-        h("button", { onClick: function () { if (!decorBusy && stylePhotoFileRef.current) stylePhotoFileRef.current.click(); }, className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 78, borderRadius: 15, border: "1px dashed " + t.line, background: t.bg, padding: 8, color: t.sub } },
-          styleDecorPhotos.length ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6, height: 62 } }, styleDecorPhotos.map(function (ref, i) { return h("img", { key: i, src: typeof resolveImg === "function" ? resolveImg(ref) : ref, alt: "相框照片 " + (i + 1), style: { width: "100%", height: "100%", display: "block", objectFit: "cover", borderRadius: 8 } }); })) : h("div", { style: { fontFamily: F_BODY, fontSize: 13 } }, decorBusy ? "照片正在进金库…" : "＋ 重新选择照片")),
+        h(HomePhotoFrameGrid, { value: styleDecorFrame, onChange: function (id) { setStyleDecorFrame(id); setStyleDecorPhotos(function (prev) { return normalizeHomePhotoSlots(prev, id); }); } }),
+        h(HomePhotoSlotEditor, { value: styleDecorPhotos, frame: styleDecorFrame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, "style", slot); }, onClear: function (slot) { clearDecorPhoto("style", slot); } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "每格单独点选；也可以留空，先把相框摆在桌面上。"),
         h("input", { value: styleDecorText, onChange: function (e) { setStyleDecorText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 10, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })) :
         h("textarea", { value: styleDecorText, onChange: function (e) { setStyleDecorText(e.target.value); }, rows: 3, maxLength: 120, placeholder: REG[styleKey].which === "quote" ? "改写字句卡里的话" : "改写日期签的小标题", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12 } }),
       h("button", { onClick: saveStyleDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 10, borderRadius: 14, padding: "11px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 14 } }, "保存内容")) : null,
@@ -2387,10 +2405,9 @@ function Home({
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1 } }, x[1]), h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, marginTop: 7 } }, x[2]));
       })),
     decorDraftType === "photo" ? h("div", { style: { marginBottom: 17 } },
-      h(HomePhotoFrameGrid, { value: decorDraftFrame, onChange: setDecorDraftFrame }),
-      h("input", { ref: decorFileRef, type: "file", accept: "image/*", multiple: true, className: "hidden", onChange: function (e) { takeDecorPhotos(e.target.files, "draft"); e.target.value = ""; } }),
-      h("button", { onClick: function () { if (!decorBusy && decorFileRef.current) decorFileRef.current.click(); }, className: "w-full active:opacity-70", style: { marginTop: 10, minHeight: 92, borderRadius: 17, border: "1px dashed " + t.line, background: t.bg, overflow: "hidden", padding: 8, color: t.sub } },
-        decorDraftPhotos.length ? h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 6, height: 74 } }, decorDraftPhotos.map(function (ref, i) { return h("img", { key: i, src: typeof resolveImg === "function" ? resolveImg(ref) : ref, alt: "待放照片 " + (i + 1), style: { width: "100%", height: "100%", display: "block", objectFit: "cover", borderRadius: 8 } }); })) : h("div", { style: { fontFamily: F_BODY, fontSize: 13 } }, decorBusy ? "照片正在进金库…" : (decorDraftFrame === "single" ? "＋ 选一张照片" : "＋ 一次选择 3 张照片"))),
+      h(HomePhotoFrameGrid, { value: decorDraftFrame, onChange: function (id) { setDecorDraftFrame(id); setDecorDraftPhotos(function (prev) { return normalizeHomePhotoSlots(prev, id); }); } }),
+      h(HomePhotoSlotEditor, { value: decorDraftPhotos, frame: decorDraftFrame, busy: decorBusy, onPick: function (file, slot) { takeDecorPhoto(file, "draft", slot); }, onClear: function (slot) { clearDecorPhoto("draft", slot); } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "照片可以先不放。三格相框以后也是逐格补，不会要求一次选满。"),
       h("input", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, maxLength: 50, placeholder: "照片旁的一句小字（可不填）", style: { width: "100%", marginTop: 10, outline: "none", borderRadius: 14, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13.5, padding: "11px 12px" } })) :
       h("textarea", { value: decorDraftText, onChange: function (e) { setDecorDraftText(e.target.value); }, rows: 2, maxLength: 80, placeholder: decorDraftType === "quote" ? "写一句想摆在桌面上的话" : "日期旁的小标题（可不填）", style: { width: "100%", resize: "none", outline: "none", borderRadius: 15, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, padding: 12, marginBottom: 17 } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "选择外框"),

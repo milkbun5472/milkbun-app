@@ -27,8 +27,29 @@ test("组件库提供照片框、字句卡和日期签", () => {
   assert.match(library, /放到桌面上/);
   assert.match(comp, /if \(it\.which === "photo"\) return \[2, 2\]/);
   assert.match(comp, /if \(it\.which === "quote"\) return \[4, 1\]/);
-  assert.match(library, /multiple: true/, "三图模板必须允许一次选多张图");
+  assert.doesNotMatch(library, /multiple: true/, "多格相框必须逐格选图，不能再要求一次选满");
+  assert.match(library, /HomePhotoSlotEditor/);
+  assert.match(library, /照片可以先不放/);
   for (const id of ["single", "film3", "fan3"]) assert.match(comp, new RegExp(`id: "${id}"`));
+});
+
+test("照片墙允许空框落桌并按槽位逐张补图", () => {
+  const home = between("function Home({", "// 主页名片");
+  const slots = between("function HomePhotoSlotEditor", "function Home({");
+  assert.match(comp, /function normalizeHomePhotoSlots/,
+    "空槽必须被规范化保留，不能被稀疏数组吞掉");
+  assert.match(slots, /onPick\(file, i\)/);
+  assert.match(slots, /onClear\(i\)/);
+  assert.match(home, /next\[slot\] = ref/,
+    "放入一张照片时只能改目标槽位");
+  assert.match(home, /next\[slot\] = ""/,
+    "清空一张照片时只能改目标槽位");
+  assert.match(home, /normalizeHomePhotoSlots\(decorDraftPhotos, decorDraftFrame\)/,
+    "新建空相框也必须保存固定槽位");
+  assert.match(home, /normalizeHomePhotoSlots\(styleDecorPhotos, styleDecorFrame\)/,
+    "已有相框逐格编辑后必须保存固定槽位");
+  assert.doesNotMatch(home, /这个相框需要选 3 张照片/,
+    "空框不应被照片数量校验拦住");
 });
 
 test("预设不是只换颜色：至少六套并包含几何、边框、材质和留白", () => {
