@@ -36,8 +36,10 @@ test("NPC 绝不许掉进任何会花钱的后台循环", () => {
 test("递给 UI 的角色列表默认不含 NPC", () => {
   assert.equal(codeOnly(app).indexOf("characters: characters,"), -1, "还有地方把全量递给了 UI");
   assert.ok((app.match(/characters: liveChars,/g) || []).length > 30);
-  // 只有真的要按 id 找群成员的两处显式拿全量
-  assert.equal((app.match(/allChars: characters,/g) || []).length, 3, "聊天列表的群头像 + 群聊页 + 关系页");
+  // 能看见配角的地方【一处一处点名】，加一处就得来这里记一笔——
+  // 这条断言守的不是数字，是「这份名单是显式的、grep 得出来的」。
+  assert.equal((app.match(/allChars: characters,/g) || []).length, 4,
+    "聊天列表的群头像 + 群聊页 + 关系页 + 同人文（配角要能被写进 CP）");
   assert.match(comp, /const memberById = id => \(allChars \|\| characters\)\.find/);
 });
 

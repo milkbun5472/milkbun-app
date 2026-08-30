@@ -38,10 +38,14 @@ test("作者有笔名了——一整页「佚名」像没人写过", () => {
     assert.ok(!/undefined/.test(n), "笔名里有 undefined：" + n);
     assert.ok(n.length >= 2, "笔名太短：" + n);
   });
-  // 卡片、阅读页、生成书评三处用的是同一份笔名
-  assert.equal((fic.match(/ficPenName\(f\.id\)/g) || []).length, 2, "卡片和阅读页各一处");
-  assert.match(fic, /const authorName = fic\.author \|\| ficPenName\(fic\.id\)/);
-  assert.doesNotMatch(fic, /f\.author \|\| \(f\.source === "user" \? \(props\.userName \|\| "我"\) : "佚名"\)/, "还有地方写着「佚名」");
+  // 显示作者名的每一处【逐处点名】，用的都得是同一份笔名。
+  // ⚠️别数 ficPenName 出现几次——那是冻数字：搜索也要用它拼待搜串，
+  // 一加功能计数就变，可它跟「作者名怎么算」根本没关系（v58.04 踩到）。
+  assert.match(fic, /const author = f\.author \|\| \(mine \? \(props\.userName \|\| "我"\) : ficPenName\(f\.id\)\)/, "卡片");
+  assert.match(fic, /const authorName = f\.author \|\| \(f\.source === "user" \? \(props\.userName \|\| "我"\) : ficPenName\(f\.id\)\)/, "阅读页");
+  assert.equal((fic.match(/const authorName = fic\.author \|\| ficPenName\(fic\.id\)/g) || []).length, 2, "生成书评/生成楼中楼各一处");
+  // 展示位上不许再退回「佚名」（存进 fic.author 的那份是模型给的笔名，另一回事）
+  assert.doesNotMatch(fic, /: "佚名"\)/, "还有地方显示「佚名」");
 });
 
 test("热度数字得散开——一整列全是「3.2k」一眼假", () => {

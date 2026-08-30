@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.03";
+const APP_VERSION = "v58.04";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -345,6 +345,7 @@ function App() {
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
   const [wallet, setWallet] = useState(200);
+  const WALLET_LOG_KEEP = 500;                     // 流水留最近 500 笔，再旧的挤掉
   const [walletLog, setWalletLog] = useState([]); // 我的钱包流水 {id,ts,delta,after,label,kind}
   // 角色钱包（独立 app，持久 running balance）：{charId:{init,balance,incomes,monthlyIncome,fixedMonthly,investAssets,notes,ledger:[{id,ts,delta,after,label,kind}],lastDailyKey,createdTs}}
   const [charWallet, setCharWallet] = useState({});
@@ -8672,7 +8673,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       saveJSON("x_wallet", n);
       setWalletLog(log => {
         const entry = { id: "wl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), delta: d, after: n, label: label || (d > 0 ? "进账" : "支出"), kind: kind || "misc" };
-        const nl = [entry, ...log];
+        // 📚 累积层：满了挤掉最旧的（.claude/rules/phone-data-layers.md）。
+        // 这是全 app 唯一写流水的地方，原来是纯 [entry, ...log]：每笔买东西、
+        // 收礼、结算都追一条，还整份重写 localStorage。账本页也翻不到那么下面。
+        const nl = [entry, ...log].slice(0, WALLET_LOG_KEEP);
         saveJSON("x_walletLog", nl);
         return nl;
       });
@@ -13509,6 +13513,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 同人文（含续章、书评、穿越互动）统一走线下创作线路。
     active: offlineActive,
     characters: liveChars,
+    // 同人文要能把配角（npc）写进 CP，所以额外给一份全量。
+    // 照 app 里既有的约定走 allChars 这个名字：递给 UI 的 characters 一律不含
+    // 配角（test/npc.test.js 守着这条），要全量的那几处显式换个名字要，
+    // 于是「哪里能看见配角」永远是 grep 得出来的一小串，而不是散在各处。
+    allChars: characters,
     profile: profile,
     groups: groups,
     worldbook: worldbook,
