@@ -8,6 +8,8 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 function makeHome(layout, folders) {
   const grab = (a, b) => { const i = comp.indexOf(a); const j = comp.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出：" + a); return comp.slice(i, j); };
   const src = [
+    "const widgetSizes = {};",
+    grab("const HOME_SIZE_PRESETS = [", "function homeWidgetPresetStyle"),
     grab("  const DEFAULT_LAYOUT = [", "  const SP_RE = /^sp_/;"),
     grab("  const SP_RE = /^sp_/;", "  // 存档 + 注册表 → 完整布局"),
     grab("  function buildLayout(saved) {", "  function persistFolders(nf)"),

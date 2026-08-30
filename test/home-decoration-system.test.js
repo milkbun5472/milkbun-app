@@ -16,6 +16,7 @@ test("桌面装饰把内容、样式与位置分开持久化", () => {
   const home = between("function Home({", "// 主页名片");
   assert.match(home, /x_homeDecorations/);
   assert.match(home, /x_homeWidgetStyles/);
+  assert.match(home, /x_homeWidgetSizes/);
   assert.match(home, /x_homeLayout/);
   assert.match(home, /imgToVault\(data\)/, "照片必须进现有图片金库，不能把大图硬塞进桌面 JSON");
 });
@@ -26,6 +27,8 @@ test("组件库提供照片框、字句卡和日期签", () => {
   assert.match(library, /放到桌面上/);
   assert.match(comp, /if \(it\.which === "photo"\) return \[2, 2\]/);
   assert.match(comp, /if \(it\.which === "quote"\) return \[4, 1\]/);
+  assert.match(library, /multiple: true/, "三图模板必须允许一次选多张图");
+  for (const id of ["single", "film3", "fan3"]) assert.match(comp, new RegExp(`id: "${id}"`));
 });
 
 test("预设不是只换颜色：至少六套并包含几何、边框、材质和留白", () => {
@@ -42,11 +45,27 @@ test("预设不是只换颜色：至少六套并包含几何、边框、材质�
 test("长按旧组件或装饰开换皮；普通 App 仍进原来的整理模式", () => {
   const gestures = between("const onTS =", "const onTM =");
   assert.match(gestures, /kindOf\(key\) === "widget" \|\| kindOf\(key\) === "decor"/);
-  assert.match(gestures, /setStyleKey\(key\)/);
+  assert.match(gestures, /openStylePanel\(key\)/);
   assert.match(gestures, /else pickUp\(\)/, "普通 App/文件夹的长按整理链不能被装饰面板劫持");
   const sheet = between("styleKey && REG[styleKey]", "showDecorLibrary && h(Sheet");
   assert.match(sheet, /整理位置/);
-  assert.match(sheet, /只换外观，不改组件原来的功能/);
+  assert.match(sheet, /尺寸与外观分开设置，不改组件原来的功能/);
+  assert.match(sheet, /占格尺寸/);
+  assert.match(sheet, /保存内容/);
+  assert.match(sheet, /styleDecorText/);
+});
+
+test("所有组件与装饰共用独立尺寸轴，音乐会按短条或方块重排", () => {
+  const home = between("function Home({", "// 主页名片");
+  for (const id of ["auto", "short", "square", "wide", "large"]) {
+    assert.match(comp, new RegExp(`id: "${id}"`));
+  }
+  assert.match(home, /homeItemSpan\(key, it, widgetSizes\)/,
+    "布局测量和渲染必须读取同一份尺寸设置");
+  assert.match(home, /homeSize: homeSize/);
+  const music = between("function MusicWidget", "// 全局悬浮迷你播放器");
+  assert.match(music, /homeSize === "short"/);
+  assert.match(music, /homeSize === "square"/);
 });
 
 test("主屏安全区与唯一根布局铁律未被装饰系统改写", () => {

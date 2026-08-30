@@ -8,6 +8,8 @@ const grab = (a, b) => { const i = comp.indexOf(a), j = comp.indexOf(b, i); asse
 
 function makeHome(layout, folders) {
   const src = [
+    "const widgetSizes = {};",
+    grab("const HOME_SIZE_PRESETS = [", "function homeWidgetPresetStyle"),
     grab("  const DEFAULT_LAYOUT = [", "  const SP_RE = /^sp_/;"),
     grab("  const SP_RE = /^sp_/;", "  // 存档 + 注册表 → 完整布局"),
     grab("  function buildLayout(saved) {", "  function persistFolders(nf)")
@@ -96,4 +98,3 @@ test("地方改叫去处", () => {
 });
 
 // 情侣卡那一条搬去了 dwell-door-58-24：天数已经挪到右上角，不再跟名字挤一行
-
