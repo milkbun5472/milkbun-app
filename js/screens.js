@@ -3200,7 +3200,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall}) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3312,6 +3312,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     const bWishes = Array.isArray(bHome.wishes) ? bHome.wishes : [];
     const bArchiveN = COUPLE_ARCHIVE_FIELDS.filter(f => String(bArchive[f[0]] || "").trim()).length;
     const bWishOpen = bWishes.filter(w => w.status !== "done" && w.status !== "shelved").length;
+    const bCapsuleDue = typeof window !== "undefined" && window.capsuleDueCount ? window.capsuleDueCount() : 0;
     const itemTs = x => {
       if (!x) return 0;
       const direct = Number(x.updatedAt || x.createdAt || x.ts || x.answeredAt || 0);
@@ -3421,7 +3422,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a46d7e", marginTop: 22 } }, bWishes.length ? bWishOpen + " 件还在等 · " + bWishes.filter(w => w.status === "done").length + " 件实现" : "把以后钉在这里"))),
           // —— bento 拼贴入口：不同形状大小，每格露一点活内容 ——
           (() => {
-            const tile = (k, o) => h("button", { key: k, onClick: () => setSub(k), className: "active:opacity-70", style: { position: "relative", textAlign: "left", gridColumn: "span " + (o.w || 2), gridRow: o.tall ? "span 2" : undefined, background: o.bg, border: "1px solid " + o.bd, borderRadius: 18, padding: "11px 13px", display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minHeight: 0, minWidth: 0 } },
+            const tile = (k, o) => h("button", { key: k, onClick: o.onClick || (() => setSub(k)), className: "active:opacity-70", style: { position: "relative", textAlign: "left", gridColumn: "span " + (o.w || 2), gridRow: o.tall ? "span 2" : undefined, background: o.bg, border: "1px solid " + o.bd, borderRadius: 18, padding: "11px 13px", display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minHeight: 0, minWidth: 0 } },
               o.dot ? h("span", { style: { position: "absolute", top: 9, right: 11, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: o.ink, flexShrink: 0 } }, o.e + " " + o.zh),
               o.body);
@@ -3474,6 +3475,11 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 })() }),
               tile("qa", { e: "📖", zh: "问答小本", bg: "#eef6ef", bd: "#d4e6d8", ink: "#6a9a74",
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#4f8a5e", lineHeight: 1.2 } }, bQaN ? "已答 " + bQaN + " 题" : "关于我们") }),
+              // 时光胶囊的正门搬进情侣空间：仍复用 x_capsules 和原完整页面，不复制数据。
+              tile("capsule", { e: "⌛", zh: "时光胶囊", bg: "#f1f0f8", bd: "#dedbea", ink: "#7d7396", dot: bCapsuleDue > 0, onClick: onOpenCapsule,
+                body: h("div", null,
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#675d84", lineHeight: 1.25 } }, bCapsuleDue ? bCapsuleDue + " 封等你拆" : "写给以后的我们"),
+                  sub2(bCapsuleDue ? "已经到期" : "封存一段此刻", bCapsuleDue ? "#c65a4a" : "#7d7396")) }),
               // 交换日记（2x1）
               (() => {
                 const ex = (coupleExDiary || []).filter(e => e.characterId === bCid);

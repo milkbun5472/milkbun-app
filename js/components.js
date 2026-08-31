@@ -2050,7 +2050,6 @@ function Home({
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
     games: { kind: "app", zh: "小游戏", G: GGame },
-    capsule: { kind: "app", zh: "时光胶囊", G: GCapsule },
     dreamjournal: { kind: "app", zh: "解梦馆", G: window.GDreamBook || GDream },
     yanqiu: { kind: "app", zh: "秋声", G: window.GYanqiuLeaf || GDiary },
     rescue: { kind: "app", zh: "互救台", G: GRescue },
@@ -2070,7 +2069,7 @@ function Home({
     ["w_card", "cast", "ties", "phone", "w_music", "w_map"],
     ["w_cal", "shop", "carry", "cwallet", "w_ledger", "w_us", "w_memo"],
     ["lore", "memlib", "anon", "study", "fanfic", "theater", "impression", "weekly", "read", "debate", "dream", "tarot", "pomodoro", "games", "trpg", "dreamjournal", "yanqiu", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab"],
-    ["capsule", "w_muyu", "w_weather", "w_wheel"]
+    ["w_muyu", "w_weather", "w_wheel"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
@@ -2564,7 +2563,7 @@ function Home({
     const gCol = "span " + span[0], gRow = "span " + span[1];
     const homeSize = widgetSizes[key] || "auto";
     let inner;
-    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : key === "capsule" ? ((typeof window !== "undefined" && window.capsuleDueCount) ? window.capsuleDueCount() : 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
+    if (it.kind === "app") inner = h(GlassIcon, { G: it.G, label: it.zh, appKey: key, onWallpaper: !!wallpaper, soon: it.soon, badge: key === "memo" ? (memoDue || 0) : 0, onClick: function () { if (editMode) return; it.soon ? (onSoon && onSoon(it.zh)) : onOpenApp(key); } });
     else if (isFolder) {
       const fApps = (folders[key].keys || []).map(function (k) { return Object.assign({ key: k }, REG[k] || {}); }).filter(function (a) { return a.zh; });
       inner = h(FolderIcon, { apps: fApps, label: folders[key].name || "文件夹", onWallpaper: !!wallpaper, onOpen: function () { if (!editMode) setOpenFolder(key); } });

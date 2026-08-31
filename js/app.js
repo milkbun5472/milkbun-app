@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.90";
+const APP_VERSION = "v58.91";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8609,7 +8609,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   // 角色【主动】给你埋一颗时光胶囊（不必你先埋给 TA）——她要的"自动生成、有了我再点开看"。
   // 由 tickAmbient 按轮数稀发；封存到 7/14/30 天后。短期胶囊是“延时抵达的此刻”，不再一两天后硬装遥远未来（v53.90）。写 x_capsules，
-  // 下次打开时光胶囊即见；到期主屏图标亮红点（window.capsuleDueCount 读 localStorage）。
+  // 下次从情侣空间打开时光胶囊即见；到期时情侣空间入口亮红点（window.capsuleDueCount 读 localStorage）。
   const autoBuryCapsuleForChar = async char => {
     if (!active || !autoRefreshOn("capsule", char.id)) return;
     try {
@@ -14174,6 +14174,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const off = (Array.isArray(sessions) ? sessions : []).reduce((a, sess) => a.concat((sess && sess.msgs || []).filter(ok).map(pick)), []);
       return (chats[cid] || []).filter(ok).map(pick).concat(off).sort((a, b) => (b.ts || 0) - (a.ts || 0));
     },
+    onOpenCapsule: () => setScreen("capsule"),
     onBack: goHome,
     onInvite: sendCoupleInvite,
     onUnlink: unlinkCouple,
@@ -14361,7 +14362,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     profile: profile,
     ctxFor: ctxFor,
     toast: toast,
-    onBack: () => setScreen("home")
+    onBack: () => setScreen("us")
   });else if (screen === "pomodoro") body = h(Pomodoro, {
     active: bgActive,
     characters: liveChars,

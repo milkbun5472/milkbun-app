@@ -338,7 +338,7 @@ const APP_TONE_HUE = {
   read: 158, debate: 8, dream: 248, tarot: 296,
   pomodoro: 4, games: 190, trpg: 134, dreamjournal: 224,
   yanqiu: 262, loungeapp: 106, rescue: 352, vpscodex: 130,
-  assistant: 174, stylelab: 316, capsule: 40,
+  assistant: 174, stylelab: 316,
   diary: 226, memo: 52, ledger: 136,
   // 底部 dock 那四个也点名（它每一页都在，不能交给哈希）
   messages: 196, forum: 112, config: 352

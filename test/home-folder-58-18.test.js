@@ -39,7 +39,7 @@ function makeHome(layout, folders) {
 }
 // 24 格塞满一页。⚠️里面只许放【当前 REG 里真有】的 key——放了已经退场的（比如 v58.22 撤掉的
 // 日记/备忘录）会被 buildLayout 滤掉，这一页就不满了，「满页」那几条测试会静悄悄地变成空转。
-const FULL = ["f_1", "cast", "ties", "phone", "cwallet", "lore", "memlib", "assistant", "capsule", "study",
+const FULL = ["f_1", "cast", "ties", "phone", "cwallet", "lore", "memlib", "assistant", "anon", "study",
   "fanfic", "weekly", "carry", "theater", "impression", "read", "debate", "dream", "tarot",
   "pomodoro", "games", "trpg", "dreamjournal", "yanqiu"];
 // goPage 是放在 setTimeout(…,0) 里的：在别的 setState updater 里同步调 setState
@@ -101,7 +101,7 @@ test("每一页都满的时候也不许丢", async () => {
   const { api, st, foldersRef } = makeHome({
     0: FULL,
     1: ["w_card", "w_cal", "w_music", "w_map", "w_us", "w_memo"],
-    2: ["capsule", "loungeapp", "rescue", "vpscodex", "assistant", "stylelab", "w_weather", "w_ledger", "w_muyu", "w_wheel"],
+    2: ["loungeapp", "rescue", "vpscodex", "assistant", "stylelab", "w_weather", "w_ledger", "w_muyu", "w_wheel"],
     3: []
   }, { f_1: { name: "杂物", keys: ["shop", "dwell"] } });
   api.removeFromFolder("f_1", "shop");
@@ -121,6 +121,13 @@ test("REG 里每个 app 在整理之后都还找得到（安全网还在）", ()
   const REG = new Function(regSrc.replace(/G:[^,}]+/g, "G: null") + "\nreturn REG;")();
   const missing = Object.keys(REG).filter(k => REG[k].kind === "app" && !R.has(k));
   assert.deepEqual(missing, [], "这些 app 从主屏上消失了：" + missing.join("、"));
+});
+
+test("时光胶囊搬进情侣空间后，旧主屏布局里的入口会自动退场", () => {
+  const { api } = makeHome({ 0: ["capsule", "cast"] }, {});
+  const L = api.buildLayout({ 0: ["capsule", "cast"] });
+  assert.equal(pageOf(L, "capsule"), -1, "旧布局里的胶囊图标不该继续留在主屏");
+  assert.notEqual(pageOf(L, "cast"), -1, "清掉胶囊时不能误伤旁边的正常 app");
 });
 
 test("两道防线各自还在——它们互相兜底，行为测试分不出来", () => {

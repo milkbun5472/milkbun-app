@@ -94,7 +94,7 @@ test("买单：任何一页都不许排到 6 行以外", () => {
     组件挤出第七行: { 0: WIDGETS_7ROWS.slice(), 1: [] },
     满页app: { 0: ["cast", "ties", "phone", "cwallet", "lore", "memlib", "diary", "memo", "study", "fanfic",
       "weekly", "carry", "theater", "impression", "read", "debate", "shop", "dwell", "assistant",
-      "capsule", "rescue", "stylelab", "loungeapp", "vpscodex"], 1: [] },
+      "anon", "rescue", "stylelab", "loungeapp", "vpscodex"], 1: [] },
     日历加一堆: { 0: ["w_cal", "w_us", "w_card", "w_music", "w_memo", "cast", "ties"], 1: [] },
     组件全堆一起: { 0: ["w_cal", "w_map", "w_muyu", "w_wheel", "w_us", "w_card", "w_music", "w_memo", "w_weather", "w_ledger"], 1: [] },
     空布局: {}
