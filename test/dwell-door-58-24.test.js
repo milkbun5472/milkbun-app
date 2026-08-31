@@ -91,17 +91,19 @@ test("生成完直接进全屏；带图开着才接着出图", () => {
   assert.match(src, /!before\.has\(p\.id\)/);
 });
 
-// 她 2026-08-30 第二次报：「情侣空间名字又看不见了，能不能在一起x天放右上角」
-test("情侣卡：天数挪到右上角，名字独占一整行", () => {
+// 她 2026-08-30：「在一起 X 天放到名字右边，X 放大标粉；轮换点挪右下」
+test("情侣卡：名字与粉色大号天数同排，轮换点在右下", () => {
   const i = comp.indexOf("function UsWidget(");
   const body = comp.slice(i, comp.indexOf("\nfunction ", i + 10));
-  const daysLine = body.split("\n").find(l => l.includes('"在一起第 " + days')) || "";
-  assert.match(daysLine, /position: "absolute"/, "天数还跟名字挤在一行——名字只剩一两个字的宽");
-  assert.match(daysLine, /top: 11/, "没贴到上面去");
-  assert.match(daysLine, /right: dot \? 26 : 14/, "右上角那个红点会跟天数叠在一起");
+  assert.match(body, /className: "flex items-baseline min-w-0"/, "名字和天数没有放进同一条弹性基线");
+  assert.match(body, /fontSize: 21, fontWeight: 700, color: "#e78fa1"/, "X 没有单独放大标粉");
+  assert.match(body, /fontSize: 18/, "名字没有跟着整体放大");
+  assert.match(body, /fontSize: 12\.5, color: t\.sub/, "甜蜜值没有跟着整体放大");
   const nameLine = body.split("\n").find(l => l.includes("p.remark || p.name")) || "";
-  assert.ok(!/在一起第/.test(nameLine), "名字那一行里还留着天数");
+  assert.match(nameLine, /flex: "1 1 auto"/, "名字没有弹性宽度，长名字仍会把天数挤坏");
   assert.match(nameLine, /whiteSpace: "nowrap"/, "名字没锁单行");
+  assert.match(body, /position: "absolute", right: 14, bottom: 9/, "轮换点没有从右中移到右下");
+  assert.match(body, /position: "absolute", top: 10, right: 12/, "右上未读红点被误挪走了");
 });
 
 // 她 2026-08-30：「这俩细节框再修修，默认不要这种半窗」→ .claude/rules/no-half-sheet.md
