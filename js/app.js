@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.76";
+const APP_VERSION = "v58.77";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9768,21 +9768,45 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 存的只有【设定 + 区域骨架】，坐标一概不存：地图由 TrpgMap 力导向按世界 id
   // 现算，同一个世界每次画出来一模一样，云同步里不多一个字节的图片。
   const saveWorlds = list => { setWorlds(list); saveJSON("x_worlds", list); };
-  const genWorld = async (id, name, brief, done) => {
+  // 一个角色的一天，压成几行喂给造世界那一枪：他每天走过哪几段路，
+  // 比「他是个什么人」更能决定这个世界该长出哪些地方。
+  const worldDayOf = char => {
+    const plans = schedulesRef.current[char.id] || {};
+    const s = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    const seqs = (s && Array.isArray(s.seqs)) ? s.seqs : [];
+    return seqs.slice(0, 8).map(x => [x.time, x.title, x.location].filter(Boolean).join(" · ")).filter(Boolean).join("\n  ");
+  };
+  const genWorld = async (id, name, brief, charIds, done) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     if (!brief) { toast("先写一段这个世界是什么样的"); return; }
     setWorldBusy(true);
     try {
+      // 带进来的角色（她 2026-08-31 要的）：只读人设和行程，不读也不写主线记忆/好感/心情——
+      // 同小剧场、同人文、跑团那一档的合法差异（four-surfaces-same-context.md），架空世界
+      // 是平行时空。⚠️跑团不连上来，是她点名的：这里只借画图那套纯函数，不碰任何玩法。
+      const cast = (charIds || []).map(cid => (characters || []).find(c => c.id === cid)).filter(Boolean);
+      const castBlock = cast.map(c => {
+        const day = worldDayOf(c);
+        return "【" + c.name + "】\n" + String(c.persona || c.prompt || "").slice(0, 2500)
+          + (day ? "\n  他一天大致这么过：\n  " + day : "");
+      }).join("\n\n");
       const sys = "你在给一个人自己的架空世界铺一张舆图。他写了一段设定，你把它铺成【地图骨架】。\n"
         + "【他写的设定】" + brief + "\n"
         + (name ? "【世界名】" + name + "\n" : "")
+        + (cast.length ? "\n【要住进这个世界的人】\n" + castBlock + "\n"
+          + "【他们怎么用】把这几个人当成【这个世界已经有的居民】,不是外来客。地方要长成"
+          + "他们过得下去的地方:他们每天要去的那几处、靠什么谋生、跟谁打交道、躲着什么——"
+          + "这些都该在地图上有对应的落点。他们原本的身份可以换一身皮来适应这个世界的规矩,"
+          + "但那个人还是那个人:他在意什么、跟谁过不去、每天绕不开哪一件事,不许换掉。\n"
+          + "最后在 cast 里说清每个人现在人在哪个地点、为什么在那儿。地点名必须是你上面写过的。\n" : "")
         + "【怎么铺】分 4-6 块地方。每块要有自己的性格：靠什么活着、谁说了算、外人进去先撞见什么。"
         + "彼此之间用 adj 写清谁挨着谁——挨着的两块在图上就真的挨着，所以别把互不相干的地方硬凑在一起，也别所有地方都互相接壤。\n"
         + "每块地方下面挂 2-3 个具体地点。地点名要一眼看得出是【这个】世界的地方，"
         + "换到别的世界还照样成立的名字就是没写好。\n"
         + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么，不是介绍它的来历。\n"
         + "整张图只许从他那段设定长出来：他没写到的地方，按他那段的调子往下推，不要换成另一个类型的世界。\n"
-        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（他给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]}";
+        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（他给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]"
+        + (cast.length ? ",\"cast\":[{\"name\":\"角色名(照抄上面给的)\",\"node\":\"他人在哪个地点\",\"why\":\"他为什么在这儿(一句)\"}]" : "") + "}";
       const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const K = window.TrpgMap;
@@ -9796,10 +9820,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 重画会换掉整张图：钉在【已经不存在的地点】上的人自动掉下来，还在的照旧
       const pins = {};
       Object.keys((old && old.pins) || {}).forEach(k => { if (names[old.pins[k]]) pins[k] = old.pins[k]; });
-      const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins, createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now() };
+      // 带进来的人按模型说的落点钉上去；它把地点名编错了(不在图上)就不钉,
+      // 让她自己在地点页上放——宁可没落脚,也不要钉在一个不存在的地方上。
+      const why = {};
+      ((d && Array.isArray(d.cast)) ? d.cast : []).forEach(x => {
+        const c = cast.find(y => y.name === String((x && x.name) || "").trim());
+        const nd = String((x && x.node) || "").trim();
+        if (!c || !names[nd]) return;
+        pins[c.id] = nd;
+        if (x.why) why[c.id] = String(x.why).slice(0, 60);
+      });
+      const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins,
+        cast: (charIds || []).slice(0, 8), why: { ...((old && old.why) || {}), ...why },
+        createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now() };
       saveWorlds(id ? (worlds || []).map(w => w.id === id ? next : w) : [next, ...(worlds || [])]);
       const nNode = regions.reduce((n, r) => n + r.nodes.length, 0);
-      toast("「" + nm + "」铺开了：" + regions.length + " 块地方 · " + nNode + " 个地点");
+      const nPin = Object.keys(pins).length;
+      toast("「" + nm + "」铺开了：" + regions.length + " 块地方 · " + nNode + " 个地点" + (nPin ? " · " + nPin + " 个人落了脚" : ""));
       if (done) done(wid);
     } catch (e) {
       toast("失败：" + e.message);

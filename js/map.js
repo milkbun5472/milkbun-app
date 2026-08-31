@@ -272,7 +272,8 @@
               h("div", { style: { width: 30, height: 30, borderRadius: 999, flexShrink: 0, background: (c.avatarImage && typeof resolveImg === "function") ? "center/cover no-repeat url(" + resolveImg(c.avatarImage) + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13 } }, c.avatarImage ? "" : String(c.name || "?").slice(0, 1)),
               h("div", { className: "min-w-0 flex-1" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: here ? "#fff" : t.ink } }, c.remark || c.name),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: here ? "rgba(255,255,255,0.8)" : t.fog } }, here ? "就在这儿" : other ? "现在在「" + pins[c.id] + "」" : "还没落脚在这个世界里")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: here ? "rgba(255,255,255,0.8)" : t.fog, lineHeight: 1.5 } },
+                  here ? ((world.why || {})[c.id] || "就在这儿") : other ? "现在在「" + pins[c.id] + "」" : "还没落脚在这个世界里")),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: here ? "rgba(255,255,255,0.85)" : t.tint, flexShrink: 0 } }, here ? "挪走" : "钉过来"));
           }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有角色")))) : null;
     return h("div", { className: "flex-1 flex flex-col", style: { minHeight: 0 } }, nodePage,
@@ -314,10 +315,14 @@
   }
 
   // 开世界：整页表单。她写一段设定，模型只负责把它铺成区域和地点
-  function WorldForm({ init, busy, onGen, onSave, onDel, onBack }) {
+  function WorldForm({ init, characters, busy, onGen, onSave, onDel, onBack }) {
     const t = useTheme();
     const [name, setName] = useState((init && init.name) || "");
-    const [brief, setBrief] = useState((init && init.brief) || "");
+    const [brief, setBrief] = useState((init && init.prompt) || (init && init.brief) || "");
+    // 带哪几个人进去（她 2026-08-31 要的）：把他们的人设和一天的行程一起喂给造世界那一枪，
+    // 地方就长成他们过得下去的地方，而不是一张谁都能用的通用地图。
+    const [picked, setPicked] = useState(() => ((init && init.cast) || []).slice());
+    const toggle = id => setPicked(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : (p.length >= 8 ? p : [...p, id]));
     const inp = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", width: "100%", outline: "none" };
     return h("div", { style: { position: "fixed", inset: 0, zIndex: 140, display: "flex", flexDirection: "column", background: t.bg } },
       h(Head, { zh: init ? "这个世界" : "开一个世界", en: init ? "" : "New world", onBack: onBack }),
@@ -327,8 +332,19 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "这个世界是什么样的"),
         h("textarea", { value: brief, onChange: function (e) { setBrief(e.target.value); }, rows: 7, placeholder: "写多少都行：这地方靠什么活着、有哪几块地方、彼此什么关系、路上会遇上什么。写得越具体，画出来的地图越是你的，越含糊模型就越往通用模板上靠。",
           style: Object.assign({}, inp, { lineHeight: 1.8, resize: "vertical" }) }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 4px" } }, "带谁进去住"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginBottom: 8 } },
+          "选中的人，他们的人设和一天的行程会一起喂进去——地方就长成他们过得下去的地方，人也会直接落在图上。不选也行，那就是一张空的世界。"),
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+          (characters || []).length ? (characters || []).map(function (c) {
+            const on = picked.indexOf(c.id) >= 0;
+            return h("button", { key: c.id, onClick: function () { toggle(c.id); }, className: "active:opacity-70",
+              style: { display: "flex", alignItems: "center", gap: 6, fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "5px 12px 5px 5px" } },
+              h("div", { style: { width: 22, height: 22, borderRadius: 999, flexShrink: 0, background: (c.avatarImage && typeof resolveImg === "function") ? "center/cover no-repeat url(" + resolveImg(c.avatarImage) + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 10 } }, c.avatarImage ? "" : String(c.name || "?").slice(0, 1)),
+              c.remark || c.name);
+          }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色")),
         init ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginTop: 16 } }, "重画会换掉整张地图，钉在旧地点上的人也会一起掉下来。") : null,
-        h("button", { onClick: function () { onGen(name.trim(), brief.trim()); }, disabled: busy || !brief.trim(), className: "w-full active:opacity-80",
+        h("button", { onClick: function () { onGen(name.trim(), brief.trim(), picked); }, disabled: busy || !brief.trim(), className: "w-full active:opacity-80",
           style: { marginTop: 20, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: (busy || !brief.trim()) ? 0.5 : 1 } },
           busy ? "正在铺开这片地方…" : init ? "照这段重画" : "画出这个世界"),
         init ? h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
@@ -345,8 +361,8 @@
     const cur = wid ? list.find(function (w) { return w.id === wid; }) : null;
     const formInit = (form && form !== "new") ? list.find(function (w) { return w.id === form; }) : null;
     const formLayer = form ? h(WorldForm, {
-      init: formInit, busy: busy, onBack: function () { setForm(null); },
-      onGen: function (nm, bf) { onGen(formInit ? formInit.id : null, nm, bf, function (id) { setForm(null); setWid(id); }); },
+      init: formInit, characters: characters, busy: busy, onBack: function () { setForm(null); },
+      onGen: function (nm, bf, picked) { onGen(formInit ? formInit.id : null, nm, bf, picked, function (id) { setForm(null); setWid(id); }); },
       onSave: function (nm, bf) { onSave(formInit.id, nm, bf); setForm(null); },
       onDel: function () { onDel(formInit.id); setForm(null); setWid(null); }
     }) : null;

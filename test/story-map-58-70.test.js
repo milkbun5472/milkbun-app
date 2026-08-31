@@ -10,7 +10,7 @@ const grab = (src, a, b, cap) => {
   return src.slice(i, j);
 };
 const nocomment = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-const gen = grab(app, "  const genWorld = async (id, name, brief, done) => {", "  const saveWorld = (id, name, brief)", 4200);
+const gen = grab(app, "  const genWorld = async (id, name, brief, charIds, done) => {", "  const saveWorld = (id, name, brief)");
 const wm = grab(map, "  function WorldMap({", "  // 开世界：整页表单");
 
 // ── 地图引擎只有一份 ───────────────────────────────────────────────────────
@@ -24,20 +24,47 @@ test("架空地图借跑团那份引擎，不另写一份", () => {
   assert.ok(html.indexOf("js/trpg.js") < html.indexOf("js/map.js"), "trpg.js 必须先于 map.js 加载，否则 TrpgMap 还不存在");
 });
 
-// ── 造世界那一枪什么角色都不认识 ───────────────────────────────────────────
-test("造世界不喂任何角色人设——喂了它就把世界往那个人身上拧", () => {
-  assert.ok(!/runProbe|ctxFor|buildBundle|persona/.test(nocomment(gen)), "造世界那一枪混进了角色上下文");
+// ── 造世界喂什么、不喂什么 ─────────────────────────────────────────────────
+// v58.70 这里写的是「一个角色都不喂」。她 2026-08-31 要「导入已有角色喂他们行程
+// 人设之类的来生成地图」——所以人设和行程现在是【该喂】的。
+// 但当初那条禁令背后的道理没变，只是缩窄了：架空世界是平行时空（同小剧场/同人文/
+// 跑团那一档的合法差异），主线那几层——记忆、好感、心情、用户身份——一个字都不喂。
+test("造世界只喂人设和行程，主线那几层一个字不喂", () => {
+  assert.ok(!/runProbe|ctxFor|buildBundle/.test(nocomment(gen)), "混进了主线上下文（记忆/好感/心情/用户身份都装在那里面）");
   assert.match(gen, /await callAI\(active, sys/, "没有走裸调用");
   assert.match(gen, /maxTokens: 65535/, "天花板没给满");
   assert.match(gen, /【他写的设定】/, "没把她写的那段递进去");
+  assert.match(gen, /String\(c\.persona \|\| c\.prompt \|\| ""\)\.slice\(0, 2500\)/, "没喂人设");
+  assert.match(gen, /worldDayOf\(c\)/, "没喂行程——他每天走过哪几段路,比「他是个什么人」更能决定该长出哪些地方");
+  // 一个人都没选的时候，一个字都不该多喂
+  assert.match(gen, /cast\.length \? "\\n【要住进这个世界的人】/, "没选人时也会往里塞东西");
+});
+
+test("带进来的人要落在图上，名字编错了就不落", () => {
+  assert.match(gen, /const c = cast\.find\(y => y\.name === String\(\(x && x\.name\) \|\| ""\)\.trim\(\)\);/, "模型说的人对不回真角色");
+  assert.match(gen, /if \(!c \|\| !names\[nd\]\) return;/, "地点名编错了还照钉——那就钉在一个不存在的地方上了");
+  assert.match(gen, /if \(x\.why\) why\[c\.id\] = String\(x\.why\)\.slice\(0, 60\)/, "没记下他为什么在那儿");
+  assert.match(map, /\(world\.why \|\| \{\}\)\[c\.id\] \|\| "就在这儿"/, "地点页上看不见他为什么在这儿");
+  assert.match(map, /const \[picked, setPicked\] = useState/, "开世界那一页没法选人");
+  assert.match(map, /p\.length >= 8 \? p : \[\.\.\.p, id\]/, "选人没有上限——人设是按 2500 字一份喂的,选二十个就撑爆了");
+  assert.match(map, /onGen\(name\.trim\(\), brief\.trim\(\), picked\)/, "选了人没递出去");
+});
+
+// 她 2026-08-31 点名：跑团不要连上来
+test("只借跑团画图那套纯函数，不碰它的玩法", () => {
+  const trpgRefs = (map.match(/window\.TrpgMap\.[A-Za-z]+/g) || []).concat(map.match(/K\.[a-zA-Z]+\(/g) || []);
+  trpgRefs.forEach(r => assert.ok(/mapBuild|mapAdjacent|normRegions|findNode/.test(r), "从跑团那边借了画图以外的东西：" + r));
+  assert.ok(!/window\.TrpgApp|x_trpg|camp\b|stageIdx/.test(map), "架空地图里出现了跑团的玩法/存档");
+  assert.ok(!/x_trpg|TrpgApp/.test(gen), "造世界那一枪碰了跑团的东西");
 });
 
 test("模型只宣告骨架，坐标一概不存——地图每次现算", () => {
   assert.match(gen, /const regions = K \? K\.normRegions\(d\.regions\) : null;/, "骨架没过 normRegions 这道校验");
   assert.match(gen, /if \(!regions\) throw/, "骨架不合格还照写进去");
   const saved = grab(gen, "const next = {", "saveWorlds(", 400);
-  ["x:", "y:", "blob", "svg", "dataURL", "image"].forEach(k =>
-    assert.ok(saved.indexOf(k) < 0, "把画出来的东西存盘了：" + k));
+  // ⚠️别用裸子串查坐标：why: 里就含有 "y:"，会假红
+  [/\bx:/, /\by:/, /blob/, /svg/, /dataURL/, /image/].forEach(re =>
+    assert.ok(!re.test(saved), "把画出来的东西存盘了：" + re));
   assert.match(saved, /regions/, "没存骨架");
   assert.match(saved, /prompt: brief/, "没留下她写的原文，改一改重画就没了底稿");
 });
