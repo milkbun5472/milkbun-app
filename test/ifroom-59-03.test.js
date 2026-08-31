@@ -243,3 +243,30 @@ test("避重也认「同一个关系点」", () => {
   assert.match(scr, /"探的是：" \+ x\.about/, "列表上看不到探的是什么");
   assert.match(scr, /"探的是：" \+ line\.about/, "侧栏里看不到探的是什么");
 });
+
+// 她 2026-08-31：「删不掉宝宝删除没反应只能点旁边的算了」。
+// 病根不在删的逻辑——app.js 那边 ifDrop 一直是对的、也一直 onIfDrop 传出去了，
+// 是 screens.js 这一端【压根没接】：Us 的形参里没有它，路由那行也没往下传，
+// IfRoom 的签名里也没有。于是 onDrop 是 undefined，按下去抛错、弹窗还开着。
+// ⚠️`node --check` 全绿、两千多条测试全绿——因为少一个 prop 不是语法错。
+// 所以这里不单钉 onIfDrop，改成【把整条链核一遍】：路由里递给 IfRoom 的每一样，
+// 上游必须收得到、下游必须接得住。以后再漏任何一个 prop 都会红。
+test("递给如果馆的每一个回调，两头都接上了", () => {
+  // cut 是从头 indexOf 找结尾的，这三段都得从起点往后找，另写一个
+  const from = (a, b) => { const i = scr.indexOf(a); return scr.slice(i, scr.indexOf(b, i + a.length)); };
+  const usSig = from("function Us({", "}) {");
+  const route = from("return h(IfRoom, {", "onBack:");
+  const ifSig = from("function IfRoom({", "}) {");
+  // ① 路由里用到的 onIfXxx，Us 的形参里都得有——没有就是 undefined
+  const used = [...new Set(route.match(/onIf[A-Za-z]+/g) || [])];
+  assert.ok(used.length >= 5, "路由里没抓到几个回调，切歪了：" + used.join(","));
+  used.forEach(n => assert.ok(new RegExp("\\b" + n + "\\b").test(usSig), "Us 没收 " + n + "，传下去是 undefined"));
+  // ② 路由里给出去的每个 onXxx 键，IfRoom 的签名里都得接住——不接就用不上
+  const given = [...new Set((route.match(/\bon[A-Z][A-Za-z]*\s*:/g) || []).map(x => x.replace(/\s*:$/, "")))];
+  assert.ok(given.indexOf("onDrop") >= 0, "路由压根没往下传 onDrop");
+  given.forEach(n => assert.ok(new RegExp("\\b" + n + "\\b").test(ifSig), "IfRoom 签名里没有 " + n + "，界面上按了没反应"));
+  // ③ 删的那一步：按下去要真的调、并且把弹窗关掉（她当时的症状正是弹窗关不掉）
+  assert.match(scr, /onDrop\(dropId\); setDropId\(null\)/, "删完没收掉那层问话");
+  assert.match(app, /const ifDrop = lineId => \{ ifSave\(ifLinesRef\.current\.filter\(x => x\.id !== lineId\)\)/, "app 这端的删没了");
+  assert.match(app, /onIfDrop: ifDrop/, "app 没把删传出去");
+});
