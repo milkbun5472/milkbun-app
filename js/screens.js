@@ -9908,3 +9908,104 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
         h(Avatar, { character: c, size: 34, radius: 7 }),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.name))))));
 }
+
+// ═══ 抽卡（她 2026-08-31）═══
+// 形状是她定的：**抽是抽，兑是兑**。抽卡永远 0 次调用——抽到的是一张兑换券，
+// 点了兑换才真的发生。票根永不删（「票根永远留痕有时间戳是什么时候抽到的（r sr ssr都留）」）：
+// 兑换只是给卡盖个戳，卡本身连同抽到的时间戳一直留在册子里。
+// 整页，不用半窗（.claude/rules/no-half-sheet.md）。
+const GACHA_SKIN = {
+  R:   { zh: "R",   bg: "#f1f2f5", bd: "#dcdfe6", ink: "#6b7280", tag: "#8b93a1" },
+  SR:  { zh: "SR",  bg: "#f4eefb", bd: "#e0d0f2", ink: "#7c5aa6", tag: "#9a78c4" },
+  SSR: { zh: "SSR", bg: "linear-gradient(135deg,#fdf3df,#f8e7c4)", bd: "#e8cf9a", ink: "#9a7325", tag: "#c09a45" }
+};
+const gachaWhen = ts => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const p = n => (n < 10 ? "0" : "") + n;
+  return (d.getFullYear() + "").slice(2) + "." + p(d.getMonth() + 1) + "." + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+};
+function GachaCard({ card, busy, onRedeem, fresh }) {
+  const t = useTheme();
+  const sk = GACHA_SKIN[card.r] || GACHA_SKIN.R;
+  const done = !!card.redeemedTs;
+  const res = card.result || {};
+  return h("div", {
+    style: {
+      borderRadius: 16, border: "1px solid " + sk.bd, background: sk.bg, padding: "12px 13px",
+      boxShadow: fresh ? "0 0 0 2px " + sk.tag : "none", transition: "box-shadow .4s ease"
+    }
+  },
+    h("div", { className: "flex items-center gap-2" },
+      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontWeight: 700, fontSize: 10, letterSpacing: ".1em", color: "#fff", background: sk.tag, borderRadius: 5, padding: "2px 6px" } }, sk.zh),
+      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: sk.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, card.name),
+      // 票根：什么时候抽到的。兑掉了也留着，这一行永远在
+      h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: sk.tag, flexShrink: 0 } }, gachaWhen(card.ts))),
+    done
+      ? h("div", { style: { marginTop: 9 } },
+          res.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, res.title) : null,
+          res.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, res.body) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.tag, marginTop: 7 } },
+            "已兑 " + gachaWhen(card.redeemedTs)
+            + (res.where === "memlib" ? " · 已进记忆库，以后他会提起" : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "letters" ? " · 已进情书" : "")))
+      : h("div", { className: "flex items-end justify-between gap-3", style: { marginTop: 8 } },
+          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: sk.tag } }, card.hint),
+          h("button", { onClick: () => onRedeem(card), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
+            busy === card.id ? "兑换中…" : card.r === "R" ? "翻开" : "兑换")));
+}
+function Gacha({ characters, couples, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
+  const t = useTheme();
+  const live = (characters || []).filter(c => c && !c.npc);
+  const [cid, setCid] = useState(() => (live[0] || {}).id || null);
+  const [tab, setTab] = useState("open");     // open=还没兑的 / all=票根全本
+  const [fresh, setFresh] = useState([]);     // 刚抽到的那几张，描一圈金边
+  const K = window.GachaKit || {};
+  const char = live.find(c => c.id === cid) || live[0];
+  const mine = (cards || []).filter(c => c.charId === (char || {}).id);
+  const open = mine.filter(c => !c.redeemedTs);
+  const shown = tab === "open" ? open : mine;
+  const p = (pts || {})[(char || {}).id];
+  const have = p && typeof p === "object" ? (Number(p.pts) || 0) : 0;
+  const lk = (luck || {})[(char || {}).id] || { pulls: 0, sinceSSR: 0 };
+  const pull = n => { const made = onPull(char, n); if (made && made.length) { setFresh(made.map(x => x.id)); setTab("open"); } };
+  if (!char) return h("div", { className: "h-full flex flex-col" }, h(Head, { zh: "抽卡", en: "Draw", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    // 紧凑标题栏（.claude/rules/mobile-ui-layout.md §1）
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "抽卡"),
+      h("div", { style: { width: 40, height: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+      // 跟谁攒的点数就抽谁的卡（她定的）
+      live.length > 1 ? h("div", { className: "flex gap-2 overflow-x-auto", style: { paddingBottom: 4 } },
+        live.map(c => h("button", { key: c.id, onClick: () => { setCid(c.id); setFresh([]); }, className: "active:opacity-70 shrink-0", style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 11px 5px 5px", borderRadius: 999, border: "1px solid " + (c.id === char.id ? t.ink : t.line), background: c.id === char.id ? t.ink : "transparent" } },
+          h(Avatar, { character: c, size: 22, radius: 999 }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: c.id === char.id ? t.bg2 : t.sub } }, c.remark || c.name)))) : null,
+      // 点数 + 两个抽法
+      h("div", { style: { marginTop: 12, borderRadius: 20, border: "1px solid " + t.line, background: t.bg2, padding: "16px 15px" } },
+        h("div", { className: "flex items-end justify-between" },
+          h("div", null,
+            h(Eyebrow, null, "POINTS"),
+            h("div", { className: "flex items-baseline gap-1", style: { marginTop: 3 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 34, lineHeight: 1, color: t.ink } }, have),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "点"))),
+          h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6 } },
+            h("div", null, "已抽 " + (lk.pulls || 0) + " 次"),
+            h("div", null, "还有 " + Math.max(0, (K.PITY_SSR || 50) - (lk.sinceSSR || 0)) + " 抽保底 SSR"))),
+        h("div", { className: "flex gap-2", style: { marginTop: 14 } },
+          [[1, "单抽", K.COST_ONE || 50], [K.TEN || 10, "十连", K.COST_TEN || 450]].map(([n, zh, cost]) =>
+            h("button", { key: zh, onClick: () => pull(n), disabled: have < cost, className: "flex-1 active:opacity-70", style: { borderRadius: 14, padding: "11px 0", background: have < cost ? t.line : t.ink, color: have < cost ? t.fog : t.bg2, fontFamily: F_DISPLAY, fontSize: 15 } },
+              zh, h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .75, marginLeft: 6 } }, cost + " 点")))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 10, lineHeight: 1.6 } },
+          "抽卡不花任何调用，十连也是。抽到的是兑换券——点「兑换」才真的发生。和 " + (char.remark || char.name) + " 好好待一会儿就攒点数，发几条不影响。")),
+      // 未兑 / 票根全本
+      h("div", { className: "flex gap-2", style: { marginTop: 16, marginBottom: 10 } },
+        [["open", "还没兑 " + open.length], ["all", "票根 " + mine.length]].map(([k, zh]) =>
+          h("button", { key: k, onClick: () => setTab(k), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 14px", borderRadius: 999, border: "1px solid " + (tab === k ? t.ink : t.line), background: tab === k ? t.ink : "transparent", color: tab === k ? t.bg2 : t.sub } }, zh))),
+      shown.length
+        ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+            shown.map(c => h(GachaCard, { key: c.id, card: c, busy: busy, onRedeem: onRedeem, fresh: fresh.indexOf(c.id) >= 0 })))
+        : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "26px 16px", textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
+            tab === "open" ? "手上没有还没兑的卡。" : "还没抽过。",
+            h("div", { style: { marginTop: 4 } }, "票根会一直留着，抽到的时间也留着。"))));
+}

@@ -218,6 +218,7 @@ function App() {
   const [groupChats, setGroupChats] = useState({});
   const [groupSettings, setGroupSettings] = useState({});
   const [moments, setMoments] = useState([]);
+  const momentsRef = useRef([]); momentsRef.current = moments;
   const [yanqiuMoments, setYanqiuMoments] = useState([]); // 秋声墙云端快照：只供数字生命言秋本人接续
   const [momentsCover, setMomentsCover] = useState({}); // { me: dataURI, [charId]: dataURI } 朋友圈封面
   const [momTarget, setMomTarget] = useState(null);     // 朋友圈个人页目标 { id, isMe }
@@ -344,6 +345,14 @@ function App() {
   // 情侣空间·只由用户手动维护的共同档案与愿望板；不从聊天/记忆自动固化
   // { [charId]: { archive:{...}, wishes:[{id,title,type,note,status,createdAt,updatedAt}] } }
   const [coupleHome, setCoupleHome] = useState({});
+  // 抽卡（她 2026-08-31）。三份东西：点数（跟角色走）、卡册＝票根（永不删）、保底计数。
+  // ⚠️抽卡本身【永远 0 次调用】——抽到的是一张兑换券，点了兑换才可能花一次。
+  const [gachaPts, setGachaPts] = useState({});
+  const gachaPtsRef = useRef({}); gachaPtsRef.current = gachaPts;
+  const [gachaCards, setGachaCards] = useState([]);
+  const gachaCardsRef = useRef([]); gachaCardsRef.current = gachaCards;
+  const [gachaLuck, setGachaLuck] = useState({});
+  const gachaLuckRef = useRef({}); gachaLuckRef.current = gachaLuck;
   const coupleHomeRef = useRef({}); coupleHomeRef.current = coupleHome;
   // 解除情侣关系记录：{ [charId]: { ts, deducted, affAfter } } —— 一周冷却 + 复合需加回被扣一半
   const [coupleBreakup, setCoupleBreakup] = useState({});
@@ -747,6 +756,9 @@ function App() {
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleHome(loadJSON("x_coupleHome", {}));
+    setGachaPts(loadJSON("x_gachaPts", {}));
+    setGachaCards(loadJSON("x_gachaCards", []));
+    setGachaLuck(loadJSON("x_gachaLuck", {}));
     setCoupleBreakup(loadJSON("x_coupleBreakup", {}));
     // 迁移旧单人情侣数据 x_couple → 新多人 x_couples
     let cps = loadJSON("x_couples", null);
@@ -2872,6 +2884,165 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       .filter(Boolean);
     if (!rows.length) return "";                      // 一栏没写＝零 token
     return rows.join("\n").slice(0, COUPLE_ARCHIVE_CAP);
+  };
+  // ═══ 抽卡（她 2026-08-31）═══
+  //
+  // 形状是她定的：**抽是抽，兑是兑**。抽卡永远 0 次调用——抽到的是一张【兑换券】，
+  // 上面写着他会做的哪一件事；点了兑换才真的发生，那时才可能花一次。所以十连也 0 调用。
+  // 票根永不删（她原话：「票根永远留痕有时间戳是什么时候抽到的（r sr ssr都留）」）：
+  // 一张卡就是它自己的票根，兑换只是盖个戳（redeemedTs + result），不是消耗掉它。
+  //
+  // R 兑换【0 调用】——从他已经有的东西里翻一件出来。这一层解决一个真问题：
+  // 这个 App 生成的东西她根本看不完，R 卡等于一个「随机重新翻出来」的入口。
+  const gachaPhone = cid => (phonesRef.current || {})[cid] || {};
+  const gachaPickR = (char, need) => {
+    const ph = gachaPhone(char.id), arr = a => Array.isArray(a) ? a.filter(Boolean) : [];
+    const pick = list => list.length ? list[Math.floor(Math.random() * list.length)] : null;
+    const one = (rows, fmt) => { const x = pick(rows); return x ? fmt(x) : null; };
+    switch (need) {
+      case "album":  return one(arr((ph.album || {}).items), x => ({ title: x.caption || "一张照片", body: [x.date, x.place, x.note].filter(Boolean).join(" · "), img: x.imageRef || null }));
+      case "notes":  return one(arr((ph.notes || {}).items), x => ({ title: x.title || "一条便签", body: x.content || x.body || "" }));
+      case "search": return one(arr((ph.browser || {}).searches), x => ({ title: x.q || "搜过的", body: [x.when, x.why].filter(Boolean).join(" · ") }));
+      case "order":  return one(arr((ph.shopping || {}).orders), x => ({ title: x.title || "买过的", body: [x.price != null ? "¥" + x.price : "", x.date, x.why].filter(Boolean).join(" · ") }));
+      case "reading": {
+        const books = arr((ph.reading || {}).shelves).reduce((a, sh) => a.concat(arr(sh.books).map(b => ({ b: b, sh: sh }))), []);
+        return one(books, x => ({ title: x.b.title || "一本书", body: [x.sh.name, x.b.author, x.b.note].filter(Boolean).join(" · ") }));
+      }
+      case "playlist": {
+        const pl = (listenRef.current.playlists || []).find(x => x.charId === char.id);
+        return one(arr(pl && pl.songs), x => ({ title: (x.title || x.name || "一首歌") + (x.artist ? " · " + x.artist : ""), body: x.why || x.note || "" }));
+      }
+      case "memlib": return one(arr(memLibRef.current).filter(e => (e.charIds || []).includes(char.id)), x => ({ title: "他还记得", body: x.text || "" }));
+      case "forum":  return one(arr(forumPostsRef.current).filter(x => x.authorId === char.id), x => ({ title: x.title || "他发的帖", body: x.body || "" }));
+      case "moment": return one(arr(momentsRef.current).filter(x => x.characterId === char.id), x => ({ title: "他发的动态", body: x.content || "" }));
+      case "diary":  return one(arr((diariesRef.current || {})[char.id]), x => ({ title: x.titleZh || (x.ts ? new Date(x.ts).toLocaleDateString("zh-CN") : "他日记里的一天"), body: x.body || x.content || "" }));
+      default: return null;
+    }
+  };
+  // 抽之前先算这个角色【有哪几栏能翻】：空的那几栏根本不进池子，
+  // 免得抽到一张永远兑不了的券（比没抽到更糟）。
+  const gachaHave = char => {
+    const h = {};
+    ["album", "notes", "search", "order", "reading", "playlist", "memlib", "forum", "moment", "diary"]
+      .forEach(k => { if (gachaPickR(char, k)) h[k] = true; });
+    return h;
+  };
+  const gachaDay = () => ymd(new Date());
+  // 点数按【一段相处】结算，不按消息条数（按条数＝拿抽卡催她水消息）。两道闸都在 GachaKit 里。
+  const gachaEarn = (charId, kind) => {
+    if (!window.GachaKit || !charId) return;
+    const r = window.GachaKit.earn(gachaPtsRef.current || {}, charId, kind, Date.now(), gachaDay());
+    if (!r.got) { gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box); return; }
+    gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box);
+  };
+  const gachaPull = (char, n) => {
+    const K = window.GachaKit;
+    if (!K || !char) return;
+    const cost = n >= K.TEN ? K.COST_TEN : K.COST_ONE;
+    const after = K.spend(gachaPtsRef.current || {}, char.id, cost);
+    if (!after) { toast("点数还不够。和 " + (char.remark || char.name) + " 好好待一会儿就有了"); return; }
+    const cp = (couplesRef.current || {})[char.id];
+    const res = K.pull(n, gachaLuckRef.current[char.id] || { pulls: 0, sinceSSR: 0 },
+      { couple: !!(cp && cp.status === "together"), have: gachaHave(char) });
+    if (!res.cards.length) { toast("这一抽没抽出东西，点数没扣"); return; }
+    const now = Date.now();
+    const made = res.cards.map((c, i) => ({
+      id: "gc_" + now + "_" + i + "_" + Math.random().toString(36).slice(2, 6),
+      charId: char.id, r: c.r, poolId: c.poolId, act: c.act, kind: c.kind || "",
+      name: c.name, hint: c.hint,
+      ts: now + i,          // 票根上的时间戳：什么时候抽到的
+      redeemedTs: null, result: null
+    }));
+    gachaPtsRef.current = after; setGachaPts(after); saveJSON("x_gachaPts", after);
+    const luck = { ...gachaLuckRef.current, [char.id]: res.state };
+    gachaLuckRef.current = luck; setGachaLuck(luck); saveJSON("x_gachaLuck", luck);
+    const cards = [...made, ...gachaCardsRef.current];
+    gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
+    return made;
+  };
+  const gachaStamp = (cardId, result) => {
+    const cards = gachaCardsRef.current.map(c => c.id === cardId ? { ...c, redeemedTs: Date.now(), result: result } : c);
+    gachaCardsRef.current = cards; setGachaCards(cards); saveJSON("x_gachaCards", cards);
+  };
+  // 兑换。三档在这一处分路：
+  //   R   0 调用——从他已经有的东西里翻一件（gachaPickR）
+  //   SR  1 调用——他现做一件小东西，不动任何状态
+  //   SSR 1 调用——真的留下东西（进记忆库 / 开线下 / 进情书）
+  // ⚠️不管哪一档，票根都【不删】：兑换只是给它盖个戳。
+  const GACHA_SR_ASK = {
+    word:   "写一句他此刻【没说出口】的话——只在心里过了一下、没打算给谁听的那半句。",
+    note:   "写一张他随手写好、塞给用户的便签：一两句，纸条的口气，不是正式的信。",
+    secret: "写一件他【今天】发生的、本来没打算说的小事——具体到时间地点，不要泛泛的心情。",
+    song:   "挑一首他此刻想放给用户听的歌（真实存在的），连着他为什么是这一首、想让对方听到哪一句。",
+    look:   "写他此刻看着用户时眼里的样子——不是夸，是他真正注意到的那几个细节。"
+  };
+  const GACHA_SSR_ASK = {
+    past: "写他过去真实经历过的一件事——一件他从没跟用户讲过、但确实塑造了他的事。要有具体的时间、地点和人，不要抽象的总结。",
+    pact: "写一件他此刻想和用户【说好】的事：一个具体的、还没做的约定，说清楚是什么、大概什么时候。别写成空头承诺。",
+    offline: "写一场【他主动约用户见面】的开场：他挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。"
+  };
+  const gachaRedeem = async card => {
+    const char = characters.find(c => c.id === card.charId);
+    if (!char) { toast("这张卡的角色已经不在了"); return; }
+    if (card.redeemedTs) return;
+    // ── R：0 调用 ──
+    if (card.act === "peek") {
+      const need = (window.GachaKit.byId[card.poolId] || {}).need;
+      const got = gachaPickR(char, need);
+      // 那一栏这会儿空了（她清过数据 / 还没生成过）：不盖戳，卡留着，等有东西了再兑
+      if (!got) { toast("这一栏他现在还没有东西可翻——等有了再来兑，卡还留着"); return; }
+      gachaStamp(card.id, got);
+      return got;
+    }
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setGen(g => ({ ...g, gacha: card.id }));
+    try {
+      // ── SR：他现做一件小东西，不动任何状态 ──
+      if (card.act === "make") {
+        const d = await runProbe(apiFor(char.id), ctxFor(char), {
+          instruction: GACHA_SR_ASK[card.kind] + "\n扣着他此刻真实的处境和心情写，别写成换个角色也照样成立的话。",
+          schemaHint: "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
+          maxTokens: 3000
+        });
+        const got = { title: String(d.title || card.name).trim(), body: String(d.body || "").trim() };
+        gachaStamp(card.id, got);
+        return got;
+      }
+      // ── SSR：真的留下东西 ──
+      if (card.act === "letter") {
+        const ok = await genCoupleLetter(char);
+        if (!ok) return;   // 情书自己有三天冷却，被挡住就别盖戳，卡留着
+        gachaStamp(card.id, { title: "他写给你的一封信", body: "已经放进情侣空间的情书里了", where: "letters" });
+        return { title: "他写给你的一封信", body: "已经放进情侣空间的情书里了" };
+      }
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: GACHA_SSR_ASK[card.act] + "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。",
+        schemaHint: card.act === "offline"
+          ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
+          : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
+        maxTokens: 4000
+      });
+      const title = String(d.title || card.name).trim(), body = String(d.body || "").trim();
+      if (!body) { toast("这次没写出东西来，卡还留着，可以再兑一次"); return; }
+      if (card.act === "past") {
+        // 进记忆库＝以后他真的会提起。这就是 SSR 和 SR 的唯一区别。
+        addMemEntry({ text: body, tags: ["抽卡", "过去"], charIds: [char.id], knownBy: [char.id], source: "manual" });
+        gachaStamp(card.id, { title: title, body: body, where: "memlib" });
+      } else if (card.act === "pact") {
+        addPact(char.id, body, null);
+        gachaStamp(card.id, { title: title, body: body, where: "pacts" });
+      } else if (card.act === "offline") {
+        // ⚠️别用 openOffline：它会重新从存储读一遍再 setOfflines，
+        // 而 startOffline 刚往 state 里塞了这一场——多读一次只会把它盖掉。
+        // 这里要的只是「把线下那层掀起来」，那就只做这一件事。
+        gachaStamp(card.id, { title: title, body: body, where: "offline" });
+        await startOffline(char.id, { opening: body });
+        setOfflineChar(char);
+      }
+      return { title: title, body: body };
+    } catch (e) {
+      toast("兑换失败：" + e.message + "（卡还留着）");
+    } finally { setGen(g => ({ ...g, gacha: null })); }
   };
   const coupleLineFor = (charId, uName) => {
     const cp = couplesRef.current[charId];
@@ -13810,7 +13981,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     sending: sending,
     onBack: () => setScreen("messages"),
-    onSend: txt => pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
+    onSend: txt => { gachaEarn(activeChar.id, "chat"); pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id); },
     onReply: extraText => {
       const b = blocks[activeChar.id] || {};
       if (b.iBlocked) return blockedReaction(activeChar.id);
@@ -14357,6 +14528,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     affinities: affinities,
     toast: toast,
     onBack: () => setScreen("home")
+  });else if (screen === "gacha") body = h(Gacha, {
+    characters: liveChars,
+    couples: couples,
+    pts: gachaPts,
+    cards: gachaCards,
+    luck: gachaLuck,
+    busy: gen.gacha,
+    onPull: gachaPull,
+    onRedeem: gachaRedeem,
+    onBack: () => setScreen("home")
   });else if (screen === "capsule") body = h(window.CapsuleApp, {
     active: active,
     apiFor: apiFor, // 胶囊回信/反向埋=TA 亲笔，跟随专线（v48.37）
@@ -14862,7 +15043,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     registerTelemetry: offlineRegisterTelemetry[offlineChar.id] || null,
     onSaveSettings: patch => saveOfflineSettings(offlineChar.id, patch),
     onStart: opts => startOffline(offlineChar.id, opts),
-    onSend: txt => offlineSend(offlineChar.id, txt),
+    onSend: txt => { gachaEarn(offlineChar.id, "offline"); offlineSend(offlineChar.id, txt); },
     onSendPhoto: photo => offlineSendPhoto(offlineChar.id, photo),
     // 当场拍一张（她 2026-08-29 要的线下生图）。零模型调用，只花一次出图。
     onShoot: kind => offlineShotNow(offlineChar.id, kind),
