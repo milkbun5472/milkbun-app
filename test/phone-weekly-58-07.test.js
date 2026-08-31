@@ -29,7 +29,11 @@ test("周次游标：一周之内不变，跨周才变，四年里不撞车", ()
 test("一次唤起只补一个角色，且成没成都先记账", () => {
   const i = app.indexOf("  const phoneWeeklySweep = async () => {");
   const seg = app.slice(i, i + 1400);
-  assert.match(seg, /const due = liveChars\.find\(/, "find＝只挑一个；换成 filter/forEach 就是一次十几刀");
+  // ⚠️别冻实现形状：v58.87 换成 filter+[0]（为了能数出还剩几个排着），行为不变。
+  // 只挑一个这件事，验的是「刷那一句只有一处、且不在循环里」。
+  assert.equal((seg.match(/genPhoneAll\(/g) || []).length, 1, "一次刷了不止一个，那就是一次十几刀");
+  assert.ok(!/for \(const|\.forEach\(|\.map\(/.test(seg.slice(0, seg.indexOf("genPhoneAll("))), "刷之前套了循环");
+  assert.match(seg, /const due = pending\[0\];/, "没有明确只取第一个");
   assert.match(seg, /\(box\.done \|\| \{\}\)\[c\.id\] !== wk/, "游标比对没了就会每次唤起都刷");
   // 先记游标再刷：中途失败也不该下次唤起又整份重刷
   assert.ok(seg.indexOf("saveJSON(\"x_phoneAuto\", n)") < seg.indexOf("await genPhoneAll(due, true)"),
@@ -55,7 +59,8 @@ test("例行刷新不许改她正在看的是谁，而且刷完得说一声", ()
   // 后台刷的时候顺手 setSelPhone，等她进查手机选中的就变成了被补刷的那个
   assert.match(app, /if \(!weekly\) setSelPhone\(char\.id\);/);
   // 完全无声的话，「我今天打开怎么又更新了」根本没法自己看出来
-  assert.match(app, /toast\("每周刷新：已更新「" \+ \(due\.remark \|\| due\.name\) \+ "」的手机"\)/);
+  // ⚠️别把整句话冻死：v58.87 在后面接了「还有 N 个排着」
+  assert.match(app, /toast\("每周刷新：已更新「" \+ \(due\.remark \|\| due\.name\) \+ "」的手机"/);
   const i = app.indexOf("      await genPhoneAll(due, true);");
   assert.ok(app.indexOf("toast(\"每周刷新：已更新", i) > i, "提示要在刷完之后才发");
 });

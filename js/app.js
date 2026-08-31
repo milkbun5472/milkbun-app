@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.86";
+const APP_VERSION = "v58.87";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8786,7 +8786,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const wk = typeof phoneWeekKey === "function" ? phoneWeekKey(Date.now()) : null;
     if (!wk) return;
     const box = phoneAutoRef.current || { on: {}, done: {} };
-    const due = liveChars.find(c => c && autoRefreshOn("phone", c.id) && (box.done || {})[c.id] !== wk);
+    const pending = liveChars.filter(c => c && autoRefreshOn("phone", c.id) && (box.done || {})[c.id] !== wk);
+    const due = pending[0];
     if (!due) return;
     phoneWeekRunRef.current = true;
     try {
@@ -8802,7 +8803,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 刷完说一声：这一层原来完全无声，于是「我今天打开怎么又更新了」根本没法自己看出来。
       // ⚠️一次唤起只补一个角色，所以开了 N 个角色就会连着 N 次唤起各刷一个——
       // 都在同一周内、每个角色仍然只刷一次，但不说的话看起来就像天天在刷。
-      toast("每周刷新：已更新「" + (due.remark || due.name) + "」的手机");
+      // 排队这件事必须说出口（她 2026-08-31 报：「就明确看到沈屿白的查手机刷新了
+      // 其他都没动静」）。一次唤起只补一个是【故意的】，但不说的话，「没动静」看起来
+      // 跟「坏了」一模一样——她根本分不出是没轮到、还是那几个压根没开这个开关。
+      const left = pending.length - 1;
+      toast("每周刷新：已更新「" + (due.remark || due.name) + "」的手机"
+        + (left > 0 ? "。还有 " + left + " 个排着，下次打开或切回前台时各补一个（一次只补一个，免得几分钟卡在那儿、这周的钱一口气花完）" : ""));
     } catch (e) {/* 例行刷新失败不打扰她 */ } finally { phoneWeekRunRef.current = false; }
   };
   const phoneAutoToggle = charId => {

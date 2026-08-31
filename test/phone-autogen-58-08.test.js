@@ -32,7 +32,9 @@ test("查手机会自己更新的两条路，各自都说得清", () => {
   // ① 打开没数据的版块 → 自动生成（上面那条）
   // ② 每周刷新 → 整份重生成，而且是在开 app 那一拍跑的
   assert.match(app, /const phoneWeeklySweep = async \(\) => \{/);
-  assert.match(app, /toast\("每周刷新：已更新「" \+ \(due\.remark \|\| due\.name\) \+ "」的手机"\)/,
+  // ⚠️别把整句话冻死：v58.87 在后面接了「还有 N 个排着」（她报「只看到一个刷新了，
+  // 其他都没动静」——一次只补一个是故意的，但不说出口就跟坏了长得一样）。
+  assert.match(app, /toast\("每周刷新：已更新「" \+ \(due\.remark \|\| due\.name\) \+ "」的手机"/,
     "每周刷新还是无声的，她没法知道刚才为什么变了");
   // 例行刷新不许顺手改她在看谁
   assert.match(app, /if \(!weekly\) setSelPhone\(char\.id\);/);

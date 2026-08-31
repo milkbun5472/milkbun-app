@@ -30,8 +30,11 @@ test("默认全关，一个一个角色自己开", () => {
 
 test("一次唤起只补一个角色", () => {
   // 全刷是十几次串行调用，五个角色一起补要跑几分钟，还一次把这一周的钱花完
-  assert.match(sweep[0], /liveChars\.find\(/, "用了 forEach/map 会把所有人一起刷");
-  assert.ok(sweep[0].indexOf("for (const") < 0);
+  // ⚠️别冻实现形状（v58.87 把 find 换成 filter+[0] 好数出还剩几个，行为一个字没变）。
+  // 要证的是【一次唤起只刷一个】：刷的那一句只出现一次，而且没套在任何循环里。
+  assert.equal((sweep[0].match(/genPhoneAll\(/g) || []).length, 1, "刷了不止一处");
+  assert.ok(!/for \(const|\.forEach\(|\.map\(/.test(sweep[0].slice(0, sweep[0].indexOf("genPhoneAll("))), "刷之前套了循环——会把所有人一起刷");
+  assert.match(sweep[0], /const due = pending\[0\];/, "没有明确只取第一个");
   assert.match(sweep[0], /phoneWeekRunRef\.current = true/, "没有并发闸，来回切前台会叠着跑");
 });
 
