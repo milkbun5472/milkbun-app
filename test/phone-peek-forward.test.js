@@ -73,9 +73,11 @@ test("没主动说的日常内容走 quiet 档", () => {
     assert.ok(phone.includes('label: voice ? "他录的一条" : "他的便签"') || phone.includes('"' + l + '"'), l + " 没接转发"));
   // 购物 v57.50 起是自己画整屏的组件：整卡可点的走 onPeek({label:...})，
   // 卡底带按钮的走 peekBtn(...)，两种都算接上了
+  // ⚠️别冻调用形状：v58.88 起带「他」的标签外面包了一层 T()（界面称呼跟着角色性别走），
+  // 要证的是【这个标签接了转发】，不是它长什么样。
+  const wired = l => new RegExp('label: (?:T\\()?"' + l + '"|peekBtn\\("quiet", (?:T\\()?"' + l + '"').test(phone);
   ["想买清单", "他的订单", "购物习惯", "他给谁买的东西"].forEach(l =>
-    assert.ok(phone.includes('label: "' + l + '"') || phone.includes('peekBtn("quiet", "' + l + '"'),
-      l + " 没接转发"));
+    assert.ok(wired(l), l + " 没接转发"));
 });
 
 test("聊天里这条渲染成偷看卡，藏起来的那档一眼看得出不一样", () => {

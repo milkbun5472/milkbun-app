@@ -912,6 +912,15 @@ function phoneSearchExtra(charData, live) {
   return out;
 }
 // 一个词在这部手机里出现在哪儿。词不区分大小写、去掉空白再比。
+// ── 界面上的称呼（v58.88，她 2026-08-31：「把所有查手机里的『他』换成跟着实际性别走」）──
+// 提示词那一半 v58.86 已经从 phoneProbeSpec 一处过掉了。这一半是【界面标签】：
+// 「他的订单」「他为什么想买」这类写死的字面量，一百五十多处。
+// 一个人的手机同一时刻只看得了一份，所以记一个模块级的「现在在看谁」就够了，
+// 不用把称呼一路穿过几十个组件的 props。
+let PHONE_VIEW_TA = "他";
+function phoneViewTa(char) { PHONE_VIEW_TA = charTa(char); }
+// T("他的订单") → 按现在这台手机的主人换称呼；默认「他」时原样返回，一个字不动。
+function T(s) { return PHONE_VIEW_TA === "他" ? s : phoneTa(s, PHONE_VIEW_TA); }
 function phoneSearch(rows, extra, q) {
   const needle = String(q == null ? "" : q).replace(/\s+/g, "").toLowerCase();
   if (needle.length < 1) return [];
@@ -1128,7 +1137,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const body = rows(tab).length
     ? rows(tab).map((x, i) => listRow(x, i, tab))
     : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: MAIL_DIM } },
-        tab === "drafts" ? "草稿箱是空的" : tab === "sent" ? "他最近没往外发什么" : "收件箱是空的");
+        tab === "drafts" ? "草稿箱是空的" : tab === "sent" ? T("他最近没往外发什么") : "收件箱是空的");
 
   const detail = open ? h("div", { className: "absolute inset-0 flex flex-col", style: { background: "#fff", zIndex: 30 } },
     h("div", { className: "shrink-0 flex items-center px-2 pb-2", style: { paddingTop: safeTop(8), borderBottom: "1px solid " + MAIL_LINE } },
@@ -1153,7 +1162,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       S(open.thought) ? h("div", {
         style: { marginTop: 20, background: "#f5f7fa", borderRadius: 13, padding: "13px 15px" }
       },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM } }, "他看完心里那句"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MAIL_DIM } }, T("他看完心里那句")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: MAIL_INK, marginTop: 5, wordBreak: "break-word" } }, S(open.thought))) : null,
       open._kind === "drafts" ? h("div", {
         style: { marginTop: 18, fontFamily: F_BODY, fontSize: 12, color: "#b6473c", lineHeight: 1.8 }
@@ -1161,7 +1170,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       onPeek ? h("button", {
         onClick: () => onPeek({
           tier: open._kind === "drafts" ? "hidden" : "quiet",
-          label: open._kind === "drafts" ? "邮件 · 写了没发的那封" : open._kind === "sent" ? "他发出去的邮件" : "他收到的邮件",
+          label: open._kind === "drafts" ? "邮件 · 写了没发的那封" : open._kind === "sent" ? T("他发出去的邮件") : T("他收到的邮件"),
           title: S(open.subject),
           text: [open._kind === "inbox" ? who(open) : "给 " + S(open.to), S(open.body), S(open.thought)].filter(Boolean).join("｜")
         }),
@@ -1171,7 +1180,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           border: "1px solid " + (open._kind === "drafts" ? "rgba(182,71,60,.42)" : MAIL_LINE),
           color: open._kind === "drafts" ? "#b6473c" : MAIL_INK
         }
-      }, open._kind === "drafts" ? "摆到他面前 · 这封他没敢发" : "转发给 TA · 他会知道你翻了手机") : null)) : null;
+      }, open._kind === "drafts" ? T("摆到他面前 · 这封他没敢发") : T("转发给 TA · 他会知道你翻了手机")) : null)) : null;
 
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: MAIL_BG } },
     h("div", { className: "shrink-0 px-4 pb-2", style: { paddingTop: safeTop(10) } },
@@ -1205,7 +1214,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 //   藏品 = 横滑的估价牌
 //   估值 = 问答
 const TALLY_BG = "#f4f2ee", TALLY_INK = "#1f1d1a", TALLY_DIM = "#8b8578", TALLY_LINE = "rgba(31,29,26,.12)";
-const TALLY_DIR = { mine: { zh: "他欠", c: "#b6473c" }, theirs: { zh: "记着", c: "#3f7f8a" }, open: { zh: "还悬着", c: "#8b8578" } };
+const TALLY_DIR = { mine: { zh: T("他欠"), c: "#b6473c" }, theirs: { zh: "记着", c: "#3f7f8a" }, open: { zh: "还悬着", c: "#8b8578" } };
 const TALLY_TABS = [
   { k: "debts", zh: "没结清", en: "OPEN" },
   { k: "policies", zh: "兜底", en: "COVER" },
@@ -1232,7 +1241,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     onClick: e => { e.stopPropagation(); onPeek({ tier: "hidden", label: "账本 · " + label, title, text }); },
     className: "active:opacity-60",
     style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, padding: "6px 12px", borderRadius: 99, border: "1px solid rgba(182,71,60,.4)", color: "#b6473c" }
-  }, "摆到他面前") : null;
+  }, T("摆到他面前")) : null;
 
   let body = null;
   if (tab === "debts") {
@@ -1300,7 +1309,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_INK })) : null)),
     h("div", { className: "shrink-0 px-5 pb-3" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TALLY_DIM, lineHeight: 1.7 } },
-        "这本账不记钱。记的是他和你之间还没结清的东西。")),
+        T("这本账不记钱。记的是他和你之间还没结清的东西。"))),
     // 五栏切换：横滑，别挤成一行小字
     h("div", {
       className: "shrink-0 flex gap-2 px-5 pb-3 overflow-x-auto",
@@ -1409,7 +1418,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
         }, "只看新增 " + newCount))),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
       !shown.length && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "56px 20px", lineHeight: 1.9 } },
-        mode === "new" ? "上次翻完之后，他手机上没有新东西。"
+        mode === "new" ? T("上次翻完之后，他手机上没有新东西。")
           : mode === "keep" ? "你还没收着什么。点开某一条，右下角有「收着」。"
           : "先在桌面上刷一遍，这里才会有东西串起来。"),
       groups.map((g, gi) => h("div", { key: g.label + gi },
@@ -1448,7 +1457,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
         onClick: () => onPeek({ tier: "quiet", label: sheet.appZh + (sheet.tag ? " · " + sheet.tag : ""), title: sheet.title, text: sheet.text || sheet.thought }),
         className: "w-full mt-2 py-3 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.ink }
-      }, "转发给 TA · 他会知道你翻了手机"),
+      }, T("转发给 TA · 他会知道你翻了手机")),
       // 收着 ≠ 转发。转发是摆到他面前，收着是【她自己留一份】，
       // 不进他的上下文、不影响任何生成——只给她自己看。
       onToggleKeep && h("button", {
@@ -1518,7 +1527,7 @@ function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTi
     h("button", {
       onClick: onUnlock, className: "w-full active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(30,28,24,.62)", padding: "16px 0 10px" }
-    }, "解锁 · 进他的桌面")));
+    }, T("解锁 · 进他的桌面"))));
 }
 
 // 点开某条看细节的通用 sheet 内容（在事件里构造，需显式传 t）
@@ -1816,7 +1825,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         onClick: () => onPeek({ tier: hid ? "hidden" : "quiet", label: photo.category === "deleted" ? "相册·最近删除" : photo.category === "private" ? "相册·私密" : "相册", title: photo.caption || "一张照片", text: [photo.desc, photo.thought].filter(Boolean).join("｜") }),
         className: "w-full active:opacity-60",
         style: { marginTop: 10, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (hid ? "rgba(200,80,70,.45)" : "#d9d9de"), color: hid ? "#b6473c" : "#333" }
-      }, hid ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机");
+      }, hid ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机"));
     })() : null));
   if (opened) {
     const meta = albums.find(a => a.key === opened);
@@ -1963,7 +1972,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("div", { style: { flex: 1, height: 1, background: READ_LINE } }),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: READ_DIM } }, "共 " + total + " 本书"),
       h("div", { style: { flex: 1, height: 1, background: READ_LINE } })),
-    shelves.length ? shelves.map(shelfCard) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: READ_DIM } }, "书架还是空的，点右上角让他把书摆出来"));
+    shelves.length ? shelves.map(shelfCard) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: READ_DIM } }, T("书架还是空的，点右上角让他把书摆出来")));
   // ── 阅读档案 ──
   // iOS 图书那种目标环：颜色本身就是进度，不用再写一句「完成度 62%」
   const goalRing = (pct, size) => {
@@ -2006,16 +2015,16 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: READ_DIM } }, "这周读了"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: READ_INK, marginTop: 4 } }, archive.weekTime || readFmtMin(doneMin)),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM, marginTop: 6 } },
-            pct >= 1 ? "已经超过他给自己定的 " + readFmtMin(goalMin) : "离 " + readFmtMin(goalMin) + " 还差 " + readFmtMin(goalMin - doneMin)))),
+            pct >= 1 ? T("已经超过他给自己定的 ") + readFmtMin(goalMin) : "离 " + readFmtMin(goalMin) + " 还差 " + readFmtMin(goalMin - doneMin)))),
       h("div", { className: "flex", style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid " + READ_LINE } },
         statCell(total, "本书"), statCell(shelves.length, "个书架"), statCell(marked, "处划线"))),
     h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 14 } }, miniBook(fav, palOf(0), "最爱的一本")),
     h("div", { style: { background: READ_CARD, borderRadius: 18, padding: "20px", marginTop: 12 } }, miniBook(plan, palOf(2), "打算下一本读")),
     onPeek ? h("button", {
-      onClick: () => onPeek({ tier: "quiet", label: "阅读档案", title: "他最近在读的", text: [fav.title ? "最爱《" + fav.title + "》" : "", archive.weekTime ? "这周读了 " + archive.weekTime : "", plan.title ? "打算读《" + plan.title + "》" : ""].filter(Boolean).join("｜") }),
+      onClick: () => onPeek({ tier: "quiet", label: "阅读档案", title: T("他最近在读的"), text: [fav.title ? "最爱《" + fav.title + "》" : "", archive.weekTime ? "这周读了 " + archive.weekTime : "", plan.title ? "打算读《" + plan.title + "》" : ""].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
       style: { marginTop: 18, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + READ_LINE, color: READ_INK }
-    }, "转发给 TA · 他会知道你翻了手机") : null);
+    }, T("转发给 TA · 他会知道你翻了手机")) : null);
   // 内页底栏：高度以主聊天输入栏为标尺（.claude/rules/mobile-ui-layout.md §2）——
   // 只吃 0.4 条底部安全区，不许再 + Npx，也不给 minHeight 垫高
   const nav = h("div", {
@@ -2046,16 +2055,16 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "读到"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: READ_INK, marginTop: 6 } }, book.readAt)) : null,
     book.quote ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3bd91", background: "rgba(211,189,145,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "他划的一句"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, T("他划的一句")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, color: READ_INK, marginTop: 6 } }, book.quote)) : null,
     book.note ? h("div", { style: { marginTop: 11, borderLeft: "3px solid #d3a2b0", background: "rgba(211,162,176,.09)", padding: "13px 15px", borderRadius: "0 8px 8px 0" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, "批注"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: READ_INK, marginTop: 6, whiteSpace: "pre-wrap" } }, book.note)) : null,
     onPeek ? h("button", {
-      onClick: () => onPeek({ tier: "quiet", label: "他读的书", title: "《" + (book.title || "") + "》" + (book.readAt ? " · " + book.readAt : ""), text: [book.quote ? "他划了：" + book.quote : "", book.note].filter(Boolean).join("｜") }),
+      onClick: () => onPeek({ tier: "quiet", label: T("他读的书"), title: "《" + (book.title || "") + "》" + (book.readAt ? " · " + book.readAt : ""), text: [book.quote ? T("他划了：") + book.quote : "", book.note].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
       style: { marginTop: 20, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + READ_LINE, color: READ_INK }
-    }, "转发给 TA · 他会知道你翻了手机") : null))) : null;
+    }, T("转发给 TA · 他会知道你翻了手机")) : null))) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: READ_BG } },
     chrome, tab === "shelf" ? shelfPage : minePage, nav, detail);
 }
@@ -2108,7 +2117,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       marginTop: 12, width: "100%", padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12,
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e4e4ea"), color: tier === "hidden" ? "#b6473c" : "#55555e"
     }
-  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机") : null;
+  }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   const thumb = (txt, bg, fg) => h("div", {
     "aria-hidden": "true",
     style: { width: 56, height: 56, borderRadius: 15, flexShrink: 0, background: bg || "#f2f2f6", color: fg || "#8a8a94", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 21 }
@@ -2203,7 +2212,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       o.review ? h("div", { key: "r", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#7d7d86", marginTop: 13 } }, o.review) : null,
       o.reason ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#4b4b53", marginTop: 9 } }, o.reason) : null,
       o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b3b3bb", marginTop: 11 } }, o.addr) : null,
-      h("div", { key: "pk" }, peekBtn("quiet", "他的订单", o.title || o.shop, [o.reason, o.review, o.addr].filter(Boolean).join("｜")))
+      h("div", { key: "pk" }, peekBtn("quiet", T("他的订单"), o.title || o.shop, [o.reason, o.review, o.addr].filter(Boolean).join("｜")))
     ], { key: i }))) : null;
   // ── 购物习惯 ──
   const habitRows = [["预算", habit.budget], ["常买", habit.buys], ["不买", habit.avoids], ["习惯", habit.how]].filter(x => x[1]);
@@ -2211,7 +2220,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     card(habitRows.map(([k, v], i) => h("div", { key: i, className: "flex gap-5", style: { padding: "14px 0", borderTop: i ? "1px solid #f0f0f4" : "none" } },
       h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM } }, k),
       h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: SHOP_INK } }, v)))),
-    peekBtn("quiet", "购物习惯", "他买东西的样子", habitRows.map(([k, v]) => k + "：" + v).join("｜"))) : null;
+    peekBtn("quiet", "购物习惯", T("他买东西的样子"), habitRows.map(([k, v]) => k + "：" + v).join("｜"))) : null;
   // ── 常逛店铺 ──
   const shops = A(data.shops);
   const shopSec = shops.length ? h("section", { key: "sh" }, secTitle("常逛店铺"),
@@ -2257,7 +2266,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: SHOP_DIM } }, g.who || ""),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.45, color: SHOP_INK, marginTop: 6 } }, g.title || ""),
       g.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#84848d", marginTop: 7 } }, g.note) : null,
-      h("div", null, peekBtn("quiet", "他给谁买的东西", (g.who || "") + " · " + (g.title || ""), g.note))))))  : null;
+      h("div", null, peekBtn("quiet", T("他给谁买的东西"), (g.who || "") + " · " + (g.title || ""), g.note))))))  : null;
   // ── 本月概况 ──
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本月购物概况"),
     data.monthNote ? card(h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#3f3f47" } }, data.monthNote)) : null,
@@ -2306,7 +2315,7 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     it.shop ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: SHOP_DIM, marginTop: 7 } }, it.shop) : null,
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: SHOP_ORANGE, marginTop: 10 } }, shopMoney(it.price)),
     it.why ? h("div", { style: { background: "#f5f5f8", borderRadius: 13, padding: "14px 15px", marginTop: 16 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM } }, "他为什么想买"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: SHOP_DIM } }, T("他为什么想买")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.9, color: "#3f3f47", marginTop: 7, whiteSpace: "pre-wrap" } }, it.why)) : null,
     peekBtn("quiet", "想买清单", it.title, [it.shop, it.price != null ? shopMoney(it.price) : "", it.why].filter(Boolean).join("｜"))));
   })() : null;
@@ -2356,7 +2365,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     className: "w-full active:opacity-60",
     style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12,
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e9e4da"), color: tier === "hidden" ? "#b6473c" : "#5b564e" }
-  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机") : null;
+  }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   const noteLine = txt => h("div", { className: "flex", style: { gap: 7, marginTop: 11 } },
     h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 12.5, color: "#e8863a" } }, "备注 ·"),
     h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#8a7a5e" } }, txt));
@@ -2406,7 +2415,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         today.amount != null ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#f0523a" } }, fmtMoney(today.amount)) : h("span", null),
         today.status ? h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3fbb6e", borderRadius: 999, padding: "7px 18px" } }, today.status) : null),
       today.note ? noteLine(today.note) : null,
-      h("div", null, peekBtn("quiet", "他今天点的", today.shop, [today.main, today.note].filter(Boolean).join("｜"))))) : null;
+      h("div", null, peekBtn("quiet", T("他今天点的"), today.shop, [today.main, today.note].filter(Boolean).join("｜"))))) : null;
   // ── 常点商家（横滑）──
   const shopSec = shops.length ? h("section", { key: "sp" }, secTitle("常点商家", "共 " + shops.length + " 家"),
     h("div", { className: "flex overflow-x-auto", style: { gap: 11, paddingBottom: 4, scrollbarWidth: "none", marginBottom: 13 } },
@@ -2474,7 +2483,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b3ada4", marginTop: 11 } }, "📍 " + o.addr) : null,
       o.note ? h("div", { key: "n" }, noteLine(o.note)) : null,
       o.reason ? h("div", { key: "w", style: { marginTop: 12, background: "#f6f5f2", borderRadius: 10, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#5b564e" } }, o.reason) : null,
-      h("div", { key: "pk" }, peekBtn("quiet", "他点的外卖", (o.shop || "") + (o.main ? " · " + o.main : ""), [o.note ? "备注：" + o.note : "", o.reason, o.rating, o.addr].filter(Boolean).join("｜")))
+      h("div", { key: "pk" }, peekBtn("quiet", T("他点的外卖"), (o.shop || "") + (o.main ? " · " + o.main : ""), [o.note ? "备注：" + o.note : "", o.reason, o.rating, o.addr].filter(Boolean).join("｜")))
     ], { key: i }))) : null;
   // ── 口味偏好（三组彩色药丸）──
   const pills = (list, tone) => h("div", { className: "flex flex-wrap", style: { gap: 8 } }, A(list).map((x, i) => h("span", {
@@ -2497,7 +2506,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       taste.budget ? h("div", { key: "b" }, tasteRow("预算", h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.7, color: TAKE_INK, paddingTop: 4 } }, taste.budget))) : null,
       taste.habit ? h("div", { key: "h" }, tasteRow("习惯", h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.7, color: TAKE_INK, paddingTop: 4 } }, taste.habit))) : null
     ]),
-    peekBtn("quiet", "他的口味", "他吃东西的样子", [A(taste.avoidTags).length ? "忌口：" + A(taste.avoidTags).join("、") : "", taste.habit].filter(Boolean).join("｜"))) : null;
+    peekBtn("quiet", T("他的口味"), T("他吃东西的样子"), [A(taste.avoidTags).length ? "忌口：" + A(taste.avoidTags).join("、") : "", taste.habit].filter(Boolean).join("｜"))) : null;
   // ── 本周吃什么（七日横滑）──
   const weekSec = week.length ? h("section", { key: "wk" }, secTitle("本周吃什么", "七日餐次"),
     h("div", { className: "flex overflow-x-auto", style: { gap: 11, paddingBottom: 4, scrollbarWidth: "none", marginBottom: 13 } },
@@ -2533,14 +2542,14 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("span", { style: { width: 7, height: 7, borderRadius: 99, marginTop: 8, flexShrink: 0, background: TAKE_AMBER } }),
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: TAKE_INK, wordBreak: "break-word" } }, w.title || "")),
       w.when ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#8a847b", background: "#f6f5f2", borderRadius: 9, padding: "9px 12px", marginTop: 9 } }, w.when) : null)),
-    ), peekBtn("quiet", "他想吃的", wish.map(w => w.title).filter(Boolean).slice(0, 3).join("、"), wish.map(w => (w.title || "") + "（" + (w.when || "") + "）").join("｜"))) : null;
+    ), peekBtn("quiet", T("他想吃的"), wish.map(w => w.title).filter(Boolean).slice(0, 3).join("、"), wish.map(w => (w.title || "") + "（" + (w.when || "") + "）").join("｜"))) : null;
   // ── 一起点过 ──
   const togSec = together.length ? h("section", { key: "tg" }, secTitle("一起点过"),
     card(together.map((g, i) => h("div", { key: i, style: { borderLeft: "3px solid " + TAKE_AMBER, background: "#fffdf6", borderRadius: "0 12px 12px 0", padding: "14px 15px", marginTop: i ? 12 : 0 } },
       g.who ? h("span", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 12, color: "#e8863a", background: "rgba(245,166,35,.14)", borderRadius: 7, padding: "4px 10px" } }, g.who) : null,
       g.items ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: TAKE_INK, marginTop: 9, wordBreak: "break-word" } }, g.items) : null,
       g.story ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#8a847b", marginTop: 8 } }, g.story) : null,
-      h("div", null, peekBtn("quiet", "他和谁一起点的", (g.who || "") + " · " + (g.items || ""), g.story)))))) : null;
+      h("div", null, peekBtn("quiet", T("他和谁一起点的"), (g.who || "") + " · " + (g.items || ""), g.story)))))) : null;
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本周点餐概况"),
     data.monthNote ? h("div", { style: { background: "#fff", borderRadius: 16, borderLeft: "5px solid " + TAKE_AMBER, padding: "17px 18px", marginBottom: 13 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#4d4842" } }, data.monthNote)) : null,
@@ -2674,7 +2683,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
     onClick: e => { e.stopPropagation(); onPeek({ tier: "quiet", label, title, text }); },
     className: "w-full active:opacity-60",
     style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12, border: "1px solid #e2e5e9", color: "#5c6169" }
-  }, "转发给 TA · 他会知道你翻了手机") : null;
+  }, T("转发给 TA · 他会知道你翻了手机")) : null;
   // 一周条：底浅顶深的胶囊，跟参考稿一样
   const weekBars = (arr, hue) => {
     const vals = A(arr).slice(0, 7).map(v => Math.max(0, Math.min(100, Number(v) || 0)));
@@ -2820,7 +2829,7 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
     data.tail ? h("div", null,
       h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: "#cfd4da", margin: "20px auto 14px" } }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#9aa0a8", textAlign: "center", padding: "0 10px" } }, data.tail)) : null,
-    onPeek ? peekBtn("健康洞察", "他今天的身体", insights.map(x => (x.title || "") + "：" + (x.text || "")).join("｜")) : null) : null;
+    onPeek ? peekBtn("健康洞察", T("他今天的身体"), insights.map(x => (x.title || "") + "：" + (x.text || "")).join("｜")) : null) : null;
   // 同一档里按格位顺序排：这样谁的手机翻开都是同一个阅读顺序（她要的「统一」）。
   // 认不出格位的（老存档、模型自己多写的）排在后面，不打乱定死的那几项。
   const byGroup = g => cards.filter(c => healthGroupOf(c) === g)
@@ -2913,18 +2922,18 @@ function BiliView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: BILI_INK } }, v.up || "")),
         v.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#61666d", marginTop: 13 } }, v.desc) : null,
         A(v.myDanmaku).length ? h("div", { style: { marginTop: 18 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: BILI_PINK } }, "他发过的弹幕"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: BILI_PINK } }, T("他发过的弹幕")),
           A(v.myDanmaku).map((dm, j) => h("div", {
             key: j, style: { fontFamily: F_BODY, fontSize: 13.5, color: BILI_INK, background: "rgba(251,114,153,.08)", border: "1px solid rgba(251,114,153,.24)", borderRadius: 999, padding: "7px 14px", marginTop: 9, display: "inline-block" }
           }, dm))) : null,
         v.thought ? h("div", { style: { marginTop: 18, background: "#f6f7f8", borderRadius: 12, padding: "13px 14px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: BILI_DIM } }, "看完他想的"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: BILI_DIM } }, T("看完他想的")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.85, color: "#3f4348", marginTop: 6 } }, v.thought)) : null,
         onPeek ? h("button", {
-          onClick: () => onPeek({ tier: "quiet", label: "他看的视频", title: v.title, text: [v.up, A(v.myDanmaku).length ? "他发的弹幕：" + A(v.myDanmaku).join(" / ") : "", v.thought].filter(Boolean).join("｜") }),
+          onClick: () => onPeek({ tier: "quiet", label: T("他看的视频"), title: v.title, text: [v.up, A(v.myDanmaku).length ? T("他发的弹幕：") + A(v.myDanmaku).join(" / ") : "", v.thought].filter(Boolean).join("｜") }),
           className: "w-full active:opacity-60",
           style: { marginTop: 20, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e3e5e7", color: "#61666d" }
-        }, "转发给 TA · 他会知道你翻了手机") : null));
+        }, T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
   const head = h("div", { className: "shrink-0", style: { background: "#fff", paddingTop: safeTop(8) } },
     h("div", { className: "flex items-center gap-2.5 px-3 pb-2.5" },
@@ -2991,7 +3000,7 @@ function LateNightView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     onClick: () => onPeek({ tier: "hidden", label: "深夜台", title: open.title, text: [A(open.tags).join(" / "), open.thought].filter(Boolean).join("｜") }),
     className: "w-full active:opacity-60",
     style: { marginTop: 22, padding: "13px 0", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid rgba(192,86,109,.5)", color: HOT }
-  }, "摆到 TA 面前 · 这是他藏起来的") : null)) : null;
+  }, T("摆到 TA 面前 · 这是他藏起来的")) : null)) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: BG } },
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: INK })),
@@ -3076,21 +3085,21 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     h("div", { className: "flex items-center", style: { gap: 18, marginTop: 18, paddingTop: 14, borderTop: "1px solid #f1f1f4" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: open.act !== "收藏" ? PLAZA_RED : "#b0b0b8" } }, "♥ " + (open.likes != null ? open.likes : "")),
       h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: open.act === "收藏" ? "#e8a33d" : "#b0b0b8" } }, "★ 收藏"),
-      h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: PLAZA_DIM } }, open.act === "收藏" ? "他收藏了这条" : "他点了赞")),
+      h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12, color: PLAZA_DIM } }, open.act === "收藏" ? T("他收藏了这条") : T("他点了赞"))),
     onPeek ? h("button", {
       onClick: () => onPeek(open._draft
         ? { tier: "hidden", label: "小红书草稿箱", title: open.title, text: [open.excerpt, open.savedAt].filter(Boolean).join("｜") }
-        : { tier: "quiet", label: "他" + (open.act === "收藏" ? "收藏" : "赞") + "过的", title: open.title, text: [open.author, open.excerpt].filter(Boolean).join("｜") }),
+        : { tier: "quiet", label: T("他") + (open.act === "收藏" ? "收藏" : "赞") + "过的", title: open.title, text: [open.author, open.excerpt].filter(Boolean).join("｜") }),
       className: "w-full active:opacity-60",
       style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
-    }, open._draft ? "摆到 TA 面前 · 这是他没发出去的" : "转发给 TA · 他会知道你翻了手机") : null))) : null;
+    }, open._draft ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null))) : null;
   const followPage = h("div", { style: { padding: "4px 0" } },
     follows.length ? follows.map((f, i) => h("div", { key: i, className: "flex items-center gap-3", style: { background: "#fff", borderRadius: 14, padding: "14px 15px", marginBottom: 10 } },
       h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(140deg," + cover(i)[0] + "," + cover(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17, color: "#5c5c64" } }, String(f.name || "?").trim().slice(0, 1)),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: PLAZA_INK } }, f.name || ""),
         f.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: PLAZA_DIM, marginTop: 4 } }, f.desc) : null)))
-      : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, "他谁也没关注"));
+      : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, T("他谁也没关注")));
   // ── 「我的」：照小红书个人页（她 2026-08-29 给了参考稿）──
   // 大背景 + 头像 + 小红书号 + 三个数字 + 简介 + 药丸标签，
   // 底下 笔记 / 收藏 / 草稿 三个 tab；草稿带锁——那是他写了却没发的。
@@ -3113,7 +3122,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: kind === "draft" ? "#c0554f" : PLAZA_DIM, marginTop: 7 } },
             kind === "draft" ? (x.savedAt || "没发出去") : [x.time, x.likes != null ? "♥ " + x.likes : ""].filter(Boolean).join(" · "))))))
     : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: PLAZA_DIM } },
-        kind === "draft" ? "草稿箱是空的" : kind === "save" ? "他没收藏过什么" : "他一条也没发过");
+        kind === "draft" ? "草稿箱是空的" : kind === "save" ? T("他没收藏过什么") : T("他一条也没发过"));
   const mineTab = (k, label, n, lock) => h("button", {
     key: k, onClick: () => setMtab(k), className: "flex items-center active:opacity-60",
     style: { gap: 4, paddingBottom: 7, borderBottom: "2px solid " + (mtab === k ? PLAZA_RED : "transparent") }
@@ -3147,7 +3156,7 @@ function PlazaView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       const chans2 = ["发现"].concat(A(data.tabs).filter(x => typeof x === "string").slice(0, 5));
       const c = chans2[Math.min(chan, chans2.length - 1)] || "发现";
       const list = c === "发现" ? items : items.filter(x => x.tab === c);
-      return list.length ? masonry(list) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, c === "发现" ? "他还没赞过什么" : "这个频道底下没有");
+      return list.length ? masonry(list) : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: PLAZA_DIM } }, c === "发现" ? T("他还没赞过什么") : "这个频道底下没有");
     })() },
     { key: "follow", zh: "关注", glyph: "me", body: followPage },
     { key: "mine", zh: "我的", glyph: "notes", body: minePage }
@@ -3239,13 +3248,13 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.4, color: CAL_INK, marginTop: 10 } }, open.title || ""),
   open.who ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: CAL_DIM, marginTop: 7 } }, "和 " + open.who) : null,
   Number(open.postponed) > 0 ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "已经往后推了 " + open.postponed + " 次")
-    : open.overdue ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, "日子早过了，他还没做。") : null,
+    : open.overdue ? h("div", { style: { marginTop: 14, background: "rgba(255,59,48,.08)", borderRadius: 12, padding: "12px 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#c0392b" } }, T("日子早过了，他还没做。")) : null,
   open.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: "#4b4b53", marginTop: 13 } }, open.note) : null,
   onPeek ? h("button", {
     onClick: () => onPeek({ tier: "quiet", label: open.kind === "提醒" ? "提醒事项" : "日历", title: open.title, text: [open.date, open.who ? "和 " + open.who : "", open.note, Number(open.postponed) > 0 ? "推迟过 " + open.postponed + " 次" : (open.overdue ? "日子早过了" : "")].filter(Boolean).join("｜") }),
     className: "w-full active:opacity-60",
     style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid #e6e6ea", color: "#55555c" }
-  }, "转发给 TA · 他会知道你翻了手机") : null)) : null;
+  }, T("转发给 TA · 他会知道你翻了手机")) : null)) : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: CAL_BG } },
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
       h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: CAL_INK })),
@@ -3322,10 +3331,10 @@ function StickyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         voice ? wave(c.ink, 34) : null,
         open.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1.95, color: c.ink, marginTop: 14, whiteSpace: "pre-wrap", fontStyle: voice ? "italic" : "normal" } }, open.body) : null,
         onPeek ? h("button", {
-          onClick: () => onPeek({ tier: "quiet", label: voice ? "他录的一条" : "他的便签", title: open.title, text: open.body }),
+          onClick: () => onPeek({ tier: "quiet", label: voice ? T("他录的一条") : T("他的便签"), title: open.title, text: open.body }),
           className: "w-full active:opacity-60",
           style: { marginTop: 20, padding: "12px 0", borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + c.edge, color: c.ink }
-        }, "转发给 TA · 他会知道你翻了手机") : null));
+        }, T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: STICKY_BG } },
     h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
@@ -3375,7 +3384,7 @@ function ClipView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           onClick: () => onPeek({ tier: isHeld ? "hidden" : "quiet", label: isHeld ? "剪贴板里没发出去的一段" : "剪贴板", title: open.from || "", text: open.text }),
           className: "w-full active:opacity-60",
           style: { marginTop: 22, padding: "13px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (isHeld ? "rgba(224,115,107,.5)" : "rgba(233,233,236,.2)"), color: isHeld ? HOT : INK }
-        }, isHeld ? "摆到 TA 面前 · 这是他没发出去的" : "转发给 TA · 他会知道你翻了手机") : null));
+        }, isHeld ? T("摆到 TA 面前 · 这是他没发出去的") : T("转发给 TA · 他会知道你翻了手机")) : null));
   })() : null;
   const sec = (title, list, isHeld) => list.length ? h("section", { key: title },
     h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: ".18em", color: isHeld ? HOT : DIM, padding: "4px 2px 9px" } }, title),
@@ -3423,7 +3432,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     className: "w-full active:opacity-60",
     style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5,
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.42)" : "#e2e2e7"), color: tier === "hidden" ? "#b6473c" : "#55555c" }
-  }, tier === "hidden" ? "摆到 TA 面前 · 这是他没打算留痕的" : "转发给 TA · 他会知道你翻了手机") : null;
+  }, tier === "hidden" ? T("摆到 TA 面前 · 这是他没打算留痕的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   // ── 标签页：卡片网格，仿 Safari 那个标签墙 ──
   const tabCard = (x, i, isPriv) => h("button", {
     key: i, onClick: () => setOpen({ ...x, _priv: isPriv }), className: "text-left active:opacity-75",
@@ -3466,7 +3475,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   const privPage = h("div", null,
     h("div", { style: { background: "#26262b", borderRadius: 14, padding: "15px 16px", marginBottom: 14 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#e6e6ea" } }, "无痕浏览"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: "rgba(230,230,234,.55)", marginTop: 6 } }, "他专门开了不留记录的那几页。关掉就没了——只是还没关。")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: "rgba(230,230,234,.55)", marginTop: 6 } }, T("他专门开了不留记录的那几页。关掉就没了——只是还没关。"))),
     priv.length ? h("div", { className: "grid grid-cols-2", style: { gap: 11, alignItems: "start" } }, priv.map((x, i) => tabCard(x, i, true)))
       : h("div", { style: { padding: "44px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM } }, "这会儿没有无痕页"));
   // 搜索记录点进去 = 那一次搜索的【结果页】。
@@ -3498,14 +3507,14 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
                 style: { width: 22, height: 22, borderRadius: 99, flexShrink: 0, background: "#efeff3", color: "#7a7a84", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11 }
               }, src.slice(0, 1) || "?"),
               h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6b6b74", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, src),
-              isOpened ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#c4553f", background: "rgba(196,85,63,.1)", borderRadius: 99, padding: "2px 8px", flexShrink: 0 } }, "他点开了这条") : null),
+              isOpened ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#c4553f", background: "rgba(196,85,63,.1)", borderRadius: 99, padding: "2px 8px", flexShrink: 0 } }, T("他点开了这条")) : null),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#1a4fbd", wordBreak: "break-word" } }, String(r.title || "")),
             r.excerpt ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#8b8b93", marginTop: 7, wordBreak: "break-word" } }, String(r.excerpt)) : null);
         }) : h("div", { style: { padding: "50px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: BR_DIM, lineHeight: 1.9 } },
           "这条搜索记录里没存下结果。\n重新推演一次浏览器就有了。"),
         h("div", { style: { paddingTop: 18 } },
-          peekBtn("quiet", "他搜过的", open.title,
-            [open.time, rs.length ? "他翻到的：" + rs.map(r => String(r.title || "")).filter(Boolean).slice(0, 3).join(" / ") : ""].filter(Boolean).join("｜")))));
+          peekBtn("quiet", T("他搜过的"), open.title,
+            [open.time, rs.length ? T("他翻到的：") + rs.map(r => String(r.title || "")).filter(Boolean).slice(0, 3).join(" / ") : ""].filter(Boolean).join("｜")))));
   })() : null;
   const detail = open && !open._search ? (function () {
     const isPriv = !!open._priv;
@@ -3522,7 +3531,7 @@ function BrowserView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
           [open.time, open.age, open._mark ? "书签 · " + open._mark : "", open.pinned ? "钉住的" : ""].filter(Boolean).join(" · ")),
         open.gist ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: isPriv ? "rgba(230,230,234,.86)" : "#4b4b53", marginTop: 14 } }, open.gist) : null,
         peekBtn(isPriv ? "hidden" : "quiet",
-          isPriv ? "他的无痕标签页" : open._search ? "他搜过的" : open._mark ? "他的书签" : "他没关的标签页",
+          isPriv ? T("他的无痕标签页") : open._search ? T("他搜过的") : open._mark ? T("他的书签") : T("他没关的标签页"),
           open.title, [open.site, open.gist, open.age].filter(Boolean).join("｜"))));
   })() : null;
   const PAGES = [
@@ -3585,7 +3594,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     className: "w-full active:opacity-60",
     style: { marginTop: 18, padding: "12px 0", borderRadius: 12, fontFamily: F_BODY, fontSize: 12.5,
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.42)" : "#e2e2e7"), color: tier === "hidden" ? "#b6473c" : "#55555c" }
-  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : "转发给 TA · 他会知道你翻了手机") : null;
+  }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   const groupCard = kids => h("div", { style: { background: "#fff", borderRadius: 14, overflow: "hidden" } }, kids);
   const secLabel = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: CALL_DIM, padding: "14px 4px 8px" } }, txt);
   // ── 通话记录：iOS 那种列表，未接标红 ──
@@ -3634,7 +3643,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   // ── 语音信箱 ──
   const vmPage = vm.length ? h("div", null,
     unheardN ? h("div", { style: { background: "rgba(10,132,255,.08)", borderRadius: 12, padding: "12px 14px", marginBottom: 12, fontFamily: F_BODY, fontSize: 12.5, color: "#1a5fb4" } },
-      "有 " + unheardN + " 条他一直没听") : null,
+      "有 " + unheardN + T(" 条他一直没听")) : null,
     vm.map((x, i) => h("button", {
       key: i, onClick: () => setOpen({ kind: "vm", x: x }),
       className: "w-full text-left active:opacity-60",
@@ -3648,7 +3657,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   // ── 联系人 + 拦截 ──
   const peoplePage = h("div", null,
     me.number ? h("div", { style: { background: "#fff", borderRadius: 14, padding: "14px 16px", marginBottom: 14 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "他的号码"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, T("他的号码")),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: CALL_INK, marginTop: 5 } }, me.number)) : null,
     freq.length ? h("div", null, secLabel("常联系"),
       groupCard(freq.map((x, i) => h("div", { key: i, style: { padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" } },
@@ -3660,7 +3669,7 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       groupCard(blocked.map((x, i) => h("div", { key: i, style: { padding: "13px 14px", borderTop: i ? "1px solid #f1f1f4" : "none" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: CALL_INK } }, x.name || ""),
         x.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#b6473c", marginTop: 5 } }, x.why) : null))),
-      onPeek ? peekBtn("hidden", "他的拦截名单", "他拉黑了谁", blocked.map(x => (x.name || "") + "：" + (x.why || "")).join("｜")) : null) : null,
+      onPeek ? peekBtn("hidden", T("他的拦截名单"), T("他拉黑了谁"), blocked.map(x => (x.name || "") + "：" + (x.why || "")).join("｜")) : null) : null,
     (!freq.length && !blocked.length && !me.number)
       ? h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: CALL_DIM } }, "还没有联系人") : null);
   // ── 详情 ──
@@ -3684,12 +3693,12 @@ function PhoneCallsView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
             h("div", { style: { maxWidth: "78%", borderRadius: 15, padding: "10px 13px", background: mine ? CALL_BLUE : "#eeeef2", color: mine ? "#fff" : CALL_INK, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, m2.text || ""));
         })) : null,
         isVm && x.transcript ? h("div", { style: { marginTop: 16, background: "#f5f5f8", borderRadius: 12, padding: "14px 15px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "留言转文字" + (x.heard === false ? " · 他一直没听" : "")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: CALL_DIM } }, "留言转文字" + (x.heard === false ? T(" · 他一直没听") : "")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.95, color: "#3f3f47", marginTop: 8, fontStyle: "italic", whiteSpace: "pre-wrap" } }, x.transcript)) : null,
         isCall && x.gist ? h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: "#4b4b53" } }, x.gist) : null,
         x.thought ? h("div", { style: { marginTop: 14, borderLeft: "3px solid " + (missed ? CALL_RED : "#c9c9d1"), paddingLeft: 12, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: CALL_INK } }, x.thought) : null,
         peekBtn("quiet",
-          isCall ? (missed ? "他没接的一通电话" : "他的通话记录") : isSms ? "他收到的短信" : "有人给他留的言",
+          isCall ? (missed ? T("他没接的一通电话") : T("他的通话记录")) : isSms ? T("他收到的短信") : T("有人给他留的言"),
           x.name || x.from || x.number,
           [isCall ? (missed ? "没接通" : x.duration) : "", x.gist, x.transcript, A(x.msgs).map(m2 => m2.text).join(" / "), x.thought].filter(Boolean).join("｜"))));
   })() : null;
@@ -3744,7 +3753,7 @@ function renderPhoneModule(key, d, ctx) {
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.45)" : t.line),
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
-  }, tier === "hidden" ? "摆到 TA 面前 · 这是他藏起来的" : tier === "open" ? "转发给 TA" : "转发给 TA · 他会知道你翻了手机") : null;
+  }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
   if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing });
   if (key === "notes") return h(StickyView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -3757,7 +3766,7 @@ function renderPhoneModule(key, d, ctx) {
   // 只有翻他手机才知道。所以三个账号并排摆在这儿——查手机就是面具掉下来的地方。
   if (key === "forum") {
     const accounts = arr(ctx.forumAccounts);
-    if (!accounts.length) return h(Empty, { text: "论坛还没有他的痕迹", sub: "等他去论坛发帖或回帖之后再来翻" });
+    if (!accounts.length) return h(Empty, { text: T("论坛还没有他的痕迹"), sub: T("等他去论坛发帖或回帖之后再来翻") });
     const acc = accounts.find(a => a.key === ctx.forumTab) || accounts[0];
     const fmtTs = ts => { if (!ts) return ""; const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
     const tabs = h("div", { className: "flex gap-2 mb-4" }, accounts.map(a => h("button", {
@@ -3795,12 +3804,12 @@ function renderPhoneModule(key, d, ctx) {
     const cmtRow = (it, i) => h("div", { key: "c" + i, className: "py-3.5", style: line },
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.65 } }, it.text),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } },
-        "在「" + it.postTitle.slice(0, 18) + "」下 · " + fmtTs(it.ts) + (it.backCount ? " · 有 " + it.backCount + " 人回他" : "")));
+        "在「" + it.postTitle.slice(0, 18) + "」下 · " + fmtTs(it.ts) + (it.backCount ? " · 有 " + it.backCount + T(" 人回他") : "")));
     const posts = arr(acc.posts), cmts = arr(acc.comments);
     return h("div", { style: { animation: "fadeUp .3s ease both" } }, tabs, head,
       posts.length ? h("div", { className: "mb-6" }, h(Eyebrow, { style: { marginBottom: 4 } }, "发过的帖"), posts.map(postRow)) : null,
       cmts.length ? h("div", null, h(Eyebrow, { style: { marginBottom: 4 } }, "在别人楼下说的话"), cmts.map(cmtRow)) : null,
-      (!posts.length && !cmts.length) ? h(Empty, { text: "这个号还是空的", sub: acc.key === "anon" ? "他还没用匿名发过什么" : "他还没用这个号露过面" }) : null);
+      (!posts.length && !cmts.length) ? h(Empty, { text: "这个号还是空的", sub: acc.key === "anon" ? T("他还没用匿名发过什么") : T("他还没用这个号露过面") }) : null);
   }
   // ── 音乐：接【一起听】里那张真歌单 ──
   // 以前这儿单独生成一份，于是同一个人有两张互不相干的歌单，
@@ -3809,14 +3818,14 @@ function renderPhoneModule(key, d, ctx) {
     const pl = ctx.playlist;
     const songs = arr(pl && pl.songs);
     if (!songs.length) return h("div", { className: "py-6" }, h(Empty, {
-      text: "他还没有歌单",
-      sub: "「一起听」里给他生成一张，这里就能看到"
+      text: T("他还没有歌单"),
+      sub: T("「一起听」里给他生成一张，这里就能看到")
     }), h("button", {
       onClick: () => ctx.onGenPlaylist && ctx.onGenPlaylist(),
       disabled: !!ctx.playlistBusy,
       className: "w-full mt-4 py-3 active:opacity-60",
       style: { fontFamily: F_BODY, fontSize: 13, borderRadius: 14, border: "1px solid " + t.line, color: t.ink, opacity: ctx.playlistBusy ? .5 : 1 }
-    }, ctx.playlistBusy ? "正在想他会听什么…" : "给他生成一张"));
+    }, ctx.playlistBusy ? T("正在想他会听什么…") : T("给他生成一张")));
     // 歌单名进顶栏了，这里不再放一块大字（mobile-ui-layout.md §1：普通子页面用紧凑标题栏）
     return h("div", { style: { animation: "fadeUp .3s ease both" } },
       h("div", { className: "mb-2", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, songs.length + " 首 · 和「一起听」是同一张"),
@@ -3887,6 +3896,7 @@ function PhoneApp({
   live
 }) {
   const t = useTheme();
+  phoneViewTa(char);   // 界面上的「他/她/TA」跟着这台手机的主人走（v58.88）
   const [sheet, setSheet] = useState(null);
   const zh = PHONE_LABEL[appKey];
   const rawData = charData[appKey];
@@ -4035,6 +4045,7 @@ function PhoneCarry({
   const allNowKey = String(busyKey || "").indexOf("__all__") === 0 ? (String(busyKey).split(":")[1] || "__all__") : null;
   const isAllRun = String(busyKey || "").indexOf("__all__") === 0;
   const char = characters.find(c => c.id === selId) || characters[0];
+  phoneViewTa(char);   // 同上：列表页的标签也跟着选中的这位走
   if (!char) return h("div", {
     className: "h-full flex flex-col"
   }, h(Head, {
@@ -4247,10 +4258,10 @@ function PhoneCarry({
   const widgetCopy = key => {
     const fallback = {
       wechat: "点开看看最近和谁说过话", notes: "最近没有留下新备忘", browser: "最近没有浏览记录",
-      music: "他还没有歌单", album: "相册还没翻过", bili: "最近没有观看记录", latenight: "深夜台还是空的",
-      forum: "论坛上还没有他的痕迹", reading: "最近没在读什么", liked: "还没点过什么",
+      music: T("他还没有歌单"), album: "相册还没翻过", bili: "最近没有观看记录", latenight: "深夜台还是空的",
+      forum: T("论坛上还没有他的痕迹"), reading: "最近没在读什么", liked: "还没点过什么",
       health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的",
-      timeline: "先刷一遍手机，这里才串得起来", tally: "他还没给你们记账", mail: "邮箱还没翻过",
+      timeline: "先刷一遍手机，这里才串得起来", tally: T("他还没给你们记账"), mail: "邮箱还没翻过",
       anon: "匿名箱里还没有问答"
     }[key] || "还没有内容";
     // 真数据这几个走自己那份，不然桌面小组件永远显示兜底话
@@ -4321,7 +4332,7 @@ function PhoneCarry({
         h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 26, lineHeight: .6, color: dim } }, "“"),
         h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.75, color: ink, marginTop: 8,
           display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
-          said || "他还没写下什么"));
+          said || T("他还没写下什么")));
     }
     // 时间线：一条竖线串三个点
     if (key === "timeline") {
@@ -4356,7 +4367,7 @@ function PhoneCarry({
           h("div", { style: { width: hero ? 46 : 36, height: hero ? 46 : 36, borderRadius: 999, flexShrink: 0,
             background: "radial-gradient(circle at 50% 50%,rgba(255,255,255,.9) 12%," + strColor((sg && sg.title) || "?") + " 14%," + strColor((sg && sg.title) || "?") + "aa 100%)" } }),
           h("div", { className: "min-w-0", style: { flex: 1 } },
-            h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: hero ? 16 : 13.5, color: ink } }, sg ? sg.title : "他还没有歌单"),
+            h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: hero ? 16 : 13.5, color: ink } }, sg ? sg.title : T("他还没有歌单")),
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11, color: dim, marginTop: 3 } },
               sg ? ((sg.artist || "") + (livePlaylist && livePlaylist.name ? " · " + livePlaylist.name : "")) : "点开去看看"))),
         sg ? h("div", { style: { height: 2, borderRadius: 9, marginTop: 14, background: "rgba(255,255,255,.22)" } },
@@ -4435,7 +4446,7 @@ function PhoneCarry({
     // 账本：没结清的那几笔
     if (key === "tally") {
       const rows = wRows("tally").slice(0, 2);
-      if (!rows.length) return line("他还没给你们记账");
+      if (!rows.length) return line(T("他还没给你们记账"));
       return h("div", { style: { flex: 1, marginTop: 8 } }, rows.map((x, i2) =>
         h("div", { key: i2, className: "flex items-baseline", style: { gap: 7, marginTop: i2 ? 7 : 0 } },
           h("span", { style: { width: 5, height: 5, borderRadius: 999, background: t.accent, flexShrink: 0 } }),
@@ -4479,7 +4490,7 @@ function PhoneCarry({
     const jump = key === "frame" ? "album" : key === "saying" ? "notes" : key;
     const app = decor ? null : appByKey(key);
     if (!decor && !app) return null;
-    const label = decor ? { clock: "时间", frame: "相册", saying: "他写过的" }[key] : app.zh;
+    const label = decor ? { clock: "时间", frame: "相册", saying: T("他写过的") }[key] : app.zh;
     return h("button", {
       key,
       onClick: () => { if (key === "clock") return; const a = appByKey(jump); if (a) openApp(a); },
@@ -4530,14 +4541,14 @@ function PhoneCarry({
       h("span", { "aria-hidden": "true", style: { fontSize: 13, color: t.fog } }, "\u2315"),
       h("input", {
         value: q, onChange: e => setQ(e.target.value),
-        placeholder: "在他手机里搜…",
-        "aria-label": "在他手机里搜",
+        placeholder: T("在他手机里搜…"),
+        "aria-label": T("在他手机里搜"),
         style: { flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 13, color: t.ink }
       }),
       q ? h("button", { onClick: () => setQ(""), "aria-label": "清空", className: "active:opacity-60", style: { fontSize: 13, color: t.fog, padding: "0 2px" } }, "\u2715") : null)),
   q.trim() ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: COMPOSER_PAD_BOTTOM } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "2px 2px 10px" } },
-      hits.length ? "在他手机里找到 " + hits.length + " 处" : "他手机里没有这个"),
+      hits.length ? T("在他手机里找到 ") + hits.length + " 处" : T("他手机里没有这个")),
     hits.slice(0, 60).map(r => h("button", {
       key: r.id,
       onClick: () => { const a = appByKey(r.app); if (a) { setQ(""); openApp(a); } },
