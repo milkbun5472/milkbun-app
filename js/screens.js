@@ -2596,75 +2596,6 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14, lineHeight: 1.6 } }, "想加只属于你俩的专属题？设置 → 「问答」→ 选 " + partner.name)));
 }
 
-// 情侣空间·同频测试（纯娱乐不动好感）：AI 按记忆出 5 题→我选→TA 盲猜我的选择+理由→默契分+TA 感想，整局存档
-function CoupleSyncTest({ partner, records, onStart, onSubmit, onRemove, gen, onBack }) {
-  const t = useTheme();
-  const mine = (records || []).filter(r => r.characterId === partner.id);
-  const draft = mine.find(r => r.status === "quiz");
-  const done = mine.filter(r => r.status === "done");
-  const [view, setView] = useState(null);   // null=首页 / 'quiz'=作答中 / 某局id=看结果
-  const [picks, setPicks] = useState({});   // 作答选择 {题idx: 选项idx}
-  const scoreTag = (s, n) => { const r = n ? s / n : 0; return r >= 1 ? "心有灵犀" : r >= 0.8 ? "同频共振" : r >= 0.6 ? "还算合拍" : r >= 0.4 ? "偶尔跑频" : "平行世界"; };
-  const fmtD = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
-
-  // —— 作答中 ——
-  if (view === "quiz" && draft) {
-    const allPicked = draft.qs.every((x, i) => picks[i] != null);
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "同频测试", en: "作答中", onBack: () => setView(null) }),
-      h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginTop: 6, marginBottom: 12 } }, "凭直觉选，答案暂时不给 " + partner.name + " 看——你提交后 TA 才开始猜。"),
-        draft.qs.map((x, i) => h("div", { key: i, style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px", marginBottom: 12 } },
-          h(Eyebrow, { style: { marginBottom: 6 } }, "第 " + (i + 1) + " 题"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: t.ink, marginBottom: 10 } }, x.q),
-          x.opts.map((o, j) => h("button", { key: j, onClick: () => setPicks(p => ({ ...p, [i]: j })), className: "w-full text-left active:opacity-70", style: { display: "block", padding: "9px 12px", borderRadius: 11, marginBottom: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, background: picks[i] === j ? t.ink : t.bg, color: picks[i] === j ? t.bg2 : t.ink, border: "1px solid " + (picks[i] === j ? t.ink : t.line) } }, "ABCD"[j] + ". " + o)))),
-        h("button", { onClick: async () => { if (!allPicked || gen) return; const ok = await onSubmit(partner, draft, draft.qs.map((x, i) => picks[i])); if (ok) { setView(draft.id); setPicks({}); } }, disabled: !allPicked || gen, className: "w-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, gen ? partner.name + " 正在猜你的选择…" : allPicked ? "提交 · 让 TA 猜" : "还有题没选"),
-        h("button", { onClick: () => { onRemove(draft.id); setPicks({}); setView(null); }, disabled: gen, className: "w-full active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0 0" } }, "放弃这局")));
-  }
-
-  // —— 看某局结果 ——
-  const rec = view && view !== "quiz" ? done.find(r => r.id === view) : null;
-  if (rec) {
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { zh: "同频测试", en: fmtD(rec.doneAt || rec.ts), onBack: () => setView(null) }),
-      h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-        h("div", { style: { textAlign: "center", padding: "22px 0 18px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 44, color: t.accent, lineHeight: 1 } }, rec.score + " / " + rec.qs.length),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 8 } }, scoreTag(rec.score, rec.qs.length)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "纯娱乐 · 不影响好感")),
-        rec.qs.map((x, i) => { const hit = x.my === x.ta; return h("div", { key: i, style: { background: t.bg2, border: "1px solid " + (hit ? "#bcd8bc" : t.line), borderRadius: 16, padding: "13px 15px", marginBottom: 12 } },
-          h("div", { className: "flex items-center justify-between", style: { marginBottom: 6 } },
-            h(Eyebrow, null, "第 " + (i + 1) + " 题"),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: hit ? "#4a8a4a" : t.accent } }, hit ? "✓ 猜中" : "✗ 没猜中")),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, marginBottom: 9 } }, x.q),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } },
-            h("div", null, h("span", { style: { color: t.tint } }, "我选："), x.opts[x.my] != null ? x.opts[x.my] : "—"),
-            h("div", null, h("span", { style: { color: t.accent } }, "TA 猜："), x.opts[x.ta] != null ? x.opts[x.ta] : "—"),
-            x.reason ? h("div", { style: { marginTop: 5, paddingTop: 6, borderTop: "1px dashed " + t.line, color: t.fog } }, "“" + x.reason + "”") : null)); }),
-        rec.remark ? h("div", { style: { background: "linear-gradient(135deg,#fdf0f3,#f6ecf8)", border: "1px solid #eed4dc", borderRadius: 16, padding: "14px 16px", marginBottom: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#b0708a", marginBottom: 5 } }, partner.name + " 的感想"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, whiteSpace: "pre-wrap" } }, rec.remark)) : null,
-        h("button", { onClick: () => { onRemove(rec.id); setView(null); }, className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#c26", padding: "8px 0" } }, "删除这局存档")));
-  }
-
-  // —— 首页：介绍 + 开始 + 往期存档 ——
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "同频测试", en: "Sync · " + partner.name, onBack }),
-    h("div", { className: "flex-1 overflow-y-auto px-6 pb-8" },
-      h("div", { style: { position: "relative", marginTop: 18, borderRadius: 16, padding: "26px 22px", background: "linear-gradient(135deg,#8fb6c9,#6e86b5)", boxShadow: "0 12px 34px rgba(80,100,140,0.28)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.22em", color: "rgba(255,255,255,0.7)", marginBottom: 10 } }, "SYNC TEST"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: "#fff", lineHeight: 1.3 } }, "TA 有多懂你？"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: "rgba(255,255,255,0.85)", marginTop: 10 } }, partner.name + " 会按你们的记忆出 5 道关于你的题。你先答，TA 再认真猜你选了什么——比比默契。纯娱乐，不影响好感。"),
-        h("button", { onClick: async () => { if (gen) return; if (draft) { setPicks({}); setView("quiz"); return; } const ok = await onStart(partner); if (ok) { setPicks({}); setView("quiz"); } }, disabled: gen, className: "active:opacity-80 disabled:opacity-60", style: { marginTop: 16, background: "#fff", color: "#5b73a3", fontFamily: F_DISPLAY, fontSize: 14.5, padding: "10px 22px", borderRadius: 999, boxShadow: "0 4px 12px rgba(0,0,0,0.18)" } }, gen ? partner.name + " 出题中…" : draft ? "继续上次的作答" : "开始一局")),
-      done.length ? h("div", { style: { marginTop: 18 } },
-        h(Eyebrow, { style: { marginBottom: 10 } }, "往期 · " + done.length + " 局"),
-        done.map(r => h("button", { key: r.id, onClick: () => setView(r.id), className: "w-full text-left active:opacity-70", style: { display: "flex", alignItems: "center", justifyContent: "space-between", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 15px", marginBottom: 8 } },
-          h("div", null,
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, scoreTag(r.score, r.qs.length)),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtD(r.doneAt || r.ts))),
-          h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 20, color: t.accent } }, r.score + "/" + r.qs.length)))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginTop: 20 } }, "还没玩过——点上面开始第一局。")));
-}
-
 // 情侣空间·交换日记（v47.77 借 LNChat）：一本两人轮流写的本子——我随时写一页，TA 三天内挑个时候
 // 按【TA 回复当天】的处境回一页（呼应我写的+没说出口的潜台词）。头部带日期/天气/心情的仪式感
 function CoupleExDiary({ partner, entries, onAdd, onRead, onBack }) {
@@ -2792,7 +2723,6 @@ function CoupleNotes({ partner, notes, onAdd, onAddReply, onRemove, onGen, gen, 
       h("div", { className: "space-y-4" }, mine.map(card))));
 }
 
-// 情侣空间·心情打卡：心情格子选择 + 专属日历(含年) + 我和 TA 都选 + 统计瓶子
 const COUPLE_MOODS = [
   { key: "relax", label: "轻松", emoji: "😌", color: "#bcd3f0", ink: "#5b7fb0" },
   { key: "surprise", label: "惊喜", emoji: "🤩", color: "#bfe3c6", ink: "#4f9d6a" },
@@ -2805,6 +2735,23 @@ const COUPLE_MOODS = [
   { key: "amazed", label: "惊讶", emoji: "😲", color: "#f0dc8f", ink: "#c2a53c" }
 ];
 const moodBy = k => COUPLE_MOODS.find(m => m.key === k);
+// 把【真心情】那套中文标签映射到这九张脸上（MoodLabel.EN_ZH 的值域）。
+// v58.90 之前情侣空间里那两格看的是「心情打卡」——一次调用，模型在看不见你俩
+// 今天发生过什么的情况下瞎选一个表情，跟他真实的心情各走各的。现在两格直接读真心情。
+const MOOD_FACE = {
+  开心: "happy", 喜悦: "happy", 兴奋: "happy", 愉快: "happy", 欣喜: "happy",
+  温柔: "cozy", 柔软: "cozy", 亲昵: "cozy", 爱意满满: "cozy", 感激: "cozy", 满足: "cozy",
+  平静: "relax", 安宁: "relax", 放松: "relax", 若有所思: "relax", 如释重负: "relax",
+  骄傲: "proud", 有成就感: "proud", 自信: "proud", 坚定: "proud",
+  期待: "surprise", 好奇: "surprise", 专注: "surprise",
+  惊讶: "amazed", 困惑: "amazed",
+  难过: "sad", 受伤: "sad", 失望: "sad", 孤独: "sad", 害怕: "sad",
+  疲惫: "gloomy", 困倦: "gloomy", 无聊: "gloomy", 挫败: "gloomy", 担心: "gloomy",
+  焦虑: "gloomy", 紧张: "gloomy", 愧疚: "gloomy", 害羞: "gloomy", 吃醋: "gloomy",
+  烦躁: "irritated", 生气: "irritated"
+};
+// 认不出来就不画脸，只出那几个字——瞎配一张脸比不画更糟
+const moodFaceOf = label => MOOD_FACE[String(label || "").trim()] || null;
 // 手绘感心情圆脸（替换系统 emoji，风格照用户「心情罐头」参考图：柔和圆脸 + 简单表情）
 function MoodGlyph({ mood, size }) {
   const m = moodBy(mood) || COUPLE_MOODS[0];
@@ -2832,91 +2779,6 @@ function MoodGlyph({ mood, size }) {
   const kids = [base].concat(eyes, [mouth], extra || []).filter(Boolean).map((el, i) => React.cloneElement(el, { key: i }));
   return h("svg", { width: s, height: s, viewBox: "0 0 24 24", style: { display: "block", overflow: "visible" } }, kids);
 }
-function CoupleMood({ partner, me, pa, moods, onCheckin, gen, onBack }) {
-  const t = useTheme();
-  const mine = (moods || []).filter(m => m.characterId === partner.id && m.date);
-  const byDate = {}; mine.forEach(m => { byDate[m.date] = m; });
-  const now = new Date();
-  const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const [pickDay, setPickDay] = useState(null);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const dk = (y, m, d) => y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
-  const todayKey = dk(now.getFullYear(), now.getMonth(), now.getDate());
-  const emo = k => { const mm = moodBy(k); return mm ? mm.emoji : ""; };
-  const glyph = (k, sz) => h(MoodGlyph, { mood: k, size: sz });
-  const nav = delta => setYm(p => { let m = p.m + delta, y = p.y; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } return { y: y, m: m }; });
-  const monthPrefix = ym.y + "-" + String(ym.m + 1).padStart(2, "0") + "-";
-  const monthEntries = mine.filter(m => m.date.indexOf(monthPrefix) === 0);
-  const allKeys = [];
-  monthEntries.forEach(m => { if (m.myMood) allKeys.push(m.myMood); if (m.charMood) allKeys.push(m.charMood); });
-  const topOf = arr => { const f = {}; arr.forEach(k => f[k] = (f[k] || 0) + 1); const k = Object.keys(f).sort((a, b) => f[b] - f[a])[0]; return k ? { k: k, n: f[k] } : null; };
-  const myTop = topOf(monthEntries.map(m => m.myMood).filter(Boolean));
-  const charTop = topOf(monthEntries.map(m => m.charMood).filter(Boolean));
-  const cells = calCells(ym.y, ym.m);
-  const weeks = Math.max(1, Math.ceil(cells.length / 7));
-  const jarLine = "#8f8f8f";
-  const person = (who, top) => h("div", { className: "flex-1 flex flex-col items-center", style: { borderLeft: who === "char" ? "1px solid " + t.line : "none", padding: "4px 6px" } },
-    h(Avatar, { character: who === "me" ? (me || { name: "我", color: t.accent }) : (pa || partner), size: 50, radius: 999 }),
-    top ? h("div", { style: { marginTop: 8, lineHeight: 1 } }, glyph(top.k, 36)) : h("div", { style: { fontSize: 24, marginTop: 8, opacity: 0.25 } }, "—"),
-    top ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#c02a52", marginTop: 4 } }, "×" + top.n) : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, "还没打卡"));
-  return h("div", { className: "h-full flex flex-col" },
-    h(Head, { zh: "心情日历", en: "Mood · " + partner.name, onBack,
-      right: h("button", { onClick: () => setStatsOpen(true), className: "active:opacity-50" }, h(IBars, { size: 18, color: t.ink })) }),
-    h("div", { className: "flex-1 flex flex-col px-5 pb-4 min-h-0" },
-      h("div", { className: "flex items-center justify-center gap-5 shrink-0", style: { marginTop: 6, marginBottom: 10 } },
-        h("button", { onClick: () => nav(-1), className: "active:opacity-50", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog } }, "‹"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, ym.y + " 年 " + (ym.m + 1) + " 月"),
-        h("button", { onClick: () => nav(1), className: "active:opacity-50", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog } }, "›")),
-      h("div", { className: "shrink-0", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", marginBottom: 5 } }, CAL_DOW.map((w, i) => h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, w))),
-      h("div", { className: "flex-1 min-h-0", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridTemplateRows: "repeat(" + weeks + ",1fr)", gap: 4 } },
-        cells.map((d, i) => {
-          if (d === null) return h("div", { key: i });
-          const key = dk(ym.y, ym.m, d);
-          const en = byDate[key];
-          const isToday = key === todayKey;
-          const has = en && (en.myMood || en.charMood);
-          return h("button", { key: i, onClick: () => setPickDay(key), className: "active:opacity-70", style: { borderRadius: 12, background: has && moodBy(en.myMood) ? moodBy(en.myMood).color : (isToday ? t.bg2 : "transparent"), border: isToday ? "1.5px solid " + t.ink : "1px solid " + t.line, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", padding: "5px 2px", overflow: "hidden", minHeight: 42 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: isToday ? 700 : 400, color: isToday ? t.ink : t.sub } }, d),
-            has ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 1, marginTop: 3 } }, en.myMood ? glyph(en.myMood, 18) : null, en.charMood ? glyph(en.charMood, 18) : null) : null);
-        })),
-      h("button", { onClick: () => setPickDay(todayKey), className: "shrink-0 active:opacity-70", style: { marginTop: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "12px 0", borderRadius: 14 } }, byDate[todayKey] ? "今天已打卡 · 看 / 改" : "今日打卡 ＋💗")),
-    pickDay && h(Sheet, { onClose: () => setPickDay(null) }, (() => {
-      const isToday = pickDay === todayKey;
-      const en = byDate[pickDay];
-      const parts = pickDay.split("-");
-      return h("div", null,
-        h(Eyebrow, { style: { marginBottom: 12 } }, (+parts[1]) + "月" + (+parts[2]) + "日" + (isToday ? " · 今天" : "")),
-        isToday ? h("div", { style: { marginBottom: 16 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "选一个今天的心情，TA 也会为今天选一个"),
-          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 } },
-            COUPLE_MOODS.map(mm => h("button", { key: mm.key, onClick: () => onCheckin(partner, mm.key), className: "active:opacity-70 flex flex-col items-center", style: { padding: "10px 0", borderRadius: 14, background: en && en.myMood === mm.key ? mm.color : t.bg2, border: "1px solid " + (en && en.myMood === mm.key ? t.ink : t.line) } },
-              glyph(mm.key, 32),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 4 } }, mm.label))))) : null,
-        en ? h("div", { className: "space-y-3" },
-          h("div", { className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
-            h("div", { style: { width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: t.fog } }, en.myMood ? glyph(en.myMood, 30) : "—"),
-            h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.tint } }, "我"),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, en.myMood ? moodBy(en.myMood).label : "还没选"))),
-          h("div", { className: "flex items-center gap-3", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
-            h("div", { style: { width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: t.fog } }, gen && isToday && !en.charMood ? "⏳" : (en.charMood ? glyph(en.charMood, 30) : "—")),
-            h("div", { className: "flex-1 min-w-0" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent } }, partner.name),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, en.charMood ? moodBy(en.charMood).label : (gen && isToday ? "选心情中…" : "还没选")),
-              en.charText ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 3 } }, "“" + en.charText + "”") : null))) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, isToday ? "" : "这天没有打卡记录。"));
-    })()),
-    statsOpen && h(Sheet, { onClose: () => setStatsOpen(false), tall: true },
-      h(Eyebrow, { style: { marginBottom: 14 } }, ym.y + " 年 " + (ym.m + 1) + " 月 · 心情罐头"),
-      h("div", { style: { position: "relative", width: 250, height: 252, margin: "0 auto 4px" } },
-        h("div", { style: { position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 132, height: 22, borderRadius: 7, border: "3px solid " + jarLine, background: t.bg2, zIndex: 2 } }),
-        h("div", { style: { position: "absolute", top: 18, left: "50%", transform: "translateX(-50%)", width: 234, height: 234, borderRadius: "16px 16px 52px 52px", border: "3px solid " + jarLine, background: "linear-gradient(180deg,rgba(255,255,255,0.35),rgba(0,0,0,0.03))", display: "flex", flexWrap: "wrap", alignContent: "flex-end", justifyContent: "center", padding: "14px 10px 12px", overflow: "hidden" } },
-          allKeys.length ? allKeys.map((k, i) => { const rot = ((i * 37) % 46) - 23; const mx = ((i * 53) % 9) - 4; const my = ((i * 29) % 8) - 5; return h("span", { key: i, style: { lineHeight: 1, display: "inline-block", transform: "rotate(" + rot + "deg)", margin: my + "px " + mx + "px" } }, glyph(k, 25)); }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, margin: "auto", textAlign: "center", lineHeight: 1.8, whiteSpace: "pre-line" } }, "这个月还没有心情，\n去打卡吧～"))),
-      h(Eyebrow, { style: { marginTop: 18, marginBottom: 10 } }, "本月最多心情"),
-      h("div", { className: "flex", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 18, padding: "16px 10px" } },
-        person("me", myTop), person("char", charTop)),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", marginTop: 14 } }, "收集了我们点点滴滴的情绪")));
-}
-
 // 情侣空间·我们的日子：纪念日倒计时(倒数中) + 恋爱时间轴(时光轴，起点/里程碑/感慨)，二合一，都带年份
 function CoupleDays({ partner, since, events, annivs, onAdd, onRemove, onGen, onAddAnniv, onRemoveAnniv, gen, onBack }) {
   const t = useTheme();
@@ -3338,7 +3200,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall}) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall}) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3385,20 +3247,9 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   if (partner && cp[view] && cp[view].status === "together" && sub === "notes") {
     return h(CoupleNotes, { partner, notes: coupleNotes, onAdd: onAddNote, onAddReply: onAddNoteReply, onRemove: onRemoveNote, onGen: onGenNote, gen: noteGen, onBack: () => setSub(null) });
   }
-  // 情侣空间子模块：心情打卡
-  if (partner && cp[view] && cp[view].status === "together" && sub === "mood") {
-    const cpm = (coupleProfile || {})[partner.id] || {};
-    const meM = cpm.myAvatar ? { name: (profile && profile.name) || "我", avatarImage: cpm.myAvatar } : { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: (profile && profile.color) || t.accent };
-    const paM = cpm.charAvatar ? { name: partner.name, avatarImage: cpm.charAvatar } : partner;
-    return h(CoupleMood, { partner, me: meM, pa: paM, moods: coupleMood, onCheckin: onCheckinMood, gen: moodGen, onBack: () => setSub(null) });
-  }
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
   if (partner && cp[view] && cp[view].status === "together" && (sub === "timeline" || sub === "anniv")) {
     return h(CoupleDays, { partner, since: cp[view].since, events: coupleTimeline, annivs: coupleAnniv, onAdd: onAddTimeline, onRemove: onRemoveTimeline, onGen: onGenTimeline, onAddAnniv: onAddAnniv, onRemoveAnniv: onRemoveAnniv, gen: tlGen, onBack: () => setSub(null) });
-  }
-  // 情侣空间子模块：同频测试
-  if (partner && cp[view] && cp[view].status === "together" && sub === "sync") {
-    return h(CoupleSyncTest, { partner, records: coupleSync, onStart: onSyncStart, onSubmit: onSyncSubmit, onRemove: onSyncRemove, gen: syncGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：交换日记
   if (partner && cp[view] && cp[view].status === "together" && sub === "exdiary") {
@@ -3443,10 +3294,12 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     const bPhotos = (duoPhotosFor ? duoPhotosFor(bCid) : []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
     const bLetters = (coupleLetters || []).filter(l => l.characterId === bCid);
     const bUnread = bLetters.filter(l => !l.isRead).length;
-    const bMood = (coupleMood || []).find(m => m.characterId === bCid && m.date === todayK);
+    // 他【真实】的心情（跟着真的聊过的天走，会自己平复）。v58.90 之前这儿看的是
+    // 「心情打卡」——一次调用让模型在看不见你俩今天发生过什么的情况下瞎选一个表情。
+    const bMood = moodOf ? moodOf(bCid) : null;
     const bNote = (coupleNotes || []).filter(n => n.characterId === bCid)[0];
     const bQaN = (coupleQA || []).filter(e => e.characterId === bCid).length;
-    const bSync = (coupleSync || []).filter(r => r.characterId === bCid && r.status === "done")[0];
+
     const bTlN = (coupleTimeline || []).filter(e => e.characterId === bCid).length;
     const bAnn = (coupleAnniv || []).filter(a => a.characterId === bCid).map(a => {
       const t0 = new Date(); t0.setHours(0, 0, 0, 0);
@@ -3472,7 +3325,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     (coupleLetters || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "l_" + x.id, ts: itemTs(x), sub: "letters", icon: "💌", label: "情书", text: cleanSnippet(x.title || x.body) }));
     (coupleExDiary || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "d_" + x.id, ts: itemTs(x), sub: "exdiary", icon: "📔", label: "交换日记", text: cleanSnippet(x.content) }));
     (coupleTimeline || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "t_" + x.id, ts: itemTs(x), sub: "timeline", icon: "📅", label: "我们的日子", text: cleanSnippet(x.title || x.content) }));
-    (coupleSync || []).filter(x => x.characterId === bCid && x.status === "done").forEach(x => recentItems.push({ id: "s_" + x.id, ts: itemTs(x), sub: "sync", icon: "🎯", label: "同频测试", text: "这一局答对了 " + (x.score || 0) + "/" + ((x.qs || []).length || 0) + " 题" }));
     bPhotos.forEach((x, i) => recentItems.push({ id: "p_" + (x.imgKey || x.ts || i), ts: itemTs(x), sub: "album", icon: "🖼️", label: "合照墙", text: cleanSnippet(x.desc) || "收进了一张我俩的合照" }));
     bWishes.forEach(x => recentItems.push({ id: "w_" + x.id, ts: itemTs(x), sub: "wishes", icon: "✦", label: x.status === "done" ? "愿望实现" : "愿望板", text: cleanSnippet(x.title) }));
     recentItems.sort((a, b) => b.ts - a.ts);
@@ -3488,7 +3340,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
       },
         h("span", { style: { fontSize: 13 } }, x.icon),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#765865", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text)))) : null;
-    const bSyncTag = r => { const p = r.qs.length ? r.score / r.qs.length : 0; return p >= 1 ? "心有灵犀" : p >= 0.8 ? "同频共振" : p >= 0.6 ? "还算合拍" : p >= 0.4 ? "偶尔跑频" : "平行世界"; };
     const imgRow = (label, ref, field, has) => h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, label),
       h("div", { className: "flex items-center gap-3" },
@@ -3528,12 +3379,14 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, bToday.length ? "今天留下 " + bToday.length + " 件事" : "安静的一天也算一天")),
             h("div", { style: { borderRadius: 22, overflow: "hidden", border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)" } },
               h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr" } },
-                h("button", { onClick: () => setSub("mood"), className: "active:opacity-70", style: { minHeight: 98, padding: "15px 14px", textAlign: "left", borderRight: "1px solid #eadde3" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, "两个人的天气"),
-                  bMood ? h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
-                    bMood.myMood ? h(MoodGlyph, { mood: bMood.myMood, size: 30 }) : null,
-                    bMood.charMood ? h(MoodGlyph, { mood: bMood.charMood, size: 30 }) : h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#927280" } }, "等 TA 打卡"))
-                    : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#765865", marginTop: 12 } }, "还没写下心情")),
+                h("div", { style: { minHeight: 98, padding: "15px 14px", borderRight: "1px solid #eadde3" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, partner.name + " 此刻"),
+                  bMood && bMood.label ? h("div", { className: "flex items-center gap-2", style: { marginTop: 10 } },
+                    moodFaceOf(bMood.label) ? h(MoodGlyph, { mood: moodFaceOf(bMood.label), size: 30 }) : null,
+                    h("div", { className: "min-w-0" },
+                      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#765865", lineHeight: 1.2 } }, bMood.label),
+                      bMood.ago ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a08795", marginTop: 2 } }, bMood.ago) : null))
+                    : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#765865", marginTop: 12 } }, "还没聊过天")),
                 h("button", { onClick: () => setSub("timeline"), className: "active:opacity-70", style: { minHeight: 98, padding: "15px 14px", textAlign: "left" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, bAnn ? "下一件值得等的事" : "日历上等你们写"),
                   bAnn ? h(Fragment, null,
@@ -3597,13 +3450,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 body: h("div", null,
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#a5793a", lineHeight: 1.2 } }, bLetters.length ? bLetters.length + " 封" : "写给彼此"),
                   bUnread ? sub2(bUnread + " 封没拆", "#c65a4a") : null) }),
-              // 心情日历（2x1）：今天俩人的心情脸
-              tile("mood", { e: "🗓️", zh: "心情日历", bg: "#eef4fc", bd: "#d6e2f0", ink: "#6d88ad",
-                body: bMood ? h("div", { className: "flex items-center gap-1.5" },
-                    bMood.myMood ? h(MoodGlyph, { mood: bMood.myMood, size: 26 }) : null,
-                    bMood.charMood ? h(MoodGlyph, { mood: bMood.charMood, size: 26 }) : null,
-                    !bMood.charMood ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#6d88ad" } }, "等 TA…") : null)
-                  : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#5b7fb0" } }, "今天还没打卡") }),
               // 便签墙（4x1 长条）：最新一张
               tile("notes", { w: 4, e: "📝", zh: "便签墙", bg: "#f3f0fa", bd: "#ded7ee", ink: "#8a7ab0", dot: unreadNotesFor(bCid),
                 body: h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6f5f9a", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
@@ -3628,11 +3474,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 })() }),
               tile("qa", { e: "📖", zh: "问答小本", bg: "#eef6ef", bd: "#d4e6d8", ink: "#6a9a74",
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#4f8a5e", lineHeight: 1.2 } }, bQaN ? "已答 " + bQaN + " 题" : "关于我们") }),
-              // 同频测试（2x1）
-              tile("sync", { e: "🎯", zh: "同频测试", bg: "#eef2f8", bd: "#d3ddec", ink: "#6d80a8",
-                body: h("div", null,
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#5b73a3", lineHeight: 1.2 } }, bSync ? bSync.score + "/" + bSync.qs.length + " " + bSyncTag(bSync) : "TA 有多懂你"),
-                  bSync ? sub2("上一局", "#6d80a8") : null) }),
               // 交换日记（2x1）
               (() => {
                 const ex = (coupleExDiary || []).filter(e => e.characterId === bCid);

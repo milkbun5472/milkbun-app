@@ -10,8 +10,8 @@ const keys = ["x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_s
 const growingKeys = ["x_phone", "x_phoneArch", "x_phoneVitals", "x_diaries", "x_schedules", "x_charWallet"];
 const coupleKeys = [
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
-  "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom", "x_coupleMood",
-  "x_coupleSync", "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters",
+  "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
+  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters",
   "x_coupleLetterCfg", "x_coupleSweet"
 ];
 

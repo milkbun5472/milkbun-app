@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.89";
+const APP_VERSION = "v58.90";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -305,10 +305,6 @@ function App() {
   const [coupleNotes, setCoupleNotes] = useState([]);
   // 情侣空间·问答自定义题库：{ [charId]: ["题目",...] }，各角色各一份、不互通
   const [coupleQACustom, setCoupleQACustom] = useState({});
-  // 情侣空间·心情打卡：角色留下的心情流 {id,characterId,moodTag,text,createdAt}
-  const [coupleMood, setCoupleMood] = useState([]);
-  // 情侣空间·同频测试：整局存档流 {id,characterId,ts,status:'quiz'|'done',qs:[{q,opts,my,ta,reason}],score,remark}
-  const [coupleSync, setCoupleSync] = useState([]);
   // 情侣空间·交换日记：一本两人轮流写的本子 {id,characterId,author:'user'|charId,content,mood,weather,date,ts,dueTs?,replied?,replyToId?,unread?}
   const [coupleExDiary, setCoupleExDiary] = useState([]);
   const coupleExDiaryRef = useRef([]); coupleExDiaryRef.current = coupleExDiary;
@@ -346,6 +342,7 @@ function App() {
   // 情侣空间·只由用户手动维护的共同档案与愿望板；不从聊天/记忆自动固化
   // { [charId]: { archive:{...}, wishes:[{id,title,type,note,status,createdAt,updatedAt}] } }
   const [coupleHome, setCoupleHome] = useState({});
+  const coupleHomeRef = useRef({}); coupleHomeRef.current = coupleHome;
   // 解除情侣关系记录：{ [charId]: { ts, deducted, affAfter } } —— 一周冷却 + 复合需加回被扣一半
   const [coupleBreakup, setCoupleBreakup] = useState({});
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
@@ -736,8 +733,6 @@ function App() {
     }
     setCoupleNotes(_cnotes);
     setCoupleQACustom(loadJSON("x_coupleQACustom", {}));
-    setCoupleMood(loadJSON("x_coupleMood", []));
-    setCoupleSync(loadJSON("x_coupleSync", []));
     setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
     setCoupleRecall(loadJSON("x_coupleRecall", []));
@@ -2849,6 +2844,33 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   ④ 此刻在做什么。
   // 这几条都是【这个人此刻是谁】，按「读一律给」封闭群照发；但和用户的关系是私事，
   // 必须落在这位成员自己那一段里，走隐私围栏，绝不合成一块共享注入。
+  // 情侣空间【我们的档案】——她亲手写的七栏：彼此称呼、只有你俩懂的梗、小仪式、
+  // 安慰说明书、边界与禁区、喜欢清单、第一次们。
+  // ⚠️v58.90 之前这七栏只躺在 x_coupleHome 里给她一个人看：界面上写着「你写下什么，
+  // 才留下什么」，结果只留在她这边——全 App 最该进提示词的内容，他一个字都不知道
+  //（她 2026-08-31 盘点时拍板接线）。栏名照抄界面上那几个，她是按那个提示写的。
+  const COUPLE_ARCHIVE_LINES = [
+    ["nicknames", "你们怎么称呼彼此"],
+    ["insideJokes", "只有你俩懂的梗"],
+    ["rituals", "你俩之间的小仪式"],
+    ["comfort", "难过的时候想被怎样接住，什么反而会踩雷"],
+    ["boundaries", "你俩认真约定过、不该越过的线"],
+    ["favorites", "你俩都喜欢的东西"],
+    ["firsts", "你俩的那些第一次"]
+  ];
+  const COUPLE_ARCHIVE_FIELD_CAP = 260, COUPLE_ARCHIVE_CAP = 1400;
+  const coupleArchiveFor = charId => {
+    const cp = couplesRef.current[charId];
+    if (!cp || cp.status !== "together") return "";   // 还没在一起就没有「你俩」这回事
+    // ⚠️档案存在 coupleHome[cid].archive 这一层里，不是顶层——
+    // 顶层还并排放着 wishes 那一摊。第一版读成 home[k]，浏览器里当场看出来是空的。
+    const home = ((coupleHomeRef.current || {})[charId] || {}).archive || {};
+    const rows = COUPLE_ARCHIVE_LINES
+      .map(([k, zh]) => { const v = String(home[k] || "").replace(/\s+/g, " ").trim(); return v ? "· " + zh + "：" + v.slice(0, COUPLE_ARCHIVE_FIELD_CAP) : ""; })
+      .filter(Boolean);
+    if (!rows.length) return "";                      // 一栏没写＝零 token
+    return rows.join("\n").slice(0, COUPLE_ARCHIVE_CAP);
+  };
   const coupleLineFor = (charId, uName) => {
     const cp = couplesRef.current[charId];
     if (!cp) return "";
@@ -2970,6 +2992,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (cp.status === "pending") return "pending";
       return "";
     })(),
+    coupleArchive: coupleArchiveFor(char.id),
     // 世界书：按当前角色 + 近期对话做关键词/绑定/范围/优先级检索式注入（第2步引擎），不再是一整团
     worldbook: loreFor(char, "chat"),
     // 人格档案（欲望盒子毕业念想凝成的自我认知，她拍板常驻当人设活体延伸）：多数角色为空=零成本，引擎里封顶400字
@@ -4598,6 +4621,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!c || c.npc) return;            // 配角跟用户没有关系线
         const l = coupleLineFor(id, profile.name || "用户");
         if (l) m[id] = l;
+      });
+      return m;
+    })(),
+    // 【我们的档案】跟情侣状态同一档：也是这位成员的私事，落在他自己那一段里、
+    // 带同一道隐私围栏。四处一样喂——单聊有的这一层，群里两处也要有。
+    memberCoupleArchive: (() => {
+      const m = {};
+      (group.memberIds || []).forEach(id => {
+        const c = characters.find(x => x.id === id);
+        if (!c || c.npc) return;
+        const a = coupleArchiveFor(id);
+        if (a) m[id] = a;
       });
       return m;
     })(),
@@ -6800,6 +6835,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const ageSeg = (() => { const a = ageLineFor(c); return a ? "\n〔你现在〕" + a : ""; })();
         // ⚠️和用户是什么关系是【这位成员的私事】——落在他自己这一段里，别的成员不知道（隐私铁律见下）
         const cpSeg = (() => { const l = coupleLineFor(c.id, profile.name || "用户"); return l ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : ""; })();
+        // 【我们的档案】跟情侣状态同一档：这位成员的私事，走同一道隐私围栏（四处一样喂）
+        const caSeg = (() => { const a = coupleArchiveFor(c.id); return a ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(a, profile.name || "用户") : ""; })();
         const sbSeg = (() => { const b = schedBriefFor(c); return b ? "\n〔此刻在做什么〕" + b + "（自然渗进语气和状态，别报行程表）" : ""; })();
         // NPC 是只在群里出场的配角（她 2026-08-25 拍板）：没有心情、没有好感度。
         // 也不吃印象卡、长出来的自我、年龄、行程、情侣状态——那些都是
@@ -6822,7 +6859,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
             ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "";
           return txt ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + txt : "";
         })();
-        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cySeg + cpSeg + xgSeg;
+        return "【" + c.name + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -12000,78 +12037,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     return n;
   });
 
-  // ---- 情侣空间·同频测试（纯娱乐，不动好感）----
-  // AI 按记忆出 5 道关于用户的选择题→我作答→TA 认真猜我选了什么+理由→算默契分+TA 感想，整局存档
-  const startCoupleSync = async char => {
-    if (!active) { toast("请先到设置配置 API"); return false; }
-    setGen(g => ({ ...g, coupleSync: true }));
-    try {
-      // 出题要吃更宽的记忆（不按近期聊天检索，按权重多捞几条），touch:false 别把「被出题想起」算成复习
-      const ctx = { ...ctxFor(char), memLib: retrieveMemories(memLibRef.current, char.id, "", { limit: 14, touch: false }) };
-      const d = await runProbe(active, ctx, {
-        instruction: "你们是恋人，正在情侣空间玩「同频测试」：现在出 5 道关于用户本人的选择题，稍后用户自己作答、你来猜 TA 的选择，比默契（纯娱乐）。\n【出题要求】\n- 题目全部围绕【用户】：TA 的偏好、习惯、在具体情境下会怎么选（如「周五晚上 TA 更想…」「吵架冷战后 TA 通常会…」）。\n- 优先出从上面的记忆、你们相处细节里长出来的题（有依据可猜），再补一两道日常趣味题；别出知识题、别出关于你自己的题、别出没法猜的开放题。\n- 每题 3~4 个具体选项，都要像 TA 可能选的、别放明显凑数项；题干不超过 30 字，选项不超过 15 字。\n- 必须一次性出满 5 题：qs 数组要有 5 个元素，一个都不能少、别中途停笔。",
-        schemaHint: "{\"qs\":[{\"q\":\"题目1\",\"opts\":[\"选项1\",\"选项2\",\"选项3\"]},{\"q\":\"题目2\",\"opts\":[\"…\"]},{\"q\":\"题目3\",\"opts\":[\"…\"]},{\"q\":\"题目4\",\"opts\":[\"…\"]},{\"q\":\"题目5\",\"opts\":[\"…\"]}]}",
-        maxTokens: 8000   // 思考型模型的思考预算也从这里扣，给紧了只出一两题就停（v47.72 修「题没出够」）；她按次计费输出免费，别抠
-      });
-      const qs = (d.qs || []).filter(x => x && x.q && Array.isArray(x.opts) && x.opts.length >= 2).slice(0, 5).map(x => ({ q: String(x.q), opts: x.opts.slice(0, 4).map(String), my: -1, ta: -1, reason: "" }));
-      if (qs.length < 3) throw new Error("题没出够，再试一次");
-      setCoupleSync(p => {
-        // 同一角色只留一局未答草稿（旧草稿丢弃）
-        const n = [{ id: "sync_" + Date.now(), characterId: char.id, ts: Date.now(), status: "quiz", qs, score: 0, remark: "" }, ...p.filter(r => !(r.characterId === char.id && r.status === "quiz"))];
-        saveJSON("x_coupleSync", n);
-        return n;
-      });
-      return true;
-    } catch (e) { toast("失败：" + e.message); return false; }
-    finally { setGen(g => ({ ...g, coupleSync: false })); }
-  };
-  // 我答完 → TA 盲猜（不给 TA 看我的答案，真判断）→ 本地算分 → 揭晓后 TA 写感想
-  const submitCoupleSync = async (char, rec, myPicks) => {
-    if (!active) { toast("请先到设置配置 API"); return false; }
-    setGen(g => ({ ...g, coupleSync: true }));
-    try {
-      const L = "ABCD";
-      const qText = rec.qs.map((x, i) => (i + 1) + ". " + x.q + "\n" + x.opts.map((o, j) => "   " + L[j] + ". " + o).join("\n")).join("\n");
-      if (typeof primeQueryVec === "function") await primeQueryVec(rec.qs.map(x => x.q).join(" ")); // 向量记忆预热：用题目本身当查询
-      const ctx = { ...ctxFor(char), memLib: retrieveMemories(memLibRef.current, char.id, rec.qs.map(x => x.q).join(" "), { limit: 10, touch: false }) };
-      const d = await runProbe(active, ctx, {
-        instruction: "你们是恋人，正在玩「同频测试」：下面 " + rec.qs.length + " 道关于用户的题，TA 已经自己作答（答案对你保密），现在你以「" + char.name + "」的身份【认真猜】TA 每题选了哪个——凭你对 TA 的了解、记忆和相处细节判断，不是随便蒙。每题配一句你为什么这么猜，口吻自然像在跟 TA 说话，别写分析报告。\n【题目】\n" + qText,
-        schemaHint: "{\"guesses\":[{\"pick\":\"A/B/C/D 之一\",\"why\":\"一句理由\"},…按题目顺序共" + rec.qs.length + "个，一个不能少]}",
-        maxTokens: 6000   // 思考型模型预算别抠
-      });
-      const gs = Array.isArray(d.guesses) ? d.guesses : [];
-      const qs = rec.qs.map((x, i) => {
-        const g = gs[i] || {};
-        const ta = Math.max(0, Math.min(L.indexOf(String(g.pick || "A").trim().toUpperCase().charAt(0)), x.opts.length - 1));
-        return { ...x, my: myPicks[i], ta, reason: String(g.why || "").trim() };
-      });
-      const score = qs.filter(x => x.my === x.ta).length;
-      // 揭晓感想：拿全对照表让 TA 说几句（失败不影响整局，感想留空）
-      let remark = "";
-      try {
-        const table = qs.map((x, i) => (i + 1) + ". " + x.q + "｜TA 选了「" + x.opts[x.my] + "」，你猜的是「" + x.opts[x.ta] + "」" + (x.my === x.ta ? "（猜中✓）" : "（没猜中）")).join("\n");
-        const r2 = await runProbe(apiFor(char.id), ctxFor(char), {
-          instruction: "「同频测试」揭晓：你猜用户的选择，" + qs.length + " 题猜中 " + score + " 题。对照：\n" + table + "\n以「" + char.name + "」的身份对结果说一段感想（2~4 句）——按人设和你俩的关系来：猜得准可以得意、感慨很懂 TA；猜错的题可以惊讶、辩解、或悄悄记下「原来你是这样的」。像聊天不像总结，别喊口号。",
-          schemaHint: "{\"remark\":\"感想\"}",
-          maxTokens: 3000   // 思考型模型预算别抠
-        });
-        remark = String(r2.remark || "").trim();
-      } catch (e2) {}
-      setCoupleSync(p => {
-        const n = p.map(r => r.id === rec.id ? { ...r, status: "done", qs, score, remark, doneAt: Date.now() } : r);
-        saveJSON("x_coupleSync", n);
-        return n;
-      });
-      return true;
-    } catch (e) { toast("失败：" + e.message); return false; }
-    finally { setGen(g => ({ ...g, coupleSync: false })); }
-  };
-  const removeCoupleSync = id => setCoupleSync(p => {
-    const n = p.filter(r => r.id !== id);
-    saveJSON("x_coupleSync", n);
-    return n;
-  });
-
   // ---- 情侣空间·交换日记（v47.77 借 LNChat）----
   // 一本两人轮流写的本子：我随时写一页 → TA 三天内挑个时候回一页（按 TA【回复当天】的处境写，
   // 呼应我那页 + 写没说出口的潜台词）。写页零 API；TA 回页=tick 到期触发一次调用
@@ -12118,62 +12083,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const markExDiaryRead = cid => {
     if (!(coupleExDiaryRef.current || []).some(x => x.characterId === cid && x.author !== "user" && x.unread)) return;
     saveExDiary(p => p.map(x => x.characterId === cid && x.author !== "user" && x.unread ? { ...x, unread: false } : x));
-  };
-  // 情侣空间·心情打卡：让角色留一条此刻心情（右上刷新触发；未来接调度器每日/随机）
-  // 心情打卡：每天一次，我选一个心情 → TA 也为今天选一个心情 + 一句话；一天一条 {date,myMood,charMood,charText}
-  const COUPLE_MOOD_KEYS = ["relax:轻松", "surprise:惊喜", "gloomy:郁闷", "sad:难过", "happy:开心", "irritated:烦躁", "proud:骄傲", "cozy:舒畅", "amazed:惊讶"];
-  const moodLabelOf = k => { const s = COUPLE_MOOD_KEYS.find(x => x.split(":")[0] === k); return s ? s.split(":")[1] : k; };
-  const checkinCoupleMood = async (char, myMood) => {
-    const today = ymd(new Date());
-    // 同步：我的心情一次性写进所有「在一起」的情侣空间今日记录（纯本地、不花 API）
-    const partnerIds = Object.keys(couples).filter(id => couples[id] && couples[id].status === "together");
-    const syncIds = partnerIds.includes(char.id) ? partnerIds : partnerIds.concat([char.id]);
-    setCoupleMood(p => {
-      let n = p;
-      syncIds.forEach(cid => {
-        const ex = n.find(m => m.characterId === cid && m.date === today);
-        n = ex
-          ? n.map(m => (m.characterId === cid && m.date === today) ? { ...m, myMood } : m)
-          : [{ id: "mood_" + Date.now() + "_" + cid, characterId: cid, date: today, myMood, charMood: null, charText: "", createdAt: Date.now() }, ...n];
-      });
-      saveJSON("x_coupleMood", n);
-      return n;
-    });
-    if (!active) { toast(syncIds.length > 1 ? "已打卡并同步到 " + syncIds.length + " 个情侣空间（配置 API 后 TA 会选心情）" : "已打卡（配置 API 后 TA 也会选心情）"); return true; }
-    setGen(g => ({ ...g, coupleMood: true }));
-    try {
-      // 一次调用生成【所有在一起的恋人】今天的心情（省次数：N 位一次出，别每个空间各刷一次）
-      const partners = syncIds.map(id => characters.find(c => c.id === id)).filter(Boolean);
-      const validKeys = COUPLE_MOOD_KEYS.map(s => s.split(":")[0]);
-      const roster = partners.map((c, i) => (i + 1) + ". 「" + c.name + "」人设：" + (c.persona || "（无设定）").replace(/\s+/g, " ").slice(0, 260)).join("\n");
-      const sys = ANTI_CLICHE +
-        "\n\n今天用户在 TA 各位恋人的「心情打卡」里都选了心情「" + moodLabelOf(myMood) + "」。请【为下面每一位恋人】各自今天选一个心情、并各留一句【≤20 字】的话——各贴各自人设与此刻状态，可自然呼应用户的心情，别喊口号、别几位写成一个腔调。心情只能从这些英文 key 里挑一个：" + validKeys.join("、") +
-        "\n\n【恋人们（按此顺序，各写各的）】\n" + roster +
-        "\n\n【输出】只输出 JSON：{\"moods\":[{\"name\":\"恋人名\",\"mood\":\"英文key\",\"text\":\"一句≤20字的话\"}]}，每位恋人一条，顺序同上。";
-      const raw = await callAI(bgActive, sys, [{ role: "user", content: "各自选今天的心情，写满每一位。" }], { maxTokens: Math.min(8000, 2000 + partners.length * 700) });
-      const parsed = extractJSON(raw) || {};
-      const arr = Array.isArray(parsed.moods) ? parsed.moods : [];
-      const byName = {};
-      arr.forEach(m => { if (m && m.name) byName[String(m.name).trim()] = m; });
-      setCoupleMood(p => {
-        let n = p;
-        partners.forEach((c, i) => {
-          const hit = byName[c.name] || arr[i]; // 先按名字配，配不上按顺序兜底
-          if (!hit) return;
-          const cm = validKeys.includes(hit.mood) ? hit.mood : "relax";
-          n = n.map(m => (m.characterId === c.id && m.date === today) ? { ...m, charMood: cm, charText: String(hit.text || "").trim() } : m);
-        });
-        saveJSON("x_coupleMood", n);
-        return n;
-      });
-      toast(partners.length > 1 ? "已打卡，" + partners.length + " 位恋人的心情一次都生成好了" : "已打卡");
-      return true;
-    } catch (e) {
-      toast("心情生成失败：" + e.message);
-      return false;
-    } finally {
-      setGen(g => ({ ...g, coupleMood: false }));
-    }
   };
   // 情侣空间·恋爱时间轴：我手动加里程碑（不走 API）+ 角色写一条「感慨」（生成）
   const addTimelineEvent = (char, date, title, content) => {
@@ -14293,9 +14202,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onGenNote: genCoupleNote,
     noteGen: gen.coupleNote,
     coupleQACustom: coupleQACustom,
-    coupleMood: coupleMood,
-    onCheckinMood: checkinCoupleMood,
-    moodGen: gen.coupleMood,
+    // 情侣空间首页那格看的是他【真实】的心情（跟着真的聊过的天走、会自己平复），
+    // 不再是「心情打卡」那次瞎猜的调用。0 调用，而且和提示词里发给他的是同一份读数。
+    moodOf: cid => {
+      const m = (moods || {})[cid] || {};
+      if (!m.label) return null;
+      const st = window.MoodLabel && window.MoodLabel.settle
+        ? window.MoodLabel.settle(m.label, m.ts, Date.now())
+        : { label: m.label, hours: 0 };
+      if (!st.label) return null;
+      const hrs = Number(st.hours) || 0;
+      return { label: st.label, ago: hrs < 1 ? "刚刚" : hrs < 24 ? Math.round(hrs) + " 小时前" : Math.round(hrs / 24) + " 天前" };
+    },
     coupleTimeline: coupleTimeline,
     onAddTimeline: addTimelineEvent,
     onRemoveTimeline: removeTimelineEvent,
@@ -14315,11 +14233,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     letterGen: gen.coupleLetter,
     coupleSweet: coupleSweet,
     onCheckinSweet: checkinSweet,
-    coupleSync: coupleSync,
-    onSyncStart: startCoupleSync,
-    onSyncSubmit: submitCoupleSync,
-    onSyncRemove: removeCoupleSync,
-    syncGen: gen.coupleSync,
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,
     onReadExDiary: markExDiaryRead

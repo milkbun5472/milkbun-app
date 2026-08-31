@@ -12,7 +12,7 @@ const grab = (src, a, b, cap) => {
 const nocomment = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const seal = grab(app, "  const sealCoupleQA = (char, item) => {", "  const answerCoupleQA = async (char, item) => {");
 const ans = grab(app, "  const answerCoupleQA = async (char, item) => {", "  const rerollCoupleQA");
-const book = grab(scr, "function CoupleQABook({", "// 情侣空间·同频测试");
+const book = grab(scr, "function CoupleQABook({", "// 情侣空间·交换日记");
 
 // 她 2026-08-31：「a 这不就是问答小本我想要的效果嘛」。
 // 看了一眼它原来根本不是双答——提示词里明写着「顺着用户的回答接话（呼应 TA 说的，

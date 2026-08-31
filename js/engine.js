@@ -2004,6 +2004,17 @@ function selectLore(entries, opts) {
 function loreText(entries, opts) {
   return selectLore(entries, opts).map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n");
 }
+// 情侣空间【我们的档案】那一块的领句与围栏。三条路共用（单聊 buildBundle、群线上、群线下）——
+// 一层只写一处，别再抄第二遍。围栏那句是必须的：不挡的话他会每句话都把称呼和梗端出来演一遍，
+// 跟记忆库那条「记忆用来不忘、不是用来重演」是同一个病。
+function coupleArchiveBlock(text, uName) {
+  const t = String(text || "").trim();
+  if (!t) return "";
+  return "【只有你俩才有的那些 · " + (uName || "对方") + "亲手写下来的，你俩之间真实的东西】\n" + t
+    + "\n⚠️这是【背景】不是【剧本】：记住它们只为你俩的相处对得上，绝不是要你把这些称呼、梗、仪式挨个拿出来演一遍。用得上的时候自然用，用不上就一个字都别提。";
+}
+if (typeof window !== "undefined") window.coupleArchiveBlock = coupleArchiveBlock;
+
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -2080,6 +2091,9 @@ function buildBundle(ctx, opts) {
   if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push("【你长出来的自我】这些是这段日子里你自己亲笔写下的自我认知——是你当下真实的一部分，" + (ctx.personaEvolve ? "在【软层】（亲近方式／处理冲突的习惯／偏好／勇气／信任／对未来的选择）上，它比原人设卡更接近现在的你、可以盖过原卡里那些旧的软性倾向（但绝不改你的核心身份、底线和真实发生过的经历）" : "和人设同等分量") + "，自然体现在言行里，别当台词复述：\n" + ctx.personaGrown.trim());
   if (profile && (profile.name || profile.persona)) parts.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
   parts.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
+  // 档案是【稳定】内容（称呼、梗、仪式几个月不变），所以放在时间切点【之前】跟着人设一起被缓住。
+  // 情侣状态那一块含「约 X 天」每天变，才被挪到切点之后——两者别混为一谈。
+  if (!ctx.notRoleplay && ctx.coupleArchive) parts.push(coupleArchiveBlock(ctx.coupleArchive, uName));
   // ⭐时间块在此拼入：稳定的人设/关系之后、易变的心情/好感/记忆/近况之前——缓存切点(【当前真实时间】)落在这，
   //   前缀缓住上面全部稳定内容(反八股+守则+人设+关系网)，下面易变的不缓、每轮照旧。
   if (timeBlock.length) parts.push(...timeBlock);
@@ -3491,8 +3505,8 @@ const DURABLE_TEXT_KEYS = new Set([
   "x_phone", "x_phoneArch", "x_phoneVitals", "x_diaries", "x_schedules", "x_charWallet",
   // 情侣空间正文。只列 saveJSON 管理的键；仍由旧 UI 直读的小标记继续留在 localStorage。
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
-  "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom", "x_coupleMood",
-  "x_coupleSync", "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters",
+  "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
+  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters",
   "x_coupleLetterCfg", "x_coupleSweet"
 ]);
 const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"];
@@ -4814,6 +4828,7 @@ async function generateOfflineGroup(p, ctx, session) {
     + ((ctx.memberCarry && ctx.memberCarry[c.id]) ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + ctx.memberCarry[c.id] : "")
     + ((ctx.memberGaze && ctx.memberGaze[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + ctx.memberGaze[c.id] : "")
     + ((ctx.memberCouple && ctx.memberCouple[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕" + ctx.memberCouple[c.id] : "")
+    + ((ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id]) ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(ctx.memberCoupleArchive[c.id], userName) : "")
   ).join("\n\n");
   // 群里每人最多一段、整场最多四人有范例，避免多人场景为文风样本挤爆上下文。
   const memberExampleText = members.map(c => offlineStyleExamplesBlock(ctx.memberStyleExamples && ctx.memberStyleExamples[c.id], c.name, 1)).filter(Boolean).slice(0, 4).join("");
