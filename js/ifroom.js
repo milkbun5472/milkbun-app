@@ -73,20 +73,43 @@
   // ⚠️只发【题目和前提】，不发正文——那是别的线的内容，混进来只会让它串味。
   function avoidBlock(prior) {
     const rows = (Array.isArray(prior) ? prior : []).slice(0, 8)
-      .map(function (x) { return x && x.title ? "· 「" + x.title + "」：" + String(x.premise || "").slice(0, 40) : ""; })
+      .map(function (x) {
+        if (!x || !x.title) return "";
+        // about 也要发回去：换个壳、探的还是同一个关系点，那也是重复——
+        // 而且是更难发现的那一种（题目看着不一样，读起来一模一样）。
+        return "· 「" + x.title + "」：" + String(x.premise || "").slice(0, 40)
+          + (x.about ? "｜探的是：" + String(x.about).slice(0, 30) : "");
+      })
       .filter(Boolean);
     if (!rows.length) return "";
     const used = {};
     (Array.isArray(prior) ? prior : []).slice(0, 8).forEach(function (x) { if (x && x.dim) used[x.dim] = 1; });
     const fresh = DIMS.filter(function (d) { return !used[d[0]]; }).map(function (d) { return d[1]; });
     return "\n\n【已经想过这几条，一条都不许再想】\n" + rows.join("\n")
-      + "\n⚠️不是换个说法就算新的：**同一样东西变了、只是换个词说**（同一个设定换个名字、"
-      + "同一个身份换个说法）也算重复。这一条要动的必须是【上面那几条没动过的那一样】。\n"
+      + "\n⚠️不是换个说法就算新的，有两种都算重复：\n"
+      + "① **同一样东西变了、只是换个词说**（同一个设定换个名字、同一个身份换个说法）；\n"
+      + "② **换了个壳、探的还是同一个关系点**——上面写着「探的是」的那几样，这一条一个都不许再探。\n"
+      + "这一条要动的必须是【上面那几条没动过的那一样】。\n"
       + (fresh.length
         ? "上面那几条已经动过：" + DIMS.filter(function (d) { return used[d[0]]; }).map(function (d) { return d[1]; }).join("、")
           + "。**这一条从【" + fresh.join("】或【") + "】里挑一样动。**"
         : "四样都动过了，那就在【同一样】里换一个完全不同的走法，但绝不许跟上面任何一条撞在同一个点子上。");
   }
+  // ⚠️她 2026-08-31 点破的那个：人设里最显眼的一块（多半是职业/研究领域）会把模型
+  // 整个吸过去，于是每条线都在那一块里打转，压根想不到关系。小剧场早就栽过同一个坑、
+  // 也留了同一句话（「原本搞研究就总派研究员，这是偷懒」）。
+  //
+  // 两道一起下：① 明令不许拿职业当题目；② 逼它【先写这条线探的是你俩之间的哪一点】，
+  // 再去想壳——顺序本身就是结构，先写关系就没法再从职业出发。
+  const IF_ABOUT = "【先想这个，再想别的】\n"
+    + "这条线要探的是【你们两个人之间的一样东西】——不是他一个人的处境，更不是他的行当。\n"
+    + "先把它写进 about：你俩之间哪一点，是把它拿掉、或者反过来，才看得出它一直在那儿的？"
+    + "（谁一直在等谁、谁先开口、哪句话始终没说、你俩之间靠什么维系着、"
+    + "有一样东西是不是一直被当成理所当然的……方向是这一类，不是让你照着填。）\n"
+    + "⚠️**绝不许拿他的职业、研究领域、专业身份当这条线的题目。** 那是他人设里最显眼的一块，"
+    + "抓它最省力，也最没意思——一连几条都长在同一个行当上，就是这么来的。"
+    + "换个职业照样成立的关系难题才是对的，反过来【换个职业就不成立】的题目一律推翻重想。\n"
+    + "壳（他变成什么、在哪个年代、记不记得）只是把 about 那一点逼出来的手段，不是目的。";
   function openPrompt(charName, uName, hint, prior) {
     const h = clip(hint, 200);
     return "你要为「" + charName + "」和「" + uName + "」想一条【如果线】，然后把它的开场写出来。\n"
@@ -95,8 +118,10 @@
       + (h ? "【她给的方向】" + h + "\n这就是这条线要走的方向，按它来，别另起炉灶。\n\n"
            : "【她没给方向】那就从【他这个人身上】长出一条来：哪一样变了，最能把他这个人显出来？\n"
              + "别挑那个最顺手的——换个角色照样成立的，就是想坏了。\n\n")
+      + IF_ABOUT + "\n\n"
       + IF_BEAT + avoidBlock(prior) + "\n\n"
-      + "另外给四样：title＝这条线叫什么（八个字以内，别剧透结局）；"
+      + "按这个顺序给：about＝这条线探的是你俩之间的哪一点（先写这个）；"
+      + "title＝这条线叫什么（八个字以内，别剧透结局）；"
       + "premise＝一句话说清哪一样不一样了；"
       + "dim＝这条动的是上面四样里的哪一个（只填 " + DIMS.map(function (d) { return d[0]; }).join(" / ") + " 之一）；"
       + "bg＝这条线的背景画面提示词（一句英文，只写地方和光线氛围，不要写人）。";
@@ -106,12 +131,12 @@
       + "⚠️别急着收尾，也别开新线头往外岔——顺着刚才那一下往前走一步就好。\n"
       + "「" + uName + "」刚才那几句就在上面，接住她真正说的那句，别当没看见。";
   }
-  const OPEN_SHAPE = "{\"title\":\"这条线叫什么\",\"premise\":\"哪一样不一样了，一句话\",\"dim\":\"form/era/memory/fork 之一\",\"bg\":\"背景画面提示词，一句英文\",\"boxes\":[{\"who\":\"留空＝旁白，填名字＝他说的话\",\"text\":\"这一框的内容\"}]}";
+  const OPEN_SHAPE = "{\"about\":\"这条线探的是你俩之间的哪一点\",\"title\":\"这条线叫什么\",\"premise\":\"哪一样不一样了，一句话\",\"dim\":\"form/era/memory/fork 之一\",\"bg\":\"背景画面提示词，一句英文\",\"boxes\":[{\"who\":\"留空＝旁白，填名字＝他说的话\",\"text\":\"这一框的内容\"}]}";
   const BEAT_SHAPE = "{\"boxes\":[{\"who\":\"留空＝旁白，填名字＝他说的话\",\"text\":\"这一框的内容\"}]}";
 
   const api = {
     BOXES_MIN: BOXES_MIN, BOXES_MAX: BOXES_MAX, BOX_CAP: BOX_CAP, MY_BOXES_MAX: MY_BOXES_MAX,
-    IF_SCALE: IF_SCALE, IF_BEAT: IF_BEAT, DIMS: DIMS, dimZh: dimZh, avoidBlock: avoidBlock,
+    IF_SCALE: IF_SCALE, IF_BEAT: IF_BEAT, IF_ABOUT: IF_ABOUT, DIMS: DIMS, dimZh: dimZh, avoidBlock: avoidBlock,
     normBoxes: normBoxes, openPrompt: openPrompt, beatPrompt: beatPrompt,
     OPEN_SHAPE: OPEN_SHAPE, BEAT_SHAPE: BEAT_SHAPE
   };

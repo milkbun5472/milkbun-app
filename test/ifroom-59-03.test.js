@@ -190,3 +190,56 @@ test("列表上直接收得了、删得掉，删之前问一句", () => {
   assert.equal((scr.match(/const IF_ENDINGS = \[/g) || []).length, 1);
   assert.equal((scr.match(/h\(IfEndPick, \{/g) || []).length, 2, "两处收线没共用同一个选择器");
 });
+
+// ═══ v59.07 她 2026-08-31 的诊断 ═══
+// 「而且因为阿屿设定就是 ai 情绪研究员所以模型就一直抓着这个，
+//  而不是想到去抓关系里面的重点？」
+//
+// 她说对了，而且原因比想象的更直白：ifCtx 里【压根没有「你俩是什么关系」】，
+// 只有两份人设。关系里的重点它无从抓起，只能抓人设里最显眼的那一块＝他的职业。
+test("上下文里给了关系事实，但不给主线状态", () => {
+  const ctx = cut(app, "  const ifCtx = char => {", "  const ifSave = next =>");
+  assert.match(ctx, /【他俩是什么关系】/, "还是只有两份人设，一个字没说他俩是什么关系");
+  assert.match(ctx, /已经在一起的恋人/, "没说在一起没有");
+  assert.match(ctx, /到今天第 " \+ days \+ " 天/, "没说多久了");
+  assert.match(ctx, /关系网上写着：/, "关系网那几个标签没给");
+  // ⚠️给的只能是【关系事实】：记忆库/好感/心情/印象卡仍旧一个都不给
+  const bare = x => x.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  ["memLib", "affinity", "moodLabel", "gazeText", "worldbook", "memories"].forEach(k =>
+    assert.ok(bare(ctx).indexOf(k) < 0, "把主线状态漏进平行时空了：" + k));
+});
+
+// 人设里最显眼的一块会把模型整个吸过去。小剧场早就栽过同一个坑、也留了同一句话
+//（「原本搞研究就总派研究员，这是偷懒」）。如果馆原来一句都没有。
+test("明令不许拿职业当题目", () => {
+  assert.match(K.IF_ABOUT, /绝不许拿他的职业、研究领域、专业身份当这条线的题目/);
+  assert.match(K.IF_ABOUT, /那是他人设里最显眼的一块，抓它最省力/, "没说清为什么会这样");
+  assert.match(K.IF_ABOUT, /换个职业照样成立的关系难题才是对的/, "没给正面判据");
+  assert.match(K.IF_ABOUT, /【换个职业就不成立】的题目一律推翻重想/, "没给推翻的动作");
+  assert.ok(K.openPrompt("A", "B", "").indexOf(K.IF_ABOUT) > 0, "这一段没发出去");
+});
+
+// 顺序即结构：先写「探的是你俩之间的哪一点」，再去想壳——先写关系就没法再从职业出发
+test("逼它先想关系那一点，壳只是手段", () => {
+  const p = K.openPrompt("A", "B", "");
+  assert.match(p, /about＝这条线探的是你俩之间的哪一点（先写这个）/, "没要求先写 about");
+  assert.ok(p.indexOf("about＝") < p.indexOf("title＝"), "about 排在 title 后面就不叫先写了");
+  assert.match(K.OPEN_SHAPE, /^\{"about"/, "输出形状里 about 也得排头一个");
+  assert.match(K.IF_ABOUT, /壳（他变成什么、在哪个年代、记不记得）只是把 about 那一点逼出来的手段，不是目的/);
+  // 方向给的是【一类】，不是让它照着填（prompt-no-content-samples）
+  assert.match(K.IF_ABOUT, /方向是这一类，不是让你照着填/);
+});
+
+// 换个壳、探的还是同一个关系点——那是更难发现的那一种重复（题目不一样，读起来一样）
+test("避重也认「同一个关系点」", () => {
+  const prior = [{ title: "未命名版本", premise: "他只是她写出来的模型", dim: "form", about: "她一直在替他兜底" }];
+  const p = K.openPrompt("A", "B", "", prior);
+  assert.match(p, /｜探的是：她一直在替他兜底/, "避重块里没带上探的是什么");
+  assert.match(p, /换了个壳、探的还是同一个关系点/, "没把这一种重复说出来");
+  assert.match(p, /上面写着「探的是」的那几样，这一条一个都不许再探/);
+  assert.match(app, /about: String\(\(d && d\.about\) \|\| ""\)/, "about 没存下来，下次就避不了");
+  assert.match(app, /dim: x\.dim, about: x\.about \}\)\)\)/, "存了却没发回去");
+  // 界面上也要看得见——那是最值得看的一行
+  assert.match(scr, /"探的是：" \+ x\.about/, "列表上看不到探的是什么");
+  assert.match(scr, /"探的是：" \+ line\.about/, "侧栏里看不到探的是什么");
+});

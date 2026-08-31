@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.06";
+const APP_VERSION = "v59.07";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12300,8 +12300,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   const IF_CAP = 60;                    // 一条线最多留多少拍，防它长成一本书
   const ifCtx = char => {
     const uName = profile.name || "我";
+    // ⚠️她 2026-08-31 一句话点破：「因为阿屿设定就是 ai 情绪研究员所以模型就一直抓着
+    // 这个，而不是想到去抓关系里面的重点？」——她说对了，而且原因比想象的更直白：
+    // 这一份上下文里【压根没有「你俩是什么关系」】，只有两份人设。关系里的重点它
+    // 无从抓起，只能抓人设里最显眼的那一块，也就是他的职业。
+    //
+    // 补的是【关系事实】，不是主线状态：在一起没有、多久了、关系网上那几个标签。
+    // 记忆库／好感／心情／印象卡一律【不给】——那些才是平行时空不许读的东西。
+    const cp = (couplesRef.current || {})[char.id] || {};
+    const days = cp.status === "together" && cp.since
+      ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : 0;
+    const relLine = [rels[char.id + "->me"], rels["me->" + char.id]]
+      .map(r => r && r.label ? r.label + (r.note ? "（" + r.note + "）" : "") : "")
+      .filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join("；");
     return "【他是谁】" + char.name + "\n" + String(char.persona || "").slice(0, 6000)
       + (profile.persona ? "\n\n【和他在一起的人 · " + uName + "】\n" + String(profile.persona).slice(0, 2000) : "")
+      + "\n\n【他俩是什么关系】"
+      + (cp.status === "together" ? "已经在一起的恋人" + (days ? "，到今天第 " + days + " 天" : "") : "还没在一起")
+      + (relLine ? "。关系网上写着：" + relLine : "")
       + "\n\n【她叫】" + uName;
   };
   const ifSave = next => { ifLinesRef.current = next; setIfLines(next); saveJSON("x_ifLines", next); };
@@ -12318,7 +12334,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 只发题目/前提/动过哪个维度，不发正文——那是别的线的内容，混进来只会串味。
         ANTI_CLICHE + "\n\n" + ifCtx(char) + "\n\n"
         + K.openPrompt(char.name, profile.name || "我", hint,
-            ifLinesRef.current.filter(x => x.charId === char.id).map(x => ({ title: x.title, premise: x.premise, dim: x.dim })))
+            ifLinesRef.current.filter(x => x.charId === char.id).map(x => ({ title: x.title, premise: x.premise, dim: x.dim, about: x.about })))
         + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + K.OPEN_SHAPE,
         [{ role: "user", content: "开这一条。" }], { maxTokens: 4000 })) || {};
       const boxes = K.normBoxes(d && d.boxes, char.name);
@@ -12328,6 +12344,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         title: String((d && d.title) || "一个如果").replace(/\s+/g, " ").trim().slice(0, 16),
         premise: String((d && d.premise) || "").replace(/\s+/g, " ").trim().slice(0, 80),
         dim: (window.IfKit.DIMS || []).some(x => x[0] === String((d && d.dim) || "")) ? String(d.dim) : "",
+        about: String((d && d.about) || "").replace(/\s+/g, " ").trim().slice(0, 60),
         bgPrompt: String((d && d.bg) || "").replace(/\s+/g, " ").trim().slice(0, 200),
         bgKey: null, hint: String(hint || "").trim().slice(0, 200),
         beats: [{ id: "b_" + Date.now(), role: "char", boxes: boxes, ts: Date.now() }],
