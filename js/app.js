@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.81";
+const APP_VERSION = "v58.82";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -340,6 +340,9 @@ function App() {
   const [coupleSweet, setCoupleSweet] = useState({});
   // 情侣空间·详情页自定义：{ [charId]: { bg, myAvatar, charAvatar } }（默认取角色头像/我的头像，不影响原头像）
   const [coupleProfile, setCoupleProfile] = useState({});
+  // 情侣空间·只由用户手动维护的共同档案与愿望板；不从聊天/记忆自动固化
+  // { [charId]: { archive:{...}, wishes:[{id,title,type,note,status,createdAt,updatedAt}] } }
+  const [coupleHome, setCoupleHome] = useState({});
   // 解除情侣关系记录：{ [charId]: { ts, deducted, affAfter } } —— 一周冷却 + 复合需加回被扣一半
   const [coupleBreakup, setCoupleBreakup] = useState({});
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
@@ -742,6 +745,7 @@ function App() {
     setNeteaseCookie(loadJSON("x_neteaseCookie", ""));
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
+    setCoupleHome(loadJSON("x_coupleHome", {}));
     setCoupleBreakup(loadJSON("x_coupleBreakup", {}));
     // 迁移旧单人情侣数据 x_couple → 新多人 x_couples
     let cps = loadJSON("x_couples", null);
@@ -11457,6 +11461,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_coupleProfile", n);
     return n;
   });
+  const saveCoupleHome = (charId, value) => setCoupleHome(p => {
+    const current = p[charId] || {};
+    const nextValue = typeof value === "function" ? value(current) : value;
+    const n = { ...p, [charId]: nextValue || {} };
+    saveJSON("x_coupleHome", n);
+    return n;
+  });
   const setCoupleImg = async (charId, field, file) => {
     if (!file) { saveCoupleProfile(charId, { [field]: null }); return; }
     try { const url = await resizeImageFile(file, field === "bg" ? 900 : 400, 0.82); saveCoupleProfile(charId, { [field]: url }); }
@@ -14044,6 +14055,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSetSince: setCoupleSince,
     profile: profile,
     coupleProfile: coupleProfile,
+    coupleHome: coupleHome,
+    onSaveCoupleHome: saveCoupleHome,
     onSetCoupleImg: setCoupleImg,
     gen: gen.whisper,
     coupleQA: coupleQA,
