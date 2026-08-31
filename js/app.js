@@ -3393,7 +3393,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const gs = gsFor(gid);
         if (!gs.memoryInterop || gs.autoChat === false) continue;
         if (laneBusy("g:" + gid)) continue;
+        // ⚠️「线下正在进行」不等于「线下浮层开着」（她 2026-08-31 报）：
+        // 下拉「回线上群」那一下只是 setOfflineGroup(null) 收浮层，那一场【并没有结束】。
+        // 原来这里只挡浮层，所以浮层一收自发聊立刻放行——同一个群里人还面对面坐着，
+        // 线上就自顾自聊起跟线下无关的事。
+        // 单聊那条链早就是按【场次】判的（offlinesRef 里没写 endTs 的那一场），
+        // 群聊这条没跟上——又是「一层只写在一处，别处没跟上」。
         if (offlineGroup && offlineGroup.id === gid) continue;
+        const gOffList = groupOfflinesRef.current[gid] || loadJSON("x_goffline:" + gid, []);
+        if (window.InteractionClock && window.InteractionClock.offlineSceneLive(gOffList, Date.now())) continue;
         const msgs = (groupChatsRef.current[gid] || []).filter(m => m && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && contextAllowsMessage(m));
         if (!msgs.length) continue;
         const last = msgs[msgs.length - 1];

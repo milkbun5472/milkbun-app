@@ -40,5 +40,16 @@
       });
     });
   }
-  return { latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow };
+  // 这一场线下【还在进行】吗？——注意这跟「线下浮层开着」是两件事：
+  // 下拉回线上群只收浮层，那一场并没有结束。判据是场次本身：没写 endTs、已经演过至少一拍、
+  // 而且开场不超过 8 小时（跟 isTogetherNow 同一个上限，免得一场忘了结束的线下把东西永远关死）。
+  const OFFLINE_LIVE_MS = 8 * 60 * 60 * 1000;
+  function offlineSceneLive(sessions, now) {
+    now = Number(now) || Date.now();
+    return (Array.isArray(sessions) ? sessions : []).some(function (s) {
+      return s && !s.endTs && ((s.msgs || []).length > 0) && (now - (Number(s.startTs) || 0) < OFFLINE_LIVE_MS);
+    });
+  }
+  return { latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
+    offlineSceneLive: offlineSceneLive };
 });

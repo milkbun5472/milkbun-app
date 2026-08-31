@@ -15,7 +15,8 @@ const scan = (() => {
 
 // —— 把真的那段巡检抠出来跑，别拿模型推理代替测量 ——
 // 环境全是桩：群、设置、成员、额度卡、replyGroup 只记账不发请求。
-function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true, autoChat = true, holdAfter = 0, resumeAfterMin = 0 }) {
+function drive(opts) {
+  const { minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.5, hours = 2, kicked = false, urge = true, autoChat = true, holdAfter = 0, resumeAfterMin = 0 } = opts || {};
   const src = (() => {
     const i = app.indexOf("const scanAutoGroups = () => {");
     return app.slice(i, app.indexOf("\n    };", i) + 6);
@@ -26,6 +27,7 @@ function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.
   const store = {}, calls = [];
   const gs = { memoryInterop: true, autoChat: autoChat, autoChatMin: minutes, autoChatRounds: rounds, autoChatMaxMsg: maxMsg, autoChatResetHours: 24 };
   const chat = [{ role: "user", ts: T0 }];      // 她先说了一句 → 开一张新额度卡
+  const goff = opts.groupOffline || [];        // 这个群有没有一场【还在进行】的线下（v58.80）
   const env = {
     groups: [{ id: G, memberIds: ["c1", "c2"] }],
     characters: [{ id: "c1", name: "顾朝" }, { id: "c2", name: "顾暮" }],
@@ -34,6 +36,9 @@ function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.
     offlineGroup: null,
     contextAllowsMessage: () => true,
     groupChatsRef: { current: { [G]: chat } },
+    groupOfflinesRef: { current: { [G]: goff } },
+    loadJSON: (k, d) => d,
+    InteractionClock: require("../js/interaction-clock.js"),
     jiwenFiredRef: { current: {} },
     getJiwen: () => ({ applyDelta() {} }),
     autoChatCycleRef: { current: store },
@@ -45,7 +50,8 @@ function drive({ minutes, rounds, maxMsg, perRound = 5, jiwen = false, rand = 0.
     AUTO_FIRST_ROUND_GRACE: 3,   // 她刚开过口那一段，第一轮要多等的倍数（v56.79）
     Math: Object.assign(Object.create(Math), { random: () => rand }),
     Date: { now: () => NOW },
-    window: { __jiwen: jiwen ? { c1: { triggers: urge ? [{ action: "contact" }] : [] }, c2: { triggers: [] } } : {} }
+    window: { __jiwen: jiwen ? { c1: { triggers: urge ? [{ action: "contact" }] : [] }, c2: { triggers: [] } } : {},
+      InteractionClock: require("../js/interaction-clock.js") }
   };
   const scan = new Function(...Object.keys(env), src + "\nreturn scanAutoGroups;")(...Object.values(env));
   // 黑色回复键那一下：replyGroup 里 !rgOpts.auto 走的就是这几句
@@ -193,4 +199,35 @@ test("再翻回黑色，接着把剩下那两轮聊完（额度卡没被清掉�
   const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, holdAfter: 3, resumeAfterMin: 40, hours: 3 });
   assert.equal(got.length, 5, "翻回来该接着聊满 5 轮，实际 " + got.length + " 轮");
   assert.ok(got[3].minute > 40, "第 4 轮该发生在翻回来之后，实际 " + got[3].minute + " 分");
+});
+
+// ── 她 2026-08-31：「我和顾朝顾暮在群线下，然后他们同一个群线上又在继续聊
+//    和线下发生的无关的东西」──────────────────────────────────────────────
+// 病因不是提示词（replyGroup 早有「你们此刻正在一场群线下」那一段，也真拼进了
+// system），是守卫盯错了东西：它盯【线下浮层开着】，可下拉「回线上群」只是
+// setOfflineGroup(null) 收浮层，那一场并没有结束——浮层一收，自发聊立刻放行。
+const T0 = Date.UTC(2026, 7, 27, 2, 0, 0);
+test("群线下还在演，同一个群的线上一句都不许自发（哪怕浮层已经收起来了）", () => {
+  const live = drive({ minutes: 8, rounds: 5, maxMsg: 50, hours: 2,
+    groupOffline: [{ id: "s1", startTs: T0 - 600000, msgs: [{ role: "user", ts: T0 - 600000 }] }] });
+  assert.equal(live.length, 0, "人还面对面坐着，线上却自顾自聊了 " + live.length + " 轮");
+  // 对照：同样两小时，没有线下就该照常跑满
+  const free = drive({ minutes: 8, rounds: 5, maxMsg: 50, hours: 2 });
+  assert.ok(free.length >= 5, "对照组本身就没跑起来，上面那条等于没测");
+});
+
+test("线下结束之后，线上自发要能恢复", () => {
+  const ended = drive({ minutes: 8, rounds: 5, maxMsg: 50, hours: 2,
+    groupOffline: [{ id: "s1", startTs: T0 - 600000, endTs: T0 - 60000, msgs: [{ role: "user", ts: T0 - 600000 }] }] });
+  assert.ok(ended.length >= 5, "线下都结束了还锁着——那就再也聊不起来了");
+});
+
+test("一场忘了结束的线下不许把自发聊永远关死", () => {
+  const stale = drive({ minutes: 8, rounds: 5, maxMsg: 50, hours: 2,
+    groupOffline: [{ id: "s1", startTs: T0 - 9 * 3600000, msgs: [{ role: "user", ts: T0 - 9 * 3600000 }] }] });
+  assert.ok(stale.length >= 5, "9 小时前那场还锁着自发聊");
+  // 开了但一拍没演的，也不算「正在进行」
+  const empty = drive({ minutes: 8, rounds: 5, maxMsg: 50, hours: 2,
+    groupOffline: [{ id: "s1", startTs: T0 - 600000, msgs: [] }] });
+  assert.ok(empty.length >= 5, "只是开了个空场就把线上锁住了");
 });
