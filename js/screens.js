@@ -3312,7 +3312,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     const bWishes = Array.isArray(bHome.wishes) ? bHome.wishes : [];
     const bArchiveN = COUPLE_ARCHIVE_FIELDS.filter(f => String(bArchive[f[0]] || "").trim()).length;
     const bWishOpen = bWishes.filter(w => w.status !== "done" && w.status !== "shelved").length;
-    const bCapsuleDue = typeof window !== "undefined" && window.capsuleDueCount ? window.capsuleDueCount() : 0;
+    const bCapsuleDue = typeof window !== "undefined" && window.capsuleDueCount ? window.capsuleDueCount(bCid, partner.name) : 0;
     const itemTs = x => {
       if (!x) return 0;
       const direct = Number(x.updatedAt || x.createdAt || x.ts || x.answeredAt || 0);
@@ -3476,7 +3476,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
               tile("qa", { e: "📖", zh: "问答小本", bg: "#eef6ef", bd: "#d4e6d8", ink: "#6a9a74",
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#4f8a5e", lineHeight: 1.2 } }, bQaN ? "已答 " + bQaN + " 题" : "关于我们") }),
               // 时光胶囊的正门搬进情侣空间：仍复用 x_capsules 和原完整页面，不复制数据。
-              tile("capsule", { e: "⌛", zh: "时光胶囊", bg: "#f1f0f8", bd: "#dedbea", ink: "#7d7396", dot: bCapsuleDue > 0, onClick: onOpenCapsule,
+              tile("capsule", { e: "⌛", zh: "时光胶囊", bg: "#f1f0f8", bd: "#dedbea", ink: "#7d7396", dot: bCapsuleDue > 0, onClick: () => onOpenCapsule && onOpenCapsule(bCid),
                 body: h("div", null,
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#675d84", lineHeight: 1.25 } }, bCapsuleDue ? bCapsuleDue + " 封等你拆" : "写给以后的我们"),
                   sub2(bCapsuleDue ? "已经到期" : "封存一段此刻", bCapsuleDue ? "#c65a4a" : "#7d7396")) }),

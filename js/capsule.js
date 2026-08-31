@@ -1,7 +1,7 @@
 // ============================================================
 // 时光胶囊（capsule）—— 给未来写信，情侣空间内的独立页面（眠尔机借鉴，自己重写）
-//   · 给某个角色写：到期 TA 才收到拆开，读信后写一封回信（一次 API，走主力池）
-//   · 给未来的自己写：到期自己拆，角色不参与
+//   · 每段情侣空间只看自己的胶囊；角色 ID 是隔离边界，旧内容不迁移、不删除
+//   · 给当前情侣对象写：到期 TA 才收到拆开，读信后写一封回信（一次 API，走主力池）
 //   · 反向：你给 TA 埋胶囊时，TA 有时也悄悄埋一颗给你（内容当场生成封存，到期才能看）
 //   · 到期时情侣空间入口红点（window.capsuleDueCount）；封存中内容全锁（自己写的也不给看，反悔删掉可以）
 // 数据 x_capsules，随云同步。
@@ -10,7 +10,13 @@
   const ACCENT = "#5a6d8a";
   const load = () => { const v = loadJSON("x_capsules", []); return Array.isArray(v) ? v : []; };
   const save = list => saveJSON("x_capsules", list);
-  window.capsuleDueCount = function () { try { const now = Date.now(); return load().filter(c => !c.opened && c.openTs <= now).length; } catch (e) { return 0; } };
+  // ID 是权威隔离键；极早期若只存了名字，则仅为同名角色做只读兼容。
+  const belongsTo = (cap, characterId, characterName) => {
+    if (!cap || !characterId || cap.dir === "toSelf") return false;
+    if (String(cap.charId || "") === String(characterId)) return true;
+    return !cap.charId && !!characterName && String(cap.charName || "") === String(characterName);
+  };
+  window.capsuleDueCount = function (characterId, characterName) { try { const now = Date.now(); return load().filter(c => belongsTo(c, characterId, characterName) && !c.opened && c.openTs <= now).length; } catch (e) { return 0; } };
   const fmtD = ts => { const d = new Date(ts); return d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日"; };
   const leftTxt = ts => { const ms = ts - Date.now(); if (ms <= 0) return "可拆封"; const dd = Math.ceil(ms / 86400000); return dd > 1 ? "还有 " + dd + " 天" : "不到 1 天"; };
   const uid = () => "cap_" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
@@ -34,13 +40,19 @@
 
   function CapsuleApp(props) {
     const t = useTheme();
-    const [list, setList] = useState(load);
+    const [allList, setAllList] = useState(load);
     const [view, setView] = useState(null);      // null=列表 | "compose" | capsuleId(详情)
     const [busy, setBusy] = useState(null);      // 正在生成回信的 capsuleId
-    const persist = l => { setList(l); save(l); };
     const chars = props.characters || [];
     const uName = (props.profile && props.profile.name) || "我";
     const charOf = id => chars.find(c => c.id === id);
+    const activeChar = charOf(props.characterId);
+    const list = allList.filter(c => belongsTo(c, props.characterId, activeChar && activeChar.name));
+    const updateAll = updater => setAllList(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      save(next);
+      return next;
+    });
 
     // 反向胶囊：你埋给 TA 时，TA 也悄悄埋一颗——内容以 TA 此刻的心境当场写好、封存到同一天。
     // 每个角色【第一次】给 TA 埋时必回埋一颗（保证你至少见到一次）；之后 70% 概率。失败给提示、不再静默。
@@ -58,22 +70,23 @@
         const d = extractJSON(raw);
         if (!d || !d.letter) { props.toast && props.toast(char.name + " 想回埋一颗但没写成，回头再说～"); return; }
         const entry = { id: uid(), dir: "fromChar", source: "reciprocal", charId: char.id, charName: char.name, text: String(d.letter).trim(), createdTs: Date.now(), openTs, opened: false, reply: null };
-        setList(prev => { const n = [entry, ...prev]; save(n); return n; });
+        updateAll(prev => [entry, ...prev]);
         props.toast && props.toast(char.name + " 好像也悄悄埋了一颗…到期才能拆");
       } catch (e) { props.toast && props.toast(char.name + " 想回埋一颗但没成：" + (e.message || "稍后重试")); }
     };
-    const bury = (target, text, openTs) => {
-      const c = target === "self" ? null : charOf(target);
-      const entry = { id: uid(), dir: c ? "toChar" : "toSelf", source: "manual", charId: c ? c.id : null, charName: c ? c.name : null, text, createdTs: Date.now(), openTs, opened: false, reply: null };
-      persist([entry, ...list]);
+    const bury = (text, openTs) => {
+      const c = activeChar;
+      if (!c) { props.toast && props.toast("没找到这段情侣关系，先返回重进一次"); return; }
+      const entry = { id: uid(), dir: "toChar", source: "manual", charId: c.id, charName: c.name, text, createdTs: Date.now(), openTs, opened: false, reply: null };
+      updateAll(prev => [entry, ...prev]);
       setView(null);
       props.toast && props.toast("已封存 · " + fmtD(openTs) + " 开启");
-      if (c) maybeBuryBack(c, openTs);
+      maybeBuryBack(c, openTs);
     };
     // 拆封：给角色的 → TA 读信写回信；TA 埋的/给自己的 → 直接揭开
     const openCap = async cap => {
       if (cap.openTs > Date.now()) return;
-      const upd = patch => setList(prev => { const n = prev.map(x => x.id === cap.id ? { ...x, ...patch } : x); save(n); return n; });
+      const upd = patch => updateAll(prev => prev.map(x => x.id === cap.id ? { ...x, ...patch } : x));
       upd({ opened: true, openedTs: Date.now() });
       setView(cap.id);
       if (cap.dir === "toChar" && props.active && !cap.reply) {
@@ -90,7 +103,7 @@
         finally { setBusy(null); }
       }
     };
-    const delCap = id => { if (window.confirm("删掉这颗胶囊？删了不可恢复。")) { persist(list.filter(x => x.id !== id)); setView(null); } };
+    const delCap = id => { if (window.confirm("删掉这颗胶囊？删了不可恢复。")) { updateAll(prev => prev.filter(x => x.id !== id)); setView(null); } };
 
     // ---- 详情 ----
     if (view && view !== "compose") {
@@ -114,7 +127,7 @@
           ) : null));
     }
     // ---- 写一颗（compose）----
-    if (view === "compose") return h(CapsuleCompose, { t, chars, onBack: () => setView(null), onBury: bury });
+    if (view === "compose") return h(CapsuleCompose, { t, char: activeChar, onBack: () => setView(null), onBury: bury });
     // ---- 列表 ----
     const now = Date.now();
     const due = list.filter(c => !c.opened && c.openTs <= now);
@@ -134,9 +147,10 @@
         kind === "due" ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b89150", fontWeight: 700, flexShrink: 0 } }, "拆封") : null);
     };
     return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
-      h(Head, { zh: "时光胶囊", en: "Capsule", onBack: props.onBack, right: h("button", { onClick: () => setView("compose"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) }),
+      h(Head, { zh: "时光胶囊", en: activeChar ? activeChar.name : "Capsule", onBack: props.onBack, right: activeChar ? h("button", { onClick: () => setView("compose"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })) : null }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-10" },
-        list.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "还没有胶囊。\n点右上角 ＋ 给未来的 TA——或未来的自己——写点什么。") : null,
+        !activeChar ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "没有找到当前情侣对象。\n返回情侣空间后，从对应的人那里重新打开。") : null,
+        activeChar && list.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "60px 20px", lineHeight: 2 } }, "你和 " + activeChar.name + " 还没有胶囊。\n点右上角 ＋，给以后写点什么。") : null,
         due.length ? h("div", { style: { marginBottom: 14 } }, due.map(c => row(c, "due"))) : null,
         sealed.length ? h("div", { style: { marginBottom: 14 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.1em", color: t.fog, marginBottom: 8 } }, "封存中 · 到期前谁也看不到"),
@@ -146,8 +160,7 @@
           done.map(c => row(c, "done"))) : null));
   }
 
-  function CapsuleCompose({ t, chars, onBack, onBury }) {
-    const [target, setTarget] = useState("self");
+  function CapsuleCompose({ t, char, onBack, onBury }) {
     const [text, setText] = useState("");
     const [preset, setPreset] = useState(30);   // 天数；-1=自定义
     const [customDate, setCustomDate] = useState("");
@@ -161,19 +174,17 @@
       h(Head, { zh: "埋一颗胶囊", en: "Seal", onBack }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 8px" } }, "写给谁"),
-        h("div", { className: "flex flex-wrap", style: { gap: 7, marginBottom: 16 } },
-          chip(target === "self", "未来的自己", () => setTarget("self")),
-          chars.map(c => chip(target === c.id, c.remark || c.name, () => setTarget(c.id)))),
+        h("div", { style: { display: "inline-flex", alignItems: "center", padding: "7px 13px", borderRadius: 999, marginBottom: 16, fontFamily: F_BODY, fontSize: 12, background: ACCENT, color: "#fff" } }, char ? (char.remark || char.name) : "当前情侣对象"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 8 } }, "什么时候开启"),
         h("div", { className: "flex flex-wrap", style: { gap: 7, marginBottom: preset === -1 ? 10 : 16 } },
           [[7, "1 周后"], [30, "1 个月后"], [90, "3 个月后"], [365, "1 年后"], [-1, "选日子"]].map(p => chip(preset === p[0], p[1], () => setPreset(p[0])))),
         preset === -1 ? h("input", { type: "date", value: customDate, onChange: e => setCustomDate(e.target.value),
           style: { width: "100%", outline: "none", padding: "10px 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line, marginBottom: 16 } }) : null,
         h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 9,
-          placeholder: target === "self" ? "写给拆开这封信那天的自己……" : "写给拆开这封信那天的 TA……（封存后 TA 到期才看得到，你自己也不能偷看）",
+          placeholder: "写给拆开这封信那天的 TA……（封存后 TA 到期才看得到，你自己也不能偷看）",
           style: { width: "100%", outline: "none", resize: "vertical", padding: "13px 14px", borderRadius: 14, fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.85, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "封存后内容上锁、只能整颗删除；到期主屏会亮红点。给角色埋的话，TA 有时也会悄悄埋一颗给你。"),
-        h("button", { onClick: () => ok && onBury(target, text.trim(), openTs), disabled: !ok, className: "w-full active:opacity-80 disabled:opacity-40",
+        h("button", { onClick: () => ok && onBury(text.trim(), openTs), disabled: !ok, className: "w-full active:opacity-80 disabled:opacity-40",
           style: { marginTop: 16, fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", background: "#5a6d8a", border: "none", borderRadius: 14, padding: "14px 0" } }, "封存 🕰")));
   }
   window.CapsuleApp = CapsuleApp;

@@ -12,10 +12,24 @@ test("时光胶囊只搬入口、不搬数据，并从情侣空间原路返回",
   const capsule = read("js/capsule.js");
 
   assert.match(screens, /function Us\(\{[^\n]*\bonOpenCapsule\b[^\n]*\}\) \{/);
-  assert.match(screens, /tile\("capsule",[\s\S]*?onClick: onOpenCapsule/);
-  assert.match(app, /onOpenCapsule: \(\) => setScreen\("capsule"\)/);
+  assert.match(screens, /capsuleDueCount\(bCid, partner\.name\)/);
+  assert.match(screens, /tile\("capsule",[\s\S]*?onClick: \(\) => onOpenCapsule && onOpenCapsule\(bCid\)/);
+  assert.match(app, /const \[capsuleCharId, setCapsuleCharId\] = useState\(null\)/);
+  assert.match(app, /onOpenCapsule: charId => \{ setCapsuleCharId\(charId\); setScreen\("capsule"\); \}/);
+  assert.match(app, /screen === "capsule"[\s\S]*?characterId: capsuleCharId/);
   assert.match(app, /screen === "capsule"[\s\S]*?onBack: \(\) => setScreen\("us"\)/);
   assert.match(capsule, /x_capsules/);
+  assert.match(capsule, /const list = allList\.filter\(c => belongsTo\(c, props\.characterId/);
+  assert.match(capsule, /charId: c\.id, charName: c\.name/);
+  assert.doesNotMatch(capsule, /chars\.map\(c => chip/);
+});
+
+test("角色隔离只过滤显示，不覆盖或删除其他人的胶囊", () => {
+  const capsule = read("js/capsule.js");
+  assert.match(capsule, /const \[allList, setAllList\] = useState\(load\)/);
+  assert.match(capsule, /updateAll\(prev => \[entry, \.\.\.prev\]\)/);
+  assert.match(capsule, /updateAll\(prev => prev\.filter\(x => x\.id !== id\)\)/);
+  assert.doesNotMatch(capsule, /persist\(\[entry, \.\.\.list\]\)/);
 });
 
 test("主屏注册表和默认布局不再提供时光胶囊图标", () => {
