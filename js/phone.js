@@ -2388,7 +2388,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const taste = (data.taste && typeof data.taste === "object") ? data.taste : {};
   const today = (data.today && typeof data.today === "object") ? data.today : {};
   const live = A(data.live), orders = A(data.orders), shops = A(data.shops), addrs = A(data.addrs);
-  const week = A(data.week), coupons = A(data.coupons), wish = A(data.wish), together = A(data.together);
+  const week = A(data.week), wish = A(data.wish), together = A(data.together);
   const TAKE_COVERS = [["#8bb1a8", "#c7dcd7"], ["#d79288", "#efd0ca"], ["#869eb7", "#c7d3df"], ["#9aa98f", "#d3dccd"], ["#a496b7", "#d8d0e1"], ["#87959a", "#cad2d4"]];
   const cov = n => TAKE_COVERS[(Number(n) || 0) % TAKE_COVERS.length];
   const card = (kids, extra) => h("div", { style: Object.assign({ background: "#fff", borderRadius: 18, padding: "17px 17px", marginBottom: 13 }, extra || {}) }, kids);
@@ -2405,7 +2405,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       border: "1px solid " + (tier === "hidden" ? "rgba(200,80,70,.4)" : "#e9e4da"), color: tier === "hidden" ? "#b6473c" : "#5b564e" }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : T("转发给 TA · 他会知道你翻了手机")) : null;
   const noteLine = txt => h("div", { className: "flex", style: { gap: 7, marginTop: 11 } },
-    h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 12.5, color: "#e8863a" } }, "备注 ·"),
+    h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 12.5, color: TAKE_CORAL } }, "备注 ·"),
     h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#8a7a5e" } }, txt));
   const initial = x => String(x || "?").trim().slice(0, 1);
   // ── 账户条 ──
@@ -2415,7 +2415,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center flex-wrap", style: { gap: 7 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: TAKE_INK } }, acc.name || char.remark || char.name),
-          acc.member ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_ACCENT, background: "rgba(95,127,121,.12)", borderRadius: 999, padding: "3px 10px" } }, acc.member) : null),
+          // 会员等级不画：那是平台发的头衔，换个角色照样成立
+          null),
         acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 5 } }, "账号 " + acc.uid) : null)),
     (ms || acc.monthOrders != null || acc.monthSpend != null) ? h("div", { key: "n", className: "flex", style: { marginTop: 15, paddingTop: 13, borderTop: "1px solid #f3f1ec" } },
       // 同上：以钱包流水为准，没建档才用模型那份
@@ -2444,14 +2445,17 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 27, color: "#fff" } }, initial(today.shop))),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.4, color: TAKE_INK } }, today.shop || ""),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM, marginTop: 6 } },
-            [today.rating ? h("span", { key: "r", style: { color: "#e8863a", fontFamily: F_DISPLAY, fontSize: 13 } }, today.rating + "分 ") : null, [today.eta, today.delivery].filter(Boolean).join("  ")]))),
+          // 评分和配送方式不画：那是平台给陌生人看的信用背书，跟这个人无关。
+          // 只留「几点送到」——那是他这一天的时间。
+          today.eta ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM, marginTop: 6 } }, today.eta) : null)),
+
       today.main ? h("div", { className: "flex", style: { gap: 7, marginTop: 13 } },
         h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13.5, color: TAKE_DIM } }, "主推 ·"),
         h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.55, color: TAKE_INK } }, today.main)) : null,
-      h("div", { className: "flex items-center justify-between", style: { marginTop: 14 } },
-        today.amount != null ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#f0523a" } }, fmtMoney(today.amount)) : h("span", null),
-        today.status ? h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3fbb6e", borderRadius: 999, padding: "7px 18px" } }, today.status) : null),
+      // 大号红价格 + 绿色状态胶囊是收银台的语言。这一顿真正的内容是那句备注，
+      // 所以钱和状态降成一行小字，备注留在下面当落点。
+      (today.amount != null || today.status) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM, marginTop: 13 } },
+        [today.amount != null ? fmtMoney(today.amount) : "", today.status || ""].filter(Boolean).join(" · ")) : null,
       today.note ? noteLine(today.note) : null,
       h("div", null, peekBtn("quiet", T("他今天点的"), today.shop, [today.main, today.note].filter(Boolean).join("｜"))))) : null;
   // ── 常点商家（横滑）──
@@ -2467,8 +2471,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           sp.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#e8863a", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, sp.why) : null,
           sp.last ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#b8b2a8", marginTop: 6 } }, sp.last) : null))))) : null;
   // ── 进行中（四段进度）──
-  const STEPS = ["已下单", "商家接单", "配送中", "待送达"];
-  const liveSec = live.length ? h("section", { key: "lv" }, secTitle("进行中的订单", "实时配送"),
+  const liveSec = live.length ? h("section", { key: "lv" }, secTitle("还在路上", "他这会儿等着的"),
     live.map((it, i) => {
       const st = Math.max(0, Math.min(3, Number(it.step) || 0));
       return h("div", { key: i, style: { background: "#fff", borderRadius: 18, overflow: "hidden", marginBottom: 13 } },
@@ -2480,18 +2483,14 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("div", { style: { padding: "15px 16px 17px" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, it.shop || ""),
           it.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#6b665e", marginTop: 7 } }, it.items) : null,
-          h("div", { className: "flex", style: { marginTop: 15 } }, STEPS.map((sname, j) => h("div", { key: j, className: "flex-1 flex flex-col items-center", style: { gap: 6 } },
-            h("span", { style: { width: 11, height: 11, borderRadius: 99, background: j < st ? TAKE_ACCENT : j === st ? "#fff" : "#dce3e1", border: j === st ? "3px solid " + TAKE_CORAL : "none" } }),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: j < st ? TAKE_ACCENT : j === st ? TAKE_CORAL : TAKE_DIM } }, sname)))),
-          h("div", { style: { height: 4, borderRadius: 4, background: "#f0eee9", marginTop: 12, overflow: "hidden" } },
-            h("div", { style: { width: ((st + 1) / 4 * 100) + "%", height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#91b2aa," + TAKE_ACCENT + ")" } })),
+          // 四段进度条和骑手名是平台的部件——他等的是一顿饭，不是等一个进度条走完。
+          // 只留一行「等到几点」。
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 13 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, it.rider ? "骑手 · " + it.rider : ""),
-            it.amount != null ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#f0523a" } }, fmtMoney(it.amount)) : null),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, it.eta ? "等到 " + it.eta : ""),
+            it.amount != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, fmtMoney(it.amount)) : null),
           it.note ? noteLine(it.note) : null));
     })) : null;
   // ── 吃过的记录：默认是紧凑时间档案，点开才看收据细节 ──
-  const stars = n => h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: "#f0a92c", letterSpacing: 2 } }, "★".repeat(Math.max(0, Math.min(5, Number(n) || 0))));
   const orderSec = orders.length ? h("section", { key: "od" }, secTitle("吃过的记录", orders.length + " 次落点"),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "4px 15px", marginBottom: 13 } }, orders.map((o, i) => {
       const expanded = open === i;
@@ -2511,7 +2510,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         expanded ? h("div", { style: { margin: "12px 0 0 56px", padding: "13px", borderRadius: 13, background: "#f3f6f5" } },
           A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: 12.5, color: "#4c5956" } },
             h("span", { className: "flex-1 min-w-0" }, x.name || ""), h("span", { style: { color: TAKE_DIM } }, "×" + (x.qty || 1)), h("span", null, fmtMoney(x.price)))),
-          (o.stars || o.rating) ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid #dfe7e4" } }, o.stars ? stars(o.stars) : null, o.rating ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562", marginTop: 5 } }, o.rating) : null) : null,
+          // 星星不画：那是给平台看的刻度。他亲口写的那句评价才是他说的话。
+          o.rating ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid #dfe7e4", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562" } }, o.rating) : null,
           o.addr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 9 } }, "到 · " + o.addr) : null,
           o.note ? noteLine(o.note) : null,
           o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562", marginTop: 9 } }, o.reason) : null,
@@ -2530,7 +2530,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM, paddingTop: 6 } }, k),
     h("div", { style: { flex: 1, minWidth: 0 } }, node));
   const hasTaste = A(taste.spicyTags).length || A(taste.avoidTags).length || A(taste.likeTags).length || taste.budget || taste.habit;
-  const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("口味偏好", "点餐画像"),
+  const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("吃东西这件事上", "他的固执"),
     card([
       A(taste.spicyTags).length ? h("div", { key: "s" }, tasteRow("辣度", pills(taste.spicyTags, "amber"))) : null,
       A(taste.avoidTags).length ? h("div", { key: "a" }, tasteRow("忌口", pills(taste.avoidTags, "warn"))) : null,
@@ -2548,16 +2548,35 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
         h("div", { className: "flex-1 min-w-0" }, A(dy.meals).map((ml, j) => h("div", { key: j, className: "flex", style: { gap: 8, marginTop: j ? 7 : 0 } },
           h("span", { style: { width: 24, flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: TAKE_CORAL, paddingTop: 2 } }, ml.t || ""),
           h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#4f5c59" } }, ml.text || "")))))))) : null;
-  // ── 红包卡券 ──
-  const couponSec = coupons.length ? h("section", { key: "cp" }, secTitle("红包卡券"),
-    card(coupons.map((c, i) => h("div", { key: i, className: "flex items-stretch", style: { borderRadius: 12, overflow: "hidden", border: "1px solid #fbdcd6", marginTop: i ? 11 : 0 } },
-      h("div", { style: { width: 108, flexShrink: 0, background: "#f2503f", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px 8px", textAlign: "center" } },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: c.unit ? 27 : 14, lineHeight: 1.25 } }, c.amount || ""),
-        c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .9, marginTop: 2 } }, c.unit) : null),
-      h("div", { style: { flex: 1, minWidth: 0, padding: "13px 14px", background: "#fffaf9" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: TAKE_INK } }, c.name || ""),
-        c.scope ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: TAKE_DIM, marginTop: 5 } }, "适用于 " + c.scope) : null,
-        c.until ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#e8863a", marginTop: 5 } }, "有效期至 " + c.until) : null))))) : null;
+  // ⚠️红包卡券【不画】（她 2026-08-31：「和另一个太像了」）。
+  // 那是一张营销位：红底大金额、适用范围、有效期——纯平台部件，换个角色照样成立，
+  // 一条关于这个人的东西都读不出来。生成层照旧留着（她定的），只是界面不再摆它。
+  // ── 他写给陌生人的那几句（v59.16 新开）──
+  // 这一栏是【只有我们会有】的那一栏。外卖 app 里备注只是下单表单的一个字段；
+  // 可对这个人来说，那是他对着一个永远不会见面的人打的唯一一句话——写给谁、
+  // 护着谁、怕吵着谁，是三个不同的人。生成层的注释里早就写着「note 那一栏是
+  // 这个 app 的重点」，那就让它真的是重点，别再排在评分和配送方式后面。
+  const noteWall = (function () {
+    const out = [];
+    const push = (text, when, where, from) => {
+      const t = String(text == null ? "" : text).trim();
+      if (!t || out.some(x => x.text === t)) return;
+      out.push({ text: t, when: String(when || "").trim(), where: String(where || "").trim(), from: from });
+    };
+    push(today.note, today.date, today.addrLabel || today.shop, "今天这一顿");
+    live.forEach(it => push(it.note, it.eta, it.shop, "还在路上"));
+    orders.forEach(o => push(o.note, o.time, o.addr || o.shop, o.meal || ""));
+    return out;
+  })();
+  const noteSec = noteWall.length ? h("section", { key: "nw" }, secTitle("写给陌生人的", noteWall.length + " 句"),
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 11, marginBottom: 13 } },
+      noteWall.map((n, i) => h("div", { key: i, style: { background: "#fff", borderRadius: 14, padding: "14px 15px", borderLeft: "3px solid " + TAKE_CORAL } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: TAKE_INK, wordBreak: "break-word" } }, n.text),
+        (n.when || n.where || n.from) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginTop: 8 } },
+          [n.from, n.when, n.where].filter(Boolean).join(" · ")) : null,
+        h("div", null, peekBtn("quiet", T("他下单时写的"), n.text, [n.from, n.when, n.where].filter(Boolean).join("｜")))))),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8, color: TAKE_DIM, padding: "0 2px 6px" } },
+      "同样一句话，写给谁、护着谁、怕吵着谁，是三个不同的人。")) : null;
   // ── 收货地址 ──
   const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("收货地址"),
     card(addrs.map((a, i) => h("div", { key: i, style: { borderRadius: 12, padding: "13px 14px", marginTop: i ? 10 : 0, background: a.isDefault ? "#fffbef" : "#f7f6f3", border: "1px solid " + (a.isDefault ? "#f4e6bb" : "transparent") } },
@@ -2601,8 +2620,11 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 字段仍兼容旧存档，改变的是组合与叙事顺序，不拿改名冒充原创。
   const PAGES = [
     { key: "home", zh: "这一顿", glyph: "takeout", lead: "先看 TA 今天把饭送到哪里、正在等哪一单。", secs: [accCard, todayCard, liveSec], badge: live.length },
-    { key: "rhythm", zh: "怎么吃", glyph: "health", lead: "七天的节奏、一次次订单和忌口，才是 TA 平常怎么照顾自己的。", secs: [weekSec, orderSec, tasteSec, monthSec], badge: orders.length },
-    { key: "people", zh: "和谁吃", glyph: "me", lead: "送到谁那里、和谁一起点过、为什么总回某家店——饭也记得关系。", secs: [togSec, shopSec, wishSec, addrSec, couponSec] }
+    // ⭐这一档是【只有我们有】的那一档，别跟别的挪位置：备注是这个 app 里唯一
+    // 属于人的东西，忌口也是写给陌生人看的话（「去香菜」本来就是备注）。
+    { key: "said", zh: "写给陌生人", glyph: "notes", lead: "他对着永远不会见面的人打的那几个字，比点了什么更像他。", secs: [noteSec, tasteSec], badge: noteWall.length },
+    { key: "rhythm", zh: "怎么吃", glyph: "health", lead: "七天的节奏和一次次落点，才是 TA 平常怎么照顾自己的。", secs: [weekSec, orderSec, monthSec], badge: orders.length },
+    { key: "people", zh: "和谁吃", glyph: "me", lead: "送到谁那里、和谁一起点过、为什么总回某家店——饭也记得关系。", secs: [togSec, shopSec, wishSec, addrSec] }
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
