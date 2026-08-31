@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.97";
+const APP_VERSION = "v58.98";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -353,6 +353,10 @@ function App() {
   // 照相馆（她 2026-08-31）：我这边的衣柜 + 拍出来的合照。
   // 我的衣柜跟角色衣柜【同一个形状】（carry[cid].outfit），这样 closetGroups /
   // carryClosetText 两边共用，不用为「用户的衣服」另写一套渲染和收口。
+  // 自动换头像（她 2026-08-31：「不要每次都触发不然我给他发个什么食物图他也换了，
+  // 要真的觉得好才换」）。{ [charId]: { ts, prev } }——prev 是换之前那张，好回退。
+  const [avatarSwap, setAvatarSwap] = useState({});
+  const avatarSwapRef = useRef({}); avatarSwapRef.current = avatarSwap;
   const [myCloset, setMyCloset] = useState({});
   const myClosetRef = useRef({}); myClosetRef.current = myCloset;
   const [studio, setStudio] = useState([]);
@@ -768,6 +772,7 @@ function App() {
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleHome(loadJSON("x_coupleHome", {}));
+    setAvatarSwap(loadJSON("x_avatarSwap", {}));
     setMyCloset(loadJSON("x_myCloset", {}));
     setStudio(loadJSON("x_studio", []));
     setCoupleDrawer(loadJSON("x_coupleDrawer", []));
@@ -5745,6 +5750,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "";
       const ccToolField = ccToolOn ? ",\"ccTool\":null" : "";
       const paceHint = window.ReplyPacing ? window.ReplyPacing.guidance(history, { proactive: !!opts.proactive, continueMode: !!contMode }) : "";
+      // ── 他刚看见的那张照片（她 2026-08-31）─────────────────────────
+      // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
+      //   单聊线上 ✅ 就是这里。
+      //   单聊线下 ❌ 还没接——线下走 OFFLINE_PROTOCOL_V2 那套叙事输出，没有能力
+      //     字段的口子，要单开一条。【这是欠的，不是有理由不给】。
+      //   群聊两处 ❌ 有真理由：群里一张照片好几个人看着，「他当时看到的是什么」
+      //     记成谁的说不清（三个人各记一句就是三条重复账）；换头像在群里也没有
+      //     明确对象。要给的话得先定「群里由谁记」。
+      // ⚠️按需注入：这一轮她没发照片就一个字都不发（十轮里九轮用不上的层不该常驻，
+      //   跟论坛回声同一条判据）。冷却期内连 avatar 那半句都不发下去。
+      const _seenMsg = opts.proactive ? null : freshUserPhoto(charId);
+      const _seenAvatarOk = !!(_seenMsg && avatarCoolOk(charId));
+      const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName) : "";
+      const seenField = _seenMsg ? photoSeenField(_seenAvatarOk) : "";
       // Protocol v2：能力格式在稳定 system 里只定义一次；每轮只报开放项与必要动态参数。
       const openCaps = ["silent", "quote", "voice", "transfer", "location", "gift", "recall", "momentComment", "call", "laterPromise"];
       const capState = [];
@@ -5831,6 +5850,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (roomStudyOn) {
         openCaps.push("studyInvite");
         capState.push("studyInvite：只有你此刻真的想邀请一起学才填写。已有合适旧课时用 {mode:\"resume\",sessionId:\"上面列出的真实ID\",subject:\"主题\",say:\"邀请语\"}；没有合适旧课时用 {mode:\"propose\",sessionId:null,subject:\"你拟的课程主题\",say:\"为什么想一起学、建议从哪一点开始\"}。不能声称课程已经创建，最终由 Lisa 点卡片确认；不邀请就省略。" + (roomStudySessions.length ? " 可续课程：" + roomStudySessions.map(s => (s.id + "=" + (s.title || s.subject || "未命名"))).join("；") : " 当前没有可续课程。"));
+      }
+      // ⚠️这一条必须挂在【Protocol v2】上：旁边那个 _normalTaskFull 写着「暂留作 A/B
+      // 回滚基线，但不再发送给普通角色」——挂上去等于挂在死路上，一个字都发不出去。
+      if (_seenMsg) {
+        openCaps.push("photoSeen");
+        capState.push(photoSeenHint(_seenAvatarOk, uName).trim());
       }
       const capabilityHint = "\n【本轮开放能力】" + openCaps.join(", ") + (capState.length ? "\n【本轮能力状态】\n" + capState.join("\n") : "");
       // 言秋在手机这间房走的是本人专线，不吃普通角色的完整能力协议；但 Lisa 点名让他
@@ -5979,7 +6004,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const qpfx = m.replyTo ? "（我在回应你说的「" + String(m.replyTo).slice(0, 40) + "」）" : "";
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
-            : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "")
+            : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + (m.delivered ? "（已送到你手上）" : "（外卖/快递还在路上）") + "]"
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
@@ -6392,6 +6417,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // TA 发来一张自拍（接了图像 API + 该角色填了外貌/参考照才有）：先占位「拍照中」，异步生成后替换成真图
       // 照片：新版 photo 对象 {kind,scene}；兼容旧版 selfie 字符串（=自拍）
       let photoKind = null, photoScene = null;
+      // 他刚看见的那张：把画面记成文字写回那条消息（以后「上次那张照片」有得可依），
+      // 顺带看他要不要把它换成头像。⚠️只有这一轮真发了字段才处理——冷却期内 seenField
+      // 压根没发下去，模型就算硬填 avatar 也不作数（闸在代码这一道，不在提示词）。
+      if (_seenMsg && parsed.photoSeen) applyPhotoSeen(charId, chatKey, _seenMsg, parsed.photoSeen, _seenAvatarOk);
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
         photoKind = ["self", "other", "duo"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
@@ -12103,6 +12132,66 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
       cards: (gachaCardsRef.current || []).filter(x => x.charId === cid)
     }, Date.now());
+  };
+  // ═══ 他看见的那张照片（她 2026-08-31）═══
+  //
+  // 两件事共用这一处：
+  //  ① 【把画面留成文字】她发的真照片，模型当场是看得见的（图作视觉输入附上），
+  //     但图只对最近两张附；一滑出窗口他就什么都不记得了。所以让他当场用一句话
+  //     记下画面，写回那条消息——以后她说「上次那张照片」，历史行里带着那句话。
+  //     （他自己发的照片本来就有 desc，一直是这么留的；缺的是她发的这一半。）
+  //  ② 【自动换头像】只从她发过的真照片里挑，不另生成。
+  //
+  // ⚠️「真觉得好才换」靠提示词只能降概率。代码这一道给三个硬闸：
+  //   · 只认【她刚发的】真照片（近 6 条内、有 imageRef），描述式照片不算；
+  //   · 冷却 AVATAR_COOLDOWN_MS，冷却里根本不把这个字段发下去；
+  //   · 主动问候那种轮次不发（他没在看照片）。
+  // 三道闸之外的「好不好看」才交给模型——这就是「规则降概率，代码才保证」在这一层的落法。
+  const AVATAR_COOLDOWN_MS = 7 * 86400000;
+  const FRESH_PHOTO_LOOKBACK = 6;
+  const freshUserPhoto = charId => {
+    const rows = (chatsRef.current[charId] || []).filter(m => m && !m.recalled);
+    const tail = rows.slice(-FRESH_PHOTO_LOOKBACK);
+    for (let i = tail.length - 1; i >= 0; i--) {
+      const m = tail[i];
+      if (m && m.role === "user" && m.kind === "photo" && m.imageRef) return m;
+    }
+    return null;
+  };
+  const avatarCoolOk = charId => (Date.now() - Number((avatarSwapRef.current[charId] || {}).ts || 0)) >= AVATAR_COOLDOWN_MS;
+  const photoSeenHint = (canAvatar, uName) =>
+    "\n【photoSeen 你刚看见的那张照片】上面那张真实照片你已经看见了，填 photoSeen："
+    + "\n· note：一句话记下画面上【实际有什么】——在哪、有谁、有什么东西、当时是什么样子。"
+    + "这句是写给以后的自己看的：过些天 " + uName + " 提起「上次那张照片」，你要能靠这一句想起来是哪一张。别写观后感、别写夸奖、别复述配文。"
+    + (canAvatar
+      ? "\n· avatar：要不要把这张换成你自己的头像。**默认 false。** 换头像是把这张挂在你自己名字旁边、往后每天都摆在那儿，"
+        + "不是「这张拍得不错」。所以只有当它是【你愿意天天看着的那种】才填 true；"
+        + "东西、吃的、风景、截图、随手拍的一律 false。你这个人平时会不会做这种事，也算在内——"
+        + "有的人从不换头像，那就永远 false。"
+      : "");
+  const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"avatar\":false" : "") + "}";
+  // 落地：把那句话写回那条消息；要换头像就换，并留住换之前那张
+  const applyPhotoSeen = (charId, chatKey, msg, seen, canAvatar) => {
+    if (!msg || !seen || typeof seen !== "object") return;
+    const note = String(seen.note || "").replace(/\s+/g, " ").trim().slice(0, 60);
+    // ⚠️认那一条要认得准：聊天里好些消息【没有 id】，写成 m.id === msg.id 的话
+    // undefined === undefined 会把所有没 id 的消息一起认成同一条（浏览器里一跑，
+    // 同一句话写进了三条消息）。所以先按 imageRef 锁死是哪一张，再用 id / ts 定位。
+    const same = m => m && m.kind === "photo" && m.imageRef && m.imageRef === msg.imageRef
+      && (msg.id ? m.id === msg.id : m.ts === msg.ts);
+    // ⚠️晚一拍再写：本轮回复自己也在往同一个 durable 键上写，两笔挨太近会撞上 WAL
+    // 的读回自检（后一笔盖掉前一笔正在核对的那版，控制台报 read-back mismatch）——
+    // 跟 runOfflineShot 里那个 300ms holdTimer 是同一个坑，照它的做法隔开。
+    if (note) setTimeout(() => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)), 400);
+    if (!canAvatar || seen.avatar !== true) return;
+    const ch = characters.find(c => c.id === charId);
+    if (!ch || !msg.imageRef) return;
+    const prev = ch.avatarImage || "";
+    // ⚠️别用 saveChar：它顺手 setScreen("cast")，后台换个头像会把她从聊天里踢到档案馆去
+    pC(p => p.map(x => x.id === charId ? { ...x, avatarImage: msg.imageRef } : x));
+    const n = { ...avatarSwapRef.current, [charId]: { ts: Date.now(), prev: prev } };
+    avatarSwapRef.current = n; setAvatarSwap(n); saveJSON("x_avatarSwap", n);
+    toast((ch.remark || ch.name) + " 把这张换成了头像");
   };
   // ── 照相馆 ──
   const STUDIO_CAP = 200;

@@ -11,7 +11,10 @@ const grab = (src, a, b, cap) => {
 };
 const nocomment = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const rec = grab(app, "  const genCoupleRecall = async char => {", "  const readCoupleRecall = id =>");
-const leave = grab(app, "  const leaveInCoupleSpace = async (char, styleHint) => {", "  const sealCoupleQA = (char, item) => {");
+// ⚠️右边界用它自己的收尾。拿隔壁那个函数当锚，隔壁一插新代码（v58.98 的抽屉/看照片
+// 那几件就插在中间）就会把别人的 setTimeout 算到它头上。
+const _lvi = app.indexOf("  const leaveInCoupleSpace = async (char, styleHint) => {");
+const leave = app.slice(_lvi, app.indexOf("\n  };", _lvi) + 4);
 
 // ── c 同一件事的两个版本 ──────────────────────────────────────────────────
 test("挑的是你俩【都在场】的事，问过的不再问第二遍", () => {
