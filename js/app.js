@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.74";
+const APP_VERSION = "v58.75";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5686,9 +5686,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 上网（她 2026-08-31）：按角色开。四处同一条链都走这一个调用点，所以单聊线上/
       // 线下、群聊都跟着这一个开关，不会出现「一层只写在一处」。
       const _wantWeb = !_engineerChat && !!_s.webSearch;
+      // MCP 工具（v58.75）：跟内置搜索同一个开关——她的心智是「能不能上网」，
+      // 不该为「工具从哪儿来」再多一个开关。列工具失败不拦这一轮，照常说话。
+      let _mcpT = null;
+      if (_wantWeb && window.MCP && window.MCP.enabled().length) {
+        try { _mcpT = await window.MCP.listTools(); } catch (e) { console.warn("[mcp] 列工具失败：", e); }
+      }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, meta: _callMeta });
+        raw = await callAI(_route, system, aiMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -5698,7 +5704,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb });
+        raw = await callAI(_route, system, retryMessages, { maxTokens: _engineerChat ? 3000 : 6000, cacheHistory: _histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar) });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -5954,9 +5960,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 界面上也是画在这一组回复的上方。取一次就消费掉，别每条气泡都挂一份。
       // 他这一轮去查了什么，跟思考链挂在同一条气泡上（v58.74）。
       // ⚠️捞了不显示比不捞更坏（v55.95 那一课）——所以这里必须真的挂上去。
-      let _reasonLeft = (_callMeta.reasoning || (_callMeta.searched && _callMeta.searched.length))
+      let _reasonLeft = (_callMeta.reasoning || (_callMeta.searched && _callMeta.searched.length) || (_callMeta.toolCalls && _callMeta.toolCalls.length))
         ? { ...(_callMeta.reasoning ? { reasoning: _callMeta.reasoning, reasonMs: _callMeta.ms || 0, reasonModel: _callMeta.model || "", reasonFrom: _callMeta.from || "" } : {}),
-            ...((_callMeta.searched && _callMeta.searched.length) ? { searched: _callMeta.searched.slice(0, 6) } : {}) }
+            ...((_callMeta.searched && _callMeta.searched.length) ? { searched: _callMeta.searched.slice(0, 6) } : {}),
+            // 用了哪几件 MCP 工具、这一轮一共花了几次调用——她按次计费，花了几次必须看得见
+            ...((_callMeta.toolCalls && _callMeta.toolCalls.length) ? { usedTools: _callMeta.toolCalls.slice(0, 6) } : {}),
+            ...((_callMeta.calls > 1) ? { callCount: _callMeta.calls } : {}) }
         : null;
       // 补时间戳（v56.51）：她关着 app 的那段时间里「本该发出」的消息，时间落在那个空档里，
       // 而不是全堆在她打开的这一刻。多条气泡按顺序往后错开几十秒，像真的一条条发的。
@@ -6872,6 +6881,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         const _cs = settingsFor(c.id) || {};
         return !_cs.engineerEyes && !!_cs.webSearch;
       });
+      let _gMcpT = null;
+      if (_gWantWeb && window.MCP && window.MCP.enabled().length) {
+        try { _gMcpT = await window.MCP.listTools(); } catch (e2) { console.warn("[mcp] 列工具失败：", e2); }
+      }
       const raw = await callAI(active, system, [{
         role: "user",
         content: userContent,
@@ -6882,6 +6895,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
         timeout: 180000,
         webSearch: _gWantWeb,
+        tools: _gMcpT,
+        runTool: (n, ar) => window.MCP.callTool(n, ar),
         wantReasoning: _gWantReason,
         meta: _gReasonMeta
       });

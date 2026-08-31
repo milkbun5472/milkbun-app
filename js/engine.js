@@ -587,6 +587,13 @@ async function callAI(p, system, messages, opts) {
   // 回包里服务端写的那个模型名。三家协议字段名不一样（anthropic/openai 都叫
   // model，gemini 叫 modelVersion），少接一处那条线路就永远看不见。
   const _served = got => { if (_meta) _meta.served = String(got || "") || undefined; noteServedModel(p, model, got); };
+  // MCP 工具（她 2026-08-31）：跟内置搜索不同，这一档是【客户端回合】——模型说要调、
+  // 我们去调、再问模型一遍，所以真用上工具的那一轮【至少两次调用】。她按次计费，
+  // 所以回合数封死，而且把这一轮到底花了几次记进 _meta.calls 让她看得见。
+  // ⚠️必须声明在三个方言分支【外面】：anthropic 和 openai 两条路都要用到它。
+  const _mcpTools = (opts && Array.isArray(opts.tools)) ? opts.tools : null;
+  const _runTool = (opts && typeof opts.runTool === "function") ? opts.runTool : null;
+  const _maxRounds = (opts && opts.toolRounds) || 3;
   const _putMeta = (reasoning, from) => {
     if (!_meta) return;
     _meta.model = model; _meta.ms = Date.now() - _t0;
@@ -692,7 +699,10 @@ async function callAI(p, system, messages, opts) {
       // 只留【手动块级切块】：cache_control 只打在「守则+人设+关系」稳定前缀那块(见 buildSys)——写一次、之后每轮只读(一折)。
       const body = { model, max_tokens: maxTokens, system: buildSys(), messages: buildMsgs() };
       if (withTemp) body.temperature = temp;
-      if (_wantWeb()) body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: _webMax }];
+      const _tl = [];
+      if (_wantWeb()) _tl.push({ type: "web_search_20250305", name: "web_search", max_uses: _webMax });
+      (_mcpTools || []).forEach(t => _tl.push({ name: t.name, description: t.description, input_schema: t.input_schema }));
+      if (_tl.length) body.tools = _tl;
       captureWirePayload("anthropic", base + "/v1/messages", body, opts, withTemp ? "with-temperature" : "without-temperature");
       const headers = {
         "Content-Type": "application/json",
@@ -736,6 +746,28 @@ async function callAI(p, system, messages, opts) {
       const merged = (d.content || []).concat(cont.content || []);
       d = Object.assign({}, cont, { content: merged });
     }
+    // 工具回合（anthropic 方言）：模型还回 tool_use 就去跑，把结果作为 user 侧的
+    // tool_result 接回去再问一遍。每转一圈就是【多一次调用】，所以封顶。
+    let _calls = 1;
+    if (_mcpTools && _mcpTools.length && _runTool) {
+      for (let _r = 0; _r < _maxRounds && d.stop_reason === "tool_use"; _r++) {
+        const uses = (d.content || []).filter(b => b && b.type === "tool_use");
+        if (!uses.length) break;
+        const results = [];
+        for (const u of uses) {
+          const out = await _runTool(u.name, u.input || {});
+          if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: u.name, ok: !(out && out.isError) });
+          results.push({ type: "tool_result", tool_use_id: u.id, content: String((out && out.text) || ""), ...((out && out.isError) ? { is_error: true } : {}) });
+        }
+        wireMessages.push({ role: "assistant", content: d.content });
+        wireMessages.push({ role: "user", content: results });
+        const nxt = await postAnthropic(wantTemp());
+        _calls++;
+        if (!nxt || nxt.error) break;
+        d = nxt;
+      }
+    }
+    if (_meta) _meta.calls = _calls;
     _served(d.model);
     // 他这一轮上网搜了什么：跟思考链同一个盒子递出去,她要看得见他去查了
     try {
@@ -831,9 +863,13 @@ async function callAI(p, system, messages, opts) {
     // 避免 Cloudflare/网关把“100 秒没有首字节”误杀成 Load failed。
     // 保险柜（viaProxy）v55.64 起流式透传，不再一刀切禁流式。
     // 她那次就死在这儿：gemini-3.1-pro 服务端跑了 68 秒、钱扣了，客户端 60 秒没收到首字节判死。
-    const wantStream = !!(opts && opts.stream);
+    // 带工具时【强制不走流式】：tool_calls 在 SSE 里是一片片的 delta，要自己按 index
+    // 拼函数名和参数，拼错就是调错工具。这条路上只有工程师那条线和通话在用流式，
+    // 而那两处本来就不发工具——不值当为它去啃一套增量拼装。
+    const wantStream = !!(opts && opts.stream) && !(_mcpTools && _mcpTools.length);
     const body = { model, max_tokens: maxTokens, messages: [{ role: "system", content: system }, ...wireMessages], ...(wantStream ? { stream: true, stream_options: { include_usage: true } } : {}) };
     if (withTemp) body.temperature = temp;
+    if (_mcpTools && _mcpTools.length) body.tools = _mcpTools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.input_schema } }));
     captureWirePayload("openai", root + "/chat/completions", body, opts, withTemp ? "with-temperature" : "without-temperature");
     const r = viaProxy ? await viaProxy(root + "/chat/completions", body, {}) : await fetchT(root + "/chat/completions", {
       method: "POST",
@@ -899,6 +935,31 @@ async function callAI(p, system, messages, opts) {
     d = await postOpenAI(false);
   }
   if (d.error) throw new Error(d.error.message);
+  // 工具回合（openai 方言）：结构跟 anthropic 那边一样，只是字段名换一套——
+  // tool_calls 回来、跑完、以 role:"tool" 接回去再问一遍。每转一圈多一次调用，封顶。
+  let _calls2 = 1;
+  if (_mcpTools && _mcpTools.length && _runTool) {
+    for (let _r = 0; _r < _maxRounds; _r++) {
+      const msg = (d.choices && d.choices[0] && d.choices[0].message) || {};
+      const tcs = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
+      if (!tcs.length) break;
+      wireMessages.push({ role: "assistant", content: msg.content || "", tool_calls: tcs });
+      for (const tc of tcs) {
+        const fn = (tc && tc.function) || {};
+        let args = {};
+        // 参数是字符串化的 JSON，模型偶尔写坏——坏了就当空参数调，别让整轮炸掉
+        try { args = fn.arguments ? JSON.parse(fn.arguments) : {}; } catch (e) { args = {}; }
+        const out = await _runTool(fn.name, args);
+        if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: fn.name, ok: !(out && out.isError) });
+        wireMessages.push({ role: "tool", tool_call_id: tc.id, content: String((out && out.text) || "") });
+      }
+      const nxt = await postOpenAI(!_skipT2);
+      _calls2++;
+      if (!nxt || nxt.error) break;
+      d = nxt;
+    }
+  }
+  if (_meta) _meta.calls = _calls2;
   // openai/订阅桥线路也回显 usage（v52.28）：订阅桥升级后会把 CLI 账单里的
   // cache_read/cache_creation 透传进 usage，这里进同一个 window.__usage，缓存面板照常可见。
   try {

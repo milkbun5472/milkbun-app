@@ -5201,6 +5201,53 @@ function Config(props) {
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));
 }
 
+// MCP 服务器（v58.75，她 2026-08-31）：给角色接外部工具（联网搜索、抓网页……）。
+// 浏览器能直接当 MCP client——Streamable HTTP 就是 HTTP + JSON-RPC。两个坎必须写在
+// 界面上，不然她只会对着「连不上」猜：服务端要放行跨域(CORS)，地址要是 /mcp 那一档。
+// 代价也必须写在界面上：这一档是客户端回合，真用上工具的那一轮【至少两次调用】。
+function McpConfig({ toast }) {
+  const t = useTheme();
+  const [list, setList] = useState(() => { try { return JSON.parse(localStorage.getItem("x_mcp") || "[]") || []; } catch (e) { return []; } });
+  const [busy, setBusy] = useState("");
+  const [seen, setSeen] = useState({});
+  const persist = next => { setList(next); try { localStorage.setItem("x_mcp", JSON.stringify(next)); } catch (e) {} if (window.MCP) window.MCP.forget(); };
+  const upd = (id, patch) => persist(list.map(x => x.id === id ? { ...x, ...patch } : x));
+  const inSt = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", width: "100%", outline: "none" };
+  const probe = async srv => {
+    if (!window.MCP) { toast && toast("MCP 组件没加载出来"); return; }
+    setBusy(srv.id);
+    try {
+      const names = await window.MCP.probe(srv);
+      setSeen(p => ({ ...p, [srv.id]: names }));
+      toast && toast("通了：" + names.length + " 件工具");
+    } catch (e) { toast && toast(String((e && e.message) || e)); }
+    finally { setBusy(""); }
+  };
+  return h("div", { style: { marginTop: 22 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "MCP 服务器"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.75, marginTop: 4 } },
+      "给角色接外部工具：联网搜索、抓网页之类。填公网地址就行；本机跑的要么让它放行跨域(CORS)，要么先用 cloudflared / ngrok 转成公网 HTTPS。地址要用 Streamable HTTP 那一档（通常以 /mcp 结尾），旧的 /sse 浏览器直连不了。"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a4442e", lineHeight: 1.7, marginTop: 6 } },
+      "⚠ 这一档跟内置的「让 Ta 能上网」不一样：模型说要调工具、我们去调、再问模型一遍——所以真用上工具的那一轮至少花两次调用。"),
+    list.map(srv => h("div", { key: srv.id, style: { marginTop: 12, padding: "13px 13px 11px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 8 } },
+        h("input", { value: srv.name || "", onChange: e => upd(srv.id, { name: e.target.value }), placeholder: "起个名字", style: { ...inSt, flex: 1 } }),
+        h(Toggle, { on: srv.on !== false, onChange: () => upd(srv.id, { on: srv.on === false }) })),
+      h("input", { value: srv.url || "", onChange: e => upd(srv.id, { url: e.target.value.trim() }), placeholder: "https://……/mcp", style: inSt }),
+      h("input", { value: srv.token || "", onChange: e => upd(srv.id, { token: e.target.value.trim() }), placeholder: "密钥（选填，会加成 Authorization: Bearer）", style: { ...inSt, marginTop: 8 } }),
+      h("div", { className: "flex items-center", style: { gap: 10, marginTop: 10 } },
+        h("button", { onClick: () => probe(srv), disabled: busy === srv.id || !srv.url, className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", opacity: (busy === srv.id || !srv.url) ? 0.5 : 1 } }, busy === srv.id ? "测着…" : "测一下"),
+        h("button", { onClick: () => persist(list.filter(x => x.id !== srv.id)), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "删除")),
+      seen[srv.id] ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 8 } },
+        "它给的工具：" + (seen[srv.id].length ? seen[srv.id].join("、") : "一件都没有")) : null)),
+    h("button", { onClick: () => persist([...list, { id: "m_" + Date.now(), name: "", url: "", token: "", on: true }]), className: "w-full active:opacity-70",
+      style: { marginTop: 12, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0" } }, "＋ 加一台 MCP 服务器"),
+    list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginTop: 10 } },
+      "加好之后，还要在【那个角色的聊天设置】里打开「让 Ta 能上网」，工具才会发给他。默认谁都不发。") : null);
+}
+
 function ApiConfig({
   profiles = [],
   activeId,
@@ -5332,7 +5379,8 @@ function ApiConfig({
           list.length > 1 ? h("button", { onClick: e => { e.stopPropagation(); removeProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "删除") : null,
           p.id === activeId ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 9.5, color: t.tint } }, "主") : null)))),
     routeBox("线下与创作模型", "单人/群线下、小游戏、日记、同人文与穿越互动统一从这里选，不再绑在某一张 API 编辑卡里。", offlineApiId, onSetOfflineApi, "跟随线上主模型"),
-    routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。", bgApiId, onSetBgApi, "跟随主模型"));
+    routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。", bgApiId, onSetBgApi, "跟随主模型"),
+    h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
   false && onSetModelFloat && h("div", { style: { marginTop: 2, marginBottom: 18, padding: "13px 14px", border: "1px solid " + t.line, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, background: t.bg2 } },

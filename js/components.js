@@ -4298,10 +4298,10 @@ function ChatThread({
     // 账本回流（CC/Stack-chan）的一行可能是逐字摘录的长段落：显示时按空行拆成多个气泡，数据不动
     if (m && m.ledgerImported && !m.recalled && !m.kind && typeof m.content === "string" && /\n\s*\n/.test(m.content)) {
       const parts = m.content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
-      if (parts.length > 1) return [...((m.reasoning || (m.searched || []).length) ? [{ m, i, part: -1, last: false }] : []),
+      if (parts.length > 1) return [...((m.reasoning || (m.searched || []).length || (m.usedTools || []).length) ? [{ m, i, part: -1, last: false }] : []),
         ...parts.map((p, k) => ({ m: { ...m, content: p }, i, part: k, last: k === parts.length - 1 }))];
     }
-    return (m.reasoning || (m.searched || []).length) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
+    return (m.reasoning || (m.searched || []).length || (m.usedTools || []).length) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
   }).map(({ m, i, part, last }) => {
     // 思考链画在这一组回复的上方（part:-1 是插进来的伪条目，不是真气泡）
     if (part === -1) return h(ReasoningBlock, { key: "rz" + i, m: m });
@@ -6091,10 +6091,21 @@ function ReasoningBlock({ m }) {
   // 上网（v58.74）：他这一轮去查了什么。跟思考链同一条线上，但各自独立——
   // 有的轮只查不深想，有的只深想不查，一个有一个没有都要画得出来。
   const searched = Array.isArray(m.searched) ? m.searched : [];
-  const webLine = searched.length ? h("div", { className: "flex items-start gap-1.5", style: { padding: "1px 0" } },
+  const usedTools = Array.isArray(m.usedTools) ? m.usedTools : [];
+  // 工具名前面带着服务器前缀（sid__name），画给她看的时候把前缀去掉
+  const toolZh = usedTools.map(x => {
+    const n = window.MCP ? window.MCP.unqualify(x && x.name).name : String((x && x.name) || "");
+    return n + ((x && x.ok === false) ? "（没调通）" : "");
+  });
+  const bits = [];
+  if (searched.length) bits.push("去查了 " + searched.map(q => "「" + q + "」").join(" "));
+  if (toolZh.length) bits.push("用了 " + toolZh.join("、"));
+  // 花了几次调用：只有超过一次才写——她按次计费，多花的那几次必须自己冒出来
+  if (m.callCount > 1) bits.push("这一轮花了 " + m.callCount + " 次调用");
+  const webLine = bits.length ? h("div", { className: "flex items-start gap-1.5", style: { padding: "1px 0" } },
     h("span", { className: "shrink-0", style: { fontSize: 10.5, opacity: 0.75 } }, "🔎"),
     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, minWidth: 0 } },
-      "去查了 " + searched.map(q => "「" + q + "」").join(" "))) : null;
+      bits.join(" · "))) : null;
   if (!m.reasoning) return webLine ? h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } }, webLine) : null;
   return h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } }, webLine,
     h("button", { onClick: () => setOpen(v => !v), className: "flex items-center gap-1.5 active:opacity-60",
@@ -9871,7 +9882,7 @@ function ChatSettings({
     h("div", { className: "flex items-center justify-between" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。仍然只花一次调用（搜索在模型那边跑完，跟回答一起回来），但搜索本身另计费。只有 anthropic 那种线路支持；别的线路会自动退回不带这个功能，不会白扣你。古代/架空角色不建议开——Ta 会真的去搜引擎。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。两条路：anthropic 线路走内置搜索，仍然只花一次调用；接了 MCP 服务器的话（设置·文字模型里加），任何线路都能用，但那一档是「模型说要调→去调→再问一遍」，用上工具的那一轮至少两次调用。花了几次会写在气泡上。古代/架空角色不建议开——Ta 会真的去搜。")),
       h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) })))),
   show("relate", { title: "内在性情 · 性情锚点", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },

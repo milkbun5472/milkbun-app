@@ -76,8 +76,12 @@ test("保险柜要流式透传，不许再把上游整个读完才发", () => {
 });
 
 test("借道保险柜时也允许流式", () => {
-  assert.match(engine, /const wantStream = !!\(opts && opts\.stream\);/);
+  // ⚠️别冻整条表达式：后来又加了别的合法条件（带 MCP 工具时不走流式，因为
+  // tool_calls 在 SSE 里是碎的）。要证的是「流式由调用方决定，且没被保险柜挡住」。
+  assert.match(engine, /const wantStream = !!\(opts && opts\.stream\)/, "流式不再由调用方决定");
   assert.ok(!/opts\.stream && !viaProxy/.test(engine), "旧的一刀切禁流式不许留着");
+  assert.ok(!/wantStream = [^;]*viaProxy/.test(engine), "又把保险柜写进流式判据里了");
+  assert.ok(!/wantStream = [^;]*proxyRef/.test(engine), "又把保险柜写进流式判据里了");
 });
 
 // v55.62：发不出流式时【不再压 max_tokens】。她拿酒馆对比出来的——

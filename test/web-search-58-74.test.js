@@ -17,12 +17,14 @@ const nocomment = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n")
 // Anthropic 自带一个【服务端】搜索工具，搜索在他们那边跑完，结果和回答在同一个
 // 响应里回来，仍然是【一次调用】。不是「模型说要搜→app 去搜→再问一遍」的两次。
 test("上网走服务端工具，一轮仍然只有一次调用", () => {
-  assert.match(call, /if \(_wantWeb\(\)\) body\.tools = \[\{ type: "web_search_20250305", name: "web_search", max_uses: _webMax \}\]/, "没把搜索工具挂上去,或者不是按开关挂的");
+  assert.match(call, /if \(_wantWeb\(\)\) _tl\.push\(\{ type: "web_search_20250305", name: "web_search", max_uses: _webMax \}\)/, "没把搜索工具挂上去,或者不是按开关挂的");
   assert.match(call, /const _wantWeb = \(\) => !!\(opts && opts\.webSearch\) && !_noWeb;/, "开关不是从调用方传进来的");
   // 用基础版而不是带动态过滤的新版：新版只有 4.6 以后的模型收，她现在用的是 3.7
   assert.ok(call.indexOf("web_search_20260209") < 0, "用了只有新模型才收的变体,她那条 3.7 会报错");
-  // 一轮里不许出现「拿到 tool_use 再发一次」的客户端回合——那才是两次调用
-  assert.ok(!/tool_result|stop_reason === "tool_use"/.test(nocomment(call)), "写成了客户端 tool loop,那是每轮两次调用");
+  // 关键：客户端那个「再问一遍」的回合【只属于 MCP 工具】。内置搜索是服务端跑的，
+  // 不产生回合——这个门一旦松掉，只开内置搜索的角色也会开始每轮两次调用。
+  assert.match(call, /if \(_mcpTools && _mcpTools\.length && _runTool\) \{\n      for \(let _r = 0; _r < _maxRounds && d\.stop_reason === "tool_use"/, "anthropic 那边的工具回合没有只对 MCP 开");
+  assert.match(call, /if \(_mcpTools && _mcpTools\.length && _runTool\) \{\n    for \(let _r = 0; _r < _maxRounds; _r\+\+\)/, "openai 那边的工具回合没有只对 MCP 开");
   assert.match(call, /const _webMax = \(opts && opts\.webMaxUses\) \|\| 3;/, "一轮搜几次没有天花板——搜索是另计费的");
 });
 
@@ -39,7 +41,7 @@ test("这条线路不认就退回去，不白扣她一次", () => {
 });
 
 test("服务端工具跑久了会先还一个中场，要接回去续，而且封顶", () => {
-  const pt = grab(call, '    for (let _pt = 0; _pt < 2 && d.stop_reason === "pause_turn"', "    _served(d.model);", 700);
+  const pt = grab(call, '    for (let _pt = 0; _pt < 2 && d.stop_reason === "pause_turn"', "    // 工具回合（anthropic 方言）");
   assert.match(pt, /wireMessages\.push\(\{ role: "assistant", content: d\.content \}\)/, "中场没把已出的部分接回去,续出来的是另一段话");
   assert.match(pt, /const merged = \(d\.content \|\| \[\]\)\.concat\(cont\.content \|\| \[\]\)/, "续完没跟前半段拼起来,前半段丢了");
   assert.match(pt, /if \(!cont \|\| cont\.error\) break;/, "续失败了还往下走");
@@ -51,19 +53,22 @@ test("他去查了什么，一路要看得见", () => {
   assert.match(call, /b\.type === "server_tool_use" && b\.name === "web_search"/, "没把搜了什么捞出来");
   assert.match(call, /if \(qs\.length && _meta\) _meta\.searched = qs;/, "捞出来了没往外递");
   assert.match(app, /searched: _callMeta\.searched\.slice\(0, 6\)/, "没挂到那条气泡上");
-  assert.match(app, /_callMeta\.reasoning \|\| \(_callMeta\.searched && _callMeta\.searched\.length\)/, "只有深度思考那一路才挂——只查不想的那一轮就丢了");
+  assert.match(app, /_callMeta\.reasoning \|\| \(_callMeta\.searched && _callMeta\.searched\.length\) \|\| \(_callMeta\.toolCalls && _callMeta\.toolCalls\.length\)/, "只有深度思考那一路才挂——只查不想的那一轮就丢了");
   assert.match(comp, /"去查了 " \+ searched\.map\(q => "「" \+ q \+ "」"\)\.join\(" "\)/, "画面上没画出来");
   assert.match(comp, /if \(!m\.reasoning\) return webLine \? /, "没有思考链的那一轮就不画了");
   // 那一行是否出现，两个条件各自独立
-  assert.equal((comp.match(/\(m\.reasoning \|\| \(m\.searched \|\| \[\]\)\.length\)/g) || []).length, 2,
+  assert.equal((comp.match(/\(m\.reasoning \|\| \(m\.searched \|\| \[\]\)\.length \|\| \(m\.usedTools \|\| \[\]\)\.length\)/g) || []).length, 2,
     "决定要不要画那一行的地方没全改——一处漏了，某种消息就永远不显示");
 });
 
 // 四处一样喂：单聊那条链和群聊那条链是两个调用点，只写一处就是老病
 test("单聊和群聊两条链都接上了", () => {
   assert.match(app, /const _wantWeb = !_engineerChat && !!_s\.webSearch;/, "单聊那条链没接");
-  assert.match(app, /wantReasoning: _wantReason, webSearch: _wantWeb, meta: _callMeta/, "单聊主调用没带上");
-  assert.match(app, /timeout: 180000, webSearch: _wantWeb \}\);/, "单聊的空正文重试没带上——重试那次就没有上网能力了");
+  // ⚠️别冻「哪两个选项挨着」——昨天刚被这个坑过一次
+  const soloCall = (app.match(/callAI\(_route, system, aiMessages, \{[^}]*\}/) || [""])[0];
+  const soloRetry = (app.match(/callAI\(_route, system, retryMessages, \{[^}]*\}/) || [""])[0];
+  assert.ok(soloCall.includes("webSearch: _wantWeb"), "单聊主调用没带上");
+  assert.ok(soloRetry.includes("webSearch: _wantWeb"), "单聊的空正文重试没带上——重试那次就没有上网能力了");
   // 群聊一次调用写完所有人：在场任一成员开着就带上，同思考链的写法
   assert.match(app, /const _gWantWeb = members\.some\(c => \{[\s\S]{0,160}!!_cs\.webSearch;/, "群聊那条链没接");
   assert.match(app, /webSearch: _gWantWeb,/, "群聊调用没带上");
