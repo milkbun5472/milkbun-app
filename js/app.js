@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.04";
+const APP_VERSION = "v59.05";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8275,6 +8275,47 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveJSON("x_schedules", n);
     return n;
   });
+  // ── 两个人的日程要对得上（她 2026-08-31：「有关系的两个人日程生成的时候会参考
+  // 对方的，比如说 10 点去咖啡厅两边都会写」）──
+  //
+  // 不多花一次调用：行程那条链本来就是 for 循环一个一个排，后排的天然看得见先排好的。
+  // ⚠️只给【有关系】的那几位（rels 里连着线的），而且只给时间/做什么/在哪这三样——
+  // 这是为了让同一件事在两边说得一样，不是把别人的一天端过来给他看。
+  const SCHED_PEER_MAX = 3, SCHED_PEER_LINES = 20, SCHED_PEER_DAYS = 3;
+  const schedPeerBlock = (char, dayKeys) => {
+    const plans = schedulesRef.current || {};
+    const nm = String(char.name || "").trim();
+    const peers = (characters || []).filter(c => c && c.id !== char.id && !c.npc
+      && (rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id])
+      && Object.keys(plans[c.id] || {}).length).slice(0, SCHED_PEER_MAX);
+    if (!peers.length) return "";
+    const days = (Array.isArray(dayKeys) ? dayKeys : [dayKeys]).filter(Boolean).slice(0, SCHED_PEER_DAYS);
+    const rows = [];
+    peers.forEach(c => {
+      const label = ((rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id] || {}).label || "").trim();
+      days.forEach(k => {
+        const sc = (plans[c.id] || {})[k];
+        if (!sc || !Array.isArray(sc.seqs) || !sc.seqs.length) return;
+        sc.seqs.forEach(q => {
+          if (rows.length >= SCHED_PEER_LINES) return;
+          const title = String((q && q.title) || "").trim();
+          if (!title) return;
+          // 点到他名字的那几段是【必须对上】的；其余只是让他看看那天对方大概怎么过
+          const mine = nm && (title.indexOf(nm) >= 0 || String((q && q.location) || "").indexOf(nm) >= 0);
+          rows.push((mine ? "⭐" : "· ") + k + " " + String((q && q.time) || "") + " "
+            + c.name + (label ? "（" + label + "）" : "") + "：" + title
+            + (q && q.location ? "（" + q.location + "）" : ""));
+        });
+      });
+    });
+    if (!rows.length) return "";
+    return "\n【跟他有关系的人，这几天已经排好的安排】\n" + rows.join("\n")
+      + "\n⭐那几段是【点到他名字的】——同一件事两边说的必须是同一件：时间、地点、这件事本身都要对上，"
+      + "绝不许一边写十点见面、另一边写下午见面，也不许一边有这件事另一边当没发生。\n"
+      + "没带⭐的只是让你知道那几位那天大概怎么过。可以据此给他排一段真的和某位碰上的事"
+      + "（那就写清跟谁、几点、在哪）；但**他今天是他自己的一天**，别为了呼应硬把他塞进别人的日程里——"
+      + "多数日子两个人本来就各过各的。";
+  };
   const genScheduleDay = async (char, dayKey) => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     const today = schedLocalDayKey(char);
@@ -8328,7 +8369,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"end\":\"03:30\",\"title\":\"扫报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"end\":\"06:00\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
         : "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"end\":\"08:40\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里卧室/厨房\",\"type\":\"coffee\",\"deviation\":null},{\"time\":\"23:40\",\"end\":\"24:00\",\"title\":\"洗漱、准备睡\",\"location\":\"卧室\",\"type\":\"sleep\",\"deviation\":null}]" + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
-        instruction: schedInstr + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
+        instruction: schedInstr + schedPeerBlock(char, [dayKey]) + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
         schemaHint: schedSchema,
         maxTokens: 4000
       });
@@ -8406,6 +8447,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "\n\n【一周要像一周】七天不是同一天复制七遍：工作日和周末不一样，有的日子忙有的日子松，"
         + "跨天的事可以连着排（周一开始的实验周三出结果），别每天都是「起床-工作-吃饭-睡觉」的模板。"
         + "\n【别复读已经办完的事】和用户之间【已经做过的经历、已兑现的约定】绝不要当成还没做、再排一遍。"
+        // 两个人的日程要对得上：这条链本来就是 for 循环一个一个排，后排的看得见先排好的。
+        // 一层只写一处——跟单天那边共用同一个 schedPeerBlock。
+        + schedPeerBlock(char, want)
         + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE;
       const schema = "{\"days\":[{\"day\":\"" + want[0] + "\",\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"08:00\",\"end\":\"08:40\",\"title\":\"起床，晨间咖啡\",\"location\":\"家里厨房\",\"type\":\"coffee\",\"deviation\":null}]}]}"
         + "（days 数组按上面列出的日子一天一项，day 逐字用上面的日期字符串；type 从 coffee/work/create/meal/rest/sleep/social/out 里选）";

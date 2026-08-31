@@ -1109,7 +1109,10 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const [ym, setYm] = useState({ y: today.getFullYear(), m: today.getMonth() });
   // 从聊天页「看 TA 的日程」进来时直接落在那个人身上（原来那个入口指向已退场的行程 app）
   const [view, setView] = useState(initialView || "mine");
-  const [mode, setMode] = useState("month");     // month | day
+  // 从聊天/线下点「看 TA 的日程」进来（initialView 是某个角色）时，直接落在【今天那一天】——
+  // 她 2026-08-31：「现在从聊天进到行程那一页是日历整体 view，而不是进到那一天看到实际行程」。
+  // 从主屏日历组件进来（没有 initialView）仍旧是整月，那一处她要的就是整月。
+  const [mode, setMode] = useState(initialView && initialView !== "mine" ? "day" : "month"); // month | day
   const [daySel, setDaySel] = useState(todayKey);
   const [form, setForm] = useState(null);        // 新增/编辑手填日程
   const [fab, setFab] = useState(false);
