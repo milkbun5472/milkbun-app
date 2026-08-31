@@ -3210,6 +3210,35 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
       h("button", { onClick: () => onSave(draft), className: "w-full active:opacity-70", style: { marginTop: 20, borderRadius: 15, background: t.ink, color: t.bg2, padding: "13px 16px", fontFamily: F_DISPLAY, fontSize: 15 } }, "封存这份档案")));
 }
 
+// 情侣空间·他记得的那一版（v58.85，她 2026-08-31 的 c）。
+// 这一屋子模块记的都是【她写下来的】。这一页反过来：同一件事，他记得的那一版摆在旁边。
+// 他留意到的和她记下来的往往不是同一处——那个落差才是这一页的内容，所以两版并排放，
+// 不合并、不总结。
+function CoupleRecall({ partner, items, busy, onGen, onRead, onDel, onBack }) {
+  const t = useTheme();
+  const list = (items || []).filter(x => x.characterId === partner.id);
+  return h("div", { className: "h-full flex flex-col" },
+    h(Head, { zh: "他记得的那一版", en: partner.name, onBack: onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginBottom: 14 } },
+        "挑一件你俩都在场的事，让 " + partner.name + " 写他记得的那一版。他留意到的，多半跟你记下来的不是同一处。"),
+      h("button", { onClick: onGen, disabled: busy, className: "w-full active:opacity-80",
+        style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", marginBottom: 18, opacity: busy ? 0.5 : 1 } },
+        busy ? "他在想…" : "挑一件事，问问他记得的"),
+      list.length ? list.map(x => h("div", { key: x.id, onClick: () => x.unread && onRead(x.id),
+        style: { borderRadius: 18, border: "1px solid " + (x.unread ? t.tint : t.line), background: t.bg2, padding: "15px 16px", marginBottom: 12 } },
+        x.unread ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.tint, marginBottom: 6 } }, "· 新的") : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, "你记下的"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, x.mine),
+        h("div", { style: { height: 1, background: t.line, margin: "12px 0" } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginBottom: 4 } }, partner.name + " 记得的"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: t.ink, whiteSpace: "pre-wrap" } }, x.his),
+        x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, fontStyle: "italic", color: t.fog, lineHeight: 1.7, marginTop: 10, borderLeft: "2px solid " + t.line, paddingLeft: 10 } }, x.note) : null,
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 12 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, timeAgo(x.ts)),
+          h("button", { onClick: e => { e.stopPropagation(); onDel(x.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "删掉"))))
+        : h(Empty, { text: "还没问过", sub: "问一次就挑一件你俩共同经历过的事。同一件事，两个人记得的常常不是同一处。" })));
+}
 // 情侣空间·我们说好的（v58.83，她 2026-08-31 选的第 ② 条）。
 // ⚠️和「心愿单」是两回事，别混：心愿单是【她想要的】，自己往里放；
 // 这一页是【你俩真说过的】——线下/通话结束时自动抽出来的开环（记忆库里 open:true 的条目）。
@@ -3298,7 +3327,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA}) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall}) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3376,6 +3405,10 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   if (partner && cp[view] && cp[view].status === "together" && sub === "archive") {
     const home = (coupleHome || {})[partner.id] || {};
     return h(CoupleArchive, { partner, data: home.archive || {}, onSave: archive => onSaveCoupleHome(partner.id, cur => ({ ...cur, archive })), onBack: () => setSub(null) });
+  }
+  if (partner && cp[view] && cp[view].status === "together" && sub === "recall") {
+    return h(CoupleRecall, { partner, items: coupleRecall, busy: gen && gen.coupleRecall,
+      onGen: () => onGenRecall(partner), onRead: onReadRecall, onDel: onDelRecall, onBack: () => setSub(null) });
   }
   if (partner && cp[view] && cp[view].status === "together" && sub === "pacts") {
     return h(CouplePacts, { partner, pacts: couplePactsOf ? couplePactsOf(partner.id) : null,
@@ -3565,6 +3598,14 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 body: h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6f5f9a", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   bNote ? (bNote.authorId === "user" ? "我：" : partner.name + "：") + String((bNote.replies || []).length ? bNote.replies[bNote.replies.length - 1].content : bNote.content).replace(/\s+/g, " ") : "贴一张只有你俩看的悄悄话") }),
               // 问答小本（2x1）
+              tile("recall", { e: "🕯", zh: "他记得的", bg: "#f3eef0", bd: "#e4d5da", ink: "#93707c",
+                dot: (coupleRecall || []).some(function (x) { return x.characterId === partner.id && x.unread; }),
+                body: (function () {
+                  const n = (coupleRecall || []).filter(function (x) { return x.characterId === partner.id; }).length;
+                  return h("div", null,
+                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#93707c" } }, n || "—"),
+                    sub2(n ? "件事的两个版本" : "同一件事,两个人", "#ab8b95"));
+                })() }),
               tile("pacts", { e: "🤝", zh: "我们说好的", bg: "#f4f1ea", bd: "#e3dccd", ink: "#8f7d5c",
                 dot: (function () { const p = couplePactsOf ? couplePactsOf(partner.id) : null; return !!(p && (p.due || []).some(function (x) { return x.dueTs && Date.now() >= x.dueTs - 86400000; })); })(),
                 body: (function () {

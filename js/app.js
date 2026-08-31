@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.84";
+const APP_VERSION = "v58.85";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -314,6 +314,9 @@ function App() {
   const coupleExDiaryRef = useRef([]); coupleExDiaryRef.current = coupleExDiary;
   // 情侣空间·恋爱时间轴 {id,characterId,date,type,title,content,byCharacter,createdAt}
   const [coupleTimeline, setCoupleTimeline] = useState([]);
+  // 情侣空间·他记得的那一版 {id,characterId,memId,mine,his,note,ts,unread}
+  const [coupleRecall, setCoupleRecall] = useState([]);
+  const coupleRecallRef = useRef([]); coupleRecallRef.current = coupleRecall;
   // 情侣空间·纪念日倒计时 {id,characterId,name,month,day,yearlyRepeat,createdAt}
   const [coupleAnniv, setCoupleAnniv] = useState([]);
   // 情侣空间·情书 {id,characterId,authorId:'user'|charId,title,body,isRead,createdAt,font,paper,replies:[{authorId,content,ts}]}
@@ -737,6 +740,7 @@ function App() {
     setCoupleSync(loadJSON("x_coupleSync", []));
     setCoupleExDiary(loadJSON("x_coupleExDiary", []));
     setCoupleTimeline(loadJSON("x_coupleTimeline", []));
+    setCoupleRecall(loadJSON("x_coupleRecall", []));
     setCoupleAnniv(loadJSON("x_coupleAnniv", []));
     setCoupleLetters(loadJSON("x_coupleLetters", []));
     setCoupleLetterCfg(loadJSON("x_coupleLetterCfg", {}));
@@ -3802,6 +3806,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const _back = _cross ? Math.max(lastInteract + 60000, Math.min(_cross, Date.now() - 60000)) : 0;
           jiwenCrossedRef.current[cid] = 0;
           if (activeOffScene) offlineReply(cid);                                 // 思念攒够 → 线下自己动一拍
+          // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
+          // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
+          // ⚠️花的还是【本来就要花的那一次】——这是出口换了，不是多开一条链。
+          // 三成的概率：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
+          else if (((couplesRef.current || {})[cid] || {}).status === "together" && Math.random() < 0.3)
+            leaveInCoupleSpace(c, jwStyle);
           else replyNow(cid, "", null, { proactive: true, jiwen: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 });
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
@@ -11701,6 +11711,75 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 而且把【用户的回答】直接递给了他。所以他不是在答题，是在回话。
   // 跟匿名箱那次同一课：隔离要靠【调用结构】，不能靠提示词里写「别看」。
   // 现在：她写完先封存（0 次调用）→ 她按「让 TA 也答」→ 那一枪【不带她的答案】→ 同时揭晓。
+  // ── c 同一件事的两个版本（v58.85，她 2026-08-31 说「都做吧」）─────────────
+  // 情侣空间现在整屋子都是【你记下的】。这一页反过来：挑一件你俩都在场的事，
+  // 让他写他记得的那一版——他注意到的和你记下的往往不是同一处，那个落差才是内容。
+  // 一次调用一件事，她自己点才生成。
+  const genCoupleRecall = async char => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const told = new Set((coupleRecallRef.current || []).filter(x => x.characterId === char.id).map(x => x.memId));
+    const pool = (memLibRef.current || []).filter(m => m && m.text && (m.charIds || []).includes(char.id) && !told.has(m.id));
+    if (!pool.length) { toast(told.size ? "你们经历过的都问过一遍了" : "还没有你俩共同的记忆——先一起过点日子"); return; }
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    setGen(g => ({ ...g, coupleRecall: true }));
+    try {
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "你们是恋人。下面这件事你俩都在场，但记在这儿的是【" + (profile.name || "她") + "那一版】。\n"
+          + "【她记下的】" + String(pick.text).slice(0, 300) + "\n"
+          + "现在以「" + char.name + "」的身份写【你记得的那一版】。\n"
+          + "要紧的是：你留意到的、和她写下来的，多半不是同一处。写你当时真正在看的东西、"
+          + "当时没说出口的那句、以及某个她大概没注意到的细节。\n"
+          + "如果你记的跟她写的有出入，就照你记的写，别去迁就她那一版——两版不一样才是这一页的意思。\n"
+          + "3-5 句，第一人称，别总结、别抒情结尾。",
+        schemaHint: "{\"his\":\"你记得的那一版\",\"note\":\"一句：你俩记的哪里不一样（可空）\"}"
+      });
+      if (!d || !d.his) throw new Error("他没写出来");
+      setCoupleRecall(p => {
+        const n = [{ id: "rc_" + Date.now(), characterId: char.id, memId: pick.id,
+          mine: String(pick.text), his: String(d.his), note: String(d.note || ""), ts: Date.now(), unread: true }, ...p];
+        saveJSON("x_coupleRecall", n); return n;
+      });
+      toast("他写了他记得的那一版");
+    } catch (e) { toast("失败：" + e.message); } finally { setGen(g => ({ ...g, coupleRecall: false })); }
+  };
+  const readCoupleRecall = id => setCoupleRecall(p => { const n = p.map(x => x.id === id ? { ...x, unread: false } : x); saveJSON("x_coupleRecall", n); return n; });
+  const delCoupleRecall = id => setCoupleRecall(p => { const n = p.filter(x => x.id !== id); saveJSON("x_coupleRecall", n); return n; });
+
+  // ── b 他趁你不在动过这里（v58.85）────────────────────────────────────────
+  // ⚠️不新开定时器、不多花一次调用。App 里本来就有【思念出口】这个概念
+  //（同一份思念只能被一个出口认领）——这里只是给它多一个出口：本来要发的那条主动
+  // 消息，有时候改成【在情侣空间里留下一件东西】。花的还是那一次调用，但她是
+  // 回来才发现的，而不是当场收到的——聊天做不出「发现」这个动作。
+  const leaveInCoupleSpace = async (char, styleHint) => {
+    try {
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
+          + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
+          + (styleHint ? styleHint + "\n" : "")
+          + "【留在哪儿】note＝往便签墙上贴一张（随手写的一两句，像便利贴）；"
+          + "timeline＝往你俩的时光轴上补一条你记着、而她可能没记下来的事（要写清是哪一天前后的事）。\n"
+          + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
+        schemaHint: "{\"where\":\"note 或 timeline\",\"text\":\"留下的内容\",\"title\":\"where 为 timeline 时给一个短标题，否则留空\"}"
+      });
+      const txt = String((d && d.text) || "").trim();
+      if (!txt) return false;
+      if (d.where === "timeline") {
+        setCoupleTimeline(p => {
+          const now = new Date();
+          const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(),
+            type: "感慨", title: String(d.title || "他记着的一件事").slice(0, 20), content: txt, byCharacter: true, unread: true, createdAt: Date.now() }, ...p];
+          saveJSON("x_coupleTimeline", n); return n;
+        });
+      } else {
+        setCoupleNotes(p => {
+          const n = [{ id: "note_" + Date.now(), characterId: char.id, authorId: char.id, content: txt,
+            style: Math.floor(Math.random() * 4), createdAt: Date.now(), replies: [] }, ...p];
+          saveJSON("x_coupleNotes", n); return n;
+        });
+      }
+      return true;
+    } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
+  };
   const sealCoupleQA = (char, item) => {
     const t0 = String(item && item.myAnswer || "").trim();
     if (!t0) { toast("先写你自己的那一份"); return false; }
@@ -14140,6 +14219,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     couples: couples,
     whispers: whispers,
     couplePactsOf: pactsFor,
+    coupleRecall: coupleRecall,
+    onGenRecall: genCoupleRecall,
+    onReadRecall: readCoupleRecall,
+    onDelRecall: delCoupleRecall,
     onClosePact: closePact,
     onSetPactDue: setPactDue,
     onAddPact: addPact,
