@@ -2306,16 +2306,17 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本月购物概况"),
     data.monthNote ? card(h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#3f3f47" } }, data.monthNote)) : null,
     data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "#a6a6ae", textAlign: "center", padding: "6px 14px 4px" } }, data.tail) : null) : null;
-  // ── 分页：照真购物 App 的样子分四页，别一屏拉到底 ──
+  // 不再照标准电商的「首页 / 购物车 / 订单 / 我的」复刻产品栏目。
+  // 查手机真正要看的不是按钮在哪，而是这个人眼下在等什么、买过后留下什么、为什么取舍。
+  // 旧数据结构全部兼容，只在阅读层重组为三条角色生活线。
   const PAGES = [
-    { key: "home",  zh: "首页",   glyph: "shopping", secs: [accountCard, shipSec, wishSec] },
-    { key: "cart",  zh: "购物车", glyph: "cart",     secs: [cartSec, couponSec, viewSec], badge: cart.length },
-    { key: "order", zh: "订单",   glyph: "orders",   secs: [orderSec], badge: orders.length },
-    { key: "mine",  zh: "我的",   glyph: "me",       secs: [habitSec, shopSec, addrSec, giftSec, monthSec] }
+    { key: "home", zh: "眼下", glyph: "cart", lead: "还悬在半路上的东西，比购买记录更接近此刻。", secs: [accountCard, shipSec, cartSec], badge: shipping.length + cart.length },
+    { key: "kept", zh: "留下", glyph: "orders", lead: "买过、送过、付过的钱，最后留下的是理由和人。", secs: [orderSec, giftSec, monthSec], badge: orders.length },
+    { key: "choice", zh: "取舍", glyph: "me", lead: "反复看却没买、总去的店和明确不买的东西，拼成 TA 的选择。", secs: [wishSec, viewSec, habitSec, shopSec, addrSec, couponSec] }
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
-  const emptyWord = { home: "还没有购物记录，点右上角刷一次", cart: "购物车是空的", order: "还没有订单", mine: "还没有这个人的购物档案" }[page.key];
+  const emptyWord = { home: "眼下没有在途或犹豫中的东西", kept: "还没有留下购买与往来的痕迹", choice: "还看不出 TA 买东西时怎么取舍" }[page.key];
   const nav = h("div", {
     // ⚠️列数跟着 PAGES 走：写死 grid-cols-4 的话，加一档就挤成两行
     className: "shrink-0 grid",
@@ -2359,7 +2360,8 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
     style: { background: "linear-gradient(178deg,#ffe6d8 0%,#eeeaf4 22%," + SHOP_BG + " 46%," + SHOP_BG + " 100%)" }
   }, chrome,
   h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
-    body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord)),
+    h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", borderLeft: "3px solid " + SHOP_ORANGE, background: "rgba(255,255,255,.58)", borderRadius: "0 12px 12px 0", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#77777f" } }, page.lead),
+    body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: SHOP_DIM } }, emptyWord)),
   nav, sheetNode);
 }
 // ============================================================
@@ -2589,11 +2591,13 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     data.monthNote ? h("div", { style: { background: "#fff", borderRadius: 16, borderLeft: "5px solid " + TAKE_AMBER, padding: "17px 18px", marginBottom: 13 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#4d4842" } }, data.monthNote)) : null,
     data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#a8a29a", textAlign: "center", padding: "4px 14px 6px" } }, data.tail) : null) : null;
+  // 外卖不再按平台后台的「点餐 / 订单 / 口味 / 我的」分仓，而按角色生活阅读：
+  // 这一顿发生了什么、长期怎么喂饱自己、饭和哪些人发生过关系。
+  // 字段仍兼容旧存档，改变的是组合与叙事顺序，不拿改名冒充原创。
   const PAGES = [
-    { key: "home", zh: "点餐", glyph: "takeout", secs: [accCard, todayCard, shopSec, liveSec], badge: live.length },
-    { key: "order", zh: "订单", glyph: "orders", secs: [orderSec], badge: orders.length },
-    { key: "taste", zh: "口味", glyph: "health", secs: [tasteSec, weekSec] },
-    { key: "mine", zh: "我的", glyph: "me", secs: [addrSec, wishSec, togSec, couponSec, monthSec] }
+    { key: "home", zh: "这一顿", glyph: "takeout", lead: "先看 TA 今天把饭送到哪里、正在等哪一单。", secs: [accCard, todayCard, liveSec], badge: live.length },
+    { key: "rhythm", zh: "怎么吃", glyph: "health", lead: "七天的节奏、一次次订单和忌口，才是 TA 平常怎么照顾自己的。", secs: [weekSec, orderSec, tasteSec, monthSec], badge: orders.length },
+    { key: "people", zh: "和谁吃", glyph: "me", lead: "送到谁那里、和谁一起点过、为什么总回某家店——饭也记得关系。", secs: [togSec, shopSec, wishSec, addrSec, couponSec] }
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
@@ -2615,7 +2619,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "linear-gradient(178deg,#ffd534 0%,#ffe484 13%,#f7f2e6 30%," + TAKE_BG + " 46%," + TAKE_BG + " 100%)" } },
     chrome,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
-      body.length ? body : h("div", { style: { padding: "60px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这一页还是空的，点右上角刷一次")),
+      h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", borderLeft: "3px solid " + TAKE_AMBER, background: "rgba(255,255,255,.62)", borderRadius: "0 12px 12px 0", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, page.lead),
+      body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
     nav);
 }
 // ============================================================
