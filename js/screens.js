@@ -10228,18 +10228,9 @@ const IF_ACCENT = "#8d76c9";
 // 现在按视觉小说那套来：
 //   · 台词框＝实心底 + 上沿一条高光 + 名字牌是实心小牌 + 右下角一个会跳的小三角；
 //   · 旁白框＝没有高光、没有名字牌、底更透、居中斜体——一眼就跟台词分得开；
-//   · past＝这一拍里已经翻过去的那几框的余影（淡、字小），见 IfRoom 里为什么要它。
-function IfBox({ box, charName, uName, mine, past, tick }) {
+function IfBox({ box, charName, uName, mine, tick }) {
   const narr = !mine && !box.who;
   const name = mine ? (uName || "我") : charName;
-  if (past) return h("div", {
-    style: {
-      fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, marginTop: 8,
-      color: IF_INK, opacity: narr ? 0.2 : 0.34,
-      fontStyle: narr ? "italic" : "normal",
-      textAlign: narr ? "center" : mine ? "right" : "left"
-    }
-  }, (narr ? "" : name + "：") + box.text);
   return h("div", {
     style: {
       position: "relative", marginTop: narr ? 0 : 13,
@@ -10386,16 +10377,6 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
   const lastBeat = at.beat >= beats.length - 1;
   const myTurn = lastBeat && !more && bt.role === "char";
   const bg = line.bgKey || line.bgUrl;
-  // 当前这一框【之前】说过的话，跨拍铺平，留最近 5 条当余影
-  const trail = (function () {
-    const out = [];
-    for (let i = 0; i <= at.beat && i < beats.length; i++) {
-      const b = beats[i];
-      const upto = i === at.beat ? at.box : (b.boxes || []).length;
-      (b.boxes || []).slice(0, upto).forEach(x => out.push({ box: x, mine: b.role === "user" }));
-    }
-    return out.slice(-5);
-  })();
   const tap = () => { if (more) setAt({ beat: at.beat, box: at.box + 1 }); else if (!lastBeat) setAt({ beat: at.beat + 1, box: 0 }); };
   const send = () => { const all = typing.trim() ? drafts.concat([typing.trim()]) : drafts; if (!all.length) return; setDrafts([]); setTyping(""); onAdvance(line.id, all); };
   return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: "#0e0c16" } },
@@ -10424,16 +10405,11 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
       h("button", { onClick: () => setSide(true), "aria-label": "看看前面", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } },
         h("div", { style: { width: 15, height: 11, borderTop: "2px solid " + IF_INK, borderBottom: "2px solid " + IF_INK, opacity: .85 } }))),
     // 正文：点一下出下一框
-    // ⚠️原来这儿只画【当前这一框】，贴在底上，上面四分之三屏是空的死黑——
-    // 而且点到下一框，上一框就没了（「点完就忘」侧栏只解决了跨拍那一半）。
-    // 现在把这一拍里已经翻过去的几框留成余影往上排：屏幕不空了，读到哪儿也看得见。
-    h("div", { onClick: tap, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingTop: 14, paddingBottom: 12 } },
-      // ⚠️余影要【跨拍】取。只算这一拍的话，每翻到新的一拍上半屏就又空一次——
-      // 而每一拍的第一框恰恰是最常停留的位置。
-      trail.map((x, i) => h(IfBox, {
-        key: "p" + i, box: x.box, charName: partner.remark || partner.name, uName: uName,
-        mine: x.mine, past: true
-      })),
+    // ⚠️这儿【不要】把说过的话堆成余影往上排。v59.14 试过，她当天就报：
+    // 「余影太多的话会把后面的话对话框显示不出来，而且太挡住后面的图了」——
+    // 堆到五条就把当前那一框顶出屏幕，背景图也被字糊死。上面那片空的本来就是
+    // 留给背景图的，往前翻走侧栏。
+    h("div", { onClick: tap, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 12 } },
       box ? h(IfBox, {
         box: box, charName: partner.remark || partner.name, uName: uName,
         mine: bt.role === "user",

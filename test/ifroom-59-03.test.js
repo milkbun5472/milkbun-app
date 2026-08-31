@@ -337,14 +337,10 @@ test("她说的那一框也挂名字，挂在右上角", () => {
   // 传下去的那一段：role 是唯一分得出来的东西，uName 得从上面一路传进来
   // 当前那一框和上面那几框余影都得拿到 role 和名字——余影漏了，她说过的话在上面
   // 会变成没主的旁白
-  // 当前那一框和上面那几框余影都得知道「这句是谁说的」——余影漏了，她说过的话
-  // 在上面会退成没主的旁白（居中、斜体、没名字）
+  // ⚠️她那几框存下来时 who 是空的，跟旁白一模一样——只有这一拍的 role 分得出来
   const body = cut(scr, "h(\"div\", { onClick: tap,", "// 我的回合");
-  assert.match(body, /mine: bt\.role === "user"/, "当前那一框没拿到 role");
-  assert.match(body, /mine: x\.mine, past: true/, "余影没拿到 role，她说的会变成旁白");
-  assert.equal((body.match(/uName: uName/g) || []).length, 2, "当前框和余影没都拿到她的名字");
-  // 余影那一头的 mine 是【那一拍自己的 role】算出来的，不是当前拍的
-  assert.match(cut(scr, "const trail = (function ()", "})();"), /mine: b\.role === "user"/, "余影用错了拍的 role");
+  assert.match(body, /mine: bt\.role === "user"/, "调用处没把 role 传下去，她说的会变成旁白");
+  assert.match(body, /uName: uName/, "调用处没把她的名字传下去");
   assert.match(scr, /function IfRoom\(\{ partner, lines, uName,/, "IfRoom 没收 uName");
   assert.match(scr, /uName: \(profile \|\| \{\}\)\.name \|\| "我"/, "路由没把她的名字传进如果馆");
 });
@@ -366,15 +362,16 @@ test("台词框长得像游戏对话框，不像它下面那个输入框", () =>
   assert.match(html, /@keyframes if-tick/, "小三角的动画没定义，它就是个不动的三角");
 });
 
-test("余影跨拍，上半屏不再是一片空的", () => {
+// v59.14 试过把说过的话堆成余影往上排，她当天就报：「余影太多的话会把后面的话
+// 对话框显示不出来，而且太挡住后面的图了，取消了吧」。堆到五条就把当前那一框顶出
+// 屏幕，背景图也被字糊死。上面那片空的本来就是留给背景图的，往前翻走侧栏。
+test("正文只画当前那一框，不堆余影", () => {
   const room = cut(scr, "function IfRoom({", "\n}\n");
-  // ⚠️只铺【这一拍】的话，每翻到新的一拍上半屏就又空一次——而每一拍的第一框
-  // 恰恰是最常停留的位置。所以要从头铺。
-  assert.match(room, /for \(let i = 0; i <= at\.beat && i < beats\.length; i\+\+\)/, "余影没跨拍取");
-  assert.match(room, /const upto = i === at\.beat \? at\.box : \(b\.boxes \|\| \[\]\)\.length/, "当前这一拍取多了或取少了");
-  assert.match(room, /return out\.slice\(-5\)/, "余影没封顶，会一路堆到屏幕外");
-  // 余影是【说过的话】，不能把当前这一框也算进去（会显示两遍）
-  assert.ok(room.indexOf("at.box + 1 : (b.boxes") < 0, "把当前那一框也铺成余影了");
+  const body = cut(room, 'h("div", { onClick: tap,', "// 我的回合");
+  assert.equal((body.match(/h\(IfBox, \{/g) || []).length, 1, "又往上堆框了，当前那一框会被顶出屏幕");
+  assert.ok(room.indexOf("const trail") < 0, "余影那段算式还留着");
+  const box = cut(scr, "function IfBox({", "\n}\n");
+  assert.ok(box.indexOf("past") < 0, "IfBox 里那条余影分支没删干净（撤掉东西要删掉）");
 });
 
 test("轮不到她的时候，那一整条输入区收起来", () => {
