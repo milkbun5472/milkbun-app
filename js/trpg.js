@@ -598,7 +598,8 @@
   //   ② 道路和可行走图【同一趟循环】生成:画出来的路永远等于能走的边,不会两张皮。
   // 丢掉它的栅格化重活(120×90 网格/行军方块/Dijkstra 描边):全走矢量,毫秒级出图,
   // 不卡主线程也不用存大 blob——布局由 (战役id, 骨架) 决定,每次现算,张张一样。
-  function normRegions(raw) {
+  function normRegions(raw, maxNodes, maxRegions) {
+    const MAXN = maxNodes || 3, MAXR = maxRegions || 6;
     const TERR = ["山地", "平原", "森林", "水泽", "荒漠", "城郭"];
     const KIND = ["城镇", "遗迹", "野外", "地标"];
     const seen = {};
@@ -615,10 +616,10 @@
         if (!nm || nseen[nm]) return null;
         nseen[nm] = 1;
         return { name: nm, kind: KIND.indexOf(n.kind) >= 0 ? n.kind : "野外", hook: String(n.hook || "").trim().slice(0, 60) };
-      }).filter(Boolean).slice(0, 3);
+      }).filter(Boolean).slice(0, MAXN);
       if (!nodes.length) nodes.push({ name: name, kind: "地标", hook: "" });
       return { name, terrain: TERR.indexOf(r.terrain) >= 0 ? r.terrain : "平原", adj: (Array.isArray(r.adj) ? r.adj : []).map(x => String(x || "").trim()).filter(Boolean), nodes };
-    }).filter(Boolean).slice(0, 6);
+    }).filter(Boolean).slice(0, MAXR);
     // 接壤只认双方都存在的名字,并补成对称;谁都不挨的孤区随后由道路兜底接上
     const names = regions.map(r => r.name);
     regions.forEach(r => { r.adj = r.adj.filter(a => a !== r.name && names.indexOf(a) >= 0); });
@@ -698,9 +699,9 @@
     return { find, union: (a, b) => { const ra = find(a), rb = find(b); if (ra === rb) return false; pa[ra] = rb; return true; } };
   }
   // 总装:布局 → 团块 → 节点(环带拒绝采样) → 道路+通行图(同一趟循环记 edges)
-  function mapBuild(seed, regionsRaw, W, H) {
+  function mapBuild(seed, regionsRaw, W, H, maxNodes, maxRegions) {
     W = W || 360; H = H || 300;
-    const regions = normRegions(regionsRaw);
+    const regions = normRegions(regionsRaw, maxNodes, maxRegions);
     if (!regions) return null;
     const rand = mulberry32(hashStr(seed) ^ 0x51ab);
     const centers = forceLayout(regions, rand, W, H);

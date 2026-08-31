@@ -86,7 +86,8 @@ test("现实地图：地名查一次就缓存，查不到的也记下来", () =>
 
 test("图上画的是此刻的位置，钉过来改的是落脚点——两件事别混", () => {
   const wm = grab(map, "  function WorldMap({", "  // 开世界：整页表单");
-  assert.match(wm, /where\[c\.id\] = liveNodeOf\(world, c, \(status \|\| \{\}\)\[c\.id\]\)/, "画的还是死钉子");
+  // v58.79 起名单里多了她自己（她不跟行程走），所以这里只验角色那一支还是按行程算的
+  assert.match(wm, /: liveNodeOf\(world, c, \(status \|\| \{\}\)\[c\.id\]\)/, "画的还是死钉子");
   assert.match(wm, /onPin\(c\.id, pins\[c\.id\] === sel\.name \? null : sel\.name\)/, "「挪走」按的是此刻位置,那会把不在这儿的人也当成钉在这儿");
   assert.match(wm, /w\.live \? "此刻在「" \+ w\.node \+ "」" : "落脚在「" \+ w\.node \+ "」"/, "分不出「此刻在」和「落脚在」");
 });

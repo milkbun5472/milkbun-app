@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.78";
+const APP_VERSION = "v58.79";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9850,6 +9850,55 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       toast("失败：" + e.message);
     } finally { setWorldBusy(false); }
   };
+  // 往已有的世界里继续加地点（她 2026-08-31 要的）。
+  // 手写那条【一次调用都不花】；让模型添几个才走一次调用，而且把这个世界已经有的
+  // 地方全递过去，免得它编出一个重样的、或者跟这个世界不搭的。
+  const addWorldNode = (wid, regionName, node) => {
+    const nm = String((node && node.name) || "").trim().slice(0, 10);
+    if (!nm) { toast("先给这个地点起个名"); return false; }
+    const w = (worlds || []).find(x => x.id === wid);
+    if (!w) return false;
+    const dup = (w.regions || []).some(r => (r.nodes || []).some(n => n.name === nm));
+    if (dup) { toast("「" + nm + "」已经在图上了"); return false; }
+    // 画图那边一块地方最多画 8 个（WORLD_MAX_NODES）。加得进去却画不出来最难查，
+    // 所以这一道挡在存盘之前。
+    const rg = (w.regions || []).find(r => r.name === regionName);
+    if (rg && (rg.nodes || []).length >= 8) { toast("「" + regionName + "」已经满了（最多 8 个地点）——加到别的地方去，或者开一块新的"); return false; }
+    saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, regions: (x.regions || []).map(r => r.name !== regionName ? r : {
+      ...r, nodes: [...(r.nodes || []), { name: nm, kind: node.kind || "野外", hook: String(node.hook || "").trim().slice(0, 60) }]
+    }) }));
+    toast("「" + nm + "」加进「" + regionName + "」了");
+    return true;
+  };
+  const genWorldNodes = async (wid, regionName, hint, done) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const w = (worlds || []).find(x => x.id === wid);
+    if (!w) return;
+    setWorldBusy(true);
+    try {
+      const have = (w.regions || []).map(r => r.name + "(" + r.terrain + ")：" + (r.nodes || []).map(n => n.name + "〔" + n.kind + (n.hook ? "·" + n.hook : "") + "〕").join(" / ")).join("\n");
+      const sys = "这是一个已经存在的架空世界，现在要往其中一块地方里【再添几个地点】。\n"
+        + "【这个世界】" + (w.brief || "") + "\n【他当初写的设定】" + String(w.prompt || "").slice(0, 1200) + "\n"
+        + "【已经有的地方和地点】\n" + have + "\n"
+        + "【这次要添的】往「" + regionName + "」里添 2-4 个新地点。" + (hint ? "他还说：" + hint + "\n" : "\n")
+        + "新地点要跟这块地方已经有的那几个【不重样、不同类】：已经有集市就别再来一个集市。"
+        + "名字要一眼看得出是这个世界的地方，换到别的世界还照样成立的名字就是没写好。\n"
+        + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么。\n"
+        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}";
+      const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+      const d = extractJSON(raw) || {};
+      const seen = {}; (w.regions || []).forEach(r => (r.nodes || []).forEach(n => { seen[n.name] = 1; }));
+      const room = Math.max(0, 8 - (((w.regions || []).find(r => r.name === regionName) || {}).nodes || []).length);
+      if (!room) throw new Error("「" + regionName + "」已经满了（最多 8 个地点）");
+      const fresh = ((d && Array.isArray(d.nodes)) ? d.nodes : [])
+        .map(x => ({ name: String((x && x.name) || "").trim().slice(0, 10), kind: ["城镇", "遗迹", "野外", "地标"].indexOf(x && x.kind) >= 0 ? x.kind : "野外", hook: String((x && x.hook) || "").trim().slice(0, 60) }))
+        .filter(x => x.name && !seen[x.name] && (seen[x.name] = 1)).slice(0, Math.min(4, room));
+      if (!fresh.length) throw new Error("一个新地点都没添出来");
+      saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, regions: (x.regions || []).map(r => r.name !== regionName ? r : { ...r, nodes: [...(r.nodes || []), ...fresh] }) }));
+      toast("「" + regionName + "」多了 " + fresh.length + " 个地点：" + fresh.map(x => x.name).join("、"));
+      if (done) done();
+    } catch (e) { toast("失败：" + e.message); } finally { setWorldBusy(false); }
+  };
   const saveWorld = (id, name, brief) => saveWorlds((worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt }));
   const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
   const pinWorld = (wid, charId, node) => saveWorlds((worlds || []).map(w => {
@@ -13507,6 +13556,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSaveWorld: saveWorld,
     onDelWorld: delWorld,
     onPinWorld: pinWorld,
+    onAddNode: addWorldNode,
+    onGenNodes: genWorldNodes,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,

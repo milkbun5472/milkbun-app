@@ -229,6 +229,7 @@
   // ── 架空世界地图 ────────────────────────────────────────────────────────
   // 地图引擎直接借跑团那一份(window.TrpgMap):模型只宣告【区域·接壤·节点】,
   // 坐标全由力导向现算——同一个世界每次画出来一模一样,不存图片、不占云同步。
+  const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = 8;   // 一块地方最多画几个地点 / 一个世界最多几块地方
   const TERR_TINT = { 山地: "#d9d0c2", 平原: "#dde2cd", 森林: "#cfdac8", 水泽: "#cdd8dc", 荒漠: "#e4d9c2", 城郭: "#ddd3d6" };
   const KIND_GLYPH = { 城镇: "⌂", 遗迹: "▲", 野外: "•", 地标: "★" };
   const worldPaper = t => ({
@@ -270,22 +271,30 @@
   }
 
   // 一个世界的舆图：满屏 SVG，可拖可捏；角色钉在节点上，头像贴着那个点
-  function WorldMap({ world, characters, status, onPin, onBack, onEdit }) {
+  function WorldMap({ world, characters, status, me, busy, onPin, onAdd, onGen, onBack, onEdit }) {
     const t = useTheme();
     const [selNode, setSelNode] = useState(null);
+    const [adding, setAdding] = useState(false);
     const [vb, setVb] = useState(null);
     const ptr = useRef({ pts: {}, dist: 0, moved: false });
+    const skel = (world.regions || []).map(function (r) {
+      return r.name + ":" + (r.nodes || []).map(function (n) { return n.name; }).join(",");
+    }).join("|");
     const built = React.useMemo(function () {
       const K = window.TrpgMap;
-      return (K && world && world.regions) ? K.mapBuild(world.id, world.regions, 360, 620) : null;
-    }, [world && world.id]);
+      return (K && world && world.regions) ? K.mapBuild(world.id, world.regions, 360, 620, WORLD_MAX_NODES, WORLD_MAX_REGIONS) : null;
+    }, [world && world.id, skel]);
     if (!built) return h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "这个世界的地图画不出来——区域至少要两块");
     const pins = (world.pins || {});
     // 画在图上的是【此刻】的位置：行程指到哪儿就在哪儿，指不到才退回落脚点
+    // 她自己也能钉进每一个世界（她 2026-08-31 要的）。当成名单里的一员，
+    // id 固定 __me，每个世界各记各的——同一个人可以在这个世界在城里、在那个世界在海上。
+    const meRow = { id: "__me", name: (me && me.name) || "我", remark: (me && me.name) || "我", color: "#3f6d8c", __me: true };
+    const roster = (characters || []).concat([meRow]);
     const where = {};
-    (characters || []).forEach(function (c) { where[c.id] = liveNodeOf(world, c, (status || {})[c.id]); });
+    roster.forEach(function (c) { where[c.id] = c.__me ? { node: (world.pins || {})[c.id] || "", live: false } : liveNodeOf(world, c, (status || {})[c.id]); });
     const atNode = {};
-    (characters || []).forEach(function (c) { const n = where[c.id] && where[c.id].node; if (n) (atNode[n] = atNode[n] || []).push(c); });
+    roster.forEach(function (c) { const n = where[c.id] && where[c.id].node; if (n) (atNode[n] = atNode[n] || []).push(c); });
     // 视口按【画出来的内容】收紧，不按画布 360×620 收：力导向撒点常常空出一整条边，
     // 照画布铺就是上下各留一条空白网格。视口存 {x,y,w,h}，缩放围着视口中心缩。
     const fit = (function () {
@@ -355,7 +364,7 @@
           })),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "谁在这儿"),
         h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-          (characters || []).length ? (characters || []).map(function (c) {
+          roster.map(function (c) {
             const w = where[c.id] || {};
             const here = w.node === sel.name;
             const other = !here && w.node;
@@ -365,15 +374,19 @@
               h("div", { className: "min-w-0 flex-1" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: here ? "#fff" : t.ink } }, c.remark || c.name),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: here ? "rgba(255,255,255,0.8)" : t.fog, lineHeight: 1.5 } },
-                  here ? (w.live ? (w.why || "此刻在这儿") + "（跟着今天的行程走）" : ((world.why || {})[c.id] || "就在这儿"))
+                  c.__me ? (here ? "你在这儿" : other ? "你在「" + w.node + "」" : "你还没进这个世界")
+                    : here ? (w.live ? (w.why || "此刻在这儿") + "（跟着今天的行程走）" : ((world.why || {})[c.id] || "就在这儿"))
                     : other ? (w.live ? "此刻在「" + w.node + "」" : "落脚在「" + w.node + "」") : "还没落脚在这个世界里")),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: here ? "rgba(255,255,255,0.85)" : t.tint, flexShrink: 0 } },
                 (pins[c.id] === sel.name) ? "挪走" : "钉过来"));
-          }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有角色")))) : null;
+          })))) : null;
     return h("div", { className: "flex-1 flex flex-col", style: { minHeight: 0 } }, nodePage,
+      adding ? h(NodeAdd, { world: world, busy: busy, onBack: function () { setAdding(false); },
+        onAdd: function (r, nd) { return onAdd(r, nd); }, onGen: function (r, hint) { onGen(r, hint); } }) : null,
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 14px 4px" } },
         h("button", { onClick: onBack, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, "‹ 全部世界"),
         h("div", { className: "min-w-0 flex-1", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, world.name),
+        h("button", { onClick: function () { setAdding(true); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "＋ 地点"),
         h("button", { onClick: onEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, "···")),
       h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, padding: "4px 12px 0" } },
         h("div", { style: { position: "absolute", right: 20, top: 14, zIndex: 2, display: "flex", flexDirection: "column", gap: 6 } },
@@ -405,7 +418,48 @@
               h("circle", { cx: nd.x, cy: nd.y, r: 16, fill: "transparent" }));
           }))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, padding: "7px 16px calc(env(safe-area-inset-bottom, 0px) * 0.4 + 10px)" } },
-        "单指拖动 · 双指缩放 · 点一个地点看它藏着什么、把谁钉过去" + ((characters || []).some(function (c) { return where[c.id] && where[c.id].live; }) ? " · 头像跟着今天的行程走" : (Object.keys(pins).length ? "" : "（还没人落脚在这个世界）"))));
+        "单指拖动 · 双指缩放 · 点一个地点看它藏着什么、把谁钉过去" + (roster.some(function (c) { return where[c.id] && where[c.id].live; }) ? " · 头像跟着今天的行程走" : (Object.keys(pins).length ? "" : "（还没人落脚在这个世界）"))));
+  }
+
+  // 往已有的世界里加地点（她 2026-08-31 要的）。整页，不是半窗。
+  // 手写那条一次调用都不花；「让模型添几个」才走一次。
+  function NodeAdd({ world, busy, onAdd, onGen, onBack }) {
+    const t = useTheme();
+    const regions = (world.regions || []);
+    const [reg, setReg] = useState(regions[0] ? regions[0].name : "");
+    const [nm, setNm] = useState("");
+    const [kind, setKind] = useState("野外");
+    const [hook, setHook] = useState("");
+    const [hint, setHint] = useState("");
+    const inp = { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", width: "100%", outline: "none" };
+    const lbl = { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" };
+    const chip = function (on) { return { fontFamily: F_BODY, fontSize: 12.5, color: on ? "#fff" : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" }; };
+    return h("div", { style: { position: "fixed", inset: 0, zIndex: 140, display: "flex", flexDirection: "column", background: t.bg } },
+      h(Head, { zh: "加个地点", en: world.name, onBack: onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
+        h("div", { style: Object.assign({}, lbl, { marginTop: 6 }) }, "加到哪块地方"),
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+          regions.map(function (r) {
+            return h("button", { key: r.name, onClick: function () { setReg(r.name); }, className: "active:opacity-70", style: chip(reg === r.name) },
+              r.name + "（" + (r.nodes || []).length + "）");
+          })),
+        h("div", { style: lbl }, "自己写一个"),
+        h("input", { value: nm, onChange: function (e) { setNm(e.target.value); }, placeholder: "地点叫什么", style: inp }),
+        h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
+          ["城镇", "遗迹", "野外", "地标"].map(function (k) {
+            return h("button", { key: k, onClick: function () { setKind(k); }, className: "active:opacity-70", style: chip(kind === k) }, KIND_GLYPH[k] + " " + k);
+          })),
+        h("textarea", { value: hook, onChange: function (e) { setHook(e.target.value); }, rows: 3, placeholder: "这儿眼下正有什么事（一句，可空）",
+          style: Object.assign({}, inp, { marginTop: 9, lineHeight: 1.8, resize: "vertical" }) }),
+        h("button", { onClick: function () { if (onAdd(reg, { name: nm.trim(), kind: kind, hook: hook.trim() })) { setNm(""); setHook(""); } }, disabled: !nm.trim(), className: "w-full active:opacity-80",
+          style: { marginTop: 12, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: nm.trim() ? 1 : 0.5 } }, "加进「" + reg + "」（不花调用）"),
+        h("div", { style: lbl }, "或者让模型添几个"),
+        h("input", { value: hint, onChange: function (e) { setHint(e.target.value); }, placeholder: "想要什么样的？（可空）", style: inp }),
+        h("button", { onClick: function () { onGen(reg, hint.trim()); }, disabled: busy, className: "w-full active:opacity-80",
+          style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13.5, color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0", opacity: busy ? 0.5 : 1 } },
+          busy ? "添着…" : "让模型往「" + reg + "」添 2-4 个（一次调用）"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.8, marginTop: 16 } },
+          "加完之后，同一块地方里其它地点的位置会挪一挪——地图是按骨架现算的，不存坐标。区域的形状和它们之间的路不会变，人也还站在原来那个地点上。")));
   }
 
   // 开世界：整页表单。她写一段设定，模型只负责把它铺成区域和地点
@@ -447,7 +501,7 @@
   }
 
   // 架空那一半的总入口：世界列表 → 某个世界的舆图
-  function StoryMap({ worlds, characters, status, busy, onGen, onSave, onDel, onPin }) {
+  function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onAddNode, onGenNodes }) {
     const t = useTheme();
     const [wid, setWid] = useState(null);
     const [form, setForm] = useState(null);   // "new" | 世界 id
@@ -461,8 +515,11 @@
       onDel: function () { onDel(formInit.id); setForm(null); setWid(null); }
     }) : null;
     if (cur) return h(React.Fragment, null, formLayer,
-      h(WorldMap, { world: cur, characters: characters, status: status, onBack: function () { setWid(null); }, onEdit: function () { setForm(cur.id); },
-        onPin: function (charId, node) { onPin(cur.id, charId, node); } }));
+      h(WorldMap, { world: cur, characters: characters, status: status, me: me, busy: busy,
+        onBack: function () { setWid(null); }, onEdit: function () { setForm(cur.id); },
+        onPin: function (charId, node) { onPin(cur.id, charId, node); },
+        onAdd: function (r, nd) { return onAddNode(cur.id, r, nd); },
+        onGen: function (r, hint) { onGenNodes(cur.id, r, hint); } }));
     return h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 30px" } }, formLayer,
       list.length === 0
         ? h("div", { style: { textAlign: "center", padding: "56px 10px 30px" } },
@@ -488,7 +545,7 @@
   }
 
   // 全屏好友地图
-  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld }) {
+  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld, onAddNode, onGenNodes }) {
     const t = useTheme();
     useSchedGeo(characters, status);
     const [sel, setSel] = useState(null);   // 选中要设城市的角色 id
@@ -670,7 +727,7 @@
             return h("button", { key: m[0], onClick: function () { onSetMode && onSetMode(m[0]); }, style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, m[1]);
           }))),
       (mode || "real") === "story"
-        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld })
+        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onAddNode: onAddNode, onGenNodes: onGenNodes })
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
             h(MapCanvas, { pins: pins, opts: { noFit: true, zoomControl: true, zoom: 11, onReady: function (m) { mapRef.current = m; const c = livePos || (anchor ? [anchor.lat, anchor.lng] : allPtsRef.current[0]); if (c) { try { m.setView(c, livePos ? 12 : 11); } catch (e) {} if (livePos) centeredRef.current = true; } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
             // 地点搜索条（真·全球搜索）
