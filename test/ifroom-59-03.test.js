@@ -17,7 +17,7 @@ test("「度」给的是维度和判据，不是例子", () => {
   assert.match(K.IF_SCALE, /他的形态/);
   assert.match(K.IF_SCALE, /时代与身份/);
   assert.match(K.IF_SCALE, /还记不记得你/);
-  assert.match(K.IF_SCALE, /岔路口换了方向/);
+  assert.match(K.IF_SCALE, /岔路口/);   // 措辞随 DIMS 走，别把整句冻死（另有一条按 DIMS 逐条核）
   assert.match(K.IF_SCALE, /挑【一样】动，别一次动几样/, "没说只动一样");
   // 上不封顶和下不封底两头都要挡住
   assert.match(K.IF_SCALE, /那个人的核心一个字都不许换/, "没挡住「换了个人」那一头");
@@ -125,4 +125,68 @@ test("背景图开线时不生，她点了才生", () => {
   assert.match(bg, /generateSelfieImage/);
   assert.match(bg, /画面里不要有人/, "背景图里会冒出人来");
   assert.match(bg, /imgApiReady\(\)\)\) \{ toast/, "没配图像 API 也往下画");
+});
+
+// ═══ v59.06 她 2026-08-31 看了实物之后提的四条 ═══
+// 「如果馆生成后在侧边栏也显示主题吧，不然我一进去一脸懵」
+// 「这个主题也不对吧怎么来来回回都是差不多的」
+// 「我怎么结束这拍，或者删掉记录啊」
+test("避重：已经想过的那几条原样发回去，还挑明哪几样没动过", () => {
+  const prior = [{ title: "未命名版本", premise: "他只是她写出来的模型", dim: "form" },
+                 { title: "第一行私心", premise: "他是初代认知模型", dim: "form" }];
+  const p = K.openPrompt("沈屿白", "Lisa", "", prior);
+  assert.match(p, /【已经想过这几条，一条都不许再想】/);
+  assert.match(p, /「未命名版本」：他只是她写出来的模型/, "旧那条没发回去");
+  // ⚠️光说「别重复」不够：三条全落在同一个维度上正是因为它每次挑那个最顺手的
+  assert.match(p, /上面那几条已经动过：他的形态/, "没说清动过哪几样");
+  assert.match(p, /这一条从【他所处的时代与身份】或【他还记不记得你】或【你俩之间那个岔路口】里挑一样动/, "没指出还剩哪几样");
+  // 换个说法不算新的
+  assert.match(p, /同一样东西变了、只是换个词说/, "只挡了字面重复");
+  // 一条都没有时不发这一块（零 token）
+  assert.ok(K.openPrompt("A", "B", "", []).indexOf("已经想过这几条") < 0);
+  assert.ok(K.openPrompt("A", "B", "", null).indexOf("已经想过这几条") < 0);
+  // 四样都动过了也要有话说，不能空转
+  const all = K.DIMS.map((d, i) => ({ title: "t" + i, premise: "p" + i, dim: d[0] }));
+  assert.match(K.openPrompt("A", "B", "", all), /四样都动过了/, "四样用尽时没有下一步");
+});
+
+test("维度只写一处：判据表和 dim 都从 DIMS 长出来", () => {
+  assert.equal(K.DIMS.length, 4);
+  K.DIMS.forEach(d => assert.ok(K.IF_SCALE.indexOf(d[1]) > 0, "判据表里少了：" + d[1]));
+  K.DIMS.forEach(d => assert.ok(K.openPrompt("A", "B", "").indexOf(d[0]) > 0, "输出里没让它填 key：" + d[0]));
+  assert.equal(K.dimZh("memory"), "他还记不记得你");
+  assert.equal(K.dimZh("nope"), "");
+  // 存的时候要校验，模型乱填的不收
+  assert.match(app, /\(window\.IfKit\.DIMS \|\| \[\]\)\.some\(x => x\[0\] === String\(\(d && d\.dim\) \|\| ""\)\) \? String\(d\.dim\) : ""/, "dim 没校验就存了");
+  assert.match(app, /K\.openPrompt\(char\.name, profile\.name \|\| "我", hint,\n            ifLinesRef\.current\.filter/, "开线时没把旧的那几条发回去");
+});
+
+// 「一进去一脸懵」：侧栏和顶栏都要看得见这条线是什么
+test("侧栏和顶栏都摆出这条线是什么", () => {
+  const ui = scr.slice(scr.indexOf("function IfRoom({ partner, lines"));
+  // 侧栏顶上：题目 + 前提 + 动的是哪一样
+  const side = ui.slice(ui.indexOf("side ? h(\"div\""));
+  assert.match(side, /line\.title/, "侧栏没写题目");
+  assert.match(side, /line\.premise/, "侧栏没写前提");
+  assert.match(side, /"这条动的是：" \+ window\.IfKit\.dimZh\(line\.dim\)/, "侧栏没说动的是哪一样");
+  assert.match(side, /"前面说过的"/, "侧栏原来那块标题丢了");
+  // 顶栏也带一句前提：不用掀侧栏也知道自己在哪条线里
+  const top = ui.slice(ui.indexOf("h(\"div\", { className: \"flex-1 min-w-0 text-center\" }"), ui.indexOf("onClick: () => setSide(true)"));
+  assert.match(top, /line\.premise/, "顶栏没带前提");
+});
+
+// 「我怎么结束这拍，或者删掉记录啊」——原来只有进到线里才收得了，删压根没有
+test("列表上直接收得了、删得掉，删之前问一句", () => {
+  const ui = scr.slice(scr.indexOf("function IfRoom({ partner, lines"));
+  assert.match(ui, /onClick: \(\) => setEndId\(x\.id\)[\s\S]{0,180}"就到这儿"/, "列表上收不了");
+  assert.match(ui, /onClick: \(\) => setDropId\(x\.id\)[\s\S]{0,200}"删掉"/, "列表上删不掉");
+  assert.match(ui, /"删掉这条如果？"/, "删之前不问一句");
+  assert.match(ui, /找不回来/, "没说清删了就没了");
+  assert.match(ui, /已经记进记忆库或留成念头的那一份不受影响/, "没说清已经留出去的那份会怎样");
+  assert.match(app, /const ifDrop = lineId => \{ ifSave\(ifLinesRef\.current\.filter\(x => x\.id !== lineId\)\); toast\("删了"\); \};/, "没有删这条路");
+  // ⚠️操作行必须是卡片按钮的兄弟：按钮里不许嵌按钮
+  assert.match(ui, /\/\/ ⚠️操作行必须是卡片按钮的【兄弟】/, "没写清为什么要套一层 div");
+  // 三个去处只写一处：列表上收和线里收共用同一个组件
+  assert.equal((scr.match(/const IF_ENDINGS = \[/g) || []).length, 1);
+  assert.equal((scr.match(/h\(IfEndPick, \{/g) || []).length, 2, "两处收线没共用同一个选择器");
 });

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.05";
+const APP_VERSION = "v59.06";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12314,7 +12314,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 印象卡、好感、心情、世界书全灌进来——那正是平行时空【不许】读的东西。
       // 自己拼一份精简 system，跟小剧场同一个做法。
       const d = extractJSON(await callAI(apiFor(char.id),
-        ANTI_CLICHE + "\n\n" + ifCtx(char) + "\n\n" + K.openPrompt(char.name, profile.name || "我", hint)
+        // 已经想过的那几条发回去避重（她 2026-08-31：「怎么来来回回都是差不多的」）。
+        // 只发题目/前提/动过哪个维度，不发正文——那是别的线的内容，混进来只会串味。
+        ANTI_CLICHE + "\n\n" + ifCtx(char) + "\n\n"
+        + K.openPrompt(char.name, profile.name || "我", hint,
+            ifLinesRef.current.filter(x => x.charId === char.id).map(x => ({ title: x.title, premise: x.premise, dim: x.dim })))
         + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + K.OPEN_SHAPE,
         [{ role: "user", content: "开这一条。" }], { maxTokens: 4000 })) || {};
       const boxes = K.normBoxes(d && d.boxes, char.name);
@@ -12323,6 +12327,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         id: "if_" + Date.now(), charId: char.id,
         title: String((d && d.title) || "一个如果").replace(/\s+/g, " ").trim().slice(0, 16),
         premise: String((d && d.premise) || "").replace(/\s+/g, " ").trim().slice(0, 80),
+        dim: (window.IfKit.DIMS || []).some(x => x[0] === String((d && d.dim) || "")) ? String(d.dim) : "",
         bgPrompt: String((d && d.bg) || "").replace(/\s+/g, " ").trim().slice(0, 200),
         bgKey: null, hint: String(hint || "").trim().slice(0, 200),
         beats: [{ id: "b_" + Date.now(), role: "char", boxes: boxes, ts: Date.now() }],
@@ -12395,6 +12400,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   //  keep  只留在馆里——主线一个字都不知道
   //  mem   回喂成记忆——⚠️必须带【这是一个如果】的标记，否则他会当成真发生过
   //  seed  留成一个念头——进欲望盒子那条已有的路
+  const ifDrop = lineId => { ifSave(ifLinesRef.current.filter(x => x.id !== lineId)); toast("删了"); };
   const ifEnd = (lineId, how) => {
     const line = ifLinesRef.current.find(x => x.id === lineId);
     const char = line && characters.find(c => c.id === line.charId);
@@ -14910,6 +14916,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onIfAdvance: ifAdvance,
     onIfBg: ifBg,
     onIfEnd: ifEnd,
+    onIfDrop: ifDrop,
     onOpenDrawer: openDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,

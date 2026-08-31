@@ -10240,6 +10240,22 @@ function IfBox({ box, charName }) {
       }
     }, box.text));
 }
+// 收线时那三个去处。列表上收和线里收用的是同一份——一层只写一处。
+const IF_ENDINGS = [
+  ["keep", "只留在馆里", "主线一个字都不知道"],
+  ["mem", "记进记忆库", "他会记得你俩一起想过这条线——标着这是个如果，不会当成真发生过"],
+  ["seed", "留成一个念头", "进他的欲望盒子当一张观测纸条，发不发芽他自己定"]
+];
+function IfEndPick({ onPick, onClose }) {
+  return h("div", { onClick: onClose, style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, border: "1px solid " + IF_LINE, background: "#15121e", padding: "18px 17px" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: IF_INK } }, "这条就到这儿"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.8, marginTop: 5 } }, "它要留在哪儿？"),
+      IF_ENDINGS.map(([k, zh, sub]) =>
+        h("button", { key: k, onClick: () => onPick(k), className: "w-full text-left active:opacity-70", style: { marginTop: 10, borderRadius: 13, border: "1px solid " + IF_LINE, padding: "11px 13px" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, zh),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, lineHeight: 1.6, marginTop: 3 } }, sub)))));
+}
 function IfRoom({ partner, lines, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, onBack }) {
   const t = useTheme();
   const mine = (lines || []).filter(x => x.charId === partner.id);
@@ -10250,6 +10266,8 @@ function IfRoom({ partner, lines, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, 
   const [typing, setTyping] = useState("");
   const [side, setSide] = useState(false);
   const [ending, setEnding] = useState(false);
+  const [endId, setEndId] = useState(null);    // 在列表上收哪一条
+  const [dropId, setDropId] = useState(null);  // 删哪一条（删是不可逆的，问一句）
   const line = mine.find(x => x.id === openId) || null;
   const beats = (line && line.beats) || [];
   // 每次这条线长出新的一拍，就把光标推到最新那一拍的第一框
@@ -10278,15 +10296,35 @@ function IfRoom({ partner, lines, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, 
             busy ? "他在想……" : "开一条")),
         mine.length
           ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 16 } },
-              mine.map(x => h("button", { key: x.id, onClick: () => { setOpenId(x.id); setAt({ beat: Math.max(0, (x.beats || []).length - 1), box: 0 }); }, className: "w-full text-left active:opacity-70", style: { borderRadius: 15, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", padding: "13px 14px" } },
-                h("div", { className: "flex items-center gap-2" },
-                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.title),
-                  h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: IF_DIM } }, (x.beats || []).length + " 拍")),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.6, marginTop: 4 } }, x.premise),
-                x.endedAt ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 5 } },
-                  "已收 · " + (x.outcome === "mem" ? "记进了记忆库" : x.outcome === "seed" ? "留成了一个念头" : "只留在馆里")) : null)))
+              // ⚠️操作行必须是卡片按钮的【兄弟】，不能塞进按钮里——按钮里不许再嵌按钮。
+              // 所以每一条外面套一个 div，里头一个卡片按钮 + 一行操作。
+              mine.map(x => h("div", { key: x.id, style: { borderRadius: 15, border: "1px solid " + IF_LINE, background: "rgba(24,21,36,.7)", overflow: "hidden" } },
+                h("button", { onClick: () => { setOpenId(x.id); setAt({ beat: Math.max(0, (x.beats || []).length - 1), box: 0 }); }, className: "w-full text-left active:opacity-70", style: { padding: "13px 14px 9px" } },
+                  h("div", { className: "flex items-center gap-2" },
+                    h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.title),
+                    h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: IF_DIM } }, (x.beats || []).length + " 拍")),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.6, marginTop: 4 } }, x.premise),
+                  x.dim && (window.IfKit || {}).dimZh ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 4, opacity: .75 } }, "动的是：" + window.IfKit.dimZh(x.dim)) : null,
+                  x.endedAt ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 5 } },
+                    "已收 · " + (x.outcome === "mem" ? "记进了记忆库" : x.outcome === "seed" ? "留成了一个念头" : "只留在馆里")) : null),
+                // 她 2026-08-31：「我怎么结束这拍，或者删掉记录啊」——原来只有进到线里
+                // 才收得了，删更是压根没有。列表这一行上直接给。
+                h("div", { className: "flex items-center", style: { padding: "0 14px 11px" } },
+                  x.endedAt ? null : h("button", { onClick: () => setEndId(x.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "就到这儿"),
+                  h("button", { onClick: () => setDropId(x.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(214,140,150,.78)", marginLeft: "auto" } }, "删掉")))))
           : h("div", { style: { border: "1px dashed " + IF_LINE, borderRadius: 16, padding: "30px 16px", marginTop: 16, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: IF_DIM, lineHeight: 1.9 } },
-              "还没有哪条如果被想出来。")));
+              "还没有哪条如果被想出来。")),
+      // 在列表上收一条：跟线里那个「就到这儿」是同一套三选一，一层只写一处不好写成组件，
+      // 就把去处那三项抽出来共用
+      endId ? h(IfEndPick, { onPick: k => { onEnd(endId, k); setEndId(null); }, onClose: () => setEndId(null) }) : null,
+      // 删是不可逆的，问一句
+      dropId ? h("div", { onClick: () => setDropId(null), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
+        h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, border: "1px solid " + IF_LINE, background: "#15121e", padding: "18px 17px" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: IF_INK } }, "删掉这条如果？"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.8, marginTop: 5 } }, "整条连同里头说过的话一起没了，找不回来。已经记进记忆库或留成念头的那一份不受影响。"),
+          h("div", { className: "flex gap-2", style: { marginTop: 14 } },
+            h("button", { onClick: () => setDropId(null), className: "flex-1 active:opacity-70", style: { borderRadius: 12, padding: "10px 0", border: "1px solid " + IF_LINE, color: IF_INK, fontFamily: F_BODY, fontSize: 13.5 } }, "算了"),
+            h("button", { onClick: () => { onDrop(dropId); setDropId(null); }, className: "flex-1 active:opacity-70", style: { borderRadius: 12, padding: "10px 0", background: "#8c4a58", color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, "删掉")))) : null);
   }
   // ── 一条线里头 ──
   const bt = beats[at.beat] || { boxes: [] };
@@ -10304,6 +10342,7 @@ function IfRoom({ partner, lines, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, 
       h("button", { onClick: () => setOpenId(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: IF_INK })),
       h("div", { className: "flex-1 min-w-0 text-center" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.title),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.premise),
         h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: IF_DIM, marginTop: 1 } }, (at.beat + 1) + " / " + beats.length)),
       h("button", { onClick: () => setSide(true), "aria-label": "看看前面", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } },
         h("div", { style: { width: 15, height: 11, borderTop: "2px solid " + IF_INK, borderBottom: "2px solid " + IF_INK, opacity: .85 } }))),
@@ -10336,22 +10375,19 @@ function IfRoom({ partner, lines, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, 
     // 侧栏：翻已经过去的那些拍
     side ? h("div", { onClick: () => setSide(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 20 } },
       h("div", { onClick: e => e.stopPropagation(), className: "h-full flex flex-col", style: { position: "absolute", right: 0, top: 0, bottom: 0, width: "78%", background: "#15121e", borderLeft: "1px solid " + IF_LINE } },
-        h("div", { className: "shrink-0 flex items-center justify-between px-4", style: { paddingTop: safeTop(12), paddingBottom: 10 } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, "前面说过的"),
-          h("button", { onClick: () => setSide(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: IF_DIM } }, "收起")),
+        h("div", { className: "shrink-0 px-4", style: { paddingTop: safeTop(12), paddingBottom: 10, borderBottom: "1px solid " + IF_LINE } },
+          h("div", { className: "flex items-center justify-between" },
+            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.title),
+            h("button", { onClick: () => setSide(false), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: IF_DIM, marginLeft: 10 } }, "收起")),
+          // 侧栏里也要看得见这条线是什么——她 2026-08-31：「一进去一脸懵」
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.7, marginTop: 4 } }, line.premise),
+          line.dim && (window.IfKit || {}).dimZh ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 4, opacity: .8 } },
+            "这条动的是：" + window.IfKit.dimZh(line.dim)) : null,
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: IF_DIM, letterSpacing: ".1em", marginTop: 8 } }, "前面说过的")),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-8" },
           beats.map((b, i) => h("button", { key: b.id, onClick: () => { setAt({ beat: i, box: 0 }); setSide(false); }, className: "w-full text-left active:opacity-70", style: { display: "block", padding: "10px 0", borderBottom: "1px solid " + IF_LINE } },
             h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: IF_DIM } }, b.role === "user" ? "你" : (partner.remark || partner.name)),
             (b.boxes || []).map((x, j) => h("div", { key: j, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: i === at.beat ? IF_INK : IF_DIM, fontStyle: (!x.who && b.role !== "user") ? "italic" : "normal", marginTop: 2 } }, x.text))))))) : null,
     // 收线：三个去处
-    ending ? h("div", { onClick: () => setEnding(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, border: "1px solid " + IF_LINE, background: "#15121e", padding: "18px 17px" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: IF_INK } }, "这条就到这儿"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: IF_DIM, lineHeight: 1.8, marginTop: 5 } }, "它要留在哪儿？"),
-        [["keep", "只留在馆里", "主线一个字都不知道"],
-         ["mem", "记进记忆库", "他会记得你俩一起想过这条线——标着这是个如果，不会当成真发生过"],
-         ["seed", "留成一个念头", "进他的欲望盒子当一张观测纸条，发不发芽他自己定"]].map(([k, zh, sub]) =>
-          h("button", { key: k, onClick: () => { onEnd(line.id, k); setEnding(false); }, className: "w-full text-left active:opacity-70", style: { marginTop: 10, borderRadius: 13, border: "1px solid " + IF_LINE, padding: "11px 13px" } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, zh),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, lineHeight: 1.6, marginTop: 3 } }, sub))))) : null);
+    ending ? h(IfEndPick, { onPick: k => { onEnd(line.id, k); setEnding(false); }, onClose: () => setEnding(false) }) : null);
 }
