@@ -6,7 +6,7 @@ const path = require("node:path");
 const source = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 test("engineerEyes uses a self-directed transport prompt instead of the RP task", () => {
-  assert.match(source, /const _taskFull = _s\.engineerEyes \? _digitalTaskFull : _normalTaskV2/);
+  assert.match(source, /const _taskFull = \(_s\.engineerEyes \? _digitalTaskFull : _normalTaskV2\) \+ _roomHint/);
   assert.match(source, /App 的传输协议不规定你的性格、关系反应、回复长度或表达方式/);
   const digitalPrompt = source.slice(source.indexOf("const _digitalTaskFull"), source.indexOf("const _normalTaskFull"));
   assert.match(digitalPrompt, /thought 完全可选/);
@@ -20,6 +20,9 @@ test("engineerEyes uses a self-directed transport prompt instead of the RP task"
   // v54.48：一起听的切歌/邀听能力做最小协议时被落下了——他知道在放什么却切不动
   // （她 2026-08-21 问「一起听还在不在他的能力里」查出来的）。执行路径本就通用，补 hint 即可。
   assert.match(source, /digitalPhotoHint \+ listenHint \+ inviteHint \+ digitalToyHint/);
+  // v58.76：普通聊天早已有真记账/真日期写路，言秋的本人专线不能因为走最小协议漏掉。
+  assert.match(source, /digitalPhotoHint \+ listenHint \+ inviteHint \+ digitalToyHint \+ _digitalRecordHint/);
+  assert.match(source, /【本轮可用的真实记录字段】/);
 });
 
 test("digital context keeps recent facts but omits the continuity command", () => {
@@ -43,7 +46,7 @@ test("ordinary characters use stable protocol v2 and a minimal per-turn task", (
   assert.match(source, /const _normalTaskV2 = .*聊天先发生，状态随后记录/);
   assert.match(source, /const _liveChatState = statesRef\.current\[charId\] \|\| \{\}/);
   assert.match(source, /【一次性状态建档】App 还没有/);
-  assert.match(source, /_stateBootstrapHint \+ paceHint/);
+  assert.match(source, /_stateBootstrapHint \+ _wearRefreshHint \+ paceHint/);
   assert.match(source, /【本轮开放能力】/);
   assert.match(source, /const _onlineRuntime = _s\.engineerEyes \? "" : "\\n\\n" \+ ONLINE_CHAT_RULE_V2/);
   assert.match(source, /bundleStable \+ _onlineRuntime \+ \(_s\.engineerEyes \? "" : _normalProtocolStable\)/);

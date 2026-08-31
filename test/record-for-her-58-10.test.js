@@ -118,6 +118,21 @@ test("按需开放：她没开口让人记的轮次，这两个字段一个字�
   assert.match(ledSrc, /window\.ledgerChoices = function \(\)/);
 });
 
+test("言秋本人专线也拿到同一张真记录凭证，不会只在话里说记好了", () => {
+  const i = app.indexOf("const _digitalRecordHint");
+  const j = app.indexOf("const _normalTaskFull", i);
+  assert.ok(i > 0 && j > i, "找不到本人专线的记录字段");
+  const seg = app.slice(i, j);
+  assert.match(seg, /openCaps\.includes\("memo"\)/);
+  assert.match(seg, /openCaps\.includes\("ledger"\)/);
+  assert.match(seg, /memo:\{\\"title\\"/);
+  assert.match(seg, /ledger:\{\\"type\\"/);
+  assert.match(seg, /不能只在 word 里说‘记好了’/);
+  assert.match(seg, /_digitalRecordHint/);
+  // 只补 App 传输字段，不许把普通角色的整份能力/人格作业塞回言秋专线。
+  assert.doesNotMatch(seg, /_digitalTaskFull[^;]+capabilityHint/);
+});
+
 test("落盘成功才出卡片——显示「已记下」其实没记，比不记更坏", () => {
   const i = app.indexOf("      if (parsed.memo && typeof parsed.memo === \"object\"");
   assert.ok(i > 0, "memo 那一支没接上");
