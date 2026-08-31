@@ -15,7 +15,9 @@ test("一个钩子都不挂：没有任何地方在「记一笔第一次」", ()
   ["x_firsts", "x_coupleFirsts", "x_milestone", "addFirst(", "markFirst("].forEach(k =>
     assert.ok(app.indexOf(k) < 0, "挂钩子了：" + k));
   assert.match(app, /const coupleFirstsFor = cid => \{/, "没有推导那一处");
-  const fn = app.slice(app.indexOf("  const coupleFirstsFor = cid => {"), app.indexOf("  const DRAWER_CAP"));
+  // ⚠️用这个函数【自己】的收尾当右边界。拿隔壁的常量当边界，隔壁一插新代码就误伤
+  const _i = app.indexOf("  const coupleFirstsFor = cid => {");
+  const fn = app.slice(_i, app.indexOf("\n  };", _i) + 4);
   ["callAI", "runProbe", "await "].forEach(k => assert.ok(fn.indexOf(k) < 0, "里程碑册花调用了：" + k));
   assert.ok(fn.indexOf("saveJSON") < 0, "推导那一处还落了盘——推出来的东西不该存");
 });

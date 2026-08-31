@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.96";
+const APP_VERSION = "v58.97";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -350,6 +350,13 @@ function App() {
   // ⚠️抽卡本身【永远 0 次调用】——抽到的是一张兑换券，点了兑换才可能花一次。
   // 惊喜抽屉（言秋提，她 2026-08-31 拍板）：他想你的时候有时不发消息，
   // 而是往你俩的抽屉里放一样东西，等你自己发现。放进来的东西【拆开之前不显示是什么】。
+  // 照相馆（她 2026-08-31）：我这边的衣柜 + 拍出来的合照。
+  // 我的衣柜跟角色衣柜【同一个形状】（carry[cid].outfit），这样 closetGroups /
+  // carryClosetText 两边共用，不用为「用户的衣服」另写一套渲染和收口。
+  const [myCloset, setMyCloset] = useState({});
+  const myClosetRef = useRef({}); myClosetRef.current = myCloset;
+  const [studio, setStudio] = useState([]);
+  const studioRef = useRef([]); studioRef.current = studio;
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   const coupleDrawerRef = useRef([]); coupleDrawerRef.current = coupleDrawer;
   const [gachaPts, setGachaPts] = useState({});
@@ -761,6 +768,8 @@ function App() {
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleHome(loadJSON("x_coupleHome", {}));
+    setMyCloset(loadJSON("x_myCloset", {}));
+    setStudio(loadJSON("x_studio", []));
     setCoupleDrawer(loadJSON("x_coupleDrawer", []));
     setGachaPts(loadJSON("x_gachaPts", {}));
     setGachaCards(loadJSON("x_gachaCards", []));
@@ -12069,7 +12078,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 只读内存等于「今天没进过线下的角色，合照墙上就少一半」。
     const sessions = offlines[cid] || loadJSON("x_offline:" + cid, []);
     const off = (Array.isArray(sessions) ? sessions : []).reduce((a, sess) => a.concat((sess && sess.msgs || []).filter(ok).map(pick)), []);
-    return (chats[cid] || []).filter(ok).map(pick).concat(off).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    // 照相馆拍的也上墙：那本来就是「你俩的合照」，没道理只有聊天里随手拍的算数
+    const shots = (studioRef.current || []).filter(x => x.charId === cid && (x.imgKey || x.imgUrl))
+      .map(x => ({ imgKey: x.imgKey, imgUrl: x.imgUrl, ts: x.ts, desc: x.scene }));
+    return (chats[cid] || []).filter(ok).map(pick).concat(off, shots).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   };
   // 里程碑册：**全部从已有数据推出来，一个钩子都不挂**（挂钩子＝五处会腐烂，
   // 而且在这之前发生过的事永远补不回来）。零调用。
@@ -12091,6 +12103,82 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
       cards: (gachaCardsRef.current || []).filter(x => x.charId === cid)
     }, Date.now());
+  };
+  // ── 照相馆 ──
+  const STUDIO_CAP = 200;
+  const myClosetText = () => (typeof carryClosetText === "function") ? carryClosetText(myClosetRef.current) : "";
+  const saveMyCloset = next => { myClosetRef.current = next; setMyCloset(next); saveJSON("x_myCloset", next); };
+  // 一次调用配两身：给他一套、给我一套，而且是【配着的一对】。
+  // 分两次生成会各写各的，凑不成一起出门的样子，还多花一次钱。
+  const genDateOutfits = async (char, hint) => {
+    if (!bgActive && !active) { toast("请先到设置配置 API"); return false; }
+    setGen(g => ({ ...g, dateFit: true }));
+    try {
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "你们要一起出门。给这一次配两身衣服：一身你自己的，一身给 " + (profile.name || "她") + " 的。\n"
+          + (String(hint || "").trim() ? "这次要去的地方／场合：" + String(hint).trim() + "\n" : "")
+          + "两身要【配得上同一个场合、也配得上彼此】——站在一起像是一道出门的，不是各穿各的。\n"
+          + "每身写清是什么衣服（款式、颜色、料子），别只给一个名字；再各写一句你挑它的理由。\n"
+          + "必须落在【你们这个时代和处境】里：他穿得出来、她也穿得出去，"
+          + "换个朝代、换个身份就不成立的才算写对。",
+        schemaHint: "{\"occasion\":\"这次出门的场合，四个字以内\",\"his\":{\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么挑它\"},\"hers\":{\"name\":\"这身叫什么\",\"note\":\"是什么衣服 + 为什么挑它\"}}",
+        maxTokens: 2500
+      });
+      const occ = String((d && d.occasion) || "约会").trim().slice(0, 8) || "约会";
+      const put = (box, one) => {
+        const cur = (box && box.closet) || [];
+        const set = { name: String((one && one.name) || "").trim().slice(0, 24), note: String((one && one.note) || "").trim().slice(0, 120) };
+        if (!set.name) return box;
+        const i = cur.findIndex(g => g && String(g.occasion || "") === occ);
+        const next = cur.slice();
+        if (i >= 0) next[i] = { ...next[i], sets: [set, ...(next[i].sets || [])].slice(0, 8) };
+        else next.unshift({ occasion: occ, sets: [set] });
+        return { ...(box || {}), closet: next.slice(0, 8) };
+      };
+      saveMyCloset(put(myClosetRef.current, d && d.hers));
+      setCarry(p => {
+        const box = p[char.id] || {};
+        const n = { ...p, [char.id]: { ...box, outfit: put(box.outfit, d && d.his) } };
+        carryRef.current = n; saveJSON("x_carry", n); return n;
+      });
+      toast("配好了一对「" + occ + "」，两边衣柜各挂了一身");
+      return true;
+    } catch (e) { toast("这次没配出来：" + e.message); return false; }
+    finally { setGen(g => ({ ...g, dateFit: false })); }
+  };
+  // 拍一张。走的是线下那条已经调好的出图链（buildPhotoPrompt + generateSelfieImage），
+  // 只是不落进线下会话，改落进照相馆自己那一份。
+  const studioShoot = async (char, opt) => {
+    const scene = String((opt && opt.scene) || "").trim();
+    if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
+    if (!(char.refPhoto && profile && profile.refPhoto)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张"); return false; }
+    setGen(g => ({ ...g, studio: true }));
+    try {
+      const st = statesRef.current[char.id] || {};
+      const me = { name: (profile && profile.name) || "我", appearance: profile && profile.appearance, refPhoto: profile.refPhoto };
+      // 两身衣服显式写进画面描述里：写进去才画得出来，光挂在衣柜里图像端读不到
+      const fits = [String((opt && opt.theirs) || "").trim() && (char.name + "穿：" + opt.theirs),
+                    String((opt && opt.mine) || "").trim() && (me.name + "穿：" + opt.mine)].filter(Boolean).join("；");
+      const sceneFull = scene + (fits ? "。" + fits : "");
+      const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: closetTextFor(char.id) });
+      const out = await generateSelfieImage(prompt, [char.refPhoto, profile.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
+      if (out && out.degraded) toast("这张有点将就：" + out.degraded, 7000);
+      let imgKey = null, imgUrl = null;
+      if (out && out.blob) {
+        imgKey = "img_studio_" + char.id + "_" + Date.now();
+        await idbImgPut(imgKey, out.blob);
+      } else if (out && out.url) imgUrl = out.url;
+      else throw new Error("没拿到图");
+      const row = { id: "sh_" + Date.now(), charId: char.id, imgKey, imgUrl, ts: Date.now(),
+        scene: scene, mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull };
+      const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
+      studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
+      return row;
+    } catch (e) {
+      toast("这张没拍成：" + (e.message || "重试"), 9000);
+      return false;
+    } finally { setGen(g => ({ ...g, studio: false })); }
   };
   const DRAWER_CAP = 120;
   const openDrawerItem = id => setCoupleDrawer(p => {
@@ -14482,6 +14570,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onCheckinSweet: checkinSweet,
     coupleDrawer: coupleDrawer,
     coupleFirstsOf: coupleFirstsFor,
+    myCloset: myCloset,
+    charClosetOf: cid => (carry || {})[cid] || null,
+    studioShots: studio,
+    studioBusy: gen.studio,
+    fitBusy: gen.dateFit,
+    studioCanShoot: ch => !!(typeof imgApiReady === "function" && imgApiReady() && ch && ch.refPhoto && profile && profile.refPhoto),
+    onGenDateFit: genDateOutfits,
+    onStudioShoot: studioShoot,
     onOpenDrawer: openDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,

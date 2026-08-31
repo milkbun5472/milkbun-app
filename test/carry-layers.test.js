@@ -142,9 +142,13 @@ test("衣柜驱动出图，但不抢锁死的行头和此刻真穿着", () => {
     "优先级要是 photoOutfit ＞ 此刻穿着 ＞ 衣柜");
   assert.match(engine, /\} else if \(closetText\) \{/, "衣柜那一支没接进服装分流");
   assert.match(engine, /从上面【真有的】里挑最合适的一身/);
-  // 三处真出图都要把衣柜带上；小剧场是平行时空，有自己的行头锁，不给
-  // 线下 1 + 线上单聊 1 + 线上群聊 2（gCast 三元的两支各一次）
-  assert.equal((app.match(/closet: closetTextFor\(/g) || []).length, 4, "有出图的地方没带上衣柜");
+  // 每一处真出图都要把衣柜带上；小剧场是平行时空，有自己的行头锁，不给。
+  // ⚠️别把处数写死（v58.97 多了照相馆那一处）：要证的是【出图几处就得带几处衣柜】，
+  // 这样以后再加出图口，忘了带衣柜照样会红。
+  const shotSites = (app.match(/buildPhotoPrompt\(/g) || []).length;
+  const withCloset = (app.match(/closet: closetTextFor\(/g) || []).length;
+  assert.ok(shotSites > 0 && withCloset >= shotSites,
+    "有出图的地方没带上衣柜（出图 " + shotSites + " 处，带衣柜 " + withCloset + " 处）");
   const theater = R("theater.js");
   assert.doesNotMatch(theater, /closetTextFor|carryClosetText/, "小剧场是平行时空，不读主线衣柜");
 });

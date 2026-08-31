@@ -105,8 +105,9 @@ test("合照墙把线下那些也捞上来，并且不靠「今天进过线下�
   const mk = (id, ts, extra) => Object.assign({ id, kind: "selfie", photoKind: "duo", imgKey: "k" + id, ts }, extra || {});
   const chats = { c1: [mk("on", 100)] };
   const disk = { "x_offline:c1": [{ msgs: [mk("off", 200)] }] };
-  const run = offlines => new Function("chats", "offlines", "loadJSON",
-    "return (" + body.replace(/;\s*$/, "") + ");")(chats, offlines, k => disk[k] || []);
+  // v58.97 起合照墙还认照相馆拍的那些，所以桩里要给 studioRef（这儿给空的，只验线上/线下两路）
+  const run = offlines => new Function("chats", "offlines", "loadJSON", "studioRef",
+    "return (" + body.replace(/;\s*$/, "") + ");")(chats, offlines, k => disk[k] || [], { current: [] });
   // ① 内存里已经加载过线下
   const a = run({ c1: disk["x_offline:c1"] })("c1");
   assert.deepEqual(a.map(x => x.imgKey), ["koff", "kon"], "线上线下都要有，且新的在前");
@@ -115,8 +116,8 @@ test("合照墙把线下那些也捞上来，并且不靠「今天进过线下�
   assert.deepEqual(b.map(x => x.imgKey), ["koff", "kon"], "没加载过就该回 localStorage 里捞");
   // ③ 还在生成中/失败的不上墙
   const disk2 = { "x_offline:c1": [{ msgs: [mk("p", 300, { pending: true }), mk("f", 400, { failed: true })] }] };
-  const c = new Function("chats", "offlines", "loadJSON", "return (" + body.replace(/;\s*$/, "") + ");")(
-    { c1: [] }, {}, k => disk2[k] || [])("c1");
+  const c = new Function("chats", "offlines", "loadJSON", "studioRef", "return (" + body.replace(/;\s*$/, "") + ");")(
+    { c1: [] }, {}, k => disk2[k] || [], { current: [] })("c1");
   assert.deepEqual(c, [], "转圈的和失败的不该上墙");
 });
 
