@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.88";
+const APP_VERSION = "v58.89";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8781,35 +8781,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 一次唤起只补【一个】角色：全刷是十几次串行调用，五个角色一起补要跑几分钟，
   // 而且一次把这一周的钱全花完。补完一个就收手，下次唤起再补下一个。
   const phoneWeekRunRef = useRef(false);
+  // 正在刷谁、刷到第几个。一个人十几次串行调用，几个人要跑好一阵——
+  // 不摆出来的话中间那几分钟她看不出是在跑还是卡住了。
+  const [phoneWeekAt, setPhoneWeekAt] = useState(null);
   const phoneWeeklySweep = async () => {
     if (phoneWeekRunRef.current || !active || !autoRefreshOn("phone")) return;
     const wk = typeof phoneWeekKey === "function" ? phoneWeekKey(Date.now()) : null;
     if (!wk) return;
     const box = phoneAutoRef.current || { on: {}, done: {} };
     const pending = liveChars.filter(c => c && autoRefreshOn("phone", c.id) && (box.done || {})[c.id] !== wk);
-    const due = pending[0];
-    if (!due) return;
+    if (!pending.length) return;
     phoneWeekRunRef.current = true;
+    let done = 0;
+    const thin = [];   // 这个人有几个 app 没刷出来——汇总着说，别每人弹一次
     try {
-      // 先记游标再刷：中途失败也不该在下一次唤起时又整份重刷一遍（那是十几次调用）。
-      // 想补就她自己进去点刷新。
-      setPhoneAuto(p => {
-        const n = { on: { ...(p.on || {}) }, done: { ...(p.done || {}), [due.id]: wk } };
-        phoneAutoRef.current = n;
-        saveJSON("x_phoneAuto", n);
-        return n;
-      });
-      await genPhoneAll(due, true);
+      // 一次唤起把这一周欠的全部刷完，刷完一个立刻接下一个（她 2026-08-31：
+      // 「查手机我是想要和周刊那样一次性连续调用刷完阿屿的马上接下一个」）。
+      // 原来一次唤起只补一个：省钱是真的，但「其他都没动静」跟「坏了」长得一模一样，
+      // 而且开了五个角色就得来回切五次前台才刷得完。周刊那条链就是这个形状——
+      // 一步一步 await，每一步各自兜底，一个人失手不拖垮后面几个。
+      for (const due of pending) {
+        // 先记游标再刷：中途失败也不该在下一次唤起时又整份重刷一遍（那是十几次调用）。
+        // 想补就她自己进去点刷新。
+        setPhoneAuto(p => {
+          const n = { on: { ...(p.on || {}) }, done: { ...(p.done || {}), [due.id]: wk } };
+          phoneAutoRef.current = n;
+          saveJSON("x_phoneAuto", n);
+          return n;
+        });
+        // 一个人十几次串行调用，几个人要跑好一阵。每换一个人报一次，
+        // 不然中间那几分钟她看不出是在跑还是卡住了。
+        setPhoneWeekAt({ id: due.id, name: due.remark || due.name, i: done + 1, n: pending.length });
+        try {
+          const r = await genPhoneAll(due, true);
+          if (r && r.ok < r.total) thin.push(due.remark || due.name);
+          done++;
+        } catch (e) {/* 单个角色硬失败就跳过，不拖垮这一轮剩下的人 */ }
+      }
       // 刷完说一声：这一层原来完全无声，于是「我今天打开怎么又更新了」根本没法自己看出来。
-      // ⚠️一次唤起只补一个角色，所以开了 N 个角色就会连着 N 次唤起各刷一个——
-      // 都在同一周内、每个角色仍然只刷一次，但不说的话看起来就像天天在刷。
-      // 排队这件事必须说出口（她 2026-08-31 报：「就明确看到沈屿白的查手机刷新了
-      // 其他都没动静」）。一次唤起只补一个是【故意的】，但不说的话，「没动静」看起来
-      // 跟「坏了」一模一样——她根本分不出是没轮到、还是那几个压根没开这个开关。
-      const left = pending.length - 1;
-      toast("每周刷新：已更新「" + (due.remark || due.name) + "」的手机"
-        + (left > 0 ? "。还有 " + left + " 个排着，下次打开或切回前台时各补一个（一次只补一个，免得几分钟卡在那儿、这周的钱一口气花完）" : ""));
-    } catch (e) {/* 例行刷新失败不打扰她 */ } finally { phoneWeekRunRef.current = false; }
+      toast((done === pending.length
+        ? "每周刷新：" + pending.length + " 个角色的手机都更新好了"
+        : "每周刷新：更新了 " + done + "/" + pending.length + " 个，剩下的可以进去单独刷")
+        + (thin.length ? "。" + thin.join("、") + " 有几个 app 没刷出来，可以单独重试" : ""));
+    } catch (e) {/* 例行刷新失败不打扰她 */ } finally {
+      phoneWeekRunRef.current = false;
+      setPhoneWeekAt(null);
+    }
   };
   const phoneAutoToggle = charId => {
     const nextOn = !autoRefreshOn("phone", charId);
@@ -10357,7 +10374,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       ...g,
       phoneApp: null
     }));
-    toast(ok === keys.length ? "已生成全部" : "完成 " + ok + "/" + keys.length + " 个，可单独重试");
+    // 例行刷新时不在这儿报：一次唤起要连着刷好几个人，每人报一遍会把
+    // 最后那句「都刷完了」冲掉。缺了哪几个由那一层汇总着说。
+    if (!weekly) toast(ok === keys.length ? "已生成全部" : "完成 " + ok + "/" + keys.length + " 个，可单独重试");
+    return { ok: ok, total: keys.length };
   };
 
   // ---- moments ----
@@ -14119,6 +14139,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onAskAnon: askAnon,
     onDelAnonRecord: delAnonRecord,
     autoOn: Object.fromEntries(liveChars.map(c => [c.id, autoRefreshOn("phone", c.id)])),
+    weekAt: phoneWeekAt,
     onToggleAuto: phoneAutoToggle,
     onGenPlaylist: genCharPlaylist,
     playlistBusyId: gen.charPlaylist,

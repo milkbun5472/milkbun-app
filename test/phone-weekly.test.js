@@ -28,14 +28,32 @@ test("默认全关，一个一个角色自己开", () => {
   assert.match(phone, /onToggleAuto\(c\.id\)/, "通讯录那一行上没有开关");
 });
 
-test("一次唤起只补一个角色", () => {
-  // 全刷是十几次串行调用，五个角色一起补要跑几分钟，还一次把这一周的钱花完
-  // ⚠️别冻实现形状（v58.87 把 find 换成 filter+[0] 好数出还剩几个，行为一个字没变）。
-  // 要证的是【一次唤起只刷一个】：刷的那一句只出现一次，而且没套在任何循环里。
-  assert.equal((sweep[0].match(/genPhoneAll\(/g) || []).length, 1, "刷了不止一处");
-  assert.ok(!/for \(const|\.forEach\(|\.map\(/.test(sweep[0].slice(0, sweep[0].indexOf("genPhoneAll("))), "刷之前套了循环——会把所有人一起刷");
-  assert.match(sweep[0], /const due = pending\[0\];/, "没有明确只取第一个");
+// 她 2026-08-31：「查手机我是想要和周刊那样一次性连续调用刷完阿屿的马上接下一个」。
+// 原来一次唤起只补一个（省调用），但她当天报「就明确看到沈屿白的查手机刷新了其他都没动静」——
+// 没轮到和坏了长得一模一样，而且开五个角色要来回切五次前台才刷得完。
+test("一次唤起把这一周欠的全刷完，刷完一个接下一个", () => {
+  assert.match(sweep[0], /for \(const due of pending\) \{/, "还是只挑一个刷");
+  assert.ok(sweep[0].indexOf("pending[0]") < 0, "还留着「只取第一个」那一句");
+  assert.match(sweep[0], /if \(!pending\.length\) return;/, "没人要刷的时候没有早退");
+  // 周刊那条链的形状：一个人失手不拖垮后面几个
+  const body = sweep[0].slice(sweep[0].indexOf("for (const due of pending)"));
+  assert.match(body, /try \{[\s\S]*await genPhoneAll\(due, true\)[\s\S]*\} catch/, "循环里没各自兜底,一个人抛了后面全不刷");
   assert.match(sweep[0], /phoneWeekRunRef\.current = true/, "没有并发闸，来回切前台会叠着跑");
+});
+
+// 一个人十几次串行调用，几个人要跑好一阵——中间那几分钟不摆出来就跟卡住一样
+test("跑的时候看得见正在刷谁、刷到第几个", () => {
+  assert.match(sweep[0], /setPhoneWeekAt\(\{ id: due\.id, name: due\.remark \|\| due\.name, i: done \+ 1, n: pending\.length \}\)/, "没报正在刷谁");
+  assert.match(sweep[0], /setPhoneWeekAt\(null\)/, "跑完没收起来,会一直挂在那儿");
+  assert.ok(sweep[0].indexOf("setPhoneWeekAt(null)") > sweep[0].indexOf("finally"), "收起来那一句没放在 finally 里,中途抛了就摘不掉");
+  assert.match(app, /weekAt: phoneWeekAt,/, "没传进查手机");
+  assert.match(phone, /weekAt \? h\("div", \{/, "那条进度带不是跟着 weekAt 出现的");
+  assert.match(phone, /"每周刷新中 · 正在刷「" \+ weekAt\.name \+ "」"/, "通讯录上看不到在刷谁");
+  assert.match(phone, /weekAt && weekAt\.id === c\.id \? "正在刷新……"/, "轮到谁了，那一行上看不出来");
+  assert.match(phone, /weekAt\.i \+ "\/" \+ weekAt\.n/, "没说刷到第几个");
+  // 每人刷完各弹一次会把最后那句「都刷完了」冲掉
+  assert.match(app, /if \(!weekly\) toast\(ok === keys\.length/, "例行刷新时每个角色还各弹一次");
+  assert.match(app, /return \{ ok: ok, total: keys\.length \};/, "没把成没成回给上一层,缺了几个 app 只能咽下去");
 });
 
 test("先记游标再刷：中途失败不会下次又整份重刷", () => {
@@ -63,5 +81,5 @@ test("没配 API、没开开关、这周刷过了，都不动", () => {
   // 名字换了，规矩没换——默认全关、一个一个角色自己开（她按次计费）
   assert.match(sweep[0], /autoRefreshOn\("phone", c\.id\)/, "没按角色看开关，会把没开的人也刷了");
   assert.match(sweep[0], /\(box\.done \|\| \{\}\)\[c\.id\] !== wk/, "没看周次游标，这周刷过了还会再刷一遍");
-  assert.match(sweep[0], /if \(!due\) return;/);
+  assert.match(sweep[0], /if \(!pending\.length\) return;/, "这一周谁都不欠的时候也往下走");
 });

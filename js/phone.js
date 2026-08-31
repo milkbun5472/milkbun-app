@@ -3999,6 +3999,7 @@ function PhoneCarry({
   archives,
   autoOn,
   onToggleAuto,
+  weekAt,
   onPeek
 }) {
   const t = useTheme();
@@ -4074,6 +4075,16 @@ function PhoneCarry({
             h("div", { className: "flex-1 min-w-0" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1.1 } }, "通讯录"),
               h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, letterSpacing: "0.18em", color: t.fog, marginTop: 3 } }, "CONTACTS · " + characters.length))),
+          // 每周刷新正在跑：一次唤起会把这一周欠的人连着刷完，一个人十几次串行调用。
+          // 中间那几分钟不摆出来的话，看起来跟卡住了一模一样。
+          weekAt ? h("div", {
+            className: "shrink-0 flex items-center gap-2 px-5 py-2",
+            style: { background: "rgba(0,0,0,.035)", borderBottom: "1px solid " + t.line }
+          },
+            h("span", { className: "shrink-0", style: { width: 6, height: 6, borderRadius: 999, background: t.accent } }),
+            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              "每周刷新中 · 正在刷「" + weekAt.name + "」"),
+            h("div", { className: "shrink-0", style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, color: t.fog } }, weekAt.i + "/" + weekAt.n)) : null,
           // 角色列表：在手机屏内下滑
           h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-1" },
             characters.map(c => h("div", {
@@ -4087,7 +4098,7 @@ function PhoneCarry({
                 h("div", { className: "flex-1 min-w-0" },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 1 } },
-                    (autoOn || {})[c.id] ? "每周自动刷一次" : "翻翻 Ta 的手机"))),
+                    weekAt && weekAt.id === c.id ? "正在刷新……" : (autoOn || {})[c.id] ? "每周自动刷一次" : "翻翻 Ta 的手机"))),
               // 每周自动刷的开关。默认关——她按次计费，默认开会吓人。
               // ⚠️必须和那一行并排、不能套在里面：按钮不许嵌按钮。
               // 放在这儿而不是设置里：开关和「这是谁的手机」得在同一个地方看得见。
