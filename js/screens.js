@@ -2483,7 +2483,7 @@ const COUPLE_QA_BANK = [
 // 字符串稳定哈希（自定义题给个稳定 id，用于已答判重）
 const qhash = s => { let x = 0; for (let i = 0; i < s.length; i++) { x = (x * 31 + s.charCodeAt(i)) | 0; } return (x >>> 0).toString(36); };
 // 情侣空间·问答小本：翻页书 —— 封面(可改标题)/翻页看过往(编辑·reroll·删除)/翻新题作答
-function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
+function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onSeal, onEdit, onRemove, onReroll, onSaveTitle, gen, onBack }) {
   const t = useTheme();
   const mine = (entries || []).filter(e => e.characterId === partner.id).slice().sort((a, b) => a.answeredAt - b.answeredAt);
   const answered = new Set(mine.map(e => e.qid));
@@ -2500,9 +2500,11 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onEdit
   const [titleVal, setTitleVal] = useState(bookTitle);
   const swipeRef = useRef({ x: 0, y: 0 });
   const draw = () => { if (pool.length) { setCur(pool[Math.floor(Math.random() * pool.length)]); setAns(""); } else setCur(null); };
-  const submit = async () => {
+  // 交卷＝把自己那份【封起来】，一次调用都不花；他那份等你按「让 TA 也写一份」才生成，
+  // 而且那一枪看不到你写的（见 app.js 的 answerCoupleQA 注释）。
+  const submit = () => {
     if (!cur || !ans.trim() || gen) return;
-    const ok = await onAnswer(partner, { qid: cur.id, question: cur.q, myAnswer: ans.trim(), source: "题库" });
+    const ok = onSeal(partner, { qid: cur.id, question: cur.q, myAnswer: ans.trim(), source: "题库" });
     if (ok) { setCur(null); setAns(""); setPageIdx(9999); setMode("pages"); }
   };
 
@@ -2518,7 +2520,7 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onEdit
           h("textarea", { value: ans, onChange: e => setAns(e.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "10px 12px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
           h("div", { className: "flex items-center gap-2 mt-3" },
             h("button", { onClick: draw, disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "换一题"),
-            h("button", { onClick: submit, disabled: !ans.trim() || gen, className: "ml-auto active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 18px", borderRadius: 10 } }, gen ? partner.name + " 作答中…" : "提交 · 等 TA 答"))) : h("button", { onClick: draw, disabled: !pool.length, className: "w-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, pool.length ? "翻一张新题" : "题库都答完啦")));
+            h("button", { onClick: submit, disabled: !ans.trim() || gen, className: "ml-auto active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14, padding: "8px 18px", borderRadius: 10 } }, gen ? partner.name + " 作答中…" : "写好了 · 封起来"))) : h("button", { onClick: draw, disabled: !pool.length, className: "w-full active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, pool.length ? "翻一张新题" : "题库都答完啦")));
   }
 
   // —— 翻页看过往（编辑 / reroll / 删除）——
@@ -2541,12 +2543,19 @@ function CoupleQABook({ partner, bank, customQ, entries, title, onAnswer, onEdit
                 h("button", { onClick: () => setEditId(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"))) : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, whiteSpace: "pre-wrap" } }, e.myAnswer || "（没写）")),
           h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginBottom: 3 } }, partner.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, gen ? "…" : (e.charAnswer || "…"))),
+            (e.sealed && !e.charAnswer)
+              ? h("div", { style: { borderRadius: 12, border: "1px dashed " + t.line, padding: "13px 14px", textAlign: "center" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7 } },
+                    "你那份封着呢。" + partner.name + " 写的时候看不到你写了什么——两份都写完才一起打开。"),
+                  h("button", { onClick: () => onAnswer(partner, e), disabled: gen, className: "active:opacity-70 disabled:opacity-40",
+                    style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 999, padding: "8px 20px" } },
+                    gen ? "写着…" : "让 " + partner.name + " 也写一份"))
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, gen ? "…" : (e.charAnswer || "…"))),
           h("div", { className: "flex items-center justify-between", style: { marginTop: 12, borderTop: "1px solid " + t.line, paddingTop: 10 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, timeAgo(e.answeredAt)),
             h("div", { className: "flex items-center gap-3" },
               h("button", { onClick: () => { setEditId(e.id); setEditText(e.myAnswer || ""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "编辑"),
-              h("button", { onClick: () => onReroll(partner, e), disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, gen ? "…" : "重答"),
+              (e.sealed && !e.charAnswer) ? null : h("button", { onClick: () => onReroll(partner, e), disabled: gen, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, gen ? "…" : "重答"),
               h("button", { onClick: () => { onRemove(e.id); setPageIdx(i => Math.max(0, i - (idx === mine.length - 1 ? 1 : 0))); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#c26" } }, "删除")))),
         has ? h("div", { className: "flex items-center justify-between", style: { marginTop: 16 } },
           h("button", { onClick: () => setPageIdx(Math.max(0, idx - 1)), disabled: idx === 0, className: "active:opacity-60 disabled:opacity-30", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "‹ 上一题"),
@@ -3289,7 +3298,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact}) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA}) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3330,7 +3339,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   const partner = view ? characters.find(c => c.id === view) : null;
   // 情侣空间子模块：问答小本
   if (partner && cp[view] && cp[view].status === "together" && sub === "qa") {
-    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], onAnswer: onAnswerQA, onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
+    return h(CoupleQABook, { partner, bank: COUPLE_QA_BANK, customQ: (coupleQACustom || {})[partner.id] || [], entries: coupleQA, title: (coupleQATitle || {})[partner.id], onAnswer: onAnswerQA, onSeal: onSealQA, onEdit: onEditQA, onRemove: onRemoveQA, onReroll: onRerollQA, onSaveTitle: onSaveQATitle, gen: qaGen, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：双向便签
   if (partner && cp[view] && cp[view].status === "together" && sub === "notes") {

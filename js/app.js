@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.83";
+const APP_VERSION = "v58.84";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11695,6 +11695,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
 
   // 情侣空间·问答小本：用户答完一题后，让角色顺着用户的回答答同一题（不是各答各的）
+  // ── 问答小本改成【各写各的·封存到两边都写完才揭晓】（她 2026-08-31）────────
+  // 她说 a（同题双答封存）「这不就是问答小本我想要的效果嘛」。看了一眼：原来它压根
+  // 不是双答——提示词里明写着「顺着用户的回答接话（呼应 TA 说的，不是各答各的）」，
+  // 而且把【用户的回答】直接递给了他。所以他不是在答题，是在回话。
+  // 跟匿名箱那次同一课：隔离要靠【调用结构】，不能靠提示词里写「别看」。
+  // 现在：她写完先封存（0 次调用）→ 她按「让 TA 也答」→ 那一枪【不带她的答案】→ 同时揭晓。
+  const sealCoupleQA = (char, item) => {
+    const t0 = String(item && item.myAnswer || "").trim();
+    if (!t0) { toast("先写你自己的那一份"); return false; }
+    setCoupleQA(p => {
+      const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: item.qid, question: item.question,
+        myAnswer: t0, charAnswer: "", source: item.source || "题库", sealed: true, answeredAt: Date.now() }, ...p];
+      saveJSON("x_coupleQA", n); return n;
+    });
+    toast("封好了——等 TA 也写一份");
+    return true;
+  };
   const answerCoupleQA = async (char, item) => {
     if (!active) { toast("请先到设置配置 API"); return false; }
     setGen(g => ({ ...g, coupleQA: true }));
@@ -11715,7 +11732,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           const ans = rr && (rr.answer || rr.text);
           if (ans) {
             setCoupleQA(p => {
-              const n = [{ id: "qa_" + Date.now(), characterId: char.id, qid: item.qid, question: item.question, myAnswer: item.myAnswer || "", charAnswer: String(ans), source: item.source || "题库", via: "cc", answeredAt: Date.now() }, ...p];
+              const hit = item.id && p.some(x => x.id === item.id);
+              const n = hit
+                ? p.map(x => x.id !== item.id ? x : { ...x, charAnswer: String(ans), sealed: false, via: "cc", openedAt: Date.now() })
+                : [{ id: "qa_" + Date.now(), characterId: char.id, qid: item.qid, question: item.question, myAnswer: item.myAnswer || "", charAnswer: String(ans), source: item.source || "题库", via: "cc", answeredAt: Date.now() }, ...p];
               saveJSON("x_coupleQA", n);
               return n;
             });
@@ -11724,22 +11744,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         } catch (e) { console.log("[couple_qa CC票]", e && e.message, "→ 引擎兜底"); if (e && e.remoteId) item.__ccJobId = e.remoteId; }
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "你们是恋人。用户在你俩的「情侣问答小本」里回答了一道题，现在轮到你以「" + char.name + "」的身份回答同一道题。真挚、贴合人设，**顺着用户的回答接话**（呼应 TA 说的，不是各答各的），2-4 句，别喊口号，答完整别中途断。\n【题目】" + item.question + "\n【用户的回答】" + (item.myAnswer || "（TA 没写）"),
+        // ⚠️这里【不许】把她的答案递进来。递了他就是在回话，不是在答题——
+        // 两份答案摆在一起才有意思，而那要求他写的时候确实没看过她那份。
+        instruction: "你们是恋人。你俩有一个「情侣问答小本」，规矩是【同一道题各写各的、两边都写完才互相看】。"
+          + "现在轮到你以「" + char.name + "」的身份写你那一份。\n【题目】" + item.question + "\n"
+          + "她那一份已经封着了，你看不到，也不用去猜她会怎么写——就照你自己真实的想法答。"
+          + "真挚、贴合人设，2-4 句，别喊口号，答完整别中途断。",
         schemaHint: "{\"answer\":\"你的回答\"}",
         maxTokens: 1400
       });
       setCoupleQA(p => {
-        const n = [{
-          id: "qa_" + Date.now(),
-          characterId: char.id,
-          qid: item.qid,
-          question: item.question,
-          myAnswer: item.myAnswer || "",
-          charAnswer: d.answer || "",
-          source: item.source || "题库",
-          via: "engine", ccJobId: item.__ccJobId || null,
-          answeredAt: Date.now()
-        }, ...p];
+        // 封存过的那条就地揭晓，不再插一条新的（重写 reroll 走的也是这里）
+        const hit = item.id && p.some(x => x.id === item.id);
+        const n = hit
+          ? p.map(x => x.id !== item.id ? x : { ...x, charAnswer: d.answer || "", sealed: false, via: "engine", ccJobId: item.__ccJobId || null, openedAt: Date.now() })
+          : [{ id: "qa_" + Date.now(), characterId: char.id, qid: item.qid, question: item.question,
+               myAnswer: item.myAnswer || "", charAnswer: d.answer || "", source: item.source || "题库",
+               via: "engine", ccJobId: item.__ccJobId || null, answeredAt: Date.now() }, ...p];
         saveJSON("x_coupleQA", n);
         return n;
       });
@@ -14148,6 +14169,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     gen: gen.whisper,
     coupleQA: coupleQA,
     onAnswerQA: answerCoupleQA,
+    onSealQA: sealCoupleQA,
     onEditQA: editCoupleQA,
     onRemoveQA: removeCoupleQA,
     onRerollQA: rerollCoupleQA,
