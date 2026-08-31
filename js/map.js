@@ -1,8 +1,9 @@
 // js/map.js — 好友地图：真·在线地图(Leaflet+OSM)，角色按「家乡城市 + 此刻日程活动」定位。
 // 主屏 2×2 实时小组件 MapWidget + 全屏 CharMap。Leaflet 没加载时优雅降级不崩。
 (function () {
-  const h = React.createElement;
-  const { useState, useEffect, useRef } = React;
+  const inApp = typeof window !== "undefined" && typeof React !== "undefined";
+  const h = inApp ? React.createElement : null;
+  const useState = inApp ? React.useState : null, useEffect = inApp ? React.useEffect : null, useRef = inApp ? React.useRef : null;
 
   // 常用城市 → [lat,lng]，给角色设家乡用（离线，不靠地理编码 API）
   const CITY_DB = {
@@ -30,6 +31,60 @@
     work: [0.020, 0.028], create: [0.015, -0.022], meal: [-0.013, 0.021], out: [0.030, -0.013],
     social: [-0.021, -0.024], rest: [0.004, 0.006], coffee: [0.007, 0.013], sleep: [0, 0], other: [0.011, 0.009]
   };
+  // 行程里那句「在哪」→ 真坐标（她 2026-08-31 要的：行程变了人就该动一下）。
+  // 不花模型调用：同一个地名一辈子只查一次 OSM(免费无 key)，之后一直读缓存。
+  // ⚠️查不到的也要记下来，不然每次渲染都会重新去撞一遍那个查不到的名字。
+  const GEO_KEY = "x_geoPlace";
+  const GEO_MISS_TTL = 7 * 24 * 3600 * 1000;
+  let geoCache = null;
+  const geoLoad = function () { if (!geoCache) { try { geoCache = JSON.parse(localStorage.getItem(GEO_KEY) || "{}") || {}; } catch (e) { geoCache = {}; } } return geoCache; };
+  const geoSave = function () { try { localStorage.setItem(GEO_KEY, JSON.stringify(geoCache)); } catch (e) {} };
+  const geoKey = function (char, loc) { const hm = charHome(char); return (hm ? hm.city : "~") + "|" + String(loc || "").trim(); };
+  const geoHit = function (char, loc) {
+    const v = geoLoad()[geoKey(char, loc)];
+    if (!v) return null;
+    if (v.miss) return (Date.now() - v.miss < GEO_MISS_TTL) ? "miss" : null;
+    return [v[0], v[1]];
+  };
+  // 一次一个、隔一秒多一点——OSM 那边讲礼貌，打太快会被封
+  const geoQueue = [];
+  let geoRunning = false, geoBump = null;
+  function geoPump() {
+    if (geoRunning || !geoQueue.length) return;
+    geoRunning = true;
+    const job = geoQueue.shift();
+    nomSearch(job.q, job.near).then(function (r) {
+      const p0 = r && r[0];
+      geoLoad()[job.key] = p0 ? [p0.lat, p0.lng] : { miss: Date.now() };
+      geoSave();
+      if (geoBump) geoBump();
+    }).catch(function () {
+      geoLoad()[job.key] = { miss: Date.now() }; geoSave();
+    }).then(function () {
+      geoRunning = false;
+      setTimeout(geoPump, 1200);
+    });
+  }
+  function geoWant(char, loc) {
+    const key = geoKey(char, loc);
+    if (geoLoad()[key] || geoQueue.some(function (j) { return j.key === key; })) return;
+    const hm = charHome(char);
+    // 带上他所在的城市一起搜：光搜「公司」全世界都是，加了城市才落在他那一片
+    geoQueue.push({ key: key, q: (hm ? hm.city + " " : "") + String(loc).trim(), near: hm ? [hm.lat, hm.lng] : null });
+    geoPump();
+  }
+  // 谁的行程里写了地名就去补一次坐标；补到了就重画。渲染时不发请求，只在这里发。
+  function useSchedGeo(characters, status) {
+    const [, tick] = useState(0);
+    useEffect(function () {
+      geoBump = function () { tick(function (n) { return n + 1; }); };
+      (characters || []).forEach(function (c) {
+        const st = (status || {})[c.id];
+        if (st && st.location && !geoHit(c, st.location)) geoWant(c, st.location);
+      });
+      return function () { geoBump = null; };
+    });
+  }
   function charHome(char) { const hm = char && char.home; return hm && typeof hm.lat === "number" ? hm : null; }
   // 没设城市的角色：按 id 稳定地在锚点(你的定位/温尼伯)附近撒开 ±0.024°(≈2.5km)，不重叠
   function charJitter(char) {
@@ -45,6 +100,10 @@
       : (userGeo && typeof userGeo.lat === "number") ? userGeo
         : { lat: CITY_DB["温尼伯"][0], lng: CITY_DB["温尼伯"][1] };
     const j = charJitter(char);
+    // 行程里写了地名、而且查到过坐标：直接站到那个真地方去（只叠 jitter，不叠活动偏移，
+    // 那个偏移本来就是「不知道他具体在哪」时的替代品）
+    const g = st && st.location ? geoHit(char, st.location) : null;
+    if (g && g !== "miss") return [g[0] + j[0], g[1] + j[1]];
     let lat = anc.lat + j[0], lng = anc.lng + j[1];
     const off = st && ACT_OFFSET[st.type]; if (off) { lat += off[0]; lng += off[1]; }
     return [lat, lng];
@@ -135,6 +194,7 @@
   // 主屏 2×2 实时小组件：就是一张地图，不写标题（她 2026-08-30 让删的：那块白渐变盖掉上沿快 50px）
   function MapWidget({ characters, status, userGeo, onOpen }) {
     const list = characters || [];
+    useSchedGeo(list, status);
     const mapRef = useRef(null);
     // 组件自己取一次实时定位（像苹果地图 widget 对准你），失败就退回传入的 userGeo
     const [myPos, setMyPos] = useState(userGeo && typeof userGeo.lat === "number" ? [userGeo.lat, userGeo.lng] : null);
@@ -181,8 +241,36 @@
     ].join(", ")
   });
 
+  // 行程一变，人就自己挪一下——【不花一次调用】（她 2026-08-31 要的）。
+  // 贵的那一步是「他在做的这件事，落在这个世界的哪个地点」，那是语义配对；
+  // 造世界那一枪已经顺手问过一次了（world.route），之后就只是查表。
+  // 对不上就退回落脚点，绝不瞎猜——猜错比不动更糟，人会莫名其妙地闪现。
+  const zhOverlap = function (a, b) {
+    a = String(a || ""); b = String(b || "");
+    if (!a || !b) return 0;
+    if (a.indexOf(b) >= 0 || b.indexOf(a) >= 0) return 1;
+    const set = {}; for (const ch of a) set[ch] = 1;
+    let hit = 0; for (const ch of b) if (set[ch]) hit++;
+    return hit / Math.max(a.length, b.length);
+  };
+  function liveNodeOf(world, char, st) {
+    const pinned = (world.pins || {})[char.id] || "";
+    const r = (world.route || {})[char.id];
+    if (!r || !st) return { node: pinned, live: false };
+    const what = [st.title, st.location].filter(Boolean).join(" ");
+    let best = null, score = 0.34;               // 低于这个就算没对上
+    (r.places || []).forEach(function (q) {
+      const sc = zhOverlap(q.doing, what);
+      if (sc > score) { score = sc; best = q.node; }
+    });
+    if (best) return { node: best, live: true, why: "此刻" + (st.title ? "在" + st.title : "") };
+    // 睡觉/休息那几段没写进表里也认得出：回家
+    if ((st.type === "sleep" || st.type === "rest") && r.home) return { node: r.home, live: true, why: "回去歇着了" };
+    return { node: pinned, live: false };
+  }
+
   // 一个世界的舆图：满屏 SVG，可拖可捏；角色钉在节点上，头像贴着那个点
-  function WorldMap({ world, characters, onPin, onBack, onEdit }) {
+  function WorldMap({ world, characters, status, onPin, onBack, onEdit }) {
     const t = useTheme();
     const [selNode, setSelNode] = useState(null);
     const [vb, setVb] = useState(null);
@@ -193,8 +281,11 @@
     }, [world && world.id]);
     if (!built) return h("div", { className: "flex-1 flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "这个世界的地图画不出来——区域至少要两块");
     const pins = (world.pins || {});
+    // 画在图上的是【此刻】的位置：行程指到哪儿就在哪儿，指不到才退回落脚点
+    const where = {};
+    (characters || []).forEach(function (c) { where[c.id] = liveNodeOf(world, c, (status || {})[c.id]); });
     const atNode = {};
-    (characters || []).forEach(function (c) { const n = pins[c.id]; if (n) (atNode[n] = atNode[n] || []).push(c); });
+    (characters || []).forEach(function (c) { const n = where[c.id] && where[c.id].node; if (n) (atNode[n] = atNode[n] || []).push(c); });
     // 视口按【画出来的内容】收紧，不按画布 360×620 收：力导向撒点常常空出一整条边，
     // 照画布铺就是上下各留一条空白网格。视口存 {x,y,w,h}，缩放围着视口中心缩。
     const fit = (function () {
@@ -265,16 +356,19 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "谁在这儿"),
         h("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
           (characters || []).length ? (characters || []).map(function (c) {
-            const here = pins[c.id] === sel.name;
-            const other = !here && pins[c.id];
-            return h("button", { key: c.id, onClick: function () { onPin(c.id, here ? null : sel.name); }, className: "active:opacity-70 w-full",
+            const w = where[c.id] || {};
+            const here = w.node === sel.name;
+            const other = !here && w.node;
+            return h("button", { key: c.id, onClick: function () { onPin(c.id, pins[c.id] === sel.name ? null : sel.name); }, className: "active:opacity-70 w-full",
               style: { display: "flex", alignItems: "center", gap: 10, textAlign: "left", background: here ? t.tint : "transparent", border: "1px solid " + (here ? t.tint : t.line), borderRadius: 14, padding: "9px 13px" } },
               h("div", { style: { width: 30, height: 30, borderRadius: 999, flexShrink: 0, background: (c.avatarImage && typeof resolveImg === "function") ? "center/cover no-repeat url(" + resolveImg(c.avatarImage) + ")" : (c.color || "#7c5c4e"), display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY, fontSize: 13 } }, c.avatarImage ? "" : String(c.name || "?").slice(0, 1)),
               h("div", { className: "min-w-0 flex-1" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: here ? "#fff" : t.ink } }, c.remark || c.name),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: here ? "rgba(255,255,255,0.8)" : t.fog, lineHeight: 1.5 } },
-                  here ? ((world.why || {})[c.id] || "就在这儿") : other ? "现在在「" + pins[c.id] + "」" : "还没落脚在这个世界里")),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: here ? "rgba(255,255,255,0.85)" : t.tint, flexShrink: 0 } }, here ? "挪走" : "钉过来"));
+                  here ? (w.live ? (w.why || "此刻在这儿") + "（跟着今天的行程走）" : ((world.why || {})[c.id] || "就在这儿"))
+                    : other ? (w.live ? "此刻在「" + w.node + "」" : "落脚在「" + w.node + "」") : "还没落脚在这个世界里")),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: here ? "rgba(255,255,255,0.85)" : t.tint, flexShrink: 0 } },
+                (pins[c.id] === sel.name) ? "挪走" : "钉过来"));
           }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有角色")))) : null;
     return h("div", { className: "flex-1 flex flex-col", style: { minHeight: 0 } }, nodePage,
       h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 14px 4px" } },
@@ -311,7 +405,7 @@
               h("circle", { cx: nd.x, cy: nd.y, r: 16, fill: "transparent" }));
           }))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.7, padding: "7px 16px calc(env(safe-area-inset-bottom, 0px) * 0.4 + 10px)" } },
-        "单指拖动 · 双指缩放 · 点一个地点看它藏着什么、把谁钉过去" + (Object.keys(pins).length ? "" : "（还没人落脚在这个世界）")));
+        "单指拖动 · 双指缩放 · 点一个地点看它藏着什么、把谁钉过去" + ((characters || []).some(function (c) { return where[c.id] && where[c.id].live; }) ? " · 头像跟着今天的行程走" : (Object.keys(pins).length ? "" : "（还没人落脚在这个世界）"))));
   }
 
   // 开世界：整页表单。她写一段设定，模型只负责把它铺成区域和地点
@@ -353,7 +447,7 @@
   }
 
   // 架空那一半的总入口：世界列表 → 某个世界的舆图
-  function StoryMap({ worlds, characters, busy, onGen, onSave, onDel, onPin }) {
+  function StoryMap({ worlds, characters, status, busy, onGen, onSave, onDel, onPin }) {
     const t = useTheme();
     const [wid, setWid] = useState(null);
     const [form, setForm] = useState(null);   // "new" | 世界 id
@@ -367,7 +461,7 @@
       onDel: function () { onDel(formInit.id); setForm(null); setWid(null); }
     }) : null;
     if (cur) return h(React.Fragment, null, formLayer,
-      h(WorldMap, { world: cur, characters: characters, onBack: function () { setWid(null); }, onEdit: function () { setForm(cur.id); },
+      h(WorldMap, { world: cur, characters: characters, status: status, onBack: function () { setWid(null); }, onEdit: function () { setForm(cur.id); },
         onPin: function (charId, node) { onPin(cur.id, charId, node); } }));
     return h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 30px" } }, formLayer,
       list.length === 0
@@ -396,6 +490,7 @@
   // 全屏好友地图
   function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld }) {
     const t = useTheme();
+    useSchedGeo(characters, status);
     const [sel, setSel] = useState(null);   // 选中要设城市的角色 id
     const [q, setQ] = useState("");
     // 地点搜索 + 导航（v54.16 真货二连）：Nominatim 搜地点落临时钉，OSRM 画从你到那儿的路线
@@ -575,7 +670,7 @@
             return h("button", { key: m[0], onClick: function () { onSetMode && onSetMode(m[0]); }, style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, m[1]);
           }))),
       (mode || "real") === "story"
-        ? h(StoryMap, { worlds: worlds, characters: characters, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld })
+        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld })
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
             h(MapCanvas, { pins: pins, opts: { noFit: true, zoomControl: true, zoom: 11, onReady: function (m) { mapRef.current = m; const c = livePos || (anchor ? [anchor.lat, anchor.lng] : allPtsRef.current[0]); if (c) { try { m.setView(c, livePos ? 12 : 11); } catch (e) {} if (livePos) centeredRef.current = true; } } }, style: { position: "absolute", inset: 0, width: "100%", height: "100%" } }),
             // 地点搜索条（真·全球搜索）
@@ -647,5 +742,7 @@
           }, className: "w-full active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 10, padding: "10px 0" } }, "🔍 全网搜「" + q.trim() + "」并设为家乡") : null));
   }
 
-  window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome };
+  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap };
+  // 纯函数导出给 node --test；浏览器里没有 module，原样跳过（同 trpg.js）
+  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap };
 })();

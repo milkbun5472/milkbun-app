@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.77";
+const APP_VERSION = "v58.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9798,7 +9798,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           + "他们过得下去的地方:他们每天要去的那几处、靠什么谋生、跟谁打交道、躲着什么——"
           + "这些都该在地图上有对应的落点。他们原本的身份可以换一身皮来适应这个世界的规矩,"
           + "但那个人还是那个人:他在意什么、跟谁过不去、每天绕不开哪一件事,不许换掉。\n"
-          + "最后在 cast 里说清每个人现在人在哪个地点、为什么在那儿。地点名必须是你上面写过的。\n" : "")
+          + "最后在 cast 里说清每个人现在人在哪个地点、为什么在那儿。地点名必须是你上面写过的。\n"
+          + "还要给每个人一张【他会去哪儿】的小表:他住在哪个地点(home),以及他一天里那几段"
+          + "分别落在哪个地点(places)。doing 那一栏照着他行程里的说法写,别另起一套说辞——"
+          + "以后他的行程一变,我们靠这一栏对回来,对不上就只能把他丢在原地。\n" : "")
         + "【怎么铺】分 4-6 块地方。每块要有自己的性格：靠什么活着、谁说了算、外人进去先撞见什么。"
         + "彼此之间用 adj 写清谁挨着谁——挨着的两块在图上就真的挨着，所以别把互不相干的地方硬凑在一起，也别所有地方都互相接壤。\n"
         + "每块地方下面挂 2-3 个具体地点。地点名要一眼看得出是【这个】世界的地方，"
@@ -9806,7 +9809,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         + "每个地点的 hook 写【这儿眼下正有什么事】：一句，具体到有人到了那儿当场就能做点什么，不是介绍它的来历。\n"
         + "整张图只许从他那段设定长出来：他没写到的地方，按他那段的调子往下推，不要换成另一个类型的世界。\n"
         + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"name\":\"世界名（他给了就照抄）\",\"brief\":\"一句话说清这个世界\",\"regions\":[{\"name\":\"地方名(≤6字)\",\"terrain\":\"山地|平原|森林|水泽|荒漠|城郭 之一\",\"adj\":[\"挨着的地方名\"],\"nodes\":[{\"name\":\"地点名(≤8字)\",\"kind\":\"城镇|遗迹|野外|地标 之一\",\"hook\":\"这儿眼下正有什么事(一句)\"}]}]"
-        + (cast.length ? ",\"cast\":[{\"name\":\"角色名(照抄上面给的)\",\"node\":\"他人在哪个地点\",\"why\":\"他为什么在这儿(一句)\"}]" : "") + "}";
+        + (cast.length ? ",\"cast\":[{\"name\":\"角色名(照抄上面给的)\",\"node\":\"他人在哪个地点\",\"why\":\"他为什么在这儿(一句)\",\"home\":\"他住在哪个地点\",\"places\":[{\"doing\":\"他在做的那件事(照他行程里的说法)\",\"node\":\"那件事发生在哪个地点\"}]}]" : "") + "}";
       const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const K = window.TrpgMap;
@@ -9822,16 +9825,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       Object.keys((old && old.pins) || {}).forEach(k => { if (names[old.pins[k]]) pins[k] = old.pins[k]; });
       // 带进来的人按模型说的落点钉上去；它把地点名编错了(不在图上)就不钉,
       // 让她自己在地点页上放——宁可没落脚,也不要钉在一个不存在的地方上。
-      const why = {};
+      const why = {}, route = {};
       ((d && Array.isArray(d.cast)) ? d.cast : []).forEach(x => {
         const c = cast.find(y => y.name === String((x && x.name) || "").trim());
+        if (!c) return;
         const nd = String((x && x.node) || "").trim();
-        if (!c || !names[nd]) return;
-        pins[c.id] = nd;
-        if (x.why) why[c.id] = String(x.why).slice(0, 60);
+        if (names[nd]) { pins[c.id] = nd; if (x.why) why[c.id] = String(x.why).slice(0, 60); }
+        // 【他会去哪儿】那张小表：编出来的地点一律丢掉，只留图上真有的
+        const home = String((x && x.home) || "").trim();
+        const places = ((x && Array.isArray(x.places)) ? x.places : [])
+          .map(q => ({ doing: String((q && q.doing) || "").trim().slice(0, 24), node: String((q && q.node) || "").trim() }))
+          .filter(q => q.doing && names[q.node]).slice(0, 10);
+        if (names[home] || places.length) route[c.id] = { home: names[home] ? home : (pins[c.id] || ""), places };
       });
       const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins,
-        cast: (charIds || []).slice(0, 8), why: { ...((old && old.why) || {}), ...why },
+        cast: (charIds || []).slice(0, 8), why: { ...((old && old.why) || {}), ...why }, route,
         createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now() };
       saveWorlds(id ? (worlds || []).map(w => w.id === id ? next : w) : [next, ...(worlds || [])]);
       const nNode = regions.reduce((n, r) => n + r.nodes.length, 0);

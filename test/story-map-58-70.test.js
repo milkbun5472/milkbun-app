@@ -42,7 +42,8 @@ test("造世界只喂人设和行程，主线那几层一个字不喂", () => {
 
 test("带进来的人要落在图上，名字编错了就不落", () => {
   assert.match(gen, /const c = cast\.find\(y => y\.name === String\(\(x && x\.name\) \|\| ""\)\.trim\(\)\);/, "模型说的人对不回真角色");
-  assert.match(gen, /if \(!c \|\| !names\[nd\]\) return;/, "地点名编错了还照钉——那就钉在一个不存在的地方上了");
+  // 图上没有的地点名，永远不许变成一个钉子
+  assert.match(gen, /if \(names\[nd\]\) \{ pins\[c\.id\] = nd;/, "地点名编错了还照钉——那就钉在一个不存在的地方上了");
   assert.match(gen, /if \(x\.why\) why\[c\.id\] = String\(x\.why\)\.slice\(0, 60\)/, "没记下他为什么在那儿");
   assert.match(map, /\(world\.why \|\| \{\}\)\[c\.id\] \|\| "就在这儿"/, "地点页上看不见他为什么在这儿");
   assert.match(map, /const \[picked, setPicked\] = useState/, "开世界那一页没法选人");
@@ -108,6 +109,9 @@ test("视口按画出来的内容收紧，不按 360×620 的画布收", () => {
 test("钉人：存的是地点名，谁在哪儿画在那个点旁边", () => {
   const pin = grab(app, "  const pinWorld = (wid, charId, node) =>", "  const genAnonMe", 700);
   assert.match(pin, /if \(node\) pins\[charId\] = node; else delete pins\[charId\];/, "取消钉住没把这一栏删掉");
-  assert.match(wm, /const n = pins\[c\.id\]; if \(n\) \(atNode\[n\] = atNode\[n\] \|\| \[\]\)\.push\(c\)/, "没把人归到各自的地点上");
-  assert.match(wm, /here \? "挪走" : "钉过来"/, "地点页上不能把人挪走");
+  // v58.78 起画的是【此刻】的位置（行程指到哪儿就在哪儿），不是那颗死钉子
+  assert.match(wm, /const n = where\[c\.id\] && where\[c\.id\]\.node; if \(n\) \(atNode\[n\] = atNode\[n\] \|\| \[\]\)\.push\(c\)/, "没把人归到各自的地点上");
+  // 按钮改的是【落脚点】，不是此刻位置——所以判据要看那颗钉子，不看人此刻在哪儿。
+  // 照 here 判的话，一个只是路过这儿的人会显示成「挪走」，按下去却什么也没挪掉。
+  assert.match(wm, /\(pins\[c\.id\] === sel\.name\) \? "挪走" : "钉过来"/, "地点页上不能把人挪走,或者按的是此刻位置");
 });
