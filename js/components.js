@@ -882,7 +882,7 @@ function MuyuWidget({ editMode }) {
   useEffect(() => {
     if (!document.getElementById("wk-muyu-style")) {
       const st = document.createElement("style"); st.id = "wk-muyu-style";
-      st.textContent = "@keyframes wk-pop{0%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-26px)}}";
+      st.textContent = "@keyframes wk-pop{0%{opacity:0;transform:translate(-50%,5px) scale(.92)}18%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-25px) scale(.98)}}@keyframes wk-muyu-ring{0%{opacity:.38;transform:scale(.82)}100%{opacity:0;transform:scale(1.2)}}";
       document.head.appendChild(st);
     }
     return () => { if (comboT.current) clearTimeout(comboT.current); if (idleT.current) clearTimeout(idleT.current); };
@@ -902,16 +902,35 @@ function MuyuWidget({ editMode }) {
     setPressed(true); setTimeout(() => setPressed(false), 90);
     try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
   };
-  // 透明大件（2x2）：没有玻璃底、没有标签，就一只大木鱼摆在桌面上
-  return h("div", { onClick: knock, className: "relative flex flex-col items-center justify-center h-full", style: { userSelect: "none", WebkitUserSelect: "none", cursor: "pointer" } },
-    h("div", { style: { transform: pressed ? "scale(0.9)" : "scale(1)", transition: "transform .09s ease", filter: "drop-shadow(0 6px 10px rgba(60,45,25,0.25))" } },
-      h(Svg, { size: 92, color: "#8a6a3f", sw: 1.4 },
-        h("path", { d: "M12 4.5c-4.8 0-8.3 3-8.3 6.9 0 4.2 3.9 7.3 8.3 7.3s8.3-3.1 8.3-7.3c0-3.9-3.5-6.9-8.3-6.9z", fill: "rgba(178,138,88,0.9)" }),
-        h("path", { d: "M7.2 13.2c1.8 1.5 7.8 1.5 9.6 0" }),
-        h("circle", { cx: 12, cy: 9, r: 0.7 }))),
-    pops.map(pid => h("span", { key: pid, style: { position: "absolute", left: "50%", top: 8, fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#8a6a3f", pointerEvents: "none", animation: "wk-pop .65s ease-out forwards" } }, "功德 +1")),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6 } }, total > 0 ? "功德 × " + (total > 99999 ? Math.floor(total / 1000) + "k" : total) : "敲一敲"),
-    combo > 1 ? h("span", { style: { position: "absolute", right: 8, bottom: 6, fontFamily: "'Archivo',sans-serif", fontSize: 12, fontWeight: 700, color: "#a8743f" } }, "连击 x" + combo) : null);
+  // 保留 2x2 透明占位；内部用纸感托盘和暖木雕刻呼应主屏材质，不另造卡片层级。
+  const shownTotal = total > 99999 ? Math.floor(total / 1000) + "k" : total;
+  return h("div", { onClick: knock, className: "relative flex flex-col items-center justify-center h-full", style: { userSelect: "none", WebkitUserSelect: "none", cursor: "pointer", isolation: "isolate" } },
+    h("div", { style: { position: "relative", width: 116, height: 104, display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { style: { position: "absolute", inset: "13px 3px 1px", borderRadius: "50%", background: "radial-gradient(ellipse at 50% 36%, rgba(255,255,255,.7) 0%, rgba(232,224,208,.52) 58%, rgba(151,126,93,.16) 100%)", border: "1px solid " + t.line, boxShadow: "inset 0 1px 0 rgba(255,255,255,.72), 0 9px 22px rgba(55,43,30,.12)" } }),
+      pressed ? h("div", { style: { position: "absolute", width: 86, height: 68, borderRadius: "50%", border: "1px solid rgba(151,105,63,.35)", animation: "wk-muyu-ring .42s ease-out forwards" } }) : null,
+      h("div", { style: { position: "relative", transform: pressed ? "translateY(3px) scale(.95)" : "translateY(0) scale(1)", transition: "transform .1s ease", filter: "drop-shadow(0 7px 7px rgba(62,40,22,.22))" } },
+        h("svg", { width: 94, height: 76, viewBox: "0 0 94 76", fill: "none", "aria-hidden": true },
+          h("defs", null,
+            h("linearGradient", { id: "muyuWood", x1: 17, y1: 10, x2: 77, y2: 68, gradientUnits: "userSpaceOnUse" },
+              h("stop", { stopColor: "#d4a56f" }), h("stop", { offset: ".5", stopColor: "#a96f3f" }), h("stop", { offset: "1", stopColor: "#704524" })),
+            h("linearGradient", { id: "muyuMallet", x1: 67, y1: 9, x2: 83, y2: 58, gradientUnits: "userSpaceOnUse" },
+              h("stop", { stopColor: "#d9b17f" }), h("stop", { offset: "1", stopColor: "#83522d" }))),
+          h("ellipse", { cx: 44, cy: 64, rx: 31, ry: 5, fill: "rgba(73,45,25,.15)" }),
+          h("path", { d: "M12 40C12 22 25 10 45 10c19 0 33 12 33 30 0 17-14 27-33 27S12 57 12 40Z", fill: "url(#muyuWood)", stroke: "rgba(82,49,25,.72)", strokeWidth: 1.2 }),
+          h("path", { d: "M18 35c4-12 14-19 27-19 12 0 22 5 27 14", stroke: "rgba(255,234,202,.42)", strokeWidth: 2.2, strokeLinecap: "round" }),
+          h("path", { d: "M28 47c7 7 27 8 36 0", stroke: "#5d371f", strokeWidth: 3.3, strokeLinecap: "round" }),
+          h("path", { d: "M47 14c-3 10-3 21 0 31", stroke: "rgba(92,51,25,.55)", strokeWidth: 1.5, strokeLinecap: "round" }),
+          h("circle", { cx: 31, cy: 36, r: 2.3, fill: "#5d371f" }),
+          h("circle", { cx: 30.3, cy: 35.3, r: .7, fill: "rgba(255,255,255,.5)" }),
+          h("g", { style: { transformOrigin: "73px 18px", transform: pressed ? "rotate(-9deg)" : "rotate(0deg)", transition: "transform .1s ease" } },
+            h("path", { d: "M70 17 82 56", stroke: "url(#muyuMallet)", strokeWidth: 5, strokeLinecap: "round" }),
+            h("ellipse", { cx: 68, cy: 14, rx: 8, ry: 6, transform: "rotate(22 68 14)", fill: "#8d5a33", stroke: "rgba(82,49,25,.7)" }),
+            h("path", { d: "M63 12c2-2 6-2 9 0", stroke: "rgba(255,232,199,.4)", strokeWidth: 1.3, strokeLinecap: "round" }))))),
+    pops.map(pid => h("span", { key: pid, style: { position: "absolute", left: "50%", top: 3, zIndex: 2, fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: ".04em", color: "#83552f", background: "rgba(250,246,238,.9)", border: "1px solid rgba(142,103,67,.2)", borderRadius: 999, padding: "3px 8px", boxShadow: "0 3px 10px rgba(70,48,28,.1)", pointerEvents: "none", whiteSpace: "nowrap", animation: "wk-pop .65s ease-out forwards" } }, "+1 功德")),
+    h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, marginTop: 1 } },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: total > 0 ? 18 : 15, lineHeight: 1, color: t.ink } }, total > 0 ? shownTotal : "敲一敲"),
+      total > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: t.fog } }, "功德") : null),
+    combo > 1 ? h("span", { style: { position: "absolute", right: 5, bottom: 3, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", color: "#91633d", background: "rgba(255,255,255,.44)", border: "1px solid rgba(145,99,61,.2)", borderRadius: 999, padding: "3px 6px" } }, combo + " COMBO") : null);
 }
 // 情侣空间轮播组件：多位正式在一起的 TA 轮流展示（每 6s 换一位），显示在一起天数+甜蜜值；点开进情侣空间
 function UsWidget({ characters, couples, sweet, onOpen, dot }) {
