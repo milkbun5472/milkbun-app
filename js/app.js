@@ -9852,31 +9852,48 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   //   · 摇三颗骰子:谁在问 × 想撬什么 × 怎么开口。前两颗定料,第三颗定形状——
   //     整批一个味通常坏在开口的形状上,不在题材上。
   //   · 日常一封信仍然只花一次调用(角色作答那一枪);出题的成本被几十题摊掉。
-  const ANON_POOL_BATCH = 36;   // 一次备多少题
+  const ANON_POOL_BATCH = 90;   // 一次备多少题(她 2026-08-31:反正没有 token 上限,别每次按最少来写)
+  const ANON_POOL_PER_ROLL = 10; // 一次扔管几题——扔的次数跟着批量长,不写死
   const ANON_POOL_LOW = 8;      // 低于这个数就顺手补一批
-  const ANON_POOL_CAP = 150;    // 库存上限,免得越攒越大
+  const ANON_POOL_CAP = 300;    // 库存上限,免得越攒越大
   const saveAnonPool = list => { const n = list.slice(0, ANON_POOL_CAP); setAnonPool(n); saveJSON("x_anonPool", n); return n; };
   // 出题:不带任何角色、不带网名签名、不带任何人的答案。它没有的东西就漏不出来。
+  // 骰子的扔法(她 2026-08-31 定):三个维度【一起扔】算一次,一次管一组题,
+  // 那一组就整组按这次扔出来的人写。原来是一题一扔——纸面上组合最多,实际上
+  // 模型面对一长列几乎一样的指令行会把它们平均掉,整批还是一个味。
+  // 组不能太大:同一个人写三十条,那三十条自己就长成一个味,病没治只是换了个地方犯。
   const brewAnonPool = async (cur, quiet) => {
-    const have = (cur || []).slice(0, 40).join(" / ");
+    const have = (cur || []).slice(0, 60).join(" / ");
     const n = ANON_POOL_BATCH;
-    const tones = anonDraw(ANON_ASKER_TONE, n), angles = anonDraw(ANON_ASKER_ANGLE, n), shapes = anonDraw(ANON_ASKER_SHAPE, n);
-    const who = tones.map((tn, i) => (i + 1) + ". 一个" + tn + "；他想撬的是" + angles[i] + "；" + shapes[i]).join("\n");
+    const rolls = Math.ceil(n / ANON_POOL_PER_ROLL);
+    const tones = anonDraw(ANON_ASKER_TONE, rolls), angles = anonDraw(ANON_ASKER_ANGLE, rolls), shapes = anonDraw(ANON_ASKER_SHAPE, rolls);
+    const who = tones.map((tn, i) => "〔第" + (i + 1) + "组〕这一组的 " + ANON_POOL_PER_ROLL + " 条,全由这样一个人写：\n"
+      + "  他是" + tn + "\n  他想撬的是" + angles[i] + "\n  他开口的样子是" + shapes[i]).join("\n");
     const sys = "你在给一个匿名树洞攒问题。这些问题会被丢进箱子里,由【某一个你完全不认识的陌生人】捡到并回答。\n"
       + "【你不知道的】收到这题的人是谁、男女、多大、做什么的、住在哪、长什么样、有没有对象、家里有谁、经历过什么——"
       + "一个都不知道,也【不许猜、不许假设、不许暗示你认识他】。不许写成「听说你们XX的人如何如何」,你并不知道他是哪一行的。\n"
       + "更要紧的一条:你写的时候【并不知道他会怎么答】。所以不许先想好一个答案再倒着编一句问话——"
       + "问出来的东西必须是换个人来答就会答成另一个样子的。\n"
-      + "现在有 " + n + " 个互不相识的人各写一句话丢进箱子。\n【这几位分别是谁、想撬什么、怎么开口】\n" + who + "\n"
-      + "【怎么写】站在每个人自己身上写。问题可以很笨、可以问偏、可以问到人家根本不想答的地方。\n"
-      + "别每句都一样长,别都用同一个句式收尾,别整批都是「你是不是……」这一个形状。\n"
+      + "这一批一共 " + n + " 条,分成 " + rolls + " 组,每组 " + ANON_POOL_PER_ROLL + " 条。\n"
+      + "【每一组是谁在问、想撬什么、怎么开口】\n" + who + "\n"
+      + "【怎么写】整组都站在那一个人身上写,这三样是他的底子,不是三个可选项——"
+      + "一整组读下来该像同一个人在连着发问,跟别的组一读就分得开。\n"
+      + "但同一组里的 " + ANON_POOL_PER_ROLL + " 条也不许互相重复:同一个立场、同一个方向、同一种开口,照样能问出十件不一样的事。\n"
+      + "问题可以很笨、可以问偏、可以问到人家根本不想答的地方。别每句都一样长,别都用同一个句式收尾。\n"
       + (have ? "\n【库里已经有这些了,一句都不要重复,也不要换个说法再写一遍】" + have : "")
-      + "\n【输出】只输出合法 JSON,无 markdown 无多余文字：{\"items\":[{\"question\":\"这一句问话\"}]}";
+      + "\n【输出】只输出合法 JSON,无 markdown 无多余文字,groups 要有 " + rolls + " 组、顺序跟上面一致："
+      + "{\"groups\":[{\"items\":[{\"question\":\"这一句问话\"}]}]}";
     const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
     const d = extractJSON(raw) || {};
+    // 每一条都绑在它那一次扔上：分组是结构,不是提示词里的一句嘱咐(规则降概率,代码才保证)。
+    // 模型偷懒退回平铺 items 时也收下,不为这个白烧一次调用。
+    const raws = [];
+    ((d && Array.isArray(d.groups)) ? d.groups : []).forEach(g => {
+      ((g && Array.isArray(g.items)) ? g.items : []).forEach(x => raws.push(x));
+    });
+    if (!raws.length && d && Array.isArray(d.items)) d.items.forEach(x => raws.push(x));
     const seen = {}; (cur || []).forEach(q => { seen[q] = 1; });
-    const fresh = ((d && Array.isArray(d.items)) ? d.items : [])
-      .map(x => String((x && x.question) || "").trim()).filter(q => q && !seen[q] && (seen[q] = 1));
+    const fresh = raws.map(x => String((x && x.question) || x || "").trim()).filter(q => q && !seen[q] && (seen[q] = 1));
     if (!fresh.length) throw new Error("这一批一句都没攒出来");
     const next = saveAnonPool([...(cur || []), ...fresh]);
     if (!quiet) toast("题库又攒了 " + fresh.length + " 条,现在有 " + next.length + " 条");

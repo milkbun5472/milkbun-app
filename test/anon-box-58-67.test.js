@@ -86,16 +86,31 @@ test("提示词里把「不许猜身份」「不许从答案倒推」都写死",
   assert.match(brew, /【库里已经有这些了/, "没把已有的递回去,会越攒越重复");
 });
 
-test("摇三颗骰子:谁在问 × 想撬什么 × 怎么开口", () => {
+test("三个维度一起扔算一次,一次管一组题——扔的次数跟着批量长", () => {
   const shape = grab(app, "  const ANON_ASKER_SHAPE = [", "  ];", 1600);
   assert.ok((shape.match(/"/g) || []).length / 2 >= 10, "第三颗骰子的面太少");
   // prompt-no-content-samples.md：只许写形状，不许塞例句
   assert.ok(!/[？?]"/.test(shape), "第三颗骰子里塞了例句,整批会照着那个句式长");
+  // 一次扔 = 一个三元组 = 一组题；三样是同一个人的底子，不是三个可选项
+  assert.match(brew, /const rolls = Math\.ceil\(n \/ ANON_POOL_PER_ROLL\);/, "扔的次数写死了,批量一放大每组就撑成一个味");
   ["ANON_ASKER_TONE", "ANON_ASKER_ANGLE", "ANON_ASKER_SHAPE"].forEach(k =>
-    assert.ok(brew.indexOf("anonDraw(" + k + ", n)") > 0, "出题时没摇这一颗：" + k));
-  // 一批 36 题、池子才十来面——必须能摇满,而且是再洗一副,不是随机重复
-  assert.match(app, /while \(out\.length < n\) \{/, "anonDraw 摇不满一批的量");
+    assert.ok(brew.indexOf("anonDraw(" + k + ", rolls)") > 0, "这一颗不是按「扔几次」摇的：" + k));
+  assert.match(brew, /整组都站在那一个人身上写,这三样是他的底子,不是三个可选项/, "没说清一组就是一个人");
+  assert.match(brew, /同一组里的 " \+ ANON_POOL_PER_ROLL \+ " 条也不许互相重复/, "没挡住组内自己长成一个味");
+  // 分组是结构，不是提示词里的一句嘱咐
+  assert.match(brew, /\{\\"groups\\":\[\{\\"items\\":\[\{\\"question\\"/, "输出不是分组结构,每条就绑不回它那一次扔");
+  assert.match(brew, /\(\(d && Array\.isArray\(d\.groups\)\) \? d\.groups : \[\]\)\.forEach/, "没按组收题");
+  assert.match(brew, /if \(!raws\.length && d && Array\.isArray\(d\.items\)\)/, "模型退回平铺时白烧一次调用");
+});
+
+test("一批攒够多，别每次按最少来写", () => {
+  assert.match(app, /const ANON_POOL_BATCH = 90;/, "一批的量又缩回去了");
+  assert.match(app, /const ANON_POOL_PER_ROLL = 10;/, "一组的量没定");
   assert.match(brew, /const n = ANON_POOL_BATCH;/);
+  assert.match(brew, /这一批一共 " \+ n \+ " 条,分成 " \+ rolls \+ " 组,每组 " \+ ANON_POOL_PER_ROLL \+ " 条/, "没把「几条、几组、每组几条」交代给模型");
+  assert.match(brew, /groups 要有 " \+ rolls \+ " 组/, "没要求组数对上");
+  assert.match(app, /const ANON_POOL_CAP = 300;/, "批量放大了,库存上限没跟上——攒一次就被削掉大半");
+  assert.match(app, /const ANON_POOL_CAP = 300;[\s\S]{0,400}list\.slice\(0, ANON_POOL_CAP\)/, "库存上限没真的用上");
 });
 
 test("开箱:库存够就一次调用都不花在出题上", () => {
@@ -107,7 +122,6 @@ test("开箱:库存够就一次调用都不花在出题上", () => {
   assert.ok(net.indexOf("pAnon(char.id, cur => (") < net.indexOf("saveAnonPool(pool.filter"), "先划账后作答——失败一次就丢题");
   assert.match(net, /\(box\.records \|\| \[\]\)\.forEach\(r => \{ if \(r\.q\) asked\[r\.q\] = 1; \}\)/, "同一个箱子问过的题还会再抽一遍");
   assert.match(app, /localStorage\.getItem\("x_anonPool"\)|loadJSON\("x_anonPool"/, "题库没存盘");
-  assert.match(app, /const ANON_POOL_CAP = 150;[\s\S]{0,400}list\.slice\(0, ANON_POOL_CAP\)/, "库存没有上限,会越攒越大");
 });
 
 test("答的那一枪才带上下文,问题已经写死,倒推不了", () => {
