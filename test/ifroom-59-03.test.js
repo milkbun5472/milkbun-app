@@ -136,7 +136,20 @@ test("背景图开线时不生，她点了才生", () => {
   assert.match(open, /bgKey: null/, "开线时就带着图");
   const bg = cut(app, "  const ifBg = async lineId => {", "  // 收线。三个去处");
   assert.match(bg, /generateSelfieImage/);
-  assert.match(bg, /画面里不要有人/, "背景图里会冒出人来");
+  // ⚠️别再核「场景文本尾巴上挂没挂一句『不要有人』」——v59.17 撤掉了那个做法：
+  // buildPhotoPrompt 整个是【画一个人】的说明书，外挂一句禁令压不住二十条人物指令，
+  // 出来是人是景全看运气（她 2026-08-31 报的就是这个）。改走空景自己那条路。
+  // ⚠️剥掉注释行再核：app.js 里那条说明本身就写着 buildPhotoPrompt，不剥会撞自己
+  const bare = x => x.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(bare(bg).indexOf("buildPhotoPrompt") < 0, "还在走画人那条路，背景图里会冒出人来");
+  assert.match(bg, /buildScenePrompt\(char, scene, \{\}\)/, "没走空景那条路");
+  const sp = cut(R("engine.js"), "function buildScenePrompt(char, sceneDesc, opts) {", "\n}\n");
+  assert.match(sp, /生成一张【纯空景图】/, "空景那条路第一句不是题目");
+  assert.match(sp, /no people, no person, no human, no figure, no silhouette/, "无人那条铁律没中英双写");
+  assert.match(sp, /场景描述里就算提到了某个人/, "没挡住场景描述自带的人味");
+  // 人物那二十条一条都不许进来
+  ["身体身份锁", "correct human hands", "体态自然挺拔", "参考照", "此刻穿着"].forEach(x =>
+    assert.ok(sp.indexOf(x) < 0, "空景那条路混进了画人的指令：" + x));
   assert.match(bg, /imgApiReady\(\)\)\) \{ toast/, "没配图像 API 也往下画");
 });
 
@@ -387,4 +400,26 @@ test("轮不到她的时候，那一整条输入区收起来", () => {
   assert.match(row, /minHeight: 42, maxHeight: 104, borderRadius: 12/, "输入框没跟两个键对齐");
   // 攒满了要看得出来，别默默不响应
   assert.match(row, /disabled: !typing\.trim\(\) \|\| drafts\.length >= \(\(window\.IfKit \|\| \{\}\)\.MY_BOXES_MAX \|\| 8\)/, "攒满了没灰掉");
+});
+
+// 她 2026-08-31：「以后任何情侣空间生的图都进情侣空间的合照墙吧」。
+// ⚠️做成【一处存、一处读】：每加一个会生图的功能就去合照墙那儿再 concat 一次，
+// 正是「一层写在三处，第四处没跟上」的长法。所以这条核的是那一份共用的存在，
+// 不是「如果馆这一路接上了」。
+test("情侣空间生的图统统落一处，合照墙只认那一处", () => {
+  const eng = R("engine.js");
+  // 存
+  const add = cut(app, "  const addCoupleShot = row => {", "\n  };");
+  assert.match(add, /if \(!row \|\| !row\.charId \|\| !\(row\.imgKey \|\| row\.imgUrl\)\)/, "没图没主也往里塞");
+  assert.match(add, /\.slice\(0, COUPLE_SHOT_CAP\)/, "这一份没有上限，攒多了写满盘");
+  assert.match(app, /saveJSON\("x_coupleShots", next\)/, "只在内存里，刷新就没了");
+  assert.match(eng, /"x_coupleShots"/, "没登记进 durable，攒多了会把 localStorage 写满");
+  // 读
+  const duo = cut(app, "  const duoPhotosOf = cid => {", "  // 里程碑册");
+  assert.match(duo, /coupleShotsRef\.current \|\| \[\]\)\.filter\(x => x\.charId === cid/, "合照墙不认这一份");
+  assert.match(duo, /\.concat\([^)]*\bmine\b/, "算了却没并进墙里");
+  // 如果馆这一路：生完就上墙，并且带得出是哪条线的背景
+  const bg = cut(app, "  const ifBg = async lineId => {", "  // 收线。三个去处");
+  assert.match(bg, /addCoupleShot\(\{ charId: char\.id, imgKey: bgKey, imgUrl: bgUrl/, "背景图没上墙");
+  assert.match(bg, /from: "如果馆"/, "墙上看不出这张是哪儿来的");
 });

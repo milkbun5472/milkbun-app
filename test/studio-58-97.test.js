@@ -57,7 +57,9 @@ test("参考照不齐就明说，不偷偷降级成单人照", () => {
 test("拍出来的同时上合照墙", () => {
   const duo = cut(app, "  const duoPhotosOf = cid => {", "  // 里程碑册");
   assert.match(duo, /studioRef\.current \|\| \[\]\)\.filter\(x => x\.charId === cid && \(x\.imgKey \|\| x\.imgUrl\)\)/, "合照墙不认照相馆拍的");
-  assert.match(duo, /\.concat\(off, shots\)/, "算了却没并进去");
+  // ⚠️别冻 concat 的实参表：往墙上再并一路（v59.17 的 coupleShots）这条就红，
+  // 而它想验的「照相馆那些并进去了」没坏。
+  assert.match(duo, /\.concat\([^)]*\bshots\b/, "算了却没并进去");
   assert.match(eng, /"x_studio"/, "照相馆那份没登记进 durable，攒多了会把 localStorage 写满");
   assert.match(app, /\.slice\(0, STUDIO_CAP\)/, "照相馆没有上限");
 });

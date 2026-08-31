@@ -2884,6 +2884,49 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   return parts.join("");
 }
 
+// ==== 空景图（v59.17）====
+// 她 2026-08-31：「如果馆背景图是啥 prompt，为啥要么是单人照要么是背景图」。
+// 病根：ifBg 走的是 buildPhotoPrompt——那整个函数是【画一个人】的说明书：
+// 身份锁、身体骨架锁、手指解剖、体态挺拔、服装、参考照……全都在说「把这个人画对」。
+// 唯一说「别画人」的，是场景文本尾巴上外挂的一句「空景，画面里不要有人」。
+// 一句话对上二十条，出来是人是景全看运气。
+//
+// 治法不是再加一句禁令，是【另起一条路】：空景就该有空景自己的说明书。
+// 只保留跟人无关的那两层——画风（跟着这个角色走，不然他那条线的背景是另一套质感）
+// 和世界观事实（古代角色的背景里不能有路灯）——其余一概不发。
+function buildScenePrompt(char, sceneDesc, opts) {
+  opts = opts || {};
+  char = char || {};
+  const photoStyle = ["realistic", "reference", "anime"].includes(char.photoStyle) ? char.photoStyle : "realistic";
+  const parts = [];
+  // ⚠️这一条必须排在最前面：它是这次生成的【题目】，不是补充说明。
+  parts.push("生成一张【纯空景图】：画面里【一个人都没有】。");
+  if (photoStyle === "anime") {
+    parts.push("画风是【二次元动画背景美术】：清晰的线稿与赛璐璐/柔和插画上色，像动画里的一张背景板。不要真人化、不要摄影质感、不要 3D/CG。");
+  } else if (photoStyle === "reference") {
+    parts.push("画风沿用这个角色一贯的视觉媒介：他的图若是二次元就画成二次元背景美术，若是写实照片就画成自然写实的实景照。不要中途换媒介。");
+  } else {
+    parts.push("画风是【自然写实的实景照片】：真实的环境光和自然投影、镜头的浅景深与轻微噪点。不要插画、不要 3D/CG 渲染、不要 AI 感很重的精修图。");
+  }
+  // ⭐无人这件事要用【正反两面 + 中英双写】说死。图像模型对 no person / empty
+  // 这类英文否定词最敏感，而单靠中文一句「不要有人」压不住二十条人物指令的惯性——
+  // 现在人物指令一条都不发了，这里再钉一次，是为了挡住场景描述里自带的人味
+  //（「他醒来后」这种句子本身就在暗示画面里有个人）。
+  parts.push("【无人铁律·最高优先】no people, no person, no human, no figure, no silhouette, no crowd, no hands, no body parts, empty unpopulated scene——"
+    + "画面里不许出现任何人、人影、剪影、背影、手、身体的任何部分，也不许出现照片里的人、画像里的人、雕像或人形。"
+    + "**场景描述里就算提到了某个人，那也只是在说这地方为什么是这样，不是让你把他画进去。**"
+    + "只画【那个地方本身】：建筑、器物、光、天气、留下的痕迹。");
+  const era = String(char.persona || "").trim().slice(0, 500);
+  if (era) parts.push("【这个世界长什么样·必须对上】以下是这条线所属世界的设定，画面里的建筑、器物、材质、光源、street furniture 都要跟它同一个年代和地域，"
+    + "绝不许混进不属于这个世界的东西（古代场景里不许有电灯、汽车、玻璃幕墙、柏油路、现代招牌）：" + era + "。");
+  if (sceneDesc && String(sceneDesc).trim()) parts.push("【画这个地方】" + String(sceneDesc).trim() + "。");
+  // 竖屏背景板：正文对话框压在下半屏，所以画面的分量要往上走、中下留得住字
+  if (opts.forText !== false) parts.push("【这是一张要压字的背景板】竖构图；主要的景物和视觉重心放在画面上半部分，"
+    + "画面中下部保持相对空、暗、少细节，好让文字压上去还读得清。整体偏安静，不要满构图、不要高对比的杂乱花纹。");
+  parts.push("画面干净，不要任何文字/水印/logo/相框/贴纸边框。");
+  return parts.join("");
+}
+
 // ==== 自动头像（她 2026-08-25 定的 A+B）====
 // 论坛里的路人、常驻熟面孔、小号一直是 emoji 方块（FORUM_AV_EMOJI = 🐧🐸🐱…）。
 // 参考的那个小手机（jrsy）是硬编码 190 条外链图片、Math.random() 随机取一张——
@@ -3506,7 +3549,7 @@ const DURABLE_TEXT_KEYS = new Set([
   // 情侣空间正文。只列 saveJSON 管理的键；仍由旧 UI 直读的小标记继续留在 localStorage。
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
   "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
-  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_studio", "x_myCloset", "x_phoneLastAll", "x_ifLines",
+  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_studio", "x_coupleShots", "x_myCloset", "x_phoneLastAll", "x_ifLines",
   "x_coupleLetterCfg", "x_coupleSweet"
 ]);
 const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"];

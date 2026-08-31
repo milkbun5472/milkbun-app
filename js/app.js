@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.16";
+const APP_VERSION = "v59.17";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -368,6 +368,12 @@ function App() {
   const myClosetRef = useRef({}); myClosetRef.current = myCloset;
   const [studio, setStudio] = useState([]);
   const studioRef = useRef([]); studioRef.current = studio;
+  // 情侣空间生的图，统统落这一份（她 2026-08-31：「以后任何情侣空间生的图都进
+  // 情侣空间的合照墙」）。⚠️故意做成【一处存、一处读】：不然每加一个会生图的
+  // 功能，就得记得去合照墙那儿再 concat 一次——那正是「一层写在三处，第四处
+  // 没跟上」的长法。以后新功能只管调 addCoupleShot，墙上自己就有了。
+  const [coupleShots, setCoupleShots] = useState([]);
+  const coupleShotsRef = useRef([]); coupleShotsRef.current = coupleShots;
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   const coupleDrawerRef = useRef([]); coupleDrawerRef.current = coupleDrawer;
   const [gachaPts, setGachaPts] = useState({});
@@ -784,6 +790,7 @@ function App() {
     setAvatarSwap(loadJSON("x_avatarSwap", {}));
     setMyCloset(loadJSON("x_myCloset", {}));
     setStudio(loadJSON("x_studio", []));
+    setCoupleShots(loadJSON("x_coupleShots", []));
     setCoupleDrawer(loadJSON("x_coupleDrawer", []));
     setGachaPts(loadJSON("x_gachaPts", {}));
     setGachaCards(loadJSON("x_gachaCards", []));
@@ -12203,6 +12210,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   };
   // 抽屉存量上限：他放进来的东西不会自己消失，但也不能无限涨（跟票根一样是"留痕"，
   // 只是抽屉里的旧东西比票根更容易变成噪音，所以给个天花板）。
+  // 情侣空间任何一处生了图，调这一个。from 只是给墙上那行小字用的，不参与判重。
+  const COUPLE_SHOT_CAP = 200;
+  const addCoupleShot = row => {
+    if (!row || !row.charId || !(row.imgKey || row.imgUrl)) return;
+    const next = [{
+      id: "cs_" + Date.now(), charId: row.charId, imgKey: row.imgKey || null, imgUrl: row.imgUrl || null,
+      desc: String(row.desc || "").trim().slice(0, 120), from: String(row.from || "").trim().slice(0, 20), ts: Date.now()
+    }].concat((coupleShotsRef.current || []).filter(x => x && (x.imgKey || x.imgUrl))).slice(0, COUPLE_SHOT_CAP);
+    coupleShotsRef.current = next; setCoupleShots(next); saveJSON("x_coupleShots", next);
+  };
   const duoPhotosOf = cid => {
     const ok = m => m && m.kind === "selfie" && m.photoKind === "duo" && !m.pending && !m.failed && (m.imgKey || m.imgUrl);
     const pick = m => ({ imgKey: m.imgKey, imgUrl: m.imgUrl, ts: m.ts, desc: m.desc });
@@ -12213,7 +12230,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 照相馆拍的也上墙：那本来就是「你俩的合照」，没道理只有聊天里随手拍的算数
     const shots = (studioRef.current || []).filter(x => x.charId === cid && (x.imgKey || x.imgUrl))
       .map(x => ({ imgKey: x.imgKey, imgUrl: x.imgUrl, ts: x.ts, desc: x.scene }));
-    return (chats[cid] || []).filter(ok).map(pick).concat(off, shots).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    // 情侣空间里生出来的图（如果馆的背景图，以及以后任何一处）也上墙
+    const mine = (coupleShotsRef.current || []).filter(x => x.charId === cid && (x.imgKey || x.imgUrl))
+      .map(x => ({ imgKey: x.imgKey, imgUrl: x.imgUrl, ts: x.ts, desc: x.desc }));
+    return (chats[cid] || []).filter(ok).map(pick).concat(off, shots, mine).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   };
   // 里程碑册：**全部从已有数据推出来，一个钩子都不挂**（挂钩子＝五处会腐烂，
   // 而且在这之前发生过的事永远补不回来）。零调用。
@@ -12445,12 +12465,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
     setGen(g => ({ ...g, ifBg: lineId }));
     try {
-      const scene = (line.bgPrompt || line.premise || line.title) + "，空景，画面里不要有人";
-      const out = await generateSelfieImage(buildPhotoPrompt(char, scene, {}, { kind: "other", me: null }), null, {});
+      // ⚠️别再走 buildPhotoPrompt：那是【画一个人】的说明书（身份锁、骨架锁、
+      // 手指解剖、体态、服装、参考照），外挂一句「不要有人」压不住它，出来是人是景
+      // 全看运气——她 2026-08-31 报的就是这个。空景走空景自己那条路。
+      const scene = line.bgPrompt || line.premise || line.title;
+      const out = await generateSelfieImage(buildScenePrompt(char, scene, {}), null, {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       let bgKey = null, bgUrl = out.url || null;
       if (out.blob) { bgKey = "img_if_" + line.id; await idbImgPut(bgKey, out.blob); }
       ifSave(ifLinesRef.current.map(x => x.id === lineId ? { ...x, bgKey: bgKey, bgUrl: bgUrl } : x));
+      // 生出来的也留在情侣空间的墙上（她 2026-08-31 定）
+      addCoupleShot({ charId: char.id, imgKey: bgKey, imgUrl: bgUrl, desc: "《" + line.title + "》" + (line.premise ? "·" + line.premise : ""), from: "如果馆" });
       toast("背景画好了");
       return true;
     } catch (e) { toast("背景没画成：" + (e.message || "重试")); return false; }
