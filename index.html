@@ -44,6 +44,8 @@
   @keyframes caseOpen { from { opacity: 0; transform: scale(.94) translateY(10px);} to { opacity: 1; transform: none;} }
   /* 跑马灯：文字太长时来回滚动（--mq = 负的溢出距离） */
   @keyframes wk-marquee { 0%,10% { transform: translateX(0);} 46%,54% { transform: translateX(var(--mq,0));} 90%,100% { transform: translateX(0);} }
+  /* 如果馆对话框右下角那个「点一下继续」的小三角（v59.14）：灰字提示看不见，游戏里这个位置本来就该有个会动的东西 */
+  @keyframes if-tick { 0%,100% { transform: translateY(0); opacity:.55 } 50% { transform: translateY(3px); opacity:1 } }
   .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .leaflet-container { font-family: 'Archivo','Noto Serif SC',system-ui,sans-serif; background: #dfe6ea; }
   .cm-tip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 8px; }

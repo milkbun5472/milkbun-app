@@ -330,10 +330,64 @@ test("她说的那一框也挂名字，挂在右上角", () => {
   // ⚠️她那几框存下来时 who 是空的，跟旁白长得一模一样——只看 box 分不出来，
   // 必须看这一拍的 role，否则她说的话会被当成旁白（居中、灰、斜体、没名字）。
   assert.match(box, /const narr = !mine && !box\.who/, "还在拿 who 判旁白，她那几框会被当旁白");
-  assert.match(box, /mine \? \{ right: 16 \} : \{ left: 16 \}/, "左右没分开");
+  // ⚠️v59.14 名字牌不再是 absolute+left/right，改成一行 flex 里靠边——
+  // 别把「怎么摆过去的」冻死，只核【她的在右、他的在左】这件事本身。
+  assert.match(box, /justifyContent: mine \? "flex-end" : "flex-start"/, "左右没分开");
   assert.match(box, /narr \? "center" : mine \? "right" : "left"/, "她那一框的正文没靠右");
   // 传下去的那一段：role 是唯一分得出来的东西，uName 得从上面一路传进来
-  assert.match(scr, /h\(IfBox, \{ box: box, charName: partner\.remark \|\| partner\.name, uName: uName, mine: bt\.role === "user" \}\)/, "调用处没把 role 和名字传下去");
+  // 当前那一框和上面那几框余影都得拿到 role 和名字——余影漏了，她说过的话在上面
+  // 会变成没主的旁白
+  // 当前那一框和上面那几框余影都得知道「这句是谁说的」——余影漏了，她说过的话
+  // 在上面会退成没主的旁白（居中、斜体、没名字）
+  const body = cut(scr, "h(\"div\", { onClick: tap,", "// 我的回合");
+  assert.match(body, /mine: bt\.role === "user"/, "当前那一框没拿到 role");
+  assert.match(body, /mine: x\.mine, past: true/, "余影没拿到 role，她说的会变成旁白");
+  assert.equal((body.match(/uName: uName/g) || []).length, 2, "当前框和余影没都拿到她的名字");
+  // 余影那一头的 mine 是【那一拍自己的 role】算出来的，不是当前拍的
+  assert.match(cut(scr, "const trail = (function ()", "})();"), /mine: b\.role === "user"/, "余影用错了拍的 role");
   assert.match(scr, /function IfRoom\(\{ partner, lines, uName,/, "IfRoom 没收 uName");
   assert.match(scr, /uName: \(profile \|\| \{\}\)\.name \|\| "我"/, "路由没把她的名字传进如果馆");
+});
+
+// 她 2026-08-31：「可以做这种游戏对话框样式（不要照抄，我们自己设计一下样式）」
+// 「回复键的样式也改一下」。v59.14 重做长相。
+test("台词框长得像游戏对话框，不像它下面那个输入框", () => {
+  const box = cut(scr, "function IfBox({", "\n}\n");
+  // 原来台词框是【圆角 + 一圈细描边 + 半透明底】，跟输入框一模一样，一屏三种东西
+  // 全是同一个观感。台词框现在实心 + 上沿一条高光 + 有阴影。
+  assert.match(box, /background: narr \? "rgba\(16,13,26,\.55\)" : "rgba\(23,19,38,\.93\)"/, "台词框没做成实心");
+  assert.match(box, /boxShadow: narr \? "none" :/, "台词框没有阴影，浮不起来");
+  assert.match(box, /linear-gradient\(90deg,rgba\(141,118,201,\.9\)/, "上沿那条高光没了");
+  // 旁白框必须一眼分得开：没有高光、没有名字牌
+  assert.ok(/narr \? null : h\("div", \{\s*key: "lit"/.test(box), "旁白框也画了高光线，两种框就分不开了");
+  assert.ok(/narr \? null : h\("div", \{\s*key: "who"/.test(box), "旁白框也挂了名字牌");
+  // 「点一下继续」原来是底下一行灰字。改成右下角一个会跳的角标——那是游戏里的位置
+  assert.match(box, /animation: "if-tick 1\.15s ease-in-out infinite"/, "没有那个会跳的小三角");
+  assert.match(html, /@keyframes if-tick/, "小三角的动画没定义，它就是个不动的三角");
+});
+
+test("余影跨拍，上半屏不再是一片空的", () => {
+  const room = cut(scr, "function IfRoom({", "\n}\n");
+  // ⚠️只铺【这一拍】的话，每翻到新的一拍上半屏就又空一次——而每一拍的第一框
+  // 恰恰是最常停留的位置。所以要从头铺。
+  assert.match(room, /for \(let i = 0; i <= at\.beat && i < beats\.length; i\+\+\)/, "余影没跨拍取");
+  assert.match(room, /const upto = i === at\.beat \? at\.box : \(b\.boxes \|\| \[\]\)\.length/, "当前这一拍取多了或取少了");
+  assert.match(room, /return out\.slice\(-5\)/, "余影没封顶，会一路堆到屏幕外");
+  // 余影是【说过的话】，不能把当前这一框也算进去（会显示两遍）
+  assert.ok(room.indexOf("at.box + 1 : (b.boxes") < 0, "把当前那一框也铺成余影了");
+});
+
+test("轮不到她的时候，那一整条输入区收起来", () => {
+  const room = cut(scr, "function IfRoom({", "\n}\n");
+  // 原来不管轮没轮到都占着一整条，只把 placeholder 换成「他还没说完」——
+  // 占了半屏高度只为说一句话
+  assert.match(room, /myTurn \? \[/, "输入区没按轮次收起来");
+  assert.ok(room.indexOf('placeholder: myTurn ? "你说点什么') < 0, "还在用 placeholder 说「没轮到」");
+  assert.match(room, /busy \? "他在写……" : line\.endedAt \? "这条已经收了" : "点一下继续"/, "收起来之后没留一行提示");
+  // 三个控件同高同圆角——原来是圆角矩形 / 正圆 / 胶囊三种形状挤一行
+  const row = cut(room, 'h("div", { key: "row"', "] : h(");
+  assert.equal((row.match(/width: 42, height: 42, borderRadius: 12/g) || []).length, 2, "两个键没做成同高同圆角");
+  assert.match(row, /minHeight: 42, maxHeight: 104, borderRadius: 12/, "输入框没跟两个键对齐");
+  // 攒满了要看得出来，别默默不响应
+  assert.match(row, /disabled: !typing\.trim\(\) \|\| drafts\.length >= \(\(window\.IfKit \|\| \{\}\)\.MY_BOXES_MAX \|\| 8\)/, "攒满了没灰掉");
 });

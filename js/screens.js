@@ -10216,36 +10216,81 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
 // 一个框一口气读完，点一下出下一个；右边一条侧栏翻已经过去的（照跑团那个），
 // 免得点完就忘。她的回合能先攒几条再一起发。
 const IF_INK = "#e8e4ee", IF_DIM = "rgba(232,228,238,.52)", IF_LINE = "rgba(232,228,238,.16)";
+const IF_ACCENT = "#8d76c9";
 // mine＝这一框是她说的。她 2026-08-31：「我发的消息没有名字，做跟角色名字一样，
 // 他们名字在框左上边我的在右上边」。
 // ⚠️她那几框存下来的时候 who 是空的（跟旁白一个样），光看 box 分不出来——
 // 要看这一拍的 role。所以名字从外面传进来，别在这儿猜。
-function IfBox({ box, charName, uName, mine }) {
+//
+// v59.14 重做长相。原来的框是【圆角 + 一圈细描边 + 半透明底】，跟它正下方那个
+// 输入框长得一模一样——同样的圆角、同样的描边、同样的暗底，一屏上三种东西
+// （旁白框、对话框、输入框）全是同一个观感，看着就不像「一个游戏对话框」。
+// 现在按视觉小说那套来：
+//   · 台词框＝实心底 + 上沿一条高光 + 名字牌是实心小牌 + 右下角一个会跳的小三角；
+//   · 旁白框＝没有高光、没有名字牌、底更透、居中斜体——一眼就跟台词分得开；
+//   · past＝这一拍里已经翻过去的那几框的余影（淡、字小），见 IfRoom 里为什么要它。
+function IfBox({ box, charName, uName, mine, past, tick }) {
   const narr = !mine && !box.who;
   const name = mine ? (uName || "我") : charName;
+  if (past) return h("div", {
+    style: {
+      fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, marginTop: 8,
+      color: IF_INK, opacity: narr ? 0.2 : 0.34,
+      fontStyle: narr ? "italic" : "normal",
+      textAlign: narr ? "center" : mine ? "right" : "left"
+    }
+  }, (narr ? "" : name + "：") + box.text);
   return h("div", {
     style: {
-      position: "relative", borderRadius: 14, border: "1px solid " + IF_LINE,
-      background: "rgba(18,16,26,.72)", backdropFilter: "blur(8px)",
-      padding: narr ? "20px 22px" : "22px 20px 18px", marginTop: narr ? 0 : 14
+      position: "relative", marginTop: narr ? 0 : 13,
+      borderRadius: 16, overflow: "hidden",
+      background: narr ? "rgba(16,13,26,.55)" : "rgba(23,19,38,.93)",
+      backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)",
+      border: narr ? "1px solid rgba(232,228,238,.09)" : "1px solid rgba(141,118,201,.34)",
+      boxShadow: narr ? "none" : "0 10px 30px rgba(0,0,0,.45)",
+      padding: narr ? "19px 22px" : "20px 19px 22px"
     }
   },
+    // 上沿那条高光：只有台词框有，是它跟旁白/输入框最直接的一处区别
     narr ? null : h("div", {
-      style: Object.assign({
-        position: "absolute", top: -13, padding: "3px 13px", borderRadius: 9,
-        border: "1px solid " + IF_LINE, background: "#15121e", maxWidth: "62%",
-        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-        fontFamily: F_DISPLAY, fontSize: 13, color: IF_INK
-      }, mine ? { right: 16 } : { left: 16 })
-    }, name),
-    h("div", {
+      key: "lit",
       style: {
-        fontFamily: F_BODY, fontSize: 15, lineHeight: 2,
+        position: "absolute", top: 0, left: 0, right: 0, height: 1,
+        background: mine
+          ? "linear-gradient(270deg,rgba(141,118,201,.9),rgba(141,118,201,0))"
+          : "linear-gradient(90deg,rgba(141,118,201,.9),rgba(141,118,201,0))"
+      }
+    }),
+    narr ? null : h("div", {
+      key: "who",
+      className: "flex",
+      style: { justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 9 }
+    }, h("span", {
+      style: {
+        padding: "3px 12px", borderRadius: 8, maxWidth: "62%",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        background: "rgba(141,118,201,.22)", border: "1px solid rgba(141,118,201,.34)",
+        fontFamily: F_DISPLAY, fontSize: 12.5, color: "#cdbdf0", letterSpacing: ".04em"
+      }
+    }, name)),
+    h("div", {
+      key: "t",
+      style: {
+        fontFamily: F_BODY, fontSize: 15.5, lineHeight: 2.05,
         color: narr ? IF_DIM : IF_INK,
         fontStyle: narr ? "italic" : "normal",
         textAlign: narr ? "center" : mine ? "right" : "left"
       }
-    }, box.text));
+    }, box.text),
+    // 「点一下继续」原来是底下一行灰字，几乎看不见。游戏里这个位置本来就该有个会动的角标。
+    tick ? h("div", {
+      key: "tk",
+      style: {
+        position: "absolute", right: 13, bottom: 9, width: 0, height: 0,
+        borderLeft: "5px solid transparent", borderRight: "5px solid transparent",
+        borderTop: "6px solid " + IF_ACCENT, animation: "if-tick 1.15s ease-in-out infinite"
+      }
+    }) : null);
 }
 // 收线时那三个去处。列表上收和线里收用的是同一份——一层只写一处。
 const IF_ENDINGS = [
@@ -10341,41 +10386,98 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, 
   const lastBeat = at.beat >= beats.length - 1;
   const myTurn = lastBeat && !more && bt.role === "char";
   const bg = line.bgKey || line.bgUrl;
+  // 当前这一框【之前】说过的话，跨拍铺平，留最近 5 条当余影
+  const trail = (function () {
+    const out = [];
+    for (let i = 0; i <= at.beat && i < beats.length; i++) {
+      const b = beats[i];
+      const upto = i === at.beat ? at.box : (b.boxes || []).length;
+      (b.boxes || []).slice(0, upto).forEach(x => out.push({ box: x, mine: b.role === "user" }));
+    }
+    return out.slice(-5);
+  })();
   const tap = () => { if (more) setAt({ beat: at.beat, box: at.box + 1 }); else if (!lastBeat) setAt({ beat: at.beat + 1, box: 0 }); };
   const send = () => { const all = typing.trim() ? drafts.concat([typing.trim()]) : drafts; if (!all.length) return; setDrafts([]); setTyping(""); onAdvance(line.id, all); };
   return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: "#0e0c16" } },
     bg ? h("div", { style: { position: "absolute", inset: 0, opacity: 0.4 } }, h(AlbumPhoto, { photo: { imgKey: line.bgKey, imgUrl: line.bgUrl }, cover: true })) : null,
+    // 还没生成背景图时原来是一整片死黑。给一层很淡的光晕当底衬——不抢正文，
+    // 但至少看着像个场景，不像没加载完。
+    bg ? null : h("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(130% 68% at 50% 4%,rgba(141,118,201,.3),rgba(90,70,140,.1) 46%,rgba(141,118,201,0) 74%)" } }),
     h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(14,12,22,.55),rgba(14,12,22,.92))" } }),
     h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { position: "relative", paddingTop: safeTop(10) } },
       h("button", { onClick: () => setOpenId(null), "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: IF_INK })),
       h("div", { className: "flex-1 min-w-0 text-center" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: IF_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.title),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line.premise),
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: IF_DIM, marginTop: 1 } }, (at.beat + 1) + " / " + beats.length)),
+        // 进度原来是「3 / 3」一行小字，跟上面两行挤成三层。改成一排点：
+        // 拍数不多的时候一眼看得出走到哪儿了，多了再退回数字。
+        beats.length <= 12
+          ? h("div", { className: "flex items-center justify-center", style: { gap: 4, marginTop: 5 } },
+              beats.map((b, i) => h("span", {
+                key: b.id,
+                style: {
+                  width: i === at.beat ? 13 : 4, height: 4, borderRadius: 99,
+                  background: i === at.beat ? IF_ACCENT : i < at.beat ? "rgba(141,118,201,.42)" : IF_LINE
+                }
+              })))
+          : h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, color: IF_DIM, marginTop: 3 } }, (at.beat + 1) + " / " + beats.length)),
       h("button", { onClick: () => setSide(true), "aria-label": "看看前面", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40 } },
         h("div", { style: { width: 15, height: 11, borderTop: "2px solid " + IF_INK, borderBottom: "2px solid " + IF_INK, opacity: .85 } }))),
     // 正文：点一下出下一框
-    h("div", { onClick: tap, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 12 } },
-      box ? h(IfBox, { box: box, charName: partner.remark || partner.name, uName: uName, mine: bt.role === "user" }) : null,
-      h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 10, minHeight: 14 } },
-        busy ? "……" : more || !lastBeat ? "点一下继续" : myTurn ? "" : "")),
-    // 我的回合：先攒几条再一起发
+    // ⚠️原来这儿只画【当前这一框】，贴在底上，上面四分之三屏是空的死黑——
+    // 而且点到下一框，上一框就没了（「点完就忘」侧栏只解决了跨拍那一半）。
+    // 现在把这一拍里已经翻过去的几框留成余影往上排：屏幕不空了，读到哪儿也看得见。
+    h("div", { onClick: tap, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingTop: 14, paddingBottom: 12 } },
+      // ⚠️余影要【跨拍】取。只算这一拍的话，每翻到新的一拍上半屏就又空一次——
+      // 而每一拍的第一框恰恰是最常停留的位置。
+      trail.map((x, i) => h(IfBox, {
+        key: "p" + i, box: x.box, charName: partner.remark || partner.name, uName: uName,
+        mine: x.mine, past: true
+      })),
+      box ? h(IfBox, {
+        box: box, charName: partner.remark || partner.name, uName: uName,
+        mine: bt.role === "user",
+        // 还能往下点的时候才亮那个小三角；轮到她说话了就不亮，免得像还没说完
+        tick: !busy && (more || !lastBeat)
+      }) : null,
+      busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 10 } }, "……") : null),
+    // 我的回合：先攒几条再一起发。
+    // v59.14 重做（她 2026-08-31：「回复键的样式也改一下」）：
+    //   ① 原来三个控件三种形状——输入框是圆角矩形、攒着是正圆、发出是胶囊，
+    //      挤在一行像三件不相干的东西。现在统一成【同高同圆角】的一套。
+    //   ② 还没轮到她的时候，那一整条输入区照样占着地方、placeholder 写「他还没说完」——
+    //      占了半屏高度只为说一句话。改成收起来，只留一行提示。
     h("div", { className: "shrink-0 px-4", style: { position: "relative", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
-      drafts.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 } },
-        drafts.map((d, i) => h("div", { key: i, className: "flex items-center gap-2", style: { borderRadius: 11, border: "1px dashed " + IF_LINE, padding: "7px 11px" } },
-          h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: IF_DIM } }, d),
-          h("button", { onClick: () => setDrafts(drafts.filter((_, j) => j !== i)), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "撤")))) : null,
-      h("div", { className: "flex items-end gap-2" },
-        h("textarea", {
-          value: typing, onChange: e => setTyping(e.target.value), rows: 1,
-          placeholder: myTurn ? "你说点什么，或先攒几条" : "他还没说完",
-          className: "flex-1 outline-none resize-none",
-          style: { borderRadius: 13, border: "1px solid " + IF_LINE, background: "rgba(0,0,0,.34)", color: IF_INK, padding: "10px 12px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, maxHeight: 96 }
-        }),
-        h("button", { onClick: () => { const v = typing.trim(); if (!v || drafts.length >= (window.IfKit || {}).MY_BOXES_MAX) return; setDrafts(drafts.concat([v])); setTyping(""); }, className: "active:opacity-70 shrink-0", "aria-label": "再攒一条", style: { width: 38, height: 38, borderRadius: 999, border: "1px solid " + IF_LINE, color: IF_INK, fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1 } }, "+"),
-        h("button", { onClick: send, disabled: !!busy || (!drafts.length && !typing.trim()), className: "active:opacity-70 shrink-0 flex items-center justify-center", "aria-label": "发出去", style: { width: 46, height: 38, borderRadius: 13, background: (busy || (!drafts.length && !typing.trim())) ? "rgba(255,255,255,.1)" : "#6d5a9c", color: (busy || (!drafts.length && !typing.trim())) ? IF_DIM : "#fff", fontFamily: F_DISPLAY, fontSize: 13.5 } },
-          busy ? "…" : "发出")),
-      h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
+      myTurn ? [
+        drafts.length ? h("div", { key: "dr", style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 } },
+          drafts.map((d, i) => h("div", { key: i, className: "flex items-center gap-2", style: { borderRadius: 12, background: "rgba(141,118,201,.13)", border: "1px solid rgba(141,118,201,.26)", padding: "8px 12px" } },
+            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: IF_INK, opacity: .82 } }, d),
+            h("button", { onClick: () => setDrafts(drafts.filter((_, j) => j !== i)), className: "active:opacity-60 shrink-0", "aria-label": "撤掉这条", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "撤")))) : null,
+        h("div", { key: "row", className: "flex items-end gap-2" },
+          h("textarea", {
+            value: typing, onChange: e => setTyping(e.target.value), rows: 1,
+            placeholder: drafts.length ? "还想说点什么" : "你说点什么，或先攒几条",
+            className: "flex-1 outline-none resize-none",
+            style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + IF_LINE, background: "rgba(0,0,0,.34)", color: IF_INK, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 }
+          }),
+          // 攒一条：跟发出同高同圆角，只是空心。满了就灰掉（原来是默默不响应）
+          h("button", {
+            onClick: () => { const v = typing.trim(); if (!v || drafts.length >= (window.IfKit || {}).MY_BOXES_MAX) return; setDrafts(drafts.concat([v])); setTyping(""); },
+            disabled: !typing.trim() || drafts.length >= ((window.IfKit || {}).MY_BOXES_MAX || 8),
+            className: "active:opacity-70 shrink-0 flex items-center justify-center", "aria-label": "再攒一条",
+            style: { width: 42, height: 42, borderRadius: 12, border: "1px solid " + (typing.trim() ? "rgba(141,118,201,.5)" : IF_LINE), color: typing.trim() ? "#cdbdf0" : IF_DIM, fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1 }
+          }, "+"),
+          h("button", {
+            onClick: send, disabled: !!busy || (!drafts.length && !typing.trim()),
+            className: "active:opacity-70 shrink-0 flex items-center justify-center", "aria-label": "发出去",
+            style: { width: 42, height: 42, borderRadius: 12, background: (busy || (!drafts.length && !typing.trim())) ? "rgba(255,255,255,.08)" : IF_ACCENT, color: (busy || (!drafts.length && !typing.trim())) ? IF_DIM : "#fff" }
+          }, busy
+            ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, "…")
+            // 送出：一个朝右的小三角，跟对话框右下角那个是同一个形状
+            : h("div", { style: { width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "10px solid currentColor", marginLeft: 3 } })))
+      ] : h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: IF_DIM, padding: "12px 0 6px" } },
+        busy ? "他在写……" : line.endedAt ? "这条已经收了" : "点一下继续"),
+      h("div", { className: "flex items-center justify-between", style: { marginTop: myTurn ? 9 : 2 } },
         h("button", { onClick: () => onBg(line.id), disabled: !!bgBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } },
           bgBusy ? "画着…" : bg ? "换张背景" : "生成背景图"),
         line.endedAt ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: IF_DIM } }, "这条已经收了")
