@@ -40,9 +40,13 @@ test("线路没回传模型名就说看不出来，不许瞎判", () => {
 
 test("三家协议都要接上——少接一处，那条线路就永远看不见", () => {
   const call = grab(eng, "async function callAI(p, system, messages, opts) {", "function repairJSON(");
-  assert.match(call, /_served\(d\.model\);\n    \/\/ usage 回显/, "anthropic 那条没记");
-  assert.match(call, /_served\(d\.modelVersion \|\| d\.model\);/, "gemini 没记（它那个字段叫 modelVersion，不叫 model）");
-  assert.match(call, /_served\(d\.model\);\n  const choice = d\.choices/, "openai 那条没记");
+  // ⚠️按【分支】切，不按「挨着哪一行」切：后者插进任何一行新代码都会假红
+  const anth = call.slice(call.indexOf('if (fmt === "anthropic") {'), call.indexOf('if (fmt === "gemini") {'));
+  const gem = call.slice(call.indexOf('if (fmt === "gemini") {'), call.indexOf("const root = base.endsWith"));
+  const oai = call.slice(call.indexOf("const root = base.endsWith"));
+  assert.match(anth, /_served\(d\.model\);/, "anthropic 那条没记");
+  assert.match(gem, /_served\(d\.modelVersion \|\| d\.model\);/, "gemini 没记（它那个字段叫 modelVersion，不叫 model）");
+  assert.match(oai, /_served\(d\.model\);/, "openai 那条没记");
   // 流式回包是自己拼出来的，不把 SSE 里的 model 带出来，走流式的线路就永远 unknown
   assert.match(call, /if \(event\.model && !sseModel\) sseModel = String\(event\.model\);/, "流式没接住模型名");
   assert.match(call, /usage: usage \|\| \{\}, model: sseModel \}/, "流式拼的回包里没带模型名");

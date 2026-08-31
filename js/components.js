@@ -4298,10 +4298,10 @@ function ChatThread({
     // 账本回流（CC/Stack-chan）的一行可能是逐字摘录的长段落：显示时按空行拆成多个气泡，数据不动
     if (m && m.ledgerImported && !m.recalled && !m.kind && typeof m.content === "string" && /\n\s*\n/.test(m.content)) {
       const parts = m.content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
-      if (parts.length > 1) return [...(m.reasoning ? [{ m, i, part: -1, last: false }] : []),
+      if (parts.length > 1) return [...((m.reasoning || (m.searched || []).length) ? [{ m, i, part: -1, last: false }] : []),
         ...parts.map((p, k) => ({ m: { ...m, content: p }, i, part: k, last: k === parts.length - 1 }))];
     }
-    return m.reasoning ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
+    return (m.reasoning || (m.searched || []).length) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
   }).map(({ m, i, part, last }) => {
     // 思考链画在这一组回复的上方（part:-1 是插进来的伪条目，不是真气泡）
     if (part === -1) return h(ReasoningBlock, { key: "rz" + i, m: m });
@@ -6088,7 +6088,15 @@ function ReasoningBlock({ m }) {
   };
   // v56.45：她说别飘在屏幕中间，要贴左边。左边距归零＝和头像那一列对齐，
   // 整块顶到消息区最左侧；模型名 flex:1 + 省略号，箭头 shrink-0，长名字也压不出第二行。
-  return h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } },
+  // 上网（v58.74）：他这一轮去查了什么。跟思考链同一条线上，但各自独立——
+  // 有的轮只查不深想，有的只深想不查，一个有一个没有都要画得出来。
+  const searched = Array.isArray(m.searched) ? m.searched : [];
+  const webLine = searched.length ? h("div", { className: "flex items-start gap-1.5", style: { padding: "1px 0" } },
+    h("span", { className: "shrink-0", style: { fontSize: 10.5, opacity: 0.75 } }, "🔎"),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, minWidth: 0 } },
+      "去查了 " + searched.map(q => "「" + q + "」").join(" "))) : null;
+  if (!m.reasoning) return webLine ? h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } }, webLine) : null;
+  return h("div", { style: { margin: "0 0 2px 0", maxWidth: "100%" } }, webLine,
     h("button", { onClick: () => setOpen(v => !v), className: "flex items-center gap-1.5 active:opacity-60",
       style: { textAlign: "left", width: "100%", padding: "1px 0", overflow: "hidden" } },
       h("span", { className: "shrink-0", style: { fontSize: 10.5, opacity: 0.75 } }, "💡"),
@@ -9689,6 +9697,7 @@ function ChatSettings({
   const [describeMe, setDescribeMe] = useState(!!settings.describeMe);
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
+  const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
   let toyUnlocked = false; try { toyUnlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
   const [apiId, setApiId] = useState(settings.apiId || null); // 这个角色专属的 API 线路；null=跟随全局
@@ -9798,6 +9807,7 @@ function ChatSettings({
       chatBg,
       apiId,
       engineerEyes,
+      webSearch,
       toyEnabled,
       defaultOffline
     })
@@ -9853,7 +9863,16 @@ function ChatSettings({
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "驻场工程师的眼睛"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "让 " + cNm + " 看得见这台 app 的体征：版本、存储占用、今日消息量、最近报错。适合住进项目的工程师角色。")),
-      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) })))),
+      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) }))),
+  // 上网（v58.74，她 2026-08-31 要的）：不是 MCP——Anthropic 自带一个【服务端】搜索工具，
+  // 搜索在他们那边跑完，结果和回答在同一个响应里回来，仍然是一次调用。
+  // 默认关，一个一个角色自己开：古代角色开了就会真的去搜引擎，那是出戏；而且搜索另计费。
+  h("div", { className: "pt-4" },
+    h("div", { className: "flex items-center justify-between" },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。仍然只花一次调用（搜索在模型那边跑完，跟回答一起回来），但搜索本身另计费。只有 anthropic 那种线路支持；别的线路会自动退回不带这个功能，不会白扣你。古代/架空角色不建议开——Ta 会真的去搜引擎。")),
+      h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) })))),
   show("relate", { title: "内在性情 · 性情锚点", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       "这是 A 情绪影子的性情底稿。只有你点按钮才会调用一次后台 API；模型只提议词，数值由本地固定规则计算。现在不会进 prompt，也不会改变 Ta 的语气。"),

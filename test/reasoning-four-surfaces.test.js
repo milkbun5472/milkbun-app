@@ -33,7 +33,12 @@ test("没有标记就一个字都别捞，正文一律不动", () => {
 
 // 四处一样喂：单聊线上早就有了，这次把另外三处接齐
 test("四处都要真的把 wantReasoning 送出去", () => {
-  assert.match(app, /wantReasoning: _wantReason, meta: _callMeta/, "单聊线上");
+  // ⚠️别冻「这两个选项挨着」：中间插进任何一个新选项(如 webSearch)都会假红。
+  // 要证的是这一次调用把 wantReasoning 和 meta 都送出去了。
+  const soloCall = (app.match(/callAI\(_route, system, aiMessages, \{[^}]*\}/) || [""])[0];
+  assert.ok(soloCall, "单聊线上那次调用找不到了");
+  assert.ok(soloCall.includes("wantReasoning: _wantReason"), "单聊线上没送 wantReasoning");
+  assert.ok(soloCall.includes("meta: _callMeta"), "单聊线上没送盛思考链的盒子");
   assert.match(eng, /wantReasoning: _wantReason,\n      meta: _reasonMeta,/, "单人线下·主调用");
   assert.match(eng, /maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta/, "群聊线下");
   assert.match(app, /wantReasoning: _gWantReason,\n        meta: _gReasonMeta/, "群聊线上");

@@ -676,12 +676,23 @@ async function callAI(p, system, messages, opts) {
     };
     // 有些新模型（如带思考的 Claude 5/fable）不接受自定义 temperature（只允许 1 或直接不支持）→
     // 报 temperature 相关错就【去掉 temperature 裸参重试一次】，通用兜底、不用硬编每个模型的规则。
+    // 上网（她 2026-08-31 要的）：不是 MCP，也不是「模型说要搜→app 去搜→再问一遍」的
+    // 两次调用。Anthropic 自带一个【服务端】搜索工具：搜索在他们那边跑完，结果和回答
+    // 一起在同一个响应里回来——仍然是一次调用。只有 anthropic 方言吃得下，中转线路
+    // 报错就记进 x_noWeb 退回不带工具重发（同 x_noTemp 的防双扣路子，不白扣她一次）。
+    // ⚠️用【基础版】web_search_20250305 而不是带动态过滤的新版：新版只有 4.6 以后的
+    // 模型收，她现在用的是 3.7。基础版新老模型都收，一个变体走天下。
+    const _webKey = base + "|" + model;
+    let _noWeb = false; try { _noWeb = (JSON.parse(localStorage.getItem("x_noWeb") || "[]") || []).indexOf(_webKey) >= 0; } catch (e) {}
+    const _wantWeb = () => !!(opts && opts.webSearch) && !_noWeb;
+    const _webMax = (opts && opts.webMaxUses) || 3;   // 一轮最多搜几次:搜索另计费,给个天花板
     const postAnthropic = async withTemp => {
       // ⚠️不用顶层自动缓存（v48.62 试过、v48.64 撤）：它「一路缓到最后一条消息」，把每轮都变的记忆/近期对话全写进缓存→
       // 每轮狂写(1.25倍)只读回一点点，写远大于读、反而更贵(她真机实测 写40149/读3961)。
       // 只留【手动块级切块】：cache_control 只打在「守则+人设+关系」稳定前缀那块(见 buildSys)——写一次、之后每轮只读(一折)。
       const body = { model, max_tokens: maxTokens, system: buildSys(), messages: buildMsgs() };
       if (withTemp) body.temperature = temp;
+      if (_wantWeb()) body.tools = [{ type: "web_search_20250305", name: "web_search", max_uses: _webMax }];
       captureWirePayload("anthropic", base + "/v1/messages", body, opts, withTemp ? "with-temperature" : "without-temperature");
       const headers = {
         "Content-Type": "application/json",
@@ -703,6 +714,12 @@ async function callAI(p, system, messages, opts) {
       try { const a = JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []; if (a.indexOf(_ntKey) < 0) { a.push(_ntKey); localStorage.setItem("x_noTemp", JSON.stringify(a)); } } catch (e) {}
       d = await postAnthropic(false);
     }
+    // 上网回退：这条线路不认这个工具就记下、退回不带工具重发（防双扣，只回退一次）
+    if (_wantWeb() && d.error && /(web[_ ]?search|\btools?\b|tool_use)/i.test(d.error.message || "")) {
+      try { const a = JSON.parse(localStorage.getItem("x_noWeb") || "[]") || []; if (a.indexOf(_webKey) < 0) { a.push(_webKey); localStorage.setItem("x_noWeb", JSON.stringify(a)); } } catch (e) {}
+      _noWeb = true;
+      d = await postAnthropic(wantTemp());
+    }
     // 扩展缓存(1h)回退：这条线路不吃 ttl/beta 就记下、退回 5min ephemeral 重发（防双扣，只回退一次）
     if (!_noExt && d.error && /(ttl|extended|cache_control|anthropic-beta|\bbeta\b)/i.test(d.error.message || "")) {
       try { const a = JSON.parse(localStorage.getItem("x_noExtCache") || "[]") || []; if (a.indexOf(_extKey) < 0) { a.push(_extKey); localStorage.setItem("x_noExtCache", JSON.stringify(a)); } } catch (e) {}
@@ -710,7 +727,22 @@ async function callAI(p, system, messages, opts) {
       d = await postAnthropic(wantTemp());
     }
     if (d.error) throw new Error(d.error.message);
+    // pause_turn：服务端工具跑得久时上游会先还一个中场，把它原样接回去继续。
+    // 这【不是】新的一轮对话，是同一次回答被切成几段；封顶两次，免得线路抽风时无限续。
+    for (let _pt = 0; _pt < 2 && d.stop_reason === "pause_turn" && Array.isArray(d.content); _pt++) {
+      wireMessages.push({ role: "assistant", content: d.content });
+      const cont = await postAnthropic(wantTemp());
+      if (!cont || cont.error) break;
+      const merged = (d.content || []).concat(cont.content || []);
+      d = Object.assign({}, cont, { content: merged });
+    }
     _served(d.model);
+    // 他这一轮上网搜了什么：跟思考链同一个盒子递出去,她要看得见他去查了
+    try {
+      const qs = (d.content || []).filter(b => b && b.type === "server_tool_use" && b.name === "web_search")
+        .map(b => String((b.input && b.input.query) || "").trim()).filter(Boolean);
+      if (qs.length && _meta) _meta.searched = qs;
+    } catch (e) {}
     // usage 回显（让缓存看得见）：cr=从缓存读到的 token（一折价，>0 就是命中）、cw=写进缓存的、in=断点后的新输入。
     // 存 window.__usage（最近 30 条）+ 命中/写入时打一行 console；window.__cacheStat() 看汇总。
     try {
