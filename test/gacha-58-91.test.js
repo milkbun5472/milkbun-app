@@ -77,11 +77,31 @@ test("那一栏是空的，这张券根本不会被抽出来", () => {
   assert.equal(c.r, "SR", "R 池空了还硬发 R");
 });
 
-test("情侣限定的那张，没在一起就不在池子里", () => {
-  const ids = r => G.poolOf("SSR", { couple: r, have: {} }).map(x => x.id);
-  assert.ok(ids(true).indexOf("x_letter") >= 0);
-  assert.ok(ids(false).indexOf("x_letter") < 0, "还没在一起也能抽到情书");
-  assert.ok(ids(false).indexOf("x_past") >= 0, "把不限定的那几张也一起挡掉了");
+// 她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」。
+// 进得来这一页就已经是在一起了，所以池子里【不该】再留「要不要在一起」那道闸——
+// 恒为真的条件是死代码，删掉而不是留着。
+test("只活在情侣空间里：主屏一点痕迹都没有", () => {
+  const comp = R("components.js"), core = R("core.js");
+  assert.ok(comp.indexOf('gacha: { kind: "app"') < 0, "主屏图标还在 REG 里");
+  assert.ok(!/\["gacha"|"gacha",/.test(comp), "默认布局里还占着一格");
+  assert.ok(core.indexOf("GGacha") < 0, "图标定义没删干净（零引用的死定义）");
+  assert.ok(core.indexOf("gacha: 300") < 0, "色相点名表里还留着");
+  assert.ok(app.indexOf('screen === "gacha"') < 0, "主屏路由还在");
+  // 正门在情侣空间，而且只有在一起才进得去
+  assert.match(scr, /if \(partner && cp\[view\] && cp\[view\]\.status === "together" && sub === "gacha"\) \{/, "情侣空间里没有这一页");
+  assert.match(scr, /tile\("gacha", \{ e: "🎴", zh: "抽卡"/, "情侣空间首页上没有入口");
+  // 恒为真的那道闸删掉了
+  assert.ok(R("gacha.js").indexOf("couple") < 0, "池子里还留着恒为真的 couple 闸");
+});
+
+// 每个恋爱角色单独一份：这一页只认它自己那位，不再有角色选择条
+test("每个恋人各一份，页面上不再挑角色", () => {
+  const ui = scr.slice(scr.indexOf("function Gacha({"));
+  assert.match(ui, /function Gacha\(\{ partner, pts, cards, luck, busy, onPull, onRedeem, onBack \}\)/, "还在自己挑角色");
+  assert.match(ui, /c\.charId === partner\.id/, "卡册没按这位恋人筛");
+  assert.match(ui, /\(pts \|\| \{\}\)\[partner\.id\]/, "点数没按这位恋人取");
+  assert.match(ui, /onPull\(partner, n\)/, "抽的时候没指名是谁");
+  assert.ok(ui.indexOf("setCid") < 0, "角色选择条没删干净");
 });
 
 // 按消息条数给点数＝拿抽卡催她水消息。所以给的是【一段相处】。

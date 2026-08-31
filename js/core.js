@@ -289,7 +289,6 @@ const GDuty = p => h(Svg, p, h("rect", { x: 4, y: 4.5, width: 16, height: 6, rx:
 const GLounge = p => h(Svg, p, h("circle", { cx: 12, cy: 12, r: 3.2 }), h("circle", { cx: 12, cy: 4.8, r: 2.1 }), h("circle", { cx: 5.7, cy: 15.8, r: 2.1 }), h("circle", { cx: 18.3, cy: 15.8, r: 2.1 }), h("path", { d: "M10.2 7.1l.8 1.9M7.8 14.3l1.9-1M16.2 14.3l-1.9-1" }));
 // 备忘录：便签清单（板身 + 顶夹 + 两行勾选）
 // 时光胶囊：沙漏
-const GGacha = p => h(Svg, p, h("rect", { x: 6.4, y: 5.2, width: 11.2, height: 14.6, rx: 2.2 }), h("path", { d: "M9.6 2.9h6.6a2 2 0 0 1 2 2v1.1M4.4 8.6v9.2" }), h("path", { d: "M12 9.4l1.15 2.4 2.6.36-1.9 1.83.46 2.6L12 15.36l-2.31 1.23.46-2.6-1.9-1.83 2.6-.36z" }));
 const GCapsule = p => h(Svg, p, h("path", { d: "M7 3.5h10M7 20.5h10" }), h("path", { d: "M8.2 3.5v2.2c0 2.6 2.3 3.9 3.8 5.3 1.5-1.4 3.8-2.7 3.8-5.3V3.5M8.2 20.5v-2.2c0-2.6 2.3-3.9 3.8-5.3 1.5 1.4 3.8 2.7 3.8 5.3v2.2" }), h("path", { d: "M10.4 18.6h3.2" }));
 
 // ============================================================
@@ -339,7 +338,7 @@ const APP_TONE_HUE = {
   read: 158, debate: 8, dream: 248, tarot: 296,
   pomodoro: 4, games: 190, trpg: 134, dreamjournal: 224,
   yanqiu: 262, loungeapp: 106, rescue: 352, vpscodex: 130,
-  assistant: 174, stylelab: 316, gacha: 300,
+  assistant: 174, stylelab: 316,
   diary: 226, memo: 52, ledger: 136,
   // 底部 dock 那四个也点名（它每一页都在，不能交给哈希）
   messages: 196, forum: 112, config: 352

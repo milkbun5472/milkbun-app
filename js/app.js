@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.92";
+const APP_VERSION = "v58.93";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14407,6 +14407,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     letterGen: gen.coupleLetter,
     coupleSweet: coupleSweet,
     onCheckinSweet: checkinSweet,
+    // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
+    gachaPts: gachaPts,
+    gachaCards: gachaCards,
+    gachaLuck: gachaLuck,
+    gachaBusy: gen.gacha,
+    onGachaPull: gachaPull,
+    onGachaRedeem: gachaRedeem,
     coupleExDiary: coupleExDiary,
     onAddExDiary: addExDiaryPage,
     onReadExDiary: markExDiaryRead
@@ -14527,16 +14534,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     moods: moods,
     affinities: affinities,
     toast: toast,
-    onBack: () => setScreen("home")
-  });else if (screen === "gacha") body = h(Gacha, {
-    characters: liveChars,
-    couples: couples,
-    pts: gachaPts,
-    cards: gachaCards,
-    luck: gachaLuck,
-    busy: gen.gacha,
-    onPull: gachaPull,
-    onRedeem: gachaRedeem,
     onBack: () => setScreen("home")
   });else if (screen === "capsule") body = h(window.CapsuleApp, {
     active: active,

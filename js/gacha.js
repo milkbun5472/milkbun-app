@@ -30,9 +30,11 @@
   const EARN = { chat: 40, offline: 60 };
   const DAILY_CAP = 120;        // 一个角色一天最多攒这么多
 
+  // ⚠️这一整套只活在【情侣空间】里（她 2026-08-31：「抽卡是情侣空间的功能，
+  // 每个恋爱角色单独一份，不是主页」）。所以池子里不必再有「要不要在一起」那道闸——
+  // 进得来这一页，就已经是在一起了。
   // need：兑换时要从哪一栏里翻东西。那一栏是空的，这张卡压根不会被抽出来
   //       （不然抽到一张永远兑不了的券）。
-  // couple：只有在一起的时候才在池子里。
   // act：兑换时走哪一条路，由 app 那头认。
   const POOLS = [
     // ── R：从他已经有的东西里翻一件出来（0 调用）──
@@ -58,18 +60,17 @@
     { id: "x_past",    r: "SSR", act: "past",    name: "他的一段过去",       hint: "写进记忆库——以后他真的会提起" },
     { id: "x_pact",    r: "SSR", act: "pact",    name: "一件你们说好的",     hint: "进「我们说好的」，到日子他会记得" },
     { id: "x_offline", r: "SSR", act: "offline", name: "他主动开的一场线下", hint: "他挑的时间地点，开场已经写好了" },
-    { id: "x_letter",  r: "SSR", act: "letter",  couple: true, name: "他写给你的一封信", hint: "进情侣空间的情书那一叠" }
+    { id: "x_letter",  r: "SSR", act: "letter",  name: "他写给你的一封信", hint: "进情侣空间的情书那一叠" }
   ];
 
   const byId = {};
   POOLS.forEach(function (p) { byId[p.id] = p; });
 
-  // opts: { couple:boolean, have:{album:true,...} }
+  // opts: { have:{album:true,...} }
   function poolOf(rarity, opts) {
-    const o = opts || {}, have = o.have || {};
+    const have = (opts || {}).have || {};
     return POOLS.filter(function (p) {
       if (p.r !== rarity) return false;
-      if (p.couple && !o.couple) return false;
       // 那一栏是空的就别发这张券——抽到一张永远兑不了的卡比没抽到更糟
       if (p.need && !have[p.need]) return false;
       return true;
