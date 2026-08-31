@@ -4783,6 +4783,8 @@ function charTa(char) {
   return g === "她" || g === "女" || g === "f" || g === "female" ? "她"
     : g === "TA" || g === "ta" || g === "中性" ? "TA" : "他";
 }
+// 给查手机以外、同样需要跟随角色性别的界面复用；不要再各写一份判断表。
+if (typeof window !== "undefined") window.PhonePronoun = { ta: charTa, replace: phoneTa };
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {

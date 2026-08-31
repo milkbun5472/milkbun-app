@@ -930,7 +930,7 @@ function MuyuWidget({ editMode }) {
     h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, marginTop: 1 } },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: total > 0 ? 18 : 15, lineHeight: 1, color: t.ink } }, total > 0 ? shownTotal : "敲一敲"),
       total > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: t.fog } }, "功德") : null),
-    combo > 1 ? h("span", { style: { position: "absolute", right: 5, bottom: 3, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", color: "#91633d", background: "rgba(255,255,255,.44)", border: "1px solid rgba(145,99,61,.2)", borderRadius: 999, padding: "3px 6px" } }, combo + " COMBO") : null);
+    combo > 1 ? h("span", { style: { position: "absolute", right: 4, top: 9, zIndex: 2, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", color: "#91633d", background: "rgba(255,255,255,.72)", border: "1px solid rgba(145,99,61,.2)", borderRadius: 999, padding: "3px 6px", boxShadow: "0 3px 10px rgba(70,48,28,.08)" } }, combo + " COMBO") : null);
 }
 // 情侣空间轮播组件：多位正式在一起的 TA 轮流展示（每 6s 换一位），显示在一起天数+甜蜜值；点开进情侣空间
 function UsWidget({ characters, couples, sweet, onOpen, dot }) {
@@ -6894,7 +6894,7 @@ function StateCard({
         // 红点得在【她还没点进去】的时候就看得见，不然这一层等于没有（她 2026-08-27）
         (k === "gaze" && window.Gaze && window.Gaze.unseenCount && window.Gaze.unseenCount(character.id) > 0)
           ? h("span", { style: { display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "#c2705a", marginLeft: 5, verticalAlign: "middle" } }) : null))) : null,
-    page === "gaze" && gazeOn && window.GazePage ? h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", onSeed: onGazeSeed, seedBusy: gazeSeedBusy }) :
+    page === "gaze" && gazeOn && window.GazePage ? h(window.GazePage, { charId: character.id, charName: character.name, uName: uName || "你", ta: window.PhonePronoun ? window.PhonePronoun.ta(character) : (["她", "女", "f", "female"].includes(String(character.gender || "").trim()) ? "她" : "他"), onSeed: onGazeSeed, seedBusy: gazeSeedBusy }) :
     showHist ? h("div", { className: "space-y-3" },
       h(Eyebrow, { style: { marginBottom: 2 } }, "心声历史 · " + hist.length + " 条"),
       hist.map((s, i) => h("div", { key: i, style: { paddingBottom: 10, borderBottom: "1px solid " + t.line } },

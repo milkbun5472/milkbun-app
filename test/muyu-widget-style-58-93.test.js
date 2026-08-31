@@ -25,5 +25,7 @@ test("木鱼使用主屏纸感托盘和暖木雕刻，不退回旧的扁平色�
   assert.match(muyu, /wk-muyu-ring/, "敲击扩散反馈没了");
   assert.match(muyu, /"\+1 功德"/, "功德反馈文案没了");
   assert.match(muyu, /combo \+ " COMBO"/, "连击胶囊没了");
+  assert.match(muyu, /right: 4, top: 9/, "连击胶囊没挪到右上角，会继续压住底下的功德数字");
+  assert.doesNotMatch(muyu, /right: 5, bottom: 3/, "连击胶囊又回到底部和功德数字叠在一起了");
   assert.doesNotMatch(muyu, /fill: "rgba\(178,138,88,0\.9\)"/, "退回旧木鱼色块了");
 });
