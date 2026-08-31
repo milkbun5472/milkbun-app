@@ -974,6 +974,7 @@
     const [style, setStyle] = useState("classic"); // 守密风格(开团时选)
     const [guessTxt, setGuessTxt] = useState("");  // 线索板:推测输入缓冲
     const [chatMode, setChatMode] = useState(false); // 闲聊模式:输入的话走加戏不推进
+    const [talkNpc, setTalkNpc] = useState(null);    // 攀谈模式:锁定一位 NPC 纯对话(她 2026-08-30:「每一轮都必须行动,节奏太快」)
     const [fixMode, setFixMode] = useState(false);   // GM 手动修正:改 HP/物品/状态/支线/名册
     const [fixItem, setFixItem] = useState("");      // 修正模式:补记物品的输入缓冲
     const [resumeSeen, setResumeSeen] = useState(null); // 休团回来横幅:本次会话已收起的团 id
@@ -1435,7 +1436,7 @@
         // 重试轮(上一拍失败后按「继续」)不重开票:尾巴里已有亲笔就不再问第二遍。
         const lastGm = liveMsgs.map(m => m.role).lastIndexOf("gm");
         const tailHasCC = liveMsgs.slice(lastGm + 1).some(m => m.role === "sys" && String(m.content || "").indexOf("亲笔·") === 0);
-        const cc = tailHasCC ? null : await ccDeclare(camp, liveMsgs);
+        const cc = (mode && mode.talk) || tailHasCC ? null : await ccDeclare(camp, liveMsgs);
         const ccTry = !!(cc && cc.indexOf("想赌:") >= 0);
         if (cc) {
           const m = { id: rid("rm_"), role: "sys", content: "亲笔·" + cc, ts: Date.now() };
@@ -1445,6 +1446,7 @@
         const sys = gmSys(camp);
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
         const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕这一拍不推进主线、不引入新危机、不报 stageDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15);每位队友至少对下一步提一句自己的看法,意见可以不一致;结尾的选项给 2-3 个休整后动身的方向。" : "")
+          + (mode && mode.talk ? "\n〔攀谈拍·对象:" + mode.talk + "〕这一拍是玩家与「" + mode.talk + "」坐下来说话:只演这位 NPC 与玩家的对话往来,一来一回、有人味,不推进主线、不引入新危机、不报 stageDone、威胁钟不走、不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。NPC 照他的身份与立场说话:可以露口风、可以打太极、聊得投缘立场可以松动(写进 npc 字段),真情报进 clue;他不知道的就是不知道,不许为了讨好玩家编。顺耳处可以飘进一两句街谈巷议(旁桌的闲话、街上的动静,真伪自定)。" : "")
           + (mode && mode.travel ? "\n〔赶路〕队伍正从「" + (camp.pos || camp.place) + "」动身前往「" + mode.travel + "」:写这段路程(地形气候按两地所在区域来)与抵达后的第一眼;抵达后 place 写「" + mode.travel + "」。" + (Math.random() < 0.18 ? "路上必须遭遇一件事——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上。" : "路上不强求遭遇,顺就顺到底。") : "")
           + (mode === "resolve" ? "\n〔续写检定结果〕上面最新的〔检定〕就是刚才那个动作的命运:按其等级把结果写完,接着往下走;这个动作不再需要检定,绝不再报 needCheck。" : "")
           + (ccTry && mode !== "resolve" ? "\n〔队友想赌〕最新亲笔行里「想赌:」后面的动作要碰运气:悬点停住不写成败,needCheck 报 {\"stat\":\"…\",\"who\":\"那位队友的名字\"}——who 必须填亲笔那位队友,不是 " + uName + "。" : "");
@@ -1513,7 +1515,7 @@
       // 结构化字段(who/statKey/tier)是落幕成长骰的账本
       turn(c.text, [Object.assign({ id: rid("rm_"), role: "roll", content: line, ts: Date.now() }, rollRec(m, c.check, res))]);
     };
-    const send = () => { const text = input.trim(); if (!text) return; setInput(""); if (chatMode) return addBeat(text); turn(text); };
+    const send = () => { const text = input.trim(); if (!text) return; setInput(""); if (chatMode) return addBeat(text); if (talkNpc) return turn(text, null, { talk: talkNpc }); turn(text); };
     // 追加一笔(米娅「加戏不推进」的分法):就当前场景补一小段戏——队友拌嘴、环境
     // 细节、NPC 一句闲话。不推进剧情、不动任何状态、不换选项,时钟原地不动。
     // 带 text = 闲聊模式:她说一句,队友们接话——纯相处,同样不推进。
@@ -2075,7 +2077,8 @@
           camp.npcs.map(n => h("div", { key: n.name, style: Object.assign({}, S.txt, { fontSize: 12, marginBottom: 2, color: n.alive ? t.ink : t.fog, display: "flex", alignItems: "center", gap: 5 }) },
             h("span", { onClick: () => { if (!fixMode) return; const order = ["友", "敌", "未明"]; const nxt = order[(order.indexOf(n.stance) + 1) % 3]; applyFix("把「" + n.name + "」的立场改为" + nxt, c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { stance: nxt })) })); }, style: { cursor: fixMode ? "pointer" : "default" } }, n.stance === "友" ? "🟢" : n.stance === "敌" ? "🔴" : "⚪"),
             h("span", { style: { textDecoration: n.alive ? "none" : "line-through" } }, n.name + (n.role ? "·" + n.role : "") + (n.note ? " — " + n.note : "")),
-            fixMode ? h("span", { onClick: () => applyFix("把「" + n.name + "」标为" + (n.alive ? "已死" : "在世"), c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { alive: !x.alive })) })), style: { marginLeft: "auto", color: t.fog } }, "†") : null))) : null,
+            fixMode ? h("span", { onClick: () => applyFix("把「" + n.name + "」标为" + (n.alive ? "已死" : "在世"), c => Object.assign({}, c, { npcs: c.npcs.map(x => x.name !== n.name ? x : Object.assign({}, x, { alive: !x.alive })) })), style: { marginLeft: "auto", color: t.fog } }, "†")
+              : n.alive && !camp.ended ? h("span", { onClick: () => { setTalkNpc(n.name); setPanelOpen(false); props.toast("攀谈中:" + n.name + "——聊完点输入栏边上的「谈毕」收场"); }, style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "1px 8px" } }, "攀谈") : null))) : null,
         ) : null,
         sect("🎒", "行囊", null, itemsFix(camp.items).reduce((n, x) => n + x.n, 0) + " 件",
         fixMode ? h("div", null,
@@ -2121,15 +2124,22 @@
             if (rows.length < 1 || rolls.length < 3) return null;
             const lucky = rows.slice().sort((a, b) => (b.crit / b.n) - (a.crit / a.n))[0];
             const cursed = rows.slice().sort((a, b) => (b.fumble / b.n) - (a.fumble / a.n))[0];
-            return h("div", { style: { margin: "4px 0 2px" } }, rows.map(x => h("div", { key: x.name, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, lineHeight: 1.6 } },
-              x.name + " 掷" + x.n + " 成" + x.ok + "(" + Math.round(x.ok * 100 / x.n) + "%)"
-              + (x.crit ? " 🌟×" + x.crit : "") + (x.fumble ? " 💥×" + x.fumble : "")
-              + (lucky && lucky.name === x.name && lucky.crit > 0 ? " ·欧皇" : "")
-              + (cursed && cursed.name === x.name && cursed.fumble > 0 ? " ·非酋" : ""))));
+            // 进度条版(她 2026-08-30 点的:随掷随动才有意思):条=成功率,🌟💥 当场计数
+            return h("div", { style: { margin: "4px 0 6px" } }, rows.map(x => {
+              const pct = Math.round(x.ok * 100 / x.n);
+              return h("div", { key: x.name, style: { marginBottom: 7 } },
+                h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 11, color: t.ink, marginBottom: 2 } },
+                  h("span", null, x.name + (lucky && lucky.name === x.name && lucky.crit > 0 ? " 👑欧皇" : "") + (cursed && cursed.name === x.name && cursed.fumble > 0 ? " 🕯非酋" : "")),
+                  h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub } }, "掷" + x.n + "·成率" + pct + "%" + (x.crit ? " 🌟×" + x.crit : "") + (x.fumble ? " 💥×" + x.fumble : ""))),
+                h("div", { style: { height: 6, borderRadius: 3, background: t.line, overflow: "hidden" } },
+                  h("div", { style: { height: "100%", width: pct + "%", borderRadius: 3, background: pct >= 60 ? "#5a7d5a" : pct >= 40 ? "#8a6d3b" : "#a4442e", transition: "width .5s" } })));
+            }));
           })();
-          return rolls.length ? sect("🎲", "骰子账", null, rolls.length + " 次",
-            board,
-            rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content))) : null;
+          return rolls.length ? [
+            board ? sect("🎯", "欧非榜", null, "随掷随动", board) : null,
+            sect("🎲", "骰子账", null, rolls.length + " 次",
+              rolls.slice(-30).reverse().map(r => h("div", { key: r.id, style: { fontFamily: "monospace", fontSize: 10.5, color: t.sub, marginBottom: 2, lineHeight: 1.5 } }, r.content)))
+          ] : null;
         })(),
         h("div", { style: { display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" } },
           h("button", { onClick: () => {
@@ -2407,8 +2417,9 @@
           h("div", { key: "in", style: { display: "flex", gap: 8, padding: "10px 14px calc(env(safe-area-inset-bottom, 0px) + 12px)" } },
             h("input", { type: "file", accept: "image/*", ref: fileRef, onChange: onBgFile, style: { display: "none" } }),
             h("button", { onClick: () => setPlusOpen(v => !v), style: Object.assign({}, S.btn(plusOpen || dice || !!note.trim()), { padding: "7px 12px" }) }, plusOpen ? "×" : "+"),
-            h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
-            h("button", { onClick: send, disabled: busy, style: S.btn(true) }, chatMode ? "闲聊" : "行动"))
+            h("textarea", { value: input, onChange: e => setInput(e.target.value), rows: 1, placeholder: chatMode ? "闲聊两句(不推进剧情、不动状态)…" : talkNpc ? "和「" + talkNpc + "」说话(纯对话,不推剧情)…" : "或者,你想说的话、想做的事…", style: { flex: 1, padding: "10px 13px", borderRadius: 14, border: "1px solid " + (chatMode ? t.fog : t.line), background: "rgba(255,255,255,.72)", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", outline: "none" } }),
+            talkNpc ? h("button", { onClick: () => setTalkNpc(null), style: S.btn(false) }, "谈毕") : null,
+            h("button", { onClick: send, disabled: busy, style: S.btn(true) }, chatMode ? "闲聊" : talkNpc ? "开口" : "行动"))
         ])));
     }
 
