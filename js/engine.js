@@ -3621,19 +3621,25 @@ async function imgVaultFetchBlob(ref) {
 }
 // 从叙事散文里只抠出【引号内的台词】，旁白/动作/心理全丢——线下、同人文这类「一大段旁白+偶尔一句台词」的语音只念角色真正说出口的话。
 // 支持中文「」『』、全角“”、直角双引号 "。多句台词按换行拼接（让 TTS 自然停顿）。整段没引号台词就返回空串（调用方据此不显示 ▶）。
-function extractSpeech(text) {
+// 一段叙事里哪几段是【台词】：返回 [{start,end,inner}]（start/end 含引号本身）。
+// 只认成对的中文/全角引号（开≠合，落单的引号自然配不上）。不收直角双引号 " ——它开合同字，
+// 遇到落单的（如 5" 英寸标记）会跨段错配、把旁白当台词念（v47.99 审查）；中文角色扮演基本用「」/“”。
+// ⚠️引号这套判据【只此一处】：念台词(extractSpeech)和线下正文里给台词上重音，
+// 用的必须是同一份判断，两处各写一份必然有一天对不上。
+function speechSpans(text) {
   const s = String(text || "");
-  const out = [];
-  // 只认成对的中文/全角引号（开≠合，落单的引号自然配不上）。不收直角双引号 " ——它开合同字，
-  // 遇到落单的（如 5" 英寸标记）会跨段错配、把旁白当台词念（v47.99 审查）；中文角色扮演基本用「」/“”。
   const re = /「([^」]*)」|『([^』]*)』|“([^”]*)”/g;
+  const out = [];
   let m;
   while ((m = re.exec(s))) {
-    // 剥掉嵌套残留的引号字符（如「他喊『快跑』」外层会连内层『』一起吃进来），别念出括号
-    const seg = (m[1] || m[2] || m[3] || "").replace(/[「」『』“”]/g, "").trim();
-    if (seg) out.push(seg);
+    const inner = (m[1] || m[2] || m[3] || "").replace(/[「」『』“”]/g, "").trim();
+    if (inner) out.push({ start: m.index, end: m.index + m[0].length, inner: inner });
   }
-  return out.join("\n");
+  return out;
+}
+function extractSpeech(text) {
+  // 剥掉嵌套残留的引号字符（如「他喊『快跑』」外层会连内层『』一起吃进来），别念出括号
+  return speechSpans(text).map(x => x.inner).join("\n");
 }
 // 按台词内容粗判语气 → MiniMax emotion 参数（本地零成本兜底——首选是消息自带的作者标注 m.emo，见 v48.31）。
 // v48.31 扩了词表；仍然只是猜字面，猜不出潜台词，所以只当兜底。

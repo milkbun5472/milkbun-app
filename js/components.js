@@ -7649,6 +7649,58 @@ function offSceneBg(t) {
     ].join(", ")
   };
 }
+// 台词要用说话人自己的颜色，但角色的颜色是她随手挑的——浅黄、淡粉直接印在纸上根本看不清。
+// 所以先量一遍对比度，不够就往深/往浅推到 4.5 为止（WCAG 正文线），不靠眼睛猜。
+const offLum = hex => {
+  const v = String(hex || "").replace("#", "");
+  if (v.length < 6) return 0.5;
+  const c = [0, 2, 4].map(i => { const x = parseInt(v.slice(i, i + 2), 16) / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const offContrast = (a, b) => { const l1 = offLum(a), l2 = offLum(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); };
+function offReadable(hex, bg) {
+  const v = String(hex || "").replace("#", "");
+  if (v.length < 6) return bg && offLum(bg) < 0.5 ? "#e8e2d8" : "#33302a";
+  let rgb = [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16));
+  const toDark = offLum(bg) >= 0.5;                 // 纸是浅的就把字压深，纸是深的就把字提亮
+  for (let i = 0; i < 24 && offContrast("#" + rgb.map(x => x.toString(16).padStart(2, "0")).join(""), bg) < 4.5; i++) {
+    rgb = rgb.map(x => toDark ? Math.max(0, Math.round(x * 0.88)) : Math.min(255, Math.round(x + (255 - x) * 0.14)));
+  }
+  return "#" + rgb.map(x => x.toString(16).padStart(2, "0")).join("");
+}
+// ⭐这一层才是【治本】的那一下（她 2026-08-31：「你只是做换纸张也还是治标不治本」）。
+// 她给的几张参考里，真正让一屏字活起来的不是纸的花纹，是【一段正文内部】台词和叙述
+// 分得开——要么加粗、要么换色、要么压一条高亮。我们原来整段一个灰度，所以底下换什么纸
+// 都还是一堵墙。这里把一段线下正文切成「台词 / 叙述」两种段：
+//   · 台词 = 说话人自己的颜色（过了对比度）+ 一条极淡的同色高亮 + 稍重的字。引号本身压淡，让话自己站出来。
+//   · 叙述 = 退到 t.sub。⚠️只有这段里【真的有台词】才退——整段都是叙述还退的话，等于白白把正文变浅。
+// 引号判据用 engine 里那一份 speechSpans，不另写：念台词和上重音必须是同一个判断。
+function offSplit(text) {
+  const s = String(text || "");
+  const spans = (typeof speechSpans === "function" ? speechSpans(s) : []);
+  if (!spans.length) return [{ k: "prose", s: s }];
+  const out = [];
+  let at = 0;
+  spans.forEach(sp => {
+    if (sp.start > at) out.push({ k: "prose", s: s.slice(at, sp.start) });
+    out.push({ k: "say", s: s.slice(sp.start, sp.end) });
+    at = sp.end;
+  });
+  if (at < s.length) out.push({ k: "prose", s: s.slice(at) });
+  return out.filter(x => x.s !== "");
+}
+function offBody(t, text, accent) {
+  const segs = offSplit(text);
+  const hasSay = segs.some(x => x.k === "say");
+  const d = offDark(t);
+  const sayInk = offReadable(accent || t.tint, t.bg2);
+  return h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
+    segs.map((x, i) => x.k === "prose" ? x.s : h("span", { key: i, style: {
+      color: sayInk, fontWeight: 600,
+      background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
+      borderRadius: 2, padding: "0 1px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone"
+    } }, x.s)));
+}
 function offCardSkin(t, accent) {
   const d = offDark(t);
   return {
@@ -7720,7 +7772,9 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
         ? h("div", { className: "flex items-center gap-3" }, rule(),
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: t.fog, whiteSpace: "nowrap" } }, nText), rule())
         : h("div", { style: { borderLeft: "2px solid " + offA(t.tint, offDark(t) ? 0.5 : 0.38), paddingLeft: 13, margin: "0 4px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontStyle: "italic", lineHeight: 1.9, color: t.fog, whiteSpace: "pre-wrap" } }, nText)));
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontStyle: "italic", lineHeight: 1.9, color: t.fog, whiteSpace: "pre-wrap" } },
+              offSplit(nText).map((x, i) => x.k === "prose" ? x.s
+                : h("span", { key: i, style: { color: offReadable(t.tint, t.bg), fontStyle: "normal", fontWeight: 600 } }, x.s)))));
   }
   return h("div", { className: "my-2.5" },
     // 思考链画在这一拍的【上面】，和单聊同一个位置、同一个组件：一行字加箭头，没有框。
@@ -7735,7 +7789,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
         actions),
       editing ? editBox : (m.kind === "photo" && m.imageRef
         ? h("div", null, h("img", { src: resolveImg(m.imageRef), alt: m.desc || "照片", style: { display: "block", width: "100%", maxWidth: 300, maxHeight: 360, objectFit: "cover", borderRadius: 12 } }), m.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub, marginTop: 8 } }, m.desc) : null)
-        : h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: t.ink, whiteSpace: "pre-wrap" } }, m.content)),
+        : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint))),
       (!isUser && m.thought) && h("div", { className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
         h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
