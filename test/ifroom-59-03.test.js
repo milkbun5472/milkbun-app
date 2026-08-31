@@ -22,7 +22,13 @@ test("「度」给的是维度和判据，不是例子", () => {
     assert.ok(p.indexOf(x) < 0, "又把可动的东西列成清单了：" + x));
   assert.match(K.IF_SCALE, /没有一张「可以动什么」的清单，别去猜有哪几类/, "没挑明这里没有清单");
   assert.match(K.IF_SCALE, /只动【一样】东西/, "没说只动一样");
-  assert.match(K.IF_SCALE, /该动哪一样，是从 about 那一点倒推出来的/, "没给「从关系点倒推」这条生成办法");
+  // ⚠️v59.11：这里原来钉的是「该动哪一样，是从 about 那一点【最省事的一刀】倒推出来的」。
+  // 她当天点破那句会把壳压向最温和的那个，「变成小狗」永远轮不上。撤掉，改成两轴独立。
+  assert.ok(K.IF_SCALE.indexOf("最省事的一刀") < 0, "「最省事」那句还在，壳还是会往合理里缩");
+  assert.match(K.IF_SCALE, /壳离谱到什么程度都行/, "没放开壳的上界");
+  assert.match(K.IF_SCALE, /筛壳的判据不是「这个设定成不成立」/, "没说清筛壳该拿什么筛");
+  assert.match(K.IF_SCALE, /动完之后他还是不是他/, "唯一那条筛壳判据没写");
+  assert.match(K.IF_SCALE, /不会让人愣一下，那它多半太安全了/, "没挡住往「稳妥」那头缩");
   // 上不封顶和下不封底两头都要挡住
   assert.match(K.IF_SCALE, /那个人的核心一个字都不许换/, "没挡住「换了个人」那一头");
   assert.match(K.IF_SCALE, /那是今天的日程，不是如果/, "没挡住「太小」那一头");
@@ -40,8 +46,10 @@ test("她给了方向就照办，没给才让他自己想", () => {
   assert.match(K.openPrompt("A", "B", "如果他忘了我"), /【她给的方向】如果他忘了我/);
   assert.match(K.openPrompt("A", "B", "如果他忘了我"), /按它来，别另起炉灶/);
   assert.match(K.openPrompt("A", "B", ""), /【她没给方向】/);
-  assert.match(K.openPrompt("A", "B", ""), /从【你俩之间】长出一条来/, "没给方向时也该长在这段关系上");
-  assert.match(K.openPrompt("A", "B", ""), /先想清楚要探的是哪一点，再想动哪一样/, "顺序反了就又从壳出发了");
+  // 没给方向时两个方向都合法（v59.11）：从关系点起头、或从一个离谱的壳起头都行，
+  // 交上来两样都得有。规定「必须先想关系点」就等于又把壳降成仆人。
+  assert.match(K.openPrompt("A", "B", ""), /从你俩之间的哪一点起头，或者从一个离谱的壳起头，都行/, "又把起头的方向锁死了");
+  assert.match(K.openPrompt("A", "B", ""), /但交上来的时候两样都得有/, "没要求两样都有");
 });
 
 // 一个框一口气读完，点一下出下一个：旁白和台词是两种框，界面上长得不一样
@@ -233,17 +241,29 @@ test("明令不许拿职业当题目", () => {
 });
 
 // 顺序即结构：先写「探的是你俩之间的哪一点」，再去想壳——先写关系就没法再从职业出发
-test("逼它先想关系那一点，壳只是手段", () => {
+// 她 2026-08-31：「如果只留 about 关系的那不是完全没机会给那种离谱的出场机会了，
+// 比如如果你变成了小狗，如果你是外星人之类的」。
+// 上一版把两根轴叠成了一根（「壳只是手段，不是目的」），筛壳的标准就变成「哪个壳最
+// 合理地服务于这个关系点」，答案永远是最温和的那个。改成两根轴各管各的：
+// about 管有没有分量，壳管有没有意思，谁都不派生谁；不许的只有「有壳没 about」。
+test("about 和壳是两根轴，谁也不派生谁", () => {
   const p = K.openPrompt("A", "B", "");
-  assert.match(p, /about＝这条线探的是你俩之间的哪一点（先写这个）/, "没要求先写 about");
-  assert.ok(p.indexOf("about＝") < p.indexOf("title＝"), "about 排在 title 后面就不叫先写了");
+  assert.match(K.IF_ABOUT, /about 和壳是两件事，两件都要有，谁也不是谁的仆人/, "又把壳降成手段了");
+  assert.match(K.IF_ABOUT, /about 管这条线【有没有分量】，壳管这条线【有没有意思】/, "没说清两根轴各管什么");
+  assert.match(K.IF_ABOUT, /或者先想到一个离谱的壳，再问它到底逼出了你俩之间的哪一点/, "没放开「从壳起头」这个方向");
+  assert.match(K.IF_ABOUT, /只有一种不行：有壳、没 about/, "没挡住纯猎奇");
+  assert.ok(K.IF_ABOUT.indexOf("只是把 about 那一点逼出来的手段，不是目的") < 0, "降格那句还在");
+  // about 仍然必填，只是不再规定必须先想它
+  assert.match(p, /但 about 空着一律作废/, "about 变成可选的了");
+  assert.ok(p.indexOf("（先写这个）") < 0, "还在硬性规定先写 about");
+  // ⚠️那个括号是旧四维度的残留：清单从判据表里删了，却在 IF_ABOUT 里留了个缩微版，
+  // 等于清单没删、只是搬了个家——而且照样会被抄。
+  ["他变成什么", "在哪个年代", "记不记得", "小狗", "外星人"].forEach(x =>
+    assert.ok(K.IF_ABOUT.indexOf(x) < 0, "IF_ABOUT 里又把壳列成清单/举了例子：" + x));
   assert.match(K.OPEN_SHAPE, /^\{"about"/, "输出形状里 about 也得排头一个");
-  assert.match(K.IF_ABOUT, /壳（他变成什么、在哪个年代、记不记得）只是把 about 那一点逼出来的手段，不是目的/);
   // 方向给的是【一类】，不是让它照着填（prompt-no-content-samples）
   assert.match(K.IF_ABOUT, /方向是这一类，不是让你照着填/);
 });
-
-// 换个壳、探的还是同一个关系点——那是更难发现的那一种重复（题目不一样，读起来一样）
 test("避重也认「同一个关系点」", () => {
   const prior = [{ title: "未命名版本", premise: "他只是她写出来的模型", dim: "form", about: "她一直在替他兜底" }];
   const p = K.openPrompt("A", "B", "", prior);
