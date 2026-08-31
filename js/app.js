@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.95";
+const APP_VERSION = "v58.96";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2988,6 +2988,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     past: "写他过去真实经历过的一件事——一件他从没跟用户讲过、但确实塑造了他的事。要有具体的时间、地点和人，不要抽象的总结。",
     pact: "写一件他此刻想和用户【说好】的事：一个具体的、还没做的约定，说清楚是什么、大概什么时候。别写成空头承诺。",
     offline: "写一场【他主动约用户见面】的开场：他挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。",
+    // 印象卡（js/gaze.js 的十块）。⚠️他【已经看得见自己那张卡】——buildBundle 里
+    // 常驻发着 gazeText，所以这儿只要让他挑一块重写，不用再把卡抄一遍进提示词。
+    gaze: "你心里那张关于她、关于你们的长期认知卡（上面已经发给你了），此刻你把它重看了一遍。"
+        + "挑【其中一块】重写：要么你对她的某个判断被最近的事推翻或修正了，要么你补上了以前不知道的一面。\n"
+        + "side 填 me（关于她）或 us（关于你们），block 填那一块的名字（照上面卡里的写法），"
+        + "text 是这一块【重写之后的全文】，不是补丁、不是「另外还有」——它会整块盖掉旧的那版。\n"
+        + "写你私下真这么想的那版，别写成对她的评语或表扬信；扣着具体的事说，"
+        + "换个角色照样成立的就是写坏了。",
     // 约会券：跟 offline 同一条落地路（都是把线下开起来），但券是【他事先想好的一件事】，
     // 所以先给这张券起个名，正文才是到了现场的第一拍。
     date: "写一张他给用户的【约会券】：券面上是一件他想好要一起去做的事（title），"
@@ -3032,7 +3040,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: GACHA_SSR_ASK[card.act] + "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。",
-        schemaHint: card.act === "offline" ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
+        schemaHint: card.act === "gaze" ? "{\"side\":\"me 或 us\",\"block\":\"那一块的名字\",\"body\":\"这一块重写之后的全文\"}"
+          : card.act === "offline" ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
           : card.act === "date" ? "{\"title\":\"券面上那件事\",\"body\":\"兑掉那一刻的开场旁白\"}"
           : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
         maxTokens: 4000
@@ -3046,6 +3055,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } else if (card.act === "pact") {
         addPact(char.id, body, null);
         gachaStamp(card.id, { title: title, body: body, where: "pacts" });
+      } else if (card.act === "gaze") {
+        // 走 Gaze 自己那条解析：模型偶尔把块名写成中文、或把 side 一起塞进 block，
+        // normKey 都认得。写不进去就不盖戳，卡留着。
+        const ok = window.Gaze && window.Gaze.applyParsed(char.id, { side: d.side, block: d.block, text: body });
+        if (!ok) { toast("这一块没认出来，卡还留着，可以再兑一次"); return; }
+        const zh = (window.Gaze.KEYS || {})[window.Gaze.normKey(d.side, d.block)] || title;
+        gachaStamp(card.id, { title: "他重写了「" + zh + "」", body: body, where: "gaze" });
+        return { title: zh, body: body };
       } else if (card.act === "offline" || card.act === "date") {
         // ⚠️别用 openOffline：它会重新从存储读一遍再 setOfflines，
         // 而 startOffline 刚往 state 里塞了这一场——多读一次只会把它盖掉。

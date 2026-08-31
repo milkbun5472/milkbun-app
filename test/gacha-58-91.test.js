@@ -214,3 +214,22 @@ test("拆开只改一次，时间戳留着", () => {
   assert.match(app, /saveJSON\("x_coupleDrawer", n\)/, "没落盘");
   assert.match(R("engine.js"), /"x_coupleDrawer"/, "抽屉正文没登记进 durable，攒多了会把 localStorage 写满");
 });
+
+// ═══ 印象卡那张 SSR（她 2026-08-31 从两张里只选了这张）═══
+// 印象卡（js/gaze.js 十块）【进提示词】——gazeText 常驻在 buildBundle 里。
+// 所以改一块，他往后看她的眼光就真的变了。这是全池子里留痕最硬的一张。
+test("印象卡那张改的是真卡，不是自己另存一份", () => {
+  assert.match(R("gacha.js"), /\{ id: "x_gaze",    r: "SSR", act: "gaze",/, "池子里没有这张");
+  // 必须走 Gaze 自己那条：normKey 认得中文块名／带 side 的块名，重造一份解析必然漏
+  assert.match(redeem, /window\.Gaze && window\.Gaze\.applyParsed\(char\.id, \{ side: d\.side, block: d\.block, text: body \}\)/,
+    "没走 Gaze.applyParsed——自己解析块名会漏掉模型那几种写法");
+  assert.ok(!/localStorage\.setItem\("x_gaze"|saveJSON\("x_gaze"/.test(app), "绕过 Gaze 直接写存储了（旧版快照和红点都会丢）");
+  // 认不出那一块就不盖戳，卡留着
+  assert.match(redeem, /if \(!ok\) \{ toast\([\s\S]*?\); return; \}/, "写不进去也把卡兑掉了");
+  assert.match(redeem, /where: "gaze"/, "票根上没写清改的是印象卡");
+  // 他本来就看得见自己那张卡（buildBundle 常驻 gazeText），别再抄一遍进提示词
+  const ask = app.slice(app.indexOf("    gaze: \"你心里那张关于她"), app.indexOf("    // 约会券：跟 offline"));
+  assert.match(ask, /上面已经发给你了/, "没说清卡已经在上下文里——模型会以为要从零编一张");
+  assert.match(ask, /整块盖掉旧的那版/, "没说清是整块重写，模型会写成补丁");
+  assert.match(ask, /换个角色照样成立的就是写坏了/, "没立那条判据");
+});
