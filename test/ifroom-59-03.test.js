@@ -5,7 +5,9 @@ const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const K = require("../js/ifroom.js");
 const app = R("app.js"), scr = R("screens.js"), html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-const cut = (s, a, b) => s.slice(s.indexOf(a), s.indexOf(b));
+// ⚠️结尾必须从起点【之后】找："\n}\n" 这种结尾在文件更前面到处都是，
+// 从头 indexOf 会切出一段空的，断言就变成永远不成立（或永远成立）。
+const cut = (s, a, b) => { const i = s.indexOf(a); return s.slice(i, s.indexOf(b, i + a.length)); };
 
 // 她 2026-08-31 划的那条「度」。⚠️提示词里【不放她举的那几个例子】——
 // 放了模型就照着抄，每条线都长成同一个样子（.claude/rules/prompt-no-content-samples.md）。
@@ -14,11 +16,13 @@ test("「度」给的是维度和判据，不是例子", () => {
   const p = K.openPrompt("裴照川", "Lisa", "");
   ["小动物", "外星人", "穿越", "失忆", "分手"].forEach(x =>
     assert.ok(p.indexOf(x) < 0, "把她举的例子写进提示词了，模型会照抄：" + x));
-  assert.match(K.IF_SCALE, /他的形态/);
-  assert.match(K.IF_SCALE, /时代与身份/);
-  assert.match(K.IF_SCALE, /还记不记得你/);
-  assert.match(K.IF_SCALE, /岔路口/);   // 措辞随 DIMS 走，别把整句冻死（另有一条按 DIMS 逐条核）
-  assert.match(K.IF_SCALE, /挑【一样】动，别一次动几样/, "没说只动一样");
+  // 她 2026-08-31 又点破一层：连「可动的四个维度」那张清单也是限制——
+  // 清单是把例子往上抽一层，抄起来一样顺手。四个维度一个字都不许出现在提示词里。
+  ["他的形态", "时代与身份", "还记不记得你", "岔路口"].forEach(x =>
+    assert.ok(p.indexOf(x) < 0, "又把可动的东西列成清单了：" + x));
+  assert.match(K.IF_SCALE, /没有一张「可以动什么」的清单，别去猜有哪几类/, "没挑明这里没有清单");
+  assert.match(K.IF_SCALE, /只动【一样】东西/, "没说只动一样");
+  assert.match(K.IF_SCALE, /该动哪一样，是从 about 那一点倒推出来的/, "没给「从关系点倒推」这条生成办法");
   // 上不封顶和下不封底两头都要挡住
   assert.match(K.IF_SCALE, /那个人的核心一个字都不许换/, "没挡住「换了个人」那一头");
   assert.match(K.IF_SCALE, /那是今天的日程，不是如果/, "没挡住「太小」那一头");
@@ -36,7 +40,8 @@ test("她给了方向就照办，没给才让他自己想", () => {
   assert.match(K.openPrompt("A", "B", "如果他忘了我"), /【她给的方向】如果他忘了我/);
   assert.match(K.openPrompt("A", "B", "如果他忘了我"), /按它来，别另起炉灶/);
   assert.match(K.openPrompt("A", "B", ""), /【她没给方向】/);
-  assert.match(K.openPrompt("A", "B", ""), /从【他这个人身上】长出一条来/, "没给方向时也该长在人设上");
+  assert.match(K.openPrompt("A", "B", ""), /从【你俩之间】长出一条来/, "没给方向时也该长在这段关系上");
+  assert.match(K.openPrompt("A", "B", ""), /先想清楚要探的是哪一点，再想动哪一样/, "顺序反了就又从壳出发了");
 });
 
 // 一个框一口气读完，点一下出下一个：旁白和台词是两种框，界面上长得不一样
@@ -131,37 +136,45 @@ test("背景图开线时不生，她点了才生", () => {
 // 「如果馆生成后在侧边栏也显示主题吧，不然我一进去一脸懵」
 // 「这个主题也不对吧怎么来来回回都是差不多的」
 // 「我怎么结束这拍，或者删掉记录啊」
-test("避重：已经想过的那几条原样发回去，还挑明哪几样没动过", () => {
+test("避重：已经想过的那几条原样发回去，题目和动过的东西都发", () => {
   const prior = [{ title: "未命名版本", premise: "他只是她写出来的模型", dim: "form" },
-                 { title: "第一行私心", premise: "他是初代认知模型", dim: "form" }];
+                 { title: "第一行私心", premise: "他是初代认知模型", dim: "他不再是人" }];
   const p = K.openPrompt("沈屿白", "Lisa", "", prior);
   assert.match(p, /【已经想过这几条，一条都不许再想】/);
   assert.match(p, /「未命名版本」：他只是她写出来的模型/, "旧那条没发回去");
-  // ⚠️光说「别重复」不够：三条全落在同一个维度上正是因为它每次挑那个最顺手的
-  assert.match(p, /上面那几条已经动过：他的形态/, "没说清动过哪几样");
-  assert.match(p, /这一条从【他所处的时代与身份】或【他还记不记得你】或【你俩之间那个岔路口】里挑一样动/, "没指出还剩哪几样");
-  // 换个说法不算新的
+  // 动过的那一样也要发回去，不然「同一样东西换个词说」认不出来
+  assert.match(p, /｜动的是：他的形态/, "存量那几条的 dim 没翻译出来");
+  assert.match(p, /｜动的是：他不再是人/, "新写法的 dim 没原样发回去");
   assert.match(p, /同一样东西变了、只是换个词说/, "只挡了字面重复");
   // 一条都没有时不发这一块（零 token）
   assert.ok(K.openPrompt("A", "B", "", []).indexOf("已经想过这几条") < 0);
   assert.ok(K.openPrompt("A", "B", "", null).indexOf("已经想过这几条") < 0);
-  // 四样都动过了也要有话说，不能空转
-  const all = K.DIMS.map((d, i) => ({ title: "t" + i, premise: "p" + i, dim: d[0] }));
-  assert.match(K.openPrompt("A", "B", "", all), /四样都动过了/, "四样用尽时没有下一步");
 });
 
-test("维度只写一处：判据表和 dim 都从 DIMS 长出来", () => {
-  assert.equal(K.DIMS.length, 4);
-  K.DIMS.forEach(d => assert.ok(K.IF_SCALE.indexOf(d[1]) > 0, "判据表里少了：" + d[1]));
-  K.DIMS.forEach(d => assert.ok(K.openPrompt("A", "B", "").indexOf(d[0]) > 0, "输出里没让它填 key：" + d[0]));
+// 她 2026-08-31：「这仨本质上还是给模型限制，用了去重的话那不就是每三轮轮一次一样的题材」。
+// 有限清单 + 去重 ＝ 排好班的重复：第 N+1 条必然转回第一条。所以去重只许说
+// 【这些不许再来】，绝不许说【那你去用剩下的那几个】。这条测的就是「没有剩下的那几个」。
+test("避重不排班：没有清单，也不算还剩几格", () => {
+  assert.equal(K.DIMS, undefined, "又把可动的东西列成一张导出的清单了");
+  const many = ["他的形态", "他所处的时代", "他还记不记得你", "你俩那个岔路口", "他的语言"]
+    .map((d, i) => ({ title: "t" + i, premise: "p" + i, about: "a" + i, dim: d }));
+  const p = K.openPrompt("A", "B", "", many);
+  // ⚠️「还剩几格没填」在提示词里是被【否掉】的那句，不能拿它当禁词（会撞自己）。
+  // 挑的是只有排班才写得出来的说法。
+  ["还剩哪", "没动过的", "里挑一样动", "都动过了", "四样"].forEach(x =>
+    assert.ok(p.indexOf(x) < 0, "又在排班了，提示词里出现了：" + x));
+  assert.match(p, /别顺着上面那几条往同一类里再找一个/, "没挡住「在近亲里挑下一个」");
+  assert.match(p, /不是一张分类表、不是「还剩几格没填」/, "没说清这几条不是一张表");
+  assert.match(p, /这一条要从 about 重新起头/, "没让它回到关系点重新起头");
+  // dim 现在是模型自己写的一句话：存量 key 翻译得出来，新写法原样过
   assert.equal(K.dimZh("memory"), "他还记不记得你");
-  assert.equal(K.dimZh("nope"), "");
-  // 存的时候要校验，模型乱填的不收
-  assert.match(app, /\(window\.IfKit\.DIMS \|\| \[\]\)\.some\(x => x\[0\] === String\(\(d && d\.dim\) \|\| ""\)\) \? String\(d\.dim\) : ""/, "dim 没校验就存了");
+  assert.equal(K.dimZh("他忽然听得见我心里的话"), "他忽然听得见我心里的话");
+  assert.equal(K.dimZh(""), "");
+  // 存的时候只收口长度，不再拿清单校验——校验就等于又有了一张清单
+  assert.ok(app.indexOf("window.IfKit.DIMS") < 0, "app 那端还在拿清单校验 dim");
+  assert.match(app, /dim: String\(\(d && d\.dim\) \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.trim\(\)\.slice\(0, 12\)/, "dim 没收口就存了");
   assert.match(app, /K\.openPrompt\(char\.name, profile\.name \|\| "我", hint,\n            ifLinesRef\.current\.filter/, "开线时没把旧的那几条发回去");
 });
-
-// 「一进去一脸懵」：侧栏和顶栏都要看得见这条线是什么
 test("侧栏和顶栏都摆出这条线是什么", () => {
   const ui = scr.slice(scr.indexOf("function IfRoom({ partner, lines"));
   // 侧栏顶上：题目 + 前提 + 动的是哪一样
@@ -236,7 +249,7 @@ test("避重也认「同一个关系点」", () => {
   const p = K.openPrompt("A", "B", "", prior);
   assert.match(p, /｜探的是：她一直在替他兜底/, "避重块里没带上探的是什么");
   assert.match(p, /换了个壳、探的还是同一个关系点/, "没把这一种重复说出来");
-  assert.match(p, /上面写着「探的是」的那几样，这一条一个都不许再探/);
+  assert.match(p, /上面写着「探的是」的那几样，一个都不许再探/);
   assert.match(app, /about: String\(\(d && d\.about\) \|\| ""\)/, "about 没存下来，下次就避不了");
   assert.match(app, /dim: x\.dim, about: x\.about \}\)\)\)/, "存了却没发回去");
   // 界面上也要看得见——那是最值得看的一行
@@ -252,11 +265,9 @@ test("避重也认「同一个关系点」", () => {
 // 所以这里不单钉 onIfDrop，改成【把整条链核一遍】：路由里递给 IfRoom 的每一样，
 // 上游必须收得到、下游必须接得住。以后再漏任何一个 prop 都会红。
 test("递给如果馆的每一个回调，两头都接上了", () => {
-  // cut 是从头 indexOf 找结尾的，这三段都得从起点往后找，另写一个
-  const from = (a, b) => { const i = scr.indexOf(a); return scr.slice(i, scr.indexOf(b, i + a.length)); };
-  const usSig = from("function Us({", "}) {");
-  const route = from("return h(IfRoom, {", "onBack:");
-  const ifSig = from("function IfRoom({", "}) {");
+  const usSig = cut(scr, "function Us({", "}) {");
+  const route = cut(scr, "return h(IfRoom, {", "onBack:");
+  const ifSig = cut(scr, "function IfRoom({", "}) {");
   // ① 路由里用到的 onIfXxx，Us 的形参里都得有——没有就是 undefined
   const used = [...new Set(route.match(/onIf[A-Za-z]+/g) || [])];
   assert.ok(used.length >= 5, "路由里没抓到几个回调，切歪了：" + used.join(","));
@@ -269,4 +280,40 @@ test("递给如果馆的每一个回调，两头都接上了", () => {
   assert.match(scr, /onDrop\(dropId\); setDropId\(null\)/, "删完没收掉那层问话");
   assert.match(app, /const ifDrop = lineId => \{ ifSave\(ifLinesRef\.current\.filter\(x => x\.id !== lineId\)\)/, "app 这端的删没了");
   assert.match(app, /onIfDrop: ifDrop/, "app 没把删传出去");
+});
+
+// 她 2026-08-31：「好八股啊宝宝能不能把线下那一堆防八股喂进去」。
+// 如果馆写的是【连续叙事正文】（旁白＋台词），跟线下、小剧场、同人文同一种文体。
+// 真正治八股的那几刀（比喻限额、通用小动作、霸总腔、亲密反模板）全在 narrativeCore
+// 里，那三处都吃着，只有如果馆当初只发了一条 ANTI_CLICHE——又是「一层只写一处，
+// 别处没跟上」（.claude/rules/four-surfaces-same-context.md）。
+test("如果馆吃线下那一整套反八股，不是只吃总则", () => {
+  const open = cut(app, "  const ifOpen = async (char, hint) => {", "  const ifTranscript");
+  const adv = cut(app, "  const ifAdvance = async (lineId, myBoxes) => {", "  const ifBg");
+  [["开线", open], ["往下一拍", adv]].forEach(([zh, seg]) => {
+    assert.match(seg, /narrativeCore\(\{ intimate: true \}\)/, zh + "那一次没吃 narrativeCore");
+    // 光加不删就成了「在后面说前面是错的」：ANTI_CLICHE 已经在 narrativeCore 里，
+    // 再单发一遍是同一段发两次
+    assert.ok(!/^\s*ANTI_CLICHE \+ "\\n\\n" \+ ifCtx/m.test(seg), zh + "那一次还单发了一遍 ANTI_CLICHE");
+  });
+  // narrativeCore 里真的含那几刀，不是空壳（这条会跟着 engine 走，别冻死措辞）
+  const eng = R("engine.js");
+  const core = cut(eng, "function narrativeCore(opts) {", "\n}\n");
+  ["ANTI_CLICHE", "OFFLINE_NARRATIVE_RUNTIME", "NARRATIVE_ANTI_CLICHE", "INTIMATE_ANTI_CLICHE"]
+    .forEach(n => assert.ok(core.indexOf(n) > 0, "narrativeCore 里少了：" + n));
+});
+
+// 她 2026-08-31：「我发的消息没有名字，做跟角色名字一样，他们名字在框左上边我的在右上边」
+test("她说的那一框也挂名字，挂在右上角", () => {
+  const box = cut(scr, "function IfBox({", "\n}\n");
+  assert.match(box, /mine \? \(uName \|\| "我"\) : charName/, "她那一框没拿她的名字");
+  // ⚠️她那几框存下来时 who 是空的，跟旁白长得一模一样——只看 box 分不出来，
+  // 必须看这一拍的 role，否则她说的话会被当成旁白（居中、灰、斜体、没名字）。
+  assert.match(box, /const narr = !mine && !box\.who/, "还在拿 who 判旁白，她那几框会被当旁白");
+  assert.match(box, /mine \? \{ right: 16 \} : \{ left: 16 \}/, "左右没分开");
+  assert.match(box, /narr \? "center" : mine \? "right" : "left"/, "她那一框的正文没靠右");
+  // 传下去的那一段：role 是唯一分得出来的东西，uName 得从上面一路传进来
+  assert.match(scr, /h\(IfBox, \{ box: box, charName: partner\.remark \|\| partner\.name, uName: uName, mine: bt\.role === "user" \}\)/, "调用处没把 role 和名字传下去");
+  assert.match(scr, /function IfRoom\(\{ partner, lines, uName,/, "IfRoom 没收 uName");
+  assert.match(scr, /uName: \(profile \|\| \{\}\)\.name \|\| "我"/, "路由没把她的名字传进如果馆");
 });

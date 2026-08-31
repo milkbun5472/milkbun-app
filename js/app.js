@@ -12331,8 +12331,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 自己拼一份精简 system，跟小剧场同一个做法。
       const d = extractJSON(await callAI(apiFor(char.id),
         // 已经想过的那几条发回去避重（她 2026-08-31：「怎么来来回回都是差不多的」）。
-        // 只发题目/前提/动过哪个维度，不发正文——那是别的线的内容，混进来只会串味。
-        ANTI_CLICHE + "\n\n" + ifCtx(char) + "\n\n"
+        // 只发题目/前提/探的关系点/动掉的那一样，不发正文——那是别的线的内容，混进来只会串味。
+        // 她 2026-08-31：「好八股啊宝宝能不能把线下那一堆防八股喂进去」。
+        // 原来这儿只发了 ANTI_CLICHE（去人机味总则），而如果馆写的是【连续叙事正文】
+        // ——旁白＋台词，跟线下和小剧场同一种文体。真正治八股的那几刀（比喻限额、
+        // 通用小动作禁令、霸总腔禁令、亲密场景反模板）全在 narrativeCore 里，
+        // 小剧场、同人文、跑团都吃着，只有这儿没接上——又是「一层只写一处，别处
+        // 没跟上」（.claude/rules/four-surfaces-same-context.md）。
+        narrativeCore({ intimate: true }) + "\n\n" + ifCtx(char) + "\n\n"
         + K.openPrompt(char.name, profile.name || "我", hint,
             ifLinesRef.current.filter(x => x.charId === char.id).map(x => ({ title: x.title, premise: x.premise, dim: x.dim, about: x.about })))
         + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + K.OPEN_SHAPE,
@@ -12343,7 +12349,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         id: "if_" + Date.now(), charId: char.id,
         title: String((d && d.title) || "一个如果").replace(/\s+/g, " ").trim().slice(0, 16),
         premise: String((d && d.premise) || "").replace(/\s+/g, " ").trim().slice(0, 80),
-        dim: (window.IfKit.DIMS || []).some(x => x[0] === String((d && d.dim) || "")) ? String(d.dim) : "",
+        // dim 是模型自己写的一句「这条动掉了什么」，不是从一张清单里选的 key——
+        // 清单配上避重就是排班轮转（她 2026-08-31 点破）。只管收口长度。
+        dim: String((d && d.dim) || "").replace(/\s+/g, " ").trim().slice(0, 12),
         about: String((d && d.about) || "").replace(/\s+/g, " ").trim().slice(0, 60),
         bgPrompt: String((d && d.bg) || "").replace(/\s+/g, " ").trim().slice(0, 200),
         bgKey: null, hint: String(hint || "").trim().slice(0, 200),
@@ -12376,7 +12384,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const startedAt = Date.now();
     try {
       const d = extractJSON(await callAI(apiFor(char.id),
-        ANTI_CLICHE + "\n\n" + ifCtx(char)
+        narrativeCore({ intimate: true }) + "\n\n" + ifCtx(char)
         + "\n\n【这条如果线】" + cur.title + "——" + cur.premise
         + "\n\n【到这儿为止发生了什么】\n" + ifTranscript(cur, char)
         + "\n\n" + K.beatPrompt(char.name, profile.name || "我")

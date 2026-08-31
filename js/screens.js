@@ -3253,7 +3253,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   }
   // 情侣空间子模块：如果馆
   if (partner && cp[view] && cp[view].status === "together" && sub === "ifroom") {
-    return h(IfRoom, { partner, lines: ifLines, busy: ifBusy, bgBusy: ifBgBusy,
+    return h(IfRoom, { partner, lines: ifLines, uName: (profile || {}).name || "我", busy: ifBusy, bgBusy: ifBgBusy,
       onOpen: hint => onIfOpen(partner, hint), onAdvance: onIfAdvance, onBg: onIfBg, onEnd: onIfEnd, onDrop: onIfDrop,
       onBack: () => setSub(null) });
   }
@@ -10216,8 +10216,13 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
 // 一个框一口气读完，点一下出下一个；右边一条侧栏翻已经过去的（照跑团那个），
 // 免得点完就忘。她的回合能先攒几条再一起发。
 const IF_INK = "#e8e4ee", IF_DIM = "rgba(232,228,238,.52)", IF_LINE = "rgba(232,228,238,.16)";
-function IfBox({ box, charName }) {
-  const narr = !box.who;
+// mine＝这一框是她说的。她 2026-08-31：「我发的消息没有名字，做跟角色名字一样，
+// 他们名字在框左上边我的在右上边」。
+// ⚠️她那几框存下来的时候 who 是空的（跟旁白一个样），光看 box 分不出来——
+// 要看这一拍的 role。所以名字从外面传进来，别在这儿猜。
+function IfBox({ box, charName, uName, mine }) {
+  const narr = !mine && !box.who;
+  const name = mine ? (uName || "我") : charName;
   return h("div", {
     style: {
       position: "relative", borderRadius: 14, border: "1px solid " + IF_LINE,
@@ -10225,18 +10230,20 @@ function IfBox({ box, charName }) {
       padding: narr ? "20px 22px" : "22px 20px 18px", marginTop: narr ? 0 : 14
     }
   },
-    box.who ? h("div", {
-      style: {
-        position: "absolute", top: -13, left: 16, padding: "3px 13px", borderRadius: 9,
-        border: "1px solid " + IF_LINE, background: "#15121e",
+    narr ? null : h("div", {
+      style: Object.assign({
+        position: "absolute", top: -13, padding: "3px 13px", borderRadius: 9,
+        border: "1px solid " + IF_LINE, background: "#15121e", maxWidth: "62%",
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         fontFamily: F_DISPLAY, fontSize: 13, color: IF_INK
-      }
-    }, charName) : null,
+      }, mine ? { right: 16 } : { left: 16 })
+    }, name),
     h("div", {
       style: {
-        fontFamily: narr ? F_BODY : F_BODY, fontSize: 15, lineHeight: 2,
+        fontFamily: F_BODY, fontSize: 15, lineHeight: 2,
         color: narr ? IF_DIM : IF_INK,
-        fontStyle: narr ? "italic" : "normal", textAlign: narr ? "center" : "left"
+        fontStyle: narr ? "italic" : "normal",
+        textAlign: narr ? "center" : mine ? "right" : "left"
       }
     }, box.text));
 }
@@ -10256,7 +10263,7 @@ function IfEndPick({ onPick, onClose }) {
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, zh),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, lineHeight: 1.6, marginTop: 3 } }, sub)))));
 }
-function IfRoom({ partner, lines, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, onDrop, onBack }) {
+function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, onDrop, onBack }) {
   const t = useTheme();
   const mine = (lines || []).filter(x => x.charId === partner.id);
   const [openId, setOpenId] = useState(null);
@@ -10349,7 +10356,7 @@ function IfRoom({ partner, lines, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, 
         h("div", { style: { width: 15, height: 11, borderTop: "2px solid " + IF_INK, borderBottom: "2px solid " + IF_INK, opacity: .85 } }))),
     // 正文：点一下出下一框
     h("div", { onClick: tap, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 12 } },
-      box ? h(IfBox, { box: box, charName: partner.remark || partner.name }) : null,
+      box ? h(IfBox, { box: box, charName: partner.remark || partner.name, uName: uName, mine: bt.role === "user" }) : null,
       h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: IF_DIM, marginTop: 10, minHeight: 14 } },
         busy ? "……" : more || !lastBeat ? "点一下继续" : myTurn ? "" : "")),
     // 我的回合：先攒几条再一起发
