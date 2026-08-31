@@ -2370,10 +2370,11 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
 // 「麻烦轻一点敲门，家里有人在睡」——这三条是三个不同的人。
 // 三页：点餐（在送 + 常点的店）· 订单 · 我的（口味 / 地址 / 月结）
 // ============================================================
-const TAKE_AMBER = "#f5a623";
-const TAKE_BG = "#f4f2ee";
-const TAKE_INK = "#231f1a";
-const TAKE_DIM = "#9c968c";
+const TAKE_ACCENT = "#5f7f79";
+const TAKE_CORAL = "#d86f62";
+const TAKE_BG = "#edf2f0";
+const TAKE_INK = "#25312f";
+const TAKE_DIM = "#81908c";
 function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats }) {
   const [tab, setTab] = useState("home");
   const [open, setOpen] = useState(null);
@@ -2388,13 +2389,13 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const today = (data.today && typeof data.today === "object") ? data.today : {};
   const live = A(data.live), orders = A(data.orders), shops = A(data.shops), addrs = A(data.addrs);
   const week = A(data.week), coupons = A(data.coupons), wish = A(data.wish), together = A(data.together);
-  const TAKE_COVERS = [["#7fd0a4", "#b9e6cd"], ["#f79a92", "#fbc7c2"], ["#f7b96a", "#fbd9ab"], ["#8fbdf0", "#c2d9f6"], ["#d4a9e8", "#e8cff4"], ["#f2d071", "#f9e7ae"]];
+  const TAKE_COVERS = [["#8bb1a8", "#c7dcd7"], ["#d79288", "#efd0ca"], ["#869eb7", "#c7d3df"], ["#9aa98f", "#d3dccd"], ["#a496b7", "#d8d0e1"], ["#87959a", "#cad2d4"]];
   const cov = n => TAKE_COVERS[(Number(n) || 0) % TAKE_COVERS.length];
   const card = (kids, extra) => h("div", { style: Object.assign({ background: "#fff", borderRadius: 18, padding: "17px 17px", marginBottom: 13 }, extra || {}) }, kids);
-  // 小节标题：左边一根黄竖条（照参考稿）
+  // 小节标题使用圆点与横线，和平台式黄竖条拉开视觉语言。
   const secTitle = (title, right) => h("div", { className: "flex items-center justify-between", style: { padding: "8px 2px 12px" } },
-    h("div", { className: "flex items-center", style: { gap: 8 } },
-      h("span", { "aria-hidden": "true", style: { width: 4, height: 18, borderRadius: 3, background: TAKE_AMBER } }),
+    h("div", { className: "flex items-center", style: { gap: 9, flex: 1, minWidth: 0 } },
+      h("span", { "aria-hidden": "true", style: { width: 8, height: 8, borderRadius: 99, background: TAKE_CORAL, boxShadow: "0 0 0 5px rgba(216,111,98,.10)" } }),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: TAKE_INK } }, title)),
     right ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM } }, right) : null);
   const peekBtn = (tier, label, title, text) => onPeek ? h("button", {
@@ -2410,11 +2411,11 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // ── 账户条 ──
   const accCard = card([
     h("div", { key: "a", className: "flex items-center", style: { gap: 13 } },
-      h("div", { style: { width: 48, height: 48, borderRadius: 15, flexShrink: 0, background: "linear-gradient(150deg,#ffd167," + TAKE_AMBER + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "takeout", size: 23, color: "#fff" })),
+      h("div", { style: { width: 48, height: 48, borderRadius: 15, flexShrink: 0, background: "linear-gradient(150deg,#88aaa3," + TAKE_ACCENT + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "takeout", size: 23, color: "#fff" })),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center flex-wrap", style: { gap: 7 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: TAKE_INK } }, acc.name || char.remark || char.name),
-          acc.member ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a8791f", background: "rgba(245,166,35,.16)", borderRadius: 999, padding: "3px 10px" } }, acc.member) : null),
+          acc.member ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_ACCENT, background: "rgba(95,127,121,.12)", borderRadius: 999, padding: "3px 10px" } }, acc.member) : null),
         acc.uid ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 5 } }, "账号 " + acc.uid) : null)),
     (ms || acc.monthOrders != null || acc.monthSpend != null) ? h("div", { key: "n", className: "flex", style: { marginTop: 15, paddingTop: 13, borderTop: "1px solid #f3f1ec" } },
       // 同上：以钱包流水为准，没建档才用模型那份
@@ -2425,21 +2426,21 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginTop: 3 } }, l)))) : null,
     acc.persona ? h("div", { key: "p", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#5b564e" } }, acc.persona) : null
   ]);
-  // ── 今日推荐（照参考稿的那张大卡）──
-  const todayCard = (today.shop || today.main) ? h("div", { key: "td", style: { background: "#fffdf6", borderRadius: 18, overflow: "hidden", marginBottom: 15, boxShadow: "0 8px 20px rgba(120,90,20,.08)" } },
+  // ── 今日落点 ──
+  const todayCard = (today.shop || today.main) ? h("div", { key: "td", style: { background: "rgba(255,255,255,.92)", borderRadius: 18, overflow: "hidden", marginBottom: 15, boxShadow: "0 8px 24px rgba(53,78,73,.08)" } },
     h("div", { className: "flex items-start", style: { gap: 11, padding: "16px 17px 14px", borderBottom: "1px solid #f4efe2" } },
-      h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: TAKE_AMBER, display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { style: { width: 30, height: 30, borderRadius: 99, flexShrink: 0, background: TAKE_ACCENT, display: "flex", alignItems: "center", justifyContent: "center" } },
         h("span", { style: { width: 9, height: 9, borderRadius: 99, background: "#fff" } })),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center flex-wrap", style: { gap: 8 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: TAKE_INK } }, today.addrLabel || "家"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a6414", background: "rgba(245,200,60,.4)", borderRadius: 6, padding: "3px 8px" } }, "送这里")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_ACCENT, background: "rgba(95,127,121,.11)", borderRadius: 6, padding: "3px 8px" } }, "送这里")),
         today.addrDetail ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, today.addrDetail) : null),
       today.date ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM } }, today.date) : null),
     h("div", { style: { padding: "16px 17px 17px" } },
       h("div", { className: "flex items-start", style: { gap: 13 } },
-        h("div", { style: { width: 66, height: 66, borderRadius: 14, flexShrink: 0, position: "relative", background: "linear-gradient(150deg,#ffc55e,#f08a2c)", display: "flex", alignItems: "center", justifyContent: "center" } },
-          today.meal ? h("span", { style: { position: "absolute", left: -3, top: -8, fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: "#8a6414", borderRadius: 6, padding: "2px 7px" } }, today.meal) : null,
+        h("div", { style: { width: 66, height: 66, borderRadius: 14, flexShrink: 0, position: "relative", background: "linear-gradient(150deg,#9ebbb5,#698a83)", display: "flex", alignItems: "center", justifyContent: "center" } },
+          today.meal ? h("span", { style: { position: "absolute", left: -3, top: -8, fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: TAKE_CORAL, borderRadius: 6, padding: "2px 7px" } }, today.meal) : null,
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 27, color: "#fff" } }, initial(today.shop))),
         h("div", { className: "flex-1 min-w-0" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.4, color: TAKE_INK } }, today.shop || ""),
@@ -2480,48 +2481,42 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, it.shop || ""),
           it.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: "#6b665e", marginTop: 7 } }, it.items) : null,
           h("div", { className: "flex", style: { marginTop: 15 } }, STEPS.map((sname, j) => h("div", { key: j, className: "flex-1 flex flex-col items-center", style: { gap: 6 } },
-            h("span", { style: { width: 11, height: 11, borderRadius: 99, background: j < st ? "#3fbb6e" : j === st ? "#fff" : "#e6e3dd", border: j === st ? "3px solid " + TAKE_AMBER : "none" } }),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: j < st ? "#3fbb6e" : j === st ? "#e8863a" : "#b8b2a8" } }, sname)))),
+            h("span", { style: { width: 11, height: 11, borderRadius: 99, background: j < st ? TAKE_ACCENT : j === st ? "#fff" : "#dce3e1", border: j === st ? "3px solid " + TAKE_CORAL : "none" } }),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: j < st ? TAKE_ACCENT : j === st ? TAKE_CORAL : TAKE_DIM } }, sname)))),
           h("div", { style: { height: 4, borderRadius: 4, background: "#f0eee9", marginTop: 12, overflow: "hidden" } },
-            h("div", { style: { width: ((st + 1) / 4 * 100) + "%", height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#ffd167," + TAKE_AMBER + ")" } })),
+            h("div", { style: { width: ((st + 1) / 4 * 100) + "%", height: "100%", borderRadius: 4, background: "linear-gradient(90deg,#91b2aa," + TAKE_ACCENT + ")" } })),
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 13 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, it.rider ? "骑手 · " + it.rider : ""),
             it.amount != null ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#f0523a" } }, fmtMoney(it.amount)) : null),
           it.note ? noteLine(it.note) : null));
     })) : null;
-  // ── 我的订单 ──
+  // ── 吃过的记录：默认是紧凑时间档案，点开才看收据细节 ──
   const stars = n => h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: "#f0a92c", letterSpacing: 2 } }, "★".repeat(Math.max(0, Math.min(5, Number(n) || 0))));
-  const orderSec = orders.length ? h("section", { key: "od" }, secTitle("我的订单", orders.length + " 单"),
-    orders.map((o, i) => card([
-      h("div", { key: "h", className: "flex items-start", style: { gap: 11 } },
-        h("div", { style: { width: 42, height: 42, borderRadius: 11, flexShrink: 0, background: "linear-gradient(150deg," + cov(i)[0] + "," + cov(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 18, color: "#5a5148" } }, initial(o.shop)),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.4, color: TAKE_INK } }, o.shop || ""),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 4 } }, [o.time, o.meal].filter(Boolean).join(" "))),
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: o.status === "已取消" ? TAKE_DIM : "#9a948b" } }, o.status || "")),
-      o.main ? h("div", { key: "m", className: "flex", style: { gap: 7, marginTop: 13 } },
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "主菜 ·"),
-        h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.55, color: TAKE_INK } }, o.main)) : null,
-      A(o.items).length ? h("div", { key: "it", style: { background: "#f7f5f1", borderRadius: 12, padding: "12px 13px", marginTop: 12 } },
-        A(o.items).map((x, j) => h("div", { key: j, className: "flex items-start", style: { gap: 10, marginTop: j ? 11 : 0 } },
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, color: "#3f3a34" } }, x.name || ""),
-            x.spec ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a8a29a", marginTop: 3 } }, x.spec) : null),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM, flexShrink: 0 } }, "×" + (x.qty || 1)),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#3f3a34", flexShrink: 0, minWidth: 52, textAlign: "right" } }, fmtMoney(x.price))))) : null,
-      h("div", { key: "f", className: "flex items-baseline justify-between", style: { marginTop: 12 } },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b3ada4" } }, ["包装费 " + fmtMoney(o.pack), "配送费 " + fmtMoney(o.fee)].join("  ")),
-        o.amount != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, "实付 ", h("span", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#f0523a" } }, fmtMoney(o.amount))) : null),
-      (o.stars || o.rating) ? h("div", { key: "r", style: { marginTop: 13, background: "#fffbef", border: "1px solid #f6eccf", borderRadius: 12, padding: "12px 14px" } },
-        o.stars ? stars(o.stars) : null,
-        o.rating ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#5b564e", marginTop: 7 } }, o.rating) : null) : null,
-      A(o.tags).length ? h("div", { key: "g", className: "flex flex-wrap", style: { gap: 7, marginTop: 12 } },
-        A(o.tags).map((tg, j) => h("span", { key: j, style: { fontFamily: F_BODY, fontSize: 11, color: ["#a8791f", "#3f8a5c", "#c05a6a"][j % 3], background: ["rgba(245,200,60,.16)", "rgba(63,138,92,.10)", "rgba(192,90,106,.10)"][j % 3], border: "1px solid " + ["rgba(245,200,60,.4)", "rgba(63,138,92,.24)", "rgba(192,90,106,.24)"][j % 3], borderRadius: 7, padding: "3px 9px" } }, tg))) : null,
-      o.addr ? h("div", { key: "a", style: { fontFamily: F_BODY, fontSize: 11.5, color: "#b3ada4", marginTop: 11 } }, "📍 " + o.addr) : null,
-      o.note ? h("div", { key: "n" }, noteLine(o.note)) : null,
-      o.reason ? h("div", { key: "w", style: { marginTop: 12, background: "#f6f5f2", borderRadius: 10, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: "#5b564e" } }, o.reason) : null,
-      h("div", { key: "pk" }, peekBtn("quiet", T("他点的外卖"), (o.shop || "") + (o.main ? " · " + o.main : ""), [o.note ? "备注：" + o.note : "", o.reason, o.rating, o.addr].filter(Boolean).join("｜")))
-    ], { key: i }))) : null;
+  const orderSec = orders.length ? h("section", { key: "od" }, secTitle("吃过的记录", orders.length + " 次落点"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "4px 15px", marginBottom: 13 } }, orders.map((o, i) => {
+      const expanded = open === i;
+      return h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid #e5ebe9" : "none" } },
+        h("button", { onClick: () => setOpen(expanded ? null : i), className: "w-full text-left active:opacity-60", "aria-expanded": expanded },
+          h("div", { className: "flex items-start", style: { gap: 12 } },
+            h("div", { style: { width: 44, flexShrink: 0, textAlign: "center" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: TAKE_ACCENT } }, (o.meal || "一顿").slice(0, 2)),
+              h("div", { style: { width: 1, height: 18, background: "#cedbd7", margin: "6px auto 0" } })),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "flex items-start justify-between", style: { gap: 10 } },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.4, color: TAKE_INK } }, o.shop || ""),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: TAKE_CORAL, flexShrink: 0 } }, o.amount != null ? fmtMoney(o.amount) : "")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 4 } }, [o.time, o.status].filter(Boolean).join(" · ")),
+              o.main ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#53605d", marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" } }, o.main) : null)),
+          h("div", { style: { marginLeft: 56, marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: TAKE_DIM } }, expanded ? "收起这一顿 ↑" : "展开这一顿 ↓")),
+        expanded ? h("div", { style: { margin: "12px 0 0 56px", padding: "13px", borderRadius: 13, background: "#f3f6f5" } },
+          A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: 12.5, color: "#4c5956" } },
+            h("span", { className: "flex-1 min-w-0" }, x.name || ""), h("span", { style: { color: TAKE_DIM } }, "×" + (x.qty || 1)), h("span", null, fmtMoney(x.price)))),
+          (o.stars || o.rating) ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid #dfe7e4" } }, o.stars ? stars(o.stars) : null, o.rating ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562", marginTop: 5 } }, o.rating) : null) : null,
+          o.addr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 9 } }, "到 · " + o.addr) : null,
+          o.note ? noteLine(o.note) : null,
+          o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562", marginTop: 9 } }, o.reason) : null,
+          peekBtn("quiet", T("他点的外卖"), (o.shop || "") + (o.main ? " · " + o.main : ""), [o.note ? "备注：" + o.note : "", o.reason, o.rating, o.addr].filter(Boolean).join("｜"))) : null);
+    }))) : null;
   // ── 口味偏好（三组彩色药丸）──
   const pills = (list, tone) => h("div", { className: "flex flex-wrap", style: { gap: 8 } }, A(list).map((x, i) => h("span", {
     key: i, style: {
@@ -2544,14 +2539,15 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       taste.habit ? h("div", { key: "h" }, tasteRow("习惯", h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.7, color: TAKE_INK, paddingTop: 4 } }, taste.habit))) : null
     ]),
     peekBtn("quiet", T("他的口味"), T("他吃东西的样子"), [A(taste.avoidTags).length ? "忌口：" + A(taste.avoidTags).join("、") : "", taste.habit].filter(Boolean).join("｜"))) : null;
-  // ── 本周吃什么（七日横滑）──
-  const weekSec = week.length ? h("section", { key: "wk" }, secTitle("本周吃什么", "七日餐次"),
-    h("div", { className: "flex overflow-x-auto", style: { gap: 11, paddingBottom: 4, scrollbarWidth: "none", marginBottom: 13 } },
-      week.map((dy, i) => h("div", { key: i, style: { width: 178, flexShrink: 0, background: "#fff", borderRadius: 15, padding: "14px 14px 16px" } },
-        h("div", { style: { width: 32, height: 32, borderRadius: 10, background: TAKE_AMBER, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 16, marginBottom: 12 } }, dy.day || ""),
-        A(dy.meals).map((ml, j) => h("div", { key: j, className: "flex", style: { gap: 7, marginTop: j ? 11 : 0, borderLeft: "3px solid #f2e3b4", paddingLeft: 8 } },
-          h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: "#b8a76e" } }, ml.t || ""),
-          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: "#4d4842", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, ml.text || ""))))))) : null;
+  // ── 一周进食轨迹：纵向节奏带，不再做七张横滑日卡 ──
+  const weekSec = week.length ? h("section", { key: "wk" }, secTitle("一周进食轨迹", week.length + " 天留下记录"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "6px 15px", marginBottom: 13 } },
+      week.map((dy, i) => h("div", { key: i, className: "flex", style: { gap: 13, padding: "13px 0", borderTop: i ? "1px solid #e5ebe9" : "none" } },
+        h("div", { style: { width: 42, flexShrink: 0, paddingTop: 1 } },
+          h("span", { style: { display: "inline-flex", minWidth: 38, height: 25, alignItems: "center", justifyContent: "center", borderRadius: 999, background: i === week.length - 1 ? TAKE_ACCENT : "#e5edeb", color: i === week.length - 1 ? "#fff" : TAKE_ACCENT, fontFamily: F_DISPLAY, fontSize: 12 } }, dy.day || "")),
+        h("div", { className: "flex-1 min-w-0" }, A(dy.meals).map((ml, j) => h("div", { key: j, className: "flex", style: { gap: 8, marginTop: j ? 7 : 0 } },
+          h("span", { style: { width: 24, flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: TAKE_CORAL, paddingTop: 2 } }, ml.t || ""),
+          h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#4f5c59" } }, ml.text || "")))))))) : null;
   // ── 红包卡券 ──
   const couponSec = coupons.length ? h("section", { key: "cp" }, secTitle("红包卡券"),
     card(coupons.map((c, i) => h("div", { key: i, className: "flex items-stretch", style: { borderRadius: 12, overflow: "hidden", border: "1px solid #fbdcd6", marginTop: i ? 11 : 0 } },
@@ -2567,7 +2563,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     card(addrs.map((a, i) => h("div", { key: i, style: { borderRadius: 12, padding: "13px 14px", marginTop: i ? 10 : 0, background: a.isDefault ? "#fffbef" : "#f7f6f3", border: "1px solid " + (a.isDefault ? "#f4e6bb" : "transparent") } },
       h("div", { className: "flex items-center", style: { gap: 8 } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, a.label || ""),
-        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7a5a12", background: TAKE_AMBER, borderRadius: 5, padding: "3px 8px" } }, "默认") : null,
+        a.isDefault ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: TAKE_ACCENT, borderRadius: 5, padding: "3px 8px" } }, "默认") : null,
         a.tail ? h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM } }, a.tail) : null),
       a.detail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: "#8a847b", marginTop: 7 } }, a.detail) : null,
       !a.isDefault ? h("div", null, peekBtn("hidden", "外卖常用地址", a.label, a.detail)) : null)))) : null;
@@ -2576,21 +2572,30 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const wishSec = wish.length ? h("section", { key: "ws" }, secTitle("想吃清单", "馋着的 " + wish.length + " 样"),
     card(wish.map((w, i) => h("div", { key: i, style: { padding: "14px 0", borderTop: i ? "1px solid #f3f1ec" : "none" } },
       h("div", { className: "flex items-start", style: { gap: 9 } },
-        h("span", { style: { width: 7, height: 7, borderRadius: 99, marginTop: 8, flexShrink: 0, background: TAKE_AMBER } }),
+        h("span", { style: { width: 7, height: 7, borderRadius: 99, marginTop: 8, flexShrink: 0, background: TAKE_CORAL } }),
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: TAKE_INK, wordBreak: "break-word" } }, w.title || "")),
       w.when ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#8a847b", background: "#f6f5f2", borderRadius: 9, padding: "9px 12px", marginTop: 9 } }, w.when) : null)),
     ), peekBtn("quiet", T("他想吃的"), wish.map(w => w.title).filter(Boolean).slice(0, 3).join("、"), wish.map(w => (w.title || "") + "（" + (w.when || "") + "）").join("｜"))) : null;
-  // ── 一起点过 ──
-  const togSec = together.length ? h("section", { key: "tg" }, secTitle("一起点过"),
-    card(together.map((g, i) => h("div", { key: i, style: { borderLeft: "3px solid " + TAKE_AMBER, background: "#fffdf6", borderRadius: "0 12px 12px 0", padding: "14px 15px", marginTop: i ? 12 : 0 } },
-      g.who ? h("span", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 12, color: "#e8863a", background: "rgba(245,166,35,.14)", borderRadius: 7, padding: "4px 10px" } }, g.who) : null,
-      g.items ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: TAKE_INK, marginTop: 9, wordBreak: "break-word" } }, g.items) : null,
-      g.story ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#8a847b", marginTop: 8 } }, g.story) : null,
-      h("div", null, peekBtn("quiet", T("他和谁一起点的"), (g.who || "") + " · " + (g.items || ""), g.story)))))) : null;
-  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("本周点餐概况"),
-    data.monthNote ? h("div", { style: { background: "#fff", borderRadius: 16, borderLeft: "5px solid " + TAKE_AMBER, padding: "17px 18px", marginBottom: 13 } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.95, color: "#4d4842" } }, data.monthNote)) : null,
-    data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#a8a29a", textAlign: "center", padding: "4px 14px 6px" } }, data.tail) : null) : null;
+  // ── 饭桌上的人：头像关系列，而不是故事卡片列 ──
+  const togSec = together.length ? h("section", { key: "tg" }, secTitle("饭桌上的人", together.length + " 段关系"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } }, together.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid #e5ebe9" : "none" } },
+      h("div", { className: "flex items-start", style: { gap: 12 } },
+        h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(150deg," + cov(i)[0] + "," + cov(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, initial(g.who)),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: TAKE_INK } }, g.who || "某个人"),
+          g.items ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: TAKE_ACCENT, marginTop: 5 } }, g.items) : null,
+          g.story ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#687572", marginTop: 9, padding: "10px 12px", borderRadius: "4px 12px 12px 12px", background: "#f1f5f4" } }, g.story) : null)),
+      h("div", { style: { marginLeft: 54 } }, peekBtn("quiet", T("他和谁一起点的"), (g.who || "") + " · " + (g.items || ""), g.story)))))) : null;
+  const mealCount = week.reduce((sum, dy) => sum + A(dy.meals).length, 0);
+  const lateCount = week.reduce((sum, dy) => sum + A(dy.meals).filter(ml => /夜|宵/.test((ml.t || "") + (ml.text || ""))).length, 0);
+  const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("吃饭侧写", "不是账单，是节奏"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "16px", marginBottom: 13 } },
+      h("div", { className: "grid", style: { gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
+        [[mealCount, "记下的餐"], [lateCount, "深夜落点"], [together.length, "同桌的人"]].map(([n, label], i) => h("div", { key: label, style: { borderRadius: 13, padding: "12px 8px", background: ["#e7efed", "#f7e9e6", "#e9edf2"][i], textAlign: "center" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: i === 1 ? TAKE_CORAL : TAKE_INK } }, n),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TAKE_DIM, marginTop: 4 } }, label)))),
+      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#4f5c59", marginTop: 15 } }, data.monthNote) : null,
+      data.tail ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_ACCENT, marginTop: 12, paddingTop: 11, borderTop: "1px dashed #cbd8d4" } }, "↳ " + data.tail) : null)) : null;
   // 外卖不再按平台后台的「点餐 / 订单 / 口味 / 我的」分仓，而按角色生活阅读：
   // 这一顿发生了什么、长期怎么喂饱自己、饭和哪些人发生过关系。
   // 字段仍兼容旧存档，改变的是组合与叙事顺序，不拿改名冒充原创。
@@ -2602,24 +2607,24 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
   const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#7a6428" })),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#6a5a2a" } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: "#7a6428" })));
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: TAKE_INK })),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, page.zh),
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } }, h(IRefresh, { size: 18, color: TAKE_INK })));
   const nav = h("div", {
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 12px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.97)", borderTop: "1px solid #eae6df" }
   }, PAGES.map(pg => h("button", {
     key: pg.key, onClick: () => { setTab(pg.key); setOpen(null); },
     className: "flex flex-col items-center justify-center active:opacity-60",
-    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? "#e8863a" : TAKE_DIM, paddingTop: 2, paddingBottom: 2 }
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: tab === pg.key ? TAKE_ACCENT : TAKE_DIM, paddingTop: 2, paddingBottom: 2 }
   }, h("div", { style: { position: "relative", width: 30, height: 20, display: "flex", alignItems: "center", justifyContent: "center" } },
-    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? "#e8863a" : TAKE_DIM }),
-    pg.badge ? h("span", { style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: "#f0523a", color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge > 99 ? "99+" : pg.badge) : null),
+    h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? TAKE_ACCENT : TAKE_DIM }),
+    pg.badge ? h("span", { style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: TAKE_CORAL, color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge > 99 ? "99+" : pg.badge) : null),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
-  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "linear-gradient(178deg,#ffd534 0%,#ffe484 13%,#f7f2e6 30%," + TAKE_BG + " 46%," + TAKE_BG + " 100%)" } },
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "radial-gradient(circle at 88% 4%,rgba(155,186,178,.42),transparent 31%),linear-gradient(180deg,#dce8e5 0%," + TAKE_BG + " 34%," + TAKE_BG + " 100%)" } },
     chrome,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
-      h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", borderLeft: "3px solid " + TAKE_AMBER, background: "rgba(255,255,255,.62)", borderRadius: "0 12px 12px 0", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, page.lead),
+      h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, page.lead),
       body.length ? body : h("div", { style: { padding: "46px 0", textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: TAKE_DIM } }, "这条生活线还没有留下东西，点右上角刷一次")),
     nav);
 }
