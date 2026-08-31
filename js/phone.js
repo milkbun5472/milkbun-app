@@ -2517,28 +2517,42 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
           o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562", marginTop: 9 } }, o.reason) : null,
           peekBtn("quiet", T("他点的外卖"), (o.shop || "") + (o.main ? " · " + o.main : ""), [o.note ? "备注：" + o.note : "", o.reason, o.rating, o.addr].filter(Boolean).join("｜"))) : null);
     }))) : null;
-  // ── 口味偏好（三组彩色药丸）──
-  const pills = (list, tone) => h("div", { className: "flex flex-wrap", style: { gap: 8 } }, A(list).map((x, i) => h("span", {
-    key: i, style: {
-      fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, borderRadius: 999, padding: "7px 15px",
-      color: tone === "warn" ? "#c0453c" : tone === "good" ? "#3f8a5c" : "#8a6414",
-      background: tone === "warn" ? "#fdeeec" : tone === "good" ? "#eef7f0" : "#fdf5dd",
-      border: "1px solid " + (tone === "warn" ? "#f6d5d1" : tone === "good" ? "#d6ebdd" : "#f2e3b4")
-    }
-  }, x)));
-  const tasteRow = (k, node) => h("div", { className: "flex", style: { gap: 16, padding: "15px 0", borderTop: "1px solid #f3f1ec" } },
-    h("span", { style: { width: 34, flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: TAKE_DIM, paddingTop: 6 } }, k),
-    h("div", { style: { flex: 1, minWidth: 0 } }, node));
-  const hasTaste = A(taste.spicyTags).length || A(taste.avoidTags).length || A(taste.likeTags).length || taste.budget || taste.habit;
-  const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("吃东西这件事上", "他的固执"),
-    card([
-      A(taste.spicyTags).length ? h("div", { key: "s" }, tasteRow("辣度", pills(taste.spicyTags, "amber"))) : null,
-      A(taste.avoidTags).length ? h("div", { key: "a" }, tasteRow("忌口", pills(taste.avoidTags, "warn"))) : null,
-      A(taste.likeTags).length ? h("div", { key: "l" }, tasteRow("偏好", pills(taste.likeTags, "good"))) : null,
-      taste.budget ? h("div", { key: "b" }, tasteRow("预算", h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.7, color: TAKE_INK, paddingTop: 4 } }, taste.budget))) : null,
-      taste.habit ? h("div", { key: "h" }, tasteRow("习惯", h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.7, color: TAKE_INK, paddingTop: 4 } }, taste.habit))) : null
-    ]),
-    peekBtn("quiet", T("他的口味"), T("他吃东西的样子"), [A(taste.avoidTags).length ? "忌口：" + A(taste.avoidTags).join("、") : "", taste.habit].filter(Boolean).join("｜"))) : null;
+  // ── 吃这件事上的三问（v59.18）──
+  // 原来这儿是【辣度 / 忌口 / 偏好 / 预算 / 习惯】五行彩色药丸——那是外卖平台的
+  // 「口味画像」表单，换个角色照样成立（她 2026-08-31：「这些 category 还是跟
+  // 另外一个小手机的一模一样」）。改成三问，每一问都得答出这个人才成立：
+  //   嫌什么 → 他嫌它哪一点（不是食材名，是他的挑剔）
+  //   备注写什么 → 每次都要的那句话，是他对陌生人唯一开的口
+  //   什么时候吃 → 几点、饿到什么程度才想起来，连着预算一起说
+  // 字段沿用旧的那几个，老存档照样读得出来。
+  const askRow = (q, node) => h("div", { style: { padding: "16px 0", borderTop: "1px solid #e5ebe9" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginBottom: 9 } }, q),
+    node);
+  const lines = (list, tone) => h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+    A(list).map((x, i) => h("div", { key: i, className: "flex", style: { gap: 9 } },
+      h("span", { style: { width: 5, height: 5, borderRadius: 99, marginTop: 9, flexShrink: 0, background: tone === "warn" ? TAKE_CORAL : TAKE_ACCENT } }),
+      h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.7, color: TAKE_INK, wordBreak: "break-word" } }, x))));
+  // 每次下单都写的那句：从订单/今天的备注里找出现得最多的那一条
+  const stockNote = (function () {
+    const tally = {};
+    const add = t => { const k = String(t || "").trim(); if (k) tally[k] = (tally[k] || 0) + 1; };
+    add(today.note); orders.forEach(o => add(o.note)); live.forEach(x => add(x.note));
+    const keys = Object.keys(tally).sort((a, b) => tally[b] - tally[a]);
+    return keys.length ? { text: keys[0], n: tally[keys[0]] } : null;
+  })();
+  // ⚠️辣度（spicyTags）不显示：它本来就是平台那根「微辣/中辣/特辣」滑杆，
+  // 而且那一栏里既有「偏好微辣」也有「忌死辣」，混进「怎么都不腻的那几样」是错的。
+  const likeAll = A(taste.likeTags);
+  const hasTaste = A(taste.avoidTags).length || likeAll.length || taste.budget || taste.habit || stockNote;
+  const tasteSec = hasTaste ? h("section", { key: "ts" }, secTitle("吃这件事上", "他的挑剔"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "2px 16px 8px", marginBottom: 13 } },
+      A(taste.avoidTags).length ? askRow(T("他嫌什么——不是嫌这样东西，是嫌它哪一点"), lines(taste.avoidTags, "warn")) : null,
+      stockNote ? askRow(T("他每次都写的那句"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.75, color: TAKE_INK } },
+        stockNote.text, stockNote.n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginLeft: 8 } }, "写过 " + stockNote.n + " 次") : null)) : null,
+      likeAll.length ? askRow("怎么都不腻的那几样", lines(likeAll)) : null,
+      (taste.habit || taste.budget) ? askRow("什么时候才想起吃", h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.8, color: TAKE_INK } },
+        [taste.habit, taste.budget].filter(Boolean).join("　"))) : null),
+    peekBtn("quiet", T("他的挑剔"), T("他吃东西的样子"), [A(taste.avoidTags).length ? "嫌：" + A(taste.avoidTags).join("、") : "", stockNote ? "每次都写：" + stockNote.text : "", taste.habit].filter(Boolean).join("｜"))) : null;
   // ── 一周进食轨迹：纵向节奏带，不再做七张横滑日卡 ──
   const weekSec = week.length ? h("section", { key: "wk" }, secTitle("一周进食轨迹", week.length + " 天留下记录"),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "6px 15px", marginBottom: 13 } },
@@ -2551,32 +2565,6 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // ⚠️红包卡券【不画】（她 2026-08-31：「和另一个太像了」）。
   // 那是一张营销位：红底大金额、适用范围、有效期——纯平台部件，换个角色照样成立，
   // 一条关于这个人的东西都读不出来。生成层照旧留着（她定的），只是界面不再摆它。
-  // ── 他写给陌生人的那几句（v59.16 新开）──
-  // 这一栏是【只有我们会有】的那一栏。外卖 app 里备注只是下单表单的一个字段；
-  // 可对这个人来说，那是他对着一个永远不会见面的人打的唯一一句话——写给谁、
-  // 护着谁、怕吵着谁，是三个不同的人。生成层的注释里早就写着「note 那一栏是
-  // 这个 app 的重点」，那就让它真的是重点，别再排在评分和配送方式后面。
-  const noteWall = (function () {
-    const out = [];
-    const push = (text, when, where, from) => {
-      const t = String(text == null ? "" : text).trim();
-      if (!t || out.some(x => x.text === t)) return;
-      out.push({ text: t, when: String(when || "").trim(), where: String(where || "").trim(), from: from });
-    };
-    push(today.note, today.date, today.addrLabel || today.shop, "今天这一顿");
-    live.forEach(it => push(it.note, it.eta, it.shop, "还在路上"));
-    orders.forEach(o => push(o.note, o.time, o.addr || o.shop, o.meal || ""));
-    return out;
-  })();
-  const noteSec = noteWall.length ? h("section", { key: "nw" }, secTitle("写给陌生人的", noteWall.length + " 句"),
-    h("div", { style: { display: "flex", flexDirection: "column", gap: 11, marginBottom: 13 } },
-      noteWall.map((n, i) => h("div", { key: i, style: { background: "#fff", borderRadius: 14, padding: "14px 15px", borderLeft: "3px solid " + TAKE_CORAL } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: TAKE_INK, wordBreak: "break-word" } }, n.text),
-        (n.when || n.where || n.from) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TAKE_DIM, marginTop: 8 } },
-          [n.from, n.when, n.where].filter(Boolean).join(" · ")) : null,
-        h("div", null, peekBtn("quiet", T("他下单时写的"), n.text, [n.from, n.when, n.where].filter(Boolean).join("｜")))))),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.8, color: TAKE_DIM, padding: "0 2px 6px" } },
-      "同样一句话，写给谁、护着谁、怕吵着谁，是三个不同的人。")) : null;
   // ── 收货地址 ──
   const addrSec = addrs.length ? h("section", { key: "ad" }, secTitle("收货地址"),
     card(addrs.map((a, i) => h("div", { key: i, style: { borderRadius: 12, padding: "13px 14px", marginTop: i ? 10 : 0, background: a.isDefault ? "#fffbef" : "#f7f6f3", border: "1px solid " + (a.isDefault ? "#f4e6bb" : "transparent") } },
@@ -2596,8 +2584,11 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       w.when ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#8a847b", background: "#f6f5f2", borderRadius: 9, padding: "9px 12px", marginTop: 9 } }, w.when) : null)),
     ), peekBtn("quiet", T("他想吃的"), wish.map(w => w.title).filter(Boolean).slice(0, 3).join("、"), wish.map(w => (w.title || "") + "（" + (w.when || "") + "）").join("｜"))) : null;
   // ── 饭桌上的人：头像关系列，而不是故事卡片列 ──
-  const togSec = together.length ? h("section", { key: "tg" }, secTitle("饭桌上的人", together.length + " 段关系"),
-    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } }, together.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid #e5ebe9" : "none" } },
+  // ⚠️老存档里同一个人可能用好几个别称各占一条（她 2026-08-31）。存的那一端从
+  // v59.18 起会去重，但已经存下来的那些得在这儿再去一次，不然要等下次刷新才好。
+  const togRows = phoneDedupeByWho(together);   // 同一个文件里，直接调，别绕 window（渲染桩里没有 window）
+  const togSec = togRows.length ? h("section", { key: "tg" }, secTitle("饭桌上的人", togRows.length + " 段关系"),
+    h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } }, togRows.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid #e5ebe9" : "none" } },
       h("div", { className: "flex items-start", style: { gap: 12 } },
         h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(150deg," + cov(i)[0] + "," + cov(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, initial(g.who)),
         h("div", { className: "flex-1 min-w-0" },
@@ -2610,7 +2601,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("吃饭侧写", "不是账单，是节奏"),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "16px", marginBottom: 13 } },
       h("div", { className: "grid", style: { gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 } },
-        [[mealCount, "记下的餐"], [lateCount, "深夜落点"], [together.length, "同桌的人"]].map(([n, label], i) => h("div", { key: label, style: { borderRadius: 13, padding: "12px 8px", background: ["#e7efed", "#f7e9e6", "#e9edf2"][i], textAlign: "center" } },
+        [[mealCount, "记下的餐"], [lateCount, "深夜落点"], [togRows.length, "同桌的人"]].map(([n, label], i) => h("div", { key: label, style: { borderRadius: 13, padding: "12px 8px", background: ["#e7efed", "#f7e9e6", "#e9edf2"][i], textAlign: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: i === 1 ? TAKE_CORAL : TAKE_INK } }, n),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: TAKE_DIM, marginTop: 4 } }, label)))),
       data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#4f5c59", marginTop: 15 } }, data.monthNote) : null,
@@ -2620,10 +2611,11 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 字段仍兼容旧存档，改变的是组合与叙事顺序，不拿改名冒充原创。
   const PAGES = [
     { key: "home", zh: "这一顿", glyph: "takeout", lead: "先看 TA 今天把饭送到哪里、正在等哪一单。", secs: [accCard, todayCard, liveSec], badge: live.length },
-    // ⭐这一档是【只有我们有】的那一档，别跟别的挪位置：备注是这个 app 里唯一
-    // 属于人的东西，忌口也是写给陌生人看的话（「去香菜」本来就是备注）。
-    { key: "said", zh: "写给陌生人", glyph: "notes", lead: "他对着永远不会见面的人打的那几个字，比点了什么更像他。", secs: [noteSec, tasteSec], badge: noteWall.length },
-    { key: "rhythm", zh: "怎么吃", glyph: "health", lead: "七天的节奏和一次次落点，才是 TA 平常怎么照顾自己的。", secs: [weekSec, orderSec, monthSec], badge: orders.length },
+    // ⚠️v59.16 曾经在这儿开过一档「写给陌生人」，把订单里的备注挖出来单独摆一面。
+    // 她当天就报「本质上不就是把怎么吃里面的备注挖出来嘛，有点鸡肋」——对的：
+    // 那不是一栏新东西，是同一份数据换个地方摆第二遍。撤掉，不留着。
+    // 备注该待的地方是它本来那一顿旁边；「他每次都写的那句」抽进了下面那一问。
+    { key: "rhythm", zh: "怎么吃", glyph: "health", lead: "七天的节奏、一次次落点、还有他吃这件事上的挑剔。", secs: [tasteSec, weekSec, orderSec, monthSec], badge: orders.length },
     { key: "people", zh: "和谁吃", glyph: "me", lead: "送到谁那里、和谁一起点过、为什么总回某家店——饭也记得关系。", secs: [togSec, shopSec, wishSec, addrSec] }
   ];
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
@@ -4836,6 +4828,60 @@ function charTa(char) {
 }
 // 给查手机以外、同样需要跟随角色性别的界面复用；不要再各写一份判断表。
 if (typeof window !== "undefined") window.PhonePronoun = { ta: charTa, replace: phoneTa };
+// ── 一个人的好几种叫法（v59.18）─────────────────────────────
+// 她 2026-08-31：「人设里写着 scar 和 prim 是双暗恋，但我建角色时写了 prim 全名，
+// 所以现在查 scar 微信能看到 prim 实时互通的记录，外加一个假的 prim」。
+// 病根：避重是把【真实会话的名字】原样发过去，让模型自己认。可「Prim」和
+// 「Prim Whitlock」在模型眼里就是两个人——它照着人设里的叫法造了第二个。
+// 规则那一层只能降概率，所以这里是【代码这一道】：按叫法归一，撞上的直接丢掉。
+function phoneNameKeys(name) {
+  const raw = String(name == null ? "" : name).trim();
+  if (!raw) return [];
+  const norm = s => String(s).toLowerCase().replace(/[\s·・‧.,'’"“”\-_—/|()（）【】\[\]、]/g, "");
+  const keys = [];
+  const push = k => { if (k && keys.indexOf(k) < 0) keys.push(k); };
+  push(norm(raw));
+  // 全名拆成一段一段：「Prim Whitlock」→ prim / whitlock。
+  // 单字不收——「川」这种谁都能撞上。
+  raw.split(/[\s·・‧.,\-_—/|、]+/).forEach(t => { const k = norm(t); if (k.length >= 2) push(k); });
+  return keys;
+}
+// 两个名字指不指同一个人。
+// 她那个例子（prim / Prim Whitlock）靠的是【拆词后精确相等】，不依赖包含。
+// 包含这一条是给中文两字名用的（「陆闻」vs「陆闻那个嘴碎编修」），但它很危险：
+// 「苏晚」和「苏晚晴」也是包含关系，那是两个人。
+// 判据：**多出来的那截得是一串，不是一个字**——多一个字多半是另一个名字，
+// 多好几个字才像是在本名后头挂了个称呼／头衔。所以要求长的比短的多 ≥2 个字。
+function phoneSamePerson(a, b) {
+  const ka = phoneNameKeys(a), kb = phoneNameKeys(b);
+  if (!ka.length || !kb.length) return false;
+  return ka.some(x => kb.some(y => {
+    if (x === y) return true;
+    const lo = x.length <= y.length ? x : y, hi = x.length <= y.length ? y : x;
+    return lo.length >= 2 && hi.length - lo.length >= 2 && hi.indexOf(lo) >= 0;
+  }));
+}
+// 微信刷回来之后：跟【已经有真实记录的那个人】撞车的假联系人／假私聊，一律丢掉。
+// taken＝那些人的名字（真实会话名 + 对应角色卡的本名和备注）。
+function phoneDropDupWechat(d, taken) {
+  if (!d || typeof d !== "object") return d;
+  const names = (Array.isArray(taken) ? taken : []).map(x => String(x || "").trim()).filter(Boolean);
+  if (!names.length) return d;
+  const dup = n => names.some(t => phoneSamePerson(n, t));
+  const out = Object.assign({}, d);
+  if (Array.isArray(d.contacts)) out.contacts = d.contacts.filter(c => !(c && dup(c.name)) && !(c && dup(c.remark)));
+  // 群聊不管：一个群里当然可以有已经认识的人，重的只可能是【私聊】。
+  if (Array.isArray(d.chats)) out.chats = d.chats.filter(c => !(c && c.type !== "group" && dup(c.name)));
+  return out;
+}
+// 同一个人别用好几个别称各占一条（她 2026-08-31：「饭桌上的人有时候是同一个人
+// 好几个别称」）。留先出现的那条——列表本来就按分量排。
+function phoneDedupeByWho(list) {
+  const rows = (Array.isArray(list) ? list : []).filter(x => x && typeof x === "object");
+  const out = [];
+  rows.forEach(r => { if (!out.some(k => phoneSamePerson(k.who, r.who))) out.push(r); });
+  return out;
+}
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
@@ -5077,4 +5123,9 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
 // phoneProbeSpec 也导出：测试该核【拼出来的那份提示词】，不是核源码里的字符串——
 // 源码里一句话常被 + 断成好几段，照着源码写断言既难写又冻长相。
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec };
+// 浏览器里没有 module，用一个全局挂出去给 app.js 调（跟 IfKit / GachaKit 一个叫法）
+if (typeof window !== "undefined") window.PhoneKit = {
+  nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
+  dropDupWechat: phoneDropDupWechat, dedupeByWho: phoneDedupeByWho
+};
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDedupeByWho };

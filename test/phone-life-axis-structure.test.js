@@ -16,13 +16,13 @@ test("购物按角色的眼下、留下、取舍重组，不复刻标准电商�
 });
 
 test("外卖按角色生活分档，不逐项照平台栏目分仓", () => {
-  assert.match(takeout, /zh: "这一顿"[\s\S]*zh: "写给陌生人"[\s\S]*zh: "怎么吃"[\s\S]*zh: "和谁吃"/);
+  assert.match(takeout, /zh: "这一顿"[\s\S]*zh: "怎么吃"[\s\S]*zh: "和谁吃"/);
   assert.doesNotMatch(takeout, /zh: "点餐"[\s\S]*zh: "订单"[\s\S]*zh: "口味"[\s\S]*zh: "我的"/);
   // ⚠️别把 secs 数组【逐字冻死】：往里加一档或挪一个 section 这条就红，
   // 而它想验的「不是平台那四栏」根本没坏。只核每一档里该有的那几样在不在。
   const seg = k => takeout.slice(takeout.indexOf('key: "' + k + '"'), takeout.indexOf("\n", takeout.indexOf('key: "' + k + '"')));
   ["accCard", "todayCard", "liveSec"].forEach(x => assert.ok(seg("home").indexOf(x) > 0, "这一顿少了 " + x));
-  ["weekSec", "orderSec", "monthSec"].forEach(x => assert.ok(seg("rhythm").indexOf(x) > 0, "怎么吃少了 " + x));
+  ["tasteSec", "weekSec", "orderSec", "monthSec"].forEach(x => assert.ok(seg("rhythm").indexOf(x) > 0, "怎么吃少了 " + x));
   ["togSec", "shopSec", "wishSec", "addrSec"].forEach(x => assert.ok(seg("people").indexOf(x) > 0, "和谁吃少了 " + x));
 });
 
@@ -36,11 +36,23 @@ test("平台部件不画，改画只有我们会有的那一栏", () => {
   // 红包卡券整栏不再摆（生成层留着，所以只查界面这一端）
   assert.ok(takeout.indexOf("couponSec") < 0, "卡券那一栏还在界面上");
   assert.match(ph, /coupons 红包卡券/, "生成层的卡券被一起删了——她要的是只砍显示");
-  // 备注墙：外卖 app 里备注只是表单的一个字段，对这个人是他唯一说出口的那句话
-  assert.match(takeout, /const noteWall = \(function \(\)/, "没有备注墙");
-  assert.match(takeout, /secTitle\("写给陌生人的"/, "备注墙没标题");
-  assert.match(takeout, /push\(today\.note[\s\S]*live\.forEach[\s\S]*orders\.forEach/, "三处的备注没都收进来");
-  assert.match(takeout, /out\.some\(x => x\.text === t\)/, "同一句备注会重复摆好几遍");
+  // ⚠️v59.16 曾经把订单里的备注挖出来单独摆一面「写给陌生人」。她当天就报
+  // 「本质上不就是把怎么吃里面的备注挖出来嘛，有点鸡肋」——那不是一栏新东西，
+  // 是同一份数据换个地方摆第二遍。撤掉了，这里钉住别再长回来。
+  // ⚠️剥掉注释行再核：phone.js 里那条说明本身就写着「写给陌生人」，不剥会撞自己
+  const bare = takeout.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(bare.indexOf("const noteWall") < 0, "备注墙又长回来了");
+  assert.ok(bare.indexOf("写给陌生人") < 0, "那一档又长回来了");
+  // 「他每次都写的那句」是【算出来的】（挑出现得最多的那条），不是把备注原样再列一遍
+  assert.match(takeout, /const stockNote = \(function \(\)/, "没算出「每次都写的那句」");
+  assert.match(takeout, /Object\.keys\(tally\)\.sort\(\(a, b\) => tally\[b\] - tally\[a\]\)/, "没按出现次数挑");
+  // 口味那五行（辣度/忌口/偏好/预算/习惯）是外卖平台的口味画像表单
+  assert.ok(takeout.indexOf('tasteRow("辣度"') < 0, "还在按平台那张口味画像表分行");
+  assert.match(takeout, /secTitle\("吃这件事上", "他的挑剔"\)/, "口味那栏没换成我们的问法");
+  assert.match(takeout, /他嫌什么——不是嫌这样东西，是嫌它哪一点/, "没问到点子上");
+  // 饭桌上的人：同一个人别用好几个别称各占一条
+  assert.match(takeout, /const togRows = phoneDedupeByWho\(together\)/, "渲染这一端没去重");
+  assert.ok(takeout.indexOf("together.length + \" 段关系\"") < 0, "计数还用没去重的那份");
 });
 
 test("外卖四块使用各自的阅读结构，而不是参考稿的黄卡片模板", () => {

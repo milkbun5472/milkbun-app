@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.17";
+const APP_VERSION = "v59.18";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9308,10 +9308,34 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     sessions.push(...spectatePrivateByPair.values());
     return sessions.sort((a, b) => (b.ts || 0) - (a.ts || 0));
   };
+  // 已经有真实私聊记录的那几个人，连同他们在角色卡上的别名。
+  // 她 2026-08-31：「人设里写着 scar 和 prim 是双暗恋，但我建角色时写了 prim 全名，
+  // 所以现在查 scar 微信能看到 prim 实时互通的记录，外加一个假的 prim」——
+  // 避重原来只发会话名，「Prim」和「Prim Whitlock」在模型眼里就是两个人。
+  const phoneTakenNames = char => {
+    const out = [];
+    const add = v => { const t = String(v || "").trim(); if (t && out.indexOf(t) < 0) out.push(t); };
+    phoneWechatActual(char).forEach(c => {
+      if (c.type === "group") return;   // 群不算：一个群里当然可以有认识的人
+      add(c.name);
+      // 会话名对得上哪个角色卡，就把那张卡上的所有叫法一起收进来
+      (characters || []).forEach(o => {
+        if (!o || o.id === char.id) return;
+        if (window.PhoneKit && window.PhoneKit.samePerson(c.name, o.name)) { add(o.name); add(o.remark); }
+        else if (o.remark && window.PhoneKit && window.PhoneKit.samePerson(c.name, o.remark)) { add(o.name); add(o.remark); }
+      });
+    });
+    return out;
+  };
   const phoneWechatDigest = char => {
     const actual = phoneWechatActual(char);
     if (!actual.length) return "目前没有可用的真实聊天。";
-    return "【真实已有会话，先阅读，只能避重、不得改写】\n" + actual.slice(0, 8).map(c => "- " + (c.type === "group" ? "群聊" : "私聊") + "「" + c.name + "」\n" + c.messages.map(m => "  " + m.from + "：" + m.text).join("\n")).join("\n");
+    const taken = phoneTakenNames(char);
+    return "【真实已有会话，先阅读，只能避重、不得改写】\n" + actual.slice(0, 8).map(c => "- " + (c.type === "group" ? "群聊" : "私聊") + "「" + c.name + "」\n" + c.messages.map(m => "  " + m.from + "：" + m.text).join("\n")).join("\n")
+      + (taken.length ? "\n⚠️**这几个人他手机里已经有了：" + taken.join("、") + "。**"
+        + "不管你想用哪个名字称呼他们（全名、小名、人设里那种叫法、外号），"
+        + "**都不许再给他们新建一个联系人或一段私聊**——那会变成同一个人在他手机里出现两次。"
+        + "他们要出现，就出现在上面那几段真实记录里。" : "");
   };
   // 刷新是【整份覆盖】某个 app，旧痕迹本来就没了，时间线于是只剩当前快照。
   // 所以覆盖之前先把旧那份抽成时间线条目归档起来（她 2026-08-29 一眼看出来的）。
@@ -9332,6 +9356,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     } catch (e) { /* 归档失败就算了，不影响这次刷新 */ }
   };
   const savePhoneApp = (charId, key, d) => {
+    // ⚠️规则降概率，代码才保证：提示词里已经把「这几个人已经有了」连别名一起发回去了，
+    // 但模型换个叫法照样能造出第二个。这里按叫法归一，撞上的直接丢掉。
+    if (key === "wechat" && window.PhoneKit) {
+      const c0 = (characters || []).find(x => x.id === charId);
+      if (c0) { try { d = window.PhoneKit.dropDupWechat(d, phoneTakenNames(c0)); } catch (e) {/* 去重失败不连累刷新 */} }
+    }
+    // 饭桌上的人：同一个人别用好几个别称各占一条（她 2026-08-31）
+    if (key === "takeout" && window.PhoneKit && d && Array.isArray(d.together)) {
+      try { d = { ...d, together: window.PhoneKit.dedupeByWho(d.together) }; } catch (e) {}
+    }
     archivePhoneApp(charId, key, ((phonesRef.current || {})[charId] || {})[key]);
     // 购物/外卖刷完：核一次最近 30 天的账（漏扣的补上、取消的退回来）。
     // 放进 setTimeout 是为了让 setPhones 先落地——核账读的是 phonesRef。
