@@ -254,21 +254,60 @@
     let hit = 0; for (const ch of b) if (set[ch]) hit++;
     return hit / Math.max(a.length, b.length);
   };
+  const worldNodeNames = function (world) {
+    const out = [];
+    ((world && world.regions) || []).forEach(function (r) {
+      ((r && r.nodes) || []).forEach(function (n) {
+        const nm = String((n && n.name) || "").trim();
+        if (nm) out.push(nm);
+      });
+    });
+    return out;
+  };
+  const bestNode = function (names, text, floor) {
+    let best = null, score = floor;
+    names.forEach(function (nm) { const sc = zhOverlap(nm, text); if (sc > score) { score = sc; best = nm; } });
+    return best;
+  };
+  // 他此刻在图上的哪一点。
+  //
+  // ⚠️她 2026-08-31 报「王爷一直在王府不动了，但是明明显示他应该在别的地方」。
+  // 三个毛病叠在一起：
+  //  ① 原来【只】跟 route.places 那张表对，而那张表是【开世界那天】模型给的一次性映射
+  //     （「搜查厢房→东跨院」这种）。行程天天新生成，doing 对不上，就永远退回落脚点。
+  //  ② 从来没拿【行程里的地点名】直接去对图上的节点——那才是最直接、也最稳的一条，
+  //     而且完全不受那张冻住的表影响。
+  //  ③ 把 title 和 location 拼成一句再比。zhOverlap 的分母是较长那个，拼长了只会
+  //     互相稀释：本来对得上的也掉到门槛以下。
   function liveNodeOf(world, char, st) {
     const pinned = (world.pins || {})[char.id] || "";
+    if (!st) return { node: pinned, live: false };
+    const names = worldNodeNames(world);
+    const loc = String(st.location || "").trim();
+    const title = String(st.title || "").trim();
+    // ① 行程写了地点，直接拿地点名对节点名
+    let hit = loc ? bestNode(names, loc, 0.34) : null;
+    // ② 有些行程把地点写在标题里（「回王府用饭」），标题再对一次；
+    //    标题噪音多（动词、人名都在里头），门槛抬高，免得随便撞上一个节点
+    if (!hit && title) hit = bestNode(names, title, 0.5);
+    // 标题本来就常以「在」开头（「在城南茶楼见人」），不去掉就成了「此刻在在城南…」
+    if (hit) return { node: hit, live: true, why: "此刻在" + String(title || loc).replace(/^在/, "") };
+    // ③ 兜底：开世界那天那张「他会去哪儿」的小表。分开比、取高的，不拼在一起
     const r = (world.route || {})[char.id];
-    if (!r || !st) return { node: pinned, live: false };
-    const what = [st.title, st.location].filter(Boolean).join(" ");
-    let best = null, score = 0.34;               // 低于这个就算没对上
-    (r.places || []).forEach(function (q) {
-      const sc = zhOverlap(q.doing, what);
-      if (sc > score) { score = sc; best = q.node; }
-    });
-    if (best) return { node: best, live: true, why: "此刻" + (st.title ? "在" + st.title : "") };
-    // 睡觉/休息那几段没写进表里也认得出：回家
-    if ((st.type === "sleep" || st.type === "rest") && r.home) return { node: r.home, live: true, why: "回去歇着了" };
-    return { node: pinned, live: false };
+    if (r) {
+      let best = null, score = 0.34;
+      (r.places || []).forEach(function (q) {
+        const sc = Math.max(zhOverlap(q.doing, title), loc ? zhOverlap(q.doing, loc) : 0);
+        if (sc > score) { score = sc; best = q.node; }
+      });
+      if (best) return { node: best, live: true, why: "此刻" + (title ? "在" + title : "") };
+      if ((st.type === "sleep" || st.type === "rest") && r.home) return { node: r.home, live: true, why: "回去歇着了" };
+    }
+    // ④ 行程明明写着他在某处、图上却没有这个地方——这就是她看到的那个样子。
+    //    把它说出来（miss），别默默退回落脚点让人以为是坏了。
+    return { node: pinned, live: false, miss: loc || title || "" };
   }
+
 
   // 一个世界的舆图：满屏 SVG，可拖可捏；角色钉在节点上，头像贴着那个点
   function WorldMap({ world, characters, status, me, busy, onPin, onAdd, onGen, onBack, onEdit }) {
@@ -376,7 +415,11 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: here ? "rgba(255,255,255,0.8)" : t.fog, lineHeight: 1.5 } },
                   c.__me ? (here ? "你在这儿" : other ? "你在「" + w.node + "」" : "你还没进这个世界")
                     : here ? (w.live ? (w.why || "此刻在这儿") + "（跟着今天的行程走）" : ((world.why || {})[c.id] || "就在这儿"))
-                    : other ? (w.live ? "此刻在「" + w.node + "」" : "落脚在「" + w.node + "」") : "还没落脚在这个世界里")),
+                    : other ? (w.live ? "此刻在「" + w.node + "」" : "落脚在「" + w.node + "」") : "还没落脚在这个世界里"),
+                // 行程说他在某处、图上却没有那个地方——不说的话看起来就是「人不动了」。
+                // 说出来，顺手指向右上角那个加地点
+                w.miss ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: here ? "rgba(255,255,255,0.9)" : t.accent, lineHeight: 1.5, marginTop: 2 } },
+                  "行程说他在「" + w.miss + "」，这张图上还没有——右上角可以加一个") : null),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: here ? "rgba(255,255,255,0.85)" : t.tint, flexShrink: 0 } },
                 (pins[c.id] === sel.name) ? "挪走" : "钉过来"));
           })))) : null;
