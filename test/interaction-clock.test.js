@@ -33,9 +33,13 @@ test("正在共同群聊或八小时内未结束的群线下，会硬拦主动�
   assert.equal(Clock.isTogetherNow("a", { groups, groupOfflines: { g1: [{ startTs: 1, endTs: null }] } }, 9 * 60 * 60 * 1000), false);
   assert.equal(Clock.isTogetherNow("z", { groups, activeGroupId: "g1" }, 1000), false);
 });
+// 这条钉的是【没改的文件别跟着发版号乱升指纹】。所以每次真改了这个文件，
+// 这个数就要跟着挪一次——它不是常数，是「上一次真改动是哪一版」的记录。
+// 51.97 → 58.80：v58.80 加了 offlineSceneLive（群线下还在演时，同一个群的线上
+// 不许自发；见 group-auto-chat-rounds 里那三条）。
 test("页面继续加载未改动的用户跨场景钟缓存指纹", () => {
   const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
   const clockVersion = html.match(/interaction-clock\.js\?v=([^"]+)/);
   assert.ok(clockVersion);
-  assert.equal(clockVersion[1], "51.97", "未改文件不要跟随 App 发布号乱升指纹");
+  assert.equal(clockVersion[1], "58.80", "未改文件不要跟随 App 发布号乱升指纹；真改了就把这个数一起挪，并在上面写清哪一版为什么改");
 });

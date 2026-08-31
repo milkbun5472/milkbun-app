@@ -7475,7 +7475,7 @@ function OfflineMode({
 
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : { background: t.bg } },
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
@@ -7621,6 +7621,47 @@ function SelfieBubble({ m }) {
   if (m.imgKey) return note("图加载中…还看不到就是没存住");
   return note("没拿到图");
 }
+// ---- 线下这一层的纸与光（她 2026-08-31：「纯色框配纯色背景，太单调」）----
+// 单调的根子不在框素不素，在【旁白、角色、我】被画成了同一个盒子——一屏下来
+// 十几个一模一样的方块，再给每个盒子加花纹也还是十几个一样的东西。
+// 所以这一版做的是【把三种东西分开】：
+//   · 旁白 = 舞台提示，不给框。短的居中当场次标题，长的靠左走一道细竖线，像剧本里的动作说明。
+//   · 角色 = 一张纸：左边一道说话人本人的颜色，纸面一层顶光，底下一点影。
+//   · 我   = 同一张纸，颜色换成主题强调色，纸再浅一档，一眼分得出哪边是自己。
+// 颜色全部从主题里长出来（accent/tint/bg），她换任何皮肤都跟着走，不写死。
+const offDark = t => (typeof skinIsDark === "function" ? skinIsDark(t.bg || "#fff") : false);
+const offA = (hex, a) => {
+  const v = String(hex || "").replace("#", "");
+  if (v.length < 6) return "rgba(120,110,100," + a + ")";
+  return "rgba(" + parseInt(v.slice(0, 2), 16) + "," + parseInt(v.slice(2, 4), 16) + "," + parseInt(v.slice(4, 6), 16) + "," + a + ")";
+};
+// 没有背景图时的场景底：两团从主题色里透上来的光 + 一层极细的斜纹。
+// 有背景图那一路不动——那是她自己选的图，不该被我压一层东西上去。
+function offSceneBg(t) {
+  const d = offDark(t);
+  return {
+    backgroundColor: t.bg,
+    backgroundImage: [
+      "radial-gradient(125% 70% at 50% -12%, " + (d ? "rgba(255,255,255,.05)" : "rgba(255,255,255,.8)") + ", transparent 62%)",
+      "radial-gradient(85% 52% at 4% 102%, " + offA(t.tint, d ? 0.13 : 0.11) + ", transparent 66%)",
+      "radial-gradient(72% 46% at 102% 86%, " + offA(t.accent, d ? 0.11 : 0.09) + ", transparent 68%)",
+      "repeating-linear-gradient(102deg, " + (d ? "rgba(255,255,255,.014)" : "rgba(70,58,44,.016)") + " 0 1px, transparent 1px 4px)"
+    ].join(", ")
+  };
+}
+function offCardSkin(t, accent) {
+  const d = offDark(t);
+  return {
+    backgroundColor: t.bg2,
+    backgroundImage: "linear-gradient(176deg, " + (d ? "rgba(255,255,255,.055)" : "rgba(255,255,255,.85)") + ", rgba(255,255,255,0) 60%)",
+    borderRadius: 16,
+    border: "1px solid " + t.line,
+    borderLeft: "3px solid " + offA(accent, d ? 0.62 : 0.5),
+    boxShadow: d ? "0 6px 18px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.06)"
+                 : "0 5px 16px rgba(62,52,40,.07), inset 0 1px 0 rgba(255,255,255,.9)",
+    padding: "14px 16px"
+  };
+}
 function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
@@ -7647,7 +7688,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
   // 线下当场拍下来的那一格（她 2026-08-29 要的合照）。和线上单聊同一个气泡组件，
   // 只是外面套的是线下这张卡：有头像、有名字、有时间、能删。
   if (m.kind === "selfie") return h("div", { className: "my-2.5" },
-    h("div", { style: { background: t.bg2, borderRadius: 16, padding: "14px 16px", border: "1px solid " + t.line } },
+    h("div", { style: offCardSkin(t, (spk && spk.color) || t.tint) },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         spk ? h(Avatar, { character: spk, size: 28, radius: 14 }) : null,
         h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub } },
@@ -7667,15 +7708,25 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, onEdit, onReroll, o
       h("button", { onClick: () => { setEditing(false); setTxt(m.content || ""); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"),
       h("button", { onClick: () => { onEdit(m.id, txt.trim() || m.content); setEditing(false); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, fontWeight: 600 } }, "保存")));
   if (isNarr) {
-    return h("div", { className: "my-2.5" }, h("div", { style: { background: t.bg2, borderRadius: 16, border: `1px dashed ${t.line}`, padding: "13px 16px" } },
-      h("div", { className: "flex items-center justify-between mb-1.5" }, timeEl || h("span"), editable ? actions : null),
-      editing ? editBox : h("div", { className: "text-center", style: { fontFamily: F_BODY, fontSize: 13, fontStyle: "italic", lineHeight: 1.75, color: t.fog } }, m.content)));
+    // 旁白是舞台提示，不是一句话。短的居中当场次标题（左右各一道细线），
+    // 长的靠左走一道竖线——居中的长段落读起来最累，那是原来最扎眼的地方。
+    const nText = String(m.content || "").trim();
+    const nShort = nText.length <= 34;
+    const rule = () => h("span", { className: "flex-1", style: { height: 1, background: "linear-gradient(90deg, transparent, " + offA(t.tint, offDark(t) ? 0.55 : 0.42) + ", transparent)" } });
+    const head = (editable || timeEl) ? h("div", { className: "flex items-center justify-end gap-3", style: { marginBottom: 4 } }, timeEl || null, editable ? actions : null) : null;
+    if (editing) return h("div", { className: "my-3" }, head, editBox);
+    return h("div", { className: "my-3.5" }, head,
+      nShort
+        ? h("div", { className: "flex items-center gap-3" }, rule(),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: t.fog, whiteSpace: "nowrap" } }, nText), rule())
+        : h("div", { style: { borderLeft: "2px solid " + offA(t.tint, offDark(t) ? 0.5 : 0.38), paddingLeft: 13, margin: "0 4px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontStyle: "italic", lineHeight: 1.9, color: t.fog, whiteSpace: "pre-wrap" } }, nText)));
   }
   return h("div", { className: "my-2.5" },
     // 思考链画在这一拍的【上面】，和单聊同一个位置、同一个组件：一行字加箭头，没有框。
     // 她 2026-08-27 看别家线下也有，问怎么弄的——线下以前压根没要过这个字段（v56.75）。
     (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m }) : null,
-    h("div", { style: { background: t.bg2, borderRadius: 16, padding: "14px 16px", border: `1px solid ${t.line}` } },
+    h("div", { style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
       h("div", { className: "flex items-center gap-2.5 mb-2.5" },
         isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? (onOpenState ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
         h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
@@ -7998,7 +8049,7 @@ function GroupOfflineMode({
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, left ? "还会影响接下来 " + left + " 轮" : "已结束 · 下轮不再注入")),
         onDeleteNote && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
     }));
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : { background: t.bg } },
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : t.bg2, backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),
       h("button", { onClick: () => setModeOpen(true), className: "flex-1 text-center active:opacity-60" },
