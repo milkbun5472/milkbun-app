@@ -5402,7 +5402,7 @@ function anonNightBg() {
 }
 // 匿名问答正门：全角色聚合。详情仍复用原来的单角色匿名主页，旧 x_anon 数据原样沿用。
 // 布局遵守 mobile-ui-layout：紧凑顶栏 + 唯一主滚动容器；滚动位置离开后可恢复。
-function AnonHub({ characters, data, busy, onOpen, onBack }) {
+function AnonHub({ characters, data, busy, poolCount, onBrew, onOpen, onBack }) {
   const t = useTheme();
   const A = ANON_INK;
   const scrollRef = useRef(null);
@@ -5423,7 +5423,14 @@ function AnonHub({ characters, data, busy, onOpen, onBack }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: A.fog, marginTop: 1 } }, "ANONYMOUS Q&A")),
       h("div", { style: { width: 19 } })),
     h("div", { ref: scrollRef, onScroll: function (e) { sessionStorage.setItem("x_anonHubScroll", String(e.currentTarget.scrollTop || 0)); }, className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: A.sub, marginBottom: 16 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: A.sub, marginBottom: 12 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "11px 13px", borderRadius: 14, background: A.card, border: `1px solid ${A.line}` } },
+        h("div", { className: "min-w-0 flex-1" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: A.ink } }, "匿名题库 · 还剩 " + (poolCount || 0) + " 条"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, lineHeight: 1.55, color: A.fog, marginTop: 2 } },
+            "写这些问题的人不知道会是谁收到——所以它问不出你的身份，也没法照着答案倒着编。抽空了会自己补。")),
+        h("button", { onClick: onBrew, disabled: busy, className: "shrink-0 active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 11.5, color: A.ink, border: `1px solid ${A.line}`, borderRadius: 999, padding: "6px 13px", opacity: busy ? .5 : 1 } }, busy ? "…" : "攒一批")),
       rows.length ? h("div", { className: "grid grid-cols-2 gap-3" }, rows.map(function (row) {
         const r = row.latest;
         return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: `1px solid ${A.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },

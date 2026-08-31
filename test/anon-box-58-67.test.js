@@ -10,7 +10,8 @@ const grab = (src, a, b, cap) => {
   return src.slice(i, j);
 };
 const box = grab(comp, "function AnonBox({", "\n}\n// 转账卡片", 16000);
-const net = grab(app, "  const genNetizenQ = async char => {", "  // 我问的:先【放进箱子】", 6000);
+const net = grab(app, "  const genNetizenQ = async char => {", "  // 我问的:先【放进箱子】");
+const brew = grab(app, "  const brewAnonPool = async (cur, quiet) => {", "  const refillAnonPool = async () => {");
 
 // ── ④ 我可以一次性放几条下去，等我按调用他再一次性看 ──────────────────────
 test("写一条只是放进箱子，一分钱不花", () => {
@@ -63,63 +64,70 @@ test("追问接着某一条，同样先进箱子", () => {
   assert.match(box, /\(!r\.pending && !r\.skip && r\.a\) \?/, "还没答/没答的也给了追问按钮");
 });
 
-// ── ⑤ 网友:两枪,而且写问题那一枪什么都不知道 ────────────────────────────
+// ── ⑤ 网友:出题在总库那一枪,跟任何角色都无关;开箱只花一次调用 ──────────
 // 她 2026-08-30 第二轮:「这问题还是带着答案去问的,而且网友也不应该知道他是谁吧」
-// 一枪打完必然两个病:写问题的那个「网友」吃的是完整人设(于是问出「工科楼五楼那个哥们」),
-// 而且它会先想好答案再倒推问题。光在提示词里写「你不知道他是谁」只是降概率——
-// 上下文里摆着人设它就是会漏。所以必须【两次调用,喂的东西不一样】。
-test("写问题那一枪不带任何上下文——它没有的东西就漏不出来", () => {
-  assert.ok(!/runProbe\([^)]*ctxFor/.test(net.slice(0, net.indexOf("第二枪"))), "写问题那一枪还在走带 bundle 的 runProbe");
-  assert.match(net, /const rawQ = await callAI\(apiFor\(char\.id\), askSys/, "写问题没有单独一次裸调用");
-  const ask = net.slice(net.indexOf("const askSys ="), net.indexOf("const rawQ ="));
-  assert.ok(!/char\.name/.test(ask), "把他的真名递给网友了——那网友当然知道他是谁");
-  assert.ok(!/ctxFor|buildBundle|persona/.test(ask), "写问题那一枪混进了人设");
-  // 陌生人只看得见这三样
-  assert.match(ask, /网名:/);
-  assert.match(ask, /box\.bio/);
-  assert.match(ask, /pastQ/, "以前问过的没递过去，会一直重复问");
-  assert.ok(!/r\.a/.test(ask), "把以前的答案也递给网友了，又能从答案倒推");
+// Codex 同日指出:同一次推理里模型从头就看得见完整人设,「先写问题后写回答」只是
+// 降概率。v58.69 拆成两枪解决了隔离,但每封信两次调用;这一版把出题【提前备货】——
+// 全院共用一总库,出题那一枪连网名签名都不给,日常开箱回到一次调用。
+test("出题那一枪不认识任何人——连网名签名都不给,它没有的东西就漏不出来", () => {
+  const body = brew.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(!/runProbe|ctxFor\(|buildBundle|persona/.test(body), "出题混进了角色上下文");
+  assert.ok(!/\bchar\b|characters|profile|netname|\.bio/.test(body), "把某个角色/他的网名签名递给出题那一枪了");
+  assert.match(brew, /await callAI\(active, sys/, "出题不是裸调用");
+  assert.match(brew, /maxTokens: 65535/, "天花板没给满");
 });
 
-test("提示词里把「不许猜身份」写死", () => {
-  const ask = net.slice(net.indexOf("const askSys ="), net.indexOf("const rawQ ="));
-  ["真名", "职业", "住在哪", "不许猜", "不许暗示你认识他"].forEach(k =>
-    assert.ok(ask.includes(k), "没挡住这一项：" + k));
-  assert.match(ask, /听说你们XX的人如何如何/, "没挡住「听说你们XX的人」那种按行业下的假设");
-  assert.match(ask, /你写的时候并不知道他会怎么答/, "没挑明「不许从答案倒推」");
+test("提示词里把「不许猜身份」「不许从答案倒推」都写死", () => {
+  ["男女", "做什么的", "住在哪", "不许猜", "不许暗示你认识他"].forEach(k =>
+    assert.ok(brew.includes(k), "没挡住这一项：" + k));
+  assert.match(brew, /听说你们XX的人如何如何/, "没挡住按行业下的假设");
+  assert.match(brew, /并不知道他会怎么答/, "没挑明不许从答案倒推");
+  assert.match(brew, /换个人来答就会答成另一个样子的/, "没给出「这题算不算写好了」的判据");
+  assert.match(brew, /【库里已经有这些了/, "没把已有的递回去,会越攒越重复");
 });
 
-test("第二枪才是他，问题已经写死，倒推不了", () => {
-  const ans = net.slice(net.indexOf("// 第二枪"));
-  assert.match(ans, /runProbe\(apiFor\(char\.id\), ctxFor\(char\)/, "答的那一枪没带上下文");
-  assert.match(ans, /qs\.map\(\(q, i\) => \(i \+ 1\) \+ "\. " \+ q\)/, "没把写死的问题递过去");
-  assert.match(ans, /问偏了、问得莫名其妙、或者建立在一个错的前提上/, "没允许他直接说「不是这样」——陌生人本来就会问错");
-  assert.match(ans, /不是每条都得答/);
-  // 答案按顺序配回问题；模型少答几条，那几条就是空答案，不许张冠李戴
+test("摇三颗骰子:谁在问 × 想撬什么 × 怎么开口", () => {
+  const shape = grab(app, "  const ANON_ASKER_SHAPE = [", "  ];", 1600);
+  assert.ok((shape.match(/"/g) || []).length / 2 >= 10, "第三颗骰子的面太少");
+  // prompt-no-content-samples.md：只许写形状，不许塞例句
+  assert.ok(!/[？?]"/.test(shape), "第三颗骰子里塞了例句,整批会照着那个句式长");
+  ["ANON_ASKER_TONE", "ANON_ASKER_ANGLE", "ANON_ASKER_SHAPE"].forEach(k =>
+    assert.ok(brew.indexOf("anonDraw(" + k + ", n)") > 0, "出题时没摇这一颗：" + k));
+  // 一批 36 题、池子才十来面——必须能摇满,而且是再洗一副,不是随机重复
+  assert.match(app, /while \(out\.length < n\) \{/, "anonDraw 摇不满一批的量");
+  assert.match(brew, /const n = ANON_POOL_BATCH;/);
+});
+
+test("开箱:库存够就一次调用都不花在出题上", () => {
+  assert.match(net, /if \(avail\.length < Math\.max\(n, ANON_POOL_LOW\)\) \{ pool = await brewAnonPool\(pool, true\); avail = pool\.filter\(q => !asked\[q\]\); \}/,
+    "不是「不够了才补」——那就回到每封信两次调用了");
+  assert.match(net, /const qs = anonDraw\(avail, Math\.min\(n, avail\.length\)\);/, "没从库里抽题");
+  assert.match(net, /saveAnonPool\(pool\.filter\(q => !taken\[q\]\)\)/, "抽走的没从总库划掉,会一直抽到同几条");
+  // 划账必须在答完【之后】：抽完就划,答的那一枪一失败,那几条题就白白没了
+  assert.ok(net.indexOf("pAnon(char.id, cur => (") < net.indexOf("saveAnonPool(pool.filter"), "先划账后作答——失败一次就丢题");
+  assert.match(net, /\(box\.records \|\| \[\]\)\.forEach\(r => \{ if \(r\.q\) asked\[r\.q\] = 1; \}\)/, "同一个箱子问过的题还会再抽一遍");
+  assert.match(app, /localStorage\.getItem\("x_anonPool"\)|loadJSON\("x_anonPool"/, "题库没存盘");
+  assert.match(app, /const ANON_POOL_CAP = 150;[\s\S]{0,400}list\.slice\(0, ANON_POOL_CAP\)/, "库存没有上限,会越攒越大");
+});
+
+test("答的那一枪才带上下文,问题已经写死,倒推不了", () => {
+  assert.match(net, /runProbe\(apiFor\(char\.id\), ctxFor\(char\)/, "答的那一枪没带上下文");
+  assert.match(net, /qs\.map\(\(q, i\) => \(i \+ 1\) \+ "\. " \+ q\)/, "没把抽到的题递过去");
+  assert.match(net, /问偏了、问得莫名其妙、或者建立在一个错的前提上/, "没允许他直接说「不是这样」——陌生人本来就会问错");
+  assert.match(net, /不是每条都得答/);
+  const ansCode = net.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
+  assert.ok(!/maxTokens/.test(ansCode), "又把答的那一枪的天花板写死了——runProbe 默认就是满的");
   assert.match(net, /const it = outs\[i\] \|\| \{\};/, "答案没按顺序对回问题");
   assert.match(net, /qs\.map\(\(q, i\) => \{/, "记录该以问题为准生成");
 });
 
-test("一次多来几条，天花板不再压着", () => {
-  assert.match(net, /const n = 5 \+ Math\.floor\(Math\.random\(\) \* 3\);/, "一次的条数没放大");
-  assert.match(net, /maxTokens: 65535/, "写问题那一枪的天花板没给满");
-  const ansCode = net.slice(net.indexOf("// 第二枪")).split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-  assert.ok(!/maxTokens/.test(ansCode), "答的那一枪又把天花板写死了——runProbe 默认就是满的");
-  const eng = fs.readFileSync(path.join(__dirname, "..", "js", "engine.js"), "utf8");
-  assert.match(eng, /const want = probe\.maxTokens \|\| \(window\.StylePresets && window\.StylePresets\.OUT_CEILING\) \|\| 65535;/);
-});
-
-test("网友是谁由客户端掷骰，不把「问什么」全交给模型", () => {
-  const tone = grab(app, "  const ANON_ASKER_TONE = [", "  ];", 1600);
-  const angle = grab(app, "  const ANON_ASKER_ANGLE = [", "  ];", 1200);
-  assert.ok((tone.match(/"/g) || []).length / 2 >= 8, "立场太少，掷不出花样");
-  assert.ok((angle.match(/"/g) || []).length / 2 >= 10, "方向太少");
-  // prompt-no-content-samples.md：只许给维度和判据，不许塞例句
-  [tone, angle].forEach(pool => {
-    assert.ok(!/[？?]"/.test(pool), "池子里塞了具体的例句，模型会照着那个句式生成一整批");
-  });
-  assert.match(net, /anonDraw\(ANON_ASKER_TONE, n\)/);
-  assert.match(net, /anonDraw\(ANON_ASKER_ANGLE, n\)/);
+test("题库摆在【选角色之前】那一页——出题跟谁都无关,它就该长在那儿", () => {
+  const hub = grab(comp, "function AnonHub({", "// 匿名箱：仿 QQ 主页");
+  assert.match(hub, /poolCount, onBrew/, "题库没接到列表页上");
+  assert.match(hub, /"匿名题库 · 还剩 " \+ \(poolCount \|\| 0\) \+ " 条"/, "看不见库存");
+  assert.match(hub, /写这些问题的人不知道会是谁收到/, "没跟她说清这条保证是怎么来的");
+  assert.match(app, /poolCount: \(anonPool \|\| \[\]\)\.length/, "库存没递给界面");
+  assert.match(app, /onBrew: refillAnonPool/, "手动补库没接上");
 });
 
 // ── ③ 我问的 / 网友问的分开，每条带日期 ─────────────────────────────────────

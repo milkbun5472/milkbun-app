@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.70";
+const APP_VERSION = "v58.71";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -425,6 +425,7 @@ function App() {
   const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
   const [worlds, setWorlds] = useState([]);   // 架空世界（x_worlds）：一份设定 + 区域骨架，地图每次现算
   const [worldBusy, setWorldBusy] = useState(false);
+  const [anonPool, setAnonPool] = useState([]);   // 匿名题库(x_anonPool):全院共用的一总库,网友出题和角色作答彻底隔开
   const [apiProfiles, setApiProfiles] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [offlineApiId, setOfflineApiId] = useState(null); // 线下正文/总结专用；空=跟随线上主 API
@@ -795,6 +796,7 @@ function App() {
     setGeo(loadJSON("x_geo", null));
     setMapMode(loadJSON("x_mapMode", "real"));
     setWorlds(loadJSON("x_worlds", []));
+    setAnonPool(loadJSON("x_anonPool", []));
     const storedApis = loadJSON("x_api", []);
     const aps = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(storedApis) : storedApis;
     setApiProfiles(aps);
@@ -9681,10 +9683,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     "他最近在忙的事",
     "他身上一处别人常认错的地方"
   ];
+  // 第三颗骰子:【怎么开口】。前两颗定的是「谁在问」和「想撬什么」,同一组料
+  // 用同一个句式说出来还是会整批一个味——单调出在开口的形状上,不出在题材上。
+  const ANON_ASKER_SHAPE = [
+    "一上来就是最尖的那一句,不铺垫",
+    "先说了半件自己的事,末了才把问题递过去",
+    "拐着弯问,真正想知道的藏在第二层",
+    "包在一个假设的处境里问,给对方一个好答的台阶",
+    "笨拙的外行问法:问得直,但不刁",
+    "带着预设去问,问句本身已经站好了立场",
+    "先替他答了一半,等他来反驳",
+    "只丢半句就停了,剩下的留给他自己填",
+    "问得很具体,具体到一个动作或某一个时刻",
+    "把两件不相干的事摆在一起,问他哪一个更像他",
+    "请教的姿态,其实想看的是他会不会敷衍",
+    "问一件小到不值一提的事,看他愿意认真到什么份上"
+  ];
+  // n 超过池子长度时接着再洗一副,保证每一面都被摇到,不是随机重复
   const anonDraw = (pool, n) => {
-    const a = pool.slice();
-    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
-    return a.slice(0, n);
+    const out = [];
+    while (out.length < n) {
+      const a = pool.slice();
+      for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; }
+      out.push.apply(out, a);
+    }
+    return out.slice(0, n);
   };
   // 我在匿名箱里的马甲(她 2026-08-30 要的第 7 条)。一整套只有一个——
   // 同一个陌生人在好几个箱子里都问过,他才有机会认出来。
@@ -9819,37 +9842,69 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   //                 网名、签名、以及最近问过的几句(避重)。它没有的东西就漏不出来。
   //   第二枪(他):照常带全套上下文,只负责【答】已经写死的这几个问题。
   // 代价说清楚:一次「网友匿名提问」= 两次调用。换来的是问题真的从外面来。
+  // ── 匿名题库(x_anonPool)──────────────────────────────────────────────────
+  // Codex 2026-08-30 指出的那件事:同一次推理里,模型从一开始就看得见完整人设,
+  // 「先写问题后写回答」「请假装不知道」全是降概率,隔离不了信息。v58.69 我拆成
+  // 两枪解决了这个,但每封信要花两次调用——她按次计费。
+  // 这一版把第一枪【提前备货】:攒一总库的问题,选角色之前就存着,开箱时抽着用。
+  //   · 出题这一枪【全院一总库】,连网名和签名都不给——它压根不知道会是谁收到这题。
+  //     这是三种题源里安全边界最实的一种:不是让知道全部的人演失忆,是它真的没有。
+  //   · 摇三颗骰子:谁在问 × 想撬什么 × 怎么开口。前两颗定料,第三颗定形状——
+  //     整批一个味通常坏在开口的形状上,不在题材上。
+  //   · 日常一封信仍然只花一次调用(角色作答那一枪);出题的成本被几十题摊掉。
+  const ANON_POOL_BATCH = 36;   // 一次备多少题
+  const ANON_POOL_LOW = 8;      // 低于这个数就顺手补一批
+  const ANON_POOL_CAP = 150;    // 库存上限,免得越攒越大
+  const saveAnonPool = list => { const n = list.slice(0, ANON_POOL_CAP); setAnonPool(n); saveJSON("x_anonPool", n); return n; };
+  // 出题:不带任何角色、不带网名签名、不带任何人的答案。它没有的东西就漏不出来。
+  const brewAnonPool = async (cur, quiet) => {
+    const have = (cur || []).slice(0, 40).join(" / ");
+    const n = ANON_POOL_BATCH;
+    const tones = anonDraw(ANON_ASKER_TONE, n), angles = anonDraw(ANON_ASKER_ANGLE, n), shapes = anonDraw(ANON_ASKER_SHAPE, n);
+    const who = tones.map((tn, i) => (i + 1) + ". 一个" + tn + "；他想撬的是" + angles[i] + "；" + shapes[i]).join("\n");
+    const sys = "你在给一个匿名树洞攒问题。这些问题会被丢进箱子里,由【某一个你完全不认识的陌生人】捡到并回答。\n"
+      + "【你不知道的】收到这题的人是谁、男女、多大、做什么的、住在哪、长什么样、有没有对象、家里有谁、经历过什么——"
+      + "一个都不知道,也【不许猜、不许假设、不许暗示你认识他】。不许写成「听说你们XX的人如何如何」,你并不知道他是哪一行的。\n"
+      + "更要紧的一条:你写的时候【并不知道他会怎么答】。所以不许先想好一个答案再倒着编一句问话——"
+      + "问出来的东西必须是换个人来答就会答成另一个样子的。\n"
+      + "现在有 " + n + " 个互不相识的人各写一句话丢进箱子。\n【这几位分别是谁、想撬什么、怎么开口】\n" + who + "\n"
+      + "【怎么写】站在每个人自己身上写。问题可以很笨、可以问偏、可以问到人家根本不想答的地方。\n"
+      + "别每句都一样长,别都用同一个句式收尾,别整批都是「你是不是……」这一个形状。\n"
+      + (have ? "\n【库里已经有这些了,一句都不要重复,也不要换个说法再写一遍】" + have : "")
+      + "\n【输出】只输出合法 JSON,无 markdown 无多余文字：{\"items\":[{\"question\":\"这一句问话\"}]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const d = extractJSON(raw) || {};
+    const seen = {}; (cur || []).forEach(q => { seen[q] = 1; });
+    const fresh = ((d && Array.isArray(d.items)) ? d.items : [])
+      .map(x => String((x && x.question) || "").trim()).filter(q => q && !seen[q] && (seen[q] = 1));
+    if (!fresh.length) throw new Error("这一批一句都没攒出来");
+    const next = saveAnonPool([...(cur || []), ...fresh]);
+    if (!quiet) toast("题库又攒了 " + fresh.length + " 条,现在有 " + next.length + " 条");
+    return next;
+  };
+  const refillAnonPool = async () => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    setAnonBusy(true);
+    try { await brewAnonPool(anonPool, false); }
+    catch (e) { toast("失败：" + e.message); }
+    finally { setAnonBusy(false); }
+  };
+  // 开箱时抽题:库存够就【一次调用都不花】,直接抽;不够了顺手补一批再抽。
   const genNetizenQ = async char => {
-    if (!active) {
-      toast("请先到设置配置 API");
-      return;
-    }
+    if (!active) { toast("请先到设置配置 API"); return; }
     setAnonBusy(true);
     try {
       const box = anon[char.id] || {};
       const nn = box.netname || "匿名的博主";
-      const n = 5 + Math.floor(Math.random() * 3);      // 5~7 个网友
-      const tones = anonDraw(ANON_ASKER_TONE, n), angles = anonDraw(ANON_ASKER_ANGLE, n);
-      const who = tones.map((tn, i) => "网友" + (i + 1) + ":" + tn + ";这一位想撬的是" + angles[i]).join("\n");
-      // 给网友看的只有【公开的那一面】:网名、签名、以前问过的问题(不给答案,免得又从答案倒推)
-      const pastQ = (box.records || []).slice(0, 14).map(r => r.q).filter(Boolean).join(" / ");
-      const askSys = "你在写一个匿名树洞里的提问。这里【只】有一个网名和一句签名,别的一概不知道。\n"
-        + "【你看得见的全部】网名:" + nn + (box.bio ? "\n签名:" + box.bio : "") + "\n"
-        + "【你不知道的】这个人的真名、性别、年龄、职业、专业、学校、公司、住在哪、长什么样、穿什么、有没有对象、家里有谁——一个都不知道,也【不许猜、不许假设、不许暗示你认识他】。\n"
-        + "尤其不许写成「听说你们XX的人如何如何」「你是不是那个谁」——你并不知道他是哪一行的,也不认识他。\n"
-        + "只能从那个网名和签名的字面、以及树洞里公开问过的那些话去下钩子。\n"
-        + "现在有 " + n + " 个互不相识的人各写一句话问他。\n【这几位分别是谁】\n" + who + "\n"
-        + "【怎么写】站在每个人自己身上写:他为什么会点进这个树洞、他想撬的是什么。"
-        + "问题可以很笨、可以问偏、可以问到对方根本不想答的地方——你写的时候并不知道他会怎么答,也不需要知道。\n"
-        + "别每句都一样长,别都用同一个句式。"
-        + (pastQ ? "\n【这些已经问过了,不要再问一遍】" + pastQ : "")
-        + "\n【输出】只输出合法 JSON,无 markdown 无多余文字：{\"items\":[{\"question\":\"这一句问话\"}]}";
-      const rawQ = await callAI(apiFor(char.id), askSys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
-      const qd = extractJSON(rawQ) || {};
-      const qs = ((qd && Array.isArray(qd.items)) ? qd.items : [])
-        .map(x => String((x && x.question) || "").trim()).filter(Boolean).slice(0, n);
-      if (!qs.length) throw new Error("网友那一枪没写出问题");
-      // 第二枪:他来答。问题已经写死了,他只能就着这几句答,倒推不了
+      const n = 3 + Math.floor(Math.random() * 3);      // 一次来 3~5 个网友
+      // 这个箱子已经收过的题不再抽第二遍(总库是全院共用的,别的箱子问过不算)
+      const asked = {}; (box.records || []).forEach(r => { if (r.q) asked[r.q] = 1; });
+      let pool = anonPool || [];
+      let avail = pool.filter(q => !asked[q]);
+      if (avail.length < Math.max(n, ANON_POOL_LOW)) { pool = await brewAnonPool(pool, true); avail = pool.filter(q => !asked[q]); }
+      const qs = anonDraw(avail, Math.min(n, avail.length));
+      if (!qs.length) throw new Error("题库是空的,先去攒一批");
+      // 只这一枪带上下文:问题已经写死,他倒推不了,人格照旧是完整的
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: "「" + char.name + "」的匿名树洞(网名:" + nn + ")里来了 " + qs.length + " 条陌生人的提问,他一条条看下来。\n"
           + "【提问】\n" + qs.map((q, i) => (i + 1) + ". " + q).join("\n") + "\n"
@@ -9867,6 +9922,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         return { id: "ar_" + base + "_" + i, from: "netizen", q: q, a: it.skip ? "" : String(it.answer || ""), skip: !!it.skip, note: it.skip ? String(it.note || "") : "", ts: base - i, ansTs: base - i };
       });
       pAnon(char.id, cur => ({ ...cur, records: [...recs, ...(cur.records || [])] }));
+      // 划账放在【答完之后】：抽完就划,这一枪一失败,那几条题就白白没了
+      const taken = {}; qs.forEach(q => { taken[q] = 1; });
+      saveAnonPool(pool.filter(q => !taken[q]));
       const nSkip = recs.filter(r => r.skip).length;
       toast("来了 " + recs.length + " 条" + (nSkip ? "，其中 " + nSkip + " 条他没答" : ""));
     } catch (e) {
@@ -13664,6 +13722,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     characters: liveChars,
     data: anon,
     busy: anonBusy,
+    poolCount: (anonPool || []).length,
+    onBrew: refillAnonPool,
     onOpen: openAnon,
     onBack: goHome
   });else if (screen === "phone") body = /*#__PURE__*/React.createElement(PhoneCarry, {

@@ -8,7 +8,7 @@ const grab = (a, b, cap) => {
   assert.ok(i > 0 && j > i && (!cap || j - i < cap), "抠不出：" + a);
   return comp.slice(i, j);
 };
-const hub = grab("function AnonHub({", "// 匿名箱：仿 QQ 主页", 4000);
+const hub = grab("function AnonHub({", "// 匿名箱：仿 QQ 主页");
 const box = grab("function AnonBox({", "\n}\n", 14000);
 const ink = (() => {
   const i = comp.indexOf("const ANON_INK = {"), j = comp.indexOf("};", i);
