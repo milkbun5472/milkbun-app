@@ -369,6 +369,9 @@ function CastForm({
   const [refPhoto, setRefPhoto] = useState(initial && initial.refPhoto || null);
   const [photoStyle, setPhotoStyle] = useState(initial && initial.photoStyle || "realistic");
   const [birthday, setBirthday] = useState(initial && initial.birthday || "");
+  // 性别（v58.86，她 2026-08-31 加了女生角色）：只决定别处怎么称呼 TA。
+  // 默认不填＝一律用「TA」——中性，永远不会把人叫错。
+  const [gender, setGender] = useState(initial && initial.gender || "");
   const [voiceId, setVoiceId] = useState(initial && initial.voiceId || "");
   const save = () => {
     if (!name.trim()) return;
@@ -388,6 +391,7 @@ function CastForm({
       refPhoto: refPhoto,
       photoStyle: photoStyle,
       birthday: birthday.trim(),
+      gender: gender,
       voiceId: voiceId.trim(),
       remark: initial && initial.remark || ""
     }));
@@ -500,7 +504,14 @@ function CastForm({
         h(LineField, { zh: "人设", en: "Persona" }, h(LineArea, { value: persona, onChange: e => setPersona(e.target.value), rows: 9, placeholder: "性格、说话风格、背景、当前关系阶段……" }))),
       h(CastSection, { no: "02", title: "时间坐标", en: "TIME / PLACE", tint: accent },
         h(LineField, { zh: "时区", en: "Timezone" }, timezone),
-        h(LineField, { zh: "生日", en: "Birthday" }, birthdayField)),
+        h(LineField, { zh: "生日", en: "Birthday" }, birthdayField),
+        h(LineField, { zh: "性别", en: "Gender" }, h("div", null,
+          h("div", { style: { display: "flex", gap: 7 } },
+            [["", "他（默认）"], ["她", "她"], ["TA", "TA · 中性"]].map(o => h("button", { key: o[0], onClick: () => setGender(o[0]),
+              style: { fontFamily: F_BODY, fontSize: 13, color: gender === o[0] ? "#fff" : t.ink, background: gender === o[0] ? t.tint : "transparent",
+                border: "1px solid " + (gender === o[0] ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, o[1]))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+            "只管别处怎么称呼 TA（查手机那一层原来通篇写死「他」）。默认是「他」——不动你已有角色的任何东西；新加的女生角色点一下「她」就行。")))),
       h(CastSection, { no: "03", title: "视觉档案", en: "VISUAL IDENTITY", tint: accent },
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
       h(CastSection, { no: "04", title: "声音档案", en: "VOICEPRINT", tint: accent },

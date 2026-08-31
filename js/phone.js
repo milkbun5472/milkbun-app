@@ -4722,6 +4722,28 @@ function phoneQuoteAvoidBlock(key, known) {
     + "如果你发现自己想写的又是上面某一句的同义句，说明你在套模板——换一个真正属于今天的角度重写。";
 }
 
+// 称呼跟着角色的性别走（她 2026-08-31：「我加了几个女生角色进来」）。
+// 查手机这一层原来通篇写死「他」——那不只是称呼难看，它是在【每一句提示词里都告诉
+// 模型这是个男的】，人设里写了女性也压不过一屏的「他」。
+// ⚠️只在【一处】改：phoneProbeSpec 最后那一行把所有段拼成 instruction，从那里过一遍
+// 就够了；散在 211 行里逐个手改，必然漏、而且下次加一段又要重来。
+// 保护名单是要紧的：其他/他们/他人/吉他 这些词里的「他」不是代词，换了就成错别字。
+const PHONE_TA_KEEP = /其他|他们|他人|他乡|吉他|利他|排他|他杀|他律/g;
+function phoneTa(text, ta) {
+  if (!ta || ta === "他") return String(text || "");     // 默认那一档不做任何事
+  const holes = [];
+  let s = String(text || "").replace(PHONE_TA_KEEP, m => { holes.push(m); return "\u0000" + (holes.length - 1) + "\u0000"; });
+  s = s.replace(/他/g, ta);
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => holes[Number(i)]);
+}
+// ⚠️没设性别时默认「他」＝【不改变现状】。这一层从来就写着「他」，默认改成 TA 的话，
+// 她已有的每一个角色的提示词都会被悄悄改写一遍——那是她没要的改动，而且「TA的钱」
+// 读起来也别扭。她只需要给新加的女生角色点一下；想要中性也有 TA 这一档可选。
+function charTa(char) {
+  const g = String((char && char.gender) || "").trim();
+  return g === "她" || g === "女" || g === "f" || g === "female" ? "她"
+    : g === "TA" || g === "ta" || g === "中性" ? "TA" : "他";
+}
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
@@ -4939,5 +4961,8 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "") };
+  const _full = spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
+  return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: phoneTa(_full, charTa(char)) };
 }
+// 纯函数导出给 node --test；浏览器里没有 module，原样跳过
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa };
