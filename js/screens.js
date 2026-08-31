@@ -3201,6 +3201,57 @@ function CoupleArchive({ partner, data, onSave, onBack }) {
       h("button", { onClick: () => onSave(draft), className: "w-full active:opacity-70", style: { marginTop: 20, borderRadius: 15, background: t.ink, color: t.bg2, padding: "13px 16px", fontFamily: F_DISPLAY, fontSize: 15 } }, "封存这份档案")));
 }
 
+// 情侣空间·我们说好的（v58.83，她 2026-08-31 选的第 ② 条）。
+// ⚠️和「心愿单」是两回事，别混：心愿单是【她想要的】，自己往里放；
+// 这一页是【你俩真说过的】——线下/通话结束时自动抽出来的开环（记忆库里 open:true 的条目）。
+// 情侣空间现在整屋子都是记过去的收藏夹，这一页是唯一朝前的：给一条约定挑个日子，
+// 到那天他会自己提起（走的是已有的「约回」链，不是新机制）。
+function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
+  const t = useTheme();
+  const [txt, setTxt] = useState("");
+  const [day, setDay] = useState("");
+  const [dueFor, setDueFor] = useState(null);      // 正在给哪一条挑日子
+  const [dueVal, setDueVal] = useState("");
+  const open = (pacts && pacts.open) || [], due = (pacts && pacts.due) || [];
+  const dueOf = memId => due.find(x => x.memId === memId);
+  const dayStr = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
+  const leftOf = ts => { const n = Math.ceil((ts - Date.now()) / 86400000); return n > 0 ? "还有 " + n + " 天" : n === 0 ? "就是今天" : "已经过了 " + (-n) + " 天"; };
+  const toTs = v => { const d = new Date(v + "T09:00:00"); return isNaN(d.getTime()) ? 0 : d.getTime(); };
+  const inp = { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", width: "100%", outline: "none" };
+  return h("div", { className: "h-full flex flex-col" },
+    h(Head, { zh: "我们说好的", en: partner.name, onBack: onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginBottom: 14 } },
+        "这里的每一条都是你们【真说过】的——线下和通话结束时自己攒进来的，不是你手打的愿望（那是心愿单）。给一条挑个日子，到那天他会自己提起。"),
+      h("div", { style: { borderRadius: 18, border: "1px dashed " + t.line, padding: "13px 14px", marginBottom: 16 } },
+        h("input", { value: txt, onChange: e => setTxt(e.target.value), placeholder: "你们说好了什么", style: inp }),
+        h("div", { className: "flex items-center gap-8", style: { marginTop: 9 } },
+          h("input", { type: "date", value: day, onChange: e => setDay(e.target.value), style: { ...inp, flex: 1 } }),
+          h("button", { onClick: () => { onAdd(txt.trim(), day ? toTs(day) : 0); setTxt(""); setDay(""); }, disabled: !txt.trim(), className: "shrink-0 active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 12, padding: "10px 18px", opacity: txt.trim() ? 1 : 0.45 } }, "记下")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 7 } }, "日子可以不填。填了到那天他会主动来找你说这件事。")),
+      open.length ? open.map(m => {
+        const d = dueOf(m.id);
+        return h("div", { key: m.id, style: { borderRadius: 18, border: "1px solid " + t.line, background: t.bg2, padding: "14px 15px", marginBottom: 11 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.ink } }, m.text),
+          h("div", { className: "flex items-center flex-wrap", style: { gap: 10, marginTop: 10 } },
+            d ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px" } },
+              dayStr(d.dueTs) + " · " + leftOf(d.dueTs)) : null,
+            h("button", { onClick: () => { setDueFor(dueFor === m.id ? null : m.id); setDueVal(""); }, className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, d ? "改日子" : "挑个日子"),
+            d ? h("button", { onClick: () => onSetDue(m.id, m.text, 0), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "不催了") : null,
+            h("button", { onClick: () => onClose(m.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginLeft: "auto" } }, "做到了"),
+            h("button", { onClick: () => onClose(m.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "算了")),
+          dueFor === m.id ? h("div", { className: "flex items-center gap-8", style: { marginTop: 10 } },
+            h("input", { type: "date", value: dueVal, onChange: e => setDueVal(e.target.value), style: { ...inp, flex: 1 } }),
+            h("button", { onClick: () => { if (dueVal) { onSetDue(m.id, m.text, toTs(dueVal)); setDueFor(null); } }, className: "shrink-0 active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: t.tint, borderRadius: 12, padding: "9px 16px" } }, "就这天")) : null);
+      }) : h(Empty, { text: "还没有说好的事", sub: "跟 " + partner.name + " 线下相处或打完电话，说定的事会自己攒到这儿来。也可以自己先记一条。" }),
+      due.filter(x => !x.memId).length ? h("div", { style: { marginTop: 18 } },
+        h(Eyebrow, null, "他说好要来找你的"),
+        due.filter(x => !x.memId).map(x => h("div", { key: x.id, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8, padding: "9px 0", borderBottom: "1px solid " + t.line } },
+          x.about + "　", h("span", { style: { fontSize: 11, color: t.tint } }, leftOf(x.dueTs))))) : null));
+}
 function CoupleWishes({ partner, data, onSave, onBack }) {
   const t = useTheme();
   const wishes = Array.isArray(data) ? data : [];
@@ -3238,7 +3289,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor }) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, coupleMood, onCheckinMood, moodGen, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleSync, onSyncStart, onSyncSubmit, onSyncRemove, syncGen, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor , couplePactsOf, onClosePact, onSetPactDue, onAddPact}) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3316,6 +3367,11 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   if (partner && cp[view] && cp[view].status === "together" && sub === "archive") {
     const home = (coupleHome || {})[partner.id] || {};
     return h(CoupleArchive, { partner, data: home.archive || {}, onSave: archive => onSaveCoupleHome(partner.id, cur => ({ ...cur, archive })), onBack: () => setSub(null) });
+  }
+  if (partner && cp[view] && cp[view].status === "together" && sub === "pacts") {
+    return h(CouplePacts, { partner, pacts: couplePactsOf ? couplePactsOf(partner.id) : null,
+      onClose: onClosePact, onSetDue: (mid, about, ts) => onSetPactDue(mid, partner.id, about, ts),
+      onAdd: (txt, ts) => onAddPact(partner.id, txt, ts), onBack: () => setSub(null) });
   }
   if (partner && cp[view] && cp[view].status === "together" && sub === "wishes") {
     const home = (coupleHome || {})[partner.id] || {};
@@ -3500,6 +3556,15 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 body: h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6f5f9a", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   bNote ? (bNote.authorId === "user" ? "我：" : partner.name + "：") + String((bNote.replies || []).length ? bNote.replies[bNote.replies.length - 1].content : bNote.content).replace(/\s+/g, " ") : "贴一张只有你俩看的悄悄话") }),
               // 问答小本（2x1）
+              tile("pacts", { e: "🤝", zh: "我们说好的", bg: "#f4f1ea", bd: "#e3dccd", ink: "#8f7d5c",
+                dot: (function () { const p = couplePactsOf ? couplePactsOf(partner.id) : null; return !!(p && (p.due || []).some(function (x) { return x.dueTs && Date.now() >= x.dueTs - 86400000; })); })(),
+                body: (function () {
+                  const p = couplePactsOf ? couplePactsOf(partner.id) : null;
+                  const n = p ? (p.open || []).length : 0;
+                  return h("div", null,
+                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#8f7d5c" } }, n || "—"),
+                    sub2(n ? "件还没了结" : "还没说好什么", "#a8977a"));
+                })() }),
               tile("qa", { e: "📖", zh: "问答小本", bg: "#eef6ef", bd: "#d4e6d8", ink: "#6a9a74",
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#4f8a5e", lineHeight: 1.2 } }, bQaN ? "已答 " + bQaN + " 题" : "关于我们") }),
               // 同频测试（2x1）

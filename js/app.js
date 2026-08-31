@@ -2192,6 +2192,39 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const nm = (group && group.name || "").trim();
     return [...extra, "群聊", ...(nm ? [nm] : [])];
   };
+  // ── 情侣空间·我们说好的（v58.83，她 2026-08-31 选的第 ② 条）────────────────
+  // ⚠️不新造存储，把两样已有的接起来：
+  //   · 记忆库里 open:true 的条目 —— 那是线下/通话结束时自动抽出来的【你俩真说过的约定】，
+  //     不是她手打的心愿单（心愿单 CoupleWishes 早就有了，两回事：一个是她想要的，
+  //     一个是从你们说过的话里长出来的）。
+  //   · x_promises —— 已有的「约回」链：他亲口说等我 xxx 再找你，到点自己会来（v56.49）。
+  // 给一条约定设个日子，就是往 x_promises 里塞一条，到期那条现成的链就会让他主动提起。
+  const pactsFor = charId => ({
+    open: (memLibRef.current || []).filter(m => m && m.open && (m.charIds || []).includes(charId))
+      .sort((a2, b2) => (b2.ts || 0) - (a2.ts || 0)).slice(0, 30),
+    due: (promisesRef.current || []).filter(x => x && x.charId === charId).sort((a2, b2) => (a2.dueTs || 0) - (b2.dueTs || 0))
+  });
+  const closePact = memId => {
+    saveMemLib((memLibRef.current || []).map(m => m.id === memId ? { ...m, open: false } : m));
+    setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; });
+    toast("了结了");
+  };
+  const addPact = (charId, text, dueTs) => {
+    const t0 = String(text || "").trim();
+    if (!t0) { toast("先写一句你们说好了什么"); return; }
+    const e = addMemEntry({ text: t0, tags: ["约定"], charIds: [charId], knownBy: [charId], source: "manual", open: true });
+    if (dueTs) setPactDue(e && e.id, charId, t0, dueTs);
+    else toast("记下了");
+  };
+  // 到期他会自己提起——走的是已有那条约回链，不是新机制
+  const setPactDue = (memId, charId, about, dueTs) => {
+    if (!dueTs) { setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; }); toast("不催了"); return; }
+    setPromises(p => {
+      const n = [...p.filter(x => x.memId !== memId), { id: "pk_" + Date.now(), charId, about: String(about || "").slice(0, 60), dueTs, memId }];
+      promisesRef.current = n; saveJSON("x_promises", n); return n;
+    });
+    toast("到那天他会自己提起");
+  };
   const addMemEntry = e => {
     let entry = {
       id: "m_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
@@ -2219,6 +2252,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 自动来源（抽取/总结）去重，别把同一件事塞好几条；手动记的放行（用户自己要加就加）
     if (entry.source !== "manual" && isDupMem(entry.text, entry.charIds, null, entry)) return;
     saveMemLib([entry, ...pruneSubsumed(memLibRef.current, [entry])]);
+    return entry;   // v58.83：加约定那条路要拿 id 去挂到期日；老调用方一律忽略返回值
   };
   // 长文导入（v48.83，她要「把总结的一切放进记忆库、能被 app 小克搜到」）：把一大段文本切成离散条目、绑角色、
   //   批量存一次(触发 ensureMemVecs 自动建向量)→ retrieveMemories 就能语义命中回放。跳过标题/分隔线/meta，长段按句拆，去重。
@@ -3559,6 +3593,47 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return;                                                    // 一次一个，错峰
         }
       }
+      // —— 纪念日主动（v58.83，她 2026-08-31）：以前纪念日只在他上下文里躺着一句，
+      //    得她先去开聊天他才说得上话；而生日是会【主动】发的。同一件事一个主动一个被动，
+      //    所以照生日那条现成的路补上。一年就那么几次，不是天天烧调用。
+      //    门槛比生日还硬一档：必须是【正式在一起】的那一位——这本来就是最强的 opt-in。
+      try {
+        const aToday = [];
+        for (const c of characters) {
+          const cp = (couplesRef.current || {})[c.id];
+          if (!cp || cp.status !== "together") continue;
+          if (cp.since) {
+            const sd = new Date(cp.since);
+            if (sd.getMonth() === nowD.getMonth() && sd.getDate() === nowD.getDate()) {
+              const yrs = nowD.getFullYear() - sd.getFullYear();
+              if (yrs >= 1) aToday.push({ cid: c.id, name: "", yrs: yrs });
+            }
+          }
+          (coupleAnnivRef.current || []).forEach(an => {
+            if (an && an.characterId === c.id && an.month === nowD.getMonth() + 1 && an.day === nowD.getDate())
+              aToday.push({ cid: c.id, name: String(an.name || "纪念日"), yrs: 0 });
+          });
+        }
+        for (const it of aToday) {
+          const cid = it.cid;
+          const c = characters.find(x => x.id === cid);
+          if (!c) continue;
+          if (laneBusy("c:" + cid)) continue;
+          if (viewRef.current.charId === cid) continue;              // 正在看这个聊天就不用主动
+          if (hist(c).length < 2) continue;                          // 真在聊的
+          if (currentlyTogetherWithChar(cid)) continue;              // 人就在旁边，不用发消息
+          // 同一年同一个纪念日只发一次；一年里有好几个纪念日时，key 不同所以各发各的
+          const key = String(nowD.getFullYear()) + ":" + (it.name || "在一起");
+          if ((greetLogRef.current[cid] || {}).a === key) continue;
+          const hr = Math.floor(charLocalMin(c) / 60);
+          if (hr < 8 || hr > 23) continue;                           // 别半夜发
+          window.DeliveryCommit.once("anniv:" + cid + ":" + key,
+            () => replyNow(cid, "", null, { proactive: true, anniv: { name: it.name, yrs: it.yrs } }),
+            () => markGreet(cid, "a", key)
+          );
+          return;                                                    // 一次一个，错峰
+        }
+      } catch (e) {}
       // —— 备忘录·到期提醒主动：今天到期(未完成)、且有可见角色在聊 → 其中一位主动提醒一次（每条每天一次）——
       try {
         const memo = loadJSON("x_memo", null);
@@ -5132,7 +5207,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return false;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return false;
     if (opts.proactive) {
-      const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
+      const outlet = opts.jiwen ? "jiwen" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -5232,6 +5307,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
+      // 纪念日主动（v58.83）：跟生日那条平级。⚠️不给例句、不给"该送什么"的样子——
+      // 送什么、说什么必须从你们俩自己的事里长出来（见 prompt-no-content-samples.md）。
+      const annivHint = opts.anniv ? "\n\n【此刻·今天是你和 " + uName + " 的"
+        + (opts.anniv.name ? "「" + opts.anniv.name + "」" : (opts.anniv.yrs >= 1 ? "在一起满 " + opts.anniv.yrs + " 周年的日子" : "纪念日"))
+        + "】你【主动】开口。别写成贺卡：这一天之所以是这一天，是因为你俩之间真的发生过什么——"
+        + "从你记得的那件具体的事说起，而不是从「今天是我们的纪念日」说起。"
+        + "合你性子的话可以顺手准备点什么，把 gift 填成一件【只有你会想到送给 Ta 的东西】；不想送就 null。"
+        + "别质问 Ta 记没记得，也别硬煽情。1~3 条短消息。" : "";
       const wxHint = opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发 1~2 条消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
       // 转账盲盒演出：第一条气泡=还没点开（不知金额），点开后才谈钱
       // 她转过来、还挂着没点的那一笔（v56.88）：以前是转完 1.6 秒随机收下、再自己触发一轮主动播报，
@@ -5268,7 +5351,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const promiseHint = opts.promise ? ("\n\n【此刻·你说好了要回来找 Ta】刚才你亲口说过：等" + (opts.promise.about || "忙完这阵") + "就来找 Ta。现在那件事结束了，你回来了。"
         + (opts.promise.lateMin > 25 ? "比说好的晚了大约 " + (opts.promise.lateMin >= 120 ? Math.round(opts.promise.lateMin / 60) + " 小时" : opts.promise.lateMin + " 分钟") + "——真人拖了这么久会自己提一句（不必郑重道歉，一句「刚忙完」「拖到现在」就够）。" : "")
         + "开口就从这件事落地：那件事怎么样了、现在什么状态、以及你回来是想跟 Ta 说什么。**别当没这回事重新起一个话题**，也别把「我回来了」翻来覆去说三遍。1~3 条短消息。") : "";
-      const proactiveHint = opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。把这当成一段新的聊天开场：优先从你此刻正在做的事、刚遇到的小事、突然想到的东西、天气/饭点/行程、想分享或想问的新鲜话题里，自然挑一个开口。**不要默认续接聊天记录最后一句，也不要延续上一轮的委屈、焦虑、兴奋或争执情绪。**只有历史里存在明确没回答的问题、已经约好的事、承诺或仍未解决的真实开环，而且此刻确实会想到它时，才轻轻接回；普通旧话题已经结束就让它结束。1~2 条短消息，像真人隔一阵重新来敲门，不复述旧话、不质问为什么没回。"
           : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。1~2 条短消息，别复述之前说过的话，别干等。")
@@ -14035,6 +14118,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     characters: liveChars,
     couples: couples,
     whispers: whispers,
+    couplePactsOf: pactsFor,
+    onClosePact: closePact,
+    onSetPactDue: setPactDue,
+    onAddPact: addPact,
     // 合照墙：捞出所有「我俩合照」(photoKind:"duo")，投进情侣空间的相册。
     // 线上单聊 + 线下都捞（v57.79）——线下当场拍的那些才是真在一块拍的，
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
