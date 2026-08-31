@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.99";
+const APP_VERSION = "v59.00";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4410,6 +4410,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 却从来没收到过【写】的指令，于是线下泡多久它都不动（她 2026-08-28）。
       // 点名轮询的计数也只有线上在推，线下再久也不算一轮。言秋不塑形，照旧排除。
       oCtx.gazeSpec = (!settingsFor(charId).engineerEyes && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
+      // 他刚看见的那张照片（v58.100 补上线下这一处：v58.98 时它被登记成【欠的】）。
+      // 跟线上同一套判据和同一道闸——只认这一场里刚递过来的真照片，换头像另吃七天冷却。
+      const _offSeen = settingsFor(charId).engineerEyes ? null : freshOfflinePhoto(charId);
+      const _offSeenAvatarOk = !!(_offSeen && avatarCoolOk(charId));
+      oCtx.photoSeenSpec = _offSeen
+        ? "【photoSeen·上面输出形状的追加项】" + photoSeenHint(_offSeenAvatarOk, profile.name || "她").replace(/^\n/, "")
+        : "";
       // 世界书注入：用线下这段自己的文本做关键词命中（ctxFor 默认用线上聊天文本），常驻/绑定词条照常进
       const offText = (workSess.msgs || []).slice(-8).map(m => m.content || "").join("\n");
       oCtx.worldbook = loreText(loreRef.current, { charIds: [charId], scope: "chat", text: offText });
@@ -4510,6 +4517,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (_segs.length) (typeof toyPlaySeq === "function" ? toyPlaySeq(_segs) : toyPlay(_segs[0])).catch(e => toast("配件没响应：" + ((e && e.message) || "检查连接")));
       }
       // 这一拍真拍下了一张：不 await，让正文先落地，图自己在后面补进来。
+      if (_offSeen && res.photoSeen) applyPhotoSeen(charId, _offSeen, res.photoSeen, _offSeenAvatarOk,
+        (same, note) => pOffline(charId, list => list.map(x => ({ ...x, msgs: (x.msgs || []).map(m => same(m) ? { ...m, seenNote: note } : m) }))));
       if (res.photo && res.photo.scene) runOfflineShot({ char, kind: res.photo.kind, scene: res.photo.scene });
       // 线下相处也影响好感与心情（跟私聊一样）
       if (Number.isFinite(res.affinityDelta)) bumpAff(charId, res.affinityDelta, res.mood && res.mood.label);
@@ -5758,8 +5767,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ── 他刚看见的那张照片（她 2026-08-31）─────────────────────────
       // 【四处一样喂 · 差异登记】(.claude/rules/four-surfaces-same-context.md)
       //   单聊线上 ✅ 就是这里。
-      //   单聊线下 ❌ 还没接——线下走 OFFLINE_PROTOCOL_V2 那套叙事输出，没有能力
-      //     字段的口子，要单开一条。【这是欠的，不是有理由不给】。
+      //   单聊线下 ✅ v58.100 补上（走 oCtx.photoSeenSpec 挂进 OFFLINE_PROTOCOL_V2
+      //     的输出形状，跟 gazeSpec 同一个落法）。判据、冷却、落地全和这里共用一份。
       //   群聊两处 ❌ 有真理由：群里一张照片好几个人看着，「他当时看到的是什么」
       //     记成谁的说不清（三个人各记一句就是三条重复账）；换头像在群里也没有
       //     明确对象。要给的话得先定「群里由谁记」。
@@ -6425,7 +6434,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       // 他刚看见的那张：把画面记成文字写回那条消息（以后「上次那张照片」有得可依），
       // 顺带看他要不要把它换成头像。⚠️只有这一轮真发了字段才处理——冷却期内 seenField
       // 压根没发下去，模型就算硬填 avatar 也不作数（闸在代码这一道，不在提示词）。
-      if (_seenMsg && parsed.photoSeen) applyPhotoSeen(charId, chatKey, _seenMsg, parsed.photoSeen, _seenAvatarOk);
+      if (_seenMsg && parsed.photoSeen) applyPhotoSeen(charId, _seenMsg, parsed.photoSeen, _seenAvatarOk,
+        (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
         photoKind = ["self", "other", "duo"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
@@ -12185,14 +12195,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 三道闸之外的「好不好看」才交给模型——这就是「规则降概率，代码才保证」在这一层的落法。
   const AVATAR_COOLDOWN_MS = 7 * 86400000;
   const FRESH_PHOTO_LOOKBACK = 6;
-  const freshUserPhoto = charId => {
-    const rows = (chatsRef.current[charId] || []).filter(m => m && !m.recalled);
-    const tail = rows.slice(-FRESH_PHOTO_LOOKBACK);
+  const freshPhotoIn = rows => {
+    const tail = (Array.isArray(rows) ? rows : []).filter(m => m && !m.recalled).slice(-FRESH_PHOTO_LOOKBACK);
     for (let i = tail.length - 1; i >= 0; i--) {
       const m = tail[i];
       if (m && m.role === "user" && m.kind === "photo" && m.imageRef) return m;
     }
     return null;
+  };
+  const freshUserPhoto = charId => freshPhotoIn(chatsRef.current[charId] || []);
+  // 线下那一场里的（v58.100 补上：这一处 v58.98 时登记成「欠的」）
+  const freshOfflinePhoto = charId => {
+    const sess = (offlinesRef.current[charId] || []).find(x => x && !x.endTs);
+    return sess ? freshPhotoIn(sess.msgs || []) : null;
   };
   const avatarCoolOk = charId => (Date.now() - Number((avatarSwapRef.current[charId] || {}).ts || 0)) >= AVATAR_COOLDOWN_MS;
   const photoSeenHint = (canAvatar, uName) =>
@@ -12207,7 +12222,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       : "");
   const photoSeenField = canAvatar => ",\"photoSeen\":{\"note\":\"一句话记下画面上有什么\"" + (canAvatar ? ",\"avatar\":false" : "") + "}";
   // 落地：把那句话写回那条消息；要换头像就换，并留住换之前那张
-  const applyPhotoSeen = (charId, chatKey, msg, seen, canAvatar) => {
+  const applyPhotoSeen = (charId, msg, seen, canAvatar, patchNote) => {
     if (!msg || !seen || typeof seen !== "object") return;
     const note = String(seen.note || "").replace(/\s+/g, " ").trim().slice(0, 60);
     // ⚠️认那一条要认得准：聊天里好些消息【没有 id】，写成 m.id === msg.id 的话
@@ -12218,7 +12233,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // ⚠️晚一拍再写：本轮回复自己也在往同一个 durable 键上写，两笔挨太近会撞上 WAL
     // 的读回自检（后一笔盖掉前一笔正在核对的那版，控制台报 read-back mismatch）——
     // 跟 runOfflineShot 里那个 300ms holdTimer 是同一个坑，照它的做法隔开。
-    if (note) setTimeout(() => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)), 400);
+    if (note) setTimeout(() => patchNote(same, note), 400);
     if (!canAvatar || seen.avatar !== true) return;
     const ch = characters.find(c => c.id === charId);
     if (!ch || !msg.imageRef) return;

@@ -4266,7 +4266,14 @@ function offlineHistory(msgs, userName, charName) {
     } else {
       const raw = m.content || "";
       const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(raw, m.ts) : "";
-      const c = gap + stamp + surface + (m.role === "narration" ? "【场景设定】" + raw : raw) + (dateAnchor ? dateAnchor : "");
+      // 她递过来的真照片：跟线上同一个落法。光一句「[照片]」什么都不说，
+      // 而图只对最近两张作视觉输入附上——一滑出去他就什么都不记得了。
+      const shown = (m.kind === "photo" && m.imageRef)
+        ? "【" + userName + "把一张真实照片递到你眼前，像素已随本轮视觉输入附上，直接看图】"
+          + (m.desc ? "\n她说：" + m.desc : "")
+          + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
+        : "";
+      const c = gap + stamp + surface + (shown || (m.role === "narration" ? "【场景设定】" + raw : raw)) + (dateAnchor ? dateAnchor : "");
       const l = g[g.length - 1];
       if (l && l.role === "user") l.content += "\n" + c; else g.push({ role: "user", content: c });
     }
@@ -4476,6 +4483,7 @@ async function generateOffline(p, ctx, session) {
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2
       + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。它是上面输出形状的追加项。" : "")
+      + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
@@ -4710,6 +4718,9 @@ async function generateOffline(p, ctx, session) {
     rewriteDraft: rewriteApplied ? draftScene : null,
     thought: cln(parsed.thought),
     impression: (parsed.impression && typeof parsed.impression === "object") ? parsed.impression : null,
+    // ⚠️这一头是【白名单】：不写在这儿的字段，模型填了也会被原样丢掉。
+    // v58.100 线下补 photoSeen 时就栽在这——提示词发出去了、回来的答案没人接。
+    photoSeen: (parsed.photoSeen && typeof parsed.photoSeen === "object") ? parsed.photoSeen : null,
     impressionChecked: cln(parsed.impressionChecked),
     mood: parsed.mood && parsed.mood.label ? parsed.mood : null,
     wearing: cln(parsed.wearing),

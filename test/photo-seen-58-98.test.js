@@ -33,7 +33,9 @@ test("她这一轮没发照片就一个字都不发", () => {
 test("三道硬闸：只认刚发的真照片 / 冷却 / 主动轮不发", () => {
   assert.match(helpers, /if \(m && m\.role === "user" && m\.kind === "photo" && m\.imageRef\) return m;/,
     "描述式照片（没有 imageRef）也算数了");
-  assert.match(helpers, /const tail = rows\.slice\(-FRESH_PHOTO_LOOKBACK\);/, "翻了整本聊天记录——几个月前那张也会被当成「刚发的」");
+  // ⚠️别冻实现形状（v58.100 抽成 freshPhotoIn 给线上线下共用）：要证的是【只翻最近几条】
+  assert.match(helpers, /\.slice\(-FRESH_PHOTO_LOOKBACK\)/, "翻了整本聊天记录——几个月前那张也会被当成「刚发的」");
+  assert.match(helpers, /const FRESH_PHOTO_LOOKBACK = \d+;/, "没有「只看最近几条」这个上限");
   assert.match(helpers, /const AVATAR_COOLDOWN_MS = 7 \* 86400000;/, "没有冷却");
   assert.match(helpers, /const avatarCoolOk = charId => \(Date\.now\(\) - Number\(\(avatarSwapRef\.current\[charId\] \|\| \{\}\)\.ts \|\| 0\)\) >= AVATAR_COOLDOWN_MS;/, "冷却算错");
   // 冷却里连那半句都不发下去，而且代码这一道也不认
@@ -48,8 +50,11 @@ test("认那一条要认得准，别 undefined 撞 undefined", () => {
   assert.match(helpers, /const same = m => m && m\.kind === "photo" && m\.imageRef && m\.imageRef === msg\.imageRef\n      && \(msg\.id \? m\.id === msg\.id : m\.ts === msg\.ts\);/,
     "又写回 m.id === msg.id 了——没 id 的消息会一起被认成同一条");
   // 本轮回复自己也在写同一个 durable 键，两笔挨太近会撞 WAL 读回自检
-  assert.match(helpers, /setTimeout\(\(\) => pChat\(chatKey \|\| charId, p => p\.map\(m => same\(m\) \? \{ \.\.\.m, seenNote: note \} : m\)\), 400\)/,
-    "跟本轮其他写挨在一起了");
+  // ⚠️别冻写法（v58.100 把「写回哪儿」交给调用方，线上写聊天、线下写那一场）：
+  // 要证的是【晚一拍再写】，别跟本轮其他写挤在一起
+  assert.match(helpers, /setTimeout\(\(\) => patchNote\(same, note\), 400\)/, "跟本轮其他写挨在一起了");
+  assert.match(app, /\(same, note\) => pChat\(chatKey \|\| charId, p => p\.map\(m => same\(m\) \? \{ \.\.\.m, seenNote: note \} : m\)\)/, "线上没把那句写回聊天");
+  assert.match(app, /\(same, note\) => pOffline\(charId, list => list\.map\(x => \(\{ \.\.\.x, msgs: \(x\.msgs \|\| \[\]\)\.map\(m => same\(m\) \? \{ \.\.\.m, seenNote: note \} : m\) \}\)\)\)/, "线下没把那句写回那一场");
 });
 
 test("换头像留住旧那张，而且不许把她踢出聊天", () => {
@@ -72,10 +77,31 @@ test("她发的那张，画面记成文字留在历史行里", () => {
 });
 
 // .claude/rules/four-surfaces-same-context.md：差异必须是显式的、写着理由的
+// v58.100 补上单聊线下（v58.98 时它被登记成【欠的】）。
+// ⚠️浏览器里抓到的第三个真问题、也是同一个形状：线下的返回值那一头是【白名单】，
+// photoSeen 没写进去，于是提示词发出去了、回来的答案被原样丢掉。
+test("线下也接上了：发得出去，也接得回来", () => {
+  const eng = R("engine.js");
+  assert.match(app, /const _offSeen = settingsFor\(charId\)\.engineerEyes \? null : freshOfflinePhoto\(charId\);/, "线下没算这一场里那张照片");
+  assert.match(app, /oCtx\.photoSeenSpec = _offSeen/, "没挂进线下的输出形状");
+  assert.match(eng, /\(\(!isDigital && ctx\.photoSeenSpec\) \? "\\n\\n" \+ ctx\.photoSeenSpec\.trim\(\) : ""\)/, "engine 那头没接");
+  assert.match(eng, /photoSeen: \(parsed\.photoSeen && typeof parsed\.photoSeen === "object"\) \? parsed\.photoSeen : null,/,
+    "线下返回值的白名单里没有 photoSeen——发出去了但接不回来");
+  assert.match(app, /if \(_offSeen && res\.photoSeen\) applyPhotoSeen\(charId, _offSeen, res\.photoSeen, _offSeenAvatarOk,/, "线下没落地");
+  // 线下历史里她那张照片要说清楚，不能只剩一句 [照片]
+  assert.match(eng, /把一张真实照片递到你眼前/, "线下历史里那张照片什么都没说");
+  assert.match(eng, /m\.seenNote \? "\\n（你当时记下的画面：" \+ m\.seenNote \+ "）" : ""/, "线下历史行没带上那句");
+  // 判据、冷却、落地三处都跟线上共用一份，不是抄第二遍
+  assert.equal((app.match(/const applyPhotoSeen = /g) || []).length, 1, "落地抄了第二份");
+  assert.equal((app.match(/const photoSeenHint = /g) || []).length, 1, "提示词抄了第二份");
+  assert.match(app, /const freshUserPhoto = charId => freshPhotoIn\(chatsRef\.current\[charId\] \|\| \[\]\);/, "两处找照片没共用同一条判据");
+  assert.match(app, /const freshOfflinePhoto = charId => \{/, "线下没有自己的取数口");
+});
+
 test("四处的差异登记写清楚了", () => {
   const reg = app.slice(app.indexOf("      // ── 他刚看见的那张照片（她 2026-08-31）"), app.indexOf("      const _seenMsg ="));
   assert.match(reg, /单聊线上 ✅/);
-  assert.match(reg, /单聊线下 ❌[\s\S]*?这是欠的，不是有理由不给/, "线下没登记，或者没说清是欠的");
+  assert.match(reg, /单聊线下 ✅ v58\.100 补上/, "线下补上了，登记没跟着改");
   assert.match(reg, /群聊两处 ❌ 有真理由/, "群里那两处没写理由");
   assert.match(reg, /记成谁的说不清/, "群里的理由没说到点上");
 });
