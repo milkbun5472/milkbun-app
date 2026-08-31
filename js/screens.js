@@ -3355,6 +3355,23 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     const bIfN = (ifLines || []).filter(x => x.charId === bCid).length;
     const bWishOpen = bWishes.filter(w => w.status !== "done" && w.status !== "shelved").length;
     const bCapsuleDue = typeof window !== "undefined" && window.capsuleDueCount ? window.capsuleDueCount(bCid, partner.name) : 0;
+    // ── v59.22 她 2026-08-31：「还是差点意思不知道怎么搞」──────────────
+    // 上一版把长相修好了，可每一格说的还是【几件】：「3 封」「4 个走过的第一次」
+    // 「已答 5 题」「2 条想过的如果」。那是【目录语言】——一面真正的墙上你看见的
+    // 是东西本身：一张照片、他写的那行字、一个日期，不是「合照墙 · 还没有」。
+    // 整页最有意思的那一格是和好间，因为它写的是「他从 3 小时前开始，心情一直是
+    // 「闷」」——一件具体发生的事。那不是巧合。
+    // **把「几件」换成「哪一件」。** 数量只留给数量本身就是内容的那两处
+    //（在一起第几天、抽卡点数）。
+    const one = (v, n) => { const t = String(v == null ? "" : v).replace(/\s+/g, " ").trim(); return t.length > (n || 20) ? t.slice(0, n || 20) + "…" : t; };
+    const bLetterLast = bLetters.slice().sort((a, b) => itemTs(b) - itemTs(a))[0];
+    const bRecallLast = (coupleRecall || []).filter(x => x.characterId === bCid)[0];
+    const _pacts = couplePactsOf ? couplePactsOf(bCid) : null;
+    const bPactLast = _pacts ? (_pacts.open || [])[0] : null;
+    const bFirstLast = coupleFirstsOf ? coupleFirstsOf(bCid)[0] : null;
+    const bQaLast = (coupleQA || []).filter(e => e.characterId === bCid && e.answer)[0];
+    const bIfLast = (ifLines || []).filter(x => x.charId === bCid)[0];
+    const bShotLast = (studioShots || []).filter(x => x.charId === bCid)[0];
     const itemTs = x => {
       if (!x) return 0;
       const direct = Number(x.updatedAt || x.createdAt || x.ts || x.answeredAt || 0);
@@ -3514,7 +3531,8 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
               tile("letters", { cols: 3, rows: 2, radius: "3px 3px 18px 18px", zh: "情书", bg: "#fdf7ec", bd: "#ecdfc6", ink: "#a5793a", dot: bUnread > 0, mark: "书", markInk: "rgba(140,105,50,.07)",
                 deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 42, background: "linear-gradient(#f7ecd6,#f7ecd6)", clipPath: "polygon(0 0,100% 0,50% 100%)", opacity: .8 } }),
                 body: h("div", null,
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#a5793a", lineHeight: 1.2 } }, bLetters.length ? bLetters.length + " 封" : "写给彼此"),
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#a5793a", lineHeight: 1.5 } },
+                    bLetterLast ? one(bLetterLast.title || bLetterLast.content || bLetterLast.text, 22) : "写给彼此"),
                   bUnread ? sub2(bUnread + " 封没拆", "#c65a4a") : null) }),
               tile("notes", { cols: 3, rows: 2, radius: 4, zh: "便签墙", bg: "#fdf6d8", bd: "#eee0ab", ink: "#8a7532", dot: unreadNotesFor(bCid), tilt: -1.4, lift: true, mark: "签", markInk: "rgba(120,100,40,.08)",
                 deco: h("div", { style: { position: "absolute", right: 15, top: 0, width: 42, height: 8, borderRadius: "0 0 8px 8px", background: "rgba(138,122,176,.14)" } }),
@@ -3525,8 +3543,9 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 body: (function () {
                   const n = (coupleRecall || []).filter(function (x) { return x.characterId === partner.id; }).length;
                   return h("div", null,
-                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#93707c" } }, n ? String(n) : ""),
-                    sub2(n ? "件事的两个版本" : "同一件事,两个人", "#ab8b95"));
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.5, color: "#93707c" } },
+                      bRecallLast ? one(bRecallLast.title || bRecallLast.topic || bRecallLast.text, 18) : "同一件事，两个人"),
+                    n > 1 ? sub2("还有 " + (n - 1) + " 件", "#ab8b95") : null);
                 })() }),
               tile("pacts", { cols: 2, rows: 2, zh: "我们说好的", ink: "#8f7d5c", mark: "约",
                 dot: (function () { const p = couplePactsOf ? couplePactsOf(partner.id) : null; return !!(p && (p.due || []).some(function (x) { return x.dueTs && Date.now() >= x.dueTs - 86400000; })); })(),
@@ -3534,8 +3553,9 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                   const p = couplePactsOf ? couplePactsOf(partner.id) : null;
                   const n = p ? (p.open || []).length : 0;
                   return h("div", null,
-                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#8f7d5c" } }, n ? String(n) : ""),
-                    sub2(n ? "件还没了结" : "还没说好什么", "#a8977a"));
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.5, color: "#8f7d5c" } },
+                      bPactLast ? one(bPactLast.text || bPactLast.title, 18) : "还没说好什么"),
+                    n > 1 ? sub2("还有 " + (n - 1) + " 件没了结", "#a8977a") : null);
                 })() }),
               // ⚠️抽屉这一格【故意没有 dot、也不显示还剩几件没拆】——报了就跟别的通知一样，
               // 惊喜就没了（言秋的原话：开之前不知道有没有、有什么）。
@@ -3559,18 +3579,22 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
               tile("ifroom", { cols: 6, rows: 2, radius: 20, zh: "如果馆", bg: "linear-gradient(140deg,#241f36,#141222)", bd: "#332c4a", ink: "rgba(200,188,230,.7)", lift: true,
                 mark: "如", markSize: 78, markInk: "rgba(169,156,203,.10)",
                 deco: h("div", { style: { position: "absolute", left: "43%", top: -38, width: 104, height: 104, borderRadius: 999, border: "1px solid rgba(169,156,203,.2)" } }),
-                body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#c8bce6", lineHeight: 1.3 } },
-                  bIfN ? bIfN + " 条想过的如果" : "同样这两个人，换掉当初的一样东西") }),
+                body: h("div", null,
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#e0d6f5", lineHeight: 1.35 } },
+                    bIfLast ? "「" + one(bIfLast.title, 14) + "」" : "同样这两个人，换掉当初的一样东西"),
+                  bIfLast ? sub2(one(bIfLast.premise, 22), "rgba(200,188,230,.62)") : null) }),
               tile("studio", { zh: "照相馆", cols: 3, rows: 2, ink: "#7c5f9c", mark: "相",
                 body: h("div", null,
-                  h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#7c5f9c" } }, bShotsN || "—"),
-                  sub2(bShotsN ? "张在这儿拍的" : "挑身衣服拍一张", "#9b85b4")) }),
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.5, color: "#7c5f9c" } },
+                    bShotLast ? one(bShotLast.scene, 18) : "挑身衣服拍一张"),
+                  bShotsN > 1 ? sub2("这儿拍过 " + bShotsN + " 张", "#9b85b4") : null) }),
               tile("firsts", { zh: "第一次们", cols: 6, rows: 2, radius: 14, ink: "#7d6f5a", mark: "次", markSize: 64,
                 deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: "50%", borderTop: "1px dashed rgba(92,72,62,.22)" } }),
                 deco: h("div", { style: { position: "absolute", left: 18, right: 18, top: "47%", borderTop: "1px dashed rgba(125,111,90,.2)" } }),
                 body: h("div", null,
-                  h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#7d6f5a" } }, bFirstsN || "—"),
-                  sub2(bFirstsN ? "个走过的第一次" : "还没开始", "#9a8b74")) }),
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: "#7d6f5a" } },
+                    bFirstLast ? one(bFirstLast.zh || bFirstLast.title || bFirstLast.label || bFirstLast.note, 20) : "还没开始"),
+                  bFirstsN > 1 ? sub2("一共 " + bFirstsN + " 个", "#9a8b74") : null) }),
               tile("drawer", { cols: 2, rows: 2, radius: "4px 4px 16px 16px", zh: "抽屉", bg: "#faf3e4", bd: "#e9dcc0", ink: "#9c8656", mark: "屉", markInk: "rgba(120,95,45,.07)",
                 deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", bottom: 12, width: 44, height: 4, marginLeft: -22, borderRadius: 99, background: "rgba(120,95,45,.28)" } }),
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", lineHeight: 1.3 } }, "拉开看看") }),
@@ -3580,7 +3604,8 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                   h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#96678c" } }, bGachaPts || "—"),
                   sub2(bGachaOpen ? bGachaOpen + " 张还没兑" : bGachaPts ? "点，够抽了" : "陪着他就有点数", "#ab86a4")) }),
               tile("qa", { cols: 2, rows: 2, zh: "问答小本", ink: "#6a9a74", mark: "问",
-                body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#4f8a5e", lineHeight: 1.2 } }, bQaN ? "已答 " + bQaN + " 题" : "关于我们") }),
+                body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: "#4f8a5e" } },
+                  bQaLast ? one(bQaLast.q || bQaLast.question, 18) : "关于我们") }),
               // 时光胶囊的正门搬进情侣空间：仍复用 x_capsules 和原完整页面，不复制数据。
               tile("capsule", { cols: 3, rows: 2, zh: "时光胶囊", ink: "#7d7396", mark: "囊", dot: bCapsuleDue > 0, onClick: () => onOpenCapsule && onOpenCapsule(bCid),
                 body: h("div", null,
