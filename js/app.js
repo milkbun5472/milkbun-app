@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.98";
+const APP_VERSION = "v58.99";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -355,6 +355,10 @@ function App() {
   // carryClosetText 两边共用，不用为「用户的衣服」另写一套渲染和收口。
   // 自动换头像（她 2026-08-31：「不要每次都触发不然我给他发个什么食物图他也换了，
   // 要真的觉得好才换」）。{ [charId]: { ts, prev } }——prev 是换之前那张，好回退。
+  // 上次【全刷】是什么时候（她 2026-08-31：「查手机还是看不出来哪些刷了哪些没刷，
+  // 把每周自动刷一次那个小字改成上次全部刷新的时间」）。{ [charId]: ts }
+  const [phoneLastAll, setPhoneLastAll] = useState({});
+  const phoneLastAllRef = useRef({}); phoneLastAllRef.current = phoneLastAll;
   const [avatarSwap, setAvatarSwap] = useState({});
   const avatarSwapRef = useRef({}); avatarSwapRef.current = avatarSwap;
   const [myCloset, setMyCloset] = useState({});
@@ -772,6 +776,7 @@ function App() {
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleHome(loadJSON("x_coupleHome", {}));
+    setPhoneLastAll(loadJSON("x_phoneLastAll", {}));
     setAvatarSwap(loadJSON("x_avatarSwap", {}));
     setMyCloset(loadJSON("x_myCloset", {}));
     setStudio(loadJSON("x_studio", []));
@@ -10656,6 +10661,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }));
     // 例行刷新时不在这儿报：一次唤起要连着刷好几个人，每人报一遍会把
     // 最后那句「都刷完了」冲掉。缺了哪几个由那一层汇总着说。
+    // 记下这一次全刷。⚠️一个都没成的那种不算（那不是刷过，是刷失败了）
+    if (ok) setPhoneLastAll(p => {
+      const n = { ...p, [char.id]: Date.now() };
+      phoneLastAllRef.current = n; saveJSON("x_phoneLastAll", n); return n;
+    });
     if (!weekly) toast(ok === keys.length ? "已生成全部" : "完成 " + ok + "/" + keys.length + " 个，可单独重试");
     return { ok: ok, total: keys.length };
   };
@@ -12132,6 +12142,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
       cards: (gachaCardsRef.current || []).filter(x => x.charId === cid)
     }, Date.now());
+  };
+  // 把照相馆拍的这张发到和他的聊天里（她 2026-08-31：「照片馆生成的照片应该也自动有
+  // description 吧，那我分享回去上下文不也直接有了吗」——对，desc 拍的时候就写好了：
+  // 场景 + 两身衣服。带着它一起发过去，历史行里就是「[照片] …」加「对方配文：…」，
+  // 以后她说「上次去夜市那张」他接得上，不用另外写进记忆库）。
+  const shareShotToChat = async (char, shot) => {
+    if (!char || !shot) return false;
+    try {
+      // 照相馆存在 idbImg 那个仓（img_ 键），聊天的照片走 iv_ 图库——两个仓，得搬一趟
+      let ref = shot.imgUrl || "";
+      if (!ref && shot.imgKey) {
+        const blob = await idbImgGet(shot.imgKey);
+        if (!blob) throw new Error("这张图在本机图库里找不到了");
+        ref = await imgToVault(await blobToDataUrl(blob));
+      }
+      if (!ref) throw new Error("这张没有图");
+      const desc = String(shot.desc || shot.scene || "").trim();
+      pChat(char.id, p => [...p, {
+        role: "user", kind: "photo", imageRef: ref, photoMode: "real",
+        desc: desc, content: desc ? "[照片] " + desc : "[照片]",
+        ts: Date.now(), read: true
+      }]);
+      setActiveChar(char); setScreen("thread");
+      toast("发过去了——点「让 TA 回复」听他说");
+      return true;
+    } catch (e) { toast("没发出去：" + (e.message || "重试")); return false; }
   };
   // ═══ 他看见的那张照片（她 2026-08-31）═══
   //
@@ -14479,6 +14515,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onAskAnon: askAnon,
     onDelAnonRecord: delAnonRecord,
     autoOn: Object.fromEntries(liveChars.map(c => [c.id, autoRefreshOn("phone", c.id)])),
+    lastAll: phoneLastAll,
     weekAt: phoneWeekAt,
     onToggleAuto: phoneAutoToggle,
     onGenPlaylist: genCharPlaylist,
@@ -14667,6 +14704,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     studioCanShoot: ch => !!(typeof imgApiReady === "function" && imgApiReady() && ch && ch.refPhoto && profile && profile.refPhoto),
     onGenDateFit: genDateOutfits,
     onStudioShoot: studioShoot,
+    onShareShot: shareShotToChat,
     onOpenDrawer: openDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,

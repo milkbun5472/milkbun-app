@@ -921,6 +921,22 @@ let PHONE_VIEW_TA = "他";
 function phoneViewTa(char) { PHONE_VIEW_TA = charTa(char); }
 // T("他的订单") → 按现在这台手机的主人换称呼；默认「他」时原样返回，一个字不动。
 function T(s) { return PHONE_VIEW_TA === "他" ? s : phoneTa(s, PHONE_VIEW_TA); }
+// 通讯录那一行的小字（她 2026-08-31：「还是看不出来哪些刷了哪些没刷」）。
+// 原来写的是「每周自动刷一次 / 翻翻 Ta 的手机」——那说的是【开关状态】，不是【刷没刷】，
+// 所以一屏看下来还是分不出谁的手机是新的。改成上次全刷的时间。
+// ⚠️这一笔是从 v58.99 才开始记的，之前刷过的没有记录——那种显示「还没全刷过」，
+// 刷一次就有了。不拿别处的时间戳凑数：宁可说不知道，也别报一个假的时刻。
+function phoneLastAllLabel(ts) {
+  const t = Number(ts) || 0;
+  if (!t) return "还没全刷过";
+  const d = new Date(t), now = Date.now();
+  const days = Math.floor((now - t) / 86400000);
+  const hm = (d.getHours() < 10 ? "0" : "") + d.getHours() + ":" + (d.getMinutes() < 10 ? "0" : "") + d.getMinutes();
+  if (days <= 0) return "今天 " + hm + " 刷过";
+  if (days === 1) return "昨天 " + hm + " 刷过";
+  if (days < 7) return days + " 天前刷过";
+  return (d.getMonth() + 1) + "月" + d.getDate() + "日刷过";
+}
 function phoneSearch(rows, extra, q) {
   const needle = String(q == null ? "" : q).replace(/\s+/g, "").toLowerCase();
   if (needle.length < 1) return [];
@@ -4000,6 +4016,7 @@ function PhoneCarry({
   autoOn,
   onToggleAuto,
   weekAt,
+  lastAll,
   onPeek
 }) {
   const t = useTheme();
@@ -4098,7 +4115,7 @@ function PhoneCarry({
                 h("div", { className: "flex-1 min-w-0" },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 1 } },
-                    weekAt && weekAt.id === c.id ? "正在刷新……" : (autoOn || {})[c.id] ? "每周自动刷一次" : "翻翻 Ta 的手机"))),
+                    weekAt && weekAt.id === c.id ? "正在刷新……" : phoneLastAllLabel((lastAll || {})[c.id])))),
               // 每周自动刷的开关。默认关——她按次计费，默认开会吓人。
               // ⚠️必须和那一行并排、不能套在里面：按钮不许嵌按钮。
               // 放在这儿而不是设置里：开关和「这是谁的手机」得在同一个地方看得见。
