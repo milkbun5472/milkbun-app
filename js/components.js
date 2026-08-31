@@ -1545,7 +1545,19 @@ const HOME_DECOR_BORDERS = [
   { id: "dashed", name: "虚线" },
   { id: "none", name: "无边框" }
 ];
+const HOME_DECOR_TILTS = [
+  { value: -8, name: "左斜" },
+  { value: -4, name: "微左" },
+  { value: 0, name: "摆正" },
+  { value: 4, name: "微右" },
+  { value: 8, name: "右斜" }
+];
 const HOME_DECOR_ACCENTS = ["#b65f57", "#c08a43", "#67806f", "#57758b", "#765f83", "#2e2b28"];
+function normalizeHomeDecorTilt(value) {
+  var n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(-12, Math.min(12, Math.round(n)));
+}
 function homeDecorRgba(hex, alpha) {
   var raw = String(hex || "").replace("#", "");
   if (!/^[0-9a-f]{6}$/i.test(raw)) return "rgba(182,95,87," + alpha + ")";
@@ -1556,7 +1568,8 @@ function homeDecorMaterialStyle(item, t) {
   var accent = item.accent || "#b65f57";
   var surface = item.surface || "paper";
   var borderMode = item.borderMode || "line";
-  var style = { textAlign: item.align || "left" };
+  var tilt = normalizeHomeDecorTilt(item.tilt);
+  var style = { textAlign: item.align || "left", transform: "rotate(" + tilt + "deg)", transformOrigin: "center center", transition: "transform .18s ease" };
   if (surface === "transparent") Object.assign(style, { background: "transparent", boxShadow: "none", backdropFilter: "none", WebkitBackdropFilter: "none" });
   if (surface === "tint") Object.assign(style, { background: "linear-gradient(145deg," + homeDecorRgba(accent, .19) + "," + homeDecorRgba(accent, .07) + ")", boxShadow: "0 8px 22px " + homeDecorRgba(accent, .12) });
   if (surface === "glass") Object.assign(style, { background: "rgba(255,255,255,.32)", boxShadow: "0 9px 26px rgba(40,34,28,.10)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" });
@@ -1874,7 +1887,7 @@ function HomePhotoSlotEditor({ value, frame, busy, onPick, onClear }) {
         ref ? h("button", { type: "button", onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClear(i); }, className: "active:opacity-65", "aria-label": "清空第 " + (i + 1) + " 张照片", style: { position: "absolute", right: 5, top: 5, zIndex: 2, width: 23, height: 23, borderRadius: 999, background: "rgba(20,19,17,.72)", color: "#fff", fontFamily: F_BODY, fontSize: 15, lineHeight: "23px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,.2)" } }, "×") : null);
     }));
 }
-function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, onSurface, onBorderMode, onAccent, onAlign, onBadge }) {
+function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, tilt, onSurface, onBorderMode, onAccent, onAlign, onBadge, onTilt }) {
   const t = useTheme();
   function choiceRow(items, value, onChange) {
     return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + items.length + ",minmax(0,1fr))", gap: 7 } }, items.map(function (x) {
@@ -1899,7 +1912,17 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
         choiceRow([{ id: "left", name: "居左" }, { id: "center", name: "居中" }], align || "left", onAlign)),
       h("label", { style: { minWidth: 0 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 7 } }, "角标（可留空）"),
-        h("input", { value: badge || "", onChange: function (e) { onBadge(e.target.value); }, maxLength: 12, placeholder: "NEW / 私藏 / 01", style: { width: "100%", height: 38, outline: "none", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5, padding: "0 9px" } }))));
+        h("input", { value: badge || "", onChange: function (e) { onBadge(e.target.value); }, maxLength: 12, placeholder: "NEW / 私藏 / 01", style: { width: "100%", height: 38, outline: "none", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 11.5, padding: "0 9px" } }))),
+    h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 16, marginBottom: 8 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog } }, "摆放角度"),
+      h("div", { style: { minWidth: 42, textAlign: "right", fontFamily: "monospace", fontSize: 11.5, color: t.ink } }, (normalizeHomeDecorTilt(tilt) > 0 ? "+" : "") + normalizeHomeDecorTilt(tilt) + "°")),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,minmax(0,1fr))", gap: 6 } },
+      HOME_DECOR_TILTS.map(function (x) {
+        var active = normalizeHomeDecorTilt(tilt) === x.value;
+        return h("button", { key: x.value, type: "button", onClick: function () { onTilt(x.value); }, className: "active:opacity-70", style: { minWidth: 0, borderRadius: 11, padding: "8px 2px", background: active ? t.ink : t.bg2, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line), fontFamily: F_BODY, fontSize: 9.5, whiteSpace: "nowrap" } }, x.name);
+      })),
+    h("input", { type: "range", min: -12, max: 12, step: 1, value: normalizeHomeDecorTilt(tilt), onChange: function (e) { onTilt(normalizeHomeDecorTilt(e.target.value)); }, "aria-label": "微调装饰倾斜角度", style: { width: "100%", marginTop: 10, accentColor: accent || HOME_DECOR_ACCENTS[0] } }),
+    h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 2 } }, h("span", null, "左斜 12°"), h("span", null, "右斜 12°")));
 }
 function Home({
   now,
@@ -1954,6 +1977,7 @@ function Home({
   const [decorDraftAccent, setDecorDraftAccent] = useState(HOME_DECOR_ACCENTS[0]);
   const [decorDraftAlign, setDecorDraftAlign] = useState("left");
   const [decorDraftBadge, setDecorDraftBadge] = useState("");
+  const [decorDraftTilt, setDecorDraftTilt] = useState(0);
   const [styleDecorText, setStyleDecorText] = useState("");
   const [styleDecorDetail, setStyleDecorDetail] = useState("");
   const [styleDecorFrame, setStyleDecorFrame] = useState("single");
@@ -1963,6 +1987,7 @@ function Home({
   const [styleDecorAccent, setStyleDecorAccent] = useState(HOME_DECOR_ACCENTS[0]);
   const [styleDecorAlign, setStyleDecorAlign] = useState("left");
   const [styleDecorBadge, setStyleDecorBadge] = useState("");
+  const [styleDecorTilt, setStyleDecorTilt] = useState(0);
   const [decorBusy, setDecorBusy] = useState(false);
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
   const [folders, setFolders] = useState(function () { return loadJSON("x_homeFolders", {}); });
@@ -2197,10 +2222,11 @@ function Home({
       setStyleDecorAccent(d.accent || HOME_DECOR_ACCENTS[0]);
       setStyleDecorAlign(d.align || "left");
       setStyleDecorBadge(d.badge || "");
+      setStyleDecorTilt(normalizeHomeDecorTilt(d.tilt));
     }
     setStyleKey(key);
   }
-  function resetDecorDraft() { setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorBusy(false); }
+  function resetDecorDraft() { setDecorDraftType("photo"); setDecorDraftPreset("soft"); setDecorDraftText(""); setDecorDraftDetail(""); setDecorDraftFrame("single"); setDecorDraftPhotos([]); setDecorDraftSurface("paper"); setDecorDraftBorderMode("line"); setDecorDraftAccent(HOME_DECOR_ACCENTS[0]); setDecorDraftAlign("left"); setDecorDraftBadge(""); setDecorDraftTilt(0); setDecorBusy(false); }
   async function takeDecorPhoto(file, target, slot) {
     if (!file) return;
     setDecorBusy(true);
@@ -2223,7 +2249,7 @@ function Home({
     var id = "d_" + Date.now().toString(36) + Math.floor(Math.random() * 100).toString(36);
     var text = decorDraftText.trim();
     var meta = homeDecorMeta(decorDraftType);
-    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", surface: decorDraftSurface, borderMode: decorDraftBorderMode, accent: decorDraftAccent, align: decorDraftAlign, badge: decorDraftBadge.trim(), createdAt: Date.now() };
+    var item = { id: id, type: decorDraftType, text: decorDraftType === "photo" ? "" : (text || meta.text), detail: decorDraftType === "photo" ? "" : (decorDraftDetail.trim() || meta.detail || ""), caption: decorDraftType === "photo" ? text : "", imageRefs: decorDraftType === "photo" ? normalizeHomePhotoSlots(decorDraftPhotos, decorDraftFrame) : [], frame: decorDraftType === "photo" ? decorDraftFrame : "", surface: decorDraftSurface, borderMode: decorDraftBorderMode, accent: decorDraftAccent, align: decorDraftAlign, badge: decorDraftBadge.trim(), tilt: normalizeHomeDecorTilt(decorDraftTilt), createdAt: Date.now() };
     REG[id] = { kind: "decor", which: item.type, decor: item }; // 同一轮先让布局识得它，下一轮由 decorations 重建
     persistDecorations((decorationsRef.current || []).concat([item]));
     setWidgetStyles(function (prev) { var n = Object.assign({}, prev); n[id] = decorDraftPreset; saveJSON("x_homeWidgetStyles", n); return n; });
@@ -2245,10 +2271,10 @@ function Home({
     var it = styleKey && REG[styleKey];
     if (!it || it.kind !== "decor" || !it.decor) return;
     if (it.which === "photo") {
-      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame, surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, badge: styleDecorBadge.trim() });
+      updateDecoration(styleKey, { caption: styleDecorText.trim(), imageRefs: normalizeHomePhotoSlots(styleDecorPhotos, styleDecorFrame), frame: styleDecorFrame, surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
     } else {
       var meta = homeDecorMeta(it.which);
-      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? styleDecorDetail.trim() : "", surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, badge: styleDecorBadge.trim() });
+      updateDecoration(styleKey, { text: styleDecorText.trim() || meta.text, detail: homeDecorHasDetail(it.which) ? styleDecorDetail.trim() : "", surface: styleDecorSurface, borderMode: styleDecorBorderMode, accent: styleDecorAccent, align: styleDecorAlign, badge: styleDecorBadge.trim(), tilt: normalizeHomeDecorTilt(styleDecorTilt) });
     }
     if (typeof toast === "function") toast("桌面内容已经更新");
   }
@@ -2578,7 +2604,7 @@ function Home({
         borderRadius: 17,
         transition: "transform .15s ease"
       }
-    }, h("div", { style: { pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0, overflow: homeSize === "auto" ? "visible" : "hidden" } }, inner));
+    }, h("div", { style: { pointerEvents: editMode ? "none" : "auto", width: "100%", height: "100%", minWidth: 0, minHeight: 0, overflow: it.kind === "decor" ? "visible" : (homeSize === "auto" ? "visible" : "hidden") } }, inner));
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "flex flex-col relative",
@@ -2690,11 +2716,13 @@ function Home({
         accent: styleDecorAccent,
         align: styleDecorAlign,
         badge: styleDecorBadge,
+        tilt: styleDecorTilt,
         onSurface: setStyleDecorSurface,
         onBorderMode: setStyleDecorBorderMode,
         onAccent: setStyleDecorAccent,
         onAlign: setStyleDecorAlign,
-        onBadge: setStyleDecorBadge
+        onBadge: setStyleDecorBadge,
+        onTilt: setStyleDecorTilt
       }),
       h("button", { onClick: saveStyleDecoration, disabled: decorBusy, className: "w-full active:opacity-70", style: { marginTop: 10, borderRadius: 14, padding: "11px 0", background: t.ink, color: t.bg2, opacity: decorBusy ? .45 : 1, fontFamily: F_DISPLAY, fontSize: 14 } }, "保存内容")) : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "占格尺寸"),
@@ -2725,11 +2753,13 @@ function Home({
       accent: decorDraftAccent,
       align: decorDraftAlign,
       badge: decorDraftBadge,
+      tilt: decorDraftTilt,
       onSurface: setDecorDraftSurface,
       onBorderMode: setDecorDraftBorderMode,
       onAccent: setDecorDraftAccent,
       onAlign: setDecorDraftAlign,
-      onBadge: setDecorDraftBadge
+      onBadge: setDecorDraftBadge,
+      onTilt: setDecorDraftTilt
     }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "基础版式"),
     h(HomePresetGrid, { value: decorDraftPreset, allowNative: false, onChange: setDecorDraftPreset }),

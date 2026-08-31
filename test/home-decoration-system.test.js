@@ -167,6 +167,30 @@ test("装饰不是固定皮肤：内容、透明底、无边框、强调色和�
     "除照片框外的小物都应能编辑正文与副文案");
 });
 
+test("装饰可以独立倾斜：自然预设、细调、持久化与防裁切全部接通", () => {
+  const materials = between("const HOME_DECOR_SURFACES", "const HOME_PHOTO_FRAMES");
+  const home = between("function Home({", "// 主页名片");
+  const editor = between("function HomeDecorAppearanceEditor", "function Home({");
+
+  for (const value of [-8, -4, 0, 4, 8]) {
+    assert.match(materials, new RegExp(`value: ${value}`), `缺少 ${value}° 的自然摆放预设`);
+  }
+  assert.match(materials, /Math\.max\(-12, Math\.min\(12/,
+    "自定义角度必须有安全范围，避免装饰翻出桌面");
+  assert.match(materials, /transform: "rotate\(" \+ tilt \+ "deg\)"/,
+    "角度必须进入装饰内层渲染，而不是只存在设置里");
+  assert.match(editor, /type: "range", min: -12, max: 12, step: 1/);
+  assert.match(editor, /aria-label": "微调装饰倾斜角度"/);
+  assert.match(home, /tilt: normalizeHomeDecorTilt\(decorDraftTilt\)/);
+  assert.match(home, /tilt: normalizeHomeDecorTilt\(styleDecorTilt\)/);
+  assert.match(home, /setStyleDecorTilt\(normalizeHomeDecorTilt\(d\.tilt\)\)/,
+    "旧装饰再次打开时必须读回自己的角度");
+  assert.match(home, /overflow: it\.kind === "decor" \? "visible"/,
+    "装饰旋转后不得被占格边缘裁掉四角");
+  assert.match(home, /transform: isDrag \? "scale\(1\.08\)"/,
+    "拖动缩放应继续留在网格外层，与装饰旋转互不覆盖");
+});
+
 test("所有组件与装饰共用独立尺寸轴，音乐会按短条或方块重排", () => {
   const home = between("function Home({", "// 主页名片");
   for (const id of ["auto", "short", "square", "wide", "large"]) {
