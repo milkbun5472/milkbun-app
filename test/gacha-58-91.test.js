@@ -90,7 +90,7 @@ test("只活在情侣空间里：主屏一点痕迹都没有", () => {
   assert.ok(app.indexOf('screen === "gacha"') < 0, "主屏路由还在");
   // 正门在情侣空间，而且只有在一起才进得去
   assert.match(scr, /if \(partner && cp\[view\] && cp\[view\]\.status === "together" && sub === "gacha"\) \{/, "情侣空间里没有这一页");
-  assert.match(scr, /tile\("gacha", \{ e: "🎴", zh: "抽卡"/, "情侣空间首页上没有入口");
+  assert.match(scr, /tile\("gacha", \{[^)]*zh: "抽卡"/, "情侣空间首页上没有入口");
   // 恒为真的那道闸删掉了
   assert.ok(R("gacha.js").indexOf("couple") < 0, "池子里还留着恒为真的 couple 闸");
 });
@@ -196,7 +196,10 @@ test("抽屉那一格不许剧透", () => {
   const i = scr.indexOf('tile("drawer"');
   // ⚠️别按字数切：切过头会切进隔壁 tile("gacha")，那一格是有 dot 的，等于自己抓自己
   const tile = scr.slice(i, scr.indexOf('tile("', i + 10));
-  assert.ok(tile.length > 60 && tile.length < 400, "抽屉那一格切歪了（切出来 " + tile.length + " 字）");
+  // ⚠️上限别卡太紧：这一格加一层装饰（v59.21 那条抽屉把手）就顶破 400 了，
+  // 而它要验的「不报红点」根本没坏。只要确认切的是这一格、没切进隔壁就够。
+  assert.ok(tile.length > 60 && tile.length < 900, "抽屉那一格切歪了（切出来 " + tile.length + " 字）");
+  assert.ok(tile.indexOf('tile("gacha"') < 0, "切进隔壁那一格了");
   assert.ok(tile.indexOf("dot:") < 0, "抽屉格报红点了——惊喜没了");
   assert.ok(!/unopened|没拆|coupleDrawer\.filter|\.length/.test(tile), "格子上把还剩几件漏出去了");
   // 但页面【里头】要说清有几件没拆，不然不知道该点哪一张

@@ -3469,55 +3469,72 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, marginTop: 3 } }, "我们的小房间")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "挑一扇门进去")),
           (() => {
-            const tile = (k, o) => h("button", { key: k, onClick: o.onClick || (() => setSub(k)), className: "active:opacity-70", style: { position: "relative", textAlign: "left", gridColumn: "span " + (o.cols || 3), gridRow: "span " + (o.rows || 2), background: o.bg, border: "1px solid " + o.bd, borderRadius: o.radius || 20, padding: o.pad || "12px 13px", display: "flex", flexDirection: "column", justifyContent: "space-between", overflow: "hidden", minHeight: 0, minWidth: 0, boxShadow: o.shadow || "0 7px 18px rgba(68,45,58,.035)" } },
+            // ── v59.21 重做外壳（她 2026-08-31：「还是太工整了差点意思」）──
+            // 上一版的病不是「不够花」，是【花错了地方】：十六块各自一个马卡龙底色、
+            // 十六个彩色 emoji，可每一块的排版是同一个模板（左上 emoji+标题 → 中间一大片
+            // 空 → 底下一句话）。**变化全在颜色上，秩序全在版式上**，所以看着又杂又工整。
+            // 这一版反过来：
+            //   ① 底色统一成一张纸，颜色只留给真正该重的那两三块——主次靠轻重，不靠色相；
+            //   ② emoji 全撤（十六个彩色小图标是最杂的那一层），换成一个【大号水印汉字】，
+            //      一格一个字，既认得出又是同一套语言；
+            //   ③ 标题从顶上挪到【底部】、缩到 10px：正文（那个数字、那句话）顶上去当主角，
+            //      同一个模板一被打散，"工整"就散了；
+            //   ④ 允许微微倾斜（tilt）和抬起（lift）——纸是贴上去的，不是排上去的。
+            const PAPER = "#fffdfa", PLINE = "rgba(92,72,62,.13)";
+            const tile = (k, o) => h("button", { key: k, onClick: o.onClick || (() => setSub(k)), className: "active:opacity-70", style: { position: "relative", textAlign: "left", gridColumn: "span " + (o.cols || 3), gridRow: "span " + (o.rows || 2), background: o.bg || PAPER, border: "1px solid " + (o.bd || PLINE), borderRadius: o.radius || 18, padding: o.pad || "13px 14px", display: "flex", flexDirection: "column", justifyContent: "flex-end", overflow: "hidden", minHeight: 0, minWidth: 0, transform: o.tilt ? "rotate(" + o.tilt + "deg)" : null, boxShadow: o.shadow || (o.lift ? "0 12px 26px rgba(68,45,58,.13)" : "0 2px 9px rgba(68,45,58,.045)") } },
+              // 水印字：压在右下角，越大越淡。一格一个字，替掉原来那排 emoji。
+              // ⚠️水印要【整个字都在框里】：伸出边缘会被裁成一块方色块，比不放还难看。
+              o.mark ? h("div", { "aria-hidden": "true", style: { position: "absolute", right: 9, top: 6, fontFamily: F_DISPLAY, fontSize: o.markSize || 46, lineHeight: 1, color: o.markInk || "rgba(92,72,62,.075)", pointerEvents: "none" } }, o.mark) : null,
               o.deco || null,
-              o.dot ? h("span", { style: { position: "absolute", top: 9, right: 11, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
-              h("div", { style: { position: "relative", zIndex: 1, fontFamily: F_BODY, fontSize: o.labelSize || 11, color: o.ink, flexShrink: 0, letterSpacing: o.letterSpacing || 0 } }, o.e + " " + o.zh),
-              o.body);
+              o.dot ? h("span", { style: { position: "absolute", top: 10, right: 12, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
+              h("div", { style: { position: "relative", zIndex: 1, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end" } }, o.body),
+              h("div", { style: { position: "relative", zIndex: 1, fontFamily: F_BODY, fontSize: 10, color: o.ink, marginTop: 7, flexShrink: 0, letterSpacing: ".06em", opacity: .85 } }, o.zh));
             const sub2 = (txt, c) => h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: c, marginTop: 2 } }, txt);
-            return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gridAutoRows: 54, gridAutoFlow: "row", gap: 10 } },
+            return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(6,minmax(0,1fr))", gridAutoRows: 50, gridAutoFlow: "row", gap: 11 } },
               // 首屏两块一宽一窄：日子是主角，合照像靠在旁边的一张竖拍立得。
-              tile("timeline", { cols: 4, rows: 3, radius: "28px 12px 28px 28px", e: "📅", zh: "我们的日子", bg: "linear-gradient(150deg,#fdeef2,#f6e0ec)", bd: "#f0d2de", ink: "#b0708a",
-                deco: h("div", { style: { position: "absolute", right: -13, top: 17, width: 68, height: 68, borderRadius: 999, border: "16px solid rgba(198,90,126,.075)" } }),
+              tile("timeline", { cols: 4, rows: 3, radius: 20, zh: "我们的日子 · 时间轴与纪念日", bg: "linear-gradient(155deg,#8e4a63,#6d3850)", bd: "#8e4a63", ink: "rgba(255,255,255,.72)", lift: true,
+                mark: "日", markSize: 86, markInk: "rgba(255,255,255,.07)",
                 body: h("div", null,
                   bAnn ? h(Fragment, null,
                     h("div", { className: "flex items-baseline gap-1" },
-                      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 34, lineHeight: 1, color: "#c65a7e" } }, bAnn.days === 0 ? "今天" : bAnn.days),
-                      bAnn.days > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#b0708a" } }, "天") : null),
-                    sub2("距「" + bAnn.name + "」", "#b0708a"))
+                      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 52, lineHeight: 1, color: "#fff" } }, bAnn.days === 0 ? "今天" : bAnn.days),
+                      bAnn.days > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.72)" } }, "天") : null),
+                    sub2("距「" + bAnn.name + "」", "rgba(255,255,255,.72)"))
                   : h(Fragment, null,
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#c65a7e", lineHeight: 1.3 } }, bTlN ? "记了 " + bTlN + " 个瞬间" : "从这里开始"),
-                    sub2("时间轴 · 纪念日", "#b0708a"))) }),
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: "#fff", lineHeight: 1.3 } }, bTlN ? "记了 " + bTlN + " 个瞬间" : "从这里开始"),
+                    sub2("翻翻走过来的这一路", "rgba(255,255,255,.72)"))) }),
               // 合照墙：最近一张合照当封面，每月十二号来翻。
-              h("button", { key: "album", onClick: () => setSub("album"), className: "active:opacity-80", style: { position: "relative", gridColumn: "span 2", gridRow: "span 3", borderRadius: "12px 30px 30px 30px", overflow: "hidden", border: "1px solid #e2d4f0", background: bPhotos.length ? "#20141f" : "linear-gradient(150deg,#f6ecff,#efe4fb)", minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 0, boxShadow: "0 9px 20px rgba(79,55,91,.07)" } },
-                bPhotos.length ? h(AlbumPhoto, { photo: bPhotos[0], cover: true }) : null,
+              h("button", { key: "album", onClick: () => setSub("album"), className: "active:opacity-80", style: { position: "relative", gridColumn: "span 2", gridRow: "span 3", borderRadius: 6, overflow: "hidden", border: "6px solid #fff", background: bPhotos.length ? "#20141f" : "#f4f1ec", minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 0, transform: "rotate(1.6deg)", boxShadow: "0 12px 26px rgba(68,45,58,.16)" } },
+                bPhotos.length ? h(AlbumPhoto, { photo: bPhotos[0], cover: true })
+                  // 空态原来是一整块白，看着像没加载完。给个虚线相框当占位。
+                  : h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 9, border: "1px dashed rgba(92,72,62,.24)", borderRadius: 3 } }),
                 h("div", { style: { position: "relative", zIndex: 1, width: "100%", padding: "11px 13px", textAlign: "left", background: bPhotos.length ? "linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.6) 100%)" : "transparent" } },
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: bPhotos.length ? "rgba(255,255,255,.9)" : "#9a7ab8" } }, "🖼️ 合照墙"),
-                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: bPhotos.length ? 16 : 16, color: bPhotos.length ? "#fff" : "#8a5db0", lineHeight: 1.25, marginTop: 2 } }, bPhotos.length ? "我们的合照 · " + bPhotos.length + " 张" : "还没有合照"),
-                  h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: bPhotos.length ? "rgba(255,255,255,.72)" : "#9a7ab8", marginTop: 2 } }, bPhotos.length ? "每月十二号来翻翻" : "让 TA 拍张我俩"))),
-              tile("letters", { cols: 2, rows: 2, radius: "8px 24px 24px 24px", e: "💌", zh: "情书", bg: "#fdf6ec", bd: "#eee0c6", ink: "#b08d52", dot: bUnread > 0,
+                  h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: bPhotos.length ? "#fff" : "#6f6459", lineHeight: 1.25 } }, bPhotos.length ? bPhotos.length + " 张" : "还没有"),
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: bPhotos.length ? "rgba(255,255,255,.75)" : "#9b9186", marginTop: 3, letterSpacing: ".06em" } }, "合照墙"))),
+              tile("letters", { cols: 3, rows: 2, radius: "3px 3px 18px 18px", zh: "情书", bg: "#fdf7ec", bd: "#ecdfc6", ink: "#a5793a", dot: bUnread > 0, mark: "书", markInk: "rgba(140,105,50,.07)",
+                deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 42, background: "linear-gradient(#f7ecd6,#f7ecd6)", clipPath: "polygon(0 0,100% 0,50% 100%)", opacity: .8 } }),
                 body: h("div", null,
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#a5793a", lineHeight: 1.2 } }, bLetters.length ? bLetters.length + " 封" : "写给彼此"),
                   bUnread ? sub2(bUnread + " 封没拆", "#c65a4a") : null) }),
-              tile("notes", { cols: 4, rows: 2, radius: "24px 8px 24px 24px", e: "📝", zh: "便签墙", bg: "#f3f0fa", bd: "#ded7ee", ink: "#8a7ab0", dot: unreadNotesFor(bCid),
+              tile("notes", { cols: 3, rows: 2, radius: 4, zh: "便签墙", bg: "#fdf6d8", bd: "#eee0ab", ink: "#8a7532", dot: unreadNotesFor(bCid), tilt: -1.4, lift: true, mark: "签", markInk: "rgba(120,100,40,.08)",
                 deco: h("div", { style: { position: "absolute", right: 15, top: 0, width: 42, height: 8, borderRadius: "0 0 8px 8px", background: "rgba(138,122,176,.14)" } }),
-                body: h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#6f5f9a", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                body: h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#7a6520", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   bNote ? (bNote.authorId === "user" ? "我：" : partner.name + "：") + String((bNote.replies || []).length ? bNote.replies[bNote.replies.length - 1].content : bNote.content).replace(/\s+/g, " ") : "贴一张只有你俩看的悄悄话") }),
-              tile("recall", { cols: 3, rows: 2, radius: "26px 26px 10px 26px", e: "🕯", zh: "他记得的", bg: "#f3eef0", bd: "#e4d5da", ink: "#93707c",
+              tile("recall", { cols: 2, rows: 2, zh: "他记得的", ink: "#93707c", mark: "记",
                 dot: (coupleRecall || []).some(function (x) { return x.characterId === partner.id && x.unread; }),
                 body: (function () {
                   const n = (coupleRecall || []).filter(function (x) { return x.characterId === partner.id; }).length;
                   return h("div", null,
-                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#93707c" } }, n || "—"),
+                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#93707c" } }, n ? String(n) : ""),
                     sub2(n ? "件事的两个版本" : "同一件事,两个人", "#ab8b95"));
                 })() }),
-              tile("pacts", { cols: 3, rows: 2, radius: "26px 10px 26px 26px", e: "🤝", zh: "我们说好的", bg: "#f4f1ea", bd: "#e3dccd", ink: "#8f7d5c",
+              tile("pacts", { cols: 2, rows: 2, zh: "我们说好的", ink: "#8f7d5c", mark: "约",
                 dot: (function () { const p = couplePactsOf ? couplePactsOf(partner.id) : null; return !!(p && (p.due || []).some(function (x) { return x.dueTs && Date.now() >= x.dueTs - 86400000; })); })(),
                 body: (function () {
                   const p = couplePactsOf ? couplePactsOf(partner.id) : null;
                   const n = p ? (p.open || []).length : 0;
                   return h("div", null,
-                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#8f7d5c" } }, n || "—"),
+                    h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#8f7d5c" } }, n ? String(n) : ""),
                     sub2(n ? "件还没了结" : "还没说好什么", "#a8977a"));
                 })() }),
               // ⚠️抽屉这一格【故意没有 dot、也不显示还剩几件没拆】——报了就跟别的通知一样，
@@ -3527,7 +3544,11 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 const cur = makeupOf ? makeupOf(partner.id) : null;
                 // ⚠️没别扭的时候这一格也在，只是不亮、不带 dot——藏起来的话她永远
                 // 找不到它在哪；亮着却不说为什么，跟没说一样。
-                return tile("makeup", { cols: 6, rows: 2, radius: "30px 10px 30px 10px", e: "🕊", zh: "和好间",
+                // ⚠️没事的时候它不该跟别的格子一样重：缩成一条几乎隐形的纸；
+                // 真有事了才【压上来】——微微歪着、抬起来，像谁塞进来的一张条子。
+                return tile("makeup", { cols: 6, rows: (sig.on || cur) ? 2 : 1, radius: 14, zh: "和好间",
+                  mark: (sig.on || cur) ? "和" : null, markInk: "rgba(140,80,70,.07)",
+                  tilt: (sig.on || cur) ? -0.7 : null, lift: !!(sig.on || cur),
                   bg: (sig.on || cur) ? "linear-gradient(140deg,#f6ece9,#efe2de)" : "#f2f0ee",
                   bd: (sig.on || cur) ? "#e6cfc8" : "#e2ded9", ink: (sig.on || cur) ? "#a0685c" : "#9a938c",
                   dot: !!cur,
@@ -3535,30 +3556,33 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                   body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: (sig.on || cur) ? "#8d5a4f" : "#9a938c" } },
                     cur ? "还没了结的那一段" : sig.on ? sig.why : "这会儿没什么事") });
               })(),
-              tile("ifroom", { cols: 6, rows: 2, radius: "10px 30px 10px 30px", e: "🜂", zh: "如果馆", bg: "linear-gradient(140deg,#241f36,#1a1728)", bd: "#332c4a", ink: "#a99ccb",
+              tile("ifroom", { cols: 6, rows: 2, radius: 20, zh: "如果馆", bg: "linear-gradient(140deg,#241f36,#141222)", bd: "#332c4a", ink: "rgba(200,188,230,.7)", lift: true,
+                mark: "如", markSize: 78, markInk: "rgba(169,156,203,.10)",
                 deco: h("div", { style: { position: "absolute", left: "43%", top: -38, width: 104, height: 104, borderRadius: 999, border: "1px solid rgba(169,156,203,.2)" } }),
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#c8bce6", lineHeight: 1.3 } },
                   bIfN ? bIfN + " 条想过的如果" : "同样这两个人，换掉当初的一样东西") }),
-              tile("studio", { e: "📷", zh: "照相馆", cols: 2, rows: 3, radius: "34px 34px 12px 12px", bg: "#f3eefa", bd: "#e0d6ec", ink: "#7c5f9c", pad: "15px 12px 12px",
+              tile("studio", { zh: "照相馆", cols: 3, rows: 2, ink: "#7c5f9c", mark: "相",
                 body: h("div", null,
                   h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#7c5f9c" } }, bShotsN || "—"),
-                  sub2(bShotsN ? "张在这儿拍的" : "挑身衣服，拍一张", "#9b85b4")) }),
-              tile("firsts", { e: "🏷", zh: "第一次们", cols: 4, rows: 3, radius: "12px 30px 30px 12px", bg: "#f2f0ea", bd: "#ded9cd", ink: "#7d6f5a",
+                  sub2(bShotsN ? "张在这儿拍的" : "挑身衣服拍一张", "#9b85b4")) }),
+              tile("firsts", { zh: "第一次们", cols: 6, rows: 2, radius: 14, ink: "#7d6f5a", mark: "次", markSize: 64,
+                deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: "50%", borderTop: "1px dashed rgba(92,72,62,.22)" } }),
                 deco: h("div", { style: { position: "absolute", left: 18, right: 18, top: "47%", borderTop: "1px dashed rgba(125,111,90,.2)" } }),
                 body: h("div", null,
                   h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#7d6f5a" } }, bFirstsN || "—"),
                   sub2(bFirstsN ? "个走过的第一次" : "还没开始", "#9a8b74")) }),
-              tile("drawer", { cols: 2, rows: 2, radius: "9px 9px 26px 26px", e: "🗄", zh: "抽屉", bg: "#faf3e4", bd: "#e9dcc0", ink: "#9c8656",
+              tile("drawer", { cols: 2, rows: 2, radius: "4px 4px 16px 16px", zh: "抽屉", bg: "#faf3e4", bd: "#e9dcc0", ink: "#9c8656", mark: "屉", markInk: "rgba(120,95,45,.07)",
+                deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", bottom: 12, width: 44, height: 4, marginLeft: -22, borderRadius: 99, background: "rgba(120,95,45,.28)" } }),
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", lineHeight: 1.3 } }, "拉开看看") }),
-              tile("gacha", { e: "🎴", zh: "抽卡", cols: 2, rows: 2, radius: 999, bg: "#f6eef4", bd: "#e8d4e4", ink: "#96678c", pad: "14px 15px",
+              tile("gacha", { zh: "抽卡", cols: 2, rows: 2, radius: 999, bg: "#f7eef5", bd: "#e8d4e4", ink: "#96678c", pad: "16px 14px", mark: null,
                 dot: bGachaOpen > 0,
                 body: h("div", null,
                   h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#96678c" } }, bGachaPts || "—"),
                   sub2(bGachaOpen ? bGachaOpen + " 张还没兑" : bGachaPts ? "点，够抽了" : "陪着他就有点数", "#ab86a4")) }),
-              tile("qa", { cols: 2, rows: 2, radius: "26px 26px 26px 8px", e: "📖", zh: "问答小本", bg: "#eef6ef", bd: "#d4e6d8", ink: "#6a9a74",
+              tile("qa", { cols: 2, rows: 2, zh: "问答小本", ink: "#6a9a74", mark: "问",
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#4f8a5e", lineHeight: 1.2 } }, bQaN ? "已答 " + bQaN + " 题" : "关于我们") }),
               // 时光胶囊的正门搬进情侣空间：仍复用 x_capsules 和原完整页面，不复制数据。
-              tile("capsule", { cols: 3, rows: 2, radius: "28px 12px 28px 12px", e: "⌛", zh: "时光胶囊", bg: "#f1f0f8", bd: "#dedbea", ink: "#7d7396", dot: bCapsuleDue > 0, onClick: () => onOpenCapsule && onOpenCapsule(bCid),
+              tile("capsule", { cols: 3, rows: 2, zh: "时光胶囊", ink: "#7d7396", mark: "囊", dot: bCapsuleDue > 0, onClick: () => onOpenCapsule && onOpenCapsule(bCid),
                 body: h("div", null,
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#675d84", lineHeight: 1.25 } }, bCapsuleDue ? bCapsuleDue + " 封等你拆" : "写给以后的我们"),
                   sub2(bCapsuleDue ? "已经到期" : "封存一段此刻", bCapsuleDue ? "#c65a4a" : "#7d7396")) }),
@@ -3567,7 +3591,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 const ex = (coupleExDiary || []).filter(e => e.characterId === bCid);
                 const last = ex[0];
                 const waiting = ex.some(e => e.author === "user" && !e.replied);
-                return tile("exdiary", { cols: 3, rows: 2, radius: "12px 28px 12px 28px", e: "📔", zh: "交换日记", bg: "#fdf2ec", bd: "#eeddd0", ink: "#b08a66",
+                return tile("exdiary", { cols: 3, rows: 2, zh: "交换日记", ink: "#b08a66", mark: "记",
                   dot: unreadExDiaryFor(bCid),
                   body: h("div", null,
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#a5793a", lineHeight: 1.25 } }, !ex.length ? "写下第一页" : waiting ? "本子在 TA 那边" : last.author !== "user" ? "TA 回了一页" : "共 " + ex.length + " 页"),
