@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.02";
+const APP_VERSION = "v59.04";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -357,6 +357,9 @@ function App() {
   // 要真的觉得好才换」）。{ [charId]: { ts, prev } }——prev 是换之前那张，好回退。
   // 上次【全刷】是什么时候（她 2026-08-31：「查手机还是看不出来哪些刷了哪些没刷，
   // 把每周自动刷一次那个小字改成上次全部刷新的时间」）。{ [charId]: ts }
+  // 如果馆（她 2026-08-31）。平行时空：只读人设，不读也不写主线记忆／好感／心情。
+  const [ifLines, setIfLines] = useState([]);
+  const ifLinesRef = useRef([]); ifLinesRef.current = ifLines;
   const [phoneLastAll, setPhoneLastAll] = useState({});
   const phoneLastAllRef = useRef({}); phoneLastAllRef.current = phoneLastAll;
   const [avatarSwap, setAvatarSwap] = useState({});
@@ -776,6 +779,7 @@ function App() {
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleHome(loadJSON("x_coupleHome", {}));
+    setIfLines(loadJSON("x_ifLines", []));
     setPhoneLastAll(loadJSON("x_phoneLastAll", {}));
     setAvatarSwap(loadJSON("x_avatarSwap", {}));
     setMyCloset(loadJSON("x_myCloset", {}));
@@ -12244,6 +12248,141 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     avatarSwapRef.current = n; setAvatarSwap(n); saveJSON("x_avatarSwap", n);
     toast((ch.remark || ch.name) + " 把这张换成了头像");
   };
+  // ═══ 如果馆 ═══
+  //
+  // ⚠️平行时空（跟小剧场、同人文、跑团同一档，见 four-surfaces-same-context.md）：
+  // **只读人设，不读主线的记忆／印象卡／好感／心情，也一个字都不写回去。**
+  // 所以这儿【不用 ctxFor/buildBundle】，自己拼一份精简上下文。
+  const IF_CAP = 60;                    // 一条线最多留多少拍，防它长成一本书
+  const ifCtx = char => {
+    const uName = profile.name || "我";
+    return "【他是谁】" + char.name + "\n" + String(char.persona || "").slice(0, 6000)
+      + (profile.persona ? "\n\n【和他在一起的人 · " + uName + "】\n" + String(profile.persona).slice(0, 2000) : "")
+      + "\n\n【她叫】" + uName;
+  };
+  const ifSave = next => { ifLinesRef.current = next; setIfLines(next); saveJSON("x_ifLines", next); };
+  const ifOpen = async (char, hint) => {
+    if (!active) { toast("请先到设置配置 API"); return null; }
+    const K = window.IfKit;
+    setGen(g => ({ ...g, ifRoom: true }));
+    try {
+      // ⚠️不走 runProbe：它内部一定会 buildBundle，而 buildBundle 会把主线的记忆库、
+      // 印象卡、好感、心情、世界书全灌进来——那正是平行时空【不许】读的东西。
+      // 自己拼一份精简 system，跟小剧场同一个做法。
+      const d = extractJSON(await callAI(apiFor(char.id),
+        ANTI_CLICHE + "\n\n" + ifCtx(char) + "\n\n" + K.openPrompt(char.name, profile.name || "我", hint)
+        + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + K.OPEN_SHAPE,
+        [{ role: "user", content: "开这一条。" }], { maxTokens: 4000 })) || {};
+      const boxes = K.normBoxes(d && d.boxes, char.name);
+      if (!boxes.length) { toast("这一条没想出来，再点一次试试"); return null; }
+      const line = {
+        id: "if_" + Date.now(), charId: char.id,
+        title: String((d && d.title) || "一个如果").replace(/\s+/g, " ").trim().slice(0, 16),
+        premise: String((d && d.premise) || "").replace(/\s+/g, " ").trim().slice(0, 80),
+        bgPrompt: String((d && d.bg) || "").replace(/\s+/g, " ").trim().slice(0, 200),
+        bgKey: null, hint: String(hint || "").trim().slice(0, 200),
+        beats: [{ id: "b_" + Date.now(), role: "char", boxes: boxes, ts: Date.now() }],
+        createdAt: Date.now(), endedAt: null, outcome: null
+      };
+      ifSave([line, ...ifLinesRef.current]);
+      return line;
+    } catch (e) { toast("没开起来：" + e.message); return null; }
+    finally { setGen(g => ({ ...g, ifRoom: false })); }
+  };
+  // 这条线到目前为止说过什么，喂回去。只喂这条线自己的，不掺主线一个字。
+  const ifTranscript = (line, char) => (line.beats || []).slice(-24).map(b =>
+    (b.boxes || []).map(x => b.role === "user" ? (profile.name || "我") + "：" + x.text
+      : (x.who ? char.name + "：" + x.text : "（" + x.text + "）")).join("\n")).join("\n");
+  const ifAdvance = async (lineId, myBoxes) => {
+    const K = window.IfKit;
+    const line = ifLinesRef.current.find(x => x.id === lineId);
+    const char = line && characters.find(c => c.id === line.charId);
+    if (!line || !char) return false;
+    if (!active) { toast("请先到设置配置 API"); return false; }
+    // 她攒的那几条先落地：调用失败也不该把她写的话弄丢
+    const mine = (myBoxes || []).map(t => String(t || "").trim()).filter(Boolean).slice(0, K.MY_BOXES_MAX);
+    let cur = line;
+    if (mine.length) {
+      cur = { ...line, beats: [...(line.beats || []), { id: "b_" + Date.now(), role: "user", boxes: mine.map(t => ({ who: "", text: t })), ts: Date.now() }] };
+      ifSave(ifLinesRef.current.map(x => x.id === lineId ? cur : x));
+    }
+    setGen(g => ({ ...g, ifRoom: true }));
+    const startedAt = Date.now();
+    try {
+      const d = extractJSON(await callAI(apiFor(char.id),
+        ANTI_CLICHE + "\n\n" + ifCtx(char)
+        + "\n\n【这条如果线】" + cur.title + "——" + cur.premise
+        + "\n\n【到这儿为止发生了什么】\n" + ifTranscript(cur, char)
+        + "\n\n" + K.beatPrompt(char.name, profile.name || "我")
+        + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + K.BEAT_SHAPE,
+        [{ role: "user", content: "接着演。" }], { maxTokens: 4000 })) || {};
+      const boxes = K.normBoxes(d && d.boxes, char.name);
+      if (!boxes.length) { toast("这一拍没写出来，再点一次"); return false; }
+      const next = { ...cur, beats: [...(cur.beats || []), { id: "b_" + Date.now() + "_c", role: "char", boxes: boxes, ts: Date.now() }].slice(-IF_CAP) };
+      // ⚠️她那几条刚落过一次盘，这是同一个 durable 键的第二笔。真用起来中间隔着一次
+      // 模型调用（好几秒），但接口秒回时两笔会挨在一起，撞上 WAL 的读回自检——
+      // 跟 runOfflineShot 那个 300ms holdTimer 同一个坑，隔一下就没事。
+      if (mine.length && Date.now() - startedAt < 300) await new Promise(r => setTimeout(r, 300));
+      ifSave(ifLinesRef.current.map(x => x.id === lineId ? next : x));
+      return true;
+    } catch (e) { toast("这一拍没接上：" + e.message); return false; }
+    finally { setGen(g => ({ ...g, ifRoom: false })); }
+  };
+  // 背景图：一条线一张，她自己点了才生（开线时不花图钱）。生成的同时挂上合照墙。
+  const ifBg = async lineId => {
+    const line = ifLinesRef.current.find(x => x.id === lineId);
+    const char = line && characters.find(c => c.id === line.charId);
+    if (!line || !char) return false;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
+    setGen(g => ({ ...g, ifBg: lineId }));
+    try {
+      const scene = (line.bgPrompt || line.premise || line.title) + "，空景，画面里不要有人";
+      const out = await generateSelfieImage(buildPhotoPrompt(char, scene, {}, { kind: "other", me: null }), null, {});
+      if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
+      let bgKey = null, bgUrl = out.url || null;
+      if (out.blob) { bgKey = "img_if_" + line.id; await idbImgPut(bgKey, out.blob); }
+      ifSave(ifLinesRef.current.map(x => x.id === lineId ? { ...x, bgKey: bgKey, bgUrl: bgUrl } : x));
+      toast("背景画好了");
+      return true;
+    } catch (e) { toast("背景没画成：" + (e.message || "重试")); return false; }
+    finally { setGen(g => ({ ...g, ifBg: null })); }
+  };
+  // 收线。三个去处她 2026-08-31 说都要。
+  //  keep  只留在馆里——主线一个字都不知道
+  //  mem   回喂成记忆——⚠️必须带【这是一个如果】的标记，否则他会当成真发生过
+  //  seed  留成一个念头——进欲望盒子那条已有的路
+  const ifEnd = (lineId, how) => {
+    const line = ifLinesRef.current.find(x => x.id === lineId);
+    const char = line && characters.find(c => c.id === line.charId);
+    if (!line || !char) return false;
+    const gist = (line.beats || []).slice(-6).map(b => (b.boxes || []).map(x => x.text).join(" ")).join(" ").slice(0, 300);
+    if (how === "mem") {
+      addMemEntry({
+        text: "【一个如果】" + line.title + "——" + line.premise + "。你俩一起想过这条线：" + gist,
+        tags: ["如果", "平行"], charIds: [char.id], knownBy: [char.id], source: "manual"
+      });
+      toast("记下了——他会记得你俩一起想过这个");
+    } else if (how === "seed") {
+      // 走欲望盒子已有的【观测纸条】那条路：它是个候选，不是既成的念想——
+      // 发不发芽由他自己下次发呆时定。这正好是「留成一个念头」该有的分量。
+      // quote 得是他在这条线里【真说过】的一句，不是我替他编的。
+      const said = (line.beats || []).slice().reverse()
+        .reduce((a, b) => a || (b.role === "char" ? (b.boxes || []).slice().reverse().find(x => x.who) : null), null);
+      let ok = false;
+      if (window.DesireKit && said) {
+        saveDesires(n => {
+          const box = window.DesireKit.boxOf(n, char.id);
+          ok = window.DesireKit.ingestCcCandidate(box,
+            { text: "如果" + line.premise + "，那会是什么样", quote: said.text },
+            "ifline:" + line.id, Date.now());
+          n[char.id] = box;
+        });
+      }
+      toast(ok ? "留成一个念头了——发不发芽由他自己定" : "这条线里他还没说过话，留不成念头");
+    }
+    ifSave(ifLinesRef.current.map(x => x.id === lineId ? { ...x, endedAt: Date.now(), outcome: how } : x));
+    return true;
+  };
   // ── 照相馆 ──
   const STUDIO_CAP = 200;
   const myClosetText = () => (typeof carryClosetText === "function") ? carryClosetText(myClosetRef.current) : "";
@@ -14720,6 +14859,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onGenDateFit: genDateOutfits,
     onStudioShoot: studioShoot,
     onShareShot: shareShotToChat,
+    ifLines: ifLines,
+    ifBusy: gen.ifRoom,
+    ifBgBusy: gen.ifBg,
+    onIfOpen: ifOpen,
+    onIfAdvance: ifAdvance,
+    onIfBg: ifBg,
+    onIfEnd: ifEnd,
     onOpenDrawer: openDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
