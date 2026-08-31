@@ -56,8 +56,9 @@ const PHONE_APPS = [{
   key: "mail",
   zh: "邮件"
 }, {
-  // 账本：他心里给这段关系记的账。跟钱包不是一回事——钱包记钱，这儿记
-  // 没结清的东西（欠着的、兜过的底、放过的狠话、舍不得的、拿不准的）。
+  // 账本：他心里那本没结清的账。跟钱包不是一回事——钱包记钱，这儿记
+  // 没结清的东西（欠着的、替谁挡过的、放过的狠话、舍不得的、拿不准的）。
+  // 账是跟【谁】的都行，用户只是其中一个人。
   key: "tally",
   zh: "账本"
 }, {
@@ -901,10 +902,12 @@ function phoneSearchExtra(charData, live) {
   A(g("liked").follows).forEach(x => x && add("liked", "关注的人", x.name, x.desc));
   A(g("reading").shelves).forEach(sh => sh && A(sh.books).forEach(b => b && add("reading", "书架 · " + S(sh.name), b.title, S(b.author) + "｜" + S(b.note))));
   const tl = g("tally");
-  A(tl.debts).forEach(x => x && add("tally", "没结清", x.title, x.note));
-  A(tl.policies).forEach(x => x && add("tally", "兜底", x.name, S(x.clause) || S(x.scope)));
-  A(tl.statements).forEach(x => x && add("tally", "定论", x.text, x.heat));
-  A(tl.treasures).forEach(x => x && add("tally", "估价", x.title, x.worth));
+  // 跟谁的那一笔要带上——不带的话时间线上一串条目全看不出各自是谁的账
+  const wq = x => S(x && x.who) ? S(x.who) + "｜" : "";
+  A(tl.debts).forEach(x => x && add("tally", "没结清", wq(x) + S(x.title), x.note));
+  A(tl.policies).forEach(x => x && add("tally", "兜底", wq(x) + S(x.name), S(x.clause) || S(x.scope)));
+  A(tl.statements).forEach(x => x && add("tally", "定论", wq(x) + S(x.text), x.heat));
+  A(tl.treasures).forEach(x => x && add("tally", "估价", wq(x) + S(x.title), x.worth));
   A(tl.appraisals).forEach(x => x && add("tally", "自问", x.q, x.a));
   A(g("mail").drafts).forEach(x => x && add("mail", "写了没发", x.subject, S(x.to) + "｜" + S(x.body)));
   A(L.forumAccounts).forEach(a => a && add("forum", S(a.label) + "账号", S(a.name), a.bio));
@@ -1221,7 +1224,7 @@ function MailView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 账本：他心里给这段关系记的那本账
+// 账本：他心里那本没结清的账。跟谁有账就记谁——用户只是其中一个人（v59.12）
 // ─────────────────────────────────────────────────────────────
 // 五栏各有各的腔调，界面也就各长各的样子——挤成一个样式就白分了。
 //   负债 = 两栏对账（他欠 / 她欠 / 悬着）
@@ -1253,6 +1256,16 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       boxShadow: dashed ? "none" : "0 2px 10px rgba(31,29,26,.045)"
     }
   }, kids);
+  // 这笔账是跟谁的。v59.12 起每条都带 who——账本不再只记用户那一本。
+  // 旧数据没有 who：不显示，别硬填一个「你」上去（那正是要撤掉的那个假设）。
+  const whoPill = x => S(x && x.who) ? h("span", {
+    key: "w",
+    style: {
+      fontFamily: F_BODY, fontSize: 10.5, padding: "2px 8px", borderRadius: 99, flexShrink: 0,
+      background: "rgba(31,29,26,.05)", color: TALLY_DIM, maxWidth: 108,
+      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+    }
+  }, S(x.who)) : null;
   const peekBtn = (label, title, text) => onPeek ? h("button", {
     onClick: e => { e.stopPropagation(); onPeek({ tier: "hidden", label: "账本 · " + label, title, text }); },
     className: "active:opacity-60",
@@ -1272,6 +1285,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
               background: dir.c + "1c", color: dir.c
             }
           }, dir.zh),
+          whoPill(x),
           h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: TALLY_INK, wordBreak: "break-word" } }, S(x.title))),
         S(x.note) ? h("div", { key: "n", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: TALLY_DIM, marginTop: 9, paddingLeft: 10, borderLeft: "2px solid " + TALLY_LINE, wordBreak: "break-word" } }, S(x.note)) : null,
         peekBtn("没结清", S(x.title), S(x.note))
@@ -1281,6 +1295,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const rows = A(data.policies).filter(x => x && typeof x === "object");
     body = rows.length ? rows.map((x, i) => card([
       h("div", { key: "h", style: { display: "flex", alignItems: "flex-start", gap: 10 } },
+        whoPill(x),
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: TALLY_INK, wordBreak: "break-word" } }, S(x.name)),
         S(x.terms) ? h("span", {
           style: { fontFamily: F_BODY, fontSize: 10.5, padding: "3px 9px", borderRadius: 8, background: "rgba(31,29,26,.05)", color: TALLY_DIM, flexShrink: 0, maxWidth: 150, wordBreak: "break-word", lineHeight: 1.45 }
@@ -1292,9 +1307,11 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   } else if (tab === "statements") {
     const rows = A(data.statements).filter(x => x && typeof x === "object");
     body = rows.length ? rows.map((x, i) => card([
-      S(x.heat) ? h("span", {
-        key: "t", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM, marginBottom: 9 }
-      }, S(x.heat)) : null,
+      (S(x.heat) || S(x.who)) ? h("div", { key: "t", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 9 } },
+        S(x.heat) ? h("span", {
+          style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM }
+        }, S(x.heat)) : null,
+        whoPill(x)) : null,
       h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.65, color: TALLY_INK, wordBreak: "break-word" } }, S(x.text)),
       peekBtn("定论", S(x.text), "")
     ], "s" + i)) : null;
@@ -1302,7 +1319,9 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
     const rows = A(data.treasures).filter(x => x && typeof x === "object");
     body = rows.length ? rows.map((x, i) => card([
       h("div", { key: "k", style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 } },
-        S(x.kind) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM } }, S(x.kind)) : h("span"),
+        h("span", { style: { display: "flex", alignItems: "center", gap: 6, minWidth: 0 } },
+          S(x.kind) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, padding: "2px 9px", borderRadius: 99, background: "rgba(31,29,26,.05)", color: TALLY_DIM, flexShrink: 0 } }, S(x.kind)) : null,
+          whoPill(x)),
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".17em", color: TALLY_DIM } }, "LOT " + String(i + 1).padStart(2, "0"))),
       h("div", { key: "x", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.5, color: TALLY_INK, wordBreak: "break-word" } }, S(x.title)),
       S(x.worth) ? h("div", { key: "w", style: { fontFamily: F_BODY, fontSize: 13, color: TALLY_DIM, marginTop: 7, wordBreak: "break-word" } }, S(x.worth)) : null,
@@ -1325,7 +1344,7 @@ function TallyView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
         onRefresh ? h("button", { onClick: onRefresh, disabled: refreshing, className: "active:opacity-50 disabled:opacity-40", "aria-label": "重新推演", style: { width: 40, height: 40 } }, h(IRefresh, { size: 17, color: TALLY_INK })) : null)),
     h("div", { className: "shrink-0 px-5 pb-3" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TALLY_DIM, lineHeight: 1.7 } },
-        T("这本账不记钱。记的是他和你之间还没结清的东西。"))),
+        T("这本账不记钱。记的是他心里还没结清的东西——跟谁的都有，你只是其中一个。"))),
     // 五栏切换：横滑，别挤成一行小字
     h("div", {
       className: "shrink-0 flex gap-2 px-5 pb-3 overflow-x-auto",
@@ -4289,7 +4308,7 @@ function PhoneCarry({
       music: T("他还没有歌单"), album: "相册还没翻过", bili: "最近没有观看记录", latenight: "深夜台还是空的",
       forum: T("论坛上还没有他的痕迹"), reading: "最近没在读什么", liked: "还没点过什么",
       health: "还没有健康记录", clipboard: "剪贴板是空的", calendar: "日历上没有安排", takeout: "最近没点过吃的",
-      timeline: "先刷一遍手机，这里才串得起来", tally: T("他还没给你们记账"), mail: "邮箱还没翻过",
+      timeline: "先刷一遍手机，这里才串得起来", tally: T("他还没记这本账"), mail: "邮箱还没翻过",
       anon: "匿名箱里还没有问答"
     }[key] || "还没有内容";
     // 真数据这几个走自己那份，不然桌面小组件永远显示兜底话
@@ -4474,7 +4493,7 @@ function PhoneCarry({
     // 账本：没结清的那几笔
     if (key === "tally") {
       const rows = wRows("tally").slice(0, 2);
-      if (!rows.length) return line(T("他还没给你们记账"));
+      if (!rows.length) return line(T("他还没记这本账"));
       return h("div", { style: { flex: 1, marginTop: 8 } }, rows.map((x, i2) =>
         h("div", { key: i2, className: "flex items-baseline", style: { gap: 7, marginTop: i2 ? 7 : 0 } },
           h("span", { style: { width: 5, height: 5, borderRadius: 999, background: t.accent, flexShrink: 0 } }),
@@ -4676,7 +4695,7 @@ const PHONE_ANGLE = {
   takeout: "【取材层】他怎么把自己喂饱。几点吃、吃什么、送到谁那儿、备注里写了什么——**备注那一栏比吃什么更暴露人**。【时间窗】这两周。",
   wallet: "【取材层】他的谋生方式和消费水平，是长期的底子，不是这几天的心情。【时间窗】按月。",
   mail: "【取材层】他对外那一面：工作、账单、订阅、学校、机构。**这里的他是【对陌生人和上级说话】的样子**，跟微信里那个人是同一个，但措辞完全两回事。【时间窗】这一两周，订阅和账单可以更久。",
-  tally: "【取材层】他心里给这段关系记的那本账——欠着的、兜过的底、放过的狠话、舍不得的、拿不准的。**这本账不记钱**，钱在钱包里；这儿记的是没结清的东西。【时间窗】从认识到现在，横跨很久；大多数条目应该已经挂了一阵子了。"
+  tally: "【取材层】他心里那本没结清的账——欠着的、替谁挡过的、放过的狠话、舍不得的、拿不准的。**跟谁有账就记谁**，用户只是其中一个人。**这本账不记钱**，钱在钱包里。【时间窗】从认识到现在，横跨很久；大多数条目应该已经挂了一阵子了。"
 };
 
 // 从已存下来的各 app 数据里抽一行代表，喂给下一个 app 当【已经写过】清单。
@@ -4785,7 +4804,7 @@ function charTa(char) {
 }
 // 给查手机以外、同样需要跟随角色性别的界面复用；不要再各写一份判断表。
 if (typeof window !== "undefined") window.PhonePronoun = { ta: charTa, replace: phoneTa };
-function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly) {
+function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const S = {
     wechat: {
@@ -4966,20 +4985,34 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
       schemaHint: "{\"me\":{\"addr\":\"他的邮箱地址\",\"name\":\"发件人显示名\",\"sign\":\"签名档\"},\"inbox\":[{\"from\":\"谁发的\",\"fromAddr\":\"地址\",\"subject\":\"主题\",\"time\":\"今天 09:12\",\"kind\":\"哪一类\",\"unread\":true,\"preview\":\"列表里那一截\",\"body\":\"正文\",\"thought\":\"他心里那句\"}],\"sent\":[{\"to\":\"寄给谁\",\"subject\":\"主题\",\"time\":\"昨天 18:40\",\"body\":\"正文\"}],\"drafts\":[{\"to\":\"本来要寄给谁\",\"subject\":\"主题\",\"body\":\"正文\",\"savedAt\":\"存了多久\"}],\"retired\":{\"drafts\":[\"发出去或删掉的草稿主题\"]}}"
     },
     tally: {
-      instruction: "推演「" + char.name + "」心里给他和用户之间记的那本账。\n"
-        + "**这本账不记钱**——钱是钱包的事。这儿记的是【没结清的东西】：欠着的、兜过的底、放过的狠话、舍不得的、拿不准的。\n"
-        + "所有内容必须从【他和用户之间真实发生过的事】里长出来（关系、记忆、印象、这阵子的来往）；写不出具体的，那一栏宁可少给两条，也不要拿泛泛的关系描述凑数。\n\n"
-        + "五栏，各自的写法：\n"
-        + "① debts（4-7 条）没结清的账。每条：title 一句话说清欠的是什么、dir 填 mine（他欠用户）/ theirs（用户欠他）/ open（两个人都没说清、悬着）、note 一句他自己怎么想这笔。\n"
+      // 她 2026-08-31：「如果我和她不是恋人（她自己有 cp）这块写的还是我和她的账本
+      // 而且会有点恋爱倾向的写法」。原来这一栏把「这本账」直接钉成了他和用户之间那
+      // 一本，还配了一整套恋爱腔的词（兜底、舍不得、放过的狠话）。于是不管什么关系，
+      // 出来的都是一本情账。
+      // 改成：这是【他自己的一本账】，跟谁有账写谁；用户是其中一个人，占多大篇幅由
+      // 真实关系决定。腔调也从关系里长出来，不预设是哪一种。
+      instruction: "推演「" + char.name + "」心里那本【没结清的账】。\n"
+        + "**这本账不记钱**——钱是钱包的事。这儿记的是没结清的东西：欠着的、替谁挡过的、放过的狠话、"
+        + "舍不得的、拿不准的、看不顺眼又没发作的、受了没还的。\n"
+        + "⚠️**这不是「他和用户之间」那一本，是他自己的那一本。** 每一条都要写清楚这笔账是【跟谁】的（who）："
+        + "可以是用户，也可以是他的家人、同伙、对头、旧相识、他自己的那个人。上面那一段写着他跟谁是什么关系，照它来。\n"
+        + "⚠️**腔调从关系里长出来，别预设是哪一种。** 欠人情、赌一口气、敬着、瞧不上、亏欠、还不清——"
+        + "全都是账。**把每一条都写成情账是这一栏最容易犯的错**：跟他不是那种关系的人，"
+        + "写出来却字字含情，那就是写坏了。\n"
+        + "所有内容必须从【真实发生过的事】里长出来（关系、记忆、印象、这阵子的来往）；写不出具体的，那一栏宁可少给两条，也不要拿泛泛的关系描述凑数。\n\n"
+        + "五栏，各自的写法（每一栏的每一条都要有 who）：\n"
+        + "① debts（4-7 条）没结清的账。每条：who 这笔是跟谁的、title 一句话说清欠的是什么、"
+        + "dir 填 mine（他欠对方）/ theirs（对方欠他）/ open（两边都没说清、悬着）、note 一句他自己怎么想这笔。\n"
         + "   ⚠️theirs 那几条**不是他在讨债**——写成他自己惦记着的一件还没完的事，主语是他的在意，不是对方的亏欠。写成指责就是写坏了。三种都要有，别一边倒。\n"
-        + "② policies（2-4 条）他给对方兜的底，**写成保险条款那种腔调**：name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n"
-        + "   条款体的用处是**逼他把感情写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。\n"
-        + "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）。\n"
-        + "④ treasures（3-5 条）他心里估价最高的东西，**用估值的语言说**：title 那样东西是什么（可以是一个瞬间、一个习惯、一份证据）、kind 归成哪一类、worth 他给的估价（用估价的口吻，不是数字）。\n"
-        + "⑤ appraisals（3-5 条）他自己给自己的定论，问答体：q 一个悬着的问题（这个问题得是他真会在心里问自己的）、a 他的答案，一到两句，说死不留余地。\n\n"
-        + "【最容易写坏的地方】这本账要能一眼看出是【这两个人】的账。换成任何一对角色都照样成立的条目就是写坏了——那种句子只是在描述「有点在乎对方」，谁都能写。"
-        + "每一条都要能指回一件具体的事：某次没做到的、某次替对方挡下的、某句被记住的话、某个他不肯承认自己在留意的细节。",
-      schemaHint: "{\"debts\":[{\"title\":\"欠的是什么\",\"dir\":\"mine或theirs或open\",\"note\":\"他怎么想这笔\"}],\"policies\":[{\"name\":\"险种名\",\"scope\":\"承保范围\",\"terms\":\"理赔条件\",\"clause\":\"条款正文\"}],\"statements\":[{\"text\":\"他会亲口说的一句\",\"heat\":\"这句话的温度\"}],\"treasures\":[{\"title\":\"那样东西\",\"kind\":\"归哪一类\",\"worth\":\"他给的估价\"}],\"appraisals\":[{\"q\":\"悬着的问题\",\"a\":\"他的答案\"}]}"
+        + "② policies（2-4 条）他给某个人兜的底，**写成保险条款那种腔调**：who 承保的是谁、name 险种名、scope 一句承保范围、terms 理赔条件（写成对方要做到什么，那句话里要看得出他的脾气）、clause 一句正文条款（承保人负责做什么）。\n"
+        + "   条款体的用处是**逼他把说不出口的东西写成义务**——一个不肯说软话的人，在条款里反而什么都答应了。这层落差是这一栏的全部意义。"
+        + "兜底不等于情话：可以是护着一个晚辈、担着一个同伙的烂摊子、也可以是给自己留的那一条。\n"
+        + "③ statements（4-6 条）他盖过章的定论，每条一句他会亲口说出来的话。who 这句是冲谁去的、text 那句话本身、heat 这句话的温度（一个字或两个字，从这句话的力道来定，别都用同一个）。\n"
+        + "④ treasures（3-5 条）他心里估价最高的东西，**用估值的语言说**：who 这样东西跟谁有关（也可以是他自己）、title 那样东西是什么（可以是一个瞬间、一个习惯、一份证据）、kind 归成哪一类、worth 他给的估价（用估价的口吻，不是数字）。\n"
+        + "⑤ appraisals（3-5 条）他自己给自己的定论，问答体：q 一个悬着的问题（这个问题得是他真会在心里问自己的）、a 他的答案，一到两句，说死不留余地。这一栏的 who 多半是他自己。\n\n"
+        + "【最容易写坏的地方】这本账要能一眼看出是【这个人】的账。换成任何一个角色都照样成立的条目就是写坏了——那种句子只是在描述「有点在乎某人」，谁都能写。"
+        + "每一条都要能指回一件具体的事：某次没做到的、某次替谁挡下的、某句被记住的话、某个他不肯承认自己在留意的细节。",
+      schemaHint: "{\"debts\":[{\"who\":\"这笔是跟谁的\",\"title\":\"欠的是什么\",\"dir\":\"mine或theirs或open\",\"note\":\"他怎么想这笔\"}],\"policies\":[{\"who\":\"承保的是谁\",\"name\":\"险种名\",\"scope\":\"承保范围\",\"terms\":\"理赔条件\",\"clause\":\"条款正文\"}],\"statements\":[{\"who\":\"冲谁去的\",\"text\":\"他会亲口说的一句\",\"heat\":\"这句话的温度\"}],\"treasures\":[{\"who\":\"跟谁有关\",\"title\":\"那样东西\",\"kind\":\"归哪一类\",\"worth\":\"他给的估价\"}],\"appraisals\":[{\"who\":\"多半是他自己\",\"q\":\"悬着的问题\",\"a\":\"他的答案\"}]}"
     },
     wallet: {
       instruction: "推演「" + char.name + "」的财务档案。**最重要：收入来源与全部金额必须严格依据 TA 的人设、职业、身份和社会阶层来定，money 要贴合 TA 真实的谋生方式。** 收入来源 incomes（1-3 项，name+category+amount 数字）——category 从 TA 实际的谋生方式来：工资/自由职业/接单/做生意/兼职/学生生活费/退休金/稿费/打赏 等；**只有当人设明确是富家子弟、继承人、家境优渥时，才可以出现「家族供养/信托」这类收入，否则绝对不要默认套用家族收入。** 普通人就是普通收入、金额可以不高甚至拮据。monthlyIncome 月收入合计；fixedMonthly 每月固定支出；baseBalance 当前存款余额；investAssets 理财持有资产（普通人可能很少或为 0）；notes 各部分批注（income/savings/invest/spending，每条一句符合人设的旁白，透露财力与消费态度）；dailyPool 15-25 条日常消费模板（每条 items 一句话描述当天买了啥，amount 数字，反映其真实生活水平）；可选 gifts 送礼转账。所有金额纯数字不带符号，务必与身份匹配、不要人人都很有钱。",
@@ -5002,8 +5035,14 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
   // 已经钉死的身份（号码/账号/住址/忌口）原样发回去，让新写的内容跟它对得上——
   // 光在存的时候覆盖回去不够：模型不知道收货地址是哪儿，编的订单会送去别处，
   // 界面上一半是钉死的旧地址、一半是新编的，比不钉还乱。
-  const _full = spec.instruction + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
+  // 「他跟谁有账」只发给账本这一栏：别处不需要，她按次计费。
+  // ⚠️不是「四处一样喂」的例外——那条讲的是同一层能力要在四个场合都给到；
+  // 这一段是账本这一栏专属的取材facts，别的 app 本来就不看。
+  const bondBlock = (key === "tally" && bond) ? bond : "";
+  const _full = spec.instruction + bondBlock + angle + phoneMoneyBlock(key, money) + phoneIdentityBlock(key, known) + phoneEvolveBlock(key, known) + phoneRosterBlock(key, known) + phoneSelfAvoidBlock(key, known) + phoneQuoteAvoidBlock(key, known) + phoneAvoidBlock(avoidLines) + (weekly ? PHONE_WEEKLY_HINT : "");
   return { ...spec, maxTokens: PHONE_OUT_CEILING, instruction: phoneTa(_full, charTa(char)) };
 }
 // 纯函数导出给 node --test；浏览器里没有 module，原样跳过
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa };
+// phoneProbeSpec 也导出：测试该核【拼出来的那份提示词】，不是核源码里的字符串——
+// 源码里一句话常被 + 断成好几段，照着源码写断言既难写又冻长相。
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec };

@@ -61,7 +61,8 @@ test("提示词里没有可照抄的内容示范，只有判据和维度", () =>
       assert.ok(spec.schemaHint.indexOf(b) < 0, "schemaHint 里留着可照抄的内容示范：" + b);
     });
   // 判据在
-  assert.match(spec.instruction, /换成任何一对角色都照样成立的条目就是写坏了/);
+  // v59.12：账本不再是「他和用户」那一本，判据也从「一对角色」改成「一个角色」
+  assert.match(spec.instruction, /换成任何一个角色都照样成立的条目就是写坏了/);
 });
 
 test("五栏都渲染得出来，脏数据不炸", () => {

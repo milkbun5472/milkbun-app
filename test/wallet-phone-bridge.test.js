@@ -49,7 +49,9 @@ test("两处生成调用都把钱包简报传下去了", () => {
   // 「一层只写在一处，别处没跟上」：全刷漏了的话，点一次刷新全部他就又乱花钱
   const calls = appSrc.match(/^.*phoneProbeSpec\(.*$/gm) || [];
   assert.ok(calls.length >= 2);
-  calls.forEach(c => assert.match(c, /phoneMoneyFor\(char\), weekly\)/, "这处没传钱包简报：" + c.trim().slice(0, 90)));
+  // ⚠️别拿「参数表到 weekly 就结束」当断言——后面再加一个参数（v59.12 的 bond）
+  // 这条就红了，而它想验的「传没传钱包简报」根本没坏。只核那一项在不在。
+  calls.forEach(c => assert.match(c, /phoneMoneyFor\(char\)/, "这处没传钱包简报：" + c.trim().slice(0, 90)));
   assert.match(appSrc, /const phoneMoneyFor = char => \{/);
   // 只读不写
   const m = appSrc.match(/const phoneMoneyFor = char => \{[\s\S]*?\n  \};/)[0];

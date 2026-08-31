@@ -121,5 +121,7 @@ test("单个 App 重刷拿手机里已存的别的 App 避重", () => {
   assert.ok(block, "找不到 genPhoneApp");
   assert.match(block[0], /phoneRoundDigest\(\(phones \|\| \{\}\)\[char\.id\] \|\| \{\}, key\)/);
   // v57.66 起多一个 known（沿用身份）；v57.69 钱包简报；v57.76 例行刷新标记
-  assert.match(block[0], /phoneWechatDigest\(char\) : "", avoid, known, phoneMoneyFor\(char\), weekly\)/);
+  // ⚠️同上：只核这几样都传到了，别冻参数表在哪儿结束
+  ["avoid", "known", "phoneMoneyFor(char)", "weekly"].forEach(x =>
+    assert.ok(block[0].indexOf(x) > 0, "重刷这一处没传：" + x));
 });

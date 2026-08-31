@@ -9196,6 +9196,41 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }
     return [...set];
   };
+  // 她 2026-08-31：「查手机那块账本，如果我和她不是恋人（她自己有 cp）这块写的
+  // 还是我和她的账本而且会有点恋爱倾向的写法」。
+  // 两处病，都是【没说的那一半】：
+  //   ① 账本的提示词把「这本账」直接钉成了他和用户之间那一本——他跟别人的账没地方写；
+  //   ② buildBundle 里【只有】是恋人/待定才会说一句，不是恋人时【一个字都不说】，
+  //      空白由那一栏自带的恋爱腔补上（跟群聊王爷变霸总同一个形状）。
+  // 治法是把「他跟谁有账、各是什么关系」照实说出来，用户只是其中一行。
+  const PHONE_BOND_PEERS = 6;
+  const phoneBondBlock = char => {
+    if (!char) return "";
+    const uName = profile.name || "用户";
+    const cp = (couplesRef.current || {})[char.id] || {};
+    const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : 0;
+    // ⚠️用户在 rels 里的键是 "me" 不是 "user"（见 engine.js 的 directedRelationLines）
+    const uLabel = ((rels[char.id + "->me"] || rels["me->" + char.id] || {}).label || "").trim();
+    const mine = cp.status === "together"
+      ? "恋人，在一起约 " + (days || 1) + " 天"
+      : cp.status === "pending" ? "有一个还没敲定的情侣邀请，正在观望"
+      : uLabel ? "不是恋人。现在是：" + uLabel
+      : "不是恋人，也还没长成什么特别的关系";
+    const rows = [];
+    (characters || []).forEach(c => {
+      if (!c || c.id === char.id || rows.length >= PHONE_BOND_PEERS) return;
+      const r = rels[char.id + "->" + c.id] || rels[c.id + "->" + char.id];
+      if (!r) return;
+      const lb = String((r && r.label) || "").trim();
+      rows.push("· " + c.name + (lb ? "（" + lb + "）" : ""));
+    });
+    return "\n\n【他跟谁有账 · 照实说，别猜】\n"
+      + "· 用户「" + uName + "」：" + mine + "\n"
+      + (rows.length ? rows.join("\n") + "\n" : "")
+      + "⚠️**这本账不是只记用户那一本。** 用户占多大篇幅，由上面这一行的真实关系决定："
+      + "是恋人就该是主线；不是恋人，他跟别人那几笔就该比用户的更重，"
+      + "用户可以只占一两条，甚至某一栏里根本没有他。";
+  };
   const phoneKeyLabel = key => PHONE_LABEL[key] || (key === "video_day" ? "白天视频" : key === "video_night" ? "深夜视频" : key);
   const phoneWechatActual = char => {
     if (!char) return [];
@@ -10663,7 +10698,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
-      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly));
+      const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char)));
       savePhoneApp(char.id, key, d);
       return true;
     } catch (e) {
@@ -10707,7 +10742,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，他的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly));
+        const d = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "subjects") }, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char)));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
         ok++;

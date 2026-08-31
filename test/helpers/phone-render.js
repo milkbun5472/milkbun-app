@@ -207,15 +207,16 @@ const FIXTURES = {
   },
   tally: {
     debts: [
-      { title: "答应带她去吃城南那家，一直拖着", dir: "mine", note: "宫里的事一件接一件。得补。" },
-      { title: "那条撤回的消息，她还没给个说法", dir: "theirs", note: "点错了我不信。" },
+      { who: "Lisa", title: "答应带她去吃城南那家，一直拖着", dir: "mine", note: "宫里的事一件接一件。得补。" },
+      { who: "Lisa", title: "那条撤回的消息，她还没给个说法", dir: "theirs", note: "点错了我不信。" },
+      { who: "陆闻", title: "那份誊错的卷宗，我替他压下来了", dir: "theirs", note: "他自己都不知道。" },
       { title: "台阶到底七级还是九级", dir: "open", note: "争了三年，她当裁判也没裁明白。" }
     ],
     policies: [
-      { name: "口出狂言应急救驾险", scope: "因她嘴欠被人盯上时的全套解围", terms: "认错态度良好", clause: "承保人负责当街拦下并带回。" }
+      { who: "Lisa", name: "口出狂言应急救驾险", scope: "因她嘴欠被人盯上时的全套解围", terms: "认错态度良好", clause: "承保人负责当街拦下并带回。" }
     ],
     statements: [
-      { text: "撤回也没用，看见了就是看见了。", heat: "执拗" },
+      { who: "Lisa", text: "撤回也没用，看见了就是看见了。", heat: "执拗" },
       { text: "别乱跑，跟着我。", heat: "轻" }
     ],
     treasures: [
