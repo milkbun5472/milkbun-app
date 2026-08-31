@@ -96,14 +96,17 @@ test("界面：线下那张卡认得照片，抽屉里能当场拍", () => {
 
 // duoPhotosFor 真跑一遍：线上 + 线下都要捞到，且没进过线下的角色不能因此少一半
 test("合照墙把线下那些也捞上来，并且不靠「今天进过线下」", () => {
-  const i = app.indexOf("    duoPhotosFor: cid => {");
-  assert.ok(i > 0, "找不到 duoPhotosFor");
-  const body = app.slice(i + "    duoPhotosFor: ".length, app.indexOf("\n    },", i) + 6);
+  // ⚠️别冻它挂在哪：v58.94 把它从 props 里那一行提成具名的 duoPhotosOf（里程碑册也要用）。
+  // 要证的是【行为】：线上线下都捞得到、没加载过要回盘上捞、转圈和失败的不上墙。
+  const i = app.indexOf("  const duoPhotosOf = cid => {");
+  assert.ok(i > 0, "找不到 duoPhotosOf");
+  assert.match(app, /duoPhotosFor: duoPhotosOf,/, "合照墙没接上这一处");
+  const body = app.slice(i + "  const duoPhotosOf = ".length, app.indexOf("\n  };", i) + 4);
   const mk = (id, ts, extra) => Object.assign({ id, kind: "selfie", photoKind: "duo", imgKey: "k" + id, ts }, extra || {});
   const chats = { c1: [mk("on", 100)] };
   const disk = { "x_offline:c1": [{ msgs: [mk("off", 200)] }] };
   const run = offlines => new Function("chats", "offlines", "loadJSON",
-    "return (" + body.replace(/,\s*$/, "") + ");")(chats, offlines, k => disk[k] || []);
+    "return (" + body.replace(/;\s*$/, "") + ");")(chats, offlines, k => disk[k] || []);
   // ① 内存里已经加载过线下
   const a = run({ c1: disk["x_offline:c1"] })("c1");
   assert.deepEqual(a.map(x => x.imgKey), ["koff", "kon"], "线上线下都要有，且新的在前");
@@ -112,7 +115,7 @@ test("合照墙把线下那些也捞上来，并且不靠「今天进过线下�
   assert.deepEqual(b.map(x => x.imgKey), ["koff", "kon"], "没加载过就该回 localStorage 里捞");
   // ③ 还在生成中/失败的不上墙
   const disk2 = { "x_offline:c1": [{ msgs: [mk("p", 300, { pending: true }), mk("f", 400, { failed: true })] }] };
-  const c = new Function("chats", "offlines", "loadJSON", "return (" + body.replace(/,\s*$/, "") + ");")(
+  const c = new Function("chats", "offlines", "loadJSON", "return (" + body.replace(/;\s*$/, "") + ");")(
     { c1: [] }, {}, k => disk2[k] || [])("c1");
   assert.deepEqual(c, [], "转圈的和失败的不该上墙");
 });

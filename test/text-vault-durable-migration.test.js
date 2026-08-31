@@ -11,7 +11,7 @@ const growingKeys = ["x_phone", "x_phoneArch", "x_phoneVitals", "x_diaries", "x_
 const coupleKeys = [
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
   "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
-  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters",
+  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer",
   "x_coupleLetterCfg", "x_coupleSweet"
 ];
 

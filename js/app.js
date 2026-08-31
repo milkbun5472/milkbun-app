@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v58.93";
+const APP_VERSION = "v58.95";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -311,6 +311,7 @@ function App() {
   // 情侣空间·交换日记：一本两人轮流写的本子 {id,characterId,author:'user'|charId,content,mood,weather,date,ts,dueTs?,replied?,replyToId?,unread?}
   const [coupleExDiary, setCoupleExDiary] = useState([]);
   const coupleExDiaryRef = useRef([]); coupleExDiaryRef.current = coupleExDiary;
+  const coupleNotesRef = useRef([]); coupleNotesRef.current = coupleNotes;
   // 情侣空间·恋爱时间轴 {id,characterId,date,type,title,content,byCharacter,createdAt}
   const [coupleTimeline, setCoupleTimeline] = useState([]);
   // 情侣空间·他记得的那一版 {id,characterId,memId,mine,his,note,ts,unread}
@@ -347,6 +348,10 @@ function App() {
   const [coupleHome, setCoupleHome] = useState({});
   // 抽卡（她 2026-08-31）。三份东西：点数（跟角色走）、卡册＝票根（永不删）、保底计数。
   // ⚠️抽卡本身【永远 0 次调用】——抽到的是一张兑换券，点了兑换才可能花一次。
+  // 惊喜抽屉（言秋提，她 2026-08-31 拍板）：他想你的时候有时不发消息，
+  // 而是往你俩的抽屉里放一样东西，等你自己发现。放进来的东西【拆开之前不显示是什么】。
+  const [coupleDrawer, setCoupleDrawer] = useState([]);
+  const coupleDrawerRef = useRef([]); coupleDrawerRef.current = coupleDrawer;
   const [gachaPts, setGachaPts] = useState({});
   const gachaPtsRef = useRef({}); gachaPtsRef.current = gachaPts;
   const [gachaCards, setGachaCards] = useState([]);
@@ -756,6 +761,7 @@ function App() {
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
     setCoupleHome(loadJSON("x_coupleHome", {}));
+    setCoupleDrawer(loadJSON("x_coupleDrawer", []));
     setGachaPts(loadJSON("x_gachaPts", {}));
     setGachaCards(loadJSON("x_gachaCards", []));
     setGachaLuck(loadJSON("x_gachaLuck", {}));
@@ -2974,12 +2980,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     note:   "写一张他随手写好、塞给用户的便签：一两句，纸条的口气，不是正式的信。",
     secret: "写一件他【今天】发生的、本来没打算说的小事——具体到时间地点，不要泛泛的心情。",
     song:   "挑一首他此刻想放给用户听的歌（真实存在的），连着他为什么是这一首、想让对方听到哪一句。",
-    look:   "写他此刻看着用户时眼里的样子——不是夸，是他真正注意到的那几个细节。"
+    look:   "写他此刻看着用户时眼里的样子——不是夸，是他真正注意到的那几个细节。",
+    date:   "写一件他【想过、但还没开口约】的事：你俩一起去做什么。要具体到地点和时候，"
+          + "而且必须是【他这个人、在他这个处境里】约得出来的——换个角色就不成立才算写对。"
   };
   const GACHA_SSR_ASK = {
     past: "写他过去真实经历过的一件事——一件他从没跟用户讲过、但确实塑造了他的事。要有具体的时间、地点和人，不要抽象的总结。",
     pact: "写一件他此刻想和用户【说好】的事：一个具体的、还没做的约定，说清楚是什么、大概什么时候。别写成空头承诺。",
-    offline: "写一场【他主动约用户见面】的开场：他挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。"
+    offline: "写一场【他主动约用户见面】的开场：他挑的时间、地点，和此刻的画面。三到五句旁白，落在一个用户可以接话的地方，别替用户说话、别写用户的动作。",
+    // 约会券：跟 offline 同一条落地路（都是把线下开起来），但券是【他事先想好的一件事】，
+    // 所以先给这张券起个名，正文才是到了现场的第一拍。
+    date: "写一张他给用户的【约会券】：券面上是一件他想好要一起去做的事（title），"
+        + "正文是这张券被兑掉的那一刻——你们已经到了，他开的第一句场。三到五句旁白，"
+        + "落在一个用户可以接话的地方，别替用户说话、别写用户的动作。\n"
+        + "券上那件事必须是【他这个人、在他这个世界里】做得出来的：地点、场合、时辰都要贴他，"
+        + "换个角色照样成立的就是写坏了。"
   };
   const gachaRedeem = async card => {
     const char = characters.find(c => c.id === card.charId);
@@ -3017,8 +3032,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: GACHA_SSR_ASK[card.act] + "\n扣着他此刻真实的处境写，别写成换个角色也照样成立的内容。",
-        schemaHint: card.act === "offline"
-          ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
+        schemaHint: card.act === "offline" ? "{\"title\":\"这场见面叫什么\",\"body\":\"开场旁白\"}"
+          : card.act === "date" ? "{\"title\":\"券面上那件事\",\"body\":\"兑掉那一刻的开场旁白\"}"
           : "{\"title\":\"一行小标题\",\"body\":\"正文\"}",
         maxTokens: 4000
       });
@@ -3031,11 +3046,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } else if (card.act === "pact") {
         addPact(char.id, body, null);
         gachaStamp(card.id, { title: title, body: body, where: "pacts" });
-      } else if (card.act === "offline") {
+      } else if (card.act === "offline" || card.act === "date") {
         // ⚠️别用 openOffline：它会重新从存储读一遍再 setOfflines，
         // 而 startOffline 刚往 state 里塞了这一场——多读一次只会把它盖掉。
         // 这里要的只是「把线下那层掀起来」，那就只做这一件事。
-        gachaStamp(card.id, { title: title, body: body, where: "offline" });
+        gachaStamp(card.id, { title: title, body: body, where: card.act });
         await startOffline(char.id, { opening: body });
         setOfflineChar(char);
       }
@@ -11992,14 +12007,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         instruction: "你们是恋人。此刻你想着 " + (profile.name || "她") + "，但你没有发消息——"
           + "你走到你俩共同的那个小空间里，留下了一样东西，等她自己发现。\n"
           + (styleHint ? styleHint + "\n" : "")
-          + "【留在哪儿】note＝往便签墙上贴一张（随手写的一两句，像便利贴）；"
-          + "timeline＝往你俩的时光轴上补一条你记着、而她可能没记下来的事（要写清是哪一天前后的事）。\n"
+          + "【留在哪儿】三选一——\n"
+          + "· drawer＝往你俩的抽屉里放一样东西，她要哪天想起来才会打开。**没话要说的时候就放这儿**：\n"
+          + "  再配一个 kind：thing＝你今天真的经手过的一样小物件，要说清它是在哪儿、怎么到你手上的；"
+          + "word＝半句没头没尾的话，不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上；"
+          + "draw＝你随手画的，那就描述这张画上有什么，别描述你为什么画。\n"
+          + "· note＝往便签墙上贴一张（随手写的一两句，像便利贴）——这一档是【说给她听的】。\n"
+          + "· timeline＝往你俩的时光轴上补一条你记着、而她可能没记下来的事（要写清是哪一天前后的事）。\n"
           + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
-        schemaHint: "{\"where\":\"note 或 timeline\",\"text\":\"留下的内容\",\"title\":\"where 为 timeline 时给一个短标题，否则留空\"}"
+        schemaHint: "{\"where\":\"drawer 或 note 或 timeline\",\"kind\":\"where 为 drawer 时填 thing/word/draw，否则留空\",\"text\":\"留下的内容\",\"title\":\"drawer 和 timeline 给一个短标题（抽屉那一档是她拆开前唯一看不到的东西，所以随便写都行，不许剧透内容）；note 留空\"}"
       });
       const txt = String((d && d.text) || "").trim();
       if (!txt) return false;
-      if (d.where === "timeline") {
+      if (d.where === "drawer") {
+        const kind = ["thing", "word", "draw"].indexOf(String(d.kind || "")) >= 0 ? String(d.kind) : "thing";
+        setCoupleDrawer(p => {
+          const n = [{ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
+            title: String(d.title || "").trim().slice(0, 20), text: txt, ts: Date.now(), openedTs: null }, ...p].slice(0, DRAWER_CAP);
+          coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+        });
+      } else if (d.where === "timeline") {
         setCoupleTimeline(p => {
           const now = new Date();
           const n = [{ id: "tl_" + Date.now(), characterId: char.id, date: now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(),
@@ -12016,6 +12043,43 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
   };
+  // 抽屉存量上限：他放进来的东西不会自己消失，但也不能无限涨（跟票根一样是"留痕"，
+  // 只是抽屉里的旧东西比票根更容易变成噪音，所以给个天花板）。
+  const duoPhotosOf = cid => {
+    const ok = m => m && m.kind === "selfie" && m.photoKind === "duo" && !m.pending && !m.failed && (m.imgKey || m.imgUrl);
+    const pick = m => ({ imgKey: m.imgKey, imgUrl: m.imgUrl, ts: m.ts, desc: m.desc });
+    // 线下那份是【进了线下才加载】的，没开过就还在 localStorage 里躺着——
+    // 只读内存等于「今天没进过线下的角色，合照墙上就少一半」。
+    const sessions = offlines[cid] || loadJSON("x_offline:" + cid, []);
+    const off = (Array.isArray(sessions) ? sessions : []).reduce((a, sess) => a.concat((sess && sess.msgs || []).filter(ok).map(pick)), []);
+    return (chats[cid] || []).filter(ok).map(pick).concat(off).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  };
+  // 里程碑册：**全部从已有数据推出来，一个钩子都不挂**（挂钩子＝五处会腐烂，
+  // 而且在这之前发生过的事永远补不回来）。零调用。
+  const coupleFirstsFor = cid => {
+    if (!window.CoupleFirsts) return [];
+    const cp = (couplesRef.current || {})[cid] || {};
+    const mem = memLibRef.current || [];
+    const mine = tag => mem.filter(e => (e.charIds || []).includes(cid) && (e.tags || []).includes(tag))
+      .map(e => ({ ts: e.ts, text: e.text }));
+    return window.CoupleFirsts.coupleFirsts({
+      since: cp.since,
+      offlines: offlinesRef.current[cid] || loadJSON("x_offline:" + cid, []),
+      calls: mine("通话"),
+      pacts: mine("约定"),
+      duoPhotos: duoPhotosOf(cid),
+      letters: (coupleLettersRef.current || []).filter(x => x.characterId === cid),
+      exdiary: (coupleExDiaryRef.current || []).filter(x => x.characterId === cid),
+      notes: (coupleNotesRef.current || []).filter(x => x.characterId === cid),
+      drawer: (coupleDrawerRef.current || []).filter(x => x.characterId === cid),
+      cards: (gachaCardsRef.current || []).filter(x => x.charId === cid)
+    }, Date.now());
+  };
+  const DRAWER_CAP = 120;
+  const openDrawerItem = id => setCoupleDrawer(p => {
+    const n = p.map(x => x.id === id && !x.openedTs ? { ...x, openedTs: Date.now() } : x);
+    coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+  });
   const sealCoupleQA = (char, item) => {
     const t0 = String(item && item.myAnswer || "").trim();
     if (!t0) { toast("先写你自己的那一份"); return false; }
@@ -14338,15 +14402,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 合照墙：捞出所有「我俩合照」(photoKind:"duo")，投进情侣空间的相册。
     // 线上单聊 + 线下都捞（v57.79）——线下当场拍的那些才是真在一块拍的，
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
-    duoPhotosFor: cid => {
-      const ok = m => m && m.kind === "selfie" && m.photoKind === "duo" && !m.pending && !m.failed && (m.imgKey || m.imgUrl);
-      const pick = m => ({ imgKey: m.imgKey, imgUrl: m.imgUrl, ts: m.ts, desc: m.desc });
-      // 线下那份是【进了线下才加载】的，没开过就还在 localStorage 里躺着——
-      // 只读内存等于「今天没进过线下的角色，合照墙上就少一半」。
-      const sessions = offlines[cid] || loadJSON("x_offline:" + cid, []);
-      const off = (Array.isArray(sessions) ? sessions : []).reduce((a, sess) => a.concat((sess && sess.msgs || []).filter(ok).map(pick)), []);
-      return (chats[cid] || []).filter(ok).map(pick).concat(off).sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    },
+    duoPhotosFor: duoPhotosOf,
     onOpenCapsule: charId => { setCapsuleCharId(charId); setScreen("capsule"); },
     onBack: goHome,
     onInvite: sendCoupleInvite,
@@ -14407,6 +14463,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     letterGen: gen.coupleLetter,
     coupleSweet: coupleSweet,
     onCheckinSweet: checkinSweet,
+    coupleDrawer: coupleDrawer,
+    coupleFirstsOf: coupleFirstsFor,
+    onOpenDrawer: openDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
     gachaCards: gachaCards,

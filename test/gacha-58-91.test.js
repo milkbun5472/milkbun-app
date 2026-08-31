@@ -45,7 +45,8 @@ test("SSR 真的留下东西", () => {
   assert.match(redeem, /addPact\(char\.id, body, null\)/, "「我们说好的」没进那条已有的路");
   assert.match(redeem, /await startOffline\(char\.id, \{ opening: body \}\);\n        setOfflineChar\(char\);/,
     "线下没开起来，或者用了 openOffline（它会重读存储、把刚塞进去的那一场盖掉）");
-  assert.match(redeem, /where: "memlib"|where: "pacts"|where: "offline"/, "票根上没写清留在哪儿了");
+  ["memlib", "pacts"].forEach(w => assert.ok(redeem.indexOf('where: "' + w + '"') > 0, "票根上没写清留在哪儿：" + w));
+  assert.match(redeem, /gachaStamp\(card\.id, \{ title: title, body: body, where: card\.act \}\)/, "开线下那两张没在票根上写清是哪一种");
   // 情书自己有三天冷却：被挡住就不盖戳，卡留着
   assert.match(redeem, /const ok = await genCoupleLetter\(char\);\n        if \(!ok\) return;/, "情书被冷却挡住时把卡白白兑掉了");
 });
@@ -157,4 +158,59 @@ test("票根那一栏把两个时间都摆出来", () => {
   // 兑没兑都要显示抽到的时间：票根是永久的
   const i = card.indexOf("gachaWhen(card.ts)"), j = card.indexOf("done\n      ?");
   assert.ok(i > 0 && (j < 0 || i < j), "抽到的时间被塞进「没兑」那一支里了——兑掉就看不见了");
+});
+
+// ═══ 约会券（言秋提，她 2026-08-31：并进抽卡，不另做一叠）═══
+// 原提案是另做一叠券、每周抽一张、完成盖章进册——那跟抽卡是【同一个形状】
+//（兑换券 + 票根），再做一套就是两本并行的册子。所以它是多一个 act，不是新功能。
+test("约会券没有另起一套，是抽卡里多一个 act", () => {
+  const g = R("gacha.js");
+  assert.match(g, /\{ id: "x_date",    r: "SSR", act: "date",/, "SSR 里没有约会券");
+  assert.match(g, /\{ id: "s_date",    r: "SR",  act: "make", kind: "date",/, "SR 里那张想过的约会没接上");
+  // 落地走的是【已有的】开线下那条路，不是新机件
+  assert.match(redeem, /card\.act === "offline" \|\| card\.act === "date"/, "约会券没接到开线下那条路上");
+  // 没有第二套券的存储／页面
+  ["x_dateTicket", "x_coupon", "DateTickets"].forEach(k =>
+    assert.ok(app.indexOf(k) < 0 && scr.indexOf(k) < 0, "另起了一套券：" + k));
+  // 券面那件事必须长在人设上，不然「换个角色照样成立」
+  assert.match(app, /换个角色照样成立的就是写坏了/, "券面没立那条判据");
+});
+
+// ═══ 惊喜抽屉（言秋提，她 2026-08-31 拍板）═══
+// 出口本来就在（jiwen 越过阈值时那一次调用），这一层只是给它加第三个落点。
+test("抽屉挂在已有的思念出口上，不是新开一条调用链", () => {
+  const leave = app.slice(app.indexOf("  const leaveInCoupleSpace = async (char, styleHint) => {"), app.indexOf("  const DRAWER_CAP"));
+  assert.equal((leave.match(/runProbe\(/g) || []).length, 1, "抽屉多开了一次调用——它该跟便签/时光轴共用那一次");
+  assert.match(leave, /drawer 或 note 或 timeline/, "落点里没有抽屉");
+  assert.match(leave, /if \(d\.where === "drawer"\) \{/, "抽屉那一支没接上");
+  assert.match(leave, /\["thing", "word", "draw"\]\.indexOf\(String\(d\.kind \|\| ""\)\) >= 0/, "kind 没兜底,模型写错就存了个野值");
+  assert.match(leave, /openedTs: null/, "放进来就是拆开的状态——那还惊喜什么");
+  assert.match(leave, /\.slice\(0, DRAWER_CAP\)/, "抽屉没有天花板");
+});
+
+// ⚠️这一格【故意】不报红点、不显示还剩几件没拆：报了就跟 App 里其余通知一个样，
+// 惊喜就没了（言秋原话：开之前不知道有没有、有什么）。
+test("抽屉那一格不许剧透", () => {
+  const i = scr.indexOf('tile("drawer"');
+  // ⚠️别按字数切：切过头会切进隔壁 tile("gacha")，那一格是有 dot 的，等于自己抓自己
+  const tile = scr.slice(i, scr.indexOf('tile("', i + 10));
+  assert.ok(tile.length > 60 && tile.length < 400, "抽屉那一格切歪了（切出来 " + tile.length + " 字）");
+  assert.ok(tile.indexOf("dot:") < 0, "抽屉格报红点了——惊喜没了");
+  assert.ok(!/unopened|没拆|coupleDrawer\.filter|\.length/.test(tile), "格子上把还剩几件漏出去了");
+  // 但页面【里头】要说清有几件没拆，不然不知道该点哪一张
+  const page = scr.slice(scr.indexOf("function CoupleDrawer({"));
+  assert.match(page, /unopened \? "有 " \+ unopened \+ " 样还没拆"/, "进去了也不知道有没有新的");
+  // 没拆之前只露标题，不露正文
+  assert.match(page, /sealed\n\s*\/\/ 拆开之前只露标题[\s\S]*?x\.title \|\| "他放了一样东西进来"/, "没拆就把正文露出来了");
+  // 拆过的留着——所以从来不会白开一次
+  assert.match(page, /const mine = \(items \|\| \[\]\)\.filter\(x => x\.characterId === partner\.id\);/, "没按这位恋人筛");
+  assert.ok(page.indexOf("!x.openedTs)") > 0 && !/filter\(x => !x\.openedTs\)\.map/.test(page), "拆过的被过滤掉了");
+});
+
+test("拆开只改一次，时间戳留着", () => {
+  const op = app.slice(app.indexOf("  const openDrawerItem = id =>"), app.indexOf("  const sealCoupleQA"));
+  assert.match(op, /x\.id === id && !x\.openedTs \? \{ \.\.\.x, openedTs: Date\.now\(\) \} : x/, "重复点会把拆开时间刷掉");
+  assert.ok(op.indexOf("filter") < 0, "拆开把东西删了");
+  assert.match(app, /saveJSON\("x_coupleDrawer", n\)/, "没落盘");
+  assert.match(R("engine.js"), /"x_coupleDrawer"/, "抽屉正文没登记进 durable，攒多了会把 localStorage 写满");
 });

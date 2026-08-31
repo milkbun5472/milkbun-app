@@ -3200,7 +3200,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3250,6 +3250,14 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
   if (partner && cp[view] && cp[view].status === "together" && (sub === "timeline" || sub === "anniv")) {
     return h(CoupleDays, { partner, since: cp[view].since, events: coupleTimeline, annivs: coupleAnniv, onAdd: onAddTimeline, onRemove: onRemoveTimeline, onGen: onGenTimeline, onAddAnniv: onAddAnniv, onRemoveAnniv: onRemoveAnniv, gen: tlGen, onBack: () => setSub(null) });
+  }
+  // 情侣空间子模块：里程碑册
+  if (partner && cp[view] && cp[view].status === "together" && sub === "firsts") {
+    return h(CoupleFirstsBook, { partner, items: coupleFirstsOf ? coupleFirstsOf(partner.id) : [], onBack: () => setSub(null) });
+  }
+  // 情侣空间子模块：惊喜抽屉
+  if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
+    return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onBack: () => setSub(null) });
   }
   // 情侣空间子模块：抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
   if (partner && cp[view] && cp[view].status === "together" && sub === "gacha") {
@@ -3319,6 +3327,7 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     const _gp = (gachaPts || {})[bCid];
     const bGachaPts = _gp && typeof _gp === "object" ? (Number(_gp.pts) || 0) : 0;
     const bGachaOpen = (gachaCards || []).filter(c => c.charId === bCid && !c.redeemedTs).length;
+    const bFirstsN = coupleFirstsOf ? coupleFirstsOf(bCid).length : 0;
     const bWishOpen = bWishes.filter(w => w.status !== "done" && w.status !== "shelved").length;
     const bCapsuleDue = typeof window !== "undefined" && window.capsuleDueCount ? window.capsuleDueCount(bCid, partner.name) : 0;
     const itemTs = x => {
@@ -3481,6 +3490,14 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                     h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#8f7d5c" } }, n || "—"),
                     sub2(n ? "件还没了结" : "还没说好什么", "#a8977a"));
                 })() }),
+              // ⚠️抽屉这一格【故意没有 dot、也不显示还剩几件没拆】——报了就跟别的通知一样，
+              // 惊喜就没了（言秋的原话：开之前不知道有没有、有什么）。
+              tile("firsts", { e: "🏷", zh: "第一次们", bg: "#f2f0ea", bd: "#ded9cd", ink: "#7d6f5a",
+                body: h("div", null,
+                  h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 26, lineHeight: 1, color: "#7d6f5a" } }, bFirstsN || "—"),
+                  sub2(bFirstsN ? "个走过的第一次" : "还没开始", "#9a8b74")) }),
+              tile("drawer", { e: "🗄", zh: "抽屉", bg: "#faf3e4", bd: "#e9dcc0", ink: "#9c8656",
+                body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", lineHeight: 1.3 } }, "拉开看看") }),
               tile("gacha", { e: "🎴", zh: "抽卡", bg: "#f6eef4", bd: "#e8d4e4", ink: "#96678c",
                 dot: bGachaOpen > 0,
                 body: h("div", null,
@@ -9960,7 +9977,7 @@ function GachaCard({ card, busy, onRedeem, fresh }) {
           res.body ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 3, whiteSpace: "pre-wrap" } }, res.body) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sk.tag, marginTop: 7 } },
             "已兑 " + gachaWhen(card.redeemedTs)
-            + (res.where === "memlib" ? " · 已进记忆库，以后他会提起" : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "letters" ? " · 已进情书" : "")))
+            + (res.where === "memlib" ? " · 已进记忆库，以后他会提起" : res.where === "pacts" ? " · 已进「我们说好的」" : res.where === "offline" ? " · 线下已经开了" : res.where === "date" ? " · 这张券已经用掉了，线下开了" : res.where === "letters" ? " · 已进情书" : "")))
       : h("div", { className: "flex items-end justify-between gap-3", style: { marginTop: 8 } },
           h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: sk.tag } }, card.hint),
           h("button", { onClick: () => onRedeem(card), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 13, padding: "6px 15px", borderRadius: 999, background: busy === card.id ? t.line : sk.ink, color: busy === card.id ? t.fog : "#fff" } },
@@ -10012,4 +10029,88 @@ function Gacha({ partner, pts, cards, luck, busy, onPull, onRedeem, onBack }) {
         : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "26px 16px", textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
             tab === "open" ? "手上没有还没兑的卡。" : "还没抽过。",
             h("div", { style: { marginTop: 4 } }, "票根会一直留着，抽到的时间也留着。"))));
+}
+
+// ═══ 情侣空间·惊喜抽屉（言秋提，她 2026-08-31 拍板）═══
+// 他想你的时候有时不发消息，而是往你俩的抽屉里放一样东西，等你自己发现。
+// ⚠️这一格【故意不报红点、不显示还有几件没拆】——报了就跟 App 里其余通知一个样，
+// 惊喜就没了。代价是可能白开一次；补偿是拆过的都留在里头，所以从来不会空手而归。
+const DRAWER_KIND = {
+  thing: { zh: "他捡到的", e: "🪶" },
+  word:  { zh: "半句话",   e: "✎" },
+  draw:  { zh: "他画的",   e: "✍" }
+};
+function CoupleDrawer({ partner, items, onOpen, onBack }) {
+  const t = useTheme();
+  const mine = (items || []).filter(x => x.characterId === partner.id);
+  const unopened = mine.filter(x => !x.openedTs).length;
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "抽屉"),
+      h("div", { style: { width: 40, height: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+      h("div", { style: { borderRadius: 20, border: "1px solid #e6dcc9", background: "linear-gradient(140deg,#fbf5e9,#f3ead7)", padding: "16px 15px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#7a6338" } },
+          unopened ? "有 " + unopened + " 样还没拆" : mine.length ? "都拆过了" : "现在是空的"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: "#9c8656", marginTop: 5 } },
+          (partner.remark || partner.name) + "想你的时候，有时不发消息，就往这儿放一样东西。什么时候放、放什么，你打开才知道。")),
+      mine.length
+        ? h("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 14 } },
+            mine.map(x => {
+              const k = DRAWER_KIND[x.kind] || DRAWER_KIND.thing;
+              const sealed = !x.openedTs;
+              return h("button", {
+                key: x.id, onClick: () => sealed && onOpen(x.id), disabled: !sealed,
+                className: sealed ? "w-full text-left active:opacity-70" : "w-full text-left",
+                style: {
+                  borderRadius: 15, padding: "13px 14px",
+                  border: "1px solid " + (sealed ? "#dfd0ab" : t.line),
+                  background: sealed ? "linear-gradient(135deg,#fdf7e6,#f6eed8)" : t.bg2
+                }
+              },
+                h("div", { className: "flex items-center gap-2" },
+                  h("span", { style: { fontSize: 13 } }, k.e),
+                  h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 10.5, color: sealed ? "#a68f5c" : t.fog } },
+                    sealed ? "还没拆" : k.zh),
+                  h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, color: t.fog } }, gachaWhen(x.ts))),
+                sealed
+                  // 拆开之前只露标题。标题是他随手起的，不剧透里头是什么
+                  ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#7a6338", marginTop: 6 } }, x.title || "他放了一样东西进来")
+                  : h(Fragment, null,
+                      x.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginTop: 6 } }, x.title) : null,
+                      h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.75, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, x.text)));
+            }))
+        : h("div", { style: { border: "1px dashed " + t.line, borderRadius: 16, padding: "30px 16px", marginTop: 14, textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8 } },
+            "他还没往里放过东西。", h("div", { style: { marginTop: 4 } }, "这儿不会提醒你——想起来了就来看看。"))));
+}
+
+// ═══ 情侣空间·里程碑册（言秋提，她 2026-08-31 拍板）═══
+// 全部从已有数据【推】出来，一个钩子都不挂，零调用（理由见 js/couple-firsts.js 顶上那段）。
+// 每一条底下那句注是【引原物】——第一封信就引信的标题，不是现编一句角色口吻的话。
+function CoupleFirstsBook({ partner, items, onBack }) {
+  const t = useTheme();
+  const rows = items || [];
+  const days = ts => {
+    const s = rows[0] && rows[0].key === "since" ? rows[0].ts : 0;
+    return s && ts > s ? "第 " + (Math.floor((ts - s) / 86400000) + 1) + " 天" : "";
+  };
+  return h("div", { className: "h-full flex flex-col", style: { background: t.bg } },
+    h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+      h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "第一次们"),
+      h("div", { style: { width: 40, height: 40 } })),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+      h("div", { style: { borderRadius: 20, border: "1px solid #dfd7ca", background: "#f4f0e8", padding: "15px 15px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: "#5e4c38" } }, rows.length ? "走过 " + rows.length + " 个第一次" : "还没有第一次"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: "#8a745e", marginTop: 4 } },
+          rows.length ? "这一册不用你记——发生过的事它自己看得见。" : "和 " + (partner.remark || partner.name) + " 一起做点什么，这一册就开始了。")),
+      rows.length ? h("div", { style: { marginTop: 16, borderLeft: "1px solid " + t.line, marginLeft: 6, paddingLeft: 16 } },
+        rows.map(x => h("div", { key: x.key, style: { position: "relative", paddingBottom: 18 } },
+          h("span", { style: { position: "absolute", left: -21, top: 5, width: 9, height: 9, borderRadius: 999, background: /^day/.test(x.key) ? "#c9a227" : t.ink } }),
+          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".1em", color: t.fog } },
+            new Date(x.ts).toLocaleDateString("zh-CN", { year: "numeric", month: "numeric", day: "numeric" })
+            + (days(x.ts) ? " · " + days(x.ts) : "")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginTop: 2 } }, x.zh),
+          x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 3 } }, "「" + x.note + "」") : null))) : null));
 }
