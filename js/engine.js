@@ -536,6 +536,41 @@ function assertNotUpstreamError(t, model, diag) {
     + "\n——" + (model ? "「" + model + "」" : "这条线路") + "此刻没跑起来（多半是上游拦了、配额/密钥不通、或这个模型不稳）。换条线路或换个模型再试。"
     + (diag ? "\n" + diag : ""));
 }
+// ── 服务端实际给的是哪个模型（她 2026-08-31）─────────────────────────────
+// 问模型「你是哪一版」问不出来：它的训练数据截止在它自己发布【之前】，那个回答
+// 是从见过的版本号里猜的，跟它答得多笃定无关。只有回包里的 model 字段是服务端
+// 写的。中转线路悄悄换成便宜模型是真会发生的事，这一层让它看得见——不额外花
+// 一次调用，回包里本来就带着。
+function servedNorm(s) {
+  return String(s || "").toLowerCase().trim()
+    .replace(/^.*\//, "")                 // openrouter 那种 vendor/ 前缀
+    .replace(/[:@].*$/, "")               // :free、@版本 之类的后缀
+    .replace(/-latest$/, "")
+    .replace(/-\d{4}-\d{2}-\d{2}$/, "")   // -2024-08-06
+    .replace(/-\d{6,8}$/, "")             // -20250219
+    .replace(/[^a-z0-9]+/g, "");
+}
+// 宁可多报一次「对不上」，也不能把真的偷换说成别名：
+// 只有「长的那个 = 短的那个 + 一串纯数字」才算别名（版本号尾巴），
+// 剩下的一律 diff。gpt4 对 gpt4o 会被判成对不上——那本来就该看一眼。
+function servedVerdict(req, got) {
+  const a = servedNorm(req), b = servedNorm(got);
+  if (!a || !b) return "unknown";
+  if (a === b) return "same";
+  const long = a.length >= b.length ? a : b, short = a.length >= b.length ? b : a;
+  if (long.indexOf(short) === 0 && /^\d+$/.test(long.slice(short.length))) return "alias";
+  return "diff";
+}
+function noteServedModel(profile, req, got) {
+  const name = String(got || "").trim();
+  if (!name) return;
+  try {
+    const key = (profile && profile.id) || (String((profile && profile.baseUrl) || "") + "|" + req);
+    const all = JSON.parse(localStorage.getItem("x_apiServed") || "{}") || {};
+    all[key] = { req: String(req || ""), got: name, verdict: servedVerdict(req, name), ts: Date.now() };
+    localStorage.setItem("x_apiServed", JSON.stringify(all));
+  } catch (e) {}
+}
 async function callAI(p, system, messages, opts) {
   opts = opts || {};
   const reqTimeout = opts.timeout || 120000;
@@ -549,6 +584,9 @@ async function callAI(p, system, messages, opts) {
   const _meta = (opts && opts.meta && typeof opts.meta === "object") ? opts.meta : null;
   // from = 这段思考是从哪个字段捞出来的。她 2026-08-26 拿同一个模型对比另一台小手机，
   // 两边内容完全不同——「从哪个字段来的」是排查这种事最快的一根线，比猜快得多。
+  // 回包里服务端写的那个模型名。三家协议字段名不一样（anthropic/openai 都叫
+  // model，gemini 叫 modelVersion），少接一处那条线路就永远看不见。
+  const _served = got => { if (_meta) _meta.served = String(got || "") || undefined; noteServedModel(p, model, got); };
   const _putMeta = (reasoning, from) => {
     if (!_meta) return;
     _meta.model = model; _meta.ms = Date.now() - _t0;
@@ -672,6 +710,7 @@ async function callAI(p, system, messages, opts) {
       d = await postAnthropic(wantTemp());
     }
     if (d.error) throw new Error(d.error.message);
+    _served(d.model);
     // usage 回显（让缓存看得见）：cr=从缓存读到的 token（一折价，>0 就是命中）、cw=写进缓存的、in=断点后的新输入。
     // 存 window.__usage（最近 30 条）+ 命中/写入时打一行 console；window.__cacheStat() 看汇总。
     try {
@@ -742,6 +781,7 @@ async function callAI(p, system, messages, opts) {
     }, reqTimeout);
     const d = await r.json();
     if (d.error) throw new Error(d.error.message);
+    _served(d.modelVersion || d.model);
     const parts = d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [];
     _putMeta(parts.filter(x => x && x.thought).map(x => x.text || "").join("\n"), "gemini:thought");
     const t = parts.filter(x => !(x && x.thought)).map(x => x.text || "").join("").trim();
@@ -770,7 +810,7 @@ async function callAI(p, system, messages, opts) {
     }, reqTimeout);
     if (wantStream && /text\/event-stream/i.test(r.headers.get("content-type") || "")) {
       const reader = r.body.getReader(), decoder = new TextDecoder();
-      let pending = "", text = "", usage = null, error = null;
+      let pending = "", text = "", usage = null, error = null, sseModel = "";
       const consume = line => {
         if (!line.startsWith("data:")) return;
         const raw = line.slice(5).trim();
@@ -784,6 +824,7 @@ async function callAI(p, system, messages, opts) {
           try { if (opts && typeof opts.onDelta === "function") opts.onDelta(choice.delta.content, text); } catch (e) {}
         }
         if (event.usage) usage = event.usage;
+        if (event.model && !sseModel) sseModel = String(event.model);
       };
       // 流式超时分型(审计一刀·三审定):fetchT 只管到响应头,此后 reader.read() 原本裸奔——
       // 桥/网关半路断线不抛错时气泡永远转圈。静默超时=每收到一段数据就重置(桥每 15s 有心跳,
@@ -814,7 +855,7 @@ async function callAI(p, system, messages, opts) {
         lines.forEach(consume);
       }
       if (pending) consume(pending);
-      return error ? { error } : { choices: [{ message: { content: text }, finish_reason: "stop" }], usage: usage || {} };
+      return error ? { error } : { choices: [{ message: { content: text }, finish_reason: "stop" }], usage: usage || {}, model: sseModel };
     }
     return await r.json();
   };
@@ -840,6 +881,7 @@ async function callAI(p, system, messages, opts) {
     };
     if (typeof window !== "undefined") { (window.__usage = window.__usage || []).push(rec2); if (window.__usage.length > 30) window.__usage.shift(); }
   } catch (e) {}
+  _served(d.model);
   const choice = d.choices && d.choices[0];
   const _msg = choice && choice.message;
   // 三个字段名都认：不同中转/模型各叫各的（DeepSeek=reasoning_content，OpenRouter=reasoning，

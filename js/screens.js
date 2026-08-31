@@ -5228,6 +5228,15 @@ function ApiConfig({
   const [fetching, setFetching] = useState(false);
   const [editing, setEditing] = useState(false);
   const cur = list.find(p => p.id === curId) || list[0];
+  // 它实际给的模型（她 2026-08-31）：问模型「你是哪一版」问不出来——它的训练数据
+  // 截止在它自己发布之前，那个回答是猜的。只有回包里服务端写的 model 字段算数。
+  // 引擎每次调用都往 x_apiServed 记一笔，这里只是把它显出来，不多花一次调用。
+  const [servedAll, setServedAll] = useState({});
+  useEffect(() => {
+    try { setServedAll(JSON.parse(localStorage.getItem("x_apiServed") || "{}") || {}); }
+    catch (e) { setServedAll({}); }
+  }, [cur && cur.id, editing]);
+  const served = (servedAll || {})[cur && cur.id] || null;
   useEffect(() => {
     // 凭证保险箱可能比设置页晚一拍还原。只在列表页接收外部真值，编辑途中不覆盖用户输入。
     if (!editing && Array.isArray(profiles) && profiles.length) {
@@ -5314,6 +5323,9 @@ function ApiConfig({
       } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name || "未命名配置"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.model || "还没选择模型"),
+        ((servedAll || {})[p.id] || {}).verdict === "diff"
+          ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#a4442e", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "⚠ 实际给的是 " + servedAll[p.id].got)
+          : null,
         h("div", { className: "flex items-center", style: { gap: 9, marginTop: "auto", paddingTop: 10 } },
           h("button", { onClick: e => { e.stopPropagation(); setCurId(p.id); setEditing(true); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink } }, "编辑"),
           h("button", { onClick: e => { e.stopPropagation(); duplicateProfile(p); }, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub } }, "复制副本"),
@@ -5475,7 +5487,19 @@ function ApiConfig({
       border: `1px solid ${cur.model === m ? t.ink : t.line}`,
       color: cur.model === m ? t.ink : t.fog
     }
-  }, m)))), /*#__PURE__*/React.createElement(LineField, {
+  }, m)))),
+  served && served.got ? h("div", { style: { margin: "-6px 0 18px", padding: "9px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + (served.verdict === "diff" ? "#a4442e" : t.line) } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, lineHeight: 1.5 } },
+      "它实际给的：" + served.got),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: served.verdict === "diff" ? "#a4442e" : t.fog, lineHeight: 1.6, marginTop: 3 } },
+      (served.verdict === "same" ? "跟你填的一致。"
+        : served.verdict === "alias" ? "跟你填的是同一个，只是带上了版本号。"
+        : served.verdict === "diff" ? "⚠ 跟你填的「" + (served.req || cur.model || "") + "」对不上——这条线路可能把请求转给了别的模型。"
+        : "这条线路没回传模型名，看不出来。")
+      + " 上次调用 " + new Date(served.ts || 0).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.6, marginTop: 5 } },
+      "这是回包里服务端写的那个名字。别去问模型「你是哪一版」——它训练时还没有它自己，那个回答是猜的。")) : null,
+  /*#__PURE__*/React.createElement(LineField, {
     zh: "温度",
     en: "Temperature",
     right: /*#__PURE__*/React.createElement("span", {
