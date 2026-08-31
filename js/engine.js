@@ -3479,11 +3479,22 @@ function isImgRef(v) { v = String(v || ""); return v.slice(0, 5) === "data:" || 
 function _imgCache() { if (typeof window === "undefined") return new Map(); return window.__imgUrlCache || (window.__imgUrlCache = new Map()); }
 async function hydrateImgVault() { try { const entries = await idbVaultEntries(); const c = _imgCache(); entries.forEach(([k, blob]) => { if (k && blob && !c.has(k)) { try { c.set(k, URL.createObjectURL(blob)); } catch (e) {} } }); return entries.length; } catch (e) { return 0; } }
 // ── 文字库（IDB）：把大块文字键搬出 localStorage(5MB)、存进 IndexedDB（她 2026-07-25 本地满）。──
-//   同人文 + 记忆离线镜像 + 单/群聊天搬进来。x_memLib 在 memories 行表转正后只是离线镜像；
+//   同人文 + 记忆离线镜像 + 单/群聊天 + 会持续长大的结构化正文搬进来。
+//   x_memLib 在 memories 行表转正后只是离线镜像；
 //   开机仍先 hydrate 完再挂载，所以同步读路径不变，又不再挤占 localStorage 的 5MB。
 //   机制同图库：开机 hydrateTxtVault() 把 IDB 里的值一次性灌进内存镜像 __txtMirror；此后 loadJSON/saveJSON
 //   对这些键读写镜像(同步)+异步落 IDB，绝不进 localStorage。云端同步靠 collect 补镜像、apply 回写 IDB。
-const DURABLE_TEXT_KEYS = new Set(["x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger"]);
+const DURABLE_TEXT_KEYS = new Set([
+  // 已有的大文本仓
+  "x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger",
+  // v58.83：这些内容会随着日常使用持续长大；继续留在 5MB localStorage 会反复写满。
+  "x_phone", "x_phoneArch", "x_phoneVitals", "x_diaries", "x_schedules", "x_charWallet",
+  // 情侣空间正文。只列 saveJSON 管理的键；仍由旧 UI 直读的小标记继续留在 localStorage。
+  "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
+  "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom", "x_coupleMood",
+  "x_coupleSync", "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters",
+  "x_coupleLetterCfg", "x_coupleSweet"
+]);
 const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"];
 function isIdbTextKey(k) { return typeof k === "string" && (DURABLE_TEXT_KEYS.has(k) || IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0)); }
 function isDurableTextKey(k) {

@@ -28,7 +28,12 @@ test("IDB 文字仓的键不许直接 localStorage.getItem", () => {
   const bad = [];
   files.forEach(f => read(f).split("\n").forEach((l, i) => {
     names.forEach(n => {
-      if (l.includes('localStorage.getItem("' + n)) bad.push(f + ":" + (i + 1) + " → " + l.trim().slice(0, 90));
+      // 精确匹配键名；例如 x_coupleNotes 不能误伤仍留在 localStorage 的
+      // x_coupleNoteSeen（前者只是后者的字符串前缀）。
+      const escaped = n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (new RegExp('localStorage\\.getItem\\(\\s*["\\\']' + escaped + '["\\\']').test(l)) {
+        bad.push(f + ":" + (i + 1) + " → " + l.trim().slice(0, 90));
+      }
     });
   }));
   assert.deepEqual(bad, [], "这些地方要改走 loadJSON / storedJSONText：\n" + bad.join("\n"));
