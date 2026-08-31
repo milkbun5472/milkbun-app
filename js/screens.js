@@ -3200,7 +3200,7 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
+function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWhisper, onAddAnniversary, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, gen, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleNotes, onAddNote, onAddNoteReply, onRemoveNote, onGenNote, noteGen, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, onOpenCapsule }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3250,6 +3250,16 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
   // 情侣空间子模块：我们的日子（时间轴 + 纪念日 二合一）
   if (partner && cp[view] && cp[view].status === "together" && (sub === "timeline" || sub === "anniv")) {
     return h(CoupleDays, { partner, since: cp[view].since, events: coupleTimeline, annivs: coupleAnniv, onAdd: onAddTimeline, onRemove: onRemoveTimeline, onGen: onGenTimeline, onAddAnniv: onAddAnniv, onRemoveAnniv: onRemoveAnniv, gen: tlGen, onBack: () => setSub(null) });
+  }
+  // 情侣空间子模块：和好间
+  if (partner && cp[view] && cp[view].status === "together" && sub === "makeup") {
+    return h(MakeupRoom, {
+      partner, data: makeupOf ? makeupOf(partner.id) : null,
+      signal: makeupSignalFor ? makeupSignalFor(partner.id) : { on: false, why: "" },
+      busy: makeupBusy === partner.id,
+      onOpen: () => onMakeupOpen(partner), onSay: line => onMakeupSay(partner, line),
+      onClose: how => onMakeupClose(partner.id, how), onBack: () => setSub(null)
+    });
   }
   // 情侣空间子模块：如果馆
   if (partner && cp[view] && cp[view].status === "together" && sub === "ifroom") {
@@ -3507,6 +3517,18 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
                 })() }),
               // ⚠️抽屉这一格【故意没有 dot、也不显示还剩几件没拆】——报了就跟别的通知一样，
               // 惊喜就没了（言秋的原话：开之前不知道有没有、有什么）。
+              (function () {
+                const sig = makeupSignalFor ? makeupSignalFor(partner.id) : { on: false, why: "" };
+                const cur = makeupOf ? makeupOf(partner.id) : null;
+                // ⚠️没别扭的时候这一格也在，只是不亮、不带 dot——藏起来的话她永远
+                // 找不到它在哪；亮着却不说为什么，跟没说一样。
+                return tile("makeup", { w: 4, e: "🕊", zh: "和好间",
+                  bg: (sig.on || cur) ? "linear-gradient(140deg,#f6ece9,#efe2de)" : "#f2f0ee",
+                  bd: (sig.on || cur) ? "#e6cfc8" : "#e2ded9", ink: (sig.on || cur) ? "#a0685c" : "#9a938c",
+                  dot: !!cur,
+                  body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.45, color: (sig.on || cur) ? "#8d5a4f" : "#9a938c" } },
+                    cur ? "还没了结的那一段" : sig.on ? sig.why : "这会儿没什么事") });
+              })(),
               tile("ifroom", { w: 4, e: "🜂", zh: "如果馆", bg: "linear-gradient(140deg,#241f36,#1a1728)", bd: "#332c4a", ink: "#a99ccb",
                 body: h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#c8bce6", lineHeight: 1.3 } },
                   bIfN ? bIfN + " 条想过的如果" : "同样这两个人，换掉当初的一样东西") }),
@@ -10298,6 +10320,76 @@ function IfEndPick({ onPick, onClose }) {
         h("button", { key: k, onClick: () => onPick(k), className: "w-full text-left active:opacity-70", style: { marginTop: 10, borderRadius: 13, border: "1px solid " + IF_LINE, padding: "11px 13px" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: IF_INK } }, zh),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: IF_DIM, lineHeight: 1.6, marginTop: 3 } }, sub)))));
+}
+// 和好间（v59.19）。整页，不用半窗（.claude/rules/no-half-sheet.md）。
+// ⚠️这一页只做两件事：摆出【他没说出口的那一半】，和让她递一句过去。
+// 别把聊天记录再列一遍——那是「同一份数据换个地方摆第二遍」，她刚因为这个
+// 撤掉了外卖那栏「写给陌生人」。
+const MK_INK = "#3a2f2c", MK_DIM = "#93857f", MK_LINE = "rgba(58,47,44,.12)", MK_ACC = "#a0685c";
+function MakeupRoom({ partner, data, signal, busy, onOpen, onSay, onClose, onBack }) {
+  const [typing, setTyping] = useState("");
+  const [ending, setEnding] = useState(false);
+  const bodyRef = useRef(null);
+  const name = partner.remark || partner.name;
+  React.useEffect(function () { if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight; }, [data && (data.turns || []).length, busy]);
+  const send = () => { const v = typing.trim(); if (!v || busy) return; setTyping(""); onSay(v); };
+  const head = h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: MK_INK })),
+    h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: MK_INK } }, "和好间"),
+    h("div", { style: { width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" } },
+      data ? h("button", { onClick: () => setEnding(true), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: MK_DIM } }, "过去了") : null));
+  if (!data) {
+    return h("div", { className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+        h("div", { style: { borderRadius: 18, border: "1px solid " + MK_LINE, background: "#fff", padding: "20px 18px", marginTop: 6 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.6, color: MK_INK } },
+            signal && signal.on ? signal.why : "这会儿看着没什么事"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: MK_DIM, marginTop: 12 } },
+            "推开这扇门，先看他心里那一半——不是他会讲给你听的那一半。他可能还在气头上，也可能只是说不出口。看完你再决定要不要递一句过去。"),
+          h("button", { onClick: onOpen, disabled: !!busy, className: "w-full active:opacity-70", style: { marginTop: 16, borderRadius: 12, padding: "12px 0", background: busy ? "rgba(58,47,44,.1)" : MK_ACC, color: busy ? MK_DIM : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+            busy ? "他在想……" : "推开门")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.9, color: MK_DIM, padding: "16px 4px 0" } },
+          "⚠️这里说的话不会替你在聊天里说出去。要真的和好，还得你自己去跟他讲。")));
+  }
+  const turns = data.turns || [];
+  return h("div", { className: "h-full flex flex-col", style: { background: "#faf7f5" } }, head,
+    h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 12 } },
+      data.why ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MK_DIM, padding: "2px 2px 12px" } }, data.why) : null,
+      // 他心里那一半：刻意做成【手写的一页】，不是聊天气泡——它不是说给她听的
+      h("div", { style: { borderRadius: 4, background: "#fffdfa", border: "1px solid " + MK_LINE, borderLeft: "3px solid " + MK_ACC, padding: "18px 17px", boxShadow: "0 2px 12px rgba(58,47,44,.05)" } },
+        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: ".18em", color: MK_DIM, marginBottom: 10 } }, "HIS SIDE"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 2.05, color: MK_INK, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, data.his),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MK_DIM, marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + MK_LINE } },
+          name + "没打算让你看见这一段")),
+      turns.map((t, i) => h("div", { key: i, style: { marginTop: 16 } },
+        h("div", { className: "flex justify-end" },
+          h("div", { style: { maxWidth: "82%", borderRadius: "14px 14px 4px 14px", background: MK_ACC, color: "#fff", padding: "11px 14px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, wordBreak: "break-word" } }, t.me)),
+        t.his ? h("div", { className: "flex", style: { marginTop: 10 } },
+          h("div", { style: { maxWidth: "82%", borderRadius: "14px 14px 14px 4px", background: "#fff", border: "1px solid " + MK_LINE, color: MK_INK, padding: "11px 14px", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, wordBreak: "break-word" } }, t.his)) : null)),
+      busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: MK_DIM, marginTop: 14 } }, "他在想怎么回……") : null),
+    h("div", { className: "shrink-0 px-4", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
+      h("div", { className: "flex items-end gap-2" },
+        h("textarea", {
+          value: typing, onChange: e => setTyping(e.target.value), rows: 1,
+          placeholder: turns.length ? "还想说点什么" : "递一句过去——不一定是道歉",
+          className: "flex-1 outline-none resize-none",
+          style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + MK_LINE, background: "#fff", color: MK_INK, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 }
+        }),
+        h("button", { onClick: send, disabled: !!busy || !typing.trim(), className: "active:opacity-70 shrink-0 flex items-center justify-center", "aria-label": "递过去",
+          style: { width: 42, height: 42, borderRadius: 12, background: (busy || !typing.trim()) ? "rgba(58,47,44,.08)" : MK_ACC, color: (busy || !typing.trim()) ? MK_DIM : "#fff" } },
+          h("div", { style: { width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "10px solid currentColor", marginLeft: 3 } }))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: MK_DIM, textAlign: "center", marginTop: 8 } },
+        "这儿说的话不会替你在聊天里说出去")),
+    ending ? h("div", { onClick: () => setEnding(false), style: { position: "absolute", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: 22 } },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", borderRadius: 18, background: "#fff", padding: "18px 17px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: MK_INK } }, "这一段过去了？"),
+        [["mem", "过去了，让他记着", "写一条进记忆库，好感回一点点。和好本来就该算数。"],
+         ["drop", "先收起来", "主线一个字都不知道，这一页也不留。"]].map(([k, zh, sub]) =>
+          h("button", { key: k, onClick: () => { onClose(k); setEnding(false); }, className: "w-full text-left active:opacity-70",
+            style: { display: "block", marginTop: 12, borderRadius: 13, border: "1px solid " + MK_LINE, padding: "13px 14px" } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: MK_INK } }, zh),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: MK_DIM, lineHeight: 1.7, marginTop: 4 } }, sub))),
+        h("button", { onClick: () => setEnding(false), className: "w-full active:opacity-70", style: { marginTop: 12, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13, color: MK_DIM } }, "还没完"))) : null);
 }
 function IfRoom({ partner, lines, uName, busy, bgBusy, onOpen, onAdvance, onBg, onEnd, onDrop, onBack }) {
   const t = useTheme();

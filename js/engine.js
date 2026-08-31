@@ -3549,7 +3549,7 @@ const DURABLE_TEXT_KEYS = new Set([
   // 情侣空间正文。只列 saveJSON 管理的键；仍由旧 UI 直读的小标记继续留在 localStorage。
   "x_couple", "x_couples", "x_coupleProfile", "x_coupleHome", "x_coupleBreakup",
   "x_coupleNotes", "x_coupleQA", "x_coupleQATitle", "x_coupleQACustom",
-  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_studio", "x_coupleShots", "x_myCloset", "x_phoneLastAll", "x_ifLines",
+  "x_coupleExDiary", "x_coupleTimeline", "x_coupleAnniv", "x_coupleLetters", "x_coupleDrawer", "x_studio", "x_coupleShots", "x_makeup", "x_myCloset", "x_phoneLastAll", "x_ifLines",
   "x_coupleLetterCfg", "x_coupleSweet"
 ]);
 const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:"];

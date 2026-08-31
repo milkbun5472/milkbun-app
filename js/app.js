@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.18";
+const APP_VERSION = "v59.19";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -374,6 +374,9 @@ function App() {
   // 没跟上」的长法。以后新功能只管调 addCoupleShot，墙上自己就有了。
   const [coupleShots, setCoupleShots] = useState([]);
   const coupleShotsRef = useRef([]); coupleShotsRef.current = coupleShots;
+  // 和好间：一个角色同时只有一段没了结的别扭
+  const [makeups, setMakeups] = useState({});
+  const makeupsRef = useRef({}); makeupsRef.current = makeups;
   const [coupleDrawer, setCoupleDrawer] = useState([]);
   const coupleDrawerRef = useRef([]); coupleDrawerRef.current = coupleDrawer;
   const [gachaPts, setGachaPts] = useState({});
@@ -791,6 +794,7 @@ function App() {
     setMyCloset(loadJSON("x_myCloset", {}));
     setStudio(loadJSON("x_studio", []));
     setCoupleShots(loadJSON("x_coupleShots", []));
+    setMakeups(loadJSON("x_makeup", {}));
     setCoupleDrawer(loadJSON("x_coupleDrawer", []));
     setGachaPts(loadJSON("x_gachaPts", {}));
     setGachaCards(loadJSON("x_gachaCards", []));
@@ -12409,6 +12413,98 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       + (relLine ? "。关系网上写着：" + relLine : "")
       + "\n\n【她叫】" + uName;
   };
+  // ── 和好间（言秋提，她 2026-08-31 拍板「就先松了吧」）──────────────
+  // ⚠️它凭什么不是「把聊天挪个地方摆第二遍」：主聊天里拿不到的只有一样——
+  // **他没说出口的那一半**。吵起来时他在演「我没事」或者在赌气，那句真话不会
+  // 出现在气泡里。和好间就摆这一样，外加一个真往前挪半步的「递一句过去」。
+  // 检测那一步【零调用】，只读已经存着的心情和上次说话时间。
+  const makeupSignalFor = charId => {
+    if (!window.MakeupKit) return { on: false, why: "" };
+    const rows = chatsRef.current ? (chatsRef.current[charId] || []) : (chats[charId] || []);
+    const last = rows.length ? Number(rows[rows.length - 1].ts) || 0 : 0;
+    return window.MakeupKit.signalOf({ mood: (moods || {})[charId], lastTalkTs: last, now: Date.now() });
+  };
+  const makeupSave = next => { makeupsRef.current = next; setMakeups(next); saveJSON("x_makeup", next); };
+  // 最近说过的那几句：给模型认出「隔着的是哪一件事」用。只取正文，不带图片/系统条。
+  const makeupGist = charId => {
+    const K = window.MakeupKit;
+    const rows = (chatsRef.current ? (chatsRef.current[charId] || []) : (chats[charId] || []))
+      .filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system")
+      .slice(-(K ? K.GIST_TURNS : 14));
+    const uName = profile.name || "我";
+    const c = characters.find(x => x.id === charId);
+    return rows.map(m => (m.role === "user" ? uName : (c && c.name) || "他") + "：" + String(m.content).slice(0, 90)).join("\n");
+  };
+  const makeupOpen = async char => {
+    const K = window.MakeupKit;
+    if (!K || !char) return false;
+    if (!active) { toast("请先到设置配置 API"); return false; }
+    const sig = makeupSignalFor(char.id);
+    setGen(g => ({ ...g, makeup: char.id }));
+    try {
+      // 和好是【主线】的事，不是平行时空——记忆、印象、好感、心情该给的全给
+      // ⚠️runProbe 的第三个参数是 {instruction, schemaHint}，不是一整串提示词——
+      // 传字符串的话 probe.instruction 是 undefined，请求照发、内容全丢，
+      // 而 node --check 和整套测试一个字都不会说（浏览器里跑一遍才看得出来）。
+      // ⚠️bgActive 在【没单独配后台 API】时是 null，callAI(null) 会直接炸在 baseUrl 上
+      //（浏览器里跑一遍才看得见：toast 上写着 Cannot read properties of null）。
+      const d = await runProbe(bgActive || active, ctxFor(char), {
+        instruction: K.hisPrompt(char.name, profile.name || "我", sig.why, makeupGist(char.id)),
+        schemaHint: K.HIS_SHAPE
+      }) || {};
+      const his = String((d && d.his) || "").trim().slice(0, K.HIS_CAP);
+      if (!his) { toast("这一次没写出来，再点一次"); return false; }
+      makeupSave({ ...makeupsRef.current, [char.id]: { charId: char.id, why: sig.why, his: his, openedAt: Date.now(), turns: [] } });
+      return true;
+    } catch (e) { toast("没写成：" + (e.message || "重试")); return false; }
+    finally { setGen(g => ({ ...g, makeup: null })); }
+  };
+  const makeupSay = async (char, line) => {
+    const K = window.MakeupKit;
+    const cur = (makeupsRef.current || {})[char.id];
+    const my = String(line || "").trim().slice(0, K ? K.MY_LINE_CAP : 200);
+    if (!K || !cur || !my) return false;
+    if (!active) { toast("请先到设置配置 API"); return false; }
+    // 她那句先落地：调用失败也不该把她写的话弄丢（跟如果馆同一个做法）
+    const withMine = { ...cur, turns: [...(cur.turns || []), { me: my, ts: Date.now() }] };
+    makeupSave({ ...makeupsRef.current, [char.id]: withMine });
+    setGen(g => ({ ...g, makeup: char.id }));
+    const startedAt = Date.now();
+    try {
+      const d = await runProbe(bgActive || active, ctxFor(char), {
+        instruction: K.replyPrompt(char.name, profile.name || "我", cur.why, makeupGist(char.id), cur.his, my),
+        schemaHint: K.REPLY_SHAPE
+      }) || {};
+      const reply = String((d && d.reply) || "").trim().slice(0, 300);
+      if (!reply) { toast("他没接上话，再试一次"); return false; }
+      const turns = (withMine.turns || []).slice();
+      turns[turns.length - 1] = { ...turns[turns.length - 1], his: reply, hisTs: Date.now() };
+      // ⚠️同一个 durable 键的第二笔：接口秒回时两笔会挨在一起撞上 WAL 的读回自检
+      //（跟 runOfflineShot 那个 holdTimer、如果馆那一处同一个坑）
+      if (Date.now() - startedAt < 300) await new Promise(r => setTimeout(r, 300));
+      makeupSave({ ...makeupsRef.current, [char.id]: { ...withMine, turns: turns } });
+      return true;
+    } catch (e) { toast("他没接上话：" + (e.message || "重试")); return false; }
+    finally { setGen(g => ({ ...g, makeup: null })); }
+  };
+  // 过去了。⚠️这一步【回流主线】——和好本来就该算数：写一条记忆，好感回一点点。
+  const makeupClose = (charId, how) => {
+    const cur = (makeupsRef.current || {})[charId];
+    const char = characters.find(c => c.id === charId);
+    if (!cur || !char) return false;
+    if (how === "mem") {
+      const said = (cur.turns || []).filter(t => t.me).map(t => t.me).slice(-2).join("；");
+      addMemEntry({
+        text: "【和好】那阵子" + (cur.why || "两个人有点别扭") + "。" + (said ? "她后来说：" + said + "。" : "") + "这件事过去了。",
+        tags: ["和好"], charIds: [charId], knownBy: [charId], source: "manual"
+      });
+      // 真的和好了才动好感，而且只动一点点——和好不是刷分
+      setAff(charId, Math.min(100, affOf(charId) + 1));
+      toast("记下了");
+    } else toast("收起来了");
+    const n = { ...makeupsRef.current }; delete n[charId]; makeupSave(n);
+    return true;
+  };
   const ifSave = next => { ifLinesRef.current = next; setIfLines(next); saveJSON("x_ifLines", next); };
   const ifOpen = async (char, hint) => {
     if (!active) { toast("请先到设置配置 API"); return null; }
@@ -15036,6 +15132,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onIfBg: ifBg,
     onIfEnd: ifEnd,
     onIfDrop: ifDrop,
+    // 和好间
+    makeupOf: cid => (makeupsRef.current || {})[cid] || null,
+    makeupSignalFor: makeupSignalFor,
+    makeupBusy: gen.makeup,
+    onMakeupOpen: makeupOpen,
+    onMakeupSay: makeupSay,
+    onMakeupClose: makeupClose,
     onOpenDrawer: openDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
