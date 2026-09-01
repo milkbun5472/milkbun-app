@@ -4323,14 +4323,15 @@ function ChatThread({
     size: 20,
     color: t.ink
   }))),
-  room && !room.main && h("div", {
+  room && !room.main && h("button", {
+    onClick: onOpenRooms,
     className: "shrink-0 w-full flex items-center",
     style: { padding: "7px 16px", gap: 8, background: dsp.chatBg ? "rgba(255,255,255,0.45)" : t.bg2, borderBottom: "1px solid " + t.line }
   },
     h("span", { style: { width: 7, height: 7, borderRadius: 99, background: room.main ? t.fog : t.tint } }),
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, room.name),
-    !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "手动补课" : "独立时间线"),
-    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "侧房")
+    !room.main && h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, room.syncMode === "follow" ? "跟随主线" : room.syncMode === "ask" ? "按需补近况" : "独立时间线"),
+    h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "换房 ›")
   ),
   // 此刻日程条：联动今日行程，显示 TA 此刻在做什么/在哪，点一下进 TA 的完整行程
   schedNow && h("button", {
@@ -5046,7 +5047,15 @@ function ChatThread({
   }, mdesc)), mk === chatMode && h(ICheck, {
     size: 18,
     color: t.tint
-  })))), menu != null && /*#__PURE__*/React.createElement(MsgMenu, {
+  }))), onOpenRooms && h("button", {
+    onClick: () => { setModeOpen(false); onOpenRooms(); },
+    className: "w-full flex items-center px-3 active:opacity-60 text-left",
+    style: { marginTop: 8, paddingTop: 13, paddingBottom: 4, borderTop: "1px solid " + t.line }
+  }, h("div", { className: "flex-1" },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "小房间"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 1 } }, room && !room.main ? "现在在「" + room.name + "」· 点这里换房" : "把一件想慢慢继续的事单独收起来")),
+    h(IChevR, { size: 17, color: t.fog })
+  )), menu != null && /*#__PURE__*/React.createElement(MsgMenu, {
     message: messages[menu],
     idx: menu,
     items: menuItemsForKind(messages[menu]),
@@ -9765,7 +9774,7 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
     h(Eyebrow, null, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
-    Kit.GROUPS[key].map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
+    Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
       h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, note)),
       h(Toggle, { on: !!draft[key][k], onChange: () => patch({ [key]: { ...draft[key], [k]: !draft[key][k] } }) })
     )));
@@ -9788,12 +9797,72 @@ function ChatRoomSheet({ character, activeRoomId, onSelect, onClose, onSummarize
   ];
   const roomMsgs = !draft.main ? loadJSON("x_chat:" + Kit.chatKey(character.id, draft.id), []) : [];
   const unsummarized = roomMsgs.filter(m => m && Number(m.ts || 0) > Number(draft.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
+  const roomMeta = r => r.main
+    ? { label: "日常主线", note: "平时想到什么就聊什么", tint: t.tint }
+    : r.preset === "focused"
+      ? { label: "一起做件事", note: "课程、计划或长期项目", tint: "#6f8ca6" }
+      : r.preset === "isolated"
+        ? { label: "不带出门", note: "只在这里成立，不写回主线", tint: "#887b91" }
+        : { label: "慢慢聊这件事", note: "给一个长期话题单独留位置", tint: "#8b7860" };
+  const rowsFor = r => r.main
+    ? (loadJSON("x_chat:" + character.id, []) || [])
+    : (loadJSON("x_chat:" + Kit.chatKey(character.id, r.id), []) || []);
+  const pendingFor = r => rowsFor(r).filter(m => m && Number(m.ts || 0) > Number(r.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
+  const lastLineFor = r => {
+    const rows = rowsFor(r).filter(m => m && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
+    const last = rows[rows.length - 1];
+    return last ? String(last.content).replace(/\s+/g, " ").slice(0, 64) : "还没在这里说过话";
+  };
+  const requestMainCatchup = r => {
+    const saved = Kit.save(character.id, { ...r, syncOnce: true });
+    if (!saved) return window.__toast && window.__toast("这次没记住，下次再试");
+    setRooms(Kit.list(character.id));
+    if (draft.id === saved.id) setDraft(saved);
+    window.__toast && window.__toast("下一轮会先补看主聊天的新近况");
+  };
+  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立，不进入记忆也不改主线"]];
+  if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: "roomHub" },
+    h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "和 " + (character.remark || character.name) + " 的小房间"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } }, "主聊天照常流动；想长期继续的一件事，单独留在这里。")),
+      h("button", { onClick: onClose, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 19, color: t.fog, padding: "0 2px" } }, "×")),
+    h(Eyebrow, { style: { marginTop: 18, marginBottom: 8 } }, "进去继续"),
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 9 } }, rooms.map(r => {
+      const meta = roomMeta(r), active = r.id === activeRoomId, pending = !r.main ? pendingFor(r).length : 0;
+      return h("div", { key: r.id, style: { padding: "12px 13px", borderRadius: 16, border: "1px solid " + (active ? meta.tint : t.line), background: active ? meta.tint + "12" : t.bg2 } },
+        h("button", { onClick: () => onSelect(r.id, true), className: "w-full active:opacity-70 text-left" },
+          h("div", { className: "flex items-center", style: { gap: 8 } },
+            h("span", { style: { width: 9, height: 9, borderRadius: 99, background: meta.tint, flexShrink: 0 } }),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.name),
+            active && h("span", { style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10, color: meta.tint } }, "正在这里")),
+          h("div", { className: "flex items-center", style: { gap: 7, margin: "5px 0 4px 17px" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: meta.tint } }, meta.label),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, r.purpose || meta.note)),
+          h("div", { style: { marginLeft: 17, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, lastLineFor(r))),
+        !r.main && h("div", { className: "flex flex-wrap", style: { gap: 12, margin: "9px 0 0 17px", paddingTop: 8, borderTop: "1px solid " + t.line } },
+          r.syncMode === "ask" && h("button", { onClick: () => requestMainCatchup(r), disabled: !!r.syncOnce, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: r.syncOnce ? t.fog : t.tint } }, r.syncOnce ? "已等下轮补近况" : "下轮补看主聊天"),
+          r.writeback && r.writeback.mainSummary && h("button", { disabled: !pending || summaryBusy, onClick: async () => { if (!pending || !onSummarize || summaryBusy) return; setSummaryBusy(r.id); try { const saved = await onSummarize(r, r.summaryFrame || ""); if (saved) { setRooms(Kit.list(character.id)); if (draft.id === saved.id) setDraft(saved); } } finally { setSummaryBusy(false); } }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: pending ? t.tint : t.fog } }, summaryBusy === r.id ? "整理中…" : pending ? "把这 " + pending + " 条带回主线" : "没有待带回内容")));
+    })),
+    h(Eyebrow, { style: { marginTop: 22, marginBottom: 8 } }, "新留一间"),
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, purposeChoices.map(([preset, title, note]) => h("button", { key: preset, onClick: () => add(preset), className: "w-full active:opacity-70 text-left", style: { padding: "11px 13px", borderRadius: 14, border: "1px dashed " + (creating && draft.preset === preset ? t.ink : t.line), background: creating && draft.preset === preset ? t.bg : "transparent" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "＋ " + title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55, marginTop: 3 } }, note)))),
+    creating && h("div", { style: { marginTop: 10, padding: "13px", borderRadius: 15, border: "1px solid " + t.line, background: t.bg2 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, "给它留块门牌"),
+      h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), placeholder: "房间名字", style: { width: "100%", padding: "10px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 15, outline: "none" } }),
+      h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "想在这里慢慢继续什么？例如：把 Lisa-phone 的记忆系统一起修明白", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
+      h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
+        h("button", { onClick: () => { const saved = save(); if (saved) onSelect(saved.id, true); }, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 13.5 } }, "开门进去"),
+        h("button", { onClick: () => { setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),
+    h("div", { style: { marginTop: 16, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, textAlign: "center" } }, "认知、记忆和写回边界仍可在聊天设置的「房间与权限」里细调。"));
   const editor = h("div", { style: { minWidth: 0 } },
     h("div", { className: "flex items-center justify-between" }, h("div", null,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, draft.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, draft.main ? "主聊天的额外权限" : "独立聊天记录与房间边界")),
       h("button", { onClick: save, style: { fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "保存")),
     h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), disabled: draft.main, placeholder: "给房间起个名字", style: { width: "100%", marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 16, outline: "none", opacity: draft.main ? .65 : 1 } }),
+    !draft.main && h("textarea", { value: draft.purpose || "", onChange: e => patch({ purpose: e.target.value }), rows: 3, placeholder: "这间房想慢慢继续什么？", style: { width: "100%", marginTop: 8, resize: "vertical", padding: "9px 11px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, outline: "none" } }),
     !draft.main && h("div", { style: { marginTop: 14 } },
       h(Eyebrow, null, "主线同步"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),

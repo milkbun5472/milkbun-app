@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.94";
+const APP_VERSION = "v59.95";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6958,7 +6958,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       if (delivered && room && !room.main && room.cognition && room.cognition.mainDelta && window.ChatRooms) {
         const mainRows = chatsRef.current[charId] || [];
         const seenTo = mainRows.reduce((n, m) => Math.max(n, Number(m && m.ts || 0)), Number(room.mainCursorTs || 0));
-        if (seenTo > Number(room.mainCursorTs || 0)) window.ChatRooms.save(charId, { ...room, mainCursorTs: seenTo });
+        const clearOneShot = room.syncMode === "ask" && room.syncOnce;
+        if (seenTo > Number(room.mainCursorTs || 0) || clearOneShot) window.ChatRooms.save(charId, { ...room, mainCursorTs: seenTo, syncOnce: clearOneShot ? false : room.syncOnce });
       }
       return delivered;
     } catch (e) {
@@ -15257,7 +15258,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
-    onOpenRooms: () => setChatSettingsOpen(true),
+    onOpenRooms: () => setChatRoomsOpen(true),
     toast: toast,
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
