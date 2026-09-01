@@ -55,3 +55,21 @@ test("原有的门一扇都没丢", () => {
   // 便签墙 v59.23 明着删的，别长回来
   assert.ok(collage.indexOf('"notes"') < 0, "便签墙又长回来了");
 });
+
+// v59.25 情侣空间整页崩：bLetterLast 用 itemTs 当 sort 的比较器，可它写在 itemTs
+// 【前面】——const 有 TDZ。而 .sort() 只有【两条以上】才会调比较器，所以只有一封信
+// 的时候一切正常，两封以上一进页面就 ReferenceError。
+// ⚠️这一类错测试和 node --check 都不会说，浏览器桩太干净也照样漏过去。
+test("拿别处声明的东西当比较器时，顺序不许反", () => {
+  const us = cut(scr, "function Us({", "\n}\n");
+  const uses = [...us.matchAll(/const (\w+) = [^\n]*\.sort\(\([^)]*\) => (\w+)\(/g)];
+  assert.ok(uses.length >= 1, "抓不到用具名比较器排序的那几行，切歪了");
+  uses.forEach(m => {
+    const [, name, cmp] = m;
+    const declHere = us.indexOf("const " + name + " =");
+    const declCmp = us.indexOf("const " + cmp + " =");
+    if (declCmp < 0) return;   // 比较器不是本地 const（全局函数没有 TDZ）
+    assert.ok(declCmp < declHere,
+      "「" + name + "」用了后面才声明的「" + cmp + "」当比较器——两条以上就 TDZ 崩页");
+  });
+});

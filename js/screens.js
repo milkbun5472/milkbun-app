@@ -3277,7 +3277,6 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
     // **把「几件」换成「哪一件」。** 数量只留给数量本身就是内容的那两处
     //（在一起第几天、抽卡点数）。
     const one = (v, n) => { const t = String(v == null ? "" : v).replace(/\s+/g, " ").trim(); return t.length > (n || 20) ? t.slice(0, n || 20) + "…" : t; };
-    const bLetterLast = bLetters.slice().sort((a, b) => itemTs(b) - itemTs(a))[0];
     const bRecallLast = (coupleRecall || []).filter(x => x.characterId === bCid)[0];
     const _pacts = couplePactsOf ? couplePactsOf(bCid) : null;
     const bPactLast = _pacts ? (_pacts.open || [])[0] : null;
@@ -3292,6 +3291,11 @@ function Us({ characters, couples, whispers, onBack, onInvite, onUnlink, onGenWh
       if (x.date) { const parsed = Date.parse(x.date); if (Number.isFinite(parsed)) return parsed; }
       return 0;
     };
+    // ⚠️这一行必须排在 itemTs 【之后】：它用 itemTs 当比较器，而 const 是有 TDZ 的。
+    // v59.22 我把它写在 itemTs 前面，看着一直没事——因为 .sort() 只有【两条以上】
+    // 才会调比较器，我的桩里只放了一封信，从没触发。她有两封以上，一进情侣空间
+    // 就 ReferenceError 整页崩。桩太干净会把这类错藏得严严实实。
+    const bLetterLast = bLetters.slice().sort((a, b) => itemTs(b) - itemTs(a))[0];
     const cleanSnippet = value => String(value || "").replace(/\s+/g, " ").trim().slice(0, 56);
     const recentItems = [];
     (coupleLetters || []).filter(x => x.characterId === bCid).forEach(x => recentItems.push({ id: "l_" + x.id, ts: itemTs(x), sub: "letters", icon: "💌", label: "情书", text: cleanSnippet(x.title || x.body) }));
