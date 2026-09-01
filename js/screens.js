@@ -7485,6 +7485,7 @@ function MemoryLib({
   const [cSleepOpen, setCSleepOpen] = useState(false);
   const [aEmoOpen, setAEmoOpen] = useState(false);
   const [somaticOpen, setSomaticOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false); // 日常页面只留搜索与记忆；低频整理统一收进这里
   const [diagOpen, setDiagOpen] = useState(false); // 工程仪表抽屉：默认合拢，别压着记忆
   const [duplicatePreview, setDuplicatePreview] = useState(null);
   const [eventMergePreview, setEventMergePreview] = useState(null);
@@ -7580,10 +7581,10 @@ function MemoryLib({
     en: "Memory · " + ((entries || []).length) + " 条",
     onBack: onBack,
     right: h("div", { className: "flex items-center", style: { gap: 14 } },
-      onBulkImport ? h("button", { onClick: () => setImportOpen(true), className: "active:opacity-50", title: "导入长文进记忆库", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "导入长文") : null,
-      onSaveCfg ? h("button", { onClick: () => setCfgOpen(true), className: "active:opacity-50", title: "召回设置" }, h(GConfig, { size: 19, color: t.ink })) : null,
+      h("button", { onClick: () => { setManageOpen(v => !v); setDiagOpen(false); }, className: "active:opacity-50", title: "整理与维护", style: { fontFamily: F_BODY, fontSize: 12.5, color: manageOpen ? t.tint : t.sub } },
+        "整理" + (corrections.length ? " · " + corrections.length : "")),
       h("button", { onClick: () => setEditing("new"), className: "active:opacity-50" }, h(IPlus, { size: 20, color: t.ink })))
-  }), h(VecHealth, { entries: entries }), importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
+  }), manageOpen ? h(VecHealth, { entries: entries }) : null, importOpen && onBulkImport ? h(MemImportSheet, { characters: characters, defaultCharId: focusChar ? focusChar.id : (filter !== "all" ? filter : null), onImport: onBulkImport, onClose: () => setImportOpen(false) }) : null,
   innerLifeOpen ? h(InnerLifeEDiagnosticSheet, { characters, onClose: () => setInnerLifeOpen(false) }) : null,
   bAxesOpen ? h(InnerLifeBDiagnosticSheet, { characters, onClose: () => setBAxesOpen(false) }) : null,
   cSleepOpen ? h(InnerLifeCDiagnosticSheet, { characters, onClose: () => setCSleepOpen(false) }) : null,
@@ -7595,8 +7596,19 @@ function MemoryLib({
   repairConflictOpen ? h(MemoryRepairConflictSheet,{entries,onList:onListRepairConflicts,onDecide:onDecideRepairConflict,onClose:()=>setRepairConflictOpen(false)}) : null,
   correctionOpen ? h(MemoryCorrectionPreviewSheet, { candidate: correctionOpen, onDecided: () => setCorrections(p => p.filter(x => x.id !== correctionOpen.id)), onClose: () => setCorrectionOpen(null) }) : null, h("div", {
     className: "shrink-0 px-6 pb-2",
-    style: diagOpen ? { maxHeight: "58vh", overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } : null
-  }, h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
+    style: manageOpen && diagOpen ? { maxHeight: "58vh", overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" } : null
+  }, manageOpen ? h(React.Fragment, null,
+  h("div", { className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 8 } }, "整理与维护"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 7 } },
+      onSaveCfg ? h("button", { onClick: () => setCfgOpen(true), className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "召回与上下文设置") : null,
+      onBulkImport ? h("button", { onClick: () => setImportOpen(true), className: "rounded-xl py-2.5 active:opacity-60", style: { border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }, "导入长文") : null,
+      focusChar && onExtract ? h("button", { onClick: onExtract, disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, busy ? "抽取中…" : "从当前对话提取") : null,
+      importable && onImportOld ? h("button", { onClick: () => onImportOld(focusChar.id), disabled: busy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, "导入旧长期记忆") : null,
+      onBackfillEmotion && unrated > 0 ? h("button", { onClick: onBackfillEmotion, disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, emoBusy ? "评估中…" : "补旧记忆情绪 · " + unrated) : null,
+      onRefine && refinableCount >= 8 ? h("button", { onClick: () => onRefine(filter), disabled: emoBusy, className: "rounded-xl py-2.5 active:opacity-60 disabled:opacity-40", style: { border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, emoBusy ? "精炼中…" : "旧版月度精炼 · " + refinableCount) : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 8 } }, "自动记忆平时不用照料；这里保留导入、旧库维护与参数调节。月度精炼不会自动运行。")),
+  h("button", { onClick: () => setDiagOpen(v => !v), className: "w-full rounded-xl py-2 mb-2 active:opacity-60 flex items-center justify-between px-4", style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 12 } },
     h("span", null, "🔬 诊断与审计 · 工程仪表"), h("span", { style: { color: t.fog, fontSize: 10.5 } }, diagOpen ? "收起 ▾" : "展开 ▸")),
   diagOpen ? h(React.Fragment, null,
   h("div", { className: "rounded-2xl p-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
@@ -7656,6 +7668,7 @@ function MemoryLib({
       ({ more_detailed: "更详细", contradiction: "事实纠正", manual: "手动纠正" })[c.reason] || c.reason, " · ", String(c.updated_at || "").slice(0,10)))) : null,
   h("button", { onClick: () => setCorrectionPicking(p => p ? null : { oldId: null }), className: "w-full rounded-lg py-2 mb-2 active:opacity-70", style: { border: "1px dashed " + (correctionPicking ? "#9f5149" : t.line), color: correctionPicking ? "#9f5149" : t.fog, fontFamily: F_BODY, fontSize: 11.5 } },
     correctionPicking ? (correctionPicking.oldId ? "已选旧说法 · 现在点正确的新说法（取消）" : "现在点一条错误的旧说法（取消）") : "🪡 手动挑两条做事实纠正"),
+  h("button", { onClick: () => { setManageOpen(false); setDiagOpen(false); }, className: "w-full py-1.5 mb-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "收起整理工具")) : null,
   h(EventShelfSection, { characters: characters, entries: entries }),
   h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜索记忆内容 / 标签 / 角色…",
     className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px" } })), h("div", {
@@ -7678,28 +7691,7 @@ function MemoryLib({
     }
   }, label))), h("div", {
     className: "flex-1 overflow-y-auto px-6 pb-8"
-  }, onBackfillEmotion && unrated > 0 ? h("button", {
-    onClick: onBackfillEmotion, disabled: emoBusy,
-    className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
-    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 13 }
-  }, emoBusy ? "评估中…" : "✨ 给 " + unrated + " 条旧记忆补上情绪评估（点亮色标）") : null, onRefine && refinableCount >= 8 ? h("button", {
-    onClick: () => onRefine(filter), disabled: emoBusy,
-    className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
-    style: { border: "1px dashed " + t.tint, color: t.tint, fontFamily: F_BODY, fontSize: 13 }
-  }, emoBusy ? "精炼中…" : "🗂 精炼 " + refinableCount + " 条已了结的旧记忆 → 月度摘要（原件归档可恢复）") : null, focusChar && onExtract && h("button", {
-    onClick: onExtract,
-    disabled: busy,
-    className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
-    style: {
-      border: "1px dashed " + t.line,
-      color: t.sub,
-      fontFamily: F_BODY,
-      fontSize: 13
-    }
-  }, busy ? "抽取中…" : "＋ 从与 " + (focusChar.remark || focusChar.name) + " 的对话自动提取"), importable && onImportOld ? h("button", {
-    onClick: () => onImportOld(focusChar.id), disabled: busy, className: "w-full rounded-xl py-2.5 mb-3 disabled:opacity-40",
-    style: { border: "1px dashed " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 }
-  }, "↧ 把 " + (focusChar.remark || focusChar.name) + " 的旧长期记忆拆成条目导入") : null, list.length === 0 && h(Empty, {
+  }, list.length === 0 && h(Empty, {
     text: qlc ? "没找到相关记忆" : "还没有记忆",
     sub: "点右上角 + 手动添加，或从对话自动提取"
   }), list.map(e => h("button", {
