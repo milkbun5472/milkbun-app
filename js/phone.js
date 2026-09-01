@@ -559,7 +559,9 @@ const phoneRowKey = x => {
   if (!x || typeof x !== "object") return String(x);
   // 只认【一个】标识字段 + 时刻。取两个的话，正文改一个字就成了新的一条——
   // 模型重写同一件事时措辞总会变，那样永远认不出是同一条，会攒成两份。
-  const word = ["title", "caption", "q", "text", "content", "main", "shop", "name", "body", "excerpt", "transcript", "from", "author", "number"]
+  // ⚠️who 放在最后：只有【前面这些一个都没有】的行才靠它认人（病历就是这种，
+  // 它只有 who/chief/exam…）。放前面会抢掉礼物那类本该按 title 认的行。
+  const word = ["title", "caption", "q", "text", "content", "main", "shop", "name", "body", "excerpt", "transcript", "from", "author", "number", "who"]
     .map(k => (typeof x[k] === "string" ? x[k].trim() : "")).filter(Boolean)[0];
   const f = phoneTimeField(x);
   return (word || JSON.stringify(x).slice(0, 90)) + "@" + (f ? x[f] : "");
@@ -839,18 +841,35 @@ function phoneVisitDays(known) {
   if (!newest) return null;
   return Math.floor((Date.now() - newest) / 86400000);
 }
+// ⚠️这三档必须【整段分开写】，不能共用一句收尾。
+// 她 2026-09-01：「之前有旧数据刷新了一直不看大夫」——病因就在这儿：
+// 原来三档共用一句加粗的「**不写就给空数组，别硬凑**」，而「他从没看过大夫，写第一次」
+// 只是一句轻飘飘的陈述。**最响的那句话赢**，何况这一轮本来就要吐十六张卡，
+// 给空数组是最省事的路，于是病历夹永远开不了张。
+// 跟主动消息那次是同一个病：一条强否定压在一条弱肯定后面，模型只听得见否定那句。
+// 现在：没看过 = 命令句、没有退路；到期 = 可以但不强求；刚看过 = 禁止。
 function phoneVisitHint(known) {
   const days = phoneVisitDays(known);
-  if (days == null) return "";
-  return days >= PHONE_VISIT_GAP_DAYS
-    ? "他上一次看大夫是 " + days + " 天前。这一次可以再看一回——**只有他身上真有事才去**，没事就别硬送他去医院。"
-    : "他 " + days + " 天前刚看过大夫，**这一轮不要写新的就诊记录，visits 给空数组**。";
+  if (days == null) {
+    return "他的病历夹是空的，从没有过一条记录。**这一轮必须写出正好一条**——"
+      + "写他最近一次去看大夫的那一回（哪天由你定，不必是今天）。**这一档不许给空数组。**";
+  }
+  if (days >= PHONE_VISIT_GAP_DAYS) {
+    return "他上一次看大夫是 " + days + " 天前。这一次可以再看一回，写就正好一条——"
+      + "**但只有他身上真有事才去**，没事就给空数组，别硬送他去医院。";
+  }
+  return "他 " + days + " 天前刚看过大夫。**这一轮不要写新的就诊记录，visits 给空数组。**";
 }
 // 存之前再筛一遍：离上次不够久的新就诊直接丢掉（旧的由累积层留着）
 function phoneGateVisits(data, known) {
   if (!data || typeof data !== "object" || !Array.isArray(data.visits) || !data.visits.length) return data;
+  // ⚠️先扔掉【空壳】：schemaHint 里的占位词被照抄回来时，phoneDropEchoes 会把它们
+  // 洗成空串，剩一个什么都没有的对象。让它进病历夹就是一张空白病历，比没有更糟。
+  const real = data.visits.filter(v => v && typeof v === "object"
+    && [v.who, v.chief, v.exam, v.impression, v.orders].some(x => String(x || "").trim()));
+  if (!real.length) return { ...data, visits: [] };
   const days = phoneVisitDays(known);
-  if (days == null || days >= PHONE_VISIT_GAP_DAYS) return data;
+  if (days == null || days >= PHONE_VISIT_GAP_DAYS) return { ...data, visits: real };
   return { ...data, visits: [] };
 }
 function phoneRosterBlock(appKey, known) {
@@ -5485,8 +5504,7 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "⚠️这不是一个给他打分的健康 App，是**一位看过他的大夫留下的东西**，加上自那次之后身上的几个读数。\n"
         + "所以：不出现「综合评分」「今日得分」「健康建议」这类字眼，一个都不要。\n\n"
 
-        + "【visits 就诊记录】" + (visitHint || "他从没看过大夫，这一次写【第一次】。") + "\n"
-        + "写不写由上面那句话定；要写就正好一条，写今天这一次。**不写就给空数组，别硬凑。**\n"
+        + "【visits 就诊记录】" + visitHint + "\n"
         + "一条包含：date（YYYY-MM-DD）、who（**这位大夫在他的世界里怎么被称呼**——现代是科室加姓，古代是医官、坐堂的、府里请的那位；同一个人以后还会再出现，叫法要固定）、"
         + "chief（**主诉：他自己说哪儿不舒服，用他的原话**，短，而且多半是轻描淡写、避重就轻的）、"
         + "exam（**查体：身体实际显示出什么**，成句，带上具体读数；现代角色写现代化验和体征，古代角色写脉象、舌苔、气色、按压之处——**绝不许给古人写血压和血氧**）、"

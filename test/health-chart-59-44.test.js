@@ -45,22 +45,22 @@ test("离上次不够久就不许再看一次大夫", () => {
   assert.equal(P.PHONE_VISIT_GAP_DAYS, 14);
   assert.equal(P.PHONE_VISIT_GAP_DAYS % 7, 0, "跟每周补刷那条链错开了");
   // 提示词那一半
-  assert.equal(P.phoneVisitHint({}), "", "没看过大夫时不该有间隔提示");
+  assert.match(P.phoneVisitHint({}), /必须写出正好一条/, "没看过大夫时没有叫它写第一条");
   assert.match(P.phoneVisitHint({ visits: [{ date: iso(Date.now() - 3 * D) }] }), /visits 给空数组/, "刚看过还在叫它写新的");
   assert.match(P.phoneVisitHint({ visits: [{ date: iso(Date.now() - 20 * D) }] }), /可以再看一回/, "隔了很久还不让写");
   assert.match(P.phoneProbeSpec("health", char, [], "", [], { visits: [{ date: iso(Date.now() - 3 * D) }] }).instruction,
     /visits 给空数组/, "间隔提示没拼进提示词");
   // 代码那一半：模型硬写也要丢掉
   const recent = { visits: [{ date: iso(Date.now() - 3 * D) }] };
-  assert.deepEqual(P.phoneGateVisits({ visits: [{ date: "2026-09-01" }], since: "x" }, recent),
+  assert.deepEqual(P.phoneGateVisits({ visits: [{ date: "2026-09-01", who: "张主任", chief: "有点累" }], since: "x" }, recent),
     { visits: [], since: "x" }, "刚看过还让它新增了一条");
   // 边界：差一天也得拦住
-  assert.deepEqual(P.phoneGateVisits({ visits: [{ date: "2026-09-01" }] }, { visits: [{ date: iso(Date.now() - 13 * D) }] }).visits, [],
+  assert.deepEqual(P.phoneGateVisits({ visits: [{ date: "2026-09-01", who: "张主任", chief: "有点累" }] }, { visits: [{ date: iso(Date.now() - 13 * D) }] }).visits, [],
     "第 13 天就放行了，跟两周对不上");
   const old = { visits: [{ date: iso(Date.now() - 20 * D) }] };
-  assert.equal(P.phoneGateVisits({ visits: [{ date: "2026-09-01" }] }, old).visits.length, 1, "隔得够久却被拦下了");
+  assert.equal(P.phoneGateVisits({ visits: [{ date: "2026-09-01", who: "张主任", chief: "有点累" }] }, old).visits.length, 1, "隔得够久却被拦下了");
   // ⚠️一条都没有时必须放行，否则这个 app 永远是空的
-  assert.equal(P.phoneGateVisits({ visits: [{ date: "2026-09-01" }] }, {}).visits.length, 1, "第一次就诊被拦下了");
+  assert.equal(P.phoneGateVisits({ visits: [{ date: "2026-09-01", who: "张主任", chief: "有点累" }] }, {}).visits.length, 1, "第一次就诊被拦下了");
 });
 
 test("病历是攒着的一叠，不是每天重写", () => {
@@ -95,4 +95,48 @@ test("健康走草药那一族，一屏只有一处是赭色的", () => {
     assert.ok(ph.indexOf(c) < 0, "还剩着仪表盘那套彩虹色 " + c));
   ["HEALTH_BODY", "HEALTH_LINE", "HEALTH_SOFT"].forEach(k =>
     assert.match(ph, new RegExp("const " + k + ' = "#'), "结构色 " + k + " 没有常量"));
+});
+
+// 她 2026-09-01：「之前有旧数据刷新了一直不看大夫」。
+// 病因不在闸，在提示词：三档共用一句加粗的「**不写就给空数组，别硬凑**」，
+// 而「他从没看过大夫，写第一次」只是一句轻飘飘的陈述。**最响的那句话赢**——
+// 何况这一轮本来就要吐十六张卡，给空数组是最省事的路，于是病历夹永远开不了张。
+// 跟主动消息那次是同一个病：一条强否定压在一条弱肯定后面。
+test("没有病历时那一句是命令，不是陈述——而且不许给它退路", () => {
+  const none = P.phoneVisitHint({});
+  assert.match(none, /这一轮必须写出正好一条/, "第一次仍然只是「可以写」，不是「必须写」");
+  assert.match(none, /这一档不许给空数组/, "还给它留着「给空数组」这条退路");
+  assert.ok(!/别硬凑|没事就/.test(none), "劝退的话又混进了必须写的那一档");
+  // 三档必须各说各的，不共用收尾
+  const due = P.phoneVisitHint({ visits: [{ date: iso(Date.now() - 20 * D) }] });
+  const recent = P.phoneVisitHint({ visits: [{ date: iso(Date.now() - 3 * D) }] });
+  assert.match(due, /只有他身上真有事才去/, "到期那一档丢了「别硬送他去医院」");
+  assert.match(recent, /不要写新的就诊记录/, "刚看过那一档没禁止");
+  assert.ok(!/必须写出正好一条/.test(due) && !/必须写出正好一条/.test(recent), "命令句漏进了别的档");
+  // 拼进提示词的那一份也得是分档的，不许再补一句通用收尾
+  const ins = P.phoneProbeSpec("health", char, [], "", [], {}).instruction;
+  assert.ok(!/写不写由上面那句话定/.test(ins), "又加回了那句会抵消掉命令的收尾");
+});
+
+// 占位词被照抄回来时会被洗成空串，剩一个什么都没有的对象——
+// 让它进病历夹就是一张空白病历，比没有更糟。
+test("空壳病历不许进病历夹", () => {
+  const shell = { visits: [{ date: "2026-09-01", who: "", chief: "", exam: "", impression: "", orders: "" }] };
+  assert.deepEqual(P.phoneGateVisits(shell, {}).visits, [], "空白病历被存进去了");
+  // 只要有一栏有实话就算数
+  const real = { visits: [{ date: "2026-09-01", who: "", chief: "就是有点累", exam: "", impression: "", orders: "" }] };
+  assert.equal(P.phoneGateVisits(real, {}).visits.length, 1, "有实话的那条被误杀了");
+});
+
+// 一次就诊的身份＝这位大夫＋那一天。visits 那几栏一个都不在取词表里，
+// 会退回 JSON 前缀当 key——措辞改一个字就成了新的一条。
+test("病历按【大夫＋日期】认人，不按整段 JSON", () => {
+  assert.match(ph, /"author", "number", "who"\]/, "who 没进取词表，病历会按整段 JSON 认人");
+  const merged = P.phoneGrowList(
+    [{ date: "2026-08-21", who: "张主任", chief: "改了措辞的同一次" }],
+    [{ date: "2026-08-21", who: "张主任", chief: "原来那次" }], 12, Date.now());
+  assert.equal(merged.length, 1, "同一天同一位大夫被算成了两次就诊");
+  // ⚠️who 必须排在表尾：礼物那类有 title 的行仍该按 title 认
+  const gifts = P.phoneGrowList([{ who: "给她", title: "围巾" }], [{ who: "给她", title: "手套" }], 12, Date.now());
+  assert.equal(gifts.length, 2, "who 抢掉了本该按 title 认的行");
 });
