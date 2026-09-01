@@ -77,3 +77,11 @@ test("整页，紧凑标题栏，正门在情侣空间", () => {
   assert.match(scr, /(?:wall|spine)\("studio",|setSub\("studio"\)/, "首页上没有入口");
   assert.match(app, /onStudioShoot: studioShoot,/, "没接上");
 });
+
+test("照相馆缩略图只铺满卡片，不盖住整页返回键", () => {
+  const ui = cut(scr, "function PhotoStudio({", "// ═══ 情侣空间·如果馆");
+  const card = ui.slice(ui.indexOf('rows.map(x => h("button"'), ui.indexOf('h(AlbumPhoto, { photo: x, cover: true })'));
+  assert.match(card, /position: "relative"/, "cover 图没有定位边界，会铺满整页并截走返回键");
+  assert.match(card, /overflow: "hidden"/, "照片会溢出缩略卡");
+  assert.match(card, /padding: 0/, "按钮默认内边距会让照片边缘露缝");
+});
