@@ -7,6 +7,12 @@ const phone = fs.readFileSync(path.join(__dirname, "..", "js", "phone.js"), "utf
 // phoneWeekKey 真跑
 const weekKey = new Function(phone.slice(phone.indexOf("function phoneWeekKey(d)"),
   phone.indexOf("// 周刊式刷新时告诉模型取材的时间窗")) + "\nreturn phoneWeekKey;")();
+const withTZ = (tz, fn) => {
+  const before = process.env.TZ;
+  process.env.TZ = tz;
+  try { return fn(); }
+  finally { if (before == null) delete process.env.TZ; else process.env.TZ = before; }
+};
 
 // 她 2026-08-30：「开了每周刷新为啥我打开今天也会有更新」
 test("周次游标：一周之内不变，跨周才变，四年里不撞车", () => {
@@ -24,6 +30,21 @@ test("周次游标：一周之内不变，跨周才变，四年里不撞车", ()
     assert.ok(!seen[k] || seen[k] === id, "两个周撞了同一个 key：" + k);
     seen[k] = id;
   }
+});
+
+test("周次游标按自然日走：有无夏令时都不撞周，也不改变普通地区的周界", () => {
+  withTZ("America/Winnipeg", () => {
+    const beforeDst = new Date(2024, 2, 4, 12).getTime();
+    const afterDst = new Date(2024, 2, 11, 12).getTime();
+    assert.notEqual(weekKey(beforeDst), weekKey(afterDst), "春季少一小时后两个星期撞 key 了");
+  });
+  withTZ("Asia/Shanghai", () => {
+    const mon = new Date(2024, 2, 4, 0).getTime();
+    const sun = new Date(2024, 2, 10, 23, 59).getTime();
+    const nextMon = new Date(2024, 2, 11, 0).getTime();
+    assert.equal(weekKey(mon), weekKey(sun), "无夏令时地区的一周边界变了");
+    assert.notEqual(weekKey(sun), weekKey(nextMon), "无夏令时地区跨周没换 key");
+  });
 });
 
 test("连着刷完这一周欠的，每个人都是成没成都先记账", () => {

@@ -38,6 +38,18 @@ test("认不出来的照原样，绝不瞎编", () => {
   assert.equal(F.phoneAgo({ content: "没有时间字段" }, now), "");
 });
 
+test("朋友圈的昨天与几天前按自然日算，不被夏令时的一小时带偏", () => {
+  const before = process.env.TZ;
+  process.env.TZ = "America/Winnipeg";
+  try {
+    const springNow = new Date(2026, 2, 9, 12).getTime();
+    assert.equal(F.phoneAgo({ time: "x", _ts: new Date(2026, 2, 7, 23, 30).getTime() }, springNow), "2天前");
+    assert.equal(F.phoneAgo({ time: "x", _ts: new Date(2026, 2, 8, 0, 30).getTime() }, springNow), "昨天");
+    const fallNow = new Date(2026, 10, 2, 12).getTime();
+    assert.equal(F.phoneAgo({ time: "x", _ts: new Date(2026, 10, 1, 0, 30).getTime() }, fallNow), "昨天");
+  } finally { if (before == null) delete process.env.TZ; else process.env.TZ = before; }
+});
+
 test("朋友圈那一栏真的用上了它", () => {
   assert.match(phone, /phoneAgo\(m\) \|\| m\.time \|\| ""/, "朋友圈还在直接显示存着的那句话");
   assert.doesNotMatch(phone, /marginTop: 7 \} \}, m\.time \|\| ""\)/, "旧写法还在");

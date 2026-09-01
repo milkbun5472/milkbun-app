@@ -28,17 +28,30 @@ test("认不出时刻的沉底，不再拖着整份不排序", () => {
 
 // ② 同一屏里必须是同一种写法：今天写几点、昨天写「昨天」、更早写日期
 test("会话列表的时刻是现算的，而且一屏一种写法", () => {
-  const N = Date.now();
-  assert.match(K.phoneChatWhen({ time: "随便写的", _ts: N - 3600000 }), /^\d{2}:\d{2}$/, "今天的没写成几点");
-  assert.equal(K.phoneChatWhen({ time: "随便写的", _ts: N - D }), "昨天");
-  assert.match(K.phoneChatWhen({ time: "随便写的", _ts: N - 3 * D }), /^\d+月\d+日$/, "更早的没写成日期");
-  assert.match(K.phoneChatWhen({ time: "x", _ts: new Date(2024, 2, 11).getTime() }), /^2024年3月11日$/, "跨年丢了年份");
+  const N = new Date(2026, 8, 1, 14, 0, 0).getTime();
+  assert.match(K.phoneChatWhen({ time: "随便写的", _ts: new Date(2026, 8, 1, 13).getTime() }, N), /^\d{2}:\d{2}$/, "今天的没写成几点");
+  assert.equal(K.phoneChatWhen({ time: "随便写的", _ts: new Date(2026, 7, 31, 13).getTime() }, N), "昨天");
+  assert.match(K.phoneChatWhen({ time: "随便写的", _ts: new Date(2026, 7, 29, 13).getTime() }, N), /^\d+月\d+日$/, "更早的没写成日期");
+  assert.match(K.phoneChatWhen({ time: "x", _ts: new Date(2024, 2, 11).getTime() }, N), /^2024年3月11日$/, "跨年丢了年份");
   // ⚠️没有 _ts 的老数据只能退回原话，不许瞎猜
   assert.equal(K.phoneChatWhen({ time: "周一" }), "周一");
   assert.equal(K.phoneChatWhen(null), "");
   // 两处会话列表都要用它，漏一处就还是两种写法并排
   assert.equal((ph.match(/phoneChatWhen\(c\)/g) || []).length, 3, "有一处会话列表还在直接显示模型写回来的那句（桌面组件那一处最容易漏）");
   assert.ok(ph.indexOf('} }, c.time || "")') < 0, "还有地方原样显示存着的那句时间");
+});
+
+test("昨天按当地自然日算，跨夏令时也不多吞或少吞一小时", () => {
+  const before = process.env.TZ;
+  process.env.TZ = "America/Winnipeg";
+  try {
+    const springNow = new Date(2026, 2, 9, 12).getTime();
+    assert.match(K.phoneChatWhen({ time: "x", _ts: new Date(2026, 2, 7, 23, 30).getTime() }, springNow), /^3月7日$/, "前天深夜被吞进昨天");
+    assert.equal(K.phoneChatWhen({ time: "x", _ts: new Date(2026, 2, 8, 0, 30).getTime() }, springNow), "昨天");
+
+    const fallNow = new Date(2026, 10, 2, 12).getTime();
+    assert.equal(K.phoneChatWhen({ time: "x", _ts: new Date(2026, 10, 1, 0, 30).getTime() }, fallNow), "昨天", "昨天凌晨在 25 小时日后被漏掉");
+  } finally { if (before == null) delete process.env.TZ; else process.env.TZ = before; }
 });
 
 // ⚠️存那一端排好了只管【下次刷新】，已经存着的那份还是乱的。

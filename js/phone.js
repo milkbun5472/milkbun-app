@@ -470,7 +470,14 @@ function phoneWeekKey(d) {
   const x = new Date(d || Date.now());
   x.setHours(0, 0, 0, 0);
   x.setDate(x.getDate() - ((x.getDay() + 6) % 7));   // 退到本周一
-  return x.getFullYear() + "-W" + String(Math.floor((x.getTime() - new Date(x.getFullYear(), 0, 1).getTime()) / 604800000) + 1).padStart(2, "0");
+  // 这里只数【日历上的天】，不能拿本地时间戳直接除以固定 7 天：春季换夏令时的
+  // 那一周只有 167 小时，会和前一周撞成同一个 key，整周例行刷新因此被跳过。
+  // 把年月日投到 UTC 只是为了得到稳定的日序号，不改变“周一按手机当地日期起算”的定义；
+  // 没有夏令时的地区结果与旧算法一致。
+  const year = x.getFullYear();
+  const mondayDay = Date.UTC(year, x.getMonth(), x.getDate());
+  const yearStartDay = Date.UTC(year, 0, 1);
+  return year + "-W" + String(Math.floor((mondayDay - yearStartDay) / 604800000) + 1).padStart(2, "0");
 }
 // 周刊式刷新时告诉模型取材的时间窗。平时手动刷不发这一段。
 const PHONE_WEEKLY_HINT = "\n\n【这一次是每周一次的例行刷新】写的是**过去这一周**新发生的事，"
@@ -592,15 +599,16 @@ function phoneFreezeTime(x, nowTs) {
 // 她 2026-09-01 报的「日期有 bug」，一半病在这儿：模型写回来的是什么就显示什么，
 // 于是「8月30日 23:45」「14:45」「8月29日」三种写法并排站着，读的人根本没法比较先后。
 // 有 _ts 就现算（存着的那句话会过期），没有才退回原话。
-function phoneChatWhen(x) {
+function phoneChatWhen(x, nowTs) {
   if (!x || typeof x !== "object") return "";
   const f = phoneTimeField(x);
   const raw = f ? String(x[f] || "").trim() : "";
   if (x._ts == null) return raw;
-  const d = new Date(x._ts), n = new Date();
+  const d = new Date(x._ts), n = new Date(nowTs == null ? Date.now() : nowTs);
   const mid = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  const yesterday = new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1).getTime();
   if (x._ts >= mid) return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  if (x._ts >= mid - 86400000) return "昨天";
+  if (x._ts >= yesterday) return "昨天";
   return (d.getFullYear() !== n.getFullYear() ? d.getFullYear() + "年" : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日";
 }
 // 显示用的相对时间：按 _ts 现算，不用存着的那句话。
@@ -621,9 +629,13 @@ function phoneAgo(x, nowTs) {
   if (diff < 60 * 60 * 1000) return Math.floor(diff / 60000) + "分钟前";
   const d = new Date(x._ts), n = new Date(now);
   const midnight = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+  const yesterday = new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1).getTime();
   if (x._ts >= midnight) return Math.max(1, Math.floor(diff / 3600000)) + "小时前";
-  if (x._ts >= midnight - 86400000) return "昨天";
-  const days = Math.floor((midnight - x._ts) / 86400000) + 1;
+  if (x._ts >= yesterday) return "昨天";
+  // “几天前”也是日历格数，不是经过了几个 24 小时；否则换夏令时后的第二天会
+  // 把前天深夜算成昨天，换回冬令时又会漏掉昨天凌晨。
+  const days = Math.round((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())
+    - Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
   if (days <= 6) return days + "天前";
   return (d.getFullYear() !== n.getFullYear() ? d.getFullYear() + "年" : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日";
 }
