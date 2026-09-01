@@ -716,10 +716,44 @@ function phoneGrowList(fresh, old, cap, nowTs) {
 // 而且一架书永远只有生成那一轮的几本——攒不起来。
 // 规矩：书架按名字认人，老架子留着；每架里的书累积；新长出来的架子接在后面。
 const PHONE_SHELF_CAP = 8, PHONE_BOOK_CAP = 40;
+// ⚠️书是【慢慢长的】，不是每周换一批（她 2026-09-01：「图书应该算慢慢改的那类，
+// 不应该每周刷新的时候都更新，最多更新一下读到哪儿了和批注」）。
+// 原来每一轮都让模型重出「正好 5 架 30 本」，累积层再把它们并进去——
+// 结果不是那几本书往前读了，而是**每周凭空多出三十本新书**，一架很快就满四十本。
+// 一个人的书架不该这样长。
+// 所以例行刷新走另一条路：只回 updates（这一周他真的动过的那几本），
+// 按书名认人，只改 readAt 和 note，别的一概不动，也不许添新书。
+// 动过的那几本盖上 _upd 时间戳，界面上给个红点——她要的「就在书上放个红点」。
+function phoneApplyBookUpdates(oldData, updates, nowTs) {
+  const A = a => Array.isArray(a) ? a : [];
+  const norm = v => String(v == null ? "" : v).replace(/[\s《》「」"'·,，.。!！?？:：;；]/g, "");
+  const want = {};
+  A(updates).forEach(u => { const k = norm(u && u.title); if (k) want[k] = u; });
+  let hit = 0;
+  const shelves = A(oldData && oldData.shelves).map(sh => ({
+    ...sh,
+    books: A(sh && sh.books).map(b => {
+      const u = want[norm(b && b.title)];
+      if (!u) return b;
+      const readAt = String(u.readAt || "").trim() || b.readAt;
+      const note = String(u.note || "").trim() || b.note;
+      // 两栏都没真变就别盖戳——不然红点会天天亮，等于没有
+      if (readAt === b.readAt && note === b.note) return b;
+      hit++;
+      return { ...b, readAt: readAt, note: note, _upd: nowTs };
+    })
+  }));
+  return { shelves: shelves, hit: hit };
+}
 function phoneMergeShelves(oldData, newData, nowTs) {
   const A = a => Array.isArray(a) ? a : [];
   const oldSh = A(oldData && oldData.shelves), newSh = A(newData && newData.shelves);
   if (!oldSh.length) return newData;
+  // 例行刷新那一路：模型只回 updates，架子和书目一本不动
+  if (Array.isArray(newData && newData.updates)) {
+    const r = phoneApplyBookUpdates(oldData, newData.updates, nowTs);
+    return { ...oldData, ...(newData.archive ? { archive: newData.archive } : {}), shelves: r.shelves, _lastUpd: r.hit ? nowTs : (oldData && oldData._lastUpd) || 0 };
+  }
   const byName = {};
   newSh.forEach(sh => { if (sh && sh.name) byName[String(sh.name)] = sh });
   const out = [];
@@ -2323,6 +2357,7 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
   // 一个人自己的书架和书店的区别只有一样：**他读到哪儿了、哪本放着没动。**
   // 书店永远不会告诉你这个。所以竖着一本一行，把「读到哪儿」摆在最显眼处，
   // 底下一条细线画出他走了多远；停住的那本自己说话。
+  const lastUpd = Number(d && d._lastUpd) || 0;
   const readPct = txt => {
     const t2 = String(txt || "");
     let m = /(\d{1,3})\s*%/.exec(t2);
@@ -2346,6 +2381,10 @@ function ReadingView({ d, char, t, onBack, onRefresh, refreshing, onPeek }) {
       style: { display: "block", padding: "13px 2px 14px", borderTop: i ? "1px solid " + READ_LINE : "none" }
     },
       h("div", { className: "flex items-baseline", style: { gap: 10 } },
+        // 红点＝**这一轮刷新动过这本**（她 2026-09-01：「只是改了这俩的话就在书上放个红点」）。
+        // 比的是这本的 _upd 和整份的 _lastUpd：**同一个时间戳才算数**，
+        // 所以下一次刷新如果没动它，点自己就灭了，不用另存一份「看过没」。
+        (b._upd && b._upd === lastUpd) ? h("span", { "aria-hidden": "true", style: { width: 7, height: 7, borderRadius: 99, background: "#d9705f", flexShrink: 0, alignSelf: "center" } }) : null,
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.5, color: READ_INK, wordBreak: "break-word" } }, b.title || "无题"),
         b.author ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: READ_DIM } }, b.author) : null),
       b.readAt ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: cold ? pal.accent : READ_DIM, marginTop: 5 } }, b.readAt) : null,
@@ -5487,6 +5526,16 @@ function phoneDropDupWechat(d, taken) {
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
   const visitHint = key === "health" ? phoneVisitHint(known) : "";
+  // 书架：已经摆好了、而且这是例行刷新，就只问「这一周他动了哪几本」
+  const _shelves = (key === "reading" && known && Array.isArray(known.shelves)) ? known.shelves : [];
+  const bookUpdOnly = key === "reading" && weekly && _shelves.length > 0;
+  const bookList = bookUpdOnly
+    ? "\n【他架上现有的书（title 必须从这里面照抄）】\n" + _shelves.map(function (sh) {
+        return "〔" + (sh.name || "") + "〕" + (Array.isArray(sh.books) ? sh.books : []).map(function (b) {
+          return (b && b.title || "") + (b && b.readAt ? "（现在：" + b.readAt + "）" : "");
+        }).filter(Boolean).join("、");
+      }).join("\n")
+    : "";
   const S = {
     wechat: {
       instruction: "推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户 Lisa：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写 Lisa：name 固定 Lisa，但 remark 必须是 TA 真会给 Lisa 起的微信备注，intro 必须写 TA 对 Lisa 的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
@@ -5557,7 +5606,16 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
       schemaHint: "{\"items\":[{\"id\":\"p01\",\"caption\":\"很短的标题\",\"date\":\"2026-08-28 18:42\",\"category\":\"memory或favorite或saved或private或deleted\",\"desc\":\"照片实际画面描述\",\"thought\":\"TA对此的私人想法\"}]}"
     },
     reading: {
-      instruction: "推演「" + char.name + "」手机读书 App 里的整个书架。**正好 5 个书架、正好 30 本书（每架 6 本）。**\n\n"
+      instruction: bookUpdOnly
+        ? ("「" + char.name + "」的书架已经摆好了，**这一轮不要重摆**。\n"
+          + "书是慢慢读的：一周之内，书架不会换、书目不会换，会变的只有**他读到哪儿了**和**他写下的批注**。\n"
+          + "所以这一轮只回 updates：**这一周他真的翻过的那几本**，通常 1-4 本，**没动的一本都别写**。\n"
+          + "每条给 title（**从下面这份书目里原样照抄**，一个字都不许改，改了就认不出是同一本）、"
+          + "readAt（新的进度——要**比原来往前**，除非他这周把它放下了，那就写清停在哪儿）、"
+          + "note（他读到这里新写下的批注，40-90 字，第一人称；没有新想法就别给这一栏）。\n"
+          + "⚠️**不要新建书架、不要添新书、不要改书名。**这一轮 shelves 一栏根本不用出现。\n"
+          + bookList)
+        : ("推演「" + char.name + "」手机读书 App 里的整个书架。**正好 5 个书架、正好 30 本书（每架 6 本）。**\n\n")
         + "【书架名是这个功能的灵魂】书架名**不是分类标签**——不许写「历史」「科幻」「文学」「哲学」这种。它是【他自己给这堆书起的名字】，带着他的处境、身份、私心和自嘲——**一看名字就知道是谁的书架**，而且换个角色这名字就不成立了。\n"
         + "五个里至少有一个是【只有他会有的】：跟他的职业、他正在应付的麻烦、他藏着的身份、或者某个具体的人有关。" + relHint + "\n\n"
         + "【书必须是真的】真实存在、书名和作者都对得上，而且【是他在他所处的时代和世界里拿得到的】：古代角色的架子上不许出现现代出版物，现代角色可以有古籍和译本。同一架里的书要像同一个人挑的。\n\n"
@@ -5565,7 +5623,9 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
         + "批注要写他读到这里**真实想到的事**：可以跑题、可以刻薄、可以突然想到某个人、可以是很实际的念头、一个当场冒出来的打算。**不许写读后感、不许总结这本书讲了什么、不许出现「这本书让我明白了」「引发了我的思考」这类句子。**换个角色也说得通的批注就是写坏了。\n"
         + "quote 可选：他在这本里划的一句原文（书里的句子，不是他的话），没有就填空字符串——**多数书是没有的**。\n\n"
         + "【阅读档案 archive】name = **他在这个读书 app 上的昵称**（不是本名照抄）；uid = 书友号（一串数字）；favorite = 他最爱的一本（title+author，要在上面 30 本里）；weekTime = 本周读了多久（如「7小时5分」，按他的处境合理，忙的人可以只有二十分钟）；weekGoal = **他给自己定的每周阅读目标**（同样格式，如「5小时」；定得高还是低本身就是这个人的样子，也完全允许他这周没读到）；plan = 他打算下一本读的（title+author）。",
-      schemaHint: "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"读到哪儿\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
+      schemaHint: bookUpdOnly
+        ? "{\"updates\":[{\"title\":\"从书目里原样照抄的书名\",\"readAt\":\"新的进度\",\"note\":\"读到这里新写下的批注\"}]}"
+        : "{\"shelves\":[{\"name\":\"他自己起的书架名\",\"books\":[{\"title\":\"书名\",\"author\":\"作者\",\"readAt\":\"读到哪儿\",\"quote\":\"他划的原句，多数留空\",\"note\":\"40-90字第一人称批注\"}]}],\"archive\":{\"name\":\"书友昵称\",\"uid\":\"7742019\",\"favorite\":{\"title\":\"书名\",\"author\":\"作者\"},\"weekTime\":\"7小时5分\",\"weekGoal\":\"5小时\",\"plan\":{\"title\":\"书名\",\"author\":\"作者\"}}}"
     },
     liked: {
       instruction: "推演「" + char.name + "」在小红书那样的图文社区里的账号。\n"
@@ -5744,4 +5804,4 @@ if (typeof window !== "undefined") window.PhoneKit = {
   dropDupWechat: phoneDropDupWechat,
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, PHONE_VISIT_GAP_DAYS };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, PHONE_VISIT_GAP_DAYS, phoneMergeShelves, phoneApplyBookUpdates };
