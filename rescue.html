@@ -26,7 +26,7 @@
     // 对【主屏幕实际启动的精确 URL】做 reload，并核验拿到的正文真是目标版本。
     // 目标版本只写这一处。以前散在六个地方，其中两处还是转义过的正则（53\.26），
     // 逐版 bump 的 sed 匹配不到字面量，于是它们悄悄停在旧版号上，救援页就永远校验失败。
-  const TARGET="59.59";
+  const TARGET="59.60";
     const indexRes=await fetch("./index.html",{cache:"reload",headers:{"Cache-Control":"no-cache"}});
     const indexText=await indexRes.text();
     if (!indexRes.ok || indexText.indexOf("app.js?v="+TARGET)<0) throw new Error("首页仍不是 v"+TARGET);

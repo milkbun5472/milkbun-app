@@ -83,7 +83,10 @@ test("收着只写 x_phoneKeep，不碰任何会喂给模型的东西", () => {
 
 test("时间线三档：全部 / 只看新增 / 我收着的", () => {
   assert.match(SRC, /const \[mode, setMode\] = useState\("all"\)/);
-  assert.match(SRC, /mode === "new" \? list\.filter\(isNew\) : mode === "keep" \? list\.filter\(isKept\) : list/);
+  // ⚠️别把这一行的长相冻死：v59.60 把时间线分成【走过的／接下来】两格之后，
+  // 三档筛的是当前这一格（pool），不再是整份 list。要验的是【三档还在、还是
+  // 从同一个来源里筛】，不是它写成什么样。
+  assert.match(SRC, /mode === "new" \? (\w+)\.filter\(isNew\) : mode === "keep" \? \1\.filter\(isKept\) : \1/);
   // 没收过东西时不显示那个按钮
   assert.match(SRC, /keptCount > 0 && h\("button"/);
 });

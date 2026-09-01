@@ -1691,19 +1691,37 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
   // 转发＝摆到他面前；收着＝我自己留一份。两件事，两个按钮。
   const [mode, setMode] = useState("all");
   const [sheet, setSheet] = useState(null);
+  // ── 接下来 / 走过的，分两个 tab（v59.60）────────────────────────────
+  // 她 2026-09-01：「时间线现在是打开看到接下来排好的下滑完一周接下来的才能看到
+  // 以前的时间线。能不能改成这俩分开俩 tab」。
+  // 原来是一条线：未来正序摆最前、过去倒序跟在后面。日历接了真数据之后「接下来」
+  // 动辄一整周，于是【时间线本体反而要滑过一周才够得着】——这条线的主角是他手机上
+  // 已经留下的痕迹，不该被还没发生的事挡在门口。
+  // 默认落在【走过的】：它才是这条线的正文；「接下来」是另一件事，自己一格。
+  const [tab, setTab] = useState("past");
+  const scrollRef = useRef(null);
   const list = Array.isArray(rows) ? rows : [];
   const isNew = r => !!(newIds && newIds[r.id]);
   const isKept = r => !!(kept && kept[r.id]);
-  const keptCount = list.filter(isKept).length;
+  const aheadN = list.filter(r => r.ahead).length;
+  const pastN = list.length - aheadN;
+  // 两个 chip 只管当前这一格：在「接下来」里写着「只看新增 12」、点下去一条都没有，
+  // 那个 12 说的是隔壁那一格的事。
+  const pool = list.filter(r => tab === "ahead" ? !!r.ahead : !r.ahead);
+  const keptCount = pool.filter(isKept).length;
+  const poolNew = pool.filter(isNew).length;
   const onlyNew = mode === "new";
-  const shown = mode === "new" ? list.filter(isNew) : mode === "keep" ? list.filter(isKept) : list;
+  const shown = mode === "new" ? pool.filter(isNew) : mode === "keep" ? pool.filter(isKept) : pool;
+  // 换格时把筛选和滚动都归位：带着「我收着的」切过去、那一格一条都没收着的话，
+  // chip 自己消失，人就卡在一个空列表里退不出来。
+  const goTab = k => { if (k === tab) return; setTab(k); setMode("all"); if (scrollRef.current) scrollRef.current.scrollTop = 0; };
   const now = Date.now();
   // 按天切段
   const groups = [];
   shown.forEach(r => {
-    // 未来那一段要单独标。不然「今天 20:00 还没去」和「今天 14:20 已经发生」
-    // 会落进同一个「今天」标题下，中间还夹着「后天」，读起来是乱的。
-    const label = (r.ahead ? "接下来 · " : "") + phoneDayLabel(r.ts, now);
+    // 「接下来 · 」这个前缀 v59.60 撤了：两段已经分在两个 tab 里，
+    // 整格都是未来的时候，每条标题上再挂一遍等于白说。
+    const label = phoneDayLabel(r.ts, now);
     const last = groups[groups.length - 1];
     if (last && last.label === label) last.rows.push(r); else groups.push({ label, rows: [r] });
   });
@@ -1743,12 +1761,28 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
     h("button", { onClick: onBack, className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 }, "aria-label": "返回" }, h(IArrow, { size: 19, color: t.ink })),
     h("div", { className: "flex-1 min-w-0 text-center", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "时间线"),
     h("div", { style: { width: 40, height: 40 } })),
+    // 接下来 / 走过的。两格都常驻——空着的那一格不藏起来，否则日历里排下来的事
+    // 一进时间线就人间蒸发，她只会以为是丢了。
+    h("div", { className: "shrink-0 px-5 pb-2 flex items-center", style: { gap: 7 } },
+      [["past", "走过的", pastN], ["ahead", "接下来", aheadN]].map(([k, label, n]) => h("button", {
+        key: k,
+        onClick: () => goTab(k),
+        className: "active:opacity-60",
+        "aria-pressed": tab === k ? "true" : "false",
+        style: {
+          fontFamily: F_BODY, fontSize: 12, padding: "5px 13px", borderRadius: 99,
+          background: tab === k ? t.ink : "transparent", color: tab === k ? "#fff" : t.sub,
+          border: "1px solid " + (tab === k ? t.ink : t.line)
+        }
+      }, label + (n ? " " + n : "")))),
     // 只看新增
     h("div", { className: "shrink-0 px-5 pb-2 flex items-center justify-between" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } },
-        list.length
-          ? (() => { const g = list.filter(r => r.gone).length; return "把 " + list.length + " 条痕迹按时间排在一起" + (g ? "，其中 " + g + " 条只在这儿还留着" : ""); })()
-          : "还没有翻出任何东西"),
+        tab === "ahead"
+          ? (aheadN ? "他日历上排下来的 " + aheadN + " 件事" : "日历上还没有排下来的事")
+          : pastN
+            ? (() => { const g = pool.filter(r => r.gone).length; return "把 " + pastN + " 条痕迹按时间排在一起" + (g ? "，其中 " + g + " 条只在这儿还留着" : ""); })()
+            : "还没有翻出任何东西"),
       h("div", { className: "flex items-center", style: { gap: 6 } },
         keptCount > 0 && h("button", {
           onClick: () => setMode(v => v === "keep" ? "all" : "keep"),
@@ -1759,7 +1793,7 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
             border: "1px solid " + (mode === "keep" ? t.ink : t.line)
           }
         }, "我收着的 " + keptCount),
-        newCount > 0 && h("button", {
+        poolNew > 0 && h("button", {
           onClick: () => setMode(v => v === "new" ? "all" : "new"),
           className: "active:opacity-60",
           style: {
@@ -1767,11 +1801,12 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
             background: onlyNew ? TL_DOT : "transparent", color: onlyNew ? "#fff" : TL_DOT,
             border: "1px solid " + (onlyNew ? TL_DOT : "rgba(196,85,63,.4)")
           }
-        }, "只看新增 " + newCount))),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
+        }, "只看新增 " + poolNew))),
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
       !shown.length && h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "56px 20px", lineHeight: 1.9 } },
         mode === "new" ? T("上次翻完之后，他手机上没有新东西。")
           : mode === "keep" ? "你还没收着什么。点开某一条，右下角有「收着」。"
+          : tab === "ahead" ? T("他日历上还没有排下来的事。排了的话会出现在这儿。")
           : "先在桌面上刷一遍，这里才会有东西串起来。"),
       groups.map((g, gi) => h("div", { key: g.label + gi },
         h("div", {
@@ -1785,7 +1820,9 @@ function TimelineView({ rows, char, t, onBack, onOpenApp, onPeek, newIds, newCou
       h("button", {
         onClick: onMarkRead, className: "w-full py-3 active:opacity-60",
         style: { fontFamily: F_BODY, fontSize: 12.5, borderRadius: 13, border: "1px solid " + t.line, color: t.sub }
-      }, "这 " + newCount + " 条都看过了")),
+      // ⚠️这一下清的是【两格一起】的新增标记，不是当前这一格。所以不能写「这 N 条」
+      // ——「走过的」里写着「只看新增 3」、按钮却说「这 10 条」，看上去像个 bug。
+      }, "全部 " + newCount + " 条新的都看过了")),
     sheet && h(Sheet, { onClose: () => setSheet(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, sheet.appZh + (sheet.tag ? " · " + sheet.tag : "")),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, lineHeight: 1.5, wordBreak: "break-word" } }, sheet.title),
