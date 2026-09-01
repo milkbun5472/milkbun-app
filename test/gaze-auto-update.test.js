@@ -5,6 +5,7 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const gaze = fs.readFileSync(path.join(root, "js/gaze.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 
 // 她 2026-08-24：「Ta 眼里那几条，第一次我直接让他们写入他们会写，
 // 不然都不会自动弄」。
@@ -129,4 +130,79 @@ test("接线：写了就清零，没写就计一轮", () => {
   // 线下那一路也要有同一套接线（v57.02），而且不受房间开关影响——线下不是房间
   assert.match(app, /if \(window\.Gaze && !settingsFor\(charId\)\.engineerEyes\) \{/);
   assert.match(app, /window\.Gaze\.tick\(charId\)/);
+});
+
+// ===== v59.80：她 2026-09-01「不行,两轮了空卡完全不填嘤」=====
+// v59.79 修好的是【点名出不出现】(staleTurns 对空卡永远返回 0 的死锁)。
+// 点名确实出现了，卡还是空的——因为点名这一段【夹在三句「省略」中间】：
+//   ① 协议开头「没有真实变化或实际触发时，不要为了填字段制造内容」
+//   ② impression 自己的门槛「仅当本轮发生的事真正改变了长期认知时填写」
+//   ③ 紧跟其后「未发生、未改变的按需字段直接省略」——而且它是【最后一句】
+// 对一张全新的空卡，「有变化吗」的诚实答案就是没有，于是模型每轮都正确地省略。
+// 「最响的那句话赢，尤其它还是最后一句」——票数 3:1，点名必输。
+test("空块的门槛不许还是「本轮变了没有」——那一句对一块从没写过的东西永远不成立", () => {
+  const s = G.spec("阿棠", "v5980-empty");
+  assert.match(s, /这一轮请复看这一块/, "前提：空卡本来就该被点名");
+  assert.match(s, /【你从来没写过】/);
+  assert.match(s, /不需要】本轮发生了什么变化/, "空块还在拿「变了没有」当门槛");
+  assert.match(s, /此刻心里对 阿棠 已经有的那个判断/, "没告诉它空块的门槛是「现在心里有没有」");
+  // 写过的块仍然守着高门槛，别为了修空卡把整层松掉
+  G.seed("v5980-full", {
+    me: { person: "a", soft: "b", like: "c", recent: "d", unread: "e" },
+    us: { what: "f", how: "g", marks: "h", elephant: "i", want: "j" }
+  });
+  for (let i = 0; i < G.STALE_TURNS; i++) G.tick("v5980-full");
+  const f = G.spec("阿棠", "v5980-full");
+  assert.match(f, /真正改变了你对 阿棠 或你们关系的某一块长期认知/, "写过的块把高门槛丢了");
+  assert.ok(f.indexOf("【你从来没写过】") < 0, "写过的块不该说自己没写过");
+});
+
+test("点名必须点名把那两句「省略」排除掉，否则它夹在中间必输", () => {
+  const s = G.spec("阿棠", "v5980-empty2");
+  assert.match(s, /不要为了填字段制造内容」和那句「未发生、未改变的按需字段直接省略」【都管不到这一条】/);
+  assert.match(s, /impression 与 impressionChecked 必须二选一,不许两个都省略/);
+  // 没点名的轮次不许出现这句——它只在被点名那一轮成立
+  assert.ok(G.spec("阿棠").indexOf("都管不到这一条") < 0, "没点名也在喊「不许省略」");
+});
+
+test("线上协议里，点名那一段要排在「按需字段直接省略」之后（最后一句最响）", () => {
+  // 只看线上那份协议模板里的顺序（线下那份在别处，用整份 app 找会撞上它）
+  const proto = app.slice(app.indexOf("const _normalProtocolStable = `"), app.indexOf("【能力使用总则】"));
+  const omit = proto.indexOf("未发生、未改变的按需字段直接省略；action 不属于按需字段");
+  const nudge = proto.indexOf('window.Gaze.spec("对方", charId)');
+  assert.ok(omit > 0 && nudge > 0, "线上协议里没找着这两句");
+  assert.ok(nudge > omit, "点名又被压在「直接省略」上面了——那一句是后说的，它赢");
+});
+
+test("线下那块的开场白，点了名就不许再说「用不上就整个省略」", () => {
+  assert.match(engine, /const _gazeNudged = !!\(ctx\.gazeSpec && ctx\.gazeSpec\.indexOf\("这一轮请复看这一块"\) >= 0\)/);
+  assert.match(engine, /_gazeNudged \? "。⚠️这一轮里点了名，impression 与 impressionChecked 必须二选一/);
+});
+
+// 「规则降概率，代码才保证」——上面全是规则，这一条才是保证。
+// 空卡最难自己长出来：每轮问一块，十块要十轮，中间走神几轮就又空回去。
+// 建卡那一路是【专门一次调用】，一次写十块，没有别的字段跟它抢，从来不会不写。
+test("聊够了还一块都没有，代码自己替他建一次卡；一个角色一辈子只这一次", () => {
+  assert.equal(G.autoSeedDue("never"), true, "全空的卡该自动建一次");
+  assert.equal(G.markAutoSeed("never"), true);
+  assert.equal(G.autoSeedDue("never"), false, "标记之后还在建——每轮都会多花她一次钱");
+  // 手动建过卡的、已经有块的，都不该再自动建
+  G.seed("byhand", { me: { person: "她比看上去能扛" }, us: {} });
+  assert.equal(G.autoSeedDue("byhand"), false);
+});
+
+test("接线：先记标记再打调用；线上线下两路都接上，且都有条数门槛", () => {
+  assert.match(app, /if \(auto && window\.Gaze\.markAutoSeed\) window\.Gaze\.markAutoSeed\(char\.id\)/);
+  assert.match(app, /先记标记再打调用/, "为什么要先记标记，写在代码里");
+  assert.match(app, /const GAZE_AUTOSEED_MSGS = 10/);
+  assert.match(app, /if \(msgs\.length \+ \(Number\(extra\) \|\| 0\) < GAZE_AUTOSEED_MSGS\) return/);
+  // 线上
+  assert.match(app, /window\.Gaze\.tick\(char\.id\); \} catch \(e\) \{\} \}\n\s*try \{ maybeAutoSeedGaze\(char\); \}/);
+  // 线下：这一场的对话不在 chatsRef 里，只数线上会永远够不着门槛
+  assert.match(app, /maybeAutoSeedGaze\(char, \(\(workSess && workSess\.msgs\) \|\| \[\]\)\.length\)/);
+  // 言秋和 NPC 不参与
+  assert.match(app, /if \(!char \|\| char\.npc \|\| !window\.Gaze \|\| !window\.Gaze\.autoSeedDue\) return/);
+  assert.match(app, /if \(settingsFor\(char\.id\)\.engineerEyes\) return/);
+  // 自动那一路失败不吵她，也不重试
+  assert.match(app, /catch \(e\) \{ if \(!auto\) toast\("建卡失败:"/);
 });

@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.79";
+const APP_VERSION = "v59.80";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -510,10 +510,13 @@ function App() {
   const [stateCardGroup, setStateCardGroup] = useState(false); // 心声卡是否从群聊打开（群聊隐藏动作/穿着，只显示心声/心情/好感）
   // Ta 眼里·一次性建卡:老角色首开时把长期印象初始化出来(此后全靠聊天协议按需字段有机演进)
   const [gazeSeedBusy, setGazeSeedBusy] = useState(false);
-  const seedGazeFor = async char => {
+  const GAZE_AUTOSEED_MSGS = 10; // 聊够十条(约五个来回)才自动建卡:更早建出来的只会是空话
+  const seedGazeFor = async (char, auto) => {
     if (gazeSeedBusy || !window.Gaze) return;
     const p = apiFor(char.id);
-    if (!p) return toast("请先配置 API");
+    if (!p) return auto ? undefined : toast("请先配置 API");
+    // 先记标记再打调用:这一次失败也不重试,绝不变成每轮偷偷多花一次钱
+    if (auto && window.Gaze.markAutoSeed) window.Gaze.markAutoSeed(char.id);
     setGazeSeedBusy(true);
     try {
       const uN = profile.name || "用户";
@@ -523,8 +526,21 @@ function App() {
       const parsed = extractJSON(raw);
       if (!parsed) throw new Error("没解析出卡");
       const n = window.Gaze.seed(char.id, parsed);
-      toast(n ? "Ta 写下了 " + n + " 块" : "Ta 暂时没写出什么");
-    } catch (e) { toast("建卡失败:" + (e.message || "重试")); } finally { setGazeSeedBusy(false); }
+      if (n) toast(auto ? char.name + "写下了他眼里的你" : "Ta 写下了 " + n + " 块");
+      else if (!auto) toast("Ta 暂时没写出什么");
+    } catch (e) { if (!auto) toast("建卡失败:" + (e.message || "重试")); } finally { setGazeSeedBusy(false); }
+  };
+  // 「规则降概率，代码才保证」在这一层的落法:协议里那套点名只能提高概率,
+  // 空卡真正被填满靠的是这一次专门的建卡调用(它一次写十块,没有别的字段跟它抢)。
+  // 聊够了还一块都没有才动,而且一个角色一辈子只这一次。
+  // extra = 这一路自己那边的对话条数(线下的一场不在 chatsRef 里,只数线上会永远够不着门槛)
+  const maybeAutoSeedGaze = (char, extra) => {
+    if (!char || char.npc || !window.Gaze || !window.Gaze.autoSeedDue) return;
+    if (settingsFor(char.id).engineerEyes) return;
+    if (!window.Gaze.autoSeedDue(char.id)) return;
+    const msgs = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m));
+    if (msgs.length + (Number(extra) || 0) < GAZE_AUTOSEED_MSGS) return;
+    seedGazeFor(char, true);
   };
   const [editMsg, setEditMsg] = useState(null); // 编辑消息弹层 {content, onSave}
   const [chatSettingsOpen, setChatSettingsOpen] = useState(false);
@@ -4654,6 +4670,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           } catch (e) {}
         }
         if (!_offImpWrote) { try { window.Gaze.tick(charId); } catch (e) {} }
+        try { maybeAutoSeedGaze(char, ((workSess && workSess.msgs) || []).length); } catch (e) {}
       }
       // 线下也更新状态卡的动作/穿着（否则线下换了场景、状态卡的衣服/动作还冻在上次线上聊天）
       const liveState = statesRef.current[charId] || {};
@@ -6091,8 +6108,8 @@ action: string，每轮回复完成后都重新观察并填写角色此刻真正
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: 非零整数，仅当本轮确实足以改变长期关系感受时填写；普通愉快、关心和日常聊天不改变长期关系。
-${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
+${window.Gaze ? window.Gaze.spec("对方", charId) : ""}
 【能力使用总则】下面这些能力是你手机里真实可用的功能，不是摆设：想给 TA 点杯奶茶就填 gift、想让 TA 看看此刻的自己就发 photo、想听声音就直接 call、聊到兴头突然想唱给 TA 听就来条 voice、心血来潮就发条 moment——真人谈恋爱本来就会做这些事，想到了就大方用，不必攒着等特殊时刻。多数回合用不上是常态，但连着几十轮一个能力都没动过，说明你把它们忘了，而不是你克制。唯一需要克制的是【字段】不是【话】：字段用不用，都绝不影响你话多、热情、连发、跑题、疯癫——性格照常全开，别把任何克制渗进语气里。
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；voice:[{"t":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}]=语音；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字}=送礼/外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"原句","reason":"原因"}=撤回；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
@@ -6403,6 +6420,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
           } catch (e) {}
         }
         if (!_impWrote) { try { window.Gaze.tick(char.id); } catch (e) {} }
+        try { maybeAutoSeedGaze(char); } catch (e) {}
       }
       // mark user msg read
       pChat(chatKey, p => p.map(m => m.role === "user" ? {

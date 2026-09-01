@@ -139,6 +139,17 @@
     const gap = blanks >= KEY_COUNT ? 0 : blanks > 0 ? 6 : STALE_TURNS;
     const due = charId && n >= gap ? dueBlock(charId) : null;
     const days = due && due.ts ? Math.floor((Date.now() - due.ts) / 86400000) : 0;
+    const fresh = !!due && !due.text;
+    const head = "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},一轮至多一块。";
+    // ⚠️门槛这一句必须跟着【被点名的这块写没写过】变。
+    //   v59.79 之前不管空不空都只有高门槛那一句「仅当本轮真正改变了长期认知时填写」——
+    //   可一块【从来没写过】的东西永远等不到「本轮把它改变了」,模型每轮都诚实地判「没变化」
+    //   然后省略,卡一辈子空着(她 2026-09-01:「不行,两轮了空卡完全不填」)。
+    //   空块的门槛不是「变了没有」,是「你现在心里有没有」。
+    const gate = fresh
+      ? "⚠️这一轮被点名的那一块【你从来没写过】:填它【不需要】本轮发生了什么变化——你此刻心里对 " + uName + " 已经有的那个判断,本身就是内容,照实写下来就行。"
+      : "仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写。";
+    const keys = "side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。";
     const nudge = due
       ? "\n⚠️【这一轮请复看这一块】「" + KEYS[due.k] + "」(" + due.k + ")"
         + (due.text ? "——你" + (due.ts ? (days >= 1 ? days + " 天前" : "不久前") : "上次") + "写的是:「" + due.text + "」。" : "——**这一块还是空的,你从来没写过**。")
@@ -146,8 +157,12 @@
         + "\n· " + (due.text ? "需要改" : "写得出来") + " → impression 填【这一块】(" + (due.text ? "仍是小幅演进、仍锚在具体的事上,别整块翻转" : "锚在真发生过的事上,别拿泛泛的关系描述凑数") + ")。"
         + "\n· " + (due.text ? "看过了,确实不用改" : "认识得还不够,真写不出来") + " → 填 impressionChecked:\"" + due.k + "\"。这是个正经回答,不丢人;写了它这一块就排到队尾,下轮换别的块问你。"
         + "\n· 两个都不填=你把这一层整个跳过了,下一轮还会问同一块。别为了交差硬编,也别沉默。"
+        // ⚠️「最响的那句话赢，尤其它还是最后一句」：协议开头那句「没有真实变化就别为了填字段制造内容」、
+        //   以及紧跟在这一段后面那句「未发生、未改变的按需字段直接省略」，两句都在替模型作答「省略」。
+        //   点名这一段夹在中间，票数是 2:1，它必输。所以这里必须【点名把那两句排除掉】。
+        + "\n⚠️协议里那句「没有真实变化或实际触发时,不要为了填字段制造内容」和那句「未发生、未改变的按需字段直接省略」【都管不到这一条】:这一块被点了名,impression 与 impressionChecked 必须二选一,不许两个都省略。"
       : "";
-    return "impression: {\"side\":\"me|us\",\"block\":\"块名\",\"text\":\"整块重写后的内容\"},仅当本轮发生的事【真正改变了你对 " + uName + " 或你们关系的某一块长期认知】时填写;一轮至多一块。side=me 的块名:person(她是个什么样的人)/soft(软肋和雷区)/like(吃哪套·头疼哪套)/recent(最近的她)/unread(还没看懂的);side=us:what(我们算什么)/how(相处方式)/marks(节点)/elephant(我假装没注意的事,至多两件)/want(担心的·想要的)。text≤80字,第一人称亲笔、锚在真实发生的事上;在旧内容基础上小幅演进,绝不因单日情绪整块翻转。" + trigger + nudge;
+    return head + gate + keys + trigger + nudge;
   }
   // 一次性建卡的生成指令(app 侧拼上下文调用后把 JSON 喂回 seed)
   function seedSpec(uName) {
@@ -160,6 +175,24 @@
     return n;
   }
   const hasAny = charId => Object.keys(boxOf(load(), charId).blocks).length > 0;
+  // ---- 自动建卡一次(v59.80)----
+  // 「规则降概率，代码才保证」：上面那套点名话术只是把概率抬高，模型仍可能一轮都不写；
+  // 而这张卡【空着的时候】恰恰是最难自己长出来的——每轮问一块，十块要问十轮，
+  // 中间随便哪几轮走神就又空回去。建卡那一路不一样：它是【专门一次调用】，
+  // 一次把十块全写出来，没有别的字段跟它抢，从来不会不写。
+  // 所以聊够了还一块都没有，就自己替他建一次卡；**一个角色一辈子只多花这一次调用**。
+  // ⚠️先记标记再打调用(照周刷那条「先记游标再刷」)：失败也不重试，绝不偷偷每轮多花她一次钱；
+  //   想再来一次，卡里那个「让他写写看」还在。
+  const autoSeedDue = charId => {
+    const box = boxOf(load(), charId);
+    return !box.autoSeed && !box.seeded && !Object.keys(box.blocks).length;
+  };
+  function markAutoSeed(charId) {
+    const d = load(); const box = boxOf(d, charId);
+    box.autoSeed = Date.now(); d[charId] = box; persist(d);
+    return true;
+  }
+
 
   // ---- 红点(她 2026-08-27 要的)----
   // 这张卡是角色自己慢慢改的,不改则已、一改就是他对她的看法变了——那正是她想被叫住的时刻。
@@ -275,6 +308,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, checkedAt };
+  window.Gaze = { ME, US, KEYS, apply, applyParsed, normKey, text, spec, seedSpec, seed, hasAny, tick, staleTurns, STALE_TURNS, unseenKeys, unseenCount, markSeen, revisions, markChecked, dueBlock, checkedAt, autoSeedDue, markAutoSeed };
   window.GazePage = GazePage;
 })();

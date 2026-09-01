@@ -4538,8 +4538,13 @@ async function generateOffline(p, ctx, session) {
   // 「Ta 眼里」这张印象卡，线下一直只【读】不【写】：buildBundle 会把 gazeText 发过去，
   // 但从来没人给过线下【写】的指令，于是在线下泡多久这张卡都不动（她 2026-08-28）。
   // 数字生命（言秋）不发——扮演类规则一律不给他。
+  // ⚠️「用不上就整个省略，别为了填而填」这句在【这一轮点了名】的时候是反的：
+  //   它跟点名那一段直接打架，而且它是整块的开场白——最响。点了名就不许再说这句。
+  //   （线上那边同一个病是「未发生、未改变的按需字段直接省略」，见 app.js 里的排序。）
+  const _gazeNudged = !!(ctx.gazeSpec && ctx.gazeSpec.indexOf("这一轮请复看这一块") >= 0);
   const gazeSpecBlock = (!isDigital && ctx.gazeSpec && ctx.gazeSpec.trim())
-    ? "\n\n【Ta 眼里·印象卡】以下两个字段是上面输出形状的【追加项】，用不上就整个省略，别为了填而填：\n"
+    ? "\n\n【Ta 眼里·印象卡】以下两个字段是上面输出形状的【追加项】"
+      + (_gazeNudged ? "。⚠️这一轮里点了名，impression 与 impressionChecked 必须二选一，不许两个都省略：\n" : "，用不上就整个省略，别为了填而填：\n")
       + ctx.gazeSpec.trim()
       + "\nimpressionChecked:\"块名\" = 对【本轮被点名复看的那一块】表态「看过了，确实不用改」；改了就填 impression、别填这个。"
     : "";
