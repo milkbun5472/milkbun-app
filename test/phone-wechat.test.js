@@ -43,7 +43,9 @@ test("真实聊天只从本人私聊和本人所在群聊读取并先喂给生�
   assert.match(app, /const groupState = gsFor\(group\.id\)/);
   assert.match(app, /const isSpectate = groupPhoneKind\(group, groupState, groupHistory\) === "spectate"/);
   assert.match(app, /phoneWechatDigest\(char\)/);
-  assert.match(phone, /const chats = \[\.\.\.actual, \.\.\.generated\]/);
+  // v59.41：推演出来的那几条要按时间排一遍（存那端排好了只管下次刷新）。
+  // 这条要证的没变——**真实互通那几条永远在最前**，不跟推演出来的比时间。
+  assert.match(phone, /const chats = \[\.\.\.actual, \.\.\.byWhen\(generated\)\]/);
 });
 
 test("查手机排除普通封闭群，但保留旁观对话", () => {
