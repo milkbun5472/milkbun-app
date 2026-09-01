@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const dbt = R("debate.js"), comp = R("components.js"), scr = R("screens.js"), ts = R("theme-studio.js"), core = R("core.js");
+const drm = R("dream.js"), trt = R("tarot.js");
 const live = dbt.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 // 她 2026-09-01：「装修一下辩论吧，然后给他改个名再看看代码逻辑有没有问题」
@@ -138,4 +139,20 @@ test("落地页：一场是一张场次单，判完的盖一枚歪着的章", ()
   // 两处都要改：场次单上那一行，和擂台顶栏那颗牌
   assert.equal((dbt.match(/s\.mode === "free" \? "随便吵" : "讲道理"/g) || []).length, 2,
     "模式名只改了一处——这里一半的局压根不是辩论");
+});
+
+// 同一份代码抄在三个文件里，同一个毛病。擂台改完，梦境和塔罗也得改
+// ——「一层写在三处，第三处没跟上」正是这个 app 反复犯的那一个。
+test("梦境和塔罗那两份取材，用的是同一条过滤线", () => {
+  [["梦境", drm, "function recentChatSnippet(charId, uName, charName) {", "12"],
+   ["塔罗", trt, "function recentChat(charId, uName, charName) {", "10"]].forEach(function (row) {
+    const name = row[0], src0 = row[1], head = row[2], n = row[3];
+    const i = src0.indexOf(head);
+    assert.ok(i > 0, name + "：找不到取材那一段");
+    const src = src0.slice(i, src0.indexOf("\n  }", i));
+    assert.match(src, /!m\.recalled/, name + "：撤回的那句还在喂");
+    assert.match(src, /typeof contextAllowsMessage !== "function" \|\| contextAllowsMessage\(m\)/, name + "：被排除的那些还在喂");
+    const fi = src.indexOf(".filter("), si = src.indexOf(".slice(-" + n + ")");
+    assert.ok(fi > 0 && si > fi, name + "：先取尾再过滤——一段撤回的就能把有用的挤光");
+  });
 });

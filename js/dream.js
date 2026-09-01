@@ -19,11 +19,16 @@
   function saveSaves(list) { return saveJSON("x_dream_saves", list); }
 
   // 角色最近聊天抓一小段，仅当语气/近况参考（梦醒后不写回）
+  // ⚠️取材的过滤条件必须和别处一致（engine.js 那句「所有角色视角的取材都用它过滤」）：
+  // 撤回的那句角色本来就不该记得，被上下文开关排除的那些也是。原来这里只挡了 OOC。
+  // ⚠️还要【先过滤再取尾】：先 slice 的话，一段撤回的能把真正有用的几句挤没。
   function recentChatSnippet(charId, uName, charName) {
     const msgs = loadJSON("x_chat:" + charId, []);
     if (!msgs.length) return "";
-    return msgs.slice(-12)
-      .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m))
+    return msgs
+      .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m)
+        && !m.recalled && (typeof contextAllowsMessage !== "function" || contextAllowsMessage(m)))
+      .slice(-12)
       .map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 80))
       .join("\n");
   }

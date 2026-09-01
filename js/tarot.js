@@ -82,11 +82,16 @@
   }
 
   // 角色最近聊天一小段，作近况/语气参考
+  // ⚠️取材的过滤条件必须和别处一致（engine.js 那句「所有角色视角的取材都用它过滤」）：
+  // 撤回的那句角色本来就不该记得，被上下文开关排除的那些也是。原来这里只挡了 OOC。
+  // ⚠️还要【先过滤再取尾】：先 slice 的话，一段撤回的能把真正有用的几句挤没。
   function recentChat(charId, uName, charName) {
     const msgs = loadJSON("x_chat:" + charId, []);
     if (!msgs.length) return "";
-    return msgs.slice(-10)
-      .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m))
+    return msgs
+      .filter(m => m && (m.content || "").trim() && (m.role === "user" || m.role === "assistant") && !isOocMsg(m)
+        && !m.recalled && (typeof contextAllowsMessage !== "function" || contextAllowsMessage(m)))
+      .slice(-10)
       .map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 70))
       .join("\n");
   }
