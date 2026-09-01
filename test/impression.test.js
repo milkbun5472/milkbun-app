@@ -68,6 +68,9 @@ test("补齐：只补有素材的月份，一月一月来，失败即停", () =>
   const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
   assert.match(seg, /const missing = all\.filter\(k => !have\.has\(k\)\);/, "已经有的不重写");
   assert.match(seg, /M\.monthMaterial\(charId, char\.name, k, uName, props\.groups, arch\)\.length >= 6\)/, "没素材的月份跳过，不硬编");
+  assert.match(seg, /requestAppConfirm\("补齐 " \+ want\.length \+ " 个月？"/, "补齐必须走 App 自己的确认层");
+  assert.match(seg, /async \(\) => \{\n\s*want\.reverse\(\)/, "确认之后才真正开始逐月补齐");
+  assert.doesNotMatch(seg, /(?:window\.)?confirm\(/, "iOS 会永久屏蔽原生 confirm，留下它按钮还会静默失效");
   assert.match(seg, /if \(!ok\) \{ props\.toast\("补到 " \+ M\.monthLabel\(k\) \+ " 时停下了/, "失败即停，前面的都保留");
   assert.match(seg, /want\.reverse\(\)/, "从最早的一个月往回补，时间顺序才对");
 });
@@ -95,7 +98,7 @@ test("用到的每个外部名字都得真有顶层定义，不能想当然", ()
   }));
   // impression.js 依赖的外部名字，逐个点名——加新依赖时也要加到这里
   ["blobToDataUrl", "imgToVault", "imgVaultFetchBlob", "generateSelfieImage", "callAI",
-   "parseJSONLoose", "extractJSON", "imgApiReady", "useTheme", "F_BODY", "F_DISPLAY", "Svg", "resolveImg"]
+   "parseJSONLoose", "extractJSON", "imgApiReady", "useTheme", "F_BODY", "F_DISPLAY", "Svg", "resolveImg", "requestAppConfirm"]
     .forEach(n => assert.ok(topLevel.has(n), n + " 必须是别处的顶层声明，现在不是"));
   // imgSrc 恰恰不是全局的，所以本模块【必须自己声明一份】
   assert.ok(!topLevel.has("imgSrc"), "imgSrc 至今仍不是全局的（theater 也是自己声明）");

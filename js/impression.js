@@ -449,15 +449,18 @@
             : "漏掉的那 " + missing.length + " 个月几乎没有来往，写不出印象");
         }
       } catch (e) { return props.toast("翻旧账的时候出错了：" + (e.message || "未知")); }
-      if (!confirm("补齐 " + want.length + " 个月？会一个月一个月写，中途失败前面的都保留。")) return;
-      want.reverse();
-      let done = 0;
-      for (const k of want) {
-        const ok = await make(charId, k, { quiet: true });
-        if (!ok) { props.toast("补到 " + M.monthLabel(k) + " 时停下了，已写好 " + done + " 个"); return; }
-        done++; props.toast("已补 " + done + "/" + want.length, 1200);
-      }
-      props.toast("补齐了 " + done + " 个月");
+      // iOS/PWA 可以永久屏蔽系统 confirm；被屏蔽后它只返回 false，按钮就像完全没点到。
+      // 用全 App 自己画的确认层，而且把真正补齐动作放进确认回调——点“开始补齐”后才逐月写。
+      requestAppConfirm("补齐 " + want.length + " 个月？", "会一个月一个月写，中途失败前面的都保留。", async () => {
+        want.reverse();
+        let done = 0;
+        for (const k of want) {
+          const ok = await make(charId, k, { quiet: true });
+          if (!ok) { props.toast("补到 " + M.monthLabel(k) + " 时停下了，已写好 " + done + " 个"); return; }
+          done++; props.toast("已补 " + done + "/" + want.length, 1200);
+        }
+        props.toast("补齐了 " + done + " 个月");
+      }, "开始补齐");
     }
 
     // ---- 单张卡片 ----
