@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.33";
+const APP_VERSION = "v59.34";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -299,7 +299,6 @@ function App() {
   const forumCInflightRef = useRef({}); // 每帖评论生成的进行中锁（防重入覆盖）
   const forumPMsRef = useRef([]); forumPMsRef.current = forumPMs;
   const forumCharMetaRef = useRef({}); forumCharMetaRef.current = forumCharMeta;
-  const [whispers, setWhispers] = useState([]);
   // 情侣空间·问答小本：已答条目流（各角色各一份，按 characterId 过滤）
   const [coupleQA, setCoupleQA] = useState([]);
   // 问答小本封面标题：{ [charId]: title }
@@ -766,7 +765,29 @@ function App() {
     if (!npcRelations || npcRelations.version !== 1) saveJSON("x_forumNpcRelations", { version: 1, items: FORUM_NPC_RELATIONS });
     const publicTies = loadJSON("x_forumPublicTies", null);
     if (!publicTies || publicTies.version !== 1) saveJSON("x_forumPublicTies", { version: 1, items: {} });
-    setWhispers(loadJSON("x_whispers", []));
+    // 悄悄话和便签墙【本来就是一回事】（她 2026-09-01 问的）：悄悄话是那张纸条，
+    // 便签墙是它贴的那面墙。所以搬家链早就铺好了，而且已经走过两段：
+    //   x_whispers ──(x_whispersMigrated)──▶ x_coupleNotes ──(x_notesToDrawer)──▶ 抽屉
+    // ⚠️但第一段的代码在 v59.23「便签墙并进抽屉」时跟着墙一起被删了。
+    // 谁要是当时正好【卡在第一段没走完】（x_whispersMigrated 还没置位），
+    // 他的悄悄话就永远停在 x_whispers 里，再也没有代码去接——链条中间断了一节。
+    // 这儿把断掉的那一节直接接到抽屉上，并且【沿用同一个闸】：
+    // 走完过第一段的人这里什么都不会发生，只有断在半路的那些才被捞回来。
+    const _oldW = loadJSON("x_whispers", []);
+    if (_oldW.length && !loadJSON("x_whispersMigrated", false)) {
+      const _dw0 = loadJSON("x_coupleDrawer", []);
+      const _have0 = new Set(_dw0.map(x => x && x.id));
+      const rescued = _oldW.map(w => ({
+        id: "dw_wh_" + w.id, characterId: w.characterId, kind: "whisper",
+        title: String(w.content || "").replace(/\s+/g, " ").slice(0, 16),
+        // ⚠️这里跟便签墙那次【故意不一样】：便签墙上那些她本来就看过了，所以搬过去
+        // 标成已拆；而 x_whispers 里这些是「一直存在无处显示的地方」——她一张都没见过。
+        // 所以留成没拆的，让积压的这些终于能被打开一次。
+        text: String(w.content || "").trim(), ts: w.ts || Date.now(), openedTs: null
+      })).filter(x => x.text && x.characterId && !_have0.has(x.id));
+      if (rescued.length) saveJSON("x_coupleDrawer", rescued.concat(_dw0).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 120));
+      saveJSON("x_whispersMigrated", true);
+    }
     setCoupleQA(loadJSON("x_coupleQA", []));
     setCoupleQATitle(loadJSON("x_coupleQATitle", {}));
     // 便签墙 v59.23 撤掉了（她 2026-08-31：「有点鸡肋」）。存量不许丢：

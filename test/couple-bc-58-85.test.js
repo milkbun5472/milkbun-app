@@ -62,7 +62,14 @@ test("留下的东西落进的是【已经会渲染它】的那两个地方", ()
   // 入库只写一处：v59.23 之前同样的代码在四个地方各写了一遍
   const app2 = R("app.js");
   assert.match(app2, /const drawerWhisper = \(charId, text\) => \{/, "没收成一处");
-  assert.equal((app2.match(/kind: "whisper"/g) || []).length, 2, "悄悄话入库又散开写了（一处写、一处迁移，就该只有两处）");
+  // ⚠️别冻在【一共几处】这个数上：一次性搬家每加一段，这个数就变一次，
+  //（v59.34 加了 x_whispers→抽屉那一段，它就从 2 变成 3），可要证的东西没变过。
+  // 要证的是【活着的写手只有一个】：开机那几段一次性搬家不算写手，把它们摘掉再数。
+  const bootMig = app2.slice(app2.indexOf('const _oldW = loadJSON("x_whispers"'),
+    app2.indexOf('setCoupleDrawer(loadJSON("x_coupleDrawer", []))'));
+  assert.ok(bootMig.length > 200, "抠不出开机那几段一次性搬家");
+  const live = app2.replace(bootMig, "");
+  assert.equal((live.match(/kind: "whisper"/g) || []).length, 1, "悄悄话入库又散开写了，就该只有 drawerWhisper 一处");
   // 她不在场，所以不该写成给她的留言模板
   assert.match(leave, /她不在场，所以不用问她好、不用等她回/, "会写成一条对着她说的留言");
   assert.match(leave, /等她自己发现/, "没说清这件事的意思是「回来才发现」");
