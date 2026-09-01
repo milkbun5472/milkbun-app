@@ -40,17 +40,26 @@ test("进门那一刻把「读到哪儿」冻住，新来的那几条标出来",
 });
 
 // 她 2026-09-01：「可以再给每个网友增加私信功能，就喂他们发过的帖和回复过的」
-test("能主动私信一个网友，开场白从他自己说过的话长出来", () => {
+test("能主动私信一个网友，他在私信里得还是吧里那个人", () => {
   const st = cut(ap, "const startForumPM = async (npc, lines)", "\n  const sendForumPM");
-  assert.match(st, /【TA 在吧里说过的话（开场白必须从这里面长出来/, "没喂他自己说过的话");
-  assert.match(st, /【TA 在吧里还没留下什么公开发言】/, "一句都没说过的人没有兜底，会被现编一堆");
+  assert.match(st, /【这个人是谁 · 开场白必须从这里面长出来/, "没喂这个人是谁");
+  assert.match(st, /【TA 在吧里还没留下什么公开发言、也不是常驻熟面孔】/, "什么都查不到的人没有兜底，会被现编一堆");
   assert.match(st, /是被陌生人主动私信之后的反应\*\*，不是 TA 主动来搭讪/, "写成了他来找我，方向反了");
   // 同一个人不该在列表里躺两遍
   assert.match(st, /const exist = \(forumPMsRef\.current \|\| \[\]\)\.find\(t => t && \(t\.npcId === npc\.id \|\| t\.npcName === npc\.name\)\);/,
     "同一个人会开出第二条会话");
   assert.match(st, /if \(exist\) return exist\.id;/, "已经有会话时没直接开那一条");
   // 聊几轮之后还得是同一个人
-  assert.match(ap, /th\.ground \? "\\n【你在吧里说过这些，说话得像同一个人】\\n" \+ th\.ground/, "后续回复没接着吃这份底子");
+  assert.match(ap, /th\.ground \? "\\n【你在吧里就是这样一个人，说话得对得上】\\n" \+ th\.ground/, "后续回复没接着吃这份底子");
+  // 底子＝论坛人设 + 常逛的吧 + 跟谁老抬杠 + 他真说过的话。
+  // 只喂最后一样的话，聊几轮就退化成「一个网友」。
+  const gd = cut(ap, "const forumNpcGround = (npcId, lines)", "\n  // 主动私信一个网友");
+  assert.match(gd, /const n = FORUM_NPC_REGISTRY\.find\(x => x\.id === npcId\);/, "没去查他的论坛人设");
+  assert.match(gd, /【他在吧里是个什么人】/, "论坛人设没喂");
+  assert.match(gd, /【常逛】/, "常逛哪几个吧没喂");
+  assert.match(gd, /FORUM_NPC_RELATIONS \|\| \[\]\)\.filter\(r => r && \(r\.a === npcId \|\| r\.b === npcId\)\)/, "跟谁老抬杠没喂");
+  assert.match(gd, /【他自己在吧里说过的话】/, "他发过的帖和回过的话没喂");
+  assert.match(st, /const ground = forumNpcGround\(npc\.id, lines\);/, "开场白没走这份底子");
   const np = cut(sc, "function npcProfileView()", "\n  // ---- 主体分派");
   assert.match(np, /const pmGround = authored\.slice\(0, 3\)/, "主页没把他发过的帖整理出来");
   assert.match(np, /traces\.slice\(0, 5\)/, "主页没把他在别人楼里说的话整理出来");
@@ -73,18 +82,14 @@ test("转发到群聊也带上「这帖是你自己发的」，跟私聊同一�
   assert.match(ap, /m\.post \? "「" \+ \(m\.post\.board \|\| ""\)[\s\S]{0,220}: ""\)\)\)/, "老消息的兜底拼法被删了");
 });
 
-// 私信要不要喂进上下文：不自动喂，但要给得出去
-test("私信绝不自动进上下文，只有她拿给谁看才进", () => {
+// 私信是不是要喂给角色：她 2026-09-01 说不是——「私信不是要喂给角色，我是说在论坛
+// 私信用户 NPC 的时候他们回复会参考他们论坛人设和回帖风格」。撤掉就是删掉。
+test("私信不进任何人的上下文，那个「拿给…看」也删干净了", () => {
+  ["forwardPMToChat", "onForwardPM", "给你看一段贴吧私信"].forEach(k =>
+    assert.ok(ap.indexOf(k) < 0 && sc.indexOf(k) < 0, "撤掉的东西还留着残骸：" + k));
   // forumEcho 是唯一一条自动注入的链，它一个字都不许读私信
   const echo = cut(ap, "forumEcho: (() =>", "\n    })(),");
   assert.ok(echo.length > 400, "找不到 forumEcho 那一段");
   ["forumPMs", "forumPMsRef", "x_forumPMs", "attitude"].forEach(k =>
-    assert.ok(echo.indexOf(k) < 0, "论坛回声读了私信（" + k + "）——那是她自己的收件箱，自动喂等于开上帝视角"));
-  // 但要有一个按钮把它摆出去
-  const fp = cut(ap, "const forwardPMToChat = (thread, toChar)", "\n  // ficshare");
-  assert.match(fp, /\[给你看一段贴吧私信\]/, "没有拿给角色看的路");
-  assert.match(fp, /\*\*这是她主动拿给你看的\*\*，不是你自己翻到的/, "没说清是主动给的还是被撞破的——两种语气完全不一样");
-  assert.match(fp, /thread\.attitude === "troll" \? "（这人是来找茬的）" : ""/, "杠精没标出来，他不知道她在被骚扰");
-  assert.match(fp, /\.slice\(-6\)/, "整条私信全塞进去了，长了会挤掉别的上下文");
-  assert.match(sc, /onForwardPM \(?&& \(characters \|\| \[\]\)\.length > 0/, "会话页上没有「拿给…看」");
+    assert.ok(echo.indexOf(k) < 0, "论坛回声读了私信（" + k + "）"));
 });

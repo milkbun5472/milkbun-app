@@ -1401,7 +1401,7 @@ function AltAvatar({ seed, size }) {
 function Forum({
   characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onReplyFloor, onReplySub,
-  onStartPM, onDelPM, onClearPMs, onForwardPM,
+  onStartPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar
 }) {
@@ -1950,14 +1950,6 @@ function Forum({
         th.messages.map((m, i) => h("div", { key: i, className: "flex " + (m.from === "me" ? "justify-end" : "justify-start") },
           h("div", { style: { maxWidth: "76%", padding: "8px 12px", borderRadius: 14, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, background: m.from === "me" ? t.accent : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : `1px solid ${t.line}` } }, m.text))),
         sending && h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingLeft: 4 } }, th.npcName + " 正在打字…")),
-      // 拿给角色看（v59.71）。私信不自动进任何人的上下文——她想让谁知道，才发给谁。
-      onForwardPM && (characters || []).length > 0 && h("div", { className: "shrink-0 px-4 pb-1 flex items-center gap-2 overflow-x-auto", style: { scrollbarWidth: "none" } },
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿给"),
-        (characters || []).map(c => h("button", {
-          key: c.id, onClick: () => onForwardPM(th, c), className: "shrink-0 active:opacity-60",
-          style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, border: "1px solid " + FORUM_SKIN.accent + "55", borderRadius: 999, padding: "4px 10px" }
-        }, c.remark || c.name)),
-        h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "看")),
       h("div", { className: "shrink-0 px-4 py-3 flex gap-2", style: { borderTop: `1px solid ${t.line}` } },
         h("input", { value: pmText, onChange: e => setPmText(e.target.value), onKeyDown: e => e.key === "Enter" && send(), placeholder: "回 " + th.npcName + "…", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
         h("button", { onClick: send, disabled: sending, className: "px-4 rounded-lg active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发送")));

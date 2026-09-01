@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.72";
+const APP_VERSION = "v59.73";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11690,7 +11690,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 转发帖子到私聊：只 push 卡片，【不自动回复】——她要转完接着说自己的话，说完按「回复」TA 再一起反应。
   // 帖子内容写进 content：回复走正常 replyNow 历史，TA 能一直记得这条帖（含自己匿名发的帖，认不认在正常回复里演）。
   // 「这帖是你自己发的 / 你本人在这帖里回过」——转发时让 TA 认得出自己。
-  // ⚠️抽成一份共用（v59.71）：原来这两句只写在私聊那一处，群聊那边只 push 了一个
+  // ⚠️抽成一份共用（v59.73）：原来这两句只写在私聊那一处，群聊那边只 push 了一个
   //   post 对象、没有 content，于是同一条帖转进群里，作者本人一点都认不出是自己发的
   //   （.claude/rules/four-surfaces-same-context.md：一层写在两处，第二处没跟上）。
   const forumOwnTags = (post, charId) => {
@@ -11858,26 +11858,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     }]);
     toast("已转发到群聊");
   };
-  // 把一条私信摆到某个角色面前（v59.71）。
-  // ⚠️私信【绝不自动进上下文】：那是她自己的收件箱，一个杠精天天来骂她，
-  //   不等于他就该知道——自动喂等于给他开上帝视角，而且每一轮都在烧额度。
-  //   但要给得出去：她想让他知道有人在骚扰她，那就该有一个按钮。
-  //   这跟查手机那条规矩是同一条：**只有转发才注入**。
-  const forwardPMToChat = (thread, toChar) => {
-    if (!thread || !toChar) return;
-    const lines = (thread.messages || []).slice(-6)
-      .map(m => (m.from === "me" ? "我" : thread.npcName) + "：" + String(m.text || "").replace(/\s+/g, " ").slice(0, 60))
-      .join("\n");
-    pChat(toChar.id, p => [...p, {
-      role: "user", kind: "forumshare",
-      content: "[给你看一段贴吧私信]一个网名叫「" + thread.npcName + "」的陌生网友私信我"
-        + (thread.attitude === "troll" ? "（这人是来找茬的）" : "") + "：\n" + lines
-        + "｜（**这是她主动拿给你看的**，不是你自己翻到的。按你的人设和你俩的关系反应：护着、笑她、劝她别理、或者要去替她出头都行；"
-        + "别当客服总结一遍私信内容。）",
-      ts: Date.now(), read: false
-    }]);
-    toast("已拿给 " + (toChar.remark || toChar.name) + " 看");
-  };
   // ficshare 卡片的 content：让这篇文的 title/CP/作者/节选落进聊天历史，角色以后回看/重roll 才认得出是同一篇
   const ficShareContent = (s, note) => "[分享了一篇同人文]《" + s.title + "》｜CP：" + (s.cpText || "原创") + "｜作者：" + (s.author || "佚名") + (note ? "｜" + note : "") + (s.excerpt ? "｜开头：" + s.excerpt : "");
   // 转发同人文到私聊：push 一张 ficshare 卡片 + 角色随口读后感（Phase 2 才把新章 context 喂给角色）
@@ -12000,6 +11980,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
   // 而且它和上面那条杠精配额是一对的：手上那个杠精被清掉，下一次刷新才可能再来一个。
   const delForumPM = threadId => setForumPMs(prev => { const n = prev.filter(t => t && t.id !== threadId); saveJSON("x_forumPMs", n); return n; });
   const clearForumPMs = () => setForumPMs(() => { saveJSON("x_forumPMs", []); return []; });
+  // 一个网友在私信里【是谁】（她 2026-09-01 说的就是这件事）：
+  //   ① 论坛人设（registry 里那句 voice）——常驻熟面孔才有；
+  //   ② 常逛哪几个吧；
+  //   ③ 跟谁老抬杠（FORUM_NPC_RELATIONS）——他在私信里提起那个人时才对得上；
+  //   ④ 他真发过的帖、真在别人楼里说过的话。
+  // 缺了 ①②③ 只喂 ④ 的话，聊几轮就退化成「一个网友」——那正是这个 app 最容易写坏的地方。
+  const forumNpcGround = (npcId, lines) => {
+    const n = FORUM_NPC_REGISTRY.find(x => x.id === npcId);
+    const head = [];
+    if (n) {
+      head.push("【他在吧里是个什么人】" + n.name + "（@" + n.handle + "）：" + n.voice);
+      if ((n.boards || []).length) head.push("【常逛】" + n.boards.join("、"));
+      const rel = (FORUM_NPC_RELATIONS || []).filter(r => r && (r.a === npcId || r.b === npcId));
+      rel.slice(0, 2).forEach(r => {
+        const other = FORUM_NPC_REGISTRY.find(x => x.id === (r.a === npcId ? r.b : r.a));
+        if (other) head.push("【和「" + other.name + "」】" + (r.tone || "老在同一个楼里碰上"));
+      });
+    }
+    const said = (Array.isArray(lines) ? lines : []).filter(Boolean).slice(0, 8);
+    if (said.length) head.push("【他自己在吧里说过的话】\n" + said.join("\n"));
+    return head.join("\n");
+  };
   // 主动私信一个网友（她 2026-09-01：「可以再给每个网友增加私信功能，就喂他们发过的帖
   // 和回复过的」）。原来私信只有一条路：点刷新，等模型随机送几个人上门——我看上了楼里
   // 某个人，想找他聊两句，没有任何入口。
@@ -12012,15 +12014,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     const exist = (forumPMsRef.current || []).find(t => t && (t.npcId === npc.id || t.npcName === npc.name));
     if (exist) return exist.id;
     if (!active) { toast("请先到设置配置 API"); return ""; }
-    const ground = (Array.isArray(lines) ? lines : []).filter(Boolean).slice(0, 8).join("\n");
+    const ground = forumNpcGround(npc.id, lines);
     setGen(g => ({ ...g, forumPM: "start" }));
     try {
       const meName = forumMe.handle || profile.name || "我";
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: "贴吧网友「" + npc.name + "」（@" + (npc.handle || npc.name) + "）收到了网名「" + meName + "」的私信邀请——对方主动来找 TA 说话。\n"
           + (ground
-            ? "【TA 在吧里说过的话（开场白必须从这里面长出来，别写成一个谁都能说的开场）】\n" + ground + "\n"
-            : "【TA 在吧里还没留下什么公开发言】所以开场白只能是「不认识但被搭话了」的反应，别编 TA 说过的话。\n")
+            ? "【这个人是谁 · 开场白必须从这里面长出来，别写成一个谁都能说的开场】\n" + ground + "\n"
+            : "【TA 在吧里还没留下什么公开发言、也不是常驻熟面孔】所以开场白只能是「不认识但被搭话了」的反应，别编 TA 说过的话。\n")
           + "以「" + npc.name + "」的身份写第一句回话（opening）：**是被陌生人主动私信之后的反应**，不是 TA 主动来搭讪。"
           + "顺带给 tagline（一句话画风）和 attitude（friendly / curious / troll 三选一，默认别选 troll）。"
           + "**你们是陌生人，别默认对方性别**，不要用『老哥』『哥们』『兄弟』。",
@@ -12051,7 +12053,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       const d = await runProbeRetry(active, forumWorldCtx(), {
         instruction: "你在贴吧扮演一个网名叫「" + th.npcName + "」的陌生网友（画风：" + (th.tagline || "普通网友") + "，态度：" + th.attitude + "）。"
           // 这份底子是他在吧里真说过的话：聊几轮之后还认得出是同一个人，靠的就是它
-          + (th.ground ? "\n【你在吧里说过这些，说话得像同一个人】\n" + th.ground + "\n" : "")
+          // ⚠️每一轮都把这份底子发回去：不发的话聊三句就退化成「一个网友」，
+          //   论坛上那个有脾气的人和私信里这个客服是两个人。
+          + (th.ground ? "\n【你在吧里就是这样一个人，说话得对得上】\n" + th.ground + "\n" : "")
           + "这是你和对方的私信记录：\n" + convo + "\n\n以「" + th.npcName + "」的身份回复对方最新这句（1-3 句，可多气泡）。" + (th.attitude === "troll" ? "你是个杠精/喷子，阴阳怪气、抬杠、可以对骂，别怂但也别脏到没法看。" : "保持你自己的画风，真实自然，别客服腔。"),
         schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}",
         maxTokens: 800
@@ -15375,7 +15379,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     onSendPM: sendForumPM,
     onMarkPMRead: markPMRead,
     onStartPM: startForumPM,
-    onForwardPM: forwardPMToChat,
     onDelPM: delForumPM,
     onClearPMs: clearForumPMs,
     onEditMe: editForumMe,
