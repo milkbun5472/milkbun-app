@@ -17,45 +17,39 @@ function load() {
   return { D: w.Dwell, store };
 }
 
-// 她 2026-08-30：「图占比太小」→ 全屏；「下面描述和图上重复了两处都有太繁琐」→ 图上挂小签就够了
-test("细线只铺在中间那一段：上不压顶栏、下不压那句氛围", () => {
-  const { D } = load();
-  for (const n of [2, 3, 4, 5, 6]) {
-    const tops = Array.from({ length: n }, (_, i) => D.pinTop(i, n));
-    assert.ok(Math.min(...tops) >= 15, n + " 块时最上面那根在 " + Math.min(...tops) + "%，会压到顶栏");
-    assert.ok(Math.max(...tops) <= 74, n + " 块时最下面那根在 " + Math.max(...tops) + "%，会压到底下那句氛围");
-    for (let i = 1; i < n; i++) assert.ok(tops[i] > tops[i - 1], "线的顺序乱了：" + tops.join(" "));
-    // 挨太近会糊成一坨
-    if (n > 1) assert.ok(tops[1] - tops[0] >= 9, n + " 块时线挨得太近：" + tops.join(" "));
-  }
-  assert.ok(D.pinTop(0, 1) > 30 && D.pinTop(0, 1) < 60, "只有一块的时候该在中间");
+// 她 2026-09-01：暗底节点、连线、幽灵英文和抽屉清单与别的产品太像。
+test("地点总览改成可滚动的场所观察档案，不再把区域画成星图节点", () => {
+  const i = dwell.indexOf('// ── 一处地方：完整的场所观察档案');
+  assert.ok(i > 0, "找不到新的场所档案页");
+  const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
+  assert.match(src, /fieldBar\(open\.name/);
+  assert.match(src, /flex-1 min-h-0 overflow-y-auto/, "地点页内容多了不会滚");
+  assert.match(src, /placePhoto\(open, 220\)/);
+  assert.match(src, /"场所观察档案"/);
+  assert.match(src, /"空间索引"/);
+  assert.match(src, /className: "grid grid-cols-2"/, "区域没有收成明确的卡片索引");
+  assert.match(src, /onClick: function \(\) \{ setZoneIdx\(i\); \}/, "区域卡点不进去");
+  assert.doesNotMatch(src, /pinTop|pointerEvents|onLeft|backdropFilter|borderRadius: 999/, "星图小签的结构还残留在总览页");
 });
 
-test("全屏那一页不再把区域名列第二遍", () => {
-  const i = dwell.indexOf('if (view === "place" && open)');
-  assert.ok(i > 0, "找不到全屏那一页");
+test("地点档案保留氛围、归属和真实数量，不为新 UI 丢内容", () => {
+  const i = dwell.indexOf('// ── 一处地方：完整的场所观察档案');
   const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
-  // 区域名只该出现在小签上；底下那一块只留氛围
-  const zoneNameUses = src.split("z.name").length - 1;
-  assert.equal(zoneNameUses, 1, "区域名在全屏页出现了 " + zoneNameUses + " 处，图上挂了还在下面再列一遍就是重复");
-  assert.match(src, /open\.ambient/, "那一句氛围没了");
+  assert.match(src, /open\.ambient/, "进门第一感觉没了");
+  assert.match(src, /\[\["归属", char \? char\.name/);
+  assert.match(src, /\["区域", zs\.length \+ " 块"\]/);
+  assert.match(src, /\["物件", itemCount \+ " 件"\]/);
+  assert.match(src, /\(z\.items \|\| \[\]\)\.slice\(0, 2\)/, "区域卡没有用真实物件做预览");
 });
 
-test("没出图不是坏了：暗底加英文名，细线照样能点", () => {
-  const i = dwell.indexOf('if (view === "place" && open)');
-  const src = dwell.slice(i, dwell.indexOf('// ── 某个人的地点列表', i));
-  assert.match(src, /open\.img\s*\n?\s*\?/, "没有分「有图/没图」两种画法");
-  assert.match(src, /\(open\.en \|\| "PLACE"\)\.toUpperCase\(\)/, "没图的时候没有兜底的英文名，会是一整块空黑屏");
-  assert.match(src, /open\.img \? "重画一张" : "补一张图"/, "没图的时候没有补图的入口");
-  // 小签得点得动：外面那层是 pointerEvents:none，小签自己必须放开
-  assert.match(src, /pointerEvents: "none"/, "覆盖层没设 none，会把整张图挡住");
-  assert.match(src, /pointerEvents: "auto"/, "小签点不动");
-  assert.match(src, /onClick: function \(\) \{ setZoneIdx\(i\); \}/, "点了小签没翻到那一块");
-  assert.match(src, /\(open\.zones \|\| \[\]\)\.slice\(0, 6\)/, "小签没封顶，区域多了会糊成一片");
-  // 小签是画在图层外面的，跟有没有图无关
-  const pinAt = src.indexOf("pinTop(i, zs.length)");
-  const imgBranch = src.indexOf("open.img\n          ?");
-  assert.ok(pinAt > 0 && (imgBranch < 0 || pinAt > imgBranch), "小签被塞进了「有图」那一支，没图就点不到了");
+test("没出图时用平面网格占位，补图、重画和重新观察仍都在", () => {
+  const i = dwell.indexOf("const placePhoto = function (p, height) {");
+  const photo = dwell.slice(i, dwell.indexOf("\n    };", i));
+  assert.match(photo, /p && p\.img/);
+  assert.match(photo, /backgroundImage:/, "没图时没有平面图式占位");
+  assert.match(photo, /"尚未补现场图"/);
+  assert.match(dwell, /open\.img \? "重画现场图" : "补现场图"/);
+  assert.match(dwell, /"重新观察"/);
 });
 
 test("出图开关：默认开、关得掉、记得住", () => {
@@ -118,45 +112,26 @@ test("区域和物件都是整页，不是从底下掀起来的半窗", () => {
     区域页: dwell.slice(dwell.indexOf('if (view === "place" && open && zone)'), dwell.indexOf('// ── 门：推开才进去'))
   };
   Object.keys(pages).forEach(function (k) {
-    assert.match(pages[k], /className: "h-full flex flex-col relative"/, k + "：整页外壳不对");
+    assert.match(pages[k], /className: "h-full flex flex-col"/, k + "：整页外壳不对");
     assert.match(pages[k], /flex-1 min-h-0 overflow-y-auto/, k + "：正文不会滚，内容长一点就看不全");
-    assert.match(pages[k], /darkBar\(/, k + "：没用整页那个顶栏");
-    assert.match(pages[k], /backdrop\(open\)/, k + "：没有底衬");
+    assert.match(pages[k], /fieldBar\(/, k + "：没用整页那个顶栏");
+    assert.match(pages[k], /FIELD_PAPER/, k + "：没有场所档案纸面");
   });
-  const src = pages.物件页;
-  // 顶栏是 darkBar 出的，在这两页之前就定义好了，得单独看
-  const bar = dwell.slice(dwell.indexOf("const darkBar = function"), dwell.indexOf("\n    };", dwell.indexOf("const darkBar = function")));
+  // 顶栏是 fieldBar 出的，在这两页之前就定义好了，得单独看
+  const bar = dwell.slice(dwell.indexOf("const fieldBar = function"), dwell.indexOf("\n    };", dwell.indexOf("const fieldBar = function")));
   assert.match(bar, /shrink-0 flex items-center px-4/, "顶栏会被正文挤扁");
   assert.match(bar, /safeTop\(10\)/, "顶栏没让开刘海");
-
 });
 
-test("底衬用上一层那张图糊开——但不能用 width 撑，会被 max-width 按回去", () => {
-  const i = dwell.indexOf("const backdrop = function (p) {");
-  assert.ok(i > 0, "找不到底衬");
-  const src = dwell.slice(i, dwell.indexOf("\n    };", i));
-  assert.match(src, /blur\(/, "底衬没糊开，会跟正文抢眼睛");
-  assert.match(src, /transform: "scale\(1\.1[0-9]?\)"/, "没往外撑：糊开之后边缘会透出底色");
-  assert.ok(!/width: "(?!100%)1[0-9][0-9]%"/.test(src), "又用 width 往外撑了——全局 img{max-width:100%} 会把它按回 100%，右边空一条");
-  assert.match(src, /radial-gradient/, "上一层没图的时候没有兜底底衬");
-});
-
-// 她 2026-08-30：「有图的地方还是没有糊开压暗，还只是兜底的暗底」——
-// 图一直都在，是压得太狠：屋里的照片本来就暗，再盖一层 .70→.93 的黑就跟没图一样。
-// 量出来底衬平均色 (20,20,22)、冷暖差只剩 1.5；调完是 (47,39,30)、冷暖差 17.6。
-test("底衬不许把图盖没：压暗有上限，暗照片要提亮", () => {
-  const i = dwell.indexOf("const backdrop = function (p) {");
-  const src = dwell.slice(i, dwell.indexOf("\n    };", i));
-  const scrim = (src.match(/rgba\(\d+,\s*\d+,\s*\d+,\s*(\.\d+|0\.\d+|1)\)/g) || [])
-    .map(x => parseFloat(x.slice(x.lastIndexOf(",") + 1)));
-  assert.ok(scrim.length, "找不到压暗那一层");
-  const worst = Math.max.apply(null, scrim);
-  assert.ok(worst <= 0.78, "压到 " + worst + " 了——照片会被盖成一片死黑，跟没图一个样（白字对比度早就够了，不用压这么狠）");
-  const filt = src.match(/filter: "([^"]+)"/);
-  assert.ok(filt, "底衬图没有 filter");
-  assert.match(filt[1], /blur\(/, "没糊开，会跟正文抢眼睛");
-  assert.match(filt[1], /brightness\(1\.[2-9]/, "没提亮——屋里的照片本来就暗，糊开之后更暗");
-  assert.match(filt[1], /saturate\(1\./, "没加饱和，糊完只剩一团灰");
+test("区域和物件分别用区域档案与观察卡，不是另一份黑底清单", () => {
+  const zone = dwell.slice(dwell.indexOf('if (view === "place" && open && zone)'), dwell.indexOf('// ── 门：推开才进去'));
+  const item = dwell.slice(dwell.indexOf('if (view === "place" && open && item)'), dwell.indexOf('if (view === "place" && open && zone)'));
+  assert.match(zone, /"区域档案 · "/);
+  assert.match(zone, /gridTemplateColumns: "42px minmax\(0,1fr\) 16px"/);
+  assert.match(item, /"物件观察卡"/);
+  assert.match(item, /"外观与来路"/);
+  assert.match(item, /" 没说出口的那句"/);
+  assert.doesNotMatch(zone + item, /#14161a|ONE THING|\.toUpperCase\(\)|backdrop\(/, "旧黑底展签样式还在区域/物件页");
 });
 
 test("规矩写下来了，而且写的是【默认整页】", () => {

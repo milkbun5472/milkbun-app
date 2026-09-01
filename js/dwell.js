@@ -152,12 +152,14 @@
   function loadCfg() { const d = loadJSON(CFG_K, null); return { withImg: !(d && d.withImg === false) }; }
   function saveCfg(c) { saveJSON(CFG_K, { withImg: !!c.withImg }); return loadCfg(); }
 
-  // 细线小签的落点：均匀铺开、左右交错。
-  // ⚠️它指的是【哪一块区域】，不是画面里某个具体位置——模型画完不会告诉我们东西落在哪一格，
-  // 位置算得再花哨也是假的。所以规则简单、诚实：从上到下依次排开。
-  // 只铺在 16%~72% 这一段：上面要让开顶栏，下面要让开那一句氛围——
-  // 铺满整屏的话最后一根线会压在氛围那行字上（实测第一版就压上了）
-  function pinTop(i, n) { return n <= 1 ? 42 : Math.round(16 + i * (56 / (n - 1))); }
+  // 去处内页是一套「场所观察档案」纸面，不再用暗色星图、悬浮节点、连线和幽灵英文。
+  // 数据仍然是 地点→区域→物件 三层；这里只让层级长得像一份真的观察记录。
+  const FIELD_PAPER = "#eeeae1";
+  const FIELD_CARD = "#faf7f0";
+  const FIELD_INK = "#263038";
+  const FIELD_SUB = "#687178";
+  const FIELD_LINE = "rgba(38,48,56,.18)";
+  const FIELD_BLUE = "#617886";
 
   function DwellApp(props) {
     const t = useTheme();
@@ -226,63 +228,58 @@
         h("div", { className: "flex items-center justify-end", style: { gap: 10, minWidth: 40 } }, right || null));
     };
 
-    // 区域页和物件页都是【整页】，不是从底下掀起来的半窗——
-    // 半窗把内容压在下半屏、上面那半还糊着一层背景，字大一点就摆不下（见 .claude/rules/no-half-sheet.md）。
-    // 底衬用这处地方的图糊开压暗：既接得上全屏那一页，又不抢正文。
-    const backdrop = function (p) {
-      return p && p.img
-        ? h("div", { style: { position: "absolute", inset: 0, overflow: "hidden" } },
-            h("img", { src: (typeof resolveImg === "function" ? resolveImg(p.img) : p.img), alt: "",
-              // 糊开之后边缘会透出底色，得往外多铺一圈。⚠️用 transform:scale 撑，不能用 width:116%——
-              // 全局有一条 img{max-width:100%}，把宽度按回 100%，右边就空出一条（实测量出来差 31px）
-              // 屋里的照片本来就暗，糊开之后更暗——不提亮、不加饱和的话，压一层黑就跟没图一样
-              style: { position: "absolute", left: 0, top: 0, width: "100%", height: "100%", objectFit: "cover", transform: "scale(1.18)", filter: "blur(26px) saturate(1.5) brightness(1.7)" } }),
-            // 压暗只压到白字读得清为止（量过：这样白字对比度还有 8:1 以上，远够）。
-            // 上一版压到 .70→.93，实测底衬平均色 (20,20,22)、冷暖差只剩 1.5——等于把图盖没了
-            h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(12,13,16,.26) 0%,rgba(12,13,16,.44) 52%,rgba(12,13,16,.68) 100%)" } }))
-        : h("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(120% 80% at 50% 12%, #262b33, #14161a 72%)" } });
-    };
-    const darkBar = function (title, sub, right) {
-      return h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10) } },
-        h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#fff" })),
+    // 区域页和物件页仍是【整页】，不是半窗。顶栏和正文沿用移动端统一骨架。
+    const fieldBar = function (title, sub) {
+      return h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10), background: FIELD_PAPER, borderBottom: "1px solid " + FIELD_LINE } },
+        h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: FIELD_INK })),
         h("div", { className: "flex-1 min-w-0 text-center px-1" },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#fff", lineHeight: 1.15 } }, title),
-          sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", marginTop: 1 } }, sub) : null),
-        h("div", { className: "flex items-center justify-end", style: { gap: 12, minWidth: 40 } }, right || null));
+          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: FIELD_INK, lineHeight: 1.15 } }, title),
+          sub ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginTop: 1 } }, sub) : null),
+        h("div", { style: { width: 40, height: 40, flexShrink: 0 } }));
+    };
+    const placePhoto = function (p, height) {
+      return h("div", { style: { position: "relative", height: height || 210, overflow: "hidden", background: "#d9ddd9", borderBottom: "1px solid " + FIELD_LINE } },
+        p && p.img
+          ? h("img", { src: (typeof resolveImg === "function" ? resolveImg(p.img) : p.img), alt: p.name || "场所图", style: { width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "saturate(.82) contrast(.94)" } })
+          : h("div", { className: "h-full flex items-center justify-center", style: { backgroundColor: "#dfe4e1", backgroundImage: "linear-gradient(" + FIELD_LINE + " 1px,transparent 1px),linear-gradient(90deg," + FIELD_LINE + " 1px,transparent 1px)", backgroundSize: "24px 24px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FIELD_SUB, background: "rgba(250,247,240,.86)", border: "1px solid " + FIELD_LINE, padding: "8px 11px", borderRadius: 6 } }, "尚未补现场图")),
+        h("div", { style: { position: "absolute", left: 12, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: "#fff", background: "rgba(38,48,56,.72)", padding: "5px 8px", borderRadius: 4 } }, "现场视图"));
     };
 
-    // ── 一件东西：整页，他的想法是这一页的主角 ─────────────────
-    if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col relative", style: { background: "#14161a" } },
-      backdrop(open),
-      h("div", { className: "relative flex flex-col h-full" },
-        darkBar(zone ? zone.name : open.name, open.name),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: "rgba(255,255,255,.42)", marginTop: 18 } }, "ONE THING"),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.35, color: "#fff", marginTop: 8 } }, item.name),
-          item.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.9, color: "rgba(255,255,255,.76)", marginTop: 14 } }, item.note) : null,
-          item.thought ? h("div", { style: { marginTop: 26, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,.16)" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".12em", color: "rgba(255,255,255,.48)", marginBottom: 12 } }, (char ? char.name : "他") + " 的想法"),
-            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 2.05, color: "#fff" } }, item.thought)) : null)));
+    // ── 一件东西：物件观察卡，他的想法是这一页的主角 ─────────────
+    if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col", style: { background: FIELD_PAPER, color: FIELD_INK } },
+      fieldBar(zone ? zone.name : open.name, open.name),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
+        h("div", { className: "flex items-center", style: { gap: 9, marginTop: 22, fontFamily: F_BODY, fontSize: 10, color: FIELD_SUB, letterSpacing: ".08em" } },
+          h("span", { style: { width: 22, height: 3, background: FIELD_BLUE } }),
+          h("span", null, "物件观察卡")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1.35, color: FIELD_INK, marginTop: 12 } }, item.name),
+        h("div", { style: { marginTop: 18, background: FIELD_CARD, border: "1px solid " + FIELD_LINE, borderRadius: 10, padding: "15px 16px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginBottom: 8 } }, "外观与来路"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: FIELD_INK } }, item.note || "没有留下更多说明。")),
+        item.thought ? h("div", { style: { marginTop: 14, background: FIELD_BLUE, color: "#fff", borderRadius: 10, padding: "17px 17px 18px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", opacity: .68, marginBottom: 10 } }, (char ? char.name : "他") + " 没说出口的那句"),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 16, lineHeight: 1.9 } }, item.thought)) : null));
 
-    // ── 一块区域：整页列这一块里的东西 ────────────────────────
-    if (view === "place" && open && zone) return h("div", { className: "h-full flex flex-col relative", style: { background: "#14161a" } },
-      backdrop(open),
-      h("div", { className: "relative flex flex-col h-full" },
-        darkBar(open.name, char ? char.name : ""),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
-          h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: ".22em", color: "rgba(255,255,255,.42)", marginTop: 18 } }, (zone.en || "ZONE").toUpperCase()),
-          h("div", { className: "flex items-baseline", style: { gap: 10, marginTop: 8, marginBottom: 20 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.3, color: "#fff", minWidth: 0 } }, zone.name),
-            h("span", { style: { flex: 1 } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)", whiteSpace: "nowrap" } }, (zone.items || []).length + " 件")),
+    // ── 一块区域：区域档案 + 物件卡，不做同款底部抽屉 ─────────────
+    if (view === "place" && open && zone) return h("div", { className: "h-full flex flex-col", style: { background: FIELD_PAPER, color: FIELD_INK } },
+      fieldBar(open.name, char ? char.name : ""),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 30px)" } },
+        placePhoto(open, 116),
+        h("div", { className: "px-5" },
+          h("div", { className: "flex items-end", style: { gap: 10, marginTop: 18 } },
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_BLUE, letterSpacing: ".08em" } }, "区域档案 · " + String(zoneIdx + 1).padStart(2, "0")),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, lineHeight: 1.35, color: FIELD_INK, marginTop: 5 } }, zone.name)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FIELD_SUB, whiteSpace: "nowrap", paddingBottom: 4 } }, (zone.items || []).length + " 件物品")),
+          h("div", { style: { height: 1, background: FIELD_LINE, margin: "15px 0 5px" } }),
           (zone.items || []).map(function (x, j) {
-            return h("button", { key: j, onClick: function () { setItem(x); },
-              className: "w-full text-left active:opacity-70",
-              style: { display: "block", padding: "15px 0", borderTop: "1px solid rgba(255,255,255,.14)" } },
-              h("div", { className: "flex items-baseline", style: { gap: 11 } },
-                h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 11, color: "rgba(255,255,255,.4)", width: 20, flexShrink: 0 } }, String(j + 1).padStart(2, "0")),
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: "#fff", lineHeight: 1.4 } }, x.name)),
-              x.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(255,255,255,.6)", marginTop: 5, paddingLeft: 31 } }, x.note) : null);
+            return h("button", { key: j, onClick: function () { setItem(x); }, className: "w-full text-left active:opacity-70", style: { display: "grid", gridTemplateColumns: "42px minmax(0,1fr) 16px", columnGap: 12, alignItems: "start", padding: "14px 0", borderBottom: "1px solid " + FIELD_LINE } },
+              h("span", { style: { width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", background: j % 2 ? "#d8ded9" : "#d5dfe3", borderRadius: 7, fontFamily: F_BODY, fontSize: 10.5, color: FIELD_INK } }, String(j + 1).padStart(2, "0")),
+              h("span", { className: "min-w-0" },
+                h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 16.5, color: FIELD_INK, lineHeight: 1.4 } }, x.name),
+                x.note ? h("span", { className: "line-clamp-2", style: { display: "block", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: FIELD_SUB, marginTop: 4 } }, x.note) : null),
+              h("span", { style: { color: FIELD_SUB, fontSize: 18, lineHeight: "34px" } }, "›"));
           }))));
 
     // ── 门：推开才进去 ─────────────────────────────────────
@@ -319,50 +316,44 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, n ? n + " 处" : "还没去过"));
           }))));
 
-    // ── 全屏的一处地方：图铺满，细线直接挂在上面 ───────────────
+    // ── 一处地方：完整的场所观察档案 ─────────────────────────
     if (view === "place" && open) {
       const zs = (open.zones || []).slice(0, 6);
-      return h("div", { className: "h-full relative", style: { background: "#14161a", overflow: "hidden" } },
-        open.img
-          ? h("img", { src: (typeof resolveImg === "function" ? resolveImg(open.img) : open.img), alt: open.name,
-              style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } })
-          // 没出图的时候不是坏了，是「还没画」：一整块暗底 + 这地方的英文名，细线照样能用
-          : h("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(120% 80% at 50% 18%, #2a2f37, #14161a 70%)", display: "flex", alignItems: "center", justifyContent: "center" } },
-              h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 34, letterSpacing: ".24em", color: "rgba(255,255,255,.09)", textAlign: "center", padding: "0 24px", lineHeight: 1.35 } }, (open.en || "PLACE").toUpperCase())),
-        // 上下压两层渐变，白字才读得清
-        h("div", { style: { position: "absolute", top: 0, left: 0, right: 0, height: 190, background: "linear-gradient(180deg,rgba(0,0,0,.55),transparent)", pointerEvents: "none" } }),
-        h("div", { style: { position: "absolute", bottom: 0, left: 0, right: 0, height: 260, background: "linear-gradient(0deg,rgba(0,0,0,.72),transparent)", pointerEvents: "none" } }),
-        // 顶栏
-        h("div", { className: "absolute left-0 right-0 flex items-center px-4", style: { top: 0, paddingTop: safeTop(10) } },
-          h("button", { onClick: back, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: "#fff" })),
-          h("div", { className: "flex-1 min-w-0 text-center px-1" },
-            h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#fff", lineHeight: 1.15 } }, open.name),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.62)", marginTop: 1 } }, char ? char.name : "")),
-          h("div", { className: "flex items-center justify-end", style: { gap: 12, minWidth: 56 } },
-            h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, "aria-label": "重新看一遍", className: "active:opacity-50 disabled:opacity-40" }, h(IRefresh, { size: 17, color: "#fff" })),
-            h("button", { onClick: function () { del(open.id); }, "aria-label": "删掉", className: "active:opacity-50" }, h(ITrash, { size: 16, color: "rgba(255,255,255,.72)" })))),
-        // 细线小签：一根指一块，点了翻到那一块
-        h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } },
-          zs.map(function (z, i) {
-            const onLeft = i % 2 === 1;
-            const dot = h("div", { key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 6px rgba(255,255,255,.22)", flexShrink: 0 } });
-            const line = h("div", { key: "l", style: { width: 26, height: 1, background: "rgba(255,255,255,.9)", flexShrink: 0 } });
-            const chip = h("button", { key: "c", onClick: function () { setZoneIdx(i); }, className: "active:opacity-70",
-              style: { pointerEvents: "auto", maxWidth: 190, background: "rgba(20,22,26,.58)", border: "1px solid rgba(255,255,255,.42)",
-                color: "#fff", padding: "6px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" } }, z.name);
-            return h("div", { key: i, style: Object.assign({ position: "absolute", top: pinTop(i, zs.length) + "%", display: "flex", alignItems: "center", gap: 7 },
-              onLeft ? { left: "5%" } : { right: "5%" }) }, onLeft ? [chip, line, dot] : [dot, line, chip]);
-          })),
-        // 底下只留那一句氛围——区域名已经挂在图上了，下面再列一遍是重复
-        h("div", { className: "absolute left-0 right-0 px-6", style: { bottom: 0, paddingBottom: "calc(env(safe-area-inset-bottom) + 22px)" } },
-          open.ambient ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: "rgba(255,255,255,.92)", textShadow: "0 1px 10px rgba(0,0,0,.5)" } }, open.ambient) : null,
-          h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy,
-            className: "active:opacity-60 disabled:opacity-50",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.66)", marginTop: 12 } },
-            drawing ? "在画…（这一步会调一次图像 API）" : (open.img ? "重画一张" : "补一张图"))),
-        busy ? h("div", { className: "absolute inset-0 flex items-center justify-center", style: { background: "rgba(0,0,0,.45)" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#fff" } }, "正在重新看一遍…")) : null);
+      const itemCount = zs.reduce(function (n, z) { return n + (z.items || []).length; }, 0);
+      return h("div", { className: "h-full flex flex-col", style: { background: FIELD_PAPER, color: FIELD_INK } },
+        fieldBar(open.name, char ? char.name : ""),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
+          placePhoto(open, 220),
+          h("div", { className: "px-5" },
+            h("div", { className: "grid grid-cols-3", style: { marginTop: -1, border: "1px solid " + FIELD_LINE, background: FIELD_CARD } },
+              [["归属", char ? char.name : "—"], ["区域", zs.length + " 块"], ["物件", itemCount + " 件"]].map(function (x, i) {
+                return h("div", { key: x[0], style: { padding: "10px 9px", minWidth: 0, borderLeft: i ? "1px solid " + FIELD_LINE : "none" } },
+                  h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: FIELD_SUB } }, x[0]),
+                  h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FIELD_INK, marginTop: 3 } }, x[1]));
+              })),
+            h("div", { style: { marginTop: 22 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_BLUE, letterSpacing: ".08em" } }, "场所观察档案"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, lineHeight: 1.35, color: FIELD_INK, marginTop: 6 } }, open.name),
+              open.ambient ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: FIELD_SUB, marginTop: 10 } }, open.ambient) : null),
+            h("div", { className: "flex items-center", style: { gap: 10, margin: "25px 0 11px" } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: FIELD_INK } }, "空间索引"),
+              h("div", { style: { flex: 1, height: 1, background: FIELD_LINE } }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: FIELD_SUB } }, "点一块进去看")),
+            h("div", { className: "grid grid-cols-2", style: { gap: 9 } },
+              zs.map(function (z, i) {
+                const preview = (z.items || []).slice(0, 2).map(function (x) { return x.name; }).join(" · ");
+                return h("button", { key: i, onClick: function () { setZoneIdx(i); }, className: "text-left active:opacity-70", style: { minHeight: 112, background: FIELD_CARD, border: "1px solid " + FIELD_LINE, borderTop: "4px solid " + (i % 3 === 0 ? FIELD_BLUE : (i % 3 === 1 ? "#8b7967" : "#71806c")), borderRadius: 8, padding: "11px 12px" } },
+                  h("div", { className: "flex items-center" },
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: FIELD_SUB } }, "区域 " + String(i + 1).padStart(2, "0")),
+                    h("span", { style: { flex: 1 } }),
+                    h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: FIELD_SUB } }, (z.items || []).length + " 件")),
+                  h("div", { className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.35, color: FIELD_INK, marginTop: 8 } }, z.name),
+                  preview ? h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: FIELD_SUB, marginTop: 7 } }, preview) : null);
+              })),
+            h("div", { className: "grid grid-cols-2", style: { gap: 9, marginTop: 18 } },
+              h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 42, borderRadius: 8, background: FIELD_INK, color: "#fff", fontFamily: F_BODY, fontSize: 12 } }, busy ? "正在重新观察…" : "重新观察"),
+              h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 42, borderRadius: 8, border: "1px solid " + FIELD_LINE, background: FIELD_CARD, color: FIELD_INK, fontFamily: F_BODY, fontSize: 12 } }, drawing ? "正在画现场图…" : (open.img ? "重画现场图" : "补现场图"))),
+            h("button", { onClick: function () { del(open.id); }, className: "w-full active:opacity-60", style: { padding: "14px 0 4px", fontFamily: F_BODY, fontSize: 11, color: "#9a5f58" } }, "删除这份场所档案"))));
     }
 
     // ── 某个人的地点列表 ──────────────────────────────────
@@ -415,7 +406,7 @@
   window.Dwell = { genArt: genArt,
     loadAll: loadAll, placesOf: placesOf, savePlace: savePlace, dropPlace: dropPlace,
     frequentPlaces: frequentPlaces, placeSpec: placeSpec, normalize: normalize,
-    loadCfg: loadCfg, saveCfg: saveCfg, pinTop: pinTop,
+    loadCfg: loadCfg, saveCfg: saveCfg,
     CAP_PLACES: CAP_PLACES
   };
 })();
