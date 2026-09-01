@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.38";
+const APP_VERSION = "v59.39";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5460,11 +5460,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 止漂移：只浓缩这段新对话成一段带日期的记忆，【追加】到旧记忆末尾，不重炼整团（避免老细节被反复压糊）。封顶 8000 字，超了从头截、保最近。
           const block = await summarizeChatBlock(active, ctxFor(char), toSummarize);
           if (block && block.trim()) {
-            const d = new Date();
-            const seg = "【" + (d.getMonth() + 1) + "月" + d.getDate() + "日】" + block.trim();
+            // ⚠️日期写的是【这一段覆盖到哪几天】，不是【今天】（她 2026-09-01：
+            //「有几天是断层的但是明明每天都在聊」）。浓缩是【攒够 sumThresh 条消息】
+            // 才跑一次，不是一天一次：聊得少的那几天不会单独出一段，它们会并进
+            // 下一次跑出来的那一段里。原来只盖一个「今天」的戳，于是那几天看着像丢了
+            // ——其实一条都没少，是戳写错了。改成写真实区间，断层就自己说清楚了。
+            const dz = ts => { const x = new Date(ts); return (x.getMonth() + 1) + "月" + x.getDate() + "日"; };
+            const stamps = toSummarize.map(m => m && m.ts).filter(x => typeof x === "number" && x > 0);
+            const from = stamps.length ? dz(Math.min.apply(null, stamps)) : "";
+            const to = stamps.length ? dz(Math.max.apply(null, stamps)) : dz(Date.now());
+            const seg = "【" + (from && from !== to ? from + "–" + to : to) + "】" + block.trim();
             const prev = (memoriesRef.current[charId] || "").trim(); // 读 ref 取最新，避免闭包旧值覆盖中间的编辑
             let merged = prev ? prev + "\n\n" + seg : seg;
-            if (merged.length > 8000) merged = merged.slice(merged.length - 8000);
+            // ⚠️满仓时【整段整段地掉】，不许按字数拦腰砍。原来直接 slice(-8000)，
+            // 最上面那一段永远是半句开头、连日期都没有，看着像坏了。
+            if (merged.length > 8000) {
+              const segs = merged.split("\n\n");
+              while (segs.length > 1 && segs.join("\n\n").length > 8000) segs.shift();
+              merged = segs.join("\n\n");
+              if (merged.length > 8000) merged = merged.slice(merged.length - 8000);   // 单段就超仓：只能砍它
+            }
             setMemFor(charId, merged);
           }
           setChatSettings(p => {
