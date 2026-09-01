@@ -69,10 +69,31 @@ test("补齐：只补有素材的月份，一月一月来，失败即停", () =>
   assert.match(seg, /const missing = all\.filter\(k => !have\.has\(k\)\);/, "已经有的不重写");
   assert.match(seg, /M\.monthMaterial\(charId, char\.name, k, uName, props\.groups, arch\)\.length >= 6\)/, "没素材的月份跳过，不硬编");
   assert.match(seg, /requestAppConfirm\("补齐 " \+ want\.length \+ " 个月？"/, "补齐必须走 App 自己的确认层");
-  assert.match(seg, /async \(\) => \{\n\s*want\.reverse\(\)/, "确认之后才真正开始逐月补齐");
+  assert.match(seg, /requestAppConfirm[\s\S]*async \(\) => \{[\s\S]*want\.reverse\(\)/, "确认之后才真正开始逐月补齐");
   assert.doesNotMatch(seg, /(?:window\.)?confirm\(/, "iOS 会永久屏蔽原生 confirm，留下它按钮还会静默失效");
   assert.match(seg, /if \(!ok\) \{ props\.toast\("补到 " \+ M\.monthLabel\(k\) \+ " 时停下了/, "失败即停，前面的都保留");
   assert.match(seg, /want\.reverse\(\)/, "从最早的一个月往回补，时间顺序才对");
+});
+
+test("补齐第一下立刻上锁，取消或跑完都会解锁，不再连弹多个确认框", () => {
+  const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
+  assert.match(seg, /if \(busy \|\| backfillLock\.current\) return props\.toast\("正在统计或补齐，别重复点"\)/);
+  assert.ok(seg.indexOf("backfillLock.current = true") < seg.indexOf("await ensureArch(charId)"), "锁必须早于慢速云端扫描");
+  assert.match(seg, /props\.toast\("正在统计可以补齐的月份…"\)/, "第一下要立即有可见回音");
+  assert.match(seg, /"开始补齐", releaseBackfill\)/, "取消确认也得解锁");
+  assert.match(seg, /finally \{ releaseBackfill\(\); \}/, "补齐成功或失败后都得解锁");
+  assert.match(imp, /disabled: !!busy \|\| !!backfillState/);
+});
+
+test("珍藏册按实际月份从旧到新铺，不按补齐生成顺序", () => {
+  const start = imp.indexOf("  const sortEntries = rows =>");
+  const end = imp.indexOf(";\n", start) + 2;
+  const sortEntries = new Function(imp.slice(start, end) + "\nreturn sortEntries;")();
+  const rows = [{ monthKey: "2026-07" }, { monthKey: "2026-03" }, { monthKey: "2026-06" }];
+  assert.deepEqual(sortEntries(rows).map(x => x.monthKey), ["2026-03", "2026-06", "2026-07"]);
+  assert.deepEqual(rows.map(x => x.monthKey), ["2026-07", "2026-03", "2026-06"], "排序不能原地改存档");
+  assert.match(imp, /const listOf = id => M\.sortEntries\(book\[id\]\)/);
+  assert.match(imp, /const cover = listOf\(c\.id\)\.slice\(\)\.reverse\(\)\.find\(x => x\.img\)/, "头像墙仍该拿最近那张当封面");
 });
 
 test("同一个月重写是覆盖，不是堆两张", () => {
@@ -141,8 +162,8 @@ test("只有【已经过完的月】才能写，本月要等下月 1 号 0 点",
 test("补齐必须永远给回音，不许静默", () => {
   const seg = imp.slice(imp.indexOf("async function backfill"), imp.indexOf("// ---- 单张卡片"));
   // 裸 JSON.parse 抛出去外面没人接 = 点了没反应，这次整段包起来
-  assert.match(seg, /\} catch \(e\) \{ return props\.toast\("翻旧账的时候出错了：/);
-  assert.match(seg, /if \(busy\) return props\.toast\("正在写，别急"\)/);
+  assert.match(seg, /\} catch \(e\) \{ releaseBackfill\(\); return props\.toast\("翻旧账的时候出错了：/);
+  assert.match(seg, /if \(busy \|\| backfillLock\.current\) return props\.toast\("正在统计或补齐，别重复点"\)/);
   assert.match(seg, /if \(!props\.active\) return props\.toast\("请先配置线下 API"\)/);
   // 三种"没得补"要分清，别一律一句话
   assert.match(seg, /最近一年每个月都写过了/);

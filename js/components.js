@@ -294,14 +294,14 @@ function useKbLift() {
 // 全 App 共用的确认入口。iOS/PWA 允许用户永久屏蔽原生 confirm；一旦被屏蔽，
 // 所有“先 confirm 再删除”的按钮都会静默 no-op，看起来就是删不掉。
 // 各独立 App 只提交动作，真正的可见弹层由 App 根节点统一承载。
-function requestAppConfirm(title, body, onConfirm, confirmLabel) {
+function requestAppConfirm(title, body, onConfirm, confirmLabel, onCancel) {
   if (typeof onConfirm !== "function") return false;
   const open = typeof window !== "undefined" && window.__appConfirmOpen;
   if (typeof open !== "function") {
     if (typeof window !== "undefined" && typeof window.__toast === "function") window.__toast("确认层还没准备好，请再点一次");
     return false;
   }
-  open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定" });
+  open({ title: title || "确认操作？", body: body || "", onConfirm, confirmLabel: confirmLabel || "确定", onCancel: typeof onCancel === "function" ? onCancel : null });
   return true;
 }
 // 风格统一的确认弹窗（替掉不可靠的原生 confirm）。danger=true 时确认键用强调色。

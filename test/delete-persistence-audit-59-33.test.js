@@ -10,9 +10,11 @@ const engine = read("engine.js");
 const theater = read("theater.js");
 
 test("全 App 删除确认走自绘层，不依赖会被 iOS 吞掉的系统 confirm", () => {
-  assert.match(components, /function requestAppConfirm\(title, body, onConfirm, confirmLabel\)/);
+  assert.match(components, /function requestAppConfirm\(title, body, onConfirm, confirmLabel, onCancel\)/);
+  assert.match(components, /onCancel: typeof onCancel === "function" \? onCancel : null/, "取消回调必须一路送进全局确认层");
   assert.match(app, /window\.__appConfirmOpen = open/);
   assert.match(app, /appConfirm && h\(ConfirmDialog/);
+  assert.match(app, /const fn = appConfirm\.onCancel; setAppConfirm\(null\); if \(typeof fn === "function"\)/, "点取消必须通知发起方解锁");
   assert.match(components, /fixed inset-0 z-\[220\]/, "确认层必须盖住小剧场大图等高层浮窗");
 
   const audited = fs.readdirSync(path.join(__dirname, "..", "js"))

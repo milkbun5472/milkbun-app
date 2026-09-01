@@ -35,6 +35,10 @@
   const isWritable = (k, now) => String(k) <= String(latestWritable(now));
   // 下一次开写的时刻 = 下个月 1 号 0 点
   const nextOpenAt = now => { const d = now ? new Date(now) : new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime(); };
+  // 珍藏册按【月份本身】从旧到新铺，不能按“哪张刚生成完”排。补历史月份时，
+  // 生成顺序与真实月份不是一回事；月份才是这本册子的时间轴。
+  const sortEntries = rows => (Array.isArray(rows) ? rows : []).slice()
+    .sort((a, b) => String((a && a.monthKey) || "").localeCompare(String((b && b.monthKey) || "")));
 
   // ---- 当月素材：单聊 + 单人线下 + 互通群里他说的话 ----
   // arch = { ["c:"+charId]: [...], ["g:"+groupId]: [...] } —— 云端归档，调用方先取好传进来。
@@ -297,7 +301,7 @@
     return typeof imgToVault === "function" ? await imgToVault(durl) : durl;
   }
 
-  window.Impression = { load, save, materialBreakdown, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, monthMaterial, genText, genArt, uid };
+  window.Impression = { load, save, materialBreakdown, monthKeyOf, monthLabel, monthRange, prevMonths, latestWritable, isWritable, nextOpenAt, sortEntries, monthMaterial, genText, genArt, uid };
 })();
 
 // ============================================================
@@ -314,6 +318,8 @@
     const [curChar, setCurChar] = useState(null);
     const [cardId, setCardId] = useState(null);
     const [busy, setBusy] = useState("");
+    const backfillLock = React.useRef(false);
+    const [backfillState, setBackfillState] = useState(null); // { charId, phase: scan|confirm|run }
     // 云端归档缓存：{ charId: {"c:xx":[...], "g:yy":[...]} }。一个角色只拉一次，
     // 后面写印象、补齐、看素材条数全用这一份——别每次都去云上拉一遍大数组。
     const [archs, setArchs] = useState({});
@@ -337,7 +343,7 @@
         else { window.open(URL.createObjectURL(blob), "_blank"); props.toast("在新页长按图片存储"); }
       } catch (e) { if (!/Abort/i.test(String(e && e.name || e))) props.toast("保存失败"); }
     };
-    const listOf = id => (book[id] || []).slice().sort((a, b) => String(b.monthKey).localeCompare(String(a.monthKey)));
+    const listOf = id => M.sortEntries(book[id]);
     // 其他角色最近的卡：当负例喂给生成，跨角色才不会各写各的、结果全撞进同一族光照比喻
     const othersOf = charId => Object.keys(book).filter(k => k !== charId)
       .flatMap(k => book[k] || [])
@@ -433,8 +439,14 @@
     // 补齐：最近 12 个月里有素材、却还没写过的，一月一月补（失败即停，已写好的都留着）
     async function backfill(charId) {
       const char = (props.characters || []).find(c => c.id === charId); if (!char) return;
-      if (busy) return props.toast("正在写，别急");
+      if (busy || backfillLock.current) return props.toast("正在统计或补齐，别重复点");
       if (!props.active) return props.toast("请先配置线下 API");
+      // 从第一下点击就上锁、立刻给回音。原来要先拉完云归档才弹确认，几秒空白里每点一下
+      // 都会另开一条异步扫描，最后连续冒出好几个确认框。
+      backfillLock.current = true;
+      setBackfillState({ charId, phase: "scan" });
+      props.toast("正在统计可以补齐的月份…");
+      const releaseBackfill = () => { backfillLock.current = false; setBackfillState(null); };
       let want = [];
       // 整段包起来：以前任何一步抛出去，外面没人接，表现就是"点了没反应"
       try {
@@ -445,22 +457,28 @@
         want = missing.filter(k => M.monthMaterial(charId, char.name, k, uName, props.groups, arch).length >= 6);
         if (!want.length) {
           // 分清三种"没得补"，别一律一句话打发
+          releaseBackfill();
           return props.toast(!missing.length ? "最近一年每个月都写过了"
             : "漏掉的那 " + missing.length + " 个月几乎没有来往，写不出印象");
         }
-      } catch (e) { return props.toast("翻旧账的时候出错了：" + (e.message || "未知")); }
+      } catch (e) { releaseBackfill(); return props.toast("翻旧账的时候出错了：" + (e.message || "未知")); }
       // iOS/PWA 可以永久屏蔽系统 confirm；被屏蔽后它只返回 false，按钮就像完全没点到。
       // 用全 App 自己画的确认层，而且把真正补齐动作放进确认回调——点“开始补齐”后才逐月写。
-      requestAppConfirm("补齐 " + want.length + " 个月？", "会一个月一个月写，中途失败前面的都保留。", async () => {
-        want.reverse();
-        let done = 0;
-        for (const k of want) {
-          const ok = await make(charId, k, { quiet: true });
-          if (!ok) { props.toast("补到 " + M.monthLabel(k) + " 时停下了，已写好 " + done + " 个"); return; }
-          done++; props.toast("已补 " + done + "/" + want.length, 1200);
-        }
-        props.toast("补齐了 " + done + " 个月");
-      }, "开始补齐");
+      setBackfillState({ charId, phase: "confirm" });
+      const opened = requestAppConfirm("补齐 " + want.length + " 个月？", "会一个月一个月写，中途失败前面的都保留。", async () => {
+        setBackfillState({ charId, phase: "run" });
+        try {
+          want.reverse();
+          let done = 0;
+          for (const k of want) {
+            const ok = await make(charId, k, { quiet: true });
+            if (!ok) { props.toast("补到 " + M.monthLabel(k) + " 时停下了，已写好 " + done + " 个"); return; }
+            done++; props.toast("已补 " + done + "/" + want.length, 1200);
+          }
+          props.toast("补齐了 " + done + " 个月");
+        } finally { releaseBackfill(); }
+      }, "开始补齐", releaseBackfill);
+      if (!opened) releaseBackfill();
     }
 
     // ---- 单张卡片 ----
@@ -514,7 +532,9 @@
       const openAt = new Date(M.nextOpenAt());
       return h("div", { style: S.wrap },
         header((c.name || "?") + " 眼里的 " + uName,
-          h("button", { onClick: () => backfill(curChar), disabled: !!busy, style: S.btn(false) }, "补齐")),
+          h("button", { onClick: () => backfill(curChar), disabled: !!busy || !!backfillState, style: S.btn(false) },
+            backfillState && backfillState.charId === curChar
+              ? (backfillState.phase === "scan" ? "统计中…" : backfillState.phase === "confirm" ? "待确认…" : "补齐中…") : "补齐")),
         h("div", { style: { flex: 1, overflowY: "auto", padding: "14px 14px 34px" } },
           // 已经写过就不给整张重来的入口：那会连剪影一起重刷一遍，白花一次出图。
           // 想换东西请进卡片，那里能分开「只重写文案」和「只重出剪影」。
@@ -554,7 +574,8 @@
         (props.characters || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 10 } },
           (props.characters || []).map(c => {
             const n = (book[c.id] || []).length;
-            const cover = listOf(c.id).find(x => x.img);
+            // 珍藏册正文从旧到新铺；头像墙封面仍取最近那张，不能因为展示顺序改了就倒回最老月份。
+            const cover = listOf(c.id).slice().reverse().find(x => x.img);
             return h("div", { key: c.id, onClick: () => setCurChar(c.id), style: { width: "calc((100% - 20px) / 3)", textAlign: "center" } },
               h("div", { style: { position: "relative", width: "100%", aspectRatio: "1 / 1", borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
                 cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .5 } }) : null,
