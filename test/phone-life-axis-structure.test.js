@@ -96,11 +96,36 @@ test("这七天是一串连着的饭，不是一天一格的表", () => {
   assert.match(takeout, /late \+ " 顿在深夜"/, "深夜那个数没留下来");
 });
 
-test("外卖主视觉退出美团黄，改用雾蓝灰、鼠尾草绿和珊瑚色", () => {
-  assert.match(takeout, /const TAKE_ACCENT = "#5f7f79"/);
-  assert.match(takeout, /const TAKE_CORAL = "#d86f62"/);
-  assert.match(takeout, /radial-gradient\(circle at 88% 4%/);
-  assert.doesNotMatch(takeout, /TAKE_AMBER|#ffd534|#ffe484/);
+// 她 2026-09-01：「原来是黄的美团色，和参考的 app 太像所以 codex 改成了这种不知道
+// 什么颜色，能不能换一个好看有食欲的色」。上一版的鼠尾草绿＋雾蓝灰确实不撞了，
+// 可它读起来是诊所和体检报告。**食物的颜色是被火烤过的颜色**：燕麦、陶土、焦糖、柿子。
+test("外卖走烤过的暖色，既不是美团黄也不是上一版那套冷灰", () => {
+  // ⚠️核的是【色相落在暖的那一段】，不是某几个写死的色值——
+  // 冻色值的话，下次微调颜色测试就红，可什么 bug 都没抓到（v59.31 那次的教训）。
+  const hsl = hex => {
+    const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return 0;
+    const hh = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return Math.round(hh * 60);
+  };
+  const pick = name => {
+    const m = new RegExp("const " + name + ' = "(#[0-9a-f]{6})"').exec(takeout);
+    assert.ok(m, "找不到 " + name);
+    return hsl(m[1]);
+  };
+  // 5°–45°：陶土到焦糖那一段。低于 5 是纯红（可乐），高于 45 就滑进黄（美团）。
+  ["TAKE_ACCENT", "TAKE_CORAL", "TAKE_BG", "TAKE_INK", "TAKE_DIM", "TAKE_BODY"].forEach(k => {
+    const h2 = pick(k);
+    assert.ok(h2 >= 5 && h2 <= 45, k + " 的色相是 " + h2 + "°，不在烤过的那一段（5–45）");
+  });
+  // 结构色必须走常量：上一版散着二十几个绿灰字面值，换色时总有找漏的
+  ["TAKE_BODY", "TAKE_LINE", "TAKE_SOFT", "TAKE_MUTE"].forEach(k =>
+    assert.match(takeout, new RegExp("const " + k + ' = "#'), "结构色 " + k + " 没有常量，换色得挨个找"));
+  assert.doesNotMatch(takeout, /TAKE_AMBER|#ffd534|#ffe484/, "美团黄又回来了");
+  // 绿灰那一族一个都不许剩，剩一个就半绿半棕
+  ["#5f7f79", "#edf2f0", "#e5ebe9", "#4f5c59", "#cfdcd8", "#a8b3b0", "#dce8e5"].forEach(c =>
+    assert.ok(takeout.indexOf(c) < 0, "还剩着上一版的冷色 " + c));
 });
 
 test("两页保留单一滚动区和公共底部安全区公式", () => {

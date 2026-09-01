@@ -2567,11 +2567,25 @@ function ShoppingView({ d, char, t, onBack, onRefresh, refreshing, onPeek, month
 // 「麻烦轻一点敲门，家里有人在睡」——这三条是三个不同的人。
 // 三页：点餐（在送 + 常点的店）· 订单 · 我的（口味 / 地址 / 月结）
 // ============================================================
-const TAKE_ACCENT = "#5f7f79";
-const TAKE_CORAL = "#d86f62";
-const TAKE_BG = "#edf2f0";
-const TAKE_INK = "#25312f";
-const TAKE_DIM = "#81908c";
+// ── 配色（v59.36，她 2026-09-01：「换一个好看有食欲的色」）─────────────────
+// 原来是美团黄，跟参考那份撞了；上一版换成鼠尾草绿＋雾蓝灰，撞是不撞了，
+// 可她说「不知道什么颜色」——那套读起来是诊所和体检报告，一点不像吃东西。
+// 「有食欲」不是随便找个暖色：**食物的颜色是被火烤过的颜色**——
+// 烤面包的燕麦底、陶土、焦糖、柿子。所以：暖燕麦纸做底、白卡当盘子、
+// 酱色当墨、赤陶当标签、柿子橙留给价钱和深夜那几笔。
+// 黄留给美团，红留给可乐，这一套走的是烤过的那一路，谁的品牌色都不是。
+//
+// ⚠️结构色一律走常量：上一版满模块散着二十几个绿灰色的字面值，
+// 换一次色得挨个找，找漏一个就半绿半棕。以后改色只动这一处。
+const TAKE_ACCENT = "#a8532c";   // 赤陶：小标签、星期、店名旁的强调
+const TAKE_CORAL = "#d9622d";    // 柿子橙：价钱、深夜那一笔、要跳出来的那一下
+const TAKE_BG = "#f5ece0";       // 暖燕麦纸：整页的底
+const TAKE_INK = "#32211a";      // 酱色：正题
+const TAKE_DIM = "#9a8574";      // 暖灰褐：次要说明
+const TAKE_BODY = "#5b4436";     // 正文褐：成段的话
+const TAKE_LINE = "#ece1d2";     // 分隔线
+const TAKE_SOFT = "#f7f0e6";     // 卡里再嵌一块的底
+const TAKE_MUTE = "#bcaa98";     // 最淡的那一档：没吃上的那天、虚线圈
 function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthStats }) {
   const [tab, setTab] = useState("home");
   const [open, setOpen] = useState(null);
@@ -2611,7 +2625,8 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     wkDays.push({ start, zh: WK_ZH[new Date(start).getDay()], today: i === 0, rows });
   }
   const wkHas = wkDays.some(d => d.rows.length);
-  const TAKE_COVERS = [["#8bb1a8", "#c7dcd7"], ["#d79288", "#efd0ca"], ["#869eb7", "#c7d3df"], ["#9aa98f", "#d3dccd"], ["#a496b7", "#d8d0e1"], ["#87959a", "#cad2d4"]];
+  // 封面这一排也跟着走烤过的那一路：陶土、焦糖、南瓜、橄榄、李子、可可
+  const TAKE_COVERS = [["#c2703f", "#eccfb2"], ["#b5834a", "#efdcbe"], ["#c9803a", "#f0d7b4"], ["#8d9160", "#dfdfc2"], ["#a46070", "#e9ccd2"], ["#8a6a55", "#ded0c2"]];
   const cov = n => TAKE_COVERS[(Number(n) || 0) % TAKE_COVERS.length];
   const card = (kids, extra) => h("div", { style: Object.assign({ background: "#fff", borderRadius: 18, padding: "17px 17px", marginBottom: 13 }, extra || {}) }, kids);
   // 小节标题使用圆点与横线，和平台式黄竖条拉开视觉语言。
@@ -2633,7 +2648,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // ── 账户条 ──
   const accCard = card([
     h("div", { key: "a", className: "flex items-center", style: { gap: 13 } },
-      h("div", { style: { width: 48, height: 48, borderRadius: 15, flexShrink: 0, background: "linear-gradient(150deg,#88aaa3," + TAKE_ACCENT + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "takeout", size: 23, color: "#fff" })),
+      h("div", { style: { width: 48, height: 48, borderRadius: 15, flexShrink: 0, background: "linear-gradient(150deg,#d08a4e," + TAKE_ACCENT + ")", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" } }, h(PGlyph, { k: "takeout", size: 23, color: "#fff" })),
       h("div", { className: "flex-1 min-w-0" },
         h("div", { className: "flex items-center flex-wrap", style: { gap: 7 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: TAKE_INK } }, acc.name || char.remark || char.name),
@@ -2662,7 +2677,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
       today.date ? h("div", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: TAKE_DIM } }, today.date) : null),
     h("div", { style: { padding: "16px 17px 17px" } },
       h("div", { className: "flex items-start", style: { gap: 13 } },
-        h("div", { style: { width: 66, height: 66, borderRadius: 14, flexShrink: 0, position: "relative", background: "linear-gradient(150deg,#9ebbb5,#698a83)", display: "flex", alignItems: "center", justifyContent: "center" } },
+        h("div", { style: { width: 66, height: 66, borderRadius: 14, flexShrink: 0, position: "relative", background: "linear-gradient(150deg,#dda86e,#b06a35)", display: "flex", alignItems: "center", justifyContent: "center" } },
           today.meal ? h("span", { style: { position: "absolute", left: -3, top: -8, fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: TAKE_CORAL, borderRadius: 6, padding: "2px 7px" } }, today.meal) : null,
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 27, color: "#fff" } }, initial(today.shop))),
         h("div", { className: "flex-1 min-w-0" },
@@ -2717,27 +2732,27 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "4px 15px", marginBottom: 13 } }, orders.map((o, i) => {
       const expanded = open === i;
       // id 是给「这七天」跳过来用的：点上面那一顿，落到下面这一条并展开
-      return h("div", { key: i, id: "tk-od-" + i, style: { padding: "14px 0", borderTop: i ? "1px solid #e5ebe9" : "none", scrollMarginTop: 90 } },
+      return h("div", { key: i, id: "tk-od-" + i, style: { padding: "14px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none", scrollMarginTop: 90 } },
         h("button", { onClick: () => setOpen(expanded ? null : i), className: "w-full text-left active:opacity-60", "aria-expanded": expanded },
           h("div", { className: "flex items-start", style: { gap: 12 } },
             h("div", { style: { width: 44, flexShrink: 0, textAlign: "center" } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: TAKE_ACCENT } }, (o.meal || "一顿").slice(0, 2)),
-              h("div", { style: { width: 1, height: 18, background: "#cedbd7", margin: "6px auto 0" } })),
+              h("div", { style: { width: 1, height: 18, background: TAKE_LINE, margin: "6px auto 0" } })),
             h("div", { className: "flex-1 min-w-0" },
               h("div", { className: "flex items-start justify-between", style: { gap: 10 } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.4, color: TAKE_INK } }, o.shop || ""),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: TAKE_CORAL, flexShrink: 0 } }, o.amount != null ? fmtMoney(o.amount) : "")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 4 } }, [o.time, o.status].filter(Boolean).join(" · ")),
-              o.main ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: "#53605d", marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" } }, o.main) : null)),
+              o.main ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: TAKE_BODY, marginTop: 7, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" } }, o.main) : null)),
           h("div", { style: { marginLeft: 56, marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: TAKE_DIM } }, expanded ? "收起这一顿 ↑" : "展开这一顿 ↓")),
-        expanded ? h("div", { style: { margin: "12px 0 0 56px", padding: "13px", borderRadius: 13, background: "#f3f6f5" } },
-          A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: 12.5, color: "#4c5956" } },
+        expanded ? h("div", { style: { margin: "12px 0 0 56px", padding: "13px", borderRadius: 13, background: TAKE_SOFT } },
+          A(o.items).map((x, j) => h("div", { key: j, className: "flex", style: { gap: 9, marginTop: j ? 9 : 0, fontFamily: F_BODY, fontSize: 12.5, color: TAKE_BODY } },
             h("span", { className: "flex-1 min-w-0" }, x.name || ""), h("span", { style: { color: TAKE_DIM } }, "×" + (x.qty || 1)), h("span", null, fmtMoney(x.price)))),
           // 星星不画：那是给平台看的刻度。他亲口写的那句评价才是他说的话。
-          o.rating ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid #dfe7e4", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562" } }, o.rating) : null,
+          o.rating ? h("div", { style: { marginTop: 11, paddingTop: 10, borderTop: "1px solid " + TAKE_LINE, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_BODY } }, o.rating) : null,
           o.addr ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginTop: 9 } }, "到 · " + o.addr) : null,
           o.note ? noteLine(o.note) : null,
-          o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "#596562", marginTop: 9 } }, o.reason) : null,
+          o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_BODY, marginTop: 9 } }, o.reason) : null,
           peekBtn("quiet", T("他点的外卖"), (o.shop || "") + (o.main ? " · " + o.main : ""), [o.note ? "备注：" + o.note : "", o.reason, o.rating, o.addr].filter(Boolean).join("｜"))) : null);
     }))) : null;
   // ── 吃这件事上的三问（v59.18）──
@@ -2748,7 +2763,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   //   备注写什么 → 每次都要的那句话，是他对陌生人唯一开的口
   //   什么时候吃 → 几点、饿到什么程度才想起来，连着预算一起说
   // 字段沿用旧的那几个，老存档照样读得出来。
-  const askRow = (q, node) => h("div", { style: { padding: "16px 0", borderTop: "1px solid #e5ebe9" } },
+  const askRow = (q, node) => h("div", { style: { padding: "16px 0", borderTop: "1px solid " + TAKE_LINE } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: TAKE_DIM, marginBottom: 9 } }, q),
     node);
   const lines = (list, tone) => h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
@@ -2805,9 +2820,9 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
             h("div", { style: { width: 20, flexShrink: 0, textAlign: "center" } },
               ri === 0
                 ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: d.today ? TAKE_CORAL : TAKE_ACCENT } }, d.zh)
-                : h("span", { "aria-hidden": "true", style: { display: "block", width: 1, height: 18, margin: "2px auto 0", background: "#dbe5e2" } })),
-            h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 99, marginTop: 7, flexShrink: 0, background: empty ? "transparent" : late ? TAKE_CORAL : "#cfdcd8", border: empty ? "1px dashed #c4d0cd" : "none" } }),
-            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: empty ? "#a8b3b0" : "#4f5c59", fontStyle: empty ? "italic" : "normal", wordBreak: "break-word" } },
+                : h("span", { "aria-hidden": "true", style: { display: "block", width: 1, height: 18, margin: "2px auto 0", background: TAKE_LINE } })),
+            h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 99, marginTop: 7, flexShrink: 0, background: empty ? "transparent" : late ? TAKE_CORAL : TAKE_LINE, border: empty ? "1px dashed " + TAKE_MUTE : "none" } }),
+            h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: empty ? TAKE_MUTE : TAKE_BODY, fontStyle: empty ? "italic" : "normal", wordBreak: "break-word" } },
               x && x.o.meal ? h("span", { style: { color: late ? TAKE_CORAL : TAKE_DIM, marginRight: 7 } }, x.o.meal) : null,
               body));
         });
@@ -2857,7 +2872,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   const feedSec = feeds.length ? h("section", { key: "fd" },
     secTitle("送到别人那儿", feeds.length + " 个不是他自己家的地方"),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "3px 15px", marginBottom: 13 } },
-      feeds.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid #e5ebe9" : "none" } },
+      feeds.map((g, i) => h("div", { key: i, style: { padding: "15px 0", borderTop: i ? "1px solid " + TAKE_LINE : "none" } },
         h("div", { className: "flex items-start", style: { gap: 12 } },
           h("div", { style: { width: 42, height: 42, borderRadius: 99, flexShrink: 0, background: "linear-gradient(150deg," + cov(i)[0] + "," + cov(i)[1] + ")", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 16, color: TAKE_INK } }, initial(g.where)),
           h("div", { className: "flex-1 min-w-0" },
@@ -2866,10 +2881,10 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
             g.rows.slice(0, 3).map((x, j) => h("button", {
               key: j, className: "w-full text-left active:opacity-60",
               onClick: () => { setTab("rhythm"); setOpen(x.idx); requestAnimationFrame(() => { const el = document.getElementById("tk-od-" + x.idx); if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" }); }); },
-              style: { display: "block", marginTop: 9, padding: "10px 12px", borderRadius: "4px 12px 12px 12px", background: "#f1f5f4" }
+              style: { display: "block", marginTop: 9, padding: "10px 12px", borderRadius: "4px 12px 12px 12px", background: TAKE_SOFT }
             },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: TAKE_ACCENT } }, [x.o.time, x.o.shop, x.o.main].filter(Boolean).join(" · ")),
-              x.o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: "#687572", marginTop: 5 } }, x.o.reason) : null)))),
+              x.o.reason ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: TAKE_BODY, marginTop: 5 } }, x.o.reason) : null)))),
         h("div", { style: { marginLeft: 54 } }, peekBtn("quiet", T("他送到别人那儿的那几单"), g.where, g.rows.slice(0, 3).map(x => [x.o.shop, x.o.main, x.o.reason].filter(Boolean).join("·")).join("｜"))))))) : null;
   // ── 合起来看（v59.35）──
   // 原来叫「吃饭侧写」，顶上摆三块彩色数字（记下的餐 / 深夜落点 / 同桌的人）。
@@ -2882,7 +2897,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
   // 所以这一格干脆做成一页纸：正文一段，他的话另起一行、用他自己的口气收尾。
   const monthSec = (data.monthNote || data.tail) ? h("section", { key: "mn" }, secTitle("合起来看", "这一周他是这么吃的"),
     h("div", { style: { background: "rgba(255,255,255,.9)", borderRadius: 18, padding: "17px 17px 18px", marginBottom: 13 } },
-      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: "#4f5c59" } }, data.monthNote) : null,
+      data.monthNote ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: TAKE_BODY } }, data.monthNote) : null,
       data.tail ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.8, color: TAKE_INK, marginTop: data.monthNote ? 15 : 0, paddingLeft: 12, borderLeft: "2px solid " + TAKE_CORAL } }, data.tail) : null)) : null;
   // 外卖不再按平台后台的「点餐 / 订单 / 口味 / 我的」分仓，而按角色生活阅读：
   // 这一顿发生了什么、长期怎么喂饱自己、饭和哪些人发生过关系。
@@ -2913,7 +2928,7 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
     h(PGlyph, { k: pg.glyph, size: 16, color: tab === pg.key ? TAKE_ACCENT : TAKE_DIM }),
     pg.badge ? h("span", { style: { position: "absolute", top: -3, right: -1, minWidth: 15, height: 15, borderRadius: 99, background: TAKE_CORAL, color: "#fff", fontFamily: F_BODY, fontSize: 9.5, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, pg.badge > 99 ? "99+" : pg.badge) : null),
   h("span", { style: { marginTop: 2 } }, pg.zh))));
-  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "radial-gradient(circle at 88% 4%,rgba(155,186,178,.42),transparent 31%),linear-gradient(180deg,#dce8e5 0%," + TAKE_BG + " 34%," + TAKE_BG + " 100%)" } },
+  return h("div", { className: "h-full min-h-0 flex flex-col relative", style: { background: "radial-gradient(circle at 88% 4%,rgba(216,166,116,.38),transparent 31%),linear-gradient(180deg,#efe0cc 0%," + TAKE_BG + " 34%," + TAKE_BG + " 100%)" } },
     chrome,
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 24px" } },
       h("div", { style: { margin: "2px 2px 15px", padding: "12px 14px", border: "1px solid rgba(95,127,121,.15)", background: "rgba(255,255,255,.58)", borderRadius: 13, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: TAKE_DIM } }, page.lead),
