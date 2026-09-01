@@ -5028,10 +5028,30 @@ function CtxDebug({ characters, getBundle }) {
   const load = id => { setCid(id); setText(String((getBundle && getBundle(id)) || "（空）")); setOpen({}); };
   const secs = (() => {
     if (!cid || !text) return [];
-    return text.split(/\n(?=【)/).map((p, i) => {
+    const raw = text.split(/\n(?=【)/).map((p, i) => {
       const m = p.match(/^【[^】]*】/);
       return { title: m ? m[0] : (i === 0 ? "【开头】" : "【段落 " + (i + 1) + "】"), body: p };
     });
+    // ⚠️长期记忆自己内部就是一段一段的【7月8日】，而这儿按【行首的【】】切段，
+    // 于是【一段】被切成几十条，看着像几十个各自独立的东西——她 2026-09-01 就是
+    // 这么被绕进去的：「这个长期记忆是 7/8 之前的，而且一直没变过」。
+    // 其实那底下所有带日期的都是它，新浓缩出来的都在后面接着，它只是【最上面那一截】。
+    // 更要命的是它把这一段的【真实体量】藏了：四十条各占 1%，读出来像不值一提，
+    // 可加起来是这份上下文里最肥的几段之一——而这一页存在的全部意义就是
+    //「角色变笨先查最肥的那几段」。
+    // 判据：真正的段头没有一个是日期（都是「世界书」「你是谁」这类），
+    // 所以【以日期开头的一段】必然是别人肚子里的内容，并回上一段。
+    const out = [];
+    raw.forEach(sec => {
+      if (out.length && /^【\d+月\d+日/.test(sec.title)) {
+        const prev = out[out.length - 1];
+        prev.body = prev.body + "\n" + sec.body;
+        prev.inner = (prev.inner || 0) + 1;
+        return;
+      }
+      out.push(sec);
+    });
+    return out;
   })();
   return h("div", { style: { marginTop: 10 } },
     h(Eyebrow, { style: { marginBottom: 8 } }, "上下文透视"),
@@ -5082,7 +5102,8 @@ function CtxDebug({ characters, getBundle }) {
           return h("div", { key: i, style: { border: "1px solid " + t.line, borderRadius: 12, marginBottom: 8, overflow: "hidden" } },
             h("button", { onClick: () => setOpen(o => ({ ...o, [i]: !o[i] })), className: "w-full active:opacity-70", style: { padding: "9px 12px 7px", background: t.bg2, textAlign: "left", display: "block" } },
               h("div", { className: "flex items-center justify-between gap-2" },
-                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, s.title),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                  s.title, s.inner ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 7 } }, "含 " + s.inner + " 段") : null),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pct >= 20 ? "#c25a4a" : t.fog, flexShrink: 0 } }, s.body.length + " 字 · " + pct + "% " + (open[i] ? "▾" : "▸"))),
               h("div", { style: { height: 3, borderRadius: 999, background: t.bg, marginTop: 6, overflow: "hidden" } },
                 h("div", { style: { height: "100%", width: Math.max(2, pct) + "%", borderRadius: 999, background: barColor(pct) } }))),
