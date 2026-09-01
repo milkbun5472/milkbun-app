@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.77";
+const APP_VERSION = "v59.78";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11604,7 +11604,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
       maxTokens: 6000
     };
   };
-  // 评论懒加载：点进帖子若无缓存，生成 8-12 楼（含楼中楼），存缓存，再点不重复调 API
+  // 评论懒加载：点进帖子若无缓存，一次调用生成 12-18 楼（含楼中楼），存缓存，再点不重复调 API。
+  // 只有首批保留「陆续露面」：内容已经整批生成，只是 visibleAt 分批放出来。
   const loadForumComments = async post => {
     if (forumCommentsRef.current[post.id]) return; // 已缓存
     if (!active) return;
@@ -11634,15 +11635,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     if (!active) { toast("请先到设置配置 API"); return; }
     setGen(g => ({ ...g, forumMore: post.id }));
     try {
-      const existing = forumFloorOrder(forumCommentsRef.current[post.id] || []);
-      // 报给模型的只能是【已经露面】的楼——排在几小时后的队里那些她自己都还没看到，
-      // 让模型去接那种楼，回出来的话就成了对空气说的。防重复发言的名单仍看全部楼层。
-      const shownFloors = existing.filter(f => !f.visibleAt || Number(f.visibleAt) <= Date.now());
+      const requestedAt = Date.now();
+      const beforeFlush = forumFloorOrder(forumCommentsRef.current[post.id] || []);
+      let released = 0;
+      // 「更多回复」是用户主动点的：先把首批尚在活动队列里的楼全部 push 出来。
+      // ts 同步落到此刻（并用毫秒保持原顺序），visibleAt=0 表示立即可见；这样新一轮既能
+      // 读到完整旧楼，也一定排在旧楼之后，不会出现新回复在接一段 Lisa 还看不见的空气。
+      const existing = beforeFlush.map(f => {
+        if (!f || !f.visibleAt || Number(f.visibleAt) <= requestedAt) return f;
+        const ts = requestedAt + released++;
+        return { ...f, visibleAt: 0, ts };
+      });
+      if (released > 0) {
+        setForumComments(prev => {
+          const n = { ...prev, [post.id]: forumFloorOrder(existing) };
+          saveJSON("x_forumComments", n);
+          return n;
+        });
+      }
       const repliedChars = forumRepliedCharCells(existing);
-      const d = await runProbeRetry(active, forumWorldCtx(), forumCommentProbe(post, "10-16", { round2: true, existingFloors: shownFloors, repliedChars }));
+      const d = await runProbeRetry(active, forumWorldCtx(), forumCommentProbe(post, "10-16", { round2: true, existingFloors: existing, repliedChars }));
       let cs = (d && Array.isArray(d.comments) ? d.comments : (Array.isArray(d) ? d : [])).filter(x => x && x.content);
       if (!cs.length) throw new Error("没有更多");
-      const base = Date.now();
+      const base = Math.max(Date.now(), existing.reduce((n, f) => Math.max(n, Number(f && f.ts || 0)), 0) + 1);
       const floorByNum = new Map(existing.map(f => [f.floor, f]));
       const newRaw = [], subInserts = [];   // subInserts: {floorId, reply}
       cs.forEach(x => {
@@ -11653,9 +11668,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
         } else newRaw.push(x);
       });
       const start = existing.length + 2;
-      const salt = forumHash(post.id + ":more:" + existing.length) % 5;
       const more = newRaw.map((x, i) => buildForumFloor(x, start + i, base, forumHash(post.id) % 9999 + i, post)).filter(Boolean).map((f, i) => ({
-        ...f, floor: start + i, visibleAt: forumCommentVisibleAt(base, i, salt), ts: forumCommentVisibleAt(base, i, salt)
+        // 手动请求的这一批生成完就直接显示；陆续露出只属于自动首批。
+        ...f, floor: start + i, visibleAt: 0, ts: base + i
       }));
       if (!more.length && !subInserts.length) throw new Error("没有更多");
       setForumComments(prev => {

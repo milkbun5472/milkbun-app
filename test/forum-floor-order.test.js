@@ -78,10 +78,14 @@ test("每条写入新楼的路径都走 forumFloorOrder", () => {
   });
 });
 
-// 排在几小时后的楼她自己都还没看到，让模型去接那种楼，回出来的话就是对空气说的。
-test("报给模型的已有楼层只能是已经露面的", () => {
-  const probes = app.split("\n").filter(l => l.includes("existingFloors:"));
-  assert.ok(probes.length >= 2);
-  probes.forEach(l => assert.match(l, /existingFloors:\s*shownFloors/, l.trim().slice(0, 90)));
-  assert.match(app, /const shownFloors = existing\.filter\(f => !f\.visibleAt \|\| Number\(f\.visibleAt\) <= Date\.now\(\)\)/);
+// 自动活动波不能接用户还没看见的空气；但用户手动点「更多回复」会先把旧队列全部放出，
+// 所以手动新一轮必须吃到完整旧楼，免得忘掉刚刚被 push 出来的内容。
+test("自动波只读已露面楼，手动更多则先放出并读取完整旧楼", () => {
+  const manual = app.slice(app.indexOf("const genMoreComments = async post =>"), app.indexOf("// 角色发帖（可被未来"));
+  assert.match(manual, /return \{ \.\.\.f, visibleAt: 0, ts \}/);
+  assert.match(manual, /existingFloors:\s*existing/);
+
+  const auto = app.slice(app.indexOf("const forumMineTick = async () =>"), app.indexOf("const forumMineBumpSocial"));
+  assert.match(auto, /const shownFloors = existing\.filter\(f => !f\.visibleAt \|\| Number\(f\.visibleAt\) <= Date\.now\(\)\)/);
+  assert.match(auto, /existingFloors:\s*shownFloors/);
 });

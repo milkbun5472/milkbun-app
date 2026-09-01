@@ -1490,7 +1490,9 @@ function Forum({
     return interaction / Math.pow(ageHours + 2, 1.18);
   };
   const unreadFloors = postId => (cmts[postId] || []).filter(x => forumVisible(x) && x.authorType !== "me" && floorArrivedAt(x) > Number(forumReadCursors[postId] || 0)).length;
-  const forumUnreadTotal = (posts || []).reduce((n, p) => n + unreadFloors(p.id), 0);
+  const forumUnreadRows = (posts || []).filter(forumVisible).map(post => ({ post, count: unreadFloors(post.id) }))
+    .filter(x => x.count > 0).sort((a, b) => postLastActivity(b.post) - postLastActivity(a.post));
+  const forumUnreadTotal = forumUnreadRows.reduce((n, x) => n + x.count, 0);
   const forumNotices = [];
   (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
     if (!forumVisible(f)) return;
@@ -1666,13 +1668,16 @@ function Forum({
       h("div", { className: "flex gap-3" },
         avatarBtn(p, 40, p.anon),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { className: "flex items-center gap-1.5 flex-wrap" },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: FORUM_SKIN.ink } }, nameOf(p)),
-            accountBadge(p),
-            !p.anon && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog } }, "@" + (p.authorHandle || p.authorName)),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog } }, "· " + timeAgo(p.ts)),
-            showBoard && tag(p.board),
-            unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", marginLeft: "auto" } }, "+" + unread + " 新回复")),
+          h("div", { className: "grid items-start", style: { gridTemplateColumns: "minmax(0,1fr) auto", columnGap: 8, minWidth: 0 } },
+            h("div", { className: "min-w-0" },
+              h("div", { className: "flex items-center gap-1.5 min-w-0" },
+                h("span", { className: "min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: FORUM_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
+                accountBadge(p)),
+              h("div", { className: "flex items-center gap-1.5 min-w-0", style: { marginTop: 1 } },
+                !p.anon && h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + (p.authorHandle || p.authorName)),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, flexShrink: 0, whiteSpace: "nowrap" } }, "· " + timeAgo(p.ts)),
+                showBoard && h("span", { style: { flexShrink: 0 } }, tag(p.board)))),
+            unread > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#fff", background: bs[0], borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" } }, "+" + unread + " 新回复")),
           p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, p.title),
           p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, p.body),
           actBar(p))));
@@ -1688,12 +1693,15 @@ function Forum({
       h("div", { className: "flex gap-2.5" },
         avatarBtn(cm, 34),
         h("div", { className: "flex-1 min-w-0" },
-          h("div", { className: "flex items-center gap-1.5" },
-            h("button", { onClick: () => { if(c)goProfile(c.id);else if(isAlt(cm))goAltProfile(cm);else goNpcProfile(cm); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: cm.authorType === "me" ? t.accent : (c ? t.tint : t.ink) } }, nm),
-            accountBadge(cm),
-            !cm.anon && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "@" + (cm.authorHandle || cm.authorName)),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
-            fresh && newTag()),
+          h("div", { className: "grid items-start", style: { gridTemplateColumns: "minmax(0,1fr) auto", columnGap: 8, minWidth: 0 } },
+            h("div", { className: "min-w-0" },
+              h("div", { className: "flex items-center gap-1.5 min-w-0" },
+                h("button", { onClick: () => { if(c)goProfile(c.id);else if(isAlt(cm))goAltProfile(cm);else goNpcProfile(cm); }, className: "active:opacity-60 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: cm.authorType === "me" ? t.accent : (c ? t.tint : t.ink), overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "left" } }, nm),
+                accountBadge(cm)),
+              !cm.anon && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, "@" + (cm.authorHandle || cm.authorName))),
+            h("div", { className: "flex items-center gap-1.5", style: { flexShrink: 0, whiteSpace: "nowrap" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (cm.floor || i + 2) + " 楼"),
+              fresh && newTag())),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, cm.content),
           ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
@@ -1743,8 +1751,9 @@ function Forum({
           h("div", { className: "flex gap-3" },
             avatarBtn(p, 44, p.anon),
             h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
-              h("div", { className:"flex items-center gap-1.5", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, h("span",null,nameOf(p)+(c || alt || (!p.anon && p.authorType === "npc" && p.authorId) ? " ›":"")),accountBadge(p)),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts)))),
+              h("div", { className:"flex items-center gap-1.5 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } },
+                h("span", { className: "min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)+(c || alt || (!p.anon && p.authorType === "npc" && p.authorId) ? " ›":"")), accountBadge(p)),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (p.anon ? "匿名" : "@" + (p.authorHandle || p.authorName)) + " · " + timeAgo(p.ts)))),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1.35, color: FORUM_SKIN.ink, marginTop: 11 } }, p.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.78, color: FORUM_SKIN.sub, marginTop: 8, whiteSpace: "pre-wrap" } }, p.body),
           h("div", { className: "mt-3" }, tag(p.board)),
@@ -1753,7 +1762,7 @@ function Forum({
           alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
         h("div", { className: "px-4 pt-3 pb-1 flex items-center justify-between" },
           h(Eyebrow, null, "全部回复 · " + (p.replyCount || 0)),
-          h("button", { onClick: () => onMoreComments(p), disabled: moreC, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, moreC ? "生成中…" : "↻ 更多回复")),
+          h("button", { onClick: () => onMoreComments(p), disabled: moreC || loadingC, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, moreC ? "旧楼已放出 · 生成中…" : (loadingC ? "首批正在生成…" : (waitingFloors > 0 ? "↻ 放出旧楼并生成" : "↻ 更多回复")))),
         loadingC && h(Spinner, { label: "楼里的人正在赶来…" }),
         !loadingC && waitingFloors > 0 && h("div", { className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还有 " + waitingFloors + " 条回帖会随着时间陆续出现"),
         !loadingC && list.length === 0 && h(Empty, { text: "还没有楼层", sub: "点上面「更多回复」让大家来" }),
@@ -1978,6 +1987,15 @@ function Forum({
     const shown = arr.slice(0, page * PAGE);
     const arrived = arr.filter(p => Number(p.visibleAt || p.ts || 0) > forumLastSeen).length;
     return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
+      forumUnreadRows.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 5px 14px rgba(42,55,38,.05)", overflow: "hidden" } },
+        h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新回复在这里"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumUnreadRows.length + " 个帖子 · " + forumUnreadTotal + " 条")),
+        forumUnreadRows.slice(0, 4).map(x => h("button", { key: x.post.id, onClick: () => openPost(x.post), className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+          h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (x.post.title || "帖子") + "》"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, x.post.board),
+          h("span", { style: { minWidth: 36, textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, "+" + x.count))),
+        forumUnreadRows.length > 4 && h("div", { className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, "还有 " + (forumUnreadRows.length - 4) + " 个帖子，读完上面几条后会继续列出")),
       arrived > 0 && h("div", { className: "mx-4 mt-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 12, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent } }, h("span", { style: { width: 7, height: 7, borderRadius: 99, background: FORUM_SKIN.accent } }), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
       tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
       tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),
