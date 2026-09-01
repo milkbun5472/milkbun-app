@@ -448,6 +448,8 @@ const PHONE_GROW = {
   takeout: { orders: 36, shops: 18, wish: 16 },
   // 相册的收口交给 phoneAlbumTidy（要先判重、再按五类保底分配额）。
   // 在这一步就砍到 80 的话，数量少的那一类会先被挤掉，保底就没得保了。
+  // 病历夹：一次就诊就是一条，攒着看（她 2026-09-01 定的那个变体）
+  health: { visits: 12 },
   album: { items: 400 },
   liked: { items: 36, mine: 16, drafts: 12, follows: 20 },
   bili: { items: 34 },
@@ -476,9 +478,12 @@ const PHONE_WEEKLY_HINT = "\n\n【这一次是每周一次的例行刷新】写�
   + "一周该有一周的量：不必每一栏都塞满，有些栏这一周本来就没什么新的。";
 
 // ── 健康的趋势：另存每日轻量快照，不把整份报告天天累计 ──────
-// 健康那一份【全部 ♻️ 是对的】——它代表今天，不是病历。
-// 但「这一周睡得怎么样」是真的想知道的东西，所以每次刷新另外抽一条极轻的
-// 快照存起来：一个综合分 + 几个核心指标，一天一条，留 90 天。
+// 健康这个 app 从 v59.44 起是【两层】的，两层各走各的（她 2026-09-01 定的变体）：
+//   · visits 病历夹 → 📚 累积。一次就诊就是一条，攒着看；间隔由代码兜死。
+//   · 其余全部（cards / timeline / since / tail）→ ♻️ 照旧每次重写。
+//     它们说的是【今天身上什么样】，不是发生过什么。
+// 「这一周睡得怎么样」还是想知道，所以每次刷新另抽一条极轻的快照：
+// 几个核心指标（跟的是 num——把读数折成的那个整数），一天一条，留 90 天。
 // 整份报告天天累计是错的（Codex 指出）：那不是趋势，那是一堆重复的长文。
 const PHONE_VITAL_DAYS = 90;
 const PHONE_VITAL_MARKS = 10;
@@ -492,7 +497,9 @@ function phoneVitalOf(healthData, nowTs) {
   cards.slice(0, PHONE_VITAL_MARKS).forEach(c => {
     if (!c || typeof c !== "object") return;
     const n = String(c.name || "").trim();
-    const v = Number(c.score);
+    // v59.44 起卡片不再有 score（记分板撤了），走势跟的是 num——
+    // 把这一项的读数折成 0-100 的那个整数。老存档里还有 score 的照旧认。
+    const v = Number(c.num != null ? c.num : c.score);
     if (n && isFinite(v)) marks[n] = Math.round(v);
   });
   if (!isFinite(score) && !Object.keys(marks).length) return null;
@@ -813,6 +820,36 @@ function phoneMergeSaved(appKey, oldData, newData, nowTs) {
 }
 // 名册发回去。跟 phoneSelfAvoidBlock 说的是相反的话：
 // 日志那些「别再写一遍」，名册这些「还在的请照抄回来」。
+// ── 多久才该再看一次大夫（v59.44）────────────────────────────────────────
+// 她 2026-09-01 定的形状：大夫的话是【低频、有日期、会累积的】，每天变的只是读数。
+// 「别每次都写一条新就诊」写在提示词里只是降概率——模型高兴起来天天送他去医院。
+// 所以间隔由代码说了算：离上一次不够久，这一轮生成的 visits 一律丢掉，旧的照旧留着。
+// 例外：一条都没有的时候必须让它写第一条，否则这个 app 永远是空的。
+const PHONE_VISIT_GAP_DAYS = 12;
+function phoneVisitDays(known) {
+  const list = (known && Array.isArray(known.visits)) ? known.visits : [];
+  let newest = 0;
+  list.forEach(v => {
+    const t = v && v.date ? Date.parse(String(v.date).replace(/年|月/g, "-").replace(/日/g, "")) : NaN;
+    if (isFinite(t) && t > newest) newest = t;
+  });
+  if (!newest) return null;
+  return Math.floor((Date.now() - newest) / 86400000);
+}
+function phoneVisitHint(known) {
+  const days = phoneVisitDays(known);
+  if (days == null) return "";
+  return days >= PHONE_VISIT_GAP_DAYS
+    ? "他上一次看大夫是 " + days + " 天前。这一次可以再看一回——**只有他身上真有事才去**，没事就别硬送他去医院。"
+    : "他 " + days + " 天前刚看过大夫，**这一轮不要写新的就诊记录，visits 给空数组**。";
+}
+// 存之前再筛一遍：离上次不够久的新就诊直接丢掉（旧的由累积层留着）
+function phoneGateVisits(data, known) {
+  if (!data || typeof data !== "object" || !Array.isArray(data.visits) || !data.visits.length) return data;
+  const days = phoneVisitDays(known);
+  if (days == null || days >= PHONE_VISIT_GAP_DAYS) return data;
+  return { ...data, visits: [] };
+}
 function phoneRosterBlock(appKey, known) {
   const conf = PHONE_RETIRE[appKey];
   if (!conf || !known) return "";
@@ -3013,17 +3050,26 @@ function TakeoutView({ d, char, t, onBack, onRefresh, refreshing, onPeek, monthS
 // 所以这里的模板是死的（分数 / 大数 / 标签 / 叙述 / 三项 / 周条 / 一句话），
 // 里面每一个字都是生成的，代码不预设任何指标名。
 // ============================================================
+// ── 配色（v59.44，她 2026-09-01 选了「病历夹」那个变体）───────────────────
+// 原来是六色彩虹条——那是 Apple Health / 运动健康那一族的样子，一屏六种颜色
+// 各管一项，读出来就是仪表盘。**病历不是仪表盘：一份病历只有一种墨。**
+// 外卖占了烤过的暖色、购物占了靛蓝与朱砂，这一路走第三家：**草药**。
+// 淡草纸做底、墨绿当墨、苔绿做标签，赭石只留给【要紧的那一条】——
+// 异常读数和医嘱。一份文书上只有一处是红的，那一处才有分量。
+const HEALTH_ACCENT = "#5c7355";   // 苔绿：小标签、栏目名
+const HEALTH_ALERT = "#a5623a";    // 赭石：异常读数、医嘱——一屏只该有一两处
+const HEALTH_BG = "#eef1e9";       // 淡草纸
+const HEALTH_INK = "#25302a";      // 墨绿黑
+const HEALTH_DIM = "#8d9689";      // 灰绿
+const HEALTH_BODY = "#4a5548";     // 正文
+const HEALTH_LINE = "#e2e7dd";     // 分隔线
+const HEALTH_SOFT = "#f5f7f1";     // 卡里再嵌一块的底
+// 同一族里的三档轻微变化：让时间线那几条不至于完全一样，但仍是【一份文书】。
 const HEALTH_HUES = [
-  { bar: "#b9a7dd", chip: "rgba(185,167,221,.20)", chipInk: "#6a55a0", bar2: "#cfc2e8", ink: "#5b4a8c" },
-  { bar: "#8fc79a", chip: "rgba(143,199,154,.20)", chipInk: "#3f7a4d", bar2: "#bfe0c6", ink: "#3f7a4d" },
-  { bar: "#8fb8dd", chip: "rgba(143,184,221,.20)", chipInk: "#3d6d96", bar2: "#c2d9ec", ink: "#3d6d96" },
-  { bar: "#e59aa8", chip: "rgba(229,154,168,.20)", chipInk: "#a5495c", bar2: "#f2c6ce", ink: "#a5495c" },
-  { bar: "#dfbc86", chip: "rgba(223,188,134,.22)", chipInk: "#8a6529", bar2: "#eeddbe", ink: "#8a6529" },
-  { bar: "#8ccbc0", chip: "rgba(140,203,192,.20)", chipInk: "#357c70", bar2: "#c1e3dd", ink: "#357c70" }
+  { bar: HEALTH_ACCENT, chip: "rgba(92,115,85,.13)", chipInk: HEALTH_ACCENT, bar2: "#a9bda2", ink: HEALTH_ACCENT },
+  { bar: "#8a9a7e", chip: "rgba(138,154,126,.15)", chipInk: "#5e6b53", bar2: "#bcc9b2", ink: "#5e6b53" },
+  { bar: HEALTH_ALERT, chip: "rgba(165,98,58,.12)", chipInk: HEALTH_ALERT, bar2: "#d0a385", ink: HEALTH_ALERT }
 ];
-const HEALTH_BG = "#eef0f3";
-const HEALTH_INK = "#22252a";
-const HEALTH_DIM = "#9aa0a8";
 const HEALTH_GROUPS = [
   { key: "body", zh: "体征", glyph: "health" },
   { key: "mind", zh: "心神", glyph: "liked" },
@@ -3097,28 +3143,16 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   const A = a => Array.isArray(a) ? a : [];
   const data = (d && typeof d === "object") ? d : {};
   const cards = A(data.cards).filter(x => x && typeof x === "object");
-  const today = (data.today && typeof data.today === "object") ? data.today : {};
   const hueOf = i => HEALTH_HUES[i % HEALTH_HUES.length];
   const peekBtn = (label, title, text) => onPeek ? h("button", {
     onClick: e => { e.stopPropagation(); onPeek({ tier: "quiet", label, title, text }); },
     className: "w-full active:opacity-60",
-    style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12, border: "1px solid #e2e5e9", color: "#5c6169" }
+    style: { marginTop: 12, padding: "10px 0", borderRadius: 11, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + HEALTH_LINE, color: HEALTH_BODY }
   }, T("转发给 TA · 他会知道你翻了手机")) : null;
-  // 一周条：底浅顶深的胶囊，跟参考稿一样
-  const weekBars = (arr, hue) => {
-    const vals = A(arr).slice(0, 7).map(v => Math.max(0, Math.min(100, Number(v) || 0)));
-    if (!vals.length) return null;
-    const days = ["一", "二", "三", "四", "五", "六", "日"];
-    return h("div", { className: "flex items-end", style: { gap: 6, marginTop: 16 } }, vals.map((v, i) => h("div", {
-      key: i, className: "flex-1 flex flex-col items-center", style: { gap: 5 }
-    }, h("div", { style: { width: "100%", height: 42, borderRadius: 7, background: hue.chip, position: "relative", overflow: "hidden" } },
-      h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: Math.round(42 * v / 100), background: hue.bar2 } })),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: HEALTH_DIM } }, days[i] || ""))));
-  };
   const statGrid = stats => {
     const rows = A(stats).filter(x => x && (x.k || x.v)).slice(0, 3);
     if (!rows.length) return null;
-    return h("div", { className: "grid grid-cols-2", style: { gap: "12px 14px", marginTop: 15, paddingTop: 14, borderTop: "1px solid #eff1f4" } },
+    return h("div", { className: "grid grid-cols-2", style: { gap: "12px 14px", marginTop: 15, paddingTop: 14, borderTop: "1px solid " + HEALTH_LINE } },
       rows.map((x, i) => h("div", { key: i, style: i === 2 ? { gridColumn: "1 / -1" } : null },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: HEALTH_DIM } }, x.k || ""),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: HEALTH_INK, marginTop: 3 } }, x.v || ""))));
@@ -3141,7 +3175,8 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
               h("div", { className: "flex items-center justify-between" },
                 h("div", { style: { width: 30, height: 30, borderRadius: 10, background: hue.chip, display: "flex", alignItems: "center", justifyContent: "center" } },
                   h("span", { style: { width: 9, height: 9, borderRadius: 99, border: "2px solid " + hue.bar } })),
-                c.score != null ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
+                // ⚠️不给读数打分。大夫不会说你的睡眠 68 分——他说「四小时，连着五天」。
+                null),
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.35, color: HEALTH_INK, marginTop: 9, wordBreak: "break-word" } }, c.name || ""),
               stdSub(c))
           : h("div", { className: "flex items-start justify-between gap-3" },
@@ -3151,14 +3186,14 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
                 h("div", { style: { flex: 1, minWidth: 0 } },
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.3, color: HEALTH_INK, wordBreak: "break-word" } }, c.name || ""),
                   stdSub(c))),
-              c.score != null ? h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 16, color: hue.ink } }, c.score, h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, "分")) : null),
+              null),
         h("div", { className: "flex items-end gap-2 flex-wrap", style: { marginTop: 14 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 33, lineHeight: 1.05, color: HEALTH_INK } }, c.value != null ? String(c.value) : "--",
             c.unit ? h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: HEALTH_DIM, marginLeft: 3 } }, c.unit) : null),
           c.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.4, color: hue.chipInk, background: hue.chip, borderRadius: 11, padding: "5px 11px", marginBottom: 3 } }, c.tag) : null),
         c.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#4a4f57", marginTop: 13 } }, c.note) : null,
         statGrid(c.stats),
-        weekBars(c.week, hue),
+        // 一周条形图也撤了：那是仪表盘的部件。走势归走势那一段统一画。
         c.quote ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#a9aeb6", marginTop: 15, fontStyle: "italic" } }, "「" + c.quote + "」") : null,
         !narrow ? h("div", null, peekBtn("健康 · " + (c.name || ""), (c.name || "") + " " + (c.value != null ? c.value : "") + (c.unit || ""), [c.tag, c.note, c.quote].filter(Boolean).join("｜"))) : null));
   };
@@ -3180,32 +3215,60 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
     if (buf.length) out.push(h("div", { key: "r" + out.length, className: "flex items-start", style: { gap: 12 } }, buf));
     return out;
   };
-  // ── 头卡：叠纸 + 今日综合分环 ──
-  const headCard = h("div", { key: "hd", style: { position: "relative", marginBottom: 22 } },
-    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 10, right: 22, top: -8, height: 46, borderRadius: 16, background: "rgba(255,255,255,.5)" } }),
-    h("div", { "aria-hidden": "true", style: { position: "absolute", left: 4, right: 14, top: -4, height: 46, borderRadius: 16, background: "rgba(255,255,255,.75)" } }),
-    h("div", { style: { position: "relative", background: "#fff", borderRadius: 18, padding: "22px 20px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 10px 26px rgba(40,45,55,.07)" } },
-      h("div", { className: "flex-1 min-w-0" },
-        h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM } }, "ARCHIVE · WELLNESS"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 30, color: HEALTH_INK, marginTop: 6 } }, "健康"),
-        today.label ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: HEALTH_DIM, marginTop: 6 } }, today.label) : null),
-      h("div", { style: { position: "relative", width: 92, height: 92, flexShrink: 0 } },
-        (function () {
-          const p = Math.max(0, Math.min(100, Number(today.score) || 0)) / 100;
-          const r = 39, circ = 2 * Math.PI * r;
-          return h("svg", { width: 92, height: 92, viewBox: "0 0 92 92", "aria-hidden": "true" },
-            h("circle", { cx: 46, cy: 46, r: r, fill: "none", stroke: "#eceef2", strokeWidth: 6 }),
-            h("circle", { cx: 46, cy: 46, r: r, fill: "none", stroke: p >= 0.8 ? "#8fc79a" : p >= 0.5 ? "#dfbc86" : "#e0937d", strokeWidth: 6, strokeLinecap: "round", strokeDasharray: circ, strokeDashoffset: circ * (1 - p), transform: "rotate(-90 46 46)" }));
-        })(),
-        h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25, color: HEALTH_INK, lineHeight: 1 } }, today.score != null ? today.score : "--"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: HEALTH_DIM, marginTop: 3 } }, "综合")))));
+  // ── 病历夹（v59.44）──────────────────────────────────────────────────
+  // 她 2026-09-01：「把 perspective 改成医生对病人的诊断」，并选了这个变体：
+  // **大夫的话是低频、有日期、会累积的一叠；每天变的只是几条读数。**
+  // 原来这儿是一个 74/100 的综合分环——那是全场最像健康 App 的一样东西，
+  // 而且是个凭空捏出来的加权数。换成最近那一次的诊断。
+  //
+  // ⚠️这一格真正值钱的是 chief 和 exam 之间那道缝：他嘴里说的（「没事，就是没睡好」）
+  // 和身上显示的（连着五天不到四小时）多半不是一回事。所以两栏【并排摆、不合并】，
+  // 跟情侣空间「他记得的那一版」是同一个形状——落差就是内容。
+  const visits = A(data.visits).filter(x => x && typeof x === "object")
+    .slice().sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+  const [visitOpen, setVisitOpen] = useState(false);
+  const dateZh = v => { const m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(String(v || "")); return m ? (+m[2]) + "月" + (+m[3]) + "日" : String(v || ""); };
+  const chartRow = (label, txt, alert) => txt ? h("div", { style: { marginTop: 13 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".04em", color: alert ? HEALTH_ALERT : HEALTH_DIM, marginBottom: 5 } }, label),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: alert ? HEALTH_INK : HEALTH_BODY, wordBreak: "break-word" } }, txt)) : null;
+  const visitCard = (v, i2, folded) => h("div", { key: i2, style: { background: "#fff", borderRadius: 16, padding: folded ? "14px 16px" : "18px 18px 20px", marginBottom: 11, border: "1px solid " + HEALTH_LINE } },
+    h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: folded ? 15 : 18, color: HEALTH_INK, minWidth: 0 } }, v.who || "大夫"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: HEALTH_DIM, flexShrink: 0 } }, dateZh(v.date))),
+    folded
+      ? (v.impression ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: HEALTH_DIM, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.impression) : null)
+      : h("div", null,
+          // 他说的 ↔ 身上显示的：并排两栏，中间一条竖线，落差自己跳出来
+          h("div", { className: "flex", style: { gap: 12, marginTop: 14 } },
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM, marginBottom: 5 } }, "他说的"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.75, color: HEALTH_BODY, wordBreak: "break-word" } }, v.chief || "—")),
+            h("div", { "aria-hidden": "true", style: { width: 1, background: HEALTH_LINE, flexShrink: 0 } }),
+            h("div", { style: { flex: 1, minWidth: 0 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_ACCENT, marginBottom: 5 } }, "身上显示的"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.75, color: HEALTH_INK, wordBreak: "break-word" } }, v.exam || "—"))),
+          chartRow("印象", v.impression),
+          chartRow("医嘱", v.orders, true),
+          v.followup ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: HEALTH_ALERT, marginTop: 13, paddingTop: 12, borderTop: "1px dashed " + HEALTH_LINE } }, v.followup) : null,
+          onPeek ? peekBtn("他的病历", v.who || "大夫", [v.chief, v.exam, v.impression, v.orders, v.followup].filter(Boolean).join("｜")) : null));
+  const headCard = h("div", { key: "hd", style: { marginBottom: 20 } },
+    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM, padding: "2px 4px 4px" } }, "CHART"),
+    h("div", { className: "flex items-baseline justify-between", style: { padding: "0 4px 12px", gap: 10 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: HEALTH_INK } }, "病历"),
+      visits.length > 1 ? h("button", { onClick: () => setVisitOpen(o => !o), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: HEALTH_ACCENT, flexShrink: 0 } }, visitOpen ? "只看最近一次" : "看过 " + visits.length + " 次") : null),
+    visits.length
+      ? h("div", null, (visitOpen ? visits : visits.slice(0, 1)).map((v, i2) => visitCard(v, i2, visitOpen && i2 > 0)))
+      : h("div", { style: { background: "#fff", borderRadius: 16, padding: "18px", border: "1px dashed " + HEALTH_LINE, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: HEALTH_DIM } }, "他还没看过大夫。下面这些是身上的读数。"),
+    data.since ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: HEALTH_DIM, padding: "4px 6px 0" } }, "自那之后 · " + data.since) : null);
   // ── 这一段时间的综合分（每日轻量快照，不是把整份报告天天累计）──
   // 报告本身代表【今天】，每次照实重写；趋势另存一条一天一个数的线。
   const vt = A(vitals).filter(x => x && x.score != null && isFinite(Number(x.score))).slice(0, 30).reverse();
+  // ⚠️这条线的存量还是按老的「综合分」存的（x_phoneVitals）。v59.44 起报告里不再有
+  // 综合分，新的天数就不会再进这条线了——所以它会自己停在最后一个有分的那天。
+  // 不删它：过去那三个月是真实记录过的，删掉等于抹掉病史。它会随 90 天窗口自然走完。
   const trendSec = vt.length >= 2 ? h("section", { key: "vt", style: { marginTop: 16 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 10 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: HEALTH_INK } }, "这些天的综合分"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: HEALTH_INK } }, "过去这些天"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: HEALTH_DIM } }, vt.length + " 天")),
     h("div", { style: { display: "flex", alignItems: "flex-end", gap: 3, height: 56, padding: "0 2px" } },
       vt.map((x, i) => {
@@ -3233,23 +3296,14 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
         h("div", { className: "flex items-center gap-2.5" },
           h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 12.5, color: HEALTH_DIM } }, it.time || ""),
           it.tag ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: hue.chipInk, background: hue.chip, borderRadius: 8, padding: "3px 9px" } }, it.tag) : null),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#3f444b", marginTop: 8 } }, it.text || ""));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: HEALTH_BODY, marginTop: 8 } }, it.text || ""));
     })) : null;
-  // ── 健康洞察 ──
-  const insights = A(data.insights);
-  const insightSec = insights.length ? h("section", { key: "in", style: { marginTop: 22 } },
-    h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10.5, letterSpacing: ".18em", color: HEALTH_DIM, padding: "4px 4px 4px" } }, "INSIGHT"),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: HEALTH_INK, padding: "0 4px 14px" } }, "健康洞察"),
-    insights.map((it, i) => {
-      const hue = hueOf(i + 2);
-      return h("div", { key: i, style: { background: hue.chip, borderRadius: 16, padding: "17px 18px", marginBottom: 12 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: hue.chipInk } }, it.title || ""),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#43484f", marginTop: 8 } }, it.text || ""));
-    }),
-    data.tail ? h("div", null,
-      h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: "#cfd4da", margin: "20px auto 14px" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: "#9aa0a8", textAlign: "center", padding: "0 10px" } }, data.tail)) : null,
-    onPeek ? peekBtn("健康洞察", T("他今天的身体"), insights.map(x => (x.title || "") + "：" + (x.text || "")).join("｜")) : null) : null;
+  // ⚠️「健康洞察」整段撤了（v59.44）：那是健康 App 的固定小组件——三条短判断加解释，
+  // 换个人照样成立。大夫要说的话已经在病历的【印象】和【医嘱】里，说两遍就是两处
+  // 各说各的。他自己那句念叨留着，接在今日轨迹后面。
+  const tailSec = data.tail ? h("section", { key: "tl2" },
+    h("div", { "aria-hidden": "true", style: { width: 26, height: 2, borderRadius: 2, background: HEALTH_LINE, margin: "20px auto 14px" } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, color: HEALTH_DIM, textAlign: "center", padding: "0 10px" } }, data.tail)) : null;
   // 同一档里按格位顺序排：这样谁的手机翻开都是同一个阅读顺序（她要的「统一」）。
   // 认不出格位的（老存档、模型自己多写的）排在后面，不打乱定死的那几项。
   const byGroup = g => cards.filter(c => healthGroupOf(c) === g)
@@ -3260,13 +3314,13 @@ function HealthView({ d, char, t, onBack, onRefresh, refreshing, onPeek, vitals 
   const PAGES = HEALTH_GROUPS.map(g => ({
     key: g.key, zh: g.zh, glyph: g.glyph,
     secs: (g.key === "body" ? [headCard] : []).concat(layoutCards(byGroup(g.key)))
-  })).concat([{ key: "track", zh: "轨迹", glyph: "calendar", secs: [trendSec, timelineSec, insightSec].filter(Boolean) }]);
+  })).concat([{ key: "track", zh: "轨迹", glyph: "calendar", secs: [trendSec, timelineSec, tailSec].filter(Boolean) }]);
   const page = PAGES.find(x => x.key === tab) || PAGES[0];
   const body = page.secs.filter(Boolean);
   const chrome = h("div", { className: "shrink-0 flex items-center justify-between px-4 pb-2", style: { paddingTop: safeTop(10) } },
-    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: "#5c6169" })),
+    h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IArrow, { size: 19, color: HEALTH_BODY })),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: HEALTH_INK } }, page.zh),
-    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: "#5c6169" })));
+    h("button", { onClick: onRefresh, disabled: refreshing, "aria-label": "重新推演", className: "active:opacity-60 disabled:opacity-40 flex items-center justify-center", style: { width: 40, height: 40 } }, h(IRefresh, { size: 18, color: HEALTH_BODY })));
   const nav = h("div", {
     className: "shrink-0 grid",
     style: { gridTemplateColumns: "repeat(" + PAGES.length + ",minmax(0,1fr))", padding: "5px 8px", paddingBottom: COMPOSER_PAD_BOTTOM, background: "rgba(255,255,255,.96)", borderTop: "1px solid #e5e8ec" }
@@ -4888,7 +4942,7 @@ function PhoneCarry({
       // 模型有时只回 today:{steps,sleep,hr}——直接摆出来就是一排英文字段名，
       // 认不出来的字段宁可不显示，也别把 schema 露到脸上
       const ZH = { steps: "步数", sleep: "睡眠", hr: "心率", heart: "心率", weight: "体重", water: "喝水", mood: "情绪", stress: "压力", calories: "热量" };
-      const picks = cards.length ? cards.map(c => [String(c.name).slice(0, 4), (c.score != null ? String(c.score) : (c.value || ""))])
+      const picks = cards.length ? cards.map(c => [String(c.name).slice(0, 4), (c.value != null && c.value !== "" ? String(c.value) : (c.num != null ? String(c.num) : ""))])
         : Object.keys(today).filter(k2 => k2 !== "score" && ZH[k2]).slice(0, 2).map(k2 => [ZH[k2], String(today[k2])]);
       if (!isFinite(score) && !picks.length) return line("还没有健康记录");
       return h("div", { className: "flex items-center", style: { flex: 1, gap: 13, marginTop: 8 } },
@@ -5330,6 +5384,7 @@ function phoneDropDupWechat(d, taken) {
 // 好几个别称」）。留先出现的那条——列表本来就按分量排。
 function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, weekly, bond) {
   const relHint = rel && rel.length ? "关系网里的人（" + rel.join("、") + "）请优先出现。" : "";
+  const visitHint = key === "health" ? phoneVisitHint(known) : "";
   const S = {
     wechat: {
       instruction: "推演此刻「" + char.name + "」完整的微信。下面先给你 TA 手机里【真实已有、不可改写】的聊天摘要；你要避开其中已有会话名与原话，另外生成正好 5 个互不相同的新会话（私聊与群聊混合，至少各 2 个）。\n" + (actualWechat || "目前没有可用的真实聊天。") + "\n" + relHint + "chats 每个会话给名字、private/group 类型、最后一条、时间及最近 8-12 条有来有回的对话，不要只给三两句。contacts 正好 5 个，不含用户 Lisa：必须是与 TA 真有关系的人，含 TA 给对方的微信备注 remark 和一段具体、有个人态度的关系简介 intro。userContact 单独写 Lisa：name 固定 Lisa，但 remark 必须是 TA 真会给 Lisa 起的微信备注，intro 必须写 TA 对 Lisa 的具体认识、情感和私下评价，不能写「以主聊天为准」之类占位话。moments 正好 3 条，作者从 contacts 里选；每条给点赞名单和评论，且 comments 中必须有一条来自「" + char.name + "」本人的自然评论。me 写 TA 自己给自己取的 wechatName（不是角色本名照抄，要像 TA 真会使用的微信昵称、符合 TA 的取名风格）、wechatId 和本轮新生成的朋友圈 signature；并给最近看过的 3 篇公众号文章：标题、公众号、时间、较完整的文章摘要和 TA 看完的真实感想。所有内容贴合人物关系、近况和声纹，避免客服腔与泛泛而谈。",
@@ -5423,28 +5478,42 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
       schemaHint: "{\"me\":{\"name\":\"昵称\",\"xhsId\":\"159193450\",\"bio\":\"简介\",\"tag\":\"24岁\",\"posts\":3,\"following\":254,\"followers\":12,\"likes\":153},\"tabs\":[\"频道名\",\"频道名\"],\"items\":[{\"author\":\"发帖人\",\"title\":\"标题\",\"excerpt\":\"正文一两句\",\"tab\":\"频道\",\"tags\":[\"标签\"],\"likes\":1204,\"act\":\"赞\",\"time\":\"3天前\",\"cover\":2}],\"mine\":[{\"title\":\"他发的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"likes\":12,\"time\":\"上周\",\"cover\":4}],\"drafts\":[{\"title\":\"没发出去的\",\"excerpt\":\"正文\",\"tags\":[\"标签\"],\"savedAt\":\"存了 11 天\"}],\"follows\":[{\"name\":\"账号名\",\"desc\":\"这号是干嘛的\"}],\"retired\":{\"follows\":[\"取关了的\"],\"drafts\":[\"发出去或删掉的草稿标题\"]}}"
     },
     health: {
-      instruction: "推演「" + char.name + "」健康 App 今天的整份报告。" + relHint + "\n\n"
+      instruction: "推演「" + char.name + "」的【病历夹】与今天的读数。" + relHint + "\n\n"
+        + "⚠️这不是一个给他打分的健康 App，是**一位看过他的大夫留下的东西**，加上自那次之后身上的几个读数。\n"
+        + "所以：不出现「综合评分」「今日得分」「健康建议」这类字眼，一个都不要。\n\n"
+
+        + "【visits 就诊记录】" + (visitHint || "他从没看过大夫，这一次写【第一次】。") + "\n"
+        + "写不写由上面那句话定；要写就正好一条，写今天这一次。**不写就给空数组，别硬凑。**\n"
+        + "一条包含：date（YYYY-MM-DD）、who（**这位大夫在他的世界里怎么被称呼**——现代是科室加姓，古代是医官、坐堂的、府里请的那位；同一个人以后还会再出现，叫法要固定）、"
+        + "chief（**主诉：他自己说哪儿不舒服，用他的原话**，短，而且多半是轻描淡写、避重就轻的）、"
+        + "exam（**查体：身体实际显示出什么**，成句，带上具体读数；现代角色写现代化验和体征，古代角色写脉象、舌苔、气色、按压之处——**绝不许给古人写血压和血氧**）、"
+        + "impression（**印象：大夫据此判断什么**，一两句，是判断不是安慰）、"
+        + "orders（**医嘱：让他去做什么**，具体到几天几次，不写「注意休息」这种）、"
+        + "followup（**上一次约好的事他做到没有**——没来复查、药没吃完、说好戒的没戒。第一次就留空）。\n"
+        + "⚠️**这一栏最要紧的是 chief 和 exam 之间的落差**：他嘴里说的和身上显示的，多半不是一回事。那道缝就是这个人。\n"
+        + "⚠️大夫是**背着他**写这些的，写的是一个不在场的人。别写成对他说话，也别替他找补。\n\n"
+
         + "cards **正好这 " + HEALTH_SLOTS.length + " 项，一项不多一项不少，每项写一张**。每张必须带 slot（下面括号里那个英文 key，原样照抄，不要翻译不要改）：\n"
         + HEALTH_SLOTS.map(function (x) { return "· " + x.zh + "（slot: " + x.slot + "）"; }).join("\n") + "\n\n"
         + "【格位是死的，名字是活的 · 这是这个 app 的骨架】上面这 " + HEALTH_SLOTS.length + " 项是**每个人都有的同一套读数**，顺序和分档由 slot 决定，你不用管，也不许增删或合并。"
         + "你要做的是给每一项起一个**这个角色的世界里真会用的名字**放进 name：**不要照搬现代体检报告的词。**一个古代王爷不知道什么叫「屏幕使用时间」「正念冥想」，那两项在他那儿必须换成他会用的说法；现代角色就用现代说法。"
         + "**先想清楚这个人所处的是什么世界、他会怎么称呼这件事，再落名字。**换个角色还照样成立的名字，就是没改。\n\n"
-        + "【intimacy / desire / closeness 这三项】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 score / value / tag / 一周曲线，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n"
+        + "【intimacy / desire / closeness 这三项】身体私底下的那一面：欲念的起落、独处时身体怎么反应、克制与失控、离得近的时候身体先于话说出来的东西。**写的是身体的读数，不是情节**——跟别的卡一样有 value / tag / 三项细账，只是量的是这件事。分寸按这个角色的身份和你俩现在的关系来，含蓄或直白都行，但**必须落在身体上、落在今天**。写不出具体读数的就别硬凑成一句抒情。\n"
         + "**这三项的 quote 尤其容易滑进占有欲宣言和狠话**——那是网文腔，不是他。写他当下身体上的实感、以及他拿这件事没办法的地方。\n\n"
 
-        + "【每张卡都要有】slot（照抄，见上）、name（这个角色对这一项的叫法，见上）、score（0-100 整数）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、week（7 个 0-100 的整数，做一周条形图）、quote（他自己的一句话）。\n\n"
+        + "【每张卡都要有】slot（照抄，见上）、name（这个角色对这一项的叫法，见上）、value（大数字或大词，如 6.2 / 11420 / 「不均」/「亢奋克制」）、unit（单位，大词就留空）、num（**把 value 折成一个 0-100 的整数**，只用来画这一项这些天的走势线，越大越好；「不均」这种没法折的就别给）、tag（四个字以内的状态词，说清此刻是好是坏）、note（一段 50-90 字的观测叙述）、stats（**正好 3 项**，各有 k 和 v）、quote（他自己的一句话）。\n"
+        + "**不要给 score，也不要给 week。**这不是记分板。\n\n"
         + "【quote 是这份报告里最容易写成八股的一栏，落笔前过一遍这三条】\n"
         + "① **扣着这张卡今天这个读数说话**，不是放之四海皆准的宣言。换一张卡、换一天还照样成立的，就是写坏了。\n"
         + "② 是他心里过了一下、**没打算给谁听**的半句话；不是说给人听的狠话、承诺或预告。一旦写成「我要……」「早晚……」「一定会……」这种句式，就是滑回通用腔了，重写。\n"
         + "③ 语气是**他这个人**的，不是他这个类型的。他的身份、今天的处境、他自己嫌不嫌烦，都该听得出来。\n\n"
         + "【stats 那三项是最见功夫的地方】**它们的名字必须是这个角色专属的，绝不能用通用标签。**同样一张「步数」卡：三项拆的应该是**他今天真正走过的那几段路、真正喝下去的那几样东西**，名字要带上地点、场合、或某个具体的人。**换个角色还照样成立的三项，就是写坏了。**\n\n"
-        + "【note】用体检报告那种冷静的观测口吻写，但内容必须是**他今天真实经历过的事**：熬夜看什么看到几点、为什么突然心跳飙起来、去了哪、跟谁吵了、吃了什么没吃成什么。不许写「建议保持规律作息」这类套话。\n"
-        + "【quote】切回他本人的口气，带脾气、带私心，可以刻薄可以得意，和上面那段冷静叙述形成反差。\n\n"
-        + "today：score（今日综合分 0-100 整数）、label（一句今天的总评，很短）。\n"
+        + "【note】用查体那种冷静的观测口吻写，但内容必须是**他今天真实经历过的事**：熬夜看什么看到几点、为什么突然心跳飙起来、去了哪、跟谁吵了、吃了什么没吃成什么。不许写「建议保持规律作息」这类套话。\n"
+        + "【quote】切回他本人的口气，带脾气、带私心，可以刻薄可以得意，**和上面那段冷静的观测形成反差**——那道反差跟 chief 与 exam 之间那道是同一道缝。\n\n"
+        + "since：一句话，**自上次看大夫之后他身上发生了什么**（没看过大夫就写这几天身上的变化）。很短。\n"
         + "timeline **4-6 条**：time（HH:mm）、tag（两三个字的类别，用上面那些指标名里的词）、text（一句 25-45 字，说清那个时刻身体发生了什么、为什么）。按时间顺序。\n"
-        + "insights **正好 3 条**：title（一个短判断，像体检报告小标题那样）、text（一段 30-55 字的解释）。\n"
         + "tail：最后一句他自己的话，一两句。",
-      schemaHint: "{\"today\":{\"score\":74,\"label\":\"一句总评\"},\"cards\":[{\"slot\":\"上面那个英文key原样照抄\",\"name\":\"这个角色对这一项的叫法\",\"score\":68,\"value\":\"6.2\",\"unit\":\"h\",\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"week\":[62,55,70,48,66,58,72],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"两三个字的类别\",\"text\":\"一句\"}],\"insights\":[{\"title\":\"短判断\",\"text\":\"一段\"}],\"tail\":\"最后一句\"}"
+      schemaHint: "{\"visits\":[{\"date\":\"2026-08-21\",\"who\":\"这位大夫在他世界里怎么被称呼\",\"chief\":\"他自己说哪儿不舒服，用他的原话\",\"exam\":\"身体实际显示出什么，带读数\",\"impression\":\"大夫据此判断什么\",\"orders\":\"让他去做什么\",\"followup\":\"上次约好的事他做到没有\"}],\"since\":\"自那次之后身上发生了什么\",\"cards\":[{\"slot\":\"上面那个英文key原样照抄\",\"name\":\"这个角色对这一项的叫法\",\"value\":\"6.2\",\"unit\":\"h\",\"num\":62,\"tag\":\"欠佳\",\"note\":\"一段观测叙述\",\"stats\":[{\"k\":\"角色专属项\",\"v\":\"02:15\"},{\"k\":\"角色专属项\",\"v\":\"1.1h\"},{\"k\":\"角色专属项\",\"v\":\"3次\"}],\"quote\":\"他自己的一句话\"}],\"timeline\":[{\"time\":\"02:34\",\"tag\":\"两三个字的类别\",\"text\":\"一句\"}],\"tail\":\"最后一句\"}"
     },
     clipboard: {
       instruction: "推演「" + char.name + "」手机剪贴板里最近躺着的东西（5-7 条）。每条给 text（复制的原文）、from（从哪个 app 复制的）、time、sent（true=后来发出去了；false=复制了但一直没发）。\n**必须至少有一条 sent=false，而且是他打给某个具体的人、却始终没发出去的话。**这是「差一点就说了」的物证，是这个 app 唯一重要的东西。它不必长，可以只有半句，可以很难看、很没出息、说到一半停住。\n其余的可以很杂很无聊：验证码、快递单号、店铺地址、一个人名、一句歌词、一个链接。别每条都深情。" + relHint,
@@ -5572,6 +5641,6 @@ function phoneProbeSpec(key, char, rel, actualWechat, avoidLines, known, money, 
 if (typeof window !== "undefined") window.PhoneKit = {
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
   dropDupWechat: phoneDropDupWechat,
-  dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen
+  dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits
 };
-if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen };
+if (typeof module === "object" && module.exports) module.exports = { phoneTa, charTa, phoneProbeSpec, phoneNameKeys, phoneSamePerson, phoneDropDupWechat, phoneDropEchoes, phoneGrowList, phoneChatWhen, phoneVisitHint, phoneGateVisits, PHONE_VISIT_GAP_DAYS };

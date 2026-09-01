@@ -394,9 +394,11 @@ test("健康的推演任务把「按角色世界改名」和「三项要角色�
   assert.match(spec.instruction, /换个角色还照样成立的三项，就是写坏了/);
   assert.match(spec.instruction, /一项不多一项不少，每项写一张/);
   assert.match(spec.instruction, /timeline \*\*4-6 条\*\*/);
-  assert.match(spec.instruction, /insights \*\*正好 3 条\*\*/);
-  ["today", "cards", "stats", "week", "timeline", "insights", "tail"]
+  // v59.44：记分板那三件撤了（today.score / week / insights），换成病历夹
+  ["visits", "since", "cards", "stats", "timeline", "tail"]
     .forEach(k => assert.ok(spec.schemaHint.includes('"' + k + '"'), k + " 不在 schema 里"));
+  ["score", "week", "insights"].forEach(k =>
+    assert.ok(!spec.schemaHint.includes('"' + k + '"'), k + " 还在生成——那是记分板的部件"));
 });
 
 test("外卖照参考稿配齐了十来块，重点几栏都钉死了", () => {

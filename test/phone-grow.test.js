@@ -71,7 +71,9 @@ test("当前状态不许累积：购物车、在途、开着的标签页、今�
   notGrow.forEach(([app, field]) => {
     assert.ok(!(P.PHONE_GROW[app] && P.PHONE_GROW[app][field]), app + "." + field + " 不该累积——它说的是「现在什么样」");
   });
-  assert.equal(P.PHONE_GROW.health, undefined, "健康每天重算，不累积");
+  // v59.44：健康分两层——病历夹攒着，今天的读数照旧每天重算
+  ["cards", "timeline", "since"].forEach(f =>
+    assert.ok(!(P.PHONE_GROW.health || {})[f], "健康的 " + f + " 每天重算，不累积"));
   // 真的会被换掉
   const out = P.phoneGrowMerge("shopping", { cart: [{ title: "三个月前加的" }] }, { cart: [{ title: "现在在车里的" }] }, NOW);
   assert.deepEqual(Array.from(out.cart, x => x.title), ["现在在车里的"]);

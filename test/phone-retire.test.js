@@ -148,9 +148,13 @@ test("健康快照一天一条，同一天覆盖，留 90 天", () => {
   assert.deepEqual(P.phoneVitalMerge(null, null), []);
 });
 
-test("健康报告本身照旧每次重写——它代表今天，不是病历", () => {
-  assert.equal(P.PHONE_GROW.health, undefined, "健康被做成累积了");
-  assert.match(phoneSrc, /健康那一份【全部 ♻️ 是对的】/);
+// v59.44 起健康是【两层】的（她 2026-09-01 把 perspective 换成了大夫的诊断）：
+// 病历夹累积，其余照旧每次重写。这一条钉的就是那条界线——**只有 visits 一栏可以攒**。
+test("只有病历夹攒着，报告本身照旧每次重写", () => {
+  assert.deepEqual(Object.keys(P.PHONE_GROW.health || {}), ["visits"], "健康累积的不止病历夹那一栏");
+  ["cards", "timeline", "since", "tail"].forEach(f =>
+    assert.ok(!(P.PHONE_GROW.health || {})[f], f + " 被做成累积了——它说的是今天身上什么样，不是发生过什么"));
+  assert.match(phoneSrc, /其余全部（cards \/ timeline \/ since \/ tail）→ ♻️ 照旧每次重写/);
 });
 
 // ── 每周一次的例行刷新 ──────────────────────────────────────
