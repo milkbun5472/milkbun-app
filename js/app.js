@@ -2,7 +2,7 @@
 // ROOT
 // ============================================================
 // 版本号：跟 index.html 的 ?v=NN 同步 bump。左上角小徽标显示它，方便肉眼确认缓存刷没刷新（做完可去掉）。
-const APP_VERSION = "v59.82";
+const APP_VERSION = "v59.83";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -385,6 +385,11 @@ function App() {
   const [makeups, setMakeups] = useState({});
   const makeupsRef = useRef({}); makeupsRef.current = makeups;
   const [coupleDrawer, setCoupleDrawer] = useState([]);
+  // 情侣唱片(她 2026-09-01):每对情侣一张「我们的唱片」。铁律一句——播放器永远
+  // 只有一个,唱片只是它的一位懂礼数的客人:进空间【播放器空着才落针】,离开时
+  // 【放的是唱片才收针】,绝不碰她自己正在放的歌。{ [charId]: { songs:[...] } }
+  const [coupleDisc, setCoupleDisc] = useState({});
+  const coupleDiscRef = useRef({}); coupleDiscRef.current = coupleDisc;
   const coupleDrawerRef = useRef([]); coupleDrawerRef.current = coupleDrawer;
   const [gachaPts, setGachaPts] = useState({});
   const gachaPtsRef = useRef({}); gachaPtsRef.current = gachaPts;
@@ -876,6 +881,7 @@ function App() {
     setCoupleLetterCfg(loadJSON("x_coupleLetterCfg", {}));
     { const L = loadJSON("x_listen", { disc: null, songs: [] }); const restoredId = L.nowId || (L.songs && L.songs[0] && L.songs[0].id) || null; listenRef.current = L; playerSongIdRef.current = restoredId; setListen(L); setPlayer(p => ({ ...p, songId: restoredId })); }
     setNeteaseApi(loadJSON("x_neteaseApi", ""));
+    setCoupleDisc(loadJSON("x_coupleDisc", {}));
     setNeteaseCookie(loadJSON("x_neteaseCookie", ""));
     setCoupleSweet(loadJSON("x_coupleSweet", {}));
     setCoupleProfile(loadJSON("x_coupleProfile", {}));
@@ -14011,6 +14017,36 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     saveListen(p => ({ ...p, nowBatch: ss, playMode: "order" }));
     playSong(ss[0], ss.map(x => x.id));
   };
+  // ═══ 情侣唱片 ═══(唱片歌的 id 一律 sgd_ 开头——离开空间时靠这个前缀认出
+  // 「现在放的是不是唱片」,认错人就会顺走她自己的歌)
+  const saveCoupleDisc = fn => setCoupleDisc(prev => { const n = fn(coupleDiscRef.current || prev); coupleDiscRef.current = n; saveJSON("x_coupleDisc", n); return n; });
+  const discSongsOf = cid => (((coupleDiscRef.current || {})[cid] || {}).songs || []);
+  const discAdd = async (cid, query, note) => {
+    if (!neteaseApi) { toast("先在一起听里配置网易云 API"); return false; }
+    try {
+      const r = await fetch(neteaseApi + "/search?keywords=" + encodeURIComponent(query) + "&limit=1&timestamp=" + Date.now());
+      const d = await r.json(); const sr = d && d.result && d.result.songs && d.result.songs[0];
+      if (!sr) { toast("云村没搜到这首"); return false; }
+      const song = { id: "sgd_" + sr.id, source: "netease", neteaseId: String(sr.id), title: sr.name, artist: (sr.artists || sr.ar || []).map(a => a.name).filter(Boolean).join(" / "), cover: (sr.album || sr.al || {}).picUrl || null, by: "me", note: String(note || "").trim(), ts: Date.now() };
+      saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: [song, ...(cur.songs || []).filter(x => x.neteaseId !== song.neteaseId)].slice(0, 30) } }; });
+      return true;
+    } catch (e) { toast("搜歌失败：" + (e.message || "")); return false; }
+  };
+  const discRemove = (cid, id) => saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: (cur.songs || []).filter(x => x.id !== id) } }; });
+  const discSetNote = (cid, id, note) => saveCoupleDisc(pp => { const cur = pp[cid] || {}; return { ...pp, [cid]: { ...cur, songs: (cur.songs || []).map(x => x.id === id ? { ...x, note: String(note || "").trim() } : x) } }; });
+  const discPlay = cid => {
+    const ss = discSongsOf(cid); if (!ss.length) return;
+    saveListen(pp => ({ ...pp, nowBatch: ss.map(x => ({ ...x })), playMode: "order" }));
+    playSong(ss[0], ss.map(x => x.id));
+  };
+  const discSpinning = () => String(playerSongIdRef.current || "").indexOf("sgd_") === 0;
+  const discEnter = cid => { // 来时见空位才坐:她自己的歌在放就绝不打断;唱片已在机上也不重放
+    const el = audioElRef.current;
+    if (playerSongIdRef.current && el && !el.paused) return;
+    if (discSpinning()) return;
+    if (discSongsOf(cid).length) discPlay(cid);
+  };
+  const discLeave = () => { if (discSpinning()) stopPlayer(); }; // 走时只带走自己
   const addNeteaseResult = s => saveListen(p => ({ ...p, songs: [resultToSong(s), ...(p.songs || []).filter(x => x.neteaseId !== String(s.id))].slice(0, 60) }));
   const addResultToPlaylist = (plId, s) => addToPlaylist(plId, resultToSong(s));
   // 根据角色人设造一张歌单：让角色推歌名 → 逐首去网易云搜到真曲(可直接听) → 建独立歌单归到 charId（不进「全部」库）
@@ -15509,6 +15545,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事"}=【约回】
     // 只捞线上等于把最该上墙的那一半漏在外面。按时间从新到旧排。
     duoPhotosFor: duoPhotosOf,
     onOpenCapsule: charId => { setCapsuleCharId(charId); setScreen("capsule"); },
+    coupleDisc: coupleDisc,
+    onDiscAdd: discAdd,
+    onDiscRemove: discRemove,
+    onDiscNote: discSetNote,
+    onDiscPlay: discPlay,
+    onDiscEnter: discEnter,
+    onDiscLeave: discLeave,
+    discNowId: player.songId,
+    discPlaying: !!player.playing,
     onBack: goHome,
     onInvite: sendCoupleInvite,
     onUnlink: unlinkCouple,

@@ -3256,7 +3256,64 @@ function CoupleWishes({ partner, data, onSave, onBack }) {
       }) : h("div", { style: { padding: "34px 8px", textAlign: "center", fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "愿望板还是空的。先放一件不急着完成、但不想忘记的事。")));
 }
 
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule }) {
+// 情侣空间·我们的唱片（她 2026-09-01）。数据形状 { songs:[{id,neteaseId,title,artist,
+// cover,by,note,ts}] }。播放礼数不在这儿——落针/收针全归 app.js 的 discEnter/discLeave,
+// 这一页只是唱片本体:A 面是歌,B 面是「为什么是这首」。
+function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNote, onPlay, onBack }) {
+  const t = useTheme();
+  const songs = (data && data.songs) || [];
+  const [q, setQ] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [editVal, setEditVal] = useState("");
+  const spinning = String(nowId || "").indexOf("sgd_") === 0 && playing;
+  const nowSong = songs.find(x => x.id === nowId);
+  const coverOf = x => x && x.cover ? h("img", { src: x.cover, style: { width: "100%", height: "100%", objectFit: "cover" } }) : null;
+  const faceSong = nowSong || songs[0];
+  return h("div", { className: "h-full flex flex-col" },
+    h(Head, { zh: "我们的唱片", en: partner.name, onBack }),
+    h("div", { className: "flex-1 overflow-y-auto px-6 pb-10" },
+      // ── 唱机台 ──
+      h("div", { style: { margin: "14px -24px 0", padding: "26px 24px 22px", background: "linear-gradient(160deg,#241f2c 0%,#171420 70%)", textAlign: "center" } },
+        h("div", { style: { position: "relative", width: 208, height: 208, margin: "0 auto" } },
+          h("div", { style: { position: "absolute", inset: 0, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #101014 0 18%, #2b2b30 19% 61%, #17171b 62%)", boxShadow: "0 18px 46px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04)", display: "flex", alignItems: "center", justifyContent: "center", animation: spinning ? "wk-spin 8s linear infinite" : "none" } },
+            h("div", { style: { width: 84, height: 84, borderRadius: 999, overflow: "hidden", background: "#3a3442", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid rgba(255,255,255,.12)" } },
+              faceSong && faceSong.cover ? coverOf(faceSong) : h("span", { style: { fontSize: 26 } }, "♪"))),
+          // 唱针:放着时压在盘上,停了抬起来
+          h("div", { style: { position: "absolute", right: -6, top: -4, width: 5, height: 92, borderRadius: 4, background: "linear-gradient(#8a8296,#565064)", transformOrigin: "50% 8px", transform: spinning ? "rotate(24deg)" : "rotate(2deg)", transition: "transform .6s ease", boxShadow: "0 4px 10px rgba(0,0,0,.4)" } },
+            h("div", { style: { position: "absolute", left: -3, bottom: -8, width: 11, height: 14, borderRadius: 3, background: "#a89bb8" } }))),
+        h("div", { style: { marginTop: 16, fontFamily: F_DISPLAY, fontSize: 16, color: "#ece6f6", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+          faceSong ? faceSong.title + (faceSong.artist ? " · " + faceSong.artist : "") : "这张唱片还是空的"),
+        h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: 11, color: "rgba(210,200,230,.55)" } },
+          spinning ? "正在转 · 离开空间会自己收针" : songs.length ? songs.length + " 首 · 进空间时若没在放别的会自动落针" : "刻下第一首,进空间它就会自己响起来"),
+        songs.length ? h("button", { onClick: onPlay, className: "active:opacity-70", style: { marginTop: 14, fontFamily: F_DISPLAY, fontSize: 13.5, color: "#241f2c", background: "#e6dff2", borderRadius: 999, padding: "9px 26px" } }, spinning ? "从头再放" : "落针") : null),
+      // ── A 面:歌 + B 面:刻字 ──
+      songs.length ? h("div", { style: { marginTop: 18 } },
+        h(Eyebrow, null, "B-SIDE"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 10px" } }, "每一首背面都刻着一句「为什么是这首」。"),
+        songs.map(x => h("div", { key: x.id, style: { display: "flex", gap: 11, padding: "11px 0", borderBottom: "1px solid " + t.line, alignItems: "flex-start" } },
+          h("div", { style: { width: 40, height: 40, borderRadius: 8, overflow: "hidden", background: "#eee6f0", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" } }, x.cover ? coverOf(x) : h("span", null, "♪")),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: nowId === x.id ? t.accent : t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.title + (nowId === x.id ? " ♪" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, x.artist || ""),
+            editId === x.id
+              ? h("div", { className: "flex items-center gap-2", style: { marginTop: 6 } },
+                  h("input", { value: editVal, onChange: e => setEditVal(e.target.value), placeholder: "为什么是这首", className: "flex-1 outline-none px-2 py-1.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12, background: t.bg2, border: "1px solid " + t.line, color: t.ink, minWidth: 0 } }),
+                  h("button", { onClick: () => { onNote(x.id, editVal); setEditId(null); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, flexShrink: 0 } }, "刻上"))
+              : h("button", { onClick: () => { setEditId(x.id); setEditVal(x.note || ""); }, className: "block text-left active:opacity-60 w-full", style: { marginTop: 5 } },
+                  h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.6, color: x.note ? "#93707c" : t.fog } }, x.note ? "「" + x.note + "」" : "背面还空着,刻一句？"))),
+          h("button", { onClick: () => onRemove(x.id), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, flexShrink: 0, padding: "2px 4px" } }, "✕")))) : null,
+      // ── 刻新歌 ──
+      h("div", { style: { marginTop: 20, padding: "14px 15px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+        h(Eyebrow, null, "刻一首进去"),
+        h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "歌名或「歌手 歌名」", className: "w-full outline-none px-3 py-2.5 rounded-xl", style: { marginTop: 9, fontFamily: F_BODY, fontSize: 13.5, background: t.bg, border: "1px solid " + t.line, color: t.ink } }),
+        h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "B 面刻字:为什么是这首(可空)", className: "w-full outline-none px-3 py-2.5 rounded-xl", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 13.5, background: t.bg, border: "1px solid " + t.line, color: t.ink } }),
+        h("button", { disabled: busy || !q.trim(), onClick: async () => { setBusy(true); try { const ok = await onAdd(q.trim(), note); if (ok) { setQ(""); setNote(""); } } finally { setBusy(false); } },
+          className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: 14, color: t.bg2, background: t.ink, borderRadius: 12, padding: "10px 0" } }, busy ? "去云村找这首…" : "刻进唱片"))))
+}
+
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onOpenCapsule, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -3270,6 +3327,13 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   const [cpEdit, setCpEdit] = useState(false);
   const bgRef = useRef(null); const myAvRef = useRef(null); const chAvRef = useRef(null);
   const [unlinkChar, setUnlinkChar] = useState(null); // 待确认解除的角色
+  // 情侣唱片:进空间自动落针、离开自动收针——礼数全在 app.js 的 discEnter/discLeave
+  // 里(空位才坐/只带走自己),这里只负责喊人。依赖只挂 view:切到别的子模块不重触。
+  useEffect(() => {
+    const cid = view && (couples || {})[view] && (couples || {})[view].status === "together" ? view : null;
+    if (cid && onDiscEnter) onDiscEnter(cid);
+    return () => { if (cid && onDiscLeave) onDiscLeave(); };
+  }, [view]);
   const cp = couples || {};
   // 每段情侣「有没有你没看的东西」——用来在名册和功能格上点红点、指明是谁+哪个功能在提醒
   const noteSeen = (function () { try { return JSON.parse(localStorage.getItem("x_coupleNoteSeen") || "{}"); } catch (e) { return {}; } })();
@@ -3333,6 +3397,12 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   // 情侣空间子模块：惊喜抽屉
   if (partner && cp[view] && cp[view].status === "together" && sub === "drawer") {
     return h(CoupleDrawer, { partner, items: coupleDrawer, onOpen: onOpenDrawer, onBack: () => setSub(null) });
+  }
+  // 情侣空间子模块：我们的唱片
+  if (partner && cp[view] && cp[view].status === "together" && sub === "disc") {
+    return h(CoupleDiscShelf, { partner, data: (coupleDisc || {})[partner.id] || {}, nowId: discNowId, playing: discPlaying,
+      onAdd: (q, note) => onDiscAdd(partner.id, q, note), onRemove: id => onDiscRemove(partner.id, id),
+      onNote: (id, note) => onDiscNote(partner.id, id, note), onPlay: () => onDiscPlay(partner.id), onBack: () => setSub(null) });
   }
   // 情侣空间子模块：抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
   if (partner && cp[view] && cp[view].status === "together" && sub === "gacha") {
@@ -3662,7 +3732,22 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   deco: h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", bottom: 9, width: 42, height: 4, marginLeft: -21, borderRadius: 99, background: "rgba(120,95,45,.3)" } }),
                   kids: h("div", null,
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b09a68" } }, "DRAWER"),
-                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", marginTop: 8 } }, "拉开看看")) })),
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", marginTop: 8 } }, "拉开看看")) }),
+                // 唱机:整宽一条——小唱片在转,是这面墙上唯一会动的东西
+                (function () {
+                  const dSongs = (((coupleDisc || {})[bCid] || {}).songs || []);
+                  const dOn = String(discNowId || "").indexOf("sgd_") === 0 && discPlaying;
+                  const dLast = dSongs[0];
+                  return wall("disc", { w: "100%", radius: 14, tilt: 0.6, pad: "12px 14px", bg: "linear-gradient(140deg,#2c2732,#1d1a24)", border: "1px solid #3d3648",
+                    kids: h("div", { className: "flex items-center", style: { gap: 13 } },
+                      h("div", { style: { position: "relative", width: 46, height: 46, flexShrink: 0, borderRadius: 999, background: "radial-gradient(circle at 50% 50%, #101014 0 30%, #2b2b30 31% 61%, #17171b 62%)", boxShadow: "0 6px 16px rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", animation: dOn ? "wk-spin 6s linear infinite" : "none" } },
+                        dLast && dLast.cover ? h("img", { src: dLast.cover, style: { width: 22, height: 22, borderRadius: 999, objectFit: "cover" } }) : h("span", { style: { fontSize: 12 } }, "♪")),
+                      h("div", { className: "flex-1 min-w-0" },
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".18em", color: "rgba(200,190,215,.55)" } }, "OUR RECORD"),
+                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#e6dff2", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                          dOn ? "唱片正在转" : dSongs.length ? "刻了 " + dSongs.length + " 首" : "还没刻歌"),
+                        dLast && dLast.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(200,190,215,.5)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, one(dLast.note, 24)) : null)) });
+                })()),
               // ── ③ 收着的：一列书脊 ─────────────────────────────
               eyebrow("KEPT", "收着的", "一本一本翻"),
               h("div", { style: { borderTop: "1px solid " + PLINE } },
